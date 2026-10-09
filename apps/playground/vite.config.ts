@@ -114,7 +114,7 @@ function readGatewayMetadata(dTag: string): GatewayMetadata {
     .filter(
       (tag): tag is string[] =>
         Array.isArray(tag) &&
-        tag[0] === 'requires' &&
+        tag[0] === 'R' &&
         typeof tag[1] === 'string' &&
         tag[1].length > 0,
     )

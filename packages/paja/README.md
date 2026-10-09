@@ -201,7 +201,10 @@ the catalog record; an explicit artifact removal removes it. Closing, reloading,
 or replacing a frame never makes an installed handler unavailable, so a cold
 target can still be selected and started later.
 
-Intent selection considers only exact compatible contracts from that catalog.
+Intent selection considers only exact compatible contracts from that catalog. Required or optional INC declarations are eligible only when
+INC is available in the target's host-resolved environment. Missing optional INC
+still permits frame loading. Nameless root/snapshot artifacts may also run, but
+are excluded from the dTag-keyed intent catalog.
 Paja can use a compatible user default, ask its host chooser when more than one
 candidate is available, or reject an ambiguity. An explicit handler d-tag is
 accepted only when it is an installed compatible handler and the invoking sender
@@ -211,7 +214,7 @@ arbitrary running frame.
 When Paja receives an invocation, it selects and opens or reuses a verified
 target. The controller waits for the target generation's
 registered `MessageEvent.source` to establish its real `shell.ready` session;
-it checks that generation is still current, sends one target-only `inc.event`
+it checks that generation is still current, sends one target-only `intent.deliver`
 with the selected queryless convention, and returns the final handled target
 identity. A superseded target/source, failed open/readiness, or terminal send is
 handled by the controller's replacement/retry/terminal policy and produces a
@@ -364,3 +367,13 @@ Full package docs: [`docs/packages/paja.md`](../../docs/packages/paja.md).
 Getting started: [`docs/how-tos/paja-getting-started.md`](../../docs/how-tos/paja-getting-started.md).
 Local authoring how-to: [`docs/how-tos/paja-local-authoring.md`](../../docs/how-tos/paja-local-authoring.md).
 Generated API module: `docs/api/modules/_kehto_paja.html` (run `pnpm docs:api`).
+
+## NIP-5D event compatibility
+
+Current manifests use a direct artifact `x` hash, plain-text `content`, independent
+`z`/`i` routing declarations, and required `R` / optional `O` domains. Kehto also
+accepts legacy aggregate events through an isolated compatibility adapter.
+Existing `aggregateHash` host/cache/ACL fields carry the verified artifact hash
+for current events; legacy identities keep their original aggregate. Both paths
+verify signatures and bytes before runtime injection and `srcdoc` execution.
+For the schema and removal boundary, see [event migration](https://kehto.github.io/web/docs/migrations/NIP-5D-EVENT-SCHEMA.html).

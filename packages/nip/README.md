@@ -11,7 +11,7 @@ any NIP that isn't referenced.
 | Subpath | NIP | What it provides |
 |---------|-----|------------------|
 | [`@kehto/nip/5a`](./src/5a/README.md) | NIP-5A | aggregate hash compute/verify over `path` tags (`computeAggregateHash`, `verifyAggregate`) |
-| [`@kehto/nip/5d`](./src/5d/README.md) | NIP-5D | content-addressed napplet manifest resolution — parse, verify sig + aggregate + Blossom blobs (`resolveNapplet`) with optional Cache Storage artifact caching |
+| [`@kehto/nip/5d`](./src/5d/README.md) | NIP-5D | content-addressed napplet manifest resolution — parse, verify signature + artifact bytes (or legacy aggregate/blobs) (`resolveNapplet`) with optional Cache Storage artifact caching |
 | [`@kehto/nip/51`](./src/51/README.md) | NIP-51 | lists & sets parser — mute/bookmarks/relay-sets/emoji-sets/… (`parseList`) |
 | [`@kehto/nip/65`](./src/65/README.md) | NIP-65 | relay-list (kind 10002) parsing + outbox/inbox resolution (`createNip65Registry`) |
 | [`@kehto/nip/66`](./src/66/README.md) | NIP-66 | kind-30166 relay-discovery aggregator (`createNip66Aggregator`) |
@@ -87,3 +87,13 @@ Every NIP module is:
 4. Re-export it from `src/index.ts` for the barrel, and add the
    `@kehto/nip/<n>` alias to the repo `vitest.config.ts`.
 5. Add a row to the table above.
+
+## NIP-5D event compatibility
+
+Current manifests use a direct artifact `x` hash, plain-text `content`, independent
+`z`/`i` routing declarations, and required `R` / optional `O` domains. Kehto also
+accepts legacy aggregate events through an isolated compatibility adapter.
+Existing `aggregateHash` host/cache/ACL fields carry the verified artifact hash
+for current events; legacy identities keep their original aggregate. Both paths
+verify signatures and bytes before runtime injection and `srcdoc` execution.
+For the schema and removal boundary, see [event migration](https://kehto.github.io/web/docs/migrations/NIP-5D-EVENT-SCHEMA.html).

@@ -92,7 +92,7 @@ contracts: a compatible default can win, the host can ask a chooser, ambiguity
 is rejected, and an explicit d-tag needs sender-aware authorization.
 
 Paja starts or reuses the verified target, waits for its current registered
-source and `shell.ready`, then sends exactly one target-only `inc.event` for
+source and `shell.ready`, then sends exactly one target-only `intent.deliver` for
 the selected convention. The final result identifies the handled target.
 Stale/replaced targets and terminal failures stay in the host controller's
 retry/replacement policy and produce a canonical failed result.

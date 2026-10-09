@@ -73,17 +73,17 @@ const resolved = await resolveNapplet({ event, fetchBlob, cache });
 ```
 
 The cache is only a reuse layer for verified blobs and aggregate metadata.
-`resolveNapplet()` still verifies the manifest signature, recomputes the
-aggregate, and re-hashes every cached blob before rendering.
+`resolveNapplet()` still verifies the manifest signature, checks the artifact hash (legacy: recomputes the
+aggregate), and re-hashes every cached blob before rendering.
 
 Then continue the load sequence:
 
-1. Read `/napplet-gateway/<dTag>/manifest.json`.
-2. Parse `requires` tags.
-3. Compare required NAPs against the shell's actual domain capability inventory.
-4. Register `(dTag, aggregateHash)` identity before iframe navigation.
-5. Inject allowed `window.napplet.<domain>` objects before authored scripts run.
-6. Navigate to `/napplet-gateway/<dTag>/<aggregateHash>/index.html`.
+1. Resolve and verify the signed relay manifest and its artifact bytes.
+2. Read normalized `manifest.requires` (`R`, or legacy `requires` tags).
+3. Compare required NAPs against actual host availability; `O` never blocks load.
+4. Register `(dTag, aggregateHash)` with the iframe's Window reference.
+5. Inject allowed `window.napplet` domains outside the verified artifact bytes.
+6. Assign the verified HTML with its runtime prelude to `iframe.srcdoc`.
 
 Reject or warn before loading when a required capability is unsupported.
 For cache setup details, see
@@ -100,3 +100,8 @@ On shell shutdown:
 5. Persist or clear host-owned state according to your product policy.
 
 Do not leave runtime sessions or relay subscriptions alive after the iframe is removed.
+
+Current event hashes identify `/index.html` directly. Existing cache record and
+API names containing `aggregate` remain compatibility names for that identity.
+Legacy aggregate events still verify every declared blob. See
+[event-schema migration](../migrations/NIP-5D-EVENT-SCHEMA.md).

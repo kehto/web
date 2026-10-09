@@ -72,7 +72,8 @@ describe('@kehto/paja browser host runtime source guards', () => {
 
     expect(source).toContain('injectNappletNamespacePrelude(');
     expect(source).toContain('const domains = environment.capabilities.domains;');
-    expect(source).not.toContain('manifest.requires');
+    expect(source).toContain("resolvedTarget.manifest.requires.filter((domain) => domain !== 'shell' && !domains.includes(domain))");
+    expect(source).not.toContain('domains: resolvedTarget.manifest.requires');
     expect(source).toContain("fetch(new URL('./__kehto/target.html', window.location.href)");
     expect(source).toContain('frame.removeAttribute(\'src\');');
     expect(source).toContain('frame.srcdoc = injectNappletNamespacePrelude(');
@@ -345,7 +346,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
       await task;
       expect((tabA.source as unknown as { postMessage: ReturnType<typeof vi.fn> }).postMessage).not.toHaveBeenCalled();
       expect((tabB.source as unknown as { postMessage: ReturnType<typeof vi.fn> }).postMessage).toHaveBeenCalledTimes(1);
-      expect((tabB.source as unknown as { postMessage: ReturnType<typeof vi.fn> }).postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'inc.event', topic: 'napplet:profile/open', sender: 'feed' }), '*', undefined);
+      expect((tabB.source as unknown as { postMessage: ReturnType<typeof vi.fn> }).postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'intent.deliver', delivery: { convention: 'napplet:profile/open', sender: 'feed', archetype: 'profile', action: 'open', payload: {} } }), '*', undefined);
       expect(catalog.get('profile-viewer')).toMatchObject({ aggregateHash: 'aggregate-b' });
     } finally {
       stopCatalogChanges();

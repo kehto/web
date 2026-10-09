@@ -9,7 +9,7 @@ This tutorial shows the smallest shape of a browser host that embeds one sandbox
 ## 1. Install the runtime packages
 
 ```bash
-pnpm add @kehto/runtime @kehto/shell @kehto/services @napplet/core @napplet/nap nostr-tools
+pnpm add @kehto/runtime @kehto/shell @kehto/services @kehto/nip @napplet/core @napplet/nap nostr-tools
 ```
 
 Use `@kehto/runtime` for the protocol engine, `@kehto/shell` for browser iframe/message integration, and `@kehto/services` for reference service handlers.
@@ -86,23 +86,64 @@ used to advertise notification delivery.
 Use the same security posture as the playground: opaque-origin iframe, scripts only, no same-origin.
 
 ```ts
+import { resolveNapplet } from '@kehto/nip/5d';
+import { originRegistry, resolveShellEnvironment, injectNappletNamespacePrelude } from '@kehto/shell';
+
+// Host-owned CSP: run only after verification, before namespace injection.
+function injectCspMeta(html: string): string {
+  const policy = [
+    "default-src 'none'",
+    "script-src 'unsafe-inline' 'wasm-unsafe-eval'",
+    "style-src 'unsafe-inline'",
+    'img-src data: blob:',
+    'font-src data:',
+    "connect-src 'none'",
+    "worker-src 'none'",
+    "child-src 'none'",
+    "frame-src 'none'",
+    "media-src 'none'",
+    "object-src 'none'",
+    "manifest-src 'none'",
+    "base-uri 'none'",
+    "form-action 'none'",
+  ].join('; ');
+  const meta = `<meta http-equiv="Content-Security-Policy" content="${policy}">`;
+  // Prepend the policy so it precedes even resources before an authored head.
+  // The HTML parser creates the document head for this leading meta element.
+  return `<!doctype html>${meta}${html}`;
+}
+
+// event comes from relays; fetchBlob returns untrusted bytes by SHA-256.
+const resolved = await resolveNapplet({ event, fetchBlob });
+const identity = { dTag: resolved.dTag, aggregateHash: resolved.aggregateHash };
+const environment = resolveShellEnvironment(adapter, identity);
+const missing = resolved.manifest.requires.filter(
+  (domain) => domain !== 'shell' && !environment.capabilities.domains.includes(domain),
+);
+if (missing.length) throw new Error(`Unavailable required domains: ${missing.join(', ')}`);
 const iframe = document.createElement('iframe');
 iframe.sandbox.add('allow-scripts');
-iframe.src = '/napplet-gateway/example-dtag/example-hash/index.html';
 document.body.append(iframe);
+originRegistry.register(iframe.contentWindow!, 'example', identity);
+originRegistry.setEnvironment(iframe.contentWindow!, environment);
+iframe.srcdoc = injectNappletNamespacePrelude(
+  injectCspMeta(resolved.indexHtml),
+  environment.capabilities,
+);
 ```
 
-Before marking the napplet usable, register the session identity from the gateway metadata and manifest. In the playground this is handled by the shell-host gateway path; host apps should keep the same ordering:
+The resolver verifies both current artifact events and legacy aggregate events.
+`aggregateHash` is the existing API name for the verified content identity. Host
+namespace and CSP injection happen after verification, outside signed
+bytes. Optional manifest domains do not grant authority or prevent loading.
+Gateways may provide bytes, but their metadata cannot establish identity.
+The leading CSP meta is parsed before the namespace prelude and authored resources;
+opaque origins alone do not block network access. This example denies direct
+connections and workers, following the [checked NIP-5D CSP advisory](https://github.com/dskvr/nips/blob/020cb8b33a9e4c6b8ca4b2f9d0ed0a67843b68f7/5D.md#security-considerations).
 
-1. Fetch manifest metadata.
-2. Resolve `(dTag, aggregateHash)`.
-3. Register session identity.
-4. Navigate the iframe to the gateway artifact.
-
-For repeated loads, add the optional NIP-5D artifact cache during the resolve
-step. The cache reuses verified bytes only; it does not replace manifest,
-aggregate, or blob-hash verification. See
-[Implement a napplet artifact cache](../how-tos/implement-napplet-artifact-cache.md).
+For repeated loads, pass the optional cache to `resolveNapplet`; cached bytes
+are reverified. See [artifact caching](../how-tos/implement-napplet-artifact-cache.md)
+and [event migration](../migrations/NIP-5D-EVENT-SCHEMA.md).
 
 ## 5. Tear down cleanly
 
