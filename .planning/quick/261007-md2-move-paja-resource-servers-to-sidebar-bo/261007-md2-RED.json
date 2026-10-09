@@ -1,0 +1,10 @@
+{
+  "command": "pnpm exec vitest run packages/paja/src/host-page.test.ts --reporter=tap",
+  "exitCode": 1,
+  "targetTest": "renders the same accessible resource settings in both target modes",
+  "targetFile": "packages/paja/src/host-page.test.ts",
+  "output": "not ok 1 - renders the same accessible resource settings in both target modes\n# tests 5\n# pass 4\n# fail 1\n",
+  "expected": "Exact short Resource servers helper and bottom ordering in both modes",
+  "actual": "AssertionError at host-page.test.ts:18: old long helper remains",
+  "normalization": "Vitest nested TAP normalized to node TAP summary required by validator; original logs: /tmp/opencode/md2-red.log and md2-red-tap.log"
+}

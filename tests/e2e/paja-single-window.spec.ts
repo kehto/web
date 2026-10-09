@@ -77,6 +77,118 @@ test.afterAll(async () => {
   await targetServer.close();
 });
 
+test('sidebar accordion tracer restores independent native keyboard collapse', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.goto(runtimeServer.url);
+  const interfaces = page.locator('[data-paja-section="interfaces"]');
+  const acl = page.locator('[data-paja-section="acl"]');
+  await expect(interfaces).toHaveAttribute('open', '');
+  await interfaces.locator('summary').focus();
+  await page.keyboard.press('Enter');
+  await expect(interfaces).not.toHaveAttribute('open');
+  await expect(acl).toHaveAttribute('open', '');
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('kehto:paja:sidebar-sections:v1') ?? '{}').interfaces)).toBe(true);
+  await page.reload();
+  await expect(interfaces).not.toHaveAttribute('open');
+  await expect(acl).toHaveAttribute('open', '');
+});
+
+test('sidebar accordion preserves controls, frames, drawer preferences and flush responsive layout', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.goto(runtimeServer.url);
+  await expect(page.frameLocator('#napplet-frame').locator('#load-id')).toBeVisible();
+  const frame = await page.locator('#napplet-frame').elementHandle();
+  const input = await page.locator('#paja-resource-servers-input').elementHandle();
+  const initial = await page.evaluate(() => ({ srcdoc: document.querySelector('iframe')!.srcdoc, tabs: window.__KEHTO_PAJA__?.getState().tabs }));
+  const resources = page.locator('[data-paja-section="resource-servers"]');
+  const messages = page.locator('[data-paja-section="messages"]');
+  const acl = page.locator('[data-paja-section="acl"]');
+  await page.evaluate(() => localStorage.setItem('n18-unrelated', 'retained'));
+  await page.getByLabel('Resource servers', { exact: true }).fill('draft.example');
+  await resources.locator('summary').focus();
+  await expect.poll(() => resources.locator('summary').evaluate((element) => getComputedStyle(element).outlineStyle)).toBe('solid');
+  await page.keyboard.press('Space');
+  await expect(resources).not.toHaveAttribute('open');
+  await page.keyboard.press('Tab');
+  await expect(messages.locator('summary')).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(messages).not.toHaveAttribute('open');
+  const logCount = await page.evaluate(() => window.__KEHTO_PAJA__!.getState().messageLog.length);
+  await page.locator('#acl-controls [data-acl-capability="state:write"]').click();
+  await expect.poll(() => page.evaluate(() => window.__KEHTO_PAJA__!.getState().messageLog.length)).toBeGreaterThan(logCount);
+  await acl.locator('summary').click();
+  await expect(acl).not.toHaveAttribute('open');
+  await resources.locator('summary').click();
+  await expect(page.getByLabel('Resource servers', { exact: true })).toHaveValue('draft.example');
+  expect(await input!.evaluate((element) => element === document.getElementById('paja-resource-servers-input'))).toBe(true);
+  await page.locator('#paja-resource-servers-save').click();
+  await expect(page.locator('#paja-resource-servers-status')).toContainText('saved for this host origin');
+  await messages.locator('summary').click();
+  await expect(page.locator('#message-log')).toContainText('shell.ready');
+  await expect(page.locator('#message-log')).toContainText('paja.acl');
+  await page.getByLabel('Filter message log').fill('shell.ready');
+  await page.locator('#clear-log').click();
+  await expect(page.locator('#message-log')).toBeEmpty();
+  expect(await frame!.evaluate((element) => element === document.querySelector('iframe'))).toBe(true);
+  expect(await page.evaluate(() => ({ srcdoc: document.querySelector('iframe')!.srcdoc, tabs: window.__KEHTO_PAJA__?.getState().tabs }))).toEqual(initial);
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await resources.locator('summary').focus();
+    await resources.scrollIntoViewIfNeeded();
+    expect(await page.locator('#paja-console').evaluate((consolePanel) => {
+      const style = getComputedStyle(consolePanel);
+      const sections = Array.from(consolePanel.querySelectorAll<HTMLDetailsElement>(':scope > details'));
+      return style.padding === '0px' && style.gap === '0px'
+        && sections.every((section) => getComputedStyle(section).borderRadius === '0px'
+          && Math.abs(section.querySelector('summary')!.getBoundingClientRect().width - consolePanel.clientWidth) < 2)
+        && consolePanel.scrollWidth <= consolePanel.clientWidth
+        && sections.every((section) => getComputedStyle(section.querySelector('.section-body')!).paddingLeft === '12px');
+    })).toBe(true);
+    await page.screenshot({ path: `/tmp/opencode/n18-sidebar-target-${width}.png` });
+  }
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('kehto:paja:sidebar-sections:v1')!).acl)).toBe(true);
+  await page.locator('#paja-console-toggle').click();
+  await page.reload();
+  await expect(page.locator('#paja-console')).toBeHidden();
+  await page.locator('#paja-console-toggle').click();
+  await expect(acl).not.toHaveAttribute('open');
+  await expect(resources).toHaveAttribute('open', '');
+  await expect(messages).toHaveAttribute('open', '');
+  await expect(page.getByLabel('Resource servers', { exact: true })).toHaveValue('https://draft.example');
+  expect(await page.evaluate(() => localStorage.getItem('n18-unrelated'))).toBe('retained');
+});
+
+for (const failure of ['malformed', 'mixed', 'methods', 'getter']) {
+  test(`sidebar accordion tolerates ${failure} storage`, async ({ page }) => {
+    await page.addInitScript(({ origin, mode }) => {
+      if (location.origin !== origin) return;
+      const key = 'kehto:paja:sidebar-sections:v1';
+      if (mode === 'getter') {
+        Object.defineProperty(window, 'localStorage', { get() { throw new DOMException('denied', 'SecurityError'); } });
+      } else if (mode === 'methods') {
+        for (const method of ['getItem', 'setItem'] as const) {
+          const original = Storage.prototype[method];
+          Storage.prototype[method] = function (name: string, ...args: string[]) {
+            if (name === key) throw new DOMException('denied', 'SecurityError');
+            return Reflect.apply(original, this, [name, ...args]);
+          };
+        }
+      } else {
+        localStorage.setItem(key, mode === 'malformed' ? '{' : '{"interfaces":true,"messages":false,"acl":"true","__proto__":true,"unknown":"<script>"}');
+      }
+    }, { origin: new URL(runtimeServer.url).origin, mode: failure });
+    await page.goto(runtimeServer.url);
+    const interfaces = page.locator('[data-paja-section="interfaces"]');
+    await expect(interfaces).toHaveJSProperty('open', failure !== 'mixed');
+    await expect(page.locator('[data-paja-section="acl"]')).toHaveJSProperty('open', true);
+    await interfaces.locator('summary').focus();
+    await page.keyboard.press('Space');
+    await expect(interfaces).toHaveJSProperty('open', failure === 'mixed');
+    await expect(page.locator('#napplet-frame')).toHaveAttribute('sandbox', 'allow-scripts');
+    await expect(page.locator('#signer-status')).not.toHaveText('loading');
+  });
+}
+
 test('hosts one sandboxed target iframe and reinitializes it on reload', async ({ page }) => {
   test.setTimeout(60_000);
   await page.goto(runtimeServer.url);

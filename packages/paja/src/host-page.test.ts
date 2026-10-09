@@ -3,6 +3,32 @@ import { createPajaHostConfig, createPajaRuntimeHostConfig, normalizePajaOptions
 import { renderPajaHtml } from './host-page.js';
 
 describe('@kehto/paja host page', () => {
+  it('renders the same accessible resource settings in both target modes', () => {
+    const configs = [
+      createPajaHostConfig(normalizePajaOptions({ targetUrl: 'http://127.0.0.1:5173' })),
+      createPajaRuntimeHostConfig({}),
+    ];
+    for (const config of configs) {
+      const html = renderPajaHtml(config);
+      expect(html.match(/id="paja-resource-servers-form"/g)).toHaveLength(1);
+      expect(html).toContain('for="paja-resource-servers-input">Resource servers</label>');
+      expect(html).toContain('aria-describedby="paja-resource-servers-help paja-resource-servers-status"');
+      expect(html).toContain('id="paja-resource-servers-save">Save</button>');
+      expect(html).toContain('id="paja-resource-servers-status" role="status" aria-live="polite"');
+      expect(html).toContain('<small id="paja-resource-servers-help">Extra Blossom lookup servers, one per line. Domains use HTTPS.</small>');
+      const aside = html.match(/<aside\b[^>]*>([\s\S]*?)<\/aside>/)?.[1];
+      expect(aside).toBeDefined();
+      expect(aside!.indexOf('id="paja-resource-servers-form"')).toBeLessThan(aside!.indexOf('id="message-log"'));
+      const keys = [...aside!.matchAll(/data-paja-section="([^"]+)"/g)].map((match) => match[1]);
+      expect(keys).toEqual(config.target.mode === 'runtime-pointer'
+        ? ['pointer', 'interfaces', 'acl', 'signer', 'resource-servers', 'messages']
+        : ['interfaces', 'acl', 'signer', 'resource-servers', 'messages']);
+      expect(aside!.match(/<details[^>]* open>/g)).toHaveLength(keys.length);
+      expect(aside!.match(/<summary class="section-title">/g)).toHaveLength(keys.length);
+      expect(aside).not.toMatch(/<details[^>]* name=/);
+      expect(aside).toMatch(/id="message-log"[^>]*><\/div>\s*<\/div><\/details>\s*$/);
+    }
+  });
   it('renders minimal top and bottom bars with one sandboxed iframe', () => {
     const options = normalizePajaOptions({ targetUrl: 'http://127.0.0.1:5173' });
     const config = createPajaHostConfig(options, new Date('2026-06-21T00:00:00.000Z'));
@@ -84,6 +110,8 @@ describe('@kehto/paja host page', () => {
     expect(html).toContain('id="kehto-paja-config"');
     expect(html).toContain('https://example.test/%3Cnapplet%3E');
     expect(html).not.toContain('https://example.test/<napplet>');
+    expect(html).not.toContain('id="runtime-local-file"');
+    expect(html).not.toContain('id="runtime-local-open"');
   });
 
   it('renders runtime pointer controls without target-url HMR', () => {
@@ -105,6 +133,12 @@ describe('@kehto/paja host page', () => {
     expect(html).toContain('id="duplicate-cancel">cancel</button>');
     expect(html).not.toContain('cancel &lt;do nothing&gt;');
     expect(html).toContain('value="nevent1test"');
+    expect(html).toContain('<button type="button" id="runtime-local-open"');
+    expect(html).toContain('<input id="runtime-local-file" type="file" accept=".html,.htm,text/html"');
+    expect(html).toContain('.pointer-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; }');
+    expect(html).toContain('.stage.drop-active { outline: 2px dashed var(--accent);');
+    expect(html).toContain('.tab[data-source="local"] { grid-template-columns: minmax(0, 1fr) 24px; }');
+    expect(html).toContain('Load a napplet pointer or drop an index.html to start a runtime tab.');
     expect(html).toContain('mode: <code>runtime-pointer</code>');
     expect(html).toContain('hmr: <code>none</code>');
     expect(html).not.toContain('<iframe id="napplet-frame"');

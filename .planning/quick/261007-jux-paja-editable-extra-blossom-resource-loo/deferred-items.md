@@ -1,0 +1,3 @@
+# Deferred pre-existing issue
+
+- A browser-wide throwing `window.localStorage` getter prevents the existing host from booting with default `storage.mode: local`: `hasWritableLocalStorage()` evaluates `typeof localStorage` outside its try block (`packages/paja/src/browser-relay-policy.ts:213`). This predates this task and is outside its source changes. The new controller safely handles a blocked storage getter in unit coverage; browser coverage blocks access/read/write/remove for the dedicated resource-settings key and proves session-only resource fetching. No unrelated relay-policy change was made. A separately scoped fix should move that existing getter probe inside its try block and add whole-host regression coverage.

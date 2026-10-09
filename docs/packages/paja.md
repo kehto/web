@@ -45,6 +45,7 @@ app package's development scripts.
 | Host config | `createPajaHostConfig`, `createPajaRuntimeHostConfig`, `PajaHostConfig`, `PajaPointerRuntimeConfig`, `formatPajaUrl` |
 | Host page | `renderPajaHtml`, bundled `/__kehto/browser-host.js` runtime bootstrap |
 | Runtime pointers | `decodePajaPointer`, `resolvePajaPointer`, `injectPajaRuntimeCsp`, `PAJA_NAPPLET_MANIFEST_KIND`, `PAJA_NAPPLET_MANIFEST_KINDS` |
+| Local files | `createPajaLocalTarget`, `isPajaLocalTarget`, `isPajaLocalHtmlFile`, `readNappletIdMeta`, `findRelativeAssetReferences`, `PAJA_LOCAL_SINGLE_FILE_HINT`, `PajaLocalTarget`, `PajaLocalFileInput`, `PajaRuntimeTarget` |
 | Parity metadata | `PAJA_UPSTREAM_WEB_DOMAINS`, `PAJA_ADVERTISED_DOMAINS`, `PAJA_HANDSHAKE_DOMAINS`, `PAJA_COMPATIBILITY_ALIASES`, `PAJA_REQUIRED_SERVICES`, `getMissingAdvertisedDomains`, `getMissingServices` |
 | Readiness | `waitForTargetUrl`, `ReadinessError`, `WaitForTargetUrlOptions`, `ReadinessFetch` |
 | Server | `startPajaServer`, `PajaServer`, `PajaServerOptions` |
@@ -154,6 +155,14 @@ the target iframe is never navigated or recreated, so the running napplet keeps
 its generation, message log, and shell state while the stage reclaims the full
 width.
 
+All sections are flush independent native accordions, expanded by default:
+**Pointer** where present, **Interfaces**, **ACL**, **Signer**, **Resource servers**,
+and **Messages** last. Enter/Space toggle focused headers; visible focus and chevrons
+show their state. Hidden bodies retain controls, drafts and the running app.
+Origin-local `kehto:paja:sidebar-sections:v1` stores validated collapsed booleans,
+independently of whole-drawer visibility and resource settings. Invalid preferences
+default expanded; unavailable storage leaves toggles usable for the session.
+
 The console includes:
 
 - **Interfaces** — every supported Paja domain has an injection toggle. Toggling
@@ -190,6 +199,8 @@ The console includes:
   returns a canonical failure and does not enter Paja's in-memory relay view.
   Its scoped-relay hook likewise waits for the backend result and returns
   `false` after denial or transport failure.
+- **Resource servers** — extra Blossom lookup origins with a newline textarea and
+  Save button, immediately before the final Messages section (see below).
 - **Messages** — inbound and outbound envelopes are logged with a text filter,
   including Paja system events such as interface changes, ACL changes, signer
   connection changes, signing/publish confirmations, and visible details for
@@ -229,6 +240,34 @@ the UI distinguishes deadline or connection failure from the clean case where
 all queried relays reached EOSE without a matching manifest. Wider relay search
 does not weaken loading: manifest signature, artifact/legacy-aggregate verification, Blossom hash, and
 `srcdoc` verification still fail closed.
+
+### Local `index.html` files
+
+In runtime-pointer mode, Paja can also open a napplet straight from disk. Use
+**Open file…** next to **Load**, or drop an `index.html` anywhere on the Paja
+page (not onto a running napplet frame, which receives its own drag events).
+The file opens in a new runtime tab named after the file.
+
+- **Identity comes from the bytes.** Paja hashes the exact file bytes (`sha256`)
+  and derives `aggregateHash` as the NIP-5A aggregate over the single
+  `/index.html` path entry. That is the same derivation the resolver checks for a
+  published single-file napplet, so editing the file gives it a new identity. The
+  `dTag` comes from the NIP-5D publishing metadata
+  `<meta name="napplet-id" content="…">`. Without it, Paja uses
+  `local-<file-stem>`.
+- **Same loading path as verified pointers.** Paja registers the identity before
+  the frame runs. It injects the Class-1 CSP (with `connect-src 'none'`, since a
+  local file has no relay or Blossom hints) and then the runtime-owned
+  `window.napplet` prelude, including mandatory `shell`. The bytes go in through
+  `srcdoc` under the same `allow-scripts` sandbox.
+- **Development only and unverified.** A local file has no signed manifest. It
+  never enters the installed napplet catalog, never becomes an intent delivery
+  target, has no share link, and is not restored after a page reload.
+- **Self-contained single-file HTML only.** A `srcdoc` document has no base URL,
+  and the CSP denies network loads, so relative `<script src>`, stylesheets, and
+  images do not load. Paja lists relative references it finds in the status line
+  and the message log. Build with an inlining bundler (for example
+  `vite-plugin-singlefile`). Opening a folder or zip of assets is not supported.
 
 ### Installed catalog and intent lifecycle
 
@@ -437,12 +476,40 @@ and the verified event publisher for that source window. A later
 servers first, then lazily reads hinted authors' and the event publisher's
 newest BUD-03 kind `10063` list through the base OUTBOX router, then tries
 the active shell user's BUD-03 list through the same router, then the current
-window's verified pointer-manifest servers, and finally upload-runtime defaults.
+window's verified pointer-manifest servers, upload-runtime defaults, and finally
+the sidebar's extra resource servers.
 The user-list lookup does not
 depend on Blossom upload mode. Paja does not prefetch event resources and works
 while upload mode remains `memory`. Event state is bounded, memory-only, and
 cleared with the napplet window. Server-list lookups are cached for five
 minutes; incomplete misses remain retryable.
+
+**Resource servers** is a host-owned newline textarea and **Save** button in
+both target modes, not a NAP-CONFIG field or CLI/config option. Bare domains
+(including optional ports) use HTTPS: `cdn.example` becomes
+`https://cdn.example`. Save trims blanks, canonicalizes public HTTPS origins and
+deduplicates in order; an invalid line rejects the entire save atomically.
+Credentials, non-root paths, query/fragment delimiters, HTTP and local/private
+literals are rejected. Save blank to remove only extras.
+
+The list is stored under `kehto:paja:resource-servers` in origin-scoped
+`localStorage`, independently of uploads and per-napplet configuration. Stored
+JSON is revalidated before use. Failed persistence still applies valid changes
+session-only, with explicit feedback that a previously saved list may return
+after reload. Successful saves affect subsequent Blossom requests across all
+running tabs without reloading frames or resetting event context. Extras are
+the last candidates in the existing eight-server budget, so a full earlier
+list can prevent them from being tried. They do not select upload destinations,
+change initial pointer/artifact resolution, redirect direct HTTP(S) reads or
+expand napplet CSP/network grants.
+
+This setting was checked against pinned
+[NAP-RESOURCE `9511232f69313aa7953d110e35d32cc28d506f66`](https://github.com/napplet/naps/blob/9511232f69313aa7953d110e35d32cc28d506f66/naps/NAP-RESOURCE.md)
+and current PR #80 head `fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1` below.
+It is runtime-owned lookup policy, not a wire migration: the newer draft removes
+request `servers` and uses bulk `urls` instead of `requests`. Existing packaged
+wire compatibility remains unchanged; this does not claim full DNS-time network
+conformance for a browser-only runtime.
 
 The combined list is capped at eight. Host-configured HTTP is restricted to
 loopback development; request, event, and publisher hints never permit it.

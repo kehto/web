@@ -571,7 +571,10 @@ function createDevServices(
  * @param userActivation - Host-click broker for device chooser APIs.
  * @param notifyOptions - Host-backed notification presentation hooks.
  * @param configOptions - Host-backed scoped persistence and settings UI hooks.
+ * @param getExtraResourceServers - Host-owned live extra Blossom lookup origins, appended after defaults; does not select upload destinations.
  * @returns Shell adapter plus a startup promise for asynchronous host probes.
+ * @example
+ * const adapter = createPajaAdapter(config, getSimulation, onThemeService, onThemeBroadcast, confirmRequest);
  */
 export function createPajaAdapter(
   config: PajaHostConfig,
@@ -586,6 +589,7 @@ export function createPajaAdapter(
   userActivation?: PajaUserActivationHandler,
   notifyOptions?: NotifyServiceOptions,
   configOptions?: ConfigServiceOptions,
+  getExtraResourceServers: () => readonly string[] = () => [],
 ): PajaShellAdapter {
   const resolveIdentity = (windowId?: string) => getIdentity?.(windowId) ?? {
     dTag: config.window.dTag,
@@ -618,6 +622,7 @@ export function createPajaAdapter(
   const getConfiguredBlossomServers = () => [
     ...(config.target?.pointer?.blossomServers ?? []),
     ...(uploadRuntime?.getServers() ?? getSimulation().upload.servers),
+    ...getExtraResourceServers(),
   ];
   void uploadRuntime?.refreshIdentity();
   const workerRelayEvents: NostrEvent[] = [];
