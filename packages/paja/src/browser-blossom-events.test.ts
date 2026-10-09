@@ -60,6 +60,92 @@ function router(
 }
 
 describe('createPajaBlossomEventResolver', () => {
+  it('bounds complete author fanout and URI hints to eight before lookup', async () => {
+    const authors = Array.from({ length: 12 }, (_, i) => i.toString(16).padStart(64, '0'));
+    const query = vi.fn(async (_filters: Parameters<OutboxRouter['query']>[0]) => ({ events: [] }));
+    const resolver = createPajaBlossomEventResolver({
+      baseRouter: router(query), getDefaultAuthors: () => [SHELL_SIGNER], getConfiguredServers: () => [],
+    });
+    resolver.observe('window', [result(event('1', PUBLISHER, 1, [['resource', RESOURCE_URL]]))]);
+    const authorQuery = authors.map((author) => `as=${author}`).join('&');
+    await resolver.getServers(`${RESOURCE_URL}?${authorQuery}`, 'window');
+    expect(query.mock.calls.map(([filters]) => filters[0]?.authors?.[0])).toEqual(authors.slice(0, 8));
+    query.mockClear();
+    const hints = Array.from({ length: 12 }, (_, i) => `xs=hint-${i}.example`).join('&');
+    await expect(resolver.getServers(`${RESOURCE_URL}?${hints}&${authorQuery}`, 'window'))
+      .resolves.toEqual(Array.from({ length: 8 }, (_, i) => `https://hint-${i}.example`));
+    expect(query).not.toHaveBeenCalled();
+    await expect(resolver.getServers(`${RESOURCE_URL}?${authorQuery}&as=bad`, 'window')).resolves.toEqual([]);
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it('reuses concurrent public author lookups until TTL expires and retries incomplete misses', async () => {
+    let now = 0;
+    let release: (() => void) | undefined;
+    const query = vi.fn(async () => {
+      await new Promise<void>((resolve) => { release = resolve; });
+      return { events: [result(event('1', HINTED_AUTHOR, BLOSSOM_SERVER_LIST_KIND, [['server', 'https://author.example']]))] };
+    });
+    const resolver = createPajaBlossomEventResolver({ baseRouter: router(query), getConfiguredServers: () => [], now: () => now, serverListTtlMs: 100 });
+    const uri = `${RESOURCE_URL}.png?as=${HINTED_AUTHOR}`;
+    const first = resolver.getServers(uri, 'one');
+    const second = resolver.getServers(uri, 'two');
+    expect(query).toHaveBeenCalledOnce();
+    release?.();
+    await expect(first).resolves.toEqual(['https://author.example']);
+    await expect(second).resolves.toEqual(['https://author.example']);
+    await resolver.getServers(uri);
+    expect(query).toHaveBeenCalledOnce();
+    now = 101;
+    const expired = resolver.getServers(uri);
+    expect(query).toHaveBeenCalledTimes(2);
+    release?.();
+    await expired;
+    const incompleteQuery = vi.fn(async () => ({ events: [], incomplete: true }));
+    const incomplete = createPajaBlossomEventResolver({ baseRouter: router(incompleteQuery), getConfiguredServers: () => [] });
+    await incomplete.getServers(uri);
+    await incomplete.getServers(uri);
+    expect(incompleteQuery).toHaveBeenCalledTimes(2);
+  });
+
+  it('places request hints and authors before same-window event context without transferring size or extension', async () => {
+    const query = vi.fn(async (filters: Parameters<OutboxRouter['query']>[0]) => {
+      const author = filters[0]?.authors?.[0] ?? '';
+      return { events: [result(event('1', author, BLOSSOM_SERVER_LIST_KIND, [['server', `https://${author.slice(0, 1)}.example`]]))] };
+    });
+    const resolver = createPajaBlossomEventResolver({ baseRouter: router(query), getDefaultAuthors: () => [SHELL_SIGNER], getConfiguredServers: () => ['https://runtime.example'] });
+    resolver.observe('one', [result(event('2', PUBLISHER, 1, [
+      ['resource', `blossom:${HASH.toUpperCase()}.gb?xs=event.example&as=${HINTED_AUTHOR}&sz=1`],
+    ]))]);
+    expect(query).not.toHaveBeenCalled();
+    const requestAuthor = 'f'.repeat(64);
+    await expect(resolver.getServers(`${RESOURCE_URL}.png?xs=request.example&as=${requestAuthor}&sz=2`, 'one')).resolves.toEqual([
+      'https://request.example', 'https://event.example', 'https://f.example', 'https://b.example', 'https://a.example', 'https://d.example', 'https://runtime.example',
+    ]);
+    expect(query.mock.calls.map(([filters]) => filters[0]?.authors?.[0])).toEqual([requestAuthor, HINTED_AUTHOR, PUBLISHER, SHELL_SIGNER]);
+    await expect(resolver.getServers(RESOURCE_URL, 'two')).resolves.toEqual(['https://d.example', 'https://runtime.example']);
+    resolver.clearWindow('one');
+    await expect(resolver.getServers(RESOURCE_URL, 'one')).resolves.toEqual(['https://d.example', 'https://runtime.example']);
+  });
+
+  it('resolves repeated request hints and author lists without persisting them or requiring an event', async () => {
+    const query = vi.fn(async (filters: Parameters<OutboxRouter['query']>[0]) => {
+      const author = filters[0]?.authors?.[0] ?? '';
+      return { events: [result(event('1', author, BLOSSOM_SERVER_LIST_KIND, [
+        ['server', author === HINTED_AUTHOR ? 'https://author-one.example' : 'https://author-two.example'],
+      ]))] };
+    });
+    const resolver = createPajaBlossomEventResolver({ baseRouter: router(query), getConfiguredServers: () => [] });
+    const uri = `blossom:${HASH}.gbc?xs=one.example&xs=https://ONE.example&xs=two.example&as=${HINTED_AUTHOR.toUpperCase()}&as=${HINTED_AUTHOR}&as=${PUBLISHER}`;
+    await expect(resolver.getServers(uri, 'first')).resolves.toEqual([
+      'https://one.example', 'https://two.example', 'https://author-one.example', 'https://author-two.example',
+    ]);
+    expect(query.mock.calls.map(([filters]) => filters[0]?.authors?.[0])).toEqual([HINTED_AUTHOR, PUBLISHER]);
+    await expect(resolver.getServers(RESOURCE_URL, 'first')).resolves.toEqual([]);
+    await expect(resolver.getServers(RESOURCE_URL, 'second')).resolves.toEqual([]);
+    expect(query).toHaveBeenCalledTimes(2);
+  });
+
   it('prioritizes ROM-event hints and publisher lists before the shell signer fallback', async () => {
     const rom = event(
       '1',

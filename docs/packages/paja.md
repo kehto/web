@@ -466,14 +466,21 @@ passes byte caps and MIME policy. Plain HTTP may also be rejected by the
 browser's mixed-content rules when Paja itself is served securely. This resource
 choice is independent of Paja's signer confirmation boundary.
 
-The only accepted Blossom form is `blossom:sha256:<64 hex characters>`. Paja
+Paja accepts `blossom:<hash>.gbc?xs=cdn.example&as=<pubkey>&sz=32768` and the
+`blossom:sha256:<hash>.gbc?xs=cdn.example&sz=32768` compatibility alias,
+each requiring exactly 64 hexadecimal characters. The optional single
+ASCII-alphanumeric extension is preserved in `GET /<hash>.<ext>` but never
+establishes MIME; query parameters are never forwarded to the blob server.
+Both forms use the
+same SHA-256 verification, byte caps, local MIME safety, and server policy. Paja
 accepts public-looking HTTPS request hints, discards invalid/private literals,
-and deduplicates equivalent origins. `outbox.getEvent`, `outbox.query`, and
-`outbox.subscribe` results privately index canonical Blossom references,
-explicit event `server`/structured-source hints, legacy BUD-10 `xs`/`as` hints,
+and deduplicates equivalent origins. Repeated URI `xs` (scheme-less domains use
+HTTPS) and `as` (64-hex author keys) work without prior events. `outbox.getEvent`, `outbox.query`, and
+`outbox.subscribe` results privately index Blossom references,
+explicit event `server`/structured-source hints, BUD-10 URI `xs`/`as` hints,
 and the verified event publisher for that source window. A later
-`resource.bytes` for the URL tries request and event-local
-servers first, then lazily reads hinted authors' and the event publisher's
+`resource.bytes` for the URL tries explicit request servers, URI `xs`, and event-local
+servers first, then lazily reads URI `as`, event-hinted authors' and the event publisher's
 newest BUD-03 kind `10063` list through the base OUTBOX router, then tries
 the active shell user's BUD-03 list through the same router, then the current
 window's verified pointer-manifest servers, upload-runtime defaults, and finally
@@ -482,6 +489,19 @@ The user-list lookup does not
 depend on Blossom upload mode. Paja does not prefetch event resources and works
 while upload mode remains `memory`. Event state is bounded, memory-only, and
 cleared with the napplet window. Server-list lookups are cached for five
+minutes and concurrent lookups share one pending query; incomplete misses remain retryable.
+Event matching uses the hash only, never transferring an observed extension or
+size to a request. Request hints are not retained in window state; byte caches
+remain keyed by the original URL and runtime-bound napplet identity.
+
+URI length is capped at 8192 characters, retained unique `xs` and the complete
+unique author lookup list at eight each, and combined server candidates at eight.
+Fragments, unsafe extensions/path injection, malformed escapes/authors, and invalid
+or repeated `sz` fail `invalid-request` before discovery. `sz` must be one positive
+decimal safe integer; declared sizes above 10 MiB fail `too-large` before I/O.
+A numeric Content-Length must match before reading (mismatched bodies are cancelled),
+and actual bytes must always match `sz`, even without a usable header.
+Host-configured HTTP is restricted to
 minutes; incomplete misses remain retryable.
 
 **Resource servers** is a host-owned newline textarea and **Save** button in
@@ -514,12 +534,19 @@ conformance for a browser-only runtime.
 The combined list is capped at eight. Host-configured HTTP is restricted to
 loopback development; request, event, and publisher hints never permit it.
 Redirects are refused and Paja verifies the returned bytes against the requested
-SHA-256 before delivery. A hash mismatch is `decode-failed`; all-definitive
+SHA-256 before delivery. A hash or size mismatch is `decode-failed` unless another
+candidate succeeds; all-definitive
 misses are `not-found`; any inconclusive transport failure without success is
 `network-error`. Browser-only Paja cannot pin DNS resolution, so production
 runtimes still must perform the draft's DNS-time private-address checks. The
 publisher lookup follows
 [BUD-03 `b5bd2801d1763aa635fc8fea7a76597e0eb18990`](https://github.com/hzrd149/blossom/blob/b5bd2801d1763aa635fc8fea7a76597e0eb18990/buds/03.md).
+[BUD-10 at the same ref](https://github.com/hzrd149/blossom/blob/b5bd2801d1763aa635fc8fea7a76597e0eb18990/buds/10.md)
+requires lowercase hashes and an extension (default `.bin`) when emitting URIs.
+Paja deliberately retains extensionless reads, mixed-case hashes and the `sha256:`
+alias as local compatibility, not full draft conformance. Its stronger public-HTTPS
+hint policy does not attempt BUD-10's suggested HTTP retry. Upload descriptors and
+URI generation remain unchanged.
 The current
 [NAP-RESOURCE draft `fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1`](https://github.com/napplet/naps/blob/fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1/naps/NAP-RESOURCE.md)
 was rechecked at PR #80's exact head for the opaque Blossom policy. This change

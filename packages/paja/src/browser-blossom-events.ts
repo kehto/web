@@ -10,13 +10,14 @@ import type { RelayEventResult } from '@kehto/runtime';
 import {
   PAJA_RESOURCE_MAX_SERVERS,
   normalizePublicBlossomServer,
+  normalizeBlossomUriServer,
 } from './browser-resource.js';
+import { parsePajaBlossomUri } from './browser-blossom-uri.js';
 
 /** Blossom BUD-03 replaceable server-list event kind. */
 export const BLOSSOM_SERVER_LIST_KIND = 10_063;
 
 const HEX_64 = /^[0-9a-f]{64}$/i;
-const BLOSSOM_REFERENCE = /^blossom:(?:sha256:)?([0-9a-f]{64})(?:\.[0-9a-z]+)?(?:\?([^#]*))?$/i;
 const DEFAULT_SERVER_LIST_TTL_MS = 5 * 60_000;
 const MAX_RESOURCES_PER_WINDOW = 256;
 const MAX_CONTEXTS_PER_RESOURCE = 8;
@@ -144,24 +145,25 @@ export function createPajaBlossomEventResolver(
   }
 
   async function getServers(url: string, windowId?: string): Promise<readonly string[]> {
-    const canonical = parseBlossomReference(url)?.url;
+    const parsed = parseBlossomReference(url);
+    if (!parsed) return [];
+    const canonical = parsed.url;
     const contexts = canonical && windowId
       ? windows.get(windowId)?.get(canonical) ?? []
       : [];
-    const servers: string[] = [];
+    const servers: string[] = [...parsed.servers];
     for (const context of contexts) appendUnique(servers, context.servers);
 
     if (servers.length < PAJA_RESOURCE_MAX_SERVERS) {
-      const hintedAuthors: string[] = [];
-      for (const context of contexts) appendUnique(hintedAuthors, context.authors);
-      const authors = [...hintedAuthors];
-      for (const context of contexts) appendUniqueWithoutLimit(authors, [context.publisher]);
+      const authors = [...parsed.authors];
+      for (const context of contexts) appendUnique(authors, context.authors);
+      for (const context of contexts) appendUnique(authors, [context.publisher]);
       const defaultAuthors: string[] = [];
       for (const author of options.getDefaultAuthors?.() ?? []) {
         const normalized = normalizePubkey(author);
         if (normalized) appendUnique(defaultAuthors, [normalized]);
       }
-      appendUniqueWithoutLimit(authors, defaultAuthors);
+      appendUnique(authors, defaultAuthors);
       const lists = await Promise.all(
         authors.map((author) => discoverServerList(author)),
       );
@@ -245,7 +247,7 @@ function extractEventResourceLocations(event: NostrEvent): EventResourceLocation
   const locations = new Map<string, EventResourceLocation>();
   const globalServers = event.tags.flatMap((tag) => {
     if (tag[0] !== 'server' || typeof tag[1] !== 'string') return [];
-    const server = normalizeEventServer(tag[1]);
+    const server = normalizeBlossomUriServer(tag[1]);
     return server ? [server] : [];
   });
 
@@ -261,7 +263,7 @@ function extractEventResourceLocations(event: NostrEvent): EventResourceLocation
     appendUnique(existing.servers, [
       ...parsed.servers,
       ...servers.flatMap((server) => {
-        const normalized = normalizeEventServer(server);
+        const normalized = normalizeBlossomUriServer(server);
         return normalized ? [normalized] : [];
       }),
       ...globalServers,
@@ -310,30 +312,18 @@ function extractEventResourceLocations(event: NostrEvent): EventResourceLocation
 }
 
 function parseBlossomReference(value: string): EventResourceLocation | null {
-  const match = BLOSSOM_REFERENCE.exec(value.trim());
-  if (!match?.[1]) return null;
-  const params = new URLSearchParams(match[2] ?? '');
-  const servers = params.getAll('xs').flatMap((server) => {
-    const normalized = normalizeEventServer(server);
+  const parsed = parsePajaBlossomUri(value);
+  if (!parsed) return null;
+  const servers: string[] = [];
+  appendUnique(servers, parsed.servers.flatMap((server) => {
+    const normalized = normalizeBlossomUriServer(server);
     return normalized ? [normalized] : [];
-  });
-  const authors = params.getAll('as').flatMap((author) => {
-    const normalized = normalizePubkey(author);
-    return normalized ? [normalized] : [];
-  });
+  }));
   return {
-    url: `blossom:sha256:${match[1].toLowerCase()}`,
+    url: parsed.canonical,
     servers,
-    authors,
+    authors: parsed.authors,
   };
-}
-
-function normalizeEventServer(value: string): string | null {
-  const normalized = normalizePublicBlossomServer(value);
-  if (normalized) return normalized;
-  const trimmed = value.trim();
-  if (!/^[a-z0-9.-]+(?::\d+)?$/i.test(trimmed)) return null;
-  return normalizePublicBlossomServer(`https://${trimmed}`);
 }
 
 function parseEventContent(value: string): Record<string, unknown> | null {
@@ -362,13 +352,7 @@ function normalizePubkey(value: unknown): string | null {
 
 function appendUnique(target: string[], values: readonly string[]): void {
   for (const value of values) {
-    if (!target.includes(value)) target.push(value);
     if (target.length >= PAJA_RESOURCE_MAX_SERVERS) return;
-  }
-}
-
-function appendUniqueWithoutLimit(target: string[], values: readonly string[]): void {
-  for (const value of values) {
     if (!target.includes(value)) target.push(value);
   }
 }

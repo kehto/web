@@ -396,12 +396,17 @@ This encoding guard is not a general markup parser.
 
 `data:` remains locally decoded. `blossom:` is a separate, content-addressed
 boundary and is advertised because each request may provide server locations
-without a host default. Paja accepts only public-looking HTTPS origin hints,
-discards invalid/private literals, and deduplicates them. For a canonical URL
+without a host default. For example, reads accept
+`blossom:<hash>.gbc?xs=cdn.example&as=<pubkey>&sz=32768` and
+`blossom:sha256:<hash>.gbc?xs=cdn.example&sz=32768`.
+Repeated `xs` and `as` are supported without an observed event. Paja accepts only
+public-looking HTTPS origin hints (scheme-less domains use HTTPS), discards
+invalid/private literals, and deduplicates them. Unlike BUD-10's suggested HTTP
+retry, URI hints never enable public HTTP. For a Blossom URL
 previously returned to the same napplet window by `outbox.getEvent`,
 `outbox.query`, or `outbox.subscribe`, Paja retains bounded event context
-without prefetching bytes. Resolution tries request and
-event-local server hints first, then lazily queries hinted authors' and the
+without prefetching bytes. Resolution tries explicit request servers, URI `xs`,
+and event-local server hints first, then lazily queries URI `as`, event-hinted authors' and the
 event publisher's newest BUD-03 kind `10063` lists through the verified
 NIP-65-aware OUTBOX router, then queries the active shell user's BUD-03 list
 through that same router, then uses the current window's verified
@@ -409,9 +414,26 @@ pointer-manifest servers, followed by upload-runtime fallbacks and saved extra
 resource servers. The user-list
 lookup works independently of upload mode; an upload runtime may reuse the same
 servers when present. ROM-specific event and publisher locations retain
-priority over the user/runtime fallbacks. The combined list is capped at eight
-candidates. The only accepted identifier is `blossom:sha256:<hex>`;
-Paja refuses redirects, verifies the requested SHA-256, and permits plain-HTTP
+priority over the user/runtime fallbacks. URI length is capped at 8192 characters;
+retained unique `xs`, the complete author lookup list, and combined server
+candidates are each capped at eight. Both prefixes require exactly 64 hex
+characters, with an optional single ASCII-alphanumeric extension preserved in
+`GET /<hash>.<ext>`; no query hints reach the blob server. Extensions and upstream
+headers never establish MIME. Fragments, path injection, malformed escapes/authors,
+and invalid or repeated `sz` fail with `invalid-request` before discovery.
+`sz` must be a positive decimal safe integer; sizes above 10 MiB fail `too-large`.
+Paja checks a numeric Content-Length before reading and always checks actual
+bytes against `sz`; a size or hash mismatch is `decode-failed` unless fallback succeeds.
+Hash-only event context stays window-scoped, without transferring extension/size
+or retaining request hints. Byte caches retain the original URL and identity scope;
+public author lists reuse five-minute cache/single-flight lookups, with incomplete misses retryable.
+
+[BUD-10 at `b5bd280`](https://github.com/hzrd149/blossom/blob/b5bd2801d1763aa635fc8fea7a76597e0eb18990/buds/10.md)
+requires lowercase hashes and an extension (default `.bin`) for emitted references.
+Extensionless reads, mixed-case hashes, and the `sha256:` alias are deliberately
+retained local compatibility, not a full BUD-10 conformance claim. Upload URI
+generation is unchanged. Paja refuses redirects, verifies SHA-256 and byte MIME,
+and permits plain-HTTP
 transport only for configured loopback development defaults. Browser-only Paja
 cannot pin DNS results, so production runtimes must add the draft's DNS-time
 private-address checks. The current
