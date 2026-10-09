@@ -89,6 +89,30 @@ Use the same security posture as the playground: opaque-origin iframe, scripts o
 import { resolveNapplet } from '@kehto/nip/5d';
 import { originRegistry, resolveShellEnvironment, injectNappletNamespacePrelude } from '@kehto/shell';
 
+// Host-owned CSP: run only after verification, before namespace injection.
+function injectCspMeta(html: string): string {
+  const policy = [
+    "default-src 'none'",
+    "script-src 'unsafe-inline' 'wasm-unsafe-eval'",
+    "style-src 'unsafe-inline'",
+    'img-src data: blob:',
+    'font-src data:',
+    "connect-src 'none'",
+    "worker-src 'none'",
+    "child-src 'none'",
+    "frame-src 'none'",
+    "media-src 'none'",
+    "object-src 'none'",
+    "manifest-src 'none'",
+    "base-uri 'none'",
+    "form-action 'none'",
+  ].join('; ');
+  const meta = `<meta http-equiv="Content-Security-Policy" content="${policy}">`;
+  // Prepend the policy so it precedes even resources before an authored head.
+  // The HTML parser creates the document head for this leading meta element.
+  return `<!doctype html>${meta}${html}`;
+}
+
 // event comes from relays; fetchBlob returns untrusted bytes by SHA-256.
 const resolved = await resolveNapplet({ event, fetchBlob });
 const identity = { dTag: resolved.dTag, aggregateHash: resolved.aggregateHash };
@@ -102,14 +126,20 @@ iframe.sandbox.add('allow-scripts');
 document.body.append(iframe);
 originRegistry.register(iframe.contentWindow!, 'example', identity);
 originRegistry.setEnvironment(iframe.contentWindow!, environment);
-iframe.srcdoc = injectNappletNamespacePrelude(resolved.indexHtml, environment.capabilities);
+iframe.srcdoc = injectNappletNamespacePrelude(
+  injectCspMeta(resolved.indexHtml),
+  environment.capabilities,
+);
 ```
 
 The resolver verifies both current artifact events and legacy aggregate events.
 `aggregateHash` is the existing API name for the verified content identity. Host
-namespace and recommended CSP injection happen after verification, outside signed
+namespace and CSP injection happen after verification, outside signed
 bytes. Optional manifest domains do not grant authority or prevent loading.
 Gateways may provide bytes, but their metadata cannot establish identity.
+The leading CSP meta is parsed before the namespace prelude and authored resources;
+opaque origins alone do not block network access. This example denies direct
+connections and workers, following the [checked NIP-5D CSP advisory](https://github.com/dskvr/nips/blob/020cb8b33a9e4c6b8ca4b2f9d0ed0a67843b68f7/5D.md#security-considerations).
 
 For repeated loads, pass the optional cache to `resolveNapplet`; cached bytes
 are reverified. See [artifact caching](../how-tos/implement-napplet-artifact-cache.md)
