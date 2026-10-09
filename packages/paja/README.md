@@ -328,8 +328,15 @@ and referrer data, caps responses at 10 MiB, and classifies MIME from returned
 bytes. Its byte classifier recognizes checksum-valid Game Boy ROM headers as
 `application/vnd.nintendo.gb-rom`; it never trusts a server-supplied media type.
 Browser network and CORS rules still apply: an unreadable response is the
-canonical `network-error`, while any CORS-readable response is returned as NAP
-bytes.
+canonical `network-error`. HTTP(S) and locally decoded `data:` bytes must have a
+recognized type; opaque invalid-UTF-8 or NUL-bearing binary remains rejected.
+Only capped, SHA-256-verified canonical Blossom resources may return unknown
+opaque bytes as `application/octet-stream`. Recognized formats retain their
+sniffed MIME. SVG, HTML, XML and script prefixes remain blocked, even with NUL or
+invalid-UTF-8 suffixes; upstream headers never override classification.
+Byte-identifiable UTF-16 markup is checked by decoding the complete capped
+buffer; identifiable UTF-32 document signatures are conservatively rejected.
+This encoding guard is not a general markup parser.
 
 `data:` remains locally decoded. `blossom:` is a separate, content-addressed
 boundary and is advertised because each request may provide server locations
@@ -352,9 +359,14 @@ transport only for configured loopback development defaults. Browser-only Paja
 cannot pin DNS results, so production runtimes must add the draft's DNS-time
 private-address checks. The current
 [NAP-RESOURCE draft at `fa6bcc6`](https://github.com/napplet/naps/blob/fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1/naps/NAP-RESOURCE.md)
-assigns fetching and policy to the runtime and defines no wire-level Blossom
-server-hint field. Retaining verified manifest servers per window is therefore
-Paja host policy, informed by the current
+was rechecked for this MIME policy against PR #80's exact head. The opaque
+fallback preserves byte sniffing, hash verification, complete Blob delivery,
+ordered independent bulk results, and the prohibition on raw SVG delivery.
+This is bounded conformance, not full draft compliance: existing developer HTTP
+policy, DNS enforcement, SVG rejection instead of rasterization, and request
+server-hint differences remain outside this change. The draft defines no
+wire-level Blossom server-hint field. Retaining verified manifest servers per
+window is therefore Paja host policy, informed by the current
 [NIP-5D draft at `24711d9`](https://github.com/nostr-protocol/nips/blob/24711d9c47bbdd07908bf1d52bf677d9cbc530f0/5D.md),
 which defines manifest `server` tags. The existing request-server compatibility
 path comes from the earlier NAP-RESOURCE draft at `9511232`, with the merged package implementation

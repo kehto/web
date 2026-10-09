@@ -407,18 +407,25 @@ an authorization grant. All paths expose the enforced 10 MiB response,
 100-URL bulk, and eight-server per-resource caps. The host ignores
 declared or upstream media types, classifies a narrow safe
 image/audio/video/font/text set plus checksum-valid Game Boy ROM headers, and
-rejects raw SVG, HTML, invalid UTF-8, and unrecognized binary data. Game Boy ROM
-results use `application/vnd.nintendo.gb-rom` regardless of the upstream
-`Content-Type`. Cancellation remains window-scoped and drops late terminal
-envelopes.
+rejects SVG, HTML, XML and script prefixes, including NUL-bearing or
+invalid-UTF-8 suffixes. HTTP(S) and `data:` still require recognized types.
+Canonical Blossom alone may deliver unknown opaque invalid-UTF-8 or NUL-bearing
+binary as `application/octet-stream`, after capped reads and matching SHA-256.
+Known formats retain sniffed MIME; Game Boy ROM results use
+`application/vnd.nintendo.gb-rom` regardless of upstream `Content-Type`.
+Cancellation remains window-scoped and drops late terminal envelopes.
+Byte-identifiable UTF-16 markup is checked by decoding the complete capped
+buffer; identifiable UTF-32 document signatures are conservatively rejected.
+UTF-16 nonmarkup can remain opaque. This encoding guard is bounded by the
+response size cap, not a general markup parser.
 
 Paja deliberately accepts arbitrary HTTP(S) origins because it is a developer
 runtime. It uses browser `fetch` with credentials omitted and no referrer. The
 browser still decides which response bytes JavaScript may read: a network or
-CORS rejection becomes `network-error`, while a CORS-readable response is
-returned normally. Plain HTTP may also be rejected by the browser's mixed-content
-rules when Paja itself is served securely. This resource choice is independent
-of Paja's signer confirmation boundary.
+CORS rejection becomes `network-error`, while a CORS-readable response still
+passes byte caps and MIME policy. Plain HTTP may also be rejected by the
+browser's mixed-content rules when Paja itself is served securely. This resource
+choice is independent of Paja's signer confirmation boundary.
 
 The only accepted Blossom form is `blossom:sha256:<64 hex characters>`. Paja
 accepts public-looking HTTPS request hints, discards invalid/private literals,
@@ -448,8 +455,13 @@ publisher lookup follows
 [BUD-03 `b5bd2801d1763aa635fc8fea7a76597e0eb18990`](https://github.com/hzrd149/blossom/blob/b5bd2801d1763aa635fc8fea7a76597e0eb18990/buds/03.md).
 The current
 [NAP-RESOURCE draft `fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1`](https://github.com/napplet/naps/blob/fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1/naps/NAP-RESOURCE.md)
-leaves fetch policy to the runtime and has no wire-level Blossom server-hint
-field. Paja's window-scoped pointer fallback is host policy informed by NIP-5D's
+was rechecked at PR #80's exact head for the opaque Blossom policy. This change
+preserves byte-derived MIME, hash verification, complete Blobs, ordered
+independent bulk results and no raw SVG delivery. It does not claim full draft
+compliance: existing developer HTTP policy, DNS enforcement, SVG rejection
+instead of rasterization, and server-hint wire drift remain out of scope. The
+draft has no wire-level Blossom server-hint field. Paja's window-scoped pointer
+fallback is host policy informed by NIP-5D's
 manifest `server` tags at draft head
 [`24711d9c47bbdd07908bf1d52bf677d9cbc530f0`](https://github.com/nostr-protocol/nips/blob/24711d9c47bbdd07908bf1d52bf677d9cbc530f0/5D.md).
 
