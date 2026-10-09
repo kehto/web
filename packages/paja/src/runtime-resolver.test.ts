@@ -30,27 +30,29 @@ async function sha256hex(bytes: Uint8Array): Promise<string> {
 }
 
 interface BuildManifestOptions {
+  readonly format?: 'current' | 'legacy';
   readonly dTag?: string;
   readonly kind?: number;
   readonly aggregateOverride?: string;
 }
 
-async function buildManifest(options: BuildManifestOptions = {}) {
+async function buildManifestFixture(options: BuildManifestOptions = {}) {
   const dTag = options.dTag ?? 'runtime-target';
   const kind = options.kind ?? NAPPLET_KIND_NAMED;
   const bytes = enc.encode('<!doctype html><html><head><title>runtime</title></head><body>ok</body></html>');
   const hash = await sha256hex(bytes);
-  const aggregateHash = computeAggregateHash([{ path: '/index.html', sha256: hash }]);
+  const aggregateHash = options.format === 'current' ? hash : computeAggregateHash([{ path: '/index.html', sha256: hash }]);
   const event = finalizeEvent({
     kind,
     created_at: 1_700_000_000,
     tags: [
       ...(kind === NAPPLET_KIND_NAMED ? [['d', dTag]] : []),
-      ['path', '/index.html', hash],
-      ['x', options.aggregateOverride ?? aggregateHash, 'aggregate'],
+      ...(options.format === 'current' ? [['x', options.aggregateOverride ?? hash]] : [
+        ['path', '/index.html', hash], ['x', options.aggregateOverride ?? aggregateHash, 'aggregate'],
+      ]),
       ['server', BLOSSOM],
     ],
-    content: '',
+    content: options.format === 'current' ? 'Runtime test napplet' : '',
   }, SK);
   return { event: event as NostrEvent, bytes, hash, aggregateHash, dTag };
 }
@@ -118,7 +120,8 @@ function fakeFetcher(hash: string, bytes: Uint8Array) {
   };
 }
 
-describe('Paja runtime pointer resolver', () => {
+describe.each(['current', 'legacy'] as const)('Paja %s runtime pointer resolver', (format) => {
+  const buildManifest = (options: BuildManifestOptions = {}) => buildManifestFixture({ ...options, format });
   const classOnePrefix = "default-src 'none'; script-src 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:;";
   const classOneSuffix = "worker-src 'none'; child-src 'none'; frame-src 'none'; media-src 'none'; object-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'";
 
@@ -395,7 +398,7 @@ describe('Paja runtime pointer resolver', () => {
     await expect(resolvePajaPointer(aggregatePointer, {
       pool: fakePool([badAggregate.event]),
       fetcher: fakeFetcher(badAggregate.hash, badAggregate.bytes),
-    })).rejects.toMatchObject({ code: 'aggregate-mismatch' });
+    })).rejects.toMatchObject({ code: format === 'legacy' ? 'aggregate-mismatch' : 'blob-unavailable' });
 
     const badBlob = await buildManifest({ dTag: 'fail-closed-blob' });
     const blobPointer = naddrEncode({

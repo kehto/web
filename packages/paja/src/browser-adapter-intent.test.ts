@@ -58,7 +58,7 @@ function makeAdapter(policy: {
   getDefaultHandler?: (archetype: string) => string | undefined;
   chooseHandler?: (archetype: string, candidates: readonly { dTag: string }[], sender: string) => string | undefined;
   authorizeExplicitHandler?: (sender: string, handler: string) => boolean;
-} = {}) {
+} = {}, getSimulation = () => normalizePajaSimulation({ relay: { mode: 'disabled' }, intent: { enabled: true } })) {
   const catalog = new InstalledNappletCatalog();
   const sequence: string[] = [];
   const controller = new BrowserIntentController({
@@ -73,7 +73,7 @@ function makeAdapter(policy: {
   });
   const adapter = createPajaAdapter(
     { window: { id: 'paja', dTag: 'paja', aggregateHash: 'aggregate' } } as PajaHostConfig,
-    () => normalizePajaSimulation({ relay: { mode: 'disabled' }, intent: { enabled: true } }),
+    getSimulation,
     () => {},
     () => {},
     () => true,
@@ -174,6 +174,30 @@ describe('Paja browser adapter intent composition', () => {
       type: 'intent.handlers.result',
       handlers: [{ archetype: 'profile', available: true }],
     });
+  });
+
+  it('rechecks target intent availability without requiring INC for discovery or invocation', async () => {
+    let intent = true;
+    const { adapter, catalog, sequence } = makeAdapter({}, () => normalizePajaSimulation({
+      relay: { mode: 'disabled' }, intent: { enabled: intent }, capabilities: { domains: { intent, inc: false } },
+    }));
+    const resolved = resolvedNapplet();
+    catalog.install({ ...resolved, manifest: { ...resolved.manifest, requires: [], optional: ['inc'] } });
+    intent = false;
+    const availability = () => sendIntent(adapter, { type: 'intent.available', id: 'optional', archetype: 'profile' } as NappletMessage);
+
+    await expect(availability()).resolves.toMatchObject([{ availability: { available: false, candidates: [] } }]);
+    await expect(sendIntent(adapter, { type: 'intent.invoke', id: 'disabled', request: REQUEST } as NappletMessage))
+      .resolves.toMatchObject([{ result: { ok: false } }]);
+    expect(sequence).toEqual([]);
+    intent = true;
+    await expect(availability()).resolves.toMatchObject([{ availability: { available: true, candidates: [{ dTag: 'profile-viewer' }] } }]);
+    await expect(sendIntent(adapter, { type: 'intent.invoke', id: 'enabled', request: REQUEST } as NappletMessage))
+      .resolves.toMatchObject([{ result: { ok: true, handler: 'profile-viewer' } }]);
+    intent = false;
+    await expect(availability()).resolves.toMatchObject([{ availability: { available: false } }]);
+    expect(catalog.get('profile-viewer')?.requires).toEqual([]);
+    (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
   });
 
   it('fails closed for ambiguity, stale defaults, cancelled or invalid chooser output, and unauthorized explicit handlers', async () => {

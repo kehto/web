@@ -120,7 +120,7 @@ export const originRegistry: OriginRegistry = {
    */
   getIdentity(win: Window): OriginIdentity | undefined {
     const entry = registry.get(win);
-    if (!entry?.dTag || !entry?.aggregateHash) return undefined;
+    if (typeof entry?.dTag !== 'string' || !entry?.aggregateHash) return undefined;
     return { dTag: entry.dTag, aggregateHash: entry.aggregateHash };
   },
 

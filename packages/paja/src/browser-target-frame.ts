@@ -21,7 +21,7 @@ export function resolvePajaFrameEnvironment(
   hooks: ShellAdapter,
   identity: OriginIdentity,
 ): PajaShellEnvironment {
-  if (!identity.dTag || !identity.aggregateHash) {
+  if (typeof identity.dTag !== 'string' || !identity.aggregateHash) {
     throw new Error('Paja frame identity requires a dTag and aggregate hash');
   }
   return resolveShellEnvironment(hooks, identity);
@@ -80,6 +80,10 @@ export async function navigateFrame(
       frame.removeAttribute('src');
       frame.srcdoc = '<!doctype html><html><body></body></html>';
       return null;
+    }
+    const missing = resolvedTarget.manifest.requires.filter((domain) => domain !== 'shell' && !domains.includes(domain));
+    if (missing.length > 0) {
+      throw new Error(`Napplet requires unsupported NAP capabilities: ${missing.join(', ')}`);
     }
     if (isCurrent && !isCurrent()) return null;
     // Validate host policy before rebinding an existing window to a new identity.

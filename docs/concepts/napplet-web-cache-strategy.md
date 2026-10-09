@@ -62,7 +62,7 @@ Write order matters:
 
 1. Resolve the manifest from relays or a gateway.
 2. Verify the manifest signature.
-3. Recompute and verify the aggregate.
+3. Verify the artifact hash (legacy: recompute and verify the aggregate).
 4. Fetch each file by hash and verify its SHA-256.
 5. Write verified blob responses.
 6. Write the aggregate record.
@@ -217,3 +217,8 @@ and trust opaque responses as napplet bytes.
 - [MDN StorageManager estimate](https://developer.mozilla.org/en-US/docs/Web/API/StorageManager/estimate)
 - [Chrome Storage Buckets overview](https://developer.chrome.com/docs/web-platform/storage-buckets)
 - [MDN Origin private file system](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API/Origin_private_file_system)
+
+Current event hashes identify `/index.html` directly. Existing cache record and
+API names containing `aggregate` remain compatibility names for that identity.
+Legacy aggregate events still verify every declared blob. See
+[event-schema migration](../migrations/NIP-5D-EVENT-SCHEMA.md).

@@ -5,9 +5,9 @@ milestone_name: Napplet Convention and Runtime Conformance
 current_phase: 106
 status: completed
 stopped_at: Phase 106 current-Napplet release complete; v1.29 ready for milestone completion
-last_updated: "2026-09-30T17:04:02+00:00"
-last_activity: 2026-09-30
-last_activity_desc: "Completed quick task 260930-gbm: shell CSP enforcement with host overrides"
+last_updated: "2026-10-09T16:25:24Z"
+last_activity: 2026-10-09
+last_activity_desc: "Completed quick task 261009-gxe: canonical intent delivery and tracked compatibility"
 progress:
   total_phases: 6
   completed_phases: 6
@@ -32,7 +32,7 @@ Phase: 106 (Active-Surface Conformance and Release) — COMPLETE
 Plan: 3 of 3
 Status: All v1.29 phases complete — eight-package Napplet-0.31-compatible npm/JSR release published and downstream-verified
 
-Last activity: 2026-09-30 — Completed quick task 260930-gbm: shell CSP enforcement with host overrides
+Last activity: 2026-10-09 — Completed quick task 261009-gxe: canonical intent delivery and tracked compatibility
 
 ## Performance Metrics
 
@@ -147,6 +147,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
+| 261008-dhm | Permit opaque hash-verified Blossom resources in Paja (#279) | 2026-10-08 | 49bb1281 | passed | [261008-dhm-fix-issue-279-permit-opaque-hash-verifie](./quick/261008-dhm-fix-issue-279-permit-opaque-hash-verifie/) |
 | 260616-8iv | Move playground theme-switcher functionality from napplet into host theme-service node | 2026-06-16 | f4358b4 |  | [260616-8iv-move-playground-theme-switcher-functiona](./quick/260616-8iv-move-playground-theme-switcher-functiona/) |
 | 260617-qoi | Drop NAP-CLASS, NAP-CLASS-1, NAP-CONNECT (clean break) + replace local spec mirrors with living-doc references | 2026-06-17 | 1d0eef3 |  | [260617-qoi-drop-nap-class-nap-class-1-nap-connect-c](./quick/260617-qoi-drop-nap-class-nap-class-1-nap-connect-c/) |
 | 260617-wig | Add optional @kehto/shell `onUnroutedMessage` observability hook (surfaces silently-dropped unregistered-window messages — FEED-02 / hyprgate#21) | 2026-06-17 | fba1b67 |  | [260617-wig-shell-unrouted-message-hook](./quick/260617-wig-shell-unrouted-message-hook/) |
@@ -226,6 +227,12 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260804-dql | Assess, prioritize, and resolve every review comment on PR #234 | 2026-08-04 | 0c1afc1 | Verified | [260804-dql-assess-prioritize-and-resolve-every-revi](./quick/260804-dql-assess-prioritize-and-resolve-every-revi/) |
 | 260819-hwm | Add canonical Blossom scheme support to Paja NAP-RESOURCE with hash verification | 2026-08-19 | b966aef | Verified | [260819-hwm-add-canonical-blossom-scheme-support-to-](./quick/260819-hwm-add-canonical-blossom-scheme-support-to-/) |
 | 260819-i86 | Add a root pnpm script to run the static pointer-entry Paja runtime locally | 2026-08-19 | 77235dd | Verified | [260819-i86-add-a-root-pnpm-script-to-run-the-static](./quick/260819-i86-add-a-root-pnpm-script-to-run-the-static/) |
+| 260928-cpc | Make the Paja development console collapsible | 2026-09-28 | d3706a9c | Verified | [260928-cpc-make-the-paja-development-console-collapsible](./quick/260928-cpc-make-the-paja-development-console-collapsible/) |
+| 261007-brt | Adopt current NIP-5D events with isolated legacy support | 2026-10-07 | b97b388 | Verified; PR #277 | [261007-brt-adopt-nip-5d-event-schemas-with-isolated](./quick/261007-brt-adopt-nip-5d-event-schemas-with-isolated/) |
+| 261009-ctx | Resolve all six Copilot inline comments on PR #277 | 2026-10-09 | d9c44ce | Verified | [261009-ctx-resolve-copilot-review-comments-on-pr-27](./quick/261009-ctx-resolve-copilot-review-comments-on-pr-27/) |
+| 261006-ift | Foreground a reused intent handler tab for every behavior.focus hint | 2026-10-06 | e99451be / 4ebf3604 / da8dc309 / 99c7488c | Verified | [261006-ift-foreground-intent-tabs](./quick/261006-ift-foreground-intent-tabs/) |
+| 261009-gxe | Canonical intent delivery with tracked, warned compatibility; AGENTS policy separate in #284 | 2026-10-09 | 05d3e013 | Verified | [261009-gxe](./quick/261009-gxe-migrate-pr-277-intent-delivery-to-intent/) |
+| 261009-h66 | Require compatibility warnings, tracking and tests in AGENTS | 2026-10-09 | 3c595776 | Verified | [261009-h66](./quick/261009-h66-require-tracked-and-tested-backwards-com/) |
 
 | 260930-gbm | Enforce NIP-5D CSP in shell with validated host overrides | 2026-09-30 | 375b1ee | Verified | [260930-gbm-enforce-nip-5d-csp-in-shell-with-validat](./quick/260930-gbm-enforce-nip-5d-csp-in-shell-with-validat/) |
 

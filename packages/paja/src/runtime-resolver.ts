@@ -51,7 +51,7 @@ export interface PajaResolvedPointer {
   readonly blossomServers: readonly string[];
   /** Resolved manifest `d` tag. */
   readonly dTag: string;
-  /** Verified NIP-5A aggregate hash. */
+  /** Verified content identity: current artifact hash or legacy NIP-5A aggregate. */
   readonly aggregateHash: string;
   /** Verified target `/index.html` content. */
   readonly indexHtml: string;

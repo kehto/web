@@ -585,7 +585,7 @@ export function getMissingRequiredNaps(
   domains = getShellCapabilities()?.domains,
 ): string[] {
   if (!domains) return [...requires];
-  const supported = new Set(domains);
+  const supported = new Set(['shell', ...domains]);
   return requires.filter((capability) => !supported.has(capability));
 }
 

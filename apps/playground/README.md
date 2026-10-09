@@ -113,14 +113,17 @@ The playground's verified installed catalog is persistent manifest state, not
 the live frame map. Only a resolver-verified install can insert or replace a
 record, and only an explicit artifact removal can remove one; closing a frame
 does not make its manifest unavailable. Intent availability therefore comes from
-exact installed contracts. The host may use a compatible default, present a
+exact installed contracts. Required or optional INC declarations are eligible only when
+INC is available in the target's host-resolved environment. Missing optional INC
+still permits frame loading. Nameless root/snapshot artifacts may also run, but
+are excluded from the dTag-keyed intent catalog. The host may use a compatible default, present a
 chooser for several candidates, or reject ambiguity. An explicit d-tag requires
 both an exact installed contract and sender-aware authorization.
 
 The feed invokes a structured profile request with the stable, queryless
 `napplet:profile/open` convention and a `{ pubkey }` payload. The host reuses or
 starts the verified target, waits for its current registered source and
-`shell.ready`, sends one runtime-attested `inc.event` for that convention, and
+`shell.ready`, sends one runtime-attested `intent.deliver` for that convention, and
 then returns the final handled target identity. A stale or replaced target is
 never used; controller retry and terminal policy remain host-owned.
 
@@ -183,3 +186,13 @@ A demo napplet that needs E2E capability setup without UI click-through can inst
 ## License
 
 MIT
+
+## NIP-5D event compatibility
+
+Current manifests use a direct artifact `x` hash, plain-text `content`, independent
+`z`/`i` routing declarations, and required `R` / optional `O` domains. Kehto also
+accepts legacy aggregate events through an isolated compatibility adapter.
+Existing `aggregateHash` host/cache/ACL fields carry the verified artifact hash
+for current events; legacy identities keep their original aggregate. Both paths
+verify signatures and bytes before runtime injection and `srcdoc` execution.
+For the schema and removal boundary, see [event migration](../../docs/migrations/NIP-5D-EVENT-SCHEMA.md).

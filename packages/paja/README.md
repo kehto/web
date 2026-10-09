@@ -59,7 +59,11 @@ warning, when the target would block the sandboxed frame.
 
 The console shows supported interfaces with per-domain injection toggles,
 runtime ACL controls, signer controls, and a filterable message log with visible
-error details. In runtime-pointer mode, ACL controls always display and mutate
+error details. It starts expanded and collapses to the left with the chevron
+button in the top bar; the same button brings the whole panel back. Collapsing
+is presentation-only — the target iframe keeps its identity and the loaded
+napplet keeps running — and Paja remembers the choice per browser origin. In
+runtime-pointer mode, ACL controls always display and mutate
 the active tab's resolver-verified d-tag and aggregate hash; a grant or revoke
 rerenders that same identity immediately. Paja auto-connects a browser NIP-07 signer when `window.nostr` is
 available, can connect to a bunker/NIP-46 URI, and only uses the generated local
@@ -197,7 +201,10 @@ the catalog record; an explicit artifact removal removes it. Closing, reloading,
 or replacing a frame never makes an installed handler unavailable, so a cold
 target can still be selected and started later.
 
-Intent selection considers only exact compatible contracts from that catalog.
+Intent selection considers only exact compatible contracts from that catalog. Required or optional INC declarations are eligible only when
+INC is available in the target's host-resolved environment. Missing optional INC
+still permits frame loading. Nameless root/snapshot artifacts may also run, but
+are excluded from the dTag-keyed intent catalog.
 Paja can use a compatible user default, ask its host chooser when more than one
 candidate is available, or reject an ambiguity. An explicit handler d-tag is
 accepted only when it is an installed compatible handler and the invoking sender
@@ -207,11 +214,20 @@ arbitrary running frame.
 When Paja receives an invocation, it selects and opens or reuses a verified
 target. The controller waits for the target generation's
 registered `MessageEvent.source` to establish its real `shell.ready` session;
-it checks that generation is still current, sends one target-only `inc.event`
+it checks that generation is still current, sends one target-only `intent.deliver`
 with the selected queryless convention, and returns the final handled target
 identity. A superseded target/source, failed open/readiness, or terminal send is
 handled by the controller's replacement/retry/terminal policy and produces a
 canonical failed `IntentResult`.
+
+Reusing a handler tab activates it and remembers the new active tab. Paja's stage
+shows exactly one tab, so a delivered intent always selects the handler tab:
+`behavior.focus` is a hint, and honoring `false` as "deliver into the hidden
+tab" would report a handled intent whose surface the user never sees. Reuse
+still leaves the caller's tab open, so nothing is replaced. Newly created
+handler tabs behave the same way. Pointer installation logs declared
+archetypes and required domains; Paja warns when archetypes lack `inc`, which
+its current convention delivery policy requires.
 
 `@napplet/shim@0.30.0` supplies no generic shell API. Kehto deliberately keeps
 its host-owned mandatory `window.napplet.shell` prelude: it installs the live
@@ -327,8 +343,15 @@ and referrer data, caps responses at 10 MiB, and classifies MIME from returned
 bytes. Its byte classifier recognizes checksum-valid Game Boy ROM headers as
 `application/vnd.nintendo.gb-rom`; it never trusts a server-supplied media type.
 Browser network and CORS rules still apply: an unreadable response is the
-canonical `network-error`, while any CORS-readable response is returned as NAP
-bytes.
+canonical `network-error`. HTTP(S) and locally decoded `data:` bytes must have a
+recognized type; opaque invalid-UTF-8 or NUL-bearing binary remains rejected.
+Only capped, SHA-256-verified canonical Blossom resources may return unknown
+opaque bytes as `application/octet-stream`. Recognized formats retain their
+sniffed MIME. SVG, HTML, XML and script prefixes remain blocked, even with NUL or
+invalid-UTF-8 suffixes; upstream headers never override classification.
+Byte-identifiable UTF-16 markup is checked by decoding the complete capped
+buffer; identifiable UTF-32 document signatures are conservatively rejected.
+This encoding guard is not a general markup parser.
 
 `data:` remains locally decoded. `blossom:` is a separate, content-addressed
 boundary and is advertised because each request may provide server locations
@@ -351,9 +374,14 @@ transport only for configured loopback development defaults. Browser-only Paja
 cannot pin DNS results, so production runtimes must add the draft's DNS-time
 private-address checks. The current
 [NAP-RESOURCE draft at `fa6bcc6`](https://github.com/napplet/naps/blob/fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1/naps/NAP-RESOURCE.md)
-assigns fetching and policy to the runtime and defines no wire-level Blossom
-server-hint field. Retaining verified manifest servers per window is therefore
-Paja host policy, informed by the current
+was rechecked for this MIME policy against PR #80's exact head. The opaque
+fallback preserves byte sniffing, hash verification, complete Blob delivery,
+ordered independent bulk results, and the prohibition on raw SVG delivery.
+This is bounded conformance, not full draft compliance: existing developer HTTP
+policy, DNS enforcement, SVG rejection instead of rasterization, and request
+server-hint differences remain outside this change. The draft defines no
+wire-level Blossom server-hint field. Retaining verified manifest servers per
+window is therefore Paja host policy, informed by the current
 [NIP-5D draft at `24711d9`](https://github.com/nostr-protocol/nips/blob/24711d9c47bbdd07908bf1d52bf677d9cbc530f0/5D.md),
 which defines manifest `server` tags. The existing request-server compatibility
 path comes from the earlier NAP-RESOURCE draft at `9511232`, with the merged package implementation
@@ -366,3 +394,13 @@ Full package docs: [`docs/packages/paja.md`](../../docs/packages/paja.md).
 Getting started: [`docs/how-tos/paja-getting-started.md`](../../docs/how-tos/paja-getting-started.md).
 Local authoring how-to: [`docs/how-tos/paja-local-authoring.md`](../../docs/how-tos/paja-local-authoring.md).
 Generated API module: `docs/api/modules/_kehto_paja.html` (run `pnpm docs:api`).
+
+## NIP-5D event compatibility
+
+Current manifests use a direct artifact `x` hash, plain-text `content`, independent
+`z`/`i` routing declarations, and required `R` / optional `O` domains. Kehto also
+accepts legacy aggregate events through an isolated compatibility adapter.
+Existing `aggregateHash` host/cache/ACL fields carry the verified artifact hash
+for current events; legacy identities keep their original aggregate. Both paths
+verify signatures and bytes before runtime injection and `srcdoc` execution.
+For the schema and removal boundary, see [event migration](https://kehto.github.io/web/docs/migrations/NIP-5D-EVENT-SCHEMA.html).

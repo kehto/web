@@ -72,7 +72,8 @@ describe('@kehto/paja browser host runtime source guards', () => {
 
     expect(source).toContain('injectNappletNamespacePrelude(');
     expect(source).toContain('const domains = environment.capabilities.domains;');
-    expect(source).not.toContain('manifest.requires');
+    expect(source).toContain("resolvedTarget.manifest.requires.filter((domain) => domain !== 'shell' && !domains.includes(domain))");
+    expect(source).not.toContain('domains: resolvedTarget.manifest.requires');
     expect(source).toContain("fetch(new URL('./__kehto/target.html', window.location.href)");
     expect(source).toContain('frame.removeAttribute(\'src\');');
     expect(source).toContain('frame.srcdoc = injectNappletNamespacePrelude(');
@@ -306,8 +307,10 @@ describe('@kehto/paja browser host runtime source guards', () => {
   it('rejects unready stale records and delivers only to live B after catalog replacement', async () => {
     const priorDocument = globalThis.document;
     const priorHTMLElement = globalThis.HTMLElement;
+    const priorHTMLInputElement = globalThis.HTMLInputElement;
     Object.defineProperty(globalThis, 'document', { configurable: true, value: { getElementById: () => null } });
     Object.defineProperty(globalThis, 'HTMLElement', { configurable: true, value: class {} });
+    Object.defineProperty(globalThis, 'HTMLInputElement', { configurable: true, value: class {} });
     const catalog = new InstalledNappletCatalog();
     const resolved = (aggregateHash: string) => ({
       pointer: { type: 'naddr', value: `naddr-${aggregateHash}`, identifier: 'profile-viewer', pubkey: 'a'.repeat(64), kind: 35_129, relays: [] },
@@ -345,13 +348,104 @@ describe('@kehto/paja browser host runtime source guards', () => {
       await task;
       expect((tabA.source as unknown as { postMessage: ReturnType<typeof vi.fn> }).postMessage).not.toHaveBeenCalled();
       expect((tabB.source as unknown as { postMessage: ReturnType<typeof vi.fn> }).postMessage).toHaveBeenCalledTimes(1);
-      expect((tabB.source as unknown as { postMessage: ReturnType<typeof vi.fn> }).postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'inc.event', topic: 'napplet:profile/open', sender: 'feed' }), '*', undefined);
+      expect((tabB.source as unknown as { postMessage: ReturnType<typeof vi.fn> }).postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'intent.deliver', delivery: { convention: 'napplet:profile/open', sender: 'feed', archetype: 'profile', action: 'open', payload: {} } }), '*', undefined);
       expect(catalog.get('profile-viewer')).toMatchObject({ aggregateHash: 'aggregate-b' });
     } finally {
       stopCatalogChanges();
       originRegistry.clear();
       Object.defineProperty(globalThis, 'document', { configurable: true, value: priorDocument });
       Object.defineProperty(globalThis, 'HTMLElement', { configurable: true, value: priorHTMLElement });
+      Object.defineProperty(globalThis, 'HTMLInputElement', { configurable: true, value: priorHTMLInputElement });
+    }
+  });
+
+  it('activates the reused handler tab for every behavior.focus hint', async () => {
+    // `activateRuntimeTab` inspects `document`, `HTMLElement`, and
+    // `HTMLInputElement`. `instanceof` evaluates its right-hand side first, so
+    // every constructor it names must exist even when the lookup returns null.
+    const priorDocument = globalThis.document;
+    const priorHTMLElement = globalThis.HTMLElement;
+    const priorHTMLInputElement = globalThis.HTMLInputElement;
+    Object.defineProperty(globalThis, 'document', { configurable: true, value: { getElementById: () => null } });
+    Object.defineProperty(globalThis, 'HTMLElement', { configurable: true, value: class {} });
+    Object.defineProperty(globalThis, 'HTMLInputElement', { configurable: true, value: class {} });
+    try {
+      const catalog = new InstalledNappletCatalog();
+      const target = {
+        pointer: { type: 'naddr', value: 'naddr-reused', identifier: 'profile-viewer', pubkey: 'a'.repeat(64), kind: 35_129, relays: [] },
+        event: { id: 'b'.repeat(64), pubkey: 'a'.repeat(64), created_at: 1, kind: 35_129, tags: [], content: '', sig: 'c'.repeat(128) },
+        relays: [], blossomServers: [], dTag: 'profile-viewer', aggregateHash: 'd'.repeat(64), indexHtml: '',
+        manifest: { kind: 35_129, pubkey: 'a'.repeat(64), dTag: 'profile-viewer', aggregateHash: 'd'.repeat(64), paths: [], servers: [], requires: ['inc'], archetypes: [{ slug: 'profile', convention: 'napplet:profile/open' }] },
+      } as PajaResolvedPointer;
+      const makeTab = (id: string, dTag: string, aggregateHash: string, windowId: string, resolvedTarget: PajaResolvedPointer) => {
+        const source = { postMessage: vi.fn() } as unknown as Window;
+        const tab = { id, generation: 1, resolvedTarget, frame: { contentWindow: source, remove: vi.fn(), hidden: id !== 'tab-other' }, windowId, status: 'ready' as const, pointerValue: `naddr-${dTag}` };
+        originRegistry.register(source, windowId, { dTag, aggregateHash });
+        return { tab, source };
+      };
+      const otherTarget = {
+        ...target,
+        dTag: 'other-napplet',
+        aggregateHash: 'e'.repeat(64),
+        manifest: { ...target.manifest, dTag: 'other-napplet', aggregateHash: 'e'.repeat(64) },
+      } as PajaResolvedPointer;
+      const other = makeTab('tab-other', 'other-napplet', 'e'.repeat(64), 'window-other', otherTarget);
+      const reused = makeTab('tab-reused', 'profile-viewer', 'd'.repeat(64), 'window-reused', target);
+      const persistTabs = vi.fn();
+      const setStatus = vi.fn();
+      const state = { tabs: [other.tab, reused.tab], activeTabId: 'tab-other', messageLog: [] } as unknown as import('./browser-host.js').PajaBrowserState;
+      const runtime = { catalog, readyWindowIds: new Set<string>(['window-reused']), readyWaiters: new Map(), intentRecords: new WeakMap(), currentWindowId: 'window-other' };
+      const context = { runtime, bridge: { runtime: { destroyWindow: vi.fn(), sessionRegistry: { unregister: vi.fn() } } }, onTabDestroyed: vi.fn(), setStatus, setPointerStatus: vi.fn() } as unknown as import('./browser-host.js').PajaBrowserStateContext;
+      catalog.install(target);
+      const options = createPajaIntentTargetOptions(() => state, () => context, { persistTabs });
+      const controller = new BrowserIntentController({ ...options });
+
+      // Default (focus unset): the reuse path foregrounds the handler tab.
+      await controller.dispatch({ handler: 'profile-viewer', sender: 'feed', archetype: 'profile', action: 'open', convention: 'napplet:profile/open', payload: {} });
+      expect(state.activeTabId).toBe('tab-reused');
+      expect(reused.tab.frame.hidden).toBe(false);
+      expect(other.tab.frame.hidden).toBe(true);
+      expect(context.runtime.currentWindowId).toBe('window-reused');
+      expect(setStatus).toHaveBeenCalledWith(state, 'ready');
+      expect(persistTabs).toHaveBeenCalled();
+      expect((reused.source as unknown as { postMessage: ReturnType<typeof vi.fn> }).postMessage).toHaveBeenCalledTimes(1);
+
+      // focus: false is a hint the tab workspace cannot honor as an unselected
+      // tab; delivery stays visible and the caller's tab stays open.
+      state.activeTabId = 'tab-other';
+      context.runtime.currentWindowId = 'window-other';
+      other.tab.frame.hidden = false;
+      reused.tab.frame.hidden = true;
+      persistTabs.mockClear();
+      setStatus.mockClear();
+      (reused.source as unknown as { postMessage: ReturnType<typeof vi.fn> }).postMessage.mockClear();
+      await controller.dispatch({ handler: 'profile-viewer', sender: 'feed', archetype: 'profile', action: 'open', convention: 'napplet:profile/open', payload: {}, behavior: { focus: false, reuse: true } });
+      expect(state.activeTabId).toBe('tab-reused');
+      expect(other.tab.frame.hidden).toBe(true);
+      expect(reused.tab.frame.hidden).toBe(false);
+      expect(context.runtime.currentWindowId).toBe('window-reused');
+      expect(setStatus).toHaveBeenCalledWith(state, 'ready');
+      expect(persistTabs).toHaveBeenCalled();
+      expect((reused.source as unknown as { postMessage: ReturnType<typeof vi.fn> }).postMessage).toHaveBeenCalledTimes(1);
+
+      // focus: true behaves identically in a single-stage tab workspace.
+      state.activeTabId = 'tab-other';
+      context.runtime.currentWindowId = 'window-other';
+      other.tab.frame.hidden = false;
+      reused.tab.frame.hidden = true;
+      persistTabs.mockClear();
+      setStatus.mockClear();
+      (reused.source as unknown as { postMessage: ReturnType<typeof vi.fn> }).postMessage.mockClear();
+      await controller.dispatch({ handler: 'profile-viewer', sender: 'feed', archetype: 'profile', action: 'open', convention: 'napplet:profile/open', payload: {}, behavior: { focus: true } });
+      expect(state.activeTabId).toBe('tab-reused');
+      expect(reused.tab.frame.hidden).toBe(false);
+      expect(context.runtime.currentWindowId).toBe('window-reused');
+      expect((reused.source as unknown as { postMessage: ReturnType<typeof vi.fn> }).postMessage).toHaveBeenCalledTimes(1);
+    } finally {
+      originRegistry.clear();
+      Object.defineProperty(globalThis, 'document', { configurable: true, value: priorDocument });
+      Object.defineProperty(globalThis, 'HTMLElement', { configurable: true, value: priorHTMLElement });
+      Object.defineProperty(globalThis, 'HTMLInputElement', { configurable: true, value: priorHTMLInputElement });
     }
   });
 });

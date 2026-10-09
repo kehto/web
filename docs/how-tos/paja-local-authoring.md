@@ -61,7 +61,11 @@ pnpm dev
 
 The browser page shows a development console beside one sandboxed target iframe
 in target-url mode. The console includes interface injection toggles, ACL
-controls, signer status, and a filterable message log. Paja fetches the target
+controls, signer status, and a filterable message log. Use the chevron button in
+the top bar to collapse the console to the left when you want the full window
+for the app; the same button restores it, and Paja remembers the choice per
+browser origin. Collapsing never reloads the target, so the running napplet
+keeps its shell state. Paja fetches the target
 HTML into injected `srcdoc` so `window.napplet.<domain>` exists before app
 bootstrap, while target assets and HMR still resolve through the framework dev
 server. The runtime reload button reinitializes the Kehto shell state around the
@@ -272,6 +276,6 @@ authorization.
 
 Paja opens or reuses the target, waits for the generation's registered source
 to send `shell.ready`, verifies that generation is still current, and makes one
-target-only `inc.event` for the selected convention. The final result identifies
+target-only `intent.deliver` for the selected convention. The final result identifies
 the handled target. Replacement, readiness failure, and terminal send paths are
 controller-owned.

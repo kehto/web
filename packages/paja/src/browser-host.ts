@@ -7,6 +7,7 @@ import {
   type ShellCapabilities,
 } from '@kehto/shell';
 
+import { installPajaConsolePanel } from './browser-console-panel.js';
 import {
   createDevTheme,
   createPajaAdapter,
@@ -24,6 +25,7 @@ import {
   createPajaIntentTargetOptions,
   markRuntimeTabReady,
   pajaPointerResolverOptions,
+  recordInstalledIntentSurface,
   subscribePajaIntentCatalogChanges,
 } from './browser-intent-host.js';
 import { InstalledNappletCatalog } from './installed-napplet-catalog.js';
@@ -415,11 +417,7 @@ async function loadRuntimePointer(
     runtime.catalog.install(resolvedTarget);
     const pointerStatus = `${resolvedTarget.dTag}:${resolvedTarget.aggregateHash.slice(0, 12)}`;
     setPointerStatus(state, pointerStatus);
-    appendPajaMessageLog(state, 'paja', {
-      type: 'paja.pointer.resolved',
-      dTag: resolvedTarget.dTag,
-      aggregateHash: resolvedTarget.aggregateHash,
-    });
+    recordInstalledIntentSurface(state, resolvedTarget);
     const duplicate = options.skipDuplicatePrompt ? undefined : state.tabs.find((tab) => tab.key === resolvedTargetKey(resolvedTarget));
     if (duplicate) {
       const choice = await showDuplicatePointerDialog();
@@ -576,6 +574,7 @@ function createPajaBrowserState(context: PajaBrowserStateContext): PajaBrowserSt
 }
 
 async function installPajaHost(): Promise<void> {
+  const disposeConsolePanel = installPajaConsolePanel();
   const config = await readLatestConfig(readConfig());
   const stage = getStage();
   const frame = config.target.mode === 'runtime-pointer' ? null : getFrame();
@@ -667,6 +666,7 @@ async function installPajaHost(): Promise<void> {
   window.addEventListener('pagehide', () => confirmationController.dispose(), { once: true });
   window.addEventListener('pagehide', () => notifyController?.dispose(), { once: true });
   window.addEventListener('pagehide', () => configController?.dispose(), { once: true });
+  window.addEventListener('pagehide', disposeConsolePanel, { once: true });
 
   window.__KEHTO_PAJA__ = state;
 

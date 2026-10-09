@@ -6,7 +6,7 @@ test.describe.configure({ mode: 'serial' });
 
 const PROFILE_PUBKEY = 'b'.repeat(64);
 
-test('dispatches the feed profile convention to a cold target through canonical INC', async ({ page }) => {
+test('dispatches the feed profile convention to a cold target through intent.deliver', async ({ page }) => {
   test.setTimeout(120_000);
   await demoBeforeEach(page);
 
@@ -48,7 +48,7 @@ test('dispatches the feed profile convention to a cold target through canonical 
   expect(closedSource).toBe(true);
 
   // The completed request must revive the verified profile handler and deliver
-  // its stable convention through the ordinary runtime-attested INC carrier.
+  // its stable convention through the runtime-attested intent.deliver envelope.
   await expect(page.locator('#profile-viewer-frame-container iframe')).toHaveCount(1, { timeout: 15_000 });
   await expect(page.frameLocator('#profile-viewer-frame-container iframe').locator('#profile-pubkey'))
     .toHaveText(PROFILE_PUBKEY, { timeout: 15_000 });
@@ -63,7 +63,7 @@ test('dispatches the feed profile convention to a cold target through canonical 
       }>;
     };
     return (host.__getPlaygroundEnvelopeTapForTest__?.() ?? [])
-      .filter((message) => message.type === 'inc.event').length;
+      .filter((message) => message.type === 'intent.deliver').length;
   }), { timeout: 15_000 }).toBe(1);
 
   const messages = await page.evaluate(() => {
@@ -78,16 +78,15 @@ test('dispatches the feed profile convention to a cold target through canonical 
     return host.__getPlaygroundEnvelopeTapForTest__?.() ?? [];
   });
 
-  const deliveries = messages.filter((message) => message.type === 'inc.event');
+  const deliveries = messages.filter((message) => message.type === 'intent.deliver');
   expect(deliveries).toHaveLength(1);
   expect(deliveries[0]).toMatchObject({
     direction: 'shell->napplet',
   });
   expect(deliveries[0]?.event).toMatchObject({
-    type: 'inc.event',
-    topic: 'napplet:profile/open',
-    sender: 'feed',
-    payload: { pubkey: PROFILE_PUBKEY },
+    type: 'intent.deliver',
+    delivery: { convention: 'napplet:profile/open', archetype: 'profile', action: 'open',
+      sender: 'feed', payload: { pubkey: PROFILE_PUBKEY } },
   });
-  expect(messages.filter((message) => message.type === 'intent.deliver')).toHaveLength(0);
+  expect(messages.filter((message) => message.type === 'inc.event')).toHaveLength(0);
 });

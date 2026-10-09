@@ -1,15 +1,27 @@
 # `@kehto/nip/5d` — NIP-5D napplet manifest resolution
 
-Resolve content-addressed [NIP-5D](https://github.com/dskvr/nips/blob/nip/5d/5D.md)
-napplets: parse the manifest event, verify its signature, verify the
-[NIP-5A](https://github.com/nostr-protocol/nips/pull/2287) aggregate (also at
-`@kehto/nip/5a`), fetch and verify each blob from Blossom, and assemble the
-verified `/index.html`.
+Resolve signed [NIP-5D](https://github.com/dskvr/nips/blob/nip/5d/5D.md)
+manifests and verify the self-contained `/index.html` blob against the event's
+single `x` hash. Identity is `(dTag, artifactHash)`, computed from verified bytes.
+`aggregateHash` remains a compatibility alias in existing host/cache/ACL APIs.
 
-The napplet's identity is the `(dTag, aggregateHash)` tuple **computed from the
-verified bytes** — never accepted from a host or gateway. Any failure throws a
-`NappletResolutionError`; the caller must fail closed and never render unverified
-bytes.
+Current events use `content` for the plain-text description, `z` roles, `i`
+accepted intents and parameter names, `R` required domains, and `O` optional
+domains. The parser preserves those declarations and projects independent `z`/`i`
+sets into the existing archetype/convention catalog shape. They grant no authority.
+Malformed or unsupported icons are ignored; Kehto retains generic artwork and
+does not render unverified icon URLs. Snapshot lineage is metadata, never a
+resolution dependency. HTML metadata cannot override the signed event.
+
+Legacy `path` + `["x", hash, "aggregate"]` events remain supported by
+`legacy-manifest.ts`. Only that adapter parses `requires`, `description`, and
+paired `archetype` tags or verifies NIP-5A aggregates. Format selection is explicit;
+validation failures never retry another schema. Removing the adapter and its
+selection branch retires legacy events without rewriting loaders or caches.
+See [migration policy](https://kehto.github.io/web/docs/migrations/NIP-5D-EVENT-SCHEMA.html).
+
+Any verification failure throws `NappletResolutionError`; never render unverified
+bytes. Both formats retain signature, blob-tamper, cache, and host regressions.
 
 ## Kinds
 
@@ -26,7 +38,7 @@ Distinct kinds keep napplets out of nsite gateway resolution.
 | Export | Description |
 |--------|-------------|
 | `NAPPLET_KINDS`, `isNappletManifestKind(kind)` | the three kinds + a guard |
-| `parseNappletManifest(event)` | event → `{ dTag, paths, aggregateHash, servers, requires, title?, description? }` |
+| `parseNappletManifest(event)` | event → `normalized identity, paths, required/optional domains, roles, intents, and metadata` |
 | `verifyManifestSignature(event)` | verify the manifest's Nostr signature |
 | `verifyBlobHash(bytes, sha256)` | `true` iff bytes hash to `sha256` |
 | `fetchBlob(servers, sha256, fetchBytes)` | fetch a blob from Blossom by hash, re-verifying it (servers untrusted) |
@@ -45,7 +57,7 @@ iframe.srcdoc = napplet.indexHtml;          // opaque origin preserved
 ```
 
 The gateway, if used, is only an accelerator: `resolveNapplet` re-verifies every
-blob hash and the aggregate, so a lying server or gateway is rejected.
+blob hash (and the aggregate for legacy events), so a lying server or gateway is rejected.
 
 ## Optional artifact cache
 
@@ -60,7 +72,7 @@ const napplet = await resolveNapplet({ event, fetchBlob, cache });
 ```
 
 The cache is only an optimization. `resolveNapplet()` still verifies the
-manifest signature and aggregate on every call, and cached blob bytes are
+manifest signature and content identity on every call, and cached blob bytes are
 re-hashed before use. If Cache Storage cannot be opened, or a host requires
 storage estimates and the browser cannot provide them, `openNappletArtifactCache`
 returns `undefined`; pass that through to keep network-only loading.

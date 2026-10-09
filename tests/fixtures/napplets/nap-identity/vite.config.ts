@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [
     nip5aManifest({
       nappletType: 'fixture-nap-identity',
+      description: 'fixture-nap-identity protocol test fixture',
     }),
   ],
   build: {
