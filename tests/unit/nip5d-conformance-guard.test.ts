@@ -35,7 +35,7 @@ const expectedRequires: Record<(typeof playgroundNapplets)[number], readonly str
   'cvm-relatr': ['cvm', 'theme'],
   feed: ['identity', 'intent', 'relay', 'resource', 'theme'],
   preferences: ['storage', 'theme'],
-  'profile-viewer': ['inc', 'relay', 'resource', 'theme'],
+  'profile-viewer': ['intent', 'relay', 'resource', 'theme'],
   'resource-demo': ['resource', 'theme'],
   toaster: ['notify', 'theme'],
 };
@@ -496,7 +496,7 @@ describe('NIP-5D conformance static guards', () => {
   it('keeps active intent and manifest surfaces on exact convention contracts', () => {
     const publishedIntentTypes = readRepoFile(installedCoreDist);
     const resolver = readRepoFile('packages/services/src/catalog-intent-resolver.ts');
-    const manifestParser = readRepoFile('packages/nip/src/5d/index.ts');
+    const manifestParser = readRepoFile('packages/nip/src/5d/current-manifest.ts');
     const playgroundManifest = readRepoFile('apps/playground/napplets/shared-vite-config.ts');
     const paja = readRepoFile('packages/paja/src/browser-adapter.ts');
     const pajaHost = readRepoFile('packages/paja/src/browser-host.ts');
@@ -509,7 +509,7 @@ describe('NIP-5D conformance static guards', () => {
       sourceBetween(
         paja,
         'if (getSimulation().intent.enabled && intentHost)',
-        'services.link = createLinkService',
+        'return adapter;',
       ),
     ].join('\n');
     const forbiddenCanonicalField = /\b(?:protocol|protocols)\s*(?:\?|):/;
@@ -923,4 +923,13 @@ describe('NIP-5D conformance static guards', () => {
     expect(namespace).toContain('function closeChannelState');
     expect(namespace).toContain("reason: 'buffer overflow'");
   });
+});
+
+it('bounds the temporary intent delivery binding to the protected host and profile consumer', () => {
+  const profile = readFileSync('apps/playground/napplets/profile-viewer/src/main.ts', 'utf8');
+  const policy = readFileSync('docs/policies/NIP-5D-CONFORMANCE.md', 'utf8');
+  expect(profile).toContain('intent.onDelivery(');
+  expect(profile).not.toContain("from '@napplet/nap/inc/sdk'");
+  expect(policy).toContain('INTENT_BINDING');
+  expect(policy).toContain('25b29ee49e5bff8ebfe031f4b76dce98705c8b7e');
 });

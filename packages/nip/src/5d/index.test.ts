@@ -132,7 +132,7 @@ describe('parseNappletManifest', () => {
 
   it('rejects a manifest with no aggregate x tag', () => {
     const { event } = buildManifest({ noAggregateTag: true });
-    expect(() => parseNappletManifest(event)).toThrow(/aggregate/i);
+    expect(() => parseNappletManifest(event)).toThrow(/x tag/i);
   });
 
   it.each([NAPPLET_KIND_SNAPSHOT, NAPPLET_KIND_ROOT])(

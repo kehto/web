@@ -133,15 +133,15 @@ describe('PlaygroundIntentController', () => {
     });
   });
 
-  it('composes verified catalog selection with canonical INC convention delivery', () => {
+  it('composes verified catalog selection with canonical intent delivery', () => {
     const main = readFileSync(new URL('../../apps/playground/src/main.ts', import.meta.url), 'utf8');
     const shellHost = readFileSync(new URL('../../apps/playground/src/shell-host.ts', import.meta.url), 'utf8');
     expect(main).toContain('createCatalogIntentResolver');
     expect(main).toContain('createIntentService');
     expect(main).toContain('createPlaygroundIntentTargetOptions');
     expect(shellHost).toContain('markIntentTargetReady(windowId, sourceWindow)');
-    expect(shellHost).toContain("type: 'inc.event'");
-    expect(shellHost).not.toContain("type: 'intent.deliver'");
+    expect(shellHost).not.toContain("type: 'inc.event'");
+    expect(shellHost).toContain("type: 'intent.deliver'");
   });
 
   it('does not reuse a same-dTag frame after its verified aggregate is replaced', () => {

@@ -278,3 +278,26 @@ describe('CacheStorageNappletArtifactCache', () => {
     })).resolves.toBeUndefined();
   });
 });
+
+
+it('reuses verified blobs across schema upgrades while keeping both content identities', async () => {
+  const cache = createCache();
+  const legacy = buildManifest();
+  await resolveNapplet({ event: legacy.event, fetchBlob: fetcherFor(legacy.blobs), cache });
+  const current = finalizeEvent({
+    kind: NAPPLET_KIND_NAMED, created_at: legacy.event.created_at + 1,
+    content: 'Current chat artifact', tags: [['d', 'chat'], ['x', legacy.index.hash], ['O', 'theme']],
+  }, SK);
+  const calls: string[] = [];
+  const resolved = await resolveNapplet({ event: current, fetchBlob: fetcherFor(legacy.blobs, calls), cache });
+  expect(calls).toEqual([]);
+  expect(resolved.artifactHash).toBe(legacy.index.hash);
+  const snapshot = await cache.snapshotIndex();
+  expect(snapshot.aggregates[`chat:${legacy.aggregate}`].blobHashes).toEqual([legacy.index.hash, legacy.asset.hash]);
+  expect(snapshot.aggregates[`chat:${legacy.index.hash}`].blobHashes).toEqual([legacy.index.hash]);
+  expect(snapshot.blobs[legacy.index.hash].refCount).toBe(2);
+  expect(snapshot.coordinates[coordinateKey(NAPPLET_KIND_NAMED, current.pubkey, 'chat')].aggregateHash).toBe(legacy.index.hash);
+  const forged = JSON.parse(JSON.stringify(current)) as NostrEvent;
+  forged.content = 'tampered';
+  await expect(resolveNapplet({ event: forged, fetchBlob: fetcherFor(legacy.blobs), cache })).rejects.toMatchObject({ code: 'invalid-signature' });
+});

@@ -33,7 +33,19 @@ implementation authority. `RUNTIME-SPEC.md` is internal runtime guidance.
   `b3f0007867eac109fa4917fac9c285d3b7cc6155`; and Version Packages #198 head
   `a79e7f4638f70f4557d4183faee9348847bb8cc7`, merged as release source
   `dc1d24153c759152b6ba31a6ec9bea967798f2df`. The current exact line is core
-  `0.32.0`, nap `0.32.0`, shim `0.30.0`, SDK `0.28.0`, and Vite plugin `0.14.1`.
+  `0.32.0`, nap `0.32.0`, shim `0.30.0`, SDK `0.28.0`, and Vite plugin `0.15.0`.
+
+### Current event schema and retained compatibility
+
+Checked NIP-5D `dskvr/nips@020cb8b33a9e4c6b8ca4b2f9d0ed0a67843b68f7/5D.md`
+and NAP-INTENT/NAP-SHELL at
+`napplet/naps@a040914b4bbd3a5cd8a14b0f316a723c968ebfb2`. Current writer source:
+`napplet/web@831d3dd5056b84bc03982966279ed8b9167152f8` (Vite plugin 0.15.0).
+Current `x` artifact hashes, `content`, `z`/`i`, and `R`/`O` are authoritative.
+Legacy `path`/aggregate events remain a temporary compatibility extension,
+isolated in `packages/nip/src/5d/legacy-manifest.ts`. Never retry malformed current
+events through that adapter. Keep paired-schema tests until it is removed.
+See [migration and removal policy](../migrations/NIP-5D-EVENT-SCHEMA.md).
 
 ### Active NAP-RELAY boundary
 
@@ -84,13 +96,27 @@ lifecycle data in order, bounded overflow closure, and deterministic teardown.
 upstream-resolution reply](https://github.com/kehto/web/issues/203#issuecomment-5060904495);
 the superseded opener-only view must not be restored.
 
-NAP-INTENT uses the merged structured `IntentRequest` and final `IntentResult`
-contract. The host resolves a verified manifest candidate, completes target
-creation/readiness and convention dispatch, then returns `handled`, `handler`,
-`windowId`, and `convention`. There is no `intent.deliver` or `onDelivery`
-surface. Kehto carries the selected convention to the target through the
-ordinary runtime-attested `inc.event` path; eligible intent targets therefore
-declare `inc`.
+### Intent delivery boundary
+
+Checked `naps/NAP-INTENT.md` at `napplet/naps@25b29ee49e5bff8ebfe031f4b76dce98705c8b7e`
+(delivery change merged in `389c1c2aa2c8b70610f9f53f2c0dd097e313dcea`).
+Paja and playground send one parent-attested `intent.deliver` containing
+`delivery: { sender, archetype, action, convention, payload? }` after source-bound
+readiness. The injected `intent.onDelivery` buffers until registration, uses
+closeable subscriptions, and does not require INC. It accepts only the parent.
+
+Packaged `@napplet/nap@0.32.0` lacks this API. The protected shell binding and the
+profile demo's local delivery type are narrow exceptions until the package
+upgrade; see **INTENT_BINDING** in [the compatibility register](../compatibility.md).
+The demo calls the binding directly and does not install its own wire receiver.
+Legacy INC listeners are adapted locally with `KEHTO_COMPAT_INTENT_INC`, only
+when no canonical listener is registered. Hosts never send two wire envelopes.
+This is a temporary Kehto compatibility policy, not an additional NAP transport.
+
+Delivery aligns with the checked spec. Structured invocation, final
+`handled`/`handler`/`windowId` results, dTag-only catalog identities, and broader
+upstream NAP changes are intentionally deferred to the user's separate follow-up
+PR. This change does not claim full conformance to current NAP-INTENT.
 
 ### Active NAP-IDENTITY and NAP-THEME boundary
 

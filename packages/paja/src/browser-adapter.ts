@@ -1,3 +1,4 @@
+import { resolveShellEnvironment } from '@kehto/shell';
 import type { NostrEvent, NostrFilter } from '@napplet/core';
 import type {
   SessionEntry,
@@ -314,7 +315,6 @@ function createDevServices(
   getConfiguredBlossomServers: () => readonly string[],
   uploadRuntime?: PajaUploadRuntime,
   signerProvider?: PajaSignerProvider,
-  intentHost?: PajaIntentHost,
   getIdentity?: PajaIdentityProvider,
   userActivation?: PajaUserActivationHandler,
   notifyOptions?: NotifyServiceOptions,
@@ -452,18 +452,6 @@ function createDevServices(
     services.upload = createUploadService({
       uploader: uploadRuntime.uploader,
       uploadInfo: uploadRuntime.uploadInfo as UploadInfoProvider,
-    });
-  }
-  if (getSimulation().intent.enabled && intentHost) {
-    const resolver = createCatalogIntentResolver({
-      loadCatalog: () => intentHost.catalog.intentCatalog(),
-      targets: intentHost.controller,
-      getDefaultHandler: intentHost.getDefaultHandler,
-      chooseHandler: intentHost.chooseHandler,
-      authorizeExplicitHandler: intentHost.authorizeExplicitHandler,
-    });
-    services.intent = createIntentService({
-      resolver,
     });
   }
   if (
@@ -643,7 +631,6 @@ export function createPajaAdapter(
     getConfiguredBlossomServers,
     uploadRuntime,
     signerProvider,
-    intentHost,
     resolveIdentity,
     userActivation,
     notifyOptions,
@@ -666,7 +653,7 @@ export function createPajaAdapter(
       onEnvironmentChanged?.();
     }
   });
-  return {
+  const adapter: PajaShellAdapter = {
     ready,
     setWindowBlossomServers: serviceBundle.setWindowBlossomServers,
     relayPool: createPajaRelayHooks(relayBackend, getSimulation, relayConfig),
@@ -710,6 +697,21 @@ export function createPajaAdapter(
       verifyEvent: async (event) => verifyEvent(event as Parameters<typeof verifyEvent>[0]),
     },
   };
+  if (getSimulation().intent.enabled && intentHost) {
+    const resolver = createCatalogIntentResolver({
+      loadCatalog: () => intentHost.catalog.intentCatalog((record) =>
+        resolveShellEnvironment(adapter, record).capabilities.domains.includes('intent'),
+      ),
+      targets: intentHost.controller,
+      getDefaultHandler: intentHost.getDefaultHandler,
+      chooseHandler: intentHost.chooseHandler,
+      authorizeExplicitHandler: intentHost.authorizeExplicitHandler,
+    });
+    services.intent = createIntentService({
+      resolver,
+    });
+  }
+  return adapter;
 }
 
 /**

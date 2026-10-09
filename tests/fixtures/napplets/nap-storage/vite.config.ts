@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [
     nip5aManifest({
       nappletType: 'fixture-nap-storage',
+      description: 'fixture-nap-storage protocol test fixture',
     }),
   ],
   build: {

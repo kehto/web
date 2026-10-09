@@ -1,7 +1,7 @@
 /**
  * manifest-intent-catalog.ts — signed-manifest → NAP-INTENT catalog adapter.
  *
- * Adapts a resolved NIP-5A/5D napplet manifest's archetype tags into an
+ * Adapts a resolved NIP-5D manifest's normalized routing declarations into an
  * {@link IntentCatalogEntry} — the shape `createCatalogIntentResolver.loadCatalog`
  * consumes. This lets NAP-INTENT availability and handler candidacy flow from
  * verified manifest tags rather than host-injected catalog data.
@@ -28,7 +28,7 @@ export interface ManifestArchetypeInput {
   /** Optional human-readable title from the manifest. */
   title?: string;
   /**
-   * Ordered convention contracts from the manifest's `archetype` tags.
+   * Normalized current z/i combinations or exact legacy archetype pairs.
    */
   archetypes: Array<{ slug: string; convention: string }>;
 }
@@ -66,7 +66,7 @@ function actionFromConvention(convention: string): string {
  * ```
  */
 export function manifestToIntentCatalogEntry(manifest: ManifestArchetypeInput): IntentCatalogEntry {
-  const archetypes: Record<string, IntentArchetypeSupport> = {};
+  const archetypes: Record<string, IntentArchetypeSupport> = Object.create(null);
   for (const { slug, convention } of manifest.archetypes) {
     if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
       throw new TypeError('manifest archetype slug is invalid');

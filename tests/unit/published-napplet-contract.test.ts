@@ -7,7 +7,7 @@ import type {
   IntentRequest,
   IntentResult,
 } from '../../node_modules/.pnpm/@napplet+nap@0.32.0/node_modules/@napplet/nap/dist/intent/index.js';
-import type { Nip5aManifestOptions } from '../../node_modules/.pnpm/@napplet+vite-plugin@0.14.1_typescript@5.9.3_vite@6.4.2_jiti@2.6.1_yaml@2.8.3_/node_modules/@napplet/vite-plugin/dist/index.js';
+import type { Nip5aManifestOptions } from '../../node_modules/.pnpm/@napplet+vite-plugin@0.15.0_typescript@5.9.3_vite@6.4.2_jiti@2.6.1_yaml@2.8.3_/node_modules/@napplet/vite-plugin/dist/index.js';
 
 const ROOT = process.cwd();
 const NAP_INTENT_REF = '5ac0490461ca6fec2f0d2e45b4835cf9bc08de24';
@@ -29,7 +29,7 @@ const PACKAGE_MATRIX = {
   '@napplet/nap': ['0.32.0', 'packages/nap'],
   '@napplet/shim': ['0.30.0', 'packages/shim'],
   '@napplet/sdk': ['0.28.0', 'packages/sdk'],
-  '@napplet/vite-plugin': ['0.14.1', 'packages/vite-plugin'],
+  '@napplet/vite-plugin': ['0.15.0', 'packages/vite-plugin'],
 } as const;
 
 const REQUEST = {
@@ -96,7 +96,7 @@ describe('published Napplet convention contract', () => {
       importInstalled('@napplet/nap', '0.32.0', 'dist/intent/index.js'),
       importInstalled('@napplet/nap', '0.32.0', 'dist/resource/index.js'),
       importInstalled('@napplet/sdk', '0.28.0', 'dist/index.js'),
-      importInstalled('@napplet/vite-plugin', '0.14.1', 'dist/index.js'),
+      importInstalled('@napplet/vite-plugin', '0.15.0', 'dist/index.js'),
     ]);
 
     expect(REQUEST).toMatchObject({ convention: 'napplet:profile/open' });
@@ -211,7 +211,7 @@ describe('published Napplet convention contract', () => {
 
   it('requires the released structured invoke result and accepts orthogonal role/convention metadata', () => {
     const intentTypes = packageText('@napplet/nap', '0.32.0', 'dist/intent/types.d.ts');
-    const viteDistribution = packageText('@napplet/vite-plugin', '0.14.1', 'dist/index.js');
+    const viteDistribution = packageText('@napplet/vite-plugin', '0.15.0', 'dist/index.js');
 
     expect(interfaceBody(intentTypes, 'IntentInvokeResultMessage')).toContain('result: IntentResult;');
     expect(viteDistribution).toContain('archetype convention must be a queryless napplet:<archetype>/<intent> identity');

@@ -591,7 +591,13 @@ function nappletNamespacePrelude(domains: string[]): void {
           fire({ type: 'inc.subscribe', id: subscriptionId, topic: stableTopic });
         }
         state.handlers.add(callback);
+        const offLegacy = intentDelivery?.onLegacy(stableTopic, (delivery) => callback({
+          topic: delivery.convention,
+          sender: delivery.sender,
+          ...(Object.prototype.hasOwnProperty.call(delivery, 'payload') ? { payload: delivery.payload } : {}),
+        }));
         return subscriptionHandle(() => {
+          offLegacy?.();
           const current = topicStates.get(stableTopic);
           if (!current) return;
           current.handlers.delete(callback);
@@ -1246,6 +1252,75 @@ function nappletNamespacePrelude(domains: string[]): void {
     };
   }
 
+  // NAP-INTENT@25b29ee: the packaged 0.32 binding lacks delivery support.
+  // Keep this receiver live before shell.ready, independently of listener timing.
+  function makeIntentDelivery() {
+    type Delivery = Readonly<{
+      sender: string; archetype: string; action: string; convention: string; payload?: unknown;
+    }>;
+    type Handler = (delivery: Delivery) => void;
+    const handlers = new Set<Handler>();
+    const legacy = new Map<Handler, string>();
+    const pending: Delivery[] = [];
+    let draining = false;
+    let warned = false;
+
+    function drain(): void {
+      if (draining) return;
+      draining = true;
+      try {
+        while (pending.length > 0) {
+          const index = handlers.size > 0 ? 0 : pending.findIndex((delivery) =>
+            [...legacy.values()].includes(delivery.convention));
+          if (index < 0) break;
+          const [delivery] = pending.splice(index, 1);
+          const canonical = handlers.size > 0;
+          const recipients = canonical ? [...handlers] : [...legacy.entries()]
+            .filter(([, topic]) => topic === delivery.convention).map(([handler]) => handler);
+          if (!canonical && !warned) {
+            warned = true;
+            console.warn('[KEHTO_COMPAT_INTENT_INC] Intent delivered to a legacy INC listener. Migrate to window.napplet.intent.onDelivery. See docs/compatibility.md.');
+          }
+          for (const handler of recipients) {
+            try { handler(delivery); } catch (error) { console.error('Intent delivery handler failed', error); }
+          }
+        }
+      } finally {
+        draining = false;
+      }
+    }
+
+    listen((event) => {
+      if (!isParentMessage(event)) return;
+      const message = event.data as RuntimeMessage | null;
+      if (!message || message.type !== 'intent.deliver') return;
+      const value = message.delivery;
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return;
+      const delivery = value as Record<string, unknown>;
+      if (typeof delivery.sender !== 'string' || typeof delivery.archetype !== 'string'
+        || typeof delivery.action !== 'string' || typeof delivery.convention !== 'string') return;
+      pending.push(Object.freeze({
+        sender: delivery.sender, archetype: delivery.archetype,
+        action: delivery.action, convention: delivery.convention,
+        ...(Object.prototype.hasOwnProperty.call(delivery, 'payload') ? { payload: delivery.payload } : {}),
+      }));
+      drain();
+    });
+    return {
+      onDelivery(handler: Handler) {
+        if (typeof handler !== 'function') throw new TypeError('Intent delivery handler must be a function');
+        handlers.add(handler);
+        drain();
+        return subscriptionHandle(() => handlers.delete(handler));
+      },
+      onLegacy(topic: string, handler: Handler) {
+        legacy.set(handler, topic);
+        drain();
+        return () => legacy.delete(handler);
+      },
+    };
+  }
+
   function makeIntent(): Record<string, unknown> {
     const hasOwn = (value: Record<string, unknown>, key: string): boolean => (
       Object.prototype.hasOwnProperty.call(value, key)
@@ -1334,6 +1409,7 @@ function nappletNamespacePrelude(domains: string[]): void {
       );
     };
     return {
+      onDelivery: intentDelivery!.onDelivery,
       invoke,
       open: (
         archetype: string,
@@ -1536,6 +1612,7 @@ function nappletNamespacePrelude(domains: string[]): void {
     };
   }
 
+  const intentDelivery = allowed.has('intent') ? makeIntentDelivery() : undefined;
   const shell = makeShell();
   let inc: Record<string, unknown> | undefined;
   let identity: Record<string, unknown> | undefined;

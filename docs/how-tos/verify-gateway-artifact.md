@@ -14,8 +14,10 @@ pnpm --filter @kehto/playground preview --port 4174
 
 - Each napplet emits `dist/index.html`.
 - Each napplet emits `dist/.nip5a-manifest.json`.
-- The manifest has the expected `requires` tags.
-- The shell loads `/napplet-gateway/<dTag>/<aggregateHash>/index.html`.
+- The manifest has the expected `R` requirements and optional `O` declarations.
+- The manifest has one `x` matching the SHA-256 of the final `index.html`.
+- The shell verifies relay events and Blossom bytes, then assigns iframe `srcdoc`.
+- Runtime injection stays outside the verified artifact bytes.
 - The iframe remains opaque-origin.
 
 Do not treat direct `/napplets/<name>/` static serving as the canonical proof path.

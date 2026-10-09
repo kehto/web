@@ -91,6 +91,37 @@ In the SAME branch/PR as the code change:
   (target 100/100) before shipping. `.aislop/config.yml` is pinned; a new rule disable
   needs a documented, justified reason. Re-assess it after later edits — not just once.
 
+#### Backwards compatibility: warn, track, test, retire
+
+When backwards compatibility is maintained, **always add warnings, track the
+compatibility path, and test it in the same PR**. Treat every retained old API,
+wire shape, alias, persisted-data format, or fallback as an explicit migration
+commitment.
+
+- **Warn on use:** emit an actionable warning when the old path is actually used
+  (for example, `console.warn` in a browser). Give it a stable identifier, name the
+  replacement, and state its rate limit/lifetime so repeated calls do not flood
+  logs. Keep canonical usage quiet and do not log payloads or secrets.
+- **Track centrally:** create or update `docs/compatibility.md`. Each entry must
+  record its identifier, owning package, old and replacement behavior, source and
+  warning sites, regression tests, reason for retention, and removal prerequisites.
+  Record any release or upstream dependency. Inventory pre-existing gaps as debt;
+  do not silently treat them as compliant.
+- **Test both paths:** cover preserved legacy behavior and its warning (identifier,
+  actionable text, and frequency), canonical behavior without that warning, and
+  relevant security/lifecycle boundaries. Add negative tests when retiring an old
+  input or API. A static source-string check alone does not prove runtime behavior.
+- **Handle diagnostic limits explicitly:** erased types, plain re-exports, and
+  additive output fields may have no observable old-use boundary. Record that
+  limitation, add deprecation/build-time guidance and suitable type/API tests, and
+  identify a host boundary for a diagnostic where one exists. Keep pure modules
+  pure by reporting migrations through their host integration. Do not invent a
+  runtime warning that fires on every canonical call.
+- **Retire deliberately:** migrate supported consumers, announce the removal
+  release, then delete the bounded compatibility code and update tests/docs and
+  changesets together. Retain the register entry with the removal PR/release.
+  Silence from warnings alone is not proof that external consumers migrated.
+
 #### NAP / NIP-5D conformance guardrails
 
 Before changing code, tests, docs, issue state, or PR review guidance that touches a

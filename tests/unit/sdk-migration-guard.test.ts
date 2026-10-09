@@ -53,7 +53,7 @@ const protocolPackageVersions: Record<(typeof protocolPackageNames)[number], str
   '@napplet/nap': '0.32.0',
   '@napplet/sdk': '0.28.0',
   '@napplet/shim': '0.30.0',
-  '@napplet/vite-plugin': '0.14.1',
+  '@napplet/vite-plugin': '0.15.0',
 };
 
 const protocolAuthorities = Object.freeze({

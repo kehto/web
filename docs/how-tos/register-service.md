@@ -20,7 +20,11 @@ bridge.runtime.registerService('notify', createNotifyService({
 
 - Register under the NAP domain name: `identity`, `relay`, `keys`, `media`, `notify`, `theme`, `config`, `resource`, or host-specific extension.
 - Keep host callbacks behind service options.
-- Register before iframe navigation when the service is required by manifest `requires`.
+- Register before iframe navigation when the domain is declared in a current NIP-5D `R` tag (`manifest.requires` after parsing).
 - Tear down host-owned subscriptions when the shell bridge is destroyed.
 - Do not register a service merely to advertise a capability: a backendless
   notify service rejects delivery and permission requests by design.
+
+Current manifests use `O` tags for optional integrations. Their absence must not
+block loading, and neither `R` nor `O` grants capabilities. The `requires` wire
+tag belongs only to legacy aggregate-manifest compatibility.

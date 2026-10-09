@@ -6,13 +6,14 @@ import {
   type BrowserIntentGeneration,
 } from './browser-intent-controller.js';
 import {
+  activateRuntimeTab,
   addRuntimeTab,
   closeRuntimeTab,
   renderRuntimeTabs,
   runtimeTabGenerationId,
   type PajaRuntimeTab,
 } from './browser-runtime-tabs.js';
-import { createPajaPostMessageProxy } from './browser-devtools.js';
+import { createPajaPostMessageProxy, appendPajaMessageLog } from './browser-devtools.js';
 import { getPajaRelayUrls } from './browser-relay-runtime.js';
 import {
   matchesInstalledNappletRecord,
@@ -72,6 +73,18 @@ export function createPajaIntentTargetOptions(
         && params.behavior?.newWindow !== true
         && params.behavior?.reuse !== false
       ) {
+        // A delivered intent is a navigation, so the handler surface must become
+        // the visible one, matching the new-tab path below. Paja is a single-stage
+        // tab workspace: a tab is either selected or invisible, so an unselected
+        // handler would silently receive a payload the user cannot see. NAP-INTENT
+        // defines `behavior` fields as hints that "runtime workspace and lifecycle
+        // policy remain authoritative"
+        // (`napplet/naps`, NAP-INTENT.md, draft `nap-intent` a718915d; "Focus the
+        // target surface" on master a040914b), so `behavior.focus` — `false`
+        // included — does not demote delivery to a hidden tab. Reuse still leaves
+        // the caller's tab open, so nothing is replaced or hidden from the tab bar.
+        activateRuntimeTab(state, context, current.id);
+        effects.persistTabs?.(state);
         return bindPajaIntentGeneration(current, record, context.runtime);
       }
 
@@ -132,13 +145,43 @@ export function createPajaIntentTargetOptions(
         throw new Error('intent target source is no longer registered');
       }
       createPajaPostMessageProxy(source, state, tab.windowId).postMessage({
-        type: 'inc.event',
-        topic: params.convention,
-        sender: params.sender,
-        ...(params.payload === undefined ? {} : { payload: params.payload }),
+        type: 'intent.deliver',
+        delivery: {
+          sender: params.sender,
+          archetype: params.archetype,
+          action: params.action,
+          convention: params.convention,
+          ...(params.payload === undefined ? {} : { payload: params.payload }),
+        },
       }, '*');
     },
   };
+}
+
+/**
+ * Record one verified napplet's declared intent surface in the Paja message log.
+ *
+ * Catalog eligibility is filtered separately by the target intent domain.
+ * INC declarations are not required for canonical intent delivery.
+ *
+ * @param state - Current Paja browser state.
+ * @param resolvedTarget - Resolver-verified pointer that was just installed.
+ */
+export function recordInstalledIntentSurface(
+  state: PajaBrowserState,
+  resolvedTarget: PajaResolvedPointer,
+): void {
+  const archetypes = resolvedTarget.manifest.archetypes;
+  const requires = resolvedTarget.manifest.requires;
+  const intentEligible = Boolean(resolvedTarget.dTag) && archetypes.length > 0;
+  appendPajaMessageLog(state, 'paja', {
+    type: 'paja.pointer.resolved',
+    dTag: resolvedTarget.dTag,
+    aggregateHash: resolvedTarget.aggregateHash,
+    archetypes,
+    requires,
+    intentEligible,
+  });
 }
 
 /**
