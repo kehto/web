@@ -7,7 +7,7 @@ status: completed
 stopped_at: Phase 106 current-Napplet release complete; v1.29 ready for milestone completion
 last_updated: "2026-10-09T16:25:24Z"
 last_activity: 2026-10-09
-last_activity_desc: "Completed quick task 261009-ctx: resolved all six Copilot review comments on PR #277"
+last_activity_desc: "Completed quick task 261009-gxe: canonical intent delivery and tracked compatibility"
 progress:
   total_phases: 6
   completed_phases: 6
@@ -32,7 +32,7 @@ Phase: 106 (Active-Surface Conformance and Release) — COMPLETE
 Plan: 3 of 3
 Status: All v1.29 phases complete — eight-package Napplet-0.31-compatible npm/JSR release published and downstream-verified
 
-Last activity: 2026-10-06 — Completed quick task 261006-ift: foregrounded reused intent handler tabs for every `behavior.focus` hint
+Last activity: 2026-10-09 — Completed quick task 261009-gxe: canonical intent delivery and tracked compatibility
 
 ## Performance Metrics
 
@@ -230,6 +230,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 261007-brt | Adopt current NIP-5D events with isolated legacy support | 2026-10-07 | b97b388 | Verified; PR #277 | [261007-brt-adopt-nip-5d-event-schemas-with-isolated](./quick/261007-brt-adopt-nip-5d-event-schemas-with-isolated/) |
 | 261009-ctx | Resolve all six Copilot inline comments on PR #277 | 2026-10-09 | d9c44ce | Verified | [261009-ctx-resolve-copilot-review-comments-on-pr-27](./quick/261009-ctx-resolve-copilot-review-comments-on-pr-27/) |
 | 261006-ift | Foreground a reused intent handler tab for every behavior.focus hint | 2026-10-06 | e99451be / 4ebf3604 / da8dc309 / 99c7488c | Verified | [261006-ift-foreground-intent-tabs](./quick/261006-ift-foreground-intent-tabs/) |
+| 261009-gxe | Canonical intent delivery with tracked, warned compatibility; AGENTS policy separate in #284 | 2026-10-09 | 05d3e013 | Verified | [261009-gxe](./quick/261009-gxe-migrate-pr-277-intent-delivery-to-intent/) |
 
 ## Session Continuity
 
