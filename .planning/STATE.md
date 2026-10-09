@@ -7,7 +7,7 @@ status: completed
 stopped_at: Phase 106 current-Napplet release complete; v1.29 ready for milestone completion
 last_updated: "2026-08-04T10:41:35Z"
 last_activity: 2026-08-04
-last_activity_desc: "Completed quick task 260804-dql: resolved every PR #234 review claim"
+last_activity_desc: "Completed quick task 261009-h66: compatibility policy in a separate PR"
 progress:
   total_phases: 6
   completed_phases: 6
@@ -32,7 +32,7 @@ Phase: 106 (Active-Surface Conformance and Release) — COMPLETE
 Plan: 3 of 3
 Status: All v1.29 phases complete — eight-package Napplet-0.31-compatible npm/JSR release published and downstream-verified
 
-Last activity: 2026-10-06 — Completed quick task 261006-ift: foregrounded reused intent handler tabs for every `behavior.focus` hint
+Last activity: 2026-10-09 — Completed quick task 261009-h66: compatibility policy in a separate PR
 
 ## Performance Metrics
 
@@ -228,6 +228,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260819-i86 | Add a root pnpm script to run the static pointer-entry Paja runtime locally | 2026-08-19 | 77235dd | Verified | [260819-i86-add-a-root-pnpm-script-to-run-the-static](./quick/260819-i86-add-a-root-pnpm-script-to-run-the-static/) |
 | 260928-cpc | Make the Paja development console collapsible | 2026-09-28 | d3706a9c | Verified | [260928-cpc-make-the-paja-development-console-collapsible](./quick/260928-cpc-make-the-paja-development-console-collapsible/) |
 | 261006-ift | Foreground a reused intent handler tab for every behavior.focus hint | 2026-10-06 | e99451be / 4ebf3604 / da8dc309 / 99c7488c | Verified | [261006-ift-foreground-intent-tabs](./quick/261006-ift-foreground-intent-tabs/) |
+| 261009-h66 | Require compatibility warnings, tracking and tests in AGENTS | 2026-10-09 | 3c595776 | Verified | [261009-h66](./quick/261009-h66-require-tracked-and-tested-backwards-com/) |
 
 ## Session Continuity
 
