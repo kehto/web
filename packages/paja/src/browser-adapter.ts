@@ -700,7 +700,7 @@ export function createPajaAdapter(
   if (getSimulation().intent.enabled && intentHost) {
     const resolver = createCatalogIntentResolver({
       loadCatalog: () => intentHost.catalog.intentCatalog((record) =>
-        resolveShellEnvironment(adapter, record).capabilities.domains.includes('inc'),
+        resolveShellEnvironment(adapter, record).capabilities.domains.includes('intent'),
       ),
       targets: intentHost.controller,
       getDefaultHandler: intentHost.getDefaultHandler,

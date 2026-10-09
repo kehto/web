@@ -76,7 +76,7 @@ const installedNapplets = getInstalledNappletCatalog();
 const intentController = new PlaygroundIntentController(createPlaygroundIntentTargetOptions());
 const intentResolver = createCatalogIntentResolver({
   loadCatalog: () => installedNapplets.intentCatalog((record) =>
-    getPlaygroundShellEnvironment(record).capabilities.domains.includes('inc'),
+    getPlaygroundShellEnvironment(record).capabilities.domains.includes('intent'),
   ),
   targets: intentController,
   getDefaultHandler: (archetype) => installedNapplets.getDefaultHandler(archetype),
@@ -509,7 +509,7 @@ export function setSelectedNode(id: string | null): void {
     direction: message.direction,
     windowId: message.windowId,
     type: message.envelopeType,
-    event: message.envelopeType === 'inc.event'
+    event: (message.envelopeType === 'inc.event' || message.envelopeType === 'intent.deliver')
       ? message.envelope
       : undefined,
   }));

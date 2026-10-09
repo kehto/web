@@ -48,10 +48,9 @@ set remains loadable but has no convention-based handler eligibility.
 
 Both hosts check required domains against their actual environment before
 execution. `shell` is mandatory. Optional domains never block loading or expand
-the injected namespace. Required or optional `inc` may advertise an intent
-integration. Both host catalogs check the target's resolved environment for INC
-before advertising it; optional INC alone never makes a handler usable. Missing
-optional INC still permits ordinary frame loading. Root/snapshot artifacts also
+the injected namespace. Both host catalogs require the target's resolved
+`intent` domain; canonical delivery does not require an INC declaration or binding.
+Root/snapshot artifacts also
 load normally, but remain outside the dTag-keyed intent catalogs: Kehto does not
 yet route NAP-INTENT by event coordinate.
 
@@ -73,3 +72,13 @@ While compatibility remains, tests cover both formats through signature/blob
 failure, cache reuse and corruption recovery, all three manifest kinds, Paja and
 playground resolution, host admission, and opaque `srcdoc` execution. Current
 producer tests verify the final bytes against `x` after metadata and inlining.
+
+Successful legacy resolution emits `KEHTO_COMPAT_LEGACY_MANIFEST` once per
+resolver module lifetime. Migration and retirement criteria are tracked in
+[the compatibility register](https://github.com/kehto/web/blob/main/docs/compatibility.md).
+
+The delivery follow-up checks NAP-INTENT at
+`25b29ee49e5bff8ebfe031f4b76dce98705c8b7e`: hosts now use `intent.deliver`
+and buffered `intent.onDelivery`, with a warned local INC-listener adapter.
+Broader invocation/result and catalog-identity changes are intentionally deferred;
+this is delivery alignment, not full conformance to that newer spec.

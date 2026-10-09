@@ -81,19 +81,19 @@ it('retains optional INC integration without converting it into a load requireme
   expect(catalog.intentCatalog(() => true)[0].archetypes.profile.conventions).toEqual(['napplet:profile/open']);
 });
 
-it('filters optional INC using the target environment as host policy changes', () => {
+it('filters target intent availability without requiring INC', () => {
   const catalog = new InstalledNappletCatalog();
   const resolved = { ...resolvedProfile, requires: [], optional: ['inc'] };
   catalog.install(resolved, { name: 'profile-viewer', containerId: 'profile-viewer-frame' });
-  let disabledDomains = ['inc'];
-  const adapter = { get capabilities() { return { disabledDomains }; } } as ShellAdapter;
+  let disabledDomains = ['intent', 'inc'];
+  const adapter = { services: { intent: vi.fn() }, intent: { isAvailable: () => true }, get capabilities() { return { disabledDomains }; } } as ShellAdapter;
   const candidates = () => catalog.intentCatalog((record) =>
-    resolveShellEnvironment(adapter, record).capabilities.domains.includes('inc'));
-  expect(catalog.intentCatalog()).toEqual([]);
+    resolveShellEnvironment(adapter, record).capabilities.domains.includes('intent'));
+  expect(catalog.intentCatalog()).toHaveLength(1);
   expect(candidates()).toEqual([]);
-  disabledDomains = [];
-  expect(candidates()).toMatchObject([{ dTag: 'profile-viewer' }]);
   disabledDomains = ['inc'];
+  expect(candidates()).toMatchObject([{ dTag: 'profile-viewer' }]);
+  disabledDomains = ['intent', 'inc'];
   expect(candidates()).toEqual([]);
   expect(catalog.get('profile-viewer')?.requires).toEqual([]);
 });

@@ -4,14 +4,13 @@
 import '@napplet/shim';
 import { getMissingNapDomains } from '../../domain-availability';
 import { applyNapTheme, installNapTheme, onNapThemeChanged } from '../../shared-theme';
-import { incOn } from '@napplet/nap/inc/sdk';
 import { relaySubscribe } from '@napplet/nap/relay/sdk';
 import { resourceBytes } from '@napplet/nap/resource/sdk';
-import type { IncEvent, NostrEvent, Subscription } from '@napplet/core';
+import type { NostrEvent, Subscription } from '@napplet/core';
 import { createProfileMediaController } from './profile-media.js';
 import { createProfileLoadController } from './profile-load-controller.js';
 
-const REQUIRED_NAPS = ['inc', 'relay', 'resource', 'theme'] as const;
+const REQUIRED_NAPS = ['intent', 'relay', 'resource', 'theme'] as const;
 const CAPABILITY_WAIT_MS = 5_000;
 const CAPABILITY_WAIT_INTERVAL_MS = 25;
 const PROFILE_LOAD_TIMEOUT_MS = 8_000;
@@ -233,7 +232,14 @@ function payloadPubkey(payload: unknown): string | null {
 }
 
 function subscribeToProfileDelivery(): void {
-  profileIntentSub = incOn('napplet:profile/open', (event: IncEvent) => {
+  // @napplet/nap 0.32 lacks onDelivery; use the protected host binding until upgraded.
+  // NAP-INTENT@25b29ee; tracked in docs/compatibility.md (INTENT_BINDING).
+  type Delivery = { sender: string; archetype: string; action: string; convention: string; payload?: unknown };
+  const intent = (window as Window & { napplet: {
+    intent: { onDelivery(handler: (delivery: Delivery) => void): Subscription };
+  } }).napplet.intent;
+  profileIntentSub = intent.onDelivery((event) => {
+    if (event.archetype !== 'profile' || event.action !== 'open' || event.convention !== 'napplet:profile/open') return;
     const pubkey = payloadPubkey(event.payload);
     if (!pubkey) return;
     loadProfile(pubkey);
@@ -245,15 +251,15 @@ async function init(): Promise<void> {
   onNapThemeChanged((theme) => {
     applyNapTheme(theme);
   });
-  subscribeToProfileDelivery();
   await waitForRequiredNaps();
   clearProfile();
   setStatus('waiting', 'gray');
+  subscribeToProfileDelivery();
 }
 
 init().catch((err) => {
   if (statusEl.textContent === 'connecting...') {
-    setStatus(`denied: ${formatError(err, 'inc, relay, or resource unavailable')}`, 'red');
+    setStatus(`denied: ${formatError(err, 'intent, relay, or resource unavailable')}`, 'red');
   }
 });
 

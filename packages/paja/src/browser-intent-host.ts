@@ -145,10 +145,14 @@ export function createPajaIntentTargetOptions(
         throw new Error('intent target source is no longer registered');
       }
       createPajaPostMessageProxy(source, state, tab.windowId).postMessage({
-        type: 'inc.event',
-        topic: params.convention,
-        sender: params.sender,
-        ...(params.payload === undefined ? {} : { payload: params.payload }),
+        type: 'intent.deliver',
+        delivery: {
+          sender: params.sender,
+          archetype: params.archetype,
+          action: params.action,
+          convention: params.convention,
+          ...(params.payload === undefined ? {} : { payload: params.payload }),
+        },
       }, '*');
     },
   };
@@ -157,10 +161,8 @@ export function createPajaIntentTargetOptions(
 /**
  * Record one verified napplet's declared intent surface in the Paja message log.
  *
- * Intent eligibility is derived, not declared: Paja delivers a convention only
- * to a handler that accepts `inc`, so a manifest that advertises archetypes
- * without `["requires","inc"]` is unroutable and gets an explicit warning
- * instead of leaving its author to infer that from a failed dispatch.
+ * Catalog eligibility is filtered separately by the target intent domain.
+ * INC declarations are not required for canonical intent delivery.
  *
  * @param state - Current Paja browser state.
  * @param resolvedTarget - Resolver-verified pointer that was just installed.
@@ -171,14 +173,7 @@ export function recordInstalledIntentSurface(
 ): void {
   const archetypes = resolvedTarget.manifest.archetypes;
   const requires = resolvedTarget.manifest.requires;
-  const intentEligible = requires.includes('inc') && archetypes.length > 0;
-  if (archetypes.length > 0 && !intentEligible) {
-    console.warn(
-      '[paja] napplet %s declares archetypes but is NOT intent-eligible: missing "inc" in requires. ' +
-      'Add a ["requires","inc"] tag to its manifest to route intents to it.',
-      resolvedTarget.dTag,
-    );
-  }
+  const intentEligible = Boolean(resolvedTarget.dTag) && archetypes.length > 0;
   appendPajaMessageLog(state, 'paja', {
     type: 'paja.pointer.resolved',
     dTag: resolvedTarget.dTag,

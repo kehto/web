@@ -176,24 +176,25 @@ describe('Paja browser adapter intent composition', () => {
     });
   });
 
-  it('rechecks optional INC against the target host environment for discovery and invocation', async () => {
-    let inc = false;
+  it('rechecks target intent availability without requiring INC for discovery or invocation', async () => {
+    let intent = true;
     const { adapter, catalog, sequence } = makeAdapter({}, () => normalizePajaSimulation({
-      relay: { mode: 'disabled' }, intent: { enabled: true }, capabilities: { domains: { inc } },
+      relay: { mode: 'disabled' }, intent: { enabled: intent }, capabilities: { domains: { intent, inc: false } },
     }));
     const resolved = resolvedNapplet();
     catalog.install({ ...resolved, manifest: { ...resolved.manifest, requires: [], optional: ['inc'] } });
+    intent = false;
     const availability = () => sendIntent(adapter, { type: 'intent.available', id: 'optional', archetype: 'profile' } as NappletMessage);
 
     await expect(availability()).resolves.toMatchObject([{ availability: { available: false, candidates: [] } }]);
     await expect(sendIntent(adapter, { type: 'intent.invoke', id: 'disabled', request: REQUEST } as NappletMessage))
       .resolves.toMatchObject([{ result: { ok: false } }]);
     expect(sequence).toEqual([]);
-    inc = true;
+    intent = true;
     await expect(availability()).resolves.toMatchObject([{ availability: { available: true, candidates: [{ dTag: 'profile-viewer' }] } }]);
     await expect(sendIntent(adapter, { type: 'intent.invoke', id: 'enabled', request: REQUEST } as NappletMessage))
       .resolves.toMatchObject([{ result: { ok: true, handler: 'profile-viewer' } }]);
-    inc = false;
+    intent = false;
     await expect(availability()).resolves.toMatchObject([{ availability: { available: false } }]);
     expect(catalog.get('profile-viewer')?.requires).toEqual([]);
     (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();

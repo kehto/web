@@ -123,7 +123,7 @@ both an exact installed contract and sender-aware authorization.
 The feed invokes a structured profile request with the stable, queryless
 `napplet:profile/open` convention and a `{ pubkey }` payload. The host reuses or
 starts the verified target, waits for its current registered source and
-`shell.ready`, sends one runtime-attested `inc.event` for that convention, and
+`shell.ready`, sends one runtime-attested `intent.deliver` for that convention, and
 then returns the final handled target identity. A stale or replaced target is
 never used; controller retry and terminal policy remain host-owned.
 

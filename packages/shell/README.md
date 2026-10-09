@@ -85,9 +85,10 @@ unsupported fields and caller-supplied sender data, and resolves only
 parent-originated correlated results.
 
 Successful results include `handled`, `handler`, `windowId`, and `convention`
-after target dispatch completes. There is no `intent.deliver` or `onDelivery`;
-selected targets consume their convention through the ordinary
-runtime-attested INC binding.
+after target dispatch completes. Target delivery now follows NAP-INTENT at
+`25b29ee49e5bff8ebfe031f4b76dce98705c8b7e`: one `intent.deliver` envelope
+feeds the buffered `onDelivery` binding described below. Broader invocation and
+result changes from that newer spec remain deferred.
 
 Phase 105 completed released `@napplet/*` package adoption and persistent live
 Paja/playground catalogs and target controllers. The Phase 104 Paja simulator
@@ -221,3 +222,17 @@ Existing `aggregateHash` host/cache/ACL fields carry the verified artifact hash
 for current events; legacy identities keep their original aggregate. Both paths
 verify signatures and bytes before runtime injection and `srcdoc` execution.
 For the schema and removal boundary, see [event migration](https://kehto.github.io/web/docs/migrations/NIP-5D-EVENT-SCHEMA.html).
+
+### Intent delivery
+
+The injected `window.napplet.intent.onDelivery(handler)` returns a closeable
+subscription and drains buffered parent deliveries in order. Register it to
+receive `{ sender, archetype, action, convention, payload? }`; INC is not required.
+Its receiver is installed before `shell.ready` and survives namespace reassignment.
+A throwing listener does not prevent delivery to other listeners.
+
+When no canonical listener is registered, matching legacy INC listeners can
+consume the delivery locally. This emits `KEHTO_COMPAT_INTENT_INC` once per
+iframe; a delivery is never replayed to both APIs. See [compatibility tracking](https://github.com/kehto/web/blob/main/docs/compatibility.md).
+This aligns delivery with NAP-INTENT at `25b29ee`; broader invocation/result
+changes and the packaged SDK upgrade remain deferred.

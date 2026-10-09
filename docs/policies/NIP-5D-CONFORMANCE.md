@@ -96,13 +96,27 @@ lifecycle data in order, bounded overflow closure, and deterministic teardown.
 upstream-resolution reply](https://github.com/kehto/web/issues/203#issuecomment-5060904495);
 the superseded opener-only view must not be restored.
 
-NAP-INTENT uses the merged structured `IntentRequest` and final `IntentResult`
-contract. The host resolves a verified manifest candidate, completes target
-creation/readiness and convention dispatch, then returns `handled`, `handler`,
-`windowId`, and `convention`. There is no `intent.deliver` or `onDelivery`
-surface. Kehto carries the selected convention to the target through the
-ordinary runtime-attested `inc.event` path; eligible intent targets therefore
-declare `inc`.
+### Intent delivery boundary
+
+Checked `naps/NAP-INTENT.md` at `napplet/naps@25b29ee49e5bff8ebfe031f4b76dce98705c8b7e`
+(delivery change merged in `389c1c2aa2c8b70610f9f53f2c0dd097e313dcea`).
+Paja and playground send one parent-attested `intent.deliver` containing
+`delivery: { sender, archetype, action, convention, payload? }` after source-bound
+readiness. The injected `intent.onDelivery` buffers until registration, uses
+closeable subscriptions, and does not require INC. It accepts only the parent.
+
+Packaged `@napplet/nap@0.32.0` lacks this API. The protected shell binding and the
+profile demo's local delivery type are narrow exceptions until the package
+upgrade; see **INTENT_BINDING** in [the compatibility register](../compatibility.md).
+The demo calls the binding directly and does not install its own wire receiver.
+Legacy INC listeners are adapted locally with `KEHTO_COMPAT_INTENT_INC`, only
+when no canonical listener is registered. Hosts never send two wire envelopes.
+This is a temporary Kehto compatibility policy, not an additional NAP transport.
+
+Delivery aligns with the checked spec. Structured invocation, final
+`handled`/`handler`/`windowId` results, dTag-only catalog identities, and broader
+upstream NAP changes are intentionally deferred to the user's separate follow-up
+PR. This change does not claim full conformance to current NAP-INTENT.
 
 ### Active NAP-IDENTITY and NAP-THEME boundary
 

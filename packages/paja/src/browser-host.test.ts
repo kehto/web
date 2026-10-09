@@ -346,7 +346,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
       await task;
       expect((tabA.source as unknown as { postMessage: ReturnType<typeof vi.fn> }).postMessage).not.toHaveBeenCalled();
       expect((tabB.source as unknown as { postMessage: ReturnType<typeof vi.fn> }).postMessage).toHaveBeenCalledTimes(1);
-      expect((tabB.source as unknown as { postMessage: ReturnType<typeof vi.fn> }).postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'inc.event', topic: 'napplet:profile/open', sender: 'feed' }), '*', undefined);
+      expect((tabB.source as unknown as { postMessage: ReturnType<typeof vi.fn> }).postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'intent.deliver', delivery: { convention: 'napplet:profile/open', sender: 'feed', archetype: 'profile', action: 'open', payload: {} } }), '*', undefined);
       expect(catalog.get('profile-viewer')).toMatchObject({ aggregateHash: 'aggregate-b' });
     } finally {
       stopCatalogChanges();

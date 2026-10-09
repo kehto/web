@@ -56,7 +56,7 @@ compatible default can resolve a request, a chooser can resolve several
 candidates, and ambiguity without a choice is rejected. An explicit handler
 d-tag also requires sender-aware authorization. The host starts or reuses the
 selected target and waits for that generation's registered source to complete
-real `shell.ready`; only a current target receives one `inc.event` for the
+real `shell.ready`; only a current target receives one `intent.deliver` for the
 selected convention. The final result identifies the handled target. Replacement,
 retry, and terminal behavior remain controller policy.
 

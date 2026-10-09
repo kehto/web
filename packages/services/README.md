@@ -73,7 +73,10 @@ do not select a handler.
 `ok: true` means the selected target was ready and the convention was dispatched.
 The result includes `handled`, `handler`, `windowId`, and `convention`. The
 target receives the convention and opaque payload through one runtime-attested
-`inc.event`; there is no separate `intent.deliver` lifecycle.
+`intent.deliver` envelope with a nested `delivery` object. The host-owned
+`intent.onDelivery` binding buffers arrivals until a handler registers; INC is
+not required. Invocation and result semantics remain on the existing package
+contract pending the separate upstream NAP migration.
 
 Paja currently exposes only an exact-contract development simulator, and the
 playground currently exposes only a verified-manifest catalog builder. Phase

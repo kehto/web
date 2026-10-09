@@ -105,3 +105,19 @@ describe.each([['current', current], ['legacy', legacy]] as const)('%s verificat
     expect(writeVerifiedResolution).not.toHaveBeenCalled();
   });
 });
+
+it('warns once for verified legacy manifests and stays quiet for current or invalid artifacts', async () => {
+  vi.resetModules();
+  const { resolveNapplet: resolve } = await import('./index.js');
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  try {
+    await resolve({ event: event(current), fetchBlob: async () => bytes });
+    await expect(resolve({ event: event(legacy), fetchBlob: async () => new Uint8Array([1]) })).rejects.toMatchObject({ code: 'blob-hash-mismatch' });
+    expect(warn).not.toHaveBeenCalled();
+    await resolve({ event: event(legacy), fetchBlob: async () => bytes });
+    await resolve({ event: event(legacy), fetchBlob: async () => bytes });
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('[KEHTO_COMPAT_LEGACY_MANIFEST]'));
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('@napplet/vite-plugin >=0.15'));
+  } finally { warn.mockRestore(); }
+});

@@ -4,7 +4,7 @@ import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import type { PathEntry } from '../5a/index.js';
 import { NappletResolutionError } from './errors.js';
-import { parseLegacyManifest, verifyLegacyAggregate } from './legacy-manifest.js';
+import { parseLegacyManifest, verifyLegacyAggregate, warnLegacyManifest } from './legacy-manifest.js';
 import { parseCurrentManifest } from './current-manifest.js';
 import type { NappletArtifactCache } from './artifact-cache.js';
 export {
@@ -284,6 +284,7 @@ export async function resolveNapplet(options: ResolveNappletOptions): Promise<Re
 
   const indexHtml = textDecode(files.get(indexEntry.path)!);
   await cache?.writeVerifiedResolution({ event, manifest, files, indexHtml });
+  if (manifest.format === 'legacy') warnLegacyManifest();
 
   return {
     artifactHash: manifest.aggregateHash,

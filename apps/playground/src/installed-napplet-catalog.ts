@@ -130,14 +130,12 @@ export class InstalledNappletCatalog {
     return matchesInstalledNappletRecord(selected, target) ? selected : null;
   }
 
-  /** Return declared handlers filtered by target INC availability; optional INC defaults to unavailable. */
+  /** Return declared handlers filtered by host intent availability; INC is not required. */
   intentCatalog(
-    canExposeInc: (record: InstalledNappletRecord) => boolean = (record) => record.requires.includes('inc'),
+    canReceiveIntent: (record: InstalledNappletRecord) => boolean = () => true,
   ): IntentCatalogEntry[] {
     return this.installed()
-      .filter((record) =>
-        (record.requires.includes('inc') || record.optional?.includes('inc')) && canExposeInc(record),
-      )
+      .filter(canReceiveIntent)
       .map((record) => manifestToIntentCatalogEntry({
         dTag: record.dTag,
         ...(record.title === undefined ? {} : { title: record.title }),

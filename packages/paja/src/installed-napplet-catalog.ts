@@ -116,18 +116,16 @@ export class InstalledNappletCatalog {
   }
 
   /**
-   * Return declared handlers whose host environment can receive INC delivery.
-   * @param canExposeInc - Resolve INC availability for each verified identity;
-   * without host policy, only required INC is assumed available after admission.
+   * Return declared handlers whose host environment can receive intent delivery.
+   * @param canReceiveIntent - Resolve intent availability for each verified identity;
+   * without host policy, return declared candidates for the host to filter.
    * @returns Named intent candidates usable under the supplied host policy.
    */
   intentCatalog(
-    canExposeInc: (record: InstalledNappletRecord) => boolean = (record) => record.requires.includes('inc'),
+    canReceiveIntent: (record: InstalledNappletRecord) => boolean = () => true,
   ): IntentCatalogEntry[] {
     return this.installed()
-      .filter((record) =>
-        (record.requires.includes('inc') || record.optional?.includes('inc')) && canExposeInc(record),
-      )
+      .filter(canReceiveIntent)
       .map((record) => manifestToIntentCatalogEntry({
         dTag: record.dTag,
         ...(record.title === undefined ? {} : { title: record.title }),

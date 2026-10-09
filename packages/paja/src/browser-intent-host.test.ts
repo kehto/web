@@ -45,7 +45,7 @@ describe('recordInstalledIntentSurface', () => {
     vi.unstubAllGlobals();
   });
 
-  it('warns and records intentEligible: false for archetypes without the inc requirement', () => {
+  it('records declared intent eligibility without requiring INC', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const target = resolvedPointer({
       requires: ['theme'],
@@ -55,11 +55,7 @@ describe('recordInstalledIntentSurface', () => {
 
     recordInstalledIntentSurface(state, target);
 
-    expect(warn).toHaveBeenCalledOnce();
-    expect(warn).toHaveBeenCalledWith(
-      expect.stringContaining('NOT intent-eligible'),
-      'profile-target',
-    );
+    expect(warn).not.toHaveBeenCalled();
     const entry = state.messageLog.at(-1)!;
     expect(entry.type).toBe('paja.pointer.resolved');
     expect(JSON.parse(entry.preview)).toEqual({
@@ -68,7 +64,7 @@ describe('recordInstalledIntentSurface', () => {
       aggregateHash: 'd'.repeat(64),
       archetypes: [{ slug: 'note', convention: 'napplet:note/open' }],
       requires: ['theme'],
-      intentEligible: false,
+      intentEligible: true,
     });
   });
 

@@ -103,3 +103,12 @@ export function verifyLegacyAggregate(manifest: NappletManifest): void {
       `recomputed aggregate ${recomputed} != manifest ${manifest.aggregateHash}`);
   }
 }
+
+let warnedLegacyManifest = false;
+
+/** Warn once per module lifetime, after a legacy artifact has passed verification. */
+export function warnLegacyManifest(): void {
+  if (warnedLegacyManifest) return;
+  warnedLegacyManifest = true;
+  console.warn('[KEHTO_COMPAT_LEGACY_MANIFEST] Legacy aggregate manifest resolved. Republish with @napplet/vite-plugin >=0.15 using the current single-artifact schema. See docs/compatibility.md.');
+}

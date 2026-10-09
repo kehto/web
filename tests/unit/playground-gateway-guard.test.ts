@@ -44,7 +44,7 @@ const expectedRequires: Record<(typeof playgroundNapplets)[number], readonly str
   'cvm-relatr': ['cvm', 'theme'],
   feed: ['identity', 'intent', 'relay', 'resource', 'theme'],
   preferences: ['storage', 'theme'],
-  'profile-viewer': ['inc', 'relay', 'resource', 'theme'],
+  'profile-viewer': ['intent', 'relay', 'resource', 'theme'],
   'resource-demo': ['resource', 'theme'],
   toaster: ['notify', 'theme'],
 };
@@ -123,8 +123,8 @@ describe('playground gateway artifact guard', () => {
       expect(windowId).toBeGreaterThan(send);
     }
     expect(source.intentService).toContain("type: 'intent.invoke.result'");
-    expect(source.playgroundHost).toContain("type: 'inc.event'");
-    expect(source.playgroundHost).not.toContain("type: 'intent.deliver'");
+    expect(source.playgroundHost).not.toContain("type: 'inc.event'");
+    expect(source.playgroundHost).toContain("type: 'intent.deliver'");
   });
 
   it('keeps published profile delivery, resource cleanup, and current theme proof in active sources', () => {
@@ -134,7 +134,7 @@ describe('playground gateway artifact guard', () => {
 
     expect(source.feed).toContain("archetype: 'profile'");
     expect(source.feed).toContain("convention: 'napplet:profile/open'");
-    expect(source.profile).toContain("incOn('napplet:profile/open', (event: IncEvent) => {");
+    expect(source.profile).toContain("intent.onDelivery((event) => {");
     expect(source.profileOpen).toContain("convention: 'napplet:profile/open'");
     expect(source.identityFlow).toContain('published NAP-INTENT target');
 
@@ -512,19 +512,19 @@ describe('playground gateway artifact guard', () => {
     expect(existsSync('apps/playground/src/mock-relay-pool.ts')).toBe(false);
   });
 
-  it('keeps the profile demo on canonical INC convention delivery with resource-backed media', () => {
+  it('keeps the profile demo on canonical intent delivery with resource-backed media', () => {
     const profileSource = readRepoFile('apps/playground/napplets/profile-viewer/src/main.ts');
     const profileHtml = readRepoFile('apps/playground/napplets/profile-viewer/index.html');
 
-    expect(profileSource).toContain("import { incOn } from '@napplet/nap/inc/sdk';");
+    expect(profileSource).not.toContain("import { incOn } from '@napplet/nap/inc/sdk';");
     expect(profileSource).toContain("import { relaySubscribe } from '@napplet/nap/relay/sdk';");
     expect(profileSource).toContain("import { resourceBytes } from '@napplet/nap/resource/sdk';");
     expect(profileSource).toContain("import { getMissingNapDomains } from '../../domain-availability';");
-    expect(profileSource).toContain("const REQUIRED_NAPS = ['inc', 'relay', 'resource', 'theme'] as const;");
+    expect(profileSource).toContain("const REQUIRED_NAPS = ['intent', 'relay', 'resource', 'theme'] as const;");
     expect(profileSource).toContain('getMissingNapDomains(REQUIRED_NAPS)');
     expect(profileSource).toContain('const CAPABILITY_WAIT_MS = 5_000;');
-    expect(profileSource).toContain("formatError(err, 'inc, relay, or resource unavailable')");
-    expect(profileSource).toContain("profileIntentSub = incOn('napplet:profile/open', (event: IncEvent) => {");
+    expect(profileSource).toContain("formatError(err, 'intent, relay, or resource unavailable')");
+    expect(profileSource).toContain("profileIntentSub = intent.onDelivery((event) => {");
     expect(profileSource).toContain("import { createProfileMediaController } from './profile-media.js';");
     expect(profileSource).toContain('const profileMedia = createProfileMediaController({ loadBytes: resourceBytes });');
     expect(profileSource).not.toContain('intentOnDelivery');

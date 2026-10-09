@@ -260,7 +260,7 @@ its current convention delivery policy requires.
 
 Paja may reuse a current target or start a cold one, but it waits for the
 current target generation's registered `MessageEvent.source` and real
-`shell.ready` session before one target-only `inc.event`. A replaced generation
+`shell.ready` session before one target-only `intent.deliver`. A replaced generation
 is not delivered to; failed open/readiness attempts follow the private
 retry/replacement policy. The final result includes the handled target's d-tag,
 window identifier, and convention.

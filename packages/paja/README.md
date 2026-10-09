@@ -214,7 +214,7 @@ arbitrary running frame.
 When Paja receives an invocation, it selects and opens or reuses a verified
 target. The controller waits for the target generation's
 registered `MessageEvent.source` to establish its real `shell.ready` session;
-it checks that generation is still current, sends one target-only `inc.event`
+it checks that generation is still current, sends one target-only `intent.deliver`
 with the selected queryless convention, and returns the final handled target
 identity. A superseded target/source, failed open/readiness, or terminal send is
 handled by the controller's replacement/retry/terminal policy and produces a

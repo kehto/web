@@ -421,10 +421,14 @@ function sendIntentConvention(
     throw new Error('intent target generation is not current and ready');
   }
   createPostMessageProxy(state.source, tap, state.windowId).postMessage({
-    type: 'inc.event',
-    topic: params.convention,
-    sender: params.sender,
-    ...(params.payload === undefined ? {} : { payload: params.payload }),
+    type: 'intent.deliver',
+    delivery: {
+      sender: params.sender,
+      archetype: params.archetype,
+      action: params.action,
+      convention: params.convention,
+      ...(params.payload === undefined ? {} : { payload: params.payload }),
+    },
   }, '*');
 }
 
