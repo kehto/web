@@ -28,6 +28,7 @@ import {
   createPajaIntentTargetOptions,
   markRuntimeTabReady,
   pajaPointerResolverOptions,
+  recordInstalledIntentSurface,
   subscribePajaIntentCatalogChanges,
 } from './browser-intent-host.js';
 import { InstalledNappletCatalog } from './installed-napplet-catalog.js';
@@ -423,11 +424,7 @@ async function loadRuntimePointer(
     runtime.catalog.install(resolvedTarget);
     const pointerStatus = `${resolvedTarget.dTag}:${resolvedTarget.aggregateHash.slice(0, 12)}`;
     setPointerStatus(state, pointerStatus);
-    appendPajaMessageLog(state, 'paja', {
-      type: 'paja.pointer.resolved',
-      dTag: resolvedTarget.dTag,
-      aggregateHash: resolvedTarget.aggregateHash,
-    });
+    recordInstalledIntentSurface(state, resolvedTarget);
     const duplicate = options.skipDuplicatePrompt ? undefined : state.tabs.find((tab) => tab.key === resolvedTargetKey(resolvedTarget));
     if (duplicate) {
       const choice = await showDuplicatePointerDialog();

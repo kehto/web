@@ -324,6 +324,6 @@ authorization.
 
 Paja opens or reuses the target, waits for the generation's registered source
 to send `shell.ready`, verifies that generation is still current, and makes one
-target-only `inc.event` for the selected convention. The final result identifies
+target-only `intent.deliver` for the selected convention. The final result identifies
 the handled target. Replacement, readiness failure, and terminal send paths are
 controller-owned.

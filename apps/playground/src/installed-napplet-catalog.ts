@@ -32,6 +32,8 @@ export interface InstalledNappletRecord {
   readonly title?: string;
   /** Verified NAP domains required by the artifact. */
   readonly requires: readonly string[];
+  /** Optional integrations; declarations do not grant capabilities. */
+  readonly optional?: readonly string[];
   /** Exact verified manifest convention contracts. */
   readonly archetypes: readonly {
     readonly slug: string;
@@ -76,11 +78,15 @@ export class InstalledNappletCatalog {
       restart: Object.freeze({ name: restart.name, containerId: restart.containerId }),
       ...(resolved.title === undefined ? {} : { title: resolved.title }),
       requires: [...resolved.requires],
+      optional: [...(resolved.optional ?? [])],
       archetypes: resolved.archetypes.map((archetype) => ({
         slug: archetype.slug,
         convention: archetype.convention,
       })),
     });
+    // NAP-INTENT handler selection is dTag-based. Nameless root/snapshot
+    // artifacts may run, but have no key in this named-handler catalog.
+    if (!record.dTag) return record;
     this.records.set(record.dTag, record);
     this.notify([...new Set([
       ...record.archetypes.map((archetype) => archetype.slug),
@@ -124,17 +130,19 @@ export class InstalledNappletCatalog {
     return matchesInstalledNappletRecord(selected, target) ? selected : null;
   }
 
-  /** Return manifest-derived exact handler candidates for intent resolution. */
-  intentCatalog(): IntentCatalogEntry[] {
+  /** Return declared handlers filtered by host intent availability; INC is not required. */
+  intentCatalog(
+    canReceiveIntent: (record: InstalledNappletRecord) => boolean = () => true,
+  ): IntentCatalogEntry[] {
     return this.installed()
-      .filter((record) => record.requires.includes('inc'))
+      .filter(canReceiveIntent)
       .map((record) => manifestToIntentCatalogEntry({
-      dTag: record.dTag,
-      ...(record.title === undefined ? {} : { title: record.title }),
-      archetypes: record.archetypes.map((archetype) => ({
-        slug: archetype.slug,
-        convention: archetype.convention,
-      })),
+        dTag: record.dTag,
+        ...(record.title === undefined ? {} : { title: record.title }),
+        archetypes: record.archetypes.map((archetype) => ({
+          slug: archetype.slug,
+          convention: archetype.convention,
+        })),
       }));
   }
 
@@ -172,6 +180,7 @@ function freezeRecord(record: Omit<InstalledNappletRecord, 'archetypes'> & {
   return Object.freeze({
     ...record,
     requires: Object.freeze([...record.requires]),
+    optional: Object.freeze([...(record.optional ?? [])]),
     archetypes: Object.freeze(record.archetypes.map((archetype) =>
       Object.freeze({ ...archetype }))),
   });

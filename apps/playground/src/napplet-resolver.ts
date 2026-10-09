@@ -6,7 +6,7 @@
  *      (`@kehto/nip/65`),
  *   2. query a selected relay for the napplet's NIP-5D manifest event
  *      (kind 35129, by author + `d`),
- *   3. verify the signature, recompute + verify the NIP-5A aggregate, fetch each
+ *   3. verify the signature and artifact hash (legacy: aggregate), fetch each
  *      blob from Blossom and verify its hash (`@kehto/nip/5d` `resolveNapplet`),
  *   4. assemble the verified `/index.html` and inject Kehto's Class-1 CSP `<meta>`
  *      so the policy holds inside the `srcdoc` opaque-origin iframe.
@@ -82,9 +82,11 @@ export interface PlaygroundNapplet {
   aggregateHash: string;
   /** Short NAP capability names the manifest requires. */
   requires: string[];
+  /** Optional integrations never block loading. */
+  optional?: string[];
   /**
    * Ordered convention contracts this napplet fulfills, from the verified
-   * manifest's `archetype` tags. Always present (empty when the manifest
+   * manifest's normalized z/i declarations or legacy archetype pairs. Always present (empty when the manifest
    * declares none).
    */
   archetypes: Array<{ slug: string; convention: string }>;
@@ -177,6 +179,7 @@ export async function resolvePlaygroundNapplet(
     dTag: resolved.dTag,
     aggregateHash: resolved.aggregateHash,
     requires: resolved.manifest.requires,
+    optional: resolved.manifest.optional ?? [],
     archetypes: resolved.manifest.archetypes,
     ...(resolved.manifest.title === undefined ? {} : { title: resolved.manifest.title }),
     indexHtml: resolved.indexHtml,

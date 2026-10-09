@@ -31,7 +31,7 @@ const expectedRequires: Record<(typeof expectedNapplets)[number], readonly strin
   'cvm-relatr': ['cvm', 'theme'],
   feed: ['identity', 'intent', 'relay', 'resource', 'theme'],
   preferences: ['storage', 'theme'],
-  'profile-viewer': ['inc', 'relay', 'resource', 'theme'],
+  'profile-viewer': ['intent', 'relay', 'resource', 'theme'],
   'resource-demo': ['resource', 'theme'],
   toaster: ['notify', 'theme'],
 };
@@ -118,7 +118,7 @@ test('resolved manifests and hosted supports match napplet contracts', async ({ 
       });
       const event = await response.json() as { tags?: string[][] };
       const requires = (event.tags ?? [])
-        .filter((tag) => tag[0] === 'requires' && typeof tag[1] === 'string')
+        .filter((tag) => tag[0] === 'R' && typeof tag[1] === 'string')
         .map((tag) => tag[1]);
       return [name, requires] as const;
     }));

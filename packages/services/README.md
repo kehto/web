@@ -73,7 +73,10 @@ do not select a handler.
 `ok: true` means the selected target was ready and the convention was dispatched.
 The result includes `handled`, `handler`, `windowId`, and `convention`. The
 target receives the convention and opaque payload through one runtime-attested
-`inc.event`; there is no separate `intent.deliver` lifecycle.
+`intent.deliver` envelope with a nested `delivery` object. The host-owned
+`intent.onDelivery` binding buffers arrivals until a handler registers; INC is
+not required. Invocation and result semantics remain on the existing package
+contract pending the separate upstream NAP migration.
 
 Paja currently exposes only an exact-contract development simulator, and the
 playground currently exposes only a verified-manifest catalog builder. Phase
@@ -637,3 +640,13 @@ Generated API module: `docs/api/modules/_kehto_services.html` (run `pnpm docs:ap
 ## License
 
 MIT
+
+## NIP-5D event compatibility
+
+Current manifests use a direct artifact `x` hash, plain-text `content`, independent
+`z`/`i` routing declarations, and required `R` / optional `O` domains. Kehto also
+accepts legacy aggregate events through an isolated compatibility adapter.
+Existing `aggregateHash` host/cache/ACL fields carry the verified artifact hash
+for current events; legacy identities keep their original aggregate. Both paths
+verify signatures and bytes before runtime injection and `srcdoc` execution.
+For the schema and removal boundary, see [event migration](https://kehto.github.io/web/docs/migrations/NIP-5D-EVENT-SCHEMA.html).

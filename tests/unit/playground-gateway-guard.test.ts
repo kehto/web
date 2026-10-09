@@ -6,6 +6,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { verifyEvent } from 'nostr-tools/pure';
@@ -43,7 +44,7 @@ const expectedRequires: Record<(typeof playgroundNapplets)[number], readonly str
   'cvm-relatr': ['cvm', 'theme'],
   feed: ['identity', 'intent', 'relay', 'resource', 'theme'],
   preferences: ['storage', 'theme'],
-  'profile-viewer': ['inc', 'relay', 'resource', 'theme'],
+  'profile-viewer': ['intent', 'relay', 'resource', 'theme'],
   'resource-demo': ['resource', 'theme'],
   toaster: ['notify', 'theme'],
 };
@@ -122,8 +123,8 @@ describe('playground gateway artifact guard', () => {
       expect(windowId).toBeGreaterThan(send);
     }
     expect(source.intentService).toContain("type: 'intent.invoke.result'");
-    expect(source.playgroundHost).toContain("type: 'inc.event'");
-    expect(source.playgroundHost).not.toContain("type: 'intent.deliver'");
+    expect(source.playgroundHost).not.toContain("type: 'inc.event'");
+    expect(source.playgroundHost).toContain("type: 'intent.deliver'");
   });
 
   it('keeps published profile delivery, resource cleanup, and current theme proof in active sources', () => {
@@ -133,7 +134,7 @@ describe('playground gateway artifact guard', () => {
 
     expect(source.feed).toContain("archetype: 'profile'");
     expect(source.feed).toContain("convention: 'napplet:profile/open'");
-    expect(source.profile).toContain("incOn('napplet:profile/open', (event: IncEvent) => {");
+    expect(source.profile).toContain("intent.onDelivery((event) => {");
     expect(source.profileOpen).toContain("convention: 'napplet:profile/open'");
     expect(source.identityFlow).toContain('published NAP-INTENT target');
 
@@ -234,16 +235,16 @@ describe('playground gateway artifact guard', () => {
     }
   });
 
-  it('recomputes a signed final manifest with repeated scoped convention tags and path-only aggregate identity', () => {
+  it('recomputes a signed final manifest with independent role/intent tags and direct artifact identity', () => {
     const firstDir = mkdtempSync(join(tmpdir(), 'kehto-profile-manifest-'));
     const secondDir = mkdtempSync(join(tmpdir(), 'kehto-profile-manifest-'));
     const seed = (dir: string): void => {
       writeFileSync(join(dir, '.nip5a-manifest.json'), JSON.stringify({
         created_at: 1_700_000_000,
-        content: '',
+        content: 'Profile viewer',
         tags: [
           ['d', 'profile-viewer'],
-          ['requires', 'inc'],
+          ['R', 'inc'],
           ['archetype', 'profile', 'NAP-1'],
         ],
       }));
@@ -279,12 +280,13 @@ describe('playground gateway artifact guard', () => {
         aggregateHash: string;
         tags: string[][];
       };
-      expect(manifest.tags.filter((tag) => tag[0] === 'archetype')).toEqual([
-        ['archetype', 'profile', 'napplet:profile/open'],
-        ['archetype', 'profile', 'napplet:profile/open'],
-      ]);
+      expect(manifest.tags.filter((tag) => tag[0] === 'z')).toEqual([['z', 'profile']]);
+      expect(manifest.tags.filter((tag) => tag[0] === 'i')).toEqual([['i', 'napplet:profile/open']]);
+      expect(manifest.tags.filter((tag) => tag[0] === 'x')).toEqual([['x', manifest.aggregateHash]]);
+      expect(manifest.tags.some((tag) => tag[0] === 'path')).toBe(false);
       expect(manifest.tags.flat()).not.toContain('NAP-1');
       expect(manifest.aggregateHash).toBe(secondManifest.aggregateHash);
+      expect(manifest.aggregateHash).toBe(createHash('sha256').update(readFileSync(join(firstDir, 'index.html'))).digest('hex'));
       expect(verifyEvent(manifest as Parameters<typeof verifyEvent>[0])).toBe(true);
     } finally {
       rmSync(firstDir, { recursive: true, force: true });
@@ -510,19 +512,19 @@ describe('playground gateway artifact guard', () => {
     expect(existsSync('apps/playground/src/mock-relay-pool.ts')).toBe(false);
   });
 
-  it('keeps the profile demo on canonical INC convention delivery with resource-backed media', () => {
+  it('keeps the profile demo on canonical intent delivery with resource-backed media', () => {
     const profileSource = readRepoFile('apps/playground/napplets/profile-viewer/src/main.ts');
     const profileHtml = readRepoFile('apps/playground/napplets/profile-viewer/index.html');
 
-    expect(profileSource).toContain("import { incOn } from '@napplet/nap/inc/sdk';");
+    expect(profileSource).not.toContain("import { incOn } from '@napplet/nap/inc/sdk';");
     expect(profileSource).toContain("import { relaySubscribe } from '@napplet/nap/relay/sdk';");
     expect(profileSource).toContain("import { resourceBytes } from '@napplet/nap/resource/sdk';");
     expect(profileSource).toContain("import { getMissingNapDomains } from '../../domain-availability';");
-    expect(profileSource).toContain("const REQUIRED_NAPS = ['inc', 'relay', 'resource', 'theme'] as const;");
+    expect(profileSource).toContain("const REQUIRED_NAPS = ['intent', 'relay', 'resource', 'theme'] as const;");
     expect(profileSource).toContain('getMissingNapDomains(REQUIRED_NAPS)');
     expect(profileSource).toContain('const CAPABILITY_WAIT_MS = 5_000;');
-    expect(profileSource).toContain("formatError(err, 'inc, relay, or resource unavailable')");
-    expect(profileSource).toContain("profileIntentSub = incOn('napplet:profile/open', (event: IncEvent) => {");
+    expect(profileSource).toContain("formatError(err, 'intent, relay, or resource unavailable')");
+    expect(profileSource).toContain("profileIntentSub = intent.onDelivery((event) => {");
     expect(profileSource).toContain("import { createProfileMediaController } from './profile-media.js';");
     expect(profileSource).toContain('const profileMedia = createProfileMediaController({ loadBytes: resourceBytes });');
     expect(profileSource).not.toContain('intentOnDelivery');
@@ -797,4 +799,21 @@ describe('playground gateway artifact guard', () => {
     expect(script).toContain('data-route-link');
     expect(script).toContain('window.location.href = anchor.href');
   });
+});
+
+
+it('preserves publisher metadata and advertised intent parameters during final-byte signing', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'kehto-current-metadata-'));
+  try {
+    const retained = [['z', 'feed'], ['i', 'napplet:note/open', 'filters', 'relays'], ['R', 'relay'], ['O', 'inc']];
+    writeFileSync(join(dir, '.nip5a-manifest.json'), JSON.stringify({ content: 'Authored description', tags: [['d', 'test'], ...retained] }));
+    const html = '<html><head><meta name="napplet-optional" content="inc"></head></html>';
+    recomputeManifest(dir, html, [{ slug: 'feed', convention: 'napplet:note/open' }]);
+    const result = JSON.parse(readFileSync(join(dir, '.nip5a-manifest.json'), 'utf8'));
+    expect(result.tags).toEqual([['d', 'test'], ['x', createHash('sha256').update(html).digest('hex')], ...retained]);
+    expect(result.content).toBe('Authored description');
+    expect(verifyEvent(result)).toBe(true);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

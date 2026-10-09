@@ -24,6 +24,8 @@ export interface InstalledNappletRecord {
   readonly title?: string;
   /** Verified NAP domains required by the artifact. */
   readonly requires: readonly string[];
+  /** Optional integrations; declarations do not grant capabilities. */
+  readonly optional?: readonly string[];
   /** Exact manifest convention contracts used for intent eligibility. */
   readonly archetypes: readonly {
     readonly slug: string;
@@ -64,11 +66,15 @@ export class InstalledNappletCatalog {
       pointer: copyPointer(resolved.pointer),
       ...(resolved.manifest.title === undefined ? {} : { title: resolved.manifest.title }),
       requires: [...resolved.manifest.requires],
+      optional: [...(resolved.manifest.optional ?? [])],
       archetypes: resolved.manifest.archetypes.map((archetype) => ({
         slug: archetype.slug,
         convention: archetype.convention,
       })),
     });
+    // NAP-INTENT handler selection is dTag-based. Nameless root/snapshot
+    // artifacts may run, but have no key in this named-handler catalog.
+    if (!record.dTag) return record;
     this.records.set(record.dTag, record);
     this.notify(record.dTag);
     return record;
@@ -109,17 +115,24 @@ export class InstalledNappletCatalog {
     return matchesInstalledNappletRecord(selected, target) ? selected : null;
   }
 
-  /** Return exact handler candidates derived only from installed manifests. */
-  intentCatalog(): IntentCatalogEntry[] {
+  /**
+   * Return declared handlers whose host environment can receive intent delivery.
+   * @param canReceiveIntent - Resolve intent availability for each verified identity;
+   * without host policy, return declared candidates for the host to filter.
+   * @returns Named intent candidates usable under the supplied host policy.
+   */
+  intentCatalog(
+    canReceiveIntent: (record: InstalledNappletRecord) => boolean = () => true,
+  ): IntentCatalogEntry[] {
     return this.installed()
-      .filter((record) => record.requires.includes('inc'))
+      .filter(canReceiveIntent)
       .map((record) => manifestToIntentCatalogEntry({
-      dTag: record.dTag,
-      ...(record.title === undefined ? {} : { title: record.title }),
-      archetypes: record.archetypes.map((archetype) => ({
-        slug: archetype.slug,
-        convention: archetype.convention,
-      })),
+        dTag: record.dTag,
+        ...(record.title === undefined ? {} : { title: record.title }),
+        archetypes: record.archetypes.map((archetype) => ({
+          slug: archetype.slug,
+          convention: archetype.convention,
+        })),
       }));
   }
 
@@ -164,6 +177,7 @@ function freezeRecord(record: Omit<InstalledNappletRecord, 'archetypes'> & {
   return Object.freeze({
     ...record,
     requires: Object.freeze([...record.requires]),
+    optional: Object.freeze([...(record.optional ?? [])]),
     archetypes: Object.freeze(record.archetypes.map((archetype) =>
       Object.freeze({ ...archetype }))),
   });

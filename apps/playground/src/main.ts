@@ -9,6 +9,7 @@ import {
   getNapplets,
   closeNapplet,
   getInstalledNappletCatalog,
+  getPlaygroundShellEnvironment,
   createPlaygroundIntentTargetOptions,
   loadNapplet,
   getNotificationServiceHandler,
@@ -74,7 +75,9 @@ const initialTheme = getPersistedPlaygroundTheme();
 const installedNapplets = getInstalledNappletCatalog();
 const intentController = new PlaygroundIntentController(createPlaygroundIntentTargetOptions());
 const intentResolver = createCatalogIntentResolver({
-  loadCatalog: () => installedNapplets.intentCatalog(),
+  loadCatalog: () => installedNapplets.intentCatalog((record) =>
+    getPlaygroundShellEnvironment(record).capabilities.domains.includes('intent'),
+  ),
   targets: intentController,
   getDefaultHandler: (archetype) => installedNapplets.getDefaultHandler(archetype),
   // UI selection is introduced with the live profile flow; ambiguity remains
@@ -506,7 +509,7 @@ export function setSelectedNode(id: string | null): void {
     direction: message.direction,
     windowId: message.windowId,
     type: message.envelopeType,
-    event: message.envelopeType === 'inc.event'
+    event: (message.envelopeType === 'inc.event' || message.envelopeType === 'intent.deliver')
       ? message.envelope
       : undefined,
   }));

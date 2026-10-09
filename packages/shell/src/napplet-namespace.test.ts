@@ -1802,3 +1802,127 @@ describe('NIP-5D napplet namespace prelude', () => {
     });
   });
 });
+
+// NAP-INTENT@25b29ee delivery contract; invocation/result migration is separate.
+describe('intent delivery and KEHTO_COMPAT_INTENT_INC', () => {
+  const delivery = { sender: 'feed', archetype: 'profile', action: 'open', convention: 'napplet:profile/open', payload: { pubkey: 'f'.repeat(64) } };
+  type Callback = (value: Record<string, unknown>) => void;
+  type Binding = { onDelivery(callback: Callback): { close(): void } };
+  type IncBinding = { on(topic: string, callback: Callback): { close(): void } };
+  const intent = (target: PreludeTestWindow) => target.napplet!.intent as Binding;
+  const inc = (target: PreludeTestWindow) => target.napplet!.inc as IncBinding;
+  const send = (target: PreludeTestWindow, value: unknown = delivery) => target.dispatchParentMessage({ type: 'intent.deliver', delivery: value });
+
+  it('buffers before shell.ready is posted and drains in order without INC or warnings', () => {
+    const target = createPreludeTestWindow();
+    const post = target.parent.postMessage;
+    target.parent.postMessage = (message, origin) => {
+      post(message, origin);
+      if (message.type === 'shell.ready') send(target);
+    };
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      runPrelude(renderNappletNamespacePrelude({ domains: ['intent'] }), target);
+      const { payload: _, ...withoutPayload } = delivery;
+      send(target, withoutPayload);
+      send(target, { ...delivery, payload: null });
+      const handler = vi.fn();
+      const subscription = intent(target).onDelivery(handler);
+      expect(handler.mock.calls.map(([value]) => value)).toEqual([delivery, withoutPayload, { ...delivery, payload: null }]);
+      expect(Object.isFrozen(handler.mock.calls[0][0])).toBe(true);
+      expect(target.napplet!.inc).toBeUndefined();
+      expect(warn).not.toHaveBeenCalled();
+      subscription.close();
+      subscription.close();
+      send(target);
+      expect(handler).toHaveBeenCalledTimes(3);
+      const replacement = vi.fn();
+      intent(target).onDelivery(replacement);
+      expect(replacement).toHaveBeenCalledExactlyOnceWith(delivery);
+    } finally { warn.mockRestore(); }
+  });
+
+  it('ignores forged, malformed, and ordinary INC messages and preserves the protected binding', () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['intent', 'inc'] }), target);
+    const binding = intent(target);
+    const handler = vi.fn();
+    binding.onDelivery(handler);
+    target.dispatchMessage({}, { type: 'intent.deliver', delivery });
+    for (const value of [null, [], {}, { ...delivery, sender: 1 }, { ...delivery, action: undefined }]) send(target, value);
+    target.dispatchParentMessage({ type: 'inc.event', topic: delivery.convention, sender: delivery.sender, payload: delivery.payload });
+    expect(handler).not.toHaveBeenCalled();
+    target.napplet = { intent: { onDelivery: vi.fn() } };
+    expect(intent(target)).toBe(binding);
+    send(target);
+    expect(handler).toHaveBeenCalledExactlyOnceWith(delivery);
+  });
+
+  it('adapts only matching legacy listeners, warns once, and never also delivers to INC when canonical listeners exist', () => {
+    const target = createPreludeTestWindow();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      runPrelude(renderNappletNamespacePrelude({ domains: ['intent', 'inc'] }), target);
+      send(target);
+      const other = vi.fn();
+      inc(target).on('napplet:note/open', other);
+      expect(warn).not.toHaveBeenCalled();
+      const legacy = vi.fn();
+      const oldSubscription = inc(target).on(delivery.convention, legacy);
+      expect(legacy).toHaveBeenCalledExactlyOnceWith({ topic: delivery.convention, sender: delivery.sender, payload: delivery.payload });
+      send(target);
+      expect(legacy).toHaveBeenCalledTimes(2);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('[KEHTO_COMPAT_INTENT_INC]'));
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('window.napplet.intent.onDelivery'));
+      const canonical = vi.fn();
+      const subscription = intent(target).onDelivery(canonical);
+      expect(canonical).not.toHaveBeenCalled();
+      send(target);
+      expect(canonical).toHaveBeenCalledExactlyOnceWith(delivery);
+      expect(legacy).toHaveBeenCalledTimes(2);
+      expect(other).not.toHaveBeenCalled();
+      subscription.close();
+      oldSubscription.close();
+      send(target);
+      expect(legacy).toHaveBeenCalledTimes(2);
+      const late = vi.fn();
+      intent(target).onDelivery(late);
+      expect(late).toHaveBeenCalledExactlyOnceWith(delivery);
+    } finally { warn.mockRestore(); }
+  });
+
+  it('does not widen an INC-only namespace or warn for ordinary INC traffic', () => {
+    const target = createPreludeTestWindow();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      runPrelude(renderNappletNamespacePrelude({ domains: ['inc'] }), target);
+      const handler = vi.fn();
+      inc(target).on(delivery.convention, handler);
+      send(target);
+      expect(handler).not.toHaveBeenCalled();
+      expect(target.napplet!.intent).toBeUndefined();
+      target.dispatchParentMessage({ type: 'inc.event', topic: delivery.convention, sender: delivery.sender });
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(warn).not.toHaveBeenCalled();
+    } finally { warn.mockRestore(); }
+  });
+
+  it('continues delivery after a listener throws and handles reentrant registration', () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['intent'] }), target);
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const late = vi.fn();
+      intent(target).onDelivery(() => { intent(target).onDelivery(late); throw new Error('consumer failure'); });
+      const sibling = vi.fn();
+      intent(target).onDelivery(sibling);
+      send(target);
+      expect(sibling).toHaveBeenCalledExactlyOnceWith(delivery);
+      expect(late).not.toHaveBeenCalled();
+      send(target);
+      expect(late).toHaveBeenCalledExactlyOnceWith(delivery);
+      expect(sibling).toHaveBeenCalledTimes(2);
+    } finally { error.mockRestore(); }
+  });
+});

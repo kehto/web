@@ -63,6 +63,7 @@ export {
   getConfigServiceBundle,
   getIdentityServiceHandler,
   getMissingRequiredNaps,
+  getPlaygroundShellEnvironment,
   getNip66Aggregator,
   getNotificationServiceHandler,
   getPlaygroundRelayActivity,
@@ -237,7 +238,14 @@ function intentGeneration(generation: PlaygroundIntentGeneration): IntentGenerat
   throw new Error('intent target generation is no longer available');
 }
 
-/** Whether an intent dispatch permits selecting an already-live target frame. */
+/**
+ * Whether an intent dispatch permits selecting an already-live target frame.
+ *
+ * `behavior.focus` is deliberately not consulted: it is a hint for how the
+ * runtime focuses a surface, never permission to deliver into a surface the
+ * user cannot see (`napplet/naps`, NAP-INTENT.md, draft `nap-intent`
+ * a718915d — "runtime workspace and lifecycle policy remain authoritative").
+ */
 export function shouldReuseIntentTarget(params: IntentDispatchParams): boolean {
   return params.behavior?.newWindow !== true && params.behavior?.reuse !== false;
 }
@@ -413,10 +421,14 @@ function sendIntentConvention(
     throw new Error('intent target generation is not current and ready');
   }
   createPostMessageProxy(state.source, tap, state.windowId).postMessage({
-    type: 'inc.event',
-    topic: params.convention,
-    sender: params.sender,
-    ...(params.payload === undefined ? {} : { payload: params.payload }),
+    type: 'intent.deliver',
+    delivery: {
+      sender: params.sender,
+      archetype: params.archetype,
+      action: params.action,
+      convention: params.convention,
+      ...(params.payload === undefined ? {} : { payload: params.payload }),
+    },
   }, '*');
 }
 

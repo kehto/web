@@ -1316,3 +1316,26 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
     bridge.destroy();
   });
 });
+
+
+describe('root/snapshot identity handshake', () => {
+  it('establishes one empty-dTag session bound to its registered Window', () => {
+    originRegistry.clear();
+    const bridge = createShellBridge(makeTestHooks());
+    const iframe = makeFakeIframe();
+    const win = iframe as unknown as Window;
+    const identity = { dTag: '', aggregateHash: 'a'.repeat(64) };
+    originRegistry.register(win, 'snapshot', identity);
+    const ready = { source: win, origin: 'null', data: { type: 'shell.ready' } } as MessageEvent;
+    bridge.handleMessage({ ...ready, source: {} as Window } as MessageEvent);
+    expect(bridge.runtime.sessionRegistry.getEntryByWindowId('snapshot')).toBeUndefined();
+    bridge.handleMessage(ready);
+    const session = bridge.runtime.sessionRegistry.getEntryByWindowId('snapshot');
+    expect(session).toMatchObject(identity);
+    bridge.handleMessage(ready);
+    expect(bridge.runtime.sessionRegistry.getEntryByWindowId('snapshot')).toBe(session);
+    expect(iframe.postMessage.mock.calls.filter(([message]) => message.type === 'shell.init')).toHaveLength(1);
+    bridge.destroy();
+    originRegistry.clear();
+  });
+});

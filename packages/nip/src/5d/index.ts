@@ -2,12 +2,10 @@ import type { NostrEvent } from 'nostr-tools';
 import { verifyEvent } from 'nostr-tools/pure';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import {
-  computeAggregateHash,
-  pathEntriesFromTags,
-  aggregateTagValue,
-  type PathEntry,
-} from '../5a/index.js';
+import type { PathEntry } from '../5a/index.js';
+import { NappletResolutionError } from './errors.js';
+import { parseLegacyManifest, verifyLegacyAggregate, warnLegacyManifest } from './legacy-manifest.js';
+import { parseCurrentManifest } from './current-manifest.js';
 import type { NappletArtifactCache } from './artifact-cache.js';
 export {
   CacheStorageNappletArtifactCache,
@@ -28,21 +26,10 @@ export {
 } from './artifact-cache.js';
 
 /**
- * `@kehto/nip/5d` — NIP-5D napplet manifest resolution.
- *
- * NIP-5D (`dskvr/nips` branch `nip/5d`) defines content-addressed "napplet"
- * web applets published as Nostr events that reference their files by hash
- * (NIP-5A `path` tags + an aggregate `x` tag). A runtime resolves a napplet by:
- *
- * 1. verifying the manifest event's signature,
- * 2. recomputing the NIP-5A aggregate from its `path` tags and checking the
- *    `["x","<hex>","aggregate"]` tag,
- * 3. fetching each referenced blob (e.g. from Blossom) and verifying its hash,
- * 4. assembling the verified `/index.html`.
- *
- * The napplet's identity is the `(dTag, aggregateHash)` tuple **computed** from
- * these verified bytes — it is never accepted from a host or gateway.
- *
+ * `@kehto/nip/5d` — verify signed napplet manifests and their content bytes.
+ * Current events use one artifact x hash. The isolated legacy adapter accepts
+ * path tags plus an aggregate x marker. Both formats share signature checking,
+ * blob verification, caching, and verified srcdoc output.
  * @module
  */
 
@@ -72,158 +59,73 @@ export function isNappletManifestKind(kind: number): boolean {
 
 /**
  * A parsed NIP-5D napplet manifest. All fields are derived from the manifest
- * event's tags; the aggregate is the declared `x` tag (verify it separately
- * with {@link resolveNapplet} or `@kehto/nip/5a` `verifyAggregate`).
+ * event. Declarations are untrusted until {@link resolveNapplet} verifies both
+ * the signature and the content bytes.
  */
 export interface NappletManifest {
+  /** Event format selected by the parser. Absent only in older host-created values. */
+  format?: 'current' | 'legacy';
+  /** Signed artifact hash for current events; legacy aggregate for older events. */
+  artifactHash?: string;
+  /** Optional domains; absence never prevents loading and presence grants nothing. */
+  optional?: string[];
+  /** Independent current z declarations, preserved even without accepted intents. */
+  archetypeSlugs?: string[];
+  /** Accepted queryless intents and advertised parameter names from i tags. */
+  intents?: Array<{ identity: string; parameters: string[] }>;
+  /** Valid supported icon declaration. Hosts may keep generic artwork. */
+  icon?: { sha256: string; mimeType: 'image/png' | 'image/jpeg' | 'image/webp' };
+  /** Snapshot provenance only; never resolved or trusted on its behalf. */
+  parent?: string;
+  /** Snapshot root provenance only. */
+  root?: string;
   /** Manifest event kind (`5129` / `15129` / `35129`). */
   kind: number;
   /** Author hex public key. */
   pubkey: string;
   /** Named-napplet `d` identifier, or `''` for root/snapshot manifests. */
   dTag: string;
-  /** File path entries from `path` tags. */
+  /** Normalized files: one /index.html for current events, legacy path entries otherwise. */
   paths: PathEntry[];
-  /** Declared aggregate hash from the `["x","<hex>","aggregate"]` tag. */
+  /** Compatibility name for the signed content identity (current artifact or legacy aggregate). */
   aggregateHash: string;
   /** Blossom server URL hints from `server` tags. */
   servers: string[];
-  /** Short NAP capability names from `requires` tags. */
+  /** Required bare domains from current R tags or legacy requires tags. */
   requires: string[];
   /**
-   * Convention contracts this napplet fulfills, from `archetype` manifest tags.
+   * Routing projection: independent current z/i sets, or exact legacy archetype pairs.
    */
   archetypes: Array<{ slug: string; convention: string }>;
   /** Optional human title. */
   title?: string;
-  /** Optional human description. */
+  /** Plain-text event content (legacy description tag for older events). */
   description?: string;
   /** Optional upstream source URL from the `source` tag. */
   source?: string;
 }
 
-/** Error codes for every napplet resolution failure path. */
-export type NappletResolutionErrorCode =
-  | 'invalid-signature'
-  | 'invalid-manifest'
-  | 'aggregate-mismatch'
-  | 'blob-hash-mismatch'
-  | 'blob-unavailable'
-  | 'missing-index';
+export { NappletResolutionError, type NappletResolutionErrorCode } from './errors.js';
 
 /**
- * Thrown on any napplet resolution/verification failure. The `code` field
- * identifies which guard rejected, so callers can fail closed without parsing
- * the message.
- */
-export class NappletResolutionError extends Error {
-  readonly code: NappletResolutionErrorCode;
-  constructor(code: NappletResolutionErrorCode, message: string) {
-    super(message);
-    this.name = 'NappletResolutionError';
-    this.code = code;
-  }
-}
-
-function firstTagValue(tags: readonly (readonly string[])[], name: string): string | undefined {
-  for (const tag of tags) {
-    if (tag[0] === name && typeof tag[1] === 'string' && tag[1].length > 0) return tag[1];
-  }
-  return undefined;
-}
-
-function allTagValues(tags: readonly (readonly string[])[], name: string): string[] {
-  const out: string[] = [];
-  for (const tag of tags) {
-    if (tag[0] === name && typeof tag[1] === 'string' && tag[1].length > 0) out.push(tag[1]);
-  }
-  return out;
-}
-
-function archetypesFromTags(
-  tags: readonly (readonly string[])[],
-): Array<{ slug: string; convention: string }> {
-  const out: Array<{ slug: string; convention: string }> = [];
-  for (const tag of tags) {
-    if (tag[0] !== 'archetype') continue;
-    const slug = tag[1];
-    if (typeof slug !== 'string' || !/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
-      throw new NappletResolutionError(
-        'invalid-manifest',
-        'archetype slug must contain lowercase letters, numbers, and hyphens',
-      );
-    }
-
-    const convention = tag[2];
-    if (typeof convention !== 'string' || convention.length === 0) {
-      throw new NappletResolutionError('invalid-manifest', 'archetype convention is required');
-    }
-    if (/^NAP-\d+$/.test(convention)) {
-      throw new NappletResolutionError(
-        'invalid-manifest',
-        'numbered NAP identifier is not an archetype convention',
-      );
-    }
-    if (!/^napplet:[^/?#\s]+\/[^/?#\s]+$/.test(convention)) {
-      throw new NappletResolutionError(
-        'invalid-manifest',
-        'archetype convention must be a queryless napplet:<archetype>/<intent> identity',
-      );
-    }
-    // NAP-INTENT keeps a routing archetype and a payload convention
-    // orthogonal: one convention may serve multiple archetypes and vice versa.
-
-    if (tag.length !== 3) {
-      throw new NappletResolutionError(
-        'invalid-manifest',
-        'archetype tags must contain exactly slug and convention',
-      );
-    }
-    out.push({ slug, convention });
-  }
-  return out;
-}
-
-/**
- * Parse a NIP-5D manifest event into a {@link NappletManifest}.
- *
- * Does not verify the signature, aggregate, or blobs — use {@link resolveNapplet}
- * for full verification.
- *
- * @param event - A NIP-5D manifest event (`5129` / `15129` / `35129`)
- * @returns The parsed manifest
- * @throws {@link NappletResolutionError} `invalid-manifest` for a non-napplet
- *   kind, missing `path` tags, or a missing aggregate `x` tag
+ * Normalize a current or legacy NIP-5D event without verifying its signature.
+ * @param event - Candidate manifest; use resolveNapplet before trusting it.
+ * @returns Manifest with normalized identity, paths, and routing declarations.
+ * @example
+ * const manifest = parseNappletManifest(event);
  */
 export function parseNappletManifest(event: NostrEvent): NappletManifest {
   if (!isNappletManifestKind(event.kind)) {
     throw new NappletResolutionError('invalid-manifest', `not a NIP-5D napplet kind: ${event.kind}`);
   }
-  const paths = pathEntriesFromTags(event.tags);
-  if (paths.length === 0) {
-    throw new NappletResolutionError('invalid-manifest', 'manifest has no path tags');
+  const hashes = event.tags.filter((tag) => tag[0] === 'x');
+  if (hashes.length !== 1) {
+    throw new NappletResolutionError('invalid-manifest', 'manifest must carry exactly one x tag');
   }
-  const aggregateHash = aggregateTagValue(event.tags);
-  if (!aggregateHash) {
-    throw new NappletResolutionError('invalid-manifest', 'manifest has no aggregate x tag');
-  }
-  const dTag = firstTagValue(event.tags, 'd');
-  if (event.kind !== NAPPLET_KIND_NAMED && dTag !== undefined) {
-    throw new NappletResolutionError('invalid-manifest', 'only named manifests may carry a d tag');
-  }
-  return {
-    kind: event.kind,
-    pubkey: event.pubkey,
-    dTag: dTag ?? '',
-    paths,
-    aggregateHash,
-    servers: allTagValues(event.tags, 'server'),
-    requires: allTagValues(event.tags, 'requires'),
-    archetypes: archetypesFromTags(event.tags),
-    title: firstTagValue(event.tags, 'title'),
-    description: firstTagValue(event.tags, 'description'),
-    source: firstTagValue(event.tags, 'source'),
-  };
+  // Explicit format selection, never retry a malformed current event as legacy.
+  return hashes[0][2] === 'aggregate'
+    ? parseLegacyManifest(event)
+    : parseCurrentManifest(event);
 }
 
 /**
@@ -286,9 +188,11 @@ export async function fetchBlob(
 
 /** A fully verified napplet, ready to inject via `iframe.srcdoc`. */
 export interface ResolvedNapplet {
+  /** Verified content identity; current artifact SHA-256 or legacy aggregate. */
+  artifactHash: string;
   /** Computed `d` identifier (`''` for root/snapshot). */
   dTag: string;
-  /** Computed (and verified) aggregate hash — the content address. */
+  /** Compatibility alias for artifactHash; preserves existing host and ACL APIs. */
   aggregateHash: string;
   /** Verified file bytes keyed by manifest path. */
   files: Map<string, Uint8Array>;
@@ -313,7 +217,7 @@ export interface ResolveNappletOptions {
   /**
    * Optional verified artifact cache. Cache hits are still re-verified against
    * the manifest hash before use; cache writes happen only after the signature,
-   * aggregate, and every blob hash have been verified.
+   * content identity, and every blob hash have been verified.
    */
   cache?: NappletArtifactCache;
 }
@@ -326,8 +230,8 @@ function defaultDecode(bytes: Uint8Array): string {
 
 /**
  * Resolve a napplet end-to-end from a candidate manifest event: verify the
- * signature, parse the manifest, verify the NIP-5A aggregate, fetch and verify
- * every blob, then assemble the verified `/index.html`.
+ * signature, parse its schema, fetch and hash its artifact, and return verified
+ * `/index.html`. Legacy events additionally verify their NIP-5A aggregate.
  *
  * The returned `(dTag, aggregateHash)` is computed from the verified bytes and
  * is the napplet's identity. Any failure throws a {@link NappletResolutionError}
@@ -354,13 +258,7 @@ export async function resolveNapplet(options: ResolveNappletOptions): Promise<Re
 
   const manifest = parseNappletManifest(event);
 
-  const recomputed = computeAggregateHash(manifest.paths);
-  if (recomputed !== manifest.aggregateHash) {
-    throw new NappletResolutionError(
-      'aggregate-mismatch',
-      `recomputed aggregate ${recomputed} != manifest ${manifest.aggregateHash}`,
-    );
-  }
+  if (manifest.format === 'legacy') verifyLegacyAggregate(manifest);
 
   const files = new Map<string, Uint8Array>();
   for (const entry of manifest.paths) {
@@ -386,8 +284,10 @@ export async function resolveNapplet(options: ResolveNappletOptions): Promise<Re
 
   const indexHtml = textDecode(files.get(indexEntry.path)!);
   await cache?.writeVerifiedResolution({ event, manifest, files, indexHtml });
+  if (manifest.format === 'legacy') warnLegacyManifest();
 
   return {
+    artifactHash: manifest.aggregateHash,
     dTag: manifest.dTag,
     aggregateHash: manifest.aggregateHash,
     files,

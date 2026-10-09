@@ -1,5 +1,39 @@
 # @kehto/paja
 
+## 0.17.1
+
+### Patch Changes
+
+- 1de4729: Foreground a reused intent handler tab and log intent eligibility.
+
+  When an intent resolved to a handler napplet that already had an open tab, the
+  intent was delivered over `postMessage` but the tab stayed in the background, so
+  the result was invisible until the user switched tabs manually. The reuse path
+  now calls `activateRuntimeTab()` before binding the generation, matching the
+  new-tab path, so a delivered intent always selects the handler tab.
+
+  `behavior.focus` is a hint, not a visibility switch: Paja's stage shows exactly
+  one tab, so honoring `focus: false` as "keep the handler in the background"
+  would report `handled: true` for a surface the user cannot see. Reuse still
+  leaves the caller's tab open, so nothing is replaced. Newly created handler tabs
+  behave the same way.
+
+  The `paja.pointer.resolved` message-log entry also records each installed
+  napplet's declared archetypes,
+  `requires` tags, and whether it is intent-eligible, warning when a napplet
+  declares archetypes without `["requires","inc"]`.
+
+## 0.17.0
+
+### Minor Changes
+
+- bbbca64: Add a collapsible Paja development console. The left development column starts
+  expanded and collapses to the left through one chevron button in the top bar;
+  the same button restores it, and the choice is remembered per browser origin.
+  Collapsing is CSS-only presentation, so the target iframe keeps its identity and
+  the running napplet keeps its shell state while the stage reclaims the full
+  width.
+
 ## 0.16.5
 
 ### Patch Changes
