@@ -231,6 +231,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 261009-ctx | Resolve all six Copilot inline comments on PR #277 | 2026-10-09 | d9c44ce | Verified | [261009-ctx-resolve-copilot-review-comments-on-pr-27](./quick/261009-ctx-resolve-copilot-review-comments-on-pr-27/) |
 | 261006-ift | Foreground a reused intent handler tab for every behavior.focus hint | 2026-10-06 | e99451be / 4ebf3604 / da8dc309 / 99c7488c | Verified | [261006-ift-foreground-intent-tabs](./quick/261006-ift-foreground-intent-tabs/) |
 | 261009-gxe | Canonical intent delivery with tracked, warned compatibility; AGENTS policy separate in #284 | 2026-10-09 | 05d3e013 | Verified | [261009-gxe](./quick/261009-gxe-migrate-pr-277-intent-delivery-to-intent/) |
+| 261009-h66 | Require compatibility warnings, tracking and tests in AGENTS | 2026-10-09 | 3c595776 | Verified | [261009-h66](./quick/261009-h66-require-tracked-and-tested-backwards-com/) |
 
 ## Session Continuity
 
