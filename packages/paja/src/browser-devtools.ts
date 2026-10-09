@@ -9,7 +9,7 @@ import {
 import type { PajaHostConfig } from './options.js';
 import type { PajaSignerState } from './browser-signers.js';
 import { getTargetIdentity } from './browser-target-frame.js';
-import type { PajaResolvedPointer } from './runtime-resolver.js';
+import type { PajaRuntimeTarget } from './local-target.js';
 import {
   PAJA_SIMULATION_DOMAINS,
   type PajaCapabilityDomain,
@@ -39,7 +39,7 @@ export interface PajaDevtoolsState {
   /** Current host config. */
   readonly config: PajaHostConfig;
   /** Resolver-verified identity of the active runtime-pointer target. */
-  resolvedTarget: PajaResolvedPointer | null;
+  resolvedTarget: PajaRuntimeTarget | null;
   /** Current simulation model. */
   simulation: PajaSimulation;
   /** Current signer state. */

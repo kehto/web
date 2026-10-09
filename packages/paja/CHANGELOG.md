@@ -1,5 +1,40 @@
 # @kehto/paja
 
+## 0.18.0
+
+### Minor Changes
+
+- ece45ca: Keep verified-manifest requirement checks scoped to pointer targets so unsigned local HTML files load without a manifest, while retaining pre-execution identity registration and host capability policy.
+
+  Paja runtime-pointer mode can open a napplet from a local single-file `index.html` through an "Open file…" picker or drag and drop. The file's identity comes from its bytes: the NIP-5A single-path aggregate, plus a `dTag` from `<meta name="napplet-id">` or `local-<file-stem>`. It loads through the same sandboxed `srcdoc`, CSP, and `window.napplet` prelude path as verified pointers. Local tabs are development-only. They never enter the installed catalog or receive intents, and they are not restored after a reload. New exports: `createPajaLocalTarget`, `isPajaLocalTarget`, `isPajaLocalHtmlFile`, `readNappletIdMeta`, `findRelativeAssetReferences`, `PAJA_LOCAL_SINGLE_FILE_HINT`, `PajaLocalTarget`, `PajaLocalFileInput`, and `PajaRuntimeTarget`.
+
+### Patch Changes
+
+- ece45ca: Add host-owned extra Blossom resource lookup servers with a newline sidebar setting, atomic origin validation, live all-tab updates, and origin-scoped persistence with truthful session-only fallback. Upload destinations, pointer loading, and napplet CSP remain unchanged.
+
+  Make every development drawer section a flush independent native accordion with keyboard focus and state chevrons. Restore validated origin-local collapsed preferences separately from drawer visibility and resource settings, tolerate unavailable storage, and keep controls and running frames alive. Place Resource servers immediately before Messages, which is last in both modes.
+
+## 0.17.2
+
+### Patch Changes
+
+- 5b3c709: Fix issue #279 by delivering capped, SHA-256-verified opaque Blossom resources
+  as `application/octet-stream`. Preserve byte-sniffed MIME for recognized formats,
+  reject active markup, and keep HTTP(S)/data resource policies unchanged.
+- 62f1c6d: Resolve current NIP-5D single-artifact manifests while preserving legacy aggregate events through an isolated compatibility adapter. Normalize required and optional domains and independent intent advertisements without granting capabilities. Verify both formats before cache writes and iframe execution. Paja checks required domains before rendering and the shell accepts verified root/snapshot identities with an empty d-tag. Existing aggregateHash fields retain their names and carry the current artifact hash or original legacy aggregate.
+
+  Intent catalog role maps also accept valid role names that coincide with JavaScript object prototype properties.
+
+  Host intent catalogs check target intent availability and exclude nameless root/snapshot artifacts from dTag-based routing without preventing ordinary frame loading.
+
+  Deliver intents through one intent.deliver envelope in Paja and playground, with a protected buffered onDelivery binding. Preserve legacy INC consumers through a local adapter that warns once per iframe, and track its removal criteria and regression coverage.
+
+- Updated dependencies [62f1c6d]
+- Updated dependencies [62f1c6d]
+  - @kehto/nip@0.6.0
+  - @kehto/shell@0.21.3
+  - @kehto/services@0.22.1
+
 ## 0.17.1
 
 ### Patch Changes

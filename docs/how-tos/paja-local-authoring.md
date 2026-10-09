@@ -71,6 +71,15 @@ bootstrap, while target assets and HMR still resolve through the framework dev
 server. The runtime reload button reinitializes the Kehto shell state around the
 same target URL.
 
+Each section is also an independent flush native accordion: **Pointer** where
+present, **Interfaces**, **ACL**, **Signer**, **Resource servers**, then **Messages**
+last. Use Enter/Space on a focused header; focus outlines and chevrons indicate
+state. Sections start expanded and remember collapsed booleans per origin under
+`kehto:paja:sidebar-sections:v1`. Invalid entries are ignored and storage failures
+leave session-only toggles usable. These preferences are separate from whole-drawer
+visibility and saved resource origins. Closing a section retains its live controls,
+unsaved drafts and the running app; reopen it to continue editing.
+
 The published `@napplet/shim@0.30.0` remains non-shell. Paja therefore retains
 Kehto's host-owned mandatory `window.napplet.shell` prelude, installed before
 one bare `shell.ready`; its first `shell.init` is cached for local `ready()`,
@@ -157,6 +166,45 @@ defaults in `kehto.dev.json` and still switch one mode for a test:
 ```bash
 kehto paja --config kehto.dev.json --theme dark
 ```
+
+## Add Extra Blossom Resource Servers
+
+In either target-URL or runtime-pointer mode, use the sidebar's **Resource
+servers** textarea and **Save** for read-side lookups. For example:
+
+```text
+cdn.example
+https://media.example:8443
+```
+
+Use one public HTTPS origin per line; bare domains use HTTPS. Save ignores blank
+lines, normalizes equivalent origins and removes duplicates in first-seen
+order. HTTP, credentials, paths, query/fragment delimiters, malformed input and
+obvious local/private hosts are rejected with a line-specific error. A rejected
+save leaves the active and durable list unchanged. Unsaved drafts do nothing.
+Save an empty textarea to clear only extras.
+
+Valid changes apply to subsequent Blossom requests in every running tab without
+reloading napplets. Extras persist per host origin (including port) in
+`localStorage`, not in napplet NAP-CONFIG. If storage cannot restore/write/clear
+the list, the inline status explains the failure. Valid changes remain usable
+session-only when persistence fails; a stale durable list can return after
+reload if clearing could not be saved.
+
+Extras come after request hints, event/publisher/user discovery, per-window
+manifest hints and existing configured defaults. The combined cap stays eight
+servers, so extras may not be tried when earlier candidates fill the cap. This
+does not change upload destinations, initial pointer/artifact fetching, direct
+HTTP(S) resource URLs, or napplet CSP/network grants. Browser CORS still applies;
+browser-only Paja cannot enforce DNS-time private-address checks.
+
+The host-owned policy was checked against
+[NAP-RESOURCE `9511232f69313aa7953d110e35d32cc28d506f66`](https://github.com/napplet/naps/blob/9511232f69313aa7953d110e35d32cc28d506f66/naps/NAP-RESOURCE.md)
+and PR #80 head
+[`fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1`](https://github.com/napplet/naps/blob/fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1/naps/NAP-RESOURCE.md).
+The latter removes request `servers` and changes bulk `requests` to `urls`;
+this UI feature does not migrate the existing packaged wire contract or claim
+full browser network conformance.
 
 ## Use Real Blossom Uploads
 

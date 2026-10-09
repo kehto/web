@@ -66,6 +66,14 @@ export {
   getMissingServices,
 } from './parity.js';
 export { ReadinessError, waitForTargetUrl } from './readiness.js';
+export {
+  PAJA_LOCAL_SINGLE_FILE_HINT,
+  createPajaLocalTarget,
+  findRelativeAssetReferences,
+  isPajaLocalHtmlFile,
+  isPajaLocalTarget,
+  readNappletIdMeta,
+} from './local-target.js';
 export { InstalledNappletCatalog } from './installed-napplet-catalog.js';
 export { BrowserIntentController } from './browser-intent-controller.js';
 export { startPajaServer } from './server.js';
@@ -84,6 +92,11 @@ export type {
   PajaRawOptions,
   PajaTargetMode,
 } from './options.js';
+export type {
+  PajaLocalFileInput,
+  PajaLocalTarget,
+  PajaRuntimeTarget,
+} from './local-target.js';
 export type {
   PajaDecodedPointer,
   PajaPointerRelayPool,

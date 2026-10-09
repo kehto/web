@@ -20,7 +20,7 @@ app package's development scripts.
 | Field | Value |
 |-------|-------|
 | Source | `packages/paja/package.json`, `packages/paja/src/index.ts` |
-| Version | `0.17.1` |
+| Version | `0.18.0` |
 | Runtime entry | `./dist/index.js` |
 | CLI runner entry | `./dist/cli.js` |
 | Types entry | `./dist/index.d.ts` |
@@ -45,6 +45,7 @@ app package's development scripts.
 | Host config | `createPajaHostConfig`, `createPajaRuntimeHostConfig`, `PajaHostConfig`, `PajaPointerRuntimeConfig`, `formatPajaUrl` |
 | Host page | `renderPajaHtml`, bundled `/__kehto/browser-host.js` runtime bootstrap |
 | Runtime pointers | `decodePajaPointer`, `resolvePajaPointer`, `injectPajaRuntimeCsp`, `PAJA_NAPPLET_MANIFEST_KIND`, `PAJA_NAPPLET_MANIFEST_KINDS` |
+| Local files | `createPajaLocalTarget`, `isPajaLocalTarget`, `isPajaLocalHtmlFile`, `readNappletIdMeta`, `findRelativeAssetReferences`, `PAJA_LOCAL_SINGLE_FILE_HINT`, `PajaLocalTarget`, `PajaLocalFileInput`, `PajaRuntimeTarget` |
 | Parity metadata | `PAJA_UPSTREAM_WEB_DOMAINS`, `PAJA_ADVERTISED_DOMAINS`, `PAJA_HANDSHAKE_DOMAINS`, `PAJA_COMPATIBILITY_ALIASES`, `PAJA_REQUIRED_SERVICES`, `getMissingAdvertisedDomains`, `getMissingServices` |
 | Readiness | `waitForTargetUrl`, `ReadinessError`, `WaitForTargetUrlOptions`, `ReadinessFetch` |
 | Server | `startPajaServer`, `PajaServer`, `PajaServerOptions` |
@@ -154,6 +155,14 @@ the target iframe is never navigated or recreated, so the running napplet keeps
 its generation, message log, and shell state while the stage reclaims the full
 width.
 
+All sections are flush independent native accordions, expanded by default:
+**Pointer** where present, **Interfaces**, **ACL**, **Signer**, **Resource servers**,
+and **Messages** last. Enter/Space toggle focused headers; visible focus and chevrons
+show their state. Hidden bodies retain controls, drafts and the running app.
+Origin-local `kehto:paja:sidebar-sections:v1` stores validated collapsed booleans,
+independently of whole-drawer visibility and resource settings. Invalid preferences
+default expanded; unavailable storage leaves toggles usable for the session.
+
 The console includes:
 
 - **Interfaces** — every supported Paja domain has an injection toggle. Toggling
@@ -190,6 +199,8 @@ The console includes:
   returns a canonical failure and does not enter Paja's in-memory relay view.
   Its scoped-relay hook likewise waits for the backend result and returns
   `false` after denial or transport failure.
+- **Resource servers** — extra Blossom lookup origins with a newline textarea and
+  Save button, immediately before the final Messages section (see below).
 - **Messages** — inbound and outbound envelopes are logged with a text filter,
   including Paja system events such as interface changes, ACL changes, signer
   connection changes, signing/publish confirmations, and visible details for
@@ -235,6 +246,34 @@ the UI distinguishes deadline or connection failure from the clean case where
 all queried relays reached EOSE without a matching manifest. Wider relay search
 does not weaken loading: manifest signature, artifact/legacy-aggregate verification, Blossom hash, and
 `srcdoc` verification still fail closed.
+
+### Local `index.html` files
+
+In runtime-pointer mode, Paja can also open a napplet straight from disk. Use
+**Open file…** next to **Load**, or drop an `index.html` anywhere on the Paja
+page (not onto a running napplet frame, which receives its own drag events).
+The file opens in a new runtime tab named after the file.
+
+- **Identity comes from the bytes.** Paja hashes the exact file bytes (`sha256`)
+  and derives `aggregateHash` as the NIP-5A aggregate over the single
+  `/index.html` path entry. That is the same derivation the resolver checks for a
+  published single-file napplet, so editing the file gives it a new identity. The
+  `dTag` comes from the NIP-5D publishing metadata
+  `<meta name="napplet-id" content="…">`. Without it, Paja uses
+  `local-<file-stem>`.
+- **Same loading path as verified pointers.** Paja registers the identity before
+  the frame runs. It injects the Class-1 CSP (with `connect-src 'none'`, since a
+  local file has no relay or Blossom hints) and then the runtime-owned
+  `window.napplet` prelude, including mandatory `shell`. The bytes go in through
+  `srcdoc` under the same `allow-scripts` sandbox.
+- **Development only and unverified.** A local file has no signed manifest. It
+  never enters the installed napplet catalog, never becomes an intent delivery
+  target, has no share link, and is not restored after a page reload.
+- **Self-contained single-file HTML only.** A `srcdoc` document has no base URL,
+  and the CSP denies network loads, so relative `<script src>`, stylesheets, and
+  images do not load. Paja lists relative references it finds in the status line
+  and the message log. Build with an inlining bundler (for example
+  `vite-plugin-singlefile`). Opening a folder or zip of assets is not supported.
 
 ### Installed catalog and intent lifecycle
 
@@ -433,32 +472,87 @@ passes byte caps and MIME policy. Plain HTTP may also be rejected by the
 browser's mixed-content rules when Paja itself is served securely. This resource
 choice is independent of Paja's signer confirmation boundary.
 
-The only accepted Blossom form is `blossom:sha256:<64 hex characters>`. Paja
+Paja accepts `blossom:<hash>.gbc?xs=cdn.example&as=<pubkey>&sz=32768` and the
+`blossom:sha256:<hash>.gbc?xs=cdn.example&sz=32768` compatibility alias,
+each requiring exactly 64 hexadecimal characters. The optional single
+ASCII-alphanumeric extension is preserved in `GET /<hash>.<ext>` but never
+establishes MIME; query parameters are never forwarded to the blob server.
+Both forms use the
+same SHA-256 verification, byte caps, local MIME safety, and server policy. Paja
 accepts public-looking HTTPS request hints, discards invalid/private literals,
-and deduplicates equivalent origins. `outbox.getEvent`, `outbox.query`, and
-`outbox.subscribe` results privately index canonical Blossom references,
-explicit event `server`/structured-source hints, legacy BUD-10 `xs`/`as` hints,
+and deduplicates equivalent origins. Repeated URI `xs` (scheme-less domains use
+HTTPS) and `as` (64-hex author keys) work without prior events. `outbox.getEvent`, `outbox.query`, and
+`outbox.subscribe` results privately index Blossom references,
+explicit event `server`/structured-source hints, BUD-10 URI `xs`/`as` hints,
 and the verified event publisher for that source window. A later
-`resource.bytes` for the URL tries request and event-local
-servers first, then lazily reads hinted authors' and the event publisher's
+`resource.bytes` for the URL tries explicit request servers, URI `xs`, and event-local
+servers first, then lazily reads URI `as`, event-hinted authors' and the event publisher's
 newest BUD-03 kind `10063` list through the base OUTBOX router, then tries
 the active shell user's BUD-03 list through the same router, then the current
-window's verified pointer-manifest servers, and finally upload-runtime defaults.
+window's verified pointer-manifest servers, upload-runtime defaults, and finally
+the sidebar's extra resource servers.
 The user-list lookup does not
 depend on Blossom upload mode. Paja does not prefetch event resources and works
 while upload mode remains `memory`. Event state is bounded, memory-only, and
 cleared with the napplet window. Server-list lookups are cached for five
+minutes and concurrent lookups share one pending query; incomplete misses remain retryable.
+Event matching uses the hash only, never transferring an observed extension or
+size to a request. Request hints are not retained in window state; byte caches
+remain keyed by the original URL and runtime-bound napplet identity.
+
+URI length is capped at 8192 characters, retained unique `xs` and the complete
+unique author lookup list at eight each, and combined server candidates at eight.
+Fragments, unsafe extensions/path injection, malformed escapes/authors, and invalid
+or repeated `sz` fail `invalid-request` before discovery. `sz` must be one positive
+decimal safe integer; declared sizes above 10 MiB fail `too-large` before I/O.
+A numeric Content-Length must match before reading (mismatched bodies are cancelled),
+and actual bytes must always match `sz`, even without a usable header.
+Host-configured HTTP is restricted to
 minutes; incomplete misses remain retryable.
+
+**Resource servers** is a host-owned newline textarea and **Save** button in
+both target modes, not a NAP-CONFIG field or CLI/config option. Bare domains
+(including optional ports) use HTTPS: `cdn.example` becomes
+`https://cdn.example`. Save trims blanks, canonicalizes public HTTPS origins and
+deduplicates in order; an invalid line rejects the entire save atomically.
+Credentials, non-root paths, query/fragment delimiters, HTTP and local/private
+literals are rejected. Save blank to remove only extras.
+
+The list is stored under `kehto:paja:resource-servers` in origin-scoped
+`localStorage`, independently of uploads and per-napplet configuration. Stored
+JSON is revalidated before use. Failed persistence still applies valid changes
+session-only, with explicit feedback that a previously saved list may return
+after reload. Successful saves affect subsequent Blossom requests across all
+running tabs without reloading frames or resetting event context. Extras are
+the last candidates in the existing eight-server budget, so a full earlier
+list can prevent them from being tried. They do not select upload destinations,
+change initial pointer/artifact resolution, redirect direct HTTP(S) reads or
+expand napplet CSP/network grants.
+
+This setting was checked against pinned
+[NAP-RESOURCE `9511232f69313aa7953d110e35d32cc28d506f66`](https://github.com/napplet/naps/blob/9511232f69313aa7953d110e35d32cc28d506f66/naps/NAP-RESOURCE.md)
+and current PR #80 head `fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1` below.
+It is runtime-owned lookup policy, not a wire migration: the newer draft removes
+request `servers` and uses bulk `urls` instead of `requests`. Existing packaged
+wire compatibility remains unchanged; this does not claim full DNS-time network
+conformance for a browser-only runtime.
 
 The combined list is capped at eight. Host-configured HTTP is restricted to
 loopback development; request, event, and publisher hints never permit it.
 Redirects are refused and Paja verifies the returned bytes against the requested
-SHA-256 before delivery. A hash mismatch is `decode-failed`; all-definitive
+SHA-256 before delivery. A hash or size mismatch is `decode-failed` unless another
+candidate succeeds; all-definitive
 misses are `not-found`; any inconclusive transport failure without success is
 `network-error`. Browser-only Paja cannot pin DNS resolution, so production
 runtimes still must perform the draft's DNS-time private-address checks. The
 publisher lookup follows
 [BUD-03 `b5bd2801d1763aa635fc8fea7a76597e0eb18990`](https://github.com/hzrd149/blossom/blob/b5bd2801d1763aa635fc8fea7a76597e0eb18990/buds/03.md).
+[BUD-10 at the same ref](https://github.com/hzrd149/blossom/blob/b5bd2801d1763aa635fc8fea7a76597e0eb18990/buds/10.md)
+requires lowercase hashes and an extension (default `.bin`) when emitting URIs.
+Paja deliberately retains extensionless reads, mixed-case hashes and the `sha256:`
+alias as local compatibility, not full draft conformance. Its stronger public-HTTPS
+hint policy does not attempt BUD-10's suggested HTTP retry. Upload descriptors and
+URI generation remain unchanged.
 The current
 [NAP-RESOURCE draft `fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1`](https://github.com/napplet/naps/blob/fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1/naps/NAP-RESOURCE.md)
 was rechecked at PR #80's exact head for the opaque Blossom policy. This change
