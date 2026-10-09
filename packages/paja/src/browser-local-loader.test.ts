@@ -161,11 +161,25 @@ describe('@kehto/paja local index.html loader', () => {
     expect(state.messageLog.at(-1)?.preview).toContain('./assets/main.js');
   });
 
-  it('assigns srcdoc with the runtime CSP and window.napplet prelude after registering identity', async () => {
+  it.each([
+    ['plain HTML', LOCAL_HTML],
+    ['untrusted publisher metadata', LOCAL_HTML.replace('<head>', '<head><meta name="napplet-requires" content="unavailable">')],
+  ])('loads local %s without a manifest and registers identity before injected srcdoc', async (_label, html) => {
     const config = createPajaRuntimeHostConfig({}, new Date('2026-10-07T00:00:00.000Z'));
     const adapter = createPajaAdapter(config, () => config.simulation, () => {}, () => {}, () => true);
-    const target = await createPajaLocalTarget({ name: 'index.html', text: LOCAL_HTML });
+    const target = await createPajaLocalTarget({ name: 'index.html', text: html });
     const frame = fakeFrame();
+    let srcdoc = '';
+    Object.defineProperty(frame, 'srcdoc', {
+      get: () => srcdoc,
+      set(value: string) {
+        expect(originRegistry.getIdentity(frame.contentWindow)).toEqual({
+          dTag: target.dTag, aggregateHash: target.aggregateHash,
+        });
+        expect(originRegistry.getEnvironment(frame.contentWindow)?.capabilities.domains).not.toContain('unavailable');
+        srcdoc = value;
+      },
+    });
 
     try {
       const windowId = await navigateFrame(

@@ -7,7 +7,7 @@ import {
   type SessionEntry,
 } from '@kehto/shell';
 
-import type { PajaRuntimeTarget } from './local-target.js';
+import { isPajaLocalTarget, type PajaRuntimeTarget } from './local-target.js';
 import type { PajaHostConfig } from './options.js';
 import type { PajaShellEnvironment } from './parity.js';
 import { injectPajaRuntimeCsp } from './runtime-resolver.js';
@@ -83,9 +83,12 @@ export async function navigateFrame(
       frame.srcdoc = '<!doctype html><html><body></body></html>';
       return null;
     }
-    const missing = resolvedTarget.manifest.requires.filter((domain) => domain !== 'shell' && !domains.includes(domain));
-    if (missing.length > 0) {
-      throw new Error(`Napplet requires unsupported NAP capabilities: ${missing.join(', ')}`);
+    // Unsigned local files have no verified manifest; their HTML metadata is not admission policy.
+    if (!isPajaLocalTarget(resolvedTarget)) {
+      const missing = resolvedTarget.manifest.requires.filter((domain) => domain !== 'shell' && !domains.includes(domain));
+      if (missing.length > 0) {
+        throw new Error(`Napplet requires unsupported NAP capabilities: ${missing.join(', ')}`);
+      }
     }
     if (isCurrent && !isCurrent()) return null;
     const registeredWindowId = registerFrameForGeneration(frame, config, generation, identity, environment, windowId);

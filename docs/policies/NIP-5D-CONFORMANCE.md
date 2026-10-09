@@ -172,6 +172,14 @@ Current NIP-5D runtime availability is injected
 
 ### Paja local development targets
 
+Manifest requirement admission applies only to verified pointer targets. Local
+files have no signed manifest; embedded `napplet-requires` publishing metadata
+neither blocks local loading nor grants capabilities. Both paths retain host
+environment filtering and identity registration before `srcdoc` execution.
+This boundary was rechecked against NIP-5D `020cb8b` and NAP-SHELL at
+`napplet/naps@e5308ac92cfd49e4fb026812c60886571515e219` for the PR #278 merge fix;
+local unsigned loading remains the intentional spec gap described below.
+
 Paja runtime-pointer mode can open a local single-file `index.html` (file picker
 or drag and drop). Checked on 2026-10-07 against NIP-5D PR #2303 head
 `dskvr/nips@020cb8b33a9e4c6b8ca4b2f9d0ed0a67843b68f7` (`5D.md`) and NAP-SHELL
