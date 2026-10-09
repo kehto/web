@@ -1,5 +1,13 @@
 # @kehto/cli
 
+## 0.5.2
+
+### Patch Changes
+
+- Updated dependencies [ece45ca]
+- Updated dependencies [ece45ca]
+  - @kehto/paja@0.18.0
+
 ## 0.5.1
 
 ### Patch Changes
