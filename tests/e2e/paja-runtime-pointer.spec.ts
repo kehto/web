@@ -219,6 +219,69 @@ test('completes a verified intent and delivers its convention once to a cold tar
   }
 });
 
+test('opens local single-file index.html through the picker and drop without persisting it', async ({ page }) => {
+  test.setTimeout(30_000);
+  const server = await startPointerServer();
+  const localHtml = (label: string) => `<!doctype html><html><head><meta name="napplet-id" content="${label}"><title>${label}</title></head><body><div id="status">booting</div><script>
+    // The runtime-owned NAP-SHELL prelude emits shell.ready; the file only awaits shell.init.
+    window.napplet.shell.ready().then((environment) => {
+      document.getElementById('status').textContent = 'init:' + Array.isArray(environment.services);
+    });
+  </script></body></html>`;
+  const pickedBytes = Buffer.from(localHtml('picked-local'));
+  const pickedHash = createHash('sha256').update(pickedBytes).digest('hex');
+  const pickedAggregate = computeAggregateHash([{ path: '/index.html', sha256: pickedHash }]);
+  server.setConfig(createPajaRuntimeHostConfig({ maxWaitMs: 2_000 }));
+
+  try {
+    await page.goto(server.url);
+    await expect(page.locator('#empty-runtime-stage')).toHaveText(
+      'Load a napplet pointer or drop an index.html to start a runtime tab.',
+    );
+    await page.locator('#runtime-local-file').setInputFiles({
+      name: 'picked.html',
+      mimeType: 'text/html',
+      buffer: pickedBytes,
+    });
+
+    const picked = page.locator('iframe').first();
+    await expect(page.frameLocator('iframe').first().locator('#status')).toHaveText('init:true');
+    await expect(page.locator('#napplet-tabs .tab-label')).toHaveText(['picked.html']);
+    await expect(page.locator('#napplet-tabs .tab-share')).toHaveCount(0);
+    const srcdoc = await picked.getAttribute('srcdoc');
+    expect(srcdoc).toContain(classOnePrefix);
+    expect(srcdoc).toContain(`connect-src 'none'; ${classOneSuffix}`);
+    expect(srcdoc!.indexOf('Content-Security-Policy')).toBeLessThan(srcdoc!.indexOf('data-kehto-nip5d-injection'));
+    await expect(picked).toHaveAttribute('sandbox', 'allow-scripts');
+    await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
+    const state = await page.evaluate(() => window.__KEHTO_PAJA__?.getState());
+    expect(state?.tabs[0]?.initSent).toBe(true);
+    expect(state?.resolvedTarget).toMatchObject({
+      source: 'local',
+      fileName: 'picked.html',
+      dTag: 'picked-local',
+      aggregateHash: pickedAggregate,
+    });
+    expect(state?.tabs).toMatchObject([{ title: 'picked.html', pointerValue: '' }]);
+    const logTypes = state?.messageLog.map((entry) => entry.type) ?? [];
+    expect(logTypes).toEqual(expect.arrayContaining(['paja.local.load', 'paja.local.loaded', 'shell.ready', 'shell.init']));
+
+    await page.evaluate((html) => {
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([html], 'dropped.html', { type: 'text/html' }));
+      document.dispatchEvent(new DragEvent('drop', { dataTransfer: transfer, bubbles: true, cancelable: true }));
+    }, localHtml('dropped-local'));
+    await expect(page.locator('#napplet-tabs .tab-label')).toHaveText(['picked.html', 'dropped.html']);
+    await expect(page.frameLocator('iframe').nth(1).locator('#status')).toHaveText('init:true');
+
+    await page.reload();
+    await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().tabs.length)).toBe(0);
+    await expect(page.locator('#empty-runtime-stage')).toBeVisible();
+  } finally {
+    await server.close();
+  }
+});
+
 test('foregrounds a reused intent handler for every behavior.focus hint', async ({ page }) => {
   // NAP-INTENT calls `behavior` fields hints that "runtime workspace and
   // lifecycle policy remain authoritative"
@@ -313,6 +376,144 @@ test('foregrounds a reused intent handler for every behavior.focus hint', async 
     await server.close();
   }
 });
+
+for (const blockedStorage of [false, true]) {
+  test(`sidebar accordion and resource servers preserve live verified bytes without frame reload (storage blocked: ${blockedStorage})`, async ({ page }) => {
+    test.setTimeout(60_000);
+    const server = await startPointerServer();
+    const bytes = Buffer.from('verified browser resource bytes');
+    const hash = createHash('sha256').update(bytes).digest('hex');
+    const fixture = createPointerFixture(server.url, 'resource-settings-target', resourceSettingsHtml(hash), ['resource']);
+    server.blobs.set(fixture.hash, fixture.bytes);
+    server.setConfig({
+      ...createPajaRuntimeHostConfig({ pointer: fixture.pointer, maxWaitMs: 2_000 }),
+      simulation: normalizePajaSimulation({ relay: { mode: 'live', urls: ['wss://intent-fixture.example'] } }),
+    });
+    await page.routeWebSocket('wss://intent-fixture.example/', (socket) => {
+      socket.onMessage((message) => {
+        const request = JSON.parse(String(message)) as unknown[];
+        if (request[0] !== 'REQ' || typeof request[1] !== 'string') return;
+        const filter = request[2] as { kinds?: number[] };
+        if (filter.kinds?.includes(NAPPLET_KIND_NAMED)) socket.send(JSON.stringify(['EVENT', request[1], fixture.event]));
+        socket.send(JSON.stringify(['EOSE', request[1]]));
+      });
+    });
+    const fetched: string[] = [];
+    await page.route('https://*.example/**', async (route) => {
+      fetched.push(route.request().url());
+      await route.fulfill({ status: 200, body: bytes, headers: { 'access-control-allow-origin': '*', 'content-type': 'text/plain' } });
+    });
+    if (blockedStorage) {
+      await page.addInitScript(() => {
+        for (const method of ['getItem', 'setItem', 'removeItem'] as const) {
+          const original = Storage.prototype[method];
+          Storage.prototype[method] = function (key: string, ...args: string[]) {
+            if (key === 'kehto:paja:resource-servers') throw new DOMException('Blocked', 'SecurityError');
+            return Reflect.apply(original, this, [key, ...args]);
+          };
+        }
+      });
+    }
+    const input = page.getByLabel('Resource servers', { exact: true });
+    const save = page.locator('#paja-resource-servers-save');
+    const status = page.locator('#paja-resource-servers-status');
+    const snapshot = () => page.evaluate(() => ({
+      tabs: window.__KEHTO_PAJA__?.getState().tabs.map(({ id, windowId, generation }) => ({ id, windowId, generation })),
+      srcdocs: Array.from(document.querySelectorAll('iframe'), (frame) => frame.srcdoc),
+    }));
+    try {
+      await page.goto(server.url);
+      await expect(page.frameLocator('iframe').locator('#ready')).toHaveText('ready');
+      const original = await snapshot();
+      await expect(page.locator('#paja-console > details')).toHaveCount(6);
+      expect(await page.locator('#paja-console > details').evaluateAll((sections) => sections.map((section) => section.getAttribute('data-paja-section')))).toEqual(['pointer', 'interfaces', 'acl', 'signer', 'resource-servers', 'messages']);
+      const frameNode = await page.locator('iframe').elementHandle();
+      const frameWindow = await page.locator('iframe').evaluateHandle((frame) => (frame as HTMLIFrameElement).contentWindow);
+      const pointer = page.locator('#runtime-pointer-section');
+      await pointer.locator('summary').click();
+      await page.locator('#paja-section-messages > summary').click();
+      await expect(pointer).not.toHaveAttribute('open');
+      await expect(page.locator('#paja-section-messages')).not.toHaveAttribute('open');
+      expect(await snapshot()).toEqual(original);
+      expect(await frameNode!.evaluate((node, originalWindow) => node === document.querySelector('iframe') && (node as HTMLIFrameElement).contentWindow === originalWindow, frameWindow)).toBe(true);
+      await pointer.locator('summary').click();
+      await expect(page.locator('#runtime-pointer-input')).toHaveValue(fixture.pointer);
+      await page.locator('#runtime-local-open').click();
+      await page.locator('#paja-section-messages > summary').click();
+      await input.fill(' EXTRA.Example \nhttps://extra.example:443/');
+      await save.focus();
+      await save.press('Enter');
+      await expect(input).toHaveValue('https://extra.example');
+      await expect(status).toContainText(blockedStorage ? 'session-only' : 'saved for this host origin');
+      expect(await snapshot()).toEqual(original);
+      const frame = page.frameLocator('iframe');
+      await frame.locator('#read').click();
+      await expect(frame.locator('#result')).toHaveText('verified browser resource bytes');
+      expect(fetched).toEqual([`https://extra.example/${hash}`]);
+      await input.fill('valid.example\nhttp://private.example');
+      await save.click();
+      await expect(status).toContainText('Line 2:');
+      await expect(input).toHaveAttribute('aria-invalid', 'true');
+      await frame.locator('#read').click();
+      await expect(frame.locator('#count')).toHaveText('2');
+      expect(fetched.at(-1)).toBe(`https://extra.example/${hash}`);
+      expect(await snapshot()).toEqual(original);
+      if (!blockedStorage) {
+        await page.reload();
+        await expect(input).toHaveValue('https://extra.example');
+        await expect(frame.locator('#ready')).toHaveText('ready');
+      }
+      const restored = await snapshot();
+      await input.fill('replacement.example');
+      await save.click();
+      await expect(input).toHaveAttribute('aria-invalid', 'false');
+      await frame.locator('#read').click();
+      await expect(frame.locator('#result')).toHaveText('verified browser resource bytes');
+      await expect.poll(() => fetched.at(-1)).toBe(`https://replacement.example/${hash}`);
+      expect(await snapshot()).toEqual(restored);
+      await input.fill('');
+      await save.click();
+      await expect(status).toContainText(blockedStorage ? 'session-only' : 'cleared from this host origin');
+      const beforeClearRead = fetched.length;
+      await frame.locator('#read').click();
+      await expect(frame.locator('#result')).toHaveText('blocked-by-policy');
+      expect(fetched).toHaveLength(beforeClearRead);
+      expect(await snapshot()).toEqual(restored);
+      for (const width of [1280, 390]) {
+        await page.setViewportSize({ width, height: 900 });
+        await input.scrollIntoViewIfNeeded();
+        await expect(input).toBeVisible();
+        expect(await input.evaluate((element) => element.getBoundingClientRect().width)).toBeGreaterThan(200);
+        expect(await page.locator('#paja-resource-servers-help').evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+        await page.screenshot({ path: `/tmp/opencode/n18-sidebar-pointer-${blockedStorage}-${width}.png` });
+      }
+      await pointer.locator('summary').click();
+      await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('kehto:paja:sidebar-sections:v1') ?? '{}').pointer)).toBe(true);
+      await page.reload();
+      await expect(pointer).not.toHaveAttribute('open');
+      await expect(input).toHaveValue('');
+    } finally {
+      await server.close();
+    }
+  });
+}
+
+function resourceSettingsHtml(hash: string): string {
+  return `<!doctype html><html><body><div id="ready">booting</div><button id="read">Read</button><div id="result"></div><div id="count">0</div><script>
+    let count = 0;
+    window.napplet.shell.onReady(() => { document.getElementById('ready').textContent = 'ready'; });
+    document.getElementById('read').onclick = () => {
+      document.getElementById('result').textContent = 'pending';
+      parent.postMessage({type:'resource.bytes',id:'read-' + (++count),url:'blossom:sha256:${hash}'}, '*');
+    };
+    window.addEventListener('message', async (event) => {
+      if (event.source !== parent || !event.data.id?.startsWith('read-')) return;
+      const message = event.data;
+      document.getElementById('result').textContent = message.blob ? await message.blob.text() : message.error;
+      document.getElementById('count').textContent = String(count);
+    });
+  </script></body></html>`;
+}
 
 async function startPointerServer(): Promise<PointerServer> {
   const browserHost = readFileSync(new URL('../../packages/paja/dist/browser-host.js', import.meta.url), 'utf8');

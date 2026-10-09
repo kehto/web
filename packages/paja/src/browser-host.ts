@@ -1,3 +1,4 @@
+import { installPajaResourceSettings } from './browser-resource-settings.js';
 import {
   buildShellCapabilities,
   createShellBridge,
@@ -8,6 +9,7 @@ import {
 } from '@kehto/shell';
 
 import { installPajaConsolePanel } from './browser-console-panel.js';
+import { installPajaSidebarSections } from './browser-sidebar-sections.js';
 import {
   createDevTheme,
   createPajaAdapter,
@@ -19,6 +21,7 @@ import {
   hasNip07Signer,
 } from './browser-host-signer.js';
 import { unregisterSingleFrameWindow } from './browser-host-runtime.js';
+import { installLocalFileControls, loadLocalRuntimeFile } from './browser-local-loader.js';
 import { BrowserIntentController } from './browser-intent-controller.js';
 import {
   clearRuntimeTabGeneration,
@@ -66,10 +69,8 @@ import {
   navigateFrame,
   renderTargetErrorHtml,
 } from './browser-target-frame.js';
-import {
-  resolvePajaPointer,
-  type PajaResolvedPointer,
-} from './runtime-resolver.js';
+import type { PajaRuntimeTarget } from './local-target.js';
+import { resolvePajaPointer } from './runtime-resolver.js';
 import { reportTargetCorsDiagnostic } from './browser-target-diagnostics.js';
 import { createPajaNotifyController } from './browser-notify.js';
 import { createPajaConfigController } from './browser-config.js';
@@ -87,7 +88,7 @@ export interface PajaBrowserState {
   simulation: PajaSimulation;
   signer: PajaSignerState;
   signerConsentCount: number;
-  resolvedTarget: PajaResolvedPointer | null;
+  resolvedTarget: PajaRuntimeTarget | null;
   pointerValue: string;
   pointerStatus: string;
   tabs: PajaRuntimeTab[];
@@ -107,6 +108,8 @@ export interface PajaBrowserState {
   connectBunker(uri: string): Promise<void>;
   clearSignerConsent(): void;
   loadPointer(value: string): Promise<void>;
+  /** Open a local single-file `index.html` in a new runtime tab (runtime-pointer mode only). */
+  loadLocalFile(file: File): Promise<void>;
   clearLog(): void;
   getState(): {
     generation: number;
@@ -117,7 +120,7 @@ export interface PajaBrowserState {
     simulation: PajaSimulation;
     signer: PajaSignerState;
     signerConsentCount: number;
-    resolvedTarget: PajaResolvedPointer | null;
+    resolvedTarget: PajaRuntimeTarget | null;
     pointerStatus: string;
     activeTabId: string | null;
     tabs: Array<{
@@ -349,6 +352,10 @@ function installPajaControlListeners(state: PajaBrowserState): void {
     if (!(input instanceof HTMLInputElement)) return;
     void state.loadPointer(input.value);
   });
+
+  if (state.config.target.mode === 'runtime-pointer') {
+    installLocalFileControls((file) => state.loadLocalFile(file));
+  }
 }
 
 function reloadPajaTarget(state: PajaBrowserState, context: PajaBrowserStateContext): void {
@@ -563,6 +570,11 @@ function createPajaBrowserState(context: PajaBrowserStateContext): PajaBrowserSt
     async loadPointer(value) {
       await loadRuntimePointer(this, context, value);
     },
+    async loadLocalFile(file) {
+      await loadLocalRuntimeFile(this, context, file, {
+        persistTabs: (current) => persistRuntimeTabs(current as PajaBrowserState),
+      });
+    },
     clearLog() {
       this.messageLog.length = 0;
       renderPajaMessageLog(this);
@@ -575,6 +587,9 @@ function createPajaBrowserState(context: PajaBrowserStateContext): PajaBrowserSt
 
 async function installPajaHost(): Promise<void> {
   const disposeConsolePanel = installPajaConsolePanel();
+  const disposeSidebarSections = installPajaSidebarSections();
+  window.addEventListener('pagehide', disposeSidebarSections, { once: true });
+  const resourceSettings = installPajaResourceSettings();
   const config = await readLatestConfig(readConfig());
   const stage = getStage();
   const frame = config.target.mode === 'runtime-pointer' ? null : getFrame();
@@ -630,7 +645,7 @@ async function installPajaHost(): Promise<void> {
   }, themeBroadcast.onBroadcast, confirmationController.confirm, signerController, getWindowIdentity, () => stateRef?.reload(), {
       catalog: runtime.catalog,
       controller: intentController,
-    }, confirmationController.activation, notifyController?.serviceOptions, configController?.serviceOptions);
+    }, confirmationController.activation, notifyController?.serviceOptions, configController?.serviceOptions, resourceSettings.getServers);
   await adapter.ready;
   const bridge = createShellBridge(adapter);
   const stopIdentityChanges = signerController.subscribe(() => {
@@ -667,6 +682,7 @@ async function installPajaHost(): Promise<void> {
   window.addEventListener('pagehide', () => notifyController?.dispose(), { once: true });
   window.addEventListener('pagehide', () => configController?.dispose(), { once: true });
   window.addEventListener('pagehide', disposeConsolePanel, { once: true });
+  window.addEventListener('pagehide', resourceSettings.dispose, { once: true });
 
   window.__KEHTO_PAJA__ = state;
 

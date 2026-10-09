@@ -1,8 +1,9 @@
 ---
-gsd_state_version: 1.0
+gsd_state_version: "1.0"
 milestone: v1.29
 milestone_name: Napplet Convention and Runtime Conformance
 current_phase: 106
+current_phase_name: Active-Surface Conformance and Release
 status: completed
 stopped_at: Phase 106 current-Napplet release complete; v1.29 ready for milestone completion
 last_updated: "2026-10-09T16:25:24Z"
@@ -14,7 +15,6 @@ progress:
   total_plans: 47
   completed_plans: 47
   percent: 100
-current_phase_name: Active-Surface Conformance and Release
 ---
 
 # Project State
@@ -230,6 +230,9 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 260928-cpc | Make the Paja development console collapsible | 2026-09-28 | d3706a9c | Verified | [260928-cpc-make-the-paja-development-console-collapsible](./quick/260928-cpc-make-the-paja-development-console-collapsible/) |
 | 261008-fr1 | Support both Blossom resource prefixes in Paja | 2026-10-08 | 03fa4977 | Verified | [261008-fr1](./quick/261008-fr1-SUMMARY.md) |
 | 261008-gbn | Accept BUD-10 resource URIs with extensions, discovery hints and verified sizes in Paja | 2026-10-08 | 2b3952b8 | Verified | [261008-gbn](./quick/261008-gbn-SUMMARY.md) |
+| 261007-j7k | Paja: load a napplet from a local single-file index.html (file picker + drag-and-drop) | 2026-10-07 | 8f13c56 | complete | [261007-j7k-paja-load-napplet-from-local-index-html](./quick/261007-j7k-paja-load-napplet-from-local-index-html/) |
+| 261007-jux | Paja: editable extra Blossom resource lookup servers with live all-tab settings | 2026-10-07 | ecdc9f6e | complete | [261007-jux-paja-editable-extra-blossom-resource-loo](./quick/261007-jux-paja-editable-extra-blossom-resource-loo/) |
+| 261007-n18 | Paja: flush independent persisted sidebar accordions, Messages last | 2026-10-07 | 11e4a343 | complete | [261007-n18-paja-flush-sidebar-accordions-with-persi](./quick/261007-n18-paja-flush-sidebar-accordions-with-persi/) |
 | 261007-brt | Adopt current NIP-5D events with isolated legacy support | 2026-10-07 | b97b388 | Verified; PR #277 | [261007-brt-adopt-nip-5d-event-schemas-with-isolated](./quick/261007-brt-adopt-nip-5d-event-schemas-with-isolated/) |
 | 261009-ctx | Resolve all six Copilot inline comments on PR #277 | 2026-10-09 | d9c44ce | Verified | [261009-ctx-resolve-copilot-review-comments-on-pr-27](./quick/261009-ctx-resolve-copilot-review-comments-on-pr-27/) |
 | 261006-ift | Foreground a reused intent handler tab for every behavior.focus hint | 2026-10-06 | e99451be / 4ebf3604 / da8dc309 / 99c7488c | Verified | [261006-ift-foreground-intent-tabs](./quick/261006-ift-foreground-intent-tabs/) |
@@ -238,8 +241,8 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 ## Session Continuity
 
-Last session: 2026-07-28T18:55:51Z
-Stopped at: Phase 106 current-Napplet package line published and downstream-verified
+Last session: 2026-10-07T22:00:27.303Z
+Stopped at: Completed quick 261007-n18: all sections flush persisted accordions; Messages last; full gates green; parent owns shipment
 Resume file: None
 
 ## Operator Next Steps
