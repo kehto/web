@@ -47,6 +47,39 @@ isolated in `packages/nip/src/5d/legacy-manifest.ts`. Never retry malformed curr
 events through that adapter. Keep paired-schema tests until it is removed.
 See [migration and removal policy](../migrations/NIP-5D-EVENT-SCHEMA.md).
 
+### Shell CSP enforcement
+
+CSP authority is [NIP-5D at
+`24711d9c47bbdd07908bf1d52bf677d9cbc530f0`](https://github.com/dskvr/nips/blob/24711d9c47bbdd07908bf1d52bf677d9cbc530f0/5D.md).
+The composition was also checked against [NAP-SHELL on master at
+`a040914b4bbd3a5cd8a14b0f316a723c968ebfb2`](https://github.com/napplet/naps/blob/a040914b4bbd3a5cd8a14b0f316a723c968ebfb2/naps/NAP-SHELL.md).
+CSP is a NIP-5D web-binding concern; it adds no NAP domain, message, or permission.
+
+`@kehto/shell` owns the policy through `prepareNappletSrcdoc`. Paja runtime-pointer
+and playground verified loading both consume this entry point. Host CSP changes
+are structured source-list replacements, validated before rendering.
+
+| Requirement | Shell treatment | Host choice |
+| --- | --- | --- |
+| CSP first in head before authored resources (SHOULD) | Enforced by preparation, without searching authored comments/scripts for insertion points | No opt-out on this path |
+| Exact granted connection origins; avoid wildcard/scheme-wide sources (MAY/SHOULD) | Explicit HTTP(S)/WS(S) origins only; normalize, deduplicate, validate | Grant origins; narrow `connect-src`, including `'none'` |
+| No broad `'unsafe-eval'` merely for WASM (MUST NOT) | Always rejected as Kehto policy | Keep or remove the default `'wasm-unsafe-eval'` |
+| Verify artifacts before policy injection, exclude injection from hashes (MUST) | Reference hosts resolve and verify before preparing a rendered copy | Keep original verified bytes and identity; preparation does not authenticate raw HTML |
+| Namespace before authored scripts (MUST) | CSP then mandatory bootstrap; reject script overrides that suppress its inline execution | Choose optional domains and compatible script directives |
+| Conservative example source lists | Shared defaults; not promoted wholesale to protocol MUSTs | Override supported directives for styles, images, media and other resources |
+| Meta cannot enforce `frame-ancestors`, `sandbox`, `report-uri` | Reject unsupported directive names; omit ineffective directives | Set appropriate HTTP response headers and the required iframe sandbox attribute |
+
+Existing authored CSP is preserved as an additional restriction. An inherited
+host response policy can also restrict `srcdoc`; the shell cannot relax it.
+The inline bootstrap currently requires `'unsafe-inline'` in `script-src` and
+any explicit `script-src-elem`, without overriding nonce/hash/`strict-dynamic`
+expressions. `script-src-attr` may independently deny inline event handlers.
+
+Low-level namespace render/injection utilities do not apply CSP. Paja's existing
+target-URL development wrapper uses these utilities to retain local HMR; it is
+not a verified runtime-pointer load. The verified production hosts must use
+`prepareNappletSrcdoc`, with verification and source-binding guards intact.
+
 ### Active NAP-RELAY boundary
 
 Kehto follows [NAP-RELAY PR #2 at

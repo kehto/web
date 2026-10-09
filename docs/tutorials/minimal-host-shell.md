@@ -83,63 +83,44 @@ used to advertise notification delivery.
 
 ## 4. Load one sandboxed napplet
 
-Use the same security posture as the playground: opaque-origin iframe, scripts only, no same-origin.
+Resolve and verify the manifest with `@kehto/nip/5d` before creating the iframe.
+The resolver checks the signature and artifact bytes (including the legacy
+aggregate where applicable); derive identity and required domains from its
+result. Gateway output is an untrusted accelerator, never identity authority.
 
 ```ts
 import { resolveNapplet } from '@kehto/nip/5d';
-import { originRegistry, resolveShellEnvironment, injectNappletNamespacePrelude } from '@kehto/shell';
-
-// Host-owned CSP: run only after verification, before namespace injection.
-function injectCspMeta(html: string): string {
-  const policy = [
-    "default-src 'none'",
-    "script-src 'unsafe-inline' 'wasm-unsafe-eval'",
-    "style-src 'unsafe-inline'",
-    'img-src data: blob:',
-    'font-src data:',
-    "connect-src 'none'",
-    "worker-src 'none'",
-    "child-src 'none'",
-    "frame-src 'none'",
-    "media-src 'none'",
-    "object-src 'none'",
-    "manifest-src 'none'",
-    "base-uri 'none'",
-    "form-action 'none'",
-  ].join('; ');
-  const meta = `<meta http-equiv="Content-Security-Policy" content="${policy}">`;
-  // Prepend the policy so it precedes even resources before an authored head.
-  // The HTML parser creates the document head for this leading meta element.
-  return `<!doctype html>${meta}${html}`;
-}
+import { originRegistry, prepareNappletSrcdoc, resolveShellEnvironment } from '@kehto/shell';
 
 // event comes from relays; fetchBlob returns untrusted bytes by SHA-256.
 const resolved = await resolveNapplet({ event, fetchBlob });
 const identity = { dTag: resolved.dTag, aggregateHash: resolved.aggregateHash };
 const environment = resolveShellEnvironment(adapter, identity);
 const missing = resolved.manifest.requires.filter(
-  (domain) => domain !== 'shell' && !environment.capabilities.domains.includes(domain),
+ (domain) => domain !== 'shell' && !environment.capabilities.domains.includes(domain),
 );
 if (missing.length) throw new Error(`Unavailable required domains: ${missing.join(', ')}`);
+const srcdoc = prepareNappletSrcdoc(resolved.indexHtml, {
+ domains: environment.capabilities.domains,
+ csp: { directives: { 'media-src': ['blob:'] } },
+});
 const iframe = document.createElement('iframe');
-iframe.sandbox.add('allow-scripts');
+iframe.sandbox.value = 'allow-scripts';
+const windowId = crypto.randomUUID();
 document.body.append(iframe);
-originRegistry.register(iframe.contentWindow!, 'example', identity);
-originRegistry.setEnvironment(iframe.contentWindow!, environment);
-iframe.srcdoc = injectNappletNamespacePrelude(
-  injectCspMeta(resolved.indexHtml),
-  environment.capabilities,
-);
+if (!iframe.contentWindow) throw new Error('Iframe window unavailable');
+originRegistry.register(iframe.contentWindow, windowId, identity);
+originRegistry.setEnvironment(iframe.contentWindow, environment);
+iframe.srcdoc = srcdoc;
 ```
 
 The resolver verifies both current artifact events and legacy aggregate events.
-`aggregateHash` is the existing API name for the verified content identity. Host
-namespace and CSP injection happen after verification, outside signed
-bytes. Optional manifest domains do not grant authority or prevent loading.
-Gateways may provide bytes, but their metadata cannot establish identity.
-The leading CSP meta is parsed before the namespace prelude and authored resources;
-opaque origins alone do not block network access. This example denies direct
-connections and workers, following the [checked NIP-5D CSP advisory](https://github.com/dskvr/nips/blob/020cb8b33a9e4c6b8ca4b2f9d0ed0a67843b68f7/5D.md#security-considerations).
+Host namespace and CSP injection happen after verification, outside signed
+bytes. Keep the original verified bytes for identity and caching; the prepared
+document is a rendered copy. Optional manifest domains do not grant authority
+or prevent loading. `shell.ready` establishes the runtime session. See
+[CSP enforcement](../policies/NIP-5D-CONFORMANCE.md#shell-csp-enforcement)
+for host overrides and constraints.
 
 For repeated loads, pass the optional cache to `resolveNapplet`; cached bytes
 are reverified. See [artifact caching](../how-tos/implement-napplet-artifact-cache.md)

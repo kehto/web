@@ -38,6 +38,7 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
 | Hooks | `adaptHooks`, `BrowserDeps`, `ShellAdapter`, `ShellCapabilities`, `UploadHooks`, `IntentHooks`, `LinkHooks`, `CommonHooks`, `ListsHooks`, `SerialHooks`, `BleHooks`, `WebrtcHooks`, `DmHooks`, `UnroutedMessageInfo` |
 | Protocol and capability types | `NostrEvent`, `NostrFilter`, `NappletMessage`, `Capability`, `ALL_CAPABILITIES` |
 | Shell init and bootstrap | `buildShellCapabilities`, `injectNappletNamespacePrelude`, `renderNappletNamespacePrelude`, `NappletNamespacePreludeOptions` |
+| Verified documents and CSP | `prepareNappletSrcdoc`, `NappletSrcdocOptions`, `buildNappletCsp`, `renderNappletCspMeta`, `injectNappletCsp`, `NappletCspOptions`, `NappletCspDirectives`, `NappletCspDirective` |
 | Registries and caches | `sessionRegistry`, `nappKeyRegistry`, `originRegistry`, `manifestCache`, `audioManager`, `PendingUpdate`, `ManifestCacheEntry`, `AudioSource` |
 | Enforcement re-exports | `createEnforceGate`, `createNapEnforceGate`, `formatDenialReason`, `EnforceResult`, `EnforceConfig`, `NapEnforceConfig`, `IdentityResolver`, `AclChecker`, `NapMessage` |
 | Proxies | `createIdentityProxy`, `createThemeProxy`, `createKeysProxy`, `createMediaProxy`, `createNotifyProxy` |
@@ -46,7 +47,7 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
 
 ## Scope Boundaries
 
-- Owns browser integration: `window`, `postMessage`, iframe session identity, gateway loading, shell capabilities, origin/session registries, and browser-specific adapters.
+- Owns browser integration: `window`, `postMessage`, iframe session identity, verified document preparation, shell capabilities, origin/session registries, and browser-specific adapters.
 - Forwards an asynchronous `RelayPoolLike.publish()` promise through its
   runtime adapter so `relay.publish.result` reflects transport settlement.
 - Forwards the originating runtime window to `AuthHooks.getSigner(windowId?)`
@@ -54,7 +55,7 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
   signer consent without making that policy part of Kehto's shell adapter.
 - Preserves an asynchronous `RelayPoolHooks.publishToScopedRelay()` result so
   scoped publication does not report success before transport acceptance.
-- Provides `injectNappletNamespacePrelude()` for optional NIP-5D domains plus mandatory NAP-SHELL before authored `srcdoc` scripts execute. The prelude installs its receiver before one `shell.ready`, caches the first parent `shell.init`, and prevents napplet namespace reassignment from removing `shell`.
+- Provides `prepareNappletSrcdoc()` for validated CSP followed by optional NIP-5D domains plus mandatory NAP-SHELL before authored `srcdoc` scripts execute. The prelude installs its receiver before one `shell.ready`, caches the first parent `shell.init`, and prevents napplet namespace reassignment from removing `shell`. Bootstrap-only helpers remain low-level utilities for development wrappers.
 - Its injected resource projection carries NAP-RESOURCE's optional per-resource Blossom `servers`, including the canonical bulk `requests: [{ url, servers? }]` shape.
 - The published `@napplet/core@0.32.0` and `@napplet/shim@0.30.0` line does not supply a generic mandatory shell surface. Kehto therefore retains this host-owned prelude under NAP-SHELL `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24` until an upstream correction is reviewed.
 - Advertises `count` in shell capabilities and the injected `window.napplet` namespace only when `ShellAdapter.services.count` is wired, so `shell.supports("count")` tracks an actual NAP-COUNT backend.
@@ -66,6 +67,12 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
 - Does not implement service behavior itself; register reference services from `@kehto/services` on the underlying runtime.
 
 ## API Reference
+
+For host CSP examples and validation rules, see
+[Host CSP overrides](https://github.com/kehto/web/blob/main/packages/shell/README.md#host-csp-overrides) and the
+[CSP enforcement contract](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#shell-csp-enforcement).
+The preparation API accepts already-verified HTML; it does not replace artifact
+verification, iframe sandboxing, identity registration or message-source checks.
 
 - Generated module: <a href="../api/modules/_kehto_shell.html" target="_self"><code>docs/api/modules/_kehto_shell.html</code></a>
 

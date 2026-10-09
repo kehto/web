@@ -211,6 +211,35 @@ describe('@kehto/paja local index.html loader', () => {
     }
   });
 
+  it('applies host CSP overrides to local files and rejects invalid policy before rebinding', async () => {
+    const config = createPajaRuntimeHostConfig({
+      csp: { directives: { 'img-src': ['data:'] } },
+    });
+    const adapter = createPajaAdapter(config, () => config.simulation, () => {}, () => {}, () => true);
+    const target = await createPajaLocalTarget({ name: 'index.html', text: LOCAL_HTML });
+    const frame = fakeFrame();
+    try {
+      await navigateFrame(frame as unknown as HTMLIFrameElement, config, 1, adapter, target);
+      expect(frame.srcdoc).toContain("img-src data:;");
+      expect(frame.srcdoc).not.toContain('img-src data: blob:');
+      const previousHtml = frame.srcdoc;
+      const previousIdentity = originRegistry.getIdentity(frame.contentWindow);
+      const previousWindowId = originRegistry.getWindowId(frame.contentWindow);
+      const replacement = await createPajaLocalTarget({ name: 'replacement.html', text: LOCAL_HTML + '<p>replacement</p>' });
+      const invalid = { ...config, csp: { connectOrigins: ['https:'] } };
+      const onRegistered = vi.fn();
+
+      await expect(navigateFrame(frame as unknown as HTMLIFrameElement, invalid, 2,
+        adapter, replacement, undefined, undefined, onRegistered)).rejects.toThrow(/exact HTTP/);
+      expect(onRegistered).not.toHaveBeenCalled();
+      expect(frame.srcdoc).toBe(previousHtml);
+      expect(originRegistry.getIdentity(frame.contentWindow)).toEqual(previousIdentity);
+      expect(originRegistry.getWindowId(frame.contentWindow)).toBe(previousWindowId);
+    } finally {
+      (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
+    }
+  });
+
   it('prefers the first HTML file from a multi-file drop', () => {
     const files = [{ name: 'notes.txt', type: 'text/plain' }, { name: 'index.html', type: '' }];
 

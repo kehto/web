@@ -1,5 +1,6 @@
 import {
   injectNappletNamespacePrelude,
+  prepareNappletSrcdoc,
   originRegistry,
   resolveShellEnvironment,
   type OriginIdentity,
@@ -10,7 +11,6 @@ import {
 import { isPajaLocalTarget, type PajaRuntimeTarget } from './local-target.js';
 import type { PajaHostConfig } from './options.js';
 import type { PajaShellEnvironment } from './parity.js';
-import { injectPajaRuntimeCsp } from './runtime-resolver.js';
 
 /**
  * Resolve Paja's one authoritative environment from a trusted frame identity.
@@ -91,16 +91,21 @@ export async function navigateFrame(
       }
     }
     if (isCurrent && !isCurrent()) return null;
+    // Validate host policy before rebinding an existing window to a new identity.
+    const srcdoc = prepareNappletSrcdoc(resolvedTarget.indexHtml, {
+      domains,
+      csp: {
+        ...config.csp,
+        connectOrigins: [
+          ...connectOrigins([...resolvedTarget.relays, ...resolvedTarget.blossomServers]),
+          ...(config.csp?.connectOrigins ?? []),
+        ],
+      },
+    });
     const registeredWindowId = registerFrameForGeneration(frame, config, generation, identity, environment, windowId);
     onRegistered?.(registeredWindowId);
     frame.removeAttribute('src');
-    frame.srcdoc = injectNappletNamespacePrelude(
-      injectPajaRuntimeCsp(
-        resolvedTarget.indexHtml,
-        connectOrigins([...resolvedTarget.relays, ...resolvedTarget.blossomServers]),
-      ),
-      { domains },
-    );
+    frame.srcdoc = srcdoc;
     return registeredWindowId;
   }
   const html = await fetchTargetHtml();
@@ -125,11 +130,7 @@ function connectOrigins(urls: readonly string[]): string[] {
   for (const value of urls) {
     try {
       const url = new URL(value);
-      if (url.protocol === 'wss:' || url.protocol === 'ws:') {
-        out.add(value.replace(/\/$/, ''));
-      } else {
-        out.add(url.origin);
-      }
+      if (['https:', 'http:', 'wss:', 'ws:'].includes(url.protocol)) out.add(url.origin);
     } catch {
       // Ignore malformed origin hints; the resolver already validates fetches.
     }

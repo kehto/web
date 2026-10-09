@@ -308,11 +308,9 @@ describe('playground gateway artifact guard', () => {
 
     // Loader resolves + verifies content-addressed bytes, then renders via srcdoc.
     expect(frameLoader).toContain('resolvePlaygroundNapplet({');
-    expect(frameLoader).toContain('iframe.srcdoc = injectNappletNamespacePrelude(');
-    expect(frameLoader).toContain('injectCspMeta(resolved.indexHtml, origins)');
-    expect(frameLoader).toContain(
-      'iframe.srcdoc = injectNappletNamespacePrelude(\n    injectCspMeta(resolved.indexHtml, origins)',
-    );
+    expect(frameLoader).toContain('iframe.srcdoc = prepareNappletSrcdoc(');
+    expect(frameLoader).toContain('prepareNappletSrcdoc(resolved.indexHtml, {');
+    expect(frameLoader).toContain('csp: { connectOrigins: origins }');
     expect(frameLoader).toContain("iframe.sandbox.add('allow-scripts')");
     expect(frameLoader).not.toContain('allow-same-origin');
     expect(frameLoader).not.toContain('relay.runtime.sessionRegistry.register(windowId');
@@ -369,9 +367,9 @@ describe('playground gateway artifact guard', () => {
     expect(resolver).toContain('resolveNapplet(');
     expect(resolver).toContain('selectWriteRelays(');
     expect(resolver).toContain('injectCspMeta');
-    expect(resolver).toContain("default-src 'none'");
-    expect(resolver).toContain("frame-ancestors 'self'");
-    expect(frameLoader).toContain('injectNappletNamespacePrelude');
+    expect(resolver).toContain('injectNappletCsp(html, { connectOrigins: origins })');
+    expect(resolver).toContain("from '@kehto/shell'");
+    expect(frameLoader).toContain('prepareNappletSrcdoc');
     expect(frameLoader).toContain('getPlaygroundShellEnvironment(identity)');
     expect(frameLoader).toContain('environment.capabilities');
     expect(frameLoader).not.toContain("{ domains: ['shell', ...resolved.requires] }");
@@ -380,7 +378,7 @@ describe('playground gateway artifact guard', () => {
     expect(frameLoader).toContain('getMissingRequiredNaps(');
     expect(frameLoader).toContain('requires unsupported NAP capabilities');
     expect(frameLoader.indexOf('getMissingRequiredNaps(')).toBeLessThan(
-      frameLoader.indexOf('iframe.srcdoc = injectNappletNamespacePrelude'),
+      frameLoader.indexOf('iframe.srcdoc = prepareNappletSrcdoc'),
     );
     expect(frameLoader.indexOf('getPlaygroundShellEnvironment(identity)')).toBeLessThan(
       frameLoader.indexOf('getMissingRequiredNaps('),
@@ -411,7 +409,7 @@ describe('playground gateway artifact guard', () => {
     const environment = frameLoader.indexOf('const environment = getPlaygroundShellEnvironment(identity);');
     const registration = frameLoader.indexOf('originRegistry.register(iframe.contentWindow, windowId, identity);');
     const registrationEnvironment = frameLoader.indexOf('originRegistry.setEnvironment(iframe.contentWindow, environment);');
-    const srcdoc = frameLoader.indexOf('iframe.srcdoc = injectNappletNamespacePrelude(');
+    const srcdoc = frameLoader.indexOf('iframe.srcdoc = prepareNappletSrcdoc(');
 
     expect(identity).toBeGreaterThanOrEqual(0);
     expect(environment).toBeGreaterThan(identity);

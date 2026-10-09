@@ -273,16 +273,31 @@ provides local `ready()`, `supports()`, read-only `services`, and one-shot
 `onReady()`. This is the documented upstream-package-drift exception, not a
 shim capability.
 
-Before Paja assigns a verified runtime-pointer document to `srcdoc`, it inserts
-Kehto's local Class-1 CSP before the host-owned namespace prelude. The policy
-denies all defaults; permits inline script/style, WebAssembly compilation through
-the narrow `'wasm-unsafe-eval'` source, `data:`/`blob:` images, and `data:` fonts;
-keeps JavaScript string evaluation blocked; grants `connect-src` only to the resolved relay and Blossom
-origins; explicitly denies worker, child, frame, media, object, manifest,
-prefetch, base, and form capabilities; and ends with `frame-ancestors 'self'`.
-The NIP-5D verified-srcdoc and opaque-sandbox rules do not mandate this CSP;
-it is Kehto policy. Local target-URL authoring mode is intentionally outside
-this verified-artifact policy path.
+Before Paja assigns a verified runtime-pointer document to `srcdoc`, it calls
+`@kehto/shell`'s `prepareNappletSrcdoc`. The shell inserts validated CSP first,
+then the mandatory namespace. Defaults permit inline script/style, WASM byte
+compilation, `data:`/`blob:` images and `data:` fonts, and deny other resource
+classes. Paja grants direct connections only to resolved relay and Blossom
+origins plus explicit host grants.
+
+Hosts can pass `csp` to `createPajaRuntimeHostConfig`:
+
+```ts
+const config = createPajaRuntimeHostConfig({
+  pointer,
+  csp: {
+    connectOrigins: ['https://api.example'],
+    directives: { 'media-src': ['blob:'], 'img-src': ['data:'] },
+  },
+});
+```
+
+The shell rejects broad JavaScript evaluation, non-origin connection grants,
+and script policies that block its bootstrap. NIP-5D's CSP recommendations are
+enforced; individual baseline source lists remain configurable. Existing
+artifact CSP is retained. Set `frame-ancestors` on the host HTTP response, not
+in a meta policy. See the [shared policy contract](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#shell-csp-enforcement).
+Local target-URL authoring mode retains its separate development policy and HMR.
 
 Environment simulation can be supplied through CLI flags or a JSON config file:
 

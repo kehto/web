@@ -78,7 +78,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
     expect(source).toContain('frame.removeAttribute(\'src\');');
     expect(source).toContain('frame.srcdoc = injectNappletNamespacePrelude(');
     expect(source).toContain(
-      'injectNappletNamespacePrelude(\n      injectPajaRuntimeCsp(\n        resolvedTarget.indexHtml,',
+      'const srcdoc = prepareNappletSrcdoc(resolvedTarget.indexHtml, {',
     );
     expect(source).toContain("if (config.target.mode === 'runtime-pointer')");
     expect(source).toContain(
@@ -91,12 +91,14 @@ describe('@kehto/paja browser host runtime source guards', () => {
     const targetSource = readFileSync(new URL('./browser-target-frame.ts', import.meta.url), 'utf8');
     const preludeSource = readFileSync(new URL('../../shell/src/napplet-namespace.ts', import.meta.url), 'utf8');
     const registration = 'registerFrameForGeneration(frame, config, generation, identity, environment, windowId);';
-    const injection = 'frame.srcdoc = injectNappletNamespacePrelude(';
+    const injection = 'frame.srcdoc = srcdoc;';
+    const devInjection = 'frame.srcdoc = injectNappletNamespacePrelude(';
 
     expect(targetSource.match(new RegExp(registration.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'))).toHaveLength(2);
-    expect(targetSource.match(new RegExp(injection.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'))).toHaveLength(2);
+    expect(targetSource.match(new RegExp(injection.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'))).toHaveLength(1);
+    expect(targetSource.indexOf('prepareNappletSrcdoc(resolvedTarget.indexHtml')).toBeLessThan(targetSource.indexOf(registration));
     expect(targetSource.indexOf(registration)).toBeLessThan(targetSource.indexOf(injection));
-    expect(targetSource.lastIndexOf(registration)).toBeLessThan(targetSource.lastIndexOf(injection));
+    expect(targetSource.lastIndexOf(registration)).toBeLessThan(targetSource.lastIndexOf(devInjection));
     expect(targetSource).toContain('resolvedTarget.indexHtml');
     expect(targetSource).toContain('injectBaseHref(html, config.target.url)');
 

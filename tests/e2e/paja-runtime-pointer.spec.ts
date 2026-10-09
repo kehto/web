@@ -14,7 +14,7 @@ import {
 } from '../../packages/paja/dist/index.js';
 
 const classOnePrefix = "default-src 'none'; script-src 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:;";
-const classOneSuffix = "worker-src 'none'; child-src 'none'; frame-src 'none'; media-src 'none'; object-src 'none'; manifest-src 'none'; prefetch-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
+const classOneSuffix = "worker-src 'none'; child-src 'none'; frame-src 'none'; media-src 'none'; object-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'";
 
 interface PointerServer {
   readonly url: string;
@@ -106,34 +106,46 @@ test('resolves a stale embedded hint through configured live relays in the runni
   }
 });
 
-test('compiles verified WebAssembly while JavaScript string evaluation stays blocked', async ({ page }) => {
-  test.setTimeout(30_000);
-  const server = await startPointerServer();
-  const relay = 'wss://intent-fixture.example';
-  const fixture = createPointerFixture(server.url, 'wasm-target', wasmTargetHtml(), []);
-  server.blobs.set(fixture.hash, fixture.bytes);
-  server.setConfig({
-    ...createPajaRuntimeHostConfig({ pointer: fixture.pointer, maxWaitMs: 2_000 }),
-    simulation: normalizePajaSimulation({ relay: { mode: 'live', urls: [relay] } }),
-  });
-  await page.routeWebSocket(`${relay}/`, (socket) => {
-    socket.onMessage((message) => {
-      const request = JSON.parse(String(message)) as unknown[];
-      if (request[0] !== 'REQ' || typeof request[1] !== 'string') return;
-      socket.send(JSON.stringify(['EVENT', request[1], fixture.event]));
-      socket.send(JSON.stringify(['EOSE', request[1]]));
+for (const policy of ['default', 'host override']) {
+  test(`compiles verified WebAssembly while JavaScript string evaluation stays blocked (${policy})`, async ({ page }) => {
+    test.setTimeout(30_000);
+    const server = await startPointerServer();
+    const relay = 'wss://intent-fixture.example';
+    const fixture = createPointerFixture(server.url, 'wasm-target', wasmTargetHtml(), []);
+    server.blobs.set(fixture.hash, fixture.bytes);
+    server.setConfig({
+      ...createPajaRuntimeHostConfig({
+        pointer: fixture.pointer,
+        maxWaitMs: 2_000,
+        ...(policy === 'host override' ? { csp: {
+          directives: { 'img-src': ["'none'"], 'media-src': ['blob:'] },
+        } } : {}),
+      }),
+      simulation: normalizePajaSimulation({ relay: { mode: 'live', urls: [relay] } }),
     });
-  });
+    await page.routeWebSocket(`${relay}/`, (socket) => {
+      socket.onMessage((message) => {
+        const request = JSON.parse(String(message)) as unknown[];
+        if (request[0] !== 'REQ' || typeof request[1] !== 'string') return;
+        socket.send(JSON.stringify(['EVENT', request[1], fixture.event]));
+        socket.send(JSON.stringify(['EOSE', request[1]]));
+      });
+    });
 
-  try {
-    await page.goto(server.url);
-    const frame = page.frameLocator('iframe');
-    await expect(frame.locator('#wasm-status')).toHaveText('ready');
-    await expect(frame.locator('#eval-status')).toHaveText('blocked');
-  } finally {
-    await server.close();
-  }
-});
+    try {
+      await page.goto(server.url);
+      const frame = page.frameLocator('iframe');
+      await expect(frame.locator('#wasm-status')).toHaveText('ready');
+      await expect(frame.locator('#eval-status')).toHaveText('blocked');
+      if (policy === 'host override') {
+        await expect(page.locator('iframe')).toHaveAttribute('srcdoc', /img-src 'none'/);
+        await expect(page.locator('iframe')).toHaveAttribute('srcdoc', /media-src blob:/);
+      }
+    } finally {
+      await server.close();
+    }
+  });
+}
 
 test('completes a verified intent and delivers its convention once to a cold target', async ({ page }) => {
   test.setTimeout(60_000);

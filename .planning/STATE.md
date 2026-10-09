@@ -8,7 +8,7 @@ status: completed
 stopped_at: Phase 106 current-Napplet release complete; v1.29 ready for milestone completion
 last_updated: "2026-10-09T16:25:24Z"
 last_activity: 2026-10-09
-last_activity_desc: "Completed quick task 261009-gxe: canonical intent delivery and tracked compatibility"
+last_activity_desc: "Completed quick task 261009-j8y: resolve PR #272 conflicts"
 progress:
   total_phases: 6
   completed_phases: 6
@@ -32,7 +32,7 @@ Phase: 106 (Active-Surface Conformance and Release) — COMPLETE
 Plan: 3 of 3
 Status: All v1.29 phases complete — eight-package Napplet-0.31-compatible npm/JSR release published and downstream-verified
 
-Last activity: 2026-10-09 — Completed quick task 261009-gxe: canonical intent delivery and tracked compatibility
+Last activity: 2026-10-09 — Completed quick task 261009-j8y: resolve PR #272 conflicts
 
 ## Performance Metrics
 
@@ -238,6 +238,9 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 261006-ift | Foreground a reused intent handler tab for every behavior.focus hint | 2026-10-06 | e99451be / 4ebf3604 / da8dc309 / 99c7488c | Verified | [261006-ift-foreground-intent-tabs](./quick/261006-ift-foreground-intent-tabs/) |
 | 261009-gxe | Canonical intent delivery with tracked, warned compatibility; AGENTS policy separate in #284 | 2026-10-09 | 05d3e013 | Verified | [261009-gxe](./quick/261009-gxe-migrate-pr-277-intent-delivery-to-intent/) |
 | 261009-h66 | Require compatibility warnings, tracking and tests in AGENTS | 2026-10-09 | 3c595776 | Verified | [261009-h66](./quick/261009-h66-require-tracked-and-tested-backwards-com/) |
+
+| 260930-gbm | Enforce NIP-5D CSP in shell with validated host overrides | 2026-09-30 | 375b1ee | Verified | [260930-gbm-enforce-nip-5d-csp-in-shell-with-validat](./quick/260930-gbm-enforce-nip-5d-csp-in-shell-with-validat/) |
+| 261009-j8y | Resolve PR #272 conflicts while preserving CSP and local-file admission | 2026-10-09 | 17e3d108 | Verified | [261009-j8y](./quick/261009-j8y-resolve-pr-272-conflicts-with-current-ma/) |
 
 ## Session Continuity
 

@@ -34,7 +34,7 @@ Current draft behaviors this package enforces:
   when the runtime can identify it. The shell forwards this optional context
   without imposing a consent policy; host runtimes may ignore it or use it to
   resolve their own identity-scoped signer decisions.
-- `injectNappletNamespacePrelude()` implements the NIP-5D injected-domain bootstrap and mandatory NAP-SHELL shim: hosts prepend it to `srcdoc` outside verified artifact bytes, install the parent-bound `shell.init` receiver, emit one `shell.ready`, and expose callable NAP interfaces before authored scripts run. Optional namespaces are filtered to the bare-domain allowlist; `shell` is always retained. Published core 0.32.0 and shim 0.30.0 omit generic mandatory shell, so Kehto retains this host-owned prelude under NAP-SHELL `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24` until an upstream correction is reviewed.
+- `prepareNappletSrcdoc()` inserts validated CSP first, then the NIP-5D bootstrap and mandatory NAP-SHELL shim, outside verified artifact bytes. The shim installs the parent-bound `shell.init` receiver, emits one `shell.ready`, and exposes callable NAP interfaces before authored scripts run. Optional namespaces are filtered to the bare-domain allowlist; `shell` is always retained. Published core 0.32.0 and shim 0.30.0 omit generic mandatory shell, so Kehto retains this host-owned prelude under NAP-SHELL `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24` until an upstream correction is reviewed.
 - The injected resource projection follows draft NAP-RESOURCE `9511232f69313aa7953d110e35d32cc28d506f66`: `bytes(url, { servers? })` carries advisory Blossom locations and `bytesMany(requests)` keeps each `{ url, servers? }` entry intact.
 - `window.napplet.shell.supports(domain)` answers synchronously and locally from the cached first `shell.init` environment. It returns `false` before `shell.init`, for unknown values, and for domains that are not live and granted to that napplet; it never sends a support-query message.
 - Five optional per-domain proxies — `createIdentityProxy`, `createThemeProxy`, `createKeysProxy`, `createMediaProxy`, `createNotifyProxy` — can be composed between napplet and runtime to intercept request traffic per NAP. They are NOT wired by default. Identity/theme proxy `emit()` compatibility members fail closed; hosts must deliver automatic changes through `ShellBridge.publishIdentityChanged()` / `publishTheme()`, which enforce live session, granted domain, and current ACL.
@@ -136,10 +136,51 @@ const bridge = createShellBridge({
 ```
 
 ### Shell init
+- `prepareNappletSrcdoc` — recommended verified-document entry point; applies CSP and namespace together
+- `buildNappletCsp`, `renderNappletCspMeta`, `injectNappletCsp` — shared policy construction and CSP-only composition utilities
 - `buildShellCapabilities` — construct the immutable domain-only `ShellCapabilities` payload emitted during the `shell.ready` / `shell.init` handshake
 - `resolveShellEnvironment(hooks, identity)` — host-integrator-only utility that narrows the live environment for a trusted creation-time identity before `shell.init`; it is not installed on `window.napplet` and is not a shim-facing napplet API
-- `injectNappletNamespacePrelude` — insert a host-owned NIP-5D `window.napplet` callable-domain prelude into verified HTML before authored scripts
+- `injectNappletNamespacePrelude` — low-level bootstrap-only insertion for development wrappers; does not apply CSP
 - `renderNappletNamespacePrelude` — render only the bootstrap `<script>` for hosts that already own HTML insertion
+
+### Host CSP overrides
+
+Resolve and verify the signed manifest, aggregate and artifact bytes before
+calling `prepareNappletSrcdoc`. Keep the verified bytes for identity and caching;
+only the rendered copy receives policy and bootstrap. Bind the iframe window to
+the verified identity before assigning `srcdoc`, with `sandbox="allow-scripts"`.
+
+```ts
+import { prepareNappletSrcdoc } from '@kehto/shell';
+
+const srcdoc = prepareNappletSrcdoc(verifiedHtml, {
+  domains: ['theme'],
+  csp: {
+    connectOrigins: ['https://api.example'],
+    directives: { 'media-src': ['blob:'], 'img-src': ['data:'] },
+  },
+});
+```
+
+Omitting `csp` applies NIP-5D's conservative baseline, including WASM compilation.
+Directive overrides replace individual source lists. They cannot disable CSP
+insertion, allow `'unsafe-eval'`, or suppress the inline namespace bootstrap.
+`connect-src` defaults to the exact `connectOrigins` grants and can be narrowed;
+wildcards, scheme-wide grants, credentials, paths, query strings and fragments
+are rejected. Empty source lists are rejected; use `["'none'"]` to deny a
+directive. Hosts may remove WASM permission by setting
+`'script-src': ["'unsafe-inline'"]`.
+
+`script-src` and an explicit `script-src-elem` must permit the inline bootstrap.
+Nonce/hash/`strict-dynamic` combinations that suppress that allowance are rejected;
+nonce-based bootstrap authorization is not supported by this API. Existing
+artifact CSP and inherited response policies still apply cumulatively and may
+block execution; this helper never strips them to make a napplet run.
+
+Meta-unsupported directives (`frame-ancestors`, `sandbox`, `report-uri`) and
+unsupported directive names are rejected. Configure embedding restrictions on
+the host HTTP response. See the [CSP enforcement contract](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#shell-csp-enforcement)
+for normative requirements, enforced recommendations and configurable defaults.
 
 ### Domain proxies (NIP-5D composition seams)
 - `createIdentityProxy` — intercept identity read requests; direct `emit()` is prohibited

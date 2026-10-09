@@ -1,3 +1,4 @@
+import { injectNappletCsp } from '@kehto/shell';
 import type { NostrEvent } from 'nostr-tools';
 import type { Filter } from 'nostr-tools/filter';
 import { SimplePool } from 'nostr-tools/pool';
@@ -198,44 +199,14 @@ function resolvePointerBlossomServers(
 
 /**
  * Inject Kehto's Class-1 CSP for verified runtime-pointer srcdoc output.
- * NIP-5D mandates the verified srcdoc and opaque sandbox, but this baseline CSP
- * is Kehto policy rather than a protocol requirement.
+ * Delegates to the shell policy, which enforces NIP-5D CSP recommendations.
  *
  * @param html - Verified target HTML.
  * @param origins - Origins the resolved target may connect to.
  * @returns HTML with a CSP meta tag inserted.
  */
 export function injectPajaRuntimeCsp(html: string, origins: readonly string[]): string {
-  const grantedOrigins = [...new Set(origins)].sort();
-  const connectSrc = grantedOrigins.length > 0
-    ? `connect-src ${grantedOrigins.join(' ')}`
-    : "connect-src 'none'";
-  const value = [
-    "default-src 'none'",
-    "script-src 'unsafe-inline' 'wasm-unsafe-eval'",
-    "style-src 'unsafe-inline'",
-    'img-src data: blob:',
-    'font-src data:',
-    connectSrc,
-    "worker-src 'none'",
-    "child-src 'none'",
-    "frame-src 'none'",
-    "media-src 'none'",
-    "object-src 'none'",
-    "manifest-src 'none'",
-    "prefetch-src 'none'",
-    "base-uri 'none'",
-    "form-action 'none'",
-    "frame-ancestors 'self'",
-  ].join('; ');
-  const meta = `<meta http-equiv="Content-Security-Policy" content="${escapeAttribute(value)}">`;
-  if (/<head[^>]*>/i.test(html)) {
-    return html.replace(/<head[^>]*>/i, (open) => `${open}${meta}`);
-  }
-  if (/<html[^>]*>/i.test(html)) {
-    return html.replace(/<html[^>]*>/i, (open) => `${open}<head>${meta}</head>`);
-  }
-  return `${meta}${html}`;
+  return injectNappletCsp(html, { connectOrigins: origins });
 }
 
 async function resolvePointerEvent(
@@ -434,14 +405,6 @@ function normalizeRelayUrl(value: string): string | undefined {
   } catch {
     return undefined;
   }
-}
-
-function escapeAttribute(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('"', '&quot;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;');
 }
 
 function formatNappletManifestKinds(): string {

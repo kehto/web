@@ -21,6 +21,7 @@ describe('verified srcdoc CSP parity', () => {
     expect(connect).toBe(origins.length === 0 ? "'none'" : 'https://a.example https://b.example');
     expect(paja).toContain("script-src 'unsafe-inline' 'wasm-unsafe-eval'");
     expect(paja).not.toContain("'unsafe-eval'");
-    expect(paja).toMatch(/frame-ancestors 'self'$/);
+    expect(paja).toMatch(/form-action 'none'$/);
+    expect(paja).not.toContain('frame-ancestors');
   });
 });
