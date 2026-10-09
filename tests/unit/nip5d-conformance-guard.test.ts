@@ -509,7 +509,7 @@ describe('NIP-5D conformance static guards', () => {
       sourceBetween(
         paja,
         'if (getSimulation().intent.enabled && intentHost)',
-        'services.link = createLinkService',
+        'return adapter;',
       ),
     ].join('\n');
     const forbiddenCanonicalField = /\b(?:protocol|protocols)\s*(?:\?|):/;

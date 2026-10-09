@@ -240,7 +240,10 @@ teardown does not remove the catalog entry. This lets an installed handler be
 discovered and cold-started even when it has no live frame.
 
 Availability and selection derive solely from that installed catalog's exact
-convention contracts. A compatible default may be used; multiple compatible
+convention contracts. Required or optional INC declarations are eligible only when
+INC is available in the target's host-resolved environment. Missing optional INC
+still permits frame loading. Nameless root/snapshot artifacts may also run, but
+are excluded from the dTag-keyed intent catalog. A compatible default may be used; multiple compatible
 candidates go to the host chooser; an unresolved ambiguity is rejected. An
 explicit handler d-tag is valid only when it names a compatible installed record
 and passes sender-aware explicit authorization. A current frame is only a later

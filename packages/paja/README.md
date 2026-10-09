@@ -201,7 +201,10 @@ the catalog record; an explicit artifact removal removes it. Closing, reloading,
 or replacing a frame never makes an installed handler unavailable, so a cold
 target can still be selected and started later.
 
-Intent selection considers only exact compatible contracts from that catalog.
+Intent selection considers only exact compatible contracts from that catalog. Required or optional INC declarations are eligible only when
+INC is available in the target's host-resolved environment. Missing optional INC
+still permits frame loading. Nameless root/snapshot artifacts may also run, but
+are excluded from the dTag-keyed intent catalog.
 Paja can use a compatible user default, ask its host chooser when more than one
 candidate is available, or reject an ambiguity. An explicit handler d-tag is
 accepted only when it is an installed compatible handler and the invoking sender

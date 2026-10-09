@@ -84,6 +84,9 @@ export class InstalledNappletCatalog {
         convention: archetype.convention,
       })),
     });
+    // NAP-INTENT handler selection is dTag-based. Nameless root/snapshot
+    // artifacts may run, but have no key in this named-handler catalog.
+    if (!record.dTag) return record;
     this.records.set(record.dTag, record);
     this.notify([...new Set([
       ...record.archetypes.map((archetype) => archetype.slug),
@@ -127,17 +130,21 @@ export class InstalledNappletCatalog {
     return matchesInstalledNappletRecord(selected, target) ? selected : null;
   }
 
-  /** Return manifest-derived exact handler candidates for intent resolution. */
-  intentCatalog(): IntentCatalogEntry[] {
+  /** Return declared handlers filtered by target INC availability; optional INC defaults to unavailable. */
+  intentCatalog(
+    canExposeInc: (record: InstalledNappletRecord) => boolean = (record) => record.requires.includes('inc'),
+  ): IntentCatalogEntry[] {
     return this.installed()
-      .filter((record) => (record.requires.includes('inc') || record.optional?.includes('inc')))
+      .filter((record) =>
+        (record.requires.includes('inc') || record.optional?.includes('inc')) && canExposeInc(record),
+      )
       .map((record) => manifestToIntentCatalogEntry({
-      dTag: record.dTag,
-      ...(record.title === undefined ? {} : { title: record.title }),
-      archetypes: record.archetypes.map((archetype) => ({
-        slug: archetype.slug,
-        convention: archetype.convention,
-      })),
+        dTag: record.dTag,
+        ...(record.title === undefined ? {} : { title: record.title }),
+        archetypes: record.archetypes.map((archetype) => ({
+          slug: archetype.slug,
+          convention: archetype.convention,
+        })),
       }));
   }
 

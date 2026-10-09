@@ -113,7 +113,10 @@ The playground's verified installed catalog is persistent manifest state, not
 the live frame map. Only a resolver-verified install can insert or replace a
 record, and only an explicit artifact removal can remove one; closing a frame
 does not make its manifest unavailable. Intent availability therefore comes from
-exact installed contracts. The host may use a compatible default, present a
+exact installed contracts. Required or optional INC declarations are eligible only when
+INC is available in the target's host-resolved environment. Missing optional INC
+still permits frame loading. Nameless root/snapshot artifacts may also run, but
+are excluded from the dTag-keyed intent catalog. The host may use a compatible default, present a
 chooser for several candidates, or reject ambiguity. An explicit d-tag requires
 both an exact installed contract and sender-aware authorization.
 

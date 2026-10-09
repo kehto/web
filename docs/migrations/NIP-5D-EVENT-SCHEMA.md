@@ -49,7 +49,11 @@ set remains loadable but has no convention-based handler eligibility.
 Both hosts check required domains against their actual environment before
 execution. `shell` is mandatory. Optional domains never block loading or expand
 the injected namespace. Required or optional `inc` may advertise an intent
-integration; actual delivery still requires the host's authenticated INC path.
+integration. Both host catalogs check the target's resolved environment for INC
+before advertising it; optional INC alone never makes a handler usable. Missing
+optional INC still permits ordinary frame loading. Root/snapshot artifacts also
+load normally, but remain outside the dTag-keyed intent catalogs: Kehto does not
+yet route NAP-INTENT by event coordinate.
 
 Icons are not needed to load an artifact. Kehto retains generic artwork; merely
 parsing a supported icon declaration does not fetch or render it. Future display

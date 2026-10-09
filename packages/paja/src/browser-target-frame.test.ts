@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { finalizeEvent } from 'nostr-tools/pure';
 import { computeAggregateHash } from '@kehto/nip/5a';
 import { resolveNapplet } from '@kehto/nip/5d';
-import { originRegistry, type ShellAdapter } from '@kehto/shell';
+import { originRegistry, resolveShellEnvironment, type ShellAdapter } from '@kehto/shell';
 import { navigateFrame } from './browser-target-frame.js';
 import { InstalledNappletCatalog } from './installed-napplet-catalog.js';
 import type { PajaHostConfig } from './options.js';
@@ -70,7 +70,37 @@ describe.each(['current', 'legacy'] as const)('%s Paja frame admission', (format
     const resolved = await target(format);
     const catalog = new InstalledNappletCatalog();
     catalog.install(resolved);
-    expect(catalog.intentCatalog()[0].archetypes).toEqual({ feed: { actions: ['open'], conventions: ['napplet:note/open'] } });
+    expect(catalog.intentCatalog((record) => resolveShellEnvironment(adapter, record).capabilities.domains.includes('inc'))[0].archetypes).toEqual({ feed: { actions: ['open'], conventions: ['napplet:note/open'] } });
     expect(catalog.installed()[0].requires).not.toContain('keys');
   });
+});
+
+// NIP-5D permits nameless artifacts; this host's NAP-INTENT catalog uses dTags.
+it('keeps signed roots and snapshots out of the named catalog without disturbing named handlers', async () => {
+  const catalog = new InstalledNappletCatalog();
+  const named = await target('current');
+  const namedRecord = catalog.install(named);
+  const changed = vi.fn();
+  catalog.onChanged(changed);
+  for (const kind of [15129, 5129]) {
+    const nameless = await target('current', [], kind);
+    catalog.install(nameless);
+    expect(catalog.get('')).toBeUndefined();
+    expect(catalog.installed()).toEqual([namedRecord]);
+  }
+  expect(changed).not.toHaveBeenCalled();
+  expect(catalog.intentCatalog(() => true).map((entry) => entry.dTag)).toEqual(['test']);
+});
+
+it('loads optional-INC artifacts with INC disabled without advertising a handler', async () => {
+  const resolved = await target('current', []);
+  const catalog = new InstalledNappletCatalog();
+  catalog.install(resolved);
+  const disabled = { capabilities: { disabledDomains: ['inc'] } } as unknown as ShellAdapter;
+  const frame = { contentWindow: {} as Window, srcdoc: '', removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
+  await navigateFrame(frame, config, 1, disabled, resolved);
+  expect(frame.srcdoc).toContain('Verified bytes');
+  expect(originRegistry.getEnvironment(frame.contentWindow!)?.capabilities.domains).not.toContain('inc');
+  expect(catalog.intentCatalog((record) => resolveShellEnvironment(disabled, record).capabilities.domains.includes('inc'))).toEqual([]);
+  expect(catalog.get('test')?.requires).toEqual([]);
 });

@@ -63,6 +63,7 @@ export {
   getConfigServiceBundle,
   getIdentityServiceHandler,
   getMissingRequiredNaps,
+  getPlaygroundShellEnvironment,
   getNip66Aggregator,
   getNotificationServiceHandler,
   getPlaygroundRelayActivity,
