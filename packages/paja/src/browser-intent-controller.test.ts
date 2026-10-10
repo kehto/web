@@ -15,7 +15,7 @@ function params(overrides: Partial<IntentDispatchParams> = {}): IntentDispatchPa
 }
 
 describe('BrowserIntentController', () => {
-  it('waits for a current ready generation, sends once, and returns its window id', async () => {
+  it('waits for a current ready generation and completes after one send', async () => {
     let releaseReady!: () => void;
     const ready = new Promise<void>((resolve) => {
       releaseReady = resolve;

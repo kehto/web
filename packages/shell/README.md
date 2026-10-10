@@ -76,24 +76,23 @@ the prior opener-only interpretation is obsolete.
 
 ### NAP-INTENT binding and delivery
 
-Kehto implements merged [NAP-INTENT at
-`5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`](https://github.com/napplet/naps/blob/5ac0490461ca6fec2f0d2e45b4835cf9bc08de24/naps/NAP-INTENT.md).
-The protected `window.napplet.intent` binding accepts structured
-`invoke(request)` calls and `open(archetype, payload?, opts?)`. It defaults
-`action` to `open`, preserves an optional queryless convention, rejects
-unsupported fields and caller-supplied sender data, and resolves only
-parent-originated correlated results.
+Kehto follows [NAP-INTENT PR #106](https://github.com/napplet/naps/blob/fc121fc264615482143eda86125863d2e1f741a2/naps/NAP-INTENT.md) at `fc121fc264615482143eda86125863d2e1f741a2`. The protected binding supports
+`window.napplet.intent.invoke('napplet:profile/open?pubkey=abc%2B123')` and
+`invoke(uri, { payload, handler, handlerHint, behavior })`. Query fields decode
+once into text; `+` remains literal. An explicit payload cannot accompany an
+inner query, and a `#naddr` recommendation cannot accompany `handlerHint`.
+Unsupported options and caller-supplied sender data are rejected. Only a
+parent-originated correlated result can settle the call.
 
-Successful results include `handled`, `handler`, `windowId`, and `convention`
-after target dispatch completes. Target delivery now follows NAP-INTENT at
-`25b29ee49e5bff8ebfe031f4b76dce98705c8b7e`: one `intent.deliver` envelope
-feeds the buffered `onDelivery` binding described below. Broader invocation and
-result changes from that newer spec remain deferred.
+Successful results identify retained delivery responsibility with `ok`,
+`archetype`, `action`, `convention`, and an opaque `handler`. A target receives
+one parent-attested `intent.deliver`, buffered by `onDelivery` until registration.
+Acceptance is separate from later target completion.
 
-Phase 105 completed released `@napplet/*` package adoption and persistent live
-Paja/playground catalogs and target controllers. The Phase 104 Paja simulator
-and playground catalog builder are historical exact-contract consumers; preserve
-archived planning rather than presenting it as active guidance.
+Legacy object-form `invoke(request)` and `open(archetype, payload?, opts?)`
+remain bounded compatibility adapters and warn once per iframe with
+`KEHTO_COMPAT_INTENT_OBJECT_INVOKE`. Their removal conditions are tracked in
+[compatibility](https://github.com/kehto/web/blob/main/docs/compatibility.md).
 
 ## Quick Start
 
@@ -256,8 +255,8 @@ MIT
 
 ## NIP-5D event compatibility
 
-Current manifests use a direct artifact `x` hash, plain-text `content`, independent
-`z`/`i` routing declarations, and required `R` / optional `O` domains. Kehto also
+Current manifests use a direct artifact `x` hash, plain-text `content`, role-matched
+`z`/`i` intent declarations, and required `R` / optional `O` domains. Kehto also
 accepts legacy aggregate events through an isolated compatibility adapter.
 Existing `aggregateHash` host/cache/ACL fields carry the verified artifact hash
 for current events; legacy identities keep their original aggregate. Both paths
@@ -275,5 +274,12 @@ A throwing listener does not prevent delivery to other listeners.
 When no canonical listener is registered, matching legacy INC listeners can
 consume the delivery locally. This emits `KEHTO_COMPAT_INTENT_INC` once per
 iframe; a delivery is never replayed to both APIs. See [compatibility tracking](https://github.com/kehto/web/blob/main/docs/compatibility.md).
-This aligns delivery with NAP-INTENT at `25b29ee`; broader invocation/result
-changes and the packaged SDK upgrade remain deferred.
+Delivery and URI invocation follow NAP-INTENT PR #106 at
+`fc121fc264615482143eda86125863d2e1f741a2`; the packaged SDK still trails that
+contract, as documented in the conformance policy.
+
+## Paja URL integration
+
+The shell normalizer also powers Paja intent links. See the
+[Paja guide](https://kehto.github.io/web/docs/packages/paja.html#nap-intent-links-and-lifecycle)
+for outer URL encoding, review, routing, and verified launcher behavior.

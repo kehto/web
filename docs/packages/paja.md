@@ -277,38 +277,27 @@ The file opens in a new runtime tab named after the file.
 
 ### Installed catalog and intent lifecycle
 
-The verified pointer catalog and the live runtime-tab/controller map have
-different jobs. Paja writes immutable, serializable manifest facts only after a
-pointer and its bytes have been resolver-verified, and removes them only at an
-explicit installed-artifact removal boundary. A tab close, reload, or source
-teardown does not remove the catalog entry. This lets an installed handler be
-discovered and cold-started even when it has no live frame.
+Paja stores immutable resolver-verified manifest facts separately from live tabs.
+Closing a frame leaves its catalog record available for cold starts; explicit
+artifact removal deletes it. Restored pointers are reverified before entering the
+catalog. Entries preserve exact conventions and ordered parameter names under
+publisher/kind-safe opaque IDs, including nameless root and snapshot artifacts.
+The target's resolved `intent` domain must be available; INC is not required.
 
-Availability and selection derive solely from that installed catalog's exact
-convention contracts. Required or optional INC declarations are eligible only when
-INC is available in the target's host-resolved environment. Missing optional INC
-still permits frame loading. Nameless root/snapshot artifacts may also run, but
-are excluded from the dTag-keyed intent catalog. A compatible default may be used; multiple compatible
-candidates go to the host chooser; an unresolved ambiguity is rejected. An
-explicit handler d-tag is valid only when it names a compatible installed record
-and passes sender-aware explicit authorization. A current frame is only a later
-delivery endpoint, never selection authority.
+Selection uses exact contracts and user-owned default, chooser, recommendation,
+and explicit-authorization policy. Explicit handler IDs require sender-aware
+authorization and cannot address an arbitrary running frame.
 
-Reusing a handler tab activates it and remembers the new active tab. Paja's stage
-shows exactly one tab, so a delivered intent always selects the handler tab:
-`behavior.focus` is a hint, and honoring `false` as "deliver into the hidden
-tab" would report a handled intent whose surface the user never sees. Reuse
-still leaves the caller's tab open, so nothing is replaced. Newly created
-handler tabs behave the same way. Pointer installation logs declared
-archetypes and required domains; Paja warns when archetypes lack `inc`, which
-its current convention delivery policy requires.
+The controller retains work before returning acceptance. It then opens or reuses
+a verified target, waits for its registered source and real `shell.ready`, checks
+that the generation is current, and sends one target-only `intent.deliver`.
+Replacement, readiness failure, and terminal send failure remain host-observable
+controller outcomes; they do not produce a second source result. Accepted work
+survives source teardown and is never replayed by tab restoration.
 
-Paja may reuse a current target or start a cold one, but it waits for the
-current target generation's registered `MessageEvent.source` and real
-`shell.ready` session before one target-only `intent.deliver`. A replaced generation
-is not delivered to; failed open/readiness attempts follow the private
-retry/replacement policy. The final result includes the handled target's d-tag,
-window identifier, and convention.
+Paja activates delivered handler tabs because its stage shows one tab at a time.
+`behavior.focus` is advisory; `reuse: false` creates a new surface. Existing caller
+tabs remain open. Installed contracts and domains appear in pointer diagnostics.
 
 The published `@napplet/shim@0.30.0` is intentionally non-shell. Kehto's
 host-owned prelude remains responsible for mandatory `window.napplet.shell`,
@@ -615,10 +604,50 @@ the next iframe reload.
 
 ## NIP-5D event compatibility
 
-Current manifests use a direct artifact `x` hash, plain-text `content`, independent
-`z`/`i` routing declarations, and required `R` / optional `O` domains. Kehto also
+Current manifests use a direct artifact `x` hash, plain-text `content`, role-matched
+`z`/`i` intent declarations, and required `R` / optional `O` domains. Kehto also
 accepts legacy aggregate events through an isolated compatibility adapter.
 Existing `aggregateHash` host/cache/ACL fields carry the verified artifact hash
 for current events; legacy identities keep their original aggregate. Both paths
 verify signatures and bytes before runtime injection and `srcdoc` execution.
 For the schema and removal boundary, see [event migration](https://kehto.github.io/web/docs/migrations/NIP-5D-EVENT-SCHEMA.html).
+
+## NAP-INTENT links and lifecycle
+
+This follows [NAP-INTENT PR #106](https://github.com/napplet/naps/blob/fc121fc264615482143eda86125863d2e1f741a2/naps/NAP-INTENT.md) at `fc121fc264615482143eda86125863d2e1f741a2` and NIP-5D PR #2303 at `020cb8b33a9e4c6b8ca4b2f9d0ed0a67843b68f7`.
+
+For a verified app with advertised intents, choose **Share → Create intent link**.
+Select its convention, include the text parameters you want, or switch to JSON.
+Parameters start omitted; selecting Include with an empty field sends an explicit
+empty string. Names stay in advertised order and extra named fields are allowed.
+No parameter type or requiredness is inferred. An empty advertised list still
+permits a payload. Opening or editing the builder never invokes an intent.
+Use **Copy link** or explicitly **Test intent** to open the review view.
+
+The outer URL carries a complete percent-encoded convention URI in `intent`.
+For example, `?intent=napplet%3Aprofile%2Fopen%3Fpubkey%3Dabc%252B123`
+contains `napplet:profile/open?pubkey=abc%2B123` and delivers text `abc+123`.
+Outer and inner layers decode once each; literal `+` stays plus. Optional outer
+`payload` contains JSON, including null, primitives, arrays, or objects, and
+cannot accompany an inner query. URLs are limited to 16 KiB UTF-8. Duplicate
+keys, malformed encoding, and conflicting target instructions are rejected.
+Ordinary pointer-only app links retain their existing behavior.
+
+Choose recipient default routing, a named-35129 `#naddr` recommendation, or an
+exact outer `pointer`. Explicit pointers must verify and advertise the exact
+contract; failure never silently falls back. Otherwise an applicable user default
+wins before a recommendation, then ordinary compatible selection applies.
+Recommendation relay hints remain untrusted discovery inputs. Installing a
+recommendation requires confirmation after signed metadata and bytes verify.
+
+Incoming links show **Review intent** before execution. Edit, choose another
+handler, explicitly save or clear a default, launch, retry, or cancel. Defaults
+never change implicitly. Cancellation before Launch sends nothing; accepted
+work is retained while completion or failure remains visible in the host.
+
+Paja invokes through a separate signed launcher napplet with a verified artifact
+and authenticated iframe endpoint. Its source supplies the opaque sender; the
+URL cannot supply one. The hidden launcher is removed after acceptance and is
+never persisted or restored. Verification precedes `srcdoc`, and host bootstrap
+injection stays outside signed bytes. Native external-origin sender semantics
+remain a documented upstream spec gap; no host sender identity is invented.

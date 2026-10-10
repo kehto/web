@@ -26,19 +26,21 @@ bytes, see the repo guide:
 
 ## NIP-5D archetype manifest contracts
 
-Kehto follows merged [NAP-INTENT at
-`5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`](https://github.com/napplet/naps/blob/5ac0490461ca6fec2f0d2e45b4835cf9bc08de24/naps/NAP-INTENT.md).
-An accepted manifest tag has the exact form
-`["archetype", "<slug>", "napplet:<slug>/<action>"]`.
-The convention is stable and queryless; each tag becomes one ordered
-archetype/convention declaration. Trailing metadata and numbered NAP names are
-rejected.
+Kehto follows [NAP-INTENT PR #106](https://github.com/napplet/naps/blob/fc121fc264615482143eda86125863d2e1f741a2/naps/NAP-INTENT.md) at `fc121fc264615482143eda86125863d2e1f741a2` and NIP-5D PR #2303 at `020cb8b33a9e4c6b8ca4b2f9d0ed0a67843b68f7`.
+Current manifests declare roles with `z` and contracts with
+`["i", "napplet:<role>/<action>", ...parameterNames]`. Only an intent whose
+role is also declared by `z` is eligible. Invalid advertisements are ignored;
+they do not invalidate otherwise valid artifact metadata.
 
-`resolveNapplet()` exposes these verified tags as
-`manifest.archetypes: Array<{ slug, convention }>`. The NIP package
-parses and verifies that metadata but does not select handlers, retain intent
-delivery, or start target windows. Those responsibilities live in
-`@kehto/services` and the host runtime.
+`resolveNapplet()` exposes `manifest.archetypes` as ordered
+`{ slug, convention, params }` entries. Parameter names describe text fields,
+not types or required values. Legacy paired archetype tags retain empty params.
+`manifest.catalogId`, also available through `getNappletCatalogId(event)`, is
+publisher/kind-safe: named events use kind, publisher and literal d-tag; roots
+use kind and publisher; snapshots use kind and event ID. Callers treat this ID
+as opaque. The existing dTag/artifact hash remains separate artifact metadata.
+
+NIP utilities verify these facts; services and hosts select and run handlers.
 
 ## Selection criteria
 
@@ -90,8 +92,8 @@ Every NIP module is:
 
 ## NIP-5D event compatibility
 
-Current manifests use a direct artifact `x` hash, plain-text `content`, independent
-`z`/`i` routing declarations, and required `R` / optional `O` domains. Kehto also
+Current manifests use a direct artifact `x` hash, plain-text `content`, role-matched
+`z`/`i` intent declarations, and required `R` / optional `O` domains. Kehto also
 accepts legacy aggregate events through an isolated compatibility adapter.
 Existing `aggregateHash` host/cache/ACL fields carry the verified artifact hash
 for current events; legacy identities keep their original aggregate. Both paths

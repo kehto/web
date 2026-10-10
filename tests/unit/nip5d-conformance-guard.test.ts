@@ -427,11 +427,11 @@ describe('NIP-5D conformance static guards', () => {
     for (const authority of Object.values(publishedConventionAuthorities)) {
       expect(publishedContract, `published contract authority ${authority}`).toContain(authority);
     }
-    expect(services).toContain("} from '@napplet/core';");
-    for (const typeName of ['IntentOpenOptions', 'IntentRequest', 'IntentResult']) {
-      expect(services, `published intent type ${typeName}`).toContain(typeName);
-    }
-    expect(existsSync(join(process.cwd(), 'packages/services/src/intent-types.ts'))).toBe(false);
+    // @napplet/nap 0.32 lacks the pinned PR #106 contract. Kehto contains the
+    // exact temporary canonical types until that package exports them.
+    expect(services).toContain("from './intent-types.js'");
+    expect(existsSync(join(process.cwd(), 'packages/services/src/intent-types.ts'))).toBe(true);
+    expect(publishedContract).toContain('NAP-INTENT PR #106');
 
     // Published core/shim omit generic shell, so NAP-SHELL stays a Kehto-owned
     // prelude with a live receiver, one bare ready signal, and local support.
@@ -457,7 +457,9 @@ describe('NIP-5D conformance static guards', () => {
     expect(host).toContain('const intentController = new BrowserIntentController(');
     expect(controller).toContain('await this.options.waitForReady(generation);');
     expect(controller).toContain('await this.options.isCurrent(generation)');
-    expect(controller).toContain('return { windowId };');
+    expect(controller).toContain('const acceptance = Object.freeze({ completion: this.dispatch(params) });');
+    expect(controller).toContain('return acceptance;');
+    expect(controller).toContain('onAccepted?(params: IntentDispatchParams, acceptance: IntentTargetAcceptance): void;');
   });
 
   it('keeps test resolution on published napplet packages', () => {
@@ -515,24 +517,14 @@ describe('NIP-5D conformance static guards', () => {
     ].join('\n');
     const forbiddenCanonicalField = /\b(?:protocol|protocols)\s*(?:\?|):/;
 
-    expect(existsSync(join(process.cwd(), 'packages/services/src/intent-types.ts'))).toBe(false);
-    expect(interfaceFieldNames(publishedIntentTypes, 'IntentCandidate')).toEqual([
-      'dTag',
-      'title',
-      'actions',
-      'conventions',
-      'isDefault',
+    const localIntentTypes = readRepoFile('packages/services/src/intent-types.ts');
+    expect(existsSync(join(process.cwd(), 'packages/services/src/intent-types.ts'))).toBe(true);
+    expect(localInterfaceFieldNames(localIntentTypes, 'IntentCandidate')).toEqual([
+      'id', 'title', 'actions', 'conventions', 'contracts', 'isDefault',
     ]);
-    expect(interfaceFieldNames(publishedIntentTypes, 'IntentResult')).toEqual([
-      'ok',
-      'archetype',
-      'action',
-      'handled',
-      'handler',
-      'windowId',
-      'convention',
-      'error',
-    ]);
+    expect(localIntentTypes).toContain('export type IntentResult =');
+    expect(localIntentTypes).not.toContain('handled');
+    expect(localIntentTypes).not.toContain('windowId');
     expect(localInterfaceFieldNames(resolver, 'IntentDispatchParams')).toEqual([
       'handler',
       'sender',
@@ -541,6 +533,7 @@ describe('NIP-5D conformance static guards', () => {
       'convention',
       'payload',
       'behavior',
+      'sourceWindowId',
     ]);
 
     for (const file of activeIntentContractFiles) {
@@ -560,10 +553,8 @@ describe('NIP-5D conformance static guards', () => {
     expect(pajaHost).toContain('const intentController = new BrowserIntentController(');
     expect(paja).not.toContain('DEV_INTENT');
 
-    for (const source of [manifestParser, playgroundManifest]) {
-      expect(source).toContain('orthogonal');
-      expect(source).not.toContain('must match the convention archetype');
-    }
+    expect(manifestParser).toContain('eligible only for the same declared role');
+    expect(playgroundManifest).toContain('archetype');
 
     for (const file of activeArchetypeMetadataFiles) {
       const source = removeComments(readRepoFile(file));
@@ -931,6 +922,6 @@ it('bounds the temporary intent delivery binding to the protected host and profi
   const policy = readFileSync('docs/policies/NIP-5D-CONFORMANCE.md', 'utf8');
   expect(profile).toContain('intent.onDelivery(');
   expect(profile).not.toContain("from '@napplet/nap/inc/sdk'");
-  expect(policy).toContain('INTENT_BINDING');
-  expect(policy).toContain('25b29ee49e5bff8ebfe031f4b76dce98705c8b7e');
+  expect(policy).toContain('packages/services/src/intent-types.ts');
+  expect(policy).toContain('fc121fc264615482143eda86125863d2e1f741a2');
 });

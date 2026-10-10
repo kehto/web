@@ -54,16 +54,17 @@ installed handler, so availability can select an installed cold target.
 Selection uses exact compatible installed conventions, not frame presence. A
 compatible default can resolve a request, a chooser can resolve several
 candidates, and ambiguity without a choice is rejected. An explicit handler
-d-tag also requires sender-aware authorization. The host starts or reuses the
+ID also requires sender-aware authorization. The host starts or reuses the
 selected target and waits for that generation's registered source to complete
 real `shell.ready`; only a current target receives one `intent.deliver` for the
-selected convention. The final result identifies the handled target. Replacement,
-retry, and terminal behavior remain controller policy.
+selected convention. The source result acknowledges retained responsibility
+before completion. Replacement, retry, and terminal outcomes are host-observable
+and never create a second source result.
 
 The feed opens profiles with a structured request whose payload contains the
 pubkey and whose metadata advertises the queryless `napplet:profile/open`
 convention. Profile-viewer registers
-`inc.on('napplet:profile/open', …)` before capability waiting. It reads profile
+`intent.onDelivery(handler)` before capability waiting. It reads profile
 picture/banner bytes with
 `resourceBytes`, creates Blob URLs, and revokes URLs for stale completion,
 replacement, error, clear, and `pagehide`—never direct remote image URLs.
@@ -92,8 +93,8 @@ The playground is private and does not generate package API reference. Use its R
 
 ## NIP-5D event compatibility
 
-Current manifests use a direct artifact `x` hash, plain-text `content`, independent
-`z`/`i` routing declarations, and required `R` / optional `O` domains. Kehto also
+Current manifests use a direct artifact `x` hash, plain-text `content`, role-matched
+`z`/`i` intent declarations, and required `R` / optional `O` domains. Kehto also
 accepts legacy aggregate events through an isolated compatibility adapter.
 Existing `aggregateHash` host/cache/ACL fields carry the verified artifact hash
 for current events; legacy identities keep their original aggregate. Both paths

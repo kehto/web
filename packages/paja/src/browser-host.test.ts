@@ -140,7 +140,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
     const tabsSource = readFileSync(new URL('./browser-runtime-tabs.ts', import.meta.url), 'utf8');
 
     expect(tabsSource).toContain("export const PAJA_RUNTIME_TABS_STORAGE_KEY = 'kehto:paja:runtime-tabs:v1';");
-    expect(tabsSource).toContain('function renderShareButton(tab: PajaRuntimeTab): HTMLButtonElement');
+    expect(tabsSource).toContain('function renderShareButton(state: PajaRuntimeTabState, tab: PajaRuntimeTab): HTMLButtonElement');
     expect(tabsSource).toContain('createPajaShareUrl(tab.pointerValue)');
     expect(source).toContain('function persistRuntimeTabs(state: PajaBrowserState): void');
     expect(source).toContain('function restorePersistedRuntimeTabs(');
