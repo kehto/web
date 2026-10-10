@@ -688,6 +688,17 @@ Phases execute in numeric order: 80 → 81 → 82
 - NIP-04, NIP-44, NIP-17, and Class-2 rows leave `[pending]` and settle to the expected terminal state.
 - Regression coverage catches fixture-delivery stalls in the real playground path.
 
+### Phase 107: Paja Intent Deep Links
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 106
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 107 to break down)
+
 ---
 
 *ROADMAP.md last updated: 2026-07-27 - Phase 106 complete; all v1.29 phases are finished and the milestone is ready for completion.*
