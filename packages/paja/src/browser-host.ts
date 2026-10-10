@@ -478,6 +478,15 @@ async function launchReviewedIntent(
   intent: PajaIntentReview,
 ): Promise<void> {
   const { runtime } = context;
+  let explicitHandler: string | undefined;
+  if (intent.pointer) {
+    const target = await resolvePajaPointer(intent.pointer, pajaPointerResolverOptions(context));
+    const exact = target.manifest.archetypes.some((contract) =>
+      contract.slug === intent.request.archetype && contract.convention === intent.request.convention);
+    if (!exact) throw new Error('The explicitly named napplet does not advertise this exact intent convention');
+    runtime.catalog.install(target);
+    explicitHandler = target.manifest.catalogId;
+  }
   const launcher = await resolvePajaIntentLauncher();
   const frame = document.createElement('iframe');
   frame.hidden = true;
@@ -517,16 +526,25 @@ async function launchReviewedIntent(
     const timeout = window.setTimeout(() => readyReject(new Error('Paja intent launcher did not become ready')), 10_000);
     try { await ready; } finally { window.clearTimeout(timeout); }
     const correlation = crypto.randomUUID();
-    const outcome = new Promise<unknown>((resolve) => outcomes.set(correlation, resolve));
+    const outcome = new Promise<unknown>((resolve, reject) => {
+      outcomes.set(correlation, resolve);
+      window.setTimeout(() => {
+        if (outcomes.delete(correlation)) reject(new Error('Paja intent launcher did not return an acceptance result'));
+      }, 10_000);
+    });
     postPajaIntentLauncherMessage(frame, {
       type: 'paja.intent.launch',
       correlation,
       uri: intent.uri,
-      ...(Object.hasOwn(intent, 'payload') ? { options: { payload: intent.payload } } : {}),
+      ...(Object.hasOwn(intent, 'payload') || explicitHandler !== undefined ? { options: {
+        ...(Object.hasOwn(intent, 'payload') ? { payload: intent.payload } : {}),
+        ...(explicitHandler === undefined ? {} : { handler: explicitHandler }),
+      } } : {}),
     });
     const result = await outcome;
     if (!result || typeof result !== 'object' || (result as { ok?: unknown }).ok !== true) {
-      throw new Error((result as { error?: unknown })?.error instanceof String ? String((result as { error: unknown }).error) : 'Intent launch was rejected');
+      const detail = (result as { error?: unknown })?.error;
+      throw new Error(typeof detail === 'string' ? detail : 'Intent launch was rejected');
     }
     setPointerStatus(state, 'intent accepted');
   } catch (error) {
@@ -817,6 +835,16 @@ async function installPajaHost(): Promise<void> {
   installPajaControlListeners(state);
   const review = createPajaIntentLinkReviewController();
   window.addEventListener('pagehide', () => review?.dispose(), { once: true });
+  window.addEventListener('pagehide', () => {
+    for (const [source, launcher] of runtime.launcherFrames) {
+      context.bridge.runtime.destroyWindow(launcher.windowId);
+      context.bridge.runtime.sessionRegistry.unregister(launcher.windowId);
+      originRegistry.unregister(launcher.windowId);
+      launcher.frame.remove();
+      runtime.launcherFrames.delete(source);
+      runtime.intentSenderIds.delete(launcher.windowId);
+    }
+  }, { once: true });
 
   setStatus(state, 'booting');
   setSimulationStatus(state);
@@ -837,7 +865,10 @@ async function installPajaHost(): Promise<void> {
       setStatus(state, 'ready');
       setEmptyStageVisible(true);
       renderRuntimeTabs(state);
-      void review.review(incomingIntent).then((intent) => intent && launchReviewedIntent(state, context, intent));
+      void review.review(incomingIntent).then((intent) => intent && launchReviewedIntent(state, context, intent)).catch((error) => {
+        setPointerStatus(state, error instanceof Error ? error.message : String(error));
+        setStatus(state, 'error');
+      });
     } else if (state.pointerValue) void state.loadPointer(state.pointerValue);
     else if (persistedTabs) void restorePersistedRuntimeTabs(state, context, persistedTabs);
     else {

@@ -6,6 +6,7 @@ import type { ParsedPajaIntentLink } from './intent-link.js';
 
 export interface PajaIntentReview {
   readonly uri: string;
+  readonly pointer?: string;
   readonly payload?: unknown;
   readonly request: ReturnType<typeof normalizeIntentUri>;
 }
@@ -39,6 +40,7 @@ export function createPajaIntentLinkReviewController(
 
   let settle: ((value: PajaIntentReview | null) => void) | null = null;
   let trigger: HTMLElement | null = null;
+  let pointer: string | undefined;
   const finish = (value: PajaIntentReview | null) => {
     const done = settle;
     settle = null;
@@ -53,8 +55,8 @@ export function createPajaIntentLinkReviewController(
       const hasPayload = payload.value.trim().length > 0;
       const parsedPayload = hasPayload ? JSON.parse(payload.value) : undefined;
       const request = normalizeIntentUri(uri.value, hasPayload ? { payload: parsedPayload } : undefined);
-      status.textContent = 'Accepted. Starting verified launcher…';
-      finish({ uri: uri.value, ...(hasPayload ? { payload: parsedPayload } : {}), request });
+      status.textContent = 'Launching only after canonical handler acceptance…';
+      finish({ uri: uri.value, ...(pointer === undefined ? {} : { pointer }), ...(hasPayload ? { payload: parsedPayload } : {}), request });
     } catch (error) {
       status.textContent = error instanceof Error ? error.message : 'Intent link is invalid.';
     }
@@ -66,6 +68,7 @@ export function createPajaIntentLinkReviewController(
     review(link) {
       if (settle) finish(null);
       uri.value = link.uri;
+      pointer = link.pointer;
       payload.value = Object.hasOwn(link, 'payload') ? JSON.stringify(link.payload) : '';
       target.textContent = link.pointer
         ? 'This link names one verified target. You can choose another only after it fails verification.'
