@@ -232,6 +232,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
     <section class="paja-notification-center" id="paja-notification-center" aria-label="Napplet notifications" aria-live="polite"></section>
     ${renderConfirmationDialog()}
     ${renderConfigDialog()}
+    ${renderIntentLinkDialog()}
     ${renderDuplicateDialog()}
     <footer class="bar bottom">
       <span>mode: <code>${escapeHtml(getModeLabel(config))}</code></span>
@@ -289,6 +290,22 @@ function renderConfigDialog(): string {
           <button type="button" id="paja-config-save">Save</button>
         </div>
       </div>
+    </dialog>`;
+}
+
+function renderIntentLinkDialog(): string {
+  return `<dialog class="config-dialog" id="paja-intent-link-dialog" aria-labelledby="paja-intent-link-title" aria-describedby="paja-intent-link-status">
+      <form class="dialog" method="dialog">
+        <div class="dialog-title" id="paja-intent-link-title">Review intent link</div>
+        <label>Intent URI <input id="paja-intent-link-uri" type="text" autocomplete="off" spellcheck="false"></label>
+        <label>Payload <textarea id="paja-intent-link-payload" rows="5" spellcheck="false"></textarea></label>
+        <div class="dialog-copy" id="paja-intent-link-target"></div>
+        <div class="config-error" id="paja-intent-link-status" role="status" aria-live="polite"></div>
+        <div class="dialog-actions">
+          <button type="button" id="paja-intent-link-cancel">Cancel</button>
+          <button type="button" id="paja-intent-link-launch">Launch</button>
+        </div>
+      </form>
     </dialog>`;
 }
 
