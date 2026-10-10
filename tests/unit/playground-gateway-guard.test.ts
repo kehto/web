@@ -116,11 +116,10 @@ describe('playground gateway artifact guard', () => {
       const ready = controller.indexOf('await this.options.waitForReady(generation);');
       const current = controller.indexOf('await this.options.isCurrent(generation)');
       const send = controller.indexOf('await this.options.send(generation, dispatch);');
-      const windowId = controller.indexOf('const windowId = this.options.getWindowId(generation);');
       expect(ready).toBeGreaterThanOrEqual(0);
       expect(current).toBeGreaterThan(ready);
       expect(send).toBeGreaterThan(current);
-      expect(windowId).toBeGreaterThan(send);
+      expect(controller).not.toContain('getWindowId(generation)');
     }
     expect(source.intentService).toContain("type: 'intent.invoke.result'");
     expect(source.playgroundHost).not.toContain("type: 'inc.event'");

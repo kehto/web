@@ -23,14 +23,14 @@ import type { IntentArchetypeSupport, IntentCatalogEntry } from './catalog-inten
  * resolved manifest without importing `@kehto/nip`.
  */
 export interface ManifestArchetypeInput {
-  /** The napplet's `d` identifier. */
-  dTag: string;
+  /** Publisher/kind-safe catalog identifier derived from the verified event. */
+  catalogId: string;
   /** Optional human-readable title from the manifest. */
   title?: string;
   /**
    * Normalized current z/i combinations or exact legacy archetype pairs.
    */
-  archetypes: Array<{ slug: string; convention: string }>;
+  archetypes: Array<{ slug: string; convention: string; params: string[] }>;
 }
 
 function actionFromConvention(convention: string): string {
@@ -45,8 +45,8 @@ function actionFromConvention(convention: string): string {
  * Map a resolved napplet manifest's archetype data into an
  * {@link IntentCatalogEntry}.
  *
- * Repeated slugs group into one support record; action and convention arrays
- * remain stable and deduplicated.
+ * Repeated slugs group into one support record; exact contracts and their
+ * parameter arrays remain stable and deduplicated.
  *
  * @param manifest - A resolved manifest's structural archetype data.
  * @returns The `IntentCatalogEntry` for `createCatalogIntentResolver`.
@@ -54,35 +54,35 @@ function actionFromConvention(convention: string): string {
  * @example
  * ```ts
  * manifestToIntentCatalogEntry({
- *   dTag: 'profile-viewer',
+ *   catalogId: 'nip5d:35129:publisher:profile-viewer',
  *   title: 'Profile',
- *   archetypes: [{ slug: 'profile', convention: 'napplet:profile/open' }],
+ *   archetypes: [{ slug: 'profile', convention: 'napplet:profile/open', params: ['pubkey'] }],
  * });
- * // → { dTag: 'profile-viewer', title: 'Profile',
- * //     archetypes: { profile: {
- * //       actions: ['open'],
- * //       conventions: ['napplet:profile/open'],
- * //     } } }
+ * // → { id: 'nip5d:35129:publisher:profile-viewer', title: 'Profile',
+ * //     archetypes: { profile: { contracts: [
+ * //       { convention: 'napplet:profile/open', params: ['pubkey'] },
+ * //     ] } } }
  * ```
  */
 export function manifestToIntentCatalogEntry(manifest: ManifestArchetypeInput): IntentCatalogEntry {
-  const archetypes: Record<string, IntentArchetypeSupport> = Object.create(null);
-  for (const { slug, convention } of manifest.archetypes) {
+  const archetypes: Record<string, { contracts: IntentArchetypeSupport['contracts'][number][] }> = Object.create(null);
+  for (const { slug, convention, params } of manifest.archetypes) {
     if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
       throw new TypeError('manifest archetype slug is invalid');
     }
-    // NAP-INTENT deliberately keeps routing archetypes and payload conventions
-    // orthogonal, so the convention's URI archetype need not equal this slug.
-    const action = actionFromConvention(convention);
+    actionFromConvention(convention);
+    if (!convention.startsWith(`napplet:${slug}/`)) {
+      throw new TypeError('manifest archetype must match its convention role');
+    }
     const support = archetypes[slug] ??= {
-      actions: [],
-      conventions: [],
+      contracts: [],
     };
-    if (!support.actions.includes(action)) support.actions.push(action);
-    if (!support.conventions.includes(convention)) support.conventions.push(convention);
+    if (!support.contracts.some((contract) => contract.convention === convention)) {
+      support.contracts.push({ convention, params: [...params] });
+    }
   }
   return {
-    dTag: manifest.dTag,
+    id: manifest.catalogId,
     ...(manifest.title === undefined ? {} : { title: manifest.title }),
     archetypes,
   };

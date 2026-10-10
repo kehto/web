@@ -41,19 +41,28 @@ import {
   addRuntimeTab,
   closeRuntimeTab,
   getActiveTab,
-  PAJA_RUNTIME_TABS_STORAGE_KEY,
-  parseRuntimeTabsSnapshot,
   reloadActiveRuntimeTab,
   renderRuntimeTabs,
   resolvedTargetKey,
   setEmptyStageVisible,
   showDuplicatePointerDialog,
-  snapshotRuntimeTabs,
   type PajaRuntimeTabsSnapshot,
   type PajaRuntimeTab,
   type PajaRuntimeTabContext,
   type PajaRuntimeTabRuntime,
 } from './browser-runtime-tabs.js';
+import {
+  persistRuntimeTabs as persistStoredRuntimeTabs,
+  readInitialRuntimePointer,
+  readPajaIntentDefaults,
+  readPersistedRuntimeTabs,
+  writePajaIntentDefaults,
+} from './browser-host-storage.js';
+import {
+  displayPajaTargetUrl,
+  readLatestPajaHostConfig,
+  readPajaHostConfig,
+} from './browser-host-config.js';
 import type { BrowserIntentGeneration } from './browser-intent-controller.js';
 import {
   appendPajaMessageLog,
@@ -69,8 +78,15 @@ import {
   navigateFrame,
   renderTargetErrorHtml,
 } from './browser-target-frame.js';
-import type { PajaRuntimeTarget } from './local-target.js';
+import { isPajaLocalTarget, type PajaRuntimeTarget } from './local-target.js';
 import { resolvePajaPointer } from './runtime-resolver.js';
+import { parsePajaIntentLink } from './intent-link.js';
+import {
+  createPajaIntentLinkReviewController,
+  type PajaIntentReviewProgress,
+} from './browser-intent-links.js';
+import { createPajaIntentLinkBuilder } from './browser-intent-builder.js';
+import { launchPajaReviewedIntent } from './browser-intent-launcher-host.js';
 import { reportTargetCorsDiagnostic } from './browser-target-diagnostics.js';
 import { createPajaNotifyController } from './browser-notify.js';
 import { createPajaConfigController } from './browser-config.js';
@@ -111,6 +127,7 @@ export interface PajaBrowserState {
   /** Open a local single-file `index.html` in a new runtime tab (runtime-pointer mode only). */
   loadLocalFile(file: File): Promise<void>;
   clearLog(): void;
+  createIntentLink(tab: PajaRuntimeTab): void;
   getState(): {
     generation: number;
     status: PajaBrowserState['status'];
@@ -147,6 +164,10 @@ type PajaThemeService = { publishTheme(theme: ReturnType<typeof createDevTheme>)
 type PajaSignerController = ReturnType<typeof createHostSignerController>;
 type PajaConfirmationController = ReturnType<typeof createPajaConfirmationController>;
 
+function persistRuntimeTabs(state: PajaBrowserState): void {
+  persistStoredRuntimeTabs(state);
+}
+
 export interface PajaHostRuntimeState extends PajaRuntimeTabRuntime {
   currentSimulation: PajaSimulation;
   themeService: PajaThemeService | null;
@@ -157,6 +178,12 @@ export interface PajaHostRuntimeState extends PajaRuntimeTabRuntime {
   }>>;
   /** Immutable selected catalog record for each in-flight intent generation. */
   readonly intentRecords: WeakMap<BrowserIntentGeneration, ReturnType<InstalledNappletCatalog['get']>>;
+  /** Ephemeral verified launcher identities, never persisted as runtime tabs. */
+  readonly intentSenderIds: Map<string, string>;
+  /** Explicit target grants are scoped to one authenticated launcher invocation. */
+  readonly explicitIntentHandlers: Map<string, string>;
+  readonly intentDefaults: Map<string, string>;
+  readonly launcherFrames: Map<Window, { readonly windowId: string; readonly frame: HTMLIFrameElement; readonly progress: PajaIntentReviewProgress; ready(): void; result(correlation: string, value: unknown): void }>;
 }
 
 export interface PajaBrowserStateContext extends PajaRuntimeTabContext {
@@ -169,81 +196,6 @@ export interface PajaBrowserStateContext extends PajaRuntimeTabContext {
   confirmationController: PajaConfirmationController;
   capabilities: ShellCapabilities;
   runtime: PajaHostRuntimeState;
-}
-
-function readConfig(): PajaHostConfig {
-  const script = document.getElementById('kehto-paja-config');
-  if (!script?.textContent) {
-    throw new Error('Missing Kehto Paja config.');
-  }
-  return JSON.parse(script.textContent) as PajaHostConfig;
-}
-
-async function readLatestConfig(fallback: PajaHostConfig): Promise<PajaHostConfig> {
-  try {
-    const response = await fetch(new URL('./__kehto/config.json', window.location.href), { cache: 'no-store' });
-    if (!response.ok) return fallback;
-    return await response.json() as PajaHostConfig;
-  } catch (error) {
-    console.warn('[paja] config refresh failed; using embedded config', error);
-    return fallback;
-  }
-}
-
-function setTargetUrlDisplay(config: PajaHostConfig, frame?: HTMLIFrameElement | null): void {
-  const label = getTargetLabel(config);
-  const targetEl = document.querySelector('.target');
-  if (targetEl) {
-    targetEl.textContent = label;
-    targetEl.setAttribute('title', label);
-  }
-  if (frame) frame.dataset.targetUrl = label;
-}
-
-function getTargetLabel(config: PajaHostConfig): string {
-  if (config.target.mode === 'runtime-pointer') return config.target.pointer?.value ?? 'runtime pointer';
-  return config.target.url;
-}
-
-function readInitialPointerValue(config: PajaHostConfig): string {
-  if (config.target.mode !== 'runtime-pointer') return '';
-  const params = new URLSearchParams(window.location.search);
-  return params.get('naddr')
-    ?? params.get('nevent')
-    ?? params.get('pointer')
-    ?? config.target.pointer?.value
-    ?? '';
-}
-
-function getRuntimeTabsStorage(config: PajaHostConfig): Storage | null {
-  if (config.target.mode !== 'runtime-pointer') return null;
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
-}
-
-function readPersistedRuntimeTabs(config: PajaHostConfig): PajaRuntimeTabsSnapshot | null {
-  const storage = getRuntimeTabsStorage(config);
-  if (!storage) return null;
-  try {
-    return parseRuntimeTabsSnapshot(storage.getItem(PAJA_RUNTIME_TABS_STORAGE_KEY));
-  } catch {
-    return null;
-  }
-}
-
-function persistRuntimeTabs(state: PajaBrowserState): void {
-  const storage = getRuntimeTabsStorage(state.config);
-  if (!storage) return;
-  const snapshot = snapshotRuntimeTabs(state);
-  try {
-    if (snapshot) storage.setItem(PAJA_RUNTIME_TABS_STORAGE_KEY, JSON.stringify(snapshot));
-    else storage.removeItem(PAJA_RUNTIME_TABS_STORAGE_KEY);
-  } catch {
-    // Storage persistence is best-effort; Paja runtime loading must keep working.
-  }
 }
 
 function setStatus(state: PajaBrowserState, status: PajaBrowserState['status']): void {
@@ -465,6 +417,32 @@ async function restorePersistedRuntimeTabs(
   persistRuntimeTabs(state);
 }
 
+/**
+ * Re-verify saved pointer facts for incoming-link policy without restoring a
+ * runtime tab or navigating an iframe. A bad saved pointer is isolated so it
+ * cannot prevent other saved handlers from participating in selection.
+ */
+async function hydratePersistedIntentCatalog(
+  state: PajaBrowserState,
+  context: PajaBrowserStateContext,
+  snapshot: PajaRuntimeTabsSnapshot | null,
+): Promise<void> {
+  if (!snapshot) return;
+  await Promise.all(snapshot.pointers.map(async (pointer) => {
+    try {
+      const resolved = await resolvePajaPointer(pointer, pajaPointerResolverOptions(context));
+      context.runtime.catalog.install(resolved);
+      recordInstalledIntentSurface(state, resolved);
+    } catch (error) {
+      appendPajaMessageLog(state, 'paja', {
+        type: 'paja.intent.catalog-hydration.error',
+        pointer,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }));
+}
+
 function snapshotPajaBrowserState(state: PajaBrowserState, runtime: PajaHostRuntimeState): ReturnType<PajaBrowserState['getState']> {
   return {
     generation: state.generation,
@@ -508,7 +486,7 @@ function createPajaBrowserState(context: PajaBrowserStateContext): PajaBrowserSt
     signer: signerController.getState(),
     signerConsentCount: confirmationController.getSignerConsentCount(),
     resolvedTarget: null,
-    pointerValue: readInitialPointerValue(config),
+    pointerValue: readInitialRuntimePointer(config),
     pointerStatus: config.target.mode === 'runtime-pointer' ? 'idle' : '',
     tabs: [],
     activeTabId: null,
@@ -579,6 +557,9 @@ function createPajaBrowserState(context: PajaBrowserStateContext): PajaBrowserSt
       this.messageLog.length = 0;
       renderPajaMessageLog(this);
     },
+    createIntentLink() {
+      // Assigned after host dialogs exist.
+    },
     getState() {
       return snapshotPajaBrowserState(this, runtime);
     },
@@ -590,16 +571,20 @@ async function installPajaHost(): Promise<void> {
   const disposeSidebarSections = installPajaSidebarSections();
   window.addEventListener('pagehide', disposeSidebarSections, { once: true });
   const resourceSettings = installPajaResourceSettings();
-  const config = await readLatestConfig(readConfig());
+  const config = await readLatestPajaHostConfig(readPajaHostConfig());
   const stage = getStage();
   const frame = config.target.mode === 'runtime-pointer' ? null : getFrame();
-  setTargetUrlDisplay(config, frame);
+  displayPajaTargetUrl(config, frame);
   const runtime: PajaHostRuntimeState = {
     currentSimulation: config.simulation,
     themeService: null,
     catalog: new InstalledNappletCatalog(),
     readyWaiters: new Map(),
     intentRecords: new WeakMap(),
+    intentSenderIds: new Map(),
+    explicitIntentHandlers: new Map(),
+    intentDefaults: readPajaIntentDefaults(),
+    launcherFrames: new Map(),
     currentWindowId: null,
     readyWindowIds: new Set(),
   };
@@ -607,10 +592,24 @@ async function installPajaHost(): Promise<void> {
   const themeBroadcast = createPajaThemeBroadcastLink();
   let stateRef: PajaBrowserState | null = null;
   let contextRef: PajaBrowserStateContext | null = null;
+  let intentReview: ReturnType<typeof createPajaIntentLinkReviewController> = null;
   const intentController = new BrowserIntentController(createPajaIntentTargetOptions(
     () => stateRef,
     () => contextRef,
-    { persistTabs: persistRuntimeTabs },
+    {
+      persistTabs: persistRuntimeTabs,
+      onAccepted(params, acceptance) {
+        const sourceWindowId = params.sourceWindowId;
+        if (!sourceWindowId) return;
+        const launcher = [...runtime.launcherFrames.values()].find((entry) => entry.windowId === sourceWindowId);
+        if (!launcher) return;
+        const progress = launcher.progress;
+        void acceptance.completion.then(
+          () => progress.delivered(),
+          (error) => progress.failed(error),
+        );
+      },
+    },
   ));
   const confirmationController = createPajaConfirmationController(
     () => stateRef,
@@ -645,6 +644,33 @@ async function installPajaHost(): Promise<void> {
   }, themeBroadcast.onBroadcast, confirmationController.confirm, signerController, getWindowIdentity, () => stateRef?.reload(), {
       catalog: runtime.catalog,
       controller: intentController,
+      resolveSender(windowId) {
+        const launcher = runtime.intentSenderIds.get(windowId);
+        if (launcher) return launcher;
+        const target = stateRef?.tabs.find((tab) => tab.windowId === windowId)?.resolvedTarget;
+        return target && !isPajaLocalTarget(target) ? target.manifest.catalogId : undefined;
+      },
+      authorizeExplicitHandler(sender, handler, _request, _candidate, resolverContext) {
+        const sourceWindowId = resolverContext?.sourceWindowId;
+        return sourceWindowId !== undefined
+          && runtime.intentSenderIds.get(sourceWindowId) === sender
+          && runtime.explicitIntentHandlers.get(sourceWindowId) === handler;
+      },
+      getDefaultHandler(archetype) {
+        return runtime.intentDefaults.get(archetype);
+      },
+      async chooseHandler(archetype, candidates) {
+        const selected = await intentReview?.chooseHandler(archetype, candidates);
+        if (selected && intentReview?.consumeSaveDefault()) {
+          runtime.intentDefaults.set(archetype, selected);
+          writePajaIntentDefaults(runtime.intentDefaults);
+        }
+        return selected;
+      },
+      resolveHandlerHint(hint, candidates) {
+        const id = `nip5d:${hint.address}`;
+        return candidates.some((candidate) => candidate.id === id) ? id : undefined;
+      },
     }, confirmationController.activation, notifyController?.serviceOptions, configController?.serviceOptions, resourceSettings.getServers);
   await adapter.ready;
   const bridge = createShellBridge(adapter);
@@ -689,10 +715,12 @@ async function installPajaHost(): Promise<void> {
   window.addEventListener('message', (event) => {
     const source = event.source as Window | null;
     const sourceTab = source ? state.tabs.find((tab) => tab.frame.contentWindow === source) ?? null : null;
+    const launcher = source ? runtime.launcherFrames.get(source) : undefined;
     const isSingleFrameMessage = frame ? event.source === frame.contentWindow : false;
-    if (!sourceTab && !isSingleFrameMessage) return;
+    if (!sourceTab && !isSingleFrameMessage && !launcher) return;
     const registeredWindowId = source ? originRegistry.getWindowId(source) ?? null : null;
-    const sourceWindowId = sourceTab?.windowId ?? registeredWindowId ?? undefined;
+    const sourceWindowId = launcher?.windowId ?? sourceTab?.windowId ?? registeredWindowId ?? undefined;
+    if (launcher && (!source || registeredWindowId !== launcher.windowId)) return;
     if (sourceTab && (!source || !sourceWindowId || registeredWindowId !== sourceWindowId)) return;
     if (isSingleFrameMessage && (!sourceWindowId || sourceWindowId !== runtime.currentWindowId)) return;
     appendPajaMessageLog(state, 'napplet->shell', event.data, sourceWindowId);
@@ -707,6 +735,7 @@ async function installPajaHost(): Promise<void> {
     bridge.handleMessage(syntheticEvent);
     const data = event.data as { type?: unknown } | null;
     if (data && typeof data === 'object' && data.type === 'shell.ready') {
+      if (launcher) launcher.ready();
       if (sourceTab) {
         if (source && !markRuntimeTabReady(
           state,
@@ -721,6 +750,10 @@ async function installPajaHost(): Promise<void> {
         setStatus(state, 'ready');
       }
     }
+    if (launcher && data && typeof data === 'object' && data.type === 'paja.intent.launcher.result'
+      && typeof (data as { correlation?: unknown }).correlation === 'string') {
+      launcher.result((data as { correlation: string }).correlation, (data as { result?: unknown }).result);
+    }
   });
 
   frame?.addEventListener('error', () => {
@@ -728,15 +761,59 @@ async function installPajaHost(): Promise<void> {
   });
 
   installPajaControlListeners(state);
+  const review = createPajaIntentLinkReviewController(undefined, {
+    clearDefault(archetype) {
+      runtime.intentDefaults.delete(archetype);
+      writePajaIntentDefaults(runtime.intentDefaults);
+    },
+  });
+  intentReview = review;
+  const builder = createPajaIntentLinkBuilder({
+    onTest(link) {
+      if (!review) return;
+      void review.review(link, (intent, progress) => launchPajaReviewedIntent(state, context, intent, progress, setPointerStatus));
+    },
+  });
+  state.createIntentLink = (tab) => {
+    if (isPajaLocalTarget(tab.resolvedTarget) || tab.resolvedTarget.manifest.archetypes.length === 0) return;
+    builder.open(tab.resolvedTarget);
+  };
+  window.addEventListener('pagehide', () => review?.dispose(), { once: true });
+  window.addEventListener('pagehide', () => builder.dispose(), { once: true });
+  window.addEventListener('pagehide', () => {
+    for (const [source, launcher] of runtime.launcherFrames) {
+      context.bridge.runtime.destroyWindow(launcher.windowId);
+      context.bridge.runtime.sessionRegistry.unregister(launcher.windowId);
+      originRegistry.unregister(launcher.windowId);
+      launcher.frame.remove();
+      runtime.launcherFrames.delete(source);
+      runtime.intentSenderIds.delete(launcher.windowId);
+    }
+  }, { once: true });
 
   setStatus(state, 'booting');
   setSimulationStatus(state);
   setPointerStatus(state, state.pointerStatus);
   if (config.target.mode === 'runtime-pointer') {
+    let incomingIntent: ReturnType<typeof parsePajaIntentLink> = null;
+    try {
+      incomingIntent = parsePajaIntentLink(window.location.href);
+    } catch (error) {
+      setStatus(state, 'error');
+      setPointerStatus(state, error instanceof Error ? error.message : String(error));
+      return;
+    }
     const persistedTabs = readPersistedRuntimeTabs(config);
     const input = document.getElementById('runtime-pointer-input');
     if (input instanceof HTMLInputElement) input.value = state.pointerValue;
-    if (state.pointerValue) void state.loadPointer(state.pointerValue);
+    if (incomingIntent && review) {
+      void hydratePersistedIntentCatalog(state, context, persistedTabs).then(() => {
+        setStatus(state, 'ready');
+        setEmptyStageVisible(true);
+        renderRuntimeTabs(state);
+        void review.review(incomingIntent!, (intent, progress) => launchPajaReviewedIntent(state, context, intent, progress, setPointerStatus));
+      });
+    } else if (state.pointerValue) void state.loadPointer(state.pointerValue);
     else if (persistedTabs) void restorePersistedRuntimeTabs(state, context, persistedTabs);
     else {
       setStatus(state, 'ready');

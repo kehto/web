@@ -51,6 +51,8 @@ export interface PajaRuntimeTabState extends PajaDevtoolsState {
   status: PajaRuntimeStatus;
   activateTab(tabId: string): void;
   closeTab(tabId: string): void;
+  /** Open the host-owned intent-link builder for an advertised verified tab. */
+  createIntentLink?(tab: PajaRuntimeTab): void;
 }
 
 export interface PajaRuntimeTabRuntime {
@@ -348,28 +350,111 @@ function renderTab(state: PajaRuntimeTabState, tab: PajaRuntimeTab): HTMLElement
   label.className = 'tab-label';
   label.textContent = tab.title;
   if (isPajaLocalTarget(tab.resolvedTarget)) tabButton.append(label, renderCloseButton(state, tab));
-  else tabButton.append(label, renderShareButton(tab), renderCloseButton(state, tab));
+  else {
+    tabButton.append(label, renderShareButton(state, tab));
+    tabButton.append(renderCloseButton(state, tab));
+  }
   return tabButton;
 }
 
-function renderShareButton(tab: PajaRuntimeTab): HTMLButtonElement {
+/**
+ * Report whether the native Share action can offer intent-link creation.
+ *
+ * @param state - Tab state containing the optional host builder callback.
+ * @param tab - Runtime tab whose target was verified before it was opened.
+ * @returns Whether the tab is a verified advertised pointer and the host can create a link.
+ * @example
+ * ```ts
+ * if (canCreatePajaIntentLink(state, tab)) openShareDialog(state, tab, button);
+ * ```
+ */
+export function canCreatePajaIntentLink(
+  state: Pick<PajaRuntimeTabState, 'createIntentLink'>,
+  tab: Pick<PajaRuntimeTab, 'resolvedTarget'>,
+): boolean {
+  return !isPajaLocalTarget(tab.resolvedTarget)
+    && tab.resolvedTarget.manifest.archetypes.length > 0
+    && state.createIntentLink !== undefined;
+}
+
+function renderShareButton(state: PajaRuntimeTabState, tab: PajaRuntimeTab): HTMLButtonElement {
   const share = document.createElement('button');
   share.type = 'button';
   share.className = 'tab-share';
-  share.setAttribute('aria-label', `Copy share link for ${tab.title}`);
-  share.title = 'Copy share link';
+  share.setAttribute('aria-label', `Share ${tab.title}`);
+  share.title = 'Share';
   share.textContent = '↗';
   share.addEventListener('click', (event) => {
     event.stopPropagation();
-    void shareRuntimeTab(tab, share).catch((error) => console.error(error));
+    if (canCreatePajaIntentLink(state, tab)) openShareDialog(state, tab, share);
+    else void shareRuntimeTab(tab, share).catch((error) => console.error(error));
   });
   share.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter' && event.key !== ' ') return;
     event.preventDefault();
     event.stopPropagation();
-    void shareRuntimeTab(tab, share).catch((error) => console.error(error));
+    if (canCreatePajaIntentLink(state, tab)) openShareDialog(state, tab, share);
+    else void shareRuntimeTab(tab, share).catch((error) => console.error(error));
   });
   return share;
+}
+
+function openShareDialog(state: PajaRuntimeTabState, tab: PajaRuntimeTab, opener: HTMLButtonElement): void {
+  const dialog = document.createElement('dialog');
+  dialog.className = 'config-dialog';
+  dialog.id = 'paja-share-dialog';
+  const panel = document.createElement('div');
+  panel.className = 'dialog';
+  const title = document.createElement('div');
+  title.id = 'paja-share-dialog-title';
+  title.className = 'dialog-title';
+  title.textContent = 'Share';
+  dialog.setAttribute('aria-labelledby', title.id);
+  const description = document.createElement('div');
+  description.className = 'dialog-copy';
+  description.textContent = `Share ${tab.title} as an app link or create an intent link.`;
+  const actions = document.createElement('div');
+  actions.className = 'dialog-actions';
+  const copy = document.createElement('button');
+  copy.type = 'button';
+  copy.textContent = 'Copy app link';
+  const create = document.createElement('button');
+  create.type = 'button';
+  create.textContent = 'Create intent link';
+  const cancel = document.createElement('button');
+  cancel.type = 'button';
+  cancel.textContent = 'Cancel';
+  actions.append(copy, create, cancel);
+  panel.append(title, description, actions);
+  dialog.append(panel);
+  document.body.append(dialog);
+  const retainModalFocus = (event: FocusEvent) => {
+    if (!dialog.open) return;
+    const next = event.relatedTarget;
+    if (next instanceof Node && dialog.contains(next)) return;
+    // A loading sandboxed frame can otherwise take focus after showModal(),
+    // leaving a visible Share dialog whose actions no longer receive input.
+    queueMicrotask(() => {
+      if (dialog.open && !dialog.matches(':focus-within')) copy.focus();
+    });
+  };
+  const close = (restoreFocus = true) => {
+    if (dialog.open) dialog.close();
+    dialog.removeEventListener('focusout', retainModalFocus);
+    dialog.remove();
+    if (restoreFocus) opener.focus();
+  };
+  const onCancel = (event: Event) => { event.preventDefault(); close(); };
+  cancel.addEventListener('click', () => close());
+  copy.addEventListener('click', () => { void shareRuntimeTab(tab, copy).catch((error) => console.error(error)); });
+  create.addEventListener('click', () => {
+    close();
+    state.createIntentLink?.(tab);
+  });
+  dialog.addEventListener('cancel', onCancel);
+  dialog.addEventListener('focusout', retainModalFocus);
+  dialog.showModal();
+  copy.focus();
 }
 
 function renderCloseButton(state: PajaRuntimeTabState, tab: PajaRuntimeTab): HTMLButtonElement {
@@ -404,9 +489,10 @@ async function shareRuntimeTab(tab: PajaRuntimeTab, button: HTMLButtonElement): 
     window.prompt('Copy Paja share link', shareUrl);
     return;
   }
+  const originalTitle = button.title;
   button.title = 'Share link copied';
   window.setTimeout(() => {
-    button.title = 'Copy share link';
+    button.title = originalTitle || 'Copy app link';
   }, 1200);
 }
 

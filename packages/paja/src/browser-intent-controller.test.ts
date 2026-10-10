@@ -15,7 +15,7 @@ function params(overrides: Partial<IntentDispatchParams> = {}): IntentDispatchPa
 }
 
 describe('BrowserIntentController', () => {
-  it('waits for a current ready generation, sends once, and returns its window id', async () => {
+  it('waits for a current ready generation and completes after one send', async () => {
     let releaseReady!: () => void;
     const ready = new Promise<void>((resolve) => {
       releaseReady = resolve;
@@ -41,8 +41,27 @@ describe('BrowserIntentController', () => {
     expect(Object.isFrozen(dispatched?.payload)).toBe(true);
     releaseReady();
 
-    await expect(result).resolves.toEqual({ windowId: 'window-1' });
+    await expect(result).resolves.toBeUndefined();
     expect(send).toHaveBeenCalledOnce();
+  });
+
+  it('reports acceptance synchronously and retains internal source correlation off the wire payload', async () => {
+    let release!: () => void;
+    const pending = new Promise<void>((resolve) => { release = resolve; });
+    const onAccepted = vi.fn();
+    const send = vi.fn();
+    const controller = new BrowserIntentController({
+      openOrReuse: () => ({ id: 'generation-accepted' }),
+      waitForReady: () => pending,
+      isCurrent: () => true,
+      send,
+      onAccepted,
+    });
+    const acceptance = controller.accept(params({ sourceWindowId: 'launcher-1' }));
+    expect(onAccepted).toHaveBeenCalledWith(expect.objectContaining({ sourceWindowId: 'launcher-1' }), acceptance);
+    release();
+    await acceptance.completion;
+    expect(send).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ sourceWindowId: 'launcher-1' }));
   });
 
   it('retries replaced generations and delivers only to the current one', async () => {
@@ -59,7 +78,7 @@ describe('BrowserIntentController', () => {
       maxAttempts: 2,
     });
 
-    await expect(controller.dispatch(params())).resolves.toEqual({ windowId: 'window-2' });
+    await expect(controller.dispatch(params())).resolves.toBeUndefined();
     expect(openOrReuse).toHaveBeenCalledTimes(2);
     expect(send).toHaveBeenCalledTimes(1);
     expect(send).toHaveBeenCalledWith(

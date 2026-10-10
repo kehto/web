@@ -438,3 +438,23 @@ lockfile.
 | VERIFY-04 | Phase 106 | Complete |
 | VERIFY-05 | Phase 106 | Complete |
 | VERIFY-06 | Phase 106 | Complete |
+
+## Phase 107: Paja Intent Deep Links
+
+Approved follow-up scope, with NAP-INTENT PR #106
+`fc121fc264615482143eda86125863d2e1f741a2` and NIP-5D PR #2303
+`020cb8b33a9e4c6b8ca4b2f9d0ed0a67843b68f7` as its exact authority.
+The earlier milestone authority above remains historical context.
+
+- [x] **LINK-01**: Accept a complete percent-encoded napplet URI in `intent`; retain ordinary pointer-only links. Decode the outer URL and inner URI independently. Reject duplicate decoded keys, malformed encodings, oversized input, unsupported fragments, and conflicting target instructions. Preserve literal plus and text values.
+- [x] **LINK-02**: Support recipient-default resolution, `#naddr` recommendations (only named 35129), and explicit `pointer` targeting. Verify exact contract support. A failed explicit target never silently falls back or loses the intent.
+- [x] **LINK-03**: Provide an explicit JSON payload mode via outer `payload`; prohibit inner query plus explicit payload. Preserve JSON primitive/null/array/object values.
+- [x] **LINK-04**: Add Create intent link to a napplet's Share flow. Read verified z/i contracts, select a convention, generate text fields from advertised names in order, allow omitted versus explicitly empty values and extra named fields. No inferred types or required fields. An empty params list does not prohibit payload.
+- [x] **LINK-05**: Builder supports routing modes, readable preview, Copy link, and explicit Test intent. Editing and opening never invoke. No intents => ordinary app sharing.
+- [x] **LINK-06**: Incoming intent links show a review/edit/launch view. Choose compatible handlers, resolve recommendation/install through ordinary verification and policy; never change defaults implicitly. Expose useful errors, explicit retry, and choose-another flow.
+- [x] **LINK-07**: Accepted delivery survives source teardown, waits for authenticated current target readiness, uses intent.deliver with onDelivery buffering, and cannot replay on render/tab restore. Acceptance is not handler completion.
+- [x] **LINK-08**: Preserve advertised params through manifest/catalog/resolver. Use publisher/kind-safe catalog identities, never bare d tags. Update supported shell, runtime, services, Paja and playground consumers together when shared interfaces change.
+- [x] **LINK-09**: External URLs cannot supply or impersonate sender. Implement the verified launcher napplet path proposed for conformance today; a native host/external sender extension is deferred, not silently invented. Verify source manifest/artifact and bind authenticated endpoint. Launcher and delivery grant no extra capabilities.
+- [x] **LINK-10**: Document URL contract, encoding, size limit, launch behavior, spec refs, compatibility handling and source identity. Add changesets for every changed shipped package. Keep pure parsing separate from UI.
+- [x] **LINK-11**: Verify behavioral units and real browser flows for parser vectors, advertised builder, copied link roundtrip, cold/warm delivery, readiness, cancellation/retry/no replay, explicit mismatch, recommendation/default precedence, JSON and forged sender. Run build, type-check, unit suite, relevant/full Playwright, docs and AI-slop gates.
+- [x] **LINK-12**: Commit by concern, push feature branch, open PR with scope, verification and upstream authority/gaps. Do not merge or release.

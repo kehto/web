@@ -78,8 +78,8 @@ verification, iframe sandboxing, identity registration or message-source checks.
 
 ## NIP-5D event compatibility
 
-Current manifests use a direct artifact `x` hash, plain-text `content`, independent
-`z`/`i` routing declarations, and required `R` / optional `O` domains. Kehto also
+Current manifests use a direct artifact `x` hash, plain-text `content`, role-matched
+`z`/`i` intent declarations, and required `R` / optional `O` domains. Kehto also
 accepts legacy aggregate events through an isolated compatibility adapter.
 Existing `aggregateHash` host/cache/ACL fields carry the verified artifact hash
 for current events; legacy identities keep their original aggregate. Both paths
@@ -97,5 +97,26 @@ A throwing listener does not prevent delivery to other listeners.
 When no canonical listener is registered, matching legacy INC listeners can
 consume the delivery locally. This emits `KEHTO_COMPAT_INTENT_INC` once per
 iframe; a delivery is never replayed to both APIs. See [compatibility tracking](https://github.com/kehto/web/blob/main/docs/compatibility.md).
-This aligns delivery with NAP-INTENT at `25b29ee`; broader invocation/result
-changes and the packaged SDK upgrade remain deferred.
+Delivery and URI invocation follow NAP-INTENT PR #106 at
+`fc121fc264615482143eda86125863d2e1f741a2`; the packaged SDK still trails that
+contract, as documented in the conformance policy.
+
+## URI invocation
+
+Kehto follows [NAP-INTENT PR #106](https://github.com/napplet/naps/blob/fc121fc264615482143eda86125863d2e1f741a2/naps/NAP-INTENT.md) at `fc121fc264615482143eda86125863d2e1f741a2`. The protected binding supports
+`window.napplet.intent.invoke('napplet:profile/open?pubkey=abc%2B123')` and
+`invoke(uri, { payload, handler, handlerHint, behavior })`. Query fields decode
+once into text; `+` remains literal. An explicit payload cannot accompany an
+inner query, and a `#naddr` recommendation cannot accompany `handlerHint`.
+Unsupported options and caller-supplied sender data are rejected. Only a
+parent-originated correlated result can settle the call.
+
+Successful results identify retained delivery responsibility with `ok`,
+`archetype`, `action`, `convention`, and an opaque `handler`. A target receives
+one parent-attested `intent.deliver`, buffered by `onDelivery` until registration.
+Acceptance is separate from later target completion.
+
+Legacy object-form `invoke(request)` and `open(archetype, payload?, opts?)`
+remain bounded compatibility adapters and warn once per iframe with
+`KEHTO_COMPAT_INTENT_OBJECT_INVOKE`. Their removal conditions are tracked in
+[compatibility](https://github.com/kehto/web/blob/main/docs/compatibility.md).

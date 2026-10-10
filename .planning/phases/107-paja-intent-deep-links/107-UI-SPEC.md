@@ -1,0 +1,5 @@
+# Paja intent links UI contract
+
+Use existing Paja colors, typography, dialogs and sidebar controls. Add Create intent link to each verified runtime napplet's Share flow. Use a labeled convention select, routing select, text/JSON mode, labeled parameter rows with explicit inclusion controls and Add parameter. Use textContent/DOM APIs for manifest or payload text. Preview the decoded URI separately from the copyable URL. Buttons: Copy link, Test intent, Cancel. Never invoke on change.
+
+Incoming review uses the same editable inputs plus compatible handler selection, a readable target title and explicit Launch. Errors remain visible with Retry/Choose another; acceptance means queued, terminal delivery failure remains visible. Dialogs trap focus via native showModal, support Escape and restore trigger focus. Narrow widths stack controls without horizontal page overflow. Form controls have labels; status uses aria-live; copy success does not steal focus. No inferred required fields or type labels. No network request or execution on merely opening the builder.

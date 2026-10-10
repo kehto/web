@@ -14,6 +14,7 @@ import {
   verifyManifestSignature,
   verifyBlobHash,
   fetchBlob,
+  getNappletCatalogId,
   resolveNapplet,
   NappletResolutionError,
 } from './index.js';
@@ -98,6 +99,17 @@ describe('NIP-5D kind constants', () => {
   });
 });
 
+describe('getNappletCatalogId', () => {
+  it('distinguishes publishers and kinds while preserving literal named d values', () => {
+    const named = buildManifest({ dTag: 'Case:Sensitive' }).event;
+    expect(getNappletCatalogId(named)).toBe(`nip5d:35129:${named.pubkey}:Case:Sensitive`);
+    const root = { ...named, kind: NAPPLET_KIND_ROOT, tags: named.tags.filter((tag) => tag[0] !== 'd') };
+    expect(getNappletCatalogId(root)).toBe(`nip5d:15129:${root.pubkey}`);
+    const snapshot = { ...named, kind: NAPPLET_KIND_SNAPSHOT, tags: named.tags.filter((tag) => tag[0] !== 'd') };
+    expect(getNappletCatalogId(snapshot)).toBe(`nip5d:5129:${snapshot.id}`);
+  });
+});
+
 describe('parseNappletManifest', () => {
   it('parses a well-formed named manifest', () => {
     const { event, aggregate } = buildManifest();
@@ -159,6 +171,7 @@ describe('archetype + source parsing', () => {
     expect(m.archetypes).toEqual([{
       slug: 'note',
       convention: 'napplet:note/open',
+      params: [],
     }]);
   });
 
@@ -171,18 +184,18 @@ describe('archetype + source parsing', () => {
     });
     const m = parseNappletManifest(event);
     expect(m.archetypes).toEqual([
-      { slug: 'note', convention: 'napplet:note/open' },
-      { slug: 'note', convention: 'napplet:note/edit' },
+      { slug: 'note', convention: 'napplet:note/open', params: [] },
+      { slug: 'note', convention: 'napplet:note/edit', params: [] },
     ]);
   });
 
-  it('accepts a convention whose URI archetype differs from the routing archetype', () => {
+  it('retains legacy adapter contracts with explicit empty params', () => {
     const { event } = buildManifest({
       archetypes: [['bookmark', 'napplet:note/open']],
     });
 
     expect(parseNappletManifest(event).archetypes).toEqual([
-      { slug: 'bookmark', convention: 'napplet:note/open' },
+      { slug: 'bookmark', convention: 'napplet:note/open', params: [] },
     ]);
   });
 

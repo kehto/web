@@ -181,6 +181,8 @@ export { PAJA_DEV_SIGNER_PUBKEY } from './browser-dev-runtime.js';
 interface PajaIntentHost {
   readonly catalog: InstalledNappletCatalog;
   readonly controller: BrowserIntentController;
+  /** Resolve an authenticated frame to its verified catalog identity. */
+  resolveSender(windowId: string): string | undefined;
   getDefaultHandler?(archetype: string): string | undefined;
   chooseHandler?(
     archetype: string,
@@ -192,7 +194,12 @@ interface PajaIntentHost {
     handler: string,
     request: IntentRequest,
     candidate: IntentCandidate,
+    context?: import('@kehto/services').IntentResolverContext,
   ): boolean | Promise<boolean>;
+  resolveHandlerHint?(
+    hint: import('@kehto/services').IntentHandlerHint,
+    candidates: readonly IntentCandidate[],
+  ): string | undefined | Promise<string | undefined>;
 }
 
 function createPajaCvmRelayPool(backend: PajaRelayBackend): CvmRelayPool {
@@ -711,9 +718,11 @@ export function createPajaAdapter(
       getDefaultHandler: intentHost.getDefaultHandler,
       chooseHandler: intentHost.chooseHandler,
       authorizeExplicitHandler: intentHost.authorizeExplicitHandler,
+      resolveHandlerHint: intentHost.resolveHandlerHint,
     });
     services.intent = createIntentService({
       resolver,
+      resolveSender: intentHost.resolveSender,
     });
   }
   return adapter;

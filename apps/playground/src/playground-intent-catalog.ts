@@ -19,7 +19,7 @@ import type { IntentCatalogEntry } from '@kehto/services';
 import type { PlaygroundNapplet } from './napplet-resolver.js';
 
 /** The subset of a resolved {@link PlaygroundNapplet} the catalog needs. */
-export type IntentCatalogSource = Pick<PlaygroundNapplet, 'dTag' | 'title' | 'archetypes'>;
+export type IntentCatalogSource = Pick<PlaygroundNapplet, 'catalogId' | 'title' | 'archetypes'>;
 
 /**
  * Build the playground's NAP-INTENT catalog from resolved napplet manifests.
@@ -54,9 +54,13 @@ export function buildPlaygroundIntentCatalog(
 ): IntentCatalogEntry[] {
   return napplets.map((napplet) =>
     manifestToIntentCatalogEntry({
-      dTag: napplet.dTag,
+      catalogId: napplet.catalogId,
       ...(napplet.title === undefined ? {} : { title: napplet.title }),
-      archetypes: [...napplet.archetypes],
+      archetypes: napplet.archetypes.map((archetype) => ({
+        slug: archetype.slug,
+        convention: archetype.convention,
+        params: [...archetype.params],
+      })),
     }),
   );
 }

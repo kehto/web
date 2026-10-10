@@ -76,6 +76,8 @@ export {
 } from './local-target.js';
 export { InstalledNappletCatalog } from './installed-napplet-catalog.js';
 export { BrowserIntentController } from './browser-intent-controller.js';
+export { parsePajaIntentLink, createPajaIntentLink } from './intent-link.js';
+export { resolvePajaIntentLauncher, postPajaIntentLauncherMessage } from './intent-launcher.js';
 export { startPajaServer } from './server.js';
 export {
   PAJA_TARGET_CORS_HINT,
@@ -133,4 +135,6 @@ export type {
   BrowserIntentGeneration,
   BrowserIntentTerminalReason,
 } from './browser-intent-controller.js';
+export type { PajaIntentLinkDescriptor, ParsedPajaIntentLink } from './intent-link.js';
+export type { PajaIntentLauncherMessage } from './intent-launcher.js';
 export type { NappletCspOptions, NappletCspDirectives, NappletCspDirective } from '@kehto/shell';

@@ -7,6 +7,8 @@ export {
   renderNappletNamespacePrelude,
 } from './napplet-namespace.js';
 export type { NappletNamespacePreludeOptions } from './napplet-namespace.js';
+export { normalizeIntentUri } from './intent-uri.js';
+export type { NormalizedIntentUri } from './intent-uri.js';
 export { buildNappletCsp, injectNappletCsp, renderNappletCspMeta } from './napplet-csp.js';
 export type { NappletCspDirective, NappletCspDirectives, NappletCspOptions } from './napplet-csp.js';
 export { prepareNappletSrcdoc } from './napplet-srcdoc.js';

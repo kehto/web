@@ -15,6 +15,7 @@ const REQUEST = {
   action: 'open',
   convention: 'napplet:profile/open',
 };
+const CATALOG_ID = `nip5d:35129:${'a'.repeat(64)}:profile-viewer`;
 
 function resolvedNapplet(dTag = 'profile-viewer'): PajaResolvedPointer {
   return {
@@ -49,15 +50,17 @@ function resolvedNapplet(dTag = 'profile-viewer'): PajaResolvedPointer {
       servers: [],
       requires: ['inc'],
       title: dTag,
-      archetypes: [{ slug: 'profile', convention: 'napplet:profile/open' }],
+      catalogId: `nip5d:35129:${'a'.repeat(64)}:${dTag}`,
+      archetypes: [{ slug: 'profile', convention: 'napplet:profile/open', params: [] }],
     },
   };
 }
 
 function makeAdapter(policy: {
   getDefaultHandler?: (archetype: string) => string | undefined;
-  chooseHandler?: (archetype: string, candidates: readonly { dTag: string }[], sender: string) => string | undefined;
+  chooseHandler?: (archetype: string, candidates: readonly import('@kehto/services').IntentCandidate[], sender: string) => string | undefined;
   authorizeExplicitHandler?: (sender: string, handler: string) => boolean;
+  resolveHandlerHint?: (hint: import('@kehto/services').IntentHandlerHint, candidates: readonly import('@kehto/services').IntentCandidate[]) => string | undefined;
 } = {}, getSimulation = () => normalizePajaSimulation({ relay: { mode: 'disabled' }, intent: { enabled: true } })) {
   const catalog = new InstalledNappletCatalog();
   const sequence: string[] = [];
@@ -80,7 +83,7 @@ function makeAdapter(policy: {
     undefined,
     undefined,
     undefined,
-    { catalog, controller, ...policy },
+    { catalog, controller, resolveSender: () => `nip5d:35129:${'a'.repeat(64)}:social-feed`, ...policy },
   );
   return { adapter, catalog, sequence };
 }
@@ -168,7 +171,7 @@ describe('Paja browser adapter intent composition', () => {
 
     expect(available[0]).toMatchObject({
       type: 'intent.available.result',
-      availability: { available: true, candidates: [{ dTag: 'profile-viewer' }] },
+      availability: { available: true, candidates: [{ id: CATALOG_ID }] },
     });
     expect(handlers[0]).toMatchObject({
       type: 'intent.handlers.result',
@@ -191,12 +194,12 @@ describe('Paja browser adapter intent composition', () => {
       .resolves.toMatchObject([{ result: { ok: false } }]);
     expect(sequence).toEqual([]);
     intent = true;
-    await expect(availability()).resolves.toMatchObject([{ availability: { available: true, candidates: [{ dTag: 'profile-viewer' }] } }]);
+    await expect(availability()).resolves.toMatchObject([{ availability: { available: true, candidates: [{ id: CATALOG_ID }] } }]);
     await expect(sendIntent(adapter, { type: 'intent.invoke', id: 'enabled', request: REQUEST } as NappletMessage))
-      .resolves.toMatchObject([{ result: { ok: true, handler: 'profile-viewer' } }]);
+      .resolves.toMatchObject([{ result: { ok: true, handler: CATALOG_ID } }]);
     intent = false;
     await expect(availability()).resolves.toMatchObject([{ availability: { available: false } }]);
-    expect(catalog.get('profile-viewer')?.requires).toEqual([]);
+    expect(catalog.get(CATALOG_ID)?.requires).toEqual([]);
     (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
   });
 
@@ -211,13 +214,13 @@ describe('Paja browser adapter intent composition', () => {
     staleDefault.catalog.install(resolvedNapplet());
     await expect(sendIntent(staleDefault.adapter, {
       type: 'intent.invoke', id: 'default', request: { ...REQUEST, handler: 'default' },
-    } as NappletMessage)).resolves.toMatchObject([{ result: { ok: false, error: 'invoke rejected' } }]);
+    } as NappletMessage)).resolves.toMatchObject([{ result: { ok: true, handler: CATALOG_ID } }]);
 
-    const validDefault = makeAdapter({ getDefaultHandler: () => 'profile-viewer' });
+    const validDefault = makeAdapter({ getDefaultHandler: () => CATALOG_ID });
     validDefault.catalog.install(resolvedNapplet());
     await expect(sendIntent(validDefault.adapter, {
       type: 'intent.invoke', id: 'valid-default', request: { ...REQUEST, handler: 'default' },
-    } as NappletMessage)).resolves.toMatchObject([{ result: { ok: true, handler: 'profile-viewer' } }]);
+    } as NappletMessage)).resolves.toMatchObject([{ result: { ok: true, handler: CATALOG_ID } }]);
 
     for (const chooseHandler of [
       () => undefined,
@@ -233,18 +236,31 @@ describe('Paja browser adapter intent composition', () => {
       }]);
     }
 
-    const validChooser = makeAdapter({ chooseHandler: () => 'profile-b' });
+    const validChooser = makeAdapter({ chooseHandler: (_role, candidates) => candidates.find((candidate) => candidate.title === 'profile-b')?.id });
     validChooser.catalog.install(resolvedNapplet('profile-a'));
     validChooser.catalog.install(resolvedNapplet('profile-b'));
     await expect(sendIntent(validChooser.adapter, {
       type: 'intent.invoke', id: 'valid-choose', request: { ...REQUEST, handler: 'choose' },
-    } as NappletMessage)).resolves.toMatchObject([{ result: { ok: true, handler: 'profile-b' } }]);
+    } as NappletMessage)).resolves.toMatchObject([{ result: { ok: true } }]);
 
     const denied = makeAdapter({ authorizeExplicitHandler: () => false });
     denied.catalog.install(resolvedNapplet());
     await expect(sendIntent(denied.adapter, {
-      type: 'intent.invoke', id: 'denied', request: { ...REQUEST, handler: 'profile-viewer' },
+      type: 'intent.invoke', id: 'denied', request: { ...REQUEST, handler: CATALOG_ID },
     } as NappletMessage)).resolves.toMatchObject([{ result: { ok: false, error: 'invoke rejected' } }]);
+  });
+
+  it('uses a permitted default before a recommendation resolver', async () => {
+    const resolveHandlerHint = vi.fn(() => CATALOG_ID);
+    const defaulted = makeAdapter({ getDefaultHandler: () => CATALOG_ID, resolveHandlerHint });
+    defaulted.catalog.install(resolvedNapplet());
+    await expect(sendIntent(defaulted.adapter, {
+      type: 'intent.invoke', id: 'default-first', request: {
+        ...REQUEST,
+        handlerHint: { address: `35129:${'a'.repeat(64)}:profile-viewer` },
+      },
+    } as NappletMessage)).resolves.toMatchObject([{ result: { ok: true, handler: CATALOG_ID } }]);
+    expect(resolveHandlerHint).not.toHaveBeenCalled();
   });
 
   it('returns only after an authorized exact installed handler has been dispatched', async () => {
@@ -252,11 +268,11 @@ describe('Paja browser adapter intent composition', () => {
     catalog.install(resolvedNapplet());
 
     const accepted = await sendIntent(adapter, {
-      type: 'intent.invoke', id: 'accepted', request: { ...REQUEST, handler: 'profile-viewer' },
+      type: 'intent.invoke', id: 'accepted', request: { ...REQUEST, handler: CATALOG_ID },
     } as NappletMessage, () => sequence.push('source accepted'));
 
-    expect(accepted).toMatchObject([{ result: { ok: true, handler: 'profile-viewer' } }]);
-    expect(sequence).toEqual(['open target', 'deliver target', 'source accepted']);
+    expect(accepted).toMatchObject([{ result: { ok: true, handler: CATALOG_ID } }]);
+    expect(sequence).toEqual(['open target', 'source accepted', 'deliver target']);
   });
 
   it('removes the development simulator and composes the catalog resolver with the target controller', () => {

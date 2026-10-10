@@ -2,18 +2,18 @@
 gsd_state_version: "1.0"
 milestone: v1.29
 milestone_name: Napplet Convention and Runtime Conformance
-current_phase: 106
-current_phase_name: Active-Surface Conformance and Release
+current_phase: 107
+current_phase_name: Paja Intent Deep Links
 status: completed
-stopped_at: Phase 106 current-Napplet release complete; v1.29 ready for milestone completion
-last_updated: "2026-10-09T16:25:24Z"
-last_activity: 2026-10-09
-last_activity_desc: "Completed quick task 261009-j8y: resolve PR #272 conflicts"
+stopped_at: Phase 107 complete; PR 289 open and pushed
+last_updated: "2026-10-10T11:49:59.294913Z"
+last_activity: 2026-10-10
+last_activity_desc: "Shipped Phase 107 as open PR 289"
 progress:
-  total_phases: 6
-  completed_phases: 6
-  total_plans: 47
-  completed_plans: 47
+  total_phases: 7
+  completed_phases: 7
+  total_plans: 51
+  completed_plans: 51
   percent: 100
 ---
 
@@ -24,15 +24,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-28)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** v1.29 current-Napplet publication complete; milestone archival and the separate Phase 105 UI-debt follow-up remain
+**Current focus:** Phase 107 complete — PR #289 open for review
 
 ## Current Position
 
-Phase: 106 (Active-Surface Conformance and Release) — COMPLETE
-Plan: 3 of 3
-Status: All v1.29 phases complete — eight-package Napplet-0.31-compatible npm/JSR release published and downstream-verified
+Phase: 107 (Paja Intent Deep Links) — COMPLETE
+Plan: 4 of 4
+Status: Shipped as open PR #289 — https://github.com/kehto/web/pull/289. No merge or release performed.
 
-Last activity: 2026-10-09 — Completed quick task 261009-j8y: resolve PR #272 conflicts
+Last activity: 2026-10-10 — Opened PR #289 and pushed verification/security closeout.
 
 ## Performance Metrics
 
@@ -357,3 +357,11 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 - [Phase ?]: The post-Phase-106 publication follow-up is distinct from the original PR-readiness boundary and is complete only with exact-main CI/Pages, successful npm/JSR publishing, direct registry metadata, and a clean downstream install/import/build.
 - [Phase ?]: A release is not current merely because its workflow succeeded; the published Kehto peer window must accept the registry's current Napplet `latest` line.
 - [Phase ?]: Corrective PR #220 supplies the eight-package Changeset omitted from the prior release path; PR #221 and Release #30389303760 publish the Napplet 0.31-compatible line.
+
+### Phase 107 decisions
+
+- Use NAP-INTENT draft PR #106 `fc121fc264615482143eda86125863d2e1f741a2` and NIP-5D PR #2303 `020cb8b33a9e4c6b8ca4b2f9d0ed0a67843b68f7`; both draft heads rechecked before shipping.
+- Invoke external URLs through a verified signed launcher. Native external-origin sender semantics remain a documented upstream spec gap.
+- Retain canonical local intent types until the published Napplet package catches up; warn on legacy object invocation and INC delivery adapters.
+- Success means retained responsibility. Host-only source-window correlation cannot appear in canonical results or delivery payloads.
+- Preserve the primary checkout's unrelated package.json changes. Work lives in `~/.worktrees/kehto/paja-intent-links` on `feat/paja-intent-links`.

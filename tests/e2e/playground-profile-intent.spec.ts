@@ -86,7 +86,7 @@ test('dispatches the feed profile convention to a cold target through intent.del
   expect(deliveries[0]?.event).toMatchObject({
     type: 'intent.deliver',
     delivery: { convention: 'napplet:profile/open', archetype: 'profile', action: 'open',
-      sender: 'feed', payload: { pubkey: PROFILE_PUBKEY } },
+      sender: 'nip5d:35129:4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa:feed', payload: { pubkey: PROFILE_PUBKEY } },
   });
   expect(messages.filter((message) => message.type === 'inc.event')).toHaveLength(0);
 });

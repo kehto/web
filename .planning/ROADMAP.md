@@ -688,6 +688,18 @@ Phases execute in numeric order: 80 → 81 → 82
 - NIP-04, NIP-44, NIP-17, and Class-2 rows leave `[pending]` and settle to the expected terminal state.
 - Regression coverage catches fixture-delivery stalls in the real playground path.
 
+### Phase 107: Paja Intent Deep Links
+
+**Goal:** Create, share, review, and invoke Paja intent links from verified advertised contracts, with authenticated source identity and retained delivery.
+**Requirements:** LINK-01 through LINK-12 (defined in `phases/107-paja-intent-deep-links/107-CONTEXT.md`).
+**Depends on:** Phase 106
+**Plans:** 4 plans
+
+- [x] 107-01 — Preserve canonical contracts, catalog identity, and acceptance lifecycle.
+- [x] 107-02 — Normalize convention URIs and encode Paja links.
+- [x] 107-03 — Build Share, review, selection, and verified launcher flows.
+- [x] 107-04 — Synchronize docs, verify gates, and open [PR #289](https://github.com/kehto/web/pull/289).
+
 ---
 
-*ROADMAP.md last updated: 2026-07-27 - Phase 106 complete; all v1.29 phases are finished and the milestone is ready for completion.*
+*ROADMAP.md last updated: 2026-10-10 — Phase 107 verified and shipped as open PR #289.*

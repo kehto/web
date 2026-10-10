@@ -52,38 +52,24 @@ Current draft posture:
 
 ## NAP-INTENT manifest resolver
 
-Kehto follows merged [NAP-INTENT at
-`5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`](https://github.com/napplet/naps/blob/5ac0490461ca6fec2f0d2e45b4835cf9bc08de24/naps/NAP-INTENT.md).
-Callers invoke a stable, queryless `napplet:<archetype>/<action>` convention.
-Installed verified manifest tags produce exact `{ slug, convention }`
-declarations; numbered protocol names, trailing metadata, and payload inspection
-do not select a handler.
+Kehto follows [NAP-INTENT PR #106](https://github.com/napplet/naps/blob/fc121fc264615482143eda86125863d2e1f741a2/naps/NAP-INTENT.md) at `fc121fc264615482143eda86125863d2e1f741a2`. The shell binding normalizes URI calls into a
+queryless convention and separate opaque payload before service dispatch.
 
-- `manifestToIntentCatalogEntry()` converts resolved manifest
-  `{ dTag, title?, archetypes: [{ slug, convention }] }` data into exact
-  candidates with `actions` and `conventions`.
-- `createCatalogIntentResolver()` filters by exact convention, applies the
-  user-owned default/chooser/explicit-authorization policy, and asks an
-  `IntentTargetController` to create/focus a target and dispatch the selected
-  convention.
-- `createIntentService()` validates source envelopes, uses the runtime-attested
-  sender, returns one final canonical `IntentResult`, and broadcasts catalog
-  changes through recipient-policy-aware runtime sends.
+- `manifestToIntentCatalogEntry()` converts verified `{ catalogId, title?, archetypes: [{ slug, convention, params }] }` facts into exact contracts.
+- `createCatalogIntentResolver()` applies authorized explicit selection, an explicit chooser, or default → recommendation → compatible choice. Payload contents never select a handler.
+- `createIntentService()` requires `resolveSender(windowId)`, derives the sender from the authenticated endpoint, validates requests, and returns one canonical result.
 
-`ok: true` means the selected target was ready and the convention was dispatched.
-The result includes `handled`, `handler`, `windowId`, and `convention`. The
-target receives the convention and opaque payload through one runtime-attested
-`intent.deliver` envelope with a nested `delivery` object. The host-owned
-`intent.onDelivery` binding buffers arrivals until a handler registers; INC is
-not required. Invocation and result semantics remain on the existing package
-contract pending the separate upstream NAP migration.
+`ok: true` means the controller retained responsibility for delivery. It contains
+`archetype`, `action`, `convention`, and the opaque handler ID. It does not expose
+a window ID or promise target completion. The controller waits for the current
+target's authenticated readiness and sends one `intent.deliver`; host observers
+receive later completion or failure without a second source result. Source
+teardown does not cancel accepted work. `intent.onDelivery` buffers arrivals;
+INC is not required.
 
-Paja currently exposes only an exact-contract development simulator, and the
-playground currently exposes only a verified-manifest catalog builder. Phase
-105 completed released `@napplet/*` package adoption plus the persistent live
-catalog/controller and feed-to-profile flow. Its public `Intent*` types are
-canonical releases from `@napplet/core` / `@napplet/nap`, not a local mirror;
-successful results report completed target dispatch.
+Paja and playground use verified persistent catalogs separately from live frames.
+The installed `@napplet/nap@0.32.0` types predate this contract; the bounded local
+canonical types and their removal condition are documented below.
 
 ## Quick Start
 
@@ -630,7 +616,7 @@ complete normal result without `error`: this explicit policy reconciles the
 draft error-only example without a mixed theme/error extension.
 
 ### Types
-`AudioSource`, `AudioServiceOptions`, `Notification`, `NotificationServiceOptions`, `IdentityServiceOptions`, `RelayPoolServiceOptions`, `CacheServiceOptions`, `CoordinatedRelayOptions`, `KeysServiceOptions`, `MediaServiceOptions`, `NotifyServiceOptions`, `NotifyPresentation`, `NotifyInteractionMessage`, `ThemeServiceOptions`, `ThemeService`, `IntentOpenOptions`, `IntentRequest`, `IntentResult`, `IntentCandidate`, `IntentAvailability`, `IntentResolver`, `IntentTargetController`, `IntentDispatchParams`, `IntentTargetDispatch`, `BleServiceOptions`, `BleServiceContext`, `WebrtcServiceOptions`, `WebrtcServiceContext`, `DmServiceOptions`, `DmAdapter`, `DmRelayPool`, `Nip17DmAdapterOptions`, `NdrDmAdapterOptions`, `CordnDmAdapterOptions`.
+`AudioSource`, `AudioServiceOptions`, `Notification`, `NotificationServiceOptions`, `IdentityServiceOptions`, `RelayPoolServiceOptions`, `CacheServiceOptions`, `CoordinatedRelayOptions`, `KeysServiceOptions`, `MediaServiceOptions`, `NotifyServiceOptions`, `NotifyPresentation`, `NotifyInteractionMessage`, `ThemeServiceOptions`, `ThemeService`, `IntentRequest`, `IntentResult`, `IntentCandidate`, `IntentAvailability`, `IntentResolver`, `IntentTargetController`, `IntentDispatchParams`, `IntentTargetDispatch`, `BleServiceOptions`, `BleServiceContext`, `WebrtcServiceOptions`, `WebrtcServiceContext`, `DmServiceOptions`, `DmAdapter`, `DmRelayPool`, `Nip17DmAdapterOptions`, `NdrDmAdapterOptions`, `CordnDmAdapterOptions`.
 
 ## API Reference
 
@@ -643,10 +629,14 @@ MIT
 
 ## NIP-5D event compatibility
 
-Current manifests use a direct artifact `x` hash, plain-text `content`, independent
-`z`/`i` routing declarations, and required `R` / optional `O` domains. Kehto also
+Current manifests use a direct artifact `x` hash, plain-text `content`, role-matched
+`z`/`i` intent declarations, and required `R` / optional `O` domains. Kehto also
 accepts legacy aggregate events through an isolated compatibility adapter.
 Existing `aggregateHash` host/cache/ACL fields carry the verified artifact hash
 for current events; legacy identities keep their original aggregate. Both paths
 verify signatures and bytes before runtime injection and `srcdoc` execution.
 For the schema and removal boundary, see [event migration](https://kehto.github.io/web/docs/migrations/NIP-5D-EVENT-SCHEMA.html).
+
+## Canonical intent contracts
+
+`@kehto/services` temporarily owns the canonical NAP-INTENT PR #106 contracts because `@napplet/nap@0.32.0` has not yet published them. Candidates use opaque `id` plus exact `contracts`; successful results contain only `ok`, `archetype`, `action`, `convention`, and `handler` (never `handled`, `windowId`, or `newWindow`). `createIntentService` requires `resolveSender(windowId)` and rejects caller-supplied sender fields. `IntentResolverContext.sourceWindowId` and `IntentDispatchParams.sourceWindowId` are host-only correlation fields: they must never appear in `intent.deliver` or `intent.invoke.result`. A target controller accepts retained work as `{ completion }`; completion failure is host observation, not a second canonical result. Remove these local types only when an upstream package exports the checked PR #106 surface and Kehto's service/runtime regression suite proves direct replacement.
