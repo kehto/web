@@ -11,7 +11,7 @@
 import type {
   IntentDispatchParams,
   IntentTargetController,
-  IntentTargetDispatch,
+  IntentTargetAcceptance,
 } from '@kehto/services';
 
 /** Opaque shell-host generation for a target iframe/source pair. */
@@ -38,8 +38,6 @@ export interface PlaygroundIntentControllerOptions {
   waitForReady(generation: PlaygroundIntentGeneration): void | Promise<void>;
   /** Return true only while this generation remains current for its target d-tag. */
   isCurrent(generation: PlaygroundIntentGeneration): boolean | Promise<boolean>;
-  /** Return the runtime-assigned window identifier once the target is ready. */
-  getWindowId(generation: PlaygroundIntentGeneration): string | null;
   /** Send the convention once to that current ready source. */
   send(
     generation: PlaygroundIntentGeneration,
@@ -59,7 +57,8 @@ const MAX_INTENT_DELIVERY_ATTEMPTS = 10;
  * @example
  * ```ts
  * const controller = new PlaygroundIntentController({ openOrReuse, waitForReady, isCurrent, send });
- * const target = await controller.dispatch(params);
+ * const { completion } = controller.accept(params);
+ * void completion.catch(reportIntentDeliveryFailure);
  * ```
  */
 export class PlaygroundIntentController implements IntentTargetController {
@@ -69,7 +68,11 @@ export class PlaygroundIntentController implements IntentTargetController {
     this.maxAttempts = normalizeAttempts(options.maxAttempts);
   }
 
-  async dispatch(params: IntentDispatchParams): Promise<IntentTargetDispatch> {
+  accept(params: IntentDispatchParams): IntentTargetAcceptance {
+    return Object.freeze({ completion: this.dispatch(params) });
+  }
+
+  private async dispatch(params: IntentDispatchParams): Promise<void> {
     const dispatch = freezeDispatch(params);
     let reason: PlaygroundIntentTerminalReason = 'no-current-target';
     for (let attempt = 1; attempt <= this.maxAttempts; attempt += 1) {
@@ -96,9 +99,7 @@ export class PlaygroundIntentController implements IntentTargetController {
       }
       try {
         await this.options.send(generation, dispatch);
-        const windowId = this.options.getWindowId(generation);
-        if (!windowId) throw new Error('intent target window is unavailable');
-        return { windowId };
+        return;
       } catch {
         this.options.onTerminal?.(dispatch, 'send-failed');
         throw new Error('intent target send failed');

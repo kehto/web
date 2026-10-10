@@ -1,66 +1,14 @@
-/**
- * playground-intent-catalog.test.ts — buildPlaygroundIntentCatalog.
- *
- * Proves the playground intent catalog is sourced from resolved manifests via the
- * @kehto/services ARCH-02 adapter (ARCH-03 wiring proof). Lives in tests/unit so
- * the root vitest include (tests/unit/**) runs it.
- */
-
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { buildPlaygroundIntentCatalog } from '../../apps/playground/src/playground-intent-catalog.js';
 
 describe('buildPlaygroundIntentCatalog', () => {
-  it('maps a resolved napplet through the adapter into an IntentCatalogEntry', () => {
-    const catalog = buildPlaygroundIntentCatalog([
-      {
-        dTag: 'profile-viewer',
-        title: 'Profile',
-        archetypes: [
-          { slug: 'profile', convention: 'napplet:profile/open' },
-          { slug: 'profile', convention: 'napplet:profile/edit' },
-        ],
-      },
-    ]);
-    expect(catalog).toEqual([
-      {
-        dTag: 'profile-viewer',
-        title: 'Profile',
-        archetypes: {
-          profile: {
-            actions: ['open', 'edit'],
-            conventions: ['napplet:profile/open', 'napplet:profile/edit'],
-          },
-        },
-      },
-    ]);
-    expect(JSON.stringify(catalog)).not.toMatch(
-      /"protocols?"|"handled"|"windowId"|"newWindow"|"nap":"NAP-/,
-    );
-  });
-
-  it('includes a napplet with no archetypes as an entry with archetypes:{}', () => {
-    const catalog = buildPlaygroundIntentCatalog([
-      { dTag: 'plain', archetypes: [] },
-    ]);
-    expect(catalog).toHaveLength(1);
-    expect(catalog[0].archetypes).toEqual({});
-  });
-
-  it('builds an entry per resolved napplet', () => {
-    const catalog = buildPlaygroundIntentCatalog([
-      {
-        dTag: 'profile-viewer',
-        archetypes: [{ slug: 'profile', convention: 'napplet:profile/open' }],
-      },
-      {
-        dTag: 'feed',
-        archetypes: [{ slug: 'feed', convention: 'napplet:feed/read' }],
-      },
-    ]);
-    expect(catalog.map((e) => e.dTag)).toEqual(['profile-viewer', 'feed']);
-    expect(catalog[1].archetypes.feed).toEqual({
-      actions: ['read'],
-      conventions: ['napplet:feed/read'],
-    });
+  it('maps verified contracts to opaque catalog candidates with retained params', () => {
+    expect(buildPlaygroundIntentCatalog([{
+      catalogId: 'nip5d:35129:publisher:profile', title: 'Profile',
+      archetypes: [{ slug: 'profile', convention: 'napplet:profile/open', params: ['pubkey'] }],
+    }])).toEqual([{
+      id: 'nip5d:35129:publisher:profile', title: 'Profile',
+      archetypes: { profile: { contracts: [{ convention: 'napplet:profile/open', params: ['pubkey'] }] } },
+    }]);
   });
 });

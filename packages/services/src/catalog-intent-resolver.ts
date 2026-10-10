@@ -1,378 +1,215 @@
-/**
- * catalog-intent-resolver.ts — NAP-INTENT concrete {@link IntentResolver}.
- *
- * A reference resolver backed by installed, verified NIP-5A manifest
- * archetype/convention tags plus host-supplied user policy. Catalog order and
- * payload contents never select a handler.
- *
- * Selection policy:
- *   1. Filter installed candidates by declared action and convention support.
- *   2. Require positive host authorization for an explicit handler dTag.
- *   3. Otherwise use an explicit chooser, a compatible user default, the sole
- *      compatible candidate, or an injected chooser.
- *   4. Reject ambiguity when no chooser policy exists.
- *
- * The catalog, defaults, chooser, authorization hook, and target controller are
- * injected, so this resolver has no shell, manifest, or DOM dependency.
- *
- * @packageDocumentation
- */
+/** Verified-manifest NAP-INTENT catalog resolution. */
 
+import type { IntentResolver, IntentResolverContext } from './intent-service.js';
 import type {
   IntentAvailability,
   IntentBehavior,
   IntentCandidate,
+  IntentContract,
+  IntentHandlerHint,
   IntentRequest,
   IntentResult,
-} from '@napplet/core';
-import type {
-  IntentResolver,
-  IntentResolverContext,
-} from './intent-service.js';
+} from './intent-types.js';
 
-/** The exact manifest-derived conventions a napplet fulfills for one archetype. */
+/** Exact contracts fulfilled by a catalog entry for one role. */
 export interface IntentArchetypeSupport {
-  /** Verbs derived from this napplet's accepted conventions. */
-  actions: string[];
-  /** Stable queryless convention identities declared by the manifest. */
-  conventions: string[];
+  readonly contracts: readonly IntentContract[];
 }
 
-/**
- * One installed napplet's intent surface, derived from its signed NIP-5A
- * manifest. Keyed by archetype slug so a single napplet can fulfill several
- * roles.
- */
+/** A verified installed napplet, keyed by a runtime-assigned opaque catalog ID. */
 export interface IntentCatalogEntry {
-  /** The napplet's dTag. */
-  dTag: string;
-  /** Human-readable title from the manifest. */
-  title?: string;
-  /** Archetype slug to exact manifest-derived support. */
-  archetypes: Record<string, IntentArchetypeSupport>;
+  readonly id: string;
+  readonly title?: string;
+  readonly archetypes: Readonly<Record<string, IntentArchetypeSupport>>;
 }
 
-/** Exact values dispatched to one selected intent target. */
+/** Immutable delivery values retained by the target controller after acceptance. */
 export interface IntentDispatchParams {
-  /** Selected target napplet dTag. */
   readonly handler: string;
-  /** Runtime-attested source napplet dTag. */
   readonly sender: string;
-  /** Requested target archetype. */
   readonly archetype: string;
-  /** Requested action. */
   readonly action: string;
-  /** Selected stable convention used to deliver the payload. */
   readonly convention: string;
-  /** Opaque convention payload. */
   readonly payload?: unknown;
-  /** Copied target lifecycle hints. */
   readonly behavior?: Readonly<IntentBehavior>;
 }
 
-/** Result returned by a host after creating/focusing and dispatching to a target. */
-export interface IntentTargetDispatch {
-  /** Shell-assigned target window identifier. */
-  readonly windowId: string;
+/** Retained work observable by the host without a second source result. */
+export interface IntentTargetAcceptance {
+  readonly completion: Promise<void>;
 }
 
-/** Host controller that owns target lifecycle and convention delivery policy. */
+/** Owns target lifecycle and retains delivery before returning to the source. */
 export interface IntentTargetController {
-  /**
-   * Create or focus the selected target, wait until it can receive the
-   * convention, then enqueue delivery through the host's ordinary carrier.
-   *
-   * @param params - Immutable selected target and dispatch values.
-   * @returns The created/focused target identity.
-   */
-  dispatch(
-    params: IntentDispatchParams,
-  ): IntentTargetDispatch | Promise<IntentTargetDispatch>;
+  accept(params: IntentDispatchParams): IntentTargetAcceptance;
 }
 
-/** Options for {@link createCatalogIntentResolver}. */
+/** Catalog, user-policy, and lifecycle hooks for the reference resolver. */
 export interface CatalogIntentResolverOptions {
-  /** Return the installed-napplet catalog sourced from signed manifests. */
-  loadCatalog(): IntentCatalogEntry[] | Promise<IntentCatalogEntry[]>;
-  /** Target controller that creates/readies the selected target and dispatches its convention. */
+  loadCatalog(): readonly IntentCatalogEntry[] | Promise<readonly IntentCatalogEntry[]>;
   targets: IntentTargetController;
-  /**
-   * Return the user's default handler dTag for an archetype.
-   *
-   * @param archetype - Normalized archetype slug.
-   * @returns The user-selected default dTag, or `undefined`.
-   */
   getDefaultHandler?(archetype: string): string | undefined;
-  /**
-   * Ask user policy to select one exact-compatible candidate.
-   *
-   * @param archetype - Normalized archetype slug.
-   * @param candidates - Only candidates with an exact matching contract.
-   * @param sender - Runtime-attested source napplet dTag.
-   * @returns A candidate dTag, or `undefined` when the user cancels.
-   */
   chooseHandler?(
     archetype: string,
-    candidates: IntentCandidate[],
+    candidates: readonly IntentCandidate[],
     sender: string,
   ): string | undefined | Promise<string | undefined>;
-  /**
-   * Authorize a caller's explicit handler dTag preference.
-   *
-   * @param sender - Runtime-attested source napplet dTag.
-   * @param handler - Explicit requested handler dTag.
-   * @param request - Normalized intent request.
-   * @param candidate - Installed exact-compatible candidate.
-   * @returns `true` only when explicit targeting is user-authorized.
-   */
   authorizeExplicitHandler?(
     sender: string,
     handler: string,
     request: IntentRequest,
     candidate: IntentCandidate,
   ): boolean | Promise<boolean>;
+  /** Resolve a valid recommendation only to an already compatible verified entry. */
+  resolveHandlerHint?(
+    hint: IntentHandlerHint,
+    candidates: readonly IntentCandidate[],
+  ): string | undefined | Promise<string | undefined>;
 }
 
-/**
- * A {@link IntentResolver} backed by a catalog, with a host hook to announce
- * catalog/default changes.
- */
 export interface CatalogIntentResolver extends IntentResolver {
-  /**
-   * Announce that the catalog or default handler for `archetype` changed.
-   *
-   * @param archetype - Changed archetype slug.
-   * @returns Nothing.
-   */
   notifyChanged(archetype: string): void;
 }
 
-/** Build the candidate list for an archetype, marking the user's default. */
-function candidatesFor(
-  catalog: IntentCatalogEntry[],
-  archetype: string,
-  defaultHandler: string | undefined,
-): IntentCandidate[] {
-  const candidates: IntentCandidate[] = [];
-  for (const entry of catalog) {
-    const support = entry.archetypes[archetype];
-    if (!support) continue;
-    candidates.push({
-      dTag: entry.dTag,
-      ...(entry.title === undefined ? {} : { title: entry.title }),
-      actions: [...support.actions],
-      conventions: [...support.conventions],
-      ...(entry.dTag === defaultHandler ? { isDefault: true } : {}),
-    });
+const CONVENTION = /^napplet:([a-z0-9][a-z0-9-]*)\/([a-z0-9][a-z0-9-]*)$/;
+
+function rejected(error: string): IntentResult {
+  return { ok: false, error };
+}
+
+function candidateFor(entry: IntentCatalogEntry, archetype: string, defaultId?: string): IntentCandidate | undefined {
+  const support = entry.archetypes[archetype];
+  if (!support || support.contracts.length === 0) return undefined;
+  const contracts = support.contracts.map((contract) => Object.freeze({
+    convention: contract.convention,
+    params: Object.freeze([...contract.params]),
+  }));
+  const conventions = [...new Set(contracts.map((contract) => contract.convention))];
+  const actions = [...new Set(conventions.map((convention) => CONVENTION.exec(convention)?.[2]).filter((value): value is string => value !== undefined))];
+  if (actions.length === 0) return undefined;
+  return Object.freeze({
+    id: entry.id,
+    ...(entry.title === undefined ? {} : { title: entry.title }),
+    actions: Object.freeze(actions),
+    conventions: Object.freeze(conventions),
+    contracts: Object.freeze(contracts),
+    ...(entry.id === defaultId ? { isDefault: true } : {}),
+  });
+}
+
+function candidatesFor(catalog: readonly IntentCatalogEntry[], archetype: string, defaultId?: string): IntentCandidate[] {
+  return catalog.map((entry) => candidateFor(entry, archetype, defaultId)).filter((candidate): candidate is IntentCandidate => candidate !== undefined);
+}
+
+function compatibleFor(request: IntentRequest, candidates: readonly IntentCandidate[]): IntentCandidate[] {
+  return candidates.filter((candidate) => candidate.contracts.some((contract) => contract.convention === request.convention));
+}
+
+async function choose(options: CatalogIntentResolverOptions, request: IntentRequest, candidates: readonly IntentCandidate[], sender: string): Promise<IntentCandidate | IntentResult> {
+  if (!options.chooseHandler) return rejected(request.handler === 'choose' ? 'user cancelled' : 'invoke rejected');
+  const id = await options.chooseHandler(request.archetype, candidates, sender);
+  if (id === undefined) return rejected('user cancelled');
+  return candidates.find((candidate) => candidate.id === id) ?? rejected('invoke rejected');
+}
+
+async function select(options: CatalogIntentResolverOptions, request: IntentRequest, candidates: readonly IntentCandidate[], sender: string): Promise<IntentCandidate | IntentResult> {
+  if (request.handler && request.handler !== 'default' && request.handler !== 'choose') {
+    const candidate = candidates.find((item) => item.id === request.handler);
+    if (!candidate || !options.authorizeExplicitHandler) return rejected('invoke rejected');
+    try {
+      return await options.authorizeExplicitHandler(sender, request.handler, request, candidate)
+        ? candidate : rejected('invoke rejected');
+    } catch { return rejected('invoke rejected'); }
   }
-  return candidates;
+  if (request.handler === 'choose') return choose(options, request, candidates, sender);
+  const defaultCandidate = candidates.find((candidate) => candidate.isDefault);
+  if (defaultCandidate) return defaultCandidate;
+  if (request.handlerHint && options.resolveHandlerHint) {
+    try {
+      const id = await options.resolveHandlerHint(request.handlerHint, candidates);
+      const candidate = candidates.find((item) => item.id === id);
+      if (candidate) return candidate;
+    } catch { /* recommendation failure falls through to compatible policy */ }
+  }
+  if (candidates.length === 1) return candidates[0];
+  return choose(options, request, candidates, sender);
 }
 
-function reject(request: IntentRequest, error: string): IntentResult {
-  return {
-    ok: false,
-    archetype: request.archetype,
-    action: request.action ?? 'open',
-    handled: false,
-    error,
-  };
-}
-
-type HandlerSelection =
-  | { candidate: IntentCandidate }
-  | { error: 'invoke rejected' | 'user cancelled' };
-
-async function availabilityForCatalog(
-  options: CatalogIntentResolverOptions,
-  archetype: string,
-): Promise<IntentAvailability> {
+async function availabilityFor(options: CatalogIntentResolverOptions, archetype: string): Promise<IntentAvailability> {
   const catalog = await options.loadCatalog();
-  const defaultHandler = options.getDefaultHandler?.(archetype);
-  const candidates = candidatesFor(catalog, archetype, defaultHandler);
-  return {
+  const defaultId = options.getDefaultHandler?.(archetype);
+  const candidates = candidatesFor(catalog, archetype, defaultId);
+  return Object.freeze({
     archetype,
     available: candidates.length > 0,
-    candidates,
-    hasDefault: defaultHandler !== undefined
-      && candidates.some((candidate) => candidate.dTag === defaultHandler),
-  };
+    candidates: Object.freeze(candidates),
+    hasDefault: candidates.some((candidate) => candidate.isDefault),
+  });
 }
 
-async function chooseCompatible(
-  options: CatalogIntentResolverOptions,
-  request: IntentRequest,
-  candidates: IntentCandidate[],
-  sender: string,
-): Promise<HandlerSelection> {
-  if (!options.chooseHandler) {
-    return request.handler === 'choose'
-      ? { error: 'user cancelled' }
-      : { error: 'invoke rejected' };
-  }
-  const picked = await options.chooseHandler(request.archetype, candidates, sender);
-  if (picked === undefined) return { error: 'user cancelled' };
-  const candidate = candidates.find((item) => item.dTag === picked);
-  return candidate ? { candidate } : { error: 'invoke rejected' };
-}
-
-async function pickHandler(
-  options: CatalogIntentResolverOptions,
-  request: IntentRequest,
-  compatible: IntentCandidate[],
-  sender: string,
-): Promise<HandlerSelection> {
-  const preference = request.handler;
-  if (typeof preference === 'string' && preference !== 'default' && preference !== 'choose') {
-    const candidate = compatible.find((item) => item.dTag === preference);
-    if (!candidate || !options.authorizeExplicitHandler) return { error: 'invoke rejected' };
-    let authorized = false;
-    try {
-      authorized = await options.authorizeExplicitHandler(
-        sender,
-        preference,
-        request,
-        candidate,
-      );
-    } catch {
-      return { error: 'invoke rejected' };
-    }
-    return authorized ? { candidate } : { error: 'invoke rejected' };
-  }
-
-  if (preference === 'choose') {
-    return chooseCompatible(options, request, compatible, sender);
-  }
-
-  const defaultCandidate = compatible.find((candidate) => candidate.isDefault === true);
-  if (preference === 'default') {
-    return defaultCandidate ? { candidate: defaultCandidate } : { error: 'invoke rejected' };
-  }
-  if (defaultCandidate) return { candidate: defaultCandidate };
-  if (compatible.length === 1) return { candidate: compatible[0] };
-  return chooseCompatible(options, request, compatible, sender);
-}
-
-async function invokeFromCatalog(
-  options: CatalogIntentResolverOptions,
-  request: IntentRequest,
-  context: IntentResolverContext,
-): Promise<IntentResult> {
+async function invoke(options: CatalogIntentResolverOptions, request: IntentRequest, context: IntentResolverContext): Promise<IntentResult> {
+  const match = CONVENTION.exec(request.convention);
+  if (!match || match[1] !== request.archetype || match[2] !== request.action) return rejected('invalid convention');
+  if (!context.sender) return rejected('invoke rejected');
   const catalog = await options.loadCatalog();
-  const defaultHandler = options.getDefaultHandler?.(request.archetype);
-  const candidates = candidatesFor(catalog, request.archetype, defaultHandler);
-  if (candidates.length === 0) return reject(request, 'no handler');
-
-  const action = request.action ?? 'open';
-  const actionCompatible = candidates.filter((candidate) =>
-    candidate.actions.includes(action));
-  if (actionCompatible.length === 0) return reject(request, 'unsupported action');
-  const compatible = request.convention === undefined
-    ? actionCompatible
-    : actionCompatible.filter((candidate) =>
-        candidate.conventions.includes(request.convention as string));
-  if (compatible.length === 0) return reject(request, 'unsupported convention');
-
-  const sender = context.sender;
-  if (typeof sender !== 'string' || sender.length === 0) {
-    return reject(request, 'invoke rejected');
-  }
-  const selected = await pickHandler(options, request, compatible, sender);
-  if ('error' in selected) return reject(request, selected.error);
-
-  const convention = request.convention
-    ?? selected.candidate.conventions.find((value) => {
-      const match = /^napplet:[^/?#\s]+\/([^/?#\s]+)$/.exec(value);
-      return match?.[1] === action;
-    });
-  if (!convention) return reject(request, 'unsupported convention');
-  const behavior = request.behavior === undefined
-    ? undefined
-    : Object.freeze({
-        ...(request.behavior.focus === undefined ? {} : { focus: request.behavior.focus }),
-        ...(request.behavior.newWindow === undefined
-          ? {}
-          : { newWindow: request.behavior.newWindow }),
-        ...(request.behavior.reuse === undefined ? {} : { reuse: request.behavior.reuse }),
-      });
+  const candidates = candidatesFor(catalog, request.archetype, options.getDefaultHandler?.(request.archetype));
+  if (candidates.length === 0) return rejected('no handler');
+  const compatible = compatibleFor(request, candidates);
+  if (compatible.length === 0) return rejected(candidates.some((candidate) => candidate.actions.includes(request.action)) ? 'unsupported convention' : 'unsupported action');
+  const selected = await select(options, request, compatible, context.sender);
+  if ('ok' in selected) return selected;
+  const behavior = request.behavior === undefined ? undefined : Object.freeze({
+    ...(request.behavior.focus === undefined ? {} : { focus: request.behavior.focus }),
+    ...(request.behavior.reuse === undefined ? {} : { reuse: request.behavior.reuse }),
+  });
   const params = Object.freeze({
-    handler: selected.candidate.dTag,
-    sender,
+    handler: selected.id,
+    sender: context.sender,
     archetype: request.archetype,
-    action,
-    convention,
+    action: request.action,
+    convention: request.convention,
     ...(request.payload === undefined ? {} : { payload: request.payload }),
     ...(behavior === undefined ? {} : { behavior }),
   }) satisfies IntentDispatchParams;
-
-  let target: IntentTargetDispatch;
   try {
-    target = await options.targets.dispatch(params);
-  } catch {
-    return reject(request, 'invoke failed');
-  }
-  if (!target || typeof target.windowId !== 'string' || target.windowId.length === 0) {
-    return reject(request, 'invoke failed');
-  }
-
-  return {
-    ok: true,
-    archetype: request.archetype,
-    action,
-    handled: true,
-    handler: selected.candidate.dTag,
-    windowId: target.windowId,
-    convention,
-  };
+    const accepted = options.targets.accept(params);
+    if (!accepted || !(accepted.completion instanceof Promise)) return rejected('invoke rejected');
+    // Completion is host-visible and never produces another source result.
+    void accepted.completion.catch(() => {});
+  } catch { return rejected('invoke rejected'); }
+  return { ok: true, archetype: request.archetype, action: request.action, convention: request.convention, handler: selected.id };
 }
 
 /**
- * Create a catalog-backed NAP-INTENT resolver.
+ * Create a catalog-backed resolver from verified manifest contracts.
  *
- * @param options - Catalog loader and target controller plus optional user
- *   default, chooser, and explicit-handler authorization hooks.
- * @returns A catalog-backed resolver.
- * @throws If required catalog or target-controller options are missing.
+ * @param options - Verified catalog, selection policy, and target lifecycle hooks.
+ * @returns A resolver suitable for {@link createIntentService}.
  *
  * @example
  * ```ts
  * const resolver = createCatalogIntentResolver({
- *   loadCatalog: () => installedNapplets,
- *   targets: { dispatch: (params) => openAndDispatch(params) },
- *   getDefaultHandler: (archetype) => userDefaults[archetype],
+ *   loadCatalog: () => installedCatalog,
+ *   targets: { accept: (params) => ({ completion: deliverToTarget(params) }) },
  * });
  * ```
  */
 export function createCatalogIntentResolver(options: CatalogIntentResolverOptions): CatalogIntentResolver {
-  if (!options || typeof options.loadCatalog !== 'function') {
-    throw new Error('createCatalogIntentResolver: options.loadCatalog is required');
-  }
-  if (!options.targets || typeof options.targets.dispatch !== 'function') {
-    throw new Error('createCatalogIntentResolver: options.targets is required');
-  }
+  if (!options || typeof options.loadCatalog !== 'function') throw new Error('createCatalogIntentResolver: options.loadCatalog is required');
+  if (!options.targets || typeof options.targets.accept !== 'function') throw new Error('createCatalogIntentResolver: options.targets is required');
   const listeners = new Set<(availability: IntentAvailability) => void>();
-  const availabilityFor = (archetype: string): Promise<IntentAvailability> =>
-    availabilityForCatalog(options, archetype);
-
-  async function handlers(): Promise<IntentAvailability[]> {
-    const catalog = await options.loadCatalog();
-    const archetypes = new Set<string>();
-    for (const entry of catalog) {
-      for (const slug of Object.keys(entry.archetypes)) archetypes.add(slug);
-    }
-    return Promise.all([...archetypes].map((archetype) => availabilityFor(archetype)));
-  }
-
   return {
-    invoke: (request, context) => invokeFromCatalog(options, request, context),
-    available: availabilityFor,
-    handlers,
-    onChanged(listener) {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
+    invoke: (request, context) => invoke(options, request, context),
+    available: (archetype) => availabilityFor(options, archetype),
+    async handlers() {
+      const catalog = await options.loadCatalog();
+      const roles = new Set<string>();
+      for (const entry of catalog) for (const role of Object.keys(entry.archetypes)) roles.add(role);
+      return Promise.all([...roles].map((role) => availabilityFor(options, role)));
     },
+    onChanged(listener) { listeners.add(listener); return () => listeners.delete(listener); },
     notifyChanged(archetype) {
-      if (listeners.size === 0) return;
-      void availabilityFor(archetype).then((availability) => {
+      void availabilityFor(options, archetype).then((availability) => {
         for (const listener of listeners) listener(availability);
       });
     },
