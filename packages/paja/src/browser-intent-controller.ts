@@ -12,7 +12,6 @@
 import type {
   IntentDispatchParams,
   IntentTargetController,
-  IntentTargetDispatch,
 } from '@kehto/services';
 
 /** Opaque current target generation controlled by the browser host. */
@@ -64,7 +63,13 @@ export class BrowserIntentController implements IntentTargetController {
     this.maxAttempts = normalizeAttempts(options.maxAttempts);
   }
 
-  async dispatch(params: IntentDispatchParams): Promise<IntentTargetDispatch> {
+  /** Retain delivery work immediately; completion remains host-observable only. */
+  accept(params: IntentDispatchParams): { completion: Promise<void> } {
+    return { completion: this.dispatch(params) };
+  }
+
+  /** Complete an already accepted delivery. Kept public for host diagnostics and tests. */
+  async dispatch(params: IntentDispatchParams): Promise<void> {
     const dispatch = freezeDispatch(params);
     let reason: BrowserIntentTerminalReason = 'no-current-target';
     for (let attempt = 1; attempt <= this.maxAttempts; attempt += 1) {
@@ -93,7 +98,7 @@ export class BrowserIntentController implements IntentTargetController {
         await this.options.send(generation, dispatch);
         const windowId = this.options.getWindowId(generation);
         if (!windowId) throw new Error('intent target window is unavailable');
-        return { windowId };
+        return;
       } catch {
         this.options.onTerminal?.(dispatch, 'send-failed');
         throw new Error('intent target send failed');

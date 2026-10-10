@@ -37,7 +37,8 @@ function resolvedNapplet(overrides: Partial<PajaResolvedPointer> = {}): PajaReso
       servers: [],
       requires: ['inc'],
       title: 'Profile Viewer',
-      archetypes: [{ slug: 'profile', convention: 'napplet:profile/open' }],
+      catalogId: `nip5d:35129:${'a'.repeat(64)}:profile-viewer`,
+      archetypes: [{ slug: 'profile', convention: 'napplet:profile/open', params: [] }],
     },
     ...overrides,
   };
@@ -67,10 +68,10 @@ describe('InstalledNappletCatalog', () => {
     const catalog = new InstalledNappletCatalog();
     catalog.install(resolvedNapplet());
 
-    expect(catalog.has('profile-viewer')).toBe(true);
+    expect(catalog.has(`nip5d:35129:${'a'.repeat(64)}:profile-viewer`)).toBe(true);
     expect(catalog.remove('missing')).toBe(false);
-    expect(catalog.remove('profile-viewer')).toBe(true);
-    expect(catalog.has('profile-viewer')).toBe(false);
+    expect(catalog.remove(`nip5d:35129:${'a'.repeat(64)}:profile-viewer`)).toBe(true);
+    expect(catalog.has(`nip5d:35129:${'a'.repeat(64)}:profile-viewer`)).toBe(false);
   });
 
   it('derives exact intent contracts from the verified manifest rather than live targets', () => {
@@ -79,19 +80,21 @@ describe('InstalledNappletCatalog', () => {
       manifest: {
         ...resolvedNapplet().manifest,
         archetypes: [
-          { slug: 'profile', convention: 'napplet:profile/open' },
-          { slug: 'profile', convention: 'napplet:profile/edit' },
+          { slug: 'profile', convention: 'napplet:profile/open', params: [] },
+          { slug: 'profile', convention: 'napplet:profile/edit', params: ['draft'] },
         ],
       },
     }));
 
     expect(catalog.intentCatalog()).toEqual([{
-      dTag: 'profile-viewer',
+      id: `nip5d:35129:${'a'.repeat(64)}:profile-viewer`,
       title: 'Profile Viewer',
       archetypes: {
         profile: {
-          actions: ['open', 'edit'],
-          conventions: ['napplet:profile/open', 'napplet:profile/edit'],
+          contracts: [
+            { convention: 'napplet:profile/open', params: [] },
+            { convention: 'napplet:profile/edit', params: ['draft'] },
+          ],
         },
       },
     }]);
@@ -122,7 +125,7 @@ describe('InstalledNappletCatalog', () => {
         attempts += 1;
         if (attempts !== 1) return null;
         const resolved = await resolution;
-        return catalog.validateCurrent(selected, resolved) ? { id: 'aggregate-a' } : null;
+        return catalog.validateCurrent(selected, { id: resolved.manifest.catalogId, aggregateHash: resolved.aggregateHash }) ? { id: 'aggregate-a' } : null;
       },
       waitForReady: () => undefined,
       isCurrent: () => true,
@@ -132,7 +135,7 @@ describe('InstalledNappletCatalog', () => {
       onTerminal,
     });
     const delivery: IntentDispatchParams = {
-      handler: 'profile-viewer',
+      handler: `nip5d:35129:${'a'.repeat(64)}:profile-viewer`,
       sender: 'social-feed',
       archetype: 'profile',
       action: 'open',
@@ -146,9 +149,9 @@ describe('InstalledNappletCatalog', () => {
     releaseResolution(resolvedA);
     await expect(deliveryTask).rejects.toThrow('open-failed');
 
-    expect(catalog.get('profile-viewer')).toMatchObject({ aggregateHash: aggregateB });
+    expect(catalog.get(`nip5d:35129:${'a'.repeat(64)}:profile-viewer`)).toMatchObject({ aggregateHash: aggregateB });
     expect(send).not.toHaveBeenCalled();
     expect(attempts).toBe(2);
-    expect(onTerminal).toHaveBeenCalledWith(expect.objectContaining({ handler: 'profile-viewer' }), 'open-failed');
+    expect(onTerminal).toHaveBeenCalledWith(expect.objectContaining({ handler: `nip5d:35129:${'a'.repeat(64)}:profile-viewer` }), 'open-failed');
   });
 });

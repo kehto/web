@@ -69,7 +69,7 @@ import {
   navigateFrame,
   renderTargetErrorHtml,
 } from './browser-target-frame.js';
-import type { PajaRuntimeTarget } from './local-target.js';
+import { isPajaLocalTarget, type PajaRuntimeTarget } from './local-target.js';
 import { resolvePajaPointer } from './runtime-resolver.js';
 import { reportTargetCorsDiagnostic } from './browser-target-diagnostics.js';
 import { createPajaNotifyController } from './browser-notify.js';
@@ -645,6 +645,10 @@ async function installPajaHost(): Promise<void> {
   }, themeBroadcast.onBroadcast, confirmationController.confirm, signerController, getWindowIdentity, () => stateRef?.reload(), {
       catalog: runtime.catalog,
       controller: intentController,
+      resolveSender(windowId) {
+        const target = stateRef?.tabs.find((tab) => tab.windowId === windowId)?.resolvedTarget;
+        return target && !isPajaLocalTarget(target) ? target.manifest.catalogId : undefined;
+      },
     }, confirmationController.activation, notifyController?.serviceOptions, configController?.serviceOptions, resourceSettings.getServers);
   await adapter.ready;
   const bridge = createShellBridge(adapter);

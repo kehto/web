@@ -181,6 +181,8 @@ export { PAJA_DEV_SIGNER_PUBKEY } from './browser-dev-runtime.js';
 interface PajaIntentHost {
   readonly catalog: InstalledNappletCatalog;
   readonly controller: BrowserIntentController;
+  /** Resolve an authenticated frame to its verified catalog identity. */
+  resolveSender(windowId: string): string | undefined;
   getDefaultHandler?(archetype: string): string | undefined;
   chooseHandler?(
     archetype: string,
@@ -714,6 +716,7 @@ export function createPajaAdapter(
     });
     services.intent = createIntentService({
       resolver,
+      resolveSender: intentHost.resolveSender,
     });
   }
   return adapter;

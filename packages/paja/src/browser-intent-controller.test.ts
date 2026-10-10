@@ -41,7 +41,7 @@ describe('BrowserIntentController', () => {
     expect(Object.isFrozen(dispatched?.payload)).toBe(true);
     releaseReady();
 
-    await expect(result).resolves.toEqual({ windowId: 'window-1' });
+    await expect(result).resolves.toBeUndefined();
     expect(send).toHaveBeenCalledOnce();
   });
 
@@ -59,7 +59,7 @@ describe('BrowserIntentController', () => {
       maxAttempts: 2,
     });
 
-    await expect(controller.dispatch(params())).resolves.toEqual({ windowId: 'window-2' });
+    await expect(controller.dispatch(params())).resolves.toBeUndefined();
     expect(openOrReuse).toHaveBeenCalledTimes(2);
     expect(send).toHaveBeenCalledTimes(1);
     expect(send).toHaveBeenCalledWith(

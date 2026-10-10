@@ -6,7 +6,7 @@ import type { PajaResolvedPointer } from './runtime-resolver.js';
 
 function resolvedPointer(manifest: {
   requires: string[];
-  archetypes: Array<{ slug: string; convention: string }>;
+  archetypes: Array<{ slug: string; convention: string; params?: string[] }>;
 }): PajaResolvedPointer {
   return {
     pointer: { type: 'naddr', value: 'naddr-fixture', identifier: 'profile-target', pubkey: 'a'.repeat(64), kind: 35_129, relays: [] },
@@ -20,11 +20,12 @@ function resolvedPointer(manifest: {
       kind: 35_129,
       pubkey: 'a'.repeat(64),
       dTag: 'profile-target',
+      catalogId: `nip5d:35129:${'a'.repeat(64)}:profile-target`,
       aggregateHash: 'd'.repeat(64),
       paths: [],
       servers: [],
       requires: manifest.requires,
-      archetypes: manifest.archetypes,
+      archetypes: manifest.archetypes.map((archetype) => ({ ...archetype, params: archetype.params ?? [] })),
     },
   } as PajaResolvedPointer;
 }
@@ -49,7 +50,7 @@ describe('recordInstalledIntentSurface', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const target = resolvedPointer({
       requires: ['theme'],
-      archetypes: [{ slug: 'note', convention: 'napplet:note/open' }],
+      archetypes: [{ slug: 'note', convention: 'napplet:note/open', params: [] }],
     });
     const state = browserState();
 
@@ -62,7 +63,7 @@ describe('recordInstalledIntentSurface', () => {
       type: 'paja.pointer.resolved',
       dTag: 'profile-target',
       aggregateHash: 'd'.repeat(64),
-      archetypes: [{ slug: 'note', convention: 'napplet:note/open' }],
+      archetypes: [{ slug: 'note', convention: 'napplet:note/open', params: [] }],
       requires: ['theme'],
       intentEligible: true,
     });

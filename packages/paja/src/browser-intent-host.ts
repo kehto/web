@@ -63,19 +63,18 @@ export function createPajaIntentTargetOptions(
       for (const stale of state.tabs) {
         if (
           !isPajaLocalTarget(stale.resolvedTarget)
-          && stale.resolvedTarget.dTag === params.handler
-          && !matchesInstalledNappletRecord(record, stale.resolvedTarget)
+          && catalogIdForTarget(stale.resolvedTarget) === params.handler
+          && !matchesInstalledNappletRecord(record, catalogIdentity(stale.resolvedTarget))
         ) closeRuntimeTab(state, context, stale.id);
       }
 
       const current = state.tabs.find((tab) =>
         !isPajaLocalTarget(tab.resolvedTarget)
-        && matchesInstalledNappletRecord(record, tab.resolvedTarget)
+        && matchesInstalledNappletRecord(record, catalogIdentity(tab.resolvedTarget))
         && isCurrentRuntimeTabGeneration(state, context, tab),
       );
       if (
         current
-        && params.behavior?.newWindow !== true
         && params.behavior?.reuse !== false
       ) {
         // A delivered intent is a navigation, so the handler surface must become
@@ -95,12 +94,12 @@ export function createPajaIntentTargetOptions(
 
       const resolved = await resolvePajaPointer(record.pointer.value, pajaPointerResolverOptions(context));
       if (
-        resolved.dTag !== record.dTag
+        resolved.manifest.catalogId !== record.id
         || resolved.aggregateHash !== record.aggregateHash
         || !resolvedSupportsDelivery(resolved, params)
       ) return null;
 
-      const currentRecord = context.runtime.catalog.validateCurrent(record, resolved);
+      const currentRecord = context.runtime.catalog.validateCurrent(record, catalogIdentity(resolved));
       if (!currentRecord) return null;
       const tab = addRuntimeTab(state, context, currentRecord.pointer.value, resolved);
       effects.persistTabs?.(state);
@@ -251,7 +250,8 @@ function isCurrentPajaIntentGeneration(
 ): boolean {
   const record = context.runtime.intentRecords.get(generation);
   return record !== undefined
-    && context.runtime.catalog.validateCurrent(record, tab.resolvedTarget) !== null
+    && !isPajaLocalTarget(tab.resolvedTarget)
+    && context.runtime.catalog.validateCurrent(record, catalogIdentity(tab.resolvedTarget)) !== null
     && isCurrentRuntimeTabGeneration(state, context, tab);
 }
 
@@ -276,16 +276,24 @@ export function subscribePajaIntentCatalogChanges(
   state: PajaBrowserState,
   context: PajaBrowserStateContext,
 ): () => void {
-  return context.runtime.catalog.onChanged((dTag) => {
+  return context.runtime.catalog.onChanged((id) => {
     for (const [generation] of context.runtime.readyWaiters) {
       const record = context.runtime.intentRecords.get(generation);
-      if (!record || record.dTag !== dTag) continue;
+      if (!record || record.id !== id) continue;
       const tab = findRuntimeTabGeneration(state, generation);
       if (!tab || !isCurrentPajaIntentGeneration(generation, state, context, tab)) {
         invalidatePajaIntentGeneration(generation, context.runtime);
       }
     }
   });
+}
+
+function catalogIdForTarget(target: PajaRuntimeTab['resolvedTarget']): string | undefined {
+  return isPajaLocalTarget(target) ? undefined : target.manifest.catalogId;
+}
+
+function catalogIdentity(target: PajaResolvedPointer): Pick<ReturnType<InstalledNappletCatalog['installed']>[number], 'id' | 'aggregateHash'> {
+  return { id: target.manifest.catalogId, aggregateHash: target.aggregateHash };
 }
 
 function isCurrentRuntimeTabGeneration(

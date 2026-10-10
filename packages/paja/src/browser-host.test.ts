@@ -286,21 +286,21 @@ describe('@kehto/paja browser host runtime source guards', () => {
     expect(messageHandler).toContain('originRegistry.getWindowId(source)');
   });
 
-  it('does not reuse a same-dTag tab after its installed aggregate is replaced', () => {
-    const installed = { dTag: 'profile-viewer', aggregateHash: 'verified-new' };
-    const staleLiveTab = { dTag: 'profile-viewer', aggregateHash: 'verified-old' };
+  it('does not reuse a same-catalog-ID tab after its installed aggregate is replaced', () => {
+    const installed = { id: 'nip5d:35129:publisher:profile-viewer', aggregateHash: 'verified-new' };
+    const staleLiveTab = { id: 'nip5d:35129:publisher:profile-viewer', aggregateHash: 'verified-old' };
     const source = readFileSync(new URL('./browser-intent-host.ts', import.meta.url), 'utf8');
 
     expect(matchesInstalledNappletRecord(installed, staleLiveTab)).toBe(false);
     expect(source).toContain('closeRuntimeTab(state, context, stale.id)');
-    expect(source).toContain('matchesInstalledNappletRecord(record, tab.resolvedTarget)');
+    expect(source).toContain('matchesInstalledNappletRecord(record, catalogIdentity(tab.resolvedTarget))');
   });
 
   it('uses the selected catalog record after cold resolution without reinstalling it', () => {
     const source = readFileSync(new URL('./browser-intent-host.ts', import.meta.url), 'utf8');
     const coldLoad = source.slice(source.indexOf('async openOrReuse(params)'), source.indexOf('waitForReady(generation)'));
 
-    expect(coldLoad).toContain('context.runtime.catalog.validateCurrent(record, resolved)');
+    expect(coldLoad).toContain('context.runtime.catalog.validateCurrent(record, catalogIdentity(resolved))');
     expect(coldLoad).not.toContain('context.runtime.catalog.install(resolved)');
   });
 
@@ -316,7 +316,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
       pointer: { type: 'naddr', value: `naddr-${aggregateHash}`, identifier: 'profile-viewer', pubkey: 'a'.repeat(64), kind: 35_129, relays: [] },
       event: { id: 'b'.repeat(64), pubkey: 'a'.repeat(64), created_at: 1, kind: 35_129, tags: [], content: '', sig: 'c'.repeat(128) },
       relays: [], blossomServers: [], dTag: 'profile-viewer', aggregateHash, indexHtml: '',
-      manifest: { kind: 35_129, pubkey: 'a'.repeat(64), dTag: 'profile-viewer', aggregateHash, paths: [], servers: [], requires: ['inc'], archetypes: [{ slug: 'profile', convention: 'napplet:profile/open' }] },
+      manifest: { kind: 35_129, pubkey: 'a'.repeat(64), dTag: 'profile-viewer', catalogId: `nip5d:35129:${'a'.repeat(64)}:profile-viewer`, aggregateHash, paths: [], servers: [], requires: ['inc'], archetypes: [{ slug: 'profile', convention: 'napplet:profile/open', params: [] }] },
     }) as PajaResolvedPointer;
     const makeTab = (id: string, target: PajaResolvedPointer) => {
       const source = { postMessage: vi.fn() } as unknown as Window;
@@ -334,7 +334,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
     try {
       catalog.install(targetA);
       const controller = new BrowserIntentController({ ...createPajaIntentTargetOptions(() => state, () => context), maxAttempts: 3 });
-      const task = controller.dispatch({ handler: 'profile-viewer', sender: 'feed', archetype: 'profile', action: 'open', convention: 'napplet:profile/open', payload: {} });
+      const task = controller.dispatch({ handler: `nip5d:35129:${'a'.repeat(64)}:profile-viewer`, sender: 'feed', archetype: 'profile', action: 'open', convention: 'napplet:profile/open', payload: {} });
       await Promise.resolve();
       // Installing an equal record still replaces the object version token and
       // must reject A's outstanding readiness wait.
@@ -349,7 +349,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
       expect((tabA.source as unknown as { postMessage: ReturnType<typeof vi.fn> }).postMessage).not.toHaveBeenCalled();
       expect((tabB.source as unknown as { postMessage: ReturnType<typeof vi.fn> }).postMessage).toHaveBeenCalledTimes(1);
       expect((tabB.source as unknown as { postMessage: ReturnType<typeof vi.fn> }).postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'intent.deliver', delivery: { convention: 'napplet:profile/open', sender: 'feed', archetype: 'profile', action: 'open', payload: {} } }), '*', undefined);
-      expect(catalog.get('profile-viewer')).toMatchObject({ aggregateHash: 'aggregate-b' });
+      expect(catalog.get(`nip5d:35129:${'a'.repeat(64)}:profile-viewer`)).toMatchObject({ aggregateHash: 'aggregate-b' });
     } finally {
       stopCatalogChanges();
       originRegistry.clear();
@@ -375,7 +375,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
         pointer: { type: 'naddr', value: 'naddr-reused', identifier: 'profile-viewer', pubkey: 'a'.repeat(64), kind: 35_129, relays: [] },
         event: { id: 'b'.repeat(64), pubkey: 'a'.repeat(64), created_at: 1, kind: 35_129, tags: [], content: '', sig: 'c'.repeat(128) },
         relays: [], blossomServers: [], dTag: 'profile-viewer', aggregateHash: 'd'.repeat(64), indexHtml: '',
-        manifest: { kind: 35_129, pubkey: 'a'.repeat(64), dTag: 'profile-viewer', aggregateHash: 'd'.repeat(64), paths: [], servers: [], requires: ['inc'], archetypes: [{ slug: 'profile', convention: 'napplet:profile/open' }] },
+        manifest: { kind: 35_129, pubkey: 'a'.repeat(64), dTag: 'profile-viewer', catalogId: `nip5d:35129:${'a'.repeat(64)}:profile-viewer`, aggregateHash: 'd'.repeat(64), paths: [], servers: [], requires: ['inc'], archetypes: [{ slug: 'profile', convention: 'napplet:profile/open', params: [] }] },
       } as PajaResolvedPointer;
       const makeTab = (id: string, dTag: string, aggregateHash: string, windowId: string, resolvedTarget: PajaResolvedPointer) => {
         const source = { postMessage: vi.fn() } as unknown as Window;
@@ -387,7 +387,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
         ...target,
         dTag: 'other-napplet',
         aggregateHash: 'e'.repeat(64),
-        manifest: { ...target.manifest, dTag: 'other-napplet', aggregateHash: 'e'.repeat(64) },
+        manifest: { ...target.manifest, dTag: 'other-napplet', catalogId: `nip5d:35129:${'a'.repeat(64)}:other-napplet`, aggregateHash: 'e'.repeat(64) },
       } as PajaResolvedPointer;
       const other = makeTab('tab-other', 'other-napplet', 'e'.repeat(64), 'window-other', otherTarget);
       const reused = makeTab('tab-reused', 'profile-viewer', 'd'.repeat(64), 'window-reused', target);
@@ -401,7 +401,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
       const controller = new BrowserIntentController({ ...options });
 
       // Default (focus unset): the reuse path foregrounds the handler tab.
-      await controller.dispatch({ handler: 'profile-viewer', sender: 'feed', archetype: 'profile', action: 'open', convention: 'napplet:profile/open', payload: {} });
+      await controller.dispatch({ handler: `nip5d:35129:${'a'.repeat(64)}:profile-viewer`, sender: 'feed', archetype: 'profile', action: 'open', convention: 'napplet:profile/open', payload: {} });
       expect(state.activeTabId).toBe('tab-reused');
       expect(reused.tab.frame.hidden).toBe(false);
       expect(other.tab.frame.hidden).toBe(true);
@@ -419,7 +419,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
       persistTabs.mockClear();
       setStatus.mockClear();
       (reused.source as unknown as { postMessage: ReturnType<typeof vi.fn> }).postMessage.mockClear();
-      await controller.dispatch({ handler: 'profile-viewer', sender: 'feed', archetype: 'profile', action: 'open', convention: 'napplet:profile/open', payload: {}, behavior: { focus: false, reuse: true } });
+      await controller.dispatch({ handler: `nip5d:35129:${'a'.repeat(64)}:profile-viewer`, sender: 'feed', archetype: 'profile', action: 'open', convention: 'napplet:profile/open', payload: {}, behavior: { focus: false, reuse: true } });
       expect(state.activeTabId).toBe('tab-reused');
       expect(other.tab.frame.hidden).toBe(true);
       expect(reused.tab.frame.hidden).toBe(false);
@@ -436,7 +436,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
       persistTabs.mockClear();
       setStatus.mockClear();
       (reused.source as unknown as { postMessage: ReturnType<typeof vi.fn> }).postMessage.mockClear();
-      await controller.dispatch({ handler: 'profile-viewer', sender: 'feed', archetype: 'profile', action: 'open', convention: 'napplet:profile/open', payload: {}, behavior: { focus: true } });
+      await controller.dispatch({ handler: `nip5d:35129:${'a'.repeat(64)}:profile-viewer`, sender: 'feed', archetype: 'profile', action: 'open', convention: 'napplet:profile/open', payload: {}, behavior: { focus: true } });
       expect(state.activeTabId).toBe('tab-reused');
       expect(reused.tab.frame.hidden).toBe(false);
       expect(context.runtime.currentWindowId).toBe('window-reused');
