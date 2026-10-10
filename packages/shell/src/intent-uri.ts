@@ -1,19 +1,5 @@
-/**
- * Canonical, self-contained NAP-INTENT URI normalization.
- *
- * This function is also serialized into the NIP-5D namespace prelude. Keep all
- * parsing helpers inside it so the host and injected binding share one parser.
- *
- * @param uri - Complete NAP-INTENT convention URI.
- * @param options - Optional payload, handler, recommendation, and behavior hints.
- * @returns The canonical request fields for `intent.invoke`.
- * @example
- * ```ts
- * normalizeIntentUri('napplet:profile/open?pubkey=abc%2B123');
- * // { archetype: 'profile', action: 'open', convention: 'napplet:profile/open', payload: { pubkey: 'abc+123' } }
- * ```
- */
-export function normalizeIntentUri(uri: unknown, options?: unknown): {
+/** Canonical request fields produced from a NAP-INTENT convention URI. */
+export interface NormalizedIntentUri {
   archetype: string;
   action: string;
   convention: string;
@@ -21,7 +7,19 @@ export function normalizeIntentUri(uri: unknown, options?: unknown): {
   handlerHint?: { address: string; relays?: string[] };
   handler?: string;
   behavior?: { focus?: boolean; reuse?: boolean };
-} {
+}
+
+/**
+ * Create an isolated NAP-INTENT normalizer for host code or an injected prelude.
+ *
+ * @returns A canonical URI normalizer whose parsing helpers are self-contained.
+ * @example
+ * ```ts
+ * const normalize = createIntentUriNormalizer();
+ * normalize('napplet:profile/open');
+ * ```
+ */
+export function createIntentUriNormalizer(): (uri: unknown, options?: unknown) => NormalizedIntentUri {
   type RecordValue = Record<string, unknown>;
   const hasOwn = (value: RecordValue, key: string): boolean => Object.prototype.hasOwnProperty.call(value, key);
   const fail = (message: string): never => { throw new TypeError(message); };
@@ -130,72 +128,88 @@ export function normalizeIntentUri(uri: unknown, options?: unknown): {
     return { address: address as string, ...(relays === undefined ? {} : { relays: [...(relays as string[])] }) };
   };
 
-  if (typeof uri !== 'string') throw new TypeError('Intent URI must be text');
-  const match = /^napplet:([^/?#\s]+)\/([^/?#\s]+)(?:\?([^#]*))?(?:#(.*))?$/u.exec(uri);
-  if (match === null) return fail('Intent URI must be napplet:<archetype>/<action>');
-  const archetype = match[1]!;
-  const action = match[2]!;
-  if (!/^[a-z0-9][a-z0-9-]*$/u.test(archetype) || !/^[a-z0-9][a-z0-9-]*$/u.test(action)) {
-    fail('Intent URI archetype and action must be lowercase slugs');
-  }
-  const query = match[3];
-  const fragment = match[4];
-  const supplied = options === undefined ? {} : options;
-  if (!supplied || typeof supplied !== 'object' || Array.isArray(supplied)) fail('Intent options must be an object');
-  const parsedOptions = supplied as RecordValue;
-  if (Object.keys(parsedOptions).some((key) => key !== 'payload' && key !== 'handler' && key !== 'handlerHint' && key !== 'behavior')) {
-    fail('Intent options contain unsupported fields');
-  }
-  const handler = parsedOptions.handler;
-  if (handler !== undefined && (typeof handler !== 'string' || handler.length === 0)) {
-    fail('Intent handler must be non-empty text');
-  }
-  let behavior: { focus?: boolean; reuse?: boolean } | undefined;
-  if (parsedOptions.behavior !== undefined) {
-    if (!parsedOptions.behavior || typeof parsedOptions.behavior !== 'object' || Array.isArray(parsedOptions.behavior)) fail('Intent behavior must be an object');
-    const value = parsedOptions.behavior as RecordValue;
-    if (Object.keys(value).some((key) => key !== 'focus' && key !== 'reuse')
-      || (hasOwn(value, 'focus') && typeof value.focus !== 'boolean')
-      || (hasOwn(value, 'reuse') && typeof value.reuse !== 'boolean')) fail('Intent behavior contains unsupported fields');
-    behavior = {
-      ...(hasOwn(value, 'focus') ? { focus: value.focus as boolean } : {}),
-      ...(hasOwn(value, 'reuse') ? { reuse: value.reuse as boolean } : {}),
-    };
-  }
-  let payload: unknown;
-  if (query !== undefined) {
-    if (hasOwn(parsedOptions, 'payload')) fail('Intent URI query cannot accompany options.payload');
-    if (query.length > 0) {
-      const fields = Object.create(null) as RecordValue;
-      for (const field of query.split('&')) {
-        const equal = field.indexOf('=');
-        if (equal <= 0 || field.indexOf('=', equal + 1) >= 0) fail('Intent URI query fields must be name=value');
-        const name = decode(field.slice(0, equal), 'a query name');
-        const value = decode(field.slice(equal + 1), 'a query value');
-        if (!name || hasOwn(fields, name)) fail('Intent URI query names must be unique after decoding');
-        Object.defineProperty(fields, name, { value, enumerable: true, writable: true, configurable: true });
-      }
-      payload = fields;
+  return function normalizeIntentUri(uri: unknown, options?: unknown): NormalizedIntentUri {
+    if (typeof uri !== 'string') throw new TypeError('Intent URI must be text');
+    const match = /^napplet:([^/?#\s]+)\/([^/?#\s]+)(?:\?([^#]*))?(?:#(.*))?$/u.exec(uri);
+    if (match === null) return fail('Intent URI must be napplet:<archetype>/<action>');
+    const archetype = match[1]!;
+    const action = match[2]!;
+    if (!/^[a-z0-9][a-z0-9-]*$/u.test(archetype) || !/^[a-z0-9][a-z0-9-]*$/u.test(action)) {
+      fail('Intent URI archetype and action must be lowercase slugs');
     }
-  } else if (hasOwn(parsedOptions, 'payload')) {
-    payload = parsedOptions.payload;
-  }
-  if (fragment !== undefined) {
-    if (!fragment) fail('Intent URI fragment must be a bare naddr');
-    if (parsedOptions.handlerHint !== undefined) fail('Intent URI fragment cannot accompany options.handlerHint');
-  }
-  const handlerHint = fragment === undefined
-    ? (parsedOptions.handlerHint === undefined ? undefined : normalizeHint(parsedOptions.handlerHint))
-    : decodeHint(fragment);
-  return {
-    archetype,
-    action,
-    convention: `napplet:${archetype}/${action}`,
-    ...(payload === undefined ? {} : { payload }),
-    ...(handlerHint === undefined ? {} : { handlerHint }),
-    ...(handler === undefined ? {} : { handler: handler as string }),
-    ...(behavior === undefined ? {} : { behavior }),
+    const query = match[3];
+    const fragment = match[4];
+    const supplied = options === undefined ? {} : options;
+    if (!supplied || typeof supplied !== 'object' || Array.isArray(supplied)) fail('Intent options must be an object');
+    const parsedOptions = supplied as RecordValue;
+    if (Object.keys(parsedOptions).some((key) => key !== 'payload' && key !== 'handler' && key !== 'handlerHint' && key !== 'behavior')) {
+      fail('Intent options contain unsupported fields');
+    }
+    const handler = parsedOptions.handler;
+    if (handler !== undefined && (typeof handler !== 'string' || handler.length === 0)) {
+      fail('Intent handler must be non-empty text');
+    }
+    let behavior: { focus?: boolean; reuse?: boolean } | undefined;
+    if (parsedOptions.behavior !== undefined) {
+      if (!parsedOptions.behavior || typeof parsedOptions.behavior !== 'object' || Array.isArray(parsedOptions.behavior)) fail('Intent behavior must be an object');
+      const value = parsedOptions.behavior as RecordValue;
+      if (Object.keys(value).some((key) => key !== 'focus' && key !== 'reuse')
+        || (hasOwn(value, 'focus') && typeof value.focus !== 'boolean')
+        || (hasOwn(value, 'reuse') && typeof value.reuse !== 'boolean')) fail('Intent behavior contains unsupported fields');
+      behavior = {
+        ...(hasOwn(value, 'focus') ? { focus: value.focus as boolean } : {}),
+        ...(hasOwn(value, 'reuse') ? { reuse: value.reuse as boolean } : {}),
+      };
+    }
+    let payload: unknown;
+    if (query !== undefined) {
+      if (hasOwn(parsedOptions, 'payload')) fail('Intent URI query cannot accompany options.payload');
+      if (query.length > 0) {
+        const fields = Object.create(null) as RecordValue;
+        for (const field of query.split('&')) {
+          const equal = field.indexOf('=');
+          if (equal <= 0 || field.indexOf('=', equal + 1) >= 0) fail('Intent URI query fields must be name=value');
+          const name = decode(field.slice(0, equal), 'a query name');
+          const value = decode(field.slice(equal + 1), 'a query value');
+          if (!name || hasOwn(fields, name)) fail('Intent URI query names must be unique after decoding');
+          Object.defineProperty(fields, name, { value, enumerable: true, writable: true, configurable: true });
+        }
+        payload = fields;
+      }
+    } else if (hasOwn(parsedOptions, 'payload')) {
+      payload = parsedOptions.payload;
+    }
+    if (fragment !== undefined) {
+      if (!fragment) fail('Intent URI fragment must be a bare naddr');
+      if (parsedOptions.handlerHint !== undefined) fail('Intent URI fragment cannot accompany options.handlerHint');
+    }
+    const handlerHint = fragment === undefined
+      ? (parsedOptions.handlerHint === undefined ? undefined : normalizeHint(parsedOptions.handlerHint))
+      : decodeHint(fragment);
+    return {
+      archetype,
+      action,
+      convention: `napplet:${archetype}/${action}`,
+      ...(payload === undefined ? {} : { payload }),
+      ...(handlerHint === undefined ? {} : { handlerHint }),
+      ...(handler === undefined ? {} : { handler: handler as string }),
+      ...(behavior === undefined ? {} : { behavior }),
+    };
   };
 }
 
-export type NormalizedIntentUri = ReturnType<typeof normalizeIntentUri>;
+/**
+ * Normalize a NAP-INTENT convention URI.
+ *
+ * The host and injected NIP-5D binding use the same normalizer factory.
+ *
+ * @param uri - Complete NAP-INTENT convention URI.
+ * @param options - Optional payload, handler, recommendation, and behavior hints.
+ * @returns The canonical request fields for `intent.invoke`.
+ * @example
+ * ```ts
+ * normalizeIntentUri('napplet:profile/open?pubkey=abc%2B123');
+ * // { archetype: 'profile', action: 'open', convention: 'napplet:profile/open', payload: { pubkey: 'abc+123' } }
+ * ```
+ */
+export const normalizeIntentUri = createIntentUriNormalizer();

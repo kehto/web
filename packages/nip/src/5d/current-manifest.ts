@@ -6,7 +6,6 @@ import { getNappletCatalogId } from './catalog-id.js';
 const HASH = /^[a-f0-9]{64}$/;
 const DOMAIN = /^[a-z][a-z0-9-]*$/;
 const SLUG = /^[a-z0-9][a-z0-9-]*$/;
-const INTENT = /^napplet:[^/?#\s]+\/[^/?#\s]+$/;
 
 function invalid(message: string): never {
   throw new NappletResolutionError('invalid-manifest', message);

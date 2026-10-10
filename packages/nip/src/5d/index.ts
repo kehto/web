@@ -6,7 +6,6 @@ import type { PathEntry } from '../5a/index.js';
 import { NappletResolutionError } from './errors.js';
 import { parseLegacyManifest, verifyLegacyAggregate, warnLegacyManifest } from './legacy-manifest.js';
 import { parseCurrentManifest } from './current-manifest.js';
-import { getNappletCatalogId } from './catalog-id.js';
 import {
   NAPPLET_KIND_NAMED,
   NAPPLET_KIND_ROOT,

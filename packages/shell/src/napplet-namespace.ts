@@ -7,7 +7,7 @@
  * aislop-ignore-file complexity/file-too-large complexity/function-too-long
  */
 
-import { normalizeIntentUri } from './intent-uri.js';
+import { createIntentUriNormalizer } from './intent-uri.js';
 
 /**
  * Options for rendering the host-owned NIP-5D `window.napplet` namespace prelude.
@@ -60,7 +60,7 @@ function scriptJson(value: unknown): string {
  */
 export function renderNappletNamespacePrelude(options: NappletNamespacePreludeOptions): string {
   const domains = uniqueBareDomains(['shell', ...options.domains]);
-  return `<script data-kehto-nip5d-injection>(${nappletNamespacePrelude.toString()})(${scriptJson(domains)}, (${normalizeIntentUri.toString()}));</script>`;
+  return `<script data-kehto-nip5d-injection>(${nappletNamespacePrelude.toString()})(${scriptJson(domains)}, (${createIntentUriNormalizer.toString()})());</script>`;
 }
 
 /**
