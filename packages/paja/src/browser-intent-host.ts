@@ -33,6 +33,8 @@ import type {
 export interface PajaIntentHostEffects {
   persistTabs?(state: PajaBrowserState): void;
   setReadyStatus?(state: PajaBrowserState): void;
+  onDelivered?(params: IntentDispatchParams): void;
+  onTerminal?(params: IntentDispatchParams, reason: import('./browser-intent-controller.js').BrowserIntentTerminalReason): void;
 }
 
 /**
@@ -49,6 +51,8 @@ export function createPajaIntentTargetOptions(
   effects: PajaIntentHostEffects = {},
 ): ConstructorParameters<typeof BrowserIntentController>[0] {
   return {
+    onDelivered: effects.onDelivered,
+    onTerminal: effects.onTerminal,
     async openOrReuse(params) {
       const state = getState();
       const context = getContext();
@@ -130,11 +134,6 @@ export function createPajaIntentTargetOptions(
         return false;
       }
       return true;
-    },
-    getWindowId(generation) {
-      const state = getState();
-      const tab = state ? findRuntimeTabGeneration(state, generation) : null;
-      return tab?.windowId ?? null;
     },
     send(generation, params) {
       const state = getState();

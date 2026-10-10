@@ -51,6 +51,8 @@ export interface PajaRuntimeTabState extends PajaDevtoolsState {
   status: PajaRuntimeStatus;
   activateTab(tabId: string): void;
   closeTab(tabId: string): void;
+  /** Open the host-owned intent-link builder for an advertised verified tab. */
+  createIntentLink?(tab: PajaRuntimeTab): void;
 }
 
 export interface PajaRuntimeTabRuntime {
@@ -348,7 +350,13 @@ function renderTab(state: PajaRuntimeTabState, tab: PajaRuntimeTab): HTMLElement
   label.className = 'tab-label';
   label.textContent = tab.title;
   if (isPajaLocalTarget(tab.resolvedTarget)) tabButton.append(label, renderCloseButton(state, tab));
-  else tabButton.append(label, renderShareButton(tab), renderCloseButton(state, tab));
+  else {
+    tabButton.append(label, renderShareButton(tab));
+    if (tab.resolvedTarget.manifest.archetypes.length > 0 && state.createIntentLink) {
+      tabButton.append(renderIntentLinkButton(state, tab));
+    }
+    tabButton.append(renderCloseButton(state, tab));
+  }
   return tabButton;
 }
 
@@ -370,6 +378,25 @@ function renderShareButton(tab: PajaRuntimeTab): HTMLButtonElement {
     void shareRuntimeTab(tab, share).catch((error) => console.error(error));
   });
   return share;
+}
+
+function renderIntentLinkButton(state: PajaRuntimeTabState, tab: PajaRuntimeTab): HTMLButtonElement {
+  const create = document.createElement('button');
+  create.type = 'button';
+  create.className = 'tab-share';
+  create.setAttribute('aria-label', `Create intent link for ${tab.title}`);
+  create.title = 'Create intent link';
+  create.textContent = '⌁';
+  const open = (event: Event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    state.createIntentLink?.(tab);
+  };
+  create.addEventListener('click', open);
+  create.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') open(event);
+  });
+  return create;
 }
 
 function renderCloseButton(state: PajaRuntimeTabState, tab: PajaRuntimeTab): HTMLButtonElement {

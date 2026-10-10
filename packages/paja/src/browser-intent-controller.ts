@@ -11,6 +11,7 @@
 
 import type {
   IntentDispatchParams,
+  IntentTargetAcceptance,
   IntentTargetController,
 } from '@kehto/services';
 
@@ -38,8 +39,6 @@ export interface BrowserIntentControllerOptions {
   waitForReady(generation: BrowserIntentGeneration): void | Promise<void>;
   /** Return true only while the generation remains the selected current target. */
   isCurrent(generation: BrowserIntentGeneration): boolean | Promise<boolean>;
-  /** Return the runtime-assigned window identifier once the target is ready. */
-  getWindowId(generation: BrowserIntentGeneration): string | null;
   /** Send the convention through the ordinary carrier to the ready generation. */
   send(
     generation: BrowserIntentGeneration,
@@ -49,6 +48,8 @@ export interface BrowserIntentControllerOptions {
   maxAttempts?: number;
   /** Observe terminal target policy. */
   onTerminal?(params: IntentDispatchParams, reason: BrowserIntentTerminalReason): void;
+  /** Observe successful terminal delivery without adding a second source result. */
+  onDelivered?(params: IntentDispatchParams): void;
 }
 
 const MAX_INTENT_DELIVERY_ATTEMPTS = 10;
@@ -64,8 +65,8 @@ export class BrowserIntentController implements IntentTargetController {
   }
 
   /** Retain delivery work immediately; completion remains host-observable only. */
-  accept(params: IntentDispatchParams): { completion: Promise<void> } {
-    return { completion: this.dispatch(params) };
+  accept(params: IntentDispatchParams): IntentTargetAcceptance {
+    return Object.freeze({ completion: this.dispatch(params) });
   }
 
   /** Complete an already accepted delivery. Kept public for host diagnostics and tests. */
@@ -96,8 +97,7 @@ export class BrowserIntentController implements IntentTargetController {
       }
       try {
         await this.options.send(generation, dispatch);
-        const windowId = this.options.getWindowId(generation);
-        if (!windowId) throw new Error('intent target window is unavailable');
+        this.options.onDelivered?.(dispatch);
         return;
       } catch {
         this.options.onTerminal?.(dispatch, 'send-failed');

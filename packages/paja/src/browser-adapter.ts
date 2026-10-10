@@ -195,6 +195,10 @@ interface PajaIntentHost {
     request: IntentRequest,
     candidate: IntentCandidate,
   ): boolean | Promise<boolean>;
+  resolveHandlerHint?(
+    hint: import('@kehto/services').IntentHandlerHint,
+    candidates: readonly IntentCandidate[],
+  ): string | undefined | Promise<string | undefined>;
 }
 
 function createPajaCvmRelayPool(backend: PajaRelayBackend): CvmRelayPool {
@@ -713,6 +717,7 @@ export function createPajaAdapter(
       getDefaultHandler: intentHost.getDefaultHandler,
       chooseHandler: intentHost.chooseHandler,
       authorizeExplicitHandler: intentHost.authorizeExplicitHandler,
+      resolveHandlerHint: intentHost.resolveHandlerHint,
     });
     services.intent = createIntentService({
       resolver,

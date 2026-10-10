@@ -60,6 +60,7 @@ function makeAdapter(policy: {
   getDefaultHandler?: (archetype: string) => string | undefined;
   chooseHandler?: (archetype: string, candidates: readonly import('@kehto/services').IntentCandidate[], sender: string) => string | undefined;
   authorizeExplicitHandler?: (sender: string, handler: string) => boolean;
+  resolveHandlerHint?: (hint: import('@kehto/services').IntentHandlerHint, candidates: readonly import('@kehto/services').IntentCandidate[]) => string | undefined;
 } = {}, getSimulation = () => normalizePajaSimulation({ relay: { mode: 'disabled' }, intent: { enabled: true } })) {
   const catalog = new InstalledNappletCatalog();
   const sequence: string[] = [];
@@ -247,6 +248,19 @@ describe('Paja browser adapter intent composition', () => {
     await expect(sendIntent(denied.adapter, {
       type: 'intent.invoke', id: 'denied', request: { ...REQUEST, handler: CATALOG_ID },
     } as NappletMessage)).resolves.toMatchObject([{ result: { ok: false, error: 'invoke rejected' } }]);
+  });
+
+  it('uses a permitted default before a recommendation resolver', async () => {
+    const resolveHandlerHint = vi.fn(() => CATALOG_ID);
+    const defaulted = makeAdapter({ getDefaultHandler: () => CATALOG_ID, resolveHandlerHint });
+    defaulted.catalog.install(resolvedNapplet());
+    await expect(sendIntent(defaulted.adapter, {
+      type: 'intent.invoke', id: 'default-first', request: {
+        ...REQUEST,
+        handlerHint: { address: `35129:${'a'.repeat(64)}:profile-viewer` },
+      },
+    } as NappletMessage)).resolves.toMatchObject([{ result: { ok: true, handler: CATALOG_ID } }]);
+    expect(resolveHandlerHint).not.toHaveBeenCalled();
   });
 
   it('returns only after an authorized exact installed handler has been dispatched', async () => {

@@ -299,9 +299,14 @@ function renderIntentLinkDialog(): string {
         <div class="dialog-title" id="paja-intent-link-title">Review intent link</div>
         <label>Intent URI <input id="paja-intent-link-uri" type="text" autocomplete="off" spellcheck="false"></label>
         <label>Payload <textarea id="paja-intent-link-payload" rows="5" spellcheck="false"></textarea></label>
+        <label>Compatible handler <select id="paja-intent-link-handler" disabled></select></label>
+        <label><input id="paja-intent-link-save-default" type="checkbox"> Set as my default for this role</label>
         <div class="dialog-copy" id="paja-intent-link-target"></div>
         <div class="config-error" id="paja-intent-link-status" role="status" aria-live="polite"></div>
         <div class="dialog-actions">
+          <button type="button" id="paja-intent-link-choose">Choose another</button>
+          <button type="button" id="paja-intent-link-use-handler" disabled>Use handler</button>
+          <button type="button" id="paja-intent-link-retry">Retry</button>
           <button type="button" id="paja-intent-link-cancel">Cancel</button>
           <button type="button" id="paja-intent-link-launch">Launch</button>
         </div>
