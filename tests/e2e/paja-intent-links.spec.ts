@@ -95,7 +95,7 @@ test.describe('Paja intent links', () => {
     try {
       await page.goto(server.url);
       await expect.poll(() => page.evaluate(() => window.__KEHTO_PAJA__?.getState().tabs[0]?.status)).toBe('ready');
-      await openIntentBuilder(page, 'text-parameters');
+      await openIntentBuilder(page, 'text-parameters', 'keyboard');
       const builder = page.getByRole('dialog', { name: 'Create intent link' });
       const url = builder.getByLabel('Copyable URL');
       await expect(url).not.toHaveValue(/subject=|note=/);
@@ -422,11 +422,16 @@ async function configureRuntime(
   });
 }
 
-async function openIntentBuilder(page: Page, title: string): Promise<void> {
+async function openIntentBuilder(page: Page, title: string, activation: 'click' | 'keyboard' = 'click'): Promise<void> {
   await page.getByRole('button', { name: `Share ${title}` }).click();
   const share = page.getByRole('dialog', { name: 'Share' });
   await expect(share).toBeVisible();
-  await share.getByRole('button', { name: 'Create intent link' }).click();
+  await expect.poll(() => share.evaluate((dialog) => dialog.contains(document.activeElement))).toBe(true);
+  const create = share.getByRole('button', { name: 'Create intent link' });
+  if (activation === 'keyboard') {
+    await create.focus();
+    await page.keyboard.press('Enter');
+  } else await create.click();
   await expect(page.getByRole('dialog', { name: 'Create intent link' })).toBeVisible();
 }
 

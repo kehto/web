@@ -428,8 +428,19 @@ function openShareDialog(state: PajaRuntimeTabState, tab: PajaRuntimeTab, opener
   panel.append(title, description, actions);
   dialog.append(panel);
   document.body.append(dialog);
+  const retainModalFocus = (event: FocusEvent) => {
+    if (!dialog.open) return;
+    const next = event.relatedTarget;
+    if (next instanceof Node && dialog.contains(next)) return;
+    // A loading sandboxed frame can otherwise take focus after showModal(),
+    // leaving a visible Share dialog whose actions no longer receive input.
+    queueMicrotask(() => {
+      if (dialog.open && !dialog.matches(':focus-within')) copy.focus();
+    });
+  };
   const close = (restoreFocus = true) => {
     if (dialog.open) dialog.close();
+    dialog.removeEventListener('focusout', retainModalFocus);
     dialog.remove();
     if (restoreFocus) opener.focus();
   };
@@ -441,6 +452,7 @@ function openShareDialog(state: PajaRuntimeTabState, tab: PajaRuntimeTab, opener
     state.createIntentLink?.(tab);
   });
   dialog.addEventListener('cancel', onCancel);
+  dialog.addEventListener('focusout', retainModalFocus);
   dialog.showModal();
   copy.focus();
 }
