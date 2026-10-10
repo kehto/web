@@ -698,8 +698,8 @@ Phases execute in numeric order: 80 → 81 → 82
 - [x] 107-01 — Preserve canonical contracts, catalog identity, and acceptance lifecycle.
 - [x] 107-02 — Normalize convention URIs and encode Paja links.
 - [x] 107-03 — Build Share, review, selection, and verified launcher flows.
-- [ ] 107-04 — Synchronize docs, verify gates, and open the PR (shipping in progress).
+- [x] 107-04 — Synchronize docs, verify gates, and open [PR #289](https://github.com/kehto/web/pull/289).
 
 ---
 
-*ROADMAP.md last updated: 2026-10-10 — Phase 107 implementation verified; PR shipping in progress.*
+*ROADMAP.md last updated: 2026-10-10 — Phase 107 verified and shipped as open PR #289.*

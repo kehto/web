@@ -2,14 +2,14 @@
 phase: 107-paja-intent-deep-links
 status: passed
 verified: 2026-10-10
-requirements_verified: [LINK-01, LINK-02, LINK-03, LINK-04, LINK-05, LINK-06, LINK-07, LINK-08, LINK-09, LINK-10, LINK-11]
-shipping_requirement: LINK-12
+requirements_verified: [LINK-01, LINK-02, LINK-03, LINK-04, LINK-05, LINK-06, LINK-07, LINK-08, LINK-09, LINK-10, LINK-11, LINK-12]
+pr: 289
 ---
 
 # Phase 107 Verification
 
-Implementation acceptance passed. LINK-12 records the final PR transaction below;
-no merge or release is authorized by this closeout.
+Implementation acceptance and PR shipping passed. No merge or release is
+authorized by this closeout.
 
 ## Requirement evidence
 
@@ -26,7 +26,7 @@ no merge or release is authorized by this closeout.
 | LINK-09 | Verified signed launcher provides source identity; external fields cannot impersonate sender; source is registered before srcdoc | `intent-launcher.test.ts`, forged-sender service test, protected namespace tests, browser signed-launcher provenance/forged-message/delayed-readiness case; security T1/T6/T8 |
 | LINK-10 | Active README/package/how-to/migration/policy docs agree; four-package minor changeset; parsers separate from UI | `pnpm docs:check`; stale-string sweep; `.changeset/paja-intent-links.md`; compatibility warning tests |
 | LINK-11 | Repository gates and real browser regressions pass | Gate table below; `107-SECURITY.md` closes all 9 planned threats |
-| LINK-12 | Atomic feature commits, isolated checkout, explicit staging; PR is the shipping boundary | Final PR record added by ship closeout |
+| LINK-12 | Atomic feature commits, isolated checkout, explicit staging; PR is the shipping boundary | [PR #289](https://github.com/kehto/web/pull/289), open from the verified feature branch |
 
 Paths without prefixes above refer to `packages/paja/src`. Tests use signed
 manifest/artifact fixtures and actual opaque-origin iframe handshakes; browser
@@ -72,5 +72,7 @@ warning and documented removal condition.
 
 ## Shipping record
 
-Pending PR creation from `feat/paja-intent-links` to `main`. The primary checkout's
-unrelated `package.json` work remains untouched.
+[PR #289](https://github.com/kehto/web/pull/289) is open from
+`feat/paja-intent-links` to `main`. Atomic commits and this closeout record are
+pushed. The primary checkout's unrelated `package.json` work remains untouched.
+GitHub CI is allowed to complete on the PR; no merge or release was performed.

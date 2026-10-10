@@ -4,17 +4,17 @@ milestone: v1.29
 milestone_name: Napplet Convention and Runtime Conformance
 current_phase: 107
 current_phase_name: Paja Intent Deep Links
-status: verified
-stopped_at: Phase 107 verification complete; preparing intent-link PR
-last_updated: "2026-10-10T11:46:30.880909Z"
+status: completed
+stopped_at: Phase 107 complete; PR 289 open and pushed
+last_updated: "2026-10-10T11:49:59.294913Z"
 last_activity: 2026-10-10
-last_activity_desc: "Verified Phase 107 Paja intent links; preparing PR"
+last_activity_desc: "Shipped Phase 107 as open PR 289"
 progress:
   total_phases: 7
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 51
-  completed_plans: 50
-  percent: 98
+  completed_plans: 51
+  percent: 100
 ---
 
 # Project State
@@ -24,15 +24,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-28)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 107 Paja intent deep links — verified implementation and PR closeout
+**Current focus:** Phase 107 complete — PR #289 open for review
 
 ## Current Position
 
-Phase: 107 (Paja Intent Deep Links) — VERIFIED
+Phase: 107 (Paja Intent Deep Links) — COMPLETE
 Plan: 4 of 4
-Status: Implementation verified; preparing the feature PR. No merge or release is part of this task.
+Status: Shipped as open PR #289 — https://github.com/kehto/web/pull/289. No merge or release performed.
 
-Last activity: 2026-10-10 — Verified Phase 107 implementation and synchronized active documentation.
+Last activity: 2026-10-10 — Opened PR #289 and pushed verification/security closeout.
 
 ## Performance Metrics
 

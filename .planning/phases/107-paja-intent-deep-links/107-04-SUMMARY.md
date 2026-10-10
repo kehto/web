@@ -2,14 +2,14 @@
 phase: 107-paja-intent-deep-links
 plan: "04"
 subsystem: verification-and-shipping
-status: verified
+status: complete
 requirements: [LINK-10, LINK-11, LINK-12]
 ---
 
 # Phase 107 Plan 04: Verification and shipping
 
-The feature is implemented and verified. PR creation is the final shipping step;
-this task does not merge or release packages.
+The feature is implemented, verified, and shipped as open PR #289.
+This task does not merge or release packages.
 
 ## Changes
 
@@ -46,4 +46,5 @@ package.json change remains untouched.
 
 ## Shipping
 
-Pending creation of the PR from `feat/paja-intent-links` to `main`.
+[PR #289](https://github.com/kehto/web/pull/289) is open from
+`feat/paja-intent-links` to `main`. Final closeout records are committed and pushed.
