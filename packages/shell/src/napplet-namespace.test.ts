@@ -1011,26 +1011,19 @@ describe('NIP-5D napplet namespace prelude', () => {
     ]);
   });
 
-  it('normalizes canonical intent requests and open arguments', async () => {
+  it('normalizes URI intent requests and open arguments', async () => {
     const target = createPreludeTestWindow();
     runPrelude(renderNappletNamespacePrelude({ domains: ['intent'] }), target);
 
     type Intent = {
-      invoke: (request: unknown) => Promise<unknown>;
-      open: (
-        archetype: string,
-        payload?: unknown,
-        options?: Record<string, unknown>,
-      ) => Promise<unknown>;
+      invoke: (uri: string, options?: Record<string, unknown>) => Promise<unknown>;
+      open: (uri: string, options?: Record<string, unknown>) => Promise<unknown>;
     };
     const intent = target.napplet?.intent as Intent;
 
-    const invoked = intent.invoke({
-      archetype: 'profile',
-      convention: 'napplet:profile/open',
-      payload: { pubkey: 'abc123' },
+    const invoked = intent.invoke('napplet:profile/open?pubkey=abc%2B123', {
       handler: 'choose',
-      behavior: { focus: true, newWindow: true, reuse: false },
+      behavior: { focus: true, reuse: false },
     });
     const invokeRequest = withoutShellReady(target).at(-1);
     expect(invokeRequest).toEqual({
@@ -1040,9 +1033,9 @@ describe('NIP-5D napplet namespace prelude', () => {
         archetype: 'profile',
         action: 'open',
         convention: 'napplet:profile/open',
-        payload: { pubkey: 'abc123' },
+        payload: { pubkey: 'abc+123' },
         handler: 'choose',
-        behavior: { focus: true, newWindow: true, reuse: false },
+        behavior: { focus: true, reuse: false },
       },
     });
     target.dispatchParentMessage({
@@ -1065,8 +1058,8 @@ describe('NIP-5D napplet namespace prelude', () => {
       windowId: 'profile-window',
     });
 
-    const opened = intent.open('profile', { pubkey: 'def456' }, {
-      convention: 'napplet:profile/open',
+    const opened = intent.open('napplet:profile/open', {
+      payload: { pubkey: 'def456' },
       handler: 'choose',
       behavior: { focus: true, reuse: false },
     });
@@ -1106,12 +1099,8 @@ describe('NIP-5D napplet namespace prelude', () => {
     runPrelude(renderNappletNamespacePrelude({ domains: ['intent'] }), target);
 
     type Intent = {
-      invoke: (request: unknown) => Promise<unknown>;
-      open: (
-        archetype: string,
-        payload?: unknown,
-        options?: Record<string, unknown>,
-      ) => Promise<unknown>;
+      invoke: (...args: unknown[]) => Promise<unknown>;
+      open: (...args: unknown[]) => Promise<unknown>;
     };
     const intent = target.napplet?.intent as Intent;
     const before = withoutShellReady(target).length;
@@ -1129,12 +1118,40 @@ describe('NIP-5D napplet namespace prelude', () => {
       () => intent.invoke({ archetype: 'profile', behavior: null }),
       () => intent.invoke({ archetype: 'profile', behavior: { focus: 'yes' } }),
       () => intent.open('profile', undefined, { sender: 'forged' }),
+      () => intent.invoke('napplet:profile/open', { sender: 'forged' }),
+      () => intent.invoke('napplet:profile/open?name=one&name=two'),
+      () => intent.invoke('napplet:profile/open?name=%E0%A4%A'),
+      () => intent.invoke('napplet:profile/open?name=one', { payload: { name: 'two' } }),
+      () => intent.invoke('napplet:profile/open?', { payload: { name: 'two' } }),
+      () => intent.invoke('napplet:Profile/open'),
+      () => intent.invoke('napplet:profile/Open'),
+      () => intent.open('napplet:profile/edit'),
     ];
 
     for (const invoke of invalidInvocations) {
       expect(invoke).toThrow();
     }
     expect(withoutShellReady(target)).toHaveLength(before);
+  });
+
+  it('warns once for retained object intent calls while canonical URI calls stay quiet', () => {
+    const target = createPreludeTestWindow();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      runPrelude(renderNappletNamespacePrelude({ domains: ['intent'] }), target);
+      type Intent = { invoke: (...args: unknown[]) => Promise<unknown> };
+      const intent = target.napplet?.intent as Intent;
+
+      intent.invoke('napplet:profile/open?pubkey=abc');
+      expect(warn).not.toHaveBeenCalled();
+      intent.invoke({ archetype: 'profile', convention: 'napplet:profile/open' });
+      intent.invoke({ archetype: 'profile', convention: 'napplet:profile/open' });
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('[KEHTO_COMPAT_INTENT_OBJECT_INVOKE]'));
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('intent.invoke(uri, options)'));
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('protects the canonical intent binding across namespace attacks', () => {

@@ -7,6 +7,8 @@
  * aislop-ignore-file complexity/file-too-large complexity/function-too-long
  */
 
+import { normalizeIntentUri } from './intent-uri.js';
+
 /**
  * Options for rendering the host-owned NIP-5D `window.napplet` namespace prelude.
  *
@@ -58,7 +60,7 @@ function scriptJson(value: unknown): string {
  */
 export function renderNappletNamespacePrelude(options: NappletNamespacePreludeOptions): string {
   const domains = uniqueBareDomains(['shell', ...options.domains]);
-  return `<script data-kehto-nip5d-injection>(${nappletNamespacePrelude.toString()})(${scriptJson(domains)});</script>`;
+  return `<script data-kehto-nip5d-injection>(${nappletNamespacePrelude.toString()})(${scriptJson(domains)}, (${normalizeIntentUri.toString()}));</script>`;
 }
 
 /**
@@ -93,7 +95,10 @@ export function injectNappletNamespacePrelude(
   return `${prelude}${html}`;
 }
 
-function nappletNamespacePrelude(domains: string[]): void {
+function nappletNamespacePrelude(
+  domains: string[],
+  normalizeIntentUri: (uri: unknown, options?: unknown) => Record<string, unknown>,
+): void {
   const target = window as Window & { napplet?: Record<string, unknown> };
   const allowed = new Set(domains);
   const requestTimeoutMs = 30_000;
@@ -1325,7 +1330,14 @@ function nappletNamespacePrelude(domains: string[]): void {
     const hasOwn = (value: Record<string, unknown>, key: string): boolean => (
       Object.prototype.hasOwnProperty.call(value, key)
     );
-    const normalizeRequest = (value: unknown): Record<string, unknown> => {
+    let warnedLegacyObject = false;
+    const warnLegacyObject = (): void => {
+      if (warnedLegacyObject) return;
+      warnedLegacyObject = true;
+      console.warn('[KEHTO_COMPAT_INTENT_OBJECT_INVOKE] Object-form intent.invoke/open is deprecated; use intent.invoke(uri, options) or intent.open(uri, options). Warns once per napplet. See docs/compatibility.md.');
+    };
+    const normalizeLegacyRequest = (value: unknown): Record<string, unknown> => {
+      warnLegacyObject();
       if (!value || typeof value !== 'object' || Array.isArray(value)) {
         throw new TypeError('Intent request must be an object');
       }
@@ -1333,7 +1345,7 @@ function nappletNamespacePrelude(domains: string[]): void {
       if (hasOwn(supplied, 'sender')) {
         throw new TypeError('Intent callers cannot supply sender');
       }
-      const allowed = ['archetype', 'action', 'convention', 'payload', 'handler', 'behavior'];
+      const allowed = ['archetype', 'action', 'convention', 'payload', 'handler', 'handlerHint', 'behavior'];
       if (Object.keys(supplied).some((field) => !allowed.includes(field))) {
         throw new TypeError('Intent request contains unsupported fields');
       }
@@ -1344,83 +1356,69 @@ function nappletNamespacePrelude(domains: string[]): void {
       if (typeof action !== 'string' || action.length === 0) {
         throw new TypeError('Intent action must be a non-empty string');
       }
-      if (
-        supplied.convention !== undefined
-        && (
-          typeof supplied.convention !== 'string'
-          || !/^napplet:[^/?#\s]+\/[^/?#\s]+$/.test(supplied.convention)
-        )
-      ) {
-        throw new TypeError('Intent convention must be queryless');
-      }
-      if (
-        supplied.handler !== undefined
-        && (typeof supplied.handler !== 'string' || supplied.handler.length === 0)
-      ) {
-        throw new TypeError('Intent handler must be a non-empty string');
-      }
-      const behaviorValue = supplied?.behavior;
-      const behavior = behaviorValue && typeof behaviorValue === 'object'
-        ? behaviorValue as Record<string, unknown>
-        : undefined;
-      if (
-        behaviorValue !== undefined
-        && (
-          !behavior
-          || Array.isArray(behaviorValue)
-          || Object.keys(behavior).some((field) =>
-            field !== 'focus' && field !== 'newWindow' && field !== 'reuse')
-          || (hasOwn(behavior, 'focus') && typeof behavior.focus !== 'boolean')
-          || (hasOwn(behavior, 'newWindow') && typeof behavior.newWindow !== 'boolean')
-          || (hasOwn(behavior, 'reuse') && typeof behavior.reuse !== 'boolean')
-        )
-      ) {
-        throw new TypeError('Intent behavior contains unsupported fields');
-      }
-      const sanitizedBehavior = {
-        ...(typeof behavior?.focus === 'boolean' ? { focus: behavior.focus } : {}),
-        ...(typeof behavior?.newWindow === 'boolean'
-          ? { newWindow: behavior.newWindow }
-          : {}),
-        ...(typeof behavior?.reuse === 'boolean' ? { reuse: behavior.reuse } : {}),
-      };
-      return {
-        archetype: supplied.archetype,
-        action,
-        ...(typeof supplied.convention === 'string'
-          ? { convention: supplied.convention }
-          : {}),
+      const uri = supplied.convention === undefined
+        ? `napplet:${supplied.archetype}/${action}`
+        : supplied.convention;
+      if (typeof uri !== 'string') throw new TypeError('Intent convention must be text');
+      if (uri.includes('?') || uri.includes('#')) throw new TypeError('Legacy intent convention must be queryless');
+      return normalizeIntentUri(uri, {
         ...(hasOwn(supplied, 'payload') ? { payload: supplied.payload } : {}),
-        ...(typeof supplied.handler === 'string' ? { handler: supplied.handler } : {}),
-        ...(Object.keys(sanitizedBehavior).length === 0
-          ? {}
-          : { behavior: sanitizedBehavior }),
-      };
+        ...(hasOwn(supplied, 'handler') ? { handler: supplied.handler } : {}),
+        ...(hasOwn(supplied, 'handlerHint') ? { handlerHint: supplied.handlerHint } : {}),
+        ...(hasOwn(supplied, 'behavior') ? { behavior: supplied.behavior } : {}),
+      });
     };
-    const invoke = (value: unknown) => {
-      const normalized = normalizeRequest(value);
-      return request(
-        {
-          type: 'intent.invoke',
-          request: normalized,
-        },
-        'intent.invoke.result',
-        (msg) => fieldOrThrow(msg, 'result', 'intent.invoke.result missing result'),
-      );
+    const requestInvoke = (normalized: Record<string, unknown>) => request(
+      {
+        type: 'intent.invoke',
+        request: normalized,
+      },
+      'intent.invoke.result',
+      (msg) => fieldOrThrow(msg, 'result', 'intent.invoke.result missing result'),
+    );
+    const invoke = (uri: unknown, options?: unknown) => {
+      const normalized = typeof uri === 'string'
+        ? normalizeIntentUri(uri, options)
+        : normalizeLegacyRequest(uri);
+      return requestInvoke(normalized);
+    };
+    const open = (uri: unknown, options?: unknown, legacyOptions?: unknown) => {
+      if (typeof uri === 'string' && uri.startsWith('napplet:') && legacyOptions === undefined) {
+        const normalized = normalizeIntentUri(uri, options);
+        if (normalized.action !== 'open') throw new TypeError('intent.open requires a /open URI');
+        return requestInvoke(normalized);
+      }
+      if (typeof uri !== 'string' || !uri) throw new TypeError('Intent archetype must be non-empty text');
+      warnLegacyObject();
+      if (legacyOptions !== undefined && (!legacyOptions || typeof legacyOptions !== 'object' || Array.isArray(legacyOptions))) {
+        throw new TypeError('Intent options must be an object');
+      }
+      const legacy = legacyOptions as Record<string, unknown> | undefined;
+      const convention = legacy?.convention === undefined ? `napplet:${uri}/open` : legacy.convention;
+      if (typeof convention !== 'string' || convention.includes('?') || convention.includes('#')) {
+        throw new TypeError('Legacy intent convention must be queryless');
+      }
+      const normalized = normalizeIntentUri(`napplet:${uri}/open`, {
+        ...(options === undefined ? {} : { payload: options }),
+        ...(legacy === undefined ? {} : Object.fromEntries(
+          Object.entries(legacy).filter(([key]) => key !== 'convention'),
+        )),
+      });
+      const legacyNormalized = convention === `napplet:${uri}/open`
+        ? normalized
+        : normalizeIntentUri(convention, {
+          ...(options === undefined ? {} : { payload: options }),
+          ...(legacy === undefined ? {} : Object.fromEntries(
+            Object.entries(legacy).filter(([key]) => key !== 'convention'),
+          )),
+        });
+      if (legacyNormalized.action !== 'open') throw new TypeError('intent.open requires a /open URI');
+      return requestInvoke(legacyNormalized);
     };
     return {
       onDelivery: intentDelivery!.onDelivery,
       invoke,
-      open: (
-        archetype: string,
-        payload?: unknown,
-        opts?: Record<string, unknown>,
-      ) => invoke({
-        archetype,
-        action: 'open',
-        ...(payload === undefined ? {} : { payload }),
-        ...opts,
-      }),
+      open,
       available: (archetype: string) => request(
         { type: 'intent.available', archetype },
         'intent.available.result',
