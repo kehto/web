@@ -1,8 +1,8 @@
 ---
 phase: 107
-status: planned
+status: verified
 nyquist_compliant: true
-wave_0_complete: false
+wave_0_complete: true
 ---
 
 # Validation
