@@ -1,6 +1,7 @@
 import type { NostrEvent } from 'nostr-tools';
 import type { NappletManifest } from './index.js';
 import { NappletResolutionError } from './errors.js';
+import { getNappletCatalogId } from './catalog-id.js';
 
 const HASH = /^[a-f0-9]{64}$/;
 const DOMAIN = /^[a-z][a-z0-9-]*$/;
@@ -24,6 +25,25 @@ function declarations(tags: string[][], name: string, pattern: RegExp): string[]
     if (tag.length !== 2 || !pattern.test(tag[1])) invalid(`invalid ${name} declaration`);
     return tag[1];
   }))];
+}
+
+function intentDeclarations(tags: string[][], roles: readonly string[]): Array<{
+  slug: string;
+  convention: string;
+  params: string[];
+}> {
+  const roleSet = new Set(roles);
+  const contracts: Array<{ slug: string; convention: string; params: string[] }> = [];
+  for (const tag of tags) {
+    if (tag[0] !== 'i') continue;
+    const [, identity, ...params] = tag;
+    const match = typeof identity === 'string' ? /^napplet:([a-z0-9][a-z0-9-]*)\/[^/?#\s]+$/.exec(identity) : null;
+    if (!match || params.some((param) => !param || /\s/.test(param))) continue;
+    // A current `i` advertisement is eligible only for the same declared role.
+    if (!roleSet.has(match[1])) continue;
+    contracts.push({ slug: match[1], convention: identity, params });
+  }
+  return contracts;
 }
 
 function iconFromTags(tags: string[][]): NappletManifest['icon'] {
@@ -59,20 +79,19 @@ export function parseCurrentManifest(event: NostrEvent): NappletManifest {
       invalid('lineage must be a napplet address on a snapshot');
     }
   }
-  const archetypeSlugs = declarations(tags, 'z', SLUG);
-  const intents = tags.filter((tag) => tag[0] === 'i').map((tag) => {
-    const [, identity, ...parameters] = tag;
-    if (!identity || !INTENT.test(identity)
-      || parameters.some((parameter) => !parameter || /\s/.test(parameter))) {
-      invalid('invalid accepted intent or parameter name');
-    }
-    return { identity, parameters };
-  });
+  // NAP-INTENT advertisements are optional routing hints. A malformed z/i tag
+  // contributes no contract and never invalidates an otherwise verified artifact.
+  const archetypeSlugs = [...new Set(tags
+    .filter((tag) => tag[0] === 'z' && tag.length === 2 && SLUG.test(tag[1]))
+    .map((tag) => tag[1]))];
+  const archetypes = intentDeclarations(tags, archetypeSlugs);
+  const intents = archetypes.map(({ convention: identity, params: parameters }) => ({ identity, parameters }));
   return {
     format: 'current',
     kind: event.kind,
     pubkey: event.pubkey,
     dTag: dTag ?? '',
+    catalogId: getNappletCatalogId(event),
     artifactHash,
     aggregateHash: artifactHash,
     paths: [{ path: '/index.html', sha256: artifactHash }],
@@ -81,11 +100,7 @@ export function parseCurrentManifest(event: NostrEvent): NappletManifest {
     optional: declarations(tags, 'O', DOMAIN),
     archetypeSlugs,
     intents,
-    // NAP-INTENT keeps roles and conventions orthogonal. The current schema
-    // advertises independent sets; legacy explicit pairings stay in its adapter.
-    archetypes: archetypeSlugs.flatMap((slug) => intents.map(({ identity }) => ({
-      slug, convention: identity,
-    }))),
+    archetypes,
     title: single(tags, 'title'),
     description: event.content,
     source: single(tags, 'source'),
