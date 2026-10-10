@@ -34,11 +34,24 @@ describe('createCatalogIntentResolver', () => {
     const completion = new Promise<void>((_resolve, reject) => { rejectCompletion = reject; });
     const accept = vi.fn(() => ({ completion }));
     const subject = createCatalogIntentResolver({ loadCatalog: () => [CATALOG[0]], targets: { accept } });
-    await expect(subject.invoke(REQUEST, { sender: 'nip5d:35129:cc:source' })).resolves.toEqual({
+    await expect(subject.invoke(REQUEST, { sender: 'nip5d:35129:cc:source', sourceWindowId: 'source-window' })).resolves.toEqual({
       ok: true, archetype: 'note', action: 'open', convention: OPEN, handler: CATALOG[0].id,
     });
-    expect(accept).toHaveBeenCalledWith(expect.objectContaining({ sender: 'nip5d:35129:cc:source', handler: CATALOG[0].id }));
+    expect(accept).toHaveBeenCalledWith(expect.objectContaining({ sender: 'nip5d:35129:cc:source', sourceWindowId: 'source-window', handler: CATALOG[0].id }));
     rejectCompletion(new Error('target failed after acceptance'));
+  });
+
+  it('authorizes an explicit target with the authenticated source window context only', async () => {
+    const authorize = vi.fn(() => true);
+    const { resolver: subject } = resolver({ authorizeExplicitHandler: authorize });
+    await expect(subject.invoke(
+      { ...REQUEST, handler: CATALOG[1].id },
+      { sender: 'launcher-catalog', sourceWindowId: 'launcher-window-2' },
+    )).resolves.toMatchObject({ ok: true, handler: CATALOG[1].id });
+    expect(authorize).toHaveBeenCalledWith(
+      'launcher-catalog', CATALOG[1].id, expect.any(Object), expect.any(Object),
+      { sender: 'launcher-catalog', sourceWindowId: 'launcher-window-2' },
+    );
   });
 
   it('honors explicit choice, default, recommendation, then compatible fallback', async () => {

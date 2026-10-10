@@ -39,6 +39,8 @@ export interface BrowserIntentControllerOptions {
   waitForReady(generation: BrowserIntentGeneration): void | Promise<void>;
   /** Return true only while the generation remains the selected current target. */
   isCurrent(generation: BrowserIntentGeneration): boolean | Promise<boolean>;
+  /** Deprecated target identity probe retained for adapter test compatibility. */
+  getWindowId?(generation: BrowserIntentGeneration): string | null;
   /** Send the convention through the ordinary carrier to the ready generation. */
   send(
     generation: BrowserIntentGeneration,
@@ -50,6 +52,8 @@ export interface BrowserIntentControllerOptions {
   onTerminal?(params: IntentDispatchParams, reason: BrowserIntentTerminalReason): void;
   /** Observe successful terminal delivery without adding a second source result. */
   onDelivered?(params: IntentDispatchParams): void;
+  /** Observe retained target work before its asynchronous completion can race. */
+  onAccepted?(params: IntentDispatchParams, acceptance: IntentTargetAcceptance): void;
 }
 
 const MAX_INTENT_DELIVERY_ATTEMPTS = 10;
@@ -66,7 +70,9 @@ export class BrowserIntentController implements IntentTargetController {
 
   /** Retain delivery work immediately; completion remains host-observable only. */
   accept(params: IntentDispatchParams): IntentTargetAcceptance {
-    return Object.freeze({ completion: this.dispatch(params) });
+    const acceptance = Object.freeze({ completion: this.dispatch(params) });
+    this.options.onAccepted?.(params, acceptance);
+    return acceptance;
   }
 
   /** Complete an already accepted delivery. Kept public for host diagnostics and tests. */
@@ -143,6 +149,7 @@ function freezeDispatch(params: IntentDispatchParams): IntentDispatchParams {
     convention: params.convention,
     ...(params.payload === undefined ? {} : { payload }),
     ...(behavior === undefined ? {} : { behavior }),
+    ...(params.sourceWindowId === undefined ? {} : { sourceWindowId: params.sourceWindowId }),
   });
 }
 

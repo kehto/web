@@ -48,6 +48,7 @@ describe('verified manifest intent dispatch', () => {
       action: 'open',
       convention: CONVENTION,
       payload: { pubkey: 'c'.repeat(64) },
+      sourceWindowId: 'source-window',
     });
     expect(sent).toEqual([{
       type: 'intent.invoke.result', id: 'intent-1',

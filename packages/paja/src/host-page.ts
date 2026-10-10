@@ -301,6 +301,7 @@ function renderIntentLinkDialog(): string {
         <label>Payload <textarea id="paja-intent-link-payload" rows="5" spellcheck="false"></textarea></label>
         <label>Compatible handler <select id="paja-intent-link-handler" disabled></select></label>
         <label><input id="paja-intent-link-save-default" type="checkbox"> Set as my default for this role</label>
+        <button type="button" id="paja-intent-link-clear-default">Clear saved default</button>
         <div class="dialog-copy" id="paja-intent-link-target"></div>
         <div class="config-error" id="paja-intent-link-status" role="status" aria-live="polite"></div>
         <div class="dialog-actions">

@@ -26,7 +26,7 @@ describe('createIntentService', () => {
 
     service.handleMessage('trusted', { type: 'intent.invoke', id: 'two', request } as unknown as NappletMessage, (message) => sent.push(message));
     await flush();
-    expect(invoke).toHaveBeenCalledWith(request, { sender: 'nip5d:35129:publisher:source' });
+    expect(invoke).toHaveBeenCalledWith(request, { sender: 'nip5d:35129:publisher:source', sourceWindowId: 'trusted' });
     expect(sent[1]).toEqual(expect.objectContaining({ result: expect.not.objectContaining({ handled: expect.anything(), windowId: expect.anything() }) }));
   });
 

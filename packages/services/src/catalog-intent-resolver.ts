@@ -32,6 +32,8 @@ export interface IntentDispatchParams {
   readonly convention: string;
   readonly payload?: unknown;
   readonly behavior?: Readonly<IntentBehavior>;
+  /** Authenticated host-only source correlation. Never serialize into delivery. */
+  readonly sourceWindowId?: string;
 }
 
 /** Retained work observable by the host without a second source result. */
@@ -59,6 +61,7 @@ export interface CatalogIntentResolverOptions {
     handler: string,
     request: IntentRequest,
     candidate: IntentCandidate,
+    context?: IntentResolverContext,
   ): boolean | Promise<boolean>;
   /** Resolve a valid recommendation only to an already compatible verified entry. */
   resolveHandlerHint?(
@@ -112,12 +115,13 @@ async function choose(options: CatalogIntentResolverOptions, request: IntentRequ
   return candidates.find((candidate) => candidate.id === id) ?? rejected('invoke rejected');
 }
 
-async function select(options: CatalogIntentResolverOptions, request: IntentRequest, candidates: readonly IntentCandidate[], sender: string): Promise<IntentCandidate | IntentResult> {
+async function select(options: CatalogIntentResolverOptions, request: IntentRequest, candidates: readonly IntentCandidate[], context: IntentResolverContext): Promise<IntentCandidate | IntentResult> {
+  const { sender } = context;
   if (request.handler && request.handler !== 'default' && request.handler !== 'choose') {
     const candidate = candidates.find((item) => item.id === request.handler);
     if (!candidate || !options.authorizeExplicitHandler) return rejected('invoke rejected');
     try {
-      return await options.authorizeExplicitHandler(sender, request.handler, request, candidate)
+      return await options.authorizeExplicitHandler(sender, request.handler, request, candidate, context)
         ? candidate : rejected('invoke rejected');
     } catch { return rejected('invoke rejected'); }
   }
@@ -156,7 +160,7 @@ async function invoke(options: CatalogIntentResolverOptions, request: IntentRequ
   if (candidates.length === 0) return rejected('no handler');
   const compatible = compatibleFor(request, candidates);
   if (compatible.length === 0) return rejected(candidates.some((candidate) => candidate.actions.includes(request.action)) ? 'unsupported convention' : 'unsupported action');
-  const selected = await select(options, request, compatible, context.sender);
+  const selected = await select(options, request, compatible, context);
   if ('ok' in selected) return selected;
   const behavior = request.behavior === undefined ? undefined : Object.freeze({
     ...(request.behavior.focus === undefined ? {} : { focus: request.behavior.focus }),
@@ -170,6 +174,7 @@ async function invoke(options: CatalogIntentResolverOptions, request: IntentRequ
     convention: request.convention,
     ...(request.payload === undefined ? {} : { payload: request.payload }),
     ...(behavior === undefined ? {} : { behavior }),
+    ...(context.sourceWindowId === undefined ? {} : { sourceWindowId: context.sourceWindowId }),
   }) satisfies IntentDispatchParams;
   try {
     const accepted = options.targets.accept(params);

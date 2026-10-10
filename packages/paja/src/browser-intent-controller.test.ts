@@ -45,6 +45,25 @@ describe('BrowserIntentController', () => {
     expect(send).toHaveBeenCalledOnce();
   });
 
+  it('reports acceptance synchronously and retains internal source correlation off the wire payload', async () => {
+    let release!: () => void;
+    const pending = new Promise<void>((resolve) => { release = resolve; });
+    const onAccepted = vi.fn();
+    const send = vi.fn();
+    const controller = new BrowserIntentController({
+      openOrReuse: () => ({ id: 'generation-accepted' }),
+      waitForReady: () => pending,
+      isCurrent: () => true,
+      send,
+      onAccepted,
+    });
+    const acceptance = controller.accept(params({ sourceWindowId: 'launcher-1' }));
+    expect(onAccepted).toHaveBeenCalledWith(expect.objectContaining({ sourceWindowId: 'launcher-1' }), acceptance);
+    release();
+    await acceptance.completion;
+    expect(send).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ sourceWindowId: 'launcher-1' }));
+  });
+
   it('retries replaced generations and delivers only to the current one', async () => {
     const openOrReuse = vi.fn()
       .mockResolvedValueOnce({ id: 'generation-1' })

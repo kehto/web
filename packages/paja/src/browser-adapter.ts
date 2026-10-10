@@ -194,6 +194,7 @@ interface PajaIntentHost {
     handler: string,
     request: IntentRequest,
     candidate: IntentCandidate,
+    context?: import('@kehto/services').IntentResolverContext,
   ): boolean | Promise<boolean>;
   resolveHandlerHint?(
     hint: import('@kehto/services').IntentHandlerHint,

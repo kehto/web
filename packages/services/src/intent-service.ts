@@ -11,7 +11,11 @@ const CONVENTION = /^napplet:([a-z0-9][a-z0-9-]*)\/([a-z0-9][a-z0-9-]*)$/;
 const HINT_ADDRESS = /^35129:[a-f0-9]{64}:.+$/;
 
 /** Runtime-attested source catalog identity passed to intent policy. */
-export interface IntentResolverContext { readonly sender: string; }
+export interface IntentResolverContext {
+  readonly sender: string;
+  /** Authenticated runtime source, internal to host policy and never wire data. */
+  readonly sourceWindowId?: string;
+}
 
 /** Installed-catalog resolver and lifecycle policy. */
 export interface IntentResolver {
@@ -115,7 +119,7 @@ export function createIntentService(options: IntentServiceOptions): ServiceHandl
       return reject(send, id);
     }
     if (!request || !sender) return reject(send, id, request ? 'invoke rejected' : 'invalid convention');
-    void Promise.resolve().then(() => resolver.invoke(request, { sender })).then(
+    void Promise.resolve().then(() => resolver.invoke(request, { sender, sourceWindowId: windowId })).then(
       (result) => send({ type: 'intent.invoke.result', id, result } as NappletMessage),
       () => reject(send, id),
     ).catch(() => {});

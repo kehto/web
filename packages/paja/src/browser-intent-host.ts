@@ -35,6 +35,8 @@ export interface PajaIntentHostEffects {
   setReadyStatus?(state: PajaBrowserState): void;
   onDelivered?(params: IntentDispatchParams): void;
   onTerminal?(params: IntentDispatchParams, reason: import('./browser-intent-controller.js').BrowserIntentTerminalReason): void;
+  /** Observe retained work before asynchronous target completion. */
+  onAccepted?(params: IntentDispatchParams, acceptance: import('@kehto/services').IntentTargetAcceptance): void;
 }
 
 /**
@@ -53,6 +55,7 @@ export function createPajaIntentTargetOptions(
   return {
     onDelivered: effects.onDelivered,
     onTerminal: effects.onTerminal,
+    onAccepted: effects.onAccepted,
     async openOrReuse(params) {
       const state = getState();
       const context = getContext();
