@@ -31,6 +31,10 @@ interface SignedTarget {
   readonly bytes: Buffer;
 }
 
+interface DelayedRelay {
+  release(): void;
+}
+
 test.describe('Paja intent links', () => {
   test('builds a link from a verified tab and delivers its copied JSON link after fresh navigation', async ({ browser }) => {
     test.setTimeout(60_000);
@@ -44,16 +48,16 @@ test.describe('Paja intent links', () => {
     try {
       await builderPage.goto(server.url);
       await expect.poll(() => builderPage.evaluate(() => window.__KEHTO_PAJA__?.getState().tabs[0]?.status)).toBe('ready');
-      const create = builderPage.getByRole('button', { name: 'Create intent link for builder-target' });
-      await expect(create).toBeVisible();
-      await create.click();
+      const share = builderPage.getByRole('button', { name: 'Share builder-target' });
+      await expect(share).toBeVisible();
+      await openIntentBuilder(builderPage, 'builder-target');
       const builder = builderPage.getByRole('dialog', { name: 'Create intent link' });
       await expect(builder).toBeVisible();
-      await expect(builder.getByLabel('Convention')).toHaveValue('napplet:profile/open');
-      await builder.getByLabel('Routing').selectOption('exact');
-      await builder.getByLabel('Payload mode').selectOption('json');
+      await expect(builder.locator('select[id$="-convention"]')).toHaveValue('napplet:profile/open');
+      await builder.locator('select[id$="-routing"]').selectOption('exact');
+      await builder.locator('select[id$="-payload-mode"]').selectOption('json');
       await builder.getByRole('textbox', { name: 'JSON payload' }).fill('{"value":null,"items":[1,"two"]}');
-      await expect(builder.locator('output')).toHaveText('napplet:profile/open');
+      await expect(builder.locator('output')).toContainText('Convention: napplet:profile/open');
       await builder.getByRole('button', { name: 'Copy link' }).click();
       await expect(builder.locator('[role="status"]')).toContainText(/Link copied|Copy the selected link/);
       const copied = await builder.getByLabel('Copyable URL').inputValue();
@@ -63,7 +67,7 @@ test.describe('Paja intent links', () => {
 
       await builderPage.keyboard.press('Escape');
       await expect(builder).toBeHidden();
-      await expect(create).toBeFocused();
+      await expect(share).toBeFocused();
 
       // This second document has no pointer startup. The copied intent alone
       // opens a review, then the user explicitly launches it.
@@ -82,6 +86,29 @@ test.describe('Paja intent links', () => {
     }
   });
 
+  test('omits untouched advertised text parameters and preserves an explicitly included empty value', async ({ page }) => {
+    const server = await startIntentServer();
+    const target = createSignedTarget(server.url, 'text-parameters', delayedTargetHtml(), 'napplet:profile/open', ['subject', 'note']);
+    server.blobs.set(target.hash, target.bytes);
+    await configureRuntime(page, server, [target.event], target.pointer);
+
+    try {
+      await page.goto(server.url);
+      await expect.poll(() => page.evaluate(() => window.__KEHTO_PAJA__?.getState().tabs[0]?.status)).toBe('ready');
+      await openIntentBuilder(page, 'text-parameters');
+      const builder = page.getByRole('dialog', { name: 'Create intent link' });
+      const url = builder.getByLabel('Copyable URL');
+      await expect(url).not.toHaveValue(/subject=|note=/);
+      await builder.locator('input[type="checkbox"]').first().check();
+      await expect(url).toHaveValue(/subject%3D|subject%3D/);
+      const href = await url.inputValue();
+      expect(decodeURIComponent(href)).toContain('intent=napplet:profile/open?subject=');
+      expect(decodeURIComponent(href)).not.toContain('note=');
+    } finally {
+      await server.close();
+    }
+  });
+
   test('reuses a warm verified handler without replaying or opening a second target tab', async ({ page }) => {
     test.setTimeout(45_000);
     const server = await startIntentServer();
@@ -92,12 +119,11 @@ test.describe('Paja intent links', () => {
     try {
       await page.goto(server.url);
       await expect.poll(() => page.evaluate(() => window.__KEHTO_PAJA__?.getState().tabs[0]?.status)).toBe('ready');
-      const create = page.getByRole('button', { name: 'Create intent link for warm-target' });
       for (const [value, count] of [[1, 1], [2, 2]] as const) {
-        await create.click();
+        await openIntentBuilder(page, 'warm-target');
         const builder = page.getByRole('dialog', { name: 'Create intent link' });
-        await builder.getByLabel('Routing').selectOption('exact');
-        await builder.getByLabel('Payload mode').selectOption('json');
+        await builder.locator('select[id$="-routing"]').selectOption('exact');
+        await builder.locator('select[id$="-payload-mode"]').selectOption('json');
         await builder.getByRole('textbox', { name: 'JSON payload' }).fill(JSON.stringify({ value }));
         await builder.getByRole('button', { name: 'Test intent' }).click();
         const review = page.getByRole('dialog', { name: 'Review intent link' });
@@ -106,6 +132,7 @@ test.describe('Paja intent links', () => {
         await expect(page.frameLocator('iframe').locator('#delivery-count')).toHaveText(String(count), { timeout: 15_000 });
         await expect(page.frameLocator('iframe').locator('#delivery-payload')).toHaveText(JSON.stringify({ value }));
         await expect(page.locator('iframe')).toHaveCount(1);
+        await expect(page.locator('#paja-intent-link-status')).toHaveText('Delivered to the verified target.');
         await review.getByRole('button', { name: 'Cancel' }).click();
         await expect(review).toBeHidden();
       }
@@ -137,7 +164,7 @@ test.describe('Paja intent links', () => {
       await expect.poll(() => setup.evaluate(() => window.__KEHTO_PAJA__?.getState().tabs.length)).toBe(2);
 
       // Saving a default requires an explicit compatible-handler selection.
-      await setup.getByRole('button', { name: 'Create intent link for default-target' }).click();
+      await openIntentBuilder(setup, 'default-target');
       let builder = setup.getByRole('dialog', { name: 'Create intent link' });
       await builder.getByRole('button', { name: 'Test intent' }).click();
       let review = setup.getByRole('dialog', { name: 'Review intent link' });
@@ -150,9 +177,9 @@ test.describe('Paja intent links', () => {
       await review.getByRole('button', { name: 'Cancel' }).click();
 
       // The recommendation link is also created from a verified current manifest.
-      await setup.getByRole('button', { name: 'Create intent link for recommended-target' }).click();
+      await openIntentBuilder(setup, 'recommended-target');
       builder = setup.getByRole('dialog', { name: 'Create intent link' });
-      await builder.getByLabel('Routing').selectOption('recommend');
+      await builder.locator('select[id$="-routing"]').selectOption('recommend');
       const recommendedLink = await builder.getByLabel('Copyable URL').inputValue();
       expect(recommendedLink).toContain('%23naddr');
       await builder.getByRole('button', { name: 'Cancel' }).click();
@@ -173,6 +200,29 @@ test.describe('Paja intent links', () => {
       await review.getByRole('button', { name: 'Launch' }).click();
       await expect(incoming.frameLocator('iframe').locator('#delivery-target')).toHaveText('default', { timeout: 15_000 });
       expect(recommendationPrompts).toEqual([]);
+
+      // An explicit Choose another bypasses the saved default, permits a
+      // replacement, and lets the user clear that replacement deliberately.
+      await openIntentBuilder(setup, 'default-target');
+      builder = setup.getByRole('dialog', { name: 'Create intent link' });
+      await builder.getByRole('button', { name: 'Test intent' }).click();
+      review = setup.getByRole('dialog', { name: 'Review intent link' });
+      await review.getByRole('button', { name: 'Choose another' }).click();
+      await review.getByRole('button', { name: 'Launch' }).click();
+      await expect(review.getByLabel('Compatible handler')).toBeEnabled();
+      await review.getByLabel('Compatible handler').selectOption({ label: 'recommended-target' });
+      await review.getByLabel('Set as my default for this role').check();
+      await review.getByRole('button', { name: 'Use handler' }).click();
+      await expect(setup.frameLocator('iframe[title="Napplet runtime target: recommended-target"]').locator('#delivery-target')).toHaveText('recommended', { timeout: 15_000 });
+      await review.getByRole('button', { name: 'Cancel' }).click();
+
+      await openIntentBuilder(setup, 'default-target');
+      builder = setup.getByRole('dialog', { name: 'Create intent link' });
+      await builder.getByRole('button', { name: 'Test intent' }).click();
+      review = setup.getByRole('dialog', { name: 'Review intent link' });
+      await review.getByRole('button', { name: 'Clear saved default' }).click();
+      await expect(setup.locator('#paja-intent-link-status')).toContainText('Cleared the saved default');
+      await review.getByRole('button', { name: 'Cancel' }).click();
     } finally {
       await context.close();
       await server.close();
@@ -224,6 +274,78 @@ test.describe('Paja intent links', () => {
     }
   });
 
+  test('Escape cancels a review while exact target resolution is delayed and prevents a later launch', async ({ page }) => {
+    test.setTimeout(45_000);
+    const server = await startIntentServer();
+    const target = createSignedTarget(server.url, 'delayed-target', delayedTargetHtml(), 'napplet:profile/open', []);
+    server.blobs.set(target.hash, target.bytes);
+    const delayed = await configureDelayedRuntime(page, server, [target.event]);
+
+    try {
+      await page.goto(intentHref(server.url, target.pointer, { value: 'cancel' }));
+      const review = page.getByRole('dialog', { name: 'Review intent link' });
+      await expect(review).toBeVisible();
+      await review.getByRole('button', { name: 'Launch' }).click();
+      await expect(page.locator('#paja-intent-link-status')).toContainText('Resolving verified handler policy');
+      await page.keyboard.press('Escape');
+      await expect(review).toBeHidden();
+      delayed.release();
+      await expect.poll(() => page.evaluate(() => window.__KEHTO_PAJA__?.getState().iframeCount)).toBe(0);
+      await expect(page.locator('#paja-intent-link-status')).not.toContainText(/Accepted|Delivered/);
+    } finally {
+      await server.close();
+    }
+  });
+
+  test('rejects an edited explicit pointer link that also adds a recommended-target fragment', async ({ page }) => {
+    const server = await startIntentServer();
+    const target = createSignedTarget(server.url, 'fragment-conflict', delayedTargetHtml(), 'napplet:profile/open', []);
+    server.blobs.set(target.hash, target.bytes);
+    await configureRuntime(page, server, [target.event]);
+
+    try {
+      await page.goto(intentHref(server.url, target.pointer, { value: 'conflict' }));
+      const review = page.getByRole('dialog', { name: 'Review intent link' });
+      await review.getByLabel('Intent URI').fill(`napplet:profile/open#${target.pointer}`);
+      await review.getByRole('button', { name: 'Launch' }).click();
+      await expect(page.locator('#paja-intent-link-status')).toContainText('cannot combine a target pointer with a URI recommendation');
+      await expect(page.locator('iframe')).toHaveCount(0);
+    } finally {
+      await server.close();
+    }
+  });
+
+  test('uses relayed named recommendations only after the user accepts installation', async ({ browser }) => {
+    const server = await startIntentServer();
+    const target = createSignedTarget(server.url, 'relayed-recommendation', delayedTargetHtml('recommended'), 'napplet:profile/open', []);
+    server.blobs.set(target.hash, target.bytes);
+    const context = await browser.newContext();
+    const accepted = await context.newPage();
+    await configureRuntime(accepted, server, [target.event]);
+
+    try {
+      const link = recommendationHref(server.url, target.pointer);
+      accepted.once('dialog', (dialog) => { void dialog.accept(); });
+      await accepted.goto(link);
+      await accepted.getByRole('dialog', { name: 'Review intent link' }).getByRole('button', { name: 'Launch' }).click();
+      await expect(accepted.frameLocator('iframe').locator('#delivery-target')).toHaveText('recommended', { timeout: 15_000 });
+
+      const declinedContext = await browser.newContext();
+      const declined = await declinedContext.newPage();
+      await configureRuntime(declined, server, [target.event]);
+      declined.once('dialog', (dialog) => { void dialog.dismiss(); });
+      await declined.goto(link);
+      const review = declined.getByRole('dialog', { name: 'Review intent link' });
+      await review.getByRole('button', { name: 'Launch' }).click();
+      await expect(declined.locator('iframe')).toHaveCount(0);
+      await expect(declined.locator('#paja-intent-link-status')).toContainText(/Delivery failed|Choose a compatible handler/);
+      await declinedContext.close();
+    } finally {
+      await context.close();
+      await server.close();
+    }
+  });
+
   test('does not invoke on cancel, and an exact target mismatch stays failed until the user deliberately changes routing', async ({ page }) => {
     test.setTimeout(45_000);
     const server = await startIntentServer();
@@ -249,7 +371,7 @@ test.describe('Paja intent links', () => {
       await review.getByRole('button', { name: 'Retry' }).click();
       await expect(page.locator('#paja-intent-link-status')).toContainText('does not advertise this exact intent convention');
       await review.getByRole('button', { name: 'Choose another' }).click();
-      await expect(page.locator('#paja-intent-link-target')).toContainText('saved default, recommendation, or ask you to choose');
+      await expect(page.locator('#paja-intent-link-target')).toContainText('will not use a saved default or recommendation');
       await expect(page.locator('iframe')).toHaveCount(0);
     } finally {
       await server.close();
@@ -300,9 +422,52 @@ async function configureRuntime(
   });
 }
 
+async function openIntentBuilder(page: Page, title: string): Promise<void> {
+  await page.getByRole('button', { name: `Share ${title}` }).click();
+  const share = page.getByRole('dialog', { name: 'Share' });
+  await expect(share).toBeVisible();
+  await share.getByRole('button', { name: 'Create intent link' }).click();
+  await expect(page.getByRole('dialog', { name: 'Create intent link' })).toBeVisible();
+}
+
+async function configureDelayedRuntime(
+  page: Page,
+  server: PointerServer,
+  events: readonly ReturnType<typeof finalizeEvent>[],
+): Promise<DelayedRelay> {
+  server.setConfig({
+    ...createPajaRuntimeHostConfig({ maxWaitMs: 2_000 }),
+    simulation: normalizePajaSimulation({ relay: { mode: 'live', urls: [RELAY] } }),
+  });
+  let released = false;
+  const pending: Array<() => void> = [];
+  await page.routeWebSocket(`${RELAY}/`, (socket) => {
+    socket.onMessage((message) => {
+      const request = JSON.parse(String(message)) as unknown[];
+      if (request[0] !== 'REQ' || typeof request[1] !== 'string') return;
+      const respond = () => {
+        for (const event of events) socket.send(JSON.stringify(['EVENT', request[1], event]));
+        socket.send(JSON.stringify(['EOSE', request[1]]));
+      };
+      if (released) respond();
+      else pending.push(respond);
+    });
+  });
+  return {
+    release() {
+      released = true;
+      for (const respond of pending.splice(0)) respond();
+    },
+  };
+}
+
 function intentHref(base: string, pointer: string, payload: unknown): string {
   return `${base}?intent=${encodeURIComponent('napplet:profile/open')}`
     + `&naddr=${encodeURIComponent(pointer)}&payload=${encodeURIComponent(JSON.stringify(payload))}`;
+}
+
+function recommendationHref(base: string, pointer: string): string {
+  return `${base}?intent=${encodeURIComponent(`napplet:profile/open#${pointer}`)}`;
 }
 
 function createSignedTarget(

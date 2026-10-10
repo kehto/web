@@ -158,38 +158,45 @@ describe('Paja intent-link builder', () => {
     await Promise.resolve();
     expect(onLaunch).toHaveBeenCalledOnce();
     expect(status.textContent).toContain('Accepted');
+    const progress = onLaunch.mock.calls[0][1];
+    progress.delivered();
+    progress.accepted();
+    expect(status.textContent).toBe('Delivered to the verified target.');
     review.dispose();
   });
 
-  it('preserves advertised parameter order, omitted fields, explicit empty fields, and custom fields without invoking on edit', () => {
+  it('omits untouched parameters, includes typed or explicitly empty fields, and preserves advertised order', async () => {
     const document = installDocument();
     const onTest = vi.fn();
     const builder = createPajaIntentLinkBuilder({ onTest, href: () => 'https://paja.example/' });
-    builder.open(target([{ slug: 'note', convention: 'napplet:note/open', params: ['first', 'second'] }]));
+    builder.open(target([{ slug: 'note', convention: 'napplet:note/open', params: ['first', 'second', 'third'] }]));
 
     expect(onTest).not.toHaveBeenCalled();
+    expect(findSuffix(document, '-url').value).toContain('intent=napplet%3Anote%2Fopen');
     const first = findAttribute(document, 'aria-label', 'first value');
     const second = findAttribute(document, 'aria-label', 'second value');
-    expect(walk(document.body).filter((element) => element.attributes.get('aria-label')?.endsWith('value')).map((element) => element.attributes.get('aria-label')))
-      .toEqual(['first value', 'second value']);
-    const secondIncluded = walk(second.parent!).find((element) => element.type === 'checkbox')!;
-    secondIncluded.checked = false;
+    expect(findAttribute(document, 'aria-label', 'Include first').checked).toBe(false);
+    const firstIncluded = walk(first.parent!).find((element) => element.type === 'checkbox')!;
+    firstIncluded.checked = true;
+    second.value = 'typed';
+    second.dispatch('input');
     findSuffix(document, '-add-parameter').dispatch('click');
     const name = findAttribute(document, 'aria-label', 'Parameter name');
     name.value = 'custom';
-    const custom = findAttribute(document, 'aria-label', 'Custom value');
+    name.dispatch('input');
+    const custom = findAttribute(document, 'aria-label', 'custom value');
     custom.value = 'value';
-    first.value = '';
-    findSuffix(document, '-parameters').dispatch('input');
+    custom.dispatch('input');
     expect(onTest).not.toHaveBeenCalled();
 
     findSuffix(document, '-test').dispatch('click');
+    await Promise.resolve();
     expect(onTest).toHaveBeenCalledWith(expect.objectContaining({
-      request: expect.objectContaining({ payload: { first: '', custom: 'value' } }),
+      request: expect.objectContaining({ payload: { first: '', second: 'typed', custom: 'value' } }),
     }));
   });
 
-  it('uses JSON payload mode for an empty contract and keeps routing explicit', () => {
+  it('uses JSON payload mode for an empty contract and keeps routing explicit', async () => {
     const document = installDocument();
     const onTest = vi.fn();
     const builder = createPajaIntentLinkBuilder({ onTest, href: () => 'https://paja.example/' });
@@ -205,11 +212,28 @@ describe('Paja intent-link builder', () => {
     routing.value = 'recommend';
     routing.dispatch('change');
     findSuffix(document, '-test').dispatch('click');
+    await Promise.resolve();
 
     expect(onTest).toHaveBeenCalledWith(expect.objectContaining({
       payload: null,
       request: expect.objectContaining({ payload: null, handlerHint: expect.objectContaining({ address: `35129:${'a'.repeat(64)}:viewer` }) }),
     }));
+  });
+
+  it('reopens with a visible error when the explicit Test callback throws', async () => {
+    const document = installDocument();
+    const builder = createPajaIntentLinkBuilder({
+      onTest: () => { throw new Error('Launch denied'); },
+      href: () => 'https://paja.example/',
+    });
+    builder.open(target([{ slug: 'note', convention: 'napplet:note/open', params: [] }]));
+
+    findSuffix(document, '-test').dispatch('click');
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(findSuffix(document, '-dialog').open).toBe(true);
+    expect(findSuffix(document, '-status').textContent).toBe('Launch denied');
   });
 
   it('keeps copy as a local selection fallback and no-ops safely without advertisements', async () => {

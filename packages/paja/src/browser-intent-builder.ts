@@ -10,7 +10,7 @@ import type { PajaResolvedPointer } from './runtime-resolver.js';
 let nextBuilderId = 0;
 
 interface ParameterRow {
-  readonly container: HTMLElement;
+  readonly nameValue: string;
   readonly included: HTMLInputElement;
   readonly name: HTMLInputElement | null;
   readonly value: HTMLInputElement;
@@ -30,10 +30,6 @@ export interface PajaIntentLinkBuilder {
   open(target: PajaResolvedPointer): void;
   /** Remove the dialog and listeners created by this builder. */
   dispose(): void;
-}
-
-function text(value: string): Text {
-  return document.createTextNode(value);
 }
 
 function element<K extends keyof HTMLElementTagNameMap>(name: K, className?: string): HTMLElementTagNameMap[K] {
@@ -163,13 +159,15 @@ export function createPajaIntentLinkBuilder(options: PajaIntentLinkBuilderOption
   }
 
   function addRow(name: string, custom: boolean): void {
-    const container = element('label', 'config-field');
+    const container = element('div', 'config-field');
     const included = element('input') as HTMLInputElement;
     included.type = 'checkbox';
-    included.checked = true;
+    included.checked = false;
     included.id = `${id}-include-${rows.length}`;
-    const inclusionLabel = element('span');
-    inclusionLabel.textContent = 'Include';
+    included.setAttribute('aria-label', `Include ${name || 'custom parameter'}`);
+    const inclusionLabel = element('label');
+    inclusionLabel.htmlFor = included.id;
+    inclusionLabel.textContent = `Include ${name || 'custom parameter'}`;
     const nameInput = custom ? element('input') as HTMLInputElement : null;
     if (nameInput) {
       nameInput.type = 'text';
@@ -177,19 +175,35 @@ export function createPajaIntentLinkBuilder(options: PajaIntentLinkBuilderOption
       nameInput.placeholder = 'Parameter name';
       nameInput.setAttribute('aria-label', 'Parameter name');
     } else {
-      const fixedName = element('span');
+      const fixedName = element('span', 'config-field-label');
       fixedName.textContent = name;
       container.append(fixedName);
     }
     const value = element('input') as HTMLInputElement;
     value.type = 'text';
+    value.id = `${id}-value-${rows.length}`;
     value.placeholder = 'Text value';
     value.setAttribute('aria-label', `${name || 'Custom'} value`);
+    const valueLabel = element('label', 'config-field-label');
+    valueLabel.htmlFor = value.id;
+    valueLabel.textContent = `Value for ${name || 'custom parameter'}`;
     container.append(included, inclusionLabel);
     if (nameInput) container.append(nameInput);
-    container.append(value);
+    container.append(valueLabel, value);
     parameterRows.append(container);
-    rows.push({ container, included, name: nameInput, value });
+    value.addEventListener('input', () => {
+      if (value.value.length > 0) included.checked = true;
+      updatePreview();
+    });
+    nameInput?.addEventListener('input', () => {
+      const parameterName = nameInput.value || 'custom parameter';
+      included.setAttribute('aria-label', `Include ${parameterName}`);
+      inclusionLabel.textContent = `Include ${parameterName}`;
+      value.setAttribute('aria-label', `${nameInput.value || 'Custom'} value`);
+      valueLabel.textContent = `Value for ${parameterName}`;
+      updatePreview();
+    });
+    rows.push({ nameValue: name, included, name: nameInput, value });
   }
 
   function selectedContract(): PajaResolvedPointer['manifest']['archetypes'][number] | null {
@@ -223,7 +237,7 @@ export function createPajaIntentLinkBuilder(options: PajaIntentLinkBuilderOption
       const fields: string[] = [];
       for (const row of rows) {
         if (!row.included.checked) continue;
-        const name = row.name?.value ?? row.container.querySelector('span')?.textContent ?? '';
+        const name = row.name?.value ?? row.nameValue;
         if (!name) throw new TypeError('Included custom parameters need a name.');
         fields.push(`${encodeURIComponent(name)}=${encodeURIComponent(row.value.value)}`);
       }
@@ -254,7 +268,15 @@ export function createPajaIntentLinkBuilder(options: PajaIntentLinkBuilderOption
     jsonField.hidden = !jsonMode;
     try {
       const parsed = build();
-      preview.textContent = parsed.uri;
+      const payload = Object.hasOwn(parsed.request, 'payload')
+        ? JSON.stringify(parsed.request.payload)
+        : 'none';
+      const targetDescription = parsed.pointer
+        ? 'exact verified target pointer'
+        : parsed.request.handlerHint
+          ? 'recommended named app'
+          : 'recipient default';
+      preview.textContent = `Convention: ${parsed.request.convention}\nPayload: ${payload}\nRouting: ${targetDescription}`;
       link.value = createPajaIntentLink({
         uri: parsed.uri,
         ...(parsed.pointer === undefined ? {} : { pointer: parsed.pointer }),
@@ -306,7 +328,7 @@ export function createPajaIntentLinkBuilder(options: PajaIntentLinkBuilderOption
     try {
       const parsed = build();
       close();
-      void Promise.resolve(options.onTest(parsed)).catch((error) => {
+      void Promise.resolve().then(() => options.onTest(parsed)).catch((error) => {
         status.textContent = message(error);
         if (!dialog.open) dialog.showModal();
       });
@@ -318,12 +340,12 @@ export function createPajaIntentLinkBuilder(options: PajaIntentLinkBuilderOption
   convention.control.addEventListener('change', onConvention);
   routing.control.addEventListener('change', onChange);
   payloadMode.control.addEventListener('change', onChange);
-  parameterRows.addEventListener('input', onChange);
   parameterRows.addEventListener('change', onChange);
   json.addEventListener('input', onChange);
   addParameter.addEventListener('click', onAddParameter);
   cancel.addEventListener('click', onCancel);
-  copy.addEventListener('click', () => { void onCopy(); });
+  const onCopyClick = () => { void onCopy(); };
+  copy.addEventListener('click', onCopyClick);
   test.addEventListener('click', onTest);
   dialog.addEventListener('cancel', onCancelEvent);
 
@@ -342,11 +364,11 @@ export function createPajaIntentLinkBuilder(options: PajaIntentLinkBuilderOption
       convention.control.removeEventListener('change', onConvention);
       routing.control.removeEventListener('change', onChange);
       payloadMode.control.removeEventListener('change', onChange);
-      parameterRows.removeEventListener('input', onChange);
       parameterRows.removeEventListener('change', onChange);
       json.removeEventListener('input', onChange);
       addParameter.removeEventListener('click', onAddParameter);
       cancel.removeEventListener('click', onCancel);
+      copy.removeEventListener('click', onCopyClick);
       test.removeEventListener('click', onTest);
       dialog.removeEventListener('cancel', onCancelEvent);
       close(false);
