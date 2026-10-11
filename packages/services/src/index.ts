@@ -169,14 +169,15 @@ export type {
   IntentResolverContext,
 } from './intent-service.js';
 export type {
-  IntentHandlerPreference,
   IntentBehavior,
-  IntentOpenOptions,
+  IntentHandlerHint,
+  IntentContract,
   IntentRequest,
   IntentCandidate,
   IntentAvailability,
   IntentResult,
-} from '@napplet/core';
+  IntentDelivery,
+} from './intent-types.js';
 
 export { createCatalogIntentResolver } from './catalog-intent-resolver.js';
 export type {
@@ -186,7 +187,7 @@ export type {
   IntentArchetypeSupport,
   IntentTargetController,
   IntentDispatchParams,
-  IntentTargetDispatch,
+  IntentTargetAcceptance,
 } from './catalog-intent-resolver.js';
 
 export { manifestToIntentCatalogEntry } from './manifest-intent-catalog.js';

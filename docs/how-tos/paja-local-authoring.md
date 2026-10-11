@@ -319,11 +319,11 @@ For a verified installed intent handler, distinguish the persistent manifest
 catalog from the live iframe. A closed iframe does not remove its installed
 record. The host resolves only exact compatible installed conventions: it can
 use a compatible default, use a chooser when there are multiple candidates,
-reject an ambiguity, and accepts an explicit d-tag only with sender-aware
+reject an ambiguity, and accepts an explicit opaque handler ID only with sender-aware
 authorization.
 
 Paja opens or reuses the target, waits for the generation's registered source
 to send `shell.ready`, verifies that generation is still current, and makes one
-target-only `intent.deliver` for the selected convention. The final result identifies
-the handled target. Replacement, readiness failure, and terminal send paths are
-controller-owned.
+target-only `intent.deliver` for the selected convention. Acceptance acknowledges
+retained responsibility before completion. Replacement, readiness failure, and
+terminal send outcomes remain host-observable without a second source result.

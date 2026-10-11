@@ -11,8 +11,8 @@
 
 import type {
   IntentDispatchParams,
+  IntentTargetAcceptance,
   IntentTargetController,
-  IntentTargetDispatch,
 } from '@kehto/services';
 
 /** Opaque current target generation controlled by the browser host. */
@@ -39,8 +39,8 @@ export interface BrowserIntentControllerOptions {
   waitForReady(generation: BrowserIntentGeneration): void | Promise<void>;
   /** Return true only while the generation remains the selected current target. */
   isCurrent(generation: BrowserIntentGeneration): boolean | Promise<boolean>;
-  /** Return the runtime-assigned window identifier once the target is ready. */
-  getWindowId(generation: BrowserIntentGeneration): string | null;
+  /** Deprecated target identity probe retained for adapter test compatibility. */
+  getWindowId?(generation: BrowserIntentGeneration): string | null;
   /** Send the convention through the ordinary carrier to the ready generation. */
   send(
     generation: BrowserIntentGeneration,
@@ -50,6 +50,10 @@ export interface BrowserIntentControllerOptions {
   maxAttempts?: number;
   /** Observe terminal target policy. */
   onTerminal?(params: IntentDispatchParams, reason: BrowserIntentTerminalReason): void;
+  /** Observe successful terminal delivery without adding a second source result. */
+  onDelivered?(params: IntentDispatchParams): void;
+  /** Observe retained target work before its asynchronous completion can race. */
+  onAccepted?(params: IntentDispatchParams, acceptance: IntentTargetAcceptance): void;
 }
 
 const MAX_INTENT_DELIVERY_ATTEMPTS = 10;
@@ -64,7 +68,15 @@ export class BrowserIntentController implements IntentTargetController {
     this.maxAttempts = normalizeAttempts(options.maxAttempts);
   }
 
-  async dispatch(params: IntentDispatchParams): Promise<IntentTargetDispatch> {
+  /** Retain delivery work immediately; completion remains host-observable only. */
+  accept(params: IntentDispatchParams): IntentTargetAcceptance {
+    const acceptance = Object.freeze({ completion: this.dispatch(params) });
+    this.options.onAccepted?.(params, acceptance);
+    return acceptance;
+  }
+
+  /** Complete an already accepted delivery. Kept public for host diagnostics and tests. */
+  async dispatch(params: IntentDispatchParams): Promise<void> {
     const dispatch = freezeDispatch(params);
     let reason: BrowserIntentTerminalReason = 'no-current-target';
     for (let attempt = 1; attempt <= this.maxAttempts; attempt += 1) {
@@ -91,9 +103,8 @@ export class BrowserIntentController implements IntentTargetController {
       }
       try {
         await this.options.send(generation, dispatch);
-        const windowId = this.options.getWindowId(generation);
-        if (!windowId) throw new Error('intent target window is unavailable');
-        return { windowId };
+        this.options.onDelivered?.(dispatch);
+        return;
       } catch {
         this.options.onTerminal?.(dispatch, 'send-failed');
         throw new Error('intent target send failed');
@@ -138,6 +149,7 @@ function freezeDispatch(params: IntentDispatchParams): IntentDispatchParams {
     convention: params.convention,
     ...(params.payload === undefined ? {} : { payload }),
     ...(behavior === undefined ? {} : { behavior }),
+    ...(params.sourceWindowId === undefined ? {} : { sourceWindowId: params.sourceWindowId }),
   });
 }
 

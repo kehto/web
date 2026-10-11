@@ -126,26 +126,28 @@ const obsoleteGuidancePatterns = {
   'intent-delivery-identifiers': /\b(?:intentId|deliveryId)\b/,
 } as const;
 
+// Active intent guidance follows the checked draft; protocolAuthorities
+// separately retain the evidence for the installed published package line.
 const currentGuidanceAuthorities = {
   'docs/policies/NIP-5D-CONFORMANCE.md': [
     'NAP-INTENT:',
-    '5ac0490461ca6fec2f0d2e45b4835cf9bc08de24',
+    'fc121fc264615482143eda86125863d2e1f741a2',
   ],
   'packages/nip/README.md': [
-    'merged [NAP-INTENT at',
-    '5ac0490461ca6fec2f0d2e45b4835cf9bc08de24',
+    'NAP-INTENT PR #106',
+    'fc121fc264615482143eda86125863d2e1f741a2',
   ],
   'packages/runtime/README.md': [
-    'merged [NAP-INTENT at',
-    '5ac0490461ca6fec2f0d2e45b4835cf9bc08de24',
+    'NAP-INTENT PR #106',
+    'fc121fc264615482143eda86125863d2e1f741a2',
   ],
   'packages/services/README.md': [
-    'merged [NAP-INTENT at',
-    '5ac0490461ca6fec2f0d2e45b4835cf9bc08de24',
+    'NAP-INTENT PR #106',
+    'fc121fc264615482143eda86125863d2e1f741a2',
   ],
   'packages/shell/README.md': [
-    'merged [NAP-INTENT at',
-    '5ac0490461ca6fec2f0d2e45b4835cf9bc08de24',
+    'NAP-INTENT PR #106',
+    'fc121fc264615482143eda86125863d2e1f741a2',
   ],
 } as const;
 

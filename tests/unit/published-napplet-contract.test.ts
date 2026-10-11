@@ -87,8 +87,10 @@ describe('published Napplet convention contract', () => {
       .filter((entry) => entry.endsWith('.ts') && !entry.endsWith('.test.ts'))
       .map((entry) => readFileSync(join(servicesSource, entry), 'utf8'));
 
-    expect(existsSync(join(servicesSource, 'intent-types.ts'))).toBe(false);
-    expect(activeSources.join('\n')).not.toMatch(/from ['\"]\.\/intent-types\.js['\"]/);
+    const localTypes = join(servicesSource, 'intent-types.ts');
+    expect(existsSync(localTypes)).toBe(true);
+    expect(readFileSync(localTypes, 'utf8')).toContain('pending upstream @napplet/nap publication');
+    expect(activeSources.join('\n')).toMatch(/from ['\"]\.\/intent-types\.js['\"]/);
   });
 
   it('compiles and imports the released intent, resource, SDK, and convention-archetype Vite surfaces', async () => {
@@ -107,6 +109,8 @@ describe('published Napplet convention contract', () => {
     expect(typeof vite.nip5aManifest).toBe('function');
     expect(RESULT).toMatchObject({ id: 'intent-1', result: { ok: true, handled: true } });
     expect(MANIFEST_OPTIONS.archetypes).toEqual([{ slug: 'profile', convention: 'napplet:note/open' }]);
+    // @napplet/nap 0.32 remains deliberately behind NAP-INTENT PR #106;
+    // local canonical result assertions live in services contract tests.
   });
 
   it('records the exact NAP, source, and release evidence used for the published contract', () => {

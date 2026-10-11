@@ -348,8 +348,8 @@ test('foregrounds a reused intent handler for every behavior.focus hint', async 
       .filter((entry) => entry.type === 'paja.pointer.resolved').map((entry) => JSON.parse(entry.preview)));
     expect(installed).toEqual(expect.arrayContaining([
       expect.objectContaining({ dTag: 'intent-source', archetypes: [], requires: ['intent'], intentEligible: false }),
-      expect.objectContaining({ dTag: 'profile-target', archetypes: [{ slug: 'profile', convention: 'napplet:profile/open' }], requires: ['inc'], intentEligible: true }),
-      expect.objectContaining({ dTag: 'intent-only-target', archetypes: [{ slug: 'note', convention: 'napplet:note/open' }], requires: ['theme'], intentEligible: true }),
+      expect.objectContaining({ dTag: 'profile-target', archetypes: [{ slug: 'profile', convention: 'napplet:profile/open', params: [] }], requires: ['inc'], intentEligible: true }),
+      expect.objectContaining({ dTag: 'intent-only-target', archetypes: [{ slug: 'note', convention: 'napplet:note/open', params: [] }], requires: ['theme'], intentEligible: true }),
     ]));
     expect(warnings.some((text) => text.includes('NOT intent-eligible') && text.includes('intent-only-target'))).toBe(false);
     const tabs = await page.evaluate(() => window.__KEHTO_PAJA__!.getState().tabs);

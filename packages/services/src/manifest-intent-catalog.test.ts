@@ -2,49 +2,25 @@ import { describe, expect, it } from 'vitest';
 import { manifestToIntentCatalogEntry } from './manifest-intent-catalog.js';
 
 describe('manifestToIntentCatalogEntry', () => {
-  it('groups canonical manifest conventions by archetype and deduplicates actions', () => {
+  it('retains same-role contracts and advertised params', () => {
     expect(manifestToIntentCatalogEntry({
-      dTag: 'profile-viewer',
-      title: 'Profile',
+      catalogId: 'nip5d:35129:publisher:profile', title: 'Profile',
       archetypes: [
-        { slug: 'profile', convention: 'napplet:profile/open' },
-        { slug: 'profile', convention: 'napplet:profile/edit' },
-        { slug: 'profile', convention: 'napplet:profile/open' },
+        { slug: 'profile', convention: 'napplet:profile/open', params: ['pubkey'] },
+        { slug: 'profile', convention: 'napplet:profile/edit', params: ['draft', 'relays'] },
       ],
     })).toEqual({
-      dTag: 'profile-viewer',
-      title: 'Profile',
-      archetypes: {
-        profile: {
-          actions: ['open', 'edit'],
-          conventions: ['napplet:profile/open', 'napplet:profile/edit'],
-        },
-      },
+      id: 'nip5d:35129:publisher:profile', title: 'Profile',
+      archetypes: { profile: { contracts: [
+        { convention: 'napplet:profile/open', params: ['pubkey'] },
+        { convention: 'napplet:profile/edit', params: ['draft', 'relays'] },
+      ] } },
     });
   });
 
-  it('keeps routing archetypes orthogonal to convention URI archetypes', () => {
-    expect(manifestToIntentCatalogEntry({
-      dTag: 'profile-viewer',
-      archetypes: [{ slug: 'bookmark', convention: 'napplet:note/open' }],
-    })).toEqual({
-      dTag: 'profile-viewer',
-      archetypes: { bookmark: { actions: ['open'], conventions: ['napplet:note/open'] } },
-    });
+  it('rejects a mismatched role instead of fabricating a catalog contract', () => {
+    expect(() => manifestToIntentCatalogEntry({ catalogId: 'id', archetypes: [
+      { slug: 'profile', convention: 'napplet:note/open', params: [] },
+    ] })).toThrow(/match/);
   });
-
-  it.each([
-    [[{ slug: 'Bad Slug', convention: 'napplet:note/open' }]],
-    [[{ slug: 'profile', convention: 'napplet:profile/open?kind=0' }]],
-  ])('rejects malformed canonical archetype data', (archetypes) => {
-    expect(() => manifestToIntentCatalogEntry({ dTag: 'target', archetypes }))
-      .toThrow(/archetype/);
-  });
-});
-
-
-it('keeps a declared constructor role separate from object prototypes', () => {
-  expect(manifestToIntentCatalogEntry({
-    dTag: 'tools', archetypes: [{ slug: 'constructor', convention: 'napplet:tool/open' }],
-  }).archetypes.constructor).toEqual({ actions: ['open'], conventions: ['napplet:tool/open'] });
 });

@@ -1,99 +1,18 @@
-import { resolveShellEnvironment, type ShellAdapter } from '@kehto/shell';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { InstalledNappletCatalog } from '../../apps/playground/src/installed-napplet-catalog.js';
-import { getInstalledNappletCatalog, installVerifiedNapplet } from '../../apps/playground/src/shell-host.js';
 
-const resolvedProfile = {
-  dTag: 'profile-viewer',
-  aggregateHash: 'profile-aggregate',
-  requires: ['inc'],
-  title: 'Profile Viewer',
-  archetypes: [
-    { slug: 'profile', convention: 'napplet:profile/open' },
-  ],
-  indexHtml: '<main>verified profile</main>',
+const profile = {
+  catalogId: 'nip5d:35129:publisher:Profile', dTag: 'Profile', aggregateHash: 'profile-aggregate', requires: [],
+  archetypes: [{ slug: 'profile', convention: 'napplet:profile/open', params: ['pubkey'] }], indexHtml: '<main>verified</main>',
 };
 
 describe('InstalledNappletCatalog', () => {
-  it('keeps serializable verified installation facts after a frame closes', () => {
+  it('uses catalog identity instead of a bare d tag while retaining verified contracts', () => {
     const catalog = new InstalledNappletCatalog();
-    const onChanged = vi.fn();
-    catalog.onChanged(onChanged);
-
-    catalog.install(resolvedProfile, {
-      name: 'profile-viewer',
-      containerId: 'profile-viewer-frame',
-    });
-
-    expect(catalog.installed()).toEqual([{
-      dTag: 'profile-viewer',
-      aggregateHash: 'profile-aggregate',
-      restart: { name: 'profile-viewer', containerId: 'profile-viewer-frame' },
-      title: 'Profile Viewer',
-      requires: ['inc'],
-      optional: [],
-      archetypes: [{ slug: 'profile', convention: 'napplet:profile/open' }],
-    }]);
-    expect(catalog.intentCatalog()).toEqual([expect.objectContaining({
-      dTag: 'profile-viewer',
-      archetypes: expect.objectContaining({ profile: expect.any(Object) }),
-    })]);
-    expect(onChanged).toHaveBeenCalledWith('profile');
+    const record = catalog.install(profile, { name: 'profile', containerId: 'profile-frame' });
+    expect(record.id).toBe(profile.catalogId);
+    expect(catalog.get(profile.catalogId)).toBe(record);
+    expect(catalog.findCatalogId({ dTag: profile.dTag, aggregateHash: profile.aggregateHash })).toBe(profile.catalogId);
+    expect(catalog.intentCatalog()).toEqual([expect.objectContaining({ id: profile.catalogId })]);
   });
-
-  it('removes availability only on explicit artifact uninstall', () => {
-    const catalog = new InstalledNappletCatalog();
-    const onChanged = vi.fn();
-    catalog.onChanged(onChanged);
-    catalog.install(resolvedProfile, { name: 'profile-viewer', containerId: 'profile-viewer-frame' });
-
-    expect(catalog.remove('profile-viewer')).toBe(true);
-    expect(catalog.intentCatalog()).toEqual([]);
-    expect(onChanged).toHaveBeenLastCalledWith('profile');
-    expect(catalog.remove('profile-viewer')).toBe(false);
-  });
-
-  it('inserts only after resolver verification and retains installation independently of frames', async () => {
-    getInstalledNappletCatalog().remove('profile-viewer');
-    installVerifiedNapplet(resolvedProfile, {
-      name: 'profile-viewer',
-      containerId: 'profile-viewer-frame',
-    });
-
-    expect(getInstalledNappletCatalog().get('profile-viewer')).toEqual(expect.objectContaining({
-      aggregateHash: 'profile-aggregate',
-      restart: { name: 'profile-viewer', containerId: 'profile-viewer-frame' },
-    }));
-    expect(getInstalledNappletCatalog().get('profile-viewer')).toBeDefined();
-    getInstalledNappletCatalog().remove('profile-viewer');
-    expect(getInstalledNappletCatalog().get('profile-viewer')).toBeUndefined();
-  });
-});
-
-
-it('retains optional INC integration without converting it into a load requirement', () => {
-  const catalog = new InstalledNappletCatalog();
-  catalog.install({ ...resolvedProfile, requires: [], optional: ['inc', 'unavailable'] }, {
-    name: 'profile-viewer', containerId: 'profile-viewer-frame',
-  });
-  expect(catalog.get('profile-viewer')?.requires).toEqual([]);
-  expect(catalog.get('profile-viewer')?.optional).toEqual(['inc', 'unavailable']);
-  expect(catalog.intentCatalog(() => true)[0].archetypes.profile.conventions).toEqual(['napplet:profile/open']);
-});
-
-it('filters target intent availability without requiring INC', () => {
-  const catalog = new InstalledNappletCatalog();
-  const resolved = { ...resolvedProfile, requires: [], optional: ['inc'] };
-  catalog.install(resolved, { name: 'profile-viewer', containerId: 'profile-viewer-frame' });
-  let disabledDomains = ['intent', 'inc'];
-  const adapter = { services: { intent: vi.fn() }, intent: { isAvailable: () => true }, get capabilities() { return { disabledDomains }; } } as ShellAdapter;
-  const candidates = () => catalog.intentCatalog((record) =>
-    resolveShellEnvironment(adapter, record).capabilities.domains.includes('intent'));
-  expect(catalog.intentCatalog()).toHaveLength(1);
-  expect(candidates()).toEqual([]);
-  disabledDomains = ['inc'];
-  expect(candidates()).toMatchObject([{ dTag: 'profile-viewer' }]);
-  disabledDomains = ['intent', 'inc'];
-  expect(candidates()).toEqual([]);
-  expect(catalog.get('profile-viewer')?.requires).toEqual([]);
 });

@@ -24,10 +24,10 @@ async function target(format: 'current' | 'legacy', requires = ['relay', 'shell'
     ...(kind === 35129 ? [['d', 'test']] : []),
     ...(format === 'current' ? [
       ['x', hash], ...requires.map((domain) => ['R', domain]), ['O', 'keys'], ['O', 'inc'],
-      ['z', 'feed'], ['i', 'napplet:note/open', 'filters'],
+      ['z', 'note'], ['i', 'napplet:note/open', 'filters'],
     ] : [
       ['path', '/index.html', hash], ['x', computeAggregateHash([{ path: '/index.html', sha256: hash }]), 'aggregate'],
-      ...[...requires, 'inc'].map((domain) => ['requires', domain]), ['archetype', 'feed', 'napplet:note/open'],
+      ...[...requires, 'inc'].map((domain) => ['requires', domain]), ['archetype', 'note', 'napplet:note/open'],
     ]),
   ];
   const event = finalizeEvent({ kind, created_at: 1, content: 'Test napplet', tags }, sk);
@@ -70,13 +70,12 @@ describe.each(['current', 'legacy'] as const)('%s Paja frame admission', (format
     const resolved = await target(format);
     const catalog = new InstalledNappletCatalog();
     catalog.install(resolved);
-    expect(catalog.intentCatalog((record) => resolveShellEnvironment(adapter, record).capabilities.domains.includes('inc'))[0].archetypes).toEqual({ feed: { actions: ['open'], conventions: ['napplet:note/open'] } });
+    expect(catalog.intentCatalog((record) => resolveShellEnvironment(adapter, record).capabilities.domains.includes('inc'))[0].archetypes).toEqual({ note: { contracts: [{ convention: 'napplet:note/open', params: format === 'current' ? ['filters'] : [] }] } });
     expect(catalog.installed()[0].requires).not.toContain('keys');
   });
 });
 
-// NIP-5D permits nameless artifacts; this host's NAP-INTENT catalog uses dTags.
-it('keeps signed roots and snapshots out of the named catalog without disturbing named handlers', async () => {
+it('keeps roots and snapshots under publisher-safe catalog IDs without conflating their empty d-tags', async () => {
   const catalog = new InstalledNappletCatalog();
   const named = await target('current');
   const namedRecord = catalog.install(named);
@@ -85,11 +84,10 @@ it('keeps signed roots and snapshots out of the named catalog without disturbing
   for (const kind of [15129, 5129]) {
     const nameless = await target('current', [], kind);
     catalog.install(nameless);
-    expect(catalog.get('')).toBeUndefined();
-    expect(catalog.installed()).toEqual([namedRecord]);
+    expect(catalog.installed()).toHaveLength(kind === 15129 ? 2 : 3);
   }
-  expect(changed).not.toHaveBeenCalled();
-  expect(catalog.intentCatalog(() => true).map((entry) => entry.dTag)).toEqual(['test']);
+  expect(changed).toHaveBeenCalledTimes(2);
+  expect(catalog.intentCatalog(() => true).map((entry) => entry.id)).toContain(namedRecord.id);
 });
 
 it('loads optional-INC artifacts with INC disabled without advertising a handler', async () => {
@@ -102,5 +100,5 @@ it('loads optional-INC artifacts with INC disabled without advertising a handler
   expect(frame.srcdoc).toContain('Verified bytes');
   expect(originRegistry.getEnvironment(frame.contentWindow!)?.capabilities.domains).not.toContain('inc');
   expect(catalog.intentCatalog((record) => resolveShellEnvironment(disabled, record).capabilities.domains.includes('inc'))).toEqual([]);
-  expect(catalog.get('test')?.requires).toEqual([]);
+  expect(catalog.get(resolved.manifest.catalogId)?.requires).toEqual([]);
 });

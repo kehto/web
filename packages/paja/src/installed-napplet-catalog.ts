@@ -14,7 +14,9 @@ import type { PajaDecodedPointer, PajaResolvedPointer } from './runtime-resolver
 
 /** Serializable verified pointer and manifest facts for one installed napplet. */
 export interface InstalledNappletRecord {
-  /** Verified manifest d-tag used as the handler identity. */
+  /** Publisher/kind-safe verified catalog identity used as the handler identity. */
+  readonly id: string;
+  /** Literal manifest d-tag retained only as artifact metadata. */
   readonly dTag: string;
   /** Verified NIP-5A aggregate hash for the installed artifact. */
   readonly aggregateHash: string;
@@ -30,19 +32,20 @@ export interface InstalledNappletRecord {
   readonly archetypes: readonly {
     readonly slug: string;
     readonly convention: string;
+    readonly params: readonly string[];
   }[];
 }
 
 /** Return whether a live runtime target is exactly the installed verified artifact. */
 export function matchesInstalledNappletRecord(
-  record: Pick<InstalledNappletRecord, 'dTag' | 'aggregateHash'>,
-  target: Pick<InstalledNappletRecord, 'dTag' | 'aggregateHash'>,
+  record: Pick<InstalledNappletRecord, 'id' | 'aggregateHash'>,
+  target: Pick<InstalledNappletRecord, 'id' | 'aggregateHash'>,
 ): boolean {
-  return target.dTag === record.dTag && target.aggregateHash === record.aggregateHash;
+  return target.id === record.id && target.aggregateHash === record.aggregateHash;
 }
 
 /** Listener notified when an installed artifact is inserted or removed. */
-export type InstalledNappletCatalogListener = (dTag: string) => void;
+export type InstalledNappletCatalogListener = (id: string) => void;
 
 /**
  * Stores verified Paja installations separately from the browser runtime.
@@ -61,6 +64,7 @@ export class InstalledNappletCatalog {
   /** Insert or replace a record from an already resolver-verified pointer. */
   install(resolved: PajaResolvedPointer): InstalledNappletRecord {
     const record = freezeRecord({
+      id: resolved.manifest.catalogId,
       dTag: resolved.dTag,
       aggregateHash: resolved.aggregateHash,
       pointer: copyPointer(resolved.pointer),
@@ -70,26 +74,24 @@ export class InstalledNappletCatalog {
       archetypes: resolved.manifest.archetypes.map((archetype) => ({
         slug: archetype.slug,
         convention: archetype.convention,
+        params: [...archetype.params],
       })),
     });
-    // NAP-INTENT handler selection is dTag-based. Nameless root/snapshot
-    // artifacts may run, but have no key in this named-handler catalog.
-    if (!record.dTag) return record;
-    this.records.set(record.dTag, record);
-    this.notify(record.dTag);
+    this.records.set(record.id, record);
+    this.notify(record.id);
     return record;
   }
 
   /** Remove an artifact explicitly; frame teardown never calls this method. */
-  remove(dTag: string): boolean {
-    const removed = this.records.delete(dTag);
-    if (removed) this.notify(dTag);
+  remove(id: string): boolean {
+    const removed = this.records.delete(id);
+    if (removed) this.notify(id);
     return removed;
   }
 
-  /** Return whether a verified installation exists for a d-tag. */
-  has(dTag: string): boolean {
-    return this.records.has(dTag);
+  /** Return whether a verified installation exists for a catalog ID. */
+  has(id: string): boolean {
+    return this.records.has(id);
   }
 
   /** Return immutable serializable installed-artifact facts. */
@@ -97,9 +99,9 @@ export class InstalledNappletCatalog {
     return [...this.records.values()];
   }
 
-  /** Return a verified record by d-tag. */
-  get(dTag: string): InstalledNappletRecord | undefined {
-    return this.records.get(dTag);
+  /** Return a verified record by catalog ID. */
+  get(id: string): InstalledNappletRecord | undefined {
+    return this.records.get(id);
   }
 
   /**
@@ -109,9 +111,9 @@ export class InstalledNappletCatalog {
    */
   validateCurrent(
     selected: InstalledNappletRecord,
-    target: Pick<InstalledNappletRecord, 'dTag' | 'aggregateHash'>,
+    target: Pick<InstalledNappletRecord, 'id' | 'aggregateHash'>,
   ): InstalledNappletRecord | null {
-    if (this.records.get(selected.dTag) !== selected) return null;
+    if (this.records.get(selected.id) !== selected) return null;
     return matchesInstalledNappletRecord(selected, target) ? selected : null;
   }
 
@@ -127,11 +129,12 @@ export class InstalledNappletCatalog {
     return this.installed()
       .filter(canReceiveIntent)
       .map((record) => manifestToIntentCatalogEntry({
-        dTag: record.dTag,
+        catalogId: record.id,
         ...(record.title === undefined ? {} : { title: record.title }),
         archetypes: record.archetypes.map((archetype) => ({
           slug: archetype.slug,
           convention: archetype.convention,
+          params: [...archetype.params],
         })),
       }));
   }
@@ -142,8 +145,8 @@ export class InstalledNappletCatalog {
     return () => this.listeners.delete(listener);
   }
 
-  private notify(dTag: string): void {
-    for (const listener of this.listeners) listener(dTag);
+  private notify(id: string): void {
+    for (const listener of this.listeners) listener(id);
   }
 }
 
@@ -172,6 +175,7 @@ function freezeRecord(record: Omit<InstalledNappletRecord, 'archetypes'> & {
   readonly archetypes: readonly {
     readonly slug: string;
     readonly convention: string;
+    readonly params: readonly string[];
   }[];
 }): InstalledNappletRecord {
   return Object.freeze({
@@ -179,6 +183,6 @@ function freezeRecord(record: Omit<InstalledNappletRecord, 'archetypes'> & {
     requires: Object.freeze([...record.requires]),
     optional: Object.freeze([...(record.optional ?? [])]),
     archetypes: Object.freeze(record.archetypes.map((archetype) =>
-      Object.freeze({ ...archetype }))),
+      Object.freeze({ ...archetype, params: Object.freeze([...archetype.params]) }))),
   });
 }

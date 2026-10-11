@@ -3,6 +3,7 @@ import type { NostrEvent } from 'nostr-tools';
 import { computeAggregateHash, pathEntriesFromTags, aggregateTagValue } from '../5a/index.js';
 import type { NappletManifest } from './index.js';
 import { NappletResolutionError } from './errors.js';
+import { getNappletCatalogId } from './catalog-id.js';
 
 function firstTagValue(tags: readonly (readonly string[])[], name: string): string | undefined {
   for (const tag of tags) {
@@ -21,8 +22,8 @@ function allTagValues(tags: readonly (readonly string[])[], name: string): strin
 
 function archetypesFromTags(
   tags: readonly (readonly string[])[],
-): Array<{ slug: string; convention: string }> {
-  const out: Array<{ slug: string; convention: string }> = [];
+): Array<{ slug: string; convention: string; params: string[] }> {
+  const out: Array<{ slug: string; convention: string; params: string[] }> = [];
   for (const tag of tags) {
     if (tag[0] !== 'archetype') continue;
     const slug = tag[1];
@@ -58,7 +59,7 @@ function archetypesFromTags(
         'archetype tags must contain exactly slug and convention',
       );
     }
-    out.push({ slug, convention });
+    out.push({ slug, convention, params: [] });
   }
   return out;
 }
@@ -83,6 +84,7 @@ export function parseLegacyManifest(event: NostrEvent): NappletManifest {
     kind: event.kind,
     pubkey: event.pubkey,
     dTag: dTag ?? '',
+    catalogId: getNappletCatalogId(event),
     paths,
     aggregateHash,
     servers: allTagValues(event.tags, 'server'),

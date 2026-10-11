@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   bindRuntimeTabBlossomServers,
+  canCreatePajaIntentLink,
   createPajaShareUrl,
   parseRuntimeTabsSnapshot,
   resolvedTargetKey,
@@ -112,5 +113,22 @@ describe('@kehto/paja runtime tabs', () => {
     bindRuntimeTabBlossomServers({ setWindowBlossomServers }, 'paja-window:tab-1:1', local);
 
     expect(setWindowBlossomServers).not.toHaveBeenCalled();
+  });
+
+  it('offers intent creation only from verified advertised pointer tabs with a host callback', async () => {
+    const advertised = {
+      resolvedTarget: {
+        manifest: { archetypes: [{ slug: 'note', convention: 'napplet:note/open', params: [] }] },
+      },
+    } as unknown as Parameters<typeof canCreatePajaIntentLink>[1];
+    const noAdvertisements = {
+      resolvedTarget: { manifest: { archetypes: [] } },
+    } as unknown as Parameters<typeof canCreatePajaIntentLink>[1];
+    const local = await createPajaLocalTarget({ name: 'local.html', text: '<p>local</p>' });
+
+    expect(canCreatePajaIntentLink({ createIntentLink: vi.fn() }, advertised)).toBe(true);
+    expect(canCreatePajaIntentLink({}, advertised)).toBe(false);
+    expect(canCreatePajaIntentLink({ createIntentLink: vi.fn() }, noAdvertisements)).toBe(false);
+    expect(canCreatePajaIntentLink({ createIntentLink: vi.fn() }, { resolvedTarget: local })).toBe(false);
   });
 });

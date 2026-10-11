@@ -122,7 +122,7 @@ describe('playground origin-registry proxy', () => {
 });
 
 describe('playground intent target reuse', () => {
-  it('forces a fresh frame for newWindow and reuse:false dispatches', () => {
+  it('forces a fresh frame only for reuse:false dispatches', () => {
     const request = {
       handler: 'target',
       sender: 'source',
@@ -131,7 +131,6 @@ describe('playground intent target reuse', () => {
       convention: 'napplet:note/open',
     };
     expect(shouldReuseIntentTarget(request)).toBe(true);
-    expect(shouldReuseIntentTarget({ ...request, behavior: { newWindow: true } })).toBe(false);
     expect(shouldReuseIntentTarget({ ...request, behavior: { reuse: false } })).toBe(false);
   });
 

@@ -84,21 +84,17 @@ phase records remain history rather than active compatibility guidance.
 
 ## NAP-INTENT runtime boundary
 
-Kehto implements merged [NAP-INTENT at
-`5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`](https://github.com/napplet/naps/blob/5ac0490461ca6fec2f0d2e45b4835cf9bc08de24/naps/NAP-INTENT.md).
-The runtime accepts only source-side `intent.invoke`, `intent.available`, and
-`intent.handlers` requests. It validates the exact queryless
-`napplet:<archetype>/<action>` identity, derives the sender dTag from the live
-authenticated session, and shapes policy denials as sanctioned result
-envelopes without exposing ACL or firewall details.
+Kehto follows [NAP-INTENT PR #106](https://github.com/napplet/naps/blob/fc121fc264615482143eda86125863d2e1f741a2/naps/NAP-INTENT.md) at `fc121fc264615482143eda86125863d2e1f741a2`. The runtime admits source-side `intent.invoke`,
+`intent.available`, and `intent.handlers` through the authenticated session and
+ACL/firewall boundary. Services validate the normalized queryless convention and
+resolve the sender's opaque catalog ID from the trusted source window.
 
-Registered services receive a frozen `ServiceRuntimeContext`: current dTag
-resolution, a frozen live-window snapshot, and recipient-policy-aware sends.
-An `intent.invoke.result` with `ok: true` means a host controller selected and
-readied the verified target and dispatched its convention. The final result
-includes `handled`, `handler`, `windowId`, and `convention`. The target receives
-one runtime-attested `inc.event` carrying that queryless convention and opaque
-payload; `intent.deliver` is not part of the merged contract.
+Registered services receive a frozen `ServiceRuntimeContext` with live-window
+facts and recipient-policy-aware sends. Success acknowledges retained delivery
+responsibility with `ok`, `archetype`, `action`, `convention`, and `handler`.
+After current target readiness, the controller sends one `intent.deliver` with
+parent-attested sender and opaque payload. Completion belongs to host observation,
+not another source result. No INC carrier is required.
 
 ## NAP-OUTBOX denial boundary
 
@@ -109,8 +105,9 @@ the protocol-defined correlated result wire: `outbox.query.result` with
 `events: []` and `error`. The runtime does not synthesize an
 `outbox.query.error` message.
 
-The canonical public `Intent*` contracts are the released `@napplet/core` /
-`@napplet/nap` declarations; Kehto retains no local type mirror.
+The installed `@napplet/nap@0.32.0` contract trails PR #106. The bounded local
+`@kehto/services` intent types and their removal condition are documented in
+[conformance policy](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md).
 
 Phase 105 completed released package adoption and persistent installed-manifest
 controllers for the live Paja and playground hosts.

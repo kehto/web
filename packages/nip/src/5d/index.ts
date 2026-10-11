@@ -6,6 +6,12 @@ import type { PathEntry } from '../5a/index.js';
 import { NappletResolutionError } from './errors.js';
 import { parseLegacyManifest, verifyLegacyAggregate, warnLegacyManifest } from './legacy-manifest.js';
 import { parseCurrentManifest } from './current-manifest.js';
+import {
+  NAPPLET_KIND_NAMED,
+  NAPPLET_KIND_ROOT,
+  NAPPLET_KIND_SNAPSHOT,
+  NAPPLET_KINDS,
+} from './kinds.js';
 import type { NappletArtifactCache } from './artifact-cache.js';
 export {
   CacheStorageNappletArtifactCache,
@@ -34,18 +40,12 @@ export {
  */
 
 /** Snapshot manifest — regular event, immutable point-in-time release. */
-export const NAPPLET_KIND_SNAPSHOT = 5129;
+export { NAPPLET_KIND_SNAPSHOT, NAPPLET_KIND_ROOT, NAPPLET_KIND_NAMED, NAPPLET_KINDS };
 /** Root manifest — replaceable event, an author's latest unnamed napplet. */
-export const NAPPLET_KIND_ROOT = 15129;
 /** Named manifest — addressable event (carries a `d` tag identifier). */
-export const NAPPLET_KIND_NAMED = 35129;
 
 /** All three NIP-5D napplet manifest kinds. */
-export const NAPPLET_KINDS: readonly number[] = [
-  NAPPLET_KIND_SNAPSHOT,
-  NAPPLET_KIND_ROOT,
-  NAPPLET_KIND_NAMED,
-];
+export { getNappletCatalogId } from './catalog-id.js';
 
 /**
  * Whether `kind` is one of the three NIP-5D napplet manifest kinds.
@@ -85,6 +85,8 @@ export interface NappletManifest {
   pubkey: string;
   /** Named-napplet `d` identifier, or `''` for root/snapshot manifests. */
   dTag: string;
+  /** Publisher/kind-safe opaque identity for the verified manifest catalog. */
+  catalogId: string;
   /** Normalized files: one /index.html for current events, legacy path entries otherwise. */
   paths: PathEntry[];
   /** Compatibility name for the signed content identity (current artifact or legacy aggregate). */
@@ -96,7 +98,7 @@ export interface NappletManifest {
   /**
    * Routing projection: independent current z/i sets, or exact legacy archetype pairs.
    */
-  archetypes: Array<{ slug: string; convention: string }>;
+  archetypes: Array<{ slug: string; convention: string; params: string[] }>;
   /** Optional human title. */
   title?: string;
   /** Plain-text event content (legacy description tag for older events). */

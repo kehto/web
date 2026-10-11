@@ -260,7 +260,7 @@ describe('@kehto/paja local index.html loader', () => {
     // Intent delivery stays on verified catalog tabs: local tabs are neither
     // closed as stale catalog tabs nor reused as delivery targets.
     expect(intentHost).toContain('!isPajaLocalTarget(stale.resolvedTarget)');
-    expect(intentHost).toContain('!isPajaLocalTarget(tab.resolvedTarget)\n        && matchesInstalledNappletRecord(record, tab.resolvedTarget)');
+    expect(intentHost).toContain('!isPajaLocalTarget(tab.resolvedTarget)\n        && matchesInstalledNappletRecord(record, catalogIdentity(tab.resolvedTarget))');
     expect(host).toContain(
       "if (state.config.target.mode === 'runtime-pointer') {\n    installLocalFileControls((file) => state.loadLocalFile(file));",
     );

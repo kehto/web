@@ -47,6 +47,8 @@ export function injectCspMeta(html: string, origins: readonly string[]): string 
 
 /** A fully resolved, verified napplet. The shell injects the CSP and sets srcdoc. */
 export interface PlaygroundNapplet {
+  /** Publisher/kind-safe catalog identifier from the verified manifest event. */
+  catalogId: string;
   /** Computed `d` identifier. */
   dTag: string;
   /** Computed, verified aggregate hash (content address). */
@@ -60,7 +62,7 @@ export interface PlaygroundNapplet {
    * manifest's normalized z/i declarations or legacy archetype pairs. Always present (empty when the manifest
    * declares none).
    */
-  archetypes: Array<{ slug: string; convention: string }>;
+  archetypes: Array<{ slug: string; convention: string; params: string[] }>;
   /** Optional human title from the verified manifest. */
   title?: string;
   /** Verified `/index.html` text (no CSP yet — inject with {@link injectCspMeta}). */
@@ -147,6 +149,7 @@ export async function resolvePlaygroundNapplet(
   }
 
   return {
+    catalogId: resolved.manifest.catalogId,
     dTag: resolved.dTag,
     aggregateHash: resolved.aggregateHash,
     requires: resolved.manifest.requires,

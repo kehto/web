@@ -19,8 +19,7 @@ implementation authority. `RUNTIME-SPEC.md` is internal runtime guidance.
 
 ### Published convention authority
 
-- **NAP-INTENT:** merged `napplet/naps` master
-  `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`.
+- **NAP-INTENT:** draft PR #106 `napplet/naps@fc121fc264615482143eda86125863d2e1f741a2` (the working authority for this implementation).
 - **NAP-INC:** merged `napplet/naps` master
   `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`.
 - **NAP-IDENTITY / NAP-THEME / NAP-SHELL:** merged `napplet/naps` master
@@ -129,27 +128,13 @@ lifecycle data in order, bounded overflow closure, and deterministic teardown.
 upstream-resolution reply](https://github.com/kehto/web/issues/203#issuecomment-5060904495);
 the superseded opener-only view must not be restored.
 
-### Intent delivery boundary
+### Intent delivery and invocation boundary
 
-Checked `naps/NAP-INTENT.md` at `napplet/naps@25b29ee49e5bff8ebfe031f4b76dce98705c8b7e`
-(delivery change merged in `389c1c2aa2c8b70610f9f53f2c0dd097e313dcea`).
-Paja and playground send one parent-attested `intent.deliver` containing
-`delivery: { sender, archetype, action, convention, payload? }` after source-bound
-readiness. The injected `intent.onDelivery` buffers until registration, uses
-closeable subscriptions, and does not require INC. It accepts only the parent.
+Checked NAP-INTENT PR #106 at `napplet/naps@fc121fc264615482143eda86125863d2e1f741a2` and NIP-5D PR #2303 at `dskvr/nips@020cb8b33a9e4c6b8ca4b2f9d0ed0a67843b68f7`. Paja and playground use verified manifest contracts, opaque publisher-safe catalog IDs, parent-attested sender identity, exact convention matching, and one `intent.deliver` after source-bound readiness. A success result records retained delivery responsibility only; no completion result is sent to the source.
 
-Packaged `@napplet/nap@0.32.0` lacks this API. The protected shell binding and the
-profile demo's local delivery type are narrow exceptions until the package
-upgrade; see **INTENT_BINDING** in [the compatibility register](../compatibility.md).
-The demo calls the binding directly and does not install its own wire receiver.
-Legacy INC listeners are adapted locally with `KEHTO_COMPAT_INTENT_INC`, only
-when no canonical listener is registered. Hosts never send two wire envelopes.
-This is a temporary Kehto compatibility policy, not an additional NAP transport.
+`@napplet/nap@0.32.0` is behind the checked NAP. `packages/services/src/intent-types.ts` is the bounded local contract until upstream exports the exact candidate IDs/contracts, accepted result, and delivery shapes. It is not a second transport: remove it only when that release lands and the service, shell, Paja, and playground regressions pass against the upstream export. `sourceWindowId` is internal host correlation and never wire data. Legacy INC fallback remains separately tracked as `KEHTO_COMPAT_INTENT_INC`; legacy object invoke is tracked as `KEHTO_COMPAT_INTENT_OBJECT_INVOKE`.
 
-Delivery aligns with the checked spec. Structured invocation, final
-`handled`/`handler`/`windowId` results, dTag-only catalog identities, and broader
-upstream NAP changes are intentionally deferred to the user's separate follow-up
-PR. This change does not claim full conformance to current NAP-INTENT.
+NIP-5D bytes are verified before `srcdoc` execution; injected bootstraps are deliberately outside the signed artifact hash and unknown `MessageEvent.source` values are dropped. Paja's external URL uses a signed ephemeral launcher to provide an authenticated source. A native external host source has no verified iframe endpoint and remains a deferred upstream spec gap.
 
 ### Active NAP-IDENTITY and NAP-THEME boundary
 

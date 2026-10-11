@@ -11,6 +11,7 @@ import {
   getInstalledNappletCatalog,
   getPlaygroundShellEnvironment,
   createPlaygroundIntentTargetOptions,
+  resolvePlaygroundIntentSender,
   loadNapplet,
   getNotificationServiceHandler,
   getRelayServiceHandler,
@@ -87,7 +88,7 @@ const intentResolver = createCatalogIntentResolver({
   authorizeExplicitHandler: () => false,
 });
 installedNapplets.onChanged((archetype) => intentResolver.notifyChanged(archetype));
-const intentService = createIntentService({ resolver: intentResolver });
+const intentService = createIntentService({ resolver: intentResolver, resolveSender: resolvePlaygroundIntentSender });
 
 const { tap } = bootShell((notifications) => {
   notificationUi.controller.handleServiceChange(notifications);

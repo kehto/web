@@ -40,19 +40,21 @@ hash; permissions and cached coordinate metadata must be re-established normally
 Do not copy legacy grants to the new identity automatically.
 
 The parser preserves `archetypeSlugs` and `intents` with their parameter names.
-For existing intent consumers, `archetypes` projects every advertised role onto
-every accepted convention. NAP-INTENT keeps roles and conventions orthogonal;
-it does not infer role equality from an intent URI. Legacy explicit pairs are
-preserved exactly, without adding combinations. A current event without either
-set remains loadable but has no convention-based handler eligibility.
+For intent consumers, `archetypes` preserves `{ slug, convention, params }`
+only when the convention role matches an advertised `z` role. This follows
+NAP-INTENT PR #106 at `fc121fc264615482143eda86125863d2e1f741a2`. Parameter
+names remain ordered text hints, not types or requirements. Invalid advertisements
+are ignored. Legacy pairs retain empty parameter lists. A current event without
+matching declarations remains loadable but has no intent handler eligibility.
+`catalogId` separates named publisher/d-tag, root publisher, and snapshot event
+identities; it never replaces the existing artifact/cache identity.
 
 Both hosts check required domains against their actual environment before
 execution. `shell` is mandatory. Optional domains never block loading or expand
 the injected namespace. Both host catalogs require the target's resolved
 `intent` domain; canonical delivery does not require an INC declaration or binding.
-Root/snapshot artifacts also
-load normally, but remain outside the dTag-keyed intent catalogs: Kehto does not
-yet route NAP-INTENT by event coordinate.
+Root and snapshot artifacts participate through their opaque catalog IDs when
+they advertise an eligible contract; no d-tag is invented for them.
 
 Icons are not needed to load an artifact. Kehto retains generic artwork; merely
 parsing a supported icon declaration does not fetch or render it. Future display
@@ -77,8 +79,10 @@ Successful legacy resolution emits `KEHTO_COMPAT_LEGACY_MANIFEST` once per
 resolver module lifetime. Migration and retirement criteria are tracked in
 [the compatibility register](https://github.com/kehto/web/blob/main/docs/compatibility.md).
 
-The delivery follow-up checks NAP-INTENT at
-`25b29ee49e5bff8ebfe031f4b76dce98705c8b7e`: hosts now use `intent.deliver`
+URI invocation, accepted-result lifecycle, and catalog identity follow NAP-INTENT
+PR #106 at `fc121fc264615482143eda86125863d2e1f741a2`. Hosts use `intent.deliver`
 and buffered `intent.onDelivery`, with a warned local INC-listener adapter.
-Broader invocation/result and catalog-identity changes are intentionally deferred;
-this is delivery alignment, not full conformance to that newer spec.
+Paja external links use a verified signed launcher for source identity. Native
+external-origin sender semantics remain a deferred upstream spec gap. The
+[conformance policy](../policies/NIP-5D-CONFORMANCE.md#intent-delivery-and-invocation-boundary)
+records the checked authority and bounded packaged-type exception.

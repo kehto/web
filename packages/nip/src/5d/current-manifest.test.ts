@@ -11,7 +11,7 @@ const key = hexToBytes('11'.repeat(32));
 function event(tags: string[][], kind = 35129, content = '<b>Plain text description</b>') {
   return JSON.parse(JSON.stringify(finalizeEvent({ kind, created_at: 1, content, tags }, key)));
 }
-const current = [['d', 'test'], ['x', hash], ['R', 'relay'], ['O', 'theme'], ['z', 'feed'], ['i', 'napplet:note/open', 'filters']];
+const current = [['d', 'test'], ['x', hash], ['R', 'relay'], ['O', 'theme'], ['z', 'feed'], ['i', 'napplet:feed/open', 'filters']];
 const legacy = [['d', 'test'], ['path', '/index.html', hash], ['x', computeAggregateHash([{ path: '/index.html', sha256: hash }]), 'aggregate'], ['requires', 'relay'], ['archetype', 'feed', 'napplet:note/open']];
 
 describe('current NIP-5D manifest', () => {
@@ -19,16 +19,16 @@ describe('current NIP-5D manifest', () => {
     expect(parseNappletManifest(event(current))).toMatchObject({
       format: 'current', artifactHash: hash, aggregateHash: hash,
       paths: [{ path: '/index.html', sha256: hash }], requires: ['relay'], optional: ['theme'],
-      archetypeSlugs: ['feed'], intents: [{ identity: 'napplet:note/open', parameters: ['filters'] }],
-      archetypes: [{ slug: 'feed', convention: 'napplet:note/open' }],
+      archetypeSlugs: ['feed'], intents: [{ identity: 'napplet:feed/open', parameters: ['filters'] }],
+      archetypes: [{ slug: 'feed', convention: 'napplet:feed/open', params: ['filters'] }],
       description: '<b>Plain text description</b>',
     });
   });
-  it('projects independent role and intent sets without inferring URI role equality', () => {
-    const parsed = parseNappletManifest(event([...current, ['z', 'bookmark'], ['i', 'napplet:profile/edit']]));
+  it('projects only same-role z/i contracts and preserves parameters', () => {
+    const parsed = parseNappletManifest(event([...current, ['z', 'bookmark'], ['i', 'napplet:bookmark/edit', 'folder']]));
     expect(parsed.archetypes).toEqual([
-      { slug: 'feed', convention: 'napplet:note/open' }, { slug: 'feed', convention: 'napplet:profile/edit' },
-      { slug: 'bookmark', convention: 'napplet:note/open' }, { slug: 'bookmark', convention: 'napplet:profile/edit' },
+      { slug: 'feed', convention: 'napplet:feed/open', params: ['filters'] },
+      { slug: 'bookmark', convention: 'napplet:bookmark/edit', params: ['folder'] },
     ]);
     expect(parseNappletManifest(event(current.filter((tag) => tag[0] !== 'i'))).archetypes).toEqual([]);
   });
@@ -37,7 +37,6 @@ describe('current NIP-5D manifest', () => {
     [...current, ['d', 'duplicate']], current.filter((tag) => tag[0] !== 'd'),
     current.map((tag) => tag[0] === 'x' ? ['x', hash.toUpperCase()] : tag),
     [...current, ['R', 'NAP-RELAY']], [...current, ['O', 'relay.subscribe']],
-    [...current, ['i', 'napplet:feed/open?filters=1']], [...current, ['i', 'napplet:feed/open', 'bad param']],
     [...current, ['a', `35129:${'ab'.repeat(32)}:parent`]],
   ].map((tags) => ({ tags })))('rejects malformed current declarations: $tags', ({ tags }) => {
     expect(() => parseNappletManifest(event(tags))).toThrow();
@@ -49,12 +48,12 @@ describe('current NIP-5D manifest', () => {
     expect(parseNappletManifest(event([['x', hash]], kind)).dTag).toBe('');
     expect(() => parseNappletManifest(event(current, kind))).toThrow(/d tag/);
   });
-  it('ignores old declarations in current events instead of widening their authority', () => {
+  it('ignores malformed current advertisements and old declarations without widening authority', () => {
     const parsed = parseNappletManifest(event([...current, ['requires', 'keys'], ['description', 'wrong'], ['archetype', 'admin', 'napplet:keys/open'], ['path', '/evil', 'bad']]));
     expect(parsed.requires).toEqual(['relay']);
     expect(parsed.description).toBe('<b>Plain text description</b>');
     expect(parsed.paths).toEqual([{ path: '/index.html', sha256: hash }]);
-    expect(parsed.archetypes).toEqual([{ slug: 'feed', convention: 'napplet:note/open' }]);
+    expect(parsed.archetypes).toEqual([{ slug: 'feed', convention: 'napplet:feed/open', params: ['filters'] }]);
   });
   it.each([['icon', hash, 'image/svg+xml'], ['icon', 'bad', 'image/png'], ['icon']])('keeps malformed icons nonfatal: %j', (...icon) => {
     expect(parseNappletManifest(event([...current, icon])).icon).toBeUndefined();

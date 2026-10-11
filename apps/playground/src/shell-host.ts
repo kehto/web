@@ -131,7 +131,7 @@ export interface NappletInfo {
 const napplets = new Map<string, NappletInfo>();
 const installedNapplets = new InstalledNappletCatalog();
 interface IntentGenerationState extends PlaygroundIntentGeneration {
-  readonly dTag: string;
+  readonly catalogId: string;
   readonly windowId: string;
   /** Exact catalog record selected before this target generation began. */
   readonly selectedRecord: InstalledNappletRecord;
@@ -164,10 +164,10 @@ export function getInstalledNappletCatalog(): InstalledNappletCatalog {
 }
 
 /** Explicitly uninstall an artifact; frame lifecycle never removes catalog authority. */
-export function uninstallNapplet(dTag: string): boolean {
-  const generation = intentGenerations.get(dTag);
+export function uninstallNapplet(catalogId: string): boolean {
+  const generation = intentGenerations.get(catalogId);
   if (generation) clearPlaygroundIntentGeneration(generation.windowId);
-  return installedNapplets.remove(dTag);
+  return installedNapplets.remove(catalogId);
 }
 
 /**
@@ -211,7 +211,6 @@ export function createPlaygroundIntentTargetOptions(): PlaygroundIntentControlle
     openOrReuse: openOrReuseIntentTarget,
     waitForReady: (generation) => waitForPlaygroundIntentReady(intentGeneration(generation)),
     isCurrent: (generation) => isCurrentPlaygroundIntentGeneration(intentGeneration(generation)),
-    getWindowId: (generation) => intentGeneration(generation).windowId,
     send: sendIntentConvention,
   };
 }
@@ -219,10 +218,12 @@ export function createPlaygroundIntentTargetOptions(): PlaygroundIntentControlle
 /** Clear live generation/session state when a target frame is closed or replaced. */
 export function clearPlaygroundIntentGeneration(windowId: string): void {
   const info = napplets.get(windowId);
-  if (!info?.dTag) return;
-  const generation = intentGenerations.get(info.dTag);
+  if (!info) return;
+  const catalogId = installedNapplets.findCatalogId(info);
+  if (!catalogId) return;
+  const generation = intentGenerations.get(catalogId);
   if (!generation || generation.windowId !== windowId) return;
-  intentGenerations.delete(info.dTag);
+  intentGenerations.delete(catalogId);
   generation.rejectReady(new Error('intent target generation replaced'));
 }
 
@@ -247,7 +248,7 @@ function intentGeneration(generation: PlaygroundIntentGeneration): IntentGenerat
  * a718915d — "runtime workspace and lifecycle policy remain authoritative").
  */
 export function shouldReuseIntentTarget(params: IntentDispatchParams): boolean {
-  return params.behavior?.newWindow !== true && params.behavior?.reuse !== false;
+  return params.behavior?.reuse !== false;
 }
 
 async function openOrReuseIntentTarget(
@@ -270,7 +271,7 @@ async function openOrReuseIntentTarget(
   // A catalog replacement may retain the same d-tag while changing verified bytes.
   // Never retain a stale artifact as an intent target after that replacement.
   for (const stale of Array.from(napplets.values())) {
-    if (stale.dTag === params.handler && !matchesInstalledNappletRecord(record, stale)) {
+    if (stale.dTag === record.dTag && !matchesInstalledNappletRecord(record, stale)) {
       closeNapplet(stale.windowId);
     }
   }
@@ -311,7 +312,6 @@ function replaceIntentGeneration(
   info: NappletInfo,
   selectedRecord: InstalledNappletRecord,
 ): IntentGenerationState | null {
-  if (!info.dTag) return null;
   clearPlaygroundIntentGeneration(info.windowId);
   let resolveReady!: () => void;
   let rejectReady!: (reason: Error) => void;
@@ -321,14 +321,14 @@ function replaceIntentGeneration(
   });
   const generation: IntentGenerationState = {
     id: `playground-intent-${++intentGenerationCounter}`,
-    dTag: info.dTag,
+    catalogId: selectedRecord.id,
     windowId: info.windowId,
     selectedRecord,
     ready,
     resolveReady,
     rejectReady,
   };
-  intentGenerations.set(info.dTag, generation);
+  intentGenerations.set(selectedRecord.id, generation);
   const source = info.iframe.contentWindow;
   if (
     source
@@ -346,8 +346,8 @@ function replaceIntentGeneration(
 
 function isCurrentIntentGeneration(generation: IntentGenerationState): boolean {
   const info = napplets.get(generation.windowId);
-  return intentGenerations.get(generation.dTag)?.id === generation.id
-    && info?.dTag === generation.dTag
+  return intentGenerations.get(generation.catalogId)?.id === generation.id
+    && info?.dTag === generation.selectedRecord.dTag
     && installedNapplets.validateCurrent(generation.selectedRecord, info) !== null
     && info.iframe.contentWindow === (generation.source ?? info.iframe.contentWindow);
 }
@@ -399,10 +399,11 @@ function isCurrentPlaygroundIntentGeneration(generation: IntentGenerationState):
 
 export function markIntentTargetReady(windowId: string, source: Window): void {
   const info = napplets.get(windowId);
-  if (!info?.dTag || info.iframe.contentWindow !== source) return;
+  if (!info || info.iframe.contentWindow !== source) return;
   if (originRegistry.getWindowId(source) !== windowId) return;
   readyIntentSources.set(windowId, source);
-  const generation = intentGenerations.get(info.dTag);
+  const catalogId = installedNapplets.findCatalogId(info);
+  const generation = catalogId === undefined ? undefined : intentGenerations.get(catalogId);
   if (!generation || generation.windowId !== windowId || generation.source) return;
   if (!isCurrentIntentGeneration(generation)) {
     invalidatePlaygroundIntentGeneration(generation);
@@ -430,6 +431,15 @@ function sendIntentConvention(
       ...(params.payload === undefined ? {} : { payload: params.payload }),
     },
   }, '*');
+}
+
+/** Resolve a live authenticated source to its verified catalog identity. */
+export function resolvePlaygroundIntentSender(windowId: string): string | undefined {
+  const info = napplets.get(windowId);
+  if (!info?.identityBound) return undefined;
+  const entry = relay.runtime.sessionRegistry.getEntryByWindowId(windowId);
+  if (!entry || entry.dTag !== info.dTag || entry.aggregateHash !== info.aggregateHash) return undefined;
+  return installedNapplets.findCatalogId(info);
 }
 
 /**

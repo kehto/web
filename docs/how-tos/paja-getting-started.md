@@ -89,13 +89,13 @@ Paja's installed intent catalog contains resolver-verified manifest contracts;
 it is not the same thing as the live target iframe. A closed target can remain
 installed and be cold-started. Selection uses only exact compatible installed
 contracts: a compatible default can win, the host can ask a chooser, ambiguity
-is rejected, and an explicit d-tag needs sender-aware authorization.
+is rejected, and an explicit opaque handler ID needs sender-aware authorization.
 
 Paja starts or reuses the verified target, waits for its current registered
 source and `shell.ready`, then sends exactly one target-only `intent.deliver` for
-the selected convention. The final result identifies the handled target.
-Stale/replaced targets and terminal failures stay in the host controller's
-retry/replacement policy and produce a canonical failed result.
+the selected convention. The source result acknowledges retained responsibility
+before target completion. Stale/replaced targets and terminal failures remain
+host-observable controller outcomes without a second source result.
 
 ## 7. Choose Upload Storage
 

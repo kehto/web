@@ -7,8 +7,13 @@ single `x` hash. Identity is `(dTag, artifactHash)`, computed from verified byte
 
 Current events use `content` for the plain-text description, `z` roles, `i`
 accepted intents and parameter names, `R` required domains, and `O` optional
-domains. The parser preserves those declarations and projects independent `z`/`i`
-sets into the existing archetype/convention catalog shape. They grant no authority.
+domains. The parser preserves ordered parameter names and projects only intents
+whose URI role has a matching `z` declaration into `{ slug, convention, params }`
+contracts. Invalid advertisements are ignored. Declarations grant no authority.
+The intent catalog uses `manifest.catalogId`: named kind/publisher/d-tag, root
+kind/publisher, or snapshot kind/event-ID identity. This is separate from the
+existing artifact/cache identity and includes nameless root/snapshot handlers.
+This follows NAP-INTENT PR #106 at `fc121fc264615482143eda86125863d2e1f741a2`.
 Malformed or unsupported icons are ignored; Kehto retains generic artwork and
 does not render unverified icon URLs. Snapshot lineage is metadata, never a
 resolution dependency. HTML metadata cannot override the signed event.
@@ -39,6 +44,7 @@ Distinct kinds keep napplets out of nsite gateway resolution.
 |--------|-------------|
 | `NAPPLET_KINDS`, `isNappletManifestKind(kind)` | the three kinds + a guard |
 | `parseNappletManifest(event)` | event → `normalized identity, paths, required/optional domains, roles, intents, and metadata` |
+| `getNappletCatalogId(event)` | opaque publisher/kind-safe intent catalog identity from a verified event |
 | `verifyManifestSignature(event)` | verify the manifest's Nostr signature |
 | `verifyBlobHash(bytes, sha256)` | `true` iff bytes hash to `sha256` |
 | `fetchBlob(servers, sha256, fetchBytes)` | fetch a blob from Blossom by hash, re-verifying it (servers untrusted) |
