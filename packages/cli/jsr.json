@@ -5,7 +5,7 @@
   "nodeModulesDir": "auto",
   "exports": "./src/index.ts",
   "imports": {
-    "@kehto/paja": "jsr:@kehto/paja@^0.20.0"
+    "@kehto/paja": "jsr:@kehto/paja@^0.20.1"
   },
   "publish": {
     "include": [

@@ -1,5 +1,11 @@
 # @kehto/paja
 
+## 0.20.1
+
+### Patch Changes
+
+- 4b7bcb5: Open shared intent links directly in their verified app. Ask which named app to use when a link conflicts with a saved preference, and preserve that preference across one-time choices and reloads. Remove the recipient URI/payload review form and completed-delivery dialog.
+
 ## 0.20.0
 
 ### Minor Changes
