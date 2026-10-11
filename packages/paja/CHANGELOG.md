@@ -1,5 +1,18 @@
 # @kehto/paja
 
+## 0.20.0
+
+### Minor Changes
+
+- b462787: Add NAP-INTENT link creation, verified catalog dispatch, accepted-delivery lifecycle, and Paja review/launcher workflow.
+
+### Patch Changes
+
+- Updated dependencies [b462787]
+  - @kehto/nip@0.7.0
+  - @kehto/services@0.23.0
+  - @kehto/shell@0.23.0
+
 ## 0.19.0
 
 ### Minor Changes
