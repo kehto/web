@@ -115,6 +115,7 @@ test.describe('Paja intent links', () => {
     const target = createSignedTarget(server.url, 'warm-target', delayedTargetHtml(), 'napplet:profile/open', []);
     server.blobs.set(target.hash, target.bytes);
     await configureRuntime(page, server, [target.event], target.pointer);
+    const handler = page.frameLocator('iframe.tab-panel[title="Napplet runtime target: warm-target"]');
 
     try {
       await page.goto(server.url);
@@ -129,8 +130,8 @@ test.describe('Paja intent links', () => {
         const review = page.getByRole('dialog', { name: 'Review intent link' });
         await expect(review).toBeVisible();
         await review.getByRole('button', { name: 'Launch' }).click();
-        await expect(page.frameLocator('iframe').locator('#delivery-count')).toHaveText(String(count), { timeout: 15_000 });
-        await expect(page.frameLocator('iframe').locator('#delivery-payload')).toHaveText(JSON.stringify({ value }));
+        await expect(handler.locator('#delivery-count')).toHaveText(String(count), { timeout: 15_000 });
+        await expect(handler.locator('#delivery-payload')).toHaveText(JSON.stringify({ value }));
         await expect(page.locator('iframe')).toHaveCount(1);
         await expect(page.locator('#paja-intent-link-status')).toHaveText('Delivered to the verified target.');
         await review.getByRole('button', { name: 'Cancel' }).click();
