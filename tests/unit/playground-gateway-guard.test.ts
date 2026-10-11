@@ -333,7 +333,7 @@ describe('playground gateway artifact guard', () => {
     expect(gatewayAudit).toContain(
       "const frameLoader = read(join(repoRoot, 'apps', 'playground', 'src', 'playground-frame-loader.ts'));",
     );
-    expect(gatewayAudit).toContain("!frameLoader.includes('iframe.srcdoc =')");
+    expect(gatewayAudit).toContain("!frameLoader.includes('iframe.srcdoc = prepareNappletSrcdoc(resolved.indexHtml, {')");
     expect(gatewayAudit).toContain(
       "frameLoader.includes('const identity = Object.freeze({ dTag, aggregateHash });')",
     );

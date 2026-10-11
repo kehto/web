@@ -36,12 +36,20 @@ function read(path) {
 function assertSourceInvariants() {
   const frameLoader = read(join(repoRoot, 'apps', 'playground', 'src', 'playground-frame-loader.ts'));
   const shellHost = read(join(repoRoot, 'apps', 'playground', 'src', 'shell-host.ts'));
+  const srcdoc = read(join(repoRoot, 'packages', 'shell', 'src', 'napplet-srcdoc.ts'));
   // NIP-5D content-addressed srcdoc loading (v1.20): the runtime resolves a
   // signed manifest, verifies the bytes, computes identity, and injects the
   // verified bytes via iframe.srcdoc. The gateway htmlUrl/metadata navigation
   // model is retired and the gateway is never trusted.
-  if (!frameLoader.includes('iframe.srcdoc =') || !frameLoader.includes('injectCspMeta(')) {
+  // prepareNappletSrcdoc owns CSP + namespace injection outside signed bytes.
+  if (!frameLoader.includes('iframe.srcdoc = prepareNappletSrcdoc(resolved.indexHtml, {')) {
     fail('playground-frame-loader.ts does not inject verified bytes via iframe.srcdoc');
+  }
+  if (
+    !srcdoc.includes('const meta = renderNappletCspMeta(options.csp);')
+    || !srcdoc.includes('return insertNappletHead(html, meta + renderNappletNamespacePrelude(options));')
+  ) {
+    fail('napplet-srcdoc.ts does not prepend CSP and namespace to verified bytes');
   }
   if (
     !frameLoader.includes('const identity = Object.freeze({ dTag, aggregateHash });')
