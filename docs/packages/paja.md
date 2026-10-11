@@ -622,7 +622,7 @@ Parameters start omitted; selecting Include with an empty field sends an explici
 empty string. Names stay in advertised order and extra named fields are allowed.
 No parameter type or requiredness is inferred. An empty advertised list still
 permits a payload. Opening or editing the builder never invokes an intent.
-Use **Copy link** or explicitly **Test intent** to open the review view.
+Use **Copy link** to share it, or **Test intent** to open the shared content.
 
 The outer URL carries a complete percent-encoded convention URI in `intent`.
 For example, `?intent=napplet%3Aprofile%2Fopen%3Fpubkey%3Dabc%252B123`
@@ -633,17 +633,27 @@ cannot accompany an inner query. URLs are limited to 16 KiB UTF-8. Duplicate
 keys, malformed encoding, and conflicting target instructions are rejected.
 Ordinary pointer-only app links retain their existing behavior.
 
-Choose recipient default routing, a named-35129 `#naddr` recommendation, or an
-exact outer `pointer`. Explicit pointers must verify and advertise the exact
-contract; failure never silently falls back. Otherwise an applicable user default
-wins before a recommendation, then ordinary compatible selection applies.
-Recommendation relay hints remain untrusted discovery inputs. Installing a
-recommendation requires confirmation after signed metadata and bytes verify.
+New links recommend the app using a named-35129 `#naddr` when available;
+snapshot or unnamed apps use an exact outer `pointer`. The builder also offers
+recipient-default routing. Explicit pointers must verify and advertise the exact
+contract; failure never silently falls back. Recommendation relay hints remain
+untrusted discovery inputs. Invalid, incompatible, or disallowed recommendations
+do not override an applicable saved default.
 
-Incoming links show **Review intent** before execution. Edit, choose another
-handler, explicitly save or clear a default, launch, retry, or cancel. Defaults
-never change implicitly. Cancellation before Launch sends nothing; accepted
-work is retained while completion or failure remains visible in the host.
+Opening a shared link opens its verified app and delivers the content directly,
+following Paja's ordinary pointer navigation and capability policy. No URI or
+payload review is shown. If an applicable saved default conflicts with the
+link's app, Paja names both apps and asks which to use. A one-time choice leaves
+the default unchanged; **Always use this app** explicitly saves the chosen app.
+Without a usable hint or default, ordinary installed-handler selection applies.
+Installed app pointers are saved separately from open tabs and reverified when
+loaded; cached pointers never authorize execution or supply trusted metadata.
+
+Progress and failures use a small notice. Successful delivery dismisses it.
+Closing the notice or cancelling an app choice before dispatch sends nothing.
+After acceptance, the incoming intent is removed from the current URL so reload
+restores the app without delivering the shared content again. Accepted work is
+retained until the verified target is ready.
 
 Paja invokes through a separate signed launcher napplet with a verified artifact
 and authenticated iframe endpoint. Its source supplies the opaque sender; the

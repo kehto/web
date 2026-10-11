@@ -8,6 +8,24 @@ import {
 import type { PajaHostConfig } from './options.js';
 
 const PAJA_INTENT_DEFAULTS_STORAGE_KEY = 'kehto.paja.intent-defaults.v1';
+const PAJA_INTENT_CATALOG_STORAGE_KEY = 'kehto.paja.intent-catalog.v1';
+
+/** Read discovery pointers only; every saved app must be reverified before routing. */
+export function readPajaIntentCatalogPointers(): readonly string[] {
+  try {
+    const value: unknown = JSON.parse(window.localStorage.getItem(PAJA_INTENT_CATALOG_STORAGE_KEY) ?? '[]');
+    return Array.isArray(value) ? value.filter((pointer): pointer is string => typeof pointer === 'string' && pointer.length > 0) : [];
+  } catch { return []; }
+}
+
+/** Persist installed discovery pointers independently of which tabs are open. */
+export function writePajaIntentCatalogPointers(pointers: readonly string[]): void {
+  try {
+    window.localStorage.setItem(PAJA_INTENT_CATALOG_STORAGE_KEY, JSON.stringify([...new Set(pointers)]));
+  } catch {
+    // Verified in-memory catalog routing remains available without persistence.
+  }
+}
 
 function runtimeTabsStorage(config: PajaHostConfig): Storage | null {
   if (config.target.mode !== 'runtime-pointer') return null;

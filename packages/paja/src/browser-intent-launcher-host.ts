@@ -1,41 +1,21 @@
 import { originRegistry } from '@kehto/shell';
-import { naddrEncode } from 'nostr-tools/nip19';
-
-import { pajaPointerResolverOptions } from './browser-intent-host.js';
-import type { PajaIntentReview, PajaIntentReviewProgress } from './browser-intent-links.js';
+import { resolvePajaSharedLinkHandler } from './browser-intent-link-target.js';
+import type { PajaIntentLinkProgress } from './browser-intent-links.js';
+import type { ParsedPajaIntentLink } from './intent-link.js';
 import { postPajaIntentLauncherMessage, resolvePajaIntentLauncher } from './intent-launcher.js';
-import { resolvePajaPointer, type PajaResolvedPointer } from './runtime-resolver.js';
-import type { PajaBrowserState, PajaBrowserStateContext, PajaHostRuntimeState } from './browser-host.js';
+import type { PajaBrowserState, PajaBrowserStateContext } from './browser-host.js';
 
-/** Launch an accepted review through a short-lived verified launcher frame. */
-export async function launchPajaReviewedIntent(
+/** Open shared content through a short-lived verified launcher frame. */
+export async function launchPajaSharedIntent(
   state: PajaBrowserState,
   context: PajaBrowserStateContext,
-  intent: PajaIntentReview,
-  progress: PajaIntentReviewProgress,
+  intent: ParsedPajaIntentLink,
+  progress: PajaIntentLinkProgress,
   setPointerStatus: (state: PajaBrowserState, message: string) => void,
 ): Promise<void> {
   const { runtime } = context;
-  let explicitHandler: string | undefined;
   if (!progress.isActive()) return;
-  if (intent.pointer) {
-    const target = await resolvePajaPointer(intent.pointer, pajaPointerResolverOptions(context));
-    if (!progress.isActive()) return;
-    const exact = target.manifest.archetypes.some((contract) =>
-      contract.slug === intent.request.archetype && contract.convention === intent.request.convention);
-    if (!exact) throw new Error('The explicitly named napplet does not advertise this exact intent convention');
-    runtime.catalog.install(target);
-    progress.selectedTarget(target.manifest.title ?? target.manifest.dTag);
-    explicitHandler = target.manifest.catalogId;
-  }
-  if (intent.request.handlerHint && shouldResolveRecommendation(intent, runtime)) {
-    const target = await resolveRecommendedIntentTarget(context, intent.request.handlerHint, intent.request.archetype, intent.request.convention);
-    if (!progress.isActive()) return;
-    if (target) {
-      runtime.catalog.install(target);
-      progress.selectedTarget(target.manifest.title ?? target.manifest.dTag);
-    }
-  }
+  const explicitHandler = await resolvePajaSharedLinkHandler(context, intent, progress);
   if (!progress.isActive()) return;
   const launcher = await resolvePajaIntentLauncher();
   if (!progress.isActive()) return;
@@ -110,43 +90,4 @@ export async function launchPajaReviewedIntent(
   } finally {
     teardown();
   }
-}
-
-function shouldResolveRecommendation(intent: PajaIntentReview, runtime: PajaHostRuntimeState): boolean {
-  if (intent.request.handler !== undefined) return false;
-  const defaultId = runtime.intentDefaults.get(intent.request.archetype);
-  if (!defaultId) return true;
-  const record = runtime.catalog.get(defaultId);
-  return !record || !record.archetypes.some((entry) =>
-    entry.slug === intent.request.archetype && entry.convention === intent.request.convention);
-}
-
-async function resolveRecommendedIntentTarget(
-  context: PajaBrowserStateContext,
-  hint: { readonly address: string; readonly relays?: readonly string[] },
-  archetype: string,
-  convention: string,
-): Promise<PajaResolvedPointer | null> {
-  const match = /^35129:([a-f0-9]{64}):(.+)$/.exec(hint.address);
-  if (!match) return null;
-  const [, pubkey, identifier] = match;
-  const existing = context.runtime.catalog.installed().find((record) =>
-    record.id === `nip5d:${hint.address}`
-    && record.archetypes.some((entry) => entry.slug === archetype && entry.convention === convention));
-  if (existing) return null;
-  const pointer = naddrEncode({ identifier, pubkey, kind: 35_129, relays: [...(hint.relays ?? [])] });
-  let target: PajaResolvedPointer;
-  try {
-    target = await resolvePajaPointer(pointer, pajaPointerResolverOptions(context));
-  } catch {
-    return null;
-  }
-  const exactCoordinate = target.event.kind === 35_129
-    && target.event.pubkey === pubkey
-    && target.manifest.dTag === identifier;
-  const exactContract = target.manifest.archetypes.some((entry) =>
-    entry.slug === archetype && entry.convention === convention);
-  if (!exactCoordinate || !exactContract) return null;
-  if (!window.confirm(`Install and use recommended handler ${target.manifest.title ?? target.manifest.dTag}?`)) return null;
-  return target;
 }

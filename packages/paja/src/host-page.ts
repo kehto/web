@@ -108,6 +108,8 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .empty-stage { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 12px; }
       .empty-stage[hidden] { display: none; }
       .stage.drop-active { outline: 2px dashed var(--accent); outline-offset: -6px; }
+      .intent-link-notice { position: fixed; bottom: 36px; right: 16px; max-width: min(420px, calc(100vw - 32px)); z-index: 30; padding: 12px; background: var(--bar); border: 1px solid var(--line); border-radius: 8px; }
+      .intent-link-notice[hidden] { display: none; }
       .tab-panel { position: absolute; inset: 0; min-width: 0; min-height: 0; }
       .tab-panel[hidden] { display: none; }
       iframe { width: 100%; height: 100%; border: 0; background: white; display: block; }
@@ -294,24 +296,21 @@ function renderConfigDialog(): string {
 }
 
 function renderIntentLinkDialog(): string {
-  return `<dialog class="config-dialog" id="paja-intent-link-dialog" aria-labelledby="paja-intent-link-title" aria-describedby="paja-intent-link-status">
-      <form class="dialog" method="dialog">
-        <div class="dialog-title" id="paja-intent-link-title">Review intent link</div>
-        <label>Intent URI <input id="paja-intent-link-uri" type="text" autocomplete="off" spellcheck="false"></label>
-        <label>Payload <textarea id="paja-intent-link-payload" rows="5" spellcheck="false"></textarea></label>
-        <label>Compatible handler <select id="paja-intent-link-handler" disabled></select></label>
-        <label><input id="paja-intent-link-save-default" type="checkbox"> Set as my default for this role</label>
-        <button type="button" id="paja-intent-link-clear-default">Clear saved default</button>
-        <div class="dialog-copy" id="paja-intent-link-target"></div>
-        <div class="config-error" id="paja-intent-link-status" role="status" aria-live="polite"></div>
+  return `<div class="intent-link-notice" id="paja-intent-link-notice" hidden>
+      <div id="paja-intent-link-status" role="status" aria-live="polite"></div>
+      <button type="button" id="paja-intent-link-retry" hidden>Try again</button>
+      <button type="button" id="paja-intent-link-dismiss">Close</button>
+    </div>
+    <dialog class="config-dialog" id="paja-intent-link-dialog" aria-labelledby="paja-intent-link-title" aria-describedby="paja-intent-link-copy">
+      <div class="dialog">
+        <div class="dialog-title" id="paja-intent-link-title">Which app would you like to use?</div>
+        <div class="dialog-copy" id="paja-intent-link-copy"></div>
+        <div class="dialog-actions" id="paja-intent-link-apps"></div>
+        <label><input id="paja-intent-link-save-default" type="checkbox"> Always use this app</label>
         <div class="dialog-actions">
-          <button type="button" id="paja-intent-link-choose">Choose another</button>
-          <button type="button" id="paja-intent-link-use-handler" disabled>Use handler</button>
-          <button type="button" id="paja-intent-link-retry">Retry</button>
           <button type="button" id="paja-intent-link-cancel">Cancel</button>
-          <button type="button" id="paja-intent-link-launch">Launch</button>
         </div>
-      </form>
+      </div>
     </dialog>`;
 }
 
