@@ -10,7 +10,7 @@ updated: 2026-10-10
 hypothesis: Confirmed — the generic iframe selector matched the target and a valid temporary launcher.
 test: Focused CI-mode test passed five zero-retry repetitions; diff inspection was clean.
 expecting: The handler-scoped locator reads only the verified warm-target tab during the temporary launcher lifecycle.
-next_action: Parent owns broader CI and remote verification.
+next_action: Local gates passed; push the correction and verify CI on the new PR head.
 bug_class: Bohrbug (the CI strict-locator violation reproduced deterministically on all three attempts)
 reasoning_checkpoint:
   hypothesis: "The test fails because its page-wide iframe locator matches both the verified target tab and the protocol-valid transient launcher while the launch is in progress."
@@ -44,6 +44,7 @@ reproduction: CI run 38049803254, job 114206813504; warm reuse test line 112, in
 - CI trace confirmation: all three failed attempts resolved the generic locator to the target `iframe.tab-panel[title="Napplet runtime target: warm-target"]` and one hidden `aria-hidden` launcher; the target had delivery count `0` before strict-mode rejected the two-frame locator.
 - Focused validation: `CI=true pnpm exec playwright test tests/e2e/paja-intent-links.spec.ts --grep 'reuses a warm verified handler without replaying or opening a second target tab' --repeat-each=5 --retries=0 --workers=1` exited 0; all 5 Chromium repetitions passed in 10.0s, with no retries.
 - Diff inspection: `git diff --check` passed. The only test change adds the exact warm-target `iframe.tab-panel` locator and routes the two target-content assertions through it; the one-iframe teardown, status, payload, and exactly-two delivery assertions remain.
+- Parent verification: build, type-check, 2,085 unit tests, docs check, and AI-slop passed. The full CI-mode browser rerun passed all 120 tests with one worker and zero retries. One mobile-builder timeout in the preceding full run did not reproduce in five focused runs or the full rerun; investigation is recorded in `pr289-ci-mobile-builder.md`.
 
 ## Eliminated
 
