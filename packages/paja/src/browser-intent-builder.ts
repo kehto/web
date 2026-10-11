@@ -152,6 +152,7 @@ export function createPajaIntentLinkBuilder(options: PajaIntentLinkBuilderOption
     appendIntentLinkBuilderOption(routing.control, 'default', 'Recipient default');
     appendIntentLinkBuilderOption(routing.control, 'recommend', 'Recommend this app', nextTarget.event.kind !== 35129 || !nextTarget.manifest.dTag);
     appendIntentLinkBuilderOption(routing.control, 'exact', 'Exact target pointer');
+    routing.control.value = nextTarget.event.kind === 35129 && nextTarget.manifest.dTag ? 'recommend' : 'exact';
     appendIntentLinkBuilderOption(payloadMode.control, 'text', 'Text fields');
     appendIntentLinkBuilderOption(payloadMode.control, 'json', 'JSON payload');
     json.value = '';

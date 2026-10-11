@@ -1,243 +1,153 @@
-/** Native-dialog review for parsed Paja intent links. */
+/** Recipient-facing shared-link launch and app choices. */
 
-import { normalizeIntentUri } from '@kehto/shell';
 import type { IntentCandidate } from '@kehto/services';
 import type { ParsedPajaIntentLink } from './intent-link.js';
 
-/** Edited request passed to the host only after an explicit Launch click. */
-export interface PajaIntentReview {
-  readonly uri: string;
-  readonly pointer?: string;
-  readonly payload?: unknown;
-  readonly request: ReturnType<typeof normalizeIntentUri>;
+/** Verified app labels presented when a recipient must make a choice. */
+export interface PajaIntentApp {
+  readonly id: string;
+  readonly title: string;
 }
 
-/** Host callbacks that keep review visible across accepted delivery work. */
-export interface PajaIntentReviewProgress {
-  /** Whether this exact review run may still update its dialog. */
+/** Host observability for one shared-link navigation. */
+export interface PajaIntentLinkProgress {
   isActive(): boolean;
-  /** Show the readable title of a verified selected target before delivery. */
   selectedTarget(title: string): void;
+  chooseConflict(saved: PajaIntentApp, shared: PajaIntentApp): Promise<string | undefined>;
   accepted(): void;
   delivered(): void;
   failed(error: unknown): void;
 }
 
-export interface PajaIntentLinkReviewController {
-  review(link: ParsedPajaIntentLink, launch: (review: PajaIntentReview, progress: PajaIntentReviewProgress) => Promise<void>): Promise<void>;
+export interface PajaIntentLinkController {
+  open(link: ParsedPajaIntentLink, launch: (link: ParsedPajaIntentLink, progress: PajaIntentLinkProgress) => Promise<void>): void;
   chooseHandler(archetype: string, candidates: readonly IntentCandidate[]): Promise<string | undefined>;
-  consumeSaveDefault(): boolean;
+  showError(error: unknown): void;
   dispose(): void;
 }
 
 /**
- * Create the host-owned incoming-link review. Opening and editing only update
- * controls. The dialog remains open through resolving, accepted, and delivery
- * completion so failures have an explicit Retry/Choose another recovery path.
+ * Open shared content directly, with an app choice only when routing needs one.
+ * Successful delivery leaves the recipient in the app, without a review form.
  *
- * @param document - Host document that owns the native review controls.
- * @param options - Host callbacks for explicit default mutations.
- * @returns A review controller, or `null` when required controls are absent.
+ * @param document - Host document containing app-choice and notice controls.
+ * @param options - Explicit preference changes and consumed-navigation callbacks.
+ * @returns A controller, or null when the host controls are absent.
  * @example
  * ```ts
- * const review = createPajaIntentLinkReviewController();
+ * const links = createPajaIntentLinkController();
  * ```
  */
-export function createPajaIntentLinkReviewController(
+export function createPajaIntentLinkController(
   document: Pick<Document, 'getElementById' | 'activeElement' | 'createElement'> = window.document,
-  options: { clearDefault?(archetype: string): void } = {},
-): PajaIntentLinkReviewController | null {
+  options: { setDefault?(archetype: string, id: string): void; onAccepted?(): void } = {},
+): PajaIntentLinkController | null {
   const dialog = document.getElementById('paja-intent-link-dialog');
-  const uri = document.getElementById('paja-intent-link-uri');
-  const payload = document.getElementById('paja-intent-link-payload');
-  const target = document.getElementById('paja-intent-link-target');
-  const status = document.getElementById('paja-intent-link-status');
+  const title = document.getElementById('paja-intent-link-title');
+  const copy = document.getElementById('paja-intent-link-copy');
+  const apps = document.getElementById('paja-intent-link-apps');
+  const remember = document.getElementById('paja-intent-link-save-default');
   const cancel = document.getElementById('paja-intent-link-cancel');
-  const launch = document.getElementById('paja-intent-link-launch');
+  const notice = document.getElementById('paja-intent-link-notice');
+  const status = document.getElementById('paja-intent-link-status');
   const retry = document.getElementById('paja-intent-link-retry');
-  const choose = document.getElementById('paja-intent-link-choose');
-  const handler = document.getElementById('paja-intent-link-handler');
-  const useHandler = document.getElementById('paja-intent-link-use-handler');
-  const saveDefault = document.getElementById('paja-intent-link-save-default');
-  const clearDefault = document.getElementById('paja-intent-link-clear-default');
-  if (!(dialog instanceof HTMLDialogElement) || !(uri instanceof HTMLInputElement)
-    || !(payload instanceof HTMLTextAreaElement) || !(target instanceof HTMLElement)
-    || !(status instanceof HTMLElement) || !(cancel instanceof HTMLButtonElement)
-    || !(launch instanceof HTMLButtonElement) || !(retry instanceof HTMLButtonElement)
-    || !(choose instanceof HTMLButtonElement) || !(handler instanceof HTMLSelectElement)
-    || !(useHandler instanceof HTMLButtonElement) || !(saveDefault instanceof HTMLInputElement)) return null;
-  const clearDefaultButton = clearDefault instanceof HTMLButtonElement ? clearDefault : null;
+  const dismiss = document.getElementById('paja-intent-link-dismiss');
+  if (!(dialog instanceof HTMLDialogElement) || !(title instanceof HTMLElement)
+    || !(copy instanceof HTMLElement) || !(apps instanceof HTMLElement)
+    || !(remember instanceof HTMLInputElement) || !(cancel instanceof HTMLButtonElement)
+    || !(notice instanceof HTMLElement) || !(status instanceof HTMLElement)
+    || !(retry instanceof HTMLButtonElement) || !(dismiss instanceof HTMLButtonElement)) return null;
 
-  let settle: (() => void) | null = null;
-  let trigger: HTMLElement | null = null;
-  let pointer: string | undefined;
-  let forceChooser = false;
-  let run: (() => void) | null = null;
-  let chooseSettle: ((value: string | undefined) => void) | null = null;
-  let activeArchetype: string | undefined;
   let generation = 0;
-  let busy = false;
-  const isCurrent = (runGeneration: number) => generation === runGeneration && settle !== null;
-  const setBusy = (value: boolean) => {
-    busy = value;
-    launch.disabled = value;
-    retry.disabled = value || !run;
-    choose.disabled = value;
-  };
-  const setTargetCopy = () => {
-    target.textContent = pointer
-      ? 'This link names one verified target. If it cannot satisfy this exact convention, choose another deliberately.'
-      : forceChooser
-        ? 'Choose a compatible handler deliberately. This launch will not use a saved default or recommendation.'
-        : 'Paja will use your saved default, recommendation, or ask you to choose a compatible handler.';
-  };
-  const finish = () => {
-    generation += 1;
-    busy = false;
-    const done = settle;
-    settle = null;
-    run = null;
-    chooseSettle?.(undefined);
-    chooseSettle = null;
+  let run: (() => void) | undefined;
+  let archetype = '';
+  let settleChoice: ((id: string | undefined) => void) | undefined;
+  let trigger: HTMLElement | null = null;
+  const closeChoice = (id?: string) => {
+    const settle = settleChoice;
+    settleChoice = undefined;
+    if (id && remember.checked) options.setDefault?.(archetype, id);
     if (dialog.open) dialog.close();
     trigger?.focus();
     trigger = null;
-    done?.();
+    settle?.(id);
   };
-  const cancelReview = () => finish();
-  const chooseAnother = () => {
-    pointer = undefined;
-    forceChooser = true;
-    setTargetCopy();
-    status.textContent = 'Choose another will open the compatible-handler chooser and bypass saved defaults.';
+  const cancelChoice = () => { closeChoice(); generation += 1; notice.hidden = true; run = undefined; };
+  const dismissNotice = () => { generation += 1; notice.hidden = true; run = undefined; closeChoice(); };
+  const retryLink = () => run?.();
+  const showError = (_error: unknown) => {
+    status.textContent = 'Couldn’t open this shared content. Try again, or ask the sender for a new link.';
+    notice.hidden = false;
+    retry.hidden = !run;
   };
-  const retryReview = () => { if (!busy) run?.(); };
-  const launchReview = () => { if (!busy) run?.(); };
-  const useSelectedHandler = () => {
-    const settleChoice = chooseSettle;
-    chooseSettle = null;
-    handler.disabled = true;
-    useHandler.disabled = true;
-    settleChoice?.(handler.value || undefined);
+  const choose = (heading: string, description: string, candidates: readonly PajaIntentApp[]) => {
+    closeChoice();
+    trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    title.textContent = heading;
+    copy.textContent = description;
+    remember.checked = false;
+    apps.replaceChildren();
+    for (const candidate of candidates) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = `Open with ${candidate.title}`;
+      button.addEventListener('click', () => closeChoice(candidate.id));
+      apps.append(button);
+    }
+    notice.hidden = true;
+    const result = new Promise<string | undefined>((resolve) => { settleChoice = resolve; });
+    dialog.showModal();
+    return result;
   };
-  const clearSavedDefault = () => {
-    if (!activeArchetype) return;
-    options.clearDefault?.(activeArchetype);
-    status.textContent = `Cleared the saved default for ${activeArchetype}.`;
-  };
-  cancel.addEventListener('click', cancelReview);
-  launch.addEventListener('click', launchReview);
-  retry.addEventListener('click', retryReview);
-  choose.addEventListener('click', chooseAnother);
-  useHandler.addEventListener('click', useSelectedHandler);
-  clearDefaultButton?.addEventListener('click', clearSavedDefault);
-  dialog.addEventListener('cancel', cancelReview);
+  cancel.addEventListener('click', cancelChoice);
+  dialog.addEventListener('cancel', cancelChoice);
+  dismiss.addEventListener('click', dismissNotice);
+  retry.addEventListener('click', retryLink);
 
   return {
-    review(link, onLaunch) {
-      if (settle) finish();
-      uri.value = link.uri;
-      pointer = link.pointer;
-      forceChooser = false;
-      payload.value = Object.hasOwn(link, 'payload') ? JSON.stringify(link.payload) : '';
-      trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-      activeArchetype = link.request.archetype;
-      setTargetCopy();
-      status.textContent = 'Review the URI and payload, then explicitly launch.';
+    open(link, launch) {
+      dismissNotice();
+      archetype = link.request.archetype;
       run = () => {
-        if (busy) return;
-        const runGeneration = ++generation;
-        let review: PajaIntentReview;
-        try {
-          const hasPayload = payload.value.trim().length > 0;
-          const parsedPayload = hasPayload ? JSON.parse(payload.value) : undefined;
-          const request = normalizeIntentUri(uri.value, {
-            ...(hasPayload ? { payload: parsedPayload } : {}),
-            ...(forceChooser ? { handler: 'choose' } : {}),
-          });
-          if (pointer !== undefined && request.handlerHint !== undefined) {
-            throw new TypeError('Paja intent link cannot combine a target pointer with a URI recommendation');
-          }
-          activeArchetype = request.archetype;
-          review = { uri: uri.value, ...(pointer === undefined ? {} : { pointer }), ...(hasPayload ? { payload: parsedPayload } : {}), request };
-        } catch (error) {
-          if (isCurrent(runGeneration)) status.textContent = error instanceof Error ? error.message : 'Intent link is invalid.';
-          return;
-        }
-        setBusy(true);
-        status.textContent = 'Resolving verified handler policy…';
-        // A reused target may finish before the launcher's acceptance reply.
-        // Once terminal, a late reply must not move the review backwards.
+        const current = ++generation;
         let terminal = false;
-        const progress: PajaIntentReviewProgress = {
-          isActive: () => isCurrent(runGeneration),
-          selectedTarget(title) {
-            if (!isCurrent(runGeneration)) return;
-            target.textContent = `Verified target: ${title}`;
-          },
-          accepted() {
-            if (!isCurrent(runGeneration) || terminal) return;
-            status.textContent = 'Accepted: delivery is queued and the target may still be loading.';
-          },
+        let consumed = false;
+        const isActive = () => current === generation;
+        const consume = () => { if (!consumed) { consumed = true; options.onAccepted?.(); } };
+        status.textContent = 'Opening shared content…';
+        notice.hidden = false;
+        retry.hidden = true;
+        const progress: PajaIntentLinkProgress = {
+          isActive,
+          selectedTarget(name) { if (isActive() && !terminal) status.textContent = `Opening ${name}…`; },
+          chooseConflict: (saved, shared) => choose('Which app would you like to use?',
+            `This link uses ${shared.title}. Your saved preference is ${saved.title}.`, [saved, shared]),
+          accepted() { if (isActive()) consume(); },
           delivered() {
-            if (!isCurrent(runGeneration) || terminal) return;
+            if (!isActive() || terminal) return;
             terminal = true;
-            status.textContent = 'Delivered to the verified target.';
-            setBusy(false);
+            consume();
+            notice.hidden = true;
+            run = undefined;
           },
-          failed(error) {
-            if (!isCurrent(runGeneration) || terminal) return;
-            terminal = true;
-            status.textContent = `Delivery failed: ${error instanceof Error ? error.message : String(error)}`;
-            setBusy(false);
-          },
+          failed(error) { if (isActive() && !terminal) { terminal = true; showError(error); } },
         };
-        void Promise.resolve().then(() => onLaunch(review, progress)).then(undefined, (error: unknown) => progress.failed(error));
+        void Promise.resolve().then(() => launch(link, progress)).catch(progress.failed);
       };
-      setBusy(false);
-      dialog.showModal();
-      uri.focus();
-      return new Promise((resolve) => { settle = resolve; });
+      run();
     },
-    chooseHandler(archetype, candidates) {
-      if (chooseSettle) chooseSettle(undefined);
-      activeArchetype = archetype;
-      if (!dialog.open) {
-        trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-        pointer = undefined;
-        forceChooser = true;
-        uri.value = '';
-        payload.value = '';
-        setTargetCopy();
-        dialog.showModal();
-      }
-      handler.replaceChildren();
-      for (const candidate of candidates) {
-        const option = document.createElement('option');
-        option.value = candidate.id;
-        option.textContent = candidate.title ?? candidate.id;
-        handler.append(option);
-      }
-      handler.disabled = candidates.length === 0;
-      useHandler.disabled = candidates.length === 0;
-      saveDefault.checked = false;
-      status.textContent = `Choose a compatible handler for ${archetype}.`;
-      return new Promise((resolve) => { chooseSettle = resolve; });
+    chooseHandler(role, candidates) {
+      archetype = role;
+      return choose('Choose an app', 'Open this shared content with:',
+        candidates.map((candidate) => ({ id: candidate.id, title: candidate.title ?? 'Untitled app' })));
     },
-    consumeSaveDefault() {
-      const selected = saveDefault.checked;
-      saveDefault.checked = false;
-      return selected;
-    },
+    showError,
     dispose() {
-      cancel.removeEventListener('click', cancelReview);
-      launch.removeEventListener('click', launchReview);
-      retry.removeEventListener('click', retryReview);
-      choose.removeEventListener('click', chooseAnother);
-      useHandler.removeEventListener('click', useSelectedHandler);
-      clearDefaultButton?.removeEventListener('click', clearSavedDefault);
-      dialog.removeEventListener('cancel', cancelReview);
-      finish();
+      dismissNotice();
+      cancel.removeEventListener('click', cancelChoice);
+      dialog.removeEventListener('cancel', cancelChoice);
+      dismiss.removeEventListener('click', dismissNotice);
+      retry.removeEventListener('click', retryLink);
     },
   };
 }

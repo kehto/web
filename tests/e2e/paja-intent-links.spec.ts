@@ -69,17 +69,13 @@ test.describe('Paja intent links', () => {
       await expect(builder).toBeHidden();
       await expect(share).toBeFocused();
 
-      // This second document has no pointer startup. The copied intent alone
-      // opens a review, then the user explicitly launches it.
+      // A recipient opens the copied link directly into the verified app.
       const incomingPage = await context.newPage();
       await configureRuntime(incomingPage, server, [target.event]);
       await incomingPage.goto(copied);
-      const review = incomingPage.getByRole('dialog', { name: 'Review intent link' });
-      await expect(review).toBeVisible();
-      await expect(incomingPage.locator('iframe')).toHaveCount(0);
-      await review.getByRole('button', { name: 'Launch' }).click();
-      await expect(incomingPage.frameLocator('iframe').locator('#delivery-count')).toHaveText('1', { timeout: 15_000 });
-      await expect(incomingPage.frameLocator('iframe').locator('#delivery-payload')).toHaveText('{"value":null,"items":[1,"two"]}');
+      await expect(incomingPage.locator('#paja-intent-link-dialog')).not.toBeVisible();
+      await expect(incomingPage.frameLocator('iframe.tab-panel').locator('#delivery-count')).toHaveText('1', { timeout: 15_000 });
+      await expect(incomingPage.frameLocator('iframe.tab-panel').locator('#delivery-payload')).toHaveText('{"value":null,"items":[1,"two"]}');
     } finally {
       await context.close();
       await server.close();
@@ -127,15 +123,11 @@ test.describe('Paja intent links', () => {
         await builder.locator('select[id$="-payload-mode"]').selectOption('json');
         await builder.getByRole('textbox', { name: 'JSON payload' }).fill(JSON.stringify({ value }));
         await builder.getByRole('button', { name: 'Test intent' }).click();
-        const review = page.getByRole('dialog', { name: 'Review intent link' });
-        await expect(review).toBeVisible();
-        await review.getByRole('button', { name: 'Launch' }).click();
+        await expect(page.locator('#paja-intent-link-dialog')).not.toBeVisible();
         await expect(handler.locator('#delivery-count')).toHaveText(String(count), { timeout: 15_000 });
         await expect(handler.locator('#delivery-payload')).toHaveText(JSON.stringify({ value }));
         await expect(page.locator('iframe')).toHaveCount(1);
-        await expect(page.locator('#paja-intent-link-status')).toHaveText('Delivered to the verified target.');
-        await review.getByRole('button', { name: 'Cancel' }).click();
-        await expect(review).toBeHidden();
+        await expect(page.locator('#paja-intent-link-notice')).toBeHidden();
       }
       await expect.poll(() => page.evaluate(() => window.__KEHTO_PAJA__?.getState().messageLog
         .filter((entry) => entry.type === 'intent.deliver').length)).toBe(2);
@@ -144,239 +136,189 @@ test.describe('Paja intent links', () => {
     }
   });
 
-  test('hydrates saved handler facts without running tabs, then lets a saved default beat a recommendation', async ({ browser }) => {
+  test('shows named app choices only for a conflicting saved preference and never changes it implicitly', async ({ browser }) => {
     test.setTimeout(60_000);
     const server = await startIntentServer();
-    const defaultTarget = createSignedTarget(server.url, 'default-target', delayedTargetHtml('default'), 'napplet:profile/open', []);
-    const recommendedTarget = createSignedTarget(server.url, 'recommended-target', delayedTargetHtml('recommended'), 'napplet:profile/open', []);
-    server.blobs.set(defaultTarget.hash, defaultTarget.bytes);
-    server.blobs.set(recommendedTarget.hash, recommendedTarget.bytes);
-    const context = await browser.newContext();
+    const saved = createSignedTarget(server.url, 'My Reader', delayedTargetHtml('saved'), 'napplet:profile/open', []);
+    const shared = createSignedTarget(server.url, 'Shared Reader', delayedTargetHtml('shared'), 'napplet:profile/open', []);
+    server.blobs.set(saved.hash, saved.bytes);
+    server.blobs.set(shared.hash, shared.bytes);
+    const context = await browser.newContext({ viewport: { width: 375, height: 720 } });
     const setup = await context.newPage();
-    await configureRuntime(setup, server, [defaultTarget.event, recommendedTarget.event]);
-
+    await configureRuntime(setup, server, [saved.event, shared.event]);
+    const incoming = async (pointer: string) => {
+      const page = await context.newPage();
+      await configureRuntime(page, server, [saved.event, shared.event]);
+      await page.goto(recommendationHref(server.url, pointer));
+      return page;
+    };
     try {
       await setup.goto(server.url);
       await expect.poll(() => setup.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
-      await setup.evaluate(async ([defaultPointer, recommendedPointer]) => {
-        await window.__KEHTO_PAJA__!.loadPointer(defaultPointer);
-        await window.__KEHTO_PAJA__!.loadPointer(recommendedPointer);
-      }, [defaultTarget.pointer, recommendedTarget.pointer]);
-      await expect.poll(() => setup.evaluate(() => window.__KEHTO_PAJA__?.getState().tabs.length)).toBe(2);
-
-      // Saving a default requires an explicit compatible-handler selection.
-      await openIntentBuilder(setup, 'default-target');
-      let builder = setup.getByRole('dialog', { name: 'Create intent link' });
+      await setup.evaluate(async ([first, second]) => {
+        await window.__KEHTO_PAJA__!.loadPointer(first);
+        await window.__KEHTO_PAJA__!.loadPointer(second);
+      }, [saved.pointer, shared.pointer]);
+      await openIntentBuilder(setup, 'My Reader');
+      const builder = setup.getByRole('dialog', { name: 'Create intent link' });
+      await builder.locator('select[id$="-routing"]').selectOption('default');
       await builder.getByRole('button', { name: 'Test intent' }).click();
-      let review = setup.getByRole('dialog', { name: 'Review intent link' });
-      await review.getByRole('button', { name: 'Launch' }).click();
-      await expect(review.getByLabel('Compatible handler')).toBeEnabled();
-      await review.getByLabel('Compatible handler').selectOption({ label: 'default-target' });
-      await review.getByLabel('Set as my default for this role').check();
-      await review.getByRole('button', { name: 'Use handler' }).click();
-      await expect(setup.frameLocator('iframe[title="Napplet runtime target: default-target"]').locator('#delivery-target')).toHaveText('default', { timeout: 15_000 });
-      await review.getByRole('button', { name: 'Cancel' }).click();
+      const chooser = setup.getByRole('dialog', { name: 'Choose an app' });
+      await expect(chooser).toBeVisible();
+      await chooser.getByLabel('Always use this app').check();
+      await chooser.getByRole('button', { name: 'Open with My Reader', exact: true }).click();
+      await expect(setup.frameLocator('iframe[title="Napplet runtime target: My Reader"]').locator('#delivery-target')).toHaveText('saved', { timeout: 15_000 });
 
-      // The recommendation link is also created from a verified current manifest.
-      await openIntentBuilder(setup, 'recommended-target');
-      builder = setup.getByRole('dialog', { name: 'Create intent link' });
-      await builder.locator('select[id$="-routing"]').selectOption('recommend');
-      const recommendedLink = await builder.getByLabel('Copyable URL').inputValue();
-      expect(recommendedLink).toContain('%23naddr');
-      await builder.getByRole('button', { name: 'Cancel' }).click();
+      const matching = await incoming(saved.pointer);
+      await expect(matching.frameLocator('iframe.tab-panel').locator('#delivery-target')).toHaveText('saved', { timeout: 15_000 });
+      await expect(matching.locator('#paja-intent-link-dialog')).toBeHidden();
 
-      const incoming = await context.newPage();
-      await configureRuntime(incoming, server, [defaultTarget.event, recommendedTarget.event]);
-      const recommendationPrompts: string[] = [];
-      incoming.on('dialog', (dialog) => {
-        recommendationPrompts.push(dialog.message());
-        void dialog.dismiss();
-      });
-      await incoming.goto(recommendedLink);
-      review = incoming.getByRole('dialog', { name: 'Review intent link' });
-      await expect(review).toBeVisible();
-      // Incoming boot only hydrates saved verified catalog facts; it does not run
-      // either saved tab before the explicit Launch.
-      await expect(incoming.locator('iframe')).toHaveCount(0);
-      await review.getByRole('button', { name: 'Launch' }).click();
-      await expect(incoming.frameLocator('iframe').locator('#delivery-target')).toHaveText('default', { timeout: 15_000 });
-      expect(recommendationPrompts).toEqual([]);
+      // Exact pointer links explicitly name their target, ahead of saved routing.
+      const exact = await context.newPage();
+      await configureRuntime(exact, server, [saved.event, shared.event]);
+      await exact.goto(intentHref(server.url, shared.pointer, { subject: 'shared' }));
+      await expect(exact.frameLocator('iframe.tab-panel').locator('#delivery-target')).toHaveText('shared', { timeout: 15_000 });
+      await expect(exact.locator('#paja-intent-link-dialog')).toBeHidden();
 
-      // An explicit Choose another bypasses the saved default, permits a
-      // replacement, and lets the user clear that replacement deliberately.
-      await openIntentBuilder(setup, 'default-target');
-      builder = setup.getByRole('dialog', { name: 'Create intent link' });
-      await builder.getByRole('button', { name: 'Test intent' }).click();
-      review = setup.getByRole('dialog', { name: 'Review intent link' });
-      await review.getByRole('button', { name: 'Choose another' }).click();
-      await review.getByRole('button', { name: 'Launch' }).click();
-      await expect(review.getByLabel('Compatible handler')).toBeEnabled();
-      await review.getByLabel('Compatible handler').selectOption({ label: 'recommended-target' });
-      await review.getByLabel('Set as my default for this role').check();
-      await review.getByRole('button', { name: 'Use handler' }).click();
-      await expect(setup.frameLocator('iframe[title="Napplet runtime target: recommended-target"]').locator('#delivery-target')).toHaveText('recommended', { timeout: 15_000 });
-      await review.getByRole('button', { name: 'Cancel' }).click();
+      const keepSaved = await incoming(shared.pointer);
+      const conflict = keepSaved.getByRole('dialog', { name: 'Which app would you like to use?' });
+      await expect(conflict).toBeVisible();
+      await expect(conflict).toContainText('This link uses Shared Reader. Your saved preference is My Reader.');
+      await expect(conflict.locator('input:not([type="checkbox"]), textarea, select')).toHaveCount(0);
+      await expect(keepSaved.locator('iframe')).toHaveCount(0);
+      await conflict.getByRole('button', { name: 'Open with My Reader', exact: true }).click();
+      await expect(keepSaved.frameLocator('iframe.tab-panel').locator('#delivery-target')).toHaveText('saved', { timeout: 15_000 });
+      await expect(conflict).toBeHidden();
+      await expect(keepSaved.locator('#paja-intent-link-notice')).toBeHidden();
 
-      await openIntentBuilder(setup, 'default-target');
-      builder = setup.getByRole('dialog', { name: 'Create intent link' });
-      await builder.getByRole('button', { name: 'Test intent' }).click();
-      review = setup.getByRole('dialog', { name: 'Review intent link' });
-      await review.getByRole('button', { name: 'Clear saved default' }).click();
-      await expect(setup.locator('#paja-intent-link-status')).toContainText('Cleared the saved default');
-      await review.getByRole('button', { name: 'Cancel' }).click();
+      const useShared = await incoming(shared.pointer);
+      const sharedChoice = useShared.getByRole('dialog', { name: 'Which app would you like to use?' });
+      await sharedChoice.getByRole('button', { name: 'Open with Shared Reader', exact: true }).click();
+      await expect(useShared.frameLocator('iframe.tab-panel').locator('#delivery-target')).toHaveText('shared', { timeout: 15_000 });
+      // Ordinary pointer navigation also must not discard other installed apps.
+      const ordinary = await context.newPage();
+      await configureRuntime(ordinary, server, [saved.event, shared.event]);
+      await ordinary.goto(`${server.url}?naddr=${shared.pointer}`);
+      await expect(ordinary.frameLocator('iframe.tab-panel').locator('#delivery-target')).toHaveText('shared', { timeout: 15_000 });
+      // Selecting the shared app once must leave My Reader as the saved preference.
+      const unchanged = await incoming(shared.pointer);
+      await expect(unchanged.getByRole('dialog', { name: 'Which app would you like to use?' })).toContainText('saved preference is My Reader');
+      await unchanged.keyboard.press('Escape');
+      await expect(unchanged.locator('#paja-intent-link-dialog')).toBeHidden();
+      await expect(unchanged.locator('iframe')).toHaveCount(0);
+      await expect.poll(() => unchanged.evaluate(() => window.__KEHTO_PAJA__?.getState().messageLog.filter((entry) => entry.type === 'intent.deliver').length)).toBe(0);
+
+      const rememberShared = await incoming(shared.pointer);
+      const rememberChoice = rememberShared.getByRole('dialog', { name: 'Which app would you like to use?' });
+      await rememberChoice.getByLabel('Always use this app').check();
+      await rememberChoice.getByRole('button', { name: 'Open with Shared Reader', exact: true }).click();
+      await expect(rememberShared.frameLocator('iframe.tab-panel').locator('#delivery-target')).toHaveText('shared', { timeout: 15_000 });
+      const newDefault = await incoming(shared.pointer);
+      await expect(newDefault.frameLocator('iframe.tab-panel').locator('#delivery-target')).toHaveText('shared', { timeout: 15_000 });
+      await expect(newDefault.locator('#paja-intent-link-dialog')).toBeHidden();
+      // Unsupported or unverifiable hints do not displace the valid saved app.
+      const unsupported = createSignedTarget(server.url, 'Wrong Contract', delayedTargetHtml('wrong'), 'napplet:profile/view', []);
+      const unsigned = createSignedTarget(server.url, 'Bad Signature', delayedTargetHtml('bad'), 'napplet:profile/open', []);
+      for (const hinted of [unsupported, { ...unsigned, event: { ...unsigned.event, sig: '0'.repeat(128) } }]) {
+        const fallback = await context.newPage();
+        await configureRuntime(fallback, server, [saved.event, shared.event, hinted.event]);
+        await fallback.goto(recommendationHref(server.url, hinted.pointer));
+        await expect(fallback.frameLocator('iframe.tab-panel').locator('#delivery-target')).toHaveText('shared', { timeout: 15_000 });
+        await expect(fallback.locator('#paja-intent-link-dialog')).toBeHidden();
+      }
     } finally {
       await context.close();
       await server.close();
     }
   });
 
-  test('reviews a signed exact link, accepts through the ephemeral launcher, and retains delayed delivery after launcher teardown', async ({ page }) => {
+  test('opens a signed shared link directly, retains delivery after launcher teardown, and does not replay on reload', async ({ page }) => {
     test.setTimeout(60_000);
     const server = await startIntentServer();
     const target = createSignedTarget(server.url, 'profile-target', delayedTargetHtml(), 'napplet:profile/open', ['subject', 'note']);
     server.blobs.set(target.hash, target.bytes);
     await configureRuntime(page, server, [target.event]);
-    const incoming = intentHref(server.url, target.pointer, { answer: null, list: [1, true], text: 'kept' });
-
     try {
-      await page.goto(incoming);
-      const review = page.getByRole('dialog', { name: 'Review intent link' });
-      await expect(review).toBeVisible();
-      await expect(page.locator('#paja-intent-link-target')).toContainText('names one verified target');
-      await expect(page.locator('iframe')).toHaveCount(0);
-
-      await expect(page.locator('#paja-intent-link-status')).toHaveText('Review the URI and payload, then explicitly launch.');
-      await review.getByRole('button', { name: 'Launch' }).click();
-      await expect(page.frameLocator('iframe').locator('#delivery-count')).toHaveText('1', { timeout: 15_000 });
-      await expect(page.frameLocator('iframe').locator('#delivery-payload')).toHaveText('{"answer":null,"list":[1,true],"text":"kept"}');
-      await expect(page.frameLocator('iframe').locator('#delivery-sender')).toHaveText(LAUNCHER_CATALOG_ID);
+      await page.goto(intentHref(server.url, target.pointer, { answer: null, list: [1, true], text: 'kept' }));
+      await expect(page.locator('#paja-intent-link-dialog')).toBeHidden();
+      const handler = page.frameLocator('iframe.tab-panel');
+      await expect(handler.locator('#delivery-count')).toHaveText('1', { timeout: 15_000 });
+      await expect(handler.locator('#delivery-payload')).toHaveText('{"answer":null,"list":[1,true],"text":"kept"}');
+      await expect(handler.locator('#delivery-sender')).toHaveText(LAUNCHER_CATALOG_ID);
       await expect(page.locator('iframe')).toHaveCount(1);
-      await expect(page.locator('#paja-intent-link-status')).toContainText('Delivered to the verified target.');
-
-      // An outer page is not a registered napplet/launcher window. Its forged invoke
-      // message must not acquire the launcher identity or create a second delivery.
+      await expect(page.locator('#paja-intent-link-notice')).toBeHidden();
+      await expect(page).not.toHaveURL(/intent=/);
       await page.evaluate(() => window.postMessage({
-        type: 'intent.invoke',
-        id: 'forged-outer-window',
+        type: 'intent.invoke', id: 'forged-outer-window',
         request: { archetype: 'profile', action: 'open', convention: 'napplet:profile/open' },
       }, '*'));
-      await expect(page.frameLocator('iframe').locator('#delivery-count')).toHaveText('1');
-      await expect.poll(() => page.evaluate(() => window.__KEHTO_PAJA__?.getState().messageLog
-        .filter((entry) => entry.type === 'intent.deliver').length)).toBe(1);
-
-      // Reloading an incoming link returns to review. It must never replay the
-      // already accepted navigation merely because a tab snapshot exists.
+      await expect(handler.locator('#delivery-count')).toHaveText('1');
+      await expect.poll(() => page.evaluate(() => window.__KEHTO_PAJA__?.getState().messageLog.filter((entry) => entry.type === 'intent.deliver').length)).toBe(1);
       await page.reload();
-      await expect(page.getByRole('dialog', { name: 'Review intent link' })).toBeVisible();
-      await expect(page.locator('iframe')).toHaveCount(0);
-      await page.getByRole('button', { name: 'Cancel' }).click();
-    } finally {
-      await server.close();
-    }
+      await expect(handler.locator('#delivery-count')).toHaveText('0', { timeout: 15_000 });
+      await expect(page.locator('#paja-intent-link-dialog')).toBeHidden();
+      await expect.poll(() => page.evaluate(() => window.__KEHTO_PAJA__?.getState().messageLog.filter((entry) => entry.type === 'intent.deliver').length)).toBe(0);
+    } finally { await server.close(); }
   });
 
-  test('Escape cancels a review while exact target resolution is delayed and prevents a later launch', async ({ page }) => {
-    test.setTimeout(45_000);
+  test('closing a pending shared link prevents launch when delayed verification completes', async ({ page }) => {
     const server = await startIntentServer();
     const target = createSignedTarget(server.url, 'delayed-target', delayedTargetHtml(), 'napplet:profile/open', []);
     server.blobs.set(target.hash, target.bytes);
     const delayed = await configureDelayedRuntime(page, server, [target.event]);
-
     try {
       await page.goto(intentHref(server.url, target.pointer, { value: 'cancel' }));
-      const review = page.getByRole('dialog', { name: 'Review intent link' });
-      await expect(review).toBeVisible();
-      await review.getByRole('button', { name: 'Launch' }).click();
-      await expect(page.locator('#paja-intent-link-status')).toContainText('Resolving verified handler policy');
-      await page.keyboard.press('Escape');
-      await expect(review).toBeHidden();
+      await expect(page.locator('#paja-intent-link-notice')).toBeVisible();
+      await page.locator('#paja-intent-link-dismiss').click();
       delayed.release();
       await expect.poll(() => page.evaluate(() => window.__KEHTO_PAJA__?.getState().iframeCount)).toBe(0);
-      await expect(page.locator('#paja-intent-link-status')).not.toContainText(/Accepted|Delivered/);
-    } finally {
-      await server.close();
-    }
+      await expect(page.locator('#paja-intent-link-notice')).toBeHidden();
+    } finally { await server.close(); }
   });
 
-  test('rejects an edited explicit pointer link that also adds a recommended-target fragment', async ({ page }) => {
+  test('rejects conflicting target instructions without showing protocol fields or running an app', async ({ page }) => {
     const server = await startIntentServer();
     const target = createSignedTarget(server.url, 'fragment-conflict', delayedTargetHtml(), 'napplet:profile/open', []);
-    server.blobs.set(target.hash, target.bytes);
     await configureRuntime(page, server, [target.event]);
-
     try {
-      await page.goto(intentHref(server.url, target.pointer, { value: 'conflict' }));
-      const review = page.getByRole('dialog', { name: 'Review intent link' });
-      await review.getByLabel('Intent URI').fill(`napplet:profile/open#${target.pointer}`);
-      await review.getByRole('button', { name: 'Launch' }).click();
-      await expect(page.locator('#paja-intent-link-status')).toContainText('cannot combine a target pointer with a URI recommendation');
+      const invalid = `${server.url}?intent=${encodeURIComponent(`napplet:profile/open#${target.pointer}`)}&naddr=${target.pointer}`;
+      await page.goto(invalid);
+      await expect(page.locator('#paja-intent-link-status')).toContainText('Couldn’t open this shared content');
+      await expect(page.locator('#paja-intent-link-dialog')).toBeHidden();
       await expect(page.locator('iframe')).toHaveCount(0);
-    } finally {
-      await server.close();
-    }
+    } finally { await server.close(); }
   });
 
-  test('uses relayed named recommendations only after the user accepts installation', async ({ browser }) => {
+  test('opens a verified app hint in a fresh session without an installation or review prompt', async ({ page }) => {
     const server = await startIntentServer();
     const target = createSignedTarget(server.url, 'relayed-recommendation', delayedTargetHtml('recommended'), 'napplet:profile/open', []);
     server.blobs.set(target.hash, target.bytes);
-    const context = await browser.newContext();
-    const accepted = await context.newPage();
-    await configureRuntime(accepted, server, [target.event]);
-
+    await configureRuntime(page, server, [target.event]);
+    const prompts: string[] = [];
+    page.on('dialog', (dialog) => { prompts.push(dialog.message()); void dialog.dismiss(); });
     try {
-      const link = recommendationHref(server.url, target.pointer);
-      accepted.once('dialog', (dialog) => { void dialog.accept(); });
-      await accepted.goto(link);
-      await accepted.getByRole('dialog', { name: 'Review intent link' }).getByRole('button', { name: 'Launch' }).click();
-      await expect(accepted.frameLocator('iframe').locator('#delivery-target')).toHaveText('recommended', { timeout: 15_000 });
-
-      const declinedContext = await browser.newContext();
-      const declined = await declinedContext.newPage();
-      await configureRuntime(declined, server, [target.event]);
-      declined.once('dialog', (dialog) => { void dialog.dismiss(); });
-      await declined.goto(link);
-      const review = declined.getByRole('dialog', { name: 'Review intent link' });
-      await review.getByRole('button', { name: 'Launch' }).click();
-      await expect(declined.locator('iframe')).toHaveCount(0);
-      await expect(declined.locator('#paja-intent-link-status')).toContainText(/Delivery failed|Choose a compatible handler/);
-      await declinedContext.close();
-    } finally {
-      await context.close();
-      await server.close();
-    }
+      await page.goto(recommendationHref(server.url, target.pointer));
+      await expect(page.frameLocator('iframe.tab-panel').locator('#delivery-target')).toHaveText('recommended', { timeout: 15_000 });
+      await expect(page.locator('#paja-intent-link-dialog')).toBeHidden();
+      await expect(page.locator('#paja-intent-link-notice')).toBeHidden();
+      expect(prompts).toEqual([]);
+    } finally { await server.close(); }
   });
 
-  test('does not invoke on cancel, and an exact target mismatch stays failed until the user deliberately changes routing', async ({ page }) => {
-    test.setTimeout(45_000);
+  test('an incompatible named app fails with simple recovery and never silently changes routing', async ({ page }) => {
     const server = await startIntentServer();
-    const incompatible = createSignedTarget(server.url, 'incompatible-profile', delayedTargetHtml(), 'napplet:profile/view', ['subject']);
+    const incompatible = createSignedTarget(server.url, 'incompatible-profile', delayedTargetHtml(), 'napplet:profile/view', []);
     server.blobs.set(incompatible.hash, incompatible.bytes);
     await configureRuntime(page, server, [incompatible.event]);
-
     try {
-      await page.goto(intentHref(server.url, incompatible.pointer, { subject: 'cancelled' }));
-      const review = page.getByRole('dialog', { name: 'Review intent link' });
-      await expect(review).toBeVisible();
-      await review.getByRole('button', { name: 'Cancel' }).click();
-      await expect(review).toBeHidden();
-      await expect(page.locator('iframe')).toHaveCount(0);
-      await expect.poll(() => page.evaluate(() => window.__KEHTO_PAJA__?.getState().messageLog
-        .filter((entry) => entry.type === 'intent.deliver').length)).toBe(0);
-
       await page.goto(intentHref(server.url, incompatible.pointer, { subject: 'mismatch' }));
-      await expect(review).toBeVisible();
-      await review.getByRole('button', { name: 'Launch' }).click();
-      await expect(page.locator('#paja-intent-link-status')).toContainText('does not advertise this exact intent convention');
+      await expect(page.locator('#paja-intent-link-status')).toContainText('Couldn’t open this shared content');
+      await expect(page.locator('#paja-intent-link-dialog')).toBeHidden();
       await expect(page.locator('iframe')).toHaveCount(0);
-      await review.getByRole('button', { name: 'Retry' }).click();
-      await expect(page.locator('#paja-intent-link-status')).toContainText('does not advertise this exact intent convention');
-      await review.getByRole('button', { name: 'Choose another' }).click();
-      await expect(page.locator('#paja-intent-link-target')).toContainText('will not use a saved default or recommendation');
+      await page.locator('#paja-intent-link-retry').click();
+      await expect(page.locator('#paja-intent-link-retry')).toBeVisible();
       await expect(page.locator('iframe')).toHaveCount(0);
-    } finally {
-      await server.close();
-    }
+    } finally { await server.close(); }
   });
 
   for (const [label, payload] of [
@@ -384,7 +326,7 @@ test.describe('Paja intent links', () => {
     ['null', null],
     ['array', ['one', 2, null]],
   ] as const) {
-    test(`preserves a ${label} JSON payload across review and delivery`, async ({ page }) => {
+    test(`preserves a ${label} JSON payload across direct opening and delivery`, async ({ page }) => {
       test.setTimeout(45_000);
       const server = await startIntentServer();
       const target = createSignedTarget(server.url, `payload-${label}`, delayedTargetHtml(), 'napplet:profile/open', []);
@@ -393,9 +335,8 @@ test.describe('Paja intent links', () => {
 
       try {
         await page.goto(intentHref(server.url, target.pointer, payload));
-        await page.getByRole('dialog', { name: 'Review intent link' }).getByRole('button', { name: 'Launch' }).click();
-        await expect(page.frameLocator('iframe').locator('#delivery-count')).toHaveText('1', { timeout: 15_000 });
-        await expect(page.frameLocator('iframe').locator('#delivery-payload')).toHaveText(JSON.stringify(payload));
+        await expect(page.frameLocator('iframe.tab-panel').locator('#delivery-count')).toHaveText('1', { timeout: 15_000 });
+        await expect(page.frameLocator('iframe.tab-panel').locator('#delivery-payload')).toHaveText(JSON.stringify(payload));
       } finally {
         await server.close();
       }
@@ -429,8 +370,9 @@ async function openIntentBuilder(page: Page, title: string, activation: 'click' 
   await expect(share).toBeVisible();
   await expect.poll(() => share.evaluate((dialog) => dialog.contains(document.activeElement))).toBe(true);
   const create = share.getByRole('button', { name: 'Create intent link' });
+  await create.focus();
+  await expect(create).toBeFocused();
   if (activation === 'keyboard') {
-    await create.focus();
     await page.keyboard.press('Enter');
   } else await create.click();
   await expect(page.getByRole('dialog', { name: 'Create intent link' })).toBeVisible();

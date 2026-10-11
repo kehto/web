@@ -3,6 +3,19 @@ import { createPajaHostConfig, createPajaRuntimeHostConfig, normalizePajaOptions
 import { renderPajaHtml } from './host-page.js';
 
 describe('@kehto/paja host page', () => {
+  it('presents named app choices and a nonmodal notice without a recipient protocol form', () => {
+    const html = renderPajaHtml(createPajaRuntimeHostConfig({}));
+    const choice = html.match(/<dialog[^>]+id="paja-intent-link-dialog"[\s\S]*?<\/dialog>/)?.[0];
+    expect(choice).toContain('Which app would you like to use?');
+    expect(choice).toContain('aria-describedby="paja-intent-link-copy"');
+    expect(choice).toContain('id="paja-intent-link-apps"');
+    expect(choice).toContain('Always use this app');
+    expect(choice).not.toMatch(/Intent URI|Payload|Compatible handler|Review intent|<textarea|<select/);
+    expect(html).toContain('id="paja-intent-link-notice" hidden');
+    expect(html).toContain('id="paja-intent-link-status" role="status" aria-live="polite"');
+    expect(html).not.toContain('id="paja-intent-link-launch"');
+  });
+
   it('renders the same accessible resource settings in both target modes', () => {
     const configs = [
       createPajaHostConfig(normalizePajaOptions({ targetUrl: 'http://127.0.0.1:5173' })),

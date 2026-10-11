@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createPajaIntentLinkBuilder } from './browser-intent-builder.js';
-import { createPajaIntentLinkReviewController } from './browser-intent-links.js';
+import { createPajaIntentLinkController } from './browser-intent-links.js';
 import { parsePajaIntentLink } from './intent-link.js';
 import type { PajaResolvedPointer } from './runtime-resolver.js';
 
@@ -23,6 +23,7 @@ class FakeElement {
   checked = false;
   disabled = false;
   open = false;
+  hidden = false;
   selected = false;
 
   constructor(readonly tagName: string, private readonly owner: FakeDocument) {}
@@ -129,40 +130,81 @@ function installDocument(): FakeDocument {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('Paja intent-link builder', () => {
-  it('launches a reviewed link from its Launch click and keeps progress visible', async () => {
+  function linkControls() {
     const document = installDocument();
-    const add = (id: string, tagName: string) => {
-      const element = document.createElement(tagName);
-      element.id = id;
+    for (const [suffix, tag] of [
+      ['dialog', 'dialog'], ['title', 'div'], ['copy', 'div'], ['apps', 'div'],
+      ['save-default', 'input'], ['cancel', 'button'], ['notice', 'div'],
+      ['status', 'div'], ['retry', 'button'], ['dismiss', 'button'],
+    ]) {
+      const element = document.createElement(tag);
+      element.id = `paja-intent-link-${suffix}`;
       document.body.append(element);
-      return element;
-    };
-    add('paja-intent-link-dialog', 'dialog');
-    add('paja-intent-link-uri', 'input');
-    add('paja-intent-link-payload', 'textarea');
-    add('paja-intent-link-target', 'div');
-    const status = add('paja-intent-link-status', 'div');
-    add('paja-intent-link-cancel', 'button');
-    const launch = add('paja-intent-link-launch', 'button');
-    add('paja-intent-link-retry', 'button');
-    add('paja-intent-link-choose', 'button');
-    add('paja-intent-link-handler', 'select');
-    add('paja-intent-link-use-handler', 'button');
-    add('paja-intent-link-save-default', 'input');
-    const review = createPajaIntentLinkReviewController(document as unknown as Document)!;
-    const onLaunch = vi.fn(async (_intent, progress) => { progress.accepted(); });
-    void review.review(parsePajaIntentLink('https://paja.example/?intent=napplet%3Anote%2Fopen')!, onLaunch);
+    }
+    return document;
+  }
 
-    launch.dispatch('click');
-    await Promise.resolve();
+  it('opens shared content directly and hides progress after delivery', async () => {
+    const document = linkControls();
+    const consumed = vi.fn();
+    const links = createPajaIntentLinkController(document as unknown as Document, { onAccepted: consumed })!;
+    const onLaunch = vi.fn(async (_intent, progress) => { progress.accepted(); });
+    const link = parsePajaIntentLink('https://paja.example/?intent=napplet%3Anote%2Fopen&payload=null')!;
+    links.open(link, onLaunch);
     await Promise.resolve();
     expect(onLaunch).toHaveBeenCalledOnce();
-    expect(status.textContent).toContain('Accepted');
+    expect(onLaunch.mock.calls[0][0]).toBe(link);
+    expect(findSuffix(document, '-dialog').open).toBe(false);
     const progress = onLaunch.mock.calls[0][1];
     progress.delivered();
     progress.accepted();
-    expect(status.textContent).toBe('Delivered to the verified target.');
-    review.dispose();
+    expect(findSuffix(document, '-notice').hidden).toBe(true);
+    expect(consumed).toHaveBeenCalledOnce();
+    links.dispose();
+  });
+
+  it('offers named apps for a conflict and changes preferences only when checked', async () => {
+    const document = linkControls();
+    const setDefault = vi.fn();
+    const links = createPajaIntentLinkController(document as unknown as Document, { setDefault })!;
+    const onLaunch = vi.fn(async (_intent, _progress) => {});
+    links.open(parsePajaIntentLink('https://paja.example/?intent=napplet%3Anote%2Fopen')!, onLaunch);
+    await Promise.resolve();
+    const progress = onLaunch.mock.calls[0][1];
+    const choose = progress.chooseConflict({ id: 'saved', title: 'My Reader' }, { id: 'shared', title: 'Shared Reader' });
+    expect(findSuffix(document, '-dialog').open).toBe(true);
+    expect(findSuffix(document, '-copy').textContent).toBe('This link uses Shared Reader. Your saved preference is My Reader.');
+    const apps = findSuffix(document, '-apps');
+    expect(apps.children.map((app) => app.textContent)).toEqual(['Open with My Reader', 'Open with Shared Reader']);
+    apps.children[1].dispatch('click');
+    await expect(choose).resolves.toBe('shared');
+    expect(setDefault).not.toHaveBeenCalled();
+    expect(findSuffix(document, '-dialog').open).toBe(false);
+
+    const again = progress.chooseConflict({ id: 'saved', title: 'My Reader' }, { id: 'shared', title: 'Shared Reader' });
+    findSuffix(document, '-save-default').checked = true;
+    apps.children[1].dispatch('click');
+    await expect(again).resolves.toBe('shared');
+    expect(setDefault).toHaveBeenCalledWith('note', 'shared');
+    links.dispose();
+  });
+
+  it('cancels pending conflict choices and ignores late delivery progress', async () => {
+    const document = linkControls();
+    const consumed = vi.fn();
+    const links = createPajaIntentLinkController(document as unknown as Document, { onAccepted: consumed })!;
+    const onLaunch = vi.fn(async (_intent, _progress) => {});
+    links.open(parsePajaIntentLink('https://paja.example/?intent=napplet%3Anote%2Fopen')!, onLaunch);
+    await Promise.resolve();
+    const progress = onLaunch.mock.calls[0][1];
+    const choice = progress.chooseConflict({ id: 'saved', title: 'My Reader' }, { id: 'shared', title: 'Shared Reader' });
+    findSuffix(document, '-dialog').dispatch('cancel');
+    await expect(choice).resolves.toBeUndefined();
+    expect(progress.isActive()).toBe(false);
+    progress.delivered();
+    expect(consumed).not.toHaveBeenCalled();
+    expect(findSuffix(document, '-notice').hidden).toBe(true);
+    links.dispose();
   });
 
   it('omits untouched parameters, includes typed or explicitly empty fields, and preserves advertised order', async () => {

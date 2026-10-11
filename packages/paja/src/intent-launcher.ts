@@ -61,7 +61,7 @@ export async function resolvePajaIntentLauncher(): Promise<PajaResolvedPointer> 
   });
 }
 
-/** Send a reviewed URI only to the frame registered for this launcher generation. */
+/** Send a shared-link URI only to the frame registered for this launcher generation. */
 export function postPajaIntentLauncherMessage(
   frame: Pick<HTMLIFrameElement, 'contentWindow'>,
   message: PajaIntentLauncherMessage,
