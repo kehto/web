@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: resolved
 trigger: "GHP workflow failed https://github.com/kehto/web/actions/runs/38101845765"
 created: 2026-10-10
 updated: 2026-10-10
@@ -8,7 +8,7 @@ updated: 2026-10-10
 ## Current Focus
 
 hypothesis: Confirmed stale audit assertion; the loader correctly calls prepareNappletSrcdoc instead of injectCspMeta.
-next_action: Run the corrected executable audit and regression tests, then validate the complete Pages artifact and required checks.
+next_action: Push the verified Pages audit correction and open a PR; monitor its CI. Pages deployment follows merge.
 
 ## Symptoms
 
@@ -29,4 +29,5 @@ reproduction: pnpm build followed by pnpm audit:gateway-artifacts
 
 root_cause: The executable Pages audit retained an obsolete injectCspMeta literal after loader CSP ownership moved to the shared srcdoc preparation helper.
 fix: Check the verified loader-to-helper assignment and helper CSP/namespace insertion together; preserve identity, sandbox, gateway, and artifact guards.
-verification: Pending full gates.
+verification: Build, type-check, 2,090 unit tests, docs check, gateway audit (15 built napplets), Pages packing, and Pages audit passed with the workflow's base paths. AI-slop passed at 95/100 with zero errors and the same five pre-existing size warnings. Executable regression tests passed all five cases; the adjacent gateway suite also passed (24 tests total).
+browser_limitation: Local zero-retry browser runs hit the pre-existing Share dialog timeout (119/120, then 118/120). The exact saved-handler test passed five focused repetitions, but a later traced 30-case repetition reproduced eight failures before Create intent link opened. Main CI at this same source baseline b4627875 passed all jobs (run 38101845735). No browser implementation or test was changed for this Pages repair. Follow-up evidence is preserved in ../paja-share-dialog-click.md.
