@@ -144,6 +144,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: path.resolve(__dirname, 'index.html'),
+        gamepad: path.resolve(__dirname, 'gamepad.html'),
       },
     },
   },

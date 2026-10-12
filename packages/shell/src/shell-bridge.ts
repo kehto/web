@@ -9,7 +9,7 @@ import { audioManager } from './audio-manager.js';
 import type { ShellAdapter, UnroutedMessageInfo } from './types.js';
 import type { NappletMessage } from '@napplet/core';
 import type { Theme } from '@napplet/nap/theme/types';
-import { createShellReadyState, handleShellReady } from './shell-ready.js';
+import { createShellReadyState, handleShellReady, registerSourceSession } from './shell-ready.js';
 
 /**
  * Shell-side message bridge that handles NIP-5D communication with napplet iframes.
@@ -232,7 +232,14 @@ export function createShellBridge(hooks: ShellAdapter): ShellBridge {
       // NIP-5D envelope-only guard (clean break — no legacy array support)
       if (typeof msg !== 'object' || msg === null || typeof msg.type !== 'string') return;
 
-      // Handle shell.ready handshake locally (not forwarded to runtime)
+      // Bind a known iframe to its verified creation identity before domain dispatch.
+      if (!registerSourceSession({
+        hooks, origin: event.origin, runtime, state: shellReadyState,
+        sourceRegistrationId: originRegistry.getRegistrationId(sourceWindow) ?? 0,
+        sourceWindow, windowId,
+      })) return;
+
+      // NAP-SHELL's optional readiness exchange is handled locally.
       if (msg.type === 'shell.ready') {
         handleShellReady({
           hooks,

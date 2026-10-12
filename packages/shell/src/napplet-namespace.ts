@@ -22,7 +22,7 @@ import { createIntentUriNormalizer } from './intent-uri.js';
 export interface NappletNamespacePreludeOptions {
   /**
    * Optional bare NAP domain names the shell exposes to this napplet.
-   * Mandatory `shell` is injected even when omitted here.
+   * Shell is injected only when included in the exposed domains.
    */
   domains: readonly string[];
 }
@@ -59,7 +59,7 @@ function scriptJson(value: unknown): string {
  * ```
  */
 export function renderNappletNamespacePrelude(options: NappletNamespacePreludeOptions): string {
-  const domains = uniqueBareDomains(['shell', ...options.domains]);
+  const domains = uniqueBareDomains(options.domains);
   return `<script data-kehto-nip5d-injection>(${nappletNamespacePrelude.toString()})(${scriptJson(domains)}, (${createIntentUriNormalizer.toString()})());</script>`;
 }
 
@@ -314,7 +314,7 @@ function nappletNamespacePrelude(
     }
 
     function supports(domain: string): boolean {
-      return typeof domain === 'string' && environment?.capabilities.domains.includes(domain) === true;
+      return typeof domain === 'string' && !!target.napplet && Object.prototype.hasOwnProperty.call(target.napplet, domain);
     }
 
     const shell = {
@@ -1554,6 +1554,56 @@ function nappletNamespacePrelude(
     };
   }
 
+  function makeGamepad(): Record<string, unknown> {
+    type State = { available: boolean; focused: boolean; reason?: 'blocked' | 'unavailable'; pads: Array<null | { index: number; id: string; mapping: string; connected: true; timestamp: number; axes: number[]; buttons: Array<{ value: number; pressed: boolean; touched: boolean }> }> };
+    let state: State = { available: true, focused: false, pads: [] };
+    const handlers = new Set<{ handler: (state: State) => void }>();
+    const copy = (value: State): State => ({
+      available: value.available, focused: value.focused,
+      ...(value.reason === undefined ? {} : { reason: value.reason }),
+      pads: value.pads.map((pad) => pad === null ? null : {
+        index: pad.index, id: pad.id, mapping: pad.mapping, connected: true,
+        timestamp: pad.timestamp, axes: [...pad.axes],
+        buttons: pad.buttons.map(({ value, pressed, touched }) => ({ value, pressed, touched })),
+      }),
+    });
+    const numberIn = (value: unknown, min: number, max: number): value is number => typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max;
+    const valid = (value: unknown): value is State => {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+      const candidate = value as State;
+      if (typeof candidate.available !== 'boolean' || typeof candidate.focused !== 'boolean' || !Array.isArray(candidate.pads)) return false;
+      if (candidate.available ? candidate.reason !== undefined : candidate.focused || !['blocked', 'unavailable'].includes(candidate.reason ?? '')) return false;
+      return Array.from(candidate.pads).every((pad) => {
+        if (pad === null) return true;
+        if (!pad || typeof pad !== 'object' || !Number.isInteger(pad.index) || pad.index < 0 || typeof pad.id !== 'string' || typeof pad.mapping !== 'string' || pad.connected !== true || !Number.isFinite(pad.timestamp) || !Array.isArray(pad.axes) || !Array.isArray(pad.buttons)) return false;
+        if (!candidate.focused && pad.timestamp !== 0) return false;
+        if (!Array.from(pad.axes).every((axis) => numberIn(axis, -1, 1) && (candidate.focused || axis === 0))) return false;
+        return Array.from(pad.buttons).every((button) => button && numberIn(button.value, 0, 1) && typeof button.pressed === 'boolean' && typeof button.touched === 'boolean' && (candidate.focused || (button.value === 0 && !button.pressed && !button.touched)));
+      });
+    };
+    listen((event) => {
+      if (!isParentMessage(event)) return;
+      const incoming = event.data;
+      if (!incoming || incoming.type !== 'gamepad.state' || 'id' in incoming || !valid(incoming)) return;
+      state = copy(incoming);
+      const snapshot = copy(state);
+      const recipients = Array.from(handlers);
+      for (const entry of recipients) if (handlers.has(entry)) entry.handler(copy(snapshot));
+    });
+    const api = {
+      get available() { return state.available; },
+      get focused() { return state.focused; },
+      getGamepads: () => copy(state).pads,
+      onChange(handler: (state: State) => void) {
+        const entry = { handler };
+        handlers.add(entry);
+        return subscriptionHandle(() => handlers.delete(entry));
+      },
+    };
+    post({ type: 'gamepad.subscribe' });
+    return api;
+  }
+
   function makeDm(): Record<string, unknown> {
     const req = (type: string, payload: Record<string, unknown>) => request({ type, ...payload }, `${type}.result`, withoutEnvelope, { rejectOnError: false });
     return {
@@ -1611,7 +1661,8 @@ function nappletNamespacePrelude(
   }
 
   const intentDelivery = allowed.has('intent') ? makeIntentDelivery() : undefined;
-  const shell = makeShell();
+  const shell = allowed.has('shell') ? makeShell() : undefined;
+  let gamepad: Record<string, unknown> | undefined;
   let inc: Record<string, unknown> | undefined;
   let identity: Record<string, unknown> | undefined;
   let theme: Record<string, unknown> | undefined;
@@ -1641,7 +1692,7 @@ function nappletNamespacePrelude(
   }
 
   function isProtectedDomain(domain: string): boolean {
-    return domain === 'shell'
+    return domain === 'gamepad' || domain === 'shell'
       || domain === 'inc'
       || domain === 'identity'
       || domain === 'theme'
@@ -1649,6 +1700,7 @@ function nappletNamespacePrelude(
   }
 
   function makeDomain(domain: string, existing: unknown): unknown {
+    if (domain === 'gamepad') return gamepad ??= makeGamepad();
     if (domain === 'shell') return shell;
     if (domain === 'inc') return makeProtectedInc(existing);
     if (domain === 'identity') return makeProtectedIdentity();

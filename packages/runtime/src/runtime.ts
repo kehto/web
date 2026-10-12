@@ -1,5 +1,5 @@
 
-import { createDispatch, type NappletMessage, type NostrEvent, type NapHandler } from '@napplet/core';
+import { createDispatch, type NappletMessage, type NostrEvent, type NapHandler, type NapDomain } from '@napplet/core';
 import type { Capability } from '@kehto/acl/capabilities';
 import type { Observation } from '@kehto/firewall';
 
@@ -142,6 +142,8 @@ function createNapEnvelopeDispatcher(handlers: RuntimeNapHandlers): (windowId: s
     if (currentWindowId !== null) handler(currentWindowId, msg);
   };
 
+  // NAP-GAMEPAD proposal #108 defines this domain; older core type unions predate it.
+  napDispatch.registerNap('gamepad' as NapDomain, adapt(handlers.gamepad));
   napDispatch.registerNap('relay', adapt(handlers.relay));
   napDispatch.registerNap('identity', adapt(handlers.identity));
   napDispatch.registerNap('count', adapt(handlers.count));
@@ -356,14 +358,12 @@ function createMessageHandler(
   firewallGate: (windowId: string, envelope: NappletMessage, senderCap: string | null) => 'dispatch' | 'drop',
 ): Runtime['handleMessage'] {
   return (windowId: string, msg: unknown): void => {
-    if (typeof msg !== 'object' || msg === null || !('type' in msg)) return;
+    if (typeof msg !== 'object' || msg === null || Array.isArray(msg) || !('type' in msg) || typeof msg.type !== 'string') return;
     const envelope = msg as NappletMessage;
     const dotIdx = envelope.type.indexOf('.');
     if (dotIdx === -1) return;
-    // NAP-SHELL establishes the sole capability ingress boundary: valid
-    // envelopes remain inert until the source-bound shell.ready transition
-    // creates a session. This deliberately precedes capability resolution,
-    // ACL, firewall, service routing, and domain dispatch.
+    // Only source-bound sessions may dispatch. The browser adapter registers
+    // trusted creation identity independently of the optional NAP-SHELL exchange.
     if (!sessionRegistry.getEntryByWindowId(windowId)) return;
     const domain = envelope.type.slice(0, dotIdx);
     if (hooks.isDomainAllowed && !hooks.isDomainAllowed(windowId, domain)) return;
@@ -443,8 +443,10 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
       try {
         if (isDomainAllowed && !isDomainAllowed(windowId, domain)) return false;
         const { recipientCap } = resolveCapabilitiesNap(message);
-        if (!recipientCap) return false;
-        if (!aclState.check('', entry.dTag, entry.aggregateHash, recipientCap as Capability)) {
+        // NAP-GAMEPAD requires source/domain isolation; its ACL checks are optional.
+        // Do not fabricate a gamepad:read capability absent from the proposal.
+        if (!recipientCap && message.type !== 'gamepad.state') return false;
+        if (recipientCap && !aclState.check('', entry.dTag, entry.aggregateHash, recipientCap as Capability)) {
           return false;
         }
         sendToNapplet(windowId, message);

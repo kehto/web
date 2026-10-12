@@ -55,14 +55,22 @@ export function handleShellReady({
     return;
   }
 
-  const identity = resolveNip5dIdentity(hooks, windowId, sourceWindow);
-  if (!identity) return;
-
-  registerNip5dSessionIfNeeded({ origin, runtime, state, sourceRegistrationId, windowId, identity });
-  const environment = originRegistry.getEnvironment(sourceWindow) ?? resolveShellEnvironment(hooks, identity);
-  state.environments.set(windowId, environment);
+  const environment = registerSourceSession({ hooks, origin, runtime, state, sourceRegistrationId, sourceWindow, windowId });
+  if (!environment?.capabilities.domains.includes('shell')) return;
   postShellInit(sourceWindow, environment);
   state.initSent.set(sourceWindow, sourceRegistrationId);
+}
+
+/** Register trusted iframe identity and frozen grants without requiring shell.ready. */
+export function registerSourceSession(options: ShellReadyOptions): ShellEnvironment | null {
+  const { hooks, origin, runtime, state, sourceRegistrationId, sourceWindow, windowId } = options;
+  const identity = resolveNip5dIdentity(hooks, windowId, sourceWindow, runtime.sessionRegistry.getEntryByWindowId(windowId));
+  if (!identity) return null;
+  registerNip5dSessionIfNeeded({ origin, runtime, state, sourceRegistrationId, windowId, identity });
+  const existing = state.environments.get(windowId);
+  const environment = originRegistry.getEnvironment(sourceWindow) ?? existing ?? resolveShellEnvironment(hooks, identity);
+  state.environments.set(windowId, environment);
+  return environment;
 }
 
 function registerNip5dSessionIfNeeded({
@@ -85,9 +93,14 @@ function registerNip5dSessionIfNeeded({
     return;
   }
   if (existing && previousRegistration !== undefined) {
+    runtime.destroyWindow(windowId);
     runtime.sessionRegistry.unregister(windowId);
+    state.environments.delete(windowId);
   }
-  if (existing && previousRegistration === undefined) return;
+  if (existing && previousRegistration === undefined) {
+    state.sessionRegistration.set(windowId, sourceRegistrationId);
+    return;
+  }
 
   const entry: SessionEntry = {
     pubkey: '',
@@ -108,6 +121,7 @@ function resolveNip5dIdentity(
   hooks: ShellAdapter,
   windowId: string,
   sourceWindow: Window,
+  existingSession?: SessionEntry,
 ): { dTag: string; aggregateHash: string } | null {
   // Identity resolution order:
   //   1. hooks.onNip5dIframeCreate?.(windowId) — preferred.
@@ -123,7 +137,9 @@ function resolveNip5dIdentity(
 
   const originIdentity = originRegistry.getIdentity(sourceWindow);
   if (!originIdentity) {
-    return null;
+    // An integrator may have bound verified identity in the runtime registry first.
+    if (existingSession?.provenance !== 'nip-5d' || typeof existingSession.dTag !== 'string' || typeof existingSession.aggregateHash !== 'string') return null;
+    return Object.freeze({ dTag: existingSession.dTag, aggregateHash: existingSession.aggregateHash });
   }
 
   return Object.freeze({

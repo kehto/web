@@ -34,7 +34,7 @@ Current draft behaviors this package enforces:
   when the runtime can identify it. The shell forwards this optional context
   without imposing a consent policy; host runtimes may ignore it or use it to
   resolve their own identity-scoped signer decisions.
-- `prepareNappletSrcdoc()` inserts validated CSP first, then the NIP-5D bootstrap and mandatory NAP-SHELL shim, outside verified artifact bytes. The shim installs the parent-bound `shell.init` receiver, emits one `shell.ready`, and exposes callable NAP interfaces before authored scripts run. Optional namespaces are filtered to the bare-domain allowlist; `shell` is always retained. Published core 0.32.0 and shim 0.30.0 omit generic mandatory shell, so Kehto retains this host-owned prelude under NAP-SHELL `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24` until an upstream correction is reviewed.
+- `prepareNappletSrcdoc()` inserts validated CSP and the runtime namespace outside verified artifact bytes. It exposes only the host-selected bare domains. Optional `shell` installs its parent-bound receiver before readiness; routing uses trusted iframe creation identity independently of that exchange. See the living [NAP-SHELL](https://github.com/napplet/naps/blob/master/naps/NAP-SHELL.md).
 - The injected resource projection follows draft NAP-RESOURCE `9511232f69313aa7953d110e35d32cc28d506f66`: `bytes(url, { servers? })` carries advisory Blossom locations and `bytesMany(requests)` keeps each `{ url, servers? }` entry intact.
 - `window.napplet.shell.supports(domain)` answers synchronously and locally from the cached first `shell.init` environment. It returns `false` before `shell.init`, for unknown values, and for domains that are not live and granted to that napplet; it never sends a support-query message.
 - Five optional per-domain proxies — `createIdentityProxy`, `createThemeProxy`, `createKeysProxy`, `createMediaProxy`, `createNotifyProxy` — can be composed between napplet and runtime to intercept request traffic per NAP. They are NOT wired by default. Identity/theme proxy `emit()` compatibility members fail closed; hosts must deliver automatic changes through `ShellBridge.publishIdentityChanged()` / `publishTheme()`, which enforce live session, granted domain, and current ACL.
@@ -198,7 +198,7 @@ automatic changes are accepted only when their `MessageEvent.source` is
 the canonical operations.
 
 `ShellBridge` delivers `identity.changed` and `theme.changed` exactly once per
-eligible recipient: a live authenticated `shell.ready` session, its frozen
+eligible recipient: a live authenticated source-bound session, its frozen
 environment includes the relevant domain, and its current recipient read
 capability is still granted. Identity sign-out is `pubkey: ""`. Theme updates
 arrive only after the service has stored the complete color state. These are
@@ -283,3 +283,7 @@ contract, as documented in the conformance policy.
 The shell normalizer also powers Paja intent links. See the
 [Paja guide](https://kehto.github.io/web/docs/packages/paja.html#nap-intent-links-and-lifecycle)
 for outer URL encoding, review, routing, and verified launcher behavior.
+
+## GAMEPAD integration
+
+This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja and the playground register one host reader and deny native gamepad/HID/USB paths before frame execution. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, window destruction, and service removal release polling. Non-browser or denied native readers report the proposal's unavailable reasons. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).

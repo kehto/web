@@ -20,6 +20,7 @@ const SUPERSEDED_EXACT_MATRIX = {
 } as const;
 
 const PUBLIC_CORE_RANGE = '>=0.32.0 <0.33.0';
+const PUBLIC_PEER_RANGE = '>=0.32.0 <0.35.0';
 const JSR_CORE_RANGE = 'jsr:@napplet/core@^0.32.0';
 const JSR_NAP_RANGE = 'jsr:@napplet/nap@^0.32.0';
 
@@ -78,7 +79,8 @@ describe('published Napplet package alignment', () => {
         if (isExactConsumer || name === '@napplet/shim' || name === '@napplet/sdk' || name === '@napplet/vite-plugin') {
           expect(version, `${path} ${name} exact published pin`).toBe(expected);
         } else {
-          expect(version, `${path} ${name} public declaration range`).toBe(PUBLIC_CORE_RANGE);
+          const expectedRange = manifest.peerDependencies?.[name] === version ? PUBLIC_PEER_RANGE : PUBLIC_CORE_RANGE;
+          expect(version, `${path} ${name} public declaration range`).toBe(expectedRange);
         }
       }
     }
@@ -102,7 +104,8 @@ describe('published Napplet package alignment', () => {
 
     for (const path of manifests) {
       const relativePath = relative(ROOT, path);
-      const dependencies = activeNappletPackages(readJson<PackageJson>(path));
+      const manifest = readJson<PackageJson>(path);
+      const dependencies = activeNappletPackages(manifest).filter(([name, version]) => manifest.dependencies?.[name] === version || manifest.devDependencies?.[name] === version);
       if (dependencies.length === 0) continue;
       const importer = lockImporterBlock(lock, relativePath.replace(/\/package\.json$/, '') || '.');
       for (const [name, version] of dependencies) {

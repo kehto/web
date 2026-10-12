@@ -17,6 +17,7 @@ export const PAJA_UPSTREAM_WEB_DOMAINS = [
   'cvm',
   'dm',
   'fs',
+  'gamepad',
   'identity',
   PAJA_LEGACY_COMPATIBILITY_DOMAIN,
   'inc',
@@ -30,14 +31,15 @@ export const PAJA_UPSTREAM_WEB_DOMAINS = [
   'relay',
   'resource',
   'serial',
+  'shell',
   'storage',
   'theme',
   'upload',
   'webrtc',
 ] as const;
 
-/** Domains required during the initial Paja handshake. */
-export const PAJA_HANDSHAKE_DOMAINS = ['shell'] as const;
+/** Retained compatibility export; no domain requires a Paja handshake. */
+export const PAJA_HANDSHAKE_DOMAINS = [] as const;
 /** Upstream domains intentionally deferred because no runtime implementation exists. */
 export const PAJA_DEFERRED_DOMAINS = [] as const;
 
@@ -48,6 +50,8 @@ export const PAJA_COMPATIBILITY_ALIASES = {
 
 /** Domains Paja may advertise when each corresponding host backend is live. */
 export const PAJA_ADVERTISED_DOMAINS = [
+  'shell',
+  'gamepad',
   'relay',
   'outbox',
   'identity',
@@ -75,6 +79,7 @@ export const PAJA_ADVERTISED_DOMAINS = [
 
 /** Service names Paja expects the host runtime to provide. */
 export const PAJA_REQUIRED_SERVICES = [
+  'gamepad',
   'config',
   'cvm',
   'identity',

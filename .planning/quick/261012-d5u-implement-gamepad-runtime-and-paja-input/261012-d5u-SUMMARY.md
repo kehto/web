@@ -1,0 +1,9 @@
+# GAMEPAD runtime implementation
+
+Implemented the published proposal's host-owned snapshot service, native browser reader and focus/visibility events, parent-bound cached API, source sessions independent of optional SHELL, and controller Permissions-Policy denial across Paja/playground loading paths. Preserved trusted host-integrator prebound sessions and domain exclusion. Changesets prepare services/shell 0.24.0, runtime 0.24.1, Paja 0.21.0, CLI 0.5.5, and metadata compatibility patches for ACL/firewall. Peer ranges accept core/NAP 0.32 through the coordinated 0.34 set; development and JSR maps remain on the published baseline.
+
+Full baseline suite passed 2110 tests before metadata guard changes; the final guard results are recorded in the phase verification. New core/NAP 0.34 tarball integration passed all build/type tasks and 2105 behavior tests. Five distribution-only assertions failed because that temporary test deliberately used unpublished tarball overrides or the old peer-range expectation; production manifests/lock were restored and peer assertions updated. No temporary override is committed.
+
+Chromium verifies native getGamepads denial, no native replacement, two-frame live/neutral focus isolation, host/tab focus loss, and connection updates. Browser hook tests cover visibility, native method receiver, and event cleanup. Three existing real-time relay tests were stabilized with a controlled clock while retaining real NIP-44 crypto, packet ordering, nonce checks, and original deadline vectors; all 34 transport tests pass.
+
+The optional native API replacement remains deferred for the NIP-5D/GAMEPAD injection conflict. No fabricated gamepad capability or new handshake is added. Canonical proposal https://github.com/napplet/naps/pull/108; current NIP-5D https://github.com/nostr-protocol/nips/pull/2303.
