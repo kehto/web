@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -114,7 +114,7 @@
             ><a
               href="assets/runtime-film.mp4"
               aria-label="Open runtime film in video player"
-              >00:24 <span aria-hidden="true">↗</span></a
+              >00:38 <span aria-hidden="true">↗</span></a
             >
           </figcaption>
         </figure>
@@ -248,7 +248,7 @@ bridge.runtime.registerService(
         <div class="next-links">
           <a href="paja/"
             ><span class="eyebrow">Run it</span>
-            <h3>Meet Paja <span aria-hidden="true">↗</span></h3>
+            <h3>Meet bench <span aria-hidden="true">↗</span></h3>
             <p>A working developer runtime built with kernl.</p></a
           ><a href="playground/"
             ><span class="eyebrow">Explore it</span>
@@ -277,11 +277,16 @@ bridge.runtime.registerService(
             host’s capability boundary.
           </p>
           <p>
-            00:16 — Run it. A local kernl host loads a sandboxed app, completes
-            the shell handshake, and supplies the app’s theme. This is a working
-            example captured in the browser.
+            00:16 — Build bench from kernl. The runtime supplies routing and
+            lifecycle; the shell connects the sandbox; ACL sets permissions;
+            services supply identity and theme; window management supplies app
+            tabs. Package labels connect to the corresponding regions as the
+            real interface assembles.
           </p>
-          <p>00:21 — Your runtime. Your rules. Build with kernl.</p>
+          <p>00:29 — The assembled bench runtime serves the app’s theme.</p>
+          <p>
+            00:32 — Build with kernl. Find the project on GitHub, npm, and JSR.
+          </p>
           <a href="assets/runtime-film.mp4" download>Download the film (MP4)</a>
         </details>
       </div>
@@ -297,6 +302,11 @@ bridge.runtime.registerService(
         </p>
         <a href="docs/alpha-status.html">Read the current status ↗</a>
         <p class="footer-history">Previously Kehto. Same open-source roots.</p>
+        <nav class="project-identities" aria-label="Project identities">
+          <a href="https://github.com/kernlize/web">GitHub · kernlize/web ↗</a>
+          <a href="https://npmjs.com/org/kernlize/">npm · kernlize ↗</a>
+          <a href="https://jsr.io/@kernl">JSR · @kernl ↗</a>
+        </nav>
       </div>
     </footer>
   </body>

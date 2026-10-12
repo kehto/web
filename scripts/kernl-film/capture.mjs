@@ -45,7 +45,7 @@ try {
     resolve(output, 'proof.json'),
     `${JSON.stringify(proof, null, 2)}\n`
   );
-  console.log('Captured real Paja runtime and theme response.');
+  console.log('Captured real bench runtime and theme response.');
 } finally {
   await browser.close();
 }

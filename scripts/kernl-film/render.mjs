@@ -43,7 +43,9 @@ try {
     viewport: { width: 1200, height: 1000 },
     deviceScaleFactor: 1,
   });
-  await page.goto(pathToFileURL(resolve('scripts/kernl-film/scene.html')).href);
+  await page.goto(
+    pathToFileURL(resolve('scripts/kernl-film/scene.html')).href
+  );
   await page.evaluate(() => window.assetsReady);
   await page.evaluate(() => window.renderFrame(4));
   await page.screenshot({
@@ -51,18 +53,18 @@ try {
     type: 'jpeg',
     quality: 90,
   });
-  for (let frame = 0; frame < 24 * 24; frame++) {
+  for (let frame = 0; frame < 38 * 24; frame++) {
     await page.evaluate((t) => window.renderFrame(t), frame / 24);
     const bytes = await page.screenshot({ type: 'png' });
     if (!encoder.stdin.write(bytes)) await once(encoder.stdin, 'drain');
-    if (frame % 120 === 0) console.log(`Rendered ${frame}/576 frames`);
+    if (frame % 120 === 0) console.log(`Rendered ${frame}/912 frames`);
   }
   encoder.stdin.end();
   const [code] = await encoded;
   if (code !== 0) throw new Error(`ffmpeg exited ${code}`);
   await writeFile(
     'web/assets/runtime-film.vtt',
-    `WEBVTT\n\n00:00.000 --> 00:06.000\nStart with a kernl. Compose runtime, permissions, services, and your shell.\n\n00:06.000 --> 00:11.000\nConnect your host with createShellBridge(adapter).\n\n00:11.000 --> 00:16.000\nRegister a theme service. App requests pass through capability checks.\n\n00:16.000 --> 00:21.000\nA real Paja runtime connects the sandboxed app and returns its host theme.\n\n00:21.000 --> 00:24.000\nYour runtime. Your rules. Build with kernl.\n`
+    `WEBVTT\n\n00:00.000 --> 00:06.000\nStart with a kernl. Compose runtime, permissions, services, and your shell.\n\n00:06.000 --> 00:11.000\nConnect your host with createShellBridge(adapter).\n\n00:11.000 --> 00:16.000\nRegister a theme service. App requests pass through capability checks.\n\n00:16.000 --> 00:20.000\nBuild bench from kernl: runtime routing, then a shell around the sandbox.\n\n00:20.000 --> 00:24.000\nAdd ACL permissions and identity from the services package.\n\n00:24.000 --> 00:28.000\nConnect host services and window management. The bench interface assembles.\n\n00:28.000 --> 00:32.000\nbench: a developer runtime built with kernl. The app receives its host theme.\n\n00:32.000 --> 00:38.000\nBuild with kernl. GitHub: kernlize/web. npm: kernlize. JSR: @kernl.\n`
   );
 } finally {
   encoder.stdin.destroy();

@@ -1,6 +1,6 @@
 @font-face {
   font-family: Kernl Sans;
-  src: local('Helvetica Neue');
+  src: local("Helvetica Neue");
   font-display: swap;
 }
 :root {
@@ -9,8 +9,8 @@
   --muted: #62665c;
   --line: #d5d7cc;
   --acid: #b9f66b;
-  --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
-  font-family: 'Kernl Sans', Arial, sans-serif;
+  --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-family: "Kernl Sans", Arial, sans-serif;
   color: var(--ink);
   background: var(--paper);
   font-synthesis: none;
@@ -653,4 +653,12 @@ h2 {
 .film video:fullscreen {
   object-fit: contain;
   background: #151c15;
+}
+
+.project-identities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  margin-top: 1rem;
+  font-size: 0.75rem;
 }

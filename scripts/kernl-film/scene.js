@@ -8,7 +8,10 @@ const runtimeImage = new Image();
 const themeImage = new Image();
 runtimeImage.src = 'captures/runtime.png';
 themeImage.src = 'captures/theme.png';
-window.assetsReady = Promise.all([runtimeImage.decode(), themeImage.decode()]);
+window.assetsReady = Promise.all([
+  runtimeImage.decode(),
+  themeImage.decode(),
+]);
 const clamp = (x) => Math.min(1, Math.max(0, x));
 const ease = (x) => 1 - Math.pow(1 - clamp(x), 3);
 
@@ -42,10 +45,10 @@ function background(time) {
   text('kernl', 48, 68, 32, white);
   text('RUNTIME ASSEMBLY / 001', 780, 62, 15, muted, true);
   line(48, 906, 1152, 906);
-  line(48, 906, 48 + 1104 * clamp(time / 24), 906, green);
+  line(48, 906, 48 + 1104 * clamp(time / 38), 906, green);
   text('COMPOSE. CONNECT. RUN.', 48, 950, 15, muted, true);
   text(
-    `${String(Math.floor(time)).padStart(2, '0')} / 24`,
+    `${String(Math.floor(time)).padStart(2, '0')} / 38`,
     1045,
     950,
     15,
@@ -202,41 +205,203 @@ function codeScene(time, theme) {
   );
   ctx.restore();
 }
-function runtimeScene(time) {
-  const p = ease((time - 16) / 0.7);
-  text('And now, it runs.', 48, 160, 43);
-  text('Paja · a real runtime built with kernl', 48, 205, 20, muted);
+// Coordinates refer to the real 1440 × 1000 browser capture. These regions
+// illustrate package responsibilities; bench supplies their visual interface.
+const benchLayers = [
+  {
+    title: 'Runtime',
+    pkg: '@kehto/runtime',
+    detail: 'Routing & app lifecycle',
+    start: 16,
+    regions: [
+      [0, 38, 380, 102],
+      [0, 714, 380, 256],
+      [0, 970, 1440, 30],
+    ],
+  },
+  {
+    title: 'Shell',
+    pkg: '@kehto/shell',
+    detail: 'Connect the sandbox',
+    start: 18,
+    regions: [
+      [0, 0, 380, 38],
+      [380, 38, 1060, 932],
+    ],
+  },
+  {
+    title: 'ACL',
+    pkg: '@kehto/acl',
+    detail: 'Choose app permissions',
+    start: 20,
+    regions: [[0, 308, 380, 286]],
+  },
+  {
+    title: 'Identity',
+    pkg: '@kehto/services',
+    detail: 'Connect a host identity',
+    start: 22,
+    regions: [[0, 594, 380, 120]],
+  },
+  {
+    title: 'Services',
+    pkg: '@kehto/services',
+    detail: 'Theme, storage, media…',
+    start: 24,
+    regions: [[0, 140, 380, 168]],
+  },
+  {
+    title: 'Windows',
+    pkg: '@kehto/wm',
+    detail: 'Manage app tabs',
+    start: 26,
+    regions: [[380, 0, 1060, 38]],
+  },
+];
+
+function drawCaptureRegion(region, progress, destination, highlight) {
+  const [sx, sy, sw, sh] = region;
+  const [x, y, scale] = destination;
+  const dx = x + sx * scale + (1 - progress) * 90;
+  const dy = y + sy * scale - (1 - progress) * 35;
   ctx.save();
-  ctx.globalAlpha = p;
-  const scale = 1 + 0.035 * clamp((time - 16) / 5);
-  ctx.beginPath();
-  ctx.rect(75, 270, 1050, 515);
-  ctx.clip();
-  ctx.translate(600, 520);
-  ctx.scale(scale, scale);
-  ctx.drawImage(time < 18.4 ? runtimeImage : themeImage, -510, -275, 1020, 708);
+  ctx.globalAlpha = progress;
+  ctx.shadowColor = '#00000066';
+  ctx.shadowBlur = (1 - progress) * 30;
+  ctx.drawImage(runtimeImage, sx, sy, sw, sh, dx, dy, sw * scale, sh * scale);
+  ctx.shadowBlur = 0;
+  if (highlight > 0) {
+    ctx.globalAlpha = highlight;
+    ctx.strokeStyle = green;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(dx, dy, sw * scale, sh * scale);
+  }
   ctx.restore();
-  rect(75, 816, 1050, 60, '#b9f66b');
-  text(
-    time < 18.4
-      ? '✓ shell.ready → shell.init · app connected'
-      : '✓ theme.get → theme.get.result · host service reached',
-    98,
-    854,
-    20,
-    '#1b2814',
-    true
+}
+
+function layerLabel(layer, index, time, destination) {
+  const progress = ease((time - layer.start) / 1.1);
+  const active = time >= layer.start && time < layer.start + 2;
+  const y = 278 + index * 91;
+  ctx.save();
+  ctx.globalAlpha *= time < layer.start ? 0.24 : 1;
+  rect(
+    48,
+    y,
+    330,
+    79,
+    active ? '#2c4023' : '#1d291c',
+    active ? green : '#3b5032'
   );
+  text(layer.title, 66, y + 28, 22, active ? green : white);
+  text(layer.pkg, 66, y + 51, 17, white, true);
+  text(layer.detail, 66, y + 69, 13, muted);
+  text(
+    time >= layer.start + 1.1 ? '✓' : String(index + 1).padStart(2, '0'),
+    340,
+    y + 29,
+    17,
+    green
+  );
+  ctx.restore();
+  if (!active) return;
+  const [sx, sy, sw, sh] = layer.regions[0];
+  const [x, top, scale] = destination;
+  const tx = x + (sx + sw / 2) * scale;
+  const ty = top + (sy + sh / 2) * scale;
+  ctx.save();
+  ctx.globalAlpha *= 0.8;
+  line(378, y + 40, 405, y + 40, green);
+  line(405, y + 40, 405, ty, green);
+  line(405, ty, tx, ty, green);
+  rect(405 + (tx - 405) * progress - 4, ty - 4, 8, 8, green);
+  ctx.restore();
+}
+
+function runtimeScene(time) {
+  const assembled = ease((time - 28) / 1.2);
+  text(
+    assembled > 0.8
+      ? 'bench. Built with kernl.'
+      : 'Build a runtime. Piece by piece.',
+    48,
+    160,
+    43
+  );
+  text('bench · the developer runtime', 48, 205, 22, muted);
+  const destination = [
+    430 - assembled * 250,
+    310 - assembled * 65,
+    0.5 + assembled / 12,
+  ];
+  const [x, y, scale] = destination;
+  rect(x, y, 1440 * scale, 1000 * scale, '#10160f', '#4c643f');
+  // Ghost outlines preserve the destination while the actual screenshot pieces arrive.
+  ctx.save();
+  ctx.globalAlpha = 0.07;
+  ctx.drawImage(runtimeImage, x, y, 1440 * scale, 1000 * scale);
+  ctx.restore();
+  benchLayers.forEach((layer, index) => {
+    const progress = ease((time - layer.start) / 1.1);
+    const highlight = clamp(1 - (time - layer.start - 1.1) / 0.9);
+    layer.regions.forEach((region) =>
+      drawCaptureRegion(region, progress, destination, progress * highlight)
+    );
+    ctx.save();
+    ctx.globalAlpha = 1 - assembled;
+    layerLabel(layer, index, time, destination);
+    ctx.restore();
+  });
+  if (time >= 29.4) {
+    ctx.save();
+    ctx.globalAlpha = ease((time - 29.4) / 0.5);
+    ctx.drawImage(themeImage, x, y, 1440 * scale, 1000 * scale);
+    ctx.restore();
+  }
+  if (time < 28) {
+    text('kernl packages → bench interface', 440, 851, 19, green, true);
+    text(
+      'The building blocks supply behavior. bench supplies the UI.',
+      440,
+      878,
+      15,
+      muted
+    );
+  } else {
+    rect(180, 825, 840, 58, green);
+    text(
+      time < 29.4
+        ? 'One developer runtime. Your choice of parts.'
+        : '✓ Theme requested. Host service reached.',
+      205,
+      862,
+      23,
+      '#1b2814'
+    );
+  }
 }
 function closing(time) {
-  const p = ease((time - 21) / 0.65);
+  const p = ease((time - 32) / 0.7);
   ctx.save();
   ctx.globalAlpha = p;
+  ctx.translate(0, (1 - p) * 20);
   for (let i = 0; i < 4; i++)
-    rect(480 + (i % 2) * 124, 285 + Math.floor(i / 2) * 124, 104, 104, green);
-  text('Your runtime.', 235, 655, 100);
-  text('Your rules.', 315, 757, 100);
-  text('BUILD WITH KERNL', 453, 837, 20, green, true);
+    rect(48 + (i % 2) * 38, 282 + Math.floor(i / 2) * 38, 30, 30, green);
+  text('kernl', 150, 348, 94);
+  text('Your runtime. Your rules.', 48, 433, 49);
+  const identities = [
+    ['SOURCE', 'github.com/kernlize/web'],
+    ['NPM', 'npmjs.com/org/kernlize/'],
+    ['JSR', 'jsr.io/@kernl'],
+  ];
+  identities.forEach(([label, url], index) => {
+    ctx.globalAlpha = p * ease((time - 32.5 - index * 0.35) / 0.6);
+    const y = 540 + index * 100;
+    line(48, y, 1152, y, '#415536');
+    text(label, 48, y + 54, 16, muted, true);
+    text(url, 225, y + 58, 34, green, true);
+    text('↗', 1108, y + 58, 32, green);
+  });
   ctx.restore();
 }
 window.renderFrame = (time) => {
@@ -244,7 +409,7 @@ window.renderFrame = (time) => {
   if (time < 6) assembly(time);
   else if (time < 11) codeScene(time, false);
   else if (time < 16) codeScene(time, true);
-  else if (time < 21) runtimeScene(time);
+  else if (time < 32) runtimeScene(time);
   else closing(time);
 };
 window.renderFrame(4);

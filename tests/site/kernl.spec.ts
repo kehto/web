@@ -49,7 +49,7 @@ test('film plays, pauses, respects user pause, and responds to visibility', asyn
       video.evaluate((element: HTMLVideoElement) => element.currentTime)
     )
     .toBeGreaterThan(0);
-  await expect(video).toHaveJSProperty('duration', 24);
+  await expect(video).toHaveJSProperty('duration', 38);
   await page.getByRole('button', { name: 'Pause runtime film' }).click();
   const pausedAt = await video.evaluate(
     (element: HTMLVideoElement) => element.currentTime
@@ -77,6 +77,25 @@ test('all local destinations and media resolve in the shipped artifact', async (
   request,
 }) => {
   await page.goto('./');
+  await expect(
+    page.getByRole('link', { name: 'Meet bench' })
+  ).toHaveAttribute('href', 'paja/');
+  for (const href of [
+    'https://github.com/kernlize/web',
+    'https://npmjs.com/org/kernlize/',
+    'https://jsr.io/@kernl',
+  ]) {
+    await expect(
+      page.locator(`.project-identities a[href="${href}"]`)
+    ).toBeVisible();
+  }
+  const host = await request.get('paja/');
+  expect(await host.text()).toContain(
+    '<title>bench — developer runtime</title>'
+  );
+  const captions = await request.get('assets/runtime-film.vtt');
+  expect(await captions.text()).toContain('00:32.000 --> 00:38.000');
+  expect(await captions.text()).toContain('Build bench from kernl');
   const urls = await page
     .locator('a[href], video source, video track, link[rel="icon"]')
     .evaluateAll((elements) =>

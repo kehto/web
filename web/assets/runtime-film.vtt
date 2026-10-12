@@ -9,8 +9,17 @@ Connect your host with createShellBridge(adapter).
 00:11.000 --> 00:16.000
 Register a theme service. App requests pass through capability checks.
 
-00:16.000 --> 00:21.000
-A real Paja runtime connects the sandboxed app and returns its host theme.
+00:16.000 --> 00:20.000
+Build bench from kernl: runtime routing, then a shell around the sandbox.
 
-00:21.000 --> 00:24.000
-Your runtime. Your rules. Build with kernl.
+00:20.000 --> 00:24.000
+Add ACL permissions and identity from the services package.
+
+00:24.000 --> 00:28.000
+Connect host services and window management. The bench interface assembles.
+
+00:28.000 --> 00:32.000
+bench: a developer runtime built with kernl. The app receives its host theme.
+
+00:32.000 --> 00:38.000
+Build with kernl. GitHub: kernlize/web. npm: kernlize. JSR: @kernl.
