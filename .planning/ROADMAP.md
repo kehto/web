@@ -703,3 +703,9 @@ Phases execute in numeric order: 80 → 81 → 82
 ---
 
 *ROADMAP.md last updated: 2026-10-10 — Phase 107 verified and shipped as open PR #289.*
+
+## kernl rebrand milestone
+
+- [ ] Phase 108: Identity and first-screen story — BRAND-01, PAGE-01
+- [ ] Phase 109: Runtime assembly film — FILM-01, FILM-02
+- [ ] Phase 110: Developer conversion and launch verification — PAGE-02, QUALITY-01

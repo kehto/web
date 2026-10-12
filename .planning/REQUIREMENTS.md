@@ -458,3 +458,12 @@ The earlier milestone authority above remains historical context.
 - [x] **LINK-10**: Document URL contract, encoding, size limit, launch behavior, spec refs, compatibility handling and source identity. Add changesets for every changed shipped package. Keep pure parsing separate from UI.
 - [x] **LINK-11**: Verify behavioral units and real browser flows for parser vectors, advertised builder, copied link roundtrip, cold/warm delivery, readiness, cancellation/retry/no replay, explicit mismatch, recommendation/default precedence, JSON and forged sender. Run build, type-check, unit suite, relevant/full Playwright, docs and AI-slop gates.
 - [x] **LINK-12**: Commit by concern, push feature branch, open PR with scope, verification and upstream authority/gaps. Do not merge or release.
+
+## kernl rebrand
+
+- [ ] BRAND-01: All-lowercase kernl identity with a distinct aesthetic across the public site and current brand docs.
+- [ ] PAGE-01: Explain what kernl does and offer the main developer action in the first desktop and mobile viewport.
+- [ ] FILM-01: Export a compelling runtime assembly video combining abstract components, real APIs, and a working runtime.
+- [ ] FILM-02: Provide poster, pause/play, captions/transcript, and reduced-motion fallback.
+- [ ] PAGE-02: Concrete developer benefits, implementation path, and working docs/demo/source destinations.
+- [ ] QUALITY-01: Responsive/accessibility/browser checks and repo gates, atomic commits, open PR.

@@ -2,9 +2,9 @@
 gsd_state_version: "1.0"
 milestone: v1.29
 milestone_name: Napplet Convention and Runtime Conformance
-current_phase: 107
+current_phase: 108
 current_phase_name: Paja Intent Deep Links
-status: completed
+status: in_progress
 stopped_at: Phase 107 complete; PR 289 open and pushed
 last_updated: "2026-10-10T11:49:59.294913Z"
 last_activity: 2026-10-10
@@ -365,3 +365,7 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 - Retain canonical local intent types until the published Napplet package catches up; warn on legacy object invocation and INC delivery adapters.
 - Success means retained responsibility. Host-only source-window correlation cannot appear in canonical results or delivery payloads.
 - Preserve the primary checkout's unrelated package.json changes. Work lives in `~/.worktrees/kehto/paja-intent-links` on `feat/paja-intent-links`.
+
+## Active kernl milestone
+
+2026-10-12: Primary main updated to 49658b2d; feat/kernl-rebrand created. GSD phases 108–110 initialized. Phase 108 executing. Pre-existing package.json workspace edit remains unrelated.
