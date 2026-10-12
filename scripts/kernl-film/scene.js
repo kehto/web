@@ -209,7 +209,10 @@ function runtimeScene(time) {
   ctx.save();
   ctx.globalAlpha = p;
   const scale = 1 + 0.035 * clamp((time - 16) / 5);
-  ctx.translate(600, 526);
+  ctx.beginPath();
+  ctx.rect(75, 270, 1050, 515);
+  ctx.clip();
+  ctx.translate(600, 520);
   ctx.scale(scale, scale);
   ctx.drawImage(time < 18.4 ? runtimeImage : themeImage, -510, -275, 1020, 708);
   ctx.restore();

@@ -1,19 +1,19 @@
 ---
 gsd_state_version: "1.0"
-milestone: v1.29
-milestone_name: Napplet Convention and Runtime Conformance
-current_phase: 108
-current_phase_name: Paja Intent Deep Links
+milestone: v1.30
+milestone_name: kernl rebrand
+current_phase: 110
+current_phase_name: Developer launch verification
 status: in_progress
-stopped_at: Phase 107 complete; PR 289 open and pushed
-last_updated: "2026-10-10T11:49:59.294913Z"
-last_activity: 2026-10-10
-last_activity_desc: "Shipped Phase 107 as open PR 289"
+stopped_at: All implementation and local gates passed; opening PR
+last_updated: "2026-10-12T16:25:00Z"
+last_activity: 2026-10-12
+last_activity_desc: "Verified kernl site, runtime film, and documentation"
 progress:
-  total_phases: 7
-  completed_phases: 7
-  total_plans: 51
-  completed_plans: 51
+  total_phases: 3
+  completed_phases: 3
+  total_plans: 3
+  completed_plans: 3
   percent: 100
 ---
 
@@ -21,18 +21,18 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-07-28)
+See: .planning/PROJECT.md (updated 2026-10-12)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 107 complete — PR #289 open for review
+**Current focus:** kernl rebrand complete locally — opening PR
 
 ## Current Position
 
-Phase: 107 (Paja Intent Deep Links) — COMPLETE
-Plan: 4 of 4
-Status: Shipped as open PR #289 — https://github.com/kehto/web/pull/289. No merge or release performed.
+Phase: 110 (Developer launch verification) — verified
+Plan: 1 of 1
+Status: Implementation, security review, and local checks complete. PR closeout pending.
 
-Last activity: 2026-10-10 — Opened PR #289 and pushed verification/security closeout.
+Last activity: 2026-10-12 — Verified 2,096 unit tests, 120 runtime browser tests and seven site browser tests.
 
 ## Performance Metrics
 
@@ -368,4 +368,4 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 
 ## Active kernl milestone
 
-2026-10-12: Primary main updated to 49658b2d; feat/kernl-rebrand created. GSD phases 108–110 initialized. Phase 108 executing. Pre-existing package.json workspace edit remains unrelated.
+2026-10-12: Phases 108–110 implemented and verified on feat/kernl-rebrand in the primary checkout. Site and current docs rebranded; package names and CLI retained by user direction. 24-second original film includes actual Paja theme response. 2,096 unit, 120 runtime browser, and seven landing browser tests pass. Build, type, docs, Pages audit, and changed-file quality gate pass. PR creation is the remaining closeout step. Pre-existing package.json workspace edit remains unrelated and uncommitted.

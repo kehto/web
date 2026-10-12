@@ -706,6 +706,6 @@ Phases execute in numeric order: 80 → 81 → 82
 
 ## kernl rebrand milestone
 
-- [ ] Phase 108: Identity and first-screen story — BRAND-01, PAGE-01
-- [ ] Phase 109: Runtime assembly film — FILM-01, FILM-02
-- [ ] Phase 110: Developer conversion and launch verification — PAGE-02, QUALITY-01
+- [x] Phase 108: Identity and first-screen story — BRAND-01, PAGE-01
+- [x] Phase 109: Runtime assembly film — FILM-01, FILM-02
+- [x] Phase 110: Developer conversion and launch verification — PAGE-02, QUALITY-01

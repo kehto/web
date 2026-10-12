@@ -6,7 +6,7 @@
 
 Provide a modular, framework-agnostic runtime for hosting napplet applications — so any Nostr client can embed sandboxed mini-apps by integrating @kehto/shell.
 
-## Current Milestone: kernl rebrand
+## Current Milestone: v1.30 kernl rebrand
 
 **Goal:** Introduce kernl through a simple developer SPA and an original runtime assembly film.
 

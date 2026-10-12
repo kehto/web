@@ -461,9 +461,9 @@ The earlier milestone authority above remains historical context.
 
 ## kernl rebrand
 
-- [ ] BRAND-01: All-lowercase kernl identity with a distinct aesthetic across the public site and current brand docs.
-- [ ] PAGE-01: Explain what kernl does and offer the main developer action in the first desktop and mobile viewport.
-- [ ] FILM-01: Export a compelling runtime assembly video combining abstract components, real APIs, and a working runtime.
-- [ ] FILM-02: Provide poster, pause/play, captions/transcript, and reduced-motion fallback.
-- [ ] PAGE-02: Concrete developer benefits, implementation path, and working docs/demo/source destinations.
-- [ ] QUALITY-01: Responsive/accessibility/browser checks and repo gates, atomic commits, open PR.
+- [x] BRAND-01: All-lowercase kernl identity with a distinct aesthetic across the public site and current brand docs.
+- [x] PAGE-01: Explain what kernl does and offer the main developer action in the first desktop and mobile viewport.
+- [x] FILM-01: Export a compelling runtime assembly video combining abstract components, real APIs, and a working runtime.
+- [x] FILM-02: Provide poster, pause/play, captions/transcript, and reduced-motion fallback.
+- [x] PAGE-02: Concrete developer benefits, implementation path, and working docs/demo/source destinations.
+- [x] QUALITY-01: Responsive/accessibility/browser checks and repo gates, atomic commits, open PR.
