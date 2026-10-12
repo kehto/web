@@ -606,7 +606,6 @@ describe('playground gateway artifact guard', () => {
     const pagesScript = readRepoFile('scripts/build-pages.mjs');
     const pagesServeScript = readRepoFile('scripts/serve-pages.mjs');
     const pagesAudit = readRepoFile('scripts/audit-pages-artifact.mjs');
-    const siteDevConfig = readRepoFile('web/vite.config.mjs');
     const turbo = readRepoFile('turbo.json');
     const packageJson = JSON.parse(readRepoFile('package.json')) as {
       dependencies?: Record<string, string>;
@@ -677,9 +676,7 @@ describe('playground gateway artifact guard', () => {
 
     expect(pagesScript).toContain("'docs', '.vitepress', 'dist'");
     expect(pagesScript).toContain("join(repoRoot, 'web', 'assets')");
-    expect(pagesScript).toContain("join(repoRoot, 'node_modules', 'gsap', 'dist', 'gsap.min.js')");
     expect(pagesScript).toContain("join(outputRoot, 'assets')");
-    expect(pagesScript).toContain("join(portalAssetsOutput, 'vendor')");
     expect(pagesScript).toContain("join(outputRoot, 'docs')");
     expect(pagesScript).toContain("join(outputRoot, 'paja')");
     expect(pagesScript).toContain('build-paja-pages.mjs');
@@ -688,16 +685,11 @@ describe('playground gateway artifact guard', () => {
     expect(pagesServeScript).toContain('process.env.PAGES_PREVIEW_PATH || publicBase');
     expect(pagesServeScript).toContain('artifactPathFromRequest');
     expect(pagesServeScript).toContain('Run pnpm site:build first.');
-    expect(pagesServeScript).toContain('Kehto web preview:');
-    expect(siteDevConfig).toContain('/web/assets/vendor/gsap.min.js');
-    expect(siteDevConfig).toContain("join(repoRoot, 'node_modules', 'gsap', 'dist', 'gsap.min.js')");
-    expect(siteDevConfig).toContain("name: 'kehto-site-dev-vendor'");
-    expect(pagesAudit).toContain("const PORTAL_GSAP_VENDOR = 'assets/vendor/gsap.min.js';");
+    expect(pagesServeScript).toContain('kernl web preview:');
     expect(pagesAudit).toContain("const PORTAL_LANDING_CSS = 'assets/landing.css';");
     expect(pagesAudit).toContain("const PORTAL_LANDING_JS = 'assets/landing.js';");
     expect(pagesAudit).toContain("join(outputRoot, 'assets', 'landing.css')");
     expect(pagesAudit).toContain("join(outputRoot, 'assets', 'landing.js')");
-    expect(pagesAudit).toContain("join(outputRoot, 'assets', 'vendor', 'gsap.min.js')");
     expect(pagesAudit).toContain("const PLAYGROUND_BASE = '/web/playground/';");
     expect(pagesAudit).toContain("const PAJA_BASE = '/web/paja/';");
     expect(pagesAudit).toContain("const DOCS_BASE = '/web/docs/';");
@@ -718,83 +710,20 @@ describe('playground gateway artifact guard', () => {
     expect(resourceDemo).not.toContain('resource-demo-denied');
   });
 
-  it('keeps the public portal on the branded static asset contract', () => {
+  it('keeps the kernl portal destinations and accessible film assets in the Pages contract', () => {
     const portal = readRepoFile('web/index.html');
-    const stylesheet = readRepoFile('web/assets/landing.css');
-    const script = readRepoFile('web/assets/landing.js');
-
-    expect(portal).toContain('href="assets/landing.css"');
-    expect(portal).toContain('src="assets/vendor/gsap.min.js"');
-    expect(portal).toContain('src="assets/landing.js"');
-    expect(portal).toContain('id="hairline-accent"');
-    expect(portal).toContain('<title>Kehto Web Runtime</title>');
-    expect(portal).toContain('aria-label="Kehto Web Runtime"');
-    expect(portal).toContain('<span class="wordmark-role">Web Runtime</span>');
-    expect(portal).toContain('href="playground/"');
-    expect(portal).toContain('href="paja/"');
-    expect(portal).toContain('href="docs/"');
-    expect(portal).toContain('Paja Runtime');
-    expect(portal).toContain('data-route-link');
-    expect(portal).toContain('class="wordmark"');
-    expect(portal).toContain('NIP-5D is under development and may be subject to change.');
-    expect(portal).toContain('Contained runtime for experimental Nostr apps');
-    expect(portal).toContain('A contained home for experimental Nostr apps.');
-
-    expect(stylesheet).toContain('--bg: #020201');
-    expect(stylesheet).toContain('--accent: #f4c539');
-    expect(stylesheet).toContain('--font-brand: Optima');
-    expect(stylesheet).toContain('--font-copy: "Avenir Next"');
-    expect(stylesheet).toContain('--font-mono: Iosevka');
-    expect(stylesheet).toContain('.hairline-accent');
-    expect(stylesheet).toContain('.wordmark-name::after');
-    expect(stylesheet).toContain('font-family: var(--font-brand)');
-    expect(stylesheet).not.toContain('font-family: "Baskerville"');
-    expect(stylesheet).toContain('@media (max-width: 780px)');
-    expect(stylesheet).toContain('@media (prefers-reduced-motion: reduce)');
-    expect(script).toContain('window.gsap');
-    expect(script).toContain('setupContourAccent');
-    expect(script).toContain('createContourBodies');
-    expect(script).toContain('createPointerState');
-    expect(script).toContain('drawContourFrame');
-    expect(script).toContain('drawContourLines');
-    expect(script).toContain('drawContourLevel');
-    expect(script).toContain('sampleContourField');
-    expect(script).toContain('samplePointerWake');
-    expect(script).toContain('samplePassivePulse');
-    expect(script).toContain('sampleActivePulse');
-    expect(script).toContain('triggerContourPulse');
-    expect(script).toContain('lineSpacing');
-    expect(script).toContain('sampleStep');
-    expect(script).toContain('quadraticCurveTo');
-    expect(script).not.toContain('interpolateContourPoint');
-    expect(script).not.toContain('contourSegments');
-    expect(script).not.toContain('createRadialGradient');
-    expect(script).not.toContain("globalCompositeOperation = 'lighter'");
-    expect(script).not.toContain('context.filter');
-    expect(script).toContain('phaseTween');
-    expect(script).toContain('function updatePointerInertia');
-    expect(script).toContain('pointer.targetPressure');
-    expect(script).toContain('pointer.targetVelocityX');
-    expect(script).toContain('pointer.targetVelocityY');
-    expect(script).toContain('event.timeStamp');
-    expect(script).toContain("root.dataset.motion === 'ready'");
-    expect(script).toContain("link.addEventListener('pointerenter', onRoutePulse");
-    expect(script).toContain("link.addEventListener('focus', onRoutePulse");
-    expect(script).toContain('while (y < height * 1.18)');
-    expect(script).toContain('duration: 46');
-    expect(script).toContain('requestAnimationFrame(tickContours)');
-    expect(script).toContain('cancelAnimationFrame(animationFrameId)');
-    expect(script).toContain("canvas.getContext('2d'");
-    expect(script).toContain('gsapApi.ticker.add');
-    expect(script).toContain('function isHistoryRestore');
-    expect(script).toContain("entry.type === 'back_forward'");
-    expect(script).toContain("document.body.classList.remove('is-leaving')");
-    expect(script).toContain("window.addEventListener('pageshow', onPageShow)");
-    expect(script).toContain('gsapInstance.matchMedia()');
-    expect(script).toContain("'(prefers-reduced-motion: reduce)'");
-    expect(script).toContain("'(prefers-reduced-motion: no-preference)'");
-    expect(script).toContain('data-route-link');
-    expect(script).toContain('window.location.href = anchor.href');
+    expect(portal).toContain('<title>kernl — Build your own Nostr runtime.</title>');
+    for (const route of ['playground/', 'paja/', 'docs/']) {
+      expect(portal).toContain(`href="${route}"`);
+    }
+    expect(portal).toContain('href="docs/tutorials/minimal-host-shell.html"');
+    expect(portal).toContain('src="assets/runtime-film.mp4"');
+    expect(portal).toContain('poster="assets/runtime-poster.jpg"');
+    expect(portal).toContain('kind="captions"');
+    expect(portal).toContain('About the runtime film / transcript');
+    expect(portal).toContain('sandboxed Nostr apps');
+    expect(portal).toContain('@kehto/shell');
+    expect(portal).not.toContain('@kernl/');
   });
 });
 

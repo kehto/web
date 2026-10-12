@@ -72,9 +72,13 @@ The bridge exposes the underlying runtime. Register service handlers before load
 ```ts
 import { createThemeService } from '@kehto/services';
 
-bridge.runtime.registerService('theme', createThemeService({
-  getTheme: () => ({ colors: {}, title: 'Default' }),
-}));
+const themeService = createThemeService({
+  initialTheme: {
+    colors: { background: '#f3f3ed', text: '#181c17', primary: '#558b26' },
+    title: 'Default',
+  },
+});
+bridge.runtime.registerService('theme', themeService.handler);
 ```
 
 Register optional domains only when their real host backends are available. In

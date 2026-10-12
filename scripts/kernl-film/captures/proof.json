@@ -1,0 +1,21 @@
+{
+  "status": "ready",
+  "tabs": [
+    {
+      "id": "tab-1",
+      "title": "little-space.html",
+      "pointerValue": "",
+      "windowId": "kehto-paja-window:tab-1:1",
+      "status": "ready",
+      "initSent": true
+    }
+  ],
+  "messages": [
+    "paja.local.load",
+    "paja.local.loaded",
+    "shell.ready",
+    "shell.init",
+    "theme.get",
+    "theme.get.result"
+  ]
+}

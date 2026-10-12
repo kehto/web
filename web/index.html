@@ -1,78 +1,301 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Kehto Web Runtime</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f3f3ed" />
+    <title>kernl — Build your own Nostr runtime.</title>
     <meta
       name="description"
-      content="Kehto runtime packages, playground, and documentation for sandboxed Nostr napplets."
-    >
-    <link rel="stylesheet" href="assets/landing.css">
-    <script src="assets/vendor/gsap.min.js" defer></script>
+      content="The modular TypeScript toolkit for hosting sandboxed Nostr apps. Bring your interface. Choose your services. Build your runtime with kernl."
+    />
+    <meta property="og:title" content="kernl — Your runtime. Your rules." />
+    <meta
+      property="og:description"
+      content="A modular TypeScript toolkit for hosting sandboxed Nostr apps."
+    />
+    <meta property="og:type" content="website" />
+    <link rel="icon" href="assets/kernl.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="assets/landing.css" />
     <script src="assets/landing.js" defer></script>
   </head>
   <body>
-    <div class="page-shell">
-      <div class="ambient-field" aria-hidden="true">
-        <canvas id="hairline-accent" class="hairline-accent"></canvas>
-      </div>
-
-      <main class="landing" aria-labelledby="kehto-title">
-        <p class="notice">NIP-5D is under development and may be subject to change.</p>
-
-        <section class="hero" aria-describedby="kehto-summary">
-          <p class="eyebrow">Contained runtime for experimental Nostr apps</p>
-
-          <h1 id="kehto-title" class="wordmark" aria-label="Kehto Web Runtime">
-            <span class="wordmark-name">Kehto</span>
-            <span class="wordmark-role">Web Runtime</span>
-          </h1>
-
-          <p id="kehto-summary" class="summary">
-            A contained home for experimental Nostr apps. Kehto lets new
-            interfaces try real capabilities while keeping the shell and user
-            in control.
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header wrap">
+      <a class="wordmark" href="./" aria-label="kernl home"
+        ><svg viewBox="0 0 32 32" aria-hidden="true">
+          <path
+            d="M2 2h12v12H2zm16 0h12v12H18zM2 18h12v12H2zm16 0h12v12H18z"
+          /></svg
+        >kernl<span class="brand-dot">.</span></a
+      >
+      <nav aria-label="Main navigation">
+        <a href="#inside">What’s inside</a
+        ><a href="docs/">Docs <span aria-hidden="true">↗</span></a
+        ><a href="https://github.com/kehto/web" class="source-link"
+          >GitHub <span aria-hidden="true">↗</span></a
+        >
+      </nav>
+    </header>
+    <main id="main">
+      <section class="hero wrap" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="eyebrow">
+            <span class="status-dot"></span> A toolkit for Nostr app runtimes
           </p>
-        </section>
+          <h1 id="hero-title">
+            Your runtime.<br />Your rules<span class="brand-dot">.</span>
+          </h1>
+          <p class="hero-summary">
+            Build a home for sandboxed Nostr apps.<br class="desktop-break" />
+            kernl gives you the runtime, permissions, and services. You bring
+            the interface.
+          </p>
+          <div class="hero-actions">
+            <a
+              class="button primary"
+              href="docs/tutorials/minimal-host-shell.html"
+              >Build with kernl <span aria-hidden="true">↗</span></a
+            ><a class="text-link" href="paja/"
+              >Try a runtime <span aria-hidden="true">↗</span></a
+            >
+          </div>
+          <p class="hero-meta">
+            TypeScript <span>/</span> Framework agnostic <span>/</span> Open
+            source
+          </p>
+        </div>
+        <figure class="film" aria-labelledby="film-caption">
+          <div class="film-screen">
+            <video
+              id="runtime-film"
+              width="1200"
+              height="1000"
+              muted
+              playsinline
+              loop
+              preload="none"
+              poster="assets/runtime-poster.jpg"
+              aria-label="Building a runtime with kernl"
+              controls
+            >
+              <source src="assets/runtime-film.mp4" type="video/mp4" />
+              <track
+                kind="captions"
+                src="assets/runtime-film.vtt"
+                srclang="en"
+                label="English"
+                default
+              />
+              Your browser does not support video. Read the film transcript
+              below.
+            </video>
+            <button
+              class="film-expand"
+              type="button"
+              hidden
+              aria-label="Expand runtime film"
+            >⛶</button>
+            <button
+              class="film-toggle"
+              type="button"
+              aria-controls="runtime-film"
+              hidden
+            >
+              Play film <span aria-hidden="true">▶</span>
+            </button>
+          </div>
+          <figcaption id="film-caption">
+            <span
+              ><span class="status-dot"></span> From a few parts. To your
+              runtime.</span
+            ><a
+              href="assets/runtime-film.mp4"
+              aria-label="Open runtime film in video player"
+              >00:24 <span aria-hidden="true">↗</span></a
+            >
+          </figcaption>
+        </figure>
+      </section>
+      <div class="principles wrap" aria-label="Toolkit principles">
+        <span>Small parts. Real possibilities.</span>
+        <p>
+          Compose what you need.<br class="mobile-break" />
+          Own what you build.
+        </p>
+        <a href="#inside" aria-label="Explore what is inside kernl">↓</a>
+      </div>
+      <section class="inside wrap" id="inside" aria-labelledby="inside-title">
+        <div class="section-intro">
+          <p class="eyebrow">01 / The building blocks</p>
+          <h2 id="inside-title">Start with a kernl.<br />Make it your own.</h2>
+          <p>
+            A feed, a workspace, an entirely new client. Build the host you have
+            in mind, with reusable pieces underneath.
+          </p>
+        </div>
+        <div class="module-list">
+          <a href="docs/packages/runtime.html" class="module-row"
+            ><span class="module-symbol" aria-hidden="true">✳</span>
+            <div>
+              <h3>The engine</h3>
+              <p>
+                Message routing, sessions, and app lifecycle. The shared
+                machinery behind your host.
+              </p>
+            </div>
+            <span class="module-tag">runtime</span
+            ><span aria-hidden="true">↗</span></a
+          >
+          <a href="docs/packages/acl.html" class="module-row"
+            ><span class="module-symbol" aria-hidden="true">⊞</span>
+            <div>
+              <h3>The boundaries</h3>
+              <p>
+                Grant capabilities explicitly. Add firewall policies for rate
+                limits and abuse controls.
+              </p>
+            </div>
+            <span class="module-tag">acl + firewall</span
+            ><span aria-hidden="true">↗</span></a
+          >
+          <a href="docs/packages/services.html" class="module-row"
+            ><span class="module-symbol" aria-hidden="true">⌘</span>
+            <div>
+              <h3>The connections</h3>
+              <p>
+                Wire in relay, identity, storage, and more. Use reference
+                handlers or your own backends.
+              </p>
+            </div>
+            <span class="module-tag">services</span
+            ><span aria-hidden="true">↗</span></a
+          >
+          <a href="docs/packages/shell.html" class="module-row"
+            ><span class="module-symbol" aria-hidden="true">▣</span>
+            <div>
+              <h3>Your host</h3>
+              <p>
+                Connect sandboxed iframes to the runtime. Keep your framework,
+                layout, and product decisions.
+              </p>
+            </div>
+            <span class="module-tag">shell</span
+            ><span aria-hidden="true">↗</span></a
+          >
+        </div>
+      </section>
+      <section class="build-section" aria-labelledby="build-title">
+        <div class="wrap build-grid">
+          <div class="build-copy">
+            <p class="eyebrow">02 / A small beginning</p>
+            <h2 id="build-title">
+              Bring your ideas.<br />We brought the parts.
+            </h2>
+            <p>
+              Connect your host adapter. Register the services your apps need.
+              Then load a verified napplet into its sandbox.
+            </p>
+            <a class="text-link" href="docs/tutorials/minimal-host-shell.html"
+              >Follow the host tutorial <span aria-hidden="true">↗</span></a
+            >
+            <p class="build-note">
+              The adapter supplies your backends and policies. This is an
+              integration excerpt; the tutorial covers verification,
+              permissions, and teardown.
+            </p>
+          </div>
+          <div class="code-panel">
+            <div class="code-heading">
+              <span><span class="status-dot"></span> host.ts</span
+              ><span>TypeScript</span>
+            </div>
+            <pre><code><span class="syntax-comment">// 01 — connect your host</span>
+<span class="syntax-key">import</span> { createShellBridge }
+  <span class="syntax-key">from</span> <span class="syntax-string">'@kehto/shell'</span>;
+<span class="syntax-key">import</span> { createThemeService }
+  <span class="syntax-key">from</span> <span class="syntax-string">'@kehto/services'</span>;
 
-        <nav class="destinations" aria-label="Kehto web destinations">
-          <a class="destination destination-primary" href="playground/" data-route-link>
-            <span class="destination-path">/web/playground/</span>
-            <span class="destination-label">Open Playground</span>
-            <span class="destination-copy">
-              Run gateway-hosted napplets through the shell.
-            </span>
-          </a>
+<span class="syntax-key">const</span> bridge = createShellBridge(adapter);
+window.addEventListener(
+  <span class="syntax-string">'message'</span>, bridge.handleMessage,
+);
 
-          <a class="destination" href="paja/" data-route-link>
-            <span class="destination-path">/web/paja/</span>
-            <span class="destination-label">Paja Runtime</span>
-            <span class="destination-copy">
-              Load naddr and nevent napplet pointers.
-            </span>
-          </a>
-
-          <a class="destination" href="docs/" data-route-link>
-            <span class="destination-path">/web/docs/</span>
-            <span class="destination-label">Read Docs</span>
-            <span class="destination-copy">
-              Integrate runtime packages and host flows.
-            </span>
-          </a>
-        </nav>
-
-        <section class="signal-row" aria-label="Kehto proof points">
-          <span>Sandbox</span>
-          <span>Route</span>
-          <span>Enforce</span>
-          <span>Prove</span>
-        </section>
-      </main>
-
-      <footer class="site-footer">
-        <span>Early reference runtime for NIP-5D napplets.</span>
-      </footer>
-    </div>
+<span class="syntax-comment">// 02 — give apps a shared theme</span>
+<span class="syntax-key">const</span> service = createThemeService({
+  initialTheme: theme,
+});
+bridge.runtime.registerService(
+  <span class="syntax-string">'theme'</span>, service.handler,
+);</code></pre>
+            <div class="code-foot">
+              kernl packages currently ship as <code>@kehto/*</code>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section class="next-section wrap" aria-labelledby="next-title">
+        <p class="eyebrow">03 / Make something run</p>
+        <div class="next-heading">
+          <h2 id="next-title">Less plumbing.<br />More possibility.</h2>
+          <p>
+            Start from the reference runtime, explore the protocol in action, or
+            build your own host from the ground up.
+          </p>
+        </div>
+        <div class="next-links">
+          <a href="paja/"
+            ><span class="eyebrow">Run it</span>
+            <h3>Meet Paja <span aria-hidden="true">↗</span></h3>
+            <p>A working developer runtime built with kernl.</p></a
+          ><a href="playground/"
+            ><span class="eyebrow">Explore it</span>
+            <h3>Open the playground <span aria-hidden="true">↗</span></h3>
+            <p>Watch sandboxed apps and host services interact.</p></a
+          ><a href="docs/"
+            ><span class="eyebrow">Build it</span>
+            <h3>Read the docs <span aria-hidden="true">↗</span></h3>
+            <p>From your first host to the individual APIs.</p></a
+          >
+        </div>
+      </section>
+      <div class="wrap">
+        <details class="transcript">
+          <summary>About the runtime film / transcript</summary>
+          <p>
+            00:00 — Start with a kernl. Independent runtime, policy, service,
+            and shell modules assemble into a host.
+          </p>
+          <p>
+            00:06 — Connect your host using createShellBridge(adapter). Your
+            adapter provides the backends and policies.
+          </p>
+          <p>
+            00:11 — Register a theme service. App requests pass through the
+            host’s capability boundary.
+          </p>
+          <p>
+            00:16 — Run it. A local kernl host loads a sandboxed app, completes
+            the shell handshake, and supplies the app’s theme. This is a working
+            example captured in the browser.
+          </p>
+          <p>00:21 — Your runtime. Your rules. Build with kernl.</p>
+          <a href="assets/runtime-film.mp4" download>Download the film (MP4)</a>
+        </details>
+      </div>
+    </main>
+    <footer class="site-footer wrap">
+      <div>
+        <a class="wordmark" href="./">kernl<span class="brand-dot">.</span></a>
+        <p>A small core for your next big idea.</p>
+      </div>
+      <div>
+        <p class="notice">
+          Alpha software. NIP-5D and NAP contracts are evolving.
+        </p>
+        <a href="docs/alpha-status.html">Read the current status ↗</a>
+        <p class="footer-history">Previously Kehto. Same open-source roots.</p>
+      </div>
+    </footer>
   </body>
 </html>

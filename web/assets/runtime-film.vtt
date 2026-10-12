@@ -1,0 +1,16 @@
+WEBVTT
+
+00:00.000 --> 00:06.000
+Start with a kernl. Compose runtime, permissions, services, and your shell.
+
+00:06.000 --> 00:11.000
+Connect your host with createShellBridge(adapter).
+
+00:11.000 --> 00:16.000
+Register a theme service. App requests pass through capability checks.
+
+00:16.000 --> 00:21.000
+A real Paja runtime connects the sandboxed app and returns its host theme.
+
+00:21.000 --> 00:24.000
+Your runtime. Your rules. Build with kernl.

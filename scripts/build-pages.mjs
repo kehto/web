@@ -34,8 +34,6 @@ const portalSource = join(repoRoot, 'web', 'index.html');
 const portalAssets = join(repoRoot, 'web', 'assets');
 const portalOutput = join(outputRoot, 'index.html');
 const portalAssetsOutput = join(outputRoot, 'assets');
-const gsapSource = join(repoRoot, 'node_modules', 'gsap', 'dist', 'gsap.min.js');
-const vendorAssetsOutput = join(portalAssetsOutput, 'vendor');
 const playgroundOutput = join(outputRoot, 'playground');
 const playgroundBasePath = process.env.PLAYGROUND_BASE_PATH || '/web/playground/';
 const pajaOutput = join(outputRoot, 'paja');
@@ -56,12 +54,9 @@ mkdirSync(outputRoot, { recursive: true });
 writeFileSync(join(outputRoot, '.nojekyll'), '');
 
 ensureFile(portalSource, 'portal source');
-ensureFile(gsapSource, 'GSAP vendor source');
 mkdirSync(dirname(portalOutput), { recursive: true });
 copyFileSync(portalSource, portalOutput);
 cpSync(portalAssets, portalAssetsOutput, { recursive: true });
-mkdirSync(vendorAssetsOutput, { recursive: true });
-copyFileSync(gsapSource, join(vendorAssetsOutput, 'gsap.min.js'));
 
 execFileSync(process.execPath, [join(scriptDir, 'build-playground-pages.mjs')], {
   cwd: repoRoot,

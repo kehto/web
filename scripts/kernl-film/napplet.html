@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="napplet-id" content="kernl-film-sample" />
+    <meta name="napplet-optional" content="theme" />
+    <title>Little space</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        font-family: Arial, sans-serif;
+        background: #f3f3ed;
+        color: #20251c;
+        margin: 0;
+        padding: 55px;
+      }
+      header {
+        display: flex;
+        justify-content: space-between;
+        font: 12px monospace;
+        border-bottom: 1px solid #ccd1c3;
+        padding-bottom: 25px;
+      }
+      .dot {
+        color: #558b26;
+      }
+      h1 {
+        font-size: 64px;
+        font-weight: 500;
+        letter-spacing: -4px;
+        line-height: 1.05;
+        margin: 55px 0 25px;
+      }
+      p {
+        font-size: 17px;
+        line-height: 1.7;
+        color: #626957;
+      }
+      .tiles {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 15px;
+        margin-top: 45px;
+      }
+      .tile {
+        border: 1px solid #cbd2c0;
+        padding: 23px;
+        min-height: 130px;
+      }
+      .tile b {
+        font-size: 26px;
+        font-weight: 400;
+      }
+      .tile p {
+        font: 11px monospace;
+        margin-top: 27px;
+      }
+      .state {
+        margin-top: 38px;
+        font: 12px monospace;
+        color: #416226;
+      }
+      button {
+        background: #b9f66b;
+        border: 0;
+        padding: 15px 22px;
+        font: 12px monospace;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <span>little space / a sample napplet</span
+      ><span class="dot">● SANDBOXED</span>
+    </header>
+    <h1>A little app.<br />A place to run.</h1>
+    <p>Your own interface, connected to a shared host.</p>
+    <div class="tiles">
+      <div class="tile">
+        <b>01</b>
+        <p>ISOLATED IFRAME</p>
+      </div>
+      <div class="tile">
+        <b>02</b>
+        <p>HOST SERVICES</p>
+      </div>
+      <div class="tile">
+        <b>03</b>
+        <p>YOUR INTERFACE</p>
+      </div>
+    </div>
+    <p class="state" id="state">Connecting to host…</p>
+    <button id="theme" type="button">Read host theme ↗</button>
+    <script>
+      window.napplet.shell.ready().then(() => {
+        document.getElementById('state').textContent =
+          'Connected · shell environment received';
+      });
+      document.getElementById('theme').addEventListener('click', async () => {
+        const theme = await window.napplet.theme.get();
+        document.getElementById('state').textContent =
+          'Theme received · ' + theme.colors.background;
+      });
+    </script>
+  </body>
+</html>
