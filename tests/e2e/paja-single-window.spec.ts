@@ -194,7 +194,7 @@ test('hosts one sandboxed target iframe and reinitializes it on reload', async (
   await page.goto(runtimeServer.url);
 
   await expect(page.locator('header.top')).toBeVisible();
-  await expect(page.locator('.brand')).toHaveText('@kehto/paja');
+  await expect(page.locator('.brand')).toHaveText('bench');
   await expect.poll(async () => page.locator('.brand').evaluate((brand) => {
     const product = brand.querySelector('.brand-product');
     if (!(product instanceof HTMLElement)) return false;
