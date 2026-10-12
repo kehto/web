@@ -1,5 +1,8 @@
 # @kehto/paja
 
+bench was previously called Paja. The package remains `@kehto/paja`; existing
+`kehto paja` commands, API names, and `/paja/` routes continue to work.
+
 Development runtime for local napplet authoring and static pointer-loaded
 napplet testing.
 
@@ -15,7 +18,7 @@ The runtime is designed to be used from a napplet package script:
 
 The target URL is explicit on purpose. kernl can spawn any framework command and
 wait for that URL, but it does not guess which URL the framework chose. Loading
-that URL through Paja as injected `srcdoc` lets kernl install mandatory
+that URL through bench as injected `srcdoc` lets kernl install mandatory
 `window.napplet.shell` plus enabled optional domains before app code runs. The
 kernl host-owned shell prelude completes `shell.ready` / `shell.init` and caches
 capability queries,
@@ -53,7 +56,7 @@ export default {
 ```
 
 Any dev server works as long as it answers `Origin: null` with
-`Access-Control-Allow-Origin: *` or `null`. Paja probes the target on startup
+`Access-Control-Allow-Origin: *` or `null`. bench probes the target on startup
 and logs a `paja.target.cors.error` entry in the message log, plus a console
 warning, when the target would block the sandboxed frame.
 
@@ -71,10 +74,10 @@ runtime ACL controls, signer controls, and a filterable message log with visible
 error details. It starts expanded and collapses to the left with the chevron
 button in the top bar; the same button brings the whole panel back. Collapsing
 is presentation-only — the target iframe keeps its identity and the loaded
-napplet keeps running — and Paja remembers the choice per browser origin. In
+napplet keeps running — and bench remembers the choice per browser origin. In
 runtime-pointer mode, ACL controls always display and mutate
 the active tab's resolver-verified d-tag and aggregate hash; a grant or revoke
-rerenders that same identity immediately. Paja auto-connects a browser NIP-07 signer when `window.nostr` is
+rerenders that same identity immediately. bench auto-connects a browser NIP-07 signer when `window.nostr` is
 available, can connect to a bunker/NIP-46 URI, and only uses the generated local
 development signer when the Dev signer button is selected. Sign, publish, DM
 send, filesystem picker, Blossom upload, and external-link requests use one serialized in-page
@@ -82,27 +85,27 @@ confirmation dialog. Deny has initial focus and Escape denies. A napplet-scoped
 sign request defaults to one-time approval, with explicit options to remember
 that event kind or trust every kind from the napplet identity and target. The trust
 choice carries a visible warning. Remembered signing authority is keyed by the
-active signer pubkey, host-owned napplet d-tag and aggregate hash, and the Paja
+active signer pubkey, host-owned napplet d-tag and aggregate hash, and the bench
 target boundary. Runtime pointers are isolated by verified artifact hash;
 direct development targets are isolated by exact target URL, and their trust
 survives code reloads at that URL. Changing the signer, identity, artifact, or
 target asks again. Missing source identity or a nonnumeric kind remains
 one-shot, denials are never remembered, and the signer controls can revoke
-every remembered approval. If durable deletion fails, Paja keeps the approval
-listed and logs the failure instead of claiming revocation. A full Paja host
+every remembered approval. If durable deletion fails, bench keeps the approval
+listed and logs the failure instead of claiming revocation. A full bench host
 reload creates a new ephemeral Dev signer and therefore asks again; a stable
 NIP-07 or NIP-46 account can reuse its saved choice. Publish and other operation
-confirmations continue to prompt independently. This is Paja runtime policy under draft
+confirmations continue to prompt independently. This is bench runtime policy under draft
 [NAP-RELAY PR #2 at `0be8abce18beb46ca37bd4ddd042f58d30b4eedc`](https://github.com/napplet/naps/pull/2), not
 a kernl kernel default. Upload consent identifies the requesting napplet, file, MIME type,
 size, selected server, and durable public effect before bytes leave the browser.
 A denial or a live publish with no accepting relay returns a canonical failure
-and is not added to Paja's in-memory relay view. Paja's scoped-relay hook
+and is not added to bench's in-memory relay view. bench's scoped-relay hook
 likewise waits for the backend result and returns `false` after denial or
 transport failure.
 
 WebRTC is advertised only when the host has the browser WebRTC API, a live
-relay boundary, and a connected signer with NIP-44 support. Paja owns the
+relay boundary, and a connected signer with NIP-44 support. bench owns the
 `RTCPeerConnection` and data channels, uses signed kind-25050 Nostr events for
 encrypted offer/answer signaling, and asks for explicit session consent with a
 network-metadata warning. Napplets receive only NAP session/events and JSON data
@@ -112,7 +115,7 @@ This implementation tracks pinned
 and the kind/tag conventions in
 [NIP-100 PR #363 at `ead1cd6`](https://github.com/nostr-protocol/nips/pull/363).
 
-DM is advertised only with live relays and Paja's selected Dev signer, whose
+DM is advertised only with live relays and bench's selected Dev signer, whose
 runtime-owned secret key can create and unwrap real NIP-17 gift wraps. Sends
 receive one explicit plaintext/recipient confirmation, publish only verified
 kind-1059 envelopes through the authorized relay path, and reload encrypted
@@ -121,7 +124,7 @@ Napplets receive normalized NAP-DM messages, never secret keys, seals, rumors,
 or relay sockets. This implementation follows draft
 [NAP-DM `a0a48588`](https://github.com/napplet/naps/blob/a0a48588b3c9caca9540cccec19635b85231a00f/naps/NAP-DM.md).
 
-FS is advertised only after Paja successfully opens the browser's real
+FS is advertised only after bench successfully opens the browser's real
 origin-private filesystem. Each verified napplet identity gets a durable OPFS
 `/workspace`; browser file/directory pickers add session-only opaque virtual
 mounts after host approval. The backend implements metadata, directory lists,
@@ -135,7 +138,7 @@ Other domains are equally capability-bound. Relay, outbox, and count require
 live relays; count uses NIP-45 `COUNT` without downloading events. Storage
 requires writable `localStorage`; the memory setting is an unadvertised fixture.
 Keys requires a document listener, media requires the browser Media Session
-API, notifications require Paja's host renderer, links require browser
+API, notifications require bench's host renderer, links require browser
 navigation, and intent requires the installed-catalog/runtime-tab host
 controller. DM also requires the Dev signer and live relays; FS requires a
 successful OPFS probe, while picker calls additionally require the corresponding
@@ -147,12 +150,12 @@ sources that the relay pool actually observed.
 
 ## Standard identity and social-cache boundary
 
-A signed-in napplet reads Paja identity and social data only through existing
+A signed-in napplet reads bench identity and social data only through existing
 `identity.getPublicKey`, `identity.getFollows`, and ordinary kind-0
-`outbox.query` messages. Paja exposes no social namespace, direct networking,
+`outbox.query` messages. bench exposes no social namespace, direct networking,
 or signer/key capability for this behavior.
 
-Paja privately validates the active account's replacement kind-3 contact list,
+bench privately validates the active account's replacement kind-3 contact list,
 then warms followed kind-0 profile records through its established outbox router.
 The resulting snapshot is active-account-scoped and memory-only. It is distinct
 from generic simulation cache mode; it is not napplet-owned storage and has no
@@ -160,7 +163,7 @@ durable-cache controls. Captured-key request correlation keeps a follows request
 bound to the account that started it, while generation-safe background writes
 prevent stale-account data from becoming the active snapshot.
 
-A normal query can include matching cached `RelayEventResult` values, but Paja
+A normal query can include matching cached `RelayEventResult` values, but bench
 retains the base router's query-wide `incomplete` and `error` fields. A cache hit
 does not make a degraded query complete. Profile winner selection, pagination,
 follow mutation, durable-cache management, and per-author completeness are
@@ -170,11 +173,11 @@ outside this behavior.
 is byte-identical to the recorded `napplet/naps` master document for this phase.
 Pinned [NAP-OUTBOX at `4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e`](https://github.com/napplet/naps/blob/4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e/naps/NAP-OUTBOX.md)
 together with installed `@napplet/nap@0.32.0` types is the PoC contract because
-current master has no NAP-OUTBOX path. Paja therefore makes no current-master
+current master has no NAP-OUTBOX path. bench therefore makes no current-master
 OUTBOX conformance claim. Blossom upload behavior targets pinned
 [NAP-UPLOAD at `a7cc17463cbf5d9cb87884b31071bc4fc826034c`](https://github.com/napplet/naps/blob/a7cc17463cbf5d9cb87884b31071bc4fc826034c/naps/NAP-UPLOAD.md).
 
-The static Paja Runtime build is served at `/web/paja/` in the GitHub Pages
+The static bench Runtime build is served at `/web/paja/` in the GitHub Pages
 artifact. It uses the same browser host and service adapters, but loads verified
 napplet HTML from pasted `naddr` or `nevent` pointers with `hmr: none`. Each
 loaded pointer becomes a closeable header tab; loading an already-running
@@ -185,7 +188,7 @@ runtime tabs in local storage so returning to `/web/paja/` restores the previous
 pointer set. An explicit pointer in the URL still takes precedence over restored
 tabs.
 
-The static artifact defaults to Paja's standard live relays and memory uploads.
+The static artifact defaults to bench's standard live relays and memory uploads.
 To point it at specific live relays or Blossom upload servers, pass
 comma-separated host lists when generating the artifact:
 
@@ -204,19 +207,19 @@ finally configured runtime fallbacks.
 
 ## Local `index.html` files
 
-In runtime-pointer mode, Paja can also open a napplet straight from disk. Use
-**Open file…** next to **Load**, or drop an `index.html` anywhere on the Paja
+In runtime-pointer mode, bench can also open a napplet straight from disk. Use
+**Open file…** next to **Load**, or drop an `index.html` anywhere on the bench
 page (not onto a running napplet frame, which receives its own drag events).
 The file opens in a new runtime tab named after the file.
 
-- **Identity comes from the bytes.** Paja hashes the exact file bytes (`sha256`)
+- **Identity comes from the bytes.** bench hashes the exact file bytes (`sha256`)
   and derives `aggregateHash` as the NIP-5A aggregate over the single
   `/index.html` path entry. That is the same derivation the resolver checks for a
   published single-file napplet, so editing the file gives it a new identity. The
   `dTag` comes from the NIP-5D publishing metadata
-  `<meta name="napplet-id" content="…">`. Without it, Paja uses
+  `<meta name="napplet-id" content="…">`. Without it, bench uses
   `local-<file-stem>`.
-- **Same loading path as verified pointers.** Paja registers the identity before
+- **Same loading path as verified pointers.** bench registers the identity before
   the frame runs. It injects the Class-1 CSP (with `connect-src 'none'`, since a
   local file has no relay or Blossom hints) and then the runtime-owned
   `window.napplet` prelude, including mandatory `shell`. The bytes go in through
@@ -226,13 +229,13 @@ The file opens in a new runtime tab named after the file.
   target, has no share link, and is not restored after a page reload.
 - **Self-contained single-file HTML only.** A `srcdoc` document has no base URL,
   and the CSP denies network loads, so relative `<script src>`, stylesheets, and
-  images do not load. Paja lists relative references it finds in the status line
+  images do not load. bench lists relative references it finds in the status line
   and the message log. Build with an inlining bundler (for example
   `vite-plugin-singlefile`). Opening a folder or zip of assets is not supported.
 
 ## Installed intent handlers and delivery
 
-Paja stores immutable resolver-verified manifest facts separately from live tabs.
+bench stores immutable resolver-verified manifest facts separately from live tabs.
 Closing a frame leaves its catalog record available for cold starts; explicit
 artifact removal deletes it. Restored pointers are reverified before entering the
 catalog. Entries preserve exact conventions and ordered parameter names under
@@ -250,7 +253,7 @@ Replacement, readiness failure, and terminal send failure remain host-observable
 controller outcomes; they do not produce a second source result. Accepted work
 survives source teardown and is never replayed by tab restoration.
 
-Paja activates delivered handler tabs because its stage shows one tab at a time.
+bench activates delivered handler tabs because its stage shows one tab at a time.
 `behavior.focus` is advisory; `reuse: false` creates a new surface. Existing caller
 tabs remain open. Installed contracts and domains appear in pointer diagnostics.
 
@@ -261,11 +264,11 @@ provides local `ready()`, `supports()`, read-only `services`, and one-shot
 `onReady()`. This is the documented upstream-package-drift exception, not a
 shim capability.
 
-Before Paja assigns a verified runtime-pointer document to `srcdoc`, it calls
+Before bench assigns a verified runtime-pointer document to `srcdoc`, it calls
 `@kehto/shell`'s `prepareNappletSrcdoc`. The shell inserts validated CSP first,
 then the mandatory namespace. Defaults permit inline script/style, WASM byte
 compilation, `data:`/`blob:` images and `data:` fonts, and deny other resource
-classes. Paja grants direct connections only to resolved relay and Blossom
+classes. bench grants direct connections only to resolved relay and Blossom
 origins plus explicit host grants.
 
 Hosts can pass `csp` to `createPajaRuntimeHostConfig`:
@@ -319,14 +322,14 @@ kehto paja \
 
 Configured `config.values` are only a seed for identities with no saved
 settings. A napplet must register a valid NAP-CONFIG schema before any values
-are delivered. Paja then validates/defaults the seed, persists commits under
+are delivered. bench then validates/defaults the seed, persists commits under
 the host-resolved `(dTag, aggregateHash)`, and exposes a shell-owned settings
 dialog; napplets remain read-only. If durable browser storage or that host UI
-is unavailable, Paja does not advertise `config`.
+is unavailable, bench does not advertise `config`.
 
 ## NAP-UPLOAD modes
 
-Paja keeps `memory` as the default unadvertised upload fixture. It does not
+bench keeps `memory` as the default unadvertised upload fixture. It does not
 register `window.napplet.upload`, return success, or store bytes. Opt into real
 Blossom storage with a shell-owned server and an active Dev, NIP-07, or NIP-46
 signer:
@@ -339,13 +342,13 @@ kehto paja \
   -- pnpm vite --host 127.0.0.1
 ```
 
-Paja prompts with the napplet identity, file details, selected server, and a
+bench prompts with the napplet identity, file details, selected server, and a
 public/durable warning before it signs or sends bytes. Production servers must
 use HTTPS; plain HTTP is accepted only for loopback development hosts. The
-server must allow Paja's browser origin, `PUT` and `OPTIONS`, plus the
+server must allow bench's browser origin, `PUT` and `OPTIONS`, plus the
 `Authorization` and `Content-Type` CORS headers.
 
-Explicit servers win. With no explicit server, Paja may use an independently
+Explicit servers win. With no explicit server, bench may use an independently
 warmed snapshot of the active signer's newest BUD-03 kind `10063` `server`
 tags. `upload.info` and `upload.upload` never initiate that discovery. Pointer
 loader Blossom hints are artifact sources, not upload policy. The current path
@@ -380,9 +383,9 @@ per-napplet NAP-CONFIG, initial pointer/artifact loading, direct HTTP(S) resourc
 URLs, or napplet CSP/network grants. Browser CORS and the DNS limitation below
 still apply.
 
-Paja's developer-runtime policy accepts arbitrary `http:` and `https:` resource
+bench's developer-runtime policy accepts arbitrary `http:` and `https:` resource
 URLs so a normal remote image does not look broken merely because its origin was
-not pre-granted. Paja resolves those URLs with browser `fetch`, omits credentials
+not pre-granted. bench resolves those URLs with browser `fetch`, omits credentials
 and referrer data, caps responses at 10 MiB, and classifies MIME from returned
 bytes. Its byte classifier recognizes checksum-valid Game Boy ROM headers as
 `application/vnd.nintendo.gb-rom`; it never trusts a server-supplied media type.
@@ -402,12 +405,12 @@ boundary and is advertised because each request may provide server locations
 without a host default. For example, reads accept
 `blossom:<hash>.gbc?xs=cdn.example&as=<pubkey>&sz=32768` and
 `blossom:sha256:<hash>.gbc?xs=cdn.example&sz=32768`.
-Repeated `xs` and `as` are supported without an observed event. Paja accepts only
+Repeated `xs` and `as` are supported without an observed event. bench accepts only
 public-looking HTTPS origin hints (scheme-less domains use HTTPS), discards
 invalid/private literals, and deduplicates them. Unlike BUD-10's suggested HTTP
 retry, URI hints never enable public HTTP. For a Blossom URL
 previously returned to the same napplet window by `outbox.getEvent`,
-`outbox.query`, or `outbox.subscribe`, Paja retains bounded event context
+`outbox.query`, or `outbox.subscribe`, bench retains bounded event context
 without prefetching bytes. Resolution tries explicit request servers, URI `xs`,
 and event-local server hints first, then lazily queries URI `as`, event-hinted authors' and the
 event publisher's newest BUD-03 kind `10063` lists through the verified
@@ -425,7 +428,7 @@ characters, with an optional single ASCII-alphanumeric extension preserved in
 headers never establish MIME. Fragments, path injection, malformed escapes/authors,
 and invalid or repeated `sz` fail with `invalid-request` before discovery.
 `sz` must be a positive decimal safe integer; sizes above 10 MiB fail `too-large`.
-Paja checks a numeric Content-Length before reading and always checks actual
+bench checks a numeric Content-Length before reading and always checks actual
 bytes against `sz`; a size or hash mismatch is `decode-failed` unless fallback succeeds.
 Hash-only event context stays window-scoped, without transferring extension/size
 or retaining request hints. Byte caches retain the original URL and identity scope;
@@ -435,9 +438,9 @@ public author lists reuse five-minute cache/single-flight lookups, with incomple
 requires lowercase hashes and an extension (default `.bin`) for emitted references.
 Extensionless reads, mixed-case hashes, and the `sha256:` alias are deliberately
 retained local compatibility, not a full BUD-10 conformance claim. Upload URI
-generation is unchanged. Paja refuses redirects, verifies SHA-256 and byte MIME,
+generation is unchanged. bench refuses redirects, verifies SHA-256 and byte MIME,
 and permits plain-HTTP
-transport only for configured loopback development defaults. Browser-only Paja
+transport only for configured loopback development defaults. Browser-only bench
 cannot pin DNS results, so production runtimes must add the draft's DNS-time
 private-address checks. The current
 [NAP-RESOURCE draft at `fa6bcc6`](https://github.com/napplet/naps/blob/fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1/naps/NAP-RESOURCE.md)
@@ -448,7 +451,7 @@ This is bounded conformance, not full draft compliance: existing developer HTTP
 policy, DNS enforcement, SVG rejection instead of rasterization, and request
 server-hint differences remain outside this change. The draft defines no
 wire-level Blossom server-hint field. Retaining verified manifest servers per
-window is therefore Paja host policy, informed by the current
+window is therefore bench host policy, informed by the current
 [NIP-5D draft at `24711d9`](https://github.com/nostr-protocol/nips/blob/24711d9c47bbdd07908bf1d52bf677d9cbc530f0/5D.md),
 which defines manifest `server` tags. The existing request-server compatibility
 path comes from the earlier NAP-RESOURCE draft at `9511232`, with the merged package implementation
@@ -501,9 +504,9 @@ untrusted discovery inputs. Invalid, incompatible, or disallowed recommendations
 do not override an applicable saved default.
 
 Opening a shared link opens its verified app and delivers the content directly,
-following Paja's ordinary pointer navigation and capability policy. No URI or
+following bench's ordinary pointer navigation and capability policy. No URI or
 payload review is shown. If an applicable saved default conflicts with the
-link's app, Paja names both apps and asks which to use. A one-time choice leaves
+link's app, bench names both apps and asks which to use. A one-time choice leaves
 the default unchanged; **Always use this app** explicitly saves the chosen app.
 Without a usable hint or default, ordinary installed-handler selection applies.
 Installed app pointers are saved separately from open tabs and reverified when
@@ -515,7 +518,7 @@ After acceptance, the incoming intent is removed from the current URL so reload
 restores the app without delivering the shared content again. Accepted work is
 retained until the verified target is ready.
 
-Paja invokes through a separate signed launcher napplet with a verified artifact
+bench invokes through a separate signed launcher napplet with a verified artifact
 and authenticated iframe endpoint. Its source supplies the opaque sender; the
 URL cannot supply one. The hidden launcher is removed after acceptance and is
 never persisted or restored. Verification precedes `srcdoc`, and host bootstrap

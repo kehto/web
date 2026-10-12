@@ -2,7 +2,7 @@
 
 kernl is an unopinionated toolkit for building runtimes that host sandboxed
 apps (napplets). It supplies reusable host-side machinery without choosing one
-origin, signer, or deployment policy for every implementer. Paja is kernl's
+origin, signer, or deployment policy for every implementer. bench is kernl's
 reference developer runtime; the playground is a visualization and verification
 fixture.
 
@@ -24,7 +24,7 @@ kernl was previously called Kehto. Install packages under their current `@kehto/
 | Reader | Start path | What you are trying to do |
 |--------|------------|----------------------------|
 | Host-app implementer | Runtime implementation guide | Build a shell that hosts sandboxed napplets. |
-| Protocol evaluator | Alpha status | Understand what remains draft-stage and distinguish kernl's toolkit from Paja's reference choices. |
+| Protocol evaluator | Alpha status | Understand what remains draft-stage and distinguish kernl's toolkit from bench's reference choices. |
 | Package API consumer | Package reference | Understand one `@kehto/*` package and its exports. |
 | Napplet author | Napplet integration tutorial | Declare `requires`, check injected domains, and use NAP helpers safely. |
 | Maintainer | Docs maintenance guide | Keep README, site, API reference, and milestone history aligned. |

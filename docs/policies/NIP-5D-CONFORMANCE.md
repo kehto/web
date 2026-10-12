@@ -54,7 +54,7 @@ The composition was also checked against [NAP-SHELL on master at
 `a040914b4bbd3a5cd8a14b0f316a723c968ebfb2`](https://github.com/napplet/naps/blob/a040914b4bbd3a5cd8a14b0f316a723c968ebfb2/naps/NAP-SHELL.md).
 CSP is a NIP-5D web-binding concern; it adds no NAP domain, message, or permission.
 
-`@kehto/shell` owns the policy through `prepareNappletSrcdoc`. Paja runtime-pointer
+`@kehto/shell` owns the policy through `prepareNappletSrcdoc`. bench runtime-pointer
 and playground verified loading both consume this entry point. Host CSP changes
 are structured source-list replacements, validated before rendering.
 
@@ -74,7 +74,7 @@ The inline bootstrap currently requires `'unsafe-inline'` in `script-src` and
 any explicit `script-src-elem`, without overriding nonce/hash/`strict-dynamic`
 expressions. `script-src-attr` may independently deny inline event handlers.
 
-Low-level namespace render/injection utilities do not apply CSP. Paja's existing
+Low-level namespace render/injection utilities do not apply CSP. bench's existing
 target-URL development wrapper uses these utilities to retain local HMR; it is
 not a verified runtime-pointer load. The verified production hosts must use
 `prepareNappletSrcdoc`, with verification and source-binding guards intact.
@@ -87,7 +87,7 @@ For `relay.publish`, a napplet supplies an unsigned `EventTemplate`; the shell
 signs it, sends only the signed event to relay services, and returns
 `relay.publish.result` with `ok`, the full signed `event`, and `eventId` on
 success or `error` on failure. Runtime, `createRelayPoolService`,
-`createCoordinatedRelay`, Paja, and the playground must consume the same signed
+`createCoordinatedRelay`, bench, and the playground must consume the same signed
 event and result contract. Failed publications are not delivered through the
 runtime's successful-event buffer.
 
@@ -130,11 +130,11 @@ the superseded opener-only view must not be restored.
 
 ### Intent delivery and invocation boundary
 
-Checked NAP-INTENT PR #106 at `napplet/naps@fc121fc264615482143eda86125863d2e1f741a2` and NIP-5D PR #2303 at `dskvr/nips@020cb8b33a9e4c6b8ca4b2f9d0ed0a67843b68f7`. Paja and playground use verified manifest contracts, opaque publisher-safe catalog IDs, parent-attested sender identity, exact convention matching, and one `intent.deliver` after source-bound readiness. A success result records retained delivery responsibility only; no completion result is sent to the source.
+Checked NAP-INTENT PR #106 at `napplet/naps@fc121fc264615482143eda86125863d2e1f741a2` and NIP-5D PR #2303 at `dskvr/nips@020cb8b33a9e4c6b8ca4b2f9d0ed0a67843b68f7`. bench and playground use verified manifest contracts, opaque publisher-safe catalog IDs, parent-attested sender identity, exact convention matching, and one `intent.deliver` after source-bound readiness. A success result records retained delivery responsibility only; no completion result is sent to the source.
 
-`@napplet/nap@0.32.0` is behind the checked NAP. `packages/services/src/intent-types.ts` is the bounded local contract until upstream exports the exact candidate IDs/contracts, accepted result, and delivery shapes. It is not a second transport: remove it only when that release lands and the service, shell, Paja, and playground regressions pass against the upstream export. `sourceWindowId` is internal host correlation and never wire data. Legacy INC fallback remains separately tracked as `KEHTO_COMPAT_INTENT_INC`; legacy object invoke is tracked as `KEHTO_COMPAT_INTENT_OBJECT_INVOKE`.
+`@napplet/nap@0.32.0` is behind the checked NAP. `packages/services/src/intent-types.ts` is the bounded local contract until upstream exports the exact candidate IDs/contracts, accepted result, and delivery shapes. It is not a second transport: remove it only when that release lands and the service, shell, bench, and playground regressions pass against the upstream export. `sourceWindowId` is internal host correlation and never wire data. Legacy INC fallback remains separately tracked as `KEHTO_COMPAT_INTENT_INC`; legacy object invoke is tracked as `KEHTO_COMPAT_INTENT_OBJECT_INVOKE`.
 
-NIP-5D bytes are verified before `srcdoc` execution; injected bootstraps are deliberately outside the signed artifact hash and unknown `MessageEvent.source` values are dropped. Paja's external URL uses a signed ephemeral launcher to provide an authenticated source. Opening a shared link follows ordinary verified-pointer navigation policy and opens the app directly. A conflicting applicable saved default and verified link hint require a named-app choice; a one-time choice never changes the default. Persisted catalog pointers are discovery inputs that must be reverified independently of open tabs. A native external host source has no verified iframe endpoint and remains a deferred upstream spec gap.
+NIP-5D bytes are verified before `srcdoc` execution; injected bootstraps are deliberately outside the signed artifact hash and unknown `MessageEvent.source` values are dropped. bench's external URL uses a signed ephemeral launcher to provide an authenticated source. Opening a shared link follows ordinary verified-pointer navigation policy and opens the app directly. A conflicting applicable saved default and verified link hint require a named-app choice; a one-time choice never changes the default. Persisted catalog pointers are discovery inputs that must be reverified independently of open tabs. A native external host source has no verified iframe endpoint and remains a deferred upstream spec gap.
 
 ### Active NAP-IDENTITY and NAP-THEME boundary
 
@@ -188,7 +188,7 @@ Current NIP-5D runtime availability is injected
   `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24` until a corrected upstream release
   is reviewed; the shim is never documented as supplying shell.
 
-### Paja local development targets
+### bench local development targets
 
 Manifest requirement admission applies only to verified pointer targets. Local
 files have no signed manifest; embedded `napplet-requires` publishing metadata
@@ -198,7 +198,7 @@ This boundary was rechecked against NIP-5D `020cb8b` and NAP-SHELL at
 `napplet/naps@e5308ac92cfd49e4fb026812c60886571515e219` for the PR #278 merge fix;
 local unsigned loading remains the intentional spec gap described below.
 
-Paja runtime-pointer mode can open a local single-file `index.html` (file picker
+bench runtime-pointer mode can open a local single-file `index.html` (file picker
 or drag and drop). Checked on 2026-10-07 against NIP-5D PR #2303 head
 `dskvr/nips@020cb8b33a9e4c6b8ca4b2f9d0ed0a67843b68f7` (`5D.md`) and NAP-SHELL
 at `napplet/naps` master `a040914b4bbd3a5cd8a14b0f316a723c968ebfb2`, which is
@@ -212,9 +212,9 @@ byte-identical to the recorded `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`.
   hashed bytes.
 - **Intentional spec-gap decision:** NIP-5D Identity steps 1-3 (resolve and
   verify a signed manifest, then fetch and verify its Blossom artifact) cannot
-  apply to an unsigned local file. Local files are a Paja development-host
+  apply to an unsigned local file. Local files are a bench development-host
   affordance outside the NIP-5D resolution path, in the same category as
-  target-URL authoring mode. They never enter Paja's verified installed catalog
+  target-URL authoring mode. They never enter bench's verified installed catalog
   and are never intent delivery targets. The `dTag` comes from the NIP-5D
   `<meta name="napplet-id">` publishing metadata when present, otherwise
   `local-<file-stem>`. That metadata only labels an unverified development

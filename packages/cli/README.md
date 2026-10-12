@@ -10,4 +10,4 @@ Top-level kernl CLI namespace.
 }
 ```
 
-`kehto paja` runs the Paja local authoring workshop from `@kehto/paja`.
+`kehto paja` runs the bench developer runtime from `@kehto/paja`.

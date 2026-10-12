@@ -11,7 +11,7 @@ The modular toolkit for building app runtimes.
 kernl is an unopinionated toolkit for building runtimes that host sandboxed
 apps ("napplets"). It supplies routing, lifecycle, capability, service,
 and browser-shell primitives without deciding a runtime's origin, signer, or
-deployment policy. Paja is kernl's reference developer runtime; the playground
+deployment policy. bench is kernl's reference developer runtime; the playground
 is a visualization and integration fixture.
 
 > **Alpha status:** kehto/web is under heavy development and is far from complete,
@@ -28,7 +28,10 @@ enforcement, message routing, host service registration, gateway artifacts, and
 development tooling. The applet-side packages (`@napplet/core`, `@napplet/shim`,
 `@napplet/sdk`, and `@napplet/vite-plugin`) live in the
 [@napplet](https://github.com/sandwichfarm/napplet) repo; kernl supplies the
-runtime toolkit, while Paja demonstrates one complete implementation.
+runtime toolkit, while bench demonstrates one complete implementation.
+
+bench was previously called Paja. The package remains `@kehto/paja`; existing
+`kehto paja` commands, API names, and `/paja/` routes continue to work.
 
 kernl was previously called Kehto. Published packages retain their `@kehto/*` names and the `kehto` CLI command.
 
@@ -49,7 +52,7 @@ If you are building a host app, start with the
 [minimal host shell tutorial](./docs/tutorials/minimal-host-shell.md), then use
 the package table below to jump into the implementation surface you need.
 
-To run the same pointer-entry Paja Runtime published on GitHub Pages, use:
+To run the same pointer-entry bench Runtime published on GitHub Pages, use:
 
 ```bash
 pnpm install
@@ -57,7 +60,7 @@ pnpm paja
 ```
 
 Then open <http://127.0.0.1:4175/web/paja/> and enter a napplet `naddr` or
-`nevent`. This builds only Paja and its workspace dependencies, not the
+`nevent`. This builds only bench and its workspace dependencies, not the
 playground or documentation site.
 
 ## Packages
@@ -71,7 +74,7 @@ playground or documentation site.
 | `@kehto/services` | Reference handlers for identity, relay, keys, media, notify, config, resource, cache, theme, and audio surfaces. | [packages/services](./packages/services/) | [docs/packages/services.md](./docs/packages/services.md) | [Services docs](https://kehto.github.io/web/docs/packages/services) |
 | `@kehto/nip` | Tree-shakable bundle of unique Nostr NIP utilities, including NIP-5A/5D napplet artifact verification and optional Cache Storage reuse, plus NIP-51/65/66/89 helpers. | [packages/nip](./packages/nip/) | [docs/packages/nip.md](./docs/packages/nip.md) | [NIP docs](https://kehto.github.io/web/docs/packages/nip) |
 | `@kehto/wm` | Structural window-management contracts for shell-owned layout strategies. | [packages/wm](./packages/wm/) | [docs/packages/wm.md](./docs/packages/wm.md) | [WM docs](https://kehto.github.io/web/docs/packages/wm) |
-| `@kehto/paja` | Reference developer runtime with concrete browser, relay, resource, and signer choices. | [packages/paja](./packages/paja/) | [docs/packages/paja.md](./docs/packages/paja.md) | [Paja docs](https://kehto.github.io/web/docs/packages/paja) |
+| `@kehto/paja` | Reference developer runtime with concrete browser, relay, resource, and signer choices. | [packages/paja](./packages/paja/) | [docs/packages/paja.md](./docs/packages/paja.md) | [bench docs](https://kehto.github.io/web/docs/packages/paja) |
 | `@kehto/playground` | 9-napplet protocol visualization and integration verification target. | [apps/playground](./apps/playground/) | [docs/packages/playground.md](./docs/packages/playground.md) | [Playground docs](https://kehto.github.io/web/docs/packages/playground) |
 
 Package roots link to package-local READMEs and source. Markdown docs are the
@@ -97,7 +100,7 @@ same pages used by the VitePress site.
 
 The playground visualizes protocol and toolkit behavior. It loads 9 sandboxed
 napplets through the same gateway artifact shape used by the static Pages build;
-it is not kernl's reference runtime and does not define runtime policy. Use Paja
+it is not kernl's reference runtime and does not define runtime policy. Use bench
 for the reference developer-runtime implementation.
 
 - Public demo: <https://kehto.github.io/web/playground/>

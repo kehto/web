@@ -376,8 +376,8 @@ function describeConfirmation(request: PajaConfirmationRequest): ConfirmationCop
     summary: request.action === 'sign'
       ? signerContext
         ? `${signerContext.napplet.dTag} requests a signature from the active signer.`
-        : 'A Paja host operation requests a signature from the active signer.'
-      : 'Paja will send this event to the configured relay set.',
+        : 'A bench host operation requests a signature from the active signer.'
+      : 'bench will send this event to the configured relay set.',
     details: confirmationDetails(
       signerContext
         ? `Napplet: ${signerContext.napplet.dTag} (${signerContext.windowId})`

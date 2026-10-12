@@ -4,7 +4,7 @@ Visualization of the current napplet protocol draft — a 9-napplet browser demo
 that hosts `@kehto/runtime` + `@kehto/shell` and exercises kernl's supported
 NIP-5D NAP surfaces end-to-end. It is both the Playwright test harness target
 (`:4174` preview build) and an integration showcase. It is not the reference
-runtime and does not define kernl-wide runtime policy; Paja is the reference
+runtime and does not define kernl-wide runtime policy; bench is the reference
 developer runtime.
 
 > **Alpha status:** NIP-5D is still under development, and NAP contracts are not

@@ -19,5 +19,5 @@ clear ownership boundaries.
 | Visualization | `@kehto/playground` | Protocol visualization and integration verification, not runtime policy. |
 
 `@napplet` packages define portable napplet-side contracts and helpers. kernl
-provides host-side implementation tools; Paja supplies the concrete reference
+provides host-side implementation tools; bench supplies the concrete reference
 runtime behavior.

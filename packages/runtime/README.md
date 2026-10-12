@@ -110,7 +110,7 @@ The installed `@napplet/nap@0.32.0` contract trails PR #106. The bounded local
 [conformance policy](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md).
 
 Phase 105 completed released package adoption and persistent installed-manifest
-controllers for the live Paja and playground hosts.
+controllers for the live bench and playground hosts.
 
 ## NAP-INC Contract
 

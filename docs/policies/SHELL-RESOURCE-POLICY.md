@@ -92,7 +92,7 @@ HTTP(S) resources.
 
 ## kernl reference surfaces
 
-Paja is the reference developer runtime. It deliberately accepts arbitrary
+bench is the reference developer runtime. It deliberately accepts arbitrary
 `http:` and `https:` resource origins, uses credentialless/no-referrer browser
 fetching, and lets browser CORS and mixed-content rules determine readability.
 It advertises `data`, `https`, `http`, and `blossom`, because a Blossom request
@@ -100,12 +100,12 @@ may supply an accepted server without a host default. Its `blossom:` resolver
 accepts public-looking HTTPS origin hints, discards invalid/private literals,
 deduplicates and caps the combined candidate list at eight, tries accepted
 request hints before host defaults, refuses redirects, and verifies SHA-256.
-Configured loopback HTTP remains a Paja-only local-development default. As a
-browser-only developer runtime, Paja cannot independently pin DNS resolution;
+Configured loopback HTTP remains a bench-only local-development default. As a
+browser-only developer runtime, bench cannot independently pin DNS resolution;
 production resolvers still must perform NAP-RESOURCE's DNS-time private-address
 checks before connecting and on every redirect.
 
-All Paja resource reads are capped at 10 MiB and classified from bytes, never
+All bench resource reads are capped at 10 MiB and classified from bytes, never
 upstream `Content-Type`. Recognized image/audio/video/font/text/JSON and
 checksum-valid Game Boy ROM formats retain their sniffed MIME. Only canonical
 Blossom bytes that pass capped reads and matching SHA-256 may use
@@ -121,7 +121,7 @@ UTF-32 BOM or initial `<` document signatures are conservatively rejected.
 UTF-16 nonmarkup remains eligible for opaque Blossom delivery; this is not a general XML parser
 or a universal markup-security guarantee.
 
-Paja also retains bounded per-window context for canonical Blossom references
+bench also retains bounded per-window context for canonical Blossom references
 returned by `outbox.getEvent`, `outbox.query`, or `outbox.subscribe`. On a later
 byte request it orders event-local server hints before hinted authors' and the
 verified event publisher's newest BUD-03 kind-10063 lists, then the active shell
@@ -140,7 +140,7 @@ optional grant-policy path. Those fixtures do not establish kernl-wide policy.
 
 - `packages/services/src/resource-service.ts` — policy-neutral NAP lifecycle and
   optional origin-grant adapter.
-- `packages/paja/src/browser-resource.ts` — Paja's concrete browser, data, and
+- `packages/paja/src/browser-resource.ts` — bench's concrete browser, data, and
   Blossom resolution choices.
 - `packages/paja/src/browser-blossom-events.ts` — per-window OUTBOX resource
   context and author/publisher/user BUD-03 discovery.

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * CLI entrypoint for running the Paja local authoring runtime.
+ * CLI entrypoint for running the bench local authoring runtime.
  *
  * @module
  */
@@ -89,7 +89,7 @@ export function parsePajaArgs(args: readonly string[]): CliParseResult {
 }
 
 /**
- * Run the Paja CLI command.
+ * Run the bench CLI command.
  *
  * @param args - Argument vector without the node executable or script path.
  * @param io - Output streams used by the command.
@@ -160,7 +160,7 @@ function writeRuntimeSummary(
   hostConfig: ReturnType<typeof createPajaHostConfig>,
   options: ReturnType<typeof normalizePajaOptions>,
 ): void {
-    io.stdout.write(`Kehto Paja\n`);
+    io.stdout.write(`bench\n`);
     io.stdout.write(`Runtime URL: ${runtimeUrl}\n`);
     io.stdout.write(`Target URL: ${hostConfig.target.url}\n`);
     io.stdout.write(`Mode: ${options.mode}\n`);
@@ -582,10 +582,10 @@ if (isDirectPajaCli()) {
 }
 
 /**
- * Detect whether this module is running as the direct Paja CLI entrypoint.
+ * Detect whether this module is running as the direct bench CLI entrypoint.
  *
  * @param entryPath - Process entry path to inspect.
- * @returns `true` when the entry path looks like Paja's built CLI.
+ * @returns `true` when the entry path looks like bench's built CLI.
  */
 export function isDirectPajaCli(entryPath = process.argv[1]): boolean {
   if (!entryPath) return false;

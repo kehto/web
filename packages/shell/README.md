@@ -278,8 +278,8 @@ Delivery and URI invocation follow NAP-INTENT PR #106 at
 `fc121fc264615482143eda86125863d2e1f741a2`; the packaged SDK still trails that
 contract, as documented in the conformance policy.
 
-## Paja URL integration
+## bench URL integration
 
-The shell normalizer also powers Paja intent links. See the
-[Paja guide](https://kehto.github.io/web/docs/packages/paja.html#nap-intent-links-and-lifecycle)
+The shell normalizer also powers bench intent links. See the
+[bench guide](https://kehto.github.io/web/docs/packages/paja.html#nap-intent-links-and-lifecycle)
 for outer URL encoding, review, routing, and verified launcher behavior.

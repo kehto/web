@@ -67,7 +67,7 @@ receive later completion or failure without a second source result. Source
 teardown does not cancel accepted work. `intent.onDelivery` buffers arrivals;
 INC is not required.
 
-Paja and playground use verified persistent catalogs separately from live frames.
+bench and playground use verified persistent catalogs separately from live frames.
 The installed `@napplet/nap@0.32.0` types predate this contract; the bounded local
 canonical types and their removal condition are documented below.
 

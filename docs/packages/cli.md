@@ -30,7 +30,7 @@ pnpm add -D @kehto/cli
 kehto paja --target-url http://127.0.0.1:5173 -- pnpm vite --host 127.0.0.1
 ```
 
-`kehto paja` delegates to the Paja implementation package. Keeping the binary
+`kehto paja` delegates to the bench implementation package. Keeping the binary
 in `@kehto/cli` leaves room for future top-level commands without causing
 package-bin collisions across `@kehto/*` packages.
 
@@ -45,7 +45,7 @@ kehto paja \
 ```
 
 Repeat `--upload-server` to provide an ordered list. These CLI values replace
-servers from the config file. Without `--upload-mode blossom`, Paja retains its
+servers from the config file. Without `--upload-mode blossom`, bench retains its
 deterministic memory simulator.
 
 ## Primary APIs
@@ -59,11 +59,11 @@ deterministic memory simulator.
 - Owns the top-level `kehto` binary and command routing.
 - Delegates `kehto paja` to `@kehto/paja` instead of reimplementing runtime
   hosting behavior.
-- Does not own Paja's option schema, server lifecycle, browser host, or service
+- Does not own bench's option schema, server lifecycle, browser host, or service
   simulation adapters.
 - Should be the only `@kehto/*` package that claims the `kehto` binary.
 
 ## API Reference
 
 - Generated module: <a href="../api/modules/_kehto_cli.html" target="_self"><code>docs/api/modules/_kehto_cli.html</code></a>
-- Local authoring how-to: [Use Paja for local napplet authoring](/how-tos/paja-local-authoring)
+- Local authoring how-to: [Use bench for local napplet authoring](/how-tos/paja-local-authoring)

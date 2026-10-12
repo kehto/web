@@ -170,7 +170,7 @@ describe('@kehto/paja CLI', () => {
 
     const output = stdout.join('');
     expect(code).toBe(1);
-    expect(output).toContain('Kehto Paja');
+    expect(output).toContain('bench');
     expect(output).toMatch(/Runtime URL: http:\/\/127\.0\.0\.1:\d+\//);
     expect(output).toContain('Target URL: http://127.0.0.1:1/');
     expect(stderr.join('')).toContain('Timed out waiting 1ms for target URL');
@@ -224,7 +224,7 @@ describe('@kehto/paja CLI', () => {
     expect(stdout.join('')).toContain('Target URL updated: http://localhost:5174/');
   });
 
-  it('detects package binary symlinks as direct Paja CLI execution', () => {
+  it('detects package binary symlinks as direct bench CLI execution', () => {
     expect(isDirectPajaCli('/home/sandwich/.local/bin/paja')).toBe(true);
     expect(isDirectPajaCli('/home/sandwich/.local/lib/node_modules/@kehto/paja/dist/cli.js')).toBe(true);
   });

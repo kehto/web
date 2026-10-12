@@ -1,7 +1,7 @@
 # @kehto/playground
 
 Browser visualization that hosts 9 demo napplets and demonstrates kernl
-integration behavior. Paja, not the playground, is kernl's reference developer
+integration behavior. bench, not the playground, is kernl's reference developer
 runtime.
 
 > **Alpha status:** The playground shows kernl's current behavior for the draft
