@@ -13,7 +13,7 @@ Repo-local pointer: `specs/NIP-5D.md`
 
 ## Authority
 
-Only the current upstream NIP-5D PR defines the core NIP-5D contract. Kehto's
+Only the current upstream NIP-5D PR defines the core NIP-5D contract. kernl's
 repo-local spec file is intentionally a pointer so stale mirrors do not become
 implementation authority. `RUNTIME-SPEC.md` is internal runtime guidance.
 
@@ -54,7 +54,7 @@ The composition was also checked against [NAP-SHELL on master at
 `a040914b4bbd3a5cd8a14b0f316a723c968ebfb2`](https://github.com/napplet/naps/blob/a040914b4bbd3a5cd8a14b0f316a723c968ebfb2/naps/NAP-SHELL.md).
 CSP is a NIP-5D web-binding concern; it adds no NAP domain, message, or permission.
 
-`@kehto/shell` owns the policy through `prepareNappletSrcdoc`. Paja runtime-pointer
+`@kehto/shell` owns the policy through `prepareNappletSrcdoc`. bench runtime-pointer
 and playground verified loading both consume this entry point. Host CSP changes
 are structured source-list replacements, validated before rendering.
 
@@ -62,7 +62,7 @@ are structured source-list replacements, validated before rendering.
 | --- | --- | --- |
 | CSP first in head before authored resources (SHOULD) | Enforced by preparation, without searching authored comments/scripts for insertion points | No opt-out on this path |
 | Exact granted connection origins; avoid wildcard/scheme-wide sources (MAY/SHOULD) | Explicit HTTP(S)/WS(S) origins only; normalize, deduplicate, validate | Grant origins; narrow `connect-src`, including `'none'` |
-| No broad `'unsafe-eval'` merely for WASM (MUST NOT) | Always rejected as Kehto policy | Keep or remove the default `'wasm-unsafe-eval'` |
+| No broad `'unsafe-eval'` merely for WASM (MUST NOT) | Always rejected as kernl policy | Keep or remove the default `'wasm-unsafe-eval'` |
 | Verify artifacts before policy injection, exclude injection from hashes (MUST) | Reference hosts resolve and verify before preparing a rendered copy | Keep original verified bytes and identity; preparation does not authenticate raw HTML |
 | Namespace before authored scripts (MUST) | CSP then mandatory bootstrap; reject script overrides that suppress its inline execution | Choose optional domains and compatible script directives |
 | Conservative example source lists | Shared defaults; not promoted wholesale to protocol MUSTs | Override supported directives for styles, images, media and other resources |
@@ -74,20 +74,20 @@ The inline bootstrap currently requires `'unsafe-inline'` in `script-src` and
 any explicit `script-src-elem`, without overriding nonce/hash/`strict-dynamic`
 expressions. `script-src-attr` may independently deny inline event handlers.
 
-Low-level namespace render/injection utilities do not apply CSP. Paja's existing
+Low-level namespace render/injection utilities do not apply CSP. bench's existing
 target-URL development wrapper uses these utilities to retain local HMR; it is
 not a verified runtime-pointer load. The verified production hosts must use
 `prepareNappletSrcdoc`, with verification and source-binding guards intact.
 
 ### Active NAP-RELAY boundary
 
-Kehto follows [NAP-RELAY PR #2 at
+kernl follows [NAP-RELAY PR #2 at
 `0be8abce18beb46ca37bd4ddd042f58d30b4eedc`](https://github.com/napplet/naps/pull/2).
 For `relay.publish`, a napplet supplies an unsigned `EventTemplate`; the shell
 signs it, sends only the signed event to relay services, and returns
 `relay.publish.result` with `ok`, the full signed `event`, and `eventId` on
 success or `error` on failure. Runtime, `createRelayPoolService`,
-`createCoordinatedRelay`, Paja, and the playground must consume the same signed
+`createCoordinatedRelay`, bench, and the playground must consume the same signed
 event and result contract. Failed publications are not delivered through the
 runtime's successful-event buffer.
 
@@ -105,7 +105,7 @@ draft, but the merged path supersedes the earlier stacked PR heads as protocol
 authority.
 
 The released package projection owns query-to-text-payload transposition in the
-shared, runtime-provided INC binding. Kehto runtime routing then uses an exact
+shared, runtime-provided INC binding. kernl runtime routing then uses an exact
 stable convention topic identity. It rejects query-bearing normalized wire or
 discovery identities, while routing arbitrary opaque strings (including `?` and
 `#`) by their complete exact text. It must not add prefix, wildcard, or
@@ -130,16 +130,16 @@ the superseded opener-only view must not be restored.
 
 ### Intent delivery and invocation boundary
 
-Checked NAP-INTENT PR #106 at `napplet/naps@fc121fc264615482143eda86125863d2e1f741a2` and NIP-5D PR #2303 at `dskvr/nips@020cb8b33a9e4c6b8ca4b2f9d0ed0a67843b68f7`. Paja and playground use verified manifest contracts, opaque publisher-safe catalog IDs, parent-attested sender identity, exact convention matching, and one `intent.deliver` after source-bound readiness. A success result records retained delivery responsibility only; no completion result is sent to the source.
+Checked NAP-INTENT PR #106 at `napplet/naps@fc121fc264615482143eda86125863d2e1f741a2` and NIP-5D PR #2303 at `dskvr/nips@020cb8b33a9e4c6b8ca4b2f9d0ed0a67843b68f7`. bench and playground use verified manifest contracts, opaque publisher-safe catalog IDs, parent-attested sender identity, exact convention matching, and one `intent.deliver` after source-bound readiness. A success result records retained delivery responsibility only; no completion result is sent to the source.
 
-`@napplet/nap@0.32.0` is behind the checked NAP. `packages/services/src/intent-types.ts` is the bounded local contract until upstream exports the exact candidate IDs/contracts, accepted result, and delivery shapes. It is not a second transport: remove it only when that release lands and the service, shell, Paja, and playground regressions pass against the upstream export. `sourceWindowId` is internal host correlation and never wire data. Legacy INC fallback remains separately tracked as `KEHTO_COMPAT_INTENT_INC`; legacy object invoke is tracked as `KEHTO_COMPAT_INTENT_OBJECT_INVOKE`.
+`@napplet/nap@0.32.0` is behind the checked NAP. `packages/services/src/intent-types.ts` is the bounded local contract until upstream exports the exact candidate IDs/contracts, accepted result, and delivery shapes. It is not a second transport: remove it only when that release lands and the service, shell, bench, and playground regressions pass against the upstream export. `sourceWindowId` is internal host correlation and never wire data. Legacy INC fallback remains separately tracked as `KEHTO_COMPAT_INTENT_INC`; legacy object invoke is tracked as `KEHTO_COMPAT_INTENT_OBJECT_INVOKE`.
 
-NIP-5D bytes are verified before `srcdoc` execution; injected bootstraps are deliberately outside the signed artifact hash and unknown `MessageEvent.source` values are dropped. Paja's external URL uses a signed ephemeral launcher to provide an authenticated source. Opening a shared link follows ordinary verified-pointer navigation policy and opens the app directly. A conflicting applicable saved default and verified link hint require a named-app choice; a one-time choice never changes the default. Persisted catalog pointers are discovery inputs that must be reverified independently of open tabs. A native external host source has no verified iframe endpoint and remains a deferred upstream spec gap.
+NIP-5D bytes are verified before `srcdoc` execution; injected bootstraps are deliberately outside the signed artifact hash and unknown `MessageEvent.source` values are dropped. bench's external URL uses a signed ephemeral launcher to provide an authenticated source. Opening a shared link follows ordinary verified-pointer navigation policy and opens the app directly. A conflicting applicable saved default and verified link hint require a named-app choice; a one-time choice never changes the default. Persisted catalog pointers are discovery inputs that must be reverified independently of open tabs. A native external host source has no verified iframe endpoint and remains a deferred upstream spec gap.
 
 ### Active NAP-IDENTITY and NAP-THEME boundary
 
-Kehto checks NAP-IDENTITY and NAP-THEME at `napplet/naps` master
-`5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`. Kehto documents its projection
+kernl checks NAP-IDENTITY and NAP-THEME at `napplet/naps` master
+`5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`. kernl documents its projection
 and policy rather than extending the wire contract.
 
 - `identity.getPublicKey` always settles with one correlated
@@ -149,10 +149,10 @@ and policy rather than extending the wire contract.
   automatic for actual connect/sign-out transitions only, including `pubkey:
   ""`; it is neither an INC event nor an intent delivery.
 - `theme.get` always returns a complete theme with `colors.background`,
-  `colors.text`, and `colors.primary`. Kehto deliberately reconciles the draft
+  `colors.text`, and `colors.primary`. kernl deliberately reconciles the draft
   error-only example by returning one fixed non-sensitive complete normal
   `theme.get.result` without `error` for ACL-denied, firewall-denied, or
-  unavailable reads. This is a Kehto policy/spec-gap reconciliation, not a
+  unavailable reads. This is a kernl policy/spec-gap reconciliation, not a
   mixed `theme` + `error` extension or a separate theme error message.
 - `theme.changed` is an automatic change push. The injected surface is
   `theme.get()` and `theme.onChanged()` only; no theme subscribe/unsubscribe
@@ -165,7 +165,7 @@ and policy rather than extending the wire contract.
   push.
 
 Phase 105 completed published Napplet package adoption. This policy records the
-selected released line without turning Kehto-local policy into protocol authority.
+selected released line without turning kernl-local policy into protocol authority.
 
 ## Runtime Availability Policy
 
@@ -177,18 +177,18 @@ Current NIP-5D runtime availability is injected
 - Domain object presence is availability only; operation semantics, versions,
   errors, and diagnostics belong to the matching NAP spec.
 - Optional-domain presence and mandatory NAP-SHELL are separate requirements.
-  Every Kehto-hosted iframe receives `window.napplet.shell` before authored code,
+  Every kernl-hosted iframe receives `window.napplet.shell` before authored code,
   regardless of manifest `requires` or capability toggles.
 - NAP-SHELL owns `ready()`, local `supports(domain, protocol?)`, read-only
   `services`, `onReady()`, and the `shell.ready` / `shell.init` lifecycle. The
   runtime prelude installs its parent-bound receiver before emitting readiness;
   napplet artifacts are not required to bundle their own handshake.
 - Published core `0.32.0` and shim `0.30.0` omit a generic mandatory shell
-  implementation. Kehto retains the host-owned NAP-SHELL prelude under
+  implementation. kernl retains the host-owned NAP-SHELL prelude under
   `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24` until a corrected upstream release
   is reviewed; the shim is never documented as supplying shell.
 
-### Paja local development targets
+### bench local development targets
 
 Manifest requirement admission applies only to verified pointer targets. Local
 files have no signed manifest; embedded `napplet-requires` publishing metadata
@@ -198,7 +198,7 @@ This boundary was rechecked against NIP-5D `020cb8b` and NAP-SHELL at
 `napplet/naps@e5308ac92cfd49e4fb026812c60886571515e219` for the PR #278 merge fix;
 local unsigned loading remains the intentional spec gap described below.
 
-Paja runtime-pointer mode can open a local single-file `index.html` (file picker
+bench runtime-pointer mode can open a local single-file `index.html` (file picker
 or drag and drop). Checked on 2026-10-07 against NIP-5D PR #2303 head
 `dskvr/nips@020cb8b33a9e4c6b8ca4b2f9d0ed0a67843b68f7` (`5D.md`) and NAP-SHELL
 at `napplet/naps` master `a040914b4bbd3a5cd8a14b0f316a723c968ebfb2`, which is
@@ -212,15 +212,15 @@ byte-identical to the recorded `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`.
   hashed bytes.
 - **Intentional spec-gap decision:** NIP-5D Identity steps 1-3 (resolve and
   verify a signed manifest, then fetch and verify its Blossom artifact) cannot
-  apply to an unsigned local file. Local files are a Paja development-host
+  apply to an unsigned local file. Local files are a bench development-host
   affordance outside the NIP-5D resolution path, in the same category as
-  target-URL authoring mode. They never enter Paja's verified installed catalog
+  target-URL authoring mode. They never enter bench's verified installed catalog
   and are never intent delivery targets. The `dTag` comes from the NIP-5D
   `<meta name="napplet-id">` publishing metadata when present, otherwise
   `local-<file-stem>`. That metadata only labels an unverified development
   target. It is not a manifest claim.
 - **Recorded drift, not changed here:** the current NIP-5D draft defines the
-  artifact hash as the manifest's single `x` tag over `/index.html`. Kehto's
+  artifact hash as the manifest's single `x` tag over `/index.html`. kernl's
   `@kehto/nip/5d` resolver still verifies NIP-5A `path` tags plus an aggregate
   `x` tag. Local targets use the same NIP-5A single-path aggregate as that
   resolver, so a local file and its published single-file build share one
@@ -230,9 +230,9 @@ byte-identical to the recorded `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`.
 
 | Surface | Classification | Contract |
 |---------|----------------|----------|
-| `connect` | Official Kehto NAP extension | Advertise as `nap:connect` only when the shell enforces the connect-origin policy and response/header behavior for the hosted napplet. |
-| `class` | Official Kehto NAP extension | Advertise as `nap:class` only when the shell assigns the napplet class and applies class-specific policy before iframe use. |
-| `nostrdb` | Out of scope for active playground NIP-5D conformance | Do not count as a required playground NAP until a Kehto NAP contract and shell capability advertisement exist. |
+| `connect` | Official kernl NAP extension | Advertise as `nap:connect` only when the shell enforces the connect-origin policy and response/header behavior for the hosted napplet. |
+| `class` | Official kernl NAP extension | Advertise as `nap:class` only when the shell assigns the napplet class and applies class-specific policy before iframe use. |
+| `nostrdb` | Out of scope for active playground NIP-5D conformance | Do not count as a required playground NAP until a kernl NAP contract and shell capability advertisement exist. |
 | `relay.publishEncrypted` | Official relay NAP operation | Allowed only when the shell performs encryption/signing policy. Napplets may submit cleartext intent; the shell must not sign or broadcast ciphertext supplied by a napplet. |
 
 ## Raw Envelope Policy

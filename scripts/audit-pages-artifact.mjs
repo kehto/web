@@ -16,7 +16,7 @@ const outputRoot = resolve(repoRoot, process.env.PAGES_OUT_DIR || '.pages');
 const nappletsDir = join(repoRoot, 'apps', 'playground', 'napplets');
 
 const PUBLIC_SITE_BASE = '/web/';
-const PORTAL_GSAP_VENDOR = 'assets/vendor/gsap.min.js';
+const PORTAL_FILM = 'assets/runtime-film.mp4';
 const PORTAL_LANDING_CSS = 'assets/landing.css';
 const PORTAL_LANDING_JS = 'assets/landing.js';
 const PLAYGROUND_BASE = '/web/playground/';
@@ -88,15 +88,17 @@ function checkPortal() {
   assertContains(portalPath, portal, 'href="paja/"', 'portal route');
   assertContains(portalPath, portal, 'href="docs/"', 'portal route');
   assertContains(portalPath, portal, `href="${PORTAL_LANDING_CSS}"`, 'portal route');
-  assertContains(portalPath, portal, `src="${PORTAL_GSAP_VENDOR}"`, 'portal route');
+  assertContains(portalPath, portal, `src="${PORTAL_FILM}"`, 'portal film');
   assertContains(portalPath, portal, `src="${PORTAL_LANDING_JS}"`, 'portal route');
-  assertContains(portalPath, portal, 'id="hairline-accent"', 'portal hairline accent');
+  assertContains(portalPath, portal, 'id="runtime-film"', 'portal runtime film');
   assertContains(portalPath, portal, 'class="wordmark"', 'portal brand');
   assertContains(portalPath, portal, 'class="notice"', 'portal alpha notice');
 
   assertFile(join(outputRoot, 'assets', 'landing.css'), 'portal stylesheet asset');
   assertFile(join(outputRoot, 'assets', 'landing.js'), 'portal script asset');
-  assertFile(join(outputRoot, 'assets', 'vendor', 'gsap.min.js'), 'portal GSAP vendor asset');
+  for (const asset of ['runtime-film.mp4', 'runtime-film.vtt', 'runtime-poster.jpg', 'kernl.svg']) {
+    assertFile(join(outputRoot, 'assets', asset), 'kernl media asset');
+  }
 }
 
 function checkPaja() {

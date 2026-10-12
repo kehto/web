@@ -1,8 +1,8 @@
 import { defineConfig } from 'vitepress';
 
 export default defineConfig({
-  title: 'Kehto Runtime',
-  description: 'Runtime packages for hosting sandboxed Nostr napplet applications.',
+  title: 'kernl',
+  description: 'A modular toolkit for building runtimes that host sandboxed apps.',
   base: process.env.VITEPRESS_BASE ?? '/',
   cleanUrls: true,
   lastUpdated: true,
@@ -64,8 +64,8 @@ export default defineConfig({
           { text: 'Register a Service', link: '/how-tos/register-service' },
           { text: 'Unsupported Requires', link: '/how-tos/unsupported-requires' },
           { text: 'Add a Reference Service', link: '/how-tos/add-reference-service' },
-          { text: 'Paja Getting Started', link: '/how-tos/paja-getting-started' },
-          { text: 'Use Paja Locally', link: '/how-tos/paja-local-authoring' },
+          { text: 'bench Getting Started', link: '/how-tos/paja-getting-started' },
+          { text: 'Use bench Locally', link: '/how-tos/paja-local-authoring' },
           { text: 'Debug postMessage', link: '/how-tos/debug-postmessage' },
           { text: 'Verify Gateway Artifact', link: '/how-tos/verify-gateway-artifact' },
           { text: 'Implement Artifact Cache', link: '/how-tos/implement-napplet-artifact-cache' },

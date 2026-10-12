@@ -1,6 +1,6 @@
 # @kehto/cli
 
-Top-level Kehto CLI namespace.
+Top-level kernl CLI namespace.
 
 ```json
 {
@@ -10,4 +10,4 @@ Top-level Kehto CLI namespace.
 }
 ```
 
-`kehto paja` runs the Paja local authoring workshop from `@kehto/paja`.
+`kehto paja` runs the bench developer runtime from `@kehto/paja`.

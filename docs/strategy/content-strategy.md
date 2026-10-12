@@ -1,6 +1,6 @@
 # Content Strategy
 
-The Kehto docs are for readers who need to build or maintain a NIP-5D runtime, not for a generic product landing page. The docs should get readers to a correct integration path quickly and keep current package/runtime truth separate from historical migration records.
+The kernl docs are for readers who need to build or maintain a NIP-5D runtime, not for a generic product landing page. The docs should get readers to a correct integration path quickly and keep current package/runtime truth separate from historical migration records.
 
 ## Reader Personas
 

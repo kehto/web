@@ -1,7 +1,7 @@
-# Use Paja for Local Napplet Authoring
+# Use bench for Local Napplet Authoring
 
-Use `@kehto/cli` when you want a local napplet app to run inside Paja, the real
-Kehto iframe authoring workshop, while keeping the app dev server's own HMR.
+Use `@kehto/cli` when you want a local napplet app to run inside bench, the real
+kernl iframe authoring workshop, while keeping the app dev server's own HMR.
 
 ## Install
 
@@ -18,8 +18,8 @@ yarn add --dev @kehto/cli
 
 ## Add a Dev Script
 
-Keep the app dev server command separate from the Kehto wrapper. The target URL
-stays explicit so Kehto does not guess framework ports.
+Keep the app dev server command separate from the kernl wrapper. The target URL
+stays explicit so kernl does not guess framework ports.
 
 ### pnpm
 
@@ -63,12 +63,12 @@ The browser page shows a development console beside one sandboxed target iframe
 in target-url mode. The console includes interface injection toggles, ACL
 controls, signer status, and a filterable message log. Use the chevron button in
 the top bar to collapse the console to the left when you want the full window
-for the app; the same button restores it, and Paja remembers the choice per
+for the app; the same button restores it, and bench remembers the choice per
 browser origin. Collapsing never reloads the target, so the running napplet
-keeps its shell state. Paja fetches the target
+keeps its shell state. bench fetches the target
 HTML into injected `srcdoc` so `window.napplet.<domain>` exists before app
 bootstrap, while target assets and HMR still resolve through the framework dev
-server. The runtime reload button reinitializes the Kehto shell state around the
+server. The runtime reload button reinitializes the kernl shell state around the
 same target URL.
 
 Each section is also an independent flush native accordion: **Pointer** where
@@ -80,14 +80,14 @@ leave session-only toggles usable. These preferences are separate from whole-dra
 visibility and saved resource origins. Closing a section retains its live controls,
 unsaved drafts and the running app; reopen it to continue editing.
 
-The published `@napplet/shim@0.30.0` remains non-shell. Paja therefore retains
-Kehto's host-owned mandatory `window.napplet.shell` prelude, installed before
+The published `@napplet/shim@0.30.0` remains non-shell. bench therefore retains
+kernl's host-owned mandatory `window.napplet.shell` prelude, installed before
 one bare `shell.ready`; its first `shell.init` is cached for local `ready()`,
 `supports()`, read-only `services`, and one-shot `onReady()`. `shell` is not a
 manifest-optional toggle. Optional `dm` follows NIP-5D's truthful-presence rule:
-Paja advertises it only while the **Dev** signer is selected, relay mode is
+bench advertises it only while the **Dev** signer is selected, relay mode is
 `live`, the relay backend is available, and the DM interface toggle is enabled.
-In that state Paja routes NAP-DM through its runtime-owned NIP-17 adapter for
+In that state bench routes NAP-DM through its runtime-owned NIP-17 adapter for
 history, consent-gated send, and live subscriptions; memory relay mode and
 NIP-07/NIP-46/fixed-identity modes do not advertise `dm`. See the immutable
 [NIP-5D authority at
@@ -97,7 +97,7 @@ and [NAP-DM at
 
 ## Allow the Sandboxed Frame's Origin
 
-Paja sandboxes the target iframe without `allow-same-origin`, so the app
+bench sandboxes the target iframe without `allow-same-origin`, so the app
 requests its own assets with `Origin: null`. Module scripts are always fetched
 in CORS mode, so the dev server must allow that origin or the app's entry module
 is blocked and the frame stays blank.
@@ -114,7 +114,7 @@ export default {
 
 Other dev servers need the equivalent: answer `Origin: null` with
 `Access-Control-Allow-Origin: *` or `null`. If the target would block the frame,
-Paja logs a `paja.target.cors.error` entry in the **Messages** panel and warns on
+bench logs a `paja.target.cors.error` entry in the **Messages** panel and warns on
 the browser console with the remedy, so a blank frame is never the only signal.
 
 ## Use an Existing Target Server
@@ -196,7 +196,7 @@ manifest hints and existing configured defaults. The combined cap stays eight
 servers, so extras may not be tried when earlier candidates fill the cap. This
 does not change upload destinations, initial pointer/artifact fetching, direct
 HTTP(S) resource URLs, or napplet CSP/network grants. Browser CORS still applies;
-browser-only Paja cannot enforce DNS-time private-address checks.
+browser-only bench cannot enforce DNS-time private-address checks.
 
 The host-owned policy was checked against
 [NAP-RESOURCE `9511232f69313aa7953d110e35d32cc28d506f66`](https://github.com/napplet/naps/blob/9511232f69313aa7953d110e35d32cc28d506f66/naps/NAP-RESOURCE.md)
@@ -208,7 +208,7 @@ full browser network conformance.
 
 ## Use Real Blossom Uploads
 
-Paja's default `memory` upload mode is an unadvertised fixture and stores
+bench's default `memory` upload mode is an unadvertised fixture and stores
 nothing. It does not create `window.napplet.upload` or make
 `shell.supports("upload")` true. Add an explicit shell-owned Blossom server for
 real upload traffic:
@@ -243,7 +243,7 @@ storage egress.
 
 Use HTTPS except for `localhost`, `127.0.0.0/8`, or `[::1]` development
 servers. Browser-facing Blossom servers must allow CORS `OPTIONS` and `PUT`
-with `Authorization` and `Content-Type`. Paja currently uploads to the first
+with `Authorization` and `Content-Type`. bench currently uploads to the first
 server only and returns its direct URL; it does not mirror or build BUD-10
 URLs. A response is complete only when its descriptor confirms the exact
 SHA-256 and integer byte size. See the pinned draft
@@ -256,7 +256,7 @@ domains are present before authored app scripts run. Its receiver is installed
 before one `shell.ready`; the returned `shell.init` is cached for `ready()`,
 `supports()`, `services`, and `onReady()`. Disabled optional capability domains
 are removed from the injected namespace and from the advertised `domains` and
-`naps` lists, while enabled domains route through Kehto runtime and reference
+`naps` lists, while enabled domains route through kernl runtime and reference
 services.
 
 The default relay/outbox backend is live. It queries configured public relays,
@@ -267,27 +267,27 @@ exact aggregate counts from the active relay backend. Use `--relay-mode memory`
 for deterministic fixture tests, or disable the relay domain to disable count as
 well.
 
-Paja auto-connects a browser NIP-07 signer when `window.nostr` is available,
+bench auto-connects a browser NIP-07 signer when `window.nostr` is available,
 can switch to a bunker/NIP-46 URI, and exposes a Dev signer button for explicit
 synthetic local signing. Without a browser signer, bunker URI, fixed identity, or
 Dev signer selection, `identity.getPublicKey` reports no connected account
 instead of inventing one. Every sign, publish, Blossom upload, or external-link
-request uses Paja's in-page confirmation dialog before it runs. Signing starts
+request uses bench's in-page confirmation dialog before it runs. Signing starts
 as one-time consent. Napplet-attributed requests can remember one exact event
 kind or, after a prominent warning, trust every kind from that napplet identity
-and Paja target. Remembered choices are scoped to the signer pubkey, host-owned
+and bench target. Remembered choices are scoped to the signer pubkey, host-owned
 d-tag and aggregate hash, plus the verified runtime-pointer artifact or exact
 direct-target URL. Direct-target trust survives code reloads at that URL.
 Choices can be revoked from the Signer panel and never skip the separate publish
-confirmation. A full Paja host reload generates a new ephemeral Dev key and
+confirmation. A full bench host reload generates a new ephemeral Dev key and
 therefore asks again; a stable NIP-07/NIP-46 account can reuse its saved choice.
-If browser storage refuses revocation, Paja retains the listed choice and logs
+If browser storage refuses revocation, bench retains the listed choice and logs
 the failure.
 
 ## Read Social Data Through Standard NAP Messages
 
 For a signed-in napplet, call `identity.getPublicKey`, `identity.getFollows`, and
-ordinary kind-0 `outbox.query`. Paja does not expose a custom social API, direct
+ordinary kind-0 `outbox.query`. bench does not expose a custom social API, direct
 networking, or signer/key access for follows and profiles. It privately validates
 the active account's replacement kind-3 contact list and warms followed kind-0
 profile records through its established outbox router.
@@ -322,7 +322,7 @@ use a compatible default, use a chooser when there are multiple candidates,
 reject an ambiguity, and accepts an explicit opaque handler ID only with sender-aware
 authorization.
 
-Paja opens or reuses the target, waits for the generation's registered source
+bench opens or reuses the target, waits for the generation's registered source
 to send `shell.ready`, verifies that generation is still current, and makes one
 target-only `intent.deliver` for the selected convention. Acceptance acknowledges
 retained responsibility before completion. Replacement, readiness failure, and

@@ -53,7 +53,7 @@ const HELP_TEXT = `Usage:
   kehto <command> [options]
 
 Commands:
-  paja    Run a napplet app inside the Paja local authoring workshop.
+  paja    Run a napplet app inside the bench developer runtime.
 
 Examples:
   kehto paja --target-url http://127.0.0.1:5173 -- pnpm vite --host 127.0.0.1

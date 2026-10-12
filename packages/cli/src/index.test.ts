@@ -29,7 +29,7 @@ describe('@kehto/cli', () => {
 
     const output = stdout.join('');
     expect(code).toBe(0);
-    expect(output).toContain('Kehto Paja');
+    expect(output).toContain('bench\n');
     expect(output).toContain('Target URL: http://127.0.0.1:5173/');
     expect(output).toContain('Command: pnpm vite');
   });

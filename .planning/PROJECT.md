@@ -1,4 +1,4 @@
-# Project: Kehto Runtime
+# Project: kernl Runtime
 
 **Kehto** is the runtime half of the napplet protocol ecosystem. It provides the shell-side packages that host sandboxed Nostr iframe applications: protocol engine, ACL enforcement, service handlers, and browser adapter.
 
@@ -6,7 +6,13 @@
 
 Provide a modular, framework-agnostic runtime for hosting napplet applications — so any Nostr client can embed sandboxed mini-apps by integrating @kehto/shell.
 
-## Current Milestone: v1.29 Napplet Convention and Runtime Conformance
+## Current Milestone: v1.30 kernl rebrand
+
+**Goal:** Introduce kernl through a simple developer SPA and an original runtime assembly film.
+
+**Phases:** 108 identity and first screen; 109 runtime film; 110 developer story, documentation, verification and PR.
+
+## Previous Milestone: v1.29 Napplet Convention and Runtime Conformance
 
 **Goal:** Conform Kehto to `napplet/naps@6461e4b`: remove numbered cross-napplet negotiation, adopt `napplet:<archetype>/<intent>[...?params]` conventions, and close every active contract gap in NAP-SHELL, NAP-INTENT, NAP-INC, NAP-IDENTITY, and NAP-THEME.
 

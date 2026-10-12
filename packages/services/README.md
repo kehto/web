@@ -4,7 +4,7 @@ Reference service handlers for the napplet protocol — identity, relay pool,
 cache, keys, media, notify, theme, link, common, lists, serial, BLE, WebRTC,
 and DM.
 
-> **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
+> **Alpha status:** kernl is an early runtime toolkit for a draft NIP-5D
 > protocol. NAP contracts and service envelopes are not final; treat these
 > handlers as reference implementations for the current draft.
 
@@ -43,7 +43,7 @@ Current draft posture:
 - `createKeysService` and `createMediaService` ship real reference backends as of v1.4 (see the dedicated sections below). `createKeysService` attaches a document-level `keydown` listener by default and delivers `keys.action` push envelopes to registered napplets; `createMediaService` mirrors session metadata and playback state to `navigator.mediaSession` and emits `media.command` push envelopes on OS transport events. Both accept a host-bridge option (`HostKeysBridge` / `HostMediaBridge`) so Electron / Tauri / native shells can swap in OS-level backends without re-implementing the wire-protocol bookkeeping.
 - `createNotifyService` handles direct `notify.*` envelopes. It is not an INC
   topic handler.
-- `createOutboxService` supports `outbox.getEvent` from draft NAP-OUTBOX. Single-event lookups run through shell-owned relay routing and only return events whose ID matches the request. Hosts can provide `getReadRouter` to scope all event-returning reads (`getEvent`, query, and subscription) to the authenticated source window, plus `getQueryRouter` when one-shot queries need an additional decorator. The draft wire contract keeps `outbox.query` one-shot and `outbox.subscribe` streaming; Kehto's concrete `createRelayPoolOutboxRouter` additionally exposes host-side `queryStream()` so verified query events can arrive before asynchronous NIP-65 discovery completes.
+- `createOutboxService` supports `outbox.getEvent` from draft NAP-OUTBOX. Single-event lookups run through shell-owned relay routing and only return events whose ID matches the request. Hosts can provide `getReadRouter` to scope all event-returning reads (`getEvent`, query, and subscription) to the authenticated source window, plus `getQueryRouter` when one-shot queries need an additional decorator. The draft wire contract keeps `outbox.query` one-shot and `outbox.subscribe` streaming; kernl's concrete `createRelayPoolOutboxRouter` additionally exposes host-side `queryStream()` so verified query events can arrive before asynchronous NIP-65 discovery completes.
 - `createResourceService` implements NAP-RESOURCE at exact draft head `9511232f69313aa7953d110e35d32cc28d506f66` without choosing a runtime's network policy. Single requests carry optional advisory Blossom `servers`; bulk requests use canonical per-resource `requests: [{ url, servers? }]` entries. The service forwards hints to the injected resolver only for `blossom:`, preserves order and per-entry failures, and exposes optional `resource.info.maxServers`. By default it delegates every syntactically valid URL to the resolver; `resource.info.schemes` remains advisory. Runtimes that want hierarchical-origin grants can supply `isOriginGranted`, `getConnectGrants`, and `resolveIdentity` together, while scheme resolvers retain responsibility for hint validation, SSRF protection, redirects, and fallback policy. The service enforces supplied size/bulk caps, scopes cancellation to the requesting window, drops cancelled terminal envelopes, never forwards response headers, and preserves explicit `ResourceServiceError` codes.
 - `createUploadService` supports `upload.info` from draft NAP-UPLOAD. Hosts may expose configured rails, return URL forms, maximum bytes, and MIME type policy without requiring napplets to start an upload.
 - `createConfigService` implements draft NAP-CONFIG's shell-writer boundary: recursive bounded-subset schema validation, per-window schema/subscription state, deterministic defaults, invalid/orphan removal, version rollback rejection, scoped host persistence hooks, and settings-UI commits. Reads before schema registration fail closed with `no-schema`.
@@ -52,7 +52,7 @@ Current draft posture:
 
 ## NAP-INTENT manifest resolver
 
-Kehto follows [NAP-INTENT PR #106](https://github.com/napplet/naps/blob/fc121fc264615482143eda86125863d2e1f741a2/naps/NAP-INTENT.md) at `fc121fc264615482143eda86125863d2e1f741a2`. The shell binding normalizes URI calls into a
+kernl follows [NAP-INTENT PR #106](https://github.com/napplet/naps/blob/fc121fc264615482143eda86125863d2e1f741a2/naps/NAP-INTENT.md) at `fc121fc264615482143eda86125863d2e1f741a2`. The shell binding normalizes URI calls into a
 queryless convention and separate opaque payload before service dispatch.
 
 - `manifestToIntentCatalogEntry()` converts verified `{ catalogId, title?, archetypes: [{ slug, convention, params }] }` facts into exact contracts.
@@ -67,7 +67,7 @@ receive later completion or failure without a second source result. Source
 teardown does not cancel accepted work. `intent.onDelivery` buffers arrivals;
 INC is not required.
 
-Paja and playground use verified persistent catalogs separately from live frames.
+bench and playground use verified persistent catalogs separately from live frames.
 The installed `@napplet/nap@0.32.0` types predate this contract; the bounded local
 canonical types and their removal condition are documented below.
 
@@ -190,7 +190,7 @@ runtime.registerService(
 
 ## Outbox Streaming Queries
 
-NAP-OUTBOX is still an open upstream draft ([`napplet/naps` PR #32](https://github.com/napplet/naps/pull/32)). Its wire `outbox.query.result` remains one aggregate response. Hosts using Kehto's concrete router can also consume the same bounded read incrementally without changing the napplet wire protocol:
+NAP-OUTBOX is still an open upstream draft ([`napplet/naps` PR #32](https://github.com/napplet/naps/pull/32)). Its wire `outbox.query.result` remains one aggregate response. Hosts using kernl's concrete router can also consume the same bounded read incrementally without changing the napplet wire protocol:
 
 ```ts
 const stream = router.queryStream(
@@ -340,7 +340,7 @@ a valid available chord replaces that window's binding, a reserved chord removes
 its previous binding, and a malformed chord or failed bridge subscription leaves
 the previous binding intact.
 
-This ownership scope is an explicit Kehto policy for the scope left implicit by
+This ownership scope is an explicit kernl policy for the scope left implicit by
 [NAP-KEYS PR #9 at `cecb642`](https://github.com/napplet/naps/blob/cecb64257e0ac29926bb746832a477c553ab307c/naps/NAP-KEYS.md).
 The draft describes duplicate-action errors but does not mandate service-global
 IDs or forbid same-owner updates. Window-scoped ownership preserves its per-napplet
@@ -544,7 +544,7 @@ Each factory returns a `ServiceHandler` registrable via `runtime.registerService
 ### Identity NAP
 - `createIdentityService` — `identity.*` reads (`identity:read`). No signing surface; shell mediates signing internally.
 
-`createIdentityService` uses `getSigner()` for `identity.getPublicKey` and `identity.getRelays`. Hosts may also pass optional read-only provider hooks for `getProfile`, `getFollows`, `getList`, `getZaps`, `getMutes`, `getBlocked`, and `getBadges`. These hooks receive the current signer pubkey (or `""` when no signer is connected) and return the payload portion of the corresponding `.result` envelope. Kehto does not query relays itself; the hooks are for hosts that already maintain profile, contact-list, list, zap, moderation, or badge data.
+`createIdentityService` uses `getSigner()` for `identity.getPublicKey` and `identity.getRelays`. Hosts may also pass optional read-only provider hooks for `getProfile`, `getFollows`, `getList`, `getZaps`, `getMutes`, `getBlocked`, and `getBadges`. These hooks receive the current signer pubkey (or `""` when no signer is connected) and return the payload portion of the corresponding `.result` envelope. kernl does not query relays itself; the hooks are for hosts that already maintain profile, contact-list, list, zap, moderation, or badge data.
 
 ### Notify NAP
 - `createNotifyService` — canonical direct `notify.*` envelopes.
@@ -611,7 +611,7 @@ retries or INC/intent traffic.
 three-color theme. `publishTheme()` normalizes and stores that state before it
 invokes its one bridge callback, so an immediate `theme.get` observes the same
 value as the automatic push. There is no theme subscribe/unsubscribe protocol.
-For denied or unavailable runtime reads, Kehto uses the fixed non-sensitive
+For denied or unavailable runtime reads, kernl uses the fixed non-sensitive
 complete normal result without `error`: this explicit policy reconciles the
 draft error-only example without a mixed theme/error extension.
 
@@ -630,7 +630,7 @@ MIT
 ## NIP-5D event compatibility
 
 Current manifests use a direct artifact `x` hash, plain-text `content`, role-matched
-`z`/`i` intent declarations, and required `R` / optional `O` domains. Kehto also
+`z`/`i` intent declarations, and required `R` / optional `O` domains. kernl also
 accepts legacy aggregate events through an isolated compatibility adapter.
 Existing `aggregateHash` host/cache/ACL fields carry the verified artifact hash
 for current events; legacy identities keep their original aggregate. Both paths
@@ -639,4 +639,4 @@ For the schema and removal boundary, see [event migration](https://kehto.github.
 
 ## Canonical intent contracts
 
-`@kehto/services` temporarily owns the canonical NAP-INTENT PR #106 contracts because `@napplet/nap@0.32.0` has not yet published them. Candidates use opaque `id` plus exact `contracts`; successful results contain only `ok`, `archetype`, `action`, `convention`, and `handler` (never `handled`, `windowId`, or `newWindow`). `createIntentService` requires `resolveSender(windowId)` and rejects caller-supplied sender fields. `IntentResolverContext.sourceWindowId` and `IntentDispatchParams.sourceWindowId` are host-only correlation fields: they must never appear in `intent.deliver` or `intent.invoke.result`. A target controller accepts retained work as `{ completion }`; completion failure is host observation, not a second canonical result. Remove these local types only when an upstream package exports the checked PR #106 surface and Kehto's service/runtime regression suite proves direct replacement.
+`@kehto/services` temporarily owns the canonical NAP-INTENT PR #106 contracts because `@napplet/nap@0.32.0` has not yet published them. Candidates use opaque `id` plus exact `contracts`; successful results contain only `ok`, `archetype`, `action`, `convention`, and `handler` (never `handled`, `windowId`, or `newWindow`). `createIntentService` requires `resolveSender(windowId)` and rejects caller-supplied sender fields. `IntentResolverContext.sourceWindowId` and `IntentDispatchParams.sourceWindowId` are host-only correlation fields: they must never appear in `intent.deliver` or `intent.invoke.result`. A target controller accepts retained work as `{ completion }`; completion failure is host observation, not a second canonical result. Remove these local types only when an upstream package exports the checked PR #106 surface and kernl's service/runtime regression suite proves direct replacement.

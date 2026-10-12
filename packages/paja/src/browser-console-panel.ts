@@ -5,9 +5,9 @@ export const PAJA_CONSOLE_PANEL_ID = 'paja-console';
 /** Id of the host-page console toggle button. */
 export const PAJA_CONSOLE_TOGGLE_ID = 'paja-console-toggle';
 /** Accessible name while the console is expanded. */
-export const PAJA_CONSOLE_COLLAPSE_LABEL = 'Collapse the Paja development console';
+export const PAJA_CONSOLE_COLLAPSE_LABEL = 'Collapse the bench development console';
 /** Accessible name while the console is collapsed. */
-export const PAJA_CONSOLE_EXPAND_LABEL = 'Expand the Paja development console';
+export const PAJA_CONSOLE_EXPAND_LABEL = 'Expand the bench development console';
 
 /**
  * Install the host-page console toggle without touching the target iframe.

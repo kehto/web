@@ -2,7 +2,7 @@
 
 Browser adapter over @kehto/runtime — ShellBridge and domain proxies.
 
-> **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
+> **Alpha status:** kernl is an early runtime toolkit for a draft NIP-5D
 > protocol. NAP contracts and injected-domain behavior are still draft; treat
 > this package as current implementation guidance.
 
@@ -34,7 +34,7 @@ Current draft behaviors this package enforces:
   when the runtime can identify it. The shell forwards this optional context
   without imposing a consent policy; host runtimes may ignore it or use it to
   resolve their own identity-scoped signer decisions.
-- `prepareNappletSrcdoc()` inserts validated CSP first, then the NIP-5D bootstrap and mandatory NAP-SHELL shim, outside verified artifact bytes. The shim installs the parent-bound `shell.init` receiver, emits one `shell.ready`, and exposes callable NAP interfaces before authored scripts run. Optional namespaces are filtered to the bare-domain allowlist; `shell` is always retained. Published core 0.32.0 and shim 0.30.0 omit generic mandatory shell, so Kehto retains this host-owned prelude under NAP-SHELL `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24` until an upstream correction is reviewed.
+- `prepareNappletSrcdoc()` inserts validated CSP first, then the NIP-5D bootstrap and mandatory NAP-SHELL shim, outside verified artifact bytes. The shim installs the parent-bound `shell.init` receiver, emits one `shell.ready`, and exposes callable NAP interfaces before authored scripts run. Optional namespaces are filtered to the bare-domain allowlist; `shell` is always retained. Published core 0.32.0 and shim 0.30.0 omit generic mandatory shell, so kernl retains this host-owned prelude under NAP-SHELL `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24` until an upstream correction is reviewed.
 - The injected resource projection follows draft NAP-RESOURCE `9511232f69313aa7953d110e35d32cc28d506f66`: `bytes(url, { servers? })` carries advisory Blossom locations and `bytesMany(requests)` keeps each `{ url, servers? }` entry intact.
 - `window.napplet.shell.supports(domain)` answers synchronously and locally from the cached first `shell.init` environment. It returns `false` before `shell.init`, for unknown values, and for domains that are not live and granted to that napplet; it never sends a support-query message.
 - Five optional per-domain proxies — `createIdentityProxy`, `createThemeProxy`, `createKeysProxy`, `createMediaProxy`, `createNotifyProxy` — can be composed between napplet and runtime to intercept request traffic per NAP. They are NOT wired by default. Identity/theme proxy `emit()` compatibility members fail closed; hosts must deliver automatic changes through `ShellBridge.publishIdentityChanged()` / `publishTheme()`, which enforce live session, granted domain, and current ACL.
@@ -76,7 +76,7 @@ the prior opener-only interpretation is obsolete.
 
 ### NAP-INTENT binding and delivery
 
-Kehto follows [NAP-INTENT PR #106](https://github.com/napplet/naps/blob/fc121fc264615482143eda86125863d2e1f741a2/naps/NAP-INTENT.md) at `fc121fc264615482143eda86125863d2e1f741a2`. The protected binding supports
+kernl follows [NAP-INTENT PR #106](https://github.com/napplet/naps/blob/fc121fc264615482143eda86125863d2e1f741a2/naps/NAP-INTENT.md) at `fc121fc264615482143eda86125863d2e1f741a2`. The protected binding supports
 `window.napplet.intent.invoke('napplet:profile/open?pubkey=abc%2B123')` and
 `invoke(uri, { payload, handler, handlerHint, behavior })`. Query fields decode
 once into text; `+` remains literal. An explicit payload cannot accompany an
@@ -203,7 +203,7 @@ environment includes the relevant domain, and its current recipient read
 capability is still granted. Identity sign-out is `pubkey: ""`. Theme updates
 arrive only after the service has stored the complete color state. These are
 automatic change messages, not NAP-INC/intent delivery and not a subscription
-protocol. Kehto's denied/unavailable theme read policy is a complete fixed
+protocol. kernl's denied/unavailable theme read policy is a complete fixed
 normal result without `error`, deliberately avoiding a mixed theme/error
 payload.
 - `createNotifyProxy` — intercept `notify.send/list/read/dismiss`
@@ -256,7 +256,7 @@ MIT
 ## NIP-5D event compatibility
 
 Current manifests use a direct artifact `x` hash, plain-text `content`, role-matched
-`z`/`i` intent declarations, and required `R` / optional `O` domains. Kehto also
+`z`/`i` intent declarations, and required `R` / optional `O` domains. kernl also
 accepts legacy aggregate events through an isolated compatibility adapter.
 Existing `aggregateHash` host/cache/ACL fields carry the verified artifact hash
 for current events; legacy identities keep their original aggregate. Both paths
@@ -278,8 +278,8 @@ Delivery and URI invocation follow NAP-INTENT PR #106 at
 `fc121fc264615482143eda86125863d2e1f741a2`; the packaged SDK still trails that
 contract, as documented in the conformance policy.
 
-## Paja URL integration
+## bench URL integration
 
-The shell normalizer also powers Paja intent links. See the
-[Paja guide](https://kehto.github.io/web/docs/packages/paja.html#nap-intent-links-and-lifecycle)
+The shell normalizer also powers bench intent links. See the
+[bench guide](https://kehto.github.io/web/docs/packages/paja.html#nap-intent-links-and-lifecycle)
 for outer URL encoding, review, routing, and verified launcher behavior.

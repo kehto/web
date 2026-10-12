@@ -21,6 +21,9 @@ const contentTypes = new Map([
   ['.js', 'text/javascript; charset=utf-8'],
   ['.json', 'application/json; charset=utf-8'],
   ['.png', 'image/png'],
+  ['.jpg', 'image/jpeg'],
+  ['.mp4', 'video/mp4'],
+  ['.vtt', 'text/vtt; charset=utf-8'],
   ['.svg', 'image/svg+xml'],
   ['.webp', 'image/webp'],
   ['.woff', 'font/woff'],
@@ -110,7 +113,7 @@ function listen(port) {
   });
 
   server.listen(port, defaultHost, () => {
-    console.log(`Kehto web preview: http://${defaultHost}:${port}${previewPath}`);
+    console.log(`kernl web preview: http://${defaultHost}:${port}${previewPath}`);
   });
 }
 

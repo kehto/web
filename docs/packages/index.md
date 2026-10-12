@@ -1,8 +1,8 @@
 # Package Reference
 
-Use these pages when you need to choose or integrate one part of Kehto. Each page is grounded in the package manifest and source barrel for the current repository state.
+Use these pages when you need to choose or integrate one part of kernl. Each page is grounded in the package manifest and source barrel for the current repository state.
 
-> **Alpha status:** Kehto is an early toolkit for a draft NIP-5D protocol. NAP
+> **Alpha status:** kernl is an early toolkit for a draft NIP-5D protocol. NAP
 > contracts and package APIs are not final; use these package pages as current
 > implementation guidance, not as a stability guarantee.
 
@@ -10,7 +10,7 @@ Use these pages when you need to choose or integrate one part of Kehto. Each pag
 |---------|------|------|
 | `@kehto/acl` | [ACL](./acl.md) | Pure capability state and enforcement primitives. |
 | `@kehto/cli` | [CLI](./cli.md) | Top-level `kehto` command namespace, including `kehto paja`. |
-| `@kehto/paja` | [Paja](./paja.md) | Reference developer runtime and local authoring workshop. |
+| `@kehto/paja` | [bench](./paja.md) | Reference developer runtime and local authoring workshop. |
 | `@kehto/firewall` | [Firewall](./firewall.md) | Pure behavioral abuse-detection engine (temporal complement to ACL). |
 | `@kehto/runtime` | [Runtime](./runtime.md) | Browser-agnostic NIP-5D protocol engine. |
 | `@kehto/shell` | [Shell](./shell.md) | Browser shell adapter over the runtime. |
@@ -27,7 +27,7 @@ Use these pages when you need to choose or integrate one part of Kehto. Each pag
 4. Use `@kehto/acl` directly when you need capability-state persistence or policy tests, and `@kehto/firewall` for behavioral rate-limiting and abuse detection over time.
 5. Use `@kehto/nip` and `@kehto/wm` as optional utilities.
 6. Use `@kehto/cli` for package scripts such as `kehto paja`.
-7. Use `@kehto/paja` directly when embedding or extending the Paja implementation API.
+7. Use `@kehto/paja` directly when embedding or extending the bench implementation API.
 8. Use the playground page to reproduce integrated behavior locally.
 
 Generated API reference lives under `docs/api/`. Package pages link to generated module pages for the public packages included in TypeDoc.

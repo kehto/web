@@ -1,19 +1,19 @@
 ---
 gsd_state_version: "1.0"
-milestone: v1.29
-milestone_name: Napplet Convention and Runtime Conformance
-current_phase: 107
-current_phase_name: Paja Intent Deep Links
+milestone: v1.30
+milestone_name: kernl rebrand
+current_phase: 110
+current_phase_name: Developer launch verification
 status: completed
-stopped_at: Phase 107 complete; PR 289 open and pushed
-last_updated: "2026-10-10T11:49:59.294913Z"
-last_activity: 2026-10-10
-last_activity_desc: "Shipped Phase 107 as open PR 289"
+stopped_at: kernl rebrand shipped as open PR 296
+last_updated: "2026-10-12T16:25:00Z"
+last_activity: 2026-10-12
+last_activity_desc: "Verified kernl site, runtime film, and documentation"
 progress:
-  total_phases: 7
-  completed_phases: 7
-  total_plans: 51
-  completed_plans: 51
+  total_phases: 3
+  completed_phases: 3
+  total_plans: 3
+  completed_plans: 3
   percent: 100
 ---
 
@@ -21,18 +21,18 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-07-28)
+See: .planning/PROJECT.md (updated 2026-10-12)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 107 complete — PR #289 open for review
+**Current focus:** kernl rebrand shipped — PR #296 open for review
 
 ## Current Position
 
-Phase: 107 (Paja Intent Deep Links) — COMPLETE
-Plan: 4 of 4
-Status: Shipped as open PR #289 — https://github.com/kehto/web/pull/289. No merge or release performed.
+Phase: 110 (Developer launch verification) — verified
+Plan: 1 of 1
+Status: Shipped as open PR #296 — https://github.com/kehto/web/pull/296. GitHub CI started; all local gates passed.
 
-Last activity: 2026-10-10 — Opened PR #289 and pushed verification/security closeout.
+Last activity: 2026-10-12 — Verified 2,096 unit tests, 120 runtime browser tests and seven site browser tests.
 
 ## Performance Metrics
 
@@ -365,3 +365,11 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 - Retain canonical local intent types until the published Napplet package catches up; warn on legacy object invocation and INC delivery adapters.
 - Success means retained responsibility. Host-only source-window correlation cannot appear in canonical results or delivery payloads.
 - Preserve the primary checkout's unrelated package.json changes. Work lives in `~/.worktrees/kehto/paja-intent-links` on `feat/paja-intent-links`.
+
+## Active kernl milestone
+
+2026-10-12: Phases 108–110 implemented and verified on feat/kernl-rebrand in the primary checkout. Site and current docs rebranded; package names and CLI retained by user direction. 24-second original film includes actual Paja theme response. 2,096 unit, 120 runtime browser, and seven landing browser tests pass. Build, type, docs, Pages audit, and changed-file quality gate pass. Shipped as open PR #296: https://github.com/kehto/web/pull/296. GitHub CI is running. Pre-existing package.json workspace edit remains unrelated and uncommitted.
+
+2026-10-12: Quick task 261012-ga5 applies user positioning: lead with app runtimes; Nostr is supporting protocol context. Landing, README, and docs aligned; build/type, 2,096 unit tests, strict docs/Pages audit, seven landing browser tests, and changed-file quality score 100/100 pass. Continues PR #296.
+
+2026-10-12: Quick task 261012-ghp complete. Paja display identity is now lowercase bench; working package/CLI/API/route names retained. Film extended to 38 seconds with six package-labeled interface assembly steps and owner-supplied GitHub/npm/JSR identities. Build/type, 2,096 unit tests, all 120 runtime browser scenarios (full run plus affected-group rerun), seven site browser tests, strict docs, Pages audit, and quality score 100 pass. New GitHub identity currently returns 404; working primary source navigation retained. Continues PR #296.

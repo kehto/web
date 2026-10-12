@@ -2,7 +2,7 @@
 
 Browser adapter over `@kehto/runtime` for iframe/session hosting.
 
-> **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
+> **Alpha status:** kernl is an early runtime toolkit for a draft NIP-5D
 > protocol. Injected-domain behavior and NAP contracts are not final.
 
 ## Install
@@ -52,12 +52,12 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
   runtime adapter so `relay.publish.result` reflects transport settlement.
 - Forwards the originating runtime window to `AuthHooks.getSigner(windowId?)`
   when available. The optional context lets a host implement caller-aware
-  signer consent without making that policy part of Kehto's shell adapter.
+  signer consent without making that policy part of kernl's shell adapter.
 - Preserves an asynchronous `RelayPoolHooks.publishToScopedRelay()` result so
   scoped publication does not report success before transport acceptance.
 - Provides `prepareNappletSrcdoc()` for validated CSP followed by optional NIP-5D domains plus mandatory NAP-SHELL before authored `srcdoc` scripts execute. The prelude installs its receiver before one `shell.ready`, caches the first parent `shell.init`, and prevents napplet namespace reassignment from removing `shell`. Bootstrap-only helpers remain low-level utilities for development wrappers.
 - Its injected resource projection carries NAP-RESOURCE's optional per-resource Blossom `servers`, including the canonical bulk `requests: [{ url, servers? }]` shape.
-- The published `@napplet/core@0.32.0` and `@napplet/shim@0.30.0` line does not supply a generic mandatory shell surface. Kehto therefore retains this host-owned prelude under NAP-SHELL `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24` until an upstream correction is reviewed.
+- The published `@napplet/core@0.32.0` and `@napplet/shim@0.30.0` line does not supply a generic mandatory shell surface. kernl therefore retains this host-owned prelude under NAP-SHELL `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24` until an upstream correction is reviewed.
 - Advertises `count` in shell capabilities and the injected `window.napplet` namespace only when `ShellAdapter.services.count` is wired, so `shell.supports("count")` tracks an actual NAP-COUNT backend.
 - Surfaces unroutable inbound messages via the optional `ShellAdapter.onUnroutedMessage` hook (`UnroutedMessageInfo`) — observe-only; the bridge still drops messages from unidentified or unregistered windows, but hosts can now log them instead of debugging a silent vanish.
 - Advertises and injects `dm` or `fs` only when the matching runtime service is registered and host domain policy permits it.
@@ -79,7 +79,7 @@ verification, iframe sandboxing, identity registration or message-source checks.
 ## NIP-5D event compatibility
 
 Current manifests use a direct artifact `x` hash, plain-text `content`, role-matched
-`z`/`i` intent declarations, and required `R` / optional `O` domains. Kehto also
+`z`/`i` intent declarations, and required `R` / optional `O` domains. kernl also
 accepts legacy aggregate events through an isolated compatibility adapter.
 Existing `aggregateHash` host/cache/ACL fields carry the verified artifact hash
 for current events; legacy identities keep their original aggregate. Both paths
@@ -103,7 +103,7 @@ contract, as documented in the conformance policy.
 
 ## URI invocation
 
-Kehto follows [NAP-INTENT PR #106](https://github.com/napplet/naps/blob/fc121fc264615482143eda86125863d2e1f741a2/naps/NAP-INTENT.md) at `fc121fc264615482143eda86125863d2e1f741a2`. The protected binding supports
+kernl follows [NAP-INTENT PR #106](https://github.com/napplet/naps/blob/fc121fc264615482143eda86125863d2e1f741a2/naps/NAP-INTENT.md) at `fc121fc264615482143eda86125863d2e1f741a2`. The protected binding supports
 `window.napplet.intent.invoke('napplet:profile/open?pubkey=abc%2B123')` and
 `invoke(uri, { payload, handler, handlerHint, behavior })`. Query fields decode
 once into text; `+` remains literal. An explicit payload cannot accompany an

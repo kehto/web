@@ -1,6 +1,6 @@
 # Runtime Resource Policy Boundary
 
-Kehto does not define a universal resource-network policy. It is a toolkit and
+kernl does not define a universal resource-network policy. It is a toolkit and
 protocol kernel: runtimes choose how URLs are resolved, which schemes they
 support, and which origin, redirect, privacy, integrity, MIME, and size policies
 fit their environment.
@@ -29,7 +29,7 @@ projection described below predates that head; developer HTTP policy, DNS-time
 enforcement differences and SVG rejection instead of rasterization also remain
 pre-existing, out-of-scope differences.
 
-## Kehto's boundary
+## kernl's boundary
 
 `createResourceService()` owns NAP request correlation, cancellation, bulk
 limits, per-resource request projection, and result/error envelopes. The
@@ -39,7 +39,7 @@ never receive that metadata. `init.windowId` is authenticated runtime context,
 not napplet payload, and lets a resolver keep policy state scoped to the source
 window without extending the NAP wire.
 
-The default Kehto path is permissive delegation:
+The default kernl path is permissive delegation:
 
 - every syntactically valid URL is passed to the injected resolver;
 - `resource.bytesMany` accepts canonical `{ requests: [{ url, servers? }] }`
@@ -54,7 +54,7 @@ The default Kehto path is permissive delegation:
 - explicit `ResourceServiceError` codes are preserved; and
 - an unexpected resolver failure becomes the canonical `network-error`.
 
-Kehto also retains optional origin-grant tooling. A runtime that wants that
+kernl also retains optional origin-grant tooling. A runtime that wants that
 policy supplies `isOriginGranted`, `getConnectGrants`, and `resolveIdentity`
 together. The service then checks the authenticated `(dTag, aggregateHash)`
 grant before invoking the resolver. A runtime that does not want origin grants
@@ -77,7 +77,7 @@ the NAP contract:
 - integrity verification and cache partitioning; and
 - byte-based MIME classification or transformations.
 
-These are options Kehto enables runtimes to implement, not requirements Kehto
+These are options kernl enables runtimes to implement, not requirements kernl
 imposes on every runtime.
 
 ## Browser behavior
@@ -86,13 +86,13 @@ An image element and `fetch()` do not have the same CORS visibility. A browser
 may display a cross-origin image while preventing JavaScript from reading the
 same redirect response. A browser-only resolver cannot recover bytes the browser
 withholds. It should return bytes when its fetch can read them and report the
-canonical `network-error` when the browser rejects the fetch. Kehto does not
+canonical `network-error` when the browser rejects the fetch. kernl does not
 invent a CORS-only NAP error or reinterpret that browser limitation as a ban on
 HTTP(S) resources.
 
-## Kehto reference surfaces
+## kernl reference surfaces
 
-Paja is the reference developer runtime. It deliberately accepts arbitrary
+bench is the reference developer runtime. It deliberately accepts arbitrary
 `http:` and `https:` resource origins, uses credentialless/no-referrer browser
 fetching, and lets browser CORS and mixed-content rules determine readability.
 It advertises `data`, `https`, `http`, and `blossom`, because a Blossom request
@@ -100,12 +100,12 @@ may supply an accepted server without a host default. Its `blossom:` resolver
 accepts public-looking HTTPS origin hints, discards invalid/private literals,
 deduplicates and caps the combined candidate list at eight, tries accepted
 request hints before host defaults, refuses redirects, and verifies SHA-256.
-Configured loopback HTTP remains a Paja-only local-development default. As a
-browser-only developer runtime, Paja cannot independently pin DNS resolution;
+Configured loopback HTTP remains a bench-only local-development default. As a
+browser-only developer runtime, bench cannot independently pin DNS resolution;
 production resolvers still must perform NAP-RESOURCE's DNS-time private-address
 checks before connecting and on every redirect.
 
-All Paja resource reads are capped at 10 MiB and classified from bytes, never
+All bench resource reads are capped at 10 MiB and classified from bytes, never
 upstream `Content-Type`. Recognized image/audio/video/font/text/JSON and
 checksum-valid Game Boy ROM formats retain their sniffed MIME. Only canonical
 Blossom bytes that pass capped reads and matching SHA-256 may use
@@ -121,7 +121,7 @@ UTF-32 BOM or initial `<` document signatures are conservatively rejected.
 UTF-16 nonmarkup remains eligible for opaque Blossom delivery; this is not a general XML parser
 or a universal markup-security guarantee.
 
-Paja also retains bounded per-window context for canonical Blossom references
+bench also retains bounded per-window context for canonical Blossom references
 returned by `outbox.getEvent`, `outbox.query`, or `outbox.subscribe`. On a later
 byte request it orders event-local server hints before hinted authors' and the
 verified event publisher's newest BUD-03 kind-10063 lists, then the active shell
@@ -134,13 +134,13 @@ wire field or an upload-mode dependency. It follows Blossom BUD-03 at exact ref
 
 The playground is a visualization, not the reference runtime. It retains static
 origin grants and iframe CSP fixtures so implementers can see and test the
-optional grant-policy path. Those fixtures do not establish Kehto-wide policy.
+optional grant-policy path. Those fixtures do not establish kernl-wide policy.
 
 ## Implementation references
 
 - `packages/services/src/resource-service.ts` — policy-neutral NAP lifecycle and
   optional origin-grant adapter.
-- `packages/paja/src/browser-resource.ts` — Paja's concrete browser, data, and
+- `packages/paja/src/browser-resource.ts` — bench's concrete browser, data, and
   Blossom resolution choices.
 - `packages/paja/src/browser-blossom-events.ts` — per-window OUTBOX resource
   context and author/publisher/user BUD-03 discovery.
@@ -148,4 +148,4 @@ optional grant-policy path. Those fixtures do not establish Kehto-wide policy.
 - `tests/e2e/nap-resource.spec.ts` — browser evidence for image loading versus
   fetch-visible bytes and canonical failure.
 - [NIP-5D conformance policy](./NIP-5D-CONFORMANCE.md) — envelope, provenance,
-  and sandbox requirements shared by Kehto host implementations.
+  and sandbox requirements shared by kernl host implementations.

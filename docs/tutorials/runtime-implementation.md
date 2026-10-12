@@ -4,7 +4,7 @@ This guide expands the minimal host into the normal implementation sequence for 
 
 ## Step 1: Define host responsibilities
 
-Kehto owns protocol dispatch and shell/runtime contracts. Your host owns:
+kernl owns protocol dispatch and shell/runtime contracts. Your host owns:
 
 - iframe creation and layout;
 - relay pool selection and publication;
@@ -25,7 +25,7 @@ const bridge = createShellBridge(adapter);
 window.addEventListener('message', bridge.handleMessage);
 ```
 
-Use `createRuntime()` directly only for non-browser tests, alternative transports, or host shells that do not use the Kehto browser bridge.
+Use `createRuntime()` directly only for non-browser tests, alternative transports, or host shells that do not use the kernl browser bridge.
 
 ## Step 3: Register services
 

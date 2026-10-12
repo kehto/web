@@ -1,6 +1,6 @@
-# Paja Getting Started
+# bench Getting Started
 
-Paja runs one local napplet app inside the real Kehto browser runtime while your
+bench runs one local napplet app inside the real kernl browser runtime while your
 app dev server keeps its own HMR loop.
 
 ## 1. Install the CLI
@@ -27,18 +27,18 @@ Run it:
 pnpm dev
 ```
 
-Open the printed Paja runtime URL, not the app server URL.
+Open the printed bench runtime URL, not the app server URL.
 
-Paja sandboxes the target iframe without `allow-same-origin`, so the app fetches
+bench sandboxes the target iframe without `allow-same-origin`, so the app fetches
 its own module scripts with `Origin: null`. Allow that origin in the dev server
 or the app's entry module is blocked and the frame stays blank — Vite needs
 `server: { cors: { origin: '*' } }` because its default allowlist covers only
-localhost origins. When the target would block the frame, Paja logs a
+localhost origins. When the target would block the frame, bench logs a
 `paja.target.cors.error` entry in **Messages** and warns on the browser console.
 
 ## 3. Check Identity
 
-Paja does not generate or select a development signer by default. It
+bench does not generate or select a development signer by default. It
 auto-connects NIP-07 when a browser provider is available; otherwise the
 **Signer** panel starts disconnected and `identity.getPublicKey` returns the
 empty string until you select **Dev**, connect **NIP-07** or **Bunker**, or
@@ -59,11 +59,11 @@ kehto paja \
 ## 4. Toggle Interfaces
 
 Use **Interfaces** to turn individual `window.napplet.<domain>` injection on or
-off. Paja reloads the target after each toggle, and the next `shell.init`
+off. bench reloads the target after each toggle, and the next `shell.init`
 advertises the changed support surface.
 
 `shell` is not an interface toggle. `@napplet/shim@0.30.0` does not supply a
-generic shell API, so Paja's Kehto-owned prelude always installs mandatory
+generic shell API, so bench's kernl-owned prelude always installs mandatory
 `window.napplet.shell` before one bare `shell.ready`. It caches the first
 `shell.init` for local `ready()`, `supports()`, read-only `services`, and
 one-shot `onReady()` behavior.
@@ -72,26 +72,26 @@ one-shot `onReady()` behavior.
 
 Use **ACL** to grant or revoke runtime capabilities such as `state:write`,
 `notify:send`, `outbox:write`, and `upload:write`. These controls write through
-Kehto runtime ACL state for the active napplet identity. Denials use each NAP's
+kernl runtime ACL state for the active napplet identity. Denials use each NAP's
 defined failure shape; for example, a denied `outbox.query` returns a correlated
 `outbox.query.result` with `events: []` and `error`.
 
 ## 6. Watch Messages
 
 Use **Messages** to filter inbound and outbound envelopes by type, domain, or
-payload text. The log includes target traffic plus Paja system events for
+payload text. The log includes target traffic plus bench system events for
 interface toggles, ACL changes, signer changes, and signer/publish
 confirmations. Error envelopes show their error text directly in the row.
 
 ## Intent Delivery in a Local Host
 
-Paja's installed intent catalog contains resolver-verified manifest contracts;
+bench's installed intent catalog contains resolver-verified manifest contracts;
 it is not the same thing as the live target iframe. A closed target can remain
 installed and be cold-started. Selection uses only exact compatible installed
 contracts: a compatible default can win, the host can ask a chooser, ambiguity
 is rejected, and an explicit opaque handler ID needs sender-aware authorization.
 
-Paja starts or reuses the verified target, waits for its current registered
+bench starts or reuses the verified target, waits for its current registered
 source and `shell.ready`, then sends exactly one target-only `intent.deliver` for
 the selected convention. The source result acknowledges retained responsibility
 before target completion. Stale/replaced targets and terminal failures remain
@@ -109,31 +109,31 @@ kehto paja \
   --upload-server https://blossom.example
 ```
 
-Paja discloses the file, napplet, selected server, and public/durable effect
+bench discloses the file, napplet, selected server, and public/durable effect
 before signing or sending it. Use HTTPS in production. Loopback HTTP is allowed
 for a local Blossom fixture, which must permit browser CORS preflight, `PUT`,
 `Authorization`, and `Content-Type`.
 
 ## 8. Publish Safely
 
-Paja begins without a writable signer. Select **Dev**, use **NIP-07** to connect
+bench begins without a writable signer. Select **Dev**, use **NIP-07** to connect
 a browser extension signer, or paste a `bunker://` or `nostrconnect://` URI and
 choose **Bunker** for a NIP-46 signer. Every sign, publish, Blossom upload, or
-external-link request opens Paja's serialized in-page confirmation dialog.
+external-link request opens bench's serialized in-page confirmation dialog.
 Deny has initial focus and Escape denies. Signing defaults to one-time approval;
 for a napplet-attributed request, you can instead remember the exact event kind
-or trust every kind from that napplet identity and Paja target. The trust choice
+or trust every kind from that napplet identity and bench target. The trust choice
 warns that future events will be signed without another prompt. Choices are
 isolated by signer pubkey, host-owned d-tag and aggregate hash, plus the verified
 runtime-pointer artifact or exact direct-target URL. Direct-target trust
 survives code reloads at that URL. **Forget remembered approvals** revokes every
-saved choice; if browser storage refuses deletion, Paja keeps it listed and
-logs the failure. A full Paja host reload creates another ephemeral Dev signer
+saved choice; if browser storage refuses deletion, bench keeps it listed and
+logs the failure. A full bench host reload creates another ephemeral Dev signer
 and asks again, while the same NIP-07/NIP-46 account can reuse saved choices.
 Publish and other operation prompts remain independent. A configured fixed
 pubkey remains read-only unless the connected signer proves the same pubkey.
 
 ## More
 
-- [Use Paja for local napplet authoring](./paja-local-authoring.md)
+- [Use bench for local napplet authoring](./paja-local-authoring.md)
 - [@kehto/paja package reference](/packages/paja)

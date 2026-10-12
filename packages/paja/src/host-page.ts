@@ -7,10 +7,10 @@ import type { PajaHostConfig } from './options.js';
 import { summarizePajaSimulation } from './simulation.js';
 
 /**
- * Render the browser host page for a Paja runtime config.
+ * Render the browser host page for a bench runtime config.
  *
  * @param config - Serializable host-page config.
- * @returns Complete HTML document served by Paja.
+ * @returns Complete HTML document served by bench.
  */
 export function renderPajaHtml(config: PajaHostConfig): string {
   const configJson = escapeJsonForHtml(JSON.stringify(config));
@@ -21,7 +21,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>@kehto/paja</title>
+    <title>bench — developer runtime</title>
     <style>
       :root {
         color-scheme: dark;
@@ -168,7 +168,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
   <body>
     <header class="bar top">
       <div class="top-console">
-        <div class="brand">@kehto/<span class="brand-product">paja</span></div>
+        <div class="brand"><span class="brand-product">bench</span></div>
         <div class="target" title="${targetLabel}">${targetLabel}</div>
       </div>
       <div class="top-stage">
@@ -193,7 +193,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       </div>
     </header>
     <main>
-      <aside class="console" id="${PAJA_CONSOLE_PANEL_ID}" aria-label="Paja development controls">
+      <aside class="console" id="${PAJA_CONSOLE_PANEL_ID}" aria-label="bench development controls">
         ${renderPointerControls(config)}
         <details class="section" id="paja-section-interfaces" data-paja-section="interfaces" open>
           <summary class="section-title">Interfaces<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
@@ -252,7 +252,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
 function renderConfirmationDialog(): string {
   return `<dialog class="confirmation-dialog" id="paja-confirmation-dialog" aria-labelledby="paja-confirmation-title" aria-describedby="paja-confirmation-summary paja-confirmation-details">
       <div class="dialog">
-        <div class="dialog-title" id="paja-confirmation-title">Confirm Paja request</div>
+        <div class="dialog-title" id="paja-confirmation-title">Confirm bench request</div>
         <div class="dialog-copy" id="paja-confirmation-summary"></div>
         <pre class="dialog-details" id="paja-confirmation-details"></pre>
         <fieldset class="signer-consent" id="paja-signer-consent" hidden>
@@ -268,7 +268,7 @@ function renderConfirmationDialog(): string {
           <label class="signer-consent-trust">
             <input type="radio" name="paja-signer-consent" id="paja-signer-consent-napplet" value="napplet" aria-describedby="paja-signer-consent-warning">
             <span>Trust <strong id="paja-signer-consent-napplet-value"></strong> for every event kind at this target
-              <span class="signer-consent-warning" id="paja-signer-consent-warning">Warning: Paja will sign any event this napplet identity requests without asking again. Direct-target trust survives code reloads at the same URL.</span>
+              <span class="signer-consent-warning" id="paja-signer-consent-warning">Warning: bench will sign any event this napplet identity requests without asking again. Direct-target trust survives code reloads at the same URL.</span>
             </span>
           </label>
         </fieldset>

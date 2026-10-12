@@ -20,7 +20,7 @@ describe('@kehto/paja server', () => {
 
     try {
       const html = await fetchText(server.url);
-      expect(html).toContain('@kehto/<span class="brand-product">paja</span>');
+      expect(html).toContain('<span class="brand-product">bench</span>');
       expect(html).toContain('id="napplet-frame"');
 
       const config = JSON.parse(await fetchText(`${server.url}__kehto/config.json`)) as {

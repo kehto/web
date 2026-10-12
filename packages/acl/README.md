@@ -2,7 +2,7 @@
 
 Pure, WASM-ready ACL module for the napplet protocol — zero dependencies, zero side effects.
 
-> **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
+> **Alpha status:** kernl is an early runtime toolkit for a draft NIP-5D
 > protocol. NAP contracts and capability names are not final; treat this package
 > as current implementation guidance, not as a stable protocol guarantee.
 
@@ -19,7 +19,7 @@ The published peer compatibility floor is `@napplet/core` and `@napplet/nap`
 
 ## Overview
 
-`@kehto/acl` is Kehto's access-control core. It owns an immutable `AclState` keyed on the current NIP-5D 2-segment identity `(dTag, hash)` shape (the earlier `(pubkey, dTag, hash)` triple is dropped; `migrateAclState` ships for legacy persistence readers).
+`@kehto/acl` is kernl's access-control core. It owns an immutable `AclState` keyed on the current NIP-5D 2-segment identity `(dTag, hash)` shape (the earlier `(pubkey, dTag, hash)` triple is dropped; `migrateAclState` ships for legacy persistence readers).
 
 Every function is pure: state in, state out. No I/O, no timers, no globals — the module is trivially compilable to WASM and is the single source of truth for capability decisions.
 

@@ -47,8 +47,8 @@ describe('@kehto/paja host page', () => {
     const config = createPajaHostConfig(options, new Date('2026-06-21T00:00:00.000Z'));
     const html = renderPajaHtml(config);
 
-    expect(html).toContain('<title>@kehto/paja</title>');
-    expect(html).toContain('<div class="brand">@kehto/<span class="brand-product">paja</span></div>');
+    expect(html).toContain('<title>bench — developer runtime</title>');
+    expect(html).toContain('<div class="brand"><span class="brand-product">bench</span></div>');
     expect(html).toContain('<header class="bar top">');
     expect(html).toContain('--paja-console-column: minmax(320px, 380px);');
     expect(html).toContain('.top { display: grid; grid-template-columns: var(--paja-console-column) minmax(0, 1fr);');
@@ -76,7 +76,7 @@ describe('@kehto/paja host page', () => {
     expect(html).toContain('Always sign kind');
     expect(html).toContain('id="paja-signer-consent-napplet"');
     expect(html).toContain('Trust <strong id="paja-signer-consent-napplet-value"');
-    expect(html).toContain('Warning: Paja will sign any event this napplet identity requests');
+    expect(html).toContain('Warning: bench will sign any event this napplet identity requests');
     expect(html).toContain('Direct-target trust survives code reloads at the same URL');
     expect(html).toContain('id="signer-consent-clear"');
     expect(html).toContain('id="paja-notification-center"');
@@ -84,8 +84,8 @@ describe('@kehto/paja host page', () => {
     expect(html).toContain('class="console-toggle"');
     expect(html).toContain('aria-controls="paja-console"');
     expect(html).toContain('aria-expanded="true"');
-    expect(html).toContain('aria-label="Collapse the Paja development console"');
-    expect(html).toContain('title="Collapse the Paja development console"');
+    expect(html).toContain('aria-label="Collapse the bench development console"');
+    expect(html).toContain('title="Collapse the bench development console"');
     expect(html).toContain('<span class="console-toggle-glyph" aria-hidden="true"></span>');
     expect(html).toContain('id="paja-notification-badges"');
     expect(html).toContain('id="paja-config-dialog"');
@@ -106,12 +106,12 @@ describe('@kehto/paja host page', () => {
     const html = renderPajaHtml(config);
     const toggle = html.match(/<button[^>]+id="paja-console-toggle"[^>]*>/)?.[0] ?? '';
 
-    expect(html).toContain('<aside class="console" id="paja-console" aria-label="Paja development controls">');
+    expect(html).toContain('<aside class="console" id="paja-console" aria-label="bench development controls">');
     expect(html.match(/id="paja-console-toggle"/g)).toHaveLength(1);
     expect(toggle).toContain('class="console-toggle"');
     expect(toggle).toContain('aria-controls="paja-console"');
     expect(toggle).toContain('aria-expanded="true"');
-    expect(toggle).toContain('aria-label="Collapse the Paja development console"');
+    expect(toggle).toContain('aria-label="Collapse the bench development console"');
     expect(html).not.toMatch(/<html[^>]*data-paja-console/);
   });
 

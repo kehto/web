@@ -1,14 +1,14 @@
 # @kehto/demo
 
 Visualization of the current napplet protocol draft — a 9-napplet browser demo
-that hosts `@kehto/runtime` + `@kehto/shell` and exercises Kehto's supported
+that hosts `@kehto/runtime` + `@kehto/shell` and exercises kernl's supported
 NIP-5D NAP surfaces end-to-end. It is both the Playwright test harness target
 (`:4174` preview build) and an integration showcase. It is not the reference
-runtime and does not define Kehto-wide runtime policy; Paja is the reference
+runtime and does not define kernl-wide runtime policy; bench is the reference
 developer runtime.
 
 > **Alpha status:** NIP-5D is still under development, and NAP contracts are not
-> final. The playground demonstrates Kehto's current behavior; it is not proof
+> final. The playground demonstrates kernl's current behavior; it is not proof
 > that the protocol or helper APIs are stable.
 
 ## Run
@@ -28,10 +28,10 @@ The `preview` command serves the production build against which the Playwright E
 The active playground boot path is production-equivalent:
 
 1. Each demo napplet uses `apps/playground/napplets/shared-vite-config.ts`.
-2. The shared config lets `@napplet/vite-plugin` validate and sign the normal external-asset graph, then Kehto's post-build plugin rewrites the final gateway artifact to a single HTML file and recomputes the manifest.
+2. The shared config lets `@napplet/vite-plugin` validate and sign the normal external-asset graph, then kernl's post-build plugin rewrites the final gateway artifact to a single HTML file and recomputes the manifest.
 3. Each napplet build emits exactly `dist/index.html` plus `dist/.nip5a-manifest.json`.
 4. The shell resolves the manifest, verifies the signed content-addressed bytes, binds the iframe origin to the computed `(dTag, aggregateHash)`, and writes the verified HTML through `iframe.srcdoc`.
-5. Before authored scripts run, `@kehto/shell`'s `prepareNappletSrcdoc` inserts validated CSP and the mandatory NIP-5D namespace outside signed artifact bytes. Defaults permit inline script/style, WASM compilation, `data:`/`blob:` images and `data:` fonts. Other resource classes are denied; direct connections require exact host-granted origins. The namespace always includes `window.napplet.shell` and filters optional domains to the live, granted environment. The published `@napplet/shim@0.30.0` is non-shell, so Kehto owns the receiver before one bare `shell.ready`, the first `shell.init` cache, and local `ready()`, `supports()`, read-only `services`, and one-shot `onReady()` behavior. `shell.ready` establishes the runtime session.
+5. Before authored scripts run, `@kehto/shell`'s `prepareNappletSrcdoc` inserts validated CSP and the mandatory NIP-5D namespace outside signed artifact bytes. Defaults permit inline script/style, WASM compilation, `data:`/`blob:` images and `data:` fonts. Other resource classes are denied; direct connections require exact host-granted origins. The namespace always includes `window.napplet.shell` and filters optional domains to the live, granted environment. The published `@napplet/shim@0.30.0` is non-shell, so kernl owns the receiver before one bare `shell.ready`, the first `shell.init` cache, and local `ready()`, `supports()`, read-only `services`, and one-shot `onReady()` behavior. `shell.ready` establishes the runtime session.
 6. The iframe sandbox remains opaque-origin: `allow-scripts` only, no `allow-same-origin`.
 
 The gateway route may still serve manifest/blob data as a local accelerator or debugging surface, but it is not the identity authority. New tests and docs should treat verified `srcdoc` loading plus `(dTag, aggregateHash)` provenance as the canonical playground boot path.
@@ -102,7 +102,7 @@ Theme changes take one path: the preferences controller calls
 `ThemeService.publishTheme()`, which stores complete state before its sole
 ShellBridge callback delivers one automatic change per eligible authenticated
 recipient. The playground does not use theme subscribe/unsubscribe messages or
-all-origin iframe fan-out. Denied or unavailable theme reads retain Kehto's
+all-origin iframe fan-out. Denied or unavailable theme reads retain kernl's
 fixed non-sensitive complete normal result without `error`; this is the
 documented reconciliation of the upstream error-only example, not a mixed
 theme/error extension. Published Napplet package adoption remains Phase 105.
@@ -190,7 +190,7 @@ MIT
 ## NIP-5D event compatibility
 
 Current manifests use a direct artifact `x` hash, plain-text `content`, independent
-`z`/`i` routing declarations, and required `R` / optional `O` domains. Kehto also
+`z`/`i` routing declarations, and required `R` / optional `O` domains. kernl also
 accepts legacy aggregate events through an isolated compatibility adapter.
 Existing `aggregateHash` host/cache/ACL fields carry the verified artifact hash
 for current events; legacy identities keep their original aggregate. Both paths

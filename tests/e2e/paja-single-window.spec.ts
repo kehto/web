@@ -194,7 +194,7 @@ test('hosts one sandboxed target iframe and reinitializes it on reload', async (
   await page.goto(runtimeServer.url);
 
   await expect(page.locator('header.top')).toBeVisible();
-  await expect(page.locator('.brand')).toHaveText('@kehto/paja');
+  await expect(page.locator('.brand')).toHaveText('bench');
   await expect.poll(async () => page.locator('.brand').evaluate((brand) => {
     const product = brand.querySelector('.brand-product');
     if (!(product instanceof HTMLElement)) return false;
@@ -333,7 +333,7 @@ for (const viewport of [{ width: 1280, height: 720 }, { width: 640, height: 720 
     if (viewport.width > 900) await expect(consoleCell).toBeVisible();
     else await expect(consoleCell).toBeHidden();
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-    await expect(toggle).toHaveAttribute('aria-label', 'Collapse the Paja development console');
+    await expect(toggle).toHaveAttribute('aria-label', 'Collapse the bench development console');
     const expandedStageSize = await stageSize();
 
     await toggle.click();
@@ -343,7 +343,7 @@ for (const viewport of [{ width: 1280, height: 720 }, { width: 640, height: 720 
     await expect(consoleCell).toBeHidden();
     await expect(toggle).toBeVisible();
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-    await expect(toggle).toHaveAttribute('aria-label', 'Expand the Paja development console');
+    await expect(toggle).toHaveAttribute('aria-label', 'Expand the bench development console');
     await expect.poll(stageSize).toBeGreaterThan(expandedStageSize);
     expect((await toggle.boundingBox())?.x ?? Number.POSITIVE_INFINITY).toBeLessThan(40);
 

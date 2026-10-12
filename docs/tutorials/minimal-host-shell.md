@@ -1,8 +1,8 @@
 # Tutorial: Minimal Host Shell
 
-This tutorial shows the smallest shape of a browser host that embeds one sandboxed napplet through Kehto.
+This tutorial shows the smallest shape of a browser host that embeds one sandboxed napplet through kernl.
 
-> **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
+> **Alpha status:** kernl is an early runtime toolkit for a draft NIP-5D
 > protocol. Use this tutorial as current implementation guidance; NAP contracts,
 > capability names, and helper APIs may change.
 
@@ -72,9 +72,13 @@ The bridge exposes the underlying runtime. Register service handlers before load
 ```ts
 import { createThemeService } from '@kehto/services';
 
-bridge.runtime.registerService('theme', createThemeService({
-  getTheme: () => ({ colors: {}, title: 'Default' }),
-}));
+const themeService = createThemeService({
+  initialTheme: {
+    colors: { background: '#f3f3ed', text: '#181c17', primary: '#558b26' },
+    title: 'Default',
+  },
+});
+bridge.runtime.registerService('theme', themeService.handler);
 ```
 
 Register optional domains only when their real host backends are available. In

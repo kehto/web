@@ -3,7 +3,7 @@
 ## Status
 
 Recommended implementation path. This is not a protocol requirement for every
-napplet runtime; it is the Kehto host-side strategy for making repeated napplet
+napplet runtime; it is the kernl host-side strategy for making repeated napplet
 loads faster without weakening content-addressed loading.
 
 Reader: host-runtime implementers. After reading this, they should be able to
@@ -32,15 +32,15 @@ Cache Storage fits napplet artifacts better than IndexedDB or localStorage:
 
 - It stores request/response pairs, which maps naturally to manifest snapshots,
   verified blobs, assembled HTML, and index JSON.
-- It is available from windows and workers, so Kehto does not need a service
+- It is available from windows and workers, so kernl does not need a service
   worker just to read or write the cache.
-- It works in modern secure browser contexts across the engines Kehto needs to
+- It works in modern secure browser contexts across the engines kernl needs to
   target.
 - It avoids string-only localStorage limits and avoids making IndexedDB schema
   management part of the loader contract.
 
 The tradeoff is that Cache Storage does not expire entries on its own and does
-not honor HTTP cache headers for the application cache. Kehto must own the index,
+not honor HTTP cache headers for the application cache. kernl must own the index,
 freshness rules, and deletion policy.
 
 ## Cache Shape
@@ -101,7 +101,7 @@ napplet should not be hot-swapped unless the host has an explicit update flow.
 
 ## Eviction Policy
 
-Kehto should enforce its own budget before the browser reaches origin-level
+kernl should enforce its own budget before the browser reaches origin-level
 pressure. Browser eviction can delete all origin storage at once, so app-level
 eviction is the only way to keep cache behavior predictable.
 
@@ -150,7 +150,7 @@ control, but ordinary origin-level Cache Storage remains the compatibility path.
 
 OPFS is a reasonable later optimization for very large artifact sets or
 worker-heavy streaming paths. It is not the first implementation target because
-Cache Storage already stores the response-shaped objects Kehto needs, and OPFS
+Cache Storage already stores the response-shaped objects kernl needs, and OPFS
 still shares the same origin quota and browser eviction model.
 
 IndexedDB should stay a fallback of last resort, and only for metadata if Cache
@@ -166,7 +166,7 @@ some contexts. It should not become part of napplet artifact loading.
 
 A service worker is optional.
 
-Kehto can implement the primary cache from the host window because Cache Storage
+kernl can implement the primary cache from the host window because Cache Storage
 is exposed outside service workers. This matches the current resolver shape,
 where the host resolves and verifies bytes before rendering a sandboxed iframe.
 
@@ -190,7 +190,7 @@ and trust opaque responses as napplet bytes.
 
 | Path | Reason |
 |------|--------|
-| HTTP browser cache only | It does not give Kehto a verifiable index, portable eviction policy, or identity-aware partitioning. |
+| HTTP browser cache only | It does not give kernl a verifiable index, portable eviction policy, or identity-aware partitioning. |
 | localStorage | Wrong data model and synchronous string storage; unsuitable for artifacts. |
 | IndexedDB primary cache | Viable but unnecessary; adds schema and transaction complexity when Cache Storage already fits response-shaped artifacts. |
 | OPFS first | Useful for large-file optimization, but it does not improve the core eviction model enough to justify the first implementation. |

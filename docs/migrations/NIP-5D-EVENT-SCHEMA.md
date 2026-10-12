@@ -71,7 +71,7 @@ Renaming the public `aggregateHash` alias is a separate API migration; it is not
 required to remove legacy event support.
 
 While compatibility remains, tests cover both formats through signature/blob
-failure, cache reuse and corruption recovery, all three manifest kinds, Paja and
+failure, cache reuse and corruption recovery, all three manifest kinds, bench and
 playground resolution, host admission, and opaque `srcdoc` execution. Current
 producer tests verify the final bytes against `x` after metadata and inlining.
 
@@ -82,7 +82,7 @@ resolver module lifetime. Migration and retirement criteria are tracked in
 URI invocation, accepted-result lifecycle, and catalog identity follow NAP-INTENT
 PR #106 at `fc121fc264615482143eda86125863d2e1f741a2`. Hosts use `intent.deliver`
 and buffered `intent.onDelivery`, with a warned local INC-listener adapter.
-Paja external links use a verified signed launcher for source identity. Native
+bench external links use a verified signed launcher for source identity. Native
 external-origin sender semantics remain a deferred upstream spec gap. The
 [conformance policy](../policies/NIP-5D-CONFORMANCE.md#intent-delivery-and-invocation-boundary)
 records the checked authority and bounded packaged-type exception.

@@ -1,0 +1,42 @@
+name: kernl site
+
+on:
+  pull_request:
+    paths:
+      - 'web/**'
+      - 'scripts/kernl-film/**'
+      - 'scripts/*pages*.mjs'
+      - 'tests/site/**'
+      - '.github/workflows/kernl-site.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kernl-site-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser:
+    name: Landing page and film
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm site:build
+      - run: pnpm site:audit
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm exec playwright test --config tests/site/playwright.config.ts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kernl-browser-evidence
+          path: test-results/
+          retention-days: 7

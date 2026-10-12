@@ -1,6 +1,6 @@
 # Documentation Maintenance
 
-Kehto has three documentation truth surfaces: package READMEs, authored docs-site pages, and generated API reference. The milestone goal is to make those surfaces reinforce each other without duplicating facts that will drift.
+kernl has three documentation truth surfaces: package READMEs, authored docs-site pages, and generated API reference. The milestone goal is to make those surfaces reinforce each other without duplicating facts that will drift.
 
 ## Source-of-Truth Rules
 
