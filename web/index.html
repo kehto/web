@@ -4,15 +4,15 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#f3f3ed" />
-    <title>kernl — Build your own Nostr runtime.</title>
+    <title>kernl — Build your own app runtime.</title>
     <meta
       name="description"
-      content="The modular TypeScript toolkit for hosting sandboxed Nostr apps. Bring your interface. Choose your services. Build your runtime with kernl."
+      content="The modular TypeScript toolkit for hosting sandboxed apps. Bring your interface. Choose your services. Build your runtime with kernl."
     />
     <meta property="og:title" content="kernl — Your runtime. Your rules." />
     <meta
       property="og:description"
-      content="A modular TypeScript toolkit for hosting sandboxed Nostr apps."
+      content="A modular TypeScript toolkit for hosting sandboxed apps."
     />
     <meta property="og:type" content="website" />
     <link rel="icon" href="assets/kernl.svg" type="image/svg+xml" />
@@ -41,13 +41,13 @@
       <section class="hero wrap" aria-labelledby="hero-title">
         <div class="hero-copy">
           <p class="eyebrow">
-            <span class="status-dot"></span> A toolkit for Nostr app runtimes
+            <span class="status-dot"></span> A toolkit for app runtimes
           </p>
           <h1 id="hero-title">
             Your runtime.<br />Your rules<span class="brand-dot">.</span>
           </h1>
           <p class="hero-summary">
-            Build a home for sandboxed Nostr apps.<br class="desktop-break" />
+            Build a home for sandboxed apps.<br class="desktop-break" />
             kernl gives you the runtime, permissions, and services. You bring
             the interface.
           </p>
@@ -95,7 +95,9 @@
               type="button"
               hidden
               aria-label="Expand runtime film"
-            >⛶</button>
+            >
+              ⛶
+            </button>
             <button
               class="film-toggle"
               type="button"
@@ -194,15 +196,15 @@
             </h2>
             <p>
               Connect your host adapter. Register the services your apps need.
-              Then load a verified napplet into its sandbox.
+              Then load a verified app into its sandbox.
             </p>
             <a class="text-link" href="docs/tutorials/minimal-host-shell.html"
               >Follow the host tutorial <span aria-hidden="true">↗</span></a
             >
             <p class="build-note">
-              The adapter supplies your backends and policies. This is an
-              integration excerpt; the tutorial covers verification,
-              permissions, and teardown.
+              Nostr is the underlying protocol; NIP-5D describes the napplet
+              apps kernl hosts. Your adapter supplies the backends and policies.
+              The full tutorial covers verification, permissions, and teardown.
             </p>
           </div>
           <div class="code-panel">

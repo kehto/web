@@ -2,7 +2,7 @@ import { defineConfig } from 'vitepress';
 
 export default defineConfig({
   title: 'kernl',
-  description: 'Runtime packages for hosting sandboxed Nostr napplet applications.',
+  description: 'A modular toolkit for building runtimes that host sandboxed apps.',
   base: process.env.VITEPRESS_BASE ?? '/',
   cleanUrls: true,
   lastUpdated: true,

@@ -1,7 +1,7 @@
 # kernl Runtime Toolkit Documentation
 
-kernl is an unopinionated toolkit and protocol kernel for building NIP-5D
-napplet runtimes. It supplies reusable host-side machinery without choosing one
+kernl is an unopinionated toolkit for building runtimes that host sandboxed
+apps (napplets). It supplies reusable host-side machinery without choosing one
 origin, signer, or deployment policy for every implementer. Paja is kernl's
 reference developer runtime; the playground is a visualization and verification
 fixture.
@@ -11,7 +11,9 @@ fixture.
 > injected-domain behavior may change as the spec evolves. See
 > [Alpha Status](./alpha-status.md).
 
-kernl provides host-side packages that let a Nostr client embed sandboxed napplet iframe applications: access control, protocol dispatch, browser shell integration, service building blocks, relay discovery, and shell-owned window-management contracts.
+kernl provides host-side packages for embedding sandboxed apps: access control, protocol dispatch, browser shell integration, service building blocks, relay discovery, and shell-owned window-management contracts.
+
+Nostr is the underlying protocol; NIP-5D describes the napplet apps kernl hosts.
 
 kernl works with the `@napplet` packages. `@napplet/core`, `@napplet/shim`, `@napplet/nap`, and `@napplet/vite-plugin` define the portable napplet-side protocol and build surface. kernl consumes those contracts and provides runtime and shell implementation tools.
 

@@ -712,7 +712,7 @@ describe('playground gateway artifact guard', () => {
 
   it('keeps the kernl portal destinations and accessible film assets in the Pages contract', () => {
     const portal = readRepoFile('web/index.html');
-    expect(portal).toContain('<title>kernl — Build your own Nostr runtime.</title>');
+    expect(portal).toContain('<title>kernl — Build your own app runtime.</title>');
     for (const route of ['playground/', 'paja/', 'docs/']) {
       expect(portal).toContain(`href="${route}"`);
     }
@@ -721,7 +721,7 @@ describe('playground gateway artifact guard', () => {
     expect(portal).toContain('poster="assets/runtime-poster.jpg"');
     expect(portal).toContain('kind="captions"');
     expect(portal).toContain('About the runtime film / transcript');
-    expect(portal).toContain('sandboxed Nostr apps');
+    expect(portal).toContain('sandboxed apps');
     expect(portal).toContain('@kehto/shell');
     expect(portal).not.toContain('@kernl/');
   });

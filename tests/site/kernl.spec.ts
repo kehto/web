@@ -13,7 +13,11 @@ for (const viewport of [
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(error.message));
     await page.goto('./');
-    await expect(page).toHaveTitle('kernl — Build your own Nostr runtime.');
+    await expect(page).toHaveTitle('kernl — Build your own app runtime.');
+    await expect(page.locator('.hero-copy')).not.toContainText(/nostr/i);
+    await expect(page.locator('.build-note')).toContainText(
+      'Nostr is the underlying protocol'
+    );
     for (const selector of ['h1', '.hero-summary', '.hero-actions']) {
       const box = await page.locator(selector).boundingBox();
       expect(box!.y + box!.height).toBeLessThan(viewport.height);
@@ -41,15 +45,21 @@ test('film plays, pauses, respects user pause, and responds to visibility', asyn
   const video = page.locator('video');
   await expect(video).toHaveJSProperty('paused', false);
   await expect
-    .poll(() => video.evaluate((element: HTMLVideoElement) => element.currentTime))
+    .poll(() =>
+      video.evaluate((element: HTMLVideoElement) => element.currentTime)
+    )
     .toBeGreaterThan(0);
   await expect(video).toHaveJSProperty('duration', 24);
   await page.getByRole('button', { name: 'Pause runtime film' }).click();
-  const pausedAt = await video.evaluate((element: HTMLVideoElement) => element.currentTime);
+  const pausedAt = await video.evaluate(
+    (element: HTMLVideoElement) => element.currentTime
+  );
   await page.locator('footer').scrollIntoViewIfNeeded();
   await page.locator('.hero').scrollIntoViewIfNeeded();
   await expect(video).toHaveJSProperty('paused', true);
-  expect(await video.evaluate((element: HTMLVideoElement) => element.currentTime)).toBe(pausedAt);
+  expect(
+    await video.evaluate((element: HTMLVideoElement) => element.currentTime)
+  ).toBe(pausedAt);
   await page.getByRole('button', { name: 'Play runtime film' }).click();
   await expect(video).toHaveJSProperty('paused', false);
   await page.locator('footer').scrollIntoViewIfNeeded();

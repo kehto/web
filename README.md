@@ -1,6 +1,6 @@
 # kernl
 
-The modular toolkit for building Nostr app runtimes.
+The modular toolkit for building app runtimes.
 
 [![CI](https://github.com/kehto/web/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kehto/web/actions/workflows/ci.yml)
 [![Version Packages](https://github.com/kehto/web/actions/workflows/publish.yml/badge.svg)](https://github.com/kehto/web/actions/workflows/publish.yml)
@@ -8,8 +8,8 @@ The modular toolkit for building Nostr app runtimes.
 [![Publish Web to GitHub Pages](https://github.com/kehto/web/actions/workflows/playground-pages.yml/badge.svg?branch=main)](https://github.com/kehto/web/actions/workflows/playground-pages.yml)
 [![AI Slop Score](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkehto%2Fweb%2Fmain%2F.github%2Fbadges%2Faislop-score.json)](https://github.com/kehto/web/actions/workflows/aislop-badge.yml)
 
-kernl is an unopinionated toolkit and protocol kernel for building NIP-5D Nostr
-applet ("napplet") runtimes. It supplies routing, lifecycle, capability, service,
+kernl is an unopinionated toolkit for building runtimes that host sandboxed
+apps ("napplets"). It supplies routing, lifecycle, capability, service,
 and browser-shell primitives without deciding a runtime's origin, signer, or
 deployment policy. Paja is kernl's reference developer runtime; the playground
 is a visualization and integration fixture.
@@ -31,6 +31,9 @@ development tooling. The applet-side packages (`@napplet/core`, `@napplet/shim`,
 runtime toolkit, while Paja demonstrates one complete implementation.
 
 kernl was previously called Kehto. Published packages retain their `@kehto/*` names and the `kehto` CLI command.
+
+Nostr is the underlying protocol. NIP-5D defines the napplet format used by
+the runtime; your host supplies the interface, backends, and policies.
 
 ## Start Here
 

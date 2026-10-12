@@ -369,3 +369,5 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 ## Active kernl milestone
 
 2026-10-12: Phases 108–110 implemented and verified on feat/kernl-rebrand in the primary checkout. Site and current docs rebranded; package names and CLI retained by user direction. 24-second original film includes actual Paja theme response. 2,096 unit, 120 runtime browser, and seven landing browser tests pass. Build, type, docs, Pages audit, and changed-file quality gate pass. Shipped as open PR #296: https://github.com/kehto/web/pull/296. GitHub CI is running. Pre-existing package.json workspace edit remains unrelated and uncommitted.
+
+2026-10-12: Quick task 261012-ga5 applies user positioning: lead with app runtimes; Nostr is supporting protocol context. Landing, README, and docs aligned; build/type, 2,096 unit tests, strict docs/Pages audit, seven landing browser tests, and changed-file quality score 100/100 pass. Continues PR #296.
