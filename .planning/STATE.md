@@ -4,8 +4,8 @@ milestone: v1.30
 milestone_name: kernl rebrand
 current_phase: 110
 current_phase_name: Developer launch verification
-status: in_progress
-stopped_at: All implementation and local gates passed; opening PR
+status: completed
+stopped_at: kernl rebrand shipped as open PR 296
 last_updated: "2026-10-12T16:25:00Z"
 last_activity: 2026-10-12
 last_activity_desc: "Verified kernl site, runtime film, and documentation"
@@ -24,13 +24,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-10-12)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** kernl rebrand complete locally — opening PR
+**Current focus:** kernl rebrand shipped — PR #296 open for review
 
 ## Current Position
 
 Phase: 110 (Developer launch verification) — verified
 Plan: 1 of 1
-Status: Implementation, security review, and local checks complete. PR closeout pending.
+Status: Shipped as open PR #296 — https://github.com/kehto/web/pull/296. GitHub CI started; all local gates passed.
 
 Last activity: 2026-10-12 — Verified 2,096 unit tests, 120 runtime browser tests and seven site browser tests.
 
@@ -368,4 +368,4 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 
 ## Active kernl milestone
 
-2026-10-12: Phases 108–110 implemented and verified on feat/kernl-rebrand in the primary checkout. Site and current docs rebranded; package names and CLI retained by user direction. 24-second original film includes actual Paja theme response. 2,096 unit, 120 runtime browser, and seven landing browser tests pass. Build, type, docs, Pages audit, and changed-file quality gate pass. PR creation is the remaining closeout step. Pre-existing package.json workspace edit remains unrelated and uncommitted.
+2026-10-12: Phases 108–110 implemented and verified on feat/kernl-rebrand in the primary checkout. Site and current docs rebranded; package names and CLI retained by user direction. 24-second original film includes actual Paja theme response. 2,096 unit, 120 runtime browser, and seven landing browser tests pass. Build, type, docs, Pages audit, and changed-file quality gate pass. Shipped as open PR #296: https://github.com/kehto/web/pull/296. GitHub CI is running. Pre-existing package.json workspace edit remains unrelated and uncommitted.
