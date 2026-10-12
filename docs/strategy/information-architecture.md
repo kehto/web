@@ -1,6 +1,6 @@
 # Information Architecture
 
-This document defines the target navigation and page model for the Kehto documentation site.
+This document defines the target navigation and page model for the kernl documentation site.
 
 ## Proposed Navigation
 

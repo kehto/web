@@ -1,11 +1,11 @@
 # Architecture
 
-Kehto is an unopinionated toolkit and protocol kernel for NIP-5D napplet
+kernl is an unopinionated toolkit and protocol kernel for NIP-5D napplet
 runtimes. It separates host implementation machinery into small packages with
 clear ownership boundaries.
 
 > **Alpha status:** NIP-5D is still under development, and NAP contracts are not
-> final. This architecture describes Kehto's current implementation, not a
+> final. This architecture describes kernl's current implementation, not a
 > requirement that all napplet runtimes follow the same shape.
 
 | Layer | Package | Responsibility |
@@ -18,6 +18,6 @@ clear ownership boundaries.
 | Reference runtime | `@kehto/paja` | Concrete developer-runtime choices built from the toolkit. |
 | Visualization | `@kehto/playground` | Protocol visualization and integration verification, not runtime policy. |
 
-`@napplet` packages define portable napplet-side contracts and helpers. Kehto
+`@napplet` packages define portable napplet-side contracts and helpers. kernl
 provides host-side implementation tools; Paja supplies the concrete reference
 runtime behavior.

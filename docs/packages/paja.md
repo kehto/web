@@ -2,7 +2,7 @@
 
 Single-window Paja local authoring workshop for napplet development.
 
-> **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
+> **Alpha status:** kernl is an early runtime toolkit for a draft NIP-5D
 > protocol. The Paja API is new in v1.22 planning work
 > and is not yet a stability guarantee for final NAP contracts.
 
@@ -193,7 +193,7 @@ The console includes:
   again; stable NIP-07/NIP-46 accounts can reuse their saved choices. This is
   Paja policy permitted by draft
   [NAP-RELAY PR #2 at `0be8abce18beb46ca37bd4ddd042f58d30b4eedc`](https://github.com/napplet/naps/pull/2), not a
-  Kehto runtime default. Upload consent shows the requesting
+  kernl runtime default. Upload consent shows the requesting
   napplet, file, MIME type, size, server, and durable public effect before
   bytes leave the browser. A denial or a live publish with no accepting relay
   returns a canonical failure and does not enter Paja's in-memory relay view.
@@ -299,7 +299,7 @@ Paja activates delivered handler tabs because its stage shows one tab at a time.
 `behavior.focus` is advisory; `reuse: false` creates a new surface. Existing caller
 tabs remain open. Installed contracts and domains appear in pointer diagnostics.
 
-The published `@napplet/shim@0.30.0` is intentionally non-shell. Kehto's
+The published `@napplet/shim@0.30.0` is intentionally non-shell. kernl's
 host-owned prelude remains responsible for mandatory `window.napplet.shell`,
 the one bare `shell.ready` / first `shell.init` handshake, and local cached
 `ready()`, `supports()`, read-only `services`, and one-shot `onReady()`.
@@ -605,7 +605,7 @@ the next iframe reload.
 ## NIP-5D event compatibility
 
 Current manifests use a direct artifact `x` hash, plain-text `content`, role-matched
-`z`/`i` intent declarations, and required `R` / optional `O` domains. Kehto also
+`z`/`i` intent declarations, and required `R` / optional `O` domains. kernl also
 accepts legacy aggregate events through an isolated compatibility adapter.
 Existing `aggregateHash` host/cache/ACL fields carry the verified artifact hash
 for current events; legacy identities keep their original aggregate. Both paths

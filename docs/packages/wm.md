@@ -3,7 +3,7 @@
 Structural window-management contracts for consumer-owned layout strategies.
 
 > **Alpha status:** These shell-owned contracts are experimental. They are not a
-> NAP and may change as Kehto and other runtime implementations evolve.
+> NAP and may change as kernl and other runtime implementations evolve.
 
 ## Install
 

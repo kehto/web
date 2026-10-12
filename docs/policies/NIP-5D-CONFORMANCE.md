@@ -13,7 +13,7 @@ Repo-local pointer: `specs/NIP-5D.md`
 
 ## Authority
 
-Only the current upstream NIP-5D PR defines the core NIP-5D contract. Kehto's
+Only the current upstream NIP-5D PR defines the core NIP-5D contract. kernl's
 repo-local spec file is intentionally a pointer so stale mirrors do not become
 implementation authority. `RUNTIME-SPEC.md` is internal runtime guidance.
 
@@ -62,7 +62,7 @@ are structured source-list replacements, validated before rendering.
 | --- | --- | --- |
 | CSP first in head before authored resources (SHOULD) | Enforced by preparation, without searching authored comments/scripts for insertion points | No opt-out on this path |
 | Exact granted connection origins; avoid wildcard/scheme-wide sources (MAY/SHOULD) | Explicit HTTP(S)/WS(S) origins only; normalize, deduplicate, validate | Grant origins; narrow `connect-src`, including `'none'` |
-| No broad `'unsafe-eval'` merely for WASM (MUST NOT) | Always rejected as Kehto policy | Keep or remove the default `'wasm-unsafe-eval'` |
+| No broad `'unsafe-eval'` merely for WASM (MUST NOT) | Always rejected as kernl policy | Keep or remove the default `'wasm-unsafe-eval'` |
 | Verify artifacts before policy injection, exclude injection from hashes (MUST) | Reference hosts resolve and verify before preparing a rendered copy | Keep original verified bytes and identity; preparation does not authenticate raw HTML |
 | Namespace before authored scripts (MUST) | CSP then mandatory bootstrap; reject script overrides that suppress its inline execution | Choose optional domains and compatible script directives |
 | Conservative example source lists | Shared defaults; not promoted wholesale to protocol MUSTs | Override supported directives for styles, images, media and other resources |
@@ -81,7 +81,7 @@ not a verified runtime-pointer load. The verified production hosts must use
 
 ### Active NAP-RELAY boundary
 
-Kehto follows [NAP-RELAY PR #2 at
+kernl follows [NAP-RELAY PR #2 at
 `0be8abce18beb46ca37bd4ddd042f58d30b4eedc`](https://github.com/napplet/naps/pull/2).
 For `relay.publish`, a napplet supplies an unsigned `EventTemplate`; the shell
 signs it, sends only the signed event to relay services, and returns
@@ -105,7 +105,7 @@ draft, but the merged path supersedes the earlier stacked PR heads as protocol
 authority.
 
 The released package projection owns query-to-text-payload transposition in the
-shared, runtime-provided INC binding. Kehto runtime routing then uses an exact
+shared, runtime-provided INC binding. kernl runtime routing then uses an exact
 stable convention topic identity. It rejects query-bearing normalized wire or
 discovery identities, while routing arbitrary opaque strings (including `?` and
 `#`) by their complete exact text. It must not add prefix, wildcard, or
@@ -138,8 +138,8 @@ NIP-5D bytes are verified before `srcdoc` execution; injected bootstraps are del
 
 ### Active NAP-IDENTITY and NAP-THEME boundary
 
-Kehto checks NAP-IDENTITY and NAP-THEME at `napplet/naps` master
-`5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`. Kehto documents its projection
+kernl checks NAP-IDENTITY and NAP-THEME at `napplet/naps` master
+`5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`. kernl documents its projection
 and policy rather than extending the wire contract.
 
 - `identity.getPublicKey` always settles with one correlated
@@ -149,10 +149,10 @@ and policy rather than extending the wire contract.
   automatic for actual connect/sign-out transitions only, including `pubkey:
   ""`; it is neither an INC event nor an intent delivery.
 - `theme.get` always returns a complete theme with `colors.background`,
-  `colors.text`, and `colors.primary`. Kehto deliberately reconciles the draft
+  `colors.text`, and `colors.primary`. kernl deliberately reconciles the draft
   error-only example by returning one fixed non-sensitive complete normal
   `theme.get.result` without `error` for ACL-denied, firewall-denied, or
-  unavailable reads. This is a Kehto policy/spec-gap reconciliation, not a
+  unavailable reads. This is a kernl policy/spec-gap reconciliation, not a
   mixed `theme` + `error` extension or a separate theme error message.
 - `theme.changed` is an automatic change push. The injected surface is
   `theme.get()` and `theme.onChanged()` only; no theme subscribe/unsubscribe
@@ -165,7 +165,7 @@ and policy rather than extending the wire contract.
   push.
 
 Phase 105 completed published Napplet package adoption. This policy records the
-selected released line without turning Kehto-local policy into protocol authority.
+selected released line without turning kernl-local policy into protocol authority.
 
 ## Runtime Availability Policy
 
@@ -177,14 +177,14 @@ Current NIP-5D runtime availability is injected
 - Domain object presence is availability only; operation semantics, versions,
   errors, and diagnostics belong to the matching NAP spec.
 - Optional-domain presence and mandatory NAP-SHELL are separate requirements.
-  Every Kehto-hosted iframe receives `window.napplet.shell` before authored code,
+  Every kernl-hosted iframe receives `window.napplet.shell` before authored code,
   regardless of manifest `requires` or capability toggles.
 - NAP-SHELL owns `ready()`, local `supports(domain, protocol?)`, read-only
   `services`, `onReady()`, and the `shell.ready` / `shell.init` lifecycle. The
   runtime prelude installs its parent-bound receiver before emitting readiness;
   napplet artifacts are not required to bundle their own handshake.
 - Published core `0.32.0` and shim `0.30.0` omit a generic mandatory shell
-  implementation. Kehto retains the host-owned NAP-SHELL prelude under
+  implementation. kernl retains the host-owned NAP-SHELL prelude under
   `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24` until a corrected upstream release
   is reviewed; the shim is never documented as supplying shell.
 
@@ -220,7 +220,7 @@ byte-identical to the recorded `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`.
   `local-<file-stem>`. That metadata only labels an unverified development
   target. It is not a manifest claim.
 - **Recorded drift, not changed here:** the current NIP-5D draft defines the
-  artifact hash as the manifest's single `x` tag over `/index.html`. Kehto's
+  artifact hash as the manifest's single `x` tag over `/index.html`. kernl's
   `@kehto/nip/5d` resolver still verifies NIP-5A `path` tags plus an aggregate
   `x` tag. Local targets use the same NIP-5A single-path aggregate as that
   resolver, so a local file and its published single-file build share one
@@ -230,9 +230,9 @@ byte-identical to the recorded `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`.
 
 | Surface | Classification | Contract |
 |---------|----------------|----------|
-| `connect` | Official Kehto NAP extension | Advertise as `nap:connect` only when the shell enforces the connect-origin policy and response/header behavior for the hosted napplet. |
-| `class` | Official Kehto NAP extension | Advertise as `nap:class` only when the shell assigns the napplet class and applies class-specific policy before iframe use. |
-| `nostrdb` | Out of scope for active playground NIP-5D conformance | Do not count as a required playground NAP until a Kehto NAP contract and shell capability advertisement exist. |
+| `connect` | Official kernl NAP extension | Advertise as `nap:connect` only when the shell enforces the connect-origin policy and response/header behavior for the hosted napplet. |
+| `class` | Official kernl NAP extension | Advertise as `nap:class` only when the shell assigns the napplet class and applies class-specific policy before iframe use. |
+| `nostrdb` | Out of scope for active playground NIP-5D conformance | Do not count as a required playground NAP until a kernl NAP contract and shell capability advertisement exist. |
 | `relay.publishEncrypted` | Official relay NAP operation | Allowed only when the shell performs encryption/signing policy. Napplets may submit cleartext intent; the shell must not sign or broadcast ciphertext supplied by a napplet. |
 
 ## Raw Envelope Policy

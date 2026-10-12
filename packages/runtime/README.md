@@ -2,7 +2,7 @@
 
 Browser-agnostic protocol engine for the napplet protocol.
 
-> **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
+> **Alpha status:** kernl is an early runtime toolkit for a draft NIP-5D
 > protocol. NAP contracts and runtime APIs are not final; treat this package as
 > current implementation guidance, not as a stable protocol guarantee.
 
@@ -23,9 +23,9 @@ source `dc1d24153c759152b6ba31a6ec9bea967798f2df`.
 
 ## Overview
 
-`@kehto/runtime` is Kehto's NIP-5D protocol engine. It owns every incoming napplet message, gates it through the ACL enforcement layer, routes it to the correct NAP handler, and emits the corresponding reply envelope.
+`@kehto/runtime` is kernl's NIP-5D protocol engine. It owns every incoming napplet message, gates it through the ACL enforcement layer, routes it to the correct NAP handler, and emits the corresponding reply envelope.
 
-The runtime is built around the current draft dispatch contract from `@napplet/core` — `createDispatch()` + `registerNap()` — so routing is declarative, not a hand-rolled switch. It covers the NIP-5D domains currently supported by Kehto:
+The runtime is built around the current draft dispatch contract from `@napplet/core` — `createDispatch()` + `registerNap()` — so routing is declarative, not a hand-rolled switch. It covers the NIP-5D domains currently supported by kernl:
 
 - **identity** — `identity.getProfile`, `identity.getFollows`, `identity.getPublicKey`, …
 - **inc** — `inc.channel.*`, `inc.emit`, cross-napplet pub/sub
@@ -52,13 +52,13 @@ Signing, replay, relay, and service failures return `ok: false` plus `error`
 and are never buffered as successful local publications.
 
 `AuthAdapter.getSigner(windowId?)` receives the originating runtime window when
-one exists. Kehto forwards that context as a policy mechanism; it does not
+one exists. kernl forwards that context as a policy mechanism; it does not
 decide whether a host prompts once, remembers a narrowly scoped approval, or
 refuses the request. Hosts that do not need caller-aware signer policy can
 ignore the optional argument.
 
 The released `@napplet/nap@0.32.0` SDK accepts `EventTemplate`, while its
-`RelayPublishMessage.event` declaration still says `NostrEvent`; Kehto records
+`RelayPublishMessage.event` declaration still says `NostrEvent`; kernl records
 that mismatch as upstream package drift and follows the NAP wire direction.
 
 ## Identity and theme result policy
@@ -72,7 +72,7 @@ This runtime follows NAP-IDENTITY and NAP-THEME at `napplet/naps` master
   matching result shapes with safe defaults, while unsupported identity actions
   are silently ignored.
 - `theme.get` uses a complete three-color result. For denied or unavailable
-  reads, Kehto's explicit policy is one fixed non-sensitive normal result with
+  reads, kernl's explicit policy is one fixed non-sensitive normal result with
   no `error` field. This reconciles the draft's error-only example without
   emitting `theme.*.error` or inventing a mixed theme/error payload.
 - The runtime neither accepts nor creates identity/theme subscription messages.
@@ -84,7 +84,7 @@ phase records remain history rather than active compatibility guidance.
 
 ## NAP-INTENT runtime boundary
 
-Kehto follows [NAP-INTENT PR #106](https://github.com/napplet/naps/blob/fc121fc264615482143eda86125863d2e1f741a2/naps/NAP-INTENT.md) at `fc121fc264615482143eda86125863d2e1f741a2`. The runtime admits source-side `intent.invoke`,
+kernl follows [NAP-INTENT PR #106](https://github.com/napplet/naps/blob/fc121fc264615482143eda86125863d2e1f741a2/naps/NAP-INTENT.md) at `fc121fc264615482143eda86125863d2e1f741a2`. The runtime admits source-side `intent.invoke`,
 `intent.available`, and `intent.handlers` through the authenticated session and
 ACL/firewall boundary. Services validate the normalized queryless convention and
 resolve the sender's opaque catalog ID from the trusted source window.
@@ -98,7 +98,7 @@ not another source result. No INC carrier is required.
 
 ## NAP-OUTBOX denial boundary
 
-Kehto follows draft [NAP-OUTBOX PR #32 at
+kernl follows draft [NAP-OUTBOX PR #32 at
 `4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e`](https://github.com/napplet/naps/pull/32).
 ACL and firewall policy may reject an outbox query, but the rejection stays on
 the protocol-defined correlated result wire: `outbox.query.result` with

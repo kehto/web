@@ -1,8 +1,8 @@
 # Package Reference
 
-Use these pages when you need to choose or integrate one part of Kehto. Each page is grounded in the package manifest and source barrel for the current repository state.
+Use these pages when you need to choose or integrate one part of kernl. Each page is grounded in the package manifest and source barrel for the current repository state.
 
-> **Alpha status:** Kehto is an early toolkit for a draft NIP-5D protocol. NAP
+> **Alpha status:** kernl is an early toolkit for a draft NIP-5D protocol. NAP
 > contracts and package APIs are not final; use these package pages as current
 > implementation guidance, not as a stability guarantee.
 

@@ -2,7 +2,7 @@
 
 Browser-agnostic protocol engine for NIP-5D napplet hosting.
 
-> **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
+> **Alpha status:** kernl is an early runtime toolkit for a draft NIP-5D
 > protocol. Runtime APIs and NAP dispatch contracts are not final.
 
 ## Install
@@ -52,7 +52,7 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
   reported; failures are not buffered and release their pending replay
   reservation so the same deterministic signed event can be retried.
 - Passes the originating runtime window to `AuthAdapter.getSigner(windowId?)`
-  when available. This is policy-neutral context for host runtimes; Kehto does
+  when available. This is policy-neutral context for host runtimes; kernl does
   not prescribe prompting, persistence, grant scope, or denial policy.
 - Routes the NAP-COUNT `count.query` domain through a registered `count` service. The runtime validates non-empty filters and returns `count.query.result` refusals such as `invalid-filter` or `count-unavailable` instead of emulating counts by fetching event payloads.
 - Keeps ACL and firewall rejection of `outbox.query` on the canonical
@@ -79,7 +79,7 @@ The runtime wires it to `firewallState.resetInitBudget(windowId)`, which retires
 that startup counter. Custom `FirewallStateContainer` implementations must implement
 `resetInitBudget(initKey)` while preserving other counters and policy.
 
-This is Kehto host policy, conformant with the source-bound, idempotent lifecycle in
+This is kernl host policy, conformant with the source-bound, idempotent lifecycle in
 [NAP-SHELL at `a040914`](https://github.com/napplet/naps/blob/a040914b4bbd3a5cd8a14b0f316a723c968ebfb2/naps/NAP-SHELL.md).
 It changes no NIP-5D wire messages or NAP-THEME result behavior.
 

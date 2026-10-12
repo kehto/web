@@ -1,8 +1,8 @@
 # @kehto/cli
 
-Top-level Kehto command namespace for local tooling.
+Top-level kernl command namespace for local tooling.
 
-> **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
+> **Alpha status:** kernl is an early runtime toolkit for a draft NIP-5D
 > protocol. CLI commands are not yet a stability guarantee for final NAP
 > contracts.
 
@@ -52,7 +52,7 @@ deterministic memory simulator.
 
 | Area | Exports |
 |------|---------|
-| Command runner | `runKehtoCli`, `RunKehtoCliOptions` |
+| Command runner | `runkernlCli`, `RunkernlCliOptions` |
 
 ## Scope Boundaries
 

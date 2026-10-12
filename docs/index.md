@@ -1,8 +1,8 @@
-# Kehto Runtime Toolkit Documentation
+# kernl Runtime Toolkit Documentation
 
-Kehto is an unopinionated toolkit and protocol kernel for building NIP-5D
+kernl is an unopinionated toolkit and protocol kernel for building NIP-5D
 napplet runtimes. It supplies reusable host-side machinery without choosing one
-origin, signer, or deployment policy for every implementer. Paja is Kehto's
+origin, signer, or deployment policy for every implementer. Paja is kernl's
 reference developer runtime; the playground is a visualization and verification
 fixture.
 
@@ -11,16 +11,18 @@ fixture.
 > injected-domain behavior may change as the spec evolves. See
 > [Alpha Status](./alpha-status.md).
 
-Kehto provides host-side packages that let a Nostr client embed sandboxed napplet iframe applications: access control, protocol dispatch, browser shell integration, service building blocks, relay discovery, and shell-owned window-management contracts.
+kernl provides host-side packages that let a Nostr client embed sandboxed napplet iframe applications: access control, protocol dispatch, browser shell integration, service building blocks, relay discovery, and shell-owned window-management contracts.
 
-Kehto works with the `@napplet` packages. `@napplet/core`, `@napplet/shim`, `@napplet/nap`, and `@napplet/vite-plugin` define the portable napplet-side protocol and build surface. Kehto consumes those contracts and provides runtime and shell implementation tools.
+kernl works with the `@napplet` packages. `@napplet/core`, `@napplet/shim`, `@napplet/nap`, and `@napplet/vite-plugin` define the portable napplet-side protocol and build surface. kernl consumes those contracts and provides runtime and shell implementation tools.
+
+kernl was previously called Kehto. Install packages under their current `@kehto/*` names; the CLI command remains `kehto`.
 
 ## Start Here
 
 | Reader | Start path | What you are trying to do |
 |--------|------------|----------------------------|
 | Host-app implementer | Runtime implementation guide | Build a shell that hosts sandboxed napplets. |
-| Protocol evaluator | Alpha status | Understand what remains draft-stage and distinguish Kehto's toolkit from Paja's reference choices. |
+| Protocol evaluator | Alpha status | Understand what remains draft-stage and distinguish kernl's toolkit from Paja's reference choices. |
 | Package API consumer | Package reference | Understand one `@kehto/*` package and its exports. |
 | Napplet author | Napplet integration tutorial | Declare `requires`, check injected domains, and use NAP helpers safely. |
 | Maintainer | Docs maintenance guide | Keep README, site, API reference, and milestone history aligned. |

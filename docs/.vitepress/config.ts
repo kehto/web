@@ -1,7 +1,7 @@
 import { defineConfig } from 'vitepress';
 
 export default defineConfig({
-  title: 'Kehto Runtime',
+  title: 'kernl',
   description: 'Runtime packages for hosting sandboxed Nostr napplet applications.',
   base: process.env.VITEPRESS_BASE ?? '/',
   cleanUrls: true,

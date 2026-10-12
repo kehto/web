@@ -1,6 +1,6 @@
 # Troubleshooting and Tips
 
-These notes collect failure modes surfaced during previous Kehto milestones. They are current docs guidance only where they match the shipped runtime behavior.
+These notes collect failure modes surfaced during previous kernl milestones. They are current docs guidance only where they match the shipped runtime behavior.
 
 ## Stale package resolution
 

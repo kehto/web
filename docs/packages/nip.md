@@ -6,7 +6,7 @@ lives in its own folder at its own subpath (e.g. `@kehto/nip/5d`); the barrel
 re-exports them and `sideEffects: false` lets bundlers drop any NIP a consumer
 does not import.
 
-> **Alpha status:** This utility can support Kehto and other napplet runtimes.
+> **Alpha status:** This utility can support kernl and other napplet runtimes.
 > Its integration points may change while NIP-5D runtime implementations evolve.
 
 ## Install
@@ -74,7 +74,7 @@ case, no framework coupling, no module-global state).
 - All stateful helpers are closure-scoped factories (`create*`) — multi-instance safe, never module globals.
 - Crypto and relay concerns are injected (pool adapters, NIP-44 decryptors), so the package carries no crypto or relay-library dependency.
 - The NIP-5D artifact cache is host-owned and optional; it does not make Cache Storage a correctness requirement.
-- Does not bundle bootstrap relay policy, NIP-77 sync, OPFS cache priming, or Kehto runtime dependencies.
+- Does not bundle bootstrap relay policy, NIP-77 sync, OPFS cache priming, or kernl runtime dependencies.
 
 ## API Reference
 
@@ -86,7 +86,7 @@ case, no framework coupling, no module-global state).
 ## NIP-5D event compatibility
 
 Current manifests use a direct artifact `x` hash, plain-text `content`, role-matched
-`z`/`i` intent declarations, and required `R` / optional `O` domains. Kehto also
+`z`/`i` intent declarations, and required `R` / optional `O` domains. kernl also
 accepts legacy aggregate events through an isolated compatibility adapter.
 Existing `aggregateHash` host/cache/ACL fields carry the verified artifact hash
 for current events; legacy identities keep their original aggregate. Both paths
@@ -95,7 +95,7 @@ For the schema and removal boundary, see [event migration](../migrations/NIP-5D-
 
 ## NIP-5D archetype manifest contracts
 
-Kehto follows [NAP-INTENT PR #106](https://github.com/napplet/naps/blob/fc121fc264615482143eda86125863d2e1f741a2/naps/NAP-INTENT.md) at `fc121fc264615482143eda86125863d2e1f741a2` and NIP-5D PR #2303 at `020cb8b33a9e4c6b8ca4b2f9d0ed0a67843b68f7`.
+kernl follows [NAP-INTENT PR #106](https://github.com/napplet/naps/blob/fc121fc264615482143eda86125863d2e1f741a2/naps/NAP-INTENT.md) at `fc121fc264615482143eda86125863d2e1f741a2` and NIP-5D PR #2303 at `020cb8b33a9e4c6b8ca4b2f9d0ed0a67843b68f7`.
 Current manifests declare roles with `z` and contracts with
 `["i", "napplet:<role>/<action>", ...parameterNames]`. Only an intent whose
 role is also declared by `z` is eligible. Invalid advertisements are ignored;

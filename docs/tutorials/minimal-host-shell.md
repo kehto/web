@@ -1,8 +1,8 @@
 # Tutorial: Minimal Host Shell
 
-This tutorial shows the smallest shape of a browser host that embeds one sandboxed napplet through Kehto.
+This tutorial shows the smallest shape of a browser host that embeds one sandboxed napplet through kernl.
 
-> **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
+> **Alpha status:** kernl is an early runtime toolkit for a draft NIP-5D
 > protocol. Use this tutorial as current implementation guidance; NAP contracts,
 > capability names, and helper APIs may change.
 

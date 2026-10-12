@@ -1,7 +1,7 @@
 # Use Paja for Local Napplet Authoring
 
 Use `@kehto/cli` when you want a local napplet app to run inside Paja, the real
-Kehto iframe authoring workshop, while keeping the app dev server's own HMR.
+kernl iframe authoring workshop, while keeping the app dev server's own HMR.
 
 ## Install
 
@@ -18,8 +18,8 @@ yarn add --dev @kehto/cli
 
 ## Add a Dev Script
 
-Keep the app dev server command separate from the Kehto wrapper. The target URL
-stays explicit so Kehto does not guess framework ports.
+Keep the app dev server command separate from the kernl wrapper. The target URL
+stays explicit so kernl does not guess framework ports.
 
 ### pnpm
 
@@ -68,7 +68,7 @@ browser origin. Collapsing never reloads the target, so the running napplet
 keeps its shell state. Paja fetches the target
 HTML into injected `srcdoc` so `window.napplet.<domain>` exists before app
 bootstrap, while target assets and HMR still resolve through the framework dev
-server. The runtime reload button reinitializes the Kehto shell state around the
+server. The runtime reload button reinitializes the kernl shell state around the
 same target URL.
 
 Each section is also an independent flush native accordion: **Pointer** where
@@ -81,7 +81,7 @@ visibility and saved resource origins. Closing a section retains its live contro
 unsaved drafts and the running app; reopen it to continue editing.
 
 The published `@napplet/shim@0.30.0` remains non-shell. Paja therefore retains
-Kehto's host-owned mandatory `window.napplet.shell` prelude, installed before
+kernl's host-owned mandatory `window.napplet.shell` prelude, installed before
 one bare `shell.ready`; its first `shell.init` is cached for local `ready()`,
 `supports()`, read-only `services`, and one-shot `onReady()`. `shell` is not a
 manifest-optional toggle. Optional `dm` follows NIP-5D's truthful-presence rule:
@@ -256,7 +256,7 @@ domains are present before authored app scripts run. Its receiver is installed
 before one `shell.ready`; the returned `shell.init` is cached for `ready()`,
 `supports()`, `services`, and `onReady()`. Disabled optional capability domains
 are removed from the injected namespace and from the advertised `domains` and
-`naps` lists, while enabled domains route through Kehto runtime and reference
+`naps` lists, while enabled domains route through kernl runtime and reference
 services.
 
 The default relay/outbox backend is live. It queries configured public relays,

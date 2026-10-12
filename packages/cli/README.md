@@ -1,6 +1,6 @@
 # @kehto/cli
 
-Top-level Kehto CLI namespace.
+Top-level kernl CLI namespace.
 
 ```json
 {

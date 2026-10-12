@@ -13,11 +13,11 @@ The runtime is designed to be used from a napplet package script:
 }
 ```
 
-The target URL is explicit on purpose. Kehto can spawn any framework command and
+The target URL is explicit on purpose. kernl can spawn any framework command and
 wait for that URL, but it does not guess which URL the framework chose. Loading
-that URL through Paja as injected `srcdoc` lets Kehto install mandatory
+that URL through Paja as injected `srcdoc` lets kernl install mandatory
 `window.napplet.shell` plus enabled optional domains before app code runs. The
-Kehto host-owned shell prelude completes `shell.ready` / `shell.init` and caches
+kernl host-owned shell prelude completes `shell.ready` / `shell.init` and caches
 capability queries,
 while a `<base>` tag keeps the
 app's own assets and HMR pointed at the target dev server without Vite, Svelte,
@@ -94,7 +94,7 @@ reload creates a new ephemeral Dev signer and therefore asks again; a stable
 NIP-07 or NIP-46 account can reuse its saved choice. Publish and other operation
 confirmations continue to prompt independently. This is Paja runtime policy under draft
 [NAP-RELAY PR #2 at `0be8abce18beb46ca37bd4ddd042f58d30b4eedc`](https://github.com/napplet/naps/pull/2), not
-a Kehto kernel default. Upload consent identifies the requesting napplet, file, MIME type,
+a kernl kernel default. Upload consent identifies the requesting napplet, file, MIME type,
 size, selected server, and durable public effect before bytes leave the browser.
 A denial or a live publish with no accepting relay returns a canonical failure
 and is not added to Paja's in-memory relay view. Paja's scoped-relay hook
@@ -254,7 +254,7 @@ Paja activates delivered handler tabs because its stage shows one tab at a time.
 `behavior.focus` is advisory; `reuse: false` creates a new surface. Existing caller
 tabs remain open. Installed contracts and domains appear in pointer diagnostics.
 
-`@napplet/shim@0.30.0` supplies no generic shell API. Kehto deliberately keeps
+`@napplet/shim@0.30.0` supplies no generic shell API. kernl deliberately keeps
 its host-owned mandatory `window.napplet.shell` prelude: it installs the live
 receiver before the one bare `shell.ready`, caches the first `shell.init`, and
 provides local `ready()`, `supports()`, read-only `services`, and one-shot
@@ -465,7 +465,7 @@ Generated API module: `docs/api/modules/_kehto_paja.html` (run `pnpm docs:api`).
 ## NIP-5D event compatibility
 
 Current manifests use a direct artifact `x` hash, plain-text `content`, role-matched
-`z`/`i` intent declarations, and required `R` / optional `O` domains. Kehto also
+`z`/`i` intent declarations, and required `R` / optional `O` domains. kernl also
 accepts legacy aggregate events through an isolated compatibility adapter.
 Existing `aggregateHash` host/cache/ACL fields carry the verified artifact hash
 for current events; legacy identities keep their original aggregate. Both paths

@@ -1,7 +1,7 @@
 # How-to: Handle Unsupported Requires
 
 Current NIP-5D manifests declare required domains with repeated `R` tags and
-optional integrations with repeated `O` tags. Kehto normalizes these to
+optional integrations with repeated `O` tags. kernl normalizes these to
 `manifest.requires` and `manifest.optional`. The old `requires` wire tag is
 supported only by the legacy aggregate-manifest compatibility parser.
 

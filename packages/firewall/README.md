@@ -2,7 +2,7 @@
 
 Pure, WASM-ready behavioral firewall engine for the napplet protocol — zero dependencies, zero side effects.
 
-> **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
+> **Alpha status:** kernl is an early runtime toolkit for a draft NIP-5D
 > protocol. The firewall engine API is not yet final; treat this package
 > as current implementation guidance, not as a stable protocol guarantee.
 
@@ -19,7 +19,7 @@ The published peer compatibility floor is `@napplet/core`
 
 ## Overview
 
-`@kehto/firewall` is Kehto's behavioral abuse-detection engine. It is the temporal complement to `@kehto/acl`: where ACL asks *"is this napplet statically allowed to perform this operation?"*, the firewall asks *"is this napplet abusing an operation over time?"*.
+`@kehto/firewall` is kernl's behavioral abuse-detection engine. It is the temporal complement to `@kehto/acl`: where ACL asks *"is this napplet statically allowed to perform this operation?"*, the firewall asks *"is this napplet abusing an operation over time?"*.
 
 Every function is pure: config + state + observation in, decision + next state out. No I/O, no timers, no globals — the module is trivially compilable to WASM and is the single source of truth for behavioral-firewall decisions.
 

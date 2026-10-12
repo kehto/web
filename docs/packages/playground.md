@@ -1,10 +1,10 @@
 # @kehto/playground
 
-Browser visualization that hosts 9 demo napplets and demonstrates Kehto
-integration behavior. Paja, not the playground, is Kehto's reference developer
+Browser visualization that hosts 9 demo napplets and demonstrates kernl
+integration behavior. Paja, not the playground, is kernl's reference developer
 runtime.
 
-> **Alpha status:** The playground shows Kehto's current behavior for the draft
+> **Alpha status:** The playground shows kernl's current behavior for the draft
 > NIP-5D protocol. It is not a stability guarantee for NAP contracts or helper APIs.
 
 ## Run
@@ -72,18 +72,18 @@ replacement, error, clear, and `pagehide`—never direct remote image URLs.
 `theme.get` supplies the current complete state and each eligible frame receives
 one automatic synchronized `theme.changed` after an update. There is no
 subscribe/unsubscribe protocol. The mandatory shell is likewise host-owned:
-`@napplet/shim@0.30.0` does not provide `window.napplet.shell`; Kehto's prelude
+`@napplet/shim@0.30.0` does not provide `window.napplet.shell`; kernl's prelude
 installs it before one bare ready/init handshake.
 
 Resource demo behavior targets draft NAP-RESOURCE at exact ref
 `9511232f69313aa7953d110e35d32cc28d506f66`. It uses the injected canonical
 `bytesMany([{ url, servers? }])` projection rather than a raw envelope. Its static grants and iframe CSP
-visualize one host policy; they are not Kehto kernel requirements. The playground
+visualize one host policy; they are not kernl kernel requirements. The playground
 does not define new wire semantics, runtime origin policy, or NAP-DM behavior.
 
 ## Scope Boundaries
 
-- Demonstrates and verifies Kehto integration behavior.
+- Demonstrates and verifies kernl integration behavior.
 - Is not a published package.
 - Does not define new protocol behavior; protocol truth belongs in source packages and policy docs.
 
@@ -94,7 +94,7 @@ The playground is private and does not generate package API reference. Use its R
 ## NIP-5D event compatibility
 
 Current manifests use a direct artifact `x` hash, plain-text `content`, role-matched
-`z`/`i` intent declarations, and required `R` / optional `O` domains. Kehto also
+`z`/`i` intent declarations, and required `R` / optional `O` domains. kernl also
 accepts legacy aggregate events through an isolated compatibility adapter.
 Existing `aggregateHash` host/cache/ACL fields carry the verified artifact hash
 for current events; legacy identities keep their original aggregate. Both paths

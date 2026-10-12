@@ -1,6 +1,6 @@
 # Tutorial: Napplet Integration
 
-This guide is for authors building a napplet that will be hosted by Kehto.
+This guide is for authors building a napplet that will be hosted by kernl.
 
 ## Step 1: Declare required NAPs
 
@@ -64,7 +64,7 @@ Inside hosted napplet source, avoid:
 - direct signing/encryption primitives;
 - `allow-same-origin` assumptions.
 
-Kehto shell mediates identity, signing, storage, relay, and host capabilities.
+kernl shell mediates identity, signing, storage, relay, and host capabilities.
 
 ## Step 5: Verify through the gateway path
 

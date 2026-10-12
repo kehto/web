@@ -1,6 +1,6 @@
 # Paja Getting Started
 
-Paja runs one local napplet app inside the real Kehto browser runtime while your
+Paja runs one local napplet app inside the real kernl browser runtime while your
 app dev server keeps its own HMR loop.
 
 ## 1. Install the CLI
@@ -63,7 +63,7 @@ off. Paja reloads the target after each toggle, and the next `shell.init`
 advertises the changed support surface.
 
 `shell` is not an interface toggle. `@napplet/shim@0.30.0` does not supply a
-generic shell API, so Paja's Kehto-owned prelude always installs mandatory
+generic shell API, so Paja's kernl-owned prelude always installs mandatory
 `window.napplet.shell` before one bare `shell.ready`. It caches the first
 `shell.init` for local `ready()`, `supports()`, read-only `services`, and
 one-shot `onReady()` behavior.
@@ -72,7 +72,7 @@ one-shot `onReady()` behavior.
 
 Use **ACL** to grant or revoke runtime capabilities such as `state:write`,
 `notify:send`, `outbox:write`, and `upload:write`. These controls write through
-Kehto runtime ACL state for the active napplet identity. Denials use each NAP's
+kernl runtime ACL state for the active napplet identity. Denials use each NAP's
 defined failure shape; for example, a denied `outbox.query` returns a correlated
 `outbox.query.result` with `events: []` and `error`.
 
