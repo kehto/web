@@ -62,11 +62,9 @@ Use **Interfaces** to turn individual `window.napplet.<domain>` injection on or
 off. Paja reloads the target after each toggle, and the next `shell.init`
 advertises the changed support surface.
 
-`shell` is not an interface toggle. `@napplet/shim@0.30.0` does not supply a
-generic shell API, so Paja's Kehto-owned prelude always installs mandatory
-`window.napplet.shell` before one bare `shell.ready`. It caches the first
-`shell.init` for local `ready()`, `supports()`, read-only `services`, and
-one-shot `onReady()` behavior.
+`shell` is an optional interface. Its readiness exchange supplies environment information; domain calls do not wait for it. `supports(domain)` reads namespace presence locally. See the living [NAP-SHELL](https://github.com/napplet/naps/blob/master/naps/NAP-SHELL.md).
+
+`gamepad` adds host-owned controller snapshots. Keep keyboard or pointer controls available and ignore gameplay transitions while `focused` is false. See [GAMEPAD hosting](/gamepad).
 
 ## 5. Tune ACL
 

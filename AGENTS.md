@@ -180,14 +180,8 @@ first package that compiles.
 - If a canonical NAP message gains a field that is intentionally ignored by a kehto
   surface, document that decision in the nearby test or source comment. Silent omission
   is treated as drift.
-- Do not conflate optional-domain discovery with the foundational handshake. NIP-5D
-  exposes optional runtime domains through injected `window.napplet.<domain>` presence;
-  NAP-SHELL separately mandates `window.napplet.shell` in every conformant runtime.
-  The injected shell receiver must be live before one bare `shell.ready`, cache the
-  first parent `shell.init`, and provide local `ready()`, `supports()`, read-only
-  `services`, and one-shot `onReady()` behavior. `shell` is never manifest-optional,
-  capability-toggleable, or removable by napplet namespace reassignment.
-- Every mandatory-NAP change needs a regression covering API shape, wire direction,
+- Domain discovery uses runtime-injected property presence. [NAP-SHELL](https://github.com/napplet/naps/blob/master/naps/NAP-SHELL.md) is optional and is not a prerequisite for other domains. Bind verified iframe identity and host grants independently of shell.ready. When shell is exposed, its receiver must be live before shell.ready and retain the first parent shell.init for readiness/services only. Supports queries the injected namespace locally.
+- Every NAP change needs a regression covering API shape, wire direction,
   lifecycle/idempotency, parent-source trust, and all Kehto host consumers. For
   NAP-SHELL, prove both Paja and playground iframe paths, not only the shell package.
 - If the playground changes NIP-5D loading, prove provenance in the same change:

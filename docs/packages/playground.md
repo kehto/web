@@ -71,9 +71,7 @@ replacement, error, clear, and `pagehide`—never direct remote image URLs.
 
 `theme.get` supplies the current complete state and each eligible frame receives
 one automatic synchronized `theme.changed` after an update. There is no
-subscribe/unsubscribe protocol. The mandatory shell is likewise host-owned:
-`@napplet/shim@0.30.0` does not provide `window.napplet.shell`; Kehto's prelude
-installs it before one bare ready/init handshake.
+subscribe/unsubscribe protocol. Optional SHELL supplies environment information independently of domain routing; GAMEPAD supplies focus-scoped controller snapshots. See [Controller input](/gamepad).
 
 Resource demo behavior targets draft NAP-RESOURCE at exact ref
 `9511232f69313aa7953d110e35d32cc28d506f66`. It uses the injected canonical

@@ -1,4 +1,4 @@
-import { resolveShellEnvironment } from '@kehto/shell';
+import { originRegistry, resolveShellEnvironment } from '@kehto/shell';
 import type { NostrEvent, NostrFilter } from '@napplet/core';
 import type {
   SessionEntry,
@@ -7,6 +7,8 @@ import type {
 } from '@kehto/shell';
 import type { Signer } from '@kehto/runtime';
 import {
+  browserGamepadOptions,
+  createGamepadService,
   createBleService,
   createCommonService,
   createConfigService,
@@ -375,6 +377,9 @@ function createDevServices(
       },
     },
   };
+  if (getSimulation().capabilities.domains.gamepad) {
+    services.gamepad = createGamepadService(browserGamepadOptions(typeof window === 'undefined' ? undefined : window, (target) => originRegistry.getWindowId(target)));
+  }
   if (getSimulation().capabilities.domains.keys && typeof document !== 'undefined') {
     services.keys = createKeysService({ listenerTarget: document });
   }

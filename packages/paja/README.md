@@ -219,7 +219,7 @@ The file opens in a new runtime tab named after the file.
 - **Same loading path as verified pointers.** Paja registers the identity before
   the frame runs. It injects the Class-1 CSP (with `connect-src 'none'`, since a
   local file has no relay or Blossom hints) and then the runtime-owned
-  `window.napplet` prelude, including mandatory `shell`. The bytes go in through
+  `window.napplet` prelude, including enabled optional domains. The bytes go in through
   `srcdoc` under the same `allow-scripts` sandbox.
 - **Development only and unverified.** A local file has no signed manifest. It
   never enters the installed napplet catalog, never becomes an intent delivery
@@ -254,12 +254,7 @@ Paja activates delivered handler tabs because its stage shows one tab at a time.
 `behavior.focus` is advisory; `reuse: false` creates a new surface. Existing caller
 tabs remain open. Installed contracts and domains appear in pointer diagnostics.
 
-`@napplet/shim@0.30.0` supplies no generic shell API. Kehto deliberately keeps
-its host-owned mandatory `window.napplet.shell` prelude: it installs the live
-receiver before the one bare `shell.ready`, caches the first `shell.init`, and
-provides local `ready()`, `supports()`, read-only `services`, and one-shot
-`onReady()`. This is the documented upstream-package-drift exception, not a
-shim capability.
+Kehto provides the optional `window.napplet.shell` interface for environment information. Other domains route through trusted iframe creation identity independently of readiness. `supports(domain)` queries namespace presence locally. See the living [NAP-SHELL](https://github.com/napplet/naps/blob/master/naps/NAP-SHELL.md).
 
 Before Paja assigns a verified runtime-pointer document to `srcdoc`, it calls
 `@kehto/shell`'s `prepareNappletSrcdoc`. The shell inserts validated CSP first,
@@ -521,3 +516,7 @@ URL cannot supply one. The hidden launcher is removed after acceptance and is
 never persisted or restored. Verification precedes `srcdoc`, and host bootstrap
 injection stays outside signed bytes. Native external-origin sender semantics
 remain a documented upstream spec gap; no host sender identity is invented.
+
+## GAMEPAD integration
+
+This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja and the playground register one host reader and deny native gamepad/HID/USB paths before frame execution. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, window destruction, and service removal release polling. Non-browser or denied native readers report the proposal's unavailable reasons. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).

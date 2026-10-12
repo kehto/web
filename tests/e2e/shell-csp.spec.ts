@@ -48,7 +48,7 @@ const probe = `<body><pre id="result">pending</pre><script>
 
 async function mount(page: Page, html: string, csp?: NappletCspOptions): Promise<void> {
   await page.goto(origin);
-  const srcdoc = prepareNappletSrcdoc(html.replaceAll('https://network.example', origin), { domains: [], csp });
+  const srcdoc = prepareNappletSrcdoc(html.replaceAll('https://network.example', origin), { domains: ['shell'], csp });
   await page.evaluate((documentHtml) => {
     const iframe = document.createElement('iframe');
     iframe.sandbox.value = 'allow-scripts';

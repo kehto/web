@@ -80,11 +80,7 @@ leave session-only toggles usable. These preferences are separate from whole-dra
 visibility and saved resource origins. Closing a section retains its live controls,
 unsaved drafts and the running app; reopen it to continue editing.
 
-The published `@napplet/shim@0.30.0` remains non-shell. Paja therefore retains
-Kehto's host-owned mandatory `window.napplet.shell` prelude, installed before
-one bare `shell.ready`; its first `shell.init` is cached for local `ready()`,
-`supports()`, read-only `services`, and one-shot `onReady()`. `shell` is not a
-manifest-optional toggle. Optional `dm` follows NIP-5D's truthful-presence rule:
+Paja exposes the optional `shell` interface when enabled. Its readiness exchange caches environment information and does not gate other domains. `supports(domain)` reads current namespace presence. See the living [NAP-SHELL](https://github.com/napplet/naps/blob/master/naps/NAP-SHELL.md). Optional `dm` follows NIP-5D's truthful-presence rule:
 Paja advertises it only while the **Dev** signer is selected, relay mode is
 `live`, the relay backend is available, and the DM interface toggle is enabled.
 In that state Paja routes NAP-DM through its runtime-owned NIP-17 adapter for
@@ -251,13 +247,7 @@ SHA-256 and integer byte size. See the pinned draft
 
 ## Verify the Runtime Surface
 
-Inside the target iframe, mandatory `window.napplet.shell` and enabled optional
-domains are present before authored app scripts run. Its receiver is installed
-before one `shell.ready`; the returned `shell.init` is cached for `ready()`,
-`supports()`, `services`, and `onReady()`. Disabled optional capability domains
-are removed from the injected namespace and from the advertised `domains` and
-`naps` lists, while enabled domains route through Kehto runtime and reference
-services.
+Inside the target iframe, enabled domains are present before authored app scripts run. Trusted creation identity and host grants establish routing without a readiness prerequisite. Disabled domains are absent; enabled `shell` optionally provides environment information through `ready()`, `services`, and `onReady()`. See the living [NAP-SHELL](https://github.com/napplet/naps/blob/master/naps/NAP-SHELL.md).
 
 The default relay/outbox backend is live. It queries configured public relays,
 uses NIP-65 relay-list events (`kind:10002`) for outbox routing, and reads

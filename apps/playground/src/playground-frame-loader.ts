@@ -1,4 +1,5 @@
 import {
+  denyNappletControllerAccess,
   prepareNappletSrcdoc,
   originRegistry,
 } from '@kehto/shell';
@@ -101,6 +102,7 @@ export async function loadPlaygroundNapplet(
   const iframe = document.createElement('iframe');
   iframe.id = windowId;
   iframe.className = 'w-full h-full border-0';
+  denyNappletControllerAccess(iframe);
   iframe.sandbox.add('allow-scripts');
 
   const container = document.getElementById(containerId);

@@ -2,13 +2,13 @@ import type { OriginIdentity } from './origin-registry.js';
 import type { ShellAdapter, ShellCapabilities, ShellEnvironment } from './types.js';
 
 const RUNTIME_NATIVE_DOMAINS = [
-  'relay', 'identity', 'storage', 'inc', 'theme', 'keys', 'media', 'notify',
+  'shell', 'relay', 'identity', 'storage', 'inc', 'theme', 'keys', 'media', 'notify',
 ] as const;
 
 const SERVICE_ONLY_DOMAINS = [
   'outbox', 'config', 'resource', 'cvm', 'upload', 'intent', 'link', 'common',
   'lists', 'serial', 'ble', 'webrtc', 'dm', 'count',
-  'fs',
+  'fs', 'gamepad',
 ] as const;
 
 /**

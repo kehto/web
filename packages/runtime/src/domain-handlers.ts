@@ -19,6 +19,7 @@ type RuntimeDomainContext = {
 };
 
 export type RuntimeDomainHandlers = {
+  gamepad: DomainHandler;
   storage: DomainHandler;
   media: DomainHandler;
   keys: DomainHandler;
@@ -42,6 +43,7 @@ export type RuntimeDomainHandlers = {
 
 export function createRuntimeDomainHandlers(context: RuntimeDomainContext): RuntimeDomainHandlers {
   return {
+    gamepad: (windowId, msg) => handleServiceOnlyMessage(context, 'gamepad', windowId, msg),
     storage: (windowId, msg) => handleStorageMessage(context, windowId, msg),
     media: (windowId, msg) => handleMediaMessage(context, windowId, msg),
     keys: (windowId, msg) => handleKeysMessage(context, windowId, msg),
@@ -174,7 +176,7 @@ function handleThemeMessage(context: RuntimeDomainContext, windowId: string, msg
 
 function handleServiceOnlyMessage(
   context: RuntimeDomainContext,
-  name: 'config' | 'resource' | 'cvm' | 'outbox' | 'upload' | 'intent' | 'link' | 'common' | 'lists' | 'serial' | 'ble' | 'webrtc' | 'dm' | 'fs',
+  name: 'gamepad' | 'config' | 'resource' | 'cvm' | 'outbox' | 'upload' | 'intent' | 'link' | 'common' | 'lists' | 'serial' | 'ble' | 'webrtc' | 'dm' | 'fs',
   windowId: string,
   msg: NappletMessage,
 ): void {

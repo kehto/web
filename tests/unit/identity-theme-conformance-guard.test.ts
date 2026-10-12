@@ -90,7 +90,7 @@ describe('Phase 103 identity/theme active-surface guard', () => {
     expect(policy).toContain('fixed non-sensitive complete normal');
     expect(runtime).toContain('identity.getPublicKey.result');
     expect(services).toContain('stores that state before it');
-    expect(shell).toContain('live authenticated `shell.ready` session');
+    expect(shell).toContain('live authenticated source-bound session');
     expect(playground).toContain('ThemeService.publishTheme()');
     expect(guidance).not.toContain('identity.getPublicKey.error');
     expect(guidance).not.toMatch(/theme\.(?:subscribe|unsubscribe)/);

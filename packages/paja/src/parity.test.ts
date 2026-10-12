@@ -44,13 +44,17 @@ function readNapDomainDirectories(): string[] {
 }
 
 describe('@kehto/paja parity metadata', () => {
-  it('keeps NAP-SHELL mandatory and outside optional capability toggles', () => {
-    expect(PAJA_HANDSHAKE_DOMAINS).toEqual(['shell']);
-    expect(PAJA_ADVERTISED_DOMAINS).not.toContain('shell');
+  it('advertises optional SHELL and GAMEPAD without a prerequisite handshake', () => {
+    expect(PAJA_HANDSHAKE_DOMAINS).toEqual([]);
+    expect(PAJA_ADVERTISED_DOMAINS).toContain('shell');
+    expect(PAJA_ADVERTISED_DOMAINS).toContain('gamepad');
   });
 
-  it('tracks the current @napplet/nap web domain directories', () => {
-    expect(readNapDomainDirectories()).toEqual([...PAJA_UPSTREAM_WEB_DOMAINS]);
+  it('covers installed NAP exports and the coordinated GAMEPAD/SHELL additions', () => {
+    const supported = new Set<string>(PAJA_UPSTREAM_WEB_DOMAINS);
+    for (const domain of readNapDomainDirectories()) expect(supported.has(domain)).toBe(true);
+    expect(supported.has('gamepad')).toBe(true);
+    expect(supported.has('shell')).toBe(true);
   });
 
   it('covers every upstream domain as advertised, handshake-only, or compatibility alias', () => {

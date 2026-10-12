@@ -1,4 +1,5 @@
 import {
+  originRegistry,
   buildShellCapabilities,
   resolveShellEnvironment,
   type AclCheckEvent,
@@ -28,6 +29,8 @@ const STATIC_CONNECT_GRANTS: ReadonlyMap<string, readonly string[]> = new Map([
 ]);
 const RESOURCE_E2E_ORIGIN = 'http://localhost:4173';
 import {
+  createGamepadService,
+  browserGamepadOptions,
   createIdentityService,
   createNotificationService,
   createKeysService,
@@ -170,6 +173,7 @@ export function createDemoHooks(
   installRelayTeardown();
 
   const services = {
+    gamepad: createGamepadService(browserGamepadOptions(typeof window === 'undefined' ? undefined : window, (target) => originRegistry.getWindowId(target))),
     relay: relayRuntime.relayService,
     identity: identityService,
     notifications: notificationService,

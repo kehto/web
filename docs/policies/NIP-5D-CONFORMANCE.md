@@ -157,7 +157,7 @@ and policy rather than extending the wire contract.
 - `theme.changed` is an automatic change push. The injected surface is
   `theme.get()` and `theme.onChanged()` only; no theme subscribe/unsubscribe
   wire protocol exists.
-- Host changes target only authenticated live `shell.ready` sessions whose
+- Host changes target only authenticated live source-bound sessions whose
   frozen environment includes the matching domain and whose recipient
   capability is currently granted. The protected injected identity/theme
   objects are readonly and accept results or changes only from `window.parent`.
@@ -176,17 +176,8 @@ Current NIP-5D runtime availability is injected
 - Injection must be limited to `window.napplet`.
 - Domain object presence is availability only; operation semantics, versions,
   errors, and diagnostics belong to the matching NAP spec.
-- Optional-domain presence and mandatory NAP-SHELL are separate requirements.
-  Every Kehto-hosted iframe receives `window.napplet.shell` before authored code,
-  regardless of manifest `requires` or capability toggles.
-- NAP-SHELL owns `ready()`, local `supports(domain, protocol?)`, read-only
-  `services`, `onReady()`, and the `shell.ready` / `shell.init` lifecycle. The
-  runtime prelude installs its parent-bound receiver before emitting readiness;
-  napplet artifacts are not required to bundle their own handshake.
-- Published core `0.32.0` and shim `0.30.0` omit a generic mandatory shell
-  implementation. Kehto retains the host-owned NAP-SHELL prelude under
-  `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24` until a corrected upstream release
-  is reviewed; the shim is never documented as supplying shell.
+- NAP-SHELL is optional and does not gate other domain calls. Trusted iframe creation identity and frozen environment grants establish routing independently of `shell.ready`. The optional namespace exposes `ready()`, local `supports(domain)`, read-only `services`, and `onReady()`; napplet artifacts are not required to bundle their own handshake. This non-normative guidance defers to the living [NAP-SHELL](https://github.com/napplet/naps/blob/master/naps/NAP-SHELL.md).
+- GAMEPAD follows the proposed [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). The host denies native gamepad/HID/USB controller access before loading frames and supplies focus-scoped snapshots through the injected namespace. Optional native Gamepad API replacement is deferred because its permission in GAMEPAD conflicts with NIP-5D's restriction of runtime injection to `window.napplet`.
 
 ### Paja local development targets
 
@@ -207,8 +198,7 @@ byte-identical to the recorded `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`.
 - **Conformant:** the identity is computed from the file's own bytes, never
   accepted from the host. It is registered against the frame `Window` before any
   code runs. The bytes load only through `srcdoc` under `sandbox="allow-scripts"`.
-  The CSP meta and the `window.napplet` prelude (including mandatory `shell` and
-  the unchanged `shell.ready` / `shell.init` handshake) are injected outside the
+  The CSP meta and the `window.napplet` prelude (including enabled optional domains) are injected outside the
   hashed bytes.
 - **Intentional spec-gap decision:** NIP-5D Identity steps 1-3 (resolve and
   verify a signed manifest, then fetch and verify its Blossom artifact) cannot

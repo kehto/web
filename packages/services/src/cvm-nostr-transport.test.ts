@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { finalizeEvent, generateSecretKey, getPublicKey } from 'nostr-tools/pure';
 import * as nip44 from 'nostr-tools/nip44';
 
@@ -96,6 +96,15 @@ function injectedToken(published: McpMessage[]): string | number {
   const token = params?._meta?.progressToken;
   if (token === undefined) throw new Error('request carried no injected progress token');
   return token;
+}
+
+/** Control protocol deadlines independently of real cryptographic processing time. */
+function withFakeClock(run: () => Promise<void>): () => Promise<void> {
+  return async () => {
+    vi.useFakeTimers();
+    try { await run(); }
+    finally { vi.clearAllTimers(); vi.useRealTimers(); }
+  };
 }
 
 describe('createNostrCvmTransport', () => {
@@ -416,7 +425,7 @@ describe('createNostrCvmTransport', () => {
     await expect(responsePromise).rejects.toThrow('relay timeout');
   });
 
-  it('refreshes the request deadline when an admitted frame arrives on an explicit token', async () => {
+  it('refreshes the request deadline when an admitted frame arrives on an explicit token', withFakeClock(async () => {
     const serverSk = generateSecretKey();
     const { pool, serverPubkey, publishedPlain, deliverEncrypted } = createServerPool(serverSk, () => null);
     const transport = createNostrCvmTransport({ pool, defaultRelays: RELAYS, clientSecretKey: generateSecretKey() });
@@ -429,13 +438,13 @@ describe('createNostrCvmTransport', () => {
       },
       { timeoutMs: 250 },
     );
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await vi.advanceTimersByTimeAsync(0);
     const correlationId = publishedPlain[0].id;
     expect(injectedToken(publishedPlain)).toBe('explicit-9');
     const bogusDigest = await sha256Digest('unused');
 
     // A valid start at ~120 ms extends the deadline past the original 250 ms.
-    await new Promise((resolve) => setTimeout(resolve, 120));
+    await vi.advanceTimersByTimeAsync(120);
     deliverEncrypted({
       jsonrpc: '2.0', method: 'notifications/progress',
       params: {
@@ -448,13 +457,14 @@ describe('createNostrCvmTransport', () => {
     });
 
     // The original deadline has passed; the request must still resolve.
-    await new Promise((resolve) => setTimeout(resolve, 180));
+    await vi.advanceTimersByTimeAsync(180);
     deliverEncrypted({ jsonrpc: '2.0', id: correlationId, result: { ok: true } });
 
+    await vi.advanceTimersByTimeAsync(0);
     await expect(responsePromise).resolves.toMatchObject({ id: 9, result: { ok: true } });
-  });
+  }));
 
-  it('drops CEP-41 frames for unissued tokens or foreign signers, and after close', async () => {
+  it('drops CEP-41 frames for unissued tokens or foreign signers, and after close', withFakeClock(async () => {
     const serverSk = generateSecretKey();
     const attackerSk = generateSecretKey();
     const { pool, serverPubkey, publishedPlain, deliverEncrypted } = createServerPool(serverSk, () => null);
@@ -467,7 +477,7 @@ describe('createNostrCvmTransport', () => {
       { jsonrpc: '2.0', id: 10, method: 'tools/call', params: { name: 'chat.complete', arguments: {} } },
       { timeoutMs: 500 },
     );
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await vi.advanceTimersByTimeAsync(0);
     const correlationId = publishedPlain[0].id;
     const token = injectedToken(publishedPlain);
     const streamFrame = (progressToken: string | number, progress: number, cvm: Record<string, unknown>): McpMessage => ({
@@ -479,7 +489,7 @@ describe('createNostrCvmTransport', () => {
     deliverEncrypted(streamFrame(token, 2, { type: 'open-stream', frameType: 'ping', nonce: 'n1' }), attackerSk);
     // The expected signer on a token the client never issued: dropped too.
     deliverEncrypted(streamFrame('never-issued', 3, { type: 'open-stream', frameType: 'chunk', chunkIndex: 0, data: 'x' }));
-    await new Promise((resolve) => setTimeout(resolve, 25));
+    await vi.advanceTimersByTimeAsync(25);
     expect(events).toHaveLength(0);
     expect(publishedPlain.filter((message) => {
       const params = message.params as { cvm?: { frameType?: string } } | undefined;
@@ -491,13 +501,14 @@ describe('createNostrCvmTransport', () => {
     deliverEncrypted(streamFrame(token, 5, { type: 'open-stream', frameType: 'chunk', chunkIndex: 0, data: 'x' }));
     deliverEncrypted(streamFrame(token, 6, { type: 'open-stream', frameType: 'close' }));
     deliverEncrypted(streamFrame(token, 7, { type: 'open-stream', frameType: 'chunk', chunkIndex: 1, data: 'x' }));
-    await new Promise((resolve) => setTimeout(resolve, 25));
+    await vi.advanceTimersByTimeAsync(25);
     expect(events).toHaveLength(3); // start + chunk + close; the post-close chunk is dropped
 
     // The correlated response still settles the request after the close.
     deliverEncrypted({ jsonrpc: '2.0', id: correlationId, result: { ok: true } });
+    await vi.advanceTimersByTimeAsync(0);
     await expect(responsePromise).resolves.toMatchObject({ id: 10, result: { ok: true } });
-  });
+  }));
 
   it('admits CEP-22 replies for an explicit progress token on a non-tools/call method', async () => {
     const serverSk = generateSecretKey();
@@ -972,7 +983,7 @@ describe('createNostrCvmTransport', () => {
     await expect(responsePromise).resolves.toMatchObject({ id: 301, result: { ok: true } });
   });
 
-  it('keeps an idle CEP-41 stream alive only when the pong matches the probe nonce', async () => {
+  it('keeps an idle CEP-41 stream alive only when the pong matches the probe nonce', withFakeClock(async () => {
     const serverSk = generateSecretKey();
     const { pool, serverPubkey, publishedPlain, deliverEncrypted } = createServerPool(serverSk, () => null);
     const transport = createNostrCvmTransport({
@@ -987,7 +998,7 @@ describe('createNostrCvmTransport', () => {
       { jsonrpc: '2.0', id: 31, method: 'tools/call', params: { name: 'chat.complete', arguments: {} } },
       { timeoutMs: 2_000 },
     );
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await vi.advanceTimersByTimeAsync(0);
     const correlationId = publishedPlain[0].id;
     const token = injectedToken(publishedPlain);
     const frame = (progress: number, cvm: Record<string, unknown>): McpMessage => ({
@@ -997,7 +1008,7 @@ describe('createNostrCvmTransport', () => {
 
     deliverEncrypted(frame(1, { type: 'open-stream', frameType: 'start' }));
     // Wait for the idle ping and learn its nonce.
-    await new Promise((resolve) => setTimeout(resolve, 120));
+    await vi.advanceTimersByTimeAsync(120);
     const ping = publishedPlain.find((message) => {
       const params = message.params as { cvm?: { frameType?: string; nonce?: string } } | undefined;
       return params?.cvm?.frameType === 'ping';
@@ -1007,16 +1018,16 @@ describe('createNostrCvmTransport', () => {
 
     // A pong with an unknown nonce is not liveness evidence (CEP-41).
     deliverEncrypted(frame(2, { type: 'open-stream', frameType: 'pong', nonce: 'bogus' }));
-    await new Promise((resolve) => setTimeout(resolve, 40));
+    await vi.advanceTimersByTimeAsync(40);
     // The matching pong satisfies the probe; the stream survives.
     deliverEncrypted(frame(3, { type: 'open-stream', frameType: 'pong', nonce }));
-    await new Promise((resolve) => setTimeout(resolve, 40));
+    await vi.advanceTimersByTimeAsync(40);
     deliverEncrypted(frame(4, { type: 'open-stream', frameType: 'chunk', chunkIndex: 0, data: 'alive' }));
-    await new Promise((resolve) => setTimeout(resolve, 40));
+    await vi.advanceTimersByTimeAsync(40);
     expect(events).toHaveLength(2); // start + chunk
 
     // Past the original probe deadline, no abort was ever published.
-    await new Promise((resolve) => setTimeout(resolve, 140));
+    await vi.advanceTimersByTimeAsync(140);
     expect(publishedPlain.some((message) => {
       const params = message.params as { cvm?: { frameType?: string } } | undefined;
       return params?.cvm?.frameType === 'abort';
@@ -1024,8 +1035,9 @@ describe('createNostrCvmTransport', () => {
 
     deliverEncrypted(frame(5, { type: 'open-stream', frameType: 'close', lastChunkIndex: 0 }));
     deliverEncrypted({ jsonrpc: '2.0', id: correlationId, result: { ok: true } });
+    await vi.advanceTimersByTimeAsync(0);
     await expect(responsePromise).resolves.toMatchObject({ id: 31, result: { ok: true } });
-  });
+  }));
 
   it('preserves a numeric progressToken type in CEP-41 pongs', async () => {
     const serverSk = generateSecretKey();

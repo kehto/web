@@ -26,6 +26,8 @@ interface FakeFrame {
   contentWindow: Window;
   sandbox: { add: ReturnType<typeof vi.fn>; remove: ReturnType<typeof vi.fn> };
   addEventListener: ReturnType<typeof vi.fn>;
+  getAttribute: ReturnType<typeof vi.fn>;
+  setAttribute: ReturnType<typeof vi.fn>;
   removeAttribute: ReturnType<typeof vi.fn>;
   remove: ReturnType<typeof vi.fn>;
 }
@@ -41,6 +43,8 @@ function fakeFrame(): FakeFrame {
     contentWindow: { postMessage: vi.fn() } as unknown as Window,
     sandbox: { add: vi.fn(), remove: vi.fn() },
     addEventListener: vi.fn(),
+    getAttribute: vi.fn(() => null),
+    setAttribute: vi.fn(),
     removeAttribute: vi.fn(),
     remove: vi.fn(),
   };

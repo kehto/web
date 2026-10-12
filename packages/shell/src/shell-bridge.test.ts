@@ -23,6 +23,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { createGamepadService } from '@kehto/services';
 import { createShellBridge } from './shell-bridge.js';
 import { originRegistry } from './origin-registry.js';
 import { resolveShellEnvironment } from './shell-init.js';
@@ -600,7 +601,7 @@ describe('ShellBridge.handleMessage onUnroutedMessage hook', () => {
     const onUnroutedMessage = vi.fn();
     const iframe = makeFakeIframe();
     const win = iframe as unknown as Window;
-    originRegistry.register(win, 'win-registered');
+    originRegistry.register(win, 'win-registered', { dTag: 'registered', aggregateHash: 'artifact-hash' });
 
     const bridge = createShellBridge({ ...makeTestHooks(), onUnroutedMessage });
     const runtimeSpy = vi.spyOn(bridge.runtime, 'handleMessage');
@@ -1161,8 +1162,8 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
     const winA = frameA as unknown as Window;
     const winB = frameB as unknown as Window;
     const grants = {
-      a: { domains: ['relay'], services: ['config'] },
-      b: { domains: ['storage', 'count'], services: ['count'] },
+      a: { domains: ['shell', 'relay'], services: ['config'] },
+      b: { domains: ['shell', 'storage', 'count'], services: ['count'] },
     };
     const availableInputs: Array<{ domains: readonly string[]; services: readonly string[] }> = [];
     const hooks: ShellAdapter = {
@@ -1189,8 +1190,8 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
     const initB = frameB.postMessage.mock.calls[0][0] as { type: string; capabilities: { domains: readonly string[] }; services: readonly string[] };
     expect(Object.keys(initA)).toEqual(['type', 'capabilities', 'services']);
     expect(Object.keys(initA.capabilities)).toEqual(['domains']);
-    expect(initA).toEqual({ type: 'shell.init', capabilities: { domains: ['relay'] }, services: ['config'] });
-    expect(initB).toEqual({ type: 'shell.init', capabilities: { domains: ['storage', 'count'] }, services: ['count'] });
+    expect(initA).toEqual({ type: 'shell.init', capabilities: { domains: ['shell', 'relay'] }, services: ['config'] });
+    expect(initB).toEqual({ type: 'shell.init', capabilities: { domains: ['shell', 'storage', 'count'] }, services: ['count'] });
     expect(initA.capabilities.domains).not.toBe(initB.capabilities.domains);
     expect(initA.services).not.toBe(initB.services);
 
@@ -1200,7 +1201,7 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
     expect(() => (availableInputs[0].services as string[]).push('forged')).toThrow();
     expect(() => (initA.capabilities.domains as string[]).push('forged')).toThrow();
     expect(() => (initA.services as string[]).push('forged')).toThrow();
-    expect(initB).toEqual({ type: 'shell.init', capabilities: { domains: ['storage', 'count'] }, services: ['count'] });
+    expect(initB).toEqual({ type: 'shell.init', capabilities: { domains: ['shell', 'storage', 'count'] }, services: ['count'] });
 
     bridge.handleMessage({ source: winA, origin: 'https://a.example', data: { type: 'shell.ready' } } as MessageEvent);
     expect(frameA.postMessage).toHaveBeenCalledTimes(1);
@@ -1288,8 +1289,8 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
       capabilities: {
         resolveEnvironment(identity) {
           return identity.dTag === 'first'
-            ? { domains: ['relay'], services: ['config'] }
-            : { domains: ['count'], services: ['count'] };
+            ? { domains: ['shell', 'relay'], services: ['config'] }
+            : { domains: ['shell', 'count'], services: ['count'] };
         },
       },
     };
@@ -1299,14 +1300,14 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
     bridge.handleMessage({ source: win, origin: 'https://reload.example', data: { type: 'shell.ready' } } as MessageEvent);
     const firstSession = bridge.runtime.sessionRegistry.getEntryByWindowId('window-reload');
     expect(iframe.postMessage.mock.calls[0][0]).toEqual({
-      type: 'shell.init', capabilities: { domains: ['relay'] }, services: ['config'],
+      type: 'shell.init', capabilities: { domains: ['shell', 'relay'] }, services: ['config'],
     });
 
     originRegistry.register(win, 'window-reload', { dTag: 'second', aggregateHash: 'second-hash' });
     bridge.handleMessage({ source: win, origin: 'https://reload.example', data: { type: 'shell.ready' } } as MessageEvent);
 
     expect(iframe.postMessage.mock.calls[1][0]).toEqual({
-      type: 'shell.init', capabilities: { domains: ['count'] }, services: ['count'],
+      type: 'shell.init', capabilities: { domains: ['shell', 'count'] }, services: ['count'],
     });
     const secondSession = bridge.runtime.sessionRegistry.getEntryByWindowId('window-reload');
     expect(secondSession?.dTag).toBe('second');
@@ -1337,5 +1338,49 @@ describe('root/snapshot identity handshake', () => {
     expect(iframe.postMessage.mock.calls.filter(([message]) => message.type === 'shell.init')).toHaveLength(1);
     bridge.destroy();
     originRegistry.clear();
+  });
+});
+
+
+describe('GAMEPAD source-bound routing', () => {
+  beforeEach(() => originRegistry.clear());
+  afterEach(() => originRegistry.clear());
+  it('delivers immediately without SHELL, rejects unknown sources and ends old subscriptions', () => {
+    const frame = makeFakeIframe(); const win = frame as unknown as Window;
+    const service = createGamepadService();
+    const hooks = { ...makeTestHooks(), services: { gamepad: service }, capabilities: { resolveEnvironment: () => ({ domains: ['gamepad'], services: ['gamepad'] }) } };
+    const bridge = createShellBridge(hooks);
+    const subscribe = { type: 'gamepad.subscribe' };
+    bridge.handleMessage({ source: {}, origin: 'null', data: subscribe } as MessageEvent);
+    expect(frame.postMessage).not.toHaveBeenCalled();
+    originRegistry.register(win, 'controller-frame', { dTag: 'game', aggregateHash: 'artifact-hash' });
+    bridge.handleMessage({ source: win, origin: 'null', data: subscribe } as MessageEvent);
+    expect(frame.postMessage).toHaveBeenCalledExactlyOnceWith({ type: 'gamepad.state', available: false, reason: 'unavailable', focused: false, pads: [] }, '*');
+    expect(bridge.runtime.sessionRegistry.getEntryByWindowId('controller-frame')?.dTag).toBe('game');
+    bridge.handleMessage({ source: win, origin: 'null', data: { type: 'shell.ready' } } as MessageEvent);
+    expect(frame.postMessage).toHaveBeenCalledTimes(1);
+    bridge.handleMessage({ source: win, origin: 'null', data: { type: 'gamepad.unsubscribe' } } as MessageEvent);
+    service.refresh(); expect(frame.postMessage).toHaveBeenCalledTimes(1);
+    bridge.destroy();
+  });
+  it('preserves trusted sessions registered by host integrators without a readiness exchange', () => {
+    const frame = makeFakeIframe(); const win = frame as unknown as Window;
+    originRegistry.register(win, 'prebound-frame');
+    const bridge = createShellBridge({ ...makeTestHooks(), services: { gamepad: createGamepadService() }, capabilities: { resolveEnvironment: () => ({ domains: ['gamepad'], services: ['gamepad'] }) } });
+    const entry = makeSessionEntry({ windowId: 'prebound-frame', dTag: 'game', aggregateHash: 'artifact-hash' });
+    bridge.runtime.sessionRegistry.register('prebound-frame', entry);
+    bridge.handleMessage({ source: win, origin: 'null', data: { type: 'gamepad.subscribe' } } as MessageEvent);
+    expect(frame.postMessage.mock.lastCall![0].type).toBe('gamepad.state');
+    expect(bridge.runtime.sessionRegistry.getEntryByWindowId('prebound-frame')).toEqual(entry);
+    bridge.destroy();
+  });
+  it('does not route GAMEPAD when the frozen host environment excludes it', () => {
+    const frame = makeFakeIframe(); const win = frame as unknown as Window;
+    const handleMessage = vi.fn();
+    originRegistry.register(win, 'denied-frame', { dTag: 'game', aggregateHash: 'artifact-hash' });
+    const bridge = createShellBridge({ ...makeTestHooks(), services: { gamepad: { descriptor: { name: 'gamepad', version: '1.0.0' }, handleMessage } }, capabilities: { disabledDomains: ['gamepad'] } });
+    bridge.handleMessage({ source: win, origin: 'null', data: { type: 'gamepad.subscribe' } } as MessageEvent);
+    expect(handleMessage).not.toHaveBeenCalled(); expect(frame.postMessage).not.toHaveBeenCalled();
+    bridge.destroy();
   });
 });

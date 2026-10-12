@@ -435,7 +435,7 @@ describe('NIP-5D conformance static guards', () => {
 
     // Published core/shim omit generic shell, so NAP-SHELL stays a Kehto-owned
     // prelude with a live receiver, one bare ready signal, and local support.
-    expect(prelude).toContain("const domains = uniqueBareDomains(['shell', ...options.domains]);");
+    expect(prelude).toContain("const domains = uniqueBareDomains(options.domains);");
     expect(prelude).toContain("if (message.type !== 'shell.init') return;");
     expect(prelude).toContain('function supports(domain: string): boolean');
     expect(prelude).toContain("post({ type: 'shell.ready' });");
@@ -643,13 +643,13 @@ describe('NIP-5D conformance static guards', () => {
     }
   });
 
-  it('keeps mandatory NAP-SHELL separate from optional-domain discovery', () => {
+  it('keeps optional NAP-SHELL independent of other domains', () => {
     const agents = readRepoFile('AGENTS.md');
     const policy = readRepoFile('docs/policies/NIP-5D-CONFORMANCE.md');
 
-    expect(agents).toContain('NAP-SHELL separately mandates `window.napplet.shell`');
+    expect(agents).toMatch(/NAP-SHELL.*is optional/);
     expect(agents).toMatch(/A missing or stale\s+package export is upstream drift/);
-    expect(policy).toContain('Optional-domain presence and mandatory NAP-SHELL are separate requirements.');
+    expect(policy).toContain('NAP-SHELL is optional and does not gate other domain calls.');
     expect(policy).toContain('napplet artifacts are not required to bundle their own handshake');
   });
 

@@ -143,7 +143,7 @@ describe('SH-C01 / SH-C03: window.nostr injection is removed', () => {
     const caps = buildShellCapabilities(stubHooks());
     expect(new Set(caps.domains)).toEqual(
       new Set([
-        'relay', 'identity', 'storage', 'inc', 'theme', 'keys', 'media', 'notify',
+        'shell', 'relay', 'identity', 'storage', 'inc', 'theme', 'keys', 'media', 'notify',
       ]),
     );
     expect(caps.domains).not.toContain('nostrdb');

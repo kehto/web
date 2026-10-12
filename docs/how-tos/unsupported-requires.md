@@ -9,7 +9,7 @@ supported only by the legacy aggregate-manifest compatibility parser.
 
 1. Resolve and verify the NIP-5D manifest.
 2. Read the complete normalized required-domain set (`R`).
-3. Compare it with the host-resolved environment for this napplet; `shell` is mandatory.
+3. Compare it with the host-resolved environment for this napplet; `shell` is optional.
 4. Reject loading or show a clear compatibility warning before treating the napplet as usable.
 
 ```ts

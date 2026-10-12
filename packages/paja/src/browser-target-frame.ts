@@ -1,4 +1,5 @@
 import {
+  denyNappletControllerAccess,
   injectNappletNamespacePrelude,
   prepareNappletSrcdoc,
   originRegistry,
@@ -72,6 +73,7 @@ export async function navigateFrame(
   isCurrent?: () => boolean,
   onRegistered?: (windowId: string | null) => void,
 ): Promise<string | null> {
+  denyNappletControllerAccess(frame);
   const identity = getTargetOriginIdentity(config, resolvedTarget);
   const environment = resolvePajaFrameEnvironment(adapter, identity);
   const domains = environment.capabilities.domains;

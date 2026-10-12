@@ -43,7 +43,7 @@ describe.each(['current', 'legacy'] as const)('%s Paja frame admission', (format
     const win = {} as Window;
     let output = '';
     const frame = {
-      contentWindow: win, removeAttribute: vi.fn(),
+      contentWindow: win, getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn(),
       set srcdoc(value: string) {
         expect(originRegistry.getIdentity(win)).toEqual({ dTag: resolved.dTag, aggregateHash: resolved.aggregateHash });
         output = value;
@@ -61,7 +61,7 @@ describe.each(['current', 'legacy'] as const)('%s Paja frame admission', (format
   it('rejects a missing required domain before registration or execution', async () => {
     const resolved = await target(format, ['unavailable']);
     const win = {} as Window;
-    const frame = { contentWindow: win, srcdoc: '', removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
+    const frame = { contentWindow: win, srcdoc: '', getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
     await expect(navigateFrame(frame, config, 1, adapter, resolved)).rejects.toThrow(/unavailable/);
     expect(frame.srcdoc).toBe('');
     expect(originRegistry.getIdentity(win)).toBeUndefined();
@@ -95,7 +95,7 @@ it('loads optional-INC artifacts with INC disabled without advertising a handler
   const catalog = new InstalledNappletCatalog();
   catalog.install(resolved);
   const disabled = { capabilities: { disabledDomains: ['inc'] } } as unknown as ShellAdapter;
-  const frame = { contentWindow: {} as Window, srcdoc: '', removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
+  const frame = { contentWindow: {} as Window, srcdoc: '', getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
   await navigateFrame(frame, config, 1, disabled, resolved);
   expect(frame.srcdoc).toContain('Verified bytes');
   expect(originRegistry.getEnvironment(frame.contentWindow!)?.capabilities.domains).not.toContain('inc');

@@ -264,7 +264,7 @@ The file opens in a new runtime tab named after the file.
 - **Same loading path as verified pointers.** Paja registers the identity before
   the frame runs. It injects the Class-1 CSP (with `connect-src 'none'`, since a
   local file has no relay or Blossom hints) and then the runtime-owned
-  `window.napplet` prelude, including mandatory `shell`. The bytes go in through
+  `window.napplet` prelude, including enabled optional domains. The bytes go in through
   `srcdoc` under the same `allow-scripts` sandbox.
 - **Development only and unverified.** A local file has no signed manifest. It
   never enters the installed napplet catalog, never becomes an intent delivery
@@ -299,10 +299,7 @@ Paja activates delivered handler tabs because its stage shows one tab at a time.
 `behavior.focus` is advisory; `reuse: false` creates a new surface. Existing caller
 tabs remain open. Installed contracts and domains appear in pointer diagnostics.
 
-The published `@napplet/shim@0.30.0` is intentionally non-shell. Kehto's
-host-owned prelude remains responsible for mandatory `window.napplet.shell`,
-the one bare `shell.ready` / first `shell.init` handshake, and local cached
-`ready()`, `supports()`, read-only `services`, and one-shot `onReady()`.
+Kehto provides the optional `window.napplet.shell` interface for environment information. Other domains route through trusted iframe creation identity independently of readiness. `supports(domain)` queries namespace presence locally. See the living [NAP-SHELL](https://github.com/napplet/naps/blob/master/naps/NAP-SHELL.md).
 
 ## NAP and Service Parity
 
@@ -313,10 +310,7 @@ is live:
 `common`, `lists`, `serial`, `ble`, `webrtc`, `media`, `notify`, `config`,
 `resource`, `cvm`, `upload`, `intent`, `count`, `dm`, and `fs`.
 
-`shell` is represented as the mandatory handshake domain rather than an
-injected availability domain. The deprecated legacy compatibility package path
-is represented as an upstream alias to `inc`; upstream
-`@napplet/nap` does not register a separate runtime domain for that alias.
+`shell` and `gamepad` are optional advertised domains. The retained `PAJA_HANDSHAKE_DOMAINS` compatibility export is empty. GAMEPAD uses one host reader and focus-scoped state delivery; native controller access is denied in each frame. See [Controller input](/gamepad).
 
 `dm` is conditional on live relays plus Paja's selected Dev signer. The
 runtime-owned key creates and verifies actual NIP-17 gift wraps, history is

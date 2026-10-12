@@ -7,6 +7,8 @@ export type JsonRecord = Record<string, JsonValue>;
 
 /** Capability domain names Paja can advertise or disable. */
 export type PajaCapabilityDomain =
+  | 'shell'
+  | 'gamepad'
   | 'relay'
   | 'outbox'
   | 'storage'
@@ -157,6 +159,8 @@ export class PajaSimulationError extends Error {
 
 /** Capability domains exposed by Paja simulation controls. */
 export const PAJA_SIMULATION_DOMAINS: readonly PajaCapabilityDomain[] = [
+  'shell',
+  'gamepad',
   'relay',
   'outbox',
   'storage',

@@ -118,7 +118,7 @@ The resolver verifies both current artifact events and legacy aggregate events.
 Host namespace and CSP injection happen after verification, outside signed
 bytes. Keep the original verified bytes for identity and caching; the prepared
 document is a rendered copy. Optional manifest domains do not grant authority
-or prevent loading. `shell.ready` establishes the runtime session. See
+or prevent loading. Trusted iframe creation identity establishes the runtime session independently of optional `shell.ready`. See
 [CSP enforcement](../policies/NIP-5D-CONFORMANCE.md#shell-csp-enforcement)
 for host overrides and constraints.
 

@@ -55,9 +55,8 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
   signer consent without making that policy part of Kehto's shell adapter.
 - Preserves an asynchronous `RelayPoolHooks.publishToScopedRelay()` result so
   scoped publication does not report success before transport acceptance.
-- Provides `prepareNappletSrcdoc()` for validated CSP followed by optional NIP-5D domains plus mandatory NAP-SHELL before authored `srcdoc` scripts execute. The prelude installs its receiver before one `shell.ready`, caches the first parent `shell.init`, and prevents napplet namespace reassignment from removing `shell`. Bootstrap-only helpers remain low-level utilities for development wrappers.
+- Provides `prepareNappletSrcdoc()` outside verified bytes and exposes only host-selected domains before authored scripts. Optional SHELL provides environment information; source-bound routing does not depend on readiness. See [NAP-SHELL](https://github.com/napplet/naps/blob/master/naps/NAP-SHELL.md).
 - Its injected resource projection carries NAP-RESOURCE's optional per-resource Blossom `servers`, including the canonical bulk `requests: [{ url, servers? }]` shape.
-- The published `@napplet/core@0.32.0` and `@napplet/shim@0.30.0` line does not supply a generic mandatory shell surface. Kehto therefore retains this host-owned prelude under NAP-SHELL `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24` until an upstream correction is reviewed.
 - Advertises `count` in shell capabilities and the injected `window.napplet` namespace only when `ShellAdapter.services.count` is wired, so `shell.supports("count")` tracks an actual NAP-COUNT backend.
 - Surfaces unroutable inbound messages via the optional `ShellAdapter.onUnroutedMessage` hook (`UnroutedMessageInfo`) — observe-only; the bridge still drops messages from unidentified or unregistered windows, but hosts can now log them instead of debugging a silent vanish.
 - Advertises and injects `dm` or `fs` only when the matching runtime service is registered and host domain policy permits it.
@@ -120,3 +119,7 @@ Legacy object-form `invoke(request)` and `open(archetype, payload?, opts?)`
 remain bounded compatibility adapters and warn once per iframe with
 `KEHTO_COMPAT_INTENT_OBJECT_INVOKE`. Their removal conditions are tracked in
 [compatibility](https://github.com/kehto/web/blob/main/docs/compatibility.md).
+
+## GAMEPAD integration
+
+This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja and the playground register one host reader and deny native gamepad/HID/USB paths before frame execution. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, window destruction, and service removal release polling. Non-browser or denied native readers report the proposal's unavailable reasons. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).

@@ -301,6 +301,8 @@ export type {
 } from './dm-types.js';
 
 export { createFsService, FsServiceError } from './fs-service.js';
+export { createGamepadService } from './gamepad-service.js';
+export type { GamepadPadSample, GamepadService, GamepadServiceOptions } from './gamepad-service.js';
 export type {
   FsBackend,
   FsBackendChange,
@@ -308,3 +310,5 @@ export type {
   FsService,
   FsServiceOptions,
 } from './fs-service.js';
+
+export { browserGamepadOptions } from './browser-gamepad.js';

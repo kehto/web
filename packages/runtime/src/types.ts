@@ -457,9 +457,9 @@ export interface ServiceRuntimeContext {
   /**
    * Send a runtime-originated message after current recipient policy checks.
    *
-   * The message must have a recipient capability mapping. The target must be a
-   * live session whose immutable domain environment and current ACL grant both
-   * permit the message.
+   * The target must be a live source-bound session whose immutable environment
+   * exposes the domain. Mapped recipient capabilities also require their current
+   * ACL grant. GAMEPAD state has no invented recipient capability mapping.
    *
    * @param windowId - Intended live recipient window.
    * @param message - Runtime-originated NIP-5D envelope.

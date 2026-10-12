@@ -340,10 +340,10 @@ describe('current @napplet package graph guard', () => {
     }
   });
 
-  it('admits only the current @napplet 0.32 line on published kehto packages', () => {
+  it('accepts the baseline and GAMEPAD peer release lines while retaining baseline development', () => {
     // Kehto runtime packages track the current NAP contract so new canonical
     // fields are wired through runtime, services, shell, Paja, docs, and tests.
-    const PEER_RANGE = '>=0.32.0 <0.33.0';
+    const PEER_RANGE = '>=0.32.0 <0.35.0';
     const DEV_RANGE = '>=0.32.0 <0.33.0';
     for (const dir of publicPackageDirs) {
       const packageJsonPath = join(process.cwd(), dir, 'package.json');

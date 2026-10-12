@@ -1,4 +1,4 @@
-import { originRegistry, type ShellAdapter, type ShellBridge } from '@kehto/shell';
+import { denyNappletControllerAccess, originRegistry, type ShellAdapter, type ShellBridge } from '@kehto/shell';
 
 import {
   PAJA_DEV_SIGNER_PUBKEY,
@@ -543,6 +543,7 @@ function createRuntimeTabFrame(
   frame.id = `napplet-frame-${tab.id}`;
   frame.className = 'tab-panel';
   frame.title = `Napplet runtime target: ${tab.title}`;
+  denyNappletControllerAccess(frame);
   frame.sandbox.add('allow-scripts');
   frame.sandbox.remove('allow-same-origin');
   frame.dataset.tabId = tab.id;

@@ -317,7 +317,7 @@ export interface UnroutedMessageInfo {
 /**
  * Static capability set sent to napplet iframes through the shell.ready /
  * shell.init handshake. Optional runtime domain presence is injected before
- * authored code, while mandatory NAP-SHELL caches this environment for local
+ * authored code, while optional NAP-SHELL caches this environment for local
  * capability queries.
  *
  * NAP-SHELL needs only a truthful set of bare domain names. The shim answers

@@ -1,6 +1,7 @@
 
 // Factory function — main entry point
 export { createShellBridge } from './shell-bridge.js';
+export { denyNappletControllerAccess } from './gamepad-policy.js';
 export type { ShellBridge } from './shell-bridge.js';
 export {
   injectNappletNamespacePrelude,

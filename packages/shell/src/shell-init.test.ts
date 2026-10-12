@@ -44,7 +44,7 @@ describe('buildShellCapabilities', () => {
 
     expect(Object.keys(first)).toEqual(['domains']);
     expect(first.domains).toEqual([
-      'relay', 'identity', 'storage', 'inc', 'theme', 'keys', 'media', 'notify',
+      'shell', 'relay', 'identity', 'storage', 'inc', 'theme', 'keys', 'media', 'notify',
     ]);
     expect(first.domains).not.toBe(second.domains);
     expect(() => (first.domains as string[]).push('forged')).toThrow();
@@ -66,6 +66,7 @@ describe('buildShellCapabilities', () => {
     ['dm', {}],
     ['count', {}],
     ['fs', {}],
+    ['gamepad', {}],
   ];
 
   it.each(unwiredDomains)('does not advertise unwired service-only domain %s', (domain, adapter) => {
@@ -91,6 +92,7 @@ describe('buildShellCapabilities', () => {
         dm: service('dm'),
         count: service('count'),
         fs: service('fs'),
+        gamepad: service('gamepad'),
       },
       upload: { getUploader: () => ({ rails: ['nip96'] }) },
       intent: { isAvailable: () => true },
@@ -104,9 +106,9 @@ describe('buildShellCapabilities', () => {
     };
 
     expect(buildShellCapabilities(hooks).domains).toEqual([
-      'relay', 'identity', 'storage', 'inc', 'theme', 'keys', 'media', 'notify',
+      'shell', 'relay', 'identity', 'storage', 'inc', 'theme', 'keys', 'media', 'notify',
       'outbox', 'config', 'resource', 'cvm', 'upload', 'intent', 'link', 'common',
-      'lists', 'serial', 'ble', 'webrtc', 'dm', 'count', 'fs',
+      'lists', 'serial', 'ble', 'webrtc', 'dm', 'count', 'fs', 'gamepad',
     ]);
   });
 });

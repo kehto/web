@@ -30,7 +30,7 @@ function createInjectedShell(): {
     },
     removeEventListener: (_type: string, listener: (event: { source: unknown; data: unknown }) => void) => listeners.delete(listener),
   } as { parent: typeof parent; crypto: { randomUUID: () => string }; napplet?: { shell?: { supports: (domain: string) => boolean } }; addEventListener: unknown; removeEventListener: unknown };
-  const script = renderNappletNamespacePrelude({ domains: [] });
+  const script = renderNappletNamespacePrelude({ domains: ['shell', 'inc'] });
   const source = script.match(/<script[^>]*>([\s\S]*)<\/script>/)?.[1];
   if (!source) throw new Error('missing prelude source');
   new Function('window', source)(target);
@@ -56,7 +56,7 @@ describe('shell.supports domain-only environment', () => {
     expect(environment.capabilities).toEqual(capabilities);
     expect(injected.posted).toEqual([{ type: 'shell.ready' }]);
     expect(injected.shell.supports.length).toBe(1);
-    expect(injected.shell.supports('inc')).toBe(false);
+    expect(injected.shell.supports('inc')).toBe(true);
     injected.init(environment);
     expect(injected.shell.supports('inc')).toBe(true);
     expect(injected.shell.supports('outbox')).toBe(false);
