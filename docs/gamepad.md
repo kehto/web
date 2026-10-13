@@ -18,3 +18,7 @@ Non-browser hosts can install the service without a native reader; subscribers r
 The injected API provides cached `getGamepads()`, `available`, `focused`, and `onChange(handler)`. It preserves null slots and controller indices, copies snapshots for callers, and accepts state only from the parent. Keep a keyboard or pointer fallback. Treat lost focus as idle and establish a fresh button baseline on regained focus so already-held buttons do not become new presses.
 
 The native browser Gamepad API is left untouched. The proposal permits an optional compatibility replacement, but NIP-5D currently limits runtime injection to `window.napplet`; that conflict needs specification clarification before implementing replacement. Haptics, raw HID access, and remapping are outside this NAP.
+
+## Test with a napplet
+
+The [controller tester](https://github.com/kehto/web/tree/main/apps/gamepad-test) displays host-delivered axes, button pressure, focus state, and the latest snapshot. From this repository, run `pnpm build` and `pnpm --filter @demo/gamepad-test dev`, then open `http://127.0.0.1:5187`. Connect a controller, click Focus, and move its controls. While holding a button, click outside the napplet: values and timestamps should become zero while connection metadata remains. The app records live input and neutral-on-blur observations. It uses the injected GAMEPAD API shipped by PR #297 while the SDK wrapper release is pending; it never reads the native controller API.

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Controller tester</title>
+  </head>
+  <body>
+    <main id="app">
+      <div class="toolbar">
+        <button id="focus" type="button" title="Focus this controller view">Focus</button>
+        <output id="status" aria-live="polite">Waiting for state</output>
+        <button id="reset" type="button" title="Clear the observed checks">Reset checks</button>
+      </div>
+      <div class="content" tabindex="0" aria-label="Controller readings">
+        <p id="hint">Waiting for the host to deliver a controller snapshot.</p>
+        <p id="checks"></p>
+        <div id="pads"></div>
+        <details>
+          <summary>Latest snapshot · <span id="snapshots">0 snapshots</span></summary>
+          <pre id="raw" data-napplet-select="text">No snapshot received.</pre>
+        </details>
+      </div>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
