@@ -467,6 +467,16 @@ for current events; legacy identities keep their original aggregate. Both paths
 verify signatures and bytes before runtime injection and `srcdoc` execution.
 For the schema and removal boundary, see [event migration](https://kehto.github.io/web/docs/migrations/NIP-5D-EVENT-SCHEMA.html).
 
+
+Paja loads napplets that declare unknown or unavailable domains. Optional `O`
+integrations load quietly so the napplet can gracefully degrade. For unavailable
+required `R` domains (or legacy `requires` declarations), Paja logs a warning per
+frame navigation that full functionality may be unavailable, then continues.
+Declarations never grant capabilities: unsupported or disabled domain objects
+remain absent from `window.napplet`. Check namespace presence before using an
+experimental integration. Paja does not implement an experimental protocol merely
+because a manifest names it.
+
 ## NAP-INTENT links and lifecycle
 
 This follows [NAP-INTENT PR #106](https://github.com/napplet/naps/blob/fc121fc264615482143eda86125863d2e1f741a2/naps/NAP-INTENT.md) at `fc121fc264615482143eda86125863d2e1f741a2` and NIP-5D PR #2303 at `020cb8b33a9e4c6b8ca4b2f9d0ed0a67843b68f7`.

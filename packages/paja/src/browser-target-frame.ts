@@ -85,14 +85,16 @@ export async function navigateFrame(
       frame.srcdoc = '<!doctype html><html><body></body></html>';
       return null;
     }
+    if (isCurrent && !isCurrent()) return null;
     // Unsigned local files have no verified manifest; their HTML metadata is not admission policy.
     if (!isPajaLocalTarget(resolvedTarget)) {
       const missing = resolvedTarget.manifest.requires.filter((domain) => domain !== 'shell' && !domains.includes(domain));
       if (missing.length > 0) {
-        throw new Error(`Napplet requires unsupported NAP capabilities: ${missing.join(', ')}`);
+        // NIP-5D permits warning for missing R domains. O declarations never
+        // gate loading; neither declaration changes the exposed namespace.
+        console.warn(`[paja] Napplet requires unsupported NAP capabilities: ${missing.join(', ')}; full functionality may be unavailable.`);
       }
     }
-    if (isCurrent && !isCurrent()) return null;
     // Validate host policy before rebinding an existing window to a new identity.
     const srcdoc = prepareNappletSrcdoc(resolvedTarget.indexHtml, {
       domains,

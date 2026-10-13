@@ -270,3 +270,22 @@ Do not use `AUTH`, `REGISTER`, `IDENTITY`, or "authenticated" to describe
 NIP-5D protocol identity. Those words are allowed only when discussing
 historical drift, NIP-42 relay behavior, or user/signer authentication outside
 the napplet protocol identity path.
+
+## Experimental domain admission in Paja
+
+Checked NIP-5D PR #2303 at `dskvr/nips@020cb8b33a9e4c6b8ca4b2f9d0ed0a67843b68f7`
+(Required and Optional Capabilities, Runtime Domain Availability) and
+`napplet/naps@d73f6f9480dcec1d75712cf4eafbe70337fe1e42` (`naps/NAP-SHELL.md`,
+`projections/web.md`). Paja uses NIP-5D's permitted warning policy when a required
+domain is unavailable, including unknown experimental domains. It warns once per
+frame navigation and continues with its existing granted namespace. Optional `O`
+domains never block loading or produce missing-required warnings. The playground
+retains its permitted rejection policy for missing required domains.
+
+This admission policy is conformant. Unknown experimental domains have no matching
+NAP contract in the checked registry; accepting their declarations does not invent
+operations, inject placeholder objects, authorize messages, or implement their
+protocol. Apps discover absence and gracefully degrade. Signature and artifact
+verification, CSP, and ACL enforcement remain in effect. Browser regression coverage
+in `tests/e2e/paja-runtime-pointer.spec.ts` exercises signed current manifests,
+unknown and disabled domains, actual fallback execution, and reload.

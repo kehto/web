@@ -19,11 +19,11 @@ const sk = new Uint8Array(32).fill(0x11);
 const config = { target: { mode: 'runtime-pointer' }, window: { id: 'test' } } as PajaHostConfig;
 const adapter = { capabilities: { disabledDomains: ['keys'] } } as unknown as ShellAdapter;
 
-async function target(format: 'current' | 'legacy', requires = ['relay', 'shell'], kind = 35129): Promise<PajaResolvedPointer> {
+async function target(format: 'current' | 'legacy', requires = ['relay', 'shell'], kind = 35129, optional = ['keys', 'inc']): Promise<PajaResolvedPointer> {
   const tags = [
     ...(kind === 35129 ? [['d', 'test']] : []),
     ...(format === 'current' ? [
-      ['x', hash], ...requires.map((domain) => ['R', domain]), ['O', 'keys'], ['O', 'inc'],
+      ['x', hash], ...requires.map((domain) => ['R', domain]), ...optional.map((domain) => ['O', domain]),
       ['z', 'note'], ['i', 'napplet:note/open', 'filters'],
     ] : [
       ['path', '/index.html', hash], ['x', computeAggregateHash([{ path: '/index.html', sha256: hash }]), 'aggregate'],
@@ -35,7 +35,7 @@ async function target(format: 'current' | 'legacy', requires = ['relay', 'shell'
   return { ...resolved, event, pointer: { type: 'nevent', value: 'test-pointer', id: event.id, relays: [] }, relays: [], blossomServers: [] };
 }
 
-afterEach(() => originRegistry.clear());
+afterEach(() => { originRegistry.clear(); vi.restoreAllMocks(); });
 
 describe.each(['current', 'legacy'] as const)('%s Paja frame admission', (format) => {
   it.each([35129, 15129, 5129])('binds kind %i identity before injected srcdoc and preserves verified bytes', async (kind) => {
@@ -58,13 +58,19 @@ describe.each(['current', 'legacy'] as const)('%s Paja frame admission', (format
     expect(originRegistry.getEnvironment(win)?.capabilities.domains).not.toContain('keys');
     expect(originRegistry.getIdentity({} as Window)).toBeUndefined();
   });
-  it('rejects a missing required domain before registration or execution', async () => {
-    const resolved = await target(format, ['unavailable']);
+  it.each(['unavailable', 'keys'])('warns and loads when required %s is unavailable without granting it', async (domain) => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const resolved = await target(format, [domain]);
     const win = {} as Window;
     const frame = { contentWindow: win, srcdoc: '', getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
-    await expect(navigateFrame(frame, config, 1, adapter, resolved)).rejects.toThrow(/unavailable/);
-    expect(frame.srcdoc).toBe('');
-    expect(originRegistry.getIdentity(win)).toBeUndefined();
+    await navigateFrame(frame, config, 1, adapter, resolved);
+    expect(frame.srcdoc).toContain('Verified bytes');
+    expect(originRegistry.getIdentity(win)?.aggregateHash).toBe(resolved.aggregateHash);
+    expect(originRegistry.getEnvironment(win)?.capabilities.domains).not.toContain(domain);
+    expect(warn).toHaveBeenCalledExactlyOnceWith(
+      expect.stringContaining(`unsupported NAP capabilities: ${domain}`),
+    );
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('full functionality may be unavailable'));
   });
   it('derives equivalent intent eligibility from R/inc or O/inc declarations without granting them', async () => {
     const resolved = await target(format);
@@ -101,4 +107,27 @@ it('loads optional-INC artifacts with INC disabled without advertising a handler
   expect(originRegistry.getEnvironment(frame.contentWindow!)?.capabilities.domains).not.toContain('inc');
   expect(catalog.intentCatalog((record) => resolveShellEnvironment(disabled, record).capabilities.domains.includes('inc'))).toEqual([]);
   expect(catalog.get(resolved.manifest.catalogId)?.requires).toEqual([]);
+});
+
+// NIP-5D #2303@020cb8b: missing O domains MUST NOT prevent loading.
+it.each([35129, 15129, 5129])('loads kind %i with unknown optional domains quietly', async (kind) => {
+  const resolved = await target('current', [], kind, ['experimental-nap', 'keys']);
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  const frame = { contentWindow: {} as Window, srcdoc: '', getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
+  await navigateFrame(frame, config, 1, adapter, resolved);
+  expect(frame.srcdoc).toContain('Verified bytes');
+  expect(resolved.manifest.optional).toEqual(['experimental-nap', 'keys']);
+  expect(originRegistry.getEnvironment(frame.contentWindow!)?.capabilities.domains).not.toContain('experimental-nap');
+  expect(originRegistry.getEnvironment(frame.contentWindow!)?.capabilities.domains).not.toContain('keys');
+  expect(warn).not.toHaveBeenCalled();
+});
+
+it('does not warn or execute for a stale navigation with unavailable requirements', async () => {
+  const resolved = await target('current', ['experimental-nap']);
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  const frame = { contentWindow: {} as Window, srcdoc: '', getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
+  expect(await navigateFrame(frame, config, 1, adapter, resolved, undefined, () => false)).toBeNull();
+  expect(frame.srcdoc).toBe('');
+  expect(originRegistry.getIdentity(frame.contentWindow!)).toBeUndefined();
+  expect(warn).not.toHaveBeenCalled();
 });

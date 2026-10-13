@@ -24,6 +24,16 @@ describe('current NIP-5D manifest', () => {
       description: '<b>Plain text description</b>',
     });
   });
+  it('preserves unknown bare domains without promoting optional declarations to requirements', async () => {
+    const resolved = await resolveNapplet({
+      event: event([['d', 'experimental'], ['x', hash], ['O', 'experimental-nap'], ['O', 'experimental-nap']]),
+      fetchBlob: async () => bytes,
+    });
+    expect(resolved.manifest.optional).toEqual(['experimental-nap']);
+    expect(resolved.manifest.requires).toEqual([]);
+    expect(resolved.indexHtml).toBe(new TextDecoder().decode(bytes));
+    expect(parseNappletManifest(event([...current, ['R', 'experimental-nap']])).requires).toEqual(['relay', 'experimental-nap']);
+  });
   it('projects only same-role z/i contracts and preserves parameters', () => {
     const parsed = parseNappletManifest(event([...current, ['z', 'bookmark'], ['i', 'napplet:bookmark/edit', 'folder']]));
     expect(parsed.archetypes).toEqual([
