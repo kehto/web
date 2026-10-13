@@ -22,3 +22,5 @@ Validation:
 - Paja at `http://127.0.0.1:5187`: no-controller native state delivery and focus verified. A separate automated browser page supplied a deterministic host-native reader sample and verified live values then neutralization in the real Paja service/bridge path. No physical controller was available; manual USB/Bluetooth validation remains for the user.
 
 Use `pnpm --filter @demo/gamepad-test dev` after the root build. The script uses this checkout's CLI, avoiding old global runtime pins. Source and artifact paths are documented in the app README. No package changeset: only a private example, tests, and documentation changed. Node 22 was used for verification because this machine's Node 25/26 networking returned EBADF. The shared checkout's rebrand branch and dirty package.json remain untouched.
+
+Shipped as open PR #299: https://github.com/kehto/web/pull/299. Preview remains running at http://127.0.0.1:5187; merge and publication were not performed.
