@@ -15,6 +15,7 @@
   "devDependencies": {
     "nostr-tools": "^2.23.3",
     "vite": "^6.3.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "@demo/gamepad-test": "workspace:*"
   }
 }

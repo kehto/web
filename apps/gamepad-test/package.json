@@ -1,0 +1,27 @@
+{
+  "name": "@demo/gamepad-test",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node ../../packages/cli/dist/index.js paja --target-url http://127.0.0.1:5186 --port 5187 --relay-mode memory -- pnpm vite --host 127.0.0.1 --port 5186 --strictPort",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "type-check": "tsc --noEmit",
+    "verify": "pnpm test:guidance && pnpm type-check && pnpm build",
+    "test:guidance": "node --test tests/guidance.test.mjs",
+    "test:conformance": "pnpm build && napplet-conformance ./dist",
+    "test:conformance:ui": "napplet-conformance --ui . --exec \"vite build --watch\""
+  },
+  "dependencies": {
+    "@napplet/sdk": "0.28.0"
+  },
+  "devDependencies": {
+    "@napplet/conformance-cli": "0.3.3",
+    "@napplet/vite-plugin": "0.15.0",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.2"
+  },
+  "packageManager": "pnpm@10.8.0",
+  "license": "MIT"
+}

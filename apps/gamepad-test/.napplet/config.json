@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "sourceDir": ".",
+  "relays": [],
+  "blossomServers": [],
+  "defaultTarget": "named",
+  "named": [
+    "gamepad-test"
+  ],
+  "discover": {
+    "enabled": true,
+    "roots": [
+      "."
+    ]
+  },
+  "signing": {
+    "mode": "interactive"
+  },
+  "conformance": {
+    "command": "napplet-conformance"
+  },
+  "paja": {
+    "command": "kehto"
+  },
+  "metadata": {
+    "name": "gamepad-test",
+    "title": "Controller tester",
+    "description": "Inspect shell-delivered controller input and verify focus isolation.",
+    "archetypes": []
+  }
+}
