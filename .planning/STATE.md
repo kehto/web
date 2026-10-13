@@ -147,6 +147,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
+| 261013-e5s | Allow experimental domain declarations in Paja with optional fallback and required-domain warnings | 2026-10-13 | 2623b79a | passed | [261013-e5s](./quick/261013-e5s-allow-unknown-optional-capability-domain/) |
 | 261008-dhm | Permit opaque hash-verified Blossom resources in Paja (#279) | 2026-10-08 | 49bb1281 | passed | [261008-dhm-fix-issue-279-permit-opaque-hash-verifie](./quick/261008-dhm-fix-issue-279-permit-opaque-hash-verifie/) |
 | 260616-8iv | Move playground theme-switcher functionality from napplet into host theme-service node | 2026-06-16 | f4358b4 |  | [260616-8iv-move-playground-theme-switcher-functiona](./quick/260616-8iv-move-playground-theme-switcher-functiona/) |
 | 260617-qoi | Drop NAP-CLASS, NAP-CLASS-1, NAP-CONNECT (clean break) + replace local spec mirrors with living-doc references | 2026-06-17 | 1d0eef3 |  | [260617-qoi-drop-nap-class-nap-class-1-nap-connect-c](./quick/260617-qoi-drop-nap-class-nap-class-1-nap-connect-c/) |
