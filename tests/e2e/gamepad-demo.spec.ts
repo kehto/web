@@ -77,3 +77,18 @@ test('four frame sizes remain usable in light and dark runtime themes', async ({
     }
   }
 });
+
+test('controller view releases its listener on page teardown', async ({ page }) => {
+  await openDemo(page);
+  const one = page.frameLocator('#one');
+  const frame = page.frames().find(frame => frame.parentFrame())!;
+  await one.locator('#focus').click();
+  await expect(one.locator('#status')).toHaveText('Live · focused');
+  await frame.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide')));
+  await page.locator('#host-focus').click();
+  await expect.poll(() => frame.evaluate(() => (window as Window & {
+    napplet: { gamepad: { focused: boolean } };
+  }).napplet.gamepad.focused)).toBe(false);
+  // The binding still updates, but the closed app listener no longer renders.
+  await expect(one.locator('#status')).toHaveText('Live · focused');
+});
