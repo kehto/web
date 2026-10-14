@@ -106,6 +106,66 @@ test('resolves a stale embedded hint through configured live relays in the runni
   }
 });
 
+// NIP-5D #2303@020cb8b: optional domains do not constrain admission;
+// Paja chooses the permitted warning policy for unavailable required domains.
+for (const declaration of ['O', 'R']) {
+  test(`loads experimental ${declaration} domains with namespace-based fallback across reload`, async ({ page }) => {
+    const server = await startPointerServer();
+    const warnings: string[] = [];
+    page.on('console', (message) => { if (message.type() === 'warning') warnings.push(message.text()); });
+    const html = `<!doctype html><html><body><p id="status">pending</p><script>
+      const nap = window.napplet;
+      document.getElementById('status').textContent =
+        nap && !nap['experimental-nap'] && !nap.keys && nap.theme ? 'fallback ready' : 'incorrect availability';
+    </script></body></html>`;
+    const bytes = Buffer.from(html);
+    const hash = createHash('sha256').update(bytes).digest('hex');
+    const event = finalizeEvent({
+      kind: NAPPLET_KIND_NAMED, created_at: 1_700_000_001,
+      content: 'Experimental domain fallback test',
+      tags: [
+        ['d', 'experimental-target'], ['x', hash], ['server', `${server.url}blossom`],
+        [declaration, 'experimental-nap'], [declaration, 'keys'], ['R', 'theme'],
+      ],
+    }, new Uint8Array(32).fill(0x33));
+    const relay = 'wss://intent-fixture.example';
+    const pointer = naddrEncode({ identifier: 'experimental-target', pubkey: event.pubkey, kind: event.kind, relays: [relay] });
+    server.blobs.set(hash, bytes);
+    server.setConfig({
+      ...createPajaRuntimeHostConfig({ pointer, maxWaitMs: 2_000 }),
+      simulation: normalizePajaSimulation({
+        relay: { mode: 'live', urls: [relay] }, capabilities: { domains: { keys: false } },
+      }),
+    });
+    await page.routeWebSocket(`${relay}/`, (socket) => {
+      socket.onMessage((message) => {
+        const request = JSON.parse(String(message)) as unknown[];
+        if (request[0] !== 'REQ' || typeof request[1] !== 'string') return;
+        socket.send(JSON.stringify(['EVENT', request[1], event]));
+        socket.send(JSON.stringify(['EOSE', request[1]]));
+      });
+    });
+    try {
+      await page.goto(server.url);
+      const frame = page.frameLocator('iframe');
+      await expect(frame.locator('#status')).toHaveText('fallback ready');
+      await expect(page.locator('iframe')).toHaveAttribute('sandbox', 'allow-scripts');
+      expect(await page.evaluate(() => window.__KEHTO_PAJA__?.getState().resolvedTarget?.indexHtml)).toBe(html);
+      expect(await page.evaluate(() => window.__KEHTO_PAJA__?.getState().resolvedTarget?.aggregateHash)).toBe(hash);
+      // A DOM marker proves that reload ran the artifact again.
+      await frame.locator('#status').evaluate((node) => { node.textContent = 'reload pending'; });
+      await page.evaluate(() => window.__KEHTO_PAJA__?.reload());
+      await expect(frame.locator('#status')).toHaveText('fallback ready');
+      const admissionWarnings = warnings.filter((message) => message.includes('unsupported NAP capabilities'));
+      expect(admissionWarnings).toHaveLength(declaration === 'R' ? 2 : 0);
+      for (const warning of admissionWarnings) {
+        expect(warning).toContain('experimental-nap, keys');
+        expect(warning).toContain('full functionality may be unavailable');
+      }
+    } finally { await server.close(); }
+  });
+}
+
 for (const policy of ['default', 'host override']) {
   test(`compiles verified WebAssembly while JavaScript string evaluation stays blocked (${policy})`, async ({ page }) => {
     test.setTimeout(30_000);
