@@ -1,5 +1,14 @@
 # @kehto/demo
 
+## 0.1.19
+
+### Patch Changes
+
+- Updated dependencies [47a34e3]
+  - @kehto/runtime@0.25.0
+  - @kehto/services@0.24.1
+  - @kehto/shell@0.24.1
+
 ## 0.1.18
 
 ### Patch Changes
