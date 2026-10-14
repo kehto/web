@@ -223,9 +223,23 @@ implementations of `FirewallStateContainer` must provide this method.
 - `cleanupNappState` — remove persisted state when a napplet window closes
 
 ### Service dispatch
-- `routeServiceMessage` — domain-prefix router into the service registry
+- `routeServiceMessage` — policy-free domain selection primitive; never a fallback for untrusted ingress
 - `notifyServiceWindowDestroyed` — lifecycle fan-out to every service handler
 - Service-only NAP domains, including `dm` and `fs`, route through handlers registered with `runtime.registerService('<domain>', handler)`.
+
+For domains outside the built-in dispatcher, handlers opt in with an exact
+`messageCapabilities` map (existing ACL capability or explicit `null` per inbound
+type). `Runtime.handleMessage` requires a live unblocked source, an explicit
+`isDomainAllowed` grant, the declared ACL grant, and firewall admission. Unknown
+types and extension policy denials stay silent on the wire. Registration alone
+attaches a service; it does not expose or grant a domain. Fixed NAP routes retain
+their own authorization. Pending replies are invalidated by service/source
+replacement or teardown and recheck current domain/ACL policy.
+
+Browser hosts must provide the owning extension contract and inject its granted
+namespace binding before scripts run. Stock Paja/playground bindings do not inject
+arbitrary extensions. See [Register a service](../../docs/how-tos/register-service.md#domains-outside-the-built-in-dispatcher)
+for the complete host contract and spec bounds.
 
 ### Types
 40+ interfaces — including `Runtime`, `RuntimeAdapter`, `SendToNapplet`, `RelayPoolAdapter`, `ServiceHandler`, `ServiceRegistry`, `NappletMessage`, `SessionEntry`, `AclEntryExternal`, `AclCheckEvent`, and the per-adapter hook types — are exported from `./types.js` for host-app integration.

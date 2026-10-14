@@ -7,6 +7,7 @@ import type {
   RuntimeAdapter, ConsentHandler, FirewallEvent,
   ServiceHandler, ServiceRegistry, ServiceInfo, ServiceRuntimeContext,
 } from './types.js';
+import { createServiceExtensionRouter } from './service-extensions.js';
 import { notifyServiceWindowDestroyed } from './service-dispatch.js';
 import { createSessionRegistry, type SessionRegistry } from './session-registry.js';
 import { createAclState, type AclStateContainer } from './acl-state.js';
@@ -67,7 +68,11 @@ export interface Runtime {
    * Register a service handler dynamically after runtime creation.
    * If a handler is already registered for this name, it is replaced.
    *
-   * @param name - Service name (e.g., 'audio', 'notifications')
+   * Built-in domains keep their NAP routing. Other domains require the
+   * handler's exact messageCapabilities map and an explicit host domain grant.
+   * Registration never injects namespace bindings or grants capabilities.
+   *
+   * @param name - Exact domain name (e.g., 'notify' or a host extension)
    * @param handler - The service handler implementation
    */
   registerService(name: string, handler: ServiceHandler): void;
@@ -121,6 +126,7 @@ type RuntimeInstanceContext = {
   manifestCache: ManifestCache;
   consentHandlerRef: { current: ConsentHandler | null };
   handleMessage: Runtime['handleMessage'];
+  extensions: ReturnType<typeof createServiceExtensionRouter>;
 };
 
 function createRegisteredServices(serviceRegistry: ServiceRegistry): Map<string, ServiceInfo> {
@@ -278,10 +284,10 @@ interface FirewallGateConfig {
  * @param config - Gate configuration (firewallState, sessionRegistry, hooks, fireConsent).
  * @returns A gate function `(windowId, envelope, senderCap) => 'dispatch' | 'drop'`.
  */
-function createFirewallGate(config: FirewallGateConfig): (windowId: string, envelope: NappletMessage, senderCap: string | null) => 'dispatch' | 'drop' {
+function createFirewallGate(config: FirewallGateConfig): (windowId: string, envelope: NappletMessage, senderCap: string | null, respond?: boolean) => 'dispatch' | 'drop' {
   const { firewallState, sessionRegistry, hooks, fireConsent } = config;
 
-  return function firewallGate(windowId: string, envelope: NappletMessage, senderCap: string | null): 'dispatch' | 'drop' {
+  return function firewallGate(windowId: string, envelope: NappletMessage, senderCap: string | null, respond = true): 'dispatch' | 'drop' {
     const obs = buildObservation(envelope, windowId, senderCap, sessionRegistry, hooks.getFocusContext);
     const result = firewallState.evaluate(obs);
     const { decision, action, ruleId, reason } = result;
@@ -289,6 +295,12 @@ function createFirewallGate(config: FirewallGateConfig): (windowId: string, enve
     const opClass = obs.opClass;
 
     if (decision === 'reject' || decision === 'prompt') {
+      if (!respond) {
+        // Extension error contracts are host-owned; do not invent wire replies.
+        hooks.onFirewallEvent?.({ windowId, napplet, opClass, decision, action, ruleId, reason, message: envelope } as FirewallEvent);
+        if (decision === 'prompt') fireConsent(windowId, napplet);
+        return 'drop';
+      }
       const intentDenial = createIntentPolicyDenial(envelope);
       if (intentDenial) {
         hooks.sendToNapplet(windowId, intentDenial);
@@ -355,6 +367,7 @@ function createMessageHandler(
   sessionRegistry: SessionRegistry,
   enforceNap: ReturnType<typeof createNapEnforceGate>,
   dispatchNapEnvelope: (windowId: string, envelope: NappletMessage) => void,
+  serviceRouting: { builtInDomains: ReadonlySet<string>; extensions: ReturnType<typeof createServiceExtensionRouter> },
   firewallGate: (windowId: string, envelope: NappletMessage, senderCap: string | null) => 'dispatch' | 'drop',
 ): Runtime['handleMessage'] {
   return (windowId: string, msg: unknown): void => {
@@ -366,6 +379,10 @@ function createMessageHandler(
     // trusted creation identity independently of the optional NAP-SHELL exchange.
     if (!sessionRegistry.getEntryByWindowId(windowId)) return;
     const domain = envelope.type.slice(0, dotIdx);
+    if (!serviceRouting.builtInDomains.has(domain)) {
+      serviceRouting.extensions.handleMessage(windowId, envelope);
+      return;
+    }
     if (hooks.isDomainAllowed && !hooks.isDomainAllowed(windowId, domain)) return;
     if (isIdentityOrThemeMessage(envelope) && !createCanonicalDomainResult(envelope)) return;
 
@@ -415,7 +432,7 @@ function createInjectedEvent(hooks: RuntimeAdapter, topic: string, payload: unkn
 function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
   const {
     aclState, firewallState, eventBuffer, hooks, incRuntime, manifestCache, registeredServices,
-    replayDetector, serviceRegistry, sessionRegistry, subscriptions, consentHandlerRef,
+    replayDetector, serviceRegistry, sessionRegistry, subscriptions, consentHandlerRef, extensions,
   } = context;
   const undeclaredServiceConsents = new Set<string>();
   const attachedServices = new Map<string, ServiceHandler>();
@@ -487,6 +504,8 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
       eventBuffer.bufferAndDeliver(createInjectedEvent(hooks, topic, payload), null);
     },
     destroy(): void {
+      extensions.destroy();
+      registeredServices.clear();
       for (const name of attachedServices.keys()) detachService(name);
       manifestCache.persist();
       aclState.persist();
@@ -495,13 +514,13 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
       subscriptions.clear();
       incRuntime.clear();
       eventBuffer.clear();
-      registeredServices.clear();
       undeclaredServiceConsents.clear();
     },
     registerConsentHandler(handler: ConsentHandler): void {
       consentHandlerRef.current = handler;
     },
     registerService(name: string, handler: ServiceHandler): void {
+      registeredServices.delete(name);
       detachService(name);
       serviceRegistry[name] = handler;
       registeredServices.set(name, {
@@ -512,11 +531,12 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
       attachService(name, handler);
     },
     unregisterService(name: string): void {
+      registeredServices.delete(name);
       detachService(name);
       delete serviceRegistry[name];
-      registeredServices.delete(name);
     },
     destroyWindow(windowId: string): void {
+      extensions.destroyWindow(windowId);
       for (const [key] of subscriptions) {
         if (key.startsWith(`${windowId}:`)) {
           subscriptions.delete(key);
@@ -551,8 +571,10 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   const serviceRegistry: ServiceRegistry = { ...hooks.services };
   const registeredServices = createRegisteredServices(serviceRegistry);
   const firewallState = createFirewallState(hooks.firewallPersistence);
+  let extensions: ReturnType<typeof createServiceExtensionRouter> | undefined;
   const sessionRegistry = createSessionRegistry(hooks.onPendingUpdate, (windowId) => {
     firewallState.resetInitBudget(windowId);
+    extensions?.destroyWindow(windowId);
   });
   let incRuntime: IncRuntime | null = null;
   const aclState = createAclState(hooks.aclPersistence, 'permissive', (mutation) => {
@@ -638,14 +660,21 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   manifestCache.load();
 
   const domainHandlers = createRuntimeDomainHandlers({ hooks, serviceRegistry, sessionRegistry, aclState });
-  const dispatchNapEnvelope = createNapEnvelopeDispatcher({
+  const napHandlers: RuntimeNapHandlers = {
     relay: createRelayHandler({ hooks, serviceRegistry, subscriptions, eventBuffer, replayDetector }),
     identity: createIdentityHandler({ hooks, serviceRegistry }),
     count: createCountHandler({ hooks, serviceRegistry }),
     inc: incRuntime.handleMessage,
     ...domainHandlers,
+  };
+  const dispatchNapEnvelope = createNapEnvelopeDispatcher(napHandlers);
+  // Shell is adapter-owned; signer is intentionally retired by NIP-5D.
+  const builtInDomains = new Set([...Object.keys(napHandlers), 'shell', 'signer']);
+  extensions = createServiceExtensionRouter({
+    hooks, services: serviceRegistry, registrations: registeredServices,
+    sessions: sessionRegistry, acl: aclState, enforce: enforceNap, firewall: firewallGate,
   });
-  const handleMessage = createMessageHandler(hooks, sessionRegistry, enforceNap, dispatchNapEnvelope, firewallGate);
+  const handleMessage = createMessageHandler(hooks, sessionRegistry, enforceNap, dispatchNapEnvelope, { builtInDomains, extensions }, firewallGate);
 
   return createRuntimeInstance({
     hooks,
@@ -661,5 +690,6 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     manifestCache,
     consentHandlerRef,
     handleMessage,
+    extensions,
   });
 }

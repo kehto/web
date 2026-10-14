@@ -475,12 +475,12 @@ export interface ServiceRuntimeContext {
  *
  * @example
  * ```ts
- * const audioHandler: ServiceHandler = {
- *   descriptor: { name: 'audio', version: '1.0.0' },
- *   handleMessage(windowId, message, send) {
- *     if (message.type === 'inc.emit') {
- *       // process audio inc event...
- *       send({ type: 'inc.emit.result', id: (message as any).id });
+ * const exampleHandler: ServiceHandler = {
+ *   descriptor: { name: 'example', version: '1.0.0' },
+ *   messageCapabilities: { 'example.ping': null },
+ *   handleMessage(_windowId, message, send) {
+ *     if (message.type === 'example.ping') {
+ *       send({ type: 'example.pong' });
  *     }
  *   },
  * };
@@ -489,6 +489,19 @@ export interface ServiceRuntimeContext {
 export interface ServiceHandler {
   /** Metadata describing this service. */
   descriptor: ServiceDescriptor;
+  /**
+   * Explicit inbound types for a domain outside the built-in dispatcher.
+   * Each own key is an exact `domain.action` type; its value is an existing
+   * ACL capability or explicit `null` for no additional capability requirement.
+   * Omission keeps non-built-in services attachment-only. Built-in NAP routes
+   * ignore this map and retain their canonical capability mapping.
+   *
+   * Extension dispatch also requires a live, unblocked source, an explicit
+   * `RuntimeAdapter.isDomainAllowed` grant, and firewall admission. This map
+   * neither injects a namespace binding nor grants any capability. The handler
+   * owns payload validation and its extension's response contract.
+   */
+  messageCapabilities?: Readonly<Record<string, Capability | null>>;
   /**
    * Attach this handler to one runtime instance.
    *
@@ -520,14 +533,14 @@ export interface ServiceHandler {
 
 /**
  * Registry of services available to napplets.
- * Each key is a service name (e.g., 'audio', 'notifications').
- * Napplets discover available services via kind 29010 service discovery events.
+ * Keys select exact wire domains for direct routing (e.g., 'notify').
+ * Metadata/attachment alone does not expose a domain. Custom domains require
+ * ServiceHandler.messageCapabilities and explicit host domain authorization.
  *
  * @example
  * ```ts
  * const services: ServiceRegistry = {
- *   audio: audioHandler,
- *   notifications: notificationHandler,
+ *   notify: notificationHandler,
  * };
  * ```
  */
@@ -592,8 +605,9 @@ export interface RuntimeAdapter {
 
   /**
    * Determines whether a session-established napplet may invoke a NAP domain.
-   * When omitted, every domain remains eligible for dispatch. Browser shells
-   * use this to enforce the immutable environment delivered in `shell.init`.
+   * Built-in routes remain eligible when omitted; extension routes require
+   * an explicit true result. Browser shells must derive this decision from
+   * the source-bound namespace exposed before napplet scripts execute.
    */
   isDomainAllowed?: (windowId: string, domain: string) => boolean;
 
@@ -713,14 +727,17 @@ export interface RuntimeAdapter {
   /**
    * Optional service extensions. Shell/host registers service handlers here
    * for static initialization. Services can also be added dynamically via
-   * runtime.registerService(). Each key is a service name (e.g., 'audio').
+   * runtime.registerService(). Keys select exact domains (e.g., 'notify').
+   * Outside built-in domains, handlers also need messageCapabilities and an
+   * explicit isDomainAllowed grant. Hosts own each extension's NAP contract,
+   * payload validation, and pre-execution browser namespace binding.
    *
    * @example
    * ```ts
    * const hooks: RuntimeAdapter = {
    *   // ... required adapters ...
    *   services: {
-   *     audio: myAudioServiceHandler,
+   *     notify: myNotificationServiceHandler,
    *   },
    * };
    * ```

@@ -6,9 +6,12 @@ import type { ServiceRegistry, SendToNapplet } from './types.js';
  * Route a NappletMessage envelope to the matching service handler.
  *
  * Direct NAP-domain services are routed by the domain in their wire
- * message.type (e.g., 'signer.signEvent' -> 'signer' service). INC messages
+ * message.type (e.g., 'notify.send' -> 'notify' service). INC messages
  * are owned by the INC runtime; their topic values are opaque here.
  *
+ * This low-level selection primitive performs no source, domain, ACL,
+ * messageCapabilities, or firewall checks. Never call it as a fallback for
+ * untrusted input; host ingress must use Runtime.handleMessage.
  * Returns true if a service handled the message, false otherwise.
  *
  * @param windowId - The napplet window that sent the message
@@ -32,9 +35,9 @@ export function routeServiceMessage(
   // INC emissions belong exclusively to the INC runtime.
   if (message.type === 'inc.emit') return false;
 
-  // Direct NAP-domain services: signer.*, relay.*, storage.* route by wire type domain.
+  // Direct services route by their exact wire type domain.
   const domain = message.type.split('.')[0];
-  const handler = services[domain];
+  const handler = Object.hasOwn(services, domain) ? services[domain] : undefined;
   if (handler) {
     handler.handleMessage(windowId, message, (msg) => sendToNapplet(windowId, msg));
     return true;

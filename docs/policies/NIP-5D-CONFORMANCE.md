@@ -289,3 +289,29 @@ protocol. Apps discover absence and gracefully degrade. Signature and artifact
 verification, CSP, and ACL enforcement remain in effect. Browser regression coverage
 in `tests/e2e/paja-runtime-pointer.spec.ts` exercises signed current manifests,
 unknown and disabled domains, actual fallback execution, and reload.
+
+## Registered service extensions (#303)
+
+Checked NIP-5D PR #2303 at `dskvr/nips@020cb8b33a9e4c6b8ca4b2f9d0ed0a67843b68f7`
+and `napplet/naps@3fdba1accd508ab54939b277d426127c5af8faf8` (`naps/NAP-SHELL.md`,
+`projections/web.md`). The runtime extension route is host policy, conformant with
+source-bound identity, silent unknown types, and namespace-based domain grants.
+It adds no wire fields, fallback error protocol, signing API, INC routing, or
+namespace placeholders. The private `example` regression has no owning NAP in the
+registry and is intentionally not claimed as NAP implementation conformance.
+
+`ServiceHandler.messageCapabilities` lists exact inbound extension types and
+existing ACL requirements (or explicit null). Routing additionally requires a
+live unblocked source, an explicit host domain grant, and firewall admission.
+Unknown types are silent before firewall accounting; extension denials retain
+host audit/consent without emitting invented wire responses. Replies recheck
+registration/source lifetime and current domain/ACL policy. Built-in NAPs retain
+their dispatcher and capability mapping; neither metadata nor manifest tags can
+change it. Browser extension hosts must supply the owning contract and inject a
+corresponding granted binding before scripts execute. Stock Paja/playground
+bindings do not expose new domains merely because a service is registered.
+
+Runtime regressions cover registration, replacement/removal, source isolation,
+ACL/firewall denial and startup limits, silent unknown types, fixed-domain
+precedence, and delayed replies after teardown or policy revocation. The full
+browser suite guards existing host consumers without inventing an `example` NAP.

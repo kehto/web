@@ -58,4 +58,11 @@ describe('routeServiceMessage', () => {
     expect(route({ type: 'unknown.create' } as NappletMessage, { notify })).toBe(false);
     expect(notify.handleMessage).not.toHaveBeenCalled();
   });
+
+  it('ignores inherited registry properties', () => {
+    const inherited = createService('example');
+    expect(route({ type: 'example.ping' }, Object.create({ example: inherited }))).toBe(false);
+    expect(route({ type: 'constructor.ping' }, {})).toBe(false);
+    expect(inherited.handleMessage).not.toHaveBeenCalled();
+  });
 });
