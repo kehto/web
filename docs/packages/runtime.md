@@ -63,6 +63,23 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
 - Does not own browser `window`, iframe creation, DOM, `postMessage` listeners, or localStorage implementation details.
 - Browser concerns live in `@kehto/shell`.
 
+## Registered extension routing
+
+Outside the built-in NAP domains, a service needs an exact
+`ServiceHandler.messageCapabilities` map and an explicit `isDomainAllowed` grant.
+Each inbound type maps to an existing ACL capability or explicit `null`. The
+runtime checks the live source, block state, declared ACL requirement, and
+firewall before delivery. Unknown types are silent; denial does not invent an
+extension error envelope. Static and dynamic registration follow the same path.
+Pending replies remain bound to that registration and source lifecycle and
+recheck current domain/ACL policy. Built-in NAP routing retains its own contracts.
+
+Registration is not namespace injection or capability authorization. The host
+owns the extension's protocol and, for browsers, its pre-execution binding.
+`routeServiceMessage` bypasses policy and must not handle untrusted ingress.
+See [Register a service](/how-tos/register-service#domains-outside-the-built-in-dispatcher)
+for examples, lifecycle rules, and specification bounds.
+
 ## API Reference
 
 ### Registration and initialization limits

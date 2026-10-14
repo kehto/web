@@ -366,3 +366,14 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 - Retain canonical local intent types until the published Napplet package catches up; warn on legacy object invocation and INC delivery adapters.
 - Success means retained responsibility. Host-only source-window correlation cannot appear in canonical results or delivery payloads.
 - Preserve the primary checkout's unrelated package.json changes. Work lives in `~/.worktrees/kehto/paja-intent-links` on `feat/paja-intent-links`.
+
+
+## Debug closeout: issue #303
+
+2026-10-14: Added explicit registered-service extension routing on
+`fix/registered-service-routing` (implementation `7e9596bb`). Exact message
+declarations, live source/domain/ACL/firewall gates, and reply lifetime checks
+are verified by 2,156 unit tests, all 123 browser tests, a built-package adaptation
+of the issue reproduction, build/type/docs checks, and quality score 100/100.
+Conformance authority and host-extension limits are recorded in
+[the resolved debug session](./debug/resolved/registered-service-routing.md).
