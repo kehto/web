@@ -15,6 +15,49 @@ function makePersistence(initial: string | null = null): AclPersistence & { data
 }
 
 describe('runtime ACL state', () => {
+  it('lists canonical principals that can be looked up and mutated after reload', () => {
+    const persistence = makePersistence();
+    const acl = createAclState(persistence, 'restrictive');
+    const principals = [
+      { dTag: 'alpha', aggregateHash: 'a'.repeat(64) },
+      { dTag: 'beta', aggregateHash: 'b'.repeat(64) },
+      { dTag: 'alpha:child', aggregateHash: 'c'.repeat(64) },
+    ];
+    expect(acl.getAllEntries()).toEqual([]);
+    for (const { dTag, aggregateHash } of principals) acl.grant('', dTag, aggregateHash, 'relay:read');
+    acl.persist();
+    const restored = createAclState(persistence, 'restrictive');
+    restored.load();
+    const entries = restored.getAllEntries();
+    expect(entries.map(({ dTag, aggregateHash }) => ({ dTag, aggregateHash }))).toEqual(principals);
+    for (const entry of entries) {
+      expect(entry).toEqual(restored.getEntry(entry.pubkey, entry.dTag, entry.aggregateHash));
+      expect(entry.capabilities).toEqual(['relay:read']);
+    }
+    const target = entries[2]!;
+    restored.revoke(target.pubkey, target.dTag, target.aggregateHash, 'relay:read');
+    expect(restored.check('', target.dTag, target.aggregateHash, 'relay:read')).toBe(false);
+    expect(restored.check('', principals[0]!.dTag, principals[0]!.aggregateHash, 'relay:read')).toBe(true);
+    const blocked = entries[1]!;
+    restored.block(blocked.pubkey, blocked.dTag, blocked.aggregateHash);
+    expect(restored.isBlocked('', blocked.dTag, blocked.aggregateHash)).toBe(true);
+    expect(restored.getStateQuota('', blocked.dTag, blocked.aggregateHash)).toBe(blocked.stateQuota);
+  });
+
+  it('returns detached identity and capability values without exposing owned state', () => {
+    const acl = createAclState(makePersistence(), 'restrictive');
+    const hash = 'a'.repeat(64);
+    acl.grant('', 'alpha', hash, 'relay:read');
+    const entry = acl.getAllEntries()[0]!;
+    entry.dTag = 'edited';
+    entry.aggregateHash = 'b'.repeat(64);
+    entry.capabilities.length = 0;
+    expect(acl.getEntry('', 'alpha', hash)).toMatchObject({
+      dTag: 'alpha', aggregateHash: hash, capabilities: ['relay:read'],
+    });
+    expect(acl.getEntry('', 'edited', entry.aggregateHash)).toBeUndefined();
+  });
+
   it('preserves runtime-only permissive capabilities when the first mutation is a revoke', () => {
     const persistence = makePersistence();
     const acl = createAclState(persistence, 'permissive');

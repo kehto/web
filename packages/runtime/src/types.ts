@@ -420,6 +420,10 @@ export type PendingUpdateNotifier = (windowId: string) => void;
 /** External ACL entry — used in shell commands (shell:acl-get etc.). */
 export interface AclEntryExternal {
   pubkey: string;
+  /** Verified napplet identifier used by keyed ACL methods. */
+  dTag: string;
+  /** Verified artifact hash used by keyed ACL methods. */
+  aggregateHash: string;
   capabilities: Capability[];
   blocked: boolean;
   stateQuota?: number;

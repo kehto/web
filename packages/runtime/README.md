@@ -40,6 +40,23 @@ The runtime is built around the current draft dispatch contract from `@napplet/c
 
 Signing is shell-mediated inside `relay.publish` / `relay.publishEncrypted` (NIP-44 default, NIP-04 opt-in). The legacy signer domain is dissolved — napplets never see a host-injected nostr object and cannot call signer-sign RPCs directly.
 
+### ACL principal enumeration
+
+`aclState.getAllEntries()` and `getEntry()` return `dTag` and `aggregateHash`
+alongside the policy fields. Use these values with keyed ACL methods; two
+principals with identical grants still have distinct identities after reload.
+Enumeration keeps `pubkey: ''` because ACL identity is keyed by dTag and artifact
+hash. Returned objects and capability arrays are detached from the owned state.
+
+```ts
+for (const entry of runtime.aclState.getAllEntries()) {
+  runtime.aclState.revoke(entry.pubkey, entry.dTag, entry.aggregateHash, 'relay:read');
+}
+```
+
+This host API adds no protocol messages and does not change serialized ACL keys.
+Custom `AclEntryExternal` producers must populate the two required identity fields.
+
 ### NAP-RELAY publish boundary
 
 The publish path follows draft [NAP-RELAY PR #2 at

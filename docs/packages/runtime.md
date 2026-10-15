@@ -44,6 +44,11 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
 ## Scope Boundaries
 
 - Owns message dispatch, ACL gates, service routing, storage handling, manifest cache, replay checks, and runtime lifecycle.
+- ACL listing and lookup return `AclEntryExternal` with required `dTag` and
+  `aggregateHash` fields. Feed those fields into keyed revoke/block/quota methods;
+  listing `pubkey` remains empty because it is not the principal key. Results are
+  detached copies, remain identifiable after reload, and preserve existing
+  serialized keys. Custom producers must provide the two identity fields.
 - Follows draft NAP-RELAY PR #2 at
   `0be8abce18beb46ca37bd4ddd042f58d30b4eedc`: `relay.publish` accepts an
   unsigned template, signs it through the shell-owned signer, publishes only
