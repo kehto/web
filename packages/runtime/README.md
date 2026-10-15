@@ -40,6 +40,33 @@ The runtime is built around the current draft dispatch contract from `@napplet/c
 
 Signing is shell-mediated inside `relay.publish` / `relay.publishEncrypted` (NIP-44 default, NIP-04 opt-in). The legacy signer domain is dissolved — napplets never see a host-injected nostr object and cannot call signer-sign RPCs directly.
 
+### ACL persistence outcomes
+
+ACL mutations update live policy immediately. Revoke/block observers run
+synchronously after that change, before any explicit save. `aclState.persist()`
+returns `true` when the persistence backend completes and `false` if it throws.
+A failed save never rolls back live policy or reactivates retired subscriptions;
+a newly loaded container can still see the last successfully saved policy.
+
+`aclState.clear()` resets live policy to its configured default and attempts to
+clear storage, returning the same success boolean. A failed clear leaves that
+live reset in place and old durable data unchanged. Retry persistence or clearing
+after handling the backend failure. These results report the synchronous backend
+contract, not physical disk durability. Hosts must not swallow backend errors if
+they want the container to detect failure.
+
+```ts
+runtime.aclState.revoke('', dTag, aggregateHash, 'relay:read');
+if (!runtime.aclState.persist()) {
+  showSaveError('Access is revoked for this session, but the policy was not saved.');
+}
+```
+
+Runtime destruction remains best-effort; hosts requiring an actionable save
+result should call `persist()` before teardown. This host API policy is outside
+the NAP wire contract. No old-use warning can detect callers ignoring a return
+value; see [the compatibility register](../../docs/compatibility.md).
+
 ### NAP-RELAY publish boundary
 
 The publish path follows draft [NAP-RELAY PR #2 at
