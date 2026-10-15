@@ -157,7 +157,7 @@ width.
 
 All sections are flush independent native accordions, expanded by default:
 **Pointer** where present, **Interfaces**, **ACL**, **Signer**, **Resource servers**,
-and **Messages** last. Enter/Space toggle focused headers; visible focus and chevrons
+**Messages**, and **Events** last. Enter/Space toggle focused headers; visible focus and chevrons
 show their state. Hidden bodies retain controls, drafts and the running app.
 Origin-local `kehto:paja:sidebar-sections:v1` stores validated collapsed booleans,
 independently of whole-drawer visibility and resource settings. Invalid preferences
@@ -200,11 +200,19 @@ The console includes:
   Its scoped-relay hook likewise waits for the backend result and returns
   `false` after denial or transport failure.
 - **Resource servers** — extra Blossom lookup origins with a newline textarea and
-  Save button, immediately before the final Messages section (see below).
+  Save button, immediately before the Messages section (see below).
 - **Messages** — inbound and outbound envelopes are logged with a text filter,
   including Paja system events such as interface changes, ACL changes, signer
   connection changes, signing/publish confirmations, and visible details for
 `.error` envelopes.
+- **Events** — cumulative `kind - count` rows for every event Paja pulled from a
+  live relay, with the session total in the section header. Counting happens in
+  the relay backend before delivery, so napplet subscriptions and Paja's own
+  background fetches (social cache, relay lists, Blossom lookups, upload
+  discovery) are all included, while simulated memory-mode fixtures and Paja's
+  own publishes are not. Repeated deliveries of the same event count again: the
+  panel reports what was fetched. Counts accumulate for the host session and
+  reset on reload.
 
 The GitHub Pages artifact also includes a static Paja Runtime at `/web/paja/`.
 That route uses `createPajaRuntimeHostConfig`, keeps `hmr: none`, and loads

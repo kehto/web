@@ -81,6 +81,11 @@ payload text. The log includes target traffic plus Paja system events for
 interface toggles, ACL changes, signer changes, and signer/publish
 confirmations. Error envelopes show their error text directly in the row.
 
+**Events** sits below it and accumulates one `kind - count` row per Nostr event
+kind Paja pulled from a live relay, with the session total in the header. The
+counts cover napplet subscriptions and Paja's own background fetches, grow as
+more events arrive, and reset when the host page reloads.
+
 ## Intent Delivery in a Local Host
 
 Paja's installed intent catalog contains resolver-verified manifest contracts;

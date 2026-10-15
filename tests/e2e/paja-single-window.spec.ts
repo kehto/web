@@ -102,6 +102,7 @@ test('sidebar accordion preserves controls, frames, drawer preferences and flush
   const initial = await page.evaluate(() => ({ srcdoc: document.querySelector('iframe')!.srcdoc, tabs: window.__KEHTO_PAJA__?.getState().tabs }));
   const resources = page.locator('[data-paja-section="resource-servers"]');
   const messages = page.locator('[data-paja-section="messages"]');
+  const events = page.locator('[data-paja-section="events"]');
   const acl = page.locator('[data-paja-section="acl"]');
   await page.evaluate(() => localStorage.setItem('n18-unrelated', 'retained'));
   await page.getByLabel('Resource servers', { exact: true }).fill('draft.example');
@@ -113,6 +114,10 @@ test('sidebar accordion preserves controls, frames, drawer preferences and flush
   await expect(messages.locator('summary')).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(messages).not.toHaveAttribute('open');
+  await page.keyboard.press('Tab');
+  await expect(events.locator('summary')).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(events).not.toHaveAttribute('open');
   const logCount = await page.evaluate(() => window.__KEHTO_PAJA__!.getState().messageLog.length);
   await page.locator('#acl-controls [data-acl-capability="state:write"]').click();
   await expect.poll(() => page.evaluate(() => window.__KEHTO_PAJA__!.getState().messageLog.length)).toBeGreaterThan(logCount);
@@ -152,6 +157,7 @@ test('sidebar accordion preserves controls, frames, drawer preferences and flush
   await expect(page.locator('#paja-console')).toBeHidden();
   await page.locator('#paja-console-toggle').click();
   await expect(acl).not.toHaveAttribute('open');
+  await expect(events).not.toHaveAttribute('open');
   await expect(resources).toHaveAttribute('open', '');
   await expect(messages).toHaveAttribute('open', '');
   await expect(page.getByLabel('Resource servers', { exact: true })).toHaveValue('https://draft.example');
@@ -188,6 +194,61 @@ for (const failure of ['malformed', 'mixed', 'methods', 'getter']) {
     await expect(page.locator('#signer-status')).not.toHaveText('loading');
   });
 }
+
+test('aggregates live relay events by kind in the Events sidebar section', async ({ page }) => {
+  test.setTimeout(60_000);
+  const relayUrl = 'wss://relay-events.example';
+  const relayEvent = finalizeEvent({
+    kind: 10_005,
+    created_at: 1_800_000_000,
+    tags: [],
+    content: 'Paja relay event counter',
+  }, generateSecretKey());
+  const requests: unknown[][] = [];
+  await page.routeWebSocket(relayUrl, (ws) => {
+    ws.onMessage((message) => {
+      const data = JSON.parse(typeof message === 'string' ? message : message.toString()) as unknown[];
+      if (data[0] !== 'REQ') return;
+      requests.push(data);
+      ws.send(JSON.stringify(['EVENT', data[1], relayEvent]));
+      ws.send(JSON.stringify(['EOSE', data[1]]));
+    });
+  });
+  const counterRuntime = await startPajaServer({
+    options: {
+      targetUrl: `${targetServer.url}?manualTraffic=1&required=relay`,
+      port: 0,
+      simulation: { relay: { mode: 'live', urls: [relayUrl] } },
+    },
+    now: new Date('2026-09-04T00:00:00.000Z'),
+  });
+
+  try {
+    await page.goto(counterRuntime.url);
+    const frame = page.frameLocator('#napplet-frame');
+    await expect(frame.locator('#target-status')).toHaveText('shell-init received', { timeout: 15_000 });
+    const events = page.locator('[data-paja-section="events"]');
+    await expect(events).toHaveAttribute('open', '');
+    await expect(page.locator('#event-kind-counts')).toContainText('no relay events yet');
+
+    await sendFixtureMessage(frame, {
+      type: 'relay.subscribe',
+      id: 'events-sub',
+      subId: 'events-sub',
+      filters: [{ kinds: [10_005] }],
+    });
+
+    await expect(page.locator('#message-log')).toContainText('relay.event');
+    await expect(page.locator('#event-kind-counts .event-row[data-event-kind="10005"] .event-count')).toHaveText('1');
+    await expect(page.locator('#event-kind-total')).toHaveText('1');
+    await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().eventKindCounts)).toEqual([
+      { kind: 10_005, count: 1 },
+    ]);
+    expect(requests[0]?.[0]).toBe('REQ');
+  } finally {
+    await counterRuntime.close();
+  }
+});
 
 test('hosts one sandboxed target iframe and reinitializes it on reload', async ({ page }) => {
   test.setTimeout(60_000);
