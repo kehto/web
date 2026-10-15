@@ -104,6 +104,15 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .log-body { min-width: 0; display: grid; gap: 2px; }
       .log-type { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .log-detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #e6a5a5; }
+      .event-list { min-height: 44px; max-height: 30vh; overflow: auto; border: 1px solid var(--line); border-radius: 4px; background: #0b0d0b; padding: 4px 0; }
+      .event-row { display: grid; grid-template-columns: 64px 12px minmax(0, 1fr); align-items: baseline; gap: 6px; padding: 3px 8px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
+      .event-kind { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; color: var(--text); }
+      .event-separator { color: var(--muted); text-align: center; }
+      .event-count { color: var(--accent); text-align: left; }
+      .event-empty { padding: 4px 8px; color: var(--muted); font-style: italic; font-size: 11px; }
+      .section-total { color: var(--muted); font-size: 11px; margin-left: auto; }
+      .section-total:empty { display: none; }
+      .section-total + .section-chevron { margin-left: 8px; }
       .stage { min-width: 0; min-height: 0; position: relative; background: #050705; }
       .empty-stage { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 12px; }
       .empty-stage[hidden] { display: none; }
@@ -226,6 +235,10 @@ export function renderPajaHtml(config: PajaHostConfig): string {
             <button type="button" id="clear-log">Clear</button>
           </div>
           <div class="log-list" id="message-log" aria-live="polite"></div>
+        </div></details>
+        <details class="section" id="paja-section-events" data-paja-section="events" open>
+          <summary class="section-title">Events<span class="section-total" id="event-kind-total" aria-hidden="true"></span><span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
+          <div class="event-list" id="event-kind-counts" aria-label="Relay event counts by kind"></div>
         </div></details>
       </aside>
       ${renderStage(config, targetLabel)}

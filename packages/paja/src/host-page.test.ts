@@ -34,12 +34,13 @@ describe('@kehto/paja host page', () => {
       expect(aside!.indexOf('id="paja-resource-servers-form"')).toBeLessThan(aside!.indexOf('id="message-log"'));
       const keys = [...aside!.matchAll(/data-paja-section="([^"]+)"/g)].map((match) => match[1]);
       expect(keys).toEqual(config.target.mode === 'runtime-pointer'
-        ? ['pointer', 'interfaces', 'acl', 'signer', 'resource-servers', 'messages']
-        : ['interfaces', 'acl', 'signer', 'resource-servers', 'messages']);
+        ? ['pointer', 'interfaces', 'acl', 'signer', 'resource-servers', 'messages', 'events']
+        : ['interfaces', 'acl', 'signer', 'resource-servers', 'messages', 'events']);
       expect(aside!.match(/<details[^>]* open>/g)).toHaveLength(keys.length);
       expect(aside!.match(/<summary class="section-title">/g)).toHaveLength(keys.length);
       expect(aside).not.toMatch(/<details[^>]* name=/);
-      expect(aside).toMatch(/id="message-log"[^>]*><\/div>\s*<\/div><\/details>\s*$/);
+      expect(aside).toMatch(/id="message-log"[^>]*><\/div>\s*<\/div><\/details>\s*<details[^>]*data-paja-section="events"/);
+      expect(aside).toMatch(/id="event-kind-counts"[^>]*><\/div>\s*<\/div><\/details>\s*$/);
     }
   });
   it('renders minimal top and bottom bars with one sandboxed iframe', () => {

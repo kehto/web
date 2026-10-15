@@ -66,12 +66,17 @@ import {
   readPajaHostConfig,
 } from './browser-host-config.js';
 import type { BrowserIntentGeneration } from './browser-intent-controller.js';
+import type { PajaRelayBackend } from './browser-relay-runtime.js';
 import {
   appendPajaMessageLog,
+  createPajaEventKindCounter,
   createPajaPostMessageProxy,
   installPajaOriginRegistryProxy,
   renderPajaDevtools,
+  renderPajaEventKindCounts,
   renderPajaMessageLog,
+  type PajaEventKindCounter,
+  type PajaEventKindCount,
   type PajaMessageLogEntry,
 } from './browser-devtools.js';
 import type { PajaHostConfig } from './options.js';
@@ -115,6 +120,7 @@ export interface PajaBrowserState {
   status: 'booting' | 'ready' | 'reloading' | 'error';
   messageFilter: string;
   messageLog: PajaMessageLogEntry[];
+  eventKindCounts: PajaEventKindCounter;
   reload(): void;
   activateTab(tabId: string): void;
   closeTab(tabId: string): void;
@@ -151,6 +157,7 @@ export interface PajaBrowserState {
       initSent: boolean;
     }>;
     messageLog: PajaMessageLogEntry[];
+    eventKindCounts: PajaEventKindCount[];
   };
 }
 
@@ -467,10 +474,14 @@ function snapshotPajaBrowserState(state: PajaBrowserState, runtime: PajaHostRunt
       initSent: tab.windowId ? runtime.readyWindowIds.has(tab.windowId) : false,
     })),
     messageLog: [...state.messageLog],
+    eventKindCounts: state.eventKindCounts.snapshot(),
   };
 }
 
-function createPajaBrowserState(context: PajaBrowserStateContext): PajaBrowserState {
+function createPajaBrowserState(
+  context: PajaBrowserStateContext,
+  eventKindCounts: PajaEventKindCounter,
+): PajaBrowserState {
   const {
     config,
     bridge,
@@ -496,6 +507,7 @@ function createPajaBrowserState(context: PajaBrowserStateContext): PajaBrowserSt
     status: 'booting',
     messageFilter: '',
     messageLog: [],
+    eventKindCounts,
     reload() {
       reloadPajaTarget(this, context);
     },
@@ -641,6 +653,11 @@ async function installPajaHost(): Promise<void> {
     getIdentity: getWindowIdentity,
     getInitialValues: () => ({ ...getSimulation().config.values }),
   });
+  // Live-relay counters are created before the adapter so background fetches
+  // that start during adapter construction are counted, not dropped.
+  const eventKindCounts = createPajaEventKindCounter(() => {
+    if (stateRef) renderPajaEventKindCounts(stateRef);
+  });
   const adapter = createPajaAdapter(config, getSimulation, (theme) => {
     runtime.themeService = theme;
   }, themeBroadcast.onBroadcast, confirmationController.confirm, signerController, getWindowIdentity, () => stateRef?.reload(), {
@@ -669,6 +686,8 @@ async function installPajaHost(): Promise<void> {
         return candidates.some((candidate) => candidate.id === id) ? id : undefined;
       },
     }, confirmationController.activation, notifyController?.serviceOptions, configController?.serviceOptions, resourceSettings.getServers);
+  const relayBackend = adapter.relayPool.getRelayPool() as PajaRelayBackend | null;
+  relayBackend?.setRelayEventObserver((event) => eventKindCounts.record(event));
   await adapter.ready;
   const bridge = createShellBridge(adapter);
   const stopIdentityChanges = signerController.subscribe(() => {
@@ -695,7 +714,7 @@ async function installPajaHost(): Promise<void> {
     setStatus: (state, status) => setStatus(state as PajaBrowserState, status),
   };
   contextRef = context;
-  const state = createPajaBrowserState(context);
+  const state = createPajaBrowserState(context, eventKindCounts);
   stateRef = state;
 
   const stopIntentCatalogChanges = subscribePajaIntentCatalogChanges(state, context);

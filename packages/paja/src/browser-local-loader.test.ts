@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { originRegistry } from '@kehto/shell';
 
 import { createPajaAdapter } from './browser-adapter.js';
+import { createPajaEventKindCounter } from './browser-devtools.js';
 import { loadLocalRuntimeFile, pickLocalHtmlFile } from './browser-local-loader.js';
 import {
   snapshotRuntimeTabs,
@@ -65,6 +66,7 @@ function createHarness() {
     resolvedTarget: null,
     messageFilter: '',
     messageLog: [],
+    eventKindCounts: createPajaEventKindCounter(),
     activateTab: vi.fn(),
     closeTab: vi.fn(),
   } as unknown as PajaRuntimeTabState;

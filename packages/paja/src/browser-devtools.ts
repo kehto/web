@@ -34,6 +34,69 @@ export interface PajaMessageLogEntry {
   detail: string;
 }
 
+/** One aggregated relay-event counter row in Paja's browser devtools. */
+export interface PajaEventKindCount {
+  /** Nostr event kind. */
+  kind: number;
+  /** Number of times an event of this kind was received from a live relay. */
+  count: number;
+}
+
+/**
+ * Cumulative per-kind counter for events received from live relays.
+ *
+ * The counter lives outside the host state object so relay fetches that Paja
+ * starts before `__KEHTO_PAJA__` exists (signer probes, social cache, relay
+ * lists) are counted rather than dropped.
+ */
+export interface PajaEventKindCounter {
+  /** Total events received from live relays. */
+  readonly total: number;
+  /** Counts by kind, newest values included. */
+  snapshot(): PajaEventKindCount[];
+  /**
+   * Count one received event.
+   *
+   * @param event - Event as received from a live relay.
+   */
+  record(event: unknown): void;
+}
+
+/**
+ * Create a cumulative per-kind relay event counter.
+ *
+ * Only well-formed events with a non-negative integer `kind` are counted, and
+ * repeated deliveries of the same event are counted again: the panel reports
+ * what Paja fetched, not how many distinct events exist.
+ *
+ * @param onChange - Called after a counted event.
+ * @returns Counter suitable for a relay observation hook and sidebar rendering.
+ * @example
+ * const counter = createPajaEventKindCounter(() => renderPajaEventKindCounts(state));
+ */
+export function createPajaEventKindCounter(onChange?: () => void): PajaEventKindCounter {
+  const counts = new Map<number, number>();
+  let total = 0;
+  return {
+    get total() {
+      return total;
+    },
+    snapshot() {
+      return [...counts.entries()]
+        .sort(([left], [right]) => left - right)
+        .map(([kind, count]) => ({ kind, count }));
+    },
+    record(event) {
+      if (typeof event !== 'object' || event === null) return;
+      const kind = (event as { kind?: unknown }).kind;
+      if (typeof kind !== 'number' || !Number.isSafeInteger(kind) || kind < 0) return;
+      counts.set(kind, (counts.get(kind) ?? 0) + 1);
+      total += 1;
+      onChange?.();
+    },
+  };
+}
+
 /** Mutable browser devtools state for the Paja host page. */
 export interface PajaDevtoolsState {
   /** Current host config. */
@@ -50,6 +113,8 @@ export interface PajaDevtoolsState {
   messageFilter: string;
   /** Accumulated message log rows. */
   messageLog: PajaMessageLogEntry[];
+  /** Cumulative event counts by kind for live relay fetches. */
+  eventKindCounts: PajaEventKindCounter;
   /** Enable or disable an injected domain. */
   setDomainEnabled(domain: PajaCapabilityDomain, enabled: boolean): void;
   /** Enable or disable an ACL capability. */
@@ -295,6 +360,43 @@ export function renderPajaDevtools(
   renderInterfaceControls(state);
   renderAclControls(state, options.bridge);
   renderSignerStatus(state, options.devSignerPubkey);
+  renderPajaEventKindCounts(state);
+}
+
+/**
+ * Render Paja's cumulative relay event counts grouped by event kind.
+ *
+ * @param state - Current devtools state.
+ */
+export function renderPajaEventKindCounts(state: PajaDevtoolsState): void {
+  const container = document.getElementById('event-kind-counts');
+  const total = document.getElementById('event-kind-total');
+  const counts = state.eventKindCounts.snapshot();
+  if (total) total.textContent = counts.length === 0 ? '' : `${state.eventKindCounts.total}`;
+  if (!container) return;
+  if (counts.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'event-empty';
+    empty.textContent = 'no relay events yet';
+    container.replaceChildren(empty);
+    return;
+  }
+  container.replaceChildren(...counts.map(({ kind, count }) => {
+    const row = document.createElement('div');
+    row.className = 'event-row';
+    row.dataset.eventKind = String(kind);
+    const kindCell = document.createElement('span');
+    kindCell.className = 'event-kind';
+    kindCell.textContent = String(kind);
+    const separator = document.createElement('span');
+    separator.className = 'event-separator';
+    separator.textContent = '-';
+    const countCell = document.createElement('span');
+    countCell.className = 'event-count';
+    countCell.textContent = String(count);
+    row.append(kindCell, separator, countCell);
+    return row;
+  }));
 }
 
 /**

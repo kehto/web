@@ -6,10 +6,12 @@ import {
   type ShellAdapter,
 } from '@kehto/shell';
 import {
+  createPajaEventKindCounter,
   createPajaPostMessageProxy,
   installPajaOriginRegistryProxy,
   redactPajaMessageForLog,
   renderPajaDevtools,
+  renderPajaEventKindCounts,
   type PajaDevtoolsState,
 } from './browser-devtools.js';
 import { createPajaRuntimeHostConfig } from './options.js';
@@ -179,6 +181,7 @@ describe('Paja ACL controls', () => {
       resolvedTarget: resolvedTarget as PajaDevtoolsState['resolvedTarget'],
       messageFilter: '',
       messageLog: [],
+      eventKindCounts: createPajaEventKindCounter(),
       setDomainEnabled: vi.fn(),
       setAclCapability(capability, enabled) {
         if (enabled) {
@@ -216,5 +219,84 @@ describe('Paja ACL controls', () => {
     expect(container.button('outbox:read').dataset.enabled).toBe('true');
 
     bridge.destroy();
+  });
+});
+
+class FakeLogElement {
+  className = '';
+  textContent = '';
+  readonly dataset: Record<string, string> = {};
+  children: FakeLogElement[] = [];
+
+  constructor(readonly tag: string) {}
+
+  append(...nodes: FakeLogElement[]): void {
+    this.children.push(...nodes);
+  }
+
+  replaceChildren(...nodes: FakeLogElement[]): void {
+    this.children = nodes;
+  }
+
+  text(): string {
+    return this.children.length === 0 ? this.textContent : this.children.map((child) => child.text()).join(' ');
+  }
+}
+
+function stubEventCountDom() {
+  const container = new FakeLogElement('div');
+  const total = new FakeLogElement('span');
+  vi.stubGlobal('document', {
+    getElementById: (id: string) => id === 'event-kind-counts'
+      ? container
+      : id === 'event-kind-total'
+        ? total
+        : null,
+    createElement: (tag: string) => new FakeLogElement(tag),
+  });
+  return { container, total };
+}
+
+describe('Paja relay event kind counts', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('counts known kinds, ignores malformed events, and aggregates repeats', () => {
+    const counter = createPajaEventKindCounter();
+
+    counter.record({ kind: 1 });
+    counter.record({ kind: 10005 });
+    counter.record({ kind: 1 });
+    counter.record({ id: 'no-kind' });
+    counter.record(null);
+    counter.record({ kind: -1 });
+    counter.record({ kind: 1.5 });
+    counter.record({ kind: '1' });
+
+    expect(counter.total).toBe(3);
+    expect(counter.snapshot()).toEqual([
+      { kind: 1, count: 2 },
+      { kind: 10005, count: 1 },
+    ]);
+  });
+
+  it('renders one kind - count row per kind with a running total badge', () => {
+    const { container, total } = stubEventCountDom();
+    let rerender = (): void => {};
+    const counter = createPajaEventKindCounter(() => rerender());
+    const state = { eventKindCounts: counter } as unknown as PajaDevtoolsState;
+    rerender = () => renderPajaEventKindCounts(state);
+
+    renderPajaEventKindCounts(state);
+    expect(container.text()).toBe('no relay events yet');
+    expect(total.textContent).toBe('');
+
+    counter.record({ kind: 10005 });
+    counter.record({ kind: 1 });
+    counter.record({ kind: 1 });
+
+    expect(container.children.map((row) => row.dataset.eventKind)).toEqual(['1', '10005']);
+    expect(container.children[0]!.text()).toBe('1 - 2');
+    expect(container.children[1]!.text()).toBe('10005 - 1');
+    expect(total.textContent).toBe('3');
   });
 });
