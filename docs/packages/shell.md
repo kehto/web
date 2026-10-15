@@ -123,3 +123,18 @@ remain bounded compatibility adapters and warn once per iframe with
 ## GAMEPAD integration
 
 This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja and the playground register one host reader and deny native gamepad/HID/USB paths before frame execution. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, window destruction, and service removal release polling. Non-browser or denied native readers report the proposal's unavailable reasons. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
+
+
+## UUID support on HTTP origins
+
+Shell event injection, cache queries, and source-session registration use native
+`crypto.randomUUID()` when available. On browsers that omit it (including
+non-localhost plain HTTP origins), the shell generates UUID v4 identifiers from
+16 `crypto.getRandomValues()` bytes. If both methods are unavailable, UUID
+creation throws an explicit capability error. It never falls back to weak
+randomness. This does not provide other secure-context browser APIs on HTTP.
+
+This is a supported platform capability choice, not a deprecated caller API.
+Both standard Web Crypto paths remain quiet. Source-bound identity and optional
+shell readiness are unchanged (NAP-SHELL at `napplet/naps`
+`19de5ce1cea40cd4c76089cdd8126e9f87648049`).

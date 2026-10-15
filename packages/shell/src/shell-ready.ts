@@ -1,4 +1,5 @@
 import type { Runtime, SessionEntry } from '@kehto/runtime';
+import { randomUUID } from './random-uuid.js';
 import { originRegistry, type OriginIdentity } from './origin-registry.js';
 import { resolveShellEnvironment } from './shell-init.js';
 import type { ShellAdapter, ShellEnvironment } from './types.js';
@@ -110,7 +111,7 @@ function registerNip5dSessionIfNeeded({
     dTag: identity.dTag,
     aggregateHash: identity.aggregateHash,
     registeredAt: Date.now(),
-    instanceId: crypto.randomUUID(),
+    instanceId: randomUUID(),
     provenance: 'nip-5d',
   };
   runtime.sessionRegistry.register(windowId, entry);
