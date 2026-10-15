@@ -8,6 +8,27 @@ and DM.
 > protocol. NAP contracts and service envelopes are not final; treat these
 > handlers as reference implementations for the current draft.
 
+## ContextVM transport limits
+
+The Nostr transport reassembles inbound CEP-22 responses with a 300,000ms buffer
+lifetime ceiling. Each admitted request retains its original deadline; progress
+does not extend it. Hosts must include initialization/queueing in their overall
+NAP-CVM budget. CEP-41 close with unresolved chunk gaps fails immediately, whether
+or not `lastChunkIndex` is present. Contiguous buffered chunks drain when the
+missing predecessor arrives before close. The transport does not wait for a
+post-close grace period or report successful closure while dropping gaps.
+
+Outbound oversized requests are not split into CEP-22 frames. With encryption
+enabled, tool arguments must fit one NIP-44 plaintext message. The transport
+does not know the calling napplet; hosts own per-napplet concurrency admission
+before invoking it. Frame caps do not bound the pending request map. Correlation
+IDs and ping nonces use random bytes plus counters, without per-ID key derivation.
+
+Authority: [NAP-CVM draft #31](https://github.com/napplet/naps/blob/28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f/naps/NAP-CVM.md)
+and [CEP-41](https://github.com/contextvm/contextvm-docs/blob/3b4f9dc9f9012a418abd9faec6a70db774754862/src/content/docs/reference/ceps/cep-41.md).
+These transport limits do not claim implementation of every newer NAP-CVM
+session or payment field.
+
 ## Install
 
 ```bash
