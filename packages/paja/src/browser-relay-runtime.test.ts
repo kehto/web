@@ -18,6 +18,7 @@ const livePool = vi.hoisted(() => ({
   countFailures: new Set<string>(),
   publishRequests: [] as Array<{ relayUrls: string[]; event: unknown }>,
   subscribeMapRequests: [] as Array<Array<{ url: string; filter: Record<string, unknown> }>>,
+  subscriptionEvents: [] as unknown[],
   subscriptionClose: undefined as ReturnType<typeof vi.fn> | undefined,
   seenOn: new Map<string, Set<{ url: string }>>(),
 }));
@@ -72,12 +73,15 @@ vi.mock('nostr-tools/pool', () => ({
 
     subscribeMap(
       requests: Array<{ url: string; filter: Record<string, unknown> }>,
-      params: { oneose(): void },
+      params: { onevent(event: unknown): void; oneose(): void },
     ) {
       livePool.subscribeMapRequests.push(requests);
       const close = vi.fn();
       livePool.subscriptionClose = close;
-      queueMicrotask(() => params.oneose());
+      queueMicrotask(() => {
+        for (const event of livePool.subscriptionEvents) params.onevent(event);
+        params.oneose();
+      });
       return { close };
     }
 
@@ -182,6 +186,44 @@ describe('@kehto/paja effective relay URLs', () => {
 
     expect(backend.observedRelayUrls(event.id)).toEqual([TEST_RELAYS[1]]);
     expect(backend.observedRelayUrls('unknown')).toEqual([]);
+    backend.close();
+  });
+
+  it('reports every live event to the registered host observer for subscription and query paths', async () => {
+    const streamed = testEvent('1'.repeat(64));
+    const queried = { ...testEvent('2'.repeat(64)), kind: 3 };
+    livePool.subscriptionEvents = [streamed];
+    livePool.querySyncEvents = [queried];
+    const observed: NostrEvent[] = [];
+    const delivered: unknown[] = [];
+    const simulation = normalizePajaSimulation({ relay: { mode: 'live', urls: TEST_RELAYS } });
+    const backend = createPajaRelayBackend(() => simulation, () => true);
+    backend.setRelayEventObserver((event) => observed.push(event));
+
+    backend.subscription(TEST_RELAYS, [{ kinds: [1] }]).subscribe((item) => delivered.push(item));
+    await expect(backend.query(TEST_RELAYS, [{ kinds: [3] }])).resolves.toEqual([queried]);
+    await Promise.resolve();
+
+    expect(observed).toEqual([streamed, queried]);
+    // Observation must never replace delivery to the subscribing napplet.
+    expect(delivered).toContain(streamed);
+    backend.close();
+  });
+
+  it('never reports simulated memory fixtures as relay fetches', async () => {
+    const fixture = testEvent('c'.repeat(64));
+    const observed: NostrEvent[] = [];
+    const simulation = normalizePajaSimulation({
+      relay: { mode: 'memory', urls: TEST_RELAYS, fixtures: [{ ...fixture }] },
+    });
+    const backend = createPajaRelayBackend(() => simulation, () => true);
+    backend.setRelayEventObserver((event) => observed.push(event));
+
+    backend.subscription(TEST_RELAYS, [{}]).subscribe(() => {});
+    await expect(backend.query(TEST_RELAYS, [{}])).resolves.toEqual([fixture]);
+    await Promise.resolve();
+
+    expect(observed).toEqual([]);
     backend.close();
   });
 
@@ -375,6 +417,34 @@ describe('@kehto/paja effective relay URLs', () => {
       'outbox',
       'count',
     ]));
+    (adapter.relayPool.getRelayPool() as PajaRelayBackend).close();
+  });
+
+  it('reports napplet-facing relay events to the registered host observer', async () => {
+    const streamed = { ...testEvent('9'.repeat(64)), kind: 1 };
+    livePool.subscriptionEvents = [streamed];
+    const observed: number[] = [];
+    const simulation = normalizePajaSimulation({ relay: { mode: 'live', urls: TEST_RELAYS } });
+    const adapter = createPajaAdapter(
+      { window: { id: 'paja-window', dTag: 'paja', aggregateHash: 'aggregate' } } as PajaHostConfig,
+      () => simulation,
+      () => {},
+      () => {},
+      () => true,
+    );
+    const sent: NappletMessage[] = [];
+    // The Paja host registers through this same accessor, so this proves the
+    // service path and the host registration meet on one backend instance.
+    (adapter.relayPool.getRelayPool() as PajaRelayBackend).setRelayEventObserver((event) => observed.push(event.kind));
+
+    adapter.services?.relay?.handleMessage(
+      'paja-window',
+      { type: 'relay.subscribe', id: 'events-1', subId: 'events-1', filters: [{ kinds: [1] }] } as NappletMessage,
+      (message) => sent.push(message),
+    );
+
+    await vi.waitFor(() => expect(observed).toEqual([1]));
+    expect(sent.some((message) => message.type === 'relay.event')).toBe(true);
     (adapter.relayPool.getRelayPool() as PajaRelayBackend).close();
   });
 });
