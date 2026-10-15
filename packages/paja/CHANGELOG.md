@@ -1,5 +1,13 @@
 # @kehto/paja
 
+## 0.21.3
+
+### Patch Changes
+
+- 7d47c7f: Normalize internal Blossom references to blossom:<hash> while preserving existing
+  read grammar, extensions, hints and integrity checks. Retain the sha256-prefixed
+  input alias with one actionable warning per host module lifetime.
+
 ## 0.21.2
 
 ### Patch Changes
