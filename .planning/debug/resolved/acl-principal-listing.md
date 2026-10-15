@@ -1,5 +1,5 @@
 ---
-status: investigating
+status: resolved
 trigger: "Issue #300: Runtime ACL listing omits the principal required by keyed policy methods"
 ---
 
@@ -19,3 +19,11 @@ Return dTag and aggregateHash from getEntry/getAllEntries. Recover listing keys
 at the final separator so identifiers containing colons round-trip. Test distinct
 principals with identical grants, persistence/reload, keyed mutation from listing,
 lookup/list consistency, and return-value isolation. GSD debug runs inline.
+
+## Verification
+
+Build/type/docs, all 2,158 unit tests and AI-slop 100/100 pass. Two new regression
+cases cover principal round-tripping and detached results. Browser tests are not
+required for these additive host API fields: no browser consumer calls this
+runtime enumeration API, and shell wiring/messages are unchanged. The shared
+CVM fake-clock validation prerequisite from #309 is carried as a test-only commit.
