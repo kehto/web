@@ -284,7 +284,7 @@ describe('createNostrCvmTransport', () => {
     await expect(responsePromise).resolves.toMatchObject({ id: 88, result: { ok: true } });
   });
 
-  it('drops CEP-22 frames signed by a server the token was not issued to', async () => {
+  it('drops CEP-22 frames signed by a server the token was not issued to', withFakeClock(async () => {
     const serverSk = generateSecretKey();
     const attackerSk = generateSecretKey();
     const { pool, serverPubkey, publishedPlain, deliverEncrypted } = createServerPool(serverSk, () => null);
@@ -295,7 +295,8 @@ describe('createNostrCvmTransport', () => {
       { jsonrpc: '2.0', id: 5, method: 'tools/call', params: { name: 'models.list', arguments: {} } },
       { timeoutMs: 100 },
     );
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    const rejection = expect(responsePromise).rejects.toThrow('relay timeout');
+    await vi.advanceTimersByTimeAsync(0);
     const correlationId = publishedPlain[0].id;
     const token = injectedToken(publishedPlain);
 
@@ -315,10 +316,11 @@ describe('createNostrCvmTransport', () => {
     deliverEncrypted(frame(2, { type: 'oversized-transfer', frameType: 'chunk', data: forged }), attackerSk);
     deliverEncrypted(frame(3, { type: 'oversized-transfer', frameType: 'end' }));
 
-    await expect(responsePromise).rejects.toThrow('relay timeout');
-  });
+    await vi.advanceTimersByTimeAsync(120);
+    await rejection;
+  }));
 
-  it('ignores CEP-22 frames for a token no request carried', async () => {
+  it('ignores CEP-22 frames for a token no request carried', withFakeClock(async () => {
     const serverSk = generateSecretKey();
     const { pool, serverPubkey, deliverEncrypted } = createServerPool(serverSk, () => null);
     const transport = createNostrCvmTransport({ pool, defaultRelays: RELAYS, clientSecretKey: generateSecretKey() });
@@ -328,7 +330,8 @@ describe('createNostrCvmTransport', () => {
       { jsonrpc: '2.0', id: 6, method: 'tools/call', params: { name: 'models.list', arguments: {} } },
       { timeoutMs: 100 },
     );
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    const rejection = expect(responsePromise).rejects.toThrow('relay timeout');
+    await vi.advanceTimersByTimeAsync(0);
 
     // A well-formed transfer for a token the client never issued must not
     // create buffers or resolve anything.
@@ -345,10 +348,11 @@ describe('createNostrCvmTransport', () => {
     deliverEncrypted(frame(2, { type: 'oversized-transfer', frameType: 'chunk', data: payload }));
     deliverEncrypted(frame(3, { type: 'oversized-transfer', frameType: 'end' }));
 
-    await expect(responsePromise).rejects.toThrow('relay timeout');
-  });
+    await vi.advanceTimersByTimeAsync(120);
+    await rejection;
+  }));
 
-  it('fails CEP-22 starts that lack required metadata or use an unsupported completion mode', async () => {
+  it('fails CEP-22 starts that lack required metadata or use an unsupported completion mode', withFakeClock(async () => {
     const serverSk = generateSecretKey();
     const { pool, serverPubkey, publishedPlain, deliverEncrypted } = createServerPool(serverSk, () => null);
     const transport = createNostrCvmTransport({ pool, defaultRelays: RELAYS, clientSecretKey: generateSecretKey() });
@@ -358,7 +362,8 @@ describe('createNostrCvmTransport', () => {
       { jsonrpc: '2.0', id: 7, method: 'tools/call', params: { name: 'chat.complete', arguments: {} } },
       { timeoutMs: 120 },
     );
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    const rejection = expect(responsePromise).rejects.toThrow('relay timeout');
+    await vi.advanceTimersByTimeAsync(0);
     const correlationId = publishedPlain[0].id;
     const token = injectedToken(publishedPlain);
     const payload = JSON.stringify({ jsonrpc: '2.0', id: correlationId, result: { smuggled: true } });
@@ -382,10 +387,11 @@ describe('createNostrCvmTransport', () => {
     deliverEncrypted(frame(5, { type: 'oversized-transfer', frameType: 'chunk', data: payload }));
     deliverEncrypted(frame(6, { type: 'oversized-transfer', frameType: 'end' }));
 
-    await expect(responsePromise).rejects.toThrow('relay timeout');
-  });
+    await vi.advanceTimersByTimeAsync(120);
+    await rejection;
+  }));
 
-  it('fails CEP-22 transfers that exceed their declared chunk or byte bounds', async () => {
+  it('fails CEP-22 transfers that exceed their declared chunk or byte bounds', withFakeClock(async () => {
     const serverSk = generateSecretKey();
     const { pool, serverPubkey, publishedPlain, deliverEncrypted } = createServerPool(serverSk, () => null);
     const transport = createNostrCvmTransport({ pool, defaultRelays: RELAYS, clientSecretKey: generateSecretKey() });
@@ -395,7 +401,8 @@ describe('createNostrCvmTransport', () => {
       { jsonrpc: '2.0', id: 8, method: 'tools/call', params: { name: 'models.list', arguments: {} } },
       { timeoutMs: 120 },
     );
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    const rejection = expect(responsePromise).rejects.toThrow('relay timeout');
+    await vi.advanceTimersByTimeAsync(0);
     const correlationId = publishedPlain[0].id;
     const token = injectedToken(publishedPlain);
     const payload = JSON.stringify({ jsonrpc: '2.0', id: correlationId, result: { padded: 'y'.repeat(64) } });
@@ -422,8 +429,9 @@ describe('createNostrCvmTransport', () => {
     deliverEncrypted(frame(6, { type: 'oversized-transfer', frameType: 'chunk', data: payload }));
     deliverEncrypted(frame(7, { type: 'oversized-transfer', frameType: 'end' }));
 
-    await expect(responsePromise).rejects.toThrow('relay timeout');
-  });
+    await vi.advanceTimersByTimeAsync(120);
+    await rejection;
+  }));
 
   it('refreshes the request deadline when an admitted frame arrives on an explicit token', withFakeClock(async () => {
     const serverSk = generateSecretKey();
@@ -623,7 +631,7 @@ describe('createNostrCvmTransport', () => {
     expect((response.result as { text: string }).text).toBe('emoji: 😀!');
   });
 
-  it('rejects CEP-22 starts whose progress range overflows safe integers', async () => {
+  it('rejects CEP-22 starts whose progress range overflows safe integers', withFakeClock(async () => {
     const serverSk = generateSecretKey();
     const { pool, serverPubkey, publishedPlain, deliverEncrypted } = createServerPool(serverSk, () => null);
     const transport = createNostrCvmTransport({ pool, defaultRelays: RELAYS, clientSecretKey: generateSecretKey() });
@@ -633,7 +641,8 @@ describe('createNostrCvmTransport', () => {
       { jsonrpc: '2.0', id: 24, method: 'tools/call', params: { name: 'models.list', arguments: {} } },
       { timeoutMs: 100 },
     );
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    const rejection = expect(responsePromise).rejects.toThrow('relay timeout');
+    await vi.advanceTimersByTimeAsync(0);
     const token = injectedToken(publishedPlain);
     const frame = (progress: number, cvm: Record<string, unknown>): McpMessage => ({
       jsonrpc: '2.0', method: 'notifications/progress',
@@ -650,10 +659,11 @@ describe('createNostrCvmTransport', () => {
     deliverEncrypted(frame(2 ** 53, { type: 'oversized-transfer', frameType: 'chunk', data: 'x' }));
     deliverEncrypted(frame(2 ** 53 + 2, { type: 'oversized-transfer', frameType: 'end' }));
 
-    await expect(responsePromise).rejects.toThrow('relay timeout');
-  });
+    await vi.advanceTimersByTimeAsync(120);
+    await rejection;
+  }));
 
-  it('rejects a CEP-22 end whose progress is not after the chunk sequence', async () => {
+  it('rejects a CEP-22 end whose progress is not after the chunk sequence', withFakeClock(async () => {
     const serverSk = generateSecretKey();
     const { pool, serverPubkey, publishedPlain, deliverEncrypted } = createServerPool(serverSk, () => null);
     const transport = createNostrCvmTransport({ pool, defaultRelays: RELAYS, clientSecretKey: generateSecretKey() });
@@ -662,7 +672,8 @@ describe('createNostrCvmTransport', () => {
       { jsonrpc: '2.0', id: 241, method: 'tools/call', params: { name: 'models.list', arguments: {} } },
       { timeoutMs: 100 },
     );
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    const rejection = expect(responsePromise).rejects.toThrow('relay timeout');
+    await vi.advanceTimersByTimeAsync(0);
     const correlationId = publishedPlain[0].id;
     const token = injectedToken(publishedPlain);
     const payload = JSON.stringify({ jsonrpc: '2.0', id: correlationId, result: { ok: true } });
@@ -680,8 +691,9 @@ describe('createNostrCvmTransport', () => {
     // bytes and digest cannot make this non-monotonic end valid.
     deliverEncrypted(frame(9, { type: 'oversized-transfer', frameType: 'end' }));
 
-    await expect(responsePromise).rejects.toThrow('relay timeout');
-  });
+    await vi.advanceTimersByTimeAsync(120);
+    await rejection;
+  }));
 
   it('close(server) rejects in-flight requests and releases their token bindings', async () => {
     const serverSk = generateSecretKey();
