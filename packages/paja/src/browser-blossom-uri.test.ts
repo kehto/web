@@ -1,9 +1,9 @@
-import { createHash } from 'node:crypto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parsePajaBlossomUri } from './browser-blossom-uri.js';
 
 const bytes = new Uint8Array([0, 1, 2, 255]);
-const hash = createHash('sha256').update(bytes).digest('hex');
+const digest = await crypto.subtle.digest('SHA-256', bytes);
+const hash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 
 afterEach(() => vi.restoreAllMocks());
 
