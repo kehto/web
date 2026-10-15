@@ -40,6 +40,24 @@ The runtime is built around the current draft dispatch contract from `@napplet/c
 
 Signing is shell-mediated inside `relay.publish` / `relay.publishEncrypted` (NIP-44 default, NIP-04 opt-in). The legacy signer domain is dissolved — napplets never see a host-injected nostr object and cannot call signer-sign RPCs directly.
 
+### Storage quota administration
+
+Hosts can call `runtime.aclState.setStateQuota(pubkey, dTag, aggregateHash, bytes)`
+to update the exact principal's live storage limit. `bytes` must be an integer
+from zero through `Number.MAX_SAFE_INTEGER`; malformed input throws `RangeError`
+before changing policy. Call `aclState.persist()` separately to save the quota.
+The default remains 524,288 bytes. Grants and block status are preserved.
+
+The existing storage handler consumes this same quota across shared and instance
+storage for that principal, counting UTF-8 bytes including scoped storage keys.
+Lowering a quota preserves stored values; writes that exceed the new limit fail
+until data is removed or the host increases the quota. Zero prevents nonempty
+storage writes while reads/removals remain subject to their existing ACL checks.
+
+This host administration API conforms to [NAP-STORAGE draft PR #3 at
+`4f4cf0ca7ecbd24c284a5d63bcd85e3de6af37ca`](https://github.com/napplet/naps/blob/4f4cf0ca7ecbd24c284a5d63bcd85e3de6af37ca/naps/NAP-STORAGE.md).
+It adds no napplet-callable quota setter or wire field.
+
 ### NAP-RELAY publish boundary
 
 The publish path follows draft [NAP-RELAY PR #2 at
