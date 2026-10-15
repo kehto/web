@@ -1,5 +1,5 @@
 ---
-status: investigating
+status: resolved
 trigger: "Issue #304: ACL revoke/block leaves ordinary relay subscriptions delivering to denied principals"
 ---
 
@@ -40,3 +40,10 @@ principals and non-read capability revocation remain unaffected. Ship a PR for #
 - The first docs run raced declaration builds; rerun after build completion.
 - Browser validation uses a temporary IPv6 preview configuration because another
   project owns IPv4 port 4173. No other process was stopped or reused.
+
+## Final verification
+
+Build (32 tasks), type-check (17 tasks), all 2,164 unit tests in 170 files,
+all 123 browser tests, docs:check, and AI-slop 100/100 pass. The browser run
+uses the repository suite with temporary IPv6 preview/hostname isolation only.
+NAP-RELAY draft head was rechecked and remains the pinned authority.
