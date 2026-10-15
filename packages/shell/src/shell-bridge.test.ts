@@ -1384,3 +1384,40 @@ describe('GAMEPAD source-bound routing', () => {
     bridge.destroy();
   });
 });
+
+
+describe('ShellBridge without crypto.randomUUID (issue #237)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    originRegistry.clear();
+  });
+
+  it('injects events and creates source sessions and cache query IDs using getRandomValues', async () => {
+    const nativeCrypto = globalThis.crypto;
+    const getRandomValues = vi.fn((bytes: Uint8Array) => nativeCrypto.getRandomValues(bytes));
+    vi.stubGlobal('crypto', { getRandomValues });
+    const query = vi.fn(async (_message: unknown[]) => []);
+    const hooks = makeTestHooks();
+    hooks.workerRelay.getWorkerRelay = () => ({ query, event: async () => {} });
+    const bridge = createShellBridge(hooks);
+    const iframe = makeFakeIframe();
+    const win = iframe as unknown as Window;
+    originRegistry.register(win, 'http-host', { dTag: 'uuid-probe', aggregateHash: 'verified' });
+    originRegistry.setEnvironment(win, { capabilities: { domains: ['relay'] }, services: [] });
+    try {
+      bridge.injectEvent('http-topic', { message: 'works without randomUUID' });
+      bridge.handleMessage({ source: win, origin: 'null', data: {
+        type: 'relay.subscribe', subId: 'http-query', filters: [{ kinds: [1] }],
+      } } as MessageEvent);
+      await Promise.resolve();
+      const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+      const sessionId = bridge.runtime.sessionRegistry.getEntryByWindowId('http-host')?.instanceId;
+      expect(sessionId).toMatch(uuid);
+      expect(query).toHaveBeenCalledWith(['REQ', expect.stringMatching(uuid), { kinds: [1] }]);
+      expect(query.mock.calls[0]?.[0]?.[1]).not.toBe(sessionId);
+      expect(getRandomValues).toHaveBeenCalledTimes(3);
+    } finally {
+      bridge.destroy();
+    }
+  });
+});
