@@ -40,6 +40,20 @@ The runtime is built around the current draft dispatch contract from `@napplet/c
 
 Signing is shell-mediated inside `relay.publish` / `relay.publishEncrypted` (NIP-44 default, NIP-04 opt-in). The legacy signer domain is dissolved — napplets never see a host-injected nostr object and cannot call signer-sign RPCs directly.
 
+### NAP-RELAY subscription revocation
+
+Revoking `relay:read` or blocking a principal immediately retires ordinary relay
+subscriptions in every window with that exact `dTag` and aggregate hash. The
+runtime closes registered relay/cache backends and direct adapter subscriptions,
+sends `relay.closed` with reason `denied: relay:read`, and suppresses queued events
+and EOSE callbacks. Regranting access requires a new subscription; old callbacks
+remain invalid even if the same `subId` is reused. Other principals, other artifact
+versions, and revocation of unrelated capabilities leave subscriptions active.
+
+This host policy conforms to [NAP-RELAY draft PR #2 at
+`9f30b3505335a52c574ff570576687d6467021ff`](https://github.com/napplet/naps/blob/9f30b3505335a52c574ff570576687d6467021ff/naps/NAP-RELAY.md),
+which permits ACL enforcement and policy-driven subscription termination.
+
 ### NAP-RELAY publish boundary
 
 The publish path follows draft [NAP-RELAY PR #2 at
