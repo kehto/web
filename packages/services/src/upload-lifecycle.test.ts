@@ -1,16 +1,18 @@
-import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import type { NappletMessage } from '@napplet/core';
 import { createUploadService, type UploaderContext, type UploadResult, type UploadStatus } from './upload-service.js';
 
 const payload = new Blob(['x'], { type: 'text/plain' });
+// SHA-256 of the issue reproduction's single UTF-8 byte "x".
+const hash = '2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881';
 const result: UploadResult = {
   ok: true, uploadId: 'backend', status: 'complete', rail: 'blossom',
-  url: 'https://example.invalid/blob', sha256: createHash('sha256').update('x').digest('hex'),
+  url: 'https://example.invalid/blob', sha256: hash,
   size: payload.size, mimeType: payload.type,
 };
 const progress: UploadStatus = { ...result, status: 'uploading', bytesSent: 0, bytesTotal: 1, updatedAt: 1 };
-const flush = () => new Promise<void>((resolve) => setImmediate(resolve));
+declare function setTimeout(callback: () => void, delay: number): unknown;
+const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
 function setup(generateId?: () => string) {
   let sequence = 0;

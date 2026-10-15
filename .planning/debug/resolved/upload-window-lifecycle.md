@@ -1,5 +1,5 @@
 ---
-status: investigating
+status: resolved
 trigger: "Issues #293 and #292: upload teardown cancels another window and permits late requester delivery"
 ---
 
@@ -26,3 +26,12 @@ Use exact window maps, invalidate the window before backend cancellation, and
 guard asynchronous replies/progress by window and upload generation. Recreated
 windows must not receive stale work. Test both reports, late errors, ID reuse,
 cancel callbacks/errors, and other asynchronous upload operations. GSD debug runs inline.
+
+## Verification
+
+Build/type/docs, all 2,162 unit tests and AI-slop 100/100 pass. The upload suites
+contain 20 passing tests, including six new lifetime regressions. An unrelated
+wall-clock resolver test exceeded its 150ms bound under load on the first full
+run; the complete rerun passes without changing that test. Test fixtures use the
+real SHA-256 vector for the reported payload. No shell wiring or new wire fields
+changed; unit tests exercise the full service lifecycle.
