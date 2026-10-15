@@ -65,7 +65,7 @@ if (!runtime.aclState.persist()) {
 Runtime destruction remains best-effort; hosts requiring an actionable save
 result should call `persist()` before teardown. This host API policy is outside
 the NAP wire contract. No old-use warning can detect callers ignoring a return
-value; see [the compatibility register](../../docs/compatibility.md).
+value; see [the compatibility register](https://github.com/kehto/web/blob/main/docs/compatibility.md).
 
 ### NAP-RELAY publish boundary
 
