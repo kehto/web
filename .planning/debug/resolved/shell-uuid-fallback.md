@@ -1,5 +1,5 @@
 ---
-status: investigating
+status: resolved
 trigger: "Issue #237: shell UUID generation throws on insecure HTTP origins"
 ---
 
@@ -21,3 +21,21 @@ bound to the registered source independently of optional shell readiness.
 GSD debug runs inline. Add RFC 9562 UUID v4 generation from 16 Web Crypto bytes,
 cover native/fallback/error paths and actual event/session/cache use, then prove
 the browser reproduction on a non-localhost HTTP origin. No weak randomness.
+
+
+## Resolution and verification
+
+One internal helper preserves native UUID generation and otherwise consumes
+16 cryptographically random bytes, setting UUID v4 version/variant bits. Event
+injection, cache query IDs, and source-session IDs use it. Explicit errors cover
+missing entropy support; neither path is a deprecated caller API.
+
+Build (32 tasks), type-check (17 tasks), 2,162 unit tests / 170 files, docs audit
+(9 packages), 125 Playwright tests, and AI-slop 100/100 pass. Browser tests prove
+actual HTTP crypto capability restrictions and HTTPS native availability without
+mocking those APIs. A pre-existing Paja resolver elapsed-time assertion failed
+once under concurrent build load (183 ms versus 150 ms); the full unit rerun
+passed unchanged with two workers.
+
+Spec result: host implementation policy; no change to protocol wire shape,
+source identity trust, or optional shell readiness. Conformant within that scope.
