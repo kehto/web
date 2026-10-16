@@ -1,5 +1,13 @@
 # @kehto/shell
 
+## 0.24.2
+
+### Patch Changes
+
+- fb6cb14: Discard a retired source's cached environment even when its runtime session was explicitly unregistered. A replacement registration uses its supplied snapshot or current host defaults, so old private domains and services cannot leak into its shell.init or dispatch policy.
+- Updated dependencies [4176e5f]
+  - @kehto/runtime@0.25.2
+
 ## 0.24.1
 
 ### Patch Changes
