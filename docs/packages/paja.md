@@ -217,8 +217,11 @@ The console includes:
   - **relay hints** — an outbox read the napplet pointed at relays itself with
     NAP-OUTBOX `relays` hints, which the shell validates and uses alongside the
     rest of the plan.
-  - **fallback relays** — the host's configured relay set, read when neither a
-    NIP-65 list nor a hint resolved (NAP-OUTBOX plan source `fallback`).
+  - **fallback relays** — the host's configured fallback/bootstrap relay set.
+    Reads can start while NIP-65 discovery is pending, even if author relays
+    resolve later; authorless queries also read this set alongside valid hints.
+    Authorless live subscriptions use fallback only when no valid hints remain.
+    This box does not imply that author discovery failed.
     Configured relays are listed from boot, so one that has served nothing yet
     still appears, marked `unused` until Paja reads from it and `silent` once a
     read returns no events. This is the only box that can render without traffic.

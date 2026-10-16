@@ -59,7 +59,8 @@ export interface PajaRelayReceipt {
  *
  * - `nip65` — outbox reads routed to the requested authors' NIP-65 write relays.
  * - `hint` — outbox reads the napplet pointed at relays with an `outbox.*` hint.
- * - `fallback` — the host's configured relays, read when no list or hint resolved.
+ * - `fallback` — configured fallback/bootstrap relays, including reads started
+ *   while author discovery is pending or alongside hints in authorless queries.
  * - `unattributed` — an outbox read that arrived without a router origin.
  * - `scoped` — a read the napplet pinned itself with NAP-RELAY `relay.subscribe`.
  * - `host` — Paja's own reads through its configured read pool.

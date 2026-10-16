@@ -14,9 +14,12 @@ size, so they never reshuffle mid-session:
   are discovered per read and cannot be listed from configuration.
 - **relay hints** — an outbox read the napplet pointed at relays itself with
   NAP-OUTBOX `relays` hints.
-- **fallback relays** — the host's configured set, read when no list or hint
-  resolved. Configured relays are listed from boot, so idle relays read `unused`
-  and relays that answered with nothing read `silent`.
+- **fallback relays** — the host's configured fallback/bootstrap set. Reads can
+  start while author discovery is pending and remain counted if NIP-65 relays
+  resolve later. Authorless queries read this set alongside valid hints;
+  authorless live subscriptions use it only when no valid hints remain. The box
+  does not imply discovery failed. Configured relays are listed from boot, so
+  idle relays read `unused` and relays that answered with nothing read `silent`.
 - **scoped relay** — a read the napplet pinned to one relay with NAP-RELAY
   `relay.subscribe`'s `relay` field, which the NAP calls a scoped relay rather
   than a hint.
