@@ -386,9 +386,9 @@ function createDevServices(
 
   if (getSimulation().relay.mode === 'live') {
     services.relay = createRelayPoolService({
-      subscribe: (filters, callback, relayUrls) => backend.subscription(
+      subscribe: (filters, callback, relayUrls, fromHint) => backend.subscription(
         (relayUrls ?? getReadRelays()).filter((url) => isPajaRelayAllowed(url, getAllRelays)),
-        filters,
+        filters, fromHint ? 'hint' : 'host',
       ).subscribe((item) => {
         if (item === 'EOSE' || (typeof item === 'object' && item !== null)) {
           callback(

@@ -194,19 +194,63 @@ describe('@kehto/paja effective relay URLs', () => {
     const queried = { ...testEvent('2'.repeat(64)), kind: 3 };
     livePool.subscriptionEvents = [streamed];
     livePool.querySyncEvents = [queried];
-    const observed: NostrEvent[] = [];
+    livePool.seenOn.clear();
+    livePool.seenOn.set(streamed.id, new Set([{ url: TEST_RELAYS[0]! }]));
+    livePool.seenOn.set(queried.id, new Set([{ url: TEST_RELAYS[1]! }]));
+    const observed: Array<{ event: NostrEvent; reason: string; sightedOn: readonly string[] }> = [];
+    const reads: Array<{ reason: string; relayUrls: readonly string[] }> = [];
     const delivered: unknown[] = [];
     const simulation = normalizePajaSimulation({ relay: { mode: 'live', urls: TEST_RELAYS } });
     const backend = createPajaRelayBackend(() => simulation, () => true);
-    backend.setRelayEventObserver((event) => observed.push(event));
+    backend.setRelayEventObserver(({ event, reason, sightedOn }) => observed.push({ event, reason, sightedOn }));
+    backend.setRelayRequestObserver(({ reason, relayUrls }) => reads.push({ reason, relayUrls }));
 
-    backend.subscription(TEST_RELAYS, [{ kinds: [1] }]).subscribe((item) => delivered.push(item));
-    await expect(backend.query(TEST_RELAYS, [{ kinds: [3] }])).resolves.toEqual([queried]);
+    backend.subscription(TEST_RELAYS, [{ kinds: [1] }], 'hint').subscribe((item) => delivered.push(item));
+    await expect(backend.query(TEST_RELAYS, [{ kinds: [3] }], undefined, 'outbox')).resolves.toEqual([queried]);
     await Promise.resolve();
 
-    expect(observed).toEqual([streamed, queried]);
+    expect(observed).toEqual([
+      { event: streamed, reason: 'hint', sightedOn: [TEST_RELAYS[0]] },
+      { event: queried, reason: 'outbox', sightedOn: [TEST_RELAYS[1]] },
+    ]);
+    expect(reads).toEqual([
+      { reason: 'hint', relayUrls: TEST_RELAYS },
+      { reason: 'outbox', relayUrls: TEST_RELAYS },
+    ]);
     // Observation must never replace delivery to the subscribing napplet.
     expect(delivered).toContain(streamed);
+    backend.close();
+  });
+
+  it('falls back to the requested relays when the pool tracked no sighting yet', async () => {
+    const streamed = testEvent('1'.repeat(64));
+    livePool.subscriptionEvents = [streamed];
+    livePool.seenOn.clear();
+    const observed: Array<readonly string[]> = [];
+    const simulation = normalizePajaSimulation({ relay: { mode: 'live', urls: TEST_RELAYS } });
+    const backend = createPajaRelayBackend(() => simulation, () => true);
+    backend.setRelayEventObserver(({ sightedOn }) => observed.push(sightedOn));
+
+    backend.subscription(TEST_RELAYS, [{}]).subscribe(() => {});
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(observed).toEqual([TEST_RELAYS]);
+    backend.close();
+  });
+
+  it('never reports reads Paja starts for an empty or simulated relay set', async () => {
+    const fixture = testEvent('c'.repeat(64));
+    const reads: unknown[] = [];
+    const simulation = normalizePajaSimulation({ relay: { mode: 'memory', fixtures: [{ ...fixture }] } });
+    const backend = createPajaRelayBackend(() => simulation, () => true);
+    backend.setRelayRequestObserver((request) => reads.push(request));
+
+    backend.subscription([], [{}]).subscribe(() => {});
+    await backend.query([], [{}]);
+    await Promise.resolve();
+
+    expect(reads).toEqual([]);
     backend.close();
   });
 
@@ -217,7 +261,7 @@ describe('@kehto/paja effective relay URLs', () => {
       relay: { mode: 'memory', urls: TEST_RELAYS, fixtures: [{ ...fixture }] },
     });
     const backend = createPajaRelayBackend(() => simulation, () => true);
-    backend.setRelayEventObserver((event) => observed.push(event));
+    backend.setRelayEventObserver(({ event }) => observed.push(event));
 
     backend.subscription(TEST_RELAYS, [{}]).subscribe(() => {});
     await expect(backend.query(TEST_RELAYS, [{}])).resolves.toEqual([fixture]);
@@ -423,7 +467,7 @@ describe('@kehto/paja effective relay URLs', () => {
   it('reports napplet-facing relay events to the registered host observer', async () => {
     const streamed = { ...testEvent('9'.repeat(64)), kind: 1 };
     livePool.subscriptionEvents = [streamed];
-    const observed: number[] = [];
+    const observed: string[] = [];
     const simulation = normalizePajaSimulation({ relay: { mode: 'live', urls: TEST_RELAYS } });
     const adapter = createPajaAdapter(
       { window: { id: 'paja-window', dTag: 'paja', aggregateHash: 'aggregate' } } as PajaHostConfig,
@@ -435,15 +479,28 @@ describe('@kehto/paja effective relay URLs', () => {
     const sent: NappletMessage[] = [];
     // The Paja host registers through this same accessor, so this proves the
     // service path and the host registration meet on one backend instance.
-    (adapter.relayPool.getRelayPool() as PajaRelayBackend).setRelayEventObserver((event) => observed.push(event.kind));
+    (adapter.relayPool.getRelayPool() as PajaRelayBackend)
+      .setRelayEventObserver(({ event, reason }) => observed.push(`${reason}:${event.kind}`));
 
     adapter.services?.relay?.handleMessage(
       'paja-window',
       { type: 'relay.subscribe', id: 'events-1', subId: 'events-1', filters: [{ kinds: [1] }] } as NappletMessage,
       (message) => sent.push(message),
     );
+    adapter.services?.relay?.handleMessage(
+      'paja-window',
+      {
+        type: 'relay.subscribe',
+        id: 'events-2',
+        subId: 'events-2',
+        filters: [{ kinds: [1] }],
+        relay: TEST_RELAYS[1],
+      } as NappletMessage,
+      (message) => sent.push(message),
+    );
 
-    await vi.waitFor(() => expect(observed).toEqual([1]));
+    // A read without a hint uses the host tier; an explicit hint is labelled as one.
+    await vi.waitFor(() => expect(observed).toEqual(['host:1', 'hint:1']));
     expect(sent.some((message) => message.type === 'relay.event')).toBe(true);
     (adapter.relayPool.getRelayPool() as PajaRelayBackend).close();
   });
