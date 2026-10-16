@@ -205,6 +205,11 @@ runtime.handleMessage('window-1', {
 - `createSessionRegistry` — bidirectional windowId ↔ `SessionEntry` store
 - `createNappKeyRegistry` — deprecated alias retained for v1.1 migration consumers
 
+`unregister(windowId)` retires the window's registration, lookup state, and pending
+update, including NIP-5D sessions whose pubkey is empty. Repeated calls are safe.
+If a newer window owns the same pubkey lookup, that newer entry is preserved;
+use `getEntryByWindowId` to distinguish live windows sharing an empty pubkey.
+
 `runtime.sessionRegistry.register(windowId, entry)` establishes a fresh trusted
 source lifecycle and retires that window's previous initialization burst budget,
 including when the host reuses the window ID, timestamp, or entry object. Ordinary
