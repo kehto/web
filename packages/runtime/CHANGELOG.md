@@ -1,5 +1,22 @@
 # @kehto/runtime
 
+## 0.26.0
+
+### Minor Changes
+
+- 5c3234e: Include dTag and aggregateHash in ACL listing and lookup results so hosts can
+  identify and mutate listed principals after reload. Custom AclEntryExternal
+  producers must supply these required identity fields. Serialized keys are unchanged.
+- 960baba: Return a boolean success result from ACL persist and clear operations so hosts
+  can detect backend failures without rolling back live policy. Clarify that
+  revoke/block observers run synchronously before explicit persistence.
+
+  Custom AclStateContainer implementations must return boolean outcomes instead of void.
+
+- ba9125b: Add setStateQuota to the runtime ACL container so hosts can configure a
+  principal's enforced storage quota without rewriting serialized state. Validate
+  safe integer byte bounds and preserve grants, block status, and existing data.
+
 ## 0.25.2
 
 ### Patch Changes

@@ -1,5 +1,16 @@
 # @kehto/paja
 
+## 0.21.4
+
+### Patch Changes
+
+- Updated dependencies [5c3234e]
+- Updated dependencies [960baba]
+- Updated dependencies [ba9125b]
+  - @kehto/runtime@0.26.0
+  - @kehto/services@0.24.2
+  - @kehto/shell@0.24.3
+
 ## 0.21.3
 
 ### Patch Changes
