@@ -1,5 +1,11 @@
 # @kehto/runtime
 
+## 0.25.2
+
+### Patch Changes
+
+- 4176e5f: Remove empty-pubkey sessions from all registration indexes on unregister, while preserving pubkey lookups owned by another live window.
+
 ## 0.25.1
 
 ### Patch Changes
