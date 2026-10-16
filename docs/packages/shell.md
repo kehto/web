@@ -62,6 +62,11 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
 - Advertises and injects `dm` or `fs` only when the matching runtime service is registered and host domain policy permits it.
 - Treats `keys.forward` as napplet-to-shell only; shell-initiated key actions are emitted as `keys.action` through the keys proxy/runtime service path.
 - Keeps identity/theme proxy delivery fail-closed. Hosts publish automatic changes only through `ShellBridge.publishIdentityChanged()` / `publishTheme()`, which filter by live session, granted domain, and current ACL.
+- Lets `bridge.runtime.aclState.persist()` and `clear()` report a browser
+  `localStorage` write failure as `false`. The mutation remains live, while a
+  fresh bridge continues to load the previous durable ACL until a retry
+  succeeds. This host adapter behavior changes no NAP wire message or field;
+  unrelated persistence adapters remain best-effort.
 - Must not expose `window.nostr` to napplets.
 - Does not implement service behavior itself; register reference services from `@kehto/services` on the underlying runtime.
 

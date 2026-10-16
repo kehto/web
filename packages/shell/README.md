@@ -27,6 +27,13 @@ source `dc1d24153c759152b6ba31a6ec9bea967798f2df`.
 
 The primary entry point is `createShellBridge()` — it owns the postMessage listener, the NAP-SHELL `shell.ready` / `shell.init` handshake, manifest verification, and every dispatch back into the runtime engine.
 
+ACL persistence uses the browser's `localStorage` key `napplet:acl`. A failed
+write is intentionally reported through `bridge.runtime.aclState.persist()` or
+`clear()` as `false`; the runtime keeps its already-applied live state, while a
+fresh bridge can still load the prior durable policy until the caller retries.
+Only ACL persistence has this result contract: unrelated browser persistence
+adapters retain their documented best-effort behavior.
+
 Current draft behaviors this package enforces:
 
 - The shell does not inject a host-provided nostr object into napplets — NIP-5D explicitly forbids napplet-visible signing. Napplets call `relay.publish` / `relay.publishEncrypted` and the shell mediates the signing flow internally (NIP-44 default, NIP-04 opt-in for encrypted envelopes).
