@@ -110,7 +110,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .event-group-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
       .event-group-count { color: var(--accent); }
       .event-relay { padding: 1px 0 2px; }
-      .event-relay-head { display: grid; grid-template-columns: minmax(0, 1fr) 56px 22px auto; align-items: center; gap: 6px; padding: 2px 8px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
+      .event-relay-head { display: grid; grid-template-columns: minmax(0, 1fr) 56px 22px auto auto; align-items: center; gap: 6px; padding: 2px 8px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
       .event-relay-url { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
       .event-bar { display: block; height: 5px; border-radius: 3px; background: #1b1f1a; overflow: hidden; }
       .event-bar-fill { display: block; height: 100%; background: var(--accent); }
@@ -118,6 +118,9 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .event-relay-count { color: var(--accent); text-align: right; }
       .event-relay[data-relay-count="0"] .event-relay-count { color: var(--muted); }
       .event-relay-idle { color: var(--muted); font-size: 10px; font-style: italic; }
+      .event-relay-origin { padding: 0 4px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 10px; white-space: nowrap; }
+      .event-relay-origin[data-relay-origin="nip65"] { color: #9fc48a; border-color: #3f5236; }
+      .event-relay-origin[data-relay-origin="fallback"] { color: #d8b06a; border-color: #5b4a2c; }
       .event-kinds { padding-left: 16px; }
       .event-row { display: grid; grid-template-columns: 64px 12px minmax(0, 1fr); align-items: baseline; gap: 6px; padding: 2px 8px 2px 16px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
       .event-kind { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; color: var(--text); }

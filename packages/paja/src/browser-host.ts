@@ -69,17 +69,19 @@ import type { BrowserIntentGeneration } from './browser-intent-controller.js';
 import type { PajaRelayBackend } from './browser-relay-runtime.js';
 import {
   appendPajaMessageLog,
-  createPajaRelayEventCounter,
   createPajaPostMessageProxy,
   installPajaOriginRegistryProxy,
   renderPajaDevtools,
-  renderPajaEventKindCounts,
   renderPajaMessageLog,
   type PajaMessageLogEntry,
+} from './browser-devtools.js';
+import {
+  createPajaRelayEventCounter,
+  renderPajaEventKindCounts,
   type PajaRelayEventCounter,
   type PajaRelayGroup,
   type PajaRelayInventory,
-} from './browser-devtools.js';
+} from './browser-relay-panel.js';
 import type { PajaHostConfig } from './options.js';
 import {
   getTargetIdentity,
@@ -662,7 +664,7 @@ async function installPajaHost(): Promise<void> {
   // Live-relay counters are created before the adapter so background fetches
   // that start during adapter construction are counted, not dropped.
   const relayEventCounts = createPajaRelayEventCounter(() => {
-    if (stateRef) renderPajaEventKindCounts(stateRef);
+    if (stateRef) renderPajaEventKindCounts(stateRef.relayEventCounts, stateRef.relayInventory());
   });
   // Configured outbox relays are rendered even before they serve anything, so a
   // relay the outbox model would use is visible while it is still idle.
@@ -699,10 +701,10 @@ async function installPajaHost(): Promise<void> {
     }, confirmationController.activation, notifyController?.serviceOptions, configController?.serviceOptions, resourceSettings.getServers);
   const relayBackend = adapter.relayPool.getRelayPool() as PajaRelayBackend | null;
   relayBackend?.setRelayEventObserver((sighting) => {
-    relayEventCounts.recordEvent(sighting.reason, sighting.event, sighting.sightedOn);
+    relayEventCounts.recordEvent(sighting.reason, sighting.event, sighting.sightedOn, sighting.origin);
   });
   relayBackend?.setRelayRequestObserver((request) => {
-    relayEventCounts.recordRead(request.reason, request.relayUrls);
+    relayEventCounts.recordRead(request.reason, request.relayUrls, request.origin);
   });
   await adapter.ready;
   const bridge = createShellBridge(adapter);

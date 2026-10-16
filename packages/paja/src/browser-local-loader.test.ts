@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { originRegistry } from '@kehto/shell';
 
 import { createPajaAdapter } from './browser-adapter.js';
-import { createPajaRelayEventCounter } from './browser-devtools.js';
+import { createPajaRelayEventCounter } from './browser-relay-panel.js';
 import { loadLocalRuntimeFile, pickLocalHtmlFile } from './browser-local-loader.js';
 import {
   snapshotRuntimeTabs,

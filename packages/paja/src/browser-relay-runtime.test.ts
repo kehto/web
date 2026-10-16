@@ -92,6 +92,7 @@ vi.mock('nostr-tools/pool', () => ({
 import {
   PAJA_CONTACT_LIST_CANDIDATE_LIMIT,
   createPajaContactListLoader,
+  createPajaOutboxRelayPool,
   createPajaRelayBackend,
   getPajaRelayUrls,
   type PajaRelayBackend,
@@ -197,25 +198,33 @@ describe('@kehto/paja effective relay URLs', () => {
     livePool.seenOn.clear();
     livePool.seenOn.set(streamed.id, new Set([{ url: TEST_RELAYS[0]! }]));
     livePool.seenOn.set(queried.id, new Set([{ url: TEST_RELAYS[1]! }]));
-    const observed: Array<{ event: NostrEvent; reason: string; sightedOn: readonly string[] }> = [];
-    const reads: Array<{ reason: string; relayUrls: readonly string[] }> = [];
+    const observed: Array<{
+      event: NostrEvent;
+      reason: string;
+      origin?: string;
+      relayUrls: readonly string[];
+      sightedOn: readonly string[];
+    }> = [];
+    const reads: Array<{ reason: string; origin?: string; relayUrls: readonly string[] }> = [];
     const delivered: unknown[] = [];
     const simulation = normalizePajaSimulation({ relay: { mode: 'live', urls: TEST_RELAYS } });
     const backend = createPajaRelayBackend(() => simulation, () => true);
-    backend.setRelayEventObserver(({ event, reason, sightedOn }) => observed.push({ event, reason, sightedOn }));
-    backend.setRelayRequestObserver(({ reason, relayUrls }) => reads.push({ reason, relayUrls }));
+    backend.setRelayEventObserver(({ event, reason, origin, relayUrls, sightedOn }) => observed.push({
+      event, reason, origin, relayUrls, sightedOn,
+    }));
+    backend.setRelayRequestObserver(({ reason, origin, relayUrls }) => reads.push({ reason, origin, relayUrls }));
 
-    backend.subscription(TEST_RELAYS, [{ kinds: [1] }], 'hint').subscribe((item) => delivered.push(item));
-    await expect(backend.query(TEST_RELAYS, [{ kinds: [3] }], undefined, 'outbox')).resolves.toEqual([queried]);
+    backend.subscription(TEST_RELAYS, [{ kinds: [1] }], { reason: 'hint' }).subscribe((item) => delivered.push(item));
+    await expect(backend.query(TEST_RELAYS, [{ kinds: [3] }], undefined, { reason: 'outbox', origin: 'nip65' })).resolves.toEqual([queried]);
     await Promise.resolve();
 
     expect(observed).toEqual([
-      { event: streamed, reason: 'hint', sightedOn: [TEST_RELAYS[0]] },
-      { event: queried, reason: 'outbox', sightedOn: [TEST_RELAYS[1]] },
+      { event: streamed, reason: 'hint', relayUrls: TEST_RELAYS, sightedOn: [TEST_RELAYS[0]] },
+      { event: queried, reason: 'outbox', origin: 'nip65', relayUrls: TEST_RELAYS, sightedOn: [TEST_RELAYS[1]] },
     ]);
     expect(reads).toEqual([
       { reason: 'hint', relayUrls: TEST_RELAYS },
-      { reason: 'outbox', relayUrls: TEST_RELAYS },
+      { reason: 'outbox', origin: 'nip65', relayUrls: TEST_RELAYS },
     ]);
     // Observation must never replace delivery to the subscribing napplet.
     expect(delivered).toContain(streamed);
@@ -251,6 +260,28 @@ describe('@kehto/paja effective relay URLs', () => {
     await Promise.resolve();
 
     expect(reads).toEqual([]);
+    backend.close();
+  });
+
+  it('reports the outbox pool origin for plan relays', async () => {
+    const streamed = testEvent('1'.repeat(64));
+    livePool.subscriptionEvents = [streamed];
+    livePool.seenOn.clear();
+    livePool.seenOn.set(streamed.id, new Set([{ url: TEST_RELAYS[0]! }]));
+    const observed: Array<{ reason: string; origin?: string }> = [];
+    const reads: Array<{ reason: string; origin?: string }> = [];
+    const simulation = normalizePajaSimulation({ relay: { mode: 'live', urls: TEST_RELAYS } });
+    const backend = createPajaRelayBackend(() => simulation, () => true);
+    backend.setRelayEventObserver(({ reason, origin }) => observed.push({ reason, origin }));
+    backend.setRelayRequestObserver(({ reason, origin }) => reads.push({ reason, origin }));
+
+    createPajaOutboxRelayPool(backend)
+      .subscribe([{ kinds: [1] }], [TEST_RELAYS[0]!], () => {}, 'nip65');
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(reads).toEqual([{ reason: 'outbox', origin: 'nip65' }]);
+    expect(observed).toEqual([{ reason: 'outbox', origin: 'nip65' }]);
     backend.close();
   });
 

@@ -38,10 +38,25 @@ export const PAJA_LIVE_QUERY_WAIT_MS = 4_000;
  */
 export type PajaRelayReadReason = 'outbox' | 'hint' | 'host';
 
-/** One relay read Paja started, labelled with how its relay set was chosen. */
-export interface PajaRelayReadRequest {
-  /** How the relay set was chosen. */
+/** Why one relay was in the read, when the caller knows how it was routed. */
+export type PajaRelayReadOrigin = 'nip65' | 'hint' | 'fallback';
+
+/** How one relay read was chosen. */
+export interface PajaRelayReadContext {
+  /** How the read's relay set was chosen. */
   readonly reason: PajaRelayReadReason;
+  /**
+   * Per-relay routing inside an outbox plan.
+   *
+   * The outbox router knows whether each relay came from an author's NIP-65
+   * list, a caller hint, or the host fallback set. Reads that are not
+   * outbox-planned leave this undefined, which renders without a chip.
+   */
+  readonly origin?: PajaRelayReadOrigin;
+}
+
+/** One relay read Paja started, labelled with how its relay set was chosen. */
+export interface PajaRelayReadRequest extends PajaRelayReadContext {
   /** Relay URLs the read runs against. */
   readonly relayUrls: readonly string[];
 }
@@ -75,10 +90,10 @@ export type PajaRelayRequestObserver = (request: PajaRelayReadRequest) => void;
 export type PajaRelayEventObserver = (sighting: PajaRelayEventSighting) => void;
 
 export interface PajaRelayBackend extends RelayPoolLike {
-  subscription(relayUrls: string[], filters: NostrFilter[], reason?: PajaRelayReadReason): {
+  subscription(relayUrls: string[], filters: NostrFilter[], context?: PajaRelayReadContext): {
     subscribe(observer: (item: unknown) => void): { unsubscribe(): void };
   };
-  request(relayUrls: string[], filters: NostrFilter[], reason?: PajaRelayReadReason): {
+  request(relayUrls: string[], filters: NostrFilter[], context?: PajaRelayReadContext): {
     subscribe(observer: {
       next: (event: unknown) => void;
       complete: () => void;
@@ -89,7 +104,7 @@ export interface PajaRelayBackend extends RelayPoolLike {
     relayUrls: string[],
     filters: NostrFilter[],
     maxWaitMs?: number,
-    reason?: PajaRelayReadReason,
+    context?: PajaRelayReadContext,
   ): Promise<NostrEvent[]>;
   publishToRelays(relayUrls: string[], event: NostrEvent): Promise<Record<string, boolean>>;
   countWithRelay(relayUrls: string[], filters: NostrFilter[]): Promise<{ count: number; relay: string }>;
@@ -332,18 +347,18 @@ export function createPajaRelayBackend(
     return sighted.length > 0 ? sighted : [...relayUrls];
   };
 
-  const observeRelayRequest = (reason: PajaRelayReadReason, relayUrls: readonly string[]): void => {
+  const observeRelayRequest = (context: PajaRelayReadContext, relayUrls: readonly string[]): void => {
     if (relayUrls.length === 0) return;
-    relayRequestObserver?.({ reason, relayUrls: [...relayUrls] });
+    relayRequestObserver?.({ ...context, relayUrls: [...relayUrls] });
   };
 
   const observeRelayEvent = (
-    reason: PajaRelayReadReason,
+    context: PajaRelayReadContext,
     relayUrls: readonly string[],
     event: NostrEvent,
   ): void => {
     relayEventObserver?.({
-      reason,
+      ...context,
       relayUrls: [...relayUrls],
       event,
       sightedOn: sightedRelays(event.id, relayUrls),
@@ -358,13 +373,13 @@ export function createPajaRelayBackend(
     relayUrls: string[],
     filters: NostrFilter[],
     maxWaitMs?: number,
-    reason: PajaRelayReadReason = 'host',
+    context: PajaRelayReadContext = { reason: 'host' },
   ): Promise<NostrEvent[]> => {
     const cached = collectMemoryEvents(cachedEvents(), filters);
     if (getSimulation().relay.mode !== 'live' || relayUrls.length === 0) return cached;
-    observeRelayRequest(reason, relayUrls);
+    observeRelayRequest(context, relayUrls);
     const liveEvents = await queryLive(livePool, relayUrls, filters, maxWaitMs);
-    for (const event of liveEvents) observeRelayEvent(reason, relayUrls, event);
+    for (const event of liveEvents) observeRelayEvent(context, relayUrls, event);
     const out = new Map<string, NostrEvent>();
     for (const event of [...cached, ...liveEvents]) out.set(event.id, event);
     return [...out.values()].sort((a, b) => b.created_at - a.created_at);
@@ -372,9 +387,9 @@ export function createPajaRelayBackend(
   const queryContactListCandidates: ContactListCandidateQuery = async (relayUrls, filters, maxWaitMs, signal) => {
     const cached = collectMemoryEvents(cachedEvents(), filters);
     if (signal?.aborted || getSimulation().relay.mode !== 'live' || relayUrls.length === 0) return cached;
-    observeRelayRequest('host', relayUrls);
+    observeRelayRequest({ reason: 'host' }, relayUrls);
     const liveEvents = await queryLive(livePool, relayUrls, filters, maxWaitMs, true, signal);
-    for (const event of liveEvents) observeRelayEvent('host', relayUrls, event);
+    for (const event of liveEvents) observeRelayEvent({ reason: 'host' }, relayUrls, event);
     const out = new Map<string, NostrEvent>();
     for (const event of [...cached, ...liveEvents]) out.set(event.id, event);
     return [...out.values()].sort((a, b) => b.created_at - a.created_at);
@@ -412,7 +427,11 @@ export function createPajaRelayBackend(
   }
 
   const backend: PajaRelayBackend = {
-    subscription(relayUrls: string[], filtersInput: NostrFilter[], reason: PajaRelayReadReason = 'host') {
+    subscription(
+      relayUrls: string[],
+      filtersInput: NostrFilter[],
+      context: PajaRelayReadContext = { reason: 'host' },
+    ) {
       return {
         subscribe(next: (item: unknown) => void) {
           const filters = normalizedFilters(filtersInput);
@@ -422,10 +441,10 @@ export function createPajaRelayBackend(
           };
           subscribers.add(subscriber);
           for (const event of collectMemoryEvents(cachedEvents(), filters)) next(event);
-          if (getSimulation().relay.mode === 'live') observeRelayRequest(reason, relayUrls);
+          if (getSimulation().relay.mode === 'live') observeRelayRequest(context, relayUrls);
           const liveSub = getSimulation().relay.mode === 'live'
             ? subscribeLive(livePool, relayUrls, filters, (item) => {
-                if (item !== 'EOSE') observeRelayEvent(reason, relayUrls, item);
+                if (item !== 'EOSE') observeRelayEvent(context, relayUrls, item);
                 subscriber.next(item);
               })
             : null;
@@ -445,12 +464,16 @@ export function createPajaRelayBackend(
       const attempt = await attemptPublish(relayUrls, event);
       if (attempt.error) throw new Error(attempt.error);
     },
-    request(relayUrls: string[], filtersInput: NostrFilter[], reason: PajaRelayReadReason = 'host') {
+    request(
+      relayUrls: string[],
+      filtersInput: NostrFilter[],
+      context: PajaRelayReadContext = { reason: 'host' },
+    ) {
       return {
         subscribe(observer: { next: (event: unknown) => void; complete: () => void; error: () => void }) {
           const filters = normalizedFilters(filtersInput);
           let active = true;
-          query(relayUrls, filters, undefined, reason)
+          query(relayUrls, filters, undefined, context)
             .then((matched) => {
               if (!active) return;
               for (const event of matched) observer.next(event);
@@ -469,7 +492,7 @@ export function createPajaRelayBackend(
     },
     async countWithRelay(relayUrls, filters) {
       if (getSimulation().relay.mode !== 'live') throw new Error('count unavailable');
-      observeRelayRequest('host', relayUrls);
+      observeRelayRequest({ reason: 'host' }, relayUrls);
       return countLive(livePool, relayUrls, normalizedFilters(filters));
     },
     observedRelayUrls(eventId) {
@@ -667,11 +690,11 @@ export function createPajaRelayListLoader(
 
 export function createPajaOutboxRelayPool(backend: PajaRelayBackend): OutboxRelayPool {
   return {
-    subscribe(filters, relayUrls, callback) {
-      // Every read this pool serves came out of an outbox plan, so the router's
-      // NIP-65, fallback, and plan-hint reads are all reported as `outbox`.
+    subscribe(filters, relayUrls, callback, origin) {
+      // Every read this pool serves came out of an outbox plan; the router adds
+      // why each relay is in the plan (NIP-65, caller hint, or fallback).
       return backend
-        .subscription(relayUrls, filters, 'outbox')
+        .subscription(relayUrls, filters, { reason: 'outbox', origin })
         .subscribe((item) => callback(item as NostrEvent | 'EOSE'));
     },
     publish(event, relayUrls) {

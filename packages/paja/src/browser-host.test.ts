@@ -4,7 +4,7 @@ import { createThemeService } from '@kehto/services';
 import { originRegistry } from '@kehto/shell';
 
 import { BrowserIntentController } from './browser-intent-controller.js';
-import { createPajaRelayEventCounter } from './browser-devtools.js';
+import { createPajaRelayEventCounter } from './browser-relay-panel.js';
 import {
   createPajaIntentTargetOptions,
   markRuntimeTabReady,
