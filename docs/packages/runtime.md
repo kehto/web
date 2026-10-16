@@ -90,6 +90,11 @@ for examples, lifecycle rules, and specification bounds.
 
 ### Registration and initialization limits
 
+`sessionRegistry.unregister(windowId)` removes registration and lookup state for
+that window, including the empty-pubkey NIP-5D path, and clears its pending update.
+It is idempotent and preserves a newer window's lookup when both share a pubkey.
+Use `getEntryByWindowId` for per-window identity in that case.
+
 Each trusted `runtime.sessionRegistry.register(windowId, entry)` starts a fresh
 initialization budget, even when a replacement iframe retains the logical window
 ID. Duplicate `shell.ready` messages do not re-register a live source, and neither
