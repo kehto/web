@@ -1,5 +1,13 @@
 # @kehto/runtime
 
+## 0.25.1
+
+### Patch Changes
+
+- c3a1901: Retire ordinary relay subscriptions when relay read access is revoked or a
+  principal is blocked. Close both registered service and adapter subscriptions,
+  and prevent queued callbacks from delivering after revocation or subId reuse.
+
 ## 0.25.0
 
 ### Minor Changes
