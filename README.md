@@ -4,7 +4,10 @@
 [![Version Packages](https://github.com/kehto/web/actions/workflows/publish.yml/badge.svg)](https://github.com/kehto/web/actions/workflows/publish.yml)
 [![Release](https://github.com/kehto/web/actions/workflows/release.yml/badge.svg)](https://github.com/kehto/web/actions/workflows/release.yml)
 [![Publish Web to GitHub Pages](https://github.com/kehto/web/actions/workflows/playground-pages.yml/badge.svg?branch=main)](https://github.com/kehto/web/actions/workflows/playground-pages.yml)
-[![AI Slop Score](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkehto%2Fweb%2Fmain%2F.github%2Fbadges%2Faislop-score.json)](https://github.com/kehto/web/actions/workflows/aislop-badge.yml)
+[![AI Slop Score](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkehto%2Fweb%2Fbadges%2Faislop-score.json)](https://github.com/kehto/web/actions/workflows/aislop-badge.yml)
+
+<!-- AI Slop Badge scans main and publishes generated JSON to the badges branch.
+     Manual runs on other branches calculate the score without publishing it. -->
 
 Kehto is an unopinionated toolkit and protocol kernel for building NIP-5D Nostr
 applet ("napplet") runtimes. It supplies routing, lifecycle, capability, service,

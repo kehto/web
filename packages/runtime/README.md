@@ -67,6 +67,20 @@ result should call `persist()` before teardown. This host API policy is outside
 the NAP wire contract. No old-use warning can detect callers ignoring a return
 value; see [the compatibility register](https://github.com/kehto/web/blob/main/docs/compatibility.md).
 
+### NAP-RELAY subscription revocation
+
+Revoking `relay:read` or blocking a principal immediately retires ordinary relay
+subscriptions in every window with that exact `dTag` and aggregate hash. The
+runtime closes registered relay/cache backends and direct adapter subscriptions,
+sends `relay.closed` with reason `denied: relay:read`, and suppresses queued events
+and EOSE callbacks. Regranting access requires a new subscription; old callbacks
+remain invalid even if the same `subId` is reused. Other principals, other artifact
+versions, and revocation of unrelated capabilities leave subscriptions active.
+
+This host policy conforms to [NAP-RELAY draft PR #2 at
+`9f30b3505335a52c574ff570576687d6467021ff`](https://github.com/napplet/naps/blob/9f30b3505335a52c574ff570576687d6467021ff/naps/NAP-RELAY.md),
+which permits ACL enforcement and policy-driven subscription termination.
+
 ### NAP-RELAY publish boundary
 
 The publish path follows draft [NAP-RELAY PR #2 at
@@ -217,6 +231,11 @@ runtime.handleMessage('window-1', {
 ### Session registry
 - `createSessionRegistry` — bidirectional windowId ↔ `SessionEntry` store
 - `createNappKeyRegistry` — deprecated alias retained for v1.1 migration consumers
+
+`unregister(windowId)` retires the window's registration, lookup state, and pending
+update, including NIP-5D sessions whose pubkey is empty. Repeated calls are safe.
+If a newer window owns the same pubkey lookup, that newer entry is preserved;
+use `getEntryByWindowId` to distinguish live windows sharing an empty pubkey.
 
 `runtime.sessionRegistry.register(windowId, entry)` establishes a fresh trusted
 source lifecycle and retires that window's previous initialization burst budget,

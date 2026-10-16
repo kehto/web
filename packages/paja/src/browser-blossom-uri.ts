@@ -41,7 +41,7 @@ export function parsePajaBlossomUri(value: string): PajaBlossomUri | null {
   const servers: string[] = [];
   for (const server of params.getAll('xs')) appendHint(servers, server);
   const hash = match[1].toLowerCase();
-  return { hash, canonical: `blossom:sha256:${hash}`, extension: match[2], servers, authors, expectedSize };
+  return { hash, canonical: `blossom:${hash}`, extension: match[2], servers, authors, expectedSize };
 }
 
 function appendHint(target: string[], value: string): void {

@@ -16,7 +16,7 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
 | Field | Value |
 |-------|-------|
 | Source | `packages/runtime/package.json`, `packages/runtime/src/index.ts` |
-| Version | `0.25.0` |
+| Version | `0.25.2` |
 | Runtime entry | `./dist/index.js` |
 | Types entry | `./dist/index.d.ts` |
 | Dependencies | `@kehto/acl`, `@noble/hashes`, `@noble/curves` |
@@ -51,6 +51,13 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
   Check the result and retry after correcting storage. `clear()` resets live
   state to the configured default even when its backend call fails. Runtime
   teardown remains best-effort. This is host API policy, outside the NAP wire.
+
+- Revoking `relay:read` or blocking a principal retires ordinary relay subscriptions
+  across its exact `dTag` and aggregate hash, closes service/adapter backends, and
+  sends `relay.closed` with reason `denied: relay:read`. Events and EOSE queued by
+  retired subscriptions remain suppressed after regrant and `subId` reuse.
+  This host policy conforms to [NAP-RELAY draft PR #2 at
+  `9f30b3505335a52c574ff570576687d6467021ff`](https://github.com/napplet/naps/blob/9f30b3505335a52c574ff570576687d6467021ff/naps/NAP-RELAY.md).
 - Follows draft NAP-RELAY PR #2 at
   `0be8abce18beb46ca37bd4ddd042f58d30b4eedc`: `relay.publish` accepts an
   unsigned template, signs it through the shell-owned signer, publishes only
@@ -90,6 +97,11 @@ for examples, lifecycle rules, and specification bounds.
 ## API Reference
 
 ### Registration and initialization limits
+
+`sessionRegistry.unregister(windowId)` removes registration and lookup state for
+that window, including the empty-pubkey NIP-5D path, and clears its pending update.
+It is idempotent and preserves a newer window's lookup when both share a pubkey.
+Use `getEntryByWindowId` for per-window identity in that case.
 
 Each trusted `runtime.sessionRegistry.register(windowId, entry)` starts a fresh
 initialization budget, even when a replacement iframe retains the logical window

@@ -24,6 +24,27 @@ Runtime destruction intentionally remains best-effort. No compatibility branch
 is retained for removal; any future change to throwing semantics requires a
 separate breaking release and migration of host save actions.
 
+## Blossom sha256 prefix — Paja
+
+Identifier: `KEHTO_COMPAT_BLOSSOM_SHA256`. `blossom:sha256:<hash>` input remains
+accepted; use `blossom:<hash>` with the same extension and hints. Internal
+reference keys and synthesized references now use the plain prefix. Resource
+cache keys still preserve the caller's URL, per NAP-RESOURCE draft #80 at
+`ae5b9c64ab8a4d8909f288829a01e99d6bd713bc`.
+
+`packages/paja/src/browser-blossom-compat.ts` warns once per host module lifetime
+on valid alias requests from `browser-resource.ts` and `browser-blossom-events.ts`.
+The pure URI parser stays quiet. Warnings contain no URLs, hashes or payloads.
+`browser-blossom-uri.test.ts` covers both forms, canonical/malformed/aborted quiet
+paths, migration text, warning frequency and sharing between host boundaries;
+resource/event/integration suites retain hash, size, hint and source-isolation checks.
+
+Retain the alias for published napplets until supported consumers migrate and a
+breaking removal release is announced. Retirement requires negative alias tests
+while preserving canonical reads and their security limits. Extensionless and
+mixed-case reads remain pre-existing compatibility debt without use diagnostics;
+their input grammar is unchanged by this normalization fix.
+
 ## Active paths changed in PR #277
 
 | ID / owner | Old behavior and replacement | Warning / regression coverage | Retirement prerequisite |
