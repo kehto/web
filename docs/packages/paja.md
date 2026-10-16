@@ -227,8 +227,12 @@ The console includes:
   guessed from the relay list. Reads that are not outbox-planned carry no chip. Counts are receipts, not
   distinct events: repeated deliveries and the same event arriving from several
   relays each count, and the header badge's tooltip reports how many unique
-  events those receipts came from. Counts accumulate for the host session and
-  reset on reload.
+  events those receipts came from. Receipts are observed on each live relay's
+  verified, filter-matching event callback before delivery deduplication; a
+  silent relay is never credited from another relay's response or a previous
+  read. Equivalent relay URL spellings share one row. Napplet delivery and query
+  results remain deduplicated. Counts accumulate for the host session and reset
+  on reload.
 
 The GitHub Pages artifact also includes a static Paja Runtime at `/web/paja/`.
 That route uses `createPajaRuntimeHostConfig`, keeps `hmr: none`, and loads

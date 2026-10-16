@@ -20,6 +20,7 @@ const livePool = vi.hoisted(() => ({
   subscribeMapRequests: [] as Array<Array<{ url: string; filter: Record<string, unknown> }>>,
   subscriptionEvents: [] as unknown[],
   subscriptionClose: undefined as ReturnType<typeof vi.fn> | undefined,
+  eventSources: new Map<string, string>(),
   seenOn: new Map<string, Set<{ url: string }>>(),
 }));
 
@@ -28,37 +29,41 @@ vi.mock('nostr-tools/pool', () => ({
     trackRelays = false;
     seenOn = livePool.seenOn;
 
-    subscribeEose(
-      relayUrls: string[],
-      filter: Record<string, unknown>,
-      params: { onevent(event: unknown): void; onclose(): void },
-    ) {
-      let closed = false;
-      const close = vi.fn(async () => {
-        closed = true;
-        if (livePool.closeRejects) throw new Error('close rejected');
-        params.onclose();
-      });
-      livePool.close = close;
-      livePool.requests.push({ relayUrls, filter });
-      queueMicrotask(() => {
-        for (const event of livePool.events) {
-          if (closed) break;
-          livePool.delivered += 1;
-          params.onevent(event);
-        }
-      });
-      return { close };
-    }
-
-    querySync(relayUrls: string[], filter: Record<string, unknown>) {
-      livePool.querySyncRequests.push({ relayUrls, filter });
-      return Promise.resolve(livePool.querySyncEvents);
-    }
-
     async ensureRelay(relayUrl: string) {
       if (livePool.countFailures.has(relayUrl)) throw new Error('count refused');
+      const source = relayUrl.replace(/\/$/u, '');
       return {
+        url: relayUrl,
+        subscribe(filters: Record<string, unknown>[], params: {
+          label: string; onevent(event: unknown): void; oneose(): void; onclose(): void;
+        }) {
+          const candidates = params.label === 'kehto-paja-candidates';
+          const query = params.label === 'kehto-paja-query';
+          const events = candidates ? livePool.events : query ? livePool.querySyncEvents : livePool.subscriptionEvents;
+          if (candidates) livePool.requests.push({ relayUrls: [source], filter: filters[0]! });
+          else if (query) livePool.querySyncRequests.push({ relayUrls: [source], filter: filters[0]! });
+          else livePool.subscribeMapRequests.push(filters.map((filter) => ({ url: source, filter })));
+          let closed = false;
+          const close = vi.fn((reason: string) => {
+            closed = true;
+            params.onclose();
+            if (livePool.closeRejects) return Promise.reject(new Error('close rejected'));
+          });
+          if (candidates) livePool.close = close;
+          else if (!query) livePool.subscriptionClose = close;
+          queueMicrotask(() => {
+            for (const event of events) {
+              if (closed) break;
+              const id = (event as { id: string }).id;
+              const expectedSource = livePool.eventSources.get(id) ?? TEST_RELAYS[0];
+              if (!candidates && source !== expectedSource && source !== 'wss://relay.example') continue;
+              if (candidates) livePool.delivered += 1;
+              params.onevent(event);
+            }
+            if (!closed && !(candidates && events.length === 0)) params.oneose();
+          });
+          return { close };
+        },
         count: async (filters: Record<string, unknown>[]) => {
           livePool.countRequests.push({ relayUrl, filters });
           return livePool.countValues.get(relayUrl) ?? 0;
@@ -69,20 +74,6 @@ vi.mock('nostr-tools/pool', () => ({
     publish(relayUrls: string[], event: unknown) {
       livePool.publishRequests.push({ relayUrls, event });
       return relayUrls.map(() => Promise.resolve('accepted'));
-    }
-
-    subscribeMap(
-      requests: Array<{ url: string; filter: Record<string, unknown> }>,
-      params: { onevent(event: unknown): void; oneose(): void },
-    ) {
-      livePool.subscribeMapRequests.push(requests);
-      const close = vi.fn();
-      livePool.subscriptionClose = close;
-      queueMicrotask(() => {
-        for (const event of livePool.subscriptionEvents) params.onevent(event);
-        params.oneose();
-      });
-      return { close };
     }
 
     destroy() {}
@@ -195,6 +186,7 @@ describe('@kehto/paja effective relay URLs', () => {
     const queried = { ...testEvent('2'.repeat(64)), kind: 3 };
     livePool.subscriptionEvents = [streamed];
     livePool.querySyncEvents = [queried];
+    livePool.eventSources.set(queried.id, TEST_RELAYS[1]!);
     livePool.seenOn.clear();
     livePool.seenOn.set(streamed.id, new Set([{ url: TEST_RELAYS[0]! }]));
     livePool.seenOn.set(queried.id, new Set([{ url: TEST_RELAYS[1]! }]));
@@ -231,7 +223,7 @@ describe('@kehto/paja effective relay URLs', () => {
     backend.close();
   });
 
-  it('falls back to the requested relays when the pool tracked no sighting yet', async () => {
+  it('reports only the current source even when no historical sighting exists', async () => {
     const streamed = testEvent('1'.repeat(64));
     livePool.subscriptionEvents = [streamed];
     livePool.seenOn.clear();
@@ -244,7 +236,7 @@ describe('@kehto/paja effective relay URLs', () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(observed).toEqual([TEST_RELAYS]);
+    expect(observed).toEqual([[TEST_RELAYS[0]]]);
     backend.close();
   });
 
@@ -420,7 +412,7 @@ describe('@kehto/paja effective relay URLs', () => {
     }
   });
 
-  it('keeps generic limited live queries on querySync and preserves sorted results', async () => {
+  it('keeps generic limited live queries until EOSE and preserves sorted results', async () => {
     const older = { id: '1'.repeat(64), pubkey: 'a'.repeat(64), kind: 1, created_at: 1, tags: [], content: '', sig: 'e'.repeat(128) };
     const newer = { ...older, id: '2'.repeat(64), created_at: 2 };
     livePool.querySyncRequests = [];
@@ -498,6 +490,7 @@ describe('@kehto/paja effective relay URLs', () => {
   it('reports napplet-facing relay events to the registered host observer', async () => {
     const streamed = { ...testEvent('9'.repeat(64)), kind: 1 };
     livePool.subscriptionEvents = [streamed];
+    livePool.eventSources.set(streamed.id, TEST_RELAYS[1]!);
     const observed: string[] = [];
     const simulation = normalizePajaSimulation({ relay: { mode: 'live', urls: TEST_RELAYS } });
     const adapter = createPajaAdapter(
@@ -566,7 +559,7 @@ describe('@kehto/paja relay publish settlement', () => {
       [{ kinds: [1] }],
       sourceWindow,
     );
-    await Promise.resolve();
+    await vi.waitFor(() => expect(postMessage).toHaveBeenCalled());
     expect(livePool.subscribeMapRequests).toEqual([[
       { url: TEST_RELAYS[0], filter: { kinds: [1] } },
     ]]);

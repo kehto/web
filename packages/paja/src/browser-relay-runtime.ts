@@ -10,6 +10,8 @@ import type { Filter } from 'nostr-tools/filter';
 import { SimplePool } from 'nostr-tools/pool';
 import { verifyEvent } from 'nostr-tools/pure';
 
+import { subscribePajaLive, queryPajaLive } from './browser-relay-transport.js';
+
 import type { PajaConfirmationHandler, PajaSignerProvider } from './browser-adapter.js';
 import type { PajaSimulation } from './simulation.js';
 
@@ -68,10 +70,8 @@ export interface PajaRelayEventSighting extends PajaRelayReadRequest {
   /**
    * Relays this read actually saw the event on.
    *
-   * Derived from the pool's per-event relay tracking intersected with the read's
-   * relay set. Later deliveries of the same event from other relays extend the
-   * pool's set but do not re-fire the read, so this is a lower bound at receipt
-   * time and falls back to the full requested set when nothing is tracked yet.
+   * The current receiving relay, retaining its first requested URL spelling.
+   * Historical pool tracking is reserved for sidecar hints, never attribution.
    */
   readonly sightedOn: readonly string[];
 }
@@ -190,99 +190,6 @@ function collectMemoryEvents(events: NostrEvent[], filters: NostrFilter[]): Nost
   return [...out.values()].sort((a, b) => b.created_at - a.created_at);
 }
 
-function subscribeLive(
-  pool: SimplePool,
-  relayUrls: string[],
-  filters: NostrFilter[],
-  next: (item: NostrEvent | 'EOSE') => void,
-): { unsubscribe(): void } {
-  const activeFilters = filters.length > 0 ? filters : [{} as NostrFilter];
-  const requests = relayUrls.flatMap((url) => activeFilters.map((filter) => ({ url, filter: filter as Filter })));
-  if (requests.length === 0) {
-    queueMicrotask(() => next('EOSE'));
-    return { unsubscribe() { /* no-op */ } };
-  }
-  const sub = pool.subscribeMap(requests, {
-    label: 'kehto-paja-runtime',
-    maxWait: PAJA_LIVE_QUERY_WAIT_MS,
-    onevent: (event) => next(event as NostrEvent),
-    oneose: () => next('EOSE'),
-  });
-  return {
-    unsubscribe() {
-      void sub.close('paja unsubscribe');
-    },
-  };
-}
-
-function queryLiveBounded(
-  pool: SimplePool,
-  relayUrls: string[],
-  filter: NostrFilter,
-  maxWaitMs: number,
-  limit: number,
-  signal?: AbortSignal,
-): Promise<NostrEvent[]> {
-  if (limit === 0 || signal?.aborted) return Promise.resolve([]);
-  return new Promise((resolve) => {
-    const events: NostrEvent[] = [];
-    let settled = false;
-    let closeRequested = false;
-    let closeReason = 'paja query limit reached';
-    let subscription: ReturnType<SimplePool['subscribeEose']> | undefined;
-    let abort: (() => void) | undefined;
-    const finish = () => {
-      if (settled) return;
-      settled = true;
-      if (abort) signal?.removeEventListener('abort', abort);
-      resolve(events);
-    };
-    const close = (reason = closeReason) => {
-      closeRequested = true;
-      closeReason = reason;
-      if (!subscription) return;
-      // nostr-tools currently types close() as void, although implementations can reject.
-      void Promise.resolve(subscription.close(reason)).catch(() => {});
-      finish();
-    };
-    abort = () => close('paja query aborted');
-    signal?.addEventListener('abort', abort, { once: true });
-    subscription = pool.subscribeEose(relayUrls, filter as Filter, {
-      label: 'kehto-paja-runtime',
-      maxWait: maxWaitMs,
-      onevent(event) {
-        if (events.length >= limit) return;
-        events.push(event as NostrEvent);
-        if (events.length === limit) close();
-      },
-      onclose: finish,
-    });
-    if (closeRequested) close();
-  });
-}
-
-async function queryLive(
-  pool: SimplePool,
-  relayUrls: string[],
-  filters: NostrFilter[],
-  maxWaitMs = PAJA_LIVE_QUERY_WAIT_MS,
-  collectUntilLimit = false,
-  signal?: AbortSignal,
-): Promise<NostrEvent[]> {
-  const activeFilters = filters.length > 0 ? filters : [{} as NostrFilter];
-  const batches = await Promise.all(activeFilters.map((filter) => {
-    const limit = typeof filter.limit === 'number' && filter.limit >= 0 ? filter.limit : undefined;
-    if (collectUntilLimit && limit !== undefined) return queryLiveBounded(pool, relayUrls, filter, maxWaitMs, limit, signal);
-    return pool.querySync(relayUrls, filter as Filter, {
-      label: 'kehto-paja-runtime',
-      maxWait: maxWaitMs,
-    }) as Promise<NostrEvent[]>;
-  }));
-  const out = new Map<string, NostrEvent>();
-  for (const event of batches.flat()) out.set(event.id, event);
-  return [...out.values()].sort((a, b) => b.created_at - a.created_at);
-}
-
 async function publishLive(pool: SimplePool, relayUrls: string[], event: NostrEvent): Promise<Record<string, boolean>> {
   const results = await Promise.allSettled(pool.publish(relayUrls, event));
   return Object.fromEntries(relayUrls.map((relayUrl, index) => [relayUrl, results[index]?.status === 'fulfilled']));
@@ -341,12 +248,6 @@ export function createPajaRelayBackend(
   let relayEventObserver: PajaRelayEventObserver | undefined;
   let relayRequestObserver: PajaRelayRequestObserver | undefined;
 
-  const sightedRelays = (eventId: string, relayUrls: readonly string[]): string[] => {
-    const tracked = [...(livePool.seenOn?.get(eventId) ?? [])].map((relay) => relay.url);
-    const sighted = relayUrls.filter((url) => tracked.includes(url));
-    return sighted.length > 0 ? sighted : [...relayUrls];
-  };
-
   const observeRelayRequest = (context: PajaRelayReadContext, relayUrls: readonly string[]): void => {
     if (relayUrls.length === 0) return;
     relayRequestObserver?.({ ...context, relayUrls: [...relayUrls] });
@@ -356,12 +257,13 @@ export function createPajaRelayBackend(
     context: PajaRelayReadContext,
     relayUrls: readonly string[],
     event: NostrEvent,
+    source: string,
   ): void => {
     relayEventObserver?.({
       ...context,
       relayUrls: [...relayUrls],
       event,
-      sightedOn: sightedRelays(event.id, relayUrls),
+      sightedOn: [source],
     });
   };
 
@@ -378,8 +280,8 @@ export function createPajaRelayBackend(
     const cached = collectMemoryEvents(cachedEvents(), filters);
     if (getSimulation().relay.mode !== 'live' || relayUrls.length === 0) return cached;
     observeRelayRequest(context, relayUrls);
-    const liveEvents = await queryLive(livePool, relayUrls, filters, maxWaitMs);
-    for (const event of liveEvents) observeRelayEvent(context, relayUrls, event);
+    const liveEvents = await queryPajaLive(livePool, relayUrls, filters, maxWaitMs ?? PAJA_LIVE_QUERY_WAIT_MS,
+      (event, source) => observeRelayEvent(context, relayUrls, event, source));
     const out = new Map<string, NostrEvent>();
     for (const event of [...cached, ...liveEvents]) out.set(event.id, event);
     return [...out.values()].sort((a, b) => b.created_at - a.created_at);
@@ -388,8 +290,8 @@ export function createPajaRelayBackend(
     const cached = collectMemoryEvents(cachedEvents(), filters);
     if (signal?.aborted || getSimulation().relay.mode !== 'live' || relayUrls.length === 0) return cached;
     observeRelayRequest({ reason: 'host' }, relayUrls);
-    const liveEvents = await queryLive(livePool, relayUrls, filters, maxWaitMs, true, signal);
-    for (const event of liveEvents) observeRelayEvent({ reason: 'host' }, relayUrls, event);
+    const liveEvents = await queryPajaLive(livePool, relayUrls, filters, maxWaitMs ?? PAJA_LIVE_QUERY_WAIT_MS,
+      (event, source) => observeRelayEvent({ reason: 'host' }, relayUrls, event, source), true, signal);
     const out = new Map<string, NostrEvent>();
     for (const event of [...cached, ...liveEvents]) out.set(event.id, event);
     return [...out.values()].sort((a, b) => b.created_at - a.created_at);
@@ -443,10 +345,8 @@ export function createPajaRelayBackend(
           for (const event of collectMemoryEvents(cachedEvents(), filters)) next(event);
           if (getSimulation().relay.mode === 'live') observeRelayRequest(context, relayUrls);
           const liveSub = getSimulation().relay.mode === 'live'
-            ? subscribeLive(livePool, relayUrls, filters, (item) => {
-                if (item !== 'EOSE') observeRelayEvent(context, relayUrls, item);
-                subscriber.next(item);
-              })
+            ? subscribePajaLive(livePool, relayUrls, filters, subscriber.next,
+                (event, source) => observeRelayEvent(context, relayUrls, event, source), PAJA_LIVE_QUERY_WAIT_MS)
             : null;
           queueMicrotask(() => {
             if (subscribers.has(subscriber) && !liveSub) next('EOSE');

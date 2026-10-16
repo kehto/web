@@ -15,7 +15,10 @@ backend before delivery, covering napplet subscriptions and Paja's background
 fetches, while simulated memory-mode fixtures and Paja's own publishes stay
 excluded. Receipts are cumulative for the host session; the header badge's
 tooltip separates them from unique events, and `__KEHTO_PAJA__.getState()`
-exposes both the groups and the configured relay inventory.
+exposes both the groups and the configured relay inventory. Count verified,
+filter-matching receipts at each relay before deduplicating napplet delivery;
+repeated events count again without crediting silent relays or reusing earlier
+reads' provenance. Equivalent relay URL spellings share one panel row.
 
 Every relay inside the outbox group also carries a chip naming why it was in the
 plan — `nip65` for an author's NIP-65 write relay, `plan hint` for a relay the
@@ -28,3 +31,5 @@ a host-backed relay service can distinguish a read pinned by an explicit relay
 hint from one using its own selected relay tier, and
 `OutboxRelayPool.subscribe` receives an `OutboxRelayOrigin` naming why the relays
 of that call are in the read. Existing implementations keep working unchanged.
+Authorless live reads retain their hint-or-fallback routing policy: valid hints
+do not add subscriptions on the configured fallback relays.

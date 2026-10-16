@@ -1,5 +1,5 @@
 ---
-status: executing
+status: complete
 ---
 # /gsd:debug — Paja Events review fixes
 

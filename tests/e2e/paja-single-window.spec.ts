@@ -300,6 +300,56 @@ test('groups live relay receipts by read reason, relay, and kind', async ({ page
   }
 });
 
+test('counts repeated receipts without crediting silent or historical relay sources', async ({ page }) => {
+  const relayA = 'wss://receipt-a.example';
+  const relayB = 'wss://receipt-b.example';
+  const event = finalizeEvent({ kind: 10_005, created_at: 1_800_000_000, tags: [], content: 'repeated receipt' }, generateSecretKey());
+  let firstRead = true;
+  for (const relay of [relayA, relayB]) {
+    await page.routeWebSocket(relay, (ws) => {
+      ws.onMessage((message) => {
+        const data = JSON.parse(typeof message === 'string' ? message : message.toString()) as unknown[];
+        if (data[0] !== 'REQ') return;
+        if (firstRead || relay === relayA) {
+          ws.send(JSON.stringify(['EVENT', data[1], event]));
+          if (firstRead && relay === relayA) ws.send(JSON.stringify(['EVENT', data[1], event]));
+        }
+        ws.send(JSON.stringify(['EOSE', data[1]]));
+      });
+    });
+  }
+  const server = await startPajaServer({
+    options: { targetUrl: `${targetServer.url}?manualTraffic=1&required=relay`, port: 0,
+      simulation: { relay: { mode: 'live', urls: [relayA, relayB] } } },
+  });
+  try {
+    await page.goto(server.url);
+    const frame = page.frameLocator('#napplet-frame');
+    await expect(frame.locator('#target-status')).toHaveText('shell-init received', { timeout: 15_000 });
+    const host = page.locator('[data-relay-reason="host"]');
+    await sendFixtureMessage(frame, { type: 'relay.subscribe', id: 'receipts-1', subId: 'receipts-1', filters: [{ kinds: [10_005] }] });
+    await expect(host.locator('.event-group-count')).toHaveText('3');
+    await expect(host.locator(`[data-relay-url="${relayA}"]`)).toHaveAttribute('data-relay-count', '2');
+    await expect(host.locator(`[data-relay-url="${relayB}"]`)).toHaveAttribute('data-relay-count', '1');
+    await sendFixtureMessage(frame, { type: 'relay.close', id: 'close-receipts-1', subId: 'receipts-1' });
+    firstRead = false;
+    await sendFixtureMessage(frame, { type: 'relay.subscribe', id: 'receipts-2', subId: 'receipts-2', filters: [{ kinds: [10_005] }] });
+    await expect(host.locator('.event-group-count')).toHaveText('4');
+    await expect(host.locator(`[data-relay-url="${relayA}"]`)).toHaveAttribute('data-relay-count', '3');
+    await expect(host.locator(`[data-relay-url="${relayB}"]`)).toHaveAttribute('data-relay-count', '1');
+    await expect(page.locator('#event-kind-total')).toHaveAttribute('title', '4 relay receipts · 1 unique event');
+
+    // A fresh reason must not inherit B's earlier sighting of this event.
+    await sendFixtureMessage(frame, { type: 'relay.subscribe', id: 'receipts-hint', subId: 'receipts-hint', filters: [{ kinds: [10_005] }], relay: relayB });
+    const hint = page.locator('[data-relay-reason="hint"]');
+    await expect(hint.locator('.event-relay-idle')).toHaveText('silent');
+    await expect(hint.locator('.event-group-count')).toHaveText('0');
+    await expect(page.locator('#event-kind-total')).toHaveText('4');
+  } finally {
+    await server.close();
+  }
+});
+
 test('hosts one sandboxed target iframe and reinitializes it on reload', async ({ page }) => {
   test.setTimeout(60_000);
   await page.goto(runtimeServer.url);
