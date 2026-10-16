@@ -13,6 +13,7 @@ import {
   normalizeBlossomUriServer,
 } from './browser-resource.js';
 import { parsePajaBlossomUri } from './browser-blossom-uri.js';
+import { warnLegacyBlossomPrefix } from './browser-blossom-compat.js';
 
 /** Blossom BUD-03 replaceable server-list event kind. */
 export const BLOSSOM_SERVER_LIST_KIND = 10_063;
@@ -147,6 +148,7 @@ export function createPajaBlossomEventResolver(
   async function getServers(url: string, windowId?: string): Promise<readonly string[]> {
     const parsed = parseBlossomReference(url);
     if (!parsed) return [];
+    warnLegacyBlossomPrefix(url);
     const canonical = parsed.url;
     const contexts = canonical && windowId
       ? windows.get(windowId)?.get(canonical) ?? []
@@ -282,7 +284,7 @@ function extractEventResourceLocations(event: NostrEvent): EventResourceLocation
     if ((tag[0] === 'resource' || tag[0] === 'r') && typeof tag[1] === 'string') {
       add(tag[1]);
     } else if (tag[0] === 'blossom' && typeof tag[1] === 'string') {
-      add(HEX_64.test(tag[1]) ? `blossom:sha256:${tag[1]}` : tag[1]);
+      add(HEX_64.test(tag[1]) ? `blossom:${tag[1]}` : tag[1]);
     }
   }
 
@@ -302,7 +304,7 @@ function extractEventResourceLocations(event: NostrEvent): EventResourceLocation
           ?? stringValue(entry.url)
           ?? stringValue(entry.resource)
           ?? (isBlossomRecord(entry) && isHash(entry.sha256)
-            ? `blossom:sha256:${String(entry.sha256)}`
+            ? `blossom:${String(entry.sha256)}`
             : undefined);
         add(value, [...contentServers, ...stringList(entry.servers)], stringList(entry.authors));
       }

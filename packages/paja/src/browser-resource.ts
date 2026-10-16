@@ -7,6 +7,7 @@ import {
 
 import { normalizeUploadServers } from './simulation.js';
 import { parsePajaBlossomUri } from './browser-blossom-uri.js';
+import { warnLegacyBlossomPrefix } from './browser-blossom-compat.js';
 
 /** Maximum decoded payload exposed by Paja's local data-resource backend. */
 export const PAJA_RESOURCE_MAX_BYTES = 10 * 1024 * 1024;
@@ -157,6 +158,7 @@ async function fetchBlossomResource(
   if (!parsed) {
     throw new ResourceServiceError('invalid-request', 'invalid Blossom URI');
   }
+  warnLegacyBlossomPrefix(value);
   if (parsed.expectedSize !== undefined && parsed.expectedSize > PAJA_RESOURCE_MAX_BYTES) throw resourceTooLarge();
   const expectedHash = parsed.hash;
   const configuredServers = await options.getBlossomServers?.({ url: value, windowId }) ?? [];

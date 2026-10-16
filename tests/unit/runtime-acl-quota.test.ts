@@ -6,6 +6,37 @@ import { createMockRuntimeAdapter, createNip5dSessionEntry } from '../../package
 const principal = ['', 'alpha', 'a'.repeat(64)] as const;
 
 describe('runtime ACL quota administration', () => {
+  it('reports failed quota persistence while live listings retain the mutation and reload keeps the prior durable quota', () => {
+    let durable: string | null = null;
+    let fail = false;
+    const persistence = {
+      load: () => durable,
+      persist(data: string) {
+        if (fail) throw new Error('test-storage-failure');
+        durable = data;
+      },
+    };
+    const acl = createAclState(persistence, 'restrictive');
+
+    acl.setStateQuota(...principal, 1024);
+    expect(acl.persist()).toBe(true);
+    acl.setStateQuota(...principal, 0);
+    fail = true;
+
+    expect(acl.persist()).toBe(false);
+    expect(acl.getEntry(...principal)).toMatchObject({
+      dTag: principal[1], aggregateHash: principal[2], stateQuota: 0,
+    });
+    expect(acl.getAllEntries()).toEqual(expect.arrayContaining([
+      expect.objectContaining({ dTag: principal[1], aggregateHash: principal[2], stateQuota: 0 }),
+    ]));
+
+    const restored = createAclState(persistence, 'restrictive');
+    restored.load();
+    expect(restored.getStateQuota(...principal)).toBe(1024);
+    expect(restored.getEntry(...principal)).toMatchObject({ stateQuota: 1024 });
+  });
+
   it.each(['permissive', 'restrictive'] as const)('sets and persists an isolated quota with %s policy', (policy) => {
     const { hooks, aclStore } = createMockRuntimeAdapter();
     const acl = createAclState(hooks.aclPersistence, policy);

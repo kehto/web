@@ -1,5 +1,19 @@
 # @kehto/runtime
 
+## 0.25.2
+
+### Patch Changes
+
+- 4176e5f: Remove empty-pubkey sessions from all registration indexes on unregister, while preserving pubkey lookups owned by another live window.
+
+## 0.25.1
+
+### Patch Changes
+
+- c3a1901: Retire ordinary relay subscriptions when relay read access is revoked or a
+  principal is blocked. Close both registered service and adapter subscriptions,
+  and prevent queued callbacks from delivering after revocation or subId reuse.
+
 ## 0.25.0
 
 ### Minor Changes
