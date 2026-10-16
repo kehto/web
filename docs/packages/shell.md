@@ -67,6 +67,22 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
 
 ## API Reference
 
+### Source environment lifetime
+
+Retire a window with `bridge.runtime.destroyWindow(windowId)`,
+`bridge.runtime.sessionRegistry.unregister(windowId)`, and
+`originRegistry.unregister(windowId)`. A replacement `originRegistry.register()`
+gets its own environment, even if it reuses the source object and logical window
+ID. Set its snapshot with `originRegistry.setEnvironment()` before dispatch;
+otherwise the bridge resolves current host defaults. Retired cached domains and
+service names cannot carry into the replacement's `shell.init` or domain admission.
+Other domains remain usable before optional readiness, and duplicate readiness
+messages do not replace a live session or send another snapshot.
+
+This host lifecycle policy follows
+[NAP-SHELL at `19de5ce`](https://github.com/napplet/naps/blob/19de5ce1cea40cd4c76089cdd8126e9f87648049/naps/NAP-SHELL.md)
+and changes no wire messages.
+
 For host CSP examples and validation rules, see
 [Host CSP overrides](https://github.com/kehto/web/blob/main/packages/shell/README.md#host-csp-overrides) and the
 [CSP enforcement contract](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#shell-csp-enforcement).
