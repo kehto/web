@@ -1,5 +1,12 @@
 # @kehto/shell
 
+## 0.24.4
+
+### Patch Changes
+
+- 5ac5fb8: Report browser ACL persistence failures to runtime callers so a failed save or
+  clear returns `false` instead of appearing durable.
+
 ## 0.24.3
 
 ### Patch Changes
