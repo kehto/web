@@ -44,6 +44,12 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
 ## Scope Boundaries
 
 - Owns message dispatch, ACL gates, service routing, storage handling, manifest cache, replay checks, and runtime lifecycle.
+- Revoking `relay:read` or blocking a principal retires ordinary relay subscriptions
+  across its exact `dTag` and aggregate hash, closes service/adapter backends, and
+  sends `relay.closed` with reason `denied: relay:read`. Events and EOSE queued by
+  retired subscriptions remain suppressed after regrant and `subId` reuse.
+  This host policy conforms to [NAP-RELAY draft PR #2 at
+  `9f30b3505335a52c574ff570576687d6467021ff`](https://github.com/napplet/naps/blob/9f30b3505335a52c574ff570576687d6467021ff/naps/NAP-RELAY.md).
 - Follows draft NAP-RELAY PR #2 at
   `0be8abce18beb46ca37bd4ddd042f58d30b4eedc`: `relay.publish` accepts an
   unsigned template, signs it through the shell-owned signer, publishes only

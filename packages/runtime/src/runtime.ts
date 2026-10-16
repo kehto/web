@@ -16,7 +16,7 @@ import { createManifestCache, type ManifestCache } from './manifest-cache.js';
 import { createReplayDetector, type ReplayDetector } from './replay.js';
 import { createEventBuffer, RING_BUFFER_SIZE, type EventBuffer, type SubscriptionEntry } from './event-buffer.js';
 import { createEnforceGate, createNapEnforceGate, resolveCapabilitiesNap, formatDenialReason } from './enforce.js';
-import { createRelayHandler } from './relay-handler.js';
+import { createRelayHandler, revokeRelaySubscriptions } from './relay-handler.js';
 import { createIdentityHandler } from './identity-handler.js';
 import { createCountHandler } from './count-handler.js';
 import { createIncRuntime, type IncRuntime } from './inc-handler.js';
@@ -581,6 +581,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     if (mutation.type === 'revoke' && mutation.capability !== 'relay:read') return;
     for (const entry of sessionRegistry.getAllEntries()) {
       if (entry.dTag === mutation.dTag && entry.aggregateHash === mutation.aggregateHash) {
+        revokeRelaySubscriptions({ hooks, serviceRegistry, subscriptions }, entry.windowId);
         incRuntime?.revokeWindow(entry.windowId);
       }
     }
@@ -661,7 +662,12 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
 
   const domainHandlers = createRuntimeDomainHandlers({ hooks, serviceRegistry, sessionRegistry, aclState });
   const napHandlers: RuntimeNapHandlers = {
-    relay: createRelayHandler({ hooks, serviceRegistry, subscriptions, eventBuffer, replayDetector }),
+    relay: createRelayHandler({ hooks, serviceRegistry, subscriptions, eventBuffer, replayDetector,
+      canReadRelay(windowId) {
+        const entry = sessionRegistry.getEntryByWindowId(windowId);
+        return !!entry && aclState.check('', entry.dTag, entry.aggregateHash, 'relay:read');
+      },
+    }),
     identity: createIdentityHandler({ hooks, serviceRegistry }),
     count: createCountHandler({ hooks, serviceRegistry }),
     inc: incRuntime.handleMessage,
