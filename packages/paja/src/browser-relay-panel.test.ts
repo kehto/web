@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createPajaRelayEventCounter,
+  installPajaEventCounterReset,
+  PAJA_EVENT_COUNTER_RESET_ID,
   renderPajaEventKindCounts,
   type PajaRelayEventCounter,
 } from './browser-relay-panel.js';
@@ -43,6 +45,14 @@ function stubEventCountDom() {
 
 function event(id: string, kind: number) {
   return { id, kind };
+}
+
+/** Minimal host-page button stand-in for the Events reset control. */
+function stubResetButtonDom(button: EventTarget | null = new EventTarget()): EventTarget | null {
+  vi.stubGlobal('document', {
+    getElementById: (id: string) => id === PAJA_EVENT_COUNTER_RESET_ID ? button : null,
+  });
+  return button;
 }
 
 describe('Paja relay receipts', () => {
@@ -195,5 +205,76 @@ describe('Paja relay receipts', () => {
     const quiet = container.children[0]!.children[1]!;
     expect(quiet.dataset.relayReads).toBe('1');
     expect(quiet.children[0]!.text()).toContain('silent');
+  });
+
+  it('resets every counter back to the boot rendering', () => {
+    const { container, total } = stubEventCountDom();
+    const inventory = { outbox: ['wss://outbox.example'] };
+    let counter!: PajaRelayEventCounter;
+    counter = createPajaRelayEventCounter(() => renderPajaEventKindCounts(counter, inventory));
+
+    counter.recordRead('outbox', ['wss://outbox.example'], 'nip65');
+    counter.recordEvent('outbox', event('a', 1), ['wss://outbox.example'], 'nip65');
+    counter.recordEvent('outbox', event('b', 10005), ['wss://outbox.example']);
+
+    expect(total.textContent).toBe('2');
+    const loaded = container.children[0]!.children[1]!;
+    expect(loaded.dataset.relayCount).toBe('2');
+    expect(loaded.dataset.relayReads).toBe('1');
+
+    counter.reset();
+
+    expect(counter.total).toBe(0);
+    expect(counter.uniqueEvents).toBe(0);
+    expect(total.textContent).toBe('0');
+    expect(total.title).toBe('0 relay receipts · 0 unique events');
+    // Configured relays stay visible at zero, exactly as they render at boot.
+    expect(counter.snapshot(inventory)).toEqual([{
+      reason: 'outbox',
+      count: 0,
+      relays: [{
+        relayUrl: 'wss://outbox.example',
+        count: 0,
+        readCount: 0,
+        configured: true,
+        origins: [],
+        kinds: [],
+      }],
+    }]);
+    const idle = container.children[0]!.children[1]!;
+    expect(idle.dataset.relayCount).toBe('0');
+    expect(idle.dataset.relayReads).toBe('0');
+    expect(idle.children[0]!.text()).toContain('unused');
+  });
+
+  it('clears the counters from the Events reset button without toggling the section', () => {
+    const button = stubResetButtonDom()!;
+    const counter = createPajaRelayEventCounter();
+    counter.recordRead('hint', ['wss://hint.example']);
+    counter.recordEvent('hint', event('a', 3), ['wss://hint.example']);
+    expect(counter.total).toBe(1);
+
+    const dispose = installPajaEventCounterReset(counter);
+    const click = new Event('click');
+    button.dispatchEvent(click);
+
+    // The click is absorbed so the Events summary does not toggle.
+    expect(click.cancelBubble).toBe(true);
+    expect(counter.total).toBe(0);
+    expect(counter.uniqueEvents).toBe(0);
+
+    counter.recordEvent('hint', event('b', 3), ['wss://hint.example']);
+    dispose();
+    button.dispatchEvent(new Event('click'));
+    expect(counter.total).toBe(1);
+  });
+
+  it('installs and disposes without a reset button', () => {
+    stubResetButtonDom(null);
+    const counter = createPajaRelayEventCounter();
+
+    const dispose = installPajaEventCounterReset(counter);
+
+    expect(dispose).not.toThrow();
   });
 });

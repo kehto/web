@@ -77,6 +77,7 @@ import {
 } from './browser-devtools.js';
 import {
   createPajaRelayEventCounter,
+  installPajaEventCounterReset,
   renderPajaEventKindCounts,
   type PajaRelayEventCounter,
   type PajaRelayGroup,
@@ -666,6 +667,9 @@ async function installPajaHost(): Promise<void> {
   const relayEventCounts = createPajaRelayEventCounter(() => {
     if (stateRef) renderPajaEventKindCounts(stateRef.relayEventCounts, stateRef.relayInventory());
   });
+  // The Events reset button clears those counters, so it is wired to the same
+  // instance the observation hooks feed.
+  const disposeEventCounterReset = installPajaEventCounterReset(relayEventCounts);
   // Configured outbox relays are rendered even before they serve anything, so a
   // relay the outbox model would use is visible while it is still idle.
   const relayInventory = (): PajaRelayInventory => ({
@@ -753,6 +757,7 @@ async function installPajaHost(): Promise<void> {
   window.addEventListener('pagehide', () => notifyController?.dispose(), { once: true });
   window.addEventListener('pagehide', () => configController?.dispose(), { once: true });
   window.addEventListener('pagehide', disposeConsolePanel, { once: true });
+  window.addEventListener('pagehide', disposeEventCounterReset, { once: true });
   window.addEventListener('pagehide', resourceSettings.dispose, { once: true });
 
   window.__KEHTO_PAJA__ = state;

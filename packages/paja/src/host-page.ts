@@ -3,6 +3,11 @@ import {
   PAJA_CONSOLE_PANEL_ID,
   PAJA_CONSOLE_TOGGLE_ID,
 } from './browser-console-panel.js';
+import {
+  PAJA_EVENT_COUNTER_RESET_ID,
+  PAJA_EVENT_COUNTER_RESET_LABEL,
+  PAJA_EVENT_COUNTER_RESET_TITLE,
+} from './browser-relay-panel.js';
 import type { PajaHostConfig } from './options.js';
 import { summarizePajaSimulation } from './simulation.js';
 
@@ -154,7 +159,9 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .event-empty { padding: 4px 8px; color: var(--muted); font-style: italic; font-size: 11px; }
       .section-total { color: var(--muted); font-size: 11px; margin-left: auto; }
       .section-total:empty { display: none; }
-      .section-total + .section-chevron { margin-left: 8px; }
+      .section-reset { flex: 0 0 auto; height: 18px; margin-left: 8px; padding: 0 6px; color: var(--muted); font-size: 10px; text-transform: lowercase; }
+      .section-total:empty + .section-reset { margin-left: auto; }
+      .section-total ~ .section-chevron { margin-left: 8px; }
       .stage { min-width: 0; min-height: 0; position: relative; background: #050705; }
       .empty-stage { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 12px; }
       .empty-stage[hidden] { display: none; }
@@ -279,7 +286,13 @@ export function renderPajaHtml(config: PajaHostConfig): string {
           <div class="log-list" id="message-log" aria-live="polite"></div>
         </div></details>
         <details class="section" id="paja-section-events" data-paja-section="events" open>
-          <summary class="section-title">Events<span class="section-total" id="event-kind-total" aria-hidden="true"></span><span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
+          <summary class="section-title">Events<span class="section-total" id="event-kind-total" aria-hidden="true"></span><button
+            type="button"
+            id="${PAJA_EVENT_COUNTER_RESET_ID}"
+            class="section-reset"
+            title="${PAJA_EVENT_COUNTER_RESET_TITLE}"
+            aria-label="${PAJA_EVENT_COUNTER_RESET_TITLE}"
+          >${PAJA_EVENT_COUNTER_RESET_LABEL}</button><span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
           <div class="event-list" id="event-kind-counts" aria-label="Relay receipts by read reason, relay, and event kind"></div>
         </div></details>
       </aside>

@@ -16,6 +16,13 @@ import type {
   PajaRelayReadReason,
 } from './browser-relay-runtime.js';
 
+/** Id of the host-page button that clears the relay receipt counters. */
+export const PAJA_EVENT_COUNTER_RESET_ID = 'event-counter-reset';
+/** Visible text and accessible name of the counter reset button. */
+export const PAJA_EVENT_COUNTER_RESET_LABEL = 'reset';
+/** Tooltip explaining what the reset button clears. */
+export const PAJA_EVENT_COUNTER_RESET_TITLE = 'reset counter';
+
 /** One aggregated relay-event counter row in Paja's browser devtools. */
 export interface PajaEventKindCount {
   /** Nostr event kind. */
@@ -94,6 +101,13 @@ export interface PajaRelayEventCounter {
     sightedOn: readonly string[],
     origin?: PajaRelayReadOrigin,
   ): void;
+  /**
+   * Clear every receipt, read, and unique event so counting restarts empty.
+   *
+   * Configured relays still render afterwards, exactly as they do at boot,
+   * because the panel always renders the inventory it was handed.
+   */
+  reset(): void;
 }
 
 const RELAY_REASON_ORDER: readonly PajaRelayReadReason[] = ['outbox', 'hint', 'host'];
@@ -241,7 +255,36 @@ export function createPajaRelayEventCounter(onChange?: () => void): PajaRelayEve
       if (typeof id === 'string' && id.length > 0) eventIds.add(id);
       onChange?.();
     },
+    reset() {
+      groups.clear();
+      eventIds.clear();
+      total = 0;
+      onChange?.();
+    },
   };
+}
+
+/**
+ * Wire the Events section's reset button to a relay receipt counter.
+ *
+ * The button sits inside the Events summary, so its click is kept away from the
+ * disclosure control and only clears the counters.
+ *
+ * @param counter - Counter the button clears.
+ * @returns Disposer for the click listener.
+ * @example
+ * const disposeCounterReset = installPajaEventCounterReset(counter);
+ * window.addEventListener('pagehide', disposeCounterReset, { once: true });
+ */
+export function installPajaEventCounterReset(counter: PajaRelayEventCounter): () => void {
+  const button = document.getElementById(PAJA_EVENT_COUNTER_RESET_ID);
+  const onClick = (event: Event): void => {
+    // Never let the reset click reach the summary and toggle the section.
+    event.stopPropagation();
+    counter.reset();
+  };
+  button?.addEventListener('click', onClick);
+  return () => button?.removeEventListener('click', onClick);
 }
 
 /**

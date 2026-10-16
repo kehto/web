@@ -75,6 +75,19 @@ describe('@kehto/paja host page', () => {
     expect(html).toContain('<div class="top-stage">');
     expect(html).toContain('id="napplet-tabs"');
     expect(html).toContain('<footer class="bar bottom">');
+    expect(html).toContain('id="event-kind-total"');
+    expect(html).toContain('id="event-counter-reset"');
+    expect(html).toContain('class="section-reset"');
+    expect(html).toContain('title="reset counter"');
+    expect(html).toContain('aria-label="reset counter"');
+    expect(html).toContain('>reset</button>');
+    expect(html.match(/id="event-counter-reset"/g)).toHaveLength(1);
+    expect(html).toContain('.section-reset { flex: 0 0 auto; height: 18px; margin-left: 8px;');
+    expect(html).toContain('.section-total:empty + .section-reset { margin-left: auto; }');
+    expect(html).toContain('.section-total ~ .section-chevron { margin-left: 8px; }');
+    // The reset button sits between the receipt total and the section chevron.
+    const eventsSummary = html.match(/<summary class="section-title">Events[\s\S]*?<\/summary>/)?.[0] ?? '';
+    expect(eventsSummary).toMatch(/id="event-kind-total"[\s\S]*id="event-counter-reset"[\s\S]*class="section-chevron"/);
     expect(html).toContain('<iframe id="napplet-frame"');
     expect(html).toContain('sandbox="allow-scripts"');
     expect(html).toContain('data-target-url="http://127.0.0.1:5173/"');
