@@ -219,7 +219,12 @@ The console includes:
   Counting happens in the relay backend before delivery, so every read path is
   covered, while simulated memory-mode fixtures and Paja's own publishes are not.
   Each relay row carries a bar scaled against the busiest relay of the session,
-  its receipt count, and its `kind - count` rows. Counts are receipts, not
+  its receipt count, and its `kind - count` rows. Inside the outbox group every
+  relay also carries a chip naming why it was in the plan — `nip65` for a relay
+  discovered from the requested authors' NIP-65 write lists, `plan hint` for one
+  the read passed in itself, and `fallback` for the configured set used when
+  neither resolved — so an outbox read can be read as routing rather than
+  guessed from the relay list. Reads that are not outbox-planned carry no chip. Counts are receipts, not
   distinct events: repeated deliveries and the same event arriving from several
   relays each count, and the header badge's tooltip reports how many unique
   events those receipts came from. Counts accumulate for the host session and

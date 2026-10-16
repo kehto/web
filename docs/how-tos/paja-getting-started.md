@@ -85,7 +85,9 @@ confirmations. Error envelopes show their error text directly in the row.
 **outbox** (an author's NIP-65 write relays, or the configured fallback set),
 **relay hints** (a relay the napplet pinned itself), and **host pool** (Paja's own
 reads) — then lists each relay with a bar scaled against the busiest relay of the
-session, a receipt count, and its `kind - count` rows. Configured outbox relays
+session, a receipt count, and its `kind - count` rows, plus a chip inside the
+outbox group naming how that relay was routed (`nip65`, `plan hint`, or
+`fallback`). Configured outbox relays
 are listed from boot, so a relay that has served nothing yet still shows up as
 `unused`, and one that answered a read with nothing shows as `silent`. The header
 total counts receipts, not distinct events; hover it to see how many unique

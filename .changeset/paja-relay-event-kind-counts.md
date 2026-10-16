@@ -17,7 +17,14 @@ excluded. Receipts are cumulative for the host session; the header badge's
 tooltip separates them from unique events, and `__KEHTO_PAJA__.getState()`
 exposes both the groups and the configured relay inventory.
 
-`RelayPoolServiceOptions.subscribe` in `@kehto/services` now receives a fourth
-`fromHint` argument so a host-backed relay service can distinguish a read pinned
-by an explicit relay hint from one using its own selected relay tier. The
-argument is additive and optional; existing implementations keep working.
+Every relay inside the outbox group also carries a chip naming why it was in the
+plan — `nip65` for an author's NIP-65 write relay, `plan hint` for a relay the
+read supplied, `fallback` for the configured set — so an outbox read reports its
+routing instead of implying author routing.
+
+Two additive, optional `@kehto/services` arguments make that possible:
+`RelayPoolServiceOptions.subscribe` now receives a fourth `fromHint` argument so
+a host-backed relay service can distinguish a read pinned by an explicit relay
+hint from one using its own selected relay tier, and
+`OutboxRelayPool.subscribe` receives an `OutboxRelayOrigin` naming why the relays
+of that call are in the read. Existing implementations keep working unchanged.

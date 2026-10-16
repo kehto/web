@@ -2,7 +2,7 @@ import { createServer } from 'node:http';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { expect, test, type FrameLocator, type Page } from '@playwright/test';
-import { finalizeEvent, generateSecretKey, verifyEvent } from 'nostr-tools/pure';
+import { finalizeEvent, generateSecretKey, getPublicKey, verifyEvent } from 'nostr-tools/pure';
 import { startPajaServer, type PajaServer } from '../../packages/paja/dist/index.js';
 
 interface TargetServer {
@@ -199,20 +199,34 @@ test('groups live relay receipts by read reason, relay, and kind', async ({ page
   test.setTimeout(60_000);
   const poolRelay = 'wss://relay-events-a.example';
   const hintedRelay = 'wss://relay-events-b.example';
+  const authorRelay = 'wss://relay-author-write.example';
+  const authorKey = generateSecretKey();
+  const authorPubkey = getPublicKey(authorKey);
   const relayEvent = finalizeEvent({
     kind: 10_005,
     created_at: 1_800_000_000,
     tags: [],
     content: 'Paja relay receipt counter',
-  }, generateSecretKey());
-  const requests: Array<{ relay: string; subId: unknown }> = [];
-  for (const relay of [poolRelay, hintedRelay]) {
+  }, authorKey);
+  const authorRelayList = finalizeEvent({
+    kind: 10_002,
+    created_at: 1_800_000_000,
+    tags: [['r', authorRelay]],
+    content: '',
+  }, authorKey);
+  const requests: Array<{ relay: string; subId: unknown; filter: Record<string, unknown> }> = [];
+  for (const relay of [poolRelay, hintedRelay, authorRelay]) {
     await page.routeWebSocket(relay, (ws) => {
       ws.onMessage((message) => {
         const data = JSON.parse(typeof message === 'string' ? message : message.toString()) as unknown[];
         if (data[0] !== 'REQ') return;
-        requests.push({ relay, subId: data[1] });
-        ws.send(JSON.stringify(['EVENT', data[1], relayEvent]));
+        const filter = (data[2] ?? {}) as Record<string, unknown>;
+        requests.push({ relay, subId: data[1], filter });
+        // Read-pool relays also answer the kind-10002 discovery, so an outbox
+        // plan resolves to the author's write relay.
+        const kinds = Array.isArray(filter.kinds) ? filter.kinds as number[] : [];
+        if (kinds.includes(10_002)) ws.send(JSON.stringify(['EVENT', data[1], authorRelayList]));
+        else ws.send(JSON.stringify(['EVENT', data[1], relayEvent]));
         ws.send(JSON.stringify(['EOSE', data[1]]));
       });
     });
@@ -259,11 +273,26 @@ test('groups live relay receipts by read reason, relay, and kind', async ({ page
     await expect(eventCounts.locator('[data-relay-reason="hint"] .event-relay')).toHaveCount(1);
     await expect(eventCounts.locator('[data-relay-reason="hint"] .event-row[data-event-kind="10005"] .event-count')).toHaveText('1');
 
+    // An outbox read reports how each relay was routed: the configured fallback
+    // that answered immediately, then the author's NIP-65 relay once it resolved.
+    await sendFixtureMessage(frame, {
+      type: 'outbox.query',
+      id: 'events-outbox',
+      filters: [{ authors: [authorPubkey], kinds: [10_005] }],
+    });
+    await expect(eventCounts.locator(`[data-relay-reason="outbox"] .event-relay[data-relay-url="${poolRelay}"] .event-relay-origin`)).toHaveText('fallback');
+    await expect(eventCounts.locator(`[data-relay-reason="outbox"] .event-relay[data-relay-url="${authorRelay}"] .event-relay-origin`)).toHaveText('nip65');
+    await expect(eventCounts.locator(`[data-relay-reason="outbox"] .event-relay[data-relay-url="${authorRelay}"]`)).toHaveAttribute('data-relay-count', '1');
+
     // Headers carry receipts, the badge title separates them from unique events.
-    await expect(eventCounts.locator('[data-relay-reason="host"] .event-group-count')).toHaveText('2');
-    await expect(page.locator('#event-kind-total')).toHaveText('3');
-    await expect(page.locator('#event-kind-total')).toHaveAttribute('title', '3 relay receipts · 1 unique event');
-    expect(requests.filter((entry) => entry.relay === hintedRelay)).toHaveLength(2);
+    // Host receipts: the tier read (2) plus the NIP-65 discovery read for the
+    // outbox plan (2). Outbox receipts: the fallback read on both configured
+    // relays (2) plus the author's NIP-65 relay (1).
+    await expect(eventCounts.locator('[data-relay-reason="outbox"] .event-group-count')).toHaveText('3');
+    await expect(eventCounts.locator('[data-relay-reason="host"] .event-group-count')).toHaveText('4');
+    await expect(page.locator('#event-kind-total')).toHaveText('8');
+    await expect(page.locator('#event-kind-total')).toHaveAttribute('title', '8 relay receipts · 2 unique events');
+    expect(requests.filter((entry) => entry.relay === authorRelay)).toHaveLength(1);
     expect(await page.evaluate(() => window.__KEHTO_PAJA__?.getState().relayInventory.outbox))
       .toEqual([poolRelay, hintedRelay]);
   } finally {
