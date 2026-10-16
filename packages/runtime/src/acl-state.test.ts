@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 import { createAclState } from './acl-state.js';
 import type { AclPersistence } from './types.js';
 
@@ -56,6 +56,74 @@ describe('runtime ACL state', () => {
       dTag: 'alpha', aggregateHash: hash, capabilities: ['relay:read'],
     });
     expect(acl.getEntry('', 'edited', entry.aggregateHash)).toBeUndefined();
+  });
+
+  it.each(['revoke', 'block'] as const)('reports failed persistence without undoing live %s or observer effects', (mutation) => {
+    const principal = ['', 'alpha', 'a'.repeat(64)] as const;
+    const saved = makePersistence();
+    let fail = false;
+    const order: string[] = [];
+    const persistence: AclPersistence = {
+      load: () => saved.load(),
+      persist(data) {
+        order.push('persist');
+        if (fail) throw new Error('test-storage-failure');
+        saved.persist(data);
+      },
+    };
+    const acl = createAclState(persistence, 'restrictive', () => {
+      expect(acl.check(...principal, 'relay:read')).toBe(false);
+      order.push('observer');
+    });
+    acl.grant(...principal, 'relay:read');
+    expect(acl.persist()).toBe(true);
+    order.length = 0;
+    fail = true;
+    if (mutation === 'revoke') acl.revoke(...principal, 'relay:read');
+    else acl.block(...principal);
+    expect(order).toEqual(['observer']);
+    expect(acl.persist()).toBe(false);
+    expect(order).toEqual(['observer', 'persist']);
+    expect(acl.check(...principal, 'relay:read')).toBe(false);
+    const restored = createAclState(persistence, 'restrictive');
+    restored.load();
+    expect(restored.check(...principal, 'relay:read')).toBe(true);
+    fail = false;
+    expect(acl.persist()).toBe(true);
+    restored.load();
+    expect(restored.check(...principal, 'relay:read')).toBe(false);
+    expect(order).toEqual(['observer', 'persist', 'persist']);
+  });
+
+  it('reports clear failure while retaining the live reset and allows a durable retry', () => {
+    const principal = ['', 'alpha', 'a'.repeat(64)] as const;
+    const saved = makePersistence();
+    let fail = false;
+    const persistence: AclPersistence = {
+      load: () => saved.load(),
+      persist(data) {
+        if (fail) throw new Error('test-storage-failure');
+        saved.persist(data);
+      },
+    };
+    const acl = createAclState(persistence, 'restrictive');
+    expectTypeOf(acl.persist).returns.toEqualTypeOf<boolean>();
+    expectTypeOf(acl.clear).returns.toEqualTypeOf<boolean>();
+    acl.grant(...principal, 'relay:read');
+    expect(acl.persist()).toBe(true);
+    fail = true;
+    expect(acl.clear()).toBe(false);
+    expect(acl.getAllEntries()).toEqual([]);
+    expect(acl.check(...principal, 'relay:read')).toBe(false);
+    const restored = createAclState(persistence, 'restrictive');
+    restored.load();
+    expect(restored.check(...principal, 'relay:read')).toBe(true);
+    fail = false;
+    expect(acl.clear()).toBe(true);
+    const cleared = createAclState(persistence, 'restrictive');
+    cleared.load();
+    expect(cleared.check(...principal, 'relay:read')).toBe(false);
+    expect(saved.data).toBe('');
   });
 
   it('preserves runtime-only permissive capabilities when the first mutation is a revoke', () => {

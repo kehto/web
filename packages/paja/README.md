@@ -397,6 +397,11 @@ boundary and is advertised because each request may provide server locations
 without a host default. For example, reads accept
 `blossom:<hash>.gbc?xs=cdn.example&as=<pubkey>&sz=32768` and
 `blossom:sha256:<hash>.gbc?xs=cdn.example&sz=32768`.
+Internal event-reference keys and synthesized references use `blossom:<hash>`.
+Napplet-supplied resource cache keys remain unchanged, as NAP-RESOURCE does not
+require URL canonicalization. Actual `sha256:` alias reads/server-resolution
+requests emit `KEHTO_COMPAT_BLOSSOM_SHA256` once per host module lifetime, with
+replacement guidance and no URL/hash payload. Canonical requests stay quiet.
 Repeated `xs` and `as` are supported without an observed event. Paja accepts only
 public-looking HTTPS origin hints (scheme-less domains use HTTPS), discards
 invalid/private literals, and deduplicates them. Unlike BUD-10's suggested HTTP

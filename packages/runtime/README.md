@@ -57,6 +57,47 @@ for (const entry of runtime.aclState.getAllEntries()) {
 This host API adds no protocol messages and does not change serialized ACL keys.
 Custom `AclEntryExternal` producers must populate the two required identity fields.
 
+### ACL persistence outcomes
+
+ACL mutations update live policy immediately. Revoke/block observers run
+synchronously after that change, before any explicit save. `aclState.persist()`
+returns `true` when the persistence backend completes and `false` if it throws.
+A failed save never rolls back live policy or reactivates retired subscriptions;
+a newly loaded container can still see the last successfully saved policy.
+
+`aclState.clear()` resets live policy to its configured default and attempts to
+clear storage, returning the same success boolean. A failed clear leaves that
+live reset in place and old durable data unchanged. Retry persistence or clearing
+after handling the backend failure. These results report the synchronous backend
+contract, not physical disk durability. Hosts must not swallow backend errors if
+they want the container to detect failure.
+
+```ts
+runtime.aclState.revoke('', dTag, aggregateHash, 'relay:read');
+if (!runtime.aclState.persist()) {
+  showSaveError('Access is revoked for this session, but the policy was not saved.');
+}
+```
+
+Runtime destruction remains best-effort; hosts requiring an actionable save
+result should call `persist()` before teardown. This host API policy is outside
+the NAP wire contract. No old-use warning can detect callers ignoring a return
+value; see [the compatibility register](https://github.com/kehto/web/blob/main/docs/compatibility.md).
+
+### NAP-RELAY subscription revocation
+
+Revoking `relay:read` or blocking a principal immediately retires ordinary relay
+subscriptions in every window with that exact `dTag` and aggregate hash. The
+runtime closes registered relay/cache backends and direct adapter subscriptions,
+sends `relay.closed` with reason `denied: relay:read`, and suppresses queued events
+and EOSE callbacks. Regranting access requires a new subscription; old callbacks
+remain invalid even if the same `subId` is reused. Other principals, other artifact
+versions, and revocation of unrelated capabilities leave subscriptions active.
+
+This host policy conforms to [NAP-RELAY draft PR #2 at
+`9f30b3505335a52c574ff570576687d6467021ff`](https://github.com/napplet/naps/blob/9f30b3505335a52c574ff570576687d6467021ff/naps/NAP-RELAY.md),
+which permits ACL enforcement and policy-driven subscription termination.
+
 ### NAP-RELAY publish boundary
 
 The publish path follows draft [NAP-RELAY PR #2 at
@@ -207,6 +248,11 @@ runtime.handleMessage('window-1', {
 ### Session registry
 - `createSessionRegistry` — bidirectional windowId ↔ `SessionEntry` store
 - `createNappKeyRegistry` — deprecated alias retained for v1.1 migration consumers
+
+`unregister(windowId)` retires the window's registration, lookup state, and pending
+update, including NIP-5D sessions whose pubkey is empty. Repeated calls are safe.
+If a newer window owns the same pubkey lookup, that newer entry is preserved;
+use `getEntryByWindowId` to distinguish live windows sharing an empty pubkey.
 
 `runtime.sessionRegistry.register(windowId, entry)` establishes a fresh trusted
 source lifecycle and retires that window's previous initialization burst budget,

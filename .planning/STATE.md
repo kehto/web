@@ -377,3 +377,9 @@ are verified by 2,156 unit tests, all 123 browser tests, a built-package adaptat
 of the issue reproduction, build/type/docs checks, and quality score 100/100.
 Conformance authority and host-extension limits are recorded in
 [the resolved debug session](./debug/resolved/registered-service-routing.md).
+
+## Issue audit: #304
+
+Relay ACL revocation now retires ordinary adapter/service subscriptions and queued
+callbacks. See `debug/resolved/relay-acl-revocation.md` and `INBOX-TRIAGE.md`.
+Build/type/docs/quality and 2,164 unit / 123 browser tests pass.

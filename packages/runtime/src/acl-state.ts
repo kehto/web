@@ -93,7 +93,7 @@ export type AclMutation =
   | { readonly type: 'revoke'; readonly dTag: string; readonly aggregateHash: string; readonly capability: Capability }
   | { readonly type: 'block'; readonly dTag: string; readonly aggregateHash: string };
 
-/** Receives synchronous ACL authority changes after persistence succeeds. */
+/** Receives synchronous in-memory revoke/block changes, before any explicit persistence. */
 export type AclMutationObserver = (mutation: AclMutation) => void;
 
 /**
@@ -117,9 +117,25 @@ export interface AclStateContainer {
   getEntry(pubkey: string, dTag: string, aggregateHash: string): AclEntryExternal | undefined;
   getAllEntries(): AclEntryExternal[];
   getStateQuota(pubkey: string, dTag: string, aggregateHash: string): number;
-  persist(): void;
+  /**
+   * Save live state without rolling back live policy on failure.
+   * @returns True if the backend completed; false if it threw.
+   * @example
+   * ```ts
+   * if (!acl.persist()) showSaveError();
+   * ```
+   */
+  persist(): boolean;
   load(): void;
-  clear(): void;
+  /**
+   * Reset live state to the configured default and attempt to clear storage.
+   * @returns True if storage cleared; false if only the live reset succeeded.
+   * @example
+   * ```ts
+   * if (!acl.clear()) showSaveError();
+   * ```
+   */
+  clear(): boolean;
 }
 
 /**
@@ -223,10 +239,13 @@ export function createAclState(
       return getQuota(state, id);
     },
 
-    persist(): void {
+    persist(): boolean {
       try {
         persistence.persist(serialize(state));
-      } catch { /* persistence is best-effort */ }
+        return true;
+      } catch {
+        return false;
+      }
     },
 
     load(): void {
@@ -239,9 +258,14 @@ export function createAclState(
       }
     },
 
-    clear(): void {
+    clear(): boolean {
       state = createState(defaultPolicy);
-      try { persistence.persist(''); } catch { /* best-effort */ }
+      try {
+        persistence.persist('');
+        return true;
+      } catch {
+        return false;
+      }
     },
   };
 }

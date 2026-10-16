@@ -92,10 +92,11 @@ function registerNip5dSessionIfNeeded({
   if (existing && previousRegistration === sourceRegistrationId) {
     return;
   }
+  // A cached environment expires even if the host already unregistered the session.
+  state.environments.delete(windowId);
   if (existing && previousRegistration !== undefined) {
     runtime.destroyWindow(windowId);
     runtime.sessionRegistry.unregister(windowId);
-    state.environments.delete(windowId);
   }
   if (existing && previousRegistration === undefined) {
     state.sessionRegistration.set(windowId, sourceRegistrationId);

@@ -20,7 +20,7 @@ app package's development scripts.
 | Field | Value |
 |-------|-------|
 | Source | `packages/paja/package.json`, `packages/paja/src/index.ts` |
-| Version | `0.21.2` |
+| Version | `0.21.3` |
 | Runtime entry | `./dist/index.js` |
 | CLI runner entry | `./dist/cli.js` |
 | Types entry | `./dist/index.d.ts` |
@@ -460,6 +460,10 @@ Paja accepts `blossom:<hash>.gbc?xs=cdn.example&as=<pubkey>&sz=32768` and the
 each requiring exactly 64 hexadecimal characters. The optional single
 ASCII-alphanumeric extension is preserved in `GET /<hash>.<ext>` but never
 establishes MIME; query parameters are never forwarded to the blob server.
+Internal reference keys use `blossom:<hash>` while resource cache keys retain
+the caller's URL. Actual alias reads/server-resolution requests emit
+`KEHTO_COMPAT_BLOSSOM_SHA256` once per host module lifetime; canonical requests
+stay quiet. The warning gives replacement guidance without logging resource data.
 Both forms use the
 same SHA-256 verification, byte caps, local MIME safety, and server policy. Paja
 accepts public-looking HTTPS request hints, discards invalid/private literals,
