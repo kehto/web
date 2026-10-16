@@ -159,6 +159,20 @@ describe('Paja relay receipts', () => {
     expect(total.title).toBe('4 relay receipts · 4 unique events');
   });
 
+  it('merges equivalent relay URLs while preserving the configured display spelling', () => {
+    const counter = createPajaRelayEventCounter();
+    counter.recordRead('outbox', ['wss://relay.example', 'wss://relay.example/']);
+    counter.recordEvent('outbox', event('a', 1), ['wss://relay.example/']);
+    counter.recordEvent('outbox', event('a', 1), ['wss://relay.example']);
+    const [group] = counter.snapshot({ outbox: ['wss://relay.example'] });
+    expect(group!.relays).toEqual([{
+      relayUrl: 'wss://relay.example', count: 2, readCount: 1, configured: true,
+      origins: [], kinds: [{ kind: 1, count: 2 }],
+    }]);
+    expect(counter.total).toBe(2);
+    expect(counter.uniqueEvents).toBe(1);
+  });
+
   it('renders an empty state when no relay is configured or observed', () => {
     const { container, total } = stubEventCountDom();
     const counter = createPajaRelayEventCounter();

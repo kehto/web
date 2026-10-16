@@ -9,6 +9,8 @@
  * @module
  */
 
+import { normalizeURL } from 'nostr-tools/utils';
+
 import type {
   PajaRelayReadOrigin,
   PajaRelayReadReason,
@@ -108,6 +110,7 @@ export function relayReasonLabel(reason: PajaRelayReadReason): string {
 }
 
 interface MutableRelayReceipt {
+  relayUrl: string;
   count: number;
   kinds: Map<number, number>;
   origins: Set<PajaRelayReadOrigin>;
@@ -119,6 +122,17 @@ function emptyReasonGroup(): {
   relays: Map<string, MutableRelayReceipt>;
 } {
   return { count: 0, reads: new Map(), relays: new Map() };
+}
+
+/** Coalesce equivalent relay identities within one observation batch. */
+function distinctRelayUrls(urls: readonly string[]): string[] {
+  const unique = new Map<string, string>();
+  for (const url of urls) {
+    if (url.length === 0) continue;
+    const key = normalizeURL(url);
+    if (!unique.has(key)) unique.set(key, url);
+  }
+  return [...unique.values()];
 }
 
 /**
@@ -148,10 +162,11 @@ export function createPajaRelayEventCounter(onChange?: () => void): PajaRelayEve
   };
   const relayFor = (reason: PajaRelayReadReason, relayUrl: string) => {
     const group = groupFor(reason);
-    let relay = group.relays.get(relayUrl);
+    const key = normalizeURL(relayUrl);
+    let relay = group.relays.get(key);
     if (!relay) {
-      relay = { count: 0, kinds: new Map(), origins: new Set() };
-      group.relays.set(relayUrl, relay);
+      relay = { relayUrl, count: 0, kinds: new Map(), origins: new Set() };
+      group.relays.set(key, relay);
     }
     return relay;
   };
@@ -171,13 +186,14 @@ export function createPajaRelayEventCounter(onChange?: () => void): PajaRelayEve
         const seen = new Set<string>();
         const relays: PajaRelayReceipt[] = [];
         const push = (relayUrl: string, isConfigured: boolean): void => {
-          if (seen.has(relayUrl)) return;
-          seen.add(relayUrl);
-          const relay = group?.relays.get(relayUrl);
+          const key = normalizeURL(relayUrl);
+          if (seen.has(key)) return;
+          seen.add(key);
+          const relay = group?.relays.get(key);
           relays.push({
             relayUrl,
             count: relay?.count ?? 0,
-            readCount: group?.reads.get(relayUrl) ?? 0,
+            readCount: group?.reads.get(key) ?? 0,
             configured: isConfigured,
             origins: [...(relay?.origins ?? [])].sort(),
             kinds: [...(relay?.kinds.entries() ?? [])]
@@ -185,7 +201,7 @@ export function createPajaRelayEventCounter(onChange?: () => void): PajaRelayEve
               .map(([kind, count]) => ({ kind, count })),
           });
         };
-        const observed = [...(group?.relays.keys() ?? [])].filter((url) => !configured.includes(url));
+        const observed = [...(group?.relays.values() ?? [])].map((relay) => relay.relayUrl);
         for (const url of configured) push(url, true);
         for (const url of observed) push(url, false);
         if (relays.length === 0) continue;
@@ -197,9 +213,9 @@ export function createPajaRelayEventCounter(onChange?: () => void): PajaRelayEve
     recordRead(reason, relayUrls, origin) {
       const group = groupFor(reason);
       let changed = false;
-      for (const relayUrl of new Set(relayUrls)) {
-        if (relayUrl.length === 0) continue;
-        group.reads.set(relayUrl, (group.reads.get(relayUrl) ?? 0) + 1);
+      for (const relayUrl of distinctRelayUrls(relayUrls)) {
+        const key = normalizeURL(relayUrl);
+        group.reads.set(key, (group.reads.get(key) ?? 0) + 1);
         const relay = relayFor(reason, relayUrl);
         if (origin) relay.origins.add(origin);
         changed = true;
@@ -210,7 +226,7 @@ export function createPajaRelayEventCounter(onChange?: () => void): PajaRelayEve
       if (typeof event !== 'object' || event === null) return;
       const kind = (event as { kind?: unknown }).kind;
       if (typeof kind !== 'number' || !Number.isSafeInteger(kind) || kind < 0) return;
-      const relays = [...new Set(sightedOn)].filter((url) => url.length > 0);
+      const relays = distinctRelayUrls(sightedOn);
       if (relays.length === 0) return;
       const group = groupFor(reason);
       for (const relayUrl of relays) {
