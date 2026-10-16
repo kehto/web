@@ -212,6 +212,16 @@ payload.
 - `sessionRegistry` — canonical windowId ↔ verified-napplet registry singleton
 - `nappKeyRegistry` — deprecated alias for `sessionRegistry`
 - `originRegistry` — origin-to-windowId map used by proxies and bridge broadcasts
+
+Environment snapshots belong to one source registration. To retire a window,
+call `bridge.runtime.destroyWindow(windowId)`,
+`bridge.runtime.sessionRegistry.unregister(windowId)`, and
+`originRegistry.unregister(windowId)`. When registering a replacement under the
+same window ID, provide its snapshot with `originRegistry.setEnvironment()` or
+let the bridge call `resolveShellEnvironment()` for current host defaults. A
+retired registration's cached domains and service names are discarded even when
+the runtime session was already removed. This applies before any domain dispatch,
+including requests sent before the optional `shell.ready` exchange.
 - `PendingUpdate` — type for pending aggregate-hash change prompts
 
 ### Manifest cache
