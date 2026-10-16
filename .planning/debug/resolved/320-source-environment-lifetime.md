@@ -1,5 +1,5 @@
 ---
-status: investigating
+status: resolved
 trigger: "Resolve #320 in a separate PR: retired source environment survives session unregister"
 created: 2026-10-16
 updated: 2026-10-16
@@ -15,8 +15,7 @@ registration's private domain. Both shell.init and actual service dispatch expos
 
 hypothesis: environment invalidation is nested under an existing-session check,
 so explicit session retirement skips it before the cached environment fallback.
-next_action: reproduce with public bridge APIs, invalidate at the session boundary,
-and test both source reuse and replacement with/without readiness.
+next_action: open the separate #320 PR with verification evidence.
 
 ## Authority and scope
 
@@ -30,3 +29,25 @@ and test both source reuse and replacement with/without readiness.
 - Existing mandatory-shell guidance in AGENTS.md predates the current optional
   upstream contract. This fix changes cache retirement only.
 - GSD debug runs inline; the primary checkout's unrelated WIP remains untouched.
+
+## Resolution and verification
+
+Moved environment deletion outside the existing-session branch, after the live
+same-registration early return. Both newly created and adopted sessions discard
+old cached environments; an explicit current origin snapshot still takes precedence.
+
+Four of seven new public-bridge regressions failed before the fix; all seven pass
+afterward. They cover source reuse/replacement, explicit unregister and still-live
+sessions, pre-ready dispatch, repeated ready signals, retired-source trust, init
+domains/service names, and explicit replacement environments.
+
+The original issue script passes with the built shell entry and installed jsdom
+26.1.0 on Node 26.11.1: replacementInitHasExample=false, calls=1, and
+replacementReceivedReply=false. Only module import paths were adapted.
+
+Build, type-check, all 2,175 unit tests, all 123 Playwright tests (including Paja
+and playground), docs:check, changed-file aislop 0.12.0 (100/100), and diff check
+pass. Browser checks used temporary IPv6 listener isolation because another
+project owns IPv4 port 4173; repository browser configuration was unchanged.
+The pinned upstream master ref was rechecked unchanged. Shell patch changeset
+and package docs accompany the fix. No dependency on #319's runtime patch.
