@@ -59,5 +59,16 @@ jobs:
           package-runner: pnpm
           badge-file: .github/badges/aislop-score.json
           fail-on-error: false
-          commit-badge: ${{ github.ref == 'refs/heads/main' }}
-          commit-message: 'chore: update AI slop score badge [skip ci]'
+          commit-badge: false
+          push: false
+
+      # Generated badge data has its own branch; main requires pull requests.
+      - name: Publish badge
+        if: ${{ github.ref == 'refs/heads/main' }}
+        uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: badges
+          publish_dir: .github/badges
+          enable_jekyll: true
+          commit_message: 'chore: update AI slop score badge'
