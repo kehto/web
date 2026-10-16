@@ -212,6 +212,8 @@ export function createAclState(
       if (!entry) return undefined;
       return {
         pubkey: pubkey || '',
+        dTag,
+        aggregateHash,
         capabilities: bitsToCapabilities(entry.caps),
         blocked: entry.blocked,
         stateQuota: entry.quota,
@@ -219,9 +221,12 @@ export function createAclState(
     },
 
     getAllEntries(): AclEntryExternal[] {
-      return Object.entries(state.entries).map(([, entry]) => {
+      return Object.entries(state.entries).map(([key, entry]) => {
+        const separator = key.lastIndexOf(':');
         return {
           pubkey: '',
+          dTag: key.slice(0, separator),
+          aggregateHash: key.slice(separator + 1),
           capabilities: bitsToCapabilities(entry.caps),
           blocked: entry.blocked,
           stateQuota: entry.quota,

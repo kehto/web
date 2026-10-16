@@ -44,6 +44,12 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
 ## Scope Boundaries
 
 - Owns message dispatch, ACL gates, service routing, storage handling, manifest cache, replay checks, and runtime lifecycle.
+- ACL listing and lookup return `AclEntryExternal` with required `dTag` and
+  `aggregateHash` fields. Feed those fields into keyed revoke/block/quota methods;
+  listing `pubkey` remains empty because it is not the principal key. Results are
+  detached copies, remain identifiable after reload, and preserve existing
+  serialized keys. Custom producers must provide the two identity fields.
+
 - ACL mutations and revoke/block observers take effect in memory before an
   explicit save. `aclState.persist()` and `aclState.clear()` return `true` when
   their synchronous backend call succeeds and `false` when it throws. Failure

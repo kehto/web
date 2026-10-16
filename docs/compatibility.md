@@ -6,6 +6,24 @@ coverage. This register records both implemented safeguards and existing debt;
 below identifies the package responsible for the implementation and its tests.
 No removal date is implied by an old source comment.
 
+## ACL principal fields — runtime
+
+Identifier: `ACL_ENTRY_PRINCIPAL`. ACL lookup/listing now return required `dTag`
+and `aggregateHash` fields. Use those fields with keyed policy methods instead
+of identifying a policy by the retained `pubkey` display field. Listing pubkey
+remains empty; keyed lookup preserves its existing pubkey argument behavior.
+Source: `packages/runtime/src/acl-state.ts` and `types.ts`. Runtime regressions in
+`acl-state.test.ts` cover distinct principals, reload, colon-bearing identifiers,
+keyed mutation and detached results. The updated exported type requires custom
+producers to provide the principal fields; the minor release records that change.
+
+Diagnostic limitation: plain additive output fields do not expose whether a
+consumer reads the old fields or ignores the new ones. There is no old-use warning
+site; canonical enumeration stays quiet. Host policy UIs should use the returned
+principal fields and surface errors at their own mutation boundary. No alternate
+serialized format or parser fallback was added. Retiring the pubkey field requires
+a separately announced breaking API migration and updated supported consumers.
+
 ## ACL persistence return values — runtime
 
 Identifier: `ACL_PERSISTENCE_RESULT`. `AclStateContainer.persist()` and `clear()`
