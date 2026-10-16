@@ -44,6 +44,14 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
 ## Scope Boundaries
 
 - Owns message dispatch, ACL gates, service routing, storage handling, manifest cache, replay checks, and runtime lifecycle.
+- ACL mutations and revoke/block observers take effect in memory before an
+  explicit save. `aclState.persist()` and `aclState.clear()` return `true` when
+  their synchronous backend call succeeds and `false` when it throws. Failure
+  retains the live change; reload can still restore the prior durable policy.
+  Check the result and retry after correcting storage. `clear()` resets live
+  state to the configured default even when its backend call fails. Runtime
+  teardown remains best-effort. This is host API policy, outside the NAP wire.
+
 - Revoking `relay:read` or blocking a principal retires ordinary relay subscriptions
   across its exact `dTag` and aggregate hash, closes service/adapter backends, and
   sends `relay.closed` with reason `denied: relay:read`. Events and EOSE queued by

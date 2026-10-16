@@ -6,6 +6,24 @@ coverage. This register records both implemented safeguards and existing debt;
 below identifies the package responsible for the implementation and its tests.
 No removal date is implied by an old source comment.
 
+## ACL persistence return values — runtime
+
+Identifier: `ACL_PERSISTENCE_RESULT`. `AclStateContainer.persist()` and `clear()`
+previously returned void and suppressed backend failures. They now return a
+boolean outcome while preserving synchronous live mutation and nonthrowing save
+behavior. Callers must check `false` and report/retry the failed save; reload can
+still expose the previous durable policy. Source: `packages/runtime/src/acl-state.ts`;
+guidance: `packages/runtime/README.md`; regression coverage:
+`packages/runtime/src/acl-state.test.ts` (failure, retry, reload and observer order).
+
+Diagnostic limitation: JavaScript cannot observe whether a caller consumes an
+additive return value. There is no runtime old-use boundary or warning site;
+canonical calls stay quiet. The typed boolean and API documentation provide
+build-time guidance. Host save actions are the appropriate place to show errors.
+Runtime destruction intentionally remains best-effort. No compatibility branch
+is retained for removal; any future change to throwing semantics requires a
+separate breaking release and migration of host save actions.
+
 ## Blossom sha256 prefix — Paja
 
 Identifier: `KEHTO_COMPAT_BLOSSOM_SHA256`. `blossom:sha256:<hash>` input remains
