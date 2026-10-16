@@ -205,34 +205,46 @@ The console includes:
   including Paja system events such as interface changes, ACL changes, signer
   connection changes, signing/publish confirmations, and visible details for
 `.error` envelopes.
-- **Events** — relay receipts grouped by why Paja opened the read, then by relay,
-  then by event kind, with the session receipt total in the section header:
-  - **outbox** — relays the outbox model picked (an author's NIP-65 write
-    relays, or the configured fallback set). Configured outbox relays are listed
-    from boot, so a relay that has served nothing yet still appears, marked
-    `unused` until Paja reads from it and `silent` once a read returns no events.
-  - **relay hints** — a read the napplet pinned itself with an explicit
-    NAP-RELAY `relay.subscribe` relay hint, which bypasses host tier selection.
+- **Events** — relay receipts grouped by the routing box that chose the relays,
+  then by relay, then by event kind, with the session receipt total in the
+  section header. Boxes render in Paja's routing precedence, never in count
+  order, so they do not reshuffle while the session runs:
+  - **outbox relays (NIP-65)** — relays resolved from the requested authors'
+    NIP-65 write lists. When a session only ever used hints or the configured
+    set, the box renders as `no author-routed reads` instead of a bare zero,
+    because author-routed relays are discovered per read and cannot be listed
+    from configuration.
+  - **relay hints** — an outbox read the napplet pointed at relays itself with
+    NAP-OUTBOX `relays` hints, which the shell validates and uses alongside the
+    rest of the plan.
+  - **fallback relays** — the host's configured relay set, read when neither a
+    NIP-65 list nor a hint resolved (NAP-OUTBOX plan source `fallback`).
+    Configured relays are listed from boot, so one that has served nothing yet
+    still appears, marked `unused` until Paja reads from it and `silent` once a
+    read returns no events. This is the only box that can render without traffic.
+  - **scoped relay** — a read the napplet pinned to one relay with an explicit
+    NAP-RELAY `relay.subscribe` `relay` field (a scoped relay, not a hint),
+    which bypasses host tier selection.
   - **host pool** — Paja's own reads: the relay service without a hint, social
     cache, contact lists, relay lists, count, CVM, Blossom lookups, upload
     discovery, WebRTC, and DM traffic.
   Counting happens in the relay backend before delivery, so every read path is
   covered, while simulated memory-mode fixtures and Paja's own publishes are not.
   Each relay row carries a bar scaled against the busiest relay of the session,
-  its receipt count, and its `kind - count` rows. Inside the outbox group every
-  relay also carries a chip naming why it was in the plan — `nip65` for a relay
-  discovered from the requested authors' NIP-65 write lists, `plan hint` for one
-  the read passed in itself, and `fallback` for the configured set used when
-  neither resolved — so an outbox read can be read as routing rather than
-  guessed from the relay list. Reads that are not outbox-planned carry no chip. Counts are receipts, not
+  its receipt count, and its `kind - count` rows. A box is a routing decision
+  rather than a relay set, so the same relay appears in two boxes when two reads
+  reached it for different reasons — a relay that is both an app hint and a
+  configured fallback keeps its two receipt counts apart instead of showing one
+  merged number. Every receipt belongs to exactly one box, so box counts add up
+  to the header total. Counts are receipts, not
   distinct events: repeated deliveries and the same event arriving from several
   relays each count, and the header badge's tooltip reports how many unique
   events those receipts came from. Receipts are observed on each live relay's
   verified, filter-matching event callback before delivery deduplication; a
   silent relay is never credited from another relay's response or a previous
   read. Equivalent relay URL spellings share one row. Napplet delivery and query
-  results remain deduplicated. Counts accumulate for the host session and reset
-  on reload.
+  results remain deduplicated. Counts accumulate for the host session and the
+  section header's `reset` button clears them without a reload.
 
 The GitHub Pages artifact also includes a static Paja Runtime at `/web/paja/`.
 That route uses `createPajaRuntimeHostConfig`, keeps `hmr: none`, and loads

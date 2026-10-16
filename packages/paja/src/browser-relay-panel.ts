@@ -4,7 +4,8 @@
  * The counter lives outside the host state object so relay fetches that Paja
  * starts before the host state exists (signer probes, social cache, relay
  * lists) are counted rather than dropped, and it keeps each receipt grouped by
- * why Paja opened the read, which relay served it, and which kind it was.
+ * why Paja opened the read and how the relay was routed inside it, which relay
+ * served the event, and which kind it was.
  *
  * @module
  */
@@ -32,7 +33,7 @@ export interface PajaEventKindCount {
 }
 
 /**
- * Cumulative receipt counters for one relay inside one read-reason group.
+ * Cumulative receipt counters for one relay inside one box.
  *
  * Counts are receipts, not distinct events: a relay that hands Paja the same
  * event twice is credited twice, because the panel reports what was fetched.
@@ -40,30 +41,51 @@ export interface PajaEventKindCount {
 export interface PajaRelayReceipt {
   /** Relay URL. */
   readonly relayUrl: string;
-  /** Events received from this relay under this reason. */
+  /** Events received from this relay in this box. */
   readonly count: number;
-  /** Reads Paja started against this relay under this reason. */
+  /** Reads Paja started against this relay in this box. */
   readonly readCount: number;
-  /** Events per kind received from this relay under this reason. */
+  /** Events per kind received from this relay in this box. */
   readonly kinds: PajaEventKindCount[];
   /** Whether this relay is configured rather than only observed. */
   readonly configured: boolean;
-  /** How this relay was routed inside an outbox plan, when the router said so. */
-  readonly origins: PajaRelayReadOrigin[];
 }
 
-/** One read-reason group of relay receipts. */
-export interface PajaRelayGroup {
-  /** How the relay sets in this group were chosen. */
+/**
+ * How one box of relay receipts was chosen.
+ *
+ * A box is a routing decision, not a relay set, so the same relay appears in
+ * two boxes when two reads reached it for different reasons.
+ *
+ * - `nip65` — outbox reads routed to the requested authors' NIP-65 write relays.
+ * - `hint` — outbox reads the napplet pointed at relays with an `outbox.*` hint.
+ * - `fallback` — the host's configured relays, read when no list or hint resolved.
+ * - `unattributed` — an outbox read that arrived without a router origin.
+ * - `scoped` — a read the napplet pinned itself with NAP-RELAY `relay.subscribe`.
+ * - `host` — Paja's own reads through its configured read pool.
+ */
+export type PajaRelayBoxKind = 'nip65' | 'hint' | 'fallback' | 'unattributed' | 'scoped' | 'host';
+
+/** One box of relay receipts, labelled by how its reads were chosen. */
+export interface PajaRelayBox {
+  /** Which box this is. */
+  readonly kind: PajaRelayBoxKind;
+  /** Header text for the box. */
+  readonly label: string;
+  /** Read reason whose relays this box holds. */
   readonly reason: PajaRelayReadReason;
-  /** Events received under this reason, counting every relay sighting. */
+  /** Router origin this box holds, when the box is origin-scoped. */
+  readonly origin?: PajaRelayReadOrigin;
+  /** Events received in this box, counting every relay sighting. */
   readonly count: number;
-  /** Relays in this group, including configured relays with no traffic yet. */
+  /** Relays in this box, including configured relays with no traffic yet. */
   readonly relays: PajaRelayReceipt[];
+  /** Rendered in the header when the box holds no relays but the session has receipts. */
+  readonly emptyNote?: string;
 }
 
-/** Configured relay inventory per read reason, so idle relays still render. */
-export type PajaRelayInventory = Partial<Record<PajaRelayReadReason, readonly string[]>>;
+/** Configured relay inventory per box, so idle relays still render. */
+export type PajaRelayInventory = Partial<Record<PajaRelayBoxKind, readonly string[]>>;
 
 /**
  * Cumulative per-reason, per-relay counter for events received from live relays.
@@ -77,8 +99,8 @@ export interface PajaRelayEventCounter {
   readonly total: number;
   /** Distinct event ids seen this session. */
   readonly uniqueEvents: number;
-  /** Counts grouped by read reason, including configured relays with no traffic. */
-  snapshot(inventory?: PajaRelayInventory): PajaRelayGroup[];
+  /** Receipts grouped into boxes, including configured relays with no traffic. */
+  snapshot(inventory?: PajaRelayInventory): PajaRelayBox[];
   /**
    * Count one relay read Paja started.
    *
@@ -110,27 +132,58 @@ export interface PajaRelayEventCounter {
   reset(): void;
 }
 
-const RELAY_REASON_ORDER: readonly PajaRelayReadReason[] = ['outbox', 'hint', 'host'];
+interface PajaRelayBoxSpec {
+  kind: PajaRelayBoxKind;
+  label: string;
+  reason: PajaRelayReadReason;
+  origin?: PajaRelayReadOrigin;
+  /** Whether configured relays seed this box before it serves anything. */
+  configured: boolean;
+  /** Rendered in the header when the box holds no relays and the session has receipts. */
+  emptyNote?: string;
+}
 
-const RELAY_REASON_LABELS: Record<PajaRelayReadReason, string> = {
-  outbox: 'outbox',
-  hint: 'relay hints',
-  host: 'host pool',
-};
+/**
+ * Boxes in the fixed precedence Paja routes reads in: author-routed outbox
+ * relays first, then the hints a napplet supplied, then the host's configured
+ * fallback set, then Paja's own traffic. Counts sort relays inside a box, never
+ * the boxes themselves, so boxes do not reorder while the session is running.
+ */
+const RELAY_BOXES: readonly PajaRelayBoxSpec[] = [
+  {
+    kind: 'nip65',
+    label: 'outbox relays (NIP-65)',
+    reason: 'outbox',
+    origin: 'nip65',
+    configured: false,
+    emptyNote: 'no author-routed reads',
+  },
+  { kind: 'hint', label: 'relay hints', reason: 'outbox', origin: 'hint', configured: false },
+  { kind: 'fallback', label: 'fallback relays', reason: 'outbox', origin: 'fallback', configured: true },
+  { kind: 'unattributed', label: 'outbox relays (unattributed)', reason: 'outbox', configured: false },
+  { kind: 'scoped', label: 'scoped relay', reason: 'hint', configured: false },
+  { kind: 'host', label: 'host pool', reason: 'host', configured: false },
+];
 
-/** Human label for one read reason. */
-export function relayReasonLabel(reason: PajaRelayReadReason): string {
-  return RELAY_REASON_LABELS[reason];
+/**
+ * Which box one observation belongs to.
+ *
+ * Outbox reads carry the router's origin; scoped reads and Paja's own reads have
+ * one reason each. An outbox read that arrives without an origin is reported as
+ * unattributed rather than credited to the authors' NIP-65 relays.
+ */
+function boxKindFor(reason: PajaRelayReadReason, origin?: PajaRelayReadOrigin): PajaRelayBoxKind {
+  if (reason === 'outbox') return origin ?? 'unattributed';
+  return reason === 'hint' ? 'scoped' : 'host';
 }
 
 interface MutableRelayReceipt {
   relayUrl: string;
   count: number;
   kinds: Map<number, number>;
-  origins: Set<PajaRelayReadOrigin>;
 }
 
-function emptyReasonGroup(): {
+function emptyBox(): {
   count: number;
   reads: Map<string, number>;
   relays: Map<string, MutableRelayReceipt>;
@@ -150,11 +203,11 @@ function distinctRelayUrls(urls: readonly string[]): string[] {
 }
 
 /**
- * Create a cumulative relay-receipt counter grouped by read reason.
+ * Create a cumulative relay-receipt counter grouped into routing boxes.
  *
  * Only well-formed events with a non-negative integer `kind` are counted, and
  * every relay a read saw the event on is credited, so one event fetched through
- * two reasons appears in both groups.
+ * two boxes appears in both of them.
  *
  * @param onChange - Called after a counted read or event.
  * @returns Counter suitable for the relay observation hooks and sidebar rendering.
@@ -162,25 +215,25 @@ function distinctRelayUrls(urls: readonly string[]): string[] {
  * const counter = createPajaRelayEventCounter(() => renderPajaEventKindCounts(state));
  */
 export function createPajaRelayEventCounter(onChange?: () => void): PajaRelayEventCounter {
-  const groups = new Map<PajaRelayReadReason, ReturnType<typeof emptyReasonGroup>>();
+  const boxes = new Map<PajaRelayBoxKind, ReturnType<typeof emptyBox>>();
   const eventIds = new Set<string>();
   let total = 0;
 
-  const groupFor = (reason: PajaRelayReadReason) => {
-    let group = groups.get(reason);
-    if (!group) {
-      group = emptyReasonGroup();
-      groups.set(reason, group);
+  const boxFor = (kind: PajaRelayBoxKind) => {
+    let box = boxes.get(kind);
+    if (!box) {
+      box = emptyBox();
+      boxes.set(kind, box);
     }
-    return group;
+    return box;
   };
-  const relayFor = (reason: PajaRelayReadReason, relayUrl: string) => {
-    const group = groupFor(reason);
+  const relayFor = (kind: PajaRelayBoxKind, relayUrl: string) => {
+    const box = boxFor(kind);
     const key = normalizeURL(relayUrl);
-    let relay = group.relays.get(key);
+    let relay = box.relays.get(key);
     if (!relay) {
-      relay = { relayUrl, count: 0, kinds: new Map(), origins: new Set() };
-      group.relays.set(key, relay);
+      relay = { relayUrl, count: 0, kinds: new Map() };
+      box.relays.set(key, relay);
     }
     return relay;
   };
@@ -193,45 +246,54 @@ export function createPajaRelayEventCounter(onChange?: () => void): PajaRelayEve
       return eventIds.size;
     },
     snapshot(inventory) {
-      const out: PajaRelayGroup[] = [];
-      for (const reason of RELAY_REASON_ORDER) {
-        const group = groups.get(reason);
-        const configured = inventory?.[reason] ?? [];
+      const out: PajaRelayBox[] = [];
+      for (const spec of RELAY_BOXES) {
+        const box = boxes.get(spec.kind);
+        const configured = spec.configured ? inventory?.[spec.kind] ?? [] : [];
         const seen = new Set<string>();
         const relays: PajaRelayReceipt[] = [];
         const push = (relayUrl: string, isConfigured: boolean): void => {
           const key = normalizeURL(relayUrl);
           if (seen.has(key)) return;
           seen.add(key);
-          const relay = group?.relays.get(key);
+          const relay = box?.relays.get(key);
           relays.push({
             relayUrl,
             count: relay?.count ?? 0,
-            readCount: group?.reads.get(key) ?? 0,
+            readCount: box?.reads.get(key) ?? 0,
             configured: isConfigured,
-            origins: [...(relay?.origins ?? [])].sort(),
             kinds: [...(relay?.kinds.entries() ?? [])]
               .sort(([left], [right]) => left - right)
               .map(([kind, count]) => ({ kind, count })),
           });
         };
-        const observed = [...(group?.relays.values() ?? [])].map((relay) => relay.relayUrl);
         for (const url of configured) push(url, true);
-        for (const url of observed) push(url, false);
-        if (relays.length === 0) continue;
+        for (const relay of box?.relays.values() ?? []) push(relay.relayUrl, false);
+        // An empty box only earns a header when there is other traffic to
+        // contrast with; at boot the panel stays quiet instead of listing the
+        // routing decisions that never happened.
+        if (relays.length === 0 && !(spec.emptyNote && total > 0)) continue;
         relays.sort((left, right) => right.count - left.count);
-        out.push({ reason, count: group?.count ?? 0, relays });
+        out.push({
+          kind: spec.kind,
+          label: spec.label,
+          reason: spec.reason,
+          ...(spec.origin ? { origin: spec.origin } : {}),
+          count: box?.count ?? 0,
+          relays,
+          ...(relays.length === 0 && spec.emptyNote ? { emptyNote: spec.emptyNote } : {}),
+        });
       }
       return out;
     },
     recordRead(reason, relayUrls, origin) {
-      const group = groupFor(reason);
+      const kind = boxKindFor(reason, origin);
+      const box = boxFor(kind);
       let changed = false;
       for (const relayUrl of distinctRelayUrls(relayUrls)) {
         const key = normalizeURL(relayUrl);
-        group.reads.set(key, (group.reads.get(key) ?? 0) + 1);
-        const relay = relayFor(reason, relayUrl);
-        if (origin) relay.origins.add(origin);
+        box.reads.set(key, (box.reads.get(key) ?? 0) + 1);
+        relayFor(kind, relayUrl);
         changed = true;
       }
       if (changed) onChange?.();
@@ -242,13 +304,12 @@ export function createPajaRelayEventCounter(onChange?: () => void): PajaRelayEve
       if (typeof kind !== 'number' || !Number.isSafeInteger(kind) || kind < 0) return;
       const relays = distinctRelayUrls(sightedOn);
       if (relays.length === 0) return;
-      const group = groupFor(reason);
+      const box = boxFor(boxKindFor(reason, origin));
       for (const relayUrl of relays) {
-        const relay = relayFor(reason, relayUrl);
+        const relay = relayFor(boxKindFor(reason, origin), relayUrl);
         relay.count += 1;
-        if (origin) relay.origins.add(origin);
         relay.kinds.set(kind, (relay.kinds.get(kind) ?? 0) + 1);
-        group.count += 1;
+        box.count += 1;
         total += 1;
       }
       const id = (event as { id?: unknown }).id;
@@ -256,7 +317,7 @@ export function createPajaRelayEventCounter(onChange?: () => void): PajaRelayEve
       onChange?.();
     },
     reset() {
-      groups.clear();
+      boxes.clear();
       eventIds.clear();
       total = 0;
       onChange?.();
@@ -288,14 +349,14 @@ export function installPajaEventCounterReset(counter: PajaRelayEventCounter): ()
 }
 
 /**
- * Render Paja's relay receipts grouped by read reason, relay, and kind.
+ * Render Paja's relay receipts grouped into routing boxes, relay, and kind.
  *
- * Bars are scaled against the busiest relay of the session so cross-group
+ * Bars are scaled against the busiest relay of the session so cross-box
  * comparison stays honest, and configured relays with no traffic still render
  * so idle or silent relays are visible.
  *
  * @param counter - Cumulative relay receipts to render.
- * @param inventory - Configured relays per read reason, so idle relays render.
+ * @param inventory - Configured relays per box, so idle relays render.
  */
 export function renderPajaEventKindCounts(
   counter: PajaRelayEventCounter,
@@ -303,13 +364,13 @@ export function renderPajaEventKindCounts(
 ): void {
   const container = document.getElementById('event-kind-counts');
   const total = document.getElementById('event-kind-total');
-  const groups = counter.snapshot(inventory);
+  const boxes = counter.snapshot(inventory);
   if (total) {
-    total.textContent = groups.length === 0 ? '' : `${counter.total}`;
+    total.textContent = boxes.length === 0 ? '' : `${counter.total}`;
     total.title = `${counter.total} relay receipt${counter.total === 1 ? '' : 's'} · ${counter.uniqueEvents} unique event${counter.uniqueEvents === 1 ? '' : 's'}`;
   }
   if (!container) return;
-  if (groups.length === 0) {
+  if (boxes.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'event-empty';
     empty.textContent = 'no relay events yet';
@@ -317,24 +378,26 @@ export function renderPajaEventKindCounts(
     return;
   }
 
-  const busiest = Math.max(1, ...groups.flatMap((group) => group.relays.map((relay) => relay.count)));
-  container.replaceChildren(...groups.map((group) => {
+  const busiest = Math.max(1, ...boxes.flatMap((box) => box.relays.map((relay) => relay.count)));
+  container.replaceChildren(...boxes.map((box) => {
     const section = document.createElement('div');
-    section.className = 'event-group';
-    section.dataset.relayReason = group.reason;
+    section.className = 'event-box';
+    section.dataset.relayBox = box.kind;
+    section.dataset.relayReason = box.reason;
 
     const head = document.createElement('div');
-    head.className = 'event-group-head';
+    head.className = 'event-box-head';
     const name = document.createElement('span');
-    name.className = 'event-group-name';
-    name.textContent = relayReasonLabel(group.reason);
-    const groupCount = document.createElement('span');
-    groupCount.className = 'event-group-count';
-    groupCount.textContent = String(group.count);
-    head.append(name, groupCount);
+    name.className = 'event-box-name';
+    name.textContent = box.label;
+    // A box with no traffic says why it is empty instead of showing a bare zero.
+    const boxCount = document.createElement('span');
+    boxCount.className = box.relays.length === 0 ? 'event-box-note' : 'event-box-count';
+    boxCount.textContent = box.relays.length === 0 ? box.emptyNote ?? '0' : String(box.count);
+    head.append(name, boxCount);
     section.append(head);
 
-    for (const relay of group.relays) {
+    for (const relay of box.relays) {
       const row = document.createElement('div');
       row.className = 'event-relay';
       row.dataset.relayUrl = relay.relayUrl;
@@ -358,25 +421,13 @@ export function renderPajaEventKindCounts(
       relayCount.className = 'event-relay-count';
       relayCount.textContent = String(relay.count);
       rowHead.append(url, bar, relayCount);
-      for (const origin of relay.origins) {
-        const chip = document.createElement('span');
-        chip.className = 'event-relay-origin';
-        chip.dataset.relayOrigin = origin;
-        chip.textContent = origin === 'hint' ? 'plan hint' : origin;
-        chip.title = origin === 'nip65'
-          ? 'Relay discovered from the requested authors NIP-65 write relays'
-          : origin === 'hint'
-            ? 'Relay supplied as a hint for this outbox read'
-            : 'Configured fallback relay, used because no list or hint resolved';
-        rowHead.append(chip);
-      }
       if (relay.count === 0) {
         const idle = document.createElement('span');
         idle.className = 'event-relay-idle';
         idle.textContent = relay.readCount > 0 ? 'silent' : 'unused';
         idle.title = relay.readCount > 0
           ? `Paja read from this relay ${relay.readCount} time${relay.readCount === 1 ? '' : 's'} and received no events`
-          : 'configured for this read reason and not used yet this session';
+          : 'configured for this box and not used yet this session';
         rowHead.append(idle);
       }
       row.append(rowHead);

@@ -135,12 +135,13 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .log-type { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .log-detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #e6a5a5; }
       .event-list { min-height: 44px; max-height: 34vh; overflow: auto; border: 1px solid var(--line); border-radius: 4px; background: #0b0d0b; padding: 4px 0; }
-      .event-group + .event-group { margin-top: 6px; border-top: 1px solid #1b1f1a; }
-      .event-group-head { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; padding: 5px 8px 3px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; }
-      .event-group-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
-      .event-group-count { color: var(--accent); }
+      .event-box + .event-box { margin-top: 6px; border-top: 1px solid #1b1f1a; }
+      .event-box-head { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; padding: 5px 8px 3px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; }
+      .event-box-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+      .event-box-count { color: var(--accent); }
+      .event-box-note { color: var(--muted); font-style: italic; text-transform: none; letter-spacing: normal; }
       .event-relay { padding: 1px 0 2px; }
-      .event-relay-head { display: grid; grid-template-columns: minmax(0, 1fr) 56px 22px auto auto; align-items: center; gap: 6px; padding: 2px 8px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
+      .event-relay-head { display: grid; grid-template-columns: minmax(0, 1fr) 56px 22px auto; align-items: center; gap: 6px; padding: 2px 8px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
       .event-relay-url { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
       .event-bar { display: block; height: 5px; border-radius: 3px; background: #1b1f1a; overflow: hidden; }
       .event-bar-fill { display: block; height: 100%; background: var(--accent); }
@@ -148,9 +149,6 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .event-relay-count { color: var(--accent); text-align: right; }
       .event-relay[data-relay-count="0"] .event-relay-count { color: var(--muted); }
       .event-relay-idle { color: var(--muted); font-size: 10px; font-style: italic; }
-      .event-relay-origin { padding: 0 4px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 10px; white-space: nowrap; }
-      .event-relay-origin[data-relay-origin="nip65"] { color: #9fc48a; border-color: #3f5236; }
-      .event-relay-origin[data-relay-origin="fallback"] { color: #d8b06a; border-color: #5b4a2c; }
       .event-kinds { padding-left: 16px; }
       .event-row { display: grid; grid-template-columns: 64px 12px minmax(0, 1fr); align-items: baseline; gap: 6px; padding: 2px 8px 2px 16px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
       .event-kind { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; color: var(--text); }

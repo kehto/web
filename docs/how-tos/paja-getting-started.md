@@ -81,17 +81,23 @@ payload text. The log includes target traffic plus Paja system events for
 interface toggles, ACL changes, signer changes, and signer/publish
 confirmations. Error envelopes show their error text directly in the row.
 
-**Events** sits below it and groups relay receipts by why Paja opened the read —
-**outbox** (an author's NIP-65 write relays, or the configured fallback set),
-**relay hints** (a relay the napplet pinned itself), and **host pool** (Paja's own
-reads) — then lists each relay with a bar scaled against the busiest relay of the
-session, a receipt count, and its `kind - count` rows, plus a chip inside the
-outbox group naming how that relay was routed (`nip65`, `plan hint`, or
-`fallback`). Configured outbox relays
+**Events** sits below it and groups relay receipts by the routing box that chose
+the relays — **outbox relays (NIP-65)**, **relay hints**, **fallback relays**,
+**scoped relay**, and **host pool** — then lists each relay with a bar scaled
+against the busiest relay of the session, a receipt count, and its `kind - count`
+rows. Boxes always render in that routing order rather than by size, so they do
+not reshuffle while you watch. A box is a routing decision, not a relay set: one
+relay read for two different reasons appears in both boxes with its two counts
+kept apart, and every receipt belongs to exactly one box, so box counts add up to
+the header total. Configured fallback relays
 are listed from boot, so a relay that has served nothing yet still shows up as
-`unused`, and one that answered a read with nothing shows as `silent`. The header
+`unused`, and one that answered a read with nothing shows as `silent`. When no
+read in the session was routed by an author's NIP-65 list — common for apps that
+query by kind rather than by author — the NIP-65 box says
+`no author-routed reads` instead of showing a zero. The header
 total counts receipts, not distinct events; hover it to see how many unique
-events they came from. Counts reset when the host page reloads.
+events they came from. The `reset` button beside that total clears every counter
+without reloading the host page.
 
 ## Intent Delivery in a Local Host
 

@@ -55,9 +55,9 @@ export interface PajaDevtoolsState {
   messageFilter: string;
   /** Accumulated message log rows. */
   messageLog: PajaMessageLogEntry[];
-  /** Cumulative relay receipts by read reason and relay. */
+  /** Cumulative relay receipts by routing box and relay. */
   relayEventCounts: PajaRelayEventCounter;
-  /** Configured relays per read reason, read at render time so idle relays show. */
+  /** Configured relays per box, read at render time so idle relays show. */
   relayInventory?: () => PajaRelayInventory | undefined;
   /** Enable or disable an injected domain. */
   setDomainEnabled(domain: PajaCapabilityDomain, enabled: boolean): void;

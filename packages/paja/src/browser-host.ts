@@ -80,7 +80,7 @@ import {
   installPajaEventCounterReset,
   renderPajaEventKindCounts,
   type PajaRelayEventCounter,
-  type PajaRelayGroup,
+  type PajaRelayBox,
   type PajaRelayInventory,
 } from './browser-relay-panel.js';
 import type { PajaHostConfig } from './options.js';
@@ -124,7 +124,9 @@ export interface PajaBrowserState {
   status: 'booting' | 'ready' | 'reloading' | 'error';
   messageFilter: string;
   messageLog: PajaMessageLogEntry[];
+  /** Cumulative relay receipts by routing box and relay. */
   relayEventCounts: PajaRelayEventCounter;
+  /** Configured relays per box, read at render time so idle relays show. */
   relayInventory(): PajaRelayInventory;
   reload(): void;
   activateTab(tabId: string): void;
@@ -162,7 +164,7 @@ export interface PajaBrowserState {
       initSent: boolean;
     }>;
     messageLog: PajaMessageLogEntry[];
-    relayEventCounts: PajaRelayGroup[];
+    relayEventCounts: PajaRelayBox[];
     relayInventory: PajaRelayInventory;
   };
 }
@@ -670,10 +672,12 @@ async function installPajaHost(): Promise<void> {
   // The Events reset button clears those counters, so it is wired to the same
   // instance the observation hooks feed.
   const disposeEventCounterReset = installPajaEventCounterReset(relayEventCounts);
-  // Configured outbox relays are rendered even before they serve anything, so a
-  // relay the outbox model would use is visible while it is still idle.
+  // Configured relays are the host's fallback set, so they render in the
+  // fallback box even before they serve anything. Nothing is configured for the
+  // other boxes: author-routed relays are discovered per read, and Paja's own
+  // reads and napplet-pinned reads only exist once they happen.
   const relayInventory = (): PajaRelayInventory => ({
-    outbox: adapter.relayConfig.getRelayConfig().outbox,
+    fallback: adapter.relayConfig.getRelayConfig().outbox,
   });
   const adapter = createPajaAdapter(config, getSimulation, (theme) => {
     runtime.themeService = theme;
