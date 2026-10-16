@@ -44,6 +44,14 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
 ## Scope Boundaries
 
 - Owns message dispatch, ACL gates, service routing, storage handling, manifest cache, replay checks, and runtime lifecycle.
+- `aclState.setStateQuota(pubkey, dTag, aggregateHash, bytes)` updates the live
+  principal-scoped storage quota without changing grants, blocking, or stored data.
+  Accepts safe integer byte counts from zero through `Number.MAX_SAFE_INTEGER`;
+  invalid input throws `RangeError` before mutation. Save with `persist()`.
+  Storage enforcement counts UTF-8 bytes including scoped keys; reducing the
+  quota does not evict values. This host API conforms to [NAP-STORAGE draft #3
+  at `4f4cf0ca7ecbd24c284a5d63bcd85e3de6af37ca`](https://github.com/napplet/naps/blob/4f4cf0ca7ecbd24c284a5d63bcd85e3de6af37ca/naps/NAP-STORAGE.md).
+
 - ACL listing and lookup return `AclEntryExternal` with required `dTag` and
   `aggregateHash` fields. Feed those fields into keyed revoke/block/quota methods;
   listing `pubkey` remains empty because it is not the principal key. Results are

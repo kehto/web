@@ -9,7 +9,7 @@ import type { Capability } from '@kehto/acl/capabilities';
 import type { AclState, Identity } from '@kehto/acl';
 import {
   createState, check, grant, revoke, block, unblock,
-  serialize, deserialize, getQuota,
+  serialize, deserialize, getQuota, setQuota,
   CAP_RELAY_READ, CAP_RELAY_WRITE, CAP_CACHE_READ, CAP_CACHE_WRITE,
   CAP_HOTKEY_FORWARD,
   CAP_STATE_READ, CAP_STATE_WRITE,
@@ -117,6 +117,22 @@ export interface AclStateContainer {
   getEntry(pubkey: string, dTag: string, aggregateHash: string): AclEntryExternal | undefined;
   getAllEntries(): AclEntryExternal[];
   getStateQuota(pubkey: string, dTag: string, aggregateHash: string): number;
+  /**
+   * Set a principal's live storage quota without changing grants or stored data.
+   * Call persist() separately to save the policy.
+   * @param pubkey - Retained identity argument; policy is keyed by dTag and hash.
+   * @param dTag - Verified napplet identifier.
+   * @param aggregateHash - Verified artifact hash.
+   * @param bytes - Integer byte count from zero through Number.MAX_SAFE_INTEGER.
+   * @throws RangeError if bytes is not a non-negative safe integer.
+   * @example
+   * ```ts
+   * acl.setStateQuota('', dTag, aggregateHash, 1024 * 1024);
+   * acl.persist();
+   * ```
+   */
+  setStateQuota(pubkey: string, dTag: string, aggregateHash: string, bytes: number): void;
+
   /**
    * Save live state without rolling back live policy on failure.
    * @returns True if the backend completed; false if it threw.
@@ -237,6 +253,15 @@ export function createAclState(
     getStateQuota(pubkey: string, dTag: string, aggregateHash: string): number {
       const id = toIdentity(pubkey, dTag, aggregateHash);
       return getQuota(state, id);
+    },
+
+    setStateQuota(pubkey: string, dTag: string, aggregateHash: string, bytes: number): void {
+      if (!Number.isSafeInteger(bytes) || bytes < 0) {
+        throw new RangeError('State quota must be a non-negative safe integer byte count');
+      }
+      const id = toIdentity(pubkey, dTag, aggregateHash);
+      ensureRuntimeDefaultEntry(id);
+      state = setQuota(state, id, bytes);
     },
 
     persist(): boolean {
