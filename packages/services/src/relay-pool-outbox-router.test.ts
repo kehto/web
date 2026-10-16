@@ -476,6 +476,36 @@ describe('createRelayPoolOutboxRouter', () => {
   });
 
   describe('subscribe', () => {
+    it('uses only validated hints for authorless live reads', () => {
+      const pool = makePool();
+      const router = makeRouter(pool, { isRelayAllowed: (url) => url !== 'wss://denied' });
+      const sub = router.subscribe(
+        [{ kinds: [1] }],
+        { relays: ['wss://hint', 'wss://denied', 'wss://hint'] },
+        { event() {}, closed() {} },
+      );
+
+      expect(pool.subs.map((item) => item.relays)).toEqual([['wss://hint']]);
+      expect(pool.originsByRelay()).toEqual({ 'wss://hint': 'hint' });
+      sub.close();
+      expect(pool.subs.every((item) => item.closed)).toBe(true);
+    });
+
+    it.each([
+      { label: 'absent', options: undefined },
+      { label: 'empty', options: { relays: [] } },
+      { label: 'policy-denied', options: { relays: ['wss://denied'] } },
+    ])('uses fallback for authorless live reads with $label hints', ({ options }) => {
+      const pool = makePool();
+      const router = makeRouter(pool, { isRelayAllowed: (url) => url !== 'wss://denied' });
+      const sub = router.subscribe([{ kinds: [1] }], options, { event() {}, closed() {} });
+
+      expect(pool.subs.map((item) => item.relays)).toEqual([FALLBACK]);
+      expect(pool.originsByRelay()).toEqual({ 'wss://fallback': 'fallback' });
+      sub.close();
+      expect(pool.subs.every((item) => item.closed)).toBe(true);
+    });
+
     it('streams from fallback immediately and adds discovered author relays later', async () => {
       const pool = makePool();
       const relayLists = deferred<Map<string, RelayListEntry>>();

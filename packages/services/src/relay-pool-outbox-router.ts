@@ -538,8 +538,8 @@ function startSubscription(
     closeUnavailable();
   } else if (authors.length === 0) {
     discoveryOpen = false;
-    attachMany(allowed(ctx, options?.relays ?? []), 'hint');
-    attachMany(allowed(ctx, ctx.fallbackRelays), 'fallback');
+    const immediate = immediateReadPlan(ctx, options?.relays);
+    attachMany(immediate.relays, immediate.origin);
     closeUnavailable();
   } else {
     let loaded: Promise<Map<string, RelayListEntry>> | Map<string, RelayListEntry>;
