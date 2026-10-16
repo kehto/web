@@ -195,58 +195,79 @@ for (const failure of ['malformed', 'mixed', 'methods', 'getter']) {
   });
 }
 
-test('aggregates live relay events by kind in the Events sidebar section', async ({ page }) => {
+test('groups live relay receipts by read reason, relay, and kind', async ({ page }) => {
   test.setTimeout(60_000);
-  const relayUrl = 'wss://relay-events.example';
+  const poolRelay = 'wss://relay-events-a.example';
+  const hintedRelay = 'wss://relay-events-b.example';
   const relayEvent = finalizeEvent({
     kind: 10_005,
     created_at: 1_800_000_000,
     tags: [],
-    content: 'Paja relay event counter',
+    content: 'Paja relay receipt counter',
   }, generateSecretKey());
-  const requests: unknown[][] = [];
-  await page.routeWebSocket(relayUrl, (ws) => {
-    ws.onMessage((message) => {
-      const data = JSON.parse(typeof message === 'string' ? message : message.toString()) as unknown[];
-      if (data[0] !== 'REQ') return;
-      requests.push(data);
-      ws.send(JSON.stringify(['EVENT', data[1], relayEvent]));
-      ws.send(JSON.stringify(['EOSE', data[1]]));
+  const requests: Array<{ relay: string; subId: unknown }> = [];
+  for (const relay of [poolRelay, hintedRelay]) {
+    await page.routeWebSocket(relay, (ws) => {
+      ws.onMessage((message) => {
+        const data = JSON.parse(typeof message === 'string' ? message : message.toString()) as unknown[];
+        if (data[0] !== 'REQ') return;
+        requests.push({ relay, subId: data[1] });
+        ws.send(JSON.stringify(['EVENT', data[1], relayEvent]));
+        ws.send(JSON.stringify(['EOSE', data[1]]));
+      });
     });
-  });
-  const counterRuntime = await startPajaServer({
+  }
+  const receiptRuntime = await startPajaServer({
     options: {
       targetUrl: `${targetServer.url}?manualTraffic=1&required=relay`,
       port: 0,
-      simulation: { relay: { mode: 'live', urls: [relayUrl] } },
+      simulation: { relay: { mode: 'live', urls: [poolRelay, hintedRelay] } },
     },
     now: new Date('2026-09-04T00:00:00.000Z'),
   });
 
   try {
-    await page.goto(counterRuntime.url);
+    await page.goto(receiptRuntime.url);
     const frame = page.frameLocator('#napplet-frame');
     await expect(frame.locator('#target-status')).toHaveText('shell-init received', { timeout: 15_000 });
-    const events = page.locator('[data-paja-section="events"]');
-    await expect(events).toHaveAttribute('open', '');
-    await expect(page.locator('#event-kind-counts')).toContainText('no relay events yet');
+    const eventCounts = page.locator('#event-kind-counts');
 
+    // Configured relays are visible before they serve anything.
+    await expect(eventCounts.locator('[data-relay-reason="outbox"] .event-relay')).toHaveCount(2);
+    await expect(eventCounts.locator(`[data-relay-reason="outbox"] .event-relay[data-relay-url="${poolRelay}"] .event-relay-idle`)).toHaveText('unused');
+
+    // A subscribe without a relay hint reads through the host pool tier.
     await sendFixtureMessage(frame, {
       type: 'relay.subscribe',
-      id: 'events-sub',
-      subId: 'events-sub',
+      id: 'events-pool',
+      subId: 'events-pool',
       filters: [{ kinds: [10_005] }],
     });
+    await expect(eventCounts.locator(`[data-relay-reason="host"] .event-relay[data-relay-url="${poolRelay}"]`)).toHaveAttribute('data-relay-count', '1');
+    await expect(eventCounts.locator(`[data-relay-reason="host"] .event-relay[data-relay-url="${hintedRelay}"]`)).toHaveAttribute('data-relay-count', '1');
+    await expect(eventCounts.locator('[data-relay-reason="host"] .event-group-count')).toHaveText('2');
 
-    await expect(page.locator('#message-log')).toContainText('relay.event');
-    await expect(page.locator('#event-kind-counts .event-row[data-event-kind="10005"] .event-count')).toHaveText('1');
-    await expect(page.locator('#event-kind-total')).toHaveText('1');
-    await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().eventKindCounts)).toEqual([
-      { kind: 10_005, count: 1 },
-    ]);
-    expect(requests[0]?.[0]).toBe('REQ');
+    // An explicit relay hint bypasses tier selection and counts on its own relay.
+    await sendFixtureMessage(frame, {
+      type: 'relay.subscribe',
+      id: 'events-hint',
+      subId: 'events-hint',
+      filters: [{ kinds: [10_005] }],
+      relay: hintedRelay,
+    });
+    await expect(eventCounts.locator(`[data-relay-reason="hint"] .event-relay[data-relay-url="${hintedRelay}"]`)).toHaveAttribute('data-relay-count', '1');
+    await expect(eventCounts.locator('[data-relay-reason="hint"] .event-relay')).toHaveCount(1);
+    await expect(eventCounts.locator('[data-relay-reason="hint"] .event-row[data-event-kind="10005"] .event-count')).toHaveText('1');
+
+    // Headers carry receipts, the badge title separates them from unique events.
+    await expect(eventCounts.locator('[data-relay-reason="host"] .event-group-count')).toHaveText('2');
+    await expect(page.locator('#event-kind-total')).toHaveText('3');
+    await expect(page.locator('#event-kind-total')).toHaveAttribute('title', '3 relay receipts · 1 unique event');
+    expect(requests.filter((entry) => entry.relay === hintedRelay)).toHaveLength(2);
+    expect(await page.evaluate(() => window.__KEHTO_PAJA__?.getState().relayInventory.outbox))
+      .toEqual([poolRelay, hintedRelay]);
   } finally {
-    await counterRuntime.close();
+    await receiptRuntime.close();
   }
 });
 

@@ -81,10 +81,15 @@ payload text. The log includes target traffic plus Paja system events for
 interface toggles, ACL changes, signer changes, and signer/publish
 confirmations. Error envelopes show their error text directly in the row.
 
-**Events** sits below it and accumulates one `kind - count` row per Nostr event
-kind Paja pulled from a live relay, with the session total in the header. The
-counts cover napplet subscriptions and Paja's own background fetches, grow as
-more events arrive, and reset when the host page reloads.
+**Events** sits below it and groups relay receipts by why Paja opened the read —
+**outbox** (an author's NIP-65 write relays, or the configured fallback set),
+**relay hints** (a relay the napplet pinned itself), and **host pool** (Paja's own
+reads) — then lists each relay with a bar scaled against the busiest relay of the
+session, a receipt count, and its `kind - count` rows. Configured outbox relays
+are listed from boot, so a relay that has served nothing yet still shows up as
+`unused`, and one that answered a read with nothing shows as `silent`. The header
+total counts receipts, not distinct events; hover it to see how many unique
+events they came from. Counts reset when the host page reloads.
 
 ## Intent Delivery in a Local Host
 

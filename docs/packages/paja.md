@@ -205,13 +205,24 @@ The console includes:
   including Paja system events such as interface changes, ACL changes, signer
   connection changes, signing/publish confirmations, and visible details for
 `.error` envelopes.
-- **Events** — cumulative `kind - count` rows for every event Paja pulled from a
-  live relay, with the session total in the section header. Counting happens in
-  the relay backend before delivery, so napplet subscriptions and Paja's own
-  background fetches (social cache, relay lists, Blossom lookups, upload
-  discovery) are all included, while simulated memory-mode fixtures and Paja's
-  own publishes are not. Repeated deliveries of the same event count again: the
-  panel reports what was fetched. Counts accumulate for the host session and
+- **Events** — relay receipts grouped by why Paja opened the read, then by relay,
+  then by event kind, with the session receipt total in the section header:
+  - **outbox** — relays the outbox model picked (an author's NIP-65 write
+    relays, or the configured fallback set). Configured outbox relays are listed
+    from boot, so a relay that has served nothing yet still appears, marked
+    `unused` until Paja reads from it and `silent` once a read returns no events.
+  - **relay hints** — a read the napplet pinned itself with an explicit
+    NAP-RELAY `relay.subscribe` relay hint, which bypasses host tier selection.
+  - **host pool** — Paja's own reads: the relay service without a hint, social
+    cache, contact lists, relay lists, count, CVM, Blossom lookups, upload
+    discovery, WebRTC, and DM traffic.
+  Counting happens in the relay backend before delivery, so every read path is
+  covered, while simulated memory-mode fixtures and Paja's own publishes are not.
+  Each relay row carries a bar scaled against the busiest relay of the session,
+  its receipt count, and its `kind - count` rows. Counts are receipts, not
+  distinct events: repeated deliveries and the same event arriving from several
+  relays each count, and the header badge's tooltip reports how many unique
+  events those receipts came from. Counts accumulate for the host session and
   reset on reload.
 
 The GitHub Pages artifact also includes a static Paja Runtime at `/web/paja/`.
