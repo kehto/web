@@ -104,8 +104,22 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .log-body { min-width: 0; display: grid; gap: 2px; }
       .log-type { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .log-detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #e6a5a5; }
-      .event-list { min-height: 44px; max-height: 30vh; overflow: auto; border: 1px solid var(--line); border-radius: 4px; background: #0b0d0b; padding: 4px 0; }
-      .event-row { display: grid; grid-template-columns: 64px 12px minmax(0, 1fr); align-items: baseline; gap: 6px; padding: 3px 8px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
+      .event-list { min-height: 44px; max-height: 34vh; overflow: auto; border: 1px solid var(--line); border-radius: 4px; background: #0b0d0b; padding: 4px 0; }
+      .event-group + .event-group { margin-top: 6px; border-top: 1px solid #1b1f1a; }
+      .event-group-head { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; padding: 5px 8px 3px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; }
+      .event-group-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+      .event-group-count { color: var(--accent); }
+      .event-relay { padding: 1px 0 2px; }
+      .event-relay-head { display: grid; grid-template-columns: minmax(0, 1fr) 56px 22px auto; align-items: center; gap: 6px; padding: 2px 8px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
+      .event-relay-url { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+      .event-bar { display: block; height: 5px; border-radius: 3px; background: #1b1f1a; overflow: hidden; }
+      .event-bar-fill { display: block; height: 100%; background: var(--accent); }
+      .event-relay[data-relay-count="0"] .event-bar { background: #141714; }
+      .event-relay-count { color: var(--accent); text-align: right; }
+      .event-relay[data-relay-count="0"] .event-relay-count { color: var(--muted); }
+      .event-relay-idle { color: var(--muted); font-size: 10px; font-style: italic; }
+      .event-kinds { padding-left: 16px; }
+      .event-row { display: grid; grid-template-columns: 64px 12px minmax(0, 1fr); align-items: baseline; gap: 6px; padding: 2px 8px 2px 16px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
       .event-kind { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; color: var(--text); }
       .event-separator { color: var(--muted); text-align: center; }
       .event-count { color: var(--accent); text-align: left; }
@@ -238,7 +252,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
         </div></details>
         <details class="section" id="paja-section-events" data-paja-section="events" open>
           <summary class="section-title">Events<span class="section-total" id="event-kind-total" aria-hidden="true"></span><span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
-          <div class="event-list" id="event-kind-counts" aria-label="Relay event counts by kind"></div>
+          <div class="event-list" id="event-kind-counts" aria-label="Relay receipts by read reason, relay, and event kind"></div>
         </div></details>
       </aside>
       ${renderStage(config, targetLabel)}

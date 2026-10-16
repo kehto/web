@@ -4,7 +4,7 @@ import { createThemeService } from '@kehto/services';
 import { originRegistry } from '@kehto/shell';
 
 import { BrowserIntentController } from './browser-intent-controller.js';
-import { createPajaEventKindCounter } from './browser-devtools.js';
+import { createPajaRelayEventCounter } from './browser-devtools.js';
 import {
   createPajaIntentTargetOptions,
   markRuntimeTabReady,
@@ -328,7 +328,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
     const targetA = resolved('aggregate-a');
     const targetB = resolved('aggregate-b');
     const tabA = makeTab('tab-a', targetA);
-    const state = { tabs: [tabA.tab], activeTabId: 'tab-b', messageLog: [], eventKindCounts: createPajaEventKindCounter() } as unknown as import('./browser-host.js').PajaBrowserState;
+    const state = { tabs: [tabA.tab], activeTabId: 'tab-b', messageLog: [], relayEventCounts: createPajaRelayEventCounter() } as unknown as import('./browser-host.js').PajaBrowserState;
     const runtime = { catalog, readyWindowIds: new Set<string>(), readyWaiters: new Map(), intentRecords: new WeakMap(), currentWindowId: null };
     const context = { runtime, bridge: { runtime: { destroyWindow: vi.fn(), sessionRegistry: { unregister: vi.fn() } } }, onTabDestroyed: vi.fn(), setStatus: vi.fn(), setPointerStatus: vi.fn() } as unknown as import('./browser-host.js').PajaBrowserStateContext;
     const stopCatalogChanges = subscribePajaIntentCatalogChanges(state, context);
@@ -394,7 +394,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
       const reused = makeTab('tab-reused', 'profile-viewer', 'd'.repeat(64), 'window-reused', target);
       const persistTabs = vi.fn();
       const setStatus = vi.fn();
-      const state = { tabs: [other.tab, reused.tab], activeTabId: 'tab-other', messageLog: [], eventKindCounts: createPajaEventKindCounter() } as unknown as import('./browser-host.js').PajaBrowserState;
+      const state = { tabs: [other.tab, reused.tab], activeTabId: 'tab-other', messageLog: [], relayEventCounts: createPajaRelayEventCounter() } as unknown as import('./browser-host.js').PajaBrowserState;
       const runtime = { catalog, readyWindowIds: new Set<string>(['window-reused']), readyWaiters: new Map(), intentRecords: new WeakMap(), currentWindowId: 'window-other' };
       const context = { runtime, bridge: { runtime: { destroyWindow: vi.fn(), sessionRegistry: { unregister: vi.fn() } } }, onTabDestroyed: vi.fn(), setStatus, setPointerStatus: vi.fn() } as unknown as import('./browser-host.js').PajaBrowserStateContext;
       catalog.install(target);

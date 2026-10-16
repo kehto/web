@@ -6,7 +6,7 @@ import {
   type ShellAdapter,
 } from '@kehto/shell';
 import {
-  createPajaEventKindCounter,
+  createPajaRelayEventCounter,
   createPajaPostMessageProxy,
   installPajaOriginRegistryProxy,
   redactPajaMessageForLog,
@@ -181,7 +181,7 @@ describe('Paja ACL controls', () => {
       resolvedTarget: resolvedTarget as PajaDevtoolsState['resolvedTarget'],
       messageFilter: '',
       messageLog: [],
-      eventKindCounts: createPajaEventKindCounter(),
+      relayEventCounts: createPajaRelayEventCounter(),
       setDomainEnabled: vi.fn(),
       setAclCapability(capability, enabled) {
         if (enabled) {
@@ -225,6 +225,8 @@ describe('Paja ACL controls', () => {
 class FakeLogElement {
   className = '';
   textContent = '';
+  title = '';
+  readonly style: Record<string, string> = {};
   readonly dataset: Record<string, string> = {};
   children: FakeLogElement[] = [];
 
@@ -257,46 +259,147 @@ function stubEventCountDom() {
   return { container, total };
 }
 
-describe('Paja relay event kind counts', () => {
+function event(id: string, kind: number) {
+  return { id, kind };
+}
+
+describe('Paja relay receipts', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it('counts known kinds, ignores malformed events, and aggregates repeats', () => {
-    const counter = createPajaEventKindCounter();
+  it('counts known kinds per relay, ignores malformed events, and aggregates repeats', () => {
+    const counter = createPajaRelayEventCounter();
 
-    counter.record({ kind: 1 });
-    counter.record({ kind: 10005 });
-    counter.record({ kind: 1 });
-    counter.record({ id: 'no-kind' });
-    counter.record(null);
-    counter.record({ kind: -1 });
-    counter.record({ kind: 1.5 });
-    counter.record({ kind: '1' });
+    counter.recordRead('outbox', ['wss://outbox.example']);
+    counter.recordEvent('outbox', event('a', 1), ['wss://outbox.example']);
+    counter.recordEvent('outbox', event('b', 10005), ['wss://outbox.example']);
+    counter.recordEvent('outbox', event('a', 1), ['wss://outbox.example']);
+    counter.recordEvent('outbox', { id: 'no-kind' }, ['wss://outbox.example']);
+    counter.recordEvent('outbox', null, ['wss://outbox.example']);
+    counter.recordEvent('outbox', event('c', -1), ['wss://outbox.example']);
+    counter.recordEvent('outbox', event('d', 1.5), ['wss://outbox.example']);
+    counter.recordEvent('outbox', event('e', 1), []);
+    counter.recordEvent('hint', event('f', 3), ['wss://hint.example', 'wss://other.example']);
 
-    expect(counter.total).toBe(3);
+    expect(counter.total).toBe(5);
+    expect(counter.uniqueEvents).toBe(3);
     expect(counter.snapshot()).toEqual([
-      { kind: 1, count: 2 },
-      { kind: 10005, count: 1 },
+      {
+        reason: 'outbox',
+        count: 3,
+        relays: [{
+          relayUrl: 'wss://outbox.example',
+          count: 3,
+          readCount: 1,
+          configured: false,
+          kinds: [{ kind: 1, count: 2 }, { kind: 10005, count: 1 }],
+        }],
+      },
+      {
+        reason: 'hint',
+        count: 2,
+        relays: [
+          {
+            relayUrl: 'wss://hint.example',
+            count: 1,
+            readCount: 0,
+            configured: false,
+            kinds: [{ kind: 3, count: 1 }],
+          },
+          {
+            relayUrl: 'wss://other.example',
+            count: 1,
+            readCount: 0,
+            configured: false,
+            kinds: [{ kind: 3, count: 1 }],
+          },
+        ],
+      },
     ]);
   });
 
-  it('renders one kind - count row per kind with a running total badge', () => {
+  it('keeps configured relays visible at zero and orders loaded relays first', () => {
+    const counter = createPajaRelayEventCounter();
+
+    counter.recordRead('outbox', ['wss://idle.example']);
+    counter.recordRead('outbox', ['wss://busy.example']);
+    counter.recordEvent('outbox', event('a', 1), ['wss://busy.example']);
+
+    const [outbox] = counter.snapshot({ outbox: ['wss://idle.example', 'wss://never.example'] });
+
+    expect(outbox!.reason).toBe('outbox');
+    expect(outbox!.count).toBe(1);
+    expect(outbox!.relays.map((relay) => [relay.relayUrl, relay.count, relay.readCount, relay.configured])).toEqual([
+      ['wss://busy.example', 1, 1, false],
+      ['wss://idle.example', 0, 1, true],
+      ['wss://never.example', 0, 0, true],
+    ]);
+  });
+
+  it('renders reason groups with bars, idle markers, and kind rows', () => {
     const { container, total } = stubEventCountDom();
     let rerender = (): void => {};
-    const counter = createPajaEventKindCounter(() => rerender());
-    const state = { eventKindCounts: counter } as unknown as PajaDevtoolsState;
+    const counter = createPajaRelayEventCounter(() => rerender());
+    const state = {
+      relayEventCounts: counter,
+      relayInventory: () => ({ outbox: ['wss://idle.example'] }),
+    } as unknown as PajaDevtoolsState;
     rerender = () => renderPajaEventKindCounts(state);
 
     renderPajaEventKindCounts(state);
+    // Configured relays render before they serve anything.
+    expect(container.children.map((group) => group.dataset.relayReason)).toEqual(['outbox']);
+    const idleBeforeTraffic = container.children[0]!.children[1]!;
+    expect(idleBeforeTraffic.dataset.relayUrl).toBe('wss://idle.example');
+    expect(idleBeforeTraffic.children[0]!.text()).toContain('unused');
+    expect(total.textContent).toBe('0');
+
+    counter.recordRead('outbox', ['wss://outbox.example']);
+    counter.recordEvent('outbox', event('a', 1), ['wss://outbox.example']);
+    counter.recordEvent('outbox', event('b', 1), ['wss://outbox.example']);
+    counter.recordEvent('outbox', event('c', 10005), ['wss://outbox.example']);
+    counter.recordEvent('hint', event('d', 3), ['wss://hint.example']);
+
+    const groups = container.children;
+    expect(groups.map((group) => group.dataset.relayReason)).toEqual(['outbox', 'hint']);
+    expect(groups[0]!.children[0]!.text()).toBe('outbox 3');
+    const outboxRows = groups[0]!.children.slice(1);
+    expect(outboxRows.map((row) => row.dataset.relayUrl)).toEqual(['wss://outbox.example', 'wss://idle.example']);
+    expect(outboxRows[0]!.dataset.relayCount).toBe('3');
+    expect(outboxRows[0]!.children[1]!.children.map((kindRow) => kindRow.text())).toEqual(['1 - 2', '10005 - 1']);
+    expect(outboxRows[1]!.dataset.relayCount).toBe('0');
+    expect(outboxRows[1]!.children[0]!.text()).toContain('unused');
+    expect(groups[1]!.children[1]!.dataset.relayUrl).toBe('wss://hint.example');
+    expect(total.textContent).toBe('4');
+    expect(total.title).toBe('4 relay receipts · 4 unique events');
+  });
+
+  it('renders an empty state when no relay is configured or observed', () => {
+    const { container, total } = stubEventCountDom();
+    const state = {
+      relayEventCounts: createPajaRelayEventCounter(),
+    } as unknown as PajaDevtoolsState;
+
+    renderPajaEventKindCounts(state);
+
     expect(container.text()).toBe('no relay events yet');
     expect(total.textContent).toBe('');
+  });
 
-    counter.record({ kind: 10005 });
-    counter.record({ kind: 1 });
-    counter.record({ kind: 1 });
+  it('labels relays Paja read from without a response as silent', () => {
+    const { container } = stubEventCountDom();
+    const counter = createPajaRelayEventCounter();
+    const state = {
+      relayEventCounts: counter,
+      relayInventory: () => ({ host: ['wss://quiet.example'] }),
+    } as unknown as PajaDevtoolsState;
+    const onChange = createPajaRelayEventCounter(() => renderPajaEventKindCounts(state));
 
-    expect(container.children.map((row) => row.dataset.eventKind)).toEqual(['1', '10005']);
-    expect(container.children[0]!.text()).toBe('1 - 2');
-    expect(container.children[1]!.text()).toBe('10005 - 1');
-    expect(total.textContent).toBe('3');
+    onChange.recordRead('host', ['wss://quiet.example']);
+    state.relayEventCounts = onChange;
+    renderPajaEventKindCounts(state);
+
+    const quiet = container.children[0]!.children[1]!;
+    expect(quiet.dataset.relayReads).toBe('1');
+    expect(quiet.children[0]!.text()).toContain('silent');
   });
 });
