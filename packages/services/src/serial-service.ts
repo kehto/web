@@ -157,6 +157,9 @@ function approvalError(status: string): string {
  * @returns A runtime service handler for the `serial` domain.
  */
 export function createSerialService(options: SerialServiceOptions = {}): ServiceHandler {
+  if (!options || typeof options !== 'object') {
+    throw new TypeError('createSerialService options must be an object');
+  }
   return buildSerialService(options);
 }
 
