@@ -138,7 +138,8 @@ describe('createMediaService', () => {
     expect(bridge.setActiveSession).not.toHaveBeenCalled();
 
     const approved = createMediaService({ hostBridge: bridge });
-    approved.onRegistered?.({ authorizeOperation: async (_windowId, _operation, _requirements, execute) => ({ status: 'executed', value: await execute({ aborted: false, addEventListener() {}, removeEventListener() {} }) }) } as unknown as ServiceRuntimeContext);
+    const approve: NonNullable<ServiceRuntimeContext['authorizeOperation']> = async (_windowId, _operation, _requirements, execute) => ({ status: 'executed', value: await execute({ aborted: false, addEventListener() {}, removeEventListener() {} }) });
+    approved.onRegistered?.({ authorizeOperation: approve } as unknown as ServiceRuntimeContext);
     const sent: NappletMessage[] = [];
     approved.handleMessage(WINDOW_ID, { type: 'media.session.create', id: 'live', owner: 'napplet', sessionId: 'revoked-media' } as NappletMessage, (message) => sent.push(message));
     await vi.waitFor(() => expect(sent).toHaveLength(1));
