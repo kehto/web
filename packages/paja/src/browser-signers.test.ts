@@ -183,6 +183,8 @@ describe('Paja view-only signer', () => {
       confirmRequest: vi.fn(async () => true),
       onChange,
       storage,
+      // Host relays are read lazily: the host state does not exist yet here.
+      getRelays: () => ({ 'wss://host.relay/': { read: true, write: true } }),
     });
 
     expect(controller.getState()).toEqual({
@@ -193,6 +195,7 @@ describe('Paja view-only signer', () => {
       error: null,
     });
     expect(controller.getSigner()?.getPublicKey?.()).toBe(VIEW_ONLY_HEX);
+    expect(controller.getSigner()?.getRelays?.()).toEqual({ 'wss://host.relay/': { read: true, write: true } });
     // Restoration is not a change; the host must not reload on construction.
     expect(onChange).not.toHaveBeenCalled();
   });

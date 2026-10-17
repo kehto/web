@@ -124,16 +124,18 @@ export function requireWritableSigner(
  * identity fails closed instead of prompting for consent it cannot fulfil.
  *
  * @param pubkey - Hex pubkey of the view-only identity.
- * @param relays - Relay hints from an `nprofile`, or the host relays.
+ * @param relays - Lazily read relay hints from an `nprofile`, or the host
+ *   relays. Lazy because a restored identity is built before the host state it
+ *   reads relays from exists.
  * @returns Signer exposing only public information.
  */
 function createViewOnlySigner(
   pubkey: string,
-  relays: Record<string, { read: boolean; write: boolean }>,
+  relays: () => Record<string, { read: boolean; write: boolean }>,
 ): Signer {
   return {
     getPublicKey: () => pubkey,
-    getRelays: () => relays,
+    getRelays: () => relays(),
   };
 }
 
@@ -229,7 +231,7 @@ export function createPajaSignerController(options: PajaSignerControllerOptions)
   // A persisted view-only identity is restored before any host probe runs, so
   // an explicit choice outlives a reload even when a NIP-07 extension exists.
   let activeSigner: Signer | null = storedViewOnlyPubkey
-    ? createViewOnlySigner(storedViewOnlyPubkey, hostRelays())
+    ? createViewOnlySigner(storedViewOnlyPubkey, () => viewOnlyRelays([]))
     : null;
   let activeClient: Nip46Client | null = null;
   const listeners = new Set<() => void>();
@@ -296,7 +298,7 @@ export function createPajaSignerController(options: PajaSignerControllerOptions)
         });
         return;
       }
-      activeSigner = createViewOnlySigner(parsed.pubkey, viewOnlyRelays(parsed.relays));
+      activeSigner = createViewOnlySigner(parsed.pubkey, () => viewOnlyRelays(parsed.relays));
       writePajaViewOnlyPubkey(storage, parsed.pubkey);
       update({
         method: 'viewonly',
