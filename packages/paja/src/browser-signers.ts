@@ -2,6 +2,12 @@ import type { NostrEvent } from '@napplet/core';
 import type { Signer } from '@kehto/runtime';
 
 import type { PajaConfirmationHandler } from './browser-adapter.js';
+import {
+  parsePajaIdentityInput,
+  readPajaViewOnlyPubkey,
+  writePajaViewOnlyPubkey,
+  type PajaPreferenceStorage,
+} from './browser-identity-input.js';
 import type {
   PajaSignerRequestContext,
   PajaSignerSource,
@@ -13,7 +19,7 @@ import {
 } from './browser-nip46-client.js';
 
 /** Signer backend selected in the Paja browser UI. */
-export type PajaSignerMethod = 'none' | 'dev' | 'nip07' | 'nip46';
+export type PajaSignerMethod = 'none' | 'dev' | 'nip07' | 'nip46' | 'viewonly';
 /** Connection state for the selected Paja signer backend. */
 export type PajaSignerStatus = 'disconnected' | 'connected' | 'connecting' | 'error';
 
@@ -49,6 +55,13 @@ export interface PajaSignerController {
   connectNip07(): Promise<void>;
   /** Connect to a NIP-46 bunker signer URI. */
   connectBunker(uri: string): Promise<void>;
+  /**
+   * Switch to a view-only identity. Reading works; signing and encryption do not.
+   * A persisted view-only identity survives host reloads per browser origin.
+   */
+  useViewOnlySigner(input: string): void;
+  /** Disconnect every identity and clear the persisted view-only identity. */
+  disconnect(): void;
 }
 
 interface Nip07Signer {
@@ -62,6 +75,68 @@ interface Nip07Signer {
 interface PajaSignerControllerOptions {
   confirmRequest: PajaConfirmationHandler;
   onChange(state: PajaSignerState): void;
+  /** Host relays reported for a view-only identity that carries no relay hints. */
+  getRelays?: () => Record<string, { read: boolean; write: boolean }>;
+  /** Preference store for the persisted view-only identity. */
+  storage?: PajaPreferenceStorage | null;
+}
+
+/**
+ * Read the browser's local storage without assuming it exists.
+ *
+ * @returns The origin's localStorage, or null in non-browser or blocked contexts.
+ */
+function defaultStorage(): PajaPreferenceStorage | null {
+  try {
+    return (globalThis as { localStorage?: PajaPreferenceStorage }).localStorage ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Require a signer that can actually produce signatures.
+ *
+ * @param signer - The runtime signer selected for the window.
+ * @returns The same signer, narrowed to one with `signEvent`.
+ * @throws When no signer is connected, or when the connected identity is
+ *   read-only (for example a view-only npub).
+ * @example
+ * ```ts
+ * const signer = requireWritableSigner(runtimeSigner);
+ * await signer.signEvent(template);
+ * ```
+ */
+export function requireWritableSigner(
+  signer: Signer | null,
+): Signer & Required<Pick<Signer, 'signEvent'>> {
+  if (!signer) throw new Error('no signer configured');
+  if (!signer.signEvent) throw new Error('signing unavailable (read-only identity)');
+  return signer as Signer & Required<Pick<Signer, 'signEvent'>>;
+}
+
+/**
+ * Build a signer that can read an identity but can never act as it.
+ *
+ * `signEvent`, `nip04`, and `nip44` are deliberately absent: the runtime,
+ * Paja's outbox router, DM advertisement, WebRTC advertisement, and Blossom
+ * upload all gate on the presence of the method they need, so a view-only
+ * identity fails closed instead of prompting for consent it cannot fulfil.
+ *
+ * @param pubkey - Hex pubkey of the view-only identity.
+ * @param relays - Lazily read relay hints from an `nprofile`, or the host
+ *   relays. Lazy because a restored identity is built before the host state it
+ *   reads relays from exists.
+ * @returns Signer exposing only public information.
+ */
+function createViewOnlySigner(
+  pubkey: string,
+  relays: () => Record<string, { read: boolean; write: boolean }>,
+): Signer {
+  return {
+    getPublicKey: () => pubkey,
+    getRelays: () => relays(),
+  };
 }
 
 function cloneState(state: PajaSignerState): PajaSignerState {
@@ -85,23 +160,23 @@ function createConfirmedSigner(
   confirmRequest: PajaConfirmationHandler,
   source?: PajaSignerSource,
 ): Signer {
-  return {
-    ...signer,
-    async signEvent(event) {
-      if (typeof signer.signEvent !== 'function') {
-        throw new Error('Signer does not support event signing');
-      }
-      const signerContext = await resolveSignerContext(signer, source);
-      if (!await confirmRequest({
-        action: 'sign',
-        event,
-        ...(signerContext ? { signerContext } : {}),
-      })) {
-        throw new Error('Paja signing request denied');
-      }
-      return signer.signEvent(event);
-    },
+  const confirmed: Signer = { ...signer };
+  // A read-only identity keeps its missing `signEvent`: callers must see the
+  // capability gap, not a wrapper that throws inside the signing path.
+  if (typeof signer.signEvent !== 'function') return confirmed;
+  const signEvent = signer.signEvent.bind(signer);
+  confirmed.signEvent = async (event) => {
+    const signerContext = await resolveSignerContext(signer, source);
+    if (!await confirmRequest({
+      action: 'sign',
+      event,
+      ...(signerContext ? { signerContext } : {}),
+    })) {
+      throw new Error('Paja signing request denied');
+    }
+    return signEvent(event);
   };
+  return confirmed;
 }
 
 async function resolveSignerContext(
@@ -131,18 +206,33 @@ function createNip07Adapter(signer: Nip07Signer): Signer {
 /**
  * Create a browser signer controller for Paja's signer controls.
  *
- * @param options - Confirmation and state-change callbacks.
- * @returns Signer controller for dev, NIP-07, and NIP-46 modes.
+ * @param options - Confirmation, state-change, relay, and storage dependencies.
+ * @returns Signer controller for dev, NIP-07, NIP-46, and view-only modes.
  */
 export function createPajaSignerController(options: PajaSignerControllerOptions): PajaSignerController {
-  let state: PajaSignerState = {
-    method: 'none',
-    status: 'disconnected',
-    pubkey: null,
-    relay: null,
-    error: null,
-  };
-  let activeSigner: Signer | null = null;
+  const storage = options.storage === undefined ? defaultStorage() : options.storage;
+  const hostRelays = options.getRelays ?? (() => ({}));
+  const storedViewOnlyPubkey = readPajaViewOnlyPubkey(storage);
+  let state: PajaSignerState = storedViewOnlyPubkey
+    ? {
+        method: 'viewonly',
+        status: 'connected',
+        pubkey: storedViewOnlyPubkey,
+        relay: null,
+        error: null,
+      }
+    : {
+        method: 'none',
+        status: 'disconnected',
+        pubkey: null,
+        relay: null,
+        error: null,
+      };
+  // A persisted view-only identity is restored before any host probe runs, so
+  // an explicit choice outlives a reload even when a NIP-07 extension exists.
+  let activeSigner: Signer | null = storedViewOnlyPubkey
+    ? createViewOnlySigner(storedViewOnlyPubkey, () => viewOnlyRelays([]))
+    : null;
   let activeClient: Nip46Client | null = null;
   const listeners = new Set<() => void>();
 
@@ -155,6 +245,20 @@ export function createPajaSignerController(options: PajaSignerControllerOptions)
   const closeClient = () => {
     activeClient?.close();
     activeClient = null;
+  };
+
+  const viewOnlyRelays = (hints: readonly string[]): Record<string, { read: boolean; write: boolean }> => {
+    if (hints.length === 0) return hostRelays();
+    return Object.fromEntries(hints.map((relay) => [relay, { read: true, write: true }]));
+  };
+
+  // Every explicit identity choice other than view-only supersedes the saved
+  // view-only npub, so switching or logging out cannot resurrect it on reload.
+  const resetSigner = (next: PajaSignerState): void => {
+    closeClient();
+    activeSigner = null;
+    writePajaViewOnlyPubkey(storage, null);
+    update(next);
   };
 
   return {
@@ -170,11 +274,44 @@ export function createPajaSignerController(options: PajaSignerControllerOptions)
       return () => listeners.delete(listener);
     },
     useDevSigner() {
-      closeClient();
-      activeSigner = null;
-      update({
+      resetSigner({
         method: 'dev',
         status: 'connected',
+        pubkey: null,
+        relay: null,
+        error: null,
+      });
+    },
+    useViewOnlySigner(input: string) {
+      closeClient();
+      activeSigner = null;
+      const parsed = parsePajaIdentityInput(input);
+      if (!parsed.ok) {
+        // The last valid persisted identity is kept: a rejected paste must not
+        // silently drop an identity the author can still fall back to.
+        update({
+          method: 'viewonly',
+          status: 'error',
+          pubkey: null,
+          relay: null,
+          error: parsed.error,
+        });
+        return;
+      }
+      activeSigner = createViewOnlySigner(parsed.pubkey, () => viewOnlyRelays(parsed.relays));
+      writePajaViewOnlyPubkey(storage, parsed.pubkey);
+      update({
+        method: 'viewonly',
+        status: 'connected',
+        pubkey: parsed.pubkey,
+        relay: null,
+        error: null,
+      });
+    },
+    disconnect() {
+      resetSigner({
+        method: 'none',
+        status: 'disconnected',
         pubkey: null,
         relay: null,
         error: null,
@@ -189,6 +326,7 @@ export function createPajaSignerController(options: PajaSignerControllerOptions)
         if (!signer) throw new Error('NIP-07 signer not found');
         const pubkey = await signer.getPublicKey!();
         activeSigner = createNip07Adapter(signer);
+        writePajaViewOnlyPubkey(storage, null);
         update({ method: 'nip07', status: 'connected', pubkey, relay: null, error: null });
       } catch (error) {
         activeSigner = null;
@@ -220,6 +358,7 @@ export function createPajaSignerController(options: PajaSignerControllerOptions)
         const pubkey = await client.connect();
         activeClient = client;
         activeSigner = client.getSigner();
+        writePajaViewOnlyPubkey(storage, null);
         update({ method: 'nip46', status: 'connected', pubkey, relay: parsed.relay, error: null });
       } catch (error) {
         closeClient();

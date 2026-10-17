@@ -76,7 +76,15 @@ runtime-pointer mode, ACL controls always display and mutate
 the active tab's resolver-verified d-tag and aggregate hash; a grant or revoke
 rerenders that same identity immediately. Paja auto-connects a browser NIP-07 signer when `window.nostr` is
 available, can connect to a bunker/NIP-46 URI, and only uses the generated local
-development signer when the Dev signer button is selected. Sign, publish, DM
+development signer when the Dev signer button is selected. A **view-only**
+identity accepts an `npub1…`, `nprofile1…`, or 64-character hex pubkey and
+previews the napplet as that account: `identity.getPublicKey` and
+`identity.getRelays` report it (using `nprofile` relay hints when present),
+while signing, encryption, publishing, DM, WebRTC, and Blossom upload stay
+unavailable and never raise a confirmation dialog. The npub is remembered per
+browser origin, outranks the implicit NIP-07 probe on reload, and **Log out**
+clears it. Paja rejects a pasted `nsec` without repeating it into the status
+line or the message log. Sign, publish, DM
 send, filesystem picker, Blossom upload, and external-link requests use one serialized in-page
 confirmation dialog. Deny has initial focus and Escape denies. A napplet-scoped
 sign request defaults to one-time approval, with explicit options to remember

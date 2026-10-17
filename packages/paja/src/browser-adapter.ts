@@ -53,7 +53,7 @@ import {
   type PajaUserActivationHandler,
 } from './browser-device-services.js';
 import type { PajaHostConfig } from './options.js';
-import type { PajaSignerMethod } from './browser-signers.js';
+import { requireWritableSigner, type PajaSignerMethod } from './browser-signers.js';
 import type { PajaSimulation } from './simulation.js';
 import { BrowserIntentController } from './browser-intent-controller.js';
 import { InstalledNappletCatalog } from './installed-napplet-catalog.js';
@@ -241,8 +241,7 @@ function createOutboxRouter(
     ),
     fallbackRelays: relayConfig.outboxRelays,
     signEvent: async (template) => {
-      const signer = createRuntimeSigner(getSimulation, confirmRequest, signerProvider);
-      if (!signer?.signEvent) throw new Error('no signer configured');
+      const signer = requireWritableSigner(createRuntimeSigner(getSimulation, confirmRequest, signerProvider));
       const event = { ...template };
       event.created_at ??= Math.floor(Date.now() / 1000);
       event.kind ??= 1;
