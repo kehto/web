@@ -168,9 +168,9 @@ describe('@kehto/paja browser host runtime source guards', () => {
     expect(relaySource).toContain('export const PAJA_NIP65_RELAY_LIST_KIND = 10_002;');
     expect(relaySource).toContain('export const PAJA_CONTACT_LIST_KIND = 3;');
     expect(relaySource).toContain('export function createPajaIdentityProviders(');
-    expect(relaySource).toContain('async function getBootstrapRelayUrls(');
+    expect(relaySource).toContain('export async function getPajaBootstrapRelayUrls(');
     expect(relaySource).toContain('...await getSignerRelayUrls(signerProvider, \'read\'),');
-    expect(relaySource).toContain('backend.query(await getBootstrapRelayUrls(getSimulation, signerProvider), [{');
+    expect(relaySource).toContain('backend.query(await getPajaBootstrapRelayUrls(getSimulation, signerProvider), [{');
     expect(intentSource).toContain('...getPajaRelayUrls(context.runtime.currentSimulation),');
     expect(hostSource).toContain('if (hasNip07Signer()) void state.connectNip07();');
     expect(hostSource).toContain("bridge.publishIdentityChanged(adapter.auth.getUserPubkey() ?? '');");
