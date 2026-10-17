@@ -42,7 +42,16 @@ async function target(format: 'current' | 'legacy', requires = ['relay', 'shell'
   return { ...resolved, event, pointer: { type: 'nevent', value: 'test-pointer', id: event.id, relays: [] }, relays: [], blossomServers: [] };
 }
 
-afterEach(() => { runtime.destroy(); originRegistry.clear(); vi.restoreAllMocks(); });
+afterEach(() => { runtime.destroy(); originRegistry.clear(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+
+function stubDevelopmentHtml(html: string): void {
+  const requestUrl = 'http://paja.test/__kehto/target.html';
+  vi.stubGlobal('window', { location: { href: 'http://paja.test/' } });
+  vi.stubGlobal('fetch', vi.fn(async () => ({
+    ok: true, status: 200, statusText: 'OK', redirected: false, url: requestUrl,
+    arrayBuffer: async () => new TextEncoder().encode(html).buffer,
+  })));
+}
 
 describe.each(['current', 'legacy'] as const)('%s Paja frame admission', (format) => {
   it.each([35129, 15129, 5129])('binds kind %i identity before injected srcdoc and preserves verified bytes', async (kind) => {
@@ -174,4 +183,43 @@ it('narrows denied optional interfaces and keeps discovery hints outside direct 
   expect(frame.srcdoc).toContain("connect-src 'none'");
   expect(frame.srcdoc).not.toContain('relay.example.test');
   expect(frame.srcdoc).not.toContain('blossom.example.test');
+});
+
+it('admits a live development URL with exact asset and HMR origins tied to fetched bytes', async () => {
+  const prompts: string[] = [];
+  runtime.destroy();
+  runtime = createPajaAdmissionTestRuntime(async ({ missing }) => {
+    prompts.push(...missing.map((item) => item.operation));
+    return { effect: 'allow', lifetime: 'session' };
+  });
+  stubDevelopmentHtml('<html><head></head><body><script type="module" src="/src/main.ts"></script></body></html>');
+  const dev = { target: { mode: 'iframe-url', url: 'http://127.0.0.1:5173/', hmrStrategy: 'iframe-target-url' },
+    window: { id: 'dev', dTag: 'dev-app', aggregateHash: '0'.repeat(64) } } as PajaHostConfig;
+  const frame = { contentWindow: {} as Window, srcdoc: '', getAttribute: vi.fn(() => null),
+    setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
+  expect(await navigateFrame(frame, dev, 1, adapter, runtime)).toBe('dev:1');
+  const identity = originRegistry.getIdentity(frame.contentWindow!);
+  expect(identity?.permissionPrincipal).toMatchObject({ kind: 'development', target: 'http://127.0.0.1:5173/' });
+  expect(identity?.aggregateHash).toMatch(/^[a-f0-9]{64}$/);
+  expect(frame.srcdoc).toContain('script-src');
+  expect(frame.srcdoc).toContain('http://127.0.0.1:5173');
+  expect(frame.srcdoc).toContain('ws://127.0.0.1:5173');
+  expect(originRegistry.getEnvironment(frame.contentWindow!)?.capabilities.domains).not.toContain('resource');
+  expect(prompts).toContain('network.script-src');
+  expect(prompts).toContain('network.connect-src');
+});
+
+it('rejects a live development document requiring resource before approval or execution', async () => {
+  const prompt = vi.fn(async () => ({ effect: 'allow' as const, lifetime: 'session' as const }));
+  runtime.destroy();
+  runtime = createPajaAdmissionTestRuntime(prompt);
+  stubDevelopmentHtml('<meta name="napplet-requires" content="resource"><script type="module" src="/src/main.ts"></script>');
+  const dev = { target: { mode: 'iframe-url', url: 'http://127.0.0.1:5173/', hmrStrategy: 'iframe-target-url' },
+    window: { id: 'dev', dTag: 'dev-app', aggregateHash: '0'.repeat(64) } } as PajaHostConfig;
+  const frame = { contentWindow: {} as Window, srcdoc: '', getAttribute: vi.fn(() => null),
+    setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
+  await expect(navigateFrame(frame, dev, 1, adapter, runtime)).rejects.toThrow(/incompatible: resource/);
+  expect(prompt).not.toHaveBeenCalled();
+  expect(frame.srcdoc).toBe('');
+  expect(originRegistry.getIdentity(frame.contentWindow!)).toBeUndefined();
 });

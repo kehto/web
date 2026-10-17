@@ -110,11 +110,14 @@ the checked NAP-SHELL authority. Admission accepts session/persistent positive
 choices, never once; development sources can choose only session. The prompt's
 immutable `allowLifetimes` tells the UI which positive choices apply. Deny-once
 remains available. Startup grants do not grant resources or network destinations.
+The shared browser UI serializes up to 64 distinct pending prompts; an aborted
+source leaves that queue immediately. Its grant-management list reads the runtime
+store after each decision, so concurrent frames share one visible authority.
 
 An admission result is an immutable host token bound to the exact source generation.
 Copies and forged results fail revalidation. Revocation, retirement, teardown, or
-ACL blocking invalidate its use. This API is implemented and tested; migrating the
-Paja/playground frame loaders to call it remains outstanding.
+ACL blocking invalidate its use. Paja's verified, local-file, and live-development
+frame loaders use this transaction; playground migration remains outstanding.
 
 ## Decisions, cancellation, and revocation
 

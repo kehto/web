@@ -63,6 +63,8 @@ export interface PajaDevtoolsState {
   setDomainEnabled(domain: PajaCapabilityDomain, enabled: boolean): void;
   /** Enable or disable an ACL capability. */
   setAclCapability(capability: Capability, enabled: boolean): void;
+  /** Host-registered identity of the currently executing frame. */
+  getActiveIdentity?(): Pick<ReturnType<typeof getTargetIdentity>, 'pubkey' | 'dTag' | 'aggregateHash'>;
   /** Switch signer controls to the dev signer. */
   useDevSigner(): void;
   /** Connect signer controls to a NIP-07 signer. */
@@ -370,7 +372,7 @@ function renderInterfaceControls(state: PajaDevtoolsState): void {
 function renderAclControls(state: PajaDevtoolsState, bridge: ShellBridge | null): void {
   const container = document.getElementById('acl-controls');
   if (!container) return;
-  const identity = getTargetIdentity(state.config, state.resolvedTarget);
+  const identity = state.getActiveIdentity?.() ?? getTargetIdentity(state.config, state.resolvedTarget);
   container.replaceChildren(...ALL_CAPABILITIES.map((capability) => {
     const allowed = bridge?.runtime.aclState.check(
       identity.pubkey,

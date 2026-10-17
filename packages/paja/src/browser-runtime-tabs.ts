@@ -86,6 +86,8 @@ export interface PajaRuntimeTabContext {
   setStatus(state: PajaRuntimeTabState, status: PajaRuntimeStatus): void;
   /** Clear host-owned retained-delivery state before session and frame teardown. */
   onTabDestroyed?(tab: PajaRuntimeTab): void;
+  /** Reject retained delivery work when admission never creates an executable frame. */
+  onTabNavigationFailed?(tab: PajaRuntimeTab): void;
 }
 
 export type PajaDuplicateChoice = 'load-again' | 'open-tab' | 'cancel';
@@ -593,9 +595,11 @@ function startRuntimeTabNavigation(
   ).then((windowId) => {
     if (tab.generation !== generation) return;
     tab.windowId = windowId;
+    if (!windowId) context.onTabNavigationFailed?.(tab);
     if (state.activeTabId === tab.id) context.runtime.currentWindowId = windowId;
   }).catch((error) => {
     if (tab.generation !== generation) return;
+    context.onTabNavigationFailed?.(tab);
     tab.frame.removeAttribute('src');
     tab.frame.srcdoc = context.renderTargetErrorHtml(error);
     tab.status = 'error';

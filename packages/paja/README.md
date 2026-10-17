@@ -272,6 +272,12 @@ Paja activates delivered handler tabs because its stage shows one tab at a time.
 `behavior.focus` is advisory; `reuse: false` creates a new surface. Existing caller
 tabs remain open. Installed contracts and domains appear in pointer diagnostics.
 
+The Paja CLI starts the package server, which renders the same host page used by
+the static runtime. Both load `browser-host.js`; its single-window, tab, local
+file, and verified-pointer routes all pass executable HTML through
+`admitBrowserDocument`. There is no separate bench app or second executable
+iframe loader in this repository.
+
 Kehto provides the optional `window.napplet.shell` interface for environment information. Other domains route through trusted iframe creation identity independently of readiness. `supports(domain)` queries namespace presence locally. See the living [NAP-SHELL](https://github.com/napplet/naps/blob/master/naps/NAP-SHELL.md).
 
 Before Paja assigns verified pointer or development bytes to `srcdoc`, it uses
@@ -281,6 +287,17 @@ the injected namespace and later shell environment. The host registers the
 trusted source before the approved document executes. The injected CSP defaults
 to closed remote source lists. Relay and Blossom discovery hints select mediated
 services only and never grant the iframe direct browser traffic.
+
+Unsigned development HTML can request interfaces with space-separated
+`<meta name="napplet-requires" content="shell relay">` and
+`<meta name="napplet-optional" content="media">` declarations. They request
+approval; they do not grant it. Paja binds each development grant to the exact
+target URL and fetched HTML hash, so editing the document requires a new
+approval. A live dev server uses exact-origin direct browser network approval
+for its script, style, image, font, worker, media, and connection sources. Its
+frame cannot receive `resource`; declare `resource` only for a self-contained
+local HTML file with no remote sources. When no development declarations exist,
+Paja offers available interfaces as optional for the current session.
 
 Hosts can pass `csp` to `createPajaRuntimeHostConfig`:
 
@@ -293,8 +310,11 @@ const config = createPajaRuntimeHostConfig({
 });
 ```
 
-Each explicit origin is a separate network approval. The admitted launch path
-does not apply legacy `csp.directives` overrides; it uses the closed shared CSP.
+Each explicit origin is a separate network approval. Supported `csp.directives`
+entries are reduced to exact origins for their named source directive and require
+the same approval; unsupported directives and broad source expressions fail
+closed. The shared CSP still denies frames, objects, manifests, and unlisted
+sources.
 Set `frame-ancestors` on the host HTTP response, not in a meta policy. See the
 [shared policy contract](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#shell-csp-enforcement).
 

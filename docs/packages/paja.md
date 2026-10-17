@@ -278,14 +278,20 @@ are absent from the injected `window.napplet` namespace and later environment.
 The shared admission helper inserts a closed CSP before the namespace and
 artifact bytes. Relay/Blossom hints only select mediated services; they grant no
 direct iframe network authority. Explicit `csp.connectOrigins` values require
-separate exact-origin network approval. The admitted path ignores legacy
-`csp.directives` overrides. The
+separate exact-origin network approval. Supported `csp.directives` sources are
+also reduced to exact directive-specific origins for approval; unknown directives
+and broad sources are rejected. The
 [CSP contract](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#shell-csp-enforcement)
 documents the NIP-5D baseline and the shared admitted policy. Configure
 `frame-ancestors` through the host HTTP response. NIP-5D requires the verified
 `srcdoc` and opaque `allow-scripts` sandbox, but not this CSP baseline. Local
 target-URL mode uses the same admission helper with an exact URL plus fetched
-artifact hash as its unsigned development identity. Loading an
+artifact hash as its unsigned development identity. Development HTML can request
+interfaces with space-separated `napplet-requires` and `napplet-optional` meta
+declarations. They never grant authority. A live dev server receives only its
+approved exact browser origins and cannot combine direct network loading with
+the protected `resource` interface. A self-contained local file can request
+`resource` under the closed local-only CSP. Loading an
 already-running napplet
 opens an in-page choice to load another instance, switch to the existing tab, or
 cancel. Each tab includes a share control that copies a `/web/paja/?naddr=...`

@@ -136,6 +136,53 @@ describe('common browser approval UI', () => {
     expect(await destroyed).toEqual({ effect: 'cancel' });
   });
 
+  it('serializes distinct prompts and cancels a queued source without disturbing the active one', async () => {
+    const f = setup();
+    const first = f.ui.prompt(f.prompt(new AbortController().signal));
+    const queuedController = new AbortController();
+    const queued = f.ui.prompt({ ...f.prompt(queuedController.signal), missing: [{
+      ...requirement, scope: { kind: 'origin', value: 'https://queued.example.test' },
+    }] });
+    const second = f.ui.prompt({ ...f.prompt(new AbortController().signal), missing: [{
+      ...requirement, scope: { kind: 'origin', value: 'https://second.example.test' },
+    }] });
+    const dialog = f.mount.find('dialog')!;
+    expect(dialog.textContent).toContain('https://api.example.test');
+    expect(dialog.textContent).not.toContain('https://second.example.test');
+    queuedController.abort();
+    expect(await queued).toEqual({ effect: 'cancel' });
+    expect(dialog.open).toBe(true);
+    dialog.all('button')[0].click();
+    expect(await first).toEqual({ effect: 'deny', lifetime: 'once' });
+    await Promise.resolve();
+    expect(dialog.open).toBe(true);
+    expect(dialog.textContent).toContain('https://second.example.test');
+    dialog.dispatchEvent(new Event('close'));
+    expect(dialog.open).toBe(true);
+    f.ui.destroy();
+    expect(await second).toEqual({ effect: 'cancel' });
+  });
+
+  it('refreshes the runtime grant list after the coordinator commits an approval', async () => {
+    const f = setup();
+    const grant: PermissionGrant = {
+      id: 'committed-grant', principal, permission: requirement,
+      effect: 'allow', lifetime: 'session', sessionId: 's',
+    };
+    const answer = f.ui.prompt(f.prompt(new AbortController().signal));
+    const dialog = f.mount.find('dialog')!;
+    const select = dialog.find('select')!;
+    select.value = 'session';
+    select.dispatchEvent(new Event('change'));
+    dialog.all('button')[2].click();
+    expect(await answer).toEqual({ effect: 'allow', lifetime: 'session' });
+    f.setGrants([grant]);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(f.mount.all('button').some((button) => button.textContent === 'Revoke')).toBe(true);
+    f.ui.destroy();
+  });
+
   it('renders runtime grants, revokes and clears them, and exposes storage recovery', () => {
     const f = setup();
     const grant: PermissionGrant = {

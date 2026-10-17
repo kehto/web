@@ -193,13 +193,10 @@ describe('@kehto/paja local index.html loader', () => {
     expect(state.messageLog.at(-1)?.preview).toContain('./assets/main.js');
   });
 
-  it.each([
-    ['plain HTML', LOCAL_HTML],
-    ['untrusted publisher metadata', LOCAL_HTML.replace('<head>', '<head><meta name="napplet-requires" content="unavailable">')],
-  ])('loads local %s without a manifest and registers identity before injected srcdoc', async (_label, html) => {
+  it('loads local plain HTML without a manifest and registers identity before injected srcdoc', async () => {
     const config = createPajaRuntimeHostConfig({}, new Date('2026-10-07T00:00:00.000Z'));
     const adapter = createPajaAdapter(config, () => config.simulation, () => {}, () => {}, () => true);
-    const target = await createPajaLocalTarget({ name: 'index.html', text: html });
+    const target = await createPajaLocalTarget({ name: 'index.html', text: LOCAL_HTML });
     const frame = fakeFrame();
     let srcdoc = '';
     Object.defineProperty(frame, 'srcdoc', {
@@ -246,7 +243,39 @@ describe('@kehto/paja local index.html loader', () => {
     }
   });
 
-  it('applies host CSP overrides to local files and rejects invalid policy before rebinding', async () => {
+  it('blocks a local file whose unsigned metadata requires an unavailable interface', async () => {
+    const config = createPajaRuntimeHostConfig();
+    const adapter = createPajaAdapter(config, () => config.simulation, () => {}, () => {}, () => true);
+    const target = await createPajaLocalTarget({ name: 'index.html',
+      text: LOCAL_HTML.replace('<head>', '<head><meta name="napplet-requires" content="unavailable">') });
+    const frame = fakeFrame();
+    try {
+      await expect(navigateFrame(frame as unknown as HTMLIFrameElement, config, 1, adapter, permissionRuntime, target))
+        .rejects.toThrow(/denied: unavailable/);
+      expect(frame.srcdoc).toBe('');
+      expect(originRegistry.getIdentity(frame.contentWindow)).toBeUndefined();
+    } finally {
+      (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
+    }
+  });
+
+  it('admits a self-contained local artifact requiring mediated resource with no direct browser origin', async () => {
+    const config = createPajaRuntimeHostConfig();
+    const adapter = createPajaAdapter(config, () => config.simulation, () => {}, () => {}, () => true);
+    const target = await createPajaLocalTarget({ name: 'resource.html',
+      text: '<meta name="napplet-requires" content="resource"><script>window.embedded = true</script>' });
+    const frame = fakeFrame();
+    try {
+      await navigateFrame(frame as unknown as HTMLIFrameElement, config, 1, adapter, permissionRuntime, target);
+      expect(originRegistry.getEnvironment(frame.contentWindow)?.capabilities.domains).toEqual(['resource']);
+      expect(frame.srcdoc).toContain("connect-src 'none'");
+      expect(frame.srcdoc).toContain('window.embedded = true');
+    } finally {
+      (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
+    }
+  });
+
+  it('keeps local files on the closed CSP and rejects invalid direct origins before rebinding', async () => {
     const config = createPajaRuntimeHostConfig({
       csp: { directives: { 'img-src': ['data:'] } },
     });

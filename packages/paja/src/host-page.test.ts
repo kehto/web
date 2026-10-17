@@ -1,8 +1,32 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { createPajaHostConfig, createPajaRuntimeHostConfig, normalizePajaOptions } from './options.js';
 import { renderPajaHtml } from './host-page.js';
 
 describe('@kehto/paja host page', () => {
+  it('routes CLI, server, and generated pages through one admitted executable frame path', () => {
+    const source = (name: string) => readFileSync(new URL(`./${name}.ts`, import.meta.url), 'utf8');
+    const cli = source('cli');
+    const server = source('server');
+    const host = source('browser-host');
+    const tabs = source('browser-runtime-tabs');
+    const frame = source('browser-target-frame');
+    const html = renderPajaHtml(createPajaHostConfig(normalizePajaOptions({ targetUrl: 'http://127.0.0.1:5173' })));
+
+    expect(cli).toContain("import { startPajaServer } from './server.js'");
+    expect(server).toContain("import { renderPajaHtml } from './host-page.js'");
+    expect(server).toContain("new URL('./browser-host.js', import.meta.url)");
+    expect(html).toContain('<script type="module" src="./__kehto/browser-host.js"></script>');
+    expect(html).not.toMatch(/<iframe[^>]+\ssrc=/);
+    expect(host).toContain("from './browser-target-frame.js'");
+    expect(tabs).toContain('context.navigateFrame(');
+    expect(frame).toContain('await admitBrowserDocument({');
+    expect(frame).toContain('frame.srcdoc = srcdoc;');
+    expect(host.match(/frame\.srcdoc\s*=/g)).toHaveLength(1);
+    expect(tabs.match(/tab\.frame\.srcdoc\s*=/g)).toHaveLength(1);
+    expect(host).toContain('frame.srcdoc = renderTargetErrorHtml(error)');
+    expect(tabs).toContain('tab.frame.srcdoc = context.renderTargetErrorHtml(error)');
+  });
   it('presents named app choices and a nonmodal notice without a recipient protocol form', () => {
     const html = renderPajaHtml(createPajaRuntimeHostConfig({}));
     const choice = html.match(/<dialog[^>]+id="paja-intent-link-dialog"[\s\S]*?<\/dialog>/)?.[0];

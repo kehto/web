@@ -107,6 +107,8 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .section-chevron { transition: transform 120ms; }
       .section[open] > summary .section-chevron { transform: rotate(90deg); }
       .section-body { padding: 0 12px 12px; display: grid; gap: 8px; }
+      .kehto-approval-ui, .kehto-approval-ui section, .kehto-approval-ui li { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+      .kehto-approval-ui button { white-space: normal; }
       .resource-servers { display: grid; gap: 8px; }
       .resource-servers > label { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
       .section-title { color: var(--accent); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0; }

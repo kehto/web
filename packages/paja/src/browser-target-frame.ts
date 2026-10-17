@@ -3,13 +3,15 @@ import {
   denyNappletControllerAccess,
   originRegistry,
   resolveShellEnvironment,
+  type BrowserRemoteSource,
   type OriginIdentity,
   type ShellAdapter,
   type SessionEntry,
 } from '@kehto/shell';
 import type { Runtime } from '@kehto/runtime';
 
-import { isPajaLocalTarget, type PajaRuntimeTarget } from './local-target.js';
+import { isPajaLocalTarget, readDevelopmentDomains, type PajaRuntimeTarget } from './local-target.js';
+import { developmentRemoteSources } from './target-cors.js';
 import type { PajaHostConfig } from './options.js';
 import type { PajaShellEnvironment } from './parity.js';
 
@@ -87,11 +89,15 @@ export async function navigateFrame(
     const identity = getTargetOriginIdentity(config, resolvedTarget);
     const environment = resolvePajaFrameEnvironment(adapter, identity);
     const local = isPajaLocalTarget(resolvedTarget);
+    const declarations = local ? readDevelopmentDomains(resolvedTarget.indexHtml) : {
+      required: resolvedTarget.manifest.requires, optional: resolvedTarget.manifest.optional ?? [],
+    };
+    const declared = declarations.required.length > 0 || declarations.optional.length > 0;
     return admitPajaFrame({
       frame, config, generation, runtime, identity, environment,
       verifiedHtml: resolvedTarget.indexHtml,
-      required: local ? [] : resolvedTarget.manifest.requires,
-      optional: local ? environment.capabilities.domains : (resolvedTarget.manifest.optional ?? []),
+      required: declarations.required,
+      optional: local && !declared ? environment.capabilities.domains : declarations.optional,
       windowId, isCurrent, onRegistered, signal,
     });
   }
@@ -107,10 +113,14 @@ export async function navigateFrame(
     permissionPrincipal: { kind: 'development' as const, target: targetUrl.href, artifactHash: fetched.sha256 },
   });
   const environment = resolvePajaFrameEnvironment(adapter, identity);
+  const declarations = readDevelopmentDomains(fetched.html);
+  const declared = declarations.required.length > 0 || declarations.optional.length > 0;
   return admitPajaFrame({
     frame, config, generation, runtime, identity, environment,
     verifiedHtml: injectBaseHref(fetched.html, targetUrl.href),
-    required: [], optional: environment.capabilities.domains,
+    required: declarations.required,
+    optional: declared ? declarations.optional : environment.capabilities.domains,
+    remoteSources: developmentRemoteSources(targetUrl, config.csp),
     windowId, isCurrent, onRegistered, signal,
   });
 }
@@ -125,6 +135,7 @@ interface PajaFrameAdmission {
   readonly verifiedHtml: string;
   readonly required: readonly string[];
   readonly optional: readonly string[];
+  readonly remoteSources?: readonly BrowserRemoteSource[];
   readonly windowId?: string;
   readonly isCurrent?: () => boolean;
   readonly onRegistered?: (windowId: string | null) => void;
@@ -133,7 +144,7 @@ interface PajaFrameAdmission {
 
 async function admitPajaFrame(options: PajaFrameAdmission): Promise<string | null> {
   const { frame, config, generation, runtime, identity, environment, verifiedHtml,
-    required, optional, windowId, isCurrent, onRegistered, signal } = options;
+    required, optional, remoteSources, windowId, isCurrent, onRegistered, signal } = options;
   if (!identity.permissionPrincipal) throw new Error('Paja source has no trusted permission principal');
   const sourceWindowId = windowId ?? `${config.window.id}:${generation}`;
   const current = () => !signal?.aborted && (!isCurrent || isCurrent()) && frame.isConnected !== false;
@@ -146,7 +157,7 @@ async function admitPajaFrame(options: PajaFrameAdmission): Promise<string | nul
   const result = await admitBrowserDocument({
     runtime, entry, verifiedHtml, available: environment.capabilities.domains,
     required, optional,
-    remoteSources: (config.csp?.connectOrigins ?? []).map((origin) => ({ directive: 'connect-src' as const, origin })),
+    remoteSources: remoteSources ?? (config.csp?.connectOrigins ?? []).map((origin) => ({ directive: 'connect-src' as const, origin })),
     isCurrentSource: current, signal,
     commit(srcdoc, admitted) {
       if (!current()) throw new Error('Paja source changed before admission commit');
