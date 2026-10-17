@@ -180,6 +180,8 @@ export interface OutboxRouter {
 
 /** Outbox router with an incremental surface for bounded queries. */
 export interface StreamingOutboxRouter extends OutboxRouter {
+  /** Resolve the exact relay destinations for a read without contacting them. */
+  planRead?(filters: NostrFilter[], options?: OutboxQueryOptions): Promise<OutboxRelayPlan>;
   /**
    * Start policy/fallback reads immediately, stream verified events through
    * `sink`, and attach author relays when concurrent discovery resolves.
