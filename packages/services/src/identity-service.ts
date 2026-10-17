@@ -22,7 +22,7 @@
  */
 
 import type { NappletMessage } from '@napplet/core';
-import type { ServiceHandler, Signer } from '@kehto/runtime';
+import type { ApprovalSignal, ServiceHandler, ServiceRuntimeContext, Signer } from '@kehto/runtime';
 import type {
   IdentityGetBadgesMessage,
   IdentityGetBlockedMessage,
@@ -414,6 +414,19 @@ function handleIdentityServiceMessage(
  * ```
  */
 export function createIdentityService(options: IdentityServiceOptions): ServiceHandler {
+  const generations = new Map<string, symbol>();
+  let runtime: ServiceRuntimeContext | undefined;
+  const generationFor = (windowId: string): symbol => {
+    let generation = generations.get(windowId);
+    if (!generation) { generation = Symbol(windowId); generations.set(windowId, generation); }
+    return generation;
+  };
+  const current = (windowId: string, generation: symbol): boolean => generations.get(windowId) === generation;
+  const requirements = (operation: string) => [
+    { category: 'interface' as const, domain: 'identity', operation: 'access', scope: { kind: 'exact' as const, value: 'identity' } },
+    { category: 'resource' as const, domain: 'identity', operation, scope: { kind: 'exact' as const, value: 'identity:current-account' } },
+  ];
+
   return {
     descriptor: {
       name: 'identity',
@@ -421,17 +434,42 @@ export function createIdentityService(options: IdentityServiceOptions): ServiceH
       description: 'NIP-5D identity NAP reference handler (9 read-only identity queries)',
     },
 
+    onRegistered(context) { runtime = context; },
+    onUnregistered() { runtime = undefined; generations.clear(); },
+    onPermissionRevoked(windowId) { generations.delete(windowId); },
     handleMessage(
-      _windowId: string,
+      windowId: string,
       message: NappletMessage,
       send: (msg: NappletMessage) => void,
     ): void {
-      handleIdentityServiceMessage(options, message, send);
+      const generation = generationFor(windowId);
+      let snapshotSigner: Signer | null;
+      try { snapshotSigner = options.getSigner(); } catch { snapshotSigner = null; }
+      const snapshotOptions = { ...options, getSigner: () => snapshotSigner };
+      const guardedSend = (result: NappletMessage): void => {
+        // The service can only expose the runtime-owned signer that was live
+        // when approval ran. Rechecking the provider also suppresses stale
+        // results when sign-out or account replacement races an async read.
+        if (!current(windowId, generation)) return;
+        if (!runtime) { send(result); return; }
+        try {
+          if (options.getSigner() === snapshotSigner) send(result);
+        } catch { /* a failed signer lookup is no longer an attested source */ }
+      };
+      const run = async (signal?: ApprovalSignal): Promise<void> => {
+        if (!current(windowId, generation) || signal?.aborted) throw new Error('policy denied');
+        handleIdentityServiceMessage(snapshotOptions, message, guardedSend);
+      };
+      if (!runtime?.authorizeOperation) {
+        void run();
+        return;
+      }
+      void runtime.authorizeOperation(windowId, message.type, requirements(message.type), (signal) => run(signal))
+        .catch(() => undefined);
     },
 
-    // Identity service has no per-window state to clean up.
-    onWindowDestroyed(_windowId: string): void {
-      /* no-op */
+    onWindowDestroyed(windowId: string): void {
+      generations.delete(windowId);
     },
   };
 }
