@@ -100,6 +100,26 @@ describe('createFsService', () => {
     expect(sent).toHaveLength(2);
   });
 
+  it('does not deliver a read that completes after its approval signal is revoked', async () => {
+    let resolveRead: ((value: { data: string; offset: number; bytesRead: number; eof: boolean }) => void) | undefined;
+    const service = createFsService({ backend: backendFixture({
+      read: () => new Promise((resolve) => { resolveRead = resolve; }),
+    }) });
+    let aborted = false;
+    const signal = { get aborted() { return aborted; }, addEventListener() {}, removeEventListener() {} };
+    const authorizeOperation = vi.fn(async (_windowId, _operation, _requirements, execute) => ({ status: 'executed' as const, value: await execute(signal) }));
+    service.onRegistered?.({ authorizeOperation } as never);
+    const sent: NappletMessage[] = [];
+
+    service.handleMessage('window-a', { type: 'fs.read', id: 'late-read', path: '/workspace/a' } as NappletMessage, (message) => sent.push(message));
+    await waitFor(() => resolveRead !== undefined);
+    aborted = true;
+    resolveRead?.({ data: 'YQ==', offset: 0, bytesRead: 1, eof: true });
+    await waitFor(() => sent.length === 1);
+
+    expect(sent).toEqual([{ type: 'fs.read.result', id: 'late-read', error: 'cancelled' }]);
+  });
+
   it('returns one same-id success envelope with the operation field', async () => {
     const service = createFsService({ backend: backendFixture() });
     const sent: NappletMessage[] = [];

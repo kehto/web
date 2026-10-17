@@ -190,9 +190,11 @@ export function createFsService(options: FsServiceOptions): FsService {
           warnLegacy();
           return operation();
         }
-        const approval = await runtime.authorizeOperation(windowId, operationName, requirements, (signal) => {
+        const approval = await runtime.authorizeOperation(windowId, operationName, requirements, async (signal) => {
           if (!current(windowId, generation) || signal.aborted) throw new FsServiceError('cancelled');
-          return operation(signal);
+          const value = await operation(signal);
+          if (!current(windowId, generation) || signal.aborted) throw new FsServiceError('cancelled');
+          return value;
         });
         if (approval.status !== 'executed') throw new FsServiceError('policy-denied');
         return approval.value;
