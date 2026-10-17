@@ -14,10 +14,7 @@ export interface RelayOperationPlan {
   readonly localOnly: boolean;
 }
 
-/**
- * Relay service contract used by the runtime's plan/approve/execute boundary.
- * Planning must have no cache, socket, signer, or callback side effect.
- */
+/** Relay selection and execution callbacks for the runtime. */
 export interface RelayPlanningServiceHandler extends ServiceHandler {
   planRelayOperation(windowId: string, message: NappletMessage): RelayOperationPlan;
   executeRelayOperation(

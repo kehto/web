@@ -129,61 +129,16 @@ export function createPajaUploadRuntime(options: PajaUploadRuntimeOptions): Paja
     const server = effectiveServers(simulation, selectedIdentity.pubkey, discovered)[0];
     if (!server) throw new Error('no server configured');
     const selectedGeneration = generation;
+    const isCurrent = () => generation === selectedGeneration && identity === selectedIdentity
+      && effectiveServers(options.getSimulation(), selectedIdentity.pubkey, discovered)[0] === server;
     return Object.freeze({
       rail: 'blossom' as const,
       destination: `${server.replace(/\/$/, '')}/upload`,
       signingPubkey: selectedIdentity.pubkey,
-      execute: (signal: ApprovalSignal) => executeSelected(signal),
+      execute: (signal: ApprovalSignal) => executePajaUpload({
+        options, request, ctx, size, mimeType, server, selectedIdentity, isCurrent, activeUploads, signal,
+      }),
     });
-
-    async function executeSelected(signal: ApprovalSignal): Promise<UploadResult> {
-      if (signal.aborted || generation !== selectedGeneration || identity !== selectedIdentity
-        || effectiveServers(options.getSimulation(), selectedIdentity.pubkey, discovered)[0] !== server) {
-        return cancelled(ctx.uploadId);
-      }
-      if (!await options.confirmRequest({
-        action: 'upload',
-        windowId: ctx.windowId,
-        napplet: options.getNappletIdentity(ctx.windowId),
-        filename: request.filename,
-        size,
-        mimeType,
-        server,
-        warning: PUBLIC_UPLOAD_WARNING,
-      })) {
-        return cancelled(ctx.uploadId);
-      }
-      if (signal.aborted || generation !== selectedGeneration || identity !== selectedIdentity
-        || effectiveServers(options.getSimulation(), selectedIdentity.pubkey, discovered)[0] !== server) {
-        return cancelled(ctx.uploadId);
-      }
-
-      const delegate = createHttpUploader({
-        rails: { blossom: { servers: [server] } },
-        defaultRail: 'blossom',
-        signingPubkey: selectedIdentity.pubkey,
-        signEvent: async (template) => {
-          const event = await selectedIdentity.signer.signEvent(template);
-          if (event.pubkey !== selectedIdentity.pubkey) {
-            throw new Error('signer identity mismatch');
-          }
-          return event;
-        },
-        ...(options.fetch ? { fetch: options.fetch } : {}),
-      });
-      activeUploads.set(ctx.uploadId, delegate);
-      try {
-        const prepared = await delegate.planUpload!({ ...request, rail: 'blossom', ...(mimeType ? { mimeType } : {}) }, ctx);
-        const result = await prepared.execute(signal);
-        if (signal.aborted || generation !== selectedGeneration || identity !== selectedIdentity) return cancelled(ctx.uploadId);
-        if (result.ok && result.url && !isPermittedUploadUrl(result.url)) {
-          return failure(ctx.uploadId, 'server returned disallowed url');
-        }
-        return result;
-      } finally {
-        activeUploads.delete(ctx.uploadId);
-      }
-    }
   }
 
   const uploader: Uploader = {
@@ -234,6 +189,59 @@ export function createPajaUploadRuntime(options: PajaUploadRuntimeOptions): Paja
     refreshIdentity,
     dispose: () => unsubscribe?.(),
   };
+}
+
+interface PajaUploadExecutionContext {
+  options: PajaUploadRuntimeOptions;
+  request: UploadRequest;
+  ctx: Parameters<Uploader['upload']>[1];
+  size: number;
+  mimeType: string | undefined;
+  server: string;
+  selectedIdentity: IdentitySnapshot;
+  isCurrent(): boolean;
+  activeUploads: Map<string, Uploader>;
+  signal: ApprovalSignal;
+}
+
+async function executePajaUpload(args: PajaUploadExecutionContext): Promise<UploadResult> {
+  const { options, request, ctx, size, mimeType, server, selectedIdentity, isCurrent, activeUploads, signal } = args;
+  if (signal.aborted || !isCurrent()) return cancelled(ctx.uploadId);
+  if (!await options.confirmRequest({
+    action: 'upload',
+    windowId: ctx.windowId,
+    napplet: options.getNappletIdentity(ctx.windowId),
+    filename: request.filename,
+    size,
+    mimeType,
+    server,
+    warning: PUBLIC_UPLOAD_WARNING,
+  })) return cancelled(ctx.uploadId);
+  if (signal.aborted || !isCurrent()) return cancelled(ctx.uploadId);
+
+  const delegate = createHttpUploader({
+    rails: { blossom: { servers: [server] } },
+    defaultRail: 'blossom',
+    signingPubkey: selectedIdentity.pubkey,
+    signEvent: async (template) => {
+      const event = await selectedIdentity.signer.signEvent(template);
+      if (event.pubkey !== selectedIdentity.pubkey) throw new Error('signer identity mismatch');
+      return event;
+    },
+    ...(options.fetch ? { fetch: options.fetch } : {}),
+  });
+  activeUploads.set(ctx.uploadId, delegate);
+  try {
+    const prepared = await delegate.planUpload!({ ...request, rail: 'blossom', ...(mimeType ? { mimeType } : {}) }, ctx);
+    const result = await prepared.execute(signal);
+    if (signal.aborted || !isCurrent()) return cancelled(ctx.uploadId);
+    if (result.ok && result.url && !isPermittedUploadUrl(result.url)) {
+      return failure(ctx.uploadId, 'server returned disallowed url');
+    }
+    return result;
+  } finally {
+    activeUploads.delete(ctx.uploadId);
+  }
 }
 
 function effectiveServers(

@@ -290,22 +290,6 @@ export function createUploadService(options: UploadServiceOptions): ServiceHandl
     if (retire) requestIds.delete(windowId);
   }
 
-  function normalizeUploadInfo(info: UploadInfo): UploadInfo {
-    return {
-      rails: Array.isArray(info.rails)
-        ? info.rails
-            .filter((rail) => typeof rail?.rail === 'string')
-            .map((rail) => ({
-              rail: rail.rail,
-              enabled: rail.enabled !== false,
-              ...(Array.isArray(rail.returns) ? { returns: rail.returns.filter((value) => typeof value === 'string') } : {}),
-            }))
-        : [],
-      ...(typeof info.maxBytes === 'number' ? { maxBytes: info.maxBytes } : {}),
-      ...(Array.isArray(info.mimeTypes) ? { mimeTypes: info.mimeTypes.filter((value) => typeof value === 'string') } : {}),
-    };
-  }
-
   function handleInfo(windowId: string, msg: NappletMessage, send: Send): void {
     const m = msg as NappletMessage & { id?: string };
     const id = m.id ?? '';
@@ -361,59 +345,8 @@ export function createUploadService(options: UploadServiceOptions): ServiceHandl
         send({ type: 'upload.status.changed', status: stamped } as NappletMessage);
       },
     };
-    void (async () => {
-      try {
-        const request = await snapshotUploadRequest(m.request!);
-        if (!current(entry)) return;
-        let result: UploadResult;
-        if (runtime?.authorizeOperation) {
-          if (!uploader.planUpload) {
-            warnLegacy();
-            send({ type: 'upload.upload.result', id, error: 'policy denied' } as NappletMessage);
-            entries.delete(key);
-            return;
-          }
-          const plan = await uploader.planUpload(request, ctx);
-          if (!current(entry)) return;
-          const target = parseDestination(plan.destination);
-          if (!target || typeof plan.execute !== 'function' || !plan.rail) throw new Error('upload destination unavailable');
-          if (!plan.signingPubkey || !/^[0-9a-f]{64}$/i.test(plan.signingPubkey)) {
-            throw new Error('upload signing identity unavailable');
-          }
-          const scope = JSON.stringify({
-            rail: plan.rail, origin: target.origin,
-            endpointHash: await sha256(new TextEncoder().encode(target.href)),
-            contentHash: await sha256(new Uint8Array(await request.data.arrayBuffer())),
-            size: request.data.size, mimeType: request.mimeType ?? '',
-            filename: request.filename ?? '', signingPubkey: plan.signingPubkey ?? '',
-          });
-          if (!current(entry)) return;
-          const approval = await runtime.authorizeOperation(windowId, 'upload.upload', [
-            { category: 'resource', domain: 'upload', operation: 'upload.upload', scope: { kind: 'exact', value: scope } },
-            { category: 'network', domain: 'upload', operation: 'upload.upload', scope: { kind: 'origin', value: target.origin } },
-          ], (signal) => plan.execute(signal), entry.controller.signal);
-          if (!current(entry)) return;
-          if (approval.status !== 'executed') {
-            send({ type: 'upload.upload.result', id, error: 'policy denied' } as NappletMessage);
-            entries.delete(key);
-            return;
-          }
-          result = approval.value;
-        } else {
-          warnLegacy();
-          result = await uploader.upload(request, ctx);
-        }
-        if (!current(entry)) return;
-        if (result.ok && !validPublicResult(result)) throw new Error('server returned invalid upload result');
-        const stamped: UploadResult = { ...result, uploadId };
-        entry.status = { ...stamped, updatedAt: now() };
-        send({ type: 'upload.upload.result', id, result: stamped } as NappletMessage);
-      } catch (err) {
-        if (!current(entry)) return;
-        entries.delete(key);
-        send({ type: 'upload.upload.result', id, error: toErrorMessage(err) } as NappletMessage);
-      }
-    })();
+    void runUpload({ uploader, getRuntime: () => runtime, request: m.request, ctx,
+      windowId, id, entry, key, entries, current, warnLegacy, now, send });
   }
 
   function handleStatus(windowId: string, msg: NappletMessage, send: Send): void {
@@ -462,6 +395,91 @@ export function createUploadService(options: UploadServiceOptions): ServiceHandl
       stopWindow(windowId, true);
     },
   };
+}
+
+function normalizeUploadInfo(info: UploadInfo): UploadInfo {
+  return {
+    rails: Array.isArray(info.rails)
+      ? info.rails.filter((rail) => typeof rail?.rail === 'string').map((rail) => ({
+        rail: rail.rail,
+        enabled: rail.enabled !== false,
+        ...(Array.isArray(rail.returns) ? { returns: rail.returns.filter((value) => typeof value === 'string') } : {}),
+      })) : [],
+    ...(typeof info.maxBytes === 'number' ? { maxBytes: info.maxBytes } : {}),
+    ...(Array.isArray(info.mimeTypes) ? { mimeTypes: info.mimeTypes.filter((value) => typeof value === 'string') } : {}),
+  };
+}
+
+interface UploadRunContext {
+  uploader: Uploader;
+  getRuntime(): ServiceRuntimeContext | undefined;
+  request: UploadRequest;
+  ctx: UploaderContext;
+  windowId: string;
+  id: string;
+  entry: UploadEntry;
+  key: string;
+  entries: Map<string, UploadEntry>;
+  current(entry: UploadEntry): boolean;
+  warnLegacy(): void;
+  now(): number;
+  send: Send;
+}
+
+async function runUpload(args: UploadRunContext): Promise<void> {
+  const { uploader, getRuntime, ctx, windowId, id, entry, key, entries, current, warnLegacy, now, send } = args;
+  try {
+    const request = await snapshotUploadRequest(args.request);
+    if (!current(entry)) return;
+    let result: UploadResult;
+    const runtime = getRuntime();
+    if (runtime?.authorizeOperation) {
+      if (!uploader.planUpload) {
+        warnLegacy();
+        send({ type: 'upload.upload.result', id, error: 'policy denied' } as NappletMessage);
+        entries.delete(key);
+        return;
+      }
+      const plan = await uploader.planUpload(request, ctx);
+      if (!current(entry)) return;
+      const target = parseDestination(plan.destination);
+      if (!target || typeof plan.execute !== 'function' || !plan.rail) throw new Error('upload destination unavailable');
+      if (!plan.signingPubkey || !/^[0-9a-f]{64}$/i.test(plan.signingPubkey)) {
+        throw new Error('upload signing identity unavailable');
+      }
+      const scope = JSON.stringify({
+        rail: plan.rail, origin: target.origin,
+        endpointHash: await sha256(new TextEncoder().encode(target.href)),
+        contentHash: await sha256(new Uint8Array(await request.data.arrayBuffer())),
+        size: request.data.size, mimeType: request.mimeType ?? '',
+        filename: request.filename ?? '', signingPubkey: plan.signingPubkey,
+      });
+      if (!current(entry)) return;
+      const approval = await runtime.authorizeOperation(windowId, 'upload.upload', [
+        { category: 'resource', domain: 'upload', operation: 'upload.upload', scope: { kind: 'exact', value: scope } },
+        { category: 'network', domain: 'upload', operation: 'upload.upload', scope: { kind: 'origin', value: target.origin } },
+      ], (signal) => plan.execute(signal), entry.controller.signal);
+      if (!current(entry)) return;
+      if (approval.status !== 'executed') {
+        send({ type: 'upload.upload.result', id, error: 'policy denied' } as NappletMessage);
+        entries.delete(key);
+        return;
+      }
+      result = approval.value;
+    } else {
+      warnLegacy();
+      result = await uploader.upload(request, ctx);
+    }
+    if (!current(entry)) return;
+    if (result.ok && !validPublicResult(result)) throw new Error('server returned invalid upload result');
+    const stamped: UploadResult = { ...result, uploadId: entry.uploadId };
+    entry.status = { ...stamped, updatedAt: now() };
+    send({ type: 'upload.upload.result', id, result: stamped } as NappletMessage);
+  } catch (err) {
+    if (!current(entry)) return;
+    entries.delete(key);
+    send({ type: 'upload.upload.result', id, error: toErrorMessage(err) } as NappletMessage);
+  }
 }
 
 function validUploadRequest(request: UploadRequest | undefined): request is UploadRequest {
