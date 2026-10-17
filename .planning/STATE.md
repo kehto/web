@@ -442,3 +442,16 @@ Host research returned then was resumed to correct remote subresource CSP bypass
 (script/style/image/font/worker traffic is direct network even with connect-src none).
 Await corrected114research before planning. Live agents at this checkpoint:
 resource_execution, service_plan, host_research. Goal remains active, no PR yet.
+
+2026-10-17: Root completed proxy security slice under113-01/02, committed
+2c453829 as WIP (not resource group completion). Added DNS/address pinning,
+HTTP-valid port-scoped cookie, readable per-hop redirect metadata, deadline/body
+bounds, disconnect cancellation, policy doc and Paja changeset. 48 focused
+proxy/server tests and Paja typecheck pass; logs /tmp/kehto-proxy-security.log
+and /tmp/kehto-proxy-types.log. Quality96 currently from two executor-owned
+resource migration findings (unused responseBlob and resource-demo doublecast);
+executor notified. Proxy files handed back to resource_execution for fullgroup
+integration. Relay03/19 atomic plan split independently PASSED; updatedplans and
+corrected114research committeddaee710d. host_plan now owns114plans/validation;
+resource_execution stillowns active resource migration. Next: resource fullgates,
+then113wave3; collect/check114plans. Goal active, no PR yet.
