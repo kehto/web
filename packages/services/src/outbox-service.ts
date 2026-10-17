@@ -182,6 +182,8 @@ export interface OutboxRouter {
 export interface StreamingOutboxRouter extends OutboxRouter {
   /** Resolve the exact relay destinations for a read without contacting them. */
   planRead?(filters: NostrFilter[], options?: OutboxQueryOptions): Promise<OutboxRelayPlan>;
+  /** Execute a previously resolved read plan without discovery or fallback expansion. */
+  queryWithPlan?(filters: NostrFilter[], options: OutboxQueryOptions | undefined, plan: OutboxRelayPlan): Promise<OutboxResult>;
   /**
    * Start policy/fallback reads immediately, stream verified events through
    * `sink`, and attach author relays when concurrent discovery resolves.
@@ -389,8 +391,15 @@ export function createOutboxService(options: OutboxServiceOptions): ServiceHandl
     const queryRouter = getQueryRouter?.(windowId, runtimeContext)
       ?? getReadRouter?.(windowId, runtimeContext)
       ?? router;
-    void queryRouter
-      .query(filters, sanitizeQueryOptions(m.options))
+    const queryOptions = sanitizeQueryOptions(m.options);
+    const planned = queryRouter as StreamingOutboxRouter;
+    const operation = planned.planRead && planned.queryWithPlan && runtimeContext?.authorizeOperation
+      ? planned.planRead(filters, queryOptions).then((plan) => runtimeContext!.authorizeOperation!(windowId, 'outbox.query', [
+        { category: 'interface', domain: 'outbox', operation: 'access', scope: { kind: 'exact', value: 'outbox' } },
+        ...plan.relays.map((url) => ({ category: 'network' as const, domain: 'outbox', operation: 'outbox.query', scope: { kind: 'origin' as const, value: new URL(url).origin } })),
+      ], (signal) => signal.aborted ? { events: [], error: 'policy denied' } : planned.queryWithPlan!(filters, queryOptions, plan)).then((outcome) => outcome.status === 'executed' && outcome.value ? outcome.value : { events: [], error: 'policy denied' }))
+      : queryRouter.query(filters, queryOptions);
+    void operation
       .then((result) =>
         send({
           type: 'outbox.query.result',
