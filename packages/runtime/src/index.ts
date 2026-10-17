@@ -53,6 +53,9 @@ export type { AclMutation, AclMutationObserver, AclStateContainer } from './acl-
 export { createFirewallState } from './firewall-state.js';
 export type { FirewallStateContainer } from './firewall-state.js';
 
+export { defaultRateLimitConfig, createRateLimitState, evaluateRateLimit, retireRateLimitLifecycle } from './rate-limit.js';
+export type { RateLimitAction, RateLimitConfig, RateLimitObservation, RateBucket, RateBurst, RateLimitState, RateLimitResult } from './rate-limit.js';
+
 export { createManifestCache } from './manifest-cache.js';
 export type { ManifestCache } from './manifest-cache.js';
 

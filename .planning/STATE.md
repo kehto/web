@@ -377,3 +377,7 @@ Conformance authority and host-extension limits are recorded in
 Relay ACL revocation now retires ordinary adapter/service subscriptions and queued
 callbacks. See `debug/resolved/relay-acl-revocation.md` and `INBOX-TRIAGE.md`.
 Build/type/docs/quality and 2,164 unit / 123 browser tests pass.
+
+## Firewall approvals execution checkpoint
+
+2026-10-17: Worktree `/Users/sandwich/.worktrees/kehto/firewall-approvals`, branch `feat/firewall-approvals`, baseline `0958a8b1`. Original request in FIREWALL-GOAL.md. Research/consumer matrix committed. Plan 111-01 additive rate primitive verified; next is 111-02 pure approvals, then phases 112–115. The goal is active and the full migration is unfinished.

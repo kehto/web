@@ -67,4 +67,3 @@ All five phases are required. Package-only delivery does not satisfy the goal. P
 - README/API/architecture/host guides and compatibility register describe the tested final implementation.
 - Changesets for all shipped package changes, atomic commits, push and open PR with exact spec refs.
 - Build, type-check, full unit, full relevant e2e, docs and configured AI-slop gates pass.
-

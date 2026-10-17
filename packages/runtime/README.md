@@ -343,3 +343,39 @@ MIT
 ## GAMEPAD integration
 
 This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja and the playground register one host reader and deny native gamepad/HID/USB paths before frame execution. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, window destruction, and service removal release polling. Non-browser or denied native readers report the proposal's unavailable reasons. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
+
+## Independent rate limits
+
+`evaluateRateLimit` is a pure temporal evaluator exported separately from permission
+policy. Callers supply a trusted subject, operation, endpoint lifecycle, and clock;
+the returned state must be passed to the next call. Approval never bypasses this
+module. The default budgets are 60 operations per minute and 20 operations in the
+first three seconds of a lifecycle, with one-quarter capacity while unfocused.
+The rate default flags excess traffic; the startup burst default blocks it.
+
+```ts
+import {
+  createRateLimitState,
+  defaultRateLimitConfig,
+  evaluateRateLimit,
+} from '@kehto/runtime';
+
+let counters = createRateLimitState();
+const result = evaluateRateLimit(defaultRateLimitConfig(), counters, {
+  subject: 'verified-manifest-key',
+  operation: 'link.open',
+  lifecycle: 'frame-generation-1',
+  elapsedSinceStartMs: 0,
+  focused: true,
+  now: 0,
+});
+counters = result.state;
+// Enforce result.allowed; report flagged excess through host diagnostics.
+```
+
+`retireRateLimitLifecycle` removes startup counters while preserving the subject's
+operation budget. State is ephemeral; it is not a permission grant or a persistence
+format. Invalid budgets and nonfinite clocks throw `RangeError`. Clock rollback
+cannot create an extra refill. Subject/operation keys are encoded without delimiter
+collisions. This evaluator is available for host integration; the existing runtime
+Firewall gate remains until the approval migration is complete.
