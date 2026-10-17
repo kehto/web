@@ -150,6 +150,31 @@ function approvalError(status: string): string {
   return status === 'cancelled' ? 'policy denied' : 'policy denied';
 }
 
+function revokeSerialWindow(options: SerialServiceOptions, windows: Map<string, SerialWindow>, windowId: string): void {
+  const record = windows.get(windowId);
+  if (!record) return;
+  for (const [sessionId, connection] of record.connections) {
+    if (connection.state === 'closed') continue;
+    connection.state = 'closed';
+    record.connections.delete(sessionId);
+    void Promise.resolve(options.close?.(sessionId, 'policy denied', createContext(windowId, () => {}))).catch(() => undefined);
+  }
+  for (const connection of record.pendingConnections) connection.state = 'closed';
+  record.pendingConnections.clear();
+}
+
+function destroySerialWindow(options: SerialServiceOptions, windows: Map<string, SerialWindow>, windowId: string): void {
+  const record = windows.get(windowId);
+  if (record) {
+    for (const connection of record.connections.values()) connection.state = 'closed';
+    for (const connection of record.pendingConnections) connection.state = 'closed';
+    record.connections.clear();
+    record.pendingConnections.clear();
+    windows.delete(windowId);
+  }
+  options.destroyWindow?.(windowId);
+}
+
 /**
  * Create the NAP-SERIAL reference service.
  *
@@ -205,18 +230,7 @@ function buildSerialService(options: SerialServiceOptions): ServiceHandler {
     descriptor: SERIAL_DESCRIPTOR,
     onRegistered(context) { runtime = context; },
     onUnregistered() { runtime = undefined; windows.clear(); },
-    onPermissionRevoked(windowId) {
-      const record = windows.get(windowId);
-      if (!record) return;
-      for (const [sessionId, connection] of record.connections) {
-        if (connection.state === 'closed') continue;
-        connection.state = 'closed';
-        record.connections.delete(sessionId);
-        void Promise.resolve(options.close?.(sessionId, 'policy denied', createContext(windowId, () => {}))).catch(() => undefined);
-      }
-      for (const connection of record.pendingConnections) connection.state = 'closed';
-      record.pendingConnections.clear();
-    },
+    onPermissionRevoked(windowId) { revokeSerialWindow(options, windows, windowId); },
     handleMessage(windowId: string, message: NappletMessage, send: Send): void {
       const id = (message as NappletMessage & { id?: string }).id ?? '';
       const record = currentWindow(windowId);
@@ -366,16 +380,6 @@ function buildSerialService(options: SerialServiceOptions): ServiceHandler {
         error: `Unknown serial method: ${message.type}`,
       } as NappletMessage);
     },
-    onWindowDestroyed(windowId: string): void {
-      const record = windows.get(windowId);
-      if (record) {
-        for (const connection of record.connections.values()) connection.state = 'closed';
-        for (const connection of record.pendingConnections) connection.state = 'closed';
-        record.connections.clear();
-        record.pendingConnections.clear();
-        windows.delete(windowId);
-      }
-      options.destroyWindow?.(windowId);
-    },
+    onWindowDestroyed(windowId: string): void { destroySerialWindow(options, windows, windowId); },
   };
 }
