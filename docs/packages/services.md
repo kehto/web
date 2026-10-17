@@ -7,6 +7,11 @@ the supplied immutable plan. Custom registered relay services implement
 
 Reference service handlers for Kehto runtime implementations.
 
+WebRTC opening uses a side-effect-free signaling plan before runtime approval.
+The reference host rejects configured ICE/TURN endpoints until Firewall gains a
+typed endpoint scope; this does not claim to constrain direct iframe networking,
+which remains a launch-policy concern.
+
 The reference LINK service integrates shared runtime approvals after URL
 validation. A LINK grant never gives direct network access. Runtime cancellation
 and source replacement prevent stale opens/results; repeated request IDs cannot
