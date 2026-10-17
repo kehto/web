@@ -425,8 +425,13 @@ function createMessageHandler(
       }
     }
 
-    const verdict = firewallGate(windowId, envelope, caps.senderCap);
-    if (verdict === 'drop') return;
+    // Configured runtimes route operation authority to the registered service.
+    // The legacy temporal Firewall gate remains only for hosts without the
+    // shared permission coordinator, so it cannot become a second approver.
+    if (!permissions) {
+      const verdict = firewallGate(windowId, envelope, caps.senderCap);
+      if (verdict === 'drop') return;
+    }
 
     dispatchNapEnvelope(windowId, envelope);
   };
