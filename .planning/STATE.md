@@ -483,3 +483,20 @@ Existing fullgate results must be rerun after fixes; do not release113wave3 yet.
 Host planner live on114plans/validation (01–10 drafted, remaining browser and
 fullgate plans in progress). Prior turn was progress (f6072a17 test migration);
 this turn adds evidence and regression checkpoints, not resource completion.
+
+2026-10-17: Root follow-up review found same-origin redirect deadlock introduced
+by retaining network operation approval until resource completion. Saved RED
+8253a81a; executor fixed it and reports focused111 tests passing. Root docs:check
+and pinned quality100 passed at that checkpoint (/tmp/kehto-resource-reviewed-*).
+Subsequent review found early same-origin reuse published an unapproved signal:
+two concurrent resolver calls execute the second transport before the prompt is
+answered. Confirmed RED6acabfea (resource-network-concurrency.test.ts); handed
+source/test ownership to resource_execution. Resource group remains incomplete;
+fullgates must include the latest concurrency regression. Also requested negative
+transport-rejection and cancellation cleanup coverage for held network operations.
+Host planner completed12plans/33tasks+VALIDATION; root caught stale mandatory-shell
+wording and verified NAP-SHELL19de5ce optional semantics via GitHub. Planner fixed
+all affected plans. Typed service_plan_check now owns114-PLAN-REVIEW only and is
+reviewing the complete set; root must collect verdict before implementation.
+Previous goal turn was progress (two regression checkpoints); this turn adds
+confirmed same-origin/concurrency evidence and starts independent host plan review.
