@@ -31,7 +31,9 @@ surface: relay/outbox, storage, identity, keys, config, resource, theme, notify,
 media, upload, intent, count, link, common, lists, serial, BLE, WebRTC, DM, FS,
 CVM, and inc. Relay/outbox defaults to live public relays
 and uses NIP-65 relay-list bootstrap plus kind `3` contact-list reads for
-identity flows; `--relay-mode memory` is the explicit deterministic fixture
+identity flows; background kind-0 profile warming runs only for a connected
+signer account, so a signer-less session with a fixed simulation identity stays
+read-only. `--relay-mode memory` is the explicit deterministic fixture
 mode and does not advertise relay, outbox, count, or DM. `shell` is the
 mandatory, non-toggleable handshake domain; the deprecated legacy package path
 remains an upstream compatibility alias to `inc`.
