@@ -181,6 +181,34 @@ describe('@kehto/paja effective relay URLs', () => {
     backend.close();
   });
 
+  it('names the authors a read asked about so author-routed receipts are attributable', async () => {
+    const author = 'a'.repeat(64);
+    const otherAuthor = 'B'.repeat(64);
+    const reads: Array<{ reason: string; origin?: string; authors?: readonly string[] }> = [];
+    const simulation = normalizePajaSimulation({ relay: { mode: 'live', urls: TEST_RELAYS } });
+    const backend = createPajaRelayBackend(() => simulation, () => true);
+    backend.setRelayRequestObserver(({ reason, origin, authors }) => reads.push({
+      reason,
+      ...(origin ? { origin } : {}),
+      ...(authors ? { authors } : {}),
+    }));
+
+    await backend.query(TEST_RELAYS, [{ kinds: [0], authors: [author, otherAuthor] }]);
+    backend.subscription(TEST_RELAYS, [{ kinds: [10002], authors: [author] }]).subscribe(() => {});
+    // Reads without authors keep their old shape: no attribution is invented.
+    await backend.query(TEST_RELAYS, [{ kinds: [1] }]);
+    // Malformed author strings never reach the panel as attribution.
+    await backend.query(TEST_RELAYS, [{ kinds: [0], authors: ['', 'abc', `${author}0`] }]);
+
+    expect(reads).toEqual([
+      { reason: 'host', authors: [author, otherAuthor.toLowerCase()] },
+      { reason: 'host', authors: [author] },
+      { reason: 'host' },
+      { reason: 'host' },
+    ]);
+    backend.close();
+  });
+
   it('reports every live event to the registered host observer for subscription and query paths', async () => {
     const streamed = testEvent('1'.repeat(64));
     const queried = { ...testEvent('2'.repeat(64)), kind: 3 };

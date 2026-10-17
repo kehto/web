@@ -81,6 +81,7 @@ describe('Paja relay receipts', () => {
         reason: 'outbox',
         origin: 'nip65',
         count: 3,
+        authors: [],
         relays: [{
           relayUrl: 'wss://outbox.example',
           count: 3,
@@ -94,6 +95,7 @@ describe('Paja relay receipts', () => {
         label: 'scoped relay',
         reason: 'hint',
         count: 2,
+        authors: [],
         relays: [
           {
             relayUrl: 'wss://hint.example',
@@ -182,6 +184,53 @@ describe('Paja relay receipts', () => {
     expect(unattributed?.label).toBe('outbox relays (unattributed)');
     expect(unattributed?.count).toBe(1);
     expect(unattributed?.relays[0]).toMatchObject({ relayUrl: 'wss://originless.example', count: 1 });
+  });
+
+  it('attributes each author-routed read to the authors it was routed for', () => {
+    const counter = createPajaRelayEventCounter();
+    const AUTHOR_A = 'a'.repeat(64);
+    const AUTHOR_B = 'b'.repeat(64);
+
+    // One read routed for two authors credits each author once, even when the
+    // read reaches several of their relays, and even when the first relay
+    // repeats an author inside the same observation.
+    counter.recordRead('outbox', ['wss://one.example', 'wss://two.example'], 'nip65', [AUTHOR_A, AUTHOR_A, AUTHOR_B]);
+    counter.recordRead('outbox', ['wss://one.example'], 'nip65', [AUTHOR_A]);
+    counter.recordRead('outbox', ['wss://fallback.example'], 'fallback');
+    counter.recordRead('host', ['wss://host.example'], undefined, [AUTHOR_B]);
+
+    const boxes = counter.snapshot();
+    const nip65 = boxes.find((box) => box.kind === 'nip65');
+    const fallback = boxes.find((box) => box.kind === 'fallback');
+    const host = boxes.find((box) => box.kind === 'host');
+
+    expect(nip65?.authors).toEqual([
+      { pubkey: AUTHOR_A, count: 2 },
+      { pubkey: AUTHOR_B, count: 1 },
+    ]);
+    // A read with no authors adds no attribution instead of inventing one.
+    expect(fallback?.authors).toEqual([]);
+    // Paja's own reads name their authors too, so the host pool is attributable.
+    expect(host?.authors).toEqual([{ pubkey: AUTHOR_B, count: 1 }]);
+  });
+
+  it('renders author chips so an author-routed relay names whose list routed it', () => {
+    const { container } = stubEventCountDom();
+    const counter = createPajaRelayEventCounter();
+    const author = 'abcdef0123456789'.repeat(4);
+
+    counter.recordRead('outbox', ['wss://someone-else.example'], 'nip65', [author]);
+    counter.recordRead('outbox', ['wss://someone-else.example'], 'nip65', [author]);
+    renderPajaEventKindCounts(counter);
+
+    const box = container.children[0]!;
+    const chips = box.children[1]!;
+    expect(chips.className).toBe('event-box-authors');
+    const chip = chips.children[0]!;
+    expect(chip.dataset.authorPubkey).toBe(author);
+    expect(chip.dataset.authorReads).toBe('2');
+    expect(chip.text()).toBe('abcdef01…6789 · 2');
+    expect(chip.title).toBe(`${author} · routed 2 reads into this box`);
   });
 
   it('renders routing boxes with bars, idle markers, and kind rows', () => {
@@ -308,6 +357,7 @@ describe('Paja relay receipts', () => {
       reason: 'outbox',
       origin: 'fallback',
       count: 0,
+      authors: [],
       relays: [{
         relayUrl: 'wss://outbox.example',
         count: 0,

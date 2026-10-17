@@ -715,7 +715,7 @@ async function installPajaHost(): Promise<void> {
     relayEventCounts.recordEvent(sighting.reason, sighting.event, sighting.sightedOn, sighting.origin);
   });
   relayBackend?.setRelayRequestObserver((request) => {
-    relayEventCounts.recordRead(request.reason, request.relayUrls, request.origin);
+    relayEventCounts.recordRead(request.reason, request.relayUrls, request.origin, request.authors);
   });
   await adapter.ready;
   const bridge = createShellBridge(adapter);
