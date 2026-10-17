@@ -35,7 +35,6 @@
 import type { NappletMessage } from '@napplet/core';
 import type { ApprovalSignal, ServiceHandler } from '@kehto/runtime';
 import type { CvmDiscoverQuery, CvmRequestOptions, CvmServer, CvmServerRef, McpMessage } from './cvm-types.js';
-import { createCvmServiceHandler } from './cvm-service-handler.js';
 
 /**
  * Abstract ContextVM transport. Implementors own Nostr relay access, signing,
@@ -74,13 +73,4 @@ export interface CvmService extends ServiceHandler {
 }
 
 
-/**
- * Create the NAP-CVM service handler.
- *
- * @param options - Must provide a {@link CvmTransport}.
- * @returns A {@link CvmService} (a `ServiceHandler` with a `dispose()` hook).
- * @throws If `options.transport` is missing.
- */
-export function createCvmService(options: CvmServiceOptions): CvmService {
-  return createCvmServiceHandler(options);
-}
+export { createCvmServiceHandler as createCvmService } from './cvm-service-handler.js';
