@@ -276,6 +276,16 @@ export function createDevTheme(mode: PajaSimulation['theme']['mode'], values: Pa
   } as Theme;
 }
 
+const HEX_PUBKEY = /^[0-9a-f]{64}$/i;
+
+/**
+ * Pubkey Paja reports to napplets as the current identity.
+ *
+ * Precedence is the connected signer account, then the Dev signer's ephemeral
+ * account, then the fixed simulation identity. A fixed identity is a read-only
+ * stand-in, which is why background work uses {@link getConnectedAccountPubkey}
+ * instead of this value.
+ */
 function getRuntimePubkey(
   getSimulation: () => PajaSimulation,
   signerProvider?: PajaSignerProvider,
@@ -283,6 +293,25 @@ function getRuntimePubkey(
   return signerProvider?.getPubkey()
     || (signerProvider?.getMethod() === 'dev' ? PAJA_DEV_SIGNER_PUBKEY : '')
     || getSimulation().identity.pubkey;
+}
+
+/**
+ * Pubkey of the account Paja may act as right now, or `null` when there is none.
+ *
+ * Only a connected signer counts: NIP-07/NIP-46 expose the pubkey they
+ * authorized, and the Dev signer is its own ephemeral account. A fixed
+ * simulation identity is deliberately excluded because it is a read-only
+ * stand-in — treating it as a signed-in account would let a signer-less session
+ * start author-routed relay reads (social warming) that nobody asked for.
+ *
+ * @param signerProvider - Host signer controller, when one is wired.
+ * @returns Lowercase hex pubkey of the connected account, or `null`.
+ */
+function getConnectedAccountPubkey(signerProvider?: PajaSignerProvider): string | null {
+  const pubkey = signerProvider?.getPubkey();
+  if (typeof pubkey === 'string' && HEX_PUBKEY.test(pubkey)) return pubkey.toLowerCase();
+  if (signerProvider?.getMethod() === 'dev') return PAJA_DEV_SIGNER_PUBKEY;
+  return null;
 }
 
 function createRuntimeSigner(
@@ -348,7 +377,10 @@ function createDevServices(
     baseRouter: baseOutboxRouter,
     loadContactList: createPajaContactListLoader(backend, getSimulation, signerProvider, getReadRelays),
     verifyEvent: (event) => verifyEvent(event as Parameters<typeof verifyEvent>[0]),
-    getActivePubkey: () => getRuntimePubkey(getSimulation, signerProvider),
+    // Background warming is speculative relay traffic, so it only runs for a
+    // signer account. `getFollows` still answers on demand for any requested
+    // pubkey, including the fixed simulation identity.
+    getActivePubkey: () => getConnectedAccountPubkey(signerProvider),
     subscribeSignerChange: signerProvider?.subscribe?.bind(signerProvider),
   });
   const commonBackend = createPajaCommonBackend({
