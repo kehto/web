@@ -33,6 +33,23 @@ created: 2026-10-17
 - Live-source permission revocation must produce the owning domain's canonical blocked/closed terminal when the protocol requires one. An explicit app `resource.cancel` is silent after cleanup and must suppress later terminal envelopes. Control/cancel/close paths remain usable after grants are consumed or operation/prompt limits are reached.
 - Recheck each exact draft head immediately before implementation and record it in the plan summary. Retrieval alone never counts as semantic review.
 
+## Resource network lifetime regressions
+
+The resource group gate also includes the integration regressions added during
+execution. Run these after changes to resolver authorization or its lifetime:
+
+```bash
+pnpm exec vitest run tests/unit/resource-network-lifetime.test.ts tests/unit/resource-network-concurrency.test.ts tests/unit/paja-resource-network-redirect-lifetime.test.ts tests/unit/paja-resource-network-denial.test.ts
+```
+
+These prove that network revocation remains effective after response headers,
+concurrent same-origin work waits for actual approval, same-origin redirects do
+not queue behind their own retained approval, denied Paja HTTPS/Blossom requests
+use `blocked-by-policy` without transport, and rejected transport does not leave
+an unhandled approval rejection. Their focused results do not replace the full
+resource group gate. Record the result after the final source changes, including
+any additional concurrent-success or cancellation vectors added during repair.
+
 ## Per-Task Verification Map
 
 | Task ID | Wave | Requirements | Behavior proved | Automated command |
