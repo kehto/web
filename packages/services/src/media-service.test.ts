@@ -11,6 +11,7 @@ import { createMediaService, createBrowserMediaBridge } from './media-service.js
 import type { HostMediaBridge } from './media-service.js';
 import type { NappletMessage } from '@napplet/core';
 import type { MediaAction, MediaMetadata } from '@napplet/nap/media/types';
+import type { ServiceRuntimeContext } from '@kehto/runtime';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -101,6 +102,51 @@ function createMockDocument() {
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('createMediaService', () => {
+  it('approves an exact source-owned session before mutating the media bridge', async () => {
+    const bridge = {
+      setMetadata: vi.fn(), setPlaybackState: vi.fn(), onAction: () => () => {}, setActiveSession: vi.fn(), destroySession: vi.fn(),
+    } satisfies HostMediaBridge;
+    const authorizeOperation = vi.fn(async (_windowId, _operation, _requirements, execute) => ({
+      status: 'executed' as const,
+      value: await execute({ aborted: false, addEventListener() {}, removeEventListener() {} }),
+    }));
+    const service = createMediaService({ hostBridge: bridge });
+    service.onRegistered?.({ authorizeOperation } as unknown as ServiceRuntimeContext);
+
+    service.handleMessage(WINDOW_ID, { type: 'media.session.create', id: 'approved', owner: 'napplet', sessionId: 'owned-media' } as NappletMessage, () => {});
+    await vi.waitFor(() => expect(authorizeOperation).toHaveBeenCalledTimes(1));
+
+    expect(authorizeOperation.mock.calls[0]?.slice(0, 2)).toEqual([WINDOW_ID, 'media.session.create']);
+    expect(authorizeOperation.mock.calls[0]?.[2]).toEqual(expect.arrayContaining([
+      expect.objectContaining({ category: 'interface', domain: 'media' }),
+      expect.objectContaining({ category: 'resource', scope: { kind: 'exact', value: 'owned-media' } }),
+    ]));
+    expect(bridge.setActiveSession).toHaveBeenCalledWith('owned-media', expect.any(Array));
+  });
+
+  it('does not mutate the media bridge after denial and suppresses actions after revocation', async () => {
+    let action: ((sessionId: string, action: MediaAction, value?: number) => void) | undefined;
+    const bridge = {
+      setMetadata: vi.fn(), setPlaybackState: vi.fn(), onAction: (callback: typeof action extends undefined ? never : NonNullable<typeof action>) => { action = callback; return () => {}; }, setActiveSession: vi.fn(), destroySession: vi.fn(),
+    } satisfies HostMediaBridge;
+    const denied = createMediaService({ hostBridge: bridge });
+    denied.onRegistered?.({ authorizeOperation: async () => ({ status: 'denied' }) } as unknown as ServiceRuntimeContext);
+    const deniedMessages: NappletMessage[] = [];
+    denied.handleMessage(WINDOW_ID, { type: 'media.session.create', id: 'denied', owner: 'napplet', sessionId: 'no-mutation' } as NappletMessage, (message) => deniedMessages.push(message));
+    await vi.waitFor(() => expect(deniedMessages).toHaveLength(1));
+    expect(deniedMessages[0]).toMatchObject({ type: 'media.session.create.result', error: 'user-denied' });
+    expect(bridge.setActiveSession).not.toHaveBeenCalled();
+
+    const approved = createMediaService({ hostBridge: bridge });
+    approved.onRegistered?.({ authorizeOperation: async (_windowId, _operation, _requirements, execute) => ({ status: 'executed', value: await execute({ aborted: false, addEventListener() {}, removeEventListener() {} }) }) } as unknown as ServiceRuntimeContext);
+    const sent: NappletMessage[] = [];
+    approved.handleMessage(WINDOW_ID, { type: 'media.session.create', id: 'live', owner: 'napplet', sessionId: 'revoked-media' } as NappletMessage, (message) => sent.push(message));
+    await vi.waitFor(() => expect(sent).toHaveLength(1));
+    approved.onPermissionRevoked?.(WINDOW_ID);
+    action?.('revoked-media', 'play');
+    expect(bridge.destroySession).toHaveBeenCalledWith('revoked-media');
+    expect(sent).toHaveLength(1);
+  });
   it('returns a ServiceHandler with a media descriptor', () => {
     const service = createMediaService();
     expect(service.descriptor.name).toBe('media');
@@ -496,6 +542,19 @@ describe('media.command emission on setActionHandler fire (real push path)', () 
       expect(cmd.action).toBe(napAction);
       if (napAction === 'seek') expect(cmd.value).toBe(42);
     }
+  });
+
+  it('does not pass remote artwork URLs to the browser media metadata surface', () => {
+    const mock = createMockMediaSession();
+    const service = createMediaService({ mediaSessionTarget: mock.target, documentTarget: null });
+
+    service.handleMessage(WINDOW_ID, {
+      type: 'media.session.create', owner: 'napplet', id: 'artwork', sessionId: 'artwork-session',
+      metadata: { title: 'Track', artwork: { url: 'https://untrusted.example/cover.png' } },
+    } as NappletMessage, () => {});
+
+    expect(mock.target.metadata).toMatchObject({ title: 'Track' });
+    expect(mock.target.metadata).not.toHaveProperty('artwork');
   });
 });
 
