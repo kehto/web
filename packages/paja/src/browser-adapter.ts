@@ -177,7 +177,6 @@ export interface PajaShellAdapter extends ShellAdapter {
 
 export { PAJA_DEV_SIGNER_PUBKEY } from './browser-dev-runtime.js';
 
-
 function createPajaCvmRelayPool(backend: PajaRelayBackend): CvmRelayPool {
   return {
     subscribe(relays: string[], filter: NostrFilterLike, params) {

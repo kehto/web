@@ -1,5 +1,5 @@
 ---
-"@kehto/paja": patch
+"@kehto/paja": minor
 ---
 
 Notify open napplets of intent availability after verified catalog installs,
