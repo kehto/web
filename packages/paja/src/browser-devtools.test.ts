@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { npubEncode } from 'nostr-tools/nip19';
 import {
   createShellBridge,
   originRegistry,
@@ -220,5 +221,203 @@ describe('Paja ACL controls', () => {
     expect(container.button('outbox:read').dataset.enabled).toBe('true');
 
     bridge.destroy();
+  });
+});
+
+const VIEW_ONLY_HEX = '5'.repeat(64);
+const VIEW_ONLY_NPUB = npubEncode(VIEW_ONLY_HEX);
+
+/** Minimal element double for the DOM-shaped signer controls. */
+class FakeElement {
+  readonly dataset: Record<string, string> = {};
+  readonly attributes = new Map<string, string>();
+  children: FakeElement[] = [];
+  id = '';
+  className = '';
+  textContent = '';
+  title = '';
+  type = '';
+  value = '';
+  placeholder = '';
+  autocomplete = '';
+  spellcheck = true;
+  disabled = false;
+  hidden = false;
+  private readonly listeners = new Map<string, () => void>();
+
+  constructor(readonly tagName: string) {}
+
+  setAttribute(name: string, value: string): void {
+    this.attributes.set(name, value);
+  }
+
+  addEventListener(type: string, listener: EventListenerOrEventListenerObject): void {
+    if (type !== 'click') return;
+    this.listeners.set(
+      type,
+      typeof listener === 'function' ? () => listener({} as Event) : () => listener.handleEvent({} as Event),
+    );
+  }
+
+  append(...nodes: FakeElement[]): void {
+    this.children.push(...nodes);
+  }
+
+  replaceChildren(...nodes: FakeElement[]): void {
+    this.children = [...nodes];
+  }
+
+  click(): void {
+    this.listeners.get('click')?.();
+  }
+
+  querySelector(selector: string): FakeElement | null {
+    if (!selector.startsWith('#')) return null;
+    return this.findById(selector.slice(1));
+  }
+
+  findById(id: string): FakeElement | null {
+    for (const child of this.children) {
+      if (child.id === id) return child;
+      const nested = child.findById(id);
+      if (nested) return nested;
+    }
+    return null;
+  }
+}
+
+function installSignerDom(): {
+  status: FakeElement;
+  controls: FakeElement;
+  consent: FakeElement;
+} {
+  const status = new FakeElement('div');
+  status.id = 'signer-status';
+  const controls = new FakeElement('div');
+  controls.id = 'signer-controls';
+  const consent = new FakeElement('button');
+  consent.id = 'signer-consent-clear';
+  consent.hidden = true;
+  vi.stubGlobal('HTMLButtonElement', FakeElement);
+  vi.stubGlobal('document', {
+    getElementById: (id: string) => {
+      if (id === 'signer-status') return status;
+      if (id === 'signer-controls') return controls;
+      if (id === 'signer-consent-clear') return consent;
+      return null;
+    },
+    createElement: (tagName: string) => new FakeElement(tagName),
+  });
+  return { status, controls, consent };
+}
+
+function createSignerState(overrides: Partial<PajaDevtoolsState> = {}): PajaDevtoolsState {
+  const config = createPajaRuntimeHostConfig();
+  return {
+    config,
+    simulation: config.simulation,
+    signer: { method: 'none', status: 'disconnected', pubkey: null, relay: null, error: null },
+    signerConsentCount: 0,
+    resolvedTarget: null,
+    messageFilter: '',
+    messageLog: [],
+    relayEventCounts: createPajaRelayEventCounter(),
+    setDomainEnabled: vi.fn(),
+    setAclCapability: vi.fn(),
+    useDevSigner: vi.fn(),
+    useViewOnlySigner: vi.fn(),
+    disconnectSigner: vi.fn(),
+    connectNip07: vi.fn(async () => {}),
+    connectBunker: vi.fn(async () => {}),
+    clearSignerConsent: vi.fn(),
+    ...overrides,
+  };
+}
+
+describe('Paja signer and identity controls', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('reports a view-only identity as read-only with its npub', () => {
+    const { status, controls } = installSignerDom();
+    const state = createSignerState({
+      signer: { method: 'viewonly', status: 'connected', pubkey: VIEW_ONLY_HEX, relay: null, error: null },
+    });
+
+    renderPajaDevtools(state, { bridge: null, devSignerPubkey: '' });
+
+    expect(status.textContent).toContain('view only connected');
+    expect(status.textContent).toContain(VIEW_ONLY_NPUB);
+    expect(status.textContent).toContain('reads only — signing, encrypting, and publishing are unavailable');
+    expect(status.textContent).not.toContain('signing asks every time');
+    expect(controls.findById('signer-viewonly-npub')?.value).toBe(VIEW_ONLY_NPUB);
+    expect(controls.findById('signer-viewonly')?.dataset.active).toBe('true');
+    expect(controls.findById('signer-disconnect')?.disabled).toBe(false);
+  });
+
+  it('submits the typed identity and logs out through the host state', () => {
+    const { controls } = installSignerDom();
+    const state = createSignerState();
+
+    renderPajaDevtools(state, { bridge: null, devSignerPubkey: '' });
+    const input = controls.findById('signer-viewonly-npub');
+    if (!input) throw new Error('Missing view-only input');
+    input.value = VIEW_ONLY_NPUB;
+
+    controls.findById('signer-viewonly')?.click();
+    expect(state.useViewOnlySigner).toHaveBeenCalledWith(VIEW_ONLY_NPUB);
+
+    controls.findById('signer-disconnect')?.click();
+    expect(state.disconnectSigner).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables log out when nothing is connected and keeps approval wording otherwise', () => {
+    const { status, controls } = installSignerDom();
+    const state = createSignerState();
+
+    renderPajaDevtools(state, { bridge: null, devSignerPubkey: '' });
+    expect(controls.findById('signer-disconnect')?.disabled).toBe(true);
+    expect(status.textContent).toBe('no signer connected · signing asks every time · publishing asks every time');
+
+    const remembered = createSignerState({
+      signer: { method: 'dev', status: 'connected', pubkey: null, relay: null, error: null },
+      signerConsentCount: 2,
+    });
+    renderPajaDevtools(remembered, { bridge: null, devSignerPubkey: 'a'.repeat(64) });
+    expect(status.textContent).toContain('2 remembered signing approvals');
+    expect(controls.findById('signer-disconnect')?.disabled).toBe(false);
+  });
+
+  it('keeps values the author typed across re-renders', () => {
+    const { controls } = installSignerDom();
+    const state = createSignerState();
+
+    renderPajaDevtools(state, { bridge: null, devSignerPubkey: '' });
+    const input = controls.findById('signer-viewonly-npub');
+    const bunker = controls.findById('signer-bunker-uri');
+    if (!input || !bunker) throw new Error('Missing signer inputs');
+    input.value = 'npub1typing';
+    bunker.value = 'bunker://typing';
+
+    renderPajaDevtools(state, { bridge: null, devSignerPubkey: '' });
+
+    expect(controls.findById('signer-viewonly-npub')?.value).toBe('npub1typing');
+    expect(controls.findById('signer-bunker-uri')?.value).toBe('bunker://typing');
+  });
+
+  it('surfaces a view-only rejection in the status line', () => {
+    const { status } = installSignerDom();
+    const state = createSignerState({
+      signer: {
+        method: 'viewonly',
+        status: 'error',
+        pubkey: null,
+        relay: null,
+        error: 'that is a secret key, not a view-only identity — paste the npub instead',
+      },
+    });
+
+    renderPajaDevtools(state, { bridge: null, devSignerPubkey: '' });
+
+    expect(status.textContent).toContain('view only error: that is a secret key');
   });
 });

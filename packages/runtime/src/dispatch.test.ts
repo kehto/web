@@ -364,6 +364,93 @@ describe('NIP-5D Envelope Dispatch', () => {
       expect((result as any).accepted).toBeUndefined();
     });
 
+    it('relay.publish reports a read-only identity instead of a missing signer', () => {
+      const readOnly = createMockRuntimeAdapter({
+        auth: {
+          getUserPubkey: () => 'd'.repeat(64),
+          // A view-only identity exposes public information only.
+          getSigner: () => ({ getPublicKey: () => 'd'.repeat(64) }),
+        },
+      });
+      const readOnlyRuntime = createRuntime(readOnly.hooks);
+      readOnlyRuntime.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
+
+      readOnlyRuntime.handleMessage(WINDOW_ID, {
+        type: 'relay.publish',
+        id: 'req-pub-readonly',
+        event: {
+          created_at: Math.floor(Date.now() / 1000),
+          kind: 1,
+          tags: [],
+          content: 'hello',
+        },
+      } as NappletMessage);
+
+      expect(findEnvelopeResponse(readOnly.sent, 'relay.publish.result')).toMatchObject({
+        id: 'req-pub-readonly',
+        ok: false,
+        error: 'signing unavailable (read-only identity)',
+      });
+      expect(readOnly.sent.some((entry) => (entry.message as NappletMessage).type === 'relay.event')).toBe(false);
+    });
+
+    it('relay.publishEncrypted reports a read-only identity before encrypting', () => {
+      const readOnly = createMockRuntimeAdapter({
+        auth: {
+          getUserPubkey: () => 'd'.repeat(64),
+          getSigner: () => ({ getPublicKey: () => 'd'.repeat(64) }),
+        },
+      });
+      const readOnlyRuntime = createRuntime(readOnly.hooks);
+      readOnlyRuntime.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
+
+      readOnlyRuntime.handleMessage(WINDOW_ID, {
+        type: 'relay.publishEncrypted',
+        id: 'req-pe-readonly',
+        recipient: 'e'.repeat(64),
+        event: { kind: 1, created_at: Math.floor(Date.now() / 1000), tags: [], content: 'hello' },
+      } as NappletMessage);
+
+      expect(findEnvelopeResponse(readOnly.sent, 'relay.publishEncrypted.result')).toMatchObject({
+        id: 'req-pe-readonly',
+        ok: false,
+        error: 'encryption unavailable (read-only identity)',
+      });
+    });
+
+    it('relay.publishEncrypted names the missing encryption scheme', () => {
+      const signerWithoutEncryption = createMockRuntimeAdapter({
+        auth: {
+          getUserPubkey: () => 'd'.repeat(64),
+          getSigner: () => ({
+            getPublicKey: () => 'd'.repeat(64),
+            signEvent: async (template: EventTemplate) => ({
+              ...template,
+              id: 'a'.repeat(64),
+              pubkey: 'd'.repeat(64),
+              sig: 'c'.repeat(128),
+            }),
+          }),
+        },
+      });
+      const noEncryptionRuntime = createRuntime(signerWithoutEncryption.hooks);
+      noEncryptionRuntime.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
+
+      noEncryptionRuntime.handleMessage(WINDOW_ID, {
+        type: 'relay.publishEncrypted',
+        id: 'req-pe-nip44',
+        recipient: 'e'.repeat(64),
+        encryption: 'nip44',
+        event: { kind: 1, created_at: Math.floor(Date.now() / 1000), tags: [], content: 'hello' },
+      } as NappletMessage);
+
+      expect(findEnvelopeResponse(signerWithoutEncryption.sent, 'relay.publishEncrypted.result')).toMatchObject({
+        id: 'req-pe-nip44',
+        ok: false,
+        error: 'signer has no nip44 encryption',
+      });
+    });
+
     it('relay.publish returns a canonical failure for a missing event template', () => {
       runtime.handleMessage(WINDOW_ID, {
         type: 'relay.publish',
