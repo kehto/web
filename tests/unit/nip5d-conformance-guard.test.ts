@@ -468,6 +468,7 @@ describe('NIP-5D conformance static guards', () => {
       'payload',
       'behavior',
       'sourceWindowId',
+      'signal',
     ]);
 
     for (const file of activeIntentContractFiles) {
