@@ -282,6 +282,12 @@ networking, or signer/key access for follows and profiles. It privately validate
 the active account's replacement kind-3 contact list and warms followed kind-0
 profile records through its established outbox router.
 
+That warming needs an account Paja can act as, meaning a connected NIP-07/NIP-46
+pubkey or the Dev signer. A fixed simulation identity is a read-only stand-in:
+it answers `identity.getPublicKey`, and `identity.getFollows` still loads that
+account's contact list on demand, but with no signer connected it starts no
+author-routed reads.
+
 The snapshot is active-account-scoped and memory-only, not napplet-owned storage
 or a durable-cache control, and is separate from generic simulation cache mode.
 Captured-key request correlation keeps follows tied to the account that started
