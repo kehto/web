@@ -517,3 +517,18 @@ one redundant catch in executor-owned resource-authorization.ts:88; executor
 notified. Full resource gates and final source commit still pending. Prior turn
 was progress; current turn delivers expanded regression evidence and resolves
 host planning decisions, without claiming group or full-goal completion.
+
+2026-10-17: Host114 revised plan set independently PASSED and committed1a15764e
+(12plans/33tasks/9waves plus research/validation/review). All optional-shell,
+bounded development, and exhaustive CSP findings closed. Host execution still
+requires completed113 integration. Both planner/checker finished; available for
+future workflow tasks. Resource executor remains live on fullgates/source closure.
+Root discovered published package docs still described9511232 servers/requests
+and browser-only transport despite structuraldocs passing. Corrected paja,
+services, shell package docs in900217fd, including canonical wire, protectedproxy,
+request-bound network lifetime, compatibility, and explicit114isolation prerequisite.
+Docs:check PASS (/tmp/kehto-resource-package-docs.log), pinnedquality100
+(/tmp/kehto-resource-package-docs-quality.json), diffcheck clean. Executor notified
+servicesREADME:55 still needs its owned stale-contract update. Prior turn was
+progress; this turn closes reviewed114planning and published-doc drift. Full
+resource gates/summary remain pending; no PR or fullgoal completion claim.
