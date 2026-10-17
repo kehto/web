@@ -15,6 +15,7 @@ const livePool = vi.hoisted(() => ({
   requests: [] as Array<{ relayUrls: string[]; filter: Record<string, unknown> }>,
   countRequests: [] as Array<{ relayUrl: string; filters: Record<string, unknown>[] }>,
   countValues: new Map<string, number>(),
+  countPending: undefined as Promise<number> | undefined,
   countFailures: new Set<string>(),
   publishRequests: [] as Array<{ relayUrls: string[]; event: unknown }>,
   subscribeMapRequests: [] as Array<Array<{ url: string; filter: Record<string, unknown> }>>,
@@ -66,6 +67,7 @@ vi.mock('nostr-tools/pool', () => ({
         },
         count: async (filters: Record<string, unknown>[]) => {
           livePool.countRequests.push({ relayUrl, filters });
+          if (livePool.countPending) return livePool.countPending;
           return livePool.countValues.get(relayUrl) ?? 0;
         },
       };
@@ -464,6 +466,27 @@ describe('@kehto/paja effective relay URLs', () => {
     }]);
     expect(livePool.querySyncRequests).toEqual([]);
     (adapter.relayPool.getRelayPool() as PajaRelayBackend).close();
+  });
+
+  it('stops COUNT retries and suppresses late replies after approval cancellation', async () => {
+    livePool.countRequests = [];
+    livePool.countFailures.clear();
+    let resolveCount!: (count: number) => void;
+    livePool.countPending = new Promise<number>((resolve) => { resolveCount = resolve; });
+    const simulation = normalizePajaSimulation({ relay: { mode: 'live', urls: TEST_RELAYS } });
+    const backend = createPajaRelayBackend(() => simulation, () => true);
+    const approval = new AbortController();
+    try {
+      const pending = backend.countWithRelay([...TEST_RELAYS], [{ kinds: [1] }], approval.signal);
+      await vi.waitFor(() => expect(livePool.countRequests).toHaveLength(1));
+      approval.abort();
+      await expect(pending).rejects.toThrow('count cancelled');
+      expect(livePool.countRequests.map((request) => request.relayUrl)).toEqual([TEST_RELAYS[0]]);
+      resolveCount(7);
+    } finally {
+      livePool.countPending = undefined;
+      backend.close();
+    }
   });
 
   it('does not advertise COUNT for the memory relay fixture', () => {

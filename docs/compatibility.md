@@ -24,6 +24,24 @@ This path remains for external hosts during migration. Once supported hosts
 use the permission adapter, announce its removal in a 0.x minor release,
 delete the legacy gate/state surface, and add negative tests for old config.
 
+## FW-COUNT-LEGACY-001 — unbound COUNT service
+
+`@kehto/services` retains direct `createCountService` execution when a host has
+not attached `RuntimeAdapter.permissions`. It still resolves and freezes any
+`planCount` relay destinations before calling the backend, but does not grant
+network authority. Attach a permission-enabled runtime to approve the `count`
+interface and each planned relay origin before the same relay list reaches
+`count(request)`. Source and warning site: `packages/services/src/count-service.ts`.
+The warning fires once per service instance on actual legacy COUNT use, never
+on configured calls, and includes no filters or relay URLs.
+`packages/services/src/count-service.test.ts` covers both paths, warning
+frequency, planned target retention, canonical quietness, revocation, and the
+NAP-COUNT failure shape. Paja's relay backend cancellation regression is in
+`packages/paja/src/browser-relay-runtime.test.ts`. Retain the path while
+external hosts migrate; then announce a 0.x minor removal, delete the direct
+branch, and add a negative unbound-service test. Authority: NAP-COUNT draft PR
+#69 at `9353a0c6c02c595f7e65ebd6df3802a7a45fc6bf`.
+
 ## Notification and gamepad approval transitions — services and Paja
 
 `FW-NOTIFY-LEGACY-001` belongs to `@kehto/services`. When a host calls

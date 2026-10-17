@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { NappletMessage } from '@napplet/core';
+import type { ApprovalSignal, ServiceRuntimeContext } from '@kehto/runtime';
 
 import { createCountService } from './count-service.js';
 
@@ -101,5 +102,37 @@ describe('createCountService', () => {
     resolve(1);
     await Promise.resolve();
     expect(sent).toEqual([]);
+  });
+
+  it('uses the same planned relays on the legacy path and warns once while configured calls stay quiet', async () => {
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const count = vi.fn(({ relays }) => ({ ok: true, count: relays?.length ?? 0 }));
+      const legacy = createCountService({ planCount: () => ({ relays: ['wss://count.example'] }), count });
+      const sent: NappletMessage[] = [];
+      for (const id of ['one', 'two']) legacy.handleMessage('window-a', {
+        type: 'count.query', id, filters: [{ kinds: [1] }],
+      } as NappletMessage, (message) => sent.push(message));
+      await vi.waitFor(() => expect(sent).toHaveLength(2));
+      expect(count).toHaveBeenCalledWith(expect.objectContaining({ relays: ['wss://count.example'] }));
+      expect(warning).toHaveBeenCalledTimes(1);
+      expect(warning.mock.calls[0]?.[0]).toMatch(/FW-COUNT-LEGACY-001.*RuntimeAdapter.permissions.*once per service instance/);
+
+      warning.mockClear();
+      const canonical = createCountService({ planCount: () => ({ relays: ['wss://count.example'] }), count });
+      canonical.onRegistered?.({ authorizeOperation: async (_windowId: string, _operation: string, _requirements: readonly unknown[], execute: (signal: ApprovalSignal) => unknown) =>
+        ({ status: 'executed' as const, value: await execute(new AbortController().signal) }) } as unknown as ServiceRuntimeContext);
+      canonical.handleMessage('window-a', { type: 'count.query', id: 'three', filters: [{ kinds: [1] }] } as NappletMessage, (message) => sent.push(message));
+      await vi.waitFor(() => expect(sent).toHaveLength(3));
+      expect(warning).not.toHaveBeenCalled();
+    } finally { warning.mockRestore(); }
+  });
+
+  it('never includes success fields on a failed COUNT result', async () => {
+    const service = createCountService({ count: () => ({ ok: false, error: 'count-unavailable', count: 9, relays: ['wss://private.example'] }) });
+    const sent: NappletMessage[] = [];
+    service.handleMessage('window-a', { type: 'count.query', id: 'failed', filters: [{ kinds: [1] }] } as NappletMessage, (message) => sent.push(message));
+    await vi.waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent).toEqual([{ type: 'count.query.result', id: 'failed', ok: false, error: 'count-unavailable' }]);
   });
 });

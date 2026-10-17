@@ -1,6 +1,8 @@
 import type { NappletMessage, NostrFilter } from '@napplet/core';
 import type { ApprovalSignal, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
 
+declare const console: { warn(message: string): void };
+
 export interface CountRequest {
   /** NIP-01 filters with NIP-45 COUNT OR semantics. */
   readonly filters: NostrFilter[];
@@ -60,6 +62,7 @@ const DEFAULT_MAX_FILTERS = 16;
 
 export function createCountService(options: CountServiceOptions): ServiceHandler {
   let runtime: ServiceRuntimeContext | undefined;
+  let warnedLegacy = false;
   const generations = new Map<string, object>();
   const generationFor = (windowId: string): object => {
     let generation = generations.get(windowId);
@@ -109,12 +112,21 @@ export function createCountService(options: CountServiceOptions): ServiceHandler
         ...(isPlainObject(countMessage.options) ? { options: countMessage.options } : {}),
       };
 
-      const run = (plan: { relays?: readonly string[] }) => runtime?.authorizeOperation
-        ? runtime.authorizeOperation(windowId, 'count.query', [
+      const run = (plan: { relays?: readonly string[] }) => {
+        const relays = plan.relays ? Object.freeze([...plan.relays]) : undefined;
+        if (!runtime?.authorizeOperation) {
+          if (!warnedLegacy) {
+            warnedLegacy = true;
+            console.warn('FW-COUNT-LEGACY-001: COUNT without RuntimeAdapter.permissions uses host-only execution; attach scoped Firewall approvals (warns once per service instance; retained through the next minor release).');
+          }
+          return options.count({ ...request, ...(relays ? { relays } : {}) });
+        }
+        return runtime.authorizeOperation(windowId, 'count.query', [
           { category: 'interface', domain: 'count', operation: 'access', scope: { kind: 'exact', value: 'count' } },
-          ...(plan.relays ?? []).map((url) => ({ category: 'network' as const, domain: 'count', operation: 'count.query', scope: { kind: 'origin' as const, value: new URL(url).origin } })),
-        ], (signal) => signal.aborted ? { ok: false, error: 'policy denied' } : options.count({ ...request, signal, ...(plan.relays ? { relays: Object.freeze([...plan.relays]) } : {}) })).then((outcome) => outcome.status === 'executed' && outcome.value ? outcome.value : { ok: false, error: 'policy denied' })
-        : options.count(request);
+          ...(relays ?? []).map((url) => ({ category: 'network' as const, domain: 'count', operation: 'count.query', scope: { kind: 'origin' as const, value: new URL(url).origin } })),
+        ], (signal) => signal.aborted ? { ok: false, error: 'policy denied' } : options.count({ ...request, signal, ...(relays ? { relays } : {}) }))
+          .then((outcome) => outcome.status === 'executed' && outcome.value ? outcome.value : { ok: false, error: 'policy denied' });
+      };
       const planned = options.planCount?.(request);
       void (planned === undefined ? Promise.resolve(run({})) : Promise.resolve(planned).then(run))
         .then((countResult) => {
@@ -157,12 +169,21 @@ function normalizeCountResult(value: CountResult | number): CountResult {
       : { ok: false, error: 'count-unavailable', reason: 'count backend returned an invalid count' };
   }
 
+  if (value.ok !== true) {
+    return {
+      ok: false,
+      error: typeof value.error === 'string' ? value.error : 'count-unavailable',
+      ...(typeof value.reason === 'string' ? { reason: value.reason } : {}),
+    };
+  }
+
   const count = typeof value.count === 'number' && Number.isFinite(value.count) && value.count >= 0
     ? Math.floor(value.count)
     : undefined;
+  if (count === undefined) return { ok: false, error: 'count-unavailable', reason: 'count backend returned an invalid count' };
   return {
-    ok: value.ok === true,
-    ...(count !== undefined ? { count } : {}),
+    ok: true,
+    count,
     ...(typeof value.approximate === 'boolean' ? { approximate: value.approximate } : {}),
     ...(typeof value.hll === 'string' ? { hll: value.hll } : {}),
     ...(Array.isArray(value.relays) ? { relays: value.relays } : {}),

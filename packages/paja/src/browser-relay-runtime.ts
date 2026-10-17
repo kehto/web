@@ -1,6 +1,7 @@
 import type { NostrEvent, NostrFilter } from '@napplet/core';
 import type { RelayPoolLike } from '@kehto/shell';
 import type { OutboxRelayPool, RelayListEntry } from '@kehto/services';
+import type { ApprovalSignal } from '@kehto/runtime';
 import {
   createNip65Registry,
   selectReadRelays,
@@ -108,7 +109,7 @@ export interface PajaRelayBackend extends RelayPoolLike {
     signal?: AbortSignal,
   ): Promise<NostrEvent[]>;
   publishToRelays(relayUrls: string[], event: NostrEvent): Promise<Record<string, boolean>>;
-  countWithRelay(relayUrls: string[], filters: NostrFilter[]): Promise<{ count: number; relay: string }>;
+  countWithRelay(relayUrls: string[], filters: NostrFilter[], signal?: ApprovalSignal): Promise<{ count: number; relay: string }>;
   /** Relay URLs on which nostr-tools actually observed an event. */
   observedRelayUrls(eventId: string): string[];
   /**
@@ -200,11 +201,18 @@ async function countLive(
   pool: SimplePool,
   relayUrls: string[],
   filters: NostrFilter[],
+  signal?: ApprovalSignal,
 ): Promise<{ count: number; relay: string }> {
   let failure: unknown = new Error('count unavailable');
   for (const relayUrl of relayUrls) {
+    if (signal?.aborted) throw new Error('count cancelled');
     const controller = new AbortController();
     let timeout: ReturnType<typeof setTimeout> | undefined;
+    let rejectCancelled: (reason: Error) => void = () => {};
+    const cancelled = new Promise<never>((_resolve, reject) => { rejectCancelled = reject; });
+    const onAbort = () => { controller.abort(); rejectCancelled(new Error('count cancelled')); };
+    signal?.addEventListener('abort', onAbort, { once: true });
+    if (signal?.aborted) onAbort();
     const timedOut = new Promise<never>((_resolve, reject) => {
       timeout = setTimeout(() => {
         controller.abort();
@@ -218,17 +226,21 @@ async function countLive(
           abort: controller.signal,
         }),
         timedOut,
+        cancelled,
       ]);
       const count = await Promise.race([
         relay.count(filters as Filter[], { id: null }),
         timedOut,
+        cancelled,
       ]);
       if (!Number.isSafeInteger(count) || count < 0) throw new Error('invalid count');
       return { count, relay: relayUrl };
     } catch (error) {
+      if (signal?.aborted) throw error;
       failure = error;
     } finally {
       if (timeout !== undefined) clearTimeout(timeout);
+      signal?.removeEventListener('abort', onAbort);
     }
   }
   throw failure;
@@ -393,10 +405,11 @@ export function createPajaRelayBackend(
       if (getSimulation().relay.mode !== 'live') throw new Error('count unavailable');
       return (await countLive(livePool, relayUrls, normalizedFilters(filters))).count;
     },
-    async countWithRelay(relayUrls, filters) {
+    async countWithRelay(relayUrls, filters, signal) {
       if (getSimulation().relay.mode !== 'live') throw new Error('count unavailable');
+      if (signal?.aborted) throw new Error('count cancelled');
       observeRelayRequest({ reason: 'host' }, relayUrls);
-      return countLive(livePool, relayUrls, normalizedFilters(filters));
+      return countLive(livePool, relayUrls, normalizedFilters(filters), signal);
     },
     observedRelayUrls(eventId) {
       return [...(livePool.seenOn?.get(eventId) ?? [])].map((relay) => relay.url);

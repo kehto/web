@@ -270,9 +270,10 @@ function createDevServices(
   }
   if (getSimulation().capabilities.domains.count && getSimulation().relay.mode === 'live') {
     services.count = createCountService({
-      count: async ({ filters }) => {
-        const relays = getReadRelays();
-        const result = await backend.countWithRelay(relays, filters);
+      planCount: () => ({ relays: getReadRelays() }),
+      count: async ({ filters, relays, signal }) => {
+        if (!relays?.length || signal?.aborted) return { ok: false, error: 'count-unavailable' };
+        const result = await backend.countWithRelay([...relays], filters, signal);
         return {
           ok: true,
           count: result.count,
