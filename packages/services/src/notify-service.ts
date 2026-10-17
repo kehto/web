@@ -101,6 +101,99 @@ function scopeFor(operation: string, value: string) {
   return [{ category: 'resource' as const, domain: 'notify', operation, scope: { kind: 'exact' as const, value } }];
 }
 
+type NotifyAuthorize = <T>(windowId: string, operation: string, scope: string,
+  action: (signal: ApprovalSignal) => T | Promise<T>) => Promise<{ status: 'executed'; value: T } | { status: 'denied' }>;
+
+interface NotifyDispatch {
+  readonly options: NotifyServiceOptions;
+  readonly active: Map<string, Set<string>>;
+  readonly generationFor: (windowId: string) => object;
+  readonly current: (windowId: string, generation: object) => boolean;
+  readonly authorize: NotifyAuthorize;
+  readonly pushControls: (windowId: string, send: (message: NappletMessage) => void) => void;
+  readonly sendNotification: (windowId: string, message: NotifySendMessage,
+    send: (message: NappletMessage) => void) => Promise<void>;
+}
+
+async function requestNotifyPermission(deps: NotifyDispatch, windowId: string,
+  message: NotifyPermissionRequestMessage, send: (message: NappletMessage) => void): Promise<void> {
+  const generation = deps.generationFor(windowId);
+  if (message.channel !== undefined && (typeof message.channel !== 'string' || message.channel.length > 128)) {
+    send({ type: 'notify.permission.result', id: message.id, granted: false } as NappletMessage);
+    return;
+  }
+  const channel = typeof message.channel === 'string' ? message.channel : undefined;
+  let granted = false;
+  try {
+    if (deps.options.requestPermission) {
+      const outcome = await deps.authorize(windowId, 'notify.permission.request', `channel:${channel ?? '*'}`,
+        (signal) => signal.aborted ? false : deps.options.requestPermission!(windowId, channel, signal));
+      granted = outcome.status === 'executed' && outcome.value === true;
+    }
+  } catch (error) {
+    deps.options.onError?.(error);
+  }
+  if (!deps.current(windowId, generation)) return;
+  const result: NotifyPermissionResultMessage = { type: 'notify.permission.result', id: message.id, granted };
+  send(result as NappletMessage);
+}
+
+function handleNotifyMessage(deps: NotifyDispatch, windowId: string, message: NappletMessage,
+  send: (message: NappletMessage) => void): void {
+  deps.pushControls(windowId, send);
+  switch (message.type) {
+    case 'notify.send':
+      void deps.sendNotification(windowId, message as NotifySendMessage, send);
+      return;
+    case 'notify.dismiss': {
+      const notificationId = (message as NotifyDismissMessage).notificationId;
+      const windowNotifications = deps.active.get(windowId);
+      if (!windowNotifications?.delete(notificationId)) return;
+      if (deps.options.dismiss) forget(deps.options.dismiss(windowId, notificationId), deps.options.onError);
+      return;
+    }
+    case 'notify.badge': {
+      if (!deps.options.setBadge) return;
+      const requestedCount = (message as NotifyBadgeMessage).count;
+      if (!Number.isSafeInteger(requestedCount) || requestedCount < 0) return;
+      const count = Math.min(requestedCount, 9999);
+      const generation = deps.generationFor(windowId);
+      void deps.authorize(windowId, 'notify.badge', 'badge', (signal) => {
+        if (signal.aborted || !deps.current(windowId, generation)) return;
+        return deps.options.setBadge!(windowId, count);
+      }).catch(deps.options.onError);
+      return;
+    }
+    case 'notify.channel.register': {
+      if (!deps.options.registerChannel) return;
+      const channel = message as NotifyChannelRegisterMessage;
+      if (typeof channel.channelId !== 'string' || channel.channelId.length > 128
+        || typeof channel.label !== 'string' || channel.label.length > 256
+        || (channel.description !== undefined && (typeof channel.description !== 'string' || channel.description.length > 4096))
+        || (channel.defaultPriority !== undefined && !['low', 'normal', 'high', 'urgent'].includes(channel.defaultPriority))) return;
+      const snapshot = Object.freeze({ type: 'notify.channel.register' as const,
+        channelId: channel.channelId, label: channel.label,
+        ...(channel.description === undefined ? {} : { description: channel.description }),
+        ...(channel.defaultPriority ? { defaultPriority: channel.defaultPriority } : {}),
+      });
+      const generation = deps.generationFor(windowId);
+      void deps.authorize(windowId, 'notify.channel.register', `channel:${snapshot.channelId}`, (signal) => {
+        if (signal.aborted || !deps.current(windowId, generation)) return;
+        return deps.options.registerChannel!(windowId, snapshot);
+      }).catch(deps.options.onError);
+      return;
+    }
+    case 'notify.permission.request':
+      void requestNotifyPermission(deps, windowId, message as NotifyPermissionRequestMessage, send);
+      return;
+    default: {
+      const id = (message as NappletMessage & { id?: string }).id ?? '';
+      send({ type: `${message.type}.error`, id,
+        error: `Unknown notify method: ${message.type}` } as NappletMessage);
+    }
+  }
+}
+
 /**
  * Create a NAP-NOTIFY service backed by host-owned notification behavior.
  *
@@ -221,36 +314,6 @@ export function createNotifyService(options: NotifyServiceOptions = {}): Service
     }
   };
 
-  const requestPermission = async (
-    windowId: string,
-    message: NotifyPermissionRequestMessage,
-    send: (msg: NappletMessage) => void,
-  ): Promise<void> => {
-    const generation = generationFor(windowId);
-    if (message.channel !== undefined && (typeof message.channel !== 'string' || message.channel.length > 128)) {
-      send({ type: 'notify.permission.result', id: message.id, granted: false } as NappletMessage);
-      return;
-    }
-    const channel = typeof message.channel === 'string' && message.channel.length <= 128 ? message.channel : undefined;
-    let granted = false;
-    try {
-      if (options.requestPermission) {
-        const outcome = await authorize(windowId, 'notify.permission.request', `channel:${channel ?? '*'}`,
-          (signal) => signal.aborted ? false : options.requestPermission!(windowId, channel, signal));
-        granted = outcome.status === 'executed' && outcome.value === true;
-      }
-    } catch (error) {
-      options.onError?.(error);
-    }
-    if (!current(windowId, generation)) return;
-    const result: NotifyPermissionResultMessage = {
-      type: 'notify.permission.result',
-      id: message.id,
-      granted,
-    };
-    send(result as NappletMessage);
-  };
-
   return {
     descriptor,
 
@@ -260,63 +323,9 @@ export function createNotifyService(options: NotifyServiceOptions = {}): Service
       runtime = undefined;
     },
 
-    handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void {
-      pushControls(windowId, send);
-      switch (message.type) {
-        case 'notify.send':
-          void sendNotification(windowId, message as NotifySendMessage, send);
-          return;
-        case 'notify.dismiss': {
-          const notificationId = (message as NotifyDismissMessage).notificationId;
-          const windowNotifications = active.get(windowId);
-          if (!windowNotifications?.delete(notificationId)) return;
-          if (options.dismiss) forget(options.dismiss(windowId, notificationId), options.onError);
-          return;
-        }
-        case 'notify.badge': {
-          if (options.setBadge) {
-            const requestedCount = (message as NotifyBadgeMessage).count;
-            if (!Number.isSafeInteger(requestedCount) || requestedCount < 0) return;
-            const count = Math.min(requestedCount, 9999);
-            const generation = generationFor(windowId);
-            void authorize(windowId, 'notify.badge', 'badge', (signal) => {
-              if (signal.aborted || !current(windowId, generation)) return;
-              return options.setBadge!(windowId, count);
-            }).catch(options.onError);
-          }
-          return;
-        }
-        case 'notify.channel.register':
-          if (options.registerChannel) {
-            const channel = message as NotifyChannelRegisterMessage;
-            if (typeof channel.channelId !== 'string' || channel.channelId.length > 128
-              || typeof channel.label !== 'string' || channel.label.length > 256
-              || (channel.description !== undefined && (typeof channel.description !== 'string' || channel.description.length > 4096))
-              || (channel.defaultPriority !== undefined && !['low', 'normal', 'high', 'urgent'].includes(channel.defaultPriority))) return;
-            const snapshot = Object.freeze({ type: 'notify.channel.register' as const,
-              channelId: channel.channelId, label: channel.label,
-              ...(channel.description === undefined ? {} : { description: channel.description }),
-              ...(channel.defaultPriority ? { defaultPriority: channel.defaultPriority } : {}),
-            });
-            const generation = generationFor(windowId);
-            void authorize(windowId, 'notify.channel.register', `channel:${snapshot.channelId}`, (signal) => {
-              if (signal.aborted || !current(windowId, generation)) return;
-              return options.registerChannel!(windowId, snapshot);
-            }).catch(options.onError);
-          }
-          return;
-        case 'notify.permission.request':
-          void requestPermission(windowId, message as NotifyPermissionRequestMessage, send);
-          return;
-        default: {
-          const id = (message as NappletMessage & { id?: string }).id ?? '';
-          send({
-            type: `${message.type}.error`,
-            id,
-            error: `Unknown notify method: ${message.type}`,
-          } as NappletMessage);
-        }
-      }
+    handleMessage(windowId, message, send) {
+      handleNotifyMessage({ options, active, generationFor, current, authorize,
+        pushControls, sendNotification }, windowId, message, send);
     },
 
     onPermissionRevoked(windowId: string): void { cleanup(windowId); },
