@@ -130,6 +130,22 @@ describe('createThemeService', () => {
   });
 
   describe('publishTheme broadcast', () => {
+    it('uses the host broadcast owner once without duplicating runtime delivery', () => {
+      const onBroadcast = vi.fn();
+      const sendToEligibleNapplet = vi.fn(() => true);
+      const service = createThemeService({ onBroadcast });
+      service.handler.onRegistered?.({
+        listWindowIds: () => ['preferences'],
+        sendToEligibleNapplet,
+      } as unknown as ServiceRuntimeContext);
+
+      const returned = service.publishTheme({ colors: DEFAULT_THEME_COLORS });
+
+      expect(onBroadcast).toHaveBeenCalledOnce();
+      expect(onBroadcast).toHaveBeenCalledWith(returned);
+      expect(sendToEligibleNapplet).not.toHaveBeenCalled();
+    });
+
     it('updates state before invoking onBroadcast once with one matching envelope', () => {
       const broadcasts: ThemeChangedMessage[] = [];
       let service: ReturnType<typeof createThemeService>;

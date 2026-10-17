@@ -4,12 +4,10 @@
  * Handles the single napplet->shell request type from @napplet/nap/theme:
  *   - `theme.get`         -> `theme.get.result { theme }` (current theme)
  *
- * Exposes a host-facing `publishTheme(theme)` handle that:
- *   1. Replaces the service's internal current theme.
- *   2. Invokes `options.onBroadcast(envelope)` synchronously with a
- *      `theme.changed` envelope so the shell adapter (Plan 13-02) can
- *      fan-out the push to every registered napplet.
- *   3. Returns the envelope so callers can use it directly if they prefer.
+ * Exposes a host-facing `publishTheme(theme)` handle that replaces the
+ * service's internal current theme, then sends exactly one `theme.changed`
+ * delivery path. A host-provided `onBroadcast` owns delivery when supplied;
+ * otherwise the registered runtime sends to its eligible napplets.
  *
  * The default theme values are centralized here and mirrored in the runtime's
  * fallback path (`packages/runtime/src/runtime.ts`) — runtime does NOT import
@@ -95,9 +93,9 @@ export interface ThemeServiceOptions {
 
   /**
    * Called synchronously from `publishTheme(theme)` with a `theme.changed`
-   * envelope. Intended for the shell adapter (Plan 13-02) to fan-out the
-   * push to every registered napplet via the runtime's sendToNapplet
-   * primitive.
+   * envelope. When supplied, it is the sole delivery owner, so shell adapters
+   * can apply their live-session and ACL checks without duplicate runtime
+   * fan-out.
    *
    * Keep this callback shape framework-agnostic — the service does NOT
    * import any shell / browser APIs.
@@ -116,8 +114,8 @@ export interface ThemeService {
 
   /**
    * Publish a theme-change to the shell adapter. Updates the service's
-   * internal current theme, invokes `options.onBroadcast` with a
-   * `theme.changed` envelope, and returns the envelope.
+   * internal current theme, routes one `theme.changed` envelope through the
+   * configured delivery owner, and returns the envelope.
    *
    * @param theme - The new theme payload
    * @returns A `theme.changed` envelope (same one passed to onBroadcast)
@@ -193,7 +191,10 @@ export function createThemeService(options: ThemeServiceOptions = {}): ThemeServ
   function publishTheme(theme: Theme): ThemeChangedMessage {
     currentTheme = normalizeTheme(theme);
     const envelope: ThemeChangedMessage = { type: 'theme.changed', theme: currentTheme };
-    options.onBroadcast?.(envelope);
+    if (options.onBroadcast) {
+      options.onBroadcast(envelope);
+      return envelope;
+    }
     for (const windowId of runtime?.listWindowIds() ?? []) runtime?.sendToEligibleNapplet(windowId, envelope as NappletMessage);
     return envelope;
   }
