@@ -457,15 +457,22 @@ export function createOutboxService(options: OutboxServiceOptions): ServiceHandl
     send({ type: 'outbox.closed', subId } as NappletMessage);
   }
 
-  function handlePublish(msg: NappletMessage, send: Send): void {
+  function handlePublish(windowId: string, msg: NappletMessage, send: Send): void {
     const m = msg as NappletMessage & { id?: string; event?: EventTemplate; options?: unknown };
     const id = m.id ?? '';
     if (!m.event || typeof m.event !== 'object') {
       send({ type: 'outbox.publish.result', id, ok: false, error: 'invalid filter' } as NappletMessage);
       return;
     }
-    void router
-      .publish(m.event, sanitizePublishOptions(m.options))
+    const publishOptions = sanitizePublishOptions(m.options);
+    const planned = router as StreamingOutboxRouter;
+    const operation = planned.planPublish && planned.publishWithPlan && runtimeContext?.authorizeOperation
+      ? planned.planPublish(publishOptions).then((plan) => runtimeContext!.authorizeOperation!(windowId, 'outbox.publish', [
+        { category: 'interface', domain: 'outbox', operation: 'access', scope: { kind: 'exact', value: 'outbox' } },
+        ...plan.relays.map((url) => ({ category: 'network' as const, domain: 'outbox', operation: 'outbox.publish', scope: { kind: 'origin' as const, value: new URL(url).origin } })),
+      ], (signal) => signal.aborted ? { ok: false, error: 'policy denied' } : planned.publishWithPlan!(m.event!, plan)).then((outcome) => outcome.status === 'executed' && outcome.value ? outcome.value : { ok: false, error: 'policy denied' }))
+      : router.publish(m.event, publishOptions);
+    void operation
       .then((result) =>
         send({
           type: 'outbox.publish.result',
@@ -529,7 +536,7 @@ export function createOutboxService(options: OutboxServiceOptions): ServiceHandl
           handleClose(windowId, message, send);
           return;
         case 'outbox.publish':
-          handlePublish(message, send);
+          handlePublish(windowId, message, send);
           return;
         case 'outbox.resolveRelays':
           handleResolveRelays(message, send);
