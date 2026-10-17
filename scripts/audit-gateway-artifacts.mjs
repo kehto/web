@@ -48,7 +48,7 @@ function assertSourceInvariants() {
     fail('playground-frame-loader.ts does not admit verified bytes before iframe.srcdoc');
   }
   if (
-    !admission.includes('const csp = buildApprovedNappletCsp({ mode, remoteSources: remote.sources });')
+    !admission.includes('const csp = buildApprovedNappletCsp({ mode, remoteSources: remote.sources, baseOrigin: request.baseOrigin });')
     || !admission.includes('cspMeta(csp) + renderNappletNamespacePrelude({ domains })')
     || !admission.includes('const commitResult: unknown = request.commit(srcdoc, result);')
   ) {

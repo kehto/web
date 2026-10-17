@@ -56,7 +56,7 @@ describe('executable gateway source audit', () => {
     },
     {
       name: 'missing CSP rendering', path: srcdocPath,
-      before: 'buildApprovedNappletCsp({ mode, remoteSources: remote.sources })', after: "''",
+      before: 'buildApprovedNappletCsp({ mode, remoteSources: remote.sources, baseOrigin: request.baseOrigin })', after: "''",
     },
     {
       name: 'missing namespace injection', path: srcdocPath,
