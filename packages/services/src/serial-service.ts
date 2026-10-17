@@ -189,6 +189,92 @@ function closeSerialConnection(input: { options: SerialServiceOptions; windowId:
   );
 }
 
+type SerialEmit = (windowId: string, record: SerialWindow, connection: SerialConnection | undefined, send: Send, event: SerialEvent) => void;
+
+interface SerialOpenHandlerInput {
+  readonly options: SerialServiceOptions;
+  readonly runtime?: ServiceRuntimeContext;
+  readonly windowId: string;
+  readonly message: SerialOpenMessage;
+  readonly record: SerialWindow;
+  readonly id: string;
+  readonly currentSend: Send;
+  readonly isCurrent: () => boolean;
+  readonly emit: SerialEmit;
+  readonly warnLegacy: () => void;
+}
+
+function handleSerialOpen(input: SerialOpenHandlerInput): void {
+  const { options, runtime, windowId, message, record, id, currentSend, isCurrent, emit, warnLegacy } = input;
+  if (!options.open) {
+    currentSend(unsupported('serial.open.result', id));
+    return;
+  }
+  const serialMessage = message as SerialOpenMessage;
+  if (!validOpenRequest(serialMessage.request)) {
+    currentSend({ type: 'serial.open.result', id, error: 'invalid data' } as NappletMessage);
+    return;
+  }
+  const connection: SerialConnection = { state: 'opening', bufferedEvents: [] };
+  record.pendingConnections.add(connection);
+  const runOpen = async (signal?: ApprovalSignal): Promise<SerialOpenResult> => {
+    let deviceScope: string | undefined;
+    const authorizeDevice: SerialServiceContext['authorizeDevice'] | undefined = runtime?.authorizeOperation
+      ? async <T>(scope: string, execute: (approved: ApprovalSignal) => T | Promise<T>): Promise<T> => {
+        if (!/^serial:device:[A-Za-z0-9_-]{1,256}$/u.test(scope)) throw new Error('invalid serial device scope');
+        const approval = await runtime!.authorizeOperation!(windowId, 'serial.open', [{
+          category: 'resource', domain: 'serial', operation: 'serial.open', scope: { kind: 'exact', value: scope },
+        }], execute, signal);
+        if (approval.status !== 'executed') throw new Error(approvalError(approval.status));
+        deviceScope = scope;
+        return approval.value;
+      }
+      : undefined;
+    const context = createContext(windowId, (event) => emit(windowId, record, connection, currentSend, event), signal, authorizeDevice);
+    const result = await options.open!(serialMessage.request, context);
+    if (runtime?.authorizeOperation && !deviceScope) {
+      await Promise.resolve(options.close?.(result.session.id, 'policy denied', context)).catch(() => undefined);
+      throw new Error('policy denied');
+    }
+    connection.deviceScope = deviceScope;
+    return result;
+  };
+  const pending: Promise<SerialOpenResult> = runtime?.authorizeOperation
+    ? runtime.authorizeOperation(windowId, 'serial.open', [
+      { category: 'interface', domain: 'serial', operation: 'access', scope: { kind: 'exact', value: 'serial' } },
+      { category: 'resource', domain: 'serial', operation: 'serial.select', scope: { kind: 'exact', value: 'serial:chooser' } },
+    ], (signal) => runOpen(signal)).then((approval) => {
+      if (approval.status !== 'executed') throw new Error(approvalError(approval.status));
+      return approval.value;
+    })
+    : (warnLegacy(), Promise.resolve().then(() => runOpen()));
+  void pending
+    .then((result) => {
+      record.pendingConnections.delete(connection);
+      if (!isCurrent() || connection.state === 'closed') return;
+      connection.state = 'open';
+      connection.sessionId = result.session.id;
+      record.connections.set(result.session.id, connection);
+      currentSend({ type: 'serial.open.result', id, session: result.session } as NappletMessage);
+      if (!isCurrent() || connection.state !== 'open') return;
+      for (const event of connection.bufferedEvents) {
+        if (!isCurrent() || connection.state !== 'open') break;
+        currentSend({ type: 'serial.event', event } as NappletMessage);
+      }
+      connection.bufferedEvents.length = 0;
+    })
+    .catch((error) => {
+      record.pendingConnections.delete(connection);
+      connection.state = 'closed';
+      currentSend({
+        type: 'serial.open.result',
+        id,
+        error: errorMessage(error, 'serial request failed'),
+      } as NappletMessage);
+    });
+  return;
+}
+
 /**
  * Create the NAP-SERIAL reference service.
  *
@@ -253,72 +339,7 @@ function buildSerialService(options: SerialServiceOptions): ServiceHandler {
         if (isCurrent()) send(outbound);
       };
       if (message.type === 'serial.open') {
-        if (!options.open) {
-          currentSend(unsupported('serial.open.result', id));
-          return;
-        }
-        const serialMessage = message as SerialOpenMessage;
-        if (!validOpenRequest(serialMessage.request)) {
-          currentSend({ type: 'serial.open.result', id, error: 'invalid data' } as NappletMessage);
-          return;
-        }
-        const connection: SerialConnection = { state: 'opening', bufferedEvents: [] };
-        record.pendingConnections.add(connection);
-        const runOpen = async (signal?: ApprovalSignal): Promise<SerialOpenResult> => {
-          let deviceScope: string | undefined;
-          const authorizeDevice: SerialServiceContext['authorizeDevice'] | undefined = runtime?.authorizeOperation
-            ? async <T>(scope: string, execute: (approved: ApprovalSignal) => T | Promise<T>): Promise<T> => {
-              if (!/^serial:device:[A-Za-z0-9_-]{1,256}$/u.test(scope)) throw new Error('invalid serial device scope');
-              const approval = await runtime!.authorizeOperation!(windowId, 'serial.open', [{
-                category: 'resource', domain: 'serial', operation: 'serial.open', scope: { kind: 'exact', value: scope },
-              }], execute, signal);
-              if (approval.status !== 'executed') throw new Error(approvalError(approval.status));
-              deviceScope = scope;
-              return approval.value;
-            }
-            : undefined;
-          const context = createContext(windowId, (event) => emit(windowId, record, connection, currentSend, event), signal, authorizeDevice);
-          const result = await options.open!(serialMessage.request, context);
-          if (runtime?.authorizeOperation && !deviceScope) {
-            await Promise.resolve(options.close?.(result.session.id, 'policy denied', context)).catch(() => undefined);
-            throw new Error('policy denied');
-          }
-          connection.deviceScope = deviceScope;
-          return result;
-        };
-        const pending: Promise<SerialOpenResult> = runtime?.authorizeOperation
-          ? runtime.authorizeOperation(windowId, 'serial.open', [
-            { category: 'interface', domain: 'serial', operation: 'access', scope: { kind: 'exact', value: 'serial' } },
-            { category: 'resource', domain: 'serial', operation: 'serial.select', scope: { kind: 'exact', value: 'serial:chooser' } },
-          ], (signal) => runOpen(signal)).then((approval) => {
-            if (approval.status !== 'executed') throw new Error(approvalError(approval.status));
-            return approval.value;
-          })
-          : (warnLegacy(), Promise.resolve().then(() => runOpen()));
-        void pending
-          .then((result) => {
-            record.pendingConnections.delete(connection);
-            if (!isCurrent() || connection.state === 'closed') return;
-            connection.state = 'open';
-            connection.sessionId = result.session.id;
-            record.connections.set(result.session.id, connection);
-            currentSend({ type: 'serial.open.result', id, session: result.session } as NappletMessage);
-            if (!isCurrent() || connection.state !== 'open') return;
-            for (const event of connection.bufferedEvents) {
-              if (!isCurrent() || connection.state !== 'open') break;
-              currentSend({ type: 'serial.event', event } as NappletMessage);
-            }
-            connection.bufferedEvents.length = 0;
-          })
-          .catch((error) => {
-            record.pendingConnections.delete(connection);
-            connection.state = 'closed';
-            currentSend({
-              type: 'serial.open.result',
-              id,
-              error: errorMessage(error, 'serial request failed'),
-            } as NappletMessage);
-          });
+        handleSerialOpen({ options, runtime, windowId, message: message as SerialOpenMessage, record, id, currentSend, isCurrent, emit, warnLegacy });
         return;
       }
 
