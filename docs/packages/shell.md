@@ -1,5 +1,11 @@
 # @kehto/shell
 
+## Relay approval boundary
+
+The shell relay adapter executes approved destination snapshots through
+`subscribeToRelays()` and `publishToRelays()`. Its selector is used only while
+planning and never re-runs after approval.
+
 Browser adapter over `@kehto/runtime` for iframe/session hosting.
 
 `ShellAdapter.permissions` connects host approval adapters to runtime. Trusted

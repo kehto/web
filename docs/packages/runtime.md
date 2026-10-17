@@ -1,5 +1,13 @@
 # @kehto/runtime
 
+## Relay approval boundary
+
+Relay requests create an immutable destination plan before approval. Registered
+services use `RelayPlanningServiceHandler`; direct adapters use
+`subscribeToRelays()` and `publishToRelays()`. Approval encloses buffer/cache
+delivery, encryption, signing, and transport. See [compatibility](/compatibility)
+for the retained legacy diagnostics.
+
 Scoped approvals are available through `RuntimeAdapter.permissions`, source-bound
 `SessionEntry.permissionPrincipal`, and `ServiceRuntimeContext.authorizeOperation`.
 The reference LINK service and declared extension routes are integrated; other

@@ -194,3 +194,42 @@ in [PR #284](https://github.com/kehto/web/pull/284). This implementation PR leav
 - This tracks authorization fallback only. RESOURCE_FIELDS records the separate
   wire retirement on this implementation branch; its combined regression and
   release evidence must be completed before shipping.
+
+## FW-RELAY-SERVICE-LEGACY-001 — unplanned registered relay service
+
+- Owner: `@kehto/runtime` and `@kehto/services`.
+- Old behavior: a registered `relay` or `relay-pool` service implements only
+  `handleMessage()`, allowing destination selection and transport dispatch after
+  runtime routing.
+- Replacement: implement `RelayPlanningServiceHandler` with pure
+  `planRelayOperation()` and approved-plan-only `executeRelayOperation()`.
+- Source and warning site: `packages/runtime/src/relay-handler.ts`. The warning
+  fires once per legacy service instance on attempted use, names the replacement,
+  omits relay URLs/events/plaintext, and planned handlers stay quiet.
+- Regression coverage: `packages/runtime/src/runtime.test.ts`,
+  `packages/services/src/relay-pool-service.test.ts`,
+  `packages/services/src/coordinated-relay.test.ts`, and
+  `tests/unit/relay-acl-revocation.test.ts` cover immutable targets, ordering,
+  cancellation, same-ID retirement, and canonical results.
+- Retention: migrate supported registered services; then add negative retirement
+  tests, announce a 0.x minor removal, and record its release before deleting
+  the fallback diagnostic.
+
+## FW-RELAY-ADAPTER-LEGACY-001 — implicit relay-pool adapter execution
+
+- Owner: `@kehto/runtime` and `@kehto/shell`.
+- Old behavior: `RelayPoolAdapter.subscribe()` and `publish()` can select or fan
+  out destinations after runtime approval.
+- Replacement: implement `subscribeToRelays(relayUrls, filters, callback)` and
+  `publishToRelays(relayUrls, event)` and execute only the immutable plan.
+- Source and warning site: `packages/runtime/src/relay-handler.ts`; the shell
+  adapter implements the replacement in `packages/shell/src/hooks-adapter.ts`.
+  The warning fires once per legacy adapter on actual use, is actionable, omits
+  request data, and explicit-target adapters remain quiet.
+- Regression coverage: `packages/runtime/src/runtime.test.ts`,
+  `tests/unit/relay-acl-revocation.test.ts`, and
+  `tests/unit/nip5d-conformance-guard.test.ts` protect selector immutability,
+  abort/cleanup, protocol wiring, and fail-closed legacy behavior.
+- Retention: migrate Paja, playground, and supported custom shell adapters;
+  publish release guidance, then remove deprecated implicit members with negative
+  tests and a 0.x minor release. Structural mocks only warn when invoked.

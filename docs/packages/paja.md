@@ -1,5 +1,10 @@
 # @kehto/paja
 
+## Relay approval boundary
+
+Paja passes each runtime-approved destination list to its live relay backend for
+publication. Host policy selects the list; approval waits cannot replace it.
+
 Single-window Paja local authoring workshop for napplet development.
 
 > **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D

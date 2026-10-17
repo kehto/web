@@ -1,5 +1,10 @@
 # @kehto/services
 
+Relay reference services plan normalized URLs before runtime approval and execute
+the supplied immutable plan. Custom registered relay services implement
+`RelayPlanningServiceHandler`; selection belongs in planning, never in
+`executeRelayOperation()`.
+
 Reference service handlers for Kehto runtime implementations.
 
 The reference LINK service integrates shared runtime approvals after URL
