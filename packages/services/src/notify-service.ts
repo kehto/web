@@ -6,7 +6,7 @@
  */
 
 import type { NappletMessage } from '@napplet/core';
-import type { ServiceDescriptor, ServiceHandler } from '@kehto/runtime';
+import type { ApprovalSignal, ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
 import type {
   NotifyActionMessage,
   NotifyBadgeMessage,
@@ -40,6 +40,8 @@ export interface NotifyPresentation {
   readonly message: NotifySendMessage;
   /** Route a host-side user interaction back to the requesting napplet. */
   readonly emit: (message: NotifyInteractionMessage) => void;
+  /** Approval/lifecycle cancellation for asynchronous host prompts. */
+  readonly signal?: ApprovalSignal;
 }
 
 /** Host hooks required to turn NAP-NOTIFY messages into observable behavior. */
@@ -55,7 +57,7 @@ export interface NotifyServiceOptions {
   /** Persist a channel registration in host-owned state. */
   registerChannel?: (windowId: string, channel: NotifyChannelRegisterMessage) => void | Promise<void>;
   /** Apply policy or prompt the user for notification permission. */
-  requestPermission?: (windowId: string, channel?: string) => boolean | Promise<boolean>;
+  requestPermission?: (windowId: string, channel?: string, signal?: ApprovalSignal) => boolean | Promise<boolean>;
   /** Release host-owned state when the runtime destroys a napplet window. */
   destroyWindow?: (windowId: string) => void | Promise<void>;
   /** Notification controls implemented by the host backend. */
@@ -70,6 +72,33 @@ function errorText(error: unknown): string {
 
 function forget(result: void | Promise<void>, onError?: (error: unknown) => void): void {
   void Promise.resolve(result).catch((error: unknown) => onError?.(error));
+}
+
+function snapshotNotification(message: NotifySendMessage): NotifySendMessage | null {
+  if (typeof message.id !== 'string' || message.id.length > 128
+    || typeof message.title !== 'string' || message.title.length > 256
+    || (message.body !== undefined && (typeof message.body !== 'string' || message.body.length > 4096))
+    || (message.channel !== undefined && (typeof message.channel !== 'string' || message.channel.length > 128))
+    || (message.priority !== undefined && !['low', 'normal', 'high', 'urgent'].includes(message.priority))
+    || (message.icon !== undefined && (typeof message.icon !== 'string' || message.icon.length > 256 || /^[a-z][a-z\d+.-]*:/i.test(message.icon)))
+    || (message.actions !== undefined && (!Array.isArray(message.actions) || message.actions.length > 3
+      || message.actions.some((action) => !action || typeof action.id !== 'string' || action.id.length > 128
+        || typeof action.label !== 'string' || action.label.length > 256)))) return null;
+  // Remote icons require NAP-RESOURCE mediation; the reference service permits only shell-owned identifiers.
+  return Object.freeze({
+    type: 'notify.send', id: message.id, title: message.title,
+    ...(message.body === undefined ? {} : { body: message.body }),
+    ...(message.icon === undefined ? {} : { icon: message.icon }),
+    ...(message.channel === undefined ? {} : { channel: message.channel }),
+    ...(message.priority === undefined ? {} : { priority: message.priority }),
+    ...(message.actions === undefined ? {} : {
+      actions: Object.freeze(message.actions.map((action) => Object.freeze({ id: action.id, label: action.label }))),
+    }),
+  }) as NotifySendMessage;
+}
+
+function scopeFor(operation: string, value: string) {
+  return [{ category: 'resource' as const, domain: 'notify', operation, scope: { kind: 'exact' as const, value } }];
 }
 
 /**
@@ -96,6 +125,28 @@ export function createNotifyService(options: NotifyServiceOptions = {}): Service
   const generateId = options.generateId ?? ((): string => `shell-${++counter}`);
   const active = new Map<string, Set<string>>();
   const controlsSent = new Set<string>();
+  const generations = new Map<string, object>();
+  let runtime: ServiceRuntimeContext | undefined;
+  let warnedLegacy = false;
+
+  const generationFor = (windowId: string): object => {
+    const generation = generations.get(windowId) ?? {};
+    generations.set(windowId, generation);
+    return generation;
+  };
+  const current = (windowId: string, generation: object): boolean => generations.get(windowId) === generation;
+  const authorize = async <T>(windowId: string, operation: string, scope: string,
+    action: (signal: ApprovalSignal) => T | Promise<T>): Promise<{ status: 'executed'; value: T } | { status: 'denied' }> => {
+    if (!runtime?.authorizeOperation) {
+      if (!warnedLegacy) {
+        warnedLegacy = true;
+        console.warn('[FW-NOTIFY-LEGACY-001] Attach RuntimeAdapter.permissions for approved notification effects; host-only delivery is deprecated. Warning once per service instance.');
+      }
+      return { status: 'executed', value: await action(new AbortController().signal) };
+    }
+    const result = await runtime.authorizeOperation(windowId, operation, scopeFor(operation, scope), action);
+    return result.status === 'executed' ? result : { status: 'denied' };
+  };
 
   const descriptor: ServiceDescriptor = {
     name: 'notify',
@@ -115,47 +166,55 @@ export function createNotifyService(options: NotifyServiceOptions = {}): Service
     message: NotifySendMessage,
     send: (msg: NappletMessage) => void,
   ): Promise<void> => {
+    const request = snapshotNotification(message);
+    if (!request) {
+      send({ type: 'notify.send.result', id: typeof message.id === 'string' ? message.id : '', error: 'invalid notification' } as NappletMessage);
+      return;
+    }
     if (!options.present) {
       const result: NotifySendResultMessage = {
         type: 'notify.send.result',
-        id: message.id,
+        id: request.id,
         error: 'notification presentation unavailable',
       };
       send(result as NappletMessage);
       return;
     }
 
-    const notificationId = generateId();
-    const windowNotifications = active.get(windowId) ?? new Set<string>();
-    windowNotifications.add(notificationId);
-    active.set(windowId, windowNotifications);
-    const ownsWindow = (): boolean => active.get(windowId) === windowNotifications;
-    const ownsNotification = (): boolean => ownsWindow() && windowNotifications.has(notificationId);
-    const emit = (interaction: NotifyInteractionMessage): void => {
-      if (!ownsNotification()) return;
-      if (interaction.type === 'notify.dismissed') windowNotifications.delete(notificationId);
-      send(interaction as NappletMessage);
-    };
-
+    const generation = generationFor(windowId);
     try {
-      await options.present({ windowId, notificationId, message, emit });
-      if (!ownsWindow()) {
-        if (options.dismiss) forget(options.dismiss(windowId, notificationId), options.onError);
-        return;
+      const outcome = await authorize(windowId, 'notify.send', `channel:${request.channel ?? '*'}`, async (signal) => {
+        if (signal.aborted || !current(windowId, generation)) return;
+        const notificationId = generateId();
+        const windowNotifications = active.get(windowId) ?? new Set<string>();
+        windowNotifications.add(notificationId);
+        active.set(windowId, windowNotifications);
+        const ownsNotification = (): boolean => current(windowId, generation)
+          && active.get(windowId) === windowNotifications && windowNotifications.has(notificationId) && !signal.aborted;
+        const emit = (interaction: NotifyInteractionMessage): void => {
+          if (!ownsNotification() || interaction.notificationId !== notificationId) return;
+          if (interaction.type === 'notify.dismissed') windowNotifications.delete(notificationId);
+          send(interaction as NappletMessage);
+        };
+        try {
+          await options.present!({ windowId, notificationId, message: request, emit, signal });
+        } catch (error) {
+          windowNotifications.delete(notificationId);
+          if (windowNotifications.size === 0 && active.get(windowId) === windowNotifications) active.delete(windowId);
+          if (options.dismiss) forget(options.dismiss(windowId, notificationId), options.onError);
+          throw error;
+        }
+        if (!ownsNotification()) return;
+        send({ type: 'notify.send.result', id: request.id, notificationId } as NappletMessage);
+      });
+      if (outcome.status !== 'executed' && current(windowId, generation)) {
+        send({ type: 'notify.send.result', id: request.id, error: 'permission denied' } as NappletMessage);
       }
-      const result: NotifySendResultMessage = {
-        type: 'notify.send.result',
-        id: message.id,
-        notificationId,
-      };
-      send(result as NappletMessage);
     } catch (error) {
-      if (!ownsWindow()) return;
-      windowNotifications.delete(notificationId);
-      if (windowNotifications.size === 0) active.delete(windowId);
+      if (!current(windowId, generation)) return;
       const result: NotifySendResultMessage = {
         type: 'notify.send.result',
-        id: message.id,
+        id: request.id,
         error: errorText(error),
       };
       send(result as NappletMessage);
@@ -167,14 +226,23 @@ export function createNotifyService(options: NotifyServiceOptions = {}): Service
     message: NotifyPermissionRequestMessage,
     send: (msg: NappletMessage) => void,
   ): Promise<void> => {
+    const generation = generationFor(windowId);
+    if (message.channel !== undefined && (typeof message.channel !== 'string' || message.channel.length > 128)) {
+      send({ type: 'notify.permission.result', id: message.id, granted: false } as NappletMessage);
+      return;
+    }
+    const channel = typeof message.channel === 'string' && message.channel.length <= 128 ? message.channel : undefined;
     let granted = false;
     try {
-      granted = options.requestPermission
-        ? await options.requestPermission(windowId, message.channel)
-        : false;
+      if (options.requestPermission) {
+        const outcome = await authorize(windowId, 'notify.permission.request', `channel:${channel ?? '*'}`,
+          (signal) => signal.aborted ? false : options.requestPermission!(windowId, channel, signal));
+        granted = outcome.status === 'executed' && outcome.value === true;
+      }
     } catch (error) {
       options.onError?.(error);
     }
+    if (!current(windowId, generation)) return;
     const result: NotifyPermissionResultMessage = {
       type: 'notify.permission.result',
       id: message.id,
@@ -185,6 +253,12 @@ export function createNotifyService(options: NotifyServiceOptions = {}): Service
 
   return {
     descriptor,
+
+    onRegistered(context) { runtime = context; },
+    onUnregistered() {
+      for (const windowId of generations.keys()) cleanup(windowId);
+      runtime = undefined;
+    },
 
     handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void {
       pushControls(windowId, send);
@@ -201,14 +275,34 @@ export function createNotifyService(options: NotifyServiceOptions = {}): Service
         }
         case 'notify.badge': {
           if (options.setBadge) {
-            const count = Math.max(0, Math.floor((message as NotifyBadgeMessage).count));
-            forget(options.setBadge(windowId, count), options.onError);
+            const requestedCount = (message as NotifyBadgeMessage).count;
+            if (!Number.isSafeInteger(requestedCount) || requestedCount < 0) return;
+            const count = Math.min(requestedCount, 9999);
+            const generation = generationFor(windowId);
+            void authorize(windowId, 'notify.badge', 'badge', (signal) => {
+              if (signal.aborted || !current(windowId, generation)) return;
+              return options.setBadge!(windowId, count);
+            }).catch(options.onError);
           }
           return;
         }
         case 'notify.channel.register':
           if (options.registerChannel) {
-            forget(options.registerChannel(windowId, message as NotifyChannelRegisterMessage), options.onError);
+            const channel = message as NotifyChannelRegisterMessage;
+            if (typeof channel.channelId !== 'string' || channel.channelId.length > 128
+              || typeof channel.label !== 'string' || channel.label.length > 256
+              || (channel.description !== undefined && (typeof channel.description !== 'string' || channel.description.length > 4096))
+              || (channel.defaultPriority !== undefined && !['low', 'normal', 'high', 'urgent'].includes(channel.defaultPriority))) return;
+            const snapshot = Object.freeze({ type: 'notify.channel.register' as const,
+              channelId: channel.channelId, label: channel.label,
+              ...(channel.description === undefined ? {} : { description: channel.description }),
+              ...(channel.defaultPriority ? { defaultPriority: channel.defaultPriority } : {}),
+            });
+            const generation = generationFor(windowId);
+            void authorize(windowId, 'notify.channel.register', `channel:${snapshot.channelId}`, (signal) => {
+              if (signal.aborted || !current(windowId, generation)) return;
+              return options.registerChannel!(windowId, snapshot);
+            }).catch(options.onError);
           }
           return;
         case 'notify.permission.request':
@@ -225,7 +319,12 @@ export function createNotifyService(options: NotifyServiceOptions = {}): Service
       }
     },
 
-    onWindowDestroyed(windowId: string): void {
+    onPermissionRevoked(windowId: string): void { cleanup(windowId); },
+    onWindowDestroyed(windowId: string): void { cleanup(windowId); },
+  };
+
+  function cleanup(windowId: string): void {
+      generations.delete(windowId);
       const windowNotifications = active.get(windowId);
       active.delete(windowId);
       controlsSent.delete(windowId);
@@ -235,6 +334,5 @@ export function createNotifyService(options: NotifyServiceOptions = {}): Service
         }
       }
       if (options.destroyWindow) forget(options.destroyWindow(windowId), options.onError);
-    },
-  };
+  }
 }
