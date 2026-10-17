@@ -7,12 +7,13 @@
  * napplet → shell → cvm service → transport → napplet wire without the network.
  */
 import { test, expect } from '@playwright/test';
-import { getNappletFrame } from './helpers/index.js';
+import { getNappletFrame, installPlaygroundSessionApprovals } from './helpers/index.js';
 
 test.use({ baseURL: 'http://localhost:4174' });
 
 test('cvm-relatr napplet renders a trust score via the CVM bridge', async ({ page }) => {
   test.setTimeout(30_000);
+  await installPlaygroundSessionApprovals(page);
   await page.goto('/?cvmFixture=1');
   await expect(page.locator('#cvm-relatr-frame-container iframe')).toHaveCount(1, { timeout: 25_000 });
 

@@ -38,6 +38,7 @@ test('revoking one verified app interface retires its live frame only', async ({
   await demoBeforeEach(page);
   await expect(page.locator('#chat-frame-container iframe')).toHaveCount(1);
   await expect(page.locator('#bot-frame-container iframe')).toHaveCount(1);
+  await page.locator('#playground-firewall-panel summary').click();
   const chatRelayGrant = page.locator('#firewall-grants li')
     .filter({ hasText: /:chat; artifact SHA-256/ })
     .filter({ hasText: 'access exact:relay' });

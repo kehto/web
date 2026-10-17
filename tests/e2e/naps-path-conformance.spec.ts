@@ -38,7 +38,7 @@ test('profile-viewer receives current injected window.napplet domain objects', a
       const w = window as Window & {
         napplet?: Record<string, unknown>;
       };
-      return typeof w.napplet?.inc === 'object' &&
+      return typeof w.napplet?.intent === 'object' &&
         typeof w.napplet?.relay === 'object' &&
         typeof w.napplet?.resource === 'object' &&
         typeof w.napplet?.theme === 'object';
@@ -68,7 +68,7 @@ test('profile-viewer receives current injected window.napplet domain objects', a
     await shell?.ready();
     return {
       namespaceKeys,
-      incDomain: typeof w.napplet?.inc === 'object',
+      intentDomain: typeof w.napplet?.intent === 'object',
       relayDomain: typeof w.napplet?.relay === 'object',
       resourceDomain: typeof w.napplet?.resource === 'object',
       themeDomain: typeof w.napplet?.theme === 'object',
@@ -84,7 +84,7 @@ test('profile-viewer receives current injected window.napplet domain objects', a
     };
   });
 
-  expect(result.incDomain).toBe(true);
+  expect(result.intentDomain).toBe(true);
   expect(result.relayDomain).toBe(true);
   expect(result.resourceDomain).toBe(true);
   expect(result.themeDomain).toBe(true);
@@ -94,7 +94,8 @@ test('profile-viewer receives current injected window.napplet domain objects', a
   expect(result.nostrdbDomain).toBe(false);
   expect(result.injectedDomainSentinel).toBe(false);
   expect(result.nostrGlobal).toBe(false);
-  expect(result.namespaceKeys).toEqual(expect.arrayContaining(['shell', 'inc', 'relay', 'theme']));
+  expect(result.namespaceKeys).toEqual(expect.arrayContaining(['shell', 'intent', 'relay', 'resource', 'theme']));
+  expect(result.namespaceKeys).not.toContain('inc');
 });
 
 test('feed and profile media receive the canonical unsupported-scheme result', async ({ page }) => {

@@ -102,14 +102,14 @@ test('new registrations reflect disabled live services without mutating concurre
     };
   });
 
-  await expect.poll(() => shellState(botFrame!)).toMatchObject({ receiver: true, supports: true });
+  await expect.poll(() => shellState(botFrame!)).toMatchObject({ receiver: false, supports: false });
   await expect.poll(() => shellState(toasterFrame!)).toMatchObject({ receiver: true, supports: true });
 
   await page.locator('[data-service-name="notifications"] .service-toggle-icon').click();
   await expect(page.locator('[data-service-name="notifications"]')).toHaveClass(/service-disabled/);
 
   // Existing frames keep their frozen first-init snapshot.
-  await expect.poll(() => shellState(botFrame!)).toMatchObject({ receiver: true, supports: true });
+  await expect.poll(() => shellState(botFrame!)).toMatchObject({ receiver: false, supports: false });
   await expect.poll(() => shellState(toasterFrame!)).toMatchObject({ receiver: true, supports: true });
 
   // A host reload creates fresh frame lifecycles and rebuilds each verified
