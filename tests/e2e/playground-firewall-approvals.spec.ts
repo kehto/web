@@ -1,3 +1,4 @@
+import { createServer } from 'node:http';
 import { expect, test } from '@playwright/test';
 import { demoBeforeEach } from './helpers/index.js';
 
@@ -44,4 +45,42 @@ test('revoking one verified app interface retires its live frame only', async ({
   await chatRelayGrant.getByRole('button', { name: 'Revoke access exact:relay' }).click();
   await expect(page.locator('#chat-frame-container iframe')).toHaveCount(0);
   await expect(page.locator('#bot-frame-container iframe')).toHaveCount(1);
+});
+
+test('a verified frame cannot send direct browser requests to a relay or asset origin', async ({ page }) => {
+  test.setTimeout(90_000);
+  const requests: string[] = [];
+  const destination = createServer((request, response) => {
+    requests.push(request.url ?? '/');
+    response.writeHead(200, { 'access-control-allow-origin': '*' });
+    response.end('reached');
+  });
+  await new Promise<void>((resolve, reject) => {
+    destination.once('error', reject);
+    destination.listen(0, '127.0.0.1', () => { destination.off('error', reject); resolve(); });
+  });
+  try {
+    const address = destination.address();
+    if (!address || typeof address === 'string') throw new Error('Destination did not bind');
+    await demoBeforeEach(page);
+    const frame = page.frameLocator('#chat-frame-container iframe');
+    await expect(frame.locator('body')).toBeVisible();
+    const origin = `http://127.0.0.1:${address.port}`;
+    await frame.locator('body').evaluate(async (body, base) => {
+      await fetch(`${base}/fetch`).catch(() => undefined);
+      for (const [tag, attribute, path] of [
+        ['script', 'src', 'script'], ['img', 'src', 'image'], ['iframe', 'src', 'frame'],
+        ['object', 'data', 'object'], ['link', 'href', 'manifest'],
+      ] as const) {
+        const element = document.createElement(tag);
+        if (tag === 'link') element.setAttribute('rel', 'manifest');
+        element.setAttribute(attribute, `${base}/${path}`);
+        body.appendChild(element);
+      }
+    }, origin);
+    await page.waitForTimeout(300);
+    expect(requests).toEqual([]);
+  } finally {
+    await new Promise<void>((resolve, reject) => destination.close((error) => error ? reject(error) : resolve()));
+  }
 });
