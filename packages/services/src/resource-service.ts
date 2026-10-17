@@ -14,31 +14,25 @@
  * NAP-RESOURCE is a runtime-mediated byte resolver — read-only, atomic.
  *
  * Kehto owns neutral wire lifecycle, cancellation, result projection, and
- * policy tooling. The runtime supplies the resolver and decides whether to use
- * the origin-grant hooks, which schemes to resolve, and which limits to expose.
+ * policy tooling. The runtime supplies the resolver, which must call
+ * `init.authorizeNetwork` before each actual network destination, including
+ * redirects. The host decides which schemes to resolve and limits to expose.
  * Advisory `resource.info` scheme disclosure never authorizes or blocks a byte
  * request.
  * ──────────────────────────────────────────────────────────────────────────────
  *
- * Runtime integration requires only `fetch`. When installed through a runtime
- * with approval support, every resource URL and actual HTTP(S) or WebSocket destination is
- * authorized independently.
+ * Runtime integration requires a resolver. With runtime approval support,
+ * the service authorizes each resource URL, and the resolver must authorize
+ * every actual HTTP(S) or WebSocket destination independently.
  *
  * @example
  * ```ts
  * import { createResourceService } from '@kehto/services';
  *
  * const resourceSvc = createResourceService({
- *   fetch: (url, init) => globalThis.fetch(url, init),
- * });
- * runtime.registerService('resource', resourceSvc);
- * ```
- *
- * @example
- * ```ts
- * const resourceSvc = createResourceService({
  *   fetch: (url, init) => runtimeResources.resolve(url, init),
  * });
+ * runtime.registerService('resource', resourceSvc);
  * ```
  */
 
