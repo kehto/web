@@ -548,3 +548,20 @@ Root currenttree typecheckPASS (/tmp/kehto-resource-final-types.log), docsPASS
 (/tmp/kehto-resource-harness-docs.log), quality100(/tmp/kehto-resource-harness-quality.json).
 Previous turn was progress; this turn made fullbrowser verification possible and
 found a real missed consumer regression. Goal active, no PR yet.
+
+2026-10-17: Resource demo failure traced to @napplet/shim0.30 overwriting the
+canonical injected resource binding with retired requests payloads. Executor
+removed that import in ff67026e (comment correction f56712a3); focused browser2/2
+passed. Root updated two static guards and documented RESOURCE_HOST_PROJECTION
+exception against NAP-RESOURCE ae5b9c64 in29d3594e. Fullunit nowPASS191files/2451tests
+(/tmp/kehto-resource-final-unit.log), docsPASS(/tmp/kehto-resource-projection-docs.log),
+quality100(/tmp/kehto-resource-projection-quality.json). Full E2E rerun with
+KEHTO_HARNESS_PORT=42873 pnpm test:e2e completed125/125 PASS2.3m; session5842
+TERMINALexit0; log/tmp/kehto-resource-full-e2e-final.log. Source build passed.
+Executor notified rebuild safe. Before final01/02 summaries, resource_execution
+is auditing feed/profile media SDK consumers for the same stale wire/Blob helper
+behavior; current green suite alone does not prove those images consume canonical
+wire. Root holds no dirty code. After audit/fixes/gates, collect01/02 summaries,
+then executewave3 (relay03+19 atomic group and disjoint service plans). Host114
+plans remain reviewed/committed and gated on full113 completion. Prior turn was
+progress; this turn closes actual browser regression and yields fullgreen evidence.
