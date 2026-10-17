@@ -619,3 +619,14 @@ PASS and Paja tscPASS; session72803 terminal0. Quality100 recorded in
 to resource_execution and added113VALIDATION evidence. Discovery source/tests
 remain executor-owned WIP; combined full resource gates and summaries still
 pending. Fullgoal remains active; no downstream execution or PR yet.
+
+2026-10-17: Previous turn delivered backend cancellation regression589329e5.
+Discovery source3b4cbb22 committed; executor reported139focused tests and Paja
+tscPASS. Root review found NIP65 registry iteration selected old event afternew;
+executor corrected selection while migrating old integration mocks. Root added
+actual adapter approval tests22e5f35d:3PASS, signed fixtures, bootstrap/author
+deny before query, live signal and prior exact approval asserted inside backend
+query, successful bytes, old relay excluded. Quality100
+(/tmp/kehto-resource-adapter-approval-quality.json). Test ownership returned to
+resource_execution, which owns remaining integration migration and full combined
+gates (including full E2E on42873). No root process live, no summaries yet.

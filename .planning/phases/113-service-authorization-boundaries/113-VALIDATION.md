@@ -170,3 +170,12 @@ a late subscription, and active abort closes the subscription exactly once and
 suppresses late events/EOSE. Three new cases plus25 existing relay-runtime cases
 passed; Paja type-check passed (session72803 terminal0, 2026-10-17). Include
 this suite in the combined resource gate after discovery integration stabilizes.
+
+### Actual Paja adapter discovery approvals
+
+`tests/unit/resource-blossom-adapter-authorization.test.ts` invokes the real Paja
+resource service using signed NIP65/BUD03 fixtures. Three cases prove bootstrap
+denial, selected author-relay denial, and successful verified resource bytes.
+The backend query mock asserts approval already exists and the passed signal is
+live at invocation. Newest relay-list selection excludes the stale destination.
+Passed2026-10-17 in22e5f35d; include in combined unit verification.
