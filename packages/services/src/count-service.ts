@@ -1,5 +1,5 @@
 import type { NappletMessage, NostrFilter } from '@napplet/core';
-import type { ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
+import type { ApprovalSignal, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
 
 export interface CountRequest {
   /** NIP-01 filters with NIP-45 COUNT OR semantics. */
@@ -8,6 +8,10 @@ export interface CountRequest {
   readonly options?: Record<string, unknown>;
   /** Window requesting the count. */
   readonly windowId: string;
+  /** Current operation approval; remote backends must stop when it aborts. */
+  readonly signal?: ApprovalSignal;
+  /** Frozen relay destinations selected before approval; undefined for local work. */
+  readonly relays?: readonly string[];
 }
 
 export interface CountResult {
@@ -102,7 +106,7 @@ export function createCountService(options: CountServiceOptions): ServiceHandler
         ? runtime.authorizeOperation(windowId, 'count.query', [
           { category: 'interface', domain: 'count', operation: 'access', scope: { kind: 'exact', value: 'count' } },
           ...(plan.relays ?? []).map((url) => ({ category: 'network' as const, domain: 'count', operation: 'count.query', scope: { kind: 'origin' as const, value: new URL(url).origin } })),
-        ], (signal) => signal.aborted ? { ok: false, error: 'policy denied' } : options.count(request)).then((outcome) => outcome.status === 'executed' && outcome.value ? outcome.value : { ok: false, error: 'policy denied' })
+        ], (signal) => signal.aborted ? { ok: false, error: 'policy denied' } : options.count({ ...request, signal, ...(plan.relays ? { relays: Object.freeze([...plan.relays]) } : {}) })).then((outcome) => outcome.status === 'executed' && outcome.value ? outcome.value : { ok: false, error: 'policy denied' })
         : options.count(request);
       const planned = options.planCount?.(request);
       void (planned === undefined ? Promise.resolve(run({})) : Promise.resolve(planned).then(run))
