@@ -54,6 +54,90 @@ function validMessage(message: unknown): message is McpMessage {
   return !!message && typeof message === 'object' && (message as McpMessage).jsonrpc === '2.0';
 }
 
+interface CvmActions {
+  readonly transport: CvmServiceOptions['transport'];
+  readonly sessions: Map<string, Map<string, CvmSession>>;
+  readonly currentSend: (windowId: string, generation: symbol, message: NappletMessage) => void;
+  readonly current: (windowId: string, generation: symbol) => boolean;
+  readonly remember: (windowId: string, generation: symbol, server: CvmServerRef) => void;
+  readonly release: (windowId: string, serverPubkey: string) => Promise<void>;
+  readonly authorize: <T>(windowId: string, generation: symbol, operation: 'cvm.discover' | 'cvm.request', relays: readonly string[], server: CvmServerRef | undefined, execute: (signal?: ApprovalSignal) => Promise<T>) => Promise<T>;
+}
+
+function handleDiscover(actions: CvmActions, windowId: string, generation: symbol, msg: NappletMessage): void {
+  const { transport, currentSend, authorize } = actions;
+  const m = msg as NappletMessage & { id?: string; query?: CvmDiscoverQuery };
+  const id = m.id ?? '';
+  if (!validQuery(m.query)) {
+    currentSend(windowId, generation, { type: 'cvm.discover.result', id, servers: [], error: 'invalid request' } as NappletMessage);
+    return;
+  }
+  let relays: readonly string[];
+  try { relays = relayPlan(transport.planDiscover?.(m.query) ?? m.query?.relays ?? []); }
+  catch (error) {
+    currentSend(windowId, generation, { type: 'cvm.discover.result', id, servers: [], error: toErrorMessage(error) } as NappletMessage);
+    return;
+  }
+  void authorize(windowId, generation, 'cvm.discover', relays, undefined, (signal) => signal
+    ? transport.discover(m.query, { signal })
+    : transport.discover(m.query))
+    .then((servers) => currentSend(windowId, generation, { type: 'cvm.discover.result', id, servers } as NappletMessage))
+    .catch((err) =>
+      currentSend(windowId, generation, { type: 'cvm.discover.result', id, servers: [], error: toErrorMessage(err) } as NappletMessage),
+    );
+}
+
+function handleRequest(actions: CvmActions, windowId: string, generation: symbol, msg: NappletMessage): void {
+  const { transport, currentSend, authorize, current, remember } = actions;
+  const m = msg as NappletMessage & {
+    id?: string;
+    server?: CvmServerRef;
+    message?: McpMessage;
+    options?: CvmRequestOptions;
+  };
+  const id = m.id ?? '';
+  if (!validServer(m.server)) {
+    currentSend(windowId, generation, { type: 'cvm.request.result', id, error: 'server not found' } as NappletMessage);
+    return;
+  }
+  if (!validMessage(m.message)) {
+    currentSend(windowId, generation, { type: 'cvm.request.result', id, error: 'unsupported method' } as NappletMessage);
+    return;
+  }
+  let relays: readonly string[];
+  try { relays = relayPlan(transport.planRequest?.(m.server) ?? m.server.relays ?? []); }
+  catch (error) {
+    currentSend(windowId, generation, { type: 'cvm.request.result', id, error: toErrorMessage(error) } as NappletMessage);
+    return;
+  }
+  const server = Object.freeze({ ...m.server, relays: [...relays] });
+  void authorize(windowId, generation, 'cvm.request', relays, server, (signal) => signal
+    ? transport.request(server, m.message!, m.options, { signal })
+    : transport.request(server, m.message!, m.options))
+    .then((message) => {
+      if (!current(windowId, generation)) return;
+      remember(windowId, generation, server);
+      currentSend(windowId, generation, { type: 'cvm.request.result', id, message } as NappletMessage);
+    })
+    .catch((err) =>
+      currentSend(windowId, generation, { type: 'cvm.request.result', id, error: toErrorMessage(err) } as NappletMessage),
+    );
+}
+
+function handleClose(actions: CvmActions, windowId: string, generation: symbol, msg: NappletMessage): void {
+  const { sessions, currentSend, release } = actions;
+  const m = msg as NappletMessage & { id?: string; server?: CvmServerRef };
+  const id = m.id ?? '';
+  if (!validServer(m.server) || !sessions.get(windowId)?.has(m.server.pubkey)) {
+    currentSend(windowId, generation, { type: 'cvm.close.result', id, error: 'session closed' } as NappletMessage);
+    return;
+  }
+  void release(windowId, m.server.pubkey)
+    .then(() => currentSend(windowId, generation, { type: 'cvm.close.result', id } as NappletMessage))
+    .catch((err) => currentSend(windowId, generation, { type: 'cvm.close.result', id, error: toErrorMessage(err) } as NappletMessage));
+}
+
+
 /**
  * Create the NAP-CVM service handler.
  *
@@ -125,75 +209,7 @@ export function createCvmServiceHandler(options: CvmServiceOptions): CvmService 
     }
   });
 
-  function handleDiscover(windowId: string, generation: symbol, msg: NappletMessage): void {
-    const m = msg as NappletMessage & { id?: string; query?: CvmDiscoverQuery };
-    const id = m.id ?? '';
-    if (!validQuery(m.query)) {
-      currentSend(windowId, generation, { type: 'cvm.discover.result', id, servers: [], error: 'invalid request' } as NappletMessage);
-      return;
-    }
-    let relays: readonly string[];
-    try { relays = relayPlan(transport.planDiscover?.(m.query) ?? m.query?.relays ?? []); }
-    catch (error) {
-      currentSend(windowId, generation, { type: 'cvm.discover.result', id, servers: [], error: toErrorMessage(error) } as NappletMessage);
-      return;
-    }
-    void authorize(windowId, generation, 'cvm.discover', relays, undefined, (signal) => signal
-      ? transport.discover(m.query, { signal })
-      : transport.discover(m.query))
-      .then((servers) => currentSend(windowId, generation, { type: 'cvm.discover.result', id, servers } as NappletMessage))
-      .catch((err) =>
-        currentSend(windowId, generation, { type: 'cvm.discover.result', id, servers: [], error: toErrorMessage(err) } as NappletMessage),
-      );
-  }
-
-  function handleRequest(windowId: string, generation: symbol, msg: NappletMessage): void {
-    const m = msg as NappletMessage & {
-      id?: string;
-      server?: CvmServerRef;
-      message?: McpMessage;
-      options?: CvmRequestOptions;
-    };
-    const id = m.id ?? '';
-    if (!validServer(m.server)) {
-      currentSend(windowId, generation, { type: 'cvm.request.result', id, error: 'server not found' } as NappletMessage);
-      return;
-    }
-    if (!validMessage(m.message)) {
-      currentSend(windowId, generation, { type: 'cvm.request.result', id, error: 'unsupported method' } as NappletMessage);
-      return;
-    }
-    let relays: readonly string[];
-    try { relays = relayPlan(transport.planRequest?.(m.server) ?? m.server.relays ?? []); }
-    catch (error) {
-      currentSend(windowId, generation, { type: 'cvm.request.result', id, error: toErrorMessage(error) } as NappletMessage);
-      return;
-    }
-    const server = Object.freeze({ ...m.server, relays: [...relays] });
-    void authorize(windowId, generation, 'cvm.request', relays, server, (signal) => signal
-      ? transport.request(server, m.message!, m.options, { signal })
-      : transport.request(server, m.message!, m.options))
-      .then((message) => {
-        if (!current(windowId, generation)) return;
-        remember(windowId, generation, server);
-        currentSend(windowId, generation, { type: 'cvm.request.result', id, message } as NappletMessage);
-      })
-      .catch((err) =>
-        currentSend(windowId, generation, { type: 'cvm.request.result', id, error: toErrorMessage(err) } as NappletMessage),
-      );
-  }
-
-  function handleClose(windowId: string, generation: symbol, msg: NappletMessage): void {
-    const m = msg as NappletMessage & { id?: string; server?: CvmServerRef };
-    const id = m.id ?? '';
-    if (!validServer(m.server) || !sessions.get(windowId)?.has(m.server.pubkey)) {
-      currentSend(windowId, generation, { type: 'cvm.close.result', id, error: 'session closed' } as NappletMessage);
-      return;
-    }
-    void release(windowId, m.server.pubkey)
-      .then(() => currentSend(windowId, generation, { type: 'cvm.close.result', id } as NappletMessage))
-      .catch((err) => currentSend(windowId, generation, { type: 'cvm.close.result', id, error: toErrorMessage(err) } as NappletMessage));
-  }
+  const actions: CvmActions = { transport, sessions, currentSend, current, remember, release, authorize };
 
   return {
     descriptor: CVM_DESCRIPTOR,
@@ -210,13 +226,13 @@ export function createCvmServiceHandler(options: CvmServiceOptions): CvmService 
       sends.set(windowId, send);
       switch (message.type) {
         case 'cvm.discover':
-          handleDiscover(windowId, generation, message);
+          handleDiscover(actions, windowId, generation, message);
           return;
         case 'cvm.request':
-          handleRequest(windowId, generation, message);
+          handleRequest(actions, windowId, generation, message);
           return;
         case 'cvm.close':
-          handleClose(windowId, generation, message);
+          handleClose(actions, windowId, generation, message);
           return;
         default:
           // Unknown cvm.* action — silently ignored (forward-compatible).
