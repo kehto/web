@@ -189,8 +189,10 @@ counters = result.state;
 operation budget. State is ephemeral; it is not a permission grant or a persistence
 format. Invalid budgets and nonfinite clocks throw `RangeError`. Clock rollback
 cannot create an extra refill. Subject/operation keys are encoded without delimiter
-collisions. This evaluator is available for host integration; the existing runtime
-Firewall gate remains until the approval migration is complete.
+collisions. Configured runtimes use the independent budget through the shared
+permission coordinator. Hosts without `RuntimeAdapter.permissions` retain the
+legacy temporal gate with `FW-RUNTIME-LEGACY-GATE-001` on actual use; see the
+[compatibility register](/compatibility).
 
 
 ### Cancelling one approved operation

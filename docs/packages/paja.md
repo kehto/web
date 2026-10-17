@@ -362,7 +362,7 @@ is live:
 `common`, `lists`, `serial`, `ble`, `webrtc`, `media`, `notify`, `config`,
 `resource`, `cvm`, `upload`, `intent`, `count`, `dm`, and `fs`.
 
-`shell` is the mandatory bootstrap interface; `gamepad` is an optional advertised domain. The retained `PAJA_HANDSHAKE_DOMAINS` compatibility export is empty. GAMEPAD uses one host reader and focus-scoped state delivery; the shared approval boundary authorizes `gamepad:input` before native input starts. Native controller access is denied in each frame. See [Controller input](/gamepad).
+`shell` is an optional environment interface under NAP-SHELL at `19de5ce1cea40cd4c76089cdd8126e9f87648049`; it does not establish identity or gate other domains. `gamepad` is an optional advertised domain. The retained `PAJA_HANDSHAKE_DOMAINS` compatibility export is empty. GAMEPAD uses one host reader and focus-scoped state delivery; the shared approval boundary authorizes `gamepad:input` before native input starts. Native controller access is denied in each frame. See [Controller input](/gamepad).
 
 Paja's NAP-NOTIFY renderer displays attributed text and never fetches untrusted
 icon URLs. Runtime approval scopes sending, channel registration, badge changes,

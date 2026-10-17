@@ -185,8 +185,8 @@ Checked authority: NAP-LINK draft PR 53 at
 `ae5b9c64ab8a4d8909f288829a01e99d6bd713bc`, and NAP-SHELL/web at
 `19de5ce1cea40cd4c76089cdd8126e9f87648049`. LINK validation, response correlation,
 and source isolation follow those contracts. Resource identity informs the shared
-principal model; this checkpoint does not claim migration of resource enforcement
-or direct-network policy. See the planning research matrix for the remaining refs
+principal model; resource enforcement is described below while Phase 114 owns
+direct browser network policy. See the planning research matrix for the remaining refs
 and documented CONNECT specification gap.
 
 
