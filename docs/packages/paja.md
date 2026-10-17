@@ -175,7 +175,21 @@ The console includes:
   the next matching request is allowed or denied by the real runtime gate.
 - **Signer** — Paja auto-connects a browser NIP-07 signer when `window.nostr`
   is available, can connect to a bunker/NIP-46 URI, and only uses the generated
-  development signer when the Dev signer button is selected. Sign, publish,
+  development signer when the Dev signer button is selected. A **view-only**
+  identity accepts an `npub1…`, `nprofile1…`, or 64-character hex pubkey and
+  previews the napplet as that account. The host reports it through
+  `identity.getPublicKey` and `identity.getRelays` — using `nprofile` relay
+  hints when present, otherwise the configured relays — while signing,
+  encryption, publishing, DM, WebRTC, and Blossom upload stay unavailable and
+  never raise a confirmation dialog. `relay.publish` answers
+  `signing unavailable (read-only identity)` and `relay.publishEncrypted`
+  answers `encryption unavailable (read-only identity)`, both permitted by
+  draft NAP-RELAY PR #2 at
+  `9f30b3505335a52c574ff570576687d6467021ff`, which leaves
+  `relay.publish.result.error` free-form. The npub persists per browser origin,
+  outranks the implicit NIP-07 probe on reload, and **Log out** clears it.
+  Paja rejects a pasted `nsec` without repeating it into the status line or
+  the message log. Sign, publish,
   Blossom upload, and external-link requests use one serialized in-page
   confirmation dialog. Deny has initial focus and Escape denies. Napplet-scoped
   signing defaults to one-time approval. The dialog can instead remember the
