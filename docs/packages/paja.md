@@ -633,7 +633,9 @@ conformance. Publisher discovery follows
 The normalized simulation object controls:
 
 - Capability domain advertisement through the production `shell.init` path.
-- ACL mode and firewall mode metadata for development policy profiles.
+- ACL mode metadata for development policy profiles. The retired
+  `--firewall-mode` and `simulation.firewall` options are rejected; they never
+  granted authority. Use the Paja Firewall panel for exact scoped decisions.
 - Anonymous or fixed identity mode.
 - Live, memory fixture, or disabled relay/outbox behavior.
 - Local, memory, or disabled storage mode advertisement.

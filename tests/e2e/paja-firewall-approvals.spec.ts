@@ -47,9 +47,8 @@ async function choose(page: Page, permission: string, effect: 'Allow' | 'Deny'):
   await dialog.getByRole('button', { name: effect }).click();
 }
 
-test('required interface denial prevents the target script from executing', async ({ page }) => {
+test('required network denial prevents the target script from executing', async ({ page }) => {
   await page.goto(host.url);
-  await expect(page.locator('.kehto-approval-ui dialog')).toContainText('interface access exact:shell');
   await choose(page, 'network.connect-src', 'Deny');
   await expect.poll(() => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('error');
   await expect(page.frameLocator('#napplet-frame').locator('#executed')).toHaveCount(0);

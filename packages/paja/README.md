@@ -320,6 +320,11 @@ Set `frame-ancestors` on the host HTTP response, not in a meta policy. See the
 
 Environment simulation can be supplied through CLI flags or a JSON config file:
 
+The old `--firewall-mode` and `simulation.firewall` settings are rejected because
+they never granted a scoped permission. Use the Firewall approvals panel for
+interface, resource, and network decisions. Simulation settings can still
+restrict availability or select test backends, but cannot approve a target.
+
 ```bash
 kehto paja \
   --target-url http://127.0.0.1:5173 \

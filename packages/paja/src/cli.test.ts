@@ -68,6 +68,11 @@ describe('@kehto/paja CLI', () => {
     });
   });
 
+  it('rejects the retired broad Firewall switch with scoped-grant guidance', () => {
+    expect(() => parsePajaArgs(['--target-url', 'http://127.0.0.1:5173', '--firewall-mode', 'allow']))
+      .toThrow('--firewall-mode was removed; approve exact scopes in Paja Firewall grants.');
+  });
+
   it('parses opt-in Blossom mode with repeatable shell-owned servers', () => {
     const parsed = parsePajaArgs([
       '--target-url',

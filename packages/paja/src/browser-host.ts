@@ -1,5 +1,7 @@
 import { installPajaResourceSettings } from './browser-resource-settings.js';
 import { createPajaPermissionAdapter } from './browser-permission-adapter.js';
+import { permissionPrincipalKey } from '@kehto/firewall';
+import { revokedPajaTabIds } from './browser-grant-retirement.js';
 import {
   buildShellCapabilities,
   createShellBridge,
@@ -730,11 +732,16 @@ async function installPajaHost(): Promise<void> {
   const permissionController = createPajaPermissionAdapter({
     mount: permissionMount,
     getPermissions: () => permissionBridge?.runtime.permissions,
-    onGrantRevoked() {
+    onGrantRevoked(grant) {
       if (!stateRef) return;
+      const revoked = permissionPrincipalKey(grant.principal);
       if (config.target.mode === 'runtime-pointer') {
-        while (stateRef.tabs.length > 0) stateRef.closeTab(stateRef.tabs[0].id);
-      } else stateRef.reload();
+        for (const tabId of revokedPajaTabIds(config, stateRef.tabs, grant)) stateRef.closeTab(tabId);
+      } else {
+        const source = frame?.contentWindow;
+        const principal = source ? originRegistry.getIdentity(source)?.permissionPrincipal : undefined;
+        if (principal && permissionPrincipalKey(principal) === revoked) stateRef.reload();
+      }
     },
   });
   adapter.permissions = permissionController.adapter;
