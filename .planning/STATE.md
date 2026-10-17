@@ -381,3 +381,5 @@ Build/type/docs/quality and 2,164 unit / 123 browser tests pass.
 ## Firewall approvals execution checkpoint
 
 2026-10-17: Worktree `/Users/sandwich/.worktrees/kehto/firewall-approvals`, branch `feat/firewall-approvals`, baseline `0958a8b1`. Original request in FIREWALL-GOAL.md. Research/consumer matrix committed. Plan 111-01 additive rate primitive verified; next is 111-02 pure approvals, then phases 112–115. The goal is active and the full migration is unfinished.
+
+2026-10-17: Plan 111-02 pure approval policy implemented and verified (50 focused tests, package type/build, docs, quality 100). Next: execute `.planning/phases/112-runtime-approval-lifecycle/112-01-PLAN.md`. Old Firewall gate and host consumers remain on legacy behavior; full objective is not achieved. All commits are local; no PR for this goal yet.
