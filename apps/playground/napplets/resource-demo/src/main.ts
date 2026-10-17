@@ -2,8 +2,8 @@
  * resource-demo napplet -- fetches a remote image through the resource service
  * and renders it as a visible resource preview.
  *
- * Uses the published NAP-RESOURCE SDK over the injected host projection to
- * fetch remote bytes and surface the response as an object URL.
+ * Uses the injected host projection to fetch remote bytes and surface them as
+ * an object URL.
  */
 import { getMissingNapDomains } from '../../domain-availability';
 import { applyNapTheme, installNapTheme, onNapThemeChanged } from '../../shared-theme';
@@ -14,8 +14,8 @@ import { applyNapTheme, installNapTheme, onNapThemeChanged } from '../../shared-
 
 const REQUIRED_NAPS = ['resource', 'theme'] as const;
 // Match the 5s deadline every other playground napplet uses: the host prelude
-// and @napplet/shim@0.30.0 install canonical window.napplet domain objects
-// before authored code runs, but slower CI can still race the iframe bootstrap.
+// installs canonical window.napplet domain objects before authored code runs,
+// but slower CI can still race the iframe bootstrap.
 const CAPABILITY_WAIT_MS = 5_000;
 const CAPABILITY_WAIT_INTERVAL_MS = 25;
 
