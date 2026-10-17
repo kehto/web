@@ -191,6 +191,8 @@ describe('Paja ACL controls', () => {
         renderPajaDevtools(state, { bridge, devSignerPubkey: '' });
       },
       useDevSigner: vi.fn(),
+      useViewOnlySigner: vi.fn(),
+      disconnectSigner: vi.fn(),
       connectNip07: vi.fn(async () => {}),
       connectBunker: vi.fn(async () => {}),
       clearSignerConsent: vi.fn(),

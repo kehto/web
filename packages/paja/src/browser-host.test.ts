@@ -172,7 +172,8 @@ describe('@kehto/paja browser host runtime source guards', () => {
     expect(relaySource).toContain('...await getSignerRelayUrls(signerProvider, \'read\'),');
     expect(relaySource).toContain('backend.query(await getBootstrapRelayUrls(getSimulation, signerProvider), [{');
     expect(intentSource).toContain('...getPajaRelayUrls(context.runtime.currentSimulation),');
-    expect(hostSource).toContain('if (hasNip07Signer()) void state.connectNip07();');
+    // A persisted view-only identity outranks the implicit NIP-07 probe.
+    expect(hostSource).toContain("if (hasNip07Signer() && signerController.getMethod() === 'none') void state.connectNip07();");
     expect(hostSource).toContain("bridge.publishIdentityChanged(adapter.auth.getUserPubkey() ?? '');");
   });
 

@@ -242,7 +242,10 @@ function createOutboxRouter(
     fallbackRelays: relayConfig.outboxRelays,
     signEvent: async (template) => {
       const signer = createRuntimeSigner(getSimulation, confirmRequest, signerProvider);
-      if (!signer?.signEvent) throw new Error('no signer configured');
+      if (!signer) throw new Error('no signer configured');
+      // A view-only identity is connected but deliberately has no signing
+      // capability; report that instead of claiming no identity exists.
+      if (!signer.signEvent) throw new Error('signing unavailable (read-only identity)');
       const event = { ...template };
       event.created_at ??= Math.floor(Date.now() / 1000);
       event.kind ??= 1;

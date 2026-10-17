@@ -119,8 +119,12 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .toggle[data-enabled="true"] { color: var(--text); border-color: #5f724f; background: #24301f; }
       .toggle[data-enabled="false"] { color: #8d9187; border-color: #453536; background: #241d1d; }
       .signer { color: var(--muted); word-break: break-all; font-size: 12px; }
-      .signer-controls { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; gap: 6px; }
+      .signer-controls { display: grid; gap: 6px; }
+      .signer-row { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; gap: 6px; }
+      .signer-row-identity { grid-template-columns: minmax(0, 1fr) auto auto; }
       .signer-controls button[data-active="true"] { border-color: var(--accent); color: var(--text); background: #2a2a1d; }
+      .signer-controls button:disabled { color: #6a6f66; border-color: var(--line); background: #191c19; cursor: default; }
+      .signer-controls button:disabled:hover { border-color: var(--line); }
       .signer-controls input { min-width: 0; padding: 0 8px; }
       .signer-consent-clear { width: 100%; margin-top: 6px; }
       .pointer-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; }
@@ -262,7 +266,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
         <details class="section" id="paja-section-signer" data-paja-section="signer" open>
           <summary class="section-title">Signer<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
           <div class="signer" id="signer-status">loading</div>
-          <div class="signer-controls" id="signer-controls"></div>
+          <div class="signer-controls" id="signer-controls" role="group" aria-label="Signer and identity methods"></div>
           <button type="button" class="signer-consent-clear" id="signer-consent-clear" hidden>Forget remembered approvals</button>
         </div></details>
         <details class="section" id="paja-section-resource-servers" data-paja-section="resource-servers" open>
