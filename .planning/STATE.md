@@ -455,3 +455,17 @@ integration. Relay03/19 atomic plan split independently PASSED; updatedplans and
 corrected114research committeddaee710d. host_plan now owns114plans/validation;
 resource_execution stillowns active resource migration. Next: resource fullgates,
 then113wave3; collect/check114plans. Goal active, no PR yet.
+
+2026-10-17: Root completed the three pending Paja resource integration test
+migrations in f6072a17: proxy POST/body destination assertions, canonical string
+wire bytes, URI xs candidate hints, preserved fallback/settings/hash/migration
+warning regressions. Focused 13 tests and Paja type-check pass. Rechecked
+NAP-RESOURCE ae5b9c64ab8a4d8909f288829a01e99d6bd713bc via GitHub before edits.
+Found Blossom proxy redirect handling gap; resource_execution fixed it and reports
+147 focused Paja tests/types passing. Root current-tree AI-slop gate passes100,
+log /tmp/kehto-resource-final-quality.json. Executor owns all remaining resource
+source/docs/E2E changes and full combined gates; no resource completion claim yet.
+Host planner remains live on114plans/validation. Next: collect resource fullgate
+results, fix any failures, then release113wave3 and review114plans. Goal active;
+no PR yet. Prior prompt-only goal turn made no implementation progress; this turn
+revalidated the live worktree/agents and delivered the committed test migration.
