@@ -285,7 +285,8 @@ export function createNotifyService(options: NotifyServiceOptions = {}): Service
         const ownsNotification = (): boolean => current(windowId, generation)
           && active.get(windowId) === windowNotifications && windowNotifications.has(notificationId) && !signal.aborted;
         const emit = (interaction: NotifyInteractionMessage): void => {
-          if (!ownsNotification() || interaction.notificationId !== notificationId) return;
+          if (!ownsNotification() || interaction.notificationId !== notificationId
+            || (runtime && !runtime.hasCapability(windowId, 'notify:send'))) return;
           if (interaction.type === 'notify.dismissed') windowNotifications.delete(notificationId);
           send(interaction as NappletMessage);
         };

@@ -229,6 +229,24 @@ describe('createNotifyService', () => {
     expect(sent).toEqual([]);
   });
 
+  it('stops interaction pushes when the source loses its notification ACL capability', async () => {
+    let allowed = true;
+    let presentation!: NotifyPresentation;
+    const service = createNotifyService({ present: (value) => { presentation = value; } });
+    const authorizeOperation = vi.fn(async (_windowId, _operation, _requirements, action) => ({
+      status: 'executed', value: await action(new AbortController().signal),
+    })) as unknown as NonNullable<ServiceRuntimeContext['authorizeOperation']>;
+    service.onRegistered?.({ authorizeOperation, resolveDTag: () => 'app', listWindowIds: () => [],
+      hasCapability: () => allowed, sendToEligibleNapplet: () => true });
+    const sent: NappletMessage[] = [];
+    service.handleMessage(WINDOW_ID, makeMsg('notify.send', { id: 'n1', title: 'Hello' }), (result) => sent.push(result));
+    await settle();
+    presentation.emit({ type: 'notify.clicked', notificationId: presentation.notificationId });
+    allowed = false;
+    presentation.emit({ type: 'notify.clicked', notificationId: presentation.notificationId });
+    expect(sent.filter((message) => message.type === 'notify.clicked')).toHaveLength(1);
+  });
+
   it.each(['https://example.test/track', '//example.test/track', '/track'])('rejects icon URL %s before prompting or host fetching', async (icon) => {
     const authorizeOperation = vi.fn() as unknown as NonNullable<ServiceRuntimeContext['authorizeOperation']>;
     const present = vi.fn();
