@@ -239,3 +239,22 @@ Resolver destination enforcement is phase 113 work, including actual Paja and
 playground resolver consumers. Phase 114 owns admission/UI/CSP. Do not resolve the
 DNS limitation by silently deleting the requested network resource functionality:
 plan an enforceable trusted transport with explicit support boundaries.
+
+## Transport implementation references
+
+Checked 2026-10-17: [IANA IPv4 special-purpose registry](https://www.iana.org/assignments/iana-ipv4-special-registry/)
+and [IANA IPv6 special-purpose registry](https://www.iana.org/assignments/iana-ipv6-special-registry/).
+Use the registries' destination/global-reachability distinctions to build explicit
+address-policy vectors. Private/loopback checks alone miss shared-address,
+link-local, documentation, benchmark, reserved, and translation ranges. Record
+any intentionally stricter host policy instead of claiming all special-purpose
+ranges are private. Validate IPv4-mapped IPv6 and literal addresses as well as DNS
+answers. Refresh source dates when implementing; tests must cite real ranges.
+
+[Node HTTPS request documentation](https://nodejs.org/api/https.html) is the
+connection API reference. Preserve original hostname for Host/TLS identity while
+pinning only the already-validated socket address; do not disable certificate
+verification. Use one-hop requests without implicit redirects, bounded byte/time
+budgets, and actual disconnect/abort cleanup. A browser-origin check is separate
+from target address checks: the endpoint additionally needs host-only request
+authority so an app cannot bypass the approval coordinator by calling it directly.
