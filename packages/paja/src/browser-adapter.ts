@@ -244,6 +244,11 @@ function createOutboxRouter(
       () => relayConfig.getRelayUrls(['discovery', 'super']),
     ),
     fallbackRelays: relayConfig.outboxRelays,
+    getSignerPubkey: async () => {
+      const signer = createRuntimeSigner(getSimulation, confirmRequest, signerProvider);
+      if (!signer?.getPublicKey) throw new Error('no signer configured');
+      return signer.getPublicKey();
+    },
     signEvent: async (template) => {
       const signer = createRuntimeSigner(getSimulation, confirmRequest, signerProvider);
       if (!signer?.signEvent) throw new Error('no signer configured');
