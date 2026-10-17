@@ -218,16 +218,20 @@ describe('Paja browser WebRTC controller', () => {
 
     expect(controllerA.refreshAvailability()).toBe(true);
     expect(controllerB.refreshAvailability()).toBe(true);
-    const openedA = await controllerA.serviceOptions.open!({
+    const requestA = {
       scope: { type: 'direct', pubkey: pubkeyB },
       channel: 'chat',
       protocol: 'chat:1',
-    }, { windowId: 'window-a', emit: (event) => eventsA.push(event) });
-    const openedB = await controllerB.serviceOptions.open!({
+    } as const;
+    const contextA = { windowId: 'window-a', emit: (event: WebrtcEvent) => eventsA.push(event) };
+    const openedA = await controllerA.serviceOptions.open!(requestA, contextA, controllerA.serviceOptions.planOpen!(requestA, contextA));
+    const requestB = {
       scope: { type: 'direct', pubkey: pubkeyA },
       channel: 'chat',
       protocol: 'chat:1',
-    }, { windowId: 'window-b', emit: (event) => eventsB.push(event) });
+    } as const;
+    const contextB = { windowId: 'window-b', emit: (event: WebrtcEvent) => eventsB.push(event) };
+    const openedB = await controllerB.serviceOptions.open!(requestB, contextB, controllerB.serviceOptions.planOpen!(requestB, contextB));
     await settle();
 
     expect(confirmA).toHaveBeenCalledWith(expect.objectContaining({ action: 'webrtc', windowId: 'window-a' }));
