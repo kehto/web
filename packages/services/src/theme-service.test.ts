@@ -12,7 +12,8 @@
  * the real end-to-end ACL gate is exercised in dispatch.test.ts).
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import type { ServiceRuntimeContext } from '@kehto/runtime';
 import { createThemeService } from './theme-service.js';
 import type { NappletMessage } from '@napplet/core';
 import type { Theme, ThemeChangedMessage } from '@napplet/nap/theme/types';
@@ -41,6 +42,19 @@ describe('createThemeService', () => {
     expect(service.handler.descriptor.name).toBe('theme');
     expect(typeof service.handler.descriptor.version).toBe('string');
     expect(service.handler.descriptor.version.length).toBeGreaterThan(0);
+  });
+
+  it('uses an interface-only local approval for theme.get and eligible runtime delivery for pushes', async () => {
+    const service = createThemeService();
+    const authorizeOperation = vi.fn(async (_windowId, _operation, _requirements, execute) => ({ status: 'executed' as const, value: await execute({ aborted: false, addEventListener() {}, removeEventListener() {} }) }));
+    const sendToEligibleNapplet = vi.fn(() => true);
+    service.handler.onRegistered?.({ authorizeOperation, listWindowIds: () => ['allowed', 'hidden'], sendToEligibleNapplet } as unknown as ServiceRuntimeContext);
+    const sent: NappletMessage[] = [];
+    service.handler.handleMessage(WINDOW_ID, makeMsg('theme.get', { id: 'approved' }), (message) => sent.push(message));
+    await vi.waitFor(() => expect(sent).toHaveLength(1));
+    expect(authorizeOperation.mock.calls[0]?.[2]).toEqual([expect.objectContaining({ category: 'interface', domain: 'theme' })]);
+    service.publishTheme({ colors: DEFAULT_THEME_COLORS });
+    expect(sendToEligibleNapplet).toHaveBeenCalledTimes(2);
   });
 
   describe('theme.get', () => {

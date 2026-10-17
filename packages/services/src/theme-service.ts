@@ -36,7 +36,7 @@ import type { NappletMessage } from '@napplet/core';
 // DRIFT-CORE-06 — Phase 11-deviation: ServiceDescriptor dropped from
 // @napplet/core v0.2.0+ (napplet phase-81). Re-exported from
 // @kehto/runtime (canonical home after Phase 24 DRIFT-01).
-import type { ServiceDescriptor, ServiceHandler } from '@kehto/runtime';
+import type { ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
 import type {
   Theme,
   ThemeChangedMessage,
@@ -150,6 +150,7 @@ export interface ThemeService {
  */
 export function createThemeService(options: ThemeServiceOptions = {}): ThemeService {
   let currentTheme: Theme = normalizeTheme(options.initialTheme);
+  let runtime: ServiceRuntimeContext | undefined;
 
   const descriptor: ServiceDescriptor = {
     name: 'theme',
@@ -160,6 +161,9 @@ export function createThemeService(options: ThemeServiceOptions = {}): ThemeServ
   const handler: ServiceHandler = {
     descriptor,
 
+    onRegistered(context): void { runtime = context; },
+    onUnregistered(): void { runtime = undefined; },
+
     handleMessage(
       _windowId: string,
       message: NappletMessage,
@@ -168,12 +172,12 @@ export function createThemeService(options: ThemeServiceOptions = {}): ThemeServ
       const id = (message as NappletMessage & { id?: string }).id ?? '';
 
       if (message.type === 'theme.get') {
-        const result: ThemeGetResultMessage = {
-          type: 'theme.get.result',
-          id,
-          theme: currentTheme,
-        };
-        send(result as NappletMessage);
+        const reply = (): void => send({ type: 'theme.get.result', id, theme: currentTheme } as ThemeGetResultMessage as NappletMessage);
+        if (!runtime?.authorizeOperation) { reply(); return; }
+        void runtime.authorizeOperation(_windowId, 'theme.get', [{ category: 'interface', domain: 'theme', operation: 'access', scope: { kind: 'exact', value: 'theme' } }], async (signal) => {
+          if (signal.aborted) throw new Error('user-denied');
+          reply();
+        });
         return;
       }
 
@@ -190,6 +194,7 @@ export function createThemeService(options: ThemeServiceOptions = {}): ThemeServ
     currentTheme = normalizeTheme(theme);
     const envelope: ThemeChangedMessage = { type: 'theme.changed', theme: currentTheme };
     options.onBroadcast?.(envelope);
+    for (const windowId of runtime?.listWindowIds() ?? []) runtime?.sendToEligibleNapplet(windowId, envelope as NappletMessage);
     return envelope;
   }
 
