@@ -36,6 +36,58 @@ interface DelayedRelay {
 }
 
 test.describe('Paja intent links', () => {
+  test('notifies an open source when a handler is installed after a no-handler rejection', async ({ page }) => {
+    test.setTimeout(45_000);
+    const server = await startIntentServer();
+    // NAP-INTENT master e5308ac: pre-acceptance rejection is terminal;
+    // catalog changes SHOULD push availability, not replay failed requests.
+    const source = createSignedTarget(server.url, 'availability-source', `<!doctype html><html><body>
+      <button id="invoke">Invoke</button><output id="result"></output>
+      <output id="changed-count">0</output><output id="availability"></output>
+      <script>
+        let changes = 0;
+        window.napplet.intent.onChanged((availability) => {
+          if (availability.archetype !== 'profile') return;
+          document.getElementById('changed-count').textContent = String(++changes);
+          document.getElementById('availability').textContent = JSON.stringify(availability);
+        });
+        document.getElementById('invoke').onclick = async () => {
+          const result = await window.napplet.intent.invoke('napplet:profile/open');
+          document.getElementById('result').textContent = JSON.stringify(result);
+        };
+        window.parent.postMessage({ type: 'shell.ready' }, '*');
+      </script></body></html>`, undefined, []);
+    const handler = createSignedTarget(server.url, 'new-profile-handler', delayedTargetHtml(), 'napplet:profile/open', []);
+    server.blobs.set(source.hash, source.bytes);
+    server.blobs.set(handler.hash, handler.bytes);
+    await configureRuntime(page, server, [source.event, handler.event], source.pointer);
+
+    try {
+      await page.goto(server.url);
+      await expect.poll(() => page.evaluate(() => window.__KEHTO_PAJA__?.getState().tabs[0]?.status)).toBe('ready');
+      const sourceFrame = page.frameLocator('iframe.tab-panel').first();
+      await sourceFrame.locator('#invoke').click();
+      await expect(sourceFrame.locator('#result')).toContainText('no handler');
+      await expect(sourceFrame.locator('#changed-count')).toHaveText('0');
+
+      await page.locator('#runtime-pointer-input').fill(handler.pointer);
+      await page.locator('#runtime-pointer-load').click();
+      await expect(sourceFrame.locator('#changed-count')).toHaveText('1');
+      await expect(sourceFrame.locator('#availability')).toContainText('"available":true');
+      await expect(sourceFrame.locator('#availability')).toContainText(`nip5d:35129:${handler.event.pubkey}:new-profile-handler`);
+      await expect(sourceFrame.locator('#result')).toContainText('no handler');
+      const handlerFrame = page.frameLocator('iframe.tab-panel').nth(1);
+      await expect(handlerFrame.locator('#delivery-count')).toHaveText('0');
+
+      await sourceFrame.locator('#invoke').evaluate((button: HTMLButtonElement) => button.click());
+      await expect(sourceFrame.locator('#result')).toContainText('"ok":true');
+      await expect(handlerFrame.locator('#delivery-count')).toHaveText('1');
+      await expect(sourceFrame.locator('#changed-count')).toHaveText('1');
+    } finally {
+      await server.close();
+    }
+  });
+
   test('builds a link from a verified tab and delivers its copied JSON link after fresh navigation', async ({ browser }) => {
     test.setTimeout(60_000);
     const server = await startIntentServer();
@@ -167,7 +219,11 @@ test.describe('Paja intent links', () => {
       await expect(chooser).toBeVisible();
       await chooser.getByLabel('Always use this app').check();
       await chooser.getByRole('button', { name: 'Open with My Reader', exact: true }).click();
-      await expect(setup.frameLocator('iframe[title="Napplet runtime target: My Reader"]').locator('#delivery-target')).toHaveText('saved', { timeout: 15_000 });
+      const savedFrame = setup.frameLocator('iframe[title="Napplet runtime target: My Reader"]');
+      await expect(savedFrame.locator('#delivery-target')).toHaveText('saved', { timeout: 15_000 });
+      await expect(savedFrame.locator('#last-availability')).toContainText('"hasDefault":true');
+      await expect(savedFrame.locator('#last-availability')).toContainText(`nip5d:35129:${saved.event.pubkey}:My Reader`);
+      await expect(savedFrame.locator('#last-availability')).toContainText('"isDefault":true');
 
       const matching = await incoming(saved.pointer);
       await expect(matching.frameLocator('iframe.tab-panel').locator('#delivery-target')).toHaveText('saved', { timeout: 15_000 });
@@ -422,7 +478,7 @@ function createSignedTarget(
   serverUrl: string,
   dTag: string,
   html: string,
-  convention: string,
+  convention: string | undefined,
   parameters: readonly string[],
 ): SignedTarget {
   const bytes = Buffer.from(html);
@@ -436,8 +492,7 @@ function createSignedTarget(
       ['x', hash],
       ['server', `${serverUrl}blossom`],
       ['R', 'intent'],
-      ['z', 'profile'],
-      ['i', convention, ...parameters],
+      ...(convention === undefined ? [] : [['z', 'profile'], ['i', convention, ...parameters]]),
       ['title', dTag],
     ],
   }, TEST_KEY);
@@ -452,8 +507,12 @@ function createSignedTarget(
 function delayedTargetHtml(label = ''): string {
   return `<!doctype html><html><body>
     <output id="delivery-count">0</output><output id="delivery-payload"></output><output id="delivery-sender"></output><output id="delivery-target">${label}</output>
+    <output id="last-availability"></output>
     <script>
       let count = 0;
+      window.napplet.intent.onChanged((availability) => {
+        document.getElementById('last-availability').textContent = JSON.stringify(availability);
+      });
       window.parent.postMessage({ type: 'shell.ready' }, '*');
       setTimeout(() => window.napplet.intent.onDelivery((delivery) => {
         count += 1;
