@@ -45,7 +45,14 @@ export function normalizePermissionScope(scope: PermissionScope): PermissionScop
   return Object.freeze({ kind: scope.kind, value });
 }
 
-/** Internal normalization shared by grant ingestion and request evaluation. */
+/**
+ * Validate and normalize one host-selected permission requirement.
+ *
+ * @param value - Proposed category, operation, and exact scope.
+ * @param options - Registered host extension categories.
+ * @returns An immutable canonical requirement.
+ * @example normalizeRequirement({ category: 'network', domain: 'network', operation: 'network.connect', scope: { kind: 'origin', value: 'https://example.org' } }, {});
+ */
 export function normalizeRequirement(value: PermissionRequirement, options: PermissionPolicyOptions): PermissionRequirement {
   if (!value || typeof value.domain !== 'string' || !DOMAIN.test(value.domain) || !permissionText(value.operation, 128)) {
     throw new TypeError('Invalid permission operation');

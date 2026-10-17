@@ -159,14 +159,14 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
   }
 
 
-  function stillGranted(windowId: string, domains: readonly string[]): boolean {
+  function stillGranted(windowId: string, requirements: readonly PermissionRequirement[]): boolean {
     if (disposed || !store.available) return false;
     const lifetime = lifetimes.get(windowId);
     if (!lifetime || retiredSources.has(lifetime.entry) || context.getSession(windowId) !== lifetime.entry || !lifetime.entry.permissionPrincipal) return false;
-    if (domains.length === 0) return true;
+    if (requirements.length === 0) return true;
     return evaluatePermissions({ version: 1, grants: store.getState().grants.filter((grant) => grant.lifetime !== 'once') }, {
       principal: lifetime.entry.permissionPrincipal, sessionId: lifetime.id, requestId: 'interface-admission-check',
-      requirements: interfaceRequirements(domains),
+      requirements,
     }, adapter).decision === 'allow';
   }
 
@@ -175,7 +175,7 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
     getSession: context.getSession, available: () => !disposed && store.available,
     isRetired: (entry) => retiredSources.has(entry), revision: () => admissionRevision,
     allowed: (windowId, requirements) => context.allowed(windowId, requirements, 'admission'),
-    stillGranted,
+    stillGranted, extensions: adapter.extensions,
     run: (windowId, requirements, current) => run(windowId, 'interface.admit', requirements, current, () => undefined, 'admission'),
   });
 
@@ -197,7 +197,7 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
       const entry = context.getSession(windowId);
       return !disposed && !!entry && !retiredSources.has(entry);
     },
-    hasInterface: (windowId: string, domain: string): boolean => stillGranted(windowId, [domain]),
+    hasInterface: (windowId: string, domain: string): boolean => stillGranted(windowId, interfaceRequirements([domain])),
     cancelPending(): void { coordinator.cancel(); }, cancelWindow(windowId: string): void {
     const lifetime = lifetimes.get(windowId);
     if (lifetime) coordinator.cancel(lifetime.id);

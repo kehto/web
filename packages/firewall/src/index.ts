@@ -63,7 +63,7 @@ export {
   createPermissionState, permissionPrincipalKey, putPermissionGrant, revokePermissionGrant,
   evaluatePermissions, consumePermissionGrants, serializePermissions, deserializePermissions,
 } from './permissions.js';
-export { normalizePermissionScope } from './permission-scopes.js';
+export { normalizePermissionScope, normalizeRequirement } from './permission-scopes.js';
 export type {
   PermissionPrincipal, PermissionCategory, PermissionScope, PermissionRequirement,
   PermissionRequest, PermissionGrant, PermissionState, PermissionPolicyOptions,

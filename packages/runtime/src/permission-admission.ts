@@ -1,4 +1,4 @@
-import { permissionPrincipalKey } from '@kehto/firewall';
+import { normalizeRequirement, permissionPrincipalKey } from '@kehto/firewall';
 import type { PermissionRequirement } from '@kehto/firewall';
 import type { ApprovalFailure, ApprovalOutcome } from './approval-coordinator.js';
 import type { SessionEntry } from './types.js';
@@ -8,6 +8,8 @@ export interface PermissionAdmissionRequest {
   readonly available: readonly string[];
   readonly required: readonly string[];
   readonly optional: readonly string[];
+  /** Exact, normalized non-interface authorities needed by the document itself. */
+  readonly launchRequirements?: readonly PermissionRequirement[];
 }
 
 /** Only an admitted result may be used to inject namespaces and execute an app. */
@@ -28,13 +30,14 @@ interface AdmissionContext {
   isRetired(entry: SessionEntry): boolean;
   revision(): number;
   allowed(windowId: string, requirements: readonly PermissionRequirement[]): boolean;
-  stillGranted(windowId: string, domains: readonly string[]): boolean;
+  stillGranted(windowId: string, requirements: readonly PermissionRequirement[]): boolean;
   run(windowId: string, requirements: readonly PermissionRequirement[], current: () => boolean): Promise<ApprovalOutcome<void>>;
+  readonly extensions?: readonly `extension:${string}`[];
 }
 
 /** Internal admission coordinator; hosts remain responsible for verified bytes. */
 export function createPermissionAdmission(options: AdmissionContext) {
-  const admissions = new WeakMap<PermissionAdmission, { windowId: string; entry: SessionEntry; revision: number }>();
+  const admissions = new WeakMap<PermissionAdmission, { windowId: string; entry: SessionEntry; revision: number; requirements: readonly PermissionRequirement[] }>();
   async function admit(windowId: string, request: PermissionAdmissionRequest): Promise<PermissionAdmission> {
     const result = (status: PermissionAdmission['status'], domains: readonly string[] = [], deniedRequired: readonly string[] = []): PermissionAdmission =>
       Object.freeze({ status, domains: Object.freeze([...domains]), deniedRequired: Object.freeze([...deniedRequired]) });
@@ -44,6 +47,7 @@ export function createPermissionAdmission(options: AdmissionContext) {
     let available: Set<string>;
     let required: string[];
     let optional: string[];
+    let launchRequirements: PermissionRequirement[];
     try {
       permissionPrincipalKey(entry.permissionPrincipal);
       if (entry.aggregateHash !== entry.permissionPrincipal.artifactHash) return result('denied');
@@ -55,13 +59,20 @@ export function createPermissionAdmission(options: AdmissionContext) {
       available = new Set(request.available);
       required = [...new Set(request.required)];
       optional = [...new Set(request.optional)].filter((domain) => !required.includes(domain) && available.has(domain));
+      if (request.launchRequirements !== undefined && (!Array.isArray(request.launchRequirements) || request.launchRequirements.length > 128)) return result('denied');
+      launchRequirements = (request.launchRequirements ?? []).map((requirement) => {
+        const normalized = normalizeRequirement(requirement, { extensions: options.extensions });
+        if (normalized.category === 'interface') throw new TypeError('Launch requirements cannot declare interfaces');
+        return normalized;
+      });
     } catch { return result('denied'); }
     const missing = required.filter((domain) => !available.has(domain));
     if (missing.length) return result('denied', [], missing);
     const current = () => options.getSession(windowId) === entry && !options.isRetired(entry) && options.available();
     const granted: string[] = [];
-    if (required.length) {
-      const decision = await options.run(windowId, interfaceRequirements(required), current);
+    const requiredRequirements = [...interfaceRequirements(required), ...launchRequirements];
+    if (requiredRequirements.length) {
+      const decision = await options.run(windowId, requiredRequirements, current);
       if (decision.status !== 'executed') return result(decision.status, [], required);
       granted.push(...required);
     }
@@ -71,10 +82,11 @@ export function createPermissionAdmission(options: AdmissionContext) {
       if (decision.status === 'cancelled') return result('cancelled');
       if (decision.status === 'executed') granted.push(domain);
     }
-    if (!current() || !options.allowed(windowId, interfaceRequirements(granted))) return result('cancelled');
-    if (granted.length && !options.stillGranted(windowId, granted)) return result('cancelled');
+    const admittedRequirements = [...interfaceRequirements(granted), ...launchRequirements];
+    if (!current() || !options.allowed(windowId, admittedRequirements)) return result('cancelled');
+    if (admittedRequirements.length && !options.stillGranted(windowId, admittedRequirements)) return result('cancelled');
     const admission = result('admitted', granted);
-    admissions.set(admission, { windowId, entry, revision: options.revision() });
+    admissions.set(admission, { windowId, entry, revision: options.revision(), requirements: admittedRequirements });
     return admission;
   }
 
@@ -84,8 +96,8 @@ export function createPermissionAdmission(options: AdmissionContext) {
       return !!issued && options.available() && issued.windowId === windowId
         && !options.isRetired(issued.entry)
         && issued.revision === options.revision() && options.getSession(windowId) === issued.entry
-        && options.allowed(windowId, interfaceRequirements(admission.domains))
-        && (admission.domains.length === 0 || options.stillGranted(windowId, admission.domains));
+        && options.allowed(windowId, issued.requirements)
+        && (issued.requirements.length === 0 || options.stillGranted(windowId, issued.requirements));
     },
   };
 }

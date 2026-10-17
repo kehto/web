@@ -27,6 +27,46 @@ function fixture(overrides: Partial<PermissionAdapter> = {}) {
 }
 
 describe('pre-execution interface admission', () => {
+  it('binds exact launch authority and interfaces into one current admission', async () => {
+    const f = fixture();
+    const launchRequirement = {
+      category: 'network' as const,
+      domain: 'network',
+      operation: 'network.connect',
+      scope: { kind: 'origin' as const, value: 'https://EXAMPLE.test:443' },
+    };
+    const admission = await f.runtime.permissions!.admit('window', {
+      available: ['theme'], required: ['theme'], optional: [], launchRequirements: [launchRequirement],
+    });
+    expect(admission.status).toBe('admitted');
+    expect(f.prompt).toHaveBeenCalledTimes(1);
+    expect(f.prompt.mock.calls[0][0].missing).toEqual([
+      { category: 'interface', domain: 'theme', operation: 'access', scope: { kind: 'exact', value: 'theme' } },
+      { ...launchRequirement, scope: { kind: 'origin', value: 'https://example.test' } },
+      { category: 'interface', domain: 'network', operation: 'access', scope: { kind: 'exact', value: 'network' } },
+    ]);
+    expect(f.prompt.mock.calls[0][0].allowLifetimes).toEqual(['session']);
+    expect(f.runtime.permissions!.isAdmissionCurrent('window', admission)).toBe(true);
+    const launchGrant = f.runtime.permissions!.grants.find((grant) => grant.permission.category === 'network');
+    expect(launchGrant).toBeDefined();
+    f.runtime.permissions!.revoke(launchGrant!.id);
+    expect(f.runtime.permissions!.isAdmissionCurrent('window', admission)).toBe(false);
+    f.runtime.destroy();
+  });
+
+  it('rejects malformed or interface-shaped launch requirements before prompting', async () => {
+    const f = fixture();
+    const base = { available: ['theme'], required: ['theme'], optional: [] };
+    expect((await f.runtime.permissions!.admit('window', {
+      ...base, launchRequirements: [{ category: 'interface', domain: 'theme', operation: 'access', scope: { kind: 'exact', value: 'theme' } }],
+    })).status).toBe('denied');
+    expect((await f.runtime.permissions!.admit('window', {
+      ...base, launchRequirements: [{ category: 'network', domain: 'network', operation: 'network.connect', scope: { kind: 'origin', value: 'https://*.example.test' } }],
+    })).status).toBe('denied');
+    expect(f.prompt).not.toHaveBeenCalled();
+    f.runtime.destroy();
+  });
+
   it('approves required interfaces before namespace exposure and retains session authority', async () => {
     const f = fixture();
     expect(await f.admit(['link', 'resource'])).toEqual({ status: 'admitted', domains: ['link', 'resource'], deniedRequired: [] });
