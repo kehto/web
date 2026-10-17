@@ -130,12 +130,12 @@ export function createRelayPoolService(options: RelayPoolServiceOptions): RelayP
   function planRelayOperation(_windowId: string, message: NappletMessage): RelayOperationPlan {
     const relayMessage = message as RelayServiceMessage;
     const filters = Array.isArray(relayMessage.filters) ? relayMessage.filters as NostrFilter[] : [];
-    const hint = typeof relayMessage.relay === 'string' && relayMessage.relay.length > 0
+    const relayHint = typeof relayMessage.relay === 'string' && relayMessage.relay.length > 0
       ? relayMessage.relay : undefined;
     const operation = message.type === 'relay.query' ? 'query'
       : message.type === 'relay.publishEncrypted' ? 'publishEncrypted'
       : message.type === 'relay.publish' ? 'publish' : 'subscribe';
-    const selected = hint ? [hint] : options.selectRelayTier(operation === 'publish' || operation === 'publishEncrypted' ? [] : filters);
+    const selected = relayHint ? [relayHint] : options.selectRelayTier(operation === 'publish' || operation === 'publishEncrypted' ? [] : filters);
     const relayUrls = [...new Set(selected.map((url) => String(url).trim()).filter(Boolean))];
     return Object.freeze({ operation, relayUrls: Object.freeze(relayUrls), localOnly: relayUrls.length === 0 });
   }

@@ -75,7 +75,7 @@ const relaySubscribeRoutingSurfaces = [
   },
   {
     file: 'packages/services/src/relay-pool-service.ts',
-    markers: ['relay?: unknown;', 'relayHint'],
+    markers: ['relay?: unknown;', 'relayHint', 'planRelayOperation', 'executeRelayOperation'],
   },
   {
     file: 'packages/services/src/coordinated-relay.ts',
@@ -141,11 +141,11 @@ const relayPublishRoutingSurfaces = [
   },
   {
     file: 'packages/services/src/relay-pool-service.ts',
-    markers: ["publishEvent(relayMessage, 'relay.publish.result', send);", 'eventId: event.id'],
+    markers: ["publishEvent(relayMessage, 'relay.publish.result', send, plan, signal);", 'eventId: event.id'],
   },
   {
     file: 'packages/services/src/coordinated-relay.ts',
-    markers: ['publishCoordinatedEvent(options, relayMessage, send);', 'eventId: event.id'],
+    markers: ['publishCoordinatedEvent(options, relayMessage, send, plan, signal);', 'eventId: event.id'],
   },
   {
     file: 'apps/playground/src/playground-relay-service.ts',
