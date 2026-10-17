@@ -369,6 +369,158 @@ function handleGetEvent(router: OutboxRouter, msg: NappletMessage, send: Send): 
     );
 }
 
+interface OutboxActions {
+  readonly router: OutboxRouter;
+  readonly getReadRouter: OutboxServiceOptions['getReadRouter'];
+  readonly getQueryRouter: OutboxServiceOptions['getQueryRouter'];
+  readonly runtimeContext: () => ServiceRuntimeContext | undefined;
+  readonly subscriptions: Map<string, OutboxRouterSubscription>;
+}
+
+function handleQuery(actions: OutboxActions, windowId: string, msg: NappletMessage, send: Send): void {
+  const { router, getReadRouter, getQueryRouter } = actions;
+  const runtimeContext = actions.runtimeContext();
+  const m = msg as NappletMessage & { id?: string; filters?: unknown; options?: unknown };
+  const id = m.id ?? '';
+  const filters = normalizeFilters(m.filters);
+  if (!filters) {
+    send({ type: 'outbox.query.result', id, events: [], error: 'invalid filter' } as NappletMessage);
+    return;
+  }
+  const queryRouter = getQueryRouter?.(windowId, runtimeContext)
+    ?? getReadRouter?.(windowId, runtimeContext)
+    ?? router;
+  const queryOptions = sanitizeQueryOptions(m.options);
+  const planned = queryRouter as StreamingOutboxRouter;
+  const operation = planned.planRead && planned.queryWithPlan && runtimeContext?.authorizeOperation
+    ? planned.planRead(filters, queryOptions).then((plan) => runtimeContext!.authorizeOperation!(windowId, 'outbox.query', [
+      { category: 'interface', domain: 'outbox', operation: 'access', scope: { kind: 'exact', value: 'outbox' } },
+      ...plan.relays.map((url) => ({ category: 'network' as const, domain: 'outbox', operation: 'outbox.query', scope: { kind: 'origin' as const, value: new URL(url).origin } })),
+    ], (signal) => signal.aborted ? { events: [], error: 'policy denied' } : planned.queryWithPlan!(filters, queryOptions, plan)).then((outcome) => outcome.status === 'executed' && outcome.value ? outcome.value : { events: [], error: 'policy denied' }))
+    : queryRouter.query(filters, queryOptions);
+  void operation
+    .then((result) =>
+      send({
+        type: 'outbox.query.result',
+        id,
+        events: result.events,
+        ...(result.incomplete === undefined ? {} : { incomplete: result.incomplete }),
+        ...(result.error === undefined ? {} : { error: result.error }),
+      } as NappletMessage),
+    )
+    .catch((err) =>
+      send({ type: 'outbox.query.result', id, events: [], error: toErrorMessage(err) } as NappletMessage),
+    );
+}
+
+function handleSubscribe(actions: OutboxActions, windowId: string, msg: NappletMessage, send: Send): void {
+  const { router, getReadRouter, subscriptions } = actions;
+  const runtimeContext = actions.runtimeContext();
+  const m = msg as NappletMessage & { subId?: string; filters?: unknown; options?: unknown };
+  const subId = m.subId;
+  if (typeof subId !== 'string' || subId.length === 0) return;
+  const subKey = `${windowId}:${subId}`;
+
+  // Replace any existing subscription for this key.
+  subscriptions.get(subKey)?.close();
+  subscriptions.delete(subKey);
+
+  const filters = normalizeFilters(m.filters);
+  if (!filters) {
+    send({ type: 'outbox.closed', subId, reason: 'invalid filter' } as NappletMessage);
+    return;
+  }
+
+  const sink: OutboxSubscriptionSink = {
+    event: (result) => send({ type: 'outbox.event', subId, result } as NappletMessage),
+    closed: (reason) => {
+      subscriptions.delete(subKey);
+      send({ type: 'outbox.closed', subId, ...(reason === undefined ? {} : { reason }) } as NappletMessage);
+    },
+  };
+
+  const readRouter = getReadRouter?.(windowId, runtimeContext) ?? router;
+  const subscribeOptions = sanitizeSubscribeOptions(m.options);
+  const planned = readRouter as StreamingOutboxRouter;
+  if (planned.planRead && planned.subscribeWithPlan && runtimeContext?.authorizeOperation) {
+    void planned.planRead(filters, subscribeOptions).then((plan) => runtimeContext!.authorizeOperation!(windowId, 'outbox.subscribe', [
+      { category: 'interface', domain: 'outbox', operation: 'access', scope: { kind: 'exact', value: 'outbox' } },
+      ...plan.relays.map((url) => ({ category: 'network' as const, domain: 'outbox', operation: 'outbox.subscribe', scope: { kind: 'origin' as const, value: new URL(url).origin } })),
+    ], (signal) => {
+      if (signal.aborted) return;
+      const sub = planned.subscribeWithPlan!(filters, plan, sink);
+      if (signal.aborted) sub.close(); else subscriptions.set(subKey, sub);
+    })).then((outcome) => {
+      if (outcome.status !== 'executed') send({ type: 'outbox.closed', subId, reason: 'policy denied' } as NappletMessage);
+    }).catch(() => send({ type: 'outbox.closed', subId, reason: 'policy denied' } as NappletMessage));
+    return;
+  }
+  subscriptions.set(subKey, readRouter.subscribe(filters, subscribeOptions, sink));
+}
+
+function handleClose(actions: OutboxActions, windowId: string, msg: NappletMessage, send: Send): void {
+  const { subscriptions } = actions;
+  const m = msg as NappletMessage & { subId?: string };
+  const subId = m.subId;
+  if (typeof subId !== 'string') return;
+  const subKey = `${windowId}:${subId}`;
+  subscriptions.get(subKey)?.close();
+  subscriptions.delete(subKey);
+  send({ type: 'outbox.closed', subId } as NappletMessage);
+}
+
+function handlePublish(actions: OutboxActions, windowId: string, msg: NappletMessage, send: Send): void {
+  const { router } = actions;
+  const runtimeContext = actions.runtimeContext();
+  const m = msg as NappletMessage & { id?: string; event?: EventTemplate; options?: unknown };
+  const id = m.id ?? '';
+  if (!m.event || typeof m.event !== 'object') {
+    send({ type: 'outbox.publish.result', id, ok: false, error: 'invalid filter' } as NappletMessage);
+    return;
+  }
+  const publishOptions = sanitizePublishOptions(m.options);
+  const planned = router as StreamingOutboxRouter;
+  const operation = planned.planPublish && planned.publishWithPlan && runtimeContext?.authorizeOperation
+    ? planned.planPublish(publishOptions).then((plan) => runtimeContext!.authorizeOperation!(windowId, 'outbox.publish', [
+      { category: 'interface', domain: 'outbox', operation: 'access', scope: { kind: 'exact', value: 'outbox' } },
+      ...plan.relays.map((url) => ({ category: 'network' as const, domain: 'outbox', operation: 'outbox.publish', scope: { kind: 'origin' as const, value: new URL(url).origin } })),
+    ], (signal) => signal.aborted ? { ok: false, error: 'policy denied' } : planned.publishWithPlan!(m.event!, plan)).then((outcome) => outcome.status === 'executed' && outcome.value ? outcome.value : { ok: false, error: 'policy denied' }))
+    : router.publish(m.event, publishOptions);
+  void operation
+    .then((result) =>
+      send({
+        type: 'outbox.publish.result',
+        id,
+        ok: result.ok,
+        ...(result.event === undefined ? {} : { event: result.event }),
+        ...(result.eventId === undefined ? {} : { eventId: result.eventId }),
+        ...(result.relays === undefined ? {} : { relays: result.relays }),
+        ...(result.error === undefined ? {} : { error: result.error }),
+      } as NappletMessage),
+    )
+    .catch((err) =>
+      send({ type: 'outbox.publish.result', id, ok: false, error: toErrorMessage(err) } as NappletMessage),
+    );
+}
+
+function handleResolveRelays(actions: OutboxActions, msg: NappletMessage, send: Send): void {
+  const { router } = actions;
+  const m = msg as NappletMessage & { id?: string; target?: unknown };
+  const id = m.id ?? '';
+  const target = sanitizeTarget(m.target);
+  if (!target) {
+    send({ type: 'outbox.resolveRelays.result', id, error: 'invalid filter' } as NappletMessage);
+    return;
+  }
+  void router
+    .resolveRelays(target)
+    .then((plan) => send({ type: 'outbox.resolveRelays.result', id, plan } as NappletMessage))
+    .catch((err) =>
+      send({ type: 'outbox.resolveRelays.result', id, error: toErrorMessage(err) } as NappletMessage),
+    );
+}
+
+
 /**
  * Create the NAP-OUTBOX service handler.
  *
@@ -386,140 +538,7 @@ export function createOutboxService(options: OutboxServiceOptions): ServiceHandl
   // Active subscriptions keyed by `windowId:subId` for lifecycle management.
   const subscriptions = new Map<string, OutboxRouterSubscription>();
 
-  function handleQuery(windowId: string, msg: NappletMessage, send: Send): void {
-    const m = msg as NappletMessage & { id?: string; filters?: unknown; options?: unknown };
-    const id = m.id ?? '';
-    const filters = normalizeFilters(m.filters);
-    if (!filters) {
-      send({ type: 'outbox.query.result', id, events: [], error: 'invalid filter' } as NappletMessage);
-      return;
-    }
-    const queryRouter = getQueryRouter?.(windowId, runtimeContext)
-      ?? getReadRouter?.(windowId, runtimeContext)
-      ?? router;
-    const queryOptions = sanitizeQueryOptions(m.options);
-    const planned = queryRouter as StreamingOutboxRouter;
-    const operation = planned.planRead && planned.queryWithPlan && runtimeContext?.authorizeOperation
-      ? planned.planRead(filters, queryOptions).then((plan) => runtimeContext!.authorizeOperation!(windowId, 'outbox.query', [
-        { category: 'interface', domain: 'outbox', operation: 'access', scope: { kind: 'exact', value: 'outbox' } },
-        ...plan.relays.map((url) => ({ category: 'network' as const, domain: 'outbox', operation: 'outbox.query', scope: { kind: 'origin' as const, value: new URL(url).origin } })),
-      ], (signal) => signal.aborted ? { events: [], error: 'policy denied' } : planned.queryWithPlan!(filters, queryOptions, plan)).then((outcome) => outcome.status === 'executed' && outcome.value ? outcome.value : { events: [], error: 'policy denied' }))
-      : queryRouter.query(filters, queryOptions);
-    void operation
-      .then((result) =>
-        send({
-          type: 'outbox.query.result',
-          id,
-          events: result.events,
-          ...(result.incomplete === undefined ? {} : { incomplete: result.incomplete }),
-          ...(result.error === undefined ? {} : { error: result.error }),
-        } as NappletMessage),
-      )
-      .catch((err) =>
-        send({ type: 'outbox.query.result', id, events: [], error: toErrorMessage(err) } as NappletMessage),
-      );
-  }
-
-  function handleSubscribe(windowId: string, msg: NappletMessage, send: Send): void {
-    const m = msg as NappletMessage & { subId?: string; filters?: unknown; options?: unknown };
-    const subId = m.subId;
-    if (typeof subId !== 'string' || subId.length === 0) return;
-    const subKey = `${windowId}:${subId}`;
-
-    // Replace any existing subscription for this key.
-    subscriptions.get(subKey)?.close();
-    subscriptions.delete(subKey);
-
-    const filters = normalizeFilters(m.filters);
-    if (!filters) {
-      send({ type: 'outbox.closed', subId, reason: 'invalid filter' } as NappletMessage);
-      return;
-    }
-
-    const sink: OutboxSubscriptionSink = {
-      event: (result) => send({ type: 'outbox.event', subId, result } as NappletMessage),
-      closed: (reason) => {
-        subscriptions.delete(subKey);
-        send({ type: 'outbox.closed', subId, ...(reason === undefined ? {} : { reason }) } as NappletMessage);
-      },
-    };
-
-    const readRouter = getReadRouter?.(windowId, runtimeContext) ?? router;
-    const subscribeOptions = sanitizeSubscribeOptions(m.options);
-    const planned = readRouter as StreamingOutboxRouter;
-    if (planned.planRead && planned.subscribeWithPlan && runtimeContext?.authorizeOperation) {
-      void planned.planRead(filters, subscribeOptions).then((plan) => runtimeContext!.authorizeOperation!(windowId, 'outbox.subscribe', [
-        { category: 'interface', domain: 'outbox', operation: 'access', scope: { kind: 'exact', value: 'outbox' } },
-        ...plan.relays.map((url) => ({ category: 'network' as const, domain: 'outbox', operation: 'outbox.subscribe', scope: { kind: 'origin' as const, value: new URL(url).origin } })),
-      ], (signal) => {
-        if (signal.aborted) return;
-        const sub = planned.subscribeWithPlan!(filters, plan, sink);
-        if (signal.aborted) sub.close(); else subscriptions.set(subKey, sub);
-      })).then((outcome) => {
-        if (outcome.status !== 'executed') send({ type: 'outbox.closed', subId, reason: 'policy denied' } as NappletMessage);
-      }).catch(() => send({ type: 'outbox.closed', subId, reason: 'policy denied' } as NappletMessage));
-      return;
-    }
-    subscriptions.set(subKey, readRouter.subscribe(filters, subscribeOptions, sink));
-  }
-
-  function handleClose(windowId: string, msg: NappletMessage, send: Send): void {
-    const m = msg as NappletMessage & { subId?: string };
-    const subId = m.subId;
-    if (typeof subId !== 'string') return;
-    const subKey = `${windowId}:${subId}`;
-    subscriptions.get(subKey)?.close();
-    subscriptions.delete(subKey);
-    send({ type: 'outbox.closed', subId } as NappletMessage);
-  }
-
-  function handlePublish(windowId: string, msg: NappletMessage, send: Send): void {
-    const m = msg as NappletMessage & { id?: string; event?: EventTemplate; options?: unknown };
-    const id = m.id ?? '';
-    if (!m.event || typeof m.event !== 'object') {
-      send({ type: 'outbox.publish.result', id, ok: false, error: 'invalid filter' } as NappletMessage);
-      return;
-    }
-    const publishOptions = sanitizePublishOptions(m.options);
-    const planned = router as StreamingOutboxRouter;
-    const operation = planned.planPublish && planned.publishWithPlan && runtimeContext?.authorizeOperation
-      ? planned.planPublish(publishOptions).then((plan) => runtimeContext!.authorizeOperation!(windowId, 'outbox.publish', [
-        { category: 'interface', domain: 'outbox', operation: 'access', scope: { kind: 'exact', value: 'outbox' } },
-        ...plan.relays.map((url) => ({ category: 'network' as const, domain: 'outbox', operation: 'outbox.publish', scope: { kind: 'origin' as const, value: new URL(url).origin } })),
-      ], (signal) => signal.aborted ? { ok: false, error: 'policy denied' } : planned.publishWithPlan!(m.event!, plan)).then((outcome) => outcome.status === 'executed' && outcome.value ? outcome.value : { ok: false, error: 'policy denied' }))
-      : router.publish(m.event, publishOptions);
-    void operation
-      .then((result) =>
-        send({
-          type: 'outbox.publish.result',
-          id,
-          ok: result.ok,
-          ...(result.event === undefined ? {} : { event: result.event }),
-          ...(result.eventId === undefined ? {} : { eventId: result.eventId }),
-          ...(result.relays === undefined ? {} : { relays: result.relays }),
-          ...(result.error === undefined ? {} : { error: result.error }),
-        } as NappletMessage),
-      )
-      .catch((err) =>
-        send({ type: 'outbox.publish.result', id, ok: false, error: toErrorMessage(err) } as NappletMessage),
-      );
-  }
-
-  function handleResolveRelays(msg: NappletMessage, send: Send): void {
-    const m = msg as NappletMessage & { id?: string; target?: unknown };
-    const id = m.id ?? '';
-    const target = sanitizeTarget(m.target);
-    if (!target) {
-      send({ type: 'outbox.resolveRelays.result', id, error: 'invalid filter' } as NappletMessage);
-      return;
-    }
-    void router
-      .resolveRelays(target)
-      .then((plan) => send({ type: 'outbox.resolveRelays.result', id, plan } as NappletMessage))
-      .catch((err) =>
-        send({ type: 'outbox.resolveRelays.result', id, error: toErrorMessage(err) } as NappletMessage),
-      );
-  }
+  const actions: OutboxActions = { router, getReadRouter, getQueryRouter, runtimeContext: () => runtimeContext, subscriptions };
 
   return {
     descriptor: OUTBOX_DESCRIPTOR,
@@ -543,19 +562,19 @@ export function createOutboxService(options: OutboxServiceOptions): ServiceHandl
           handleGetEvent(getReadRouter?.(windowId, runtimeContext) ?? router, message, send);
           return;
         case 'outbox.query':
-          handleQuery(windowId, message, send);
+          handleQuery(actions, windowId, message, send);
           return;
         case 'outbox.subscribe':
-          handleSubscribe(windowId, message, send);
+          handleSubscribe(actions, windowId, message, send);
           return;
         case 'outbox.close':
-          handleClose(windowId, message, send);
+          handleClose(actions, windowId, message, send);
           return;
         case 'outbox.publish':
-          handlePublish(windowId, message, send);
+          handlePublish(actions, windowId, message, send);
           return;
         case 'outbox.resolveRelays':
-          handleResolveRelays(message, send);
+          handleResolveRelays(actions, message, send);
           return;
         default:
           // Unknown outbox.* action — silently ignored (forward-compatible).
