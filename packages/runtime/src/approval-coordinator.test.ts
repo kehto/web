@@ -37,6 +37,109 @@ function fixture(overrides: Partial<ApprovalCoordinatorOptions> = {}) {
 afterEach(() => vi.useRealTimers());
 
 describe('approval coordination', () => {
+  it('rejects a pre-cancelled request without prompting or reserving queue capacity', async () => {
+    const f = fixture();
+    const request = new AbortController();
+    request.abort();
+    const result = await f.coordinator.run(principal, 'session-1', [requirement], () => true, f.action, undefined, request.signal);
+    expect(result).toEqual({ status: 'cancelled' });
+    expect(f.prompt).not.toHaveBeenCalled();
+    expect(f.action).not.toHaveBeenCalled();
+    expect(f.coordinator.pendingCount).toBe(0);
+  });
+
+  it('cancels one prompt without cancelling its queued sibling or accepting a late grant', async () => {
+    const answer = deferred<ApprovalAnswer>();
+    const shown = deferred<ApprovalPrompt>();
+    const prompt = vi.fn().mockImplementationOnce((value: ApprovalPrompt) => {
+      shown.resolve(value); return answer.promise;
+    }).mockResolvedValue(once);
+    const f = fixture({ prompt });
+    const request = new AbortController();
+    const first = f.coordinator.run(principal, 'session-1', [requirement], () => true, f.action, undefined, request.signal);
+    const second = f.run();
+    const displayed = await shown.promise;
+    request.abort();
+    expect(await first).toEqual({ status: 'cancelled' });
+    expect(displayed.signal.aborted).toBe(true);
+    expect(await second).toEqual({ status: 'executed', value: 'opened' });
+    answer.resolve(session);
+    await Promise.resolve();
+    expect(f.state().grants).toEqual([]);
+    expect(f.action).toHaveBeenCalledTimes(1);
+    expect(f.coordinator.pendingCount).toBe(0);
+  });
+
+  it('settles cancellation while queued without waiting for the preceding prompt', async () => {
+    const answer = deferred<ApprovalAnswer>();
+    const shown = deferred<ApprovalPrompt>();
+    const f = fixture({ prompt: (value) => { shown.resolve(value); return answer.promise; } });
+    const first = f.run();
+    await shown.promise;
+    const request = new AbortController();
+    const second = f.coordinator.run(principal, 'session-1', [requirement], () => true, f.action, undefined, request.signal);
+    request.abort();
+    expect(await second).toEqual({ status: 'cancelled' });
+    answer.resolve(once);
+    expect(await first).toEqual({ status: 'executed', value: 'opened' });
+    expect(f.action).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps later equivalents behind the active prompt when a queued request cancels', async () => {
+    const answer = deferred<ApprovalAnswer>();
+    const shown = deferred<ApprovalPrompt>();
+    const prompt = vi.fn((value: ApprovalPrompt) => { shown.resolve(value); return answer.promise; });
+    const f = fixture({ prompt });
+    const first = f.run();
+    await shown.promise;
+    const request = new AbortController();
+    const second = f.coordinator.run(principal, 'session-1', [requirement], () => true, f.action, undefined, request.signal);
+    request.abort();
+    expect(await second).toEqual({ status: 'cancelled' });
+    const third = f.run();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(prompt).toHaveBeenCalledTimes(1);
+    answer.resolve(session);
+    expect((await first).status).toBe('executed');
+    expect((await third).status).toBe('executed');
+    expect(prompt).toHaveBeenCalledTimes(1);
+    expect(f.action).toHaveBeenCalledTimes(2);
+  });
+
+  it('aborts the active callback and releases its request listener', async () => {
+    const f = fixture();
+    const request = new AbortController();
+    const remove = vi.spyOn(request.signal, 'removeEventListener');
+    const started = deferred<ApprovalSignal>();
+    const done = deferred<string>();
+    const result = f.coordinator.run(principal, 'session-1', [requirement], () => true, (signal) => {
+      started.resolve(signal); return done.promise;
+    }, undefined, request.signal);
+    const active = await started.promise;
+    request.abort();
+    expect(await result).toEqual({ status: 'cancelled' });
+    expect(active.aborted).toBe(true);
+    expect(remove).toHaveBeenCalledTimes(1);
+    done.resolve('late');
+  });
+
+  it('bounds cancelled queue placeholders retained behind a pending prompt', async () => {
+    const shown = deferred<ApprovalPrompt>();
+    const f = fixture({ maxPending: 2, prompt: (value) => {
+      shown.resolve(value); return new Promise(() => {});
+    } });
+    const first = f.run();
+    await shown.promise;
+    const request = new AbortController();
+    const second = f.coordinator.run(principal, 'session-1', [requirement], () => true, f.action, undefined, request.signal);
+    request.abort();
+    expect(await second).toEqual({ status: 'cancelled' });
+    expect(await f.run()).toEqual({ status: 'busy' });
+    f.coordinator.dispose();
+    expect(await first).toEqual({ status: 'cancelled' });
+  });
+
   it('holds the action, shows composed immutable scopes, and consumes once grants', async () => {
     const answer = deferred<ApprovalAnswer>();
     const shown = deferred<ApprovalPrompt>();

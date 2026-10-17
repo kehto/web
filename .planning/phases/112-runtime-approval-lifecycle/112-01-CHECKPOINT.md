@@ -145,3 +145,30 @@ Logs: /tmp/kehto-resource-lifecycle-{unit,types,build,docs}.log and
 Next: add request-scoped cancellation through authorizeOperation/coordinator so
 resource.cancel can abort a pending approval without cancelling sibling requests
 or creating late grants; then implement per-item resource and destination scopes.
+
+
+## Request-scoped approval cancellation
+
+ServiceRuntimeContext.authorizeOperation now accepts an optional request-owned
+signal. Runtime forwards it through permission enforcement into the coordinator.
+Pre-aborted requests do not consume a rate budget or prompt. Aborting during a
+prompt, queue wait, or action settles only that operation; late prompt answers
+cannot create grants, and late action results are suppressed. Request listeners
+are removed on settlement. The execution signal carries the cancellation to the
+service's side-effect boundary.
+
+Fixed equivalent-request ordering during cancellation: a cancelled queued caller
+settles promptly but does not release later equivalents ahead of its predecessor.
+Retained cancelled queue entries remain reserved against maxPending until the
+predecessor finishes, preventing repeated cancel/requeue memory growth.
+
+Seven new regressions cover pre-abort, hung prompt, queued siblings, queue ordering,
+queue capacity, active action cancellation/listener removal, and the runtime-bound
+service API. Full 185 files / 2,386 unit tests pass; build/types/docs pass; quality
+100 with the existing runtime file-size warning. Logs:
+/tmp/kehto-request-cancel-{unit,types,build,docs}.log and quality.json.
+This is host API plumbing, with no new protocol fields. The previously checked
+NAP-RESOURCE PR #80 cancellation contract motivates the next resource integration;
+resource service has not yet called this authorization API. Next implement the
+phase 113 plan and per-item scopes, network resolver checks, and canonical wire
+migration. All app migration and final shipping requirements remain active.

@@ -118,8 +118,9 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
   }
 
   function run<T>(windowId: string, operation: string, requirements: readonly PermissionRequirement[],
-    isCurrent: () => boolean, execute: (signal: ApprovalSignal) => T | Promise<T>, phase: 'admission' | 'operation' = 'operation'): Promise<ApprovalOutcome<T>> {
-    if (disposed) return Promise.resolve({ status: 'cancelled' });
+    isCurrent: () => boolean, execute: (signal: ApprovalSignal) => T | Promise<T>, phase: 'admission' | 'operation' = 'operation',
+    signal?: ApprovalSignal): Promise<ApprovalOutcome<T>> {
+    if (disposed || signal?.aborted) return Promise.resolve({ status: 'cancelled' });
     const entry = context.getSession(windowId);
     if (entry && retiredSources.has(entry)) return Promise.resolve({ status: 'cancelled' });
     if (!entry?.permissionPrincipal || !store.available) return Promise.resolve({ status: 'unavailable' });
@@ -154,7 +155,7 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
       if (!rate.allowed) return Promise.resolve({ status: 'busy' });
     } catch { return Promise.resolve({ status: 'unavailable' }); }
     return coordinator.run(entry.permissionPrincipal, lifetime.id, requirements, current, execute,
-      phase === 'admission' ? ['session', 'persistent'] : undefined);
+      phase === 'admission' ? ['session', 'persistent'] : undefined, signal);
   }
 
 

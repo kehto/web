@@ -497,8 +497,8 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
     serviceLifetimes.set(name, lifetime);
     const boundContext: ServiceRuntimeContext = context.permissions ? Object.freeze({ ...serviceContext,
       authorizeOperation<T>(windowId: string, operation: string, requirements: readonly PermissionRequirement[],
-        execute: (signal: ApprovalSignal) => T | Promise<T>) {
-        return context.permissions!.run(windowId, operation, requirements, () => serviceLifetimes.get(name) === lifetime, execute);
+        execute: (signal: ApprovalSignal) => T | Promise<T>, signal?: ApprovalSignal) {
+        return context.permissions!.run(windowId, operation, requirements, () => serviceLifetimes.get(name) === lifetime, execute, 'operation', signal);
       },
     }) : serviceContext;
     try {

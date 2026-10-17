@@ -71,6 +71,7 @@ export function createApprovalCoordinator(options: ApprovalCoordinatorOptions) {
   }
   const pending = new Set<PendingApproval>();
   const groups = new Map<string, Promise<unknown>>();
+  let reserved = 0;
   let disposed = false;
 
   function cancel(sessionId?: string): void {
@@ -141,9 +142,10 @@ export function createApprovalCoordinator(options: ApprovalCoordinatorOptions) {
     isCurrent: () => boolean,
     execute: (signal: ApprovalSignal) => T | Promise<T>,
     lifetimes: readonly PermissionGrant['lifetime'][] = ['once', 'session', 'persistent'],
+    signal?: ApprovalSignal,
   ): Promise<ApprovalOutcome<T>> {
-    if (disposed) return Promise.resolve({ status: 'cancelled' });
-    if (pending.size >= maxPending) return Promise.resolve({ status: 'busy' });
+    if (disposed || signal?.aborted) return Promise.resolve({ status: 'cancelled' });
+    if (reserved >= maxPending) return Promise.resolve({ status: 'busy' });
     let request: PermissionRequest;
     try { request = snapshot(principal, sessionId, requirements); }
     catch { return Promise.resolve({ status: 'denied' }); }
@@ -151,6 +153,7 @@ export function createApprovalCoordinator(options: ApprovalCoordinatorOptions) {
     const controller = options.createCancellation();
     const entry = { sessionId, controller };
     pending.add(entry);
+    reserved++;
     const current = () => !controller.signal.aborted && !disposed && isCurrent();
     const key = JSON.stringify([permissionPrincipalKey(request.principal), sessionId,
       request.requirements.map((item) => JSON.stringify(item)).sort()]);
@@ -164,6 +167,9 @@ export function createApprovalCoordinator(options: ApprovalCoordinatorOptions) {
       controller.signal.addEventListener('abort', onAbort, { once: true });
       clearDeadline = options.schedule(() => controller.abort(), timeoutMs);
     });
+    const abortRequest = () => controller.abort();
+    signal?.addEventListener('abort', abortRequest, { once: true });
+    if (signal?.aborted) abortRequest();
     const operation = previous.then(async (): Promise<ApprovalOutcome<T>> => {
       const failure = await approve(request, entry, current, allowLifetimes);
       if (failure) return failure;
@@ -188,11 +194,16 @@ export function createApprovalCoordinator(options: ApprovalCoordinatorOptions) {
     const settled = Promise.race([operation, cancelled]).finally(() => {
       clearDeadline();
       controller.signal.removeEventListener('abort', onAbort);
+      signal?.removeEventListener('abort', abortRequest);
       pending.delete(entry);
+    });
+    // Cancelling a queued caller settles it immediately, but must not let later
+    // equivalents skip the predecessor that still owns the active prompt.
+    const completed = settled.then(() => undefined, () => undefined);
+    const tail = previous.then(() => completed).finally(() => {
+      reserved--;
       if (groups.get(key) === tail) groups.delete(key);
     });
-    // A failed action must not poison later operations in its queue.
-    const tail = settled.then(() => undefined, () => undefined);
     groups.set(key, tail);
     return settled;
   }

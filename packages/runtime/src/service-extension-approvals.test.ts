@@ -5,7 +5,7 @@ import { defaultPromptRateLimitConfig, defaultRateLimitConfig } from './rate-lim
 import { createMockRuntimeAdapter, createNip5dSessionEntry } from './test-utils.js';
 import type { PermissionAdapter } from './permission-runtime.js';
 import type { ApprovalAnswer, ApprovalCancellation, ApprovalPrompt } from './approval-coordinator.js';
-import type { ServiceHandler } from './types.js';
+import type { ServiceHandler, ServiceRuntimeContext } from './types.js';
 
 declare const AbortController: { new(): ApprovalCancellation };
 declare function setTimeout(callback: () => void, ms: number): unknown;
@@ -39,6 +39,29 @@ function fixture(overrides: Partial<PermissionAdapter> = {}, changes: Partial<Se
 }
 
 describe('registered extension scoped approvals', () => {
+  it('propagates service request cancellation through the runtime without granting a late answer', async () => {
+    const answer = deferred<ApprovalAnswer>();
+    const shown = deferred<ApprovalPrompt>();
+    let context!: ServiceRuntimeContext;
+    const f = fixture({ prompt: (value) => { shown.resolve(value); return answer.promise; } }, {
+      onRegistered: (value) => { context = value; },
+    });
+    const request = new AbortController();
+    const action = vi.fn();
+    const result = context.authorizeOperation!('window', 'example.run', [{
+      category: 'interface', domain: 'example', operation: 'access', scope: { kind: 'exact', value: 'example' },
+    }], action, request.signal);
+    const prompt = await shown.promise;
+    request.abort();
+    expect(await result).toEqual({ status: 'cancelled' });
+    expect(prompt.signal.aborted).toBe(true);
+    answer.resolve({ effect: 'allow', lifetime: 'session' });
+    await flush();
+    expect(action).not.toHaveBeenCalled();
+    expect(f.runtime.permissions?.grants).toEqual([]);
+    f.runtime.destroy();
+  });
+
   it('holds a detached request and dispatches only the approved payload once', async () => {
     const answer = deferred<ApprovalAnswer>();
     const shown = deferred<ApprovalPrompt>();

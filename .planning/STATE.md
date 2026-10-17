@@ -395,3 +395,9 @@ approval integration: metadata-wait cancellation, bulk capture, duplicate IDs,
 replacement cleanup, detach. 2,379 unit tests/build/types/docs/quality100 pass.
 Resource authorization and host migrations remain incomplete. Continue request-
 scoped approval cancellation, then phase 113 service boundaries.
+
+2026-10-17: Request-owned cancellation now propagates through the service runtime
+into approval prompts/actions. Seven regressions, full 2,386 units, build/types/
+docs, quality100 pass. Next: plan/execute phase113 service authorization with
+resource canonical-wire drift and destination checks included; do not stop at
+optional APIs. Paja/playground migration and PR still outstanding.

@@ -16,9 +16,11 @@ export interface ServiceRuntimeContext {
    * Execute a validated operation under composed interface/resource/network grants.
    * The callback must capture immutable payloads and observe cancellation before
    * any later asynchronous side effect. Absent on hosts awaiting migration.
+   * An optional request signal cancels this operation's prompt, queue wait, and
+   * active callback without cancelling siblings. A late answer cannot grant access.
    */
   authorizeOperation?<T>(windowId: string, operation: string, requirements: readonly PermissionRequirement[],
-    execute: (signal: ApprovalSignal) => T | Promise<T>): Promise<ApprovalOutcome<T>>;
+    execute: (signal: ApprovalSignal) => T | Promise<T>, signal?: ApprovalSignal): Promise<ApprovalOutcome<T>>;
   /**
    * Resolve a currently registered window to its authenticated napplet dTag.
    *
