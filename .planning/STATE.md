@@ -500,3 +500,20 @@ all affected plans. Typed service_plan_check now owns114-PLAN-REVIEW only and is
 reviewing the complete set; root must collect verdict before implementation.
 Previous goal turn was progress (two regression checkpoints); this turn adds
 confirmed same-origin/concurrency evidence and starts independent host plan review.
+
+2026-10-17: Host114 checker returned2 blockers: unresolved live-development graph
+assumption and non-exhaustive CSP directive classification. host_plan is revising
+114RESEARCH/plans/VALIDATION only. Bounded decision: live dev/HMR is explicitly
+approved direct-network mode without resource; resource-safe development accepts
+one prebuilt self-contained HTML artifact, never assumes arbitrary transitive live
+graph capture. Closed CSP directive handling must cover media/frame/child/manifest/
+object and unknown additions with unit/browser evidence. Recheck revised plans.
+Resource executor simplified held origin approvals to separate readiness/lifetime
+from transport callbacks. Root expanded resource-network-concurrency.test.ts:
+3/3 pass for denied concurrent work, successful shared origin approval, and revoke
+while sibling callback waits; committed dbe0c482, ownership returned. Validation
+now lists all new resource network suites (c85eb408). Latest quality scan99 has
+one redundant catch in executor-owned resource-authorization.ts:88; executor
+notified. Full resource gates and final source commit still pending. Prior turn
+was progress; current turn delivers expanded regression evidence and resolves
+host planning decisions, without claiming group or full-goal completion.
