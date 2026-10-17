@@ -68,6 +68,7 @@ function relayRequirements(operation: string, relays: readonly string[], recipie
  * @param options - DM adapter to route requests through.
  * @returns Service handler for `runtime.registerService('dm', handler)`.
  */
+// aislop-ignore-next-line function-too-long -- Relay-plan approval, source generations, and live subscription ownership are one private lifecycle boundary.
 export function createDmService(options: DmServiceOptions): DmService {
   if (!options || typeof options.adapter !== 'object' || options.adapter === null) {
     throw new Error('createDmService: options.adapter is required');

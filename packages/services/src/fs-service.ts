@@ -125,6 +125,7 @@ function pickerRequirements(operation: string): readonly FsPermissionRequirement
  * @param options - Filesystem backend.
  * @returns Service handler for `runtime.registerService('fs', handler)`.
  */
+// aislop-ignore-next-line function-too-long -- Source generation, approval execution, and owned watches share one private lifecycle boundary.
 export function createFsService(options: FsServiceOptions): FsService {
   if (!options?.backend) throw new Error('createFsService: options.backend is required');
   const watches = new Map<string, OwnedWatch>();
