@@ -355,6 +355,13 @@ is live:
 
 `shell` and `gamepad` are optional advertised domains. The retained `PAJA_HANDSHAKE_DOMAINS` compatibility export is empty. GAMEPAD uses one host reader and focus-scoped state delivery; native controller access is denied in each frame. See [Controller input](/gamepad).
 
+Paja keeps serial-port and Bluetooth device identity in host-only controller
+state. Its browser chooser runs only after runtime approval; the selected device
+receives a second host-private approval before a port opens or GATT connects.
+Serial writes and BLE service, characteristic, and notification operations stay
+bound to the requesting source, and permission revocation closes ports,
+disconnects GATT, and stops notification delivery.
+
 `dm` is conditional on live relays plus Paja's selected Dev signer. The
 runtime-owned key creates and verifies actual NIP-17 gift wraps, history is
 loaded from relays, and one host confirmation covers the cleartext send before

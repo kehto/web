@@ -62,7 +62,9 @@ describe('createSerialService', () => {
     const { sent, send } = collectSent();
 
     service.handleMessage(WINDOW_ID, { type: 'serial.open', id: 'open-2', request: REQUEST } as NappletMessage, send);
+    await flush();
     service.handleMessage(WINDOW_ID, { type: 'serial.write', id: 'write-2', sessionId: 'serial-session-1', data: [1, 2, 3] } as NappletMessage, send);
+    await flush();
     service.handleMessage(WINDOW_ID, { type: 'serial.close', id: 'close-2', sessionId: 'serial-session-1', reason: 'done' } as NappletMessage, send);
     await flush();
 
@@ -156,13 +158,20 @@ describe('createSerialService', () => {
   });
 
   it('contains host exceptions as shaped error results', async () => {
-    const service = createSerialService({ write: () => { throw new Error('port closed'); } });
+    const service = createSerialService({ open: () => OPEN_RESULT, write: () => { throw new Error('port closed'); } });
     const { sent, send } = collectSent();
 
+    service.handleMessage(WINDOW_ID, { type: 'serial.open', id: 'open-before-write-error', request: REQUEST } as NappletMessage, send);
+    await flush();
     service.handleMessage(WINDOW_ID, { type: 'serial.write', id: 'write-3', sessionId: 'missing', data: [1] } as NappletMessage, send);
+    service.handleMessage(WINDOW_ID, { type: 'serial.write', id: 'write-4', sessionId: 'serial-session-1', data: [1] } as NappletMessage, send);
     await flush();
 
-    expect(sent).toEqual([{ type: 'serial.write.result', id: 'write-3', error: 'port closed' }]);
+    expect(sent).toEqual([
+      { type: 'serial.open.result', id: 'open-before-write-error', session: OPEN_RESULT.session },
+      { type: 'serial.write.result', id: 'write-3', error: 'session not found' },
+      { type: 'serial.write.result', id: 'write-4', error: 'port closed' },
+    ]);
   });
 
   it('contains unknown serial actions', () => {
@@ -212,5 +221,23 @@ describe('createSerialService', () => {
 
     expect(write).not.toHaveBeenCalled();
     expect(other.sent).toEqual([{ type: 'serial.write.result', id: 'forged-write', error: 'session not found' }]);
+  });
+
+  it('closes serial hardware and suppresses late data when permission is revoked', async () => {
+    let context!: SerialServiceContext;
+    const close = vi.fn();
+    const service = createSerialService({
+      open: (_request, value) => { context = value; return OPEN_RESULT; },
+      close,
+    });
+    const { sent, send } = collectSent();
+    service.handleMessage(WINDOW_ID, { type: 'serial.open', id: 'open-before-revoke', request: REQUEST } as NappletMessage, send);
+    await flush();
+    service.onPermissionRevoked?.(WINDOW_ID);
+    context.emit({ type: 'data', sessionId: OPEN_RESULT.session.id, data: [7] });
+    await flush();
+
+    expect(close).toHaveBeenCalledWith(OPEN_RESULT.session.id, 'policy denied', expect.objectContaining({ windowId: WINDOW_ID }));
+    expect(sent).toEqual([{ type: 'serial.open.result', id: 'open-before-revoke', session: OPEN_RESULT.session }]);
   });
 });

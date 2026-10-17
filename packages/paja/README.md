@@ -79,6 +79,10 @@ available, can connect to a bunker/NIP-46 URI, and only uses the generated local
 development signer when the Dev signer button is selected. Sign, publish, DM
 send, filesystem picker, Blossom upload, and external-link requests use one serialized in-page
 confirmation dialog. Deny has initial focus and Escape denies. A napplet-scoped
+serial or BLE chooser receives runtime approval first; Paja then keeps the
+selected device host-private until a second approval permits opening the port or
+GATT connection. Source-owned device sessions close and stop delivery when that
+authority is revoked. A napplet-scoped
 sign request defaults to one-time approval, with explicit options to remember
 that event kind or trust every kind from the napplet identity and target. The trust
 choice carries a visible warning. Remembered signing authority is keyed by the

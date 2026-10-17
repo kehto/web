@@ -132,6 +132,15 @@ function nextSessionId(prefix: string, counter: { value: number }): string {
   return `${prefix}-${counter.value}`;
 }
 
+function nextDeviceScope(domain: 'serial' | 'ble', counter: { value: number }): string {
+  counter.value += 1;
+  return `${domain}:device:paja-${domain}-${counter.value}`;
+}
+
+function throwIfAborted(signal: { readonly aborted: boolean } | undefined): void {
+  if (signal?.aborted) throw new Error('policy denied');
+}
+
 function browserSerialApi(): WebSerialApi | null {
   if (typeof navigator === 'undefined') return null;
   return (navigator as Navigator & { serial?: WebSerialApi }).serial ?? null;
@@ -221,6 +230,13 @@ export function createBrowserSerialController(
   if (!hasWebSerial(api)) return null;
   const sessions = new Map<string, SerialSessionRecord>();
   const counter = { value: 0 };
+  const deviceCounter = { value: 0 };
+
+  const getSession = (sessionId: string, windowId: string): SerialSessionRecord => {
+    const session = sessions.get(sessionId);
+    if (!session || session.windowId !== windowId || session.closed) throw new Error('serial session not found');
+    return session;
+  };
 
   const close = async (sessionId: string, reason?: string): Promise<void> => {
     const session = sessions.get(sessionId);
@@ -231,13 +247,27 @@ export function createBrowserSerialController(
 
   return {
     async open(request: SerialOpenRequest, context: SerialServiceContext): Promise<SerialOpenResult> {
+      throwIfAborted(context.signal);
       const port = await activation.run({
         action: 'serial',
         windowId: context.windowId,
         label: request.label,
         details: `Baud rate: ${request.options.baudRate}`,
       }, () => api!.requestPort(request.filters ? { filters: request.filters } : undefined));
-      await port.open(request.options);
+      throwIfAborted(context.signal);
+      const open = async (signal: { readonly aborted: boolean }): Promise<void> => {
+        throwIfAborted(signal);
+        await port.open(request.options);
+        if (signal.aborted) {
+          await port.close().catch(() => {});
+          throw new Error('policy denied');
+        }
+      };
+      if (context.authorizeDevice) {
+        await context.authorizeDevice(nextDeviceScope('serial', deviceCounter), open);
+      } else {
+        await open(context.signal ?? new AbortController().signal);
+      }
       const id = nextSessionId('paja-serial', counter);
       let session!: SerialSessionRecord;
       const onDisconnect = () => {
@@ -261,12 +291,14 @@ export function createBrowserSerialController(
       void readSerialSession(session);
       return { session: { id, state: 'open', info: serialInfo(port) } };
     },
-    async write(sessionId, data): Promise<void> {
-      const session = sessions.get(sessionId);
-      if (!session || session.closing || !session.port.writable) {
+    async write(sessionId, data, context): Promise<void> {
+      throwIfAborted(context.signal);
+      const session = getSession(sessionId, context.windowId);
+      if (session.closing || !session.port.writable) {
         throw new Error('serial session is not writable');
       }
       const write = session.writeTail.then(async () => {
+        throwIfAborted(context.signal);
         const writer = session.port.writable!.getWriter();
         try {
           await writer.write(Uint8Array.from(data));
@@ -386,10 +418,11 @@ export function createBrowserBleController(
   if (!hasWebBluetooth(api)) return null;
   const sessions = new Map<string, BleSessionRecord>();
   const counter = { value: 0 };
+  const deviceCounter = { value: 0 };
 
-  const getSession = (sessionId: string): BleSessionRecord => {
+  const getSession = (sessionId: string, windowId?: string): BleSessionRecord => {
     const session = sessions.get(sessionId);
-    if (!session || session.closed) throw new Error('ble session not found');
+    if (!session || session.closed || (windowId !== undefined && session.windowId !== windowId)) throw new Error('ble session not found');
     return session;
   };
 
@@ -401,6 +434,7 @@ export function createBrowserBleController(
 
   return {
     async open(request: BleOpenRequest, context: BleServiceContext): Promise<BleOpenResult> {
+      throwIfAborted(context.signal);
       const device = await activation.run({
         action: 'ble',
         windowId: context.windowId,
@@ -408,7 +442,21 @@ export function createBrowserBleController(
         details: request.acceptAllDevices ? 'Any nearby BLE device may be selected.' : 'Only matching BLE devices are shown.',
       }, () => api!.requestDevice(bluetoothRequestOptions(request)));
       if (!device.gatt) throw new Error('selected BLE device has no GATT server');
-      const server = await device.gatt.connect();
+      throwIfAborted(context.signal);
+      let server!: WebBluetoothGattServer;
+      const connect = async (signal: { readonly aborted: boolean }): Promise<void> => {
+        throwIfAborted(signal);
+        server = await device.gatt!.connect();
+        if (signal.aborted) {
+          if (server.connected) server.disconnect();
+          throw new Error('policy denied');
+        }
+      };
+      if (context.authorizeDevice) {
+        await context.authorizeDevice(nextDeviceScope('ble', deviceCounter), connect);
+      } else {
+        await connect(context.signal ?? new AbortController().signal);
+      }
       const services = await server.getPrimaryServices();
       const id = nextSessionId('paja-ble', counter);
       let session!: BleSessionRecord;
@@ -441,8 +489,9 @@ export function createBrowserBleController(
         },
       };
     },
-    async services(sessionId): Promise<BleService[]> {
-      const services = await getSession(sessionId).server.getPrimaryServices();
+    async services(sessionId, context): Promise<BleService[]> {
+      throwIfAborted(context.signal);
+      const services = await getSession(sessionId, context.windowId).server.getPrimaryServices();
       return Promise.all(services.map(async (service) => ({
         uuid: service.uuid,
         characteristics: (await service.getCharacteristics()).map((characteristic) => ({
@@ -451,11 +500,13 @@ export function createBrowserBleController(
         })),
       })));
     },
-    async read(sessionId, target): Promise<number[]> {
-      return byteArray(await (await resolveBleAttribute(getSession(sessionId), target)).readValue());
+    async read(sessionId, target, context): Promise<number[]> {
+      throwIfAborted(context.signal);
+      return byteArray(await (await resolveBleAttribute(getSession(sessionId, context.windowId), target)).readValue());
     },
-    async write(sessionId, target, data, options: BleWriteOptions | undefined): Promise<void> {
-      const attribute = await resolveBleAttribute(getSession(sessionId), target);
+    async write(sessionId, target, data, options: BleWriteOptions | undefined, context): Promise<void> {
+      throwIfAborted(context.signal);
+      const attribute = await resolveBleAttribute(getSession(sessionId, context.windowId), target);
       const bytes = Uint8Array.from(data);
       if ('writeValueWithResponse' in attribute) {
         if (options?.response === 'without-response') await attribute.writeValueWithoutResponse(bytes);
@@ -466,13 +517,15 @@ export function createBrowserBleController(
       }
       await attribute.writeValue(bytes);
     },
-    async subscribe(sessionId, target): Promise<void> {
+    async subscribe(sessionId, target, context): Promise<void> {
+      throwIfAborted(context.signal);
       if (target.descriptor !== undefined) throw new Error('BLE descriptors do not emit notifications');
-      const session = getSession(sessionId);
+      const session = getSession(sessionId, context.windowId);
       const key = targetKey(target);
       if (session.subscriptions.has(key)) return;
       const characteristic = await resolveBleCharacteristic(session, target);
       const listener: EventListener = (event) => {
+        if (session.closed || context.signal?.aborted) return;
         const source = event.currentTarget as WebBluetoothCharacteristic | null;
         const value = source?.value;
         if (!value) return;
@@ -487,8 +540,8 @@ export function createBrowserBleController(
         throw error;
       }
     },
-    async unsubscribe(sessionId, target): Promise<void> {
-      const session = getSession(sessionId);
+    async unsubscribe(sessionId, target, context): Promise<void> {
+      const session = getSession(sessionId, context.windowId);
       const key = targetKey(target);
       const subscription = session.subscriptions.get(key);
       if (!subscription) return;

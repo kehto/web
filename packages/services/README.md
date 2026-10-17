@@ -196,6 +196,13 @@ runtime.registerService(
 );
 ```
 
+When a service is attached to a runtime with Firewall approvals, browser-backed
+`open` hooks must call `ctx.authorizeDevice(hostPrivateScope, connect)` after a
+chooser returns and before opening the selected port or GATT connection. The
+scope stays host-private; later serial writes and BLE GATT operations are bound
+to the source-owned session and require their own operation approval. Revocation
+closes active device sessions and suppresses late events.
+
 ## Outbox Streaming Queries
 
 NAP-OUTBOX is still an open upstream draft ([`napplet/naps` PR #32](https://github.com/napplet/naps/pull/32)). Its wire `outbox.query.result` remains one aggregate response. Hosts using Kehto's concrete router can also consume the same bounded read incrementally without changing the napplet wire protocol:
@@ -576,7 +583,7 @@ Each factory returns a `ServiceHandler` registrable via `runtime.registerService
 - `createMediaService` — owner-aware `media.session.create` / `update` / `destroy` / `media.state` / `media.capabilities` + `media.command` push envelopes (`media:control`). Napplet-owned sessions mirror to `navigator.mediaSession` by default; shell-owned creates are rejected until a host playback/fetch bridge is supplied. Implement the `HostMediaBridge` interface to swap in native backends. See [Media Service](#media-service) for the full contract.
 
 ### BLE NAP
-- `createBleService` — `ble.open`, `ble.services`, `ble.read`, `ble.write`, `ble.subscribe`, `ble.unsubscribe`, `ble.close` + host-pushed `ble.event` envelopes. Hook contexts include `ctx.emit(event)`, so host Bluetooth notification listeners can forward `notification`, `state`, and `closed` events to the requesting napplet without replacing the reference handler.
+- `createBleService` — `ble.open`, `ble.services`, `ble.read`, `ble.write`, `ble.subscribe`, `ble.unsubscribe`, `ble.close` + host-pushed `ble.event` envelopes. Hook contexts include `ctx.emit(event)`, so host Bluetooth notification listeners can forward `notification`, `state`, and `closed` events to the requesting napplet without replacing the reference handler. Under runtime approvals, `ctx.authorizeDevice(...)` binds a host-private selected device before connection; each GATT operation is separately authorized and source-owned.
 
 ### WebRTC NAP
 - `createWebrtcService` — `webrtc.open`, `webrtc.send`, `webrtc.close` + host-pushed `webrtc.event` envelopes. The reference handler owns only the NAP request/result bookkeeping; host bridges own signaling, SDP, ICE, peer connection lifecycle, and policy.
