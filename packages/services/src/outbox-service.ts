@@ -501,6 +501,14 @@ export function createOutboxService(options: OutboxServiceOptions): ServiceHandl
     onUnregistered(): void {
       runtimeContext = undefined;
     },
+    onPermissionRevoked(windowId: string): void {
+      const prefix = `${windowId}:`;
+      for (const [key, sub] of subscriptions) {
+        if (!key.startsWith(prefix)) continue;
+        sub.close();
+        subscriptions.delete(key);
+      }
+    },
     handleMessage(windowId: string, message: NappletMessage, send: Send): void {
       switch (message.type) {
         case 'outbox.getEvent':
