@@ -596,3 +596,15 @@ RESOURCE80 exact head rechecked unchanged ae5b9c64. resource_execution remains
 active on discovery transport fix across Paja resolver/adapter/router seams.
 Full resource group remains incomplete pending discovery regression and combined
 gates; no downstream113/114 execution or PR yet.
+
+2026-10-17: Previous turn made progress with replay fix201e3572. Current review
+confirmed discovery teardown race: clearWindow removes maps, but a late lookup
+repopulates cache and replacement window receives stale.example. Committed
+red regressionbc4bc6f3 tests/unit/paja-resource-discovery-generation.test.ts;
+resource_execution owns fix and test now along with active discovery migration.
+Root also ran explicit playground tsc (session51527 terminal1): six errors from
+stale ResourceServiceOptions fields in demo-hooks.ts. Root type-check previously
+skipped this app because package lacks script. Added explicit script/tsc gate to
+113-17 (already owns host constructor migration), recorded in113VALIDATION.
+No root code edits pending. Discovery and combined resource gates remain open;
+then downstream113 and host114 must complete before fullgoal/PR completion.

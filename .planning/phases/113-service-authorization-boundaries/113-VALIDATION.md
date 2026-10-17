@@ -151,3 +151,12 @@ reuse emits no second terminal, windows remain independent, source destruction
 and detach clear history, and the 1,024-entry bound never evicts active work.
 Five cases passed on 2026-10-17; this does not close the outstanding discovery
 transport regression or replace the full group gates.
+
+### Playground constructor and type-check coverage
+
+Direct `pnpm --filter @kehto/playground exec tsc --noEmit` failed on 2026-10-17
+with six diagnostics from removed resource constructor options in demo-hooks.ts.
+The package currently has no type-check script, so root pnpm type-check does not
+prove this app compiles. Plan113-17 must add the package script, complete the
+constructor/resolver migration, and pass the direct command. Evidence:
+`/tmp/kehto-playground-direct-types.log` (session51527 terminal exit1).
