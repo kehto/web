@@ -397,9 +397,11 @@ describe('Paja browser adapter intent composition', () => {
   it('removes the development simulator and composes the catalog resolver with the target controller', () => {
     const source = readFileSync(new URL('./browser-adapter.ts', import.meta.url), 'utf8');
 
-    expect(source).toContain('createCatalogIntentResolver');
-    expect(source).toContain('InstalledNappletCatalog');
-    expect(source).toContain('BrowserIntentController');
+    expect(source).toContain('createPajaCatalogIntentService');
+    const composition = readFileSync(new URL('./browser-catalog-intent-service.ts', import.meta.url), 'utf8');
+    expect(composition).toContain('createCatalogIntentResolver');
+    expect(composition).toContain('InstalledNappletCatalog');
+    expect(composition).toContain('BrowserIntentController');
     expect(source).not.toContain('DEV_INTENT');
     expect(source).not.toContain('No-op until Phase 105');
   });
