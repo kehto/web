@@ -208,9 +208,9 @@ async function countLive(
     if (signal?.aborted) throw new Error('count cancelled');
     const controller = new AbortController();
     let timeout: ReturnType<typeof setTimeout> | undefined;
-    let rejectCancelled: (reason: Error) => void = () => {};
+    let rejectCancelled: ((reason: Error) => void) | undefined;
     const cancelled = new Promise<never>((_resolve, reject) => { rejectCancelled = reject; });
-    const onAbort = () => { controller.abort(); rejectCancelled(new Error('count cancelled')); };
+    const onAbort = () => { controller.abort(); rejectCancelled?.(new Error('count cancelled')); };
     signal?.addEventListener('abort', onAbort, { once: true });
     if (signal?.aborted) onAbort();
     const timedOut = new Promise<never>((_resolve, reject) => {

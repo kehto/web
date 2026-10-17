@@ -32,7 +32,6 @@
  * ```
  */
 
-import type { NappletMessage } from '@napplet/core';
 import type { ApprovalSignal, ServiceHandler } from '@kehto/runtime';
 import type { CvmDiscoverQuery, CvmRequestOptions, CvmServer, CvmServerRef, McpMessage } from './cvm-types.js';
 
