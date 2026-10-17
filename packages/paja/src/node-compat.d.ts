@@ -15,11 +15,13 @@ declare module 'node:http' {
       request: {
         url?: string; method?: string; headers: Record<string, string | string[] | undefined>;
         on(event: 'data', callback: (chunk: Uint8Array) => void): void;
-        on(event: 'end', callback: () => void): void;
+        on(event: 'end' | 'aborted', callback: () => void): void;
         on(event: 'error', callback: (error: Error) => void): void;
         destroy(): void;
       },
       response: {
+        readonly writableEnded: boolean;
+        on(event: 'close', callback: () => void): void;
         writeHead(statusCode: number, headers: Record<string, string>): void;
         end(body?: string | Uint8Array): void;
       },
