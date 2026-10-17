@@ -43,10 +43,10 @@ export interface PajaResourceFetchOptions {
  * `data:` bytes are decoded locally. `blossom:<hex>` URLs and the
  * `blossom:sha256:<hex>` compatibility alias are
  * resolved through accepted request hints followed by host-configured Blossom
- * servers, with redirects disabled and SHA-256 verified before delivery.
- * Direct HTTP(S) URLs are resolved from any origin through the browser,
- * subject to its CORS rules. All bytes are capped and classified locally;
- * upstream media types are ignored.
+ * servers, with redirects resolved one hop at a time through the local Paja
+ * proxy and SHA-256 verified before delivery. Direct HTTP(S) URLs use that
+ * same proxy. The browser never contacts a remote resource origin directly.
+ * All bytes are capped and classified locally; upstream media types are ignored.
  *
  * @param options - Host-owned Blossom server and transport hooks.
  * @returns A sanitized resource fetch implementation.
@@ -99,14 +99,12 @@ export function pajaResourceInfo(): ResourceInfo {
   const schemes = [
     { scheme: 'data', enabled: true },
     { scheme: 'https', enabled: true },
-    { scheme: 'http', enabled: true },
     { scheme: 'blossom', enabled: true },
   ];
   return {
     schemes,
     maxBytes: PAJA_RESOURCE_MAX_BYTES,
     maxUrls: PAJA_RESOURCE_MAX_URLS,
-    maxServers: PAJA_RESOURCE_MAX_SERVERS,
   };
 }
 
@@ -116,7 +114,7 @@ async function fetchNetworkResource(
   fetcher: typeof fetch,
 ): Promise<Response> {
   if (!init.authorizeNetwork) {
-    return fetcher(value, { method: 'GET', signal: init.signal, credentials: 'omit', referrerPolicy: 'no-referrer' });
+    throw new ResourceServiceError('blocked-by-policy', 'Paja resource network approval is unavailable');
   }
   let destination = value;
   let response: Response | undefined;
@@ -130,10 +128,13 @@ async function fetchNetworkResource(
       if (init.signal.aborted || isAbortError(error)) throw error;
       throw new ResourceServiceError('network-error', error instanceof Error ? error.message : String(error));
     }
-    if (response.status < 300 || response.status >= 400) break;
-    const location = response.headers.get('location');
-    if (!location || hops === 5) throw new ResourceServiceError('network-error', 'resource redirect limit exceeded');
-    destination = new URL(location, destination).href;
+    if (response.headers.get('x-kehto-resource-redirect') !== '1') break;
+    const redirect = await response.json() as { status?: unknown; location?: unknown };
+    if (typeof redirect.location !== 'string' || hops === 5) {
+      throw new ResourceServiceError('network-error', 'resource redirect limit exceeded');
+    }
+    try { destination = new URL(redirect.location, destination).href; }
+    catch { throw new ResourceServiceError('network-error', 'resource proxy returned an invalid redirect'); }
   }
   if (!response) throw new ResourceServiceError('network-error', 'resource transport did not respond');
   if (response.status === 404 || response.status === 410) {
@@ -184,12 +185,13 @@ async function fetchBlossomResource(
     const resourceUrl = `${server}/${expectedHash}${parsed.extension ? `.${parsed.extension}` : ''}`;
     let response: Response;
     try {
-      response = init.authorizeNetwork
-        ? await init.authorizeNetwork(resourceUrl, (signal) => fetcher('/__kehto/resource', {
+      if (!init.authorizeNetwork) {
+        throw new ResourceServiceError('blocked-by-policy', 'Paja resource network approval is unavailable');
+      }
+      response = await init.authorizeNetwork(resourceUrl, (signal) => fetcher('/__kehto/resource', {
         method: 'POST', signal, credentials: 'same-origin',
         headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: resourceUrl }),
-        }))
-        : await fetcher(resourceUrl, { method: 'GET', signal: init.signal, redirect: 'error', cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer' });
+      }));
     } catch (error: unknown) {
       if (init.signal.aborted || isAbortError(error)) throw error;
       foundInconclusive = true;

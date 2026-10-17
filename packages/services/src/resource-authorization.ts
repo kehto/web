@@ -3,6 +3,14 @@ import type { ApprovalOutcome, PermissionRequirement, ServiceRuntimeContext } fr
 /** Authorize one actual resolver destination while retaining the request lifetime. */
 export type AuthorizeNetwork = <T>(destination: string, execute: (signal: AbortSignal) => Promise<T>) => Promise<T>;
 
+/** A denied runtime approval projected onto NAP-RESOURCE's stable error set. */
+export class ResourceAuthorizationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ResourceAuthorizationError';
+  }
+}
+
 /** Internal resource boundary; resolvers still authorize indirect destinations. */
 export async function authorizeResource<T>(runtime: ServiceRuntimeContext | undefined,
   windowId: string, url: string, signal: AbortSignal,
@@ -29,11 +37,22 @@ export async function authorizeResource<T>(runtime: ServiceRuntimeContext | unde
       } catch {
         throw new Error('invalid network destination');
       }
+      const networkController = new AbortController();
+      const abortNetwork = () => networkController.abort();
+      controller.signal.addEventListener('abort', abortNetwork, { once: true });
       const outcome = await runtime.authorizeOperation!(windowId, 'resource.network', [{
         category: 'network', domain: 'resource', operation: 'resource.network',
         scope: { kind: 'origin', value: origin },
-      }], (approved) => run(approved as unknown as AbortSignal), controller.signal);
-      if (outcome.status !== 'executed') throw new Error('resource network permission unavailable or denied');
+      }], async (approved) => {
+        approved.addEventListener('abort', abortNetwork, { once: true });
+        if (approved.aborted) abortNetwork();
+        try { return await run(networkController.signal); }
+        finally { approved.removeEventListener('abort', abortNetwork); }
+      }, controller.signal);
+      controller.signal.removeEventListener('abort', abortNetwork);
+      if (outcome.status !== 'executed') {
+        throw new ResourceAuthorizationError('resource network permission unavailable or denied');
+      }
       return outcome.value;
     };
     try { return await execute(controller.signal, authorizeNetwork); }

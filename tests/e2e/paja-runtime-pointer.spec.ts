@@ -581,7 +581,7 @@ function resourceSettingsHtml(hash: string): string {
     window.addEventListener('message', async (event) => {
       if (event.source !== parent || !event.data.id?.startsWith('read-')) return;
       const message = event.data;
-      document.getElementById('result').textContent = message.blob ? await message.blob.text() : message.error;
+      document.getElementById('result').textContent = message.blob ? atob(message.blob) : message.error;
       document.getElementById('count').textContent = String(count);
     });
   </script></body></html>`;

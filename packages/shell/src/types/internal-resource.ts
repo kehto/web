@@ -3,13 +3,10 @@
  *
  * Kehto-internal shell-side resource wire types. Per PROJECT.md Decision #31,
  * this is NOT a staging-ground duplicate of upstream `@napplet/nap/resource`.
- * Canonical resource info, per-resource request, and result-item shapes are
- * imported from the published package. The remaining local envelopes retain
- * Kehto's legacy compatibility fields (`requestId`, `bodyBase64`, status, and
- * headers) alongside the current `id`, `blob`, and `mime` fields.
- *
- * `resource-service.ts` now emits both legacy single-fetch compatibility
- * fields and the current upstream-compatible fields.
+ * Canonical resource info is imported from the published package. The local
+ * envelopes track the current draft authority while its packaged declarations
+ * catch up: `id`, exact `url`/ordered `urls`, and padded RFC 4648 base64
+ * `blob` bytes.
  *
  * Resource protocol:
  *   Inbound:  resource.info, resource.bytes, resource.bytesMany, resource.cancel

@@ -99,97 +99,30 @@ const relaySubscribeRoutingSurfaces = [
   },
 ] as const;
 
-const resourceServerHintRoutingSurfaces = [
+const resourceCanonicalWireSurfaces = [
   {
     file: 'packages/shell/src/napplet-namespace.ts',
-    markers: ['servers: Array.from(options.servers)', "type: 'resource.bytesMany'", 'requests: Array.from(requests || []'],
+    markers: ["type: 'resource.bytes'", "type: 'resource.bytesMany'", 'const decode = (value: unknown, mime: unknown): Blob'],
   },
   {
     file: 'packages/shell/src/types/internal-resource.ts',
-    markers: [
-      "from '@napplet/nap/resource/types'",
-      'ResourceBytesItem as CanonicalResourceBytesItem',
-      'requests: readonly CanonicalResourceBytesRequest[]',
-    ],
+    markers: ["from '@napplet/nap/resource/types'", 'urls: readonly string[]', 'blob: string'],
   },
   {
     file: 'packages/services/src/resource-service.ts',
-    markers: [
-      "from '@napplet/nap/resource/types'",
-      'windowId?: string;',
-      'servers?: readonly string[];',
-      'isResourceRequestList(m.requests)',
-      'servers: [...request.servers]',
-      "parsedUrl.protocol === 'blossom:'",
-    ],
+    markers: ['encodeCanonicalBase64', 'windowId?: string;', 'authorizeNetwork,', 'urls?: readonly string[]'],
   },
   {
     file: 'packages/paja/src/browser-resource.ts',
-    markers: [
-      'PAJA_RESOURCE_MAX_SERVERS = 8',
-      'init.servers ?? []',
-      'options.getBlossomServers?.({ url: value, windowId })',
-      'resolveBlossomServers(',
-      'normalizePublicBlossomServer(',
-    ],
-  },
-  {
-    file: 'packages/paja/src/browser-blossom-events.ts',
-    markers: [
-      'BLOSSOM_SERVER_LIST_KIND = 10_063',
-      '[{ kinds: [BLOSSOM_SERVER_LIST_KIND], authors: [pubkey], limit: 1 }]',
-      'for (const context of contexts) appendUnique(servers, context.servers);',
-      'for (const context of contexts) appendUnique(authors, [context.publisher]);',
-      'if (target.length >= PAJA_RESOURCE_MAX_SERVERS) return;',
-      'for (const author of options.getDefaultAuthors?.() ?? [])',
-      'authors.map((author) => discoverServerList(author))',
-    ],
-  },
-  {
-    file: 'packages/paja/src/browser-adapter.ts',
-    markers: [
-      'createPajaBlossomEventResolver({',
-      'getDefaultAuthors: () => [getRuntimePubkey(getSimulation, signerProvider)]',
-      'getBlossomServers: ({ url, windowId }) => blossomEventResolver.getServers(url, windowId)',
-      'getReadRouter: (windowId) => blossomEventResolver.decorate(baseOutboxRouter, windowId)',
-      'getQueryRouter: (windowId, context) => blossomEventResolver.decorate(',
-      'uploadRuntime?.getServers() ?? getSimulation().upload.servers',
-      'blossomEventResolver.clearWindow(windowId);',
-    ],
-  },
-  {
-    file: 'packages/services/src/outbox-service.ts',
-    markers: [
-      'getReadRouter?(windowId: string, context: ServiceRuntimeContext | undefined): OutboxRouter;',
-      'handleGetEvent(getReadRouter?.(windowId, runtimeContext) ?? router, message, send);',
-      'const readRouter = getReadRouter?.(windowId, runtimeContext) ?? router;',
-    ],
+    markers: ["'/__kehto/resource'", 'init.authorizeNetwork', "x-kehto-resource-redirect"],
   },
   {
     file: 'packages/paja/src/browser-resource.test.ts',
-    markers: ['accepted request hints before configured defaults', 'reports an inconclusive fallback as network-error'],
-  },
-  {
-    file: 'packages/paja/src/browser-blossom-events.test.ts',
-    markers: [
-      'prioritizes ROM-event hints and publisher lists before the shell signer fallback',
-      'uses the active shell user list without event context or Blossom upload mode',
-      'uses a canonical resource event publisher when no event-local hint exists',
-      'observes single-event and subscription results for the authenticated window',
-      'keeps event-derived locations window-scoped and clears them on teardown',
-    ],
-  },
-  {
-    file: 'packages/paja/src/browser-blossom-integration.test.ts',
-    markers: [
-      'uses event hints before the event publisher list with upload disabled',
-      'falls through request, ROM, publisher, user, and runtime candidates in order',
-      'expect(adapter.upload).toBeUndefined()',
-    ],
+    markers: ['uses the local resource proxy for HTTP(S) requests', 're-authorizes each proxy redirect hop'],
   },
   {
     file: 'apps/playground/napplets/resource-demo/src/main.ts',
-    markers: ["import '@napplet/shim'", "from '@napplet/nap/resource/sdk'", 'REMOTE_IMAGE_URLS.map((url) => ({ url }))'],
+    markers: ["import '@napplet/shim'", 'resource.bytesMany(REMOTE_IMAGE_URLS)', 'ResourceBytesManyItem'],
   },
 ] as const;
 
@@ -717,8 +650,8 @@ describe('NIP-5D conformance static guards', () => {
     }
   });
 
-  it('keeps NAP-RESOURCE server hints wired through shell, services, Paja, playground, and tests', () => {
-    for (const { file, markers } of resourceServerHintRoutingSurfaces) {
+  it('keeps canonical NAP-RESOURCE URL/base64 transport wired through shell, services, Paja, playground, and tests', () => {
+    for (const { file, markers } of resourceCanonicalWireSurfaces) {
       const source = readRepoFile(file);
       for (const marker of markers) {
         expect(source, `${file} missing ${marker}`).toContain(marker);

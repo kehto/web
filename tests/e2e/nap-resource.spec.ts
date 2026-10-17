@@ -107,7 +107,9 @@ test('static browser delegates HTTP(S) to the runtime resolver when CORS visibil
             error: message.error,
             message: message.message,
             mime: message.mime,
-            blobSize: blob instanceof Blob ? blob.size : undefined,
+            blobSize: typeof blob === 'string' && /^[A-Za-z0-9+/]*={0,2}$/u.test(blob)
+              ? atob(blob).length
+              : undefined,
           });
         };
         window.addEventListener('message', onMessage);

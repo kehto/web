@@ -16,7 +16,9 @@ const dispose: Array<() => void> = [];
 afterEach(() => { for (const close of dispose.splice(0)) close(); vi.restoreAllMocks(); });
 
 async function fixture(prompt: (prompt: ApprovalPrompt) => Promise<ApprovalAnswer>,
-  fetch: ResourceServiceOptions['fetch'] = vi.fn(async () => new Response('bytes', { headers: { 'content-type': 'application/octet-stream' } }))) {
+  fetch: ResourceServiceOptions['fetch'] = vi.fn(async (url, init) => init.authorizeNetwork
+    ? init.authorizeNetwork(url, async () => new Response('bytes', { headers: { 'content-type': 'application/octet-stream' } }))
+    : new Response('bytes', { headers: { 'content-type': 'application/octet-stream' } }))) {
   const service = createResourceService({ fetch });
   const adapter = createMockRuntimeAdapter({ services: { resource: service }, isDomainAllowed: () => true,
     permissions: { now: () => 0, createCancellation: () => new AbortController(),
@@ -73,7 +75,7 @@ describe('resource service runtime approvals', () => {
     expect(warn.mock.calls[0][0]).toContain('once per service instance');
   });
 
-  it('holds fetch for exact resource and network scopes and keeps canonical usage quiet', async () => {
+  it('holds fetch for the exact resource scope before each resolver network scope', async () => {
     const answer = deferred<ApprovalAnswer>();
     const shown = deferred<ApprovalPrompt>();
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -81,10 +83,9 @@ describe('resource service runtime approvals', () => {
     f.send({ type: 'resource.bytes', id: 'one', url: 'https://example.com/a?x=1' });
     const prompt = await shown.promise;
     expect(f.fetch).not.toHaveBeenCalled();
-    expect(prompt.missing).toEqual(expect.arrayContaining([
+    expect(prompt.missing).toEqual([
       { category: 'resource', domain: 'resource', operation: 'resource.bytes', scope: { kind: 'exact', value: 'https://example.com/a?x=1' } },
-      { category: 'network', domain: 'resource', operation: 'resource.bytes', scope: { kind: 'origin', value: 'https://example.com' } },
-    ]));
+    ]);
     answer.resolve({ effect: 'allow', lifetime: 'once' });
     await flush();
     expect(f.fetch).toHaveBeenCalledTimes(1);
@@ -109,8 +110,8 @@ describe('resource service runtime approvals', () => {
 
   it('preserves successful bulk siblings when a resource is denied', async () => {
     const f = await fixture(async (value) => ({ effect: value.request.requirements.some((item) => item.scope.value.endsWith('/deny')) ? 'deny' : 'allow', lifetime: 'once' }));
-    f.send({ type: 'resource.bytesMany', id: 'bulk', requests: [
-      { url: 'https://example.com/deny' }, { url: 'https://example.com/allow' },
+    f.send({ type: 'resource.bytesMany', id: 'bulk', urls: [
+      'https://example.com/deny', 'https://example.com/allow',
     ] });
     await flush();
     expect(f.fetch).toHaveBeenCalledTimes(1);

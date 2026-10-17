@@ -660,15 +660,18 @@ Resource requests are tracked before asynchronous metadata resolution. Cancellin
 byte requests before that resolution prevents a fetch; cancelling an active fetch
 aborts its signal and suppresses its terminal response. Window destruction and
 service detachment cancel outstanding work, including advisory info responses.
-Bulk URLs and server hints are copied before awaiting host work. A duplicate
-in-flight ID cannot replace the original request's cancellation handle, and old
-source cleanup cannot remove a replacement source's request.
+The service captures each exact `url` or ordered `urls` list before awaiting host
+work. A duplicate in-flight ID cannot replace the original cancellation handle,
+and old source cleanup cannot remove a replacement source's request. Successful
+results carry canonical padded RFC 4648 base64 in `blob`; shell consumers decode
+only that canonical form into a `Blob`. `resource.cancel` stays silent, while a
+live permission revocation emits exactly one `blocked-by-policy` terminal and
+suppresses stale completions.
 
 These lifecycle rules were checked against NAP-RESOURCE PR #80 at
-`ae5b9c64ab8a4d8909f288829a01e99d6bd713bc`. This does not establish full conformance
-to that draft: the existing `requests`/server-hint and Blob transport contract
-still needs migration to its `urls` and base64 wire contract, alongside resource
-approval and host network-isolation integration.
+`ae5b9c64ab8a4d8909f288829a01e99d6bd713bc`. The NAP package declarations are
+behind that draft, so Kehto keeps its local envelope types only until packaged
+exports catch up.
 
 
 ### Scoped resource authorization
@@ -680,10 +683,15 @@ item independently. The authorization covers fetching and reading the response
 body, so revocation can abort active work and discard late bytes. Request
 cancellation also dismisses a pending approval without granting a late answer.
 
-This service boundary does not authorize indirect resolver destinations or make
-browser redirects safe. Resolver destination hooks, canonical `urls`/base64 wire
-migration, and Paja/playground network isolation remain migration work. Current
-configured ingress still includes the old temporal gate until that migration.
+Resolvers must call `init.authorizeNetwork(destination, execute)` before every
+actual HTTP(S) contact. That callback runs under a distinct origin requirement,
+including each proxy-reported redirect hop, and its signal covers connection and
+body reading. Paja's local proxy adds DNS-time address screening and pinned
+connections; see [Paja resource proxy policy](../../docs/policies/RESOURCE-PROXY.md).
+
+This host-side boundary does not isolate unrestricted iframe subresource or direct
+network access. Phase 114 must close frame admission/CSP isolation before any
+end-to-end resource-security claim is made.
 
 Standalone or unmigrated hosts retain resolver-owned policy with diagnostic
 `FW-RESOURCE-LEGACY-001`, once per service instance on actual fetch use. Configure

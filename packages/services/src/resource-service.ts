@@ -20,9 +20,9 @@
  * request.
  * ──────────────────────────────────────────────────────────────────────────────
  *
- * Runtime integration requires only `fetch`. A runtime MAY also install the
- * optional origin-policy adapter (`isOriginGranted`, `getConnectGrants`, and
- * `resolveIdentity` together).
+ * Runtime integration requires only `fetch`. When installed through a runtime
+ * with approval support, every resource URL and actual HTTP(S) destination is
+ * authorized independently.
  *
  * @example
  * ```ts
@@ -38,9 +38,6 @@
  * ```ts
  * const resourceSvc = createResourceService({
  *   fetch: (url, init) => runtimeResources.resolve(url, init),
- *   isOriginGranted: (origin, grants) => grants.includes(origin),
- *   getConnectGrants: (dTag, hash) => myOriginGrantStore.getOrigins(dTag, hash),
- *   resolveIdentity: (windowId) => sessionRegistry.getEntryByWindowId(windowId) ?? null,
  * });
  * ```
  */
@@ -48,7 +45,11 @@
 import type { NappletMessage } from '@napplet/core';
 import type { ResourceInfo } from '@napplet/nap/resource/types';
 import type { ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
-import { authorizeResource, type AuthorizeNetwork } from './resource-authorization.js';
+import {
+  authorizeResource,
+  ResourceAuthorizationError,
+  type AuthorizeNetwork,
+} from './resource-authorization.js';
 
 export type {
   ResourceInfo,
@@ -73,8 +74,6 @@ export interface ResourceFetchInit {
   windowId?: string;
   /** Authorize every actual HTTP(S) destination before the resolver contacts it. */
   authorizeNetwork?: AuthorizeNetwork;
-  /** @deprecated Canonical resource messages never carry server hints. */
-  servers?: readonly string[];
 }
 
 /** Context passed to a host-provided resource info resolver. */
@@ -92,8 +91,7 @@ export type ResourceInfoProvider =
  * Options for `createResourceService` (options-as-bridge per v1.6 Decision 18).
  *
  * `fetch` is the only required field. Kehto does not select a runtime's scheme
- * or origin policy. The optional origin-policy fields form one adapter and must
- * therefore be supplied together when a runtime chooses to use it.
+ * or origin policy.
  */
 export interface ResourceServiceOptions {
   /**
@@ -112,13 +110,6 @@ export interface ResourceServiceOptions {
     url: string,
     init: ResourceFetchInit,
   ): Promise<Response>;
-
-  /** @deprecated Resolver destinations must use `init.authorizeNetwork`; retained only for host source compatibility. */
-  isOriginGranted?(origin: string, grants: readonly string[]): boolean;
-  /** @deprecated Resolver destinations must use `init.authorizeNetwork`; retained only for host source compatibility. */
-  getConnectGrants?(dTag: string, aggregateHash: string): readonly string[];
-  /** @deprecated Resolver destinations must use runtime-bound authorization; retained only for host source compatibility. */
-  resolveIdentity?(windowId: string): { dTag: string; aggregateHash: string } | null;
 
   /**
    * Advisory NAP-RESOURCE introspection exposed through `resource.info`.
@@ -139,7 +130,14 @@ export type ResourceService = ServiceHandler;
 interface ResourceRequestState {
   runtime?: ServiceRuntimeContext;
   warnLegacy: () => void;
-  inFlight: Map<string, { controller: AbortController; windowId: string; requestId: string; send: (m: NappletMessage) => void; terminal: boolean }>;
+  inFlight: Map<string, {
+    controller: AbortController;
+    windowId: string;
+    requestId: string;
+    operation: 'resource.info' | 'resource.bytes' | 'resource.bytesMany';
+    send: (m: NappletMessage) => void;
+    terminal: boolean;
+  }>;
   perWindow: Map<string, Set<string>>;
 }
 
@@ -203,11 +201,12 @@ function trackRequest(
   requestId: string,
   windowId: string,
   controller: AbortController,
+  operation: 'resource.info' | 'resource.bytes' | 'resource.bytesMany',
   send: (m: NappletMessage) => void,
 ): boolean {
   const key = requestKey(windowId, requestId);
   if (state.inFlight.has(key)) return false;
-  state.inFlight.set(key, { controller, windowId, requestId, send, terminal: false });
+  state.inFlight.set(key, { controller, windowId, requestId, operation, send, terminal: false });
   if (!state.perWindow.has(windowId)) {
     state.perWindow.set(windowId, new Set());
   }
@@ -261,10 +260,6 @@ function responseMime(response: Response): string {
     || 'application/octet-stream';
 }
 
-function responseBlob(buffer: ArrayBuffer, mime: string): Blob {
-  return new Blob([buffer], { type: mime });
-}
-
 function encodeCanonicalBase64(buffer: ArrayBuffer): string {
   let binary = '';
   for (const byte of new Uint8Array(buffer)) binary += String.fromCharCode(byte);
@@ -307,7 +302,7 @@ async function handleInfo(
   send: (m: NappletMessage) => void,
 ): Promise<void> {
   const controller = new AbortController();
-  if (!trackRequest(state, requestId, windowId, controller, send)) return;
+  if (!trackRequest(state, requestId, windowId, controller, 'resource.info', send)) return;
   try {
     const info = await resolveResourceInfo(options, windowId);
     if (controller.signal.aborted) return;
@@ -340,7 +335,8 @@ function resourceInvalidRequest(url: string, message: string): ResourceFetchFail
 
 function classifyResourceFailure(error: unknown): { error: ResourceErrorCode; message: string } {
   return {
-    error: error instanceof ResourceServiceError ? error.code : 'network-error',
+    error: error instanceof ResourceServiceError ? error.code
+      : error instanceof ResourceAuthorizationError ? 'blocked-by-policy' : 'network-error',
     message: error instanceof Error ? error.message : String(error),
   };
 }
@@ -382,7 +378,8 @@ async function fetchResourceItem(
       return {
         ok: false,
         url,
-        error: isAbort ? 'timeout' : err instanceof ResourceServiceError ? err.code : 'network-error',
+        error: isAbort ? 'timeout' : (err instanceof ResourceServiceError ? err.code
+          : err instanceof ResourceAuthorizationError ? 'blocked-by-policy' : 'network-error'),
         message: err instanceof Error ? err.message : String(err),
       };
     }
@@ -401,7 +398,7 @@ async function handleBytes(
 ): Promise<void> {
   const { requestId, ...request } = msg;
   const controller = new AbortController();
-  if (!trackRequest(state, requestId, windowId, controller, send)) return;
+  if (!trackRequest(state, requestId, windowId, controller, 'resource.bytes', send)) return;
 
   try {
     const info = await resolveResourceInfo(options, windowId);
@@ -442,7 +439,7 @@ async function handleBytesMany(
   }
 
   const controller = new AbortController();
-  if (!trackRequest(state, requestId, windowId, controller, send)) return;
+  if (!trackRequest(state, requestId, windowId, controller, 'resource.bytesMany', send)) return;
   try {
     const info = await resolveResourceInfo(options, windowId);
     if (controller.signal.aborted) return;
@@ -519,9 +516,8 @@ function destroyWindowRequests(state: ResourceRequestState, windowId: string): v
  * `resource.bytes`, `resource.bytesMany`, `resource.cancel`, and their
  * result/error envelopes.
  *
- * The runtime resolver is validated at construction. Runtime implementers may
- * additionally install the origin-grant adapter; Kehto provides and enforces
- * the hook contract without selecting the grants or requiring that policy.
+ * The runtime resolver is validated at construction. Runtime-bound approvals
+ * cover the exact resource URL and each resolver-reported HTTP(S) hop.
  *
  * Returns a `ServiceHandler` (no `publishValues`-style surface — resource has
  * no shell-initiated push beyond the response/error path).
@@ -535,9 +531,6 @@ function destroyWindowRequests(state: ResourceRequestState, windowId: string): v
  *
  * const svc = createResourceService({
  *   fetch: (url, init) => runtimeResources.resolve(url, init),
- *   isOriginGranted: (origin, grants) => grants.includes(origin),
- *   getConnectGrants: (dTag, hash) => myOriginGrantStore.getOrigins(dTag, hash),
- *   resolveIdentity: (windowId) => sessionRegistry.getEntryByWindowId(windowId) ?? null,
  * });
  * runtime.registerService('resource', svc);
  * ```
@@ -571,10 +564,12 @@ export function createResourceService(options: ResourceServiceOptions): Resource
         if (!entry || entry.terminal) continue;
         entry.terminal = true;
         entry.controller.abort();
-        entry.send({
-          type: 'resource.bytes.error', id: entry.requestId,
-          error: 'blocked-by-policy', message: 'resource permission revoked',
-        } as NappletMessage);
+        if (entry.operation === 'resource.bytes' || entry.operation === 'resource.bytesMany') {
+          entry.send({
+            type: `${entry.operation}.error`, id: entry.requestId,
+            error: 'blocked-by-policy', message: 'resource permission revoked',
+          } as NappletMessage);
+        }
       }
     },
 

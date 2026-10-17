@@ -219,10 +219,15 @@ item independently. The authorization covers fetching and reading the response
 body, so revocation can abort active work and discard late bytes. Request
 cancellation also dismisses a pending approval without granting a late answer.
 
-This service boundary does not authorize indirect resolver destinations or make
-browser redirects safe. Resolver destination hooks, canonical `urls`/base64 wire
-migration, and Paja/playground network isolation remain migration work. Current
-configured ingress still includes the old temporal gate until that migration.
+Resolvers must call `init.authorizeNetwork(destination, execute)` before every
+actual HTTP(S) contact. That callback runs under a distinct origin requirement,
+including each proxy-reported redirect hop, and its signal covers connection and
+body reading. Paja's local proxy adds DNS-time address screening and pinned
+connections; see [Paja resource proxy policy](../../docs/policies/RESOURCE-PROXY.md).
+
+This host-side boundary does not isolate unrestricted iframe subresource or direct
+network access. Phase 114 must close frame admission/CSP isolation before any
+end-to-end resource-security claim is made.
 
 Standalone or unmigrated hosts retain resolver-owned policy with diagnostic
 `FW-RESOURCE-LEGACY-001`, once per service instance on actual fetch use. Configure
