@@ -176,6 +176,8 @@ export interface PajaShellAdapter extends ShellAdapter {
   readonly ready: Promise<void>;
   /** Bind verified runtime-pointer Blossom hints to one authenticated window. */
   setWindowBlossomServers(windowId: string, servers: readonly string[]): void;
+  /** Recompute intent availability after a host-owned default-handler update. */
+  notifyIntentChanged(archetype: string): void;
 }
 
 export { PAJA_DEV_SIGNER_PUBKEY } from './browser-dev-runtime.js';
@@ -672,6 +674,7 @@ export function createPajaAdapter(
   });
   const adapter: PajaShellAdapter = {
     ready,
+    notifyIntentChanged: () => {},
     setWindowBlossomServers: serviceBundle.setWindowBlossomServers,
     relayPool: createPajaRelayHooks(relayBackend, getSimulation, relayConfig),
     relayConfig,
@@ -725,10 +728,29 @@ export function createPajaAdapter(
       authorizeExplicitHandler: intentHost.authorizeExplicitHandler,
       resolveHandlerHint: intentHost.resolveHandlerHint,
     });
-    services.intent = createIntentService({
+    const intentService = createIntentService({
       resolver,
       resolveSender: intentHost.resolveSender,
     });
+    adapter.notifyIntentChanged = (archetype) => resolver.notifyChanged(archetype);
+    let stopCatalogChanges: (() => void) | undefined;
+    services.intent = {
+      ...intentService,
+      onRegistered(context) {
+        stopCatalogChanges?.();
+        intentService.onRegistered?.(context);
+        // NAP-INTENT (napplet/naps master e5308ac): catalog changes SHOULD
+        // emit intent.changed. IDs are not archetypes; include removed contracts.
+        stopCatalogChanges = intentHost.catalog.onChanged((_id, archetypes) => {
+          for (const archetype of archetypes) resolver.notifyChanged(archetype);
+        });
+      },
+      onUnregistered() {
+        stopCatalogChanges?.();
+        stopCatalogChanges = undefined;
+        intentService.onUnregistered?.();
+      },
+    };
   }
   return adapter;
 }
