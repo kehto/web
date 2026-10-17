@@ -34,6 +34,7 @@ import {
   createConfigService,
   createCommonService,
   createResourceService,
+  ResourceServiceError,
   createBleService,
   createSerialService,
   createWebrtcService,
@@ -237,7 +238,9 @@ async function hostFetch(
   }
   try {
     const destination = new URL(url);
-    if (destination.protocol !== 'http:' && destination.protocol !== 'https:') throw new Error('unsupported-scheme');
+    if (destination.protocol !== 'http:' && destination.protocol !== 'https:') {
+      throw new ResourceServiceError('unsupported-scheme', 'playground resources require an HTTP(S) URL');
+    }
     if (!init.authorizeNetwork) throw new Error('network-unavailable');
     return await init.authorizeNetwork(url, async (networkSignal) => {
       const requestController = new AbortController();

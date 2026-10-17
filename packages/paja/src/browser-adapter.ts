@@ -1,6 +1,7 @@
 import { originRegistry, resolveShellEnvironment } from '@kehto/shell';
 import type { NostrEvent, NostrFilter } from '@napplet/core';
 import type { ServiceHandler } from '@kehto/shell';
+import type { Signer } from '@kehto/runtime';
 import { createNip65Registry, selectWriteRelays } from '@kehto/nip/65';
 import {
   browserGamepadOptions,
@@ -291,8 +292,22 @@ function createDevServices(
   }
 
   if (getSimulation().capabilities.domains.identity) {
+    let syntheticSigner: Signer | null = null;
+    let syntheticSignerKey = '';
     services.identity = createIdentityService({
-      getSigner: () => createRuntimeSigner(getSimulation, confirmRequest, signerProvider),
+      getSigner: () => {
+        const connectedSigner = signerProvider?.getSigner();
+        if (connectedSigner) return connectedSigner;
+        // The identity service rejects an async result if its signer instance
+        // changes. Keep Paja's simulated signer stable for one account.
+        const simulation = getSimulation();
+        const key = `${signerProvider?.getMethod() ?? 'none'}:${simulation.identity.mode}:${simulation.identity.pubkey}`;
+        if (!syntheticSigner || key !== syntheticSignerKey) {
+          syntheticSigner = createRuntimeSigner(getSimulation, confirmRequest, signerProvider);
+          syntheticSignerKey = key;
+        }
+        return syntheticSigner;
+      },
       getFollows: socialCache.getFollows,
     });
   }

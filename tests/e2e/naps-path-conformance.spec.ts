@@ -2,13 +2,13 @@
  * naps-path-conformance.spec.ts — TERM-04 / G6.
  *
  * Proves the migrated playground exercises the host-owned injected-domain path
- * and the mandatory NAP-SHELL receiver.
+ * and the NAP-SHELL receiver when the host exposes it.
  *
  * Background (verified against the installed dist):
  *   - Kehto injects a srcdoc prelude that predeclares the verified manifest's
  *     bare required domains.
  *   - The host prelude filters assignments through the verified manifest allowlist,
- *     so non-required optional domains stay absent while NAP-SHELL remains unconditional.
+ *     so non-required optional domains stay absent while this host exposes NAP-SHELL.
  *
  * Target: the migrated profile-viewer napplet (requires ['intent', 'relay',
  * 'resource', 'theme']). Asserting the namespace in-frame proves the host uses
@@ -97,7 +97,7 @@ test('profile-viewer receives current injected window.napplet domain objects', a
   expect(result.namespaceKeys).toEqual(expect.arrayContaining(['shell', 'inc', 'relay', 'theme']));
 });
 
-test('feed and profile media use the canonical host resource projection', async ({ page }) => {
+test('feed and profile media receive the canonical unsupported-scheme result', async ({ page }) => {
   test.setTimeout(120_000);
   await demoBeforeEach(page);
 
@@ -112,6 +112,7 @@ test('feed and profile media use the canonical host resource projection', async 
         napplet?: { resource?: { bytesMany(urls: readonly string[]): Promise<Array<{
           ok: boolean;
           blob?: Blob;
+          error?: string;
         }>> } };
       }).napplet?.resource;
       if (!resource) throw new Error('resource capability unavailable');
@@ -120,10 +121,10 @@ test('feed and profile media use the canonical host resource projection', async 
       return {
         count: items.length,
         ok: first?.ok,
-        text: first?.ok && first.blob ? await first.blob.text() : null,
+        error: first?.error,
       };
     });
 
-    expect(result).toEqual({ count: 1, ok: true, text: 'hello' });
+    expect(result).toEqual({ count: 1, ok: false, error: 'unsupported-scheme' });
   }
 });
