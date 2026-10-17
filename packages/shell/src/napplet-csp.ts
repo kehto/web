@@ -76,14 +76,22 @@ export function classifyBrowserRemoteSources(sources: readonly BrowserRemoteSour
 export function buildApprovedNappletCsp(options: {
   readonly mode: BrowserLaunchMode;
   readonly remoteSources: readonly BrowserRemoteSource[];
+  /** Exact approved development origin used by a host-injected base URL. */
+  readonly baseOrigin?: string;
 }): string {
-  if (!options || Object.keys(options).some((key) => key !== 'mode' && key !== 'remoteSources')) {
+  if (!options || Object.keys(options).some((key) => key !== 'mode' && key !== 'remoteSources' && key !== 'baseOrigin')) {
     throw new TypeError('Unknown browser CSP option');
   }
   if (!['isolated', 'mediated-resource', 'direct-network'].includes(options.mode)) throw new TypeError('Invalid browser launch mode');
   const classified = classifyBrowserRemoteSources(options.remoteSources);
   if (options.mode !== 'direct-network' && classified.sources.length) throw new TypeError('Mediated documents cannot have direct browser origins');
   if (options.mode === 'direct-network' && !classified.sources.length) throw new TypeError('Direct network mode needs exact approved origins');
+  if (options.baseOrigin !== undefined && (options.mode !== 'direct-network'
+    || !/^https?:\/\//.test(options.baseOrigin)
+    || connectionOrigin(options.baseOrigin) !== options.baseOrigin
+    || !classified.sources.some((source) => source.origin === options.baseOrigin))) {
+    throw new TypeError('Development base origin needs matching exact approved network authority');
+  }
 
   const policy: Record<string, readonly string[]> = {
     ...DEFAULT_DIRECTIVES,
@@ -92,6 +100,7 @@ export function buildApprovedNappletCsp(options: {
     'style-src-elem': ["'unsafe-inline'"],
     'style-src-attr': ["'unsafe-inline'"],
   };
+  if (options.baseOrigin) policy['base-uri'] = [options.baseOrigin];
   for (const directive of REMOTE_DIRECTIVES) {
     const origins = classified.sources.filter((source) => source.directive === directive).map((source) => source.origin);
     if (!origins.length) continue;

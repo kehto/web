@@ -24,6 +24,8 @@ export interface BrowserAdmissionRequest {
   readonly optional: readonly string[];
   /** Exact remote browser sources proposed by trusted host configuration. */
   readonly remoteSources: readonly BrowserRemoteSource[];
+  /** Exact development origin for the host-injected base URL, if present. */
+  readonly baseOrigin?: string;
   /** True only while this exact frame generation remains the active source. */
   readonly isCurrentSource: () => boolean;
   /** Navigation, closure, or replacement cancellation. */
@@ -134,7 +136,7 @@ export async function admitBrowserDocument(request: BrowserAdmissionRequest): Pr
       ? ['shell', ...admission.domains] : admission.domains;
     const mode: BrowserLaunchMode = direct ? 'direct-network'
       : domains.includes('resource') ? 'mediated-resource' : 'isolated';
-    const csp = buildApprovedNappletCsp({ mode, remoteSources: remote.sources });
+    const csp = buildApprovedNappletCsp({ mode, remoteSources: remote.sources, baseOrigin: request.baseOrigin });
     const srcdoc = insertNappletHead(request.verifiedHtml,
       cspMeta(csp) + renderNappletNamespacePrelude({ domains }));
     unsubscribe = permissions.subscribeInvalidation(() => {

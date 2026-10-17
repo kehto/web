@@ -13,10 +13,15 @@ const TARGET_HTML = `<!doctype html><html><head>
   </script></body></html>`;
 
 let target: ReturnType<typeof createServer>;
+let sibling: ReturnType<typeof createServer>;
 let host: PajaServer;
+let allowedRequests = 0;
+let siblingRequests = 0;
+let siblingUrl = '';
 
 test.beforeAll(async () => {
-  target = createServer((_request, response) => {
+  target = createServer((request, response) => {
+    if (request.url === '/allowed') allowedRequests++;
     response.writeHead(200, {
       'content-type': 'text/html; charset=utf-8',
       'access-control-allow-origin': '*',
@@ -29,12 +34,25 @@ test.beforeAll(async () => {
   });
   const address = target.address();
   if (!address || typeof address === 'string') throw new Error('Target did not bind');
+  sibling = createServer((_request, response) => {
+    siblingRequests++;
+    response.writeHead(200, { 'access-control-allow-origin': '*' });
+    response.end('sibling');
+  });
+  await new Promise<void>((resolve, reject) => {
+    sibling.once('error', reject);
+    sibling.listen(0, '127.0.0.1', () => { sibling.off('error', reject); resolve(); });
+  });
+  const siblingAddress = sibling.address();
+  if (!siblingAddress || typeof siblingAddress === 'string') throw new Error('Sibling did not bind');
+  siblingUrl = `http://127.0.0.1:${siblingAddress.port}/blocked`;
   host = await startPajaServer({ options: { targetUrl: `http://127.0.0.1:${address.port}/`, port: 0 } });
 });
 
 test.afterAll(async () => {
   await host?.close();
   await new Promise<void>((resolve, reject) => target.close((error) => error ? reject(error) : resolve()));
+  await new Promise<void>((resolve, reject) => sibling.close((error) => error ? reject(error) : resolve()));
 });
 
 async function choose(page: Page, permission: string, effect: 'Allow' | 'Deny'): Promise<void> {
@@ -73,4 +91,20 @@ test('revoking an approved interface retires the executing frame', async ({ page
   await expect(revoke).toBeVisible();
   await revoke.click();
   await expect(frame.locator('#executed')).toHaveCount(0);
+});
+
+test('direct network approval reaches its exact origin and blocks a sibling origin', async ({ page }) => {
+  const allowedBefore = allowedRequests;
+  const siblingBefore = siblingRequests;
+  await page.goto(host.url);
+  await choose(page, 'network.connect-src', 'Allow');
+  await choose(page, 'interface access exact:theme', 'Deny');
+  const frame = page.frameLocator('#napplet-frame');
+  await expect(frame.locator('#executed')).toHaveText('yes');
+  await frame.locator('body').evaluate(async (_body, blocked) => {
+    await fetch('allowed').catch(() => undefined);
+    await fetch(blocked).catch(() => undefined);
+  }, siblingUrl);
+  await expect.poll(() => allowedRequests).toBe(allowedBefore + 1);
+  expect(siblingRequests).toBe(siblingBefore);
 });

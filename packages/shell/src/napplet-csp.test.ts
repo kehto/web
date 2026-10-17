@@ -40,6 +40,18 @@ describe('closed admitted browser CSP', () => {
     expect(() => classifyBrowserRemoteSources([{ directive: 'img-src', origin: 'wss://relay.example.test' }])).toThrow();
     expect(() => buildApprovedNappletCsp({ mode: 'isolated', remoteSources: [], directives: { 'connect-src': ['https://a.example.test'] } } as never)).toThrow();
   });
+
+  it('permits only the approved development origin as a host-injected base URL', () => {
+    const remoteSources = [{ directive: 'script-src' as const, origin: 'https://dev.example.test' }];
+    const policy = buildApprovedNappletCsp({ mode: 'direct-network', remoteSources,
+      baseOrigin: 'https://dev.example.test' });
+    expect(policy).toContain('base-uri https://dev.example.test');
+    expect(policy).toContain("frame-src 'none'");
+    expect(() => buildApprovedNappletCsp({ mode: 'direct-network', remoteSources,
+      baseOrigin: 'https://other.example.test' })).toThrow();
+    expect(() => buildApprovedNappletCsp({ mode: 'mediated-resource', remoteSources: [],
+      baseOrigin: 'https://dev.example.test' })).toThrow();
+  });
 });
 
 describe('host-customizable NIP-5D CSP', () => {

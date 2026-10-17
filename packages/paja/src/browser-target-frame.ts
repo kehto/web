@@ -121,6 +121,7 @@ export async function navigateFrame(
     required: declarations.required,
     optional: declared ? declarations.optional : environment.capabilities.domains,
     remoteSources: developmentRemoteSources(targetUrl, config.csp),
+    baseOrigin: targetUrl.origin,
     windowId, isCurrent, onRegistered, signal,
   });
 }
@@ -136,6 +137,7 @@ interface PajaFrameAdmission {
   readonly required: readonly string[];
   readonly optional: readonly string[];
   readonly remoteSources?: readonly BrowserRemoteSource[];
+  readonly baseOrigin?: string;
   readonly windowId?: string;
   readonly isCurrent?: () => boolean;
   readonly onRegistered?: (windowId: string | null) => void;
@@ -144,7 +146,7 @@ interface PajaFrameAdmission {
 
 async function admitPajaFrame(options: PajaFrameAdmission): Promise<string | null> {
   const { frame, config, generation, runtime, identity, environment, verifiedHtml,
-    required, optional, remoteSources, windowId, isCurrent, onRegistered, signal } = options;
+    required, optional, remoteSources, baseOrigin, windowId, isCurrent, onRegistered, signal } = options;
   if (!identity.permissionPrincipal) throw new Error('Paja source has no trusted permission principal');
   const sourceWindowId = windowId ?? `${config.window.id}:${generation}`;
   const current = () => !signal?.aborted && (!isCurrent || isCurrent()) && frame.isConnected !== false;
@@ -158,6 +160,7 @@ async function admitPajaFrame(options: PajaFrameAdmission): Promise<string | nul
     runtime, entry, verifiedHtml, available: environment.capabilities.domains,
     required, optional,
     remoteSources: remoteSources ?? (config.csp?.connectOrigins ?? []).map((origin) => ({ directive: 'connect-src' as const, origin })),
+    baseOrigin,
     isCurrentSource: current, signal,
     commit(srcdoc, admitted) {
       if (!current()) throw new Error('Paja source changed before admission commit');
