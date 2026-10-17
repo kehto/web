@@ -535,11 +535,17 @@ retry, URI hints never enable public HTTP. For a Blossom URL
 previously returned to the same napplet window by `outbox.getEvent`,
 `outbox.query`, or `outbox.subscribe`, Paja retains bounded event context
 without prefetching bytes. Resolution tries URI `xs` and event-local server hints first, then lazily queries URI `as`, event-hinted authors' and the
-event publisher's newest BUD-03 kind `10063` lists through the verified
-NIP-65-aware OUTBOX router, then queries the active shell user's BUD-03 list
-through that same router, then uses the current window's verified
-pointer-manifest servers, followed by upload-runtime fallbacks and saved extra
-resource servers. The user-list
+event publisher's newest BUD-03 kind `10063` lists through host-configured
+NIP-65 bootstrap relays and the selected author relay, then queries the active
+shell user's BUD-03 list through the same approval-bound relay path, then uses
+the current window's verified pointer-manifest servers, followed by upload-runtime
+fallbacks and saved extra resource servers. Every bootstrap and author relay is
+authorized as its exact `ws:`/`wss:` destination before its socket opens. The
+host refreshes signer-derived bootstrap URLs only at signer initialization or a
+signer lifecycle change; a resource request reads that bounded host cache and
+never calls an external signer's `getRelays()` hook, because that hook can
+perform opaque extension work before an origin exists to approve. If refreshing
+the cache fails, configured host bootstrap relays remain available. The user-list
 lookup works independently of upload mode; an upload runtime may reuse the same
 servers when present. ROM-specific event and publisher locations retain
 priority over the user/runtime fallbacks. URI length is capped at 8192 characters;

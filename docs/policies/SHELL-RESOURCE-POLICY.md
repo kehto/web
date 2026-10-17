@@ -111,8 +111,14 @@ returned by `outbox.getEvent`, `outbox.query`, or `outbox.subscribe`. On a later
 byte request it orders event-local server hints before hinted authors' and the
 verified event publisher's newest BUD-03 kind-10063 lists, then the active shell
 user's BUD-03 list, followed by configured runtime fallbacks. Author, publisher,
-and user lists are read lazily through the same NIP-65-aware OUTBOX router,
-independently of upload mode, so reading events never prefetches their blobs.
+and user lists are read lazily through host-configured NIP-65 bootstrap and
+author-selected relays. Each exact `ws:`/`wss:` socket destination is approved
+before it opens. The host refreshes signer-derived bootstrap URLs during signer
+initialization and signer lifecycle changes; resource discovery only reads that
+host cache and never invokes an external signer `getRelays()` hook because it can
+perform opaque work before a destination exists to authorize. A failed refresh
+falls back to configured host bootstrap relays. This remains independent of
+upload mode, so reading events never prefetches their blobs.
 This is a runtime-default policy within NAP-RESOURCE's second tier, not a new
 wire field or an upload-mode dependency. It follows Blossom BUD-03 at exact ref
 [`b5bd2801d1763aa635fc8fea7a76597e0eb18990`](https://github.com/hzrd149/blossom/blob/b5bd2801d1763aa635fc8fea7a76597e0eb18990/buds/03.md).

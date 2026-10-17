@@ -314,6 +314,7 @@ function createRuntimeSigner(
 interface PajaServiceBundle {
   readonly services: Record<string, ServiceHandler>;
   refreshAvailability(): boolean;
+  refreshSignerBootstrapRelays(): void;
   setWindowBlossomServers(windowId: string, servers: readonly string[]): void;
 }
 
@@ -341,6 +342,26 @@ function createDevServices(
   const getReadRelays = () => relayConfig.getRelayUrls(['discovery', 'super']);
   const getWriteRelays = () => relayConfig.getRelayUrls(['outbox']);
   const getAllRelays = () => relayConfig.getRelayUrls();
+  const signerBootstrapRelays: string[] = [];
+  let signerBootstrapGeneration = 0;
+  const refreshSignerBootstrapRelays = (): void => {
+    const generation = ++signerBootstrapGeneration;
+    signerBootstrapRelays.splice(0);
+    const signer = signerProvider?.getSigner();
+    if (!signer?.getRelays) return;
+    // This runs from host initialization and signer lifecycle changes, never a
+    // resource request. A signer extension may implement getRelays using an
+    // opaque bridge, so discovery can only consume the cached URL strings.
+    void Promise.resolve(signer.getRelays()).then((relays) => {
+      if (generation !== signerBootstrapGeneration || !relays || typeof relays !== 'object') return;
+      for (const [url, permissions] of Object.entries(relays)) {
+        if (permissions?.read && typeof url === 'string') signerBootstrapRelays.push(url);
+      }
+    }).catch(() => {
+      // Host relay configuration remains the safe bootstrap fallback.
+    });
+  };
+  refreshSignerBootstrapRelays();
   const baseOutboxRouter = createOutboxRouter(backend, getSimulation, relayConfig, confirmRequest, signerProvider);
   const queryApprovedResourceRelays = async (
     relayUrls: readonly string[],
@@ -363,12 +384,24 @@ function createDevServices(
     context: { readonly signal: AbortSignal; readonly authorizeNetwork: AuthorizeNetwork },
   ) => {
     const relayListEvents = await queryApprovedResourceRelays(
-      await getPajaBootstrapRelayUrls(getSimulation, signerProvider, getReadRelays),
+      // Resource requests never call an external signer's getRelays hook. The
+      // host refreshes signerBootstrapRelays on lifecycle changes, so each URL
+      // below is already concrete and can be approved before opening a socket.
+      await getPajaBootstrapRelayUrls(
+        getSimulation,
+        undefined,
+        () => [...getReadRelays(), ...signerBootstrapRelays],
+      ),
       [{ kinds: [10_002], authors: [pubkey], limit: 2 }],
       context,
     );
+    const newestRelayList = relayListEvents
+      .filter((event) => event.kind === 10_002
+        && event.pubkey.toLowerCase() === pubkey.toLowerCase()
+        && verifyEvent(event as Parameters<typeof verifyEvent>[0]))
+      .sort((left, right) => right.created_at - left.created_at || left.id.localeCompare(right.id))[0];
     const registry = createNip65Registry();
-    for (const event of relayListEvents) registry.ingest(event);
+    if (newestRelayList) registry.ingest(newestRelayList);
     const routed = selectWriteRelays(registry.getRelayList(pubkey) ?? []);
     const resourceEvents = await queryApprovedResourceRelays(
       [...relayConfig.outboxRelays, ...routed],
@@ -610,6 +643,7 @@ function createDevServices(
   return {
     services,
     refreshAvailability,
+    refreshSignerBootstrapRelays,
     setWindowBlossomServers: blossomEventResolver.setWindowServers,
   };
 }
@@ -709,6 +743,7 @@ export function createPajaAdapter(
     if (getSimulation().capabilities.domains.fs) queueMicrotask(() => onEnvironmentChanged?.());
   });
   signerProvider?.subscribe?.(() => {
+    serviceBundle.refreshSignerBootstrapRelays();
     const availabilityChanged = serviceBundle.refreshAvailability();
     if (uploadRuntime) {
       void uploadRuntime.refreshIdentity().finally(() => onEnvironmentChanged?.());

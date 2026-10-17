@@ -1,5 +1,6 @@
 import type { NappletMessage, NostrEvent } from '@napplet/core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { finalizeEvent, getPublicKey } from 'nostr-tools/pure';
 
 const outboxQuery = vi.hoisted(() => vi.fn());
 
@@ -17,11 +18,16 @@ vi.mock('@kehto/services', async (importOriginal) => {
 });
 
 import { createPajaAdapter } from './browser-adapter.js';
+import type { PajaRelayBackend } from './browser-relay-runtime.js';
 import type { PajaHostConfig } from './options.js';
 import { normalizePajaSimulation } from './simulation.js';
 
-const PUBLISHER = 'a'.repeat(64);
-const SHELL_SIGNER = 'b'.repeat(64);
+const PUBLISHER_KEY = new Uint8Array(32);
+PUBLISHER_KEY[31] = 1;
+const SHELL_SIGNER_KEY = new Uint8Array(32);
+SHELL_SIGNER_KEY[31] = 2;
+const PUBLISHER = getPublicKey(PUBLISHER_KEY);
+const SHELL_SIGNER = getPublicKey(SHELL_SIGNER_KEY);
 const HASH = '10781f7ca417dd1d0a3de2e664d65c5c1dfefb86f3d355cf493739f6c404ad58';
 const RESOURCE_URL = `blossom:sha256:${HASH}`;
 const CONFIG = {
@@ -46,6 +52,30 @@ function event(
   };
 }
 
+
+function serverList(server: string, pubkey = PUBLISHER, createdAt = 1): NostrEvent {
+  const key = pubkey === PUBLISHER ? PUBLISHER_KEY : SHELL_SIGNER_KEY;
+  return finalizeEvent({
+    kind: 10_063,
+    created_at: createdAt,
+    tags: [['server', server]],
+    content: '',
+  }, key) as NostrEvent;
+}
+
+function resourceRelay() {
+  return { mode: 'live' as const, urls: ['wss://resource-relay.example'] };
+}
+
+function stubResourceDiscovery(adapter: ReturnType<typeof createPajaAdapter>, lists: readonly NostrEvent[]): void {
+  const backend = adapter.relayPool.getRelayPool() as unknown as PajaRelayBackend;
+  vi.spyOn(backend, 'query').mockImplementation(async (_relays, filters) =>
+    filters[0]?.kinds?.includes(10_063)
+      ? lists.filter((entry) => entry.pubkey === filters[0]?.authors?.[0])
+      : [],
+  );
+}
+
 function proxyDestination(endpoint: string, init?: RequestInit): string {
   expect(endpoint).toBe('/__kehto/resource');
   expect(init).toMatchObject({ method: 'POST', credentials: 'same-origin' });
@@ -62,16 +92,20 @@ describe('Paja OUTBOX-to-RESOURCE Blossom wiring', () => {
   it.each(['blossom:', 'blossom:sha256:'])('falls through repeated %s URI xs to requested author lists without OUTBOX observation', async (prefix) => {
     const bytes = new TextEncoder().encode('request author fixture');
     const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), (byte) => byte.toString(16).padStart(2, '0')).join('');
-    outboxQuery.mockImplementation(async (filters: Array<{ authors?: string[] }>) => ({
-      events: [{ event: event('1', 10_063, [['server', filters[0]?.authors?.[0] === PUBLISHER
-        ? 'https://author-one.example' : 'https://author-two.example']], '', filters[0]?.authors?.[0]) }],
-    }));
+
     const fetcher = vi.fn(async (endpoint: string, init?: RequestInit) => proxyDestination(endpoint, init).startsWith('https://author-two.example/')
       ? new Response(bytes) : new Response(null, { status: 404 }));
     vi.stubGlobal('fetch', fetcher);
     const adapter = createPajaAdapter(CONFIG,
-      () => normalizePajaSimulation({ relay: { mode: 'live' }, upload: { mode: 'memory', servers: [], discoverServers: false } }),
+      () => normalizePajaSimulation({
+        relay: resourceRelay(),
+        upload: { mode: 'memory', servers: [], discoverServers: false },
+      }),
       () => {}, () => {}, () => true);
+    stubResourceDiscovery(adapter, [
+      serverList('https://author-one.example', PUBLISHER),
+      serverList('https://author-two.example', SHELL_SIGNER),
+    ]);
     try {
       const sent: NappletMessage[] = [];
       adapter.services?.resource?.handleMessage('rom-window', {
@@ -85,7 +119,7 @@ describe('Paja OUTBOX-to-RESOURCE Blossom wiring', () => {
         `https://one.example/${hash}.gbc`, `https://two.example/${hash}.gbc`,
         `https://author-one.example/${hash}.gbc`, `https://author-two.example/${hash}.gbc`,
       ]);
-      expect(outboxQuery).toHaveBeenCalledTimes(2);
+      expect(outboxQuery).not.toHaveBeenCalled();
     } finally {
       (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
     }
@@ -124,14 +158,8 @@ describe('Paja OUTBOX-to-RESOURCE Blossom wiring', () => {
     const rom = event('1', 32_560, [
       ['resource', `blossom:${hash}.gbc?xs=event.example`, 'blossom'],
     ]);
-    const serverList = event('2', 10_063, [
-      ['server', 'https://publisher.example'],
-    ]);
-    outboxQuery.mockImplementation(async (filters: Array<{ kinds?: number[] }>) => ({
-      events: filters[0]?.kinds?.includes(10_063)
-        ? [{ event: serverList }]
-        : [{ event: rom }],
-    }));
+    const publisherServerList = serverList('https://publisher.example');
+    outboxQuery.mockResolvedValue({ events: [{ event: rom }] });
 
     const fetcher = vi.fn(async (endpoint: string, init?: RequestInit) => proxyDestination(endpoint, init).startsWith('https://event.example/')
       ? new Response(null, { status: 404 })
@@ -141,13 +169,14 @@ describe('Paja OUTBOX-to-RESOURCE Blossom wiring', () => {
     const adapter = createPajaAdapter(
       CONFIG,
       () => normalizePajaSimulation({
-        relay: { mode: 'live' },
+        relay: resourceRelay(),
         upload: { mode: 'memory', servers: [], discoverServers: false },
       }),
       () => {},
       () => {},
       () => true,
     );
+    stubResourceDiscovery(adapter, [publisherServerList]);
     const outbox = adapter.services?.outbox;
     const outboxMessages: NappletMessage[] = [];
     outbox?.handleMessage('rom-window', {
@@ -173,10 +202,7 @@ describe('Paja OUTBOX-to-RESOURCE Blossom wiring', () => {
     expect(result).toMatchObject({ type: 'resource.bytes.result', id: 'rom-bytes' });
     expect(atob(result.blob)).toBe('publisher ROM bytes');
 
-    expect(outboxQuery).toHaveBeenCalledWith(
-      [{ kinds: [10_063], authors: [PUBLISHER], limit: 1 }],
-      { authors: [PUBLISHER], limit: 1 },
-    );
+    expect(outboxQuery).toHaveBeenCalledOnce();
     expect(adapter.upload).toBeUndefined();
     (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
   });
@@ -185,20 +211,9 @@ describe('Paja OUTBOX-to-RESOURCE Blossom wiring', () => {
     const rom = event('3', 32_560, [
       ['resource', `blossom:${HASH}.gbc?xs=event.example`, 'blossom'],
     ]);
-    const serverList = event('4', 10_063, [
-      ['server', 'https://publisher.example'],
-    ]);
-    const userServerList = event('5', 10_063, [
-      ['server', 'https://user-list.example'],
-    ], '', SHELL_SIGNER);
-    outboxQuery.mockImplementation(async (filters: Array<{ kinds?: number[]; authors?: string[] }>) => {
-      if (!filters[0]?.kinds?.includes(10_063)) return { events: [{ event: rom }] };
-      return {
-        events: filters[0]?.authors?.[0] === SHELL_SIGNER
-          ? [{ event: userServerList }]
-          : [{ event: serverList }],
-      };
-    });
+    const publisherServerList = serverList('https://publisher.example');
+    const userServerList = serverList('https://user-list.example', SHELL_SIGNER);
+    outboxQuery.mockResolvedValue({ events: [{ event: rom }] });
 
     const bytes = new TextEncoder().encode('publisher ROM bytes');
     const fetcher = vi.fn(async (endpoint: string, init?: RequestInit) => proxyDestination(endpoint, init).startsWith('https://runtime.example/')
@@ -210,7 +225,7 @@ describe('Paja OUTBOX-to-RESOURCE Blossom wiring', () => {
       CONFIG,
       () => normalizePajaSimulation({
         identity: { mode: 'fixed', pubkey: SHELL_SIGNER },
-        relay: { mode: 'live' },
+        relay: resourceRelay(),
         upload: {
           mode: 'memory',
           servers: ['https://runtime.example'],
@@ -221,6 +236,7 @@ describe('Paja OUTBOX-to-RESOURCE Blossom wiring', () => {
       () => {},
       () => true,
     );
+    stubResourceDiscovery(adapter, [publisherServerList, userServerList]);
     adapter.setWindowBlossomServers('rom-window', ['https://pointer.example']);
     const outboxMessages: NappletMessage[] = [];
     adapter.services?.outbox?.handleMessage('rom-window', {
@@ -256,13 +272,47 @@ describe('Paja OUTBOX-to-RESOURCE Blossom wiring', () => {
     (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
   });
 
+  it('reads cached signer bootstrap relays without invoking an external signer during resource discovery', async () => {
+    const getRelays = vi.fn(async () => ({ 'wss://signer-bootstrap.example': { read: true, write: false } }));
+    const signerProvider = {
+      getSigner: () => ({ getRelays }),
+      getMethod: () => 'nip07' as const,
+      getPubkey: () => null,
+    };
+    const adapter = createPajaAdapter(
+      CONFIG,
+      () => normalizePajaSimulation({
+        relay: resourceRelay(),
+        upload: { mode: 'memory', servers: [], discoverServers: false },
+      }),
+      () => {},
+      () => {},
+      () => true,
+      signerProvider,
+    );
+    const backend = adapter.relayPool.getRelayPool() as unknown as PajaRelayBackend;
+    const query = vi.spyOn(backend, 'query').mockResolvedValue([]);
+    await vi.waitFor(() => expect(getRelays).toHaveBeenCalledOnce());
+
+    const sent: NappletMessage[] = [];
+    adapter.services?.resource?.handleMessage('rom-window', {
+      type: 'resource.bytes',
+      id: 'cached-signer-bootstrap',
+      url: `${RESOURCE_URL}?as=${PUBLISHER}`,
+    } as NappletMessage, (message) => sent.push(message));
+    await vi.waitFor(() => expect(sent).toHaveLength(1));
+
+    expect(getRelays).toHaveBeenCalledOnce();
+    expect(query.mock.calls.some(([relays]) => relays.includes('wss://signer-bootstrap.example'))).toBe(true);
+    expect(sent[0]).toMatchObject({ type: 'resource.bytes.error', error: 'blocked-by-policy' });
+    (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
+  });
+
   it('uses verified pointer servers anonymously when the ROM and publisher have no hints', async () => {
     const rom = event('6', 32_560, [
       ['resource', RESOURCE_URL, 'blossom'],
     ]);
-    outboxQuery.mockImplementation(async (filters: Array<{ kinds?: number[] }>) => ({
-      events: filters[0]?.kinds?.includes(10_063) ? [] : [{ event: rom }],
-    }));
+    outboxQuery.mockResolvedValue({ events: [{ event: rom }] });
 
     const bytes = new TextEncoder().encode('publisher ROM bytes');
     const fetcher = vi.fn(async (endpoint: string, init?: RequestInit) => proxyDestination(endpoint, init).startsWith('https://pointer.example/')
@@ -273,13 +323,14 @@ describe('Paja OUTBOX-to-RESOURCE Blossom wiring', () => {
     const adapter = createPajaAdapter(
       CONFIG,
       () => normalizePajaSimulation({
-        relay: { mode: 'live' },
+        relay: resourceRelay(),
         upload: { mode: 'memory', servers: [], discoverServers: false },
       }),
       () => {},
       () => {},
       () => true,
     );
+    stubResourceDiscovery(adapter, []);
     adapter.setWindowBlossomServers('rom-window', ['https://pointer.example']);
 
     const outboxMessages: NappletMessage[] = [];
