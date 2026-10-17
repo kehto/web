@@ -175,6 +175,20 @@ function destroySerialWindow(options: SerialServiceOptions, windows: Map<string,
   options.destroyWindow?.(windowId);
 }
 
+function closeSerialConnection(input: { options: SerialServiceOptions; windowId: string; record: SerialWindow; message: SerialCloseMessage; id: string; send: Send; emit: (event: SerialEvent) => void }): void {
+  const { options, windowId, record, message, id, send, emit } = input;
+  if (!options.close) { send(unsupported('serial.close.result', id)); return; }
+  const connection = record.connections.get(message.sessionId);
+  if (connection) { connection.state = 'closed'; record.connections.delete(message.sessionId); }
+  const context = createContext(windowId, emit);
+  settle(
+    () => options.close!(message.sessionId, message.reason, context),
+    send,
+    (error) => ({ type: 'serial.close.result', id, error } as NappletMessage),
+    () => ({ type: 'serial.close.result', id } as NappletMessage),
+  );
+}
+
 /**
  * Create the NAP-SERIAL reference service.
  *
@@ -348,29 +362,7 @@ function buildSerialService(options: SerialServiceOptions): ServiceHandler {
       }
 
       if (message.type === 'serial.close') {
-        if (!options.close) {
-          currentSend(unsupported('serial.close.result', id));
-          return;
-        }
-        const serialMessage = message as SerialCloseMessage;
-        const connection = record.connections.get(serialMessage.sessionId);
-        if (connection) {
-          connection.state = 'closed';
-          record.connections.delete(serialMessage.sessionId);
-        }
-        const context = createContext(windowId, (event) => emit(
-          windowId,
-          record,
-          connection,
-          currentSend,
-          event,
-        ));
-        settle(
-          () => options.close!(serialMessage.sessionId, serialMessage.reason, context),
-          currentSend,
-          (error) => ({ type: 'serial.close.result', id, error } as NappletMessage),
-          () => ({ type: 'serial.close.result', id } as NappletMessage),
-        );
+        closeSerialConnection({ options, windowId, record, message: message as SerialCloseMessage, id, send: currentSend, emit: (event) => emit(windowId, record, undefined, currentSend, event) });
         return;
       }
 
