@@ -46,6 +46,7 @@ function message(error: unknown): string {
  * builder.open(verifiedTarget);
  * ```
  */
+// aislop-ignore-next-line complexity/function-too-long -- Dialog controls and their event handlers share one disposal lifecycle.
 export function createPajaIntentLinkBuilder(options: PajaIntentLinkBuilderOptions): PajaIntentLinkBuilder {
   const id = `paja-intent-builder-${++nextBuilderId}`;
   const href = options.href ?? (() => window.location.href);

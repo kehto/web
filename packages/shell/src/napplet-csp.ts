@@ -76,7 +76,6 @@ export function classifyBrowserRemoteSources(sources: readonly BrowserRemoteSour
 export function buildApprovedNappletCsp(options: {
   readonly mode: BrowserLaunchMode;
   readonly remoteSources: readonly BrowserRemoteSource[];
-  /** Exact approved development origin used by a host-injected base URL. */
   readonly baseOrigin?: string;
 }): string {
   if (!options || Object.keys(options).some((key) => key !== 'mode' && key !== 'remoteSources' && key !== 'baseOrigin')) {

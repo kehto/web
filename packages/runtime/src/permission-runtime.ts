@@ -65,6 +65,7 @@ interface PermissionRuntimeContext {
 }
 
 /** Internal runtime binding: principals never come from app messages. */
+// aislop-ignore-next-line complexity/function-too-long -- Prompt queues, grant lifetimes, and source revocation share one private runtime state.
 export function createPermissionRuntime(context: PermissionRuntimeContext) {
   const { adapter } = context;
   const lifetimes = new Map<string, { entry: SessionEntry; id: string; subject: string; started: number }>();

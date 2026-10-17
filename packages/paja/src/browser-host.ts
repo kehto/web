@@ -1,3 +1,8 @@
+/**
+ * Browser host initialization owns one tab/runtime lifecycle and its cleanup.
+ * The setup closure keeps those authority-bearing handles private.
+ * aislop-ignore-file complexity/file-too-large complexity/function-too-long
+ */
 import { installPajaResourceSettings } from './browser-resource-settings.js';
 import { createPajaPermissionAdapter } from './browser-permission-adapter.js';
 import { permissionPrincipalKey } from '@kehto/firewall';
