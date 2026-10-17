@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { NappletMessage, SerialOpenRequest, SerialOpenResult } from '@napplet/core';
+import type { ServiceRuntimeContext } from '@kehto/runtime';
 
 import {
   createSerialService,
@@ -180,5 +181,36 @@ describe('createSerialService', () => {
     service.onWindowDestroyed?.(WINDOW_ID);
 
     expect(destroyWindow).toHaveBeenCalledWith(WINDOW_ID);
+  });
+
+  it('denies selection before invoking the host chooser when runtime approval is denied', async () => {
+    const open = vi.fn(() => OPEN_RESULT);
+    const authorizeOperation = vi.fn(async () => ({ status: 'denied' as const }));
+    const service = createSerialService({ open });
+    const { sent, send } = collectSent();
+    service.onRegistered?.({ authorizeOperation } as unknown as ServiceRuntimeContext);
+
+    service.handleMessage(WINDOW_ID, { type: 'serial.open', id: 'approval-denied', request: REQUEST } as NappletMessage, send);
+    await flush();
+
+    expect(open).not.toHaveBeenCalled();
+    expect(sent).toEqual([{ type: 'serial.open.result', id: 'approval-denied', error: 'policy denied' }]);
+  });
+
+  it('does not let another window write through a forged serial session id', async () => {
+    const write = vi.fn();
+    const service = createSerialService({ open: () => OPEN_RESULT, write });
+    const { send } = collectSent();
+    const other = collectSent();
+
+    service.handleMessage(WINDOW_ID, { type: 'serial.open', id: 'owner-open', request: REQUEST } as NappletMessage, send);
+    await flush();
+    service.handleMessage('other-window', {
+      type: 'serial.write', id: 'forged-write', sessionId: OPEN_RESULT.session.id, data: [1],
+    } as NappletMessage, other.send);
+    await flush();
+
+    expect(write).not.toHaveBeenCalled();
+    expect(other.sent).toEqual([{ type: 'serial.write.result', id: 'forged-write', error: 'session not found' }]);
   });
 });
