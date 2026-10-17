@@ -34,6 +34,8 @@ export interface IntentDispatchParams {
   readonly behavior?: Readonly<IntentBehavior>;
   /** Authenticated host-only source correlation. Never serialize into delivery. */
   readonly sourceWindowId?: string;
+  /** Host-only approval lifetime for retained target work. */
+  readonly signal?: AbortSignal;
 }
 
 /** Retained work observable by the host without a second source result. */
@@ -166,6 +168,7 @@ async function invoke(options: CatalogIntentResolverOptions, request: IntentRequ
     ...(request.behavior.focus === undefined ? {} : { focus: request.behavior.focus }),
     ...(request.behavior.reuse === undefined ? {} : { reuse: request.behavior.reuse }),
   });
+  if (context.signal?.aborted) return rejected('invoke rejected');
   const params = Object.freeze({
     handler: selected.id,
     sender: context.sender,
@@ -175,6 +178,7 @@ async function invoke(options: CatalogIntentResolverOptions, request: IntentRequ
     ...(request.payload === undefined ? {} : { payload: request.payload }),
     ...(behavior === undefined ? {} : { behavior }),
     ...(context.sourceWindowId === undefined ? {} : { sourceWindowId: context.sourceWindowId }),
+    ...(context.signal === undefined ? {} : { signal: context.signal }),
   }) satisfies IntentDispatchParams;
   try {
     const accepted = options.targets.accept(params);

@@ -78,6 +78,7 @@ export class BrowserIntentController implements IntentTargetController {
   /** Complete an already accepted delivery. Kept public for host diagnostics and tests. */
   async dispatch(params: IntentDispatchParams): Promise<void> {
     const dispatch = freezeDispatch(params);
+    if (dispatch.signal?.aborted) throw new Error('intent target cancelled');
     let reason: BrowserIntentTerminalReason = 'no-current-target';
     for (let attempt = 1; attempt <= this.maxAttempts; attempt += 1) {
       let generation: BrowserIntentGeneration | null;
@@ -97,6 +98,7 @@ export class BrowserIntentController implements IntentTargetController {
         reason = 'ready-failed';
         continue;
       }
+      if (dispatch.signal?.aborted) throw new Error('intent target cancelled');
       if (!await this.options.isCurrent(generation)) {
         reason = 'no-current-target';
         continue;
@@ -150,6 +152,7 @@ function freezeDispatch(params: IntentDispatchParams): IntentDispatchParams {
     ...(params.payload === undefined ? {} : { payload }),
     ...(behavior === undefined ? {} : { behavior }),
     ...(params.sourceWindowId === undefined ? {} : { sourceWindowId: params.sourceWindowId }),
+    ...(params.signal === undefined ? {} : { signal: params.signal }),
   });
 }
 

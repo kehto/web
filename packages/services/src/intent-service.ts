@@ -15,6 +15,8 @@ export interface IntentResolverContext {
   readonly sender: string;
   /** Authenticated runtime source, internal to host policy and never wire data. */
   readonly sourceWindowId?: string;
+  /** Approval lifetime for host-retained work; never placed on the wire. */
+  readonly signal?: AbortSignal;
 }
 
 /** Installed-catalog resolver and lifecycle policy. */
@@ -128,10 +130,10 @@ export function createIntentService(options: IntentServiceOptions): ServiceHandl
     }
     if (!request || !sender) return reject(send, id, request ? 'invoke rejected' : 'invalid convention');
     const generation = generationFor(windowId);
-    const invokeCurrent = async () => {
+    const invokeCurrent = async (signal?: AbortSignal) => {
       if (!current(windowId, generation, sender!)) throw new Error('source replaced');
-      const result = await resolver.invoke(request, { sender: sender!, sourceWindowId: windowId });
-      if (!current(windowId, generation, sender!)) throw new Error('source replaced');
+      const result = await resolver.invoke(request, { sender: sender!, sourceWindowId: windowId, signal });
+      if (signal?.aborted || !current(windowId, generation, sender!)) throw new Error('source replaced');
       return result;
     };
     const requirements = [
@@ -141,12 +143,12 @@ export function createIntentService(options: IntentServiceOptions): ServiceHandl
     const pending = runtimeContext?.authorizeOperation
       ? runtimeContext.authorizeOperation(windowId, 'intent.invoke', requirements, async (signal) => {
         if (signal.aborted) throw new Error('cancelled');
-        return invokeCurrent();
+        return invokeCurrent(signal);
       }).then((outcome) => {
         if (outcome.status !== 'executed') throw new Error('denied');
         return outcome.value;
       })
-      : Promise.resolve().then(invokeCurrent);
+      : Promise.resolve().then(() => invokeCurrent());
     void pending.then(
       (result) => { if (current(windowId, generation, sender!)) send({ type: 'intent.invoke.result', id, result } as NappletMessage); },
       () => { if (current(windowId, generation, sender!)) reject(send, id); },

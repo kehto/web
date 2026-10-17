@@ -74,6 +74,7 @@ export class PlaygroundIntentController implements IntentTargetController {
 
   private async dispatch(params: IntentDispatchParams): Promise<void> {
     const dispatch = freezeDispatch(params);
+    if (dispatch.signal?.aborted) throw new Error('intent target cancelled');
     let reason: PlaygroundIntentTerminalReason = 'no-current-target';
     for (let attempt = 1; attempt <= this.maxAttempts; attempt += 1) {
       let generation: PlaygroundIntentGeneration | null;
@@ -93,6 +94,7 @@ export class PlaygroundIntentController implements IntentTargetController {
         reason = 'ready-failed';
         continue;
       }
+      if (dispatch.signal?.aborted) throw new Error('intent target cancelled');
       if (!await this.options.isCurrent(generation)) {
         reason = 'no-current-target';
         continue;
@@ -144,6 +146,7 @@ function freezeDispatch(params: IntentDispatchParams): IntentDispatchParams {
     convention: params.convention,
     ...(params.payload === undefined ? {} : { payload }),
     ...(behavior === undefined ? {} : { behavior }),
+    ...(params.signal === undefined ? {} : { signal: params.signal }),
   });
 }
 

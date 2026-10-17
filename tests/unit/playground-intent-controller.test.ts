@@ -8,6 +8,14 @@ const params: IntentDispatchParams = {
 };
 
 describe('PlaygroundIntentController', () => {
+  it('does not retain delivery when its approval lifetime is already aborted', async () => {
+    const abort = new AbortController();
+    abort.abort();
+    const openOrReuse = vi.fn();
+    const controller = new PlaygroundIntentController({ openOrReuse, waitForReady: () => undefined, isCurrent: () => true, send: () => undefined });
+    await expect(controller.accept({ ...params, signal: abort.signal }).completion).rejects.toThrow('cancelled');
+    expect(openOrReuse).not.toHaveBeenCalled();
+  });
   it('retains delivery at acceptance and completes after authenticated readiness', async () => {
     let release!: () => void;
     const ready = new Promise<void>((resolve) => { release = resolve; });
