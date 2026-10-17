@@ -82,6 +82,11 @@ class Nip17DmRuntime {
       send: (request) => this.send(request),
       subscribe: (request, onMessage) => this.subscribe(request, onMessage),
       unsubscribe: (subscriptionId) => this.unsubscribe(subscriptionId),
+      planRelays: (operation) => this.planRelays(operation),
+      conversationsWithRelays: (query, relayUrls, signal) => this.conversationsWithRelays(query, relayUrls, signal),
+      messagesWithRelays: (query, relayUrls, signal) => this.messagesWithRelays(query, relayUrls, signal),
+      sendWithRelays: (request, relayUrls, signal) => this.sendWithRelays(request, relayUrls, signal),
+      subscribeWithRelays: (request, onMessage, relayUrls, signal) => this.subscribeWithRelays(request, onMessage, relayUrls, signal),
       close: () => this.close(),
     };
   }
@@ -90,6 +95,13 @@ class Nip17DmRuntime {
     return this.options.relays && this.options.relays.length > 0
       ? this.options.relays
       : this.options.relayPool.selectRelayTier(filters);
+  }
+
+  private planRelays(operation: 'history' | 'send' | 'subscribe'): readonly string[] {
+    const filters = operation === 'send'
+      ? [{ kinds: [NIP17_GIFT_WRAP_KIND] }] as NostrFilter[]
+      : [{ kinds: [NIP17_GIFT_WRAP_KIND], '#p': [this.ownerPubkey] }] as NostrFilter[];
+    return Object.freeze([...new Set(this.relaysFor(filters))]);
   }
 
   private normalizeRumor(rumor: NostrEvent, status: DmMessage['status']): DmMessage | null {
@@ -149,11 +161,13 @@ class Nip17DmRuntime {
     return rumor ? this.normalizeRumor(rumor, status) : null;
   }
 
-  private async loadHistory(): Promise<void> {
+  private async loadHistory(relayUrls?: readonly string[], signal?: { readonly aborted: boolean }): Promise<void> {
     if (this.historyLoaded || !this.options.relayPool.query) return;
     this.historyLoading ??= (async () => {
       const filters = [{ kinds: [NIP17_GIFT_WRAP_KIND], '#p': [this.ownerPubkey], limit: 1_000 }] as NostrFilter[];
-      const wraps = await this.options.relayPool.query!(filters, this.relaysFor(filters));
+      if (signal?.aborted) throw new Error('cancelled');
+      const wraps = await this.options.relayPool.query!(filters, [...(relayUrls ?? this.planRelays('history'))]);
+      if (signal?.aborted) throw new Error('cancelled');
       for (const wrap of wraps) this.ingestWrap(wrap, 'received');
       this.historyLoaded = true;
     })().finally(() => { this.historyLoading = null; });
@@ -174,12 +188,29 @@ class Nip17DmRuntime {
     return this.store.conversations(query);
   }
 
+  private async conversationsWithRelays(query: DmConversationQuery | undefined, relayUrls: readonly string[], signal: { readonly aborted: boolean }): Promise<DmConversationPage> {
+    await this.loadHistory(relayUrls, signal);
+    if (signal.aborted) throw new Error('cancelled');
+    return this.store.conversations(query);
+  }
+
   private async messages(query: DmMessageQuery): Promise<DmMessagePage> {
     await this.loadHistory();
     return this.store.messages(query);
   }
 
+  private async messagesWithRelays(query: DmMessageQuery, relayUrls: readonly string[], signal: { readonly aborted: boolean }): Promise<DmMessagePage> {
+    await this.loadHistory(relayUrls, signal);
+    if (signal.aborted) throw new Error('cancelled');
+    return this.store.messages(query);
+  }
+
   private async send(request: DmSendRequest): Promise<DmSendResult> {
+    return this.sendWithRelays(request, this.planRelays('send'), { aborted: false });
+  }
+
+  private async sendWithRelays(request: DmSendRequest, relayUrls: readonly string[], signal: { readonly aborted: boolean }): Promise<DmSendResult> {
+    if (signal.aborted) throw new Error('cancelled');
     if (!this.options.relayPool.isAvailable()) throw new Error('relay unavailable');
     if (!Array.isArray(request.recipients) || request.recipients.length === 0) throw new Error('invalid recipient');
     if (request.recipients.some((recipient) => !/^[0-9a-f]{64}$/.test(recipient))) throw new Error('invalid recipient');
@@ -191,7 +222,11 @@ class Nip17DmRuntime {
       recipients.map((publicKey) => ({ publicKey })),
       request.content,
     ) as NostrEvent[];
-    for (const wrap of wraps) await Promise.resolve(this.options.relayPool.publish(wrap));
+    if (signal.aborted) throw new Error('cancelled');
+    for (const wrap of wraps) {
+      if (signal.aborted) throw new Error('cancelled');
+      await Promise.resolve(this.options.relayPool.publish(wrap, relayUrls));
+    }
     const conversationId = request.conversationId ?? this.store.conversationIdFor([this.ownerPubkey, ...recipients]);
     const message = this.store.upsertMessage({
       id: request.clientMessageId ?? wraps[0]?.id ?? `dm-${nowSeconds()}`,
@@ -208,8 +243,18 @@ class Nip17DmRuntime {
     request: DmSubscribeRequest,
     onMessage: (message: DmMessage) => void,
   ): Promise<DmSubscription> {
+    return this.subscribeWithRelays(request, onMessage, this.planRelays('subscribe'), { aborted: false });
+  }
+
+  private async subscribeWithRelays(
+    request: DmSubscribeRequest,
+    onMessage: (message: DmMessage) => void,
+    relayUrls: readonly string[],
+    signal: { readonly aborted: boolean },
+  ): Promise<DmSubscription> {
+    if (signal.aborted) throw new Error('cancelled');
     if (!this.options.relayPool.isAvailable()) throw new Error('relay unavailable');
-    await this.loadHistory();
+    await this.loadHistory(relayUrls, signal);
     const subscriptionId = `dm-nip17-${++subscriptionCounter}`;
     const filters = [{ kinds: [NIP17_GIFT_WRAP_KIND], '#p': [this.ownerPubkey] }] as NostrFilter[];
     const sub: LiveSub = { conversationId: request.conversationId, onMessage };
@@ -221,7 +266,7 @@ class Nip17DmRuntime {
         if (!message) return;
         const active = this.live.get(subscriptionId);
         if (active && (!active.conversationId || active.conversationId === message.conversationId)) active.onMessage(message);
-      }, this.relaysFor(filters));
+      }, [...relayUrls]);
       if (this.live.get(subscriptionId) !== sub) {
         handle.unsubscribe();
         throw new Error('subscription cancelled');
