@@ -38,3 +38,56 @@ rate gate wiring; immutable wire snapshots/replay handling; domain response and
 delivery lifetime checks; public exports and host adapters; integration tests and
 docs. Service scope enforcement and Paja/playground remain phases 113 and 114.
 Do not treat this coordinator's presence as evidence those consumers enforce it.
+
+## Runtime, shell, and LINK integration checkpoint
+
+The internal coordinator is now used through `RuntimeAdapter.permissions`,
+`ShellAdapter.permissions`, and the registered service authorization context.
+`permission-state.ts` loads versioned grants, saves before publishing durable
+authority, revokes locally before persistence, and disables authorization until
+a failed revocation is durably retried. Failed loading requires explicit clearing.
+
+`permission-runtime.ts` binds operations to source-owned principal snapshots and
+fresh runtime session generations. Independent rates precede prompting, retain
+operation budgets across source replacement, and expose payload-free diagnostics.
+ACL blocking and capability checks remain hard ceilings. Replacing/unregistering
+a source or service cancels its pending approvals. Service authorization contexts
+are bound to the particular attachment, including replacement by the same object.
+
+Trusted principal metadata now travels through origin registry, identity hook,
+shell registration, and runtime session registry. Registry data is detached and
+frozen. No identity is read from a NAP envelope. The artifact must match the
+registered session hash. Old tuples cannot authorize the new path.
+
+Moved the LINK portion of phase 113 forward to validate the coordinator through a
+real service. The reference service validates schemes and captures exact URL/ID/
+label before asynchronous work. It uses composed interface/resource grants,
+returns canonical outcomes, bounds replay history, ignores unknown methods, and
+never permits forbidden schemes through host configuration. Live-source
+revocation retains correlation/replay history; source retirement drops stale
+results. Its host-only opener compatibility path emits FW-LINK-LEGACY-001 once
+per service instance and is centrally tracked with runtime tests.
+
+Updated public exports, runtime/shell/services package documentation, a shared
+approval guide, the compatibility register, and changesets. Extracted runtime
+service interfaces into service-types.ts to preserve the repository quality gate.
+
+Verification on 2026-10-17:
+- Full unit suite: 181 files / 2,323 tests pass.
+- Build and type-check pass; strict TypeDoc, VitePress, and nine-package docs audit pass.
+- Browser regression suite: 125 pass. The initial command timed out starting a
+  configured web server; explicitly started this worktree's preview servers and
+  reran Playwright successfully. Stopped both owned preview servers afterward.
+- Quality score 100 and git diff whitespace check pass.
+- Logs: `/tmp/kehto-firewall-link-{unit,build,types,docs}.log`,
+  `/tmp/kehto-firewall-link-e2e-retry.log`, and
+  `/tmp/kehto-firewall-link-quality.json`.
+
+Remaining: the shared path is enabled only for configured hosts and LINK so far.
+General ingress and registered extension migration, all other service scopes,
+pre-execution interface admission, Paja/playground UI/settings, and direct-network
+policy remain unfinished. The old gate and duplicate temporal implementation
+still need retirement or explicit bounded compatibility. Review the interim
+onPermissionRevoked fallback and policy-change cancellation breadth before
+shipping. Browser regressions prove existing consumers remain functional; they
+do not prove their migration to the new approval UI. No goal PR is open yet.

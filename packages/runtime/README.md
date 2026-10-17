@@ -379,3 +379,13 @@ format. Invalid budgets and nonfinite clocks throw `RangeError`. Clock rollback
 cannot create an extra refill. Subject/operation keys are encoded without delimiter
 collisions. This evaluator is available for host integration; the existing runtime
 Firewall gate remains until the approval migration is complete.
+
+### Scoped approval integration
+
+Supply `RuntimeAdapter.permissions` and trusted `SessionEntry.permissionPrincipal`
+to enable shared approval for the reference LINK service. Runtime exposes
+`permissions.grants`, `revoke`, `clear`, and `retryPersistence` for host settings.
+Persistent grants require successful durable writes; revocation failures disable
+access until recovery. Services use `ServiceRuntimeContext.authorizeOperation`
+and observe its cancellation signal. See [scoped approvals](../../docs/firewall-approvals.md)
+for adapter examples, lifetimes, failure handling, and the remaining migration scope.

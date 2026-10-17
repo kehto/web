@@ -1,5 +1,13 @@
 # @kehto/services
 
+`createLinkService` uses `ServiceRuntimeContext.authorizeOperation` when attached
+to a runtime with approval adapters. It requires both interface and exact URL
+scopes, preserves request IDs in canonical results, rejects forbidden local/code
+schemes, and drops retired-source results. The temporary host-only opener path
+warns once per service instance (`FW-LINK-LEGACY-001`). See
+[scoped approvals](../../docs/firewall-approvals.md) and
+[compatibility](/compatibility) for migration details.
+
 Reference service handlers for the napplet protocol — identity, relay pool,
 cache, keys, media, notify, theme, link, common, lists, serial, BLE, WebRTC,
 and DM.

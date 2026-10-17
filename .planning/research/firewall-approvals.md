@@ -36,6 +36,14 @@ Downloaded copies for this session: `/tmp/kehto-firewall-specs`. Re-fetch by exa
 
 ## Consumer matrix
 
+2026-10-17 checkpoint: pure policy/rates and scoped runtime/Shell/LINK integration
+are implemented. LINK uses the new coordinator only for configured hosts; its
+host-only opener remains a warned compatibility path. The origin/session identity
+plumbing, durable-state failure handling, and service lifecycle tests are green.
+Paja/playground UI/admission and the remaining services have not migrated. See
+phase 112's checkpoint for test counts and concrete remaining work. These partial
+rows do not establish completion of the acceptance matrix.
+
 Every row is pending until code and behavior tests demonstrate migration. Discovery is not completion.
 
 | Surface | Current owners | Required evidence |

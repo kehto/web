@@ -2,6 +2,12 @@
 
 Browser adapter over `@kehto/runtime` for iframe/session hosting.
 
+`ShellAdapter.permissions` connects host approval adapters to runtime. Trusted
+`OriginIdentity.permissionPrincipal` is carried into the source session; app
+messages cannot override it. The reference LINK service uses this shared path.
+See [scoped approvals](/firewall-approvals) for lifetimes, persistence, and
+the remaining domain/app migration work.
+
 > **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
 > protocol. Injected-domain behavior and NAP contracts are not final.
 

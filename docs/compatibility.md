@@ -6,6 +6,33 @@ coverage. This register records both implemented safeguards and existing debt;
 below identifies the package responsible for the implementation and its tests.
 No removal date is implied by an old source comment.
 
+## Host-only LINK approval — services
+
+Identifier: `FW-LINK-LEGACY-001`. Owner: `@kehto/services`.
+`createLinkService` retains its host-only `open` path when no shared runtime
+`authorizeOperation` is attached. Replace it with `RuntimeAdapter.permissions`
+or `ShellAdapter.permissions` and a trusted source `permissionPrincipal`.
+The implementation and warning site are `packages/services/src/link-service.ts`.
+It warns on actual legacy opener use once per service instance, with no URL or
+payload. Construction and canonical shared-policy calls remain quiet.
+
+Regression coverage: `tests/unit/firewall-link-approval.test.ts` verifies legacy
+opening, warning identifier/action/frequency, quiet canonical calls, cancellation,
+ACL restrictions, rate budgets, persistence failure, and replay behavior;
+`packages/services/src/link-service.test.ts` covers canonical wire responses and
+protocol validation. The path is retained while Paja, playground, and external
+service consumers migrate. Removal requires migrating supported hosts, documenting
+the breaking release, deleting the fallback, and negative coverage for unbound
+openers. No old broad Firewall record is translated into new scoped authority.
+
+The additive `permissionPrincipal`, `permissions`, and `authorizeOperation`
+types cannot diagnose older callers at type-erased boundaries. LINK's host
+boundary emits the diagnostic when legacy behavior is actually exercised.
+Services without `onPermissionRevoked` temporarily receive their existing
+`onWindowDestroyed` cleanup on revocation; this preserves conservative cleanup,
+not a second grant source. Migrate each service's live-source response handling
+before removing that fallback. No external release dependency is required.
+
 ## ACL principal fields — runtime
 
 Identifier: `ACL_ENTRY_PRINCIPAL`. ACL lookup/listing now return required `dTag`

@@ -1,17 +1,19 @@
 
 import { createDispatch, type NappletMessage, type NostrEvent, type NapHandler, type NapDomain } from '@napplet/core';
 import type { Capability } from '@kehto/acl/capabilities';
-import type { Observation } from '@kehto/firewall';
+import type { Observation, PermissionRequirement } from '@kehto/firewall';
 
 import type {
   RuntimeAdapter, ConsentHandler, FirewallEvent,
   ServiceHandler, ServiceRegistry, ServiceInfo, ServiceRuntimeContext,
 } from './types.js';
 import { createServiceExtensionRouter } from './service-extensions.js';
-import { notifyServiceWindowDestroyed } from './service-dispatch.js';
+import { notifyServiceWindowDestroyed, notifyServicePermissionRevoked } from './service-dispatch.js';
 import { createSessionRegistry, type SessionRegistry } from './session-registry.js';
 import { createAclState, type AclStateContainer } from './acl-state.js';
 import { createFirewallState, type FirewallStateContainer } from './firewall-state.js';
+import { createPermissionRuntime, type RuntimePermissions } from './permission-runtime.js';
+import type { ApprovalSignal } from './approval-coordinator.js';
 import { createManifestCache, type ManifestCache } from './manifest-cache.js';
 import { createReplayDetector, type ReplayDetector } from './replay.js';
 import { createEventBuffer, RING_BUFFER_SIZE, type EventBuffer, type SubscriptionEntry } from './event-buffer.js';
@@ -40,6 +42,8 @@ import {
  * ```
  */
 export interface Runtime {
+  /** Scoped permission management when the host supplies approval adapters. */
+  readonly permissions?: RuntimePermissions;
   /**
    * Handle an incoming NIP-5D NappletMessage envelope from a napplet.
    * The caller is responsible for identifying the source (windowId).
@@ -113,6 +117,7 @@ type RuntimeNapHandlers = RuntimeDomainHandlers & {
 };
 
 type RuntimeInstanceContext = {
+  permissions?: ReturnType<typeof createPermissionRuntime>;
   hooks: RuntimeAdapter;
   serviceRegistry: ServiceRegistry;
   registeredServices: Map<string, ServiceInfo>;
@@ -384,6 +389,12 @@ function createMessageHandler(
       return;
     }
     if (hooks.isDomainAllowed && !hooks.isDomainAllowed(windowId, domain)) return;
+    // The migrated LINK service validates its exact destination before invoking
+    // shared approval/rate coordination. Unknown methods cannot trigger prompts.
+    if (hooks.permissions && domain === 'link') {
+      if (envelope.type === 'link.open') dispatchNapEnvelope(windowId, envelope);
+      return;
+    }
     if (isIdentityOrThemeMessage(envelope) && !createCanonicalDomainResult(envelope)) return;
 
     const caps = resolveCapabilitiesNap(envelope);
@@ -436,6 +447,7 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
   } = context;
   const undeclaredServiceConsents = new Set<string>();
   const attachedServices = new Map<string, ServiceHandler>();
+  const serviceLifetimes = new Map<string, object>();
   const isDomainAllowed = hooks.isDomainAllowed;
   const sendToNapplet = hooks.sendToNapplet;
   const serviceContext: ServiceRuntimeContext = Object.freeze({
@@ -476,8 +488,16 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
 
   function attachService(name: string, handler: ServiceHandler): void {
     attachedServices.set(name, handler);
+    const lifetime = {};
+    serviceLifetimes.set(name, lifetime);
+    const boundContext: ServiceRuntimeContext = context.permissions ? Object.freeze({ ...serviceContext,
+      authorizeOperation<T>(windowId: string, operation: string, requirements: readonly PermissionRequirement[],
+        execute: (signal: ApprovalSignal) => T | Promise<T>) {
+        return context.permissions!.run(windowId, operation, requirements, () => serviceLifetimes.get(name) === lifetime, execute);
+      },
+    }) : serviceContext;
     try {
-      handler.onRegistered?.(serviceContext);
+      handler.onRegistered?.(boundContext);
     } catch {
       // A failed optional attachment leaves the service safely context-free.
     }
@@ -487,6 +507,7 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
     const handler = attachedServices.get(name);
     if (!handler) return;
     attachedServices.delete(name);
+    serviceLifetimes.delete(name);
     try {
       handler.onUnregistered?.();
     } catch {
@@ -504,6 +525,7 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
       eventBuffer.bufferAndDeliver(createInjectedEvent(hooks, topic, payload), null);
     },
     destroy(): void {
+      context.permissions?.destroy();
       extensions.destroy();
       registeredServices.clear();
       for (const name of attachedServices.keys()) detachService(name);
@@ -520,6 +542,7 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
       consentHandlerRef.current = handler;
     },
     registerService(name: string, handler: ServiceHandler): void {
+      context.permissions?.cancelPending();
       registeredServices.delete(name);
       detachService(name);
       serviceRegistry[name] = handler;
@@ -531,11 +554,13 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
       attachService(name, handler);
     },
     unregisterService(name: string): void {
+      context.permissions?.cancelPending();
       registeredServices.delete(name);
       detachService(name);
       delete serviceRegistry[name];
     },
     destroyWindow(windowId: string): void {
+      context.permissions?.retire(windowId);
       extensions.destroyWindow(windowId);
       for (const [key] of subscriptions) {
         if (key.startsWith(`${windowId}:`)) {
@@ -549,8 +574,39 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
     get sessionRegistry() { return sessionRegistry; },
     get aclState() { return aclState; },
     get firewallState() { return firewallState; },
+    get permissions() { return context.permissions?.management; },
     get manifestCache() { return manifestCache; },
   };
+}
+
+function createRuntimePermissions(
+  hooks: RuntimeAdapter, sessionRegistry: SessionRegistry, aclState: AclStateContainer,
+  subscriptions: Map<string, SubscriptionEntry>, serviceRegistry: ServiceRegistry, getIncRuntime: () => IncRuntime | null,
+) {
+  return createPermissionRuntime({
+    adapter: hooks.permissions!,
+    createId: () => hooks.crypto.randomUUID(),
+    getSession: (windowId) => sessionRegistry.getEntryByWindowId(windowId),
+    focused: (windowId) => hooks.getFocusContext?.(windowId).focused ?? true,
+    allowed(windowId, requirements) {
+      const entry = sessionRegistry.getEntryByWindowId(windowId);
+      if (!entry || aclState.isBlocked('', entry.dTag, entry.aggregateHash)) return false;
+      return requirements.every((requirement) => {
+        if (hooks.isDomainAllowed && !hooks.isDomainAllowed(windowId, requirement.domain)) return false;
+        if (requirement.category === 'interface') return true;
+        const capability = resolveCapabilitiesNap({ type: requirement.operation }).senderCap;
+        return !capability || aclState.check('', entry.dTag, entry.aggregateHash, capability as Capability);
+      });
+    },
+    invalidate(windowId) {
+      const windows = windowId === undefined ? sessionRegistry.getAllEntries().map((entry) => entry.windowId) : [windowId];
+      for (const id of windows) {
+        revokeRelaySubscriptions({ hooks, serviceRegistry, subscriptions }, id);
+        getIncRuntime()?.revokeWindow(id);
+        notifyServicePermissionRevoked(id, serviceRegistry);
+      }
+    },
+  });
 }
 
 /**
@@ -572,12 +628,23 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   const registeredServices = createRegisteredServices(serviceRegistry);
   const firewallState = createFirewallState(hooks.firewallPersistence);
   let extensions: ReturnType<typeof createServiceExtensionRouter> | undefined;
+  let permissions: ReturnType<typeof createPermissionRuntime> | undefined;
   const sessionRegistry = createSessionRegistry(hooks.onPendingUpdate, (windowId) => {
     firewallState.resetInitBudget(windowId);
     extensions?.destroyWindow(windowId);
+    permissions?.retire(windowId);
+    if (hooks.permissions) notifyServiceWindowDestroyed(windowId, serviceRegistry);
+  }, (windowId) => {
+    permissions?.retire(windowId);
+    if (hooks.permissions) notifyServiceWindowDestroyed(windowId, serviceRegistry);
   });
   let incRuntime: IncRuntime | null = null;
   const aclState = createAclState(hooks.aclPersistence, 'permissive', (mutation) => {
+    for (const entry of sessionRegistry.getAllEntries()) {
+      if (entry.dTag === mutation.dTag && entry.aggregateHash === mutation.aggregateHash) {
+        permissions?.cancelWindow(entry.windowId);
+      }
+    }
     if (mutation.type === 'revoke' && mutation.capability !== 'relay:read') return;
     for (const entry of sessionRegistry.getAllEntries()) {
       if (entry.dTag === mutation.dTag && entry.aggregateHash === mutation.aggregateHash) {
@@ -638,6 +705,10 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     onAclCheck: hooks.onAclCheck,
   });
 
+  if (hooks.permissions) {
+    permissions = createRuntimePermissions(hooks, sessionRegistry, aclState, subscriptions, serviceRegistry, () => incRuntime);
+  }
+
   incRuntime = createIncRuntime(
     hooks,
     sessionRegistry,
@@ -697,5 +768,6 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     consentHandlerRef,
     handleMessage,
     extensions,
+    permissions,
   });
 }

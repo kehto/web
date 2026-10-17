@@ -2,6 +2,13 @@
 
 Browser adapter over @kehto/runtime — ShellBridge and domain proxies.
 
+`ShellAdapter.permissions` forwards approval UI, storage, clock, and cancellation
+adapters to runtime. Supply a resolver-verified `permissionPrincipal` with
+`OriginIdentity` or `onNip5dIframeCreate`; source registration preserves its frozen
+catalog/artifact identity independently of optional `shell.ready`. The reference
+LINK service consumes these approvals. See [the approval guide](../../docs/firewall-approvals.md)
+for configuration and the unfinished migration of other domains and app admission.
+
 > **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
 > protocol. NAP contracts and injected-domain behavior are still draft; treat
 > this package as current implementation guidance.

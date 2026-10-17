@@ -1,5 +1,11 @@
 # @kehto/runtime
 
+Scoped approvals are available through `RuntimeAdapter.permissions`, source-bound
+`SessionEntry.permissionPrincipal`, and `ServiceRuntimeContext.authorizeOperation`.
+The reference LINK service is integrated; other domain migration is ongoing.
+See [the approval guide](/firewall-approvals) for storage, cancellation,
+revocation, and independent rate-budget contracts.
+
 Browser-agnostic protocol engine for NIP-5D napplet hosting.
 
 > **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D

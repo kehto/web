@@ -361,6 +361,7 @@ export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): Runtime
   const { originRegistry } = deps;
 
   return {
+    permissions: shellHooks.permissions,
     sendToNapplet: createSendToNapplet(originRegistry),
     relayPool: createRelayPoolAdapter(shellHooks, originRegistry),
     cache: createCacheAdapter(shellHooks),

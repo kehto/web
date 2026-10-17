@@ -52,6 +52,10 @@ export type { AclMutation, AclMutationObserver, AclStateContainer } from './acl-
 
 export { createFirewallState } from './firewall-state.js';
 export type { FirewallStateContainer } from './firewall-state.js';
+export type { PermissionAdapter, PermissionRateEvent, RuntimePermissions } from './permission-runtime.js';
+export type { PermissionPersistence, PermissionStorageFailure } from './permission-state.js';
+export type { ApprovalAnswer, ApprovalPrompt, ApprovalSignal, ApprovalCancellation, ApprovalOutcome } from './approval-coordinator.js';
+export type { PermissionPrincipal, PermissionRequirement, PermissionScope, PermissionGrant } from '@kehto/firewall';
 
 export { defaultRateLimitConfig, createRateLimitState, evaluateRateLimit, retireRateLimitLifecycle } from './rate-limit.js';
 export type { RateLimitAction, RateLimitConfig, RateLimitObservation, RateBucket, RateBurst, RateLimitState, RateLimitResult } from './rate-limit.js';

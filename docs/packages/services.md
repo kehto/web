@@ -2,6 +2,14 @@
 
 Reference service handlers for Kehto runtime implementations.
 
+The reference LINK service integrates shared runtime approvals after URL
+validation. A LINK grant never gives direct network access. Runtime cancellation
+and source replacement prevent stale opens/results; repeated request IDs cannot
+reopen a link. Unknown methods are silent. The temporary host-only opener path
+emits `FW-LINK-LEGACY-001` once per instance. See
+[the approval guide](/firewall-approvals) for its migration contract and the
+remaining service integrations.
+
 > **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
 > protocol. Service envelopes and NAP contracts are not final.
 
