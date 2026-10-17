@@ -1,5 +1,5 @@
 import type { NappletMessage, NostrFilter } from '@napplet/core';
-import type { ServiceHandler } from '@kehto/runtime';
+import type { ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
 
 export interface CountRequest {
   /** NIP-01 filters with NIP-45 COUNT OR semantics. */
@@ -21,6 +21,8 @@ export interface CountResult {
 }
 
 export interface CountServiceOptions {
+  /** Report remote relay destinations before counting; omit or return no relays for local work. */
+  planCount?(request: CountRequest): { relays?: readonly string[] } | Promise<{ relays?: readonly string[] }>;
   /**
    * Count matching events without returning event payloads.
    *
@@ -53,6 +55,7 @@ type CountServiceMessage = NappletMessage & {
 const DEFAULT_MAX_FILTERS = 16;
 
 export function createCountService(options: CountServiceOptions): ServiceHandler {
+  let runtime: ServiceRuntimeContext | undefined;
   return {
     descriptor: {
       name: 'count',
@@ -95,7 +98,14 @@ export function createCountService(options: CountServiceOptions): ServiceHandler
         ...(isPlainObject(countMessage.options) ? { options: countMessage.options } : {}),
       };
 
-      Promise.resolve(options.count(request))
+      const run = (plan: { relays?: readonly string[] }) => runtime?.authorizeOperation
+        ? runtime.authorizeOperation(windowId, 'count.query', [
+          { category: 'interface', domain: 'count', operation: 'access', scope: { kind: 'exact', value: 'count' } },
+          ...(plan.relays ?? []).map((url) => ({ category: 'network' as const, domain: 'count', operation: 'count.query', scope: { kind: 'origin' as const, value: new URL(url).origin } })),
+        ], (signal) => signal.aborted ? { ok: false, error: 'policy denied' } : options.count(request)).then((outcome) => outcome.status === 'executed' && outcome.value ? outcome.value : { ok: false, error: 'policy denied' })
+        : options.count(request);
+      const planned = options.planCount?.(request);
+      void (planned === undefined ? Promise.resolve(run({})) : Promise.resolve(planned).then(run))
         .then((countResult) => {
           send(result(id, normalizeCountResult(countResult)));
         })
@@ -107,6 +117,7 @@ export function createCountService(options: CountServiceOptions): ServiceHandler
           }));
         });
     },
+    onRegistered(context) { runtime = context; },
   };
 }
 
