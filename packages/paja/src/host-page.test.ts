@@ -34,8 +34,8 @@ describe('@kehto/paja host page', () => {
       expect(aside!.indexOf('id="paja-resource-servers-form"')).toBeLessThan(aside!.indexOf('id="message-log"'));
       const keys = [...aside!.matchAll(/data-paja-section="([^"]+)"/g)].map((match) => match[1]);
       expect(keys).toEqual(config.target.mode === 'runtime-pointer'
-        ? ['pointer', 'interfaces', 'acl', 'signer', 'resource-servers', 'messages', 'events']
-        : ['interfaces', 'acl', 'signer', 'resource-servers', 'messages', 'events']);
+        ? ['pointer', 'interfaces', 'permissions', 'acl', 'signer', 'resource-servers', 'messages', 'events']
+        : ['interfaces', 'permissions', 'acl', 'signer', 'resource-servers', 'messages', 'events']);
       expect(aside!.match(/<details[^>]* open>/g)).toHaveLength(keys.length);
       expect(aside!.match(/<summary class="section-title">/g)).toHaveLength(keys.length);
       expect(aside).not.toMatch(/<details[^>]* name=/);

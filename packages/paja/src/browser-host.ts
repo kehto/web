@@ -1,4 +1,5 @@
 import { installPajaResourceSettings } from './browser-resource-settings.js';
+import { createPajaPermissionAdapter } from './browser-permission-adapter.js';
 import {
   buildShellCapabilities,
   createShellBridge,
@@ -639,6 +640,7 @@ async function installPajaHost(): Promise<void> {
   const confirmationController = createPajaConfirmationController(
     () => stateRef,
     {
+      sharedFirewall: true,
       onSignerConsentChange(count) {
         if (!stateRef) return;
         stateRef.signerConsentCount = count;
@@ -707,6 +709,20 @@ async function installPajaHost(): Promise<void> {
         return candidates.some((candidate) => candidate.id === id) ? id : undefined;
       },
     }, confirmationController.activation, notifyController?.serviceOptions, configController?.serviceOptions, resourceSettings.getServers);
+  const permissionMount = document.getElementById('paja-permission-ui');
+  if (!permissionMount) throw new Error('Paja Firewall permission mount is missing');
+  let permissionBridge: ShellBridge | null = null;
+  const permissionController = createPajaPermissionAdapter({
+    mount: permissionMount,
+    getPermissions: () => permissionBridge?.runtime.permissions,
+    onGrantRevoked() {
+      if (!stateRef) return;
+      if (config.target.mode === 'runtime-pointer') {
+        while (stateRef.tabs.length > 0) stateRef.closeTab(stateRef.tabs[0].id);
+      } else stateRef.reload();
+    },
+  });
+  adapter.permissions = permissionController.adapter;
   const relayBackend = adapter.relayPool.getRelayPool() as PajaRelayBackend | null;
   relayBackend?.setRelayEventObserver((sighting) => {
     relayEventCounts.recordEvent(sighting.reason, sighting.event, sighting.sightedOn, sighting.origin);
@@ -716,6 +732,8 @@ async function installPajaHost(): Promise<void> {
   });
   await adapter.ready;
   const bridge = createShellBridge(adapter);
+  permissionBridge = bridge;
+  permissionController.ui.refresh();
   const stopIdentityChanges = signerController.subscribe(() => {
     bridge.publishIdentityChanged(adapter.auth.getUserPubkey() ?? '');
   });
@@ -763,6 +781,7 @@ async function installPajaHost(): Promise<void> {
   window.addEventListener('pagehide', disposeConsolePanel, { once: true });
   window.addEventListener('pagehide', disposeEventCounterReset, { once: true });
   window.addEventListener('pagehide', resourceSettings.dispose, { once: true });
+  window.addEventListener('pagehide', permissionController.destroy, { once: true });
 
   window.__KEHTO_PAJA__ = state;
 

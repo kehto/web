@@ -78,6 +78,25 @@ describe('pre-execution interface admission', () => {
     f.runtime.destroy();
   });
 
+  it('offers persistent startup approval only when durable storage is configured', async () => {
+    const withoutStorage = fixture();
+    await withoutStorage.admit(['link']);
+    expect(withoutStorage.prompt.mock.calls[0][0].allowLifetimes).toEqual(['session']);
+    withoutStorage.runtime.destroy();
+
+    const withStorage = fixture({ persistence: { load: () => null, persist: vi.fn() } });
+    withStorage.runtime.sessionRegistry.register('window', {
+      ...withStorage.entry,
+      permissionPrincipal: {
+        kind: 'verified', manifestKey: `nip5d:15129:${'b'.repeat(64)}`,
+        artifactHash: 'a'.repeat(64),
+      },
+    });
+    await withStorage.admit(['link']);
+    expect(withStorage.prompt.mock.calls[0][0].allowLifetimes).toEqual(['session', 'persistent']);
+    withStorage.runtime.destroy();
+  });
+
   it('uses startup approval for later declared extension dispatch', async () => {
     const f = fixture();
     const action = vi.fn();

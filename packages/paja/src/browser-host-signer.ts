@@ -33,6 +33,8 @@ export interface PajaConfirmationControllerOptions {
   readonly storage?: Storage | null;
   /** Called after remembered signer decisions change. */
   readonly onSignerConsentChange?: (count: number) => void;
+  /** Only a host with the runtime coordinator may apply remembered signer preferences. */
+  readonly sharedFirewall?: boolean;
 }
 
 interface PendingConfirmation {
@@ -115,6 +117,7 @@ export function createPajaConfirmationController(
   let active: PendingConfirmation | null = null;
   let previousFocus: HTMLElement | null = null;
   let disposed = false;
+  let warnedLegacySignerConsent = false;
 
   const reportSignerConsentChange = () => {
     options.onSignerConsentChange?.(consentStore.count());
@@ -153,8 +156,14 @@ export function createPajaConfirmationController(
   const rememberedSignerChoice = (
     request: PajaConfirmationRequest,
   ): PajaSignerConsentMatch | null => {
+    if (!options.sharedFirewall) return null;
     const candidate = signerConsentCandidate(request);
-    return candidate ? consentStore.match(candidate.context, candidate.kind) : null;
+    const match = candidate ? consentStore.match(candidate.context, candidate.kind) : null;
+    if (match && !warnedLegacySignerConsent) {
+      warnedLegacySignerConsent = true;
+      console.warn('FW-PAJA-SIGNER-CONSENT-LEGACY-001: remembered Paja signer consent is a compatibility preference after shared Firewall operation approval; use Firewall grants instead. Warns once per page; removal planned after the next minor release.');
+    }
+    return match;
   };
 
   const pump = () => {

@@ -166,4 +166,11 @@ describe('common browser approval UI', () => {
     expect(f.mount.textContent).not.toContain('Permission storage save-failed');
     f.ui.destroy();
   });
+
+  it('explains that missing browser storage limits approval lifetimes', () => {
+    const f = setup();
+    f.ui.reportStorageError('storage-unavailable');
+    expect(f.mount.textContent).toContain('only session and once approvals can be offered');
+    f.ui.destroy();
+  });
 });

@@ -140,7 +140,9 @@ export function createBrowserApprovalUi(options: BrowserApprovalUiOptions): Brow
   function reportStorageError(failure: PermissionStorageFailure): void {
     if (destroyed) return;
     status.dataset.storageFailure = failure;
-    status.textContent = `Permission storage ${failure}. New approvals are blocked until storage succeeds; use Retry permission storage.`;
+    status.textContent = failure === 'storage-unavailable'
+      ? 'Persistent permission storage is unavailable; only session and once approvals can be offered.'
+      : `Permission storage ${failure}. New approvals are blocked until storage succeeds; use Retry permission storage.`;
     refresh();
   }
 

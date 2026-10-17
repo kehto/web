@@ -160,8 +160,9 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
       }
       if (!rate.allowed) return Promise.resolve({ status: 'busy' });
     } catch { return Promise.resolve({ status: 'unavailable' }); }
-    return coordinator.run(entry.permissionPrincipal, lifetime.id, requirements, current, execute,
-      phase === 'admission' ? ['session', 'persistent'] : undefined, signal);
+    const allowedLifetimes = (phase === 'admission' ? ['session', 'persistent'] : ['once', 'session', 'persistent'])
+      .filter((lifetime) => lifetime !== 'persistent' || !!adapter.persistence) as Array<PermissionGrant['lifetime']>;
+    return coordinator.run(entry.permissionPrincipal, lifetime.id, requirements, current, execute, allowedLifetimes, signal);
   }
 
 

@@ -255,6 +255,10 @@ export function renderPajaHtml(config: PajaHostConfig): string {
           <summary class="section-title">Interfaces<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
           <div class="switch-grid" id="interface-toggles"></div>
         </div></details>
+        <details class="section" id="paja-section-permissions" data-paja-section="permissions" open>
+          <summary class="section-title">Firewall permissions<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
+          <div id="paja-permission-ui"></div>
+        </div></details>
         <details class="section" id="paja-section-acl" data-paja-section="acl" open>
           <summary class="section-title">ACL<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
           <div class="acl-grid" id="acl-controls"></div>
