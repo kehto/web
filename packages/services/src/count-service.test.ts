@@ -91,4 +91,15 @@ describe('createCountService', () => {
     });
     expect((sent[0] as any).events).toBeUndefined();
   });
+
+  it('suppresses a late backend result after permission revocation', async () => {
+    let resolve!: (value: number) => void;
+    const service = createCountService({ count: () => new Promise<number>((done) => { resolve = done; }) });
+    const sent: NappletMessage[] = [];
+    service.handleMessage('window-a', { type: 'count.query', id: 'late', filters: [{ kinds: [1] }] } as NappletMessage, (message) => sent.push(message));
+    service.onPermissionRevoked?.('window-a');
+    resolve(1);
+    await Promise.resolve();
+    expect(sent).toEqual([]);
+  });
 });

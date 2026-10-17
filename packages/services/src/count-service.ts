@@ -60,6 +60,12 @@ const DEFAULT_MAX_FILTERS = 16;
 
 export function createCountService(options: CountServiceOptions): ServiceHandler {
   let runtime: ServiceRuntimeContext | undefined;
+  const generations = new Map<string, object>();
+  const generationFor = (windowId: string): object => {
+    let generation = generations.get(windowId);
+    if (!generation) { generation = {}; generations.set(windowId, generation); }
+    return generation;
+  };
   return {
     descriptor: {
       name: 'count',
@@ -71,6 +77,7 @@ export function createCountService(options: CountServiceOptions): ServiceHandler
       if (message.type !== 'count.query') return;
 
       const countMessage = message as CountServiceMessage;
+      const generation = generationFor(windowId);
       const id = typeof countMessage.id === 'string' ? countMessage.id : '';
       const filters = countMessage.filters;
       if (!isValidFilterArray(filters)) {
@@ -111,9 +118,11 @@ export function createCountService(options: CountServiceOptions): ServiceHandler
       const planned = options.planCount?.(request);
       void (planned === undefined ? Promise.resolve(run({})) : Promise.resolve(planned).then(run))
         .then((countResult) => {
+          if (generations.get(windowId) !== generation) return;
           send(result(id, normalizeCountResult(countResult)));
         })
         .catch((error: unknown) => {
+          if (generations.get(windowId) !== generation) return;
           send(result(id, {
             ok: false,
             error: 'count-unavailable',
@@ -122,6 +131,8 @@ export function createCountService(options: CountServiceOptions): ServiceHandler
         });
     },
     onRegistered(context) { runtime = context; },
+    onPermissionRevoked(windowId) { generations.set(windowId, {}); },
+    onWindowDestroyed(windowId) { generations.set(windowId, {}); },
   };
 }
 
