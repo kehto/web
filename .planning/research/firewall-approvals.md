@@ -67,14 +67,14 @@ approval UI, launch admission, CSP, or standalone-browser interception.
 | upload | NAP-UPLOAD PR #33 `f5cc981e527e2cc1572793a7a6e5082e5271ac49` | interface and server/destination plan | runtime rate budget; uploader aborts active work; Paja; upload regressions |
 | WebRTC | owning plan rechecked the current draft; signaling transport host-owned | interface plus peer/controller validation | runtime rate budget; controller close/revoke; Paja/playground; WebRTC regressions |
 
-Paja constructor registration remains **in progress**: its trusted resource
-resolver/proxy is host-only and already receives `AuthorizeNetwork`, but its
-complete constructor matrix and OUTBOX signer hook remain to be committed.
-Playground is wired to the same resource contract: `hostFetch` rejects missing
-authority, approves its first HTTP(S) destination through the runtime, and
-rejects redirects because it has no trusted per-hop resolver. The Paja resolver
-capability never enters app initialization, config, iframe messages, or
-napplet-visible globals.
+Paja and playground constructor registrations are guarded by the table-driven
+`tests/unit/host-service-registration.test.ts`. The Paja resource resolver/proxy
+is host-only, supplies `AuthorizeNetwork`, and has the OUTBOX signer-identity
+hook required for immutable plans. Playground is wired to the same resource
+contract: `hostFetch` rejects missing authority, approves its first HTTP(S)
+destination through the runtime, and rejects redirects because it has no trusted
+per-hop resolver. The Paja resolver capability never enters app initialization,
+config, iframe messages, or napplet-visible globals.
 
 ## Host and compatibility boundaries
 
