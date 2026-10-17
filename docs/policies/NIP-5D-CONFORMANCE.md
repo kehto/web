@@ -54,9 +54,15 @@ The composition was also checked against [NAP-SHELL on master at
 `a040914b4bbd3a5cd8a14b0f316a723c968ebfb2`](https://github.com/napplet/naps/blob/a040914b4bbd3a5cd8a14b0f316a723c968ebfb2/naps/NAP-SHELL.md).
 CSP is a NIP-5D web-binding concern; it adds no NAP domain, message, or permission.
 
-`@kehto/shell` owns the policy through `prepareNappletSrcdoc`. Paja runtime-pointer
-and playground verified loading both consume this entry point. Host CSP changes
-are structured source-list replacements, validated before rendering.
+`@kehto/shell` owns CSP preparation. Paja's admitted verified and development
+launches use `admitBrowserDocument` with the closed approved-browser policy;
+the playground currently uses the older `prepareNappletSrcdoc` entry point.
+The Paja policy was checked against NIP-5D draft PR 2303 at
+`5560820fa4f37f45b8ab742a11aeb3001b17dc67`. On the admitted path,
+explicit `csp.connectOrigins` entries become exact network approval requests;
+relay and Blossom hints do not grant iframe network access, and legacy
+`csp.directives` overrides are not applied. The table below describes the
+older preparation API until playground migration is complete.
 
 | Requirement | Shell treatment | Host choice |
 | --- | --- | --- |
@@ -74,10 +80,10 @@ The inline bootstrap currently requires `'unsafe-inline'` in `script-src` and
 any explicit `script-src-elem`, without overriding nonce/hash/`strict-dynamic`
 expressions. `script-src-attr` may independently deny inline event handlers.
 
-Low-level namespace render/injection utilities do not apply CSP. Paja's existing
-target-URL development wrapper uses these utilities to retain local HMR; it is
-not a verified runtime-pointer load. The verified production hosts must use
-`prepareNappletSrcdoc`, with verification and source-binding guards intact.
+Low-level namespace render/injection utilities do not apply CSP. Paja's
+target-URL development wrapper is now admitted using its normalized URL and
+fetched artifact hash as an unsigned identity. Verified production hosts must
+verify bytes and source identity before either CSP preparation entry point.
 
 ### Resource demo host projection exception
 

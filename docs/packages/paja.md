@@ -182,6 +182,10 @@ The console includes:
   mutation use the active tab's resolver-verified d-tag and aggregate hash. The
   controls write through `bridge.runtime.aclState`, rerender immediately, and
   the next matching request is allowed or denied by the real runtime gate.
+- **Firewall permissions** — shows the current runtime grants and offers revoke,
+  clear, and storage retry. Launch and operation prompts show the trusted source,
+  exact scope, and available lifetimes. Without browser storage, persistent
+  approval is unavailable; failed durable writes do not activate grants.
 - **Signer** — Paja auto-connects a browser NIP-07 signer when `window.nostr`
   is available, can connect to a bunker/NIP-46 URI, and only uses the generated
   development signer when the Dev signer button is selected. Sign, publish,
@@ -200,7 +204,10 @@ The console includes:
   refuses deletion, Paja retains the listed approval and logs the failed
   revocation. A full host reload creates a new ephemeral Dev signer and asks
   again; stable NIP-07/NIP-46 accounts can reuse their saved choices. This is
-  Paja policy permitted by draft
+  a legacy confirmation preference after runtime Firewall authorization, never
+  a replacement grant. Actual remembered use warns once per page with
+  `FW-PAJA-SIGNER-CONSENT-LEGACY-001`; use Firewall grants instead. The
+  signer confirmation policy is permitted by draft
   [NAP-RELAY PR #2 at `0be8abce18beb46ca37bd4ddd042f58d30b4eedc`](https://github.com/napplet/naps/pull/2), not a
   Kehto runtime default. Upload consent shows the requesting
   napplet, file, MIME type, size, server, and durable public effect before
@@ -265,21 +272,20 @@ verified napplets into ShellBridge-backed iframe tabs from pasted `naddr` or
 manifest (`35129`) by author and `d` tag; `nevent` pointers resolve a specific
 NIP-5D snapshot, root, or named manifest event id (`5129`, `15129`, or `35129`).
 In both cases Paja verifies the signed manifest and artifact hash (or legacy
-aggregate and blobs), then prepares a rendered copy with the same runtime-owned
-`window.napplet.<domain>` namespace before assigning iframe `srcdoc`.
-`prepareNappletSrcdoc` inserts validated CSP first, followed by the mandatory
-namespace. Its conservative defaults permit inline script/style, WebAssembly
-compilation while blocking JavaScript string evaluation, `data:`/`blob:` images,
-and `data:` fonts; other resource classes are denied. Direct connections require
-exact resolved relay/Blossom origins or explicit host grants.
-`createPajaRuntimeHostConfig({ csp: { connectOrigins, directives } })` accepts
-host policy changes; shell validation rejects broad JavaScript evaluation,
-wildcard connections, and policies that disable the bootstrap. The
+aggregate and blobs), then asks the runtime to admit declared interfaces before
+assigning iframe `srcdoc`. Required denial blocks launch; denied optional domains
+are absent from the injected `window.napplet` namespace and later environment.
+The shared admission helper inserts a closed CSP before the namespace and
+artifact bytes. Relay/Blossom hints only select mediated services; they grant no
+direct iframe network authority. Explicit `csp.connectOrigins` values require
+separate exact-origin network approval. The admitted path ignores legacy
+`csp.directives` overrides. The
 [CSP contract](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#shell-csp-enforcement)
-distinguishes enforced recommendations from configurable defaults. Configure
+documents the NIP-5D baseline and the shared admitted policy. Configure
 `frame-ancestors` through the host HTTP response. NIP-5D requires the verified
 `srcdoc` and opaque `allow-scripts` sandbox, but not this CSP baseline. Local
-target-URL mode retains its separate development policy. Loading an
+target-URL mode uses the same admission helper with an exact URL plus fetched
+artifact hash as its unsigned development identity. Loading an
 already-running napplet
 opens an in-page choice to load another instance, switch to the existing tab, or
 cancel. Each tab includes a share control that copies a `/web/paja/?naddr=...`

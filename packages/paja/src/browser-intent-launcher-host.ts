@@ -26,6 +26,7 @@ export async function launchPajaSharedIntent(
   frame.setAttribute('aria-hidden', 'true');
   context.stage.append(frame);
   const windowId = `${context.config.window.id}:intent-launcher:${crypto.randomUUID()}`;
+  const admissionController = new AbortController();
   let readyResolve!: () => void;
   let readyReject!: (reason: Error) => void;
   const ready = new Promise<void>((resolve, reject) => { readyResolve = resolve; readyReject = reject; });
@@ -46,6 +47,7 @@ export async function launchPajaSharedIntent(
     },
   });
   const teardown = () => {
+    admissionController.abort();
     runtime.explicitIntentHandlers.delete(windowId);
     runtime.intentSenderIds.delete(windowId);
     runtime.launcherFrames.delete(source);
@@ -55,7 +57,9 @@ export async function launchPajaSharedIntent(
     frame.remove();
   };
   try {
-    const registered = await context.navigateFrame(frame, context.config, state.generation + 1, context.adapter, launcher, windowId);
+    const registered = await context.navigateFrame(frame, context.config, state.generation + 1,
+      context.adapter, context.bridge.runtime, launcher, windowId,
+      () => progress.isActive(), undefined, admissionController.signal);
     if (registered !== windowId) throw new Error('Paja intent launcher registration failed');
     const timeout = window.setTimeout(() => readyReject(new Error('Paja intent launcher did not become ready')), 10_000);
     try { await ready; } finally { window.clearTimeout(timeout); }

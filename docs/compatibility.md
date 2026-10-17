@@ -6,6 +6,26 @@ coverage. This register records both implemented safeguards and existing debt;
 below identifies the package responsible for the implementation and its tests.
 No removal date is implied by an old source comment.
 
+## FW-PAJA-SIGNER-CONSENT-LEGACY-001 — remembered signer confirmation
+
+`@kehto/paja` retains exact remembered signer confirmations from
+`kehto:paja:signer-consent:v1` as a presentation preference after the runtime
+Firewall coordinator approves the current sign operation. They cannot grant an
+interface or authorize an operation by themselves. A matching legacy choice
+warns once per page with the identifier, directs users to Firewall grants, and
+states removal after a future 0.x minor release; canonical runtime approval is
+quiet. The source and warning site is
+`packages/paja/src/browser-host-signer.ts`; the old record parser and clear
+controls are in `packages/paja/src/browser-signer-consent.ts`. Regression tests
+in `browser-host-signer.test.ts` and `browser-signer-consent.test.ts` cover exact
+signer, kind, artifact, and target matching, warning behavior, and failed
+storage deletion. The old preference remains for existing Paja users during
+the transition. Before removal, migrate supported consumers to Firewall grants,
+announce the breaking 0.x minor release, delete the old store and warning, and
+add negative tests that reject the legacy record. No old record is imported as
+a Firewall grant. NIP-5D authority: draft PR 2303 at
+`5560820fa4f37f45b8ab742a11aeb3001b17dc67`.
+
 ## FW-RUNTIME-LEGACY-GATE-001 — runtime without a permission adapter
 
 `@kehto/runtime` retains the old temporal Firewall ingress for hosts that omit

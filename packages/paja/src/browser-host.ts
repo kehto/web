@@ -177,6 +177,7 @@ declare global {
 }
 
 let bridgeRef: ShellBridge | null = null;
+const frameAdmissions = new WeakMap<HTMLIFrameElement, AbortController>();
 
 type PajaThemeService = { publishTheme(theme: ReturnType<typeof createDevTheme>): unknown };
 type PajaSignerController = ReturnType<typeof createHostSignerController>;
@@ -260,19 +261,24 @@ function startFrameNavigation(
 ): void {
   const { config, frame, bridge, adapter, runtime } = context;
   if (!frame) return;
+  frameAdmissions.get(frame)?.abort();
+  const admissionController = new AbortController();
+  frameAdmissions.set(frame, admissionController);
   const generation = state.generation;
-  const isCurrentGeneration = () => state.generation === generation;
+  const isCurrentGeneration = () => state.generation === generation && frameAdmissions.get(frame) === admissionController;
   void navigateFrame(
     frame,
     config,
     generation,
     adapter,
+    bridge.runtime,
     state.resolvedTarget,
     undefined,
     isCurrentGeneration,
     (windowId) => {
       if (isCurrentGeneration()) runtime.currentWindowId = windowId;
     },
+    admissionController.signal,
   ).then((windowId) => {
     if (!isCurrentGeneration()) {
       unregisterSingleFrameWindow(bridge, runtime, windowId);

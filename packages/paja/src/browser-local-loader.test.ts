@@ -1,11 +1,16 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { originRegistry } from '@kehto/shell';
+import type { Runtime } from '@kehto/runtime';
+import { createPajaAdmissionTestRuntime } from './browser-admission-test-runtime.js';
 
 import { createPajaAdapter } from './browser-adapter.js';
 import { createPajaRelayEventCounter } from './browser-relay-panel.js';
 import { loadLocalRuntimeFile, pickLocalHtmlFile } from './browser-local-loader.js';
 import {
+  addRuntimeTab,
+  closeRuntimeTab,
+  reloadActiveRuntimeTab,
   snapshotRuntimeTabs,
   type PajaRuntimeTabContext,
   type PajaRuntimeTabState,
@@ -16,6 +21,7 @@ import { createPajaLocalTarget } from './local-target.js';
 import { createPajaRuntimeHostConfig } from './options.js';
 
 const LOCAL_HTML = '<!doctype html><html><head><title>Local</title></head><body><script>window.ok = 1</script></body></html>';
+let permissionRuntime: Runtime;
 
 interface FakeFrame {
   id: string;
@@ -75,7 +81,7 @@ function createHarness() {
   const context = {
     config,
     stage: { append: vi.fn() },
-    bridge: null,
+    bridge: { runtime: permissionRuntime },
     adapter: { setWindowBlossomServers },
     runtime: { catalog, currentSimulation: config.simulation, currentWindowId: null, readyWindowIds: new Set() },
     navigateFrame: navigate,
@@ -92,6 +98,7 @@ function createHarness() {
 
 describe('@kehto/paja local index.html loader', () => {
   beforeEach(() => {
+    permissionRuntime = createPajaAdmissionTestRuntime();
     vi.stubGlobal('document', {
       createElement: () => fakeFrame(),
       getElementById: () => null,
@@ -104,6 +111,7 @@ describe('@kehto/paja local index.html loader', () => {
   });
 
   afterEach(() => {
+    permissionRuntime.destroy();
     vi.unstubAllGlobals();
     originRegistry.clear();
   });
@@ -126,10 +134,12 @@ describe('@kehto/paja local index.html loader', () => {
       context.config,
       1,
       context.adapter,
+      permissionRuntime,
       tab?.resolvedTarget,
       expect.stringContaining(':tab-1:1'),
       expect.any(Function),
       expect.any(Function),
+      expect.any(AbortSignal),
     );
     expect(install).not.toHaveBeenCalled();
     expect(catalog.installed()).toEqual([]);
@@ -137,6 +147,22 @@ describe('@kehto/paja local index.html loader', () => {
     expect(persistTabs).toHaveBeenCalledWith(state);
     expect(snapshotRuntimeTabs(state)).toBeNull();
     expect(state.messageLog.map((entry) => entry.type)).toEqual(['paja.local.load', 'paja.local.loaded']);
+  });
+
+  it('aborts the exact tab admission before reload and close', async () => {
+    const { state, context } = createHarness();
+    const target = await createPajaLocalTarget({ name: 'index.html', text: LOCAL_HTML });
+    const tab = addRuntimeTab(state, context, '', target);
+    const first = tab.admissionController;
+    expect(first.signal.aborted).toBe(false);
+    reloadActiveRuntimeTab(state, context);
+    expect(first.signal.aborted).toBe(true);
+    const second = tab.admissionController;
+    expect(second).not.toBe(first);
+    expect(second.signal.aborted).toBe(false);
+    closeRuntimeTab(state, context, tab.id);
+    expect(second.signal.aborted).toBe(true);
+    expect(state.tabs).toEqual([]);
   });
 
   it('reports rejected files in the status line and message log without adding a tab', async () => {
@@ -181,6 +207,7 @@ describe('@kehto/paja local index.html loader', () => {
       set(value: string) {
         expect(originRegistry.getIdentity(frame.contentWindow)).toEqual({
           dTag: target.dTag, aggregateHash: target.aggregateHash,
+          permissionPrincipal: { kind: 'development', target: 'local-file:index.html', artifactHash: target.aggregateHash },
         });
         expect(originRegistry.getEnvironment(frame.contentWindow)?.capabilities.domains).not.toContain('unavailable');
         srcdoc = value;
@@ -193,6 +220,7 @@ describe('@kehto/paja local index.html loader', () => {
         config,
         1,
         adapter,
+        permissionRuntime,
         target,
         'paja-window:tab-1:1',
       );
@@ -201,6 +229,7 @@ describe('@kehto/paja local index.html loader', () => {
       expect(originRegistry.getIdentity(frame.contentWindow)).toEqual({
         dTag: 'local-index',
         aggregateHash: target.aggregateHash,
+        permissionPrincipal: { kind: 'development', target: 'local-file:index.html', artifactHash: target.aggregateHash },
       });
       expect(frame.removeAttribute).toHaveBeenCalledWith('src');
       expect(frame.srcdoc).toContain('http-equiv="Content-Security-Policy"');
@@ -225,9 +254,8 @@ describe('@kehto/paja local index.html loader', () => {
     const target = await createPajaLocalTarget({ name: 'index.html', text: LOCAL_HTML });
     const frame = fakeFrame();
     try {
-      await navigateFrame(frame as unknown as HTMLIFrameElement, config, 1, adapter, target);
-      expect(frame.srcdoc).toContain("img-src data:;");
-      expect(frame.srcdoc).not.toContain('img-src data: blob:');
+      await navigateFrame(frame as unknown as HTMLIFrameElement, config, 1, adapter, permissionRuntime, target);
+      expect(frame.srcdoc).toContain("connect-src 'none'");
       const previousHtml = frame.srcdoc;
       const previousIdentity = originRegistry.getIdentity(frame.contentWindow);
       const previousWindowId = originRegistry.getWindowId(frame.contentWindow);
@@ -236,7 +264,7 @@ describe('@kehto/paja local index.html loader', () => {
       const onRegistered = vi.fn();
 
       await expect(navigateFrame(frame as unknown as HTMLIFrameElement, invalid, 2,
-        adapter, replacement, undefined, undefined, onRegistered)).rejects.toThrow(/exact HTTP/);
+        adapter, permissionRuntime, replacement, undefined, undefined, onRegistered)).rejects.toThrow(/invalid/);
       expect(onRegistered).not.toHaveBeenCalled();
       expect(frame.srcdoc).toBe(previousHtml);
       expect(originRegistry.getIdentity(frame.contentWindow)).toEqual(previousIdentity);

@@ -67,7 +67,7 @@ visibility and resource server values. Storage failures leave session-only toggl
 usable; collapsing never reloads the running app or discards unsaved drafts.
 
 The console shows supported interfaces with per-domain injection toggles,
-runtime ACL controls, signer controls, and a filterable message log with visible
+runtime ACL controls, Firewall permissions, signer controls, and a filterable message log with visible
 error details. It starts expanded and collapses to the left with the chevron
 button in the top bar; the same button brings the whole panel back. Collapsing
 is presentation-only — the target iframe keeps its identity and the loaded
@@ -96,7 +96,14 @@ every remembered approval. If durable deletion fails, Paja keeps the approval
 listed and logs the failure instead of claiming revocation. A full Paja host
 reload creates a new ephemeral Dev signer and therefore asks again; a stable
 NIP-07 or NIP-46 account can reuse its saved choice. Publish and other operation
-confirmations continue to prompt independently. This is Paja runtime policy under draft
+confirmations continue to prompt independently. The remembered signer choice is a
+legacy confirmation preference only: every sign request must first pass the
+runtime Firewall operation approval for its current verified source and exact
+scope. Actual legacy use warns once per page with
+`FW-PAJA-SIGNER-CONSENT-LEGACY-001`; use Firewall grants instead. The Firewall
+permissions panel shows live grants, revocation, clear, and storage retry.
+Without browser storage only session/once decisions are offered; failed durable
+saves block new grants. This is Paja runtime policy under draft
 [NAP-RELAY PR #2 at `0be8abce18beb46ca37bd4ddd042f58d30b4eedc`](https://github.com/napplet/naps/pull/2), not
 a Kehto kernel default. Upload consent identifies the requesting napplet, file, MIME type,
 size, selected server, and durable public effect before bytes leave the browser.
@@ -267,12 +274,13 @@ tabs remain open. Installed contracts and domains appear in pointer diagnostics.
 
 Kehto provides the optional `window.napplet.shell` interface for environment information. Other domains route through trusted iframe creation identity independently of readiness. `supports(domain)` queries namespace presence locally. See the living [NAP-SHELL](https://github.com/napplet/naps/blob/master/naps/NAP-SHELL.md).
 
-Before Paja assigns a verified runtime-pointer document to `srcdoc`, it calls
-`@kehto/shell`'s `prepareNappletSrcdoc`. The shell inserts validated CSP first,
-then the mandatory namespace. Defaults permit inline script/style, WASM byte
-compilation, `data:`/`blob:` images and `data:` fonts, and deny other resource
-classes. Paja grants direct connections only to resolved relay and Blossom
-origins plus explicit host grants.
+Before Paja assigns verified pointer or development bytes to `srcdoc`, it uses
+`admitBrowserDocument` to approve the declared interfaces and any explicit
+direct browser origins. Required denial blocks launch; optional denial narrows
+the injected namespace and later shell environment. The host registers the
+trusted source before the approved document executes. The injected CSP defaults
+to closed remote source lists. Relay and Blossom discovery hints select mediated
+services only and never grant the iframe direct browser traffic.
 
 Hosts can pass `csp` to `createPajaRuntimeHostConfig`:
 
@@ -281,17 +289,14 @@ const config = createPajaRuntimeHostConfig({
   pointer,
   csp: {
     connectOrigins: ['https://api.example'],
-    directives: { 'media-src': ['blob:'], 'img-src': ['data:'] },
   },
 });
 ```
 
-The shell rejects broad JavaScript evaluation, non-origin connection grants,
-and script policies that block its bootstrap. NIP-5D's CSP recommendations are
-enforced; individual baseline source lists remain configurable. Existing
-artifact CSP is retained. Set `frame-ancestors` on the host HTTP response, not
-in a meta policy. See the [shared policy contract](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#shell-csp-enforcement).
-Local target-URL authoring mode retains its separate development policy and HMR.
+Each explicit origin is a separate network approval. The admitted launch path
+does not apply legacy `csp.directives` overrides; it uses the closed shared CSP.
+Set `frame-ancestors` on the host HTTP response, not in a meta policy. See the
+[shared policy contract](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#shell-csp-enforcement).
 
 Environment simulation can be supplied through CLI flags or a JSON config file:
 
