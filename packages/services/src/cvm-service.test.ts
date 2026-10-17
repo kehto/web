@@ -180,6 +180,9 @@ describe('createCvmService', () => {
   describe('cvm.close', () => {
     it('closes transport session and echoes id', async () => {
       const { sent, send } = collectSent();
+      svc.handleMessage(WINDOW, { type: 'cvm.request', id: 'open', server: SERVER, message: { jsonrpc: '2.0', id: 1 } } as NappletMessage, send);
+      await flush();
+      sent.length = 0;
       svc.handleMessage(WINDOW, { type: 'cvm.close', id: 'c1', server: SERVER } as NappletMessage, send);
       await flush();
       expect(sent[0]).toEqual({ type: 'cvm.close.result', id: 'c1' });
@@ -215,7 +218,7 @@ describe('createCvmService', () => {
       await flush();
       transport.emitEvent(SERVER, { jsonrpc: '2.0', method: 'notifications/progress' });
       expect(sent.some((m) => m.type === 'cvm.event')).toBe(false);
-      expect(transport.close).toHaveBeenCalledWith({ pubkey: SERVER.pubkey });
+      expect(transport.close).toHaveBeenCalledWith(SERVER);
     });
   });
 

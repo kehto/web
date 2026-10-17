@@ -37,6 +37,7 @@ import * as nip44 from 'nostr-tools/nip44';
 import type { Event as NostrToolsEvent, Filter as NostrToolsFilter } from 'nostr-tools';
 
 import type { CvmTransport } from './cvm-service.js';
+import type { ApprovalSignal } from '@kehto/runtime';
 import type {
   CvmDiscoverQuery,
   CvmRequestOptions,
@@ -118,9 +119,9 @@ export interface CvmRelayPool {
   subscribe(
     relays: string[],
     filter: NostrFilterLike,
-    params: { onevent?: (event: NostrEventLike) => void; oneose?: () => void },
+    params: { onevent?: (event: NostrEventLike) => void; oneose?: () => void; signal?: ApprovalSignal },
   ): CvmSubCloser;
-  publish(relays: string[], event: NostrEventLike): void | Promise<unknown>;
+  publish(relays: string[], event: NostrEventLike, options?: { signal?: ApprovalSignal }): void | Promise<unknown>;
 }
 
 /** Options for {@link createNostrCvmTransport}. */
@@ -199,6 +200,12 @@ function randomizedPastTimestamp(): number {
 
 function tagValue(tags: string[][], name: string): string | undefined {
   return tags.find((tag) => tag[0] === name)?.[1];
+}
+
+function canonicalRelay(value: string): string {
+  const url = new URL(value);
+  if ((url.protocol !== 'wss:' && url.protocol !== 'ws:') || url.username || url.password || url.pathname !== '/' || url.search || url.hash) throw new Error('invalid relay');
+  return url.origin;
 }
 
 /**
@@ -303,12 +310,15 @@ async function sha256Hex(text: string): Promise<string> {
 function simplePoolAdapter(sp: SimplePool): CvmRelayPool {
   return {
     subscribe(relays, filter, params) {
-      return sp.subscribe(relays, filter as NostrToolsFilter, {
+      const sub = sp.subscribe(relays, filter as NostrToolsFilter, {
         onevent: params.onevent,
         oneose: params.oneose,
       });
+      params.signal?.addEventListener('abort', () => sub.close(), { once: true });
+      return sub;
     },
-    async publish(relays, event) {
+    async publish(relays, event, execution) {
+      if (execution?.signal?.aborted) throw new Error('policy denied');
       const attempts = sp.publish(relays, event as NostrToolsEvent);
       if (attempts.length === 0) throw new Error('server not found');
       await Promise.any(attempts);
@@ -354,7 +364,7 @@ export function createNostrCvmTransport(
   function resolveRelays(server: CvmServerRef): string[] {
     const relays = server.relays && server.relays.length > 0 ? server.relays : defaultRelays;
     if (relays.length === 0) throw new Error('server not found');
-    return [...new Set(relays)];
+    return [...new Set(relays.map(canonicalRelay))];
   }
 
   function holdRelays(relays: string[]): void {
@@ -944,7 +954,8 @@ export function createNostrCvmTransport(
     }
   }
 
-  async function publishMcp(server: CvmServerRef, relays: string[], message: McpMessage): Promise<void> {
+  async function publishMcp(server: CvmServerRef, relays: string[], message: McpMessage, signal?: ApprovalSignal): Promise<void> {
+    if (signal?.aborted) throw new Error('policy denied');
     // Capability discovery lives on the INNER signed kind-25910 event. Without
     // these single-element tags, muxll correctly assumes a legacy client and
     // sends large results as one giant NIP-44 payload (which exceeds the NIP-44
@@ -965,7 +976,7 @@ export function createNostrCvmTransport(
       clientSecretKey,
     ) as NostrEventLike;
     if (!encrypt) {
-      await pool.publish(relays, inner);
+      await pool.publish(relays, inner, { signal });
       return;
     }
     const wrapSecretKey = generateSecretKey();
@@ -984,7 +995,7 @@ export function createNostrCvmTransport(
       },
       wrapSecretKey,
     ) as NostrEventLike;
-    await pool.publish(relays, wrap);
+    await pool.publish(relays, wrap, { signal });
   }
 
   function sendCorrelated(
@@ -992,7 +1003,9 @@ export function createNostrCvmTransport(
     relays: string[],
     message: McpMessage,
     timeout: number,
+    signal?: ApprovalSignal,
   ): Promise<McpMessage> {
+    if (signal?.aborted) return Promise.reject(new Error('policy denied'));
     const correlationId = nextCorrelationId();
     const originalId = message.id;
     let outgoing: McpMessage = { ...message, id: correlationId };
@@ -1057,7 +1070,11 @@ export function createNostrCvmTransport(
         issuedTokens.set(issuedKey, correlationId);
       }
       pending.set(correlationId, entry);
-      void publishMcp(server, relays, outgoing).catch((err: unknown) => {
+      signal?.addEventListener('abort', () => {
+        const settled = settlePending(correlationId);
+        settled?.reject(new Error('policy denied'));
+      }, { once: true });
+      void publishMcp(server, relays, outgoing, signal).catch((err: unknown) => {
         const settled = settlePending(correlationId);
         settled?.reject(err instanceof Error ? err : new Error('publish failed'));
       });
@@ -1075,7 +1092,7 @@ export function createNostrCvmTransport(
     return session;
   }
 
-  async function ensureInitialized(server: CvmServerRef, session: ServerSession, timeout: number): Promise<void> {
+  async function ensureInitialized(server: CvmServerRef, session: ServerSession, timeout: number, signal?: ApprovalSignal): Promise<void> {
     if (session.initialized) return;
     if (session.initializing) return session.initializing;
     session.initializing = (async () => {
@@ -1090,9 +1107,10 @@ export function createNostrCvmTransport(
             params: { protocolVersion: MCP_PROTOCOL_VERSION, capabilities: {}, clientInfo },
           },
           timeout,
+          signal,
         );
         // notifications/initialized completes the handshake; no response expected.
-        await publishMcp(server, session.relays, { jsonrpc: '2.0', method: 'notifications/initialized' });
+        await publishMcp(server, session.relays, { jsonrpc: '2.0', method: 'notifications/initialized' }, signal);
         session.initialized = true;
       } catch {
         throw new Error('initialization failed');
@@ -1104,12 +1122,23 @@ export function createNostrCvmTransport(
   }
 
   return {
-    async discover(query?: CvmDiscoverQuery): Promise<CvmServer[]> {
+    planDiscover(query?: CvmDiscoverQuery): readonly string[] {
       const relays = query?.relays && query.relays.length > 0 ? query.relays : defaultRelays;
+      return Object.freeze([...new Set(relays.map(canonicalRelay))]);
+    },
+
+    planRequest(server: CvmServerRef): readonly string[] {
+      return Object.freeze(resolveRelays(server));
+    },
+
+    async discover(query?: CvmDiscoverQuery, execution?: { signal: ApprovalSignal }): Promise<CvmServer[]> {
+      const configured = query?.relays && query.relays.length > 0 ? query.relays : defaultRelays;
+      const relays = [...new Set(configured.map(canonicalRelay))];
       if (relays.length === 0) return [];
+      if (execution?.signal.aborted) throw new Error('policy denied');
       const announces = new Map<string, NostrEventLike>();
       const toolLists = new Map<string, NostrEventLike>();
-      await new Promise<void>((resolve) => {
+      await new Promise<void>((resolve, reject) => {
         const sub = pool.subscribe(
           relays,
           { kinds: [KIND_ANNOUNCE_SERVER, KIND_ANNOUNCE_TOOLS], limit: query?.limit ? query.limit * 4 : 100 },
@@ -1119,9 +1148,11 @@ export function createNostrCvmTransport(
               else if (event.kind === KIND_ANNOUNCE_TOOLS) toolLists.set(event.pubkey, event);
             },
             oneose() { resolve(); },
+            signal: execution?.signal,
           },
         );
         setTimeout(() => { sub.close(); resolve(); }, DEFAULT_DISCOVER_TIMEOUT_MS);
+        execution?.signal.addEventListener('abort', () => { sub.close(); reject(new Error('policy denied')); }, { once: true });
       });
 
       const servers: CvmServer[] = [];
@@ -1150,11 +1181,12 @@ export function createNostrCvmTransport(
       return query?.limit ? filtered.slice(0, query.limit) : filtered;
     },
 
-    async request(server: CvmServerRef, message: McpMessage, requestOptions?: CvmRequestOptions): Promise<McpMessage> {
+    async request(server: CvmServerRef, message: McpMessage, requestOptions?: CvmRequestOptions, execution?: { signal: ApprovalSignal }): Promise<McpMessage> {
+      if (execution?.signal.aborted) throw new Error('policy denied');
       const session = getSession(server);
       const timeout = requestOptions?.timeoutMs ?? timeoutMs;
-      if (requestOptions?.initialize) await ensureInitialized(server, session, timeout);
-      return sendCorrelated(server, session.relays, message, timeout);
+      if (requestOptions?.initialize) await ensureInitialized(server, session, timeout, execution?.signal);
+      return sendCorrelated(server, session.relays, message, timeout, execution?.signal);
     },
 
     async close(server: CvmServerRef): Promise<void> {
