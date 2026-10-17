@@ -6,19 +6,13 @@
 
 Provide a modular, framework-agnostic runtime for hosting napplet applications — so any Nostr client can embed sandboxed mini-apps by integrating @kehto/shell.
 
-## Current Milestone: v1.29 Napplet Convention and Runtime Conformance
+## Current Milestone: v1.31 Firewall approvals
 
-**Goal:** Conform Kehto to `napplet/naps@6461e4b`: remove numbered cross-napplet negotiation, adopt `napplet:<archetype>/<intent>[...?params]` conventions, and close every active contract gap in NAP-SHELL, NAP-INTENT, NAP-INC, NAP-IDENTITY, and NAP-THEME.
+**Goal:** Firewall owns interface, resource and network approval policy, with an independent rate limiter and complete runtime/service/Paja/playground integration.
 
-**Target features:**
-- **Domain-only NAP-SHELL:** `supports(domain)`, truthful grants, exactly-once bootstrap, no pre-session capability traffic, and no numbered capability metadata.
-- **Convention-based intent and manifests:** `convention`/`conventions`, verified installed-manifest catalogs, user-controlled resolution, convention-bearing archetype tags, and contract-shaped result errors.
-- **Complete INC identity/channel parity:** dTag identities, opaque exact topics and IDs, full subscription/channel API, open-time authorization, and lifecycle cleanup.
-- **Identity/theme wire parity:** result-only failure shapes, readonly/change semantics, NAP-RESOURCE-mediated profile media, and atomic single-broadcast theme updates.
-- **Published-package proof:** consume the convention-capable Napplet release line once the concurrent `napplet/web` chase publishes it; do not guess unpublished APIs.
-- **Release-ready evidence:** focused and full unit/e2e/docs/quality gates, active-surface drift guard, changesets, and a concise PR.
+**Authority:** `.planning/FIREWALL-GOAL.md`, `REQUIREMENTS.md`, and `research/firewall-approvals.md`.
 
-**Key context:** Normative authority is `napplet/naps` master commit `6461e4b37c29dc09a20dff35d9515889c4433874`; Kehto baseline is canonical `origin/main` at `bb3929b3523b75356fd65f658f9bd14c7ff697e4`. The complete delta and package gate are recorded in `.planning/NAP-CONVENTIONS-6461E4B-DELTA-AUDIT.md`. Topic/query ambiguity tracking is `kehto/web#203`.
+**Execution:** User authorized autonomous discussion/planning/execution and shipping. Use existing conversation as product context. Preserve unrelated work on `feat/kernl-rebrand`; implementation branch is `feat/firewall-approvals` based on `0958a8b1`.
 
 ## Latest Milestone: v1.18 Napplet Firewall (shipped 2026-06-15)
 

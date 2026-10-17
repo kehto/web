@@ -1,20 +1,16 @@
 ---
-gsd_state_version: "1.0"
-milestone: v1.29
-milestone_name: Napplet Convention and Runtime Conformance
-current_phase: 107
-current_phase_name: Paja Intent Deep Links
-status: completed
-stopped_at: Phase 107 complete; PR 289 open and pushed
-last_updated: "2026-10-10T11:49:59.294913Z"
-last_activity: 2026-10-10
-last_activity_desc: "Shipped Phase 107 as open PR 289"
+gsd_state_version: 1.0
+milestone: v1.31
+milestone_name: Firewall approvals
+status: planning
+last_updated: "2026-10-17T18:04:43.677Z"
+last_activity: 2026-10-17
 progress:
-  total_phases: 7
-  completed_phases: 7
-  total_plans: 51
-  completed_plans: 51
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -28,11 +24,10 @@ See: .planning/PROJECT.md (updated 2026-07-28)
 
 ## Current Position
 
-Phase: 107 (Paja Intent Deep Links) — COMPLETE
-Plan: 4 of 4
-Status: Shipped as open PR #289 — https://github.com/kehto/web/pull/289. No merge or release performed.
-
-Last activity: 2026-10-10 — Opened PR #289 and pushed verification/security closeout.
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-10-17 — Milestone v1.31 started
 
 ## Performance Metrics
 
@@ -366,7 +361,6 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 - Retain canonical local intent types until the published Napplet package catches up; warn on legacy object invocation and INC delivery adapters.
 - Success means retained responsibility. Host-only source-window correlation cannot appear in canonical results or delivery payloads.
 - Preserve the primary checkout's unrelated package.json changes. Work lives in `~/.worktrees/kehto/paja-intent-links` on `feat/paja-intent-links`.
-
 
 ## Debug closeout: issue #303
 
