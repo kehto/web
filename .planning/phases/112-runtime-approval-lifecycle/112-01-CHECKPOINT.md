@@ -172,3 +172,14 @@ NAP-RESOURCE PR #80 cancellation contract motivates the next resource integratio
 resource service has not yet called this authorization API. Next implement the
 phase 113 plan and per-item scopes, network resolver checks, and canonical wire
 migration. All app migration and final shipping requirements remain active.
+
+
+## Extension declaration revalidation
+
+Closed a host-policy race: pending and deferred extension work now rechecks the
+same declaration map, its own exact message key, and the captured capability.
+Changing/removing the entry or replacing the map invalidates the request before
+late approval can create grants. Three regression cases pass. Full 2,389 unit
+tests, build, types, docs and quality100 pass (logs under
+/tmp/kehto-extension-declaration-*). This closes one phase112 lifecycle boundary;
+service authorization and host migration remain incomplete.

@@ -133,6 +133,26 @@ describe('registered extension scoped approvals', () => {
     f.runtime.destroy();
   });
 
+  it.each(['replace', 'change', 'remove'] as const)('invalidates a pending extension when its declaration changes: %s', async (change) => {
+    const answer = deferred<ApprovalAnswer>();
+    const shown = deferred<ApprovalPrompt>();
+    const declarations: Record<string, 'state:read' | null> = { 'example.run': null };
+    const f = fixture({ prompt: (prompt) => { shown.resolve(prompt); return answer.promise; } }, {
+      messageCapabilities: declarations,
+    });
+    f.send('one');
+    await shown.promise;
+    if (change === 'replace') f.handler.messageCapabilities = { 'example.run': null };
+    else if (change === 'change') declarations['example.run'] = 'state:read';
+    else delete declarations['example.run'];
+    answer.resolve({ effect: 'allow', lifetime: 'session' });
+    await flush();
+    expect(f.handler.handleMessage).not.toHaveBeenCalled();
+    expect(f.runtime.permissions?.grants).toEqual([]);
+    expect(f.sent).toEqual([]);
+    f.runtime.destroy();
+  });
+
   it.each(['source', 'service', 'teardown'] as const)('invalidates pending approvals after %s replacement', async (change) => {
     const answer = deferred<ApprovalAnswer>();
     const shown = deferred<ApprovalPrompt>();

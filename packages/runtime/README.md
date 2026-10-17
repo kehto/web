@@ -414,3 +414,7 @@ still wait behind the active prompt. Retained queue entries count toward the
 queue bound until their predecessor settles. Request listeners are removed when
 the operation settles. An already-aborted signal never opens a prompt or invokes
 the action.
+
+Registered extensions revalidate their exact capability declaration after approval
+and before sending deferred replies. Replacing, removing, or changing that
+declaration invalidates the captured operation; a late answer grants nothing.

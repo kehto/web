@@ -9,3 +9,5 @@ Add scoped approval adapters, durable-write-before-grant semantics, explicit rev
 Add pre-execution required/optional interface admission with generation-bound revalidation. Enforce shared interface approvals on built-in dispatch and registered extensions. Extensions capture bounded immutable JSON, reject replayed IDs, retain host-owned denial schemas, and apply independent blocking prompt-spam budgets.
 
 Allow services to cancel one pending or active authorization using a request signal, without cancelling sibling work or accepting late grants. Preserve equivalent-request ordering and bound retained cancelled queue entries.
+
+Invalidate pending extension approval when its host capability declaration changes.

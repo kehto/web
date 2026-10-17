@@ -56,6 +56,8 @@ export function createServiceExtensionRouter(context: ExtensionContext) {
       windowLifetimes.set(windowId, lifetime);
     }
     const sourceCurrent = () => registrations.get(domain) === registration && services[domain] === handler
+      && handler.messageCapabilities === policies && Object.hasOwn(policies, message.type)
+      && policies[message.type] === capability
       && sessions.getEntryByWindowId(windowId) === session && allowed();
     const current = () => sourceCurrent() && windowLifetimes.get(windowId) === lifetime;
     const sender = (active: () => boolean, eligible = current) => (response: NappletMessage) => {
