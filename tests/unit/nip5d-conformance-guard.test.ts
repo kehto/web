@@ -122,7 +122,7 @@ const resourceCanonicalWireSurfaces = [
   },
   {
     file: 'apps/playground/napplets/resource-demo/src/main.ts',
-    markers: ["import '@napplet/shim'", 'resource.bytesMany(REMOTE_IMAGE_URLS)', 'ResourceBytesManyItem'],
+    markers: ['window.napplet', 'resource.bytesMany(REMOTE_IMAGE_URLS)', 'ResourceBytesManyItem'],
   },
 ] as const;
 
@@ -657,6 +657,16 @@ describe('NIP-5D conformance static guards', () => {
         expect(source, `${file} missing ${marker}`).toContain(marker);
       }
     }
+  });
+
+  it('keeps the resource demo on the documented canonical host projection', () => {
+    const source = readRepoFile('apps/playground/napplets/resource-demo/src/main.ts');
+    const policy = readRepoFile('docs/policies/NIP-5D-CONFORMANCE.md');
+    expect(source).not.toMatch(/import\s+['"]@napplet\/shim['"]/u);
+    expect(source).toContain('window.napplet');
+    expect(source).toContain('resource.bytesMany(REMOTE_IMAGE_URLS)');
+    expect(policy).toContain('RESOURCE_HOST_PROJECTION');
+    expect(policy).toContain('ae5b9c64ab8a4d8909f288829a01e99d6bd713bc');
   });
 
   it('keeps NAP-RELAY publish signing and canonical results wired through every host surface', () => {

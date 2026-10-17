@@ -142,7 +142,8 @@ describe('playground gateway artifact guard', () => {
       expect(media).toContain('URL.createObjectURL(blob)');
       expect(media).toContain('URL.revokeObjectURL(url)');
     }
-    expect(source.resourceDemo).toContain("import '@napplet/shim'");
+    expect(source.resourceDemo).toContain('window.napplet');
+    expect(source.resourceDemo).not.toMatch(/import\s+['"]@napplet\/shim['"]/u);
     expect(source.resourceDemo).toContain('resource.bytesMany(REMOTE_IMAGE_URLS)');
     expect(source.resourceDemo).toContain('URL.createObjectURL(blob)');
     expect(source.resourceDemo).toContain('URL.revokeObjectURL(currentObjectUrl)');

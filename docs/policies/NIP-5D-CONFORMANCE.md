@@ -79,6 +79,29 @@ target-URL development wrapper uses these utilities to retain local HMR; it is
 not a verified runtime-pointer load. The verified production hosts must use
 `prepareNappletSrcdoc`, with verification and source-binding guards intact.
 
+### Resource demo host projection exception
+
+`RESOURCE_HOST_PROJECTION` applies to
+`apps/playground/napplets/resource-demo/src/main.ts`. The demo uses the
+`window.napplet.resource` binding injected by Kehto before authored scripts.
+It must not import `@napplet/shim@0.30.0`, whose resource helper replaces that
+binding and sends the retired object-form `requests` payload.
+
+The working authority is [NAP-RESOURCE PR #80 at
+`ae5b9c64ab8a4d8909f288829a01e99d6bd713bc`](https://github.com/napplet/naps/blob/ae5b9c64ab8a4d8909f288829a01e99d6bd713bc/naps/NAP-RESOURCE.md).
+Bulk wire requests use ordered `urls`; wire results carry canonical padded
+base64, which the web binding validates and converts to `Blob`. The demo calls
+that binding rather than creating a separate message receiver or wire adapter.
+This is a bounded dependency-drift exception, not permission to weaken the
+runtime contract. Reintroduce the packaged binding only after it preserves this
+contract and the real browser regression remains green.
+
+`tests/unit/nip5d-conformance-guard.test.ts` registers this exception and prevents
+the stale import from returning. `tests/e2e/nap-resource.spec.ts` proves the
+actual injected API, runtime service, bulk bytes, and image rendering together;
+static source assertions alone do not prove this path works. Resource exposure
+still requires the host isolation work tracked in the Firewall migration.
+
 ### Active NAP-RELAY boundary
 
 Kehto follows [NAP-RELAY PR #2 at
