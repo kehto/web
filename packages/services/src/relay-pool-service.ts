@@ -100,6 +100,96 @@ type RelayServiceMessage = NappletMessage & {
   relay?: unknown;
 };
 
+type PublishEvent = (
+  relayMessage: RelayServiceMessage,
+  resultType: 'relay.publish.result' | 'relay.publishEncrypted.result',
+  send: (msg: NappletMessage) => void,
+  plan: RelayOperationPlan,
+  signal: ApprovalSignal,
+) => void;
+
+/** Execute one already-approved relay plan and retain only its exact generation. */
+function executeRelayOperation(
+  options: RelayPoolServiceOptions,
+  tracked: Map<string, TrackedSubscription>,
+  publishEvent: PublishEvent,
+  windowId: string,
+  message: NappletMessage,
+  plan: RelayOperationPlan,
+  signal: ApprovalSignal,
+  send: (msg: NappletMessage) => void,
+): void {
+  if (signal.aborted) return;
+  const relayMessage = message as RelayServiceMessage;
+  if (message.type === 'relay.subscribe') {
+    const subId = relayMessage.subId;
+    if (typeof subId !== 'string') return;
+    const filters = Array.isArray(relayMessage.filters) ? relayMessage.filters as NostrFilter[] : [];
+    const subKey = `${windowId}:${subId}`;
+    const existing = tracked.get(subKey);
+    if (existing) {
+      existing.handle.unsubscribe();
+      clearTimeout(existing.eoseTimer);
+      tracked.delete(subKey);
+    }
+    if (!options.isAvailable()) {
+      send({ type: 'relay.eose', subId } as NappletMessage);
+      return;
+    }
+    const relayUrls = [...plan.relayUrls];
+    let eoseSent = false;
+    const eoseTimer = setTimeout(() => {
+      if (!eoseSent) {
+        eoseSent = true;
+        send({ type: 'relay.eose', subId } as NappletMessage);
+      }
+    }, EOSE_FALLBACK_MS);
+    const entry: TrackedSubscription = { handle: { unsubscribe() {} }, eoseTimer };
+    tracked.set(subKey, entry);
+    const handle = options.subscribe(filters, (item, observedRelayUrls) => {
+      if (signal.aborted || tracked.get(subKey) !== entry) return;
+      if (item === 'EOSE') {
+        clearTimeout(eoseTimer);
+        if (!eoseSent) {
+          eoseSent = true;
+          send({ type: 'relay.eose', subId } as NappletMessage);
+        }
+        return;
+      }
+      send({ type: 'relay.event', subId,
+        result: createRelayEventResultWithHints(item, observedRelayUrls ?? relayUrls) } as NappletMessage);
+    }, relayUrls, typeof relayMessage.relay === 'string' && relayMessage.relay.length > 0);
+    entry.handle = handle;
+    if (tracked.get(subKey) !== entry) {
+      handle.unsubscribe();
+      clearTimeout(eoseTimer);
+    }
+    signal.addEventListener('abort', () => {
+      if (tracked.get(subKey) !== entry) return;
+      entry.handle.unsubscribe();
+      clearTimeout(entry.eoseTimer);
+      tracked.delete(subKey);
+    }, { once: true });
+    return;
+  }
+  if (message.type === 'relay.close') {
+    const subId = relayMessage.subId;
+    if (typeof subId !== 'string') return;
+    const entry = tracked.get(`${windowId}:${subId}`);
+    if (entry) {
+      entry.handle.unsubscribe();
+      clearTimeout(entry.eoseTimer);
+      tracked.delete(`${windowId}:${subId}`);
+    }
+    return;
+  }
+  if (message.type === 'relay.publish') {
+    publishEvent(relayMessage, 'relay.publish.result', send, plan, signal);
+  } else if (message.type === 'relay.publishEncrypted') {
+    publishEvent(relayMessage, 'relay.publishEncrypted.result', send, plan, signal);
+  }
+}
+
 /**
  * Create a relay pool service that wraps an existing relay pool
  * implementation as a ServiceHandler.
@@ -192,100 +282,8 @@ export function createRelayPoolService(options: RelayPoolServiceOptions): RelayP
 
     planRelayOperation,
 
-    executeRelayOperation(windowId: string, message: NappletMessage, plan: RelayOperationPlan, signal: ApprovalSignal,
-      send: (msg: NappletMessage) => void): void {
-      if (signal.aborted) return;
-      const relayMessage = message as RelayServiceMessage;
-      if (message.type === 'relay.subscribe') {
-        const subId = relayMessage.subId;
-        if (typeof subId !== 'string') return;
-        const filters = Array.isArray(relayMessage.filters)
-          ? relayMessage.filters as NostrFilter[]
-          : [];
-        const subKey = `${windowId}:${subId}`;
-
-        // Cancel existing subscription for this key if any
-        const existing = tracked.get(subKey);
-        if (existing) {
-          existing.handle.unsubscribe();
-          clearTimeout(existing.eoseTimer);
-          tracked.delete(subKey);
-        }
-
-        if (!options.isAvailable()) {
-          send({ type: 'relay.eose', subId } as NappletMessage);
-          return;
-        }
-
-        const relayUrls = [...plan.relayUrls];
-        let eoseSent = false;
-
-        const eoseTimer = setTimeout(() => {
-          if (!eoseSent) {
-            eoseSent = true;
-            send({ type: 'relay.eose', subId } as NappletMessage);
-          }
-        }, EOSE_FALLBACK_MS);
-
-        const entry: TrackedSubscription = { handle: { unsubscribe() {} }, eoseTimer };
-        tracked.set(subKey, entry);
-        const handle = options.subscribe(filters, (item, observedRelayUrls) => {
-          if (signal.aborted || tracked.get(subKey) !== entry) return;
-          if (item === 'EOSE') {
-            clearTimeout(eoseTimer);
-            if (!eoseSent) {
-              eoseSent = true;
-              send({ type: 'relay.eose', subId } as NappletMessage);
-            }
-            return;
-          }
-          send({
-            type: 'relay.event',
-            subId,
-            result: createRelayEventResultWithHints(item, observedRelayUrls ?? relayUrls),
-          } as NappletMessage);
-        }, relayUrls, typeof relayMessage.relay === 'string' && relayMessage.relay.length > 0);
-
-        entry.handle = handle;
-        // A synchronous backend event can revoke its owner before subscribe()
-        // returns. The exact-entry check prevents that retired generation from
-        // retaining a physical handle after a replacement took its key.
-        if (tracked.get(subKey) !== entry) {
-          handle.unsubscribe();
-          clearTimeout(eoseTimer);
-        }
-        signal.addEventListener('abort', () => {
-          if (tracked.get(subKey) !== entry) return;
-          entry.handle.unsubscribe();
-          clearTimeout(entry.eoseTimer);
-          tracked.delete(subKey);
-        }, { once: true });
-        return;
-      }
-
-      if (message.type === 'relay.close') {
-        const subId = relayMessage.subId;
-        if (typeof subId !== 'string') return;
-        const subKey = `${windowId}:${subId}`;
-        const entry = tracked.get(subKey);
-        if (entry) {
-          entry.handle.unsubscribe();
-          clearTimeout(entry.eoseTimer);
-          tracked.delete(subKey);
-        }
-        return;
-      }
-
-      if (message.type === 'relay.publish') {
-        publishEvent(relayMessage, 'relay.publish.result', send, plan, signal);
-        return;
-      }
-
-      if (message.type === 'relay.publishEncrypted') {
-        publishEvent(relayMessage, 'relay.publishEncrypted.result', send, plan, signal);
-        return;
-      }
-    },
+    executeRelayOperation: (windowId, message, plan, signal, send) =>
+      executeRelayOperation(options, tracked, publishEvent, windowId, message, plan, signal, send),
 
     handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void {
       service.executeRelayOperation(windowId, message, service.planRelayOperation(windowId, message),

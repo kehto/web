@@ -4,7 +4,7 @@ import type { PermissionRequirement } from '@kehto/firewall';
 import type { ApprovalFailure, ApprovalOutcome, ApprovalSignal } from './approval-coordinator.js';
 import type { ServiceDescriptor } from './types.js';
 
-/** Immutable, internal relay destination decision made before approval. */
+/** Immutable relay destination decision. */
 export interface RelayOperationPlan {
   /** Canonical top-level operation that owns this decision. */
   readonly operation: 'subscribe' | 'query' | 'publish' | 'publishEncrypted';
