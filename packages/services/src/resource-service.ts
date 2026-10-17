@@ -21,7 +21,7 @@
  * ──────────────────────────────────────────────────────────────────────────────
  *
  * Runtime integration requires only `fetch`. When installed through a runtime
- * with approval support, every resource URL and actual HTTP(S) destination is
+ * with approval support, every resource URL and actual HTTP(S) or WebSocket destination is
  * authorized independently.
  *
  * @example
@@ -72,7 +72,7 @@ export interface ResourceFetchInit {
   signal: AbortSignal;
   /** Authenticated source window, for runtime-private scoped policy state. */
   windowId?: string;
-  /** Authorize every actual HTTP(S) destination before the resolver contacts it. */
+  /** Authorize every actual HTTP(S) or WebSocket destination before the resolver contacts it. */
   authorizeNetwork?: AuthorizeNetwork;
 }
 
@@ -139,6 +139,21 @@ interface ResourceRequestState {
     terminal: boolean;
   }>;
   perWindow: Map<string, Set<string>>;
+  completed: Map<string, Set<string>>;
+}
+
+// Kehto replay policy, additional to NAP-RESOURCE ae5b9c64 cancellation rules.
+// Keep recent terminal IDs bounded independently from still-active requests.
+const MAX_COMPLETED_RESOURCE_IDS = 1024;
+
+function rememberCompleted(state: ResourceRequestState, windowId: string, requestId: string): void {
+  let completed = state.completed.get(windowId);
+  if (!completed) {
+    completed = new Set();
+    state.completed.set(windowId, completed);
+  }
+  completed.add(requestId);
+  if (completed.size > MAX_COMPLETED_RESOURCE_IDS) completed.delete(completed.values().next().value!);
 }
 
 export type ResourceErrorCode =
@@ -220,6 +235,7 @@ function untrackRequest(state: ResourceRequestState, windowId: string, requestId
   if (entry?.controller === controller) {
     state.inFlight.delete(key);
     state.perWindow.get(entry.windowId)?.delete(key);
+    rememberCompleted(state, windowId, requestId);
   }
 }
 
@@ -434,6 +450,7 @@ async function handleBytesMany(
 ): Promise<void> {
   const { requestId, urls } = msg;
   if (!isResourceUrlList(urls)) {
+    rememberCompleted(state, windowId, requestId);
     sendBytesManyError(send, requestId, 'resource.bytesMany requires a non-empty urls array', 'invalid-request');
     return;
   }
@@ -497,6 +514,7 @@ function handleCancel(state: ResourceRequestState, windowId: string, requestId: 
 }
 
 function destroyWindowRequests(state: ResourceRequestState, windowId: string): void {
+  state.completed.delete(windowId);
   const requestIds = state.perWindow.get(windowId);
   if (!requestIds) return;
   for (const key of requestIds) {
@@ -517,7 +535,7 @@ function destroyWindowRequests(state: ResourceRequestState, windowId: string): v
  * result/error envelopes.
  *
  * The runtime resolver is validated at construction. Runtime-bound approvals
- * cover the exact resource URL and each resolver-reported HTTP(S) hop.
+ * cover the exact resource URL and each resolver-reported HTTP(S) or WebSocket hop.
  *
  * Returns a `ServiceHandler` (no `publishValues`-style surface — resource has
  * no shell-initiated push beyond the response/error path).
@@ -546,6 +564,7 @@ export function createResourceService(options: ResourceServiceOptions): Resource
     },
     inFlight: new Map(),
     perWindow: new Map<string, Set<string>>(),
+    completed: new Map(),
   };
 
   const descriptor: ServiceDescriptor = {
@@ -578,6 +597,10 @@ export function createResourceService(options: ResourceServiceOptions): Resource
       message: NappletMessage,
       send: (msg: NappletMessage) => void,
     ): void {
+      if (message.type !== 'resource.cancel') {
+        const id = requestIdFromMessage(message);
+        if (id && (state.inFlight.has(requestKey(windowId, id)) || state.completed.get(windowId)?.has(id))) return;
+      }
       switch (message.type) {
         case 'resource.bytes': {
           const m = message as NappletMessage & {
@@ -587,6 +610,7 @@ export function createResourceService(options: ResourceServiceOptions): Resource
           const requestId = requestIdFromMessage(m);
           if (!requestId) return;
           if (typeof m.url !== 'string') {
+            rememberCompleted(state, windowId, requestId);
             sendResourceError(send, requestId, 'resource.bytes requires a URL', 'invalid-request');
             return;
           }
@@ -632,6 +656,7 @@ export function createResourceService(options: ResourceServiceOptions): Resource
 
     onUnregistered(): void {
       for (const windowId of state.perWindow.keys()) destroyWindowRequests(state, windowId);
+      state.completed.clear();
       state.runtime = undefined;
     },
 

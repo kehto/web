@@ -582,3 +582,17 @@ resource_execution assigned complete discovery transport/cancellation/cache fix,
 including required router seams and docs; preserve author discovery functionality.
 NAP-RESOURCE PR80 head rechecked unchanged ae5b9c64. Hold01/02 summaries and all
 downstream execution until regression fixed and combined full gates rerun.
+
+2026-10-17: Previous turn was progress (97e50f2c helper fix and afb001d0 red
+discovery evidence). Current audit found missing completed-ID replay ledger in
+resource-service despite113-01 requirement. Three new behavioral tests first
+failed on repeated transport calls. Added per-window bounded1024 completed IDs,
+kept in-flight ownership independent, suppressed malformed ID reuse, and cleared
+history on source destruction/detach. Five new tests plus37 related tests PASS;
+services type-check PASS (session7033 terminal0), docs:check PASS (session20129
+terminal0, /tmp/kehto-resource-replay-docs.log), quality100
+(/tmp/kehto-resource-replay-quality.json). Updated service docs and changeset.
+RESOURCE80 exact head rechecked unchanged ae5b9c64. resource_execution remains
+active on discovery transport fix across Paja resolver/adapter/router seams.
+Full resource group remains incomplete pending discovery regression and combined
+gates; no downstream113/114 execution or PR yet.

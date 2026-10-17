@@ -142,3 +142,12 @@ All Phase 113 behavior has an automated task or wave proof. No manual-only accep
 - [x] Full phase gates include build, type, unit, browser, docs, pinned AI-slop, changeset, and diff checks.
 
 **Approval state:** planned; executors update task and wave evidence in their summaries, and Phase 113 may be marked complete only after the Wave 7 gate is green.
+
+### Resource completed-ID replay regression
+
+`pnpm exec vitest run tests/unit/resource-replay-lifecycle.test.ts` proves
+completed and cancelled IDs cannot repeat resolver side effects, malformed
+reuse emits no second terminal, windows remain independent, source destruction
+and detach clear history, and the 1,024-entry bound never evicts active work.
+Five cases passed on 2026-10-17; this does not close the outstanding discovery
+transport regression or replace the full group gates.

@@ -164,3 +164,14 @@ Standalone or unmigrated hosts retain resolver-owned policy with diagnostic
 `FW-RESOURCE-LEGACY-001`, once per service instance on actual fetch use. Configure
 `RuntimeAdapter.permissions` and trusted session `permissionPrincipal` to use
 shared grants. No old origin list is imported into Firewall permission grants.
+
+### Resource request replay policy
+
+Kehto retains the latest 1,024 completed resource request IDs per source window.
+Reusing a retained ID, including with a different resource operation or malformed
+payload, causes no additional resolver call or terminal response. Active IDs are
+tracked separately and cannot be evicted by completed requests. Cancellation
+always reaches active work; cancelled IDs enter the replay ledger when their
+work settles. Source destruction and service detachment clear the corresponding
+history. This bounded Kehto policy supplements NAP-RESOURCE's cancellation rules;
+callers should generate fresh IDs because older completed entries are evicted.
