@@ -700,6 +700,7 @@ export function createRelayPoolOutboxRouter(options: RelayPoolOutboxRouterOption
     loadRelayLists: options.loadRelayLists,
     fallbackRelays: options.fallbackRelays,
     signEvent: options.signEvent,
+    getSignerPubkey: options.getSignerPubkey,
     isRelayAllowed: options.isRelayAllowed ?? defaultRelayAllowed,
     defaultTimeoutMs: options.defaultTimeoutMs ?? DEFAULT_QUERY_TIMEOUT_MS,
     async verify(event: NostrEvent): Promise<boolean> {
@@ -712,9 +713,17 @@ export function createRelayPoolOutboxRouter(options: RelayPoolOutboxRouterOption
     },
   };
 
+  async function planPublish(publishOptions?: OutboxPublishOptions): Promise<OutboxRelayPlan> {
+    if (!ctx.getSignerPubkey) return { relays: [], source: 'policy' };
+    const pubkey = await ctx.getSignerPubkey();
+    const plan = await resolvePlan(ctx, publishOptions?.toOutbox === false ? [] : [pubkey], 'read', publishOptions?.relays);
+    return plan;
+  }
+
   return {
     planRead: (filters, queryOptions) => resolvePlan(ctx, deriveAuthors(filters, queryOptions?.authors), 'read', queryOptions?.relays),
     queryWithPlan: (filters, queryOptions, plan) => queryPlanImpl(ctx, filters, queryOptions, plan),
+    planPublish,
     getEvent: (eventId, eventOptions) => getEventImpl(ctx, eventId, eventOptions),
     query: (filters, queryOptions) => queryImpl(ctx, filters, queryOptions),
     queryStream: (filters, queryOptions, sink) => startQueryImpl(ctx, filters, queryOptions, sink),

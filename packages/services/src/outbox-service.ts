@@ -184,6 +184,8 @@ export interface StreamingOutboxRouter extends OutboxRouter {
   planRead?(filters: NostrFilter[], options?: OutboxQueryOptions): Promise<OutboxRelayPlan>;
   /** Execute a previously resolved read plan without discovery or fallback expansion. */
   queryWithPlan?(filters: NostrFilter[], options: OutboxQueryOptions | undefined, plan: OutboxRelayPlan): Promise<OutboxResult>;
+  /** Resolve publish fanout from the signer identity before signature creation. */
+  planPublish?(options?: OutboxPublishOptions): Promise<OutboxRelayPlan>;
   /**
    * Start policy/fallback reads immediately, stream verified events through
    * `sink`, and attach author relays when concurrent discovery resolves.
