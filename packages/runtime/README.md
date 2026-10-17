@@ -389,3 +389,10 @@ Persistent grants require successful durable writes; revocation failures disable
 access until recovery. Services use `ServiceRuntimeContext.authorizeOperation`
 and observe its cancellation signal. See [scoped approvals](../../docs/firewall-approvals.md)
 for adapter examples, lifetimes, failure handling, and the remaining migration scope.
+
+Use `runtime.permissions.admit` with a trusted provisional session before starting
+an app, then `isAdmissionCurrent` immediately before injecting the returned domains.
+Required denial blocks admission; optional denial narrows the result. Built-in
+interfaces require these grants. Declared service extensions use shared held
+approvals, immutable bounded requests, replay protection, and independent prompt
+budgets. Their `onPermissionDenied` hook owns any extension-specific error response.

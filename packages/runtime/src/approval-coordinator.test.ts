@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createPermissionState } from '@kehto/firewall';
+import { createPermissionState, putPermissionGrant } from '@kehto/firewall';
 import type { PermissionPrincipal, PermissionRequirement, PermissionState } from '@kehto/firewall';
 import { createApprovalCoordinator } from './approval-coordinator.js';
 import type { ApprovalAnswer, ApprovalCancellation, ApprovalCoordinatorOptions, ApprovalPrompt, ApprovalSignal } from './approval-coordinator.js';
@@ -97,9 +97,10 @@ describe('approval coordination', () => {
     const result = f.run(() => current);
     await shown.promise;
     if (change === 'identity') current = false;
-    else f.replace(createPermissionState());
+    else f.replace(putPermissionGrant(f.state(), { id: 'deny', principal, permission: requirement,
+      effect: 'deny', lifetime: 'session', sessionId: 'session-1' }));
     answer.resolve(session);
-    expect(await result).toEqual({ status: 'cancelled' });
+    expect(await result).toEqual({ status: change === 'identity' ? 'cancelled' : 'denied' });
     expect(f.action).not.toHaveBeenCalled();
   });
 
@@ -114,6 +115,56 @@ describe('approval coordination', () => {
     expect(prompt.missing[0].scope.value).toBe(requirement.scope.value);
     answer.resolve(once);
     expect((await result).status).toBe('executed');
+  });
+
+  it('preserves both approvals when different sessions prompt concurrently', async () => {
+    const answers = [deferred<ApprovalAnswer>(), deferred<ApprovalAnswer>()];
+    const shown = deferred<void>();
+    let count = 0;
+    const f = fixture({ prompt: () => {
+      const answer = answers[count++];
+      if (count === 2) shown.resolve();
+      return answer.promise;
+    } });
+    const first = f.run();
+    const second = f.coordinator.run(principal, 'session-2', [requirement], () => true, f.action);
+    await shown.promise;
+    answers[0].resolve(session);
+    expect((await first).status).toBe('executed');
+    answers[1].resolve(session);
+    expect((await second).status).toBe('executed');
+    expect(new Set(f.state().grants.map((grant) => grant.sessionId))).toEqual(new Set(['session-1', 'session-2']));
+    expect(f.action).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not approve a prerequisite removed after the prompt was shown', async () => {
+    const answer = deferred<ApprovalAnswer>();
+    const shown = deferred<ApprovalPrompt>();
+    const f = fixture({ prompt: (value) => { shown.resolve(value); return answer.promise; } });
+    f.replace(putPermissionGrant(f.state(), { id: 'resource', principal, permission: requirement,
+      effect: 'allow', lifetime: 'session', sessionId: 'session-1' }));
+    const result = f.run();
+    expect((await shown.promise).missing.map((item) => item.category)).toEqual(['interface']);
+    f.replace(createPermissionState());
+    answer.resolve(session);
+    expect(await result).toEqual({ status: 'cancelled' });
+    expect(f.state().grants).toEqual([]);
+    expect(f.action).not.toHaveBeenCalled();
+  });
+
+  it.each(['unrelated', 'relevant'] as const)('revalidates %s policy changes during an action', async (change) => {
+    const done = deferred<string>();
+    const started = deferred<void>();
+    const f = fixture({ prompt: async () => session });
+    const result = f.coordinator.run(principal, 'session-1', [requirement], () => true, () => {
+      started.resolve(); return done.promise;
+    });
+    await started.promise;
+    f.replace(change === 'relevant' ? createPermissionState() : putPermissionGrant(f.state(), {
+      id: 'other-session', principal, permission: requirement, effect: 'allow', lifetime: 'session', sessionId: 'other',
+    }));
+    done.resolve('opened');
+    expect(await result).toEqual(change === 'relevant' ? { status: 'cancelled' } : { status: 'executed', value: 'opened' });
   });
 
   it.each(['missing', 'throwing', 'commit'] as const)('fails closed on %s host support', async (failure) => {

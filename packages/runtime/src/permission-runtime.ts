@@ -1,12 +1,15 @@
-import { permissionPrincipalKey } from '@kehto/firewall';
-import type { PermissionGrant, PermissionRequirement } from '@kehto/firewall';
+import { evaluatePermissions, permissionPrincipalKey } from '@kehto/firewall';
+import type { PermissionGrant, PermissionRequest, PermissionRequirement } from '@kehto/firewall';
 import { createApprovalCoordinator } from './approval-coordinator.js';
 import type { ApprovalCoordinatorOptions, ApprovalOutcome, ApprovalSignal } from './approval-coordinator.js';
 import { createPermissionStore } from './permission-state.js';
 import type { PermissionPersistence, PermissionStorageFailure } from './permission-state.js';
-import { createRateLimitState, defaultRateLimitConfig, evaluateRateLimit, retireRateLimitLifecycle } from './rate-limit.js';
+import { createRateLimitState, defaultRateLimitConfig, defaultPromptRateLimitConfig, evaluateRateLimit, retireRateLimitLifecycle } from './rate-limit.js';
 import type { RateLimitConfig, RateLimitResult } from './rate-limit.js';
 import type { SessionEntry } from './types.js';
+import { createPermissionAdmission, interfaceRequirements } from './permission-admission.js';
+import type { PermissionAdmission, PermissionAdmissionRequest } from './permission-admission.js';
+export type { PermissionAdmission, PermissionAdmissionRequest } from './permission-admission.js';
 
 /** Host UI, time, cancellation, and storage adapters for scoped approvals. */
 export interface PermissionAdapter extends Pick<ApprovalCoordinatorOptions,
@@ -17,6 +20,8 @@ export interface PermissionAdapter extends Pick<ApprovalCoordinatorOptions,
   readonly now: () => number;
   /** Independent temporal policy; approvals cannot override it. */
   readonly rateLimit?: RateLimitConfig;
+  /** Blocking UI-spam budgets, separate from operation budgets. */
+  readonly promptRateLimit?: RateLimitConfig;
   /** Budget diagnostics omit payloads, URLs, and stored permission records. */
   readonly onRateLimit?: (event: PermissionRateEvent) => void;
 }
@@ -31,6 +36,10 @@ export interface PermissionRateEvent {
 
 /** Host management surface. Revocation failures require retry or explicit reset. */
 export interface RuntimePermissions {
+  /** Approve declared interfaces for a trusted provisional session before executing app bytes. */
+  admit(windowId: string, request: PermissionAdmissionRequest): Promise<PermissionAdmission>;
+  /** Revalidate an issued admission immediately before injecting namespaces/bytes. */
+  isAdmissionCurrent(windowId: string, admission: PermissionAdmission): boolean;
   /** Immutable granted/denied scopes, including ephemeral sessions. */
   readonly grants: readonly PermissionGrant[];
   /** False after a load failure or a durable revocation that could not be saved. */
@@ -47,7 +56,7 @@ interface PermissionRuntimeContext {
   adapter: PermissionAdapter;
   createId: () => string;
   getSession: (windowId: string) => SessionEntry | undefined;
-  allowed: (windowId: string, requirements: readonly PermissionRequirement[]) => boolean;
+  allowed: (windowId: string, requirements: readonly PermissionRequirement[], phase: 'admission' | 'operation') => boolean;
   focused: (windowId: string) => boolean;
   /** Close service operations affected by revocation. Undefined means all. */
   invalidate: (windowId?: string) => void;
@@ -57,12 +66,16 @@ interface PermissionRuntimeContext {
 export function createPermissionRuntime(context: PermissionRuntimeContext) {
   const { adapter } = context;
   const lifetimes = new Map<string, { entry: SessionEntry; id: string; subject: string; started: number }>();
+  const retiredSources = new WeakSet<SessionEntry>();
   let rates = createRateLimitState();
+  let promptRates = createRateLimitState();
   let disposed = false;
+  let admissionRevision = 0;
   let coordinator: ReturnType<typeof createApprovalCoordinator>;
   const store = createPermissionStore({
     persistence: adapter.persistence, extensions: adapter.extensions, onError: adapter.onStorageError,
     invalidate(sessionId) {
+      admissionRevision++;
       coordinator?.cancel(sessionId);
       if (sessionId === undefined) context.invalidate();
       else {
@@ -74,21 +87,41 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
   });
   store.load();
   coordinator = createApprovalCoordinator({ ...adapter, createId: context.createId,
-    getState: store.getState, commit: store.commit });
+    getState: store.getState, commit: store.commit, beforePrompt: chargePrompt });
+
+  function chargePrompt(request: PermissionRequest): boolean {
+    const source = [...lifetimes].find(([, lifetime]) => lifetime.id === request.sessionId);
+    if (!source) return false;
+    const [windowId, lifetime] = source;
+    const now = adapter.now();
+    const rate = evaluateRateLimit(adapter.promptRateLimit ?? defaultPromptRateLimitConfig(), promptRates, {
+      subject: lifetime.subject, operation: 'permission.prompt', lifecycle: lifetime.id,
+      elapsedSinceStartMs: Math.max(0, now - lifetime.started), focused: context.focused(windowId), now,
+    });
+    promptRates = rate.state;
+    if (rate.reason !== 'within-budget') {
+      try { adapter.onRateLimit?.({ windowId, operation: 'permission.prompt', action: rate.action, reason: rate.reason }); }
+      catch { /* Diagnostics cannot authorize another prompt. */ }
+    }
+    return rate.allowed;
+  }
 
   function retire(windowId: string): void {
     const lifetime = lifetimes.get(windowId);
     if (!lifetime) return;
+    retiredSources.add(lifetime.entry);
     // Remove first: retiring a source does not recursively request host cleanup.
     lifetimes.delete(windowId);
     store.retire(lifetime.id);
     rates = retireRateLimitLifecycle(rates, lifetime.subject, lifetime.id);
+    promptRates = retireRateLimitLifecycle(promptRates, lifetime.subject, lifetime.id);
   }
 
   function run<T>(windowId: string, operation: string, requirements: readonly PermissionRequirement[],
-    isCurrent: () => boolean, execute: (signal: ApprovalSignal) => T | Promise<T>): Promise<ApprovalOutcome<T>> {
+    isCurrent: () => boolean, execute: (signal: ApprovalSignal) => T | Promise<T>, phase: 'admission' | 'operation' = 'operation'): Promise<ApprovalOutcome<T>> {
     if (disposed) return Promise.resolve({ status: 'cancelled' });
     const entry = context.getSession(windowId);
+    if (entry && retiredSources.has(entry)) return Promise.resolve({ status: 'cancelled' });
     if (!entry?.permissionPrincipal || !store.available) return Promise.resolve({ status: 'unavailable' });
     if (entry.permissionPrincipal.artifactHash !== entry.aggregateHash) return Promise.resolve({ status: 'denied' });
     try {
@@ -105,7 +138,7 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
     }
     const captured = lifetime;
     const current = () => !disposed && store.available && lifetimes.get(windowId) === captured
-      && context.getSession(windowId) === entry && context.allowed(windowId, requirements) && isCurrent();
+      && context.getSession(windowId) === entry && context.allowed(windowId, requirements, phase) && isCurrent();
     if (!current()) return Promise.resolve({ status: 'denied' });
     try {
       const now = adapter.now();
@@ -120,17 +153,51 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
       }
       if (!rate.allowed) return Promise.resolve({ status: 'busy' });
     } catch { return Promise.resolve({ status: 'unavailable' }); }
-    return coordinator.run(entry.permissionPrincipal, lifetime.id, requirements, current, execute);
+    return coordinator.run(entry.permissionPrincipal, lifetime.id, requirements, current, execute,
+      phase === 'admission' ? ['session', 'persistent'] : undefined);
   }
 
+
+  function stillGranted(windowId: string, domains: readonly string[]): boolean {
+    if (disposed || !store.available) return false;
+    const lifetime = lifetimes.get(windowId);
+    if (!lifetime || retiredSources.has(lifetime.entry) || context.getSession(windowId) !== lifetime.entry || !lifetime.entry.permissionPrincipal) return false;
+    if (domains.length === 0) return true;
+    return evaluatePermissions({ version: 1, grants: store.getState().grants.filter((grant) => grant.lifetime !== 'once') }, {
+      principal: lifetime.entry.permissionPrincipal, sessionId: lifetime.id, requestId: 'interface-admission-check',
+      requirements: interfaceRequirements(domains),
+    }, adapter).decision === 'allow';
+  }
+
+
+  const admission = createPermissionAdmission({
+    getSession: context.getSession, available: () => !disposed && store.available,
+    isRetired: (entry) => retiredSources.has(entry), revision: () => admissionRevision,
+    allowed: (windowId, requirements) => context.allowed(windowId, requirements, 'admission'),
+    stillGranted,
+    run: (windowId, requirements, current) => run(windowId, 'interface.admit', requirements, current, () => undefined, 'admission'),
+  });
+
   const management: RuntimePermissions = {
+    ...admission,
     get grants() { return store.getState().grants; },
     get available() { return store.available; },
     revoke: store.revoke,
     clear: store.clear,
     retryPersistence: store.retryPersistence,
   };
-  return { management, run, retire, cancelPending(): void { coordinator.cancel(); }, cancelWindow(windowId: string): void {
+  return { management, run, retire,
+    close(windowId: string): void {
+      const entry = context.getSession(windowId);
+      if (entry) retiredSources.add(entry);
+      retire(windowId);
+    },
+    isSourceActive(windowId: string): boolean {
+      const entry = context.getSession(windowId);
+      return !disposed && !!entry && !retiredSources.has(entry);
+    },
+    hasInterface: (windowId: string, domain: string): boolean => stillGranted(windowId, [domain]),
+    cancelPending(): void { coordinator.cancel(); }, cancelWindow(windowId: string): void {
     const lifetime = lifetimes.get(windowId);
     if (lifetime) coordinator.cancel(lifetime.id);
   }, destroy(): void {

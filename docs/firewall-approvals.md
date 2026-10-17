@@ -1,10 +1,11 @@
 # Scoped Firewall approvals
 
-This migration is in progress. Shared approval coordination currently governs
-the reference LINK service when a host supplies `RuntimeAdapter.permissions`
-(or `ShellAdapter.permissions`). Other domains and Paja/playground admission
-have not yet migrated. Existing Firewall configuration is not converted into
-resource, network, or interface grants.
+This migration is in progress. Hosts supplying `RuntimeAdapter.permissions`
+(or `ShellAdapter.permissions`) can use pre-execution interface admission.
+Built-in interface dispatch requires its admission grant; LINK and declared
+service extensions also support held operation approvals. Resource/network scope
+enforcement in other services and Paja/playground admission/UI have not yet
+migrated. Existing Firewall configuration is not converted into scoped grants.
 
 ## Responsibilities
 
@@ -32,10 +33,10 @@ const permissions: PermissionAdapter = {
     const timer = setTimeout(callback, delay);
     return () => clearTimeout(timer);
   },
-  prompt: async ({ request, missing, signal }) => {
+  prompt: async ({ request, missing, signal, allowLifetimes }) => {
     // Render trusted identity + exact scopes; never treat app labels as authority.
     // The UI must close on signal.abort and return an explicit lifetime.
-    return showApproval({ request, missing, signal });
+    return showApproval({ request, missing, signal, allowLifetimes });
   },
   persistence: {
     load: () => localStorage.getItem('kehto:permissions:v1'),
@@ -54,6 +55,13 @@ deadline, including queue time. `maxPending` and `timeoutMs` configure these bou
 budgets without including payloads or destinations. Diagnostic failures cannot
 override enforcement.
 
+`promptRateLimit` separately bounds actual UI prompts. The default blocks beyond
+12 prompts per minute, with four permitted during the first three seconds of a
+source lifecycle. Existing grants and deduplicated requests do not consume this
+budget unless they need another prompt. Replacement does not replenish the
+principal's prompt or operation token buckets. `defaultPromptRateLimitConfig()`
+exports this default independently of the permission model.
+
 Hosts register `permissionPrincipal` through `OriginIdentity` or `SessionEntry`:
 
 - Verified: `{ kind: 'verified', manifestKey: catalogId, artifactHash }`, using
@@ -66,6 +74,44 @@ The principal hash must equal the session artifact hash. A dTag/hash tuple alone
 does not establish publisher identity and cannot authorize this path. Registries
 detach and freeze principal data; no identity is taken from wire messages. Session
 grant generations are runtime-generated and do not reuse persistent instance GUIDs.
+
+## Admission before executing app bytes
+
+Register a trusted provisional session before rendering the app. Pass the verified
+manifest's required/optional domains and the host's actual available domains to:
+
+```ts
+const permissions = runtime.permissions;
+if (!permissions) throw new Error('Configure host permission adapters first');
+const admission = await permissions.admit(windowId, {
+  required: manifest.requires,
+  optional: manifest.optional,
+  available: availableEnvironment.capabilities.domains,
+});
+if (admission.status !== 'admitted') {
+  runtime.destroyWindow(windowId);
+  runtime.sessionRegistry.unregister(windowId);
+  throw new Error('Application interfaces were not approved');
+}
+// After any further awaited preparation, revalidate immediately before rendering.
+if (!permissions.isAdmissionCurrent(windowId, admission)) {
+  throw new Error('Application admission expired');
+}
+// Inject only admission.domains and the corresponding available services.
+```
+
+The host must obtain a new provisional session for navigation/replacement. Required
+denial or unavailability prevents admission. Optional denial omits that interface.
+Unused available domains are not automatically granted; `shell` is optional under
+the checked NAP-SHELL authority. Admission accepts session/persistent positive
+choices, never once; development sources can choose only session. The prompt's
+immutable `allowLifetimes` tells the UI which positive choices apply. Deny-once
+remains available. Startup grants do not grant resources or network destinations.
+
+An admission result is an immutable host token bound to the exact source generation.
+Copies and forged results fail revalidation. Revocation, retirement, teardown, or
+ACL blocking invalidate its use. This API is implemented and tested; migrating the
+Paja/playground frame loaders to call it remains outstanding.
 
 ## Decisions, cancellation, and revocation
 
@@ -100,6 +146,29 @@ LINK retains up to 4,096 unique request IDs per source lifecycle and rejects
 further IDs until retirement. Repeated IDs never reopen a link. Unknown LINK
 actions are silent and never trigger approval. Non-successful authorization for a
 live request returns `link.open.result` with the original ID and `status: denied`.
+
+## Registered extensions
+
+Only exact `messageCapabilities` entries are eligible. Explicit source domain
+exposure, ACL restrictions, shared interface approval, and independent temporal
+budgets all apply. Requests are detached, deeply frozen JSON, bounded to 8,192
+values, 32 nesting levels, and one MiB of string/key characters. Accessors,
+serialization hooks, cycles, nonfinite numbers, sparse arrays, and non-JSON values
+cannot reach prompting or handlers. A source retains at most 4,096 `(type, id)`
+pairs; a repeated pair cannot execute again in that lifecycle. Messages without
+IDs retain their declared fire-and-forget behavior.
+
+An extension can supply `onPermissionDenied(windowId, message, reason, send)` to
+project an unsuccessful authorization onto its own response contract. Runtime
+never invents extension error envelopes; omission is silent. Only exact declared
+requests can reach that projection, and replies remain bound to the source and
+service registration. Services owning resource or network actions must request
+those additional scopes using `authorizeOperation` before the actual action.
+
+Arbitrary host extensions have no owning NAP specification. Their error schemas
+and operation validation are explicitly host-owned; the shared admission boundary
+adds no canonical NAP messages. A published NAP implementation must independently
+honor its owning document.
 
 ## Compatibility and authority
 

@@ -1,7 +1,7 @@
 import type { NappletMessage } from '@napplet/core';
 import type { Capability } from '@kehto/acl/capabilities';
 import type { PermissionRequirement } from '@kehto/firewall';
-import type { ApprovalOutcome, ApprovalSignal } from './approval-coordinator.js';
+import type { ApprovalFailure, ApprovalOutcome, ApprovalSignal } from './approval-coordinator.js';
 import type { ServiceDescriptor } from './types.js';
 
 /**
@@ -73,6 +73,13 @@ export interface ServiceRuntimeContext {
  * ```
  */
 export interface ServiceHandler {
+  /**
+   * Project a denied registered extension request onto its host-owned contract.
+   * Only exact declared requests reach this callback. Omission stays silent;
+   * runtime never invents extension error envelopes. Retired sources get no reply.
+   */
+  onPermissionDenied?(windowId: string, message: NappletMessage, reason: ApprovalFailure,
+    send: (message: NappletMessage) => void): void;
   /**
    * Cancel operations whose permissions changed while the source remains live.
    * Preserve replay history and send protocol-required terminal denials where

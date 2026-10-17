@@ -8,6 +8,11 @@ messages cannot override it. The reference LINK service uses this shared path.
 See [scoped approvals](/firewall-approvals) for lifetimes, persistence, and
 the remaining domain/app migration work.
 
+The bridge exposes runtime admission through `bridge.runtime.permissions`.
+Hosts must register a provisional trusted session, call `admit`, and revalidate
+with `isAdmissionCurrent` before executing bytes with the returned domain list.
+Paja/playground frame-loader migration remains in progress.
+
 > **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
 > protocol. Injected-domain behavior and NAP contracts are not final.
 

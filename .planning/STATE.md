@@ -20,13 +20,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-28)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 107 complete — PR #289 open for review
+**Current focus:** Phase 112 — Firewall approval lifecycle integration
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
+Phase: 112-runtime-approval-lifecycle
+Plan: 112-01
+Status: In progress
 Last activity: 2026-10-17 — Milestone v1.31 started
 
 ## Performance Metrics
@@ -387,3 +387,5 @@ Build/type/docs/quality and 2,164 unit / 123 browser tests pass.
 2026-10-17: Phase 112 internal coordinator checkpoint implemented; 16 new lifecycle regressions and full 2,298-test unit suite pass, runtime types pass, quality 100. See `phases/112-runtime-approval-lifecycle/112-01-CHECKPOINT.md`. Coordinator is not yet wired or exported publicly. Continue phase 112 persistence/principal/ingress integration; phases 113–115 and open PR remain outstanding. Goal remains active.
 
 2026-10-17: Runtime durable state, source principal plumbing through shell, and reference LINK service are integrated behind host permission adapters. Full 2,323 unit / 125 browser tests pass, build/types/docs pass, quality 100. Plan 112 remains incomplete: migrate general ingress/extensions and all other services, then app admission/UI/network controls and final shipping. See the updated 112-01 checkpoint and docs/firewall-approvals.md for exact integration limits. The goal remains active; no PR yet.
+
+2026-10-17: Admission, extension authorization, prompt budgets, and concurrent-policy revalidation verified: 2,370 unit tests, build/types/docs, quality 100. Phase 112 checkpoint records remaining service and app migration. Full goal active; no PR yet.

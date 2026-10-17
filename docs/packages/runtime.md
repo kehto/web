@@ -2,7 +2,10 @@
 
 Scoped approvals are available through `RuntimeAdapter.permissions`, source-bound
 `SessionEntry.permissionPrincipal`, and `ServiceRuntimeContext.authorizeOperation`.
-The reference LINK service is integrated; other domain migration is ongoing.
+The reference LINK service and declared extension routes are integrated; other
+service scope migration is ongoing. `runtime.permissions.admit` and
+`isAdmissionCurrent` support pre-execution interface approval; built-in interface
+dispatch requires the resulting grants. Prompt budgets are independently blocking.
 See [the approval guide](/firewall-approvals) for storage, cancellation,
 revocation, and independent rate-budget contracts.
 

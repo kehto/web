@@ -374,6 +374,7 @@ function createMessageHandler(
   dispatchNapEnvelope: (windowId: string, envelope: NappletMessage) => void,
   serviceRouting: { builtInDomains: ReadonlySet<string>; extensions: ReturnType<typeof createServiceExtensionRouter> },
   firewallGate: (windowId: string, envelope: NappletMessage, senderCap: string | null) => 'dispatch' | 'drop',
+  permissions?: ReturnType<typeof createPermissionRuntime>,
 ): Runtime['handleMessage'] {
   return (windowId: string, msg: unknown): void => {
     if (typeof msg !== 'object' || msg === null || Array.isArray(msg) || !('type' in msg) || typeof msg.type !== 'string') return;
@@ -383,6 +384,7 @@ function createMessageHandler(
     // Only source-bound sessions may dispatch. The browser adapter registers
     // trusted creation identity independently of the optional NAP-SHELL exchange.
     if (!sessionRegistry.getEntryByWindowId(windowId)) return;
+    if (permissions && !permissions.isSourceActive(windowId)) return;
     const domain = envelope.type.slice(0, dotIdx);
     if (!serviceRouting.builtInDomains.has(domain)) {
       serviceRouting.extensions.handleMessage(windowId, envelope);
@@ -395,6 +397,9 @@ function createMessageHandler(
       if (envelope.type === 'link.open') dispatchNapEnvelope(windowId, envelope);
       return;
     }
+    // Configured hosts cannot expose a built-in interface merely by setting an
+    // environment flag. Startup admission supplies the corresponding grant.
+    if (permissions && !permissions.hasInterface(windowId, domain)) return;
     if (isIdentityOrThemeMessage(envelope) && !createCanonicalDomainResult(envelope)) return;
 
     const caps = resolveCapabilitiesNap(envelope);
@@ -560,7 +565,7 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
       delete serviceRegistry[name];
     },
     destroyWindow(windowId: string): void {
-      context.permissions?.retire(windowId);
+      context.permissions?.close(windowId);
       extensions.destroyWindow(windowId);
       for (const [key] of subscriptions) {
         if (key.startsWith(`${windowId}:`)) {
@@ -582,17 +587,18 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
 function createRuntimePermissions(
   hooks: RuntimeAdapter, sessionRegistry: SessionRegistry, aclState: AclStateContainer,
   subscriptions: Map<string, SubscriptionEntry>, serviceRegistry: ServiceRegistry, getIncRuntime: () => IncRuntime | null,
+  revokeExtension: (windowId: string) => void,
 ) {
   return createPermissionRuntime({
     adapter: hooks.permissions!,
     createId: () => hooks.crypto.randomUUID(),
     getSession: (windowId) => sessionRegistry.getEntryByWindowId(windowId),
     focused: (windowId) => hooks.getFocusContext?.(windowId).focused ?? true,
-    allowed(windowId, requirements) {
+    allowed(windowId, requirements, phase) {
       const entry = sessionRegistry.getEntryByWindowId(windowId);
       if (!entry || aclState.isBlocked('', entry.dTag, entry.aggregateHash)) return false;
       return requirements.every((requirement) => {
-        if (hooks.isDomainAllowed && !hooks.isDomainAllowed(windowId, requirement.domain)) return false;
+        if (phase === 'operation' && hooks.isDomainAllowed && !hooks.isDomainAllowed(windowId, requirement.domain)) return false;
         if (requirement.category === 'interface') return true;
         const capability = resolveCapabilitiesNap({ type: requirement.operation }).senderCap;
         return !capability || aclState.check('', entry.dTag, entry.aggregateHash, capability as Capability);
@@ -601,6 +607,7 @@ function createRuntimePermissions(
     invalidate(windowId) {
       const windows = windowId === undefined ? sessionRegistry.getAllEntries().map((entry) => entry.windowId) : [windowId];
       for (const id of windows) {
+        revokeExtension(id);
         revokeRelaySubscriptions({ hooks, serviceRegistry, subscriptions }, id);
         getIncRuntime()?.revokeWindow(id);
         notifyServicePermissionRevoked(id, serviceRegistry);
@@ -706,7 +713,8 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   });
 
   if (hooks.permissions) {
-    permissions = createRuntimePermissions(hooks, sessionRegistry, aclState, subscriptions, serviceRegistry, () => incRuntime);
+    permissions = createRuntimePermissions(hooks, sessionRegistry, aclState, subscriptions, serviceRegistry, () => incRuntime,
+      (windowId) => extensions?.revokeWindow(windowId));
   }
 
   incRuntime = createIncRuntime(
@@ -749,9 +757,9 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   const builtInDomains = new Set([...Object.keys(napHandlers), 'shell', 'signer']);
   extensions = createServiceExtensionRouter({
     hooks, services: serviceRegistry, registrations: registeredServices,
-    sessions: sessionRegistry, acl: aclState, enforce: enforceNap, firewall: firewallGate,
+    sessions: sessionRegistry, acl: aclState, enforce: enforceNap, firewall: firewallGate, permissions,
   });
-  const handleMessage = createMessageHandler(hooks, sessionRegistry, enforceNap, dispatchNapEnvelope, { builtInDomains, extensions }, firewallGate);
+  const handleMessage = createMessageHandler(hooks, sessionRegistry, enforceNap, dispatchNapEnvelope, { builtInDomains, extensions }, firewallGate, permissions);
 
   return createRuntimeInstance({
     hooks,
