@@ -219,7 +219,11 @@ test.describe('Paja intent links', () => {
       await expect(chooser).toBeVisible();
       await chooser.getByLabel('Always use this app').check();
       await chooser.getByRole('button', { name: 'Open with My Reader', exact: true }).click();
-      await expect(setup.frameLocator('iframe[title="Napplet runtime target: My Reader"]').locator('#delivery-target')).toHaveText('saved', { timeout: 15_000 });
+      const savedFrame = setup.frameLocator('iframe[title="Napplet runtime target: My Reader"]');
+      await expect(savedFrame.locator('#delivery-target')).toHaveText('saved', { timeout: 15_000 });
+      await expect(savedFrame.locator('#last-availability')).toContainText('"hasDefault":true');
+      await expect(savedFrame.locator('#last-availability')).toContainText(`nip5d:35129:${saved.event.pubkey}:My Reader`);
+      await expect(savedFrame.locator('#last-availability')).toContainText('"isDefault":true');
 
       const matching = await incoming(saved.pointer);
       await expect(matching.frameLocator('iframe.tab-panel').locator('#delivery-target')).toHaveText('saved', { timeout: 15_000 });
@@ -503,8 +507,12 @@ function createSignedTarget(
 function delayedTargetHtml(label = ''): string {
   return `<!doctype html><html><body>
     <output id="delivery-count">0</output><output id="delivery-payload"></output><output id="delivery-sender"></output><output id="delivery-target">${label}</output>
+    <output id="last-availability"></output>
     <script>
       let count = 0;
+      window.napplet.intent.onChanged((availability) => {
+        document.getElementById('last-availability').textContent = JSON.stringify(availability);
+      });
       window.parent.postMessage({ type: 'shell.ready' }, '*');
       setTimeout(() => window.napplet.intent.onDelivery((delivery) => {
         count += 1;
