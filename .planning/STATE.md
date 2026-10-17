@@ -641,3 +641,14 @@ docs/quality/E2E gates (42873). Root found potential pre-approval signer-provide
 getRelays I/O in getPajaBootstrapRelayUrls and asked executor to trace supported
 implementations/guard or document boundary. No root source edits. Phase113-01/02
 summaries and downstream service execution remain pending full gates and review.
+
+2026-10-17: Phases 111–114 implemented and committed on `feat/firewall-approvals`.
+Firewall is the pure approval authority; rate limiting is independent; runtime
+coordinates bounded source-bound requests; services and both hosts use the
+shared admission and revocation path. Paja covers verified/local/live-dev
+launches; playground remains verified-only. The consumer matrix and Phase 114
+summaries record protocol refs and deliberate gaps. Final gates passed: build
+and type-check, 207 unit files / 2,625 tests, 133 Chromium tests, docs,
+changesets, diff integrity, and AI-slop 100/100. Playwright used harness port
+43173 because an unrelated local server held 4173. Phase 115 final audit and
+PR remain active. Unrelated `.planning/WINDOWS.md` is preserved unstaged.

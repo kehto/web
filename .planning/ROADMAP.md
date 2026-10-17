@@ -6,7 +6,7 @@ All five phases are required. Package-only delivery does not satisfy the goal. P
 
 **Requirements:** FW-01, FW-02, FW-03, FW-04, RATE-01, RATE-02
 **Depends on:** Spec and consumer audit
-**Status:** Pending
+**Status:** Complete
 
 **Success criteria:**
 - Pure typed approvals for interface, resource, network, and explicitly registered future categories.
@@ -20,7 +20,7 @@ All five phases are required. Package-only delivery does not satisfy the goal. P
 
 **Requirements:** RUN-01, RUN-02, RUN-03, RUN-04, RUN-05
 **Depends on:** 111
-**Status:** Pending
+**Status:** Complete
 
 **Success criteria:**
 - Bound pending requests and equivalent prompts; preserve one-use semantics during concurrency.
@@ -33,7 +33,7 @@ All five phases are required. Package-only delivery does not satisfy the goal. P
 
 **Requirements:** SVC-01, SVC-02, SVC-03, SVC-04, SVC-05
 **Depends on:** 112
-**Status:** Pending
+**Status:** Complete
 
 **Success criteria:**
 - Link approval holds and settles the current request; preserve URL validation and opener isolation.
@@ -46,7 +46,7 @@ All five phases are required. Package-only delivery does not satisfy the goal. P
 
 **Requirements:** HOST-01, HOST-02, HOST-03, HOST-04, HOST-05
 **Depends on:** 113
-**Status:** Pending
+**Status:** Complete
 
 **Success criteria:**
 - Paja and playground resolve interface approval before execution; required denial blocks launch and optional denial narrows the injected environment.
@@ -59,7 +59,7 @@ All five phases are required. Package-only delivery does not satisfy the goal. P
 
 **Requirements:** SHIP-01, SHIP-02, SHIP-03, SHIP-04, SHIP-05
 **Depends on:** 114
-**Status:** Pending
+**Status:** In progress — final audit and PR
 
 **Success criteria:**
 - All affected package/app consumers, fixtures and examples migrated and traced in consumer matrix.

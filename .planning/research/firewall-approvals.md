@@ -38,11 +38,12 @@ Downloaded copies for this session: `/tmp/kehto-firewall-specs`. Re-fetch by exa
 
 ## Service consumer and authority matrix
 
-This is the Phase 113 implementation inventory. “Implemented” means the
+This is the Phase 113/114 implementation inventory. “Implemented” means the
 service receives the runtime operation authorizer, validates before prompting,
 retains its operation signal through asynchronous work, suppresses late delivery
-after revocation, and has the named regression. It does **not** claim Phase 114
-approval UI, launch admission, CSP, or standalone-browser interception.
+after revocation, and has the named regression. Phase 114 adds host approval UI,
+launch admission, and CSP; standalone-browser interception remains outside the
+runtime mediator.
 
 | Service | Authority / bounded policy | Scope and validation | Rate, lifecycle, consumer, regression |
 |---|---|---|---|
@@ -50,7 +51,7 @@ approval UI, launch admission, CSP, or standalone-browser interception.
 | common | NAP-COMMON PR #67 `8cd0eae8550575771bb616a384e2dfbcade31673` | common interface and immutable relay plan | runtime rate budget and signal; Paja/playground; `common-service.test.ts` |
 | config | NAP-CONFIG `bed9cb5b1e7c9b5babee8870aa18b12949af1d62` | config interface, exact key and mutation validation | runtime rate budget; revoke stops local subscriptions; Paja/playground; `config-service.test.ts` |
 | count | NAP-COUNT PR #69 `9353a0c6c02c595f7e65ebd6df3802a7a45fc6bf` | count interface, filters and selected relay plan | runtime rate budget; Paja aborts its retry path and suppresses late results; the host-only fallback warns `FW-COUNT-LEGACY-001`, while underlying Nostr COUNT remains timeout-bounded rather than per-request cancellable; `count-service.test.ts` |
-| CVM | NAP-CVM PR #31 `28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f`; transport policy is host-owned | cvm interface and controller validation | runtime rate budget and controller abort; Paja/playground; CVM regressions |
+| CVM | NAP-CVM PR #52 `b1ecaa529971ade6d5bc806bc0a990db0dc2356f`; transport policy is host-owned | cvm interface, exact server resource, relay origin, and controller validation | runtime rate budget and controller abort; Paja/playground; CVM regressions |
 | DM | Plan 09 rechecked NAP-DM draft authority | dm interface and immutable relay plan | runtime rate budget; revoke closes streams; Paja/playground; `dm-service.test.ts` |
 | FS | NAP-FS PR #88 `bd1b9e912f05203bf38f7a1b04f920744fe6d625` | fs interface; picker, handle, directory, and move scopes | runtime rate budget; source-owned handles/late callbacks retire; Paja; FS regressions |
 | gamepad | Browser host policy | gamepad interface and controller ownership | runtime rate budget; focus/source cleanup; Paja/playground; gamepad regressions |
@@ -59,7 +60,7 @@ approval UI, launch admission, CSP, or standalone-browser interception.
 | link | NAP-LINK PR #53 `50a2cd45e76f06e87b87e93842badf4c61f17bde` | interface plus exact validated URL resource scope | runtime rate budget; opener revalidates; Paja/playground; `link-service.test.ts` |
 | lists | NAP-LISTS PR #68 `7cf00cdb7bca6bb59dc5ef082e9fe8ac9278fa46` | interface and immutable mutation relay plan | runtime rate budget and signal; Paja/playground; `lists-service.test.ts` |
 | media | NAP-MEDIA PR #10 `7806f438530251fce5129f8e6239d6b642278759` | interface and source-owned sessions; no artwork URL fetch | runtime rate budget; session cleanup; Paja/playground; `media-service.test.ts` |
-| notifications / notify | Browser host policy | interface and notification payload validation | runtime rate budget; host callbacks own lifecycle; Paja/playground regressions |
+| notifications / notify | NAP-NOTIFY PR #11 `67877ef6c31ec8acee3125c1d8b4c781010e37dc`; legacy create/list/read demo wire is outside that draft | interface and notification payload validation | runtime rate budget; host callbacks own lifecycle; Paja/playground regressions |
 | outbox / relay | NAP-OUTBOX PR #32 `8865f73d52a4864afee145f28d26520476273927`; NAP-RELAY PR #2 | interface and immutable read/publish/subscribe/destination plans | independent limiter plus runtime rate budget; streams close on revoke; Paja/playground regressions |
 | resource | NAP-RESOURCE PR #80 `ae5b9c64ab8a4d8909f288829a01e99d6bd713bc` | interface, exact URL, and every actual destination through `authorizeNetwork` | runtime rate budget; resource/network grants cover body lifetime; Paja proxy/playground transport; resource regressions |
 | serial / BLE | Browser device policy | interface plus chooser, source-owned handle/device, operation and directory validation | runtime rate budget; controller closes on revoke; Paja/playground simulation; device regressions |
