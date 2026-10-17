@@ -366,7 +366,14 @@ identity-scoped durable `/workspace`, browser-mediated session picker grants,
 strict virtual paths, bounded range I/O, canonical base64, revisions,
 replace/append/patch writes, directory mutation, supported atomic moves, and
 advisory watches without exposing browser handles or host paths. It follows
-draft [NAP-FS `b640cf33`](https://github.com/napplet/naps/blob/b640cf337c0481f0f9a0216c00843f797a5c6df6/naps/NAP-FS.md).
+draft [NAP-FS `bd1b9e91`](https://github.com/napplet/naps/blob/bd1b9e912f05203bf38f7a1b04f920744fe6d625/naps/NAP-FS.md).
+
+The Interfaces panel reports workspace and native open/save/directory picker
+support separately. Firefox can expose OPFS without the native picker APIs;
+workspace operations then work, while picker operations return `unsupported`.
+The message log identifies the missing API. ACL controls such as `fs:read` and
+`fs:write` grant permission but cannot add browser support. See the
+[browser picker compatibility reference](https://developer.mozilla.org/en-US/docs/Web/API/Window/showOpenFilePicker#browser_compatibility).
 
 Default service wiring uses live relay/outbox behavior, localStorage state
 persistence through the runtime, browser or configured identity, schema-validated
