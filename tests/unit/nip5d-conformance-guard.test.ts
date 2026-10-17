@@ -504,11 +504,7 @@ describe('NIP-5D conformance static guards', () => {
     const paja = readRepoFile('packages/paja/src/browser-adapter.ts');
     const pajaHost = readRepoFile('packages/paja/src/browser-host.ts');
     const pajaIntent = [
-      sourceBetween(
-        paja,
-        'interface PajaIntentHost',
-        'function createPajaCvmRelayPool',
-      ),
+      readRepoFile('packages/paja/src/browser-catalog-intent-service.ts'),
       sourceBetween(
         paja,
         'if (getSimulation().intent.enabled && intentHost)',
@@ -545,9 +541,10 @@ describe('NIP-5D conformance static guards', () => {
     expect(removeComments(pajaIntent), 'Paja development intent simulator').not.toMatch(
       forbiddenCanonicalField,
     );
-    expect(paja).toContain('InstalledNappletCatalog');
-    expect(paja).toContain('BrowserIntentController');
-    expect(paja).toContain('createCatalogIntentResolver');
+    expect(pajaIntent).toContain('InstalledNappletCatalog');
+    expect(pajaIntent).toContain('BrowserIntentController');
+    expect(pajaIntent).toContain('createCatalogIntentResolver');
+    expect(paja).toContain('createPajaCatalogIntentService(adapter, intentHost)');
     expect(paja).toContain('intentHost?: PajaIntentHost');
     expect(pajaHost).toContain('catalog: new InstalledNappletCatalog()');
     expect(pajaHost).toContain('const intentController = new BrowserIntentController(');
