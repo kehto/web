@@ -158,12 +158,14 @@ describe('@kehto/paja browser host runtime source guards', () => {
 
   it('keeps Paja wired to real relay, outbox, and identity bootstrap paths', () => {
     const adapterSource = readFileSync(new URL('./browser-adapter.ts', import.meta.url), 'utf8');
+    const supportSource = readFileSync(new URL('./browser-adapter-support.ts', import.meta.url), 'utf8');
     const intentSource = readFileSync(new URL('./browser-intent-host.ts', import.meta.url), 'utf8');
     const relaySource = readFileSync(new URL('./browser-relay-runtime.ts', import.meta.url), 'utf8');
     const hostSource = readFileSync(new URL('./browser-host.ts', import.meta.url), 'utf8');
 
-    expect(adapterSource).toContain('createRelayPoolOutboxRouter');
-    expect(adapterSource).toContain('() => relayConfig.getRelayUrls([\'discovery\', \'super\']),');
+    expect(adapterSource).toContain('createOutboxRouter(backend, getSimulation, relayConfig, confirmRequest, signerProvider)');
+    expect(supportSource).toContain('createRelayPoolOutboxRouter');
+    expect(supportSource).toContain('() => relayConfig.getRelayUrls([\'discovery\', \'super\']),');
     expect(relaySource).toContain('createNip65Registry');
     expect(relaySource).toContain('export const PAJA_NIP65_RELAY_LIST_KIND = 10_002;');
     expect(relaySource).toContain('export const PAJA_CONTACT_LIST_KIND = 3;');
@@ -178,6 +180,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
 
   it('keeps the private social cache inside the established identity and outbox host boundary', () => {
     const adapterSource = readFileSync(new URL('./browser-adapter.ts', import.meta.url), 'utf8');
+    const supportSource = readFileSync(new URL('./browser-adapter-support.ts', import.meta.url), 'utf8');
     const hostSource = readFileSync(new URL('./browser-host.ts', import.meta.url), 'utf8');
     const diagnosticsSource = readFileSync(new URL('./browser-target-diagnostics.ts', import.meta.url), 'utf8');
 
@@ -192,9 +195,9 @@ describe('@kehto/paja browser host runtime source guards', () => {
     expect(adapterSource).toContain('getFollows: socialCache.getFollows,');
     expect(adapterSource).toContain('getActivePubkey: () => getRuntimePubkey(getSimulation, signerProvider),');
     expect(adapterSource).toContain('getUserPubkey: () => getRuntimePubkey(getSimulation, signerProvider),');
-    const runtimePubkey = adapterSource.slice(
-      adapterSource.indexOf('function getRuntimePubkey('),
-      adapterSource.indexOf('function createRuntimeSigner('),
+    const runtimePubkey = supportSource.slice(
+      supportSource.indexOf('function getRuntimePubkey('),
+      supportSource.indexOf('function createRuntimeSigner('),
     );
     expect(runtimePubkey.indexOf('signerProvider?.getPubkey()')).toBeLessThan(
       runtimePubkey.indexOf('getSimulation().identity.pubkey'),
