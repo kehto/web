@@ -6,6 +6,24 @@ coverage. This register records both implemented safeguards and existing debt;
 below identifies the package responsible for the implementation and its tests.
 No removal date is implied by an old source comment.
 
+## FW-RUNTIME-LEGACY-GATE-001 — runtime without a permission adapter
+
+`@kehto/runtime` retains the old temporal Firewall ingress for hosts that omit
+`RuntimeAdapter.permissions`. It evaluates the older broad per-napplet policy,
+content matchers, and burst counters. Configure `RuntimeAdapter.permissions`
+and service-owned `authorizeOperation` calls for scoped approvals and the
+independent rate limiter. The source and warning site is
+`packages/runtime/src/legacy-firewall-gate.ts`; the public retained state
+container is `packages/runtime/src/firewall-state.ts`. The warning fires once
+per runtime instance on actual legacy ingress, without request data, and is
+absent on configured ingress. `legacy-firewall-gate.test.ts` covers warning
+content, frequency, legacy invocation, and canonical quietness; the existing
+`firewall-dispatch.test.ts` covers retained burst, matcher, and policy behavior.
+No broad legacy policy becomes a scoped interface, resource, or network grant.
+This path remains for external hosts during migration. Once supported hosts
+use the permission adapter, announce its removal in a 0.x minor release,
+delete the legacy gate/state surface, and add negative tests for old config.
+
 ## Notification and gamepad approval transitions — services and Paja
 
 `FW-NOTIFY-LEGACY-001` belongs to `@kehto/services`. When a host calls
