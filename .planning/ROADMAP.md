@@ -59,7 +59,7 @@ All five phases are required. Package-only delivery does not satisfy the goal. P
 
 **Requirements:** SHIP-01, SHIP-02, SHIP-03, SHIP-04, SHIP-05
 **Depends on:** 114
-**Status:** In progress — final audit and PR
+**Status:** Complete — PR #336 open
 
 **Success criteria:**
 - All affected package/app consumers, fixtures and examples migrated and traced in consumer matrix.

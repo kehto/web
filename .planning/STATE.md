@@ -652,3 +652,8 @@ and type-check, 207 unit files / 2,625 tests, 133 Chromium tests, docs,
 changesets, diff integrity, and AI-slop 100/100. Playwright used harness port
 43173 because an unrelated local server held 4173. Phase 115 final audit and
 PR remain active. Unrelated `.planning/WINDOWS.md` is preserved unstaged.
+
+2026-10-17: Final audit completed and PR #336 opened at
+https://github.com/kehto/web/pull/336. Branch `feat/firewall-approvals` is
+pushed. Source, tests, docs, changesets, and protocol notes are in the PR;
+only unrelated `.planning/WINDOWS.md` remains uncommitted in the worktree.
