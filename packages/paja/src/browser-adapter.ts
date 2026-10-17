@@ -568,12 +568,13 @@ function createDevServices(
   }
   if (getSimulation().capabilities.domains.common && getSimulation().relay.mode === 'live') {
     services.common = createCommonService({
-      getProfile: (target) => commonBackend.getProfile(target),
-      follows: () => commonBackend.follows(),
-      follow: (pubkeys) => commonBackend.follow(pubkeys),
-      unfollow: (pubkeys) => commonBackend.unfollow(pubkeys),
-      react: (targetEventId, reaction, customEmojiHref) => commonBackend.react(targetEventId, reaction, customEmojiHref),
-      report: (target, reason, text) => commonBackend.report(target, reason, text),
+      planRelays: (operation, target) => commonBackend.planRelays(operation, target),
+      getProfile: (target, context) => commonBackend.getProfile(target, context.relays, context.signal),
+      follows: (context) => commonBackend.follows(context.relays, context.signal),
+      follow: (pubkeys, context) => commonBackend.follow(pubkeys, context.relays, context.signal),
+      unfollow: (pubkeys, context) => commonBackend.unfollow(pubkeys, context.relays, context.signal),
+      react: (targetEventId, reaction, customEmojiHref, context) => commonBackend.react(targetEventId, reaction, customEmojiHref, context.relays, context.signal),
+      report: (target, reason, text, context) => commonBackend.report(target, reason, text, context.relays, context.signal),
     });
   }
   if (getSimulation().capabilities.domains.lists && getSimulation().relay.mode === 'live') {
