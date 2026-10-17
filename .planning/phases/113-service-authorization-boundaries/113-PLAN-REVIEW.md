@@ -1,33 +1,36 @@
-## VERIFICATION PASSED
+## ISSUES FOUND
 
 **Phase:** 113 — Service authorization boundaries
-**Plans verified:** 18
-**Status:** All blocking checks passed
+**Focused recheck:** 113-03 relay authorization
+**Issues:** 1 blocker
 
-### Coverage Summary
+All earlier full-phase coverage, dependency, and validation findings remain passed. Plans 01/02 remain an accepted atomic resource group. This finding applies only to Plan 03 before its execution begins.
 
-| Requirement | Plans | Status |
-|---|---|---|
-| SVC-01 | 16–18 | Covered |
-| SVC-02 | 01, 02, 17, 18 | Covered |
-| SVC-03 | 03, 04, 07–11, 16–18 | Covered |
-| SVC-04 | 05–15, 16–18 | Covered |
-| SVC-05 | 01–18 | Covered |
+### Blocker (must fix)
 
-### Plan Summary
+1. **[key_links_planned] Plan 03 cannot meet its pre-sign/pre-encrypt, cache, query, and once-grant requirements with its declared Task 2 scope.**
+   - Plan/task: 113-03 Task 2 (with related Task 1 runtime work)
+   - Evidence: [`113-RELAY-AUTHORITY.md`](113-RELAY-AUTHORITY.md) documents that `packages/runtime/src/relay-handler.ts` encrypts/signs before dispatching to `relay-pool-service`; it also buffers/delivers publish events and cache/query data before or outside the registered service. `relay.query` synthesizes `relay.subscribe` and `relay.close`, which can double-approve/charge or consume a once grant twice. Current publish adapter/service interfaces do not expose an immutable destination plan before signing.
+   - The current Task 2 only owns service/coordinated-relay files. Its action says signing starts only inside `authorizeOperation`, but it does not include the runtime handler, runtime adapter/service type contracts, runtime relay-handler tests, or an explicit captured-plan handoff. A service-only implementation therefore leaves the real signer/encryptor and cache/fallback paths outside authorization, failing SVC-03/SVC-05 and the plan’s own must-haves.
+   - Fix: amend/split Plan 03 so its runtime-owned task explicitly modifies and tests `packages/runtime/src/relay-handler.ts` plus the relevant runtime adapter/service type boundary and relay-handler test surface. It must:
+     1. validate/snapshot and obtain the exact destination plan before encryption, signing, cache buffer/delivery, pool I/O, or publish;
+     2. pass that immutable approved plan through registered-service and adapter-fallback publish paths, forbidding reselection after approval;
+     3. authorize local buffer/cache delivery with interface authority without inventing a network grant;
+     4. make query’s synthesized subscribe/close one operation for rate/once-grant purposes and return one canonical query failure on denial; and
+     5. test unresolved approval and revocation/replacement around encryption, signing, cache delivery, publish, query, timers, and same-ID subscription replacement.
 
-| Plans | Wave(s) | Status |
-|---|---:|---|
-| 01–02 | 1–2 | Valid atomic resource-wire migration |
-| 03–15 | 3–4 | Valid service-family migrations |
-| 16 | 5 | Valid ingress and independent-rate closure |
-| 17 | 6 | Valid host-contract and consumer-matrix closure |
-| 18 | 7 | Valid documentation, compatibility, and release evidence |
+### Structured Issues
 
-The corrected Wave 2 condition is sufficient: its focused command is explicitly feedback-only, while release of both resource summaries and Wave 3 requires that command **and** the full phase command, with public API/types, changesets, and compatibility tracking synchronized. This preserves the Plans 01/02 atomic contract.
+```yaml
+issues:
+  - plan: "113-03"
+    task: 2
+    dimension: key_links_planned
+    severity: blocker
+    description: "Runtime relay-handler signs/encrypts and can deliver cache/buffer data before the service; Task 2 modifies only service files and cannot enforce its promised pre-sign/destination-plan/once-grant semantics."
+    fix_hint: "Add or split a runtime relay-handler + adapter/type-contract task with immutable destination-plan handoff and direct lifecycle/rate/cache/query regressions."
+```
 
-The task-level Nyquist matrix is complete, Wave 0 is correctly inapplicable because each absent regression is created within its owning TDD task, dependencies are acyclic and wave-consistent, and exact-authority/spec-gap handling is bounded without claiming Phase 114 admission/UI/CSP work.
+### Recommendation
 
-Scope is intentionally dense in Plans 15, 16, and 18; their dedicated late-wave placement and fixed boundaries keep them within executable limits.
-
-Plans verified. Proceed with the resource execution group, then execute dependent waves only after their declared gates pass.
+Revise Plan 03 before starting its wave. The resource group may continue; this relay correction does not invalidate Plans 01/02 or the rest of the Phase 113 plan set.

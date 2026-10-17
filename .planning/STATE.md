@@ -430,3 +430,15 @@ Paja migration/tests ongoing. Host114 context committed e5a6f294 from actual loa
 and CSP findings; host_research owns114-RESEARCH only and is live. No full resource,
 phase, or goal completion claim. Next: collect resource combined verification, then
 execute113wave3; collect114research and plan/check host integration. Goal active.
+
+2026-10-17: Continued source/spec review found Plan113-03 needs explicit runtime
+and adapter-contract work: signing/encryption and buffer delivery precede service
+gates; publish destinations are hidden; query synthesizes subscribe. Authority
+handoff committed547a719b. Independent checker narrowly reopened03; service_plan
+is revising03 and validation/dependency references. Other service plans and resource
+01/02 release contract remain valid. resource_execution committed recoverable
+55f54f1c WIP, now migrating service/shell tests; do not claim combined gates passed.
+Host research returned then was resumed to correct remote subresource CSP bypass
+(script/style/image/font/worker traffic is direct network even with connect-src none).
+Await corrected114research before planning. Live agents at this checkpoint:
+resource_execution, service_plan, host_research. Goal remains active, no PR yet.
