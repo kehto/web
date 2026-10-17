@@ -95,6 +95,27 @@ function defaultStorage(): PajaPreferenceStorage | null {
 }
 
 /**
+ * Require a signer that can actually produce signatures.
+ *
+ * @param signer - The runtime signer selected for the window.
+ * @returns The same signer, narrowed to one with `signEvent`.
+ * @throws When no signer is connected, or when the connected identity is
+ *   read-only (for example a view-only npub).
+ * @example
+ * ```ts
+ * const signer = requireWritableSigner(runtimeSigner);
+ * await signer.signEvent(template);
+ * ```
+ */
+export function requireWritableSigner(
+  signer: Signer | null,
+): Signer & Required<Pick<Signer, 'signEvent'>> {
+  if (!signer) throw new Error('no signer configured');
+  if (!signer.signEvent) throw new Error('signing unavailable (read-only identity)');
+  return signer as Signer & Required<Pick<Signer, 'signEvent'>>;
+}
+
+/**
  * Build a signer that can read an identity but can never act as it.
  *
  * `signEvent`, `nip04`, and `nip44` are deliberately absent: the runtime,
@@ -229,6 +250,15 @@ export function createPajaSignerController(options: PajaSignerControllerOptions)
     return Object.fromEntries(hints.map((relay) => [relay, { read: true, write: true }]));
   };
 
+  // Every explicit identity choice other than view-only supersedes the saved
+  // view-only npub, so switching or logging out cannot resurrect it on reload.
+  const resetSigner = (next: PajaSignerState): void => {
+    closeClient();
+    activeSigner = null;
+    writePajaViewOnlyPubkey(storage, null);
+    update(next);
+  };
+
   return {
     getState: () => cloneState(state),
     getSigner(source) {
@@ -242,10 +272,7 @@ export function createPajaSignerController(options: PajaSignerControllerOptions)
       return () => listeners.delete(listener);
     },
     useDevSigner() {
-      closeClient();
-      activeSigner = null;
-      writePajaViewOnlyPubkey(storage, null);
-      update({
+      resetSigner({
         method: 'dev',
         status: 'connected',
         pubkey: null,
@@ -280,10 +307,7 @@ export function createPajaSignerController(options: PajaSignerControllerOptions)
       });
     },
     disconnect() {
-      closeClient();
-      activeSigner = null;
-      writePajaViewOnlyPubkey(storage, null);
-      update({
+      resetSigner({
         method: 'none',
         status: 'disconnected',
         pubkey: null,
