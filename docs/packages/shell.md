@@ -12,12 +12,21 @@ Browser adapter over `@kehto/runtime` for iframe/session hosting.
 `OriginIdentity.permissionPrincipal` is carried into the source session; app
 messages cannot override it. The reference LINK service uses this shared path.
 See [scoped approvals](/firewall-approvals) for lifetimes, persistence, and
-the remaining domain/app migration work.
+host migration status.
 
 The bridge exposes runtime admission through `bridge.runtime.permissions`.
-Hosts must register a provisional trusted session, call `admit`, and revalidate
-with `isAdmissionCurrent` before executing bytes with the returned domain list.
+`admitBrowserDocument` performs provisional registration, `admit`, CSP/namespace
+preparation, and the final currentness check before a synchronous frame commit.
 Paja/playground frame-loader migration remains in progress.
+
+`createBrowserApprovalUi` presents the runtime prompt with trusted technical
+identity, exact operation scopes, and offered lifetimes. It returns explicit
+allow, deny, or cancel decisions; Escape, close, and abort cancel. Its grant
+view reads `RuntimePermissions.grants` on refresh and delegates revoke, clear,
+and persistence retry to the runtime. Storage failures remain visible and
+block new grants. A host retirement callback must remove live direct-network
+frames when a relevant grant changes; the parent cannot meter direct iframe
+traffic.
 
 > **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
 > protocol. Injected-domain behavior and NAP contracts are not final.
@@ -56,6 +65,7 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
 | Protocol and capability types | `NostrEvent`, `NostrFilter`, `NappletMessage`, `Capability`, `ALL_CAPABILITIES` |
 | Shell init and bootstrap | `buildShellCapabilities`, `injectNappletNamespacePrelude`, `renderNappletNamespacePrelude`, `NappletNamespacePreludeOptions` |
 | Verified documents and CSP | `prepareNappletSrcdoc`, `NappletSrcdocOptions`, `buildNappletCsp`, `renderNappletCspMeta`, `injectNappletCsp`, `NappletCspOptions`, `NappletCspDirectives`, `NappletCspDirective` |
+| Browser admission and approval | `admitBrowserDocument`, `BrowserAdmissionRequest`, `BrowserAdmissionResult`, `BrowserAdmissionCommit`, `BrowserAdmissionOmission`, `BrowserLaunchMode`, `BrowserRemoteSource`, `createBrowserApprovalUi`, `BrowserApprovalUi`, `BrowserApprovalUiOptions` |
 | Registries and caches | `sessionRegistry`, `nappKeyRegistry`, `originRegistry`, `manifestCache`, `audioManager`, `PendingUpdate`, `ManifestCacheEntry`, `AudioSource` |
 | Enforcement re-exports | `createEnforceGate`, `createNapEnforceGate`, `formatDenialReason`, `EnforceResult`, `EnforceConfig`, `NapEnforceConfig`, `IdentityResolver`, `AclChecker`, `NapMessage` |
 | Proxies | `createIdentityProxy`, `createThemeProxy`, `createKeysProxy`, `createMediaProxy`, `createNotifyProxy` |

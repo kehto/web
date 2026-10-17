@@ -15,6 +15,8 @@ export type { NappletCspDirective, NappletCspDirectives, NappletCspOptions } fro
 export type { BrowserLaunchMode, BrowserRemoteSource } from './napplet-csp.js';
 export { admitBrowserDocument } from './browser-admission.js';
 export type { BrowserAdmissionRequest, BrowserAdmissionResult, BrowserAdmissionCommit, BrowserAdmissionOmission } from './browser-admission.js';
+export { createBrowserApprovalUi } from './browser-approval-ui.js';
+export type { BrowserApprovalUi, BrowserApprovalUiOptions } from './browser-approval-ui.js';
 export { prepareNappletSrcdoc } from './napplet-srcdoc.js';
 export type { NappletSrcdocOptions } from './napplet-srcdoc.js';
 

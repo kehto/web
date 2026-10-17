@@ -7,7 +7,23 @@ adapters to runtime. Supply a resolver-verified `permissionPrincipal` with
 `OriginIdentity` or `onNip5dIframeCreate`; source registration preserves its frozen
 catalog/artifact identity independently of optional `shell.ready`. The reference
 LINK service consumes these approvals. See [the approval guide](../../docs/firewall-approvals.md)
-for configuration and the unfinished migration of other domains and app admission.
+for configuration and host migration status.
+
+`admitBrowserDocument()` is the shared launch transaction for verified artifacts
+and explicit development targets. It registers a provisional source, obtains
+runtime interface and exact browser-origin approval, then supplies a prepared
+`srcdoc` with the admitted namespace and a closed default-deny CSP to one
+synchronous `commit` callback. Hosts must retire the returned source on navigation
+or closure. Direct browser origins exclude `resource`; revoking a launch grant
+retires the frame. Browser direct traffic is not mediated or metered by the parent.
+
+`createBrowserApprovalUi()` supplies a framework-free `<dialog>` prompt and a
+grant-management view. Pass `ui.prompt` into `ShellAdapter.permissions`, call
+`ui.reportStorageError` from the persistence error hook, and call `ui.refresh()`
+when the runtime changes. The view always reads `RuntimePermissions.grants` and
+uses its `revoke`, `clear`, and `retryPersistence` methods; it keeps no grant
+store. The prompt shows trusted identity, every exact scope, and only offered
+lifetimes. Escape, close, and abort cancel without creating a denial grant.
 
 > **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
 > protocol. NAP contracts and injected-domain behavior are still draft; treat

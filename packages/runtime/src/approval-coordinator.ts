@@ -8,10 +8,9 @@ import type {
 } from '@kehto/firewall';
 
 /** Host decisions can only grant the immutable scopes shown in the prompt. */
-export interface ApprovalAnswer {
-  readonly effect: 'allow' | 'deny';
-  readonly lifetime: PermissionGrant['lifetime'];
-}
+export type ApprovalAnswer =
+  | { readonly effect: 'allow' | 'deny'; readonly lifetime: PermissionGrant['lifetime'] }
+  | { readonly effect: 'cancel' };
 
 export interface ApprovalPrompt {
   readonly request: PermissionRequest;
@@ -107,6 +106,7 @@ export function createApprovalCoordinator(options: ApprovalCoordinatorOptions) {
       return { status: current() ? 'unavailable' : 'cancelled' };
     }
     if (!current()) return { status: 'cancelled' };
+    if (answer?.effect === 'cancel') return { status: 'cancelled' };
     const latest = options.getState();
     const rechecked = evaluatePermissions(latest, request, options);
     if (rechecked.decision === 'deny') return { status: 'denied' };

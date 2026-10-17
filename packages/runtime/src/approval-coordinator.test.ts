@@ -37,6 +37,14 @@ function fixture(overrides: Partial<ApprovalCoordinatorOptions> = {}) {
 afterEach(() => vi.useRealTimers());
 
 describe('approval coordination', () => {
+  it('treats a host UI cancel as cancellation without creating a denial grant', async () => {
+    const f = fixture({ prompt: async () => ({ effect: 'cancel' }) });
+    expect(await f.run()).toEqual({ status: 'cancelled' });
+    expect(f.action).not.toHaveBeenCalled();
+    expect(f.state().grants).toEqual([]);
+    f.coordinator.dispose();
+  });
+
   it('rejects a pre-cancelled request without prompting or reserving queue capacity', async () => {
     const f = fixture();
     const request = new AbortController();
