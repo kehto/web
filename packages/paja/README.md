@@ -149,6 +149,9 @@ For `notify`, Paja renders attributed text without fetching icons. The shared
 Firewall approves the exact notification operation/channel before the browser
 effect; Paja's own permission cache is tied to the current verified app artifact.
 Window teardown or revocation clears the UI and invalidates pending answers.
+For `link.open`, Paja approves the exact HTTP(S) URL and rechecks the approval
+signal and verified artifact after host confirmation before navigation. It
+opens external links with `noopener,noreferrer`.
 Live relay URLs are validated before advertisement, fixture events and local
 publish echoes never enter live reads, and relay event sidecars disclose only
 sources that the relay pool actually observed.

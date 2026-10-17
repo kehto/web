@@ -395,7 +395,9 @@ persistence through the runtime, browser or configured identity, schema-validate
 identity-scoped config and host-owned theme, notification, media, upload, intent, resource, common-profile,
 bookmark-list, serial, BLE, WebRTC, NIP-17 DM, OPFS, and CVM adapters. `keys.forward` dispatches
 an unbound forwarded keystroke in the host context. `link.open` accepts only
-HTTP(S), asks for consent, and opens with `noopener,noreferrer`.
+HTTP(S), asks for exact-URL approval, then rechecks the current verified app
+artifact and approval signal after host confirmation before opening with
+`noopener,noreferrer`. A stale confirmation cannot navigate.
 Relay/outbox uses NIP-65 relay lists (`kind:10002`) with fallback relays, and the
 identity service reads contact lists (`kind:3`) so social-graph napplets can be
 tested against real account state. `--relay-mode memory` retains an internal
