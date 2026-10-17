@@ -389,3 +389,9 @@ Build/type/docs/quality and 2,164 unit / 123 browser tests pass.
 2026-10-17: Runtime durable state, source principal plumbing through shell, and reference LINK service are integrated behind host permission adapters. Full 2,323 unit / 125 browser tests pass, build/types/docs pass, quality 100. Plan 112 remains incomplete: migrate general ingress/extensions and all other services, then app admission/UI/network controls and final shipping. See the updated 112-01 checkpoint and docs/firewall-approvals.md for exact integration limits. The goal remains active; no PR yet.
 
 2026-10-17: Admission, extension authorization, prompt budgets, and concurrent-policy revalidation verified: 2,370 unit tests, build/types/docs, quality 100. Phase 112 checkpoint records remaining service and app migration. Full goal active; no PR yet.
+
+2026-10-17: Resource lifecycle prerequisite fixed and tested before resource
+approval integration: metadata-wait cancellation, bulk capture, duplicate IDs,
+replacement cleanup, detach. 2,379 unit tests/build/types/docs/quality100 pass.
+Resource authorization and host migrations remain incomplete. Continue request-
+scoped approval cancellation, then phase 113 service boundaries.

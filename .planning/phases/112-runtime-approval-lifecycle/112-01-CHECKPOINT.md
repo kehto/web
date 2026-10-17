@@ -124,3 +124,24 @@ Still unfinished: builtin resource/network mediation beyond LINK, full temporal
 gate replacement, Paja/playground loader admission and approval/settings UI,
 direct-network isolation, compatibility cleanup, and final integration/shipping.
 The optional adapters are migration scaffolding; the overall goal is not complete.
+
+
+## Resource lifecycle prerequisite
+
+Rechecked upstream PR #80 head through GitHub API: unchanged at
+`ae5b9c64ab8a4d8909f288829a01e99d6bd713bc`. Before inserting resource approvals,
+fixed cancellation before async metadata resolution, immutable bulk capture,
+duplicate in-flight ID ownership, source-replacement cleanup, and service detach.
+Nine new lifecycle regressions exercise the actual resolver and response paths.
+This step does not enable resource permissions. Remaining resource work includes
+per-item authorization, resolved-destination checks, pending-prompt cancellation,
+wire migration (`urls`, base64), resolver policy, and host isolation. Installed
+contract/earlier implementation is not authority over the checked draft.
+
+Verified resource lifecycle checkpoint: 28 focused tests and full 185 files /
+2,379 unit tests pass. Build, type-check, strict docs, and quality 100 pass.
+Logs: /tmp/kehto-resource-lifecycle-{unit,types,build,docs}.log and
+/tmp/kehto-resource-lifecycle-quality.json. No browser wiring changed here.
+Next: add request-scoped cancellation through authorizeOperation/coordinator so
+resource.cancel can abort a pending approval without cancelling sibling requests
+or creating late grants; then implement per-item resource and destination scopes.

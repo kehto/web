@@ -652,3 +652,20 @@ For the schema and removal boundary, see [event migration](https://kehto.github.
 ## GAMEPAD integration
 
 This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja and the playground register one host reader and deny native gamepad/HID/USB paths before frame execution. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, window destruction, and service removal release polling. Non-browser or denied native readers report the proposal's unavailable reasons. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
+
+
+### Resource request lifecycle
+
+Resource requests are tracked before asynchronous metadata resolution. Cancelling
+byte requests before that resolution prevents a fetch; cancelling an active fetch
+aborts its signal and suppresses its terminal response. Window destruction and
+service detachment cancel outstanding work, including advisory info responses.
+Bulk URLs and server hints are copied before awaiting host work. A duplicate
+in-flight ID cannot replace the original request's cancellation handle, and old
+source cleanup cannot remove a replacement source's request.
+
+These lifecycle rules were checked against NAP-RESOURCE PR #80 at
+`ae5b9c64ab8a4d8909f288829a01e99d6bd713bc`. This does not establish full conformance
+to that draft: the existing `requests`/server-hint and Blob transport contract
+still needs migration to its `urls` and base64 wire contract, alongside resource
+approval and host network-isolation integration.

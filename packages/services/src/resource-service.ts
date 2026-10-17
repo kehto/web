@@ -245,19 +245,21 @@ function trackRequest(
   requestId: string,
   windowId: string,
   controller: AbortController,
-): void {
+): boolean {
   const key = requestKey(windowId, requestId);
+  if (state.inFlight.has(key)) return false;
   state.inFlight.set(key, { controller, windowId, requestId });
   if (!state.perWindow.has(windowId)) {
     state.perWindow.set(windowId, new Set());
   }
   state.perWindow.get(windowId)!.add(key);
+  return true;
 }
 
-function untrackRequest(state: ResourceRequestState, windowId: string, requestId: string): void {
+function untrackRequest(state: ResourceRequestState, windowId: string, requestId: string, controller: AbortController): void {
   const key = requestKey(windowId, requestId);
   const entry = state.inFlight.get(key);
-  if (entry) {
+  if (entry?.controller === controller) {
     state.inFlight.delete(key);
     state.perWindow.get(entry.windowId)?.delete(key);
   }
@@ -336,24 +338,31 @@ async function resolveResourceInfo(
 
 async function handleInfo(
   options: ResourceServiceOptions,
+  state: ResourceRequestState,
   windowId: string,
   requestId: string,
   send: (m: NappletMessage) => void,
 ): Promise<void> {
+  const controller = new AbortController();
+  if (!trackRequest(state, requestId, windowId, controller)) return;
   try {
     const info = await resolveResourceInfo(options, windowId);
+    if (controller.signal.aborted) return;
     send({
       type: 'resource.info.result',
       id: requestId,
       info,
     } as NappletMessage);
   } catch (err: unknown) {
+    if (controller.signal.aborted) return;
     send({
       type: 'resource.info.error',
       id: requestId,
       error: 'unavailable',
       message: err instanceof Error ? err.message : String(err),
     } as NappletMessage);
+  } finally {
+    untrackRequest(state, windowId, requestId, controller);
   }
 }
 
@@ -447,10 +456,11 @@ async function handleBytes(
 ): Promise<void> {
   const { requestId, ...request } = msg;
   const controller = new AbortController();
-  trackRequest(state, requestId, windowId, controller);
+  if (!trackRequest(state, requestId, windowId, controller)) return;
 
   try {
     const info = await resolveResourceInfo(options, windowId);
+    if (controller.signal.aborted) return;
     const item = await fetchResourceItem(options, windowId, info, request, controller.signal);
     if (controller.signal.aborted) return;
     if (!item.ok) {
@@ -469,7 +479,7 @@ async function handleBytes(
       sendResourceError(send, requestId, failure.message, failure.error);
     }
   } finally {
-    untrackRequest(state, windowId, requestId);
+    untrackRequest(state, windowId, requestId, controller);
   }
 }
 
@@ -486,22 +496,15 @@ async function handleBytesMany(
     return;
   }
 
-  let info: ResourceInfo;
-  try {
-    info = await resolveResourceInfo(options, windowId);
-  } catch (error: unknown) {
-    const failure = classifyResourceFailure(error);
-    sendBytesManyError(send, requestId, failure.message, failure.error);
-    return;
-  }
-  if (info.maxUrls !== undefined && requests.length > info.maxUrls) {
-    sendBytesManyError(send, requestId, `resource.bytesMany exceeds ${info.maxUrls} URLs`, 'too-large');
-    return;
-  }
-
   const controller = new AbortController();
-  trackRequest(state, requestId, windowId, controller);
+  if (!trackRequest(state, requestId, windowId, controller)) return;
   try {
+    const info = await resolveResourceInfo(options, windowId);
+    if (controller.signal.aborted) return;
+    if (info.maxUrls !== undefined && requests.length > info.maxUrls) {
+      sendBytesManyError(send, requestId, `resource.bytesMany exceeds ${info.maxUrls} URLs`, 'too-large');
+      return;
+    }
     const items: Array<Record<string, unknown>> = [];
     for (const request of requests) {
       const item = await fetchResourceItem(options, windowId, info, request, controller.signal);
@@ -533,7 +536,7 @@ async function handleBytesMany(
       sendBytesManyError(send, requestId, failure.message, failure.error);
     }
   } finally {
-    untrackRequest(state, windowId, requestId);
+    untrackRequest(state, windowId, requestId, controller);
   }
 }
 
@@ -651,7 +654,7 @@ export function createResourceService(options: ResourceServiceOptions): Resource
           const m = message as NappletMessage & { id?: string; requestId?: string };
           const requestId = requestIdFromMessage(m);
           if (!requestId) return;
-          handleInfo(options, windowId, requestId, send).catch(() => { /* errors surface via send() */ });
+          handleInfo(options, state, windowId, requestId, send).catch(() => { /* errors surface via send() */ });
           return;
         }
 
@@ -663,7 +666,11 @@ export function createResourceService(options: ResourceServiceOptions): Resource
           };
           const requestId = requestIdFromMessage(m);
           if (!requestId) return;
-          handleBytesMany(options, state, windowId, { requestId, requests: m.requests ?? [] }, send).catch(() => { /* errors surface via send() */ });
+          const requests = isResourceRequestList(m.requests)
+            ? m.requests.map((request) => ({ url: request.url,
+              ...(request.servers !== undefined ? { servers: [...request.servers] } : {}),
+            })) : [];
+          handleBytesMany(options, state, windowId, { requestId, requests }, send).catch(() => { /* errors surface via send() */ });
           return;
         }
 
@@ -678,6 +685,10 @@ export function createResourceService(options: ResourceServiceOptions): Resource
           // Unknown resource.* message — silently ignored per NIP-5D.
           return;
       }
+    },
+
+    onUnregistered(): void {
+      for (const windowId of state.perWindow.keys()) destroyWindowRequests(state, windowId);
     },
 
     onWindowDestroyed(windowId: string): void {

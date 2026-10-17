@@ -207,7 +207,10 @@ describe('createResourceService', () => {
       url: `${GRANTED_ORIGIN}/slow`,
     } as NappletMessage, send);
 
-    // Cancel before fetch resolves
+    // Exercise cancellation after the resolver has started. Cancellation while
+    // metadata is pending is covered separately by resource-lifecycle.test.ts.
+    await flushPromises();
+    expect(opts.fetch).toHaveBeenCalledTimes(1);
     svc.handleMessage(WINDOW_ID, {
       type: 'resource.cancel',
       requestId: 'r3',
