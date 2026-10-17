@@ -15,7 +15,7 @@
 import { decode, npubEncode } from 'nostr-tools/nip19';
 
 const HEX_PUBKEY = /^[0-9a-f]{64}$/i;
-const BECH32_SECRET = /^n(sec|ncryptsec)1/i;
+const BECH32_SECRET = /^(nsec|ncryptsec)1/i;
 
 /** Storage key holding the persisted view-only identity for one browser origin. */
 export const PAJA_VIEW_ONLY_SIGNER_STORAGE_KEY = 'kehto:paja:signer:view-only:v1';
