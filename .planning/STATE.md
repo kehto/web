@@ -407,3 +407,9 @@ build/types/docs/quality100 pass. Phase113 context and research written; typed
 service_plan agent is preparing executable plans. Retrieved exact open draft refs
 for eight previously uncaptured service domains; see 113-RESEARCH.md follow-up.
 Phase113 still requires plan-checker review before execution. Full goal active.
+
+2026-10-17: Reference resource service now authorizes individual URLs and immediate
+HTTP(S) origins through runtime, holding grants through body consumption. 2,394
+unit tests/build/types/docs/quality100 pass. Phase113 plan drafts now exist; typed
+planner finishing remaining plans before checker. Remaining resource resolver/wire
+and all host migration scope unchanged.

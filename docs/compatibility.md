@@ -145,3 +145,25 @@ require their own scoped specification check and migration PR.
 The AGENTS policy requiring warnings, tracking, and tests is proposed separately
 in [PR #284](https://github.com/kehto/web/pull/284). This implementation PR leaves
 `AGENTS.md` unchanged.
+
+
+## FW-RESOURCE-LEGACY-001 — resolver-only resource authorization
+
+- Owner: `@kehto/services`.
+- Old behavior: resource requests without runtime authorization delegate policy
+  entirely to the supplied resolver and optional origin-policy hooks.
+- Replacement: configure `RuntimeAdapter.permissions` and trusted session
+  `permissionPrincipal`; the reference service composes resource and network
+  requirements through the runtime coordinator.
+- Source: `packages/services/src/resource-authorization.ts`; warning site:
+  `createResourceService` in `packages/services/src/resource-service.ts`.
+- Diagnostic: once per service instance, only on actual legacy execution; no
+  request payload or secrets are logged. Canonical configured calls stay quiet.
+- Tests: `tests/unit/resource-approval-runtime.test.ts` verifies legacy execution,
+  identifier/actionable text/frequency, quiet canonical execution, denial,
+  cancellation, bulk independence, and revocation during body consumption.
+- Retained for staged host migration. Removal requires migrating Paja/playground
+  and supported standalone consumers, release notice, negative retirement tests,
+  and a minor changeset on the current 0.x line. No removal release selected yet.
+- This tracks authorization fallback only; existing RESOURCE_FIELDS and draft
+  wire-shape debt remain separate and must be resolved before final shipping.

@@ -669,3 +669,23 @@ These lifecycle rules were checked against NAP-RESOURCE PR #80 at
 to that draft: the existing `requests`/server-hint and Blob transport contract
 still needs migration to its `urls` and base64 wire contract, alongside resource
 approval and host network-isolation integration.
+
+
+### Scoped resource authorization
+
+When attached to a runtime configured with `permissions`, the resource service
+checks each original URL against a resource grant and, for HTTP(S), a separate
+origin grant. Interface permission remains required. Bulk requests authorize each
+item independently. The authorization covers fetching and reading the response
+body, so revocation can abort active work and discard late bytes. Request
+cancellation also dismisses a pending approval without granting a late answer.
+
+This service boundary does not authorize indirect resolver destinations or make
+browser redirects safe. Resolver destination hooks, canonical `urls`/base64 wire
+migration, and Paja/playground network isolation remain migration work. Current
+configured ingress still includes the old temporal gate until that migration.
+
+Standalone or unmigrated hosts retain resolver-owned policy with diagnostic
+`FW-RESOURCE-LEGACY-001`, once per service instance on actual fetch use. Configure
+`RuntimeAdapter.permissions` and trusted session `permissionPrincipal` to use
+shared grants. No old origin list is imported into Firewall permission grants.

@@ -208,3 +208,23 @@ the action.
 Registered extensions revalidate their exact capability declaration after approval
 and before sending deferred replies. Replacing, removing, or changing that
 declaration invalidates the captured operation; a late answer grants nothing.
+
+
+### Scoped resource authorization
+
+When attached to a runtime configured with `permissions`, the resource service
+checks each original URL against a resource grant and, for HTTP(S), a separate
+origin grant. Interface permission remains required. Bulk requests authorize each
+item independently. The authorization covers fetching and reading the response
+body, so revocation can abort active work and discard late bytes. Request
+cancellation also dismisses a pending approval without granting a late answer.
+
+This service boundary does not authorize indirect resolver destinations or make
+browser redirects safe. Resolver destination hooks, canonical `urls`/base64 wire
+migration, and Paja/playground network isolation remain migration work. Current
+configured ingress still includes the old temporal gate until that migration.
+
+Standalone or unmigrated hosts retain resolver-owned policy with diagnostic
+`FW-RESOURCE-LEGACY-001`, once per service instance on actual fetch use. Configure
+`RuntimeAdapter.permissions` and trusted session `permissionPrincipal` to use
+shared grants. No old origin list is imported into Firewall permission grants.

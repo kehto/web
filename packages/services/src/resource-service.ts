@@ -50,7 +50,8 @@ import type {
   ResourceBytesRequest,
   ResourceInfo,
 } from '@napplet/nap/resource/types';
-import type { ServiceDescriptor, ServiceHandler } from '@kehto/runtime';
+import type { ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
+import { authorizeResource } from './resource-authorization.js';
 
 export type {
   ResourceBytesRequest,
@@ -165,6 +166,8 @@ export interface ResourceServiceOptions {
 export type ResourceService = ServiceHandler;
 
 interface ResourceRequestState {
+  runtime?: ServiceRuntimeContext;
+  warnLegacy: () => void;
   inFlight: Map<string, { controller: AbortController; windowId: string; requestId: string }>;
   perWindow: Map<string, Set<string>>;
 }
@@ -384,6 +387,7 @@ function classifyResourceFailure(error: unknown): { error: ResourceErrorCode; me
 
 async function fetchResourceItem(
   options: ResourceServiceOptions,
+  state: ResourceRequestState,
   windowId: string,
   info: ResourceInfo,
   request: ResourceBytesRequest,
@@ -414,37 +418,42 @@ async function fetchResourceItem(
     }
   }
 
-  try {
-    const response = await options.fetch(url, {
-      method: 'GET',
-      signal,
-      windowId,
-      ...(parsedUrl.protocol === 'blossom:' && request.servers !== undefined
-        ? { servers: [...request.servers] }
-        : {}),
-    });
-    const buffer = await response.arrayBuffer();
-    if (info.maxBytes !== undefined && buffer.byteLength > info.maxBytes) {
-      return { ok: false, url, error: 'too-large', message: `resource exceeds ${info.maxBytes} bytes` };
+  const result = await authorizeResource(state.runtime, windowId, url, signal, async (signal): Promise<ResourceFetchItem> => {
+    try {
+      const response = await options.fetch(url, {
+        method: 'GET',
+        signal,
+        windowId,
+        ...(parsedUrl.protocol === 'blossom:' && request.servers !== undefined
+          ? { servers: [...request.servers] }
+          : {}),
+      });
+      const buffer = await response.arrayBuffer();
+      if (info.maxBytes !== undefined && buffer.byteLength > info.maxBytes) {
+        return { ok: false, url, error: 'too-large', message: `resource exceeds ${info.maxBytes} bytes` };
+      }
+      const mime = responseMime(response);
+      return {
+        ok: true,
+        url,
+        blob: responseBlob(buffer, mime),
+        mime,
+      };
+    } catch (err: unknown) {
+      const isAbort =
+        signal.aborted ||
+        (err instanceof Error && (err.name === 'AbortError' || err.name === 'DOMException'));
+      return {
+        ok: false,
+        url,
+        error: isAbort ? 'timeout' : err instanceof ResourceServiceError ? err.code : 'network-error',
+        message: err instanceof Error ? err.message : String(err),
+      };
     }
-    const mime = responseMime(response);
-    return {
-      ok: true,
-      url,
-      blob: responseBlob(buffer, mime),
-      mime,
-    };
-  } catch (err: unknown) {
-    const isAbort =
-      signal.aborted ||
-      (err instanceof Error && (err.name === 'AbortError' || err.name === 'DOMException'));
-    return {
-      ok: false,
-      url,
-      error: isAbort ? 'timeout' : err instanceof ResourceServiceError ? err.code : 'network-error',
-      message: err instanceof Error ? err.message : String(err),
-    };
-  }
+  }, state.warnLegacy);
+  return result.status === 'executed' ? result.value : {
+    ok: false, url, error: 'blocked-by-policy', message: 'resource permission unavailable or denied',
+  };
 }
 
 async function handleBytes(
@@ -461,7 +470,7 @@ async function handleBytes(
   try {
     const info = await resolveResourceInfo(options, windowId);
     if (controller.signal.aborted) return;
-    const item = await fetchResourceItem(options, windowId, info, request, controller.signal);
+    const item = await fetchResourceItem(options, state, windowId, info, request, controller.signal);
     if (controller.signal.aborted) return;
     if (!item.ok) {
       sendResourceError(send, requestId, item.message, item.error);
@@ -507,7 +516,7 @@ async function handleBytesMany(
     }
     const items: Array<Record<string, unknown>> = [];
     for (const request of requests) {
-      const item = await fetchResourceItem(options, windowId, info, request, controller.signal);
+      const item = await fetchResourceItem(options, state, windowId, info, request, controller.signal);
       if (controller.signal.aborted) return;
       if (item.ok) {
         items.push({
@@ -608,7 +617,13 @@ function destroyWindowRequests(state: ResourceRequestState, windowId: string): v
  */
 export function createResourceService(options: ResourceServiceOptions): ResourceService {
   assertResourceOptions(options);
+  let warned = false;
   const state: ResourceRequestState = {
+    warnLegacy() {
+      if (warned) return;
+      warned = true;
+      console.warn('[FW-RESOURCE-LEGACY-001] Configure RuntimeAdapter.permissions and trusted session permissionPrincipal; resolver-only resource policy is deprecated. Warning once per service instance.');
+    },
     inFlight: new Map(),
     perWindow: new Map<string, Set<string>>(),
   };
@@ -622,6 +637,8 @@ export function createResourceService(options: ResourceServiceOptions): Resource
 
   const handler: ServiceHandler = {
     descriptor,
+    onRegistered(context) { state.runtime = context; },
+    onPermissionRevoked() {},
 
     handleMessage(
       windowId: string,
@@ -689,6 +706,7 @@ export function createResourceService(options: ResourceServiceOptions): Resource
 
     onUnregistered(): void {
       for (const windowId of state.perWindow.keys()) destroyWindowRequests(state, windowId);
+      state.runtime = undefined;
     },
 
     onWindowDestroyed(windowId: string): void {

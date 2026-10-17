@@ -183,3 +183,26 @@ late approval can create grants. Three regression cases pass. Full 2,389 unit
 tests, build, types, docs and quality100 pass (logs under
 /tmp/kehto-extension-declaration-*). This closes one phase112 lifecycle boundary;
 service authorization and host migration remain incomplete.
+
+
+## Resource service authorization integration
+
+Reference resource service now binds to ServiceRuntimeContext and authorizes each
+validated original URI plus its immediate HTTP(S) origin. Authorization covers
+resolver execution through full body reading, with a bridged native AbortSignal.
+Bulk items retain independent policy outcomes; cancelling the request aborts its
+pending approval; revocation sends blocked-by-policy and suppresses late bytes.
+Legacy resolver-only execution is diagnosed once per service instance using
+FW-RESOURCE-LEGACY-001, tracked in docs/compatibility.md and tested alongside quiet
+canonical execution. Existing optional origin policy remains an additional ceiling.
+
+Verification: five new integration regressions, full 186 files / 2,394 unit tests,
+build/type/docs pass, quality100. Logs: /tmp/kehto-resource-auth-{unit,types,build,
+docs}.log and quality.json. No host wiring or browser behavior changed yet.
+
+This is an intermediate boundary: indirect destination/redirect callbacks, server
+DNS enforcement, canonical urls/base64 wire, info authorization, complete replay
+history and removal of duplicate old ingress rate gates remain phase113 work.
+Plan drafts are being produced and still need checker review; host admission/UI
+and final PR remain outstanding. NAP-RESOURCE authority remains PR80
+ ae5b9c64ab8a4d8909f288829a01e99d6bd713bc; not full conformance yet.
