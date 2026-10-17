@@ -17,6 +17,8 @@ function installFakeBunker(
   const bunkerPubkey = getPublicKey(bunkerSecret);
   const conversationKey = nip44.getConversationKey(clientSecret, bunkerPubkey);
 
+  const methods: string[] = [];
+
   class FakeBunkerSocket {
     static readonly OPEN = 1;
     static readonly CLOSED = 3;
@@ -47,6 +49,7 @@ function installFakeBunker(
         (message[1] as { content: string }).content,
         conversationKey,
       )) as { id: string; method: string };
+      methods.push(request.method);
       const result = request.method === 'connect' ? connectResult : userPubkey;
       const response = finalizeEvent({
         kind: 24_133,
@@ -66,7 +69,7 @@ function installFakeBunker(
     }
   }
 
-  return { FakeBunkerSocket, bunkerPubkey };
+  return { FakeBunkerSocket, bunkerPubkey, methods };
 }
 
 describe('parseBunkerUri', () => {
@@ -111,25 +114,30 @@ describe('createNip46Client', () => {
     }
   });
 
-  it('accepts a signer that returns its user pubkey directly from connect', async () => {
+  it.each(['inline user key', 'hex secret', 'transport key'])('fetches canonical identity after connect returns %s', async (reply) => {
     const bunkerSecret = generateSecretKey();
     const userPubkey = getPublicKey(generateSecretKey());
     const clientSecret = generateSecretKey();
-    const { FakeBunkerSocket, bunkerPubkey } = installFakeBunker(userPubkey, bunkerSecret, clientSecret, userPubkey);
+    const connectResult = reply === 'inline user key' ? userPubkey
+      : reply === 'transport key' ? getPublicKey(bunkerSecret)
+      : 'ab'.repeat(32);
+    const { FakeBunkerSocket, bunkerPubkey, methods } = installFakeBunker(userPubkey, bunkerSecret, clientSecret, connectResult);
     vi.stubGlobal('WebSocket', FakeBunkerSocket);
     try {
       const client = createNip46Client({ relayUrl: 'wss://relay.example', bunkerPubkey, localSecretKey: clientSecret });
       await expect(client.connect()).resolves.toBe(userPubkey);
+      await expect(client.getSigner().getPublicKey!()).resolves.toBe(userPubkey);
+      expect(methods).toEqual(['connect', 'get_public_key']);
       client.close();
     } finally {
       vi.unstubAllGlobals();
     }
   });
 
-  it('rejects an invalid get_public_key response instead of exposing it as identity', async () => {
+  it.each(['ack', 'ab'.repeat(32)])('rejects invalid get_public_key even after connect returns %s', async (connectResult) => {
     const bunkerSecret = generateSecretKey();
     const clientSecret = generateSecretKey();
-    const { FakeBunkerSocket, bunkerPubkey } = installFakeBunker('not-a-pubkey', bunkerSecret, clientSecret, 'ack');
+    const { FakeBunkerSocket, bunkerPubkey } = installFakeBunker('not-a-pubkey', bunkerSecret, clientSecret, connectResult);
     vi.stubGlobal('WebSocket', FakeBunkerSocket);
     try {
       const client = createNip46Client({ relayUrl: 'wss://relay.example', bunkerPubkey, localSecretKey: clientSecret });

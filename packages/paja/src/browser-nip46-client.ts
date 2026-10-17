@@ -211,13 +211,7 @@ function createNipEncryptionMethods(state: Nip46ClientState, prefix: 'nip04' | '
 
 const HEX_PUBKEY = /^[0-9a-f]{64}$/i;
 
-/**
- * Normalize a NIP-46 identity response to a hex pubkey.
- *
- * `connect` may answer with `"ack"` (NIP-46's documented result), a hex
- * pubkey, or an object carrying `pubkey`. Only the latter two identify the
- * user; anything else must be followed by `get_public_key`.
- */
+/** Normalize a get_public_key response to a validated hex pubkey. */
 function readPubkey(value: unknown): string | null {
   if (typeof value === 'string') {
     const normalized = value.trim().toLowerCase();
@@ -239,16 +233,10 @@ async function requestPublicKey(state: Nip46ClientState): Promise<string> {
 
 async function connectNip46State(state: Nip46ClientState, secret?: string): Promise<string> {
   await openWebSocket(state);
-  const result = await sendRequestWithId(state, crypto.randomUUID(), 'connect', [state.bunkerPubkey, secret ?? '']);
+  await sendRequestWithId(state, crypto.randomUUID(), 'connect', [state.bunkerPubkey, secret ?? '']);
 
-  // NIP-46 specifies `"ack"` as the connect result, so the identity normally
-  // has to be requested separately. Accept a pubkey from signers that return
-  // one inline, but never treat an arbitrary string as the user's pubkey.
-  const inline = readPubkey(result);
-  if (inline) {
-    state.authorizedPubkey = inline;
-    return inline;
-  }
+  // NIP-46 requires get_public_key after connect: even a hex-shaped connect
+  // result may be a secret or transport key rather than the user's identity.
   return requestPublicKey(state);
 }
 
