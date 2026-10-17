@@ -532,3 +532,19 @@ Docs:check PASS (/tmp/kehto-resource-package-docs.log), pinnedquality100
 servicesREADME:55 still needs its owned stale-contract update. Prior turn was
 progress; this turn closes reviewed114planning and published-doc drift. Full
 resource gates/summary remain pending; no PR or fullgoal completion claim.
+
+2026-10-17: Resource source fixes committed ecc8c23e; executor reports full
+build/typecheck, unit191files/2450tests, focused247tests, docs/quality green and
+isolated Paja browser modes passing. Root refused group completion without full
+125-test E2E gate. Unrelated docs Vite occupied4173; preserved it and added shared
+validated KEHTO_HARNESS_PORT override (playwright/Vite/CORS fixtures/README),
+committed05c60d8a. Run fullsuite with KEHTO_HARNESS_PORT=42873 pnpm test:e2e.
+Full run session66350 TERMINAL exit1:124passed/1failed2.5m, sole resource-demo
+browser path fails with invalid-request resource.bytesMany requires nonempty urls.
+Logs/tmp/kehto-resource-full-e2e.log and test-results/nap-resource-resource-demo-loads-and-renders-a-remote-image-chromium/error-context.md.
+resource_execution owns diagnosis/fix, informed fullrun stopped and rebuild safe.
+Do not mark01/02 complete or releasewave3 until fixed and fullsuite green.
+Root currenttree typecheckPASS (/tmp/kehto-resource-final-types.log), docsPASS
+(/tmp/kehto-resource-harness-docs.log), quality100(/tmp/kehto-resource-harness-quality.json).
+Previous turn was progress; this turn made fullbrowser verification possible and
+found a real missed consumer regression. Goal active, no PR yet.
