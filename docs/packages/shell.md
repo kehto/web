@@ -17,7 +17,9 @@ host migration status.
 The bridge exposes runtime admission through `bridge.runtime.permissions`.
 `admitBrowserDocument` performs provisional registration, `admit`, CSP/namespace
 preparation, and the final currentness check before a synchronous frame commit.
-Paja/playground frame-loader migration remains in progress.
+Paja's verified, local-file, and live development frames and the playground's
+verified catalog frames use this transaction before scripts execute. The
+playground has no unsigned development loader.
 
 `createBrowserApprovalUi` presents the runtime prompt with trusted technical
 identity, exact operation scopes, and offered lifetimes. It returns explicit

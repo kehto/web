@@ -177,9 +177,10 @@ body, so revocation can abort active work and discard late bytes. Request
 cancellation also dismisses a pending approval without granting a late answer.
 
 This service boundary does not authorize indirect resolver destinations or make
-browser redirects safe. Resolver destination hooks, canonical `urls`/base64 wire
-migration, and Paja/playground network isolation remain migration work. Current
-configured ingress still includes the old temporal gate until that migration.
+browser redirects safe. Paja and playground now pair mediated resource approval
+with pre-execution frame admission and a closed browser CSP. Current configured
+ingress uses independent rate budgets; the old temporal gate remains only for
+hosts without a permission adapter.
 
 Standalone or unmigrated hosts retain resolver-owned policy with diagnostic
 `FW-RESOURCE-LEGACY-001`, once per service instance on actual fetch use. Configure

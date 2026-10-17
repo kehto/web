@@ -616,14 +616,15 @@ Verified manifest servers remain source-scoped Paja host policy under the
 [NIP-5D draft at `5560820`](https://github.com/dskvr/nips/blob/5560820fa4f37f45b8ab742a11aeb3001b17dc67/5D.md).
 Neither those hints nor stored extra servers grant iframe network authority.
 
-**Integration prerequisite:** Phase 114 must finish app admission and iframe
-network isolation before this migration can claim end-to-end resource protection.
-NAP-RESOURCE requires direct-network denial before exposing `resource`, including
+The shared launch admission and CSP isolate mediated `resource` frames from
+direct browser traffic. NAP-RESOURCE requires direct-network denial before exposing `resource`, including
 remote script, image, style, font, and worker paths as well as `connect-src`.
 The proxy and service approval checks alone do not stop a frame with permissive
-CSP from contacting remote servers. Explicit direct-network frames must use the
+CSP from contacting remote servers. Explicit direct-network frames use the
 compatible interface set defined by that host policy; required interfaces cannot
-be silently dropped. SVG rejection rather than rasterization and the retained
+be silently dropped. Paja's host-injected base URL is limited to the exact
+approved development origin so relative assets resolve. SVG rejection rather
+than rasterization and the retained
 Blossom URI aliases are also bounded host behavior, not a claim of complete draft
 conformance. Publisher discovery follows
 [Blossom BUD-03 at `b5bd280`](https://github.com/hzrd149/blossom/blob/b5bd2801d1763aa635fc8fea7a76597e0eb18990/buds/03.md).

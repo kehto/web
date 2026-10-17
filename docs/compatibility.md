@@ -6,6 +6,18 @@ coverage. This register records both implemented safeguards and existing debt;
 below identifies the package responsible for the implementation and its tests.
 No removal date is implied by an old source comment.
 
+## FW-PAJA-SIMULATION-MODE-REMOVED-001 — retired firewall mode
+
+`@kehto/paja` removed `--firewall-mode` and `simulation.firewall`. Those
+settings only changed development metadata and never authorized an interface,
+resource, or origin. CLI, JSON config loading, config merging, and direct
+simulation normalization now reject the old input with guidance to use exact
+Firewall grants. Source sites: `packages/paja/src/cli.ts`, `config-file.ts`,
+and `simulation.ts`; negative tests: `cli.test.ts` and `config-file.test.ts`.
+No compatibility path or runtime warning remains. The removal ships in the
+Firewall host-approvals 0.x minor release; restoring the option would require
+a new scoped contract and regression coverage.
+
 ## FW-PAJA-SIGNER-CONSENT-LEGACY-001 — remembered signer confirmation
 
 `@kehto/paja` retains exact remembered signer confirmations from

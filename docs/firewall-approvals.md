@@ -1,14 +1,14 @@
 # Scoped Firewall approvals
 
-This migration is in progress. Hosts supplying `RuntimeAdapter.permissions`
-(or `ShellAdapter.permissions`) can use pre-execution interface admission.
+Hosts supplying `RuntimeAdapter.permissions` (or `ShellAdapter.permissions`)
+use pre-execution interface admission.
 Built-in interface dispatch requires its admission grant; LINK and declared
 service extensions also support held operation approvals. Resource/network scope
 enforcement now covers migrated service operations including filesystem, device,
 relay, upload, social, media, and local-state work. Existing Firewall
-configuration is not converted into scoped grants. Paja and playground now use
-shared approval presentation and verified-frame admission; Phase 114 is still
-finishing development targets and direct-network coverage.
+configuration is not converted into scoped grants. Paja and playground use
+shared approval presentation and frame admission before executable bytes enter
+an iframe.
 
 ## Responsibilities
 
@@ -123,6 +123,28 @@ ACL blocking invalidate its use. Paja's verified, local-file, and live-developme
 frame loaders and the playground's verified demo/installed target loader use this
 transaction.
 
+Paja's live development target is an unsigned principal bound to its exact URL
+and fetched-byte SHA-256; local files use a separate development principal.
+The playground currently loads resolver-verified catalog artifacts only. It has
+no unsigned file or dev-server launch control. Its demo configuration, relay
+and Blossom hints, and preferences cannot create grants or direct browser
+authority. A future development loader must call `admitBrowserDocument` with a
+fresh development principal and the same currentness checks.
+
+The shared CSP starts with `default-src 'none'`. A verified playground artifact
+has no direct remote browser sources and can use the mediated `resource`
+interface after its own approval. Paja's live target proposes exact origins per
+supported `connect`, `script`, `style`, `image`, `font`, `worker`, and `media`
+directive. Each source needs a network grant; direct mode excludes `resource`.
+Required `resource` plus direct mode fails before launch, while optional
+`resource` is omitted explicitly. Frame, child, object, manifest, and form
+destinations stay closed. Paja permits its host-injected `<base>`
+only at the already approved development origin so relative assets resolve;
+this adds no remote source beyond the directive-specific grants. Direct iframe
+traffic is outside parent mediation and operation rate budgets, so revocation
+retires the live frame. Chromium regressions count requests to allowed and
+blocked origins in both hosts.
+
 ## Decisions, cancellation, and revocation
 
 Once permits one captured operation. Session permits the same scopes in one live
@@ -193,9 +215,11 @@ Checked authority: NAP-LINK draft PR 53 at
 `ae5b9c64ab8a4d8909f288829a01e99d6bd713bc`, and NAP-SHELL/web at
 `19de5ce1cea40cd4c76089cdd8126e9f87648049`. LINK validation, response correlation,
 and source isolation follow those contracts. Resource identity informs the shared
-principal model; resource enforcement is described below while Phase 114 owns
-direct browser network policy. See the planning research matrix for the remaining refs
-and documented CONNECT specification gap.
+principal model. NAP-CONNECT draft PR 19 at
+`ec81a3a4a1fc4da1ad2601215353b7f822e44b8f` supplies network permission
+intent; Kehto's directive-specific development CSP is a bounded host policy
+because that draft defines no `connect.*` wire operation. See the planning
+research matrix for the remaining refs and spec gaps.
 
 
 ### Cancelling one approved operation
@@ -235,9 +259,9 @@ including each proxy-reported redirect hop, and its signal covers connection and
 body reading. Paja's local proxy adds DNS-time address screening and pinned
 connections; see [Paja resource proxy policy](https://github.com/kehto/web/blob/main/docs/policies/RESOURCE-PROXY.md).
 
-This host-side boundary does not isolate unrestricted iframe subresource or direct
-network access. Phase 114 must close frame admission/CSP isolation before any
-end-to-end resource-security claim is made.
+The shared launch admission and closed CSP prevent an approved mediated-resource
+frame from making unrestricted iframe subresource or direct network requests.
+Hosts that bypass `admitBrowserDocument` do not receive that guarantee.
 
 The supported Paja resolver keeps its transport capability in the trusted
 main-frame adapter. It verifies the destination before DNS or a connection,
@@ -249,7 +273,8 @@ configuration, iframe messages, initialization data, or `window.napplet`.
 The playground uses the same resource-service callback contract. It requires
 `authorizeNetwork` before its initial HTTP(S) fetch and deliberately rejects
 redirect responses because it has no trusted per-hop resolver. This bounded host
-policy does not replace Paja's resolver or provide a Phase 114 admission claim.
+policy does not replace Paja's resolver. Playground's verified loader separately
+passes through the shared launch admission transaction.
 
 Standalone or unmigrated hosts retain resolver-owned policy with diagnostic
 `FW-RESOURCE-LEGACY-001`, once per service instance on actual fetch use. Configure

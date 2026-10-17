@@ -302,22 +302,17 @@ the napplet protocol identity path.
 
 ## Experimental domain admission in Paja
 
-Checked NIP-5D PR #2303 at `dskvr/nips@020cb8b33a9e4c6b8ca4b2f9d0ed0a67843b68f7`
-(Required and Optional Capabilities, Runtime Domain Availability) and
-`napplet/naps@d73f6f9480dcec1d75712cf4eafbe70337fe1e42` (`naps/NAP-SHELL.md`,
-`projections/web.md`). Paja uses NIP-5D's permitted warning policy when a required
-domain is unavailable, including unknown experimental domains. It warns once per
-frame navigation and continues with its existing granted namespace. Optional `O`
-domains never block loading or produce missing-required warnings. The playground
-retains its permitted rejection policy for missing required domains.
-
-This admission policy is conformant. Unknown experimental domains have no matching
-NAP contract in the checked registry; accepting their declarations does not invent
-operations, inject placeholder objects, authorize messages, or implement their
-protocol. Apps discover absence and gracefully degrade. Signature and artifact
-verification, CSP, and ACL enforcement remain in effect. Browser regression coverage
-in `tests/e2e/paja-runtime-pointer.spec.ts` exercises signed current manifests,
-unknown and disabled domains, actual fallback execution, and reload.
+Rechecked NIP-5D PR #2303 head at
+`nostr-protocol/nips@5560820fa4f37f45b8ab742a11aeb3001b17dc67` and
+NAP-SHELL master at `napplet/naps@19de5ce1cea40cd4c76089cdd8126e9f87648049`.
+Paja and playground now prevent execution when a required available domain is
+denied or unavailable. Denying an optional domain narrows the namespace and
+services without blocking the app. Unknown experimental domains cannot gain an
+implementation through declarations alone. The read-only `shell` host control
+plane is offered when supported; NAP-SHELL is optional and does not gate other
+domain calls. The older warn-and-continue Paja behavior is retired by the
+shared pre-execution admission policy. Browser regressions cover required
+denial, optional narrowing, verified manifests, and reload/replacement.
 
 ## Registered service extensions (#303)
 
@@ -344,3 +339,26 @@ Runtime regressions cover registration, replacement/removal, source isolation,
 ACL/firewall denial and startup limits, silent unknown types, fixed-domain
 precedence, and delayed replies after teardown or policy revocation. The full
 browser suite guards existing host consumers without inventing an `example` NAP.
+
+## Shared host launch admission
+
+Rechecked NIP-5D PR #2303 head
+`5560820fa4f37f45b8ab742a11aeb3001b17dc67`, NAP-SHELL master
+`19de5ce1cea40cd4c76089cdd8126e9f87648049`, NAP-RESOURCE PR #80 head
+`ae5b9c64ab8a4d8909f288829a01e99d6bd713bc`, and NAP-CONNECT PR #19
+head `ec81a3a4a1fc4da1ad2601215353b7f822e44b8f`. Both Paja and playground
+register source-bound principals provisionally, await shared approval, then
+prepend CSP and namespace bootstraps to a `srcdoc` copy. Signed artifact bytes
+and hashes remain unchanged; gateway output cannot establish identity. Paja's
+unsigned targets use development principals bound to exact target and byte hash.
+Playground currently has no unsigned napplet loader.
+
+The common CSP defaults to no remote sources. Playground verified artifacts
+request none; Paja live development proposes exact directive/origin pairs. A
+direct source cannot use mediated `resource`; required conflicts block launch.
+Paja's host-injected base URL may point only to an already approved exact
+development origin. Frame, child, object, manifest, and form destinations
+remain closed. This directive-specific CSP and base behavior are bounded Kehto
+host policy, not a new NAP-CONNECT wire contract. A future playground
+development loader or new host consumer must use the same shared admission
+transaction and add a conformance guard before executing bytes.

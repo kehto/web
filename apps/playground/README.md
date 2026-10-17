@@ -27,6 +27,10 @@ The `preview` command serves the production build against which the Playwright E
 
 The active playground boot path is production-equivalent:
 
+The playground currently loads only resolver-verified catalog artifacts. Vite's
+`dev` command develops the host UI; it does not add an unsigned napplet loader.
+Demo settings and gateway responses cannot approve an interface or origin.
+
 1. Each demo napplet uses `apps/playground/napplets/shared-vite-config.ts`.
 2. The shared config lets `@napplet/vite-plugin` validate and sign the normal external-asset graph, then Kehto's post-build plugin rewrites the final gateway artifact to a single HTML file and recomputes the manifest.
 3. Each napplet build emits exactly `dist/index.html` plus `dist/.nip5a-manifest.json`.

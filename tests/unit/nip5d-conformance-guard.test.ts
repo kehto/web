@@ -589,6 +589,31 @@ describe('NIP-5D conformance static guards', () => {
     expect(policy).toContain('napplet artifacts are not required to bundle their own handshake');
   });
 
+  it('keeps both host loaders behind verified-byte admission and the closed browser CSP', () => {
+    const paja = readRepoFile('packages/paja/src/browser-target-frame.ts');
+    const playground = readRepoFile('apps/playground/src/playground-frame-loader.ts');
+    const admission = readRepoFile('packages/shell/src/browser-admission.ts');
+    const csp = readRepoFile('packages/shell/src/napplet-csp.ts');
+
+    expect(paja).toContain('await admitBrowserDocument({');
+    expect(paja).toContain('verifiedHtml: injectBaseHref(fetched.html, targetUrl.href)');
+    expect(paja).toContain('frame.srcdoc = srcdoc;');
+    expect(playground).toContain('await admitBrowserDocument({');
+    expect(playground).toContain('verifiedHtml: resolved.indexHtml');
+    expect(playground).toContain('remoteSources: []');
+    expect(playground).toContain('iframe.srcdoc = srcdoc;');
+    expect(playground).not.toContain('STATIC_ORIGIN_ALLOWLIST');
+    expect(admission).toContain('permissions.isAdmissionCurrent(entry.windowId, admission)');
+    expect(admission).toContain('cspMeta(csp) + renderNappletNamespacePrelude({ domains })');
+    expect(admission).toContain("request.required.filter((domain) => domain !== 'shell')");
+    expect(admission).toContain("const offersShell = request.available.includes('shell')");
+    expect(csp).toContain("'default-src': [\"'none'\"]");
+    for (const directive of ['frame-src', 'child-src', 'object-src', 'manifest-src', 'form-action']) {
+      expect(csp).toContain(`'${directive}': [\"'none'\"]`);
+    }
+    expect(csp).toContain('Development base origin needs matching exact approved network authority');
+  });
+
   it('keeps active NAP-SHELL support domain-only and host resolution out of injected APIs', () => {
     const namespace = readRepoFile('packages/shell/src/napplet-namespace.ts');
     const readme = readRepoFile('packages/shell/README.md');
