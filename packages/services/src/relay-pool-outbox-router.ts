@@ -717,13 +717,21 @@ export function createRelayPoolOutboxRouter(options: RelayPoolOutboxRouterOption
     if (!ctx.getSignerPubkey) return { relays: [], source: 'policy' };
     const pubkey = await ctx.getSignerPubkey();
     const plan = await resolvePlan(ctx, publishOptions?.toOutbox === false ? [] : [pubkey], 'read', publishOptions?.relays);
-    return plan;
+    return { ...plan, author: pubkey };
+  }
+  async function publishWithPlan(template: EventTemplate, plan: OutboxRelayPlan): Promise<OutboxPublishResult> {
+    if (!ctx.signEvent || plan.relays.length === 0) return { ok: false, error: 'publish denied' };
+    const event = await ctx.signEvent(template);
+    if (plan.author && event.pubkey !== plan.author) return { ok: false, event, eventId: event.id, error: 'signing identity changed' };
+    const relays = normalizePublishResult(await ctx.relayPool.publish(event, [...plan.relays]), [...plan.relays]);
+    return { ok: Object.values(relays).some(Boolean), event, eventId: event.id, relays };
   }
 
   return {
     planRead: (filters, queryOptions) => resolvePlan(ctx, deriveAuthors(filters, queryOptions?.authors), 'read', queryOptions?.relays),
     queryWithPlan: (filters, queryOptions, plan) => queryPlanImpl(ctx, filters, queryOptions, plan),
     planPublish,
+    publishWithPlan,
     getEvent: (eventId, eventOptions) => getEventImpl(ctx, eventId, eventOptions),
     query: (filters, queryOptions) => queryImpl(ctx, filters, queryOptions),
     queryStream: (filters, queryOptions, sink) => startQueryImpl(ctx, filters, queryOptions, sink),

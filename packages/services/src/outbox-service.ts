@@ -92,6 +92,8 @@ export interface OutboxRelayPlan {
   source: 'nip65' | 'cache' | 'policy' | 'fallback';
   /** Authors for which no relay list could be resolved. */
   missingAuthors?: string[];
+  /** Signing identity captured for a pre-sign publish plan. */
+  author?: string;
 }
 
 /** Outcome of a single-event outbox lookup. */
@@ -186,6 +188,7 @@ export interface StreamingOutboxRouter extends OutboxRouter {
   queryWithPlan?(filters: NostrFilter[], options: OutboxQueryOptions | undefined, plan: OutboxRelayPlan): Promise<OutboxResult>;
   /** Resolve publish fanout from the signer identity before signature creation. */
   planPublish?(options?: OutboxPublishOptions): Promise<OutboxRelayPlan>;
+  publishWithPlan?(template: EventTemplate, plan: OutboxRelayPlan): Promise<OutboxPublishResult>;
   /**
    * Start policy/fallback reads immediately, stream verified events through
    * `sink`, and attach author relays when concurrent discovery resolves.
