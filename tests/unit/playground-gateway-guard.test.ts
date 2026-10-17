@@ -138,7 +138,8 @@ describe('playground gateway artifact guard', () => {
     expect(source.identityFlow).toContain('published NAP-INTENT target');
 
     for (const media of [source.feedMedia, source.profileMedia]) {
-      expect(media).toContain('resourceBytes');
+      expect(media).toContain('const { loadBytes } = options;');
+      expect(media).not.toContain('resourceBytes');
       expect(media).toContain('URL.createObjectURL(blob)');
       expect(media).toContain('URL.revokeObjectURL(url)');
     }
@@ -467,7 +468,10 @@ describe('playground gateway artifact guard', () => {
 
     expect(feedSource).toContain("import { identityGetPublicKey, identityOnChanged } from '@napplet/nap/identity/sdk';");
     expect(feedSource).toContain("import { intentInvoke } from '@napplet/nap/intent/sdk';");
-    expect(feedSource).toContain("import { resourceBytes } from '@napplet/nap/resource/sdk';");
+    expect(feedSource).not.toContain("import '@napplet/shim';");
+    expect(feedSource).not.toContain('@napplet/nap/resource/sdk');
+    expect(feedSource).toContain('function loadHostResourceBytes(url: string): Promise<Blob>');
+    expect(feedSource).toContain('return resource.bytes(url);');
     expect(feedSource).toContain("import { getMissingNapDomains } from '../../domain-availability';");
     expect(feedSource).toContain("import { createFeedStore, type FeedProfile } from './feed-store.js';");
     expect(feedSource).toContain("import { createFeedIdentityEventController } from './feed-identity-events.js';");
@@ -487,7 +491,7 @@ describe('playground gateway artifact guard', () => {
     expect(feedStore).toContain('[{ kinds: [0], authors: [pubkey], limit: 1 }]');
     expect(feedStore).toContain('state.profiles.set(pubkey, profile);');
     expect(feedSource).toContain("import { createFeedProfileMediaController } from './profile-media.js';");
-    expect(feedSource).toContain('const profileMedia = createFeedProfileMediaController({ loadBytes: resourceBytes });');
+    expect(feedSource).toContain('const profileMedia = createFeedProfileMediaController({ loadBytes: loadHostResourceBytes });');
     expect(feedSource).toContain("button.className = 'feed-item-author feed-profile-button feed-profile-name-button';");
     expect(feedSource).toContain("timeEl.className = 'feed-item-time';");
     expect(feedSource).toContain('formatPublishedAgo(event.created_at)');
@@ -516,7 +520,10 @@ describe('playground gateway artifact guard', () => {
 
     expect(profileSource).not.toContain("import { incOn } from '@napplet/nap/inc/sdk';");
     expect(profileSource).toContain("import { relaySubscribe } from '@napplet/nap/relay/sdk';");
-    expect(profileSource).toContain("import { resourceBytes } from '@napplet/nap/resource/sdk';");
+    expect(profileSource).not.toContain("import '@napplet/shim';");
+    expect(profileSource).not.toContain('@napplet/nap/resource/sdk');
+    expect(profileSource).toContain('function loadHostResourceBytes(url: string): Promise<Blob>');
+    expect(profileSource).toContain('return resource.bytes(url);');
     expect(profileSource).toContain("import { getMissingNapDomains } from '../../domain-availability';");
     expect(profileSource).toContain("const REQUIRED_NAPS = ['intent', 'relay', 'resource', 'theme'] as const;");
     expect(profileSource).toContain('getMissingNapDomains(REQUIRED_NAPS)');
@@ -524,7 +531,7 @@ describe('playground gateway artifact guard', () => {
     expect(profileSource).toContain("formatError(err, 'intent, relay, or resource unavailable')");
     expect(profileSource).toContain("profileIntentSub = intent.onDelivery((event) => {");
     expect(profileSource).toContain("import { createProfileMediaController } from './profile-media.js';");
-    expect(profileSource).toContain('const profileMedia = createProfileMediaController({ loadBytes: resourceBytes });');
+    expect(profileSource).toContain('const profileMedia = createProfileMediaController({ loadBytes: loadHostResourceBytes });');
     expect(profileSource).not.toContain('intentOnDelivery');
     expect(profileSource).toContain('[{ kinds: [0], authors: [pubkey], limit: 1 }]');
     expect(profileSource).toContain('normalizePubkey');

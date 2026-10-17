@@ -256,13 +256,13 @@ they are either:
 - a documented NAP domain envelope whose SDK helper surface is incomplete; or
 - a demo/test-only envelope listed in the milestone raw-envelope allowlist.
 
-NAP-RESOURCE host projections follow exact draft ref
-`9511232f69313aa7953d110e35d32cc28d506f66` and package contract
-merged in `napplet/web#206` at `19e0029b228127769a0ebdcf0b6b2f30293bd284`
-and released by `b007587afbefb0ce5592825d6ec1fc5b026c7b08`:
-single requests carry optional `servers`, while bulk requests carry
-`requests: [{ url, servers? }]`. The playground resource demo uses the published
-shim and resource SDK over that injected API and needs no raw-envelope exception.
+NAP-RESOURCE host projections follow PR #80 at exact ref
+`ae5b9c64ab8a4d8909f288829a01e99d6bd713bc`: single requests carry `url`,
+bulk requests carry ordered `urls`, and responses use canonical padded base64
+before the projection decodes `Blob` values. The published shim/resource SDK at
+the pinned dependency version retains the retired object-form `requests` wire
+shape. Active resource consumers use the host-injected projection until that
+upstream drift is resolved; they do not introduce a raw-envelope exception.
 
 ### Phase 58 Raw-Envelope Allowlist
 

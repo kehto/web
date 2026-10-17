@@ -127,15 +127,16 @@ starts the verified target, waits for its current registered source and
 then returns the final handled target identity. A stale or replaced target is
 never used; controller retry and terminal policy remain host-owned.
 
-Profile-viewer registers `inc.on('napplet:profile/open', …)` early. It validates
-the delivered `pubkey`,
-loads kind-0 metadata, and obtains profile pictures/banners through
-`resourceBytes(url)`. The runtime resolves the URL and returns bytes; the napplet
-creates a Blob URL from those bytes and revokes it on replacement, stale
-completion, image error, profile clear, and `pagehide`. This follows merged
-NAP-IDENTITY at `a040914b4bbd3a5cd8a14b0f316a723c968ebfb2` and draft
-NAP-RESOURCE at `9511232f69313aa7953d110e35d32cc28d506f66`. The resource demo
-uses canonical per-resource `bytesMany([{ url, servers? }])` requests.
+Profile-viewer validates the delivered `pubkey`, loads kind-0 metadata, and
+obtains profile pictures/banners through the host-injected
+`window.napplet.resource.bytes(url)` projection. The runtime returns canonical
+base64 that the projection validates and converts to a `Blob`; the napplet
+creates a Blob URL and revokes it on replacement, stale completion, image
+error, profile clear, and `pagehide`. This follows merged NAP-IDENTITY at
+`a040914b4bbd3a5cd8a14b0f316a723c968ebfb2` and NAP-RESOURCE PR #80 at
+`ae5b9c64ab8a4d8909f288829a01e99d6bd713bc`. The resource demo uses ordered
+`bytesMany(urls)` requests. The installed shim is intentionally absent from
+these resource consumers until its packaged projection matches that contract.
 
 Theme is synchronized by reading the current value with `theme.get` and then
 receiving one automatic `theme.changed` per eligible frame after a host update;

@@ -5,45 +5,38 @@ protocol kernel: runtimes choose how URLs are resolved, which schemes they
 support, and which origin, redirect, privacy, integrity, MIME, and size policies
 fit their environment.
 
-The protocol authority is draft
-[NAP-RESOURCE](https://github.com/napplet/naps/blob/9511232f69313aa7953d110e35d32cc28d506f66/naps/NAP-RESOURCE.md)
-at exact ref `9511232f69313aa7953d110e35d32cc28d506f66`, with the
-server-hint semantics introduced by `75312589cdc5012be0ac09d7aa87e265564d3bf8`.
-The package projection was merged in
-[`napplet/web#206`](https://github.com/napplet/web/pull/206) at
-`19e0029b228127769a0ebdcf0b6b2f30293bd284` and published from
-`b007587afbefb0ce5592825d6ec1fc5b026c7b08` as `@napplet/core` and
-`@napplet/nap` 0.32.0, `@napplet/shim` 0.30.0, and `@napplet/sdk` 0.28.0. Merged
+The protocol authority is
+[NAP-RESOURCE PR #80](https://github.com/napplet/naps/blob/ae5b9c64ab8a4d8909f288829a01e99d6bd713bc/naps/NAP-RESOURCE.md)
+at exact ref `ae5b9c64ab8a4d8909f288829a01e99d6bd713bc`. Its `url`/ordered-`urls`
+wire and canonical padded-base64 result contract take precedence over the stale
+published `@napplet/nap` 0.32.0 and `@napplet/shim` 0.30.0 resource helpers.
+Merged
 [NAP-IDENTITY](https://github.com/napplet/naps/blob/a040914b4bbd3a5cd8a14b0f316a723c968ebfb2/naps/NAP-IDENTITY.md)
 at exact ref `a040914b4bbd3a5cd8a14b0f316a723c968ebfb2` delegates profile
 picture and banner retrieval through NAP-RESOURCE. Those documents, together
 with NIP-5D, take precedence over this non-normative implementer guide.
 
-For issue #279's opaque Blossom MIME policy, the authority rechecked is
-[NAP-RESOURCE PR #80](https://github.com/napplet/naps/pull/80) at exact head
-[`fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1`](https://github.com/napplet/naps/blob/fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1/naps/NAP-RESOURCE.md).
-The change preserves byte sniffing, hash verification, complete Blob delivery,
-ordered independent bulk results and no raw SVG delivery. This is a bounded
-conformance result, not full draft compliance. The installed server-hint wire
-projection described below predates that head; developer HTTP policy, DNS-time
-enforcement differences and SVG rejection instead of rasterization also remain
-pre-existing, out-of-scope differences.
+Paja's implementation preserves byte sniffing, hash verification, complete
+decoded `Blob` delivery, ordered independent bulk results and no raw SVG
+delivery. Its DNS-safe proxy and redirect reauthorization are documented in
+[the resource proxy policy](./RESOURCE-PROXY.md). This is a bounded conformance
+result: host iframe isolation remains a separate prerequisite.
 
 ## Kehto's boundary
 
 `createResourceService()` owns NAP request correlation, cancellation, bulk
-limits, per-resource request projection, and result/error envelopes. The
-runtime supplies the resolver through `fetch(url, init)`. For `blossom:` only,
-`init.servers` carries the request's ordered advisory locations; other schemes
-never receive that metadata. `init.windowId` is authenticated runtime context,
-not napplet payload, and lets a resolver keep policy state scoped to the source
-window without extending the NAP wire.
+limits, canonical base64 result projection, and result/error envelopes. The
+runtime supplies the resolver through `fetch(url, init)`. `init.windowId` is
+authenticated runtime context, not napplet payload, and the runtime's
+`authorizeNetwork(destination, execute)` callback approves every actual HTTP(S)
+destination without extending the NAP wire.
 
 The default Kehto path is permissive delegation:
 
-- every syntactically valid URL is passed to the injected resolver;
-- `resource.bytesMany` accepts canonical `{ requests: [{ url, servers? }] }`
-  input and preserves per-entry metadata, order, and result length;
+- every syntactically valid URL is passed to the injected resolver after exact
+  resource authorization when the runtime supplies it;
+- `resource.bytesMany` accepts canonical ordered `urls` input and preserves
+  order and result length;
 - `resource.info.schemes` is optional, advisory capability discovery and never
   an authorization gate;
 - resolver-returned bytes and MIME are carried on the NAP wire;
@@ -72,8 +65,8 @@ the NAP contract:
 - credential and referrer handling;
 - redirect and address rules;
 - timeouts, response limits, and concurrency;
-- Blossom hint validation, deduplication, caps, fallback order, and per-attempt
-  network policy;
+- Blossom URI/discovery validation, deduplication, caps, fallback order, and
+  per-attempt network policy;
 - integrity verification and cache partitioning; and
 - byte-based MIME classification or transformations.
 
@@ -82,28 +75,20 @@ imposes on every runtime.
 
 ## Browser behavior
 
-An image element and `fetch()` do not have the same CORS visibility. A browser
-may display a cross-origin image while preventing JavaScript from reading the
-same redirect response. A browser-only resolver cannot recover bytes the browser
-withholds. It should return bytes when its fetch can read them and report the
-canonical `network-error` when the browser rejects the fetch. Kehto does not
-invent a CORS-only NAP error or reinterpret that browser limitation as a ban on
-HTTP(S) resources.
+The browser resolver never fetches an arbitrary remote resource from the
+napplet frame. Paja posts one approved hop to its same-origin resource proxy,
+which validates the caller before DNS, pins a permitted public address, and
+returns a readable redirect envelope for fresh authorization. The proxy does
+not replace resource/runtime approval or the separate iframe-isolation work.
 
 ## Kehto reference surfaces
 
-Paja is the reference developer runtime. It deliberately accepts arbitrary
-`http:` and `https:` resource origins, uses credentialless/no-referrer browser
-fetching, and lets browser CORS and mixed-content rules determine readability.
-It advertises `data`, `https`, `http`, and `blossom`, because a Blossom request
-may supply an accepted server without a host default. Its `blossom:` resolver
-accepts public-looking HTTPS origin hints, discards invalid/private literals,
-deduplicates and caps the combined candidate list at eight, tries accepted
-request hints before host defaults, refuses redirects, and verifies SHA-256.
-Configured loopback HTTP remains a Paja-only local-development default. As a
-browser-only developer runtime, Paja cannot independently pin DNS resolution;
-production resolvers still must perform NAP-RESOURCE's DNS-time private-address
-checks before connecting and on every redirect.
+Paja is the reference developer runtime. It advertises `data`, `https`, and
+`blossom`; trusted URI and host discovery select Blossom candidates. HTTP(S)
+and Blossom reads use the same proxy with public-address DNS pinning, bounded
+bodies and deadlines, no upstream credentials/referrer, and one-hop readable
+redirects. The browser resolver authorizes every redirect before the proxy
+contacts it and verifies Blossom SHA-256 after capped reads.
 
 All Paja resource reads are capped at 10 MiB and classified from bytes, never
 upstream `Content-Type`. Recognized image/audio/video/font/text/JSON and

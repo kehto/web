@@ -1,12 +1,11 @@
-import { resourceBytes } from '@napplet/nap/resource/sdk';
-
 export interface ProfileMediaSink {
   src: string;
   removeAttribute(name: string): void;
 }
 
 export interface ProfileMediaControllerOptions {
-  loadBytes?: (url: string) => Promise<Blob>;
+  /** Canonical host-injected resource reader. */
+  loadBytes: (url: string) => Promise<Blob>;
   createObjectURL?: (blob: Blob) => string;
   revokeObjectURL?: (url: string) => void;
 }
@@ -26,9 +25,9 @@ export interface ProfileMediaController {
  * a late response from retaining or displaying stale profile data.
  */
 export function createProfileMediaController(
-  options: ProfileMediaControllerOptions = {},
+  options: ProfileMediaControllerOptions,
 ): ProfileMediaController {
-  const loadBytes = options.loadBytes ?? resourceBytes;
+  const { loadBytes } = options;
   const createObjectURL = options.createObjectURL ?? ((blob: Blob) => URL.createObjectURL(blob));
   const revokeObjectURL = options.revokeObjectURL ?? ((url: string) => URL.revokeObjectURL(url));
   const tokens = new WeakMap<ProfileMediaSink, number>();

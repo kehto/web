@@ -1,12 +1,10 @@
 /**
  * Feed demo napplet — following feed over the shell relay service.
  */
-import '@napplet/shim';
 import { getMissingNapDomains } from '../../domain-availability';
 import { applyNapTheme, installNapTheme, onNapThemeChanged } from '../../shared-theme';
 import { identityGetPublicKey, identityOnChanged } from '@napplet/nap/identity/sdk';
 import { intentInvoke } from '@napplet/nap/intent/sdk';
-import { resourceBytes } from '@napplet/nap/resource/sdk';
 import type { NostrEvent } from '@napplet/core';
 import { createFeedStore, type FeedProfile } from './feed-store.js';
 import { createFeedIdentityEventController } from './feed-identity-events.js';
@@ -19,7 +17,18 @@ const CAPABILITY_WAIT_INTERVAL_MS = 25;
 const statusEl = document.getElementById('feed-status')!;
 const listEl = document.getElementById('feed-list')!;
 const RELATIVE_TIME_REFRESH_MS = 60_000;
-const profileMedia = createFeedProfileMediaController({ loadBytes: resourceBytes });
+// @napplet/shim 0.30 replaces the host resource projection with the retired
+// `requests` wire shape. The other SDK helpers delegate to the live host
+// namespace, so keep resource reads on its canonical `urls` projection.
+function loadHostResourceBytes(url: string): Promise<Blob> {
+  const resource = (window.napplet as {
+    resource?: { bytes(value: string): Promise<Blob> };
+  } | undefined)?.resource;
+  if (!resource) return Promise.reject(new Error('resource capability unavailable'));
+  return resource.bytes(url);
+}
+
+const profileMedia = createFeedProfileMediaController({ loadBytes: loadHostResourceBytes });
 
 function formatError(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message) return error.message;
