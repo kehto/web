@@ -45,6 +45,10 @@ describe('createBleService', () => {
     expect(service.descriptor.version).toBe('1.0.0');
   });
 
+  it('rejects malformed host options before creating a handler', () => {
+    expect(() => createBleService(null as unknown as BleServiceOptions)).toThrow(TypeError);
+  });
+
   it('returns structured unsupported results for unavailable hooks', () => {
     const service = createBleService();
     const { sent, send } = collectSent();

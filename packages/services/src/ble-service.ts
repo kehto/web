@@ -201,6 +201,103 @@ function targetScope(deviceScope: string, target: BleAttribute): string {
   return `${deviceScope}:service:${String(target.service)}:characteristic:${String(target.characteristic)}${target.descriptor === undefined ? '' : `:descriptor:${String(target.descriptor)}`}`;
 }
 
+type BleSessionRecord = Map<string, { deviceScope?: string }>;
+type BleAuthorize = <T>(operation: string, scope: string, run: (signal?: ApprovalSignal) => T | Promise<T>) => Promise<T>;
+
+interface BleHandlerInput {
+  readonly options: BleServiceOptions;
+  readonly runtime?: ServiceRuntimeContext;
+  readonly message: NappletMessage;
+  readonly record: BleSessionRecord;
+  readonly id: string;
+  readonly current: () => boolean;
+  readonly currentSend: Send;
+  readonly context: (signal?: ApprovalSignal, authorizeDevice?: BleServiceContext['authorizeDevice']) => BleServiceContext;
+  readonly authorize: BleAuthorize;
+  readonly send: Send;
+}
+
+function handleBleOpen(input: BleHandlerInput): void {
+  const { options, runtime, message, record, id, current, currentSend, context, authorize, send } = input;
+  if (!options.open) {
+    send(unsupported('ble.open.result', id));
+    return;
+  }
+  const bleMessage = message as BleOpenMessage;
+  if (!validOpenRequest(bleMessage.request)) {
+    currentSend({ type: 'ble.open.result', id, error: 'invalid data' } as NappletMessage);
+    return;
+  }
+  settle(
+    () => authorize('ble.select', 'ble:chooser', async (signal) => {
+      let deviceScope: string | undefined;
+      const authorizeDevice: BleServiceContext['authorizeDevice'] = async <T>(scope: string, execute: (signal: ApprovalSignal) => T | Promise<T>): Promise<T> => {
+        if (!/^ble:device:[A-Za-z0-9_-]{1,256}$/u.test(scope)) throw new Error('invalid BLE device scope');
+        const value = await authorize('ble.open', scope, (signal) => {
+          if (!signal) throw new Error('policy denied');
+          return execute(signal);
+        });
+        deviceScope = scope;
+        return value;
+      };
+      const result = await options.open!(bleMessage.request, context(signal, authorizeDevice));
+      if (runtime?.authorizeOperation && !deviceScope) {
+        await Promise.resolve(options.close?.(result.session.id, 'policy denied', context(signal))).catch(() => undefined);
+        throw new Error('policy denied');
+      }
+      if (!current()) throw new Error('policy denied');
+      record.set(result.session.id, { deviceScope });
+      return result;
+    }),
+    currentSend,
+    (error) => ({ type: 'ble.open.result', id, error } as NappletMessage),
+    (result) => ({ type: 'ble.open.result', id, session: result.session } as NappletMessage),
+  );
+  return;
+}
+
+function handleBleSubscribe(input: BleHandlerInput): void {
+  const { options, message, record, id, currentSend, context, authorize, send } = input;
+  if (!options.subscribe) {
+    send(unsupported('ble.subscribe.result', id));
+    return;
+  }
+  const bleMessage = message as BleSubscribeMessage;
+  const owned = record.get(bleMessage.sessionId);
+  if (!owned || !validTarget(bleMessage.target, true)) {
+    currentSend({ type: 'ble.subscribe.result', id, error: owned ? 'invalid data' : 'session not found' } as NappletMessage);
+    return;
+  }
+  settle(
+    () => authorize('ble.subscribe', owned.deviceScope ? targetScope(owned.deviceScope, bleMessage.target) : 'ble:legacy', (signal) => options.subscribe!(bleMessage.sessionId, bleMessage.target, context(signal))),
+    currentSend,
+    (error) => ({ type: 'ble.subscribe.result', id, error } as NappletMessage),
+    () => ({ type: 'ble.subscribe.result', id } as NappletMessage),
+  );
+  return;
+}
+
+function handleBleUnsubscribe(input: BleHandlerInput): void {
+  const { options, message, record, id, currentSend, context, authorize, send } = input;
+  if (!options.unsubscribe) {
+    send(unsupported('ble.unsubscribe.result', id));
+    return;
+  }
+  const bleMessage = message as BleUnsubscribeMessage;
+  const owned = record.get(bleMessage.sessionId);
+  if (!owned || !validTarget(bleMessage.target, true)) {
+    currentSend({ type: 'ble.unsubscribe.result', id, error: owned ? 'invalid data' : 'session not found' } as NappletMessage);
+    return;
+  }
+  settle(
+    () => authorize('ble.unsubscribe', owned.deviceScope ? targetScope(owned.deviceScope, bleMessage.target) : 'ble:legacy', (signal) => options.unsubscribe!(bleMessage.sessionId, bleMessage.target, context(signal))),
+    currentSend,
+    (error) => ({ type: 'ble.unsubscribe.result', id, error } as NappletMessage),
+    () => ({ type: 'ble.unsubscribe.result', id } as NappletMessage),
+  );
+  return;
+}
+
 /**
  * Create the NAP-BLE reference service.
  *
@@ -208,6 +305,9 @@ function targetScope(deviceScope: string, target: BleAttribute): string {
  * @returns A runtime service handler for the `ble` domain.
  */
 export function createBleService(options: BleServiceOptions = {}): ServiceHandler {
+  if (!options || typeof options !== 'object') {
+    throw new TypeError('createBleService options must be an object');
+  }
   return buildBleService(options);
 }
 
@@ -263,43 +363,9 @@ function buildBleService(options: BleServiceOptions): ServiceHandler {
       };
 
       if (message.type === 'ble.open') {
-        if (!options.open) {
-          send(unsupported('ble.open.result', id));
-          return;
-        }
-        const bleMessage = message as BleOpenMessage;
-        if (!validOpenRequest(bleMessage.request)) {
-          currentSend({ type: 'ble.open.result', id, error: 'invalid data' } as NappletMessage);
-          return;
-        }
-        settle(
-          () => authorize('ble.select', 'ble:chooser', async (signal) => {
-            let deviceScope: string | undefined;
-            const authorizeDevice: BleServiceContext['authorizeDevice'] = async <T>(scope: string, execute: (signal: ApprovalSignal) => T | Promise<T>): Promise<T> => {
-              if (!/^ble:device:[A-Za-z0-9_-]{1,256}$/u.test(scope)) throw new Error('invalid BLE device scope');
-              const value = await authorize('ble.open', scope, (signal) => {
-                if (!signal) throw new Error('policy denied');
-                return execute(signal);
-              });
-              deviceScope = scope;
-              return value;
-            };
-            const result = await options.open!(bleMessage.request, context(signal, authorizeDevice));
-            if (runtime?.authorizeOperation && !deviceScope) {
-              await Promise.resolve(options.close?.(result.session.id, 'policy denied', context(signal))).catch(() => undefined);
-              throw new Error('policy denied');
-            }
-            if (!current()) throw new Error('policy denied');
-            record.set(result.session.id, { deviceScope });
-            return result;
-          }),
-          currentSend,
-          (error) => ({ type: 'ble.open.result', id, error } as NappletMessage),
-          (result) => ({ type: 'ble.open.result', id, session: result.session } as NappletMessage),
-        );
+        handleBleOpen({ options, runtime, message, record, id, current, currentSend, context, authorize, send });
         return;
       }
-
       if (message.type === 'ble.services') {
         if (!options.services) {
           send(unsupported('ble.services.result', id));
@@ -361,45 +427,13 @@ function buildBleService(options: BleServiceOptions): ServiceHandler {
       }
 
       if (message.type === 'ble.subscribe') {
-        if (!options.subscribe) {
-          send(unsupported('ble.subscribe.result', id));
-          return;
-        }
-        const bleMessage = message as BleSubscribeMessage;
-        const owned = record.get(bleMessage.sessionId);
-        if (!owned || !validTarget(bleMessage.target, true)) {
-          currentSend({ type: 'ble.subscribe.result', id, error: owned ? 'invalid data' : 'session not found' } as NappletMessage);
-          return;
-        }
-        settle(
-          () => authorize('ble.subscribe', owned.deviceScope ? targetScope(owned.deviceScope, bleMessage.target) : 'ble:legacy', (signal) => options.subscribe!(bleMessage.sessionId, bleMessage.target, context(signal))),
-          currentSend,
-          (error) => ({ type: 'ble.subscribe.result', id, error } as NappletMessage),
-          () => ({ type: 'ble.subscribe.result', id } as NappletMessage),
-        );
+        handleBleSubscribe({ options, runtime, message, record, id, current, currentSend, context, authorize, send });
         return;
       }
-
       if (message.type === 'ble.unsubscribe') {
-        if (!options.unsubscribe) {
-          send(unsupported('ble.unsubscribe.result', id));
-          return;
-        }
-        const bleMessage = message as BleUnsubscribeMessage;
-        const owned = record.get(bleMessage.sessionId);
-        if (!owned || !validTarget(bleMessage.target, true)) {
-          currentSend({ type: 'ble.unsubscribe.result', id, error: owned ? 'invalid data' : 'session not found' } as NappletMessage);
-          return;
-        }
-        settle(
-          () => authorize('ble.unsubscribe', owned.deviceScope ? targetScope(owned.deviceScope, bleMessage.target) : 'ble:legacy', (signal) => options.unsubscribe!(bleMessage.sessionId, bleMessage.target, context(signal))),
-          currentSend,
-          (error) => ({ type: 'ble.unsubscribe.result', id, error } as NappletMessage),
-          () => ({ type: 'ble.unsubscribe.result', id } as NappletMessage),
-        );
+        handleBleUnsubscribe({ options, runtime, message, record, id, current, currentSend, context, authorize, send });
         return;
       }
-
       if (message.type === 'ble.close') {
         if (!options.close) {
           send(unsupported('ble.close.result', id));
