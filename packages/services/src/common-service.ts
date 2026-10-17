@@ -205,24 +205,6 @@ function convertBits(data: readonly number[], fromBits: number, toBits: number, 
   return result;
 }
 
-function settle<T>(
-  call: () => T | Promise<T>,
-  send: Send,
-  okFalse: (error: string) => NappletMessage,
-  onValue: (value: T) => NappletMessage,
-): void {
-  let pending: Promise<T>;
-  try {
-    pending = Promise.resolve(call());
-  } catch (err) {
-    send(okFalse(errorMessage(err, 'common request failed')));
-    return;
-  }
-  pending
-    .then((value) => send(onValue(value)))
-    .catch((err) => send(okFalse(errorMessage(err, 'common request failed'))));
-}
-
 function originScopes(operation: string, relays: readonly string[], resources: readonly string[] = []): readonly CommonPermissionRequirement[] {
   const requirements: CommonPermissionRequirement[] = [
     { category: 'interface', domain: 'common', operation: 'access', scope: { kind: 'exact', value: 'common' } },
@@ -241,7 +223,7 @@ function originScopes(operation: string, relays: readonly string[], resources: r
 type CommonPermissionRequirement = Parameters<NonNullable<ServiceRuntimeContext['authorizeOperation']>>[2][number];
 
 function requestId(message: NappletMessage): string {
-  const id = (message as unknown as { id?: unknown }).id;
+  const id = Object.getOwnPropertyDescriptor(message, 'id')?.value;
   return typeof id === 'string' ? id : '';
 }
 
@@ -287,13 +269,6 @@ export function createCommonService(options: CommonServiceOptions = {}): Service
     if (outcome.status !== 'executed') throw new Error('user-denied');
     return outcome.value;
   };
-  const local = <T>(windowId: string, generation: symbol, operation: string, action: () => T): void => {
-    if (!runtime?.authorizeOperation) { if (current(windowId, generation)) action(); return; }
-    void runtime.authorizeOperation(windowId, operation, originScopes(operation, []), async (signal) => {
-      if (!current(windowId, generation) || signal.aborted) throw new Error('user-denied');
-      return action();
-    });
-  };
   const settleAuthorized = <T>(windowId: string, generation: symbol, operation: CommonRelayOperation, target: unknown, resources: readonly string[], call: (context: CommonServiceContext) => T | Promise<T>, send: Send, failure: (error: string) => NappletMessage, success: (value: T) => NappletMessage): void => {
     void Promise.resolve().then(async () => {
       const relays = runtime?.authorizeOperation ? plan(operation, target) : [];
@@ -309,7 +284,6 @@ export function createCommonService(options: CommonServiceOptions = {}): Service
     handleMessage(windowId: string, message: NappletMessage, send: Send): void {
       const id = requestId(message);
       const generation = generationFor(windowId);
-      const context = { windowId };
       if (message.type === 'common.encodeNip19') {
         const input = (message as CommonEncodeNip19Message).input;
         if (!runtime?.authorizeOperation) { send({ type: 'common.encodeNip19.result', id, ...(input ? encodeNip19(input) : { ok: false, error: 'invalid input' }) } as NappletMessage); return; }

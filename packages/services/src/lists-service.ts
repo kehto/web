@@ -55,9 +55,7 @@ export interface ListsServiceOptions {
 }
 
 
-/** A validated, side-effect-free list mutation relay plan. */
 export interface ListsMutationPlan {
-  /** Every relay used by the read-modify-sign-publish transaction. */
   readonly relays: readonly string[];
   /** Stable exact NIP-51 list identity, including an addressable identifier. */
   readonly resource: string;
@@ -141,7 +139,8 @@ export function createListsService(options: ListsServiceOptions = {}): ServiceHa
     onRegistered(context): void { runtime = context; },
     onUnregistered(): void { runtime = undefined; },
     handleMessage(windowId: string, message: NappletMessage, send: Send): void {
-      const id = (message as unknown as { id?: string }).id ?? '';
+      const idValue = Object.getOwnPropertyDescriptor(message, 'id')?.value;
+      const id = typeof idValue === 'string' ? idValue : '';
       const generation = generationFor(windowId);
       if (message.type === 'lists.supported') {
         if (!options.supported) { send({ type: 'lists.supported.result', id, lists: [] } as NappletMessage); return; }
