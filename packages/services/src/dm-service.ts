@@ -188,9 +188,11 @@ export function createDmService(options: DmServiceOptions): DmService {
               const relays = relaysFor('subscribe');
               return authorized(windowId, generation, 'dm.subscribe', relays, request.conversationId ? [request.conversationId] : [], (signal) =>
                 (adapter.subscribeWithRelays?.(request, (dmMessage) => {
-                if (!current(windowId, generation) || !ownedSubscriptions.get(windowId)?.has(activeSubscriptionId)) return;
+                if (!current(windowId, generation)) return;
                 if (activeSubscriptionId.length > 0) {
-                  send({ type: 'dm.message', subscriptionId: activeSubscriptionId, message: dmMessage } as NappletMessage);
+                  if (ownedSubscriptions.get(windowId)?.has(activeSubscriptionId)) {
+                    send({ type: 'dm.message', subscriptionId: activeSubscriptionId, message: dmMessage } as NappletMessage);
+                  }
                 } else {
                   pending.push(dmMessage);
                 }
