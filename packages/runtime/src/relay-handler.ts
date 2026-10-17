@@ -181,7 +181,7 @@ function handleRelaySubscribe(
   const relayUrls = isShellKind ? [] : (typeof m.relay === 'string' && m.relay.length > 0
     ? [m.relay] : pool?.selectRelayTier(filters) ?? []);
   const plan: RelayOperationPlan = Object.freeze({ operation: 'subscribe', relayUrls: Object.freeze([...new Set(relayUrls)]), localOnly: isShellKind });
-  if (!isShellKind && (!pool?.subscribeToRelays || !pool?.isAvailable())) {
+  if (!isShellKind && !pool?.subscribeToRelays) {
     if (pool && !legacyRelayAdapterWarnings.has(pool)) {
       legacyRelayAdapterWarnings.add(pool);
       console.warn('FW-RELAY-ADAPTER-LEGACY-001: relay adapter must implement subscribeToRelays/publishToRelays; legacy adapter was denied (warns once per adapter instance).');

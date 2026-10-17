@@ -79,6 +79,14 @@ export interface RelayPoolServiceOptions {
   selectRelayTier(filters: NostrFilter[]): string[];
 
   /**
+   * Select relay URLs appropriate for publishing. When omitted, publishing
+   * uses `selectRelayTier([])` for backwards-compatible selection.
+   *
+   * @returns Array of relay URLs
+   */
+  selectPublishRelayTier?(): string[];
+
+  /**
    * Whether the relay pool is available and connected.
    *
    * @returns true if the relay pool can handle requests
@@ -225,7 +233,10 @@ export function createRelayPoolService(options: RelayPoolServiceOptions): RelayP
     const operation = message.type === 'relay.query' ? 'query'
       : message.type === 'relay.publishEncrypted' ? 'publishEncrypted'
       : message.type === 'relay.publish' ? 'publish' : 'subscribe';
-    const selected = relayHint ? [relayHint] : options.selectRelayTier(operation === 'publish' || operation === 'publishEncrypted' ? [] : filters);
+    const selected = relayHint ? [relayHint]
+      : operation === 'publish' || operation === 'publishEncrypted'
+        ? (options.selectPublishRelayTier?.() ?? options.selectRelayTier([]))
+        : options.selectRelayTier(filters);
     const relayUrls = [...new Set(selected.map((url) => String(url).trim()).filter(Boolean))];
     return Object.freeze({ operation, relayUrls: Object.freeze(relayUrls), localOnly: relayUrls.length === 0 });
   }
