@@ -178,24 +178,66 @@ Relay and Blossom discovery are candidates only. Existing Paja pointer/upload re
 | Data exfiltration through storage upload | Prompt target/type/size/identity before signing or egress; terminate status stream on revoke. [CITED: `/tmp/kehto-firewall-specs/NAP-UPLOAD.md`] |
 | Late or cross-window stream delivery | Per-window ownership, abort signal, `onPermissionRevoked`, and send-current guards. [VERIFIED: `packages/runtime/src/service-dispatch.ts`] |
 
-## Open Questions
+## Planning Decisions and Assigned Authority Checks
 
-1. **Which trusted resolver will satisfy DNS-time NAP-RESOURCE checks for Paja?**
-   - What we know: browser-only fetch cannot prove the required resolved-address policy. [CITED: `/tmp/kehto-firewall-specs/NAP-RESOURCE.md`]
-   - Recommendation: plan an explicit proxy/transport contract and tests, or disable advertised resource network resolution on browser-only hosts until one exists.
-2. **What are the authoritative NAP refs for BLE, serial, WebRTC, CVM, DM, common, lists, and count?**
-   - What we know: their checked docs are absent from the captured source set. [VERIFIED: `/tmp/kehto-firewall-specs`]
-   - Recommendation: fetch/record each authority before changing wire behavior; use the bounded host-policy migration described above in the meantime.
-3. **How should live relay events report a revocation close reason?**
-   - What we know: NAP-RELAY permits a `relay.closed` reason and NAP-OUTBOX owns `outbox.closed`; existing services vary. [CITED: `/tmp/kehto-firewall-specs/NAP-{RELAY,OUTBOX}.md`; VERIFIED: `packages/services/src/{relay-pool-service,outbox-service}.ts`]
-   - Recommendation: preserve each current NAP’s terminal envelope and add an explicit test before choosing wording.
+The planning questions above now have executable owners. A retrieved draft is evidence
+that an authority exists; it is not evidence that its wire, directionality, error, or
+lifecycle semantics have already been reviewed. Each owning plan must read the exact
+document before its first implementation edit, record the checked head, and revise the
+local contract toward that authority when the current code differs.
+
+1. **Protected resource transport is chosen for Phase 113.** Plans 01 and 02 own a
+   trusted Paja development-server resolver/proxy and the equivalent supported
+   playground host transport. The endpoint uses a random server-instance request
+   capability retained by main-frame host code, exact Origin and Host validation,
+   POST plus a non-simple content type, no permissive CORS, and rejection of null,
+   foreign, simple, or uncredentialed requests before DNS lookup or connection. The
+   capability cannot enter app init/config, iframe messages, or napplet-visible state.
+   DNS answers and IP literals must satisfy an explicit global-reachability policy;
+   the connection pins one approved address while preserving the original hostname for
+   Host and TLS identity. Redirects are not implicit: each hop is reauthorized,
+   re-resolved, and rechecked. Abort, byte, and time bounds cover the response body.
+   A standalone browser environment that cannot provide this trusted transport must
+   state that support boundary, while supported hosts preserve actual network resource
+   resolution rather than deleting or narrowing the requested feature.
+2. **Exact draft authorities are retrieved and mapped below.** Each row remains an
+   implementation-time semantic recheck until its owning plan records the comparison.
+
+| Surface | Exact authority | Owning plan | Planning status |
+|---|---|---|---|
+| NIP-5D loader/provenance | `5560820fa4f37f45b8ab742a11aeb3001b17dc67` | 01, 02, 17 | Retrieved; mandatory semantic recheck |
+| RESOURCE | PR #80 `ae5b9c64ab8a4d8909f288829a01e99d6bd713bc` | 01, 02 | Retrieved; mandatory semantic recheck |
+| LINK | PR #53 `50a2cd45e76f06e87b87e93842badf4c61f17bde` | 16 | Retrieved; mandatory semantic recheck |
+| RELAY | PR #2 `9f30b3505335a52c574ff570576687d6467021ff` | 03, 04 | Retrieved; mandatory semantic recheck |
+| OUTBOX | PR #32 `8865f73d52a4864afee145f28d26520476273927` | 04 | Retrieved; mandatory semantic recheck |
+| COUNT | PR #69 `9353a0c6c02c595f7e65ebd6df3802a7a45fc6bf` | 04 | Retrieved; mandatory semantic recheck |
+| FS | PR #88 `bd1b9e912f05203bf38f7a1b04f920744fe6d625` | 05 | Retrieved; mandatory semantic recheck |
+| SERIAL | PR #61 `0c6e88ab8003f5bf88c8ddee5b5e3cd382ab7e1c` | 06 | Retrieved; mandatory semantic recheck |
+| BLE | PR #62 `b46b86913c23cd509d2ace14f1de55b0c451e0f9` | 06 | Retrieved; mandatory semantic recheck |
+| UPLOAD | PR #33 `f5cc981e527e2cc1572793a7a6e5082e5271ac49` | 07 | Retrieved; mandatory semantic recheck |
+| CONNECT | PR #19 `ec81a3a4a1fc4da1ad2601215353b7f822e44b8f` | Phase 114 | Retrieved; manifest admission, grant UI, and CSP are explicitly outside Phase 113. NAP-CONNECT has no operation wire and does not replace Phase 113 mediated destination authorization. |
+| CVM | PR #31 `28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f` | 08 | Retrieved; mandatory semantic recheck |
+| DM | PR #74 `2c4e4423f40e72675822225acacea2ee5889ade2` | 09 | Retrieved; mandatory semantic recheck |
+| WEBRTC | PR #59 `69523e8cf44c8653155c5e77d25340d4ea3d0887` | 10 | Retrieved; mandatory semantic recheck |
+| COMMON | PR #67 `8cd0eae8550575771bb616a384e2dfbcade31673` | 11 | Retrieved; mandatory semantic recheck |
+| LISTS | PR #68 `7cf00cdb7bca6bb59dc5ef082e9fe8ac9278fa46` | 11 | Retrieved; mandatory semantic recheck |
+| INTENT | prior PR #106 `fc121fc264615482143eda86125863d2e1f741a2` | 13 | Historical ref only; requery current authority before edit |
+
+3. **Relay and outbox revocation terminals stay domain-specific.** Plans 03-04 must
+   derive the exact terminal envelope and reason semantics from their respective draft
+   heads, then lock them with tests. Planning does not invent a shared generic reason.
+4. **Services without a mapped authority keep an explicit implementation gate.** Plans
+   12, 14, and 15 must check identity, keys, cache, config, theme, gamepad, media,
+   notification, and notify against current `napplet/naps` before changing wire
+   behavior. If no owning NAP exists after that check, the plan records a bounded
+   Kehto host-policy decision and avoids presenting it as protocol authority.
 
 ## Assumptions Log
 
 | # | Claim | Risk if wrong |
 |---|---|---|
 | A1 | Composing all selected network requirements into a single authorization is the intended use of the present coordinator. | Prompt behavior may need per-destination sequencing instead. |
-| A2 | Absent captured NAP documents mean wire changes for the named device/CVM/social domains require a later exact-ref check. | A hidden/open draft may impose stricter lifecycle/error semantics. |
+| A2 | Retrieved open-draft heads are the working authorities listed above, but each owning plan still performs and records the semantic comparison before code changes. | A moved draft head or overlooked rule may require the plan to update its wire/lifecycle behavior before implementation. |
 
 ## Sources
 
@@ -209,8 +251,8 @@ Relay and Blossom discovery are candidates only. Existing Paja pointer/upload re
 
 **Confidence breakdown:**
 - Architecture: HIGH — based on present runtime/service APIs and concrete handler ownership.
-- Protocol constraints: HIGH for Resource/Relay/Outbox/FS/Upload/Connect exact refs; MEDIUM for domains without captured authority.
-- Host resolver policy: HIGH for the browser limitation and NAP-RESOURCE mandate; implementation choice remains open.
+- Protocol constraints: HIGH for the mapped exact refs as authorities; semantic-review status remains plan-specific as recorded above.
+- Host resolver policy: HIGH for the browser limitation, NAP-RESOURCE mandate, and chosen protected trusted-transport design.
 
 **Research date:** 2026-10-17  
 **Valid until:** recheck draft heads before implementing or shipping.
