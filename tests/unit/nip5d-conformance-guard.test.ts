@@ -436,12 +436,13 @@ describe('NIP-5D conformance static guards', () => {
     const manifestParser = readRepoFile('packages/nip/src/5d/current-manifest.ts');
     const playgroundManifest = readRepoFile('apps/playground/napplets/shared-vite-config.ts');
     const paja = readRepoFile('packages/paja/src/browser-adapter.ts');
+    const pajaSupport = readRepoFile('packages/paja/src/browser-adapter-support.ts');
     const pajaHost = readRepoFile('packages/paja/src/browser-host.ts');
     const pajaIntent = [
       sourceBetween(
-        paja,
-        'interface PajaIntentHost',
-        'function createPajaCvmRelayPool',
+        pajaSupport,
+        'export interface PajaIntentHost',
+        'export function createPajaCvmRelayPool',
       ),
       sourceBetween(
         paja,
@@ -480,8 +481,8 @@ describe('NIP-5D conformance static guards', () => {
     expect(removeComments(pajaIntent), 'Paja development intent simulator').not.toMatch(
       forbiddenCanonicalField,
     );
-    expect(paja).toContain('InstalledNappletCatalog');
-    expect(paja).toContain('BrowserIntentController');
+    expect(pajaSupport).toContain('InstalledNappletCatalog');
+    expect(pajaSupport).toContain('BrowserIntentController');
     expect(paja).toContain('createCatalogIntentResolver');
     expect(paja).toContain('intentHost?: PajaIntentHost');
     expect(pajaHost).toContain('catalog: new InstalledNappletCatalog()');
