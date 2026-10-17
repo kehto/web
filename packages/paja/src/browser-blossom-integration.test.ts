@@ -46,6 +46,13 @@ function event(
   };
 }
 
+function proxyDestination(endpoint: string, init?: RequestInit): string {
+  expect(endpoint).toBe('/__kehto/resource');
+  expect(init).toMatchObject({ method: 'POST', credentials: 'same-origin' });
+  expect(typeof init?.body).toBe('string');
+  return JSON.parse(String(init?.body)).url;
+}
+
 afterEach(() => {
   outboxQuery.mockReset();
   vi.unstubAllGlobals();
@@ -59,7 +66,7 @@ describe('Paja OUTBOX-to-RESOURCE Blossom wiring', () => {
       events: [{ event: event('1', 10_063, [['server', filters[0]?.authors?.[0] === PUBLISHER
         ? 'https://author-one.example' : 'https://author-two.example']], '', filters[0]?.authors?.[0]) }],
     }));
-    const fetcher = vi.fn(async (url: string) => url.startsWith('https://author-two.example/')
+    const fetcher = vi.fn(async (endpoint: string, init?: RequestInit) => proxyDestination(endpoint, init).startsWith('https://author-two.example/')
       ? new Response(bytes) : new Response(null, { status: 404 }));
     vi.stubGlobal('fetch', fetcher);
     const adapter = createPajaAdapter(CONFIG,
@@ -73,8 +80,8 @@ describe('Paja OUTBOX-to-RESOURCE Blossom wiring', () => {
       } as NappletMessage, (message) => sent.push(message));
       await vi.waitFor(() => expect(sent).toHaveLength(1));
       expect(sent[0]).toMatchObject({ type: 'resource.bytes.result', id: 'author-uri', mime: 'text/plain' });
-      expect(await (sent[0] as NappletMessage & { blob: Blob }).blob.text()).toBe('request author fixture');
-      expect(fetcher.mock.calls.map(([url]) => url)).toEqual([
+      expect(atob((sent[0] as NappletMessage & { blob: string }).blob)).toBe('request author fixture');
+      expect(fetcher.mock.calls.map(([endpoint, init]) => proxyDestination(endpoint, init))).toEqual([
         `https://one.example/${hash}.gbc`, `https://two.example/${hash}.gbc`,
         `https://author-one.example/${hash}.gbc`, `https://author-two.example/${hash}.gbc`,
       ]);
@@ -88,7 +95,7 @@ describe('Paja OUTBOX-to-RESOURCE Blossom wiring', () => {
     const bytes = new TextEncoder().encode('{"fixture":"BUD-10"}');
     const digest = await crypto.subtle.digest('SHA-256', bytes);
     const hash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
-    const fetcher = vi.fn(async () => new Response(bytes, {
+    const fetcher = vi.fn(async (_endpoint: string, _init?: RequestInit) => new Response(bytes, {
       headers: { 'content-type': 'image/png', 'content-length': String(bytes.length) },
     }));
     vi.stubGlobal('fetch', fetcher);
@@ -103,8 +110,8 @@ describe('Paja OUTBOX-to-RESOURCE Blossom wiring', () => {
       } as NappletMessage, (message) => sent.push(message));
       await vi.waitFor(() => expect(sent).toHaveLength(1));
       expect(sent[0]).toMatchObject({ type: 'resource.bytes.result', id: 'uri-bytes', mime: 'application/json' });
-      expect(await (sent[0] as NappletMessage & { blob: Blob }).blob.text()).toBe('{"fixture":"BUD-10"}');
-      expect(fetcher).toHaveBeenCalledWith(`https://cdn.example/${hash}.gbc`, expect.objectContaining({ redirect: 'error' }));
+      expect(atob((sent[0] as NappletMessage & { blob: string }).blob)).toBe('{"fixture":"BUD-10"}');
+      expect(fetcher.mock.calls.map(([endpoint, init]) => proxyDestination(endpoint, init))).toEqual([`https://cdn.example/${hash}.gbc`]);
     } finally {
       (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
     }
@@ -126,7 +133,7 @@ describe('Paja OUTBOX-to-RESOURCE Blossom wiring', () => {
         : [{ event: rom }],
     }));
 
-    const fetcher = vi.fn(async (url: string) => url.startsWith('https://event.example/')
+    const fetcher = vi.fn(async (endpoint: string, init?: RequestInit) => proxyDestination(endpoint, init).startsWith('https://event.example/')
       ? new Response(null, { status: 404 })
       : new Response(bytes));
     vi.stubGlobal('fetch', fetcher);
@@ -159,19 +166,12 @@ describe('Paja OUTBOX-to-RESOURCE Blossom wiring', () => {
     } as NappletMessage, (message) => resourceMessages.push(message));
     await vi.waitFor(() => expect(resourceMessages).toHaveLength(1));
 
-    expect(fetcher).toHaveBeenNthCalledWith(
-      1,
-      `https://event.example/${hash}`,
-      expect.objectContaining({ redirect: 'error' }),
-    );
-    expect(fetcher).toHaveBeenNthCalledWith(
-      2,
-      `https://publisher.example/${hash}`,
-      expect.objectContaining({ redirect: 'error' }),
-    );
-    const result = resourceMessages[0] as NappletMessage & { blob: Blob };
+    expect(fetcher.mock.calls.map(([endpoint, init]) => proxyDestination(endpoint, init))).toEqual([
+      `https://event.example/${hash}`, `https://publisher.example/${hash}`,
+    ]);
+    const result = resourceMessages[0] as NappletMessage & { blob: string };
     expect(result).toMatchObject({ type: 'resource.bytes.result', id: 'rom-bytes' });
-    expect(await result.blob.text()).toBe('publisher ROM bytes');
+    expect(atob(result.blob)).toBe('publisher ROM bytes');
 
     expect(outboxQuery).toHaveBeenCalledWith(
       [{ kinds: [10_063], authors: [PUBLISHER], limit: 1 }],
@@ -201,7 +201,7 @@ describe('Paja OUTBOX-to-RESOURCE Blossom wiring', () => {
     });
 
     const bytes = new TextEncoder().encode('publisher ROM bytes');
-    const fetcher = vi.fn(async (url: string) => url.startsWith('https://runtime.example/')
+    const fetcher = vi.fn(async (endpoint: string, init?: RequestInit) => proxyDestination(endpoint, init).startsWith('https://runtime.example/')
       ? new Response(bytes)
       : new Response(null, { status: 404 }));
     vi.stubGlobal('fetch', fetcher);
@@ -234,12 +234,11 @@ describe('Paja OUTBOX-to-RESOURCE Blossom wiring', () => {
     adapter.services?.resource?.handleMessage('rom-window', {
       type: 'resource.bytes',
       id: 'rom-bytes-all-tiers',
-      url: RESOURCE_URL,
-      servers: ['https://request.example'],
+      url: `${RESOURCE_URL}?xs=request.example`,
     } as NappletMessage, (message) => resourceMessages.push(message));
     await vi.waitFor(() => expect(resourceMessages).toHaveLength(1));
 
-    expect(fetcher.mock.calls.map(([url]) => url)).toEqual([
+    expect(fetcher.mock.calls.map(([endpoint, init]) => proxyDestination(endpoint, init))).toEqual([
       `https://request.example/${HASH}`,
       `https://event.example/${HASH}`,
       `https://publisher.example/${HASH}`,
@@ -247,12 +246,12 @@ describe('Paja OUTBOX-to-RESOURCE Blossom wiring', () => {
       `https://pointer.example/${HASH}`,
       `https://runtime.example/${HASH}`,
     ]);
-    const result = resourceMessages[0] as NappletMessage & { blob: Blob };
+    const result = resourceMessages[0] as NappletMessage & { blob: string };
     expect(result).toMatchObject({
       type: 'resource.bytes.result',
       id: 'rom-bytes-all-tiers',
     });
-    expect(await result.blob.text()).toBe('publisher ROM bytes');
+    expect(atob(result.blob)).toBe('publisher ROM bytes');
     expect(adapter.upload).toBeUndefined();
     (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
   });
@@ -266,7 +265,7 @@ describe('Paja OUTBOX-to-RESOURCE Blossom wiring', () => {
     }));
 
     const bytes = new TextEncoder().encode('publisher ROM bytes');
-    const fetcher = vi.fn(async (url: string) => url.startsWith('https://pointer.example/')
+    const fetcher = vi.fn(async (endpoint: string, init?: RequestInit) => proxyDestination(endpoint, init).startsWith('https://pointer.example/')
       ? new Response(bytes)
       : new Response(null, { status: 404 }));
     vi.stubGlobal('fetch', fetcher);
@@ -299,15 +298,15 @@ describe('Paja OUTBOX-to-RESOURCE Blossom wiring', () => {
     } as NappletMessage, (message) => resourceMessages.push(message));
     await vi.waitFor(() => expect(resourceMessages).toHaveLength(1));
 
-    expect(fetcher.mock.calls.map(([url]) => url)).toEqual([
+    expect(fetcher.mock.calls.map(([endpoint, init]) => proxyDestination(endpoint, init))).toEqual([
       `https://pointer.example/${HASH}`,
     ]);
-    const result = resourceMessages[0] as NappletMessage & { blob: Blob };
+    const result = resourceMessages[0] as NappletMessage & { blob: string };
     expect(result).toMatchObject({
       type: 'resource.bytes.result',
       id: 'anonymous-rom-bytes',
     });
-    expect(await result.blob.text()).toBe('publisher ROM bytes');
+    expect(atob(result.blob)).toBe('publisher ROM bytes');
     expect(adapter.upload).toBeUndefined();
     (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
   });
