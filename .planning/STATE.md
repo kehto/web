@@ -630,3 +630,14 @@ query, successful bytes, old relay excluded. Quality100
 (/tmp/kehto-resource-adapter-approval-quality.json). Test ownership returned to
 resource_execution, which owns remaining integration migration and full combined
 gates (including full E2E on42873). No root process live, no summaries yet.
+
+2026-10-17: Previous turn delivered adapter approval tests22e5f35d and plan
+evidence467f60df. Current worktree clean at turn start except executor-owned
+browser-adapter.ts patch. Reviewed discovery source and verified focused three
+suites11/11PASS (session83161 terminal0): adapter denial/allow, network helper,
+source-generation cleanup. Executor now fixes NIP65 newest-event selection and
+migrates old Blossom integration mocks, then runs combined full build/type/unit/
+docs/quality/E2E gates (42873). Root found potential pre-approval signer-provider
+getRelays I/O in getPajaBootstrapRelayUrls and asked executor to trace supported
+implementations/guard or document boundary. No root source edits. Phase113-01/02
+summaries and downstream service execution remain pending full gates and review.
