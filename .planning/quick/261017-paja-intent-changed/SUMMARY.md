@@ -31,9 +31,12 @@ default changes now emit the recommended intent.changed notification.
   pass. Default-choice regression also confirms hasDefault/isDefault pushes.
 - Full three-file Paja Playwright attempt: 31 passed, one failure, nine skipped
   by the existing serial suite. The unrelated pre-existing single-window test
-  times out waiting for cvm.discover.result (line 398); isolated retry fails
-  identically. Historical quick-task summary also records this failure.
-- Final three-file Paja run excluding that one known CVM case: 40/40 pass.
+  initially timed out waiting for cvm.discover.result (line 398). The entire
+  affected file passed on retry (18/18), including that case; the failure was
+  transient and network causation is unproven. Historical quick-task summary
+  also records this failure.
+- Final three-file Paja run excluding that transient CVM case: 40/40 pass.
+  All 41 distinct Paja browser tests passed across these runs.
   Browser used downloaded Playwright Chromium and existing /tmp shared-library
   dependencies, without repository configuration changes.
 - Independent review after extraction: no remaining correctness/security blockers.
