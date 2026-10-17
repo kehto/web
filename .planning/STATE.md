@@ -401,3 +401,9 @@ into approval prompts/actions. Seven regressions, full 2,386 units, build/types/
 docs, quality100 pass. Next: plan/execute phase113 service authorization with
 resource canonical-wire drift and destination checks included; do not stop at
 optional APIs. Paja/playground migration and PR still outstanding.
+
+2026-10-17: Extension declaration race fixed in 9e8a77ca; 2,389 unit tests,
+build/types/docs/quality100 pass. Phase113 context and research written; typed
+service_plan agent is preparing executable plans. Retrieved exact open draft refs
+for eight previously uncaptured service domains; see 113-RESEARCH.md follow-up.
+Phase113 still requires plan-checker review before execution. Full goal active.
