@@ -18,12 +18,12 @@ class MemorySignalRelay {
   readonly events: NostrEvent[] = [];
   private readonly listeners = new Set<(event: NostrEvent) => void>();
 
-  subscribe(_filters: unknown, onEvent: (event: NostrEvent) => void): { close(): void } {
+  subscribe(_relayUrls: readonly string[], _filters: unknown, onEvent: (event: NostrEvent) => void): { close(): void } {
     this.listeners.add(onEvent);
     return { close: () => this.listeners.delete(onEvent) };
   }
 
-  async publish(event: NostrEvent): Promise<void> {
+  async publish(_relayUrls: readonly string[], event: NostrEvent): Promise<void> {
     this.events.push(event);
     for (const listener of this.listeners) listener(event);
   }
@@ -201,7 +201,8 @@ describe('Paja browser WebRTC controller', () => {
       getPubkey: () => pubkeyA,
       getIdentity: () => ({ dTag: 'caller-a', aggregateHash: 'hash-a' }),
       confirm: confirmA,
-      createPeerConnection: () => network.create(),
+      signalingRelayUrls: () => ['wss://signal.example'],
+      peerFactory: { create: () => network.create(), iceEndpoints: [] },
       crypto: globalThis.crypto,
     })!;
     const controllerB = createPajaWebrtcController({
@@ -210,7 +211,8 @@ describe('Paja browser WebRTC controller', () => {
       getPubkey: () => pubkeyB,
       getIdentity: () => ({ dTag: 'caller-b', aggregateHash: 'hash-b' }),
       confirm: confirmB,
-      createPeerConnection: () => network.create(),
+      signalingRelayUrls: () => ['wss://signal.example'],
+      peerFactory: { create: () => network.create(), iceEndpoints: [] },
       crypto: globalThis.crypto,
     })!;
 
@@ -262,11 +264,26 @@ describe('Paja browser WebRTC controller', () => {
       getPubkey: () => '1'.repeat(64),
       getIdentity: () => ({ dTag: 'test', aggregateHash: 'hash' }),
       confirm: () => true,
-      createPeerConnection: () => ({} as RTCPeerConnection),
+      signalingRelayUrls: () => ['wss://signal.example'],
+      peerFactory: { create: () => ({} as RTCPeerConnection), iceEndpoints: [] },
       crypto: globalThis.crypto,
     });
     expect(controller).not.toBeNull();
     expect(controller!.refreshAvailability()).toBe(false);
+  });
+
+  it('rejects an opaque injected peer factory before a runtime-approved plan exists', () => {
+    const controller = createPajaWebrtcController({
+      relay: new MemorySignalRelay(),
+      getSigner: () => null,
+      getPubkey: () => null,
+      getIdentity: () => ({ dTag: 'test', aggregateHash: 'hash' }),
+      confirm: () => true,
+      signalingRelayUrls: () => ['wss://signal.example'],
+      createPeerConnection: () => ({} as RTCPeerConnection),
+      crypto: globalThis.crypto,
+    });
+    expect(controller).toBeNull();
   });
 
   it('advertises WebRTC only while a NIP-44 signer is connected', () => {
