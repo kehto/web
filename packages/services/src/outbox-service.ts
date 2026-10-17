@@ -189,6 +189,7 @@ export interface StreamingOutboxRouter extends OutboxRouter {
   /** Resolve publish fanout from the signer identity before signature creation. */
   planPublish?(options?: OutboxPublishOptions): Promise<OutboxRelayPlan>;
   publishWithPlan?(template: EventTemplate, plan: OutboxRelayPlan): Promise<OutboxPublishResult>;
+  subscribeWithPlan?(filters: NostrFilter[], plan: OutboxRelayPlan, sink: OutboxSubscriptionSink): OutboxRouterSubscription;
   /**
    * Start policy/fallback reads immediately, stream verified events through
    * `sink`, and attach author relays when concurrent discovery resolves.
@@ -444,7 +445,22 @@ export function createOutboxService(options: OutboxServiceOptions): ServiceHandl
     };
 
     const readRouter = getReadRouter?.(windowId, runtimeContext) ?? router;
-    subscriptions.set(subKey, readRouter.subscribe(filters, sanitizeSubscribeOptions(m.options), sink));
+    const subscribeOptions = sanitizeSubscribeOptions(m.options);
+    const planned = readRouter as StreamingOutboxRouter;
+    if (planned.planRead && planned.subscribeWithPlan && runtimeContext?.authorizeOperation) {
+      void planned.planRead(filters, subscribeOptions).then((plan) => runtimeContext!.authorizeOperation!(windowId, 'outbox.subscribe', [
+        { category: 'interface', domain: 'outbox', operation: 'access', scope: { kind: 'exact', value: 'outbox' } },
+        ...plan.relays.map((url) => ({ category: 'network' as const, domain: 'outbox', operation: 'outbox.subscribe', scope: { kind: 'origin' as const, value: new URL(url).origin } })),
+      ], (signal) => {
+        if (signal.aborted) return;
+        const sub = planned.subscribeWithPlan!(filters, plan, sink);
+        if (signal.aborted) sub.close(); else subscriptions.set(subKey, sub);
+      })).then((outcome) => {
+        if (outcome.status !== 'executed') send({ type: 'outbox.closed', subId, reason: 'policy denied' } as NappletMessage);
+      }).catch(() => send({ type: 'outbox.closed', subId, reason: 'policy denied' } as NappletMessage));
+      return;
+    }
+    subscriptions.set(subKey, readRouter.subscribe(filters, subscribeOptions, sink));
   }
 
   function handleClose(windowId: string, msg: NappletMessage, send: Send): void {

@@ -447,6 +447,15 @@ function queryPlanImpl(ctx: RouterCtx, filters: NostrFilter[], options: OutboxQu
   }, options?.timeoutMs ?? ctx.defaultTimeoutMs));
 }
 
+function subscribePlanImpl(ctx: RouterCtx, filters: NostrFilter[], plan: OutboxRelayPlan, sink: OutboxSubscriptionSink): OutboxRouterSubscription {
+  let closed = false;
+  const handles = plan.relays.map((relayUrl) => relayPoolSubscribe(ctx, filters, relayUrl, (item) => {
+    if (closed || item === 'EOSE') return;
+    void ctx.verify(item).then((ok) => { if (ok && !closed) sink.event(createRelayEventResultWithHints(item, [relayUrl])); });
+  }, plan.source === 'nip65' ? 'nip65' : plan.source === 'fallback' ? 'fallback' : 'hint'));
+  return { close() { if (closed) return; closed = true; for (const handle of handles) handle.unsubscribe(); } };
+}
+
 async function getEventImpl(ctx: RouterCtx, eventId: string, options?: OutboxEventOptions): Promise<OutboxEventResult> {
   if (typeof eventId !== 'string' || eventId.length === 0) {
     return { error: 'invalid filter' };
@@ -730,6 +739,7 @@ export function createRelayPoolOutboxRouter(options: RelayPoolOutboxRouterOption
   return {
     planRead: (filters, queryOptions) => resolvePlan(ctx, deriveAuthors(filters, queryOptions?.authors), 'read', queryOptions?.relays),
     queryWithPlan: (filters, queryOptions, plan) => queryPlanImpl(ctx, filters, queryOptions, plan),
+    subscribeWithPlan: (filters, plan, sink) => subscribePlanImpl(ctx, filters, plan, sink),
     planPublish,
     publishWithPlan,
     getEvent: (eventId, eventOptions) => getEventImpl(ctx, eventId, eventOptions),
