@@ -160,3 +160,13 @@ The package currently has no type-check script, so root pnpm type-check does not
 prove this app compiles. Plan113-17 must add the package script, complete the
 constructor/resolver migration, and pass the direct command. Evidence:
 `/tmp/kehto-playground-direct-types.log` (session51527 terminal exit1).
+
+### Discovery transport cancellation
+
+`packages/paja/src/browser-relay-runtime-resource.test.ts` exercises the real
+backend query and live query functions with SimplePool socket methods mocked.
+It proves pre-abort opens no connection, abort during connection setup prevents
+a late subscription, and active abort closes the subscription exactly once and
+suppresses late events/EOSE. Three new cases plus25 existing relay-runtime cases
+passed; Paja type-check passed (session72803 terminal0, 2026-10-17). Include
+this suite in the combined resource gate after discovery integration stabilizes.

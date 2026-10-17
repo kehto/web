@@ -608,3 +608,14 @@ skipped this app because package lacks script. Added explicit script/tsc gate to
 113-17 (already owns host constructor migration), recorded in113VALIDATION.
 No root code edits pending. Discovery and combined resource gates remain open;
 then downstream113 and host114 must complete before fullgoal/PR completion.
+
+2026-10-17: Previous turn delivered generation regressionbc4bc6f3 and explicit
+playground verification planef013847. Resource executor currently wires approved
+bootstrap NIP65 and immutable selected relay BUD03 reads, carries cancellation,
+and adds source-generation guards. Root supplied committed589329e5 real backend
+query cancellation regressions (3cases), with existing25 relay-runtime tests all
+PASS and Paja tscPASS; session72803 terminal0. Quality100 recorded in
+/tmp/kehto-resource-discovery-transport-quality.json. Root returned test ownership
+to resource_execution and added113VALIDATION evidence. Discovery source/tests
+remain executor-owned WIP; combined full resource gates and summaries still
+pending. Fullgoal remains active; no downstream execution or PR yet.
