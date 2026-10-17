@@ -580,8 +580,9 @@ function createDevServices(
   if (getSimulation().capabilities.domains.lists && getSimulation().relay.mode === 'live') {
     services.lists = createListsService({
       supported: () => listsBackend.supported(),
-      add: (list, items, options) => listsBackend.add(list, items, options),
-      remove: (list, items, options) => listsBackend.remove(list, items, options),
+      planMutation: (list, items, options) => listsBackend.planMutation(list, items, options),
+      add: (list, items, options, context) => listsBackend.add(list, items, options, context.relays, context.signal),
+      remove: (list, items, options, context) => listsBackend.remove(list, items, options, context.relays, context.signal),
     });
   }
   if (getSimulation().capabilities.domains.serial) {

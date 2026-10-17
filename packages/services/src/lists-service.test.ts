@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ListItem, ListRef, ListSupport, NappletMessage } from '@napplet/core';
 
 import { createListsService, type ListsServiceOptions } from './lists-service.js';
+import type { ServiceRuntimeContext } from '@kehto/runtime';
 
 const WINDOW_ID = 'win-lists';
 const LIST: ListRef = { type: 'bookmarks' };
@@ -94,6 +95,46 @@ describe('createListsService', () => {
     await flush();
 
     expect(sent).toEqual([{ type: 'lists.add.result', id: 'add-3', ok: false, error: 'list-unavailable', reason: 'publish offline' }]);
+  });
+
+  it('approves the exact list and every planned relay before a mutation', async () => {
+    const add = vi.fn(() => ({ ok: true, added: 1, skipped: 0 }));
+    const authorizeOperation = vi.fn(async (_windowId, _operation, _requirements, execute) => ({
+      status: 'executed' as const,
+      value: await execute({ aborted: false, addEventListener() {}, removeEventListener() {} }),
+    }));
+    const service = createListsService({
+      add,
+      planMutation: () => ({ resource: '10003', relays: ['wss://read.example/', 'wss://write.example/'] }),
+    });
+    service.onRegistered?.({ authorizeOperation } as unknown as ServiceRuntimeContext);
+    const { sent, send } = collectSent();
+
+    service.handleMessage(WINDOW_ID, { type: 'lists.add', id: 'planned', list: LIST, items: [ITEM], options: { create: true } } as NappletMessage, send);
+    await flush();
+
+    expect(authorizeOperation.mock.calls[0]?.slice(0, 2)).toEqual([WINDOW_ID, 'lists.add']);
+    expect(authorizeOperation.mock.calls[0]?.[2]).toEqual(expect.arrayContaining([
+      expect.objectContaining({ category: 'interface', domain: 'lists' }),
+      expect.objectContaining({ category: 'resource', scope: { kind: 'exact', value: '10003' } }),
+      expect.objectContaining({ category: 'network', scope: { kind: 'origin', value: 'wss://read.example' } }),
+      expect.objectContaining({ category: 'network', scope: { kind: 'origin', value: 'wss://write.example' } }),
+    ]));
+    expect(add).toHaveBeenCalledWith(LIST, [ITEM], { create: true }, expect.objectContaining({ relays: ['wss://read.example/', 'wss://write.example/'] }));
+    expect(sent[0]).toMatchObject({ type: 'lists.add.result', ok: true, added: 1 });
+  });
+
+  it('does not load or sign after a denied list mutation approval', async () => {
+    const add = vi.fn(() => ({ ok: true, added: 1 }));
+    const service = createListsService({ add, planMutation: () => ({ resource: '10003', relays: ['wss://relay.example/'] }) });
+    service.onRegistered?.({ authorizeOperation: async () => ({ status: 'denied' }) } as unknown as ServiceRuntimeContext);
+    const { sent, send } = collectSent();
+
+    service.handleMessage(WINDOW_ID, { type: 'lists.add', id: 'denied', list: LIST, items: [ITEM] } as NappletMessage, send);
+    await flush();
+
+    expect(add).not.toHaveBeenCalled();
+    expect(sent[0]).toMatchObject({ type: 'lists.add.result', ok: false, error: 'list-unavailable', reason: 'user-denied' });
   });
 
   it('contains unknown lists actions', () => {
