@@ -3,11 +3,12 @@
  * loaded through the shell's resource service rather than debug output.
  */
 import { test, expect } from '@playwright/test';
+import { HARNESS_URL } from './helpers/harness-url.js';
 
 test.use({ baseURL: 'http://localhost:4174' });
 
-const CORS_REDIRECT_URL = 'http://localhost:4173/resource-cors/redirect.png';
-const CORS_FINAL_URL = 'http://localhost:4173/resource-cors/final.png';
+const CORS_REDIRECT_URL = `${HARNESS_URL}/resource-cors/redirect.png`;
+const CORS_FINAL_URL = `${HARNESS_URL}/resource-cors/final.png`;
 
 test('resource demo loads and renders a remote image', async ({ page }) => {
   test.setTimeout(30_000);
