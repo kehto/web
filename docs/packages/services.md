@@ -12,6 +12,11 @@ The reference host rejects configured ICE/TURN endpoints until Firewall gains a
 typed endpoint scope; this does not claim to constrain direct iframe networking,
 which remains a launch-policy concern.
 
+OUTBOX and COUNT resolve relay destinations before approval. Their remote
+backends receive the approved immutable URL list and cancellation signal; local
+COUNT plans remain network-prompt-free and revoked sources cannot receive late
+results.
+
 The reference LINK service integrates shared runtime approvals after URL
 validation. A LINK grant never gives direct network access. Runtime cancellation
 and source replacement prevent stale opens/results; repeated request IDs cannot
