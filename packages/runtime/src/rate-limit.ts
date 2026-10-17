@@ -69,13 +69,13 @@ export function defaultRateLimitConfig(): RateLimitConfig {
 
 /**
  * Bound approval UI independently from ordinary operation audit budgets.
- * @returns Twelve prompts per minute and four during initial startup.
+ * @returns Twelve prompts per minute and eight during initial startup.
  * @example const config = defaultPromptRateLimitConfig();
  */
 export function defaultPromptRateLimitConfig(): RateLimitConfig {
   return {
     capacity: 12, windowMs: 60_000, action: 'block', unfocusedMultiplier: 1,
-    burst: { windowMs: 3_000, maxOperations: 4, action: 'block' },
+    burst: { windowMs: 3_000, maxOperations: 8, action: 'block' },
   };
 }
 

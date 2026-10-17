@@ -72,13 +72,21 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
   let rates = createRateLimitState();
   let promptRates = createRateLimitState();
   let disposed = false;
-  let admissionRevision = 0;
+  let globalAdmissionRevision = 0;
+  const sourceAdmissionRevisions = new WeakMap<SessionEntry, number>();
   const invalidationListeners = new Set<() => void>();
   let coordinator: ReturnType<typeof createApprovalCoordinator>;
   const store = createPermissionStore({
     persistence: adapter.persistence, extensions: adapter.extensions, onError: adapter.onStorageError,
     invalidate(sessionId) {
-      admissionRevision++;
+      if (sessionId === undefined) globalAdmissionRevision++;
+      else {
+        for (const lifetime of lifetimes.values()) {
+          if (lifetime.id === sessionId) {
+            sourceAdmissionRevisions.set(lifetime.entry, (sourceAdmissionRevisions.get(lifetime.entry) ?? 0) + 1);
+          }
+        }
+      }
       coordinator?.cancel(sessionId);
       if (sessionId === undefined) context.invalidate();
       else {
@@ -147,19 +155,21 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
     const current = () => !disposed && store.available && lifetimes.get(windowId) === captured
       && context.getSession(windowId) === entry && context.allowed(windowId, requirements, phase) && isCurrent();
     if (!current()) return Promise.resolve({ status: 'denied' });
-    try {
-      const now = adapter.now();
-      const rate = evaluateRateLimit(adapter.rateLimit ?? defaultRateLimitConfig(), rates, {
-        subject, operation, lifecycle: lifetime.id, elapsedSinceStartMs: Math.max(0, now - lifetime.started),
-        focused: context.focused(windowId), now,
-      });
-      rates = rate.state;
-      if (rate.reason !== 'within-budget') {
-        try { adapter.onRateLimit?.({ windowId, operation, action: rate.action, reason: rate.reason }); }
-        catch { /* Audit failures cannot override temporal enforcement. */ }
-      }
-      if (!rate.allowed) return Promise.resolve({ status: 'busy' });
-    } catch { return Promise.resolve({ status: 'unavailable' }); }
+    if (phase === 'operation') {
+      try {
+        const now = adapter.now();
+        const rate = evaluateRateLimit(adapter.rateLimit ?? defaultRateLimitConfig(), rates, {
+          subject, operation, lifecycle: lifetime.id, elapsedSinceStartMs: Math.max(0, now - lifetime.started),
+          focused: context.focused(windowId), now,
+        });
+        rates = rate.state;
+        if (rate.reason !== 'within-budget') {
+          try { adapter.onRateLimit?.({ windowId, operation, action: rate.action, reason: rate.reason }); }
+          catch { /* Audit failures cannot override temporal enforcement. */ }
+        }
+        if (!rate.allowed) return Promise.resolve({ status: 'busy' });
+      } catch { return Promise.resolve({ status: 'unavailable' }); }
+    }
     const allowedLifetimes = (phase === 'admission' ? ['session', 'persistent'] : ['once', 'session', 'persistent'])
       .filter((lifetime) => lifetime !== 'persistent' || !!adapter.persistence) as Array<PermissionGrant['lifetime']>;
     return coordinator.run(entry.permissionPrincipal, lifetime.id, requirements, current, execute, allowedLifetimes, signal);
@@ -180,7 +190,11 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
 
   const admission = createPermissionAdmission({
     getSession: context.getSession, available: () => !disposed && store.available,
-    isRetired: (entry) => retiredSources.has(entry), revision: () => admissionRevision,
+    isRetired: (entry) => retiredSources.has(entry),
+    revision: (windowId) => {
+      const entry = context.getSession(windowId);
+      return globalAdmissionRevision + (entry ? (sourceAdmissionRevisions.get(entry) ?? 0) : 0);
+    },
     allowed: (windowId, requirements) => context.allowed(windowId, requirements, 'admission'),
     stillGranted, extensions: adapter.extensions,
     run: (windowId, requirements, current) => run(windowId, 'interface.admit', requirements, current, () => undefined, 'admission'),

@@ -55,10 +55,11 @@ choices fail explicitly. Defaults bound pending operations to 64 with a 60-secon
 deadline, including queue time. `maxPending` and `timeoutMs` configure these bounds.
 `rateLimit` configures independent operation budgets; `onRateLimit` reports excess
 budgets without including payloads or destinations. Diagnostic failures cannot
-override enforcement.
+override enforcement. Startup interface admission does not spend an app operation
+budget; actual operations are charged after launch.
 
 `promptRateLimit` separately bounds actual UI prompts. The default blocks beyond
-12 prompts per minute, with four permitted during the first three seconds of a
+12 prompts per minute, with eight permitted during the first three seconds of a
 source lifecycle. Existing grants and deduplicated requests do not consume this
 budget unless they need another prompt. Replacement does not replenish the
 principal's prompt or operation token buckets. `defaultPromptRateLimitConfig()`

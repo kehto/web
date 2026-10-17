@@ -28,7 +28,7 @@ interface AdmissionContext {
   getSession(windowId: string): SessionEntry | undefined;
   available(): boolean;
   isRetired(entry: SessionEntry): boolean;
-  revision(): number;
+  revision(windowId: string): number;
   allowed(windowId: string, requirements: readonly PermissionRequirement[]): boolean;
   stillGranted(windowId: string, requirements: readonly PermissionRequirement[]): boolean;
   run(windowId: string, requirements: readonly PermissionRequirement[], current: () => boolean): Promise<ApprovalOutcome<void>>;
@@ -86,7 +86,7 @@ export function createPermissionAdmission(options: AdmissionContext) {
     if (!current() || !options.allowed(windowId, admittedRequirements)) return result('cancelled');
     if (admittedRequirements.length && !options.stillGranted(windowId, admittedRequirements)) return result('cancelled');
     const admission = result('admitted', granted);
-    admissions.set(admission, { windowId, entry, revision: options.revision(), requirements: admittedRequirements });
+    admissions.set(admission, { windowId, entry, revision: options.revision(windowId), requirements: admittedRequirements });
     return admission;
   }
 
@@ -95,7 +95,7 @@ export function createPermissionAdmission(options: AdmissionContext) {
       const issued = admissions.get(admission);
       return !!issued && options.available() && issued.windowId === windowId
         && !options.isRetired(issued.entry)
-        && issued.revision === options.revision() && options.getSession(windowId) === issued.entry
+        && issued.revision === options.revision(windowId) && options.getSession(windowId) === issued.entry
         && options.allowed(windowId, issued.requirements)
         && (issued.requirements.length === 0 || options.stillGranted(windowId, issued.requirements));
     },

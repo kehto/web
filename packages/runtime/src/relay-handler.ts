@@ -65,7 +65,8 @@ async function authorizeRelay<T>(context: RelayHandlerContext, windowId: string,
     await execute({ aborted: false, addEventListener() {}, removeEventListener() {} });
     return;
   }
-  await run(windowId, operation, relayRequirements(plan), execute);
+  const outcome = await run(windowId, operation, relayRequirements(plan), execute);
+  if (outcome.status !== 'executed') throw new Error(`relay authorization ${outcome.status}`);
 }
 
 export type RelayHandler = (windowId: string, msg: NappletMessage) => void;

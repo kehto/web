@@ -3,6 +3,7 @@ import { createRuntime } from './runtime.js';
 import { createMockRuntimeAdapter, createNip5dSessionEntry } from './test-utils.js';
 import type { ApprovalAnswer, ApprovalCancellation, ApprovalPrompt } from './approval-coordinator.js';
 import type { PermissionAdapter } from './permission-runtime.js';
+import { defaultRateLimitConfig } from './rate-limit.js';
 
 declare const AbortController: { new(): ApprovalCancellation };
 declare function setTimeout(callback: () => void, ms: number): unknown;
@@ -130,6 +131,27 @@ describe('pre-execution interface admission', () => {
     f.runtime.destroy();
   });
 
+  it('reserves the operation budget for app actions after startup admission', async () => {
+    const onRateLimit = vi.fn();
+    const base = defaultRateLimitConfig();
+    const f = fixture({ onRateLimit, rateLimit: {
+      ...base, burst: { ...base.burst, maxOperations: 1 },
+    } });
+    const action = vi.fn();
+    f.runtime.registerService('example', { descriptor: { name: 'example', version: '1' },
+      messageCapabilities: { 'example.run': null }, handleMessage: action });
+    expect((await f.admit(['example'], [], ['example'])).status).toBe('admitted');
+    f.hooks.isDomainAllowed = () => true;
+    f.runtime.handleMessage('window', { type: 'example.run', id: 'first' });
+    f.runtime.handleMessage('window', { type: 'example.run', id: 'second' });
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    expect(action).toHaveBeenCalledTimes(1);
+    expect(onRateLimit).toHaveBeenCalledWith({
+      windowId: 'window', operation: 'example.run', action: 'block', reason: 'burst-exceeded',
+    });
+    f.runtime.destroy();
+  });
+
   it('never treats a once choice as a lasting startup grant', async () => {
     const f = fixture({ prompt: async () => ({ effect: 'allow', lifetime: 'once' }) });
     expect(await f.admit(['link'])).toEqual({ status: 'unavailable', domains: [], deniedRequired: ['link'] });
@@ -171,6 +193,22 @@ describe('pre-execution interface admission', () => {
     expect(f.runtime.permissions!.isAdmissionCurrent('window', admission)).toBe(false);
     f.runtime.destroyWindow('window');
     expect(f.runtime.permissions!.isAdmissionCurrent('window', replacement)).toBe(false);
+    f.runtime.destroy();
+  });
+
+  it('keeps one admitted frame alive when another source closes', async () => {
+    const f = fixture();
+    const admission = await f.admit(['link']);
+    f.runtime.sessionRegistry.register('other', {
+      ...f.entry, windowId: 'other',
+    });
+    const other = await f.runtime.permissions!.admit('other', {
+      available: ['theme'], required: ['theme'], optional: [],
+    });
+    expect(other.status).toBe('admitted');
+    f.runtime.destroyWindow('other');
+    expect(f.runtime.permissions!.isAdmissionCurrent('window', admission)).toBe(true);
+    expect(f.runtime.permissions!.isAdmissionCurrent('other', other)).toBe(false);
     f.runtime.destroy();
   });
 
