@@ -54,7 +54,7 @@ const rawListenerFiles = [
 
 const rawPostMessageTypes: Record<string, readonly string[]> = {
   'apps/playground/napplets/cvm-relatr/src/main.ts': ['cvm.discover', 'cvm.request'],
-  'apps/playground/napplets/toaster/src/main.ts': ['notify.create', 'notify.list'],
+  'apps/playground/napplets/toaster/src/main.ts': ['notify.create', 'notify.list', 'notify.read'],
 };
 
 const policyAllowlistTypes = [
@@ -62,6 +62,7 @@ const policyAllowlistTypes = [
   'cvm.request',
   'notify.create',
   'notify.list',
+  'notify.read',
   'theme.changed',
 ] as const;
 

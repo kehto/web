@@ -9,7 +9,7 @@
  *
  * Note: Earlier demo napplets used legacy NIP-01 arrays and could not become
  * identity-bound under the NIP-5D shell. Napplet migration to NIP-5D was Phase 18.
- * All tests in this spec are host-side and do not require napplet identity binding.
+ * Node controls use the admitted toaster identity for their service requests.
  */
 import { test, expect } from '@playwright/test';
 import { demoBeforeEach } from './helpers/index.js';
@@ -35,11 +35,12 @@ test('node-control: create toast via notify.create envelope', async ({ page }) =
   const totalEl = page.locator('#notif-total');
   const initial = parseInt(await totalEl.textContent() ?? '0', 10);
   await page.locator('#notification-node-create').click();
+  await expect(page.frameLocator('#toaster-frame-container iframe').locator('#toaster-log')).toContainText('notify.create dispatch');
 
   // Toast appears
   await expect(page.locator('#notification-toast-layer .notif-toast')).toBeVisible({ timeout: 3_000 });
 
-  // Debugger contains a direct-domain notification, never a topic or synthetic INC event.
+  // Debugger contains a direct-domain notification from the toaster.
   await expectDirectNotificationMessage(page, 'notify.create');
 
   // Summary increments

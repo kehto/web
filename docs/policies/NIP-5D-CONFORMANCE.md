@@ -284,7 +284,14 @@ upstream drift is resolved; they do not introduce a raw-envelope exception.
 | `webrtc.*.result` / `webrtc.event` | `apps/playground/napplets/webrtc-demo/src/main.ts` | Disabled source / NAP helper-surface gap | The retained WebRTC demo source is not hosted by the playground. Until it is replaced with a real demo or deleted, raw result/event listeners stay confined to webrtc-demo, parent-source-bound, and correlation-id/type narrowed. |
 | `notify.create` | `apps/playground/napplets/toaster/src/main.ts` | NAP helper-surface gap | Notify service supports create/list, but `@napplet/nap/notify/sdk` lacks create/list helpers. Raw use must stay source-bound and confined to toaster. |
 | `notify.list` | `apps/playground/napplets/toaster/src/main.ts` | NAP helper-surface gap | Same toaster-only helper gap as `notify.create`; raw replies are accepted only from `window.parent`. |
+| `notify.read` | `apps/playground/napplets/toaster/src/main.ts` | Legacy Kehto wire, outside NAP-NOTIFY | The host notification node now asks the admitted toaster app to mark its own notification read. The app sends the retained `notify.read` envelope under its source-bound identity; NAP-NOTIFY PR #11 at `67877ef6c31ec8acee3125c1d8b4c781010e37dc` specifies `notify.send` and `notify.dismiss`, not `notify.read`. Migrate this demo to a canonical NAP behavior before removing the legacy service. |
 | `theme.changed` | `apps/playground/src/theme.ts` | NAP helper-surface gap | Theme change is an automatic shell-to-napplet envelope; the raw listener is parent-source-bound and type-narrowed. No subscribe/unsubscribe wire action exists. |
+
+The host-only `playground.notification.control` message is a demo UI command,
+not a NAP request or source of approval. The toaster accepts it only from its
+parent and then sends the retained `notify.*` request through its own admitted
+source. The host no longer dispatches notification service operations under a
+synthetic unregistered window ID.
 
 New raw `window.parent.postMessage()` protocol envelopes in playground napplets
 must fail static checks unless they are added to that allowlist with a concrete
