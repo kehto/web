@@ -157,6 +157,11 @@ function approvalError(status: string): string {
  * @returns A runtime service handler for the `serial` domain.
  */
 export function createSerialService(options: SerialServiceOptions = {}): ServiceHandler {
+  return buildSerialService(options);
+}
+
+/** Internal stateful handler builder, separated from the public factory API. */
+function buildSerialService(options: SerialServiceOptions): ServiceHandler {
   const windows = new Map<string, SerialWindow>();
   let runtime: ServiceRuntimeContext | undefined;
   let warnedLegacy = false;

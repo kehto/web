@@ -208,6 +208,11 @@ function targetScope(deviceScope: string, target: BleAttribute): string {
  * @returns A runtime service handler for the `ble` domain.
  */
 export function createBleService(options: BleServiceOptions = {}): ServiceHandler {
+  return buildBleService(options);
+}
+
+/** Internal stateful handler builder, separated from the public factory API. */
+function buildBleService(options: BleServiceOptions): ServiceHandler {
   const windows = new Map<string, Map<string, { deviceScope?: string }>>();
   let runtime: ServiceRuntimeContext | undefined;
   let warnedLegacy = false;
