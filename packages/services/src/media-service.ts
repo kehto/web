@@ -425,34 +425,33 @@ function handleSessionCreate(
 
 function handleSessionUpdate(state: MediaServiceState, windowId: string, message: MediaSessionUpdateMessage): void {
   const entry = state.sessionRegistry.get(message.sessionId);
-  if (entry) {
-    entry.metadata = { ...entry.metadata, ...message.metadata };
-    entry.lastTouched = ++state.touchCounter;
-    if (entry.owner === 'napplet' && message.sessionId === state.activeSessionId && entry.metadata) {
-      state.bridge.setMetadata(message.sessionId, entry.metadata);
-    }
+  if (!entry || entry.windowId !== windowId) return;
+  entry.metadata = { ...entry.metadata, ...message.metadata };
+  entry.lastTouched = ++state.touchCounter;
+  if (entry.owner === 'napplet' && message.sessionId === state.activeSessionId && entry.metadata) {
+    state.bridge.setMetadata(message.sessionId, entry.metadata);
   }
   state.options.onSessionUpdate?.(windowId, message.sessionId, message.metadata);
 }
 
 function handleSessionDestroy(state: MediaServiceState, windowId: string, message: MediaSessionDestroyMessage): void {
   const entry = state.sessionRegistry.get(message.sessionId);
-  if (entry) {
-    state.sessionRegistry.delete(message.sessionId);
-    const set = state.windowSessions.get(entry.windowId);
-    if (set) {
-      set.delete(message.sessionId);
-      if (set.size === 0) state.windowSessions.delete(entry.windowId);
-    }
-    state.bridge.destroySession?.(message.sessionId);
-    if (message.sessionId === state.activeSessionId) promoteNextActiveOrClear(state);
+  if (!entry || entry.windowId !== windowId) return;
+  state.sessionRegistry.delete(message.sessionId);
+  const set = state.windowSessions.get(entry.windowId);
+  if (set) {
+    set.delete(message.sessionId);
+    if (set.size === 0) state.windowSessions.delete(entry.windowId);
   }
+  state.bridge.destroySession?.(message.sessionId);
+  if (message.sessionId === state.activeSessionId) promoteNextActiveOrClear(state);
   state.options.onSessionDestroy?.(windowId, message.sessionId);
 }
 
 function handleMediaState(state: MediaServiceState, windowId: string, message: MediaStateMessage): void {
   const entry = state.sessionRegistry.get(message.sessionId);
-  if (entry?.owner === 'napplet') {
+  if (!entry || entry.windowId !== windowId) return;
+  if (entry.owner === 'napplet') {
     entry.state = {
       status: message.status,
       position: message.position,
@@ -472,7 +471,8 @@ function handleMediaCapabilities(
   message: MediaCapabilitiesMessage,
 ): void {
   const entry = state.sessionRegistry.get(message.sessionId);
-  if (entry?.owner === 'napplet') {
+  if (!entry || entry.windowId !== windowId) return;
+  if (entry.owner === 'napplet') {
     entry.actions = message.actions;
     entry.lastTouched = ++state.touchCounter;
     if (message.sessionId === state.activeSessionId) {

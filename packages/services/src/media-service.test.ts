@@ -6,7 +6,7 @@
  * plus real navigator.mediaSession integration tests added in Phase 27 Plan 01.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createMediaService, createBrowserMediaBridge } from './media-service.js';
 import type { HostMediaBridge } from './media-service.js';
 import type { NappletMessage } from '@napplet/core';
@@ -108,6 +108,29 @@ describe('createMediaService', () => {
   });
 
   describe('media.session.create', () => {
+    it('ignores cross-window session mutation and destruction', () => {
+      const onSessionUpdate = vi.fn();
+      const onSessionDestroy = vi.fn();
+      const onState = vi.fn();
+      const onCapabilities = vi.fn();
+      const service = createMediaService({ onSessionUpdate, onSessionDestroy, onState, onCapabilities });
+      const owner = vi.fn();
+      service.handleMessage('owner', { type: 'media.session.create', id: 'c1', owner: 'napplet',
+        sessionId: 'owned' } as NappletMessage, owner);
+      service.handleMessage('attacker', { type: 'media.session.update', sessionId: 'owned',
+        metadata: { title: 'stolen' } } as NappletMessage, vi.fn());
+      service.handleMessage('attacker', { type: 'media.state', sessionId: 'owned', status: 'playing' } as NappletMessage, vi.fn());
+      service.handleMessage('attacker', { type: 'media.capabilities', sessionId: 'owned', actions: [] } as NappletMessage, vi.fn());
+      service.handleMessage('attacker', { type: 'media.session.destroy', sessionId: 'owned' } as NappletMessage, vi.fn());
+      expect(onSessionUpdate).not.toHaveBeenCalled();
+      expect(onState).not.toHaveBeenCalled();
+      expect(onCapabilities).not.toHaveBeenCalled();
+      expect(onSessionDestroy).not.toHaveBeenCalled();
+      service.handleMessage('owner', { type: 'media.session.update', sessionId: 'owned',
+        metadata: { title: 'still owned' } } as NappletMessage, owner);
+      expect(onSessionUpdate).toHaveBeenCalledWith('owner', 'owned', { title: 'still owned' });
+    });
+
     it('emits media.session.create.result with matching sessionId', () => {
       const service = createMediaService();
       const sent: NappletMessage[] = [];
@@ -317,6 +340,9 @@ describe('createMediaService', () => {
           states.push({ windowId, sessionId, state });
         },
       });
+      service.handleMessage(WINDOW_ID, {
+        type: 'media.session.create', id: 'create-s1', owner: 'napplet', sessionId: 's1',
+      } as NappletMessage, () => {});
 
       service.handleMessage(
         WINDOW_ID,
