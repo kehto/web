@@ -352,7 +352,7 @@ function createDevServices(
     // This runs from host initialization and signer lifecycle changes, never a
     // resource request. A signer extension may implement getRelays using an
     // opaque bridge, so discovery can only consume the cached URL strings.
-    void Promise.resolve(signer.getRelays()).then((relays) => {
+    void Promise.resolve().then(() => signer.getRelays!()).then((relays) => {
       if (generation !== signerBootstrapGeneration || !relays || typeof relays !== 'object') return;
       for (const [url, permissions] of Object.entries(relays)) {
         if (permissions?.read && typeof url === 'string') signerBootstrapRelays.push(url);

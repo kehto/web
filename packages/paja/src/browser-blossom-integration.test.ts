@@ -308,6 +308,26 @@ describe('Paja OUTBOX-to-RESOURCE Blossom wiring', () => {
     (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
   });
 
+  it('contains synchronous external signer cache refresh failures', async () => {
+    const getRelays = vi.fn(() => { throw new Error('extension unavailable'); });
+    const signerProvider = {
+      getSigner: () => ({ getRelays }),
+      getMethod: () => 'nip07' as const,
+      getPubkey: () => null,
+    };
+    const adapter = createPajaAdapter(
+      CONFIG,
+      () => normalizePajaSimulation({ relay: resourceRelay() }),
+      () => {},
+      () => {},
+      () => true,
+      signerProvider,
+    );
+    await vi.waitFor(() => expect(getRelays).toHaveBeenCalledOnce());
+    expect(adapter.services?.resource).toBeDefined();
+    (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
+  });
+
   it('uses verified pointer servers anonymously when the ROM and publisher have no hints', async () => {
     const rom = event('6', 32_560, [
       ['resource', RESOURCE_URL, 'blossom'],
