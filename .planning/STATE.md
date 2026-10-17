@@ -469,3 +469,17 @@ Host planner remains live on114plans/validation. Next: collect resource fullgate
 results, fix any failures, then release113wave3 and review114plans. Goal active;
 no PR yet. Prior prompt-only goal turn made no implementation progress; this turn
 revalidated the live worktree/agents and delivered the committed test migration.
+
+2026-10-17: Independent resource lifecycle review found two additional confirmed
+regressions, saved as explicit RED WIP checkpoints. ab3a17c1 adds
+resource-network-lifetime.test.ts: revoking the network grant after response
+headers leaves its AbortSignal live while body consumption waits. b250dc3c adds
+paja-resource-network-denial.test.ts: both HTTPS and Blossom prevent transport
+but incorrectly return network-error instead of canonical blocked-by-policy.
+Checked NAP-RESOURCE ae5b9c64 lifecycle/error policy before tests; retaining the
+network grant through the body is explicit Kehto policy. New test ownership and
+both findings handed to resource_execution; no root uncommitted changes remain.
+Existing fullgate results must be rerun after fixes; do not release113wave3 yet.
+Host planner live on114plans/validation (01–10 drafted, remaining browser and
+fullgate plans in progress). Prior turn was progress (f6072a17 test migration);
+this turn adds evidence and regression checkpoints, not resource completion.
