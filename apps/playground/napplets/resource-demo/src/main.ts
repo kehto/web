@@ -5,9 +5,12 @@
  * Uses the published NAP-RESOURCE SDK over the injected host projection to
  * fetch remote bytes and surface the response as an object URL.
  */
-import '@napplet/shim';
 import { getMissingNapDomains } from '../../domain-availability';
 import { applyNapTheme, installNapTheme, onNapThemeChanged } from '../../shared-theme';
+
+// @napplet/shim 0.30 installs the pre-PR #80 resource helper, which emits
+// retired `requests` envelopes. Use the live shell projection injected before
+// authored code so this demo exercises the canonical `urls` API.
 
 const REQUIRED_NAPS = ['resource', 'theme'] as const;
 // Match the 5s deadline every other playground napplet uses: the host prelude
