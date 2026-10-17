@@ -105,6 +105,7 @@ export interface PajaRelayBackend extends RelayPoolLike {
     filters: NostrFilter[],
     maxWaitMs?: number,
     context?: PajaRelayReadContext,
+    signal?: AbortSignal,
   ): Promise<NostrEvent[]>;
   publishToRelays(relayUrls: string[], event: NostrEvent): Promise<Record<string, boolean>>;
   countWithRelay(relayUrls: string[], filters: NostrFilter[]): Promise<{ count: number; relay: string }>;
@@ -276,12 +277,14 @@ export function createPajaRelayBackend(
     filters: NostrFilter[],
     maxWaitMs?: number,
     context: PajaRelayReadContext = { reason: 'host' },
+    signal?: AbortSignal,
   ): Promise<NostrEvent[]> => {
+    if (signal?.aborted) return [];
     const cached = collectMemoryEvents(cachedEvents(), filters);
     if (getSimulation().relay.mode !== 'live' || relayUrls.length === 0) return cached;
     observeRelayRequest(context, relayUrls);
     const liveEvents = await queryPajaLive(livePool, relayUrls, filters, maxWaitMs ?? PAJA_LIVE_QUERY_WAIT_MS,
-      (event, source) => observeRelayEvent(context, relayUrls, event, source));
+      (event, source) => observeRelayEvent(context, relayUrls, event, source), false, signal);
     const out = new Map<string, NostrEvent>();
     for (const event of [...cached, ...liveEvents]) out.set(event.id, event);
     return [...out.values()].sort((a, b) => b.created_at - a.created_at);
@@ -490,7 +493,15 @@ async function getSignerRelayUrls(
   }
 }
 
-async function getBootstrapRelayUrls(
+/**
+ * Return the Paja bootstrap relay set used to resolve an author's NIP-65 list.
+ *
+ * @param getSimulation - Active Paja simulation accessor.
+ * @param signerProvider - Optional signer relay provider.
+ * @param getHostRelayUrls - Optional scoped host relay source.
+ * @returns Deduplicated bootstrap read relay URLs.
+ */
+export async function getPajaBootstrapRelayUrls(
   getSimulation: () => PajaSimulation,
   signerProvider: PajaSignerProvider | undefined,
   getHostRelayUrls?: () => string[],
@@ -513,7 +524,7 @@ export function createPajaContactListLoader(
 ): (pubkey: string, signal?: AbortSignal) => Promise<NostrEvent[]> {
   return async (pubkey: string, signal?: AbortSignal): Promise<NostrEvent[]> => {
     if (!/^[0-9a-fA-F]{64}$/.test(pubkey) || signal?.aborted) return [];
-    const relayUrls = await getBootstrapRelayUrls(getSimulation, signerProvider, getHostRelayUrls);
+    const relayUrls = await getPajaBootstrapRelayUrls(getSimulation, signerProvider, getHostRelayUrls);
     if (signal?.aborted) return [];
     const filters = [{
       kinds: [PAJA_CONTACT_LIST_KIND],
@@ -560,7 +571,7 @@ export function createPajaRelayListLoader(
     const uniquePubkeys = [...new Set(pubkeys.filter((pubkey) => /^[0-9a-fA-F]{64}$/.test(pubkey)))];
     const missing = uniquePubkeys.filter((pubkey) => !registry.has(pubkey));
     if (missing.length > 0) {
-      const events = await backend.query(await getBootstrapRelayUrls(
+      const events = await backend.query(await getPajaBootstrapRelayUrls(
         getSimulation,
         signerProvider,
         getHostRelayUrls,
@@ -617,7 +628,7 @@ export function createPajaIdentityProviders(
       if (!/^[0-9a-fA-F]{64}$/.test(pubkey)) return [];
       const cached = followsCache.get(pubkey);
       if (cached) return [...cached];
-      const events = await backend.query(await getBootstrapRelayUrls(getSimulation, signerProvider), [{
+      const events = await backend.query(await getPajaBootstrapRelayUrls(getSimulation, signerProvider), [{
         kinds: [PAJA_CONTACT_LIST_KIND],
         authors: [pubkey],
         limit: 1,

@@ -599,10 +599,12 @@ describe('Paja resource backend', () => {
       windowId: 'rom-window',
     });
 
-    expect(getBlossomServers).toHaveBeenCalledWith({
+    expect(getBlossomServers).toHaveBeenCalledWith(expect.objectContaining({
       url: `${prefix}${hash}`,
       windowId: 'rom-window',
-    });
+      signal: expect.any(AbortSignal),
+      authorizeNetwork: expect.any(Function),
+    }));
     expect(fetchFn).toHaveBeenCalledWith(
       '/__kehto/resource',
       expect.objectContaining({ body: JSON.stringify({ url: `https://publisher.example/${hash}` }) }),

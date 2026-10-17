@@ -85,11 +85,21 @@ it('denies Blossom discovery relay queries before reading publisher server lists
     resolveRelays: async () => ({ relays: ['wss://relay.example'], source: 'fallback' }),
   };
   const resolver = createPajaBlossomEventResolver({
-    baseRouter: router, getConfiguredServers: () => ['https://blossom.example'],
+    baseRouter: router,
+    getConfiguredServers: () => ['https://blossom.example'],
+    discoverServerList: async (_pubkey, context) => context.authorizeNetwork(
+      'wss://relay.example',
+      async () => {
+        await query();
+        return { events: [] };
+      },
+    ),
   });
   const transport = vi.fn<typeof fetch>();
   const resourceFetch = createPajaResourceFetch({
-    getBlossomServers: ({ url, windowId }) => resolver.getServers(url, windowId),
+    getBlossomServers: ({ url, windowId, signal, authorizeNetwork }) => resolver.getServers(
+      url, windowId, { signal, authorizeNetwork },
+    ),
     fetch: transport,
   });
   const sent = await deniedNetwork(resourceFetch, `blossom:${'b'.repeat(64)}?as=${'c'.repeat(64)}`);

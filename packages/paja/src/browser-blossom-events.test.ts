@@ -89,15 +89,15 @@ describe('createPajaBlossomEventResolver', () => {
     const resolver = createPajaBlossomEventResolver({ baseRouter: router(query), getConfiguredServers: () => [], now: () => now, serverListTtlMs: 100 });
     const uri = `${RESOURCE_URL}.png?as=${HINTED_AUTHOR}`;
     const first = resolver.getServers(uri, 'one');
-    const second = resolver.getServers(uri, 'two');
+    const second = resolver.getServers(uri, 'one');
     expect(query).toHaveBeenCalledOnce();
     release?.();
     await expect(first).resolves.toEqual(['https://author.example']);
     await expect(second).resolves.toEqual(['https://author.example']);
-    await resolver.getServers(uri);
+    await resolver.getServers(uri, 'one');
     expect(query).toHaveBeenCalledOnce();
     now = 101;
-    const expired = resolver.getServers(uri);
+    const expired = resolver.getServers(uri, 'one');
     expect(query).toHaveBeenCalledTimes(2);
     release?.();
     await expired;

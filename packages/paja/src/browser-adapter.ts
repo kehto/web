@@ -6,6 +6,7 @@ import type {
   ShellAdapter,
 } from '@kehto/shell';
 import type { Signer } from '@kehto/runtime';
+import { createNip65Registry, selectWriteRelays } from '@kehto/nip/65';
 import {
   browserGamepadOptions,
   createGamepadService,
@@ -37,6 +38,7 @@ import {
   type ConfigServiceOptions,
   type DmService,
   type NotifyServiceOptions,
+  type AuthorizeNetwork,
 } from '@kehto/services';
 import {
   createNostrCvmTransport,
@@ -58,7 +60,7 @@ import type { PajaSimulation } from './simulation.js';
 import { BrowserIntentController } from './browser-intent-controller.js';
 import { InstalledNappletCatalog } from './installed-napplet-catalog.js';
 import { createPajaUploadRuntime, type PajaUploadRuntime } from './browser-upload.js';
-import { createPajaBlossomEventResolver } from './browser-blossom-events.js';
+import { BLOSSOM_SERVER_LIST_KIND, createPajaBlossomEventResolver } from './browser-blossom-events.js';
 import { createPajaSocialCache } from './browser-social-cache.js';
 import { createPajaCommonBackend } from './browser-common.js';
 import { createPajaListsBackend } from './browser-lists.js';
@@ -83,6 +85,7 @@ import {
   createPajaOutboxRelayPool,
   createPajaRelayBackend,
   createPajaRelayListLoader,
+  getPajaBootstrapRelayUrls,
   getPajaRelayUrls,
   type PajaRelayBackend,
 } from './browser-relay-runtime.js';
@@ -339,10 +342,51 @@ function createDevServices(
   const getWriteRelays = () => relayConfig.getRelayUrls(['outbox']);
   const getAllRelays = () => relayConfig.getRelayUrls();
   const baseOutboxRouter = createOutboxRouter(backend, getSimulation, relayConfig, confirmRequest, signerProvider);
+  const queryApprovedResourceRelays = async (
+    relayUrls: readonly string[],
+    filters: NostrFilter[],
+    context: { readonly signal: AbortSignal; readonly authorizeNetwork: AuthorizeNetwork },
+  ): Promise<NostrEvent[]> => {
+    const unique = [...new Set(relayUrls.filter((relay) =>
+      isPajaRelayAllowed(relay, () => relayConfig.getRelayUrls())))];
+    const batches = await Promise.all(unique.map((relay) => context.authorizeNetwork(relay, (signal) =>
+      backend.query([relay], filters, PAJA_LIVE_QUERY_WAIT_MS, { reason: 'host' }, signal),
+    )));
+    const events = new Map<string, NostrEvent>();
+    for (const batch of batches) {
+      for (const event of batch) events.set(event.id, event);
+    }
+    return [...events.values()];
+  };
+  const discoverBlossomServerList = async (
+    pubkey: string,
+    context: { readonly signal: AbortSignal; readonly authorizeNetwork: AuthorizeNetwork },
+  ) => {
+    const relayListEvents = await queryApprovedResourceRelays(
+      await getPajaBootstrapRelayUrls(getSimulation, signerProvider, getReadRelays),
+      [{ kinds: [10_002], authors: [pubkey], limit: 2 }],
+      context,
+    );
+    const registry = createNip65Registry();
+    for (const event of relayListEvents) registry.ingest(event);
+    const routed = selectWriteRelays(registry.getRelayList(pubkey) ?? []);
+    const resourceEvents = await queryApprovedResourceRelays(
+      [...relayConfig.outboxRelays, ...routed],
+      [{ kinds: [BLOSSOM_SERVER_LIST_KIND], authors: [pubkey], limit: 1 }],
+      context,
+    );
+    return {
+      events: resourceEvents
+        .filter((event) => verifyEvent(event as Parameters<typeof verifyEvent>[0]))
+        .map((event) => ({ event })),
+      ...(resourceEvents.length === 0 ? { incomplete: true, error: 'relay list unavailable' } : {}),
+    };
+  };
   const blossomEventResolver = createPajaBlossomEventResolver({
     baseRouter: baseOutboxRouter,
     getDefaultAuthors: () => [getRuntimePubkey(getSimulation, signerProvider)],
     getConfiguredServers: getConfiguredBlossomServers,
+    discoverServerList: discoverBlossomServerList,
   });
   const socialCache = createPajaSocialCache({
     baseRouter: baseOutboxRouter,
@@ -364,7 +408,9 @@ function createDevServices(
   void socialCache.refreshActiveIdentity();
   const resourceService = createResourceService({
     fetch: createPajaResourceFetch({
-      getBlossomServers: ({ url, windowId }) => blossomEventResolver.getServers(url, windowId),
+      getBlossomServers: ({ url, windowId, signal, authorizeNetwork }) => blossomEventResolver.getServers(
+        url, windowId, { signal, authorizeNetwork },
+      ),
     }),
     resourceInfo: () => pajaResourceInfo(),
   });

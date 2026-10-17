@@ -33,7 +33,7 @@ it('does not seed a replacement source cache from a late destroyed-source lookup
   expect(query).toHaveBeenCalledOnce();
   resolver.clearWindow('reused-window');
   release(serverList('https://stale.example'));
-  await first;
+  await expect(first).rejects.toMatchObject({ name: 'AbortError' });
   expect(await resolver.getServers(url, 'reused-window')).toEqual(['https://current.example']);
   expect(query).toHaveBeenCalledTimes(2);
 });

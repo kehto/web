@@ -2,6 +2,7 @@ import { verifyBlobHash } from '@kehto/nip/5d';
 import {
   ResourceAuthorizationError,
   ResourceServiceError,
+  type AuthorizeNetwork,
   type ResourceInfo,
   type ResourceServiceOptions,
 } from '@kehto/services';
@@ -33,6 +34,10 @@ export interface PajaResourceFetchOptions {
   readonly getBlossomServers?: (context: {
     readonly url: string;
     readonly windowId?: string;
+    /** Resource-wide cancellation propagated to discovery reads. */
+    readonly signal: AbortSignal;
+    /** Approves every exact relay or HTTP(S) destination before contact. */
+    readonly authorizeNetwork: AuthorizeNetwork;
   }) => readonly string[] | Promise<readonly string[]>;
   /** Fetch implementation used for configured Blossom server requests. */
   readonly fetch?: typeof fetch;
@@ -167,7 +172,15 @@ async function fetchBlossomResource(
   warnLegacyBlossomPrefix(value);
   if (parsed.expectedSize !== undefined && parsed.expectedSize > PAJA_RESOURCE_MAX_BYTES) throw resourceTooLarge();
   const expectedHash = parsed.hash;
-  const configuredServers = await options.getBlossomServers?.({ url: value, windowId: init.windowId }) ?? [];
+  if (!init.authorizeNetwork) {
+    throw new ResourceServiceError('blocked-by-policy', 'Paja resource network approval is unavailable');
+  }
+  const configuredServers = await options.getBlossomServers?.({
+    url: value,
+    windowId: init.windowId,
+    signal: init.signal,
+    authorizeNetwork: init.authorizeNetwork,
+  }) ?? [];
   if (init.signal.aborted) throw new DOMException('Resource request cancelled', 'AbortError');
   const uriServers = parsed.servers.flatMap((value) => {
     const server = normalizeBlossomUriServer(value);
@@ -188,9 +201,6 @@ async function fetchBlossomResource(
     let resourceUrl = `${server}/${expectedHash}${parsed.extension ? `.${parsed.extension}` : ''}`;
     let response: Response;
     try {
-      if (!init.authorizeNetwork) {
-        throw new ResourceServiceError('blocked-by-policy', 'Paja resource network approval is unavailable');
-      }
       for (let hops = 0; ; hops += 1) {
         response = await init.authorizeNetwork(resourceUrl, (signal) => fetcher('/__kehto/resource', {
           method: 'POST', signal, credentials: 'same-origin', redirect: 'manual',
