@@ -1,5 +1,4 @@
-import type { Runtime, SessionEntry } from '@kehto/runtime';
-import type { PermissionAdmission } from '@kehto/runtime';
+import type { PermissionAdmission, Runtime, SessionEntry } from '@kehto/runtime';
 import { buildApprovedNappletCsp, classifyBrowserRemoteSources } from './napplet-csp.js';
 import type { BrowserLaunchMode, BrowserRemoteSource } from './napplet-csp.js';
 import { insertNappletHead } from './napplet-head.js';
