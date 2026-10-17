@@ -46,7 +46,7 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 | Relay/cache/count | `createRelayPoolService`, `RelayPoolServiceOptions`, `createCacheService`, `CacheServiceOptions`, `HostCacheBridge`, `createCoordinatedRelay`, `CoordinatedRelayOptions`, `createCountService`, `CountServiceOptions`, `CountRequest`, `CountResult` |
 | Keys | `createKeysService`, `KeysServiceOptions`, `HostKeysBridge`, `HostKeyEvent` |
 | Media | `createMediaService`, `createBrowserMediaBridge`, `MediaServiceOptions`, `HostMediaBridge`, `MediaAction` |
-| Notify/theme/config/resource | `createNotifyService`, `NotifyServiceOptions`, `createThemeService`, `ThemeServiceOptions`, `ThemeService`, `createConfigService`, `ConfigServiceOptions`, `ConfigService`, `ConfigSchemaValidation`, `createResourceService`, `ResourceServiceOptions`, `ResourceFetchInit`, `ResourceBytesRequest`, `ResourceInfo`, `ResourceService` |
+| Notify/theme/config/resource | `createNotifyService`, `NotifyServiceOptions`, `createThemeService`, `ThemeServiceOptions`, `ThemeService`, `createConfigService`, `ConfigServiceOptions`, `ConfigService`, `ConfigSchemaValidation`, `createResourceService`, `ResourceServiceOptions`, `ResourceFetchInit`, `AuthorizeNetwork`, `ResourceAuthorizationError`, `ResourceBytesRequest`, `ResourceInfo`, `ResourceService` |
 | Outbox | `createOutboxService`, `OutboxServiceOptions`, `createRelayPoolOutboxRouter`, `OutboxRouter`, `StreamingOutboxRouter`, `OutboxQueryStream`, `OutboxQueryStreamSink` |
 | Shell-mediated helpers | `createLinkService`, `LinkServiceOptions`, `LinkOpenContext`, `createCommonService`, `CommonServiceOptions`, `CommonServiceContext`, `createListsService`, `ListsServiceOptions`, `ListsServiceContext`, `createSerialService`, `SerialServiceOptions`, `SerialServiceContext`, `createBleService`, `BleServiceOptions`, `BleServiceContext`, `createWebrtcService`, `WebrtcServiceOptions`, `WebrtcServiceContext` |
 | DM | `createDmService`, `createNip17DmAdapter`, `createNdrDmAdapter`, `createNdrRelayTransport`, `createCordnDmAdapter`, `createCordnRelayCoordinatorClient`, `DmServiceOptions`, `DmAdapter`, `DmRelayPool`, `Nip17DmAdapterOptions`, `NdrDmAdapterOptions`, `NdrRelayTransportOptions`, `CordnDmAdapterOptions`, `CordnRelayCoordinatorOptions` |
@@ -82,21 +82,28 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 - `createOutboxService()` accepts a source-scoped `getReadRouter` for
   `outbox.getEvent`, `outbox.query`, and `outbox.subscribe`, while the optional
   `getQueryRouter` can layer query-only policy or caching on top.
-- `createResourceService()` is a policy-neutral NAP-RESOURCE kernel. Its required
-  `fetch` callback owns resolution and accepts every syntactically valid URL by
-  default. Canonical single and bulk requests preserve optional per-resource
-  Blossom `servers`; resolver `init.servers` is populated only for `blossom:`.
-  Resolver `init.windowId` carries the authenticated source as private host
-  context so a runtime can scope policy or event-derived location state without
-  adding a napplet-controlled wire field.
-  `resource.info` can disclose `maxServers` alongside byte and URL caps. The
-  optional `resource.info.schemes` disclosure is advisory and is
-  never used as an authorization gate. A runtime may opt into Kehto's origin
-  grant adapter by supplying `isOriginGranted`, `getConnectGrants`, and
-  `resolveIdentity` together. Resolver-specific policy, scheme support, redirect
-  behavior, hint validation/fallback, MIME classification, and browser CORS
-  handling remain runtime decisions. An ordinary browser fetch rejection maps to `network-error` unless
-  the injected resolver returns a more specific `ResourceServiceError`.
+- `createResourceService()` implements the canonical resource wire from
+  [NAP-RESOURCE at `ae5b9c6`](https://github.com/napplet/naps/blob/ae5b9c64ab8a4d8909f288829a01e99d6bd713bc/naps/NAP-RESOURCE.md):
+  `id`, a single `url` or ordered `urls`, and padded-base64 response bytes.
+  The web binding converts these bytes to `Blob`; the service does not put
+  JavaScript Blob objects on the wire. Bulk outcomes preserve input order.
+- Registered resource operations compose interface authority, the exact input
+  resource URL, and independently approved resolver network origins. The
+  `ResourceFetchInit.authorizeNetwork` callback guards each actual HTTP(S)
+  destination, including redirects and fallback hosts. Its approval remains live
+  through resource body processing; same-origin resolver work shares that
+  request's approval without authorizing another resource request.
+  `init.windowId` carries authenticated private host context, never app identity
+  supplied on the wire. Resolver callbacks own scheme support, byte/MIME policy,
+  and enforcement at the actual connection boundary. Paja supplies a protected
+  DNS-pinned proxy; a generic browser fetch cannot provide DNS-time protection.
+- `resource.info` scheme disclosure is advisory. Explicit cancellation is silent;
+  live permission revocation returns `blocked-by-policy` without late delivery.
+  Direct standalone service use without runtime authorization retains the
+  bounded `FW-RESOURCE-LEGACY-001` warning described in the
+  [compatibility register](/compatibility). That path does not provide
+  Firewall approval enforcement. The old wire `servers` and object-form
+  `requests` fields have been retired; use URI hints or host-owned discovery.
 - Does not create a runtime or shell bridge by itself.
 
 ## API Reference
