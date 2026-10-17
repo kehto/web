@@ -36,7 +36,7 @@ export interface NotifyPresentation {
   readonly windowId: string;
   /** Shell-assigned notification identifier. */
   readonly notificationId: string;
-  /** Original, untrusted notification payload. */
+  /** Detached, bounded notification payload; text remains untrusted. */
   readonly message: NotifySendMessage;
   /** Route a host-side user interaction back to the requesting napplet. */
   readonly emit: (message: NotifyInteractionMessage) => void;
@@ -80,7 +80,7 @@ function snapshotNotification(message: NotifySendMessage): NotifySendMessage | n
     || (message.body !== undefined && (typeof message.body !== 'string' || message.body.length > 4096))
     || (message.channel !== undefined && (typeof message.channel !== 'string' || message.channel.length > 128))
     || (message.priority !== undefined && !['low', 'normal', 'high', 'urgent'].includes(message.priority))
-    || (message.icon !== undefined && (typeof message.icon !== 'string' || message.icon.length > 256 || /^[a-z][a-z\d+.-]*:/i.test(message.icon)))
+    || (message.icon !== undefined && (typeof message.icon !== 'string' || !/^[a-z\d_-]{1,256}$/i.test(message.icon)))
     || (message.actions !== undefined && (!Array.isArray(message.actions) || message.actions.length > 3
       || message.actions.some((action) => !action || typeof action.id !== 'string' || action.id.length > 128
         || typeof action.label !== 'string' || action.label.length > 256)))) return null;

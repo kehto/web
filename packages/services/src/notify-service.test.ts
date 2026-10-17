@@ -229,13 +229,13 @@ describe('createNotifyService', () => {
     expect(sent).toEqual([]);
   });
 
-  it('rejects remote icon URLs before prompting or host fetching', async () => {
+  it.each(['https://example.test/track', '//example.test/track', '/track'])('rejects icon URL %s before prompting or host fetching', async (icon) => {
     const authorizeOperation = vi.fn() as unknown as NonNullable<ServiceRuntimeContext['authorizeOperation']>;
     const present = vi.fn();
     const service = createNotifyService({ present });
     attachApproval(service, authorizeOperation);
     const sent: NappletMessage[] = [];
-    service.handleMessage(WINDOW_ID, makeMsg('notify.send', { id: 'n1', title: 'Icon', icon: 'https://example.test/track' }), (result) => sent.push(result));
+    service.handleMessage(WINDOW_ID, makeMsg('notify.send', { id: 'n1', title: 'Icon', icon }), (result) => sent.push(result));
     await settle();
     expect(authorizeOperation).not.toHaveBeenCalled();
     expect(present).not.toHaveBeenCalled();
