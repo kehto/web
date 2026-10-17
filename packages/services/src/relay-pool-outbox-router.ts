@@ -437,9 +437,10 @@ function queryImpl(ctx: RouterCtx, filters: NostrFilter[], options?: OutboxQuery
 function queryPlanImpl(ctx: RouterCtx, filters: NostrFilter[], options: OutboxQueryOptions | undefined, plan: OutboxRelayPlan): Promise<OutboxResult> {
   if (!ctx.relayPool.isAvailable()) return Promise.resolve({ events: [], incomplete: true, error: 'relay list unavailable' });
   const seen = new Map<string, NostrEvent>();
+  const origin: OutboxRelayOrigin = plan.source === 'nip65' ? 'nip65' : plan.source === 'fallback' ? 'fallback' : 'hint';
   const handles = plan.relays.map((relayUrl) => relayPoolSubscribe(ctx, filters, relayUrl, (item) => {
     if (item !== 'EOSE') void ctx.verify(item).then((ok) => { if (ok) seen.set(item.id, item); });
-  }, 'policy'));
+  }, origin));
   return new Promise((resolve) => setTimeout(() => {
     for (const handle of handles) handle.unsubscribe();
     resolve({ events: [...seen.values()].map((event) => createRelayEventResultWithHints(event, plan.relays)) });
