@@ -108,6 +108,14 @@ function withFakeClock(run: () => Promise<void>): () => Promise<void> {
 }
 
 describe('createNostrCvmTransport', () => {
+  it('exposes detached canonical relay plans before live transport', () => {
+    const transport = createNostrCvmTransport({ defaultRelays: ['wss://relay.example/'], clientSecretKey: generateSecretKey() });
+
+    expect(transport.planDiscover?.()).toEqual(['wss://relay.example']);
+    expect(transport.planRequest?.({ pubkey: 'a'.repeat(64), relays: ['wss://server.example/'] })).toEqual(['wss://server.example']);
+    transport.dispose();
+  });
+
   it('round-trips an MCP request through CEP-4 gift wrap and restores the caller id', async () => {
     const serverSk = generateSecretKey();
     const { pool, serverPubkey, publishedPlain, publishedInnerTags } = createServerPool(serverSk, (mcp) =>
