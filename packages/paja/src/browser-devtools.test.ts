@@ -5,6 +5,7 @@ import {
   resolveShellEnvironment,
   type ShellAdapter,
 } from '@kehto/shell';
+import { createPajaRelayEventCounter } from './browser-relay-panel.js';
 import {
   createPajaPostMessageProxy,
   installPajaOriginRegistryProxy,
@@ -179,6 +180,7 @@ describe('Paja ACL controls', () => {
       resolvedTarget: resolvedTarget as PajaDevtoolsState['resolvedTarget'],
       messageFilter: '',
       messageLog: [],
+      relayEventCounts: createPajaRelayEventCounter(),
       setDomainEnabled: vi.fn(),
       setAclCapability(capability, enabled) {
         if (enabled) {

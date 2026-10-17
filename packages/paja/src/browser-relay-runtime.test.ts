@@ -18,7 +18,9 @@ const livePool = vi.hoisted(() => ({
   countFailures: new Set<string>(),
   publishRequests: [] as Array<{ relayUrls: string[]; event: unknown }>,
   subscribeMapRequests: [] as Array<Array<{ url: string; filter: Record<string, unknown> }>>,
+  subscriptionEvents: [] as unknown[],
   subscriptionClose: undefined as ReturnType<typeof vi.fn> | undefined,
+  eventSources: new Map<string, string>(),
   seenOn: new Map<string, Set<{ url: string }>>(),
 }));
 
@@ -27,37 +29,41 @@ vi.mock('nostr-tools/pool', () => ({
     trackRelays = false;
     seenOn = livePool.seenOn;
 
-    subscribeEose(
-      relayUrls: string[],
-      filter: Record<string, unknown>,
-      params: { onevent(event: unknown): void; onclose(): void },
-    ) {
-      let closed = false;
-      const close = vi.fn(async () => {
-        closed = true;
-        if (livePool.closeRejects) throw new Error('close rejected');
-        params.onclose();
-      });
-      livePool.close = close;
-      livePool.requests.push({ relayUrls, filter });
-      queueMicrotask(() => {
-        for (const event of livePool.events) {
-          if (closed) break;
-          livePool.delivered += 1;
-          params.onevent(event);
-        }
-      });
-      return { close };
-    }
-
-    querySync(relayUrls: string[], filter: Record<string, unknown>) {
-      livePool.querySyncRequests.push({ relayUrls, filter });
-      return Promise.resolve(livePool.querySyncEvents);
-    }
-
     async ensureRelay(relayUrl: string) {
       if (livePool.countFailures.has(relayUrl)) throw new Error('count refused');
+      const source = relayUrl.replace(/\/$/u, '');
       return {
+        url: relayUrl,
+        subscribe(filters: Record<string, unknown>[], params: {
+          label: string; onevent(event: unknown): void; oneose(): void; onclose(): void;
+        }) {
+          const candidates = params.label === 'kehto-paja-candidates';
+          const query = params.label === 'kehto-paja-query';
+          const events = candidates ? livePool.events : query ? livePool.querySyncEvents : livePool.subscriptionEvents;
+          if (candidates) livePool.requests.push({ relayUrls: [source], filter: filters[0]! });
+          else if (query) livePool.querySyncRequests.push({ relayUrls: [source], filter: filters[0]! });
+          else livePool.subscribeMapRequests.push(filters.map((filter) => ({ url: source, filter })));
+          let closed = false;
+          const close = vi.fn((reason: string) => {
+            closed = true;
+            params.onclose();
+            if (livePool.closeRejects) return Promise.reject(new Error('close rejected'));
+          });
+          if (candidates) livePool.close = close;
+          else if (!query) livePool.subscriptionClose = close;
+          queueMicrotask(() => {
+            for (const event of events) {
+              if (closed) break;
+              const id = (event as { id: string }).id;
+              const expectedSource = livePool.eventSources.get(id) ?? TEST_RELAYS[0];
+              if (!candidates && source !== expectedSource && source !== 'wss://relay.example') continue;
+              if (candidates) livePool.delivered += 1;
+              params.onevent(event);
+            }
+            if (!closed && !(candidates && events.length === 0)) params.oneose();
+          });
+          return { close };
+        },
         count: async (filters: Record<string, unknown>[]) => {
           livePool.countRequests.push({ relayUrl, filters });
           return livePool.countValues.get(relayUrl) ?? 0;
@@ -70,17 +76,6 @@ vi.mock('nostr-tools/pool', () => ({
       return relayUrls.map(() => Promise.resolve('accepted'));
     }
 
-    subscribeMap(
-      requests: Array<{ url: string; filter: Record<string, unknown> }>,
-      params: { oneose(): void },
-    ) {
-      livePool.subscribeMapRequests.push(requests);
-      const close = vi.fn();
-      livePool.subscriptionClose = close;
-      queueMicrotask(() => params.oneose());
-      return { close };
-    }
-
     destroy() {}
   },
 }));
@@ -88,6 +83,7 @@ vi.mock('nostr-tools/pool', () => ({
 import {
   PAJA_CONTACT_LIST_CANDIDATE_LIMIT,
   createPajaContactListLoader,
+  createPajaOutboxRelayPool,
   createPajaRelayBackend,
   getPajaRelayUrls,
   type PajaRelayBackend,
@@ -182,6 +178,119 @@ describe('@kehto/paja effective relay URLs', () => {
 
     expect(backend.observedRelayUrls(event.id)).toEqual([TEST_RELAYS[1]]);
     expect(backend.observedRelayUrls('unknown')).toEqual([]);
+    backend.close();
+  });
+
+  it('reports every live event to the registered host observer for subscription and query paths', async () => {
+    const streamed = testEvent('1'.repeat(64));
+    const queried = { ...testEvent('2'.repeat(64)), kind: 3 };
+    livePool.subscriptionEvents = [streamed];
+    livePool.querySyncEvents = [queried];
+    livePool.eventSources.set(queried.id, TEST_RELAYS[1]!);
+    livePool.seenOn.clear();
+    livePool.seenOn.set(streamed.id, new Set([{ url: TEST_RELAYS[0]! }]));
+    livePool.seenOn.set(queried.id, new Set([{ url: TEST_RELAYS[1]! }]));
+    const observed: Array<{
+      event: NostrEvent;
+      reason: string;
+      origin?: string;
+      relayUrls: readonly string[];
+      sightedOn: readonly string[];
+    }> = [];
+    const reads: Array<{ reason: string; origin?: string; relayUrls: readonly string[] }> = [];
+    const delivered: unknown[] = [];
+    const simulation = normalizePajaSimulation({ relay: { mode: 'live', urls: TEST_RELAYS } });
+    const backend = createPajaRelayBackend(() => simulation, () => true);
+    backend.setRelayEventObserver(({ event, reason, origin, relayUrls, sightedOn }) => observed.push({
+      event, reason, origin, relayUrls, sightedOn,
+    }));
+    backend.setRelayRequestObserver(({ reason, origin, relayUrls }) => reads.push({ reason, origin, relayUrls }));
+
+    backend.subscription(TEST_RELAYS, [{ kinds: [1] }], { reason: 'hint' }).subscribe((item) => delivered.push(item));
+    await expect(backend.query(TEST_RELAYS, [{ kinds: [3] }], undefined, { reason: 'outbox', origin: 'nip65' })).resolves.toEqual([queried]);
+    await Promise.resolve();
+
+    expect(observed).toEqual([
+      { event: streamed, reason: 'hint', relayUrls: TEST_RELAYS, sightedOn: [TEST_RELAYS[0]] },
+      { event: queried, reason: 'outbox', origin: 'nip65', relayUrls: TEST_RELAYS, sightedOn: [TEST_RELAYS[1]] },
+    ]);
+    expect(reads).toEqual([
+      { reason: 'hint', relayUrls: TEST_RELAYS },
+      { reason: 'outbox', origin: 'nip65', relayUrls: TEST_RELAYS },
+    ]);
+    // Observation must never replace delivery to the subscribing napplet.
+    expect(delivered).toContain(streamed);
+    backend.close();
+  });
+
+  it('reports only the current source even when no historical sighting exists', async () => {
+    const streamed = testEvent('1'.repeat(64));
+    livePool.subscriptionEvents = [streamed];
+    livePool.seenOn.clear();
+    const observed: Array<readonly string[]> = [];
+    const simulation = normalizePajaSimulation({ relay: { mode: 'live', urls: TEST_RELAYS } });
+    const backend = createPajaRelayBackend(() => simulation, () => true);
+    backend.setRelayEventObserver(({ sightedOn }) => observed.push(sightedOn));
+
+    backend.subscription(TEST_RELAYS, [{}]).subscribe(() => {});
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(observed).toEqual([[TEST_RELAYS[0]]]);
+    backend.close();
+  });
+
+  it('never reports reads Paja starts for an empty or simulated relay set', async () => {
+    const fixture = testEvent('c'.repeat(64));
+    const reads: unknown[] = [];
+    const simulation = normalizePajaSimulation({ relay: { mode: 'memory', fixtures: [{ ...fixture }] } });
+    const backend = createPajaRelayBackend(() => simulation, () => true);
+    backend.setRelayRequestObserver((request) => reads.push(request));
+
+    backend.subscription([], [{}]).subscribe(() => {});
+    await backend.query([], [{}]);
+    await Promise.resolve();
+
+    expect(reads).toEqual([]);
+    backend.close();
+  });
+
+  it('reports the outbox pool origin for plan relays', async () => {
+    const streamed = testEvent('1'.repeat(64));
+    livePool.subscriptionEvents = [streamed];
+    livePool.seenOn.clear();
+    livePool.seenOn.set(streamed.id, new Set([{ url: TEST_RELAYS[0]! }]));
+    const observed: Array<{ reason: string; origin?: string }> = [];
+    const reads: Array<{ reason: string; origin?: string }> = [];
+    const simulation = normalizePajaSimulation({ relay: { mode: 'live', urls: TEST_RELAYS } });
+    const backend = createPajaRelayBackend(() => simulation, () => true);
+    backend.setRelayEventObserver(({ reason, origin }) => observed.push({ reason, origin }));
+    backend.setRelayRequestObserver(({ reason, origin }) => reads.push({ reason, origin }));
+
+    createPajaOutboxRelayPool(backend)
+      .subscribe([{ kinds: [1] }], [TEST_RELAYS[0]!], () => {}, 'nip65');
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(reads).toEqual([{ reason: 'outbox', origin: 'nip65' }]);
+    expect(observed).toEqual([{ reason: 'outbox', origin: 'nip65' }]);
+    backend.close();
+  });
+
+  it('never reports simulated memory fixtures as relay fetches', async () => {
+    const fixture = testEvent('c'.repeat(64));
+    const observed: NostrEvent[] = [];
+    const simulation = normalizePajaSimulation({
+      relay: { mode: 'memory', urls: TEST_RELAYS, fixtures: [{ ...fixture }] },
+    });
+    const backend = createPajaRelayBackend(() => simulation, () => true);
+    backend.setRelayEventObserver(({ event }) => observed.push(event));
+
+    backend.subscription(TEST_RELAYS, [{}]).subscribe(() => {});
+    await expect(backend.query(TEST_RELAYS, [{}])).resolves.toEqual([fixture]);
+    await Promise.resolve();
+
+    expect(observed).toEqual([]);
     backend.close();
   });
 
@@ -303,7 +412,7 @@ describe('@kehto/paja effective relay URLs', () => {
     }
   });
 
-  it('keeps generic limited live queries on querySync and preserves sorted results', async () => {
+  it('keeps generic limited live queries until EOSE and preserves sorted results', async () => {
     const older = { id: '1'.repeat(64), pubkey: 'a'.repeat(64), kind: 1, created_at: 1, tags: [], content: '', sig: 'e'.repeat(128) };
     const newer = { ...older, id: '2'.repeat(64), created_at: 2 };
     livePool.querySyncRequests = [];
@@ -377,6 +486,48 @@ describe('@kehto/paja effective relay URLs', () => {
     ]));
     (adapter.relayPool.getRelayPool() as PajaRelayBackend).close();
   });
+
+  it('reports napplet-facing relay events to the registered host observer', async () => {
+    const streamed = { ...testEvent('9'.repeat(64)), kind: 1 };
+    livePool.subscriptionEvents = [streamed];
+    livePool.eventSources.set(streamed.id, TEST_RELAYS[1]!);
+    const observed: string[] = [];
+    const simulation = normalizePajaSimulation({ relay: { mode: 'live', urls: TEST_RELAYS } });
+    const adapter = createPajaAdapter(
+      { window: { id: 'paja-window', dTag: 'paja', aggregateHash: 'aggregate' } } as PajaHostConfig,
+      () => simulation,
+      () => {},
+      () => {},
+      () => true,
+    );
+    const sent: NappletMessage[] = [];
+    // The Paja host registers through this same accessor, so this proves the
+    // service path and the host registration meet on one backend instance.
+    (adapter.relayPool.getRelayPool() as PajaRelayBackend)
+      .setRelayEventObserver(({ event, reason }) => observed.push(`${reason}:${event.kind}`));
+
+    adapter.services?.relay?.handleMessage(
+      'paja-window',
+      { type: 'relay.subscribe', id: 'events-1', subId: 'events-1', filters: [{ kinds: [1] }] } as NappletMessage,
+      (message) => sent.push(message),
+    );
+    adapter.services?.relay?.handleMessage(
+      'paja-window',
+      {
+        type: 'relay.subscribe',
+        id: 'events-2',
+        subId: 'events-2',
+        filters: [{ kinds: [1] }],
+        relay: TEST_RELAYS[1],
+      } as NappletMessage,
+      (message) => sent.push(message),
+    );
+
+    // A read without a hint uses the host tier; an explicit hint is labelled as one.
+    await vi.waitFor(() => expect(observed).toEqual(['host:1', 'hint:1']));
+    expect(sent.some((message) => message.type === 'relay.event')).toBe(true);
+    (adapter.relayPool.getRelayPool() as PajaRelayBackend).close();
+  });
 });
 
 describe('@kehto/paja relay publish settlement', () => {
@@ -408,7 +559,7 @@ describe('@kehto/paja relay publish settlement', () => {
       [{ kinds: [1] }],
       sourceWindow,
     );
-    await Promise.resolve();
+    await vi.waitFor(() => expect(postMessage).toHaveBeenCalled());
     expect(livePool.subscribeMapRequests).toEqual([[
       { url: TEST_RELAYS[0], filter: { kinds: [1] } },
     ]]);

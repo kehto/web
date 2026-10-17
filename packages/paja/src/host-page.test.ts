@@ -34,12 +34,13 @@ describe('@kehto/paja host page', () => {
       expect(aside!.indexOf('id="paja-resource-servers-form"')).toBeLessThan(aside!.indexOf('id="message-log"'));
       const keys = [...aside!.matchAll(/data-paja-section="([^"]+)"/g)].map((match) => match[1]);
       expect(keys).toEqual(config.target.mode === 'runtime-pointer'
-        ? ['pointer', 'interfaces', 'acl', 'signer', 'resource-servers', 'messages']
-        : ['interfaces', 'acl', 'signer', 'resource-servers', 'messages']);
+        ? ['pointer', 'interfaces', 'acl', 'signer', 'resource-servers', 'messages', 'events']
+        : ['interfaces', 'acl', 'signer', 'resource-servers', 'messages', 'events']);
       expect(aside!.match(/<details[^>]* open>/g)).toHaveLength(keys.length);
       expect(aside!.match(/<summary class="section-title">/g)).toHaveLength(keys.length);
       expect(aside).not.toMatch(/<details[^>]* name=/);
-      expect(aside).toMatch(/id="message-log"[^>]*><\/div>\s*<\/div><\/details>\s*$/);
+      expect(aside).toMatch(/id="message-log"[^>]*><\/div>\s*<\/div><\/details>\s*<details[^>]*data-paja-section="events"/);
+      expect(aside).toMatch(/id="event-kind-counts"[^>]*><\/div>\s*<\/div><\/details>\s*$/);
     }
   });
   it('renders minimal top and bottom bars with one sandboxed iframe', () => {
@@ -58,11 +59,35 @@ describe('@kehto/paja host page', () => {
     expect(html).toContain('html[data-paja-console="collapsed"] .top,');
     expect(html).toContain('html[data-paja-console="collapsed"] main { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }');
     expect(html).toContain('html[data-paja-console="collapsed"] .top-console,');
-    expect(html).toContain('html[data-paja-console="collapsed"] .console { display: none; }');
+    expect(html).toContain('html[data-paja-console="collapsed"] .console,');
+    expect(html).toContain('html[data-paja-console="collapsed"] .bottom { display: none; }');
+    expect(html).toContain('html[data-paja-console="collapsed"] body { grid-template-rows: 38px minmax(0, 1fr); }');
+    expect(html).toContain('--paja-bar-reveal: 6px;');
+    expect(html).toContain('@media (hover: hover) and (pointer: fine) and (min-width: 901px) {');
+    expect(html).toContain('html[data-paja-console="collapsed"] body { grid-template-rows: minmax(0, 1fr); }');
+    expect(html).toContain('transform: translateY(calc(-100% + var(--paja-bar-reveal)));');
+    expect(html).toContain('html[data-paja-console="collapsed"] .top > * { opacity: 0; pointer-events: none;');
+    expect(html).toContain('html[data-paja-console="collapsed"] .top:hover,');
+    expect(html).toContain('html[data-paja-console="collapsed"] .top:focus-within { transform: none; }');
+    expect(html).toContain('html[data-paja-console="collapsed"] .top:hover > *,');
+    expect(html).toContain('html[data-paja-console="collapsed"] .top:focus-within > * { opacity: 1; pointer-events: auto; }');
     expect(html).toContain('.tabs { display: flex; align-items: stretch; align-self: flex-end;');
     expect(html).toContain('<div class="top-stage">');
     expect(html).toContain('id="napplet-tabs"');
     expect(html).toContain('<footer class="bar bottom">');
+    expect(html).toContain('id="event-kind-total"');
+    expect(html).toContain('id="event-counter-reset"');
+    expect(html).toContain('class="section-reset"');
+    expect(html).toContain('title="reset counter"');
+    expect(html).toContain('aria-label="reset counter"');
+    expect(html).toContain('>reset</button>');
+    expect(html.match(/id="event-counter-reset"/g)).toHaveLength(1);
+    expect(html).toContain('.section-reset { flex: 0 0 auto; height: 18px; margin-left: 8px;');
+    expect(html).toContain('.section-total:empty + .section-reset { margin-left: auto; }');
+    expect(html).toContain('.section-total ~ .section-chevron { margin-left: 8px; }');
+    // The reset button sits between the receipt total and the section chevron.
+    const eventsSummary = html.match(/<summary class="section-title">Events[\s\S]*?<\/summary>/)?.[0] ?? '';
+    expect(eventsSummary).toMatch(/id="event-kind-total"[\s\S]*id="event-counter-reset"[\s\S]*class="section-chevron"/);
     expect(html).toContain('<iframe id="napplet-frame"');
     expect(html).toContain('sandbox="allow-scripts"');
     expect(html).toContain('data-target-url="http://127.0.0.1:5173/"');

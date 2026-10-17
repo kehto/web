@@ -66,6 +66,7 @@ import {
   readPajaHostConfig,
 } from './browser-host-config.js';
 import type { BrowserIntentGeneration } from './browser-intent-controller.js';
+import type { PajaRelayBackend } from './browser-relay-runtime.js';
 import {
   appendPajaMessageLog,
   createPajaPostMessageProxy,
@@ -74,6 +75,14 @@ import {
   renderPajaMessageLog,
   type PajaMessageLogEntry,
 } from './browser-devtools.js';
+import {
+  createPajaRelayEventCounter,
+  installPajaEventCounterReset,
+  renderPajaEventKindCounts,
+  type PajaRelayEventCounter,
+  type PajaRelayBox,
+  type PajaRelayInventory,
+} from './browser-relay-panel.js';
 import type { PajaHostConfig } from './options.js';
 import {
   getTargetIdentity,
@@ -115,6 +124,10 @@ export interface PajaBrowserState {
   status: 'booting' | 'ready' | 'reloading' | 'error';
   messageFilter: string;
   messageLog: PajaMessageLogEntry[];
+  /** Cumulative relay receipts by routing box and relay. */
+  relayEventCounts: PajaRelayEventCounter;
+  /** Configured relays per box, read at render time so idle relays show. */
+  relayInventory(): PajaRelayInventory;
   reload(): void;
   activateTab(tabId: string): void;
   closeTab(tabId: string): void;
@@ -151,6 +164,8 @@ export interface PajaBrowserState {
       initSent: boolean;
     }>;
     messageLog: PajaMessageLogEntry[];
+    relayEventCounts: PajaRelayBox[];
+    relayInventory: PajaRelayInventory;
   };
 }
 
@@ -467,10 +482,16 @@ function snapshotPajaBrowserState(state: PajaBrowserState, runtime: PajaHostRunt
       initSent: tab.windowId ? runtime.readyWindowIds.has(tab.windowId) : false,
     })),
     messageLog: [...state.messageLog],
+    relayEventCounts: state.relayEventCounts.snapshot(state.relayInventory()),
+    relayInventory: state.relayInventory(),
   };
 }
 
-function createPajaBrowserState(context: PajaBrowserStateContext): PajaBrowserState {
+function createPajaBrowserState(
+  context: PajaBrowserStateContext,
+  relayEventCounts: PajaRelayEventCounter,
+  relayInventory: () => PajaRelayInventory,
+): PajaBrowserState {
   const {
     config,
     bridge,
@@ -496,6 +517,8 @@ function createPajaBrowserState(context: PajaBrowserStateContext): PajaBrowserSt
     status: 'booting',
     messageFilter: '',
     messageLog: [],
+    relayEventCounts,
+    relayInventory,
     reload() {
       reloadPajaTarget(this, context);
     },
@@ -641,6 +664,21 @@ async function installPajaHost(): Promise<void> {
     getIdentity: getWindowIdentity,
     getInitialValues: () => ({ ...getSimulation().config.values }),
   });
+  // Live-relay counters are created before the adapter so background fetches
+  // that start during adapter construction are counted, not dropped.
+  const relayEventCounts = createPajaRelayEventCounter(() => {
+    if (stateRef) renderPajaEventKindCounts(stateRef.relayEventCounts, stateRef.relayInventory());
+  });
+  // The Events reset button clears those counters, so it is wired to the same
+  // instance the observation hooks feed.
+  const disposeEventCounterReset = installPajaEventCounterReset(relayEventCounts);
+  // Configured relays are the host's fallback set, so they render in the
+  // fallback box even before they serve anything. Nothing is configured for the
+  // other boxes: author-routed relays are discovered per read, and Paja's own
+  // reads and napplet-pinned reads only exist once they happen.
+  const relayInventory = (): PajaRelayInventory => ({
+    fallback: adapter.relayConfig.getRelayConfig().outbox,
+  });
   const adapter = createPajaAdapter(config, getSimulation, (theme) => {
     runtime.themeService = theme;
   }, themeBroadcast.onBroadcast, confirmationController.confirm, signerController, getWindowIdentity, () => stateRef?.reload(), {
@@ -669,6 +707,13 @@ async function installPajaHost(): Promise<void> {
         return candidates.some((candidate) => candidate.id === id) ? id : undefined;
       },
     }, confirmationController.activation, notifyController?.serviceOptions, configController?.serviceOptions, resourceSettings.getServers);
+  const relayBackend = adapter.relayPool.getRelayPool() as PajaRelayBackend | null;
+  relayBackend?.setRelayEventObserver((sighting) => {
+    relayEventCounts.recordEvent(sighting.reason, sighting.event, sighting.sightedOn, sighting.origin);
+  });
+  relayBackend?.setRelayRequestObserver((request) => {
+    relayEventCounts.recordRead(request.reason, request.relayUrls, request.origin);
+  });
   await adapter.ready;
   const bridge = createShellBridge(adapter);
   const stopIdentityChanges = signerController.subscribe(() => {
@@ -695,7 +740,7 @@ async function installPajaHost(): Promise<void> {
     setStatus: (state, status) => setStatus(state as PajaBrowserState, status),
   };
   contextRef = context;
-  const state = createPajaBrowserState(context);
+  const state = createPajaBrowserState(context, relayEventCounts, relayInventory);
   stateRef = state;
 
   const stopIntentCatalogChanges = subscribePajaIntentCatalogChanges(state, context);
@@ -716,6 +761,7 @@ async function installPajaHost(): Promise<void> {
   window.addEventListener('pagehide', () => notifyController?.dispose(), { once: true });
   window.addEventListener('pagehide', () => configController?.dispose(), { once: true });
   window.addEventListener('pagehide', disposeConsolePanel, { once: true });
+  window.addEventListener('pagehide', disposeEventCounterReset, { once: true });
   window.addEventListener('pagehide', resourceSettings.dispose, { once: true });
 
   window.__KEHTO_PAJA__ = state;

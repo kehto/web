@@ -46,13 +46,17 @@ export interface RelayPoolServiceOptions {
    *
    * @param filters - NIP-01 filter objects
    * @param callback - Receives matching events or 'EOSE' plus optional observed relay URLs
-   * @param relayUrls - Optional relay URL hints
+   * @param relayUrls - Relay URLs the subscription must use: the request's own hint when
+   *   `fromHint` is true, otherwise the host tier selected for `filters`
+   * @param fromHint - True when `relayUrls` came from an explicit relay hint on the
+   *   request, which bypasses host relay selection
    * @returns Handle to cancel the subscription
    */
   subscribe(
     filters: NostrFilter[],
     callback: (item: NostrEvent | 'EOSE', observedRelayUrls?: string[]) => void,
     relayUrls?: string[],
+    fromHint?: boolean,
   ): { unsubscribe(): void };
 
   /**
@@ -214,7 +218,7 @@ export function createRelayPoolService(options: RelayPoolServiceOptions): Servic
             subId,
             result: createRelayEventResultWithHints(item, observedRelayUrls ?? relayUrls),
           } as NappletMessage);
-        }, relayUrls);
+        }, relayUrls, relayHint !== undefined);
 
         tracked.set(subKey, { handle, eoseTimer });
         return;

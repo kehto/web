@@ -6,6 +6,11 @@ import {
   type ShellEnvironment,
 } from '@kehto/shell';
 
+import {
+  renderPajaEventKindCounts,
+  type PajaRelayEventCounter,
+  type PajaRelayInventory,
+} from './browser-relay-panel.js';
 import type { PajaHostConfig } from './options.js';
 import type { PajaSignerState } from './browser-signers.js';
 import { getTargetIdentity } from './browser-target-frame.js';
@@ -50,6 +55,10 @@ export interface PajaDevtoolsState {
   messageFilter: string;
   /** Accumulated message log rows. */
   messageLog: PajaMessageLogEntry[];
+  /** Cumulative relay receipts by routing box and relay. */
+  relayEventCounts: PajaRelayEventCounter;
+  /** Configured relays per box, read at render time so idle relays show. */
+  relayInventory?: () => PajaRelayInventory | undefined;
   /** Enable or disable an injected domain. */
   setDomainEnabled(domain: PajaCapabilityDomain, enabled: boolean): void;
   /** Enable or disable an ACL capability. */
@@ -295,6 +304,7 @@ export function renderPajaDevtools(
   renderInterfaceControls(state);
   renderAclControls(state, options.bridge);
   renderSignerStatus(state, options.devSignerPubkey);
+  renderPajaEventKindCounts(state.relayEventCounts, state.relayInventory?.());
 }
 
 /**

@@ -15,15 +15,36 @@ export interface RelayListEntry {
 }
 
 /**
+ * Why one relay ended up in an outbox read.
+ *
+ * - `nip65` — discovered from the requested authors' NIP-65 relay lists.
+ * - `hint` — supplied by the caller as a relay hint for this read.
+ * - `fallback` — the host's configured fallback set, used when neither of the
+ *   above produced a relay.
+ *
+ * The router reports this per relay so hosts can show how a read was routed
+ * instead of guessing from the final relay list.
+ */
+export type OutboxRelayOrigin = 'nip65' | 'hint' | 'fallback';
+
+/**
  * Relay pool contract the router drives. Implementors adapt their pool library
  * while the router retains relay selection and event attribution.
  */
 export interface OutboxRelayPool {
-  /** Subscribe to `filters` on exactly `relayUrls`. */
+  /**
+   * Subscribe to `filters` on exactly `relayUrls`.
+   *
+   * @param filters - NIP-01 filters.
+   * @param relayUrls - Relays this call must use.
+   * @param callback - Receives matching events or 'EOSE'.
+   * @param origin - Why `relayUrls` are in this read, when the router knows.
+   */
   subscribe(
     filters: NostrFilter[],
     relayUrls: string[],
     callback: (item: NostrEvent | 'EOSE') => void,
+    origin?: OutboxRelayOrigin,
   ): { unsubscribe(): void };
   /** Publish `event` to `relayUrls`, optionally returning per-relay outcomes. */
   publish(

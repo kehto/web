@@ -2,7 +2,7 @@ import { createServer } from 'node:http';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { expect, test, type FrameLocator, type Page } from '@playwright/test';
-import { finalizeEvent, generateSecretKey, verifyEvent } from 'nostr-tools/pure';
+import { finalizeEvent, generateSecretKey, getPublicKey, verifyEvent } from 'nostr-tools/pure';
 import { startPajaServer, type PajaServer } from '../../packages/paja/dist/index.js';
 
 interface TargetServer {
@@ -102,6 +102,7 @@ test('sidebar accordion preserves controls, frames, drawer preferences and flush
   const initial = await page.evaluate(() => ({ srcdoc: document.querySelector('iframe')!.srcdoc, tabs: window.__KEHTO_PAJA__?.getState().tabs }));
   const resources = page.locator('[data-paja-section="resource-servers"]');
   const messages = page.locator('[data-paja-section="messages"]');
+  const events = page.locator('[data-paja-section="events"]');
   const acl = page.locator('[data-paja-section="acl"]');
   await page.evaluate(() => localStorage.setItem('n18-unrelated', 'retained'));
   await page.getByLabel('Resource servers', { exact: true }).fill('draft.example');
@@ -113,6 +114,10 @@ test('sidebar accordion preserves controls, frames, drawer preferences and flush
   await expect(messages.locator('summary')).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(messages).not.toHaveAttribute('open');
+  await page.keyboard.press('Tab');
+  await expect(events.locator('summary')).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(events).not.toHaveAttribute('open');
   const logCount = await page.evaluate(() => window.__KEHTO_PAJA__!.getState().messageLog.length);
   await page.locator('#acl-controls [data-acl-capability="state:write"]').click();
   await expect.poll(() => page.evaluate(() => window.__KEHTO_PAJA__!.getState().messageLog.length)).toBeGreaterThan(logCount);
@@ -152,6 +157,7 @@ test('sidebar accordion preserves controls, frames, drawer preferences and flush
   await expect(page.locator('#paja-console')).toBeHidden();
   await page.locator('#paja-console-toggle').click();
   await expect(acl).not.toHaveAttribute('open');
+  await expect(events).not.toHaveAttribute('open');
   await expect(resources).toHaveAttribute('open', '');
   await expect(messages).toHaveAttribute('open', '');
   await expect(page.getByLabel('Resource servers', { exact: true })).toHaveValue('https://draft.example');
@@ -188,6 +194,163 @@ for (const failure of ['malformed', 'mixed', 'methods', 'getter']) {
     await expect(page.locator('#signer-status')).not.toHaveText('loading');
   });
 }
+
+test('groups live relay receipts by routing box, relay, and kind', async ({ page }) => {
+  test.setTimeout(60_000);
+  const poolRelay = 'wss://relay-events-a.example';
+  const hintedRelay = 'wss://relay-events-b.example';
+  const authorRelay = 'wss://relay-author-write.example';
+  const authorKey = generateSecretKey();
+  const authorPubkey = getPublicKey(authorKey);
+  const relayEvent = finalizeEvent({
+    kind: 10_005,
+    created_at: 1_800_000_000,
+    tags: [],
+    content: 'Paja relay receipt counter',
+  }, authorKey);
+  const authorRelayList = finalizeEvent({
+    kind: 10_002,
+    created_at: 1_800_000_000,
+    tags: [['r', authorRelay]],
+    content: '',
+  }, authorKey);
+  const requests: Array<{ relay: string; subId: unknown; filter: Record<string, unknown> }> = [];
+  for (const relay of [poolRelay, hintedRelay, authorRelay]) {
+    await page.routeWebSocket(relay, (ws) => {
+      ws.onMessage((message) => {
+        const data = JSON.parse(typeof message === 'string' ? message : message.toString()) as unknown[];
+        if (data[0] !== 'REQ') return;
+        const filter = (data[2] ?? {}) as Record<string, unknown>;
+        requests.push({ relay, subId: data[1], filter });
+        // Read-pool relays also answer the kind-10002 discovery, so an outbox
+        // plan resolves to the author's write relay.
+        const kinds = Array.isArray(filter.kinds) ? filter.kinds as number[] : [];
+        if (kinds.includes(10_002)) ws.send(JSON.stringify(['EVENT', data[1], authorRelayList]));
+        else ws.send(JSON.stringify(['EVENT', data[1], relayEvent]));
+        ws.send(JSON.stringify(['EOSE', data[1]]));
+      });
+    });
+  }
+  const receiptRuntime = await startPajaServer({
+    options: {
+      targetUrl: `${targetServer.url}?manualTraffic=1&required=relay`,
+      port: 0,
+      simulation: { relay: { mode: 'live', urls: [poolRelay, hintedRelay] } },
+    },
+    now: new Date('2026-09-04T00:00:00.000Z'),
+  });
+
+  try {
+    await page.goto(receiptRuntime.url);
+    const frame = page.frameLocator('#napplet-frame');
+    await expect(frame.locator('#target-status')).toHaveText('shell-init received', { timeout: 15_000 });
+    const eventCounts = page.locator('#event-kind-counts');
+
+    // Configured fallback relays are visible before they serve anything.
+    await expect(eventCounts.locator('[data-relay-box="fallback"] .event-relay')).toHaveCount(2);
+    await expect(eventCounts.locator(`[data-relay-box="fallback"] .event-relay[data-relay-url="${poolRelay}"] .event-relay-idle`)).toHaveText('unused');
+
+    // A subscribe without a relay hint reads through the host pool tier.
+    await sendFixtureMessage(frame, {
+      type: 'relay.subscribe',
+      id: 'events-pool',
+      subId: 'events-pool',
+      filters: [{ kinds: [10_005] }],
+    });
+    await expect(eventCounts.locator(`[data-relay-box="host"] .event-relay[data-relay-url="${poolRelay}"]`)).toHaveAttribute('data-relay-count', '1');
+    await expect(eventCounts.locator(`[data-relay-box="host"] .event-relay[data-relay-url="${hintedRelay}"]`)).toHaveAttribute('data-relay-count', '1');
+    await expect(eventCounts.locator('[data-relay-box="host"] .event-box-count')).toHaveText('2');
+
+    // A relay the app pinned itself is a scoped relay, not a hint.
+    await sendFixtureMessage(frame, {
+      type: 'relay.subscribe',
+      id: 'events-hint',
+      subId: 'events-hint',
+      filters: [{ kinds: [10_005] }],
+      relay: hintedRelay,
+    });
+    await expect(eventCounts.locator(`[data-relay-box="scoped"] .event-relay[data-relay-url="${hintedRelay}"]`)).toHaveAttribute('data-relay-count', '1');
+    await expect(eventCounts.locator('[data-relay-box="scoped"] .event-relay')).toHaveCount(1);
+    await expect(eventCounts.locator('[data-relay-box="scoped"] .event-row[data-event-kind="10005"] .event-count')).toHaveText('1');
+
+    // An outbox read reports which box chose each relay: the configured fallback
+    // that answered immediately, then the author's NIP-65 relay once it resolved.
+    await sendFixtureMessage(frame, {
+      type: 'outbox.query',
+      id: 'events-outbox',
+      filters: [{ authors: [authorPubkey], kinds: [10_005] }],
+    });
+    await expect(eventCounts.locator(`[data-relay-box="fallback"] .event-relay[data-relay-url="${poolRelay}"]`)).toHaveAttribute('data-relay-count', '1');
+    await expect(eventCounts.locator(`[data-relay-box="nip65"] .event-relay[data-relay-url="${authorRelay}"]`)).toHaveAttribute('data-relay-count', '1');
+
+    // Headers carry receipts, the badge title separates them from unique events.
+    // Host receipts: the tier read (2) plus the NIP-65 discovery read for the
+    // outbox plan (2). Fallback: both configured relays on the outbox read (2).
+    // Author-routed: the resolved NIP-65 write relay (1). Scoped: the pinned
+    // relay (1). Box counts add up to the header total.
+    await expect(eventCounts.locator('[data-relay-box="nip65"] .event-box-count')).toHaveText('1');
+    await expect(eventCounts.locator('[data-relay-box="fallback"] .event-box-count')).toHaveText('2');
+    await expect(eventCounts.locator('[data-relay-box="scoped"] .event-box-count')).toHaveText('1');
+    await expect(eventCounts.locator('[data-relay-box="host"] .event-box-count')).toHaveText('4');
+    await expect(page.locator('#event-kind-total')).toHaveText('8');
+    await expect(page.locator('#event-kind-total')).toHaveAttribute('title', '8 relay receipts · 2 unique events');
+    expect(requests.filter((entry) => entry.relay === authorRelay)).toHaveLength(1);
+    expect(await page.evaluate(() => window.__KEHTO_PAJA__?.getState().relayInventory.fallback))
+      .toEqual([poolRelay, hintedRelay]);
+  } finally {
+    await receiptRuntime.close();
+  }
+});
+
+test('counts repeated receipts without crediting silent or historical relay sources', async ({ page }) => {
+  const relayA = 'wss://receipt-a.example';
+  const relayB = 'wss://receipt-b.example';
+  const event = finalizeEvent({ kind: 10_005, created_at: 1_800_000_000, tags: [], content: 'repeated receipt' }, generateSecretKey());
+  let firstRead = true;
+  for (const relay of [relayA, relayB]) {
+    await page.routeWebSocket(relay, (ws) => {
+      ws.onMessage((message) => {
+        const data = JSON.parse(typeof message === 'string' ? message : message.toString()) as unknown[];
+        if (data[0] !== 'REQ') return;
+        if (firstRead || relay === relayA) {
+          ws.send(JSON.stringify(['EVENT', data[1], event]));
+          if (firstRead && relay === relayA) ws.send(JSON.stringify(['EVENT', data[1], event]));
+        }
+        ws.send(JSON.stringify(['EOSE', data[1]]));
+      });
+    });
+  }
+  const server = await startPajaServer({
+    options: { targetUrl: `${targetServer.url}?manualTraffic=1&required=relay`, port: 0,
+      simulation: { relay: { mode: 'live', urls: [relayA, relayB] } } },
+  });
+  try {
+    await page.goto(server.url);
+    const frame = page.frameLocator('#napplet-frame');
+    await expect(frame.locator('#target-status')).toHaveText('shell-init received', { timeout: 15_000 });
+    const host = page.locator('[data-relay-box="host"]');
+    await sendFixtureMessage(frame, { type: 'relay.subscribe', id: 'receipts-1', subId: 'receipts-1', filters: [{ kinds: [10_005] }] });
+    await expect(host.locator('.event-box-count')).toHaveText('3');
+    await expect(host.locator(`[data-relay-url="${relayA}"]`)).toHaveAttribute('data-relay-count', '2');
+    await expect(host.locator(`[data-relay-url="${relayB}"]`)).toHaveAttribute('data-relay-count', '1');
+    await sendFixtureMessage(frame, { type: 'relay.close', id: 'close-receipts-1', subId: 'receipts-1' });
+    firstRead = false;
+    await sendFixtureMessage(frame, { type: 'relay.subscribe', id: 'receipts-2', subId: 'receipts-2', filters: [{ kinds: [10_005] }] });
+    await expect(host.locator('.event-box-count')).toHaveText('4');
+    await expect(host.locator(`[data-relay-url="${relayA}"]`)).toHaveAttribute('data-relay-count', '3');
+    await expect(host.locator(`[data-relay-url="${relayB}"]`)).toHaveAttribute('data-relay-count', '1');
+    await expect(page.locator('#event-kind-total')).toHaveAttribute('title', '4 relay receipts · 1 unique event');
+
+    // A fresh box must not inherit B's earlier sighting of this event.
+    await sendFixtureMessage(frame, { type: 'relay.subscribe', id: 'receipts-hint', subId: 'receipts-hint', filters: [{ kinds: [10_005] }], relay: relayB });
+    const scoped = page.locator('[data-relay-box="scoped"]');
+    await expect(scoped.locator('.event-relay-idle')).toHaveText('silent');
+    await expect(scoped.locator('.event-box-count')).toHaveText('0');
+    await expect(page.locator('#event-kind-total')).toHaveText('4');
+  } finally {
+    await server.close();
+  }
+});
 
 test('hosts one sandboxed target iframe and reinitializes it on reload', async ({ page }) => {
   test.setTimeout(60_000);

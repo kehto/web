@@ -3,6 +3,11 @@ import {
   PAJA_CONSOLE_PANEL_ID,
   PAJA_CONSOLE_TOGGLE_ID,
 } from './browser-console-panel.js';
+import {
+  PAJA_EVENT_COUNTER_RESET_ID,
+  PAJA_EVENT_COUNTER_RESET_LABEL,
+  PAJA_EVENT_COUNTER_RESET_TITLE,
+} from './browser-relay-panel.js';
 import type { PajaHostConfig } from './options.js';
 import { summarizePajaSimulation } from './simulation.js';
 
@@ -32,6 +37,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
         --muted: #a9ad9f;
         --accent: #d8c36a;
         --paja-console-column: minmax(320px, 380px);
+        --paja-bar-reveal: 6px;
       }
       * { box-sizing: border-box; }
       html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); font: 13px/1.4 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
@@ -49,13 +55,37 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .console-toggle-glyph { font-size: 15px; line-height: 1; }
       .console-toggle-glyph::before { content: '\\00ab'; }
       html[data-paja-console="collapsed"] .console-toggle-glyph::before { content: '\\00bb'; }
-      /* Collapsing is presentation-only: the console column and its top-bar cell
-         leave the grid and the stage reclaims the full width, so the target
-         iframe keeps its identity, generation, and loaded napplet. */
+      /* Collapsing is presentation-only: the console column, its top-bar cell,
+         and the bottom status bar leave the grid and the stage reclaims the
+         full width, so the target iframe keeps its identity, generation, and
+         loaded napplet. The body track list shrinks with them, because
+         display:none alone would leave the footer's 30px row reserved. */
       html[data-paja-console="collapsed"] .top,
       html[data-paja-console="collapsed"] main { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+      html[data-paja-console="collapsed"] body { grid-template-rows: 38px minmax(0, 1fr); }
       html[data-paja-console="collapsed"] .top-console,
-      html[data-paja-console="collapsed"] .console { display: none; }
+      html[data-paja-console="collapsed"] .console,
+      html[data-paja-console="collapsed"] .bottom { display: none; }
+      /* With a hover-capable pointer the whole top bar hides with the drawer and
+         returns from a --paja-bar-reveal strip at the viewport edge. The strip
+         is the bar's own box, so hover containment keeps the reveal stable; the
+         bar's children stay inert while it is parked, and :focus-within restores
+         it for keyboard users. Touch and stacked layouts keep the bar visible,
+         because they have no hover to restore it and the drawer toggle lives
+         inside it. */
+      @media (hover: hover) and (pointer: fine) and (min-width: 901px) {
+        html[data-paja-console="collapsed"] body { grid-template-rows: minmax(0, 1fr); }
+        html[data-paja-console="collapsed"] .top {
+          position: fixed; inset: 0 0 auto 0; height: 38px; z-index: 5;
+          transform: translateY(calc(-100% + var(--paja-bar-reveal)));
+          transition: transform 120ms;
+        }
+        html[data-paja-console="collapsed"] .top > * { opacity: 0; pointer-events: none; transition: opacity 120ms; }
+        html[data-paja-console="collapsed"] .top:hover,
+        html[data-paja-console="collapsed"] .top:focus-within { transform: none; }
+        html[data-paja-console="collapsed"] .top:hover > *,
+        html[data-paja-console="collapsed"] .top:focus-within > * { opacity: 1; pointer-events: auto; }
+      }
       .tabs { display: flex; align-items: stretch; align-self: flex-end; gap: 4px; min-width: 120px; max-width: min(100%, 760px); overflow-x: auto; scrollbar-width: thin; }
       .tabs:empty { display: none; }
       .tab { min-width: 116px; max-width: 240px; height: 30px; display: grid; grid-template-columns: minmax(0, 1fr) 24px 24px; align-items: center; gap: 2px; border: 1px solid var(--line); border-bottom-color: transparent; background: #151815; color: var(--muted); border-radius: 5px 5px 0 0; padding: 0 2px 0 9px; }
@@ -104,6 +134,32 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .log-body { min-width: 0; display: grid; gap: 2px; }
       .log-type { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .log-detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #e6a5a5; }
+      .event-list { min-height: 44px; max-height: 34vh; overflow: auto; border: 1px solid var(--line); border-radius: 4px; background: #0b0d0b; padding: 4px 0; }
+      .event-box + .event-box { margin-top: 6px; border-top: 1px solid #1b1f1a; }
+      .event-box-head { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; padding: 5px 8px 3px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; }
+      .event-box-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+      .event-box-count { color: var(--accent); }
+      .event-box-note { color: var(--muted); font-style: italic; text-transform: none; letter-spacing: normal; }
+      .event-relay { padding: 1px 0 2px; }
+      .event-relay-head { display: grid; grid-template-columns: minmax(0, 1fr) 56px 22px auto; align-items: center; gap: 6px; padding: 2px 8px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
+      .event-relay-url { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+      .event-bar { display: block; height: 5px; border-radius: 3px; background: #1b1f1a; overflow: hidden; }
+      .event-bar-fill { display: block; height: 100%; background: var(--accent); }
+      .event-relay[data-relay-count="0"] .event-bar { background: #141714; }
+      .event-relay-count { color: var(--accent); text-align: right; }
+      .event-relay[data-relay-count="0"] .event-relay-count { color: var(--muted); }
+      .event-relay-idle { color: var(--muted); font-size: 10px; font-style: italic; }
+      .event-kinds { padding-left: 16px; }
+      .event-row { display: grid; grid-template-columns: 64px 12px minmax(0, 1fr); align-items: baseline; gap: 6px; padding: 2px 8px 2px 16px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
+      .event-kind { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; color: var(--text); }
+      .event-separator { color: var(--muted); text-align: center; }
+      .event-count { color: var(--accent); text-align: left; }
+      .event-empty { padding: 4px 8px; color: var(--muted); font-style: italic; font-size: 11px; }
+      .section-total { color: var(--muted); font-size: 11px; margin-left: auto; }
+      .section-total:empty { display: none; }
+      .section-reset { flex: 0 0 auto; height: 18px; margin-left: 8px; padding: 0 6px; color: var(--muted); font-size: 10px; text-transform: lowercase; }
+      .section-total:empty + .section-reset { margin-left: auto; }
+      .section-total ~ .section-chevron { margin-left: 8px; }
       .stage { min-width: 0; min-height: 0; position: relative; background: #050705; }
       .empty-stage { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 12px; }
       .empty-stage[hidden] { display: none; }
@@ -226,6 +282,16 @@ export function renderPajaHtml(config: PajaHostConfig): string {
             <button type="button" id="clear-log">Clear</button>
           </div>
           <div class="log-list" id="message-log" aria-live="polite"></div>
+        </div></details>
+        <details class="section" id="paja-section-events" data-paja-section="events" open>
+          <summary class="section-title">Events<span class="section-total" id="event-kind-total" aria-hidden="true"></span><button
+            type="button"
+            id="${PAJA_EVENT_COUNTER_RESET_ID}"
+            class="section-reset"
+            title="${PAJA_EVENT_COUNTER_RESET_TITLE}"
+            aria-label="${PAJA_EVENT_COUNTER_RESET_TITLE}"
+          >${PAJA_EVENT_COUNTER_RESET_LABEL}</button><span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
+          <div class="event-list" id="event-kind-counts" aria-label="Relay receipts by read reason, relay, and event kind"></div>
         </div></details>
       </aside>
       ${renderStage(config, targetLabel)}

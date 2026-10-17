@@ -41,6 +41,7 @@ interface Sub {
   relays: string[];
   cb: (item: NostrEvent | 'EOSE') => void;
   closed: boolean;
+  origin?: string;
 }
 
 function makePool() {
@@ -52,8 +53,13 @@ function makePool() {
     subs,
     published,
     isAvailable: () => pool.available,
-    subscribe(_filters: unknown, relayUrls: string[], cb: (item: NostrEvent | 'EOSE') => void) {
-      const sub: Sub = { relays: relayUrls, cb, closed: false };
+    subscribe(
+      _filters: unknown,
+      relayUrls: string[],
+      cb: (item: NostrEvent | 'EOSE') => void,
+      origin?: string,
+    ) {
+      const sub: Sub = { relays: relayUrls, cb, closed: false, origin };
       subs.push(sub);
       return { unsubscribe() { sub.closed = true; } };
     },
@@ -68,6 +74,10 @@ function makePool() {
     /** EOSE every open subscription. */
     eoseAll() {
       for (const s of subs) if (!s.closed) s.cb('EOSE');
+    },
+    /** Relay URL -> how the router routed that relay's read. */
+    originsByRelay() {
+      return Object.fromEntries(subs.map((s) => [s.relays[0], s.origin]));
     },
   };
   return pool as OutboxRelayPool & typeof pool;
@@ -91,6 +101,34 @@ function makeRouter(pool: OutboxRelayPool, overrides: Partial<Parameters<typeof 
 }
 
 describe('createRelayPoolOutboxRouter', () => {
+  it('reports per-relay routing origins for queries and subscriptions', async () => {
+    const pool = makePool();
+    const router = makeRouter(pool);
+
+    const result = await router.query([{ authors: [PK_A] }], { relays: ['wss://hinted'] });
+    expect(result.events).toEqual([]);
+    expect(pool.originsByRelay()).toEqual({
+      'wss://hinted': 'hint',
+      'wss://a-write': 'nip65',
+    });
+
+    pool.subs.length = 0;
+    const sub = router.subscribe(
+      [{ authors: [PK_A] }],
+      { timeoutMs: 20, relays: ['wss://hinted'] },
+      { event() {}, closed() {} },
+    );
+    expect(pool.originsByRelay()).toEqual({
+      'wss://hinted': 'hint',
+      'wss://a-write': 'nip65',
+    });
+    sub.close();
+
+    pool.subs.length = 0;
+    await router.query([{ kinds: [1] }]);
+    expect(pool.originsByRelay()).toEqual({ 'wss://fallback': 'fallback' });
+  });
+
   it('throws on missing required options', () => {
     // @ts-expect-error — runtime guard
     expect(() => createRelayPoolOutboxRouter({})).toThrow(/relayPool is required/);
@@ -438,6 +476,36 @@ describe('createRelayPoolOutboxRouter', () => {
   });
 
   describe('subscribe', () => {
+    it('uses only validated hints for authorless live reads', () => {
+      const pool = makePool();
+      const router = makeRouter(pool, { isRelayAllowed: (url) => url !== 'wss://denied' });
+      const sub = router.subscribe(
+        [{ kinds: [1] }],
+        { relays: ['wss://hint', 'wss://denied', 'wss://hint'] },
+        { event() {}, closed() {} },
+      );
+
+      expect(pool.subs.map((item) => item.relays)).toEqual([['wss://hint']]);
+      expect(pool.originsByRelay()).toEqual({ 'wss://hint': 'hint' });
+      sub.close();
+      expect(pool.subs.every((item) => item.closed)).toBe(true);
+    });
+
+    it.each([
+      { label: 'absent', options: undefined },
+      { label: 'empty', options: { relays: [] } },
+      { label: 'policy-denied', options: { relays: ['wss://denied'] } },
+    ])('uses fallback for authorless live reads with $label hints', ({ options }) => {
+      const pool = makePool();
+      const router = makeRouter(pool, { isRelayAllowed: (url) => url !== 'wss://denied' });
+      const sub = router.subscribe([{ kinds: [1] }], options, { event() {}, closed() {} });
+
+      expect(pool.subs.map((item) => item.relays)).toEqual([FALLBACK]);
+      expect(pool.originsByRelay()).toEqual({ 'wss://fallback': 'fallback' });
+      sub.close();
+      expect(pool.subs.every((item) => item.closed)).toBe(true);
+    });
+
     it('streams from fallback immediately and adds discovered author relays later', async () => {
       const pool = makePool();
       const relayLists = deferred<Map<string, RelayListEntry>>();
