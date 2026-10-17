@@ -50,6 +50,8 @@ export interface RuntimePermissions {
   clear(): boolean;
   /** Retry an unsuccessful durable revocation, never reload stale authority. */
   retryPersistence(): boolean;
+  /** Observe grant invalidation so a host can retire an executing document. */
+  subscribeInvalidation(listener: () => void): () => void;
 }
 
 interface PermissionRuntimeContext {
@@ -71,6 +73,7 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
   let promptRates = createRateLimitState();
   let disposed = false;
   let admissionRevision = 0;
+  const invalidationListeners = new Set<() => void>();
   let coordinator: ReturnType<typeof createApprovalCoordinator>;
   const store = createPermissionStore({
     persistence: adapter.persistence, extensions: adapter.extensions, onError: adapter.onStorageError,
@@ -82,6 +85,9 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
         for (const [windowId, lifetime] of lifetimes) {
           if (lifetime.id === sessionId) context.invalidate(windowId);
         }
+      }
+      for (const listener of invalidationListeners) {
+        try { listener(); } catch { /* Host diagnostics cannot change policy. */ }
       }
     },
   });
@@ -186,6 +192,10 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
     revoke: store.revoke,
     clear: store.clear,
     retryPersistence: store.retryPersistence,
+    subscribeInvalidation(listener) {
+      invalidationListeners.add(listener);
+      return () => { invalidationListeners.delete(listener); };
+    },
   };
   return { management, run, retire,
     close(windowId: string): void {
@@ -203,6 +213,7 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
     if (lifetime) coordinator.cancel(lifetime.id);
   }, destroy(): void {
     disposed = true;
+    invalidationListeners.clear();
     coordinator.dispose();
     for (const windowId of lifetimes.keys()) retire(windowId);
   } };

@@ -12,6 +12,9 @@ export { normalizeIntentUri } from './intent-uri.js';
 export type { NormalizedIntentUri } from './intent-uri.js';
 export { buildNappletCsp, injectNappletCsp, renderNappletCspMeta } from './napplet-csp.js';
 export type { NappletCspDirective, NappletCspDirectives, NappletCspOptions } from './napplet-csp.js';
+export type { BrowserLaunchMode, BrowserRemoteSource } from './napplet-csp.js';
+export { admitBrowserDocument } from './browser-admission.js';
+export type { BrowserAdmissionRequest, BrowserAdmissionResult, BrowserAdmissionCommit, BrowserAdmissionOmission } from './browser-admission.js';
 export { prepareNappletSrcdoc } from './napplet-srcdoc.js';
 export type { NappletSrcdocOptions } from './napplet-srcdoc.js';
 
