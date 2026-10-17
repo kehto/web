@@ -1,36 +1,20 @@
-## ISSUES FOUND
+## VERIFICATION PASSED
 
 **Phase:** 113 — Service authorization boundaries
-**Focused recheck:** 113-03 relay authorization
-**Issues:** 1 blocker
+**Focused recheck:** 113-03 and 113-19 relay-operation migration
+**Status:** All blocking checks passed
 
-All earlier full-phase coverage, dependency, and validation findings remain passed. Plans 01/02 remain an accepted atomic resource group. This finding applies only to Plan 03 before its execution begins.
+Plans 03 and 19 now form a valid atomic migration group. Plan 03 moves approval to the runtime boundary before cache/buffer delivery, encryption, signing, registered-service dispatch, and transport. It introduces the pure immutable `RelayOperationPlan` handoff, exact-generation lifecycle ownership, and a single top-level query authorization/rate/once-grant decision.
 
-### Blocker (must fix)
+Plan 19 closes the remaining fallback and host paths: explicit-target adapter execution, shell hook forwarding, Paja plan/execute behavior, playground parity, and a conformance guard over all consumers. Both plans stay provisional until Plan 19’s combined runtime/services/shell/Paja/playground/conformance build/type gate passes. Plan 04 correctly waits for Plan 19; Plan 16 waits for both 03 and 19; the remaining wave ordering is acyclic and consistent.
 
-1. **[key_links_planned] Plan 03 cannot meet its pre-sign/pre-encrypt, cache, query, and once-grant requirements with its declared Task 2 scope.**
-   - Plan/task: 113-03 Task 2 (with related Task 1 runtime work)
-   - Evidence: [`113-RELAY-AUTHORITY.md`](113-RELAY-AUTHORITY.md) documents that `packages/runtime/src/relay-handler.ts` encrypts/signs before dispatching to `relay-pool-service`; it also buffers/delivers publish events and cache/query data before or outside the registered service. `relay.query` synthesizes `relay.subscribe` and `relay.close`, which can double-approve/charge or consume a once grant twice. Current publish adapter/service interfaces do not expose an immutable destination plan before signing.
-   - The current Task 2 only owns service/coordinated-relay files. Its action says signing starts only inside `authorizeOperation`, but it does not include the runtime handler, runtime adapter/service type contracts, runtime relay-handler tests, or an explicit captured-plan handoff. A service-only implementation therefore leaves the real signer/encryptor and cache/fallback paths outside authorization, failing SVC-03/SVC-05 and the plan’s own must-haves.
-   - Fix: amend/split Plan 03 so its runtime-owned task explicitly modifies and tests `packages/runtime/src/relay-handler.ts` plus the relevant runtime adapter/service type boundary and relay-handler test surface. It must:
-     1. validate/snapshot and obtain the exact destination plan before encryption, signing, cache buffer/delivery, pool I/O, or publish;
-     2. pass that immutable approved plan through registered-service and adapter-fallback publish paths, forbidding reselection after approval;
-     3. authorize local buffer/cache delivery with interface authority without inventing a network grant;
-     4. make query’s synthesized subscribe/close one operation for rate/once-grant purposes and return one canonical query failure on denial; and
-     5. test unresolved approval and revocation/replacement around encryption, signing, cache delivery, publish, query, timers, and same-ID subscription replacement.
+The revision explicitly covers the prior failure modes:
 
-### Structured Issues
+- no crypto, cache/buffer side effect, delivery, or I/O before approval;
+- approved URLs are frozen and cannot be reselected or expanded afterward;
+- query performs one authorization/rate/once-grant decision and settles denial/backend failure once;
+- adapter fallback, reference services, Paja, and playground use the same explicit-target contract;
+- revocation and same-ID replacement guard every late event, EOSE, timer, close, publish, and terminal callback;
+- legacy registered-service and adapter paths fail closed with bounded warnings and are carried to Plan 18’s compatibility register.
 
-```yaml
-issues:
-  - plan: "113-03"
-    task: 2
-    dimension: key_links_planned
-    severity: blocker
-    description: "Runtime relay-handler signs/encrypts and can deliver cache/buffer data before the service; Task 2 modifies only service files and cannot enforce its promised pre-sign/destination-plan/once-grant semantics."
-    fix_hint: "Add or split a runtime relay-handler + adapter/type-contract task with immutable destination-plan handoff and direct lifecycle/rate/cache/query regressions."
-```
-
-### Recommendation
-
-Revise Plan 03 before starting its wave. The resource group may continue; this relay correction does not invalidate Plans 01/02 or the rest of the Phase 113 plan set.
+The resource group remains independent and may continue. Proceed with the relay group only after the resource group releases Wave 3 and preserve the Plan 19 atomic release gate.
