@@ -9,7 +9,7 @@ import { createPajaBlossomEventResolver } from '../../packages/paja/src/browser-
 const dispose: Array<() => void> = [];
 afterEach(() => { for (const close of dispose.splice(0)) close(); });
 
-async function deniedNetwork(fetch: ResourceServiceOptions['fetch'], url: string) {
+async function deniedNetwork(fetch: ResourceServiceOptions['fetch'], url: string, allowNetwork = false) {
   const adapter = createMockRuntimeAdapter({
     services: { resource: createResourceService({ fetch }) }, isDomainAllowed: () => true,
     permissions: {
@@ -19,7 +19,7 @@ async function deniedNetwork(fetch: ResourceServiceOptions['fetch'], url: string
         return () => clearTimeout(timer);
       },
       prompt: async ({ request }) => ({
-        effect: request.requirements.some((item) => item.category === 'network') ? 'deny' : 'allow',
+        effect: !allowNetwork && request.requirements.some((item) => item.category === 'network') ? 'deny' : 'allow',
         lifetime: 'session',
       }),
     },
@@ -38,17 +38,43 @@ async function deniedNetwork(fetch: ResourceServiceOptions['fetch'], url: string
 
 // NAP-RESOURCE ae5b9c64: resolution remains runtime policy-controlled. The
 // Phase 113 contract includes actual discovery relay destinations in that policy.
-it('denies WebSocket resolver transport before its callback executes', async () => {
+it.each(['ws://relay.example', 'wss://relay.example'])('denies resolver transport to %s before its callback executes', async (destination) => {
   const transport = vi.fn(async () => new Response('unexpected bytes'));
   const sent = await deniedNetwork(async (_url, init) => {
     if (!init.authorizeNetwork) throw new Error('network approval missing');
-    return init.authorizeNetwork('wss://relay.example', transport);
+    return init.authorizeNetwork(destination, transport);
   }, 'blossom:' + 'b'.repeat(64));
   expect(transport).not.toHaveBeenCalled();
   expect(sent[0]?.message).toMatchObject({
     type: 'resource.bytes.error', id: 'discovery', error: 'blocked-by-policy',
   });
 });
+
+it('executes an approved WebSocket resolver callback once', async () => {
+  const transport = vi.fn(async () => new Response('approved bytes'));
+  const sent = await deniedNetwork(async (_url, init) => {
+    if (!init.authorizeNetwork) throw new Error('network approval missing');
+    return init.authorizeNetwork('wss://relay.example', transport);
+  }, 'blossom:' + 'b'.repeat(64), true);
+  expect(transport).toHaveBeenCalledOnce();
+  expect(sent[0]?.message).toMatchObject({
+    type: 'resource.bytes.result', id: 'discovery', blob: btoa('approved bytes'),
+  });
+});
+
+it.each(['ftp://relay.example', 'data:text/plain,bytes', 'wss://user:secret@relay.example'])(
+  'rejects invalid network destination %s without executing transport', async (destination) => {
+    const transport = vi.fn(async () => new Response('unexpected bytes'));
+    const sent = await deniedNetwork(async (_url, init) => {
+      if (!init.authorizeNetwork) throw new Error('network approval missing');
+      return init.authorizeNetwork(destination, transport);
+    }, 'blossom:' + 'b'.repeat(64), true);
+    expect(transport).not.toHaveBeenCalled();
+    expect(sent[0]?.message).toMatchObject({
+      type: 'resource.bytes.error', id: 'discovery', error: 'blocked-by-policy',
+    });
+  },
+);
 
 it('denies Blossom discovery relay queries before reading publisher server lists', async () => {
   const query = vi.fn(async () => ({ events: [] }));

@@ -52,7 +52,7 @@ Current draft posture:
 - `createNotifyService` handles direct `notify.*` envelopes. It is not an INC
   topic handler.
 - `createOutboxService` supports `outbox.getEvent` from draft NAP-OUTBOX. Single-event lookups run through shell-owned relay routing and only return events whose ID matches the request. Hosts can provide `getReadRouter` to scope all event-returning reads (`getEvent`, query, and subscription) to the authenticated source window, plus `getQueryRouter` when one-shot queries need an additional decorator. The draft wire contract keeps `outbox.query` one-shot and `outbox.subscribe` streaming; Kehto's concrete `createRelayPoolOutboxRouter` additionally exposes host-side `queryStream()` so verified query events can arrive before asynchronous NIP-65 discovery completes.
-- `createResourceService` implements NAP-RESOURCE at draft PR #80 head `ae5b9c64ab8a4d8909f288829a01e99d6bd713bc` without choosing a runtime's resolver policy. Single requests carry `url`; bulk requests carry an ordered `urls` array, and results use canonical padded RFC 4648 base64 in `blob`. `resource.info.schemes` remains advisory. Runtime permission integration authorizes the exact resource URL and each resolver-reported HTTP(S) origin through `init.authorizeNetwork(destination, execute)`; the resolver remains responsible for scheme handling, redirects, and upstream byte classification. The service scopes cancellation to the requesting window, drops cancelled terminal envelopes, and preserves explicit `ResourceServiceError` codes.
+- `createResourceService` implements NAP-RESOURCE at draft PR #80 head `ae5b9c64ab8a4d8909f288829a01e99d6bd713bc` without choosing a runtime's resolver policy. Single requests carry `url`; bulk requests carry an ordered `urls` array, and results use canonical padded RFC 4648 base64 in `blob`. `resource.info.schemes` remains advisory. Runtime permission integration authorizes the exact resource URL and each resolver-reported HTTP(S) or WebSocket origin through `init.authorizeNetwork(destination, execute)`; the resolver remains responsible for scheme handling, redirects, and upstream byte classification. The service scopes cancellation to the requesting window, drops cancelled terminal envelopes, and preserves explicit `ResourceServiceError` codes.
 - `createUploadService` supports `upload.info` from draft NAP-UPLOAD. Hosts may expose configured rails, return URL forms, maximum bytes, and MIME type policy without requiring napplets to start an upload.
 - `createConfigService` implements draft NAP-CONFIG's shell-writer boundary: recursive bounded-subset schema validation, per-window schema/subscription state, deterministic defaults, invalid/orphan removal, version rollback rejection, scoped host persistence hooks, and settings-UI commits. Reads before schema registration fail closed with `no-schema`.
 - `createDmService` keeps NAP-DM request correlation, per-window subscriptions, and packaged message shapes in runtime-owned code. Adapters cover concrete transports: verified NIP-17 gift wraps and relay history via `nostr-tools`, structural NDR runtimes with relay hooks, and Cordn/ContextVM coordinator clients.
@@ -677,14 +677,14 @@ exports catch up.
 ### Scoped resource authorization
 
 When attached to a runtime configured with `permissions`, the resource service
-checks each original URL against a resource grant and, for HTTP(S), a separate
+checks each original URL against a resource grant and, for HTTP(S) or WebSocket destinations, a separate
 origin grant. Interface permission remains required. Bulk requests authorize each
 item independently. The authorization covers fetching and reading the response
 body, so revocation can abort active work and discard late bytes. Request
 cancellation also dismisses a pending approval without granting a late answer.
 
 Resolvers must call `init.authorizeNetwork(destination, execute)` before every
-actual HTTP(S) contact. That callback runs under a distinct origin requirement,
+actual HTTP(S) or WebSocket contact. That callback runs under a distinct origin requirement,
 including each proxy-reported redirect hop, and its signal covers connection and
 body reading. Paja's local proxy adds DNS-time address screening and pinned
 connections; see [Paja resource proxy policy](../../docs/policies/RESOURCE-PROXY.md).

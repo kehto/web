@@ -34,9 +34,15 @@ export async function authorizeResource<T>(runtime: ServiceRuntimeContext | unde
       let origin: string;
       try {
         const parsed = new URL(destination);
-        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return run(controller.signal);
+        if (!['http:', 'https:', 'ws:', 'wss:'].includes(parsed.protocol)) {
+          throw new ResourceAuthorizationError('resource network destination scheme is not supported');
+        }
+        if (parsed.username || parsed.password) {
+          throw new ResourceAuthorizationError('resource network destination credentials are not allowed');
+        }
         origin = parsed.origin;
-      } catch {
+      } catch (error) {
+        if (error instanceof ResourceAuthorizationError) throw error;
         throw new Error('invalid network destination');
       }
       // Reuse a live approval for a second hop to the same origin within this

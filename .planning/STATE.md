@@ -565,3 +565,20 @@ wire. Root holds no dirty code. After audit/fixes/gates, collect01/02 summaries,
 then executewave3 (relay03+19 atomic group and disjoint service plans). Host114
 plans remain reviewed/committed and gated on full113 completion. Prior turn was
 progress; this turn closes actual browser regression and yields fullgreen evidence.
+
+2026-10-17: Continuation re-read full objective; previous prompt-only turn made no
+implementation progress. Resource consumer migration committed3ce1e1e2 by executor:
+feed/profile now use host projection; targeted unit27/browser2/type/docs passed.
+Root audit found two additional real network bypasses and committed red regressions
+afb001d0 in tests/unit/resource-discovery-authorization.test.ts. authorizeNetwork
+previously executed every non-HTTP scheme without permission; corrected WS/WSS
+origin approval and fail-closed unsupported/credential destinations. Six helper
+cases PASS plus nine existing concurrency/lifetime/approval tests PASS. Blossom
+discovery test remains RED: browser-resource getBlossomServers -> event resolver
+getServers -> baseRouter.query invokes unapproved relay work. resolveRelays can
+itself discover NIP65 lists and query relay options are hints, so merely wrapping
+those calls with approval for an assumed destination is insufficient. Executor
+resource_execution assigned complete discovery transport/cancellation/cache fix,
+including required router seams and docs; preserve author discovery functionality.
+NAP-RESOURCE PR80 head rechecked unchanged ae5b9c64. Hold01/02 summaries and all
+downstream execution until regression fixed and combined full gates rerun.

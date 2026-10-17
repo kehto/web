@@ -89,7 +89,7 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
   JavaScript Blob objects on the wire. Bulk outcomes preserve input order.
 - Registered resource operations compose interface authority, the exact input
   resource URL, and independently approved resolver network origins. The
-  `ResourceFetchInit.authorizeNetwork` callback guards each actual HTTP(S)
+  `ResourceFetchInit.authorizeNetwork` callback guards each actual HTTP(S) or WebSocket
   destination, including redirects and fallback hosts. Its approval remains live
   through resource body processing; same-origin resolver work shares that
   request's approval without authorizing another resource request.
@@ -149,7 +149,7 @@ approval and host network-isolation integration.
 ### Scoped resource authorization
 
 When attached to a runtime configured with `permissions`, the resource service
-checks each original URL against a resource grant and, for HTTP(S), a separate
+checks each original URL against a resource grant and, for HTTP(S) or WebSocket destinations, a separate
 origin grant. Interface permission remains required. Bulk requests authorize each
 item independently. The authorization covers fetching and reading the response
 body, so revocation can abort active work and discard late bytes. Request
