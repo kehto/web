@@ -1,6 +1,7 @@
 /** Verified-manifest NAP-INTENT catalog resolution. */
 
 import type { IntentResolver, IntentResolverContext } from './intent-service.js';
+import type { ApprovalSignal } from '@kehto/runtime';
 import type {
   IntentAvailability,
   IntentBehavior,
@@ -35,7 +36,7 @@ export interface IntentDispatchParams {
   /** Authenticated host-only source correlation. Never serialize into delivery. */
   readonly sourceWindowId?: string;
   /** Host-only approval lifetime for retained target work. */
-  readonly signal?: AbortSignal;
+  readonly signal?: ApprovalSignal;
 }
 
 /** Retained work observable by the host without a second source result. */

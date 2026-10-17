@@ -1,7 +1,7 @@
 /** NAP-INTENT wire service using canonical Kehto contracts. */
 
 import type { NappletMessage } from '@napplet/core';
-import type { ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
+import type { ApprovalSignal, ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
 import type { IntentAvailability, IntentHandlerHint, IntentRequest, IntentResult } from './intent-types.js';
 
 const INTENT_DESCRIPTOR: ServiceDescriptor = {
@@ -16,7 +16,7 @@ export interface IntentResolverContext {
   /** Authenticated runtime source, internal to host policy and never wire data. */
   readonly sourceWindowId?: string;
   /** Approval lifetime for host-retained work; never placed on the wire. */
-  readonly signal?: AbortSignal;
+  readonly signal?: ApprovalSignal;
 }
 
 /** Installed-catalog resolver and lifecycle policy. */
@@ -130,7 +130,7 @@ export function createIntentService(options: IntentServiceOptions): ServiceHandl
     }
     if (!request || !sender) return reject(send, id, request ? 'invoke rejected' : 'invalid convention');
     const generation = generationFor(windowId);
-    const invokeCurrent = async (signal?: AbortSignal) => {
+    const invokeCurrent = async (signal?: ApprovalSignal) => {
       if (!current(windowId, generation, sender!)) throw new Error('source replaced');
       const result = await resolver.invoke(request, { sender: sender!, sourceWindowId: windowId, signal });
       if (signal?.aborted || !current(windowId, generation, sender!)) throw new Error('source replaced');
