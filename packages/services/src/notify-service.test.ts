@@ -242,6 +242,28 @@ describe('createNotifyService', () => {
     expect(sent).toEqual([{ type: 'notify.send.result', id: 'n1', error: 'invalid notification' }]);
   });
 
+  it('warns once on host-only effects while canonical runtime-approved calls stay quiet', async () => {
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const legacy = createNotifyService({ present: () => {} });
+      legacy.handleMessage(WINDOW_ID, makeMsg('notify.send', { id: 'n1', title: 'First' }), () => {});
+      legacy.handleMessage(WINDOW_ID, makeMsg('notify.send', { id: 'n2', title: 'Second' }), () => {});
+      await settle();
+      expect(warning).toHaveBeenCalledTimes(1);
+      expect(warning.mock.calls[0][0]).toMatch(/FW-NOTIFY-LEGACY-001.*RuntimeAdapter\.permissions.*once per service instance/i);
+
+      const canonical = createNotifyService({ present: () => {} });
+      const authorizeOperation = vi.fn(async (_windowId, _operation, _requirements, action) => ({
+        status: 'executed', value: await action(new AbortController().signal),
+      })) as unknown as NonNullable<ServiceRuntimeContext['authorizeOperation']>;
+      attachApproval(canonical, authorizeOperation);
+      canonical.handleMessage(WINDOW_ID, makeMsg('notify.send', { id: 'n3', title: 'Current' }), () => {});
+      await settle();
+      expect(authorizeOperation).toHaveBeenCalledTimes(1);
+      expect(warning).toHaveBeenCalledTimes(1);
+    } finally { warning.mockRestore(); }
+  });
+
   it('rejects a destroyed presentation callback after the window id is reused', async () => {
     const presentations: NotifyPresentation[] = [];
     const service = createNotifyService({

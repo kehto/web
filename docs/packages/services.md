@@ -46,7 +46,7 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 
 | Area | Exports |
 |------|---------|
-| Direct-domain notifications | `createNotifyService`, `NotifyServiceOptions` |
+| Direct-domain notifications | `createNotifyService`, `NotifyServiceOptions`, `NotifyPresentation`; legacy `createNotificationService`, `NotificationServiceOptions` |
 | Identity | `createIdentityService`, `IdentityServiceOptions` |
 | Relay/cache/count | `createRelayPoolService`, `RelayPoolServiceOptions`, `createCacheService`, `CacheServiceOptions`, `HostCacheBridge`, `createCoordinatedRelay`, `CoordinatedRelayOptions`, `createCountService`, `CountServiceOptions`, `CountRequest`, `CountResult` |
 | Keys | `createKeysService`, `KeysServiceOptions`, `HostKeysBridge`, `HostKeyEvent` |
@@ -131,7 +131,13 @@ For the schema and removal boundary, see [event migration](https://kehto.github.
 
 ## GAMEPAD integration
 
-This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja and the playground register one host reader and deny native gamepad/HID/USB paths before frame execution. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, window destruction, and service removal release polling. Non-browser or denied native readers report the proposal's unavailable reasons. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
+This non-normative guidance defers to [NAP-GAMEPAD at `napplet/naps@19de5ce1`](https://github.com/napplet/naps/blob/19de5ce1cea40cd4c76089cdd8126e9f87648049/naps/NAP-GAMEPAD.md). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja and the playground register one host reader and deny native gamepad/HID/USB paths before frame execution. The first subscription is approved as the host-private `gamepad:input` resource before the native reader or listeners start. The NAP exposes all controllers to the focused source and has no per-device handle, so this scope deliberately covers the shared input surface. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; denial emits a `gamepad.state` with `reason: "blocked"`. Unsubscribe, permission revocation, window destruction, and service removal release polling. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
+
+## Notification approvals
+
+`createNotifyService` follows [NAP-NOTIFY PR #11 at `67877ef6`](https://github.com/napplet/naps/blob/67877ef6c31ec8acee3125c1d8b4c781010e37dc/naps/NAP-NOTIFY.md). Under a permission-enabled runtime, `notify.send`, `notify.permission.request`, badge writes, and channel registration require exact operation/channel resource approval. Interface access alone does not permit presentation. Payloads are bounded and detached before approval; denial yields the canonical `notify.send.result` error or `notify.permission.result` with `granted: false`. Dismiss remains an owner-only cleanup action after permission loss. Revocation removes active notifications and host state and suppresses late permission answers or interaction callbacks. The reference service rejects remote icon URLs until a host can fetch them through an approved NAP-RESOURCE path; Paja renders text and does not fetch icons.
+
+The older `createNotificationService` registry uses `notify.create/list/read`, which are outside NAP-NOTIFY. It remains a bounded Kehto compatibility path: calls warn once per service instance, and a permission-enabled runtime authorizes create/read/list before exposing state. New hosts should register `createNotifyService`; the playground migration is tracked separately. See [the compatibility register](../compatibility.md).
 
 
 ### Resource request lifecycle

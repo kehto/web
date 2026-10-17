@@ -150,9 +150,12 @@ function handleNotifyEnvelope(
  * per napplet window. It accepts direct `notify.*` service envelopes; INC
  * topics are opaque application data and never select a host service. The
  * shell host controls presentation through the onChange callback.
+ * This retained Kehto registry predates NAP-NOTIFY PR #11 and has no owning
+ * upstream NAP. New hosts should use createNotifyService and notify.send.
  *
  * @param options - Optional configuration (onChange callback, maxPerWindow limit)
  * @returns A ServiceHandler to register with the runtime
+ * @deprecated Use createNotifyService for NAP-NOTIFY wire messages.
  *
  * @example
  * ```ts

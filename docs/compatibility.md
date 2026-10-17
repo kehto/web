@@ -6,6 +6,52 @@ coverage. This register records both implemented safeguards and existing debt;
 below identifies the package responsible for the implementation and its tests.
 No removal date is implied by an old source comment.
 
+## Notification and gamepad approval transitions — services and Paja
+
+`FW-NOTIFY-LEGACY-001` belongs to `@kehto/services`. When a host calls
+`createNotifyService` without runtime `authorizeOperation`, host-only
+notification effects still run and warn once per service instance. Attach
+`RuntimeAdapter.permissions` so sending, permission requests, badges, and
+channel registration use shared Firewall approval. The source and warning site
+is `packages/services/src/notify-service.ts`; Paja's related browser state is
+`packages/paja/src/browser-notify.ts`. The diagnostic contains no notification
+content or app identity. `notify-service.test.ts` covers warning frequency,
+canonical quietness, scope, denial, immutable payloads, revocation, window
+reuse, and remote-icon rejection; `browser-notify.test.ts` covers late answers,
+verified identity changes, and UI cleanup. Retain the fallback while external
+hosts adopt a permission-enabled runtime. Remove it after supported consumers
+migrate, a breaking release is announced, and negative tests reject host-only
+effects. Authority: NAP-NOTIFY draft PR #11 at
+`67877ef6c31ec8acee3125c1d8b4c781010e37dc`. The reference service's
+remote-icon rejection is a bounded host policy until NAP-RESOURCE mediation is
+wired; the NAP permits the shell to validate or reject icon URLs.
+
+`FW-NOTIFICATION-LEGACY-001` belongs to `@kehto/services`. The older
+`createNotificationService` registry retains `notify.create/list/read` and
+warns once per service instance on actual legacy wire use. Replace the service
+with canonical `createNotifyService` and NAP-NOTIFY `notify.send`.
+Source/warning site: `packages/services/src/notification-service.ts`.
+`notification-service.test.ts` covers legacy behavior, warning identifier and
+frequency, no warning on unrelated INC traffic, approval before mutation,
+revocation, and cross-window ownership. There is no upstream NAP for this
+registry wire, so the retained path is a Kehto compatibility policy, not a
+protocol extension. The playground is a known consumer and must migrate
+before the old service can be removed. Announce a breaking release, remove the
+legacy handler, and add rejection tests for the old messages at retirement.
+
+`FW-GAMEPAD-LEGACY-001` belongs to `@kehto/services`. A `gamepad.subscribe`
+without runtime `authorizeOperation` still attaches the host reader, warning
+once per service instance. Attach a permission-enabled runtime to require
+`gamepad:input` resource approval before native reads or subscriptions. Source
+and warning site: `packages/services/src/gamepad-service.ts`; regression tests
+in `gamepad-service.test.ts` cover warning frequency, quiet canonical access,
+denial, late approval, and revoke/teardown cleanup. Retain the host-only path
+while supported hosts migrate, then announce a breaking release, remove it,
+and assert that an unbound reader cannot start. Authority: NAP-GAMEPAD merged
+master at `19de5ce1cea40cd4c76089cdd8126e9f87648049`. The NAP has no
+device handle, so this host-private resource covers the one shared input
+surface; per-device grants would require an upstream protocol decision.
+
 ## Host-only upload path — services and Paja
 
 Identifier: `FW-UPLOAD-LEGACY-001`. Owner: `@kehto/services` (with Paja as a

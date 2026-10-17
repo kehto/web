@@ -358,7 +358,13 @@ is live:
 `common`, `lists`, `serial`, `ble`, `webrtc`, `media`, `notify`, `config`,
 `resource`, `cvm`, `upload`, `intent`, `count`, `dm`, and `fs`.
 
-`shell` and `gamepad` are optional advertised domains. The retained `PAJA_HANDSHAKE_DOMAINS` compatibility export is empty. GAMEPAD uses one host reader and focus-scoped state delivery; native controller access is denied in each frame. See [Controller input](/gamepad).
+`shell` is the mandatory bootstrap interface; `gamepad` is an optional advertised domain. The retained `PAJA_HANDSHAKE_DOMAINS` compatibility export is empty. GAMEPAD uses one host reader and focus-scoped state delivery; the shared approval boundary authorizes `gamepad:input` before native input starts. Native controller access is denied in each frame. See [Controller input](/gamepad).
+
+Paja's NAP-NOTIFY renderer displays attributed text and never fetches untrusted
+icon URLs. Runtime approval scopes sending, channel registration, badge changes,
+and permission requests to the actual operation/channel; the browser permission
+cache additionally keys off the current verified app artifact. Revocation and
+window teardown clear rendered notifications and invalidate pending answers.
 
 Paja keeps serial-port and Bluetooth device identity in host-only controller
 state. Its browser chooser runs only after runtime approval; the selected device

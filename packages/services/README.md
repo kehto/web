@@ -50,7 +50,10 @@ Current draft posture:
 - The v1.1 signer service is deleted outright. Its responsibilities split into two: read-only identity lookups go through `createIdentityService` (`getPublicKey`, `getRelays`, `getProfile`, `getFollows`, `getList`, `getZaps`, `getMutes`, `getBlocked`, `getBadges`); signing happens inside the shell as part of `relay.publish` / `relay.publishEncrypted` and is never exposed to napplets.
 - `createKeysService` and `createMediaService` ship real reference backends as of v1.4 (see the dedicated sections below). `createKeysService` attaches a document-level `keydown` listener by default and delivers `keys.action` push envelopes to registered napplets; `createMediaService` mirrors session metadata and playback state to `navigator.mediaSession` and emits `media.command` push envelopes on OS transport events. Both accept a host-bridge option (`HostKeysBridge` / `HostMediaBridge`) so Electron / Tauri / native shells can swap in OS-level backends without re-implementing the wire-protocol bookkeeping.
 - `createNotifyService` handles direct `notify.*` envelopes. It is not an INC
-  topic handler.
+  topic handler. A permission-enabled runtime approves `notify.send` and
+  channel/badge effects before the host callback runs. Dismiss remains
+  owner-only cleanup. `createNotificationService` retains the older
+  `notify.create/list/read` registry as a deprecated compatibility path.
 - `createOutboxService` supports `outbox.getEvent` from draft NAP-OUTBOX. Single-event lookups run through shell-owned relay routing and only return events whose ID matches the request. Hosts can provide `getReadRouter` to scope all event-returning reads (`getEvent`, query, and subscription) to the authenticated source window, plus `getQueryRouter` when one-shot queries need an additional decorator. The draft wire contract keeps `outbox.query` one-shot and `outbox.subscribe` streaming; Kehto's concrete `createRelayPoolOutboxRouter` additionally exposes host-side `queryStream()` so verified query events can arrive before asynchronous NIP-65 discovery completes.
 - `createResourceService` implements NAP-RESOURCE at draft PR #80 head `ae5b9c64ab8a4d8909f288829a01e99d6bd713bc` without choosing a runtime's resolver policy. Single requests carry `url`; bulk requests carry an ordered `urls` array, and results use canonical padded RFC 4648 base64 in `blob`. `resource.info.schemes` remains advisory. Runtime permission integration authorizes the exact resource URL and each resolver-reported HTTP(S) or WebSocket origin through `init.authorizeNetwork(destination, execute)`; the resolver remains responsible for scheme handling, redirects, and upstream byte classification. The service scopes cancellation to the requesting window, drops cancelled terminal envelopes, and preserves explicit `ResourceServiceError` codes.
 - `createUploadService` supports `upload.info` from draft NAP-UPLOAD. Hosts may expose configured rails, return URL forms, maximum bytes, and MIME type policy without requiring napplets to start an upload.
@@ -562,7 +565,18 @@ Each factory returns a `ServiceHandler` registrable via `runtime.registerService
 `createIdentityService` uses `getSigner()` for `identity.getPublicKey` and `identity.getRelays`. Hosts may also pass optional read-only provider hooks for `getProfile`, `getFollows`, `getList`, `getZaps`, `getMutes`, `getBlocked`, and `getBadges`. These hooks receive the current signer pubkey (or `""` when no signer is connected) and return the payload portion of the corresponding `.result` envelope. Kehto does not query relays itself; the hooks are for hosts that already maintain profile, contact-list, list, zap, moderation, or badge data.
 
 ### Notify NAP
-- `createNotifyService` — canonical direct `notify.*` envelopes.
+- `createNotifyService` — canonical direct `notify.*` envelopes per
+  [NAP-NOTIFY PR #11 at `67877ef6`](https://github.com/napplet/naps/blob/67877ef6c31ec8acee3125c1d8b4c781010e37dc/naps/NAP-NOTIFY.md).
+  Runtime approval scopes presentation, permission requests, badges, and
+  channels to the exact operation/channel. Payloads are copied before approval;
+  revoked or destroyed sources cannot render or receive late callbacks. Remote
+  icon URLs are rejected until a host supplies an approved NAP-RESOURCE fetch.
+  `notify.dismiss` silently ignores unknown or foreign IDs and stays available
+  after revocation. Paja also checks the current verified artifact before
+  caching a browser notification permission.
+- `createNotificationService` — deprecated Kehto `notify.create/list/read`
+  registry with a once-per-instance `FW-NOTIFICATION-LEGACY-001` diagnostic.
+  No upstream NAP defines this wire; new consumers should use `notify.send`.
 
 ### Relay NAP
 - `createRelayPoolService` — `relay.publish`, `relay.publishEncrypted`,
@@ -658,7 +672,7 @@ For the schema and removal boundary, see [event migration](https://kehto.github.
 
 ## GAMEPAD integration
 
-This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja and the playground register one host reader and deny native gamepad/HID/USB paths before frame execution. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, window destruction, and service removal release polling. Non-browser or denied native readers report the proposal's unavailable reasons. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
+This non-normative guidance defers to [NAP-GAMEPAD at `napplet/naps@19de5ce1`](https://github.com/napplet/naps/blob/19de5ce1cea40cd4c76089cdd8126e9f87648049/naps/NAP-GAMEPAD.md). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja and the playground register one host reader and deny native gamepad/HID/USB paths before frame execution. A runtime-approved `gamepad.subscribe` must authorize the host-private `gamepad:input` resource before the reader starts; the NAP has no device handle for a narrower scope. Denial emits `reason: "blocked"`. Only the visible host's input owner receives live controls; focus loss supplies neutral controls and timestamp zero. Unsubscribe, revocation, window destruction, and service removal release polling. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
 
 
 ### Resource request lifecycle

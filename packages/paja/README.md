@@ -145,6 +145,10 @@ controller. DM also requires the Dev signer and live relays; FS requires a
 successful OPFS probe, while picker calls additionally require the corresponding
 browser API and a host-owned approval click. Missing host boundaries remove
 those domains from `shell.init`.
+For `notify`, Paja renders attributed text without fetching icons. The shared
+Firewall approves the exact notification operation/channel before the browser
+effect; Paja's own permission cache is tied to the current verified app artifact.
+Window teardown or revocation clears the UI and invalidates pending answers.
 Live relay URLs are validated before advertisement, fixture events and local
 publish echoes never enter live reads, and relay event sidecars disclose only
 sources that the relay pool actually observed.
@@ -569,4 +573,4 @@ remain a documented upstream spec gap; no host sender identity is invented.
 
 ## GAMEPAD integration
 
-This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja and the playground register one host reader and deny native gamepad/HID/USB paths before frame execution. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, window destruction, and service removal release polling. Non-browser or denied native readers report the proposal's unavailable reasons. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
+This non-normative guidance defers to [NAP-GAMEPAD at `napplet/naps@19de5ce1`](https://github.com/napplet/naps/blob/19de5ce1cea40cd4c76089cdd8126e9f87648049/naps/NAP-GAMEPAD.md). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja and the playground register one host reader and deny native gamepad/HID/USB paths before frame execution. A subscription must approve the host-private `gamepad:input` resource before the reader starts; denial emits `reason: "blocked"`. Only the visible host's input owner receives live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, revocation, window destruction, and service removal release polling. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
