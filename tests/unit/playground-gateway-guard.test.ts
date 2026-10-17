@@ -309,14 +309,15 @@ describe('playground gateway artifact guard', () => {
 
     // Loader resolves + verifies content-addressed bytes, then renders via srcdoc.
     expect(frameLoader).toContain('resolvePlaygroundNapplet({');
-    expect(frameLoader).toContain('iframe.srcdoc = prepareNappletSrcdoc(');
-    expect(frameLoader).toContain('prepareNappletSrcdoc(resolved.indexHtml, {');
-    expect(frameLoader).toContain('csp: { connectOrigins: origins }');
+    expect(frameLoader).toContain('admitBrowserDocument({');
+    expect(frameLoader).toContain('verifiedHtml: resolved.indexHtml,');
+    expect(frameLoader).toContain('iframe.srcdoc = srcdoc;');
+    expect(frameLoader).toContain('remoteSources: []');
     expect(frameLoader).toContain("iframe.sandbox.add('allow-scripts')");
     expect(frameLoader).not.toContain('allow-same-origin');
     expect(frameLoader).not.toContain('relay.runtime.sessionRegistry.register(windowId');
     expect(frameLoader).toContain(
-      'originRegistry.register(iframe.contentWindow, windowId, identity);',
+      'originRegistry.register(win, windowId, { ...identity, permissionPrincipal: principal });',
     );
     expect(shellHost).toContain("(event.data as NappletMessage).type === 'shell.ready'");
     expect(shellHost).toContain('markEnvelopeIdentityBinding(windowId);');
@@ -335,12 +336,12 @@ describe('playground gateway artifact guard', () => {
     expect(gatewayAudit).toContain(
       "const frameLoader = read(join(repoRoot, 'apps', 'playground', 'src', 'playground-frame-loader.ts'));",
     );
-    expect(gatewayAudit).toContain("!frameLoader.includes('iframe.srcdoc = prepareNappletSrcdoc(resolved.indexHtml, {')");
+    expect(gatewayAudit).toContain("!frameLoader.includes('verifiedHtml: resolved.indexHtml,')");
     expect(gatewayAudit).toContain(
       "frameLoader.includes('const identity = Object.freeze({ dTag, aggregateHash });')",
     );
     expect(gatewayAudit).toContain(
-      "frameLoader.includes('originRegistry.register(iframe.contentWindow, windowId, identity);')",
+      "frameLoader.includes('originRegistry.register(win, windowId, { ...identity, permissionPrincipal: principal });')",
     );
     expect(gatewayAudit).toContain("!frameLoader.includes(\"iframe.sandbox.add('allow-scripts')\")");
     expect(gatewayAudit).not.toContain("!shellHost.includes('iframe.srcdoc =')");
@@ -370,7 +371,7 @@ describe('playground gateway artifact guard', () => {
     expect(resolver).toContain('injectCspMeta');
     expect(resolver).toContain('injectNappletCsp(html, { connectOrigins: origins })');
     expect(resolver).toContain("from '@kehto/shell'");
-    expect(frameLoader).toContain('prepareNappletSrcdoc');
+    expect(frameLoader).toContain('admitBrowserDocument');
     expect(frameLoader).toContain('getPlaygroundShellEnvironment(identity)');
     expect(frameLoader).toContain('environment.capabilities');
     expect(frameLoader).not.toContain("{ domains: ['shell', ...resolved.requires] }");
@@ -379,7 +380,7 @@ describe('playground gateway artifact guard', () => {
     expect(frameLoader).toContain('getMissingRequiredNaps(');
     expect(frameLoader).toContain('requires unsupported NAP capabilities');
     expect(frameLoader.indexOf('getMissingRequiredNaps(')).toBeLessThan(
-      frameLoader.indexOf('iframe.srcdoc = prepareNappletSrcdoc'),
+      frameLoader.indexOf('iframe.srcdoc = srcdoc;'),
     );
     expect(frameLoader.indexOf('getPlaygroundShellEnvironment(identity)')).toBeLessThan(
       frameLoader.indexOf('getMissingRequiredNaps('),
@@ -394,7 +395,7 @@ describe('playground gateway artifact guard', () => {
     expect(demoHooks).toContain('getPlaygroundShellEnvironment(identity: OriginIdentity)');
     expect(frameLoader).toContain('const identity = Object.freeze({ dTag, aggregateHash });');
     expect(frameLoader).toContain('const environment = getPlaygroundShellEnvironment(identity);');
-    expect(frameLoader).toContain('originRegistry.register(iframe.contentWindow, windowId, identity);');
+    expect(frameLoader).toContain('originRegistry.register(win, windowId, { ...identity, permissionPrincipal: principal });');
     expect(frameLoader).toContain('environment.capabilities');
     expect(frameLoader).not.toContain("{ domains: ['shell', ...resolved.requires] }");
     expect(demoHooks).not.toContain('shellCapabilities.naps');
@@ -408,9 +409,9 @@ describe('playground gateway artifact guard', () => {
 
     const identity = frameLoader.indexOf('const identity = Object.freeze({ dTag, aggregateHash });');
     const environment = frameLoader.indexOf('const environment = getPlaygroundShellEnvironment(identity);');
-    const registration = frameLoader.indexOf('originRegistry.register(iframe.contentWindow, windowId, identity);');
-    const registrationEnvironment = frameLoader.indexOf('originRegistry.setEnvironment(iframe.contentWindow, environment);');
-    const srcdoc = frameLoader.indexOf('iframe.srcdoc = prepareNappletSrcdoc(');
+    const registration = frameLoader.lastIndexOf('originRegistry.register(win, windowId, { ...identity, permissionPrincipal: principal });');
+    const registrationEnvironment = frameLoader.lastIndexOf('originRegistry.setEnvironment(win, info.environment);');
+    const srcdoc = frameLoader.indexOf('iframe.srcdoc = srcdoc;');
 
     expect(identity).toBeGreaterThanOrEqual(0);
     expect(environment).toBeGreaterThan(identity);
@@ -591,7 +592,7 @@ describe('playground gateway artifact guard', () => {
     expect(shellHost).toContain('initialTheme?: Theme,');
     expect(main).toContain('getPersistedPlaygroundTheme');
     expect(main).toContain('bootShell((notifications) => {');
-    expect(main).toContain('}, initialTheme, intentService);');
+    expect(main).toContain('}, initialTheme, intentService, permissionController.adapter);');
     expect(main).not.toContain("data.type === 'shell.ready'");
     expect(main).not.toContain('broadcastCurrentTheme');
     expect(preferences).toContain('initialTheme?: PlaygroundTheme;');

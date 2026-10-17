@@ -4,8 +4,10 @@
  */
 import { test, expect } from '@playwright/test';
 import { HARNESS_URL } from './helpers/harness-url.js';
+import { installPlaygroundSessionApprovals } from './helpers/index.js';
 
 test.use({ baseURL: 'http://localhost:4174' });
+test.beforeEach(async ({ page }) => installPlaygroundSessionApprovals(page));
 
 const CORS_REDIRECT_URL = `${HARNESS_URL}/resource-cors/redirect.png`;
 const CORS_FINAL_URL = `${HARNESS_URL}/resource-cors/final.png`;

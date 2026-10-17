@@ -6,6 +6,7 @@ import type {
 } from '@kehto/shell';
 
 import type { NappletInfo } from './shell-host.js';
+import type { InstalledNappletRecord } from './installed-napplet-catalog.js';
 
 const SERVICE_STATE_STORAGE_KEY = 'kehto.playground.disabledServices.v1';
 const NOTIFICATION_SERVICE_TARGETS = Object.freeze(['notifications', 'notify'] as const);
@@ -158,6 +159,15 @@ export class PlaygroundAccessControls {
       aclState.unblock(info.pubkey ?? '', info.dTag || '', info.aggregateHash || '');
     }
     aclState.persist();
+  }
+
+  /** Clear only whole-app ACL blocks for verified installed artifacts. */
+  unblockInstalled(records: readonly InstalledNappletRecord[]): { count: number; durable: boolean } {
+    const aclState = this.host.getRelay().runtime.aclState;
+    for (const record of records) {
+      aclState.unblock('', record.dTag, record.aggregateHash);
+    }
+    return { count: records.length, durable: aclState.persist() };
   }
 
   /**

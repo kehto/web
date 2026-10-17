@@ -6,8 +6,9 @@ Built-in interface dispatch requires its admission grant; LINK and declared
 service extensions also support held operation approvals. Resource/network scope
 enforcement now covers migrated service operations including filesystem, device,
 relay, upload, social, media, and local-state work. Existing Firewall
-configuration is not converted into scoped grants. Phase 114 still owns approval
-presentation, launch admission, and CSP enforcement.
+configuration is not converted into scoped grants. Paja and playground now use
+shared approval presentation and verified-frame admission; Phase 114 is still
+finishing development targets and direct-network coverage.
 
 ## Responsibilities
 
@@ -105,8 +106,10 @@ if (!permissions.isAdmissionCurrent(windowId, admission)) {
 
 The host must obtain a new provisional session for navigation/replacement. Required
 denial or unavailability prevents admission. Optional denial omits that interface.
-Unused available domains are not automatically granted; `shell` is optional under
-the checked NAP-SHELL authority. Admission accepts session/persistent positive
+Unused available domains are not automatically granted. Kehto offers the
+read-only `shell` readiness/environment control plane when it is available,
+independently of app permission grants; NAP-SHELL is optional under the checked
+upstream authority. Admission accepts session/persistent positive
 choices, never once; development sources can choose only session. The prompt's
 immutable `allowLifetimes` tells the UI which positive choices apply. Deny-once
 remains available. Startup grants do not grant resources or network destinations.
@@ -117,7 +120,8 @@ store after each decision, so concurrent frames share one visible authority.
 An admission result is an immutable host token bound to the exact source generation.
 Copies and forged results fail revalidation. Revocation, retirement, teardown, or
 ACL blocking invalidate its use. Paja's verified, local-file, and live-development
-frame loaders use this transaction; playground migration remains outstanding.
+frame loaders and the playground's verified demo/installed target loader use this
+transaction.
 
 ## Decisions, cancellation, and revocation
 

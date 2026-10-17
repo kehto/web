@@ -267,7 +267,7 @@ describe('@kehto/paja local index.html loader', () => {
     const frame = fakeFrame();
     try {
       await navigateFrame(frame as unknown as HTMLIFrameElement, config, 1, adapter, permissionRuntime, target);
-      expect(originRegistry.getEnvironment(frame.contentWindow)?.capabilities.domains).toEqual(['resource']);
+      expect(originRegistry.getEnvironment(frame.contentWindow)?.capabilities.domains).toEqual(['shell', 'resource']);
       expect(frame.srcdoc).toContain("connect-src 'none'");
       expect(frame.srcdoc).toContain('window.embedded = true');
     } finally {

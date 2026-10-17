@@ -7,6 +7,7 @@ import {
   type NappletMessage,
   type SessionEntry,
   type ShellEnvironment,
+  type PermissionAdapter,
 } from '@kehto/shell';
 import type { IntentDispatchParams, Notification } from '@kehto/services';
 import type { Theme } from '@napplet/nap/theme/types';
@@ -126,6 +127,8 @@ export interface NappletInfo {
   /** Immutable environment captured before the iframe's srcdoc is injected. */
   environment: ShellEnvironment;
   identityBound: boolean;
+  /** Abort a pending admission or retire this exact admitted source. */
+  dispose?: () => void;
 }
 
 const napplets = new Map<string, NappletInfo>();
@@ -180,11 +183,18 @@ export function closeNapplet(windowId: string): boolean {
   const info = napplets.get(windowId);
   if (!info) return false;
   resetPlaygroundIntentWindow(windowId);
+  info.dispose?.();
+  relay.runtime.destroyWindow(windowId);
   originRegistry.unregister(windowId);
   relay.runtime.sessionRegistry.unregister(windowId);
   napplets.delete(windowId);
   info.iframe.remove();
   return true;
+}
+
+/** Recover installed apps whose whole-app ACL block prevents frame admission. */
+export function unblockInstalledNapplets(): { count: number; durable: boolean } {
+  return accessControls.unblockInstalled(installedNapplets.installed());
 }
 
 /**
@@ -333,10 +343,7 @@ function replaceIntentGeneration(
   if (
     source
     && originRegistry.getWindowId(source) === info.windowId
-    && (
-      readyIntentSources.get(info.windowId) === source
-      || relay.runtime.sessionRegistry.getEntryByWindowId(info.windowId)
-    )
+    && readyIntentSources.get(info.windowId) === source
   ) {
     generation.source = source;
     generation.resolveReady();
@@ -630,6 +637,7 @@ export function bootShell(
   notificationOnChange?: (notifications: readonly Notification[]) => void,
   initialTheme?: Theme,
   intentService?: ServiceHandler,
+  permissionAdapter?: PermissionAdapter,
 ): { tap: MessageTap; relay: ShellBridge } {
   const hooks = createDemoHooks(notificationOnChange, {
     getDisabledDomains: () => accessControls.getDisabledDomains(),
@@ -640,6 +648,7 @@ export function bootShell(
     },
     onThemeBroadcast: (envelope) => relay.publishTheme(envelope.theme),
   }, initialTheme);
+  hooks.permissions = permissionAdapter;
   if (intentService) {
     // Keep the adapter object stable: each frame resolves its frozen shell
     // environment from this instance before srcdoc injection. Replacing the
@@ -684,6 +693,7 @@ export async function loadNapplet(
     napplets,
     clearIntentGeneration: resetPlaygroundIntentWindow,
     installVerifiedNapplet,
+    getRuntime: () => relay.runtime,
   }, name, containerId, options);
 }
 

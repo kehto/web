@@ -8,6 +8,7 @@ import {
   getDemoServiceNames,
   getNapplets,
   closeNapplet,
+  unblockInstalledNapplets,
   getInstalledNappletCatalog,
   getPlaygroundShellEnvironment,
   createPlaygroundIntentTargetOptions,
@@ -20,14 +21,14 @@ import {
   toggleService,
   setDemoConfigValue,
   getPlaygroundRelayActivity,
-  type LoadedNappletIdentity,
   isServiceEnabled,
 } from './shell-host.js';
 import { createCatalogIntentResolver, createIntentService } from '@kehto/services';
 import { PlaygroundIntentController } from './playground-intent-controller.js';
 import { initThemeSwitcherHost, buildHostRelaySubscribe } from './theme-switcher-host.js';
 import type { Capability } from '@kehto/shell';
-import { createConsentModal } from './consent-modal.js';
+import type { PermissionGrant, PermissionPrincipal } from '@kehto/runtime';
+import { createPlaygroundPermissionAdapter } from './playground-permission-adapter.js';
 import { classifyTappedMessagePath, type NappletDebugger } from './debugger.js';
 import {
   renderAclPanels,
@@ -90,18 +91,46 @@ const intentResolver = createCatalogIntentResolver({
 installedNapplets.onChanged((archetype) => intentResolver.notifyChanged(archetype));
 const intentService = createIntentService({ resolver: intentResolver, resolveSender: resolvePlaygroundIntentSender });
 
+function samePrincipal(left: PermissionPrincipal, right: PermissionPrincipal): boolean {
+  return left.kind === right.kind && left.artifactHash === right.artifactHash
+    && (left.kind === 'verified'
+      ? right.kind === 'verified' && left.manifestKey === right.manifestKey
+      : right.kind === 'development' && left.target === right.target);
+}
+
+function retireRevokedFrames(grant: PermissionGrant): void {
+  for (const [windowId] of getNapplets()) {
+    const principal = relay.runtime.sessionRegistry.getEntryByWindowId(windowId)?.permissionPrincipal;
+    if (principal && samePrincipal(principal, grant.principal)) closeNapplet(windowId);
+  }
+}
+
+const permissionMount = document.getElementById('firewall-grants');
+if (!permissionMount) throw new Error('Playground Firewall grant mount is unavailable');
+const permissionController = createPlaygroundPermissionAdapter({
+  mount: permissionMount,
+  getPermissions: () => relay?.runtime.permissions,
+  onGrantRevoked: retireRevokedFrames,
+});
+
 const { tap } = bootShell((notifications) => {
   notificationUi.controller.handleServiceChange(notifications);
-}, initialTheme, intentService);
+}, initialTheme, intentService, permissionController.adapter);
+permissionController.ui.refresh();
+document.getElementById('acl-unblock-installed-btn')?.addEventListener('click', () => {
+  const result = unblockInstalledNapplets();
+  if (result.durable) window.location.reload();
+  else {
+    const status = document.getElementById('acl-unblock-status');
+    if (status) status.textContent = 'ACL storage failed; blocks are cleared only for this page. Retry before reloading.';
+  }
+});
 
 const notificationHandler = getNotificationServiceHandler();
 if (notificationHandler) {
   notificationUi.controller.connectService(notificationHandler);
 }
 
-createConsentModal().registerWith(relay, (request) => {
-  setTimeout(() => request.resolve(true), 500);
-});
 initRelayActivityPanel(getPlaygroundRelayActivity);
 
 const topology = buildDemoTopology(getDemoTopologyInputs());
@@ -219,14 +248,8 @@ function handleLoadedNapplet(): void {
   }, 0);
 }
 
-// No pre-render grants needed: resource-demo origin allowlist is sourced from
-// STATIC_ORIGIN_ALLOWLIST in the frame loader.
-function pregrantBeforeRender(_identity: LoadedNappletIdentity): void { return; }
-
 for (const napplet of DEMO_NAPPLETS) {
-  void loadNapplet(napplet.name, napplet.frameContainerId, {
-    beforeRender: pregrantBeforeRender,
-  }).then(() => {
+  void loadNapplet(napplet.name, napplet.frameContainerId).then(() => {
     handleLoadedNapplet();
   }).catch((err) => {
     const statusEl = document.getElementById(napplet.statusId);

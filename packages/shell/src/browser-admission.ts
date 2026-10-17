@@ -92,6 +92,11 @@ export async function admitBrowserDocument(request: BrowserAdmissionRequest): Pr
     omittedOptional.push({ domain, reason: 'direct-network-excludes-resource' });
     return false;
   }) : request.optional;
+  // NAP-SHELL at master 19de5ce1 is an optional, read-only host control plane.
+  // Kehto offers it when available for its ready/init lifecycle; it is not an
+  // application privilege inferred from a manifest declaration or a grant.
+  const offersShell = request.available.includes('shell');
+  if (!offersShell && request.required.includes('shell')) return failed('denied', ['shell']);
   if (request.signal?.aborted || !request.isCurrentSource()) return failed('cancelled');
 
   runtime.sessionRegistry.register(entry.windowId, entry);
@@ -116,18 +121,22 @@ export async function admitBrowserDocument(request: BrowserAdmissionRequest): Pr
   request.signal?.addEventListener('abort', retire, { once: true });
   try {
     const admission = await permissions.admit(entry.windowId, {
-      available: request.available, required: request.required, optional,
+      available: request.available,
+      required: request.required.filter((domain) => domain !== 'shell'),
+      optional: optional.filter((domain) => domain !== 'shell'),
       launchRequirements: remote.requirements,
     });
     if (admission.status !== 'admitted') {
       retire();
       return failed(admission.status, admission.deniedRequired);
     }
+    const domains = offersShell && !admission.domains.includes('shell')
+      ? ['shell', ...admission.domains] : admission.domains;
     const mode: BrowserLaunchMode = direct ? 'direct-network'
-      : admission.domains.includes('resource') ? 'mediated-resource' : 'isolated';
+      : domains.includes('resource') ? 'mediated-resource' : 'isolated';
     const csp = buildApprovedNappletCsp({ mode, remoteSources: remote.sources });
     const srcdoc = insertNappletHead(request.verifiedHtml,
-      cspMeta(csp) + renderNappletNamespacePrelude({ domains: admission.domains }));
+      cspMeta(csp) + renderNappletNamespacePrelude({ domains }));
     unsubscribe = permissions.subscribeInvalidation(() => {
       if (!permissions.isAdmissionCurrent(entry.windowId, admission) || !request.isCurrentSource()) retire();
     });
@@ -138,7 +147,7 @@ export async function admitBrowserDocument(request: BrowserAdmissionRequest): Pr
       return failed('cancelled');
     }
     const result: BrowserAdmissionCommit = {
-      windowId: entry.windowId, domains: admission.domains, mode, csp, omittedOptional,
+      windowId: entry.windowId, domains, mode, csp, omittedOptional,
     };
     committed = true;
     const commitResult: unknown = request.commit(srcdoc, result);
