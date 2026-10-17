@@ -1,5 +1,6 @@
 import { verifyBlobHash } from '@kehto/nip/5d';
 import {
+  ResourceAuthorizationError,
   ResourceServiceError,
   type ResourceInfo,
   type ResourceServiceOptions,
@@ -125,6 +126,8 @@ async function fetchNetworkResource(
         headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: destination }),
       }));
     } catch (error: unknown) {
+      if ((error instanceof ResourceServiceError && error.code === 'blocked-by-policy')
+        || error instanceof ResourceAuthorizationError) throw error;
       if (init.signal.aborted || isAbortError(error)) throw error;
       throw new ResourceServiceError('network-error', error instanceof Error ? error.message : String(error));
     }
@@ -182,17 +185,28 @@ async function fetchBlossomResource(
   let lastNetworkMessage = 'all accepted Blossom servers failed';
   for (const server of servers) {
     if (init.signal.aborted) throw new DOMException('Resource request cancelled', 'AbortError');
-    const resourceUrl = `${server}/${expectedHash}${parsed.extension ? `.${parsed.extension}` : ''}`;
+    let resourceUrl = `${server}/${expectedHash}${parsed.extension ? `.${parsed.extension}` : ''}`;
     let response: Response;
     try {
       if (!init.authorizeNetwork) {
         throw new ResourceServiceError('blocked-by-policy', 'Paja resource network approval is unavailable');
       }
-      response = await init.authorizeNetwork(resourceUrl, (signal) => fetcher('/__kehto/resource', {
-        method: 'POST', signal, credentials: 'same-origin',
-        headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: resourceUrl }),
-      }));
+      for (let hops = 0; ; hops += 1) {
+        response = await init.authorizeNetwork(resourceUrl, (signal) => fetcher('/__kehto/resource', {
+          method: 'POST', signal, credentials: 'same-origin', redirect: 'manual',
+          headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: resourceUrl }),
+        }));
+        if (response.headers.get('x-kehto-resource-redirect') !== '1') break;
+        const redirect = await response.json() as { location?: unknown };
+        if (typeof redirect.location !== 'string' || hops === 5) {
+          throw new ResourceServiceError('network-error', 'resource redirect limit exceeded');
+        }
+        try { resourceUrl = new URL(redirect.location, resourceUrl).href; }
+        catch { throw new ResourceServiceError('network-error', 'resource proxy returned an invalid redirect'); }
+      }
     } catch (error: unknown) {
+      if ((error instanceof ResourceServiceError && error.code === 'blocked-by-policy')
+        || error instanceof ResourceAuthorizationError) throw error;
       if (init.signal.aborted || isAbortError(error)) throw error;
       foundInconclusive = true;
       lastNetworkMessage = error instanceof Error ? error.message : String(error);

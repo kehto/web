@@ -28,7 +28,9 @@ export async function authorizeResource<T>(runtime: ServiceRuntimeContext | unde
     const abort = () => controller.abort();
     approval.addEventListener('abort', abort, { once: true });
     if (approval.aborted) abort();
-    const authorizeNetwork: AuthorizeNetwork = async (destination, run) => {
+    const pendingNetworkOperations = new Set<() => void>();
+    const activeNetworkOrigins = new Map<string, Promise<AbortSignal>>();
+    const authorizeNetwork: AuthorizeNetwork = async <U>(destination: string, run: (signal: AbortSignal) => Promise<U>): Promise<U> => {
       let origin: string;
       try {
         const parsed = new URL(destination);
@@ -37,25 +39,85 @@ export async function authorizeResource<T>(runtime: ServiceRuntimeContext | unde
       } catch {
         throw new Error('invalid network destination');
       }
+      // Reuse a live approval for a second hop to the same origin within this
+      // one resource operation. The approval coordinator serializes equal
+      // requests, so opening another held operation here would deadlock a
+      // same-origin redirect before it reaches its transport callback.
+      const activeSignal = activeNetworkOrigins.get(origin);
+      if (activeSignal) {
+        const signal = await activeSignal;
+        if (signal.aborted) throw new ResourceAuthorizationError('resource network permission unavailable or denied');
+        return run(signal);
+      }
       const networkController = new AbortController();
-      const abortNetwork = () => networkController.abort();
+      const abortNetwork = () => {
+        networkController.abort();
+        // A revoked network grant invalidates the resource operation even when
+        // the resolver returned response headers before its body was consumed.
+        // This also prevents a resolver that ignores AbortSignal from producing
+        // a late resource terminal.
+        controller.abort();
+      };
       controller.signal.addEventListener('abort', abortNetwork, { once: true });
-      const outcome = await runtime.authorizeOperation!(windowId, 'resource.network', [{
+      let release: (() => void) | undefined;
+      let resolveActiveSignal: ((signal: AbortSignal) => void) | undefined;
+      let rejectActiveSignal: ((reason: unknown) => void) | undefined;
+      const activeSignalReady = new Promise<AbortSignal>((resolve, reject) => {
+        resolveActiveSignal = resolve;
+        rejectActiveSignal = reject;
+      });
+      // The first caller may be the only waiter; keep a rejection from a
+      // denied prompt observable to later callers without making it unhandled.
+      void activeSignalReady.catch(() => {});
+      activeNetworkOrigins.set(origin, activeSignalReady);
+      const outcome = runtime.authorizeOperation!(windowId, 'resource.network', [{
         category: 'network', domain: 'resource', operation: 'resource.network',
         scope: { kind: 'origin', value: origin },
-      }], async (approved) => {
+      }], async (approved): Promise<void> => {
         approved.addEventListener('abort', abortNetwork, { once: true });
         if (approved.aborted) abortNetwork();
-        try { return await run(networkController.signal); }
-        finally { approved.removeEventListener('abort', abortNetwork); }
+        try {
+          if (networkController.signal.aborted) {
+            throw new ResourceAuthorizationError('resource network permission unavailable or denied');
+          }
+          resolveActiveSignal!(networkController.signal);
+          // Keep the approval alive independently from any one transport
+          // callback: same-origin redirects and parallel resolver work share
+          // this lease until the enclosing resource operation completes.
+          await new Promise<void>((resolve) => { release = resolve; });
+        } finally {
+          approved.removeEventListener('abort', abortNetwork);
+        }
       }, controller.signal);
-      controller.signal.removeEventListener('abort', abortNetwork);
-      if (outcome.status !== 'executed') {
-        throw new ResourceAuthorizationError('resource network permission unavailable or denied');
-      }
-      return outcome.value;
+      const releaseNetwork = () => {
+        pendingNetworkOperations.delete(releaseNetwork);
+        activeNetworkOrigins.delete(origin);
+        release?.();
+      };
+      pendingNetworkOperations.add(releaseNetwork);
+      void outcome.then((value) => {
+        if (value.status !== 'executed') {
+          const error = new ResourceAuthorizationError('resource network permission unavailable or denied');
+          rejectActiveSignal!(error);
+        }
+      }).catch((error: unknown) => {
+        rejectActiveSignal!(error);
+      }).finally(() => {
+        // Coordinator cancellation settles its race before a resolver that
+        // ignores AbortSignal returns. Release the held callback here as well
+        // as at normal resource completion so it cannot linger indefinitely.
+        releaseNetwork();
+        controller.signal.removeEventListener('abort', abortNetwork);
+      });
+      const signal = await activeSignalReady;
+      if (signal.aborted) throw new ResourceAuthorizationError('resource network permission unavailable or denied');
+      return run(signal);
     };
     try { return await execute(controller.signal, authorizeNetwork); }
-    finally { approval.removeEventListener('abort', abort); }
+    finally {
+      controller.abort();
+      for (const releaseNetwork of pendingNetworkOperations) releaseNetwork();
+      approval.removeEventListener('abort', abort);
+    }
   }, signal);
 }

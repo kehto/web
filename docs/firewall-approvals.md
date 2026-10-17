@@ -223,7 +223,7 @@ Resolvers must call `init.authorizeNetwork(destination, execute)` before every
 actual HTTP(S) contact. That callback runs under a distinct origin requirement,
 including each proxy-reported redirect hop, and its signal covers connection and
 body reading. Paja's local proxy adds DNS-time address screening and pinned
-connections; see [Paja resource proxy policy](../../docs/policies/RESOURCE-PROXY.md).
+connections; see [Paja resource proxy policy](https://github.com/kehto/web/blob/main/docs/policies/RESOURCE-PROXY.md).
 
 This host-side boundary does not isolate unrestricted iframe subresource or direct
 network access. Phase 114 must close frame admission/CSP isolation before any

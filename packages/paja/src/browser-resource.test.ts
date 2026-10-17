@@ -743,6 +743,34 @@ describe('Paja resource backend', () => {
     await expect(response.text()).resolves.toBe('redirected bytes');
   });
 
+  it('re-authorizes each proxy redirect hop while resolving Blossom bytes', async () => {
+    const bytes = new TextEncoder().encode('verified redirect resource');
+    const hash = await sha256Hex(bytes);
+    const fetchFn = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: 307, location: 'https://mirror.example/asset' }), {
+        headers: { 'x-kehto-resource-redirect': '1', 'content-type': 'application/json' },
+      }))
+      .mockResolvedValueOnce(new Response(bytes));
+    const destinations: string[] = [];
+    const response = await createPajaResourceFetch({
+      getBlossomServers: () => ['https://blossom.example'], fetch: fetchFn,
+    })(`blossom:${hash}`, {
+      signal: new AbortController().signal,
+      authorizeNetwork: async (destination, execute) => {
+        destinations.push(destination);
+        return execute(new AbortController().signal);
+      },
+    });
+
+    expect(destinations).toEqual([
+      `https://blossom.example/${hash}`,
+      'https://mirror.example/asset',
+    ]);
+    expect(fetchFn).toHaveBeenNthCalledWith(1, '/__kehto/resource', expect.objectContaining({ redirect: 'manual' }));
+    expect(fetchFn).toHaveBeenNthCalledWith(2, '/__kehto/resource', expect.objectContaining({ redirect: 'manual' }));
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes);
+  });
+
   it('maps browser CORS rejection to the canonical network error', async () => {
     const fetchResource = createPajaResourceFetch({
       fetch: vi.fn(async () => { throw new TypeError('Failed to fetch'); }),

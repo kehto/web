@@ -97,6 +97,7 @@ export type {
 } from './config-service.js';
 
 export { createResourceService, ResourceServiceError } from './resource-service.js';
+export { ResourceAuthorizationError } from './resource-authorization.js';
 export type { AuthorizeNetwork } from './resource-authorization.js';
 export type {
   ResourceErrorCode,

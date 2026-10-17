@@ -368,22 +368,35 @@ Valid saves apply to subsequent Blossom requests across all running tabs,
 without reloading their frames. The list persists in the host origin's
 `localStorage`; if storage fails, it remains usable **session-only**, and the
 status warns that an older saved list may return after reload. Extras are
-appended after existing request/event/user/window/configured defaults. The
+appended after existing URI/event/user/window/configured defaults. The
 combined eight-server cap remains: extras may not be reached if earlier
 candidates fill it. This setting does not change upload destinations,
 per-napplet NAP-CONFIG, initial pointer/artifact loading, direct HTTP(S) resource
-URLs, or napplet CSP/network grants. Browser CORS and the DNS limitation below
-still apply.
+URLs, or napplet CSP/network grants. Each actual HTTP(S) destination still
+requires authorization and must pass the proxy address policy below.
 
-Paja's developer-runtime policy accepts arbitrary `http:` and `https:` resource
-URLs so a normal remote image does not look broken merely because its origin was
-not pre-granted. Paja resolves those URLs with browser `fetch`, omits credentials
-and referrer data, caps responses at 10 MiB, and classifies MIME from returned
-bytes. Its byte classifier recognizes checksum-valid Game Boy ROM headers as
-`application/vnd.nintendo.gb-rom`; it never trusts a server-supplied media type.
-Browser network and CORS rules still apply: an unreadable response is the
-canonical `network-error`. HTTP(S) and locally decoded `data:` bytes must have a
-recognized type; opaque invalid-UTF-8 or NUL-bearing binary remains rejected.
+Paja resolves HTTP(S) resources through its protected, same-origin
+`POST /__kehto/resource` endpoint. The resource request and each actual network
+destination have separate authorization requirements; an interface grant or
+Blossom server hint grants neither. The resolver requires the request-bound
+network authorization callback and refuses network access when it is absent.
+The proxy validates its host, main-frame Origin, JSON POST, and server-instance
+HttpOnly cookie before DNS. It pins a permitted public address to the connection,
+preserves TLS hostname checks, omits upstream credentials/referrer, and bounds
+responses to 10 MiB and 30 seconds. Private, loopback, and other blocked
+special-purpose addresses are rejected, including development loopback targets.
+
+Redirects return metadata to the trusted resolver instead of redirecting the
+browser. The resolver permits at most five hops, authorizes each destination,
+and repeats the proxy's DNS/address checks. Cancelling the host request aborts
+upstream work. Remote resource responses no longer depend on allowing the opaque
+iframe origin through upstream CORS. See the [resource proxy policy](../../docs/policies/RESOURCE-PROXY.md)
+for caller checks, address policy, deadlines, and regression coverage.
+
+Paja classifies returned bytes itself. Its classifier recognizes checksum-valid
+Game Boy ROM headers as `application/vnd.nintendo.gb-rom`; upstream media types
+never establish the result MIME. HTTP(S) and locally decoded `data:` bytes must
+have a recognized type; opaque invalid-UTF-8 or NUL-bearing binary remains rejected.
 Only capped, SHA-256-verified canonical Blossom resources may return unknown
 opaque bytes as `application/octet-stream`. Recognized formats retain their
 sniffed MIME. SVG, HTML, XML and script prefixes remain blocked, even with NUL or
@@ -408,8 +421,7 @@ invalid/private literals, and deduplicates them. Unlike BUD-10's suggested HTTP
 retry, URI hints never enable public HTTP. For a Blossom URL
 previously returned to the same napplet window by `outbox.getEvent`,
 `outbox.query`, or `outbox.subscribe`, Paja retains bounded event context
-without prefetching bytes. Resolution tries explicit request servers, URI `xs`,
-and event-local server hints first, then lazily queries URI `as`, event-hinted authors' and the
+without prefetching bytes. Resolution tries URI `xs` and event-local server hints first, then lazily queries URI `as`, event-hinted authors' and the
 event publisher's newest BUD-03 kind `10063` lists through the verified
 NIP-65-aware OUTBOX router, then queries the active shell user's BUD-03 list
 through that same router, then uses the current window's verified
@@ -435,26 +447,30 @@ public author lists reuse five-minute cache/single-flight lookups, with incomple
 requires lowercase hashes and an extension (default `.bin`) for emitted references.
 Extensionless reads, mixed-case hashes, and the `sha256:` alias are deliberately
 retained local compatibility, not a full BUD-10 conformance claim. Upload URI
-generation is unchanged. Paja refuses redirects, verifies SHA-256 and byte MIME,
-and permits plain-HTTP
-transport only for configured loopback development defaults. Browser-only Paja
-cannot pin DNS results, so production runtimes must add the draft's DNS-time
-private-address checks. The current
-[NAP-RESOURCE draft at `fa6bcc6`](https://github.com/napplet/naps/blob/fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1/naps/NAP-RESOURCE.md)
-was rechecked for this MIME policy against PR #80's exact head. The opaque
-fallback preserves byte sniffing, hash verification, complete Blob delivery,
-ordered independent bulk results, and the prohibition on raw SVG delivery.
-This is bounded conformance, not full draft compliance: existing developer HTTP
-policy, DNS enforcement, SVG rejection instead of rasterization, and request
-server-hint differences remain outside this change. The draft defines no
-wire-level Blossom server-hint field. Retaining verified manifest servers per
-window is therefore Paja host policy, informed by the current
-[NIP-5D draft at `24711d9`](https://github.com/nostr-protocol/nips/blob/24711d9c47bbdd07908bf1d52bf677d9cbc530f0/5D.md),
-which defines manifest `server` tags. The existing request-server compatibility
-path comes from the earlier NAP-RESOURCE draft at `9511232`, with the merged package implementation
-[`napplet/web#206@19e0029b`](https://github.com/napplet/web/pull/206) released as
-`@napplet/core`/`@napplet/nap` 0.32.0, `@napplet/shim` 0.30.0, and
-`@napplet/sdk` 0.28.0. Publisher discovery follows
+generation is unchanged. Paja verifies SHA-256 and byte MIME after authorized
+proxy retrieval. The checked [NAP-RESOURCE draft at `ae5b9c6`](https://github.com/napplet/naps/blob/ae5b9c64ab8a4d8909f288829a01e99d6bd713bc/naps/NAP-RESOURCE.md)
+uses canonical `id` correlation, a single `url` or ordered `urls` list, and padded
+RFC 4648 base64 wire bytes. The injected web API converts verified wire bytes to
+`Blob` values; a JavaScript `Blob` is not the wire payload. Per-item bulk outcomes
+preserve input order. The old `requestId` input, object-form `requests` list, and
+wire-level `servers` hint have been retired from this contract. Use URI hints or
+host-owned resolver configuration for Blossom discovery. See
+[`RESOURCE_FIELDS` in the compatibility register](../../docs/compatibility.md).
+
+Verified manifest servers remain source-scoped Paja host policy under the
+[NIP-5D draft at `5560820`](https://github.com/dskvr/nips/blob/5560820fa4f37f45b8ab742a11aeb3001b17dc67/5D.md).
+Neither those hints nor stored extra servers grant iframe network authority.
+
+**Integration prerequisite:** Phase 114 must finish app admission and iframe
+network isolation before this migration can claim end-to-end resource protection.
+NAP-RESOURCE requires direct-network denial before exposing `resource`, including
+remote script, image, style, font, and worker paths as well as `connect-src`.
+The proxy and service approval checks alone do not stop a frame with permissive
+CSP from contacting remote servers. Explicit direct-network frames must use the
+compatible interface set defined by that host policy; required interfaces cannot
+be silently dropped. SVG rejection rather than rasterization and the retained
+Blossom URI aliases are also bounded host behavior, not a claim of complete draft
+conformance. Publisher discovery follows
 [Blossom BUD-03 at `b5bd280`](https://github.com/hzrd149/blossom/blob/b5bd2801d1763aa635fc8fea7a76597e0eb18990/buds/03.md).
 
 Full package docs: [`docs/packages/paja.md`](../../docs/packages/paja.md).

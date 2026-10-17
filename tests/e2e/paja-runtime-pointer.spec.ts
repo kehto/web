@@ -19,6 +19,7 @@ const classOneSuffix = "worker-src 'none'; child-src 'none'; frame-src 'none'; m
 interface PointerServer {
   readonly url: string;
   readonly blobs: Map<string, Buffer>;
+  readonly resourceRequests: string[];
   setConfig(config: PajaHostConfig): void;
   close(): Promise<void>;
 }
@@ -457,6 +458,7 @@ for (const blockedStorage of [false, true]) {
     const hash = createHash('sha256').update(bytes).digest('hex');
     const fixture = createPointerFixture(server.url, 'resource-settings-target', resourceSettingsHtml(hash), ['resource']);
     server.blobs.set(fixture.hash, fixture.bytes);
+    server.blobs.set(hash, bytes);
     server.setConfig({
       ...createPajaRuntimeHostConfig({ pointer: fixture.pointer, maxWaitMs: 2_000 }),
       simulation: normalizePajaSimulation({ relay: { mode: 'live', urls: ['wss://intent-fixture.example'] } }),
@@ -521,14 +523,15 @@ for (const blockedStorage of [false, true]) {
       const frame = page.frameLocator('iframe');
       await frame.locator('#read').click();
       await expect(frame.locator('#result')).toHaveText('verified browser resource bytes');
-      expect(fetched).toEqual([`https://extra.example/${hash}`]);
+      expect(fetched).toEqual([]);
+      expect(server.resourceRequests).toEqual([`https://extra.example/${hash}`]);
       await input.fill('valid.example\nhttp://private.example');
       await save.click();
       await expect(status).toContainText('Line 2:');
       await expect(input).toHaveAttribute('aria-invalid', 'true');
       await frame.locator('#read').click();
       await expect(frame.locator('#count')).toHaveText('2');
-      expect(fetched.at(-1)).toBe(`https://extra.example/${hash}`);
+      expect(server.resourceRequests.at(-1)).toBe(`https://extra.example/${hash}`);
       expect(await snapshot()).toEqual(original);
       if (!blockedStorage) {
         await page.reload();
@@ -541,15 +544,16 @@ for (const blockedStorage of [false, true]) {
       await expect(input).toHaveAttribute('aria-invalid', 'false');
       await frame.locator('#read').click();
       await expect(frame.locator('#result')).toHaveText('verified browser resource bytes');
-      await expect.poll(() => fetched.at(-1)).toBe(`https://replacement.example/${hash}`);
+      await expect.poll(() => server.resourceRequests.at(-1)).toBe(`https://replacement.example/${hash}`);
       expect(await snapshot()).toEqual(restored);
       await input.fill('');
       await save.click();
       await expect(status).toContainText(blockedStorage ? 'session-only' : 'cleared from this host origin');
-      const beforeClearRead = fetched.length;
+      const beforeClearRead = server.resourceRequests.length;
       await frame.locator('#read').click();
       await expect(frame.locator('#result')).toHaveText('blocked-by-policy');
-      expect(fetched).toHaveLength(beforeClearRead);
+      expect(fetched).toEqual([]);
+      expect(server.resourceRequests).toHaveLength(beforeClearRead);
       expect(await snapshot()).toEqual(restored);
       for (const width of [1280, 390]) {
         await page.setViewportSize({ width, height: 900 });
@@ -590,6 +594,7 @@ function resourceSettingsHtml(hash: string): string {
 async function startPointerServer(): Promise<PointerServer> {
   const browserHost = readFileSync(new URL('../../packages/paja/dist/browser-host.js', import.meta.url), 'utf8');
   const blobs = new Map<string, Buffer>();
+  const resourceRequests: string[] = [];
   let config = createPajaRuntimeHostConfig();
   const server = createServer((request, response) => {
     const path = new URL(request.url ?? '/', 'http://localhost').pathname;
@@ -606,6 +611,26 @@ async function startPointerServer(): Promise<PointerServer> {
     if (path === '/__kehto/browser-host.js') {
       response.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8' });
       response.end(browserHost);
+      return;
+    }
+    if (path === '/__kehto/resource' && request.method === 'POST') {
+      const chunks: Buffer[] = [];
+      request.on('data', (chunk: Buffer) => chunks.push(chunk));
+      request.on('end', () => {
+        try {
+          const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as { url?: unknown };
+          const destination = typeof body.url === 'string' ? new URL(body.url) : null;
+          if (destination) resourceRequests.push(destination.href);
+          const proxyMatch = destination && /^\/(?:blossom\/)?([0-9a-f]{64})$/.exec(destination.pathname);
+          const proxyBlob = proxyMatch ? blobs.get(proxyMatch[1]!) : undefined;
+          if (!proxyBlob) throw new Error('resource fixture not found');
+          response.writeHead(200, { 'content-type': 'application/octet-stream' });
+          response.end(proxyBlob);
+        } catch {
+          response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
+          response.end('Not found');
+        }
+      });
       return;
     }
     const match = /^\/blossom\/([0-9a-f]{64})$/.exec(path);
@@ -634,6 +659,7 @@ async function startPointerServer(): Promise<PointerServer> {
   return {
     url: `http://127.0.0.1:${address.port}/`,
     blobs,
+    resourceRequests,
     setConfig(nextConfig) {
       config = nextConfig;
     },
