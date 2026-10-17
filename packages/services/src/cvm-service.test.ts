@@ -116,7 +116,7 @@ describe('createCvmService', () => {
 
       expect(authorizeOperation).toHaveBeenCalledWith(WINDOW, 'cvm.request', expect.arrayContaining([
         expect.objectContaining({ category: 'interface', domain: 'cvm', operation: 'access' }),
-        expect.objectContaining({ category: 'network', domain: 'cvm', operation: 'cvm.request', scope: { kind: 'exact', value: 'wss://relay.example' } }),
+        expect.objectContaining({ category: 'network', domain: 'cvm', operation: 'cvm.request', scope: { kind: 'origin', value: 'wss://relay.example' } }),
       ]), expect.any(Function));
       expect(transport.request).toHaveBeenCalledTimes(1);
       expect(sent).toEqual([expect.objectContaining({ type: 'cvm.request.result', id: 'approved' })]);

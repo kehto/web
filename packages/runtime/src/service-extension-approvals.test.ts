@@ -18,7 +18,8 @@ function deferred<T>() {
 }
 async function flush() { await new Promise<void>((resolve) => setTimeout(resolve, 0)); }
 
-function fixture(overrides: Partial<PermissionAdapter> = {}, changes: Partial<ServiceHandler> = {}) {
+function fixture(overrides: Partial<PermissionAdapter> = {}, changes: Partial<ServiceHandler> = {},
+  domainAllowed: (domain: string) => boolean = () => true) {
   const prompt = vi.fn(async (): Promise<ApprovalAnswer> => ({ effect: 'allow', lifetime: 'session' }));
   const handler: ServiceHandler = {
     descriptor: { name: 'example', version: '1' },
@@ -26,7 +27,7 @@ function fixture(overrides: Partial<PermissionAdapter> = {}, changes: Partial<Se
     handleMessage: vi.fn((_windowId, msg, send) => send({ type: 'example.result', id: (msg as { id: string }).id } as NappletMessage)),
     ...changes,
   };
-  const adapter = createMockRuntimeAdapter({ services: { example: handler }, isDomainAllowed: () => true,
+  const adapter = createMockRuntimeAdapter({ services: { example: handler }, isDomainAllowed: (_windowId, domain) => domainAllowed(domain),
     permissions: { prompt, now: () => 0, createCancellation: () => new AbortController(),
       schedule: (callback, delay) => { const timer = setTimeout(callback, delay); return () => clearTimeout(timer); }, ...overrides },
   });
@@ -39,6 +40,20 @@ function fixture(overrides: Partial<PermissionAdapter> = {}, changes: Partial<Se
 }
 
 describe('registered extension scoped approvals', () => {
+  it('checks interface availability without treating resource and network scopes as injected NAP domains', async () => {
+    let context!: ServiceRuntimeContext;
+    const f = fixture({}, { onRegistered: (value) => { context = value; } }, (domain) => domain === 'example');
+    const action = vi.fn(() => 'executed');
+    const result = await context.authorizeOperation!('window', 'example.run', [
+      { category: 'interface', domain: 'example', operation: 'access', scope: { kind: 'exact', value: 'example' } },
+      { category: 'resource', domain: 'filesystem', operation: 'filesystem.read', scope: { kind: 'exact', value: 'file:one' } },
+      { category: 'network', domain: 'network', operation: 'network.connect', scope: { kind: 'origin', value: 'https://service.example' } },
+    ], action);
+    expect(result).toEqual({ status: 'executed', value: 'executed' });
+    expect(action).toHaveBeenCalledOnce();
+    f.runtime.destroy();
+  });
+
   it('propagates service request cancellation through the runtime without granting a late answer', async () => {
     const answer = deferred<ApprovalAnswer>();
     const shown = deferred<ApprovalPrompt>();

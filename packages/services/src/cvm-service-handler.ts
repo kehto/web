@@ -185,7 +185,7 @@ export function createCvmServiceHandler(options: CvmServiceOptions): CvmService 
     return [
       { category: 'interface' as const, domain: 'cvm', operation: 'access', scope: { kind: 'exact' as const, value: 'cvm' } },
       ...(server ? [{ category: 'resource' as const, domain: 'cvm', operation, scope: { kind: 'exact' as const, value: `cvm:server:${server.pubkey}` } }] : []),
-      ...relays.map((relay) => ({ category: 'network' as const, domain: 'cvm', operation, scope: { kind: 'exact' as const, value: relay } })),
+      ...relays.map((relay) => ({ category: 'network' as const, domain: 'cvm', operation, scope: { kind: 'origin' as const, value: relay } })),
     ];
   }
   async function authorize<T>(windowId: string, generation: symbol, operation: 'cvm.discover' | 'cvm.request', relays: readonly string[], server: CvmServerRef | undefined, execute: (signal?: ApprovalSignal) => Promise<T>): Promise<T> {

@@ -426,7 +426,8 @@ function createRuntimePermissions(
       const entry = sessionRegistry.getEntryByWindowId(windowId);
       if (!entry || aclState.isBlocked('', entry.dTag, entry.aggregateHash)) return false;
       return requirements.every((requirement) => {
-        if (phase === 'operation' && hooks.isDomainAllowed && !hooks.isDomainAllowed(windowId, requirement.domain)) return false;
+        if (phase === 'operation' && requirement.category === 'interface'
+          && hooks.isDomainAllowed && !hooks.isDomainAllowed(windowId, requirement.domain)) return false;
         if (requirement.category === 'interface') return true;
         const capability = resolveCapabilitiesNap({ type: requirement.operation }).senderCap;
         return !capability || aclState.check('', entry.dTag, entry.aggregateHash, capability as Capability);
