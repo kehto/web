@@ -292,21 +292,33 @@ function createDevServices(
   }
 
   if (getSimulation().capabilities.domains.identity) {
-    let syntheticSigner: Signer | null = null;
-    let syntheticSignerKey = '';
+    let identitySigner: Signer | null = null;
+    let identitySignerKey = '';
     services.identity = createIdentityService({
       getSigner: () => {
         const connectedSigner = signerProvider?.getSigner();
-        if (connectedSigner) return connectedSigner;
-        // The identity service rejects an async result if its signer instance
-        // changes. Keep Paja's simulated signer stable for one account.
         const simulation = getSimulation();
-        const key = `${signerProvider?.getMethod() ?? 'none'}:${simulation.identity.mode}:${simulation.identity.pubkey}`;
-        if (!syntheticSigner || key !== syntheticSignerKey) {
-          syntheticSigner = createRuntimeSigner(getSimulation, confirmRequest, signerProvider);
-          syntheticSignerKey = key;
+        const key = [
+          signerProvider?.getMethod() ?? 'none',
+          signerProvider?.getPubkey() ?? '',
+          connectedSigner ? 'connected' : 'simulated',
+          simulation.identity.mode,
+          simulation.identity.pubkey,
+        ].join(':');
+        if (!identitySigner || key !== identitySignerKey) {
+          // The identity service suppresses an async result after its signer
+          // instance changes. Paja's NIP-07 and simulated adapters may create
+          // a fresh wrapper on each lookup, so bind one read-only facade to
+          // the current account while resolving the live provider per read.
+          identitySigner = connectedSigner && signerProvider
+            ? {
+                getPublicKey: () => signerProvider.getSigner()?.getPublicKey?.() ?? '',
+                getRelays: () => signerProvider.getSigner()?.getRelays?.() ?? {},
+              }
+            : createRuntimeSigner(getSimulation, confirmRequest, signerProvider);
+          identitySignerKey = key;
         }
-        return syntheticSigner;
+        return identitySigner;
       },
       getFollows: socialCache.getFollows,
     });
