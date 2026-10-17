@@ -4,6 +4,38 @@ import type { PermissionRequirement } from '@kehto/firewall';
 import type { ApprovalFailure, ApprovalOutcome, ApprovalSignal } from './approval-coordinator.js';
 import type { ServiceDescriptor } from './types.js';
 
+/** Immutable, internal relay destination decision made before approval. */
+export interface RelayOperationPlan {
+  /** Canonical top-level operation that owns this decision. */
+  readonly operation: 'subscribe' | 'query' | 'publish' | 'publishEncrypted';
+  /** Normalized, deduplicated relay origins; never serialized on the NAP wire. */
+  readonly relayUrls: readonly string[];
+  /** True when execution only reads host-local data and opens no relay transport. */
+  readonly localOnly: boolean;
+}
+
+/**
+ * Relay service contract used by the runtime's plan/approve/execute boundary.
+ * Planning must have no cache, socket, signer, or callback side effect.
+ */
+export interface RelayPlanningServiceHandler extends ServiceHandler {
+  planRelayOperation(windowId: string, message: NappletMessage): RelayOperationPlan;
+  executeRelayOperation(
+    windowId: string,
+    message: NappletMessage,
+    plan: RelayOperationPlan,
+    signal: ApprovalSignal,
+    send: (message: NappletMessage) => void,
+  ): void;
+}
+
+/** Narrow runtime check for the explicit relay planning contract. */
+export function isRelayPlanningServiceHandler(value: ServiceHandler | undefined): value is RelayPlanningServiceHandler {
+  return !!value
+    && typeof (value as Partial<RelayPlanningServiceHandler>).planRelayOperation === 'function'
+    && typeof (value as Partial<RelayPlanningServiceHandler>).executeRelayOperation === 'function';
+}
+
 /**
  * Narrow runtime-owned access granted to a registered service.
  *

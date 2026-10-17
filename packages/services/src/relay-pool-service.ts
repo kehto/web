@@ -17,7 +17,7 @@
  */
 
 import type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
-import type { ServiceHandler } from '@kehto/runtime';
+import type { RelayOperationPlan, RelayPlanningServiceHandler, ApprovalSignal } from '@kehto/runtime';
 import { createRelayEventResultWithHints } from '@kehto/runtime';
 
 // Timer globals available in all JS runtimes
@@ -66,6 +66,9 @@ export interface RelayPoolServiceOptions {
    * @returns Nothing, or a promise that settles when the publish request completes
    */
   publish(event: NostrEvent): void | Promise<void>;
+
+  /** Execute a publish against the supplied, pre-approved destinations. */
+  publishToRelays?(relayUrls: readonly string[], event: NostrEvent): void | Promise<void>;
 
   /**
    * Select relay URLs appropriate for the given filters.
@@ -121,13 +124,28 @@ type RelayServiceMessage = NappletMessage & {
  * runtime.registerService('relay', pool);
  * ```
  */
-export function createRelayPoolService(options: RelayPoolServiceOptions): ServiceHandler {
+export function createRelayPoolService(options: RelayPoolServiceOptions): RelayPlanningServiceHandler {
   const tracked = new Map<string, TrackedSubscription>();
+
+  function planRelayOperation(_windowId: string, message: NappletMessage): RelayOperationPlan {
+    const relayMessage = message as RelayServiceMessage;
+    const filters = Array.isArray(relayMessage.filters) ? relayMessage.filters as NostrFilter[] : [];
+    const hint = typeof relayMessage.relay === 'string' && relayMessage.relay.length > 0
+      ? relayMessage.relay : undefined;
+    const operation = message.type === 'relay.query' ? 'query'
+      : message.type === 'relay.publishEncrypted' ? 'publishEncrypted'
+      : message.type === 'relay.publish' ? 'publish' : 'subscribe';
+    const selected = hint ? [hint] : options.selectRelayTier(operation === 'publish' || operation === 'publishEncrypted' ? [] : filters);
+    const relayUrls = [...new Set(selected.map((url) => String(url).trim()).filter(Boolean))];
+    return Object.freeze({ operation, relayUrls: Object.freeze(relayUrls), localOnly: relayUrls.length === 0 });
+  }
 
   function publishEvent(
     relayMessage: RelayServiceMessage,
     resultType: 'relay.publish.result' | 'relay.publishEncrypted.result',
     send: (msg: NappletMessage) => void,
+    plan: RelayOperationPlan,
+    signal: ApprovalSignal,
   ): void {
     const id = typeof relayMessage.id === 'string' ? relayMessage.id : '';
     const event = relayMessage.event as NostrEvent | undefined;
@@ -142,7 +160,11 @@ export function createRelayPoolService(options: RelayPoolServiceOptions): Servic
 
     void (async (): Promise<void> => {
       try {
-        await options.publish(event);
+        if (signal.aborted) return;
+        await (options.publishToRelays
+          ? options.publishToRelays(plan.relayUrls, event)
+          : options.publish(event));
+        if (signal.aborted) return;
         send({
           type: resultType,
           id,
@@ -161,14 +183,18 @@ export function createRelayPoolService(options: RelayPoolServiceOptions): Servic
     })();
   }
 
-  return {
+  const service: RelayPlanningServiceHandler = {
     descriptor: {
       name: 'relay-pool',
       version: '1.0.0',
       description: 'Relay pool subscription and publishing',
     },
 
-    handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void {
+    planRelayOperation,
+
+    executeRelayOperation(windowId: string, message: NappletMessage, plan: RelayOperationPlan, signal: ApprovalSignal,
+      send: (msg: NappletMessage) => void): void {
+      if (signal.aborted) return;
       const relayMessage = message as RelayServiceMessage;
       if (message.type === 'relay.subscribe') {
         const subId = relayMessage.subId;
@@ -191,10 +217,7 @@ export function createRelayPoolService(options: RelayPoolServiceOptions): Servic
           return;
         }
 
-        const relayHint = typeof relayMessage.relay === 'string' && relayMessage.relay.length > 0
-          ? relayMessage.relay
-          : undefined;
-        const relayUrls = relayHint ? [relayHint] : options.selectRelayTier(filters);
+        const relayUrls = [...plan.relayUrls];
         let eoseSent = false;
 
         const eoseTimer = setTimeout(() => {
@@ -204,7 +227,10 @@ export function createRelayPoolService(options: RelayPoolServiceOptions): Servic
           }
         }, EOSE_FALLBACK_MS);
 
+        const entry: TrackedSubscription = { handle: { unsubscribe() {} }, eoseTimer };
+        tracked.set(subKey, entry);
         const handle = options.subscribe(filters, (item, observedRelayUrls) => {
+          if (signal.aborted || tracked.get(subKey) !== entry) return;
           if (item === 'EOSE') {
             clearTimeout(eoseTimer);
             if (!eoseSent) {
@@ -218,9 +244,22 @@ export function createRelayPoolService(options: RelayPoolServiceOptions): Servic
             subId,
             result: createRelayEventResultWithHints(item, observedRelayUrls ?? relayUrls),
           } as NappletMessage);
-        }, relayUrls, relayHint !== undefined);
+        }, relayUrls, typeof relayMessage.relay === 'string' && relayMessage.relay.length > 0);
 
-        tracked.set(subKey, { handle, eoseTimer });
+        entry.handle = handle;
+        // A synchronous backend event can revoke its owner before subscribe()
+        // returns. The exact-entry check prevents that retired generation from
+        // retaining a physical handle after a replacement took its key.
+        if (tracked.get(subKey) !== entry) {
+          handle.unsubscribe();
+          clearTimeout(eoseTimer);
+        }
+        signal.addEventListener('abort', () => {
+          if (tracked.get(subKey) !== entry) return;
+          entry.handle.unsubscribe();
+          clearTimeout(entry.eoseTimer);
+          tracked.delete(subKey);
+        }, { once: true });
         return;
       }
 
@@ -238,14 +277,19 @@ export function createRelayPoolService(options: RelayPoolServiceOptions): Servic
       }
 
       if (message.type === 'relay.publish') {
-        publishEvent(relayMessage, 'relay.publish.result', send);
+        publishEvent(relayMessage, 'relay.publish.result', send, plan, signal);
         return;
       }
 
       if (message.type === 'relay.publishEncrypted') {
-        publishEvent(relayMessage, 'relay.publishEncrypted.result', send);
+        publishEvent(relayMessage, 'relay.publishEncrypted.result', send, plan, signal);
         return;
       }
+    },
+
+    handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void {
+      service.executeRelayOperation(windowId, message, service.planRelayOperation(windowId, message),
+        { aborted: false, addEventListener() {}, removeEventListener() {} }, send);
     },
 
     onWindowDestroyed(windowId: string): void {
@@ -259,4 +303,5 @@ export function createRelayPoolService(options: RelayPoolServiceOptions): Servic
       }
     },
   };
+  return service;
 }

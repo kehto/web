@@ -70,10 +70,28 @@ export interface RelaySubscriptionHandle {
  */
 export interface RelayPoolAdapter {
   /**
+   * Execute a subscription against the already-approved relay destination
+   * snapshot. New adapters must implement this method; `subscribe` remains
+   * only for source compatibility with adapters awaiting migration.
+   */
+  subscribeToRelays?(
+    relayUrls: readonly string[],
+    filters: NostrFilter[],
+    callback: (item: NostrEvent | 'EOSE') => void,
+  ): RelaySubscriptionHandle;
+
+  /**
+   * Publish only to an already-approved relay destination snapshot. New
+   * adapters must implement this method; `publish` remains compatibility-only.
+   */
+  publishToRelays?(relayUrls: readonly string[], event: NostrEvent): void | Promise<void>;
+
+  /**
    * Subscribe to events from relays matching the given filters.
    * The callback receives either 'EOSE' (end of stored events) or a NostrEvent.
    * Returns a handle that can cancel the subscription.
    */
+  /** @deprecated Implement subscribeToRelays so the runtime can preserve approved targets. */
   subscribe(
     filters: NostrFilter[],
     callback: (item: NostrEvent | 'EOSE') => void,
@@ -86,6 +104,7 @@ export interface RelayPoolAdapter {
    * Async adapters return a promise that settles only after the transport has
    * accepted or rejected the publish.
    */
+  /** @deprecated Implement publishToRelays so the runtime can preserve approved targets. */
   publish(event: NostrEvent): void | Promise<void>;
 
   /** Select relay URLs appropriate for the given filters. */

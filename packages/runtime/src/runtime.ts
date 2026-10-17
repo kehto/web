@@ -746,6 +746,9 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
         const entry = sessionRegistry.getEntryByWindowId(windowId);
         return !!entry && aclState.check('', entry.dTag, entry.aggregateHash, 'relay:read');
       },
+      authorizeOperation: permissions ? (windowId, operation, requirements, execute, signal) =>
+        permissions.run(windowId, operation, requirements,
+          () => !!sessionRegistry.getEntryByWindowId(windowId), execute, 'operation', signal) : undefined,
     }),
     identity: createIdentityHandler({ hooks, serviceRegistry }),
     count: createCountHandler({ hooks, serviceRegistry }),

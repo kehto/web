@@ -40,6 +40,8 @@ export type {
   RuntimeConfigOverrides,
   NappletMessage,
 } from './types.js';
+export { isRelayPlanningServiceHandler } from './service-types.js';
+export type { RelayOperationPlan, RelayPlanningServiceHandler } from './service-types.js';
 
 export { createEnforceGate, createNapEnforceGate, resolveCapabilitiesNap, formatDenialReason } from './enforce.js';
 export type { EnforceResult, EnforceConfig, NapEnforceConfig, IdentityResolver, AclChecker, NapMessage } from './enforce.js';

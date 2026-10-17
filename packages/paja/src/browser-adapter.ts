@@ -477,6 +477,7 @@ function createDevServices(
         }
       }),
       publish: (event) => backend.publish(getWriteRelays(), event),
+      publishToRelays: (relayUrls, event) => backend.publish([...relayUrls].filter((url) => isPajaRelayAllowed(url, getAllRelays)), event),
       selectRelayTier: getReadRelays,
       isAvailable: () => backend.isAvailable(),
     });

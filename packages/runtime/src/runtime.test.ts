@@ -577,6 +577,8 @@ describe('relay.publishEncrypted (NAP-08 / DRIFT-RT-08 / SH-C03)', () => {
    *  no-op — we only assert the envelope the shell emits. */
   function createAvailableRelayPool(): import('./types.js').RelayPoolAdapter {
     return {
+      subscribeToRelays: () => ({ unsubscribe() { /* no-op */ } }),
+      publishToRelays: () => { /* no-op */ },
       subscribe: () => ({ unsubscribe() { /* no-op */ } }),
       publish: () => { /* no-op */ },
       selectRelayTier: () => [],
