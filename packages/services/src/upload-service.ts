@@ -36,7 +36,7 @@
  */
 
 import type { NappletMessage } from '@napplet/core';
-import type { ServiceDescriptor, ServiceHandler } from '@kehto/runtime';
+import type { ApprovalSignal, ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
 
 /** Upload service version — follows semver. */
 const UPLOAD_SERVICE_VERSION = '1.0.0';
@@ -164,6 +164,18 @@ export interface UploaderContext {
   onStatus(status: UploadStatus): void;
 }
 
+/** Immutable destination choice made before an upload asks for approval. */
+export interface UploadExecutionPlan {
+  /** Selected rail, independent of a napplet's untrusted preference. */
+  readonly rail: UploadRail;
+  /** Exact HTTP endpoint the prepared execution may contact. */
+  readonly destination: string;
+  /** Host-attested signing public key, when this rail signs an authorization. */
+  readonly signingPubkey?: string;
+  /** Execute only the selected destination, under the supplied approval lifetime. */
+  execute(signal: ApprovalSignal): Promise<UploadResult>;
+}
+
 /**
  * Abstract upload backend. Implementors own server selection, rail
  * authorization signing (NIP-98 for NIP-96, kind 24242 for Blossom), the HTTP
@@ -172,6 +184,12 @@ export interface UploaderContext {
  * {@link createHttpUploader}.
  */
 export interface Uploader {
+  /**
+   * Select a destination without signing, network I/O, browser UI, or byte egress.
+   * Its returned execution must retain this exact selection. Required when the
+   * service is attached to a permission-enabled runtime.
+   */
+  planUpload?(request: UploadRequest, ctx: UploaderContext): UploadExecutionPlan | Promise<UploadExecutionPlan>;
   /** Upload `request.data`, streaming progress through `ctx.onStatus`. */
   upload(request: UploadRequest, ctx: UploaderContext): Promise<UploadResult>;
   /** Optional: resolve the latest status for an upload the service is not tracking. */
@@ -211,11 +229,19 @@ const DEFAULT_UPLOAD_INFO: UploadInfo = {
 
 /** Per-upload tracking entry, keyed by `windowId:uploadId`. */
 interface UploadEntry {
-  uploadId: string;
+  readonly uploadId: string;
+  readonly windowId: string;
+  readonly generation: object;
+  readonly controller: AbortController;
+  readonly send: Send;
+  readonly requestId: string;
   status?: UploadStatus;
 }
 
-declare const crypto: { randomUUID(): string };
+declare const crypto: {
+  randomUUID(): string;
+  subtle: { digest(algorithm: string, data: ArrayBuffer): Promise<ArrayBuffer> };
+};
 
 /**
  * Create the NAP-UPLOAD service handler.
@@ -232,9 +258,37 @@ export function createUploadService(options: UploadServiceOptions): ServiceHandl
   const uploadInfo = options.uploadInfo ?? DEFAULT_UPLOAD_INFO;
   const generateId = options.generateId ?? (() => crypto.randomUUID());
   const now = options.now ?? (() => Date.now());
-
-  // Tracked uploads keyed by `windowId:uploadId` for status lookup + cleanup.
+  let runtime: ServiceRuntimeContext | undefined;
+  let warnedLegacy = false;
+  const generations = new Map<string, object>();
+  const requestIds = new Map<string, Set<string>>();
   const entries = new Map<string, UploadEntry>();
+  const keyFor = (windowId: string, uploadId: string): string => JSON.stringify([windowId, uploadId]);
+  const generationFor = (windowId: string): object => {
+    let generation = generations.get(windowId);
+    if (!generation) { generation = {}; generations.set(windowId, generation); }
+    return generation;
+  };
+  const current = (entry: UploadEntry): boolean =>
+    generations.get(entry.windowId) === entry.generation
+    && entries.get(keyFor(entry.windowId, entry.uploadId)) === entry
+    && !entry.controller.signal.aborted;
+  const warnLegacy = (): void => {
+    if (warnedLegacy) return;
+    warnedLegacy = true;
+    console.warn('[FW-UPLOAD-LEGACY-001] Use an Uploader.planUpload() destination plan with RuntimeAdapter.permissions; the host-only upload path is deprecated. Warning once per service instance.');
+  };
+
+  function stopWindow(windowId: string, retire: boolean): void {
+    for (const [key, entry] of entries) {
+      if (entry.windowId !== windowId) continue;
+      entry.controller.abort();
+      uploader.cancel?.(entry.uploadId);
+      entries.delete(key);
+    }
+    generations.delete(windowId);
+    if (retire) requestIds.delete(windowId);
+  }
 
   function normalizeUploadInfo(info: UploadInfo): UploadInfo {
     return {
@@ -255,52 +309,111 @@ export function createUploadService(options: UploadServiceOptions): ServiceHandl
   function handleInfo(windowId: string, msg: NappletMessage, send: Send): void {
     const m = msg as NappletMessage & { id?: string };
     const id = m.id ?? '';
+    const generation = generationFor(windowId);
     void Promise.resolve()
       .then(() => (typeof uploadInfo === 'function' ? uploadInfo({ windowId }) : uploadInfo))
       .then((info) => {
-        send({ type: 'upload.info.result', id, info: normalizeUploadInfo(info) } as NappletMessage);
+        if (generations.get(windowId) === generation) send({ type: 'upload.info.result', id, info: normalizeUploadInfo(info) } as NappletMessage);
       })
       .catch((err) => {
-        send({ type: 'upload.info.result', id, error: toErrorMessage(err) } as NappletMessage);
+        if (generations.get(windowId) === generation) send({ type: 'upload.info.result', id, error: toErrorMessage(err) } as NappletMessage);
       });
   }
 
   function handleUpload(windowId: string, msg: NappletMessage, send: Send): void {
     const m = msg as NappletMessage & { id?: string; request?: UploadRequest };
-    const id = m.id ?? '';
-    const request = m.request;
-    if (!request || typeof request !== 'object' || request.data == null) {
+    const id = m.id;
+    if (typeof id !== 'string' || !id || id.length > 256) return;
+    const generation = generationFor(windowId);
+    let seen = requestIds.get(windowId);
+    if (!seen) { seen = new Set(); requestIds.set(windowId, seen); }
+    if (seen.has(id)) {
+      send({ type: 'upload.upload.result', id, error: 'duplicate request id' } as NappletMessage);
+      return;
+    }
+    if (seen.size >= 4096) {
+      send({ type: 'upload.upload.result', id, error: 'upload request limit reached' } as NappletMessage);
+      return;
+    }
+    seen.add(id);
+    if (!validUploadRequest(m.request)) {
       send({ type: 'upload.upload.result', id, error: 'invalid request' } as NappletMessage);
       return;
     }
 
     const uploadId = generateId();
-    const key = `${windowId}:${uploadId}`;
-    entries.set(key, { uploadId });
+    const key = keyFor(windowId, uploadId);
+    if (entries.has(key) || [...entries.values()].some((entry) => entry.uploadId === uploadId)) {
+      send({ type: 'upload.upload.result', id, error: 'upload id unavailable' } as NappletMessage);
+      return;
+    }
+    const entry: UploadEntry = { uploadId, windowId, generation,
+      controller: new AbortController(), send, requestId: id };
+    entries.set(key, entry);
 
     const ctx: UploaderContext = {
       uploadId,
       windowId,
       onStatus: (status) => {
+        if (!current(entry)) return;
         const stamped: UploadStatus = { ...status, uploadId, updatedAt: status.updatedAt || now() };
-        const entry = entries.get(key);
-        if (entry) entry.status = stamped;
+        entry.status = stamped;
         send({ type: 'upload.status.changed', status: stamped } as NappletMessage);
       },
     };
-
-    void uploader
-      .upload(request, ctx)
-      .then((result) => {
+    void (async () => {
+      try {
+        const request = await snapshotUploadRequest(m.request!);
+        if (!current(entry)) return;
+        let result: UploadResult;
+        if (runtime?.authorizeOperation) {
+          if (!uploader.planUpload) {
+            warnLegacy();
+            send({ type: 'upload.upload.result', id, error: 'policy denied' } as NappletMessage);
+            entries.delete(key);
+            return;
+          }
+          const plan = await uploader.planUpload(request, ctx);
+          if (!current(entry)) return;
+          const target = parseDestination(plan.destination);
+          if (!target || typeof plan.execute !== 'function' || !plan.rail) throw new Error('upload destination unavailable');
+          if (!plan.signingPubkey || !/^[0-9a-f]{64}$/i.test(plan.signingPubkey)) {
+            throw new Error('upload signing identity unavailable');
+          }
+          const scope = JSON.stringify({
+            rail: plan.rail, origin: target.origin,
+            endpointHash: await sha256(new TextEncoder().encode(target.href)),
+            contentHash: await sha256(new Uint8Array(await request.data.arrayBuffer())),
+            size: request.data.size, mimeType: request.mimeType ?? '',
+            filename: request.filename ?? '', signingPubkey: plan.signingPubkey ?? '',
+          });
+          if (!current(entry)) return;
+          const approval = await runtime.authorizeOperation(windowId, 'upload.upload', [
+            { category: 'resource', domain: 'upload', operation: 'upload.upload', scope: { kind: 'exact', value: scope } },
+            { category: 'network', domain: 'upload', operation: 'upload.upload', scope: { kind: 'origin', value: target.origin } },
+          ], (signal) => plan.execute(signal), entry.controller.signal);
+          if (!current(entry)) return;
+          if (approval.status !== 'executed') {
+            send({ type: 'upload.upload.result', id, error: 'policy denied' } as NappletMessage);
+            entries.delete(key);
+            return;
+          }
+          result = approval.value;
+        } else {
+          warnLegacy();
+          result = await uploader.upload(request, ctx);
+        }
+        if (!current(entry)) return;
+        if (result.ok && !validPublicResult(result)) throw new Error('server returned invalid upload result');
         const stamped: UploadResult = { ...result, uploadId };
-        const entry = entries.get(key);
-        if (entry) entry.status = { ...stamped, updatedAt: now() };
+        entry.status = { ...stamped, updatedAt: now() };
         send({ type: 'upload.upload.result', id, result: stamped } as NappletMessage);
-      })
-      .catch((err) => {
+      } catch (err) {
+        if (!current(entry)) return;
         entries.delete(key);
         send({ type: 'upload.upload.result', id, error: toErrorMessage(err) } as NappletMessage);
-      });
+      }
+    })();
   }
 
   function handleStatus(windowId: string, msg: NappletMessage, send: Send): void {
@@ -312,33 +425,23 @@ export function createUploadService(options: UploadServiceOptions): ServiceHandl
       return;
     }
 
-    const tracked = entries.get(`${windowId}:${uploadId}`)?.status;
+    const generation = generationFor(windowId);
+    const tracked = entries.get(keyFor(windowId, uploadId))?.status;
     if (tracked) {
       send({ type: 'upload.status.result', id, status: tracked } as NappletMessage);
       return;
     }
-
-    if (uploader.status) {
-      void uploader
-        .status(uploadId)
-        .then((status) =>
-          send(
-            status
-              ? ({ type: 'upload.status.result', id, status } as NappletMessage)
-              : ({ type: 'upload.status.result', id, error: 'unknown upload' } as NappletMessage),
-          ),
-        )
-        .catch((err) =>
-          send({ type: 'upload.status.result', id, error: toErrorMessage(err) } as NappletMessage),
-        );
-      return;
-    }
-
-    send({ type: 'upload.status.result', id, error: 'unknown upload' } as NappletMessage);
+    if (generations.get(windowId) === generation) send({ type: 'upload.status.result', id, error: 'unknown upload' } as NappletMessage);
   }
 
   return {
     descriptor: UPLOAD_DESCRIPTOR,
+    onRegistered(context) { runtime = context; },
+    onUnregistered() {
+      for (const windowId of generations.keys()) stopWindow(windowId, true);
+      runtime = undefined;
+    },
+    onPermissionRevoked(windowId) { stopWindow(windowId, false); },
     handleMessage(windowId: string, message: NappletMessage, send: Send): void {
       switch (message.type) {
         case 'upload.info':
@@ -356,15 +459,51 @@ export function createUploadService(options: UploadServiceOptions): ServiceHandl
       }
     },
     onWindowDestroyed(windowId: string): void {
-      const prefix = `${windowId}:`;
-      for (const [key, entry] of entries) {
-        if (key.startsWith(prefix)) {
-          uploader.cancel?.(entry.uploadId);
-          entries.delete(key);
-        }
-      }
+      stopWindow(windowId, true);
     },
   };
+}
+
+function validUploadRequest(request: UploadRequest | undefined): request is UploadRequest {
+  if (!request || typeof request !== 'object' || !(request.data instanceof Blob || request.data instanceof ArrayBuffer)) return false;
+  const size = request.data instanceof Blob ? request.data.size : request.data.byteLength;
+  return size <= 100 * 1024 * 1024
+    && (request.rail === undefined || (typeof request.rail === 'string' && request.rail.length <= 128))
+    && (request.mimeType === undefined || (typeof request.mimeType === 'string' && request.mimeType.length <= 256))
+    && (request.filename === undefined || (typeof request.filename === 'string' && request.filename.length <= 256))
+    && (request.caption === undefined || (typeof request.caption === 'string' && request.caption.length <= 4096))
+    && (request.noTransform === undefined || typeof request.noTransform === 'boolean');
+}
+
+async function snapshotUploadRequest(request: UploadRequest): Promise<UploadRequest & { data: Blob }> {
+  const data = request.data instanceof Blob
+    ? request.data.slice(0, request.data.size, request.data.type)
+    : new Blob([request.data.slice(0)]);
+  const metadata = request.metadata === undefined ? undefined : JSON.parse(JSON.stringify(request.metadata)) as Record<string, unknown>;
+  return Object.freeze({ data, ...(request.rail ? { rail: request.rail } : {}),
+    ...(request.mimeType ? { mimeType: request.mimeType } : {}),
+    ...(request.filename ? { filename: request.filename } : {}),
+    ...(request.caption ? { caption: request.caption } : {}),
+    ...(request.noTransform !== undefined ? { noTransform: request.noTransform } : {}),
+    ...(metadata ? { metadata } : {}),
+  });
+}
+
+function parseDestination(destination: string): URL | null {
+  try {
+    const url = new URL(destination);
+    return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password && !url.hash && url.href.length <= 2048 ? url : null;
+  } catch { return null; }
+}
+
+async function sha256(bytes: Uint8Array): Promise<string> {
+  const value = await crypto.subtle.digest('SHA-256', bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer);
+  return Array.from(new Uint8Array(value), (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function validPublicResult(result: UploadResult): boolean {
+  return result.status !== 'complete' || (typeof result.url === 'string' && parseDestination(result.url) !== null
+    && (!result.fallbackUrls || result.fallbackUrls.every((url) => parseDestination(url) !== null)));
 }
 
 function toErrorMessage(err: unknown): string {

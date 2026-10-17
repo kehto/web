@@ -148,6 +148,7 @@ export type {
   UploadRailInfo,
   Uploader,
   UploaderContext,
+  UploadExecutionPlan,
   UploadRequest,
   UploadResult,
   UploadStatus,

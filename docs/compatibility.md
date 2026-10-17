@@ -6,6 +6,32 @@ coverage. This register records both implemented safeguards and existing debt;
 below identifies the package responsible for the implementation and its tests.
 No removal date is implied by an old source comment.
 
+## Host-only upload path — services and Paja
+
+Identifier: `FW-UPLOAD-LEGACY-001`. Owner: `@kehto/services` (with Paja as a
+host consumer). `createUploadService` temporarily retains direct `Uploader.upload`
+when no runtime approval context is attached. Replace it with
+`RuntimeAdapter.permissions` and an `Uploader.planUpload()` that selects an exact
+endpoint and host-attested signing pubkey before signing or byte egress. A
+permission-enabled runtime rejects a backend without a prepared plan. Source and
+warning site: `packages/services/src/upload-service.ts`; the HTTP reference plan
+is in `packages/services/src/http-uploader.ts`, and Paja's plan is in
+`packages/paja/src/browser-upload.ts`. The warning fires only on actual legacy
+use, once per service instance, without payloads, names, URLs, or identity data.
+Canonical shared-policy uploads remain quiet.
+
+`packages/services/src/upload-service.test.ts` covers legacy warning content and
+frequency, quiet canonical approval, immutable bytes and scope, denial, missing
+signer identity, revocation, status ownership and replay. The HTTP and Paja
+upload tests cover selection before signing, signer changes, transport abort,
+redirect rejection, and server-confirmed Blossom bytes. Retain this path while
+supported hosts and external service consumers migrate. Retirement requires a
+breaking release announcement, migration of supported consumers, removal of
+the host-only branch, and negative tests for unbound upload backends. The
+optional `planUpload` type cannot detect legacy use until the host attaches a
+runtime; the service boundary emits the runtime warning there. NAP-UPLOAD
+authority: draft PR #33 at `f5cc981e527e2cc1572793a7a6e5082e5271ac49`.
+
 ## Host-only LINK approval — services
 
 Identifier: `FW-LINK-LEGACY-001`. Owner: `@kehto/services`.

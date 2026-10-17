@@ -1,10 +1,11 @@
 import type { NostrEvent, NostrFilter } from '@napplet/core';
-import type { Signer } from '@kehto/runtime';
+import type { ApprovalSignal, Signer } from '@kehto/runtime';
 import {
   createHttpUploader,
   type UploadInfo,
   type UploadRequest,
   type UploadResult,
+  type UploadExecutionPlan,
   type Uploader,
 } from '@kehto/services';
 
@@ -112,27 +113,34 @@ export function createPajaUploadRuntime(options: PajaUploadRuntimeOptions): Paja
     };
   }
 
-  const uploader: Uploader = {
-    async upload(request, ctx) {
-      const simulation = options.getSimulation();
-      if (simulation.upload.mode !== 'blossom') {
-        return failure(ctx.uploadId, 'upload simulation is not in blossom mode');
+  function planUpload(request: UploadRequest, ctx: Parameters<Uploader['upload']>[1]): UploadExecutionPlan {
+    const simulation = options.getSimulation();
+    if (simulation.upload.mode !== 'blossom') throw new Error('upload simulation is not in blossom mode');
+    if (request.rail && request.rail !== 'blossom') throw new Error('unsupported rail');
+    const size = uploadSize(request);
+    if (simulation.upload.maxBytes !== undefined && size > simulation.upload.maxBytes) throw new Error('file too large');
+    const mimeType = resolvedMimeType(request);
+    if (simulation.upload.mimeTypes && (!mimeType || !simulation.upload.mimeTypes.includes(mimeType))) {
+      throw new Error('unsupported media type');
+    }
+    const snapshot = identity;
+    if (!snapshot) throw new Error('no signer available');
+    const selectedIdentity: IdentitySnapshot = snapshot;
+    const server = effectiveServers(simulation, selectedIdentity.pubkey, discovered)[0];
+    if (!server) throw new Error('no server configured');
+    const selectedGeneration = generation;
+    return Object.freeze({
+      rail: 'blossom' as const,
+      destination: `${server.replace(/\/$/, '')}/upload`,
+      signingPubkey: selectedIdentity.pubkey,
+      execute: (signal: ApprovalSignal) => executeSelected(signal),
+    });
+
+    async function executeSelected(signal: ApprovalSignal): Promise<UploadResult> {
+      if (signal.aborted || generation !== selectedGeneration || identity !== selectedIdentity
+        || effectiveServers(options.getSimulation(), selectedIdentity.pubkey, discovered)[0] !== server) {
+        return cancelled(ctx.uploadId);
       }
-      if (request.rail && request.rail !== 'blossom') {
-        return failure(ctx.uploadId, 'unsupported rail');
-      }
-      const size = uploadSize(request);
-      if (simulation.upload.maxBytes !== undefined && size > simulation.upload.maxBytes) {
-        return failure(ctx.uploadId, 'file too large');
-      }
-      const mimeType = resolvedMimeType(request);
-      if (simulation.upload.mimeTypes && (!mimeType || !simulation.upload.mimeTypes.includes(mimeType))) {
-        return failure(ctx.uploadId, 'unsupported media type');
-      }
-      const snapshot = identity;
-      if (!snapshot) return failure(ctx.uploadId, 'no signer available');
-      const server = effectiveServers(simulation, snapshot.pubkey, discovered)[0];
-      if (!server) return failure(ctx.uploadId, 'no server configured');
       if (!await options.confirmRequest({
         action: 'upload',
         windowId: ctx.windowId,
@@ -145,13 +153,18 @@ export function createPajaUploadRuntime(options: PajaUploadRuntimeOptions): Paja
       })) {
         return cancelled(ctx.uploadId);
       }
+      if (signal.aborted || generation !== selectedGeneration || identity !== selectedIdentity
+        || effectiveServers(options.getSimulation(), selectedIdentity.pubkey, discovered)[0] !== server) {
+        return cancelled(ctx.uploadId);
+      }
 
       const delegate = createHttpUploader({
         rails: { blossom: { servers: [server] } },
         defaultRail: 'blossom',
+        signingPubkey: selectedIdentity.pubkey,
         signEvent: async (template) => {
-          const event = await snapshot.signer.signEvent(template);
-          if (event.pubkey !== snapshot.pubkey) {
+          const event = await selectedIdentity.signer.signEvent(template);
+          if (event.pubkey !== selectedIdentity.pubkey) {
             throw new Error('signer identity mismatch');
           }
           return event;
@@ -160,7 +173,9 @@ export function createPajaUploadRuntime(options: PajaUploadRuntimeOptions): Paja
       });
       activeUploads.set(ctx.uploadId, delegate);
       try {
-        const result = await delegate.upload({ ...request, rail: 'blossom', ...(mimeType ? { mimeType } : {}) }, ctx);
+        const prepared = await delegate.planUpload!({ ...request, rail: 'blossom', ...(mimeType ? { mimeType } : {}) }, ctx);
+        const result = await prepared.execute(signal);
+        if (signal.aborted || generation !== selectedGeneration || identity !== selectedIdentity) return cancelled(ctx.uploadId);
         if (result.ok && result.url && !isPermittedUploadUrl(result.url)) {
           return failure(ctx.uploadId, 'server returned disallowed url');
         }
@@ -168,6 +183,14 @@ export function createPajaUploadRuntime(options: PajaUploadRuntimeOptions): Paja
       } finally {
         activeUploads.delete(ctx.uploadId);
       }
+    }
+  }
+
+  const uploader: Uploader = {
+    planUpload,
+    async upload(request, ctx) {
+      try { return await planUpload(request, ctx).execute(new AbortController().signal); }
+      catch (error) { return failure(ctx.uploadId, error instanceof Error ? error.message : 'upload failed'); }
     },
     cancel(uploadId) {
       activeUploads.get(uploadId)?.cancel?.(uploadId);

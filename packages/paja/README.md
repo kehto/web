@@ -344,6 +344,15 @@ use HTTPS; plain HTTP is accepted only for loopback development hosts. The
 server must allow Paja's browser origin, `PUT` and `OPTIONS`, plus the
 `Authorization` and `Content-Type` CORS headers.
 
+With runtime permissions enabled, Paja first prepares the selected Blossom
+`/upload` endpoint and signer identity without prompting, signing, or sending
+bytes. Firewall then approves the exact upload resource (including byte digest,
+size and media details) together with the selected network origin. Paja's
+confirmation and Blossom signing run only inside that approved lifetime.
+Revocation or signer replacement aborts the upload and suppresses later status
+updates. A returned public CDN URL is result metadata; it does not grant the
+napplet direct network access to that URL.
+
 Explicit servers win. With no explicit server, Paja may use an independently
 warmed snapshot of the active signer's newest BUD-03 kind `10063` `server`
 tags. `upload.info` and `upload.upload` never initiate that discovery. Pointer
