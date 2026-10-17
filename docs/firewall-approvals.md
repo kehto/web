@@ -4,8 +4,10 @@ This migration is in progress. Hosts supplying `RuntimeAdapter.permissions`
 (or `ShellAdapter.permissions`) can use pre-execution interface admission.
 Built-in interface dispatch requires its admission grant; LINK and declared
 service extensions also support held operation approvals. Resource/network scope
-enforcement in other services and Paja/playground admission/UI have not yet
-migrated. Existing Firewall configuration is not converted into scoped grants.
+enforcement now covers migrated service operations including filesystem, device,
+relay, upload, social, media, and local-state work. Existing Firewall
+configuration is not converted into scoped grants. Phase 114 still owns approval
+presentation, launch admission, and CSP enforcement.
 
 ## Responsibilities
 
@@ -228,6 +230,18 @@ connections; see [Paja resource proxy policy](https://github.com/kehto/web/blob/
 This host-side boundary does not isolate unrestricted iframe subresource or direct
 network access. Phase 114 must close frame admission/CSP isolation before any
 end-to-end resource-security claim is made.
+
+The supported Paja resolver keeps its transport capability in the trusted
+main-frame adapter. It verifies the destination before DNS or a connection,
+applies exact origin/host/method/content-type policy without permissive CORS,
+pins connection policy, and asks the runtime again for each redirect destination.
+Sandboxed apps receive neither that resolver nor a proxy controller through
+configuration, iframe messages, initialization data, or `window.napplet`.
+
+The playground uses the same resource-service callback contract. It requires
+`authorizeNetwork` before its initial HTTP(S) fetch and deliberately rejects
+redirect responses because it has no trusted per-hop resolver. This bounded host
+policy does not replace Paja's resolver or provide a Phase 114 admission claim.
 
 Standalone or unmigrated hosts retain resolver-owned policy with diagnostic
 `FW-RESOURCE-LEGACY-001`, once per service instance on actual fetch use. Configure
