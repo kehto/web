@@ -66,6 +66,7 @@ import { createPajaCommonBackend } from './browser-common.js';
 import { createPajaListsBackend } from './browser-lists.js';
 import { createPajaResourceFetch, pajaResourceInfo } from './browser-resource.js';
 import { createPajaWebrtcController } from './browser-webrtc.js';
+import { confirmPajaExternalLink } from './browser-link.js';
 import { createPajaBrowserFsBackend } from './browser-fs.js';
 import {
   PAJA_DEV_SIGNER_PUBKEY,
@@ -553,17 +554,7 @@ function createDevServices(
     && typeof window.open === 'function'
   ) {
     services.link = createLinkService({
-      open: async ({ windowId, url, options }) => {
-        const napplet = getIdentity?.(windowId) ?? { dTag: 'dev-target', aggregateHash: 'paja' };
-        const allowed = await confirmRequest({
-          action: 'link',
-          windowId,
-          napplet,
-          url: url.href,
-          ...(options?.label ? { label: options.label } : {}),
-        });
-        return { status: allowed && openPajaExternalLink(url) ? 'opened' : 'denied' };
-      },
+      open: (context) => confirmPajaExternalLink(context, confirmRequest, getIdentity, openPajaExternalLink),
     });
   }
   if (getSimulation().capabilities.domains.common && getSimulation().relay.mode === 'live') {
@@ -596,18 +587,19 @@ function createDevServices(
   const webrtcController = getSimulation().relay.mode === 'live' && backend.isAvailable()
     ? createPajaWebrtcController({
       relay: {
-        subscribe(filters, onEvent) {
-          const subscription = backend.subscription(getAllRelays(), filters).subscribe((item) => {
+        subscribe(relayUrls, filters, onEvent) {
+          const subscription = backend.subscription([...relayUrls], filters).subscribe((item) => {
             if (typeof item === 'object' && item !== null) onEvent(item as NostrEvent);
           });
           return { close: () => subscription.unsubscribe() };
         },
-        publish: (event) => backend.publishWebrtcSignal(getAllRelays(), event),
+        publish: (relayUrls, event) => backend.publishWebrtcSignal([...relayUrls], event),
       },
       getSigner: () => createRuntimeSigner(getSimulation, confirmRequest, signerProvider),
       getPubkey: () => getRuntimePubkey(getSimulation, signerProvider),
       getIdentity: getIdentity ?? (() => ({ dTag: 'dev-target', aggregateHash: 'paja' })),
       confirm: confirmRequest,
+      signalingRelayUrls: () => [...getAllRelays()],
     })
     : null;
   const webrtcService = webrtcController ? createWebrtcService(webrtcController.serviceOptions) : null;
