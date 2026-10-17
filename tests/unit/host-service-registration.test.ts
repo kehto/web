@@ -23,7 +23,7 @@ const REGISTRATIONS: readonly HostRegistration[] = [
   { service: 'resource', paja: ['createResourceService(', 'fetch: createPajaResourceFetch(', 'authorizeNetwork'], playground: ['createResourceService(', 'fetch: hostFetch', 'authorizeNetwork'], regression: 'resource transport guards' },
   { service: 'relay', paja: ['createRelayPoolService(', 'selectPublishRelayTier: getWriteRelays'], playground: ['createPlaygroundRelayRuntime(', 'relay: relayRuntime.relayService'], regression: 'relay service tests' },
   { service: 'outbox', paja: ['createOutboxService(', 'getSignerPubkey'], regression: 'outbox service tests' },
-  { service: 'count', paja: ['createCountService({', 'count: async ({ filters })', 'isFilterSupported: (filter)'], regression: 'count service tests' },
+  { service: 'count', paja: ['createCountService({', 'planCount: () => ({ relays: getReadRelays() })', 'count: async ({ filters, relays, signal })', 'isFilterSupported: (filter)'], regression: 'count service tests' },
   { service: 'filesystem', paja: ['createPajaBrowserFsBackend(', 'createFsService({ backend: fsBackend })'], regression: 'filesystem service tests' },
   { service: 'upload', paja: ['createUploadService(', 'uploadInfo: uploadRuntime.uploadInfo'], regression: 'upload service tests' },
   { service: 'WebRTC', paja: ['createPajaWebrtcController(', 'createWebrtcService(webrtcController.serviceOptions)'], playground: ['createDemoWebrtcService()', 'createWebrtcService({'], regression: 'WebRTC service tests' },
