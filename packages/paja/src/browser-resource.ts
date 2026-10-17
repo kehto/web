@@ -63,14 +63,12 @@ export function createPajaResourceFetch(
     if (url.protocol === 'blossom:') {
       return fetchBlossomResource(
         value,
-        init.signal,
-        init.servers ?? [],
-        init.windowId,
+        init,
         options,
       );
     }
     if (url.protocol === 'http:' || url.protocol === 'https:') {
-      return fetchNetworkResource(value, init.signal, options.fetch ?? globalThis.fetch);
+      return fetchNetworkResource(value, init, options.fetch ?? globalThis.fetch);
     }
     if (url.protocol !== 'data:') {
       throw new ResourceServiceError('unsupported-scheme', `Paja does not enable ${url.protocol}`);
@@ -114,24 +112,30 @@ export function pajaResourceInfo(): ResourceInfo {
 
 async function fetchNetworkResource(
   value: string,
-  signal: AbortSignal,
+  init: Parameters<ResourceServiceOptions['fetch']>[1],
   fetcher: typeof fetch,
 ): Promise<Response> {
-  let response: Response;
-  try {
-    response = await fetcher(value, {
-      method: 'GET',
-      signal,
-      credentials: 'omit',
-      referrerPolicy: 'no-referrer',
-    });
-  } catch (error: unknown) {
-    if (signal.aborted || isAbortError(error)) throw error;
-    throw new ResourceServiceError(
-      'network-error',
-      error instanceof Error ? error.message : String(error),
-    );
+  if (!init.authorizeNetwork) {
+    return fetcher(value, { method: 'GET', signal: init.signal, credentials: 'omit', referrerPolicy: 'no-referrer' });
   }
+  let destination = value;
+  let response: Response | undefined;
+  for (let hops = 0; hops <= 5; hops += 1) {
+    try {
+    response = await init.authorizeNetwork(destination, (signal) => fetcher('/__kehto/resource', {
+        method: 'POST', signal, credentials: 'same-origin', redirect: 'manual',
+        headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: destination }),
+      }));
+    } catch (error: unknown) {
+      if (init.signal.aborted || isAbortError(error)) throw error;
+      throw new ResourceServiceError('network-error', error instanceof Error ? error.message : String(error));
+    }
+    if (response.status < 300 || response.status >= 400) break;
+    const location = response.headers.get('location');
+    if (!location || hops === 5) throw new ResourceServiceError('network-error', 'resource redirect limit exceeded');
+    destination = new URL(location, destination).href;
+  }
+  if (!response) throw new ResourceServiceError('network-error', 'resource transport did not respond');
   if (response.status === 404 || response.status === 410) {
     throw new ResourceServiceError('not-found', 'HTTP resource was not found');
   }
@@ -139,7 +143,7 @@ async function fetchNetworkResource(
     throw new ResourceServiceError('network-error', `HTTP resource returned ${response.status}`);
   }
 
-  const bytes = await readCappedResponse(response, signal);
+  const bytes = await readCappedResponse(response, init.signal);
   const classification = classifyResourceBytes(bytes);
   if (classification.kind !== 'recognized') {
     throw new ResourceServiceError('decode-failed', 'resource bytes are not an enabled safe media type');
@@ -149,9 +153,7 @@ async function fetchNetworkResource(
 
 async function fetchBlossomResource(
   value: string,
-  signal: AbortSignal,
-  requestServers: readonly string[],
-  windowId: string | undefined,
+  init: Parameters<ResourceServiceOptions['fetch']>[1],
   options: PajaResourceFetchOptions,
 ): Promise<Response> {
   const parsed = parsePajaBlossomUri(value);
@@ -161,13 +163,13 @@ async function fetchBlossomResource(
   warnLegacyBlossomPrefix(value);
   if (parsed.expectedSize !== undefined && parsed.expectedSize > PAJA_RESOURCE_MAX_BYTES) throw resourceTooLarge();
   const expectedHash = parsed.hash;
-  const configuredServers = await options.getBlossomServers?.({ url: value, windowId }) ?? [];
-  if (signal.aborted) throw new DOMException('Resource request cancelled', 'AbortError');
+  const configuredServers = await options.getBlossomServers?.({ url: value, windowId: init.windowId }) ?? [];
+  if (init.signal.aborted) throw new DOMException('Resource request cancelled', 'AbortError');
   const uriServers = parsed.servers.flatMap((value) => {
     const server = normalizeBlossomUriServer(value);
     return server ? [server] : [];
   });
-  const servers = resolveBlossomServers([...requestServers, ...uriServers], configuredServers);
+  const servers = resolveBlossomServers(uriServers, configuredServers);
   if (servers.length === 0) {
     throw new ResourceServiceError('blocked-by-policy', 'Paja has no accepted Blossom server');
   }
@@ -178,20 +180,18 @@ async function fetchBlossomResource(
   let foundInconclusive = false;
   let lastNetworkMessage = 'all accepted Blossom servers failed';
   for (const server of servers) {
-    if (signal.aborted) throw new DOMException('Resource request cancelled', 'AbortError');
+    if (init.signal.aborted) throw new DOMException('Resource request cancelled', 'AbortError');
     const resourceUrl = `${server}/${expectedHash}${parsed.extension ? `.${parsed.extension}` : ''}`;
     let response: Response;
     try {
-      response = await fetcher(resourceUrl, {
-        method: 'GET',
-        signal,
-        redirect: 'error',
-        cache: 'no-store',
-        credentials: 'omit',
-        referrerPolicy: 'no-referrer',
-      });
+      response = init.authorizeNetwork
+        ? await init.authorizeNetwork(resourceUrl, (signal) => fetcher('/__kehto/resource', {
+        method: 'POST', signal, credentials: 'same-origin',
+        headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: resourceUrl }),
+        }))
+        : await fetcher(resourceUrl, { method: 'GET', signal: init.signal, redirect: 'error', cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer' });
     } catch (error: unknown) {
-      if (signal.aborted || isAbortError(error)) throw error;
+      if (init.signal.aborted || isAbortError(error)) throw error;
       foundInconclusive = true;
       lastNetworkMessage = error instanceof Error ? error.message : String(error);
       continue;
@@ -214,7 +214,7 @@ async function fetchBlossomResource(
       foundHashMismatch = true;
       continue;
     }
-    const bytes = await readCappedResponse(response, signal);
+    const bytes = await readCappedResponse(response, init.signal);
     if ((parsed.expectedSize !== undefined && bytes.byteLength !== parsed.expectedSize)
       || !verifyBlobHash(bytes, expectedHash)) {
       foundHashMismatch = true;

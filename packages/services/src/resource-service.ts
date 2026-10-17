@@ -46,18 +46,17 @@
  */
 
 import type { NappletMessage } from '@napplet/core';
-import type {
-  ResourceBytesRequest,
-  ResourceInfo,
-} from '@napplet/nap/resource/types';
+import type { ResourceInfo } from '@napplet/nap/resource/types';
 import type { ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
-import { authorizeResource } from './resource-authorization.js';
+import { authorizeResource, type AuthorizeNetwork } from './resource-authorization.js';
 
 export type {
-  ResourceBytesRequest,
   ResourceInfo,
   ResourceSchemeInfo,
 } from '@napplet/nap/resource/types';
+
+/** Canonical inbound NAP-RESOURCE bytes request. */
+export interface ResourceBytesRequest { readonly url: string; }
 
 /** Resource service version — follows semver. */
 const RESOURCE_SERVICE_VERSION = '1.0.0';
@@ -72,7 +71,9 @@ export interface ResourceFetchInit {
   signal: AbortSignal;
   /** Authenticated source window, for runtime-private scoped policy state. */
   windowId?: string;
-  /** Advisory Blossom server origins for this resource only. */
+  /** Authorize every actual HTTP(S) destination before the resolver contacts it. */
+  authorizeNetwork?: AuthorizeNetwork;
+  /** @deprecated Canonical resource messages never carry server hints. */
   servers?: readonly string[];
 }
 
@@ -105,48 +106,18 @@ export interface ResourceServiceOptions {
    * canonical protocol error classification.
    *
    * @param url - The URL from the resource.bytes request
-   * @param init - Read-only method, request-scoped AbortSignal, and optional advisory Blossom servers
+   * @param init - Read-only method, request-scoped AbortSignal, and actual-destination approval callback
    */
   fetch(
     url: string,
     init: ResourceFetchInit,
   ): Promise<Response>;
 
-  /**
-   * Returns true if `origin` is present in `grants` (the list returned by
-   * `getConnectGrants` for the napplet's dTag + aggregateHash).
-   * Optional: when omitted with `getConnectGrants`, Kehto delegates directly
-   * to the runtime resolver without an origin-grant decision.
-   *
-   * The reference implementation is simply `grants.includes(origin)`. Host apps
-   * may provide normalized-origin comparison if needed.
-   *
-   * @param origin - Parsed origin of the requested URL (scheme + host + port)
-   * @param grants - Readonly list from getConnectGrants for this napplet identity
-   */
+  /** @deprecated Resolver destinations must use `init.authorizeNetwork`; retained only for host source compatibility. */
   isOriginGranted?(origin: string, grants: readonly string[]): boolean;
-
-  /**
-   * Returns the list of allowed fetch origins for the given napplet identity.
-   * Called on every `resource.bytes` request — must be synchronous and fast.
-   * Optional and paired with `isOriginGranted` plus `resolveIdentity`.
-   *
-   * Host-supplied grant source (e.g. a static per-dTag allowlist map, or any
-   * other host-controlled policy). Returns an empty array to deny all origins.
-   *
-   * @param dTag - The napplet's d-tag (from session registry)
-   * @param aggregateHash - The napplet's aggregate hash (from session registry)
-   */
+  /** @deprecated Resolver destinations must use `init.authorizeNetwork`; retained only for host source compatibility. */
   getConnectGrants?(dTag: string, aggregateHash: string): readonly string[];
-
-  /**
-   * Resolve a windowId to the napplet's identity (dTag + aggregateHash).
-   * Returns null if the window is not in the session registry.
-   *
-   * Typically wraps `sessionRegistry.getEntryByWindowId(windowId)`.
-   *
-   * @param windowId - The iframe window identifier
-   */
+  /** @deprecated Resolver destinations must use runtime-bound authorization; retained only for host source compatibility. */
   resolveIdentity?(windowId: string): { dTag: string; aggregateHash: string } | null;
 
   /**
@@ -168,7 +139,7 @@ export type ResourceService = ServiceHandler;
 interface ResourceRequestState {
   runtime?: ServiceRuntimeContext;
   warnLegacy: () => void;
-  inFlight: Map<string, { controller: AbortController; windowId: string; requestId: string }>;
+  inFlight: Map<string, { controller: AbortController; windowId: string; requestId: string; send: (m: NappletMessage) => void; terminal: boolean }>;
   perWindow: Map<string, Set<string>>;
 }
 
@@ -198,7 +169,7 @@ export class ResourceServiceError extends Error {
 type ResourceFetchSuccess = {
   ok: true;
   url: string;
-  blob: Blob;
+  blob: string;
   mime: string;
 };
 
@@ -225,22 +196,6 @@ function assertResourceOptions(options: ResourceServiceOptions): void {
       '[RESOURCE-01] createResourceService requires a runtime-provided fetch resolver.',
     );
   }
-  const hasOriginPolicy =
-    options.isOriginGranted !== undefined || options.getConnectGrants !== undefined;
-  if (
-    hasOriginPolicy && (
-      typeof options.isOriginGranted !== 'function'
-      || typeof options.getConnectGrants !== 'function'
-      || typeof options.resolveIdentity !== 'function'
-    )
-  ) {
-    throw new Error(
-      '[RESOURCE-01] optional origin policy requires {isOriginGranted, getConnectGrants, resolveIdentity} together.',
-    );
-  }
-  if (options.resolveIdentity !== undefined && typeof options.resolveIdentity !== 'function') {
-    throw new Error('[RESOURCE-01] resolveIdentity must be a function when provided.');
-  }
 }
 
 function trackRequest(
@@ -248,10 +203,11 @@ function trackRequest(
   requestId: string,
   windowId: string,
   controller: AbortController,
+  send: (m: NappletMessage) => void,
 ): boolean {
   const key = requestKey(windowId, requestId);
   if (state.inFlight.has(key)) return false;
-  state.inFlight.set(key, { controller, windowId, requestId });
+  state.inFlight.set(key, { controller, windowId, requestId, send, terminal: false });
   if (!state.perWindow.has(windowId)) {
     state.perWindow.set(windowId, new Set());
   }
@@ -309,9 +265,14 @@ function responseBlob(buffer: ArrayBuffer, mime: string): Blob {
   return new Blob([buffer], { type: mime });
 }
 
-function requestIdFromMessage(message: NappletMessage & { id?: unknown; requestId?: unknown }): string | null {
+function encodeCanonicalBase64(buffer: ArrayBuffer): string {
+  let binary = '';
+  for (const byte of new Uint8Array(buffer)) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
+function requestIdFromMessage(message: NappletMessage & { id?: unknown }): string | null {
   if (typeof message.id === 'string' && message.id.length > 0) return message.id;
-  if (typeof message.requestId === 'string' && message.requestId.length > 0) return message.requestId;
   return null;
 }
 
@@ -324,7 +285,6 @@ function normalizeResourceInfo(info: ResourceInfo): ResourceInfo {
       : [],
     ...(typeof info.maxBytes === 'number' ? { maxBytes: info.maxBytes } : {}),
     ...(typeof info.maxUrls === 'number' ? { maxUrls: info.maxUrls } : {}),
-    ...(typeof info.maxServers === 'number' ? { maxServers: info.maxServers } : {}),
   };
 }
 
@@ -334,7 +294,7 @@ async function resolveResourceInfo(
 ): Promise<ResourceInfo> {
   const configured = options.resourceInfo ?? DEFAULT_RESOURCE_INFO;
   const info = typeof configured === 'function'
-    ? await configured({ windowId, identity: options.resolveIdentity?.(windowId) ?? null })
+    ? await configured({ windowId, identity: null })
     : configured;
   return normalizeResourceInfo(info);
 }
@@ -347,7 +307,7 @@ async function handleInfo(
   send: (m: NappletMessage) => void,
 ): Promise<void> {
   const controller = new AbortController();
-  if (!trackRequest(state, requestId, windowId, controller)) return;
+  if (!trackRequest(state, requestId, windowId, controller, send)) return;
   try {
     const info = await resolveResourceInfo(options, windowId);
     if (controller.signal.aborted) return;
@@ -396,37 +356,13 @@ async function fetchResourceItem(
   const { url } = request;
   const parsedUrl = parseResourceUrl(url);
   if (!parsedUrl) return resourceInvalidRequest(url, `invalid URL: ${url}`);
-  if (parsedUrl.origin !== 'null' && options.isOriginGranted && options.getConnectGrants) {
-    const identity = options.resolveIdentity?.(windowId) ?? null;
-    if (!identity) {
-      return {
-        ok: false,
-        url,
-        error: 'blocked-by-policy',
-        message: 'napplet identity not resolvable for runtime origin policy',
-      };
-    }
-    const origin = parsedUrl.origin;
-    const grants = options.getConnectGrants(identity.dTag, identity.aggregateHash);
-    if (!options.isOriginGranted(origin, grants)) {
-      return {
-        ok: false,
-        url,
-        error: 'blocked-by-policy',
-        message: `origin ${origin} not granted by runtime policy`,
-      };
-    }
-  }
-
-  const result = await authorizeResource(state.runtime, windowId, url, signal, async (signal): Promise<ResourceFetchItem> => {
+  const result = await authorizeResource(state.runtime, windowId, url, signal, async (requestSignal, authorizeNetwork): Promise<ResourceFetchItem> => {
     try {
       const response = await options.fetch(url, {
         method: 'GET',
-        signal,
+        signal: requestSignal,
         windowId,
-        ...(parsedUrl.protocol === 'blossom:' && request.servers !== undefined
-          ? { servers: [...request.servers] }
-          : {}),
+        authorizeNetwork,
       });
       const buffer = await response.arrayBuffer();
       if (info.maxBytes !== undefined && buffer.byteLength > info.maxBytes) {
@@ -436,12 +372,12 @@ async function fetchResourceItem(
       return {
         ok: true,
         url,
-        blob: responseBlob(buffer, mime),
+        blob: encodeCanonicalBase64(buffer),
         mime,
       };
     } catch (err: unknown) {
       const isAbort =
-        signal.aborted ||
+        requestSignal.aborted ||
         (err instanceof Error && (err.name === 'AbortError' || err.name === 'DOMException'));
       return {
         ok: false,
@@ -465,7 +401,7 @@ async function handleBytes(
 ): Promise<void> {
   const { requestId, ...request } = msg;
   const controller = new AbortController();
-  if (!trackRequest(state, requestId, windowId, controller)) return;
+  if (!trackRequest(state, requestId, windowId, controller, send)) return;
 
   try {
     const info = await resolveResourceInfo(options, windowId);
@@ -496,26 +432,27 @@ async function handleBytesMany(
   options: ResourceServiceOptions,
   state: ResourceRequestState,
   windowId: string,
-  msg: { requestId: string; requests: readonly ResourceBytesRequest[] },
+  msg: { requestId: string; urls: readonly string[] },
   send: (m: NappletMessage) => void,
 ): Promise<void> {
-  const { requestId, requests } = msg;
-  if (!isResourceRequestList(requests)) {
-    sendBytesManyError(send, requestId, 'resource.bytesMany requires a non-empty requests array', 'invalid-request');
+  const { requestId, urls } = msg;
+  if (!isResourceUrlList(urls)) {
+    sendBytesManyError(send, requestId, 'resource.bytesMany requires a non-empty urls array', 'invalid-request');
     return;
   }
 
   const controller = new AbortController();
-  if (!trackRequest(state, requestId, windowId, controller)) return;
+  if (!trackRequest(state, requestId, windowId, controller, send)) return;
   try {
     const info = await resolveResourceInfo(options, windowId);
     if (controller.signal.aborted) return;
-    if (info.maxUrls !== undefined && requests.length > info.maxUrls) {
+    if (info.maxUrls !== undefined && urls.length > info.maxUrls) {
       sendBytesManyError(send, requestId, `resource.bytesMany exceeds ${info.maxUrls} URLs`, 'too-large');
       return;
     }
     const items: Array<Record<string, unknown>> = [];
-    for (const request of requests) {
+    for (const url of urls) {
+      const request = { url };
       const item = await fetchResourceItem(options, state, windowId, info, request, controller.signal);
       if (controller.signal.aborted) return;
       if (item.ok) {
@@ -549,20 +486,10 @@ async function handleBytesMany(
   }
 }
 
-function hasValidServerHints(request: { servers?: readonly unknown[] }): boolean {
-  return request.servers === undefined
-    || (Array.isArray(request.servers) && request.servers.every((server) => typeof server === 'string'));
-}
-
-function isResourceRequestList(value: unknown): value is readonly ResourceBytesRequest[] {
+function isResourceUrlList(value: unknown): value is readonly string[] {
   return Array.isArray(value)
     && value.length > 0
-    && value.every((request) => (
-      typeof request === 'object'
-      && request !== null
-      && typeof (request as ResourceBytesRequest).url === 'string'
-      && hasValidServerHints(request as ResourceBytesRequest)
-    ));
+    && value.every((url) => typeof url === 'string');
 }
 
 function handleCancel(state: ResourceRequestState, windowId: string, requestId: string): void {
@@ -638,7 +565,18 @@ export function createResourceService(options: ResourceServiceOptions): Resource
   const handler: ServiceHandler = {
     descriptor,
     onRegistered(context) { state.runtime = context; },
-    onPermissionRevoked() {},
+    onPermissionRevoked(windowId) {
+      for (const key of state.perWindow.get(windowId) ?? []) {
+        const entry = state.inFlight.get(key);
+        if (!entry || entry.terminal) continue;
+        entry.terminal = true;
+        entry.controller.abort();
+        entry.send({
+          type: 'resource.bytes.error', id: entry.requestId,
+          error: 'blocked-by-policy', message: 'resource permission revoked',
+        } as NappletMessage);
+      }
+    },
 
     handleMessage(
       windowId: string,
@@ -649,26 +587,23 @@ export function createResourceService(options: ResourceServiceOptions): Resource
         case 'resource.bytes': {
           const m = message as NappletMessage & {
             id?: string;
-            requestId?: string;
             url: string;
-            servers?: readonly string[];
           };
           const requestId = requestIdFromMessage(m);
           if (!requestId) return;
-          if (typeof m.url !== 'string' || !hasValidServerHints(m)) {
-            sendResourceError(send, requestId, 'resource.bytes requires a URL and optional string servers', 'invalid-request');
+          if (typeof m.url !== 'string') {
+            sendResourceError(send, requestId, 'resource.bytes requires a URL', 'invalid-request');
             return;
           }
           handleBytes(options, state, windowId, {
             requestId,
             url: m.url,
-            ...(m.servers !== undefined ? { servers: [...m.servers] } : {}),
           }, send).catch(() => { /* errors surface via send() */ });
           return;
         }
 
         case 'resource.info': {
-          const m = message as NappletMessage & { id?: string; requestId?: string };
+          const m = message as NappletMessage & { id?: string };
           const requestId = requestIdFromMessage(m);
           if (!requestId) return;
           handleInfo(options, state, windowId, requestId, send).catch(() => { /* errors surface via send() */ });
@@ -678,21 +613,17 @@ export function createResourceService(options: ResourceServiceOptions): Resource
         case 'resource.bytesMany': {
           const m = message as NappletMessage & {
             id?: string;
-            requestId?: string;
-            requests?: readonly ResourceBytesRequest[];
+            urls?: readonly string[];
           };
           const requestId = requestIdFromMessage(m);
           if (!requestId) return;
-          const requests = isResourceRequestList(m.requests)
-            ? m.requests.map((request) => ({ url: request.url,
-              ...(request.servers !== undefined ? { servers: [...request.servers] } : {}),
-            })) : [];
-          handleBytesMany(options, state, windowId, { requestId, requests }, send).catch(() => { /* errors surface via send() */ });
+          const urls = isResourceUrlList(m.urls) ? [...m.urls] : [];
+          handleBytesMany(options, state, windowId, { requestId, urls }, send).catch(() => { /* errors surface via send() */ });
           return;
         }
 
         case 'resource.cancel': {
-          const m = message as NappletMessage & { id?: string; requestId?: string };
+          const m = message as NappletMessage & { id?: string };
           const requestId = requestIdFromMessage(m);
           if (requestId) handleCancel(state, windowId, requestId);
           return;

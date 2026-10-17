@@ -1,10 +1,27 @@
 declare module 'node:http' {
+  interface ClientRequest {
+    once(event: 'error', callback: (error: Error) => void): void;
+    end(): void;
+    destroy(error?: Error): void;
+  }
+  interface IncomingResponse {
+    statusCode?: number;
+    headers: Record<string, string | string[] | undefined>;
+    on(event: 'data', callback: (chunk: Uint8Array) => void): void;
+    on(event: 'end' | 'error', callback: (() => void) | ((error: Error) => void)): void;
+  }
   export function createServer(
     listener: (
-      request: { url?: string; headers: Record<string, string | string[] | undefined> },
+      request: {
+        url?: string; method?: string; headers: Record<string, string | string[] | undefined>;
+        on(event: 'data', callback: (chunk: Uint8Array) => void): void;
+        on(event: 'end', callback: () => void): void;
+        on(event: 'error', callback: (error: Error) => void): void;
+        destroy(): void;
+      },
       response: {
         writeHead(statusCode: number, headers: Record<string, string>): void;
-        end(body: string): void;
+        end(body?: string | Uint8Array): void;
       },
     ) => void,
   ): {
@@ -14,7 +31,19 @@ declare module 'node:http' {
     close(callback: (error?: Error) => void): void;
     address(): string | { port: number } | null;
   };
+  export function request(url: URL, options: Record<string, unknown>, callback: (response: IncomingResponse) => void): ClientRequest;
 }
+
+declare module 'node:https' {
+  export function request(url: URL, options: Record<string, unknown>, callback: (response: import('node:http').IncomingResponse) => void): import('node:http').ClientRequest;
+}
+
+declare module 'node:dns/promises' {
+  export function lookup(hostname: string, options: { all: true; verbatim: true }): Promise<readonly { address: string; family: number }[]>;
+}
+
+declare module 'node:net' { export function isIP(value: string): number; }
+declare module 'node:crypto' { export function randomBytes(size: number): { toString(encoding: string): string }; }
 
 declare module 'node:fs' {
   export interface Dirent {

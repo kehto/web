@@ -18,11 +18,7 @@
  *             resource.bytesMany.result, resource.bytesMany.error
  */
 
-import type {
-  ResourceBytesItem as CanonicalResourceBytesItem,
-  ResourceBytesRequest as CanonicalResourceBytesRequest,
-  ResourceInfo,
-} from '@napplet/nap/resource/types';
+import type { ResourceInfo } from '@napplet/nap/resource/types';
 
 export type { ResourceInfo } from '@napplet/nap/resource/types';
 
@@ -39,37 +35,21 @@ export interface ResourceInfoRequest {
 }
 
 /**
- * Inbound: napplet requests bytes from an origin. Shell consults
- * getConnectGrants(dTag, aggregateHash) before proxying; ungranted origins
- * receive a `denied` error (RESOURCE-01 H-03 prevention).
+ * Inbound: napplet requests one resource by its exact original URL.
  */
 export interface ResourceBytesRequest {
   type: 'resource.bytes';
-  /** Current NAP-RESOURCE correlation ID. */
-  id?: ResourceRequestId;
-  /** Legacy Kehto correlation ID. */
-  requestId?: ResourceRequestId;
+  id: ResourceRequestId;
   url: string;
-  /** Advisory Blossom server locations. Ignored for other schemes. */
-  servers?: readonly string[];
-  /** Optional subset of fetch init (method, headers). Body bytes are shell-proxy-internal. */
-  init?: {
-    method?: string;
-    headers?: Readonly<Record<string, string>>;
-  };
 }
 
 /**
  * Inbound: napplet cancels a previously-issued bytes request. Shell correlates
- * to the in-flight request by requestId and emits a `resource.bytes.error`
- * with `code: 'canceled'`.
+ * to the in-flight request. Cancellation has no terminal envelope.
  */
 export interface ResourceCancelRequest {
   type: 'resource.cancel';
-  /** Current NAP-RESOURCE correlation ID. */
-  id?: ResourceRequestId;
-  /** Legacy Kehto correlation ID. */
-  requestId?: ResourceRequestId;
+  id: ResourceRequestId;
 }
 
 /**
@@ -78,7 +58,7 @@ export interface ResourceCancelRequest {
 export interface ResourceBytesManyRequest {
   type: 'resource.bytesMany';
   id: ResourceRequestId;
-  requests: readonly CanonicalResourceBytesRequest[];
+  urls: readonly string[];
 }
 
 /**
@@ -86,29 +66,17 @@ export interface ResourceBytesManyRequest {
  */
 export interface ResourceBytesResult {
   type: 'resource.bytes.result';
-  /** Current NAP-RESOURCE correlation ID. */
   id: ResourceRequestId;
-  /** Legacy Kehto correlation ID. */
-  requestId: ResourceRequestId;
-  /** Current NAP-RESOURCE Blob payload. */
-  blob?: Blob;
-  /** Current NAP-RESOURCE runtime-classified MIME. */
-  mime?: string;
-  status: number;
-  headers: Readonly<Record<string, string>>;
-  /** Raw response bytes, base64-encoded for the postMessage wire. */
-  bodyBase64: string;
+  /** Canonical padded RFC 4648 base64 bytes. */
+  blob: string;
+  mime: string;
 }
 
 /**
  * Canonical typed-error codes for RESOURCE-03 cancel correlation + H-03
  * ungranted-origin refusal.
  */
-export type ResourceErrorCode =
-  | 'denied'
-  | 'canceled'
-  | 'network-error'
-  | 'invalid-url';
+export type ResourceErrorCode = string;
 
 /**
  * Outbound: error result — used for both grant-refusal (RESOURCE-01) and
@@ -118,18 +86,18 @@ export interface ResourceBytesError {
   type: 'resource.bytes.error';
   /** Current NAP-RESOURCE correlation ID. */
   id: ResourceRequestId;
-  /** Legacy Kehto correlation ID. */
-  requestId: ResourceRequestId;
-  /** Current NAP-RESOURCE error field. */
-  error?: string;
-  code: ResourceErrorCode;
-  message: string;
+  error: ResourceErrorCode;
+  message?: string;
 }
 
 /**
  * Current NAP-RESOURCE bulk result item.
  */
-export type ResourceBytesManyItem = CanonicalResourceBytesItem;
+export type ResourceBytesManyItem = {
+  url: string; ok: true; blob: string; mime: string;
+} | {
+  url: string; ok: false; error: string; message?: string;
+};
 
 /**
  * Outbound: ordered bulk fetch result.

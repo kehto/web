@@ -18,7 +18,7 @@ describe('resource lifecycle before asynchronous metadata resolution', () => {
     const fetch = vi.fn(async () => new Response('bytes'));
     const service = createResourceService({ fetch, resourceInfo: () => info.promise });
     const send = vi.fn();
-    service.handleMessage('w', { type, id: 'r', url, requests: [{ url }] } as NappletMessage, send);
+    service.handleMessage('w', { type, id: 'r', url, urls: [url] } as NappletMessage, send);
     service.handleMessage('w', { type: 'resource.cancel', id: 'r' } as NappletMessage, send);
     info.resolve({ schemes: [] });
     await flush();
@@ -31,7 +31,7 @@ describe('resource lifecycle before asynchronous metadata resolution', () => {
     const fetch = vi.fn(async () => new Response('bytes'));
     const service = createResourceService({ fetch, resourceInfo: () => info.promise });
     const send = vi.fn();
-    service.handleMessage('w', { type, id: 'r', url, requests: [{ url }] } as NappletMessage, send);
+    service.handleMessage('w', { type, id: 'r', url, urls: [url] } as NappletMessage, send);
     service.onWindowDestroyed?.('w');
     info.resolve({ schemes: [] });
     await flush();
@@ -44,16 +44,14 @@ describe('resource lifecycle before asynchronous metadata resolution', () => {
     const fetch = vi.fn(async () => new Response('bytes'));
     const service = createResourceService({ fetch, resourceInfo: () => info.promise });
     const original = `blossom:${'a'.repeat(64)}.png`;
-    const request = { url: original, servers: ['https://blossom.example'] };
-    const requests = [request];
-    service.handleMessage('w', { type: 'resource.bytesMany', id: 'r', requests } as NappletMessage, vi.fn());
-    request.url = 'https://attacker.invalid';
-    request.servers[0] = 'https://attacker.invalid';
-    requests.push({ url, servers: [] });
+    const urls = [original];
+    service.handleMessage('w', { type: 'resource.bytesMany', id: 'r', urls } as NappletMessage, vi.fn());
+    urls[0] = 'https://attacker.invalid';
+    urls.push(url);
     info.resolve({ schemes: [] });
     await flush();
     expect(fetch).toHaveBeenCalledTimes(1);
-    expect(fetch).toHaveBeenCalledWith(original, expect.objectContaining({ servers: ['https://blossom.example'] }));
+    expect(fetch).toHaveBeenCalledWith(original, expect.anything());
   });
 
   it('keeps duplicate in-flight IDs bound to the original cancellation', async () => {
@@ -63,7 +61,7 @@ describe('resource lifecycle before asynchronous metadata resolution', () => {
     const service = createResourceService({ fetch, resourceInfo: provider });
     const send = vi.fn();
     service.handleMessage('w', { type: 'resource.bytes', id: 'r', url } as NappletMessage, send);
-    service.handleMessage('w', { type: 'resource.bytesMany', id: 'r', requests: [{ url }] } as NappletMessage, send);
+    service.handleMessage('w', { type: 'resource.bytesMany', id: 'r', urls: [url] } as NappletMessage, send);
     service.handleMessage('w', { type: 'resource.cancel', id: 'r' } as NappletMessage, send);
     info.resolve({ schemes: [] });
     await flush();
