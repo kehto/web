@@ -47,11 +47,13 @@ test('sparse same-model controllers have stable identities and independent live 
     color: getComputedStyle(node).color,
     duration: (node as HTMLElement).style.getPropertyValue('--pad-duration'),
     turn: (node as HTMLElement).style.getPropertyValue('--pad-turn'),
+    motion: (node as HTMLElement).style.getPropertyValue('--pad-animation'),
   })));
   expect(appearance[0]).not.toEqual(appearance[1]);
   expect(appearance[0].color).not.toBe(appearance[1].color);
   expect(appearance[0].duration).not.toBe(appearance[1].duration);
   expect(appearance[0].turn).not.toBe(appearance[1].turn);
+  expect(appearance[0].motion).not.toBe(appearance[1].motion);
   // Actual display-frame polling must notice input without a connection event.
   await page.evaluate((slots) => {
     (window as unknown as { setTestPads(pads: unknown[]): void }).setTestPads(slots);
@@ -65,7 +67,7 @@ test('sparse same-model controllers have stable identities and independent live 
   }, [pad(0), null, pad(2)]);
   await expect(third).toHaveAttribute('data-activity', 'active');
   await expect(first).toHaveAttribute('data-activity', 'idle');
-  expect(await third.locator('svg').evaluate((svg) => getComputedStyle(svg).animationName)).toBe('gamepad-input');
+  expect(await third.locator('svg').evaluate((svg) => getComputedStyle(svg).animationName)).toBe('gamepad-pulse');
   await setPads(page, [pad(0)]);
   await expect(icons).toHaveCount(1);
   expect(await first.evaluate((node) => getComputedStyle(node).color)).toBe(appearance[0].color);

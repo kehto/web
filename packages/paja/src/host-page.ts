@@ -58,10 +58,16 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .gamepad-indicator { display: inline-flex; align-items: center; flex: 0 0 auto; color: var(--pad-color); opacity: .65; padding: 3px 1px; }
       .gamepad-indicator small { font-size: 10px; font-weight: 700; margin-left: 2px; }
       .gamepad-indicator[data-activity="active"] { opacity: 1; background: color-mix(in srgb, var(--pad-color) 18%, transparent); border-radius: 5px; }
-      .gamepad-indicator[data-activity="active"] svg { animation: gamepad-input var(--pad-duration) ease-in-out infinite; }
-      @keyframes gamepad-input {
-        25% { transform: translateY(var(--pad-lift)) rotate(var(--pad-turn)); }
-        75% { transform: rotate(calc(-1 * var(--pad-turn))) scale(1.12); }
+      .gamepad-indicator[data-activity="active"] svg { animation: var(--pad-animation) var(--pad-duration) ease-in-out infinite; }
+      @keyframes gamepad-bounce { 50% { transform: translateY(var(--pad-lift)); } }
+      @keyframes gamepad-rock {
+        25% { transform: rotate(var(--pad-turn)); }
+        75% { transform: rotate(calc(-1 * var(--pad-turn))); }
+      }
+      @keyframes gamepad-pulse { 50% { transform: scale(1.18); } }
+      @keyframes gamepad-nudge {
+        25% { transform: translateX(var(--pad-lift)); }
+        75% { transform: translateX(calc(-1 * var(--pad-lift))); }
       }
       @media (prefers-reduced-motion: reduce) {
         .gamepad-indicator[data-activity="active"] svg { animation: none; }

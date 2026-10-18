@@ -26,6 +26,7 @@ export function installPajaGamepadIndicators(): () => void {
     icon.style.setProperty('--pad-turn', `${(pad.index % 2 ? -1 : 1) * (6 + pad.index * 2)}deg`);
     icon.style.setProperty('--pad-lift', `${-2 - pad.index % 4}px`);
     icon.style.setProperty('--pad-duration', `${480 + pad.index * 85}ms`);
+    icon.style.setProperty('--pad-animation', ['gamepad-bounce', 'gamepad-rock', 'gamepad-pulse', 'gamepad-nudge'][pad.index % 4]!);
     icon.innerHTML = ICON;
     const number = document.createElement('small');
     number.textContent = String(pad.index + 1);
