@@ -1,5 +1,13 @@
 # @kehto/paja
 
+## 0.24.0
+
+### Minor Changes
+
+- bd95181: Notify open napplets of intent availability after verified catalog installs,
+  replacements, removals, and default-handler updates. Failed invocations remain
+  terminal; callers may retry after receiving `intent.changed`.
+
 ## 0.23.0
 
 ### Minor Changes
