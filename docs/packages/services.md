@@ -47,6 +47,15 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 ## Scope Boundaries
 
 - Provides reference service handlers that host apps register with `runtime.registerService()`.
+- The CVM Nostr transport caps inbound CEP-22 reassembly at 300,000ms and keeps
+  admitted request deadlines fixed despite progress. CEP-41 closes with remaining
+  gaps fail immediately, including boundless closes. Outbound oversized requests
+  are unsupported; encrypted arguments must fit one NIP-44 message. Hosts own
+  per-napplet concurrency and overall initialization/queueing budgets; the
+  transport has no caller principal. Correlation IDs and ping nonces use random
+  bytes rather than per-ID key derivation. These policies follow [NAP-CVM #31 at
+  `28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f`](https://github.com/napplet/naps/blob/28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f/naps/NAP-CVM.md)
+  and [CEP-41](https://github.com/contextvm/contextvm-docs/blob/3b4f9dc9f9012a418abd9faec6a70db774754862/src/content/docs/reference/ceps/cep-41.md).
 - The runtime selects a handler by the exact `message.type` domain (for example,
   `notify.create` selects `notify`). INC topics are opaque, queryless identities
   matched only by exact equality; they never select a service handler. The

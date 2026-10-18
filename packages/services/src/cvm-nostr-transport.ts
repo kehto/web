@@ -13,6 +13,8 @@
  *  - Discovery reads kind-11316 (server) + kind-11317 (tools) announcements.
  *  - CEP-22 oversized transfers and CEP-41 open streams ride
  *    `notifications/progress` frames addressed by the request progressToken.
+ *    Outbound requests are not split into CEP-22 frames; encrypted arguments
+ *    must fit one NIP-44 plaintext message.
  *
  * Shipped on a separate entry (`@kehto/services/cvm-nostr-transport`) so the
  * `nostr-tools` dependency stays out of the core `@kehto/services` bundle.
@@ -72,7 +74,7 @@ const MAX_TRANSFER_BYTES = 100 * 1024 * 1024;
 /** Concurrent CEP-22 reassemblies admitted across all servers. */
 const MAX_ACTIVE_TRANSFERS = 8;
 /** Hard ceiling on how long one reassembly may hold buffered chunks. */
-const MAX_TRANSFER_LIFETIME_MS = 120_000;
+const MAX_TRANSFER_LIFETIME_MS = 300_000;
 /** The only CEP-22 completion mode; receivers must reject all others. */
 const COMPLETION_MODE_RENDER = 'render';
 /** CEP-41: default idle interval before a keepalive ping is sent. */
@@ -151,7 +153,6 @@ interface PendingRequest {
   resolve(message: McpMessage): void;
   reject(error: Error): void;
   timer: ReturnType<typeof setTimeout>;
-  timeoutMs: number;
   /** The caller's original JSON-RPC id, restored on the response. */
   originalId: string | number | undefined;
   /** Server identity that must sign the correlated inner response. */
@@ -178,17 +179,22 @@ interface ServerSession {
   initializing: Promise<void> | null;
 }
 
+function randomIdSuffix(): string {
+  return Array.from(crypto.getRandomValues(new Uint8Array(4)),
+    (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
 let correlationCounter = 0;
 function nextCorrelationId(): string {
   correlationCounter += 1;
-  return `cvm-${correlationCounter}-${getPublicKey(generateSecretKey()).slice(0, 8)}`;
+  return `cvm-${correlationCounter}-${randomIdSuffix()}`;
 }
 
 let streamNonceCounter = 0;
 /** Unique ping nonce within a stream, well under the 64-byte maximum. */
 function nextStreamNonce(): string {
   streamNonceCounter += 1;
-  return `cvm-ping-${streamNonceCounter}-${getPublicKey(generateSecretKey()).slice(0, 8)}`;
+  return `cvm-ping-${streamNonceCounter}-${randomIdSuffix()}`;
 }
 
 function randomizedPastTimestamp(): number {
@@ -338,6 +344,7 @@ export function createNostrCvmTransport(
   const streamProbeTimeoutMs = options.streamProbeTimeoutMs ?? DEFAULT_STREAM_PROBE_TIMEOUT_MS;
 
   const sessions = new Map<string, ServerSession>();
+  // Hosts own per-napplet concurrency admission; this transport has no caller principal.
   const pending = new Map<string, PendingRequest>();
   const eventHandlers = new Set<EventHandler>();
   const relayRefcount = new Map<string, number>();
@@ -635,11 +642,10 @@ export function createNostrCvmTransport(
         acceptProgress: null,
         chunks: new Map(),
         codeUnitsReceived: 0,
-        // Hard expiry: progress frames extend the request deadline but never
-        // how long buffers may be held.
+        // Reassembly is bounded independently; the original request deadline still wins.
         expiryTimer: setTimeout(() => releaseTransfer(entry), MAX_TRANSFER_LIFETIME_MS),
       };
-      refreshPendingTimeout(entry);
+
       return;
     }
 
@@ -654,7 +660,7 @@ export function createNostrCvmTransport(
         return;
       }
       transfer.acceptProgress = progress;
-      refreshPendingTimeout(entry);
+
       return;
     }
 
@@ -679,7 +685,7 @@ export function createNostrCvmTransport(
         return;
       }
       transfer.chunks.set(progress, cvm.data);
-      refreshPendingTimeout(entry);
+
       return;
     }
 
@@ -776,7 +782,7 @@ export function createNostrCvmTransport(
         idleTimer: setTimeout(() => onStreamIdle(entry), streamIdleTimeoutMs),
         probeTimer: null,
       };
-      refreshPendingTimeout(entry);
+
       routeEvent(serverPubkey, mcp);
       return;
     }
@@ -788,7 +794,7 @@ export function createNostrCvmTransport(
       }
       stream.lastProgress = progress;
       resetStreamIdleTimer(entry, stream);
-      refreshPendingTimeout(entry);
+
       return true;
     };
 
@@ -830,7 +836,7 @@ export function createNostrCvmTransport(
           stream.outOfOrder.set(index, { message: mcp, progress, codeUnits: cvm.data.length });
           stream.outOfOrderCodeUnits += cvm.data.length;
           resetStreamIdleTimer(entry, stream);
-          refreshPendingTimeout(entry);
+
           return;
         }
 
@@ -863,7 +869,7 @@ export function createNostrCvmTransport(
         }
         stream.lastProgress = previousProgress;
         resetStreamIdleTimer(entry, stream);
-        refreshPendingTimeout(entry);
+
         return;
       }
       case 'ping': {
@@ -887,6 +893,11 @@ export function createNostrCvmTransport(
         return;
       }
       case 'close': {
+        // CEP-41 allows immediate failure instead of grace when gaps remain.
+        if (stream.outOfOrder.size > 0) {
+          failStream(entry, 'close with unresolved chunk gaps');
+          return;
+        }
         // A declared completeness bound MUST be fully satisfied: every
         // chunkIndex from 0 through lastChunkIndex received (CEP-41).
         if (cvm.lastChunkIndex !== undefined) {
@@ -915,13 +926,6 @@ export function createNostrCvmTransport(
   }
 
   /** Extend a request's deadline while its admitted frames keep arriving. */
-  function refreshPendingTimeout(entry: PendingRequest): void {
-    clearTimeout(entry.timer);
-    entry.timer = setTimeout(() => {
-      const settled = settlePending(entry.correlationId);
-      settled?.reject(new Error('relay timeout'));
-    }, entry.timeoutMs);
-  }
 
   /** Route a decrypted MCP message to a pending request or event handlers. */
   function routeMessage(serverPubkey: string, mcp: McpMessage): void {
@@ -1047,7 +1051,6 @@ export function createNostrCvmTransport(
           const settled = settlePending(correlationId);
           settled?.reject(new Error('relay timeout'));
         }, timeout),
-        timeoutMs: timeout,
         originalId,
         serverPubkey: server.pubkey,
         correlationId,
