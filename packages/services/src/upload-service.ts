@@ -209,7 +209,7 @@ const DEFAULT_UPLOAD_INFO: UploadInfo = {
   rails: [],
 };
 
-/** Per-upload tracking entry, keyed by `windowId:uploadId`. */
+/** Per-upload tracking entry within its owning window. */
 interface UploadEntry {
   uploadId: string;
   status?: UploadStatus;
@@ -233,8 +233,7 @@ export function createUploadService(options: UploadServiceOptions): ServiceHandl
   const generateId = options.generateId ?? (() => crypto.randomUUID());
   const now = options.now ?? (() => Date.now());
 
-  // Tracked uploads keyed by `windowId:uploadId` for status lookup + cleanup.
-  const entries = new Map<string, UploadEntry>();
+  const windows = new Map<string, Map<string, UploadEntry>>();
 
   function normalizeUploadInfo(info: UploadInfo): UploadInfo {
     return {
@@ -265,7 +264,7 @@ export function createUploadService(options: UploadServiceOptions): ServiceHandl
       });
   }
 
-  function handleUpload(windowId: string, msg: NappletMessage, send: Send): void {
+  function handleUpload(windowId: string, msg: NappletMessage, send: Send, entries: Map<string, UploadEntry>): void {
     const m = msg as NappletMessage & { id?: string; request?: UploadRequest };
     const id = m.id ?? '';
     const request = m.request;
@@ -275,16 +274,17 @@ export function createUploadService(options: UploadServiceOptions): ServiceHandl
     }
 
     const uploadId = generateId();
-    const key = `${windowId}:${uploadId}`;
-    entries.set(key, { uploadId });
+    const entry: UploadEntry = { uploadId };
+    entries.set(uploadId, entry);
+    const isActive = (): boolean => windows.get(windowId) === entries && entries.get(uploadId) === entry;
 
     const ctx: UploaderContext = {
       uploadId,
       windowId,
       onStatus: (status) => {
+        if (!isActive()) return;
         const stamped: UploadStatus = { ...status, uploadId, updatedAt: status.updatedAt || now() };
-        const entry = entries.get(key);
-        if (entry) entry.status = stamped;
+        entry.status = stamped;
         send({ type: 'upload.status.changed', status: stamped } as NappletMessage);
       },
     };
@@ -292,18 +292,19 @@ export function createUploadService(options: UploadServiceOptions): ServiceHandl
     void uploader
       .upload(request, ctx)
       .then((result) => {
+        if (!isActive()) return;
         const stamped: UploadResult = { ...result, uploadId };
-        const entry = entries.get(key);
-        if (entry) entry.status = { ...stamped, updatedAt: now() };
+        entry.status = { ...stamped, updatedAt: now() };
         send({ type: 'upload.upload.result', id, result: stamped } as NappletMessage);
       })
       .catch((err) => {
-        entries.delete(key);
+        if (!isActive()) return;
+        entries.delete(uploadId);
         send({ type: 'upload.upload.result', id, error: toErrorMessage(err) } as NappletMessage);
       });
   }
 
-  function handleStatus(windowId: string, msg: NappletMessage, send: Send): void {
+  function handleStatus(msg: NappletMessage, send: Send, entries: Map<string, UploadEntry>): void {
     const m = msg as NappletMessage & { id?: string; uploadId?: string };
     const id = m.id ?? '';
     const uploadId = m.uploadId;
@@ -312,7 +313,7 @@ export function createUploadService(options: UploadServiceOptions): ServiceHandl
       return;
     }
 
-    const tracked = entries.get(`${windowId}:${uploadId}`)?.status;
+    const tracked = entries.get(uploadId)?.status;
     if (tracked) {
       send({ type: 'upload.status.result', id, status: tracked } as NappletMessage);
       return;
@@ -337,32 +338,53 @@ export function createUploadService(options: UploadServiceOptions): ServiceHandl
     send({ type: 'upload.status.result', id, error: 'unknown upload' } as NappletMessage);
   }
 
+  function cancelUploads(entries?: Map<string, UploadEntry>): void {
+    if (!entries) return;
+    for (const entry of entries.values()) {
+      try { uploader.cancel?.(entry.uploadId); }
+      catch { /* One backend failure must not leave other uploads active. */ }
+    }
+  }
+
+  function destroyWindow(windowId: string): void {
+    const entries = windows.get(windowId);
+    windows.delete(windowId);
+    cancelUploads(entries);
+  }
+
   return {
     descriptor: UPLOAD_DESCRIPTOR,
     handleMessage(windowId: string, message: NappletMessage, send: Send): void {
+      if (!['upload.info', 'upload.upload', 'upload.status'].includes(message.type)) return;
+      let entries = windows.get(windowId);
+      if (!entries) {
+        entries = new Map();
+        windows.set(windowId, entries);
+      }
+      const lifetime = entries;
+      const sendIfActive: Send = (response) => {
+        if (windows.get(windowId) === lifetime) send(response);
+      };
       switch (message.type) {
         case 'upload.info':
-          handleInfo(windowId, message, send);
+          handleInfo(windowId, message, sendIfActive);
           return;
         case 'upload.upload':
-          handleUpload(windowId, message, send);
+          handleUpload(windowId, message, sendIfActive, entries);
           return;
         case 'upload.status':
-          handleStatus(windowId, message, send);
+          handleStatus(message, sendIfActive, entries);
           return;
         default:
           // Unknown upload.* action — silently ignored (forward-compatible).
           return;
       }
     },
-    onWindowDestroyed(windowId: string): void {
-      const prefix = `${windowId}:`;
-      for (const [key, entry] of entries) {
-        if (key.startsWith(prefix)) {
-          uploader.cancel?.(entry.uploadId);
-          entries.delete(key);
-        }
-      }
+    onWindowDestroyed: destroyWindow,
+    onUnregistered(): void {
+      const pending = [...windows.values()];
+      windows.clear();
+      for (const entries of pending) cancelUploads(entries);
     },
   };
 }
