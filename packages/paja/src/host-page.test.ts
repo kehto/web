@@ -3,6 +3,18 @@ import { createPajaHostConfig, createPajaRuntimeHostConfig, normalizePajaOptions
 import { renderPajaHtml } from './host-page.js';
 
 describe('@kehto/paja host page', () => {
+  it('places controller diagnostics between the console arrow and tabs in both host modes', () => {
+    for (const config of [
+      createPajaRuntimeHostConfig({}),
+      createPajaHostConfig(normalizePajaOptions({ targetUrl: 'http://127.0.0.1:5173' })),
+    ]) {
+      const html = renderPajaHtml(config);
+      const toolbar = html.slice(html.indexOf('<div class="top-stage">'));
+      expect(toolbar.indexOf('id="paja-gamepads"')).toBeGreaterThan(toolbar.indexOf('id="paja-console-toggle"'));
+      expect(toolbar.indexOf('id="paja-gamepads"')).toBeLessThan(toolbar.indexOf('id="napplet-tabs"'));
+      expect(toolbar).toContain('role="group" aria-label="Connected controllers"');
+    }
+  });
   it('presents named app choices and a nonmodal notice without a recipient protocol form', () => {
     const html = renderPajaHtml(createPajaRuntimeHostConfig({}));
     const choice = html.match(/<dialog[^>]+id="paja-intent-link-dialog"[\s\S]*?<\/dialog>/)?.[0];

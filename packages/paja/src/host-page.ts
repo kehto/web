@@ -53,6 +53,25 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .spacer { flex: 1; min-width: 0; }
       .console-toggle { align-self: center; flex: 0 0 auto; width: 28px; height: 24px; padding: 0; display: inline-grid; place-items: center; color: var(--text); }
       .console-toggle-glyph { font-size: 15px; line-height: 1; }
+      #paja-gamepads { display: flex; align-items: center; gap: 7px; flex: 0 1 auto; min-width: 0; overflow-x: auto; }
+      #paja-gamepads:empty { display: none; }
+      .gamepad-indicator { display: inline-flex; align-items: center; flex: 0 0 auto; color: var(--pad-color); opacity: .65; padding: 3px 1px; }
+      .gamepad-indicator small { font-size: 10px; font-weight: 700; margin-left: 2px; }
+      .gamepad-indicator[data-activity="active"] { opacity: 1; background: color-mix(in srgb, var(--pad-color) 18%, transparent); border-radius: 5px; }
+      .gamepad-indicator[data-activity="active"] svg { animation: var(--pad-animation) var(--pad-duration) ease-in-out infinite; }
+      @keyframes gamepad-bounce { 50% { transform: translateY(var(--pad-lift)); } }
+      @keyframes gamepad-rock {
+        25% { transform: rotate(var(--pad-turn)); }
+        75% { transform: rotate(calc(-1 * var(--pad-turn))); }
+      }
+      @keyframes gamepad-pulse { 50% { transform: scale(1.18); } }
+      @keyframes gamepad-nudge {
+        25% { transform: translateX(var(--pad-lift)); }
+        75% { transform: translateX(calc(-1 * var(--pad-lift))); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .gamepad-indicator[data-activity="active"] svg { animation: none; }
+      }
       .console-toggle-glyph::before { content: '\\00ab'; }
       html[data-paja-console="collapsed"] .console-toggle-glyph::before { content: '\\00bb'; }
       /* Collapsing is presentation-only: the console column, its top-bar cell,
@@ -238,6 +257,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
           aria-label="${PAJA_CONSOLE_COLLAPSE_LABEL}"
           title="${PAJA_CONSOLE_COLLAPSE_LABEL}"
         ><span class="console-toggle-glyph" aria-hidden="true"></span></button>
+        <div id="paja-gamepads" role="group" aria-label="Connected controllers"></div>
         <div class="tabs" id="napplet-tabs" role="tablist" aria-label="Loaded napplets"></div>
         <div class="spacer"></div>
         <label>theme
