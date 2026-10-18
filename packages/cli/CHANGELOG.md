@@ -1,5 +1,13 @@
 # @kehto/cli
 
+## 0.5.7
+
+### Patch Changes
+
+- Updated dependencies [c04cb11]
+- Updated dependencies [ea5c039]
+  - @kehto/paja@0.23.0
+
 ## 0.5.6
 
 ### Patch Changes

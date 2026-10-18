@@ -1,5 +1,15 @@
 # @kehto/paja
 
+## 0.23.0
+
+### Minor Changes
+
+- ea5c039: Show connected controllers beside the console arrow with per-slot colors, numbers, model tooltips and distinct input animations. Respect reduced motion and ignore small stick drift.
+
+### Patch Changes
+
+- c04cb11: Use the active napplet tab name as the browser page title and restore the Paja title when the final tab closes.
+
 ## 0.22.0
 
 ### Minor Changes
