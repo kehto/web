@@ -1,4 +1,4 @@
-import { originRegistry, resolveShellEnvironment } from '@kehto/shell';
+import { originRegistry } from '@kehto/shell';
 import type { NostrEvent, NostrFilter } from '@napplet/core';
 import type {
   SessionEntry,
@@ -12,12 +12,10 @@ import {
   createBleService,
   createCommonService,
   createConfigService,
-  createCatalogIntentResolver,
   createCountService,
   createCvmService,
   createFsService,
   createIdentityService,
-  createIntentService,
   createKeysService,
   createLinkService,
   createListsService,
@@ -32,8 +30,6 @@ import {
   type UploadInfoProvider,
   createUploadService,
   createWebrtcService,
-  type IntentCandidate,
-  type IntentRequest,
   type ConfigServiceOptions,
   type DmService,
   type NotifyServiceOptions,
@@ -52,11 +48,10 @@ import {
   createBrowserSerialController,
   type PajaUserActivationHandler,
 } from './browser-device-services.js';
+import { createPajaCatalogIntentService, type PajaIntentHost } from './browser-catalog-intent-service.js';
 import type { PajaHostConfig } from './options.js';
 import type { PajaSignerMethod } from './browser-signers.js';
 import type { PajaSimulation } from './simulation.js';
-import { BrowserIntentController } from './browser-intent-controller.js';
-import { InstalledNappletCatalog } from './installed-napplet-catalog.js';
 import { createPajaUploadRuntime, type PajaUploadRuntime } from './browser-upload.js';
 import { createPajaBlossomEventResolver } from './browser-blossom-events.js';
 import { createPajaSocialCache } from './browser-social-cache.js';
@@ -176,33 +171,11 @@ export interface PajaShellAdapter extends ShellAdapter {
   readonly ready: Promise<void>;
   /** Bind verified runtime-pointer Blossom hints to one authenticated window. */
   setWindowBlossomServers(windowId: string, servers: readonly string[]): void;
+  /** Recompute intent availability after a host-owned default-handler update. */
+  notifyIntentChanged(archetype: string): void;
 }
 
 export { PAJA_DEV_SIGNER_PUBKEY } from './browser-dev-runtime.js';
-
-interface PajaIntentHost {
-  readonly catalog: InstalledNappletCatalog;
-  readonly controller: BrowserIntentController;
-  /** Resolve an authenticated frame to its verified catalog identity. */
-  resolveSender(windowId: string): string | undefined;
-  getDefaultHandler?(archetype: string): string | undefined;
-  chooseHandler?(
-    archetype: string,
-    candidates: IntentCandidate[],
-    sender: string,
-  ): string | undefined | Promise<string | undefined>;
-  authorizeExplicitHandler?(
-    sender: string,
-    handler: string,
-    request: IntentRequest,
-    candidate: IntentCandidate,
-    context?: import('@kehto/services').IntentResolverContext,
-  ): boolean | Promise<boolean>;
-  resolveHandlerHint?(
-    hint: import('@kehto/services').IntentHandlerHint,
-    candidates: readonly IntentCandidate[],
-  ): string | undefined | Promise<string | undefined>;
-}
 
 function createPajaCvmRelayPool(backend: PajaRelayBackend): CvmRelayPool {
   return {
@@ -672,6 +645,7 @@ export function createPajaAdapter(
   });
   const adapter: PajaShellAdapter = {
     ready,
+    notifyIntentChanged: () => {},
     setWindowBlossomServers: serviceBundle.setWindowBlossomServers,
     relayPool: createPajaRelayHooks(relayBackend, getSimulation, relayConfig),
     relayConfig,
@@ -715,20 +689,9 @@ export function createPajaAdapter(
     },
   };
   if (getSimulation().intent.enabled && intentHost) {
-    const resolver = createCatalogIntentResolver({
-      loadCatalog: () => intentHost.catalog.intentCatalog((record) =>
-        resolveShellEnvironment(adapter, record).capabilities.domains.includes('intent'),
-      ),
-      targets: intentHost.controller,
-      getDefaultHandler: intentHost.getDefaultHandler,
-      chooseHandler: intentHost.chooseHandler,
-      authorizeExplicitHandler: intentHost.authorizeExplicitHandler,
-      resolveHandlerHint: intentHost.resolveHandlerHint,
-    });
-    services.intent = createIntentService({
-      resolver,
-      resolveSender: intentHost.resolveSender,
-    });
+    const intent = createPajaCatalogIntentService(adapter, intentHost);
+    services.intent = intent.service;
+    adapter.notifyIntentChanged = intent.notifyChanged;
   }
   return adapter;
 }

@@ -254,6 +254,14 @@ catalog. Entries preserve exact conventions and ordered parameter names under
 publisher/kind-safe opaque IDs, including nameless root and snapshot artifacts.
 The target's resolved `intent` domain must be available; INC is not required.
 
+Catalog installs, replacements, removals, and user default-handler updates emit
+`intent.changed` to eligible open napplets (`napplet.intent.onChanged(...)`).
+Replacements notify both removed and added archetypes, once per slug, using the
+current filtered catalog. A `no handler` rejection remains terminal: callers must
+retry explicitly; installing a handler does not replay the failed invocation.
+This follows `napplet/naps` NAP-INTENT on master (last changed at `e5308ac`), whose
+runtime behavior recommends notifications on catalog/default changes.
+
 Selection uses exact contracts and user-owned default, chooser, recommendation,
 and explicit-authorization policy. Explicit handler IDs require sender-aware
 authorization and cannot address an arbitrary running frame.

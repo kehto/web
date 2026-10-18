@@ -822,6 +822,7 @@ async function installPajaHost(): Promise<void> {
     setDefault(archetype, id) {
       runtime.intentDefaults.set(archetype, id);
       writePajaIntentDefaults(runtime.intentDefaults);
+      adapter.notifyIntentChanged(archetype);
     },
     onAccepted() {
       const url = new URL(window.location.href);

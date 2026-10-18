@@ -158,6 +158,125 @@ describe('Paja browser adapter intent composition', () => {
     (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
   });
 
+  // Authority: napplet/naps NAP-INTENT.md master, last touch e5308ac.
+  // A pre-acceptance rejection is terminal; availability pushes permit caller retry.
+  it('notifies an already-open source after install without replaying its rejected invoke', async () => {
+    const { adapter, catalog, sequence } = makeAdapter();
+    const rejected = await sendIntent(adapter, {
+      type: 'intent.invoke', id: 'missing', request: REQUEST,
+    } as NappletMessage);
+    expect(rejected).toMatchObject([{ id: 'missing', result: { ok: false, error: 'no handler' } }]);
+    const push = vi.fn(() => true);
+    adapter.services!.intent!.onRegistered!({
+      ...runtimeContext(), listWindowIds: () => ['source'], sendToEligibleNapplet: push,
+    });
+
+    catalog.install(resolvedNapplet());
+    await vi.waitFor(() => expect(push).toHaveBeenCalledExactlyOnceWith('source', {
+      type: 'intent.changed',
+      availability: {
+        archetype: 'profile', available: true, hasDefault: false,
+        candidates: [expect.objectContaining({ id: CATALOG_ID })],
+      },
+    }));
+    expect(sequence).toEqual([]);
+    expect(rejected).toHaveLength(1);
+    await expect(sendIntent(adapter, {
+      type: 'intent.invoke', id: 'retry', request: REQUEST,
+    } as NappletMessage)).resolves.toMatchObject([{ id: 'retry', result: { ok: true, handler: CATALOG_ID } }]);
+    expect(sequence).toEqual(['open target', 'deliver target']);
+  });
+
+  it('notifies old and new archetypes once on replacement, including lost final support', async () => {
+    const { adapter, catalog } = makeAdapter();
+    const resolved = resolvedNapplet();
+    catalog.install(resolved);
+    const push = vi.fn(() => true);
+    const service = adapter.services!.intent!;
+    service.onRegistered!({ ...runtimeContext(), listWindowIds: () => ['source'], sendToEligibleNapplet: push });
+    catalog.install({
+      ...resolved,
+      manifest: { ...resolved.manifest, archetypes: [
+        { slug: 'note', convention: 'napplet:note/open', params: [] },
+        { slug: 'note', convention: 'napplet:note/edit', params: ['draft'] },
+      ] },
+    });
+    await vi.waitFor(() => expect(push).toHaveBeenCalledTimes(2));
+    expect(push.mock.calls).toEqual([
+      ['source', { type: 'intent.changed', availability: { archetype: 'profile', available: false, candidates: [], hasDefault: false } }],
+      ['source', { type: 'intent.changed', availability: { archetype: 'note', available: true, candidates: [expect.objectContaining({ id: CATALOG_ID, actions: ['open', 'edit'] })], hasDefault: false } }],
+    ]);
+    push.mockClear();
+    catalog.remove(CATALOG_ID);
+    await vi.waitFor(() => expect(push).toHaveBeenCalledExactlyOnceWith('source', {
+      type: 'intent.changed', availability: { archetype: 'note', available: false, candidates: [], hasDefault: false },
+    }));
+    push.mockClear();
+    expect(catalog.remove(CATALOG_ID)).toBe(false);
+    await Promise.resolve();
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it('uses the live default and filters candidates through the target intent domain', async () => {
+    let defaultId: string | undefined;
+    let intent = true;
+    const { adapter, catalog } = makeAdapter({ getDefaultHandler: () => defaultId }, () => normalizePajaSimulation({
+      relay: { mode: 'disabled' }, intent: { enabled: intent }, capabilities: { domains: { intent } },
+    }));
+    catalog.install(resolvedNapplet());
+    const push = vi.fn(() => true);
+    adapter.services!.intent!.onRegistered!({ ...runtimeContext(), listWindowIds: () => ['source'], sendToEligibleNapplet: push });
+    defaultId = CATALOG_ID;
+    adapter.notifyIntentChanged('profile');
+    await vi.waitFor(() => expect(push).toHaveBeenLastCalledWith('source', expect.objectContaining({
+      availability: expect.objectContaining({ hasDefault: true, candidates: [expect.objectContaining({ id: CATALOG_ID, isDefault: true })] }),
+    })));
+    push.mockClear();
+    intent = false;
+    catalog.install(resolvedNapplet());
+    await vi.waitFor(() => expect(push).toHaveBeenCalledExactlyOnceWith('source', {
+      type: 'intent.changed', availability: { archetype: 'profile', available: false, candidates: [], hasDefault: false },
+    }));
+    intent = true;
+    defaultId = undefined;
+    adapter.notifyIntentChanged('profile');
+    await vi.waitFor(() => expect(push).toHaveBeenLastCalledWith('source', expect.objectContaining({
+      availability: expect.objectContaining({ available: true, hasDefault: false, candidates: [expect.not.objectContaining({ isDefault: true })] }),
+    })));
+  });
+
+  it('keeps one catalog subscription per registered service and releases it on unregister', async () => {
+    const { adapter, catalog } = makeAdapter();
+    const stop = vi.fn();
+    const original = catalog.onChanged.bind(catalog);
+    const subscribe = vi.spyOn(catalog, 'onChanged').mockImplementation((listener) => {
+      const unsubscribe = original(listener);
+      return () => { stop(); unsubscribe(); };
+    });
+    const push = vi.fn(() => true);
+    const context = { ...runtimeContext(), listWindowIds: () => ['source'], sendToEligibleNapplet: push };
+    const service = adapter.services!.intent!;
+    service.onRegistered!(context);
+    service.onRegistered!(context);
+    catalog.install(resolvedNapplet());
+    await vi.waitFor(() => expect(push).toHaveBeenCalledTimes(1));
+    expect(subscribe).toHaveBeenCalledTimes(2);
+    expect(stop).toHaveBeenCalledTimes(1);
+    stop.mockClear();
+    service.onUnregistered!();
+    service.onUnregistered!();
+    expect(stop).toHaveBeenCalledTimes(1);
+    push.mockClear();
+    catalog.remove(CATALOG_ID);
+    adapter.notifyIntentChanged('profile');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(push).not.toHaveBeenCalled();
+    service.onRegistered!(context);
+    catalog.install(resolvedNapplet());
+    await vi.waitFor(() => expect(push).toHaveBeenCalledTimes(1));
+  });
+
   it('uses closed verified installations for availability and handlers without a live frame', async () => {
     const { adapter, catalog } = makeAdapter();
     catalog.install(resolvedNapplet());
@@ -278,9 +397,11 @@ describe('Paja browser adapter intent composition', () => {
   it('removes the development simulator and composes the catalog resolver with the target controller', () => {
     const source = readFileSync(new URL('./browser-adapter.ts', import.meta.url), 'utf8');
 
-    expect(source).toContain('createCatalogIntentResolver');
-    expect(source).toContain('InstalledNappletCatalog');
-    expect(source).toContain('BrowserIntentController');
+    expect(source).toContain('createPajaCatalogIntentService');
+    const composition = readFileSync(new URL('./browser-catalog-intent-service.ts', import.meta.url), 'utf8');
+    expect(composition).toContain('createCatalogIntentResolver');
+    expect(composition).toContain('InstalledNappletCatalog');
+    expect(composition).toContain('BrowserIntentController');
     expect(source).not.toContain('DEV_INTENT');
     expect(source).not.toContain('No-op until Phase 105');
   });
