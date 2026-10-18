@@ -129,7 +129,20 @@ bounded range reads, canonical padded-base64 writes, replace/append/patch,
 revisions and preconditions, recursive mkdir/remove, atomic handle moves when
 the browser supports them, and advisory watches over actual storage. Host
 paths and handles never cross the NIP-5D boundary. This implementation follows
-draft [NAP-FS `b640cf33`](https://github.com/napplet/naps/blob/b640cf337c0481f0f9a0216c00843f797a5c6df6/naps/NAP-FS.md).
+draft [NAP-FS `bd1b9e91`](https://github.com/napplet/naps/blob/bd1b9e912f05203bf38f7a1b04f920744fe6d625/naps/NAP-FS.md).
+
+Workspace storage and native pickers have separate browser requirements. Firefox
+can provide OPFS while lacking `showOpenFilePicker`, `showSaveFilePicker`, and
+`showDirectoryPicker`. In that environment, workspace operations remain usable
+and the corresponding picker requests return the canonical `unsupported` result.
+The Interfaces panel shows workspace and open/save/directory picker availability
+separately; the message log names a missing picker API when one caused that result.
+Green `fs:read` and `fs:write` ACL controls indicate permission, not browser API
+support. See the [picker compatibility reference](https://developer.mozilla.org/en-US/docs/Web/API/Window/showOpenFilePicker#browser_compatibility).
+
+The focused host regression runs in Chromium and Firefox after `pnpm build`:
+`pnpm exec playwright install firefox`, then
+`pnpm exec playwright test --config playwright.paja-fs.config.ts`.
 
 Other domains are equally capability-bound. Relay, outbox, and count require
 live relays; count uses NIP-45 `COUNT` without downloading events. Storage

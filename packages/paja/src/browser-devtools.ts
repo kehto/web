@@ -12,6 +12,7 @@ import {
   type PajaRelayInventory,
 } from './browser-relay-panel.js';
 import type { PajaHostConfig } from './options.js';
+import { browserPickers } from './browser-fs-support.js';
 import type { PajaSignerState } from './browser-signers.js';
 import { getTargetIdentity } from './browser-target-frame.js';
 import type { PajaRuntimeTarget } from './local-target.js';
@@ -47,6 +48,8 @@ export interface PajaDevtoolsState {
   resolvedTarget: PajaRuntimeTarget | null;
   /** Current simulation model. */
   simulation: PajaSimulation;
+  /** Registered host service names, independently of ACL grants. */
+  readonly services?: readonly string[];
   /** Current signer state. */
   signer: PajaSignerState;
   /** Number of remembered exact-identity signer decisions. */
@@ -74,6 +77,12 @@ export interface PajaDevtoolsState {
 }
 
 const PAJA_LOG_LIMIT = 500;
+const FS_PICKER_METHODS: Readonly<Partial<Record<string, keyof ReturnType<typeof browserPickers>>>> = {
+  'fs.pickFile.result': 'showOpenFilePicker',
+  'fs.pickFiles.result': 'showOpenFilePicker',
+  'fs.pickDirectory.result': 'showDirectoryPicker',
+  'fs.pickSaveFile.result': 'showSaveFilePicker',
+};
 const proxyToReal = new WeakMap<object, Window>();
 const realToProxy = new WeakMap<Window, Window>();
 const proxyContexts = new WeakMap<Window, {
@@ -139,7 +148,15 @@ function describeMessageDetail(raw: unknown): string {
   const value = raw as MessageWithDetails;
   for (const key of ['error', 'message', 'reason'] as const) {
     const detail = value[key];
-    if (typeof detail === 'string' && detail.length > 0) return detail;
+    if (typeof detail === 'string' && detail.length > 0) {
+      if (detail === 'unsupported') {
+        const picker = FS_PICKER_METHODS[raw.type];
+        if (picker && !browserPickers()[picker]) {
+          return `unsupported: this browser does not provide ${picker}. Workspace FS may still be available; ACL permission does not add browser APIs.`;
+        }
+      }
+      return detail;
+    }
   }
   return raw.type.endsWith('.error') ? compactMessageDetail(value) : '';
 }
@@ -302,6 +319,7 @@ export function renderPajaDevtools(
   options: PajaDevtoolsRenderOptions,
 ): void {
   renderInterfaceControls(state);
+  renderFsSupport(state);
   renderAclControls(state, options.bridge);
   renderSignerStatus(state, options.devSignerPubkey);
   renderPajaEventKindCounts(state.relayEventCounts, state.relayInventory?.());
@@ -367,6 +385,22 @@ function renderInterfaceControls(state: PajaDevtoolsState): void {
   }));
 }
 
+function renderFsSupport(state: PajaDevtoolsState): void {
+  const status = document.getElementById('paja-fs-support');
+  if (!status) return;
+  if (!domainEnabled(state.simulation, 'fs')) {
+    status.textContent = 'FS disabled by host.';
+    return;
+  }
+  if (!state.services?.includes('fs')) {
+    status.textContent = 'FS unavailable: browser workspace storage could not be opened.';
+    return;
+  }
+  const pickers = browserPickers();
+  const availability = (available: unknown) => available ? 'available' : 'unavailable';
+  status.textContent = `FS: Workspace available. Native pickers: open ${availability(pickers.showOpenFilePicker)}, save ${availability(pickers.showSaveFilePicker)}, directory ${availability(pickers.showDirectoryPicker)}.`;
+}
+
 function renderAclControls(state: PajaDevtoolsState, bridge: ShellBridge | null): void {
   const container = document.getElementById('acl-controls');
   if (!container) return;
@@ -384,7 +418,7 @@ function renderAclControls(state: PajaDevtoolsState, bridge: ShellBridge | null)
     button.dataset.aclCapability = capability;
     button.dataset.enabled = String(allowed);
     button.textContent = capability;
-    button.title = `${capability} ${allowed ? 'allowed' : 'blocked'}`;
+    button.title = `${capability} permission ${allowed ? 'allowed' : 'blocked'}; browser support is separate`;
     button.addEventListener('click', () => state.setAclCapability(capability, !allowed));
     return button;
   }));

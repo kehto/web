@@ -115,6 +115,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .resource-servers textarea { width: 100%; min-width: 0; padding: 6px; resize: vertical; }
       .resource-servers small, .resource-servers [role="status"] { color: var(--muted); overflow-wrap: anywhere; }
       .switch-grid, .acl-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+      .hint { margin: 0; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
       .toggle { height: 24px; padding: 0 8px; color: var(--muted); }
       .toggle[data-enabled="true"] { color: var(--text); border-color: #5f724f; background: #24301f; }
       .toggle[data-enabled="false"] { color: #8d9187; border-color: #453536; background: #241d1d; }
@@ -254,10 +255,12 @@ export function renderPajaHtml(config: PajaHostConfig): string {
         <details class="section" id="paja-section-interfaces" data-paja-section="interfaces" open>
           <summary class="section-title">Interfaces<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
           <div class="switch-grid" id="interface-toggles"></div>
+          <p class="hint" id="paja-fs-support" role="status"></p>
         </div></details>
         <details class="section" id="paja-section-acl" data-paja-section="acl" open>
           <summary class="section-title">ACL<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
           <div class="acl-grid" id="acl-controls"></div>
+          <p class="hint">ACL grants allow operations; they do not add missing browser APIs. See Interfaces for FS picker support.</p>
         </div></details>
         <details class="section" id="paja-section-signer" data-paja-section="signer" open>
           <summary class="section-title">Signer<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
