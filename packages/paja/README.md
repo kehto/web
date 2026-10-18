@@ -198,6 +198,8 @@ runtime tabs in local storage so returning to `/web/paja/` restores the previous
 pointer set. An explicit pointer in the URL still takes precedence over restored
 tabs.
 
+The browser page title follows the active napplet tab name, including when switching or closing tabs. With no active napplet, the title is `@kehto/paja`.
+
 The static artifact defaults to Paja's standard live relays and memory uploads.
 To point it at specific live relays or Blossom upload servers, pass
 comma-separated host lists when generating the artifact:

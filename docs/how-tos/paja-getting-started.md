@@ -3,6 +3,8 @@
 Paja runs one local napplet app inside the real Kehto browser runtime while your
 app dev server keeps its own HMR loop.
 
+The browser page title follows the active napplet tab name, including when switching or closing tabs. With no active napplet, the title is `@kehto/paja`.
+
 ## 1. Install the CLI
 
 ```bash

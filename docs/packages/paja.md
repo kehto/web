@@ -279,6 +279,8 @@ runtime tabs in local storage so returning to `/web/paja/` restores the previous
 pointer set. An explicit pointer in the URL still takes precedence over restored
 tabs.
 
+The browser page title follows the active napplet tab name, including when switching or closing tabs. With no active napplet, the title is `@kehto/paja`.
+
 Pointer relay hints are preferred, not exhaustive. Paja queries embedded
 `naddr` / `nevent` relay hints first in the ordered candidate list, then any
 pointer-specific relay overrides, then the effective configured live simulation

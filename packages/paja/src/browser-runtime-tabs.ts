@@ -191,6 +191,7 @@ export function parseRuntimeTabsSnapshot(value: string | null): PajaRuntimeTabsS
 }
 
 export function renderRuntimeTabs(state: PajaRuntimeTabState): void {
+  document.title = getActiveTab(state)?.title || '@kehto/paja';
   const tabsEl = document.getElementById('napplet-tabs');
   if (!(tabsEl instanceof HTMLElement)) return;
   tabsEl.replaceChildren(...state.tabs.map((tab) => renderTab(state, tab)));
