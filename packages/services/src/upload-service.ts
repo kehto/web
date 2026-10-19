@@ -280,14 +280,15 @@ export function createUploadService(options: UploadServiceOptions): ServiceHandl
   };
 
   function stopWindow(windowId: string, retire: boolean): void {
-    for (const [key, entry] of entries) {
-      if (entry.windowId !== windowId) continue;
-      entry.controller.abort();
-      uploader.cancel?.(entry.uploadId);
-      entries.delete(key);
-    }
     generations.delete(windowId);
     if (retire) requestIds.delete(windowId);
+    for (const [key, entry] of entries) {
+      if (entry.windowId !== windowId) continue;
+      entries.delete(key);
+      entry.controller.abort();
+      try { uploader.cancel?.(entry.uploadId); }
+      catch { /* A backend cancellation failure must not prevent the remaining cleanup. */ }
+    }
   }
 
   function handleInfo(windowId: string, msg: NappletMessage, send: Send): void {
@@ -371,7 +372,9 @@ export function createUploadService(options: UploadServiceOptions): ServiceHandl
     descriptor: UPLOAD_DESCRIPTOR,
     onRegistered(context) { runtime = context; },
     onUnregistered() {
-      for (const windowId of generations.keys()) stopWindow(windowId, true);
+      const windowIds = [...generations.keys()];
+      generations.clear();
+      for (const windowId of windowIds) stopWindow(windowId, true);
       runtime = undefined;
     },
     onPermissionRevoked(windowId) { stopWindow(windowId, false); },

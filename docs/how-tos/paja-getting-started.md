@@ -3,6 +3,8 @@
 Paja runs one local napplet app inside the real Kehto browser runtime while your
 app dev server keeps its own HMR loop.
 
+The browser page title follows the active napplet tab name, including when switching or closing tabs. With no active napplet, the title is `@kehto/paja`.
+
 ## 1. Install the CLI
 
 ```bash
@@ -153,3 +155,7 @@ pubkey remains read-only unless the connected signer proves the same pubkey.
 
 - [Use Paja for local napplet authoring](./paja-local-authoring.md)
 - [@kehto/paja package reference](/packages/paja)
+
+## Controller diagnostics
+
+Paja shows a numbered controller icon directly beside the console arrow for each controller the browser detects. Each slot has its own color and input animation; hover for the controller model and activity state. Buttons and stick movement light up only that controller (stick movement below 0.12 is ignored). Quick taps retain the highlight briefly so they are easy to spot. Reduced-motion settings keep the activity highlight without animation. Disconnecting removes the icon. Browsers may require a button press before exposing a newly connected controller. These host diagnostics work without a napplet gamepad subscription and do not change focus-scoped input delivery.

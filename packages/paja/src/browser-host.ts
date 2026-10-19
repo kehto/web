@@ -19,6 +19,7 @@ import {
 
 import { installPajaConsolePanel } from './browser-console-panel.js';
 import { installPajaSidebarSections } from './browser-sidebar-sections.js';
+import { installPajaGamepadIndicators } from './browser-gamepad-indicators.js';
 import {
   createDevTheme,
   createPajaAdapter,
@@ -613,6 +614,8 @@ function createPajaBrowserState(
 }
 
 async function installPajaHost(): Promise<void> {
+  const disposeGamepadIndicators = installPajaGamepadIndicators();
+  window.addEventListener('pagehide', disposeGamepadIndicators, { once: true });
   const disposeConsolePanel = installPajaConsolePanel();
   const disposeSidebarSections = installPajaSidebarSections();
   window.addEventListener('pagehide', disposeSidebarSections, { once: true });
@@ -869,6 +872,7 @@ async function installPajaHost(): Promise<void> {
     setDefault(archetype, id) {
       runtime.intentDefaults.set(archetype, id);
       writePajaIntentDefaults(runtime.intentDefaults);
+      adapter.notifyIntentChanged(archetype);
     },
     onAccepted() {
       const url = new URL(window.location.href);

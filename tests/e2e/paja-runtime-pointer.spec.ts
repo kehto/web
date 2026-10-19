@@ -79,6 +79,7 @@ test('resolves a stale embedded hint through configured live relays in the runni
     await page.goto(server.url);
     await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().resolvedTarget?.dTag))
       .toBe('configured-relay-target');
+    await expect(page).toHaveTitle('configured-relay-target');
     const state = await page.evaluate(() => window.__KEHTO_PAJA__?.getState());
     expect(state?.resolvedTarget).toMatchObject({
       aggregateHash,
@@ -323,6 +324,7 @@ test('opens local single-file index.html through the picker and drop without per
     const picked = page.locator('iframe').first();
     await expect(page.frameLocator('iframe').first().locator('#status')).toHaveText('init:true');
     await expect(page.locator('#napplet-tabs .tab-label')).toHaveText(['picked.html']);
+    await expect(page).toHaveTitle('picked.html');
     await expect(page.locator('#napplet-tabs .tab-share')).toHaveCount(0);
     const srcdoc = await picked.getAttribute('srcdoc');
     expect(srcdoc).toContain(classOnePrefix);
@@ -349,10 +351,20 @@ test('opens local single-file index.html through the picker and drop without per
     }, localHtml('dropped-local'));
     await expect(page.locator('#napplet-tabs .tab-label')).toHaveText(['picked.html', 'dropped.html']);
     await expect(page.frameLocator('iframe').nth(1).locator('#status')).toHaveText('init:true');
+    await expect(page).toHaveTitle('dropped.html');
+    await page.locator('#napplet-tabs .tab-label').first().click();
+    await expect(page).toHaveTitle('picked.html');
+    await page.locator('#napplet-tabs .tab-label').last().click();
+    await expect(page).toHaveTitle('dropped.html');
+    await page.locator('#napplet-tabs .tab-close').last().click();
+    await expect(page).toHaveTitle('picked.html');
+    await page.locator('#napplet-tabs .tab-close').click();
+    await expect(page).toHaveTitle('@kehto/paja');
 
     await page.reload();
     await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().tabs.length)).toBe(0);
     await expect(page.locator('#empty-runtime-stage')).toBeVisible();
+    await expect(page).toHaveTitle('@kehto/paja');
   } finally {
     await server.close();
   }

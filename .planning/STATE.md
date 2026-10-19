@@ -2,7 +2,7 @@
 gsd_state_version: 1.0
 milestone: v1.31
 milestone_name: Firewall approvals
-status: planning
+status: verifying
 last_updated: "2026-10-17T18:04:43.677Z"
 last_activity: 2026-10-17
 progress:
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-28)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 112 — Firewall approval lifecycle integration
+**Current focus:** PR #336 — CI repair and main integration
 
 ## Current Position
 
-Phase: 112-runtime-approval-lifecycle
-Plan: 112-01
-Status: In progress
-Last activity: 2026-10-17 — Milestone v1.31 started
+Phase: 115 — Firewall final audit complete
+Plan: CI follow-up
+Status: PR #336 open; integrating current main to enable CI.
+Last activity: 2026-10-19 — Fixed Node 20 fixture teardown; preserving merged host and upload fixes.
 
 ## Performance Metrics
 
@@ -142,6 +142,8 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
+| 261017-wx0 | Use active napplet name as browser page title | 2026-10-17 | bcc0ea60 | passed | [261017-wx0](./quick/261017-wx0-use-the-active-napplet-name-as-the-paja-/) |
+| 261017-vlq | Colored animated Paja controller indicators | 2026-10-17 | 9e8c5a74 | passed | [261017-vlq](./quick/261017-vlq-show-colored-animated-controller-indicat/) |
 | 261013-e5s | Allow experimental domain declarations in Paja with optional fallback and required-domain warnings | 2026-10-13 | 2623b79a | passed | [261013-e5s](./quick/261013-e5s-allow-unknown-optional-capability-domain/) |
 | 261008-dhm | Permit opaque hash-verified Blossom resources in Paja (#279) | 2026-10-08 | 49bb1281 | passed | [261008-dhm-fix-issue-279-permit-opaque-hash-verifie](./quick/261008-dhm-fix-issue-279-permit-opaque-hash-verifie/) |
 | 260616-8iv | Move playground theme-switcher functionality from napplet into host theme-service node | 2026-06-16 | f4358b4 |  | [260616-8iv-move-playground-theme-switcher-functiona](./quick/260616-8iv-move-playground-theme-switcher-functiona/) |

@@ -18,3 +18,7 @@ Non-browser hosts can install the service without a native reader; subscribers r
 The injected API provides cached `getGamepads()`, `available`, `focused`, and `onChange(handler)`. It preserves null slots and controller indices, copies snapshots for callers, and accepts state only from the parent. Keep a keyboard or pointer fallback. Treat lost focus as idle and establish a fresh button baseline on regained focus so already-held buttons do not become new presses.
 
 The native browser Gamepad API is left untouched. The proposal permits an optional compatibility replacement, but NIP-5D currently limits runtime injection to `window.napplet`; that conflict needs specification clarification before implementing replacement. Haptics, raw HID access, and remapping are outside this NAP.
+
+## Controller diagnostics
+
+Paja shows a numbered controller icon directly beside the console arrow for each controller the browser detects. Each slot has its own color and input animation; hover for the controller model and activity state. Buttons and stick movement light up only that controller (stick movement below 0.12 is ignored). Quick taps retain the highlight briefly so they are easy to spot. Reduced-motion settings keep the activity highlight without animation. Disconnecting removes the icon. Browsers may require a button press before exposing a newly connected controller. These host diagnostics work without a napplet gamepad subscription and do not change focus-scoped input delivery.

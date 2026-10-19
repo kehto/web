@@ -140,7 +140,20 @@ bounded range reads, canonical padded-base64 writes, replace/append/patch,
 revisions and preconditions, recursive mkdir/remove, atomic handle moves when
 the browser supports them, and advisory watches over actual storage. Host
 paths and handles never cross the NIP-5D boundary. This implementation follows
-draft [NAP-FS `b640cf33`](https://github.com/napplet/naps/blob/b640cf337c0481f0f9a0216c00843f797a5c6df6/naps/NAP-FS.md).
+draft [NAP-FS `bd1b9e91`](https://github.com/napplet/naps/blob/bd1b9e912f05203bf38f7a1b04f920744fe6d625/naps/NAP-FS.md).
+
+Workspace storage and native pickers have separate browser requirements. Firefox
+can provide OPFS while lacking `showOpenFilePicker`, `showSaveFilePicker`, and
+`showDirectoryPicker`. In that environment, workspace operations remain usable
+and the corresponding picker requests return the canonical `unsupported` result.
+The Interfaces panel shows workspace and open/save/directory picker availability
+separately; the message log names a missing picker API when one caused that result.
+Green `fs:read` and `fs:write` ACL controls indicate permission, not browser API
+support. See the [picker compatibility reference](https://developer.mozilla.org/en-US/docs/Web/API/Window/showOpenFilePicker#browser_compatibility).
+
+The focused host regression runs in Chromium and Firefox after `pnpm build`:
+`pnpm exec playwright install firefox`, then
+`pnpm exec playwright test --config playwright.paja-fs.config.ts`.
 
 Other domains are equally capability-bound. Relay, outbox, and count require
 live relays; count uses NIP-45 `COUNT` without downloading events. Storage
@@ -203,6 +216,8 @@ runtime tabs in local storage so returning to `/web/paja/` restores the previous
 pointer set. An explicit pointer in the URL still takes precedence over restored
 tabs.
 
+The browser page title follows the active napplet tab name, including when switching or closing tabs. With no active napplet, the title is `@kehto/paja`.
+
 The static artifact defaults to Paja's standard live relays and memory uploads.
 To point it at specific live relays or Blossom upload servers, pass
 comma-separated host lists when generating the artifact:
@@ -256,6 +271,14 @@ artifact removal deletes it. Restored pointers are reverified before entering th
 catalog. Entries preserve exact conventions and ordered parameter names under
 publisher/kind-safe opaque IDs, including nameless root and snapshot artifacts.
 The target's resolved `intent` domain must be available; INC is not required.
+
+Catalog installs, replacements, removals, and user default-handler updates emit
+`intent.changed` to eligible open napplets (`napplet.intent.onChanged(...)`).
+Replacements notify both removed and added archetypes, once per slug, using the
+current filtered catalog. A `no handler` rejection remains terminal: callers must
+retry explicitly; installing a handler does not replay the failed invocation.
+This follows `napplet/naps` NAP-INTENT on master (last changed at `e5308ac`), whose
+runtime behavior recommends notifications on catalog/default changes.
 
 Selection uses exact contracts and user-owned default, chooser, recommendation,
 and explicit-authorization policy. Explicit handler IDs require sender-aware
@@ -608,3 +631,7 @@ remain a documented upstream spec gap; no host sender identity is invented.
 ## GAMEPAD integration
 
 This non-normative guidance defers to [NAP-GAMEPAD at `napplet/naps@19de5ce1`](https://github.com/napplet/naps/blob/19de5ce1cea40cd4c76089cdd8126e9f87648049/naps/NAP-GAMEPAD.md). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja and the playground register one host reader and deny native gamepad/HID/USB paths before frame execution. A subscription must approve the host-private `gamepad:input` resource before the reader starts; denial emits `reason: "blocked"`. Only the visible host's input owner receives live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, revocation, window destruction, and service removal release polling. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
+
+## Controller diagnostics
+
+Paja shows a numbered controller icon directly beside the console arrow for each controller the browser detects. Each slot has its own color and input animation; hover for the controller model and activity state. Buttons and stick movement light up only that controller (stick movement below 0.12 is ignored). Quick taps retain the highlight briefly so they are easy to spot. Reduced-motion settings keep the activity highlight without animation. Disconnecting removes the icon. Browsers may require a button press before exposing a newly connected controller. These host diagnostics work without a napplet gamepad subscription and do not change focus-scoped input delivery.

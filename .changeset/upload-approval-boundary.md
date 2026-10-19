@@ -7,3 +7,5 @@ Require prepared, signer-bound upload plans for runtime approval, authorize exac
 upload resources and selected network origins before signing or egress, and
 cancel progress on revocation. Paja prepares its Blossom destination before
 approval and the reference HTTP uploader rejects unapproved redirects.
+Window teardown invalidates all callbacks before cancellation and continues
+cleaning up sibling uploads when a backend cancellation throws.

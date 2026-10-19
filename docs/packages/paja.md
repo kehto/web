@@ -29,7 +29,7 @@ app package's development scripts.
 | Field | Value |
 |-------|-------|
 | Source | `packages/paja/package.json`, `packages/paja/src/index.ts` |
-| Version | `0.21.4` |
+| Version | `0.24.0` |
 | Runtime entry | `./dist/index.js` |
 | CLI runner entry | `./dist/cli.js` |
 | Types entry | `./dist/index.d.ts` |
@@ -300,6 +300,8 @@ runtime tabs in local storage so returning to `/web/paja/` restores the previous
 pointer set. An explicit pointer in the URL still takes precedence over restored
 tabs.
 
+The browser page title follows the active napplet tab name, including when switching or closing tabs. With no active napplet, the title is `@kehto/paja`.
+
 Pointer relay hints are preferred, not exhaustive. Paja queries embedded
 `naddr` / `nevent` relay hints first in the ordered candidate list, then any
 pointer-specific relay overrides, then the effective configured live simulation
@@ -347,6 +349,14 @@ artifact removal deletes it. Restored pointers are reverified before entering th
 catalog. Entries preserve exact conventions and ordered parameter names under
 publisher/kind-safe opaque IDs, including nameless root and snapshot artifacts.
 The target's resolved `intent` domain must be available; INC is not required.
+
+Catalog installs, replacements, removals, and user default-handler updates emit
+`intent.changed` to eligible open napplets (`napplet.intent.onChanged(...)`).
+Replacements notify both removed and added archetypes, once per slug, using the
+current filtered catalog. A `no handler` rejection remains terminal: callers must
+retry explicitly; installing a handler does not replay the failed invocation.
+This follows `napplet/naps` NAP-INTENT on master (last changed at `e5308ac`), whose
+runtime behavior recommends notifications on catalog/default changes.
 
 Selection uses exact contracts and user-owned default, chooser, recommendation,
 and explicit-authorization policy. Explicit handler IDs require sender-aware
@@ -400,7 +410,14 @@ identity-scoped durable `/workspace`, browser-mediated session picker grants,
 strict virtual paths, bounded range I/O, canonical base64, revisions,
 replace/append/patch writes, directory mutation, supported atomic moves, and
 advisory watches without exposing browser handles or host paths. It follows
-draft [NAP-FS `b640cf33`](https://github.com/napplet/naps/blob/b640cf337c0481f0f9a0216c00843f797a5c6df6/naps/NAP-FS.md).
+draft [NAP-FS `bd1b9e91`](https://github.com/napplet/naps/blob/bd1b9e912f05203bf38f7a1b04f920744fe6d625/naps/NAP-FS.md).
+
+The Interfaces panel reports workspace and native open/save/directory picker
+support separately. Firefox can expose OPFS without the native picker APIs;
+workspace operations then work, while picker operations return `unsupported`.
+The message log identifies the missing API. ACL controls such as `fs:read` and
+`fs:write` grant permission but cannot add browser support. See the
+[browser picker compatibility reference](https://developer.mozilla.org/en-US/docs/Web/API/Window/showOpenFilePicker#browser_compatibility).
 
 Default service wiring uses live relay/outbox behavior, localStorage state
 persistence through the runtime, browser or configured identity, schema-validated
@@ -742,3 +759,7 @@ URL cannot supply one. The hidden launcher is removed after acceptance and is
 never persisted or restored. Verification precedes `srcdoc`, and host bootstrap
 injection stays outside signed bytes. Native external-origin sender semantics
 remain a documented upstream spec gap; no host sender identity is invented.
+
+## Controller diagnostics
+
+Paja shows a numbered controller icon directly beside the console arrow for each controller the browser detects. Each slot has its own color and input animation; hover for the controller model and activity state. Buttons and stick movement light up only that controller (stick movement below 0.12 is ignored). Quick taps retain the highlight briefly so they are easy to spot. Reduced-motion settings keep the activity highlight without animation. Disconnecting removes the icon. Browsers may require a button press before exposing a newly connected controller. These host diagnostics work without a napplet gamepad subscription and do not change focus-scoped input delivery.

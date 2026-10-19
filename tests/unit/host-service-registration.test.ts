@@ -8,6 +8,9 @@ const PAJA_ADAPTER = readFileSync(fileURLToPath(
 const PAJA_SUPPORT = readFileSync(fileURLToPath(
   new URL('../../packages/paja/src/browser-adapter-support.ts', import.meta.url),
 ), 'utf8');
+const PAJA_INTENT = readFileSync(fileURLToPath(
+  new URL('../../packages/paja/src/browser-catalog-intent-service.ts', import.meta.url),
+), 'utf8');
 const PLAYGROUND = readFileSync(fileURLToPath(
   new URL('../../apps/playground/src/demo-hooks.ts', import.meta.url),
 ), 'utf8');
@@ -41,12 +44,12 @@ const REGISTRATIONS: readonly HostRegistration[] = [
   { service: 'CVM', paja: ['createCvmService({', 'createNostrCvmTransport('], playground: ['createCvmService({ transport: createPlaygroundCvmTransport() })'], regression: 'CVM service tests' },
   { service: 'link', paja: ['createLinkService({', 'confirmPajaExternalLink'], playground: ['createLinkService({', "status: url.hostname === 'blocked.example'"], regression: 'link service tests' },
   { service: 'notification', paja: ['createNotifyService(notifyOptions)'], playground: ['createNotificationService({ onChange: notificationOnChange'], regression: 'notification service tests' },
-  { service: 'intent', paja: ['createIntentService({', 'resolveSender: intentHost.resolveSender'], regression: 'intent service tests' },
+  { service: 'intent', paja: ['createPajaCatalogIntentService(adapter, intentHost)', 'createIntentService({', 'resolveSender: host.resolveSender'], regression: 'intent service tests' },
 ];
 
 describe('host service registrations', () => {
   it.each(REGISTRATIONS)('wires $service only with its host-owned contract', ({ paja, playground, regression }) => {
-    for (const marker of paja ?? []) expect(`${PAJA_ADAPTER}\n${PAJA_SUPPORT}`).toContain(marker);
+    for (const marker of paja ?? []) expect(`${PAJA_ADAPTER}\n${PAJA_SUPPORT}\n${PAJA_INTENT}`).toContain(marker);
     for (const marker of playground ?? []) expect(PLAYGROUND).toContain(marker);
     expect(regression).toMatch(/service tests|transport guards|relay service tests/);
   });

@@ -39,7 +39,7 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 | Field | Value |
 |-------|-------|
 | Source | `packages/services/package.json`, `packages/services/src/index.ts` |
-| Version | `0.24.2` |
+| Version | `0.25.1` |
 | Runtime entry | `./dist/index.js` |
 | Types entry | `./dist/index.d.ts` |
 | Dependencies | `@kehto/runtime` |
@@ -70,6 +70,12 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 ## Scope Boundaries
 
 - Provides reference service handlers that host apps register with `runtime.registerService()`.
+- Uploads belong to exact window IDs, including IDs containing colons. Window
+  teardown and service removal invalidate callbacks before backend cancellation;
+  late progress, results, and errors cannot reach destroyed or replacement
+  requesters. Cancellation errors do not prevent cleanup of other uploads. This
+  host lifecycle policy preserves live response shapes from [NAP-UPLOAD draft
+  #33 at `f5cc981e527e2cc1572793a7a6e5082e5271ac49`](https://github.com/napplet/naps/blob/f5cc981e527e2cc1572793a7a6e5082e5271ac49/naps/NAP-UPLOAD.md).
 - The runtime selects a handler by the exact `message.type` domain (for example,
   `notify.create` selects `notify`). INC topics are opaque, queryless identities
   matched only by exact equality; they never select a service handler. The

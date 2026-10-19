@@ -53,6 +53,25 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .spacer { flex: 1; min-width: 0; }
       .console-toggle { align-self: center; flex: 0 0 auto; width: 28px; height: 24px; padding: 0; display: inline-grid; place-items: center; color: var(--text); }
       .console-toggle-glyph { font-size: 15px; line-height: 1; }
+      #paja-gamepads { display: flex; align-items: center; gap: 7px; flex: 0 1 auto; min-width: 0; overflow-x: auto; }
+      #paja-gamepads:empty { display: none; }
+      .gamepad-indicator { display: inline-flex; align-items: center; flex: 0 0 auto; color: var(--pad-color); opacity: .65; padding: 3px 1px; }
+      .gamepad-indicator small { font-size: 10px; font-weight: 700; margin-left: 2px; }
+      .gamepad-indicator[data-activity="active"] { opacity: 1; background: color-mix(in srgb, var(--pad-color) 18%, transparent); border-radius: 5px; }
+      .gamepad-indicator[data-activity="active"] svg { animation: var(--pad-animation) var(--pad-duration) ease-in-out infinite; }
+      @keyframes gamepad-bounce { 50% { transform: translateY(var(--pad-lift)); } }
+      @keyframes gamepad-rock {
+        25% { transform: rotate(var(--pad-turn)); }
+        75% { transform: rotate(calc(-1 * var(--pad-turn))); }
+      }
+      @keyframes gamepad-pulse { 50% { transform: scale(1.18); } }
+      @keyframes gamepad-nudge {
+        25% { transform: translateX(var(--pad-lift)); }
+        75% { transform: translateX(calc(-1 * var(--pad-lift))); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .gamepad-indicator[data-activity="active"] svg { animation: none; }
+      }
       .console-toggle-glyph::before { content: '\\00ab'; }
       html[data-paja-console="collapsed"] .console-toggle-glyph::before { content: '\\00bb'; }
       /* Collapsing is presentation-only: the console column, its top-bar cell,
@@ -117,6 +136,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .resource-servers textarea { width: 100%; min-width: 0; padding: 6px; resize: vertical; }
       .resource-servers small, .resource-servers [role="status"] { color: var(--muted); overflow-wrap: anywhere; }
       .switch-grid, .acl-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+      .hint { margin: 0; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
       .toggle { height: 24px; padding: 0 8px; color: var(--muted); }
       .toggle[data-enabled="true"] { color: var(--text); border-color: #5f724f; background: #24301f; }
       .toggle[data-enabled="false"] { color: #8d9187; border-color: #453536; background: #241d1d; }
@@ -239,6 +259,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
           aria-label="${PAJA_CONSOLE_COLLAPSE_LABEL}"
           title="${PAJA_CONSOLE_COLLAPSE_LABEL}"
         ><span class="console-toggle-glyph" aria-hidden="true"></span></button>
+        <div id="paja-gamepads" role="group" aria-label="Connected controllers"></div>
         <div class="tabs" id="napplet-tabs" role="tablist" aria-label="Loaded napplets"></div>
         <div class="spacer"></div>
         <label>theme
@@ -256,6 +277,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
         <details class="section" id="paja-section-interfaces" data-paja-section="interfaces" open>
           <summary class="section-title">Interfaces<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
           <div class="switch-grid" id="interface-toggles"></div>
+          <p class="hint" id="paja-fs-support" role="status"></p>
         </div></details>
         <details class="section" id="paja-section-permissions" data-paja-section="permissions" open>
           <summary class="section-title">Firewall permissions<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
@@ -264,6 +286,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
         <details class="section" id="paja-section-acl" data-paja-section="acl" open>
           <summary class="section-title">ACL<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
           <div class="acl-grid" id="acl-controls"></div>
+          <p class="hint">ACL grants allow operations; they do not add missing browser APIs. See Interfaces for FS picker support.</p>
         </div></details>
         <details class="section" id="paja-section-signer" data-paja-section="signer" open>
           <summary class="section-title">Signer<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">

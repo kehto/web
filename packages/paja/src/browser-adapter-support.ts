@@ -2,15 +2,13 @@
 import type { NostrEvent, NostrFilter } from '@napplet/core';
 import type { SessionEntry, ShellAdapter } from '@kehto/shell';
 import type { Signer } from '@kehto/runtime';
-import { createRelayPoolOutboxRouter, type IntentCandidate, type IntentRequest } from '@kehto/services';
+import { createRelayPoolOutboxRouter } from '@kehto/services';
 import type { CvmRelayPool, NostrEventLike, NostrFilterLike } from '@kehto/services/cvm-nostr-transport';
 import type { Theme } from '@napplet/nap/theme/types';
 import { verifyEvent } from 'nostr-tools/pure';
 import type { PajaSignerMethod } from './browser-signers.js';
 import type { PajaSimulation } from './simulation.js';
 import type { PajaSignerRequestContext, PajaSignerSource } from './browser-signer-consent.js';
-import { BrowserIntentController } from './browser-intent-controller.js';
-import { InstalledNappletCatalog } from './installed-napplet-catalog.js';
 import { PAJA_DEV_SIGNER_PUBKEY, createPajaDevSigner } from './browser-dev-runtime.js';
 import { isPajaRelayAllowed, type PajaRelayConfigRuntime } from './browser-relay-policy.js';
 import { PAJA_LIVE_QUERY_WAIT_MS, createPajaOutboxRelayPool, createPajaRelayListLoader, getPajaRelayUrls, type PajaRelayBackend } from './browser-relay-runtime.js';
@@ -99,30 +97,8 @@ export interface PajaShellAdapter extends ShellAdapter {
   readonly ready: Promise<void>;
   /** Bind verified runtime-pointer Blossom hints to one authenticated window. */
   setWindowBlossomServers(windowId: string, servers: readonly string[]): void;
-}
-
-export interface PajaIntentHost {
-  readonly catalog: InstalledNappletCatalog;
-  readonly controller: BrowserIntentController;
-  /** Resolve an authenticated frame to its verified catalog identity. */
-  resolveSender(windowId: string): string | undefined;
-  getDefaultHandler?(archetype: string): string | undefined;
-  chooseHandler?(
-    archetype: string,
-    candidates: IntentCandidate[],
-    sender: string,
-  ): string | undefined | Promise<string | undefined>;
-  authorizeExplicitHandler?(
-    sender: string,
-    handler: string,
-    request: IntentRequest,
-    candidate: IntentCandidate,
-    context?: import('@kehto/services').IntentResolverContext,
-  ): boolean | Promise<boolean>;
-  resolveHandlerHint?(
-    hint: import('@kehto/services').IntentHandlerHint,
-    candidates: readonly IntentCandidate[],
-  ): string | undefined | Promise<string | undefined>;
+  /** Recompute intent availability after a host-owned default-handler update. */
+  notifyIntentChanged(archetype: string): void;
 }
 
 export function createPajaCvmRelayPool(backend: PajaRelayBackend): CvmRelayPool {
