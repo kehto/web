@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-07-28)
 
 Phase: 115 — Firewall final audit complete
 Plan: CI follow-up
-Status: PR #336 open; integrating current main to enable CI.
-Last activity: 2026-10-19 — Fixed Node 20 fixture teardown; preserving merged host and upload fixes.
+Status: PR #336 open; main conflicts resolved and combined local gates passed.
+Last activity: 2026-10-19 — Verified Node 20 fixture cleanup and main integration; pushing for CI.
 
 ## Performance Metrics
 
@@ -669,3 +669,11 @@ full Node 20 E2E passed 133/133 (2.5m, harness 43373). Build, type-check,
 NIP-5D 5560820f and NAP-RESOURCE ae5b9c64 rechecked unchanged; isolation
 behavior remains conformant. Debug record: debug/resolved/pr336-ci-isolation.md.
 Unrelated WINDOWS.md and primary-checkout package.json changes are preserved.
+
+2026-10-19: Integrated main 47b2f1c8 because GitHub could not run PR CI with
+merge conflicts. Kept released host/intent fixes and isolated upload cancellation
+errors without weakening Firewall ownership. Updated upstream FS browser probes
+to declare optional FS and use shared admission. Combined gates passed: build,
+types, 2,637 units, docs, changesets, quality 100/100, and all 141 browser tests
+under Node 20 CI settings (140 passed; one unrelated page-load test retried).
+See debug/resolved/pr336-main-integration.md. WINDOWS.md restored unchanged.
