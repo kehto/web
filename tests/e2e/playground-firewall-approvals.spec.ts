@@ -82,6 +82,10 @@ test('a verified frame cannot send direct browser requests to a relay or asset o
     await page.waitForTimeout(300);
     expect(requests).toEqual([]);
   } finally {
-    await new Promise<void>((resolve, reject) => destination.close((error) => error ? reject(error) : resolve()));
+    await new Promise<void>((resolve, reject) => {
+      destination.close((error) => error ? reject(error) : resolve());
+      // Chromium can leave speculative TCP connections open even when CSP blocks every request.
+      destination.closeAllConnections();
+    });
   }
 });
