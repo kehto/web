@@ -657,3 +657,13 @@ PR remain active. Unrelated `.planning/WINDOWS.md` is preserved unstaged.
 https://github.com/kehto/web/pull/336. Branch `feat/firewall-approvals` is
 pushed. Source, tests, docs, changesets, and protocol notes are in the PR;
 only unrelated `.planning/WINDOWS.md` remains uncommitted in the worktree.
+
+2026-10-19: PR #336 CI follow-up reproduced the isolation-test timeout with
+Node 20.20.2. Browser assertions completed, but Chromium's speculative TCP
+connection prevented HTTP fixture shutdown. d2a86fe1 closes remaining fixture
+connections after stopping its listener. Focused traced repeats passed 9/9;
+full Node 20 E2E passed 133/133 (2.5m, harness 43373). Build, type-check,
+2,625 unit tests, docs, diff integrity, and pinned quality 100/100 passed.
+NIP-5D 5560820f and NAP-RESOURCE ae5b9c64 rechecked unchanged; isolation
+behavior remains conformant. Debug record: debug/resolved/pr336-ci-isolation.md.
+Unrelated WINDOWS.md and primary-checkout package.json changes are preserved.
