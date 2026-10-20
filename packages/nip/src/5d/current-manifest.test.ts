@@ -15,6 +15,18 @@ const current = [['d', 'test'], ['x', hash], ['R', 'relay'], ['O', 'theme'], ['z
 const legacy = [['d', 'test'], ['path', '/index.html', hash], ['x', computeAggregateHash([{ path: '/index.html', sha256: hash }]), 'aggregate'], ['requires', 'relay'], ['archetype', 'feed', 'napplet:note/open']];
 
 describe('current NIP-5D manifest', () => {
+  it.each([15129, 35129, 5129])('verifies kind %i artifacts and rejects forged signatures or bytes', async (kind) => {
+    const manifest = event([...(kind === 35129 ? [['d', 'verified']] : []), ['x', hash]], kind);
+    const fetchBlob = vi.fn(async () => bytes);
+    const resolved = await resolveNapplet({ event: manifest, fetchBlob });
+    expect(resolved.indexHtml).toBe(new TextDecoder().decode(bytes));
+    expect(resolved.manifest.kind).toBe(kind);
+    expect(resolved.artifactHash).toBe(hash);
+    expect(fetchBlob).toHaveBeenCalledExactlyOnceWith(hash, []);
+    const forged = JSON.parse(JSON.stringify({ ...manifest, content: 'Forged description' }));
+    await expect(resolveNapplet({ event: forged, fetchBlob })).rejects.toThrow(/signature/);
+    await expect(resolveNapplet({ event: manifest, fetchBlob: async () => new TextEncoder().encode('forged bytes') })).rejects.toThrow(/hash/);
+  });
   it('normalizes independent advertisements and preserves description as plain text', () => {
     expect(parseNappletManifest(event(current))).toMatchObject({
       format: 'current', artifactHash: hash, aggregateHash: hash,

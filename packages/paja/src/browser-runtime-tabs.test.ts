@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
+import { finalizeEvent } from 'nostr-tools/pure';
+import { resolveNapplet } from '@kehto/nip/5d';
 
 import {
   bindRuntimeTabBlossomServers,
@@ -14,6 +16,20 @@ import { createPajaLocalTarget } from './local-target.js';
 import type { PajaResolvedPointer } from './runtime-resolver.js';
 
 describe('@kehto/paja runtime tabs', () => {
+  it('keeps distinct signed snapshots separate even with the same author and artifact', async () => {
+    const bytes = new TextEncoder().encode('<html><body>shared artifact</body></html>');
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    const hash = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+    const targets: PajaResolvedPointer[] = [];
+    for (const content of ['First snapshot', 'Second snapshot']) {
+      const event = finalizeEvent({ kind: 5129, created_at: 1, tags: [['x', hash]], content }, new Uint8Array(32).fill(1));
+      const resolved = await resolveNapplet({ event, fetchBlob: async () => bytes });
+      targets.push({ ...resolved, event, pointer: { type: 'nevent', value: event.id, id: event.id, relays: [] }, relays: [], blossomServers: [] });
+    }
+    expect(targets[0].aggregateHash).toBe(targets[1].aggregateHash);
+    expect(resolvedTargetKey(targets[0])).not.toBe(resolvedTargetKey(targets[1]));
+    expect(resolvedTargetKey(targets[0])).toContain(targets[0].event.id);
+  });
   it('builds clean share links for naddr, nevent, and fallback pointers', () => {
     expect(createPajaShareUrl(' naddr1test ', 'https://kehto.github.io/web/paja/?old=1#ignored'))
       .toBe('https://kehto.github.io/web/paja/?naddr=naddr1test');
