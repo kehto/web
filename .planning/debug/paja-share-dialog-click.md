@@ -2,13 +2,13 @@
 status: investigating
 trigger: "Intermittent local browser failures observed while validating the Pages audit repair"
 created: 2026-10-10
-updated: 2026-10-10
+updated: 2026-10-20
 ---
 
 ## Current Focus
 
 hypothesis: Undetermined. Playwright reports a click on the Share dialog's Create intent link button, but the Share dialog remains open.
-next_action: Capture pointer and focus events during a failing interaction before choosing a UI or test correction. This is outside the Pages audit repair.
+next_action: Reduce the Chromium 155 cross-frame input-routing failure independently of Paja; compare matching Playwright Chromium before choosing a host workaround.
 
 ## Evidence
 
@@ -20,6 +20,9 @@ next_action: Capture pointer and focus events during a failing interaction befor
 - Trace call@266 resolves the correct button, reports visible/enabled/stable, sends pointer input at x798.9/y378.18, and reports click action done. The after-click screenshot still shows Share, not the builder. No page exception appears; only an unrelated favicon 404 is logged. Launcher creation has not begun.
 - Main CI run 38101845735 passed on b4627875c7fc758fae8f983eab5cde505c709d9f, the baseline of this repair. Prior investigation pr289-ci-mobile-builder.md also recorded an unconfirmed Share-to-builder timeout.
 - NAP-INTENT PR106 fc121fc264615482143eda86125863d2e1f741a2 is the feature's working contract; host Share dialog timing is outside its wire protocol. No protocol behavior changed here.
+- 2026-10-20 Share app-link regression investigation captured trusted pointerdown, pointerup and click events inside the sandboxed iframe when Playwright clicked the visible native Share dialog's Copy button. The parent received focusout and refocused Copy, but received no pointer events. No copy handler executed. Local browser: Chrome 155.0.8059.85, Playwright 1.59.1.
+- Untraced local Chrome repetitions: 22/30 passed. Native autofocus, iframe pointer-events suppression, dialog compositor promotion and iframe visibility suppression each retained failures; all experimental source/test changes were removed. Logs: /tmp/kehto-paja-share-clicks-untraced.log, /tmp/kehto-paja-share-autofocus.log, /tmp/kehto-paja-share-hit.log, /tmp/kehto-paja-share-layer.log, /tmp/kehto-paja-share-hidden.log.
+- The same 20 app-link repetitions passed with Playwright's matching Chromium 147.0.7727.15, with no injected CSS or click retries. Firefox's six app-link cases also passed. This narrows the failure to browser/input routing; it does not establish an upstream root cause or resolve this session.
 
 ## Resolution
 

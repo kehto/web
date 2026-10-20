@@ -13,7 +13,7 @@ Actual: User reports clicking does nothing. Requested the affected pointer while
 ## Current Focus
 
 hypothesis: Confirmed non-advertised manifests bypassed visible sharing UI; copy failures depended on a browser prompt rather than an inspectable link.
-next_action: Complete Firefox and full browser/doc/quality gates before shipping.
+next_action: Complete the full browser suite with Playwright's matching Chromium, then ship the verified app-link fix.
 
 ## Evidence
 
@@ -24,6 +24,8 @@ next_action: Complete Firefox and full browser/doc/quality gates before shipping
 - Six browser cases failed before the fix: no Share dialog for unadvertised apps, and no selectable app link in advertised-app dialogs. All six now pass with available, denied and missing clipboard APIs; mouse, Enter and Space activation; exact pointer URLs; copy feedback/manual selection; Escape/focus restoration; and retained live frames.
 - Two existing builder/dispatch regressions pass alongside those six. Unit suite 177 files / 2,270 tests and build/type checks pass.
 - Share now consistently opens its dialog. Intent creation retains the same verified-manifest guard; no inferred convention, native local-file sharing, dispatch or source-trust changes.
+- Full local Chrome 155 run exposed five existing root/named/snapshot tests that depended on immediate clipboard copying. Updated them to use the explicit Copy app link action and assert its feedback before checking exact pointer identity.
+- Independently traced an existing native-dialog click-through in Chrome 155; preserved pointer/focus evidence in paja-share-dialog-click.md. No speculative workaround retained. Playwright's matching Chromium 147 passed 20/20 repeated mouse-copy tests; Firefox passed all six clipboard/manifest cases. Final full suite runs against matching Chromium with zero retries.
 
 ## Resolution
 
