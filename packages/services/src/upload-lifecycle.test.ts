@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { NappletMessage } from '@napplet/core';
 import { createUploadService, type UploaderContext, type UploadResult, type UploadStatus } from './upload-service.js';
 
@@ -16,6 +16,7 @@ const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
 function setup(generateId?: () => string) {
   let sequence = 0;
+  let requestSequence = 0;
   const jobs: Array<{ context: UploaderContext; resolve: (value: UploadResult) => void; reject: (error: Error) => void }> = [];
   const cancelled: string[] = [];
   const sent: Array<{ windowId: string; message: NappletMessage }> = [];
@@ -35,7 +36,7 @@ function setup(generateId?: () => string) {
   });
   function upload(windowId: string) {
     service.handleMessage(windowId, {
-      type: 'upload.upload', id: `request-${jobs.length}`, request: { data: payload, mimeType: payload.type },
+      type: 'upload.upload', id: `request-${++requestSequence}`, request: { data: payload, mimeType: payload.type },
     } as NappletMessage, (message) => sent.push({ windowId, message }));
   }
   return { service, jobs, cancelled, sent, upload };
@@ -45,6 +46,7 @@ describe('upload requester lifetime', () => {
   it('cancels exact owners and preserves colon-bearing windows despite cancellation errors (#293)', async () => {
     const { service, jobs, cancelled, sent, upload } = setup();
     upload('a'); upload('a'); upload('a:b');
+    await flush();
     expect(() => service.onWindowDestroyed?.('a')).not.toThrow();
     expect(cancelled).toEqual(['upload-1', 'upload-2']);
     expect(sent).toEqual([]);
@@ -61,8 +63,10 @@ describe('upload requester lifetime', () => {
   it.each(['resolve', 'reject'] as const)('suppresses late progress and %s after teardown and ID reuse (#292)', async (settlement) => {
     const { service, jobs, sent, upload } = setup(() => 'one-upload');
     upload('first');
+    await flush();
     service.onWindowDestroyed?.('first');
     upload('first');
+    await flush();
     jobs[0]!.context.onStatus(progress);
     if (settlement === 'resolve') jobs[0]!.resolve(result);
     else jobs[0]!.reject(new Error('late rejection'));
@@ -80,6 +84,7 @@ describe('upload requester lifetime', () => {
   it('invalidates all requesters before late settlement after service removal', async () => {
     const { service, jobs, cancelled, sent, upload } = setup();
     upload('a'); upload('a:b');
+    await flush();
     service.onUnregistered?.();
     expect(cancelled).toEqual(['upload-1', 'upload-2']);
     for (const job of jobs) { job.context.onStatus(progress); job.resolve(result); }
@@ -87,7 +92,8 @@ describe('upload requester lifetime', () => {
     expect(sent).toEqual([]);
   });
 
-  it.each(['upload.info', 'upload.status'])('suppresses pending %s replies after window replacement', async (type) => {
+  it('suppresses pending upload.info replies after window replacement', async () => {
+    const type = 'upload.info';
     let finish!: () => void;
     const pending = new Promise<void>((resolve) => { finish = resolve; });
     const sent: NappletMessage[] = [];
@@ -102,5 +108,17 @@ describe('upload requester lifetime', () => {
     await flush();
     expect(sent).toHaveLength(1);
     expect(sent[0]).toMatchObject({ id: 'new' });
+  });
+
+  it('rejects unowned status lookups without consulting the backend', () => {
+    // Firewall ownership supersedes the old asynchronous backend fallback: an
+    // unknown ID must never disclose another window's upload or prompt for it.
+    const status = vi.fn(async () => progress);
+    const service = createUploadService({ uploader: { upload: async () => result, status } });
+    const sent: NappletMessage[] = [];
+    service.handleMessage('a', { type: 'upload.status', id: 'lookup', uploadId: 'remote' } as NappletMessage,
+      (message) => sent.push(message));
+    expect(status).not.toHaveBeenCalled();
+    expect(sent).toEqual([{ type: 'upload.status.result', id: 'lookup', error: 'unknown upload' }]);
   });
 });

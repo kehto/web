@@ -3,11 +3,14 @@
  * loaded through the shell's resource service rather than debug output.
  */
 import { test, expect } from '@playwright/test';
+import { HARNESS_URL } from './helpers/harness-url.js';
+import { installPlaygroundSessionApprovals } from './helpers/index.js';
 
 test.use({ baseURL: 'http://localhost:4174' });
+test.beforeEach(async ({ page }) => installPlaygroundSessionApprovals(page));
 
-const CORS_REDIRECT_URL = 'http://localhost:4173/resource-cors/redirect.png';
-const CORS_FINAL_URL = 'http://localhost:4173/resource-cors/final.png';
+const CORS_REDIRECT_URL = `${HARNESS_URL}/resource-cors/redirect.png`;
+const CORS_FINAL_URL = `${HARNESS_URL}/resource-cors/final.png`;
 
 test('resource demo loads and renders a remote image', async ({ page }) => {
   test.setTimeout(30_000);
@@ -107,7 +110,9 @@ test('static browser delegates HTTP(S) to the runtime resolver when CORS visibil
             error: message.error,
             message: message.message,
             mime: message.mime,
-            blobSize: blob instanceof Blob ? blob.size : undefined,
+            blobSize: typeof blob === 'string' && /^[A-Za-z0-9+/]*={0,2}$/u.test(blob)
+              ? atob(blob).length
+              : undefined,
           });
         };
         window.addEventListener('message', onMessage);

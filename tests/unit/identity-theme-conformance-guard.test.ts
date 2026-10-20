@@ -29,7 +29,8 @@ describe('Phase 103 identity/theme active-surface guard', () => {
     expect(identityService).toContain("case 'identity.getPublicKey':");
     expect(themeService).toContain('function publishTheme(theme: Theme): ThemeChangedMessage');
     expect(themeService).toContain('currentTheme = normalizeTheme(theme);');
-    expect(themeService).toContain('options.onBroadcast?.(envelope);');
+    expect(themeService).toContain('if (options.onBroadcast) {');
+    expect(themeService).toContain('options.onBroadcast(envelope);');
     expect(themeService).not.toMatch(/type:\s*['"]theme\.[^'"]+\.error['"]/);
   });
 

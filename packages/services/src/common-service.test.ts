@@ -3,6 +3,7 @@ import type { NappletMessage } from '@napplet/core';
 import { encodeBytes } from 'nostr-tools/nip19';
 
 import { createCommonService, type CommonServiceOptions } from './common-service.js';
+import type { ServiceRuntimeContext } from '@kehto/runtime';
 
 const WINDOW_ID = 'win-common';
 const HEX = '0'.repeat(64);
@@ -150,6 +151,44 @@ describe('createCommonService', () => {
     await flush();
 
     expect(sent[0]).toEqual({ type: 'common.follows.result', id: 'follows-3', ok: false, pubkeys: [], error: 'relay offline' });
+  });
+
+  it('approves the planned relay and exact target before invoking a social action', async () => {
+    const follow = vi.fn(() => ({ ok: true, eventId: 'follow-event' }));
+    const planRelays = vi.fn(() => ['wss://relay.example/']);
+    const authorizeOperation = vi.fn(async (_windowId, _operation, _requirements, execute) => ({
+      status: 'executed' as const,
+      value: await execute({ aborted: false, addEventListener() {}, removeEventListener() {} }),
+    }));
+    const service = createCommonService({ follow, planRelays });
+    service.onRegistered?.({ authorizeOperation } as unknown as ServiceRuntimeContext);
+    const { sent, send } = collectSent();
+
+    service.handleMessage(WINDOW_ID, { type: 'common.follow', id: 'approved', pubkeys: [HEX] } as NappletMessage, send);
+    await flush();
+
+    expect(planRelays).toHaveBeenCalledWith('follow', [HEX]);
+    expect(authorizeOperation.mock.calls[0]?.slice(0, 2)).toEqual([WINDOW_ID, 'common.follow']);
+    expect(authorizeOperation.mock.calls[0]?.[2]).toEqual(expect.arrayContaining([
+      expect.objectContaining({ category: 'interface', domain: 'common' }),
+      expect.objectContaining({ category: 'resource', scope: { kind: 'exact', value: HEX } }),
+      expect.objectContaining({ category: 'network', scope: { kind: 'origin', value: 'wss://relay.example' } }),
+    ]));
+    expect(follow).toHaveBeenCalledWith([HEX], expect.objectContaining({ relays: ['wss://relay.example/'] }));
+    expect(sent[0]).toMatchObject({ type: 'common.follow.result', ok: true });
+  });
+
+  it('does not invoke the backend when relay approval is denied or the plan is invalid', async () => {
+    const follows = vi.fn(() => ({ ok: true, pubkeys: [] }));
+    const service = createCommonService({ follows, planRelays: () => ['wss://relay.example/'] });
+    service.onRegistered?.({ authorizeOperation: async () => ({ status: 'denied' }) } as unknown as ServiceRuntimeContext);
+    const { sent, send } = collectSent();
+
+    service.handleMessage(WINDOW_ID, { type: 'common.follows', id: 'denied' } as NappletMessage, send);
+    await flush();
+
+    expect(follows).not.toHaveBeenCalled();
+    expect(sent[0]).toMatchObject({ type: 'common.follows.result', ok: false, error: 'user-denied' });
   });
 
   it('contains unknown common actions', () => {

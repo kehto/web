@@ -434,6 +434,28 @@ function queryImpl(ctx: RouterCtx, filters: NostrFilter[], options?: OutboxQuery
   return startQueryImpl(ctx, filters, options, { event: () => { /* aggregate only */ } }).result;
 }
 
+function queryPlanImpl(ctx: RouterCtx, filters: NostrFilter[], options: OutboxQueryOptions | undefined, plan: OutboxRelayPlan): Promise<OutboxResult> {
+  if (!ctx.relayPool.isAvailable()) return Promise.resolve({ events: [], incomplete: true, error: 'relay list unavailable' });
+  const seen = new Map<string, NostrEvent>();
+  const origin: OutboxRelayOrigin = plan.source === 'nip65' ? 'nip65' : plan.source === 'fallback' ? 'fallback' : 'hint';
+  const handles = plan.relays.map((relayUrl) => relayPoolSubscribe(ctx, filters, relayUrl, (item) => {
+    if (item !== 'EOSE') void ctx.verify(item).then((ok) => { if (ok) seen.set(item.id, item); });
+  }, origin));
+  return new Promise((resolve) => setTimeout(() => {
+    for (const handle of handles) handle.unsubscribe();
+    resolve({ events: [...seen.values()].map((event) => createRelayEventResultWithHints(event, plan.relays)) });
+  }, options?.timeoutMs ?? ctx.defaultTimeoutMs));
+}
+
+function subscribePlanImpl(ctx: RouterCtx, filters: NostrFilter[], plan: OutboxRelayPlan, sink: OutboxSubscriptionSink): OutboxRouterSubscription {
+  let closed = false;
+  const handles = plan.relays.map((relayUrl) => relayPoolSubscribe(ctx, filters, relayUrl, (item) => {
+    if (closed || item === 'EOSE') return;
+    void ctx.verify(item).then((ok) => { if (ok && !closed) sink.event(createRelayEventResultWithHints(item, [relayUrl])); });
+  }, plan.source === 'nip65' ? 'nip65' : plan.source === 'fallback' ? 'fallback' : 'hint'));
+  return { close() { if (closed) return; closed = true; for (const handle of handles) handle.unsubscribe(); } };
+}
+
 async function getEventImpl(ctx: RouterCtx, eventId: string, options?: OutboxEventOptions): Promise<OutboxEventResult> {
   if (typeof eventId !== 'string' || eventId.length === 0) {
     return { error: 'invalid filter' };
@@ -687,6 +709,7 @@ export function createRelayPoolOutboxRouter(options: RelayPoolOutboxRouterOption
     loadRelayLists: options.loadRelayLists,
     fallbackRelays: options.fallbackRelays,
     signEvent: options.signEvent,
+    getSignerPubkey: options.getSignerPubkey,
     isRelayAllowed: options.isRelayAllowed ?? defaultRelayAllowed,
     defaultTimeoutMs: options.defaultTimeoutMs ?? DEFAULT_QUERY_TIMEOUT_MS,
     async verify(event: NostrEvent): Promise<boolean> {
@@ -699,7 +722,26 @@ export function createRelayPoolOutboxRouter(options: RelayPoolOutboxRouterOption
     },
   };
 
+  async function planPublish(publishOptions?: OutboxPublishOptions): Promise<OutboxRelayPlan> {
+    if (!ctx.getSignerPubkey) return { relays: [], source: 'policy' };
+    const pubkey = await ctx.getSignerPubkey();
+    const plan = await resolvePlan(ctx, publishOptions?.toOutbox === false ? [] : [pubkey], 'read', publishOptions?.relays);
+    return { ...plan, author: pubkey };
+  }
+  async function publishWithPlan(template: EventTemplate, plan: OutboxRelayPlan): Promise<OutboxPublishResult> {
+    if (!ctx.signEvent || plan.relays.length === 0) return { ok: false, error: 'publish denied' };
+    const event = await ctx.signEvent(template);
+    if (plan.author && event.pubkey !== plan.author) return { ok: false, event, eventId: event.id, error: 'signing identity changed' };
+    const relays = normalizePublishResult(await ctx.relayPool.publish(event, [...plan.relays]), [...plan.relays]);
+    return { ok: Object.values(relays).some(Boolean), event, eventId: event.id, relays };
+  }
+
   return {
+    planRead: (filters, queryOptions) => resolvePlan(ctx, deriveAuthors(filters, queryOptions?.authors), 'read', queryOptions?.relays),
+    queryWithPlan: (filters, queryOptions, plan) => queryPlanImpl(ctx, filters, queryOptions, plan),
+    subscribeWithPlan: (filters, plan, sink) => subscribePlanImpl(ctx, filters, plan, sink),
+    planPublish,
+    publishWithPlan,
     getEvent: (eventId, eventOptions) => getEventImpl(ctx, eventId, eventOptions),
     query: (filters, queryOptions) => queryImpl(ctx, filters, queryOptions),
     queryStream: (filters, queryOptions, sink) => startQueryImpl(ctx, filters, queryOptions, sink),

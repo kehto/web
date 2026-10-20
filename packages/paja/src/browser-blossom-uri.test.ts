@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parsePajaBlossomUri } from './browser-blossom-uri.js';
 
+function approved(signal: AbortSignal) {
+  return {
+    signal,
+    authorizeNetwork: async <T>(_destination: string, execute: (approvedSignal: AbortSignal) => Promise<T>) => execute(signal),
+  };
+}
+
 const bytes = new Uint8Array([0, 1, 2, 255]);
 const digest = await crypto.subtle.digest('SHA-256', bytes);
 const hash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
@@ -27,16 +34,20 @@ describe('Blossom canonical references and migration', () => {
     };
     const fetchResource = createPajaResourceFetch(options);
     const signal = new AbortController().signal;
-    const canonical = await fetchResource(`blossom:${hash}.bin`, { signal });
+    const canonical = await fetchResource(`blossom:${hash}.bin`, approved(signal));
     expect(new Uint8Array(await canonical.arrayBuffer())).toEqual(bytes);
-    await expect(fetchResource('blossom:sha256:invalid', { signal })).rejects.toThrow('invalid Blossom URI');
+    expect(options.fetch).toHaveBeenCalledWith('/__kehto/resource', expect.objectContaining({
+      method: 'POST', credentials: 'same-origin',
+      body: JSON.stringify({ url: `https://cdn.example/${hash}.bin` }),
+    }));
+    await expect(fetchResource('blossom:sha256:invalid', approved(signal))).rejects.toThrow('invalid Blossom URI');
     const cancelled = new AbortController();
     cancelled.abort();
-    await expect(fetchResource(`blossom:sha256:${hash}`, { signal: cancelled.signal })).rejects.toThrow();
+    await expect(fetchResource(`blossom:sha256:${hash}`, approved(cancelled.signal))).rejects.toThrow();
     expect(warn).not.toHaveBeenCalled();
-    const alias = await fetchResource(`blossom:sha256:${hash}.bin`, { signal });
+    const alias = await fetchResource(`blossom:sha256:${hash}.bin`, approved(signal));
     expect(new Uint8Array(await alias.arrayBuffer())).toEqual(bytes);
-    await createPajaResourceFetch(options)(`blossom:sha256:${hash}`, { signal });
+    await createPajaResourceFetch(options)(`blossom:sha256:${hash}`, approved(signal));
     expect(warn).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('[KEHTO_COMPAT_BLOSSOM_SHA256] Replace blossom:sha256:<hash> with blossom:<hash>'));
     expect(warn.mock.calls[0]?.[0]).toContain('once per host module lifetime');
@@ -63,7 +74,7 @@ describe('Blossom canonical references and migration', () => {
       getBlossomServers: ({ url }) => resolver.getServers(url),
       fetch: async () => new Response(bytes),
     });
-    await fetchResource(`blossom:sha256:${hash}`, { signal: new AbortController().signal });
+    await fetchResource(`blossom:sha256:${hash}`, approved(new AbortController().signal));
     expect(warn).toHaveBeenCalledTimes(1);
   });
 });

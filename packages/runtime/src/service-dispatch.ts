@@ -72,3 +72,13 @@ export function notifyServiceWindowDestroyed(
     }
   }
 }
+
+/** Internal revocation cleanup preserves live-source semantics when supported. */
+export function notifyServicePermissionRevoked(windowId: string, services: ServiceRegistry): void {
+  for (const handler of Object.values(services)) {
+    try {
+      if (handler.onPermissionRevoked) handler.onPermissionRevoked(windowId);
+      else handler.onWindowDestroyed?.(windowId);
+    } catch { /* Each remaining service must still receive cleanup. */ }
+  }
+}

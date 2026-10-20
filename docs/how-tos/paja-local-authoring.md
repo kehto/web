@@ -187,20 +187,20 @@ the list, the inline status explains the failure. Valid changes remain usable
 session-only when persistence fails; a stale durable list can return after
 reload if clearing could not be saved.
 
-Extras come after request hints, event/publisher/user discovery, per-window
-manifest hints and existing configured defaults. The combined cap stays eight
-servers, so extras may not be tried when earlier candidates fill the cap. This
-does not change upload destinations, initial pointer/artifact fetching, direct
-HTTP(S) resource URLs, or napplet CSP/network grants. Browser CORS still applies;
-browser-only Paja cannot enforce DNS-time private-address checks.
+Extras come after event/publisher/user discovery, per-window manifest hints and
+existing configured defaults. The combined cap stays eight servers, so extras
+may not be tried when earlier candidates fill the cap. This does not change
+upload destinations, initial pointer/artifact fetching, or napplet
+CSP/network grants. HTTP(S) resource reads use Paja's same-origin proxy, which
+pins a DNS-approved public address for one hop; browser CORS never grants a
+napplet direct access to the destination.
 
-The host-owned policy was checked against
-[NAP-RESOURCE `9511232f69313aa7953d110e35d32cc28d506f66`](https://github.com/napplet/naps/blob/9511232f69313aa7953d110e35d32cc28d506f66/naps/NAP-RESOURCE.md)
-and PR #80 head
-[`fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1`](https://github.com/napplet/naps/blob/fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1/naps/NAP-RESOURCE.md).
-The latter removes request `servers` and changes bulk `requests` to `urls`;
-this UI feature does not migrate the existing packaged wire contract or claim
-full browser network conformance.
+The host-owned policy follows [NAP-RESOURCE PR #80 at
+`ae5b9c64ab8a4d8909f288829a01e99d6bd713bc`](https://github.com/napplet/naps/blob/ae5b9c64ab8a4d8909f288829a01e99d6bd713bc/naps/NAP-RESOURCE.md).
+URI and trusted host discovery select Blossom destinations; resource wire input
+uses a single `url` or ordered `urls`, without request `servers`. See the
+[resource proxy policy](/policies/RESOURCE-PROXY) for caller checks, DNS
+pinning, redirect reauthorization, and its remaining host-isolation prerequisite.
 
 ## Use Real Blossom Uploads
 

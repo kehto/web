@@ -6,6 +6,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { NAPPLET_KIND_NAMED } from '../../packages/nip/dist/5d/index.js';
 import { finalizeEvent } from 'nostr-tools/pure';
 import { naddrEncode } from 'nostr-tools/nip19';
+import { installPajaApprovalDriver } from './paja-approval-driver.js';
 import {
   createPajaRuntimeHostConfig,
   normalizePajaSimulation,
@@ -406,6 +407,7 @@ async function configureRuntime(
   events: readonly ReturnType<typeof finalizeEvent>[],
   pointer?: string,
 ): Promise<void> {
+  await installPajaApprovalDriver(page);
   server.setConfig({
     ...createPajaRuntimeHostConfig({ maxWaitMs: 2_000, ...(pointer === undefined ? {} : { pointer }) }),
     simulation: normalizePajaSimulation({ relay: { mode: 'live', urls: [RELAY] } }),
@@ -439,6 +441,7 @@ async function configureDelayedRuntime(
   server: PointerServer,
   events: readonly ReturnType<typeof finalizeEvent>[],
 ): Promise<DelayedRelay> {
+  await installPajaApprovalDriver(page);
   server.setConfig({
     ...createPajaRuntimeHostConfig({ maxWaitMs: 2_000 }),
     simulation: normalizePajaSimulation({ relay: { mode: 'live', urls: [RELAY] } }),

@@ -1,11 +1,9 @@
 /**
  * Profile viewer napplet - receives published profile intents and loads kind 0 metadata.
  */
-import '@napplet/shim';
 import { getMissingNapDomains } from '../../domain-availability';
 import { applyNapTheme, installNapTheme, onNapThemeChanged } from '../../shared-theme';
 import { relaySubscribe } from '@napplet/nap/relay/sdk';
-import { resourceBytes } from '@napplet/nap/resource/sdk';
 import type { NostrEvent, Subscription } from '@napplet/core';
 import { createProfileMediaController } from './profile-media.js';
 import { createProfileLoadController } from './profile-load-controller.js';
@@ -22,7 +20,18 @@ const aboutEl = document.getElementById('profile-about')!;
 const pictureEl = document.getElementById('profile-picture') as HTMLImageElement;
 const bannerEl = document.getElementById('profile-banner') as HTMLImageElement;
 const detailEl = document.getElementById('profile-details')!;
-const profileMedia = createProfileMediaController({ loadBytes: resourceBytes });
+// @napplet/shim 0.30 replaces the host resource projection with the retired
+// `requests` wire shape. Read profile media through Kehto's injected `urls`
+// projection while the other SDK helpers continue to delegate to it.
+function loadHostResourceBytes(url: string): Promise<Blob> {
+  const resource = (window.napplet as {
+    resource?: { bytes(value: string): Promise<Blob> };
+  } | undefined)?.resource;
+  if (!resource) return Promise.reject(new Error('resource capability unavailable'));
+  return resource.bytes(url);
+}
+
+const profileMedia = createProfileMediaController({ loadBytes: loadHostResourceBytes });
 
 pictureEl.addEventListener('error', () => profileMedia.handleError(pictureEl));
 bannerEl.addEventListener('error', () => profileMedia.handleError(bannerEl));

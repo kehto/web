@@ -1,6 +1,6 @@
 
 import type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
-import type { ServiceHandler } from '@kehto/runtime';
+import type { RelayOperationPlan, RelayPlanningServiceHandler, ApprovalSignal } from '@kehto/runtime';
 import { createRelayEventResult, createRelayEventResultWithHints } from '@kehto/runtime';
 import type { RelayPoolServiceOptions } from './relay-pool-service.js';
 import type { CacheServiceOptions } from './cache-service.js';
@@ -76,6 +76,8 @@ function publishCoordinatedEvent(
   options: CoordinatedRelayOptions,
   relayMessage: RelayServiceMessage,
   send: (message: NappletMessage) => void,
+  plan: RelayOperationPlan,
+  signal: ApprovalSignal,
 ): void {
   const id = typeof relayMessage.id === 'string' ? relayMessage.id : '';
   const event = relayMessage.event as NostrEvent | undefined;
@@ -95,7 +97,11 @@ function publishCoordinatedEvent(
 
   void (async (): Promise<void> => {
     try {
-      await options.relayPool.publish(event);
+      if (signal.aborted) return;
+      await (options.relayPool.publishToRelays
+        ? options.relayPool.publishToRelays(plan.relayUrls, event)
+        : options.relayPool.publish(event));
+      if (signal.aborted) return;
       if (options.cache.isAvailable()) {
         try { options.cache.store(event); } catch { /* cache storage is best-effort */ }
       }
@@ -137,9 +143,22 @@ function publishCoordinatedEvent(
  * runtime.registerService('relay', relay);
  * ```
  */
-export function createCoordinatedRelay(options: CoordinatedRelayOptions): ServiceHandler {
+export function createCoordinatedRelay(options: CoordinatedRelayOptions): RelayPlanningServiceHandler {
   const timeoutMs = options.eoseTimeoutMs ?? DEFAULT_EOSE_TIMEOUT_MS;
   const subs = new Map<string, TrackedSub>();
+
+  function planRelayOperation(_windowId: string, message: NappletMessage): RelayOperationPlan {
+    const relayMessage = message as RelayServiceMessage;
+    const filters = Array.isArray(relayMessage.filters) ? relayMessage.filters as NostrFilter[] : [];
+    const hint = typeof relayMessage.relay === 'string' && relayMessage.relay.length > 0
+      ? relayMessage.relay : undefined;
+    const operation = message.type === 'relay.query' ? 'query'
+      : message.type === 'relay.publishEncrypted' ? 'publishEncrypted'
+      : message.type === 'relay.publish' ? 'publish' : 'subscribe';
+    const selected = hint ? [hint] : options.relayPool.selectRelayTier(operation === 'publish' || operation === 'publishEncrypted' ? [] : filters);
+    const relayUrls = [...new Set(selected.map((url) => String(url).trim()).filter(Boolean))];
+    return Object.freeze({ operation, relayUrls: Object.freeze(relayUrls), localOnly: relayUrls.length === 0 });
+  }
 
   function maybeSendEose(subKey: string, subId: string, send: (msg: NappletMessage) => void): void {
     const sub = subs.get(subKey);
@@ -151,14 +170,18 @@ export function createCoordinatedRelay(options: CoordinatedRelayOptions): Servic
     }
   }
 
-  return {
+  const service: RelayPlanningServiceHandler = {
     descriptor: {
       name: 'relay',
       version: '1.0.0',
       description: 'Coordinated relay pool + cache with dedup and unified EOSE',
     },
 
-    handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void {
+    planRelayOperation,
+
+    executeRelayOperation(windowId: string, message: NappletMessage, plan: RelayOperationPlan, signal: ApprovalSignal,
+      send: (msg: NappletMessage) => void): void {
+      if (signal.aborted) return;
       const relayMessage = message as RelayServiceMessage;
       if (message.type === 'relay.subscribe') {
         const subId = relayMessage.subId;
@@ -198,7 +221,7 @@ export function createCoordinatedRelay(options: CoordinatedRelayOptions): Servic
         function deliver(event: NostrEvent, relayHints?: string[]): void {
           if (tracked.seenIds.has(event.id)) return;
           tracked.seenIds.add(event.id);
-          if (subs.has(subKey)) {
+          if (!signal.aborted && subs.get(subKey) === tracked) {
             const result = relayHints ? createRelayEventResultWithHints(event, relayHints) : createRelayEventResult(event);
             send({ type: 'relay.event', subId, result } as NappletMessage);
           }
@@ -229,10 +252,7 @@ export function createCoordinatedRelay(options: CoordinatedRelayOptions): Servic
             }
           }, timeoutMs);
 
-          const relayHint = typeof relayMessage.relay === 'string' && relayMessage.relay.length > 0
-            ? relayMessage.relay
-            : undefined;
-          const relayUrls = relayHint ? [relayHint] : options.relayPool.selectRelayTier(filters);
+          const relayUrls = [...plan.relayUrls];
           tracked.relayHandle = options.relayPool.subscribe(filters, (item, observedRelayUrls) => {
             if (item === 'EOSE') {
               clearTimeout(tracked.eoseTimer);
@@ -264,9 +284,14 @@ export function createCoordinatedRelay(options: CoordinatedRelayOptions): Servic
       }
 
       if (message.type === 'relay.publish') {
-        publishCoordinatedEvent(options, relayMessage, send);
+        publishCoordinatedEvent(options, relayMessage, send, plan, signal);
         return;
       }
+    },
+
+    handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void {
+      service.executeRelayOperation(windowId, message, service.planRelayOperation(windowId, message),
+        { aborted: false, addEventListener() {}, removeEventListener() {} }, send);
     },
 
     onWindowDestroyed(windowId: string): void {
@@ -280,4 +305,5 @@ export function createCoordinatedRelay(options: CoordinatedRelayOptions): Servic
       }
     },
   };
+  return service;
 }

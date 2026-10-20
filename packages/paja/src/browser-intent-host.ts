@@ -117,7 +117,7 @@ export function createPajaIntentTargetOptions(
       const context = getContext();
       if (!state || !context) return Promise.reject(new Error('Paja host is not available'));
       const tab = findRuntimeTabGeneration(state, generation);
-      if (!tab || !isCurrentPajaIntentGeneration(generation, state, context, tab)) {
+      if (!tab || !isPendingPajaIntentGeneration(generation, state, context, tab)) {
         invalidatePajaIntentGeneration(generation, context.runtime);
         return Promise.reject(new Error('intent target generation is not current'));
       }
@@ -250,11 +250,23 @@ function isCurrentPajaIntentGeneration(
   context: PajaBrowserStateContext,
   tab: PajaRuntimeTab,
 ): boolean {
+  return isPendingPajaIntentGeneration(generation, state, context, tab)
+    && isCurrentRuntimeTabGeneration(state, context, tab);
+}
+
+function isPendingPajaIntentGeneration(
+  generation: BrowserIntentGeneration,
+  state: PajaBrowserState,
+  context: PajaBrowserStateContext,
+  tab: PajaRuntimeTab,
+): boolean {
   const record = context.runtime.intentRecords.get(generation);
   return record !== undefined
+    && state.tabs.includes(tab)
+    && !tab.admissionController.signal.aborted
+    && runtimeTabGenerationId(tab) === generation.id
     && !isPajaLocalTarget(tab.resolvedTarget)
-    && context.runtime.catalog.validateCurrent(record, catalogIdentity(tab.resolvedTarget)) !== null
-    && isCurrentRuntimeTabGeneration(state, context, tab);
+    && context.runtime.catalog.validateCurrent(record, catalogIdentity(tab.resolvedTarget)) !== null;
 }
 
 function invalidatePajaIntentGeneration(

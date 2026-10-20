@@ -3,10 +3,11 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getNappletFrame } from './helpers/index.js';
+import { demoBeforeEach, getNappletFrame } from './helpers/index.js';
 
 const EXTERNAL_DEMO_URL = process.env.KEHTO_PLAYGROUND_BASE_URL;
 const DEMO_URL = EXTERNAL_DEMO_URL ?? 'http://127.0.0.1:4174';
+test.use({ baseURL: DEMO_URL });
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 let demoServer: ChildProcessWithoutNullStreams | null = null;
@@ -40,7 +41,7 @@ function waitForServer(url: string, timeoutMs: number): Promise<void> {
 }
 
 async function openDemo(page: Page): Promise<void> {
-  await page.goto(DEMO_URL);
+  await demoBeforeEach(page);
   await expect(page.locator('#chat-status')).toHaveText('identity-bound');
   await expect(page.locator('#bot-status')).toHaveText('identity-bound');
   const aclSlot = page.locator('#chat-acl');

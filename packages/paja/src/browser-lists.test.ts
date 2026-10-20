@@ -53,6 +53,15 @@ describe('createPajaListsBackend', () => {
     ]);
   });
 
+  it('discloses a stable list resource and complete relay plan without I/O', () => {
+    const { backend, published } = relayBackend();
+    const lists = createPajaListsBackend({ relay: backend, getRelays: () => RELAYS, getSigner: () => null });
+
+    expect(lists.planMutation({ type: 'follow-sets', identifier: 'work' }, [{ itemType: 'pubkey', value: 'a'.repeat(64) }]))
+      .toEqual({ resource: '30000:work', relays: RELAYS });
+    expect(published).toHaveLength(0);
+  });
+
   it('preserves unrelated tags and content while adding and removing bookmarks', async () => {
     const ownerKey = generateSecretKey();
     const active = signer(ownerKey);

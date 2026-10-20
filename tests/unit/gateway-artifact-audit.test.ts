@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const loaderPath = 'apps/playground/src/playground-frame-loader.ts';
-const srcdocPath = 'packages/shell/src/napplet-srcdoc.ts';
+const srcdocPath = 'packages/shell/src/browser-admission.ts';
 
 function runSourceAudit(mutate?: { path: string; before: string; after: string }) {
   const root = mkdtempSync(join(tmpdir(), 'kehto-gateway-audit-'));
@@ -37,7 +37,7 @@ function runSourceAudit(mutate?: { path: string; before: string; after: string }
 }
 
 describe('executable gateway source audit', () => {
-  it('accepts verified srcdoc through the shared CSP and namespace helper', () => {
+  it('accepts verified srcdoc through shared admission and approved CSP', () => {
     const result = runSourceAudit();
     expect(result.output).toContain('[audit:gateway-artifacts] OK');
     expect(result.status).toBe(0);
@@ -45,22 +45,22 @@ describe('executable gateway source audit', () => {
 
   it.each([
     {
-      name: 'raw srcdoc without the shared helper', path: loaderPath,
-      before: 'iframe.srcdoc = prepareNappletSrcdoc(resolved.indexHtml, {',
-      after: 'iframe.srcdoc = resolved.indexHtml; prepareNappletSrcdoc(resolved.indexHtml, {',
+      name: 'raw srcdoc without admission output', path: loaderPath,
+      before: 'iframe.srcdoc = srcdoc;',
+      after: 'iframe.srcdoc = resolved.indexHtml;',
     },
     {
-      name: 'unverified helper input', path: loaderPath,
-      before: 'prepareNappletSrcdoc(resolved.indexHtml, {',
-      after: 'prepareNappletSrcdoc(unverifiedHtml, {',
+      name: 'unverified admission input', path: loaderPath,
+      before: 'verifiedHtml: resolved.indexHtml,',
+      after: 'verifiedHtml: unverifiedHtml,',
     },
     {
       name: 'missing CSP rendering', path: srcdocPath,
-      before: 'renderNappletCspMeta(options.csp)', after: "''",
+      before: 'buildApprovedNappletCsp({ mode, remoteSources: remote.sources, baseOrigin: request.baseOrigin })', after: "''",
     },
     {
       name: 'missing namespace injection', path: srcdocPath,
-      before: 'meta + renderNappletNamespacePrelude(options)', after: 'meta',
+      before: 'cspMeta(csp) + renderNappletNamespacePrelude({ domains })', after: 'cspMeta(csp)',
     },
   ])('rejects $name', (mutation) => {
     const result = runSourceAudit(mutation);

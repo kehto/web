@@ -36,26 +36,30 @@ function read(path) {
 function assertSourceInvariants() {
   const frameLoader = read(join(repoRoot, 'apps', 'playground', 'src', 'playground-frame-loader.ts'));
   const shellHost = read(join(repoRoot, 'apps', 'playground', 'src', 'shell-host.ts'));
-  const srcdoc = read(join(repoRoot, 'packages', 'shell', 'src', 'napplet-srcdoc.ts'));
+  const admission = read(join(repoRoot, 'packages', 'shell', 'src', 'browser-admission.ts'));
   // NIP-5D content-addressed srcdoc loading (v1.20): the runtime resolves a
   // signed manifest, verifies the bytes, computes identity, and injects the
   // verified bytes via iframe.srcdoc. The gateway htmlUrl/metadata navigation
   // model is retired and the gateway is never trusted.
-  // prepareNappletSrcdoc owns CSP + namespace injection outside signed bytes.
-  if (!frameLoader.includes('iframe.srcdoc = prepareNappletSrcdoc(resolved.indexHtml, {')) {
-    fail('playground-frame-loader.ts does not inject verified bytes via iframe.srcdoc');
+  // Shared admission owns CSP + namespace injection outside signed bytes.
+  if (!frameLoader.includes('admitBrowserDocument({')
+    || !frameLoader.includes('verifiedHtml: resolved.indexHtml,')
+    || !frameLoader.includes('iframe.srcdoc = srcdoc;')) {
+    fail('playground-frame-loader.ts does not admit verified bytes before iframe.srcdoc');
   }
   if (
-    !srcdoc.includes('const meta = renderNappletCspMeta(options.csp);')
-    || !srcdoc.includes('return insertNappletHead(html, meta + renderNappletNamespacePrelude(options));')
+    !admission.includes('const csp = buildApprovedNappletCsp({ mode, remoteSources: remote.sources, baseOrigin: request.baseOrigin });')
+    || !admission.includes('cspMeta(csp) + renderNappletNamespacePrelude({ domains })')
+    || !admission.includes('const commitResult: unknown = request.commit(srcdoc, result);')
   ) {
-    fail('napplet-srcdoc.ts does not prepend CSP and namespace to verified bytes');
+    fail('browser-admission.ts does not prepend approved CSP and namespace before commit');
   }
   if (
     !frameLoader.includes('const identity = Object.freeze({ dTag, aggregateHash });')
-    || !frameLoader.includes('originRegistry.register(iframe.contentWindow, windowId, identity);')
+    || !frameLoader.includes('manifestKey: resolved.catalogId, artifactHash: aggregateHash')
+    || !frameLoader.includes('originRegistry.register(win, windowId, { ...identity, permissionPrincipal: principal });')
   ) {
-    fail('playground-frame-loader.ts does not register creation-time computed identity');
+    fail('playground-frame-loader.ts does not register resolver-bound permission identity');
   }
   if (
     !shellHost.includes("(event.data as NappletMessage).type === 'shell.ready'")

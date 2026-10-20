@@ -77,7 +77,7 @@ function createDmRelayPool(backend: PajaRelayBackend, getRelays: () => string[])
       });
       return { unsubscribe: () => subscription.unsubscribe() };
     },
-    publish: (event) => backend.publishDmGiftWrap(getRelays(), event),
+    publish: (event, relayUrls) => backend.publishDmGiftWrap([...(relayUrls ?? getRelays())], event),
     query: (filters, relayUrls) => backend.query(relayUrls ?? getRelays(), filters),
     selectRelayTier: (_filters: NostrFilter[]) => getRelays(),
     isAvailable: () => backend.isAvailable(),

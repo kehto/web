@@ -1,5 +1,5 @@
 /**
- * @kehto/firewall — Pure, WASM-ready behavioral firewall engine for the napplet protocol.
+ * @kehto/firewall — Pure approval policy and retained behavioral controls.
  *
  * Zero dependencies. Zero side effects. All functions are pure:
  * config + state + observation in, decision + next-state out.
@@ -58,6 +58,17 @@ export type {
 } from './types.js';
 
 export { evaluate, toKey } from './evaluate.js';
+
+export {
+  createPermissionState, permissionPrincipalKey, putPermissionGrant, revokePermissionGrant,
+  evaluatePermissions, consumePermissionGrants, serializePermissions, deserializePermissions,
+} from './permissions.js';
+export { normalizePermissionScope, normalizeRequirement } from './permission-scopes.js';
+export type {
+  PermissionPrincipal, PermissionCategory, PermissionScope, PermissionRequirement,
+  PermissionRequest, PermissionGrant, PermissionState, PermissionPolicyOptions,
+  PermissionDecision, PermissionLoadResult,
+} from './permission-types.js';
 
 export {
   setPolicy,

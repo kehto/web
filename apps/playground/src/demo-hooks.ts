@@ -21,13 +21,6 @@ import type {
   WebrtcOpenResult,
 } from '@napplet/core';
 import type { Theme, ThemeChangedMessage } from '@napplet/nap/theme/types';
-import { RESOURCE_DEMO_REMOTE_IMAGE_ORIGIN } from './main-preferences.js';
-
-/** Static per-dTag origins used by the playground's grant visualization. */
-const STATIC_CONNECT_GRANTS: ReadonlyMap<string, readonly string[]> = new Map([
-  ['resource-demo', [RESOURCE_DEMO_REMOTE_IMAGE_ORIGIN]],
-]);
-const RESOURCE_E2E_ORIGIN = 'http://localhost:4173';
 import {
   createGamepadService,
   browserGamepadOptions,
@@ -41,10 +34,12 @@ import {
   createConfigService,
   createCommonService,
   createResourceService,
+  ResourceServiceError,
   createBleService,
   createSerialService,
   createWebrtcService,
   createCvmService,
+  type AuthorizeNetwork,
   type ConfigService,
   type Notification,
   type ThemeService,
@@ -228,7 +223,12 @@ function createDemoKeysService(): ServiceHandler {
 
 async function hostFetch(
   url: string,
-  init: { method?: string; headers?: Record<string, string>; signal: AbortSignal },
+  init: {
+    method?: string;
+    headers?: Record<string, string>;
+    signal: AbortSignal;
+    authorizeNetwork?: AuthorizeNetwork;
+  },
 ): Promise<Response> {
   const timeoutController = new AbortController();
   const timeoutId = setTimeout(() => timeoutController.abort(), 10_000);
@@ -237,33 +237,40 @@ async function hostFetch(
     src.addEventListener('abort', () => composite.abort(), { once: true });
   }
   try {
-    return await fetch(url, { method: init.method, headers: init.headers, signal: composite.signal });
+    const destination = new URL(url);
+    if (destination.protocol !== 'http:' && destination.protocol !== 'https:') {
+      throw new ResourceServiceError('unsupported-scheme', 'playground resources require an HTTP(S) URL');
+    }
+    if (!init.authorizeNetwork) throw new Error('network-unavailable');
+    return await init.authorizeNetwork(url, async (networkSignal) => {
+      const requestController = new AbortController();
+      const abortRequest = () => requestController.abort();
+      composite.signal.addEventListener('abort', abortRequest, { once: true });
+      networkSignal.addEventListener('abort', abortRequest, { once: true });
+      try {
+        const response = await fetch(url, {
+          method: init.method,
+          headers: init.headers,
+          redirect: 'manual',
+          signal: requestController.signal,
+        });
+        if (response.status >= 300 && response.status < 400) {
+          throw new Error('redirect-not-supported');
+        }
+        return response;
+      } finally {
+        composite.signal.removeEventListener('abort', abortRequest);
+        networkSignal.removeEventListener('abort', abortRequest);
+      }
+    });
   } finally {
     clearTimeout(timeoutId);
   }
 }
 
-function getDemoConnectGrants(dTag: string): readonly string[] {
-  const configured = STATIC_CONNECT_GRANTS.get(dTag) ?? [];
-  if (
-    dTag === 'resource-demo'
-    && window.location.hostname === 'localhost'
-    && window.location.port === '4174'
-  ) {
-    return [...configured, RESOURCE_E2E_ORIGIN];
-  }
-  return configured;
-}
-
 function createDemoResourceHandler(): ServiceHandler {
   return createResourceService({
     fetch: hostFetch,
-    isOriginGranted: (origin, grants) => grants.includes(origin),
-    getConnectGrants: (dTag, _aggregateHash) => getDemoConnectGrants(dTag),
-    resolveIdentity: (windowId) => {
-      const entry = sessionRegistryRef?.getEntryByWindowId(windowId);
-      return entry ? { dTag: entry.dTag, aggregateHash: entry.aggregateHash } : null;
-    },
     resourceInfo: {
       schemes: [
         { scheme: 'http', enabled: true },

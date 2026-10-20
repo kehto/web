@@ -6,6 +6,173 @@ coverage. This register records both implemented safeguards and existing debt;
 below identifies the package responsible for the implementation and its tests.
 No removal date is implied by an old source comment.
 
+## FW-PAJA-SIMULATION-MODE-REMOVED-001 — retired firewall mode
+
+`@kehto/paja` removed `--firewall-mode` and `simulation.firewall`. Those
+settings only changed development metadata and never authorized an interface,
+resource, or origin. CLI, JSON config loading, config merging, and direct
+simulation normalization now reject the old input with guidance to use exact
+Firewall grants. Source sites: `packages/paja/src/cli.ts`, `config-file.ts`,
+and `simulation.ts`; negative tests: `cli.test.ts` and `config-file.test.ts`.
+No compatibility path or runtime warning remains. The removal ships in the
+Firewall host-approvals 0.x minor release; restoring the option would require
+a new scoped contract and regression coverage.
+
+## FW-PAJA-SIGNER-CONSENT-LEGACY-001 — remembered signer confirmation
+
+`@kehto/paja` retains exact remembered signer confirmations from
+`kehto:paja:signer-consent:v1` as a presentation preference after the runtime
+Firewall coordinator approves the current sign operation. They cannot grant an
+interface or authorize an operation by themselves. A matching legacy choice
+warns once per page with the identifier, directs users to Firewall grants, and
+states removal after a future 0.x minor release; canonical runtime approval is
+quiet. The source and warning site is
+`packages/paja/src/browser-host-signer.ts`; the old record parser and clear
+controls are in `packages/paja/src/browser-signer-consent.ts`. Regression tests
+in `browser-host-signer.test.ts` and `browser-signer-consent.test.ts` cover exact
+signer, kind, artifact, and target matching, warning behavior, and failed
+storage deletion. The old preference remains for existing Paja users during
+the transition. Before removal, migrate supported consumers to Firewall grants,
+announce the breaking 0.x minor release, delete the old store and warning, and
+add negative tests that reject the legacy record. No old record is imported as
+a Firewall grant. NIP-5D authority: draft PR 2303 at
+`5560820fa4f37f45b8ab742a11aeb3001b17dc67`.
+
+## FW-RUNTIME-LEGACY-GATE-001 — runtime without a permission adapter
+
+`@kehto/runtime` retains the old temporal Firewall ingress for hosts that omit
+`RuntimeAdapter.permissions`. It evaluates the older broad per-napplet policy,
+content matchers, and burst counters. Configure `RuntimeAdapter.permissions`
+and service-owned `authorizeOperation` calls for scoped approvals and the
+independent rate limiter. The source and warning site is
+`packages/runtime/src/legacy-firewall-gate.ts`; the public retained state
+container is `packages/runtime/src/firewall-state.ts`. The warning fires once
+per runtime instance on actual legacy ingress, without request data, and is
+absent on configured ingress. `legacy-firewall-gate.test.ts` covers warning
+content, frequency, legacy invocation, and canonical quietness; the existing
+`firewall-dispatch.test.ts` covers retained burst, matcher, and policy behavior.
+No broad legacy policy becomes a scoped interface, resource, or network grant.
+This path remains for external hosts during migration. Once supported hosts
+use the permission adapter, announce its removal in a 0.x minor release,
+delete the legacy gate/state surface, and add negative tests for old config.
+
+## FW-COUNT-LEGACY-001 — unbound COUNT service
+
+`@kehto/services` retains direct `createCountService` execution when a host has
+not attached `RuntimeAdapter.permissions`. It still resolves and freezes any
+`planCount` relay destinations before calling the backend, but does not grant
+network authority. Attach a permission-enabled runtime to approve the `count`
+interface and each planned relay origin before the same relay list reaches
+`count(request)`. Source and warning site: `packages/services/src/count-service.ts`.
+The warning fires once per service instance on actual legacy COUNT use, never
+on configured calls, and includes no filters or relay URLs.
+`packages/services/src/count-service.test.ts` covers both paths, warning
+frequency, planned target retention, canonical quietness, revocation, and the
+NAP-COUNT failure shape. Paja's relay backend cancellation regression is in
+`packages/paja/src/browser-relay-runtime.test.ts`. Retain the path while
+external hosts migrate; then announce a 0.x minor removal, delete the direct
+branch, and add a negative unbound-service test. Authority: NAP-COUNT draft PR
+#69 at `9353a0c6c02c595f7e65ebd6df3802a7a45fc6bf`.
+
+## Notification and gamepad approval transitions — services and Paja
+
+`FW-NOTIFY-LEGACY-001` belongs to `@kehto/services`. When a host calls
+`createNotifyService` without runtime `authorizeOperation`, host-only
+notification effects still run and warn once per service instance. Attach
+`RuntimeAdapter.permissions` so sending, permission requests, badges, and
+channel registration use shared Firewall approval. The source and warning site
+is `packages/services/src/notify-service.ts`; Paja's related browser state is
+`packages/paja/src/browser-notify.ts`. The diagnostic contains no notification
+content or app identity. `notify-service.test.ts` covers warning frequency,
+canonical quietness, scope, denial, immutable payloads, revocation, window
+reuse, and remote-icon rejection; `browser-notify.test.ts` covers late answers,
+verified identity changes, and UI cleanup. Retain the fallback while external
+hosts adopt a permission-enabled runtime. Remove it after supported consumers
+migrate, a breaking release is announced, and negative tests reject host-only
+effects. Authority: NAP-NOTIFY draft PR #11 at
+`67877ef6c31ec8acee3125c1d8b4c781010e37dc`. The reference service's
+remote-icon rejection is a bounded host policy until NAP-RESOURCE mediation is
+wired; the NAP permits the shell to validate or reject icon URLs.
+
+`FW-NOTIFICATION-LEGACY-001` belongs to `@kehto/services`. The older
+`createNotificationService` registry retains `notify.create/list/read` and
+warns once per service instance on actual legacy wire use. Replace the service
+with canonical `createNotifyService` and NAP-NOTIFY `notify.send`.
+Source/warning site: `packages/services/src/notification-service.ts`.
+`notification-service.test.ts` covers legacy behavior, warning identifier and
+frequency, no warning on unrelated INC traffic, approval before mutation,
+revocation, and cross-window ownership. There is no upstream NAP for this
+registry wire, so the retained path is a Kehto compatibility policy, not a
+protocol extension. The playground is a known consumer and must migrate
+before the old service can be removed. Announce a breaking release, remove the
+legacy handler, and add rejection tests for the old messages at retirement.
+
+`FW-GAMEPAD-LEGACY-001` belongs to `@kehto/services`. A `gamepad.subscribe`
+without runtime `authorizeOperation` still attaches the host reader, warning
+once per service instance. Attach a permission-enabled runtime to require
+`gamepad:input` resource approval before native reads or subscriptions. Source
+and warning site: `packages/services/src/gamepad-service.ts`; regression tests
+in `gamepad-service.test.ts` cover warning frequency, quiet canonical access,
+denial, late approval, and revoke/teardown cleanup. Retain the host-only path
+while supported hosts migrate, then announce a breaking release, remove it,
+and assert that an unbound reader cannot start. Authority: NAP-GAMEPAD merged
+master at `19de5ce1cea40cd4c76089cdd8126e9f87648049`. The NAP has no
+device handle, so this host-private resource covers the one shared input
+surface; per-device grants would require an upstream protocol decision.
+
+## Host-only upload path — services and Paja
+
+Identifier: `FW-UPLOAD-LEGACY-001`. Owner: `@kehto/services` (with Paja as a
+host consumer). `createUploadService` temporarily retains direct `Uploader.upload`
+when no runtime approval context is attached. Replace it with
+`RuntimeAdapter.permissions` and an `Uploader.planUpload()` that selects an exact
+endpoint and host-attested signing pubkey before signing or byte egress. A
+permission-enabled runtime rejects a backend without a prepared plan. Source and
+warning site: `packages/services/src/upload-service.ts`; the HTTP reference plan
+is in `packages/services/src/http-uploader.ts`, and Paja's plan is in
+`packages/paja/src/browser-upload.ts`. The warning fires only on actual legacy
+use, once per service instance, without payloads, names, URLs, or identity data.
+Canonical shared-policy uploads remain quiet.
+
+`packages/services/src/upload-service.test.ts` covers legacy warning content and
+frequency, quiet canonical approval, immutable bytes and scope, denial, missing
+signer identity, revocation, status ownership and replay. The HTTP and Paja
+upload tests cover selection before signing, signer changes, transport abort,
+redirect rejection, and server-confirmed Blossom bytes. Retain this path while
+supported hosts and external service consumers migrate. Retirement requires a
+breaking release announcement, migration of supported consumers, removal of
+the host-only branch, and negative tests for unbound upload backends. The
+optional `planUpload` type cannot detect legacy use until the host attaches a
+runtime; the service boundary emits the runtime warning there. NAP-UPLOAD
+authority: draft PR #33 at `f5cc981e527e2cc1572793a7a6e5082e5271ac49`.
+
+## Host-only LINK approval — services
+
+Identifier: `FW-LINK-LEGACY-001`. Owner: `@kehto/services`.
+`createLinkService` retains its host-only `open` path when no shared runtime
+`authorizeOperation` is attached. Replace it with `RuntimeAdapter.permissions`
+or `ShellAdapter.permissions` and a trusted source `permissionPrincipal`.
+The implementation and warning site are `packages/services/src/link-service.ts`.
+It warns on actual legacy opener use once per service instance, with no URL or
+payload. Construction and canonical shared-policy calls remain quiet.
+
+Regression coverage: `tests/unit/firewall-link-approval.test.ts` verifies legacy
+opening, warning identifier/action/frequency, quiet canonical calls, cancellation,
+ACL restrictions, rate budgets, persistence failure, and replay behavior;
+`packages/services/src/link-service.test.ts` covers canonical wire responses and
+protocol validation. The path is retained while Paja, playground, and external
+service consumers migrate. Removal requires migrating supported hosts, documenting
+the breaking release, deleting the fallback, and negative coverage for unbound
+openers. No old broad Firewall record is translated into new scoped authority.
+
+The additive `permissionPrincipal`, `permissions`, and `authorizeOperation`
+types cannot diagnose older callers at type-erased boundaries. LINK's host
+boundary emits the diagnostic when legacy behavior is actually exercised.
+Services without `onPermissionRevoked` temporarily receive their existing
+`onWindowDestroyed` cleanup on revocation; this preserves conservative cleanup,
+not a second grant source. Migrate each service's live-source response handling
+before removing that fallback. No external release dependency is required.
+
 ## ACL principal fields — runtime
 
 Identifier: `ACL_ENTRY_PRINCIPAL`. ACL lookup/listing now return required `dTag`
@@ -74,7 +241,7 @@ their input grammar is unchanged by this normalization fix.
 | **ARTIFACT_HASH_NAME** — nip, shell, Paja, services | Existing `aggregateHash` fields carry the current artifact hash or the original legacy aggregate. `artifactHash` is available from the resolver. Cache/ACL identity still uses the existing field. | No access warning: plain fields cannot distinguish old consumers from internal identity plumbing. This is an explicit diagnostic limitation, not a claim of runtime detection. `current-manifest.test.ts`, `artifact-cache.test.ts`, `packages/paja/src/browser-target-frame.test.ts` exercise verified identity across formats. | Coordinate a public API and persisted identity migration with cache/ACL owners. Do not rename keys or discard existing grants as part of parser removal. |
 
 Authority: NAP-INTENT PR #106 at [`napplet/naps@fc121fc264615482143eda86125863d2e1f741a2`](https://github.com/napplet/naps/blob/fc121fc264615482143eda86125863d2e1f741a2/naps/NAP-INTENT.md) and NIP-5D PR #2303 at `020cb8b33a9e4c6b8ca4b2f9d0ed0a67843b68f7`. The legacy adapters are Kehto transition policies. Current intent delivery, URI invocation, accepted-result lifecycle, and opaque catalog identifiers align with that working authority; native external-origin sender semantics remain the documented upstream spec gap. See
-[the conformance boundary](./policies/NIP-5D-CONFORMANCE.md#intent-delivery-and-invocation-boundary).
+[the conformance boundary](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#intent-delivery-and-invocation-boundary).
 
 ## Existing compatibility inventory
 
@@ -91,7 +258,7 @@ require their own scoped specification check and migration PR.
 | **STORAGE_KEYS** — runtime | `packages/runtime/src/state-handler.ts`: shared storage reads old pubkey-scoped/prefix keys and lists/cleans old keys. Instance scope does not fall back. | Warning missing. Related behavior tests: `packages/runtime/src/state-handler.test.ts`; diagnostic assertion missing. | Add warning on actual legacy read and migration evidence; retire only after persisted data is migrated. Preserve isolation and cleanup coverage. |
 | **STORAGE_OK** — runtime | `state-handler.ts`: storage result includes compatibility `ok` alongside the current value/error shape. | Old consumer use cannot be observed from an additive result field; dedicated retirement regression missing. | Find consumers, document diagnostic limitation, test both response consumers before removing the field. |
 | **ACL_KEYS** — acl, shell | `packages/acl/src/migrate.ts`: pure migration of three-part ACL keys to two-part identity keys. | `packages/acl/src/migrate.test.ts` covers conversion/collisions/idempotency. No runtime warning in the pure function. | Host caller should report actual migration; keep the pure API free of logging side effects. Retire only after persisted-state migration and retention policy are agreed. |
-| **RESOURCE_FIELDS** — services, shell | `packages/shell/src/types/internal-resource.ts`, `packages/services/src/resource-service.ts`: old `requestId` input and legacy resource response type fields. | Warning missing. Related tests: `packages/services/src/resource-service.test.ts`; inventory must distinguish live correlation fallback from historical response-type/comment fields. | Recheck owning NAP, inspect emitted response helpers, map old consumers, then warn/test actual old input use and remove stale types separately. |
+| **RESOURCE_FIELDS** — services, shell; retired on this implementation branch | Canonical NAP-RESOURCE PR #80 `ae5b9c64ab8a4d8909f288829a01e99d6bd713bc` uses `id`, single `url` or ordered `urls`, and padded base64 wire bytes. The web binding returns decoded `Blob` values. Old `requestId`, object-form `requests`, wire `servers`, and Blob wire payloads are no longer supported inputs. | No warning remains for a removed path. Sources: `packages/services/src/resource-service.ts`, `packages/shell/src/types/internal-resource.ts`, and `packages/shell/src/napplet-namespace.ts`. Retirement evidence belongs in `resource-service.test.ts`, `napplet-namespace.test.ts`, and `tests/unit/nip5d-conformance-guard.test.ts`: reject old correlation/bulk/Blob inputs, ignore noncanonical server hints without network expansion, and preserve canonical correlation/base64/cancellation. | Migrate supported consumers and publish the breaking 0.x minor changesets for services/shell/Paja. PR and release numbers are pending; record them at shipping. Preserve this row as retirement history. |
 | **DOMAIN_ALIAS** — Paja | `packages/paja/src/parity.ts`: upstream `ifc` capability alias maps to `inc` in parity metadata. | `parity.test.ts` covers the declaration; no runtime warning. This metadata is not evidence that old wire messages are accepted. | Drop the metadata alias once upstream parity no longer needs it; check public export consumers first. |
 | **NOTIFY_NAME** — playground | `apps/playground/src/playground-access-controls.ts`, `node-details.ts`: `notifications` UI/persisted target name maps to the `notify` domain. | Warning and dedicated migration assertion missing. | Separate display labels from persisted aliases, warn on migrated persisted input, prove existing settings survive before removal. |
 | **OUTBOX_AGGREGATE** — services | `packages/services/src/relay-pool-outbox-router.ts`, `outbox-service.ts`: aggregate `query()` remains beside streaming `queryStream()`. | `relay-pool-outbox-router.test.ts` exercises both. No deprecation warning; aggregate API is still supported. | Decide whether to deprecate at all; if so add warning at the old callable boundary, publish replacement and test limit/abort/result parity. |
@@ -118,3 +285,64 @@ require their own scoped specification check and migration PR.
 The AGENTS policy requiring warnings, tracking, and tests is proposed separately
 in [PR #284](https://github.com/kehto/web/pull/284). This implementation PR leaves
 `AGENTS.md` unchanged.
+
+
+## FW-RESOURCE-LEGACY-001 — resolver-only resource authorization
+
+- Owner: `@kehto/services`.
+- Old behavior: resource requests without runtime authorization delegate policy
+  entirely to the supplied resolver and optional origin-policy hooks.
+- Replacement: configure `RuntimeAdapter.permissions` and trusted session
+  `permissionPrincipal`; the reference service composes resource and network
+  requirements through the runtime coordinator.
+- Source: `packages/services/src/resource-authorization.ts`; warning site:
+  `createResourceService` in `packages/services/src/resource-service.ts`.
+- Diagnostic: once per service instance, only on actual legacy execution; no
+  request payload or secrets are logged. Canonical configured calls stay quiet.
+- Tests: `tests/unit/resource-approval-runtime.test.ts` verifies legacy execution,
+  identifier/actionable text/frequency, quiet canonical execution, denial,
+  cancellation, bulk independence, and revocation during body consumption.
+- Retained for staged host migration. Removal requires migrating Paja/playground
+  and supported standalone consumers, release notice, negative retirement tests,
+  and a minor changeset on the current 0.x line. No removal release selected yet.
+- This tracks authorization fallback only. RESOURCE_FIELDS records the separate
+  wire retirement on this implementation branch.
+
+## FW-RELAY-SERVICE-LEGACY-001 — unplanned registered relay service
+
+- Owner: `@kehto/runtime` and `@kehto/services`.
+- Old behavior: a registered `relay` or `relay-pool` service implements only
+  `handleMessage()`, allowing destination selection and transport dispatch after
+  runtime routing.
+- Replacement: implement `RelayPlanningServiceHandler` with pure
+  `planRelayOperation()` and approved-plan-only `executeRelayOperation()`.
+- Source and warning site: `packages/runtime/src/relay-handler.ts`. The warning
+  fires once per legacy service instance on attempted use, names the replacement,
+  omits relay URLs/events/plaintext, and planned handlers stay quiet.
+- Regression coverage: `packages/runtime/src/runtime.test.ts`,
+  `packages/services/src/relay-pool-service.test.ts`,
+  `packages/services/src/coordinated-relay.test.ts`, and
+  `tests/unit/relay-acl-revocation.test.ts` cover immutable targets, ordering,
+  cancellation, same-ID retirement, and canonical results.
+- Retention: migrate supported registered services; then add negative retirement
+  tests, announce a 0.x minor removal, and record its release before deleting
+  the fallback diagnostic.
+
+## FW-RELAY-ADAPTER-LEGACY-001 — implicit relay-pool adapter execution
+
+- Owner: `@kehto/runtime` and `@kehto/shell`.
+- Old behavior: `RelayPoolAdapter.subscribe()` and `publish()` can select or fan
+  out destinations after runtime approval.
+- Replacement: implement `subscribeToRelays(relayUrls, filters, callback)` and
+  `publishToRelays(relayUrls, event)` and execute only the immutable plan.
+- Source and warning site: `packages/runtime/src/relay-handler.ts`; the shell
+  adapter implements the replacement in `packages/shell/src/hooks-adapter.ts`.
+  The warning fires once per legacy adapter on actual use, is actionable, omits
+  request data, and explicit-target adapters remain quiet.
+- Regression coverage: `packages/runtime/src/runtime.test.ts`,
+  `tests/unit/relay-acl-revocation.test.ts`, and
+  `tests/unit/nip5d-conformance-guard.test.ts` protect selector immutability,
+  abort/cleanup, protocol wiring, and fail-closed legacy behavior.
+- Retention: migrate Paja, playground, and supported custom shell adapters;
+  publish release guidance, then remove deprecated implicit members with negative
+  tests and a 0.x minor release. Structural mocks only warn when invoked.

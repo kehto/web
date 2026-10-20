@@ -233,6 +233,12 @@ describe('NIP-5D Envelope Dispatch', () => {
       const relayPool: RelayPoolAdapter = {
         subscribe: () => ({ unsubscribe() { /* no-op */ } }),
         publish,
+        subscribeToRelays(relayUrls, filters, callback) {
+          return this.subscribe(filters, callback, [...relayUrls]);
+        },
+        publishToRelays(_relayUrls, event) {
+          return this.publish(event);
+        },
         selectRelayTier: () => [],
         trackSubscription: () => { /* no-op */ },
         untrackSubscription: () => { /* no-op */ },
@@ -296,6 +302,12 @@ describe('NIP-5D Envelope Dispatch', () => {
           return { unsubscribe() { /* no-op */ } };
         },
         publish: () => { /* no-op */ },
+        subscribeToRelays(relayUrls, filters, callback) {
+          return this.subscribe(filters, callback, [...relayUrls]);
+        },
+        publishToRelays(_relayUrls, event) {
+          return this.publish(event);
+        },
         selectRelayTier: () => {
           selected = true;
           return ['wss://selected.test'];

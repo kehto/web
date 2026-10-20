@@ -4,6 +4,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { createKeysService } from './keys-service.js';
+import type { ServiceRuntimeContext } from '@kehto/runtime';
 import type { NappletMessage } from '@napplet/core';
 import type { HostKeysBridge, HostKeyEvent } from './keys-service.js';
 
@@ -101,6 +102,22 @@ function keysBindingsEnvelopes(sent: NappletMessage[]): NappletMessage[] {
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('createKeysService', () => {
+  it('authorizes registrations and removes the binding on revocation', async () => {
+    const target = createMockTarget();
+    const service = createKeysService({ listenerTarget: target });
+    const authorizeOperation = async (_windowId: string, _operation: string, _requirements: unknown, execute: (signal: { aborted: boolean; addEventListener(): void; removeEventListener(): void }) => unknown) => ({
+      status: 'executed' as const,
+      value: await execute({ aborted: false, addEventListener() {}, removeEventListener() {} }),
+    });
+    service.onRegistered?.({ authorizeOperation } as unknown as ServiceRuntimeContext);
+    const sent: NappletMessage[] = [];
+    service.handleMessage(WINDOW_ID, { type: 'keys.registerAction', id: 'r-auth', action: { id: 'editor.save', label: 'Save', defaultKey: 'Ctrl+S' } } as NappletMessage, (message) => sent.push(message));
+    await Promise.resolve();
+    service.onPermissionRevoked?.(WINDOW_ID);
+    dispatchChord(target, { key: 's', ctrlKey: true });
+
+    expect(sent.filter((message) => messageType(message) === 'keys.action')).toEqual([]);
+  });
   it('returns a ServiceHandler with descriptor { name: "keys" }', () => {
     const service = createKeysService();
     expect(service.descriptor.name).toBe('keys');

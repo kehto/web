@@ -1,7 +1,13 @@
 import { EventStore } from 'applesauce-core';
 import { RelayPool } from 'applesauce-relay';
 import type { NappletMessage, NostrEvent, NostrFilter, RelayPoolHooks, RelayPoolLike } from '@kehto/shell';
-import { createRelayEventResultWithHints, type ServiceHandler } from '@kehto/runtime';
+import {
+  createRelayEventResultWithHints,
+  type ApprovalSignal,
+  type RelayOperationPlan,
+  type RelayPlanningServiceHandler,
+  type ServiceHandler,
+} from '@kehto/runtime';
 import type { Nip66Aggregator } from '@kehto/nip/66';
 import {
   DEFAULT_PLAYGROUND_RELAY_SELECTION,
@@ -130,16 +136,30 @@ class PlaygroundRelayRuntimeImpl {
     };
   }
 
-  private createServiceHandler(): ServiceHandler {
-    return {
+  private createServiceHandler(): RelayPlanningServiceHandler {
+    const planRelayOperation = (_windowId: string, message: NappletMessage): RelayOperationPlan => {
+      const relay = message as RelayEnvelope;
+      const filters = Array.isArray(relay.filters) ? relay.filters : [];
+      const operation = message.type === 'relay.query' ? 'query'
+        : message.type === 'relay.publishEncrypted' ? 'publishEncrypted'
+        : message.type === 'relay.publish' ? 'publish' : 'subscribe';
+      const relayUrls = typeof relay.relay === 'string' && relay.relay.length > 0
+        ? [relay.relay] : this.selectRelayTier(operation === 'publish' || operation === 'publishEncrypted' ? [] : filters);
+      return Object.freeze({ operation, relayUrls: Object.freeze([...new Set(relayUrls)]), localOnly: relayUrls.length === 0 });
+    };
+    const service: RelayPlanningServiceHandler = {
       descriptor: {
         name: 'relay',
         version: '1.1.0',
         description: 'Playground Applesauce relay service with worker cache and outbox relay selection',
       },
-      handleMessage: (windowId, message, send) => {
+      planRelayOperation,
+      executeRelayOperation: (windowId, message, plan, signal, send) => {
+        if (signal.aborted) return;
         if (message.type === 'relay.subscribe') {
-          void this.handleSubscribe(windowId, message as RelayEnvelope, send);
+          const envelope = message as RelayEnvelope;
+          signal.addEventListener('abort', () => this.handleClose(windowId, envelope), { once: true });
+          void this.handleSubscribe(windowId, envelope, send, plan);
           return;
         }
         if (message.type === 'relay.close') {
@@ -147,11 +167,23 @@ class PlaygroundRelayRuntimeImpl {
           return;
         }
         if (message.type === 'relay.publish') {
+          void this.handlePublish(message as RelayEnvelope, send, plan, signal);
+        }
+      },
+      // Direct host use retains the established selection policy. Runtime-owned
+      // napplet traffic calls executeRelayOperation with a frozen approved plan.
+      handleMessage: (windowId, message, send) => {
+        if (message.type === 'relay.subscribe') {
+          void this.handleSubscribe(windowId, message as RelayEnvelope, send);
+        } else if (message.type === 'relay.close') {
+          this.handleClose(windowId, message as RelayEnvelope);
+        } else if (message.type === 'relay.publish') {
           void this.handlePublish(message as RelayEnvelope, send);
         }
       },
       onWindowDestroyed: (windowId) => this.closeWindow(windowId),
     };
+    return service;
   }
 
   private createRelayPoolHooks(): RelayPoolHooks {
@@ -211,6 +243,7 @@ class PlaygroundRelayRuntimeImpl {
     windowId: string,
     message: RelayEnvelope,
     send: (msg: NappletMessage) => void,
+    plan?: RelayOperationPlan,
   ): Promise<void> {
     const subId = message.subId;
     if (!subId) return;
@@ -244,7 +277,7 @@ class PlaygroundRelayRuntimeImpl {
     };
 
     try {
-      const mailboxes = relayHint
+      const mailboxes = plan || relayHint
         ? new Map<string, NostrEvent>()
         : await this.resolveMailboxes(
           needsMailboxResolution(filters) ? collectMailboxPubkeys(filters) : [],
@@ -262,7 +295,7 @@ class PlaygroundRelayRuntimeImpl {
         return;
       }
 
-      const relays = relayHint ? [relayHint] : this.selectRelays(filters, mailboxes);
+      const relays = plan ? [...plan.relayUrls] : relayHint ? [relayHint] : this.selectRelays(filters, mailboxes);
       if (relays.length === 0) {
         sendEose();
         return;
@@ -290,7 +323,8 @@ class PlaygroundRelayRuntimeImpl {
     this.closeSubscription(`${windowId}:${subId}`);
   }
 
-  private async handlePublish(message: RelayEnvelope, send: (msg: NappletMessage) => void): Promise<void> {
+  private async handlePublish(message: RelayEnvelope, send: (msg: NappletMessage) => void,
+    plan?: RelayOperationPlan, signal?: ApprovalSignal): Promise<void> {
     const id = message.id ?? '';
     const event = message.event;
     if (!event) {
@@ -303,9 +337,11 @@ class PlaygroundRelayRuntimeImpl {
       return;
     }
 
-    const mailboxes = await this.resolveMailboxes(collectMailboxPubkeys([], event));
-    const relays = this.selectPublishRelays(event, mailboxes);
+    const mailboxes = plan ? new Map<string, NostrEvent>() : await this.resolveMailboxes(collectMailboxPubkeys([], event));
+    const relays = plan ? [...plan.relayUrls] : this.selectPublishRelays(event, mailboxes);
+    if (signal?.aborted) return;
     const responses = await this.publishToRelays(relays, event);
+    if (signal?.aborted) return;
     const ok = responses.some((response) => response.ok);
     if (!ok) {
       const error = responses.find((response) => response.message)?.message ?? 'publish failed';

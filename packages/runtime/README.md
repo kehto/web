@@ -343,3 +343,80 @@ MIT
 ## GAMEPAD integration
 
 This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja and the playground register one host reader and deny native gamepad/HID/USB paths before frame execution. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, window destruction, and service removal release polling. Non-browser or denied native readers report the proposal's unavailable reasons. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
+
+## Independent rate limits
+
+`evaluateRateLimit` is a pure temporal evaluator exported separately from permission
+policy. Callers supply a trusted subject, operation, endpoint lifecycle, and clock;
+the returned state must be passed to the next call. Approval never bypasses this
+module. The default budgets are 60 operations per minute and 20 operations in the
+first three seconds of a lifecycle, with one-quarter capacity while unfocused.
+The rate default flags excess traffic; the startup burst default blocks it.
+
+```ts
+import {
+  createRateLimitState,
+  defaultRateLimitConfig,
+  evaluateRateLimit,
+} from '@kehto/runtime';
+
+let counters = createRateLimitState();
+const result = evaluateRateLimit(defaultRateLimitConfig(), counters, {
+  subject: 'verified-manifest-key',
+  operation: 'link.open',
+  lifecycle: 'frame-generation-1',
+  elapsedSinceStartMs: 0,
+  focused: true,
+  now: 0,
+});
+counters = result.state;
+// Enforce result.allowed; report flagged excess through host diagnostics.
+```
+
+`retireRateLimitLifecycle` removes startup counters while preserving the subject's
+operation budget. State is ephemeral; it is not a permission grant or a persistence
+format. Invalid budgets and nonfinite clocks throw `RangeError`. Clock rollback
+cannot create an extra refill. Subject/operation keys are encoded without delimiter
+collisions. Configured runtimes use the independent budget through the shared
+permission coordinator. Hosts without `RuntimeAdapter.permissions` retain the
+legacy temporal gate with `FW-RUNTIME-LEGACY-GATE-001` on actual use; see the
+[compatibility register](../../docs/compatibility.md).
+
+### Scoped approval integration
+
+Supply `RuntimeAdapter.permissions` and trusted `SessionEntry.permissionPrincipal`
+to enable shared approval for migrated service operations. Runtime exposes
+`permissions.grants`, `revoke`, `clear`, and `retryPersistence` for host settings.
+Persistent grants require successful durable writes; revocation failures disable
+access until recovery. Services use `ServiceRuntimeContext.authorizeOperation`
+and observe its cancellation signal. See [scoped approvals](../../docs/firewall-approvals.md)
+for adapter examples, lifetimes, failure handling, and the remaining migration scope.
+
+Use `runtime.permissions.admit` with a trusted provisional session before starting
+an app, then `isAdmissionCurrent` immediately before injecting the returned domains.
+Required denial blocks admission; optional denial narrows the result. Built-in
+interfaces require these grants. Declared service extensions use shared held
+approvals, immutable bounded requests, replay protection, and independent prompt
+budgets. Their `onPermissionDenied` hook owns any extension-specific error response.
+
+
+### Cancelling one approved operation
+
+Services may pass a request-owned signal as the fifth argument to
+`ServiceRuntimeContext.authorizeOperation(windowId, operation, requirements,
+execute, signal)`. Aborting it settles that request as `cancelled`, dismisses its
+prompt through the prompt signal, and aborts the signal passed to `execute`.
+Sibling requests keep their own lifetimes. Late approval answers cannot create
+grants; late action results are discarded. The service must still observe the
+execution signal before each later side effect and apply its protocol's
+cancellation response rules.
+
+A cancelled queued request settles immediately, but later equivalent requests
+still wait behind the active prompt. Retained queue entries count toward the
+queue bound until their predecessor settles. Request listeners are removed when
+the operation settles. An already-aborted signal never opens a prompt or invokes
+the action.
+
+Registered extensions revalidate their exact capability declaration after approval
+and before sending deferred replies. Replacing, removing, or changing that
+declaration invalidates the captured operation; a late answer grants nothing.

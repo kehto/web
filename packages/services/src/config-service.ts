@@ -222,6 +222,7 @@ interface RegisteredConfigSchema {
 class ConfigServiceController implements ConfigService {
   private readonly subscribers = new Map<string, (message: NappletMessage) => void>();
   private readonly schemas = new Map<string, RegisteredConfigSchema>();
+  private readonly generations = new Map<string, symbol>();
   readonly handler: ServiceHandler;
 
   constructor(private readonly options: ConfigServiceOptions) {
@@ -233,6 +234,7 @@ class ConfigServiceController implements ConfigService {
       },
       handleMessage: (windowId, message, send) => this.handleMessage(windowId, message, send),
       onWindowDestroyed: (windowId) => this.destroyWindow(windowId),
+      onPermissionRevoked: (windowId) => this.destroyWindow(windowId),
     };
   }
 
@@ -254,6 +256,12 @@ class ConfigServiceController implements ConfigService {
       return;
     }
     for (const target of this.subscribers.keys()) this.publishWindowValues(target, values);
+  }
+
+  private generationFor(windowId: string): symbol {
+    let generation = this.generations.get(windowId);
+    if (!generation) { generation = Symbol(windowId); this.generations.set(windowId, generation); }
+    return generation;
   }
 
   private handleMessage(
@@ -306,7 +314,8 @@ class ConfigServiceController implements ConfigService {
     windowId: string,
     send: (message: NappletMessage) => void,
   ): void {
-    this.subscribers.set(windowId, send);
+    const generation = this.generationFor(windowId);
+    this.subscribers.set(windowId, (message) => { if (this.generations.get(windowId) === generation) send(message); });
     const values = this.readValues(windowId, send);
     if (values === undefined) return;
     if (!values) {
@@ -469,6 +478,7 @@ class ConfigServiceController implements ConfigService {
   }
 
   private destroyWindow(windowId: string): void {
+    this.generations.delete(windowId);
     this.subscribers.delete(windowId);
     this.schemas.delete(windowId);
     this.options.onWindowDestroyed?.(windowId);

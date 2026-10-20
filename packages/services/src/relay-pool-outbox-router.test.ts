@@ -175,6 +175,16 @@ describe('createRelayPoolOutboxRouter', () => {
     });
   });
 
+  it('resolves a read plan without subscribing or publishing', async () => {
+    const pool = makePool();
+    const router = makeRouter(pool);
+    const plan = await router.planRead!([{ authors: [PK_A] }], { relays: ['wss://hint.test'] });
+
+    expect(plan.relays).toEqual(expect.arrayContaining(['wss://a-write', 'wss://hint.test']));
+    expect(pool.subs).toEqual([]);
+    expect(pool.published).toEqual([]);
+  });
+
   describe('query', () => {
     it('opens fallback reads immediately and applies the deadline while discovery is unresolved', async () => {
       const pool = makePool();

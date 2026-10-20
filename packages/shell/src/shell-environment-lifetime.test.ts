@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createShellBridge, originRegistry, resolveShellEnvironment } from './index.js';
 import type { ShellAdapter } from './index.js';
+import { createLinkService } from '@kehto/services';
+import type { ApprovalPrompt } from '@kehto/runtime';
 
 const identity = { dTag: 'example', aggregateHash: 'a'.repeat(64) };
 const windowId = 'example-window';
 
-function createHarness() {
+function createHarness(overrides: Partial<ShellAdapter> = {}) {
   const handler = vi.fn((_windowId, message, send) => {
     send({ type: 'example.result', id: message.id });
   });
@@ -33,6 +35,7 @@ function createHarness() {
       selectRelayTier: () => [],
     },
     workerRelay: { getWorkerRelay: () => null },
+    ...overrides,
   };
   const bridge = createShellBridge(hooks);
   const defaults = resolveShellEnvironment(hooks, identity);
@@ -57,6 +60,30 @@ function createFrame() {
 describe('source environment lifetime (#320)', () => {
   beforeEach(() => originRegistry.clear());
   afterEach(() => originRegistry.clear());
+
+  it.each(['registry', 'hook'] as const)('propagates trusted %s principals without accepting wire identity', async (source) => {
+    const principal = { kind: 'verified' as const, manifestKey: `nip5d:15129:${'b'.repeat(64)}`, artifactHash: identity.aggregateHash };
+    const original = { ...principal };
+    const prompt = vi.fn(async (_prompt: ApprovalPrompt) => ({ effect: 'allow' as const, lifetime: 'once' as const }));
+    const open = vi.fn(() => ({ status: 'opened' as const }));
+    const { bridge, dispatch } = createHarness({ services: { link: createLinkService({ open }) },
+      ...(source === 'hook' ? { onNip5dIframeCreate: () => ({ ...identity, permissionPrincipal: original }) } : {}),
+      permissions: { prompt, now: Date.now, createCancellation: () => new AbortController(),
+        schedule(callback, delay) { const timer = setTimeout(callback, delay); return () => clearTimeout(timer); } },
+    });
+    const frame = createFrame();
+    originRegistry.register(frame.win, windowId, { ...identity, ...(source === 'registry' ? { permissionPrincipal: principal } : {}) });
+    originRegistry.setEnvironment(frame.win, { capabilities: { domains: ['link'] }, services: ['link'] });
+    principal.manifestKey = `nip5d:15129:${'c'.repeat(64)}`;
+    dispatch(frame.win, { type: 'link.open', id: 'one', url: 'https://example.com/', permissionPrincipal: principal });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(prompt).toHaveBeenCalledTimes(1);
+    expect(prompt.mock.calls[0][0].request.principal).toEqual(original);
+    expect(bridge.runtime.sessionRegistry.getEntryByWindowId(windowId)?.permissionPrincipal).toEqual(original);
+    expect(open).toHaveBeenCalledTimes(1);
+    expect(frame.postMessage).toHaveBeenCalledWith({ type: 'link.open.result', id: 'one', status: 'opened' }, '*');
+    bridge.destroy();
+  });
 
   it.each([
     { reuseSource: true, unregisterSession: true, readyFirst: true },

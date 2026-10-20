@@ -562,52 +562,69 @@ describe('NIP-5D napplet namespace prelude', () => {
     });
   });
 
-  it('projects canonical per-resource server hints for resource bytes and bytesMany', async () => {
+  it('projects canonical resource URL and base64 wire values', async () => {
     const target = createPreludeTestWindow();
     runPrelude(renderNappletNamespacePrelude({ domains: ['resource'] }), target);
 
     const resource = target.napplet?.resource as {
-      bytes: (url: string, options?: { servers?: string[] }) => Promise<Blob>;
-      bytesMany: (
-        requests: Array<{ url: string; servers?: string[] }>,
-      ) => Promise<Array<{ url: string; ok: boolean }>>;
+      bytes: (url: string) => Promise<Blob>;
+      bytesMany: (urls: string[]) => Promise<Array<{ url: string; ok: boolean }>>;
     };
     const url = `blossom:sha256:${'a'.repeat(64)}`;
-    const single = resource.bytes(url, { servers: ['https://cdn.example'] });
+    const single = resource.bytes(url);
     const singleRequest = withoutShellReady(target).at(-1);
     expect(singleRequest).toEqual({
       type: 'resource.bytes',
       id: 'id-1',
       url,
-      servers: ['https://cdn.example'],
     });
-    const blob = new Blob(['rom']);
     target.dispatchParentMessage({
       type: 'resource.bytes.result',
       id: singleRequest?.id,
-      blob,
+      blob: 'cm9t',
       mime: 'application/octet-stream',
     });
-    await expect(single).resolves.toBe(blob);
+    const singleResult = await single;
+    expect(singleResult).toBeInstanceOf(Blob);
+    await expect(singleResult.text()).resolves.toBe('rom');
 
-    const requests = [
-      { url, servers: ['https://one.example'] },
-      { url: 'https://media.example/image.png' },
-    ];
-    const many = resource.bytesMany(requests);
+    const urls = [url, 'https://media.example/image.png'];
+    const many = resource.bytesMany(urls);
     const manyRequest = withoutShellReady(target).at(-1);
     expect(manyRequest).toEqual({
       type: 'resource.bytesMany',
       id: 'id-2',
-      requests,
+      urls,
     });
-    const items = requests.map(({ url: requestUrl }) => ({ url: requestUrl, ok: false }));
+    const items = urls.map((requestUrl) => ({ url: requestUrl, ok: false }));
     target.dispatchParentMessage({
       type: 'resource.bytesMany.result',
       id: manyRequest?.id,
       items,
     });
     await expect(many).resolves.toEqual(items);
+  });
+
+  it('rejects retired Blob values and non-canonical base64 resource results', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['resource'] }), target);
+    const resource = target.napplet?.resource as { bytes: (url: string) => Promise<Blob> };
+
+    const retired = resource.bytes('https://media.example/retired');
+    const retiredRequest = withoutShellReady(target).at(-1);
+    target.dispatchParentMessage({
+      type: 'resource.bytes.result', id: retiredRequest?.id,
+      blob: new Blob(['retired']), mime: 'text/plain',
+    });
+    await expect(retired).rejects.toThrow(/canonical base64/i);
+
+    const nonCanonical = resource.bytes('https://media.example/noncanonical');
+    const nonCanonicalRequest = withoutShellReady(target).at(-1);
+    target.dispatchParentMessage({
+      type: 'resource.bytes.result', id: nonCanonicalRequest?.id,
+      blob: 'YR==', mime: 'text/plain',
+    });
+    await expect(nonCanonical).rejects.toThrow(/canonical base64/i);
   });
 
   it('keeps an active resource transfer pending beyond the ordinary request timeout', async () => {
@@ -638,14 +655,15 @@ describe('NIP-5D napplet namespace prelude', () => {
       expect(ordinaryState).toBe('rejected');
       expect(transferState).toBe('pending');
       const request = withoutShellReady(target).find((message) => message.type === 'resource.bytes');
-      const blob = new Blob(['late resource']);
       target.dispatchParentMessage({
         type: 'resource.bytes.result',
         id: request?.id,
-        blob,
+        blob: btoa('late resource'),
         mime: 'application/octet-stream',
       });
-      await expect(transfer).resolves.toBe(blob);
+      const transferResult = await transfer;
+      expect(transferResult).toBeInstanceOf(Blob);
+      await expect(transferResult.text()).resolves.toBe('late resource');
     } finally {
       vi.useRealTimers();
     }
@@ -693,13 +711,11 @@ describe('NIP-5D napplet namespace prelude', () => {
       runPrelude(renderNappletNamespacePrelude({ domains: ['resource'] }), target);
       const resource = target.napplet?.resource as {
         bytesMany: (
-          requests: Array<{ url: string; servers?: string[] }>,
+          urls: string[],
         ) => Promise<Array<{ url: string; ok: boolean; blob?: Blob }>>;
       };
-      const requests = [
-        { url: `blossom:sha256:${'c'.repeat(64)}`, servers: ['https://cdn.example'] },
-      ];
-      const transfer = resource.bytesMany(requests);
+      const urls = [`blossom:sha256:${'c'.repeat(64)}`];
+      const transfer = resource.bytesMany(urls);
       let transferState = 'pending';
       void transfer.then(
         () => { transferState = 'resolved'; },
@@ -710,9 +726,9 @@ describe('NIP-5D napplet namespace prelude', () => {
 
       expect(transferState).toBe('pending');
       const request = withoutShellReady(target).find((message) => message.type === 'resource.bytesMany');
-      const items = [{ url: requests[0]!.url, ok: true, blob: new Blob(['late batch resource']) }];
+      const items = [{ url: urls[0]!, ok: true, blob: btoa('late batch resource'), mime: 'text/plain' }];
       target.dispatchParentMessage({ type: 'resource.bytesMany.result', id: request?.id, items });
-      await expect(transfer).resolves.toEqual(items);
+      await expect(transfer).resolves.toEqual([{ ...items[0], blob: new Blob(['late batch resource'], { type: 'text/plain' }) }]);
     } finally {
       vi.useRealTimers();
     }

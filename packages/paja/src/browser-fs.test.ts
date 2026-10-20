@@ -308,12 +308,15 @@ describe('createPajaBrowserFsBackend', () => {
     expect(picked.entries[0]!.name).toBe('private.txt');
     expect(picked.entries[0]!.path).not.toContain('Users');
     await expect(fs.read('window-a', picked.entries[0]!.path)).resolves.toMatchObject({ data: 'cGlja2VkIGJ5dGVz' });
+    await expect(fs.read('window-b', picked.entries[0]!.path)).rejects.toSatisfy(
+      (error: unknown) => code(error) === 'not-found',
+    );
     expect(activation.run).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'fs', windowId: 'window-a', kind: 'file' }),
       expect.any(Function),
     );
 
-    fs.onWindowDestroyed?.('window-a');
+    fs.onPermissionRevoked?.('window-a');
     await expect(fs.stat('window-a', picked.entries[0]!.path)).rejects.toSatisfy(
       (error: unknown) => code(error) === 'not-found',
     );

@@ -1,7 +1,7 @@
 /** NAP-INTENT wire service using canonical Kehto contracts. */
 
 import type { NappletMessage } from '@napplet/core';
-import type { ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
+import type { ApprovalSignal, ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
 import type { IntentAvailability, IntentHandlerHint, IntentRequest, IntentResult } from './intent-types.js';
 
 const INTENT_DESCRIPTOR: ServiceDescriptor = {
@@ -15,6 +15,8 @@ export interface IntentResolverContext {
   readonly sender: string;
   /** Authenticated runtime source, internal to host policy and never wire data. */
   readonly sourceWindowId?: string;
+  /** Approval lifetime for host-retained work; never placed on the wire. */
+  readonly signal?: ApprovalSignal;
 }
 
 /** Installed-catalog resolver and lifecycle policy. */
@@ -106,7 +108,15 @@ export function createIntentService(options: IntentServiceOptions): ServiceHandl
   }
   let runtimeContext: ServiceRuntimeContext | undefined;
   let unsubscribe: (() => void) | undefined;
+  const generations = new Map<string, symbol>();
   const { resolver, resolveSender } = options;
+  const generationFor = (windowId: string): symbol => {
+    let generation = generations.get(windowId);
+    if (!generation) { generation = Symbol(windowId); generations.set(windowId, generation); }
+    return generation;
+  };
+  const current = (windowId: string, generation: symbol, sender: string): boolean =>
+    generations.get(windowId) === generation && resolveSender(windowId) === sender;
 
   function invoke(windowId: string, message: NappletMessage, send: Send): void {
     const envelope = message as NappletMessage & { id?: unknown; request?: unknown };
@@ -119,9 +129,29 @@ export function createIntentService(options: IntentServiceOptions): ServiceHandl
       return reject(send, id);
     }
     if (!request || !sender) return reject(send, id, request ? 'invoke rejected' : 'invalid convention');
-    void Promise.resolve().then(() => resolver.invoke(request, { sender, sourceWindowId: windowId })).then(
-      (result) => send({ type: 'intent.invoke.result', id, result } as NappletMessage),
-      () => reject(send, id),
+    const generation = generationFor(windowId);
+    const invokeCurrent = async (signal?: ApprovalSignal) => {
+      if (!current(windowId, generation, sender!)) throw new Error('source replaced');
+      const result = await resolver.invoke(request, { sender: sender!, sourceWindowId: windowId, signal });
+      if (signal?.aborted || !current(windowId, generation, sender!)) throw new Error('source replaced');
+      return result;
+    };
+    const requirements = [
+      { category: 'interface' as const, domain: 'intent', operation: 'access', scope: { kind: 'exact' as const, value: 'intent' } },
+      { category: 'resource' as const, domain: 'intent', operation: 'intent.invoke', scope: { kind: 'exact' as const, value: `intent:target:${request.handler ?? request.archetype}:action:${request.action}` } },
+    ];
+    const pending = runtimeContext?.authorizeOperation
+      ? runtimeContext.authorizeOperation(windowId, 'intent.invoke', requirements, async (signal) => {
+        if (signal.aborted) throw new Error('cancelled');
+        return invokeCurrent(signal);
+      }).then((outcome) => {
+        if (outcome.status !== 'executed') throw new Error('denied');
+        return outcome.value;
+      })
+      : Promise.resolve().then(() => invokeCurrent());
+    void pending.then(
+      (result) => { if (current(windowId, generation, sender!)) send({ type: 'intent.invoke.result', id, result } as NappletMessage); },
+      () => { if (current(windowId, generation, sender!)) reject(send, id); },
     ).catch(() => {});
   }
 
@@ -161,11 +191,13 @@ export function createIntentService(options: IntentServiceOptions): ServiceHandl
         }
       });
     },
-    onUnregistered() { unsubscribe?.(); unsubscribe = undefined; runtimeContext = undefined; },
+    onUnregistered() { unsubscribe?.(); unsubscribe = undefined; runtimeContext = undefined; generations.clear(); },
+    onPermissionRevoked(windowId) { generations.delete(windowId); },
     handleMessage(windowId, message, send) {
       if (message.type === 'intent.invoke') return invoke(windowId, message, send);
       if (message.type === 'intent.available') return availability(message, send);
       if (message.type === 'intent.handlers') return handlers(message, send);
     },
+    onWindowDestroyed(windowId) { generations.delete(windowId); },
   };
 }

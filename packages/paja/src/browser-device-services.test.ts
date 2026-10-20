@@ -29,6 +29,29 @@ async function flush(): Promise<void> {
 }
 
 describe('createBrowserSerialController', () => {
+  it('keeps a selected serial port host-private until selected-device approval succeeds', async () => {
+    const { activation } = activationLog();
+    class FakePort extends EventTarget {
+      readonly readable = null;
+      readonly writable = null;
+      readonly open = vi.fn(async () => {});
+      readonly close = vi.fn(async () => {});
+      getInfo() { return {}; }
+    }
+    const port = new FakePort();
+    const requestPort = vi.fn(async () => port);
+    const controller = createBrowserSerialController(activation, { requestPort });
+    const authorizeDevice = vi.fn(async () => { throw new Error('policy denied'); });
+
+    await expect(controller!.open!({ options: { baudRate: 9_600 } }, {
+      windowId: 'window-a', emit: () => {}, authorizeDevice,
+    })).rejects.toThrow('policy denied');
+
+    expect(requestPort).toHaveBeenCalledOnce();
+    expect(authorizeDevice).toHaveBeenCalledWith(expect.stringMatching(/^serial:device:/u), expect.any(Function));
+    expect(port.open).not.toHaveBeenCalled();
+  });
+
   it('uses the Web Serial chooser, streams reads, orders writes, and closes the real port', async () => {
     const { activation, requests } = activationLog();
     const written: number[][] = [];
@@ -131,6 +154,32 @@ describe('createBrowserSerialController', () => {
 });
 
 describe('createBrowserBleController', () => {
+  it('keeps a selected BLE device host-private until selected-device approval succeeds', async () => {
+    const { activation } = activationLog();
+    const server = {
+      connected: false,
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+      getPrimaryServices: vi.fn(async () => []),
+      getPrimaryService: vi.fn(),
+    };
+    class FakeDevice extends EventTarget {
+      readonly id = 'browser-stable-id';
+      readonly gatt = server;
+    }
+    const requestDevice = vi.fn(async () => new FakeDevice());
+    const controller = createBrowserBleController(activation, { requestDevice });
+    const authorizeDevice = vi.fn(async () => { throw new Error('policy denied'); });
+
+    await expect(controller!.open!({ acceptAllDevices: true }, {
+      windowId: 'window-b', emit: () => {}, authorizeDevice,
+    })).rejects.toThrow('policy denied');
+
+    expect(requestDevice).toHaveBeenCalledOnce();
+    expect(authorizeDevice).toHaveBeenCalledWith(expect.stringMatching(/^ble:device:/u), expect.any(Function));
+    expect(server.connect).not.toHaveBeenCalled();
+  });
+
   it('uses the Web Bluetooth chooser and performs GATT reads, writes, notifications, and cleanup', async () => {
     const { activation, requests } = activationLog();
     const writes: Array<{ mode: string; data: number[] }> = [];

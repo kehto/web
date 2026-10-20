@@ -1,9 +1,10 @@
 import { test, expect, type Page } from '@playwright/test';
-import { demoBeforeEach } from './helpers/index.js';
+import { demoBeforeEach, installPlaygroundSessionApprovals } from './helpers/index.js';
 
 test.use({ baseURL: 'http://localhost:4174' });
 
 async function openFreshPlayground(page: Page): Promise<void> {
+  await installPlaygroundSessionApprovals(page);
   await page.goto('/');
   await page.waitForLoadState('domcontentloaded');
   await page.evaluate(() => {
@@ -135,16 +136,19 @@ test('per-napplet ACL panels persist expansion, capability changes, and block st
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#topology-root', { state: 'visible', timeout: 15_000 });
 
-  const blockedChatAcl = page.locator('#chat-acl');
-  await expect(blockedChatAcl.locator('[data-acl-block]')).toHaveAttribute('data-blocked', 'true', { timeout: 10_000 });
-  await expect(blockedChatAcl.locator('.acl-summary-toggle')).toContainText('0 allowed');
-  await expect(blockedChatAcl.locator('.acl-summary-toggle')).toContainText('7 blocked');
-  await expect(blockedChatAcl.locator('[data-acl-capability="relay:write"]')).toHaveAttribute('data-enabled', 'false', { timeout: 10_000 });
+  await expect(page.locator('#chat-status')).toHaveText('load failed', { timeout: 15_000 });
+  await expect(page.locator('#chat-frame-container iframe')).toHaveCount(0);
+  await expect(page.locator('#chat-acl .acl-panel')).toHaveCount(0);
 
-  await blockedChatAcl.locator('[data-acl-block]').click({ force: true });
-  await expect(blockedChatAcl.locator('[data-acl-block]')).toHaveAttribute('data-blocked', 'false', { timeout: 10_000 });
-  await expect(blockedChatAcl.locator('.acl-summary-toggle')).toContainText('6 allowed');
-  await expect(blockedChatAcl.locator('.acl-summary-toggle')).toContainText('1 blocked');
+  await Promise.all([
+    page.waitForEvent('load'),
+    page.locator('#acl-unblock-installed-btn').click(),
+  ]);
+  const recoveredChatAcl = page.locator('#chat-acl');
+  await expect(recoveredChatAcl.locator('[data-acl-block]')).toHaveAttribute('data-blocked', 'false', { timeout: 15_000 });
+  await expect(recoveredChatAcl.locator('.acl-summary-toggle')).toContainText('6 allowed');
+  await expect(recoveredChatAcl.locator('.acl-summary-toggle')).toContainText('1 blocked');
+  await expect(recoveredChatAcl.locator('[data-acl-capability="relay:write"]')).toHaveAttribute('data-enabled', 'false');
 
   await page.locator('#acl-expand-all-btn').evaluate((el) => {
     (el as HTMLButtonElement).click();
@@ -154,7 +158,7 @@ test('per-napplet ACL panels persist expansion, capability changes, and block st
     panels.length > 0
     && panels.every((panel) => panel.getAttribute('data-expanded') === 'false')
   ))).toBe(true);
-  await expect(blockedChatAcl.locator('.acl-controls')).toBeHidden();
+  await expect(recoveredChatAcl.locator('.acl-controls')).toBeHidden();
 
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#topology-root', { state: 'visible', timeout: 15_000 });

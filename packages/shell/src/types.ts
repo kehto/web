@@ -15,7 +15,7 @@ export type { SessionEntry, NappKeyEntry } from '@kehto/runtime';
 
 // Import Capability type locally for use in this file's shell-specific types
 import type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
-import type { Capability, RuntimeConfigOverrides, ServiceHandler, ServiceRegistry } from '@kehto/runtime';
+import type { Capability, PermissionAdapter, RuntimeConfigOverrides, ServiceHandler, ServiceRegistry } from '@kehto/runtime';
 import type { OriginIdentity } from './origin-registry.js';
 
 // Re-export service types so shell consumers can still import from @kehto/shell
@@ -351,6 +351,8 @@ export interface ShellEnvironment {
  * ```
  */
 export interface ShellAdapter {
+  /** Shared runtime approval UI/storage and temporal adapters. */
+  permissions?: PermissionAdapter;
   relayPool: RelayPoolHooks;
   relayConfig: RelayConfigHooks;
   windowManager: WindowManagerHooks;
@@ -430,7 +432,7 @@ export interface ShellAdapter {
    * Returns identity metadata for originRegistry.register(). Returning null
    * means "not NIP-5D / skip registration".
    */
-  onNip5dIframeCreate?: (windowId: string) => { dTag: string; aggregateHash: string } | null;
+  onNip5dIframeCreate?: (windowId: string) => OriginIdentity | null;
   /**
    * Optional service extensions. Each key is a service name (e.g., 'audio',
    * 'notifications'). Napplets discover available services via kind 29010

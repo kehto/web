@@ -12,6 +12,9 @@ import {
   renderPajaHtml,
   type PajaHostConfig,
 } from '../../packages/paja/dist/index.js';
+import { installPajaApprovalDriver } from './paja-approval-driver.js';
+
+test.beforeEach(async ({ page }) => installPajaApprovalDriver(page));
 
 const classOnePrefix = "default-src 'none'; script-src 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:;";
 const classOneSuffix = "worker-src 'none'; child-src 'none'; frame-src 'none'; media-src 'none'; object-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'";
@@ -19,6 +22,7 @@ const classOneSuffix = "worker-src 'none'; child-src 'none'; frame-src 'none'; m
 interface PointerServer {
   readonly url: string;
   readonly blobs: Map<string, Buffer>;
+  readonly resourceRequests: string[];
   setConfig(config: PajaHostConfig): void;
   close(): Promise<void>;
 }
@@ -87,7 +91,7 @@ test('resolves a stale embedded hint through configured live relays in the runni
     const frame = page.locator('iframe');
     const srcdoc = await frame.getAttribute('srcdoc');
     expect(srcdoc).toContain(classOnePrefix);
-    expect(srcdoc).toContain(`connect-src wss://configured-fallback.example wss://stale-hint.example; ${classOneSuffix}`);
+    expect(srcdoc).toContain(`connect-src 'none'; ${classOneSuffix}`);
     expect(srcdoc!.indexOf('Content-Security-Policy')).toBeLessThan(
       srcdoc!.indexOf('data-kehto-nip5d-injection'),
     );
@@ -107,8 +111,8 @@ test('resolves a stale embedded hint through configured live relays in the runni
   }
 });
 
-// NIP-5D #2303@020cb8b: optional domains do not constrain admission;
-// Paja chooses the permitted warning policy for unavailable required domains.
+// NIP-5D PR #2303@5560820: optional domains narrow; required unavailable
+// domains prevent executable admission.
 for (const declaration of ['O', 'R']) {
   test(`loads experimental ${declaration} domains with namespace-based fallback across reload`, async ({ page }) => {
     const server = await startPointerServer();
@@ -148,6 +152,11 @@ for (const declaration of ['O', 'R']) {
     });
     try {
       await page.goto(server.url);
+      if (declaration === 'R') {
+        await expect.poll(() => page.evaluate(() => window.__KEHTO_PAJA__?.getState().tabs[0]?.status)).toBe('error');
+        await expect(page.frameLocator('iframe').locator('#status')).toHaveCount(0);
+        return;
+      }
       const frame = page.frameLocator('iframe');
       await expect(frame.locator('#status')).toHaveText('fallback ready');
       await expect(page.locator('iframe')).toHaveAttribute('sandbox', 'allow-scripts');
@@ -157,12 +166,7 @@ for (const declaration of ['O', 'R']) {
       await frame.locator('#status').evaluate((node) => { node.textContent = 'reload pending'; });
       await page.evaluate(() => window.__KEHTO_PAJA__?.reload());
       await expect(frame.locator('#status')).toHaveText('fallback ready');
-      const admissionWarnings = warnings.filter((message) => message.includes('unsupported NAP capabilities'));
-      expect(admissionWarnings).toHaveLength(declaration === 'R' ? 2 : 0);
-      for (const warning of admissionWarnings) {
-        expect(warning).toContain('experimental-nap, keys');
-        expect(warning).toContain('full functionality may be unavailable');
-      }
+      expect(warnings.filter((message) => message.includes('unsupported NAP capabilities'))).toHaveLength(0);
     } finally { await server.close(); }
   });
 }
@@ -199,8 +203,8 @@ for (const policy of ['default', 'host override']) {
       await expect(frame.locator('#wasm-status')).toHaveText('ready');
       await expect(frame.locator('#eval-status')).toHaveText('blocked');
       if (policy === 'host override') {
-        await expect(page.locator('iframe')).toHaveAttribute('srcdoc', /img-src 'none'/);
-        await expect(page.locator('iframe')).toHaveAttribute('srcdoc', /media-src blob:/);
+        await expect(page.locator('iframe')).toHaveAttribute('srcdoc', /img-src data: blob:/);
+        await expect(page.locator('iframe')).toHaveAttribute('srcdoc', /media-src 'none'/);
       }
     } finally {
       await server.close();
@@ -366,7 +370,7 @@ test('opens local single-file index.html through the picker and drop without per
   }
 });
 
-test('foregrounds a reused intent handler for every behavior.focus hint', async ({ page }) => {
+test('foregrounds a reused canonical intent handler for every behavior.focus hint', async ({ page }) => {
   // NAP-INTENT calls `behavior` fields hints that "runtime workspace and
   // lifecycle policy remain authoritative"
   // (`napplet/naps@a718915ddefa2f03a0126579601f59d8bd86f7c4`, NAP-INTENT.md shell
@@ -376,7 +380,7 @@ test('foregrounds a reused intent handler for every behavior.focus hint', async 
   test.setTimeout(60_000);
   const server = await startPointerServer();
   const source = createPointerFixture(server.url, 'intent-source', sourceIntentHtml(), ['intent']);
-  const target = createPointerFixture(server.url, 'profile-target', targetIntentHtml(true), ['inc'], [
+  const target = createPointerFixture(server.url, 'profile-target', targetIntentHtml(), ['intent'], [
     ['archetype', 'profile', 'napplet:profile/open'],
   ]);
   // An archetype without INC remains eligible for canonical intent delivery.
@@ -420,7 +424,7 @@ test('foregrounds a reused intent handler for every behavior.focus hint', async 
       .filter((entry) => entry.type === 'paja.pointer.resolved').map((entry) => JSON.parse(entry.preview)));
     expect(installed).toEqual(expect.arrayContaining([
       expect.objectContaining({ dTag: 'intent-source', archetypes: [], requires: ['intent'], intentEligible: false }),
-      expect.objectContaining({ dTag: 'profile-target', archetypes: [{ slug: 'profile', convention: 'napplet:profile/open', params: [] }], requires: ['inc'], intentEligible: true }),
+      expect.objectContaining({ dTag: 'profile-target', archetypes: [{ slug: 'profile', convention: 'napplet:profile/open', params: [] }], requires: ['intent'], intentEligible: true }),
       expect.objectContaining({ dTag: 'intent-only-target', archetypes: [{ slug: 'note', convention: 'napplet:note/open', params: [] }], requires: ['theme'], intentEligible: true }),
     ]));
     expect(warnings.some((text) => text.includes('NOT intent-eligible') && text.includes('intent-only-target'))).toBe(false);
@@ -455,7 +459,7 @@ test('foregrounds a reused intent handler for every behavior.focus hint', async 
       expect(persisted.activeIndex).toBe(1);
     }
     await expect(page.frameLocator(`#napplet-frame-${targetId}`).locator('#delivery-pubkey')).toHaveText('f'.repeat(64));
-    expect(warnings.filter((text) => text.includes('KEHTO_COMPAT_INTENT_INC'))).toHaveLength(1);
+    expect(warnings.filter((text) => text.includes('KEHTO_COMPAT_INTENT_INC'))).toHaveLength(0);
   } finally {
     await server.close();
   }
@@ -469,6 +473,7 @@ for (const blockedStorage of [false, true]) {
     const hash = createHash('sha256').update(bytes).digest('hex');
     const fixture = createPointerFixture(server.url, 'resource-settings-target', resourceSettingsHtml(hash), ['resource']);
     server.blobs.set(fixture.hash, fixture.bytes);
+    server.blobs.set(hash, bytes);
     server.setConfig({
       ...createPajaRuntimeHostConfig({ pointer: fixture.pointer, maxWaitMs: 2_000 }),
       simulation: normalizePajaSimulation({ relay: { mode: 'live', urls: ['wss://intent-fixture.example'] } }),
@@ -509,8 +514,8 @@ for (const blockedStorage of [false, true]) {
       await page.goto(server.url);
       await expect(page.frameLocator('iframe').locator('#ready')).toHaveText('ready');
       const original = await snapshot();
-      await expect(page.locator('#paja-console > details')).toHaveCount(7);
-      expect(await page.locator('#paja-console > details').evaluateAll((sections) => sections.map((section) => section.getAttribute('data-paja-section')))).toEqual(['pointer', 'interfaces', 'acl', 'signer', 'resource-servers', 'messages', 'events']);
+      await expect(page.locator('#paja-console > details')).toHaveCount(8);
+      expect(await page.locator('#paja-console > details').evaluateAll((sections) => sections.map((section) => section.getAttribute('data-paja-section')))).toEqual(['pointer', 'interfaces', 'permissions', 'acl', 'signer', 'resource-servers', 'messages', 'events']);
       const frameNode = await page.locator('iframe').elementHandle();
       const frameWindow = await page.locator('iframe').evaluateHandle((frame) => (frame as HTMLIFrameElement).contentWindow);
       const pointer = page.locator('#runtime-pointer-section');
@@ -533,14 +538,15 @@ for (const blockedStorage of [false, true]) {
       const frame = page.frameLocator('iframe');
       await frame.locator('#read').click();
       await expect(frame.locator('#result')).toHaveText('verified browser resource bytes');
-      expect(fetched).toEqual([`https://extra.example/${hash}`]);
+      expect(fetched).toEqual([]);
+      expect(server.resourceRequests).toEqual([`https://extra.example/${hash}`]);
       await input.fill('valid.example\nhttp://private.example');
       await save.click();
       await expect(status).toContainText('Line 2:');
       await expect(input).toHaveAttribute('aria-invalid', 'true');
       await frame.locator('#read').click();
       await expect(frame.locator('#count')).toHaveText('2');
-      expect(fetched.at(-1)).toBe(`https://extra.example/${hash}`);
+      expect(server.resourceRequests.at(-1)).toBe(`https://extra.example/${hash}`);
       expect(await snapshot()).toEqual(original);
       if (!blockedStorage) {
         await page.reload();
@@ -553,15 +559,16 @@ for (const blockedStorage of [false, true]) {
       await expect(input).toHaveAttribute('aria-invalid', 'false');
       await frame.locator('#read').click();
       await expect(frame.locator('#result')).toHaveText('verified browser resource bytes');
-      await expect.poll(() => fetched.at(-1)).toBe(`https://replacement.example/${hash}`);
+      await expect.poll(() => server.resourceRequests.at(-1)).toBe(`https://replacement.example/${hash}`);
       expect(await snapshot()).toEqual(restored);
       await input.fill('');
       await save.click();
       await expect(status).toContainText(blockedStorage ? 'session-only' : 'cleared from this host origin');
-      const beforeClearRead = fetched.length;
+      const beforeClearRead = server.resourceRequests.length;
       await frame.locator('#read').click();
       await expect(frame.locator('#result')).toHaveText('blocked-by-policy');
-      expect(fetched).toHaveLength(beforeClearRead);
+      expect(fetched).toEqual([]);
+      expect(server.resourceRequests).toHaveLength(beforeClearRead);
       expect(await snapshot()).toEqual(restored);
       for (const width of [1280, 390]) {
         await page.setViewportSize({ width, height: 900 });
@@ -593,7 +600,7 @@ function resourceSettingsHtml(hash: string): string {
     window.addEventListener('message', async (event) => {
       if (event.source !== parent || !event.data.id?.startsWith('read-')) return;
       const message = event.data;
-      document.getElementById('result').textContent = message.blob ? await message.blob.text() : message.error;
+      document.getElementById('result').textContent = message.blob ? atob(message.blob) : message.error;
       document.getElementById('count').textContent = String(count);
     });
   </script></body></html>`;
@@ -602,6 +609,7 @@ function resourceSettingsHtml(hash: string): string {
 async function startPointerServer(): Promise<PointerServer> {
   const browserHost = readFileSync(new URL('../../packages/paja/dist/browser-host.js', import.meta.url), 'utf8');
   const blobs = new Map<string, Buffer>();
+  const resourceRequests: string[] = [];
   let config = createPajaRuntimeHostConfig();
   const server = createServer((request, response) => {
     const path = new URL(request.url ?? '/', 'http://localhost').pathname;
@@ -618,6 +626,26 @@ async function startPointerServer(): Promise<PointerServer> {
     if (path === '/__kehto/browser-host.js') {
       response.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8' });
       response.end(browserHost);
+      return;
+    }
+    if (path === '/__kehto/resource' && request.method === 'POST') {
+      const chunks: Buffer[] = [];
+      request.on('data', (chunk: Buffer) => chunks.push(chunk));
+      request.on('end', () => {
+        try {
+          const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as { url?: unknown };
+          const destination = typeof body.url === 'string' ? new URL(body.url) : null;
+          if (destination) resourceRequests.push(destination.href);
+          const proxyMatch = destination && /^\/(?:blossom\/)?([0-9a-f]{64})$/.exec(destination.pathname);
+          const proxyBlob = proxyMatch ? blobs.get(proxyMatch[1]!) : undefined;
+          if (!proxyBlob) throw new Error('resource fixture not found');
+          response.writeHead(200, { 'content-type': 'application/octet-stream' });
+          response.end(proxyBlob);
+        } catch {
+          response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
+          response.end('Not found');
+        }
+      });
       return;
     }
     const match = /^\/blossom\/([0-9a-f]{64})$/.exec(path);
@@ -646,6 +674,7 @@ async function startPointerServer(): Promise<PointerServer> {
   return {
     url: `http://127.0.0.1:${address.port}/`,
     blobs,
+    resourceRequests,
     setConfig(nextConfig) {
       config = nextConfig;
     },
@@ -721,13 +750,10 @@ function intentOnlyTargetHtml(): string {
   </script></body></html>`;
 }
 
-function targetIntentHtml(legacy = false): string {
-  const subscribe = legacy
-    ? "window.napplet.inc.on('napplet:profile/open',"
-    : 'window.napplet.intent.onDelivery(';
+function targetIntentHtml(): string {
   return `<!doctype html><html><body><div id="delivery-count">0</div><div id="delivery-pubkey"></div><script>
     let count = 0;
-    ${subscribe} (event) => {
+    window.napplet.intent.onDelivery((event) => {
       count += 1;
       document.getElementById('delivery-count').textContent = String(count);
       document.getElementById('delivery-pubkey').textContent = event.payload && event.payload.pubkey || '';

@@ -1,4 +1,12 @@
+/**
+ * Browser host initialization owns one tab/runtime lifecycle and its cleanup.
+ * The setup closure keeps those authority-bearing handles private.
+ * aislop-ignore-file complexity/file-too-large complexity/function-too-long
+ */
 import { installPajaResourceSettings } from './browser-resource-settings.js';
+import { createPajaPermissionAdapter } from './browser-permission-adapter.js';
+import { permissionPrincipalKey } from '@kehto/firewall';
+import { revokedPajaTabIds } from './browser-grant-retirement.js';
 import {
   buildShellCapabilities,
   createShellBridge,
@@ -6,6 +14,7 @@ import {
   type Capability,
   type ShellBridge,
   type ShellCapabilities,
+  type SessionEntry,
 } from '@kehto/shell';
 
 import { installPajaConsolePanel } from './browser-console-panel.js';
@@ -134,6 +143,7 @@ export interface PajaBrowserState {
   closeTab(tabId: string): void;
   setThemeMode(mode: PajaSimulation['theme']['mode']): void;
   setDomainEnabled(domain: PajaCapabilityDomain, enabled: boolean): void;
+  getActiveIdentity(): Pick<SessionEntry, 'pubkey' | 'dTag' | 'aggregateHash'>;
   setAclCapability(capability: Capability, enabled: boolean): void;
   useDevSigner(): void;
   connectNip07(): Promise<void>;
@@ -177,6 +187,7 @@ declare global {
 }
 
 let bridgeRef: ShellBridge | null = null;
+const frameAdmissions = new WeakMap<HTMLIFrameElement, AbortController>();
 
 type PajaThemeService = { publishTheme(theme: ReturnType<typeof createDevTheme>): unknown };
 type PajaSignerController = ReturnType<typeof createHostSignerController>;
@@ -260,19 +271,24 @@ function startFrameNavigation(
 ): void {
   const { config, frame, bridge, adapter, runtime } = context;
   if (!frame) return;
+  frameAdmissions.get(frame)?.abort();
+  const admissionController = new AbortController();
+  frameAdmissions.set(frame, admissionController);
   const generation = state.generation;
-  const isCurrentGeneration = () => state.generation === generation;
+  const isCurrentGeneration = () => state.generation === generation && frameAdmissions.get(frame) === admissionController;
   void navigateFrame(
     frame,
     config,
     generation,
     adapter,
+    bridge.runtime,
     state.resolvedTarget,
     undefined,
     isCurrentGeneration,
     (windowId) => {
       if (isCurrentGeneration()) runtime.currentWindowId = windowId;
     },
+    admissionController.signal,
   ).then((windowId) => {
     if (!isCurrentGeneration()) {
       unregisterSingleFrameWindow(bridge, runtime, windowId);
@@ -546,8 +562,13 @@ function createPajaBrowserState(
     setDomainEnabled(domain, enabled) {
       setRuntimeDomainEnabled(this, context, domain, enabled);
     },
+    getActiveIdentity() {
+      const active = runtime.currentWindowId
+        ? bridge.runtime.sessionRegistry.getEntryByWindowId(runtime.currentWindowId) : undefined;
+      return active ?? getTargetIdentity(config, this.resolvedTarget);
+    },
     setAclCapability(capability, enabled) {
-      const identity = getTargetIdentity(config, this.resolvedTarget);
+      const identity = this.getActiveIdentity?.() ?? getTargetIdentity(config, this.resolvedTarget);
       if (enabled) bridge.runtime.aclState.grant(identity.pubkey, identity.dTag, identity.aggregateHash, capability);
       else bridge.runtime.aclState.revoke(identity.pubkey, identity.dTag, identity.aggregateHash, capability);
       bridge.runtime.aclState.persist();
@@ -642,6 +663,7 @@ async function installPajaHost(): Promise<void> {
   const confirmationController = createPajaConfirmationController(
     () => stateRef,
     {
+      sharedFirewall: true,
       onSignerConsentChange(count) {
         if (!stateRef) return;
         stateRef.signerConsentCount = count;
@@ -655,6 +677,8 @@ async function installPajaHost(): Promise<void> {
     confirmationController.confirm,
   );
   const getWindowIdentity = (windowId?: string) => {
+    const active = bridge.runtime.sessionRegistry.getEntryByWindowId(windowId ?? runtime.currentWindowId ?? '');
+    if (active) return active;
     const tabTarget = stateRef?.tabs.find((tab) => tab.windowId === windowId)?.resolvedTarget;
     return getTargetIdentity(config, tabTarget ?? stateRef?.resolvedTarget);
   };
@@ -710,6 +734,25 @@ async function installPajaHost(): Promise<void> {
         return candidates.some((candidate) => candidate.id === id) ? id : undefined;
       },
     }, confirmationController.activation, notifyController?.serviceOptions, configController?.serviceOptions, resourceSettings.getServers);
+  const permissionMount = document.getElementById('paja-permission-ui');
+  if (!permissionMount) throw new Error('Paja Firewall permission mount is missing');
+  let permissionBridge: ShellBridge | null = null;
+  const permissionController = createPajaPermissionAdapter({
+    mount: permissionMount,
+    getPermissions: () => permissionBridge?.runtime.permissions,
+    onGrantRevoked(grant) {
+      if (!stateRef) return;
+      const revoked = permissionPrincipalKey(grant.principal);
+      if (config.target.mode === 'runtime-pointer') {
+        for (const tabId of revokedPajaTabIds(config, stateRef.tabs, grant)) stateRef.closeTab(tabId);
+      } else {
+        const source = frame?.contentWindow;
+        const principal = source ? originRegistry.getIdentity(source)?.permissionPrincipal : undefined;
+        if (principal && permissionPrincipalKey(principal) === revoked) stateRef.reload();
+      }
+    },
+  });
+  adapter.permissions = permissionController.adapter;
   const relayBackend = adapter.relayPool.getRelayPool() as PajaRelayBackend | null;
   relayBackend?.setRelayEventObserver((sighting) => {
     relayEventCounts.recordEvent(sighting.reason, sighting.event, sighting.sightedOn, sighting.origin);
@@ -719,6 +762,8 @@ async function installPajaHost(): Promise<void> {
   });
   await adapter.ready;
   const bridge = createShellBridge(adapter);
+  permissionBridge = bridge;
+  permissionController.ui.refresh();
   const stopIdentityChanges = signerController.subscribe(() => {
     bridge.publishIdentityChanged(adapter.auth.getUserPubkey() ?? '');
   });
@@ -739,6 +784,7 @@ async function installPajaHost(): Promise<void> {
     navigateFrame,
     renderTargetErrorHtml,
     onTabDestroyed: (tab) => clearRuntimeTabGeneration(tab, runtime),
+    onTabNavigationFailed: (tab) => clearRuntimeTabGeneration(tab, runtime),
     setPointerStatus: (state, message) => setPointerStatus(state as PajaBrowserState, message),
     setStatus: (state, status) => setStatus(state as PajaBrowserState, status),
   };
@@ -766,6 +812,7 @@ async function installPajaHost(): Promise<void> {
   window.addEventListener('pagehide', disposeConsolePanel, { once: true });
   window.addEventListener('pagehide', disposeEventCounterReset, { once: true });
   window.addEventListener('pagehide', resourceSettings.dispose, { once: true });
+  window.addEventListener('pagehide', permissionController.destroy, { once: true });
 
   window.__KEHTO_PAJA__ = state;
 
@@ -791,8 +838,10 @@ async function installPajaHost(): Promise<void> {
     }) as MessageEvent;
     bridge.handleMessage(syntheticEvent);
     const data = event.data as { type?: unknown } | null;
+    if (launcher && data && typeof data === 'object' && data.type === 'paja.intent.launcher.ready') {
+      launcher.ready();
+    }
     if (data && typeof data === 'object' && data.type === 'shell.ready') {
-      if (launcher) launcher.ready();
       if (sourceTab) {
         if (source && !markRuntimeTabReady(
           state,
@@ -806,6 +855,7 @@ async function installPajaHost(): Promise<void> {
         if (sourceWindowId) runtime.readyWindowIds.add(sourceWindowId);
         setStatus(state, 'ready');
       }
+      renderPajaDevtools(state, { bridge, devSignerPubkey: PAJA_DEV_SIGNER_PUBKEY });
     }
     if (launcher && data && typeof data === 'object' && data.type === 'paja.intent.launcher.result'
       && typeof (data as { correlation?: unknown }).correlation === 'string') {
