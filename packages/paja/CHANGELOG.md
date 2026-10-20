@@ -1,5 +1,13 @@
 # @kehto/paja
 
+## 0.24.2
+
+### Patch Changes
+
+- 216b69d: Keep the toolbar and console expand button onscreen when restoring a collapsed
+  console preference. The empty runtime remains usable after reloading without
+  needing to discover a hidden hover strip; running napplets keep their state.
+
 ## 0.24.1
 
 ### Patch Changes
