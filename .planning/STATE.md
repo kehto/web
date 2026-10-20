@@ -40,7 +40,7 @@ Phase: 107 (Paja Intent Deep Links) — COMPLETE
 Plan: 4 of 4
 Status: Shipped as open PR #289 — https://github.com/kehto/web/pull/289. No merge or release performed.
 
-Last activity: 2026-10-17 — Completed quick task 261017-wx0: active napplet page title.
+Last activity: 2026-10-20 — Resolved all-kind NIP-5D loading: root coordinates and distinct snapshot tabs; 2,270 unit and 142 browser tests passed.
 
 ## Performance Metrics
 
@@ -393,3 +393,9 @@ Conformance authority and host-extension limits are recorded in
 Relay ACL revocation now retires ordinary adapter/service subscriptions and queued
 callbacks. See `debug/resolved/relay-acl-revocation.md` and `INBOX-TRIAGE.md`.
 Build/type/docs/quality and 2,164 unit / 123 browser tests pass.
+
+### Debug Sessions Completed
+
+| Session | Date | Commit | Result |
+|---------|------|--------|--------|
+| [NIP-5D all event kinds](./debug/resolved/nip5d-all-event-kinds.md) | 2026-10-20 | f30cfa80 | Root 15129, named 35129 and snapshot 5129 loading verified across core and hosts |

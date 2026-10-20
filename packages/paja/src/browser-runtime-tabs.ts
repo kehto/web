@@ -1,4 +1,5 @@
 import { denyNappletControllerAccess, originRegistry, type ShellAdapter, type ShellBridge } from '@kehto/shell';
+import { NAPPLET_KIND_SNAPSHOT } from '@kehto/nip/5d';
 
 import {
   PAJA_DEV_SIGNER_PUBKEY,
@@ -90,7 +91,7 @@ export type PajaDuplicateChoice = 'load-again' | 'open-tab' | 'cancel';
  * Return the duplicate-detection key for a runtime target.
  *
  * @param target - Verified pointer or local development file.
- * @returns `kind:pubkey:dTag:aggregateHash` for pointers, `local:dTag:aggregateHash` for local files.
+ * @returns Snapshot keys include the signed event ID; replaceable pointer keys include kind, author, d-tag and artifact hash. Local keys include d-tag and hash.
  *
  * @example
  * ```ts
@@ -99,6 +100,9 @@ export type PajaDuplicateChoice = 'load-again' | 'open-tab' | 'cancel';
  */
 export function resolvedTargetKey(target: PajaRuntimeTarget): string {
   if (isPajaLocalTarget(target)) return ['local', target.dTag, target.aggregateHash].join(':');
+  if (target.event.kind === NAPPLET_KIND_SNAPSHOT) {
+    return [target.event.kind, target.event.id, target.aggregateHash].join(':');
+  }
   return [
     target.event.kind,
     target.event.pubkey,

@@ -255,7 +255,7 @@ The GitHub Pages artifact also includes a static Paja Runtime at `/web/paja/`.
 That route uses `createPajaRuntimeHostConfig`, keeps `hmr: none`, and loads
 verified napplets into ShellBridge-backed iframe tabs from pasted `naddr` or
 `nevent` pointers. `naddr` pointers resolve the latest matching NIP-5D named
-manifest (`35129`) by author and `d` tag; `nevent` pointers resolve a specific
+manifest (`35129`) by author and `d` tag, or a root manifest (`15129`) by author with an empty identifier and no `#d` filter; `nevent` pointers resolve a specific
 NIP-5D snapshot, root, or named manifest event id (`5129`, `15129`, or `35129`).
 In both cases Paja verifies the signed manifest and artifact hash (or legacy
 aggregate and blobs), then prepares a rendered copy with the same runtime-owned
@@ -731,6 +731,10 @@ URL cannot supply one. The hidden launcher is removed after acceptance and is
 never persisted or restored. Verification precedes `srcdoc`, and host bootstrap
 injection stays outside signed bytes. Native external-origin sender semantics
 remain a documented upstream spec gap; no host sender identity is invented.
+
+## NIP-5D runtime pointers
+
+Paja MUST load all three NIP-5D manifest kinds: root `15129`, named `35129`, and snapshot `5129`. Use an `naddr` with an empty identifier for the latest root, an `naddr` with the literal `d` identifier for the latest named napplet, or a `nevent` to pin a signed event of any of the three kinds. Snapshots require `nevent` because they are immutable events without replaceable coordinates. All paths verify the signed manifest and artifact hash before injecting `srcdoc`. Distinct snapshots retain separate tabs and catalog identities even when their artifact bytes match.
 
 ## Controller diagnostics
 

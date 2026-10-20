@@ -112,6 +112,21 @@ describe.each(['current', 'legacy'] as const)('resolvePlaygroundNapplet %s', (fo
     expect(napplet.indexHtml).toContain('<body>hi</body>');
   });
 
+  it.each([15129, 5129])('admits kind %i through the playground relay adapter without inventing a d tag', async (kind) => {
+    const fixture = buildManifest();
+    const event = finalizeEvent({
+      kind, created_at: fixture.event.created_at, content: fixture.event.content,
+      tags: fixture.event.tags.filter((tag) => tag[0] !== 'd'),
+    }, SK);
+    const resolved = await resolvePlaygroundNapplet(optsFor(event, fixture.index, ''));
+    expect(resolved.dTag).toBe('');
+    expect(resolved.indexHtml).toContain('<body>hi</body>');
+    expect(resolved.aggregateHash).toBe(fixture.aggregate);
+    expect(resolved.catalogId).toBe(kind === 15129
+      ? `nip5d:15129:${event.pubkey}`
+      : `nip5d:5129:${event.id}`);
+  });
+
   it('rejects when the manifest author does not match the expected author', async () => {
     const otherSk = hexToBytes('22'.repeat(32));
     const { index, aggregate } = buildManifest();

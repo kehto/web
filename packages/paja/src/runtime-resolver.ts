@@ -7,6 +7,8 @@ import {
   fetchBlob,
   isNappletManifestKind,
   NAPPLET_KIND_NAMED,
+  NAPPLET_KIND_ROOT,
+  NAPPLET_KIND_SNAPSHOT,
   NAPPLET_KINDS,
   openNappletArtifactCache,
   resolveNapplet,
@@ -221,7 +223,7 @@ async function resolvePointerEvent(
   const result = await queryPointerRelays(pool, relays, filter, maxWaitMs);
   const event = result.events
     .filter((candidate) => matchesPointer(pointer, candidate))
-    .sort((a, b) => b.created_at - a.created_at)[0];
+    .sort((a, b) => b.created_at - a.created_at || a.id.localeCompare(b.id))[0];
   if (!event) {
     if (result.timedOut) {
       throw new Error(
@@ -349,13 +351,24 @@ function normalizeMaxWaitMs(value: number | undefined): number {
 }
 
 function addressableFilter(pointer: Extract<PajaDecodedPointer, { type: 'naddr' }>): Filter {
-  if (pointer.kind !== NAPPLET_KIND_NAMED) {
-    throw new Error(`naddr kind ${pointer.kind} is not a named NIP-5D napplet manifest kind.`);
+  // NIP-19: replaceable root coordinates use an empty identifier and no #d.
+  // NIP-5D snapshots are regular events; only nevent can pin their identity.
+  if (pointer.kind === NAPPLET_KIND_SNAPSHOT) {
+    throw new Error('NIP-5D snapshot kind 5129 requires a nevent pointer with its signed event ID.');
+  }
+  if (pointer.kind !== NAPPLET_KIND_NAMED && pointer.kind !== NAPPLET_KIND_ROOT) {
+    throw new Error(`naddr kind ${pointer.kind} is not a root or named NIP-5D napplet manifest kind.`);
+  }
+  if (pointer.kind === NAPPLET_KIND_ROOT && pointer.identifier !== '') {
+    throw new Error('NIP-5D root naddr requires an empty identifier.');
+  }
+  if (pointer.kind === NAPPLET_KIND_NAMED && pointer.identifier === '') {
+    throw new Error('NIP-5D named naddr requires a non-empty identifier.');
   }
   return {
-    kinds: [NAPPLET_KIND_NAMED],
+    kinds: [pointer.kind],
     authors: [pointer.pubkey],
-    '#d': [pointer.identifier],
+    ...(pointer.kind === NAPPLET_KIND_NAMED ? { '#d': [pointer.identifier] } : {}),
     limit: 1,
   };
 }
@@ -378,7 +391,8 @@ function matchesPointer(pointer: PajaDecodedPointer, event: NostrEvent): boolean
   }
   return event.kind === pointer.kind
     && event.pubkey === pointer.pubkey
-    && event.tags.some((tag) => tag[0] === 'd' && tag[1] === pointer.identifier);
+    && (pointer.kind === NAPPLET_KIND_ROOT
+      || event.tags.some((tag) => tag[0] === 'd' && tag[1] === pointer.identifier));
 }
 
 function uniqueRelayUrls(values: readonly string[]): string[] {

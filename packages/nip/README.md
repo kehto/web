@@ -99,3 +99,5 @@ Existing `aggregateHash` host/cache/ACL fields carry the verified artifact hash
 for current events; legacy identities keep their original aggregate. Both paths
 verify signatures and bytes before runtime injection and `srcdoc` execution.
 For the schema and removal boundary, see [event migration](https://kehto.github.io/web/docs/migrations/NIP-5D-EVENT-SCHEMA.html).
+
+NIP-5D verification accepts root (`15129`), named (`35129`) and snapshot (`5129`) manifests. Roots and snapshots have no `d` tag; snapshots are identified by signed event ID. Every kind uses the same signature and artifact-byte verification. Paja accepts root coordinates with an empty NIP-19 `naddr` identifier and exact `nevent` references for all three kinds.
