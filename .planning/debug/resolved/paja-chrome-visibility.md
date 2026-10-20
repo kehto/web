@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: resolved
 trigger: "Paja chrome appears briefly then disappears, leaving only the empty-runtime message"
 created: 2026-10-20
 updated: 2026-10-20
@@ -27,8 +27,21 @@ Reproduction: save kehto:paja:console:v1=collapsed, reload at a desktop viewport
 ## Current Focus
 
 hypothesis: Desktop auto-hide CSS conceals the recovery control after restoring the stored collapsed preference.
-next_action: Complete full gates and Firefox visual verification, then push and open the fix PR.
+next_action: Push and open the verified fix PR.
 
 ## Resolution
 
-Pending.
+Removed desktop toolbar auto-hide CSS. Console collapse still reclaims the full
+stage width, hides the console/footer, remembers the preference, and preserves
+live iframe identity. The expand button, tabs, theme and reload controls remain
+visible and usable after startup with a saved collapsed preference.
+
+Verification: build, type-check, docs:check, changeset status and diff checks pass;
+177 unit files / 2,250 tests and all 136 Chromium tests pass. Focused pre-fix proof
+was 2 failures / 1 pass, then all 5 empty-runtime/live-target recovery checks pass.
+Firefox at 2520x1470 passes saved-collapse reload and pointer-control recovery;
+visually inspected /tmp/kehto-paja-chrome-firefox.png. Static Pages artifact builds.
+Pinned AI-slop scan passes: changed source 100/100; full repo 95/100 with five
+pre-existing warnings in unchanged browser-host, browser-intent-builder, intent-uri
+and cvm-nostr-transport files. No quality configuration or suppressions changed.
+Host presentation only; no NAP protocol, injection, loader or sandbox behavior changed.
