@@ -149,8 +149,10 @@ exported for reuse.
 
 The console is a collapsible left column. It starts expanded, and one chevron
 button in the top bar collapses it to the left and restores it; the toggle stays
-visible in both states, so a collapsed console is always one press away, and the
-choice is remembered per browser origin. Collapsing is CSS-only presentation:
+visible in both states, including after a reload with no runtime tabs open, so a
+collapsed console is always one press away. The toolbar never requires hovering
+over a hidden edge to reveal it. The choice is remembered per browser origin.
+Collapsing is CSS-only presentation:
 the target iframe is never navigated or recreated, so the running napplet keeps
 its generation, message log, and shell state while the stage reclaims the full
 width.

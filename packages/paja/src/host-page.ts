@@ -37,7 +37,6 @@ export function renderPajaHtml(config: PajaHostConfig): string {
         --muted: #a9ad9f;
         --accent: #d8c36a;
         --paja-console-column: minmax(320px, 380px);
-        --paja-bar-reveal: 6px;
       }
       * { box-sizing: border-box; }
       html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); font: 13px/1.4 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
@@ -85,26 +84,6 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       html[data-paja-console="collapsed"] .top-console,
       html[data-paja-console="collapsed"] .console,
       html[data-paja-console="collapsed"] .bottom { display: none; }
-      /* With a hover-capable pointer the whole top bar hides with the drawer and
-         returns from a --paja-bar-reveal strip at the viewport edge. The strip
-         is the bar's own box, so hover containment keeps the reveal stable; the
-         bar's children stay inert while it is parked, and :focus-within restores
-         it for keyboard users. Touch and stacked layouts keep the bar visible,
-         because they have no hover to restore it and the drawer toggle lives
-         inside it. */
-      @media (hover: hover) and (pointer: fine) and (min-width: 901px) {
-        html[data-paja-console="collapsed"] body { grid-template-rows: minmax(0, 1fr); }
-        html[data-paja-console="collapsed"] .top {
-          position: fixed; inset: 0 0 auto 0; height: 38px; z-index: 5;
-          transform: translateY(calc(-100% + var(--paja-bar-reveal)));
-          transition: transform 120ms;
-        }
-        html[data-paja-console="collapsed"] .top > * { opacity: 0; pointer-events: none; transition: opacity 120ms; }
-        html[data-paja-console="collapsed"] .top:hover,
-        html[data-paja-console="collapsed"] .top:focus-within { transform: none; }
-        html[data-paja-console="collapsed"] .top:hover > *,
-        html[data-paja-console="collapsed"] .top:focus-within > * { opacity: 1; pointer-events: auto; }
-      }
       .tabs { display: flex; align-items: stretch; align-self: flex-end; gap: 4px; min-width: 120px; max-width: min(100%, 760px); overflow-x: auto; scrollbar-width: thin; }
       .tabs:empty { display: none; }
       .tab { min-width: 116px; max-width: 240px; height: 30px; display: grid; grid-template-columns: minmax(0, 1fr) 24px 24px; align-items: center; gap: 2px; border: 1px solid var(--line); border-bottom-color: transparent; background: #151815; color: var(--muted); border-radius: 5px 5px 0 0; padding: 0 2px 0 9px; }
