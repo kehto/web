@@ -69,7 +69,9 @@ usable; collapsing never reloads the running app or discards unsaved drafts.
 The console shows supported interfaces with per-domain injection toggles,
 runtime ACL controls, signer controls, and a filterable message log with visible
 error details. It starts expanded and collapses to the left with the chevron
-button in the top bar; the same button brings the whole panel back. Collapsing
+button in the top bar; the same button brings the whole panel back. The toolbar
+stays onscreen after restoring a saved collapsed preference, including when no
+runtime tab is open. Collapsing
 is presentation-only — the target iframe keeps its identity and the loaded
 napplet keeps running — and Paja remembers the choice per browser origin. In
 runtime-pointer mode, ACL controls always display and mutate

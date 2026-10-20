@@ -519,6 +519,9 @@ for (const viewport of [{ width: 1280, height: 720 }, { width: 640, height: 720 
 
     await expect(consolePanel).toBeHidden();
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await page.mouse.move(viewport.width / 2, viewport.height / 2);
+    await expect(toggle).toBeInViewport({ ratio: 1 });
+    await expect(toggle.locator('..')).toHaveCSS('opacity', '1');
 
     await toggle.click();
 

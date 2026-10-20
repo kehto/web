@@ -19,6 +19,14 @@ progress:
 
 # Project State
 
+2026-10-20: Resolved Paja's disappearing chrome in GSD debug on
+`fix/paja-chrome-visibility`. A saved collapsed-console preference moved the
+toolbar and expand button offscreen after startup. Restored an always-visible
+toolbar while retaining collapse preference and live frame state. Build/types,
+docs, 2,250 units, 136 Chromium tests, Firefox reload/recovery, static Pages build,
+changesets and diff checks pass. Changed-source quality 100/100; unchanged full
+baseline 95/100. See `debug/resolved/paja-chrome-visibility.md`.
+
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-07-28)
