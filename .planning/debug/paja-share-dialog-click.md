@@ -7,8 +7,8 @@ updated: 2026-10-20
 
 ## Current Focus
 
-hypothesis: Undetermined. Playwright reports a click on the Share dialog's Create intent link button, but the Share dialog remains open.
-next_action: Reduce the Chromium 155 cross-frame input-routing failure independently of Paja; compare matching Playwright Chromium before choosing a host workaround.
+hypothesis: Confirmed native top-layer Share dialog input can be routed to the opaque iframe underneath it; pointer events never reach the host handler.
+next_action: Complete the final full browser gates for the host-overlay replacement tracked in paja-share-button.md.
 
 ## Evidence
 
@@ -23,6 +23,8 @@ next_action: Reduce the Chromium 155 cross-frame input-routing failure independe
 - 2026-10-20 Share app-link regression investigation captured trusted pointerdown, pointerup and click events inside the sandboxed iframe when Playwright clicked the visible native Share dialog's Copy button. The parent received focusout and refocused Copy, but received no pointer events. No copy handler executed. Local browser: Chrome 155.0.8059.85, Playwright 1.59.1.
 - Untraced local Chrome repetitions: 22/30 passed. Native autofocus, iframe pointer-events suppression, dialog compositor promotion and iframe visibility suppression each retained failures; all experimental source/test changes were removed. Logs: /tmp/kehto-paja-share-clicks-untraced.log, /tmp/kehto-paja-share-autofocus.log, /tmp/kehto-paja-share-hit.log, /tmp/kehto-paja-share-layer.log, /tmp/kehto-paja-share-hidden.log.
 - The same 20 app-link repetitions passed with Playwright's matching Chromium 147.0.7727.15, with no injected CSS or click retries. Firefox's six app-link cases also passed. This narrows the failure to browser/input routing; it does not establish an upstream root cause or resolve this session.
+- The subsequent Chromium 147 full run missed two Copy clicks. Explicit iframe inertness, first-paint gating and iframe display suppression also retained failures in Chrome 155, so none was retained.
+- Replacing only Share with the existing host overlay passed 55/55 repeated clipboard/manifest cases in Chrome 155. Real frame click counters stayed at zero during Share and incremented after closing it. The overlay keeps background siblings inert, wraps keyboard focus, and restores prior inert state on close. No app reload, sleep, retries or forced clicks are involved.
 
 ## Resolution
 

@@ -40,7 +40,14 @@ test.describe('Paja intent links', () => {
     for (const clipboard of ['available', 'denied', 'missing'] as const) {
       test(`Share presents a usable app link with ${clipboard} clipboard and advertised intents ${advertised}`, async ({ page }) => {
         const server = await startIntentServer();
-        const target = createSignedTarget(server.url, 'share-target', delayedTargetHtml(),
+        const html = delayedTargetHtml().replace('</body>', `<button id="app-action">App action</button>
+          <output id="app-clicks">0</output><script>
+            document.addEventListener('click', () => {
+              const clicks = document.getElementById('app-clicks');
+              clicks.textContent = String(Number(clicks.textContent) + 1);
+            });
+          </script></body>`);
+        const target = createSignedTarget(server.url, 'share-target', html,
           advertised ? 'napplet:profile/open' : undefined, []);
         server.blobs.set(target.hash, target.bytes);
         await configureRuntime(page, server, [target.event], target.pointer);
@@ -65,12 +72,14 @@ test.describe('Paja intent links', () => {
           }
           const share = page.getByRole('dialog', { name: 'Share', exact: true });
           await expect(share).toBeVisible();
+          const frame = page.frameLocator('iframe.tab-panel');
           const link = share.getByRole('textbox', { name: 'App link', exact: true });
           const expectedUrl = `${server.url}?naddr=${encodeURIComponent(target.pointer)}`;
           await expect(link).toHaveValue(expectedUrl);
           await expect(link).toHaveAttribute('readonly', '');
           await expect(share.getByRole('button', { name: 'Create intent link' })).toHaveCount(advertised ? 1 : 0);
           await share.getByRole('button', { name: 'Copy app link' }).click();
+          await expect(frame.locator('#app-clicks')).toHaveText('0');
           const copied = await page.evaluate(() => (window as Window & { __copiedShareLinks?: string[] }).__copiedShareLinks);
           if (clipboard === 'available') {
             await expect(share.getByRole('status')).toHaveText('App link copied.');
@@ -81,10 +90,18 @@ test.describe('Paja intent links', () => {
             expect(await link.evaluate((input: HTMLInputElement) => input.value.slice(input.selectionStart ?? 0, input.selectionEnd ?? 0)))
               .toBe(expectedUrl);
           }
+          const cancel = share.getByRole('button', { name: 'Cancel', exact: true });
+          await cancel.focus();
+          await page.keyboard.press('Tab');
+          await expect(link).toBeFocused();
+          await page.keyboard.press('Shift+Tab');
+          await expect(cancel).toBeFocused();
           await page.keyboard.press('Escape');
           await expect(share).toHaveCount(0);
           await expect(opener).toBeFocused();
           expect(await page.locator('iframe.tab-panel').count()).toBe(1);
+          await frame.getByRole('button', { name: 'App action' }).click();
+          await expect(frame.locator('#app-clicks')).toHaveText('1');
         } finally {
           await server.close();
         }

@@ -279,7 +279,8 @@ cancel. Each verified tab's Share control opens a dialog with its selectable
 `/web/paja/?naddr=...` or `/web/paja/?nevent=...` app link. **Copy app link**
 shows a confirmation on success; blocked or unavailable clipboard access selects
 the link for manual copying. Apps with advertised intents also offer
-**Create intent link**. The browser remembers open runtime tabs in local storage
+**Create intent link**. Share keeps focus and pointer input in the host overlay
+while the apps remain loaded. The browser remembers open runtime tabs in local storage
 so returning to `/web/paja/` restores the previous
 pointer set. An explicit pointer in the URL still takes precedence over restored
 tabs.

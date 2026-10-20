@@ -8,12 +8,12 @@ updated: 2026-10-20
 ## Symptoms
 
 Expected: Clicking a verified Paja tab's Share button presents a usable sharing action.
-Actual: User reports clicking does nothing. Requested the affected pointer while independently testing both manifest branches.
+Actual: User reports clicking does nothing for every napplet tried.
 
 ## Current Focus
 
-hypothesis: Confirmed non-advertised manifests bypassed visible sharing UI; copy failures depended on a browser prompt rather than an inspectable link.
-next_action: Complete the full browser suite with Playwright's matching Chromium, then ship the verified app-link fix.
+hypothesis: Two confirmed failures: non-advertised manifests bypassed visible sharing UI, and native Share dialogs could send trusted pointer events into an opaque iframe underneath them.
+next_action: Finish final build/types/unit/docs/browser/quality gates for the host-overlay fix, then push and open the PR.
 
 ## Evidence
 
@@ -25,7 +25,9 @@ next_action: Complete the full browser suite with Playwright's matching Chromium
 - Two existing builder/dispatch regressions pass alongside those six. Unit suite 177 files / 2,270 tests and build/type checks pass.
 - Share now consistently opens its dialog. Intent creation retains the same verified-manifest guard; no inferred convention, native local-file sharing, dispatch or source-trust changes.
 - Full local Chrome 155 run exposed five existing root/named/snapshot tests that depended on immediate clipboard copying. Updated them to use the explicit Copy app link action and assert its feedback before checking exact pointer identity.
-- Independently traced an existing native-dialog click-through in Chrome 155; preserved pointer/focus evidence in paja-share-dialog-click.md. No speculative workaround retained. Playwright's matching Chromium 147 passed 20/20 repeated mouse-copy tests; Firefox passed all six clipboard/manifest cases. Final full suite runs against matching Chromium with zero retries.
+- Traced native-dialog click-through with parent/iframe pointer listeners. Chromium 147 initially passed 20 repeated copies, but its full suite still missed two root/snapshot Copy clicks. Local Chrome 155 also failed under native autofocus, inert frames, compositor promotion, visibility/display suppression and first-paint gating. Those workarounds were removed.
+- Share now uses Paja's existing host overlay layer with aria-modal, explicit background inertness, bounded Tab/Shift+Tab focus, Escape/Cancel cleanup and restoration of prior inert state. No frame hiding, unload, timeout, click retry or forced test activation remains.
+- Final overlay passed 55/55 repeated Share and all-kind pointer cases in Chrome 155 without retries. Fixture click counters prove host clicks do not reach the napplet, and post-close app actions prove the same frame stays live and interactive.
 
 ## Resolution
 

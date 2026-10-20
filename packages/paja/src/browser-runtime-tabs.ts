@@ -403,9 +403,11 @@ function renderShareButton(state: PajaRuntimeTabState, tab: PajaRuntimeTab): HTM
 }
 
 function openShareDialog(state: PajaRuntimeTabState, tab: PajaRuntimeTab, opener: HTMLButtonElement): void {
-  const dialog = document.createElement('dialog');
-  dialog.className = 'config-dialog';
+  const dialog = document.createElement('div');
+  dialog.className = 'dialog-backdrop';
   dialog.id = 'paja-share-dialog';
+  dialog.setAttribute('role', 'dialog');
+  dialog.setAttribute('aria-modal', 'true');
   const panel = document.createElement('div');
   panel.className = 'dialog';
   const title = document.createElement('div');
@@ -442,33 +444,42 @@ function openShareDialog(state: PajaRuntimeTabState, tab: PajaRuntimeTab, opener
   actions.append(copy, ...(offersIntents ? [create] : []), cancel);
   panel.append(title, description, linkLabel, status, actions);
   dialog.append(panel);
+  // Use the host overlay layer: native top-layer dialogs can route input to an
+  // opaque iframe underneath them despite showModal() making that frame inert.
+  const siblings = Array.from(document.body.children)
+    .filter((node): node is HTMLElement => node instanceof HTMLElement)
+    .map((node) => ({ node, inert: node.inert }));
+  for (const { node } of siblings) node.inert = true;
   document.body.append(dialog);
   const retainModalFocus = (event: FocusEvent) => {
-    if (!dialog.open) return;
+    if (!dialog.isConnected) return;
     const next = event.relatedTarget;
     if (next instanceof Node && dialog.contains(next)) return;
-    // A loading sandboxed frame can otherwise take focus after showModal(),
-    // leaving a visible Share dialog whose actions no longer receive input.
     queueMicrotask(() => {
-      if (dialog.open && !dialog.matches(':focus-within')) copy.focus();
+      if (dialog.isConnected && !dialog.matches(':focus-within')) copy.focus();
     });
   };
   const close = (restoreFocus = true) => {
-    if (dialog.open) dialog.close();
     dialog.removeEventListener('focusout', retainModalFocus);
     dialog.remove();
+    for (const { node, inert } of siblings) node.inert = inert;
     if (restoreFocus) opener.focus();
   };
-  const onCancel = (event: Event) => { event.preventDefault(); close(); };
+  dialog.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') { event.preventDefault(); close(); return; }
+    if (event.key !== 'Tab') return;
+    const controls = [link, copy, ...(offersIntents ? [create] : []), cancel];
+    const next = event.shiftKey ? controls.at(-1)! : controls[0]!;
+    const edge = event.shiftKey ? controls[0] : controls.at(-1);
+    if (document.activeElement === edge) { event.preventDefault(); next.focus(); }
+  });
   cancel.addEventListener('click', () => close());
   copy.addEventListener('click', () => { void copyShareLink(link, status); });
   create.addEventListener('click', () => {
     close();
     state.createIntentLink?.(tab);
   });
-  dialog.addEventListener('cancel', onCancel);
   dialog.addEventListener('focusout', retainModalFocus);
-  dialog.showModal();
   copy.focus();
 }
 
