@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: resolved
 trigger: "share button in kehto is no longer working. Paja tab Share: click it, and nothing happens; used to work"
 created: 2026-10-20
 updated: 2026-10-20
@@ -13,7 +13,7 @@ Actual: User reports clicking does nothing for every napplet tried.
 ## Current Focus
 
 hypothesis: Two confirmed failures: non-advertised manifests bypassed visible sharing UI, and native Share dialogs could send trusted pointer events into an opaque iframe underneath them.
-next_action: Finish final build/types/unit/docs/browser/quality gates for the host-overlay fix, then push and open the PR.
+next_action: Review the shipped fix/paja-share-button PR; no user action is needed for verification.
 
 ## Evidence
 
@@ -31,4 +31,12 @@ next_action: Finish final build/types/unit/docs/browser/quality gates for the ho
 
 ## Resolution
 
-Pending.
+Resolved in fix/paja-share-button. Share consistently presents the selectable app
+link, visible copy status and manual fallback. Its host overlay receives pointer
+input and retains keyboard focus without unloading or hiding napplets.
+
+Final gates: build and 17 type-check tasks; 177 unit files / 2,270 tests; all 148
+Chromium E2E tests in local Chrome 155 with zero retries; 55 repeated Share/all-kind
+cases; 11 Firefox cases; docs, changeset status and diff checks. Changed-source
+quality is 100/100. Full quality remains the existing 95/100 with five unchanged
+warnings. Protocol refs above were rechecked unchanged; the result is conformant.

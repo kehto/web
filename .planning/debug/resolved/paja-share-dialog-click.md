@@ -1,5 +1,5 @@
 ---
-status: investigating
+status: resolved
 trigger: "Intermittent local browser failures observed while validating the Pages audit repair"
 created: 2026-10-10
 updated: 2026-10-20
@@ -8,7 +8,7 @@ updated: 2026-10-20
 ## Current Focus
 
 hypothesis: Confirmed native top-layer Share dialog input can be routed to the opaque iframe underneath it; pointer events never reach the host handler.
-next_action: Complete the final full browser gates for the host-overlay replacement tracked in paja-share-button.md.
+next_action: Review the host-overlay replacement tracked in paja-share-button.md.
 
 ## Evidence
 
@@ -28,4 +28,9 @@ next_action: Complete the final full browser gates for the host-overlay replacem
 
 ## Resolution
 
-No speculative timeout, retry, or selector patch applied. Preserve the trace evidence for a separate Share interaction investigation.
+Resolved by the Share host-overlay replacement in fix/paja-share-button
+(8fd7b2c6). Final full Chrome 155 suite passed all 148 tests without retries,
+including Share-to-builder flows. Repeated Share/all-kind tests passed 55/55 and
+Firefox passed 11/11. Focus wrapping, Escape restoration, iframe input isolation
+and post-close app interaction are covered. The NAP refs remain conformant; this
+is a host presentation/input correction with no wire changes.
