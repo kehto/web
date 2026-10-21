@@ -391,23 +391,23 @@ function renderShareButton(state: PajaRuntimeTabState, tab: PajaRuntimeTab): HTM
   share.textContent = '↗';
   share.addEventListener('click', (event) => {
     event.stopPropagation();
-    if (canCreatePajaIntentLink(state, tab)) openShareDialog(state, tab, share);
-    else void shareRuntimeTab(tab, share).catch((error) => console.error(error));
+    openShareDialog(state, tab, share);
   });
   share.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter' && event.key !== ' ') return;
     event.preventDefault();
     event.stopPropagation();
-    if (canCreatePajaIntentLink(state, tab)) openShareDialog(state, tab, share);
-    else void shareRuntimeTab(tab, share).catch((error) => console.error(error));
+    openShareDialog(state, tab, share);
   });
   return share;
 }
 
 function openShareDialog(state: PajaRuntimeTabState, tab: PajaRuntimeTab, opener: HTMLButtonElement): void {
-  const dialog = document.createElement('dialog');
-  dialog.className = 'config-dialog';
+  const dialog = document.createElement('div');
+  dialog.className = 'dialog-backdrop';
   dialog.id = 'paja-share-dialog';
+  dialog.setAttribute('role', 'dialog');
+  dialog.setAttribute('aria-modal', 'true');
   const panel = document.createElement('div');
   panel.className = 'dialog';
   const title = document.createElement('div');
@@ -417,7 +417,19 @@ function openShareDialog(state: PajaRuntimeTabState, tab: PajaRuntimeTab, opener
   dialog.setAttribute('aria-labelledby', title.id);
   const description = document.createElement('div');
   description.className = 'dialog-copy';
-  description.textContent = `Share ${tab.title} as an app link or create an intent link.`;
+  const offersIntents = canCreatePajaIntentLink(state, tab);
+  description.textContent = offersIntents
+    ? `Share ${tab.title} as an app link or create an intent link.` : `Share ${tab.title} as an app link.`;
+  const linkLabel = document.createElement('label');
+  linkLabel.className = 'config-field';
+  linkLabel.textContent = 'App link';
+  const link = document.createElement('input');
+  link.type = 'text';
+  link.readOnly = true;
+  link.value = createPajaShareUrl(tab.pointerValue);
+  linkLabel.append(link);
+  const status = document.createElement('div');
+  status.setAttribute('role', 'status');
   const actions = document.createElement('div');
   actions.className = 'dialog-actions';
   const copy = document.createElement('button');
@@ -429,36 +441,45 @@ function openShareDialog(state: PajaRuntimeTabState, tab: PajaRuntimeTab, opener
   const cancel = document.createElement('button');
   cancel.type = 'button';
   cancel.textContent = 'Cancel';
-  actions.append(copy, create, cancel);
-  panel.append(title, description, actions);
+  actions.append(copy, ...(offersIntents ? [create] : []), cancel);
+  panel.append(title, description, linkLabel, status, actions);
   dialog.append(panel);
+  // Use the host overlay layer: native top-layer dialogs can route input to an
+  // opaque iframe underneath them despite showModal() making that frame inert.
+  const siblings = Array.from(document.body.children)
+    .filter((node): node is HTMLElement => node instanceof HTMLElement)
+    .map((node) => ({ node, inert: node.inert }));
+  for (const { node } of siblings) node.inert = true;
   document.body.append(dialog);
   const retainModalFocus = (event: FocusEvent) => {
-    if (!dialog.open) return;
+    if (!dialog.isConnected) return;
     const next = event.relatedTarget;
     if (next instanceof Node && dialog.contains(next)) return;
-    // A loading sandboxed frame can otherwise take focus after showModal(),
-    // leaving a visible Share dialog whose actions no longer receive input.
     queueMicrotask(() => {
-      if (dialog.open && !dialog.matches(':focus-within')) copy.focus();
+      if (dialog.isConnected && !dialog.matches(':focus-within')) copy.focus();
     });
   };
   const close = (restoreFocus = true) => {
-    if (dialog.open) dialog.close();
     dialog.removeEventListener('focusout', retainModalFocus);
     dialog.remove();
+    for (const { node, inert } of siblings) node.inert = inert;
     if (restoreFocus) opener.focus();
   };
-  const onCancel = (event: Event) => { event.preventDefault(); close(); };
+  dialog.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') { event.preventDefault(); close(); return; }
+    if (event.key !== 'Tab') return;
+    const controls = [link, copy, ...(offersIntents ? [create] : []), cancel];
+    const next = event.shiftKey ? controls.at(-1)! : controls[0]!;
+    const edge = event.shiftKey ? controls[0] : controls.at(-1);
+    if (document.activeElement === edge) { event.preventDefault(); next.focus(); }
+  });
   cancel.addEventListener('click', () => close());
-  copy.addEventListener('click', () => { void shareRuntimeTab(tab, copy).catch((error) => console.error(error)); });
+  copy.addEventListener('click', () => { void copyShareLink(link, status); });
   create.addEventListener('click', () => {
     close();
     state.createIntentLink?.(tab);
   });
-  dialog.addEventListener('cancel', onCancel);
   dialog.addEventListener('focusout', retainModalFocus);
-  dialog.showModal();
   copy.focus();
 }
 
@@ -481,24 +502,15 @@ function renderCloseButton(state: PajaRuntimeTabState, tab: PajaRuntimeTab): HTM
   return close;
 }
 
-async function shareRuntimeTab(tab: PajaRuntimeTab, button: HTMLButtonElement): Promise<void> {
-  const shareUrl = createPajaShareUrl(tab.pointerValue);
-  const clipboard = navigator.clipboard;
-  if (!clipboard) {
-    window.prompt('Copy Paja share link', shareUrl);
-    return;
-  }
+async function copyShareLink(link: HTMLInputElement, status: HTMLElement): Promise<void> {
   try {
-    await clipboard.writeText(shareUrl);
+    await navigator.clipboard.writeText(link.value);
+    status.textContent = 'App link copied.';
   } catch {
-    window.prompt('Copy Paja share link', shareUrl);
-    return;
+    link.focus();
+    link.select();
+    status.textContent = 'Select and copy the app link.';
   }
-  const originalTitle = button.title;
-  button.title = 'Share link copied';
-  window.setTimeout(() => {
-    button.title = originalTitle || 'Copy app link';
-  }, 1200);
 }
 
 function getPointerParamName(pointer: string): 'naddr' | 'nevent' | 'pointer' {

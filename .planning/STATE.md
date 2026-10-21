@@ -19,6 +19,14 @@ progress:
 
 # Project State
 
+2026-10-20: Resolved Paja tab Share in GSD debug on `fix/paja-share-button`.
+Every verified tab now has a visible app-link dialog, copy confirmation and manual
+fallback. The host overlay prevents native-dialog input from leaking into opaque
+iframes and restores background inertness/focus on close. Build/types, docs,
+2,270 units, all 148 Chromium tests, 55 repeated sharing cases and 11 Firefox cases
+pass. Changed-source quality 100/100; unchanged full baseline 95/100. See
+`debug/resolved/paja-share-button.md` and `debug/resolved/paja-share-dialog-click.md`.
+
 2026-10-20: Resolved Paja's disappearing chrome in GSD debug on
 `fix/paja-chrome-visibility`. A saved collapsed-console preference moved the
 toolbar and expand button offscreen after startup. Restored an always-visible

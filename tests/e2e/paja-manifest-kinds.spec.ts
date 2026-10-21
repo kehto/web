@@ -85,6 +85,10 @@ for (const [index, mode] of [[0, 'coordinate'], [1, 'coordinate'], [2, 'exact'],
     expect(target.indexHtml).toBe(html);
     expect(target.aggregateHash).toBe(hash);
     await page.locator('#napplet-tabs .tab-share').click();
+    const share = page.getByRole('dialog', { name: 'Share', exact: true });
+    await expect(share).toBeVisible();
+    await share.getByRole('button', { name: 'Copy app link' }).click();
+    await expect(share.getByRole('status')).toHaveText('App link copied.');
     const copied = await page.evaluate(() => (window as unknown as { copiedAppLink: string }).copiedAppLink);
     expect(new URL(copied).searchParams.get(mode === 'coordinate' ? 'naddr' : 'nevent')).toBe(pointer);
     if (mode === 'coordinate' && fixture.event.kind === 15129) {

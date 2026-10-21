@@ -194,9 +194,13 @@ artifact. It uses the same browser host and service adapters, but loads verified
 napplet HTML from pasted `naddr` or `nevent` pointers with `hmr: none`. Each
 loaded pointer becomes a closeable header tab; loading an already-running
 napplet opens a choice to load another instance, switch to the existing tab, or
-cancel. Each tab includes a share control that copies a `/web/paja/?naddr=...`
-or `/web/paja/?nevent=...` link for that pointer, and the browser remembers open
-runtime tabs in local storage so returning to `/web/paja/` restores the previous
+cancel. Each verified tab's Share control opens a dialog with its selectable
+`/web/paja/?naddr=...` or `/web/paja/?nevent=...` app link. **Copy app link**
+shows a confirmation on success; blocked or unavailable clipboard access selects
+the link for manual copying. Apps with advertised intents also offer
+**Create intent link**. Share keeps focus and pointer input in the host overlay
+while the apps remain loaded. The browser remembers open runtime tabs in local storage
+so returning to `/web/paja/` restores the previous
 pointer set. An explicit pointer in the URL still takes precedence over restored
 tabs.
 
