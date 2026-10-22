@@ -238,10 +238,11 @@ The console includes:
   Each relay row carries a bar scaled against the busiest relay of the session,
   its receipt count, and its `kind - count` rows. A box also names the authors
   its reads were routed for, as short pubkey chips with the full pubkey and the
-  read count in their tooltip. Attribution is what separates the active
-  account's own relays from a followed author's: an author-routed relay box
-  belongs to the pubkeys it lists, and Paja's own `host pool` reads name the
-  authors they asked about too. A box is a routing decision
+  read count in their tooltip. NIP-65 chips name the actual relay-list owners
+  supplied by the router, including `options.authors` hints; event-filter authors
+  with no matching relay list are not credited for someone else's relay.
+  Caller-hint and fallback boxes name requested routing authors; Paja's own
+  `host pool` reads name the authors their filters asked about. A box is a routing decision
   rather than a relay set, so the same relay appears in two boxes when two reads
   reached it for different reasons — a relay that is both an app hint and a
   configured fallback keeps its two receipt counts apart instead of showing one

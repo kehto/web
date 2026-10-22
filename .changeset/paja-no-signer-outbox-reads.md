@@ -16,6 +16,7 @@ read-only stand-in: it still answers `identity.getPublicKey`, and
 ends warming instead of falling back to the simulated identity.
 
 The Events panel now names the authors each box was routed for as short pubkey
-chips (full pubkey and read count in the tooltip), so an author-routed relay is
-attributable — the fixed identity's own relays and a followed author's relays no
-longer look the same.
+chips (full pubkey and read count in the tooltip). NIP-65 chips use the router's
+per-relay owners, including option-only author hints, rather than mistaking event
+filter authors for the owners of every selected relay. Host reads still name the
+authors their filters requested.

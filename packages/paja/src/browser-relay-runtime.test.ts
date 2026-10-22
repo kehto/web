@@ -1,5 +1,5 @@
 import type { NappletMessage, NostrEvent } from '@napplet/core';
-import { createRelayPoolService } from '@kehto/services';
+import { createRelayPoolOutboxRouter, createRelayPoolService } from '@kehto/services';
 import { buildShellCapabilities } from '@kehto/shell';
 import type { SimplePool } from 'nostr-tools/pool';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools/pure';
@@ -92,6 +92,7 @@ import { createPajaAdapter } from './browser-adapter.js';
 import { isPajaRelayAllowed } from './browser-relay-policy.js';
 import type { PajaHostConfig } from './options.js';
 import { normalizePajaSimulation } from './simulation.js';
+import { createPajaRelayEventCounter } from './browser-relay-panel.js';
 
 const TEST_RELAYS = ['wss://relay-one.example', 'wss://relay-two.example'];
 
@@ -206,6 +207,72 @@ describe('@kehto/paja effective relay URLs', () => {
       { reason: 'host' },
       { reason: 'host' },
     ]);
+    backend.close();
+  });
+
+  it.each(['query', 'queryStream', 'subscribe'] as const)(
+    'attributes %s reads to option-derived NIP-65 owners, not filter authors',
+    async (operation) => {
+      const filterAuthor = 'a'.repeat(64);
+      const owner = 'b'.repeat(64);
+      const simulation = normalizePajaSimulation({ relay: { mode: 'live', urls: TEST_RELAYS } });
+      const backend = createPajaRelayBackend(() => simulation, () => true);
+      const counter = createPajaRelayEventCounter();
+      const reads: Array<{ relayUrls: readonly string[]; authors?: readonly string[] }> = [];
+      backend.setRelayRequestObserver((read) => {
+        reads.push(read);
+        counter.recordRead(read.reason, read.relayUrls, read.origin, read.authors);
+      });
+      const router = createRelayPoolOutboxRouter({
+        relayPool: createPajaOutboxRelayPool(backend),
+        loadRelayLists: async () => new Map([[owner, { read: [], write: [TEST_RELAYS[0]!] }]]),
+        fallbackRelays: [],
+        defaultTimeoutMs: 100,
+      });
+      livePool.subscriptionEvents = [];
+      livePool.subscribeMapRequests = [];
+      try {
+        for (const authors of [undefined, [filterAuthor]]) {
+          reads.length = 0;
+          counter.reset();
+          const filters = [{ kinds: [1], ...(authors ? { authors } : {}) }];
+          const options = { authors: [owner] };
+          if (operation === 'query') await router.query(filters, options);
+          else if (operation === 'queryStream') {
+            await router.queryStream(filters, options, { event() {} }).result;
+          } else {
+            const sub = router.subscribe(filters, options, { event() {}, closed() {} });
+            await vi.waitFor(() => expect(reads).toHaveLength(1));
+            sub.close();
+          }
+          expect(reads).toMatchObject([{ relayUrls: [TEST_RELAYS[0]], authors: [owner] }]);
+          const nip65 = counter.snapshot().find((box) => box.kind === 'nip65');
+          expect(nip65?.authors).toEqual([{ pubkey: owner, count: 1 }]);
+          expect(nip65?.relays.map((relay) => relay.relayUrl)).toEqual([TEST_RELAYS[0]]);
+          expect(livePool.subscribeMapRequests.at(-1)?.[0]?.filter).toEqual(filters[0]);
+        }
+      } finally {
+        backend.close();
+      }
+    },
+  );
+
+  it('keeps explicit empty routing attribution instead of inventing filter owners', async () => {
+    const author = 'a'.repeat(64);
+    const simulation = normalizePajaSimulation({ relay: { mode: 'live', urls: TEST_RELAYS } });
+    const backend = createPajaRelayBackend(() => simulation, () => true);
+    const reads: Array<readonly string[] | undefined> = [];
+    backend.setRelayRequestObserver((read) => reads.push(read.authors));
+    const sub = createPajaOutboxRelayPool(backend)
+      .subscribe([{ kinds: [1], authors: [author] }], [TEST_RELAYS[0]!], () => {}, 'nip65', []);
+    expect(reads).toEqual([[]]);
+    sub.unsubscribe();
+    const attributed = createPajaOutboxRelayPool(backend).subscribe(
+      [{ kinds: [1], authors: [author] }], [TEST_RELAYS[0]!], () => {}, 'nip65',
+      ['B'.repeat(64), 'b'.repeat(64), 'prefix', ''],
+    );
+    expect(reads).toEqual([[], ['b'.repeat(64)]]);
+    attributed.unsubscribe();
     backend.close();
   });
 

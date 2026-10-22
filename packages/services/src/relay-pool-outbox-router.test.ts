@@ -10,7 +10,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createRelayPoolOutboxRouter } from './relay-pool-outbox-router.js';
 import type { OutboxRelayPool, RelayListEntry } from './relay-pool-outbox-router.js';
-import type { EventTemplate, NostrEvent } from '@napplet/core';
+import type { EventTemplate, NostrEvent, NostrFilter } from '@napplet/core';
 
 const PK_A = 'a'.repeat(64);
 const PK_B = 'b'.repeat(64);
@@ -42,6 +42,8 @@ interface Sub {
   cb: (item: NostrEvent | 'EOSE') => void;
   closed: boolean;
   origin?: string;
+  authors?: readonly string[];
+  filters: unknown;
 }
 
 function makePool() {
@@ -54,12 +56,13 @@ function makePool() {
     published,
     isAvailable: () => pool.available,
     subscribe(
-      _filters: unknown,
+      filters: unknown,
       relayUrls: string[],
       cb: (item: NostrEvent | 'EOSE') => void,
       origin?: string,
+      authors?: readonly string[],
     ) {
-      const sub: Sub = { relays: relayUrls, cb, closed: false, origin };
+      const sub: Sub = { relays: relayUrls, cb, closed: false, origin, authors, filters };
       subs.push(sub);
       return { unsubscribe() { sub.closed = true; } };
     },
@@ -100,7 +103,161 @@ function makeRouter(pool: OutboxRelayPool, overrides: Partial<Parameters<typeof 
   });
 }
 
+type ReadMode = 'query' | 'queryStream' | 'subscribe';
+
+function startRead(
+  mode: ReadMode,
+  router: ReturnType<typeof makeRouter>,
+  filters: NostrFilter[],
+  options: Parameters<typeof router.query>[1],
+) {
+  if (mode === 'query') return { result: router.query(filters, options), close() {} };
+  if (mode === 'queryStream') return router.queryStream(filters, options, { event() {} });
+  const sub = router.subscribe(filters, options, { event() {}, closed() {} });
+  return { result: Promise.resolve(), close: () => sub.close() };
+}
+
+const READ_MODES: ReadMode[] = ['query', 'queryStream', 'subscribe'];
+
 describe('createRelayPoolOutboxRouter', () => {
+  describe.each(READ_MODES)('%s routing author metadata', (mode) => {
+    it.each([false, true])('preserves option-only owners with async discovery=%s', async (asyncDiscovery) => {
+      const pool = makePool();
+      const lists = deferred<Map<string, RelayListEntry>>();
+      const owners = new Map([[PK_B, NIP65.get(PK_B)!]]);
+      const router = makeRouter(pool, { loadRelayLists: () => asyncDiscovery ? lists.promise : owners });
+      const filters: NostrFilter[] = [{ kinds: [1] }];
+      const read = startRead(mode, router, filters, { authors: [PK_B, PK_B] });
+      if (asyncDiscovery) {
+        expect(pool.subs[0]).toMatchObject({ origin: 'fallback', authors: [PK_B] });
+        lists.resolve(owners);
+        await tick();
+      }
+      const discovered = pool.subs.find((sub) => sub.origin === 'nip65');
+      expect(discovered).toMatchObject({ relays: ['wss://b-write'], authors: [PK_B] });
+      for (const sub of pool.subs) expect(sub.filters).toBe(filters);
+      expect(filters).toEqual([{ kinds: [1] }]);
+      pool.eoseAll();
+      await read.result;
+      read.close();
+    });
+
+    it.each([false, true])('does not credit a missing filter author with async discovery=%s', async (asyncDiscovery) => {
+      const pool = makePool();
+      const lists = deferred<Map<string, RelayListEntry>>();
+      const owners = new Map([[PK_B, NIP65.get(PK_B)!]]);
+      const router = makeRouter(pool, { loadRelayLists: () => asyncDiscovery ? lists.promise : owners });
+      const filters: NostrFilter[] = [{ authors: [PK_A], kinds: [1] }];
+      const read = startRead(mode, router, filters, { authors: [PK_B], relays: ['wss://hint'] });
+      lists.resolve(owners);
+      await tick();
+      expect(pool.subs.find((sub) => sub.origin === 'nip65')).toMatchObject({
+        relays: ['wss://b-write'], authors: [PK_B],
+      });
+      expect(pool.subs.find((sub) => sub.origin === 'hint')).toMatchObject({ authors: [PK_A, PK_B] });
+      for (const sub of pool.subs) expect(sub.filters).toBe(filters);
+      pool.eoseAll();
+      await read.result;
+      read.close();
+    });
+
+    it.each([false, true])('attributes only allowed per-relay owners with async discovery=%s', async (asyncDiscovery) => {
+      const pool = makePool();
+      const lists = deferred<Map<string, RelayListEntry>>();
+      const denied = 'c'.repeat(64);
+      const owners = new Map([
+        [PK_A, { read: [], write: ['wss://a-write', 'wss://shared', 'wss://shared'] }],
+        [PK_B, { read: [], write: ['wss://b-write', 'wss://shared'] }],
+        [denied, { read: [], write: ['wss://denied'] }],
+        ['unrequested', { read: [], write: ['wss://a-write'] }],
+      ]);
+      const router = makeRouter(pool, {
+        loadRelayLists: () => asyncDiscovery ? lists.promise : owners,
+        isRelayAllowed: (url) => url !== 'wss://denied',
+      });
+      const read = startRead(mode, router, [{ authors: [PK_A, denied] }], { authors: [PK_B, PK_A] });
+      if (asyncDiscovery) {
+        expect(pool.subs[0]).toMatchObject({ origin: 'fallback', authors: [PK_A, denied, PK_B] });
+      }
+      lists.resolve(owners);
+      await tick();
+      expect(Object.fromEntries(pool.subs.filter((sub) => sub.origin === 'nip65')
+        .map((sub) => [sub.relays[0], sub.authors]))).toEqual({
+        'wss://a-write': [PK_A],
+        'wss://b-write': [PK_B],
+        'wss://shared': [PK_A, PK_B],
+      });
+      pool.eoseAll();
+      await read.result;
+      read.close();
+    });
+
+    it('keeps a validated hint origin when it is also an author write relay', async () => {
+      const pool = makePool();
+      const read = startRead(mode, makeRouter(pool), [{ kinds: [1] }], {
+        authors: [PK_B], relays: ['wss://b-write'],
+      });
+      expect(pool.subs).toHaveLength(1);
+      expect(pool.subs[0]).toMatchObject({ origin: 'hint', authors: [PK_B] });
+      pool.eoseAll();
+      await read.result;
+      read.close();
+    });
+
+    it('sends an authoritative empty author set for authorless reads', async () => {
+      const pool = makePool();
+      const read = startRead(mode, makeRouter(pool), [{ kinds: [1] }], undefined);
+      expect(pool.subs).not.toHaveLength(0);
+      for (const sub of pool.subs) expect(sub.authors).toEqual([]);
+      pool.eoseAll();
+      await read.result;
+      read.close();
+    });
+  });
+
+  it.each<ReadMode>(['queryStream', 'subscribe'])('%s close prevents option-only late discovery reads', async (mode) => {
+    const pool = makePool();
+    const lists = deferred<Map<string, RelayListEntry>>();
+    const router = makeRouter(pool, { loadRelayLists: () => lists.promise });
+    const read = startRead(mode, router, [{ kinds: [1] }], { authors: [PK_B] });
+    expect(pool.subs[0]).toMatchObject({ origin: 'fallback', authors: [PK_B] });
+    read.close();
+    lists.resolve(NIP65);
+    await tick();
+    await read.result;
+    expect(pool.subs).toHaveLength(1);
+    expect(pool.subs[0].closed).toBe(true);
+  });
+
+  it('query timeout prevents option-only late discovery reads', async () => {
+    const pool = makePool();
+    const lists = deferred<Map<string, RelayListEntry>>();
+    const router = makeRouter(pool, { loadRelayLists: () => lists.promise });
+    await expect(router.query([{ kinds: [1] }], { authors: [PK_B], timeoutMs: 10 }))
+      .resolves.toEqual({ events: [], incomplete: true });
+    lists.resolve(NIP65);
+    await tick();
+    expect(pool.subs).toHaveLength(1);
+    expect(pool.subs[0]).toMatchObject({ origin: 'fallback', authors: [PK_B], closed: true });
+  });
+
+  it('keeps four-argument pool adapters assignable and callable without consuming metadata', async () => {
+    const subscribe = vi.fn((
+      _filters: NostrFilter[],
+      _relayUrls: string[],
+      callback: (item: NostrEvent | 'EOSE') => void,
+      _origin?: 'nip65' | 'hint' | 'fallback',
+    ) => {
+      queueMicrotask(() => callback('EOSE'));
+      return { unsubscribe() {} };
+    });
+    // Assignment is checked by tsc: adapters need not add a fifth parameter.
+    const pool: OutboxRelayPool = { subscribe, publish() {}, isAvailable: () => true };
+    const filters: NostrFilter[] = [{ kinds: [1] }];
+    await expect(makeRouter(pool).query(filters, { authors: [PK_B] })).resolves.toEqual({ events: [] });
+    expect(subscribe).toHaveBeenCalledWith(filters, ['wss://b-write'], expect.any(Function), 'nip65', [PK_B]);
+  });
+
   it('reports per-relay routing origins for queries and subscriptions', async () => {
     const pool = makePool();
     const router = makeRouter(pool);

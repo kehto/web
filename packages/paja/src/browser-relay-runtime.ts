@@ -56,11 +56,10 @@ export interface PajaRelayReadContext {
    */
   readonly origin?: PajaRelayReadOrigin;
   /**
-   * Authors whose relay lists routed this read, when it was author-routed.
+   * Router-supplied NIP-65 owners, or requested authors for other reads.
    *
-   * The Events panel names these so an author-routed read is attributable: a
-   * relay under `outbox relays (NIP-65)` belongs to someone, and without this
-   * the panel cannot say whether that someone is the active account.
+   * An explicit empty list is authoritative. When omitted, attribution uses
+   * filter authors, for example on ordinary host-pool queries.
    */
   readonly authors?: readonly string[];
 }
@@ -273,8 +272,8 @@ export function createPajaRelayBackend(
     context: PajaRelayReadContext,
     filters: readonly NostrFilter[],
   ): PajaRelayReadContext => {
-    const authors = readAuthors(filters);
-    return authors.length === 0 ? context : { ...context, authors };
+    const authors = readAuthors(context.authors ?? filters.flatMap((filter) => filter.authors ?? []));
+    return authors.length === 0 && context.authors === undefined ? context : { ...context, authors };
   };
 
   const observeRelayEvent = (
@@ -500,20 +499,18 @@ function dedupeRelayUrls(urls: Iterable<string>): string[] {
 }
 
 /**
- * Collect the well-formed authors a filter set asked about.
+ * Collect well-formed authors from routing metadata or event filters.
  *
  * Only exact 64-hex pubkeys are reported, so the Events panel never claims a read
  * was routed for a prefix, a placeholder, or a malformed author string.
  *
- * @param filters - Filters one read runs with.
+ * @param candidates - Authors supplied by the router or requested by filters.
  * @returns Lowercase hex authors, in first-seen order.
  */
-function readAuthors(filters: readonly NostrFilter[]): string[] {
+function readAuthors(candidates: readonly string[]): string[] {
   const authors = new Set<string>();
-  for (const filter of filters) {
-    for (const author of filter.authors ?? []) {
-      if (typeof author === 'string' && /^[0-9a-f]{64}$/i.test(author)) authors.add(author.toLowerCase());
-    }
+  for (const author of candidates) {
+    if (typeof author === 'string' && /^[0-9a-f]{64}$/i.test(author)) authors.add(author.toLowerCase());
   }
   return [...authors];
 }
@@ -636,11 +633,11 @@ export function createPajaRelayListLoader(
 
 export function createPajaOutboxRelayPool(backend: PajaRelayBackend): OutboxRelayPool {
   return {
-    subscribe(filters, relayUrls, callback, origin) {
-      // Every read this pool serves came out of an outbox plan; the router adds
-      // why each relay is in the plan (NIP-65, caller hint, or fallback).
+    subscribe(filters, relayUrls, callback, origin, authors) {
+      // The router supplies owners independently of event filters: options may
+      // select a relay without restricting which authors its events match.
       return backend
-        .subscription(relayUrls, filters, { reason: 'outbox', origin })
+        .subscription(relayUrls, filters, { reason: 'outbox', origin, authors })
         .subscribe((item) => callback(item as NostrEvent | 'EOSE'));
     },
     publish(event, relayUrls) {
