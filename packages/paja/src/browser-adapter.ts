@@ -50,7 +50,7 @@ import {
 } from './browser-device-services.js';
 import { createPajaCatalogIntentService, type PajaIntentHost } from './browser-catalog-intent-service.js';
 import type { PajaHostConfig } from './options.js';
-import type { PajaSignerMethod } from './browser-signers.js';
+import { requireWritableSigner, type PajaSignerMethod } from './browser-signers.js';
 import type { PajaSimulation } from './simulation.js';
 import { createPajaUploadRuntime, type PajaUploadRuntime } from './browser-upload.js';
 import { createPajaBlossomEventResolver } from './browser-blossom-events.js';
@@ -214,8 +214,7 @@ function createOutboxRouter(
     ),
     fallbackRelays: relayConfig.outboxRelays,
     signEvent: async (template) => {
-      const signer = createRuntimeSigner(getSimulation, confirmRequest, signerProvider);
-      if (!signer?.signEvent) throw new Error('no signer configured');
+      const signer = requireWritableSigner(createRuntimeSigner(getSimulation, confirmRequest, signerProvider));
       const event = { ...template };
       event.created_at ??= Math.floor(Date.now() / 1000);
       event.kind ??= 1;

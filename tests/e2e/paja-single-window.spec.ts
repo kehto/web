@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { expect, test, type FrameLocator, type Page } from '@playwright/test';
 import { finalizeEvent, generateSecretKey, getPublicKey, verifyEvent } from 'nostr-tools/pure';
+import { nsecEncode, npubEncode } from 'nostr-tools/nip19';
 import { startPajaServer, type PajaServer } from '../../packages/paja/dist/index.js';
 
 interface TargetServer {
@@ -751,6 +752,74 @@ test('remembers exact kind or napplet signer consent and exposes revocation', as
     });
   } finally {
     await signerRuntime.close();
+  }
+});
+
+test('previews a view-only npub, refuses secrets, and remembers the choice across reloads', async ({ page }) => {
+  test.setTimeout(90_000);
+  const viewOnlyHex = '5'.repeat(64);
+  const viewOnlyNpub = npubEncode(viewOnlyHex);
+  const secretKey = nsecEncode(new Uint8Array(32).fill(3));
+  const viewOnlyRuntime = await startPajaServer({
+    options: {
+      targetUrl: `${targetServer.url}?required=relay&manualTraffic=1`,
+      port: 0,
+    },
+    now: new Date('2026-06-21T00:00:00.000Z'),
+  });
+  const waitForReady = async (): Promise<void> => {
+    await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
+  };
+
+  try {
+    await page.goto(viewOnlyRuntime.url);
+    await waitForReady();
+    await page.locator('#signer-viewonly-npub').fill(viewOnlyNpub);
+    await page.locator('#signer-viewonly').click();
+    await expect(page.locator('#signer-status')).toContainText('view only connected');
+    await expect(page.locator('#signer-status')).toContainText(viewOnlyNpub);
+    await expect(page.locator('#signer-status')).toContainText('reads only');
+    await waitForReady();
+
+    const frame = page.frameLocator('#napplet-frame');
+    await expect(frame.locator('#target-status')).toHaveText('shell-init received', { timeout: 15_000 });
+
+    await sendFixtureMessage(frame, { type: 'identity.getPublicKey', id: 'viewonly-identity' });
+    await expect.poll(() => readFixtureMessage(frame, 'identity.getPublicKey.result', 'viewonly-identity'))
+      .toMatchObject({ pubkey: viewOnlyHex });
+
+    await sendFixtureMessage(frame, {
+      type: 'relay.publish',
+      id: 'viewonly-publish',
+      event: { kind: 1, created_at: Math.floor(Date.now() / 1000), tags: [], content: 'view-only' },
+    });
+    await expect.poll(() => readFixtureMessage(frame, 'relay.publish.result', 'viewonly-publish'))
+      .toMatchObject({ ok: false, error: 'signing unavailable (read-only identity)' });
+    // No consent prompt may appear for a signature this identity can never produce.
+    await expect(page.locator('#paja-confirmation-dialog')).toBeHidden();
+
+    await page.locator('#signer-viewonly-npub').fill(secretKey);
+    await page.locator('#signer-viewonly').click();
+    await expect(page.locator('#signer-status')).toContainText('that is a secret key');
+    await page.locator('#message-filter').fill('paja.signer');
+    await expect(page.locator('#message-log')).not.toContainText(secretKey);
+
+    await page.locator('#signer-viewonly-npub').fill(viewOnlyNpub);
+    await page.locator('#signer-viewonly').click();
+    await expect(page.locator('#signer-status')).toContainText('view only connected');
+    await page.reload();
+    await waitForReady();
+    await expect(page.locator('#signer-status')).toContainText('view only connected');
+    await expect(page.locator('#signer-viewonly-npub')).toHaveValue(viewOnlyNpub);
+
+    await page.locator('#signer-disconnect').click();
+    await expect(page.locator('#signer-status')).toContainText('no signer connected');
+    await page.reload();
+    await waitForReady();
+    await expect(page.locator('#signer-status')).toContainText('no signer connected');
+    await expect(page.locator('#signer-viewonly-npub')).toHaveValue('');
+  } finally {
+    await viewOnlyRuntime.close();
   }
 });
 
