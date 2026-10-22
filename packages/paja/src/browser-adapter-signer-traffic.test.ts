@@ -140,6 +140,7 @@ async function waitForQuiet(quietMs = 120, timeoutMs = 3_000): Promise<void> {
     }
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
+  throw new Error('timed out waiting for relay traffic to become quiet');
 }
 
 /** Normalize a relay URL the way nostr-tools reports it back. */
@@ -233,13 +234,13 @@ describe('Paja relay traffic without a connected signer', () => {
     expect(sink.sent).toEqual([]);
   });
 
-  it('does not restart warming when a connected signer drops out', async () => {
+  it('does not warm the fixed fallback on reused relay sockets after disconnect', async () => {
     useWebSocketImplementation(RecordingRelaySocket);
     resetTraffic();
     const listeners = new Set<() => void>();
     let connected = true;
-    const simulation = createSimulation({ mode: 'anonymous' });
-    createAdapter(simulation, {
+    const simulation = createSimulation({ mode: 'fixed', pubkey: FALLBACK });
+    const adapter = createAdapter(simulation, {
       getSigner: () => null,
       getMethod: () => 'nip07',
       getPubkey: () => (connected ? ACCOUNT : null),
@@ -249,17 +250,30 @@ describe('Paja relay traffic without a connected signer', () => {
       },
     });
 
-    await waitFor(() => sink.sent.some(({ kinds, authors }) =>
-      kinds.includes(3) && authors.includes(ACCOUNT)));
-    await waitForQuiet();
+    const backend = adapter.relayPool.getRelayPool() as PajaRelayBackend;
+    try {
+      await waitFor(() => sink.sent.some(({ relayUrl, kinds, authors }) =>
+        kinds.includes(0) && authors.includes(FOLLOW) && FOLLOW_WRITE_RELAYS.map(normalized).includes(relayUrl)));
+      await waitForQuiet();
 
-    connected = false;
-    resetTraffic();
-    for (const listener of listeners) listener();
-    await new Promise((resolve) => setTimeout(resolve, 300));
+      // Keep the sink captured by existing sockets, and prove they still record
+      // reads after clearing it before testing the disconnect boundary.
+      const socketCount = sink.sockets.length;
+      sink.sent.length = 0;
+      await backend.query(BOOTSTRAP_RELAYS, [{ kinds: [3], authors: [ACCOUNT] }]);
+      expect(sink.sockets).toHaveLength(socketCount);
+      expect(sink.sent.some(({ kinds, authors }) =>
+        kinds.includes(3) && authors.includes(ACCOUNT))).toBe(true);
+      sink.sent.length = 0;
 
-    // Every warming cycle starts by reading the account's contact list, so a
-    // restart after the drop would show up as a new kind-3 read.
-    expect(sink.sent.filter(({ kinds }) => kinds.includes(3))).toEqual([]);
+      connected = false;
+      for (const listener of listeners) listener();
+      expect(adapter.auth.getUserPubkey()).toBe(FALLBACK);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
+      expect(sink.sent).toEqual([]);
+    } finally {
+      backend.close();
+    }
   });
 });
