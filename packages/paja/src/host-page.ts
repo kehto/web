@@ -139,6 +139,8 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .event-box-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
       .event-box-count { color: var(--accent); }
       .event-box-note { color: var(--muted); font-style: italic; text-transform: none; letter-spacing: normal; }
+      .event-box-authors { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 8px 4px; }
+      .event-author { min-width: 0; padding: 0 5px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 10px; text-transform: none; letter-spacing: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .event-relay { padding: 1px 0 2px; }
       .event-relay-head { display: grid; grid-template-columns: minmax(0, 1fr) 56px 22px auto; align-items: center; gap: 6px; padding: 2px 8px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
       .event-relay-url { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
