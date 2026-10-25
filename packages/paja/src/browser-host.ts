@@ -136,6 +136,8 @@ export interface PajaBrowserState {
   setDomainEnabled(domain: PajaCapabilityDomain, enabled: boolean): void;
   setAclCapability(capability: Capability, enabled: boolean): void;
   useDevSigner(): void;
+  useViewOnlySigner(input: string): void;
+  disconnectSigner(): void;
   connectNip07(): Promise<void>;
   connectBunker(uri: string): Promise<void>;
   clearSignerConsent(): void;
@@ -557,6 +559,12 @@ function createPajaBrowserState(
     useDevSigner() {
       signerController.useDevSigner();
     },
+    useViewOnlySigner(input) {
+      signerController.useViewOnlySigner(input);
+    },
+    disconnectSigner() {
+      signerController.disconnect();
+    },
     connectNip07() {
       return signerController.connectNip07();
     },
@@ -889,7 +897,9 @@ async function installPajaHost(): Promise<void> {
     startFrameNavigation(state, context);
     void reportTargetCorsDiagnostic(state);
   }
-  if (hasNip07Signer()) void state.connectNip07();
+  // An explicitly persisted view-only identity outranks the implicit NIP-07
+  // probe; otherwise a reload would silently replace the chosen npub.
+  if (hasNip07Signer() && signerController.getMethod() === 'none') void state.connectNip07();
 }
 
 if (typeof document !== 'undefined') {

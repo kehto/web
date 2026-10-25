@@ -55,6 +55,16 @@ describe('@kehto/paja host page', () => {
       expect(aside).toMatch(/id="event-kind-counts"[^>]*><\/div>\s*<\/div><\/details>\s*$/);
     }
   });
+  it('lays out the signer methods and the view-only identity as separate rows', () => {
+    const html = renderPajaHtml(createPajaRuntimeHostConfig({}));
+
+    expect(html).toContain('.signer-controls { display: grid; gap: 6px; }');
+    expect(html).toContain('.signer-row { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; gap: 6px; }');
+    expect(html).toContain('.signer-row-identity { grid-template-columns: minmax(0, 1fr) auto auto; }');
+    expect(html).toContain('id="signer-controls" role="group" aria-label="Signer and identity methods"');
+    expect(html).toContain('id="signer-status"');
+  });
+
   it('renders minimal top and bottom bars with one sandboxed iframe', () => {
     const options = normalizePajaOptions({ targetUrl: 'http://127.0.0.1:5173' });
     const config = createPajaHostConfig(options, new Date('2026-06-21T00:00:00.000Z'));

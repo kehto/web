@@ -24,8 +24,11 @@ implementation authority. `RUNTIME-SPEC.md` is internal runtime guidance.
   `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`.
 - **NAP-IDENTITY / NAP-THEME / NAP-SHELL:** merged `napplet/naps` master
   `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`.
-- **NAP-RELAY:** open PR #2 at
-  `0be8abce18beb46ca37bd4ddd042f58d30b4eedc`.
+- **NAP-RELAY:** open PR #2, re-checked at head
+  `9f30b3505335a52c574ff570576687d6467021ff` (previously recorded
+  `0be8abce18beb46ca37bd4ddd042f58d30b4eedc`). NAP-RELAY leaves
+  `relay.publish.result.error` free-form, so Kehto's host-specific failure text
+  is not a spec deviation.
 - **Published packages:** NAP-INTENT authority
   `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`; napplet/web#199 source
   `3037200c932488f14f7f369b8583c39c9c16510a`, merged as
@@ -90,6 +93,11 @@ success or `error` on failure. Runtime, `createRelayPoolService`,
 `createCoordinatedRelay`, Paja, and the playground must consume the same signed
 event and result contract. Failed publications are not delivered through the
 runtime's successful-event buffer.
+
+A connected signer that exposes no `signEvent` (for example Paja's view-only
+npub identity) fails closed with `signing unavailable (read-only identity)`,
+and one that exposes no encryption method with `encryption unavailable
+(read-only identity)`. Only an absent signer reports `no signer configured`.
 
 The released `@napplet/nap@0.32.0` SDK accepts `EventTemplate`, but the package's
 `RelayPublishMessage.event` declaration still names `NostrEvent`. That is

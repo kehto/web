@@ -14,6 +14,7 @@ import {
 import type { PajaHostConfig } from './options.js';
 import { browserPickers } from './browser-fs-support.js';
 import type { PajaSignerState } from './browser-signers.js';
+import { formatPajaNpub } from './browser-identity-input.js';
 import { getTargetIdentity } from './browser-target-frame.js';
 import type { PajaRuntimeTarget } from './local-target.js';
 import {
@@ -68,6 +69,10 @@ export interface PajaDevtoolsState {
   setAclCapability(capability: Capability, enabled: boolean): void;
   /** Switch signer controls to the dev signer. */
   useDevSigner(): void;
+  /** Switch signer controls to a view-only identity from an npub or hex pubkey. */
+  useViewOnlySigner(input: string): void;
+  /** Disconnect every identity and clear the persisted view-only identity. */
+  disconnectSigner(): void;
   /** Connect signer controls to a NIP-07 signer. */
   connectNip07(): Promise<void>;
   /** Connect signer controls to a bunker URI. */
@@ -430,6 +435,7 @@ function renderSignerStatus(state: PajaDevtoolsState, signerPubkey: string): voi
   const clearConsent = document.getElementById('signer-consent-clear');
   if (!el || !controls || !(clearConsent instanceof HTMLButtonElement)) return;
 
+  const viewOnly = state.signer.method === 'viewonly';
   const fallbackPubkey = state.simulation.identity.pubkey || (state.signer.method === 'dev' ? signerPubkey : '');
   const pubkey = state.simulation.identity.pubkey || state.signer.pubkey || (state.signer.method === 'dev' ? signerPubkey : '');
   const methodLabel = state.signer.method === 'nip07'
@@ -438,23 +444,31 @@ function renderSignerStatus(state: PajaDevtoolsState, signerPubkey: string): voi
       ? 'bunker'
       : state.signer.method === 'dev'
         ? 'dev'
-        : 'none';
+        : state.signer.method === 'viewonly'
+          ? 'view only'
+          : 'none';
   const relay = state.signer.relay ? ` · relay ${state.signer.relay}` : '';
+  const shownPubkey = viewOnly && pubkey ? formatPajaNpub(pubkey) : pubkey;
   const prefix = state.signer.status === 'disconnected'
     ? 'no signer connected'
     : state.signer.status === 'error'
     ? `${methodLabel} error: ${state.signer.error ?? 'unknown error'} · fallback pubkey ${fallbackPubkey}`
-    : `${methodLabel} ${state.signer.status} · pubkey ${pubkey || '(none)'}${relay}`;
-  const consentSummary = state.signerConsentCount === 0
-    ? 'signing asks every time'
-    : `${state.signerConsentCount} remembered signing approval${state.signerConsentCount === 1 ? '' : 's'}`;
-  el.textContent = `${prefix} · ${consentSummary} · publishing asks every time`;
+    : `${methodLabel} ${state.signer.status} · pubkey ${shownPubkey || '(none)'}${relay}`;
+  // A view-only identity can never sign, so promises about approval prompts
+  // would be false. Report the capability gap instead.
+  const consentSummary = viewOnly
+    ? 'reads only — signing, encrypting, and publishing are unavailable'
+    : state.signerConsentCount === 0
+      ? 'signing asks every time · publishing asks every time'
+      : `${state.signerConsentCount} remembered signing approval${state.signerConsentCount === 1 ? '' : 's'} · publishing asks every time`;
+  el.textContent = `${prefix} · ${consentSummary}`;
 
   clearConsent.hidden = state.signerConsentCount === 0;
   clearConsent.textContent = `Forget ${state.signerConsentCount} remembered approval${state.signerConsentCount === 1 ? '' : 's'}`;
   clearConsent.onclick = () => state.clearSignerConsent();
 
   const previousInput = controls.querySelector<HTMLInputElement>('#signer-bunker-uri')?.value ?? '';
+  const previousViewOnly = controls.querySelector<HTMLInputElement>('#signer-viewonly-npub')?.value ?? '';
   const devButton = document.createElement('button');
   devButton.type = 'button';
   devButton.id = 'signer-dev';
@@ -484,5 +498,38 @@ function renderSignerStatus(state: PajaDevtoolsState, signerPubkey: string): voi
   bunkerButton.textContent = 'Bunker';
   bunkerButton.addEventListener('click', () => void state.connectBunker(bunkerInput.value));
 
-  controls.replaceChildren(devButton, nip07Button, bunkerInput, bunkerButton);
+  const viewOnlyInput = document.createElement('input');
+  viewOnlyInput.id = 'signer-viewonly-npub';
+  viewOnlyInput.type = 'text';
+  viewOnlyInput.autocomplete = 'off';
+  viewOnlyInput.spellcheck = false;
+  viewOnlyInput.placeholder = 'npub1... (view only)';
+  viewOnlyInput.setAttribute('aria-label', 'View-only identity npub or hex pubkey');
+  viewOnlyInput.value = previousViewOnly
+    || (viewOnly && state.signer.pubkey ? formatPajaNpub(state.signer.pubkey) : '');
+
+  const viewOnlyButton = document.createElement('button');
+  viewOnlyButton.type = 'button';
+  viewOnlyButton.id = 'signer-viewonly';
+  viewOnlyButton.dataset.active = String(viewOnly);
+  viewOnlyButton.textContent = 'View only';
+  viewOnlyButton.addEventListener('click', () => state.useViewOnlySigner(viewOnlyInput.value));
+
+  const disconnectButton = document.createElement('button');
+  disconnectButton.type = 'button';
+  disconnectButton.id = 'signer-disconnect';
+  disconnectButton.textContent = 'Log out';
+  disconnectButton.title = 'Disconnect every identity and clear the saved view-only npub';
+  disconnectButton.disabled = state.signer.method === 'none';
+  disconnectButton.addEventListener('click', () => state.disconnectSigner());
+
+  const methodsRow = document.createElement('div');
+  methodsRow.className = 'signer-row';
+  methodsRow.append(devButton, nip07Button, bunkerInput, bunkerButton);
+
+  const identityRow = document.createElement('div');
+  identityRow.className = 'signer-row signer-row-identity';
+  identityRow.append(viewOnlyInput, viewOnlyButton, disconnectButton);
+
+  controls.replaceChildren(methodsRow, identityRow);
 }

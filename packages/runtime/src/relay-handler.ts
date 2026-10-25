@@ -250,9 +250,15 @@ function handleRelayPublish(
   }
 
   const signer = hooks.auth.getSigner(windowId);
-  const signEvent = signer?.signEvent?.bind(signer);
-  if (!signEvent) {
+  if (!signer) {
     sendRelayPublishResult(hooks, windowId, id, false, undefined, 'no signer configured');
+    return;
+  }
+  const signEvent = signer.signEvent?.bind(signer);
+  if (!signEvent) {
+    // A signer that exposes only public information is a read-only identity
+    // (for example a view-only npub); it is connected, so "no signer" is a lie.
+    sendRelayPublishResult(hooks, windowId, id, false, undefined, 'signing unavailable (read-only identity)');
     return;
   }
 
@@ -396,6 +402,17 @@ function handleRelayPublishEncrypted(
     replyPe(false, { error: 'invalid event template' });
     return;
   }
+  if (typeof peSigner.signEvent !== 'function') {
+    replyPe(false, { error: 'encryption unavailable (read-only identity)' });
+    return;
+  }
+  const canEncrypt = encryption === 'nip44'
+    ? typeof peSigner.nip44?.encrypt === 'function'
+    : typeof peSigner.nip04?.encrypt === 'function';
+  if (!canEncrypt) {
+    replyPe(false, { error: `signer has no ${encryption} encryption` });
+    return;
+  }
 
   publishEncrypted(context, windowId, id, recipient, encryption, eventTemplate, peSigner, replyPe);
 }
@@ -418,7 +435,7 @@ function publishEncrypted(
         : (await peSigner.nip04?.encrypt(recipient, plaintext)) ?? '';
       const eventWithCiphertext = { ...eventTemplate, content: ciphertext };
       const signed = await peSigner.signEvent?.(eventWithCiphertext);
-      if (!signed) { replyPe(false, { error: 'signEvent returned null' }); return; }
+      if (!signed) { replyPe(false, { error: 'signEvent returned no event' }); return; }
 
       publishSignedRelayEvent(context, windowId, id, signed, (ok, error) => {
         replyPe(ok, ok

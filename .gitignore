@@ -13,3 +13,4 @@ docs/.vitepress/dist/
 *-snapshot.yml
 .omx
 .aislop/
+.worktrees/

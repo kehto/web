@@ -11,6 +11,7 @@ import {
   type PajaSignerRequestContext,
 } from './browser-signer-consent.js';
 import type { PajaBrowserState } from './browser-host.js';
+import { getPajaRelayUrls } from './browser-relay-runtime.js';
 import type { PajaUserActivationHandler } from './browser-device-services.js';
 
 /** Coordinates queued Paja operation confirmations. */
@@ -495,6 +496,15 @@ export function createHostSignerController(
 ) {
   return createPajaSignerController({
     confirmRequest,
+    // A view-only identity has no relay list of its own unless the pasted
+    // nprofile carries hints, so report the relays this host is connected to.
+    getRelays() {
+      const state = getState();
+      if (!state) return {};
+      return Object.fromEntries(
+        getPajaRelayUrls(state.simulation).map((relay) => [relay, { read: true, write: true }]),
+      );
+    },
     onChange(signer) {
       const state = getState();
       if (!state) return;
