@@ -138,6 +138,21 @@ describe('reviewed service approval boundaries', () => {
     expect(await result).toEqual({ events: [], error: 'policy denied' });
   });
 
+  it.each(['destroy', 'unregister'] as const)('suppresses pending theme denial after %s and source replacement', async (lifecycle) => {
+    const service = createThemeService().handler;
+    let rejectOld!: () => void;
+    service.onRegistered?.(context(() => new Promise((resolve) => { rejectOld = () => resolve({ status: 'denied' }); })));
+    const oldSend = vi.fn();
+    service.handleMessage('a', { type: 'theme.get', id: 'old' } as NappletMessage, oldSend);
+    if (lifecycle === 'destroy') service.onWindowDestroyed?.('a'); else service.onUnregistered?.();
+    service.onRegistered?.(context(async () => ({ status: 'denied' })));
+    const newSend = vi.fn();
+    service.handleMessage('a', { type: 'theme.get', id: 'new' } as NappletMessage, newSend);
+    rejectOld();
+    await vi.waitFor(() => expect(newSend).toHaveBeenCalledExactlyOnceWith({ type: 'theme.get.result', id: 'new', error: 'policy denied' }));
+    expect(oldSend).not.toHaveBeenCalled();
+  });
+
   it.each(['denied', 'rate-limited', 'cancelled', 'error'])('completes denied theme.get for %s', async (status) => {
     const service = createThemeService();
     service.handler.onRegistered?.(context(async () => ({ status })));

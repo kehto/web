@@ -149,6 +149,7 @@ export interface ThemeService {
 export function createThemeService(options: ThemeServiceOptions = {}): ThemeService {
   let currentTheme: Theme = normalizeTheme(options.initialTheme);
   let runtime: ServiceRuntimeContext | undefined;
+  const generations = new Map<string, symbol>();
 
   const descriptor: ServiceDescriptor = {
     name: 'theme',
@@ -160,7 +161,7 @@ export function createThemeService(options: ThemeServiceOptions = {}): ThemeServ
     descriptor,
 
     onRegistered(context): void { runtime = context; },
-    onUnregistered(): void { runtime = undefined; },
+    onUnregistered(): void { runtime = undefined; generations.clear(); },
 
     handleMessage(
       _windowId: string,
@@ -170,9 +171,11 @@ export function createThemeService(options: ThemeServiceOptions = {}): ThemeServ
       const id = (message as NappletMessage & { id?: string }).id ?? '';
 
       if (message.type === 'theme.get') {
+        let generation = generations.get(_windowId);
+        if (!generation) { generation = Symbol(_windowId); generations.set(_windowId, generation); }
         let settled = false;
         const complete = (result: NappletMessage): void => {
-          if (settled) return;
+          if (settled || generations.get(_windowId) !== generation) return;
           settled = true;
           send(result);
         };
@@ -189,9 +192,8 @@ export function createThemeService(options: ThemeServiceOptions = {}): ThemeServ
       return;
     },
 
-    // Theme service has no per-window state to clean up.
-    onWindowDestroyed(_windowId: string): void {
-      /* no-op */
+    onWindowDestroyed(windowId: string): void {
+      generations.delete(windowId);
     },
   };
 
