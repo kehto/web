@@ -59,6 +59,24 @@ budgets without including payloads or destinations. Diagnostic failures cannot
 override enforcement. Startup interface admission does not spend an app operation
 budget; actual operations are charged after launch.
 
+Storage and INC operations also spend this budget at dispatch when they have no
+service coordinator; CONFIG settings-opening requests are bounded there too.
+Excess storage requests and INC subscribe/channel-open requests receive their
+specified correlated denial, while fire-and-forget sends can be dropped. Cleanup
+(unsubscribe/channel-close) remains available after budget exhaustion.
+
+NAP-CONFIG PR #14 `bed9cb5b` mandates value snapshots and schema acknowledgments
+but defines no temporal-budget error contract for them. NAP-INC master
+`19de5ce1` likewise requires channel listings without a denial shape. Those
+mandatory response paths are charged and diagnosed but still dispatched; this is
+an explicit spec gap, not a claim that every domain message can be blocked.
+Defining rejection/backpressure for them requires an upstream contract decision;
+Kehto does not invent error codes or replace current values with an empty success.
+In particular, repeated CONFIG schema registration can still validate and persist
+values after the budget is exceeded. The current schema depth checks are not a
+total work/size bound; this residual flood risk is intentionally deferred to that
+missing denial/backpressure contract.
+
 `promptRateLimit` separately bounds actual UI prompts. The default blocks beyond
 12 prompts per minute, with eight permitted during the first three seconds of a
 source lifecycle. Existing grants and deduplicated requests do not consume this
