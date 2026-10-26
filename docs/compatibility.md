@@ -6,6 +6,63 @@ coverage. This register records both implemented safeguards and existing debt;
 below identifies the package responsible for the implementation and its tests.
 No removal date is implied by an old source comment.
 
+## ACL principal fields — runtime
+
+Identifier: `ACL_ENTRY_PRINCIPAL`. ACL lookup/listing now return required `dTag`
+and `aggregateHash` fields. Use those fields with keyed policy methods instead
+of identifying a policy by the retained `pubkey` display field. Listing pubkey
+remains empty; keyed lookup preserves its existing pubkey argument behavior.
+Source: `packages/runtime/src/acl-state.ts` and `types.ts`. Runtime regressions in
+`acl-state.test.ts` cover distinct principals, reload, colon-bearing identifiers,
+keyed mutation and detached results. The updated exported type requires custom
+producers to provide the principal fields; the minor release records that change.
+
+Diagnostic limitation: plain additive output fields do not expose whether a
+consumer reads the old fields or ignores the new ones. There is no old-use warning
+site; canonical enumeration stays quiet. Host policy UIs should use the returned
+principal fields and surface errors at their own mutation boundary. No alternate
+serialized format or parser fallback was added. Retiring the pubkey field requires
+a separately announced breaking API migration and updated supported consumers.
+
+## ACL persistence return values — runtime
+
+Identifier: `ACL_PERSISTENCE_RESULT`. `AclStateContainer.persist()` and `clear()`
+previously returned void and suppressed backend failures. They now return a
+boolean outcome while preserving synchronous live mutation and nonthrowing save
+behavior. Callers must check `false` and report/retry the failed save; reload can
+still expose the previous durable policy. Source: `packages/runtime/src/acl-state.ts`;
+guidance: `packages/runtime/README.md`; regression coverage:
+`packages/runtime/src/acl-state.test.ts` (failure, retry, reload and observer order).
+
+Diagnostic limitation: JavaScript cannot observe whether a caller consumes an
+additive return value. There is no runtime old-use boundary or warning site;
+canonical calls stay quiet. The typed boolean and API documentation provide
+build-time guidance. Host save actions are the appropriate place to show errors.
+Runtime destruction intentionally remains best-effort. No compatibility branch
+is retained for removal; any future change to throwing semantics requires a
+separate breaking release and migration of host save actions.
+
+## Blossom sha256 prefix — Paja
+
+Identifier: `KEHTO_COMPAT_BLOSSOM_SHA256`. `blossom:sha256:<hash>` input remains
+accepted; use `blossom:<hash>` with the same extension and hints. Internal
+reference keys and synthesized references now use the plain prefix. Resource
+cache keys still preserve the caller's URL, per NAP-RESOURCE draft #80 at
+`ae5b9c64ab8a4d8909f288829a01e99d6bd713bc`.
+
+`packages/paja/src/browser-blossom-compat.ts` warns once per host module lifetime
+on valid alias requests from `browser-resource.ts` and `browser-blossom-events.ts`.
+The pure URI parser stays quiet. Warnings contain no URLs, hashes or payloads.
+`browser-blossom-uri.test.ts` covers both forms, canonical/malformed/aborted quiet
+paths, migration text, warning frequency and sharing between host boundaries;
+resource/event/integration suites retain hash, size, hint and source-isolation checks.
+
+Retain the alias for published napplets until supported consumers migrate and a
+breaking removal release is announced. Retirement requires negative alias tests
+while preserving canonical reads and their security limits. Extensionless and
+mixed-case reads remain pre-existing compatibility debt without use diagnostics;
+their input grammar is unchanged by this normalization fix.
+
 ## Active paths changed in PR #277
 
 | ID / owner | Old behavior and replacement | Warning / regression coverage | Retirement prerequisite |

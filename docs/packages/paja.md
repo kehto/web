@@ -20,7 +20,7 @@ app package's development scripts.
 | Field | Value |
 |-------|-------|
 | Source | `packages/paja/package.json`, `packages/paja/src/index.ts` |
-| Version | `0.21.2` |
+| Version | `0.24.4` |
 | Runtime entry | `./dist/index.js` |
 | CLI runner entry | `./dist/cli.js` |
 | Types entry | `./dist/index.d.ts` |
@@ -149,15 +149,17 @@ exported for reuse.
 
 The console is a collapsible left column. It starts expanded, and one chevron
 button in the top bar collapses it to the left and restores it; the toggle stays
-visible in both states, so a collapsed console is always one press away, and the
-choice is remembered per browser origin. Collapsing is CSS-only presentation:
+visible in both states, including after a reload with no runtime tabs open, so a
+collapsed console is always one press away. The toolbar never requires hovering
+over a hidden edge to reveal it. The choice is remembered per browser origin.
+Collapsing is CSS-only presentation:
 the target iframe is never navigated or recreated, so the running napplet keeps
 its generation, message log, and shell state while the stage reclaims the full
 width.
 
 All sections are flush independent native accordions, expanded by default:
 **Pointer** where present, **Interfaces**, **ACL**, **Signer**, **Resource servers**,
-and **Messages** last. Enter/Space toggle focused headers; visible focus and chevrons
+**Messages**, and **Events** last. Enter/Space toggle focused headers; visible focus and chevrons
 show their state. Hidden bodies retain controls, drafts and the running app.
 Origin-local `kehto:paja:sidebar-sections:v1` stores validated collapsed booleans,
 independently of whole-drawer visibility and resource settings. Invalid preferences
@@ -200,17 +202,60 @@ The console includes:
   Its scoped-relay hook likewise waits for the backend result and returns
   `false` after denial or transport failure.
 - **Resource servers** — extra Blossom lookup origins with a newline textarea and
-  Save button, immediately before the final Messages section (see below).
+  Save button, immediately before the Messages section (see below).
 - **Messages** — inbound and outbound envelopes are logged with a text filter,
   including Paja system events such as interface changes, ACL changes, signer
   connection changes, signing/publish confirmations, and visible details for
 `.error` envelopes.
+- **Events** — relay receipts grouped by the routing box that chose the relays,
+  then by relay, then by event kind, with the session receipt total in the
+  section header. Boxes render in Paja's routing precedence, never in count
+  order, so they do not reshuffle while the session runs:
+  - **outbox relays (NIP-65)** — relays resolved from the requested authors'
+    NIP-65 write lists. When a session only ever used hints or the configured
+    set, the box renders as `no author-routed reads` instead of a bare zero,
+    because author-routed relays are discovered per read and cannot be listed
+    from configuration.
+  - **relay hints** — an outbox read the napplet pointed at relays itself with
+    NAP-OUTBOX `relays` hints, which the shell validates and uses alongside the
+    rest of the plan.
+  - **fallback relays** — the host's configured fallback/bootstrap relay set.
+    Reads can start while NIP-65 discovery is pending, even if author relays
+    resolve later; authorless queries also read this set alongside valid hints.
+    Authorless live subscriptions use fallback only when no valid hints remain.
+    This box does not imply that author discovery failed.
+    Configured relays are listed from boot, so one that has served nothing yet
+    still appears, marked `unused` until Paja reads from it and `silent` once a
+    read returns no events. This is the only box that can render without traffic.
+  - **scoped relay** — a read the napplet pinned to one relay with an explicit
+    NAP-RELAY `relay.subscribe` `relay` field (a scoped relay, not a hint),
+    which bypasses host tier selection.
+  - **host pool** — Paja's own reads: the relay service without a hint, social
+    cache, contact lists, relay lists, count, CVM, Blossom lookups, upload
+    discovery, WebRTC, and DM traffic.
+  Counting happens in the relay backend before delivery, so every read path is
+  covered, while simulated memory-mode fixtures and Paja's own publishes are not.
+  Each relay row carries a bar scaled against the busiest relay of the session,
+  its receipt count, and its `kind - count` rows. A box is a routing decision
+  rather than a relay set, so the same relay appears in two boxes when two reads
+  reached it for different reasons — a relay that is both an app hint and a
+  configured fallback keeps its two receipt counts apart instead of showing one
+  merged number. Every receipt belongs to exactly one box, so box counts add up
+  to the header total. Counts are receipts, not
+  distinct events: repeated deliveries and the same event arriving from several
+  relays each count, and the header badge's tooltip reports how many unique
+  events those receipts came from. Receipts are observed on each live relay's
+  verified, filter-matching event callback before delivery deduplication; a
+  silent relay is never credited from another relay's response or a previous
+  read. Equivalent relay URL spellings share one row. Napplet delivery and query
+  results remain deduplicated. Counts accumulate for the host session and the
+  section header's `reset` button clears them without a reload.
 
 The GitHub Pages artifact also includes a static Paja Runtime at `/web/paja/`.
 That route uses `createPajaRuntimeHostConfig`, keeps `hmr: none`, and loads
 verified napplets into ShellBridge-backed iframe tabs from pasted `naddr` or
 `nevent` pointers. `naddr` pointers resolve the latest matching NIP-5D named
-manifest (`35129`) by author and `d` tag; `nevent` pointers resolve a specific
+manifest (`35129`) by author and `d` tag, or a root manifest (`15129`) by author with an empty identifier and no `#d` filter; `nevent` pointers resolve a specific
 NIP-5D snapshot, root, or named manifest event id (`5129`, `15129`, or `35129`).
 In both cases Paja verifies the signed manifest and artifact hash (or legacy
 aggregate and blobs), then prepares a rendered copy with the same runtime-owned
@@ -230,11 +275,17 @@ distinguishes enforced recommendations from configurable defaults. Configure
 target-URL mode retains its separate development policy. Loading an
 already-running napplet
 opens an in-page choice to load another instance, switch to the existing tab, or
-cancel. Each tab includes a share control that copies a `/web/paja/?naddr=...`
-or `/web/paja/?nevent=...` link for that pointer, and the browser remembers open
-runtime tabs in local storage so returning to `/web/paja/` restores the previous
+cancel. Each verified tab's Share control opens a dialog with its selectable
+`/web/paja/?naddr=...` or `/web/paja/?nevent=...` app link. **Copy app link**
+shows a confirmation on success; blocked or unavailable clipboard access selects
+the link for manual copying. Apps with advertised intents also offer
+**Create intent link**. Share keeps focus and pointer input in the host overlay
+while the apps remain loaded. The browser remembers open runtime tabs in local storage
+so returning to `/web/paja/` restores the previous
 pointer set. An explicit pointer in the URL still takes precedence over restored
 tabs.
+
+The browser page title follows the active napplet tab name, including when switching or closing tabs. With no active napplet, the title is `@kehto/paja`.
 
 Pointer relay hints are preferred, not exhaustive. Paja queries embedded
 `naddr` / `nevent` relay hints first in the ordered candidate list, then any
@@ -284,6 +335,14 @@ catalog. Entries preserve exact conventions and ordered parameter names under
 publisher/kind-safe opaque IDs, including nameless root and snapshot artifacts.
 The target's resolved `intent` domain must be available; INC is not required.
 
+Catalog installs, replacements, removals, and user default-handler updates emit
+`intent.changed` to eligible open napplets (`napplet.intent.onChanged(...)`).
+Replacements notify both removed and added archetypes, once per slug, using the
+current filtered catalog. A `no handler` rejection remains terminal: callers must
+retry explicitly; installing a handler does not replay the failed invocation.
+This follows `napplet/naps` NAP-INTENT on master (last changed at `e5308ac`), whose
+runtime behavior recommends notifications on catalog/default changes.
+
 Selection uses exact contracts and user-owned default, chooser, recommendation,
 and explicit-authorization policy. Explicit handler IDs require sender-aware
 authorization and cannot address an arbitrary running frame.
@@ -323,7 +382,14 @@ identity-scoped durable `/workspace`, browser-mediated session picker grants,
 strict virtual paths, bounded range I/O, canonical base64, revisions,
 replace/append/patch writes, directory mutation, supported atomic moves, and
 advisory watches without exposing browser handles or host paths. It follows
-draft [NAP-FS `b640cf33`](https://github.com/napplet/naps/blob/b640cf337c0481f0f9a0216c00843f797a5c6df6/naps/NAP-FS.md).
+draft [NAP-FS `bd1b9e91`](https://github.com/napplet/naps/blob/bd1b9e912f05203bf38f7a1b04f920744fe6d625/naps/NAP-FS.md).
+
+The Interfaces panel reports workspace and native open/save/directory picker
+support separately. Firefox can expose OPFS without the native picker APIs;
+workspace operations then work, while picker operations return `unsupported`.
+The message log identifies the missing API. ACL controls such as `fs:read` and
+`fs:write` grant permission but cannot add browser support. See the
+[browser picker compatibility reference](https://developer.mozilla.org/en-US/docs/Web/API/Window/showOpenFilePicker#browser_compatibility).
 
 Default service wiring uses live relay/outbox behavior, localStorage state
 persistence through the runtime, browser or configured identity, schema-validated
@@ -460,6 +526,10 @@ Paja accepts `blossom:<hash>.gbc?xs=cdn.example&as=<pubkey>&sz=32768` and the
 each requiring exactly 64 hexadecimal characters. The optional single
 ASCII-alphanumeric extension is preserved in `GET /<hash>.<ext>` but never
 establishes MIME; query parameters are never forwarded to the blob server.
+Internal reference keys use `blossom:<hash>` while resource cache keys retain
+the caller's URL. Actual alias reads/server-resolution requests emit
+`KEHTO_COMPAT_BLOSSOM_SHA256` once per host module lifetime; canonical requests
+stay quiet. The warning gives replacement guidance without logging resource data.
 Both forms use the
 same SHA-256 verification, byte caps, local MIME safety, and server policy. Paja
 accepts public-looking HTTPS request hints, discards invalid/private literals,
@@ -665,3 +735,11 @@ URL cannot supply one. The hidden launcher is removed after acceptance and is
 never persisted or restored. Verification precedes `srcdoc`, and host bootstrap
 injection stays outside signed bytes. Native external-origin sender semantics
 remain a documented upstream spec gap; no host sender identity is invented.
+
+## NIP-5D runtime pointers
+
+Paja MUST load all three NIP-5D manifest kinds: root `15129`, named `35129`, and snapshot `5129`. Use an `naddr` with an empty identifier for the latest root, an `naddr` with the literal `d` identifier for the latest named napplet, or a `nevent` to pin a signed event of any of the three kinds. Snapshots require `nevent` because they are immutable events without replaceable coordinates. All paths verify the signed manifest and artifact hash before injecting `srcdoc`. Distinct snapshots retain separate tabs and catalog identities even when their artifact bytes match.
+
+## Controller diagnostics
+
+Paja shows a numbered controller icon directly beside the console arrow for each controller the browser detects. Each slot has its own color and input animation; hover for the controller model and activity state. Buttons and stick movement light up only that controller (stick movement below 0.12 is ignored). Quick taps retain the highlight briefly so they are easy to spot. Reduced-motion settings keep the activity highlight without animation. Disconnecting removes the icon. Browsers may require a button press before exposing a newly connected controller. These host diagnostics work without a napplet gamepad subscription and do not change focus-scoped input delivery.

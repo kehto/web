@@ -1,5 +1,146 @@
 # @kehto/paja
 
+## 0.24.4
+
+### Patch Changes
+
+- b4c1b14: Make every verified tab's Share button open a dialog with a selectable app link,
+  visible copy confirmation, and manual copying when clipboard access is blocked
+  or unavailable. Keep intent-link creation limited to advertised contracts, and
+  prevent dialog clicks from reaching the loaded apps underneath it.
+
+## 0.24.3
+
+### Patch Changes
+
+- ff35f6d: Load NIP-5D root 15129 naddr coordinates without a d-tag filter, alongside named 35129 coordinates and exact nevent references for root, named and snapshot 5129 events. Keep distinct snapshots in separate tabs even when the author and artifact bytes match.
+
+## 0.24.2
+
+### Patch Changes
+
+- 216b69d: Keep the toolbar and console expand button onscreen when restoring a collapsed
+  console preference. The empty runtime remains usable after reloading without
+  needing to discover a hidden hover strip; running napplets keep their state.
+
+## 0.24.1
+
+### Patch Changes
+
+- 14b5dcd: Resolve the NIP-46 user pubkey with `get_public_key` after every successful
+  `connect`, as required by NIP-46. Paja previously stored that acknowledgement as the
+  connected account, so `identity.getPublicKey` returned `"ack"` and napplets saw
+  a signed-in user without a valid 64-hex pubkey. Ownership-gated UI such as the
+  View Problem editor's **Edit problem** button therefore stayed disabled even
+  though the bunker could sign. Connect replies are never used as identity, even
+  when they resemble a public key (for example a hex secret or signer transport
+  key), and an invalid `get_public_key` response now fails the connection instead
+  of being exposed as identity.
+
+## 0.24.0
+
+### Minor Changes
+
+- bd95181: Notify open napplets of intent availability after verified catalog installs,
+  replacements, removals, and default-handler updates. Failed invocations remain
+  terminal; callers may retry after receiving `intent.changed`.
+
+## 0.23.0
+
+### Minor Changes
+
+- ea5c039: Show connected controllers beside the console arrow with per-slot colors, numbers, model tooltips and distinct input animations. Respect reduced motion and ignore small stick drift.
+
+### Patch Changes
+
+- c04cb11: Use the active napplet tab name as the browser page title and restore the Paja title when the final tab closes.
+
+## 0.22.0
+
+### Minor Changes
+
+- 0958a8b: Add a collapsible **Events** section to the Paja console below **Messages** that
+  groups relay receipts by the routing box that chose the relays, then by relay,
+  then by event kind. Boxes render in fixed routing precedence rather than by
+  size, so they never reshuffle mid-session:
+
+  - **outbox relays (NIP-65)** — relays resolved from the requested authors'
+    NIP-65 write lists. A session that never used author routing renders
+    `no author-routed reads` instead of a bare zero, because author-routed relays
+    are discovered per read and cannot be listed from configuration.
+  - **relay hints** — an outbox read the napplet pointed at relays itself with
+    NAP-OUTBOX `relays` hints.
+  - **fallback relays** — the host's configured fallback/bootstrap set. Reads can
+    start while author discovery is pending and remain counted if NIP-65 relays
+    resolve later. Authorless queries read this set alongside valid hints;
+    authorless live subscriptions use it only when no valid hints remain. The box
+    does not imply discovery failed. Configured relays are listed from boot, so
+    idle relays read `unused` and relays that answered with nothing read `silent`.
+  - **scoped relay** — a read the napplet pinned to one relay with NAP-RELAY
+    `relay.subscribe`'s `relay` field, which the NAP calls a scoped relay rather
+    than a hint.
+  - **host pool** — Paja's own reads.
+
+  A box is a routing decision, not a relay set: a relay read for two different
+  reasons (for example a relay that is both an app hint and a configured fallback)
+  now appears in both boxes with its receipt counts kept apart, instead of showing
+  one merged count under two chips. Because exactly one box owns each receipt, box
+  counts add up to the header total. Each relay row keeps its bar (scaled against
+  the busiest relay of the session), receipt count, and `kind - count` rows.
+  Counting happens in the relay backend before delivery, covering napplet
+  subscriptions and Paja's background fetches, while simulated memory-mode
+  fixtures and Paja's own publishes stay excluded. Receipts are cumulative for the
+  host session; the header badge's tooltip separates them from unique events, and
+  `__KEHTO_PAJA__.getState()` exposes the boxes and the configured relay
+  inventory. Count verified, filter-matching receipts at each relay before
+  deduplicating napplet delivery; repeated events count again without crediting
+  silent relays or reusing earlier reads' provenance. Equivalent relay URL
+  spellings share one panel row.
+
+  Two additive, optional `@kehto/services` arguments make the routing boxes
+  possible: `RelayPoolServiceOptions.subscribe` now receives a fourth `fromHint`
+  argument so a host-backed relay service can distinguish a read pinned by an
+  explicit relay hint from one using its own selected relay tier, and
+  `OutboxRelayPool.subscribe` receives an `OutboxRelayOrigin` naming why the relays
+  of that call are in the read. Existing implementations keep working unchanged.
+  Authorless live reads retain their hint-or-fallback routing policy: valid hints
+  do not add subscriptions on the configured fallback relays.
+
+### Patch Changes
+
+- 0958a8b: Hide the whole chrome with the collapsed Paja drawer: the bottom status bar
+  disappears with the console column, and on hover-capable wide layouts the top bar
+  parks off-screen and returns from a 6px strip at the viewport edge (or on
+  keyboard focus). Touch and stacked layouts keep the top bar visible, since they
+  have no hover to restore it and the drawer toggle lives inside it.
+- 0958a8b: Add a `reset` button beside the Events section's receipt total that clears every
+  per-reason, per-relay, and per-kind event count, along with the read and unique
+  event tallies, so a session can start counting from scratch without a reload.
+  Configured relays stay visible at zero exactly as they render at boot.
+- 6693f5a: Show FS workspace and native picker support separately from ACL grants. Explain unsupported picker results when the browser lacks the required API, preserving working workspace storage and canonical NAP-FS responses.
+- Updated dependencies [0958a8b]
+  - @kehto/services@0.25.0
+  - @kehto/shell@0.24.4
+
+## 0.21.4
+
+### Patch Changes
+
+- Updated dependencies [5c3234e]
+- Updated dependencies [960baba]
+- Updated dependencies [ba9125b]
+  - @kehto/runtime@0.26.0
+  - @kehto/services@0.24.2
+  - @kehto/shell@0.24.3
+
+## 0.21.3
+
+### Patch Changes
+
+- 7d47c7f: Normalize internal Blossom references to blossom:<hash> while preserving existing
+  read grammar, extensions, hints and integrity checks. Retain the sha256-prefixed
+  input alias with one actionable warning per host module lifetime.
+
 ## 0.21.2
 
 ### Patch Changes

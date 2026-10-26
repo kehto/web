@@ -7,6 +7,7 @@ const SECTION_IDS = {
   signer: 'paja-section-signer',
   'resource-servers': 'paja-section-resource-servers',
   messages: 'paja-section-messages',
+  events: 'paja-section-events',
 } as const;
 type SectionKey = keyof typeof SECTION_IDS;
 

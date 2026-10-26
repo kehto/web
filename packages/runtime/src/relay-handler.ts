@@ -29,6 +29,7 @@ type RelayHandlerContext = {
   subscriptions: Map<string, SubscriptionEntry>;
   eventBuffer: EventBuffer;
   replayDetector: ReplayDetector;
+  canReadRelay: (windowId: string) => boolean;
 };
 
 export type RelayHandler = (windowId: string, msg: NappletMessage) => void;
@@ -92,13 +93,18 @@ function handleRelaySubscribe(
   if (!subId) return;
 
   const subKey = `${windowId}:${subId}`;
-  subscriptions.set(subKey, { windowId, filters });
+  const entry = { windowId, filters };
+  subscriptions.set(subKey, entry);
+  const isActive = (): boolean => subscriptions.get(subKey) === entry && context.canReadRelay(windowId);
+  const send = (response: NappletMessage): void => {
+    if (isActive()) hooks.sendToNapplet(windowId, normalizeRelayServiceResponse(response));
+  };
 
   const seenIds = new Set<string>();
   function deliver(event: NostrEvent, relayHints?: string[]): void {
     if (seenIds.has(event.id)) return;
     seenIds.add(event.id);
-    if (subscriptions.has(subKey)) {
+    if (isActive()) {
       sendRelayEvent(hooks, windowId, subId, createRelayEventResultWithHints(event, relayHints));
     }
   }
@@ -112,31 +118,28 @@ function handleRelaySubscribe(
   const cacheService = !serviceRegistry['relay'] ? serviceRegistry['cache'] : undefined;
 
   if (!isShellKind && relayService) {
-    relayService.handleMessage(windowId, msg, (resp: NappletMessage) => {
-      if (!subscriptions.has(subKey)) return;
-      hooks.sendToNapplet(windowId, normalizeRelayServiceResponse(resp));
-    });
-    if (cacheService) {
-      cacheService.handleMessage(windowId, msg, (resp: NappletMessage) => {
-        if (!subscriptions.has(subKey)) return;
-        hooks.sendToNapplet(windowId, normalizeRelayServiceResponse(resp));
-      });
-    }
+    relayService.handleMessage(windowId, msg, send);
+    if (cacheService && isActive()) cacheService.handleMessage(windowId, msg, send);
+    // A synchronous backend callback may cause the host to revoke access before
+    // the backend finishes registering its cleanup handle.
+    if (!isActive()) closeRelayBackends(context, windowId, subId, subKey);
     return;
   }
 
   const relayHint = typeof m.relay === 'string' && m.relay.length > 0 ? m.relay : undefined;
-  deliverFromRuntimeBackends(context, windowId, subId, subKey, filters, isShellKind, deliver, relayHint);
+  if (!isActive()) return;
+  deliverFromRuntimeBackends(context, subId, subKey, filters, isShellKind, deliver, send, isActive, relayHint);
 }
 
 function deliverFromRuntimeBackends(
   context: RelayHandlerContext,
-  windowId: string,
   subId: string,
   subKey: string,
   filters: NostrFilter[],
   isShellKind: boolean,
   deliver: (event: NostrEvent, relayHints?: string[]) => void,
+  send: (response: NappletMessage) => void,
+  isActive: () => boolean,
   relayHint?: string,
 ): void {
   const { hooks } = context;
@@ -152,7 +155,7 @@ function deliverFromRuntimeBackends(
 
   const pool = hooks.relayPool;
   if (!pool?.isAvailable() && !isShellKind) {
-    hooks.sendToNapplet(windowId, { type: 'relay.eose', subId } as NappletMessage);
+    send({ type: 'relay.eose', subId } as NappletMessage);
     return;
   }
   if (!pool?.isAvailable() || isShellKind) return;
@@ -162,16 +165,17 @@ function deliverFromRuntimeBackends(
   const eoseFallbackTimer = setTimeout(() => {
     if (!eoseSent) {
       eoseSent = true;
-      hooks.sendToNapplet(windowId, { type: 'relay.eose', subId } as NappletMessage);
+      send({ type: 'relay.eose', subId } as NappletMessage);
     }
   }, 15_000);
 
   const subscription = pool.subscribe(filters, (item) => {
+    if (!isActive()) return;
     if (item === 'EOSE') {
       clearTimeout(eoseFallbackTimer);
       if (!eoseSent) {
         eoseSent = true;
-        hooks.sendToNapplet(windowId, { type: 'relay.eose', subId } as NappletMessage);
+        send({ type: 'relay.eose', subId } as NappletMessage);
       }
       return;
     }
@@ -186,6 +190,32 @@ function deliverFromRuntimeBackends(
     clearTimeout(eoseFallbackTimer);
     subscription.unsubscribe();
   });
+  if (!isActive()) pool.untrackSubscription(subKey);
+}
+
+type RelayLifecycleContext = Pick<RelayHandlerContext, 'hooks' | 'subscriptions' | 'serviceRegistry'>;
+
+function closeRelayBackends(context: RelayLifecycleContext, windowId: string, subId: string, subKey: string): void {
+  const relay = context.serviceRegistry['relay'] ?? context.serviceRegistry['relay-pool'];
+  const cache = !context.serviceRegistry['relay'] ? context.serviceRegistry['cache'] : undefined;
+  for (const service of new Set([relay, cache])) {
+    try { service?.handleMessage(windowId, { type: 'relay.close', subId } as NappletMessage, () => {}); }
+    catch { /* Other backends still need cleanup; delivery is already invalidated. */ }
+  }
+  try { context.hooks.relayPool?.untrackSubscription(subKey); }
+  catch { /* A failed adapter cleanup must not restore delivery or abort retirement. */ }
+}
+
+/** Retire ordinary subscriptions when the host revokes a window's relay authority. */
+export function revokeRelaySubscriptions(context: RelayLifecycleContext, windowId: string): void {
+  const entries = [...context.subscriptions].filter(([, entry]) => entry.windowId === windowId);
+  // Invalidate every callback before invoking any host/backend code.
+  for (const [key] of entries) context.subscriptions.delete(key);
+  for (const [key] of entries) {
+    const subId = key.slice(windowId.length + 1);
+    closeRelayBackends(context, windowId, subId, key);
+    context.hooks.sendToNapplet(windowId, { type: 'relay.closed', subId, reason: 'denied: relay:read' } as NappletMessage);
+  }
 }
 
 function handleRelayClose(

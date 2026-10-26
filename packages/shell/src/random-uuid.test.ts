@@ -33,7 +33,14 @@ describe('shell UUID generation', () => {
     expect(provider.getRandomValues).toHaveBeenCalledTimes(2);
   });
 
-  it.each([undefined, {}])('fails explicitly when secure randomness is unavailable: %s', (provider) => {
+  it('uses secure random bytes when randomUUID is not callable', () => {
+    const getRandomValues = vi.fn((bytes: Uint8Array) => bytes.fill(0));
+    vi.stubGlobal('crypto', { randomUUID: 0, getRandomValues });
+    expect(randomUUID()).toBe('00000000-0000-4000-8000-000000000000');
+    expect(getRandomValues).toHaveBeenCalledOnce();
+  });
+
+  it.each([undefined, {}])('fails explicitly when secure randomness is unavailable: %o', (provider) => {
     vi.stubGlobal('crypto', provider);
     expect(randomUUID).toThrow('@kehto/shell requires crypto.randomUUID or crypto.getRandomValues');
   });

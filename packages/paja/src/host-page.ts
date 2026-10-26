@@ -3,6 +3,11 @@ import {
   PAJA_CONSOLE_PANEL_ID,
   PAJA_CONSOLE_TOGGLE_ID,
 } from './browser-console-panel.js';
+import {
+  PAJA_EVENT_COUNTER_RESET_ID,
+  PAJA_EVENT_COUNTER_RESET_LABEL,
+  PAJA_EVENT_COUNTER_RESET_TITLE,
+} from './browser-relay-panel.js';
 import type { PajaHostConfig } from './options.js';
 import { summarizePajaSimulation } from './simulation.js';
 
@@ -47,15 +52,38 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .spacer { flex: 1; min-width: 0; }
       .console-toggle { align-self: center; flex: 0 0 auto; width: 28px; height: 24px; padding: 0; display: inline-grid; place-items: center; color: var(--text); }
       .console-toggle-glyph { font-size: 15px; line-height: 1; }
+      #paja-gamepads { display: flex; align-items: center; gap: 7px; flex: 0 1 auto; min-width: 0; overflow-x: auto; }
+      #paja-gamepads:empty { display: none; }
+      .gamepad-indicator { display: inline-flex; align-items: center; flex: 0 0 auto; color: var(--pad-color); opacity: .65; padding: 3px 1px; }
+      .gamepad-indicator small { font-size: 10px; font-weight: 700; margin-left: 2px; }
+      .gamepad-indicator[data-activity="active"] { opacity: 1; background: color-mix(in srgb, var(--pad-color) 18%, transparent); border-radius: 5px; }
+      .gamepad-indicator[data-activity="active"] svg { animation: var(--pad-animation) var(--pad-duration) ease-in-out infinite; }
+      @keyframes gamepad-bounce { 50% { transform: translateY(var(--pad-lift)); } }
+      @keyframes gamepad-rock {
+        25% { transform: rotate(var(--pad-turn)); }
+        75% { transform: rotate(calc(-1 * var(--pad-turn))); }
+      }
+      @keyframes gamepad-pulse { 50% { transform: scale(1.18); } }
+      @keyframes gamepad-nudge {
+        25% { transform: translateX(var(--pad-lift)); }
+        75% { transform: translateX(calc(-1 * var(--pad-lift))); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .gamepad-indicator[data-activity="active"] svg { animation: none; }
+      }
       .console-toggle-glyph::before { content: '\\00ab'; }
       html[data-paja-console="collapsed"] .console-toggle-glyph::before { content: '\\00bb'; }
-      /* Collapsing is presentation-only: the console column and its top-bar cell
-         leave the grid and the stage reclaims the full width, so the target
-         iframe keeps its identity, generation, and loaded napplet. */
+      /* Collapsing is presentation-only: the console column, its top-bar cell,
+         and the bottom status bar leave the grid and the stage reclaims the
+         full width, so the target iframe keeps its identity, generation, and
+         loaded napplet. The body track list shrinks with them, because
+         display:none alone would leave the footer's 30px row reserved. */
       html[data-paja-console="collapsed"] .top,
       html[data-paja-console="collapsed"] main { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+      html[data-paja-console="collapsed"] body { grid-template-rows: 38px minmax(0, 1fr); }
       html[data-paja-console="collapsed"] .top-console,
-      html[data-paja-console="collapsed"] .console { display: none; }
+      html[data-paja-console="collapsed"] .console,
+      html[data-paja-console="collapsed"] .bottom { display: none; }
       .tabs { display: flex; align-items: stretch; align-self: flex-end; gap: 4px; min-width: 120px; max-width: min(100%, 760px); overflow-x: auto; scrollbar-width: thin; }
       .tabs:empty { display: none; }
       .tab { min-width: 116px; max-width: 240px; height: 30px; display: grid; grid-template-columns: minmax(0, 1fr) 24px 24px; align-items: center; gap: 2px; border: 1px solid var(--line); border-bottom-color: transparent; background: #151815; color: var(--muted); border-radius: 5px 5px 0 0; padding: 0 2px 0 9px; }
@@ -85,6 +113,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .resource-servers textarea { width: 100%; min-width: 0; padding: 6px; resize: vertical; }
       .resource-servers small, .resource-servers [role="status"] { color: var(--muted); overflow-wrap: anywhere; }
       .switch-grid, .acl-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+      .hint { margin: 0; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
       .toggle { height: 24px; padding: 0 8px; color: var(--muted); }
       .toggle[data-enabled="true"] { color: var(--text); border-color: #5f724f; background: #24301f; }
       .toggle[data-enabled="false"] { color: #8d9187; border-color: #453536; background: #241d1d; }
@@ -104,6 +133,32 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .log-body { min-width: 0; display: grid; gap: 2px; }
       .log-type { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .log-detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #e6a5a5; }
+      .event-list { min-height: 44px; max-height: 34vh; overflow: auto; border: 1px solid var(--line); border-radius: 4px; background: #0b0d0b; padding: 4px 0; }
+      .event-box + .event-box { margin-top: 6px; border-top: 1px solid #1b1f1a; }
+      .event-box-head { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; padding: 5px 8px 3px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; }
+      .event-box-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+      .event-box-count { color: var(--accent); }
+      .event-box-note { color: var(--muted); font-style: italic; text-transform: none; letter-spacing: normal; }
+      .event-relay { padding: 1px 0 2px; }
+      .event-relay-head { display: grid; grid-template-columns: minmax(0, 1fr) 56px 22px auto; align-items: center; gap: 6px; padding: 2px 8px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
+      .event-relay-url { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+      .event-bar { display: block; height: 5px; border-radius: 3px; background: #1b1f1a; overflow: hidden; }
+      .event-bar-fill { display: block; height: 100%; background: var(--accent); }
+      .event-relay[data-relay-count="0"] .event-bar { background: #141714; }
+      .event-relay-count { color: var(--accent); text-align: right; }
+      .event-relay[data-relay-count="0"] .event-relay-count { color: var(--muted); }
+      .event-relay-idle { color: var(--muted); font-size: 10px; font-style: italic; }
+      .event-kinds { padding-left: 16px; }
+      .event-row { display: grid; grid-template-columns: 64px 12px minmax(0, 1fr); align-items: baseline; gap: 6px; padding: 2px 8px 2px 16px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
+      .event-kind { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; color: var(--text); }
+      .event-separator { color: var(--muted); text-align: center; }
+      .event-count { color: var(--accent); text-align: left; }
+      .event-empty { padding: 4px 8px; color: var(--muted); font-style: italic; font-size: 11px; }
+      .section-total { color: var(--muted); font-size: 11px; margin-left: auto; }
+      .section-total:empty { display: none; }
+      .section-reset { flex: 0 0 auto; height: 18px; margin-left: 8px; padding: 0 6px; color: var(--muted); font-size: 10px; text-transform: lowercase; }
+      .section-total:empty + .section-reset { margin-left: auto; }
+      .section-total ~ .section-chevron { margin-left: 8px; }
       .stage { min-width: 0; min-height: 0; position: relative; background: #050705; }
       .empty-stage { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 12px; }
       .empty-stage[hidden] { display: none; }
@@ -181,6 +236,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
           aria-label="${PAJA_CONSOLE_COLLAPSE_LABEL}"
           title="${PAJA_CONSOLE_COLLAPSE_LABEL}"
         ><span class="console-toggle-glyph" aria-hidden="true"></span></button>
+        <div id="paja-gamepads" role="group" aria-label="Connected controllers"></div>
         <div class="tabs" id="napplet-tabs" role="tablist" aria-label="Loaded napplets"></div>
         <div class="spacer"></div>
         <label>theme
@@ -198,10 +254,12 @@ export function renderPajaHtml(config: PajaHostConfig): string {
         <details class="section" id="paja-section-interfaces" data-paja-section="interfaces" open>
           <summary class="section-title">Interfaces<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
           <div class="switch-grid" id="interface-toggles"></div>
+          <p class="hint" id="paja-fs-support" role="status"></p>
         </div></details>
         <details class="section" id="paja-section-acl" data-paja-section="acl" open>
           <summary class="section-title">ACL<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
           <div class="acl-grid" id="acl-controls"></div>
+          <p class="hint">ACL grants allow operations; they do not add missing browser APIs. See Interfaces for FS picker support.</p>
         </div></details>
         <details class="section" id="paja-section-signer" data-paja-section="signer" open>
           <summary class="section-title">Signer<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
@@ -226,6 +284,16 @@ export function renderPajaHtml(config: PajaHostConfig): string {
             <button type="button" id="clear-log">Clear</button>
           </div>
           <div class="log-list" id="message-log" aria-live="polite"></div>
+        </div></details>
+        <details class="section" id="paja-section-events" data-paja-section="events" open>
+          <summary class="section-title">Events<span class="section-total" id="event-kind-total" aria-hidden="true"></span><button
+            type="button"
+            id="${PAJA_EVENT_COUNTER_RESET_ID}"
+            class="section-reset"
+            title="${PAJA_EVENT_COUNTER_RESET_TITLE}"
+            aria-label="${PAJA_EVENT_COUNTER_RESET_TITLE}"
+          >${PAJA_EVENT_COUNTER_RESET_LABEL}</button><span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
+          <div class="event-list" id="event-kind-counts" aria-label="Relay receipts by read reason, relay, and event kind"></div>
         </div></details>
       </aside>
       ${renderStage(config, targetLabel)}

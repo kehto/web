@@ -84,6 +84,30 @@ function makeFakeIframe(): { postMessage: ReturnType<typeof vi.fn> } {
   return { postMessage: vi.fn() };
 }
 
+function makeLocalStorage() {
+  const values = new Map<string, string>();
+  let rejectWrites = false;
+  const storage = {
+    get length() { return values.size; },
+    clear() { values.clear(); },
+    getItem(key: string) { return values.get(key) ?? null; },
+    key(index: number) { return Array.from(values.keys())[index] ?? null; },
+    removeItem(key: string) {
+      if (rejectWrites) throw new Error('localStorage write denied');
+      values.delete(key);
+    },
+    setItem(key: string, value: string) {
+      if (rejectWrites) throw new Error('localStorage write denied');
+      values.set(key, value);
+    },
+  } as Storage;
+
+  return {
+    storage,
+    setRejectWrites(value: boolean) { rejectWrites = value; },
+  };
+}
+
 /** Build a SessionEntry suitable for sessionRegistry.register(). */
 function makeSessionEntry(overrides: Partial<SessionEntry>): SessionEntry {
   return {
@@ -124,6 +148,59 @@ function establishReadySession(
   if (!entry) throw new Error(`shell.ready did not establish ${windowId}`);
   return entry;
 }
+
+describe('ShellBridge ACL persistence failures', () => {
+  const principal = ['', 'acl-persist-test', 'a'.repeat(64)] as const;
+  let local: ReturnType<typeof makeLocalStorage>;
+
+  beforeEach(() => {
+    local = makeLocalStorage();
+    vi.stubGlobal('localStorage', local.storage);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('reports a failed ACL save, preserves the prior durable state, and retries the same live state', () => {
+    const durable = createShellBridge(makeTestHooks());
+    durable.runtime.aclState.grant(...principal, 'relay:read');
+    expect(durable.runtime.aclState.persist()).toBe(true);
+    local.storage.setItem('foreign:settings', 'preserve-me');
+
+    const bridge = createShellBridge(makeTestHooks());
+    bridge.runtime.aclState.revoke(...principal, 'relay:read');
+    local.setRejectWrites(true);
+
+    expect(bridge.runtime.aclState.persist()).toBe(false);
+    expect(bridge.runtime.aclState.check(...principal, 'relay:read')).toBe(false);
+    expect(createShellBridge(makeTestHooks()).runtime.aclState.check(...principal, 'relay:read')).toBe(true);
+
+    local.setRejectWrites(false);
+    expect(bridge.runtime.aclState.persist()).toBe(true);
+    expect(createShellBridge(makeTestHooks()).runtime.aclState.check(...principal, 'relay:read')).toBe(false);
+    expect(local.storage.getItem('foreign:settings')).toBe('preserve-me');
+  });
+
+  it('reports a failed ACL clear, preserves the prior durable state, and clears on retry', () => {
+    const durable = createShellBridge(makeTestHooks());
+    durable.runtime.aclState.block(...principal);
+    expect(durable.runtime.aclState.persist()).toBe(true);
+    local.storage.setItem('foreign:settings', 'preserve-me');
+
+    const bridge = createShellBridge(makeTestHooks());
+    local.setRejectWrites(true);
+
+    expect(bridge.runtime.aclState.clear()).toBe(false);
+    expect(bridge.runtime.aclState.check(...principal, 'relay:read')).toBe(true);
+    expect(createShellBridge(makeTestHooks()).runtime.aclState.check(...principal, 'relay:read')).toBe(false);
+
+    local.setRejectWrites(false);
+    expect(bridge.runtime.aclState.clear()).toBe(true);
+    expect(createShellBridge(makeTestHooks()).runtime.aclState.check(...principal, 'relay:read')).toBe(true);
+    expect(local.storage.getItem('foreign:settings')).toBe('preserve-me');
+  });
+});
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
@@ -1415,6 +1492,7 @@ describe('ShellBridge without crypto.randomUUID (issue #237)', () => {
       expect(sessionId).toMatch(uuid);
       expect(query).toHaveBeenCalledWith(['REQ', expect.stringMatching(uuid), { kinds: [1] }]);
       expect(query.mock.calls[0]?.[0]?.[1]).not.toBe(sessionId);
+      // One UUID each for event injection, source-session registration, and the cache query.
       expect(getRandomValues).toHaveBeenCalledTimes(3);
     } finally {
       bridge.destroy();

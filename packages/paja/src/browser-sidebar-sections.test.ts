@@ -4,12 +4,19 @@ import { installPajaSidebarSections, PAJA_SIDEBAR_SECTIONS_STORAGE_KEY } from '.
 function harness(preference: string | null = null) {
   const interfaces = Object.assign(new EventTarget(), { open: true });
   const messages = Object.assign(new EventTarget(), { open: true });
+  const events = Object.assign(new EventTarget(), { open: true });
   const storage = { getItem: vi.fn(() => preference), setItem: vi.fn() };
   vi.stubGlobal('localStorage', storage);
   vi.stubGlobal('document', {
-    getElementById: (id: string) => id === 'paja-section-interfaces' ? interfaces : id === 'paja-section-messages' ? messages : null,
+    getElementById: (id: string) => id === 'paja-section-interfaces'
+      ? interfaces
+      : id === 'paja-section-messages'
+        ? messages
+        : id === 'paja-section-events'
+          ? events
+          : null,
   });
-  return { interfaces, messages, storage };
+  return { interfaces, messages, events, storage };
 }
 function toggle(section: EventTarget & { open: boolean }) {
   section.open = !section.open;
@@ -19,27 +26,31 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe('Paja sidebar sections', () => {
   it.each([null, '', '{', 'null', '[]', '42', 'true', '"interfaces"', '{"interfaces":"true"}', '{"unknown":true,"__proto__":{"interfaces":true}}'])('defaults expanded for invalid preferences %s', (value) => {
-    const { interfaces, messages, storage } = harness(value);
+    const { interfaces, messages, events, storage } = harness(value);
     installPajaSidebarSections();
     expect(interfaces.open).toBe(true);
     expect(messages.open).toBe(true);
+    expect(events.open).toBe(true);
     expect(storage.setItem).not.toHaveBeenCalled();
   });
   it('restores only own booleans, preserves absent Pointer and ignores initialization events', () => {
-    const { interfaces, messages, storage } = harness('{"interfaces":true,"messages":false,"pointer":true,"acl":"bad","__proto__":true,"constructor":true}');
+    const { interfaces, messages, events, storage } = harness('{"interfaces":true,"messages":false,"pointer":true,"acl":"bad","events":true,"__proto__":true,"constructor":true}');
     const dispose = installPajaSidebarSections();
     expect(interfaces.open).toBe(false);
     expect(messages.open).toBe(true);
     interfaces.dispatchEvent(new Event('toggle'));
     expect(storage.setItem).not.toHaveBeenCalled();
     toggle(messages);
-    expect(storage.setItem).toHaveBeenLastCalledWith(PAJA_SIDEBAR_SECTIONS_STORAGE_KEY, '{"pointer":true,"interfaces":true,"messages":true}');
+    expect(storage.setItem).toHaveBeenLastCalledWith(PAJA_SIDEBAR_SECTIONS_STORAGE_KEY, '{"pointer":true,"interfaces":true,"messages":true,"events":true}');
     toggle(interfaces);
-    expect(JSON.parse(storage.setItem.mock.lastCall![1])).toEqual({ pointer: true, interfaces: false, messages: true });
+    expect(JSON.parse(storage.setItem.mock.lastCall![1])).toEqual({ pointer: true, interfaces: false, messages: true, events: true });
+    toggle(events);
+    expect(JSON.parse(storage.setItem.mock.lastCall![1])).toEqual({ pointer: true, interfaces: false, messages: true, events: false });
     dispose();
     toggle(interfaces);
     toggle(messages);
-    expect(storage.setItem).toHaveBeenCalledTimes(2);
+    toggle(events);
+    expect(storage.setItem).toHaveBeenCalledTimes(3);
   });
   it.each(['getItem', 'setItem'] as const)('keeps native state usable when %s throws', (method) => {
     const { interfaces, storage } = harness();

@@ -16,7 +16,7 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
 | Field | Value |
 |-------|-------|
 | Source | `packages/shell/package.json`, `packages/shell/src/index.ts` |
-| Version | `0.24.1` |
+| Version | `0.24.4` |
 | Runtime entry | `./dist/index.js` |
 | Types entry | `./dist/index.d.ts` |
 | Dependencies | `@kehto/acl`, `@kehto/runtime` |
@@ -62,10 +62,31 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
 - Advertises and injects `dm` or `fs` only when the matching runtime service is registered and host domain policy permits it.
 - Treats `keys.forward` as napplet-to-shell only; shell-initiated key actions are emitted as `keys.action` through the keys proxy/runtime service path.
 - Keeps identity/theme proxy delivery fail-closed. Hosts publish automatic changes only through `ShellBridge.publishIdentityChanged()` / `publishTheme()`, which filter by live session, granted domain, and current ACL.
+- Lets `bridge.runtime.aclState.persist()` and `clear()` report a browser
+  `localStorage` write failure as `false`. The mutation remains live, while a
+  fresh bridge continues to load the previous durable ACL until a retry
+  succeeds. This host adapter behavior changes no NAP wire message or field;
+  unrelated persistence adapters remain best-effort.
 - Must not expose `window.nostr` to napplets.
 - Does not implement service behavior itself; register reference services from `@kehto/services` on the underlying runtime.
 
 ## API Reference
+
+### Source environment lifetime
+
+Retire a window with `bridge.runtime.destroyWindow(windowId)`,
+`bridge.runtime.sessionRegistry.unregister(windowId)`, and
+`originRegistry.unregister(windowId)`. A replacement `originRegistry.register()`
+gets its own environment, even if it reuses the source object and logical window
+ID. Set its snapshot with `originRegistry.setEnvironment()` before dispatch;
+otherwise the bridge resolves current host defaults. Retired cached domains and
+service names cannot carry into the replacement's `shell.init` or domain admission.
+Other domains remain usable before optional readiness, and duplicate readiness
+messages do not replace a live session or send another snapshot.
+
+This host lifecycle policy follows
+[NAP-SHELL at `19de5ce`](https://github.com/napplet/naps/blob/19de5ce1cea40cd4c76089cdd8126e9f87648049/naps/NAP-SHELL.md)
+and changes no wire messages.
 
 For host CSP examples and validation rules, see
 [Host CSP overrides](https://github.com/kehto/web/blob/main/packages/shell/README.md#host-csp-overrides) and the
@@ -124,17 +145,18 @@ remain bounded compatibility adapters and warn once per iframe with
 
 This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja and the playground register one host reader and deny native gamepad/HID/USB paths before frame execution. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, window destruction, and service removal release polling. Non-browser or denied native readers report the proposal's unavailable reasons. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
 
-
 ## UUID support on HTTP origins
 
 Shell event injection, cache queries, and source-session registration use native
 `crypto.randomUUID()` when available. On browsers that omit it (including
 non-localhost plain HTTP origins), the shell generates UUID v4 identifiers from
 16 `crypto.getRandomValues()` bytes. If both methods are unavailable, UUID
-creation throws an explicit capability error. It never falls back to weak
-randomness. This does not provide other secure-context browser APIs on HTTP.
+creation throws an explicit capability error. This internal host UUID helper
+never falls back to weak randomness; other identifier generators are outside
+its scope. It does not provide secure-context APIs such as `crypto.subtle` on
+HTTP, so this change does not establish HTTP support for uploads or other domains.
 
 This is a supported platform capability choice, not a deprecated caller API.
 Both standard Web Crypto paths remain quiet. Source-bound identity and optional
 shell readiness are unchanged (NAP-SHELL at `napplet/naps`
-`19de5ce1cea40cd4c76089cdd8126e9f87648049`).
+`1e1046bcadabbc552804f6d3354f565184f9fefb`).

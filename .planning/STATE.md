@@ -19,6 +19,22 @@ progress:
 
 # Project State
 
+2026-10-20: Resolved Paja tab Share in GSD debug on `fix/paja-share-button`.
+Every verified tab now has a visible app-link dialog, copy confirmation and manual
+fallback. The host overlay prevents native-dialog input from leaking into opaque
+iframes and restores background inertness/focus on close. Build/types, docs,
+2,270 units, all 148 Chromium tests, 55 repeated sharing cases and 11 Firefox cases
+pass. Changed-source quality 100/100; unchanged full baseline 95/100. See
+`debug/resolved/paja-share-button.md` and `debug/resolved/paja-share-dialog-click.md`.
+
+2026-10-20: Resolved Paja's disappearing chrome in GSD debug on
+`fix/paja-chrome-visibility`. A saved collapsed-console preference moved the
+toolbar and expand button offscreen after startup. Restored an always-visible
+toolbar while retaining collapse preference and live frame state. Build/types,
+docs, 2,250 units, 136 Chromium tests, Firefox reload/recovery, static Pages build,
+changesets and diff checks pass. Changed-source quality 100/100; unchanged full
+baseline 95/100. See `debug/resolved/paja-chrome-visibility.md`.
+
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-07-28)
@@ -32,7 +48,7 @@ Phase: 107 (Paja Intent Deep Links) — COMPLETE
 Plan: 4 of 4
 Status: Shipped as open PR #289 — https://github.com/kehto/web/pull/289. No merge or release performed.
 
-Last activity: 2026-10-10 — Opened PR #289 and pushed verification/security closeout.
+Last activity: 2026-10-20 — Resolved all-kind NIP-5D loading: root coordinates and distinct snapshot tabs; 2,270 unit and 142 browser tests passed.
 
 ## Performance Metrics
 
@@ -147,6 +163,8 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
+| 261017-wx0 | Use active napplet name as browser page title | 2026-10-17 | bcc0ea60 | passed | [261017-wx0](./quick/261017-wx0-use-the-active-napplet-name-as-the-paja-/) |
+| 261017-vlq | Colored animated Paja controller indicators | 2026-10-17 | 9e8c5a74 | passed | [261017-vlq](./quick/261017-vlq-show-colored-animated-controller-indicat/) |
 | 261013-e5s | Allow experimental domain declarations in Paja with optional fallback and required-domain warnings | 2026-10-13 | 2623b79a | passed | [261013-e5s](./quick/261013-e5s-allow-unknown-optional-capability-domain/) |
 | 261008-dhm | Permit opaque hash-verified Blossom resources in Paja (#279) | 2026-10-08 | 49bb1281 | passed | [261008-dhm-fix-issue-279-permit-opaque-hash-verifie](./quick/261008-dhm-fix-issue-279-permit-opaque-hash-verifie/) |
 | 260616-8iv | Move playground theme-switcher functionality from napplet into host theme-service node | 2026-06-16 | f4358b4 |  | [260616-8iv-move-playground-theme-switcher-functiona](./quick/260616-8iv-move-playground-theme-switcher-functiona/) |
@@ -377,3 +395,15 @@ are verified by 2,156 unit tests, all 123 browser tests, a built-package adaptat
 of the issue reproduction, build/type/docs checks, and quality score 100/100.
 Conformance authority and host-extension limits are recorded in
 [the resolved debug session](./debug/resolved/registered-service-routing.md).
+
+## Issue audit: #304
+
+Relay ACL revocation now retires ordinary adapter/service subscriptions and queued
+callbacks. See `debug/resolved/relay-acl-revocation.md` and `INBOX-TRIAGE.md`.
+Build/type/docs/quality and 2,164 unit / 123 browser tests pass.
+
+### Debug Sessions Completed
+
+| Session | Date | Commit | Result |
+|---------|------|--------|--------|
+| [NIP-5D all event kinds](./debug/resolved/nip5d-all-event-kinds.md) | 2026-10-20 | f30cfa80 | Root 15129, named 35129 and snapshot 5129 loading verified across core and hosts |

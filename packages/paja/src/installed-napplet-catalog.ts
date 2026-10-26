@@ -44,8 +44,8 @@ export function matchesInstalledNappletRecord(
   return target.id === record.id && target.aggregateHash === record.aggregateHash;
 }
 
-/** Listener notified when an installed artifact is inserted or removed. */
-export type InstalledNappletCatalogListener = (id: string) => void;
+/** Listener receiving the catalog ID and deduplicated previous/current archetype slugs. */
+export type InstalledNappletCatalogListener = (id: string, archetypes: readonly string[]) => void;
 
 /**
  * Stores verified Paja installations separately from the browser runtime.
@@ -77,15 +77,17 @@ export class InstalledNappletCatalog {
         params: [...archetype.params],
       })),
     });
+    const previous = this.records.get(record.id);
     this.records.set(record.id, record);
-    this.notify(record.id);
+    this.notify(record.id, previous, record);
     return record;
   }
 
   /** Remove an artifact explicitly; frame teardown never calls this method. */
   remove(id: string): boolean {
+    const previous = this.records.get(id);
     const removed = this.records.delete(id);
-    if (removed) this.notify(id);
+    if (removed) this.notify(id, previous);
     return removed;
   }
 
@@ -145,8 +147,12 @@ export class InstalledNappletCatalog {
     return () => this.listeners.delete(listener);
   }
 
-  private notify(id: string): void {
-    for (const listener of this.listeners) listener(id);
+  private notify(id: string, previous?: InstalledNappletRecord, current?: InstalledNappletRecord): void {
+    const archetypes = Object.freeze([...new Set([
+      ...(previous?.archetypes ?? []).map(({ slug }) => slug),
+      ...(current?.archetypes ?? []).map(({ slug }) => slug),
+    ])]);
+    for (const listener of this.listeners) listener(id, archetypes);
   }
 }
 

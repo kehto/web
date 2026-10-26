@@ -9,7 +9,7 @@ import type { Capability } from '@kehto/acl/capabilities';
 import type { AclState, Identity } from '@kehto/acl';
 import {
   createState, check, grant, revoke, block, unblock,
-  serialize, deserialize, getQuota,
+  serialize, deserialize, getQuota, setQuota,
   CAP_RELAY_READ, CAP_RELAY_WRITE, CAP_CACHE_READ, CAP_CACHE_WRITE,
   CAP_HOTKEY_FORWARD,
   CAP_STATE_READ, CAP_STATE_WRITE,
@@ -93,7 +93,7 @@ export type AclMutation =
   | { readonly type: 'revoke'; readonly dTag: string; readonly aggregateHash: string; readonly capability: Capability }
   | { readonly type: 'block'; readonly dTag: string; readonly aggregateHash: string };
 
-/** Receives synchronous ACL authority changes after persistence succeeds. */
+/** Receives synchronous in-memory revoke/block changes, before any explicit persistence. */
 export type AclMutationObserver = (mutation: AclMutation) => void;
 
 /**
@@ -117,9 +117,41 @@ export interface AclStateContainer {
   getEntry(pubkey: string, dTag: string, aggregateHash: string): AclEntryExternal | undefined;
   getAllEntries(): AclEntryExternal[];
   getStateQuota(pubkey: string, dTag: string, aggregateHash: string): number;
-  persist(): void;
+  /**
+   * Set a principal's live storage quota without changing grants or stored data.
+   * Call persist() separately to save the policy.
+   * @param pubkey - Retained identity argument; policy is keyed by dTag and hash.
+   * @param dTag - Verified napplet identifier.
+   * @param aggregateHash - Verified artifact hash.
+   * @param bytes - Integer byte count from zero through Number.MAX_SAFE_INTEGER.
+   * @throws RangeError if bytes is not a non-negative safe integer.
+   * @example
+   * ```ts
+   * acl.setStateQuota('', dTag, aggregateHash, 1024 * 1024);
+   * acl.persist();
+   * ```
+   */
+  setStateQuota(pubkey: string, dTag: string, aggregateHash: string, bytes: number): void;
+
+  /**
+   * Save live state without rolling back live policy on failure.
+   * @returns True if the backend completed; false if it threw.
+   * @example
+   * ```ts
+   * if (!acl.persist()) showSaveError();
+   * ```
+   */
+  persist(): boolean;
   load(): void;
-  clear(): void;
+  /**
+   * Reset live state to the configured default and attempt to clear storage.
+   * @returns True if storage cleared; false if only the live reset succeeded.
+   * @example
+   * ```ts
+   * if (!acl.clear()) showSaveError();
+   * ```
+   */
+  clear(): boolean;
 }
 
 /**
@@ -196,6 +228,8 @@ export function createAclState(
       if (!entry) return undefined;
       return {
         pubkey: pubkey || '',
+        dTag,
+        aggregateHash,
         capabilities: bitsToCapabilities(entry.caps),
         blocked: entry.blocked,
         stateQuota: entry.quota,
@@ -203,9 +237,12 @@ export function createAclState(
     },
 
     getAllEntries(): AclEntryExternal[] {
-      return Object.entries(state.entries).map(([, entry]) => {
+      return Object.entries(state.entries).map(([key, entry]) => {
+        const separator = key.lastIndexOf(':');
         return {
           pubkey: '',
+          dTag: key.slice(0, separator),
+          aggregateHash: key.slice(separator + 1),
           capabilities: bitsToCapabilities(entry.caps),
           blocked: entry.blocked,
           stateQuota: entry.quota,
@@ -218,10 +255,22 @@ export function createAclState(
       return getQuota(state, id);
     },
 
-    persist(): void {
+    setStateQuota(pubkey: string, dTag: string, aggregateHash: string, bytes: number): void {
+      if (!Number.isSafeInteger(bytes) || bytes < 0) {
+        throw new RangeError('State quota must be a non-negative safe integer byte count');
+      }
+      const id = toIdentity(pubkey, dTag, aggregateHash);
+      ensureRuntimeDefaultEntry(id);
+      state = setQuota(state, id, bytes);
+    },
+
+    persist(): boolean {
       try {
         persistence.persist(serialize(state));
-      } catch { /* persistence is best-effort */ }
+        return true;
+      } catch {
+        return false;
+      }
     },
 
     load(): void {
@@ -234,9 +283,14 @@ export function createAclState(
       }
     },
 
-    clear(): void {
+    clear(): boolean {
       state = createState(defaultPolicy);
-      try { persistence.persist(''); } catch { /* best-effort */ }
+      try {
+        persistence.persist('');
+        return true;
+      } catch {
+        return false;
+      }
     },
   };
 }

@@ -3,6 +3,8 @@
 Paja runs one local napplet app inside the real Kehto browser runtime while your
 app dev server keeps its own HMR loop.
 
+The browser page title follows the active napplet tab name, including when switching or closing tabs. With no active napplet, the title is `@kehto/paja`.
+
 ## 1. Install the CLI
 
 ```bash
@@ -81,6 +83,24 @@ payload text. The log includes target traffic plus Paja system events for
 interface toggles, ACL changes, signer changes, and signer/publish
 confirmations. Error envelopes show their error text directly in the row.
 
+**Events** sits below it and groups relay receipts by the routing box that chose
+the relays — **outbox relays (NIP-65)**, **relay hints**, **fallback relays**,
+**scoped relay**, and **host pool** — then lists each relay with a bar scaled
+against the busiest relay of the session, a receipt count, and its `kind - count`
+rows. Boxes always render in that routing order rather than by size, so they do
+not reshuffle while you watch. A box is a routing decision, not a relay set: one
+relay read for two different reasons appears in both boxes with its two counts
+kept apart, and every receipt belongs to exactly one box, so box counts add up to
+the header total. Configured fallback relays
+are listed from boot, so a relay that has served nothing yet still shows up as
+`unused`, and one that answered a read with nothing shows as `silent`. When no
+read in the session was routed by an author's NIP-65 list — common for apps that
+query by kind rather than by author — the NIP-65 box says
+`no author-routed reads` instead of showing a zero. The header
+total counts receipts, not distinct events; hover it to see how many unique
+events they came from. The `reset` button beside that total clears every counter
+without reloading the host page.
+
 ## Intent Delivery in a Local Host
 
 Paja's installed intent catalog contains resolver-verified manifest contracts;
@@ -135,3 +155,11 @@ pubkey remains read-only unless the connected signer proves the same pubkey.
 
 - [Use Paja for local napplet authoring](./paja-local-authoring.md)
 - [@kehto/paja package reference](/packages/paja)
+
+## NIP-5D runtime pointers
+
+Paja MUST load all three NIP-5D manifest kinds: root `15129`, named `35129`, and snapshot `5129`. Use an `naddr` with an empty identifier for the latest root, an `naddr` with the literal `d` identifier for the latest named napplet, or a `nevent` to pin a signed event of any of the three kinds. Snapshots require `nevent` because they are immutable events without replaceable coordinates. All paths verify the signed manifest and artifact hash before injecting `srcdoc`. Distinct snapshots retain separate tabs and catalog identities even when their artifact bytes match.
+
+## Controller diagnostics
+
+Paja shows a numbered controller icon directly beside the console arrow for each controller the browser detects. Each slot has its own color and input animation; hover for the controller model and activity state. Buttons and stick movement light up only that controller (stick movement below 0.12 is ignored). Quick taps retain the highlight briefly so they are easy to spot. Reduced-motion settings keep the activity highlight without animation. Disconnecting removes the icon. Browsers may require a button press before exposing a newly connected controller. These host diagnostics work without a napplet gamepad subscription and do not change focus-scoped input delivery.

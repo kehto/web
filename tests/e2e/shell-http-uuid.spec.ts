@@ -26,7 +26,8 @@ for (const protocol of ['http', 'https']) {
         getRandomValues: typeof crypto.getRandomValues,
       };
     });
-    expect(capabilities).toEqual({
+    // Non-localhost HTTP must exercise the getRandomValues fallback in real Chromium.
+    expect(capabilities, 'Browser crypto capabilities changed; verify which UUID path this origin exercises').toEqual({
       secure: protocol === 'https',
       randomUUID: protocol === 'https' ? 'function' : 'undefined',
       getRandomValues: 'function',

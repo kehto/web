@@ -199,7 +199,7 @@ function createCryptoAdapter(shellHooks: ShellAdapter): CryptoAdapter {
 function createAclPersistence(): AclPersistence {
   return {
     persist(data: string): void {
-      try { localStorage.setItem('napplet:acl', data); } catch { /* best-effort */ }
+      localStorage.setItem('napplet:acl', data);
     },
     load(): string | null {
       try { return localStorage.getItem('napplet:acl'); } catch { return null; }
