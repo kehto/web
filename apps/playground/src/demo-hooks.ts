@@ -221,7 +221,13 @@ function createDemoKeysService(): ServiceHandler {
   });
 }
 
-async function hostFetch(
+/**
+ * Fetch a playground resource within the caller, network-grant, and host deadline lifetimes.
+ * @param url - Resource URL whose destination must be approved before fetch.
+ * @param init - Request metadata, caller cancellation, and runtime network authorizer.
+ * @returns The approved response, rejecting aborts and redirects.
+ */
+export async function hostFetch(
   url: string,
   init: {
     method?: string;
@@ -235,6 +241,7 @@ async function hostFetch(
   const composite = new AbortController();
   for (const src of [init.signal, timeoutController.signal]) {
     src.addEventListener('abort', () => composite.abort(), { once: true });
+    if (src.aborted) composite.abort();
   }
   try {
     const destination = new URL(url);
@@ -247,6 +254,7 @@ async function hostFetch(
       const abortRequest = () => requestController.abort();
       composite.signal.addEventListener('abort', abortRequest, { once: true });
       networkSignal.addEventListener('abort', abortRequest, { once: true });
+      if (composite.signal.aborted || networkSignal.aborted) abortRequest();
       try {
         const response = await fetch(url, {
           method: init.method,

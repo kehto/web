@@ -33,7 +33,9 @@ const REMOTE_DIRECTIVES = new Set<BrowserRemoteSource['directive']>([
 ]);
 
 /**
- * Classify every allowed remote source as exact, directive-specific authority.
+ * Classify every allowed remote source as directive-specific browser authority.
+ * Origins are canonical CSP source expressions, including browser scheme-upgrade
+ * matching; they do not promise literal origin equality.
  *
  * @param sources - Proposed remote origins from trusted host configuration.
  * @returns Canonical network requirements and source entries in stable order.
@@ -68,8 +70,15 @@ export function classifyBrowserRemoteSources(sources: readonly BrowserRemoteSour
 /**
  * Build the closed browser policy used after shared runtime admission.
  * The legacy host CSP overrides remain a separate compatibility surface.
+ * Browser source matching follows CSP rather than literal origin equality:
+ * HTTP sources can also authorize HTTPS, including the default-port upgrade
+ * from 80 to 443. CSP3 permits broader scheme matching than some browsers:
+ * Chromium blocks HTTP-to-HTTPS upgrades on the same non-default explicit port.
+ * Approval UIs must disclose browser scheme upgrades rather than promise exact
+ * origin equality. Mediated network grants remain exact origins.
+ * See https://www.w3.org/TR/CSP3/#match-url-to-source-expression.
  *
- * @param options - Mode and exact sources approved through launch admission.
+ * @param options - Mode and CSP sources approved through launch admission.
  * @returns A default-deny CSP with no unclassified remote authority.
  * @example buildApprovedNappletCsp({ mode: 'isolated', remoteSources: [] });
  */

@@ -62,6 +62,12 @@ export async function startPajaServer(input: PajaServerOptions): Promise<PajaSer
 
   const handleRequest = async (request: HttpRequest, response: HttpResponse): Promise<void> => {
     const requestUrl = request.url ?? '/';
+    if ((requestUrl === '/' || requestUrl.startsWith('/?') || requestUrl === '/__kehto/target.html')
+      && request.headers.host !== new URL(expectedOrigin).host) {
+      response.writeHead(307, { location: `${expectedOrigin}${requestUrl}`, 'cache-control': 'no-store' });
+      response.end();
+      return;
+    }
     if (requestUrl === '/' || requestUrl.startsWith('/?')) {
       response.writeHead(200, {
         'content-type': 'text/html; charset=utf-8',

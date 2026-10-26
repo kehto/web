@@ -98,6 +98,8 @@ describe('common browser approval UI', () => {
     expect(dialog.textContent).toContain(principal.artifactHash);
     expect(dialog.textContent).toContain('network.connect-src origin:https://api.example.test');
     expect(dialog.textContent).toContain('outside parent mediation and rate limits');
+    expect(dialog.textContent).toContain('HTTP to HTTPS');
+    expect(dialog.textContent).toContain('default ports may upgrade');
     expect(dialog.getAttribute('aria-labelledby')).toBe('kehto-approval-title');
     const [deny, cancel, allow] = dialog.all('button');
     expect(f.document.activeElement).toBe(deny);
@@ -111,6 +113,18 @@ describe('common browser approval UI', () => {
     expect(await answer).toEqual({ effect: 'allow', lifetime: 'session' });
     expect(dialog.open).toBe(false);
     expect(cancel).toBeDefined();
+    f.ui.destroy();
+  });
+
+  it('does not apply browser scheme upgrades to mediated network approval', async () => {
+    const f = setup();
+    const request = f.prompt(new AbortController().signal);
+    const answer = f.ui.prompt({ ...request, missing: [{ ...requirement, operation: 'fetch' }] });
+    const dialog = f.mount.find('dialog')!;
+    expect(dialog.textContent).toContain('The parent mediates and limits this operation.');
+    expect(dialog.textContent).not.toContain('HTTP to HTTPS');
+    dialog.all('button')[0].click();
+    await answer;
     f.ui.destroy();
   });
 

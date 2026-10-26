@@ -59,7 +59,9 @@ export function createBrowserApprovalPrompt(
     requirements.replaceChildren(...request.missing.map((item) => element(document, 'li',
       `${item.category} ${item.operation} ${item.scope.kind}:${item.scope.value}`)));
     mediation.textContent = request.missing.some((item) => item.category === 'network' && item.operation.startsWith('network.'))
-      ? 'Direct browser traffic to these origins is outside parent mediation and rate limits.'
+      ? 'Direct browser traffic to these origins is outside parent mediation and rate limits. '
+        + 'Browser rules may also allow HTTP to HTTPS upgrades and WebSocket origins to match HTTP(S); '
+        + 'hosts and port restrictions still apply, but default ports may upgrade with the scheme.'
       : 'The parent mediates and limits this operation.';
     lifetime.replaceChildren(element(document, 'option', 'Choose a lifetime'));
     lifetime.options[0].value = '';
