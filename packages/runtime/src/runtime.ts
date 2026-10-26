@@ -251,8 +251,31 @@ function createMessageHandler(
     // Storage and INC are runtime-owned; CONFIG's service has no operation
     // authorizer. Charge their shared temporal budget here. Coordinated services
     // charge at their validated execution boundary, never twice at dispatch.
-    if (permissions && (domain === 'storage' || domain === 'inc' || domain === 'config')
-      && permissions.charge(windowId, envelope.type)) return;
+    const cleanup = envelope.type === 'inc.unsubscribe' || envelope.type === 'inc.channel.close' || envelope.type === 'config.unsubscribe';
+    if (permissions && !cleanup && (domain === 'storage' || domain === 'inc' || domain === 'config')) {
+      // NAP-INC 19de5ce1 requires actual channel lists; NAP-CONFIG bed9cb5b
+      // requires snapshots/schema ACKs but defines no budget-denial wire.
+      // Observe those reads/registrations until the specs define one;
+      // do not invent errors or replace a mandatory snapshot with empty data.
+      const observe = envelope.type === 'inc.channel.list' || envelope.type === 'config.get'
+        || envelope.type === 'config.subscribe' || envelope.type === 'config.registerSchema';
+      const source = sessionRegistry.getEntryByWindowId(windowId);
+      const failure = permissions.charge(windowId, envelope.type, observe ? 'observe' : 'enforce');
+      // A host diagnostic may synchronously retire or replace the source.
+      if (sessionRegistry.getEntryByWindowId(windowId) !== source || !permissions.isSourceActive(windowId)) return;
+      if (failure) {
+        // NAP-STORAGE 4f4cf0ca and NAP-INC 19de5ce1 permit correlated
+        // error results for exactly these requests. Fire-and-forget stays silent.
+        if (envelope.type === 'storage.get' || envelope.type === 'storage.set'
+          || envelope.type === 'storage.remove' || envelope.type === 'storage.keys'
+          || envelope.type === 'inc.subscribe' || envelope.type === 'inc.channel.open') {
+          const error = failure === 'busy' ? 'rate limit exceeded' : 'permission budget unavailable';
+          const denial = createDenialResponse(envelope, error);
+          if (denial) hooks.sendToNapplet(windowId, denial);
+        }
+        return;
+      }
+    }
 
     // The legacy Firewall gate remains only for hosts without the coordinator;
     // it cannot become a second approver for configured hosts.

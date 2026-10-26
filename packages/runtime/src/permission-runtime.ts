@@ -120,13 +120,18 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
     return rate.allowed;
   }
 
-  function charge(windowId: string, operation: string): 'busy' | 'unavailable' | undefined {
+  function charge(windowId: string, operation: string, mode: 'enforce' | 'observe' = 'enforce'): 'busy' | 'unavailable' | undefined {
     const lifetime = lifetimes.get(windowId);
     if (disposed || !store.available || !lifetime || retiredSources.has(lifetime.entry)
       || context.getSession(windowId) !== lifetime.entry) return 'unavailable';
     try {
       const now = adapter.now();
-      const rate = evaluateRateLimit(adapter.rateLimit ?? defaultRateLimitConfig(), rates, {
+      const configured = adapter.rateLimit ?? defaultRateLimitConfig();
+      const config = mode === 'observe' ? { ...configured,
+        action: configured.action === 'block' ? 'flag' as const : configured.action,
+        burst: { ...configured.burst, action: configured.burst.action === 'block' ? 'flag' as const : configured.burst.action },
+      } : configured;
+      const rate = evaluateRateLimit(config, rates, {
         subject: lifetime.subject, operation, lifecycle: lifetime.id,
         elapsedSinceStartMs: Math.max(0, now - lifetime.started), focused: context.focused(windowId), now,
       });
