@@ -7,10 +7,11 @@
 
 import type { LinkOpenErrorCode, LinkOpenOptions, LinkOpenResult, NappletMessage } from '@napplet/core';
 import type { LinkOpenMessage, LinkOpenResultMessage } from '@napplet/nap/link/types';
-import type { ServiceDescriptor, ServiceHandler } from '@kehto/runtime';
+import type { ApprovalSignal, ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
 
 const LINK_SERVICE_VERSION = '1.0.0';
 const DEFAULT_ALLOWED_PROTOCOLS = ['http:', 'https:'] as const;
+const FORBIDDEN_PROTOCOLS = new Set(['javascript:', 'data:', 'blob:', 'file:', 'about:', 'filesystem:']);
 
 /**
  * Host context passed to {@link LinkServiceOptions.open}.
@@ -22,6 +23,8 @@ export interface LinkOpenContext {
   url: URL;
   /** Optional untrusted napplet display hints. */
   options?: LinkOpenOptions;
+  /** Observe before any side effect after awaiting host work. */
+  signal?: ApprovalSignal;
 }
 
 /**
@@ -53,7 +56,7 @@ function parseLinkUrl(id: string, rawUrl: string): URL | LinkOpenResultMessage {
 }
 
 function isProtocolAllowed(url: URL, allowedProtocols: readonly string[]): boolean {
-  return allowedProtocols.includes(url.protocol);
+  return !FORBIDDEN_PROTOCOLS.has(url.protocol) && allowedProtocols.includes(url.protocol);
 }
 
 async function handleOpen(
@@ -61,6 +64,9 @@ async function handleOpen(
   windowId: string,
   message: LinkOpenMessage,
   send: (msg: NappletMessage) => void,
+  runtime: ServiceRuntimeContext | undefined,
+  current: () => boolean,
+  warnLegacy: () => void,
 ): Promise<void> {
   const parsed = parseLinkUrl(message.id, message.url);
   if ('type' in parsed) {
@@ -80,7 +86,22 @@ async function handleOpen(
   }
 
   try {
-    const result = await options.open({ windowId, url: parsed, options: message.options });
+    const href = parsed.href;
+    const open = (signal?: ApprovalSignal) => {
+      if (!current() || signal?.aborted) return { status: 'denied' as const };
+      return options.open!({ windowId, url: new URL(href), options: message.options, ...(signal ? { signal } : {}) });
+    };
+    let result: LinkOpenResult;
+    if (runtime?.authorizeOperation) {
+      const approval = await runtime.authorizeOperation(windowId, 'link.open', [{
+        category: 'resource', domain: 'link', operation: 'link.open', scope: { kind: 'exact', value: href },
+      }], open);
+      if (approval.status === 'cancelled' && !current()) return;
+      result = approval.status === 'executed' ? approval.value : { status: 'denied' };
+    } else {
+      warnLegacy();
+      result = await open();
+    }
     send({
       type: 'link.open.result',
       id: message.id,
@@ -106,6 +127,14 @@ async function handleOpen(
  * ```
  */
 export function createLinkService(options: LinkServiceOptions = {}): ServiceHandler {
+  let runtime: ServiceRuntimeContext | undefined;
+  let warnedLegacy = false;
+  const windows = new Map<string, Set<string>>();
+  const warnLegacy = () => {
+    if (warnedLegacy) return;
+    warnedLegacy = true;
+    console.warn('[FW-LINK-LEGACY-001] Configure RuntimeAdapter.permissions and verified session permissionPrincipal; host-only LINK approval is deprecated. Warning once per service instance.');
+  };
   const descriptor: ServiceDescriptor = {
     name: 'link',
     version: LINK_SERVICE_VERSION,
@@ -114,21 +143,30 @@ export function createLinkService(options: LinkServiceOptions = {}): ServiceHand
 
   return {
     descriptor,
+    onRegistered(context) { windows.clear(); runtime = context; },
+    onUnregistered() { windows.clear(); runtime = undefined; },
+    // Runtime aborts active approval signals. Keep live source/replay history so
+    // held operations can return their canonical denial without being reopened.
+    onPermissionRevoked() {},
     handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void {
       if (message.type === 'link.open') {
-        void handleOpen(options, windowId, message as LinkOpenMessage, send);
+        const input = message as LinkOpenMessage;
+        if (typeof input.id !== 'string' || input.id.length === 0 || input.id.length > 256) return;
+        if (typeof input.url !== 'string') { send(denied(input.id, 'invalid-url')); return; }
+        let ids = windows.get(windowId);
+        if (!ids) { ids = new Set(); windows.set(windowId, ids); }
+        if (ids.has(input.id)) return;
+        if (ids.size >= 4096) { send(denied(input.id, 'blocked-by-policy')); return; }
+        ids.add(input.id);
+        const generation = ids;
+        const current = () => windows.get(windowId) === generation;
+        const captured = Object.freeze({ type: 'link.open' as const, id: input.id, url: input.url,
+          ...(typeof input.options?.label === 'string' ? { options: Object.freeze({ label: input.options.label }) } : {}),
+        });
+        void handleOpen(options, windowId, captured, (response) => { if (current()) send(response); }, runtime, current, warnLegacy);
         return;
       }
-
-      const id = (message as NappletMessage & { id?: string }).id ?? '';
-      send({
-        type: `${message.type}.error`,
-        id,
-        error: `Unknown link method: ${message.type}`,
-      } as NappletMessage);
     },
-    onWindowDestroyed(_windowId: string): void {
-      /* no per-window state */
-    },
+    onWindowDestroyed(windowId: string): void { windows.delete(windowId); },
   };
 }

@@ -9,10 +9,10 @@
 
 declare function setTimeout(cb: () => void, ms?: number): unknown;
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createIdentityService } from './identity-service.js';
 import type { NappletMessage } from '@napplet/core';
-import type { Signer } from '@kehto/runtime';
+import type { ServiceRuntimeContext, Signer } from '@kehto/runtime';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -46,6 +46,28 @@ function nextTick(ms = 10): Promise<void> {
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('createIdentityService', () => {
+  it('authorizes account identity reads and suppresses delivery after revocation', async () => {
+    let resolve!: (value: string) => void;
+    const signer = { getPublicKey: () => new Promise<string>((done) => { resolve = done; }) } as Signer;
+    const service = createIdentityService({ getSigner: () => signer });
+    const authorizeOperation = vi.fn(async (_windowId, _operation, _requirements, execute) => ({
+      status: 'executed' as const,
+      value: await execute({ aborted: false, addEventListener() {}, removeEventListener() {} }),
+    }));
+    service.onRegistered?.({ authorizeOperation } as unknown as ServiceRuntimeContext);
+    const sent: NappletMessage[] = [];
+    service.handleMessage(WINDOW_ID, makeIdentityMessage('identity.getPublicKey'), (message) => sent.push(message));
+    await nextTick();
+    service.onPermissionRevoked?.(WINDOW_ID);
+    resolve(MOCK_SIGNER_PUBKEY);
+    await nextTick();
+
+    expect(authorizeOperation).toHaveBeenCalledWith(WINDOW_ID, 'identity.getPublicKey', expect.arrayContaining([
+      expect.objectContaining({ category: 'interface', domain: 'identity', operation: 'access' }),
+      expect.objectContaining({ category: 'resource', domain: 'identity', operation: 'identity.getPublicKey' }),
+    ]), expect.any(Function));
+    expect(sent).toEqual([]);
+  });
   it('returns ServiceHandler with descriptor.name === "identity"', () => {
     const service = createIdentityService({ getSigner: () => null });
     expect(service.descriptor.name).toBe('identity');

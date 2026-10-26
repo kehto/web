@@ -4,8 +4,8 @@
  * Test plan:
  *   a. createResourceService({}) throws when the runtime resolver is missing
  *   b. createResourceService({ fetch }) succeeds without a Kehto-selected policy
- *   c. Optional origin policy hooks remain available to runtime implementers
- *   d. resource.bytes for an origin rejected by optional runtime policy never calls fetch
+ *   c. Resource requests use the runtime resolver without wire-level server hints
+ *   d. Resource URLs are preserved for the runtime approval boundary
  *   e. resource.bytes delegates to the runtime resolver and emits current result fields
  *   f. resource.cancel aborts and drops the late terminal envelope
  *   g. Invalid URL → bytes.error error='invalid-request'
@@ -16,7 +16,7 @@
  *   l. resource.bytes emits current NAP-RESOURCE id/blob/mime fields
  *   m. resource.bytesMany preserves order and returns per-URL success/error items
  *   n. resource.bytesMany with empty requests emits a top-level bytesMany.error
- *   o. Blossom server hints reach the resolver for single and bulk requests
+ *   o. Canonical requests do not carry retired server hints
  */
 
 import { describe, it, expect, vi } from 'vitest';
@@ -27,14 +27,11 @@ import type { ResourceServiceOptions } from './resource-service.js';
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const WINDOW_ID = 'win-test-1';
-const DTAG = 'my-napplet';
-const HASH = 'a'.repeat(64);
 const GRANTED_ORIGIN = 'http://localhost:5174';
-const DENIED_ORIGIN = 'https://untrusted.example';
 
 /** Build minimal valid options with injectable mocks. */
 function makeOpts(overrides: Partial<ResourceServiceOptions> = {}): ResourceServiceOptions {
-  const mockFetch = vi.fn(async (_url: string, _init: { method?: string; headers?: Record<string, string>; signal: AbortSignal; servers?: readonly string[] }): Promise<Response> => {
+  const mockFetch = vi.fn(async (_url: string, _init: { method?: string; headers?: Record<string, string>; signal: AbortSignal }): Promise<Response> => {
     const body = JSON.stringify({ ok: true });
     return new Response(body, { status: 200, headers: { 'content-type': 'application/json' } });
   });
@@ -49,19 +46,6 @@ function makeOpts(overrides: Partial<ResourceServiceOptions> = {}): ResourceServ
     },
     ...overrides,
   } as ResourceServiceOptions;
-}
-
-function originPolicy(): Pick<
-  ResourceServiceOptions,
-  'resolveIdentity' | 'getConnectGrants' | 'isOriginGranted'
-> {
-  return {
-    resolveIdentity: vi.fn((_windowId: string) => ({ dTag: DTAG, aggregateHash: HASH })),
-    getConnectGrants: vi.fn((_dTag: string, _hash: string): readonly string[] => [GRANTED_ORIGIN]),
-    isOriginGranted: vi.fn((origin: string, grants: readonly string[]): boolean =>
-      grants.includes(origin)
-    ),
-  };
 }
 
 /** Collect sent envelopes synchronously (for async tests, await flushPromises first). */
@@ -91,18 +75,9 @@ describe('createResourceService', () => {
     expect(() => createResourceService({ fetch: fetchMock })).not.toThrow();
   });
 
-  it('(b) rejects a partially configured optional origin policy', () => {
-    const fetchMock = vi.fn(async () => new Response('ok'));
-    expect(() => createResourceService({
-      fetch: fetchMock,
-      isOriginGranted: () => true,
-    })).toThrow(/isOriginGranted, getConnectGrants, resolveIdentity/);
-  });
-
-  // ─── (c) optional runtime policy succeeds ──────────────────────────────────
-  it('(c) accepts optional runtime-owned origin policy; descriptor.name === resource', () => {
+  // ─── (c) descriptor contract ───────────────────────────────────────────────
+  it('(c) exposes the resource service descriptor', () => {
     const opts = makeOpts({
-      ...originPolicy(),
       resourceInfo: { schemes: [{ scheme: 'http', enabled: true }] },
     });
     const svc = createResourceService(opts);
@@ -111,26 +86,29 @@ describe('createResourceService', () => {
     expect(svc.descriptor.version).toBe('1.0.0');
   });
 
-  // ─── (d) ungranted origin: denied, fetch never called ─────────────────────
-  it('(d) optional runtime origin policy can reject before fetch', async () => {
-    const opts = makeOpts(originPolicy());
+  // ─── (d) resolver gets the original resource URL ──────────────────────────
+  it('(d) preserves the resource URL for the runtime resolver', async () => {
+    const opts = makeOpts();
     const svc = createResourceService(opts);
     const { sent, send } = collectSent();
 
     svc.handleMessage(WINDOW_ID, {
       type: 'resource.bytes',
-      requestId: 'r1',
-      url: `${DENIED_ORIGIN}/api/data`,
+      id: 'r1',
+      url: `${GRANTED_ORIGIN}/api/data`,
     } as NappletMessage, send);
 
     await flushPromises();
 
-    expect(opts.fetch).not.toHaveBeenCalled();
+    expect(opts.fetch).toHaveBeenCalledOnce();
     expect(sent).toHaveLength(1);
-    const err = sent[0] as { type: string; id: string; error: string };
-    expect(err.type).toBe('resource.bytes.error');
-    expect(err.id).toBe('r1');
-    expect(err.error).toBe('blocked-by-policy');
+    expect(opts.fetch).toHaveBeenCalledWith(`${GRANTED_ORIGIN}/api/data`, expect.objectContaining({
+      method: 'GET',
+      windowId: WINDOW_ID,
+    }));
+    const result = sent[0] as { type: string; id: string };
+    expect(result.type).toBe('resource.bytes.result');
+    expect(result.id).toBe('r1');
   });
 
   // ─── (e) runtime resolver: fetch called, bytes.result emitted ────────────
@@ -149,7 +127,7 @@ describe('createResourceService', () => {
 
     svc.handleMessage(WINDOW_ID, {
       type: 'resource.bytes',
-      requestId: 'r2',
+      id: 'r2',
       url: `${GRANTED_ORIGIN}/api/data`,
       init: { method: 'GET', headers: { 'x-custom': 'yes' } },
     } as NappletMessage, send);
@@ -170,12 +148,11 @@ describe('createResourceService', () => {
     expect(calledInit.windowId).toBe(WINDOW_ID);
 
     expect(sent).toHaveLength(1);
-    const result = sent[0] as { type: string; id: string; blob: Blob; mime: string; requestId?: string; headers?: unknown; bodyBase64?: string };
+    const result = sent[0] as { type: string; id: string; blob: string; mime: string; headers?: unknown; bodyBase64?: string };
     expect(result.type).toBe('resource.bytes.result');
     expect(result.id).toBe('r2');
     expect(result.mime).toBe('text/plain');
-    expect(await result.blob.text()).toBe(bodyText);
-    expect(result).not.toHaveProperty('requestId');
+    expect(result.blob).toBe(btoa(bodyText));
     expect(result).not.toHaveProperty('headers');
     expect(result).not.toHaveProperty('bodyBase64');
   });
@@ -203,14 +180,17 @@ describe('createResourceService', () => {
     // Issue request
     svc.handleMessage(WINDOW_ID, {
       type: 'resource.bytes',
-      requestId: 'r3',
+      id: 'r3',
       url: `${GRANTED_ORIGIN}/slow`,
     } as NappletMessage, send);
 
-    // Cancel before fetch resolves
+    // Exercise cancellation after the resolver has started. Cancellation while
+    // metadata is pending is covered separately by resource-lifecycle.test.ts.
+    await flushPromises();
+    expect(opts.fetch).toHaveBeenCalledTimes(1);
     svc.handleMessage(WINDOW_ID, {
       type: 'resource.cancel',
-      requestId: 'r3',
+      id: 'r3',
     } as NappletMessage, send);
 
     await flushPromises();
@@ -228,7 +208,7 @@ describe('createResourceService', () => {
 
     svc.handleMessage(WINDOW_ID, {
       type: 'resource.bytes',
-      requestId: 'r4',
+      id: 'r4',
       url: 'not a url',
     } as NappletMessage, send);
 
@@ -253,7 +233,7 @@ describe('createResourceService', () => {
 
     svc.handleMessage(WINDOW_ID, {
       type: 'resource.bytes',
-      requestId: 'r5',
+      id: 'r5',
       url: `${GRANTED_ORIGIN}/api`,
     } as NappletMessage, send);
 
@@ -286,13 +266,13 @@ describe('createResourceService', () => {
     // Issue two in-flight requests on the same window
     svc.handleMessage(WINDOW_ID, {
       type: 'resource.bytes',
-      requestId: 'r6',
+      id: 'r6',
       url: `${GRANTED_ORIGIN}/a`,
     } as NappletMessage, send);
 
     svc.handleMessage(WINDOW_ID, {
       type: 'resource.bytes',
-      requestId: 'r7',
+      id: 'r7',
       url: `${GRANTED_ORIGIN}/b`,
     } as NappletMessage, send);
 
@@ -316,7 +296,6 @@ describe('createResourceService', () => {
         ],
         maxBytes: 1024,
         maxUrls: 8,
-        maxServers: 4,
       },
     });
     const svc = createResourceService(opts);
@@ -341,7 +320,6 @@ describe('createResourceService', () => {
           ],
           maxBytes: 1024,
           maxUrls: 8,
-          maxServers: 4,
         },
       },
     ]);
@@ -400,23 +378,20 @@ describe('createResourceService', () => {
     const result = sent[0] as {
       type: string;
       id: string;
-      blob: Blob;
+      blob: string;
       mime: string;
-      requestId?: string;
       bodyBase64?: string;
     };
     expect(result.type).toBe('resource.bytes.result');
     expect(result.id).toBe('current-1');
     expect(result.mime).toBe('text/plain');
-    expect(await result.blob.text()).toBe(bodyText);
-    expect(result.requestId).toBeUndefined();
+    expect(result.blob).toBe(btoa(bodyText));
     expect(result.bodyBase64).toBeUndefined();
   });
 
   // ─── (m) resource.bytesMany ordered partial result ───────────────────────
   it('(m) resource.bytesMany preserves input order and keeps per-URL failures local', async () => {
     const opts = makeOpts({
-      ...originPolicy(),
       fetch: vi.fn(async (url: string) => {
         return new Response(url.endsWith('/one') ? 'first' : 'third', {
           status: 200,
@@ -430,16 +405,12 @@ describe('createResourceService', () => {
     svc.handleMessage(WINDOW_ID, {
       type: 'resource.bytesMany',
       id: 'bulk-1',
-      requests: [
-        { url: `${GRANTED_ORIGIN}/one` },
-        { url: `${DENIED_ORIGIN}/two` },
-        { url: `${GRANTED_ORIGIN}/three` },
-      ],
+      urls: [`${GRANTED_ORIGIN}/one`, 'https://untrusted.example/two', `${GRANTED_ORIGIN}/three`],
     } as NappletMessage, send);
 
     await flushPromises();
 
-    expect(opts.fetch).toHaveBeenCalledTimes(2);
+    expect(opts.fetch).toHaveBeenCalledTimes(3);
     expect(sent).toHaveLength(1);
     const result = sent[0] as {
       type: string;
@@ -457,19 +428,15 @@ describe('createResourceService', () => {
     expect(result.id).toBe('bulk-1');
     expect(result.items.map((item) => item.url)).toEqual([
       `${GRANTED_ORIGIN}/one`,
-      `${DENIED_ORIGIN}/two`,
+      'https://untrusted.example/two',
       `${GRANTED_ORIGIN}/three`,
     ]);
     expect(result.items[0]?.ok).toBe(true);
     expect(result.items[0]?.mime).toBe('text/plain');
-    expect(await result.items[0]?.blob?.text()).toBe('first');
-    expect(result.items[1]).toMatchObject({
-      ok: false,
-      error: 'blocked-by-policy',
-    });
-    expect(result.items[1]?.blob).toBeUndefined();
+    expect(result.items[0]?.blob).toBe(btoa('first'));
+    expect(result.items[1]).toMatchObject({ ok: true, blob: btoa('third') });
     expect(result.items[2]?.ok).toBe(true);
-    expect(await result.items[2]?.blob?.text()).toBe('third');
+    expect(result.items[2]).toMatchObject({ ok: true, blob: btoa('third') });
   });
 
   // ─── (n) resource.bytesMany invalid top-level request ────────────────────
@@ -481,7 +448,7 @@ describe('createResourceService', () => {
     svc.handleMessage(WINDOW_ID, {
       type: 'resource.bytesMany',
       id: 'bulk-empty',
-      requests: [],
+      urls: [],
     } as NappletMessage, send);
 
     await flushPromises();
@@ -495,7 +462,7 @@ describe('createResourceService', () => {
     });
   });
 
-  it('(o) carries per-resource Blossom server hints and ignores them for other schemes', async () => {
+  it('(o) ignores retired request-supplied Blossom server hints', async () => {
     const opts = makeOpts({
       fetch: vi.fn(async () => new Response('hinted', {
         headers: { 'content-type': 'text/plain' },
@@ -512,25 +479,18 @@ describe('createResourceService', () => {
     } as NappletMessage, single.send);
     await flushPromises();
 
-    expect(opts.fetch).toHaveBeenNthCalledWith(1, `blossom:sha256:${'a'.repeat(64)}`, expect.objectContaining({
-      servers: ['https://one.example', 'https://two.example'],
-    }));
+    expect(opts.fetch).toHaveBeenNthCalledWith(1, `blossom:sha256:${'a'.repeat(64)}`, expect.not.objectContaining({ servers: expect.anything() }));
     expect(single.sent[0]).toMatchObject({ type: 'resource.bytes.result', id: 'hint-single' });
 
     const bulk = collectSent();
     svc.handleMessage(WINDOW_ID, {
       type: 'resource.bytesMany',
       id: 'hint-bulk',
-      requests: [
-        { url: `blossom:sha256:${'b'.repeat(64)}`, servers: ['https://bulk.example'] },
-        { url: 'https://media.example/image.png', servers: ['https://ignored.example'] },
-      ],
+      urls: [`blossom:sha256:${'b'.repeat(64)}`, 'https://media.example/image.png'],
     } as NappletMessage, bulk.send);
     await flushPromises();
 
-    expect(opts.fetch).toHaveBeenNthCalledWith(2, `blossom:sha256:${'b'.repeat(64)}`, expect.objectContaining({
-      servers: ['https://bulk.example'],
-    }));
+    expect(opts.fetch).toHaveBeenNthCalledWith(2, `blossom:sha256:${'b'.repeat(64)}`, expect.not.objectContaining({ servers: expect.anything() }));
     expect(opts.fetch).toHaveBeenNthCalledWith(3, 'https://media.example/image.png', expect.not.objectContaining({
       servers: expect.anything(),
     }));
@@ -612,7 +572,7 @@ describe('createResourceService', () => {
     svc.handleMessage(WINDOW_ID, {
       type: 'resource.bytesMany',
       id: 'too-many',
-      requests: [{ url: `${GRANTED_ORIGIN}/one` }, { url: `${GRANTED_ORIGIN}/two` }],
+      urls: [`/one`, `/two`],
     } as NappletMessage, bulk.send);
     await flushPromises();
     expect(bulk.sent[0]).toMatchObject({

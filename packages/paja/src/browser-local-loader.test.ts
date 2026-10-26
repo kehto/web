@@ -1,11 +1,16 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { originRegistry } from '@kehto/shell';
+import type { Runtime } from '@kehto/runtime';
+import { createPajaAdmissionTestRuntime } from './browser-admission-test-runtime.js';
 
 import { createPajaAdapter } from './browser-adapter.js';
 import { createPajaRelayEventCounter } from './browser-relay-panel.js';
 import { loadLocalRuntimeFile, pickLocalHtmlFile } from './browser-local-loader.js';
 import {
+  addRuntimeTab,
+  closeRuntimeTab,
+  reloadActiveRuntimeTab,
   snapshotRuntimeTabs,
   type PajaRuntimeTabContext,
   type PajaRuntimeTabState,
@@ -16,6 +21,7 @@ import { createPajaLocalTarget } from './local-target.js';
 import { createPajaRuntimeHostConfig } from './options.js';
 
 const LOCAL_HTML = '<!doctype html><html><head><title>Local</title></head><body><script>window.ok = 1</script></body></html>';
+let permissionRuntime: Runtime;
 
 interface FakeFrame {
   id: string;
@@ -75,7 +81,7 @@ function createHarness() {
   const context = {
     config,
     stage: { append: vi.fn() },
-    bridge: null,
+    bridge: { runtime: permissionRuntime },
     adapter: { setWindowBlossomServers },
     runtime: { catalog, currentSimulation: config.simulation, currentWindowId: null, readyWindowIds: new Set() },
     navigateFrame: navigate,
@@ -92,6 +98,7 @@ function createHarness() {
 
 describe('@kehto/paja local index.html loader', () => {
   beforeEach(() => {
+    permissionRuntime = createPajaAdmissionTestRuntime();
     vi.stubGlobal('document', {
       createElement: () => fakeFrame(),
       getElementById: () => null,
@@ -104,6 +111,7 @@ describe('@kehto/paja local index.html loader', () => {
   });
 
   afterEach(() => {
+    permissionRuntime.destroy();
     vi.unstubAllGlobals();
     originRegistry.clear();
   });
@@ -126,10 +134,12 @@ describe('@kehto/paja local index.html loader', () => {
       context.config,
       1,
       context.adapter,
+      permissionRuntime,
       tab?.resolvedTarget,
       expect.stringContaining(':tab-1:1'),
       expect.any(Function),
       expect.any(Function),
+      expect.any(AbortSignal),
     );
     expect(install).not.toHaveBeenCalled();
     expect(catalog.installed()).toEqual([]);
@@ -137,6 +147,22 @@ describe('@kehto/paja local index.html loader', () => {
     expect(persistTabs).toHaveBeenCalledWith(state);
     expect(snapshotRuntimeTabs(state)).toBeNull();
     expect(state.messageLog.map((entry) => entry.type)).toEqual(['paja.local.load', 'paja.local.loaded']);
+  });
+
+  it('aborts the exact tab admission before reload and close', async () => {
+    const { state, context } = createHarness();
+    const target = await createPajaLocalTarget({ name: 'index.html', text: LOCAL_HTML });
+    const tab = addRuntimeTab(state, context, '', target);
+    const first = tab.admissionController;
+    expect(first.signal.aborted).toBe(false);
+    reloadActiveRuntimeTab(state, context);
+    expect(first.signal.aborted).toBe(true);
+    const second = tab.admissionController;
+    expect(second).not.toBe(first);
+    expect(second.signal.aborted).toBe(false);
+    closeRuntimeTab(state, context, tab.id);
+    expect(second.signal.aborted).toBe(true);
+    expect(state.tabs).toEqual([]);
   });
 
   it('reports rejected files in the status line and message log without adding a tab', async () => {
@@ -167,13 +193,10 @@ describe('@kehto/paja local index.html loader', () => {
     expect(state.messageLog.at(-1)?.preview).toContain('./assets/main.js');
   });
 
-  it.each([
-    ['plain HTML', LOCAL_HTML],
-    ['untrusted publisher metadata', LOCAL_HTML.replace('<head>', '<head><meta name="napplet-requires" content="unavailable">')],
-  ])('loads local %s without a manifest and registers identity before injected srcdoc', async (_label, html) => {
+  it('loads local plain HTML without a manifest and registers identity before injected srcdoc', async () => {
     const config = createPajaRuntimeHostConfig({}, new Date('2026-10-07T00:00:00.000Z'));
     const adapter = createPajaAdapter(config, () => config.simulation, () => {}, () => {}, () => true);
-    const target = await createPajaLocalTarget({ name: 'index.html', text: html });
+    const target = await createPajaLocalTarget({ name: 'index.html', text: LOCAL_HTML });
     const frame = fakeFrame();
     let srcdoc = '';
     Object.defineProperty(frame, 'srcdoc', {
@@ -181,6 +204,7 @@ describe('@kehto/paja local index.html loader', () => {
       set(value: string) {
         expect(originRegistry.getIdentity(frame.contentWindow)).toEqual({
           dTag: target.dTag, aggregateHash: target.aggregateHash,
+          permissionPrincipal: { kind: 'development', target: 'local-file:index.html', artifactHash: target.aggregateHash },
         });
         expect(originRegistry.getEnvironment(frame.contentWindow)?.capabilities.domains).not.toContain('unavailable');
         srcdoc = value;
@@ -193,6 +217,7 @@ describe('@kehto/paja local index.html loader', () => {
         config,
         1,
         adapter,
+        permissionRuntime,
         target,
         'paja-window:tab-1:1',
       );
@@ -201,6 +226,7 @@ describe('@kehto/paja local index.html loader', () => {
       expect(originRegistry.getIdentity(frame.contentWindow)).toEqual({
         dTag: 'local-index',
         aggregateHash: target.aggregateHash,
+        permissionPrincipal: { kind: 'development', target: 'local-file:index.html', artifactHash: target.aggregateHash },
       });
       expect(frame.removeAttribute).toHaveBeenCalledWith('src');
       expect(frame.srcdoc).toContain('http-equiv="Content-Security-Policy"');
@@ -217,7 +243,39 @@ describe('@kehto/paja local index.html loader', () => {
     }
   });
 
-  it('applies host CSP overrides to local files and rejects invalid policy before rebinding', async () => {
+  it('blocks a local file whose unsigned metadata requires an unavailable interface', async () => {
+    const config = createPajaRuntimeHostConfig();
+    const adapter = createPajaAdapter(config, () => config.simulation, () => {}, () => {}, () => true);
+    const target = await createPajaLocalTarget({ name: 'index.html',
+      text: LOCAL_HTML.replace('<head>', '<head><meta name="napplet-requires" content="unavailable">') });
+    const frame = fakeFrame();
+    try {
+      await expect(navigateFrame(frame as unknown as HTMLIFrameElement, config, 1, adapter, permissionRuntime, target))
+        .rejects.toThrow(/denied: unavailable/);
+      expect(frame.srcdoc).toBe('');
+      expect(originRegistry.getIdentity(frame.contentWindow)).toBeUndefined();
+    } finally {
+      (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
+    }
+  });
+
+  it('admits a self-contained local artifact requiring mediated resource with no direct browser origin', async () => {
+    const config = createPajaRuntimeHostConfig();
+    const adapter = createPajaAdapter(config, () => config.simulation, () => {}, () => {}, () => true);
+    const target = await createPajaLocalTarget({ name: 'resource.html',
+      text: '<meta name="napplet-requires" content="resource"><script>window.embedded = true</script>' });
+    const frame = fakeFrame();
+    try {
+      await navigateFrame(frame as unknown as HTMLIFrameElement, config, 1, adapter, permissionRuntime, target);
+      expect(originRegistry.getEnvironment(frame.contentWindow)?.capabilities.domains).toEqual(['shell', 'resource']);
+      expect(frame.srcdoc).toContain("connect-src 'none'");
+      expect(frame.srcdoc).toContain('window.embedded = true');
+    } finally {
+      (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
+    }
+  });
+
+  it('keeps local files on the closed CSP and rejects invalid direct origins before rebinding', async () => {
     const config = createPajaRuntimeHostConfig({
       csp: { directives: { 'img-src': ['data:'] } },
     });
@@ -225,9 +283,8 @@ describe('@kehto/paja local index.html loader', () => {
     const target = await createPajaLocalTarget({ name: 'index.html', text: LOCAL_HTML });
     const frame = fakeFrame();
     try {
-      await navigateFrame(frame as unknown as HTMLIFrameElement, config, 1, adapter, target);
-      expect(frame.srcdoc).toContain("img-src data:;");
-      expect(frame.srcdoc).not.toContain('img-src data: blob:');
+      await navigateFrame(frame as unknown as HTMLIFrameElement, config, 1, adapter, permissionRuntime, target);
+      expect(frame.srcdoc).toContain("connect-src 'none'");
       const previousHtml = frame.srcdoc;
       const previousIdentity = originRegistry.getIdentity(frame.contentWindow);
       const previousWindowId = originRegistry.getWindowId(frame.contentWindow);
@@ -236,7 +293,7 @@ describe('@kehto/paja local index.html loader', () => {
       const onRegistered = vi.fn();
 
       await expect(navigateFrame(frame as unknown as HTMLIFrameElement, invalid, 2,
-        adapter, replacement, undefined, undefined, onRegistered)).rejects.toThrow(/exact HTTP/);
+        adapter, permissionRuntime, replacement, undefined, undefined, onRegistered)).rejects.toThrow(/invalid/);
       expect(onRegistered).not.toHaveBeenCalled();
       expect(frame.srcdoc).toBe(previousHtml);
       expect(originRegistry.getIdentity(frame.contentWindow)).toEqual(previousIdentity);

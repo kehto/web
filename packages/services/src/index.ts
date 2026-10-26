@@ -97,6 +97,8 @@ export type {
 } from './config-service.js';
 
 export { createResourceService, ResourceServiceError } from './resource-service.js';
+export { ResourceAuthorizationError } from './resource-authorization.js';
+export type { AuthorizeNetwork } from './resource-authorization.js';
 export type {
   ResourceErrorCode,
   ResourceBytesRequest,
@@ -146,6 +148,7 @@ export type {
   UploadRailInfo,
   Uploader,
   UploaderContext,
+  UploadExecutionPlan,
   UploadRequest,
   UploadResult,
   UploadStatus,
@@ -231,6 +234,7 @@ export { createListsService } from './lists-service.js';
 export type {
   ListsServiceContext,
   ListsServiceOptions,
+  ListsMutationPlan,
 } from './lists-service.js';
 
 export { createSerialService } from './serial-service.js';
@@ -249,12 +253,14 @@ export { createWebrtcService } from './webrtc-service.js';
 export type {
   WebrtcServiceContext,
   WebrtcServiceOptions,
+  WebrtcOpenPlan,
 } from './webrtc-service.js';
 
 export { createCommonService } from './common-service.js';
 export type {
   CommonServiceContext,
   CommonServiceOptions,
+  CommonRelayOperation,
 } from './common-service.js';
 
 export { createDmService } from './dm-service.js';

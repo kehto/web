@@ -6,6 +6,7 @@ import type {
   NotifyPresentation,
   NotifyServiceOptions,
 } from '@kehto/services';
+import type { ApprovalSignal } from '@kehto/runtime';
 import type {
   PajaConfirmationHandler,
   PajaIdentityProvider,
@@ -84,7 +85,15 @@ export function createPajaNotifyController(
   const badges = new Map<string, HTMLElement>();
   const channels = new Map<string, Map<string, NotifyChannelRegisterMessage>>();
   const permissions = new Map<string, Set<string>>();
+  const permissionIdentities = new Map<string, string>();
+  const epochs = new Map<string, object>();
   let disposed = false;
+
+  const epochFor = (windowId: string): object => {
+    const epoch = epochs.get(windowId) ?? {};
+    epochs.set(windowId, epoch);
+    return epoch;
+  };
 
   const removeNotification = (
     windowId: string,
@@ -105,30 +114,40 @@ export function createPajaNotifyController(
       || grants?.has(permissionKey(channel)) === true;
   };
 
-  const requestPermission = async (windowId: string, channel?: string): Promise<boolean> => {
-    if (disposed || !options.isEnabled()) return false;
+  const requestPermission = async (windowId: string, channel?: string, signal?: ApprovalSignal): Promise<boolean> => {
+    if (disposed || signal?.aborted || !options.isEnabled()) return false;
+    const epoch = epochFor(windowId);
+    const identity = options.getIdentity?.(windowId);
+    const identityKey = JSON.stringify([identity?.dTag ?? null, identity?.aggregateHash ?? null]);
+    if (permissionIdentities.get(windowId) !== identityKey) permissions.delete(windowId);
     if (hasPermission(windowId, channel)) return true;
-    const napplet = options.getIdentity?.(windowId) ?? { dTag: 'unknown napplet', aggregateHash: 'unknown' };
+    const napplet = identity ?? { dTag: 'unknown napplet', aggregateHash: 'unknown' };
     const granted = await options.confirm({
       action: 'notify',
       windowId,
       napplet,
       channel,
     });
-    if (!granted) return false;
+    const current = options.getIdentity?.(windowId);
+    if (!granted || disposed || signal?.aborted || epochs.get(windowId) !== epoch
+      || !options.isEnabled() || current?.dTag !== identity?.dTag
+      || current?.aggregateHash !== identity?.aggregateHash) return false;
     const grants = permissions.get(windowId) ?? new Set<string>();
     grants.add(permissionKey(channel));
     permissions.set(windowId, grants);
+    permissionIdentities.set(windowId, identityKey);
     return true;
   };
 
   const present = async (presentation: NotifyPresentation): Promise<void> => {
-    if (disposed) throw new Error('notification center unavailable');
-    const { windowId, notificationId, message, emit } = presentation;
+    if (disposed || presentation.signal?.aborted) throw new Error('notification center unavailable');
+    const { windowId, notificationId, message, emit, signal } = presentation;
+    const epoch = epochFor(windowId);
     if (message.channel !== undefined && !channels.get(windowId)?.has(message.channel)) {
       throw new Error('invalid channel');
     }
-    if (!await requestPermission(windowId, message.channel)) throw new Error('permission denied');
+    if (!await requestPermission(windowId, message.channel, signal)) throw new Error('permission denied');
+    if (disposed || signal?.aborted || epochs.get(windowId) !== epoch) throw new Error('notification center unavailable');
 
     const article = document.createElement('article');
     article.className = 'paja-notification';
@@ -206,6 +225,7 @@ export function createPajaNotifyController(
   };
 
   const destroyWindow = (windowId: string): void => {
+    epochs.delete(windowId);
     for (const [key, record] of active) {
       if (!key.startsWith(`${windowId}\u0000`)) continue;
       record.element.remove();
@@ -215,6 +235,7 @@ export function createPajaNotifyController(
     badges.delete(windowId);
     channels.delete(windowId);
     permissions.delete(windowId);
+    permissionIdentities.delete(windowId);
   };
 
   return {
@@ -236,6 +257,8 @@ export function createPajaNotifyController(
       badges.clear();
       channels.clear();
       permissions.clear();
+      permissionIdentities.clear();
+      epochs.clear();
     },
   };
 }

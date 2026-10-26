@@ -1,14 +1,17 @@
 import { createServer } from 'node:http';
 import { expect, test, type FrameLocator } from '@playwright/test';
 import { startPajaServer, type PajaServer } from '../../packages/paja/dist/index.js';
+import { installPajaApprovalDriver } from './paja-approval-driver.js';
 
 let target: ReturnType<typeof createServer>;
 let host: PajaServer;
 
+test.beforeEach(async ({ page }) => installPajaApprovalDriver(page));
+
 test.beforeAll(async () => {
   target = createServer((_request, response) => {
     response.writeHead(200, { 'content-type': 'text/html' });
-    response.end('<!doctype html><body><p>FS probe</p><script>window.parent.postMessage({type:"shell.ready"}, "*")</script>');
+    response.end('<!doctype html><head><meta name="napplet-requires" content="shell"><meta name="napplet-optional" content="fs"></head><body><p>FS probe</p><script>window.parent.postMessage({type:"shell.ready"}, "*")</script>');
   });
   await new Promise<void>((resolve) => target.listen(0, '127.0.0.1', resolve));
   const address = target.address();

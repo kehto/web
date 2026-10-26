@@ -36,7 +36,7 @@ function renderToast(notification: Notification): void {
   }
   const cue = document.createElement('div');
   cue.className = 'notif-toast-cue';
-  cue.textContent = 'notify.create via direct service';
+  cue.textContent = 'notify.create via toaster app';
   toast.appendChild(cue);
   layer.appendChild(toast);
   setTimeout(() => {
@@ -145,6 +145,16 @@ export function createNotificationUi(): NotificationUiController {
   let debuggerEl: NappletDebugger | null = null;
   let snapshot = controller.getSnapshot();
 
+  const sendToToaster = (action: 'create' | 'list' | 'read' | 'dismiss', notificationId?: string): void => {
+    const frame = document.querySelector<HTMLIFrameElement>('#toaster-frame-container iframe');
+    const target = frame?.contentWindow;
+    if (!target) {
+      debuggerEl?.addSystemMessage('notification control unavailable: toaster app is not admitted');
+      return;
+    }
+    target.postMessage({ type: 'playground.notification.control', action, notificationId }, '*');
+  };
+
   controller.subscribe((next) => {
     snapshot = next;
 
@@ -152,7 +162,7 @@ export function createNotificationUi(): NotificationUiController {
       if (!shownToastIds.has(notification.id)) {
         shownToastIds.add(notification.id);
         renderToast(notification);
-        debuggerEl?.addSystemMessage(`notify.create via direct service — id:${notification.id.slice(0, 16)}`);
+        debuggerEl?.addSystemMessage(`notify.create via toaster app — id:${notification.id.slice(0, 16)}`);
       }
     }
 
@@ -177,18 +187,14 @@ export function createNotificationUi(): NotificationUiController {
 
       if (target.id === 'notification-node-create' || target.closest('#notification-node-create')) {
         event.stopPropagation();
-        controller.createDemoNotification({
-          title: 'Demo notification',
-          body: 'Triggered from the notification service node',
-          sourceLabel: 'notify.create via direct service',
-        });
-        debuggerEl?.addSystemMessage('notify.create dispatched from host node control');
+        sendToToaster('create');
+        debuggerEl?.addSystemMessage('notify.create requested from admitted toaster app');
         return true;
       }
 
       if (target.id === 'notification-node-list' || target.closest('#notification-node-list')) {
         event.stopPropagation();
-        controller.requestList();
+        sendToToaster('list');
         debuggerEl?.addSystemMessage('notify.list requested');
         const inspector = document.getElementById('notification-inspector');
         inspector?.classList.add('open');
@@ -200,7 +206,7 @@ export function createNotificationUi(): NotificationUiController {
         event.stopPropagation();
         const newest = [...snapshot.notifications].filter((n) => !n.read).pop();
         if (newest) {
-          controller.markRead(newest.id);
+          sendToToaster('read', newest.id);
           debuggerEl?.addSystemMessage(`notify.read dispatched — id:${newest.id.slice(0, 16)}`);
         } else {
           debuggerEl?.addSystemMessage('notify.read — no unread notifications');
@@ -212,7 +218,7 @@ export function createNotificationUi(): NotificationUiController {
         event.stopPropagation();
         const newest = [...snapshot.notifications].pop();
         if (newest) {
-          controller.dismiss(newest.id);
+          sendToToaster('dismiss', newest.id);
           debuggerEl?.addSystemMessage(`notify.dismiss dispatched — id:${newest.id.slice(0, 16)}`);
         } else {
           debuggerEl?.addSystemMessage('notify.dismiss — no notifications to dismiss');
@@ -224,7 +230,7 @@ export function createNotificationUi(): NotificationUiController {
         event.stopPropagation();
         const id = target.dataset.notifId;
         if (id) {
-          controller.markRead(id);
+          sendToToaster('read', id);
           debuggerEl?.addSystemMessage(`notify.read from inspector — id:${id.slice(0, 16)}`);
         }
         return true;
@@ -234,7 +240,7 @@ export function createNotificationUi(): NotificationUiController {
         event.stopPropagation();
         const id = target.dataset.notifId;
         if (id) {
-          controller.dismiss(id);
+          sendToToaster('dismiss', id);
           debuggerEl?.addSystemMessage(`notify.dismiss from inspector — id:${id.slice(0, 16)}`);
         }
         return true;

@@ -64,6 +64,7 @@ export type NappKeyRegistry = SessionRegistry;
  *
  * @param notifier - Optional callback invoked when pending updates change
  * @param onRegister - Optional host callback invoked for each fresh registration, including replacement of the same windowId
+ * @param onRetire - Optional host callback invoked when a registered session is removed
  * @returns A SessionRegistry instance
  *
  * @example
@@ -76,6 +77,7 @@ export type NappKeyRegistry = SessionRegistry;
 export function createSessionRegistry(
   notifier?: PendingUpdateNotifier,
   onRegister?: (windowId: string) => void,
+  onRetire?: (windowId: string) => void,
 ): SessionRegistry {
   const byWindowId = new Map<string, string>();
   const byPubkey = new Map<string, SessionEntry>();
@@ -84,6 +86,8 @@ export function createSessionRegistry(
 
   return {
     register(windowId: string, entry: SessionEntry): void {
+      entry = Object.freeze({ ...entry, ...(entry.permissionPrincipal
+        ? { permissionPrincipal: Object.freeze({ ...entry.permissionPrincipal }) } : {}) });
       byWindowId.set(windowId, entry.pubkey);
       byPubkey.set(entry.pubkey, entry);
       byWindowIdEntry.set(windowId, entry);
@@ -91,6 +95,7 @@ export function createSessionRegistry(
     },
 
     unregister(windowId: string): void {
+      const existed = byWindowIdEntry.has(windowId);
       const pubkey = byWindowId.get(windowId);
       if (pubkey !== undefined && byPubkey.get(pubkey)?.windowId === windowId) {
         byPubkey.delete(pubkey);
@@ -98,6 +103,7 @@ export function createSessionRegistry(
       byWindowId.delete(windowId);
       byWindowIdEntry.delete(windowId);
       pendingUpdates.delete(windowId);
+      if (existed) onRetire?.(windowId);
     },
 
     getPubkey(windowId: string): string | undefined {
@@ -155,10 +161,12 @@ export function createSessionRegistry(
     },
 
     clear(): void {
+      const retired = [...byWindowIdEntry.keys()];
       byWindowId.clear();
       byPubkey.clear();
       byWindowIdEntry.clear();
       pendingUpdates.clear();
+      for (const windowId of retired) onRetire?.(windowId);
     },
   };
 }

@@ -14,11 +14,42 @@
 import type { Page } from '@playwright/test';
 import { DEMO_NAPPLETS } from '../../../apps/playground/src/demo-definitions.js';
 
+const approvalDriverPages = new WeakSet<Page>();
+
+/** Automatically choose session grants in legacy playground specs unrelated to approvals. */
+export async function installPlaygroundSessionApprovals(page: Page): Promise<void> {
+  if (approvalDriverPages.has(page)) return;
+  approvalDriverPages.add(page);
+  await page.addInitScript(() => {
+    const choose = () => {
+      const dialog = document.querySelector<HTMLDialogElement>('.kehto-approval-ui dialog[open]');
+      const lifetime = dialog?.querySelector<HTMLSelectElement>('select');
+      const allow = [...(dialog?.querySelectorAll<HTMLButtonElement>('button') ?? [])]
+        .find((button) => button.textContent === 'Allow');
+      if (!lifetime || !allow || ![...lifetime.options].some((option) => option.value === 'session')) return;
+      lifetime.value = 'session';
+      lifetime.dispatchEvent(new Event('change', { bubbles: true }));
+      if (!allow.disabled) allow.click();
+    };
+    const observe = () => {
+      new MutationObserver(choose).observe(document.documentElement, {
+        childList: true, subtree: true, attributes: true, attributeFilter: ['open'],
+      });
+      choose();
+    };
+    if (document.documentElement) observe();
+    else document.addEventListener('DOMContentLoaded', observe, { once: true });
+  });
+}
+
 export async function demoBeforeEach(
   page: Page,
-  options?: { topologyReadyTimeoutMs?: number },
+  options?: { topologyReadyTimeoutMs?: number; approvals?: 'session' | 'manual' },
 ): Promise<void> {
   const timeout = options?.topologyReadyTimeoutMs ?? 15000;
+  if (options?.approvals !== 'manual') {
+    await installPlaygroundSessionApprovals(page);
+  }
   await page.goto('/', { waitUntil: 'commit' });
   await page.evaluate(() => { try { localStorage.clear(); } catch { /* best-effort */ } });
   // Second goto ensures clean module state after localStorage.clear

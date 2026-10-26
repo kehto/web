@@ -1,19 +1,18 @@
 /**
  * naps-path-conformance.spec.ts — TERM-04 / G6.
  *
- * Proves the migrated playground exercises the REAL released @napplet/shim
- * injected-domain path plus the host-owned mandatory NAP-SHELL shim.
+ * Proves the migrated playground exercises the host-owned injected-domain path
+ * and the NAP-SHELL receiver when the host exposes it.
  *
  * Background (verified against the installed dist):
  *   - Kehto injects a srcdoc prelude that predeclares the verified manifest's
  *     bare required domains.
- *   - A bundled @napplet/shim may install `window.napplet.<domain>` objects directly.
- *   - The prelude filters assignments back through the allowlist, so non-required
- *     optional domains stay absent while NAP-SHELL remains unconditional.
+ *   - The host prelude filters assignments through the verified manifest allowlist,
+ *     so non-required optional domains stay absent while this host exposes NAP-SHELL.
  *
- * Target: the migrated profile-viewer napplet (requires ['inc', 'relay',
- * 'theme']). Asserting the namespace in-frame proves the host+shim pair uses the
- * current NIP-5D availability primitive.
+ * Target: the migrated profile-viewer napplet (requires ['intent', 'relay',
+ * 'resource', 'theme']). Asserting the namespace in-frame proves the host uses
+ * the current NIP-5D availability primitive.
  *
  * Honors workers:1 (serial, no describe.configure parallel) and the reload-heavy
  * demo boot (test.setTimeout(120000)).
@@ -30,8 +29,7 @@ test('profile-viewer receives current injected window.napplet domain objects', a
   await demoBeforeEach(page);
 
   // Resolve the profile-viewer content frame (srcdoc -> opaque origin, so go via
-  // the container element, not the URL), then wait until the shim/prelude
-  // namespace is visible.
+  // the container element, not the URL), then wait until the host namespace is visible.
   await expect.poll(async () => {
     const handle = await page.locator('#profile-viewer-frame-container iframe').elementHandle();
     const frame = handle ? await handle.contentFrame() : null;
@@ -40,8 +38,9 @@ test('profile-viewer receives current injected window.napplet domain objects', a
       const w = window as Window & {
         napplet?: Record<string, unknown>;
       };
-      return typeof w.napplet?.inc === 'object' &&
+      return typeof w.napplet?.intent === 'object' &&
         typeof w.napplet?.relay === 'object' &&
+        typeof w.napplet?.resource === 'object' &&
         typeof w.napplet?.theme === 'object';
     });
   }, { timeout: 30_000 }).toBe(true);
@@ -69,8 +68,9 @@ test('profile-viewer receives current injected window.napplet domain objects', a
     await shell?.ready();
     return {
       namespaceKeys,
-      incDomain: typeof w.napplet?.inc === 'object',
+      intentDomain: typeof w.napplet?.intent === 'object',
       relayDomain: typeof w.napplet?.relay === 'object',
+      resourceDomain: typeof w.napplet?.resource === 'object',
       themeDomain: typeof w.napplet?.theme === 'object',
       shellDomain: typeof shell === 'object',
       shellApi: typeof shell?.ready === 'function' &&
@@ -84,8 +84,9 @@ test('profile-viewer receives current injected window.napplet domain objects', a
     };
   });
 
-  expect(result.incDomain).toBe(true);
+  expect(result.intentDomain).toBe(true);
   expect(result.relayDomain).toBe(true);
+  expect(result.resourceDomain).toBe(true);
   expect(result.themeDomain).toBe(true);
   expect(result.shellDomain).toBe(true);
   expect(result.shellApi).toBe(true);
@@ -93,5 +94,38 @@ test('profile-viewer receives current injected window.napplet domain objects', a
   expect(result.nostrdbDomain).toBe(false);
   expect(result.injectedDomainSentinel).toBe(false);
   expect(result.nostrGlobal).toBe(false);
-  expect(result.namespaceKeys).toEqual(expect.arrayContaining(['shell', 'inc', 'relay', 'theme']));
+  expect(result.namespaceKeys).toEqual(expect.arrayContaining(['shell', 'intent', 'relay', 'resource', 'theme']));
+  expect(result.namespaceKeys).not.toContain('inc');
+});
+
+test('feed and profile media receive the canonical unsupported-scheme result', async ({ page }) => {
+  test.setTimeout(120_000);
+  await demoBeforeEach(page);
+
+  for (const containerId of ['feed-frame-container', 'profile-viewer-frame-container']) {
+    const handle = await page.locator(`#${containerId} iframe`).elementHandle();
+    expect(handle, `${containerId} iframe handle`).not.toBeNull();
+    const frame = await handle!.contentFrame();
+    expect(frame, `${containerId} iframe content`).not.toBeNull();
+
+    const result = await frame!.evaluate(async () => {
+      const resource = (window as Window & {
+        napplet?: { resource?: { bytesMany(urls: readonly string[]): Promise<Array<{
+          ok: boolean;
+          blob?: Blob;
+          error?: string;
+        }>> } };
+      }).napplet?.resource;
+      if (!resource) throw new Error('resource capability unavailable');
+      const items = await resource.bytesMany(['data:text/plain;base64,aGVsbG8=']);
+      const first = items[0];
+      return {
+        count: items.length,
+        ok: first?.ok,
+        error: first?.error,
+      };
+    });
+
+    expect(result).toEqual({ count: 1, ok: false, error: 'unsupported-scheme' });
+  }
 });

@@ -9,6 +9,30 @@ interface TargetServer {
 }
 
 describe('@kehto/paja server', () => {
+  it('redirects alias HTML requests to the proxy origin before issuing a capability cookie', async () => {
+    const server = await startPajaServer({ options: { targetUrl: 'http://127.0.0.1:5173', port: 0 } });
+    try {
+      const alias = new URL(server.url);
+      alias.hostname = 'localhost';
+      alias.search = '?target=https%3A%2F%2Fexample.com%2Fapp';
+      const response = await fetch(alias, { redirect: 'manual' });
+      expect(response.status).toBe(307);
+      expect(response.headers.get('location')).toBe(`${server.url}${alias.search}`);
+      expect(response.headers.get('set-cookie')).toBeNull();
+
+      const canonical = await fetch(response.headers.get('location')!);
+      expect(canonical.status).toBe(200);
+      expect(canonical.headers.get('set-cookie')).toContain('HttpOnly');
+
+      const targetAlias = new URL('/__kehto/target.html', alias);
+      const target = await fetch(targetAlias, { redirect: 'manual' });
+      expect(target.status).toBe(307);
+      expect(target.headers.get('location')).toBe(`${server.url}__kehto/target.html`);
+    } finally {
+      await server.close();
+    }
+  });
+
   it('serves the host page and config JSON', async () => {
     const server = await startPajaServer({
       options: {

@@ -7,7 +7,7 @@
  */
 
 import type { NappletMessage } from '@napplet/core';
-import type { ServiceDescriptor, ServiceHandler } from '@kehto/runtime';
+import type { ApprovalSignal, ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
 import type {
   DmAdapter,
   DmConversationsMessage,
@@ -16,6 +16,8 @@ import type {
   DmSubscribeMessage,
   DmUnsubscribeMessage,
 } from './dm-types.js';
+
+type DmPermissionRequirement = Parameters<NonNullable<ServiceRuntimeContext['authorizeOperation']>>[2][number];
 
 /** Options for {@link createDmService}. */
 export interface DmServiceOptions {
@@ -43,18 +45,70 @@ function err(error: unknown, fallback = 'dm request failed'): string {
   return fallback;
 }
 
+function relayRequirements(operation: string, relays: readonly string[], recipients: readonly string[] = []): readonly DmPermissionRequirement[] {
+  const requirements: DmPermissionRequirement[] = recipients.map((recipient) => ({
+    category: 'resource', domain: 'dm', operation, scope: { kind: 'exact', value: recipient },
+  }));
+  for (const relay of relays) {
+    let origin: string;
+    try {
+      const parsed = new URL(relay);
+      if (!['ws:', 'wss:'].includes(parsed.protocol) || parsed.username || parsed.password || parsed.pathname !== '/' || parsed.search || parsed.hash) throw new Error();
+      origin = parsed.origin;
+    } catch { throw new Error('forbidden'); }
+    requirements.push({ category: 'network', domain: 'dm', operation, scope: { kind: 'origin', value: origin } });
+  }
+  if (requirements.length === 0) throw new Error('unavailable');
+  return requirements;
+}
+
 /**
  * Create a NAP-DM service handler.
  *
  * @param options - DM adapter to route requests through.
  * @returns Service handler for `runtime.registerService('dm', handler)`.
  */
+// aislop-ignore-next-line function-too-long -- Relay-plan approval, source generations, and live subscription ownership are one private lifecycle boundary.
 export function createDmService(options: DmServiceOptions): DmService {
   if (!options || typeof options.adapter !== 'object' || options.adapter === null) {
     throw new Error('createDmService: options.adapter is required');
   }
   const { adapter } = options;
   const ownedSubscriptions = new Map<string, Set<string>>();
+  const generations = new Map<string, symbol>();
+  let runtime: ServiceRuntimeContext | undefined;
+  let warnedLegacy = false;
+
+  function generationFor(windowId: string): symbol {
+    let generation = generations.get(windowId);
+    if (!generation) { generation = Symbol(windowId); generations.set(windowId, generation); }
+    return generation;
+  }
+  function current(windowId: string, generation: symbol): boolean { return generations.get(windowId) === generation; }
+  function warnLegacy(): void {
+    if (warnedLegacy) return;
+    warnedLegacy = true;
+    console.warn('[FW-DM-LEGACY-001] Configure an approval-aware DM adapter with immutable relay planning; legacy adapter execution is deprecated. Warning once per service instance.');
+  }
+  function plan(operation: 'history' | 'send' | 'subscribe'): readonly string[] {
+    const relays = adapter.planRelays?.(operation);
+    if (!relays || relays.length === 0) throw new Error('unavailable');
+    return Object.freeze([...new Set(relays)]);
+  }
+  function relaysFor(operation: 'history' | 'send' | 'subscribe'): readonly string[] {
+    return runtime?.authorizeOperation ? plan(operation) : [];
+  }
+  async function authorized<T>(windowId: string, generation: symbol, operation: string, relays: readonly string[], recipients: readonly string[], execute: (signal: ApprovalSignal) => T | Promise<T>): Promise<T> {
+    if (!runtime?.authorizeOperation) { warnLegacy(); return execute({ aborted: false, addEventListener() {}, removeEventListener() {} }); }
+    const outcome = await runtime.authorizeOperation(windowId, operation, relayRequirements(operation, relays, recipients), async (signal) => {
+      if (!current(windowId, generation) || signal.aborted) throw new Error('cancelled');
+      const value = await execute(signal);
+      if (!current(windowId, generation) || signal.aborted) throw new Error('cancelled');
+      return value;
+    });
+    if (outcome.status !== 'executed') throw new Error('forbidden');
+    return outcome.value;
+  }
 
   function remember(windowId: string, subscriptionId: string): void {
     let subs = ownedSubscriptions.get(windowId);
@@ -74,8 +128,11 @@ export function createDmService(options: DmServiceOptions): DmService {
 
   return {
     descriptor: DM_DESCRIPTOR,
+    onRegistered(context): void { runtime = context; },
+    onUnregistered(): void { runtime = undefined; },
 
     handleMessage(windowId: string, message: NappletMessage, send: Send): void {
+      const generation = generationFor(windowId);
       const id = (message as { id?: unknown }).id;
       const requestId = typeof id === 'string' ? id : '';
 
@@ -87,40 +144,64 @@ export function createDmService(options: DmServiceOptions): DmService {
           return;
 
         case 'dm.conversations':
-          void Promise.resolve().then(() => adapter.conversations(message as DmConversationsMessage))
-            .then((page) => send({ type: 'dm.conversations.result', id: requestId, ...page } as NappletMessage))
+          void Promise.resolve().then(async () => {
+            const request = message as DmConversationsMessage;
+            const relays = relaysFor('history');
+            return authorized(windowId, generation, 'dm.conversations', relays, [], (signal) =>
+              adapter.conversationsWithRelays?.(request, relays, signal) ?? adapter.conversations(request));
+          })
+            .then((page) => { if (current(windowId, generation)) send({ type: 'dm.conversations.result', id: requestId, ...page } as NappletMessage); })
             .catch((error) =>
               send({ type: 'dm.conversations.result', id: requestId, error: err(error) } as NappletMessage),
             );
           return;
 
         case 'dm.messages':
-          void Promise.resolve().then(() => adapter.messages(message as DmMessagesMessage))
-            .then((page) => send({ type: 'dm.messages.result', id: requestId, ...page } as NappletMessage))
+          void Promise.resolve().then(async () => {
+            const request = message as DmMessagesMessage;
+            const relays = relaysFor('history');
+            return authorized(windowId, generation, 'dm.messages', relays, [request.conversationId], (signal) =>
+              adapter.messagesWithRelays?.(request, relays, signal) ?? adapter.messages(request));
+          })
+            .then((page) => { if (current(windowId, generation)) send({ type: 'dm.messages.result', id: requestId, ...page } as NappletMessage); })
             .catch((error) =>
               send({ type: 'dm.messages.result', id: requestId, error: err(error) } as NappletMessage),
             );
           return;
 
         case 'dm.send':
-          void Promise.resolve()
-            .then(() => adapter.send(message as DmSendMessage))
-            .then((result) => send({ type: 'dm.send.result', id: requestId, ...result } as NappletMessage))
+          void Promise.resolve().then(async () => {
+            const request = message as DmSendMessage;
+            if (runtime?.authorizeOperation && (!Array.isArray(request.recipients) || request.recipients.length === 0 || request.recipients.some((recipient) => typeof recipient !== 'string' || !/^[0-9a-f]{64}$/u.test(recipient)) || typeof request.content !== 'string' || request.content.length === 0)) throw new Error('invalid recipient');
+            const relays = relaysFor('send');
+            return authorized(windowId, generation, 'dm.send', relays, request.recipients, (signal) =>
+              adapter.sendWithRelays?.(request, relays, signal) ?? adapter.send(request));
+          })
+            .then((result) => { if (current(windowId, generation)) send({ type: 'dm.send.result', id: requestId, ...result } as NappletMessage); })
             .catch((error) => send({ type: 'dm.send.result', id: requestId, error: err(error) } as NappletMessage));
           return;
 
         case 'dm.subscribe': {
             let activeSubscriptionId = '';
             const pending: Parameters<Parameters<DmAdapter['subscribe']>[1]>[0][] = [];
-            void Promise.resolve().then(() =>
-              adapter.subscribe(message as DmSubscribeMessage, (dmMessage) => {
+            void Promise.resolve().then(async () => {
+              const request = message as DmSubscribeMessage;
+              const relays = relaysFor('subscribe');
+              return authorized(windowId, generation, 'dm.subscribe', relays, request.conversationId ? [request.conversationId] : [], (signal) =>
+                (adapter.subscribeWithRelays?.(request, (dmMessage) => {
+                if (!current(windowId, generation)) return;
                 if (activeSubscriptionId.length > 0) {
-                  send({ type: 'dm.message', subscriptionId: activeSubscriptionId, message: dmMessage } as NappletMessage);
+                  if (ownedSubscriptions.get(windowId)?.has(activeSubscriptionId)) {
+                    send({ type: 'dm.message', subscriptionId: activeSubscriptionId, message: dmMessage } as NappletMessage);
+                  }
                 } else {
                   pending.push(dmMessage);
                 }
-              }),
-            )
+              }, relays, signal) ?? adapter.subscribe(request, (dmMessage) => {
+                if (activeSubscriptionId.length > 0 && current(windowId, generation) && ownedSubscriptions.get(windowId)?.has(activeSubscriptionId)) send({ type: 'dm.message', subscriptionId: activeSubscriptionId, message: dmMessage } as NappletMessage);
+                else pending.push(dmMessage);
+              })));
+            })
               .then((subscription) => {
                 remember(windowId, subscription.subscriptionId);
                 activeSubscriptionId = subscription.subscriptionId;
@@ -161,6 +242,14 @@ export function createDmService(options: DmServiceOptions): DmService {
     },
 
     onWindowDestroyed(windowId: string): void {
+      generations.delete(windowId);
+      const subs = ownedSubscriptions.get(windowId);
+      if (!subs) return;
+      for (const subId of subs) void Promise.resolve(adapter.unsubscribe(subId)).catch(() => undefined);
+      ownedSubscriptions.delete(windowId);
+    },
+
+    onPermissionRevoked(windowId: string): void {
       const subs = ownedSubscriptions.get(windowId);
       if (!subs) return;
       for (const subId of subs) void Promise.resolve(adapter.unsubscribe(subId)).catch(() => undefined);
@@ -170,6 +259,7 @@ export function createDmService(options: DmServiceOptions): DmService {
     dispose(): void {
       adapter.close?.();
       ownedSubscriptions.clear();
+      generations.clear();
     },
   };
 }

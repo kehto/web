@@ -186,4 +186,60 @@ describe('createPajaNotifyController', () => {
     expect(confirm).not.toHaveBeenCalled();
     expect(document.center.children).toHaveLength(0);
   });
+
+  it('does not render or cache a permission when the source is destroyed during confirmation', async () => {
+    const document = new FakeDocument();
+    let answer!: (value: boolean) => void;
+    const controller = createPajaNotifyController({
+      confirm: () => new Promise((resolve) => { answer = resolve; }),
+      getIdentity: () => ({ dTag: 'weather', aggregateHash: 'sha256:first' }),
+      isEnabled: () => true,
+      document: document as unknown as Document,
+    })!;
+    const pending = controller.serviceOptions.present!({
+      windowId: 'window-1', notificationId: 'notification-1',
+      message: { type: 'notify.send', id: 'request-1', title: 'Late' }, emit: () => {},
+    });
+    await controller.serviceOptions.destroyWindow?.('window-1');
+    answer(true);
+    await expect(pending).rejects.toThrow('permission denied');
+    expect(document.center.children).toHaveLength(0);
+    const next = controller.serviceOptions.requestPermission!('window-1');
+    answer(false);
+    expect(await next).toBe(false);
+  });
+
+  it('rejects a permission answer after verified app identity changes', async () => {
+    const document = new FakeDocument();
+    let answer!: (value: boolean) => void;
+    let hash = 'sha256:first';
+    const controller = createPajaNotifyController({
+      confirm: () => new Promise((resolve) => { answer = resolve; }),
+      getIdentity: () => ({ dTag: 'weather', aggregateHash: hash }),
+      isEnabled: () => true,
+      document: document as unknown as Document,
+    })!;
+    const pending = controller.serviceOptions.requestPermission!('window-1');
+    hash = 'sha256:second';
+    answer(true);
+    expect(await pending).toBe(false);
+  });
+
+  it('does not reuse a notification permission across verified artifact identities', async () => {
+    const document = new FakeDocument();
+    const confirm = vi.fn(async () => true);
+    let hash = 'sha256:first';
+    const controller = createPajaNotifyController({
+      confirm,
+      getIdentity: () => ({ dTag: 'weather', aggregateHash: hash }),
+      isEnabled: () => true,
+      document: document as unknown as Document,
+    })!;
+    expect(await controller.serviceOptions.requestPermission?.('window-1')).toBe(true);
+    expect(await controller.serviceOptions.requestPermission?.('window-1')).toBe(true);
+    expect(confirm).toHaveBeenCalledTimes(1);
+    hash = 'sha256:second';
+    expect(await controller.serviceOptions.requestPermission?.('window-1')).toBe(true);
+    expect(confirm).toHaveBeenCalledTimes(2);
+  });
 });

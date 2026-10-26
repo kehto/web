@@ -13,7 +13,7 @@
  * notifyDismiss, but not notify.create / notify.list / notify.read. The
  * demo's notification-service (packages/services/src/notification-service.ts) implements
  * the notify.create / notify.list / notify.read contract, not just notify.send.
- * Therefore create/list stay on raw envelopes via window.parent.postMessage and receive
+ * Therefore create/list/read stay on raw envelopes via window.parent.postMessage and receive
  * replies via a single narrowly-guarded message handler registered once near the bottom
  * of this file (Plan 19-03 deviation). Dismiss uses the 0.3 notifyDismiss helper.
  *
@@ -126,7 +126,9 @@ function notifyCreate(title: string, body: string): void {
  * We use this only as part of the Dismiss all flow.
  */
 let pendingListId: string | null = null;
-function notifyList(): void {
+let dismissOnListed = false;
+function notifyList(dismiss = false): void {
+  dismissOnListed = dismiss;
   pendingListId = makeCorrelationId();
   log(`notify.list dispatch — correlation: ${pendingListId}`);
   window.parent.postMessage({ type: 'notify.list', id: pendingListId }, '*');
@@ -152,14 +154,14 @@ notifyBtn.addEventListener('click', () => {
 dismissAllBtn.addEventListener('click', () => {
   // First enumerate active notifications, then dismiss each — the handler
   // below processes the notify.listed reply and dispatches notify.dismiss per id.
-  notifyList();
+  notifyList(true);
 });
 
 /**
  * THE ONLY raw message listener in this napplet (Phase 58 allowlist).
  *
- * Justified because the 0.3 notify helper surface does not expose notify.create
- * or notify.list (see file-header NOTIFY-SDK-GAP). This handler:
+ * Justified because the 0.3 notify helper surface does not expose notify.create,
+ * notify.list, or the legacy notify.read (see file-header NOTIFY-SDK-GAP). This handler:
  *   - Guards on event.source === window.parent (drop messages from other origins)
  *   - Guards on event.data being a plain object with a string `type` starting with 'notify.'
  *   - Handles notify.created (correlate via id, render <li>)
@@ -171,6 +173,19 @@ window.addEventListener('message', (event: MessageEvent) => {
   const data = event.data as Record<string, unknown> | null;
   if (!data || typeof data !== 'object') return;
   const type = data.type;
+  if (type === 'playground.notification.control') {
+    const notificationId = typeof data.notificationId === 'string' ? data.notificationId : '';
+    if (data.action === 'create') notifyCreate('Demo notification', 'Triggered from the notification service node');
+    else if (data.action === 'list') notifyList();
+    else if (notificationId && [...listEl.children].some((item) =>
+      item instanceof HTMLElement && item.dataset.notifId === notificationId)) {
+      if (data.action === 'read') window.parent.postMessage({
+        type: 'notify.read', id: makeCorrelationId(), notificationId,
+      }, '*');
+      else if (data.action === 'dismiss') dismissNotification(notificationId);
+    }
+    return;
+  }
   if (typeof type !== 'string' || !type.startsWith('notify.')) return;
 
   if (type === 'notify.created') {
@@ -193,13 +208,13 @@ window.addEventListener('message', (event: MessageEvent) => {
     // (verified from packages/services/src/notification-service.ts:189).
     const items = Array.isArray(data.notifications) ? data.notifications : [];
     log(`notify.listed received — ${items.length} item(s)`);
-    // Dispatch dismiss for each (fire-and-forget; service does not reply to dismiss).
-    for (const item of items as { id: string }[]) {
-      if (item && typeof item.id === 'string') dismissNotification(item.id);
+    if (dismissOnListed) {
+      for (const item of items as { id: string }[]) {
+        if (item && typeof item.id === 'string') dismissNotification(item.id);
+      }
+      clearList();
     }
-    // After the loop, also clear the local list defensively (in case our local state
-    // drifted from the service state — this guarantees Dismiss all empties the UL).
-    clearList();
+    dismissOnListed = false;
     pendingListId = null;
   } else if (type === 'notify.create.error' || type === 'notify.list.error' || type === 'notify.dismiss.error') {
     // ACL denial path — runtime emits a {type: '<type>.error', id, error: 'denied: ...'}

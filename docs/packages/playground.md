@@ -66,18 +66,20 @@ pubkey and whose metadata advertises the queryless `napplet:profile/open`
 convention. Profile-viewer registers
 `intent.onDelivery(handler)` before capability waiting. It reads profile
 picture/banner bytes with
-`resourceBytes`, creates Blob URLs, and revokes URLs for stale completion,
-replacement, error, clear, and `pagehide`—never direct remote image URLs.
+the host-injected `window.napplet.resource.bytes`, creates Blob URLs, and
+revokes URLs for stale completion, replacement, error, clear, and `pagehide`—
+never direct remote image URLs.
 
 `theme.get` supplies the current complete state and each eligible frame receives
 one automatic synchronized `theme.changed` after an update. There is no
 subscribe/unsubscribe protocol. Optional SHELL supplies environment information independently of domain routing; GAMEPAD supplies focus-scoped controller snapshots. See [Controller input](/gamepad).
 
-Resource demo behavior targets draft NAP-RESOURCE at exact ref
-`9511232f69313aa7953d110e35d32cc28d506f66`. It uses the injected canonical
-`bytesMany([{ url, servers? }])` projection rather than a raw envelope. Its static grants and iframe CSP
-visualize one host policy; they are not Kehto kernel requirements. The playground
-does not define new wire semantics, runtime origin policy, or NAP-DM behavior.
+Resource demo and profile media target NAP-RESOURCE PR #80 at exact ref
+`ae5b9c64ab8a4d8909f288829a01e99d6bd713bc`. They use the injected canonical
+`bytes(url)` and ordered `bytesMany(urls)` projection rather than a raw envelope
+or stale packaged resource SDK. Its static grants and iframe CSP visualize one
+host policy; they are not Kehto kernel requirements. The playground does not
+define new wire semantics, runtime origin policy, or NAP-DM behavior.
 
 ## Scope Boundaries
 

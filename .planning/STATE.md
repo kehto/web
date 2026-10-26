@@ -1,20 +1,16 @@
 ---
-gsd_state_version: "1.0"
-milestone: v1.29
-milestone_name: Napplet Convention and Runtime Conformance
-current_phase: 107
-current_phase_name: Paja Intent Deep Links
-status: completed
-stopped_at: Phase 107 complete; PR 289 open and pushed
-last_updated: "2026-10-10T11:49:59.294913Z"
-last_activity: 2026-10-10
-last_activity_desc: "Shipped Phase 107 as open PR 289"
+gsd_state_version: 1.0
+milestone: v1.31
+milestone_name: Firewall approvals
+status: verifying
+last_updated: "2026-10-17T18:04:43.677Z"
+last_activity: 2026-10-17
 progress:
-  total_phases: 7
-  completed_phases: 7
-  total_plans: 51
-  completed_plans: 51
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -40,15 +36,14 @@ baseline 95/100. See `debug/resolved/paja-chrome-visibility.md`.
 See: .planning/PROJECT.md (updated 2026-07-28)
 
 **Core value:** Modular, framework-agnostic runtime for hosting napplet applications.
-**Current focus:** Phase 107 complete — PR #289 open for review
+**Current focus:** PR #336 — CI repair and main integration
 
 ## Current Position
 
-Phase: 107 (Paja Intent Deep Links) — COMPLETE
-Plan: 4 of 4
-Status: Shipped as open PR #289 — https://github.com/kehto/web/pull/289. No merge or release performed.
-
-Last activity: 2026-10-20 — Resolved all-kind NIP-5D loading: root coordinates and distinct snapshot tabs; 2,270 unit and 142 browser tests passed.
+Phase: 115 — Firewall final audit complete
+Plan: PR review follow-up
+Status: PR #336 review fixes verified; CONFIG denial/backpressure spec gap explicitly retained.
+Last activity: 2026-10-26 — Validated review fixes with 2,733 unit and 159 Chromium tests; shipping follow-up.
 
 ## Performance Metrics
 
@@ -163,6 +158,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
+| 261026-bd4 | Validate PR 336 review; fix enforceable findings and document spec qualifications | 2026-10-26 | b7ac109f | passed; CONFIG gap documented | [261026-bd4](./quick/261026-bd4-validate-and-fix-every-pr-336-review-fin/) |
 | 261017-wx0 | Use active napplet name as browser page title | 2026-10-17 | bcc0ea60 | passed | [261017-wx0](./quick/261017-wx0-use-the-active-napplet-name-as-the-paja-/) |
 | 261017-vlq | Colored animated Paja controller indicators | 2026-10-17 | 9e8c5a74 | passed | [261017-vlq](./quick/261017-vlq-show-colored-animated-controller-indicat/) |
 | 261013-e5s | Allow experimental domain declarations in Paja with optional fallback and required-domain warnings | 2026-10-13 | 2623b79a | passed | [261013-e5s](./quick/261013-e5s-allow-unknown-optional-capability-domain/) |
@@ -385,7 +381,6 @@ Authoritative parity source inspected 2026-06-21: `/home/sandwich/Develop/napple
 - Success means retained responsibility. Host-only source-window correlation cannot appear in canonical results or delivery payloads.
 - Preserve the primary checkout's unrelated package.json changes. Work lives in `~/.worktrees/kehto/paja-intent-links` on `feat/paja-intent-links`.
 
-
 ## Debug closeout: issue #303
 
 2026-10-14: Added explicit registered-service extension routing on
@@ -401,6 +396,304 @@ Conformance authority and host-extension limits are recorded in
 Relay ACL revocation now retires ordinary adapter/service subscriptions and queued
 callbacks. See `debug/resolved/relay-acl-revocation.md` and `INBOX-TRIAGE.md`.
 Build/type/docs/quality and 2,164 unit / 123 browser tests pass.
+
+## Firewall approvals execution checkpoint
+
+2026-10-17: Worktree `/Users/sandwich/.worktrees/kehto/firewall-approvals`, branch `feat/firewall-approvals`, baseline `0958a8b1`. Original request in FIREWALL-GOAL.md. Research/consumer matrix committed. Plan 111-01 additive rate primitive verified; next is 111-02 pure approvals, then phases 112–115. The goal is active and the full migration is unfinished.
+
+2026-10-17: Plan 111-02 pure approval policy implemented and verified (50 focused tests, package type/build, docs, quality 100). Next: execute `.planning/phases/112-runtime-approval-lifecycle/112-01-PLAN.md`. Old Firewall gate and host consumers remain on legacy behavior; full objective is not achieved. All commits are local; no PR for this goal yet.
+
+2026-10-17: Phase 112 internal coordinator checkpoint implemented; 16 new lifecycle regressions and full 2,298-test unit suite pass, runtime types pass, quality 100. See `phases/112-runtime-approval-lifecycle/112-01-CHECKPOINT.md`. Coordinator is not yet wired or exported publicly. Continue phase 112 persistence/principal/ingress integration; phases 113–115 and open PR remain outstanding. Goal remains active.
+
+2026-10-17: Runtime durable state, source principal plumbing through shell, and reference LINK service are integrated behind host permission adapters. Full 2,323 unit / 125 browser tests pass, build/types/docs pass, quality 100. Plan 112 remains incomplete: migrate general ingress/extensions and all other services, then app admission/UI/network controls and final shipping. See the updated 112-01 checkpoint and docs/firewall-approvals.md for exact integration limits. The goal remains active; no PR yet.
+
+2026-10-17: Admission, extension authorization, prompt budgets, and concurrent-policy revalidation verified: 2,370 unit tests, build/types/docs, quality 100. Phase 112 checkpoint records remaining service and app migration. Full goal active; no PR yet.
+
+2026-10-17: Resource lifecycle prerequisite fixed and tested before resource
+approval integration: metadata-wait cancellation, bulk capture, duplicate IDs,
+replacement cleanup, detach. 2,379 unit tests/build/types/docs/quality100 pass.
+Resource authorization and host migrations remain incomplete. Continue request-
+scoped approval cancellation, then phase 113 service boundaries.
+
+2026-10-17: Request-owned cancellation now propagates through the service runtime
+into approval prompts/actions. Seven regressions, full 2,386 units, build/types/
+docs, quality100 pass. Next: plan/execute phase113 service authorization with
+resource canonical-wire drift and destination checks included; do not stop at
+optional APIs. Paja/playground migration and PR still outstanding.
+
+2026-10-17: Extension declaration race fixed in 9e8a77ca; 2,389 unit tests,
+build/types/docs/quality100 pass. Phase113 context and research written; typed
+service_plan agent is preparing executable plans. Retrieved exact open draft refs
+for eight previously uncaptured service domains; see 113-RESEARCH.md follow-up.
+Phase113 still requires plan-checker review before execution. Full goal active.
+
+2026-10-17: Reference resource service now authorizes individual URLs and immediate
+HTTP(S) origins through runtime, holding grants through body consumption. 2,394
+unit tests/build/types/docs/quality100 pass. Phase113 plan drafts now exist; typed
+planner finishing remaining plans before checker. Remaining resource resolver/wire
+and all host migration scope unchanged.
+
+2026-10-17: Resource execution group113-01/02 passed focused typed checker review;
+plans committed92574e78. Shared atomic completion gate covers canonical wire,
+all consumers, protected DNS-safe proxy, full build/types/unit/docs/browser/quality.
+Typed resource_execution agent is running on the shared worktree, owns this group
+and its resource implementation files; root must not duplicate/revert its edits.
+service_plan agent is revising other113plans/VALIDATION/research after broader
+checker findings. No phase or full-goal completion claim; no PR yet.
+
+2026-10-17: Full Phase113 plan review PASSED after closing the Wave2 validation
+release mismatch. All18plans and40task validation map are committed (ea7deeb1);
+resource01/02 still require their combined full gates before any downstream service
+execution. resource_execution remains live; service/shell types pass provisionally,
+Paja migration/tests ongoing. Host114 context committed e5a6f294 from actual loader
+and CSP findings; host_research owns114-RESEARCH only and is live. No full resource,
+phase, or goal completion claim. Next: collect resource combined verification, then
+execute113wave3; collect114research and plan/check host integration. Goal active.
+
+2026-10-17: Continued source/spec review found Plan113-03 needs explicit runtime
+and adapter-contract work: signing/encryption and buffer delivery precede service
+gates; publish destinations are hidden; query synthesizes subscribe. Authority
+handoff committed547a719b. Independent checker narrowly reopened03; service_plan
+is revising03 and validation/dependency references. Other service plans and resource
+01/02 release contract remain valid. resource_execution committed recoverable
+55f54f1c WIP, now migrating service/shell tests; do not claim combined gates passed.
+Host research returned then was resumed to correct remote subresource CSP bypass
+(script/style/image/font/worker traffic is direct network even with connect-src none).
+Await corrected114research before planning. Live agents at this checkpoint:
+resource_execution, service_plan, host_research. Goal remains active, no PR yet.
+
+2026-10-17: Root completed proxy security slice under113-01/02, committed
+2c453829 as WIP (not resource group completion). Added DNS/address pinning,
+HTTP-valid port-scoped cookie, readable per-hop redirect metadata, deadline/body
+bounds, disconnect cancellation, policy doc and Paja changeset. 48 focused
+proxy/server tests and Paja typecheck pass; logs /tmp/kehto-proxy-security.log
+and /tmp/kehto-proxy-types.log. Quality96 currently from two executor-owned
+resource migration findings (unused responseBlob and resource-demo doublecast);
+executor notified. Proxy files handed back to resource_execution for fullgroup
+integration. Relay03/19 atomic plan split independently PASSED; updatedplans and
+corrected114research committeddaee710d. host_plan now owns114plans/validation;
+resource_execution stillowns active resource migration. Next: resource fullgates,
+then113wave3; collect/check114plans. Goal active, no PR yet.
+
+2026-10-17: Root completed the three pending Paja resource integration test
+migrations in f6072a17: proxy POST/body destination assertions, canonical string
+wire bytes, URI xs candidate hints, preserved fallback/settings/hash/migration
+warning regressions. Focused 13 tests and Paja type-check pass. Rechecked
+NAP-RESOURCE ae5b9c64ab8a4d8909f288829a01e99d6bd713bc via GitHub before edits.
+Found Blossom proxy redirect handling gap; resource_execution fixed it and reports
+147 focused Paja tests/types passing. Root current-tree AI-slop gate passes100,
+log /tmp/kehto-resource-final-quality.json. Executor owns all remaining resource
+source/docs/E2E changes and full combined gates; no resource completion claim yet.
+Host planner remains live on114plans/validation. Next: collect resource fullgate
+results, fix any failures, then release113wave3 and review114plans. Goal active;
+no PR yet. Prior prompt-only goal turn made no implementation progress; this turn
+revalidated the live worktree/agents and delivered the committed test migration.
+
+2026-10-17: Independent resource lifecycle review found two additional confirmed
+regressions, saved as explicit RED WIP checkpoints. ab3a17c1 adds
+resource-network-lifetime.test.ts: revoking the network grant after response
+headers leaves its AbortSignal live while body consumption waits. b250dc3c adds
+paja-resource-network-denial.test.ts: both HTTPS and Blossom prevent transport
+but incorrectly return network-error instead of canonical blocked-by-policy.
+Checked NAP-RESOURCE ae5b9c64 lifecycle/error policy before tests; retaining the
+network grant through the body is explicit Kehto policy. New test ownership and
+both findings handed to resource_execution; no root uncommitted changes remain.
+Existing fullgate results must be rerun after fixes; do not release113wave3 yet.
+Host planner live on114plans/validation (01–10 drafted, remaining browser and
+fullgate plans in progress). Prior turn was progress (f6072a17 test migration);
+this turn adds evidence and regression checkpoints, not resource completion.
+
+2026-10-17: Root follow-up review found same-origin redirect deadlock introduced
+by retaining network operation approval until resource completion. Saved RED
+8253a81a; executor fixed it and reports focused111 tests passing. Root docs:check
+and pinned quality100 passed at that checkpoint (/tmp/kehto-resource-reviewed-*).
+Subsequent review found early same-origin reuse published an unapproved signal:
+two concurrent resolver calls execute the second transport before the prompt is
+answered. Confirmed RED6acabfea (resource-network-concurrency.test.ts); handed
+source/test ownership to resource_execution. Resource group remains incomplete;
+fullgates must include the latest concurrency regression. Also requested negative
+transport-rejection and cancellation cleanup coverage for held network operations.
+Host planner completed12plans/33tasks+VALIDATION; root caught stale mandatory-shell
+wording and verified NAP-SHELL19de5ce optional semantics via GitHub. Planner fixed
+all affected plans. Typed service_plan_check now owns114-PLAN-REVIEW only and is
+reviewing the complete set; root must collect verdict before implementation.
+Previous goal turn was progress (two regression checkpoints); this turn adds
+confirmed same-origin/concurrency evidence and starts independent host plan review.
+
+2026-10-17: Host114 checker returned2 blockers: unresolved live-development graph
+assumption and non-exhaustive CSP directive classification. host_plan is revising
+114RESEARCH/plans/VALIDATION only. Bounded decision: live dev/HMR is explicitly
+approved direct-network mode without resource; resource-safe development accepts
+one prebuilt self-contained HTML artifact, never assumes arbitrary transitive live
+graph capture. Closed CSP directive handling must cover media/frame/child/manifest/
+object and unknown additions with unit/browser evidence. Recheck revised plans.
+Resource executor simplified held origin approvals to separate readiness/lifetime
+from transport callbacks. Root expanded resource-network-concurrency.test.ts:
+3/3 pass for denied concurrent work, successful shared origin approval, and revoke
+while sibling callback waits; committed dbe0c482, ownership returned. Validation
+now lists all new resource network suites (c85eb408). Latest quality scan99 has
+one redundant catch in executor-owned resource-authorization.ts:88; executor
+notified. Full resource gates and final source commit still pending. Prior turn
+was progress; current turn delivers expanded regression evidence and resolves
+host planning decisions, without claiming group or full-goal completion.
+
+2026-10-17: Host114 revised plan set independently PASSED and committed1a15764e
+(12plans/33tasks/9waves plus research/validation/review). All optional-shell,
+bounded development, and exhaustive CSP findings closed. Host execution still
+requires completed113 integration. Both planner/checker finished; available for
+future workflow tasks. Resource executor remains live on fullgates/source closure.
+Root discovered published package docs still described9511232 servers/requests
+and browser-only transport despite structuraldocs passing. Corrected paja,
+services, shell package docs in900217fd, including canonical wire, protectedproxy,
+request-bound network lifetime, compatibility, and explicit114isolation prerequisite.
+Docs:check PASS (/tmp/kehto-resource-package-docs.log), pinnedquality100
+(/tmp/kehto-resource-package-docs-quality.json), diffcheck clean. Executor notified
+servicesREADME:55 still needs its owned stale-contract update. Prior turn was
+progress; this turn closes reviewed114planning and published-doc drift. Full
+resource gates/summary remain pending; no PR or fullgoal completion claim.
+
+2026-10-17: Resource source fixes committed ecc8c23e; executor reports full
+build/typecheck, unit191files/2450tests, focused247tests, docs/quality green and
+isolated Paja browser modes passing. Root refused group completion without full
+125-test E2E gate. Unrelated docs Vite occupied4173; preserved it and added shared
+validated KEHTO_HARNESS_PORT override (playwright/Vite/CORS fixtures/README),
+committed05c60d8a. Run fullsuite with KEHTO_HARNESS_PORT=42873 pnpm test:e2e.
+Full run session66350 TERMINAL exit1:124passed/1failed2.5m, sole resource-demo
+browser path fails with invalid-request resource.bytesMany requires nonempty urls.
+Logs/tmp/kehto-resource-full-e2e.log and test-results/nap-resource-resource-demo-loads-and-renders-a-remote-image-chromium/error-context.md.
+resource_execution owns diagnosis/fix, informed fullrun stopped and rebuild safe.
+Do not mark01/02 complete or releasewave3 until fixed and fullsuite green.
+Root currenttree typecheckPASS (/tmp/kehto-resource-final-types.log), docsPASS
+(/tmp/kehto-resource-harness-docs.log), quality100(/tmp/kehto-resource-harness-quality.json).
+Previous turn was progress; this turn made fullbrowser verification possible and
+found a real missed consumer regression. Goal active, no PR yet.
+
+2026-10-17: Resource demo failure traced to @napplet/shim0.30 overwriting the
+canonical injected resource binding with retired requests payloads. Executor
+removed that import in ff67026e (comment correction f56712a3); focused browser2/2
+passed. Root updated two static guards and documented RESOURCE_HOST_PROJECTION
+exception against NAP-RESOURCE ae5b9c64 in29d3594e. Fullunit nowPASS191files/2451tests
+(/tmp/kehto-resource-final-unit.log), docsPASS(/tmp/kehto-resource-projection-docs.log),
+quality100(/tmp/kehto-resource-projection-quality.json). Full E2E rerun with
+KEHTO_HARNESS_PORT=42873 pnpm test:e2e completed125/125 PASS2.3m; session5842
+TERMINALexit0; log/tmp/kehto-resource-full-e2e-final.log. Source build passed.
+Executor notified rebuild safe. Before final01/02 summaries, resource_execution
+is auditing feed/profile media SDK consumers for the same stale wire/Blob helper
+behavior; current green suite alone does not prove those images consume canonical
+wire. Root holds no dirty code. After audit/fixes/gates, collect01/02 summaries,
+then executewave3 (relay03+19 atomic group and disjoint service plans). Host114
+plans remain reviewed/committed and gated on full113 completion. Prior turn was
+progress; this turn closes actual browser regression and yields fullgreen evidence.
+
+2026-10-17: Continuation re-read full objective; previous prompt-only turn made no
+implementation progress. Resource consumer migration committed3ce1e1e2 by executor:
+feed/profile now use host projection; targeted unit27/browser2/type/docs passed.
+Root audit found two additional real network bypasses and committed red regressions
+afb001d0 in tests/unit/resource-discovery-authorization.test.ts. authorizeNetwork
+previously executed every non-HTTP scheme without permission; corrected WS/WSS
+origin approval and fail-closed unsupported/credential destinations. Six helper
+cases PASS plus nine existing concurrency/lifetime/approval tests PASS. Blossom
+discovery test remains RED: browser-resource getBlossomServers -> event resolver
+getServers -> baseRouter.query invokes unapproved relay work. resolveRelays can
+itself discover NIP65 lists and query relay options are hints, so merely wrapping
+those calls with approval for an assumed destination is insufficient. Executor
+resource_execution assigned complete discovery transport/cancellation/cache fix,
+including required router seams and docs; preserve author discovery functionality.
+NAP-RESOURCE PR80 head rechecked unchanged ae5b9c64. Hold01/02 summaries and all
+downstream execution until regression fixed and combined full gates rerun.
+
+2026-10-17: Previous turn was progress (97e50f2c helper fix and afb001d0 red
+discovery evidence). Current audit found missing completed-ID replay ledger in
+resource-service despite113-01 requirement. Three new behavioral tests first
+failed on repeated transport calls. Added per-window bounded1024 completed IDs,
+kept in-flight ownership independent, suppressed malformed ID reuse, and cleared
+history on source destruction/detach. Five new tests plus37 related tests PASS;
+services type-check PASS (session7033 terminal0), docs:check PASS (session20129
+terminal0, /tmp/kehto-resource-replay-docs.log), quality100
+(/tmp/kehto-resource-replay-quality.json). Updated service docs and changeset.
+RESOURCE80 exact head rechecked unchanged ae5b9c64. resource_execution remains
+active on discovery transport fix across Paja resolver/adapter/router seams.
+Full resource group remains incomplete pending discovery regression and combined
+gates; no downstream113/114 execution or PR yet.
+
+2026-10-17: Previous turn made progress with replay fix201e3572. Current review
+confirmed discovery teardown race: clearWindow removes maps, but a late lookup
+repopulates cache and replacement window receives stale.example. Committed
+red regressionbc4bc6f3 tests/unit/paja-resource-discovery-generation.test.ts;
+resource_execution owns fix and test now along with active discovery migration.
+Root also ran explicit playground tsc (session51527 terminal1): six errors from
+stale ResourceServiceOptions fields in demo-hooks.ts. Root type-check previously
+skipped this app because package lacks script. Added explicit script/tsc gate to
+113-17 (already owns host constructor migration), recorded in113VALIDATION.
+No root code edits pending. Discovery and combined resource gates remain open;
+then downstream113 and host114 must complete before fullgoal/PR completion.
+
+2026-10-17: Previous turn delivered generation regressionbc4bc6f3 and explicit
+playground verification planef013847. Resource executor currently wires approved
+bootstrap NIP65 and immutable selected relay BUD03 reads, carries cancellation,
+and adds source-generation guards. Root supplied committed589329e5 real backend
+query cancellation regressions (3cases), with existing25 relay-runtime tests all
+PASS and Paja tscPASS; session72803 terminal0. Quality100 recorded in
+/tmp/kehto-resource-discovery-transport-quality.json. Root returned test ownership
+to resource_execution and added113VALIDATION evidence. Discovery source/tests
+remain executor-owned WIP; combined full resource gates and summaries still
+pending. Fullgoal remains active; no downstream execution or PR yet.
+
+2026-10-17: Previous turn delivered backend cancellation regression589329e5.
+Discovery source3b4cbb22 committed; executor reported139focused tests and Paja
+tscPASS. Root review found NIP65 registry iteration selected old event afternew;
+executor corrected selection while migrating old integration mocks. Root added
+actual adapter approval tests22e5f35d:3PASS, signed fixtures, bootstrap/author
+deny before query, live signal and prior exact approval asserted inside backend
+query, successful bytes, old relay excluded. Quality100
+(/tmp/kehto-resource-adapter-approval-quality.json). Test ownership returned to
+resource_execution, which owns remaining integration migration and full combined
+gates (including full E2E on42873). No root process live, no summaries yet.
+
+2026-10-17: Previous turn delivered adapter approval tests22e5f35d and plan
+evidence467f60df. Current worktree clean at turn start except executor-owned
+browser-adapter.ts patch. Reviewed discovery source and verified focused three
+suites11/11PASS (session83161 terminal0): adapter denial/allow, network helper,
+source-generation cleanup. Executor now fixes NIP65 newest-event selection and
+migrates old Blossom integration mocks, then runs combined full build/type/unit/
+docs/quality/E2E gates (42873). Root found potential pre-approval signer-provider
+getRelays I/O in getPajaBootstrapRelayUrls and asked executor to trace supported
+implementations/guard or document boundary. No root source edits. Phase113-01/02
+summaries and downstream service execution remain pending full gates and review.
+
+2026-10-17: Phases 111–114 implemented and committed on `feat/firewall-approvals`.
+Firewall is the pure approval authority; rate limiting is independent; runtime
+coordinates bounded source-bound requests; services and both hosts use the
+shared admission and revocation path. Paja covers verified/local/live-dev
+launches; playground remains verified-only. The consumer matrix and Phase 114
+summaries record protocol refs and deliberate gaps. Final gates passed: build
+and type-check, 207 unit files / 2,625 tests, 133 Chromium tests, docs,
+changesets, diff integrity, and AI-slop 100/100. Playwright used harness port
+43173 because an unrelated local server held 4173. Phase 115 final audit and
+PR remain active. Unrelated `.planning/WINDOWS.md` is preserved unstaged.
+
+2026-10-17: Final audit completed and PR #336 opened at
+https://github.com/kehto/web/pull/336. Branch `feat/firewall-approvals` is
+pushed. Source, tests, docs, changesets, and protocol notes are in the PR;
+only unrelated `.planning/WINDOWS.md` remains uncommitted in the worktree.
+
+2026-10-19: PR #336 CI follow-up reproduced the isolation-test timeout with
+Node 20.20.2. Browser assertions completed, but Chromium's speculative TCP
+connection prevented HTTP fixture shutdown. d2a86fe1 closes remaining fixture
+connections after stopping its listener. Focused traced repeats passed 9/9;
+full Node 20 E2E passed 133/133 (2.5m, harness 43373). Build, type-check,
+2,625 unit tests, docs, diff integrity, and pinned quality 100/100 passed.
+NIP-5D 5560820f and NAP-RESOURCE ae5b9c64 rechecked unchanged; isolation
+behavior remains conformant. Debug record: debug/resolved/pr336-ci-isolation.md.
+Unrelated WINDOWS.md and primary-checkout package.json changes are preserved.
+
+2026-10-19: Integrated main 47b2f1c8 because GitHub could not run PR CI with
+merge conflicts. Kept released host/intent fixes and isolated upload cancellation
+errors without weakening Firewall ownership. Updated upstream FS browser probes
+to declare optional FS and use shared admission. Combined gates passed: build,
+types, 2,637 units, docs, changesets, quality 100/100, and all 141 browser tests
+under Node 20 CI settings (140 passed; one unrelated page-load test retried).
+See debug/resolved/pr336-main-integration.md. WINDOWS.md restored unchanged.
 
 ### Debug Sessions Completed
 

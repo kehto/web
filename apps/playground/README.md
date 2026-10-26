@@ -27,14 +27,31 @@ The `preview` command serves the production build against which the Playwright E
 
 The active playground boot path is production-equivalent:
 
+The playground currently loads only resolver-verified catalog artifacts. Vite's
+`dev` command develops the host UI; it does not add an unsigned napplet loader.
+Demo settings and gateway responses cannot approve an interface or origin.
+
 1. Each demo napplet uses `apps/playground/napplets/shared-vite-config.ts`.
 2. The shared config lets `@napplet/vite-plugin` validate and sign the normal external-asset graph, then Kehto's post-build plugin rewrites the final gateway artifact to a single HTML file and recomputes the manifest.
 3. Each napplet build emits exactly `dist/index.html` plus `dist/.nip5a-manifest.json`.
-4. The shell resolves the manifest, verifies the signed content-addressed bytes, binds the iframe origin to the computed `(dTag, aggregateHash)`, and writes the verified HTML through `iframe.srcdoc`.
-5. Before authored scripts run, `prepareNappletSrcdoc()` supplies the runtime namespace outside signed artifact bytes. It exposes only the live, host-granted domains. Trusted iframe creation identity establishes routing without requiring optional SHELL readiness. GAMEPAD uses the host's controller reader and input owner; every frame denies direct controller access. See the living [NAP-SHELL](https://github.com/napplet/naps/blob/master/naps/NAP-SHELL.md) and [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108).
+4. The shell resolves the manifest, verifies the signed content-addressed bytes, and admits required/optional interfaces against the verified catalog identity and artifact hash before assigning `iframe.srcdoc`. Required denial prevents launch; optional denial omits that namespace.
+5. Shared browser admission prepends approved CSP and namespace bootstraps outside the signed artifact bytes. Kehto offers the read-only `shell` control plane for ready/init when available; it does not grant app resource or network authority. GAMEPAD uses the host's controller reader and input owner; every frame denies direct controller access. See the living [NAP-SHELL](https://github.com/napplet/naps/blob/19de5ce1cea40cd4c76089cdd8126e9f87648049/naps/NAP-SHELL.md) and [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108).
 6. The iframe sandbox remains opaque-origin: `allow-scripts` only, no `allow-same-origin`.
 
 The gateway route may still serve manifest/blob data as a local accelerator or debugging surface, but it is not the identity authority. New tests and docs should treat verified `srcdoc` loading plus `(dTag, aggregateHash)` provenance as the canonical playground boot path.
+
+The **Firewall approvals and grants** panel uses the same prompt and runtime
+grant store as Paja. Session decisions end with the source; persistent decisions
+bind the verified catalog/artifact pair. The panel revokes or clears live grants
+and reports durable-storage failures. ACL controls and service toggles can still
+restrict an operation, but cannot approve an interface, resource, or destination.
+The old connect-consent modal and static `resource-demo` origin allowlist are
+retired. Resource-demo fetches use the host-mediated resource service, which
+checks the exact URL and network origin separately.
+Whole-app ACL blocks also prevent frame admission. If an installed app was
+blocked before reload, the header's **unblock installed apps + reload** control
+clears those blocks without granting Firewall permissions or changing individual
+ACL capability switches.
 
 The shell enforces NIP-5D CSP placement and exact connection-grant recommendations while allowing host overrides of the conservative example defaults. It rejects broad JavaScript evaluation. Embedding restrictions such as `frame-ancestors` belong on the host HTTP response. See [CSP enforcement](../../docs/policies/NIP-5D-CONFORMANCE.md#shell-csp-enforcement).
 
@@ -127,15 +144,16 @@ starts the verified target, waits for its current registered source and
 then returns the final handled target identity. A stale or replaced target is
 never used; controller retry and terminal policy remain host-owned.
 
-Profile-viewer registers `inc.on('napplet:profile/open', …)` early. It validates
-the delivered `pubkey`,
-loads kind-0 metadata, and obtains profile pictures/banners through
-`resourceBytes(url)`. The runtime resolves the URL and returns bytes; the napplet
-creates a Blob URL from those bytes and revokes it on replacement, stale
-completion, image error, profile clear, and `pagehide`. This follows merged
-NAP-IDENTITY at `a040914b4bbd3a5cd8a14b0f316a723c968ebfb2` and draft
-NAP-RESOURCE at `9511232f69313aa7953d110e35d32cc28d506f66`. The resource demo
-uses canonical per-resource `bytesMany([{ url, servers? }])` requests.
+Profile-viewer validates the delivered `pubkey`, loads kind-0 metadata, and
+obtains profile pictures/banners through the host-injected
+`window.napplet.resource.bytes(url)` projection. The runtime returns canonical
+base64 that the projection validates and converts to a `Blob`; the napplet
+creates a Blob URL and revokes it on replacement, stale completion, image
+error, profile clear, and `pagehide`. This follows merged NAP-IDENTITY at
+`a040914b4bbd3a5cd8a14b0f316a723c968ebfb2` and NAP-RESOURCE PR #80 at
+`ae5b9c64ab8a4d8909f288829a01e99d6bd713bc`. The resource demo uses ordered
+`bytesMany(urls)` requests. The installed shim is intentionally absent from
+these resource consumers until its packaged projection matches that contract.
 
 Theme is synchronized by reading the current value with `theme.get` and then
 receiving one automatic `theme.changed` per eligible frame after a host update;

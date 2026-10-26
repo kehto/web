@@ -65,6 +65,8 @@ export interface RelayPoolOutboxRouterOptions {
   fallbackRelays: string[];
   /** Sign a template before publish. Omission denies publishing. */
   signEvent?(template: EventTemplate): Promise<NostrEvent>;
+  /** Resolve the signing identity without signing, for immutable publish planning. */
+  getSignerPubkey?(): string | Promise<string>;
   /** Validate an event before delivery. Host pools may pre-verify. */
   verifyEvent?(event: NostrEvent): Promise<boolean> | boolean;
   /** Gate every relay URL, including caller hints. */
@@ -79,6 +81,7 @@ export interface RouterCtx {
   loadRelayLists: RelayPoolOutboxRouterOptions['loadRelayLists'];
   fallbackRelays: string[];
   signEvent?: RelayPoolOutboxRouterOptions['signEvent'];
+  getSignerPubkey?: RelayPoolOutboxRouterOptions['getSignerPubkey'];
   isRelayAllowed: (url: string) => boolean;
   defaultTimeoutMs: number;
   verify(event: NostrEvent): Promise<boolean>;

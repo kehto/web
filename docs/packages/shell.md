@@ -1,9 +1,41 @@
 # @kehto/shell
 
+## Relay approval boundary
+
+The shell relay adapter executes approved destination snapshots through
+`subscribeToRelays()` and `publishToRelays()`. Its selector is used only while
+planning and never re-runs after approval.
+
 Browser adapter over `@kehto/runtime` for iframe/session hosting.
+
+`ShellAdapter.permissions` connects host approval adapters to runtime. Trusted
+`OriginIdentity.permissionPrincipal` is carried into the source session; app
+messages cannot override it. The reference LINK service uses this shared path.
+See [scoped approvals](/firewall-approvals) for lifetimes, persistence, and
+host migration status.
+
+The bridge exposes runtime admission through `bridge.runtime.permissions`.
+`admitBrowserDocument` performs provisional registration, `admit`, CSP/namespace
+preparation, and the final currentness check before a synchronous frame commit.
+Paja's verified, local-file, and live development frames and the playground's
+verified catalog frames use this transaction before scripts execute. The
+playground has no unsigned development loader.
+
+`createBrowserApprovalUi` presents the runtime prompt with trusted technical
+identity, exact operation scopes, and offered lifetimes. It returns explicit
+allow, deny, or cancel decisions; Escape, close, and abort cancel. Its grant
+view reads `RuntimePermissions.grants` on refresh and delegates revoke, clear,
+and persistence retry to the runtime. Storage failures remain visible and
+block new grants. A host retirement callback must remove live direct-network
+frames when a relevant grant changes; the parent cannot meter direct iframe
+traffic.
 
 > **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
 > protocol. Injected-domain behavior and NAP contracts are not final.
+
+Browser source grants follow CSP scheme/port matching, including HTTP to HTTPS
+upgrades; the approval UI discloses this when relevant. Mediated network scopes
+continue to require exact canonical origins.
 
 ## Install
 
@@ -39,6 +71,7 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
 | Protocol and capability types | `NostrEvent`, `NostrFilter`, `NappletMessage`, `Capability`, `ALL_CAPABILITIES` |
 | Shell init and bootstrap | `buildShellCapabilities`, `injectNappletNamespacePrelude`, `renderNappletNamespacePrelude`, `NappletNamespacePreludeOptions` |
 | Verified documents and CSP | `prepareNappletSrcdoc`, `NappletSrcdocOptions`, `buildNappletCsp`, `renderNappletCspMeta`, `injectNappletCsp`, `NappletCspOptions`, `NappletCspDirectives`, `NappletCspDirective` |
+| Browser admission and approval | `admitBrowserDocument`, `BrowserAdmissionRequest`, `BrowserAdmissionResult`, `BrowserAdmissionCommit`, `BrowserAdmissionOmission`, `BrowserLaunchMode`, `BrowserRemoteSource`, `createBrowserApprovalUi`, `BrowserApprovalUi`, `BrowserApprovalUiOptions` |
 | Registries and caches | `sessionRegistry`, `nappKeyRegistry`, `originRegistry`, `manifestCache`, `audioManager`, `PendingUpdate`, `ManifestCacheEntry`, `AudioSource` |
 | Enforcement re-exports | `createEnforceGate`, `createNapEnforceGate`, `formatDenialReason`, `EnforceResult`, `EnforceConfig`, `NapEnforceConfig`, `IdentityResolver`, `AclChecker`, `NapMessage` |
 | Proxies | `createIdentityProxy`, `createThemeProxy`, `createKeysProxy`, `createMediaProxy`, `createNotifyProxy` |
@@ -56,7 +89,7 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
 - Preserves an asynchronous `RelayPoolHooks.publishToScopedRelay()` result so
   scoped publication does not report success before transport acceptance.
 - Provides `prepareNappletSrcdoc()` outside verified bytes and exposes only host-selected domains before authored scripts. Optional SHELL provides environment information; source-bound routing does not depend on readiness. See [NAP-SHELL](https://github.com/napplet/naps/blob/master/naps/NAP-SHELL.md).
-- Its injected resource projection carries NAP-RESOURCE's optional per-resource Blossom `servers`, including the canonical bulk `requests: [{ url, servers? }]` shape.
+- Its injected resource projection follows [NAP-RESOURCE at `ae5b9c6`](https://github.com/napplet/naps/blob/ae5b9c64ab8a4d8909f288829a01e99d6bd713bc/naps/NAP-RESOURCE.md): wire requests carry `id` plus `url` or ordered `urls`. Responses carry canonical padded base64; the web binding validates and converts it into `Blob` values. Legacy object payloads and noncanonical base64 are rejected. Blossom discovery hints belong in the URI or trusted resolver configuration, not a wire `servers` field.
 - Advertises `count` in shell capabilities and the injected `window.napplet` namespace only when `ShellAdapter.services.count` is wired, so `shell.supports("count")` tracks an actual NAP-COUNT backend.
 - Surfaces unroutable inbound messages via the optional `ShellAdapter.onUnroutedMessage` hook (`UnroutedMessageInfo`) — observe-only; the bridge still drops messages from unidentified or unregistered windows, but hosts can now log them instead of debugging a silent vanish.
 - Advertises and injects `dm` or `fs` only when the matching runtime service is registered and host domain policy permits it.

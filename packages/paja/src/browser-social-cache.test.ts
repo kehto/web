@@ -14,6 +14,7 @@ import type {
   OutboxSubscribeOptions,
   OutboxSubscriptionSink,
   OutboxTarget,
+  StreamingOutboxRouter,
 } from '@kehto/services';
 
 import { createPajaSocialCache } from './browser-social-cache.js';
@@ -71,6 +72,38 @@ function deferred<T>() {
 }
 
 describe('createPajaSocialCache', () => {
+  it('preserves approved read plans and source-authorized cache augmentation', async () => {
+    const cached = result(event('1', FOLLOWED_A, 0));
+    const base = result(event('2', FOLLOWED_B, 0));
+    const plan: OutboxRelayPlan = { relays: ['wss://approved.example'], source: 'nip65' };
+    const queryWithPlan = vi.fn(async () => ({ events: [base] }));
+    const baseRouter: OutboxRouter & Partial<StreamingOutboxRouter> = {
+      ...createRouter(async () => ({ events: [cached] })),
+      planRead: vi.fn(async () => plan), queryWithPlan,
+      subscribeWithPlan: vi.fn(() => ({ close() {} })),
+      planPublish: vi.fn(async () => plan), publishWithPlan: vi.fn(async () => ({ ok: true })),
+    };
+    const cache = createPajaSocialCache({ baseRouter,
+      loadContactList: async () => [event('3', ACCOUNT_A, 3, [['p', FOLLOWED_A]])],
+      verifyEvent: () => true, getActivePubkey: () => ACCOUNT_A });
+    await cache.refreshActiveIdentity();
+    const decorated = cache.decorate(baseRouter, () => true) as Partial<StreamingOutboxRouter>;
+    expect(decorated.planRead).toBeTypeOf('function');
+    expect(await decorated.planRead!([{ kinds: [0] }])).toBe(plan);
+    const signal = new AbortController().signal;
+    expect(await decorated.queryWithPlan!([{ kinds: [0] }], undefined, plan, signal))
+      .toEqual({ events: [base, cached] });
+    expect(queryWithPlan).toHaveBeenCalledWith([{ kinds: [0] }], undefined, plan, signal);
+    const controller = new AbortController();
+    const aborted = decorated.queryWithPlan!([{ kinds: [0] }], undefined, plan, controller.signal);
+    controller.abort();
+    expect(await aborted).toEqual({ events: [base] });
+    expect(decorated.subscribeWithPlan).toBeTypeOf('function');
+    expect(decorated.planPublish).toBeTypeOf('function');
+    expect(decorated.publishWithPlan).toBeTypeOf('function');
+    cache.dispose();
+  });
+
   it('returns verified follows for the captured account and warms normal kind-0 results through its base router', async () => {
     let activePubkey = ACCOUNT_A;
     const profile = event('2', FOLLOWED_A, 0);

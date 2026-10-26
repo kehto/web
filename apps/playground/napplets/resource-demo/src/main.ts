@@ -2,18 +2,20 @@
  * resource-demo napplet -- fetches a remote image through the resource service
  * and renders it as a visible resource preview.
  *
- * Uses the published NAP-RESOURCE SDK over the injected host projection to
- * fetch remote bytes and surface the response as an object URL.
+ * Uses the injected host projection to fetch remote bytes and surface them as
+ * an object URL.
  */
-import '@napplet/shim';
-import { resourceBytesMany } from '@napplet/nap/resource/sdk';
 import { getMissingNapDomains } from '../../domain-availability';
 import { applyNapTheme, installNapTheme, onNapThemeChanged } from '../../shared-theme';
 
+// @napplet/shim 0.30 installs the pre-PR #80 resource helper, which emits
+// retired `requests` envelopes. Use the live shell projection injected before
+// authored code so this demo exercises the canonical `urls` API.
+
 const REQUIRED_NAPS = ['resource', 'theme'] as const;
 // Match the 5s deadline every other playground napplet uses: the host prelude
-// and @napplet/shim@0.30.0 install canonical window.napplet domain objects
-// before authored code runs, but slower CI can still race the iframe bootstrap.
+// installs canonical window.napplet domain objects before authored code runs,
+// but slower CI can still race the iframe bootstrap.
 const CAPABILITY_WAIT_MS = 5_000;
 const CAPABILITY_WAIT_INTERVAL_MS = 25;
 
@@ -25,6 +27,10 @@ const bulkEl = document.getElementById('resource-demo-bulk')!;
 const REMOTE_IMAGE_URL = 'https://raw.githubusercontent.com/github/explore/main/topics/typescript/typescript.png';
 const REMOTE_IMAGE_URLS = [REMOTE_IMAGE_URL, REMOTE_IMAGE_URL] as const;
 let currentObjectUrl: string | null = null;
+
+type ResourceBytesManyItem =
+  | { url: string; ok: true; blob: Blob; mime: string }
+  | { url: string; ok: false; error: string; message?: string };
 
 function setStatus(text: string, color: 'gray' | 'green' | 'red' = 'gray'): void {
   statusEl.textContent = text;
@@ -78,7 +84,11 @@ async function init(): Promise<void> {
   sourceEl.textContent = REMOTE_IMAGE_URL;
   bulkEl.textContent = 'bulk loading';
 
-  const items = await resourceBytesMany(REMOTE_IMAGE_URLS.map((url) => ({ url })));
+  const resource = (window.napplet as {
+    resource?: { bytesMany(urls: readonly string[]): Promise<readonly ResourceBytesManyItem[]> };
+  }).resource;
+  if (!resource) throw new Error('resource capability disappeared');
+  const items = await resource.bytesMany(REMOTE_IMAGE_URLS);
   const first = items[0];
   if (!first?.ok) {
     imageEl.removeAttribute('src');

@@ -14,49 +14,44 @@
  * NAP-RESOURCE is a runtime-mediated byte resolver — read-only, atomic.
  *
  * Kehto owns neutral wire lifecycle, cancellation, result projection, and
- * policy tooling. The runtime supplies the resolver and decides whether to use
- * the origin-grant hooks, which schemes to resolve, and which limits to expose.
+ * policy tooling. The runtime supplies the resolver, which must call
+ * `init.authorizeNetwork` before each actual network destination, including
+ * redirects. The host decides which schemes to resolve and limits to expose.
  * Advisory `resource.info` scheme disclosure never authorizes or blocks a byte
  * request.
  * ──────────────────────────────────────────────────────────────────────────────
  *
- * Runtime integration requires only `fetch`. A runtime MAY also install the
- * optional origin-policy adapter (`isOriginGranted`, `getConnectGrants`, and
- * `resolveIdentity` together).
+ * Runtime integration requires a resolver. With runtime approval support,
+ * the service authorizes each resource URL, and the resolver must authorize
+ * every actual HTTP(S) or WebSocket destination independently.
  *
  * @example
  * ```ts
  * import { createResourceService } from '@kehto/services';
  *
  * const resourceSvc = createResourceService({
- *   fetch: (url, init) => globalThis.fetch(url, init),
+ *   fetch: (url, init) => runtimeResources.resolve(url, init),
  * });
  * runtime.registerService('resource', resourceSvc);
- * ```
- *
- * @example
- * ```ts
- * const resourceSvc = createResourceService({
- *   fetch: (url, init) => runtimeResources.resolve(url, init),
- *   isOriginGranted: (origin, grants) => grants.includes(origin),
- *   getConnectGrants: (dTag, hash) => myOriginGrantStore.getOrigins(dTag, hash),
- *   resolveIdentity: (windowId) => sessionRegistry.getEntryByWindowId(windowId) ?? null,
- * });
  * ```
  */
 
 import type { NappletMessage } from '@napplet/core';
-import type {
-  ResourceBytesRequest,
-  ResourceInfo,
-} from '@napplet/nap/resource/types';
-import type { ServiceDescriptor, ServiceHandler } from '@kehto/runtime';
+import type { ResourceInfo } from '@napplet/nap/resource/types';
+import type { ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
+import {
+  authorizeResource,
+  ResourceAuthorizationError,
+  type AuthorizeNetwork,
+} from './resource-authorization.js';
 
 export type {
-  ResourceBytesRequest,
   ResourceInfo,
   ResourceSchemeInfo,
 } from '@napplet/nap/resource/types';
+
+/** Canonical inbound NAP-RESOURCE bytes request. */
+export interface ResourceBytesRequest { readonly url: string; }
 
 /** Resource service version — follows semver. */
 const RESOURCE_SERVICE_VERSION = '1.0.0';
@@ -71,8 +66,8 @@ export interface ResourceFetchInit {
   signal: AbortSignal;
   /** Authenticated source window, for runtime-private scoped policy state. */
   windowId?: string;
-  /** Advisory Blossom server origins for this resource only. */
-  servers?: readonly string[];
+  /** Authorize every actual HTTP(S) or WebSocket destination before the resolver contacts it. */
+  authorizeNetwork?: AuthorizeNetwork;
 }
 
 /** Context passed to a host-provided resource info resolver. */
@@ -90,8 +85,7 @@ export type ResourceInfoProvider =
  * Options for `createResourceService` (options-as-bridge per v1.6 Decision 18).
  *
  * `fetch` is the only required field. Kehto does not select a runtime's scheme
- * or origin policy. The optional origin-policy fields form one adapter and must
- * therefore be supplied together when a runtime chooses to use it.
+ * or origin policy.
  */
 export interface ResourceServiceOptions {
   /**
@@ -104,49 +98,12 @@ export interface ResourceServiceOptions {
    * canonical protocol error classification.
    *
    * @param url - The URL from the resource.bytes request
-   * @param init - Read-only method, request-scoped AbortSignal, and optional advisory Blossom servers
+   * @param init - Read-only method, request-scoped AbortSignal, and actual-destination approval callback
    */
   fetch(
     url: string,
     init: ResourceFetchInit,
   ): Promise<Response>;
-
-  /**
-   * Returns true if `origin` is present in `grants` (the list returned by
-   * `getConnectGrants` for the napplet's dTag + aggregateHash).
-   * Optional: when omitted with `getConnectGrants`, Kehto delegates directly
-   * to the runtime resolver without an origin-grant decision.
-   *
-   * The reference implementation is simply `grants.includes(origin)`. Host apps
-   * may provide normalized-origin comparison if needed.
-   *
-   * @param origin - Parsed origin of the requested URL (scheme + host + port)
-   * @param grants - Readonly list from getConnectGrants for this napplet identity
-   */
-  isOriginGranted?(origin: string, grants: readonly string[]): boolean;
-
-  /**
-   * Returns the list of allowed fetch origins for the given napplet identity.
-   * Called on every `resource.bytes` request — must be synchronous and fast.
-   * Optional and paired with `isOriginGranted` plus `resolveIdentity`.
-   *
-   * Host-supplied grant source (e.g. a static per-dTag allowlist map, or any
-   * other host-controlled policy). Returns an empty array to deny all origins.
-   *
-   * @param dTag - The napplet's d-tag (from session registry)
-   * @param aggregateHash - The napplet's aggregate hash (from session registry)
-   */
-  getConnectGrants?(dTag: string, aggregateHash: string): readonly string[];
-
-  /**
-   * Resolve a windowId to the napplet's identity (dTag + aggregateHash).
-   * Returns null if the window is not in the session registry.
-   *
-   * Typically wraps `sessionRegistry.getEntryByWindowId(windowId)`.
-   *
-   * @param windowId - The iframe window identifier
-   */
-  resolveIdentity?(windowId: string): { dTag: string; aggregateHash: string } | null;
 
   /**
    * Advisory NAP-RESOURCE introspection exposed through `resource.info`.
@@ -165,8 +122,32 @@ export interface ResourceServiceOptions {
 export type ResourceService = ServiceHandler;
 
 interface ResourceRequestState {
-  inFlight: Map<string, { controller: AbortController; windowId: string; requestId: string }>;
+  runtime?: ServiceRuntimeContext;
+  warnLegacy: () => void;
+  inFlight: Map<string, {
+    controller: AbortController;
+    windowId: string;
+    requestId: string;
+    operation: 'resource.info' | 'resource.bytes' | 'resource.bytesMany';
+    send: (m: NappletMessage) => void;
+    terminal: boolean;
+  }>;
   perWindow: Map<string, Set<string>>;
+  completed: Map<string, Set<string>>;
+}
+
+// Kehto replay policy, additional to NAP-RESOURCE ae5b9c64 cancellation rules.
+// Keep recent terminal IDs bounded independently from still-active requests.
+const MAX_COMPLETED_RESOURCE_IDS = 1024;
+
+function rememberCompleted(state: ResourceRequestState, windowId: string, requestId: string): void {
+  let completed = state.completed.get(windowId);
+  if (!completed) {
+    completed = new Set();
+    state.completed.set(windowId, completed);
+  }
+  completed.add(requestId);
+  if (completed.size > MAX_COMPLETED_RESOURCE_IDS) completed.delete(completed.values().next().value!);
 }
 
 export type ResourceErrorCode =
@@ -195,7 +176,7 @@ export class ResourceServiceError extends Error {
 type ResourceFetchSuccess = {
   ok: true;
   url: string;
-  blob: Blob;
+  blob: string;
   mime: string;
 };
 
@@ -222,22 +203,6 @@ function assertResourceOptions(options: ResourceServiceOptions): void {
       '[RESOURCE-01] createResourceService requires a runtime-provided fetch resolver.',
     );
   }
-  const hasOriginPolicy =
-    options.isOriginGranted !== undefined || options.getConnectGrants !== undefined;
-  if (
-    hasOriginPolicy && (
-      typeof options.isOriginGranted !== 'function'
-      || typeof options.getConnectGrants !== 'function'
-      || typeof options.resolveIdentity !== 'function'
-    )
-  ) {
-    throw new Error(
-      '[RESOURCE-01] optional origin policy requires {isOriginGranted, getConnectGrants, resolveIdentity} together.',
-    );
-  }
-  if (options.resolveIdentity !== undefined && typeof options.resolveIdentity !== 'function') {
-    throw new Error('[RESOURCE-01] resolveIdentity must be a function when provided.');
-  }
 }
 
 function trackRequest(
@@ -245,21 +210,26 @@ function trackRequest(
   requestId: string,
   windowId: string,
   controller: AbortController,
-): void {
+  operation: 'resource.info' | 'resource.bytes' | 'resource.bytesMany',
+  send: (m: NappletMessage) => void,
+): boolean {
   const key = requestKey(windowId, requestId);
-  state.inFlight.set(key, { controller, windowId, requestId });
+  if (state.inFlight.has(key)) return false;
+  state.inFlight.set(key, { controller, windowId, requestId, operation, send, terminal: false });
   if (!state.perWindow.has(windowId)) {
     state.perWindow.set(windowId, new Set());
   }
   state.perWindow.get(windowId)!.add(key);
+  return true;
 }
 
-function untrackRequest(state: ResourceRequestState, windowId: string, requestId: string): void {
+function untrackRequest(state: ResourceRequestState, windowId: string, requestId: string, controller: AbortController): void {
   const key = requestKey(windowId, requestId);
   const entry = state.inFlight.get(key);
-  if (entry) {
+  if (entry?.controller === controller) {
     state.inFlight.delete(key);
     state.perWindow.get(entry.windowId)?.delete(key);
+    rememberCompleted(state, windowId, requestId);
   }
 }
 
@@ -300,13 +270,14 @@ function responseMime(response: Response): string {
     || 'application/octet-stream';
 }
 
-function responseBlob(buffer: ArrayBuffer, mime: string): Blob {
-  return new Blob([buffer], { type: mime });
+function encodeCanonicalBase64(buffer: ArrayBuffer): string {
+  let binary = '';
+  for (const byte of new Uint8Array(buffer)) binary += String.fromCharCode(byte);
+  return btoa(binary);
 }
 
-function requestIdFromMessage(message: NappletMessage & { id?: unknown; requestId?: unknown }): string | null {
+function requestIdFromMessage(message: NappletMessage & { id?: unknown }): string | null {
   if (typeof message.id === 'string' && message.id.length > 0) return message.id;
-  if (typeof message.requestId === 'string' && message.requestId.length > 0) return message.requestId;
   return null;
 }
 
@@ -319,7 +290,6 @@ function normalizeResourceInfo(info: ResourceInfo): ResourceInfo {
       : [],
     ...(typeof info.maxBytes === 'number' ? { maxBytes: info.maxBytes } : {}),
     ...(typeof info.maxUrls === 'number' ? { maxUrls: info.maxUrls } : {}),
-    ...(typeof info.maxServers === 'number' ? { maxServers: info.maxServers } : {}),
   };
 }
 
@@ -329,31 +299,38 @@ async function resolveResourceInfo(
 ): Promise<ResourceInfo> {
   const configured = options.resourceInfo ?? DEFAULT_RESOURCE_INFO;
   const info = typeof configured === 'function'
-    ? await configured({ windowId, identity: options.resolveIdentity?.(windowId) ?? null })
+    ? await configured({ windowId, identity: null })
     : configured;
   return normalizeResourceInfo(info);
 }
 
 async function handleInfo(
   options: ResourceServiceOptions,
+  state: ResourceRequestState,
   windowId: string,
   requestId: string,
   send: (m: NappletMessage) => void,
 ): Promise<void> {
+  const controller = new AbortController();
+  if (!trackRequest(state, requestId, windowId, controller, 'resource.info', send)) return;
   try {
     const info = await resolveResourceInfo(options, windowId);
+    if (controller.signal.aborted) return;
     send({
       type: 'resource.info.result',
       id: requestId,
       info,
     } as NappletMessage);
   } catch (err: unknown) {
+    if (controller.signal.aborted) return;
     send({
       type: 'resource.info.error',
       id: requestId,
       error: 'unavailable',
       message: err instanceof Error ? err.message : String(err),
     } as NappletMessage);
+  } finally {
+    untrackRequest(state, windowId, requestId, controller);
   }
 }
 
@@ -368,13 +345,15 @@ function resourceInvalidRequest(url: string, message: string): ResourceFetchFail
 
 function classifyResourceFailure(error: unknown): { error: ResourceErrorCode; message: string } {
   return {
-    error: error instanceof ResourceServiceError ? error.code : 'network-error',
+    error: error instanceof ResourceServiceError ? error.code
+      : error instanceof ResourceAuthorizationError ? 'blocked-by-policy' : 'network-error',
     message: error instanceof Error ? error.message : String(error),
   };
 }
 
 async function fetchResourceItem(
   options: ResourceServiceOptions,
+  state: ResourceRequestState,
   windowId: string,
   info: ResourceInfo,
   request: ResourceBytesRequest,
@@ -383,59 +362,41 @@ async function fetchResourceItem(
   const { url } = request;
   const parsedUrl = parseResourceUrl(url);
   if (!parsedUrl) return resourceInvalidRequest(url, `invalid URL: ${url}`);
-  if (parsedUrl.origin !== 'null' && options.isOriginGranted && options.getConnectGrants) {
-    const identity = options.resolveIdentity?.(windowId) ?? null;
-    if (!identity) {
+  const result = await authorizeResource(state.runtime, windowId, url, signal, async (requestSignal, authorizeNetwork): Promise<ResourceFetchItem> => {
+    try {
+      const response = await options.fetch(url, {
+        method: 'GET',
+        signal: requestSignal,
+        windowId,
+        authorizeNetwork,
+      });
+      const buffer = await response.arrayBuffer();
+      if (info.maxBytes !== undefined && buffer.byteLength > info.maxBytes) {
+        return { ok: false, url, error: 'too-large', message: `resource exceeds ${info.maxBytes} bytes` };
+      }
+      const mime = responseMime(response);
+      return {
+        ok: true,
+        url,
+        blob: encodeCanonicalBase64(buffer),
+        mime,
+      };
+    } catch (err: unknown) {
+      const isAbort =
+        requestSignal.aborted ||
+        (err instanceof Error && (err.name === 'AbortError' || err.name === 'DOMException'));
       return {
         ok: false,
         url,
-        error: 'blocked-by-policy',
-        message: 'napplet identity not resolvable for runtime origin policy',
+        error: isAbort ? 'timeout' : (err instanceof ResourceServiceError ? err.code
+          : err instanceof ResourceAuthorizationError ? 'blocked-by-policy' : 'network-error'),
+        message: err instanceof Error ? err.message : String(err),
       };
     }
-    const origin = parsedUrl.origin;
-    const grants = options.getConnectGrants(identity.dTag, identity.aggregateHash);
-    if (!options.isOriginGranted(origin, grants)) {
-      return {
-        ok: false,
-        url,
-        error: 'blocked-by-policy',
-        message: `origin ${origin} not granted by runtime policy`,
-      };
-    }
-  }
-
-  try {
-    const response = await options.fetch(url, {
-      method: 'GET',
-      signal,
-      windowId,
-      ...(parsedUrl.protocol === 'blossom:' && request.servers !== undefined
-        ? { servers: [...request.servers] }
-        : {}),
-    });
-    const buffer = await response.arrayBuffer();
-    if (info.maxBytes !== undefined && buffer.byteLength > info.maxBytes) {
-      return { ok: false, url, error: 'too-large', message: `resource exceeds ${info.maxBytes} bytes` };
-    }
-    const mime = responseMime(response);
-    return {
-      ok: true,
-      url,
-      blob: responseBlob(buffer, mime),
-      mime,
-    };
-  } catch (err: unknown) {
-    const isAbort =
-      signal.aborted ||
-      (err instanceof Error && (err.name === 'AbortError' || err.name === 'DOMException'));
-    return {
-      ok: false,
-      url,
-      error: isAbort ? 'timeout' : err instanceof ResourceServiceError ? err.code : 'network-error',
-      message: err instanceof Error ? err.message : String(err),
-    };
-  }
+  }, state.warnLegacy);
+  return result.status === 'executed' ? result.value : {
+    ok: false, url, error: 'blocked-by-policy', message: 'resource permission unavailable or denied',
+  };
 }
 
 async function handleBytes(
@@ -447,11 +408,12 @@ async function handleBytes(
 ): Promise<void> {
   const { requestId, ...request } = msg;
   const controller = new AbortController();
-  trackRequest(state, requestId, windowId, controller);
+  if (!trackRequest(state, requestId, windowId, controller, 'resource.bytes', send)) return;
 
   try {
     const info = await resolveResourceInfo(options, windowId);
-    const item = await fetchResourceItem(options, windowId, info, request, controller.signal);
+    if (controller.signal.aborted) return;
+    const item = await fetchResourceItem(options, state, windowId, info, request, controller.signal);
     if (controller.signal.aborted) return;
     if (!item.ok) {
       sendResourceError(send, requestId, item.message, item.error);
@@ -469,7 +431,7 @@ async function handleBytes(
       sendResourceError(send, requestId, failure.message, failure.error);
     }
   } finally {
-    untrackRequest(state, windowId, requestId);
+    untrackRequest(state, windowId, requestId, controller);
   }
 }
 
@@ -477,34 +439,29 @@ async function handleBytesMany(
   options: ResourceServiceOptions,
   state: ResourceRequestState,
   windowId: string,
-  msg: { requestId: string; requests: readonly ResourceBytesRequest[] },
+  msg: { requestId: string; urls: readonly string[] },
   send: (m: NappletMessage) => void,
 ): Promise<void> {
-  const { requestId, requests } = msg;
-  if (!isResourceRequestList(requests)) {
-    sendBytesManyError(send, requestId, 'resource.bytesMany requires a non-empty requests array', 'invalid-request');
-    return;
-  }
-
-  let info: ResourceInfo;
-  try {
-    info = await resolveResourceInfo(options, windowId);
-  } catch (error: unknown) {
-    const failure = classifyResourceFailure(error);
-    sendBytesManyError(send, requestId, failure.message, failure.error);
-    return;
-  }
-  if (info.maxUrls !== undefined && requests.length > info.maxUrls) {
-    sendBytesManyError(send, requestId, `resource.bytesMany exceeds ${info.maxUrls} URLs`, 'too-large');
+  const { requestId, urls } = msg;
+  if (!isResourceUrlList(urls)) {
+    rememberCompleted(state, windowId, requestId);
+    sendBytesManyError(send, requestId, 'resource.bytesMany requires a non-empty urls array', 'invalid-request');
     return;
   }
 
   const controller = new AbortController();
-  trackRequest(state, requestId, windowId, controller);
+  if (!trackRequest(state, requestId, windowId, controller, 'resource.bytesMany', send)) return;
   try {
+    const info = await resolveResourceInfo(options, windowId);
+    if (controller.signal.aborted) return;
+    if (info.maxUrls !== undefined && urls.length > info.maxUrls) {
+      sendBytesManyError(send, requestId, `resource.bytesMany exceeds ${info.maxUrls} URLs`, 'too-large');
+      return;
+    }
     const items: Array<Record<string, unknown>> = [];
-    for (const request of requests) {
-      const item = await fetchResourceItem(options, windowId, info, request, controller.signal);
+    for (const url of urls) {
+      const request = { url };
+      const item = await fetchResourceItem(options, state, windowId, info, request, controller.signal);
       if (controller.signal.aborted) return;
       if (item.ok) {
         items.push({
@@ -533,24 +490,14 @@ async function handleBytesMany(
       sendBytesManyError(send, requestId, failure.message, failure.error);
     }
   } finally {
-    untrackRequest(state, windowId, requestId);
+    untrackRequest(state, windowId, requestId, controller);
   }
 }
 
-function hasValidServerHints(request: { servers?: readonly unknown[] }): boolean {
-  return request.servers === undefined
-    || (Array.isArray(request.servers) && request.servers.every((server) => typeof server === 'string'));
-}
-
-function isResourceRequestList(value: unknown): value is readonly ResourceBytesRequest[] {
+function isResourceUrlList(value: unknown): value is readonly string[] {
   return Array.isArray(value)
     && value.length > 0
-    && value.every((request) => (
-      typeof request === 'object'
-      && request !== null
-      && typeof (request as ResourceBytesRequest).url === 'string'
-      && hasValidServerHints(request as ResourceBytesRequest)
-    ));
+    && value.every((url) => typeof url === 'string');
 }
 
 function handleCancel(state: ResourceRequestState, windowId: string, requestId: string): void {
@@ -561,6 +508,7 @@ function handleCancel(state: ResourceRequestState, windowId: string, requestId: 
 }
 
 function destroyWindowRequests(state: ResourceRequestState, windowId: string): void {
+  state.completed.delete(windowId);
   const requestIds = state.perWindow.get(windowId);
   if (!requestIds) return;
   for (const key of requestIds) {
@@ -580,9 +528,8 @@ function destroyWindowRequests(state: ResourceRequestState, windowId: string): v
  * `resource.bytes`, `resource.bytesMany`, `resource.cancel`, and their
  * result/error envelopes.
  *
- * The runtime resolver is validated at construction. Runtime implementers may
- * additionally install the origin-grant adapter; Kehto provides and enforces
- * the hook contract without selecting the grants or requiring that policy.
+ * The runtime resolver is validated at construction. Runtime-bound approvals
+ * cover the exact resource URL and each resolver-reported HTTP(S) or WebSocket hop.
  *
  * Returns a `ServiceHandler` (no `publishValues`-style surface — resource has
  * no shell-initiated push beyond the response/error path).
@@ -596,18 +543,22 @@ function destroyWindowRequests(state: ResourceRequestState, windowId: string): v
  *
  * const svc = createResourceService({
  *   fetch: (url, init) => runtimeResources.resolve(url, init),
- *   isOriginGranted: (origin, grants) => grants.includes(origin),
- *   getConnectGrants: (dTag, hash) => myOriginGrantStore.getOrigins(dTag, hash),
- *   resolveIdentity: (windowId) => sessionRegistry.getEntryByWindowId(windowId) ?? null,
  * });
  * runtime.registerService('resource', svc);
  * ```
  */
 export function createResourceService(options: ResourceServiceOptions): ResourceService {
   assertResourceOptions(options);
+  let warned = false;
   const state: ResourceRequestState = {
+    warnLegacy() {
+      if (warned) return;
+      warned = true;
+      console.warn('[FW-RESOURCE-LEGACY-001] Configure RuntimeAdapter.permissions and trusted session permissionPrincipal; resolver-only resource policy is deprecated. Warning once per service instance.');
+    },
     inFlight: new Map(),
     perWindow: new Map<string, Set<string>>(),
+    completed: new Map(),
   };
 
   const descriptor: ServiceDescriptor = {
@@ -619,56 +570,73 @@ export function createResourceService(options: ResourceServiceOptions): Resource
 
   const handler: ServiceHandler = {
     descriptor,
+    onRegistered(context) { state.runtime = context; },
+    onPermissionRevoked(windowId) {
+      for (const key of state.perWindow.get(windowId) ?? []) {
+        const entry = state.inFlight.get(key);
+        if (!entry || entry.terminal) continue;
+        entry.terminal = true;
+        entry.controller.abort();
+        if (entry.operation === 'resource.bytes' || entry.operation === 'resource.bytesMany') {
+          entry.send({
+            type: `${entry.operation}.error`, id: entry.requestId,
+            error: 'blocked-by-policy', message: 'resource permission revoked',
+          } as NappletMessage);
+        }
+      }
+    },
 
     handleMessage(
       windowId: string,
       message: NappletMessage,
       send: (msg: NappletMessage) => void,
     ): void {
+      if (message.type !== 'resource.cancel') {
+        const id = requestIdFromMessage(message);
+        if (id && (state.inFlight.has(requestKey(windowId, id)) || state.completed.get(windowId)?.has(id))) return;
+      }
       switch (message.type) {
         case 'resource.bytes': {
           const m = message as NappletMessage & {
             id?: string;
-            requestId?: string;
             url: string;
-            servers?: readonly string[];
           };
           const requestId = requestIdFromMessage(m);
           if (!requestId) return;
-          if (typeof m.url !== 'string' || !hasValidServerHints(m)) {
-            sendResourceError(send, requestId, 'resource.bytes requires a URL and optional string servers', 'invalid-request');
+          if (typeof m.url !== 'string') {
+            rememberCompleted(state, windowId, requestId);
+            sendResourceError(send, requestId, 'resource.bytes requires a URL', 'invalid-request');
             return;
           }
           handleBytes(options, state, windowId, {
             requestId,
             url: m.url,
-            ...(m.servers !== undefined ? { servers: [...m.servers] } : {}),
           }, send).catch(() => { /* errors surface via send() */ });
           return;
         }
 
         case 'resource.info': {
-          const m = message as NappletMessage & { id?: string; requestId?: string };
+          const m = message as NappletMessage & { id?: string };
           const requestId = requestIdFromMessage(m);
           if (!requestId) return;
-          handleInfo(options, windowId, requestId, send).catch(() => { /* errors surface via send() */ });
+          handleInfo(options, state, windowId, requestId, send).catch(() => { /* errors surface via send() */ });
           return;
         }
 
         case 'resource.bytesMany': {
           const m = message as NappletMessage & {
             id?: string;
-            requestId?: string;
-            requests?: readonly ResourceBytesRequest[];
+            urls?: readonly string[];
           };
           const requestId = requestIdFromMessage(m);
           if (!requestId) return;
-          handleBytesMany(options, state, windowId, { requestId, requests: m.requests ?? [] }, send).catch(() => { /* errors surface via send() */ });
+          const urls = isResourceUrlList(m.urls) ? [...m.urls] : [];
+          handleBytesMany(options, state, windowId, { requestId, urls }, send).catch(() => { /* errors surface via send() */ });
           return;
         }
 
         case 'resource.cancel': {
-          const m = message as NappletMessage & { id?: string; requestId?: string };
+          const m = message as NappletMessage & { id?: string };
           const requestId = requestIdFromMessage(m);
           if (requestId) handleCancel(state, windowId, requestId);
           return;
@@ -678,6 +646,12 @@ export function createResourceService(options: ResourceServiceOptions): Resource
           // Unknown resource.* message — silently ignored per NIP-5D.
           return;
       }
+    },
+
+    onUnregistered(): void {
+      for (const windowId of state.perWindow.keys()) destroyWindowRequests(state, windowId);
+      state.completed.clear();
+      state.runtime = undefined;
     },
 
     onWindowDestroyed(windowId: string): void {

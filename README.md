@@ -116,6 +116,10 @@ Playwright suite:
 pnpm --filter @kehto/playground preview
 ```
 
+The harness uses port 4173 and playground preview uses 4174. If another local
+service owns the harness port, run `KEHTO_HARNESS_PORT=42873 pnpm test:e2e`.
+The harness, Playwright base URL, and resource redirect fixtures share this port.
+
 ## Repository Layout
 
 | Path | Contents |

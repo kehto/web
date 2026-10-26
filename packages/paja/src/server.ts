@@ -1,4 +1,7 @@
 import { createServer } from 'node:http';
+import { concatBytes, fetchPinnedResource } from './server-resource-transport.js';
+export { fetchPinnedResource } from './server-resource-transport.js';
+import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import {
   createPajaHostConfig,
@@ -46,6 +49,8 @@ export async function startPajaServer(input: PajaServerOptions): Promise<PajaSer
   let html = renderPajaHtml(hostConfig);
   let configJson = JSON.stringify(hostConfig, null, 2);
   let currentOptions = options;
+  const resourceCapability = randomBytes(32).toString('base64url');
+  let expectedOrigin = '';
 
   const setHostConfig = (nextOptions: PajaOptions): PajaHostConfig => {
     currentOptions = nextOptions;
@@ -55,9 +60,19 @@ export async function startPajaServer(input: PajaServerOptions): Promise<PajaSer
     return hostConfig;
   };
 
-  const handleRequest = async (requestUrl: string, response: HttpResponse): Promise<void> => {
+  const handleRequest = async (request: HttpRequest, response: HttpResponse): Promise<void> => {
+    const requestUrl = request.url ?? '/';
+    if ((requestUrl === '/' || requestUrl.startsWith('/?') || requestUrl === '/__kehto/target.html')
+      && request.headers.host !== new URL(expectedOrigin).host) {
+      response.writeHead(307, { location: `${expectedOrigin}${requestUrl}`, 'cache-control': 'no-store' });
+      response.end();
+      return;
+    }
     if (requestUrl === '/' || requestUrl.startsWith('/?')) {
-      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      response.writeHead(200, {
+        'content-type': 'text/html; charset=utf-8',
+        'set-cookie': `kehto-resource-${new URL(expectedOrigin).port}=${resourceCapability}; Path=/__kehto/resource; HttpOnly; SameSite=Strict`,
+      });
       response.end(html);
       return;
     }
@@ -95,12 +110,17 @@ export async function startPajaServer(input: PajaServerOptions): Promise<PajaSer
       return;
     }
 
+    if (requestUrl === '/__kehto/resource') {
+      await handleResourceProxy(request, response, expectedOrigin, resourceCapability);
+      return;
+    }
+
     response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
     response.end('Not found');
   };
 
   const server = createServer((request, response) => {
-    void handleRequest(request.url ?? '/', response).catch((error) => {
+    void handleRequest(request, response).catch((error) => {
       const message = error instanceof Error ? error.message : String(error);
       response.writeHead(502, { 'content-type': 'text/plain; charset=utf-8' });
       response.end(message);
@@ -110,6 +130,7 @@ export async function startPajaServer(input: PajaServerOptions): Promise<PajaSer
   await listen(server, options.host, options.port);
   const servedOptions = withBoundPort(options, getBoundPort(server, options.port));
   setHostConfig(servedOptions);
+  expectedOrigin = formatPajaUrl(servedOptions).replace(/\/$/u, '');
 
   return {
     url: formatPajaUrl(servedOptions),
@@ -176,9 +197,22 @@ interface HttpServer {
   address(): string | { port: number } | null;
 }
 
+interface HttpRequest {
+  url?: string;
+  method?: string;
+  headers: Record<string, string | string[] | undefined>;
+  on(event: 'data', callback: (chunk: Uint8Array) => void): void;
+  on(event: 'end', callback: () => void): void;
+  on(event: 'error', callback: (error: Error) => void): void;
+  on(event: 'aborted', callback: () => void): void;
+  destroy(): void;
+}
+
 interface HttpResponse {
+  readonly writableEnded: boolean;
+  on(event: 'close', callback: () => void): void;
   writeHead(statusCode: number, headers: Record<string, string>): void;
-  end(chunk: string): void;
+  end(chunk?: string | Uint8Array): void;
 }
 
 function getBoundPort(server: HttpServer, fallback: number): number {
@@ -207,4 +241,93 @@ function normalizeServerTargetUrl(value: string): string {
     throw new Error(`Invalid managed target URL "${raw}". Only http: and https: URLs are supported.`);
   }
   return parsed.href;
+}
+
+async function handleResourceProxy(
+  request: HttpRequest,
+  response: HttpResponse,
+  expectedOrigin: string,
+  capability: string,
+): Promise<void> {
+  // Validate the caller before parsing an attacker-controlled destination or DNS lookup.
+  if (request.method !== 'POST'
+    || request.headers.origin !== expectedOrigin
+    || request.headers.host !== new URL(expectedOrigin).host
+    || request.headers['content-type'] !== 'application/json'
+    || !hasCapability(request.headers.cookie, capability, new URL(expectedOrigin).port)) {
+    response.writeHead(403, { 'content-type': 'text/plain; charset=utf-8' });
+    response.end('Forbidden');
+    return;
+  }
+  const payload = await readJsonBody(request);
+  if (!payload || typeof payload.url !== 'string') {
+    response.writeHead(400, { 'content-type': 'text/plain; charset=utf-8' });
+    response.end('Invalid resource request');
+    return;
+  }
+  let url: URL;
+  try {
+    url = new URL(payload.url);
+    if ((url.protocol !== 'http:' && url.protocol !== 'https:') || url.username || url.password) throw new Error();
+  } catch {
+    response.writeHead(400, { 'content-type': 'text/plain; charset=utf-8' });
+    response.end('Invalid resource URL');
+    return;
+  }
+  const controller = new AbortController();
+  response.on('close', () => { if (!response.writableEnded) controller.abort(); });
+  try {
+    const upstream = await fetchPinnedResource(url, controller.signal);
+    if (controller.signal.aborted) return;
+    if ([301, 302, 303, 307, 308].includes(upstream.status)) {
+      response.writeHead(200, {
+        'cache-control': 'no-store', 'content-type': 'application/json', 'x-kehto-resource-redirect': '1',
+      });
+      response.end(JSON.stringify({ status: upstream.status, location: upstream.location ?? '' }));
+      return;
+    }
+    response.writeHead(upstream.status, {
+      'cache-control': 'no-store',
+      'content-type': upstream.contentType,
+      'content-length': String(upstream.body.byteLength),
+    });
+    response.end(upstream.body);
+  } catch (error) {
+    if (controller.signal.aborted) return;
+    const message = error instanceof Error ? error.message : 'Resource proxy failed';
+    response.writeHead(502, { 'content-type': 'text/plain; charset=utf-8' });
+    response.end(message);
+  }
+}
+
+function hasCapability(header: string | string[] | undefined, capability: string, port: string): boolean {
+  if (typeof header !== 'string') return false;
+  return header.split(';').some((part) => part.trim() === `kehto-resource-${port}=${capability}`);
+}
+
+function readJsonBody(request: HttpRequest): Promise<{ url?: unknown } | null> {
+  return new Promise((resolve) => {
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    let settled = false;
+    const finish = (value: { url?: unknown } | null) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(value);
+    };
+    const timer = setTimeout(() => { finish(null); request.destroy(); }, 10_000);
+    request.on('data', (chunk) => {
+      if (settled) return;
+      size += chunk.byteLength;
+      if (size > 4096) { finish(null); request.destroy(); }
+      else chunks.push(chunk);
+    });
+    request.on('aborted', () => finish(null));
+    request.on('error', () => finish(null));
+    request.on('end', () => {
+      try { finish(JSON.parse(new TextDecoder().decode(concatBytes(chunks))) as { url?: unknown }); }
+      catch { finish(null); }
+    });
+  });
 }

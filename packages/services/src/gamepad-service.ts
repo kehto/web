@@ -1,4 +1,4 @@
-/** Host-owned controller snapshots, following https://github.com/napplet/naps/pull/108. */
+/** Host-owned controller snapshots per NAP-GAMEPAD at napplet/naps master 19de5ce1. */
 import type { NappletMessage } from '@napplet/core';
 import type { ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
 
@@ -37,7 +37,7 @@ type Pad = {
   axes: number[]; buttons: { value: number; pressed: boolean; touched: boolean }[];
 };
 type Sample = { available: boolean; reason?: 'blocked' | 'unavailable'; pads: (Pad | null)[] };
-type Recipient = { send: (message: NappletMessage) => void; previous?: string };
+type Recipient = { send: (message: NappletMessage) => void; generation: object; previous?: string };
 const SUBSCRIBE_WINDOW_MS = 1000;
 const MAX_SUBSCRIPTIONS_PER_WINDOW = 32;
 
@@ -85,12 +85,14 @@ function padsFor(sample: Sample, focused: boolean): (Pad | null)[] {
 export function createGamepadService(options: GamepadServiceOptions = {}): GamepadService {
   const recipients = new Map<string, Recipient>();
   const changes = new Map<string, { start: number; count: number }>();
+  const sourceGenerations = new Map<string, object>();
   const now = options.now ?? Date.now;
   let context: ServiceRuntimeContext | undefined;
   let frame: number | undefined;
   let generation = 0;
   let detach: (() => void) | undefined;
   let closed = false;
+  let warnedLegacy = false;
   let sample: Sample = { available: false, reason: 'unavailable', pads: [] };
 
   function cancel(): void {
@@ -110,6 +112,7 @@ export function createGamepadService(options: GamepadServiceOptions = {}): Gamep
   }
 
   function deliver(windowId: string, recipient: Recipient, force = false): void {
+    if (sourceGenerations.get(windowId) !== recipient.generation) return;
     const focused = sample.available && (options.isHostActive?.() ?? true) && options.getFocusedWindow?.() === windowId;
     const message = { type: 'gamepad.state', ...sample, focused, pads: padsFor(sample, focused) };
     const signature = JSON.stringify(message);
@@ -133,7 +136,45 @@ export function createGamepadService(options: GamepadServiceOptions = {}): Gamep
 
   function unsubscribe(windowId: string): void {
     recipients.delete(windowId);
-    if (recipients.size === 0) cancel();
+    sourceGenerations.delete(windowId);
+    if (recipients.size === 0) {
+      cancel();
+      detach?.(); detach = undefined;
+    }
+  }
+
+  function subscribe(windowId: string, send: (message: NappletMessage) => void): void {
+    const generation = sourceGenerations.get(windowId) ?? {};
+    sourceGenerations.set(windowId, generation);
+    const attach = (): void => {
+      if (closed || sourceGenerations.get(windowId) !== generation) return;
+      const recipient = recipients.get(windowId) ?? { send, generation };
+      recipients.set(windowId, recipient);
+      if (!detach) detach = options.subscribeChanges?.(refresh);
+      sample = readSample(options.readGamepads);
+      deliver(windowId, recipient, true);
+      schedule();
+    };
+    if (!context?.authorizeOperation) {
+      if (!warnedLegacy) {
+        warnedLegacy = true;
+        console.warn('[FW-GAMEPAD-LEGACY-001] Attach RuntimeAdapter.permissions for approved gamepad subscriptions; host-only delivery is deprecated. Warning once per service instance.');
+      }
+      attach();
+      return;
+    }
+    void context.authorizeOperation(windowId, 'gamepad.subscribe', [{
+      category: 'resource', domain: 'gamepad', operation: 'gamepad.subscribe',
+      scope: { kind: 'exact', value: 'gamepad:input' },
+    }], (signal) => { if (!signal.aborted) attach(); }).then((outcome) => {
+      if (outcome.status !== 'executed' && !closed && sourceGenerations.get(windowId) === generation) {
+        send({ type: 'gamepad.state', available: false, reason: 'blocked', focused: false, pads: [] } as NappletMessage);
+      }
+    }).catch(() => {
+      if (!closed && sourceGenerations.get(windowId) === generation) {
+        send({ type: 'gamepad.state', available: false, reason: 'blocked', focused: false, pads: [] } as NappletMessage);
+      }
+    });
   }
 
   function allowSubscribe(windowId: string): boolean {
@@ -153,26 +194,21 @@ export function createGamepadService(options: GamepadServiceOptions = {}): Gamep
     onRegistered(runtime) {
       context = runtime;
       closed = false;
-      detach?.();
-      detach = options.subscribeChanges?.(refresh);
     },
     onUnregistered() {
       closed = true;
       cancel();
       detach?.(); detach = undefined;
-      recipients.clear(); changes.clear();
+      recipients.clear(); changes.clear(); sourceGenerations.clear();
       context = undefined;
     },
     handleMessage(windowId, message, send) {
       if (closed || !message || typeof message !== 'object' || Array.isArray(message) || 'id' in message) return;
       if (message.type === 'gamepad.unsubscribe') { unsubscribe(windowId); return; }
       if (message.type !== 'gamepad.subscribe' || !allowSubscribe(windowId)) return;
-      const recipient = recipients.get(windowId) ?? { send };
-      recipients.set(windowId, recipient);
-      sample = readSample(options.readGamepads);
-      deliver(windowId, recipient, true);
-      schedule();
+      subscribe(windowId, send);
     },
+    onPermissionRevoked(windowId) { unsubscribe(windowId); changes.delete(windowId); },
     onWindowDestroyed(windowId) { unsubscribe(windowId); changes.delete(windowId); },
   };
 }

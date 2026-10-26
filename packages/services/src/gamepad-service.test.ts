@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createGamepadService, type GamepadPadSample } from './gamepad-service.js';
+import type { ServiceRuntimeContext } from '@kehto/runtime';
 
 // NAP-GAMEPAD Wire Protocol's connected controller example.
 const pad: GamepadPadSample = {
@@ -9,6 +10,87 @@ const pad: GamepadPadSample = {
 };
 
 describe('host-owned GAMEPAD service', () => {
+  it('authorizes host gamepad input before the first native read', async () => {
+    let approve!: () => void;
+    const gate = new Promise<void>((resolve) => { approve = resolve; });
+    const readGamepads = vi.fn(() => [pad]);
+    const authorizeOperation = vi.fn(async (_windowId, _operation, _requirements, execute) => {
+      await gate;
+      await execute(new AbortController().signal);
+      return { status: 'executed' as const, value: undefined };
+    });
+    const service = createGamepadService({ readGamepads, getFocusedWindow: () => 'one' });
+    service.onRegistered?.({ authorizeOperation, sendToEligibleNapplet: (_windowId: string, message: unknown) => {
+      send(message); return true;
+    } } as unknown as ServiceRuntimeContext);
+    const send = vi.fn();
+    service.handleMessage('one', { type: 'gamepad.subscribe' }, send);
+    await vi.waitFor(() => expect(authorizeOperation).toHaveBeenCalledTimes(1));
+    expect(authorizeOperation.mock.calls[0]?.slice(0, 3)).toEqual(['one', 'gamepad.subscribe', [
+      { category: 'resource', domain: 'gamepad', operation: 'gamepad.subscribe', scope: { kind: 'exact', value: 'gamepad:input' } },
+    ]]);
+    expect(readGamepads).not.toHaveBeenCalled();
+    approve();
+    await vi.waitFor(() => expect(readGamepads).toHaveBeenCalledTimes(1));
+  });
+
+  it('reports blocked state without reading or polling after denied approval', async () => {
+    const readGamepads = vi.fn(() => [pad]);
+    const authorizeOperation = vi.fn(async () => ({ status: 'denied' as const }));
+    const service = createGamepadService({ readGamepads });
+    service.onRegistered?.({ authorizeOperation } as unknown as ServiceRuntimeContext);
+    const send = vi.fn();
+    service.handleMessage('one', { type: 'gamepad.subscribe' }, send);
+    await vi.waitFor(() => expect(send).toHaveBeenCalledWith({
+      type: 'gamepad.state', available: false, reason: 'blocked', focused: false, pads: [],
+    }));
+    expect(readGamepads).not.toHaveBeenCalled();
+  });
+
+  it('drops a late approval after revocation and never starts its native reader', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const readGamepads = vi.fn(() => [pad]);
+    const authorizeOperation = vi.fn(async (_windowId, _operation, _requirements, execute: (signal: AbortSignal) => void) => {
+      await gate;
+      execute(new AbortController().signal);
+      return { status: 'executed' as const, value: undefined };
+    });
+    const service = createGamepadService({ readGamepads });
+    service.onRegistered?.({ authorizeOperation } as unknown as ServiceRuntimeContext);
+    const send = vi.fn();
+    service.handleMessage('one', { type: 'gamepad.subscribe' }, send);
+    await vi.waitFor(() => expect(authorizeOperation).toHaveBeenCalledTimes(1));
+    service.onPermissionRevoked?.('one');
+    release();
+    await Promise.resolve();
+    expect(readGamepads).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('warns once on retained host-only subscriptions while canonical approval stays quiet', async () => {
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const legacy = createGamepadService({ readGamepads: () => [] });
+      const send = vi.fn();
+      legacy.handleMessage('one', { type: 'gamepad.subscribe' }, send);
+      legacy.handleMessage('one', { type: 'gamepad.subscribe' }, send);
+      expect(warning).toHaveBeenCalledTimes(1);
+      expect(warning.mock.calls[0]?.[0]).toMatch(/FW-GAMEPAD-LEGACY-001.*RuntimeAdapter.permissions.*once per service instance/);
+      warning.mockClear();
+      const canonical = createGamepadService({ readGamepads: () => [] });
+      canonical.onRegistered?.({
+        authorizeOperation: async (_windowId: string, _operation: string, _requirements: unknown,
+          execute: (signal: AbortSignal) => void) => {
+          execute(new AbortController().signal);
+          return { status: 'executed' as const, value: undefined };
+        },
+        sendToEligibleNapplet: () => true,
+      } as unknown as ServiceRuntimeContext);
+      canonical.handleMessage('one', { type: 'gamepad.subscribe' }, send);
+      await vi.waitFor(() => expect(warning).not.toHaveBeenCalled());
+    } finally { warning.mockRestore(); }
+  });
   it('isolates live values, neutralizes immediately on focus loss and hides timing', () => {
     let owner: string | null = 'one';
     let active = true;

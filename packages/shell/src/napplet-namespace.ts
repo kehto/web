@@ -1071,11 +1071,21 @@ function nappletNamespacePrelude(
 
   function makeResource(): Record<string, unknown> {
     const objectUrls = new Set<string>();
-    const bytes = (url: string, options?: { servers?: string[]; signal?: AbortSignal }) => request({
+    const decode = (value: unknown, mime: unknown): Blob => {
+      if (typeof value !== 'string' || typeof mime !== 'string'
+        || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(value)) {
+        throw new TypeError('resource result has non-canonical base64');
+      }
+      const binary = atob(value);
+      if (btoa(binary) !== value) throw new TypeError('resource result has non-canonical base64');
+      const bytes = new Uint8Array(binary.length);
+      for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+      return new Blob([bytes], { type: mime });
+    };
+    const bytes = (url: string, options?: { signal?: AbortSignal }) => request({
       type: 'resource.bytes',
       url,
-      ...(Array.isArray(options?.servers) ? { servers: Array.from(options.servers) } : {}),
-    }, 'resource.bytes.result', (msg) => msg.blob, {
+    }, 'resource.bytes.result', (msg) => decode(msg.blob, msg.mime), {
       timeoutMs: null,
       signal: options?.signal,
       cancelOnAbort: true,
@@ -1084,15 +1094,16 @@ function nappletNamespacePrelude(
       info: () => request({ type: 'resource.info' }, 'resource.info.result', (msg) => msg.info),
       bytes,
       bytesMany: (
-        requests: Array<{ url: string; servers?: string[] }>,
+        urls: string[],
         options?: { signal?: AbortSignal },
       ) => request({
         type: 'resource.bytesMany',
-        requests: Array.from(requests || [], (entry) => ({
-          url: entry.url,
-          ...(Array.isArray(entry.servers) ? { servers: Array.from(entry.servers) } : {}),
-        })),
-      }, 'resource.bytesMany.result', (msg) => Array.isArray(msg.items) ? msg.items : [], {
+        urls: Array.from(urls || []),
+      }, 'resource.bytesMany.result', (msg) => Array.isArray(msg.items) ? msg.items.map((item) => {
+        if (!item || typeof item !== 'object') throw new TypeError('resource bulk result is malformed');
+        const record = item as { ok?: unknown; blob?: unknown; mime?: unknown };
+        return record.ok === true ? { ...item, blob: decode(record.blob, record.mime) } : item;
+      }) : [], {
         timeoutMs: null,
         signal: options?.signal,
         cancelOnAbort: true,

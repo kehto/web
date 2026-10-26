@@ -1,4 +1,5 @@
 import { insertNappletHead } from './napplet-head.js';
+import type { PermissionRequirement } from '@kehto/runtime';
 
 /** Source-list directives supported by the shell's meta-delivered CSP. */
 export type NappletCspDirective =
@@ -16,6 +17,106 @@ export interface NappletCspOptions {
   readonly connectOrigins?: readonly string[];
   /** Source-list replacements. connect-src may only narrow the explicit grants. */
   readonly directives?: NappletCspDirectives;
+}
+
+/** Browser authority granted to exactly one reviewed CSP source directive. */
+export interface BrowserRemoteSource {
+  readonly directive: 'connect-src' | 'script-src' | 'style-src' | 'img-src' | 'font-src' | 'worker-src' | 'media-src';
+  readonly origin: string;
+}
+
+/** A document has either mediated resources or direct remote browser traffic. */
+export type BrowserLaunchMode = 'isolated' | 'mediated-resource' | 'direct-network';
+
+const REMOTE_DIRECTIVES = new Set<BrowserRemoteSource['directive']>([
+  'connect-src', 'script-src', 'style-src', 'img-src', 'font-src', 'worker-src', 'media-src',
+]);
+
+/**
+ * Classify every allowed remote source as directive-specific browser authority.
+ * Origins are canonical CSP source expressions, including browser scheme-upgrade
+ * matching; they do not promise literal origin equality.
+ *
+ * @param sources - Proposed remote origins from trusted host configuration.
+ * @returns Canonical network requirements and source entries in stable order.
+ * @example classifyBrowserRemoteSources([{ directive: 'connect-src', origin: 'https://api.example' }]);
+ */
+export function classifyBrowserRemoteSources(sources: readonly BrowserRemoteSource[]): {
+  readonly sources: readonly BrowserRemoteSource[];
+  readonly requirements: readonly PermissionRequirement[];
+} {
+  if (!Array.isArray(sources) || sources.length > 128) throw new TypeError('Invalid browser source list');
+  const byKey = new Map<string, BrowserRemoteSource>();
+  for (const source of sources) {
+    if (!source || typeof source !== 'object' || Array.isArray(source)
+      || Object.keys(source).some((key) => key !== 'directive' && key !== 'origin')
+      || !REMOTE_DIRECTIVES.has(source.directive)) throw new TypeError('Unsupported browser source directive');
+    const origin = connectionOrigin(source.origin);
+    if (source.directive !== 'connect-src' && !/^https?:\/\//.test(origin)) {
+      throw new TypeError('Only connect-src may use WebSocket origins');
+    }
+    byKey.set(`${source.directive}:${origin}`, Object.freeze({ directive: source.directive, origin }));
+  }
+  const entries = [...byKey.values()].sort((a, b) => a.directive.localeCompare(b.directive) || a.origin.localeCompare(b.origin));
+  return {
+    sources: Object.freeze(entries),
+    requirements: Object.freeze(entries.map(({ directive, origin }) => Object.freeze({
+      category: 'network' as const, domain: 'network', operation: `network.${directive}`,
+      scope: Object.freeze({ kind: 'origin' as const, value: origin }),
+    }))),
+  };
+}
+
+/**
+ * Build the closed browser policy used after shared runtime admission.
+ * The legacy host CSP overrides remain a separate compatibility surface.
+ * Browser source matching follows CSP rather than literal origin equality:
+ * HTTP sources can also authorize HTTPS, including the default-port upgrade
+ * from 80 to 443. CSP3 permits broader scheme matching than some browsers:
+ * Chromium blocks HTTP-to-HTTPS upgrades on the same non-default explicit port.
+ * Approval UIs must disclose browser scheme upgrades rather than promise exact
+ * origin equality. Mediated network grants remain exact origins.
+ * See https://www.w3.org/TR/CSP3/#match-url-to-source-expression.
+ *
+ * @param options - Mode and CSP sources approved through launch admission.
+ * @returns A default-deny CSP with no unclassified remote authority.
+ * @example buildApprovedNappletCsp({ mode: 'isolated', remoteSources: [] });
+ */
+export function buildApprovedNappletCsp(options: {
+  readonly mode: BrowserLaunchMode;
+  readonly remoteSources: readonly BrowserRemoteSource[];
+  readonly baseOrigin?: string;
+}): string {
+  if (!options || Object.keys(options).some((key) => key !== 'mode' && key !== 'remoteSources' && key !== 'baseOrigin')) {
+    throw new TypeError('Unknown browser CSP option');
+  }
+  if (!['isolated', 'mediated-resource', 'direct-network'].includes(options.mode)) throw new TypeError('Invalid browser launch mode');
+  const classified = classifyBrowserRemoteSources(options.remoteSources);
+  if (options.mode !== 'direct-network' && classified.sources.length) throw new TypeError('Mediated documents cannot have direct browser origins');
+  if (options.mode === 'direct-network' && !classified.sources.length) throw new TypeError('Direct network mode needs exact approved origins');
+  if (options.baseOrigin !== undefined && (options.mode !== 'direct-network'
+    || !/^https?:\/\//.test(options.baseOrigin)
+    || connectionOrigin(options.baseOrigin) !== options.baseOrigin
+    || !classified.sources.some((source) => source.origin === options.baseOrigin))) {
+    throw new TypeError('Development base origin needs matching exact approved network authority');
+  }
+
+  const policy: Record<string, readonly string[]> = {
+    ...DEFAULT_DIRECTIVES,
+    'script-src-elem': ["'unsafe-inline'", "'wasm-unsafe-eval'"],
+    'script-src-attr': ["'none'"],
+    'style-src-elem': ["'unsafe-inline'"],
+    'style-src-attr': ["'unsafe-inline'"],
+  };
+  if (options.baseOrigin) policy['base-uri'] = [options.baseOrigin];
+  for (const directive of REMOTE_DIRECTIVES) {
+    const origins = classified.sources.filter((source) => source.directive === directive).map((source) => source.origin);
+    if (!origins.length) continue;
+    policy[directive] = [...(policy[directive].length === 1 && policy[directive][0] === "'none'" ? [] : policy[directive]), ...origins];
+    if (directive === 'script-src') policy['script-src-elem'] = [...policy['script-src-elem'], ...origins];
+    if (directive === 'style-src') policy['style-src-elem'] = [...policy['style-src-elem'], ...origins];
+  }
+  return Object.entries(policy).map(([directive, sources]) => `${directive} ${sources.join(' ')}`).join('; ');
 }
 
 // NIP-5D 24711d9c47bbdd07908bf1d52bf677d9cbc530f0: the example is a

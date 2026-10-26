@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { NappletMessage } from '@napplet/core';
+import type { ServiceRuntimeContext } from '@kehto/runtime';
 import { createIntentService } from './intent-service.js';
 
 const request = { archetype: 'profile', action: 'open', convention: 'napplet:profile/open' };
@@ -12,6 +13,16 @@ async function flush(): Promise<void> {
 }
 
 describe('createIntentService', () => {
+  it('does not retain an invocation when exact action approval is denied', async () => {
+    const invoke = vi.fn(async () => ({ ok: true as const, ...request, handler: 'target' }));
+    const service = createIntentService({ resolveSender: () => 'source', resolver: { invoke, available: () => ({ archetype: 'profile', available: false, candidates: [], hasDefault: false }), handlers: () => [] } });
+    service.onRegistered?.({ authorizeOperation: async () => ({ status: 'denied' }) } as unknown as ServiceRuntimeContext);
+    const sent: NappletMessage[] = [];
+    service.handleMessage('trusted', { type: 'intent.invoke', id: 'denied', request } as NappletMessage, (message) => sent.push(message));
+    await flush();
+    expect(invoke).not.toHaveBeenCalled();
+    expect(sent).toEqual([{ type: 'intent.invoke.result', id: 'denied', result: { ok: false, error: 'invoke rejected' } }]);
+  });
   it('derives sender only from the authenticated window lookup and rejects forged sender input', async () => {
     const invoke = vi.fn(async () => ({ ok: true as const, ...request, handler: 'nip5d:35129:publisher:profile' }));
     const service = createIntentService({

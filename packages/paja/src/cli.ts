@@ -200,7 +200,6 @@ Options:
   --config-value <key=json>   Add a JSON config value.
   --capability <domain:on|off> Toggle an advertised capability domain.
   --acl-mode <mode>           allow or deny.
-  --firewall-mode <mode>      allow, deny, or observe.
   --help, -h                  Show this help.`;
 
 function readValue(args: readonly string[], index: number, option: string): string {
@@ -299,8 +298,7 @@ function applySimulationOption(
       ensureSimulation(raw).acl = { ...raw.simulation?.acl, mode: readEnum(args, index, arg, ['allow', 'deny']) };
       return true;
     case '--firewall-mode':
-      ensureSimulation(raw).firewall = { ...raw.simulation?.firewall, mode: readEnum(args, index, arg, ['allow', 'deny', 'observe']) };
-      return true;
+      throw new PajaOptionsError('--firewall-mode was removed; approve exact scopes in Paja Firewall grants.');
     default:
       return false;
   }

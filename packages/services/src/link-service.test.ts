@@ -106,6 +106,6 @@ describe('createLinkService', () => {
 
     service.handleMessage(WINDOW_ID, { type: 'link.unknown', id: 'u1' } as NappletMessage, send);
 
-    expect(sent).toEqual([{ type: 'link.unknown.error', id: 'u1', error: 'Unknown link method: link.unknown' }]);
+    expect(sent).toEqual([]);
   });
 });

@@ -6,7 +6,9 @@ import type {
   FsMetadata,
   FsMkdirOptions,
   FsPermission,
+  FsPickOptions,
   FsPickResult,
+  FsReadOptions,
   FsReadResult,
   FsWatchOptions,
   FsWriteResult,
@@ -67,6 +69,13 @@ interface PendingBackendWatch {
   closed: boolean;
 }
 
+interface FsOperationSignal {
+  readonly aborted: boolean;
+}
+
+function assertActive(signal?: FsOperationSignal): void {
+  if (signal?.aborted) throw new FsServiceError('cancelled');
+}
 
 /**
  * Probe OPFS and create Paja's persistent, identity-scoped browser backend.
@@ -304,6 +313,22 @@ export async function createPajaBrowserFsBackend(options: PajaBrowserFsOptions):
     watch.snapshot = next;
   }
 
+  function releaseWindowResources(windowId: string): void {
+    pickedByWindow.delete(windowId);
+    for (const pending of pendingBackendWatches) {
+      if (pending.windowId === windowId) {
+        pending.closed = true;
+        pendingBackendWatches.delete(pending);
+      }
+    }
+    for (const watch of backendWatches) {
+      if (watch.windowId !== windowId) continue;
+      watch.closed = true;
+      if (watch.timer !== undefined) clearInterval(watch.timer);
+      backendWatches.delete(watch);
+    }
+  }
+
   const backend: FsBackend = {
     info(): FsInfo {
       return {
@@ -321,33 +346,41 @@ export async function createPajaBrowserFsBackend(options: PajaBrowserFsOptions):
       };
     },
 
-    async pickFile(windowId, pickerHints) {
+    async pickFile(windowId: string, pickerHints?: FsPickOptions, signal?: FsOperationSignal) {
+      assertActive(signal);
       if (!pickers.showOpenFilePicker) throw new FsServiceError('unsupported');
       const handles = await runPicker(windowId, 'file', pickerHints?.description ?? 'Choose one file', () =>
         pickers.showOpenFilePicker!({ ...pickerOptions(pickerHints), multiple: false }));
+      assertActive(signal);
       if (handles.length !== 1) throw new FsServiceError(handles.length === 0 ? 'cancelled' : 'io-error');
       return pickedResult(windowId, handles, ['read']);
     },
 
-    async pickFiles(windowId, pickerHints) {
+    async pickFiles(windowId: string, pickerHints?: FsPickOptions, signal?: FsOperationSignal) {
+      assertActive(signal);
       if (!pickers.showOpenFilePicker) throw new FsServiceError('unsupported');
       const handles = await runPicker(windowId, 'files', pickerHints?.description ?? 'Choose files', () =>
         pickers.showOpenFilePicker!(pickerOptions(pickerHints, true)));
+      assertActive(signal);
       if (handles.length === 0) throw new FsServiceError('cancelled');
       return pickedResult(windowId, handles, ['read']);
     },
 
-    async pickDirectory(windowId, pickerHints) {
+    async pickDirectory(windowId: string, pickerHints?: FsPickOptions, signal?: FsOperationSignal) {
+      assertActive(signal);
       if (!pickers.showDirectoryPicker) throw new FsServiceError('unsupported');
       const handle = await runPicker(windowId, 'directory', pickerHints?.description ?? 'Choose a directory', () =>
         pickers.showDirectoryPicker!({ mode: 'read' }));
+      assertActive(signal);
       return pickedResult(windowId, [handle], ['read', 'list', 'watch']);
     },
 
-    async pickSaveFile(windowId, pickerHints) {
+    async pickSaveFile(windowId: string, pickerHints?: FsPickOptions, signal?: FsOperationSignal) {
+      assertActive(signal);
       if (!pickers.showSaveFilePicker) throw new FsServiceError('unsupported');
       const handle = await runPicker(windowId, 'save-file', pickerHints?.description ?? 'Choose a save destination', () =>
         pickers.showSaveFilePicker!(pickerOptions(pickerHints)));
+      assertActive(signal);
       return pickedResult(windowId, [handle], ['read', 'write', 'create']);
     },
 
@@ -393,15 +426,18 @@ export async function createPajaBrowserFsBackend(options: PajaBrowserFsOptions):
       return entries;
     },
 
-    async read(windowId, path, readOptions): Promise<FsReadResult> {
+    async read(windowId: string, path: string, readOptions?: FsReadOptions, signal?: FsOperationSignal): Promise<FsReadResult> {
+      assertActive(signal);
       const entry = await resolveExisting(windowId, path);
       requirePermission(entry, 'read');
       if (entry.handle.kind !== 'file') throw new FsServiceError('not-a-file');
       const { offset, length } = validateRange(readOptions);
       try {
         const file = await (entry.handle as BrowserFileHandle).getFile();
+        assertActive(signal);
         const start = Math.min(offset, file.size);
         const bytes = new Uint8Array(await file.slice(start, Math.min(start + length, file.size)).arrayBuffer());
+        assertActive(signal);
         return {
           data: encodeBase64(bytes),
           offset,
@@ -558,19 +594,11 @@ export async function createPajaBrowserFsBackend(options: PajaBrowserFsOptions):
     },
 
     onWindowDestroyed(windowId): void {
-      pickedByWindow.delete(windowId);
-      for (const pending of pendingBackendWatches) {
-        if (pending.windowId === windowId) {
-          pending.closed = true;
-          pendingBackendWatches.delete(pending);
-        }
-      }
-      for (const watch of backendWatches) {
-        if (watch.windowId !== windowId) continue;
-        watch.closed = true;
-        if (watch.timer !== undefined) clearInterval(watch.timer);
-        backendWatches.delete(watch);
-      }
+      releaseWindowResources(windowId);
+    },
+
+    onPermissionRevoked(windowId: string): void {
+      releaseWindowResources(windowId);
     },
 
     close(): void {

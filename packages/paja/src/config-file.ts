@@ -24,6 +24,9 @@ export function loadPajaConfigFile(configPath: string): PajaRawOptions {
   if (!isRecord(parsed)) {
     throw new PajaSimulationError(`Invalid --config "${configPath}": expected a JSON object.`);
   }
+  if (isRecord(parsed.simulation) && Object.prototype.hasOwnProperty.call(parsed.simulation, 'firewall')) {
+    throw new PajaSimulationError('simulation.firewall was removed; approve exact scopes in Paja Firewall grants.');
+  }
 
   return parsed as PajaRawOptions;
 }
@@ -65,6 +68,10 @@ function mergeSimulationOptions(
   base: PajaSimulationRawOptions | undefined,
   override: PajaSimulationRawOptions | undefined,
 ): PajaSimulationRawOptions | undefined {
+  if ((base && Object.prototype.hasOwnProperty.call(base, 'firewall'))
+    || (override && Object.prototype.hasOwnProperty.call(override, 'firewall'))) {
+    throw new PajaSimulationError('simulation.firewall was removed; approve exact scopes in Paja Firewall grants.');
+  }
   if (!base) return override;
   if (!override) return base;
 
@@ -78,7 +85,6 @@ function mergeSimulationOptions(
       },
     },
     acl: { ...base.acl, ...override.acl },
-    firewall: { ...base.firewall, ...override.firewall },
     identity: { ...base.identity, ...override.identity },
     relay: { ...base.relay, ...override.relay },
     storage: { ...base.storage, ...override.storage },

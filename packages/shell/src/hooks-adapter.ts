@@ -71,6 +71,25 @@ function createRelayPoolAdapter(
   originRegistry: BrowserDeps['originRegistry'],
 ): RelayPoolAdapter {
   return {
+    subscribeToRelays(
+      relayUrls: readonly string[],
+      filters: NostrFilter[],
+      callback: (item: NostrEvent | 'EOSE') => void,
+    ): RelaySubscriptionHandle {
+      const pool = shellHooks.relayPool.getRelayPool();
+      if (!pool) return { unsubscribe() { /* no-op */ } };
+      const sub = pool.subscription([...relayUrls], filters).subscribe((item) => {
+        callback(item === 'EOSE' ? 'EOSE' : item as NostrEvent);
+      });
+      return { unsubscribe: () => sub.unsubscribe() };
+    },
+
+    publishToRelays(relayUrls: readonly string[], event: NostrEvent): void | Promise<void> {
+      const pool = shellHooks.relayPool.getRelayPool();
+      if (!pool) return;
+      return pool.publish([...relayUrls], event);
+    },
+
     subscribe(
       filters: NostrFilter[],
       callback: (item: NostrEvent | 'EOSE') => void,
@@ -361,6 +380,7 @@ export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): Runtime
   const { originRegistry } = deps;
 
   return {
+    permissions: shellHooks.permissions,
     sendToNapplet: createSendToNapplet(originRegistry),
     relayPool: createRelayPoolAdapter(shellHooks, originRegistry),
     cache: createCacheAdapter(shellHooks),

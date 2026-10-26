@@ -1,25 +1,21 @@
 import {
+  admitBrowserDocument,
   denyNappletControllerAccess,
-  prepareNappletSrcdoc,
   originRegistry,
+  type SessionEntry,
 } from '@kehto/shell';
+import type { Runtime } from '@kehto/runtime';
 
 import {
   getMissingRequiredNaps,
   getPlaygroundShellEnvironment,
 } from './demo-hooks.js';
-import { RESOURCE_DEMO_REMOTE_IMAGE_ORIGIN } from './main-preferences.js';
 import {
   PLAYGROUND_MANIFEST_AUTHOR,
   resolvePlaygroundNapplet,
   type PlaygroundNapplet,
 } from './napplet-resolver.js';
 import type { NappletInfo } from './shell-host.js';
-
-/** Static per-dTag origins visualized in the injected iframe CSP. */
-const STATIC_ORIGIN_ALLOWLIST: ReadonlyMap<string, readonly string[]> = new Map([
-  ['resource-demo', [RESOURCE_DEMO_REMOTE_IMAGE_ORIGIN]],
-]);
 
 export interface LoadedNappletIdentity {
   dTag: string;
@@ -42,6 +38,7 @@ export interface LoadNappletOptions {
 
 export interface PlaygroundFrameLoaderHost {
   readonly napplets: Map<string, NappletInfo>;
+  getRuntime(): Runtime;
   clearIntentGeneration(windowId: string): void;
   installVerifiedNapplet(
     resolved: PlaygroundNapplet,
@@ -118,33 +115,86 @@ export async function loadPlaygroundNapplet(
     identityBound: false,
   };
   host.napplets.set(windowId, info);
-
-  // Register before srcdoc executes so shell.ready owns session creation.
-  if (iframe.contentWindow) {
-    originRegistry.register(iframe.contentWindow, windowId, identity);
-    originRegistry.setEnvironment(iframe.contentWindow, environment);
-  }
+  const controller = new AbortController();
+  let retireAdmission: (() => void) | undefined;
+  let committed = false;
+  let committedLoads = 0;
+  const current = () => !controller.signal.aborted && host.napplets.get(windowId) === info
+    && iframe.isConnected && (!options.acceptResolved || options.acceptResolved(identity));
+  const removeCurrent = () => {
+    if (host.napplets.get(windowId) !== info) return;
+    host.napplets.delete(windowId);
+    originRegistry.unregister(windowId);
+    iframe.remove();
+    host.clearIntentGeneration(windowId);
+  };
+  info.dispose = () => {
+    controller.abort();
+    retireAdmission?.();
+    removeCurrent();
+  };
 
   iframe.addEventListener('load', () => {
-    if (
-      iframe.contentWindow
-      && originRegistry.getWindowId(iframe.contentWindow) !== windowId
-    ) {
-      // srcdoc may replace contentWindow; bind any replacement for its handshake.
-      originRegistry.register(iframe.contentWindow, windowId, identity);
-      originRegistry.setEnvironment(iframe.contentWindow, environment);
+    if (!committed || !current()) return;
+    if (++committedLoads > 1) {
+      info.dispose?.();
+      return;
     }
-    host.clearIntentGeneration(windowId);
+    // A srcdoc navigation may replace contentWindow while preserving this frame.
+    const win = iframe.contentWindow;
+    if (win && originRegistry.getWindowId(win) !== windowId) {
+      originRegistry.register(win, windowId, {
+        ...identity,
+        permissionPrincipal: { kind: 'verified', manifestKey: resolved.catalogId, artifactHash: aggregateHash },
+      });
+      originRegistry.setEnvironment(win, info.environment);
+    }
   });
 
-  if (options.beforeRender) await options.beforeRender({ dTag, aggregateHash });
-  const origins = STATIC_ORIGIN_ALLOWLIST.get(dTag) ?? [];
-  iframe.srcdoc = prepareNappletSrcdoc(resolved.indexHtml, {
-    domains: environment.capabilities.domains,
-    csp: { connectOrigins: origins },
-  });
-
-  return info;
+  try {
+    if (options.beforeRender) await options.beforeRender({ dTag, aggregateHash });
+    if (!current()) throw new Error(`[demo] ${dTag} source retired before admission`);
+    const principal = Object.freeze({ kind: 'verified' as const,
+      manifestKey: resolved.catalogId, artifactHash: aggregateHash });
+    const entry: SessionEntry = {
+      pubkey: '', windowId, origin: 'null', type: 'nip5d', dTag, aggregateHash,
+      permissionPrincipal: principal,
+      registeredAt: Date.now(), instanceId: crypto.randomUUID(), provenance: 'nip-5d',
+    };
+    const admitted = await admitBrowserDocument({
+      runtime: host.getRuntime(), entry, verifiedHtml: resolved.indexHtml,
+      available: environment.capabilities.domains,
+      required: resolved.requires, optional: resolved.optional ?? [], remoteSources: [],
+      signal: controller.signal, isCurrentSource: current,
+      commit(srcdoc, result) {
+        if (!current()) throw new Error('Playground source changed before admission commit');
+        const admittedDomains = new Set(result.domains);
+        info.environment = Object.freeze({
+          capabilities: Object.freeze({ domains: Object.freeze([...result.domains]) }),
+          services: Object.freeze(environment.services.filter((service) => admittedDomains.has(service))),
+        });
+        const win = iframe.contentWindow;
+        if (!win) throw new Error('Playground frame has no content window');
+        originRegistry.register(win, windowId, { ...identity, permissionPrincipal: principal });
+        originRegistry.setEnvironment(win, info.environment);
+        committed = true;
+        iframe.srcdoc = srcdoc;
+      },
+      onRetire: removeCurrent,
+    });
+    if (admitted.status !== 'committed') {
+      throw new Error(`[demo] ${dTag} admission ${admitted.status}${admitted.deniedRequired.length ? `: ${admitted.deniedRequired.join(', ')}` : ''}`);
+    }
+    retireAdmission = admitted.retire;
+    if (!current()) {
+      admitted.retire();
+      throw new Error(`[demo] ${dTag} source retired after admission`);
+    }
+    return info;
+  } catch (error) {
+    info.dispose?.();
+    throw error;
+  }
 }
 
 function playgroundPath(pathname: string): string {

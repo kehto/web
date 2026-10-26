@@ -1,17 +1,20 @@
 
 import { createDispatch, type NappletMessage, type NostrEvent, type NapHandler, type NapDomain } from '@napplet/core';
 import type { Capability } from '@kehto/acl/capabilities';
-import type { Observation } from '@kehto/firewall';
+import type { PermissionRequirement } from '@kehto/firewall';
 
 import type {
-  RuntimeAdapter, ConsentHandler, FirewallEvent,
+  RuntimeAdapter, ConsentHandler,
   ServiceHandler, ServiceRegistry, ServiceInfo, ServiceRuntimeContext,
 } from './types.js';
 import { createServiceExtensionRouter } from './service-extensions.js';
-import { notifyServiceWindowDestroyed } from './service-dispatch.js';
+import { notifyServiceWindowDestroyed, notifyServicePermissionRevoked } from './service-dispatch.js';
 import { createSessionRegistry, type SessionRegistry } from './session-registry.js';
 import { createAclState, type AclStateContainer } from './acl-state.js';
 import { createFirewallState, type FirewallStateContainer } from './firewall-state.js';
+import { createFirewallGate, createDenialResponse } from './legacy-firewall-gate.js';
+import { createPermissionRuntime, type RuntimePermissions } from './permission-runtime.js';
+import type { ApprovalSignal } from './approval-coordinator.js';
 import { createManifestCache, type ManifestCache } from './manifest-cache.js';
 import { createReplayDetector, type ReplayDetector } from './replay.js';
 import { createEventBuffer, RING_BUFFER_SIZE, type EventBuffer, type SubscriptionEntry } from './event-buffer.js';
@@ -40,6 +43,8 @@ import {
  * ```
  */
 export interface Runtime {
+  /** Scoped permission management when the host supplies approval adapters. */
+  readonly permissions?: RuntimePermissions;
   /**
    * Handle an incoming NIP-5D NappletMessage envelope from a napplet.
    * The caller is responsible for identifying the source (windowId).
@@ -113,6 +118,7 @@ type RuntimeNapHandlers = RuntimeDomainHandlers & {
 };
 
 type RuntimeInstanceContext = {
+  permissions?: ReturnType<typeof createPermissionRuntime>;
   hooks: RuntimeAdapter;
   serviceRegistry: ServiceRegistry;
   registeredServices: Map<string, ServiceInfo>;
@@ -184,184 +190,6 @@ function createNapEnvelopeDispatcher(handlers: RuntimeNapHandlers): (windowId: s
   };
 }
 
-/**
- * Compute the UTF-8 byte length of a string without TextEncoder (ES2022-safe).
- * Mirrors the same helper in state-handler.ts to avoid cross-file import.
- */
-function utf8ByteLength(str: string): number {
-  let bytes = 0;
-  for (let i = 0; i < str.length; i++) {
-    const c = str.charCodeAt(i);
-    if (c < 0x80) bytes += 1;
-    else if (c < 0x800) bytes += 2;
-    else if (c < 0xd800 || c >= 0xe000) bytes += 3;
-    else { i++; bytes += 4; } // surrogate pair
-  }
-  return bytes;
-}
-
-/**
- * Extract kind and byte-size from a message envelope (publish-style ops only).
- * Guards against malformed envelopes — returns undefined fields on any failure.
- *
- * @param envelope - Incoming NappletMessage envelope.
- * @returns `{ kind?, size? }` — both optional; undefined when not a publish-style op.
- */
-function extractKindSize(envelope: NappletMessage): { kind?: number; size?: number } {
-  const ev = (envelope as NappletMessage & { event?: unknown }).event;
-  if (typeof ev !== 'object' || ev === null) return {};
-  const kind = typeof (ev as { kind?: unknown }).kind === 'number'
-    ? (ev as { kind: number }).kind
-    : undefined;
-  let size: number | undefined;
-  try {
-    size = utf8ByteLength(JSON.stringify(ev));
-  } catch { /* malformed event — size stays undefined */ }
-  return { kind, size };
-}
-
-/**
- * Build a normalized Observation from a message envelope and runtime context.
- * The runtime owns the clock (Date.now()); the pure engine never reads it.
- * Focus is sourced exclusively via getFocusContext (FOCUS-01) — never napplet-self-reported.
- * When getFocusContext is absent, defaults to `{ focused: true }` (safe relax-only default).
- *
- * @param envelope        - Incoming NappletMessage envelope.
- * @param windowId        - Source napplet window identifier.
- * @param senderCap       - Resolved sender capability string (or null).
- * @param sessionRegistry - Used to resolve dTag and registeredAt for the window.
- * @param getFocusContext  - Optional shell-supplied focus query hook.
- * @returns A complete Observation ready for evaluate().
- */
-function buildObservation(
-  envelope: NappletMessage,
-  windowId: string,
-  senderCap: string | null,
-  sessionRegistry: SessionRegistry,
-  getFocusContext?: RuntimeAdapter['getFocusContext'],
-): Observation {
-  const now = Date.now();
-  const entry = sessionRegistry.getEntryByWindowId(windowId);
-  const napplet = entry?.dTag ?? '';
-  const initElapsedMs = now - (entry?.registeredAt ?? now);
-  const focus = getFocusContext?.(windowId) ?? { focused: true };
-  const opClass = senderCap ?? envelope.type;
-  const { kind, size } = extractKindSize(envelope);
-  return {
-    napplet,
-    opClass,
-    kind,
-    size,
-    initElapsedMs,
-    // `windowId` comes from the host's source-bound session lookup, never the
-    // napplet message envelope. Trusted register() calls retire this key's
-    // previous startup budget; ordinary messages cannot reset it.
-    initKey: windowId,
-    focused: focus.focused,
-    msSinceFocusGain: focus.msSinceFocusGain,
-    now,
-  };
-}
-
-/** Configuration for createFirewallGate. */
-interface FirewallGateConfig {
-  firewallState: FirewallStateContainer;
-  sessionRegistry: SessionRegistry;
-  hooks: RuntimeAdapter;
-  fireConsent: (windowId: string, napplet: string) => void;
-}
-
-/**
- * Create the firewall gate closure to inject into createMessageHandler.
- * Returns 'dispatch' to allow the message through or 'drop' to reject it.
- *
- * Decision→action mapping (RUNTIME-01, RUNTIME-04, POLICY-02):
- *   - reject → error envelope + drop (no dispatch)
- *   - prompt → error envelope + fireConsent + drop (ask path)
- *   - pass + flag → onFirewallEvent audit + dispatch
- *   - pass (ignore/allow) → dispatch (no audit)
- *
- * @param config - Gate configuration (firewallState, sessionRegistry, hooks, fireConsent).
- * @returns A gate function `(windowId, envelope, senderCap) => 'dispatch' | 'drop'`.
- */
-function createFirewallGate(config: FirewallGateConfig): (windowId: string, envelope: NappletMessage, senderCap: string | null, respond?: boolean) => 'dispatch' | 'drop' {
-  const { firewallState, sessionRegistry, hooks, fireConsent } = config;
-
-  return function firewallGate(windowId: string, envelope: NappletMessage, senderCap: string | null, respond = true): 'dispatch' | 'drop' {
-    const obs = buildObservation(envelope, windowId, senderCap, sessionRegistry, hooks.getFocusContext);
-    const result = firewallState.evaluate(obs);
-    const { decision, action, ruleId, reason } = result;
-    const napplet = obs.napplet;
-    const opClass = obs.opClass;
-
-    if (decision === 'reject' || decision === 'prompt') {
-      if (!respond) {
-        // Extension error contracts are host-owned; do not invent wire replies.
-        hooks.onFirewallEvent?.({ windowId, napplet, opClass, decision, action, ruleId, reason, message: envelope } as FirewallEvent);
-        if (decision === 'prompt') fireConsent(windowId, napplet);
-        return 'drop';
-      }
-      const intentDenial = createIntentPolicyDenial(envelope);
-      if (intentDenial) {
-        hooks.sendToNapplet(windowId, intentDenial);
-        hooks.onFirewallEvent?.({ windowId, napplet, opClass, decision, action, ruleId, reason, message: envelope } as FirewallEvent);
-        if (decision === 'prompt') fireConsent(windowId, napplet);
-        return 'drop';
-      }
-
-      const canonicalResult = createCanonicalDomainResult(envelope);
-      if (canonicalResult) {
-        hooks.sendToNapplet(windowId, canonicalResult);
-        hooks.onFirewallEvent?.({ windowId, napplet, opClass, decision, action, ruleId, reason, message: envelope } as FirewallEvent);
-        if (decision === 'prompt') fireConsent(windowId, napplet);
-        return 'drop';
-      }
-
-      const denial = createDenialResponse(envelope, `firewall: ${reason}`);
-      if (denial) hooks.sendToNapplet(windowId, denial);
-
-      hooks.onFirewallEvent?.({ windowId, napplet, opClass, decision, action, ruleId, reason, message: envelope } as FirewallEvent);
-
-      if (decision === 'prompt') {
-        // POLICY-02: reject current message AND fire async consent prompt
-        fireConsent(windowId, napplet);
-      }
-      return 'drop';
-    }
-
-    // decision === 'pass'
-    if (action === 'flag') {
-      // RUNTIME-04: flag → audit + dispatch (message is NOT dropped)
-      hooks.onFirewallEvent?.({ windowId, napplet, opClass, decision, action, ruleId, reason, message: envelope } as FirewallEvent);
-    }
-    return 'dispatch';
-  };
-}
-
-function denialResponseType(envelope: NappletMessage): string | null {
-  if (envelope.type.startsWith('intent.')) return null;
-  if (envelope.type.startsWith('storage.')) return `${envelope.type}.result`;
-  if (envelope.type === 'inc.subscribe' || envelope.type === 'inc.channel.open') {
-    return `${envelope.type}.result`;
-  }
-  if (envelope.type.startsWith('inc.')) return null;
-  return `${envelope.type}.error`;
-}
-
-function createDenialResponse(envelope: NappletMessage, error: string): NappletMessage | null {
-  const id = (envelope as NappletMessage & { id?: string }).id ?? '';
-  if (envelope.type === 'outbox.query') {
-    return {
-      type: 'outbox.query.result',
-      id,
-      events: [],
-      error,
-    } as NappletMessage;
-  }
-  const type = denialResponseType(envelope);
-  return type ? { type, id, error } as NappletMessage : null;
-}
-
 function createMessageHandler(
   hooks: RuntimeAdapter,
   sessionRegistry: SessionRegistry,
@@ -369,6 +197,7 @@ function createMessageHandler(
   dispatchNapEnvelope: (windowId: string, envelope: NappletMessage) => void,
   serviceRouting: { builtInDomains: ReadonlySet<string>; extensions: ReturnType<typeof createServiceExtensionRouter> },
   firewallGate: (windowId: string, envelope: NappletMessage, senderCap: string | null) => 'dispatch' | 'drop',
+  permissions?: ReturnType<typeof createPermissionRuntime>,
 ): Runtime['handleMessage'] {
   return (windowId: string, msg: unknown): void => {
     if (typeof msg !== 'object' || msg === null || Array.isArray(msg) || !('type' in msg) || typeof msg.type !== 'string') return;
@@ -378,12 +207,22 @@ function createMessageHandler(
     // Only source-bound sessions may dispatch. The browser adapter registers
     // trusted creation identity independently of the optional NAP-SHELL exchange.
     if (!sessionRegistry.getEntryByWindowId(windowId)) return;
+    if (permissions && !permissions.isSourceActive(windowId)) return;
     const domain = envelope.type.slice(0, dotIdx);
     if (!serviceRouting.builtInDomains.has(domain)) {
       serviceRouting.extensions.handleMessage(windowId, envelope);
       return;
     }
     if (hooks.isDomainAllowed && !hooks.isDomainAllowed(windowId, domain)) return;
+    // The migrated LINK service validates its exact destination before invoking
+    // shared approval/rate coordination. Unknown methods cannot trigger prompts.
+    if (hooks.permissions && domain === 'link') {
+      if (envelope.type === 'link.open') dispatchNapEnvelope(windowId, envelope);
+      return;
+    }
+    // Configured hosts cannot expose a built-in interface merely by setting an
+    // environment flag. Startup admission supplies the corresponding grant.
+    if (permissions && !permissions.hasInterface(windowId, domain)) return;
     if (isIdentityOrThemeMessage(envelope) && !createCanonicalDomainResult(envelope)) return;
 
     const caps = resolveCapabilitiesNap(envelope);
@@ -409,8 +248,41 @@ function createMessageHandler(
       }
     }
 
-    const verdict = firewallGate(windowId, envelope, caps.senderCap);
-    if (verdict === 'drop') return;
+    // Storage and INC are runtime-owned; CONFIG's service has no operation
+    // authorizer. Charge their shared temporal budget here. Coordinated services
+    // charge at their validated execution boundary, never twice at dispatch.
+    const cleanup = envelope.type === 'inc.unsubscribe' || envelope.type === 'inc.channel.close' || envelope.type === 'config.unsubscribe';
+    if (permissions && !cleanup && (domain === 'storage' || domain === 'inc' || domain === 'config')) {
+      // NAP-INC 19de5ce1 requires actual channel lists; NAP-CONFIG bed9cb5b
+      // requires snapshots/schema ACKs but defines no budget-denial wire.
+      // Observe those reads/registrations until the specs define one;
+      // do not invent errors or replace a mandatory snapshot with empty data.
+      const observe = envelope.type === 'inc.channel.list' || envelope.type === 'config.get'
+        || envelope.type === 'config.subscribe' || envelope.type === 'config.registerSchema';
+      const source = sessionRegistry.getEntryByWindowId(windowId);
+      const failure = permissions.charge(windowId, envelope.type, observe ? 'observe' : 'enforce');
+      // A host diagnostic may synchronously retire or replace the source.
+      if (sessionRegistry.getEntryByWindowId(windowId) !== source || !permissions.isSourceActive(windowId)) return;
+      if (failure) {
+        // NAP-STORAGE 4f4cf0ca and NAP-INC 19de5ce1 permit correlated
+        // error results for exactly these requests. Fire-and-forget stays silent.
+        if (envelope.type === 'storage.get' || envelope.type === 'storage.set'
+          || envelope.type === 'storage.remove' || envelope.type === 'storage.keys'
+          || envelope.type === 'inc.subscribe' || envelope.type === 'inc.channel.open') {
+          const error = failure === 'busy' ? 'rate limit exceeded' : 'permission budget unavailable';
+          const denial = createDenialResponse(envelope, error);
+          if (denial) hooks.sendToNapplet(windowId, denial);
+        }
+        return;
+      }
+    }
+
+    // The legacy Firewall gate remains only for hosts without the coordinator;
+    // it cannot become a second approver for configured hosts.
+    if (!permissions) {
+      const verdict = firewallGate(windowId, envelope, caps.senderCap);
+      if (verdict === 'drop') return;
+    }
 
     dispatchNapEnvelope(windowId, envelope);
   };
@@ -436,6 +308,7 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
   } = context;
   const undeclaredServiceConsents = new Set<string>();
   const attachedServices = new Map<string, ServiceHandler>();
+  const serviceLifetimes = new Map<string, object>();
   const isDomainAllowed = hooks.isDomainAllowed;
   const sendToNapplet = hooks.sendToNapplet;
   const serviceContext: ServiceRuntimeContext = Object.freeze({
@@ -476,8 +349,16 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
 
   function attachService(name: string, handler: ServiceHandler): void {
     attachedServices.set(name, handler);
+    const lifetime = {};
+    serviceLifetimes.set(name, lifetime);
+    const boundContext: ServiceRuntimeContext = context.permissions ? Object.freeze({ ...serviceContext,
+      authorizeOperation<T>(windowId: string, operation: string, requirements: readonly PermissionRequirement[],
+        execute: (signal: ApprovalSignal) => T | Promise<T>, signal?: ApprovalSignal) {
+        return context.permissions!.run(windowId, operation, requirements, () => serviceLifetimes.get(name) === lifetime, execute, 'operation', signal);
+      },
+    }) : serviceContext;
     try {
-      handler.onRegistered?.(serviceContext);
+      handler.onRegistered?.(boundContext);
     } catch {
       // A failed optional attachment leaves the service safely context-free.
     }
@@ -487,6 +368,7 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
     const handler = attachedServices.get(name);
     if (!handler) return;
     attachedServices.delete(name);
+    serviceLifetimes.delete(name);
     try {
       handler.onUnregistered?.();
     } catch {
@@ -504,6 +386,7 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
       eventBuffer.bufferAndDeliver(createInjectedEvent(hooks, topic, payload), null);
     },
     destroy(): void {
+      context.permissions?.destroy();
       extensions.destroy();
       registeredServices.clear();
       for (const name of attachedServices.keys()) detachService(name);
@@ -520,6 +403,7 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
       consentHandlerRef.current = handler;
     },
     registerService(name: string, handler: ServiceHandler): void {
+      context.permissions?.cancelPending();
       registeredServices.delete(name);
       detachService(name);
       serviceRegistry[name] = handler;
@@ -531,11 +415,13 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
       attachService(name, handler);
     },
     unregisterService(name: string): void {
+      context.permissions?.cancelPending();
       registeredServices.delete(name);
       detachService(name);
       delete serviceRegistry[name];
     },
     destroyWindow(windowId: string): void {
+      context.permissions?.close(windowId);
       extensions.destroyWindow(windowId);
       for (const [key] of subscriptions) {
         if (key.startsWith(`${windowId}:`)) {
@@ -549,8 +435,42 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
     get sessionRegistry() { return sessionRegistry; },
     get aclState() { return aclState; },
     get firewallState() { return firewallState; },
+    get permissions() { return context.permissions?.management; },
     get manifestCache() { return manifestCache; },
   };
+}
+
+function createRuntimePermissions(
+  hooks: RuntimeAdapter, sessionRegistry: SessionRegistry, aclState: AclStateContainer,
+  subscriptions: Map<string, SubscriptionEntry>, serviceRegistry: ServiceRegistry, getIncRuntime: () => IncRuntime | null,
+  revokeExtension: (windowId: string) => void,
+) {
+  return createPermissionRuntime({
+    adapter: hooks.permissions!,
+    createId: () => hooks.crypto.randomUUID(),
+    getSession: (windowId) => sessionRegistry.getEntryByWindowId(windowId),
+    focused: (windowId) => hooks.getFocusContext?.(windowId).focused ?? true,
+    allowed(windowId, requirements, phase) {
+      const entry = sessionRegistry.getEntryByWindowId(windowId);
+      if (!entry || aclState.isBlocked('', entry.dTag, entry.aggregateHash)) return false;
+      return requirements.every((requirement) => {
+        if (phase === 'operation' && requirement.category === 'interface'
+          && hooks.isDomainAllowed && !hooks.isDomainAllowed(windowId, requirement.domain)) return false;
+        if (requirement.category === 'interface') return true;
+        const capability = resolveCapabilitiesNap({ type: requirement.operation }).senderCap;
+        return !capability || aclState.check('', entry.dTag, entry.aggregateHash, capability as Capability);
+      });
+    },
+    invalidate(windowId) {
+      const windows = windowId === undefined ? sessionRegistry.getAllEntries().map((entry) => entry.windowId) : [windowId];
+      for (const id of windows) {
+        revokeExtension(id);
+        revokeRelaySubscriptions({ hooks, serviceRegistry, subscriptions }, id);
+        getIncRuntime()?.revokeWindow(id);
+        notifyServicePermissionRevoked(id, serviceRegistry);
+      }
+    },
+  });
 }
 
 /**
@@ -572,12 +492,23 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   const registeredServices = createRegisteredServices(serviceRegistry);
   const firewallState = createFirewallState(hooks.firewallPersistence);
   let extensions: ReturnType<typeof createServiceExtensionRouter> | undefined;
+  let permissions: ReturnType<typeof createPermissionRuntime> | undefined;
   const sessionRegistry = createSessionRegistry(hooks.onPendingUpdate, (windowId) => {
     firewallState.resetInitBudget(windowId);
     extensions?.destroyWindow(windowId);
+    permissions?.retire(windowId);
+    if (hooks.permissions) notifyServiceWindowDestroyed(windowId, serviceRegistry);
+  }, (windowId) => {
+    permissions?.retire(windowId);
+    if (hooks.permissions) notifyServiceWindowDestroyed(windowId, serviceRegistry);
   });
   let incRuntime: IncRuntime | null = null;
   const aclState = createAclState(hooks.aclPersistence, 'permissive', (mutation) => {
+    for (const entry of sessionRegistry.getAllEntries()) {
+      if (entry.dTag === mutation.dTag && entry.aggregateHash === mutation.aggregateHash) {
+        permissions?.cancelWindow(entry.windowId);
+      }
+    }
     if (mutation.type === 'revoke' && mutation.capability !== 'relay:read') return;
     for (const entry of sessionRegistry.getAllEntries()) {
       if (entry.dTag === mutation.dTag && entry.aggregateHash === mutation.aggregateHash) {
@@ -638,6 +569,11 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     onAclCheck: hooks.onAclCheck,
   });
 
+  if (hooks.permissions) {
+    permissions = createRuntimePermissions(hooks, sessionRegistry, aclState, subscriptions, serviceRegistry, () => incRuntime,
+      (windowId) => extensions?.revokeWindow(windowId));
+  }
+
   incRuntime = createIncRuntime(
     hooks,
     sessionRegistry,
@@ -663,10 +599,14 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   const domainHandlers = createRuntimeDomainHandlers({ hooks, serviceRegistry, sessionRegistry, aclState });
   const napHandlers: RuntimeNapHandlers = {
     relay: createRelayHandler({ hooks, serviceRegistry, subscriptions, eventBuffer, replayDetector,
+      getSource: (windowId) => permissions && !permissions.isSourceActive(windowId) ? undefined : sessionRegistry.getEntryByWindowId(windowId),
       canReadRelay(windowId) {
         const entry = sessionRegistry.getEntryByWindowId(windowId);
         return !!entry && aclState.check('', entry.dTag, entry.aggregateHash, 'relay:read');
       },
+      authorizeOperation: permissions ? (windowId, operation, requirements, execute, signal) =>
+        permissions.run(windowId, operation, requirements,
+          () => !!sessionRegistry.getEntryByWindowId(windowId), execute, 'operation', signal) : undefined,
     }),
     identity: createIdentityHandler({ hooks, serviceRegistry }),
     count: createCountHandler({ hooks, serviceRegistry }),
@@ -678,9 +618,9 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   const builtInDomains = new Set([...Object.keys(napHandlers), 'shell', 'signer']);
   extensions = createServiceExtensionRouter({
     hooks, services: serviceRegistry, registrations: registeredServices,
-    sessions: sessionRegistry, acl: aclState, enforce: enforceNap, firewall: firewallGate,
+    sessions: sessionRegistry, acl: aclState, enforce: enforceNap, firewall: firewallGate, permissions,
   });
-  const handleMessage = createMessageHandler(hooks, sessionRegistry, enforceNap, dispatchNapEnvelope, { builtInDomains, extensions }, firewallGate);
+  const handleMessage = createMessageHandler(hooks, sessionRegistry, enforceNap, dispatchNapEnvelope, { builtInDomains, extensions }, firewallGate, permissions);
 
   return createRuntimeInstance({
     hooks,
@@ -697,5 +637,6 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     consentHandlerRef,
     handleMessage,
     extensions,
+    permissions,
   });
 }

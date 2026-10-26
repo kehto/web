@@ -101,6 +101,7 @@ export default defineConfig({
           { text: 'Policy Index', link: '/policies/' },
           { text: 'NIP-5D Conformance', link: '/policies/NIP-5D-CONFORMANCE' },
           { text: 'Runtime Resource Boundary', link: '/policies/SHELL-RESOURCE-POLICY' },
+          { text: 'Resource Proxy', link: '/policies/RESOURCE-PROXY' },
         ],
       },
       {

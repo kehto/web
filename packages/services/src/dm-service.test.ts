@@ -75,6 +75,74 @@ async function waitFor<T>(predicate: () => T | undefined, attempts = 20): Promis
 }
 
 describe('createDmService', () => {
+  it('approves immutable relay and recipient scopes before an adapter can encrypt or publish', async () => {
+    const recipient = 'b'.repeat(64);
+    const sendWithRelays = vi.fn(async () => ({
+      ok: true,
+      message: { id: 'm1', conversationId: 'direct:a,b', senderPubkey: 'a'.repeat(64), createdAt: 1, content: 'hi', status: 'sent' as const },
+    }));
+    const adapter = {
+      status: () => ({ available: true, implementations: ['test'], capabilities: ['send'] }), conversations: () => ({ conversations: [] }), messages: () => ({ messages: [] }),
+      send: vi.fn(async () => { throw new Error('must not bypass approved plan'); }), subscribe: () => ({ subscriptionId: 'unused' }), unsubscribe: () => ({ ok: true }),
+      planRelays: () => ['wss://relay.example'], sendWithRelays,
+    };
+    const service = createDmService({ adapter });
+    const signal = { aborted: false, addEventListener() {}, removeEventListener() {} };
+    const authorizeOperation = vi.fn(async (_windowId, _operation, _requirements, execute) => ({ status: 'executed' as const, value: await execute(signal) }));
+    service.onRegistered?.({ authorizeOperation } as never);
+    const sent: NappletMessage[] = [];
+
+    service.handleMessage('window-a', { type: 'dm.send', id: 'send-approved', recipients: [recipient], content: 'hi' } as NappletMessage, (message) => sent.push(message));
+    await waitFor(() => sent[0]);
+
+    expect(authorizeOperation.mock.calls[0]![2]).toEqual(expect.arrayContaining([
+      expect.objectContaining({ category: 'resource', operation: 'dm.send', scope: { kind: 'exact', value: recipient } }),
+      expect.objectContaining({ category: 'network', operation: 'dm.send', scope: { kind: 'origin', value: 'wss://relay.example' } }),
+    ]));
+    expect(sendWithRelays).toHaveBeenCalledWith(expect.objectContaining({ recipients: [recipient] }), ['wss://relay.example'], signal);
+    expect(adapter.send).not.toHaveBeenCalled();
+  });
+
+  it('does not invoke the planned adapter operation when approval is denied', async () => {
+    const sendWithRelays = vi.fn();
+    const adapter = {
+      status: () => ({ available: true, implementations: ['test'], capabilities: ['send'] }), conversations: () => ({ conversations: [] }), messages: () => ({ messages: [] }), send: vi.fn(), subscribe: () => ({ subscriptionId: 'unused' }), unsubscribe: () => ({ ok: true }),
+      planRelays: () => ['wss://relay.example'], sendWithRelays,
+    };
+    const service = createDmService({ adapter });
+    service.onRegistered?.({ authorizeOperation: async () => ({ status: 'denied' }) } as never);
+    const sent: NappletMessage[] = [];
+
+    service.handleMessage('window-a', { type: 'dm.send', id: 'send-denied', recipients: ['b'.repeat(64)], content: 'hi' } as NappletMessage, (message) => sent.push(message));
+    await waitFor(() => sent[0]);
+
+    expect(sendWithRelays).not.toHaveBeenCalled();
+    expect(adapter.send).not.toHaveBeenCalled();
+    expect(sent).toEqual([{ type: 'dm.send.result', id: 'send-denied', error: 'forbidden' }]);
+  });
+
+  it('physically closes an approved subscription on revocation and suppresses late delivery', async () => {
+    let deliver: ((message: { id: string; conversationId: string; senderPubkey: string; createdAt: number; content: string; status: 'received' }) => void) | undefined;
+    const unsubscribe = vi.fn(() => ({ ok: true }));
+    const adapter = {
+      status: () => ({ available: true, implementations: ['test'], capabilities: ['subscribe'] }), conversations: () => ({ conversations: [] }), messages: () => ({ messages: [] }), send: async () => { throw new Error('unused'); },
+      subscribe: () => ({ subscriptionId: 'unused' }), unsubscribe, planRelays: () => ['wss://relay.example'],
+      subscribeWithRelays: (_request: unknown, callback: typeof deliver) => { deliver = callback; return { subscriptionId: 'live' }; },
+    };
+    const service = createDmService({ adapter });
+    const signal = { aborted: false, addEventListener() {}, removeEventListener() {} };
+    service.onRegistered?.({ authorizeOperation: async (_windowId: string, _operation: string, _requirements: unknown, execute: (value: typeof signal) => unknown) => ({ status: 'executed', value: await execute(signal) }) } as never);
+    const sent: NappletMessage[] = [];
+
+    service.handleMessage('window-a', { type: 'dm.subscribe', id: 'sub' } as NappletMessage, (message) => sent.push(message));
+    await waitFor(() => sent[0]);
+    service.onPermissionRevoked?.('window-a');
+    deliver?.({ id: 'late', conversationId: 'direct:a,b', senderPubkey: 'b'.repeat(64), createdAt: 1, content: 'late', status: 'received' });
+
+    expect(unsubscribe).toHaveBeenCalledWith('live');
+    expect(sent).toEqual([{ type: 'dm.subscribe.result', id: 'sub', subscriptionId: 'live' }]);
+  });
+
   it('routes dm.status and dm.send through the adapter', async () => {
     const adapter = {
       status: vi.fn(() => ({ available: true, implementations: ['test'], capabilities: ['send'] })),

@@ -56,7 +56,7 @@
 import type { NappletMessage } from '@napplet/core';
 // DRIFT-CORE-06 — Phase 11-deviation: ServiceDescriptor dropped from @napplet/core
 // v0.2.0+ (napplet phase-81). Re-exported from @kehto/runtime (canonical home after Phase 24 DRIFT-01).
-import type { ServiceDescriptor, ServiceHandler } from '@kehto/runtime';
+import type { ApprovalSignal, ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
 import type {
   MediaAction,
   MediaCapabilitiesMessage,
@@ -90,6 +90,7 @@ interface SessionEntry {
   actions: readonly MediaAction[];  // from media.capabilities; defaults to ['play','pause','next','prev','seek']
   /** Monotonic tick updated on every session.create / session.update / state — used for last-active-wins resolution when the current active session is destroyed. */
   lastTouched: number;
+  generation: symbol;
 }
 
 /** Media service version — follows semver. */
@@ -286,6 +287,7 @@ interface MediaServiceState {
   activeSessionId: string | null;
   touchCounter: number;
   sessionCounter: number;
+  generations: Map<string, symbol>;
 }
 
 function createMediaServiceState(options: MediaServiceOptions, bridge: HostMediaBridge): MediaServiceState {
@@ -298,6 +300,7 @@ function createMediaServiceState(options: MediaServiceOptions, bridge: HostMedia
     activeSessionId: null,
     touchCounter: 0,
     sessionCounter: 0,
+    generations: new Map(),
   };
 }
 
@@ -325,7 +328,7 @@ function promoteNextActiveOrClear(state: MediaServiceState): void {
 
 function sendMediaCommand(state: MediaServiceState, sessionId: string, action: MediaAction, value?: number): void {
   const entry = state.sessionRegistry.get(sessionId);
-  if (!entry) return;
+  if (!entry || state.generations.get(entry.windowId) !== entry.generation) return;
   const send = state.sendHandles.get(entry.windowId);
   if (!send) return;
   const payload: MediaCommandMessage = {
@@ -389,6 +392,7 @@ function handleSessionCreate(
   windowId: string,
   message: MediaSessionCreateEnvelope,
   send: (msg: NappletMessage) => void,
+  generation: symbol,
 ): void {
   if (!isMediaPlaybackOwner(message.owner)) {
     sendSessionCreateResult(send, message.id, { error: 'missing owner' });
@@ -415,6 +419,7 @@ function handleSessionCreate(
     state: undefined,
     actions: message.capabilities ?? DEFAULT_MEDIA_ACTIONS,
     lastTouched: ++state.touchCounter,
+    generation,
   };
   state.sessionRegistry.set(sessionId, entry);
   registerWindowSession(state, windowId, sessionId);
@@ -425,34 +430,33 @@ function handleSessionCreate(
 
 function handleSessionUpdate(state: MediaServiceState, windowId: string, message: MediaSessionUpdateMessage): void {
   const entry = state.sessionRegistry.get(message.sessionId);
-  if (entry) {
-    entry.metadata = { ...entry.metadata, ...message.metadata };
-    entry.lastTouched = ++state.touchCounter;
-    if (entry.owner === 'napplet' && message.sessionId === state.activeSessionId && entry.metadata) {
-      state.bridge.setMetadata(message.sessionId, entry.metadata);
-    }
+  if (!entry || entry.windowId !== windowId) return;
+  entry.metadata = { ...entry.metadata, ...message.metadata };
+  entry.lastTouched = ++state.touchCounter;
+  if (entry.owner === 'napplet' && message.sessionId === state.activeSessionId && entry.metadata) {
+    state.bridge.setMetadata(message.sessionId, entry.metadata);
   }
   state.options.onSessionUpdate?.(windowId, message.sessionId, message.metadata);
 }
 
 function handleSessionDestroy(state: MediaServiceState, windowId: string, message: MediaSessionDestroyMessage): void {
   const entry = state.sessionRegistry.get(message.sessionId);
-  if (entry) {
-    state.sessionRegistry.delete(message.sessionId);
-    const set = state.windowSessions.get(entry.windowId);
-    if (set) {
-      set.delete(message.sessionId);
-      if (set.size === 0) state.windowSessions.delete(entry.windowId);
-    }
-    state.bridge.destroySession?.(message.sessionId);
-    if (message.sessionId === state.activeSessionId) promoteNextActiveOrClear(state);
+  if (!entry || entry.windowId !== windowId) return;
+  state.sessionRegistry.delete(message.sessionId);
+  const set = state.windowSessions.get(entry.windowId);
+  if (set) {
+    set.delete(message.sessionId);
+    if (set.size === 0) state.windowSessions.delete(entry.windowId);
   }
+  state.bridge.destroySession?.(message.sessionId);
+  if (message.sessionId === state.activeSessionId) promoteNextActiveOrClear(state);
   state.options.onSessionDestroy?.(windowId, message.sessionId);
 }
 
 function handleMediaState(state: MediaServiceState, windowId: string, message: MediaStateMessage): void {
   const entry = state.sessionRegistry.get(message.sessionId);
-  if (entry?.owner === 'napplet') {
+  if (!entry || entry.windowId !== windowId) return;
+  if (entry.owner === 'napplet') {
     entry.state = {
       status: message.status,
       position: message.position,
@@ -472,7 +476,8 @@ function handleMediaCapabilities(
   message: MediaCapabilitiesMessage,
 ): void {
   const entry = state.sessionRegistry.get(message.sessionId);
-  if (entry?.owner === 'napplet') {
+  if (!entry || entry.windowId !== windowId) return;
+  if (entry.owner === 'napplet') {
     entry.actions = message.actions;
     entry.lastTouched = ++state.touchCounter;
     if (message.sessionId === state.activeSessionId) {
@@ -487,10 +492,11 @@ function handleMediaMessage(
   windowId: string,
   message: NappletMessage,
   send: (msg: NappletMessage) => void,
+  generation: symbol,
 ): void {
   switch (message.type) {
     case 'media.session.create':
-      handleSessionCreate(state, windowId, message as MediaSessionCreateEnvelope, send);
+      handleSessionCreate(state, windowId, message as MediaSessionCreateEnvelope, send, generation);
       return;
     case 'media.session.update':
       handleSessionUpdate(state, windowId, message as MediaSessionUpdateMessage);
@@ -541,6 +547,30 @@ function destroyMediaState(state: MediaServiceState, unsubscribeAction: () => vo
   state.sessionCounter = 0;
 }
 
+type MediaPermissionRequirement = Parameters<NonNullable<ServiceRuntimeContext['authorizeOperation']>>[2][number];
+
+function mediaOperation(message: NappletMessage): string | null {
+  return ['media.session.create', 'media.session.update', 'media.session.destroy', 'media.state', 'media.capabilities'].includes(message.type) ? message.type : null;
+}
+
+function mediaSessionScope(message: NappletMessage): string {
+  const sessionId = Object.getOwnPropertyDescriptor(message, 'sessionId')?.value;
+  return typeof sessionId === 'string' && sessionId.length > 0 ? sessionId : 'new-session';
+}
+
+function mediaRequirements(operation: string, sessionId: string): readonly MediaPermissionRequirement[] {
+  return [
+    { category: 'interface', domain: 'media', operation: 'access', scope: { kind: 'exact', value: 'media' } },
+    { category: 'resource', domain: 'media', operation, scope: { kind: 'exact', value: sessionId } },
+  ];
+}
+
+function generationFor(state: MediaServiceState, windowId: string): symbol {
+  let generation = state.generations.get(windowId);
+  if (!generation) { generation = Symbol(windowId); state.generations.set(windowId, generation); }
+  return generation;
+}
+
 /**
  * Create a media NAP service handler with navigator.mediaSession integration.
  *
@@ -583,6 +613,7 @@ export function createMediaService(options: MediaServiceOptions = {}): ServiceHa
       documentTarget: options.documentTarget,
     });
   const state = createMediaServiceState(options, bridge);
+  let runtime: ServiceRuntimeContext | undefined;
 
   const unsubscribeAction = bridge.onAction((sessionId, action, value) => {
     sendMediaCommand(state, sessionId, action, value);
@@ -591,11 +622,41 @@ export function createMediaService(options: MediaServiceOptions = {}): ServiceHa
   return {
     descriptor,
 
+    onRegistered(context): void { runtime = context; },
+    onUnregistered(): void { runtime = undefined; },
+
     handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void {
-      handleMediaMessage(state, windowId, message, send);
+      const generation = generationFor(state, windowId);
+      const operation = mediaOperation(message);
+      if (!operation || !runtime?.authorizeOperation) {
+        handleMediaMessage(state, windowId, message, send, generation);
+        return;
+      }
+      const sessionId = mediaSessionScope(message);
+      void runtime.authorizeOperation(windowId, operation, mediaRequirements(operation, sessionId), async (signal: ApprovalSignal) => {
+        if (state.generations.get(windowId) !== generation || signal.aborted) throw new Error('user-denied');
+        handleMediaMessage(state, windowId, message, send, generation);
+        if (state.generations.get(windowId) !== generation || signal.aborted) throw new Error('user-denied');
+      }).then((outcome) => {
+        if (outcome.status !== 'executed' && message.type === 'media.session.create' && state.generations.get(windowId) === generation) {
+          const id = Object.getOwnPropertyDescriptor(message, 'id')?.value;
+          sendSessionCreateResult(send, typeof id === 'string' ? id : undefined, { error: 'user-denied' });
+        }
+      }).catch(() => {
+        if (message.type === 'media.session.create' && state.generations.get(windowId) === generation) {
+          const id = Object.getOwnPropertyDescriptor(message, 'id')?.value;
+          sendSessionCreateResult(send, typeof id === 'string' ? id : undefined, { error: 'user-denied' });
+        }
+      });
     },
 
     onWindowDestroyed(windowId: string): void {
+      state.generations.delete(windowId);
+      destroyWindowSessions(state, windowId);
+    },
+
+    onPermissionRevoked(windowId: string): void {
+      state.generations.delete(windowId);
       destroyWindowSessions(state, windowId);
     },
 

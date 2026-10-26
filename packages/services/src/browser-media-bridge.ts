@@ -122,12 +122,10 @@ export function createBrowserMediaBridge(opts: {
   function writeMetadata(metadata: MediaMetadata | undefined): void {
     if (!ms) return;
     if (!metadata) { ms.metadata = null; return; }
-    const artwork = metadata.artwork?.url ? [{ src: metadata.artwork.url }] : undefined;
-    const init: MediaMetadataLike & { artwork?: unknown } = {
+    const init: MediaMetadataLike = {
       title: metadata.title ?? '',
       artist: metadata.artist ?? '',
       album: metadata.album ?? '',
-      ...(artwork ? { artwork } : {}),
     };
     try {
       const ctor = (globalThis as typeof globalThis & { MediaMetadata?: new (init: MediaMetadataLike) => MediaMetadataLike }).MediaMetadata;

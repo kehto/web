@@ -138,12 +138,14 @@ describe('playground gateway artifact guard', () => {
     expect(source.identityFlow).toContain('published NAP-INTENT target');
 
     for (const media of [source.feedMedia, source.profileMedia]) {
-      expect(media).toContain('resourceBytes');
+      expect(media).toContain('const { loadBytes } = options;');
+      expect(media).not.toContain('resourceBytes');
       expect(media).toContain('URL.createObjectURL(blob)');
       expect(media).toContain('URL.revokeObjectURL(url)');
     }
-    expect(source.resourceDemo).toContain("import '@napplet/shim'");
-    expect(source.resourceDemo).toContain("from '@napplet/nap/resource/sdk'");
+    expect(source.resourceDemo).toContain('window.napplet');
+    expect(source.resourceDemo).not.toMatch(/import\s+['"]@napplet\/shim['"]/u);
+    expect(source.resourceDemo).toContain('resource.bytesMany(REMOTE_IMAGE_URLS)');
     expect(source.resourceDemo).toContain('URL.createObjectURL(blob)');
     expect(source.resourceDemo).toContain('URL.revokeObjectURL(currentObjectUrl)');
     expect(source.themeBroadcast).toContain('theme.napplet?.theme?.get()');
@@ -307,14 +309,15 @@ describe('playground gateway artifact guard', () => {
 
     // Loader resolves + verifies content-addressed bytes, then renders via srcdoc.
     expect(frameLoader).toContain('resolvePlaygroundNapplet({');
-    expect(frameLoader).toContain('iframe.srcdoc = prepareNappletSrcdoc(');
-    expect(frameLoader).toContain('prepareNappletSrcdoc(resolved.indexHtml, {');
-    expect(frameLoader).toContain('csp: { connectOrigins: origins }');
+    expect(frameLoader).toContain('admitBrowserDocument({');
+    expect(frameLoader).toContain('verifiedHtml: resolved.indexHtml,');
+    expect(frameLoader).toContain('iframe.srcdoc = srcdoc;');
+    expect(frameLoader).toContain('remoteSources: []');
     expect(frameLoader).toContain("iframe.sandbox.add('allow-scripts')");
     expect(frameLoader).not.toContain('allow-same-origin');
     expect(frameLoader).not.toContain('relay.runtime.sessionRegistry.register(windowId');
     expect(frameLoader).toContain(
-      'originRegistry.register(iframe.contentWindow, windowId, identity);',
+      'originRegistry.register(win, windowId, { ...identity, permissionPrincipal: principal });',
     );
     expect(shellHost).toContain("(event.data as NappletMessage).type === 'shell.ready'");
     expect(shellHost).toContain('markEnvelopeIdentityBinding(windowId);');
@@ -333,12 +336,12 @@ describe('playground gateway artifact guard', () => {
     expect(gatewayAudit).toContain(
       "const frameLoader = read(join(repoRoot, 'apps', 'playground', 'src', 'playground-frame-loader.ts'));",
     );
-    expect(gatewayAudit).toContain("!frameLoader.includes('iframe.srcdoc = prepareNappletSrcdoc(resolved.indexHtml, {')");
+    expect(gatewayAudit).toContain("!frameLoader.includes('verifiedHtml: resolved.indexHtml,')");
     expect(gatewayAudit).toContain(
       "frameLoader.includes('const identity = Object.freeze({ dTag, aggregateHash });')",
     );
     expect(gatewayAudit).toContain(
-      "frameLoader.includes('originRegistry.register(iframe.contentWindow, windowId, identity);')",
+      "frameLoader.includes('originRegistry.register(win, windowId, { ...identity, permissionPrincipal: principal });')",
     );
     expect(gatewayAudit).toContain("!frameLoader.includes(\"iframe.sandbox.add('allow-scripts')\")");
     expect(gatewayAudit).not.toContain("!shellHost.includes('iframe.srcdoc =')");
@@ -368,7 +371,7 @@ describe('playground gateway artifact guard', () => {
     expect(resolver).toContain('injectCspMeta');
     expect(resolver).toContain('injectNappletCsp(html, { connectOrigins: origins })');
     expect(resolver).toContain("from '@kehto/shell'");
-    expect(frameLoader).toContain('prepareNappletSrcdoc');
+    expect(frameLoader).toContain('admitBrowserDocument');
     expect(frameLoader).toContain('getPlaygroundShellEnvironment(identity)');
     expect(frameLoader).toContain('environment.capabilities');
     expect(frameLoader).not.toContain("{ domains: ['shell', ...resolved.requires] }");
@@ -377,7 +380,7 @@ describe('playground gateway artifact guard', () => {
     expect(frameLoader).toContain('getMissingRequiredNaps(');
     expect(frameLoader).toContain('requires unsupported NAP capabilities');
     expect(frameLoader.indexOf('getMissingRequiredNaps(')).toBeLessThan(
-      frameLoader.indexOf('iframe.srcdoc = prepareNappletSrcdoc'),
+      frameLoader.indexOf('iframe.srcdoc = srcdoc;'),
     );
     expect(frameLoader.indexOf('getPlaygroundShellEnvironment(identity)')).toBeLessThan(
       frameLoader.indexOf('getMissingRequiredNaps('),
@@ -392,7 +395,7 @@ describe('playground gateway artifact guard', () => {
     expect(demoHooks).toContain('getPlaygroundShellEnvironment(identity: OriginIdentity)');
     expect(frameLoader).toContain('const identity = Object.freeze({ dTag, aggregateHash });');
     expect(frameLoader).toContain('const environment = getPlaygroundShellEnvironment(identity);');
-    expect(frameLoader).toContain('originRegistry.register(iframe.contentWindow, windowId, identity);');
+    expect(frameLoader).toContain('originRegistry.register(win, windowId, { ...identity, permissionPrincipal: principal });');
     expect(frameLoader).toContain('environment.capabilities');
     expect(frameLoader).not.toContain("{ domains: ['shell', ...resolved.requires] }");
     expect(demoHooks).not.toContain('shellCapabilities.naps');
@@ -406,9 +409,9 @@ describe('playground gateway artifact guard', () => {
 
     const identity = frameLoader.indexOf('const identity = Object.freeze({ dTag, aggregateHash });');
     const environment = frameLoader.indexOf('const environment = getPlaygroundShellEnvironment(identity);');
-    const registration = frameLoader.indexOf('originRegistry.register(iframe.contentWindow, windowId, identity);');
-    const registrationEnvironment = frameLoader.indexOf('originRegistry.setEnvironment(iframe.contentWindow, environment);');
-    const srcdoc = frameLoader.indexOf('iframe.srcdoc = prepareNappletSrcdoc(');
+    const registration = frameLoader.lastIndexOf('originRegistry.register(win, windowId, { ...identity, permissionPrincipal: principal });');
+    const registrationEnvironment = frameLoader.lastIndexOf('originRegistry.setEnvironment(win, info.environment);');
+    const srcdoc = frameLoader.indexOf('iframe.srcdoc = srcdoc;');
 
     expect(identity).toBeGreaterThanOrEqual(0);
     expect(environment).toBeGreaterThan(identity);
@@ -466,7 +469,10 @@ describe('playground gateway artifact guard', () => {
 
     expect(feedSource).toContain("import { identityGetPublicKey, identityOnChanged } from '@napplet/nap/identity/sdk';");
     expect(feedSource).toContain("import { intentInvoke } from '@napplet/nap/intent/sdk';");
-    expect(feedSource).toContain("import { resourceBytes } from '@napplet/nap/resource/sdk';");
+    expect(feedSource).not.toContain("import '@napplet/shim';");
+    expect(feedSource).not.toContain('@napplet/nap/resource/sdk');
+    expect(feedSource).toContain('function loadHostResourceBytes(url: string): Promise<Blob>');
+    expect(feedSource).toContain('return resource.bytes(url);');
     expect(feedSource).toContain("import { getMissingNapDomains } from '../../domain-availability';");
     expect(feedSource).toContain("import { createFeedStore, type FeedProfile } from './feed-store.js';");
     expect(feedSource).toContain("import { createFeedIdentityEventController } from './feed-identity-events.js';");
@@ -486,7 +492,7 @@ describe('playground gateway artifact guard', () => {
     expect(feedStore).toContain('[{ kinds: [0], authors: [pubkey], limit: 1 }]');
     expect(feedStore).toContain('state.profiles.set(pubkey, profile);');
     expect(feedSource).toContain("import { createFeedProfileMediaController } from './profile-media.js';");
-    expect(feedSource).toContain('const profileMedia = createFeedProfileMediaController({ loadBytes: resourceBytes });');
+    expect(feedSource).toContain('const profileMedia = createFeedProfileMediaController({ loadBytes: loadHostResourceBytes });');
     expect(feedSource).toContain("button.className = 'feed-item-author feed-profile-button feed-profile-name-button';");
     expect(feedSource).toContain("timeEl.className = 'feed-item-time';");
     expect(feedSource).toContain('formatPublishedAgo(event.created_at)');
@@ -515,7 +521,10 @@ describe('playground gateway artifact guard', () => {
 
     expect(profileSource).not.toContain("import { incOn } from '@napplet/nap/inc/sdk';");
     expect(profileSource).toContain("import { relaySubscribe } from '@napplet/nap/relay/sdk';");
-    expect(profileSource).toContain("import { resourceBytes } from '@napplet/nap/resource/sdk';");
+    expect(profileSource).not.toContain("import '@napplet/shim';");
+    expect(profileSource).not.toContain('@napplet/nap/resource/sdk');
+    expect(profileSource).toContain('function loadHostResourceBytes(url: string): Promise<Blob>');
+    expect(profileSource).toContain('return resource.bytes(url);');
     expect(profileSource).toContain("import { getMissingNapDomains } from '../../domain-availability';");
     expect(profileSource).toContain("const REQUIRED_NAPS = ['intent', 'relay', 'resource', 'theme'] as const;");
     expect(profileSource).toContain('getMissingNapDomains(REQUIRED_NAPS)');
@@ -523,7 +532,7 @@ describe('playground gateway artifact guard', () => {
     expect(profileSource).toContain("formatError(err, 'intent, relay, or resource unavailable')");
     expect(profileSource).toContain("profileIntentSub = intent.onDelivery((event) => {");
     expect(profileSource).toContain("import { createProfileMediaController } from './profile-media.js';");
-    expect(profileSource).toContain('const profileMedia = createProfileMediaController({ loadBytes: resourceBytes });');
+    expect(profileSource).toContain('const profileMedia = createProfileMediaController({ loadBytes: loadHostResourceBytes });');
     expect(profileSource).not.toContain('intentOnDelivery');
     expect(profileSource).toContain('[{ kinds: [0], authors: [pubkey], limit: 1 }]');
     expect(profileSource).toContain('normalizePubkey');
@@ -583,7 +592,7 @@ describe('playground gateway artifact guard', () => {
     expect(shellHost).toContain('initialTheme?: Theme,');
     expect(main).toContain('getPersistedPlaygroundTheme');
     expect(main).toContain('bootShell((notifications) => {');
-    expect(main).toContain('}, initialTheme, intentService);');
+    expect(main).toContain('}, initialTheme, intentService, permissionController.adapter);');
     expect(main).not.toContain("data.type === 'shell.ready'");
     expect(main).not.toContain('broadcastCurrentTheme');
     expect(preferences).toContain('initialTheme?: PlaygroundTheme;');
@@ -710,7 +719,7 @@ describe('playground gateway artifact guard', () => {
     expect(turbo).toContain('"VITEPRESS_BASE"');
 
     expect(resourceDemo).toContain('REMOTE_IMAGE_URL');
-    expect(resourceDemo).toContain('resourceBytesMany');
+    expect(resourceDemo).toContain('resource.bytesMany(REMOTE_IMAGE_URLS)');
     expect(resourceDemo).toContain('loaded remote images');
     expect(resourceDemo).toContain('bulk loaded');
     expect(resourceDemo).toContain('currentObjectUrl');

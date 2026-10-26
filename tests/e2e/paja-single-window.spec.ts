@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { expect, test, type FrameLocator, type Page } from '@playwright/test';
 import { finalizeEvent, generateSecretKey, getPublicKey, verifyEvent } from 'nostr-tools/pure';
 import { startPajaServer, type PajaServer } from '../../packages/paja/dist/index.js';
+import { installPajaApprovalDriver } from './paja-approval-driver.js';
 
 interface TargetServer {
   readonly url: string;
@@ -60,6 +61,10 @@ async function installTestNip07Signer(page: Page, pubkey: string): Promise<void>
 }
 
 test.describe.configure({ mode: 'serial' });
+
+test.beforeEach(async ({ page }) => {
+  await installPajaApprovalDriver(page);
+});
 
 test.beforeAll(async () => {
   targetServer = await startTargetServer();
@@ -233,7 +238,7 @@ test('groups live relay receipts by routing box, relay, and kind', async ({ page
   }
   const receiptRuntime = await startPajaServer({
     options: {
-      targetUrl: `${targetServer.url}?manualTraffic=1&required=relay`,
+      targetUrl: `${targetServer.url}?manualTraffic=1&required=relay,outbox`,
       port: 0,
       simulation: { relay: { mode: 'live', urls: [poolRelay, hintedRelay] } },
     },
@@ -273,19 +278,31 @@ test('groups live relay receipts by routing box, relay, and kind', async ({ page
     await expect(eventCounts.locator('[data-relay-box="scoped"] .event-relay')).toHaveCount(1);
     await expect(eventCounts.locator('[data-relay-box="scoped"] .event-row[data-event-kind="10005"] .event-count')).toHaveText('1');
 
-    // An outbox read reports which box chose each relay: the configured fallback
-    // that answered immediately, then the author's NIP-65 relay once it resolved.
+    // Approved outbox reads resolve the NIP-65 plan before execution. They must
+    // not speculate against fallback relays outside that approved destination set.
     await sendFixtureMessage(frame, {
       type: 'outbox.query',
       id: 'events-outbox',
       filters: [{ authors: [authorPubkey], kinds: [10_005] }],
     });
-    await expect(eventCounts.locator(`[data-relay-box="fallback"] .event-relay[data-relay-url="${poolRelay}"]`)).toHaveAttribute('data-relay-count', '1');
+    // Discovery and the approved query each have a four-second backend bound.
+    await expect.poll(() => readFixtureMessage(frame, 'outbox.query.result', 'events-outbox'), { timeout: 10_000 })
+      .toMatchObject({ events: [{ event: { id: relayEvent.id } }] });
+    await expect(eventCounts.locator('[data-relay-box="fallback"] .event-box-count')).toHaveText('0');
     await expect(eventCounts.locator(`[data-relay-box="nip65"] .event-relay[data-relay-url="${authorRelay}"]`)).toHaveAttribute('data-relay-count', '1');
+
+    // A separate authorless query selects the configured fallback plan and
+    // exercises its receipts after the runtime approves those destinations.
+    await sendFixtureMessage(frame, {
+      type: 'outbox.query', id: 'events-fallback', filters: [{ kinds: [10_005] }],
+    });
+    await expect.poll(() => readFixtureMessage(frame, 'outbox.query.result', 'events-fallback'), { timeout: 10_000 })
+      .toMatchObject({ events: [{ event: { id: relayEvent.id } }] });
+    await expect(eventCounts.locator(`[data-relay-box="fallback"] .event-relay[data-relay-url="${poolRelay}"]`)).toHaveAttribute('data-relay-count', '1');
 
     // Headers carry receipts, the badge title separates them from unique events.
     // Host receipts: the tier read (2) plus the NIP-65 discovery read for the
-    // outbox plan (2). Fallback: both configured relays on the outbox read (2).
+    // outbox plan (2). Fallback: both configured relays on the authorless read (2).
     // Author-routed: the resolved NIP-65 write relay (1). Scoped: the pinned
     // relay (1). Box counts add up to the header total.
     await expect(eventCounts.locator('[data-relay-box="nip65"] .event-box-count')).toHaveText('1');
@@ -375,9 +392,11 @@ test('hosts one sandboxed target iframe and reinitializes it on reload', async (
 
   const targetFrame = page.frameLocator('#napplet-frame');
   await expect(targetFrame.locator('#target-status')).toHaveText('shell-init received', { timeout: 15_000 });
-  await expect(targetFrame.locator('#injected-domains')).toHaveText('identity,outbox,resource,keys');
+  await expect(targetFrame.locator('#injected-domains')).toHaveText('identity,outbox,keys,relay,storage,config,theme,intent,cvm,inc');
   await expect(targetFrame.locator('#shell-init-type')).toHaveText('shell.init');
-  await expect(targetFrame.locator('#shell-init-domains')).toContainText('relay,identity,storage,inc');
+  await expect(targetFrame.locator('#shell-init-domains')).toContainText('relay,storage');
+  await expect(targetFrame.locator('#shell-init-domains')).toContainText('identity');
+  await expect(targetFrame.locator('#shell-init-domains')).toContainText('inc');
   await expect(targetFrame.locator('#shell-init-domains')).toContainText('intent');
   await expect(targetFrame.locator('#shell-init-domains')).not.toContainText('upload');
   await expect.poll(async () => targetFrame.locator('body').evaluate(() => {
@@ -455,6 +474,14 @@ test('hosts one sandboxed target iframe and reinitializes it on reload', async (
   await expect(page.locator('#acl-controls [data-acl-capability="state:write"]')).toHaveAttribute('data-enabled', 'false');
   await page.locator('#reload-target').click();
   await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
+  // The fixture changes its HTML bytes on every load. The old artifact's ACL
+  // choice must not silently carry over to the newly hashed development target.
+  await expect(page.locator('#acl-controls [data-acl-capability="state:write"]')).toHaveAttribute('data-enabled', 'true');
+  await page.locator('#acl-controls [data-acl-capability="state:write"]').click();
+  await expect(page.locator('#acl-controls [data-acl-capability="state:write"]')).toHaveAttribute('data-enabled', 'false');
+  await sendFixtureMessage(page.frameLocator('#napplet-frame'), {
+    type: 'storage.set', id: 'storage-revoked', key: 'phase', value: 'blocked',
+  });
   await expect(page.frameLocator('#napplet-frame').locator('#storage-error')).toContainText('denied', { timeout: 15_000 });
 
   await page.locator('#interface-toggles [data-interface-domain="media"]').click();
@@ -543,7 +570,7 @@ test('keeps memory relay and upload fixtures out of advertised capabilities', as
   }, generateSecretKey());
   const fixtureRuntime = await startPajaServer({
     options: {
-      targetUrl: `${targetServer.url}?manualTraffic=1&required=identity,resource,keys`,
+      targetUrl: `${targetServer.url}?manualTraffic=1&required=identity,keys`,
       port: 0,
       simulation: {
         relay: { mode: 'memory', fixtures: [relayEvent] },
@@ -576,7 +603,7 @@ test('keeps memory relay and upload fixtures out of advertised capabilities', as
 test('applies fixed identity and live theme adjustment', async ({ page }) => {
   test.setTimeout(60_000);
   const pubkey = '4'.repeat(64);
-  const customTargetUrl = `${targetServer.url}?required=identity,resource,keys,theme`;
+  const customTargetUrl = `${targetServer.url}?required=identity,keys,theme`;
   const customRuntime = await startPajaServer({
     options: {
       targetUrl: customTargetUrl,
@@ -728,6 +755,11 @@ test('remembers exact kind or napplet signer consent and exposes revocation', as
     await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
     await expect(frame.locator('#target-status')).toHaveText('shell-init received', { timeout: 15_000 });
     await sendPublish('remember-kind-after-reload', 1);
+    // Reloading this fixture changes its bytes, so the prior artifact's signer
+    // consent remains visible for revocation but cannot authorize the new one.
+    await expect(page.locator('#paja-confirmation-title')).toHaveText('Sign this Nostr event?');
+    await page.locator('#paja-signer-consent-kind').check();
+    await page.locator('#paja-confirmation-approve').click();
     await denyPublish('remember-kind-after-reload');
 
     await sendPublish('trust-napplet-1', 30_023);
@@ -757,7 +789,7 @@ test('remembers exact kind or napplet signer consent and exposes revocation', as
 test('stores disclosed bytes through a signed Blossom upload and fails closed on denial or incomplete proof', async ({ page }) => {
   test.setTimeout(60_000);
   const blossom = await startBlossomServer();
-  const uploadTargetUrl = `${targetServer.url}?required=upload&manualTraffic=1`;
+  const uploadTargetUrl = `${targetServer.url}?required=shell&optional=upload&manualTraffic=1`;
   const uploadRuntime = await startPajaServer({
     options: {
       targetUrl: uploadTargetUrl,
@@ -969,6 +1001,10 @@ async function startTargetServer(): Promise<TargetServer> {
     });
     response.end(renderTargetHtml(loadCount, {
       requiredDomains: readRequiredDomains(requestUrl),
+      declaresDomains: !readRequiredDomains(requestUrl).includes('resource'),
+      optionalDomains: requestUrl.searchParams.has('optional')
+        ? (requestUrl.searchParams.get('optional') ?? '').split(',').filter(Boolean)
+        : requestUrl.searchParams.has('required') ? [] : ['media'],
       shellReady: requestUrl.searchParams.get('shellReady') !== '0',
       manualTraffic: requestUrl.searchParams.get('manualTraffic') === '1',
       incProbe: requestUrl.searchParams.get('incProbe') === '1',
@@ -1005,13 +1041,14 @@ async function startTargetServer(): Promise<TargetServer> {
 
 function readRequiredDomains(url: URL): string[] {
   const raw = url.searchParams.get('required');
-  if (!raw) return ['identity', 'outbox', 'resource', 'keys'];
+  if (!raw) return ['identity', 'outbox', 'keys', 'relay', 'storage', 'config', 'theme', 'intent', 'cvm', 'inc'];
   return raw.split(',').map((domain) => domain.trim()).filter(Boolean);
 }
 
 function renderTargetHtml(
   loadCount: number,
-  options: { requiredDomains: readonly string[]; shellReady: boolean; manualTraffic: boolean; incProbe: boolean },
+  options: { requiredDomains: readonly string[]; declaresDomains: boolean; optionalDomains: readonly string[];
+    shellReady: boolean; manualTraffic: boolean; incProbe: boolean },
 ): string {
   const requiredDomainsJson = JSON.stringify(options.requiredDomains);
   const shellReadyJson = JSON.stringify(options.shellReady);
@@ -1021,6 +1058,8 @@ function renderTargetHtml(
 <html>
   <head>
     <meta charset="utf-8">
+    ${options.declaresDomains ? `<meta name="napplet-requires" content="${['shell', ...options.requiredDomains.filter((domain) => domain !== 'shell')].join(' ')}">` : ''}
+    ${options.optionalDomains.length ? `<meta name="napplet-optional" content="${options.optionalDomains.join(' ')}">` : ''}
     <title>Kehto Paja fixture</title>
   </head>
   <body>

@@ -33,7 +33,7 @@ test('profile-viewer waits for NAP-INTENT delivery instead of reading identity d
     const napplet = (window as Window & { napplet?: Record<string, unknown> }).napplet;
     return { intent: typeof napplet?.intent, identity: typeof napplet?.identity };
   });
-  expect(profileApi).toEqual({ intent: 'object', identity: 'object' });
+  expect(profileApi).toEqual({ intent: 'object', identity: 'undefined' });
 
   const antiConsole = consoleMessages.filter((m) => ANTI_TERM_RE.test(m));
   expect(antiConsole, `anti-term found in console: ${antiConsole.join(' | ')}`).toHaveLength(0);

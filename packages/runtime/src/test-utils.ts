@@ -42,6 +42,10 @@ function createMockRelayPool(): RelayPoolAdapter {
   const tracked = new Map<string, () => void>();
 
   return {
+    subscribeToRelays(relayUrls: readonly string[], filters: NostrFilter[], callback: (item: NostrEvent | 'EOSE') => void) {
+      return this.subscribe(filters, callback, [...relayUrls]);
+    },
+    publishToRelays(_relayUrls: readonly string[], event: NostrEvent) { return this.publish(event); },
     subscribe(_filters: NostrFilter[], _cb: (item: NostrEvent | 'EOSE') => void, _relayUrls?: string[]) {
       return { unsubscribe() { /* no-op */ } };
     },

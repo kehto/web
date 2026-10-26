@@ -1,9 +1,12 @@
 import type { NostrEvent } from '@napplet/core';
+import { ResourceAuthorizationError } from '@kehto/services';
 import type {
+  AuthorizeNetwork,
   OutboxResult,
   OutboxRouter,
   OutboxRouterSubscription,
   OutboxSubscriptionSink,
+  StreamingOutboxRouter,
 } from '@kehto/services';
 import type { RelayEventResult } from '@kehto/runtime';
 
@@ -40,6 +43,12 @@ interface ServerListCacheEntry {
   readonly servers: string[];
 }
 
+/** Request-local approval context for a lazy BUD-03 relay lookup. */
+export interface PajaBlossomDiscoveryContext {
+  readonly signal: AbortSignal;
+  readonly authorizeNetwork: AuthorizeNetwork;
+}
+
 /** Dependencies for Paja's source-scoped OUTBOX-to-Blossom resolver. */
 export interface PajaBlossomEventResolverOptions {
   /** Verified, NIP-65-aware router used for publisher BUD-03 lookups. */
@@ -48,6 +57,14 @@ export interface PajaBlossomEventResolverOptions {
   readonly getDefaultAuthors?: () => readonly string[];
   /** Trusted runtime fallback servers, evaluated after event-derived servers. */
   readonly getConfiguredServers: () => readonly string[];
+  /**
+   * Query one publisher's BUD-03 list through the host's actual relay transport.
+   * The implementation must authorize each socket destination before contact.
+   */
+  readonly discoverServerList?: (
+    pubkey: string,
+    context: PajaBlossomDiscoveryContext,
+  ) => Promise<OutboxResult>;
   /** Cache lifetime for successful publisher-list lookups. */
   readonly serverListTtlMs?: number;
   /** Injectable clock for deterministic cache tests. */
@@ -59,9 +76,13 @@ export interface PajaBlossomEventResolver {
   /** Observe returned events for one authenticated source window. */
   observe(windowId: string, results: readonly RelayEventResult[]): void;
   /** Decorate read operations so returned event resource context is observed. */
-  decorate(router: OutboxRouter, windowId: string): OutboxRouter;
+  decorate(router: OutboxRouter, windowId: string): OutboxRouter & Partial<StreamingOutboxRouter>;
   /** Resolve event hints, publisher/user lists, and runtime fallbacks for one URL. */
-  getServers(url: string, windowId?: string): Promise<readonly string[]>;
+  getServers(
+    url: string,
+    windowId?: string,
+    context?: PajaBlossomDiscoveryContext,
+  ): Promise<readonly string[]>;
   /** Retain verified runtime-pointer server hints for one source window. */
   setWindowServers(windowId: string, servers: readonly string[]): void;
   /** Release event-derived context when its source window is destroyed. */
@@ -84,6 +105,23 @@ export function createPajaBlossomEventResolver(
   const windowServers = new Map<string, string[]>();
   const serverLists = new Map<string, ServerListCacheEntry>();
   const pendingServerLists = new Map<string, Promise<string[]>>();
+  const windowGenerations = new Map<string, number>();
+
+  const serverListKey = (windowId: string | undefined, pubkey: string): string =>
+    `${windowId ?? ''}\u0000${pubkey}`;
+  const windowGeneration = (windowId: string | undefined): number =>
+    windowId ? windowGenerations.get(windowId) ?? 0 : 0;
+  const isCurrentGeneration = (windowId: string | undefined, generation: number): boolean =>
+    !windowId || windowGeneration(windowId) === generation;
+  const ensureDiscoveryActive = (
+    context: PajaBlossomDiscoveryContext | undefined,
+    windowId: string | undefined,
+    generation: number,
+  ): void => {
+    if (context?.signal.aborted || !isCurrentGeneration(windowId, generation)) {
+      throw new DOMException('Resource request cancelled', 'AbortError');
+    }
+  };
 
   function observe(windowId: string, results: readonly RelayEventResult[]): void {
     if (!windowId) return;
@@ -115,7 +153,8 @@ export function createPajaBlossomEventResolver(
     }
   }
 
-  function decorate(router: OutboxRouter, windowId: string): OutboxRouter {
+  function decorate(router: OutboxRouter, windowId: string): OutboxRouter & Partial<StreamingOutboxRouter> {
+    const planned = router as Partial<StreamingOutboxRouter>;
     const getEvent = router.getEvent
       ? async (eventId: string, eventOptions?: Parameters<NonNullable<OutboxRouter['getEvent']>>[1]) => {
           const result = await router.getEvent!(eventId, eventOptions);
@@ -125,6 +164,32 @@ export function createPajaBlossomEventResolver(
       : undefined;
     return {
       ...(getEvent ? { getEvent } : {}),
+      ...(planned.planRead ? { planRead: planned.planRead.bind(router) } : {}),
+      ...(planned.queryWithPlan ? { queryWithPlan: (async (filters, queryOptions, plan, signal) => {
+        const generation = windowGeneration(windowId);
+        const result = await planned.queryWithPlan!(filters, queryOptions, plan, signal);
+        if (!signal?.aborted && isCurrentGeneration(windowId, generation)) observe(windowId, result.events);
+        return result;
+      }) as StreamingOutboxRouter['queryWithPlan'] } : {}),
+      ...(planned.subscribeWithPlan ? { subscribeWithPlan: ((filters, plan, sink) => {
+        const generation = windowGeneration(windowId);
+        let closed = false;
+        const subscription = planned.subscribeWithPlan!(filters, plan, {
+          event(result) {
+            if (closed || !isCurrentGeneration(windowId, generation)) return;
+            observe(windowId, [result]);
+            sink.event(result);
+          },
+          closed(reason) {
+            if (closed || !isCurrentGeneration(windowId, generation)) return;
+            closed = true;
+            sink.closed(reason);
+          },
+        });
+        return { close() { closed = true; subscription.close(); } };
+      }) as StreamingOutboxRouter['subscribeWithPlan'] } : {}),
+      ...(planned.planPublish ? { planPublish: planned.planPublish.bind(router) } : {}),
+      ...(planned.publishWithPlan ? { publishWithPlan: planned.publishWithPlan.bind(router) } : {}),
       async query(filters, queryOptions) {
         const result = await router.query(filters, queryOptions);
         observe(windowId, result.events);
@@ -145,7 +210,12 @@ export function createPajaBlossomEventResolver(
     };
   }
 
-  async function getServers(url: string, windowId?: string): Promise<readonly string[]> {
+  async function getServers(
+    url: string,
+    windowId?: string,
+    context?: PajaBlossomDiscoveryContext,
+  ): Promise<readonly string[]> {
+    ensureDiscoveryActive(context, windowId, windowGeneration(windowId));
     const parsed = parseBlossomReference(url);
     if (!parsed) return [];
     warnLegacyBlossomPrefix(url);
@@ -167,10 +237,11 @@ export function createPajaBlossomEventResolver(
       }
       appendUnique(authors, defaultAuthors);
       const lists = await Promise.all(
-        authors.map((author) => discoverServerList(author)),
+        authors.map((author) => discoverServerList(author, windowId, context)),
       );
       for (const list of lists) appendUnique(servers, list);
     }
+    ensureDiscoveryActive(context, windowId, windowGeneration(windowId));
     if (windowId) appendUnique(servers, windowServers.get(windowId) ?? []);
     appendUnique(servers, options.getConfiguredServers());
     return servers.slice(0, PAJA_RESOURCE_MAX_SERVERS);
@@ -187,29 +258,56 @@ export function createPajaBlossomEventResolver(
     else windowServers.delete(windowId);
   }
 
-  async function discoverServerList(pubkey: string): Promise<string[]> {
-    const cached = serverLists.get(pubkey);
+  async function discoverServerList(
+    pubkey: string,
+    windowId: string | undefined,
+    context: PajaBlossomDiscoveryContext | undefined,
+  ): Promise<string[]> {
+    const generation = windowGeneration(windowId);
+    ensureDiscoveryActive(context, windowId, generation);
+    const key = serverListKey(windowId, pubkey);
+    const cached = serverLists.get(key);
     if (cached && cached.expiresAt > now()) return [...cached.servers];
-    const pending = pendingServerLists.get(pubkey);
-    if (pending) return [...await pending];
+    const pending = pendingServerLists.get(key);
+    if (pending) {
+      const servers = await pending;
+      ensureDiscoveryActive(context, windowId, generation);
+      return [...servers];
+    }
 
-    const lookup = loadServerList(pubkey);
-    pendingServerLists.set(pubkey, lookup);
+    const lookup = loadServerList(pubkey, context, key, windowId, generation);
+    pendingServerLists.set(key, lookup);
     try {
-      return [...await lookup];
+      const servers = await lookup;
+      ensureDiscoveryActive(context, windowId, generation);
+      return [...servers];
     } finally {
-      if (pendingServerLists.get(pubkey) === lookup) pendingServerLists.delete(pubkey);
+      if (pendingServerLists.get(key) === lookup) pendingServerLists.delete(key);
     }
   }
 
-  async function loadServerList(pubkey: string): Promise<string[]> {
+  async function loadServerList(
+    pubkey: string,
+    context: PajaBlossomDiscoveryContext | undefined,
+    key: string,
+    windowId: string | undefined,
+    generation: number,
+  ): Promise<string[]> {
     let result: OutboxResult;
     try {
-      result = await options.baseRouter.query(
-        [{ kinds: [BLOSSOM_SERVER_LIST_KIND], authors: [pubkey], limit: 1 }],
-        { authors: [pubkey], limit: 1 },
-      );
-    } catch {
+      const filters = [{ kinds: [BLOSSOM_SERVER_LIST_KIND], authors: [pubkey], limit: 1 }];
+      const queryOptions = { authors: [pubkey], limit: 1 };
+      if (context && !options.discoverServerList) {
+        throw new ResourceAuthorizationError('Blossom discovery transport is unavailable');
+      }
+      result = context
+        ? await options.discoverServerList!(pubkey, context)
+        : await options.baseRouter.query(filters, queryOptions);
+      ensureDiscoveryActive(context, windowId, generation);
+    } catch (error) {
+      if (error instanceof ResourceAuthorizationError || error instanceof DOMException && error.name === 'AbortError') {
+        throw error;
+      }
       return [];
     }
     const newest = result.events
@@ -217,8 +315,8 @@ export function createPajaBlossomEventResolver(
       .filter((event) => event.kind === BLOSSOM_SERVER_LIST_KIND && normalizePubkey(event.pubkey) === pubkey)
       .sort(compareNewestEvent)[0];
     if (!newest) {
-      if (!result.error && !result.incomplete) {
-        serverLists.set(pubkey, { expiresAt: now() + ttl, servers: [] });
+      if (!result.error && !result.incomplete && isCurrentGeneration(windowId, generation)) {
+        serverLists.set(key, { expiresAt: now() + ttl, servers: [] });
       }
       return [];
     }
@@ -229,7 +327,8 @@ export function createPajaBlossomEventResolver(
     });
     const deduplicated: string[] = [];
     appendUnique(deduplicated, servers);
-    serverLists.set(pubkey, { expiresAt: now() + ttl, servers: deduplicated });
+    ensureDiscoveryActive(context, windowId, generation);
+    serverLists.set(key, { expiresAt: now() + ttl, servers: deduplicated });
     return deduplicated;
   }
 
@@ -239,8 +338,16 @@ export function createPajaBlossomEventResolver(
     getServers,
     setWindowServers,
     clearWindow(windowId) {
+      windowGenerations.set(windowId, windowGeneration(windowId) + 1);
       windows.delete(windowId);
       windowServers.delete(windowId);
+      const prefix = `${windowId}\u0000`;
+      for (const key of serverLists.keys()) {
+        if (key.startsWith(prefix)) serverLists.delete(key);
+      }
+      for (const key of pendingServerLists.keys()) {
+        if (key.startsWith(prefix)) pendingServerLists.delete(key);
+      }
     },
   };
 }
