@@ -1,5 +1,42 @@
 # @kehto/paja
 
+## 0.24.4
+
+### Patch Changes
+
+- b4c1b14: Make every verified tab's Share button open a dialog with a selectable app link,
+  visible copy confirmation, and manual copying when clipboard access is blocked
+  or unavailable. Keep intent-link creation limited to advertised contracts, and
+  prevent dialog clicks from reaching the loaded apps underneath it.
+
+## 0.24.3
+
+### Patch Changes
+
+- ff35f6d: Load NIP-5D root 15129 naddr coordinates without a d-tag filter, alongside named 35129 coordinates and exact nevent references for root, named and snapshot 5129 events. Keep distinct snapshots in separate tabs even when the author and artifact bytes match.
+
+## 0.24.2
+
+### Patch Changes
+
+- 216b69d: Keep the toolbar and console expand button onscreen when restoring a collapsed
+  console preference. The empty runtime remains usable after reloading without
+  needing to discover a hidden hover strip; running napplets keep their state.
+
+## 0.24.1
+
+### Patch Changes
+
+- 14b5dcd: Resolve the NIP-46 user pubkey with `get_public_key` after every successful
+  `connect`, as required by NIP-46. Paja previously stored that acknowledgement as the
+  connected account, so `identity.getPublicKey` returned `"ack"` and napplets saw
+  a signed-in user without a valid 64-hex pubkey. Ownership-gated UI such as the
+  View Problem editor's **Edit problem** button therefore stayed disabled even
+  though the bunker could sign. Connect replies are never used as identity, even
+  when they resemble a public key (for example a hex secret or signer transport
+  key), and an invalid `get_public_key` response now fails the connection instead
+  of being exposed as identity.
+
 ## 0.24.0
 
 ### Minor Changes

@@ -29,7 +29,7 @@ app package's development scripts.
 | Field | Value |
 |-------|-------|
 | Source | `packages/paja/package.json`, `packages/paja/src/index.ts` |
-| Version | `0.24.0` |
+| Version | `0.24.4` |
 | Runtime entry | `./dist/index.js` |
 | CLI runner entry | `./dist/cli.js` |
 | Types entry | `./dist/index.d.ts` |
@@ -158,8 +158,10 @@ exported for reuse.
 
 The console is a collapsible left column. It starts expanded, and one chevron
 button in the top bar collapses it to the left and restores it; the toggle stays
-visible in both states, so a collapsed console is always one press away, and the
-choice is remembered per browser origin. Collapsing is CSS-only presentation:
+visible in both states, including after a reload with no runtime tabs open, so a
+collapsed console is always one press away. The toolbar never requires hovering
+over a hidden edge to reveal it. The choice is remembered per browser origin.
+Collapsing is CSS-only presentation:
 the target iframe is never navigated or recreated, so the running napplet keeps
 its generation, message log, and shell state while the stage reclaims the full
 width.
@@ -269,7 +271,7 @@ The GitHub Pages artifact also includes a static Paja Runtime at `/web/paja/`.
 That route uses `createPajaRuntimeHostConfig`, keeps `hmr: none`, and loads
 verified napplets into ShellBridge-backed iframe tabs from pasted `naddr` or
 `nevent` pointers. `naddr` pointers resolve the latest matching NIP-5D named
-manifest (`35129`) by author and `d` tag; `nevent` pointers resolve a specific
+manifest (`35129`) by author and `d` tag, or a root manifest (`15129`) by author with an empty identifier and no `#d` filter; `nevent` pointers resolve a specific
 NIP-5D snapshot, root, or named manifest event id (`5129`, `15129`, or `35129`).
 In both cases Paja verifies the signed manifest and artifact hash (or legacy
 aggregate and blobs), then asks the runtime to admit declared interfaces before
@@ -294,9 +296,13 @@ the protected `resource` interface. A self-contained local file can request
 `resource` under the closed local-only CSP. Loading an
 already-running napplet
 opens an in-page choice to load another instance, switch to the existing tab, or
-cancel. Each tab includes a share control that copies a `/web/paja/?naddr=...`
-or `/web/paja/?nevent=...` link for that pointer, and the browser remembers open
-runtime tabs in local storage so returning to `/web/paja/` restores the previous
+cancel. Each verified tab's Share control opens a dialog with its selectable
+`/web/paja/?naddr=...` or `/web/paja/?nevent=...` app link. **Copy app link**
+shows a confirmation on success; blocked or unavailable clipboard access selects
+the link for manual copying. Apps with advertised intents also offer
+**Create intent link**. Share keeps focus and pointer input in the host overlay
+while the apps remain loaded. The browser remembers open runtime tabs in local storage
+so returning to `/web/paja/` restores the previous
 pointer set. An explicit pointer in the URL still takes precedence over restored
 tabs.
 
@@ -759,6 +765,10 @@ URL cannot supply one. The hidden launcher is removed after acceptance and is
 never persisted or restored. Verification precedes `srcdoc`, and host bootstrap
 injection stays outside signed bytes. Native external-origin sender semantics
 remain a documented upstream spec gap; no host sender identity is invented.
+
+## NIP-5D runtime pointers
+
+Paja MUST load all three NIP-5D manifest kinds: root `15129`, named `35129`, and snapshot `5129`. Use an `naddr` with an empty identifier for the latest root, an `naddr` with the literal `d` identifier for the latest named napplet, or a `nevent` to pin a signed event of any of the three kinds. Snapshots require `nevent` because they are immutable events without replaceable coordinates. All paths verify the signed manifest and artifact hash before injecting `srcdoc`. Distinct snapshots retain separate tabs and catalog identities even when their artifact bytes match.
 
 ## Controller diagnostics
 

@@ -110,3 +110,5 @@ use kind and publisher; snapshots use kind and event ID. Callers treat this ID
 as opaque. The existing dTag/artifact hash remains separate artifact metadata.
 
 NIP utilities verify these facts; services and hosts select and run handlers.
+
+NIP-5D verification accepts root (`15129`), named (`35129`) and snapshot (`5129`) manifests. Roots and snapshots have no `d` tag; snapshots are identified by signed event ID. Every kind uses the same signature and artifact-byte verification. Paja accepts root coordinates with an empty NIP-19 `naddr` identifier and exact `nevent` references for all three kinds.

@@ -15,6 +15,22 @@ progress:
 
 # Project State
 
+2026-10-20: Resolved Paja tab Share in GSD debug on `fix/paja-share-button`.
+Every verified tab now has a visible app-link dialog, copy confirmation and manual
+fallback. The host overlay prevents native-dialog input from leaking into opaque
+iframes and restores background inertness/focus on close. Build/types, docs,
+2,270 units, all 148 Chromium tests, 55 repeated sharing cases and 11 Firefox cases
+pass. Changed-source quality 100/100; unchanged full baseline 95/100. See
+`debug/resolved/paja-share-button.md` and `debug/resolved/paja-share-dialog-click.md`.
+
+2026-10-20: Resolved Paja's disappearing chrome in GSD debug on
+`fix/paja-chrome-visibility`. A saved collapsed-console preference moved the
+toolbar and expand button offscreen after startup. Restored an always-visible
+toolbar while retaining collapse preference and live frame state. Build/types,
+docs, 2,250 units, 136 Chromium tests, Firefox reload/recovery, static Pages build,
+changesets and diff checks pass. Changed-source quality 100/100; unchanged full
+baseline 95/100. See `debug/resolved/paja-chrome-visibility.md`.
+
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-07-28)
@@ -677,3 +693,9 @@ to declare optional FS and use shared admission. Combined gates passed: build,
 types, 2,637 units, docs, changesets, quality 100/100, and all 141 browser tests
 under Node 20 CI settings (140 passed; one unrelated page-load test retried).
 See debug/resolved/pr336-main-integration.md. WINDOWS.md restored unchanged.
+
+### Debug Sessions Completed
+
+| Session | Date | Commit | Result |
+|---------|------|--------|--------|
+| [NIP-5D all event kinds](./debug/resolved/nip5d-all-event-kinds.md) | 2026-10-20 | f30cfa80 | Root 15129, named 35129 and snapshot 5129 loading verified across core and hosts |

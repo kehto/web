@@ -69,7 +69,9 @@ usable; collapsing never reloads the running app or discards unsaved drafts.
 The console shows supported interfaces with per-domain injection toggles,
 runtime ACL controls, Firewall permissions, signer controls, and a filterable message log with visible
 error details. It starts expanded and collapses to the left with the chevron
-button in the top bar; the same button brings the whole panel back. Collapsing
+button in the top bar; the same button brings the whole panel back. The toolbar
+stays onscreen after restoring a saved collapsed preference, including when no
+runtime tab is open. Collapsing
 is presentation-only — the target iframe keeps its identity and the loaded
 napplet keeps running — and Paja remembers the choice per browser origin. In
 runtime-pointer mode, ACL controls always display and mutate
@@ -210,9 +212,13 @@ artifact. It uses the same browser host and service adapters, but loads verified
 napplet HTML from pasted `naddr` or `nevent` pointers with `hmr: none`. Each
 loaded pointer becomes a closeable header tab; loading an already-running
 napplet opens a choice to load another instance, switch to the existing tab, or
-cancel. Each tab includes a share control that copies a `/web/paja/?naddr=...`
-or `/web/paja/?nevent=...` link for that pointer, and the browser remembers open
-runtime tabs in local storage so returning to `/web/paja/` restores the previous
+cancel. Each verified tab's Share control opens a dialog with its selectable
+`/web/paja/?naddr=...` or `/web/paja/?nevent=...` app link. **Copy app link**
+shows a confirmation on success; blocked or unavailable clipboard access selects
+the link for manual copying. Apps with advertised intents also offer
+**Create intent link**. Share keeps focus and pointer input in the host overlay
+while the apps remain loaded. The browser remembers open runtime tabs in local storage
+so returning to `/web/paja/` restores the previous
 pointer set. An explicit pointer in the URL still takes precedence over restored
 tabs.
 
@@ -631,6 +637,10 @@ remain a documented upstream spec gap; no host sender identity is invented.
 ## GAMEPAD integration
 
 This non-normative guidance defers to [NAP-GAMEPAD at `napplet/naps@19de5ce1`](https://github.com/napplet/naps/blob/19de5ce1cea40cd4c76089cdd8126e9f87648049/naps/NAP-GAMEPAD.md). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja and the playground register one host reader and deny native gamepad/HID/USB paths before frame execution. A subscription must approve the host-private `gamepad:input` resource before the reader starts; denial emits `reason: "blocked"`. Only the visible host's input owner receives live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, revocation, window destruction, and service removal release polling. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
+
+## NIP-5D runtime pointers
+
+Paja MUST load all three NIP-5D manifest kinds: root `15129`, named `35129`, and snapshot `5129`. Use an `naddr` with an empty identifier for the latest root, an `naddr` with the literal `d` identifier for the latest named napplet, or a `nevent` to pin a signed event of any of the three kinds. Snapshots require `nevent` because they are immutable events without replaceable coordinates. All paths verify the signed manifest and artifact hash before injecting `srcdoc`. Distinct snapshots retain separate tabs and catalog identities even when their artifact bytes match.
 
 ## Controller diagnostics
 
