@@ -11,7 +11,7 @@ for configuration and host migration status.
 
 `admitBrowserDocument()` is the shared launch transaction for verified artifacts
 and explicit development targets. It registers a provisional source, obtains
-runtime interface and exact browser-origin approval, then supplies a prepared
+runtime interface and directive-specific browser-source approval, then supplies a prepared
 `srcdoc` with the admitted namespace and a closed default-deny CSP to one
 synchronous `commit` callback. Hosts must retire the returned source on navigation
 or closure. Direct browser origins exclude `resource`; revoking a launch grant
@@ -28,6 +28,10 @@ lifetimes. Escape, close, and abort cancel without creating a denial grant.
 > **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
 > protocol. NAP contracts and injected-domain behavior are still draft; treat
 > this package as current implementation guidance.
+
+Browser source grants follow CSP scheme/port matching, including HTTP to HTTPS
+upgrades; the approval UI discloses this when relevant. Mediated network scopes
+continue to require exact canonical origins.
 
 ## Install
 

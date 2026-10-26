@@ -1,8 +1,8 @@
 ---
-'@kehto/runtime': patch
-'@kehto/services': patch
-'@kehto/shell': patch
-'@kehto/paja': patch
+'@kehto/runtime': minor
+'@kehto/services': minor
+'@kehto/shell': minor
+'@kehto/paja': minor
 ---
 
 Require relay operations to plan immutable destinations before approval and

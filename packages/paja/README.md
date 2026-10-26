@@ -322,7 +322,7 @@ Unsigned development HTML can request interfaces with space-separated
 `<meta name="napplet-optional" content="media">` declarations. They request
 approval; they do not grant it. Paja binds each development grant to the exact
 target URL and fetched HTML hash, so editing the document requires a new
-approval. A live dev server uses exact-origin direct browser network approval
+approval. A live dev server uses directive-specific browser source approval
 for its script, style, image, font, worker, media, and connection sources. Its
 frame cannot receive `resource`; declare `resource` only for a self-contained
 local HTML file with no remote sources. When no development declarations exist,
@@ -342,8 +342,10 @@ const config = createPajaRuntimeHostConfig({
 Each explicit origin is a separate network approval. Supported `csp.directives`
 entries are reduced to exact origins for their named source directive and require
 the same approval; unsupported directives and broad source expressions fail
-closed. The shared CSP still denies frames, objects, manifests, and unlisted
-sources.
+closed. Browser sources follow CSP scheme/port matching, including HTTP to
+HTTPS upgrades; they are not literal origin-equality checks. The approval UI
+discloses this when relevant. The shared CSP still denies frames, objects,
+manifests, and unlisted sources.
 Set `frame-ancestors` on the host HTTP response, not in a meta policy. See the
 [shared policy contract](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#shell-csp-enforcement).
 
@@ -453,6 +455,10 @@ candidates fill it. This setting does not change upload destinations,
 per-napplet NAP-CONFIG, initial pointer/artifact loading, direct HTTP(S) resource
 URLs, or napplet CSP/network grants. Each actual HTTP(S) destination still
 requires authorization and must pass the proxy address policy below.
+
+Paja redirects HTML requests using an alias hostname to its configured host
+origin before issuing the proxy capability cookie. Resource proxy requests
+remain restricted to that canonical origin.
 
 Paja resolves HTTP(S) resources through its protected, same-origin
 `POST /__kehto/resource` endpoint. The resource request and each actual network

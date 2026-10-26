@@ -319,7 +319,7 @@ in [PR #284](https://github.com/kehto/web/pull/284). This implementation PR leav
 - Source and warning site: `packages/runtime/src/relay-handler.ts`. The warning
   fires once per legacy service instance on attempted use, names the replacement,
   omits relay URLs/events/plaintext, and planned handlers stay quiet.
-- Regression coverage: `packages/runtime/src/runtime.test.ts`,
+- Regression coverage: `packages/runtime/src/relay-query-approvals.test.ts`,
   `packages/services/src/relay-pool-service.test.ts`,
   `packages/services/src/coordinated-relay.test.ts`, and
   `tests/unit/relay-acl-revocation.test.ts` cover immutable targets, ordering,
@@ -339,10 +339,59 @@ in [PR #284](https://github.com/kehto/web/pull/284). This implementation PR leav
   adapter implements the replacement in `packages/shell/src/hooks-adapter.ts`.
   The warning fires once per legacy adapter on actual use, is actionable, omits
   request data, and explicit-target adapters remain quiet.
-- Regression coverage: `packages/runtime/src/runtime.test.ts`,
+- Regression coverage: `packages/runtime/src/relay-query-approvals.test.ts`,
   `tests/unit/relay-acl-revocation.test.ts`, and
   `tests/unit/nip5d-conformance-guard.test.ts` protect selector immutability,
   abort/cleanup, protocol wiring, and fail-closed legacy behavior.
 - Retention: migrate Paja, playground, and supported custom shell adapters;
   publish release guidance, then remove deprecated implicit members with negative
   tests and a 0.x minor release. Structural mocks only warn when invoked.
+
+## Service authorization migration diagnostics
+
+These six paths belong to `@kehto/services`. Each warning fires on actual legacy
+execution **once per service instance**, names the replacement below, and includes
+no device identifiers, event content, URLs, or other request data. Configured
+approval-aware execution is quiet. Each source file owns its warning site.
+
+| Identifier | Source and retained behavior | Replacement |
+| --- | --- | --- |
+| `FW-BLE-LEGACY-001` | `packages/services/src/ble-service.ts`: unbound host chooser/device hooks | Attach `RuntimeAdapter.permissions` and host-private selected-device approval. |
+| `FW-SERIAL-LEGACY-001` | `packages/services/src/serial-service.ts`: unbound serial open/write hooks | Attach `RuntimeAdapter.permissions` and host-private selected-device approval. |
+| `FW-FS-LEGACY-001` | `packages/services/src/fs-service.ts`: host-only filesystem authorization | Attach `RuntimeAdapter.permissions` and verified session `permissionPrincipal`. |
+| `FW-DM-LEGACY-001` | `packages/services/src/dm-service.ts`: legacy adapter execution | Supply an approval-aware DM adapter with immutable relay planning. |
+| `FW-COMMON-LEGACY-001` | `packages/services/src/common-service.ts`: unbound social-operation hooks | Supply immutable COMMON relay planning and a permission-enabled runtime. |
+| `FW-LISTS-LEGACY-001` | `packages/services/src/lists-service.ts`: unbound list mutation hooks | Supply immutable LISTS mutation planning and a permission-enabled runtime. |
+
+These paths retain standalone/custom-host compatibility during migration; they
+must not bypass configured runtime authorization. Their domain service tests
+cover authorized/denied execution and source cleanup. Dedicated diagnostic tests
+in `packages/services/src/approval-compatibility.test.ts` assert legacy behavior,
+actionable identifier/text, once-per-instance frequency, and quiet canonical use.
+Removal requires migrating supported custom hosts, announcing the breaking 0.x
+minor release, and adding negative tests for the removed path. No removal release
+or upstream package prerequisite is selected; these are host API migrations,
+not new NAP wire operations.
+
+## FW-OUTBOX-LEGACY-001 — standalone OUTBOX router execution
+
+- Owner: `@kehto/services`.
+- Old behavior: an unattached service executes `getEvent`, `query`, `subscribe`,
+  and `publish` through legacy router methods without shared approval.
+- Replacement: attach `RuntimeAdapter.permissions` and an immutable-plan router;
+  the service authorizes planned relay origins and executes only that snapshot.
+  A configured authorizer with missing plan/execution hooks fails closed instead
+  of falling back to unapproved relay I/O.
+- Source and warning site: `packages/services/src/outbox-service.ts`.
+- Diagnostic: `[FW-OUTBOX-LEGACY-001] Configure RuntimeAdapter.permissions and
+  immutable OUTBOX relay planning; unapproved router execution is deprecated.
+  Warning once per service instance.` Emitted only on actual standalone execution,
+  without event/relay data; canonical use remains quiet.
+- Tests: `packages/services/src/approval-review.test.ts` covers the diagnostic,
+  denied reads, immutable destination execution, missing planner rejection,
+  and cancellation/cleanup of planned queries.
+- Retention: standalone/custom routers can migrate without silently acquiring
+  new authority. Remove after supported consumers adopt planning, announce a
+  breaking 0.x minor release, and add negative tests for legacy calls. No removal
+  release is selected. Authority: NAP-OUTBOX PR #32 `8865f73d52a4864afee145f28d26520476273927`;
+  this diagnostic is a host API migration, not a NAP wire extension.

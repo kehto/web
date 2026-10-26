@@ -1,7 +1,7 @@
 # Phase 113: Service Authorization Boundaries - Research
 
-**Researched:** 2026-10-17  
-**Domain:** NAP-domain service authorization, network/resource mediation, and lifecycle revocation  
+**Researched:** 2026-10-17
+**Domain:** NAP-domain service authorization, network/resource mediation, and lifecycle revocation
 **Confidence:** HIGH for the checked sources and current code; MEDIUM where protocol documents have not yet been supplied for a domain
 
 <user_constraints>
@@ -244,8 +244,8 @@ local contract toward that authority when the current code differs.
 ### Primary
 
 - NAP-RESOURCE PR #80 exact head `ae5b9c64ab8a4d8909f288829a01e99d6bd713bc` — resource wire, identity, cache, resolver, redirect, and security rules. [CITED: `/tmp/kehto-firewall-specs/NAP-RESOURCE.md`]
-- NAP-RELAY PR #2 `9f30b3505335a52c574ff570576687d6467021ff`; NAP-OUTBOX PR #32 `8865f73d52a4864afee145f28d26520476273927`; NAP-FS PR #88 `bd1b9e912f05203bf38f7a1b04f920744fe6d625`; NAP-UPLOAD PR #33 `f5cc981e527e2cc1572793a7a6e5082e5271ac49`; NAP-CONNECT PR #19 `ec81a3a4a1fc4da1ad2601215353b7f822e44b8f`. [CITED: `/tmp/kehto-firewall-specs`] 
-- Runtime permission/service source and reference handlers. [VERIFIED: `packages/runtime/src/{permission-runtime,service-types,service-dispatch,runtime}.ts`; VERIFIED: `packages/services/src`] 
+- NAP-RELAY PR #2 `9f30b3505335a52c574ff570576687d6467021ff`; NAP-OUTBOX PR #32 `8865f73d52a4864afee145f28d26520476273927`; NAP-FS PR #88 `bd1b9e912f05203bf38f7a1b04f920744fe6d625`; NAP-UPLOAD PR #33 `f5cc981e527e2cc1572793a7a6e5082e5271ac49`; NAP-CONNECT PR #19 `ec81a3a4a1fc4da1ad2601215353b7f822e44b8f`. [CITED: `/tmp/kehto-firewall-specs`]
+- Runtime permission/service source and reference handlers. [VERIFIED: `packages/runtime/src/{permission-runtime,service-types,service-dispatch,runtime}.ts`; VERIFIED: `packages/services/src`]
 
 ## Metadata
 
@@ -254,7 +254,7 @@ local contract toward that authority when the current code differs.
 - Protocol constraints: HIGH for the mapped exact refs as authorities; semantic-review status remains plan-specific as recorded above.
 - Host resolver policy: HIGH for the browser limitation, NAP-RESOURCE mandate, and chosen protected trusted-transport design.
 
-**Research date:** 2026-10-17  
+**Research date:** 2026-10-17
 **Valid until:** recheck draft heads before implementing or shipping.
 
 

@@ -30,7 +30,7 @@ describe('dispatch budgets without service coordination', () => {
   it('bounds storage persistence after interface admission', async () => {
     const f = await fixture(['storage']);
     const set = vi.spyOn(f.ctx.hooks.statePersistence, 'set');
-    for (let i = 0; i < 3; i++) f.runtime.handleMessage('window', { type: 'storage.set', id: `set-${i}`, key: `key-${i}`, value: i });
+    for (let i = 0; i < 3; i++) f.runtime.handleMessage('window', { type: 'storage.set', id: `set-${i}`, key: `key-${i}`, value: String(i) });
     expect(set).toHaveBeenCalledTimes(2);
     expect(f.onRateLimit).toHaveBeenCalledWith({ windowId: 'window', operation: 'storage.set', action: 'block', reason: 'burst-exceeded' });
     f.runtime.destroy();

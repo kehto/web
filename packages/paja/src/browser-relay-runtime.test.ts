@@ -116,6 +116,7 @@ function createPajaRelayService(backend: PajaRelayBackend) {
         callback(item as NostrEvent | 'EOSE');
       }),
     publish: (event) => backend.publish(TEST_RELAYS, event),
+    publishToRelays: (relayUrls, event) => backend.publish([...relayUrls], event),
     selectRelayTier: () => TEST_RELAYS,
     isAvailable: () => backend.isAvailable(),
   });

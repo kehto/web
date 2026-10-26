@@ -3,7 +3,8 @@
 Relay reference services plan normalized URLs before runtime approval and execute
 the supplied immutable plan. Custom registered relay services implement
 `RelayPlanningServiceHandler`; selection belongs in planning, never in
-`executeRelayOperation()`.
+`executeRelayOperation()`. Reference publish services require `publishToRelays`;
+a generic publisher cannot enforce the approved destination list.
 
 Reference service handlers for Kehto runtime implementations.
 
@@ -15,7 +16,10 @@ which remains a launch-policy concern.
 OUTBOX and COUNT resolve relay destinations before approval. Their remote
 backends receive the approved immutable URL list and cancellation signal; local
 COUNT plans remain network-prompt-free and revoked sources cannot receive late
-results.
+results. OUTBOX `getEvent` uses the same planned query boundary as `query`,
+including author hints and request cancellation. A configured runtime fails
+closed when a router lacks planning hooks; standalone legacy use warns once per
+service instance with `FW-OUTBOX-LEGACY-001`. See [compatibility](/compatibility).
 
 The reference LINK service integrates shared runtime approvals after URL
 validation. A LINK grant never gives direct network access. Runtime cancellation

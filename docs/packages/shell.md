@@ -33,6 +33,10 @@ traffic.
 > **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
 > protocol. Injected-domain behavior and NAP contracts are not final.
 
+Browser source grants follow CSP scheme/port matching, including HTTP to HTTPS
+upgrades; the approval UI discloses this when relevant. Mediated network scopes
+continue to require exact canonical origins.
+
 ## Install
 
 ```bash

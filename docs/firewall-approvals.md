@@ -135,7 +135,13 @@ The shared CSP starts with `default-src 'none'`. A verified playground artifact
 has no direct remote browser sources and can use the mediated `resource`
 interface after its own approval. Paja's live target proposes exact origins per
 supported `connect`, `script`, `style`, `image`, `font`, `worker`, and `media`
-directive. Each source needs a network grant; direct mode excludes `resource`.
+directive. Browser source lists use CSP scheme matching: an HTTP source also
+permits HTTPS at the CSP-matched port, and WebSocket sources follow CSP upgrade
+rules. Chromium 152 permits the default-port HTTP-to-HTTPS upgrade but blocks
+it on the same nondefault port; the source contract follows CSP rather than
+relying on that narrower engine behavior. These are directive-specific browser
+source grants, not literal URL-origin equality checks. Mediated network
+authorization still matches canonical origins exactly. Each source needs a network grant; direct mode excludes `resource`.
 Required `resource` plus direct mode fails before launch, while optional
 `resource` is omitted explicitly. Frame, child, object, manifest, and form
 destinations stay closed. Paja permits its host-injected `<base>`
@@ -155,8 +161,10 @@ and ACL restrictions remain hard ceilings.
 
 `runtime.permissions.grants` exposes immutable decisions for host settings.
 `revoke(id)` and `clear()` remove local authority immediately and cancel affected
-work. A false return means durable removal failed: show the failure, keep access
-disabled, and use `retryPersistence()`. Reloading the store cannot restore those
+work. Revoking a persistent grant retires only live sources with its exact
+verified principal and artifact; other applications remain admitted. `clear()`
+invalidates all sources. A false return means durable removal failed: show the
+failure, keep access disabled, and use `retryPersistence()`. Reloading the store cannot restore those
 grants during the current runtime. After a restart, failed durable removal cannot
 be guaranteed; the host must communicate that failure rather than claim success.
 Malformed or unsupported stored data disables authorization until explicitly

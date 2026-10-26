@@ -1,6 +1,6 @@
 ---
-'@kehto/services': patch
-'@kehto/paja': patch
+'@kehto/services': minor
+'@kehto/paja': minor
 ---
 
 Require runtime-approved WebRTC signaling plans, reject opaque peer factories,

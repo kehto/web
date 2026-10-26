@@ -361,8 +361,15 @@ unsigned targets use development principals bound to exact target and byte hash.
 Playground currently has no unsigned napplet loader.
 
 The common CSP defaults to no remote sources. Playground verified artifacts
-request none; Paja live development proposes exact directive/origin pairs. A
-direct source cannot use mediated `resource`; required conflicts block launch.
+request none; Paja live development proposes canonical directive/origin pairs.
+Those browser source expressions follow [CSP scheme matching](https://www.w3.org/TR/CSP3/#match-schemes)
+and port matching: HTTP can match HTTPS, WS can match WSS/HTTP/HTTPS, and WSS
+can match HTTPS. Nondefault ports stay bounded; default port upgrades follow
+CSP. The Chromium 152 regression confirms the default-port HTTP upgrade and
+its narrower rejection on the same nondefault port. It also verifies allowed
+HTTP/HTTPS transport and sibling-port denial. The approval UI discloses these
+browser-only rules. Mediated network authorization still requires exact canonical
+origin equality. A direct source cannot use mediated `resource`; required conflicts block launch.
 Paja's host-injected base URL may point only to an already approved exact
 development origin. Frame, child, object, manifest, and form destinations
 remain closed. This directive-specific CSP and base behavior are bounded Kehto

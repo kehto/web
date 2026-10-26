@@ -6,6 +6,9 @@ then repeats authorization for every redirect. This transport does not itself
 decide app permission. The runtime/service and host frame isolation remain
 required parts of the resource boundary.
 
+HTML routes redirect alias hosts to the configured canonical origin before
+issuing a capability cookie. The proxy itself never redirects untrusted callers.
+
 The endpoint accepts only its exact host and main-frame origin, JSON POSTs, and
 the server-instance capability in a host-only, HttpOnly, SameSite=Strict cookie.
 Cookie names include the bound port so local Paja instances do not overwrite each

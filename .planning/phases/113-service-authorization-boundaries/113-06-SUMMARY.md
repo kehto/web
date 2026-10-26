@@ -61,4 +61,3 @@ Rechecked before implementation against NAP-SERIAL PR #61 at `0c6e88ab8003f5bf88
 `apps/playground/src/demo-hooks.ts` still supplies simulated legacy device hooks. It needs the same `ctx.authorizeDevice(...)` migration before a runtime-approval-enabled playground release. This is app-owned follow-up work, not a Paja browser-device path.
 
 ## Self-Check: PASSED
-
