@@ -1,7 +1,7 @@
 import {
   createPermissionState, deserializePermissions, revokePermissionGrant, serializePermissions,
 } from '@kehto/firewall';
-import type { PermissionPolicyOptions, PermissionState } from '@kehto/firewall';
+import type { PermissionPolicyOptions, PermissionPrincipal, PermissionState } from '@kehto/firewall';
 
 /** Storage must throw on unsuccessful writes; durable grants are never best-effort. */
 export interface PermissionPersistence {
@@ -13,7 +13,7 @@ export type PermissionStorageFailure = 'load-failed' | 'invalid-state' | 'unsupp
 
 interface PermissionStoreOptions extends PermissionPolicyOptions {
   persistence?: PermissionPersistence;
-  invalidate: (sessionId?: string) => void;
+  invalidate: (target?: string | PermissionPrincipal) => void;
   onError?: (failure: PermissionStorageFailure) => void;
 }
 
@@ -87,7 +87,7 @@ export function createPermissionStore(options: PermissionStoreOptions) {
       const grant = state.grants.find((entry) => entry.id === id);
       if (!grant) return healthy;
       state = revokePermissionGrant(state, id);
-      options.invalidate(grant.lifetime === 'persistent' ? undefined : grant.sessionId);
+      options.invalidate(grant.lifetime === 'persistent' ? grant.principal : grant.sessionId);
       return grant.lifetime !== 'persistent' || persistRevocation();
     },
     retire(sessionId: string): void {

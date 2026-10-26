@@ -190,4 +190,3 @@ export function createDenialResponse(envelope: NappletMessage, error: string): N
   const type = denialResponseType(envelope);
   return type ? { type, id, error } as NappletMessage : null;
 }
-

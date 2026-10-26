@@ -248,9 +248,14 @@ function createMessageHandler(
       }
     }
 
-    // Configured runtimes route operation authority to the registered service.
-    // The legacy temporal Firewall gate remains only for hosts without the
-    // shared permission coordinator, so it cannot become a second approver.
+    // Storage and INC are runtime-owned; CONFIG's service has no operation
+    // authorizer. Charge their shared temporal budget here. Coordinated services
+    // charge at their validated execution boundary, never twice at dispatch.
+    if (permissions && (domain === 'storage' || domain === 'inc' || domain === 'config')
+      && permissions.charge(windowId, envelope.type)) return;
+
+    // The legacy Firewall gate remains only for hosts without the coordinator;
+    // it cannot become a second approver for configured hosts.
     if (!permissions) {
       const verdict = firewallGate(windowId, envelope, caps.senderCap);
       if (verdict === 'drop') return;
@@ -571,6 +576,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   const domainHandlers = createRuntimeDomainHandlers({ hooks, serviceRegistry, sessionRegistry, aclState });
   const napHandlers: RuntimeNapHandlers = {
     relay: createRelayHandler({ hooks, serviceRegistry, subscriptions, eventBuffer, replayDetector,
+      getSource: (windowId) => permissions && !permissions.isSourceActive(windowId) ? undefined : sessionRegistry.getEntryByWindowId(windowId),
       canReadRelay(windowId) {
         const entry = sessionRegistry.getEntryByWindowId(windowId);
         return !!entry && aclState.check('', entry.dTag, entry.aggregateHash, 'relay:read');

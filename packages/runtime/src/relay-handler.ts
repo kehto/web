@@ -13,6 +13,7 @@ import type { RuntimeAdapter, ServiceHandler, ServiceRegistry, ServiceRuntimeCon
 import { isRelayPlanningServiceHandler, type RelayOperationPlan } from './service-types.js';
 import type { PermissionRequirement } from '@kehto/firewall';
 import type { ApprovalSignal } from './approval-coordinator.js';
+import { snapshotApprovalEnvelope } from './approval-envelope.js';
 
 declare const console: { warn(message: string): void };
 
@@ -35,6 +36,7 @@ type RelayHandlerContext = {
   eventBuffer: EventBuffer;
   replayDetector: ReplayDetector;
   canReadRelay: (windowId: string) => boolean;
+  getSource: (windowId: string) => object | undefined;
   authorizeOperation?: ServiceRuntimeContext['authorizeOperation'];
 };
 
@@ -562,147 +564,153 @@ function publishEncrypted(
   }).catch(() => replyPe(false, { error: 'relay authorization unavailable or denied' }));
 }
 
-function handleRelayQuery(
-  context: RelayHandlerContext,
-  windowId: string,
-  m: RuntimeRelayMessage,
-): void {
-  const { hooks, serviceRegistry, eventBuffer } = context;
-  const id = m.id ?? '';
-  const filters = m.filters ?? [];
-
-  const seenIds = new Set<string>();
-  const events: RelayEventResult[] = [];
-  for (const event of eventBuffer.getBufferedEvents()) {
-    if (matchesAnyFilter(event, filters) && !seenIds.has(event.id)) {
-      seenIds.add(event.id);
-      events.push(createRelayEventResult(event));
-    }
-  }
-
-  let settled = false;
-  let fallbackTimer: unknown;
-
-  function settle(): void {
-    if (settled) return;
-    settled = true;
-    clearTimeout(fallbackTimer);
-    hooks.sendToNapplet(windowId, { type: 'relay.query.result', id, events } as NappletMessage);
-  }
-
-  // Shell-kind queries (kinds 29000-29999): buffer-only, no relay delegation
-  if (isShellKindQuery(filters)) {
-    settle();
+function handleRelayQuery(context: RelayHandlerContext, windowId: string, input: RuntimeRelayMessage): void {
+  const source = context.getSource(windowId);
+  const id = typeof input.id === 'string' ? input.id : '';
+  const current = (): boolean => !!source && context.getSource(windowId) === source;
+  let replied = false;
+  const respond = (result: { events: RelayEventResult[] } | { error: string }): void => {
+    if (replied || !current()) return;
+    replied = true;
+    const response = { type: 'relay.query.result', id, ...result };
+    context.hooks.sendToNapplet(windowId, response);
+  };
+  const message = snapshotApprovalEnvelope(input) as RuntimeRelayMessage | undefined;
+  if (!message || (message.filters !== undefined && !Array.isArray(message.filters))) {
+    respond({ error: 'invalid relay query' });
     return;
   }
-
-  const relayService = relayServiceFrom(context);
-  const cacheService = !serviceRegistry['relay'] ? serviceRegistry['cache'] : undefined;
-
-  if (relayService) {
-    const svc = relayService;
-    // Delegate to registered relay service via a synthesized relay.subscribe
-    const subId = '__query__:' + id;
-    const subscribeMsg: RuntimeRelayMessage = {
-      type: 'relay.subscribe',
-      id,
-      subId,
-      filters,
-    };
-    if (typeof m.relay === 'string' && m.relay.length > 0) {
-      subscribeMsg.relay = m.relay;
-    }
-
-    let openBackends = cacheService ? 2 : 1;
-
-    function onBackendEose(): void {
-      openBackends--;
-      if (openBackends <= 0) {
-        // Tear down the delegated subscriptions
-        const closeMsg = { type: 'relay.close', id, subId } as NappletMessage;
-        svc.handleMessage(windowId, closeMsg, () => {});
-        if (cacheService) {
-          cacheService.handleMessage(windowId, closeMsg, () => {});
+  const filters = message.filters ?? [];
+  let service = relayServiceFrom(context);
+  let plan: RelayOperationPlan;
+  try {
+    if (isShellKindQuery(filters)) {
+      service = undefined;
+      plan = { operation: 'query', relayUrls: [], localOnly: true };
+    } else if (service) {
+      if (!isRelayPlanningServiceHandler(service)) {
+        if (!legacyRelayServiceWarnings.has(service)) {
+          legacyRelayServiceWarnings.add(service);
+          console.warn('FW-RELAY-SERVICE-LEGACY-001: relay service must implement planRelayOperation and executeRelayOperation; legacy service was denied (warns once per service instance).');
         }
-        settle();
+        throw new Error('relay service requires explicit planned execution');
       }
+      plan = service.planRelayOperation(windowId, message);
+    } else {
+      const pool = context.hooks.relayPool;
+      if (pool?.isAvailable() && !pool.subscribeToRelays) {
+        if (!legacyRelayAdapterWarnings.has(pool)) {
+          legacyRelayAdapterWarnings.add(pool);
+          console.warn('FW-RELAY-ADAPTER-LEGACY-001: relay adapter must implement subscribeToRelays/publishToRelays; legacy adapter was denied (warns once per adapter instance).');
+        }
+        throw new Error('relay adapter requires explicit planned execution');
+      }
+      // The query relay hint is retained as a bounded Kehto extension; the
+      // NAP-RELAY query wire only specifies filters. It never grants authority.
+      const relayUrls = !pool?.isAvailable() ? []
+        : typeof message.relay === 'string' && message.relay.length > 0
+          ? [message.relay] : pool.selectRelayTier(filters);
+      plan = { operation: 'query', relayUrls, localOnly: !pool?.isAvailable() };
     }
+    plan = Object.freeze({ ...plan, operation: 'query', relayUrls: Object.freeze([...new Set(plan.relayUrls)]) });
+  } catch (error) {
+    respond({ error: error instanceof Error ? error.message : 'invalid relay destination' });
+    return;
+  }
+  const plannedService = isRelayPlanningServiceHandler(service) ? service : undefined;
+  void authorizeRelay(context, windowId, 'relay.query', plan, (signal) =>
+    collectRelayQuery(context, windowId, message, plan, plannedService, signal, current, respond),
+  ).catch(() => respond({ error: 'relay authorization unavailable or denied' }));
+}
 
-    function makeCollector(): (resp: NappletMessage) => void {
-      return function collector(resp: NappletMessage): void {
-        const r = resp as RuntimeRelayMessage;
-        const result = r.type === 'relay.event' ? relayEventResultFromCarrier(r) : null;
-        if (result && !seenIds.has(result.event.id)) {
-          seenIds.add(result.event.id);
-          events.push(result);
-        } else if (r.type === 'relay.eose') {
-          onBackendEose();
+/** Keep the one query authorization alive until all reads finish or abort. */
+function collectRelayQuery(
+  context: RelayHandlerContext, windowId: string, message: RuntimeRelayMessage,
+  plan: RelayOperationPlan, service: ReturnType<typeof relayServiceFrom>, signal: ApprovalSignal,
+  current: () => boolean, respond: (result: { events: RelayEventResult[] } | { error: string }) => void,
+): Promise<void> {
+  const filters = message.filters ?? [];
+  const events: RelayEventResult[] = [];
+  const seen = new Set<string>();
+  const active = (): boolean => !signal.aborted && current() && context.canReadRelay(windowId);
+  const collect = (result: RelayEventResult): void => {
+    if (!active() || seen.has(result.event.id)) return;
+    seen.add(result.event.id);
+    events.push(result);
+  };
+  for (const event of context.eventBuffer.getBufferedEvents()) {
+    if (matchesAnyFilter(event, filters)) collect(createRelayEventResult(event));
+  }
+  if (isShellKindQuery(filters)) {
+    if (active()) respond({ events });
+    return Promise.resolve();
+  }
+  return new Promise<void>((resolve) => {
+    const subId = `__query__:${message.id ?? ''}:${context.hooks.crypto.randomUUID()}`;
+    const cacheService = service && !context.serviceRegistry['relay'] ? context.serviceRegistry['cache'] : undefined;
+    const cache = !service && context.hooks.cache?.isAvailable() ? context.hooks.cache : undefined;
+    let remaining = 1 + (cacheService || cache ? 1 : 0);
+    let settled = false;
+    let subscription: { unsubscribe(): void } | undefined;
+    let timer: unknown;
+    const close = (): void => {
+      const closeMessage = { type: 'relay.close', subId } as NappletMessage;
+      for (const backend of new Set([service, cacheService])) {
+        try { backend?.handleMessage(windowId, closeMessage, () => {}); }
+        catch { /* Every backend must still get its cleanup. */ }
+      }
+      try { subscription?.unsubscribe(); } catch { /* Transport cleanup cannot prevent settlement. */ }
+    };
+    const finish = (error?: string): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      signal.removeEventListener('abort', abort);
+      try { close(); } finally {
+        if (error) respond({ error });
+        else if (active()) respond({ events });
+        resolve();
+      }
+    };
+    const abort = (): void => finish('relay authorization cancelled');
+    const completed = (): void => { if (--remaining === 0) finish(); };
+    const collector = (): ((response: NappletMessage) => void) => {
+      let ended = false;
+      return (response) => {
+        if (settled || ended || !active()) return;
+        const result = relayEventResultFromCarrier(response as RuntimeRelayMessage);
+        if (response.type === 'relay.event' && result) collect(result);
+        else if (response.type === 'relay.eose' || response.type === 'relay.closed') {
+          ended = true;
+          if (response.type === 'relay.closed') finish('relay query closed');
+          else completed();
         }
       };
-    }
-
-    fallbackTimer = setTimeout(() => {
-      const closeMsg = { type: 'relay.close', id, subId } as NappletMessage;
-      svc.handleMessage(windowId, closeMsg, () => {});
-      if (cacheService) {
-        cacheService.handleMessage(windowId, closeMsg, () => {});
+    };
+    signal.addEventListener('abort', abort, { once: true });
+    if (!active()) { abort(); return; }
+    timer = setTimeout(() => finish(), 15_000);
+    try {
+      if (isRelayPlanningServiceHandler(service)) {
+        const subscribe = { ...message, type: 'relay.subscribe', subId, filters } as NappletMessage;
+        service.executeRelayOperation(windowId, subscribe, plan, signal, collector());
+        if (!settled) cacheService?.handleMessage(windowId, subscribe, collector());
+      } else {
+        if (cache) void cache.query(filters).then((cached) => {
+          if (!settled) for (const event of cached) collect(createRelayEventResult(event));
+        }).catch(() => {}).finally(completed);
+        const pool = context.hooks.relayPool;
+        if (!pool?.isAvailable()) { completed(); return; }
+        const receive = collector();
+        subscription = pool.subscribeToRelays!([...plan.relayUrls], filters, (item) => {
+          if (settled || !active()) return;
+          receive(item === 'EOSE' ? { type: 'relay.eose' } : {
+            type: 'relay.event', result: createRelayEventResultWithHints(item, [...plan.relayUrls]),
+          } as NappletMessage);
+          if (item !== 'EOSE') { try { cache?.store(item); } catch { /* Cache writes are best-effort. */ } }
+        });
+        if (settled) subscription.unsubscribe();
       }
-      settle();
-    }, 15_000);
-
-    svc.handleMessage(windowId, subscribeMsg as NappletMessage, makeCollector());
-    if (cacheService) {
-      cacheService.handleMessage(windowId, subscribeMsg as NappletMessage, makeCollector());
-    }
-    return;
-  }
-
-  // No registered relay service — fall back to runtime hooks (cache + relay pool)
-  const cache = hooks.cache;
-  const pool = hooks.relayPool;
-
-  if (cache?.isAvailable()) {
-    cache.query(filters)
-      .then((cachedEvents) => {
-        for (const event of cachedEvents) {
-          if (!seenIds.has(event.id)) {
-            seenIds.add(event.id);
-            events.push(createRelayEventResult(event));
-          }
-        }
-      })
-      .catch(() => {});
-  }
-
-  if (!pool?.isAvailable()) {
-    settle();
-    return;
-  }
-
-  const relayHint = typeof m.relay === 'string' && m.relay.length > 0 ? m.relay : undefined;
-  const relayUrls = relayHint ? [relayHint] : pool.selectRelayTier(filters);
-
-  let poolSubscription: { unsubscribe(): void } | undefined;
-
-  fallbackTimer = setTimeout(() => {
-    poolSubscription?.unsubscribe();
-    settle();
-  }, 15_000);
-
-  poolSubscription = pool.subscribe(filters, (item) => {
-    if (item === 'EOSE') {
-      clearTimeout(fallbackTimer);
-      poolSubscription?.unsubscribe();
-      settle();
-      return;
-    }
-    const event = item as NostrEvent;
-    if (!seenIds.has(event.id)) {
-      seenIds.add(event.id);
-      events.push(createRelayEventResultWithHints(event, relayUrls));
-    }
-    if (cache?.isAvailable()) {
-      try { cache.store(event); } catch { return; }
-    }
-  }, relayUrls);
+    } catch { finish('relay query failed'); }
+  });
 }

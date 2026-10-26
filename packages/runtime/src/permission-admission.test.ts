@@ -212,6 +212,32 @@ describe('pre-execution interface admission', () => {
     f.runtime.destroy();
   });
 
+  it('revokes persistent authority only for live frames with the same principal', async () => {
+    const f = fixture({ persistence: { load: () => null, persist: vi.fn() },
+      prompt: async () => ({ effect: 'allow', lifetime: 'persistent' }) });
+    const revoked = vi.fn();
+    f.runtime.registerService('theme', { descriptor: { name: 'theme', version: '1' },
+      handleMessage() {}, onPermissionRevoked: revoked });
+    const principal = { kind: 'verified' as const, manifestKey: `nip5d:15129:${'b'.repeat(64)}`, artifactHash: 'a'.repeat(64) };
+    f.runtime.sessionRegistry.register('window', { ...f.entry, permissionPrincipal: principal });
+    f.runtime.sessionRegistry.register('sibling', { ...f.entry, windowId: 'sibling', permissionPrincipal: principal });
+    f.runtime.sessionRegistry.register('other', { ...f.entry, windowId: 'other',
+      permissionPrincipal: { ...principal, manifestKey: `nip5d:15129:${'c'.repeat(64)}` } });
+    const request = { available: ['theme'], required: ['theme'], optional: [] };
+    const first = await f.runtime.permissions!.admit('window', request);
+    const sibling = await f.runtime.permissions!.admit('sibling', request);
+    const other = await f.runtime.permissions!.admit('other', request);
+    revoked.mockClear();
+    f.runtime.permissions!.revoke(f.runtime.permissions!.grants[0].id);
+    expect(f.runtime.permissions!.isAdmissionCurrent('window', first)).toBe(false);
+    expect(f.runtime.permissions!.isAdmissionCurrent('sibling', sibling)).toBe(false);
+    expect(f.runtime.permissions!.isAdmissionCurrent('other', other)).toBe(true);
+    expect(revoked.mock.calls).toEqual([['window'], ['sibling']]);
+    f.runtime.permissions!.clear();
+    expect(f.runtime.permissions!.isAdmissionCurrent('other', other)).toBe(false);
+    f.runtime.destroy();
+  });
+
   it('requires fresh registration after destroying even a zero-interface source', async () => {
     const f = fixture();
     const empty = await f.admit([]);

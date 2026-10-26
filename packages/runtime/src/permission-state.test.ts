@@ -43,7 +43,7 @@ describe('permission persistence', () => {
     const store = createPermissionStore({ invalidate, persistence: { load, persist } });
     store.load();
     expect(store.revoke('remembered')).toBe(false);
-    expect(invalidate).toHaveBeenCalledWith(undefined);
+    expect(invalidate).toHaveBeenCalledWith(grant.principal);
     expect(store.getState().grants).toEqual([]);
     expect(store.available).toBe(false);
     expect(store.load()).toBe(false);

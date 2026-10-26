@@ -160,4 +160,3 @@ export interface ServiceHandler {
    */
   onWindowDestroyed?(windowId: string): void;
 }
-

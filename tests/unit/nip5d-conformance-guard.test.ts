@@ -729,10 +729,13 @@ describe('NIP-5D conformance static guards', () => {
       "'relay.query.result'",
     );
 
-    // (b) relay-handler.ts produces the canonical events field (not count)
-    //     The result object literal must carry `events` (the settled reply).
-    expect(relayHandlerSrc, 'relay-handler relay.query.result must carry events field').toContain(
-      '{ type: \'relay.query.result\', id, events }',
+    // (b) Success and denial share a correlated terminal sender. Only the
+    //     success branch supplies the canonical events field, never a count.
+    expect(relayHandlerSrc, 'query terminal sender must preserve the result fields').toContain(
+      "{ type: 'relay.query.result', id, ...result }",
+    );
+    expect(relayHandlerSrc, 'successful query must send its collected events').toContain(
+      'respond({ events })',
     );
     expect(relayHandlerSrc, 'relay-handler query events must be RelayEventResult records').toContain(
       'const events: RelayEventResult[] = []',

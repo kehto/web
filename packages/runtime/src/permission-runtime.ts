@@ -79,20 +79,19 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
   let coordinator: ReturnType<typeof createApprovalCoordinator>;
   const store = createPermissionStore({
     persistence: adapter.persistence, extensions: adapter.extensions, onError: adapter.onStorageError,
-    invalidate(sessionId) {
-      if (sessionId === undefined) globalAdmissionRevision++;
-      else {
-        for (const lifetime of lifetimes.values()) {
-          if (lifetime.id === sessionId) {
-            sourceAdmissionRevisions.set(lifetime.entry, (sourceAdmissionRevisions.get(lifetime.entry) ?? 0) + 1);
-          }
-        }
-      }
-      coordinator?.cancel(sessionId);
-      if (sessionId === undefined) context.invalidate();
-      else {
+    invalidate(target) {
+      if (target === undefined) {
+        globalAdmissionRevision++;
+        coordinator?.cancel();
+        context.invalidate();
+      } else {
+        const subject = typeof target === 'string' ? undefined : permissionPrincipalKey(target);
+        if (typeof target === 'string') coordinator?.cancel(target);
         for (const [windowId, lifetime] of lifetimes) {
-          if (lifetime.id === sessionId) context.invalidate(windowId);
+          if (typeof target === 'string' ? lifetime.id !== target : lifetime.subject !== subject) continue;
+          sourceAdmissionRevisions.set(lifetime.entry, (sourceAdmissionRevisions.get(lifetime.entry) ?? 0) + 1);
+          if (subject !== undefined) coordinator?.cancel(lifetime.id);
+          context.invalidate(windowId);
         }
       }
       for (const listener of invalidationListeners) {
@@ -119,6 +118,25 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
       catch { /* Diagnostics cannot authorize another prompt. */ }
     }
     return rate.allowed;
+  }
+
+  function charge(windowId: string, operation: string): 'busy' | 'unavailable' | undefined {
+    const lifetime = lifetimes.get(windowId);
+    if (disposed || !store.available || !lifetime || retiredSources.has(lifetime.entry)
+      || context.getSession(windowId) !== lifetime.entry) return 'unavailable';
+    try {
+      const now = adapter.now();
+      const rate = evaluateRateLimit(adapter.rateLimit ?? defaultRateLimitConfig(), rates, {
+        subject: lifetime.subject, operation, lifecycle: lifetime.id,
+        elapsedSinceStartMs: Math.max(0, now - lifetime.started), focused: context.focused(windowId), now,
+      });
+      rates = rate.state;
+      if (rate.reason !== 'within-budget') {
+        try { adapter.onRateLimit?.({ windowId, operation, action: rate.action, reason: rate.reason }); }
+        catch { /* Audit failures cannot override temporal enforcement. */ }
+      }
+      return rate.allowed ? undefined : 'busy';
+    } catch { return 'unavailable'; }
   }
 
   function retire(windowId: string): void {
@@ -157,19 +175,8 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
       && context.getSession(windowId) === entry && context.allowed(windowId, requirements, phase) && isCurrent();
     if (!current()) return Promise.resolve({ status: 'denied' });
     if (phase === 'operation') {
-      try {
-        const now = adapter.now();
-        const rate = evaluateRateLimit(adapter.rateLimit ?? defaultRateLimitConfig(), rates, {
-          subject, operation, lifecycle: lifetime.id, elapsedSinceStartMs: Math.max(0, now - lifetime.started),
-          focused: context.focused(windowId), now,
-        });
-        rates = rate.state;
-        if (rate.reason !== 'within-budget') {
-          try { adapter.onRateLimit?.({ windowId, operation, action: rate.action, reason: rate.reason }); }
-          catch { /* Audit failures cannot override temporal enforcement. */ }
-        }
-        if (!rate.allowed) return Promise.resolve({ status: 'busy' });
-      } catch { return Promise.resolve({ status: 'unavailable' }); }
+      const failure = charge(windowId, operation);
+      if (failure) return Promise.resolve({ status: failure });
     }
     const allowedLifetimes = (phase === 'admission' ? ['session', 'persistent'] : ['once', 'session', 'persistent'])
       .filter((lifetime) => lifetime !== 'persistent' || !!adapter.persistence) as Array<PermissionGrant['lifetime']>;
@@ -213,7 +220,7 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
       return () => { invalidationListeners.delete(listener); };
     },
   };
-  return { management, run, retire,
+  return { management, run, retire, charge,
     close(windowId: string): void {
       const entry = context.getSession(windowId);
       if (entry) retiredSources.add(entry);
