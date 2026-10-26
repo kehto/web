@@ -39,3 +39,25 @@ passed unchanged with two workers.
 
 Spec result: host implementation policy; no change to protocol wire shape,
 source identity trust, or optional shell readiness. Conformant within that scope.
+
+
+## PR 316 review revision — 2026-10-26
+
+Merged main at `8c437f4e0ed79b0cdebfc63040c185fbb397c039` without rewriting
+reviewed history. Main's INBOX-TRIAGE.md is retained verbatim and the CVM timeout
+test has no diff against main. Narrowed HTTP documentation to the internal host
+UUID helper, named crypto.subtle explicitly, and improved test labels and browser
+capability diagnostics. Added coverage for a non-callable native randomUUID.
+Remaining host UUID assumptions are tracked in kehto/web#351.
+
+Rechecked NAP-SHELL and projections/web.md at
+`napplet/naps@1e1046bcadabbc552804f6d3354f565184f9fefb` and NIP-5D PR #2303
+at `5560820fa4f37f45b8ab742a11aeb3001b17dc67`. Conformant within the unchanged
+host-policy scope: no wire, source-trust, or readiness changes.
+
+Fresh validation after integration: build 32 tasks; type-check 17 tasks; 2,277
+unit tests across 178 files; docs audit for 9 packages; 150 Chromium tests including
+HTTP and HTTPS event injection. Session/cache fallback paths are unit-only.
+The lint command succeeds but defines no workspace lint tasks. AI-slop 0.12.0
+reports PR-diff score 100/100 and repository-wide score 95/100: five pre-existing
+size/complexity warnings in files identical to main. No quality rules changed.
