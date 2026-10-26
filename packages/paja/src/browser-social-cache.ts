@@ -1,8 +1,9 @@
 import type { NostrEvent } from '@napplet/core';
-import type { RelayEventResult } from '@kehto/runtime';
+import type { ApprovalSignal, RelayEventResult } from '@kehto/runtime';
 import type {
   OutboxResult,
   OutboxRouter,
+  StreamingOutboxRouter,
 } from '@kehto/services';
 
 import { matchesAnyFilter } from './browser-relay-runtime.js';
@@ -32,7 +33,7 @@ export interface PajaSocialCache {
    *
    * @param canReadIdentity - Source-bound authorization for private cache augmentation.
    */
-  decorate(router: OutboxRouter, canReadIdentity?: () => boolean): OutboxRouter;
+  decorate(router: OutboxRouter, canReadIdentity?: () => boolean): OutboxRouter & Partial<StreamingOutboxRouter>;
   /** Removes the signer-change observer. */
   dispose(): void;
 }
@@ -148,18 +149,31 @@ export function createPajaSocialCache(options: PajaSocialCacheOptions): PajaSoci
       && normalizePubkey(options.getActivePubkey() ?? '') === capturedPubkey;
   }
 
-  function decorate(router: OutboxRouter, canReadIdentity?: () => boolean): OutboxRouter {
+  function decorate(router: OutboxRouter, canReadIdentity?: () => boolean): OutboxRouter & Partial<StreamingOutboxRouter> {
+    const planned = router as Partial<StreamingOutboxRouter>;
+    async function augmentQuery(
+      filters: Parameters<OutboxRouter['query']>[0],
+      queryOptions: Parameters<OutboxRouter['query']>[1],
+      execute: () => Promise<OutboxResult>,
+      signal?: ApprovalSignal,
+    ): Promise<OutboxResult> {
+      const canAugmentAtStart = canReadIdentity?.() ?? true;
+      const activePubkey = normalizePubkey(options.getActivePubkey() ?? '');
+      const snapshot = canAugmentAtStart && activePubkey ? snapshots.get(activePubkey) : undefined;
+      const base = await execute();
+      if (signal?.aborted || !canAugmentAtStart || !(canReadIdentity?.() ?? true)) return base;
+      return mergeResult(base, matchingCachedProfiles(snapshot?.profiles, filters), filters, queryOptions);
+    }
     return {
       ...(router.getEvent ? { getEvent: router.getEvent.bind(router) } : {}),
-      async query(filters, queryOptions) {
-        const canAugmentAtStart = canReadIdentity?.() ?? true;
-        const activePubkey = normalizePubkey(options.getActivePubkey() ?? '');
-        const snapshot = canAugmentAtStart && activePubkey ? snapshots.get(activePubkey) : undefined;
-        const base = await router.query(filters, queryOptions);
-        if (!canAugmentAtStart || !(canReadIdentity?.() ?? true)) return base;
-        const cached = matchingCachedProfiles(snapshot?.profiles, filters);
-        return mergeResult(base, cached, filters, queryOptions);
-      },
+      query: (filters, queryOptions) => augmentQuery(filters, queryOptions, () => router.query(filters, queryOptions)),
+      ...(planned.planRead ? { planRead: planned.planRead.bind(router) } : {}),
+      ...(planned.queryWithPlan ? { queryWithPlan: ((filters, queryOptions, plan, signal) =>
+        augmentQuery(filters, queryOptions, () => planned.queryWithPlan!(filters, queryOptions, plan, signal), signal)
+      ) as StreamingOutboxRouter['queryWithPlan'] } : {}),
+      ...(planned.subscribeWithPlan ? { subscribeWithPlan: planned.subscribeWithPlan.bind(router) } : {}),
+      ...(planned.planPublish ? { planPublish: planned.planPublish.bind(router) } : {}),
+      ...(planned.publishWithPlan ? { publishWithPlan: planned.publishWithPlan.bind(router) } : {}),
       subscribe: router.subscribe.bind(router),
       publish: router.publish.bind(router),
       resolveRelays: router.resolveRelays.bind(router),

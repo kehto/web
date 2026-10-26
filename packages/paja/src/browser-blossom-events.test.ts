@@ -4,6 +4,8 @@ import type {
   OutboxRouter,
   OutboxRouterSubscription,
   OutboxSubscriptionSink,
+  OutboxRelayPlan,
+  StreamingOutboxRouter,
 } from '@kehto/services';
 import type { RelayEventResult } from '@kehto/runtime';
 import { describe, expect, it, vi } from 'vitest';
@@ -60,6 +62,52 @@ function router(
 }
 
 describe('createPajaBlossomEventResolver', () => {
+  it('keeps approved query and subscription plans while observing only live source results', async () => {
+    const value = result(event('1', PUBLISHER, 32_560, [
+      ['resource', `${RESOURCE_URL}?xs=approved.example`, 'blossom'],
+    ]));
+    const plan: OutboxRelayPlan = { relays: ['wss://approved.example'], source: 'nip65' };
+    const queryWithPlan = vi.fn(async () => ({ events: [value] }));
+    let sink!: OutboxSubscriptionSink;
+    const close = vi.fn();
+    const baseRouter: OutboxRouter & Partial<StreamingOutboxRouter> = {
+      ...router(async () => ({ events: [] })),
+      planRead: vi.fn(async () => plan), queryWithPlan,
+      subscribeWithPlan: vi.fn((_filters, _plan, next) => { sink = next; return { close }; }),
+      planPublish: vi.fn(async () => plan), publishWithPlan: vi.fn(async () => ({ ok: true })),
+    };
+    const resolver = createPajaBlossomEventResolver({ baseRouter, getConfiguredServers: () => [] });
+    const decorated = resolver.decorate(baseRouter, 'window') as Partial<StreamingOutboxRouter>;
+    expect(decorated.planRead).toBeTypeOf('function');
+    expect(await decorated.planRead!([{ kinds: [32_560] }])).toBe(plan);
+    const controller = new AbortController();
+    expect(await decorated.queryWithPlan!([{ kinds: [32_560] }], undefined, plan, controller.signal))
+      .toEqual({ events: [value] });
+    expect(queryWithPlan).toHaveBeenCalledWith([{ kinds: [32_560] }], undefined, plan, controller.signal);
+    expect(await resolver.getServers(RESOURCE_URL, 'window')).toEqual(['https://approved.example']);
+    const late = decorated.queryWithPlan!([{ kinds: [32_560] }], undefined, plan, controller.signal);
+    resolver.clearWindow('window');
+    await late;
+    expect(await resolver.getServers(RESOURCE_URL, 'window')).toEqual([]);
+    controller.abort();
+    await decorated.queryWithPlan!([{ kinds: [32_560] }], undefined, plan, controller.signal);
+    expect(await resolver.getServers(RESOURCE_URL, 'window')).toEqual([]);
+
+    const delivered = vi.fn();
+    const subscription = decorated.subscribeWithPlan!([{ kinds: [32_560] }], plan, { event: delivered, closed() {} });
+    sink.event(value);
+    expect(delivered).toHaveBeenCalledOnce();
+    expect(await resolver.getServers(RESOURCE_URL, 'window')).toEqual(['https://approved.example']);
+    subscription.close();
+    expect(close).toHaveBeenCalledOnce();
+    resolver.clearWindow('window');
+    sink.event(value);
+    expect(delivered).toHaveBeenCalledOnce();
+    expect(await resolver.getServers(RESOURCE_URL, 'window')).toEqual([]);
+    expect(decorated.planPublish).toBeTypeOf('function');
+    expect(decorated.publishWithPlan).toBeTypeOf('function');
+  });
+
   it('bounds complete author fanout and URI hints to eight before lookup', async () => {
     const authors = Array.from({ length: 12 }, (_, i) => i.toString(16).padStart(64, '0'));
     const query = vi.fn(async (_filters: Parameters<OutboxRouter['query']>[0]) => ({ events: [] }));

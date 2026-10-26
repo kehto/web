@@ -278,19 +278,31 @@ test('groups live relay receipts by routing box, relay, and kind', async ({ page
     await expect(eventCounts.locator('[data-relay-box="scoped"] .event-relay')).toHaveCount(1);
     await expect(eventCounts.locator('[data-relay-box="scoped"] .event-row[data-event-kind="10005"] .event-count')).toHaveText('1');
 
-    // An outbox read reports which box chose each relay: the configured fallback
-    // that answered immediately, then the author's NIP-65 relay once it resolved.
+    // Approved outbox reads resolve the NIP-65 plan before execution. They must
+    // not speculate against fallback relays outside that approved destination set.
     await sendFixtureMessage(frame, {
       type: 'outbox.query',
       id: 'events-outbox',
       filters: [{ authors: [authorPubkey], kinds: [10_005] }],
     });
-    await expect(eventCounts.locator(`[data-relay-box="fallback"] .event-relay[data-relay-url="${poolRelay}"]`)).toHaveAttribute('data-relay-count', '1');
+    // Discovery and the approved query each have a four-second backend bound.
+    await expect.poll(() => readFixtureMessage(frame, 'outbox.query.result', 'events-outbox'), { timeout: 10_000 })
+      .toMatchObject({ events: [{ event: { id: relayEvent.id } }] });
+    await expect(eventCounts.locator('[data-relay-box="fallback"] .event-box-count')).toHaveText('0');
     await expect(eventCounts.locator(`[data-relay-box="nip65"] .event-relay[data-relay-url="${authorRelay}"]`)).toHaveAttribute('data-relay-count', '1');
+
+    // A separate authorless query selects the configured fallback plan and
+    // exercises its receipts after the runtime approves those destinations.
+    await sendFixtureMessage(frame, {
+      type: 'outbox.query', id: 'events-fallback', filters: [{ kinds: [10_005] }],
+    });
+    await expect.poll(() => readFixtureMessage(frame, 'outbox.query.result', 'events-fallback'), { timeout: 10_000 })
+      .toMatchObject({ events: [{ event: { id: relayEvent.id } }] });
+    await expect(eventCounts.locator(`[data-relay-box="fallback"] .event-relay[data-relay-url="${poolRelay}"]`)).toHaveAttribute('data-relay-count', '1');
 
     // Headers carry receipts, the badge title separates them from unique events.
     // Host receipts: the tier read (2) plus the NIP-65 discovery read for the
-    // outbox plan (2). Fallback: both configured relays on the outbox read (2).
+    // outbox plan (2). Fallback: both configured relays on the authorless read (2).
     // Author-routed: the resolved NIP-65 write relay (1). Scoped: the pinned
     // relay (1). Box counts add up to the header total.
     await expect(eventCounts.locator('[data-relay-box="nip65"] .event-box-count')).toHaveText('1');

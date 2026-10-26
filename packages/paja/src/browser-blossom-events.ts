@@ -6,6 +6,7 @@ import type {
   OutboxRouter,
   OutboxRouterSubscription,
   OutboxSubscriptionSink,
+  StreamingOutboxRouter,
 } from '@kehto/services';
 import type { RelayEventResult } from '@kehto/runtime';
 
@@ -75,7 +76,7 @@ export interface PajaBlossomEventResolver {
   /** Observe returned events for one authenticated source window. */
   observe(windowId: string, results: readonly RelayEventResult[]): void;
   /** Decorate read operations so returned event resource context is observed. */
-  decorate(router: OutboxRouter, windowId: string): OutboxRouter;
+  decorate(router: OutboxRouter, windowId: string): OutboxRouter & Partial<StreamingOutboxRouter>;
   /** Resolve event hints, publisher/user lists, and runtime fallbacks for one URL. */
   getServers(
     url: string,
@@ -152,7 +153,8 @@ export function createPajaBlossomEventResolver(
     }
   }
 
-  function decorate(router: OutboxRouter, windowId: string): OutboxRouter {
+  function decorate(router: OutboxRouter, windowId: string): OutboxRouter & Partial<StreamingOutboxRouter> {
+    const planned = router as Partial<StreamingOutboxRouter>;
     const getEvent = router.getEvent
       ? async (eventId: string, eventOptions?: Parameters<NonNullable<OutboxRouter['getEvent']>>[1]) => {
           const result = await router.getEvent!(eventId, eventOptions);
@@ -162,6 +164,32 @@ export function createPajaBlossomEventResolver(
       : undefined;
     return {
       ...(getEvent ? { getEvent } : {}),
+      ...(planned.planRead ? { planRead: planned.planRead.bind(router) } : {}),
+      ...(planned.queryWithPlan ? { queryWithPlan: (async (filters, queryOptions, plan, signal) => {
+        const generation = windowGeneration(windowId);
+        const result = await planned.queryWithPlan!(filters, queryOptions, plan, signal);
+        if (!signal?.aborted && isCurrentGeneration(windowId, generation)) observe(windowId, result.events);
+        return result;
+      }) as StreamingOutboxRouter['queryWithPlan'] } : {}),
+      ...(planned.subscribeWithPlan ? { subscribeWithPlan: ((filters, plan, sink) => {
+        const generation = windowGeneration(windowId);
+        let closed = false;
+        const subscription = planned.subscribeWithPlan!(filters, plan, {
+          event(result) {
+            if (closed || !isCurrentGeneration(windowId, generation)) return;
+            observe(windowId, [result]);
+            sink.event(result);
+          },
+          closed(reason) {
+            if (closed || !isCurrentGeneration(windowId, generation)) return;
+            closed = true;
+            sink.closed(reason);
+          },
+        });
+        return { close() { closed = true; subscription.close(); } };
+      }) as StreamingOutboxRouter['subscribeWithPlan'] } : {}),
+      ...(planned.planPublish ? { planPublish: planned.planPublish.bind(router) } : {}),
+      ...(planned.publishWithPlan ? { publishWithPlan: planned.publishWithPlan.bind(router) } : {}),
       async query(filters, queryOptions) {
         const result = await router.query(filters, queryOptions);
         observe(windowId, result.events);
