@@ -41,9 +41,9 @@ See: .planning/PROJECT.md (updated 2026-07-28)
 ## Current Position
 
 Phase: 115 — Firewall final audit complete
-Plan: CI follow-up
-Status: PR #336 open; main conflicts resolved and combined local gates passed.
-Last activity: 2026-10-19 — Verified Node 20 fixture cleanup and main integration; pushing for CI.
+Plan: PR review follow-up
+Status: PR #336 review fixes verified; CONFIG denial/backpressure spec gap explicitly retained.
+Last activity: 2026-10-26 — Validated review fixes with 2,733 unit and 159 Chromium tests; shipping follow-up.
 
 ## Performance Metrics
 
@@ -158,6 +158,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
+| 261026-bd4 | Validate PR 336 review; fix enforceable findings and document spec qualifications | 2026-10-26 | b7ac109f | passed; CONFIG gap documented | [261026-bd4](./quick/261026-bd4-validate-and-fix-every-pr-336-review-fin/) |
 | 261017-wx0 | Use active napplet name as browser page title | 2026-10-17 | bcc0ea60 | passed | [261017-wx0](./quick/261017-wx0-use-the-active-napplet-name-as-the-paja-/) |
 | 261017-vlq | Colored animated Paja controller indicators | 2026-10-17 | 9e8c5a74 | passed | [261017-vlq](./quick/261017-vlq-show-colored-animated-controller-indicat/) |
 | 261013-e5s | Allow experimental domain declarations in Paja with optional fallback and required-domain warnings | 2026-10-13 | 2623b79a | passed | [261013-e5s](./quick/261013-e5s-allow-unknown-optional-capability-domain/) |
