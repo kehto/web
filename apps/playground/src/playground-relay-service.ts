@@ -1,5 +1,7 @@
 import { EventStore } from 'applesauce-core';
-import { RelayPool } from 'applesauce-relay';
+import { createAddressLoader } from 'applesauce-loaders/loaders';
+import { RelayGroup, RelayLiveness, RelayPool } from 'applesauce-relay';
+import { Observable, lastValueFrom, merge, takeUntil, timer, toArray } from 'rxjs';
 import type { NappletMessage, NostrEvent, NostrFilter, RelayPoolHooks, RelayPoolLike } from '@kehto/shell';
 import { createRelayEventResultWithHints, type ServiceHandler } from '@kehto/runtime';
 import type { Nip66Aggregator } from '@kehto/nip/66';
@@ -20,6 +22,14 @@ interface PublishResponse {
   ok: boolean;
   message?: string;
   from: string;
+  error?: unknown;
+}
+
+interface PlaygroundRelayRequestOptions {
+  id?: string;
+  timeout?: number;
+  firstResponseTimeout?: number | false;
+  complete?: ReturnType<typeof RelayGroup.completeAfterFirstRelay>;
 }
 
 interface ObservableLike<T> {
@@ -34,7 +44,7 @@ interface ObservableLike<T> {
 
 interface PlaygroundRelayPool {
   subscription(relayUrls: string[], filters: NostrFilter[], options?: { id?: string }): ObservableLike<NostrEvent>;
-  request(relayUrls: string[], filters: NostrFilter[], options?: { id?: string; timeout?: number }): ObservableLike<NostrEvent>;
+  request(relayUrls: string[], filters: NostrFilter[], options?: PlaygroundRelayRequestOptions): ObservableLike<NostrEvent>;
   publish(relayUrls: string[], event: NostrEvent, options?: { timeout?: number }): Promise<PublishResponse[]> | PublishResponse[] | void;
 }
 
@@ -97,6 +107,8 @@ export function createPlaygroundRelayRuntime(options: PlaygroundRelayRuntimeOpti
 class PlaygroundRelayRuntimeImpl {
   private readonly cache: PlaygroundRelayCache;
   private readonly pool: PlaygroundRelayPool;
+  private readonly ownedPool: RelayPool | null;
+  private readonly ownedLiveness: RelayLiveness | null;
   private readonly eventStore = new EventStore({ verifyEvent: () => true });
   private readonly tracked = new Map<string, TrackedSubscription>();
   private readonly hookTracked = new Map<string, () => void>();
@@ -107,10 +119,20 @@ class PlaygroundRelayRuntimeImpl {
   private readonly nip66Aggregator: Nip66Aggregator | null;
   private readonly relayActivity = new Map<string, PlaygroundRelayActivityRecord>();
   private relayActivitySequence = 0;
+  private destroyed = false;
 
   constructor(options: PlaygroundRelayRuntimeOptions) {
     this.cache = options.cache;
-    this.pool = options.relayPool ?? new RelayPool() as PlaygroundRelayPool;
+    if (options.relayPool) {
+      this.pool = options.relayPool;
+      this.ownedPool = null;
+      this.ownedLiveness = null;
+    } else {
+      // In-memory liveness only: the playground is ephemeral, so no storage is passed.
+      this.ownedLiveness = new RelayLiveness();
+      this.ownedPool = new RelayPool({ liveness: this.ownedLiveness });
+      this.pool = this.ownedPool as PlaygroundRelayPool;
+    }
     this.nip66Aggregator = options.nip66Aggregator ?? null;
     this.config = {
       ...DEFAULT_PLAYGROUND_RELAY_SELECTION,
@@ -171,15 +193,13 @@ class PlaygroundRelayRuntimeImpl {
           this.pool.publish(relayUrls, event as NostrEvent, { timeout: this.publishTimeoutMs }),
         );
         if (Array.isArray(responses) && !responses.some((response) => response.ok)) {
-          throw new Error(
-            responses.find((response) => response.message)?.message ?? 'publish failed',
-          );
+          throw new Error(publishFailureText(responses));
         }
       },
       request: (relayUrls, filters) => ({
         subscribe: (observer) => {
           this.recordRelayAccess(relayUrls, 'request');
-          return this.pool.request(relayUrls, filters as NostrFilter[], { timeout: this.requestTimeoutMs }).subscribe({
+          return this.pool.request(relayUrls, filters as NostrFilter[], this.requestOptions()).subscribe({
             next: (event: unknown) => {
               this.recordRelayEvents(relayUrls, 1);
               observer.next?.(event);
@@ -276,6 +296,8 @@ class PlaygroundRelayRuntimeImpl {
           this.recordRelayEvents(relays, 1);
           deliver(event, relays);
         },
+        // v7 subscriptions never emit EOSE (hence the local timer) and error with
+        // RelayGroupError once every relay fails; that is reported as relay.eose.
         error: () => sendEose(),
         complete: () => sendEose(),
       });
@@ -308,7 +330,7 @@ class PlaygroundRelayRuntimeImpl {
     const responses = await this.publishToRelays(relays, event);
     const ok = responses.some((response) => response.ok);
     if (!ok) {
-      const error = responses.find((response) => response.message)?.message ?? 'publish failed';
+      const error = publishFailureText(responses);
       send({ type: 'relay.publish.result', id, ok: false, error } as NappletMessage);
       return;
     }
@@ -358,11 +380,56 @@ class PlaygroundRelayRuntimeImpl {
     ]);
     if (indexers.length === 0) return result;
 
-    const events = await this.requestRelays(indexers, [
-      { kinds: [10002], authors: missingAfterCache, limit: missingAfterCache.length },
-    ]);
-    absorb(events);
+    // No cacheRequest is given to the loader: worker-cache reads/writes stay behind !skipCache.
+    const loader = createAddressLoader(
+      (relays, filters) => this.requestEvents(relays, filters as NostrFilter[]),
+      { eventStore: this.eventStore, lookupRelays: indexers, bufferTime: 0 },
+    );
+    try {
+      const events = await lastValueFrom(
+        merge(...missingAfterCache.map((pubkey) => loader({ kind: 10002, pubkey }))).pipe(
+          takeUntil(timer(this.requestTimeoutMs)),
+          toArray(),
+        ),
+      );
+      absorb(events as NostrEvent[]);
+    } catch {
+      // Best-effort: relay selection falls back to defaults when lookups fail.
+    } finally {
+      loader.stop();
+    }
     return result;
+  }
+
+  private requestOptions(): PlaygroundRelayRequestOptions {
+    return {
+      timeout: this.requestTimeoutMs,
+      firstResponseTimeout: this.requestTimeoutMs,
+      complete: RelayGroup.completeAfterFirstRelay(this.requestTimeoutMs),
+    };
+  }
+
+  /** Adapts the (possibly injected) pool to an rxjs Observable while recording relay activity. */
+  private requestEvents(relays: string[], filters: NostrFilter[]): Observable<NostrEvent> {
+    return new Observable<NostrEvent>((subscriber) => {
+      this.recordRelayAccess(relays, 'request');
+      try {
+        const handle = this.pool.request(relays, filters, this.requestOptions()).subscribe({
+          next: (event) => {
+            this.recordRelayEvents(relays, 1);
+            subscriber.next(event);
+          },
+          error: (error?: unknown) => subscriber.error(error),
+          complete: () => subscriber.complete(),
+        });
+        return () => {
+          try { handle.unsubscribe(); } catch { /* best-effort */ }
+        };
+      } catch (error) {
+        subscriber.error(error);
+        return undefined;
+      }
+    });
   }
 
   private selectRelayTier(filters: NostrFilter[]): string[] {
@@ -394,45 +461,13 @@ class PlaygroundRelayRuntimeImpl {
     }
   }
 
-  private async requestRelays(relays: string[], filters: NostrFilter[]): Promise<NostrEvent[]> {
-    if (relays.length === 0) return [];
-    this.recordRelayAccess(relays, 'request');
-    return new Promise((resolve) => {
-      const events: NostrEvent[] = [];
-      let done = false;
-      let handle: { unsubscribe(): void } | undefined;
-      const finish = () => {
-        if (done) return;
-        done = true;
-        clearTimeout(timer);
-        try { handle?.unsubscribe(); } catch { /* best-effort */ }
-        resolve(events);
-      };
-      const timer = setTimeout(finish, this.requestTimeoutMs);
-      try {
-        handle = this.pool.request(relays, filters, { timeout: this.requestTimeoutMs }).subscribe({
-          next: (event) => {
-            events.push(event);
-            this.recordRelayEvents(relays, 1);
-          },
-          error: finish,
-          complete: finish,
-        });
-      } catch {
-        finish();
-      }
-    });
-  }
-
   private async publishToRelays(relays: string[], event: NostrEvent): Promise<PublishResponse[]> {
     if (relays.length === 0) return [];
     this.recordRelayAccess(relays, 'publish');
     try {
-      const response = await Promise.race([
-        Promise.resolve(this.pool.publish(relays, event, { timeout: this.publishTimeoutMs })),
-        new Promise<PublishResponse[]>((resolve) => setTimeout(() => resolve([]), this.publishTimeoutMs)),
-      ]);
-      return Array.isArray(response) ? response as PublishResponse[] : [];
+      // v7 converts each relay timeout into an { ok: false } response, so no outer race is needed.
+      const response = await Promise.resolve(this.pool.publish(relays, event, { timeout: this.publishTimeoutMs }));
+      return Array.isArray(response) ? response : [];
     } catch {
       return [];
     }
@@ -454,9 +489,15 @@ class PlaygroundRelayRuntimeImpl {
   }
 
   private destroy(): void {
+    if (this.destroyed) return;
+    this.destroyed = true;
     for (const subKey of this.tracked.keys()) this.closeSubscription(subKey);
     for (const cleanup of this.hookTracked.values()) cleanup();
     this.hookTracked.clear();
+    // Only resources created here are released; an injected pool belongs to the caller.
+    this.ownedPool?.close();
+    this.ownedLiveness?.destroy();
+    this.eventStore.dispose();
   }
 
   private getRelayActivity(limit = 5): PlaygroundRelayActivityEntry[] {
@@ -510,6 +551,17 @@ class PlaygroundRelayRuntimeImpl {
     }
     return entry;
   }
+}
+
+function publishFailureText(responses: readonly PublishResponse[]): string {
+  const message = responses.find((response) => typeof response.message === 'string' && response.message.length > 0)?.message;
+  if (message) return message;
+  for (const response of responses) {
+    const { error } = response;
+    if (error instanceof Error && error.message) return error.message;
+    if (typeof error === 'string' && error.length > 0) return error;
+  }
+  return 'publish failed';
 }
 
 function areFiniteLimitsSatisfied(filters: readonly NostrFilter[], events: readonly NostrEvent[]): boolean {

@@ -48,7 +48,7 @@ Phase: 107 (Paja Intent Deep Links) — COMPLETE
 Plan: 4 of 4
 Status: Shipped as open PR #289 — https://github.com/kehto/web/pull/289. No merge or release performed.
 
-Last activity: 2026-10-20 — Resolved all-kind NIP-5D loading: root coordinates and distinct snapshot tabs; 2,270 unit and 142 browser tests passed.
+Last activity: 2026-10-23 — Completed quick task 261023-oqs: playground relay service on applesauce v7; 2,274 unit and 148 browser tests passed.
 
 ## Performance Metrics
 
@@ -257,6 +257,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 261006-ift | Foreground a reused intent handler tab for every behavior.focus hint | 2026-10-06 | e99451be / 4ebf3604 / da8dc309 / 99c7488c | Verified | [261006-ift-foreground-intent-tabs](./quick/261006-ift-foreground-intent-tabs/) |
 | 261009-gxe | Canonical intent delivery with tracked, warned compatibility; AGENTS policy separate in #284 | 2026-10-09 | 05d3e013 | Verified | [261009-gxe](./quick/261009-gxe-migrate-pr-277-intent-delivery-to-intent/) |
 | 261009-h66 | Require compatibility warnings, tracking and tests in AGENTS | 2026-10-09 | 3c595776 | Verified | [261009-h66](./quick/261009-h66-require-tracked-and-tested-backwards-com/) |
+| 261023-oqs | Upgrade playground relay service to applesauce v7 | 2026-10-23 | 40154766 | Verified | [261023-oqs](./quick/261023-oqs-upgrade-playground-relay-service-to-appl/) |
 
 | 260930-gbm | Enforce NIP-5D CSP in shell with validated host overrides | 2026-09-30 | 375b1ee | Verified | [260930-gbm-enforce-nip-5d-csp-in-shell-with-validat](./quick/260930-gbm-enforce-nip-5d-csp-in-shell-with-validat/) |
 | 261009-j8y | Resolve PR #272 conflicts while preserving CSP and local-file admission | 2026-10-09 | 17e3d108 | Verified | [261009-j8y](./quick/261009-j8y-resolve-pr-272-conflicts-with-current-ma/) |

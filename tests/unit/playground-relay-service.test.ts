@@ -1,4 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { EventStore } from 'applesauce-core';
+import { RelayLiveness, RelayPool } from 'applesauce-relay';
+import { Observable } from 'rxjs';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { NappletMessage, NostrEvent, NostrFilter } from '@kehto/shell';
 import type { Nip66Aggregator } from '@kehto/nip/66';
 import {
@@ -21,8 +24,10 @@ const SELECTION: PlaygroundRelaySelectionConfig = {
 
 interface FakePoolLog {
   requests: Array<{ relays: string[]; filters: NostrFilter[] }>;
+  requestOptions: unknown[];
   subscriptions: Array<{ relays: string[]; filters: NostrFilter[] }>;
   publishes: Array<{ relays: string[]; event: NostrEvent }>;
+  order: Array<'request' | 'subscription'>;
 }
 
 function event(partial: Partial<NostrEvent>): NostrEvent {
@@ -80,36 +85,34 @@ function createAggregator(groups: Record<string, string[]>): Nip66Aggregator {
 function createPool(options: {
   requestEvents?: readonly NostrEvent[];
   subscriptionEvents?: readonly NostrEvent[];
-  publishResponses?: Array<{ ok: boolean; message?: string; from: string }>;
+  publishResponses?: Array<{ ok: boolean; message?: string; from: string; error?: unknown }>;
+  onSubscriptionTeardown?: () => void;
+  close?: () => void;
 } = {}) {
-  const log: FakePoolLog = { requests: [], subscriptions: [], publishes: [] };
+  const log: FakePoolLog = { requests: [], requestOptions: [], subscriptions: [], publishes: [], order: [] };
   const pool = {
     log,
+    close: options.close ?? (() => {}),
     subscription(relays: string[], filters: NostrFilter[]) {
       log.subscriptions.push({ relays, filters });
-      return {
-        subscribe(observer: { next?: (event: NostrEvent) => void; complete?: () => void } | ((event: NostrEvent) => void)) {
-          queueMicrotask(() => {
-            for (const item of options.subscriptionEvents ?? []) {
-              if (typeof observer === 'function') observer(item);
-              else observer.next?.(item);
-            }
-          });
-          return { unsubscribe() {} };
-        },
-      };
+      log.order.push('subscription');
+      return new Observable<NostrEvent>((subscriber) => {
+        queueMicrotask(() => {
+          for (const item of options.subscriptionEvents ?? []) subscriber.next(item);
+        });
+        return () => options.onSubscriptionTeardown?.();
+      });
     },
-    request(relays: string[], filters: NostrFilter[]) {
+    request(relays: string[], filters: NostrFilter[], requestOptions?: unknown) {
       log.requests.push({ relays, filters });
-      return {
-        subscribe(observer: { next?: (event: NostrEvent) => void; complete?: () => void; error?: (error: unknown) => void }) {
-          queueMicrotask(() => {
-            for (const item of options.requestEvents ?? []) observer.next?.(item);
-            observer.complete?.();
-          });
-          return { unsubscribe() {} };
-        },
-      };
+      log.requestOptions.push(requestOptions);
+      log.order.push('request');
+      return new Observable<NostrEvent>((subscriber) => {
+        queueMicrotask(() => {
+          for (const item of options.requestEvents ?? []) subscriber.next(item);
+          subscriber.complete();
+        });
+      });
     },
     publish(relays: string[], item: NostrEvent) {
       log.publishes.push({ relays, event: item });
@@ -153,6 +156,10 @@ async function waitFor(assertion: () => void | boolean): Promise<void> {
   throw new Error('condition not satisfied');
 }
 
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 describe('playground relay service', () => {
   it('resolves missing NIP-65 mailboxes through Indexer relays before author subscriptions', async () => {
     const pool = createPool({
@@ -177,8 +184,10 @@ describe('playground relay service', () => {
     });
     expect(pool.log.requests[0]).toEqual({
       relays: ['wss://nip66.indexer', 'wss://fallback.indexer'],
-      filters: [{ kinds: [10002], authors: ['alice'], limit: 1 }],
+      // The applesauce v7 address loader builds replaceable-pointer filters without a limit.
+      filters: [{ kinds: [10002], authors: ['alice'] }],
     });
+    expect(pool.log.order).toEqual(['request', 'subscription']);
     expect(pool.log.subscriptions[0]?.relays).toContain('wss://alice.write');
     expect(pool.log.subscriptions[0]?.relays).not.toContain('wss://alice.read');
   });
@@ -398,5 +407,88 @@ describe('playground relay service', () => {
     expect(sends[0]).not.toHaveProperty('eventId');
     expect(sends[0]).not.toHaveProperty('accepted');
     expect(sends[0]).not.toHaveProperty('message');
+  });
+
+  it('passes v7 request options to every pool.request', async () => {
+    const pool = createPool({ requestEvents: [mailbox('alice', [['wss://alice.write', 'write']])] });
+    const runtime = createRuntime({ relayPool: pool as PlaygroundRelayRuntimeOptions['relayPool'] });
+
+    runtime.relayService.handleMessage(
+      'window-a',
+      { type: 'relay.subscribe', subId: 'sub-a', filters: [{ kinds: [1], authors: ['alice'] }] } as NappletMessage,
+      () => {},
+    );
+
+    await waitFor(() => expect(pool.log.requestOptions).toHaveLength(1));
+    expect(pool.log.requestOptions[0]).toMatchObject({
+      timeout: 25,
+      firstResponseTimeout: 25,
+      complete: expect.any(Function),
+    });
+  });
+
+  it('reports the relay error text when every relay rejects without a message', async () => {
+    const cache = createCache([mailbox('alice', [['wss://alice.write', 'write']])]);
+    const pool = createPool({
+      publishResponses: [{ ok: false, from: 'wss://alice.write', error: new Error('rate-limited') }],
+    });
+    const sends: NappletMessage[] = [];
+    const runtime = createRuntime({ cache, relayPool: pool as PlaygroundRelayRuntimeOptions['relayPool'] });
+
+    runtime.relayService.handleMessage(
+      'window-a',
+      { type: 'relay.publish', id: 'publish-c', event: event({ id: '6'.repeat(64), pubkey: 'alice' }) } as NappletMessage,
+      (message) => sends.push(message),
+    );
+
+    await waitFor(() => expect(sends).toHaveLength(1));
+    expect(sends[0]).toEqual({
+      type: 'relay.publish.result',
+      id: 'publish-c',
+      ok: false,
+      error: 'rate-limited',
+    });
+    for (const key of ['message', 'accepted', 'event', 'eventId']) {
+      expect(sends[0]).not.toHaveProperty(key);
+    }
+  });
+
+  it('destroy() unsubscribes and leaves an injected pool open', async () => {
+    const teardown = vi.fn();
+    const close = vi.fn();
+    const pool = createPool({ onSubscriptionTeardown: teardown, close });
+    const runtime = createRuntime({ relayPool: pool as PlaygroundRelayRuntimeOptions['relayPool'] });
+
+    runtime.relayService.handleMessage(
+      'window-a',
+      {
+        type: 'relay.subscribe',
+        subId: 'sub-a',
+        filters: [{ kinds: [1] }],
+        relay: 'wss://explicit.test',
+      } as NappletMessage,
+      () => {},
+    );
+    await waitFor(() => expect(pool.log.subscriptions).toHaveLength(1));
+
+    runtime.destroy();
+    expect(() => runtime.destroy()).not.toThrow();
+
+    expect(teardown).toHaveBeenCalledTimes(1);
+    expect(close).not.toHaveBeenCalled();
+  });
+
+  it('destroy() closes the owned pool, liveness and store exactly once', () => {
+    const closePool = vi.spyOn(RelayPool.prototype, 'close');
+    const destroyLiveness = vi.spyOn(RelayLiveness.prototype, 'destroy');
+    const disposeStore = vi.spyOn(EventStore.prototype, 'dispose');
+    const runtime = createPlaygroundRelayRuntime({ cache: createCache(), selection: SELECTION });
+
+    runtime.destroy();
+    runtime.destroy();
+
+    expect(closePool).toHaveBeenCalledTimes(1);
+    expect(destroyLiveness).toHaveBeenCalledTimes(1);
+    expect(disposeStore).toHaveBeenCalledTimes(1);
   });
 });
