@@ -262,9 +262,8 @@ export function createRelayPoolService(options: RelayPoolServiceOptions): RelayP
     void (async (): Promise<void> => {
       try {
         if (signal.aborted) return;
-        await (options.publishToRelays
-          ? options.publishToRelays(plan.relayUrls, event)
-          : options.publish(event));
+        if (!options.publishToRelays) throw new Error('relay adapter cannot enforce approved destinations');
+        await options.publishToRelays(plan.relayUrls, event);
         if (signal.aborted) return;
         send({
           type: resultType,

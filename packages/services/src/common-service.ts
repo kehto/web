@@ -333,4 +333,3 @@ export function createCommonService(options: CommonServiceOptions = {}): Service
     onPermissionRevoked(windowId): void { generations.delete(windowId); },
   };
 }
-

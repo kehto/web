@@ -34,7 +34,7 @@
  */
 
 import type { EventTemplate, NappletMessage, NostrEvent, NostrFilter } from '@napplet/core';
-import type { RelayEventResult, ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
+import type { ApprovalSignal, RelayEventResult, ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
 
 /** Outbox service version — follows semver. */
 const OUTBOX_SERVICE_VERSION = '1.0.0';
@@ -185,7 +185,7 @@ export interface StreamingOutboxRouter extends OutboxRouter {
   /** Resolve the exact relay destinations for a read without contacting them. */
   planRead?(filters: NostrFilter[], options?: OutboxQueryOptions): Promise<OutboxRelayPlan>;
   /** Execute a previously resolved read plan without discovery or fallback expansion. */
-  queryWithPlan?(filters: NostrFilter[], options: OutboxQueryOptions | undefined, plan: OutboxRelayPlan): Promise<OutboxResult>;
+  queryWithPlan?(filters: NostrFilter[], options: OutboxQueryOptions | undefined, plan: OutboxRelayPlan, signal?: ApprovalSignal): Promise<OutboxResult>;
   /** Resolve publish fanout from the signer identity before signature creation. */
   planPublish?(options?: OutboxPublishOptions): Promise<OutboxRelayPlan>;
   publishWithPlan?(template: EventTemplate, plan: OutboxRelayPlan): Promise<OutboxPublishResult>;
@@ -354,19 +354,53 @@ function sendEventResult(id: string, eventId: string, result: OutboxEventResult,
   } as NappletMessage);
 }
 
-function handleGetEvent(router: OutboxRouter, msg: NappletMessage, send: Send): void {
+function handleGetEvent(actions: OutboxActions, windowId: string, msg: NappletMessage, send: Send): void {
   const m = msg as NappletMessage & { id?: string; eventId?: unknown; options?: unknown };
   const id = m.id ?? '';
   if (typeof m.eventId !== 'string' || m.eventId.length === 0) {
     send({ type: 'outbox.getEvent.result', id, error: 'invalid filter' } as NappletMessage);
     return;
   }
-  const getEvent = router.getEvent ?? ((eventId, eventOptions) => fallbackGetEvent(router, eventId, eventOptions));
-  void getEvent(m.eventId, sanitizeEventOptions(m.options))
-    .then((result) => sendEventResult(id, m.eventId as string, result, send))
-    .catch((err) =>
-      send({ type: 'outbox.getEvent.result', id, error: toErrorMessage(err) } as NappletMessage),
-    );
+  const eventId = m.eventId;
+  const runtime = actions.runtimeContext();
+  const router = actions.getReadRouter?.(windowId, runtime) ?? actions.router;
+  const options = sanitizeEventOptions(m.options);
+  const { filter, queryOptions } = buildEventQuery(eventId, options);
+  const operation = runtime?.authorizeOperation
+    ? queryApproved(router, runtime, windowId, 'outbox.getEvent', [filter], queryOptions)
+      .then((result) => eventResultFromQuery(eventId, result))
+    : (actions.warnLegacy(), router.getEvent ? router.getEvent(eventId, options) : fallbackGetEvent(router, eventId, options));
+  void operation
+    .then((result) => sendEventResult(id, eventId, result, send))
+    .catch((err) => send({ type: 'outbox.getEvent.result', id, error: toErrorMessage(err) } as NappletMessage));
+}
+
+function capturePlan(plan: OutboxRelayPlan): OutboxRelayPlan {
+  const captured = { ...plan, relays: [...plan.relays] };
+  Object.freeze(captured.relays);
+  return Object.freeze(captured);
+}
+
+async function queryApproved(
+  router: OutboxRouter,
+  runtime: ServiceRuntimeContext,
+  windowId: string,
+  operation: string,
+  filters: NostrFilter[],
+  options: OutboxQueryOptions | undefined,
+): Promise<OutboxResult> {
+  const planned = router as StreamingOutboxRouter;
+  if (!planned.planRead || !planned.queryWithPlan) return { events: [], error: 'policy denied' };
+  const plan = capturePlan(await planned.planRead(filters, options));
+  const outcome = await runtime.authorizeOperation!(windowId, operation, [
+    { category: 'interface', domain: 'outbox', operation: 'access', scope: { kind: 'exact', value: 'outbox' } },
+    ...plan.relays.map((url) => ({ category: 'network' as const, domain: 'outbox', operation, scope: { kind: 'origin' as const, value: new URL(url).origin } })),
+  ], async (signal) => {
+    if (signal.aborted) return { events: [], error: 'policy denied' };
+    const result = await planned.queryWithPlan!(filters, options, plan, signal);
+    return signal.aborted ? { events: [], error: 'policy denied' } : result;
+  });
+  return outcome.status === 'executed' && outcome.value ? outcome.value : { events: [], error: 'policy denied' };
 }
 
 interface OutboxActions {
@@ -375,6 +409,7 @@ interface OutboxActions {
   readonly getQueryRouter: OutboxServiceOptions['getQueryRouter'];
   readonly runtimeContext: () => ServiceRuntimeContext | undefined;
   readonly subscriptions: Map<string, OutboxRouterSubscription>;
+  readonly warnLegacy: () => void;
 }
 
 function handleQuery(actions: OutboxActions, windowId: string, msg: NappletMessage, send: Send): void {
@@ -391,13 +426,9 @@ function handleQuery(actions: OutboxActions, windowId: string, msg: NappletMessa
     ?? getReadRouter?.(windowId, runtimeContext)
     ?? router;
   const queryOptions = sanitizeQueryOptions(m.options);
-  const planned = queryRouter as StreamingOutboxRouter;
-  const operation = planned.planRead && planned.queryWithPlan && runtimeContext?.authorizeOperation
-    ? planned.planRead(filters, queryOptions).then((plan) => runtimeContext!.authorizeOperation!(windowId, 'outbox.query', [
-      { category: 'interface', domain: 'outbox', operation: 'access', scope: { kind: 'exact', value: 'outbox' } },
-      ...plan.relays.map((url) => ({ category: 'network' as const, domain: 'outbox', operation: 'outbox.query', scope: { kind: 'origin' as const, value: new URL(url).origin } })),
-    ], (signal) => signal.aborted ? { events: [], error: 'policy denied' } : planned.queryWithPlan!(filters, queryOptions, plan)).then((outcome) => outcome.status === 'executed' && outcome.value ? outcome.value : { events: [], error: 'policy denied' }))
-    : queryRouter.query(filters, queryOptions);
+  const operation = runtimeContext?.authorizeOperation
+    ? queryApproved(queryRouter, runtimeContext, windowId, 'outbox.query', filters, queryOptions)
+    : (actions.warnLegacy(), queryRouter.query(filters, queryOptions));
   void operation
     .then((result) =>
       send({
@@ -443,7 +474,7 @@ function handleSubscribe(actions: OutboxActions, windowId: string, msg: NappletM
   const subscribeOptions = sanitizeSubscribeOptions(m.options);
   const planned = readRouter as StreamingOutboxRouter;
   if (planned.planRead && planned.subscribeWithPlan && runtimeContext?.authorizeOperation) {
-    void planned.planRead(filters, subscribeOptions).then((plan) => runtimeContext!.authorizeOperation!(windowId, 'outbox.subscribe', [
+    void planned.planRead(filters, subscribeOptions).then(capturePlan).then((plan) => runtimeContext!.authorizeOperation!(windowId, 'outbox.subscribe', [
       { category: 'interface', domain: 'outbox', operation: 'access', scope: { kind: 'exact', value: 'outbox' } },
       ...plan.relays.map((url) => ({ category: 'network' as const, domain: 'outbox', operation: 'outbox.subscribe', scope: { kind: 'origin' as const, value: new URL(url).origin } })),
     ], (signal) => {
@@ -455,6 +486,11 @@ function handleSubscribe(actions: OutboxActions, windowId: string, msg: NappletM
     }).catch(() => send({ type: 'outbox.closed', subId, reason: 'policy denied' } as NappletMessage));
     return;
   }
+  if (runtimeContext?.authorizeOperation) {
+    send({ type: 'outbox.closed', subId, reason: 'policy denied' } as NappletMessage);
+    return;
+  }
+  actions.warnLegacy();
   subscriptions.set(subKey, readRouter.subscribe(filters, subscribeOptions, sink));
 }
 
@@ -481,11 +517,13 @@ function handlePublish(actions: OutboxActions, windowId: string, msg: NappletMes
   const publishOptions = sanitizePublishOptions(m.options);
   const planned = router as StreamingOutboxRouter;
   const operation = planned.planPublish && planned.publishWithPlan && runtimeContext?.authorizeOperation
-    ? planned.planPublish(publishOptions).then((plan) => runtimeContext!.authorizeOperation!(windowId, 'outbox.publish', [
+    ? planned.planPublish(publishOptions).then(capturePlan).then((plan) => runtimeContext!.authorizeOperation!(windowId, 'outbox.publish', [
       { category: 'interface', domain: 'outbox', operation: 'access', scope: { kind: 'exact', value: 'outbox' } },
       ...plan.relays.map((url) => ({ category: 'network' as const, domain: 'outbox', operation: 'outbox.publish', scope: { kind: 'origin' as const, value: new URL(url).origin } })),
     ], (signal) => signal.aborted ? { ok: false, error: 'policy denied' } : planned.publishWithPlan!(m.event!, plan)).then((outcome) => outcome.status === 'executed' && outcome.value ? outcome.value : { ok: false, error: 'policy denied' }))
-    : router.publish(m.event, publishOptions);
+    : runtimeContext?.authorizeOperation
+      ? Promise.resolve({ ok: false, error: 'policy denied' } as OutboxPublishResult)
+      : (actions.warnLegacy(), router.publish(m.event, publishOptions));
   void operation
     .then((result) =>
       send({
@@ -538,7 +576,13 @@ export function createOutboxService(options: OutboxServiceOptions): ServiceHandl
   // Active subscriptions keyed by `windowId:subId` for lifecycle management.
   const subscriptions = new Map<string, OutboxRouterSubscription>();
 
-  const actions: OutboxActions = { router, getReadRouter, getQueryRouter, runtimeContext: () => runtimeContext, subscriptions };
+  let warnedLegacy = false;
+  const warnLegacy = (): void => {
+    if (warnedLegacy) return;
+    warnedLegacy = true;
+    console.warn('[FW-OUTBOX-LEGACY-001] Configure RuntimeAdapter.permissions and immutable OUTBOX relay planning; unapproved router execution is deprecated. Warning once per service instance.');
+  };
+  const actions: OutboxActions = { router, getReadRouter, getQueryRouter, runtimeContext: () => runtimeContext, subscriptions, warnLegacy };
 
   return {
     descriptor: OUTBOX_DESCRIPTOR,
@@ -559,7 +603,7 @@ export function createOutboxService(options: OutboxServiceOptions): ServiceHandl
     handleMessage(windowId: string, message: NappletMessage, send: Send): void {
       switch (message.type) {
         case 'outbox.getEvent':
-          handleGetEvent(getReadRouter?.(windowId, runtimeContext) ?? router, message, send);
+          handleGetEvent(actions, windowId, message, send);
           return;
         case 'outbox.query':
           handleQuery(actions, windowId, message, send);

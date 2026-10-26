@@ -66,6 +66,7 @@ describe('createCoordinatedRelay', () => {
       relayPool: {
         subscribe: vi.fn(() => ({ unsubscribe() { /* no-op */ } })),
         publish,
+        publishToRelays: (_urls, event) => publish(event),
         selectRelayTier: vi.fn(() => []),
         isAvailable: () => true,
       },
@@ -103,6 +104,7 @@ describe('createCoordinatedRelay', () => {
       relayPool: {
         subscribe: vi.fn(() => ({ unsubscribe() { /* no-op */ } })),
         publish,
+        publishToRelays: (_urls, event) => publish(event),
         selectRelayTier: vi.fn(() => []),
         isAvailable: () => false,
       },

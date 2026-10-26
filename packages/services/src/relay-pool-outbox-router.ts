@@ -35,9 +35,9 @@
  * @packageDocumentation
  */
 
+import { allowed, deriveAuthors, resolvePlan, resolveRequiredRelays } from './relay-pool-outbox-planning.js';
 import type { EventTemplate, NostrEvent, NostrFilter } from '@napplet/core';
-import { createRelayEventResultWithHints } from '@kehto/runtime';
-import type { RelayEventResult } from '@kehto/runtime';
+import { createRelayEventResultWithHints, type ApprovalSignal, type RelayEventResult } from '@kehto/runtime';
 import type {
   OutboxResult,
   OutboxPublishResult,
@@ -62,7 +62,6 @@ import type {
   PublishTargetResolution,
   RelayListEntry,
   RelayPoolOutboxRouterOptions,
-  RequiredRelayResolution,
   RouterCtx,
 } from './relay-pool-outbox-types.js';
 
@@ -83,109 +82,6 @@ const DEFAULT_QUERY_TIMEOUT_MS = 4000;
 /** Default relay gate: only ws(s):// URLs are permitted. */
 function defaultRelayAllowed(url: string): boolean {
   return typeof url === 'string' && (url.startsWith('wss://') || url.startsWith('ws://'));
-}
-
-/** Collect a deduplicated author set from filters + explicit option hints. */
-function deriveAuthors(filters: NostrFilter[], optionAuthors?: string[]): string[] {
-  const authors = new Set<string>();
-  for (const filter of filters) {
-    for (const author of filter.authors ?? []) authors.add(author);
-  }
-  for (const author of optionAuthors ?? []) authors.add(author);
-  return [...authors];
-}
-
-/** Apply the relay gate to a candidate set, deduplicating. */
-function allowed(ctx: RouterCtx, urls: Iterable<string>): string[] {
-  const out = new Set<string>();
-  for (const url of urls) {
-    if (ctx.isRelayAllowed(url)) out.add(url);
-  }
-  return [...out];
-}
-
-async function resolveRequiredRelays(
-  ctx: RouterCtx,
-  pubkeys: string[],
-  direction: 'read' | 'write',
-): Promise<RequiredRelayResolution> {
-  const useWrite = direction === 'read';
-  const relays = new Set<string>();
-  const missingAuthors: string[] = [];
-  const deniedAuthors: string[] = [];
-  const uniquePubkeys = [...new Set(pubkeys)];
-
-  if (uniquePubkeys.length === 0) return { relays: [], missingAuthors, deniedAuthors };
-
-  const lists = await ctx.loadRelayLists(uniquePubkeys);
-  for (const pubkey of uniquePubkeys) {
-    const entry = lists.get(pubkey);
-    const candidateRelays = entry ? (useWrite ? entry.write : entry.read) : undefined;
-    if (!candidateRelays || candidateRelays.length === 0) {
-      missingAuthors.push(pubkey);
-      continue;
-    }
-
-    const allowedRelays = allowed(ctx, candidateRelays);
-    if (allowedRelays.length === 0) {
-      deniedAuthors.push(pubkey);
-      continue;
-    }
-
-    for (const url of allowedRelays) relays.add(url);
-  }
-
-  return { relays: [...relays], missingAuthors, deniedAuthors };
-}
-
-/**
- * Resolve the relay plan for a set of pubkeys. Returns the allowed relay set,
- * its provenance, and any pubkeys whose relay list was unavailable.
- */
-async function resolvePlan(
-  ctx: RouterCtx,
-  pubkeys: string[],
-  direction: 'read' | 'write',
-  relayHints?: string[],
-): Promise<OutboxRelayPlan> {
-  const useWrite = direction === 'read';
-  const discovered = new Set<string>();
-  const missingAuthors: string[] = [];
-  let sawNip65 = false;
-
-  if (pubkeys.length > 0) {
-    const lists = await ctx.loadRelayLists(pubkeys);
-    for (const pubkey of pubkeys) {
-      const entry = lists.get(pubkey);
-      const relays = entry ? (useWrite ? entry.write : entry.read) : undefined;
-      if (relays && relays.length > 0) {
-        sawNip65 = true;
-        for (const url of relays) discovered.add(url);
-      } else {
-        missingAuthors.push(pubkey);
-      }
-    }
-  }
-
-  const hintRelays = allowed(ctx, relayHints ?? []);
-  let relays = allowed(ctx, discovered);
-  let source: OutboxRelayPlan['source'];
-  if (relays.length > 0) {
-    source = sawNip65 ? 'nip65' : 'policy';
-  } else {
-    relays = allowed(ctx, ctx.fallbackRelays);
-    source = relays.length > 0 ? 'fallback' : 'policy';
-  }
-
-  // Relay hints from the napplet augment the host-owned plan, subject to the relay gate.
-  for (const url of hintRelays) {
-    if (!relays.includes(url)) relays.push(url);
-  }
-  if (relays.length === 0) source = 'fallback';
-
-  const plan: OutboxRelayPlan = { relays, source };
-  if (missingAuthors.length > 0) plan.missingAuthors = missingAuthors;
-  return plan;
 }
 
 /** Extract policy-allowed author write relays from already-loaded NIP-65 data. */
@@ -434,17 +330,46 @@ function queryImpl(ctx: RouterCtx, filters: NostrFilter[], options?: OutboxQuery
   return startQueryImpl(ctx, filters, options, { event: () => { /* aggregate only */ } }).result;
 }
 
-function queryPlanImpl(ctx: RouterCtx, filters: NostrFilter[], options: OutboxQueryOptions | undefined, plan: OutboxRelayPlan): Promise<OutboxResult> {
+function queryPlanImpl(ctx: RouterCtx, filters: NostrFilter[], options: OutboxQueryOptions | undefined, plan: OutboxRelayPlan, signal?: ApprovalSignal): Promise<OutboxResult> {
+  if (signal?.aborted) return Promise.resolve({ events: [], error: 'policy denied' });
   if (!ctx.relayPool.isAvailable()) return Promise.resolve({ events: [], incomplete: true, error: 'relay list unavailable' });
   const seen = new Map<string, NostrEvent>();
   const origin: OutboxRelayOrigin = plan.source === 'nip65' ? 'nip65' : plan.source === 'fallback' ? 'fallback' : 'hint';
-  const handles = plan.relays.map((relayUrl) => relayPoolSubscribe(ctx, filters, relayUrl, (item) => {
-    if (item !== 'EOSE') void ctx.verify(item).then((ok) => { if (ok) seen.set(item.id, item); });
-  }, origin));
-  return new Promise((resolve) => setTimeout(() => {
-    for (const handle of handles) handle.unsubscribe();
-    resolve({ events: [...seen.values()].map((event) => createRelayEventResultWithHints(event, plan.relays)) });
-  }, options?.timeoutMs ?? ctx.defaultTimeoutMs));
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const handles: { unsubscribe(): void }[] = [];
+    const cleanup = (): void => {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', abort);
+      for (const handle of handles) {
+        try { handle.unsubscribe(); } catch { /* release the remaining subscriptions */ }
+      }
+    };
+    const finish = (result: OutboxResult): void => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(result);
+    };
+    const abort = (): void => finish({ events: [], error: 'policy denied' });
+    const timer = setTimeout(() => finish({ events: [...seen.values()].map((event) => createRelayEventResultWithHints(event, plan.relays)) }), options?.timeoutMs ?? ctx.defaultTimeoutMs);
+    signal?.addEventListener('abort', abort, { once: true });
+    if (signal?.aborted) { abort(); return; }
+    try {
+      for (const relayUrl of plan.relays) {
+        if (settled) break;
+        const handle = relayPoolSubscribe(ctx, filters, relayUrl, (item) => {
+          if (settled || item === 'EOSE') return;
+          void ctx.verify(item).then((ok) => { if (ok && !settled) seen.set(item.id, item); });
+        }, origin);
+        if (settled) handle.unsubscribe(); else handles.push(handle);
+      }
+    } catch (error) {
+      settled = true;
+      cleanup();
+      reject(error);
+    }
+  });
 }
 
 function subscribePlanImpl(ctx: RouterCtx, filters: NostrFilter[], plan: OutboxRelayPlan, sink: OutboxSubscriptionSink): OutboxRouterSubscription {
@@ -738,7 +663,7 @@ export function createRelayPoolOutboxRouter(options: RelayPoolOutboxRouterOption
 
   return {
     planRead: (filters, queryOptions) => resolvePlan(ctx, deriveAuthors(filters, queryOptions?.authors), 'read', queryOptions?.relays),
-    queryWithPlan: (filters, queryOptions, plan) => queryPlanImpl(ctx, filters, queryOptions, plan),
+    queryWithPlan: (filters, queryOptions, plan, signal) => queryPlanImpl(ctx, filters, queryOptions, plan, signal),
     subscribeWithPlan: (filters, plan, sink) => subscribePlanImpl(ctx, filters, plan, sink),
     planPublish,
     publishWithPlan,

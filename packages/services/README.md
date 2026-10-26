@@ -214,6 +214,26 @@ scope stays host-private; later serial writes and BLE GATT operations are bound
 to the source-owned session and require their own operation approval. Revocation
 closes active device sessions and suppresses late events.
 
+## Approval-aware relay services
+
+With runtime operation authorization, OUTBOX `getEvent`, query, subscribe, and
+publish require immutable relay planning and execution hooks. Missing hooks fail
+closed with the correlated result/closed envelope. `getEvent` uses a planned
+one-event query; its author hint and relay candidates remain subject to the same
+approval as other reads. Planned queries receive an optional `ApprovalSignal`,
+which the reference router uses to close subscriptions and suppress late results.
+Standalone OUTBOX routers without runtime authorization retain the legacy API with
+one `FW-OUTBOX-LEGACY-001` warning per service instance.
+
+Relay pool and coordinated relay services require `publishToRelays` to execute a
+publish plan; a generic `publish` callback cannot guarantee approved destinations.
+Hosts must supply the destination-aware callback before publishing through these
+services.
+
+Theme and identity denials return correlated terminal results. As required by
+NAP-IDENTITY, denied `getPublicKey` returns an empty pubkey without an error;
+other identity reads return their empty result shape with `error`.
+
 ## Outbox Streaming Queries
 
 NAP-OUTBOX is still an open upstream draft ([`napplet/naps` PR #32](https://github.com/napplet/naps/pull/32)). Its wire `outbox.query.result` remains one aggregate response. Hosts using Kehto's concrete router can also consume the same bounded read incrementally without changing the napplet wire protocol:

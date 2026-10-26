@@ -83,6 +83,7 @@ describe('createRelayPoolService', () => {
     const service = createRelayPoolService({
       subscribe: vi.fn(() => ({ unsubscribe() { /* no-op */ } })),
       publish,
+      publishToRelays: (_urls, event) => publish(event),
       selectRelayTier: vi.fn(() => []),
       isAvailable: () => true,
     });
@@ -137,6 +138,7 @@ describe('createRelayPoolService', () => {
     const service = createRelayPoolService({
       subscribe: vi.fn(() => ({ unsubscribe() { /* no-op */ } })),
       publish,
+      publishToRelays: (_urls, event) => publish(event),
       selectRelayTier: vi.fn(() => []),
       isAvailable: () => false,
     });

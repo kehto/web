@@ -170,12 +170,19 @@ export function createThemeService(options: ThemeServiceOptions = {}): ThemeServ
       const id = (message as NappletMessage & { id?: string }).id ?? '';
 
       if (message.type === 'theme.get') {
-        const reply = (): void => send({ type: 'theme.get.result', id, theme: currentTheme } as ThemeGetResultMessage as NappletMessage);
+        let settled = false;
+        const complete = (result: NappletMessage): void => {
+          if (settled) return;
+          settled = true;
+          send(result);
+        };
+        const reply = (): void => complete({ type: 'theme.get.result', id, theme: currentTheme } as ThemeGetResultMessage as NappletMessage);
         if (!runtime?.authorizeOperation) { reply(); return; }
+        const deny = (): void => complete({ type: 'theme.get.result', id, error: 'policy denied' } as NappletMessage);
         void runtime.authorizeOperation(_windowId, 'theme.get', [{ category: 'interface', domain: 'theme', operation: 'access', scope: { kind: 'exact', value: 'theme' } }], async (signal) => {
           if (signal.aborted) throw new Error('user-denied');
           reply();
-        });
+        }).then((outcome) => { if (outcome.status !== 'executed') deny(); }).catch(deny);
         return;
       }
 

@@ -98,9 +98,8 @@ function publishCoordinatedEvent(
   void (async (): Promise<void> => {
     try {
       if (signal.aborted) return;
-      await (options.relayPool.publishToRelays
-        ? options.relayPool.publishToRelays(plan.relayUrls, event)
-        : options.relayPool.publish(event));
+      if (!options.relayPool.publishToRelays) throw new Error('relay adapter cannot enforce approved destinations');
+      await options.relayPool.publishToRelays(plan.relayUrls, event);
       if (signal.aborted) return;
       if (options.cache.isAvailable()) {
         try { options.cache.store(event); } catch { /* cache storage is best-effort */ }

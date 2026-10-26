@@ -443,6 +443,12 @@ export function createIdentityService(options: IdentityServiceOptions): ServiceH
       send: (msg: NappletMessage) => void,
     ): void {
       const generation = generationFor(windowId);
+      let settled = false;
+      const complete = (result: NappletMessage): void => {
+        if (settled || !current(windowId, generation)) return;
+        settled = true;
+        send(result);
+      };
       let snapshotSigner: Signer | null;
       try { snapshotSigner = options.getSigner(); } catch { snapshotSigner = null; }
       const snapshotOptions = { ...options, getSigner: () => snapshotSigner };
@@ -451,9 +457,9 @@ export function createIdentityService(options: IdentityServiceOptions): ServiceH
         // when approval ran. Rechecking the provider also suppresses stale
         // results when sign-out or account replacement races an async read.
         if (!current(windowId, generation)) return;
-        if (!runtime) { send(result); return; }
+        if (!runtime) { complete(result); return; }
         try {
-          if (options.getSigner() === snapshotSigner) send(result);
+          if (options.getSigner() === snapshotSigner) complete(result);
         } catch { /* a failed signer lookup is no longer an attested source */ }
       };
       const run = async (signal?: ApprovalSignal): Promise<void> => {
@@ -464,8 +470,17 @@ export function createIdentityService(options: IdentityServiceOptions): ServiceH
         void run();
         return;
       }
+      const deny = (): void => {
+        if (!current(windowId, generation)) return;
+        // NAP-IDENTITY forbids errors on getPublicKey; all other queries use
+        // their canonical empty result with an error and the original id.
+        handleIdentityServiceMessage({ getSigner: () => null }, message, (result) => complete(
+          message.type === 'identity.getPublicKey' ? result : { ...result, error: 'policy denied' } as NappletMessage,
+        ));
+      };
       void runtime.authorizeOperation(windowId, message.type, requirements(message.type), (signal) => run(signal))
-        .catch(() => undefined);
+        .then((outcome) => { if (outcome.status !== 'executed') deny(); })
+        .catch(deny);
     },
 
     onWindowDestroyed(windowId: string): void {
