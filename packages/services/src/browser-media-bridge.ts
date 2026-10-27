@@ -75,7 +75,7 @@ export function createBrowserMediaBridge(opts: {
 
   let silentAudioEl: HTMLAudioElement | null = null;
   let activeSessionId: string | null = null;
-  let sessionsActive = 0;
+  const sessionsActive = new Set<string>();
   const actionCallbacks = new Set<(sessionId: string, action: MediaAction, value?: number) => void>();
 
   function primeSilentAudio(): void {
@@ -165,12 +165,13 @@ export function createBrowserMediaBridge(opts: {
         return;
       }
       // Prime silent-audio on first session becoming active.
-      if (sessionsActive === 0) { primeSilentAudio(); sessionsActive = 1; }
+      if (sessionsActive.size === 0) primeSilentAudio();
+      sessionsActive.add(sessionId);
       applyActionHandlers(actions ?? DEFAULT_MEDIA_ACTIONS);
     },
-    destroySession(_sessionId) {
-      sessionsActive = Math.max(0, sessionsActive - 1);
-      if (sessionsActive === 0) teardownSilentAudio();
+    destroySession(sessionId) {
+      sessionsActive.delete(sessionId);
+      if (sessionsActive.size === 0) teardownSilentAudio();
     },
   };
 }

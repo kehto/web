@@ -101,6 +101,21 @@ function createMockDocument() {
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('createMediaService', () => {
+  it('keeps the OS media prime until the last registered session retires', () => {
+    const { doc, appended } = createMockDocument();
+    const service = createMediaService({ documentTarget: doc });
+    for (const sessionId of ['first', 'second']) {
+      service.handleMessage(WINDOW_ID, {
+        type: 'media.session.create', id: sessionId, sessionId, owner: 'napplet', capabilities: ['play', 'pause'],
+      } as NappletMessage, () => {});
+    }
+    expect(appended).toHaveLength(1);
+    service.retire('first');
+    expect(appended[0].removed).toBe(false);
+    service.retire('second');
+    expect(appended[0].removed).toBe(true);
+  });
+
   it('returns a ServiceHandler with a media descriptor', () => {
     const service = createMediaService();
     expect(service.descriptor.name).toBe('media');
