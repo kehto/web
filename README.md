@@ -143,8 +143,8 @@ pnpm exec playwright install chromium
 pnpm test:e2e
 ```
 
-Browser tests use Playwright's matching Chromium installation by default, as CI
-does. Set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` only when explicitly testing a
+Browser tests use Playwright's matching full Chromium installation in modern
+headless mode by default, as CI does. Set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` only when explicitly testing a
 different browser executable.
 
 Docs and Pages artifact commands:
