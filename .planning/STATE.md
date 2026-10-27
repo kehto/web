@@ -6,9 +6,9 @@ current_phase: 107
 current_phase_name: Paja Intent Deep Links
 status: completed
 stopped_at: Phase 107 complete; PR 289 open and pushed
-last_updated: "2026-10-10T11:49:59.294913Z"
-last_activity: 2026-10-10
-last_activity_desc: "Shipped Phase 107 as open PR 289"
+last_updated: "2026-10-27T15:56:15.570734+00:00"
+last_activity: 2026-10-27
+last_activity_desc: "Addressed PR 315 CVM timeout review in existing worktree"
 progress:
   total_phases: 7
   completed_phases: 7
@@ -48,7 +48,7 @@ Phase: 107 (Paja Intent Deep Links) — COMPLETE
 Plan: 4 of 4
 Status: Shipped as open PR #289 — https://github.com/kehto/web/pull/289. No merge or release performed.
 
-Last activity: 2026-10-23 — Completed quick task 261023-oqs: playground relay service on applesauce v7; 2,274 unit and 148 browser tests passed.
+Last activity: 2026-10-27 — Completed quick task 261027-nay: address PR #315 CVM timeout review.
 
 ## Performance Metrics
 
@@ -163,6 +163,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
+| 261027-nay | Address PR #315 CVM timeout review | 2026-10-27 | bab52862 | passed (E2E reruns) | [261027-nay](./quick/261027-nay-address-pr-315-cvm-timeout-and-documenta/) |
 | 261026-jp5 | Address PR 316 review feedback and verify readiness | 2026-10-26 | 4fcf564d | passed | [261026-jp5](./quick/261026-jp5-address-pr-316-review-feedback-and-verif/) |
 | 261017-wx0 | Use active napplet name as browser page title | 2026-10-17 | bcc0ea60 | passed | [261017-wx0](./quick/261017-wx0-use-the-active-napplet-name-as-the-paja-/) |
 | 261017-vlq | Colored animated Paja controller indicators | 2026-10-17 | 9e8c5a74 | passed | [261017-vlq](./quick/261017-vlq-show-colored-animated-controller-indicat/) |

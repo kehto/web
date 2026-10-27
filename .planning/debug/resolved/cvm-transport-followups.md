@@ -15,9 +15,9 @@ Choose immediate failure for a boundless close with unresolved buffered gaps;
 contiguous runs already drain when their missing predecessor arrives. Never
 silently report successful closure while discarding buffered chunks.
 
-Raise the reassembly ceiling to 300 seconds, but current NAP-CVM forbids progress
-from resetting request deadlines. Remove that older behavior in the same change
-and verify shorter request timeouts still win. Document outbound oversized-request
+Bound reassembly by the accepted request deadline, at most 300 seconds. Current
+NAP-CVM forbids progress from resetting that deadline. Remove the older extension
+behavior and verify shorter request timeouts still win. Document outbound oversized-request
 limits and host concurrency ownership. Replace per-ID keypair derivation with
 random bytes. These choices update the older report toward current authority.
 
@@ -25,21 +25,42 @@ random bytes. These choices update the older report toward current authority.
 
 Implement and test the five follow-ups, with explicit transport-scope conformance
 and no claim that this patch supplies every newer NAP-CVM session/payment field.
-GSD debug runs inline. The shared fake-clock test prerequisite from #309 is
+GSD debug runs inline. The shared fake-clock test prerequisite from #314 is
 carried before these transport changes.
 
 
 ## Resolution and verification
 
-The transport fails close-with-gaps immediately, allows reassembly through
-300 seconds, and keeps the original request deadline despite progress. Random
+The transport fails close-with-gaps immediately, allows reassembly within the
+remaining request budget (at most 300 seconds), and keeps the original request
+deadline despite progress. Random
 correlation/nonce suffixes now use four random bytes without deriving keys.
 Outbound CEP-22 request chunking and per-napplet concurrency ownership are
 explicitly documented. This is scoped conformance to the checked NAP-CVM
 lifetime rule and CEP-41 reassembly contract, not a claim that all newer
 NAP-CVM session/payment semantics are implemented.
 
-Validation passed: 38 focused CVM tests, 2,160 unit tests / 169 files, build
+Initial checkpoint validation passed: 38 focused CVM tests, 2,160 unit tests / 169 files, build
 (32 tasks), type-check (17 tasks), docs audit (9 packages), 123 Playwright tests,
 and AI-slop 100/100. Existing CEP-41 timing probes now use the fake clock so
 crypto/signing load does not consume their deadline during test preparation.
+
+## PR #315 review corrections
+
+Merged current main, preserving the independent UPLOAD and CVM documentation.
+Timeout validation now rejects malformed values and durations outside 1..300000
+before transport session acquisition, relay subscription, or publication. One
+monotonic deadline covers shared initialization waits, the initialized notification,
+and the final response; timeouts retain `relay timeout`. Expired operations cannot
+continue initialization or deliver late responses/progress even before the timer
+callback runs. The redundant independent transfer expiry timer was removed:
+request expiry already releases the buffers within the specified maximum.
+
+Corrected the 120-second completion test description, removed the brittle entropy
+spy, and cleaned dead JSDoc/spacing. Host concurrency admission remains specified
+SHOULD debt tracked in #355, not a spec gap. No lower host timeout maximum is
+configured, so `timeout out of policy` is inapplicable. Full NAP-CVM session,
+registry, and payment conformance remains outside this transport patch.
+
+Current verification is recorded in quick task
+`261027-nay-address-pr-315-cvm-timeout-and-documenta`.
