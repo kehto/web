@@ -51,6 +51,9 @@ handles OS metadata/action integration; `MediaPlaybackBackend` handles source
 resolution and actual output. `getSessions()`, `subscribe()`, `command()`,
 `getElement()`, and `retire()` allow custom host players. Snapshots contain no
 source bytes or resolved playback URLs. Runtime service removal destroys output.
+The browser OS-controls bridge uses a one-second PCM silence clip for its audio
+prime; an empty WAV has no playable duration. The prime stays until the final
+registered session retires.
 
 ## Napplet setup
 

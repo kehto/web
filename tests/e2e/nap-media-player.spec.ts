@@ -66,6 +66,7 @@ async function exercisePlayer(page: Page, frame: Frame, url: string): Promise<vo
   }, url);
   expect(result.error).toBeUndefined();
   expect(result.owner).toBe('shell');
+  await expect.poll(() => page.locator('[data-kehto-silent-audio-prime]').evaluate((audio: HTMLAudioElement) => audio.duration)).toBe(1);
   const panel = page.locator('[data-kehto-media-player]');
   const row = panel.locator('article', { hasText: 'Playback proof' });
   await expect(row).toBeVisible();

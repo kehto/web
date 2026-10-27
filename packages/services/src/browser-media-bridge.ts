@@ -1,11 +1,24 @@
 import type { MediaAction, MediaMetadata } from '@napplet/nap/media/types';
 import type { HostMediaBridge } from './media-service.js';
 
-/** Silent-audio prime data URL (4 kHz silent WAV, 44 bytes, zero network dependency).
- *  Browsers refuse to render OS media controls without a playing audio element —
- *  this silent loop primes the MediaSession API. Per CONTEXT.md Area 1. */
-const SILENT_AUDIO_DATA_URL =
-  'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+/** One second of 4 kHz mono PCM silence. Empty WAV loops can stall media output. */
+function silentAudioDataUrl(): string {
+  const samples = 4000;
+  const bytes = new Uint8Array(44 + samples * 2);
+  const view = new DataView(bytes.buffer);
+  bytes.set(new TextEncoder().encode('RIFF'), 0);
+  view.setUint32(4, bytes.length - 8, true);
+  bytes.set(new TextEncoder().encode('WAVEfmt '), 8);
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+  view.setUint32(24, samples, true); view.setUint32(28, samples * 2, true);
+  view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+  bytes.set(new TextEncoder().encode('data'), 36);
+  view.setUint32(40, samples * 2, true);
+  return `data:audio/wav;base64,${btoa(String.fromCharCode(...bytes))}`;
+}
+
+const SILENT_AUDIO_DATA_URL = silentAudioDataUrl();
 
 /** Default action set — all 5 nap-media transport actions. */
 export const DEFAULT_MEDIA_ACTIONS: readonly MediaAction[] = ['play', 'pause', 'next', 'prev', 'seek'];
