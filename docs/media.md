@@ -23,13 +23,19 @@ binding from older shim assignments until upstream packages catch up.
 ```ts
 import {
   createBrowserMediaPlayback,
+  createBrowserMediaStreamFetch,
   createMediaService,
+  createResourceService,
   mountMediaPlayer,
 } from '@kehto/services';
 
-// resource is the host's existing policy-enforcing ResourceService.
+// Keep the host's existing fetch resolver and origin-grant configuration.
+const resource = createResourceService({
+  ...hostResourceOptions,
+  stream: createBrowserMediaStreamFetch(),
+});
 const media = createMediaService({
-  playback: createBrowserMediaPlayback({ resource }),
+  playback: createBrowserMediaPlayback({ resource, stream: resource.openStream }),
 });
 const unmount = mountMediaPlayer(media);
 runtime.registerService('media', media);
@@ -84,12 +90,25 @@ the parent frame and does not require NAP-SHELL to be exposed.
 - Paja uses its byte-classifying resource resolver, including configured and
   window-scoped Blossom servers. The playground retains its resource origin
   grants. A media capability does not bypass the configured resource policy.
-- Supported sources are finite audio/video files in browser-supported codecs.
-  Nostr source references, streaming manifests such as HLS/DASH, and queue
-  navigation are not implemented by this backend. They may be supplied by a
-  custom backend. Unsupported sources fail creation. `live` suppresses seeking;
-  it does not enable a streaming transport. Media MIME hints do not override the
-  resolver's classified MIME type.
+- Finite audio/video files use browser-supported codecs. With `live: true`,
+  Paja and the playground stream MP3 or ADTS AAC through `ResourceService.openStream`
+  and MediaSource without waiting for the response to finish. The host-only
+  `stream` resolver uses the same endpoint origin grants as atomic resources;
+  it adds no NAP-RESOURCE wire message and exposes no bytes to the napplet.
+  The browser resolver requires public HTTPS, disables redirects, credentials
+  and referrers, and classifies initial bytes instead of trusting MIME hints.
+  CORS and browser private-network protections apply. Browser-only hosts cannot
+  enforce DNS-time IP checks; production proxies must enforce them before connecting.
+  Live MP3/AAC requires browser MediaSource codec support. Nostr references,
+  HLS/DASH manifests, Ogg live streams, and queues require a custom backend.
+- Live playback reads one chunk at a time, appends at most 64 KiB per update,
+  pauses consumption above 30 seconds buffered ahead, and removes audio more
+  than 15 seconds behind playback. A single upstream chunk is capped at 1 MiB.
+  Pause and Stop keep the live session available; neither seeks to an evicted
+  position. Retirement, endpoint removal and revoked media access cancel the
+  response reader, stop output and revoke its MediaSource URL. Finite-resource
+  byte limits still apply to complete files; live audio uses bounded buffering
+  rather than a cumulative limit that would stop radio after a few minutes.
 - Browser autoplay restrictions apply. Denied autoplay fails creation and frees
   its output; use `autoplay: false` and the host Play button when activation is
   required. A later failed play leaves the session available with an error state.
@@ -120,5 +139,5 @@ legacy callbacks cannot be distinguished from the new callback and must be
 migrated explicitly. See [the compatibility register](https://github.com/kehto/web/blob/main/docs/compatibility.md).
 
 Regression evidence lives in `media-playback.test.ts`,
-`napplet-namespace.test.ts`, `media-acl-revocation.test.ts`, and the real-browser
+`browser-media-stream-fetch.test.ts`, `napplet-namespace.test.ts`, `media-acl-revocation.test.ts`, and the real-browser
 `nap-media-player.spec.ts` tests for both hosts.

@@ -7,6 +7,7 @@ function fixture(mime = 'audio/wav') {
   const element = Object.assign(new EventTarget(), {
     tagName: mime.startsWith('video') ? 'VIDEO' : 'AUDIO',
     src: '', duration: 12, currentTime: 0, volume: 1, paused: true,
+    ended: false, buffered: { length: 0, start: () => 3 },
     canPlayType: vi.fn(() => 'probably'),
     play: vi.fn(async () => { element.paused = false; element.dispatchEvent(new Event('playing')); }),
     pause: vi.fn(() => { element.paused = true; element.dispatchEvent(new Event('pause')); }),
@@ -60,6 +61,13 @@ describe('policy-mediated browser playback', () => {
     expect(playback.actions).not.toContain('seek');
     playback.command({ action: 'seek', value: 10 });
     expect(f.element.currentTime).toBe(0);
+    f.element.currentTime = 6;
+    playback.command({ action: 'stop' });
+    expect(f.element.currentTime).toBe(6);
+    f.element.buffered.length = 1;
+    f.element.ended = true;
+    playback.command({ action: 'play' });
+    expect(f.element.currentTime).toBe(3);
     playback.destroy();
   });
 

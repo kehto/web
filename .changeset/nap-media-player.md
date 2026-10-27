@@ -5,7 +5,7 @@
 "@kehto/paja": patch
 ---
 
-Implement NAP-MEDIA shell-owned audio/video playback through host resource policy,
+Implement NAP-MEDIA shell-owned audio/video and live MP3/AAC radio through host resource policy,
 with a shared player in Paja and the playground. Bind sessions to their endpoint,
 validate controls, retire output on destruction or revoked access, and retain
 terminal notifications in the protected injected API. Add canonical command-object

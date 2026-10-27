@@ -746,5 +746,8 @@ Paja shows a numbered controller icon directly beside the console arrow for each
 
 ## Media sessions
 
+Live HTTPS MP3/AAC sources start through the host resource policy and bounded
+MediaSource buffers, without awaiting EOF. They expose pause/stop/volume but no seek.
+
 See [Media playback](https://github.com/kehto/web/blob/main/docs/media.md) for NAP-MEDIA draft authority, shell-owned audio/video,
 shared host controls, endpoint cleanup, and command API migration.

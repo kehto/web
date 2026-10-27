@@ -21,6 +21,7 @@ import {
   createListsService,
   createMediaService,
   createBrowserMediaPlayback,
+  createBrowserMediaStreamFetch,
   mountMediaPlayer,
   createNotifyService,
   createOutboxService,
@@ -338,6 +339,7 @@ function createDevServices(
   });
   void socialCache.refreshActiveIdentity();
   const resourceService = createResourceService({
+    stream: createBrowserMediaStreamFetch(),
     fetch: createPajaResourceFetch({
       getBlossomServers: ({ url, windowId }) => blossomEventResolver.getServers(url, windowId),
     }),
@@ -419,7 +421,7 @@ function createDevServices(
     services.notify = createNotifyService(notifyOptions);
   }
   if (getSimulation().media.enabled && typeof document !== 'undefined' && document.body) {
-    const media = createMediaService({ playback: createBrowserMediaPlayback({ resource: resourceService }) });
+    const media = createMediaService({ playback: createBrowserMediaPlayback({ resource: resourceService, stream: resourceService.openStream }) });
     const unmount = mountMediaPlayer(media);
     services.media = { ...media, onUnregistered() { unmount(); media.destroy(); } };
   }

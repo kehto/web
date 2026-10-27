@@ -38,6 +38,7 @@ import {
   createListsService,
   createMediaService,
   createBrowserMediaPlayback,
+  createBrowserMediaStreamFetch,
   mountMediaPlayer,
   createThemeService,
   createConfigService,
@@ -50,6 +51,7 @@ import {
   type ConfigService,
   type Notification,
   type ThemeService,
+  type ResourceService,
 } from '@kehto/services';
 import { createNip66Aggregator, type Nip66Aggregator } from '@kehto/nip/66';
 
@@ -126,7 +128,7 @@ export function createDemoHooks(
   const themeBundle = createThemeService({ initialTheme, onBroadcast: context.onThemeBroadcast });
   const configBundle = createConfigService({ getValues: () => ({ ...demoConfigFixtures }) });
   const resourceHandler = createDemoResourceHandler();
-  const mediaService = createMediaService({ playback: createBrowserMediaPlayback({ resource: resourceHandler }) });
+  const mediaService = createMediaService({ playback: createBrowserMediaPlayback({ resource: resourceHandler, stream: resourceHandler.openStream }) });
   const unmountMediaPlayer = mountMediaPlayer(mediaService);
   mediaService.onUnregistered = () => { unmountMediaPlayer(); mediaService.destroy(); };
   const linkService = createLinkService({
@@ -253,8 +255,9 @@ function getDemoConnectGrants(dTag: string): readonly string[] {
   return configured;
 }
 
-function createDemoResourceHandler(): ServiceHandler {
+function createDemoResourceHandler(): ResourceService {
   return createResourceService({
+    stream: createBrowserMediaStreamFetch(),
     fetch: hostFetch,
     isOriginGranted: (origin, grants) => grants.includes(origin),
     getConnectGrants: (dTag, _aggregateHash) => getDemoConnectGrants(dTag),

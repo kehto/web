@@ -123,3 +123,6 @@ This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.co
 
 See [Media playback](https://github.com/kehto/web/blob/main/docs/media.md) for NAP-MEDIA draft authority, shell-owned audio/video,
 shared host controls, endpoint cleanup, and command API migration.
+Live HTTPS MP3/AAC uses `createBrowserMediaStreamFetch`, the host-only
+`ResourceService.openStream` grant boundary, and bounded MediaSource buffering;
+complete audio/video files retain atomic resource resolution.

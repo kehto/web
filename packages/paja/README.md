@@ -577,5 +577,6 @@ Paja shows a numbered controller icon directly beside the console arrow for each
 
 Paja provides shell-owned audio/video playback through its resource resolver and a
 collapsible player with transport, seek, volume, and close controls. It also
-displays napplet-owned sessions. See [Media playback](../../docs/media.md) for
+streams live HTTPS MP3/AAC radio without awaiting EOF and displays napplet-owned
+sessions. See [Media playback](../../docs/media.md) for
 source support, lifecycle rules, and canonical API examples.

@@ -94,6 +94,8 @@ export type ResourceInfoProvider =
  * therefore be supplied together when a runtime chooses to use it.
  */
 export interface ResourceServiceOptions {
+  /** Host-only streaming resolver. Apply source safety policy before returning classified bytes; never exposed over the resource wire API. */
+  stream?(url: string, init: ResourceFetchInit): Promise<Response>;
   /**
    * Runtime-supplied resource resolver. Receives the requested URL and returns
    * a byte-classified `Response`.
@@ -159,10 +161,19 @@ export interface ResourceServiceOptions {
 }
 
 /**
- * Type alias for the ServiceHandler returned by `createResourceService`.
- * Exported for host apps that need to type-annotate the handler reference.
+ * Resource wire handler plus host-only streaming resolution for playback.
+ * Stream consumers own their response cancellation and output lifetime.
  */
-export type ResourceService = ServiceHandler;
+export interface ResourceService extends ServiceHandler {
+  /**
+   * Open host-owned playback through the same endpoint origin grants as atomic resources.
+   * @param windowId - Authenticated source endpoint.
+   * @param url - Source URL subject to host policy.
+   * @param signal - Playback lifetime cancellation.
+   * @returns A host-classified streaming response; the host consumer owns cancellation.
+   */
+  openStream(windowId: string, url: string, signal: AbortSignal): Promise<Response>;
+}
 
 interface ResourceRequestState {
   inFlight: Map<string, { controller: AbortController; windowId: string; requestId: string }>;
@@ -383,26 +394,9 @@ async function fetchResourceItem(
   const { url } = request;
   const parsedUrl = parseResourceUrl(url);
   if (!parsedUrl) return resourceInvalidRequest(url, `invalid URL: ${url}`);
-  if (parsedUrl.origin !== 'null' && options.isOriginGranted && options.getConnectGrants) {
-    const identity = options.resolveIdentity?.(windowId) ?? null;
-    if (!identity) {
-      return {
-        ok: false,
-        url,
-        error: 'blocked-by-policy',
-        message: 'napplet identity not resolvable for runtime origin policy',
-      };
-    }
-    const origin = parsedUrl.origin;
-    const grants = options.getConnectGrants(identity.dTag, identity.aggregateHash);
-    if (!options.isOriginGranted(origin, grants)) {
-      return {
-        ok: false,
-        url,
-        error: 'blocked-by-policy',
-        message: `origin ${origin} not granted by runtime policy`,
-      };
-    }
+  try { assertResourceOrigin(options, windowId, parsedUrl); }
+  catch (error) {
+    return { ok: false, url, error: 'blocked-by-policy', message: error instanceof Error ? error.message : String(error) };
   }
 
   try {
@@ -435,6 +429,20 @@ async function fetchResourceItem(
       error: isAbort ? 'timeout' : err instanceof ResourceServiceError ? err.code : 'network-error',
       message: err instanceof Error ? err.message : String(err),
     };
+  }
+}
+
+function assertResourceOrigin(options: ResourceServiceOptions, windowId: string, parsedUrl: URL): void {
+  if (parsedUrl.origin !== 'null' && options.isOriginGranted && options.getConnectGrants) {
+    const identity = options.resolveIdentity?.(windowId) ?? null;
+    if (!identity) {
+      throw new ResourceServiceError('blocked-by-policy', 'napplet identity not resolvable for runtime origin policy');
+    }
+    const origin = parsedUrl.origin;
+    const grants = options.getConnectGrants(identity.dTag, identity.aggregateHash);
+    if (!options.isOriginGranted(origin, grants)) {
+      throw new ResourceServiceError('blocked-by-policy', `origin ${origin} not granted by runtime policy`);
+    }
   }
 }
 
@@ -617,8 +625,17 @@ export function createResourceService(options: ResourceServiceOptions): Resource
       'NAP-RESOURCE service — runtime-resolved byte transport (RESOURCE-01..06)',
   };
 
-  const handler: ServiceHandler = {
+  const handler: ResourceService = {
     descriptor,
+
+    async openStream(windowId, url, signal) {
+      if (signal.aborted) throw new DOMException('Playback cancelled', 'AbortError');
+      const parsed = parseResourceUrl(url);
+      if (!parsed) throw new ResourceServiceError('invalid-request', 'invalid media URL');
+      assertResourceOrigin(options, windowId, parsed);
+      if (!options.stream) throw new ResourceServiceError('unsupported-scheme', 'live media unavailable');
+      return options.stream(url, { method: 'GET', signal, windowId });
+    },
 
     handleMessage(
       windowId: string,

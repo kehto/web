@@ -201,5 +201,5 @@ For the schema and removal boundary, see [event migration](../../docs/migrations
 
 Active NAP-MEDIA sessions appear in a collapsible player with audio/video output,
 capability-driven controls, seeking, volume, and session retirement. Shell-owned
-source resolution retains the playground resource origin grants. See
+source resolution, including live HTTPS MP3/AAC streams, retains the playground resource origin grants. See
 [Media playback](../../docs/media.md).

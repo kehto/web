@@ -4,10 +4,14 @@ import type { MediaAction } from '@napplet/nap/media/types';
 import type { MediaSessionCreateOptions } from './media-service.js';
 import { validMediaCommand } from './media-playback.js';
 import type { MediaPlayback, MediaPlaybackBackend, MediaPlaybackState } from './media-playback.js';
+import type { ResourceService } from './resource-service.js';
+import { createMediaStream } from './browser-media-stream.js';
 
 /** Browser playback dependencies; the resource service owns source policy. */
 export interface BrowserMediaPlaybackOptions {
   resource: ServiceHandler;
+  /** Host-only live response resolver with endpoint grants and byte classification. */
+  stream?: ResourceService['openStream'];
   document?: Document;
   urls?: Pick<typeof URL, 'createObjectURL' | 'revokeObjectURL'>;
 }
@@ -107,6 +111,7 @@ function attachPlayback(
       const token = ++generation;
       switch (command.action) {
         case 'play':
+          if (live && element.buffered.length && (element.ended || element.currentTime < element.buffered.start(0))) element.currentTime = element.buffered.start(0);
           void element.play().then(() => {
             if (!retired && token === generation) publish('playing', command.reason);
           }).catch(() => {
@@ -116,7 +121,7 @@ function attachPlayback(
         case 'pause': element.pause(); publish('paused', command.reason); break;
         case 'stop':
           element.pause();
-          element.currentTime = 0;
+          if (!live) element.currentTime = 0;
           publish('stopped', command.reason);
           break;
         case 'seek': element.currentTime = Math.min(command.value!, element.duration); publish(); break;
@@ -138,8 +143,8 @@ function attachPlayback(
 }
 
 /**
- * Play policy-approved resource bytes using browser audio/video elements.
- * Remote URLs never reach media elements; only revocable Blob URLs do.
+ * Play policy-approved resource bytes or live audio using browser elements.
+ * Remote URLs never reach media elements; only revocable Blob/MediaSource URLs do.
  * @param options - Host resource service and optional browser test dependencies.
  * @returns A backend for createMediaService's playback option.
  * @example
@@ -153,6 +158,7 @@ export function createBrowserMediaPlayback(options: BrowserMediaPlaybackOptions)
   const urls = options.urls ?? URL;
   return {
     async open(windowId, request, signal, changed) {
+      if (request.live && options.stream) return openLive(windowId, request, signal, changed, options, doc, urls);
       const blob = await readSource(options.resource, windowId, sourceUrl(request), signal);
       if (signal.aborted) throw new Error('media source cancelled');
       if (!/^(audio|video)\//.test(blob.type)) throw new Error('unsupported media type');
@@ -175,4 +181,31 @@ export function createBrowserMediaPlayback(options: BrowserMediaPlaybackOptions)
       } finally { signal.removeEventListener('abort', abort); }
     },
   };
+}
+
+async function openLive(windowId: string, request: MediaSessionCreateOptions, signal: AbortSignal,
+  changed: (state: MediaPlaybackState, actions: readonly MediaAction[]) => void, options: BrowserMediaPlaybackOptions,
+  doc: Document, urls: Pick<typeof URL, 'createObjectURL' | 'revokeObjectURL'>): Promise<MediaPlayback> {
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  signal.addEventListener('abort', abort, { once: true });
+  const timer = setTimeout(abort, 20_000);
+  let playback: MediaPlayback | undefined;
+  try {
+    if (signal.aborted) controller.abort();
+    const response = await options.stream!(windowId, sourceUrl(request), controller.signal);
+    if (controller.signal.aborted) { await response.body?.cancel(); throw new Error('media source cancelled'); }
+    const element = doc.createElement('audio');
+    element.preload = 'auto';
+    const stream = createMediaStream(response, element, controller, urls);
+    playback = attachPlayback(element, true, stream.destroy, changed);
+    await loadMedia(element, stream.url, controller.signal);
+    if (request.autoplay) await element.play();
+    if (controller.signal.aborted) throw new Error('media source cancelled');
+    return playback;
+  } catch (error) {
+    playback?.destroy();
+    controller.abort();
+    throw error;
+  } finally { clearTimeout(timer); signal.removeEventListener('abort', abort); }
 }
