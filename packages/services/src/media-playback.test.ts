@@ -113,6 +113,34 @@ describe('NAP-MEDIA draft ownership and retirement', () => {
     expect(f.destroy).toHaveBeenCalledTimes(2);
   });
 
+  it('settles a pending create when a live endpoint loses permission', async () => {
+    const f = setup();
+    let resolve!: (playback: MediaPlayback) => void;
+    f.open.mockImplementation(() => new Promise(done => { resolve = done; }));
+    f.send('media.session.create', { id: 'revoked-create', owner: 'shell', source: { url: 'https://example.com/slow.mp3' } });
+    await vi.waitFor(() => expect(f.open).toHaveBeenCalled());
+    f.service.onCapabilityRevoked?.('owner', 'media:control');
+    expect(f.output).toEqual([{ type: 'media.session.create.result', id: 'revoked-create', owner: 'shell', error: 'permission revoked' }]);
+    resolve({ state: { status: 'paused' }, actions: [], command: f.command, destroy: f.destroy });
+    await vi.waitFor(() => expect(f.destroy).toHaveBeenCalled());
+    expect(f.output).toHaveLength(1);
+    expect(f.service.getSessions()).toEqual([]);
+  });
+
+  it('settles pending requests once when the host removes the service', async () => {
+    const f = setup();
+    f.open.mockImplementation(() => new Promise((_resolve, reject) => {
+      const signal = f.open.mock.calls[0][2];
+      signal.addEventListener('abort', () => reject(new Error('closed')), { once: true });
+    }));
+    f.send('media.session.create', { id: 'unregister', owner: 'shell', source: { url: 'https://example.com/slow.mp3' } });
+    await vi.waitFor(() => expect(f.open).toHaveBeenCalled());
+    f.service.onUnregistered?.(); f.service.destroy();
+    await Promise.resolve();
+    expect(f.output).toEqual([{ type: 'media.session.create.result', id: 'unregister', owner: 'shell', error: 'media service unavailable' }]);
+    expect(f.service.getSessions()).toEqual([]);
+  });
+
   it('bounds pending creation and emits no retirement for rejected creation', async () => {
     const output: NappletMessage[] = [];
     let reject!: (error: Error) => void;

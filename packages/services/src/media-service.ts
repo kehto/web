@@ -212,7 +212,7 @@ interface SessionEntry extends MediaSessionSnapshot {
 
 class MediaRegistry {
   readonly sessions = new Map<string, SessionEntry>();
-  readonly pending = new Map<AbortController, string>();
+  readonly pending = new Map<AbortController, { windowId: string; fail(error: string): void }>();
   // Kept until endpoint teardown: retired identifiers must never be reused.
   readonly used = new Map<string, Set<string>>();
   readonly listeners = new Set<(sessions: readonly MediaSessionSnapshot[]) => void>();
@@ -299,7 +299,7 @@ class MediaRegistry {
     if (this.destroyed) return;
     if (msg.owner !== 'napplet' && msg.owner !== 'shell') return fail('missing owner');
     const count = [...this.sessions.values()].filter(entry => entry.windowId === windowId).length
-      + [...this.pending.values()].filter(id => id === windowId).length;
+      + [...this.pending.values()].filter(pending => pending.windowId === windowId).length;
     if (count >= (this.options.maxSessionsPerWindow ?? 16)) return fail('session limit exceeded');
     if (msg.owner === 'shell' && !msg.source) return fail('missing source');
     if (msg.owner === 'shell' && !this.options.playback) return fail('unsupported owner mode');
@@ -310,18 +310,20 @@ class MediaRegistry {
     };
     if (msg.owner === 'napplet') return this.accept(entry, msg.id);
     const abort = new AbortController();
-    this.pending.set(abort, windowId);
+    this.pending.set(abort, { windowId, fail });
     const changed = (state: MediaPlaybackState, actions: readonly MediaAction[]) => this.publishState(entry, state, actions);
     void Promise.resolve().then(() => {
       if (abort.signal.aborted) throw new Error('endpoint closed');
       return this.options.playback!.open(windowId, msg as MediaSessionCreateOptions, abort.signal, changed);
     }).then(playback => {
       if (abort.signal.aborted || this.destroyed) return playback.destroy();
+      this.pending.delete(abort);
       entry.playback = playback;
       entry.state = playback.state;
       entry.actions = [...playback.actions];
       this.accept(entry, msg.id);
     }).catch(() => {
+      this.pending.delete(abort);
       if (!abort.signal.aborted && !this.destroyed) fail('source unavailable or autoplay denied');
     }).finally(() => this.pending.delete(abort));
   }
@@ -380,7 +382,7 @@ class MediaRegistry {
   }
 
   destroyWindow(windowId: string): void {
-    for (const [abort, id] of this.pending) if (id === windowId) { abort.abort(); this.pending.delete(abort); }
+    for (const [abort, pending] of this.pending) if (pending.windowId === windowId) { abort.abort(); this.pending.delete(abort); }
     for (const entry of this.sessions.values()) if (entry.windowId === windowId) this.retire(entry.sessionId, 'destroyed', false);
     // Keep IDs unique across replacement endpoints for this service lifetime.
   }
@@ -411,7 +413,12 @@ export function createMediaService(options: MediaServiceOptions = {}): MediaServ
     onWindowDestroyed: windowId => registry.destroyWindow(windowId),
     onCapabilityRevoked(windowId, capability) {
       if (capability !== null && capability !== 'media:control') return;
-      for (const [abort, id] of registry.pending) if (id === windowId) { abort.abort(); registry.pending.delete(abort); }
+      for (const [abort, pending] of registry.pending) {
+        if (pending.windowId !== windowId) continue;
+        abort.abort();
+        registry.pending.delete(abort);
+        pending.fail('permission revoked');
+      }
       for (const entry of registry.sessions.values()) if (entry.windowId === windowId) registry.retire(entry.sessionId, 'policy');
     },
     getSessions: () => registry.snapshots(),
@@ -424,10 +431,14 @@ export function createMediaService(options: MediaServiceOptions = {}): MediaServ
     retire: (sessionId, reason) => registry.retire(sessionId, reason),
     getElement: sessionId => registry.sessions.get(sessionId)?.playback?.element,
     destroy() {
+      if (registry.destroyed) return;
       registry.destroyed = true;
       off();
-      for (const abort of registry.pending.keys()) abort.abort();
-      registry.pending.clear();
+      for (const [abort, pending] of registry.pending) {
+        abort.abort();
+        registry.pending.delete(abort);
+        pending.fail('media service unavailable');
+      }
       for (const id of registry.sessions.keys()) registry.retire(id, 'policy');
       registry.used.clear();
       registry.listeners.clear();
