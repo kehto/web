@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: resolved
 trigger: Fix NAP-MEDIA with a player, using Hyprgate for ideas
 created: 2026-10-27
 updated: 2026-10-27
@@ -14,8 +14,8 @@ Reproduction: create a media session with owner shell and a source URL.
 
 ## Current Focus
 
-hypothesis: Missing playback backend and host player wiring, with additional ownership and retirement gaps.
-next_action: Finish the full Playwright suite, commit verification evidence, push and open the PR.
+root_cause: Missing playback backend and host player wiring, with additional ownership and retirement gaps.
+resolution: Implemented and verified; branch fix/nap-media-player is ready for PR review.
 
 ## Authority
 
@@ -41,10 +41,11 @@ Implemented policy-mediated browser playback, shared audio/video player, protect
 
 Verification checkpoints:
 - Build and type-check pass.
-- Full unit suite: 2,298 passed; two additional lifecycle tests pass in the focused 9-test suite (full rerun pending).
+- Full unit suite: 2,303 passed across 181 files.
 - Docs gate passes, including strict TypeDoc and all nine package docs.
 - Focused browser proof: both hosts play, seek, change volume, finish naturally and retire; Paja video playback/reload cleanup passes. Rendered player inspected at /tmp/kehto-media-player.png.
-- Full Playwright suite running; Paja media test including positive wire commands and napplet-owned controls passed.
+- Full Playwright suite: all 153 passed in the closing run, using CI settings and Playwright's matching Chromium revision 1217. Includes positive wire commands, napplet-owned controls, and resource-origin denial.
+- Pending creation settles promptly when permission or service availability is revoked; destroyed endpoints remain silent. Multi-session OS controls retain their audio prime until the final session closes.
 - AI-slop score 95/100, identical to primary checkout baseline. Five existing size/complexity findings remain in untouched files; no new diagnostics and pinned configuration unchanged.
 - Spec draft head rechecked unchanged at 7806f438530251fce5129f8e6239d6b642278759.
 
