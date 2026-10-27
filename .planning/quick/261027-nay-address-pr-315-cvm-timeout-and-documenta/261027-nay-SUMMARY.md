@@ -6,7 +6,7 @@ commit: bab52862
 
 Used existing worktree `~/.worktrees/kehto/cvm-transport-followups` and branch
 `fix/cvm-transport-followups`. The primary checkout's unrelated package.json edit
-was preserved. Merged origin/main (5e3f187a) in bbcfc1b8 without rewriting history;
+was preserved. Merged origin/main (9fdb521e) in bbcfc1b8 without rewriting history;
 the UPLOAD and CVM documentation both remain.
 
 Commit bab52862 validates integer durations 1..300000 before transport session or
