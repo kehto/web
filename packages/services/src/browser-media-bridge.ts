@@ -109,13 +109,13 @@ export function createBrowserMediaBridge(opts: {
         try { ms.setActionHandler(domAction, null); } catch { /* best-effort */ }
         continue;
       }
-      ms.setActionHandler(domAction, (details) => {
+      try { ms.setActionHandler(domAction, (details) => {
         if (!activeSessionId) return;
         const value = napAction === 'seek' && typeof details?.seekTime === 'number' ? details.seekTime : undefined;
         for (const cb of actionCallbacks) {
           cb(activeSessionId, napAction, value);
         }
-      });
+      }); } catch { /* The browser may not implement every OS action. */ }
     }
   }
 

@@ -1,5 +1,5 @@
 ---
-status: investigating
+status: verifying
 trigger: Fix NAP-MEDIA with a player, using Hyprgate for ideas
 created: 2026-10-27
 updated: 2026-10-27
@@ -15,7 +15,7 @@ Reproduction: create a media session with owner shell and a source URL.
 ## Current Focus
 
 hypothesis: Missing playback backend and host player wiring, with additional ownership and retirement gaps.
-next_action: Implement a policy-mediated browser playback backend and reusable player surface; wire both hosts and verify protocol lifecycle.
+next_action: Finish the full Playwright suite, commit verification evidence, push and open the PR.
 
 ## Authority
 
@@ -37,4 +37,15 @@ NAP-MEDIA draft PR #10, napplet/naps commit 7806f438530251fce5129f8e6239d6b64227
 
 ## Resolution
 
-Pending implementation and verification.
+Implemented policy-mediated browser playback, shared audio/video player, protected canonical media API, owner checks, retirement, ACL revocation, and endpoint cleanup. Hyprgate inspired the session snapshot/control separation, stable media element ownership, and capability-driven UI; no framework or provider transport was copied.
+
+Verification checkpoints:
+- Build and type-check pass.
+- Full unit suite: 2,298 passed; two additional lifecycle tests pass in the focused 9-test suite (full rerun pending).
+- Docs gate passes, including strict TypeDoc and all nine package docs.
+- Focused browser proof: both hosts play, seek, change volume, finish naturally and retire; Paja video playback/reload cleanup passes. Rendered player inspected at /tmp/kehto-media-player.png.
+- Full Playwright suite running; Paja media test including positive wire commands and napplet-owned controls passed.
+- AI-slop score 95/100, identical to primary checkout baseline. Five existing size/complexity findings remain in untouched files; no new diagnostics and pinned configuration unchanged.
+- Spec draft head rechecked unchanged at 7806f438530251fce5129f8e6239d6b642278759.
+
+Bounded policy: finite browser-codec audio/video sources via resource URL/Blossom resolution; reject unsupported references. No HLS/DASH transport, Nostr resolver, queue, persistent playback, remote artwork or automatic focus resumption. These are optional host capabilities, documented in docs/media.md; no unresolved protocol contradiction blocks this implementation.

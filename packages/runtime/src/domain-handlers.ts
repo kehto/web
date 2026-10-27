@@ -100,8 +100,8 @@ function handleMediaMessage(context: RuntimeDomainContext, windowId: string, msg
     hooks.sendToNapplet(windowId, {
       type: 'media.session.create.result',
       id: m.id ?? '',
-      sessionId: m.sessionId ?? '',
       owner: m.owner,
+      error: 'media service unavailable',
     } as NappletMessage);
   }
 }

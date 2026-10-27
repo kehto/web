@@ -14,7 +14,6 @@ import type {
 } from '@napplet/nap/media/types';
 import {
   createBrowserMediaBridge,
-  DEFAULT_MEDIA_ACTIONS,
   type MediaSessionTarget,
 } from './browser-media-bridge.js';
 
@@ -307,7 +306,7 @@ class MediaRegistry {
     const entry: SessionEntry = {
       sessionId: this.canonicalId(windowId, msg.sessionId), windowId, owner: msg.owner,
       metadata: msg.metadata, context: msg.context,
-      actions: normalizeActions(msg.capabilities ?? DEFAULT_MEDIA_ACTIONS), send,
+      actions: normalizeActions(msg.capabilities), send,
     };
     if (msg.owner === 'napplet') return this.accept(entry, msg.id);
     const abort = new AbortController();
@@ -406,7 +405,7 @@ export function createMediaService(options: MediaServiceOptions = {}): MediaServ
   const bridge = options.hostBridge ?? createBrowserMediaBridge(options);
   const registry = new MediaRegistry(options, bridge);
   const off = bridge.onAction((sessionId, action, value) => registry.command(sessionId, { action, value }));
-  return {
+  const service: MediaService = {
     descriptor: { name: 'media', version: MEDIA_SERVICE_VERSION, description: 'NAP-MEDIA session registry and player' },
     handleMessage: (windowId, message, send) => registry.handle(windowId, message, send),
     onWindowDestroyed: windowId => registry.destroyWindow(windowId),
@@ -435,5 +434,6 @@ export function createMediaService(options: MediaServiceOptions = {}): MediaServ
       bridge.setActiveSession?.(null);
     },
   };
+  service.onUnregistered = service.destroy;
+  return service;
 }
-

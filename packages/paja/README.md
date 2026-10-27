@@ -149,8 +149,8 @@ The focused host regression runs in Chromium and Firefox after `pnpm build`:
 Other domains are equally capability-bound. Relay, outbox, and count require
 live relays; count uses NIP-45 `COUNT` without downloading events. Storage
 requires writable `localStorage`; the memory setting is an unadvertised fixture.
-Keys requires a document listener, media requires the browser Media Session
-API, notifications require Paja's host renderer, links require browser
+Keys requires a document listener, media requires a browser document and uses audio/video elements (OS Media Session
+integration is optional), notifications require Paja's host renderer, links require browser
 navigation, and intent requires the installed-catalog/runtime-tab host
 controller. DM also requires the Dev signer and live relays; FS requires a
 successful OPFS probe, while picker calls additionally require the corresponding
@@ -572,3 +572,10 @@ Paja MUST load all three NIP-5D manifest kinds: root `15129`, named `35129`, and
 ## Controller diagnostics
 
 Paja shows a numbered controller icon directly beside the console arrow for each controller the browser detects. Each slot has its own color and input animation; hover for the controller model and activity state. Buttons and stick movement light up only that controller (stick movement below 0.12 is ignored). Quick taps retain the highlight briefly so they are easy to spot. Reduced-motion settings keep the activity highlight without animation. Disconnecting removes the icon. Browsers may require a button press before exposing a newly connected controller. These host diagnostics work without a napplet gamepad subscription and do not change focus-scoped input delivery.
+
+## Media player
+
+Paja provides shell-owned audio/video playback through its resource resolver and a
+collapsible player with transport, seek, volume, and close controls. It also
+displays napplet-owned sessions. See [Media playback](../../docs/media.md) for
+source support, lifecycle rules, and canonical API examples.

@@ -100,7 +100,7 @@ describe('NAP-MEDIA draft ownership and retirement', () => {
     expect(f.output).toEqual([]);
   });
 
-  it('reserves canonical IDs during concurrent creation and bounds pending sessions', async () => {
+  it('reserves canonical IDs during concurrent creation', async () => {
     const f = setup();
     const resolves: ((playback: MediaPlayback) => void)[] = [];
     f.open.mockImplementation(() => new Promise(resolve => resolves.push(resolve)));
@@ -111,5 +111,33 @@ describe('NAP-MEDIA draft ownership and retirement', () => {
     expect(new Set(f.service.getSessions().map(session => session.sessionId)).size).toBe(2);
     f.service.destroy();
     expect(f.destroy).toHaveBeenCalledTimes(2);
+  });
+
+  it('bounds pending creation and emits no retirement for rejected creation', async () => {
+    const output: NappletMessage[] = [];
+    let reject!: (error: Error) => void;
+    const open = vi.fn<MediaPlaybackBackend['open']>(() => new Promise((_resolve, fail) => { reject = fail; }));
+    const service = createMediaService({ playback: { open }, maxSessionsPerWindow: 1, documentTarget: null });
+    const create = (id: string) => service.handleMessage('w', wire('media.session.create', { id, owner: 'shell', source: { url: 'https://example.com/audio.mp3' } }), message => output.push(message));
+    create('first'); create('second');
+    expect(output).toEqual([{ type: 'media.session.create.result', id: 'second', owner: 'shell', error: 'session limit exceeded' }]);
+    await vi.waitFor(() => expect(open).toHaveBeenCalledTimes(1));
+    reject(new Error('backend secret must not escape'));
+    await vi.waitFor(() => expect(output).toHaveLength(2));
+    expect(output[1]).toMatchObject({ type: 'media.session.create.result', id: 'first', error: 'source unavailable or autoplay denied' });
+    expect(service.getSessions()).toEqual([]);
+    service.destroy();
+    expect(output).toHaveLength(2);
+  });
+
+  it('orders reentrant retirement after the result and emits no later controls', () => {
+    const service = createMediaService({ documentTarget: null });
+    const output: NappletMessage[] = [];
+    service.handleMessage('w', wire('media.session.create', { id: 'c', owner: 'napplet', sessionId: 's' }), message => {
+      output.push(message);
+      if (message.type === 'media.session.create.result') service.retire('s', 'policy');
+    });
+    expect(output.map(message => message.type)).toEqual(['media.session.create.result', 'media.session.ended']);
+    expect(service.getSessions()).toEqual([]);
   });
 });

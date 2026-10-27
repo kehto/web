@@ -21,7 +21,7 @@ function readSource(resource: ServiceHandler, windowId: string, url: string, sig
       resource.handleMessage(windowId, { type: 'resource.cancel', id } as NappletMessage, () => {});
       reject(new Error('media source cancelled'));
     };
-    const timer = setTimeout(abort, 25_000);
+    const timer = setTimeout(abort, 20_000);
     signal.addEventListener('abort', abort, { once: true });
     if (signal.aborted) return abort();
     try {
@@ -41,6 +41,26 @@ function sourceUrl(options: MediaSessionCreateOptions): string {
   if (typeof source?.url === 'string' && source.url) return source.url;
   if (typeof source?.blossomHash === 'string' && /^[a-f0-9]{64}$/i.test(source.blossomHash)) return `blossom:${source.blossomHash}`;
   throw new Error('unsupported source');
+}
+
+function loadMedia(element: HTMLMediaElement, url: string, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      clearTimeout(timer);
+      element.removeEventListener('loadedmetadata', loaded);
+      element.removeEventListener('error', failed);
+      signal.removeEventListener('abort', failed);
+    };
+    const loaded = () => { cleanup(); resolve(); };
+    const failed = () => { cleanup(); reject(new Error('media decoding failed or cancelled')); };
+    const timer = setTimeout(failed, 5_000);
+    element.addEventListener('loadedmetadata', loaded, { once: true });
+    element.addEventListener('error', failed, { once: true });
+    signal.addEventListener('abort', failed, { once: true });
+    if (signal.aborted) return failed();
+    try { element.src = url; element.load(); }
+    catch { failed(); }
+  });
 }
 
 function attachPlayback(
@@ -137,15 +157,15 @@ export function createBrowserMediaPlayback(options: BrowserMediaPlaybackOptions)
       if (signal.aborted) throw new Error('media source cancelled');
       if (!/^(audio|video)\//.test(blob.type)) throw new Error('unsupported media type');
       const element = doc.createElement(blob.type.startsWith('video/') ? 'video' : 'audio');
+      if (!element.canPlayType(blob.type)) throw new Error('unsupported media type');
       element.preload = 'metadata';
-      if (element instanceof HTMLVideoElement) element.playsInline = true;
+      if (element.tagName === 'VIDEO') (element as HTMLVideoElement).playsInline = true;
       const url = urls.createObjectURL(blob);
       const playback = attachPlayback(element, request.live === true, () => urls.revokeObjectURL(url), changed);
       const abort = () => playback.destroy();
       signal.addEventListener('abort', abort, { once: true });
       try {
-        element.src = url;
-        element.load();
+        await loadMedia(element, url, signal);
         if (request.autoplay) await element.play();
         if (signal.aborted) throw new Error('media source cancelled');
         return playback;

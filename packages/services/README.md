@@ -420,15 +420,21 @@ Reference media backend for the `media.*` NIP-5D NAP. By default mirrors session
 ```ts
 import { createMediaService } from '@kehto/services';
 
-export function createMediaService(options?: MediaServiceOptions): ServiceHandler & { destroy(): void };
+export function createMediaService(options?: MediaServiceOptions): MediaService;
 ```
 
 `destroy()` tears down the active bridge (removes `setActionHandler` listeners, removes the silent-audio prime element in the browser reference implementation) and clears the session registry.
+
+See [Media playback](../../docs/media.md) for the browser audio/video backend,
+player mounting, draft conformance authority, supported source formats, lifecycle,
+and migration from legacy command callbacks. Paja and playground use this player.
 
 ### MediaServiceOptions
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `playback` | `MediaPlaybackBackend` | Source-policy and actual output backend; use `createBrowserMediaPlayback({ resource })`. |
+| `maxSessionsPerWindow` | `number` | Active plus pending session limit (default 16). |
 | `onSessionCreate` | `(windowId, sessionId, metadata?) => void` | Called when a napplet creates a session. |
 | `onState` | `(windowId, sessionId, state) => void` | Called on `media.state` updates — high-frequency; keep handler work minimal. |
 | `onSessionDestroy` | `(windowId, sessionId) => void` | Called when a napplet destroys a session. |
@@ -573,7 +579,7 @@ Each factory returns a `ServiceHandler` registrable via `runtime.registerService
 - `createKeysService` — `keys.registerAction` / `keys.unregisterAction` / `keys.forward` + `keys.bindings` / `keys.action` push envelopes (`keys:forward`). Document-level chord listener by default; implement the `HostKeysBridge` interface to swap in Electron / Tauri / OS-level backends. See [Keys Service](#keys-service) for the full contract.
 
 ### Media NAP
-- `createMediaService` — owner-aware `media.session.create` / `update` / `destroy` / `media.state` / `media.capabilities` + `media.command` push envelopes (`media:control`). Napplet-owned sessions mirror to `navigator.mediaSession` by default; shell-owned creates are rejected until a host playback/fetch bridge is supplied. Implement the `HostMediaBridge` interface to swap in native backends. See [Media Service](#media-service) for the full contract.
+- `createMediaService` — owner-aware `media.session.create` / `update` / `destroy` / `media.state` / `media.capabilities` + `media.command` push envelopes (`media:control`). Napplet-owned sessions mirror to `navigator.mediaSession` by default; shell-owned playback uses the optional `MediaPlaybackBackend`, with `createBrowserMediaPlayback` and `mountMediaPlayer` providing the browser implementation. Implement the `HostMediaBridge` interface to swap in native backends. See [Media Service](#media-service) for the full contract.
 
 ### BLE NAP
 - `createBleService` — `ble.open`, `ble.services`, `ble.read`, `ble.write`, `ble.subscribe`, `ble.unsubscribe`, `ble.close` + host-pushed `ble.event` envelopes. Hook contexts include `ctx.emit(event)`, so host Bluetooth notification listeners can forward `notification`, `state`, and `closed` events to the requesting napplet without replacing the reference handler.
