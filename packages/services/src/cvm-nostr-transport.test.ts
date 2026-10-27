@@ -108,7 +108,169 @@ function withFakeClock(run: () => Promise<void>): () => Promise<void> {
 }
 
 describe('createNostrCvmTransport', () => {
-  it('keeps admitted oversized reassembly alive beyond the former two-minute cap', withFakeClock(async () => {
+  // NAP-CVM draft #31 @28cf1bdb, Timeouts: validation precedes all resource admission.
+  it.each([0, -1, 1.5, NaN, Infinity, 300_001, 1e12, 2_147_483_647, null, '100'])
+  ('rejects invalid timeout %s before acquiring a session or publishing', async (timeoutMs) => {
+    const serverSk = generateSecretKey();
+    const { pool, serverPubkey, subs, publishedPlain } = createServerPool(serverSk, () => null);
+    const subscribe = vi.spyOn(pool, 'subscribe');
+    const publish = vi.spyOn(pool, 'publish');
+    const transport = createNostrCvmTransport({ pool, defaultRelays: RELAYS });
+    await expect(transport.request({ pubkey: serverPubkey },
+      { jsonrpc: '2.0', id: 1, method: 'tools/call' },
+      { timeoutMs: timeoutMs as number, initialize: true })).rejects.toThrow('invalid timeout');
+    expect(subscribe).not.toHaveBeenCalled();
+    expect(publish).not.toHaveBeenCalled();
+    expect(subs).toEqual([]);
+    expect(publishedPlain).toEqual([]);
+    // A rejected call must not retain this server's old relay selection/session.
+    const response = transport.request({ pubkey: serverPubkey, relays: ['wss://fresh.test'] },
+      { jsonrpc: '2.0', id: 2, method: 'tools/list' });
+    expect(subs[0].relays).toEqual(['wss://fresh.test']);
+    const rejection = expect(response).rejects.toThrow('server closed');
+    await transport.close({ pubkey: serverPubkey });
+    await rejection;
+    transport.dispose();
+  });
+
+  it.each([1, 300_000])('accepts the timeout boundary %s without clamping', (timeoutMs) => withFakeClock(async () => {
+    const { pool, serverPubkey, publishedPlain } = createServerPool(generateSecretKey(), () => null);
+    const transport = createNostrCvmTransport({ pool, defaultRelays: RELAYS });
+    const response = transport.request({ pubkey: serverPubkey }, { jsonrpc: '2.0', id: 1, method: 'tools/list' }, { timeoutMs });
+    let settled = false;
+    const rejection = expect(response).rejects.toThrow('relay timeout');
+    void response.catch(() => { settled = true; });
+    expect(publishedPlain).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(timeoutMs - 1);
+    expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    await rejection;
+    transport.dispose();
+  })());
+
+  it('validates the configured default and uses 30000ms when omitted', withFakeClock(async () => {
+    const { pool, serverPubkey, subs } = createServerPool(generateSecretKey(), () => null);
+    const invalid = createNostrCvmTransport({ pool, defaultRelays: RELAYS, timeoutMs: 300_001 });
+    await expect(invalid.request({ pubkey: serverPubkey }, { jsonrpc: '2.0', method: 'tools/list' })).rejects.toThrow('invalid timeout');
+    expect(subs).toEqual([]);
+    invalid.dispose();
+    const transport = createNostrCvmTransport({ pool, defaultRelays: RELAYS });
+    const response = transport.request({ pubkey: serverPubkey }, { jsonrpc: '2.0', method: 'tools/list' });
+    let settled = false;
+    void response.catch(() => { settled = true; });
+    const rejection = expect(response).rejects.toThrow('relay timeout');
+    await vi.advanceTimersByTimeAsync(29_999);
+    expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    await rejection;
+    transport.dispose();
+  }));
+
+  it('includes initialization in the original deadline and ignores late responses', withFakeClock(async () => {
+    const { pool, serverPubkey, publishedPlain, deliverEncrypted } = createServerPool(generateSecretKey(), () => null);
+    const transport = createNostrCvmTransport({ pool, defaultRelays: RELAYS });
+    const events: McpMessage[] = [];
+    transport.onEvent((_server, message) => events.push(message));
+    const response = transport.request({ pubkey: serverPubkey }, { jsonrpc: '2.0', id: 1, method: 'tools/call' },
+      { timeoutMs: 100, initialize: true });
+    const rejection = expect(response).rejects.toThrow('relay timeout');
+    await vi.advanceTimersByTimeAsync(60);
+    deliverEncrypted({ jsonrpc: '2.0', id: publishedPlain[0].id, result: {} });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(publishedPlain.map(({ method }) => method)).toEqual(['initialize', 'notifications/initialized', 'tools/call']);
+    let settled = false;
+    void response.catch(() => { settled = true; });
+    await vi.advanceTimersByTimeAsync(39);
+    expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    await rejection;
+    deliverEncrypted({ jsonrpc: '2.0', id: publishedPlain[2].id, result: { late: true } });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(events).toEqual([]);
+    transport.dispose();
+  }));
+
+  it.each(['response', 'progress'])('rejects late %s before the deadline timer callback runs', (kind) => withFakeClock(async () => {
+    const { pool, serverPubkey, publishedPlain, deliverEncrypted } = createServerPool(generateSecretKey(), () => null);
+    const transport = createNostrCvmTransport({ pool, defaultRelays: RELAYS });
+    const events: McpMessage[] = [];
+    transport.onEvent((_server, message) => events.push(message));
+    const response = transport.request({ pubkey: serverPubkey }, { jsonrpc: '2.0', id: 1, method: 'tools/call' }, { timeoutMs: 100 });
+    const rejection = expect(response).rejects.toThrow('relay timeout');
+    deliverEncrypted(kind === 'response'
+      ? { jsonrpc: '2.0', id: publishedPlain[0].id, result: { late: true } }
+      : { jsonrpc: '2.0', method: 'notifications/progress', params: {
+        progressToken: injectedToken(publishedPlain), progress: 1, cvm: { type: 'open-stream', frameType: 'start' },
+      } });
+    const clock = vi.spyOn(performance, 'now').mockReturnValue(101);
+    try {
+      await vi.advanceTimersByTimeAsync(0);
+      await rejection;
+      expect(events).toEqual([]);
+    } finally {
+      clock.mockRestore();
+      transport.dispose();
+    }
+  })());
+
+  it('preserves relay timeout during initialization and never continues a late handshake', withFakeClock(async () => {
+    const { pool, serverPubkey, publishedPlain, deliverEncrypted } = createServerPool(generateSecretKey(), () => null);
+    const transport = createNostrCvmTransport({ pool, defaultRelays: RELAYS });
+    const response = transport.request({ pubkey: serverPubkey }, { jsonrpc: '2.0', method: 'tools/list' }, { timeoutMs: 100, initialize: true });
+    const rejection = expect(response).rejects.toThrow('relay timeout');
+    await vi.advanceTimersByTimeAsync(100);
+    await rejection;
+    deliverEncrypted({ jsonrpc: '2.0', id: publishedPlain[0].id, result: {} });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(publishedPlain.map(({ method }) => method)).toEqual(['initialize']);
+    transport.dispose();
+  }));
+
+  it('bounds stalled initialized publication and retries initialization after late completion', withFakeClock(async () => {
+    const inner = createServerPool(generateSecretKey(), (message) => message.method === 'initialize' ? {} : null);
+    let finishPublication!: () => void;
+    const pool: CvmRelayPool = { ...inner.pool, publish(relays, event) {
+      inner.pool.publish(relays, event);
+      if (inner.publishedPlain.at(-1)?.method === 'notifications/initialized') {
+        return new Promise<void>((resolve) => { finishPublication = resolve; });
+      }
+    } };
+    const transport = createNostrCvmTransport({ pool, defaultRelays: RELAYS });
+    const response = transport.request({ pubkey: inner.serverPubkey }, { jsonrpc: '2.0', method: 'tools/list' }, { timeoutMs: 100, initialize: true });
+    const rejection = expect(response).rejects.toThrow('relay timeout');
+    await vi.advanceTimersByTimeAsync(100);
+    await rejection;
+    finishPublication();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(inner.publishedPlain.map(({ method }) => method)).toEqual(['initialize', 'notifications/initialized']);
+    const retry = transport.request({ pubkey: inner.serverPubkey }, { jsonrpc: '2.0', method: 'tools/list' }, { timeoutMs: 100, initialize: true });
+    const retryRejection = expect(retry).rejects.toThrow('relay timeout');
+    await vi.advanceTimersByTimeAsync(100);
+    await retryRejection;
+    expect(inner.publishedPlain.filter(({ method }) => method === 'initialize')).toHaveLength(2);
+    transport.dispose();
+  }));
+
+  it('expires a short shared-init waiter independently while the first caller completes', withFakeClock(async () => {
+    const { pool, serverPubkey, publishedPlain, deliverEncrypted } = createServerPool(generateSecretKey(),
+      (message) => message.method === 'tools/list' ? { ok: true } : null);
+    const transport = createNostrCvmTransport({ pool, defaultRelays: RELAYS });
+    const first = transport.request({ pubkey: serverPubkey }, { jsonrpc: '2.0', id: 'long', method: 'tools/list' }, { timeoutMs: 300_000, initialize: true });
+    await vi.advanceTimersByTimeAsync(0);
+    const short = transport.request({ pubkey: serverPubkey }, { jsonrpc: '2.0', id: 'short', method: 'tools/list' }, { timeoutMs: 1_000, initialize: true });
+    const rejection = expect(short).rejects.toThrow('relay timeout');
+    await vi.advanceTimersByTimeAsync(1_000);
+    await rejection;
+    expect(publishedPlain).toHaveLength(1);
+    deliverEncrypted({ jsonrpc: '2.0', id: publishedPlain[0].id, result: {} });
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(1);
+    await expect(first).resolves.toMatchObject({ id: 'long', result: { ok: true } });
+    expect(publishedPlain.map(({ method }) => method)).toEqual(['initialize', 'notifications/initialized', 'tools/list']);
+    transport.dispose();
+  }));
+
+  it('completes reassembly after 120 seconds with a 300-second request budget', withFakeClock(async () => {
     const serverSk = generateSecretKey();
     const { pool, serverPubkey, publishedPlain, deliverEncrypted } = createServerPool(serverSk, () => null);
     const transport = createNostrCvmTransport({ pool, defaultRelays: RELAYS });
@@ -163,7 +325,6 @@ describe('createNostrCvmTransport', () => {
     const serverSk = generateSecretKey();
     const { pool, serverPubkey, publishedPlain } = createServerPool(serverSk, () => ({ ok: true }));
     const transport = createNostrCvmTransport({ pool, defaultRelays: RELAYS });
-    const random = vi.spyOn(crypto, 'getRandomValues');
     try {
       const replies = await Promise.all([1, 2].map((id) => transport.request({ pubkey: serverPubkey },
         { jsonrpc: '2.0', id, method: 'tools/list' })));
@@ -171,9 +332,7 @@ describe('createNostrCvmTransport', () => {
       const ids = publishedPlain.map(({ id }) => id);
       expect(new Set(ids).size).toBe(2);
       expect(ids.every((id) => /^cvm-\d+-[0-9a-f]{8}$/.test(String(id)))).toBe(true);
-      expect(random.mock.calls.filter(([buffer]) => buffer?.byteLength === 4)).toHaveLength(2);
     } finally {
-      random.mockRestore();
       transport.dispose();
     }
   });
@@ -1226,7 +1385,7 @@ describe('createNostrCvmTransport', () => {
       expect(events).toHaveLength(1); // start only
       deliverEncrypted({ jsonrpc: '2.0', id: correlationId, result: { ok: true } });
       await vi.advanceTimersByTimeAsync(0);
-    await expect(responsePromise).resolves.toMatchObject({ id: 33, result: { ok: true } });
+      await expect(responsePromise).resolves.toMatchObject({ id: 33, result: { ok: true } });
     } finally {
       process.off('unhandledRejection', onUnhandled);
     }

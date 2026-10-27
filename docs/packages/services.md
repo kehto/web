@@ -47,13 +47,19 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 ## Scope Boundaries
 
 - Provides reference service handlers that host apps register with `runtime.registerService()`.
-- The CVM Nostr transport caps inbound CEP-22 reassembly at 300,000ms and keeps
-  admitted request deadlines fixed despite progress. CEP-41 closes with remaining
-  gaps fail immediately, including boundless closes. Outbound oversized requests
+- The CVM Nostr transport rejects noninteger request durations or values outside
+  1..300,000ms with `invalid timeout` before session acquisition or publication
+  (default 30,000ms). One fixed deadline covers initialization, shared-init waits,
+  initialized-notification publication, and the final response; expiry returns
+  `relay timeout`. CEP-22 buffers live for the remaining request budget, bounded
+  by `min(request timeout, 300_000)`; progress never extends it. CEP-41 closes with
+  remaining gaps fail immediately, including boundless closes. Outbound oversized requests
   are unsupported; encrypted arguments must fit one NIP-44 message. Hosts own
-  per-napplet concurrency and overall initialization/queueing budgets; the
-  transport has no caller principal. Correlation IDs and ping nonces use random
-  bytes rather than per-ID key derivation. These policies follow [NAP-CVM #31 at
+  per-napplet concurrency admission before invoking the transport, which has no
+  caller principal; Kehto does not yet enforce this cap (follow-up tracked in
+  [#355](https://github.com/kehto/web/issues/355)). Sessions and relay holds remain
+  until close or disposal; frame caps do not bound pending request count.
+  Correlation IDs and ping nonces use random bytes rather than per-ID key derivation. These policies follow [NAP-CVM #31 at
   `28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f`](https://github.com/napplet/naps/blob/28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f/naps/NAP-CVM.md)
   and [CEP-41](https://github.com/contextvm/contextvm-docs/blob/3b4f9dc9f9012a418abd9faec6a70db774754862/src/content/docs/reference/ceps/cep-41.md).
 - Uploads belong to exact window IDs, including IDs containing colons. Window

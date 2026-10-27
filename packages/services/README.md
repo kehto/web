@@ -10,19 +10,26 @@ and DM.
 
 ## ContextVM transport limits
 
-The Nostr transport reassembles inbound CEP-22 responses with a 300,000ms buffer
-lifetime ceiling. Each admitted request retains its original deadline; progress
-does not extend it. Hosts must include initialization/queueing in their overall
-NAP-CVM budget. CEP-41 close with unresolved chunk gaps fails immediately, whether
-or not `lastChunkIndex` is present. Contiguous buffered chunks drain when the
+The Nostr transport accepts integer request durations from 1 through 300,000ms
+(default 30,000ms). Malformed or out-of-range values fail with `invalid timeout`
+before session acquisition or publication. One deadline covers initialization,
+waiting for shared initialization, initialized-notification publication, and the
+final response; expiry returns `relay timeout`. Progress never resets it.
+Inbound CEP-22 buffers live for at most the remaining request budget, bounded by
+`min(request timeout, 300_000)`, including time already spent initializing.
+CEP-41 close with unresolved chunk gaps fails immediately, whether or not
+`lastChunkIndex` is present. Contiguous buffered chunks drain when the
 missing predecessor arrives before close. The transport does not wait for a
 post-close grace period or report successful closure while dropping gaps.
 
 Outbound oversized requests are not split into CEP-22 frames. With encryption
 enabled, tool arguments must fit one NIP-44 plaintext message. The transport
 does not know the calling napplet; hosts own per-napplet concurrency admission
-before invoking it. Frame caps do not bound the pending request map. Correlation
-IDs and ping nonces use random bytes plus counters, without per-ID key derivation.
+before invoking it. Kehto does not yet enforce this admission cap; see the
+[concurrency follow-up](https://github.com/kehto/web/issues/355). Frame caps do not
+bound the pending request map. Sessions and relay holds remain until `close(server)`
+or `dispose()`, independently of request expiry. Correlation IDs and ping nonces
+use random bytes plus counters, without per-ID key derivation.
 
 Authority: [NAP-CVM draft #31](https://github.com/napplet/naps/blob/28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f/naps/NAP-CVM.md)
 and [CEP-41](https://github.com/contextvm/contextvm-docs/blob/3b4f9dc9f9012a418abd9faec6a70db774754862/src/content/docs/reference/ceps/cep-41.md).
