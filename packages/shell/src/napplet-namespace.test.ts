@@ -165,6 +165,74 @@ function runPrelude(script: string, target: PreludeTestWindow): void {
   new Function('window', source)(target);
 }
 
+describe('NAP-MEDIA injected lifecycle', () => {
+  it('retains terminal events, guards parent source and survives shim reassignment without shell', () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['media'] }), target);
+    const media = target.napplet!.media as {
+      command(id: string, command: unknown): void;
+      onState(id: string, cb: (state: unknown) => void): { close(): void };
+      onCommand(id: string, cb: (command: unknown) => void): { close(): void };
+      onEnded(id: string, cb: (ended: unknown) => void): { close(): void };
+    };
+    const states = vi.fn(), commands = vi.fn(), ended = vi.fn();
+    media.onState('s', states); media.onCommand('s', commands); media.onEnded('s', ended);
+    const result = { type: 'media.session.create.result', id: 'c', sessionId: 's', owner: 'shell' };
+    target.dispatchMessage({}, result);
+    target.dispatchParentMessage({ type: 'media.state', sessionId: 's', status: 'playing' });
+    expect(states).not.toHaveBeenCalled();
+    target.dispatchParentMessage(result);
+    target.dispatchMessage({}, { type: 'media.session.ended', sessionId: 's', reason: 'policy' });
+    target.dispatchParentMessage({ type: 'media.state', sessionId: 's', status: 'paused', reason: 'focus-lost' });
+    target.dispatchParentMessage({ type: 'media.command', sessionId: 's', action: 'play', reason: 'focus-gained' });
+    expect(states).toHaveBeenCalledWith({ status: 'paused', reason: 'focus-lost' });
+    expect(commands).toHaveBeenCalledWith({ action: 'play', reason: 'focus-gained' });
+    target.napplet = { media: { onEnded: () => {} } };
+    expect(target.napplet.media).toBe(media);
+    const terminal = { type: 'media.session.ended', sessionId: 's', reason: 'preempted' };
+    target.dispatchParentMessage(terminal); target.dispatchParentMessage(terminal);
+    target.dispatchParentMessage({ type: 'media.state', sessionId: 's', status: 'playing' });
+    target.dispatchParentMessage({ type: 'media.command', sessionId: 's', action: 'play' });
+    expect(states).toHaveBeenCalledTimes(1); expect(commands).toHaveBeenCalledTimes(1);
+    expect(ended).toHaveBeenCalledTimes(1);
+    const late = vi.fn(); media.onEnded('s', late);
+    expect(late).toHaveBeenCalledExactlyOnceWith({ sessionId: 's', reason: 'preempted' });
+    const before = target.postedMessages.length;
+    media.command('s', { action: 'play' });
+    expect(target.postedMessages).toHaveLength(before);
+  });
+
+  it('warns once per legacy boundary and keeps canonical commands quiet', () => {
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const target = createPreludeTestWindow();
+      runPrelude(renderNappletNamespacePrelude({ domains: ['media'] }), target);
+      const media = target.napplet!.media as {
+        command(id: string, command: unknown): void;
+        sendCommand(id: string, action: string, value?: number): void;
+        onCommand(id: string, cb: (action: unknown, value?: unknown) => void): { close(): void };
+      };
+      media.command('s', { action: 'seek', value: 12, reason: 'user' });
+      media.onCommand('s', command => { void command; });
+      expect(warning).not.toHaveBeenCalled();
+      media.sendCommand('s', 'seek', 12); media.sendCommand('s', 'play');
+      const calls: unknown[] = [];
+      const sub = media.onCommand('s', (action, value) => calls.push({ action, value }));
+      media.onCommand('s', (_action, _value) => {});
+      expect(warning.mock.calls).toEqual([
+        [expect.stringContaining('[KEHTO-MEDIA-SEND-COMMAND] Deprecated media API; use media.command')],
+        [expect.stringContaining('[KEHTO-MEDIA-COMMAND-CALLBACK] Deprecated media API; use media.onCommand')],
+      ]);
+      target.dispatchParentMessage({ type: 'media.session.create.result', id: 'c', sessionId: 's', owner: 'napplet' });
+      target.dispatchParentMessage({ type: 'media.command', sessionId: 's', action: 'seek', value: 12 });
+      expect(calls).toEqual([{ action: 'seek', value: 12 }]);
+      sub.close();
+      target.dispatchParentMessage({ type: 'media.command', sessionId: 's', action: 'play' });
+      expect(calls).toHaveLength(1);
+    } finally { warning.mockRestore(); }
+  });
+});
+
 async function withGlobalWindow<T>(target: PreludeTestWindow, run: () => T | Promise<T>): Promise<T> {
   const hadWindow = Object.prototype.hasOwnProperty.call(globalThis, 'window');
   const originalWindow = (globalThis as { window?: unknown }).window;
@@ -1703,6 +1771,7 @@ describe('NIP-5D napplet namespace prelude', () => {
       expect(notifyActions).toEqual([{ notificationId: 'notification-1', actionId: 'open' }]);
       notifySubscription.close();
 
+      target.dispatchParentMessage({ type: 'media.session.create.result', id: 'media-create', sessionId: 'media-session', owner: 'napplet' });
       const mediaCommands: unknown[] = [];
       const mediaSubscription = sdkLike.media.onCommand('media-session', (action, value) => {
         mediaCommands.push({ action, value });

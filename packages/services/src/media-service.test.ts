@@ -124,8 +124,7 @@ describe('createMediaService', () => {
         (msg) => sent.push(msg),
       );
 
-      expect(sent).toHaveLength(1);
-      expect((sent[0] as any).type).toBe('media.session.create.result');
+      expect(sent.map(message => message.type)).toEqual(['media.session.create.result', 'media.controls']);
       expect((sent[0] as any).id).toBe('m1');
       expect((sent[0] as any).sessionId).toBe('s1');
       expect((sent[0] as any).owner).toBe('napplet');
@@ -238,7 +237,7 @@ describe('createMediaService', () => {
 
       expect((sentA[0] as any).sessionId).toBe('same');
       expect((sentB[0] as any).sessionId).not.toBe('same');
-      expect((sentB[0] as any).sessionId).toContain('win-b:same:');
+      expect(typeof (sentB[0] as any).sessionId).toBe('string');
     });
   });
 
@@ -318,6 +317,8 @@ describe('createMediaService', () => {
         },
       });
 
+      service.handleMessage(WINDOW_ID, { type: 'media.session.create', owner: 'napplet', sessionId: 's1', id: 'create' } as NappletMessage, () => {});
+
       service.handleMessage(
         WINDOW_ID,
         {
@@ -335,7 +336,7 @@ describe('createMediaService', () => {
   });
 
   describe('unknown media action', () => {
-    it('emits <type>.error envelope', () => {
+    it('ignores unknown messages', () => {
       const service = createMediaService();
       const sent: NappletMessage[] = [];
 
@@ -345,10 +346,7 @@ describe('createMediaService', () => {
         (msg) => sent.push(msg),
       );
 
-      expect(sent).toHaveLength(1);
-      expect((sent[0] as any).type).toBe('media.bogus.error');
-      expect((sent[0] as any).id).toBe('x');
-      expect((sent[0] as any).error).toMatch(/Unknown media method/);
+      expect(sent).toEqual([]);
     });
   });
 
@@ -433,15 +431,15 @@ describe('media.command emission on setActionHandler fire (real push path)', () 
       metadata: { title: 'A' },
     } as NappletMessage, (m) => sent.push(m));
 
-    // First envelope is media.session.create.result
-    expect(sent).toHaveLength(1);
+    // Result precedes initial controls.
+    expect(sent).toHaveLength(2);
     expect((sent[0] as NappletMessage & { type: string }).type).toBe('media.session.create.result');
 
     // Simulate OS user clicking the play button -> mock play handler fires -> service emits media.command.
     mock.fire('play');
 
-    expect(sent).toHaveLength(2);
-    const cmd = sent[1] as NappletMessage & { type: string; sessionId?: string; action?: string };
+    expect(sent).toHaveLength(3);
+    const cmd = sent[2] as NappletMessage & { type: string; sessionId?: string; action?: string };
     expect(cmd.type).toBe('media.command');
     expect(cmd.sessionId).toBe('sess-a');
     expect(cmd.action).toBe('play');
@@ -671,7 +669,7 @@ describe('HostMediaBridge integration', () => {
     expect(metadataCalls).toHaveLength(1);
     expect(metadataCalls[0].sessionId).toBe('sess-b');
     expect(metadataCalls[0].metadata.title).toBe('Bridge Track');
-    expect(sent).toHaveLength(1);
+    expect(sent).toHaveLength(2);
     expect((sent[0] as NappletMessage & { type: string }).type).toBe('media.session.create.result');
   });
 

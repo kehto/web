@@ -578,11 +578,15 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   });
   let incRuntime: IncRuntime | null = null;
   const aclState = createAclState(hooks.aclPersistence, 'permissive', (mutation) => {
-    if (mutation.type === 'revoke' && mutation.capability !== 'relay:read') return;
     for (const entry of sessionRegistry.getAllEntries()) {
       if (entry.dTag === mutation.dTag && entry.aggregateHash === mutation.aggregateHash) {
-        revokeRelaySubscriptions({ hooks, serviceRegistry, subscriptions }, entry.windowId);
-        incRuntime?.revokeWindow(entry.windowId);
+        for (const service of Object.values(serviceRegistry)) {
+          service.onCapabilityRevoked?.(entry.windowId, mutation.type === 'block' ? null : mutation.capability);
+        }
+        if (mutation.type === 'block' || mutation.capability === 'relay:read') {
+          revokeRelaySubscriptions({ hooks, serviceRegistry, subscriptions }, entry.windowId);
+          incRuntime?.revokeWindow(entry.windowId);
+        }
       }
     }
   });

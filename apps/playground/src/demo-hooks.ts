@@ -37,6 +37,8 @@ import {
   createLinkService,
   createListsService,
   createMediaService,
+  createBrowserMediaPlayback,
+  mountMediaPlayer,
   createThemeService,
   createConfigService,
   createCommonService,
@@ -121,16 +123,12 @@ export function createDemoHooks(
 ): ShellAdapter {
   const notificationService = createNotificationService({ onChange: notificationOnChange, maxPerWindow: 50 });
   const keysService = createDemoKeysService();
-  const mediaService = createMediaService({
-    onSessionCreate: (windowId, sessionId, metadata) => {
-      void windowId;
-      void sessionId;
-      void metadata;
-    },
-  });
   const themeBundle = createThemeService({ initialTheme, onBroadcast: context.onThemeBroadcast });
   const configBundle = createConfigService({ getValues: () => ({ ...demoConfigFixtures }) });
   const resourceHandler = createDemoResourceHandler();
+  const mediaService = createMediaService({ playback: createBrowserMediaPlayback({ resource: resourceHandler }) });
+  const unmountMediaPlayer = mountMediaPlayer(mediaService);
+  mediaService.onUnregistered = () => { unmountMediaPlayer(); mediaService.destroy(); };
   const linkService = createLinkService({
     open: ({ url }) => ({
       status: url.hostname === 'blocked.example' ? 'denied' : 'opened',
