@@ -50,3 +50,5 @@ Verification checkpoints:
 - Spec draft head rechecked unchanged at 7806f438530251fce5129f8e6239d6b642278759.
 
 Bounded policy: finite browser-codec audio/video sources via resource URL/Blossom resolution; reject unsupported references. No HLS/DASH transport, Nostr resolver, queue, persistent playback, remote artwork or automatic focus resumption. These are optional host capabilities, documented in docs/media.md; no unresolved protocol contradiction blocks this implementation.
+
+Follow-up: the user's Funclet reproduction required live radio. Commit ae738167 adds live MP3/AAC transport and both-host regressions; see [the live-radio debug session](./nap-media-live-radio.md). Final totals are 2,307 unit and 155 browser tests.

@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: resolved
 trigger: User supplied Funclet NAP-MEDIA reproduction in deployed Paja
 created: 2026-10-27
 updated: 2026-10-27
@@ -17,10 +17,12 @@ PR #354 fixes owner support but buffers the entire resource before playback, so 
 
 NAP-MEDIA draft PR #10 at napplet/naps@7806f438530251fce5129f8e6239d6b642278759 rechecked unchanged. Shell owns source fetch policy and output lifecycle; live sources may omit seeking. Streaming transport is host-internal, without new NAP-RESOURCE wire messages.
 
+NAP-RESOURCE PR #80 at ae5b9c64ab8a4d8909f288829a01e99d6bd713bc confirms atomic wire results only. Its newer wire encoding/bulk-shape changes are outside this media task. Browser-only DNS-time IP enforcement remains a documented host-policy limitation; the new transport rejects literal private addresses and redirects but cannot replace a production DNS-aware resolver.
+
 ## Current Focus
 
 root_cause: Atomic resource.bytes waits for EOF, so an open-ended radio source never becomes playable.
-next_action: Complete final gates and push the live transport follow-up to PR #354.
+resolution: Implemented in ae738167 and verified for PR #354.
 
 ## Resolution and verification
 
@@ -31,3 +33,4 @@ Added host-only ResourceService.openStream through the existing endpoint origin-
 - All five focused browser cases pass, including open-ended real MP3 HTTP responses in both hosts, Funclet's legacy sendCommand ordering, disabled live seeking, reader cancellation and playground origin denial.
 - Four new unit cases cover split-prefix streaming before EOF, upstream cancellation, MIME spoofing, private/credentialed URL rejection and endpoint grants/abort identity.
 - No signed artifact bytes or app implementation were edited. Deployment remains a later merge/deploy step.
+- Closing gates pass: build, type-check, strict docs, 2,307 unit tests across 182 files and all 155 browser tests. Quality score 95/100 matches the original baseline diagnostics; no rules changed. Focused backend tests were rerun after adding live-stop/replay assertions and pass.

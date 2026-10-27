@@ -410,3 +410,4 @@ Build/type/docs/quality and 2,164 unit / 123 browser tests pass.
 |---------|------|--------|--------|
 | [NIP-5D all event kinds](./debug/resolved/nip5d-all-event-kinds.md) | 2026-10-20 | f30cfa80 | Root 15129, named 35129 and snapshot 5129 loading verified across core and hosts |
 | [NAP-MEDIA player](./debug/resolved/nap-media-player.md) | 2026-10-27 | 72c1a432 | Paja/playground audio-video player, ownership and lifecycle verified; 2,303 unit and 153 browser tests pass against NAP-MEDIA draft 7806f438 |
+| [NAP-MEDIA live radio](./debug/resolved/nap-media-live-radio.md) | 2026-10-27 | ae738167 | Funclet Omarchy stream plays unchanged in local Paja; bounded MP3/AAC transport and both hosts verified; 2,307 unit and 155 browser tests pass |
