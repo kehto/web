@@ -16,7 +16,7 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
 | Field | Value |
 |-------|-------|
 | Source | `packages/runtime/package.json`, `packages/runtime/src/index.ts` |
-| Version | `0.25.0` |
+| Version | `0.26.0` |
 | Runtime entry | `./dist/index.js` |
 | Types entry | `./dist/index.d.ts` |
 | Dependencies | `@kehto/acl`, `@noble/hashes`, `@noble/curves` |
@@ -44,6 +44,34 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
 ## Scope Boundaries
 
 - Owns message dispatch, ACL gates, service routing, storage handling, manifest cache, replay checks, and runtime lifecycle.
+- `aclState.setStateQuota(pubkey, dTag, aggregateHash, bytes)` updates the live
+  principal-scoped storage quota without changing grants, blocking, or stored data.
+  Accepts safe integer byte counts from zero through `Number.MAX_SAFE_INTEGER`;
+  invalid input throws `RangeError` before mutation. Save with `persist()`.
+  Storage enforcement counts UTF-8 bytes including scoped keys; reducing the
+  quota does not evict values. This host API conforms to [NAP-STORAGE draft #3
+  at `4f4cf0ca7ecbd24c284a5d63bcd85e3de6af37ca`](https://github.com/napplet/naps/blob/4f4cf0ca7ecbd24c284a5d63bcd85e3de6af37ca/naps/NAP-STORAGE.md).
+
+- ACL listing and lookup return `AclEntryExternal` with required `dTag` and
+  `aggregateHash` fields. Feed those fields into keyed revoke/block/quota methods;
+  listing `pubkey` remains empty because it is not the principal key. Results are
+  detached copies, remain identifiable after reload, and preserve existing
+  serialized keys. Custom producers must provide the two identity fields.
+
+- ACL mutations and revoke/block observers take effect in memory before an
+  explicit save. `aclState.persist()` and `aclState.clear()` return `true` when
+  their synchronous backend call succeeds and `false` when it throws. Failure
+  retains the live change; reload can still restore the prior durable policy.
+  Check the result and retry after correcting storage. `clear()` resets live
+  state to the configured default even when its backend call fails. Runtime
+  teardown remains best-effort. This is host API policy, outside the NAP wire.
+
+- Revoking `relay:read` or blocking a principal retires ordinary relay subscriptions
+  across its exact `dTag` and aggregate hash, closes service/adapter backends, and
+  sends `relay.closed` with reason `denied: relay:read`. Events and EOSE queued by
+  retired subscriptions remain suppressed after regrant and `subId` reuse.
+  This host policy conforms to [NAP-RELAY draft PR #2 at
+  `9f30b3505335a52c574ff570576687d6467021ff`](https://github.com/napplet/naps/blob/9f30b3505335a52c574ff570576687d6467021ff/naps/NAP-RELAY.md).
 - Follows draft NAP-RELAY PR #2 at
   `0be8abce18beb46ca37bd4ddd042f58d30b4eedc`: `relay.publish` accepts an
   unsigned template, signs it through the shell-owned signer, publishes only
@@ -83,6 +111,11 @@ for examples, lifecycle rules, and specification bounds.
 ## API Reference
 
 ### Registration and initialization limits
+
+`sessionRegistry.unregister(windowId)` removes registration and lookup state for
+that window, including the empty-pubkey NIP-5D path, and clears its pending update.
+It is idempotent and preserves a newer window's lookup when both share a pubkey.
+Use `getEntryByWindowId` for per-window identity in that case.
 
 Each trusted `runtime.sessionRegistry.register(windowId, entry)` starts a fresh
 initialization budget, even when a replacement iframe retains the logical window

@@ -1,4 +1,5 @@
 import type { Runtime, SessionEntry } from '@kehto/runtime';
+import { randomUUID } from './random-uuid.js';
 import { originRegistry, type OriginIdentity } from './origin-registry.js';
 import { resolveShellEnvironment } from './shell-init.js';
 import type { ShellAdapter, ShellEnvironment } from './types.js';
@@ -92,10 +93,11 @@ function registerNip5dSessionIfNeeded({
   if (existing && previousRegistration === sourceRegistrationId) {
     return;
   }
+  // A cached environment expires even if the host already unregistered the session.
+  state.environments.delete(windowId);
   if (existing && previousRegistration !== undefined) {
     runtime.destroyWindow(windowId);
     runtime.sessionRegistry.unregister(windowId);
-    state.environments.delete(windowId);
   }
   if (existing && previousRegistration === undefined) {
     state.sessionRegistration.set(windowId, sourceRegistrationId);
@@ -110,7 +112,7 @@ function registerNip5dSessionIfNeeded({
     dTag: identity.dTag,
     aggregateHash: identity.aggregateHash,
     registeredAt: Date.now(),
-    instanceId: crypto.randomUUID(),
+    instanceId: randomUUID(),
     provenance: 'nip-5d',
   };
   runtime.sessionRegistry.register(windowId, entry);

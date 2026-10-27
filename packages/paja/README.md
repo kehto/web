@@ -59,7 +59,7 @@ warning, when the target would block the sandboxed frame.
 
 Every drawer section is a flush, independent native accordion: **Pointer** (in
 runtime-pointer mode), **Interfaces**, **ACL**, **Signer**, **Resource servers**,
-then **Messages** last. Headers support Enter/Space, visible keyboard focus and
+**Messages**, then **Events** last. Headers support Enter/Space, visible keyboard focus and
 state chevrons; bodies keep their padding and live controls when hidden. Sections
 start expanded unless a validated origin-local boolean preference says otherwise.
 The collapsed map uses `kehto:paja:sidebar-sections:v1`, separately from whole-drawer
@@ -69,7 +69,9 @@ usable; collapsing never reloads the running app or discards unsaved drafts.
 The console shows supported interfaces with per-domain injection toggles,
 runtime ACL controls, signer controls, and a filterable message log with visible
 error details. It starts expanded and collapses to the left with the chevron
-button in the top bar; the same button brings the whole panel back. Collapsing
+button in the top bar; the same button brings the whole panel back. The toolbar
+stays onscreen after restoring a saved collapsed preference, including when no
+runtime tab is open. Collapsing
 is presentation-only — the target iframe keeps its identity and the loaded
 napplet keeps running — and Paja remembers the choice per browser origin. In
 runtime-pointer mode, ACL controls always display and mutate
@@ -129,7 +131,20 @@ bounded range reads, canonical padded-base64 writes, replace/append/patch,
 revisions and preconditions, recursive mkdir/remove, atomic handle moves when
 the browser supports them, and advisory watches over actual storage. Host
 paths and handles never cross the NIP-5D boundary. This implementation follows
-draft [NAP-FS `b640cf33`](https://github.com/napplet/naps/blob/b640cf337c0481f0f9a0216c00843f797a5c6df6/naps/NAP-FS.md).
+draft [NAP-FS `bd1b9e91`](https://github.com/napplet/naps/blob/bd1b9e912f05203bf38f7a1b04f920744fe6d625/naps/NAP-FS.md).
+
+Workspace storage and native pickers have separate browser requirements. Firefox
+can provide OPFS while lacking `showOpenFilePicker`, `showSaveFilePicker`, and
+`showDirectoryPicker`. In that environment, workspace operations remain usable
+and the corresponding picker requests return the canonical `unsupported` result.
+The Interfaces panel shows workspace and open/save/directory picker availability
+separately; the message log names a missing picker API when one caused that result.
+Green `fs:read` and `fs:write` ACL controls indicate permission, not browser API
+support. See the [picker compatibility reference](https://developer.mozilla.org/en-US/docs/Web/API/Window/showOpenFilePicker#browser_compatibility).
+
+The focused host regression runs in Chromium and Firefox after `pnpm build`:
+`pnpm exec playwright install firefox`, then
+`pnpm exec playwright test --config playwright.paja-fs.config.ts`.
 
 Other domains are equally capability-bound. Relay, outbox, and count require
 live relays; count uses NIP-45 `COUNT` without downloading events. Storage
@@ -179,11 +194,17 @@ artifact. It uses the same browser host and service adapters, but loads verified
 napplet HTML from pasted `naddr` or `nevent` pointers with `hmr: none`. Each
 loaded pointer becomes a closeable header tab; loading an already-running
 napplet opens a choice to load another instance, switch to the existing tab, or
-cancel. Each tab includes a share control that copies a `/web/paja/?naddr=...`
-or `/web/paja/?nevent=...` link for that pointer, and the browser remembers open
-runtime tabs in local storage so returning to `/web/paja/` restores the previous
+cancel. Each verified tab's Share control opens a dialog with its selectable
+`/web/paja/?naddr=...` or `/web/paja/?nevent=...` app link. **Copy app link**
+shows a confirmation on success; blocked or unavailable clipboard access selects
+the link for manual copying. Apps with advertised intents also offer
+**Create intent link**. Share keeps focus and pointer input in the host overlay
+while the apps remain loaded. The browser remembers open runtime tabs in local storage
+so returning to `/web/paja/` restores the previous
 pointer set. An explicit pointer in the URL still takes precedence over restored
 tabs.
+
+The browser page title follows the active napplet tab name, including when switching or closing tabs. With no active napplet, the title is `@kehto/paja`.
 
 The static artifact defaults to Paja's standard live relays and memory uploads.
 To point it at specific live relays or Blossom upload servers, pass
@@ -238,6 +259,14 @@ artifact removal deletes it. Restored pointers are reverified before entering th
 catalog. Entries preserve exact conventions and ordered parameter names under
 publisher/kind-safe opaque IDs, including nameless root and snapshot artifacts.
 The target's resolved `intent` domain must be available; INC is not required.
+
+Catalog installs, replacements, removals, and user default-handler updates emit
+`intent.changed` to eligible open napplets (`napplet.intent.onChanged(...)`).
+Replacements notify both removed and added archetypes, once per slug, using the
+current filtered catalog. A `no handler` rejection remains terminal: callers must
+retry explicitly; installing a handler does not replay the failed invocation.
+This follows `napplet/naps` NAP-INTENT on master (last changed at `e5308ac`), whose
+runtime behavior recommends notifications on catalog/default changes.
 
 Selection uses exact contracts and user-owned default, chooser, recommendation,
 and explicit-authorization policy. Explicit handler IDs require sender-aware
@@ -397,6 +426,11 @@ boundary and is advertised because each request may provide server locations
 without a host default. For example, reads accept
 `blossom:<hash>.gbc?xs=cdn.example&as=<pubkey>&sz=32768` and
 `blossom:sha256:<hash>.gbc?xs=cdn.example&sz=32768`.
+Internal event-reference keys and synthesized references use `blossom:<hash>`.
+Napplet-supplied resource cache keys remain unchanged, as NAP-RESOURCE does not
+require URL canonicalization. Actual `sha256:` alias reads/server-resolution
+requests emit `KEHTO_COMPAT_BLOSSOM_SHA256` once per host module lifetime, with
+replacement guidance and no URL/hash payload. Canonical requests stay quiet.
 Repeated `xs` and `as` are supported without an observed event. Paja accepts only
 public-looking HTTPS origin hints (scheme-less domains use HTTPS), discards
 invalid/private literals, and deduplicates them. Unlike BUD-10's suggested HTTP
@@ -530,3 +564,11 @@ remain a documented upstream spec gap; no host sender identity is invented.
 ## GAMEPAD integration
 
 This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja and the playground register one host reader and deny native gamepad/HID/USB paths before frame execution. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, window destruction, and service removal release polling. Non-browser or denied native readers report the proposal's unavailable reasons. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
+
+## NIP-5D runtime pointers
+
+Paja MUST load all three NIP-5D manifest kinds: root `15129`, named `35129`, and snapshot `5129`. Use an `naddr` with an empty identifier for the latest root, an `naddr` with the literal `d` identifier for the latest named napplet, or a `nevent` to pin a signed event of any of the three kinds. Snapshots require `nevent` because they are immutable events without replaceable coordinates. All paths verify the signed manifest and artifact hash before injecting `srcdoc`. Distinct snapshots retain separate tabs and catalog identities even when their artifact bytes match.
+
+## Controller diagnostics
+
+Paja shows a numbered controller icon directly beside the console arrow for each controller the browser detects. Each slot has its own color and input animation; hover for the controller model and activity state. Buttons and stick movement light up only that controller (stick movement below 0.12 is ignored). Quick taps retain the highlight briefly so they are easy to spot. Reduced-motion settings keep the activity highlight without animation. Disconnecting removes the icon. Browsers may require a button press before exposing a newly connected controller. These host diagnostics work without a napplet gamepad subscription and do not change focus-scoped input delivery.

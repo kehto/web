@@ -7,6 +7,7 @@
  */
 
 import type { NostrEvent, NostrFilter } from '@napplet/core';
+import { randomUUID } from './random-uuid.js';
 import type {
   RuntimeAdapter,
   RelayPoolAdapter,
@@ -136,7 +137,7 @@ function createCacheAdapter(shellHooks: ShellAdapter): CacheAdapter {
     async query(filters: NostrFilter[]): Promise<NostrEvent[]> {
       const workerRelay = shellHooks.workerRelay.getWorkerRelay();
       if (!workerRelay) return [];
-      const subId = crypto.randomUUID();
+      const subId = randomUUID();
       return workerRelay.query(['REQ', subId, ...filters]);
     },
 
@@ -185,7 +186,7 @@ function createCryptoAdapter(shellHooks: ShellAdapter): CryptoAdapter {
       return shellHooks.crypto.verifyEvent(event);
     },
     randomUUID(): string {
-      return crypto.randomUUID();
+      return randomUUID();
     },
     randomBytes(length: number): Uint8Array {
       const bytes = new Uint8Array(length);
@@ -198,7 +199,7 @@ function createCryptoAdapter(shellHooks: ShellAdapter): CryptoAdapter {
 function createAclPersistence(): AclPersistence {
   return {
     persist(data: string): void {
-      try { localStorage.setItem('napplet:acl', data); } catch { /* best-effort */ }
+      localStorage.setItem('napplet:acl', data);
     },
     load(): string | null {
       try { return localStorage.getItem('napplet:acl'); } catch { return null; }

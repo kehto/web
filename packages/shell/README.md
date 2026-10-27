@@ -27,6 +27,13 @@ source `dc1d24153c759152b6ba31a6ec9bea967798f2df`.
 
 The primary entry point is `createShellBridge()` — it owns the postMessage listener, the NAP-SHELL `shell.ready` / `shell.init` handshake, manifest verification, and every dispatch back into the runtime engine.
 
+ACL persistence uses the browser's `localStorage` key `napplet:acl`. A failed
+write is intentionally reported through `bridge.runtime.aclState.persist()` or
+`clear()` as `false`; the runtime keeps its already-applied live state, while a
+fresh bridge can still load the prior durable policy until the caller retries.
+Only ACL persistence has this result contract: unrelated browser persistence
+adapters retain their documented best-effort behavior.
+
 Current draft behaviors this package enforces:
 
 - The shell does not inject a host-provided nostr object into napplets — NIP-5D explicitly forbids napplet-visible signing. Napplets call `relay.publish` / `relay.publishEncrypted` and the shell mediates the signing flow internally (NIP-44 default, NIP-04 opt-in for encrypted envelopes).
@@ -214,6 +221,16 @@ payload.
 - `originRegistry` — origin-to-windowId map used by proxies and bridge broadcasts
 - `PendingUpdate` — type for pending aggregate-hash change prompts
 
+Environment snapshots belong to one source registration. To retire a window,
+call `bridge.runtime.destroyWindow(windowId)`,
+`bridge.runtime.sessionRegistry.unregister(windowId)`, and
+`originRegistry.unregister(windowId)`. When registering a replacement under the
+same window ID, provide its snapshot with `originRegistry.setEnvironment()` or
+let the bridge call `resolveShellEnvironment()` for current host defaults. A
+retired registration's cached domains and service names are discarded even when
+the runtime session was already removed. This applies before any domain dispatch,
+including requests sent before the optional `shell.ready` exchange.
+
 ### Manifest cache
 - `manifestCache` — browser-specific manifest cache singleton
 - `ManifestCacheEntry` — manifest cache entry type
@@ -287,3 +304,19 @@ for outer URL encoding, review, routing, and verified launcher behavior.
 ## GAMEPAD integration
 
 This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja and the playground register one host reader and deny native gamepad/HID/USB paths before frame execution. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, window destruction, and service removal release polling. Non-browser or denied native readers report the proposal's unavailable reasons. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
+
+## UUID support on HTTP origins
+
+Shell event injection, cache queries, and source-session registration use native
+`crypto.randomUUID()` when available. On browsers that omit it (including
+non-localhost plain HTTP origins), the shell generates UUID v4 identifiers from
+16 `crypto.getRandomValues()` bytes. If both methods are unavailable, UUID
+creation throws an explicit capability error. This internal host UUID helper
+never falls back to weak randomness; other identifier generators are outside
+its scope. It does not provide secure-context APIs such as `crypto.subtle` on
+HTTP, so this change does not establish HTTP support for uploads or other domains.
+
+This is a supported platform capability choice, not a deprecated caller API.
+Both standard Web Crypto paths remain quiet. Source-bound identity and optional
+shell readiness are unchanged (NAP-SHELL at `napplet/naps`
+`1e1046bcadabbc552804f6d3354f565184f9fefb`).

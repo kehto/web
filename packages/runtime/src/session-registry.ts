@@ -15,7 +15,7 @@ import type { SessionEntry, PendingUpdate, PendingUpdateNotifier } from './types
 export interface SessionRegistry {
   /** Establish a fresh host-attested lifecycle, mapping windowId to pubkey and vice versa. */
   register(windowId: string, entry: SessionEntry): void;
-  /** Unregister a napplet by windowId, removing both mappings. */
+  /** Remove a window and its owned mappings, including empty-pubkey sessions. */
   unregister(windowId: string): void;
   /** Get the pubkey associated with a windowId. */
   getPubkey(windowId: string): string | undefined;
@@ -92,10 +92,10 @@ export function createSessionRegistry(
 
     unregister(windowId: string): void {
       const pubkey = byWindowId.get(windowId);
-      if (pubkey) {
+      if (pubkey !== undefined && byPubkey.get(pubkey)?.windowId === windowId) {
         byPubkey.delete(pubkey);
-        byWindowId.delete(windowId);
       }
+      byWindowId.delete(windowId);
       byWindowIdEntry.delete(windowId);
       pendingUpdates.delete(windowId);
     },

@@ -45,6 +45,27 @@ function resolvedNapplet(overrides: Partial<PajaResolvedPointer> = {}): PajaReso
 }
 
 describe('InstalledNappletCatalog', () => {
+  it('reports catalog IDs separately from deduplicated old/new archetype slugs', () => {
+    const catalog = new InstalledNappletCatalog();
+    const changed = vi.fn();
+    const unsubscribe = catalog.onChanged(changed);
+    const resolved = resolvedNapplet();
+    const { id } = catalog.install(resolved);
+    expect(changed).toHaveBeenLastCalledWith(id, ['profile']);
+    catalog.install({ ...resolved, manifest: { ...resolved.manifest, archetypes: [
+      { slug: 'note', convention: 'napplet:note/open', params: [] },
+      { slug: 'note', convention: 'napplet:note/edit', params: [] },
+    ] } });
+    expect(changed).toHaveBeenLastCalledWith(id, ['profile', 'note']);
+    catalog.remove(id);
+    expect(changed).toHaveBeenLastCalledWith(id, ['note']);
+    expect(changed).toHaveBeenCalledTimes(3);
+    expect(catalog.remove(id)).toBe(false);
+    unsubscribe();
+    catalog.install(resolved);
+    expect(changed).toHaveBeenCalledTimes(3);
+  });
+
   it('stores copied serializable verified-manifest and pointer facts without browser identities', () => {
     const catalog = new InstalledNappletCatalog();
     const resolved = resolvedNapplet();

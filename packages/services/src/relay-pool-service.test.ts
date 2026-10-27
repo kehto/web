@@ -48,8 +48,34 @@ describe('createRelayPoolService', () => {
       [{ kinds: [1] }],
       expect.any(Function),
       ['wss://explicit.test'],
+      true,
     );
     expect(sent).toContainEqual({ type: 'relay.eose', subId: 'sub-relay-hint' });
+  });
+
+  it('labels host-tier selection as not coming from a relay hint', () => {
+    const subscribe = vi.fn(() => ({ unsubscribe() { /* no-op */ } }));
+    const selectRelayTier = vi.fn(() => ['wss://selected.test']);
+    const service = createRelayPoolService({
+      subscribe,
+      publish: vi.fn(),
+      selectRelayTier,
+      isAvailable: () => true,
+    });
+
+    service.handleMessage(
+      'window-a',
+      { type: 'relay.subscribe', id: 'relay-tier', subId: 'sub-relay-tier', filters: [{ kinds: [1] }] } as NappletMessage,
+      () => {},
+    );
+
+    expect(selectRelayTier).toHaveBeenCalledWith([{ kinds: [1] }]);
+    expect(subscribe).toHaveBeenCalledWith(
+      [{ kinds: [1] }],
+      expect.any(Function),
+      ['wss://selected.test'],
+      false,
+    );
   });
 
   it('returns the canonical signed event after relay.publish succeeds', async () => {

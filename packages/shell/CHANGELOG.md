@@ -1,5 +1,38 @@
 # @kehto/shell
 
+## 0.24.5
+
+### Patch Changes
+
+- a1b3668: Generate UUID v4 identifiers with `crypto.getRandomValues` when a browser omits
+  `crypto.randomUUID`, including non-localhost HTTP origins. Apply the same helper
+  to event injection, cache queries, and source-session registration. Preserve the
+  native method when available and fail explicitly if secure randomness is absent.
+
+## 0.24.4
+
+### Patch Changes
+
+- 5ac5fb8: Report browser ACL persistence failures to runtime callers so a failed save or
+  clear returns `false` instead of appearing durable.
+
+## 0.24.3
+
+### Patch Changes
+
+- Updated dependencies [5c3234e]
+- Updated dependencies [960baba]
+- Updated dependencies [ba9125b]
+  - @kehto/runtime@0.26.0
+
+## 0.24.2
+
+### Patch Changes
+
+- fb6cb14: Discard a retired source's cached environment even when its runtime session was explicitly unregistered. A replacement registration uses its supplied snapshot or current host defaults, so old private domains and services cannot leak into its shell.init or dispatch policy.
+- Updated dependencies [4176e5f]
+  - @kehto/runtime@0.25.2
+
 ## 0.24.1
 
 ### Patch Changes

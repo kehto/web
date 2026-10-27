@@ -132,6 +132,7 @@ export type {
 export { createRelayPoolOutboxRouter } from './relay-pool-outbox-router.js';
 export type {
   RelayPoolOutboxRouterOptions,
+  OutboxRelayOrigin,
   OutboxRelayPool,
   RelayListEntry,
 } from './relay-pool-outbox-router.js';

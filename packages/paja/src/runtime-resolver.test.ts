@@ -342,6 +342,41 @@ describe.each(['current', 'legacy'] as const)('Paja %s runtime pointer resolver'
     });
   });
 
+  it.each(['current', 'legacy'] as const)('resolves a %s root naddr without a d-tag filter', async (format) => {
+    const manifest = await buildManifestFixture({ kind: NAPPLET_KIND_ROOT, format });
+    const pointer = naddrEncode({ identifier: '', pubkey: manifest.event.pubkey, kind: NAPPLET_KIND_ROOT, relays: [RELAY] });
+    const pool = fakePool([manifest.event]);
+    const resolved = await resolvePajaPointer(pointer, { pool, fetcher: fakeFetcher(manifest.hash, manifest.bytes) });
+    expect(resolved.event.id).toBe(manifest.event.id);
+    expect(resolved.dTag).toBe('');
+    expect(pool.filters).toEqual([{ kinds: [NAPPLET_KIND_ROOT], authors: [manifest.event.pubkey], limit: 1 }]);
+  });
+
+  it('selects the newest matching root without trusting relay-side filters', async () => {
+    const manifest = await buildManifestFixture({ kind: NAPPLET_KIND_ROOT, format: 'current' });
+    const newer = finalizeEvent({ kind: NAPPLET_KIND_ROOT, created_at: manifest.event.created_at + 1, content: manifest.event.content, tags: manifest.event.tags }, SK);
+    const tied = finalizeEvent({ kind: NAPPLET_KIND_ROOT, created_at: newer.created_at, content: 'Another signed root at the same time', tags: newer.tags }, SK);
+    const wrongAuthor = finalizeEvent({ kind: NAPPLET_KIND_ROOT, created_at: newer.created_at + 1, content: newer.content, tags: newer.tags }, new Uint8Array(32).fill(2));
+    const named = await buildManifestFixture({ format: 'current' });
+    const pointer = naddrEncode({ identifier: '', pubkey: manifest.event.pubkey, kind: NAPPLET_KIND_ROOT, relays: [RELAY] });
+    const pool = closingPool([wrongAuthor, named.event, manifest.event, newer, tied], ['closed automatically on eose']);
+    const resolved = await resolvePajaPointer(pointer, { pool, fetcher: fakeFetcher(manifest.hash, manifest.bytes) });
+    // NIP-01 replaceable events with equal timestamps select the lowest ID.
+    expect(resolved.event.id).toBe([newer.id, tied.id].sort()[0]);
+  });
+
+  it.each([
+    { kind: NAPPLET_KIND_ROOT, identifier: 'invalid-root-name', message: /root.*empty identifier/i },
+    { kind: NAPPLET_KIND_SNAPSHOT, identifier: '', message: /snapshot.*nevent/i },
+    { kind: NAPPLET_KIND_NAMED, identifier: '', message: /named.*non-empty identifier/i },
+  ])('rejects invalid naddr coordinates for $kind with actionable guidance', async ({ kind, identifier, message }) => {
+    const manifest = await buildManifestFixture({ format: 'current' });
+    const pool = fakePool([manifest.event]);
+    const pointer = naddrEncode({ kind, identifier, pubkey: manifest.event.pubkey, relays: [RELAY] });
+    await expect(resolvePajaPointer(pointer, { pool })).rejects.toThrow(message);
+    expect(pool.filters).toHaveLength(0);
+  });
+
   it('rejects non-napplet naddr kinds before rendering', async () => {
     const manifest = await buildManifest();
     const pointer = naddrEncode({
@@ -352,7 +387,7 @@ describe.each(['current', 'legacy'] as const)('Paja %s runtime pointer resolver'
     });
 
     await expect(resolvePajaPointer(pointer, { pool: fakePool([manifest.event]) }))
-      .rejects.toThrow(/not a named NIP-5D napplet manifest kind/);
+      .rejects.toThrow(/not a root or named NIP-5D napplet manifest kind/);
   });
 
   it('rejects NIP-5A nsite event kinds', async () => {

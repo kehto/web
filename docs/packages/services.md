@@ -16,7 +16,7 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 | Field | Value |
 |-------|-------|
 | Source | `packages/services/package.json`, `packages/services/src/index.ts` |
-| Version | `0.24.1` |
+| Version | `0.25.1` |
 | Runtime entry | `./dist/index.js` |
 | Types entry | `./dist/index.d.ts` |
 | Dependencies | `@kehto/runtime` |
@@ -56,6 +56,12 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
   bytes rather than per-ID key derivation. These policies follow [NAP-CVM #31 at
   `28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f`](https://github.com/napplet/naps/blob/28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f/naps/NAP-CVM.md)
   and [CEP-41](https://github.com/contextvm/contextvm-docs/blob/3b4f9dc9f9012a418abd9faec6a70db774754862/src/content/docs/reference/ceps/cep-41.md).
+- Uploads belong to exact window IDs, including IDs containing colons. Window
+  teardown and service removal invalidate callbacks before backend cancellation;
+  late progress, results, and errors cannot reach destroyed or replacement
+  requesters. Cancellation errors do not prevent cleanup of other uploads. This
+  host lifecycle policy preserves live response shapes from [NAP-UPLOAD draft
+  #33 at `f5cc981e527e2cc1572793a7a6e5082e5271ac49`](https://github.com/napplet/naps/blob/f5cc981e527e2cc1572793a7a6e5082e5271ac49/naps/NAP-UPLOAD.md).
 - The runtime selects a handler by the exact `message.type` domain (for example,
   `notify.create` selects `notify`). INC topics are opaque, queryless identities
   matched only by exact equality; they never select a service handler. The

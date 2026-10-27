@@ -209,28 +209,40 @@ function createNipEncryptionMethods(state: Nip46ClientState, prefix: 'nip04' | '
   };
 }
 
+const HEX_PUBKEY = /^[0-9a-f]{64}$/i;
+
+/** Normalize a get_public_key response to a validated hex pubkey. */
+function readPubkey(value: unknown): string | null {
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    return HEX_PUBKEY.test(normalized) ? normalized : null;
+  }
+  if (value && typeof value === 'object' && 'pubkey' in value) {
+    return readPubkey((value as { pubkey?: unknown }).pubkey);
+  }
+  return null;
+}
+
+async function requestPublicKey(state: Nip46ClientState): Promise<string> {
+  const result = await sendRequestWithId(state, crypto.randomUUID(), 'get_public_key', []);
+  const pubkey = readPubkey(result);
+  if (!pubkey) throw new Error('NIP-46 signer returned an invalid public key');
+  state.authorizedPubkey = pubkey;
+  return pubkey;
+}
+
 async function connectNip46State(state: Nip46ClientState, secret?: string): Promise<string> {
   await openWebSocket(state);
-  const result = await sendRequestWithId(state, crypto.randomUUID(), 'connect', [state.bunkerPubkey, secret ?? '']);
+  await sendRequestWithId(state, crypto.randomUUID(), 'connect', [state.bunkerPubkey, secret ?? '']);
 
-  if (typeof result === 'string') {
-    state.authorizedPubkey = result;
-  } else if (result && typeof result === 'object' && 'pubkey' in result) {
-    state.authorizedPubkey = (result as { pubkey: string }).pubkey;
-  } else {
-    const pkResult = await sendRequestWithId(state, crypto.randomUUID(), 'get_public_key', []);
-    state.authorizedPubkey = pkResult as string;
-  }
-
-  return state.authorizedPubkey;
+  // NIP-46 requires get_public_key after connect: even a hex-shaped connect
+  // result may be a secret or transport key rather than the user's identity.
+  return requestPublicKey(state);
 }
 
 function createNip46Signer(state: Nip46ClientState): Signer {
   return {
-    getPublicKey: async () => {
-      if (state.authorizedPubkey) return state.authorizedPubkey;
-      return sendRequestWithId(state, crypto.randomUUID(), 'get_public_key', []) as Promise<string>;
-    },
+    getPublicKey: async () => state.authorizedPubkey ?? requestPublicKey(state),
     signEvent: async (event) => {
       const result = await sendRequestWithId(state, crypto.randomUUID(), 'sign_event', [JSON.stringify(event)]);
       if (typeof result === 'string') {

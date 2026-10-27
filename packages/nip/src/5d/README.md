@@ -88,3 +88,5 @@ freshness, and its JSON index in the same versioned Cache Storage namespace. It
 prunes by refcount and least-recently-used aggregate order, while in-memory
 active aggregate pins prevent eviction of a currently running napplet unless the
 hard budget is exceeded.
+
+NIP-5D verification accepts root (`15129`), named (`35129`) and snapshot (`5129`) manifests. Roots and snapshots have no `d` tag; snapshots are identified by signed event ID. Every kind uses the same signature and artifact-byte verification. Paja accepts root coordinates with an empty NIP-19 `naddr` identifier and exact `nevent` references for all three kinds.
