@@ -5,6 +5,7 @@ const PAJA_SIGNER_CONSENT_VERSION = 1;
 const MAX_CONSENT_SUBJECTS = 128;
 const MAX_KINDS_PER_SUBJECT = 128;
 const MAX_IDENTITY_FIELD_LENGTH = 512;
+let warnedLegacyConsent = false;
 
 /** Napplet source attached to a window-scoped signer request. */
 export interface PajaSignerSource {
@@ -17,24 +18,30 @@ export interface PajaSignerSource {
   };
   /** Stable Paja target boundary: exact direct URL or verified artifact hash. */
   readonly runtimeScope: string;
+  /** Host-owned lifecycle check; never persisted or supplied by a napplet. */
+  readonly isCurrent?: () => boolean;
 }
 
 /** Source identity plus the signer account whose authority is being granted. */
 export interface PajaSignerRequestContext extends PajaSignerSource {
-  /** Hex public key of the active signer. */
+  /** Active signer public key, or host-generated for document-scoped ephemeral transport events. */
   readonly signerPubkey: string;
 }
 
 /** Scope of a remembered signer decision that matched a request. */
 export type PajaSignerConsentMatch = 'kind' | 'napplet';
+/** Signing and relay publication are separate permissions. */
+export type PajaConsentAction = 'sign' | 'publish';
 
 export interface PajaSignerConsentStore {
   /** Return the remembered scope that authorizes this context and event kind. */
-  match(context: PajaSignerRequestContext, kind: number): PajaSignerConsentMatch | null;
+  match(context: PajaSignerRequestContext, kind: number, action?: PajaConsentAction): PajaSignerConsentMatch | null;
   /** Remember one event kind for the exact signer, napplet identity, and target. */
-  rememberKind(context: PajaSignerRequestContext, kind: number): boolean;
+  rememberKind(context: PajaSignerRequestContext, kind: number, action?: PajaConsentAction): boolean;
   /** Trust all event kinds for the exact signer, napplet identity, and target. */
-  trustNapplet(context: PajaSignerRequestContext): boolean;
+  trustNapplet(context: PajaSignerRequestContext, action?: PajaConsentAction): boolean;
+  /** Explicitly allow signing and publishing for this exact version and account. */
+  trustVersion(context: PajaSignerRequestContext): boolean;
   /** Remove every remembered signer decision, returning false if durable revocation fails. */
   clear(): boolean;
   /** Count remembered kind grants plus exact-napplet trust grants. */
@@ -48,6 +55,8 @@ interface SignerConsentRecord {
   runtimeScope: string;
   trusted: boolean;
   kinds: number[];
+  publishTrusted: boolean;
+  publishKinds: number[];
 }
 
 interface SignerConsentDocument {
@@ -96,39 +105,54 @@ export function createPajaSignerConsentStore(
     const existing = grants.find((grant) => sameSubject(grant, subject));
     if (existing) return existing;
     if (grants.length >= MAX_CONSENT_SUBJECTS) return null;
-    const created: SignerConsentRecord = { ...subject, trusted: false, kinds: [] };
+    const created: SignerConsentRecord = { ...subject, trusted: false, kinds: [], publishTrusted: false, publishKinds: [] };
     grants = [...grants, created];
     return created;
   };
 
   return {
-    match(context, kind) {
+    match(context, kind, action = 'sign') {
+      if (context.isCurrent && !context.isCurrent()) return null;
       const normalizedKind = normalizeKind(kind);
       if (normalizedKind === null) return null;
       const record = recordFor(context);
       if (!record) return null;
-      if (record.trusted) return 'napplet';
-      return record.kinds.includes(normalizedKind) ? 'kind' : null;
+      const trusted = action === 'sign' ? record.trusted : record.publishTrusted;
+      const kinds = action === 'sign' ? record.kinds : record.publishKinds;
+      if (trusted) return 'napplet';
+      return kinds.includes(normalizedKind) ? 'kind' : null;
     },
-    rememberKind(context, kind) {
+    rememberKind(context, kind, action = 'sign') {
+      if (context.isCurrent && !context.isCurrent()) return false;
       const normalizedKind = normalizeKind(kind);
       if (normalizedKind === null) return false;
       const record = ensureRecord(context);
       if (!record) return false;
-      if (record.trusted || record.kinds.includes(normalizedKind)) return true;
-      if (record.kinds.length >= MAX_KINDS_PER_SUBJECT) return false;
-      record.kinds = [...record.kinds, normalizedKind].sort((left, right) => left - right);
+      const kinds = action === 'sign' ? record.kinds : record.publishKinds;
+      if ((action === 'sign' ? record.trusted : record.publishTrusted) || kinds.includes(normalizedKind)) return true;
+      if (kinds.length >= MAX_KINDS_PER_SUBJECT) return false;
+      const next = [...kinds, normalizedKind].sort((left, right) => left - right);
+      if (action === 'sign') record.kinds = next;
+      else record.publishKinds = next;
       persist();
       return true;
     },
-    trustNapplet(context) {
+    trustNapplet(context, action = 'sign') {
+      if (context.isCurrent && !context.isCurrent()) return false;
       const record = ensureRecord(context);
       if (!record) return false;
-      if (!record.trusted || record.kinds.length > 0) {
-        record.trusted = true;
-        record.kinds = [];
-        persist();
-      }
+      if (action === 'sign') { record.trusted = true; record.kinds = []; }
+      else { record.publishTrusted = true; record.publishKinds = []; }
+      persist();
+      return true;
+    },
+    trustVersion(context) {
+      if (context.isCurrent && !context.isCurrent()) return false;
+      const record = ensureRecord(context);
+      if (!record) return false;
+      record.trusted = true; record.kinds = [];
+      record.publishTrusted = true; record.publishKinds = [];
+      persist();
       return true;
     },
     clear() {
@@ -153,7 +177,8 @@ export function createPajaSignerConsentStore(
       }
     },
     count() {
-      return grants.reduce((total, grant) => total + (grant.trusted ? 1 : grant.kinds.length), 0);
+      return grants.reduce((total, grant) => total + (grant.trusted ? 1 : grant.kinds.length)
+        + (grant.publishTrusted ? 1 : grant.publishKinds.length), 0);
     },
   };
 }
@@ -186,6 +211,11 @@ function readConsentDocument(storage: Storage | null): SignerConsentDocument {
     for (const candidate of parsed.grants.slice(0, MAX_CONSENT_SUBJECTS)) {
       const record = normalizeRecord(candidate);
       if (!record || grants.some((existing) => sameSubject(existing, record))) continue;
+      if (!warnedLegacyConsent && candidate && typeof candidate === 'object'
+        && !('publishTrusted' in candidate) && !('publishKinds' in candidate)) {
+        warnedLegacyConsent = true;
+        console.warn('[KEHTO-PAJA-SIGNER-CONSENT-V1] Loaded older signing-only approvals. Publishing still requires approval; review the current napplet version to allow signing and publishing together. This warning appears once per host module lifetime.');
+      }
       grants.push(record);
     }
     return { version: PAJA_SIGNER_CONSENT_VERSION, grants };
@@ -213,6 +243,11 @@ function normalizeRecord(value: unknown): SignerConsentRecord | null {
     ...subject,
     trusted: candidate.trusted,
     kinds: candidate.trusted ? [] : kinds,
+    // Old records are signing-only; their omission never grants publication.
+    publishTrusted: candidate.publishTrusted === true,
+    publishKinds: candidate.publishTrusted === true ? [] : Array.isArray(candidate.publishKinds)
+      ? [...new Set(candidate.publishKinds.map(normalizeKind).filter((kind): kind is number => kind !== null))].slice(0, MAX_KINDS_PER_SUBJECT)
+      : [],
   };
 }
 
@@ -231,9 +266,11 @@ function normalizeSubject(
   aggregateHash: unknown,
   runtimeScope: unknown,
 ): Pick<SignerConsentRecord, 'signerPubkey' | 'dTag' | 'aggregateHash' | 'runtimeScope'> | null {
-  if (typeof signerPubkey !== 'string' || !/^[0-9a-f]{64}$/i.test(signerPubkey)) return null;
+  const hostGenerated = signerPubkey === 'host-generated' && typeof runtimeScope === 'string'
+    && /\|host-session:[a-f0-9]{32}$/.test(runtimeScope);
+  if (typeof signerPubkey !== 'string' || (!/^[0-9a-f]{64}$/i.test(signerPubkey) && !hostGenerated)) return null;
   if (
-    !validIdentityField(dTag)
+    (typeof dTag !== 'string' || dTag.length > MAX_IDENTITY_FIELD_LENGTH)
     || !validIdentityField(aggregateHash)
     || !validIdentityField(runtimeScope)
   ) return null;

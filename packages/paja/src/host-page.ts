@@ -178,10 +178,10 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
       .confirmation-dialog { width: min(520px, calc(100% - 48px)); max-width: none; border: 0; padding: 0; background: transparent; color: var(--text); }
       .confirmation-dialog::backdrop { background: rgb(0 0 0 / 0.68); }
-      .signer-consent { margin: 0; padding: 10px; border: 1px solid var(--line); border-radius: 4px; display: grid; gap: 8px; }
+      .signer-consent { min-width: 0; margin: 0; padding: 10px; border: 1px solid var(--line); border-radius: 4px; display: grid; gap: 8px; }
       .signer-consent[hidden] { display: none; }
       .signer-consent legend { color: var(--accent); padding: 0 5px; }
-      .signer-consent label { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 8px; }
+      .signer-consent label { white-space: normal; overflow-wrap: anywhere; min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 8px; }
       .signer-consent input { margin-top: 3px; }
       .signer-consent-trust { padding: 8px; border: 1px solid #9a5d2f; border-radius: 4px; background: #332014; }
       .signer-consent-warning { display: block; margin-top: 4px; color: #ffbd80; font-weight: 700; }
@@ -324,19 +324,25 @@ function renderConfirmationDialog(): string {
         <div class="dialog-copy" id="paja-confirmation-summary"></div>
         <pre class="dialog-details" id="paja-confirmation-details"></pre>
         <fieldset class="signer-consent" id="paja-signer-consent" hidden>
-          <legend>Remember this signing choice</legend>
+          <legend id="paja-signer-consent-legend">Remember this signing choice</legend>
           <label>
             <input type="radio" name="paja-signer-consent" id="paja-signer-consent-once" value="once" checked>
-            <span>Sign this event only</span>
+            <span id="paja-signer-consent-once-label">Sign this event only</span>
           </label>
           <label>
             <input type="radio" name="paja-signer-consent" id="paja-signer-consent-kind" value="kind">
-            <span>Always sign kind <code id="paja-signer-consent-kind-value"></code> for this napplet identity and target</span>
+            <span><span id="paja-signer-consent-kind-verb">Always sign kind</span> <code id="paja-signer-consent-kind-value"></code> for this napplet version</span>
           </label>
           <label class="signer-consent-trust">
             <input type="radio" name="paja-signer-consent" id="paja-signer-consent-napplet" value="napplet" aria-describedby="paja-signer-consent-warning">
-            <span>Trust <strong id="paja-signer-consent-napplet-value"></strong> for every event kind at this target
-              <span class="signer-consent-warning" id="paja-signer-consent-warning">Warning: Paja will sign any event this napplet identity requests without asking again. Direct-target trust survives code reloads at the same URL.</span>
+            <span><span id="paja-signer-consent-napplet-verb">Allow all signing from</span> <strong id="paja-signer-consent-napplet-value"></strong> at this version
+              <span class="signer-consent-warning" id="paja-signer-consent-warning">Paja will sign any event this napplet version requests without asking again. A different version or signer needs new approval.</span>
+            </span>
+          </label>
+          <label class="signer-consent-trust">
+            <input type="radio" name="paja-signer-consent" id="paja-signer-consent-version" value="version">
+            <span>Allow all signing and publishing from this napplet version
+              <span class="signer-consent-warning">Future events can be signed and sent to relays without another prompt. Other permissions still require approval.</span>
             </span>
           </label>
         </fieldset>

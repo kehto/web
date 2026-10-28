@@ -96,6 +96,7 @@ interface PajaDevtoolsRenderOptions {
 }
 
 interface OriginRegistryLike {
+  unregister?(windowId: string): void;
   getIframeWindow(windowId: string): Window | null;
   getWindowId(win: Window): string | undefined;
   getIdentity(win: Window): { dTag: string; aggregateHash: string } | undefined;
@@ -273,7 +274,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function installPajaOriginRegistryProxy(
   originRegistry: OriginRegistryLike,
   stateRef: () => PajaDevtoolsState | null,
+  onWindowRemoved?: (windowId: string) => void,
 ): void {
+  if (onWindowRemoved && originRegistry.unregister) {
+    const unregister = originRegistry.unregister.bind(originRegistry);
+    originRegistry.unregister = (windowId) => { onWindowRemoved(windowId); unregister(windowId); };
+  }
   const originalGetIframeWindow = originRegistry.getIframeWindow.bind(originRegistry);
   originRegistry.getIframeWindow = (windowId: string) => {
     const win = originalGetIframeWindow(windowId);
@@ -446,9 +452,9 @@ function renderSignerStatus(state: PajaDevtoolsState, signerPubkey: string): voi
     ? `${methodLabel} error: ${state.signer.error ?? 'unknown error'} · fallback pubkey ${fallbackPubkey}`
     : `${methodLabel} ${state.signer.status} · pubkey ${pubkey || '(none)'}${relay}`;
   const consentSummary = state.signerConsentCount === 0
-    ? 'signing asks every time'
-    : `${state.signerConsentCount} remembered signing approval${state.signerConsentCount === 1 ? '' : 's'}`;
-  el.textContent = `${prefix} · ${consentSummary} · publishing asks every time`;
+    ? 'signing and publishing ask every time'
+    : `${state.signerConsentCount} remembered signing/publishing approval${state.signerConsentCount === 1 ? '' : 's'}`;
+  el.textContent = `${prefix} · ${consentSummary}`;
 
   clearConsent.hidden = state.signerConsentCount === 0;
   clearConsent.textContent = `Forget ${state.signerConsentCount} remembered approval${state.signerConsentCount === 1 ? '' : 's'}`;

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   createPajaSignerConsentStore,
@@ -36,6 +36,63 @@ function context(overrides: Partial<{
 }
 
 describe('Paja signer consent', () => {
+  it('keeps signing and publishing separate until the user explicitly trusts both', () => {
+    const storage = new FakeStorage();
+    const subject = context({ runtimeScope: 'nip5d:35129:publisher:radio:artifact:a' });
+    const store = createPajaSignerConsentStore(storage);
+    store.trustNapplet(subject);
+    expect(store.match(subject, 1, 'sign')).toBe('napplet');
+    expect(store.match(subject, 1, 'publish')).toBeNull();
+    store.rememberKind(subject, 1, 'publish');
+    expect(store.match(subject, 1, 'publish')).toBe('kind');
+    expect(store.match(subject, 7, 'publish')).toBeNull();
+    store.trustVersion(subject);
+    const restored = createPajaSignerConsentStore(storage);
+    for (const action of ['sign', 'publish'] as const) {
+      expect(restored.match(subject, 7, action)).toBe('napplet');
+      expect(restored.match({ ...subject, napplet: { ...subject.napplet, aggregateHash: 'changed' } }, 7, action)).toBeNull();
+      expect(restored.match({ ...subject, signerPubkey: 'b'.repeat(64) }, 7, action)).toBeNull();
+      expect(restored.match({ ...subject, runtimeScope: 'nip5d:35129:other-publisher:radio:artifact:a' }, 7, action)).toBeNull();
+    }
+    expect(restored.count()).toBe(2);
+    expect(restored.clear()).toBe(true);
+    expect(createPajaSignerConsentStore(storage).match(subject, 7, 'publish')).toBeNull();
+  });
+
+  it('supports root identities and refuses an expired source', () => {
+    const subject = context({ dTag: '', runtimeScope: 'nip5d:15129:publisher:artifact:a' });
+    const store = createPajaSignerConsentStore(null);
+    expect(store.trustVersion(subject)).toBe(true);
+    expect(store.match(subject, 1, 'publish')).toBe('napplet');
+    const expired = { ...subject, isCurrent: () => false };
+    expect(store.match(expired, 1, 'sign')).toBeNull();
+    expect(store.rememberKind(expired, 2, 'publish')).toBe(false);
+    expect(store.trustVersion(expired)).toBe(false);
+  });
+
+  it('warns once for old signing-only records without granting publication; new records stay quiet', () => {
+    const storage = new FakeStorage();
+    const subject = context();
+    storage.setItem(PAJA_SIGNER_CONSENT_STORAGE_KEY, JSON.stringify({ version: 1, grants: [{
+      signerPubkey: subject.signerPubkey, dTag: subject.napplet.dTag,
+      aggregateHash: subject.napplet.aggregateHash, runtimeScope: subject.runtimeScope, trusted: true, kinds: [],
+    }] }));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const old = createPajaSignerConsentStore(storage);
+      expect(old.match(subject, 1)).toBe('napplet');
+      expect(old.match(subject, 1, 'publish')).toBeNull();
+      createPajaSignerConsentStore(storage);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0]?.[0]).toContain('[KEHTO-PAJA-SIGNER-CONSENT-V1]');
+      expect(warn.mock.calls[0]?.[0]).toContain('Publishing still requires approval');
+      expect(warn.mock.calls[0]?.[0]).toContain('once per host module lifetime');
+      warn.mockClear();
+      old.trustVersion(subject);
+      createPajaSignerConsentStore(storage);
+      expect(warn).not.toHaveBeenCalled();
+    } finally { warn.mockRestore(); }
+  });
   it('remembers one kind only for the exact signer and napplet artifact', () => {
     const store = createPajaSignerConsentStore(new FakeStorage());
     const subject = context();

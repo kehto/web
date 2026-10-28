@@ -163,6 +163,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
+| 261028-b47 | Paja version-specific signing/publication approval and NAP-LINK modal | 2026-10-28 | 212a4e87 | passed | [261028-b47](./quick/261028-b47-paja-version-scoped-signing-and-publishi/) |
 | 261026-jp5 | Address PR 316 review feedback and verify readiness | 2026-10-26 | 4fcf564d | passed | [261026-jp5](./quick/261026-jp5-address-pr-316-review-feedback-and-verif/) |
 | 261017-wx0 | Use active napplet name as browser page title | 2026-10-17 | bcc0ea60 | passed | [261017-wx0](./quick/261017-wx0-use-the-active-napplet-name-as-the-paja-/) |
 | 261017-vlq | Colored animated Paja controller indicators | 2026-10-17 | 9e8c5a74 | passed | [261017-vlq](./quick/261017-vlq-show-colored-animated-controller-indicat/) |

@@ -91,6 +91,7 @@ import {
   renderTargetErrorHtml,
 } from './browser-target-frame.js';
 import { isPajaLocalTarget, type PajaRuntimeTarget } from './local-target.js';
+import { pajaDevelopmentConsentScope } from './browser-operation-scope.js';
 import { resolvePajaPointer } from './runtime-resolver.js';
 import { parsePajaIntentLink } from './intent-link.js';
 import {
@@ -655,8 +656,20 @@ async function installPajaHost(): Promise<void> {
     confirmationController.confirm,
   );
   const getWindowIdentity = (windowId?: string) => {
-    const tabTarget = stateRef?.tabs.find((tab) => tab.windowId === windowId)?.resolvedTarget;
-    return getTargetIdentity(config, tabTarget ?? stateRef?.resolvedTarget);
+    const tab = stateRef?.tabs.find((tab) => tab.windowId === windowId);
+    const target = tab?.resolvedTarget ?? stateRef?.resolvedTarget;
+    const identity = getTargetIdentity(config, target);
+    return {
+      ...identity,
+      consentScope: target
+        ? `${isPajaLocalTarget(target) ? 'local-file' : target.manifest.catalogId}:artifact:${target.aggregateHash}`
+        : pajaDevelopmentConsentScope(config.target.url, windowId ?? ''),
+      isCurrent: () => {
+        const targetFrame = tab?.frame ?? frame;
+        return !!targetFrame?.contentWindow && originRegistry.getWindowId(targetFrame.contentWindow) === windowId
+          && (!tab || stateRef?.tabs.includes(tab) === true);
+      },
+    };
   };
   const notifyController = createPajaNotifyController({
     confirm: confirmationController.confirm,
@@ -720,11 +733,12 @@ async function installPajaHost(): Promise<void> {
   await adapter.ready;
   const bridge = createShellBridge(adapter);
   const stopIdentityChanges = signerController.subscribe(() => {
+    confirmationController.cancelSignerRequests();
     bridge.publishIdentityChanged(adapter.auth.getUserPubkey() ?? '');
   });
   themeBroadcast.attach(bridge);
   bridgeRef = bridge;
-  installPajaOriginRegistryProxy(originRegistry, () => stateRef);
+  installPajaOriginRegistryProxy(originRegistry, () => stateRef, windowId => confirmationController.cancelWindow(windowId));
   const capabilities = buildShellCapabilities(adapter);
   const context: PajaBrowserStateContext = {
     config,
