@@ -652,7 +652,11 @@ export function createPajaAdapter(
     ready,
     notifyIntentChanged: () => {},
     setWindowBlossomServers: serviceBundle.setWindowBlossomServers,
-    relayPool: createPajaRelayHooks(relayBackend, getSimulation, relayConfig),
+    relayPool: createPajaRelayHooks(relayBackend, getSimulation, relayConfig, (windowId) => createPajaWindowScope({
+      backend: relayBackend, source: signerSource(windowId), isCurrent: () => true,
+      getPubkey: () => getRuntimePubkey(getSimulation, signerProvider),
+      getSigner: (source) => createRuntimeSigner(getSimulation, confirmRequest, signerProvider, source),
+    }).backend),
     relayConfig,
     windowManager: { createWindow: () => null },
     auth: {

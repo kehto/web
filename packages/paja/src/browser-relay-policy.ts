@@ -147,6 +147,7 @@ export function createPajaRelayHooks(
   pool: RelayPoolLike,
   getSimulation: () => PajaSimulation,
   relayConfig: PajaRelayConfigRuntime,
+  getPublishPool: (windowId: string) => RelayPoolLike = () => pool,
 ): RelayPoolHooks {
   const cleanups = new Map<string, () => void>();
   const scoped = new Map<string, { relayUrl: string; unsubscribe(): void }>();
@@ -198,7 +199,7 @@ export function createPajaRelayHooks(
       const active = scoped.get(windowId);
       if (getSimulation().relay.mode !== 'live' || !active || !verifyEvent(event)) return false;
       try {
-        await pool.publish([active.relayUrl], event);
+        await getPublishPool(windowId).publish([active.relayUrl], event);
         return true;
       } catch {
         return false;

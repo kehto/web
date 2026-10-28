@@ -531,17 +531,46 @@ describe('@kehto/paja effective relay URLs', () => {
 });
 
 describe('@kehto/paja relay publish settlement', () => {
+  it('attributes signerless CVM publication to its authenticated napplet and denies without sending', async () => {
+    livePool.publishRequests = [];
+    const simulation = normalizePajaSimulation({ relay: { mode: 'live', urls: TEST_RELAYS } });
+    const confirm = vi.fn(() => false);
+    const adapter = createPajaAdapter(
+      { window: { id: 'paja-window', dTag: 'radio', aggregateHash: 'radio-artifact' } } as PajaHostConfig,
+      () => simulation, () => {}, () => {}, confirm,
+    );
+    const service = adapter.services!.cvm!;
+    const send = vi.fn();
+    service.handleMessage('paja-window', {
+      type: 'cvm.request', id: 'radio-request',
+      server: { pubkey: 'a'.repeat(64), relays: TEST_RELAYS },
+      message: { jsonrpc: '2.0', id: 'rpc-1', method: 'tools/list', params: {} },
+      signerContext: { windowId: 'spoofed' },
+    } as NappletMessage, send);
+    await vi.waitFor(() => expect(confirm).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'publish', signerContext: expect.objectContaining({
+        windowId: 'paja-window', napplet: { dTag: 'radio', aggregateHash: 'radio-artifact' }, signerPubkey: 'host-generated',
+      }),
+    })));
+    await vi.waitFor(() => expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: 'cvm.request.result', error: expect.any(String) })));
+    expect(livePool.publishRequests).toEqual([]);
+    service.onWindowDestroyed?.('paja-window');
+    service.onUnregistered?.();
+    (adapter.relayPool.getRelayPool() as PajaRelayBackend).close();
+  });
+
   it('owns a verified live scoped-relay subscription and publish lifecycle', async () => {
     livePool.publishRequests = [];
     livePool.subscribeMapRequests = [];
     livePool.subscriptionClose = undefined;
     const simulation = normalizePajaSimulation({ relay: { mode: 'live', urls: TEST_RELAYS } });
+    const confirm = vi.fn(() => true);
     const adapter = createPajaAdapter(
       { window: { id: 'paja-window', dTag: 'paja', aggregateHash: 'aggregate' } } as PajaHostConfig,
       () => simulation,
       () => {},
       () => {},
-      () => true,
+      confirm,
     );
     const postMessage = vi.fn();
     const sourceWindow = { postMessage } as unknown as Window;
@@ -565,6 +594,10 @@ describe('@kehto/paja relay publish settlement', () => {
     ]]);
     expect(postMessage).toHaveBeenCalledWith({ type: 'relay.eose', subId: 'scoped-sub' }, '*');
     await expect(adapter.relayPool.publishToScopedRelay('paja-window', event)).resolves.toBe(true);
+    expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ action: 'publish', signerContext: expect.objectContaining({
+      windowId: 'paja-window', napplet: { dTag: 'paja', aggregateHash: 'aggregate' },
+      signerPubkey: 'host-generated',
+    }) }));
     expect(livePool.publishRequests).toEqual([{ relayUrls: [TEST_RELAYS[0]], event }]);
 
     adapter.relayPool.closeScopedRelay('paja-window');

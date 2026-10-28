@@ -178,10 +178,10 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
       .confirmation-dialog { width: min(520px, calc(100% - 48px)); max-width: none; border: 0; padding: 0; background: transparent; color: var(--text); }
       .confirmation-dialog::backdrop { background: rgb(0 0 0 / 0.68); }
-      .signer-consent { margin: 0; padding: 10px; border: 1px solid var(--line); border-radius: 4px; display: grid; gap: 8px; }
+      .signer-consent { min-width: 0; margin: 0; padding: 10px; border: 1px solid var(--line); border-radius: 4px; display: grid; gap: 8px; }
       .signer-consent[hidden] { display: none; }
       .signer-consent legend { color: var(--accent); padding: 0 5px; }
-      .signer-consent label { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 8px; }
+      .signer-consent label { white-space: normal; overflow-wrap: anywhere; min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 8px; }
       .signer-consent input { margin-top: 3px; }
       .signer-consent-trust { padding: 8px; border: 1px solid #9a5d2f; border-radius: 4px; background: #332014; }
       .signer-consent-warning { display: block; margin-top: 4px; color: #ffbd80; font-weight: 700; }

@@ -92,7 +92,9 @@ another manifest, version or account asks again. Local single-file targets use
 their content hash in a separate local scope. Direct development URLs are mutable,
 so approvals last only for the current document/frame load and must be renewed
 after reload; HMR can still change that development session's running code.
-Unknown identity/account/kind remains one-shot. Denials are never remembered.
+CVM without a user signer uses a separate, document-scoped host-generated
+principal; its approvals never transfer to a user account or another host session.
+Otherwise, unknown identity/account/kind remains one-shot. Denials are never remembered.
 Signer controls revoke every remembered signing/publication approval; failed
 durable deletion is reported instead of claiming revocation. Missing browser
 storage makes new choices memory-only. An ephemeral Dev account changes on a
@@ -589,3 +591,4 @@ collapsible player with transport, seek, volume, and close controls. It also
 streams live HTTPS MP3/AAC radio without awaiting EOF and displays napplet-owned
 sessions. See [Media playback](../../docs/media.md) for
 source support, lifecycle rules, and canonical API examples.
+

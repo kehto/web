@@ -188,7 +188,9 @@ The console includes:
   Another version, manifest or account asks again. Signed versions can retain
   approval after reload. Direct development URLs have only document/frame-load
   approval, because their running code is mutable, including through HMR.
-  Missing identity/account/kind stays one-shot. Other operation permissions,
+  Signerless CVM uses a separate host-generated principal for this document;
+  approvals never transfer to a user account or another host session.
+  Otherwise, missing identity/account/kind stays one-shot. Other operation permissions,
   including external links, remain separate. Link navigation runs directly from
   the modal approval click. Deny/Escape and endpoint/account changes prevent
   pending effects. **Forget remembered approvals** revokes saved choices;
@@ -756,3 +758,4 @@ MediaSource buffers, without awaiting EOF. They expose pause/stop/volume but no 
 
 See [Media playback](https://github.com/kehto/web/blob/main/docs/media.md) for NAP-MEDIA draft authority, shell-owned audio/video,
 shared host controls, endpoint cleanup, and command API migration.
+
