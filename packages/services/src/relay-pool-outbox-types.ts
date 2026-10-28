@@ -39,12 +39,15 @@ export interface OutboxRelayPool {
    * @param relayUrls - Relays this call must use.
    * @param callback - Receives matching events or 'EOSE'.
    * @param origin - Why `relayUrls` are in this read, when the router knows.
+   * @param authors - NIP-65 owners for these relays, or requested authors for
+   * hints/fallback; an empty array authoritatively means no authors.
    */
   subscribe(
     filters: NostrFilter[],
     relayUrls: string[],
     callback: (item: NostrEvent | 'EOSE') => void,
     origin?: OutboxRelayOrigin,
+    authors?: readonly string[],
   ): { unsubscribe(): void };
   /** Publish `event` to `relayUrls`, optionally returning per-relay outcomes. */
   publish(
@@ -98,6 +101,8 @@ export interface PublishTargetResolution {
 
 export interface DiscoveredReadRelays {
   relays: string[];
+  /** Requested authors whose allowed write lists selected each relay. */
+  authorsByRelay: Map<string, string[]>;
   missingAuthors: string[];
 }
 

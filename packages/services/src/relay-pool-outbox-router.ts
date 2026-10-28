@@ -195,6 +195,7 @@ function discoveredReadRelays(
   lists: Map<string, RelayListEntry>,
 ): DiscoveredReadRelays {
   const relays = new Set<string>();
+  const authorsByRelay = new Map<string, string[]>();
   const missingAuthors: string[] = [];
   for (const author of new Set(authors)) {
     const writeRelays = lists.get(author)?.write;
@@ -202,9 +203,14 @@ function discoveredReadRelays(
       missingAuthors.push(author);
       continue;
     }
-    for (const url of allowed(ctx, writeRelays)) relays.add(url);
+    for (const url of allowed(ctx, writeRelays)) {
+      relays.add(url);
+      const owners = authorsByRelay.get(url) ?? [];
+      owners.push(author);
+      authorsByRelay.set(url, owners);
+    }
   }
-  return { relays: [...relays], missingAuthors };
+  return { relays: [...relays], authorsByRelay, missingAuthors };
 }
 
 /**
@@ -287,8 +293,9 @@ function relayPoolSubscribe(
   relayUrl: string,
   cb: (item: NostrEvent | 'EOSE') => void,
   origin: OutboxRelayOrigin,
+  authors: readonly string[],
 ): { unsubscribe(): void } {
-  return ctx.relayPool.subscribe(filters, [relayUrl], cb, origin);
+  return ctx.relayPool.subscribe(filters, [relayUrl], cb, origin, authors);
 }
 
 function startQueryImpl(
@@ -343,7 +350,7 @@ function startQueryImpl(
     if (activeRelays.size === 0 || eoseRelays.size >= activeRelays.size) finalize();
   }
 
-  function attachRelay(relayUrl: string, origin: OutboxRelayOrigin): void {
+  function attachRelay(relayUrl: string, origin: OutboxRelayOrigin, relayAuthors: readonly string[]): void {
     if (finished || activeRelays.has(relayUrl)) return;
     activeRelays.add(relayUrl);
     try {
@@ -356,7 +363,7 @@ function startQueryImpl(
         }
         recordRelay(collector, item.id, relayUrl);
         admitEvent(ctx, collector, item, sink, () => !finished, maybeFinalize);
-      }, origin);
+      }, origin, relayAuthors);
       subscribedAny = true;
       if (finished) {
         try { handle.unsubscribe(); } catch { /* best-effort */ }
@@ -369,15 +376,21 @@ function startQueryImpl(
     }
   }
 
-  function attachMany(relayUrls: Iterable<string>, origin: OutboxRelayOrigin): void {
-    for (const relayUrl of relayUrls) attachRelay(relayUrl, origin);
+  function attachMany(
+    relayUrls: Iterable<string>,
+    origin: OutboxRelayOrigin,
+    authorsByRelay?: ReadonlyMap<string, readonly string[]>,
+  ): void {
+    for (const relayUrl of relayUrls) {
+      attachRelay(relayUrl, origin, origin === 'nip65' ? authorsByRelay?.get(relayUrl) ?? [] : authors);
+    }
   }
 
   /** Attach caller hints and discovered NIP-65 relays with their own origins. */
-  function attachHintedAndDiscovered(hintRelays: string[], discoveredRelays: string[]): void {
+  function attachHintedAndDiscovered(hintRelays: string[], discovery: DiscoveredReadRelays): void {
     attachMany(hintRelays, 'hint');
-    attachMany(discoveredRelays, 'nip65');
-    if (hintRelays.length === 0 && discoveredRelays.length === 0) {
+    attachMany(discovery.relays, 'nip65', discovery.authorsByRelay);
+    if (hintRelays.length === 0 && discovery.relays.length === 0) {
       attachMany(allowed(ctx, ctx.fallbackRelays), 'fallback');
     }
   }
@@ -406,7 +419,7 @@ function startQueryImpl(
       const discovery = discoveredReadRelays(ctx, authors, loaded);
       discoveryPending = false;
       incomplete ||= discovery.missingAuthors.length > 0;
-      attachHintedAndDiscovered(allowed(ctx, options?.relays ?? []), discovery.relays);
+      attachHintedAndDiscovered(allowed(ctx, options?.relays ?? []), discovery);
       maybeFinalize();
     } else {
       const immediate = immediateReadPlan(ctx, options?.relays);
@@ -416,7 +429,7 @@ function startQueryImpl(
         const discovery = discoveredReadRelays(ctx, authors, lists);
         discoveryPending = false;
         incomplete ||= discovery.missingAuthors.length > 0;
-        attachMany(discovery.relays, 'nip65');
+        attachMany(discovery.relays, 'nip65', discovery.authorsByRelay);
         maybeFinalize();
       }).catch(() => {
         if (finished) return;
@@ -472,7 +485,7 @@ function attachLiveRelay(
   filters: NostrFilter[],
   relayUrl: string,
   sink: OutboxSubscriptionSink,
-  origin: OutboxRelayOrigin,
+  routing: { origin: OutboxRelayOrigin; authors: readonly string[] },
 ): boolean {
   if (sub.closed || sub.relays.has(relayUrl)) return false;
   sub.relays.add(relayUrl);
@@ -485,7 +498,7 @@ function attachLiveRelay(
         sub.seen.add(item.id);
         sink.event(createRelayEventResultWithHints(item, [relayUrl]));
       });
-    }, origin);
+    }, routing.origin, routing.authors);
     if (sub.closed) {
       try { handle.unsubscribe(); } catch { /* best-effort */ }
     } else {
@@ -515,15 +528,24 @@ function startSubscription(
   let discoveryOpen = authors.length > 0;
   let discoveryTimer: unknown;
 
-  function attachMany(relayUrls: Iterable<string>, origin: OutboxRelayOrigin): void {
-    for (const relayUrl of relayUrls) attachLiveRelay(ctx, sub, filters, relayUrl, sink, origin);
+  function attachMany(
+    relayUrls: Iterable<string>,
+    origin: OutboxRelayOrigin,
+    authorsByRelay?: ReadonlyMap<string, readonly string[]>,
+  ): void {
+    for (const relayUrl of relayUrls) {
+      attachLiveRelay(ctx, sub, filters, relayUrl, sink, {
+        origin,
+        authors: origin === 'nip65' ? authorsByRelay?.get(relayUrl) ?? [] : authors,
+      });
+    }
   }
 
   /** Attach caller hints and discovered NIP-65 relays with their own origins. */
-  function attachHintedAndDiscovered(hintRelays: string[], discoveredRelays: string[]): void {
+  function attachHintedAndDiscovered(hintRelays: string[], discovery: DiscoveredReadRelays): void {
     attachMany(hintRelays, 'hint');
-    attachMany(discoveredRelays, 'nip65');
-    if (hintRelays.length === 0 && discoveredRelays.length === 0) {
+    attachMany(discovery.relays, 'nip65', discovery.authorsByRelay);
+    if (hintRelays.length === 0 && discovery.relays.length === 0) {
       attachMany(allowed(ctx, ctx.fallbackRelays), 'fallback');
     }
   }
@@ -556,7 +578,7 @@ function startSubscription(
     if (discoveryOpen && loaded instanceof Map) {
       const discovery = discoveredReadRelays(ctx, authors, loaded);
       discoveryOpen = false;
-      attachHintedAndDiscovered(allowed(ctx, options?.relays ?? []), discovery.relays);
+      attachHintedAndDiscovered(allowed(ctx, options?.relays ?? []), discovery);
       closeUnavailable();
     } else if (discoveryOpen) {
       const immediate = immediateReadPlan(ctx, options?.relays);
@@ -569,7 +591,8 @@ function startSubscription(
         if (!discoveryOpen || sub.closed) return;
         discoveryOpen = false;
         clearTimeout(discoveryTimer);
-        attachMany(discoveredReadRelays(ctx, authors, lists).relays, 'nip65');
+        const discovery = discoveredReadRelays(ctx, authors, lists);
+        attachMany(discovery.relays, 'nip65', discovery.authorsByRelay);
         closeUnavailable();
       }).catch(() => {
         if (!discoveryOpen || sub.closed) return;

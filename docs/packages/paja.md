@@ -236,7 +236,13 @@ The console includes:
   Counting happens in the relay backend before delivery, so every read path is
   covered, while simulated memory-mode fixtures and Paja's own publishes are not.
   Each relay row carries a bar scaled against the busiest relay of the session,
-  its receipt count, and its `kind - count` rows. A box is a routing decision
+  its receipt count, and its `kind - count` rows. A box also names the authors
+  its reads were routed for, as short pubkey chips with the full pubkey and the
+  read count in their tooltip. NIP-65 chips name the actual relay-list owners
+  supplied by the router, including `options.authors` hints; event-filter authors
+  with no matching relay list are not credited for someone else's relay.
+  Caller-hint and fallback boxes name requested routing authors; Paja's own
+  `host pool` reads name the authors their filters asked about. A box is a routing decision
   rather than a relay set, so the same relay appears in two boxes when two reads
   reached it for different reasons — a relay that is both an app hint and a
   configured fallback keeps its two receipt counts apart instead of showing one
@@ -425,7 +431,18 @@ custom social service, direct networking path, or signer/key capability. It
 privately validates the active account's replacement kind-3 contact list and
 warms followed kind-0 profile records through the established outbox router.
 
-That snapshot is active-account-scoped and memory-only, separate from generic
+Warming is background traffic, so it runs only for an account Paja can act as: a
+connected NIP-07/NIP-46 pubkey or the ephemeral Dev signer. A fixed simulation
+identity (`simulation.identity.mode: "fixed"`) is a read-only stand-in — it
+answers `identity.getPublicKey`, and `identity.getFollows` still loads that
+account's contact list on demand — but with no signer connected it never starts
+author-routed relay reads. Without that gate a signer-less session fetched the
+fallback identity's contact list and every followed author's profile through the
+outbox router, which surfaced other people's NIP-65 relays in the Events panel
+and looked like outbox activity nobody had requested. A signer dropping out ends
+warming the same way: the next cycle only starts once a signer account is back.
+
+The social cache is active-account-scoped and memory-only, separate from generic
 simulation cache mode. It is not napplet-owned storage and has no durable-cache
 controls. Captured-key request correlation keeps a follows response associated
 with the account that started it, and generation-safe background writes prevent
