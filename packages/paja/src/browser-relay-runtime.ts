@@ -14,6 +14,7 @@ import { subscribePajaLive, queryPajaLive } from './browser-relay-transport.js';
 
 import type { PajaConfirmationHandler, PajaSignerProvider } from './browser-adapter.js';
 import type { PajaSimulation } from './simulation.js';
+import type { PajaSignerRequestContext } from './browser-signer-consent.js';
 
 export const PAJA_NIP65_RELAY_LIST_KIND = 10_002;
 export const PAJA_CONTACT_LIST_KIND = 3;
@@ -90,6 +91,7 @@ export type PajaRelayRequestObserver = (request: PajaRelayReadRequest) => void;
 export type PajaRelayEventObserver = (sighting: PajaRelayEventSighting) => void;
 
 export interface PajaRelayBackend extends RelayPoolLike {
+  publish(relayUrls: string[], event: NostrEvent, context?: PajaSignerRequestContext): Promise<void>;
   subscription(relayUrls: string[], filters: NostrFilter[], context?: PajaRelayReadContext): {
     subscribe(observer: (item: unknown) => void): { unsubscribe(): void };
   };
@@ -106,7 +108,7 @@ export interface PajaRelayBackend extends RelayPoolLike {
     maxWaitMs?: number,
     context?: PajaRelayReadContext,
   ): Promise<NostrEvent[]>;
-  publishToRelays(relayUrls: string[], event: NostrEvent): Promise<Record<string, boolean>>;
+  publishToRelays(relayUrls: string[], event: NostrEvent, context?: PajaSignerRequestContext): Promise<Record<string, boolean>>;
   countWithRelay(relayUrls: string[], filters: NostrFilter[]): Promise<{ count: number; relay: string }>;
   /** Relay URLs on which nostr-tools actually observed an event. */
   observedRelayUrls(eventId: string): string[];
@@ -308,13 +310,16 @@ export function createPajaRelayBackend(
   async function attemptPublish(
     relayUrls: string[],
     event: NostrEvent,
+    signerContext?: PajaSignerRequestContext,
   ): Promise<{ outcomes: Record<string, boolean>; error?: string }> {
     const simulation = getSimulation();
     const rejected = Object.fromEntries(relayUrls.map((url) => [url, false]));
     if (simulation.relay.mode === 'disabled') {
       return { outcomes: rejected, error: 'relay unavailable' };
     }
-    if (!await confirmRequest({ action: 'publish', event })) {
+    if ((signerContext?.isCurrent && !signerContext.isCurrent())
+      || !await confirmRequest({ action: 'publish', event, ...(signerContext ? { signerContext } : {}) })
+      || (signerContext?.isCurrent && !signerContext.isCurrent())) {
       return { outcomes: rejected, error: 'publish denied' };
     }
 
@@ -360,8 +365,8 @@ export function createPajaRelayBackend(
         },
       };
     },
-    async publish(relayUrls: string[], event: NostrEvent): Promise<void> {
-      const attempt = await attemptPublish(relayUrls, event);
+    async publish(relayUrls: string[], event: NostrEvent, signerContext?: PajaSignerRequestContext): Promise<void> {
+      const attempt = await attemptPublish(relayUrls, event, signerContext);
       if (attempt.error) throw new Error(attempt.error);
     },
     request(
@@ -405,8 +410,8 @@ export function createPajaRelayBackend(
       relayRequestObserver = observer;
     },
     query,
-    async publishToRelays(relayUrls, event) {
-      return (await attemptPublish(relayUrls, event)).outcomes;
+    async publishToRelays(relayUrls, event, signerContext) {
+      return (await attemptPublish(relayUrls, event, signerContext)).outcomes;
     },
     async publishWebrtcSignal(relayUrls, event) {
       if (

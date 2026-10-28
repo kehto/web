@@ -81,21 +81,30 @@ available, can connect to a bunker/NIP-46 URI, and only uses the generated local
 development signer when the Dev signer button is selected. Sign, publish, DM
 send, filesystem picker, Blossom upload, and external-link requests use one serialized in-page
 confirmation dialog. Deny has initial focus and Escape denies. A napplet-scoped
-sign request defaults to one-time approval, with explicit options to remember
-that event kind or trust every kind from the napplet identity and target. The trust
-choice carries a visible warning. Remembered signing authority is keyed by the
-active signer pubkey, host-owned napplet d-tag and aggregate hash, and the Paja
-target boundary. Runtime pointers are isolated by verified artifact hash;
-direct development targets are isolated by exact target URL, and their trust
-survives code reloads at that URL. Changing the signer, identity, artifact, or
-target asks again. Missing source identity or a nonnumeric kind remains
-one-shot, denials are never remembered, and the signer controls can revoke
-every remembered approval. If durable deletion fails, Paja keeps the approval
-listed and logs the failure instead of claiming revocation. A full Paja host
-reload creates a new ephemeral Dev signer and therefore asks again; a stable
-NIP-07 or NIP-46 account can reuse its saved choice. Publish and other operation
-confirmations continue to prompt independently. This is Paja runtime policy under draft
-[NAP-RELAY PR #2 at `0be8abce18beb46ca37bd4ddd042f58d30b4eedc`](https://github.com/napplet/naps/pull/2), not
+sign or publish request defaults to one-time approval. The modal can remember
+one event kind, all events for the current action, or **all signing and publishing
+from this napplet version**. Signing-only permission never implies publication;
+the combined choice explicitly grants both. The dialog shows the napplet,
+artifact/version, source scope and signer, with a warning about future effects.
+Grants bind the active account to the host's verified manifest identity (including
+publisher) and artifact hash. Signed versions can reuse approval after reload;
+another manifest, version or account asks again. Local single-file targets use
+their content hash in a separate local scope. Direct development URLs are mutable,
+so approvals last only for the current document/frame load and must be renewed
+after reload; HMR can still change that development session's running code.
+Unknown identity/account/kind remains one-shot. Denials are never remembered.
+Signer controls revoke every remembered signing/publication approval; failed
+durable deletion is reported instead of claiming revocation. Missing browser
+storage makes new choices memory-only. An ephemeral Dev account changes on a
+full host reload and therefore asks again. Older signing-only records are retained
+without gaining publication and emit `KEHTO-PAJA-SIGNER-CONSENT-V1` once per host
+module lifetime; current records stay quiet. Removing a window or changing the
+signer denies pending signing/publication. Link requests always use the modal,
+and the external browser handoff runs directly from its approval click with
+`noopener,noreferrer`. Other operation permissions remain separate.
+This is Paja host policy under [NAP-RELAY PR #2 at `9f30b350`](https://github.com/napplet/naps/blob/9f30b3505335a52c574ff570576687d6467021ff/naps/NAP-RELAY.md),
+[NAP-OUTBOX PR #32 at `8865f73d`](https://github.com/napplet/naps/blob/8865f73d52a4864afee145f28d26520476273927/naps/NAP-OUTBOX.md)
+and [NAP-LINK PR #53 at `50a2cd45`](https://github.com/napplet/naps/blob/50a2cd45e76f06e87b87e93842badf4c61f17bde/naps/NAP-LINK.md), rather than
 a Kehto kernel default. Upload consent identifies the requesting napplet, file, MIME type,
 size, selected server, and durable public effect before bytes leave the browser.
 A denial or a live publish with no accepting relay returns a canonical failure

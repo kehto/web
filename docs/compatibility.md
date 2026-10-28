@@ -145,3 +145,28 @@ in [PR #284](https://github.com/kehto/web/pull/284). This implementation PR leav
   `7806f438530251fce5129f8e6239d6b642278759`, supported consumers migrate, and a
   removal release is announced. Track removal in this register; warning silence
   is not proof of migration.
+
+## Paja signing-only approval records (2026-10-28)
+
+- **Identifier / owner:** `KEHTO-PAJA-SIGNER-CONSENT-V1`, `@kehto/paja`.
+- **Old / replacement:** older `kehto:paja:signer-consent:v1` records contain only
+  `trusted` and `kinds` for signing. Current records also contain separate
+  publication fields, and the modal offers explicit combined version approval.
+  Loading an old record preserves its signing behavior; omitted publication
+  fields always deny publication until separately approved.
+- **Source / warning:** `packages/paja/src/browser-signer-consent.ts`,
+  `readConsentDocument`. One actionable warning per host module lifetime, only
+  when an old valid record is loaded; no identities or event payloads are logged.
+  Current records and canonical creation remain quiet.
+- **Tests:** `browser-signer-consent.test.ts` proves preserved signing, absent
+  publication authority, warning identifier/text/frequency, canonical silence,
+  version/account/publisher separation and revocation. Browser approval tests
+  cover the runtime boundary and modal behavior.
+- **Retention reason / retirement:** preserve existing signing choices without
+  silently expanding authority. Remove old-record reading only after announcing
+  a Paja release, migrating or explicitly resetting supported stored consumers,
+  and retaining negative authority tests plus this removal record.
+- **Retired policy:** direct-target URL trust no longer survives a document or
+  frame reload. Unversioned development targets now use a fresh host document
+  nonce and frame-load identity; signed versions use the complete manifest key
+  plus artifact hash. The Paja minor changeset announces this stricter boundary.

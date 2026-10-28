@@ -324,19 +324,25 @@ function renderConfirmationDialog(): string {
         <div class="dialog-copy" id="paja-confirmation-summary"></div>
         <pre class="dialog-details" id="paja-confirmation-details"></pre>
         <fieldset class="signer-consent" id="paja-signer-consent" hidden>
-          <legend>Remember this signing choice</legend>
+          <legend id="paja-signer-consent-legend">Remember this signing choice</legend>
           <label>
             <input type="radio" name="paja-signer-consent" id="paja-signer-consent-once" value="once" checked>
-            <span>Sign this event only</span>
+            <span id="paja-signer-consent-once-label">Sign this event only</span>
           </label>
           <label>
             <input type="radio" name="paja-signer-consent" id="paja-signer-consent-kind" value="kind">
-            <span>Always sign kind <code id="paja-signer-consent-kind-value"></code> for this napplet identity and target</span>
+            <span><span id="paja-signer-consent-kind-verb">Always sign kind</span> <code id="paja-signer-consent-kind-value"></code> for this napplet version</span>
           </label>
           <label class="signer-consent-trust">
             <input type="radio" name="paja-signer-consent" id="paja-signer-consent-napplet" value="napplet" aria-describedby="paja-signer-consent-warning">
-            <span>Trust <strong id="paja-signer-consent-napplet-value"></strong> for every event kind at this target
-              <span class="signer-consent-warning" id="paja-signer-consent-warning">Warning: Paja will sign any event this napplet identity requests without asking again. Direct-target trust survives code reloads at the same URL.</span>
+            <span><span id="paja-signer-consent-napplet-verb">Allow all signing from</span> <strong id="paja-signer-consent-napplet-value"></strong> at this version
+              <span class="signer-consent-warning" id="paja-signer-consent-warning">Paja will sign any event this napplet version requests without asking again. A different version or signer needs new approval.</span>
+            </span>
+          </label>
+          <label class="signer-consent-trust">
+            <input type="radio" name="paja-signer-consent" id="paja-signer-consent-version" value="version">
+            <span>Allow all signing and publishing from this napplet version
+              <span class="signer-consent-warning">Future events can be signed and sent to relays without another prompt. Other permissions still require approval.</span>
             </span>
           </label>
         </fieldset>

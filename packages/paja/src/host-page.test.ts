@@ -103,9 +103,9 @@ describe('@kehto/paja host page', () => {
     expect(html).toContain('id="paja-signer-consent-kind"');
     expect(html).toContain('Always sign kind');
     expect(html).toContain('id="paja-signer-consent-napplet"');
-    expect(html).toContain('Trust <strong id="paja-signer-consent-napplet-value"');
-    expect(html).toContain('Warning: Paja will sign any event this napplet identity requests');
-    expect(html).toContain('Direct-target trust survives code reloads at the same URL');
+    expect(html).toContain('id="paja-signer-consent-version"');
+    expect(html).toContain('Allow all signing and publishing from this napplet version');
+    expect(html).toContain('A different version or signer needs new approval');
     expect(html).toContain('id="signer-consent-clear"');
     expect(html).toContain('id="paja-notification-center"');
     expect(html).toContain('id="paja-console-toggle"');
