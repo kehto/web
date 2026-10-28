@@ -1,11 +1,24 @@
 import type { MediaAction, MediaMetadata } from '@napplet/nap/media/types';
 import type { HostMediaBridge } from './media-service.js';
 
-/** Silent-audio prime data URL (4 kHz silent WAV, 44 bytes, zero network dependency).
- *  Browsers refuse to render OS media controls without a playing audio element —
- *  this silent loop primes the MediaSession API. Per CONTEXT.md Area 1. */
-const SILENT_AUDIO_DATA_URL =
-  'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+/** One second of 4 kHz mono PCM silence. Empty WAV loops can stall media output. */
+function silentAudioDataUrl(): string {
+  const samples = 4000;
+  const bytes = new Uint8Array(44 + samples * 2);
+  const view = new DataView(bytes.buffer);
+  bytes.set(new TextEncoder().encode('RIFF'), 0);
+  view.setUint32(4, bytes.length - 8, true);
+  bytes.set(new TextEncoder().encode('WAVEfmt '), 8);
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+  view.setUint32(24, samples, true); view.setUint32(28, samples * 2, true);
+  view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+  bytes.set(new TextEncoder().encode('data'), 36);
+  view.setUint32(40, samples * 2, true);
+  return `data:audio/wav;base64,${btoa(String.fromCharCode(...bytes))}`;
+}
+
+const SILENT_AUDIO_DATA_URL = silentAudioDataUrl();
 
 /** Default action set — all 5 nap-media transport actions. */
 export const DEFAULT_MEDIA_ACTIONS: readonly MediaAction[] = ['play', 'pause', 'next', 'prev', 'seek'];
@@ -75,7 +88,7 @@ export function createBrowserMediaBridge(opts: {
 
   let silentAudioEl: HTMLAudioElement | null = null;
   let activeSessionId: string | null = null;
-  let sessionsActive = 0;
+  const sessionsActive = new Set<string>();
   const actionCallbacks = new Set<(sessionId: string, action: MediaAction, value?: number) => void>();
 
   function primeSilentAudio(): void {
@@ -109,13 +122,13 @@ export function createBrowserMediaBridge(opts: {
         try { ms.setActionHandler(domAction, null); } catch { /* best-effort */ }
         continue;
       }
-      ms.setActionHandler(domAction, (details) => {
+      try { ms.setActionHandler(domAction, (details) => {
         if (!activeSessionId) return;
         const value = napAction === 'seek' && typeof details?.seekTime === 'number' ? details.seekTime : undefined;
         for (const cb of actionCallbacks) {
           cb(activeSessionId, napAction, value);
         }
-      });
+      }); } catch { /* The browser may not implement every OS action. */ }
     }
   }
 
@@ -165,12 +178,13 @@ export function createBrowserMediaBridge(opts: {
         return;
       }
       // Prime silent-audio on first session becoming active.
-      if (sessionsActive === 0) { primeSilentAudio(); sessionsActive = 1; }
+      if (sessionsActive.size === 0) primeSilentAudio();
+      sessionsActive.add(sessionId);
       applyActionHandlers(actions ?? DEFAULT_MEDIA_ACTIONS);
     },
-    destroySession(_sessionId) {
-      sessionsActive = Math.max(0, sessionsActive - 1);
-      if (sessionsActive === 0) teardownSilentAudio();
+    destroySession(sessionId) {
+      sessionsActive.delete(sessionId);
+      if (sessionsActive.size === 0) teardownSilentAudio();
     },
   };
 }

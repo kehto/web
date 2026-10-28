@@ -160,3 +160,8 @@ This is a supported platform capability choice, not a deprecated caller API.
 Both standard Web Crypto paths remain quiet. Source-bound identity and optional
 shell readiness are unchanged (NAP-SHELL at `napplet/naps`
 `1e1046bcadabbc552804f6d3354f565184f9fefb`).
+
+## Media sessions
+
+See [Media playback](https://github.com/kehto/web/blob/main/docs/media.md) for NAP-MEDIA draft authority, shell-owned audio/video,
+shared host controls, endpoint cleanup, and command API migration.

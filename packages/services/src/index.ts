@@ -313,3 +313,9 @@ export type {
 } from './fs-service.js';
 
 export { browserGamepadOptions } from './browser-gamepad.js';
+
+export { createBrowserMediaPlayback } from './browser-media-playback.js';
+export { createBrowserMediaStreamFetch } from './browser-media-stream-fetch.js';
+export type { BrowserMediaPlaybackOptions } from './browser-media-playback.js';
+export { mountMediaPlayer } from './media-player.js';
+export type { MediaPlayback, MediaPlaybackBackend, MediaPlaybackCommand, MediaPlaybackState, MediaService, MediaSessionSnapshot } from './media-playback.js';

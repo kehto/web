@@ -118,3 +118,30 @@ require their own scoped specification check and migration PR.
 The AGENTS policy requiring warnings, tracking, and tests is proposed separately
 in [PR #284](https://github.com/kehto/web/pull/284). This implementation PR leaves
 `AGENTS.md` unchanged.
+
+## NAP-MEDIA command API (2026-10-27)
+
+- **Identifiers:** `KEHTO-MEDIA-SEND-COMMAND`, `KEHTO-MEDIA-COMMAND-CALLBACK`.
+- **Owner:** `@kehto/shell`; source and warning site:
+  `packages/shell/src/napplet-namespace.ts`, `makeMedia`.
+- **Old/replacement:** `sendCommand(id, action, value)` becomes
+  `command(id, { action, value, reason })`; `onCommand(id, (action, value) => ...)`
+  becomes `onCommand(id, command => ...)`.
+- **Warnings:** on alias invocation or registration of a callback declaring at
+  least two parameters; once per identifier per injected endpoint lifetime.
+  Canonical usage is quiet. Payloads and source URLs are not logged.
+- **Diagnostic limitation:** function arity cannot distinguish unary legacy
+  action callbacks from canonical command-object callbacks. Unary callbacks now
+  receive objects and must migrate; this is a breaking 0.x minor. Rest/default
+  arguments that erase arity are likewise not detected. The old published SDK
+  types cannot describe the new object contract; use the documented injected API
+  and Kehto `MediaPlaybackCommand` until Napplet publishes updated types.
+- **Tests:** `packages/shell/src/napplet-namespace.test.ts`, NAP-MEDIA injected
+  lifecycle suite covers canonical silence, legacy behavior, warning text and
+  frequency, close handles, parent trust, reassignment, and retired-session guards.
+- **Retention reason:** published `@napplet/nap` 0.32 delegates `mediaSendCommand`
+  and two-argument `mediaOnCommand` callbacks to the injected namespace.
+- **Removal prerequisites:** upstream packages implement NAP-MEDIA PR #10
+  `7806f438530251fce5129f8e6239d6b642278759`, supported consumers migrate, and a
+  removal release is announced. Track removal in this register; warning silence
+  is not proof of migration.

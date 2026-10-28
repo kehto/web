@@ -20,6 +20,9 @@ import {
   createLinkService,
   createListsService,
   createMediaService,
+  createBrowserMediaPlayback,
+  createBrowserMediaStreamFetch,
+  mountMediaPlayer,
   createNotifyService,
   createOutboxService,
   createRelayPoolOutboxRouter,
@@ -336,6 +339,7 @@ function createDevServices(
   });
   void socialCache.refreshActiveIdentity();
   const resourceService = createResourceService({
+    stream: createBrowserMediaStreamFetch(),
     fetch: createPajaResourceFetch({
       getBlossomServers: ({ url, windowId }) => blossomEventResolver.getServers(url, windowId),
     }),
@@ -416,12 +420,11 @@ function createDevServices(
   if (getSimulation().notifications.enabled && notifyOptions) {
     services.notify = createNotifyService(notifyOptions);
   }
-  if (
-    getSimulation().media.enabled
-    && typeof navigator !== 'undefined'
-    && 'mediaSession' in navigator
-    && typeof document !== 'undefined'
-  ) services.media = createMediaService({ mediaSessionTarget: navigator.mediaSession, documentTarget: document });
+  if (getSimulation().media.enabled && typeof document !== 'undefined' && document.body) {
+    const media = createMediaService({ playback: createBrowserMediaPlayback({ resource: resourceService, stream: resourceService.openStream }) });
+    const unmount = mountMediaPlayer(media);
+    services.media = { ...media, onUnregistered() { unmount(); media.destroy(); } };
+  }
   if (getSimulation().capabilities.domains.theme) services.theme = theme.handler;
   if (getSimulation().capabilities.domains.config && config) services.config = config.handler;
   if (getSimulation().cvm.enabled && getSimulation().relay.mode === 'live' && backend.isAvailable()) {

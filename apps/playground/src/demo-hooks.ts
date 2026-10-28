@@ -37,6 +37,9 @@ import {
   createLinkService,
   createListsService,
   createMediaService,
+  createBrowserMediaPlayback,
+  createBrowserMediaStreamFetch,
+  mountMediaPlayer,
   createThemeService,
   createConfigService,
   createCommonService,
@@ -48,6 +51,7 @@ import {
   type ConfigService,
   type Notification,
   type ThemeService,
+  type ResourceService,
 } from '@kehto/services';
 import { createNip66Aggregator, type Nip66Aggregator } from '@kehto/nip/66';
 
@@ -121,16 +125,12 @@ export function createDemoHooks(
 ): ShellAdapter {
   const notificationService = createNotificationService({ onChange: notificationOnChange, maxPerWindow: 50 });
   const keysService = createDemoKeysService();
-  const mediaService = createMediaService({
-    onSessionCreate: (windowId, sessionId, metadata) => {
-      void windowId;
-      void sessionId;
-      void metadata;
-    },
-  });
   const themeBundle = createThemeService({ initialTheme, onBroadcast: context.onThemeBroadcast });
   const configBundle = createConfigService({ getValues: () => ({ ...demoConfigFixtures }) });
   const resourceHandler = createDemoResourceHandler();
+  const mediaService = createMediaService({ playback: createBrowserMediaPlayback({ resource: resourceHandler, stream: resourceHandler.openStream }) });
+  const unmountMediaPlayer = mountMediaPlayer(mediaService);
+  mediaService.onUnregistered = () => { unmountMediaPlayer(); mediaService.destroy(); };
   const linkService = createLinkService({
     open: ({ url }) => ({
       status: url.hostname === 'blocked.example' ? 'denied' : 'opened',
@@ -255,8 +255,9 @@ function getDemoConnectGrants(dTag: string): readonly string[] {
   return configured;
 }
 
-function createDemoResourceHandler(): ServiceHandler {
+function createDemoResourceHandler(): ResourceService {
   return createResourceService({
+    stream: createBrowserMediaStreamFetch(),
     fetch: hostFetch,
     isOriginGranted: (origin, grants) => grants.includes(origin),
     getConnectGrants: (dTag, _aggregateHash) => getDemoConnectGrants(dTag),
