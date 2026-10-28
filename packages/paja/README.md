@@ -591,4 +591,3 @@ collapsible player with transport, seek, volume, and close controls. It also
 streams live HTTPS MP3/AAC radio without awaiting EOF and displays napplet-owned
 sessions. See [Media playback](../../docs/media.md) for
 source support, lifecycle rules, and canonical API examples.
-

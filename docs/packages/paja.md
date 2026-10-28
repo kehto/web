@@ -758,4 +758,3 @@ MediaSource buffers, without awaiting EOF. They expose pause/stop/volume but no 
 
 See [Media playback](https://github.com/kehto/web/blob/main/docs/media.md) for NAP-MEDIA draft authority, shell-owned audio/video,
 shared host controls, endpoint cleanup, and command API migration.
-
