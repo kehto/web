@@ -1,5 +1,12 @@
 # @kehto/paja
 
+## 0.25.1
+
+### Patch Changes
+
+- Updated dependencies [8c49071]
+  - @kehto/nip@0.8.0
+
 ## 0.25.0
 
 ### Minor Changes

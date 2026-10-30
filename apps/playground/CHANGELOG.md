@@ -1,5 +1,12 @@
 # @kehto/demo
 
+## 0.1.24
+
+### Patch Changes
+
+- Updated dependencies [8c49071]
+  - @kehto/nip@0.8.0
+
 ## 0.1.23
 
 ### Patch Changes
