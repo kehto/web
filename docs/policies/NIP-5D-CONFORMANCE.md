@@ -40,6 +40,9 @@ Checked NIP-5D `dskvr/nips@020cb8b33a9e4c6b8ca4b2f9d0ed0a67843b68f7/5D.md`
 and NAP-INTENT/NAP-SHELL at
 `napplet/naps@a040914b4bbd3a5cd8a14b0f316a723c968ebfb2`. Current writer source:
 `napplet/web@831d3dd5056b84bc03982966279ed8b9167152f8` (Vite plugin 0.15.0).
+The schema was rechecked at `dskvr/nips@6e24617cde507c0a87fa170af9ed6b2b46545b2d`
+for the source and presentation media amendments; see
+[Source pins and presentation media](#source-pins-and-presentation-media).
 Current `x` artifact hashes, `content`, `z`/`i`, and `R`/`O` are authoritative.
 Legacy `path`/aggregate events remain a temporary compatibility extension,
 isolated in `packages/nip/src/5d/legacy-manifest.ts`. Never retry malformed current
@@ -315,3 +318,37 @@ Runtime regressions cover registration, replacement/removal, source isolation,
 ACL/firewall denial and startup limits, silent unknown types, fixed-domain
 precedence, and delayed replies after teardown or policy revocation. The full
 browser suite guards existing host consumers without inventing an `example` NAP.
+
+## Source pins and presentation media
+
+Checked NIP-5D PR #2303 at `dskvr/nips@6e24617cde507c0a87fa170af9ed6b2b46545b2d`
+(`5D.md` §Source, §Presentation media; content commit `d4f4d89`), the delta since
+`020cb8b`. Upstream `napplet/web@ef915243` chased the same text in `@napplet/cli`,
+`@napplet/conformance` and `@napplet/vite-plugin`; `@napplet/core` and
+`@napplet/nap` are unchanged, so Kehto keeps its pinned runtime line and owns the
+manifest parsing in `@kehto/nip/5d` (`source-metadata.ts`, `presentation-media.ts`).
+
+Conformant. `parseNappletManifest` keeps one well-formed `source` in the accepted
+HTTP(S), SSH, scp-like, Git or NIP-34 `nostr://` forms, one `source-commit` only
+alongside a usable `source`, and one four-element HTTPS `source-archive`. It
+parses `screenshot` and `preview` tags with NIP-92 `key value` fields, requires
+exactly one `x`, drops malformed or repeated optional fields, preserves screenshot
+order, and ignores the preview when several are declared. Malformed or repeated
+source and media tags are ignored rather than rejecting the manifest, which the
+amendment requires; the previous hard rejection of a repeated `source` tag is
+gone. Legacy aggregate events stay frozen in `legacy-manifest.ts`.
+
+Declarations are never verified media. `verifyPresentationMediaBytes` applies the
+client checks (SHA-256, decodable PNG/JPEG/WebP or video container, declared `m`
+equality) and returns the recognised format or `undefined`; it is a header check,
+so a rendering host still relies on the browser decoder and keeps placeholder
+artwork for anything that fails. No Kehto host renders screenshots, previews or
+source links yet; Paja, the playground and `@kehto/services` project only NAP-INTENT
+routing facts and `title` from the manifest, so they need no new fields.
+
+Spec-gap decision: an HTTP(S) `source` may be a repository or an archive and the
+location alone cannot distinguish them, so any accepted `source` retains an
+otherwise valid `source-commit`. Regressions:
+`packages/nip/src/5d/source-metadata.test.ts`,
+`packages/nip/src/5d/presentation-media.test.ts`, and the manifest-level cases in
+`packages/nip/src/5d/current-manifest.test.ts`.

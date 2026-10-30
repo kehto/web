@@ -23,6 +23,8 @@ compatibility policy, not the current protocol format.
 | Description | Nonempty plain-text `content` | `description` tag |
 | Required domains | Repeated `R` | Repeated `requires` |
 | Optional integrations | Repeated `O`, never load requirements | No declaration |
+| Source metadata | One `source` location, `source-commit`, `source-archive`; malformed or repeated tags ignored (`dskvr/nips@6e24617`) | First `source` value only |
+| Presentation media | Ordered `screenshot` tags and one `preview` with NIP-92 fields; unusable entries ignored | No declaration |
 | Routing | Independent `z` and queryless `i` sets | Explicit `archetype` role/convention pairs |
 | Icon | Optional supported hash/MIME declaration | Generic artwork |
 
