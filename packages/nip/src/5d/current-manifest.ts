@@ -2,6 +2,8 @@ import type { NostrEvent } from 'nostr-tools';
 import type { NappletManifest } from './index.js';
 import { NappletResolutionError } from './errors.js';
 import { getNappletCatalogId } from './catalog-id.js';
+import { parsePresentationMedia } from './presentation-media.js';
+import { parseSourceMetadata } from './source-metadata.js';
 
 const HASH = /^[a-f0-9]{64}$/;
 const DOMAIN = /^[a-z][a-z0-9-]*$/;
@@ -58,7 +60,7 @@ function iconFromTags(tags: string[][]): NappletManifest['icon'] {
   return { sha256: hash, mimeType };
 }
 
-/** Parse the single-artifact schema from NIP-5D #2303, 020cb8b. */
+/** Parse the single-artifact schema from NIP-5D #2303, 6e24617 (source and presentation media amendments). */
 export function parseCurrentManifest(event: NostrEvent): NappletManifest {
   const tags = event.tags;
   const artifactHash = single(tags, 'x');
@@ -102,7 +104,10 @@ export function parseCurrentManifest(event: NostrEvent): NappletManifest {
     archetypes,
     title: single(tags, 'title'),
     description: event.content,
-    source: single(tags, 'source'),
+    // Source and presentation media are informational: malformed or repeated
+    // tags are ignored and never prevent playback (NIP-5D §Source, §Presentation media).
+    ...parseSourceMetadata(tags),
+    ...parsePresentationMedia(tags),
     icon: iconFromTags(tags),
     parent,
     root,

@@ -8,7 +8,7 @@ const PACKAGE_VERSIONS = {
   '@napplet/nap': '0.32.0',
   '@napplet/shim': '0.30.0',
   '@napplet/sdk': '0.28.0',
-  '@napplet/vite-plugin': '0.15.0',
+  '@napplet/vite-plugin': '0.16.2',
 } as const;
 
 const SUPERSEDED_EXACT_MATRIX = {
@@ -16,7 +16,7 @@ const SUPERSEDED_EXACT_MATRIX = {
   '@napplet/nap': '0.31.2',
   '@napplet/shim': '0.29.2',
   '@napplet/sdk': '0.27.2',
-  '@napplet/vite-plugin': '0.14.0',
+  '@napplet/vite-plugin': '0.15.0',
 } as const;
 
 const PUBLIC_CORE_RANGE = '>=0.32.0 <0.33.0';
