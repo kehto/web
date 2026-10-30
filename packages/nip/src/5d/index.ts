@@ -13,6 +13,25 @@ import {
   NAPPLET_KINDS,
 } from './kinds.js';
 import type { NappletArtifactCache } from './artifact-cache.js';
+import type { PresentationMedia } from './presentation-media.js';
+import type { SourceArchive } from './source-metadata.js';
+export {
+  PREVIEW_FORMATS,
+  SCREENSHOT_FORMATS,
+  parsePresentationMedia,
+  sniffPresentationMediaFormat,
+  verifyPresentationMediaBytes,
+  type PresentationMedia,
+  type PresentationMediaFormat,
+  type PresentationMediaKind,
+  type PresentationMediaResult,
+} from './presentation-media.js';
+export {
+  isSourceLocation,
+  parseSourceMetadata,
+  type SourceArchive,
+  type SourceMetadata,
+} from './source-metadata.js';
 export {
   CacheStorageNappletArtifactCache,
   NAPPLET_ARTIFACT_CACHE_NAME,
@@ -103,8 +122,19 @@ export interface NappletManifest {
   title?: string;
   /** Plain-text event content (legacy description tag for older events). */
   description?: string;
-  /** Optional upstream source URL from the `source` tag. */
+  /**
+   * Repository or archive location from one well-formed `source` tag
+   * (NIP-5D §Source). Malformed or repeated tags are ignored, never fatal.
+   */
   source?: string;
+  /** Full Git commit ID pinned for `source`; kept only alongside a usable `source`. */
+  sourceCommit?: string;
+  /** Independently downloadable source archive; verify its digest before use. */
+  sourceArchive?: SourceArchive;
+  /** Usable `screenshot` declarations in manifest order; bytes unverified until fetched. */
+  screenshots?: PresentationMedia[];
+  /** The single usable `preview` video declaration, if exactly one was declared. */
+  preview?: PresentationMedia;
 }
 
 export { NappletResolutionError, type NappletResolutionErrorCode } from './errors.js';
