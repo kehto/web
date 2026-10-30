@@ -32,14 +32,16 @@ implementation authority. `RUNTIME-SPEC.md` is internal runtime guidance.
   `b3f0007867eac109fa4917fac9c285d3b7cc6155`; and Version Packages #198 head
   `a79e7f4638f70f4557d4183faee9348847bb8cc7`, merged as release source
   `dc1d24153c759152b6ba31a6ec9bea967798f2df`. The current exact line is core
-  `0.32.0`, nap `0.32.0`, shim `0.30.0`, SDK `0.28.0`, and Vite plugin `0.15.0`.
+  `0.32.0`, nap `0.32.0`, shim `0.30.0`, SDK `0.28.0`, and Vite plugin `0.16.2`.
 
 ### Current event schema and retained compatibility
 
 Checked NIP-5D `dskvr/nips@020cb8b33a9e4c6b8ca4b2f9d0ed0a67843b68f7/5D.md`
 and NAP-INTENT/NAP-SHELL at
 `napplet/naps@a040914b4bbd3a5cd8a14b0f316a723c968ebfb2`. Current writer source:
-`napplet/web@831d3dd5056b84bc03982966279ed8b9167152f8` (Vite plugin 0.15.0).
+`napplet/web@831d3dd5056b84bc03982966279ed8b9167152f8` (Vite plugin 0.15.0);
+the adopted writer is Vite plugin 0.16.2 from
+`napplet/web@f6839146afda77944d12ecdc371630905c9474f6`.
 The schema was rechecked at `dskvr/nips@6e24617cde507c0a87fa170af9ed6b2b46545b2d`
 for the source and presentation media amendments; see
 [Source pins and presentation media](#source-pins-and-presentation-media).
@@ -324,9 +326,15 @@ browser suite guards existing host consumers without inventing an `example` NAP.
 Checked NIP-5D PR #2303 at `dskvr/nips@6e24617cde507c0a87fa170af9ed6b2b46545b2d`
 (`5D.md` §Source, §Presentation media; content commit `d4f4d89`), the delta since
 `020cb8b`. Upstream `napplet/web@ef915243` chased the same text in `@napplet/cli`,
-`@napplet/conformance` and `@napplet/vite-plugin`; `@napplet/core` and
+`@napplet/conformance` and `@napplet/vite-plugin`, released by Version Packages
+#273 at `napplet/web@f6839146afda77944d12ecdc371630905c9474f6` as Vite plugin
+`0.16.2`, conformance `0.20.5` and CLI `0.13.1`. `@napplet/core` and
 `@napplet/nap` are unchanged, so Kehto keeps its pinned runtime line and owns the
 manifest parsing in `@kehto/nip/5d` (`source-metadata.ts`, `presentation-media.ts`).
+Playground, demo napplet and fixture builds pin the published `0.16.2` writer;
+`tests/unit/published-napplet-contract.test.ts` proves its `screenshot`,
+`preview`, `source-commit` and `source-archive` output survives the playground
+final-byte signing in `recomputeManifest` and parses through `parseNappletManifest`.
 
 Conformant. `parseNappletManifest` keeps one well-formed `source` in the accepted
 HTTP(S), SSH, scp-like, Git or NIP-34 `nostr://` forms, one `source-commit` only

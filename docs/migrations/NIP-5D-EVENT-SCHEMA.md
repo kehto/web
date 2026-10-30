@@ -1,7 +1,7 @@
 # NIP-5D event schema migration
 
 Kehto accepts current single-artifact events and legacy aggregate events. New
-playground and fixture builds use published `@napplet/vite-plugin@0.15.0`.
+playground and fixture builds use published `@napplet/vite-plugin@0.16.2`.
 Core/nap `0.32.0`, shim `0.30.0`, and SDK `0.28.0` remain the published runtime
 contracts; their versions did not change for this writer release.
 
@@ -11,7 +11,10 @@ Checked NIP-5D draft [PR #2303 at `020cb8b`](https://github.com/dskvr/nips/blob/
 [NAP-INTENT](https://github.com/napplet/naps/blob/a040914b4bbd3a5cd8a14b0f316a723c968ebfb2/naps/NAP-INTENT.md)
 and [NAP-SHELL](https://github.com/napplet/naps/blob/a040914b4bbd3a5cd8a14b0f316a723c968ebfb2/naps/NAP-SHELL.md)
 at `napplet/naps@a040914b4bbd3a5cd8a14b0f316a723c968ebfb2`.
-The writer release source is `napplet/web@831d3dd5056b84bc03982966279ed8b9167152f8`.
+The schema writer release source is `napplet/web@831d3dd5056b84bc03982966279ed8b9167152f8`;
+the presentation media and source pin writer (Vite plugin 0.16.2) is
+`napplet/web@f6839146afda77944d12ecdc371630905c9474f6` from source PR #272
+`ef915243a2e7724c0cbeaf8b401116afa239d201`.
 The current path conforms to this draft; legacy support is an explicit temporary
 compatibility policy, not the current protocol format.
 
