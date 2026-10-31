@@ -1,5 +1,6 @@
 
 import type { Capability } from '@kehto/acl/capabilities';
+import type { ExtensionCapability } from '@kehto/acl';
 import type { NapMessage } from '@kehto/acl';
 import type { AclCheckEvent } from './types.js';
 
@@ -16,7 +17,7 @@ export type { NapMessage } from '@kehto/acl';
  */
 export interface EnforceResult {
   allowed: boolean;
-  capability: Capability;
+  capability: Capability | ExtensionCapability;
   /**
    * Why the decision was reached. Always set on the return path.
    * Distinct from AclCheckEvent.reason (which is optional for backwards compat).
@@ -34,7 +35,7 @@ export type IdentityResolver = (pubkey: string) => { dTag: string; aggregateHash
  * ACL check function type — performs the actual capability check.
  * Provided by @kehto/acl's check() at runtime, or by the legacy aclStore.check().
  */
-export type AclChecker = (pubkey: string, dTag: string, aggregateHash: string, capability: Capability) => boolean;
+export type AclChecker = (pubkey: string, dTag: string, aggregateHash: string, capability: Capability | ExtensionCapability) => boolean;
 
 /**
  * Enforcement gate configuration.
@@ -128,10 +129,10 @@ export interface NapEnforceConfig {
  * // result.allowed === true | false
  * ```
  */
-export function createNapEnforceGate(config: NapEnforceConfig): (windowId: string, capability: Capability, message?: NapMessage) => EnforceResult {
+export function createNapEnforceGate(config: NapEnforceConfig): (windowId: string, capability: Capability | ExtensionCapability, message?: NapMessage) => EnforceResult {
   const { checkAcl, resolveIdentityByWindowId, onAclCheck } = config;
 
-  return function enforceNap(windowId: string, capability: Capability, message?: NapMessage): EnforceResult {
+  return function enforceNap(windowId: string, capability: Capability | ExtensionCapability, message?: NapMessage): EnforceResult {
     const entry = resolveIdentityByWindowId(windowId);
     const dTag = entry?.dTag ?? '';
     const aggregateHash = entry?.aggregateHash ?? '';
@@ -163,6 +164,6 @@ export function createNapEnforceGate(config: NapEnforceConfig): (windowId: strin
  * // => 'denied: relay:write'
  * ```
  */
-export function formatDenialReason(capability: Capability): string {
+export function formatDenialReason(capability: Capability | ExtensionCapability): string {
   return `denied: ${capability}`;
 }

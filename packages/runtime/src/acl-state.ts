@@ -6,9 +6,10 @@
  */
 
 import type { Capability } from '@kehto/acl/capabilities';
-import type { AclState, Identity } from '@kehto/acl';
+import type { AclState, ExtensionCapability, Identity } from '@kehto/acl';
 import {
   createState, check, grant, revoke, block, unblock,
+  checkExtension, grantExtension, revokeExtension, isExtensionCapability,
   serialize, deserialize, getQuota, setQuota,
   CAP_RELAY_READ, CAP_RELAY_WRITE, CAP_CACHE_READ, CAP_CACHE_WRITE,
   CAP_HOTKEY_FORWARD,
@@ -77,6 +78,13 @@ function capToBit(cap: Capability): number {
   return CAP_MAP[cap] ?? 0;
 }
 
+/** A built-in capability or an experimental `x-<domain>:<action>` extension capability. */
+export type AclCapability = Capability | ExtensionCapability;
+
+function extensionDecisions(ext: Readonly<Record<string, boolean>> | undefined): Record<string, boolean> | undefined {
+  return ext && Object.keys(ext).length > 0 ? { ...ext } : undefined;
+}
+
 /** Convert a bitfield to an array of capability strings. */
 function bitsToCapabilities(bits: number): Capability[] {
   const result: Capability[] = [];
@@ -92,7 +100,7 @@ function toIdentity(pubkey: string, dTag: string, hash: string): Identity {
 
 /** An ACL authority change that can invalidate runtime-owned routes. */
 export type AclMutation =
-  | { readonly type: 'revoke'; readonly dTag: string; readonly aggregateHash: string; readonly capability: Capability }
+  | { readonly type: 'revoke'; readonly dTag: string; readonly aggregateHash: string; readonly capability: AclCapability }
   | { readonly type: 'block'; readonly dTag: string; readonly aggregateHash: string };
 
 /** Receives synchronous in-memory revoke/block changes, before any explicit persistence. */
@@ -110,9 +118,9 @@ export type AclMutationObserver = (mutation: AclMutation) => void;
  * ```
  */
 export interface AclStateContainer {
-  check(pubkey: string, dTag: string, aggregateHash: string, capability: Capability): boolean;
-  grant(pubkey: string, dTag: string, aggregateHash: string, capability: Capability): void;
-  revoke(pubkey: string, dTag: string, aggregateHash: string, capability: Capability): void;
+  check(pubkey: string, dTag: string, aggregateHash: string, capability: AclCapability): boolean;
+  grant(pubkey: string, dTag: string, aggregateHash: string, capability: AclCapability): void;
+  revoke(pubkey: string, dTag: string, aggregateHash: string, capability: AclCapability): void;
   block(pubkey: string, dTag: string, aggregateHash: string): void;
   unblock(pubkey: string, dTag: string, aggregateHash: string): void;
   isBlocked(pubkey: string, dTag: string, aggregateHash: string): boolean;
@@ -185,21 +193,26 @@ export function createAclState(
   }
 
   return {
-    check(pubkey: string, dTag: string, aggregateHash: string, capability: Capability): boolean {
+    check(pubkey: string, dTag: string, aggregateHash: string, capability: AclCapability): boolean {
       const id = toIdentity(pubkey, dTag, aggregateHash);
-      return check(state, id, capToBit(capability));
+      if (isExtensionCapability(capability)) return checkExtension(state, id, capability);
+      return check(state, id, capToBit(capability as Capability));
     },
 
-    grant(pubkey: string, dTag: string, aggregateHash: string, capability: Capability): void {
+    grant(pubkey: string, dTag: string, aggregateHash: string, capability: AclCapability): void {
       const id = toIdentity(pubkey, dTag, aggregateHash);
       ensureRuntimeDefaultEntry(id);
-      state = grant(state, id, capToBit(capability));
+      state = isExtensionCapability(capability)
+        ? grantExtension(state, id, capability)
+        : grant(state, id, capToBit(capability as Capability));
     },
 
-    revoke(pubkey: string, dTag: string, aggregateHash: string, capability: Capability): void {
+    revoke(pubkey: string, dTag: string, aggregateHash: string, capability: AclCapability): void {
       const id = toIdentity(pubkey, dTag, aggregateHash);
       ensureRuntimeDefaultEntry(id);
-      state = revoke(state, id, capToBit(capability));
+      state = isExtensionCapability(capability)
+        ? revokeExtension(state, id, capability)
+        : revoke(state, id, capToBit(capability as Capability));
       onMutation?.({ type: 'revoke', dTag, aggregateHash, capability });
     },
 
@@ -235,6 +248,7 @@ export function createAclState(
         capabilities: bitsToCapabilities(entry.caps),
         blocked: entry.blocked,
         stateQuota: entry.quota,
+        ...(extensionDecisions(entry.ext) ? { extensions: extensionDecisions(entry.ext) } : {}),
       };
     },
 
@@ -248,6 +262,7 @@ export function createAclState(
           capabilities: bitsToCapabilities(entry.caps),
           blocked: entry.blocked,
           stateQuota: entry.quota,
+          ...(extensionDecisions(entry.ext) ? { extensions: extensionDecisions(entry.ext) } : {}),
         };
       });
     },

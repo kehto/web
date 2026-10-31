@@ -10,7 +10,8 @@ import type {
 import { createServiceExtensionRouter } from './service-extensions.js';
 import { notifyServiceWindowDestroyed } from './service-dispatch.js';
 import { createSessionRegistry, type SessionRegistry } from './session-registry.js';
-import { createAclState, type AclStateContainer } from './acl-state.js';
+import { createAclState, type AclCapability, type AclStateContainer } from './acl-state.js';
+import { isExtensionDomain } from '@kehto/acl';
 import { createFirewallState, type FirewallStateContainer } from './firewall-state.js';
 import { createManifestCache, type ManifestCache } from './manifest-cache.js';
 import { createReplayDetector, type ReplayDetector } from './replay.js';
@@ -446,7 +447,9 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
   const attachedServices = new Map<string, ServiceHandler>();
   const isDomainAllowed = hooks.isDomainAllowed;
   const sendToNapplet = hooks.sendToNapplet;
-  const serviceContext: ServiceRuntimeContext = Object.freeze({
+  // Each attached handler gets its own context so extension pushes stay scoped
+  // to the handler's own registered `x-` domain.
+  const createServiceContext = (name: string, handler: ServiceHandler): ServiceRuntimeContext => Object.freeze({
     resolveDTag(windowId: string): string | undefined {
       return sessionRegistry.getEntryByWindowId(windowId)?.dTag;
     },
@@ -455,7 +458,7 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
         sessionRegistry.getAllEntries().map((entry) => entry.windowId),
       );
     },
-    hasCapability(windowId: string, capability: Capability): boolean {
+    hasCapability(windowId: string, capability: AclCapability): boolean {
       const entry = sessionRegistry.getEntryByWindowId(windowId);
       return !!entry && aclState.check('', entry.dTag, entry.aggregateHash, capability);
     },
@@ -465,6 +468,7 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
       const dotIndex = message.type.indexOf('.');
       if (dotIndex <= 0) return false;
       const domain = message.type.slice(0, dotIndex);
+      if (isExtensionDomain(domain)) return extensions.push(name, handler, windowId, message);
       try {
         if (isDomainAllowed && !isDomainAllowed(windowId, domain)) return false;
         const { recipientCap } = resolveCapabilitiesNap(message);
@@ -485,7 +489,7 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
   function attachService(name: string, handler: ServiceHandler): void {
     attachedServices.set(name, handler);
     try {
-      handler.onRegistered?.(serviceContext);
+      handler.onRegistered?.(createServiceContext(name, handler));
     } catch {
       // A failed optional attachment leaves the service safely context-free.
     }

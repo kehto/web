@@ -7,6 +7,7 @@
 
 import type { EventTemplate, NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
 import type { Capability } from '@kehto/acl/capabilities';
+import type { ExtensionCapability } from '@kehto/acl';
 // Persistence + cache data types live in a sibling module (file-size budget);
 // imported here for internal use by RuntimeAdapter and re-exported below.
 import type { AclPersistence, FirewallPersistence, FirewallEvent, ManifestPersistence, ShellSecretPersistence, GuidPersistence, StatePersistence } from './persistence-types.js';
@@ -427,6 +428,11 @@ export interface AclEntryExternal {
   capabilities: Capability[];
   blocked: boolean;
   stateQuota?: number;
+  /**
+   * Explicit experimental extension decisions (`x-<domain>:<action>` → granted).
+   * Absent capabilities follow the default policy.
+   */
+  extensions?: Record<string, boolean>;
 }
 
 /**
@@ -457,7 +463,7 @@ export interface ServiceRuntimeContext {
    * @param capability - Capability to check for that source.
    * @returns `true` when the live source currently holds the grant.
    */
-  hasCapability(windowId: string, capability: Capability): boolean;
+  hasCapability(windowId: string, capability: Capability | ExtensionCapability): boolean;
   /**
    * Send a runtime-originated message after current recipient policy checks.
    *
@@ -496,7 +502,8 @@ export interface ServiceHandler {
   /**
    * Explicit inbound types for a domain outside the built-in dispatcher.
    * Each own key is an exact `domain.action` type; its value is an existing
-   * ACL capability or explicit `null` for no additional capability requirement.
+   * ACL capability, an `x-<domain>:<action>` extension capability owned by the
+   * same `x-` domain, or explicit `null` for no additional capability requirement.
    * Omission keeps non-built-in services attachment-only. Built-in NAP routes
    * ignore this map and retain their canonical capability mapping.
    *
@@ -505,7 +512,19 @@ export interface ServiceHandler {
    * neither injects a namespace binding nor grants any capability. The handler
    * owns payload validation and its extension's response contract.
    */
-  messageCapabilities?: Readonly<Record<string, Capability | null>>;
+  messageCapabilities?: Readonly<Record<string, Capability | ExtensionCapability | null>>;
+  /**
+   * Explicit outbound host-initiated (push) types for an experimental `x-`
+   * domain. Each own key is an exact `domain.event` type in this handler's own
+   * domain; its value is the capability the recipient must currently hold
+   * (built-in or own-domain extension capability) or explicit `null`.
+   *
+   * Declared pushes are delivered only through this handler's
+   * `ServiceRuntimeContext.sendToEligibleNapplet`, after the same live-session,
+   * domain-grant, block, ACL and firewall checks as inbound requests. Undeclared
+   * types, other domains, and built-in domains are never pushed through it.
+   */
+  pushCapabilities?: Readonly<Record<string, Capability | ExtensionCapability | null>>;
   /**
    * Attach this handler to one runtime instance.
    *
@@ -534,7 +553,7 @@ export interface ServiceHandler {
    */
   onWindowDestroyed?(windowId: string): void;
   /** Revoke live output when this endpoint loses a capability or is blocked. */
-  onCapabilityRevoked?(windowId: string, capability: Capability | null): void;
+  onCapabilityRevoked?(windowId: string, capability: Capability | ExtensionCapability | null): void;
 }
 
 /**
