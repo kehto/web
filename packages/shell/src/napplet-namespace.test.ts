@@ -1846,6 +1846,69 @@ describe('NIP-5D napplet namespace prelude', () => {
     });
   });
 
+  // NAP-LLM (napplet/naps PR #134 at 3e10939): result envelopes carry
+  // `{ code, message }` errors, deltas are id-less and keyed by requestId, and
+  // aborting a generation sends llm.cancel while the generation settles on its own result.
+  it('injects the NAP-LLM API with typed failures, ordered deltas and abort-driven cancellation', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['llm'] }), target);
+
+    await withGlobalWindow(target, async () => {
+      const llm = requireDomain('llm');
+      expect(Object.keys(llm).sort()).toEqual(['cancel', 'describe', 'generate', 'select']);
+
+      const select = llm.select() as Promise<unknown>;
+      expect(target.postedMessages.at(-1)).toEqual({ type: 'llm.select', id: 'id-1' });
+      const model = { handle: 'h1', name: 'My connection', model: 'chosen-model', route: 'Local shell → inference provider', images: false, json: true };
+      target.dispatchParentMessage({ type: 'llm.select.result', id: 'id-1', model });
+      await expect(select).resolves.toEqual(model);
+
+      const constrained = llm.select({ json: true }) as Promise<unknown>;
+      expect(target.postedMessages.at(-1)).toEqual({ type: 'llm.select', id: 'id-2', requirements: { json: true } });
+      target.dispatchParentMessage({ type: 'llm.select.result', id: 'id-2', error: { code: 'user-cancelled', message: 'Declined.' } });
+      await expect(constrained).rejects.toMatchObject({ code: 'user-cancelled', message: 'Declined.' });
+
+      const describe = llm.describe('h1') as Promise<unknown>;
+      expect(target.postedMessages.at(-1)).toEqual({ type: 'llm.describe', id: 'id-3', handle: 'h1' });
+      target.dispatchParentMessage({ type: 'llm.describe.result', id: 'id-3', model });
+      await expect(describe).resolves.toEqual(model);
+
+      const deltas: unknown[] = [];
+      const request = { handle: 'h1', messages: [{ role: 'user', content: [{ type: 'text', text: 'Return a JSON object.' }] }], format: 'json' };
+      const generation = llm.generate(request, { onDelta: (delta: unknown) => deltas.push(delta) }) as Promise<unknown> & { requestId: string };
+      expect(generation.requestId).toBe('id-4');
+      expect(target.postedMessages.at(-1)).toEqual({ type: 'llm.generate', id: 'id-4', request });
+      target.dispatchParentMessage({ type: 'llm.delta', requestId: 'id-4', sequence: 0, text: '{"greeting":' });
+      target.dispatchParentMessage({ type: 'llm.delta', requestId: 'other', sequence: 0, text: 'ignored' });
+      target.dispatchParentMessage({ type: 'llm.delta', requestId: 'id-4', sequence: 5, text: 'out of order' });
+      target.dispatchMessage({}, { type: 'llm.delta', requestId: 'id-4', sequence: 1, text: 'forged source' });
+      target.dispatchParentMessage({ type: 'llm.delta', requestId: 'id-4', sequence: 1, text: '"Hello"}' });
+      const result = { text: '{"greeting":"Hello"}', finish: 'stop', usage: { inputTokens: 12, outputTokens: 7 } };
+      target.dispatchParentMessage({ type: 'llm.generate.result', id: 'id-4', result });
+      await expect(generation).resolves.toEqual(result);
+      expect(deltas).toEqual([
+        { requestId: 'id-4', sequence: 0, text: '{"greeting":' },
+        { requestId: 'id-4', sequence: 1, text: '"Hello"}' },
+      ]);
+
+      const controller = new AbortController();
+      const cancelled = llm.generate(request, { signal: controller.signal }) as Promise<unknown> & { requestId: string };
+      controller.abort();
+      expect(target.postedMessages.at(-1)).toEqual({ type: 'llm.cancel', id: 'id-6', requestId: cancelled.requestId });
+      target.dispatchParentMessage({ type: 'llm.generate.result', id: cancelled.requestId, error: { code: 'cancelled', message: 'Generation cancelled; provider charges may still apply.' } });
+      await expect(cancelled).rejects.toMatchObject({ code: 'cancelled' });
+
+      const cancel = llm.cancel('id-99') as Promise<unknown>;
+      expect(target.postedMessages.at(-1)).toEqual({ type: 'llm.cancel', id: 'id-7', requestId: 'id-99' });
+      target.dispatchParentMessage({ type: 'llm.cancel.result', id: 'id-7', cancelled: false });
+      await expect(cancel).resolves.toBe(false);
+
+      const malformed = llm.describe('h1') as Promise<unknown>;
+      target.dispatchParentMessage({ type: 'llm.describe.result', id: 'id-8' });
+      await expect(malformed).rejects.toMatchObject({ code: 'provider-error' });
+    });
+  });
+
   it('injects the complete NAP-FS API with correlated results and id-less changes', async () => {
     const target = createPreludeTestWindow();
     runPrelude(renderNappletNamespacePrelude({ domains: ['fs'] }), target);

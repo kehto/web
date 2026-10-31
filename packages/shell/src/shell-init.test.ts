@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import * as shell from './index.js';
 import { renderNappletNamespacePrelude } from './napplet-namespace.js';
-import { buildShellCapabilities, resolveShellEnvironment } from './shell-init.js';
+import { buildShellCapabilities, getShellDomainState, resolveShellEnvironment } from './shell-init.js';
 import type { ShellAdapter } from './types.js';
 
 function baseHooks(): ShellAdapter {
@@ -67,6 +67,8 @@ describe('buildShellCapabilities', () => {
     ['count', {}],
     ['fs', {}],
     ['gamepad', {}],
+    ['llm', {}],
+    ['llm', { services: { llm: service('llm') }, llm: { isAvailable: () => false } }],
   ];
 
   it.each(unwiredDomains)('does not advertise unwired service-only domain %s', (domain, adapter) => {
@@ -93,6 +95,7 @@ describe('buildShellCapabilities', () => {
         count: service('count'),
         fs: service('fs'),
         gamepad: service('gamepad'),
+        llm: service('llm'),
       },
       upload: { getUploader: () => ({ rails: ['nip96'] }) },
       intent: { isAvailable: () => true },
@@ -108,8 +111,39 @@ describe('buildShellCapabilities', () => {
     expect(buildShellCapabilities(hooks).domains).toEqual([
       'shell', 'relay', 'identity', 'storage', 'inc', 'theme', 'keys', 'media', 'notify',
       'outbox', 'config', 'resource', 'cvm', 'upload', 'intent', 'link', 'common',
-      'lists', 'serial', 'ble', 'webrtc', 'dm', 'count', 'fs', 'gamepad',
+      'lists', 'serial', 'ble', 'webrtc', 'dm', 'count', 'fs', 'gamepad', 'llm',
     ]);
+  });
+
+  // NAP-LLM (napplet/naps PR #134): advertisement stays binary on the wire while
+  // the host reports a third, unconfigured state for its own UI.
+  it('advertises a registered llm service even before the user configures a connection', () => {
+    const hooks: ShellAdapter = { ...baseHooks(), services: { llm: service('llm') }, llm: { isAvailable: () => true, isConfigured: () => false } };
+    expect(buildShellCapabilities(hooks).domains).toContain('llm');
+    expect(buildShellCapabilities({ ...baseHooks(), services: { llm: service('llm') } }).domains).toContain('llm');
+  });
+});
+
+describe('getShellDomainState', () => {
+  it('distinguishes supported, unconfigured and disabled domains', () => {
+    const configured = { current: false };
+    const hooks: ShellAdapter = { ...baseHooks(), services: { llm: service('llm'), count: service('count') }, llm: { isAvailable: () => true, isConfigured: () => configured.current } };
+    expect(getShellDomainState(hooks, 'llm')).toBe('unconfigured');
+    configured.current = true;
+    expect(getShellDomainState(hooks, 'llm')).toBe('supported');
+    expect(getShellDomainState(hooks, 'count')).toBe('supported');
+    expect(getShellDomainState(hooks, 'relay')).toBe('supported');
+    expect(getShellDomainState(hooks, 'fs')).toBe('disabled');
+    expect(getShellDomainState({ ...hooks, capabilities: { disabledDomains: ['llm'] } }, 'llm')).toBe('disabled');
+    expect(getShellDomainState({ ...hooks, llm: { isAvailable: () => false, isConfigured: () => false } }, 'llm')).toBe('disabled');
+    expect(getShellDomainState(baseHooks(), 'llm')).toBe('disabled');
+    expect(getShellDomainState(hooks, 'unknown')).toBe('disabled');
+  });
+
+  it('never reports unconfigured for domains without a configuration hook', () => {
+    const hooks: ShellAdapter = { ...baseHooks(), services: { llm: service('llm') } };
+    expect(getShellDomainState(hooks, 'llm')).toBe('supported');
+    expect(getShellDomainState(hooks, 'identity')).toBe('supported');
   });
 });
 

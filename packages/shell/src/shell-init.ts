@@ -1,5 +1,5 @@
 import type { OriginIdentity } from './origin-registry.js';
-import type { ShellAdapter, ShellCapabilities, ShellEnvironment } from './types.js';
+import type { ShellAdapter, ShellCapabilities, ShellDomainState, ShellEnvironment } from './types.js';
 
 const RUNTIME_NATIVE_DOMAINS = [
   'shell', 'relay', 'identity', 'storage', 'inc', 'theme', 'keys', 'media', 'notify',
@@ -8,7 +8,7 @@ const RUNTIME_NATIVE_DOMAINS = [
 const SERVICE_ONLY_DOMAINS = [
   'outbox', 'config', 'resource', 'cvm', 'upload', 'intent', 'link', 'common',
   'lists', 'serial', 'ble', 'webrtc', 'dm', 'count',
-  'fs', 'gamepad',
+  'fs', 'gamepad', 'llm',
 ] as const;
 
 /**
@@ -78,8 +78,35 @@ function isServiceDomainLive(hooks: ShellAdapter, domain: string): boolean {
     case 'serial': return hooks.serial?.isAvailable() === true;
     case 'ble': return hooks.ble?.isAvailable() === true;
     case 'webrtc': return hooks.webrtc?.isAvailable() === true;
+    case 'llm': return hooks.llm ? hooks.llm.isAvailable() : true;
     default: return true;
   }
+}
+
+/**
+ * Report the host-facing advertisement state of one bare NAP domain.
+ *
+ * Advertisement itself stays binary on the wire (NIP-5D domain presence), but a
+ * host UI needs the third state: the domain is advertised while the user has not
+ * configured its backend yet. Only hooks that expose `isConfigured()` (today
+ * `llm`) can report `unconfigured`; every other advertised domain is
+ * `supported`, and anything not advertised is `disabled`.
+ *
+ * @param hooks - The ShellAdapter provided by the host app.
+ * @param domain - Bare NAP domain name such as `llm`.
+ * @returns `supported`, `unconfigured` or `disabled`.
+ * @example
+ * ```ts
+ * getShellDomainState(hooks, 'llm'); // 'unconfigured' until a connection is saved
+ * ```
+ */
+export function getShellDomainState(hooks: ShellAdapter, domain: string): ShellDomainState {
+  if (!buildShellCapabilities(hooks).domains.includes(domain)) return 'disabled';
+  const configurable = (hooks as unknown as Record<string, { isConfigured?: () => boolean } | undefined>)[domain];
+  if (configurable && typeof configurable === 'object' && typeof configurable.isConfigured === 'function' && !configurable.isConfigured()) {
+    return 'unconfigured';
+  }
+  return 'supported';
 }
 
 function getLiveServices(
