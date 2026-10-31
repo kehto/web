@@ -60,6 +60,28 @@ describe('kehto-experimental-nap skill', () => {
       for (const [, path] of text.matchAll(/`(templates\/[\w./-]+|reference\/[\w./-]+)`/g)) {
         expect(existsSync(join(skillDir, path)), `${file} mentions ${path}`).toBe(true);
       }
+      // Any other backticked relative file path must also resolve inside the
+      // skill directory: a kehto repo path (such as a docs page) dangles in a
+      // downstream checkout. Leading-slash tokens are routes (/__kehto/...)
+      // and @scope/name tokens are package specifiers, so both are skipped.
+      for (const [, path] of text.matchAll(/`([^`\s@/][^`\s]*\/[^`\s]*\.(?:md|ts|js|json|mjs))`/g)) {
+        expect(existsSync(resolve(skillDir, path)), `${file} names ${path}, which does not exist in the skill`).toBe(true);
+      }
+    }
+  });
+
+  it('the how-to imports only public @kehto/* exports', () => {
+    const howTo = read(join(repoRoot, 'docs/how-tos/experimental-nap.md'));
+    const imports = [...howTo.matchAll(/import\s+(?:type\s+)?\{([^}]*)\}\s+from\s+'(@kehto\/[^']+)'/g)];
+    expect(imports.length).toBeGreaterThan(0);
+    for (const [, names, specifier] of imports) {
+      // A bare package specifier only: no src/ or dist/ deep imports.
+      expect(specifier, `how-to imports ${specifier}`).toMatch(/^@kehto\/[a-z0-9-]+$/);
+      const exported = exportedNames(join(repoRoot, 'packages', specifier.slice('@kehto/'.length), 'src/index.ts'));
+      for (const raw of names.split(',')) {
+        const name = raw.trim().split(/\s+as\s+/)[0]?.trim();
+        if (name) expect(exported.has(name), `${specifier} does not export ${name}`).toBe(true);
+      }
     }
   });
 

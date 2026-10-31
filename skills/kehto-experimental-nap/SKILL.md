@@ -13,8 +13,9 @@ kehto `x-echo` fixture, and rename it.
 
 - **Upstream-specified NAPs.** The domain is in the `napplet/naps` registry or an
   open draft (`llm`, `relay`, `fs`, …). It belongs in kehto itself: follow the
-  NAP-LLM wiring pattern (`docs/llm.md`) with an ACL bit, runtime handler, shell
-  prelude factory, Paja and playground lists. Never build it as an `x-` alias.
+  NAP-LLM wiring pattern (<https://kehto.github.io/web/docs/llm.html>) with an
+  ACL bit, runtime handler, shell prelude factory, Paja and playground lists.
+  Never build it as an `x-` alias.
 - **Existing built-in domains.** You only need to configure one. Use its
   documented hooks instead.
 
