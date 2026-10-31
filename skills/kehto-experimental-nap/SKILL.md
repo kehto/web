@@ -57,6 +57,9 @@ writing code. In short:
    - Paja: add the module to `extensions` in `paja.config.json`
      (`templates/paja.config.json`). The module default-exports
      `(context) => ShellExtension` and may export `settings`.
+     No secrets in config `settings`: Paja serves them unauthenticated in
+     `/__kehto/config.json` and the host HTML, so users enter keys in the
+     Extensions sidebar.
 6. **Test**: adapt `templates/x-echo.test.ts` (vitest + `@kehto/shell`) and
    `templates/x-echo.paja.spec.ts` (Playwright + `@kehto/paja`). Cover
    advertisement, the `not-configured` result, success, the push, ACL denial and

@@ -152,6 +152,27 @@ describe('x-echo experimental NAP in Paja', () => {
     expect(loaded[0].extension.state?.()).toBe('supported');
   });
 
+  it('matches extension routes on the pathname and answers a generic 404 for an unreadable module (IN-06)', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'paja-x-route-'));
+    const config = join(dir, 'paja.config.json');
+    writeFileSync(config, JSON.stringify({ extensions: [{ module: join(dir, 'missing.js') }, { module: fixturePath }] }), 'utf8');
+    const server = await startPajaServer({ options: { targetUrl: 'http://127.0.0.1:9', port: 0, configPath: config } });
+    try {
+      const served = await fetch(new URL('/__kehto/extensions/1.js?v=1', server.url));
+      expect(served.status).toBe(200);
+      expect(await served.text()).toBe(readFileSync(fixturePath, 'utf8'));
+      for (const path of ['/__kehto/extensions/0.js', '/__kehto/extensions/0.js?v=2']) {
+        const missing = await fetch(new URL(path, server.url));
+        const body = await missing.text();
+        expect(missing.status).toBe(404);
+        expect(body).toBe('Not found');
+        expect(body).not.toContain(dir);
+      }
+    } finally {
+      await server.close();
+    }
+  });
+
   it('resolves config-relative module paths and reports policy failures without breaking others', async () => {
     const server = await startPajaServer({ options: { targetUrl: 'http://127.0.0.1:9', port: 0, configPath: join(fixtureDir, 'paja.config.json') } });
     try {

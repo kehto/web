@@ -79,6 +79,10 @@ The skill template ships a byte-identical copy. It has five parts:
   serializes it into the host-owned prelude to build `window.napplet['x-echo']`.
   It is never part of the signed artifact bytes. `kit.request`, `kit.send` and
   `kit.on` only produce or accept `x-echo.*` messages from the parent window.
+  Action and event names must match the `@kehto/acl` action grammar (lowercase
+  letters, digits and single hyphens, at most 64 characters, no dots or
+  uppercase), or the kit throws a `TypeError`. `kit.request` always generates
+  the request `id` and ignores an `id` in the payload.
   The result is frozen, and napplet code can't replace it.
 - **`state`**: returns `unconfigured` until a prefix setting exists. While
   unconfigured, `say` answers `{ error: { code: 'not-configured' } }`.
@@ -132,6 +136,13 @@ load modules you wrote or have reviewed. Kehto isolates *napplets* from an
 extension's data. It does not sandbox the extension from the host page, which
 also holds the LLM vault and signer state. The factory receives only
 `{ settings }`.
+
+**No secrets in config `settings`.** Values in the config file's `settings` are
+served unauthenticated in `/__kehto/config.json` and in the host HTML to anyone
+who can reach the Paja server. Paja binds `127.0.0.1` by default; binding
+another address exposes them. Put API keys and tokens in the **Extensions**
+sidebar instead, which keeps them in that browser's storage keyed by the
+extension domain.
 
 A module must be a browser ES module with no bare imports. Type-only JSDoc
 imports from `@kehto/shell` are fine, as the fixture shows.

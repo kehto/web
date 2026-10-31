@@ -645,7 +645,10 @@ ShellExtension` and may export `settings`. Extension domains share the
 Interfaces tri-state toggles, add ACL toggles and an Extensions settings
 section, and log `paja.extension.*` messages. `deniedDTags` withholds a domain
 from those targets. `--firewall-mode` / `simulation.firewall.mode` now pins the
-development target's firewall policy (`allow` or `deny`). See
+development target's firewall policy (`allow` or `deny`).
+**No secrets in config `settings`**: Paja serves them unauthenticated in
+`/__kehto/config.json` and the host HTML, so enter API keys and tokens in the
+Extensions sidebar. See
 [Build an experimental NAP](https://kehto.github.io/web/docs/how-tos/experimental-nap.html).
 
 ## Environment Simulation

@@ -617,5 +617,8 @@ source support, lifecycle rules, and canonical API examples.
 List experimental `x-` NAP modules in the config's `extensions` (paths relative
 to the config). Each module default-exports `(context) => ShellExtension`.
 Paja shows them in Interfaces (tri-state), ACL and an Extensions settings
-section, and logs `paja.extension.*` messages. See
+section, and logs `paja.extension.*` messages.
+**No secrets in config `settings`**: Paja serves them unauthenticated in
+`/__kehto/config.json` and the host HTML, so enter API keys and tokens in the
+Extensions sidebar. See
 [Build an experimental NAP](https://kehto.github.io/web/docs/how-tos/experimental-nap.html).

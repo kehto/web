@@ -7,6 +7,7 @@ import {
 } from './index.js';
 import type { ServiceHandler, ServiceRuntimeContext, ShellAdapter, ShellExtension } from './index.js';
 import { resetShellEnvironmentOverrideWarning } from './shell-ready.js';
+import { validateExtensionCapability } from '@kehto/acl';
 
 // Kehto spec-gap policy for experimental x- NAPs, bounded by napplet/naps master
 // 43cb3a4 (NAP-SHELL capabilities.domains, projections/web.md discovery).
@@ -292,6 +293,48 @@ describe('extension bindings in the prelude', () => {
     (win.napplet as Record<string, unknown>)['x-echo'] = hijack;
     delete (win.napplet as Record<string, unknown>)['x-echo'];
     expect((win.napplet as Record<string, unknown>)['x-echo']).toBe(original);
+  });
+
+  it('accepts only acl action names and always generates the request id (IN-09)', async () => {
+    const extension = echoExtension({
+      binding: (kit) => ({
+        call: (action: string, payload?: Record<string, unknown>) => kit.request(action, payload),
+        fire: (action: string) => kit.send(action),
+        listen: (event: string, cb: (m: Record<string, unknown>) => void) => kit.on(event, cb),
+      }),
+    });
+    const domains = ['shell', 'x-echo'];
+    const srcdoc = prepareNappletSrcdoc('<!doctype html><html><head></head><body></body></html>', {
+      domains, extensions: getShellExtensionBindings([extension], domains),
+    });
+    const { win, posted, deliver } = runFrame(srcdoc);
+    const echo = (win.napplet as Record<string, Record<string, (...args: never[]) => unknown>>)['x-echo'];
+    const rejected: unknown[] = ['say.result', 'Say', 'sayHello', 'say_x', '-say', 'say-', 'say--x', '9say', '', 'a'.repeat(65), 42];
+    const accepted: unknown[] = ['say', 'say-hello', 'v2', 'a'.repeat(64)];
+    for (const action of [...rejected, ...accepted]) {
+      const ok = accepted.includes(action);
+      expect(ok).toBe(validateExtensionCapability(`x-echo:${String(action)}`, 'x-echo') === null);
+      for (const method of ['call', 'fire', 'listen'] as const) {
+        const run = () => {
+          const result = method === 'listen' ? echo[method](action as never, (() => {}) as never) : echo[method](action as never);
+          if (result instanceof Promise) result.catch(() => {});
+        };
+        if (ok) expect(run).not.toThrow();
+        else expect(run).toThrow(TypeError);
+      }
+    }
+    const reply = echo.call('say' as never, { id: 'victim', text: 'x' } as never) as Promise<Record<string, unknown>>;
+    const outbound = posted.at(-1)!;
+    expect(outbound).toMatchObject({ type: 'x-echo.say', text: 'x' });
+    expect(typeof outbound.id).toBe('string');
+    expect(outbound.id).not.toBe('victim');
+    let settled = false;
+    void reply.then(() => { settled = true; }, () => { settled = true; });
+    deliver({ type: 'x-echo.say.result', id: 'victim', text: 'stolen' });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    deliver({ type: 'x-echo.say.result', id: outbound.id, text: 'x' });
+    await expect(reply).resolves.toEqual({ text: 'x' });
   });
 
   it('renders no binding for domains the frame does not expose', () => {

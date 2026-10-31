@@ -37,13 +37,19 @@ export interface ShellExtensionCapability {
  * Helpers handed to an extension binding inside the iframe prelude. Every
  * helper is scoped to the extension's own domain: `action` names become
  * `<domain>.<action>` wire types.
+ *
+ * Action and event names follow the `@kehto/acl` extension action grammar: a
+ * lowercase letter first, then lowercase letters, digits and single hyphens,
+ * at most 64 characters, with no dots or uppercase. Any other name makes
+ * `request`, `send` and `on` throw a `TypeError` synchronously.
  */
 export interface ShellExtensionBindingKit {
   /** The extension's own bare domain. */
   readonly domain: string;
   /**
    * Send `<domain>.<action>` with a fresh `id` and resolve with the matching
-   * `<domain>.<action>.result` fields (without `type` and `id`).
+   * `<domain>.<action>.result` fields (without `type` and `id`). The `id` is
+   * always generated; an `id` field in `payload` is ignored.
    */
   request(action: string, payload?: Record<string, unknown>, options?: { readonly timeoutMs?: number }): Promise<Record<string, unknown>>;
   /** Fire-and-forget `<domain>.<action>`. */

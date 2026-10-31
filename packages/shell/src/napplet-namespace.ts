@@ -1843,15 +1843,21 @@ function nappletNamespacePrelude(
   // Experimental x- bindings run against a kit scoped to their own domain; the
   // resulting object is frozen and host-owned like the protected built-ins.
   function makeExtension(domain: string): Record<string, unknown> {
+    // Same grammar as @kehto/acl validateExtensionCapability (inlined: the prelude
+    // cannot import); parity is guarded by shell-extensions.test.ts (IN-09).
     const typeFor = (action: unknown): string => {
-      if (typeof action !== 'string' || !/^[a-z][a-zA-Z0-9.-]*$/.test(action)) throw new TypeError(`${domain}: invalid action`);
+      if (typeof action !== 'string' || action.length > 64 || !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(action)) {
+        throw new TypeError(`${domain}: invalid action`);
+      }
       return `${domain}.${action}`;
     };
     const kit = Object.freeze({
       domain,
       request(action: string, payload: Record<string, unknown> = {}, options: { timeoutMs?: number } = {}) {
         const type = typeFor(action);
-        return request({ ...payload, type }, `${type}.result`, (msg) => withoutEnvelope(msg), {
+        // The request id is always generated; a caller-supplied payload id is dropped.
+        const { id: _id, ...fields } = payload;
+        return request({ ...fields, type }, `${type}.result`, (msg) => withoutEnvelope(msg), {
           rejectOnError: false,
           timeoutMs: options.timeoutMs,
         });

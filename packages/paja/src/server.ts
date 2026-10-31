@@ -90,14 +90,7 @@ export async function startPajaServer(input: PajaServerOptions): Promise<PajaSer
       return;
     }
 
-    const extension = currentOptions.extensions.findIndex((_entry, index) => requestUrl === pajaExtensionUrl(index));
-    if (extension !== -1) {
-      // Served from the Paja origin so the host page can import it; it runs in
-      // the host, never inside the napplet artifact bytes.
-      response.writeHead(200, { 'cache-control': 'no-store', 'content-type': 'text/javascript; charset=utf-8' });
-      response.end(readFileSync(resolve(currentOptions.extensions[extension].modulePath), 'utf8'));
-      return;
-    }
+    if (serveExtensionModule(requestUrl, currentOptions.extensions, response)) return;
 
     if (requestUrl === '/__kehto/browser-host.js') {
       const browserScript = readBrowserHostScript();
@@ -106,7 +99,7 @@ export async function startPajaServer(input: PajaServerOptions): Promise<PajaSer
       return;
     }
 
-    response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
+    response.writeHead(404, NOT_FOUND_HEADERS);
     response.end('Not found');
   };
 
@@ -132,6 +125,43 @@ export async function startPajaServer(input: PajaServerOptions): Promise<PajaSer
     },
     close: () => close(server),
   };
+}
+
+const NOT_FOUND_HEADERS = { 'content-type': 'text/plain; charset=utf-8' };
+
+function requestPathname(requestUrl: string): string | undefined {
+  try {
+    return new URL(requestUrl, 'http://paja.invalid').pathname;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Serve a configured extension module when the request pathname matches its
+ * URL (query strings are ignored). Served from the Paja origin so the host page
+ * can import it; it runs in the host, never inside the napplet artifact bytes.
+ * An unreadable module answers a generic 404 without its filesystem path.
+ */
+function serveExtensionModule(
+  requestUrl: string,
+  extensions: readonly { readonly modulePath: string }[],
+  response: HttpResponse,
+): boolean {
+  const pathname = requestPathname(requestUrl);
+  const index = pathname === undefined ? -1 : extensions.findIndex((_entry, i) => pathname === pajaExtensionUrl(i));
+  if (index === -1) return false;
+  let source: string;
+  try {
+    source = readFileSync(resolve(extensions[index].modulePath), 'utf8');
+  } catch {
+    response.writeHead(404, NOT_FOUND_HEADERS);
+    response.end('Not found');
+    return true;
+  }
+  response.writeHead(200, { 'cache-control': 'no-store', 'content-type': 'text/javascript; charset=utf-8' });
+  response.end(source);
+  return true;
 }
 
 function readBrowserHostScript(): string {

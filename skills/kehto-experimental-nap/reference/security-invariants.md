@@ -55,3 +55,7 @@ tests should prove that the behavior you depend on matches.
 5. **Validate every payload** in `handleMessage`; napplet input is untrusted.
 6. **Keep the binding self-contained.** It is serialized into the prelude, so
    it can't close over secrets or module state.
+7. **No secrets in config `settings`.** Paja serves config-file `settings`
+   unauthenticated in `/__kehto/config.json` and in the host HTML to anyone who
+   can reach the server. Document that users enter API keys and tokens in the
+   Extensions sidebar, which keeps them in browser storage.

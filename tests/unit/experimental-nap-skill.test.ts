@@ -99,4 +99,19 @@ describe('kehto-experimental-nap skill', () => {
     expect(pkg.files).toContain('skills');
     expect(pkg.scripts.build).toContain('copy-agent-skill.mjs');
   });
+
+  it('warns against secrets in Paja config settings (IN-07)', () => {
+    const docs = [
+      'docs/how-tos/experimental-nap.md',
+      'docs/packages/paja.md',
+      'packages/paja/README.md',
+      'skills/kehto-experimental-nap/reference/security-invariants.md',
+      'skills/kehto-experimental-nap/SKILL.md',
+    ];
+    for (const path of docs) {
+      const text = read(join(repoRoot, path));
+      expect(text, path).toContain('No secrets in config `settings`');
+      expect(text, path).toContain('/__kehto/config.json');
+    }
+  });
 });
