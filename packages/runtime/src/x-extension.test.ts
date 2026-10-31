@@ -107,13 +107,24 @@ describe('x- extension push through sendToEligibleNapplet', () => {
     expect(sent).toEqual([]);
   });
 
-  it('keeps built-in pushes on their existing path and never lets an extension push a built-in domain', () => {
+  it('never lets an extension push a built-in domain, even with every domain granted', () => {
     const handler = echoService();
-    const { sent } = setup(handler);
-    // theme.changed is a built-in push; the x-echo context has no domain grant for theme here.
-    expect(handler.context?.sendToEligibleNapplet(windowId, { type: 'theme.changed' } as NappletMessage)).toBe(false);
-    expect(handler.context?.sendToEligibleNapplet(windowId, { type: 'llm.delta' } as NappletMessage)).toBe(false);
+    const { sent, allowed } = setup(handler);
+    allowed.mockReturnValue(true);
+    for (const type of ['theme.changed', 'identity.changed', 'llm.delta', 'gamepad.state', 'notify.clicked', 'inc.event', 'x-other.heard']) {
+      expect(handler.context?.sendToEligibleNapplet(windowId, { type, requestId: 'r', sequence: 0, text: 'forged' } as NappletMessage), type).toBe(false);
+    }
     expect(sent).toEqual([]);
+  });
+
+  it('keeps built-in services on their existing push path', () => {
+    let context: ServiceRuntimeContext | undefined;
+    const theme: ServiceHandler = { descriptor: { name: 'theme', version: '1' }, onRegistered(c) { context = c; }, handleMessage() {} };
+    const ctx = createMockRuntimeAdapter({ isDomainAllowed: () => true, services: { theme } });
+    const runtime = createRuntime(ctx.hooks);
+    runtime.sessionRegistry.register(windowId, createNip5dSessionEntry(windowId, dTag, hash));
+    expect(context?.sendToEligibleNapplet(windowId, { type: 'theme.changed' } as NappletMessage)).toBe(true);
+    expect(ctx.sent).toHaveLength(1);
   });
 
   it('honors restrictive policy until the extension capability is granted', () => {

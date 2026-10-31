@@ -124,6 +124,13 @@ then validates the result with the shell extension policy. Here is what you see:
 - `deniedDTags` withholds the domain from those targets through
   `resolveEnvironment`, and `--firewall-mode deny` drops its requests.
 
+**Trust boundary.** An extension module runs in the Paja host page itself, not
+in the napplet iframe. It is host code, as trusted as Paja and its config. Only
+load modules you wrote or have reviewed. Kehto isolates *napplets* from an
+extension's data. It does not sandbox the extension from the host page, which
+also holds the LLM vault and signer state. The factory receives only
+`{ settings }`.
+
 A module must be a browser ES module with no bare imports. Type-only JSDoc
 imports from `@kehto/shell` are fine, as the fixture shows.
 
@@ -173,7 +180,10 @@ These hold for every extension and are covered by regression tests:
 - Responses stay pinned to the requesting source and domain. They are rechecked
   before send, and teardown or re-registration invalidates them.
 - Pushes go only through the owning handler's context, only for declared
-  `x-<domain>.*` types, and under the same checks.
+  `x-<domain>.*` types, and under the same checks. An `x-` handler's context
+  never reaches the built-in push path, so it can't send `theme.changed`,
+  `identity.changed`, `llm.delta` or `gamepad.state`, even when those domains
+  are granted.
 - An extension receives its own messages and a narrow context (`resolveDTag`,
   `listWindowIds`, `hasCapability`, `sendToEligibleNapplet`). It never receives
   credentials, signer secrets, Paja LLM vault contents or other domains'

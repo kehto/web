@@ -181,7 +181,9 @@ export function resolveShellExtensions(
 ): readonly ShellExtension[] {
   if (!extensions || extensions.length === 0) return EMPTY;
   const cached = validated.get(extensions);
-  if (cached && cached.services === services.join('\n')) return cached.list;
+  // Re-validate when the array was mutated after its first use.
+  if (cached && cached.services === services.join('\n') && cached.source.length === extensions.length
+    && cached.source.every((entry, index) => entry === extensions[index])) return cached.list;
   const seen = new Set<string>();
   const list = extensions.map((extension) => {
     const valid = defineShellExtension(extension);
@@ -193,12 +195,16 @@ export function resolveShellExtensions(
     return valid;
   });
   const frozen = Object.freeze(list);
-  validated.set(extensions, { services: services.join('\n'), list: frozen });
+  validated.set(extensions, { services: services.join('\n'), source: [...extensions], list: frozen });
   return frozen;
 }
 
 const EMPTY: readonly ShellExtension[] = Object.freeze([]);
-const validated = new WeakMap<readonly ShellExtension[], { services: string; list: readonly ShellExtension[] }>();
+const validated = new WeakMap<readonly ShellExtension[], {
+  services: string;
+  source: readonly ShellExtension[];
+  list: readonly ShellExtension[];
+}>();
 
 /**
  * Read an extension's live state, treating a throwing state hook as disabled.

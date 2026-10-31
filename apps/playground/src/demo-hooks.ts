@@ -606,12 +606,6 @@ export function getMissingRequiredNaps(
 }
 
 /**
- * Resolve one fresh, immutable host environment for a trusted playground frame.
- *
- * @param identity - The frame identity registered before its srcdoc executes.
- * @returns A host-resolved snapshot of the frame's live, granted environment.
- */
-/**
  * Return the live demo ShellAdapter, or null before boot.
  *
  * @returns The adapter created by createDemoHooks.
@@ -620,6 +614,12 @@ export function getPlaygroundShellAdapter(): ShellAdapter | null {
   return shellAdapter;
 }
 
+/**
+ * Resolve one fresh, immutable host environment for a trusted playground frame.
+ *
+ * @param identity - The frame identity registered before its srcdoc executes.
+ * @returns A host-resolved snapshot of the frame's live, granted environment.
+ */
 export function getPlaygroundShellEnvironment(identity: OriginIdentity) {
   if (!shellAdapter) throw new Error('playground shell hooks are not initialized');
   return resolveShellEnvironment(shellAdapter, identity);

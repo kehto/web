@@ -17,7 +17,11 @@ tests should prove that the behavior you depend on matches.
   requesting window. It is dropped after re-registration, teardown or
   revocation.
 - **Pushes** are delivered only for types you declared in `pushCapabilities`,
-  only in your own domain, and only through your handler's own context.
+  only in your own domain, and only through your handler's own context. Your
+  context can't send built-in pushes (`theme.changed`, `llm.delta`, …).
+- **Trust boundary.** Your module runs in the host page (Paja or your shell),
+  not in a napplet. Kehto protects napplets from it, but it does not sandbox it
+  from the host. Ship only code you'd ship in the host itself.
 - **Collisions** throw `ShellExtensionError`: reserved domains, `x-` aliases of
   them, duplicate domains, `ShellAdapter.services` keys, built-in capability
   strings and other domains' capabilities.

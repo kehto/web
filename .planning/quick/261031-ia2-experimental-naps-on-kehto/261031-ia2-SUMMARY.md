@@ -15,7 +15,7 @@ Downstream developers can build `x-` NAPs without changing any kehto package.
 - fixture + unit + Chromium e2e (Paja and playground); how-to; skill shipped in repo and @kehto/shell.
 - services: no change was needed (extensions bring their own ServiceHandler).
 
-Verification: build, type-check, 2516 unit tests, docs:check, relevant Chromium e2e, aislop 94 (baseline 94-95),
+Verification: build, type-check, 2516 unit tests, docs:check, relevant Chromium e2e, aislop 95 (equal to main 95, same five pre-existing complexity rows),
 subagent dry run (x-counter, 7 unit + 1 Paja spec passing against packed tarballs).
 Deviation: --full ran inline with decisions locked by GOAL.md instead of spawned discuss/research agents.
 Upstream proposal drafted (not filed): UPSTREAM-PROPOSAL-DRAFT.md.

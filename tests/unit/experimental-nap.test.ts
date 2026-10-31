@@ -14,7 +14,7 @@ import {
   type ShellAdapter,
 } from '@kehto/shell';
 import createPajaEchoExtension, { createEchoExtension, settings as echoSettings } from '../fixtures/experimental-nap/x-echo.js';
-import { startPajaServer } from '../../packages/paja/src/index.js';
+import { getUnexpectedAdvertisedDomains, startPajaServer } from '../../packages/paja/src/index.js';
 import { loadPajaExtensions } from '../../packages/paja/src/browser-extensions.js';
 
 // The x-echo fixture is an out-of-tree experimental NAP: it uses only public
@@ -178,6 +178,24 @@ describe('x-echo experimental NAP in Paja', () => {
     ]);
     expect(loaded.map((item) => item.extension.domain)).toEqual(['x-echo']);
     expect(loaded[0].extension.state?.()).toBe('unconfigured');
+  });
+});
+
+describe('Paja extension context surface', () => {
+  it('hands a factory only settings, never vault, signer or other host state', async () => {
+    let seen: Record<string, unknown> | undefined;
+    await loadPajaExtensions(
+      { extensions: [{ url: 'spy', name: 'spy.js', enabled: true, settings: { prefix: 'p' } }] },
+      [],
+      async () => ({ default: (context: Record<string, unknown>) => { seen = context; return createEchoExtension({ getPrefix: () => 'p' }); } }),
+    );
+    expect(Object.keys(seen ?? {})).toEqual(['settings']);
+    expect(Object.keys((seen?.settings ?? {}) as object)).toEqual(['get']);
+  });
+
+  it('flags advertised domains that are neither Paja built-ins nor loaded extensions', () => {
+    expect(getUnexpectedAdvertisedDomains({ domains: ['shell', 'llm', 'x-echo'] }, ['x-echo'])).toEqual([]);
+    expect(getUnexpectedAdvertisedDomains({ domains: ['shell', 'x-echo', 'x-rogue'] }, ['x-echo'])).toEqual(['x-rogue']);
   });
 });
 

@@ -468,7 +468,9 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
       const dotIndex = message.type.indexOf('.');
       if (dotIndex <= 0) return false;
       const domain = message.type.slice(0, dotIndex);
-      if (isExtensionDomain(domain)) return extensions.push(name, handler, windowId, message);
+      // An x- handler may push only its own declared x- types; it never reaches
+      // the built-in push path (no theme/identity/llm/gamepad impersonation).
+      if (isExtensionDomain(name) || isExtensionDomain(domain)) return extensions.push(name, handler, windowId, message);
       try {
         if (isDomainAllowed && !isDomainAllowed(windowId, domain)) return false;
         const { recipientCap } = resolveCapabilitiesNap(message);

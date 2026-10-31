@@ -1,3 +1,4 @@
+import { getUnexpectedAdvertisedDomains } from './parity.js';
 import type { AclCapability } from '@kehto/runtime';
 import {
   installPajaExtensions,
@@ -245,7 +246,10 @@ function setStatus(state: PajaBrowserState, status: PajaBrowserState['status']):
 
 function setSimulationStatus(state: PajaBrowserState): void {
   const statusEl = document.getElementById('simulation-status');
-  if (statusEl) statusEl.textContent = summarizePajaSimulation(state.simulation);
+  if (statusEl) {
+    const extensions = (state.extensions ?? []).map((item) => `${item.extension.domain}:${item.enabled ? state.domainState(item.extension.domain) : 'off'}`);
+    statusEl.textContent = [summarizePajaSimulation(state.simulation), ...extensions].join(' ');
+  }
   const themeSelect = document.getElementById('simulation-theme');
   if (themeSelect instanceof HTMLSelectElement) themeSelect.value = state.simulation.theme.mode;
   renderPajaDevtools(state, { bridge: bridgeRef, devSignerPubkey: PAJA_DEV_SIGNER_PUBKEY });
@@ -406,6 +410,9 @@ function attachPajaExtensions(
 ): void {
   state.extensions = load.loaded;
   state.extensionFailures = load.failures;
+  // Parity: every advertised domain must be a Paja built-in or a loaded extension.
+  const unexpected = getUnexpectedAdvertisedDomains(buildShellCapabilities(context.adapter), load.loaded.map((item) => item.extension.domain));
+  if (unexpected.length > 0) appendPajaMessageLog(state, 'paja', { type: 'paja.parity.unexpected', domains: unexpected });
   for (const item of load.loaded) {
     appendPajaMessageLog(state, 'paja', { type: 'paja.extension.loaded', domain: item.extension.domain, module: item.name });
   }

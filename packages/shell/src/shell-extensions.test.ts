@@ -96,6 +96,14 @@ describe('extension declaration policy', () => {
     expect(() => defineShellExtension(echoExtension({ capabilities: [{ capability: 'x-other:send' }] }))).toThrow(/cannot borrow/);
   });
 
+  it('re-validates an extensions array mutated after first use', () => {
+    const list: ShellExtension[] = [echoExtension()];
+    const hooks = baseHooks({ extensions: list });
+    expect(buildShellCapabilities(hooks).domains).toContain('x-echo');
+    list.push({ domain: 'llm', service: { descriptor: { name: 'llm', version: '1' }, handleMessage() {} } });
+    expect(() => buildShellCapabilities(hooks)).toThrow(/reserved NAP domain/);
+  });
+
   it('rejects descriptor mismatch, unsafe binding source, duplicates and service overrides', () => {
     expect(() => defineShellExtension(echoExtension({ service: { ...echoService(), descriptor: { name: 'x-other', version: '1' } } }))).toThrow(/descriptor name/);
     expect(() => defineShellExtension(echoExtension({ binding: { source: '() => "</script>"' } }))).toThrow(/script or comment markup/);
@@ -140,6 +148,17 @@ describe('extension routing through the shell bridge', () => {
     const context = (extension.service as ReturnType<typeof echoService>).context!;
     expect(context.sendToEligibleNapplet(windowId, { type: 'x-echo.heard', text: 'pushed' } as NappletMessage)).toBe(true);
     expect(target.postMessage).toHaveBeenLastCalledWith({ type: 'x-echo.heard', text: 'pushed' }, '*');
+    bridge.destroy();
+  });
+
+  it('cannot impersonate built-in pushes through the bridge', () => {
+    const extension = echoExtension();
+    const { bridge, target } = bridgeWith(baseHooks({ extensions: [extension] }));
+    const context = (extension.service as ReturnType<typeof echoService>).context!;
+    for (const type of ['theme.changed', 'identity.changed', 'llm.delta', 'gamepad.state']) {
+      expect(context.sendToEligibleNapplet(windowId, { type, pubkey: 'forged' } as NappletMessage), type).toBe(false);
+    }
+    expect(target.postMessage).not.toHaveBeenCalled();
     bridge.destroy();
   });
 
