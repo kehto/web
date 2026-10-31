@@ -31,8 +31,8 @@ app package's development scripts.
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.32.0 <0.33.0` |
-| `@napplet/nap` | `>=0.32.0 <0.33.0` |
+| `@napplet/core` | `>=0.32.0 <0.37.0` |
+| `@napplet/nap` | `>=0.32.0 <0.36.0` |
 | `nostr-tools` | `>=2.23.3 <=2.x` |
 
 ## Primary APIs

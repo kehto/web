@@ -2,10 +2,12 @@
  * NAP-LLM wire and record types for the Kehto reference service.
  *
  * Authority: napplet/naps PR #134 (`nap-llm`) at
- * 3e10939cf788878bbdcc022c101f0ac6193f316c. The published `@napplet/nap@0.32.0`
- * line does not yet export an `llm` subpath; these definitions mirror the
- * upstream `feat/nap-llm` draft (`6e5c9fa9`) so hosts can type their adapters
- * today. Replace them with `@napplet/nap/llm/types` once that package ships.
+ * 3e10939cf788878bbdcc022c101f0ac6193f316c. `@napplet/nap@0.35.0` ships the
+ * `llm` subpath and Kehto's peer ranges admit it, but the 0.32.0 development
+ * baseline does not, so these definitions mirror the upstream `feat/nap-llm`
+ * draft (`6e5c9fa9`); they are structurally identical to the
+ * `@napplet/nap@0.35.1` export. Replace them with `@napplet/nap/llm/types` when
+ * the development baseline moves to 0.35.
  *
  * @module
  */
