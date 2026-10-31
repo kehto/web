@@ -84,6 +84,7 @@ test.describe('x-echo in Paja', () => {
     await expect(toggle).toHaveAttribute('data-state', 'unconfigured');
     await expect(toggle).toHaveText(/^⚠ x-echo$/);
     await expect(page.locator('#message-log [data-message-type="paja.extension.loaded"]')).toHaveCount(1);
+    await expect(page.locator('#simulation-status')).toContainText('x-echo:unconfigured');
     expect(await frame.evaluate(() => {
       const n = (window as Napplet).napplet!;
       return { supports: (n.shell.supports as (d: string) => boolean)('x-echo'), say: typeof n['x-echo'].say, llm: typeof n.llm?.generate };
@@ -98,6 +99,8 @@ test.describe('x-echo in Paja', () => {
     await page.locator('#paja-extension-x-echo-save').click();
     await expect(toggle).toHaveAttribute('data-state', 'supported');
     await expect(toggle).toHaveText('x-echo');
+    await expect(page.locator('#simulation-status')).toContainText('x-echo:supported');
+    await expect(page.locator('#message-log [data-message-type="paja.extension.configured"]')).toHaveCount(1);
 
     await listenHeard(frame);
     expect(await say(frame, 'hi')).toBe('ok:echo>hi');
@@ -135,6 +138,7 @@ test.describe('x-echo in Paja', () => {
     const toggle = page.locator('#interface-toggles [data-interface-domain="x-echo"]');
     await toggle.click();
     await expect(toggle).toHaveAttribute('data-state', 'disabled');
+    await expect(page.locator('#simulation-status')).toContainText('x-echo:off');
     await expect(page.frameLocator('#napplet-frame').locator('body')).toContainText('echo probe');
     await expect.poll(async () => {
       const frame = await (await page.locator('#napplet-frame').elementHandle())?.contentFrame();

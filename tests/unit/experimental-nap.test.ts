@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  RESERVED_NAP_DOMAINS,
   ShellExtensionError,
   buildShellCapabilities,
   createShellBridge,
@@ -11,10 +12,16 @@ import {
   getShellExtensionBindings,
   originRegistry,
   renderNappletNamespacePrelude,
+  validateExtensionDomain,
   type ShellAdapter,
 } from '@kehto/shell';
 import createPajaEchoExtension, { createEchoExtension, settings as echoSettings } from '../fixtures/experimental-nap/x-echo.js';
-import { getUnexpectedAdvertisedDomains, startPajaServer } from '../../packages/paja/src/index.js';
+import {
+  PAJA_ADVERTISED_DOMAINS,
+  PAJA_SIMULATION_DOMAINS,
+  getUnexpectedAdvertisedDomains,
+  startPajaServer,
+} from '../../packages/paja/src/index.js';
 import { loadPajaExtensions } from '../../packages/paja/src/browser-extensions.js';
 
 // The x-echo fixture is an out-of-tree experimental NAP: it uses only public
@@ -232,6 +239,18 @@ describe('Paja extension context surface', () => {
   it('flags advertised domains that are neither Paja built-ins nor loaded extensions', () => {
     expect(getUnexpectedAdvertisedDomains({ domains: ['shell', 'llm', 'x-echo'] }, ['x-echo'])).toEqual([]);
     expect(getUnexpectedAdvertisedDomains({ domains: ['shell', 'x-echo', 'x-rogue'] }, ['x-echo'])).toEqual(['x-rogue']);
+  });
+
+  it('reserves every domain Paja advertises or simulates, and rejects its x- alias', () => {
+    // HC-1 drift guard: a new in-tree domain must be added to RESERVED_NAP_DOMAINS,
+    // or an extension could claim its x- alias.
+    const domains = [...new Set<string>([...PAJA_ADVERTISED_DOMAINS, ...PAJA_SIMULATION_DOMAINS])];
+    expect(domains.length).toBeGreaterThan(0);
+    for (const domain of domains) {
+      expect(RESERVED_NAP_DOMAINS, domain).toContain(domain);
+      expect(validateExtensionDomain(domain), domain).not.toBeNull();
+      expect(validateExtensionDomain(`x-${domain}`), `x-${domain}`).not.toBeNull();
+    }
   });
 });
 
