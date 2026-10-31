@@ -3,6 +3,7 @@ import {
   ALL_CAPABILITIES,
   type Capability,
   type ShellBridge,
+  type ShellDomainState,
   type ShellEnvironment,
 } from '@kehto/shell';
 
@@ -50,6 +51,11 @@ export interface PajaDevtoolsState {
   simulation: PajaSimulation;
   /** Registered host service names, independently of ACL grants. */
   readonly services?: readonly string[];
+  /**
+   * Host-facing advertisement state per domain. `unconfigured` marks a domain
+   * that is injected but still needs user setup (NAP-LLM connections).
+   */
+  readonly domainState?: (domain: PajaCapabilityDomain) => ShellDomainState;
   /** Current signer state. */
   signer: PajaSignerState;
   /** Number of remembered exact-identity signer decisions. */
@@ -377,13 +383,18 @@ function renderInterfaceControls(state: PajaDevtoolsState): void {
   if (!container) return;
   container.replaceChildren(...PAJA_SIMULATION_DOMAINS.map((domain) => {
     const enabled = domainEnabled(state.simulation, domain);
+    const domainState = enabled ? state.domainState?.(domain) ?? 'supported' : 'disabled';
+    const unconfigured = domainState === 'unconfigured';
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'toggle';
     button.dataset.interfaceDomain = domain;
     button.dataset.enabled = String(enabled);
-    button.textContent = domain;
-    button.title = `${domain} injection ${enabled ? 'enabled' : 'disabled'}`;
+    button.dataset.state = domainState;
+    button.textContent = unconfigured ? `\u26a0 ${domain}` : domain;
+    button.title = unconfigured
+      ? `${domain} injection enabled; no connection is configured yet. Add one in Language models, or click to disable the interface.`
+      : `${domain} injection ${enabled ? 'enabled' : 'disabled'}`;
     button.addEventListener('click', () => {
       state.setDomainEnabled(domain, !domainEnabled(state.simulation, domain));
     });

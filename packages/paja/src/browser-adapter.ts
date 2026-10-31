@@ -15,6 +15,7 @@ import {
   createCountService,
   createCvmService,
   createFsService,
+  createLlmService,
   createIdentityService,
   createKeysService,
   createLinkService,
@@ -63,6 +64,7 @@ import { createPajaBrowserFsBackend } from './browser-fs.js';
 import {
   createPajaDevDmService,
 } from './browser-dev-runtime.js';
+import type { PajaLlmHost } from './browser-llm-connections.js';
 import {
   createPajaRelayConfig,
   createPajaRelayHooks,
@@ -133,6 +135,28 @@ export type PajaConfirmationRequest = (
       readonly recipients: readonly string[];
       readonly content: string;
       readonly warning: string;
+    }
+  | {
+      /** NAP-LLM disclosure consent before one generation is submitted. */
+      readonly action: 'llm';
+      readonly windowId: string;
+      readonly napplet: { readonly dTag: string; readonly aggregateHash: string };
+      readonly connection: string;
+      readonly model: string;
+      readonly route: string;
+      readonly messages: number;
+      readonly characters: number;
+      readonly images: number;
+      readonly format: 'text' | 'json';
+      readonly warning: string;
+    }
+  | {
+      /** A napplet asked for a model while no compatible connection is configured. */
+      readonly action: 'llm-configure';
+      readonly windowId: string;
+      readonly napplet: { readonly dTag: string; readonly aggregateHash: string };
+      readonly requirements: string;
+      readonly configured: number;
     }
   | {
       readonly action: 'fs';
@@ -550,6 +574,7 @@ function createDevServices(
  * @param notifyOptions - Host-backed notification presentation hooks.
  * @param configOptions - Host-backed scoped persistence and settings UI hooks.
  * @param getExtraResourceServers - Host-owned live extra Blossom lookup origins, appended after defaults; does not select upload destinations.
+ * @param llmHost - NAP-LLM connection, consent and provider host; the `llm` domain is advertised only when supplied.
  * @returns Shell adapter plus a startup promise for asynchronous host probes.
  * @example
  * const adapter = createPajaAdapter(config, getSimulation, onThemeService, onThemeBroadcast, confirmRequest);
@@ -568,6 +593,7 @@ export function createPajaAdapter(
   notifyOptions?: NotifyServiceOptions,
   configOptions?: ConfigServiceOptions,
   getExtraResourceServers: () => readonly string[] = () => [],
+  llmHost?: PajaLlmHost,
 ): PajaShellAdapter {
   const resolveIdentity = (windowId?: string) => getIdentity?.(windowId) ?? {
     dTag: config.window.dTag,
@@ -632,6 +658,9 @@ export function createPajaAdapter(
     signerSource,
   );
   const services = serviceBundle.services;
+  // NAP-LLM is advertised whenever the host wiring exists; configuration state is
+  // reported separately through `llm.isConfigured()` so the panel can show it.
+  if (llmHost && getSimulation().capabilities.domains.llm) services.llm = createLlmService({ host: llmHost });
   const ready = createPajaBrowserFsBackend({
     getIdentity: resolveIdentity,
     userActivation,
@@ -693,6 +722,7 @@ export function createPajaAdapter(
     serial: { isAvailable: () => Object.hasOwn(services, 'serial') },
     ble: { isAvailable: () => Object.hasOwn(services, 'ble') },
     webrtc: { isAvailable: () => Object.hasOwn(services, 'webrtc') },
+    llm: { isAvailable: () => Object.hasOwn(services, 'llm'), isConfigured: () => llmHost?.isConfigured() ?? false },
     crypto: {
       verifyEvent: async (event) => verifyEvent(event as Parameters<typeof verifyEvent>[0]),
     },

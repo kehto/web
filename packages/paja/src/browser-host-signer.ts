@@ -408,6 +408,30 @@ function describeConfirmation(request: PajaConfirmationRequest): ConfirmationCop
       request.warning,
     );
   }
+  if (request.action === 'llm') {
+    return confirmationCopy(
+      'Send this prompt to a language model?',
+      `${request.napplet.dTag} requests a generation from ${request.connection}.`,
+      'Send prompt',
+      `Napplet: ${request.napplet.dTag} (${request.windowId})`,
+      `Version: ${request.napplet.aggregateHash}`,
+      `Route: ${request.route}`,
+      `Model: ${request.model}`,
+      `Disclosed: ${request.messages} message(s), ${request.characters} characters, ${request.images} image(s); ${request.format} output`,
+      request.warning,
+    );
+  }
+  if (request.action === 'llm-configure') {
+    return confirmationCopy(
+      'Configure a language model connection?',
+      `${request.napplet.dTag} asked for a model but no compatible connection is configured.`,
+      'Open Language models',
+      `Napplet: ${request.napplet.dTag} (${request.windowId})`,
+      `Requested: ${request.requirements}`,
+      `Configured connections: ${request.configured}`,
+      'Approving opens the Language models panel. The napplet receives an explicit unsupported result until a connection exists and it selects again. No prompt is sent.',
+    );
+  }
   if (request.action === 'fs') {
     return confirmationCopy(
       'Choose filesystem access?',
@@ -513,6 +537,19 @@ function recordPajaConfirmation(
     appendPajaMessageLog(state, 'paja', {
       type: `paja.dm.${allowed ? 'confirmed' : 'denied'}`,
       recipients: request.recipients,
+    });
+    return;
+  }
+  if (request.action === 'llm' || request.action === 'llm-configure') {
+    // Prompt content and credentials are never logged; counts and the route are enough to audit consent.
+    appendPajaMessageLog(state, 'paja', {
+      type: `paja.${request.action}.${allowed ? 'confirmed' : 'denied'}`,
+      windowId: request.windowId,
+      dTag: request.napplet.dTag,
+      aggregateHash: request.napplet.aggregateHash,
+      ...(request.action === 'llm'
+        ? { connection: request.connection, model: request.model, route: request.route, messages: request.messages, images: request.images, format: request.format }
+        : { requirements: request.requirements }),
     });
     return;
   }

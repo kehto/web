@@ -6,6 +6,7 @@ const SECTION_IDS = {
   acl: 'paja-section-acl',
   signer: 'paja-section-signer',
   'resource-servers': 'paja-section-resource-servers',
+  llm: 'paja-section-llm',
   messages: 'paja-section-messages',
   events: 'paja-section-events',
 } as const;
