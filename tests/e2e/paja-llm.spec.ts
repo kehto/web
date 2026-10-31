@@ -5,13 +5,16 @@ import { startPajaServer, type PajaServer } from '../../packages/paja/dist/index
 // Draft NAP-LLM (napplet/naps PR #134 at 3e10939) hosted by Paja: the llm
 // interface is advertised while unconfigured, select() offers configuration and
 // answers typed failures, the chooser scopes selection, and every generation
-// asks for consent before a prompt leaves the page.
+// asks for consent before a prompt leaves the page. The streaming case covers
+// kehto/web#370 (provider SSE → ordered llm.delta → authoritative result) and
+// #369 (a napplet llm.cancel withdraws the open consent dialog).
 
 let target: ReturnType<typeof createServer>;
 let host: PajaServer;
 
 test.beforeAll(async () => {
-  target = createServer((_request, response) => {
+  target = createServer((request, response) => {
+    if (request.url === '/v1/chat/completions') { streamCompletion(request.method ?? 'GET', response); return; }
     response.writeHead(200, { 'content-type': 'text/html' });
     response.end('<!doctype html><body><p>LLM probe</p><script>window.parent.postMessage({type:"shell.ready"}, "*")</script>');
   });
@@ -20,6 +23,27 @@ test.beforeAll(async () => {
   if (!address || typeof address === 'string') throw new Error('Target did not bind');
   host = await startPajaServer({ options: { targetUrl: `http://127.0.0.1:${address.port}`, port: 0 } });
 });
+
+const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'content-type, authorization', 'access-control-allow-methods': 'POST' };
+const STREAM_CHUNKS = [
+  { choices: [{ index: 0, delta: { role: 'assistant', content: '' }, finish_reason: null }] },
+  { choices: [{ index: 0, delta: { content: 'Hello' }, finish_reason: null }] },
+  { choices: [{ index: 0, delta: { content: ', napplet' }, finish_reason: null }] },
+  { choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] },
+  { choices: [], usage: { prompt_tokens: 5, completion_tokens: 3 } },
+];
+
+/** A local OpenAI-compatible server answering every completion as server-sent events. */
+function streamCompletion(method: string, response: import('node:http').ServerResponse) {
+  if (method === 'OPTIONS') { response.writeHead(204, CORS); response.end(); return; }
+  response.writeHead(200, { ...CORS, 'content-type': 'text/event-stream', 'cache-control': 'no-cache' });
+  const lines = [...STREAM_CHUNKS.map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`), 'data: [DONE]\n\n'];
+  const timer = setInterval(() => {
+    const line = lines.shift();
+    if (line === undefined) { clearInterval(timer); response.end(); return; }
+    response.write(line);
+  }, 20);
+}
 
 test.afterAll(async () => {
   await host?.close();
@@ -102,4 +126,58 @@ test('advertises an unconfigured llm interface, prompts to configure, then selec
   await expect(toggle).toHaveAttribute('data-state', 'disabled');
   await expect(frame.locator('body')).toContainText('LLM probe');
   expect(await frame.locator('body').evaluate(() => typeof (window as Window & { napplet?: { llm?: unknown } }).napplet?.llm)).toBe('undefined');
+});
+
+function streamGeneration(frame: FrameLocator, generation: Record<string, unknown>) {
+  return frame.locator('body').evaluate((_body, input) => new Promise<{ deltas: Array<Record<string, unknown>>; result: Record<string, unknown> }>((resolve) => {
+    const id = crypto.randomUUID();
+    const deltas: Array<Record<string, unknown>> = [];
+    const receive = (event: MessageEvent) => {
+      if (event.source !== window.parent) return;
+      if (event.data?.type === 'llm.delta' && event.data.requestId === id) deltas.push(event.data);
+      if (event.data?.type === 'llm.generate.result' && event.data.id === id) {
+        window.removeEventListener('message', receive);
+        resolve({ deltas, result: event.data });
+      }
+    };
+    window.addEventListener('message', receive);
+    window.parent.postMessage({ type: 'llm.generate', id, request: input }, '*');
+  }), generation);
+}
+
+test('streams provider output as ordered deltas and withdraws consent when the napplet cancels', async ({ page }) => {
+  await page.goto(host.url);
+  const frame = page.frameLocator('#napplet-frame');
+  await expect(frame.locator('body')).toContainText('LLM probe');
+  const address = target.address();
+  if (!address || typeof address === 'string') throw new Error('Target did not bind');
+  await addConnection(page, 'Streaming local', `http://127.0.0.1:${address.port}/v1`, 'stream-model');
+
+  const selected = request(frame, 'llm.select');
+  await expect(page.locator('#paja-llm-select-dialog')).toBeVisible();
+  await page.locator('#paja-llm-select-use').click();
+  const handle = ((await selected).model as { handle: string }).handle;
+  const generation = { handle, messages: [{ role: 'user', content: [{ type: 'text', text: 'stream please' }] }] };
+
+  const streamed = streamGeneration(frame, generation);
+  await expect(page.locator('#paja-confirmation-title')).toHaveText('Send this prompt to a language model?');
+  await page.locator('#paja-confirmation-approve').click();
+  const { deltas, result } = await streamed;
+  expect(deltas.map((delta) => [delta.sequence, delta.text])).toEqual([[0, 'Hello'], [1, ', napplet']]);
+  expect(result).toMatchObject({ result: { text: 'Hello, napplet', finish: 'stop', usage: { inputTokens: 5, outputTokens: 3 } } });
+
+  const requestId = crypto.randomUUID();
+  const pending = frame.locator('body').evaluate((_body, input) => new Promise<Record<string, unknown>>((resolve) => {
+    const receive = (event: MessageEvent) => {
+      if (event.source !== window.parent || event.data?.type !== 'llm.generate.result' || event.data.id !== input.requestId) return;
+      window.removeEventListener('message', receive);
+      resolve(event.data);
+    };
+    window.addEventListener('message', receive);
+    window.parent.postMessage({ type: 'llm.generate', id: input.requestId, request: input.generation }, '*');
+  }), { requestId, generation });
+  await expect(page.locator('#paja-confirmation-dialog')).toBeVisible();
+  expect(await request(frame, 'llm.cancel', { requestId })).toMatchObject({ cancelled: true });
+  expect(await pending).toMatchObject({ error: { code: 'cancelled' } });
+  await expect(page.locator('#paja-confirmation-dialog')).toBeHidden();
 });

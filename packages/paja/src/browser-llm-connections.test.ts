@@ -77,7 +77,7 @@ function harness(records: PajaLlmConnectionRecord[], overrides: { confirm?: (req
   const chooseConnection = vi.fn(async (candidates: readonly PajaLlmConnectionRecord[]) => overrides.choose === undefined ? candidates[0] ?? null : overrides.choose);
   const requestUnlock = vi.fn(async () => overrides.unlock ?? false);
   const openPanel = vi.fn();
-  const provider = vi.fn(async (_endpoint: LlmProviderEndpoint, _request: LlmGenerationRequest, _signal: AbortSignal) => ({ text: '{"ok":true}', finish: 'stop' as const }));
+  const provider = vi.fn(async (_endpoint: LlmProviderEndpoint, _request: LlmGenerationRequest, _signal: AbortSignal, _onDelta?: (text: string) => void) => ({ text: '{"ok":true}', finish: 'stop' as const }));
   const host = createPajaLlmHost({ store, vault, confirm, chooseConnection, requestUnlock, openPanel, getIdentity: () => IDENTITY, provider });
   return { store, vault, confirm, chooseConnection, requestUnlock, openPanel, provider, host };
 }
@@ -131,8 +131,12 @@ describe('Paja LLM host', () => {
     expect(h.requestUnlock).toHaveBeenCalledOnce();
     expect(JSON.stringify(h.confirm.mock.calls[0])).not.toContain(KEY);
     const controller = new AbortController();
-    await expect(h.host.generate({ windowId: 'w1' }, connection, REQUEST, { signal: controller.signal, onDelta: () => undefined })).resolves.toEqual({ text: '{"ok":true}', finish: 'stop' });
-    expect(h.provider).toHaveBeenCalledWith({ protocol: 'openai-chat', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4.1-mini', credential: KEY }, REQUEST, controller.signal);
+    const deltas: string[] = [];
+    await expect(h.host.generate({ windowId: 'w1' }, connection, REQUEST, { signal: controller.signal, onDelta: (text) => deltas.push(text) })).resolves.toEqual({ text: '{"ok":true}', finish: 'stop' });
+    expect(h.provider).toHaveBeenCalledWith({ protocol: 'openai-chat', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4.1-mini', credential: KEY }, REQUEST, controller.signal, expect.any(Function));
+    const forward = h.provider.mock.calls[0]![3] as (text: string) => void;
+    forward('{"ok"');
+    expect(deltas).toEqual(['{"ok"']);
   });
 
   it('fails typed when the vault stays locked or a session key is gone, and for removed connections', async () => {
@@ -151,6 +155,33 @@ describe('Paja LLM host', () => {
 
     session.store.remove('c-session');
     await expect(session.host.authorize({ windowId: 'w1' }, sessionConnection, REQUEST)).rejects.toMatchObject({ code: 'selection-expired' });
+  });
+
+  it('threads the service prompt signal into the chooser, configure, unlock and consent prompts', async () => {
+    const chooser = harness([OPENAI]);
+    const selecting = new AbortController();
+    await chooser.host.select({ windowId: 'w1' }, {}, { signal: selecting.signal });
+    expect(chooser.chooseConnection).toHaveBeenCalledWith(expect.any(Array), expect.objectContaining({ signal: selecting.signal }));
+
+    const configure = harness([], { confirm: () => false });
+    await configure.host.select({ windowId: 'w1' }, {}, { signal: selecting.signal });
+    expect(configure.confirm).toHaveBeenCalledWith(expect.objectContaining({ action: 'llm-configure', signal: selecting.signal }));
+
+    const consent = harness([OPENAI], { unlock: false });
+    await consent.vault.create('correct horse battery staple');
+    await consent.vault.setCredential('c-openai', KEY, 'vault');
+    consent.vault.lock();
+    const connection = (await consent.host.describe({ windowId: 'w1' }, 'c-openai'))!;
+    const prompt = new AbortController();
+    consent.requestUnlock.mockImplementation(async () => consent.vault.unlock('correct horse battery staple'));
+    await expect(consent.host.authorize({ windowId: 'w1' }, connection, REQUEST, { signal: prompt.signal })).resolves.toBe(true);
+    expect(consent.requestUnlock).toHaveBeenCalledWith(prompt.signal);
+    expect(consent.confirm).toHaveBeenCalledWith(expect.objectContaining({ action: 'llm', signal: prompt.signal }));
+
+    const withdrawn = harness([OLLAMA]);
+    const local = (await withdrawn.host.describe({ windowId: 'w1' }, 'c-ollama'))!;
+    await expect(withdrawn.host.authorize({ windowId: 'w1' }, local, REQUEST, { signal: AbortSignal.abort() })).resolves.toBe(false);
+    expect(withdrawn.confirm).not.toHaveBeenCalled();
   });
 
   it('notifies the service when connections or the vault change', async () => {

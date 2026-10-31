@@ -84,5 +84,9 @@ export type PajaConfirmationRequest = (
       readonly windowId: string;
       readonly kind: 'file' | 'files' | 'directory' | 'save-file';
       readonly description: string;
-    }) & { readonly isCurrent?: () => boolean };
+    }) & {
+      readonly isCurrent?: () => boolean;
+      /** Withdraws the request: a queued prompt is dropped and an open dialog closes as denied. */
+      readonly signal?: AbortSignal;
+    };
 

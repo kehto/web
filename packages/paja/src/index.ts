@@ -152,6 +152,7 @@ export type { PajaIntentLinkDescriptor, ParsedPajaIntentLink } from './intent-li
 export type { PajaConfirmationHandler, PajaConfirmationRequest } from './browser-adapter.js';
 export type { PajaSignerRequestContext, PajaSignerSource } from './browser-signer-consent.js';
 export type {
+  PajaLlmChooserContext,
   PajaLlmConnectionRecord,
   PajaLlmConnectionStore,
   PajaLlmHost,

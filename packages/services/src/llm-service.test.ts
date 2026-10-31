@@ -5,7 +5,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NappletMessage } from '@napplet/core';
-import { createLlmService, type LlmConnection, type LlmConnectionHost, type LlmGenerateHooks, type LlmService } from './llm-service.js';
+import { createLlmService, type LlmConnection, type LlmConnectionHost, type LlmGenerateHooks, type LlmPromptOptions, type LlmService } from './llm-service.js';
 import { LlmServiceError, type LlmGeneration, type LlmGenerationRequest } from './llm-types.js';
 
 type Sent = Record<string, unknown> & { type: string };
@@ -22,15 +22,24 @@ function deferred<T>() {
 
 class Fixture implements LlmConnectionHost {
   connections = new Map<string, LlmConnection>([[TEXT_MODEL.id, TEXT_MODEL], [VISION_MODEL.id, VISION_MODEL]]);
-  selection: LlmConnection | null | Error = TEXT_MODEL;
+  selection: LlmConnection | null | Error | Promise<LlmConnection | null> = TEXT_MODEL;
+  selectPrompts: LlmPromptOptions[] = [];
+  consentPrompts: LlmPromptOptions[] = [];
   consent: boolean | Promise<boolean> = true;
   generations: LlmGenerationRequest[] = [];
   result: LlmGeneration | Error | (() => Promise<LlmGeneration>) = { text: '{"greeting":"Hello"}', finish: 'stop', usage: { inputTokens: 12, outputTokens: 7 } };
   hooks: LlmGenerateHooks[] = [];
   listeners = new Set<() => void>();
-  select() { if (this.selection instanceof Error) throw this.selection; return this.selection; }
+  select(_ctx: unknown, _req: unknown, options?: LlmPromptOptions) {
+    if (options) this.selectPrompts.push(options);
+    if (this.selection instanceof Error) throw this.selection;
+    return this.selection;
+  }
   describe(_ctx: unknown, id: string) { return this.connections.get(id) ?? null; }
-  authorize() { return this.consent; }
+  authorize(_ctx: unknown, _c: unknown, _r: unknown, options?: LlmPromptOptions) {
+    if (options) this.consentPrompts.push(options);
+    return this.consent;
+  }
   async generate(_ctx: unknown, _c: LlmConnection, request: LlmGenerationRequest, hooks: LlmGenerateHooks) {
     this.generations.push(request); this.hooks.push(hooks);
     if (this.result instanceof Error) throw this.result;
@@ -311,6 +320,160 @@ describe('NAP-LLM service', () => {
     h.post('w1', { type: 'llm.describe', id: 'd', handle });
     await h.flush();
     expect(h.last()).toMatchObject({ id: 'd', error: { code: 'selection-expired' } });
+  });
+
+  it('#368: bounds live handles per window, evicting the least recently used handle', async () => {
+    const h = harness();
+    const handles: string[] = [];
+    for (let index = 0; index < 33; index++) handles.push((await h.select())!);
+    h.post('w1', { type: 'llm.describe', id: 'd-first', handle: handles[0] });
+    await h.flush();
+    expect(h.last()).toMatchObject({ id: 'd-first', error: { code: 'selection-expired' } });
+    h.post('w1', { type: 'llm.describe', id: 'd-last', handle: handles[32] });
+    await h.flush();
+    expect(h.last()).toMatchObject({ id: 'd-last', model: { handle: handles[32] } });
+
+    const lru = harness({ maxHandlesPerWindow: 2 });
+    const first = await lru.select();
+    const second = await lru.select();
+    lru.post('w1', { type: 'llm.describe', id: 'touch', handle: first });
+    await lru.flush();
+    const third = await lru.select();
+    for (const [id, handle, code] of [['d1', first, null], ['d2', second, 'selection-expired'], ['d3', third, null]] as const) {
+      lru.post('w1', { type: 'llm.describe', id, handle });
+      await lru.flush();
+      if (code) expect(lru.last()).toMatchObject({ id, error: { code } });
+      else expect(lru.last()).toMatchObject({ id, model: { handle } });
+    }
+    const other = await lru.select('w2');
+    lru.post('w2', { type: 'llm.describe', id: 'd-w2', handle: other });
+    await lru.flush();
+    expect(lru.last('w2')).toMatchObject({ id: 'd-w2', model: { handle: other } });
+  });
+
+  it('#368: evicting a handle while its consent prompt is open expires the generation and withdraws the prompt', async () => {
+    const h = harness({ maxHandlesPerWindow: 1 });
+    const handle = await h.select();
+    const consent = deferred<boolean>();
+    h.host.consent = consent.promise;
+    h.post('w1', { type: 'llm.generate', id: 'g1', request: { handle, messages: [h.userMessage()] } });
+    await h.flush();
+    expect(h.host.consentPrompts[0]?.signal.aborted).toBe(false);
+    await h.select();
+    expect(h.all().find((m) => m.id === 'g1')).toMatchObject({ type: 'llm.generate.result', error: { code: 'selection-expired' } });
+    expect(h.host.consentPrompts[0]?.signal.aborted).toBe(true);
+    consent.resolve(true);
+    await h.flush();
+    expect(h.host.generations).toHaveLength(0);
+    expect(h.all().filter((m) => m.id === 'g1')).toHaveLength(1);
+  });
+
+  it('#369: the consent prompt signal aborts only when the generation settles without the host answer', async () => {
+    const h = harness({ deadlineMs: 1000 });
+    const handle = await h.select();
+    const open = async (id: string) => {
+      const consent = deferred<boolean>();
+      h.host.consent = consent.promise;
+      h.post('w1', { type: 'llm.generate', id, request: { handle, messages: [h.userMessage()] } });
+      await h.flush();
+      const prompt = h.host.consentPrompts.at(-1)!;
+      expect(prompt.signal.aborted).toBe(false);
+      return { consent, prompt };
+    };
+
+    const cancelled = await open('g-cancel');
+    h.post('w1', { type: 'llm.cancel', id: 'c', requestId: 'g-cancel' });
+    expect(cancelled.prompt.signal.aborted).toBe(true);
+
+    const timedOut = await open('g-timeout');
+    await vi.advanceTimersByTimeAsync(1001);
+    expect(h.all().find((m) => m.id === 'g-timeout')).toMatchObject({ error: { code: 'timeout' } });
+    expect(timedOut.prompt.signal.aborted).toBe(true);
+
+    const invalidated = await open('g-invalidate');
+    h.service.invalidateHandles();
+    expect(h.all().find((m) => m.id === 'g-invalidate')).toMatchObject({ error: { code: 'selection-expired' } });
+    expect(invalidated.prompt.signal.aborted).toBe(true);
+
+    const fresh = await h.select();
+    for (const [id, end] of [
+      ['g-revoke', () => h.service.revokeWindow('w1')],
+      ['g-destroy', () => h.service.onWindowDestroyed?.('w1')],
+      ['g-unregister', () => h.service.onUnregistered?.()],
+    ] as const) {
+      h.service.onRegistered?.({} as never);
+      const live = await h.select();
+      const consent = deferred<boolean>();
+      h.host.consent = consent.promise;
+      h.post('w1', { type: 'llm.generate', id, request: { handle: live ?? fresh, messages: [h.userMessage()] } });
+      await h.flush();
+      const prompt = h.host.consentPrompts.at(-1)!;
+      end();
+      expect(prompt.signal.aborted, id).toBe(true);
+      consent.resolve(true);
+    }
+    await h.flush();
+    expect(h.host.generations).toHaveLength(0);
+
+    h.service.onRegistered?.({} as never);
+    const answered = await h.select();
+    for (const [id, answer] of [['g-yes', true], ['g-no', false]] as const) {
+      h.host.consent = answer;
+      h.post('w1', { type: 'llm.generate', id, request: { handle: answered, messages: [h.userMessage()] } });
+      await h.flush();
+      expect(h.host.consentPrompts.at(-1)?.signal.aborted, id).toBe(false);
+    }
+    expect(h.all().find((m) => m.id === 'g-yes')).toMatchObject({ result: { finish: 'stop' } });
+    expect(h.all().find((m) => m.id === 'g-no')).toMatchObject({ error: { code: 'user-cancelled' } });
+  });
+
+  it('#369: a pending selection prompt is withdrawn and settled on invalidation, revocation, destruction and unregistration', async () => {
+    const h = harness();
+    const pendingSelect = async (windowId: string, id: string) => {
+      const choice = deferred<LlmConnection | null>();
+      h.host.selection = choice.promise;
+      h.post(windowId, { type: 'llm.select', id });
+      await h.flush();
+      const prompt = h.host.selectPrompts.at(-1)!;
+      expect(prompt.signal.aborted).toBe(false);
+      return { choice, prompt };
+    };
+
+    const invalidated = await pendingSelect('w1', 's-invalidate');
+    h.service.invalidateHandles();
+    expect(h.last()).toMatchObject({ type: 'llm.select.result', id: 's-invalidate', error: { code: 'selection-expired' } });
+    expect(invalidated.prompt.signal.aborted).toBe(true);
+    invalidated.choice.resolve(TEXT_MODEL);
+    await h.flush();
+    expect(h.all().filter((m) => m.id === 's-invalidate')).toHaveLength(1);
+
+    const revoked = await pendingSelect('w1', 's-revoke');
+    h.service.revokeWindow('w1');
+    expect(h.last()).toMatchObject({ id: 's-revoke', error: { code: 'cancelled' } });
+    expect(revoked.prompt.signal.aborted).toBe(true);
+    revoked.choice.resolve(TEXT_MODEL);
+    await h.flush();
+    expect(h.all().filter((m) => m.id === 's-revoke')).toHaveLength(1);
+
+    const destroyed = await pendingSelect('w2', 's-destroy');
+    h.service.onWindowDestroyed?.('w2');
+    expect(destroyed.prompt.signal.aborted).toBe(true);
+    destroyed.choice.resolve(TEXT_MODEL);
+    await h.flush();
+    expect(h.all('w2')).toHaveLength(0);
+
+    const unregistered = await pendingSelect('w3', 's-unregister');
+    h.service.onUnregistered?.();
+    expect(unregistered.prompt.signal.aborted).toBe(true);
+    unregistered.choice.resolve(TEXT_MODEL);
+    await h.flush();
+    expect(h.all('w3')).toHaveLength(0);
+
+    h.service.onRegistered?.({} as never);
+    h.host.selection = TEXT_MODEL;
+    await h.select('w4');
+    expect(h.host.selectPrompts.at(-1)?.signal.aborted).toBe(false);
+    expect(h.last('w4')).toMatchObject({ model: { name: 'Text only' } });
   });
 
   it('stops answering after unregistration and requires a host', () => {

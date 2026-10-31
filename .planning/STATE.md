@@ -8,7 +8,7 @@ status: completed
 stopped_at: Phase 107 complete; PR 289 open and pushed
 last_updated: "2026-10-31T12:00:00.000000Z"
 last_activity: 2026-10-31
-last_activity_desc: "Completed quick task 261031-l9b: @napplet peer ranges admit the llm line"
+last_activity_desc: "Completed quick task 261031-neu: NAP-LLM service hardening (#368-#370)"
 progress:
   total_phases: 7
   completed_phases: 7
@@ -48,7 +48,7 @@ Phase: 107 (Paja Intent Deep Links) — COMPLETE
 Plan: 4 of 4
 Status: Shipped as open PR #289 — https://github.com/kehto/web/pull/289. No merge or release performed.
 
-Last activity: 2026-10-31 - Completed quick task 261031-mfp: prevent demo audit server leaks
+Last activity: 2026-10-31 - Completed quick task 261031-neu: NAP-LLM service hardening (#368-#370)
 
 ## Performance Metrics
 
@@ -163,6 +163,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
+| 261031-neu | NAP-LLM service hardening: handle bound, prompt abort signals, streaming providers (kehto/web#368-#370) | 2026-10-31 | 13352e3e | passed | [261031-neu](./quick/261031-neu-llm-service-hardening-368-370/) |
 | 261031-mfp | Prevent demo audit Vite server leaks; use Playwright ownership (follow-up #363) | 2026-10-31 | ac4ae564 | passed | [261031-mfp](./quick/261031-mfp-prevent-demo-audit-tests-from-leaking-th/) |
 | 261031-l9b | Admit @napplet/nap 0.35.x and core 0.36.x in published peer ranges (kehto/web#364) | 2026-10-31 | 2977db05 | passed | [261031-l9b](./quick/261031-l9b-napplet-peer-range-364/) |
 | 261031-et9 | Implement NAP-LLM across acl/runtime/services/shell/paja/playground with encrypted Paja credentials and the unconfigured interface state | 2026-10-31 | 588ab732 | passed | [261031-et9](./quick/261031-et9-nap-llm/) |
