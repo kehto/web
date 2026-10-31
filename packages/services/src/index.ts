@@ -319,3 +319,65 @@ export { createBrowserMediaStreamFetch } from './browser-media-stream-fetch.js';
 export type { BrowserMediaPlaybackOptions } from './browser-media-playback.js';
 export { mountMediaPlayer } from './media-player.js';
 export type { MediaPlayback, MediaPlaybackBackend, MediaPlaybackCommand, MediaPlaybackState, MediaService, MediaSessionSnapshot } from './media-playback.js';
+
+export { createLlmService } from './llm-service.js';
+export type {
+  LlmConnection,
+  LlmConnectionHost,
+  LlmGenerateHooks,
+  LlmRequestContext,
+  LlmService,
+  LlmServiceOptions,
+} from './llm-service.js';
+export { LLM_DOMAIN, LLM_ERROR_CODES, LlmServiceError } from './llm-types.js';
+export type {
+  LlmCancelMessage,
+  LlmCancelResultMessage,
+  LlmDelta,
+  LlmDeltaMessage,
+  LlmDescribeMessage,
+  LlmDescribeResultMessage,
+  LlmErrorCode,
+  LlmFailure,
+  LlmFinish,
+  LlmFormat,
+  LlmGenerateMessage,
+  LlmGenerateResultMessage,
+  LlmGeneration,
+  LlmGenerationRequest,
+  LlmImageMimeType,
+  LlmImagePart,
+  LlmInboundMessage,
+  LlmMessage,
+  LlmModel,
+  LlmNapMessage,
+  LlmOutboundMessage,
+  LlmPart,
+  LlmRequirements,
+  LlmRole,
+  LlmSelectMessage,
+  LlmSelectResultMessage,
+  LlmTextPart,
+  LlmUsage,
+} from './llm-types.js';
+export {
+  countLlmImages,
+  isJsonObjectText,
+  isLlmGeneration,
+  isLlmGenerationRequest,
+  isLlmRequirements,
+} from './llm-validate.js';
+export { buildLlmProviderRequest, parseLlmProviderResponse } from './llm-providers.js';
+export type {
+  LlmCredentialHeader,
+  LlmHttpRequest,
+  LlmProviderEndpoint,
+  LlmProviderProtocol,
+} from './llm-providers.js';
+export { LLM_PROVIDER_PRESETS, createHttpLlmProvider } from './llm-provider-http.js';
+export type {
+  HttpLlmProvider,
+  HttpLlmProviderOptions,
+  LlmFetch,
+  LlmProviderPreset,
+} from './llm-provider-http.js';

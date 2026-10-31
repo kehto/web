@@ -198,6 +198,7 @@ export class PlaygroundAccessControls {
         'dm:write': hasCapability('dm:write'),
         'fs:read': hasCapability('fs:read'),
         'fs:write': hasCapability('fs:write'),
+        'llm:generate': hasCapability('llm:generate'),
         'relay:read': hasCapability('relay:read'),
         'relay:write': hasCapability('relay:write'),
         'cache:read': hasCapability('cache:read'),
