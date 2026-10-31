@@ -1,5 +1,17 @@
 # @kehto/paja
 
+## 0.26.1
+
+### Patch Changes
+
+- f5c3ee8: Widen the `@napplet/*` peer ranges so the `llm` domain installs without peer conflicts: `@napplet/core` now accepts `>=0.32.0 <0.37.0` and `@napplet/nap` accepts `>=0.32.0 <0.36.0`. The `llm` subpath first ships in `@napplet/nap@0.35.0`, and `@napplet/nap@0.35.1` requires `@napplet/core@^0.36.0`. The old `<0.35.0` cap made npm fail with ERESOLVE and made pnpm print unmet-peer warnings (kehto/web#364).
+- Updated dependencies [f5c3ee8]
+  - @kehto/acl@0.20.1
+  - @kehto/firewall@0.6.2
+  - @kehto/runtime@0.27.1
+  - @kehto/services@0.27.1
+  - @kehto/shell@0.26.1
+
 ## 0.26.0
 
 ### Minor Changes
