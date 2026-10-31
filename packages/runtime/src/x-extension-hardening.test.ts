@@ -3,6 +3,7 @@ import type { NappletMessage } from '@napplet/core';
 import { createRuntime } from './runtime.js';
 import { createMockRuntimeAdapter, createNip5dSessionEntry } from './test-utils.js';
 import type { ServiceHandler, ServiceRuntimeContext } from './types.js';
+import type { AclCapability } from './acl-state.js';
 
 // Regressions for review findings CR-01, CR-02 and WR-01..WR-04 (quick task 261031-ia2).
 const windowId = 'x-window';
@@ -127,5 +128,21 @@ describe('x- pushes and the firewall (WR-04)', () => {
     }
     expect(consent).not.toHaveBeenCalled();
     expect(sent).toEqual([]);
+  });
+});
+
+describe('unknown capability strings (IN-02)', () => {
+  it('hasCapability denies non-capability strings under the permissive default', () => {
+    let probeContext: ServiceRuntimeContext | undefined;
+    let echoContext: ServiceRuntimeContext | undefined;
+    const probe: ServiceHandler = { descriptor: { name: 'probe', version: '1' }, onRegistered(c) { probeContext = c; }, handleMessage() {} };
+    const echo: ServiceHandler = { descriptor: { name: 'x-echo', version: '1' }, onRegistered(c) { echoContext = c; }, handleMessage() {} };
+    setup({ probe, 'x-echo': echo });
+    const notACapability: string = 'not:a-cap';
+    const badAction: string = 'x-echo:Bad_Action';
+    expect(probeContext?.hasCapability(windowId, notACapability as AclCapability)).toBe(false);
+    expect(probeContext?.hasCapability(windowId, 'relay:read')).toBe(true);
+    expect(echoContext?.hasCapability(windowId, badAction as AclCapability)).toBe(false);
+    expect(echoContext?.hasCapability(windowId, 'x-echo:send')).toBe(true);
   });
 });

@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   ALL_CAPABILITIES, CAP_RELAY_READ, RESERVED_NAP_DOMAINS, block, check, checkExtension, createState,
   deserialize, grant, grantExtension, isExtensionCapability, isExtensionDomain, migrateAclState, revoke,
-  revokeExtension, serialize, unblock, validateExtensionCapability, validateExtensionDomain,
+  revokeExtension, sanitizeExtensionDecisions, mergeExtensionDecisions, serialize, unblock,
+  validateExtensionCapability, validateExtensionDomain,
 } from './index.js';
 
 const id = { dTag: 'probe', hash: 'aa' };
@@ -87,14 +88,38 @@ describe('extension grants', () => {
     expect(deserialize(tampered).entries['probe:aa'].ext).toEqual({ 'x-echo:ping': true });
   });
 
-  it('merges decisions when migrating legacy keys', () => {
-    const legacy = {
+  it('returns a frozen record from sanitizeExtensionDecisions (IN-01)', () => {
+    expect(Object.isFrozen(sanitizeExtensionDecisions({ 'x-echo:send': true }))).toBe(true);
+    const stored = serialize(grantExtension(createState('restrictive'), id, 'x-echo:send'));
+    const restored = deserialize(stored);
+    expect(Object.isFrozen(restored.entries['probe:aa'].ext)).toBe(true);
+    const revoked = revokeExtension(restored, id, 'x-echo:send');
+    expect(revoked).not.toBe(restored);
+    expect(checkExtension(revoked, id, 'x-echo:send')).toBe(false);
+    const granted = grantExtension(revoked, id, 'x-echo:ping');
+    expect(checkExtension(granted, id, 'x-echo:ping')).toBe(true);
+    expect(checkExtension(restored, id, 'x-echo:send')).toBe(true);
+  });
+
+  it('lets an explicit revocation win when migrating legacy keys (IN-08)', () => {
+    const migrate = (legacyExt: Record<string, boolean>, currentExt: Record<string, boolean>) => migrateAclState({
       defaultPolicy: 'restrictive' as const,
       entries: {
-        'pk:probe:aa': { caps: 0, blocked: false, quota: 1, ext: { 'x-echo:send': true } },
-        'probe:aa': { caps: 0, blocked: false, quota: 1, ext: { 'x-echo:send': false, 'x-echo:ping': false } },
+        'pk:probe:aa': { caps: 0, blocked: false, quota: 1, ext: legacyExt },
+        'probe:aa': { caps: 0, blocked: false, quota: 1, ext: currentExt },
       },
-    };
-    expect(migrateAclState(legacy).entries['probe:aa'].ext).toEqual({ 'x-echo:send': true, 'x-echo:ping': false });
+    }).entries['probe:aa'].ext;
+    expect(migrate({ 'x-echo:send': true }, { 'x-echo:send': false, 'x-echo:ping': false }))
+      .toEqual({ 'x-echo:send': false, 'x-echo:ping': false });
+    expect(migrate({ 'x-echo:send': false }, { 'x-echo:send': true })).toEqual({ 'x-echo:send': false });
+    expect(migrate({ 'x-echo:send': true }, { 'x-echo:send': true })).toEqual({ 'x-echo:send': true });
+    expect(migrate({ 'x-echo:ping': true }, { 'x-echo:send': false })).toEqual({ 'x-echo:ping': true, 'x-echo:send': false });
+    const vectors: Array<[Record<string, boolean>, Record<string, boolean>]> = [
+      [{ 'x-echo:send': true }, { 'x-echo:send': false, 'x-echo:ping': false }],
+      [{ 'x-echo:send': false }, { 'x-echo:send': true }],
+      [{ 'x-echo:send': true }, { 'x-echo:send': true }],
+      [{ 'x-echo:ping': true }, { 'x-echo:send': false }],
+    ];
+    for (const [a, b] of vectors) expect(mergeExtensionDecisions(a, b)).toEqual(mergeExtensionDecisions(b, a));
   });
 });

@@ -25,6 +25,8 @@ function withExt(a: AclEntry, b: AclEntry): Pick<AclEntry, 'ext'> {
  * - caps: OR of both bitfields (never removes a granted capability)
  * - blocked: OR of both flags (blocks if either source was blocked)
  * - quota: MAX of both values (keeps the higher allocation)
+ * - ext: an explicit x- extension revocation on either side wins (deny wins);
+ *   other decisions are kept
  *
  * Idempotent: if no 3-segment keys are found, returns the original state
  * unchanged (same object reference).

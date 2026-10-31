@@ -241,19 +241,24 @@ export function sanitizeExtensionDecisions(value: unknown): Readonly<Record<stri
   for (const [capability, decision] of Object.entries(value)) {
     if (typeof decision === 'boolean' && isExtensionCapability(capability)) result[capability] = decision;
   }
-  return Object.keys(result).length > 0 ? result : undefined;
+  return Object.keys(result).length > 0 ? Object.freeze(result) : undefined;
 }
 
 /**
  * Merge two extension decision records (used when migrating entries).
- * A grant on either side wins, matching the bitfield union in migration.
+ *
+ * Deny wins: an explicit revocation (`false`) on either side records user
+ * intent, so it wins over a grant whatever the order. This differs from the
+ * built-in bitfield, which migration merges as a union. A decision recorded on
+ * only one side is kept.
  *
  * @param a - First record.
  * @param b - Second record.
  * @returns Merged record, or `undefined` when both are empty.
  * @example
  * ```ts
- * mergeExtensionDecisions({ 'x-a:b': false }, { 'x-a:b': true }); // { 'x-a:b': true }
+ * mergeExtensionDecisions({ 'x-a:b': false }, { 'x-a:b': true }); // { 'x-a:b': false }
+ * mergeExtensionDecisions({ 'x-a:b': true }, { 'x-a:c': true });  // { 'x-a:b': true, 'x-a:c': true }
  * ```
  */
 export function mergeExtensionDecisions(
@@ -263,6 +268,8 @@ export function mergeExtensionDecisions(
   if (!a) return b;
   if (!b) return a;
   const merged: Record<string, boolean> = { ...a };
-  for (const [capability, decision] of Object.entries(b)) merged[capability] = merged[capability] === true || decision;
+  for (const [capability, decision] of Object.entries(b)) {
+    merged[capability] = Object.hasOwn(merged, capability) ? merged[capability] === true && decision : decision;
+  }
   return merged;
 }

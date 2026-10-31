@@ -81,6 +81,11 @@ function capToBit(cap: Capability): number {
 /** A built-in capability or an experimental `x-<domain>:<action>` extension capability. */
 export type AclCapability = Capability | ExtensionCapability;
 
+/** True for a built-in capability or a valid `x-<domain>:<action>` extension capability. */
+function isKnownCapability(capability: string): boolean {
+  return Object.hasOwn(CAP_MAP, capability) || isExtensionCapability(capability);
+}
+
 function extensionDecisions(ext: Readonly<Record<string, boolean>> | undefined): Record<string, boolean> | undefined {
   return ext && Object.keys(ext).length > 0 ? { ...ext } : undefined;
 }
@@ -118,8 +123,47 @@ export type AclMutationObserver = (mutation: AclMutation) => void;
  * ```
  */
 export interface AclStateContainer {
+  /**
+   * Check a capability for an identity.
+   * Strings that are neither built-in nor valid `x-<domain>:<action>` extension
+   * capabilities are always denied, under either default policy.
+   * @param pubkey - Retained identity argument; policy is keyed by dTag and hash.
+   * @param dTag - Verified napplet identifier.
+   * @param aggregateHash - Verified artifact hash.
+   * @param capability - Built-in or extension capability.
+   * @returns True when the identity holds the capability.
+   * @example
+   * ```ts
+   * acl.check('', dTag, aggregateHash, 'relay:read');
+   * ```
+   */
   check(pubkey: string, dTag: string, aggregateHash: string, capability: AclCapability): boolean;
+  /**
+   * Grant a capability to an identity.
+   * Unknown capability strings are ignored: no state change and no default entry.
+   * @param pubkey - Retained identity argument; policy is keyed by dTag and hash.
+   * @param dTag - Verified napplet identifier.
+   * @param aggregateHash - Verified artifact hash.
+   * @param capability - Built-in or extension capability.
+   * @example
+   * ```ts
+   * acl.grant('', dTag, aggregateHash, 'x-echo:send');
+   * ```
+   */
   grant(pubkey: string, dTag: string, aggregateHash: string, capability: AclCapability): void;
+  /**
+   * Revoke a capability from an identity.
+   * Unknown capability strings are ignored: no state change, no default entry
+   * and no mutation observer call.
+   * @param pubkey - Retained identity argument; policy is keyed by dTag and hash.
+   * @param dTag - Verified napplet identifier.
+   * @param aggregateHash - Verified artifact hash.
+   * @param capability - Built-in or extension capability.
+   * @example
+   * ```ts
+   * acl.revoke('', dTag, aggregateHash, 'relay:read');
+   * ```
+   */
   revoke(pubkey: string, dTag: string, aggregateHash: string, capability: AclCapability): void;
   block(pubkey: string, dTag: string, aggregateHash: string): void;
   unblock(pubkey: string, dTag: string, aggregateHash: string): void;
@@ -194,12 +238,14 @@ export function createAclState(
 
   return {
     check(pubkey: string, dTag: string, aggregateHash: string, capability: AclCapability): boolean {
+      if (!isKnownCapability(capability)) return false;
       const id = toIdentity(pubkey, dTag, aggregateHash);
       if (isExtensionCapability(capability)) return checkExtension(state, id, capability);
       return check(state, id, capToBit(capability as Capability));
     },
 
     grant(pubkey: string, dTag: string, aggregateHash: string, capability: AclCapability): void {
+      if (!isKnownCapability(capability)) return;
       const id = toIdentity(pubkey, dTag, aggregateHash);
       ensureRuntimeDefaultEntry(id);
       state = isExtensionCapability(capability)
@@ -208,6 +254,7 @@ export function createAclState(
     },
 
     revoke(pubkey: string, dTag: string, aggregateHash: string, capability: AclCapability): void {
+      if (!isKnownCapability(capability)) return;
       const id = toIdentity(pubkey, dTag, aggregateHash);
       ensureRuntimeDefaultEntry(id);
       state = isExtensionCapability(capability)
