@@ -22,6 +22,10 @@ tests should prove that the behavior you depend on matches.
 - **Trust boundary.** Your module runs in the host page (Paja or your shell),
   not in a napplet. Kehto protects napplets from it, but it does not sandbox it
   from the host. Ship only code you'd ship in the host itself.
+- **One reply per request.** For `x-` domains the reply callback accepts
+  exactly one `<type>.result`. Use `pushCapabilities` for anything else.
+- **Scoped context.** Your context only sees windows granted your domain and
+  answers `hasCapability` only for your own capabilities.
 - **Collisions** throw `ShellExtensionError`: reserved domains, `x-` aliases of
   them, duplicate domains, `ShellAdapter.services` keys, built-in capability
   strings and other domains' capabilities.

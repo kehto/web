@@ -37,17 +37,24 @@ export interface NappletNamespacePreludeOptions {
   extensions?: Readonly<Record<string, ShellExtensionBinding>>;
 }
 
-function renderExtensionFactories(
+// Host-owned handoff slot read (and deleted) by the prelude before any
+// authored script can run.
+const EXTENSION_HANDOFF = 'kehto.nip5d.extensions';
+
+/**
+ * One script per exposed x- binding, rendered before the prelude. Isolating
+ * each binding means a broken one leaves only its own domain object empty.
+ */
+function renderExtensionScripts(
   domains: readonly string[],
   extensions: Readonly<Record<string, ShellExtensionBinding>> | undefined,
 ): string {
-  if (!extensions) return '{}';
-  const entries: string[] = [];
-  for (const domain of domains) {
-    if (!isExtensionDomain(domain) || !Object.hasOwn(extensions, domain)) continue;
-    entries.push(`${scriptJson(domain)}: (${bindingSource(domain, extensions[domain])})`);
-  }
-  return `{${entries.join(', ')}}`;
+  if (!extensions) return '';
+  const slot = `window[Symbol.for(${scriptJson(EXTENSION_HANDOFF)})]`;
+  return domains
+    .filter((domain) => isExtensionDomain(domain) && Object.hasOwn(extensions, domain))
+    .map((domain) => `<script data-kehto-nip5d-extension>(${slot} ??= Object.create(null))[${scriptJson(domain)}] = (${bindingSource(domain, extensions[domain])});</script>`)
+    .join('');
 }
 
 function uniqueBareDomains(domains: readonly string[]): string[] {
@@ -83,8 +90,8 @@ function scriptJson(value: unknown): string {
  */
 export function renderNappletNamespacePrelude(options: NappletNamespacePreludeOptions): string {
   const domains = uniqueBareDomains(options.domains);
-  const factories = renderExtensionFactories(domains, options.extensions);
-  return `<script data-kehto-nip5d-injection>(${nappletNamespacePrelude.toString()})(${scriptJson(domains)}, (${createIntentUriNormalizer.toString()})(), ${factories});</script>`;
+  const extensionScripts = renderExtensionScripts(domains, options.extensions);
+  return `${extensionScripts}<script data-kehto-nip5d-injection>(${nappletNamespacePrelude.toString()})(${scriptJson(domains)}, (${createIntentUriNormalizer.toString()})(), ${scriptJson(EXTENSION_HANDOFF)});</script>`;
 }
 
 /**
@@ -122,9 +129,16 @@ export function injectNappletNamespacePrelude(
 function nappletNamespacePrelude(
   domains: string[],
   normalizeIntentUri: (uri: unknown, options?: unknown) => Record<string, unknown>,
-  extensionFactories: Record<string, (kit: Record<string, unknown>) => Record<string, unknown>> = {},
+  extensionHandoff = '',
 ): void {
   const target = window as Window & { napplet?: Record<string, unknown> };
+  type ExtensionFactory = (kit: Record<string, unknown>) => Record<string, unknown>;
+  const handoffKey = Symbol.for(extensionHandoff);
+  const handoff: unknown = Reflect.get(target, handoffKey);
+  Reflect.deleteProperty(target, handoffKey);
+  const extensionFactories: Record<string, ExtensionFactory> = handoff && typeof handoff === 'object'
+    ? handoff as Record<string, ExtensionFactory>
+    : {};
   const allowed = new Set(domains);
   const requestTimeoutMs = 30_000;
 

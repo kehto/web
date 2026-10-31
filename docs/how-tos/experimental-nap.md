@@ -178,12 +178,22 @@ These hold for every extension and are covered by regression tests:
   declared capability, a domain grant and firewall admission. Denials are
   silent: kehto invents no error envelope.
 - Responses stay pinned to the requesting source and domain. They are rechecked
-  before send, and teardown or re-registration invalidates them.
+  before send, and teardown or re-registration invalidates them. For `x-`
+  domains, a reply is exactly one `<type>.result`. The reply callback is not a
+  push channel.
 - Pushes go only through the owning handler's context, only for declared
   `x-<domain>.*` types, and under the same checks. An `x-` handler's context
   never reaches the built-in push path, so it can't send `theme.changed`,
   `identity.changed`, `llm.delta` or `gamepad.state`, even when those domains
-  are granted.
+  are granted. Pushes follow the napplet's firewall policy (`deny` and `ask`
+  drop them silently) but don't spend its request rate budget.
+- An `x-` handler's context sees only windows granted its domain, answers
+  `hasCapability` only for its own capabilities, and hears only blocks and its
+  own revocations. Routes and pushes can't be gated on built-in capabilities,
+  and the capability maps are frozen at validation.
+- An unknown `state()` value disables the domain (fail closed). Frame
+  environments are frozen per frame (NAP-SHELL), so toggling an extension
+  affects frames loaded afterwards. Paja reloads its target when you toggle.
 - An extension receives its own messages and a narrow context (`resolveDTag`,
   `listWindowIds`, `hasCapability`, `sendToEligibleNapplet`). It never receives
   credentials, signer secrets, Paja LLM vault contents or other domains'

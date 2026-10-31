@@ -98,10 +98,13 @@ async function loadOne(
 ): Promise<PajaLoadedExtension> {
   const module = await importModule(entry.url) as Partial<PajaExtensionModule>;
   if (typeof module?.default !== 'function') throw new Error(`${entry.name} must default-export an extension factory`);
-  const values: Record<string, string> = { ...entry.settings, ...readStoredSettings(entry.name) };
+  const values: Record<string, string> = { ...entry.settings };
   const extension = defineShellExtension(module.default({
     settings: { get: (key) => (values[key] ? values[key] : undefined) },
   }));
+  // Stored overrides are keyed by the validated (unique) domain, never the file
+  // name, so two modules named index.js cannot share or overwrite settings.
+  Object.assign(values, readStoredSettings(extension.domain));
   const settings = Array.isArray(module.settings)
     ? module.settings.filter((setting) => typeof setting?.key === 'string' && typeof setting.label === 'string')
     : [];
@@ -154,7 +157,7 @@ export function installPajaExtensions(adapter: ShellAdapter, loaded: readonly Pa
 export function setPajaExtensionSetting(loaded: PajaLoadedExtension, key: string, value: string): void {
   if (value) loaded.values[key] = value;
   else delete loaded.values[key];
-  writeStoredSettings(loaded.name, loaded.values);
+  writeStoredSettings(loaded.extension.domain, loaded.values);
 }
 
 /** Inputs the extensions section needs from the host state. */

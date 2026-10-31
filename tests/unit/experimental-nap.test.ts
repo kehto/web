@@ -121,7 +121,7 @@ describe('x-echo experimental NAP on the shell', () => {
   it('renders its binding into the prelude only', () => {
     const extension = createEchoExtension({ getPrefix: () => 'x' });
     const prelude = renderNappletNamespacePrelude({ domains: ['x-echo'], extensions: getShellExtensionBindings([extension], ['x-echo']) });
-    expect(prelude).toContain('"x-echo": (');
+    expect(prelude).toMatch(/^<script data-kehto-nip5d-extension>/);
     expect(prelude).toContain("kit.request('say'");
   });
 });
@@ -191,6 +191,21 @@ describe('Paja extension context surface', () => {
     );
     expect(Object.keys(seen ?? {})).toEqual(['settings']);
     expect(Object.keys((seen?.settings ?? {}) as object)).toEqual(['get']);
+  });
+
+  it('keys stored settings by domain, not module file name (WR-07)', async () => {
+    const store = new Map<string, string>([['kehto.paja.extension.x-echo', JSON.stringify({ prefix: 'stored>' })], ['kehto.paja.extension.index.js', JSON.stringify({ prefix: 'other>' })]]);
+    vi.stubGlobal('localStorage', { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, v) });
+    try {
+      const { loaded } = await loadPajaExtensions(
+        { extensions: [{ url: 'a', name: 'index.js', enabled: true, settings: {} }] },
+        [],
+        () => import('../fixtures/experimental-nap/x-echo.js'),
+      );
+      expect(loaded[0].values).toEqual({ prefix: 'stored>' });
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('flags advertised domains that are neither Paja built-ins nor loaded extensions', () => {

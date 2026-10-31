@@ -449,17 +449,23 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
   const sendToNapplet = hooks.sendToNapplet;
   // Each attached handler gets its own context so extension pushes stay scoped
   // to the handler's own registered `x-` domain.
-  const createServiceContext = (name: string, handler: ServiceHandler): ServiceRuntimeContext => Object.freeze({
+  const createServiceContext = (name: string, handler: ServiceHandler): ServiceRuntimeContext => {
+    // An x- handler sees only windows granted its domain and only its own capabilities.
+    const scoped = name.startsWith('x-');
+    const visible = (windowId: string): boolean => !scoped
+      || (isExtensionDomain(name) && isDomainAllowed?.(windowId, name) === true);
+    return Object.freeze({
     resolveDTag(windowId: string): string | undefined {
-      return sessionRegistry.getEntryByWindowId(windowId)?.dTag;
+      return visible(windowId) ? sessionRegistry.getEntryByWindowId(windowId)?.dTag : undefined;
     },
     listWindowIds(): readonly string[] {
       return Object.freeze(
-        sessionRegistry.getAllEntries().map((entry) => entry.windowId),
+        sessionRegistry.getAllEntries().map((entry) => entry.windowId).filter(visible),
       );
     },
     hasCapability(windowId: string, capability: AclCapability): boolean {
-      const entry = sessionRegistry.getEntryByWindowId(windowId);
+      if (scoped && !capability.startsWith(`${name}:`)) return false;
+      const entry = visible(windowId) ? sessionRegistry.getEntryByWindowId(windowId) : undefined;
       return !!entry && aclState.check('', entry.dTag, entry.aggregateHash, capability);
     },
     sendToEligibleNapplet(windowId: string, message: NappletMessage): boolean {
@@ -470,7 +476,7 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
       const domain = message.type.slice(0, dotIndex);
       // An x- handler may push only its own declared x- types; it never reaches
       // the built-in push path (no theme/identity/llm/gamepad impersonation).
-      if (isExtensionDomain(name) || isExtensionDomain(domain)) return extensions.push(name, handler, windowId, message);
+      if (scoped || domain.startsWith('x-')) return extensions.push(name, handler, windowId, message);
       try {
         if (isDomainAllowed && !isDomainAllowed(windowId, domain)) return false;
         const { recipientCap } = resolveCapabilitiesNap(message);
@@ -487,6 +493,7 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
       }
     },
   });
+  };
 
   function attachService(name: string, handler: ServiceHandler): void {
     attachedServices.set(name, handler);
@@ -594,8 +601,11 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   const aclState = createAclState(hooks.aclPersistence, 'permissive', (mutation) => {
     for (const entry of sessionRegistry.getAllEntries()) {
       if (entry.dTag === mutation.dTag && entry.aggregateHash === mutation.aggregateHash) {
-        for (const service of Object.values(serviceRegistry)) {
-          service.onCapabilityRevoked?.(entry.windowId, mutation.type === 'block' ? null : mutation.capability);
+        for (const [serviceName, service] of Object.entries(serviceRegistry)) {
+          const capability = mutation.type === 'block' ? null : mutation.capability;
+          // x- services hear only blocks and their own capabilities.
+          if (serviceName.startsWith('x-') && capability !== null && !capability.startsWith(`${serviceName}:`)) continue;
+          service.onCapabilityRevoked?.(entry.windowId, capability);
         }
         if (mutation.type === 'block' || mutation.capability === 'relay:read') {
           revokeRelaySubscriptions({ hooks, serviceRegistry, subscriptions }, entry.windowId);
@@ -697,6 +707,11 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   extensions = createServiceExtensionRouter({
     hooks, services: serviceRegistry, registrations: registeredServices,
     sessions: sessionRegistry, acl: aclState, enforce: enforceNap, firewall: firewallGate,
+    pushAdmitted(windowId) {
+      const entry = sessionRegistry.getEntryByWindowId(windowId);
+      const policy = entry ? firewallState.getConfig().napplets[entry.dTag]?.policy : undefined;
+      return !!entry && policy !== 'deny' && policy !== 'ask';
+    },
   });
   const handleMessage = createMessageHandler(hooks, sessionRegistry, enforceNap, dispatchNapEnvelope, { builtInDomains, extensions }, firewallGate);
 

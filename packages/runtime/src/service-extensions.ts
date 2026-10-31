@@ -14,6 +14,17 @@ interface ExtensionContext {
   acl: AclStateContainer;
   enforce: ReturnType<typeof createNapEnforceGate>;
   firewall: (windowId: string, message: NappletMessage, capability: string | null, respond?: boolean) => 'dispatch' | 'drop';
+  /**
+   * Firewall admission for host-initiated x- pushes: honors the napplet's hard
+   * policy (deny/ask drop silently) without spending its request rate budget
+   * or raising a consent prompt for traffic the napplet did not initiate.
+   */
+  pushAdmitted: (windowId: string) => boolean;
+}
+
+/** Names that start with `x-` are experimental and must pass the extension policy. */
+function claimsExtension(name: string): boolean {
+  return name.startsWith('x-');
 }
 
 type ExtensionPolicy = Capability | ExtensionCapability | null;
@@ -42,14 +53,17 @@ function declaredPolicy(
   const capability = policies[type];
   if (capability === null) return { capability };
   if (typeof capability !== 'string') return null;
+  // x- domains may gate only on their own x- capabilities, never a built-in one.
+  if (claimsExtension(domain)) {
+    return isExtensionDomain(domain) && validateExtensionCapability(capability, domain) === null ? { capability } : null;
+  }
   if ((ALL_CAPABILITIES as readonly string[]).includes(capability)) return { capability };
-  if (isExtensionDomain(domain) && validateExtensionCapability(capability, domain) === null) return { capability };
   return null;
 }
 
 /** Internal route for host-defined contracts outside the built-in NAP domains. */
 export function createServiceExtensionRouter(context: ExtensionContext) {
-  const { hooks, services, registrations, sessions, acl, enforce, firewall } = context;
+  const { hooks, services, registrations, sessions, acl, enforce, firewall, pushAdmitted } = context;
   const windowLifetimes = new Map<string, object>();
 
   function handlerFor(domain: string): ServiceHandler | null {
@@ -58,7 +72,7 @@ export function createServiceExtensionRouter(context: ExtensionContext) {
 
   function handleMessage(windowId: string, message: NappletMessage): void {
     const domain = domainOf(message.type);
-    if (!domain) return;
+    if (!domain || (claimsExtension(domain) && !isExtensionDomain(domain))) return;
     const handler = handlerFor(domain);
     if (!handler) return;
     const policy = declaredPolicy(handler.messageCapabilities, message.type, domain);
@@ -77,13 +91,20 @@ export function createServiceExtensionRouter(context: ExtensionContext) {
       lifetime = {};
       windowLifetimes.set(windowId, lifetime);
     }
+    // x- replies are exactly one `<type>.result`; anything else is a push and
+    // must go through pushCapabilities (the callback is not a push channel).
+    const extension = claimsExtension(domain);
+    let replied = false;
     handler.handleMessage(windowId, message, (response) => {
+      if (extension && (replied || response?.type !== `${message.type}.result`)) return;
       if (registrations.get(domain) !== registration || services[domain] !== handler
         || windowLifetimes.get(windowId) !== lifetime
         || sessions.getEntryByWindowId(windowId) !== session) return;
       if (!response || typeof response.type !== 'string'
         || !response.type.startsWith(`${domain}.`) || response.type.length <= domain.length + 1) return;
-      if (allowed()) hooks.sendToNapplet(windowId, response);
+      if (!allowed()) return;
+      replied = true;
+      hooks.sendToNapplet(windowId, response);
     });
   }
 
@@ -92,8 +113,9 @@ export function createServiceExtensionRouter(context: ExtensionContext) {
    *
    * The pushing handler must be the live registration for the message's own
    * domain and must declare the exact type in `pushCapabilities`. Delivery then
-   * requires the same live session, domain grant, block, ACL and firewall
-   * admission as an inbound request. Denials are silent: no envelope is invented.
+   * requires the same live session, domain grant, block and ACL checks as an
+   * inbound request, plus firewall policy admission (see `pushAdmitted`).
+   * Denials are silent: no envelope is invented.
    */
   function push(owner: string, handler: ServiceHandler, windowId: string, message: NappletMessage): boolean {
     if (!message || typeof message.type !== 'string') return false;
@@ -107,7 +129,7 @@ export function createServiceExtensionRouter(context: ExtensionContext) {
     if (hooks.isDomainAllowed?.(windowId, domain) !== true) return false;
     if (acl.isBlocked('', session.dTag, session.aggregateHash)) return false;
     if (policy.capability !== null && !enforce(windowId, policy.capability, message).allowed) return false;
-    if (firewall(windowId, message, policy.capability, false) === 'drop') return false;
+    if (!pushAdmitted(windowId)) return false;
     hooks.sendToNapplet(windowId, message);
     return true;
   }

@@ -48,7 +48,7 @@ gaps:
 
 **Goal (authoritative, GOAL.md final prompt revision, deliverables 1-8):** Let downstream developers build experimental NAPs on kehto without changing any kehto package. Document how, and ship an agent skill that walks them through it.
 **Verified:** 2026-10-31
-**Status:** gaps_found
+**Status:** gaps_found (initial run; closed, see Gap closure)
 **Re-verification:** No (initial)
 **Diff verified:** `git diff main...feat/experimental-naps` (14 commits, 98 files)
 

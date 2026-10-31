@@ -72,6 +72,25 @@ function bridgeWith(hooks: ShellAdapter) {
   return { bridge, target, dispatch };
 }
 
+type Listener = (event: { source: unknown; data: unknown }) => void;
+function runFrame(html: string) {
+  const listeners = new Set<Listener>();
+  const posted: Record<string, unknown>[] = [];
+  const parent = { postMessage: (message: Record<string, unknown>) => posted.push(message) };
+  const win: Record<string, unknown> = {
+    parent, crypto: { randomUUID: () => `id-${posted.length}` },
+    document: { addEventListener() {}, removeEventListener() {} },
+    addEventListener: (_t: string, l: Listener) => listeners.add(l),
+    removeEventListener: (_t: string, l: Listener) => listeners.delete(l),
+  };
+  // Each kehto script is its own element: a syntax error only skips that one.
+  for (const [, source] of html.matchAll(/<script data-kehto-nip5d-(?:extension|injection)>([\s\S]*?)<\/script>/g)) {
+    try { new Function('window', source)(win); } catch { /* isolated like a separate <script> */ }
+  }
+  const deliver = (data: unknown, from: unknown = parent) => { for (const l of [...listeners]) l({ source: from, data }); };
+  return { win, posted, deliver };
+}
+
 describe('extension declaration policy', () => {
   it('accepts a well-formed x- extension', () => {
     expect(defineShellExtension(echoExtension()).domain).toBe('x-echo');
@@ -94,6 +113,38 @@ describe('extension declaration policy', () => {
     expect(() => defineShellExtension(borrow({ 'llm.generate': 'x-echo:send' }))).toThrow(/x-echo.<action> type/);
     expect(() => defineShellExtension(echoExtension({ capabilities: [{ capability: 'llm:generate' as never }] }))).toThrow(/built-in capability/);
     expect(() => defineShellExtension(echoExtension({ capabilities: [{ capability: 'x-other:send' }] }))).toThrow(/cannot borrow/);
+  });
+
+  it('normalizes method-shorthand bindings and rejects unserializable ones (CR-03)', () => {
+    const holder = { binding(kit: { request(a: string): Promise<unknown> }) { return { ping: () => kit.request('ping') }; } };
+    const ok = defineShellExtension(echoExtension({ binding: holder.binding as never }));
+    const html = renderNappletNamespacePrelude({ domains: ['shell', 'x-echo'], extensions: { 'x-echo': ok.binding! } });
+    const { win } = runFrame(html);
+    expect(typeof (win.napplet as Record<string, Record<string, unknown>>)['x-echo'].ping).toBe('function');
+    expect(() => defineShellExtension(echoExtension({ binding: ((kit: unknown) => ({ kit })).bind(null) as never }))).toThrow(/bound or native/);
+  });
+
+  it('keeps the prelude alive when one binding has a syntax error (CR-03)', () => {
+    const html = renderNappletNamespacePrelude({ domains: ['shell', 'x-echo'], extensions: { 'x-echo': { source: '(kit) => {' } } });
+    const { win } = runFrame(html);
+    const napplet = win.napplet as Record<string, Record<string, unknown>>;
+    expect(typeof napplet.shell.supports).toBe('function');
+    expect(napplet['x-echo']).toEqual({});
+  });
+
+  it('fails closed on unknown state values (WR-05)', () => {
+    for (const state of ['Disabled', undefined, 42]) {
+      const hooks = baseHooks({ extensions: [echoExtension({ state: (() => state) as never })] });
+      expect(buildShellCapabilities(hooks).domains).not.toContain('x-echo');
+    }
+  });
+
+  it('routes against capability maps frozen at validation (WR-01)', () => {
+    const extension = echoExtension();
+    const valid = defineShellExtension(extension);
+    (extension.service.messageCapabilities as Record<string, unknown>)['x-echo.later'] = null;
+    expect(valid.service.messageCapabilities).not.toHaveProperty('x-echo.later');
+    expect(Object.isFrozen(valid.service.messageCapabilities)).toBe(true);
   });
 
   it('re-validates an extensions array mutated after first use', () => {
@@ -212,23 +263,6 @@ describe('extension routing through the shell bridge', () => {
 });
 
 describe('extension bindings in the prelude', () => {
-  type Listener = (event: { source: unknown; data: unknown }) => void;
-  function runFrame(html: string) {
-    const listeners = new Set<Listener>();
-    const posted: Record<string, unknown>[] = [];
-    const parent = { postMessage: (message: Record<string, unknown>) => posted.push(message) };
-    const win: Record<string, unknown> = {
-      parent, crypto: { randomUUID: () => `id-${posted.length}` },
-      document: { addEventListener() {}, removeEventListener() {} },
-      addEventListener: (_t: string, l: Listener) => listeners.add(l),
-      removeEventListener: (_t: string, l: Listener) => listeners.delete(l),
-    };
-    const source = html.match(/<script data-kehto-nip5d-injection>([\s\S]*?)<\/script>/)?.[1] ?? '';
-    new Function('window', source)(win);
-    const deliver = (data: unknown, from: unknown = parent) => { for (const l of [...listeners]) l({ source: from, data }); };
-    return { win, posted, deliver };
-  }
-
   it('builds window.napplet[x-echo] outside the artifact bytes and stays host-owned', async () => {
     const extension = echoExtension({
       binding: (kit) => ({
@@ -239,7 +273,7 @@ describe('extension bindings in the prelude', () => {
     const artifact = '<!doctype html><html><head><title>t</title></head><body><script>window.authored = 1;</script></body></html>';
     const domains = ['shell', 'x-echo'];
     const srcdoc = prepareNappletSrcdoc(artifact, { domains, extensions: getShellExtensionBindings([extension], domains) });
-    expect(srcdoc.replace(/<meta[^>]*>|<script data-kehto-nip5d-injection>[\s\S]*?<\/script>/g, '')).toBe(artifact);
+    expect(srcdoc.replace(/<meta[^>]*>|<script data-kehto-nip5d-(?:extension|injection)>[\s\S]*?<\/script>/g, '')).toBe(artifact);
     const { win, posted, deliver } = runFrame(srcdoc);
     const napplet = win.napplet as Record<string, Record<string, (...args: never[]) => unknown>>;
     expect(Object.isFrozen(napplet['x-echo'])).toBe(true);

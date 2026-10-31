@@ -160,7 +160,15 @@ export function defineShellExtension<T extends ShellExtension>(extension: T): T 
   if (extension.state !== undefined && typeof extension.state !== 'function') {
     throw new ShellExtensionError(`${domain} state must be a function`);
   }
-  return Object.freeze({ ...extension, capabilities: Object.freeze([...capabilities]) });
+  // Snapshot the validated maps on the service the runtime routes against, so
+  // they cannot change after validation (the handler's methods are kept as-is).
+  const frozenService: ServiceHandler = Object.freeze({
+    ...service,
+    descriptor: Object.freeze({ ...service.descriptor }),
+    ...(service.messageCapabilities ? { messageCapabilities: Object.freeze({ ...service.messageCapabilities }) } : {}),
+    ...(service.pushCapabilities ? { pushCapabilities: Object.freeze({ ...service.pushCapabilities }) } : {}),
+  });
+  return Object.freeze({ ...extension, service: frozenService, capabilities: Object.freeze([...capabilities]) });
 }
 
 /**
@@ -218,8 +226,10 @@ const validated = new WeakMap<readonly ShellExtension[], {
  */
 export function readShellExtensionState(extension: ShellExtension): ShellExtensionState {
   try {
-    const state = extension.state?.() ?? 'supported';
-    return state === 'unconfigured' || state === 'disabled' ? state : 'supported';
+    if (!extension.state) return 'supported';
+    const state: unknown = extension.state();
+    // Fail closed: anything other than the three known states disables the domain.
+    return state === 'supported' || state === 'unconfigured' ? state : 'disabled';
   } catch {
     return 'disabled';
   }
@@ -238,14 +248,29 @@ export function readShellExtensionState(extension: ShellExtension): ShellExtensi
  * ```
  */
 export function bindingSource(domain: string, binding: ShellExtensionBinding): string {
-  const source = typeof binding === 'function' ? binding.toString() : binding?.source;
-  if (typeof source !== 'string' || source.trim().length === 0) {
+  const raw = typeof binding === 'function' ? binding.toString() : binding?.source;
+  if (typeof raw !== 'string' || raw.trim().length === 0) {
     throw new ShellExtensionError(`${domain} binding must be a function or { source: string }`);
   }
+  if (/\{\s*\[native code\]\s*\}/.test(raw)) {
+    throw new ShellExtensionError(`${domain} binding must be self-contained source; bound or native functions cannot be serialized`);
+  }
+  // Each binding renders in its own script element, so a syntax error here can
+  // only cost this extension its binding, never the namespace prelude.
+  const source = asFunctionExpression(raw.trim());
   if (/<\/script|<!--|<script/i.test(source)) {
     throw new ShellExtensionError(`${domain} binding source must not contain script or comment markup`);
   }
   return source;
+}
+
+// `binding(kit) { … }` (method shorthand) serializes without the `function`
+// keyword; make it a function expression so it parses inside the prelude.
+function asFunctionExpression(source: string): string {
+  if (/^(async\s+)?function\b/.test(source) || /^(async\s*)?\(/.test(source)
+    || /^(async\s+)?[A-Za-z_$][\w$]*\s*=>/.test(source)) return source;
+  const method = source.match(/^(async\s+)?([A-Za-z_$][\w$]*)\s*\(/);
+  return method ? `${method[1] ?? ''}function ${source.slice((method[1] ?? '').length)}` : source;
 }
 
 /**
