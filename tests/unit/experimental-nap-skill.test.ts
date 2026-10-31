@@ -63,8 +63,9 @@ describe('kehto-experimental-nap skill', () => {
       // Any other backticked relative file path must also resolve inside the
       // skill directory: a kehto repo path (such as a docs page) dangles in a
       // downstream checkout. Leading-slash tokens are routes (/__kehto/...)
-      // and @scope/name tokens are package specifiers, so both are skipped.
-      for (const [, path] of text.matchAll(/`([^`\s@/][^`\s]*\/[^`\s]*\.(?:md|ts|js|json|mjs))`/g)) {
+      // and @scope/name tokens are package specifiers, so both are skipped,
+      // as are globs and placeholders (`**/*.test.ts`, `<name>.js`).
+      for (const [, path] of text.matchAll(/`([\w.-][\w./-]*\/[\w./-]*\.(?:md|ts|js|json|mjs))`/g)) {
         expect(existsSync(resolve(skillDir, path)), `${file} names ${path}, which does not exist in the skill`).toBe(true);
       }
     }

@@ -182,6 +182,10 @@ ACL panel lists the `x-echo` capabilities. It narrows per napplet through
 - **Browser**: start Paja with `startPajaServer({ options: { configPath } })` and
   call `window.napplet['x-echo']` inside `#napplet-frame`.
   `tests/e2e/experimental-nap.spec.ts` covers Paja and the playground.
+- **Downstream layout**: with the skill templates in one directory, scope vitest
+  to `*.test.ts` (for example `test: { include: ['**/*.test.ts'] }` in
+  `vitest.config.ts`). Otherwise vitest also collects the Playwright
+  `x-echo.paja.spec.ts` file and fails on it.
 
 ## Security invariants
 

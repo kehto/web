@@ -66,7 +66,10 @@ writing code. In short:
    advertisement, the `not-configured` result, success, the push, ACL denial and
    collision rejection. The templates expect to sit next to the module and
    config; adjust relative paths if you use folders. Add a `playwright.config.ts`
-   with a chromium project, and `@types/node` if you type-check. In Paja, settings
+   with a chromium project, and `@types/node` if you type-check. Vitest's default
+   include also collects the Playwright `*.spec.ts` file and fails on it, so add a
+   `vitest.config.ts` with `test: { include: ['**/*.test.ts'] }` (or run
+   `vitest run x-echo.test.ts`). In Paja, settings
    inputs are `#paja-extension-<domain>-<key>`, the save button is
    `#paja-extension-<domain>-save`, and the toggle is
    `#interface-toggles [data-interface-domain="<domain>"]` with `data-state`.

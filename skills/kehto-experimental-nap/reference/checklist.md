@@ -30,4 +30,5 @@
 ## Tests
 
 - [ ] Unit: advertisement, `not-configured`, success, push, ACL denial, collision rejection
+- [ ] Vitest is scoped to `*.test.ts`, so it does not collect the Playwright spec
 - [ ] Paja Chromium spec: unconfigured toggle, settings save, `supported`, a round trip in `#napplet-frame`
