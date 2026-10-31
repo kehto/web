@@ -285,7 +285,7 @@ Paja element id worked as written.
 | PR state | `gh pr view 363 --json state` | `OPEN`; no new PR opened |
 | PR body | `gh pr edit 363 --body-file $S/pr-body-ku0.md` | The services bullet now says `minor` (citing `3b551b67`); `grep -ci 'patch changeset'` gives `0`. Verification is updated with ku0 numbers and the dry run, there is a new `### Pipeline pass 261031-ku0` subsection, and Out of scope notes the leaked dev server. All existing sections are kept, and `43cb3a4` still appears |
 | PR comment | `gh pr comment 363 --body-file $S/pr-comment-ku0.md` | <https://github.com/kehto/web/pull/363#issuecomment-6544893756> (refs, result, commits, gates, dry run, follow-up) |
-| CI | `gh pr checks 363 --watch` | See the CI line below |
+| CI | `gh pr checks 363 --watch` | CI run `41211811320` on `525776d1` is `success`: Build & Type-Check (1m14s), Vitest (1m7s), Playwright (4m44s), Detect CI Scope, Detect Playwright Scope and Changeset deletion guard all pass |
 
 ### Deviations (Tasks 6–7)
 
@@ -309,7 +309,8 @@ Paja element id worked as written.
 | 6 | `dfa13566` | docs(skill): link hosted NAP-LLM wiring guide and guard skill paths and how-to exports |
 | 6 | `38e72465` | docs(skill): scope downstream vitest away from the Paja Playwright spec |
 | 7 | `c3544160` | chore(merge): merge origin/main (#365 peer ranges) into feat/experimental-naps |
-| 7 | (this commit) | docs(planning): record quick task 261031-ku0 (experimental NAPs goal pipeline) |
+| 7 | `525776d1` | docs(planning): record quick task 261031-ku0 (experimental NAPs goal pipeline) |
+| 7 | (this commit) | docs(planning): record 261031-ku0 PR #363 CI result |
 
 ### Self-check (Tasks 6–7)
 
