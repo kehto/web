@@ -104,6 +104,10 @@ function isServiceDomainLive(hooks: ShellAdapter, domain: string): boolean {
  * every other advertised domain is `supported`, and anything not advertised is
  * `disabled`.
  *
+ * Spec gap: the host-only `unconfigured` state is a bounded Kehto spec-gap
+ * policy. napplet/naps master `43cb3a4` defines no interface state, so wire
+ * advertisement stays binary and `unconfigured` never reaches a napplet.
+ *
  * @param hooks - The ShellAdapter provided by the host app.
  * @param domain - Bare NAP domain name such as `llm`.
  * @returns `supported`, `unconfigured` or `disabled`.

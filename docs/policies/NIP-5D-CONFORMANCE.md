@@ -322,6 +322,36 @@ ACL/firewall denial and startup limits, silent unknown types, fixed-domain
 precedence, and delayed replies after teardown or policy revocation. The full
 browser suite guards existing host consumers without inventing an `example` NAP.
 
+### Experimental x- extensions
+
+Checked `napplet/naps@43cb3a4e855570ec4b90b9cc05f0c721e5ad0aab` (master:
+`naps/NAP-SHELL.md` `capabilities.domains` and local `supports()`,
+`projections/web.md` discovery by presence of `window.napplet.<domain>`, and the
+`README.md` registry table) and NIP-5D PR #2303 at
+`dskvr/nips@6e24617cde507c0a87fa170af9ed6b2b46545b2d` (web-projection domain
+discovery). Discovery and advertisement are conformant: an enabled extension is a
+bare domain in `capabilities.domains` and a host-injected `window.napplet[<domain>]`,
+and `supports()` stays a local namespace query. No checked document defines
+experimental naming, extension capabilities or an interface configuration state, so
+`ShellAdapter.extensions` applies three bounded Kehto spec-gap policies:
+
+- **Naming:** experimental domains use the reserved `x-` prefix. A declaration can
+  never claim, alias (`x-llm`) or shadow a registry domain, a Kehto in-tree domain
+  or a retired name (`RESERVED_NAP_DOMAINS` in `@kehto/acl`).
+- **Capabilities:** extension grants are `x-<domain>:<action>`, scoped to the
+  extension's own domain and stored as explicit `AclEntry.ext` decisions, never as
+  built-in ACL bits. Built-in capability strings cannot be redefined or borrowed.
+- **Interface state:** `unconfigured` is host-only (`getShellDomainState`); wire
+  advertisement stays binary and a napplet never sees a third state.
+
+Provenance: extension bindings render as separate `<script data-kehto-nip5d-extension>`
+elements, injected only for domains the frame exposes and outside the verified
+artifact bytes. Paja and the playground pass verified bytes through
+`prepareNappletSrcdoc`, so stripping the injected meta and scripts gives back the
+artifact unchanged. Gateway output stays an untrusted accelerator, never a source
+of napplet identity or of extension code. These policies add no allowlist row.
+The upstream `x-` convention and `not-configured` state are drafted, not filed.
+
 ## Source pins and presentation media
 
 Checked NIP-5D PR #2303 at `dskvr/nips@6e24617cde507c0a87fa170af9ed6b2b46545b2d`
