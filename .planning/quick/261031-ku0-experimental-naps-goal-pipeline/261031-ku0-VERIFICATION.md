@@ -125,3 +125,14 @@ No blocking gaps. Every GOAL.md deliverable (1-8), hard constraint, spec-check i
 
 _Verified: 2026-10-31T15:09:45Z_
 _Verifier: Claude (gsd-verifier)_
+
+## Warning follow-up (2026-10-31)
+
+- W1: merged origin/main `07e5ca84` (Version Packages #366) cleanly; build 32/32, type-check 17/17, unit 2549,
+  docs:check OK, aislop 95 (5 rows) on the merged tree.
+- W2: SKILL.md and checklist now say the validator knows only the registry and in-tree domains, and that open
+  napplet/naps draft PRs must be checked by hand.
+- W3: a fresh independent subagent (no kehto source access) built `x-dice` from the skill shipped in a newly
+  packed @kehto/shell tarball (post-k14, post-merge): vitest 9/9, Paja Chromium 1/1, tsc clean, no friction.
+- W4: kept as the recorded design (the playground hosts its bundled x-echo; Paja `extensions` is the out-of-tree route).
+- W5: aislop 95 equals main; the remaining rows are pre-existing complexity debt.
