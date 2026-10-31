@@ -53,6 +53,36 @@ function createIntentInvokeRejection(message: NappletMessage, error: string): Na
   } as NappletMessage;
 }
 
+const LLM_REQUEST_TYPES = new Set(['llm.select', 'llm.describe', 'llm.generate', 'llm.cancel']);
+
+/**
+ * Shape a NAP-LLM failure on the request's sanctioned result wire.
+ *
+ * NAP-LLM (napplet/naps PR #134) answers every routable request with exactly one
+ * `llm.<op>.result` carrying either its success field or an `error` record of
+ * `{ code, message }`. Only the four napplet-originated request types receive
+ * a shaped failure; pushes, results, and unknown actions return `undefined` so a
+ * forged envelope cannot manufacture a second terminal result.
+ *
+ * @param message - Incoming llm request envelope.
+ * @param code - Stable NAP-LLM failure category.
+ * @param text - Safe human-readable diagnostic; never provider or credential detail.
+ * @returns The terminal error result for a sanctioned request, or `undefined`.
+ * @example
+ * createLlmErrorResult({ type: 'llm.generate', id: 'g1' }, 'unsupported', 'No language model service is registered.');
+ * // => { type: 'llm.generate.result', id: 'g1', error: { code: 'unsupported', message: '...' } }
+ */
+export function createLlmErrorResult(
+  message: NappletMessage,
+  code: string,
+  text: string,
+): NappletMessage | undefined {
+  if (!LLM_REQUEST_TYPES.has(message.type)) return undefined;
+  const rawId = (message as NappletMessage & { id?: unknown }).id;
+  const id = typeof rawId === 'string' ? rawId : '';
+  return { type: `${message.type}.result`, id, error: { code, message: text } } as NappletMessage;
+}
+
 /** Return whether a message belongs to a runtime-owned identity/theme domain. */
 export function isIdentityOrThemeMessage(message: NappletMessage): boolean {
   return message.type.startsWith('identity.') || message.type.startsWith('theme.');
