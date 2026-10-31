@@ -340,10 +340,13 @@ describe('current @napplet package graph guard', () => {
     }
   });
 
-  it('accepts the baseline and GAMEPAD peer release lines while retaining baseline development', () => {
+  it('accepts the baseline through LLM peer release lines while retaining baseline development', () => {
     // Kehto runtime packages track the current NAP contract so new canonical
     // fields are wired through runtime, services, shell, Paja, docs, and tests.
-    const PEER_RANGE = '>=0.32.0 <0.35.0';
+    // nap 0.35.x ships the `llm` subpath and nap 0.35.1 requires core ^0.36.0,
+    // so both lines must be admitted or npm rejects llm installs (kehto/web#364).
+    const CORE_PEER_RANGE = '>=0.32.0 <0.37.0';
+    const NAP_PEER_RANGE = '>=0.32.0 <0.36.0';
     const DEV_RANGE = '>=0.32.0 <0.33.0';
     for (const dir of publicPackageDirs) {
       const packageJsonPath = join(process.cwd(), dir, 'package.json');
@@ -353,13 +356,28 @@ describe('current @napplet package graph guard', () => {
       };
 
       if (pkg.peerDependencies?.['@napplet/nap'] || pkg.devDependencies?.['@napplet/nap']) {
-        expect(pkg.peerDependencies?.['@napplet/nap'], `${dir} @napplet/nap peer`).toBe(PEER_RANGE);
+        expect(pkg.peerDependencies?.['@napplet/nap'], `${dir} @napplet/nap peer`).toBe(NAP_PEER_RANGE);
         expect(pkg.devDependencies?.['@napplet/nap'], `${dir} @napplet/nap dev`).toBe(DEV_RANGE);
       }
-      expect(pkg.peerDependencies?.['@napplet/core'], `${dir} @napplet/core peer`).toBe(PEER_RANGE);
+      expect(pkg.peerDependencies?.['@napplet/core'], `${dir} @napplet/core peer`).toBe(CORE_PEER_RANGE);
       expect(pkg.devDependencies?.['@napplet/core'], `${dir} @napplet/core dev`).toBe(DEV_RANGE);
       expect(pkg.peerDependencies?.[staleNapPackage], `${dir} ${staleNapPackage} peer`).toBeUndefined();
       expect(pkg.devDependencies?.[staleNapPackage], `${dir} ${staleNapPackage} dev`).toBeUndefined();
+    }
+  });
+
+  it('documents the published peer ranges in every docs package page', () => {
+    for (const dir of publishedManifestDirs) {
+      const pkg = JSON.parse(readFileSync(join(process.cwd(), dir, 'package.json'), 'utf8')) as {
+        peerDependencies?: Record<string, string>;
+      };
+      const docPath = join(process.cwd(), 'docs/packages', `${dir.slice('packages/'.length)}.md`);
+      if (!existsSync(docPath)) continue;
+      const doc = readFileSync(docPath, 'utf8');
+      for (const name of ['@napplet/core', '@napplet/nap'] as const) {
+        const range = pkg.peerDependencies?.[name];
+        if (range) expect(doc, `${docPath} ${name} peer row`).toContain(`| \`${name}\` | \`${range}\` |`);
+      }
     }
   });
 

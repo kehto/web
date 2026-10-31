@@ -1,6 +1,6 @@
 # Language models
 
-This non-normative integration guide defers to the living [NAP-LLM proposal](https://github.com/napplet/naps/pull/134) (checked at `3e10939cf788878bbdcc022c101f0ac6193f316c`) and [NIP-5D](https://github.com/nostr-protocol/nips/pull/2303). The published `@napplet/nap@0.32.0` line has no `llm` subpath yet; Kehto mirrors the upstream `feat/nap-llm` draft types in `@kehto/services` and will switch to `@napplet/nap/llm/types` once it ships.
+This non-normative integration guide defers to the living [NAP-LLM proposal](https://github.com/napplet/naps/pull/134) (checked at `3e10939cf788878bbdcc022c101f0ac6193f316c`) and [NIP-5D](https://github.com/nostr-protocol/nips/pull/2303). `@napplet/nap@0.35.0` and later ship `@napplet/nap/llm/types` (with core types from `@napplet/core@0.35.0`); Kehto's published peer ranges admit that line (core `>=0.32.0 <0.37.0`, nap `>=0.32.0 <0.36.0`). Development stays on the baseline 0.32.0 line, so `@kehto/services` keeps a mirror of the draft types that is structurally identical to the `@napplet/nap@0.35.1` export, and will switch to the upstream export when the development baseline moves to 0.35.
 
 ## What each layer owns
 
