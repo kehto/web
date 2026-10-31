@@ -1,5 +1,6 @@
 // Downstream Paja Playwright spec template for an experimental x- NAP.
-// Requires: @playwright/test (Chromium), @kehto/paja. Copy next to x-echo.js and paja.config.json.
+// Requires: @playwright/test (Chromium), @kehto/paja (add @types/node to type-check).
+// Copy next to x-echo.js and paja.config.json, plus a playwright.config.ts with a chromium project.
 import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
@@ -30,15 +31,24 @@ test('x-echo is advertised unconfigured, then echoes once configured', async ({ 
   await expect(page.frameLocator('#napplet-frame').locator('body')).toContainText('echo probe');
   const toggle = page.locator('#interface-toggles [data-interface-domain="x-echo"]');
   await expect(toggle).toHaveAttribute('data-state', 'unconfigured');
+  const frame = await (await page.locator('#napplet-frame').elementHandle())?.contentFrame();
+  type Echo = { say(text: string): Promise<string>; onHeard(cb: (text: string) => void): () => void };
+  const early = await frame?.evaluate(() => (window as unknown as { napplet: Record<string, Echo> }).napplet['x-echo']
+    .say('early').then(() => 'ok', (error: { code?: string }) => error.code));
+  expect(early).toBe('not-configured');
 
+  // Settings inputs are #paja-extension-<domain>-<key>; the button is #paja-extension-<domain>-save.
   await page.locator('#paja-extension-x-echo-prefix').fill('echo>');
   await page.locator('#paja-extension-x-echo-save').click();
   await expect(toggle).toHaveAttribute('data-state', 'supported');
 
-  const frame = await (await page.locator('#napplet-frame').elementHandle())?.contentFrame();
-  const reply = await frame?.evaluate(() => {
-    const echo = (window as unknown as { napplet: Record<string, { say(text: string): Promise<string> }> }).napplet['x-echo'];
-    return echo.say('hi');
+  const result = await frame?.evaluate(async () => {
+    const echo = (window as unknown as { napplet: Record<string, Echo> }).napplet['x-echo'];
+    const heard: string[] = [];
+    echo.onHeard((text) => heard.push(text));
+    const reply = await echo.say('hi');
+    await new Promise((done) => setTimeout(done, 100));
+    return { reply, heard };
   });
-  expect(reply).toBe('echo>hi');
+  expect(result).toEqual({ reply: 'echo>hi', heard: ['echo>hi'] });
 });

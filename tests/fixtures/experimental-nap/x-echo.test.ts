@@ -1,7 +1,10 @@
 // Downstream unit test template for an experimental x- NAP.
-// Requires: vitest, @kehto/shell. Copy next to x-echo.js and rename for your domain.
+// Requires: vitest, @kehto/shell (add @types/node to type-check). Copy next to x-echo.js and rename for your domain.
 import { describe, expect, it, vi } from 'vitest';
-import { ShellExtensionError, createShellBridge, getShellDomainState, originRegistry, type ShellAdapter } from '@kehto/shell';
+import {
+  ShellExtensionError, buildShellCapabilities, createShellBridge, defineShellExtension, getShellDomainState, originRegistry,
+  type ShellAdapter,
+} from '@kehto/shell';
 import { createEchoExtension } from './x-echo.js';
 
 const identity = { dTag: 'echo-probe', aggregateHash: 'e'.repeat(64) };
@@ -43,6 +46,15 @@ describe('x-echo', () => {
     expect(getShellDomainState(hooks, 'x-echo')).toBe('supported');
   });
 
+  it('is advertised and answers not-configured until a prefix exists', () => {
+    const hooks = adapter({ extensions: [createEchoExtension({ getPrefix: () => undefined })] });
+    expect(buildShellCapabilities(hooks).domains).toContain('x-echo');
+    const { bridge, send, replies } = frame(hooks);
+    send({ type: 'x-echo.say', id: '1', text: 'hi' });
+    expect(replies()).toEqual([{ type: 'x-echo.say.result', id: '1', error: { code: 'not-configured', message: 'Set an echo prefix first.' } }]);
+    bridge.destroy();
+  });
+
   it('answers say and pushes heard', () => {
     const { bridge, send, replies } = frame(adapter({ extensions: [createEchoExtension({ getPrefix: () => '> ' })] }));
     send({ type: 'x-echo.say', id: '1', text: 'hi' });
@@ -61,8 +73,19 @@ describe('x-echo', () => {
     bridge.destroy();
   });
 
+  it('drops the heard push when x-echo:listen is revoked', () => {
+    const { bridge, send, replies } = frame(adapter({ extensions: [createEchoExtension({ getPrefix: () => '> ' })] }));
+    bridge.runtime.aclState.revoke('', identity.dTag, identity.aggregateHash, 'x-echo:listen');
+    send({ type: 'x-echo.say', id: '1', text: 'hi' });
+    expect(replies()).toEqual([{ type: 'x-echo.say.result', id: '1', text: '> hi' }]);
+    bridge.destroy();
+  });
+
   it('cannot shadow a reserved domain', () => {
     const echo = createEchoExtension({ getPrefix: () => '> ' });
-    expect(() => createShellBridge(adapter({ extensions: [{ ...echo, domain: 'llm' }] }))).toThrow(ShellExtensionError);
+    // Keep the descriptor consistent so only the reserved-domain rule can fire.
+    const shadow = { ...echo, domain: 'llm', service: { ...echo.service, descriptor: { ...echo.service.descriptor, name: 'llm' }, messageCapabilities: {}, pushCapabilities: {} } };
+    expect(() => defineShellExtension(shadow)).toThrow(/reserved NAP domain/);
+    expect(() => createShellBridge(adapter({ extensions: [shadow] }))).toThrow(ShellExtensionError);
   });
 });

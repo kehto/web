@@ -60,7 +60,14 @@ writing code. In short:
 6. **Test**: adapt `templates/x-echo.test.ts` (vitest + `@kehto/shell`) and
    `templates/x-echo.paja.spec.ts` (Playwright + `@kehto/paja`). Cover
    advertisement, the `not-configured` result, success, the push, ACL denial and
-   collision rejection.
+   collision rejection. The templates expect to sit next to the module and
+   config; adjust relative paths if you use folders. Add a `playwright.config.ts`
+   with a chromium project, and `@types/node` if you type-check. In Paja, settings
+   inputs are `#paja-extension-<domain>-<key>`, the save button is
+   `#paja-extension-<domain>-save`, and the toggle is
+   `#interface-toggles [data-interface-domain="<domain>"]` with `data-state`.
+   A deliberate negative test of a non-`x-` capability needs `// @ts-expect-error`,
+   because the capability type only admits `x-…:…`.
 7. **Propose upstream** once the experiment is stable: fill
    [reference/upstream-proposal.md](reference/upstream-proposal.md) and open a
    `napplet/naps` PR under the registry name. Then move the NAP in-tree.
@@ -74,4 +81,4 @@ writing code. In short:
 | `templates/x-echo.test.ts` | Unit test template |
 | `templates/x-echo.paja.spec.ts` | Paja Chromium Playwright spec template |
 
-Full walkthrough: kehto `docs/how-tos/experimental-nap.md`.
+Full walkthrough: <https://kehto.github.io/web/docs/how-tos/experimental-nap.html>.
