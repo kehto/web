@@ -88,5 +88,6 @@ export {
   CAP_DM_WRITE,
   CAP_FS_READ,
   CAP_FS_WRITE,
+  CAP_LLM_GENERATE,
 } from './capabilities.js';
 export type { Capability } from './capabilities.js';
