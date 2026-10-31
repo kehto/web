@@ -59,14 +59,15 @@ warning, when the target would block the sandboxed frame.
 
 Every drawer section is a flush, independent native accordion: **Pointer** (in
 runtime-pointer mode), **Interfaces**, **ACL**, **Signer**, **Resource servers**,
-**Messages**, then **Events** last. Headers support Enter/Space, visible keyboard focus and
+**Language models**, **Messages**, then **Events** last. Headers support Enter/Space, visible keyboard focus and
 state chevrons; bodies keep their padding and live controls when hidden. Sections
 start expanded unless a validated origin-local boolean preference says otherwise.
 The collapsed map uses `kehto:paja:sidebar-sections:v1`, separately from whole-drawer
 visibility and resource server values. Storage failures leave session-only toggles
 usable; collapsing never reloads the running app or discards unsaved drafts.
 
-The console shows supported interfaces with per-domain injection toggles,
+The console shows supported interfaces with per-domain injection toggles
+(green when ready, yellow `⚠` when advertised but unconfigured, red when disabled),
 runtime ACL controls, signer controls, and a filterable message log with visible
 error details. It starts expanded and collapses to the left with the chevron
 button in the top bar; the same button brings the whole panel back. The toolbar
@@ -156,6 +157,21 @@ support. See the [picker compatibility reference](https://developer.mozilla.org/
 The focused host regression runs in Chromium and Firefox after `pnpm build`:
 `pnpm exec playwright install firefox`, then
 `pnpm exec playwright test --config playwright.paja-fs.config.ts`.
+
+**Language models** configures draft [NAP-LLM](https://github.com/napplet/naps/pull/134)
+connections: pick a provider preset (OpenAI, Anthropic, Google Gemini, OpenRouter,
+Groq, Mistral, DeepSeek, xAI, Together, Fireworks, Perplexity, Azure OpenAI, or local
+Ollama, LM Studio, llama.cpp and vLLM servers), enter the model and an optional API
+key, and choose whether to remember the key. Remembered keys are encrypted with
+AES-GCM under a PBKDF2-SHA-256 key derived from a vault password you create (at
+least 12 characters); otherwise the key lasts for the page session only. Keys are
+sent solely to the connection's base URL (HTTPS, or HTTP on loopback) and never to
+napplets or the message log. The `llm` interface is advertised whenever the panel is
+present; it shows `⚠ llm` until a connection exists. A napplet's `select()` then
+offers to open the panel and answers `unsupported` until you add one; with
+connections, a chooser lists the compatible ones. Every `generate()` shows a consent
+dialog naming the napplet, route, model and disclosed counts before any prompt
+text leaves the browser. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
 
 Other domains are equally capability-bound. Relay, outbox, and count require
 live relays; count uses NIP-45 `COUNT` without downloading events. Storage
@@ -575,6 +591,10 @@ remain a documented upstream spec gap; no host sender identity is invented.
 ## GAMEPAD integration
 
 This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja and the playground register one host reader and deny native gamepad/HID/USB paths before frame execution. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, window destruction, and service removal release polling. Non-browser or denied native readers report the proposal's unavailable reasons. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
+
+## LLM integration
+
+This non-normative guidance defers to the living [NAP-LLM](https://github.com/napplet/naps/pull/134) (checked at `3e10939`). Services export `createLlmService`, `LlmServiceError`, the provider mappers and `LLM_PROVIDER_PRESETS`; shell exports `getShellDomainState` and the `LlmHooks` adapter field; acl exports `llm:generate`. The runtime routes `llm.*` to one registered service and answers every sanctioned request with exactly one `llm.<op>.result`, shaping missing-service and ACL failures as `{ code: 'unsupported' }`. Hosts implement `LlmConnectionHost`; the service enforces schema, handle ownership, consent before submission, duplicate ids, cancellation and deadline races, ordered deltas and safe errors. Advertisement stays binary on the wire while hosts report a third `unconfigured` state until the user adds a connection. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
 
 ## NIP-5D runtime pointers
 
