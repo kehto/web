@@ -1,5 +1,22 @@
 # @kehto/paja
 
+## 0.26.0
+
+### Minor Changes
+
+- fcb5bc9: Add a Language models panel for draft NAP-LLM (napplet/naps PR #134 at `3e10939`): provider presets for the common hosted and local APIs, connection metadata in `localStorage`, API keys either session-only or encrypted with AES-GCM under a PBKDF2-SHA-256 vault password, a chooser for `llm.select`, a configure prompt when nothing compatible exists, and a disclosure consent dialog before every generation. Keys travel only to the connection's base URL. The Interfaces toggle gains a yellow `⚠` unconfigured state next to the existing enabled and disabled states.
+
+### Patch Changes
+
+- Updated dependencies [fcb5bc9]
+- Updated dependencies [fcb5bc9]
+- Updated dependencies [fcb5bc9]
+- Updated dependencies [fcb5bc9]
+  - @kehto/acl@0.20.0
+  - @kehto/runtime@0.27.0
+  - @kehto/services@0.27.0
+  - @kehto/shell@0.26.0
+
 ## 0.25.1
 
 ### Patch Changes
