@@ -240,7 +240,11 @@ function renderNappletAcl(containerId: string, windowId: string, info: { name: s
   ];
   for (const { cap, label, hint } of rows) {
     const toggle = document.createElement('button');
-    const snapshotValue = (aclSnapshot?.capabilities as Partial<Record<AclCapability, boolean>> | undefined)?.[cap];
+    // Like built-in bits, x- decisions are shown independently of the block flag;
+    // an absent decision follows the playground's permissive default.
+    const snapshotValue = aclSnapshot
+      ? (cap.startsWith('x-') ? aclSnapshot.extensions[cap] ?? true : aclSnapshot.capabilities[cap as Capability])
+      : undefined;
     const initialEnabled = snapshotValue ?? adapter.check(windowId, cap);
     applyBtnStyle(toggle, initialEnabled);
     toggle.textContent = label;

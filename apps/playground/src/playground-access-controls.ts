@@ -29,6 +29,8 @@ export interface DemoAclAdapter {
     aggregateHash: string;
     blocked: boolean;
     capabilities: Record<Capability, boolean>;
+    /** Explicit x- extension decisions; absent capabilities follow the permissive default. */
+    extensions: Record<string, boolean>;
   }>;
   /** Synchronous capability check. */
   check(windowId: string, capability: AclCapability): boolean;
@@ -231,6 +233,7 @@ export class PlaygroundAccessControls {
         aggregateHash,
         blocked: entry?.blocked ?? false,
         capabilities,
+        extensions: { ...entry?.extensions },
       });
     }
     return out;
