@@ -176,6 +176,15 @@ test.describe('x-echo in the playground', () => {
     await page.locator('#playground-extension-x-echo-save').click();
     await expect(toggle).toHaveAttribute('data-state', 'supported');
 
+    // Header toggle logs DISABLE/ENABLE system messages; restore it before the rest.
+    const debuggerLog = page.locator('napplet-debugger');
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('data-state', 'disabled');
+    await expect(debuggerLog).toContainText('DISABLE extension x-echo');
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('data-state', 'supported');
+    await expect(debuggerLog).toContainText('ENABLE extension x-echo');
+
     await listenHeard(frame);
     expect(await say(frame, 'hi')).toBe('ok:pg>hi');
     await expect.poll(() => heard(frame)).toEqual(['pg>hi']);
