@@ -16,8 +16,10 @@ pnpm add @kehto/services
 
 ## Published Napplet Compatibility
 
-`@kehto/services` publishes against `@napplet/core` and `@napplet/nap`
-`>=0.32.0 <0.33.0`. The exact installed contracts are core 0.32.0 / nap 0.32.0
+Peers admit `@napplet/core` `>=0.32.0 <0.37.0` and `@napplet/nap`
+`>=0.32.0 <0.36.0`, so the nap 0.35.x line that ships the `llm` subpath (and the
+core 0.36.x line nap 0.35.1 requires) installs without peer conflicts; development
+and tests stay on the baseline 0.32.0 line. The exact installed contracts are core 0.32.0 / nap 0.32.0
 from NAP-INTENT authority `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`,
 napplet/web#199 source `3037200c932488f14f7f369b8583c39c9c16510a` / merge
 `b3f0007867eac109fa4917fac9c285d3b7cc6155`, and Version Packages #198 release
