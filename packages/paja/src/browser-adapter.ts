@@ -15,6 +15,7 @@ import {
   createCountService,
   createCvmService,
   createFsService,
+  createLlmService,
   createIdentityService,
   createKeysService,
   createLinkService,
@@ -63,6 +64,7 @@ import { createPajaBrowserFsBackend } from './browser-fs.js';
 import {
   createPajaDevDmService,
 } from './browser-dev-runtime.js';
+import type { PajaLlmHost } from './browser-llm-connections.js';
 import {
   createPajaRelayConfig,
   createPajaRelayHooks,
@@ -79,67 +81,11 @@ import {
   type PajaRelayBackend,
 } from './browser-relay-runtime.js';
 import { createPajaWorkerRelay } from './browser-worker-relay.js';
-import type {
-  PajaSignerRequestContext,
-  PajaSignerSource,
-} from './browser-signer-consent.js';
+import type { PajaSignerSource } from './browser-signer-consent.js';
 import { createPajaCvmRelayPool, createRuntimeSigner, getRuntimePubkey, createPajaWindowScope, pajaDevelopmentConsentScope, scopePajaService } from './browser-operation-scope.js';
 
-/** Confirmation request emitted before Paja signs, publishes, or uploads. */
-export type PajaConfirmationRequest = (
-  | {
-      readonly action: 'sign' | 'publish';
-      readonly event: NostrEvent | Partial<NostrEvent>;
-      readonly signerContext?: PajaSignerRequestContext;
-    }
-  | {
-      readonly action: 'upload';
-      readonly windowId: string;
-      readonly napplet: { readonly dTag: string; readonly aggregateHash: string };
-      readonly filename?: string;
-      readonly size: number;
-      readonly mimeType?: string;
-      readonly server: string;
-      readonly warning: string;
-    }
-  | {
-      readonly action: 'link';
-      readonly windowId: string;
-      readonly napplet: { readonly dTag: string; readonly aggregateHash: string };
-      readonly url: string;
-      readonly label?: string;
-    }
-  | {
-      readonly action: 'serial' | 'ble';
-      readonly windowId: string;
-      readonly label?: string;
-      readonly details: string;
-    }
-  | {
-      readonly action: 'notify';
-      readonly windowId: string;
-      readonly napplet: { readonly dTag: string; readonly aggregateHash: string };
-      readonly channel?: string;
-    }
-  | {
-      readonly action: 'webrtc';
-      readonly windowId: string;
-      readonly napplet: { readonly dTag: string; readonly aggregateHash: string };
-      readonly scope: string;
-      readonly warning: string;
-    }
-  | {
-      readonly action: 'dm';
-      readonly recipients: readonly string[];
-      readonly content: string;
-      readonly warning: string;
-    }
-  | {
-      readonly action: 'fs';
-      readonly windowId: string;
-      readonly kind: 'file' | 'files' | 'directory' | 'save-file';
-      readonly description: string;
-    }) & { readonly isCurrent?: () => boolean };
+export type { PajaConfirmationRequest } from './browser-confirmation-request.js';
+import type { PajaConfirmationRequest } from './browser-confirmation-request.js';
 
 /** Async-capable host policy callback for user-visible Paja operations. */
 export type PajaConfirmationHandler = (
@@ -550,6 +496,7 @@ function createDevServices(
  * @param notifyOptions - Host-backed notification presentation hooks.
  * @param configOptions - Host-backed scoped persistence and settings UI hooks.
  * @param getExtraResourceServers - Host-owned live extra Blossom lookup origins, appended after defaults; does not select upload destinations.
+ * @param llmHost - NAP-LLM connection, consent and provider host; the `llm` domain is advertised only when supplied.
  * @returns Shell adapter plus a startup promise for asynchronous host probes.
  * @example
  * const adapter = createPajaAdapter(config, getSimulation, onThemeService, onThemeBroadcast, confirmRequest);
@@ -568,6 +515,7 @@ export function createPajaAdapter(
   notifyOptions?: NotifyServiceOptions,
   configOptions?: ConfigServiceOptions,
   getExtraResourceServers: () => readonly string[] = () => [],
+  llmHost?: PajaLlmHost,
 ): PajaShellAdapter {
   const resolveIdentity = (windowId?: string) => getIdentity?.(windowId) ?? {
     dTag: config.window.dTag,
@@ -632,6 +580,9 @@ export function createPajaAdapter(
     signerSource,
   );
   const services = serviceBundle.services;
+  // NAP-LLM is advertised whenever the host wiring exists; configuration state is
+  // reported separately through `llm.isConfigured()` so the panel can show it.
+  if (llmHost && getSimulation().capabilities.domains.llm) services.llm = createLlmService({ host: llmHost });
   const ready = createPajaBrowserFsBackend({
     getIdentity: resolveIdentity,
     userActivation,
@@ -693,6 +644,7 @@ export function createPajaAdapter(
     serial: { isAvailable: () => Object.hasOwn(services, 'serial') },
     ble: { isAvailable: () => Object.hasOwn(services, 'ble') },
     webrtc: { isAvailable: () => Object.hasOwn(services, 'webrtc') },
+    llm: { isAvailable: () => Object.hasOwn(services, 'llm'), isConfigured: () => llmHost?.isConfigured() ?? false },
     crypto: {
       verifyEvent: async (event) => verifyEvent(event as Parameters<typeof verifyEvent>[0]),
     },

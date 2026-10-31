@@ -1419,6 +1419,38 @@ describe('root/snapshot identity handshake', () => {
 });
 
 
+describe('LLM source-bound routing', () => {
+  beforeEach(() => originRegistry.clear());
+  afterEach(() => originRegistry.clear());
+  it('routes llm requests to the registered service and drops them when no service makes the domain live', () => {
+    const frame = makeFakeIframe(); const win = frame as unknown as Window;
+    const handleMessage = vi.fn((_windowId: string, message: { type: string; id?: string }, send: (message: unknown) => void) => {
+      send({ type: `${message.type}.result`, id: message.id, cancelled: false });
+    });
+    originRegistry.register(win, 'llm-frame', { dTag: 'assistant', aggregateHash: 'artifact-hash' });
+    const bridge = createShellBridge({ ...makeTestHooks(), services: { llm: { descriptor: { name: 'llm', version: '1.0.0' }, handleMessage } }, capabilities: { resolveEnvironment: () => ({ domains: ['llm'], services: ['llm'] }) } });
+    bridge.handleMessage({ source: win, origin: 'null', data: { type: 'llm.cancel', id: 'c1', requestId: 'g1' } } as MessageEvent);
+    expect(handleMessage).toHaveBeenCalledOnce();
+    expect(frame.postMessage).toHaveBeenCalledExactlyOnceWith({ type: 'llm.cancel.result', id: 'c1', cancelled: false }, '*');
+    bridge.destroy();
+
+    const fallback = createShellBridge({ ...makeTestHooks(), services: {}, capabilities: { resolveEnvironment: () => ({ domains: ['llm'], services: [] }) } });
+    frame.postMessage.mockClear();
+    fallback.handleMessage({ source: win, origin: 'null', data: { type: 'llm.select', id: 's1' } } as MessageEvent);
+    expect(frame.postMessage).not.toHaveBeenCalled();
+    fallback.destroy();
+  });
+  it('does not route llm when the host environment excludes it', () => {
+    const frame = makeFakeIframe(); const win = frame as unknown as Window;
+    const handleMessage = vi.fn();
+    originRegistry.register(win, 'denied-llm', { dTag: 'assistant', aggregateHash: 'artifact-hash' });
+    const bridge = createShellBridge({ ...makeTestHooks(), services: { llm: { descriptor: { name: 'llm', version: '1.0.0' }, handleMessage } }, capabilities: { disabledDomains: ['llm'] } });
+    bridge.handleMessage({ source: win, origin: 'null', data: { type: 'llm.generate', id: 'g1', request: {} } } as MessageEvent);
+    expect(handleMessage).not.toHaveBeenCalled(); expect(frame.postMessage).not.toHaveBeenCalled();
+    bridge.destroy();
+  });
+});
+
 describe('GAMEPAD source-bound routing', () => {
   beforeEach(() => originRegistry.clear());
   afterEach(() => originRegistry.clear());

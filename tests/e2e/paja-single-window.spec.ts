@@ -101,6 +101,7 @@ test('sidebar accordion preserves controls, frames, drawer preferences and flush
   const input = await page.locator('#paja-resource-servers-input').elementHandle();
   const initial = await page.evaluate(() => ({ srcdoc: document.querySelector('iframe')!.srcdoc, tabs: window.__KEHTO_PAJA__?.getState().tabs }));
   const resources = page.locator('[data-paja-section="resource-servers"]');
+  const llm = page.locator('[data-paja-section="llm"]');
   const messages = page.locator('[data-paja-section="messages"]');
   const events = page.locator('[data-paja-section="events"]');
   const acl = page.locator('[data-paja-section="acl"]');
@@ -110,6 +111,10 @@ test('sidebar accordion preserves controls, frames, drawer preferences and flush
   await expect.poll(() => resources.locator('summary').evaluate((element) => getComputedStyle(element).outlineStyle)).toBe('solid');
   await page.keyboard.press('Space');
   await expect(resources).not.toHaveAttribute('open');
+  await page.keyboard.press('Tab');
+  await expect(llm.locator('summary')).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(llm).not.toHaveAttribute('open');
   await page.keyboard.press('Tab');
   await expect(messages.locator('summary')).toBeFocused();
   await page.keyboard.press('Enter');

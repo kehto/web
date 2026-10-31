@@ -232,6 +232,32 @@ export interface WebrtcHooks {
 }
 
 /**
+ * Host wiring behind the NAP-LLM `llm` domain.
+ *
+ * NAP-LLM support is not binary: a host may have the runtime and service wired
+ * while the user has not yet configured any model connection. `isAvailable()`
+ * decides whether the domain is advertised at all; `isConfigured()` reports
+ * whether a connection exists so host UIs can show an "unconfigured" state and
+ * prompt for setup when a napplet first calls `llm.select`.
+ */
+export interface LlmHooks {
+  /** True when the host can route `llm.*` to a registered service. */
+  isAvailable(): boolean;
+  /** True when at least one model connection is configured. Omitted means configured. */
+  isConfigured?(): boolean;
+}
+
+/**
+ * Host-facing advertisement state of one NAP domain.
+ *
+ * - `supported`: advertised to napplets and ready to serve requests.
+ * - `unconfigured`: advertised, but the host still needs user configuration
+ *   (for example an LLM connection); the first request prompts for setup.
+ * - `disabled`: not advertised; the host disabled it or its backend is not live.
+ */
+export type ShellDomainState = 'supported' | 'unconfigured' | 'disabled';
+
+/**
  * Optional host override for the static shell.init capability handshake.
  *
  * Hosts normally advertise the default Kehto NAP surface. Development hosts may
@@ -409,6 +435,12 @@ export interface ShellAdapter {
    * registers the concrete service via `registerService('webrtc')`.
    */
   webrtc?: WebrtcHooks;
+  /**
+   * Optional NAP-LLM wiring state. When omitted, a registered `llm` service is
+   * advertised as supported; when present, `isAvailable()` gates advertisement
+   * and `isConfigured()` feeds the host's unconfigured indicator.
+   */
+  llm?: LlmHooks;
   /**
    * Optional capability advertisement override. Omitted by production hosts.
    */

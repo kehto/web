@@ -159,7 +159,7 @@ width.
 
 All sections are flush independent native accordions, expanded by default:
 **Pointer** where present, **Interfaces**, **ACL**, **Signer**, **Resource servers**,
-**Messages**, and **Events** last. Enter/Space toggle focused headers; visible focus and chevrons
+**Language models**, **Messages**, and **Events** last. Enter/Space toggle focused headers; visible focus and chevrons
 show their state. Hidden bodies retain controls, drafts and the running app.
 Origin-local `kehto:paja:sidebar-sections:v1` stores validated collapsed booleans,
 independently of whole-drawer visibility and resource settings. Invalid preferences
@@ -209,7 +209,12 @@ The console includes:
   Its scoped-relay hook likewise waits for the backend result and returns
   `false` after denial or transport failure.
 - **Resource servers** — extra Blossom lookup origins with a newline textarea and
-  Save button, immediately before the Messages section (see below).
+  Save button, immediately before the Language models section (see below).
+- **Language models** — draft NAP-LLM connections: provider preset, base URL,
+  model, capability flags and an optional API key that is either session-only or
+  encrypted in a password-protected vault. The Interfaces toggle for `llm` is
+  yellow (`⚠ llm`) while no connection exists; `select()` offers to open this
+  panel and every generation asks for consent. See [Language models](/llm).
 - **Messages** — inbound and outbound envelopes are logged with a text filter,
   including Paja system events such as interface changes, ACL changes, signer
   connection changes, signing/publish confirmations, and visible details for
@@ -374,7 +379,7 @@ is live:
 
 `relay`, `outbox`, `identity`, `storage`, `inc`, `theme`, `keys`, `link`,
 `common`, `lists`, `serial`, `ble`, `webrtc`, `media`, `notify`, `config`,
-`resource`, `cvm`, `upload`, `intent`, `count`, `dm`, and `fs`.
+`resource`, `cvm`, `upload`, `intent`, `count`, `dm`, `fs`, and `llm`.
 
 `shell` and `gamepad` are optional advertised domains. The retained `PAJA_HANDSHAKE_DOMAINS` compatibility export is empty. GAMEPAD uses one host reader and focus-scoped state delivery; native controller access is denied in each frame. See [Controller input](/gamepad).
 

@@ -39,6 +39,7 @@ const CAP_DM_READ        = 1 << 23;   // 8388608 (NAP-DM read/history/subscripti
 const CAP_DM_WRITE       = 1 << 24;   // 16777216 (NAP-DM send)
 const CAP_FS_READ        = 1 << 25;   // 33554432 (NAP-FS discovery/read/watch)
 const CAP_FS_WRITE       = 1 << 26;   // 67108864 (NAP-FS mutations)
+const CAP_LLM_GENERATE   = 1 << 27;   // 134217728 (NAP-LLM user-selected inference)
 
 const CAP_MAP: Record<Capability, number> = {
   'relay:read': CAP_RELAY_READ,
@@ -67,6 +68,7 @@ const CAP_MAP: Record<Capability, number> = {
   'dm:write': CAP_DM_WRITE,
   'fs:read': CAP_FS_READ,
   'fs:write': CAP_FS_WRITE,
+  'llm:generate': CAP_LLM_GENERATE,
 };
 
 const RUNTIME_CAP_ALL = Object.values(CAP_MAP).reduce((bits, bit) => bits | bit, 0);

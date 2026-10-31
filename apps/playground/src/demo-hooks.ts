@@ -48,6 +48,7 @@ import {
   createSerialService,
   createWebrtcService,
   createCvmService,
+  createLlmService,
   type ConfigService,
   type Notification,
   type ThemeService,
@@ -65,6 +66,7 @@ import { DEFAULT_PLAYGROUND_RELAY_SELECTION } from './playground-relay-selection
 import { createPlaygroundWorkerRelayBundle } from './playground-worker-relay.js';
 import { getSigner, getSignerConnectionState } from './signer-connection.js';
 import { createPlaygroundCvmTransport } from './playground-cvm-transport.js';
+import { createPlaygroundLlmHost } from './playground-llm-host.js';
 
 type NappletAclInfo = {
   pubkey?: string;
@@ -190,6 +192,7 @@ export function createDemoHooks(
     config: configBundle.handler,
     resource: resourceHandler,
     cvm: cvmService,
+    llm: createLlmService({ host: createPlaygroundLlmHost() }),
   };
 
   notificationServiceHandler = notificationService;

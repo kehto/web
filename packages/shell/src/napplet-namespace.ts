@@ -1710,6 +1710,59 @@ function nappletNamespacePrelude(
     };
   }
 
+  // NAP-LLM (napplet/naps PR #134): results carry `{ code, message }` errors on
+  // the `.result` wire, deltas are id-less pushes keyed by requestId, and no
+  // local timeout applies because selection and consent wait on the user while
+  // the runtime owns the generation deadline.
+  function makeLlm(): Record<string, unknown> {
+    type Failure = { code: string; message: string };
+    type GenerateOptions = { signal?: AbortSignal; onDelta?: (delta: { requestId: string; sequence: number; text: string }) => void };
+    const asFailure = (value: unknown): Failure | null => {
+      if (!value || typeof value !== 'object') return null;
+      const { code, message } = value as Record<string, unknown>;
+      return typeof code === 'string' && typeof message === 'string' ? { code, message } : null;
+    };
+    const failure = (entry: Failure): Error => Object.assign(new Error(entry.message), { code: entry.code });
+    function call<T>(type: string, payload: Record<string, unknown>, field: string, options: GenerateOptions = {}): Promise<T> & { readonly requestId: string } {
+      const requestId = id();
+      const promise = new Promise<T>((resolve, reject) => {
+        let nextSequence = 0;
+        const onAbort = (): void => { post({ type: 'llm.cancel', id: id(), requestId }); };
+        const off = listen((event) => {
+          if (!isParentMessage(event)) return;
+          const msg = event.data as RuntimeMessage;
+          if (typeof msg !== 'object' || msg === null) return;
+          if (type === 'llm.generate' && msg.type === 'llm.delta' && msg.requestId === requestId) {
+            if (msg.sequence !== nextSequence || typeof msg.text !== 'string') return;
+            nextSequence += 1;
+            options.onDelta?.({ requestId, sequence: msg.sequence, text: msg.text });
+            return;
+          }
+          if (msg.type !== `${type}.result` || msg.id !== requestId) return;
+          off();
+          options.signal?.removeEventListener('abort', onAbort);
+          const error = asFailure(msg.error);
+          if (error) { reject(failure(error)); return; }
+          if (!Object.prototype.hasOwnProperty.call(msg, field)) {
+            reject(failure({ code: 'provider-error', message: `${type}.result missing ${field}` }));
+            return;
+          }
+          resolve(msg[field] as T);
+        });
+        post({ type, id: requestId, ...payload });
+        if (options.signal?.aborted) onAbort();
+        else options.signal?.addEventListener('abort', onAbort, { once: true });
+      });
+      return Object.assign(promise, { requestId });
+    }
+    return {
+      select: (requirements?: unknown) => call('llm.select', requirements === undefined ? {} : { requirements }, 'model'),
+      describe: (handle: unknown) => call('llm.describe', { handle }, 'model'),
+      generate: (request: unknown, options?: GenerateOptions) => call('llm.generate', { request }, 'result', options ?? {}),
+      cancel: (requestId: unknown) => call('llm.cancel', { requestId }, 'cancelled'),
+    };
+  }
+
   const intentDelivery = allowed.has('intent') ? makeIntentDelivery() : undefined;
   const shell = allowed.has('shell') ? makeShell() : undefined;
   let gamepad: Record<string, unknown> | undefined;
@@ -1779,6 +1832,7 @@ function nappletNamespacePrelude(
       case 'serial': return makeSerial();
       case 'dm': return makeDm();
       case 'fs': return makeFs();
+      case 'llm': return makeLlm();
       default: return {};
     }
   }

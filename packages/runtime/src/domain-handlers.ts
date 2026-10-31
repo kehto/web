@@ -2,6 +2,7 @@ import type { NappletMessage } from '@napplet/core';
 import {
   createCanonicalDomainResult,
   createIntentServiceUnavailableResult,
+  createLlmErrorResult,
 } from './domain-results.js';
 
 import type { AclStateContainer } from './acl-state.js';
@@ -39,6 +40,7 @@ export type RuntimeDomainHandlers = {
   webrtc: DomainHandler;
   dm: DomainHandler;
   fs: DomainHandler;
+  llm: DomainHandler;
 };
 
 export function createRuntimeDomainHandlers(context: RuntimeDomainContext): RuntimeDomainHandlers {
@@ -63,6 +65,7 @@ export function createRuntimeDomainHandlers(context: RuntimeDomainContext): Runt
     webrtc: (windowId, msg) => handleServiceOnlyMessage(context, 'webrtc', windowId, msg),
     dm: (windowId, msg) => handleServiceOnlyMessage(context, 'dm', windowId, msg),
     fs: (windowId, msg) => handleServiceOnlyMessage(context, 'fs', windowId, msg),
+    llm: (windowId, msg) => handleLlmMessage(context, windowId, msg),
   };
 }
 
@@ -172,6 +175,21 @@ function handleThemeMessage(context: RuntimeDomainContext, windowId: string, msg
   }
   const fallback = createCanonicalDomainResult(msg);
   if (fallback) hooks.sendToNapplet(windowId, fallback);
+}
+
+/**
+ * NAP-LLM (napplet/naps PR #134) routes to a registered `llm` service. Without
+ * one, requests fail explicitly with `unsupported` instead of hanging: the
+ * domain was advertised, so the napplet is owed exactly one terminal result.
+ */
+function handleLlmMessage(context: RuntimeDomainContext, windowId: string, msg: NappletMessage): void {
+  const service = context.serviceRegistry['llm'];
+  if (service) {
+    service.handleMessage(windowId, msg, (resp: NappletMessage) => context.hooks.sendToNapplet(windowId, resp));
+    return;
+  }
+  const result = createLlmErrorResult(msg, 'unsupported', 'No language model service is registered by this shell.');
+  if (result) context.hooks.sendToNapplet(windowId, result);
 }
 
 function handleServiceOnlyMessage(

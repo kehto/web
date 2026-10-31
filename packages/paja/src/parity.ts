@@ -25,6 +25,7 @@ export const PAJA_UPSTREAM_WEB_DOMAINS = [
   'keys',
   'link',
   'lists',
+  'llm',
   'media',
   'notify',
   'outbox',
@@ -75,6 +76,7 @@ export const PAJA_ADVERTISED_DOMAINS = [
   'count',
   'dm',
   'fs',
+  'llm',
 ] as const;
 
 /** Service names Paja expects the host runtime to provide. */

@@ -14,6 +14,7 @@ import {
   type PajaDevtoolsState,
 } from './browser-devtools.js';
 import { createPajaRuntimeHostConfig } from './options.js';
+import { normalizePajaSimulation } from './simulation.js';
 
 const originalRegistryMethods = {
   getIframeWindow: originRegistry.getIframeWindow,
@@ -148,6 +149,53 @@ describe('Paja message-log redaction', () => {
     });
     const relay = { type: 'relay.eose', subId: 'sub-1' };
     expect(redactPajaMessageForLog(relay)).toBe(relay);
+  });
+});
+
+describe('Paja interface toggles', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('paints an advertised but unconfigured domain as a warning state', () => {
+    const config = createPajaRuntimeHostConfig();
+    const container = new FakeAclContainer();
+    vi.stubGlobal('document', {
+      getElementById: (id: string) => id === 'interface-toggles' ? container : null,
+      createElement: (tag: string) => {
+        if (tag !== 'button') throw new Error(`Unexpected element: ${tag}`);
+        return new FakeAclButton();
+      },
+    });
+    const state: PajaDevtoolsState = {
+      config,
+      simulation: config.simulation,
+      domainState: (domain) => domain === 'llm' ? 'unconfigured' : 'supported',
+      signer: { method: 'none', status: 'disconnected', pubkey: null, relay: null, error: null },
+      signerConsentCount: 0,
+      resolvedTarget: null,
+      messageFilter: '',
+      messageLog: [],
+      relayEventCounts: createPajaRelayEventCounter(),
+      setDomainEnabled: vi.fn(),
+      setAclCapability: vi.fn(),
+      useDevSigner: vi.fn(),
+      connectNip07: vi.fn(async () => {}),
+      connectBunker: vi.fn(async () => {}),
+      clearSignerConsent: vi.fn(),
+    };
+    renderPajaDevtools(state, { bridge: null, devSignerPubkey: '' });
+    const toggle = (domain: string) => container.children.find((button) => button.dataset.interfaceDomain === domain)!;
+    expect(toggle('llm').dataset).toMatchObject({ enabled: 'true', state: 'unconfigured' });
+    expect(toggle('llm').textContent).toBe('\u26a0 llm');
+    expect(toggle('llm').title).toMatch(/Language models/);
+    expect(toggle('relay').dataset).toMatchObject({ enabled: 'true', state: 'supported' });
+    expect(toggle('relay').textContent).toBe('relay');
+    toggle('llm').click();
+    expect(state.setDomainEnabled).toHaveBeenCalledWith('llm', false);
+
+    const disabled = normalizePajaSimulation({ relay: { mode: 'disabled' }, capabilities: { domains: { llm: false } } });
+    renderPajaDevtools({ ...state, simulation: disabled }, { bridge: null, devSignerPubkey: '' });
+    expect(toggle('llm').dataset).toMatchObject({ enabled: 'false', state: 'disabled' });
+    expect(toggle('llm').textContent).toBe('llm');
   });
 });
 
