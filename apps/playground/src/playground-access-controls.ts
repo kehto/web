@@ -1,4 +1,5 @@
 import type {
+  AclCapability,
   AclCheckEvent,
   Capability,
   ServiceHandler,
@@ -12,9 +13,9 @@ const NOTIFICATION_SERVICE_TARGETS = Object.freeze(['notifications', 'notify'] a
 
 export interface DemoAclAdapter {
   /** Grant a capability on a napplet by windowId. */
-  grant(windowId: string, capability: Capability): void;
+  grant(windowId: string, capability: AclCapability): void;
   /** Revoke a capability on a napplet by windowId. */
-  revoke(windowId: string, capability: Capability): void;
+  revoke(windowId: string, capability: AclCapability): void;
   /** Block a napplet by windowId. */
   block(windowId: string): void;
   /** Unblock a napplet by windowId. */
@@ -30,7 +31,7 @@ export interface DemoAclAdapter {
     capabilities: Record<Capability, boolean>;
   }>;
   /** Synchronous capability check. */
-  check(windowId: string, capability: Capability): boolean;
+  check(windowId: string, capability: AclCapability): boolean;
   /** Subscribe to ACL audit events. */
   onCheck(listener: (event: AclCheckEvent, windowId: string, nappletName: string) => void): () => void;
 }
@@ -104,7 +105,7 @@ export class PlaygroundAccessControls {
     }
   }
 
-  toggleCapability(windowId: string, capability: Capability, enabled: boolean): void {
+  toggleCapability(windowId: string, capability: AclCapability, enabled: boolean): void {
     const info = this.host.getNapplets().get(windowId);
     if (!info) {
       console.warn('[acl] toggleCapability: no info for', windowId);
@@ -235,7 +236,7 @@ export class PlaygroundAccessControls {
     return out;
   }
 
-  private check(windowId: string, capability: Capability): boolean {
+  private check(windowId: string, capability: AclCapability): boolean {
     const info = this.host.getNapplets().get(windowId);
     if (!info?.identityBound) return false;
     return this.host.getRelay().runtime.aclState.check(

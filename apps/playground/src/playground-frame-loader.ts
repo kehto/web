@@ -1,3 +1,4 @@
+import { getPlaygroundExtensionBindings } from './playground-extensions.js';
 import {
   denyNappletControllerAccess,
   prepareNappletSrcdoc,
@@ -141,6 +142,7 @@ export async function loadPlaygroundNapplet(
   const origins = STATIC_ORIGIN_ALLOWLIST.get(dTag) ?? [];
   iframe.srcdoc = prepareNappletSrcdoc(resolved.indexHtml, {
     domains: environment.capabilities.domains,
+    extensions: getPlaygroundExtensionBindings(environment.capabilities.domains),
     csp: { connectOrigins: origins },
   });
 

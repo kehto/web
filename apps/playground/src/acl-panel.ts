@@ -8,7 +8,8 @@
 import { getNapplets, getAclAdapter } from './shell-host.js';
 import { refreshPolicyModal } from './acl-modal.js';
 import type { NappletDebugger } from './debugger.js';
-import type { Capability } from '@kehto/shell';
+import type { AclCapability, Capability } from '@kehto/shell';
+import { getPlaygroundExtensionCapabilities } from './playground-extensions.js';
 
 export const DEMO_CAPABILITY_LABELS: Record<Capability, string> = {
   // NAP-DM is absent from `napplet/naps` at c5cd06f; NAAT-DM only defines
@@ -233,12 +234,17 @@ function renderNappletAcl(containerId: string, windowId: string, info: { name: s
   const adapter = getAclAdapter();
   const aclSnapshot = adapter.snapshot().find((entry) => entry.windowId === windowId);
 
-  for (const { cap, label } of DEMO_CAPABILITIES) {
+  const rows: { cap: AclCapability; label: string; hint: string }[] = [
+    ...DEMO_CAPABILITIES.map(({ cap, label }) => ({ cap, label, hint: DEMO_CAPABILITY_HINTS[cap] })),
+    ...getPlaygroundExtensionCapabilities(),
+  ];
+  for (const { cap, label, hint } of rows) {
     const toggle = document.createElement('button');
-    const initialEnabled = aclSnapshot?.capabilities[cap] ?? adapter.check(windowId, cap);
+    const snapshotValue = (aclSnapshot?.capabilities as Partial<Record<AclCapability, boolean>> | undefined)?.[cap];
+    const initialEnabled = snapshotValue ?? adapter.check(windowId, cap);
     applyBtnStyle(toggle, initialEnabled);
     toggle.textContent = label;
-    toggle.title = `${cap} (${DEMO_CAPABILITY_HINTS[cap]}) — click to ${initialEnabled ? 'revoke' : 'grant'}`;
+    toggle.title = `${cap} (${hint}) — click to ${initialEnabled ? 'revoke' : 'grant'}`;
     toggle.dataset.aclCapability = cap;
     toggle.dataset.enabled = String(initialEnabled);
 
@@ -247,12 +253,12 @@ function renderNappletAcl(containerId: string, windowId: string, info: { name: s
       const newState = !enabled;
       toggle.dataset.enabled = String(newState);
       applyBtnStyle(toggle, newState);
-      toggle.title = `${cap} (${DEMO_CAPABILITY_HINTS[cap]}) — click to ${newState ? 'revoke' : 'grant'}`;
+      toggle.title = `${cap} (${hint}) — click to ${newState ? 'revoke' : 'grant'}`;
 
       if (newState) adapter.grant(windowId, cap);
       else adapter.revoke(windowId, cap);
       debugger_?.addSystemMessage(
-        `${newState ? 'GRANT' : 'REVOKE'} ${cap} (${DEMO_CAPABILITY_HINTS[cap]}) on ${info.name}`
+        `${newState ? 'GRANT' : 'REVOKE'} ${cap} (${hint}) on ${info.name}`
       );
       updateAclSummary(panel);
       // Sync policy modal if open

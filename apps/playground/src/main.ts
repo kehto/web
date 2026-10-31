@@ -28,6 +28,13 @@ import { PlaygroundIntentController } from './playground-intent-controller.js';
 import { initThemeSwitcherHost, buildHostRelaySubscribe } from './theme-switcher-host.js';
 import type { Capability } from '@kehto/shell';
 import { createConsentModal } from './consent-modal.js';
+import { getPlaygroundShellAdapter } from './demo-hooks.js';
+import {
+  getPlaygroundExtensions,
+  renderPlaygroundExtensionControls,
+  setPlaygroundExtensionDenied,
+} from './playground-extensions.js';
+import { resolveShellExtensions } from '@kehto/shell';
 import { classifyTappedMessagePath, type NappletDebugger } from './debugger.js';
 import {
   renderAclPanels,
@@ -103,6 +110,14 @@ createConsentModal().registerWith(relay, (request) => {
   setTimeout(() => request.resolve(true), 500);
 });
 initRelayActivityPanel(getPlaygroundRelayActivity);
+
+const extensionControls = document.getElementById('playground-extension-controls');
+const playgroundAdapter = getPlaygroundShellAdapter();
+if (extensionControls && playgroundAdapter) {
+  renderPlaygroundExtensionControls(extensionControls, playgroundAdapter, (domain, enabled) => {
+    (document.getElementById('debugger') as NappletDebugger | null)?.addSystemMessage(`${enabled ? 'ENABLE' : 'DISABLE'} extension ${domain} (applies to newly loaded napplets)`);
+  });
+}
 
 const topology = buildDemoTopology(getDemoTopologyInputs());
 
@@ -450,6 +465,24 @@ export function setSelectedNode(id: string | null): void {
   selectedNodeId = id;
   setSelectedNodeId(id);
 }
+
+// Test/debug hook for the experimental-extension Playwright spec: firewall
+// policy, per-napplet extension denial, and the shell's collision policy.
+(window as Window & { __kehtoPlaygroundExtensions__?: unknown }).__kehtoPlaygroundExtensions__ = Object.freeze({
+  setFirewallPolicy: (dTag: string, policy: 'allow' | 'deny') => relay.runtime.firewallState.setPolicy(dTag, policy),
+  setDenied: (domain: string, dTag: string, denied: boolean) => setPlaygroundExtensionDenied(domain, dTag, denied),
+  declare(domain: string): string | null {
+    const adapter = getPlaygroundShellAdapter();
+    try {
+      resolveShellExtensions([...getPlaygroundExtensions(), {
+        domain, service: { descriptor: { name: domain, version: '0' }, handleMessage() {} },
+      }], Object.keys(adapter?.services ?? {}));
+      return null;
+    } catch (error) {
+      return error instanceof Error ? error.message : String(error);
+    }
+  },
+});
 
 (window as Window & { __clearAclEvents__?: () => void }).__clearAclEvents__ = (): void => {
   const w = window as Window & { __aclEvents__?: Array<unknown> };

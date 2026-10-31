@@ -1,4 +1,9 @@
 import {
+  getDisabledPlaygroundExtensionDomains,
+  getPlaygroundExtensions,
+  resolvePlaygroundExtensionEnvironment,
+} from './playground-extensions.js';
+import {
   originRegistry,
   buildShellCapabilities,
   resolveShellEnvironment,
@@ -308,10 +313,13 @@ function createDemoShellAdapter(
       getSigner,
     },
     services,
+    // Experimental x- NAPs use the same public hook as any downstream host.
+    extensions: getPlaygroundExtensions(),
     capabilities: {
       get disabledDomains(): readonly string[] {
-        return context.getDisabledDomains();
+        return [...context.getDisabledDomains(), ...getDisabledPlaygroundExtensionDomains()];
       },
+      resolveEnvironment: (identity, available) => resolvePlaygroundExtensionEnvironment(identity.dTag, available),
     },
     config: { getNappUpdateBehavior: () => 'auto-grant' },
     hotkeys: { executeHotkeyFromForward: () => {} },
@@ -603,6 +611,15 @@ export function getMissingRequiredNaps(
  * @param identity - The frame identity registered before its srcdoc executes.
  * @returns A host-resolved snapshot of the frame's live, granted environment.
  */
+/**
+ * Return the live demo ShellAdapter, or null before boot.
+ *
+ * @returns The adapter created by createDemoHooks.
+ */
+export function getPlaygroundShellAdapter(): ShellAdapter | null {
+  return shellAdapter;
+}
+
 export function getPlaygroundShellEnvironment(identity: OriginIdentity) {
   if (!shellAdapter) throw new Error('playground shell hooks are not initialized');
   return resolveShellEnvironment(shellAdapter, identity);
