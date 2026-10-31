@@ -257,3 +257,20 @@ _Depth: deep_
 
 Gates after resolution: build 32/32, type-check 17/17, unit 2535 passed, docs:check OK, aislop 95 (5 rows,
 equal to main), Chromium experimental-nap, nip5d-contract-conformance, paja-llm, shell-csp 18/18.
+
+## Info resolution (261031-k14)
+
+| Finding | Resolution | Regression |
+|---|---|---|
+| IN-01 sanitize result not frozen | `sanitizeExtensionDecisions` returns `Object.freeze`d record; grant/revoke still spread into new state | `packages/acl/src/extensions.test.ts` › `returns a frozen record from sanitizeExtensionDecisions (IN-01)` |
+| IN-02 invalid capability strings allowed under permissive | `AclStateContainer.check` denies strings that are neither built-in nor valid `x-` capabilities; `grant`/`revoke` ignore them (no entry, no mutation) | `packages/runtime/src/acl-state.test.ts` › `denies and ignores strings that are neither built-in nor extension capabilities (IN-02)`; `packages/runtime/src/x-extension-hardening.test.ts` › `hasCapability denies non-capability strings under the permissive default` |
+| IN-03 playground localStorage unsanitized | `sanitizeStoredExtensionState` keeps string values, string d tags, string-array `disabled` | `tests/unit/playground-experimental-nap-hardening.test.ts` › `keeps only string values, string d tags and string disabled domains (IN-03)`, `ignores corrupt stored state at module load (IN-03)` |
+| IN-04 hard-coded permissive x- toggle | explicit decision, else `adapter.defaultCheck(cap)` (ACL default policy, block-independent) | `tests/unit/playground-experimental-nap-hardening.test.ts` › `reads x- toggles from explicit decisions, else the default policy (IN-04)`; `tests/e2e/playground-usability-controls.spec.ts` |
+| IN-05 test global in production | `__kehtoPlaygroundExtensions__` only in dev or with `?kehto-test`; e2e opts in | `tests/unit/playground-experimental-nap-hardening.test.ts` › `enables the extension test hook only in dev or with ?kehto-test (IN-05)`; `tests/e2e/experimental-nap.spec.ts` › `keeps the extension test hook off without ?kehto-test (IN-05)` |
+| IN-06 Paja route leaks paths, ignores queries | pathname match; unreadable module answers generic 404 `Not found` | `tests/unit/experimental-nap.test.ts` › `matches extension routes on the pathname and answers a generic 404 for an unreadable module (IN-06)` |
+| IN-07 config `settings` served unauthenticated | documented "No secrets in config `settings`" (how-to, Paja docs/README, skill); served behavior kept | `tests/unit/experimental-nap-skill.test.ts` › `warns against secrets in Paja config settings (IN-07)` |
+| IN-08 migration revives revocations | deny wins for explicit `x-` decisions in `mergeExtensionDecisions`/`migrateAclState`; documented | `packages/acl/src/extensions.test.ts` › `lets an explicit revocation win when migrating legacy keys (IN-08)` |
+| IN-09 kit grammar / payload id | kit uses the `@kehto/acl` action grammar (TypeError otherwise); `kit.request` always generates the id | `packages/shell/src/shell-extensions.test.ts` › `accepts only acl action names and always generates the request id (IN-09)` |
+
+napplet/naps master re-checked at `43cb3a4e855570ec4b90b9cc05f0c721e5ad0aab` (unchanged); the `x-` policy remains a
+Kehto spec-gap policy, and no registry NAP wire message changed.
