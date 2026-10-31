@@ -41,7 +41,7 @@ export interface DemoAclAdapter {
    * @returns True when the default policy allows the capability.
    * @example
    * ```ts
-   * adapter.defaultCheck('x-echo:send'); // true under the permissive default
+   * adapter.defaultCheck('x-echo:send'); // true when the ACL default policy is permissive
    * ```
    */
   defaultCheck(capability: AclCapability): boolean;

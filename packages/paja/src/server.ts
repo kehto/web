@@ -129,12 +129,10 @@ export async function startPajaServer(input: PajaServerOptions): Promise<PajaSer
 
 const NOT_FOUND_HEADERS = { 'content-type': 'text/plain; charset=utf-8' };
 
-function requestPathname(requestUrl: string): string | undefined {
-  try {
-    return new URL(requestUrl, 'http://paja.invalid').pathname;
-  } catch {
-    return undefined;
-  }
+/** The request-target path without its query string or fragment. */
+function requestPathname(requestUrl: string): string {
+  const end = requestUrl.search(/[?#]/);
+  return end === -1 ? requestUrl : requestUrl.slice(0, end);
 }
 
 /**
@@ -149,7 +147,7 @@ function serveExtensionModule(
   response: HttpResponse,
 ): boolean {
   const pathname = requestPathname(requestUrl);
-  const index = pathname === undefined ? -1 : extensions.findIndex((_entry, i) => pathname === pajaExtensionUrl(i));
+  const index = extensions.findIndex((_entry, i) => pathname === pajaExtensionUrl(i));
   if (index === -1) return false;
   let source: string;
   try {
