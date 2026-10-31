@@ -6,6 +6,35 @@ coverage. This register records both implemented safeguards and existing debt;
 below identifies the package responsible for the implementation and its tests.
 No removal date is implied by an old source comment.
 
+## Frame environment widening — shell
+
+Identifier: `KEHTO_COMPAT_SHELL_ENV_OVERRIDE`. Before `ShellAdapter.extensions`,
+the only way to expose a custom domain to a browser frame was to call
+`originRegistry.setEnvironment(win, environment)` with domains outside the live
+shell environment. That path still works unchanged, but it is superseded for
+experimental domains: declare an `x-` domain with `ShellAdapter.extensions`
+instead (see [Build an experimental NAP](./how-tos/experimental-nap.md)).
+
+Warning site: `packages/shell/src/shell-ready.ts` (`warnOnEnvironmentWidening`)
+emits one `console.warn` per page lifetime, prefixed
+`[KEHTO_COMPAT_SHELL_ENV_OVERRIDE]`. It fires only when a stored frame
+environment grants domains the live environment does not. The warning names the
+replacement and reports a count, not the domain names or any payload. Narrowing
+overrides, such as Paja and the playground storing their resolved snapshot, stay
+quiet, and so does `ShellAdapter.extensions`.
+
+Regression tests: `packages/shell/src/shell-extensions.test.ts` covers the
+retained widening behavior, the warning's identifier and text, and its
+once-per-page frequency, plus the quiet narrowing and extension paths.
+`shell-environment-lifetime.test.ts` keeps the source-lifetime guarantees.
+
+Retained because external hosts may rely on the exported registry method, and
+because exact per-frame snapshots are still a legitimate narrowing tool. Removal
+prerequisites: supported consumers move custom domains to
+`ShellAdapter.extensions`; a release announces that `setEnvironment` will
+intersect with the live environment; then widening is removed in a minor (0.x)
+release with a negative test, keeping this entry with the removal PR/release.
+
 ## ACL principal fields — runtime
 
 Identifier: `ACL_ENTRY_PRINCIPAL`. ACL lookup/listing now return required `dTag`

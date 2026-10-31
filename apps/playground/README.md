@@ -179,6 +179,15 @@ Capability list (active in v1.4):
 
 Default ACL state on demo boot: all capabilities ungranted. The demo UI + Playwright specs grant capabilities explicitly per test scenario.
 
+## Experimental extension
+
+The playground hosts the toy `x-echo` NAP through `ShellAdapter.extensions`
+(`src/playground-extensions.ts`; `src/extensions/x-echo.js` is byte-identical to
+`tests/fixtures/experimental-nap/x-echo.js`). The header shows its tri-state
+toggle and prefix setting, ACL panels list `x-echo:send` and `x-echo:listen`, and
+per-napplet denial runs through `capabilities.resolveEnvironment`. See
+[Build an experimental NAP](../../docs/how-tos/experimental-nap.md).
+
 ## Host Hooks
 
 A demo napplet that needs E2E capability setup without UI click-through can install a scoped `window.__grant<Capability>__()` hook during `bootShell()`: look up the target napplet's windowId from the napplets Map, confirm the napplet is identity-bound, then call `relay.runtime.aclState.grant(pubkey, dTag, hash, cap)`. The Playwright spec then invokes the hook after gating on the napplet's status sentinel.

@@ -6,6 +6,7 @@ How-tos are focused recipes for common host and docs tasks.
 |------|------|
 | Grant a capability | [Grant a capability](./grant-capability.md) |
 | Register a service | [Register a service](./register-service.md) |
+| Build an experimental `x-` NAP | [Build an experimental NAP](./experimental-nap.md) |
 | Handle unsupported `requires` | [Handle unsupported requires](./unsupported-requires.md) |
 | Add a reference service | [Add a reference service](./add-reference-service.md) |
 | Start with Paja | [Paja getting started](./paja-getting-started.md) |

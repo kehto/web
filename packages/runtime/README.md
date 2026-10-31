@@ -347,3 +347,11 @@ This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.co
 ## LLM integration
 
 This non-normative guidance defers to the living [NAP-LLM](https://github.com/napplet/naps/pull/134) (checked at `3e10939`). Services export `createLlmService`, `LlmServiceError`, the provider mappers and `LLM_PROVIDER_PRESETS`; shell exports `getShellDomainState` and the `LlmHooks` adapter field; acl exports `llm:generate`. The runtime routes `llm.*` to one registered service and answers every sanctioned request with exactly one `llm.<op>.result`, shaping missing-service and ACL failures as `{ code: 'unsupported' }`. Hosts implement `LlmConnectionHost`; the service enforces schema, handle ownership, consent before submission, duplicate ids, cancellation and deadline races, ordered deltas and safe errors. Advertisement stays binary on the wire while hosts report a third `unconfigured` state until the user adds a connection. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
+
+## Experimental x- domains
+
+`ServiceHandler.messageCapabilities` accepts the handler's own
+`x-<domain>:<action>` capabilities for `x-` domains, and `pushCapabilities`
+declares host-initiated types sent through the handler's scoped
+`sendToEligibleNapplet` after session, domain-grant, block, ACL and firewall
+checks. See [Build an experimental NAP](../../docs/how-tos/experimental-nap.md).

@@ -324,3 +324,12 @@ This is a supported platform capability choice, not a deprecated caller API.
 Both standard Web Crypto paths remain quiet. Source-bound identity and optional
 shell readiness are unchanged (NAP-SHELL at `napplet/naps`
 `1e1046bcadabbc552804f6d3354f565184f9fefb`).
+
+## Experimental NAPs
+
+Declare experimental `x-` domains with `ShellAdapter.extensions` (validated by
+`defineShellExtension`). They are advertised, granted, routed, narrowed by
+`resolveEnvironment` and reported by `getShellDomainState` like built-ins. Pass
+`getShellExtensionBindings(hooks.extensions, domains)` to the prelude's
+`extensions` option. The package also ships the `kehto-experimental-nap` agent
+skill under `skills/`. See [Build an experimental NAP](../../docs/how-tos/experimental-nap.md).

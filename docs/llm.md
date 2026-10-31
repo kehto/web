@@ -39,6 +39,15 @@ Keys are optional to remember. A remembered key is encrypted before it touches s
 
 Anthropic has no native JSON mode; Kehto appends a JSON-object instruction to the system prompt and still validates the completed text as a JSON object. Anthropic and Gemini reject images in system messages, and Anthropic requires the first turn to be the user's; both are reported as `unsupported` before any request is built.
 
+## In-tree NAP vs out-of-tree experiment
+
+NAP-LLM is an **in-tree** NAP: its domain comes from an upstream draft, so it
+touches every kehto layer (ACL bit, runtime handler, services, shell prelude,
+Paja, playground). An experiment that has no upstream spec yet does not need
+any of that. Declare an `x-` domain through `ShellAdapter.extensions` or Paja
+`extensions` instead. It reuses the same tri-state and unconfigured indicator
+without changing a kehto package. See [Build an experimental NAP](./how-tos/experimental-nap.md).
+
 ## Host checklist
 
 1. Implement `LlmConnectionHost`; throw `new LlmServiceError('unsupported', …)` when no compatible connection exists and return `null` when the user declines.

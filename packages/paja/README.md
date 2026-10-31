@@ -611,3 +611,11 @@ collapsible player with transport, seek, volume, and close controls. It also
 streams live HTTPS MP3/AAC radio without awaiting EOF and displays napplet-owned
 sessions. See [Media playback](../../docs/media.md) for
 source support, lifecycle rules, and canonical API examples.
+
+## Experimental extensions
+
+List experimental `x-` NAP modules in the config's `extensions` (paths relative
+to the config). Each module default-exports `(context) => ShellExtension`.
+Paja shows them in Interfaces (tri-state), ACL and an Extensions settings
+section, and logs `paja.extension.*` messages. See
+[Build an experimental NAP](../../docs/how-tos/experimental-nap.md).
