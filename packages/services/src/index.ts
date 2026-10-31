@@ -325,6 +325,7 @@ export type {
   LlmConnection,
   LlmConnectionHost,
   LlmGenerateHooks,
+  LlmPromptOptions,
   LlmRequestContext,
   LlmService,
   LlmServiceOptions,

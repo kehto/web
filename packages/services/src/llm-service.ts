@@ -52,6 +52,18 @@ export interface LlmRequestContext {
   readonly windowId: string;
 }
 
+/**
+ * Lifetime of one host prompt (chooser or consent dialog).
+ *
+ * `signal` aborts only when the service settles the request without the host's
+ * answer: cancellation, deadline, handle invalidation or eviction, window
+ * revocation or destruction, or service unregistration. Close or withdraw the
+ * prompt when it aborts; the service ignores any later answer.
+ */
+export interface LlmPromptOptions {
+  readonly signal: AbortSignal;
+}
+
 /** Hooks a provider call receives from the service. */
 export interface LlmGenerateHooks {
   /** Aborted on cancellation, deadline, revocation or endpoint destruction. */
@@ -79,11 +91,15 @@ export interface LlmConnectionHost {
    * when the user declines (`user-cancelled`). Throw
    * `new LlmServiceError('unsupported', …)` when no compatible connection exists.
    */
-  select(context: LlmRequestContext, requirements: LlmRequirements): Promise<LlmConnection | null> | LlmConnection | null;
+  select(context: LlmRequestContext, requirements: LlmRequirements, options?: LlmPromptOptions): Promise<LlmConnection | null> | LlmConnection | null;
   /** Revalidate a connection by host id; `null` when it no longer exists. */
   describe(context: LlmRequestContext, connectionId: string): Promise<LlmConnection | null> | LlmConnection | null;
-  /** Obtain disclosure consent for one generation before any prompt content leaves the runtime. */
-  authorize(context: LlmRequestContext, connection: LlmConnection, request: LlmGenerationRequest): Promise<boolean> | boolean;
+  /**
+   * Obtain disclosure consent for one generation before any prompt content leaves
+   * the runtime. `options.signal` aborts when the generation settles while the
+   * prompt is still open.
+   */
+  authorize(context: LlmRequestContext, connection: LlmConnection, request: LlmGenerationRequest, options?: LlmPromptOptions): Promise<boolean> | boolean;
   /** Perform the provider request. Throw `LlmServiceError` for typed failures; anything else becomes `provider-error`. */
   generate(
     context: LlmRequestContext,
@@ -105,6 +121,11 @@ export interface LlmServiceOptions {
   maxConcurrentPerWindow?: number;
   /** Serialized request size ceiling in UTF-16 code units. Default 4 MiB. */
   maxRequestChars?: number;
+  /**
+   * Live model handles kept per window. Default 32. Selecting beyond the bound
+   * evicts the least recently used handle, which then answers `selection-expired`.
+   */
+  maxHandlesPerWindow?: number;
   /** Opaque handle factory; defaults to `crypto.randomUUID` with a counter fallback. */
   createHandle?: () => string;
 }
@@ -123,6 +144,8 @@ type Send = (message: NappletMessage) => void;
 type HandleEntry = { connectionId: string; snapshot: LlmConnection };
 type ActiveGeneration = {
   readonly controller: AbortController;
+  readonly handle: string;
+  awaitingConsent: boolean;
   readonly send: Send;
   readonly format: 'text' | 'json';
   readonly epoch: number;
@@ -130,14 +153,22 @@ type ActiveGeneration = {
   settled: boolean;
   timer: ReturnType<typeof setTimeout> | undefined;
 };
+type PendingSelect = {
+  readonly controller: AbortController;
+  readonly id: string;
+  readonly send: Send;
+  done: boolean;
+};
 type ServiceState = {
   readonly host: LlmConnectionHost;
   readonly deadlineMs: number;
   readonly maxConcurrent: number;
   readonly maxRequestChars: number;
+  readonly maxHandles: number;
   readonly createHandle: () => string;
   readonly handles: Map<string, Map<string, HandleEntry>>;
   readonly active: Map<string, Map<string, ActiveGeneration>>;
+  readonly selects: Map<string, Set<PendingSelect>>;
   epoch: number;
   closed: boolean;
 };
@@ -151,6 +182,10 @@ const REQUEST_TYPES = new Set(['llm.select', 'llm.describe', 'llm.generate', 'll
 const CANCELLED: LlmFailure = { code: 'cancelled', message: 'Generation cancelled; provider charges may still apply.' };
 const TIMEOUT: LlmFailure = { code: 'timeout', message: 'Generation deadline reached; provider charges may still apply.' };
 const EXPIRED: LlmFailure = { code: 'selection-expired', message: 'Unknown or expired model handle; select again.' };
+const CHANGED_DURING_SELECT: LlmFailure = { code: 'selection-expired', message: 'Connections changed during selection; select again.' };
+const CHANGED_DURING_CONSENT: LlmFailure = { code: 'selection-expired', message: 'The selected connection changed before submission; select again.' };
+const SELECT_REVOKED: LlmFailure = { code: 'cancelled', message: 'Selection cancelled; authorization was revoked.' };
+const DEFAULT_MAX_HANDLES = 32;
 
 function failure(error: unknown): LlmFailure {
   if (error instanceof LlmServiceError) return { code: error.code, message: error.message };
@@ -213,9 +248,58 @@ function cancelWindow(state: ServiceState, windowId: string, error: LlmFailure |
   }
 }
 
+/** Fail generations whose consent prompt is open but whose handle is gone. */
+function expireStaleConsent(state: ServiceState): void {
+  for (const [windowId, perWindow] of [...state.active]) {
+    for (const [requestId, generation] of [...perWindow]) {
+      if (!generation.awaitingConsent) continue;
+      if (generation.epoch === state.epoch && state.handles.get(windowId)?.has(generation.handle)) continue;
+      failGeneration(state, windowId, requestId, generation, CHANGED_DURING_CONSENT);
+    }
+  }
+}
+
+/** Settle pending selects for one window (or all) and abort their host prompts. */
+function settleSelects(state: ServiceState, windowId: string | null, error: LlmFailure | null): void {
+  const windows = windowId === null ? [...state.selects.keys()] : [windowId];
+  for (const id of windows) {
+    for (const pending of state.selects.get(id) ?? []) {
+      pending.done = true;
+      pending.controller.abort();
+      if (error) reply(pending.send, 'llm.select', pending.id, { error });
+    }
+    state.selects.delete(id);
+  }
+}
+
 function invalidateHandles(state: ServiceState): void {
   state.epoch += 1;
   state.handles.clear();
+  settleSelects(state, null, CHANGED_DURING_SELECT);
+  expireStaleConsent(state);
+}
+
+function storeHandle(state: ServiceState, windowId: string, handle: string, entry: HandleEntry): void {
+  const entries = windowHandles(state, windowId);
+  entries.set(handle, entry);
+  let evicted = false;
+  while (entries.size > state.maxHandles) {
+    const oldest = entries.keys().next().value as string;
+    entries.delete(oldest);
+    evicted = true;
+  }
+  if (evicted) expireStaleConsent(state);
+}
+
+function trackSelect(state: ServiceState, windowId: string, pending: PendingSelect): () => void {
+  let perWindow = state.selects.get(windowId);
+  if (!perWindow) { perWindow = new Set(); state.selects.set(windowId, perWindow); }
+  perWindow.add(pending);
+  return () => {
+    const current = state.selects.get(windowId);
+    current?.delete(pending);
+    if (current?.size === 0) state.selects.delete(windowId);
+  };
 }
 
 async function handleSelect(state: ServiceState, windowId: string, message: Record<string, unknown>, send: Send): Promise<void> {
@@ -224,20 +308,25 @@ async function handleSelect(state: ServiceState, windowId: string, message: Reco
   if (!isLlmRequirements(requirements)) { reply(send, 'llm.select', id, { error: { code: 'invalid-request', message: 'requirements must be a Requirements record.' } }); return; }
   const wanted = requirements ?? {};
   const startEpoch = state.epoch;
+  const pending: PendingSelect = { controller: new AbortController(), id, send, done: false };
+  const untrack = trackSelect(state, windowId, pending);
   try {
-    const connection = await state.host.select({ windowId }, wanted);
-    if (state.closed) return;
+    const connection = await state.host.select({ windowId }, wanted, { signal: pending.controller.signal });
+    if (pending.done || state.closed) return;
     if (connection === null) { reply(send, 'llm.select', id, { error: { code: 'user-cancelled', message: 'The user declined to select a model connection.' } }); return; }
     if (!meetsRequirements(connection, wanted)) {
       reply(send, 'llm.select', id, { error: { code: 'unsupported', message: 'No connection meets the requested model or capabilities.' } });
       return;
     }
-    if (startEpoch !== state.epoch) { reply(send, 'llm.select', id, { error: { code: 'selection-expired', message: 'Connections changed during selection; select again.' } }); return; }
+    if (startEpoch !== state.epoch) { reply(send, 'llm.select', id, { error: CHANGED_DURING_SELECT }); return; }
     const handle = state.createHandle();
-    windowHandles(state, windowId).set(handle, { connectionId: connection.id, snapshot: connection });
+    storeHandle(state, windowId, handle, { connectionId: connection.id, snapshot: connection });
     reply(send, 'llm.select', id, { model: toModel(handle, connection) });
   } catch (error) {
-    if (!state.closed) reply(send, 'llm.select', id, { error: failure(error) });
+    if (!pending.done && !state.closed) reply(send, 'llm.select', id, { error: failure(error) });
+  } finally {
+    pending.done = true;
+    untrack();
   }
 }
 
@@ -246,10 +335,15 @@ async function revalidate(state: ServiceState, windowId: string, handle: unknown
   const entry = windowHandles(state, windowId).get(handle);
   if (!entry) return EXPIRED;
   const current = await state.host.describe({ windowId }, entry.connectionId);
+  const entries = windowHandles(state, windowId);
+  if (entries.get(handle) !== entry) return EXPIRED;
+  entries.delete(handle);
   if (!current || !sameConnection(current, entry.snapshot)) {
-    windowHandles(state, windowId).delete(handle);
+    expireStaleConsent(state);
     return EXPIRED;
   }
+  // Re-insert so a successful use refreshes the handle's eviction order.
+  entries.set(handle, entry);
   return toModel(handle, current);
 }
 
@@ -288,6 +382,26 @@ function validateGeneration(generation: ActiveGeneration, result: unknown): LlmG
   return result;
 }
 
+/** Ask for consent with a prompt signal that aborts only if the generation settles first. */
+async function awaitConsent(
+  state: ServiceState,
+  context: LlmRequestContext,
+  connection: LlmConnection,
+  request: LlmGenerationRequest,
+  generation: ActiveGeneration,
+): Promise<boolean> {
+  const prompt = new AbortController();
+  const withdraw = (): void => prompt.abort();
+  generation.controller.signal.addEventListener('abort', withdraw, { once: true });
+  generation.awaitingConsent = true;
+  try {
+    return await state.host.authorize(context, connection, request, { signal: prompt.signal });
+  } finally {
+    generation.awaitingConsent = false;
+    generation.controller.signal.removeEventListener('abort', withdraw);
+  }
+}
+
 async function runGeneration(state: ServiceState, windowId: string, requestId: string, request: LlmGenerationRequest, generation: ActiveGeneration, send: Send): Promise<void> {
   const context = { windowId };
   const fail = (error: LlmFailure): void => failGeneration(state, windowId, requestId, generation, error);
@@ -298,11 +412,11 @@ async function runGeneration(state: ServiceState, windowId: string, requestId: s
     if (!('handle' in outcome) || !entry) { fail('handle' in outcome ? EXPIRED : outcome); return; }
     const rejected = unsupportedInput(entry.snapshot, request);
     if (rejected) { fail(rejected); return; }
-    const authorized = await state.host.authorize(context, entry.snapshot, request);
+    const authorized = await awaitConsent(state, context, entry.snapshot, request, generation);
     if (generation.settled) return;
     if (!authorized) { fail({ code: 'user-cancelled', message: 'The user declined to disclose this request.' }); return; }
     if (generation.epoch !== state.epoch || !windowHandles(state, windowId).has(request.handle)) {
-      fail({ code: 'selection-expired', message: 'The selected connection changed before submission; select again.' });
+      fail(CHANGED_DURING_CONSENT);
       return;
     }
     const result = await state.host.generate(context, entry.snapshot, request, {
@@ -327,7 +441,7 @@ function handleGenerate(state: ServiceState, windowId: string, message: Record<s
   if (rejected) { reply(send, 'llm.generate', requestId, { error: rejected }); return; }
   const request = message.request as LlmGenerationRequest;
   const generation: ActiveGeneration = {
-    controller: new AbortController(), send, format: request.format ?? 'text', epoch: state.epoch, sequence: 0, settled: false, timer: undefined,
+    controller: new AbortController(), handle: request.handle, awaitingConsent: false, send, format: request.format ?? 'text', epoch: state.epoch, sequence: 0, settled: false, timer: undefined,
   };
   let perWindow = state.active.get(windowId);
   if (!perWindow) { perWindow = new Map(); state.active.set(windowId, perWindow); }
@@ -365,9 +479,11 @@ export function createLlmService(options: LlmServiceOptions): LlmService {
     deadlineMs: options.deadlineMs ?? 120_000,
     maxConcurrent: options.maxConcurrentPerWindow ?? 4,
     maxRequestChars: options.maxRequestChars ?? 4 * 1024 * 1024,
+    maxHandles: Math.max(1, Math.floor(options.maxHandlesPerWindow ?? DEFAULT_MAX_HANDLES)),
     createHandle: options.createHandle ?? defaultHandleFactory(),
     handles: new Map(),
     active: new Map(),
+    selects: new Map(),
     epoch: 0,
     closed: false,
   };
@@ -375,6 +491,7 @@ export function createLlmService(options: LlmServiceOptions): LlmService {
 
   function revokeWindow(windowId: string): void {
     cancelWindow(state, windowId, CANCELLED);
+    settleSelects(state, windowId, SELECT_REVOKED);
     state.handles.delete(windowId);
   }
 
@@ -387,14 +504,15 @@ export function createLlmService(options: LlmServiceOptions): LlmService {
       state.closed = false;
       unsubscribe?.();
       unsubscribe = state.host.subscribe?.(() => {
+        for (const windowId of [...state.active.keys()]) cancelWindow(state, windowId, CANCELLED);
         invalidateHandles(state);
-        for (const windowId of state.active.keys()) cancelWindow(state, windowId, CANCELLED);
       });
     },
     onUnregistered() {
       state.closed = true;
       unsubscribe?.(); unsubscribe = undefined;
-      for (const windowId of state.active.keys()) cancelWindow(state, windowId, null);
+      for (const windowId of [...state.active.keys()]) cancelWindow(state, windowId, null);
+      settleSelects(state, null, null);
       state.handles.clear();
     },
     handleMessage(windowId, message, send) {
@@ -410,6 +528,7 @@ export function createLlmService(options: LlmServiceOptions): LlmService {
     },
     onWindowDestroyed(windowId) {
       cancelWindow(state, windowId, null);
+      settleSelects(state, windowId, null);
       state.handles.delete(windowId);
     },
     onCapabilityRevoked(windowId, capability) {
