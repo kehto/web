@@ -135,7 +135,7 @@ export interface LlmDelta {
 }
 
 /** A result envelope carries the request id and exactly one of its success field or `error`. */
-type Reply<Key extends string, Value> = NappletMessage & { id: string }
+export type LlmReply<Key extends string, Value> = NappletMessage & { id: string }
   & ({ [K in Key]: Value } & { error?: never } | { error: LlmFailure } & { [K in Key]?: never });
 
 /** Request for llm.select. `requirements` is omitted, never `null`. */
@@ -145,7 +145,7 @@ export interface LlmSelectMessage extends NappletMessage {
   requirements?: LlmRequirements;
 }
 /** Response to llm.select. */
-export type LlmSelectResultMessage = { type: 'llm.select.result' } & Reply<'model', LlmModel>;
+export type LlmSelectResultMessage = { type: 'llm.select.result' } & LlmReply<'model', LlmModel>;
 
 /** Request for llm.describe. */
 export interface LlmDescribeMessage extends NappletMessage {
@@ -154,7 +154,7 @@ export interface LlmDescribeMessage extends NappletMessage {
   handle: string;
 }
 /** Response to llm.describe. */
-export type LlmDescribeResultMessage = { type: 'llm.describe.result' } & Reply<'model', LlmModel>;
+export type LlmDescribeResultMessage = { type: 'llm.describe.result' } & LlmReply<'model', LlmModel>;
 
 /** Request for llm.generate. */
 export interface LlmGenerateMessage extends NappletMessage {
@@ -163,7 +163,7 @@ export interface LlmGenerateMessage extends NappletMessage {
   request: LlmGenerationRequest;
 }
 /** Terminal response to llm.generate. */
-export type LlmGenerateResultMessage = { type: 'llm.generate.result' } & Reply<'result', LlmGeneration>;
+export type LlmGenerateResultMessage = { type: 'llm.generate.result' } & LlmReply<'result', LlmGeneration>;
 
 /** Unsolicited provisional output routed to the requesting endpoint; carries `requestId`, not `id`. */
 export interface LlmDeltaMessage extends NappletMessage, LlmDelta {
@@ -177,7 +177,7 @@ export interface LlmCancelMessage extends NappletMessage {
   requestId: string;
 }
 /** Response to llm.cancel. */
-export type LlmCancelResultMessage = { type: 'llm.cancel.result' } & Reply<'cancelled', boolean>;
+export type LlmCancelResultMessage = { type: 'llm.cancel.result' } & LlmReply<'cancelled', boolean>;
 
 /** Napplet-to-runtime llm envelopes. */
 export type LlmOutboundMessage = LlmSelectMessage | LlmDescribeMessage | LlmGenerateMessage | LlmCancelMessage;

@@ -148,6 +148,8 @@ function createChooserDialog(): ChooserDialog {
         option.textContent = `${record.name} — ${record.model} (${new URL(record.baseUrl).origin})`;
         return option;
       }));
+      // A sized list box starts with no selection; default to the first compatible connection.
+      select.selectedIndex = candidates.length > 0 ? 0 : -1;
       return new Promise<PajaLlmConnectionRecord | null>((resolve) => {
         settle = (value) => resolve(candidates.find((record) => record.id === value) ?? null);
         dialog.showModal();

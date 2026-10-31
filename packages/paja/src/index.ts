@@ -149,6 +149,8 @@ export type {
   BrowserIntentTerminalReason,
 } from './browser-intent-controller.js';
 export type { PajaIntentLinkDescriptor, ParsedPajaIntentLink } from './intent-link.js';
+export type { PajaConfirmationHandler, PajaConfirmationRequest } from './browser-adapter.js';
+export type { PajaSignerRequestContext, PajaSignerSource } from './browser-signer-consent.js';
 export type {
   PajaLlmConnectionRecord,
   PajaLlmConnectionStore,

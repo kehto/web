@@ -353,6 +353,7 @@ export type {
   LlmNapMessage,
   LlmOutboundMessage,
   LlmPart,
+  LlmReply,
   LlmRequirements,
   LlmRole,
   LlmSelectMessage,
