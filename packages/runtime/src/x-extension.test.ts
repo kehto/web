@@ -71,6 +71,23 @@ describe('x- extension capabilities on inbound routes', () => {
     expect(sent).toEqual([]);
     expect(hooks.onFirewallEvent).toHaveBeenCalledWith(expect.objectContaining({ opClass: 'x-echo:send', decision: 'reject' }));
   });
+
+  it('raises host-local consent once for an x- capability under ask policy', () => {
+    const handler = echoService();
+    const { runtime, sent } = setup(handler, 'permissive', false);
+    runtime.firewallState.setPolicy(dTag, 'ask');
+    const consent = vi.fn((request: Parameters<Parameters<typeof runtime.registerConsentHandler>[0]>[0]) => request.resolve(true));
+    runtime.registerConsentHandler(consent);
+    runtime.handleMessage(windowId, { type: 'x-echo.say', id: '1' });
+    expect(consent).toHaveBeenCalledOnce();
+    expect(consent.mock.calls[0]?.[0]).toMatchObject({ type: 'firewall-policy', windowId, napplet: dTag });
+    expect(handler.handleMessage).not.toHaveBeenCalled();
+    expect(sent).toEqual([]);
+    runtime.handleMessage(windowId, { type: 'x-echo.say', id: '2' });
+    expect(consent).toHaveBeenCalledOnce();
+    expect(handler.handleMessage).toHaveBeenCalledOnce();
+    expect(sent).toEqual([{ windowId, message: { type: 'x-echo.say.result', id: '2' } }]);
+  });
 });
 
 describe('x- extension push through sendToEligibleNapplet', () => {
