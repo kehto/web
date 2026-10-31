@@ -130,6 +130,17 @@ type ActiveGeneration = {
   settled: boolean;
   timer: ReturnType<typeof setTimeout> | undefined;
 };
+type ServiceState = {
+  readonly host: LlmConnectionHost;
+  readonly deadlineMs: number;
+  readonly maxConcurrent: number;
+  readonly maxRequestChars: number;
+  readonly createHandle: () => string;
+  readonly handles: Map<string, Map<string, HandleEntry>>;
+  readonly active: Map<string, Map<string, ActiveGeneration>>;
+  epoch: number;
+  closed: boolean;
+};
 
 const DESCRIPTOR: ServiceDescriptor = {
   name: 'llm',
@@ -139,6 +150,7 @@ const DESCRIPTOR: ServiceDescriptor = {
 const REQUEST_TYPES = new Set(['llm.select', 'llm.describe', 'llm.generate', 'llm.cancel']);
 const CANCELLED: LlmFailure = { code: 'cancelled', message: 'Generation cancelled; provider charges may still apply.' };
 const TIMEOUT: LlmFailure = { code: 'timeout', message: 'Generation deadline reached; provider charges may still apply.' };
+const EXPIRED: LlmFailure = { code: 'selection-expired', message: 'Unknown or expired model handle; select again.' };
 
 function failure(error: unknown): LlmFailure {
   if (error instanceof LlmServiceError) return { code: error.code, message: error.message };
@@ -168,6 +180,171 @@ function defaultHandleFactory(): () => string {
   };
 }
 
+function windowHandles(state: ServiceState, windowId: string): Map<string, HandleEntry> {
+  let entries = state.handles.get(windowId);
+  if (!entries) { entries = new Map(); state.handles.set(windowId, entries); }
+  return entries;
+}
+
+function reply(send: Send, type: string, id: string, payload: Record<string, unknown>): void {
+  send({ type: `${type}.result`, id, ...payload } as NappletMessage);
+}
+
+function settle(state: ServiceState, windowId: string, requestId: string, generation: ActiveGeneration, terminal: NappletMessage | null): void {
+  if (generation.settled) return;
+  generation.settled = true;
+  if (generation.timer !== undefined) clearTimeout(generation.timer);
+  const perWindow = state.active.get(windowId);
+  if (perWindow?.get(requestId) === generation) {
+    perWindow.delete(requestId);
+    if (perWindow.size === 0) state.active.delete(windowId);
+  }
+  generation.controller.abort();
+  if (terminal) generation.send(terminal);
+}
+
+function failGeneration(state: ServiceState, windowId: string, requestId: string, generation: ActiveGeneration, error: LlmFailure): void {
+  settle(state, windowId, requestId, generation, { type: 'llm.generate.result', id: requestId, error } as NappletMessage);
+}
+
+function cancelWindow(state: ServiceState, windowId: string, error: LlmFailure | null): void {
+  for (const [requestId, generation] of state.active.get(windowId) ?? []) {
+    settle(state, windowId, requestId, generation, error ? { type: 'llm.generate.result', id: requestId, error } as NappletMessage : null);
+  }
+}
+
+function invalidateHandles(state: ServiceState): void {
+  state.epoch += 1;
+  state.handles.clear();
+}
+
+async function handleSelect(state: ServiceState, windowId: string, message: Record<string, unknown>, send: Send): Promise<void> {
+  const id = message.id as string;
+  const requirements = message.requirements;
+  if (!isLlmRequirements(requirements)) { reply(send, 'llm.select', id, { error: { code: 'invalid-request', message: 'requirements must be a Requirements record.' } }); return; }
+  const wanted = requirements ?? {};
+  const startEpoch = state.epoch;
+  try {
+    const connection = await state.host.select({ windowId }, wanted);
+    if (state.closed) return;
+    if (connection === null) { reply(send, 'llm.select', id, { error: { code: 'user-cancelled', message: 'The user declined to select a model connection.' } }); return; }
+    if (!meetsRequirements(connection, wanted)) {
+      reply(send, 'llm.select', id, { error: { code: 'unsupported', message: 'No connection meets the requested model or capabilities.' } });
+      return;
+    }
+    if (startEpoch !== state.epoch) { reply(send, 'llm.select', id, { error: { code: 'selection-expired', message: 'Connections changed during selection; select again.' } }); return; }
+    const handle = state.createHandle();
+    windowHandles(state, windowId).set(handle, { connectionId: connection.id, snapshot: connection });
+    reply(send, 'llm.select', id, { model: toModel(handle, connection) });
+  } catch (error) {
+    if (!state.closed) reply(send, 'llm.select', id, { error: failure(error) });
+  }
+}
+
+async function revalidate(state: ServiceState, windowId: string, handle: unknown): Promise<LlmModel | LlmFailure> {
+  if (!isNonemptyText(handle)) return { code: 'invalid-request', message: 'handle must be non-empty text.' };
+  const entry = windowHandles(state, windowId).get(handle);
+  if (!entry) return EXPIRED;
+  const current = await state.host.describe({ windowId }, entry.connectionId);
+  if (!current || !sameConnection(current, entry.snapshot)) {
+    windowHandles(state, windowId).delete(handle);
+    return EXPIRED;
+  }
+  return toModel(handle, current);
+}
+
+async function handleDescribe(state: ServiceState, windowId: string, message: Record<string, unknown>, send: Send): Promise<void> {
+  const id = message.id as string;
+  try {
+    const outcome = await revalidate(state, windowId, message.handle);
+    if (state.closed) return;
+    if ('handle' in outcome) reply(send, 'llm.describe', id, { model: outcome });
+    else reply(send, 'llm.describe', id, { error: outcome });
+  } catch (error) {
+    if (!state.closed) reply(send, 'llm.describe', id, { error: failure(error) });
+  }
+}
+
+function admitGeneration(state: ServiceState, windowId: string, message: Record<string, unknown>): LlmFailure | null {
+  const perWindow = state.active.get(windowId);
+  if (perWindow?.has(message.id as string)) return { code: 'invalid-request', message: 'A generation with this id is already active.' };
+  if (!isLlmGenerationRequest(message.request)) return { code: 'invalid-request', message: 'request must be a GenerationRequest record.' };
+  if ((perWindow?.size ?? 0) >= state.maxConcurrent) return { code: 'quota-exceeded', message: 'Too many active generations for this napplet.' };
+  if (JSON.stringify(message.request).length > state.maxRequestChars) return { code: 'quota-exceeded', message: 'The request exceeds the runtime size limit.' };
+  return null;
+}
+
+function unsupportedInput(connection: LlmConnection, request: LlmGenerationRequest): LlmFailure | null {
+  if (countLlmImages(request.messages) > 0 && !connection.images) return { code: 'unsupported', message: 'This connection does not accept image input.' };
+  if (request.format === 'json' && !connection.json) return { code: 'unsupported', message: 'This connection does not support JSON-object output.' };
+  return null;
+}
+
+function validateGeneration(generation: ActiveGeneration, result: unknown): LlmGeneration | LlmFailure {
+  if (!isLlmGeneration(result)) return { code: 'provider-error', message: 'The provider returned an incomplete or malformed completion.' };
+  if (generation.format === 'json' && result.finish === 'stop' && !isJsonObjectText(result.text)) {
+    return { code: 'provider-error', message: 'The provider completed without a JSON object.' };
+  }
+  return result;
+}
+
+async function runGeneration(state: ServiceState, windowId: string, requestId: string, request: LlmGenerationRequest, generation: ActiveGeneration, send: Send): Promise<void> {
+  const context = { windowId };
+  const fail = (error: LlmFailure): void => failGeneration(state, windowId, requestId, generation, error);
+  try {
+    const outcome = await revalidate(state, windowId, request.handle);
+    if (generation.settled) return;
+    const entry = 'handle' in outcome ? windowHandles(state, windowId).get(request.handle) : undefined;
+    if (!('handle' in outcome) || !entry) { fail('handle' in outcome ? EXPIRED : outcome); return; }
+    const rejected = unsupportedInput(entry.snapshot, request);
+    if (rejected) { fail(rejected); return; }
+    const authorized = await state.host.authorize(context, entry.snapshot, request);
+    if (generation.settled) return;
+    if (!authorized) { fail({ code: 'user-cancelled', message: 'The user declined to disclose this request.' }); return; }
+    if (generation.epoch !== state.epoch || !windowHandles(state, windowId).has(request.handle)) {
+      fail({ code: 'selection-expired', message: 'The selected connection changed before submission; select again.' });
+      return;
+    }
+    const result = await state.host.generate(context, entry.snapshot, request, {
+      signal: generation.controller.signal,
+      onDelta: (text) => {
+        if (generation.settled || typeof text !== 'string') return;
+        send({ type: 'llm.delta', requestId, sequence: generation.sequence++, text } as NappletMessage);
+      },
+    });
+    if (generation.settled) return;
+    const checked = validateGeneration(generation, result);
+    if ('code' in checked) fail(checked);
+    else settle(state, windowId, requestId, generation, { type: 'llm.generate.result', id: requestId, result: checked } as NappletMessage);
+  } catch (error) {
+    if (!generation.settled) fail(failure(error));
+  }
+}
+
+function handleGenerate(state: ServiceState, windowId: string, message: Record<string, unknown>, send: Send): void {
+  const requestId = message.id as string;
+  const rejected = admitGeneration(state, windowId, message);
+  if (rejected) { reply(send, 'llm.generate', requestId, { error: rejected }); return; }
+  const request = message.request as LlmGenerationRequest;
+  const generation: ActiveGeneration = {
+    controller: new AbortController(), send, format: request.format ?? 'text', epoch: state.epoch, sequence: 0, settled: false, timer: undefined,
+  };
+  let perWindow = state.active.get(windowId);
+  if (!perWindow) { perWindow = new Map(); state.active.set(windowId, perWindow); }
+  perWindow.set(requestId, generation);
+  generation.timer = setTimeout(() => failGeneration(state, windowId, requestId, generation, TIMEOUT), state.deadlineMs);
+  void runGeneration(state, windowId, requestId, request, generation, send);
+}
+
+function handleCancel(state: ServiceState, windowId: string, message: Record<string, unknown>, send: Send): void {
+  const id = message.id as string;
+  if (!isNonemptyText(message.requestId)) { reply(send, 'llm.cancel', id, { error: { code: 'invalid-request', message: 'requestId must be non-empty text.' } }); return; }
+  const generation = state.active.get(windowId)?.get(message.requestId);
+  if (!generation || generation.settled) { reply(send, 'llm.cancel', id, { cancelled: false }); return; }
+  failGeneration(state, windowId, message.requestId, generation, CANCELLED);
+  reply(send, 'llm.cancel', id, { cancelled: true });
+}
+
 /**
  * Create the NAP-LLM service handler.
  *
@@ -183,223 +360,57 @@ export function createLlmService(options: LlmServiceOptions): LlmService {
   if (!options || typeof options.host !== 'object' || options.host === null) {
     throw new Error('createLlmService: options.host is required');
   }
-  const { host } = options;
-  const deadlineMs = options.deadlineMs ?? 120_000;
-  const maxConcurrent = options.maxConcurrentPerWindow ?? 4;
-  const maxRequestChars = options.maxRequestChars ?? 4 * 1024 * 1024;
-  const createHandle = options.createHandle ?? defaultHandleFactory();
-  const handles = new Map<string, Map<string, HandleEntry>>();
-  const active = new Map<string, Map<string, ActiveGeneration>>();
-  let epoch = 0;
-  let unsubscribe: (() => void) | undefined;
-  let closed = false;
-
-  const windowHandles = (windowId: string): Map<string, HandleEntry> => {
-    let entries = handles.get(windowId);
-    if (!entries) { entries = new Map(); handles.set(windowId, entries); }
-    return entries;
+  const state: ServiceState = {
+    host: options.host,
+    deadlineMs: options.deadlineMs ?? 120_000,
+    maxConcurrent: options.maxConcurrentPerWindow ?? 4,
+    maxRequestChars: options.maxRequestChars ?? 4 * 1024 * 1024,
+    createHandle: options.createHandle ?? defaultHandleFactory(),
+    handles: new Map(),
+    active: new Map(),
+    epoch: 0,
+    closed: false,
   };
-
-  function invalidateHandles(): void {
-    epoch += 1;
-    handles.clear();
-  }
-
-  function settle(windowId: string, requestId: string, generation: ActiveGeneration, terminal: NappletMessage | null): void {
-    if (generation.settled) return;
-    generation.settled = true;
-    if (generation.timer !== undefined) clearTimeout(generation.timer);
-    const perWindow = active.get(windowId);
-    if (perWindow?.get(requestId) === generation) {
-      perWindow.delete(requestId);
-      if (perWindow.size === 0) active.delete(windowId);
-    }
-    generation.controller.abort();
-    if (terminal) generation.send(terminal);
-  }
-
-  function failGeneration(windowId: string, requestId: string, generation: ActiveGeneration, error: LlmFailure): void {
-    settle(windowId, requestId, generation, { type: 'llm.generate.result', id: requestId, error } as NappletMessage);
-  }
-
-  function cancelWindow(windowId: string, error: LlmFailure | null): void {
-    for (const [requestId, generation] of [...(active.get(windowId) ?? [])]) {
-      settle(windowId, requestId, generation, error ? { type: 'llm.generate.result', id: requestId, error } as NappletMessage : null);
-    }
-  }
-
-  function reply(send: Send, type: string, id: string, payload: Record<string, unknown>): void {
-    send({ type: `${type}.result`, id, ...payload } as NappletMessage);
-  }
-
-  async function handleSelect(windowId: string, message: Record<string, unknown>, send: Send): Promise<void> {
-    const id = message.id as string;
-    const requirements = message.requirements;
-    if (!isLlmRequirements(requirements)) { reply(send, 'llm.select', id, { error: { code: 'invalid-request', message: 'requirements must be a Requirements record.' } }); return; }
-    const wanted = requirements ?? {};
-    const startEpoch = epoch;
-    try {
-      const connection = await host.select({ windowId }, wanted);
-      if (closed) return;
-      if (connection === null) { reply(send, 'llm.select', id, { error: { code: 'user-cancelled', message: 'The user declined to select a model connection.' } }); return; }
-      if (!meetsRequirements(connection, wanted)) {
-        reply(send, 'llm.select', id, { error: { code: 'unsupported', message: 'No connection meets the requested model or capabilities.' } });
-        return;
-      }
-      if (startEpoch !== epoch) { reply(send, 'llm.select', id, { error: { code: 'selection-expired', message: 'Connections changed during selection; select again.' } }); return; }
-      const handle = createHandle();
-      windowHandles(windowId).set(handle, { connectionId: connection.id, snapshot: connection });
-      reply(send, 'llm.select', id, { model: toModel(handle, connection) });
-    } catch (error) {
-      if (!closed) reply(send, 'llm.select', id, { error: failure(error) });
-    }
-  }
-
-  async function revalidate(windowId: string, handle: unknown): Promise<LlmModel | LlmFailure> {
-    if (!isNonemptyText(handle)) return { code: 'invalid-request', message: 'handle must be non-empty text.' };
-    const entry = windowHandles(windowId).get(handle);
-    const expired: LlmFailure = { code: 'selection-expired', message: 'Unknown or expired model handle; select again.' };
-    if (!entry) return expired;
-    const current = await host.describe({ windowId }, entry.connectionId);
-    if (!current || !sameConnection(current, entry.snapshot)) {
-      windowHandles(windowId).delete(handle);
-      return expired;
-    }
-    return toModel(handle, current);
-  }
-
-  async function handleDescribe(windowId: string, message: Record<string, unknown>, send: Send): Promise<void> {
-    const id = message.id as string;
-    try {
-      const outcome = await revalidate(windowId, message.handle);
-      if (closed) return;
-      if ('handle' in outcome) reply(send, 'llm.describe', id, { model: outcome });
-      else reply(send, 'llm.describe', id, { error: outcome });
-    } catch (error) {
-      if (!closed) reply(send, 'llm.describe', id, { error: failure(error) });
-    }
-  }
-
-  function admitGeneration(windowId: string, message: Record<string, unknown>): LlmFailure | null {
-    const perWindow = active.get(windowId);
-    if (perWindow?.has(message.id as string)) return { code: 'invalid-request', message: 'A generation with this id is already active.' };
-    if (!isLlmGenerationRequest(message.request)) return { code: 'invalid-request', message: 'request must be a GenerationRequest record.' };
-    if ((perWindow?.size ?? 0) >= maxConcurrent) return { code: 'quota-exceeded', message: 'Too many active generations for this napplet.' };
-    if (JSON.stringify(message.request).length > maxRequestChars) return { code: 'quota-exceeded', message: 'The request exceeds the runtime size limit.' };
-    return null;
-  }
-
-  function unsupportedInput(connection: LlmConnection, request: LlmGenerationRequest): LlmFailure | null {
-    if (countLlmImages(request.messages) > 0 && !connection.images) return { code: 'unsupported', message: 'This connection does not accept image input.' };
-    if (request.format === 'json' && !connection.json) return { code: 'unsupported', message: 'This connection does not support JSON-object output.' };
-    return null;
-  }
-
-  function validateGeneration(generation: ActiveGeneration, result: unknown): LlmGeneration | LlmFailure {
-    if (!isLlmGeneration(result)) return { code: 'provider-error', message: 'The provider returned an incomplete or malformed completion.' };
-    if (generation.format === 'json' && result.finish === 'stop' && !isJsonObjectText(result.text)) {
-      return { code: 'provider-error', message: 'The provider completed without a JSON object.' };
-    }
-    return result;
-  }
-
-  async function runGeneration(windowId: string, requestId: string, request: LlmGenerationRequest, generation: ActiveGeneration, send: Send): Promise<void> {
-    const context = { windowId };
-    try {
-      const outcome = await revalidate(windowId, request.handle);
-      if (generation.settled) return;
-      const entry = 'handle' in outcome ? windowHandles(windowId).get(request.handle) : undefined;
-      if (!('handle' in outcome) || !entry) {
-        failGeneration(windowId, requestId, generation, 'handle' in outcome ? { code: 'selection-expired', message: 'The selected connection changed; select again.' } : outcome);
-        return;
-      }
-      const rejected = unsupportedInput(entry.snapshot, request);
-      if (rejected) { failGeneration(windowId, requestId, generation, rejected); return; }
-      const authorized = await host.authorize(context, entry.snapshot, request);
-      if (generation.settled) return;
-      if (!authorized) { failGeneration(windowId, requestId, generation, { code: 'user-cancelled', message: 'The user declined to disclose this request.' }); return; }
-      if (generation.epoch !== epoch || !windowHandles(windowId).has(request.handle)) {
-        failGeneration(windowId, requestId, generation, { code: 'selection-expired', message: 'The selected connection changed before submission; select again.' });
-        return;
-      }
-      const result = await host.generate(context, entry.snapshot, request, {
-        signal: generation.controller.signal,
-        onDelta: (text) => {
-          if (generation.settled || typeof text !== 'string') return;
-          send({ type: 'llm.delta', requestId, sequence: generation.sequence++, text } as NappletMessage);
-        },
-      });
-      if (generation.settled) return;
-      const checked = validateGeneration(generation, result);
-      if ('code' in checked) failGeneration(windowId, requestId, generation, checked);
-      else settle(windowId, requestId, generation, { type: 'llm.generate.result', id: requestId, result: checked } as NappletMessage);
-    } catch (error) {
-      if (!generation.settled) failGeneration(windowId, requestId, generation, failure(error));
-    }
-  }
-
-  function handleGenerate(windowId: string, message: Record<string, unknown>, send: Send): void {
-    const requestId = message.id as string;
-    const rejected = admitGeneration(windowId, message);
-    if (rejected) { reply(send, 'llm.generate', requestId, { error: rejected }); return; }
-    const request = message.request as LlmGenerationRequest;
-    const generation: ActiveGeneration = {
-      controller: new AbortController(), send, format: request.format ?? 'text', epoch, sequence: 0, settled: false, timer: undefined,
-    };
-    let perWindow = active.get(windowId);
-    if (!perWindow) { perWindow = new Map(); active.set(windowId, perWindow); }
-    perWindow.set(requestId, generation);
-    generation.timer = setTimeout(() => failGeneration(windowId, requestId, generation, TIMEOUT), deadlineMs);
-    void runGeneration(windowId, requestId, request, generation, send);
-  }
-
-  function handleCancel(windowId: string, message: Record<string, unknown>, send: Send): void {
-    const id = message.id as string;
-    if (!isNonemptyText(message.requestId)) { reply(send, 'llm.cancel', id, { error: { code: 'invalid-request', message: 'requestId must be non-empty text.' } }); return; }
-    const generation = active.get(windowId)?.get(message.requestId);
-    if (!generation || generation.settled) { reply(send, 'llm.cancel', id, { cancelled: false }); return; }
-    failGeneration(windowId, message.requestId, generation, CANCELLED);
-    reply(send, 'llm.cancel', id, { cancelled: true });
-  }
+  let unsubscribe: (() => void) | undefined;
 
   function revokeWindow(windowId: string): void {
-    cancelWindow(windowId, CANCELLED);
-    handles.delete(windowId);
+    cancelWindow(state, windowId, CANCELLED);
+    state.handles.delete(windowId);
   }
 
   return {
     descriptor: DESCRIPTOR,
-    invalidateHandles,
+    invalidateHandles: () => invalidateHandles(state),
     revokeWindow,
-    activeGenerations: () => [...active.values()].reduce((total, perWindow) => total + perWindow.size, 0),
+    activeGenerations: () => [...state.active.values()].reduce((total, perWindow) => total + perWindow.size, 0),
     onRegistered() {
-      closed = false;
+      state.closed = false;
       unsubscribe?.();
-      unsubscribe = host.subscribe?.(() => {
-        invalidateHandles();
-        for (const windowId of [...active.keys()]) cancelWindow(windowId, CANCELLED);
+      unsubscribe = state.host.subscribe?.(() => {
+        invalidateHandles(state);
+        for (const windowId of state.active.keys()) cancelWindow(state, windowId, CANCELLED);
       });
     },
     onUnregistered() {
-      closed = true;
+      state.closed = true;
       unsubscribe?.(); unsubscribe = undefined;
-      for (const windowId of [...active.keys()]) cancelWindow(windowId, null);
-      handles.clear();
+      for (const windowId of state.active.keys()) cancelWindow(state, windowId, null);
+      state.handles.clear();
     },
     handleMessage(windowId, message, send) {
-      if (closed || !message || typeof message !== 'object' || Array.isArray(message) || !REQUEST_TYPES.has(message.type)) return;
-      const envelope = message as unknown as Record<string, unknown>;
+      if (state.closed || !message || typeof message !== 'object' || Array.isArray(message) || !REQUEST_TYPES.has(message.type)) return;
+      const envelope = message as NappletMessage & Record<string, unknown>;
       if (!isNonemptyText(envelope.id)) return;
       switch (message.type) {
-        case 'llm.select': void handleSelect(windowId, envelope, send); return;
-        case 'llm.describe': void handleDescribe(windowId, envelope, send); return;
-        case 'llm.generate': handleGenerate(windowId, envelope, send); return;
-        default: handleCancel(windowId, envelope, send);
+        case 'llm.select': void handleSelect(state, windowId, envelope, send); return;
+        case 'llm.describe': void handleDescribe(state, windowId, envelope, send); return;
+        case 'llm.generate': handleGenerate(state, windowId, envelope, send); return;
+        default: handleCancel(state, windowId, envelope, send);
       }
     },
     onWindowDestroyed(windowId) {
-      cancelWindow(windowId, null);
-      handles.delete(windowId);
+      cancelWindow(state, windowId, null);
+      state.handles.delete(windowId);
     },
     onCapabilityRevoked(windowId, capability) {
       if (capability === null || capability === 'llm:generate') revokeWindow(windowId);

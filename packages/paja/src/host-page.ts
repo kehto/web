@@ -296,7 +296,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
           <form class="llm-form" id="paja-llm-form" autocomplete="off">
             <label>Provider<select id="paja-llm-preset" aria-label="Provider preset"></select></label>
             <label>Name<input id="paja-llm-name" type="text" required maxlength="64" spellcheck="false"></label>
-            <label>API base URL<input id="paja-llm-base-url" type="url" required spellcheck="false" placeholder="https://api.example.com/v1"></label>
+            <label>API base URL<input id="paja-llm-base-url" type="url" required spellcheck="false" placeholder="API root; presets fill this in"></label>
             <label>Model<input id="paja-llm-model" type="text" required maxlength="200" spellcheck="false" list="paja-llm-model-examples"><datalist id="paja-llm-model-examples"></datalist></label>
             <label>API key<input id="paja-llm-credential" type="password" autocomplete="off" spellcheck="false"></label>
             <label class="llm-check"><input id="paja-llm-remember" type="checkbox"><span>Remember the key, encrypted with a vault password</span></label>

@@ -84,20 +84,25 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function normalizeRecord(input: PajaLlmConnectionRecord): PajaLlmConnectionRecord {
-  const name = input.name.trim();
-  const model = input.model.trim();
-  if (!/^[A-Za-z0-9_-]{1,64}$/.test(input.id)) throw new Error('Invalid connection id.');
+function normalizeRecord(input: Record<string, unknown>): PajaLlmConnectionRecord {
+  const text = (value: unknown): string => typeof value === 'string' ? value : '';
+  const name = text(input.name).trim();
+  const model = text(input.model).trim();
+  const id = text(input.id);
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) throw new Error('Invalid connection id.');
   if (!name || name.length > 64) throw new Error('Enter a connection name of up to 64 characters.');
   if (!model || model.length > 200) throw new Error('Enter the exact provider model identifier.');
-  if (!PROTOCOLS.has(input.protocol)) throw new Error('Unknown provider protocol.');
-  if (input.credentialHeader !== undefined && !CREDENTIAL_HEADERS.has(input.credentialHeader)) throw new Error('Unknown credential header.');
-  if (!['vault', 'session', 'none'].includes(input.credentialStorage)) throw new Error('Unknown credential storage.');
+  const protocol = input.protocol as LlmProviderProtocol;
+  const credentialHeader = input.credentialHeader as LlmCredentialHeader | undefined;
+  const credentialStorage = input.credentialStorage as PajaLlmCredentialStorage;
+  if (!PROTOCOLS.has(protocol)) throw new Error('Unknown provider protocol.');
+  if (credentialHeader !== undefined && !CREDENTIAL_HEADERS.has(credentialHeader)) throw new Error('Unknown credential header.');
+  if (!['vault', 'session', 'none'].includes(credentialStorage)) throw new Error('Unknown credential storage.');
   const record: PajaLlmConnectionRecord = {
-    id: input.id, name, presetId: input.presetId.slice(0, 64), protocol: input.protocol,
-    baseUrl: normalizePajaLlmBaseUrl(input.baseUrl), model, images: input.images === true, json: input.json === true,
-    credentialStorage: input.credentialStorage,
-    ...(input.credentialHeader ? { credentialHeader: input.credentialHeader } : {}),
+    id, name, presetId: text(input.presetId).slice(0, 64), protocol,
+    baseUrl: normalizePajaLlmBaseUrl(text(input.baseUrl)), model, images: input.images === true, json: input.json === true,
+    credentialStorage,
+    ...(credentialHeader ? { credentialHeader } : {}),
   };
   return Object.freeze(record);
 }
@@ -110,7 +115,7 @@ function readRecords(storage: Storage | null): PajaLlmConnectionRecord[] {
     const records: PajaLlmConnectionRecord[] = [];
     for (const entry of parsed) {
       if (!isRecord(entry) || records.length >= MAX_CONNECTIONS) continue;
-      try { records.push(normalizeRecord(entry as unknown as PajaLlmConnectionRecord)); } catch { /* skip corrupt row */ }
+      try { records.push(normalizeRecord(entry)); } catch { /* skip corrupt row */ }
     }
     return records;
   } catch {
@@ -140,7 +145,7 @@ export function createPajaLlmConnectionStore(storage: Storage | null = storageOr
     list: () => records,
     get: (id) => records.find((record) => record.id === id),
     save(record) {
-      const normalized = normalizeRecord(record);
+      const normalized = normalizeRecord({ ...record });
       const index = records.findIndex((entry) => entry.id === normalized.id);
       if (index === -1 && records.length >= MAX_CONNECTIONS) throw new Error(`Paja keeps at most ${MAX_CONNECTIONS} connections.`);
       records = index === -1 ? [...records, normalized] : records.map((entry, position) => position === index ? normalized : entry);

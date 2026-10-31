@@ -4,7 +4,11 @@
  * The preset list is the host-neutral starting point for a connection editor:
  * each row names the dialect, API root and credential header a developer needs
  * to reach the services napplet authors most commonly target. Hosts may add or
- * hide rows; the list is data, not policy.
+ * hide rows; the list is data, not policy. The catalogue's whole purpose is to
+ * carry provider endpoints, so literal URLs here are the content rather than
+ * embedded environment configuration.
+ *
+ * aislop-ignore-file ai-slop/hardcoded-url
  */
 
 import { LlmServiceError, type LlmGeneration, type LlmGenerationRequest } from './llm-types.js';

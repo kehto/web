@@ -9,8 +9,17 @@
  */
 
 import { LLM_PROVIDER_PRESETS, type LlmProviderPreset, type LlmRequirements } from '@kehto/services';
-import { normalizePajaLlmBaseUrl, type PajaLlmConnectionRecord, type PajaLlmConnectionStore, type PajaLlmRequestIdentity } from './browser-llm-connections.js';
-import { validatePajaLlmVaultPassword, type PajaLlmCredentialStorage, type PajaLlmVault } from './browser-llm-vault.js';
+import type { PajaConfirmationHandler } from './browser-adapter.js';
+import {
+  createPajaLlmConnectionStore,
+  createPajaLlmHost,
+  normalizePajaLlmBaseUrl,
+  type PajaLlmConnectionRecord,
+  type PajaLlmConnectionStore,
+  type PajaLlmHost,
+  type PajaLlmRequestIdentity,
+} from './browser-llm-connections.js';
+import { createPajaLlmVault, validatePajaLlmVaultPassword, type PajaLlmCredentialStorage, type PajaLlmVault } from './browser-llm-vault.js';
 
 /** Panel controller exposed to the host page. */
 export interface PajaLlmPanel {
@@ -324,4 +333,45 @@ export function installPajaLlmPanel(options: PajaLlmPanelOptions): PajaLlmPanel 
     render: renderList,
     dispose() { for (const dispose of disposers.splice(0)) dispose(); },
   };
+}
+
+/** Host-page wiring for {@link installPajaLlm}. */
+export interface PajaLlmInstallOptions {
+  /** Shared Paja confirmation dialog. */
+  confirm: PajaConfirmationHandler;
+  /** Resolve the napplet identity bound to a runtime window. */
+  getIdentity(windowId: string): PajaLlmRequestIdentity;
+  /** Called after connections or vault state change so the Interfaces panel re-renders. */
+  onChange?: () => void;
+}
+
+/** Installed Paja NAP-LLM wiring. */
+export interface PajaLlmInstallation {
+  /** Host to hand to `createPajaAdapter`. */
+  readonly host: PajaLlmHost;
+  readonly panel: PajaLlmPanel;
+  dispose(): void;
+}
+
+/**
+ * Create the store, vault, panel and runtime host together.
+ *
+ * @param options - Confirmation dialog, identity resolver and change callback.
+ * @returns The host for the shell adapter plus a disposer for page teardown.
+ * @example const llm = installPajaLlm({ confirm, getIdentity, onChange });
+ */
+export function installPajaLlm(options: PajaLlmInstallOptions): PajaLlmInstallation {
+  const store = createPajaLlmConnectionStore();
+  const vault = createPajaLlmVault();
+  const panel = installPajaLlmPanel({ store, vault, onChange: options.onChange });
+  const host = createPajaLlmHost({
+    store,
+    vault,
+    confirm: options.confirm,
+    chooseConnection: panel.chooseConnection,
+    requestUnlock: panel.requestUnlock,
+    openPanel: panel.open,
+    getIdentity: options.getIdentity,
+  });
+  return { host, panel, dispose: panel.dispose };
 }

@@ -1,4 +1,3 @@
-import { webcrypto } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { buildShellCapabilities, getShellDomainState } from '@kehto/shell';
 import type { LlmGenerationRequest, LlmProviderEndpoint } from '@kehto/services';
@@ -30,7 +29,7 @@ const IDENTITY = { dTag: 'assistant', aggregateHash: 'a'.repeat(64) };
 const OPENAI: PajaLlmConnectionRecord = { id: 'c-openai', name: 'OpenAI', presetId: 'openai', protocol: 'openai-chat', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4.1-mini', images: true, json: true, credentialStorage: 'vault' };
 const OLLAMA: PajaLlmConnectionRecord = { id: 'c-ollama', name: 'Local', presetId: 'ollama', protocol: 'openai-chat', baseUrl: 'http://127.0.0.1:11434/v1', model: 'llama3.2', images: false, json: false, credentialStorage: 'none' };
 const REQUEST: LlmGenerationRequest = { handle: 'h', messages: [{ role: 'user', content: [{ type: 'text', text: 'hello there' }, { type: 'image', mimeType: 'image/png', data: 'iVBORw0KGgo=' }] }], format: 'json' };
-const fastVault = () => createPajaLlmVault({ storage: new MemoryStorage(), crypto: webcrypto as unknown as Crypto, iterations: 1000 });
+const fastVault = () => createPajaLlmVault({ storage: new MemoryStorage(), iterations: 1000 });
 
 describe('Paja LLM connection store', () => {
   it('normalises base URLs and refuses credential-leaking or plaintext remote endpoints', () => {
@@ -113,7 +112,7 @@ describe('Paja LLM host', () => {
 
   it('asks for disclosure consent with counts and route but never prompt text or credentials', async () => {
     const h = harness([OLLAMA]);
-    const connection = h.host.describe({ windowId: 'w1' }, 'c-ollama')!;
+    const connection = (await h.host.describe({ windowId: 'w1' }, 'c-ollama'))!;
     await expect(h.host.authorize({ windowId: 'w1' }, connection, REQUEST)).resolves.toBe(true);
     const request = h.confirm.mock.calls[0]![0] as PajaConfirmationRequest;
     expect(request).toMatchObject({ action: 'llm', windowId: 'w1', napplet: IDENTITY, connection: 'Local', model: 'llama3.2', messages: 1, characters: 11, images: 1, format: 'json' });
@@ -127,7 +126,7 @@ describe('Paja LLM host', () => {
     await h.vault.setCredential('c-openai', KEY, 'vault');
     h.vault.lock();
     h.requestUnlock.mockImplementation(async () => h.vault.unlock('correct horse battery staple'));
-    const connection = h.host.describe({ windowId: 'w1' }, 'c-openai')!;
+    const connection = (await h.host.describe({ windowId: 'w1' }, 'c-openai'))!;
     await expect(h.host.authorize({ windowId: 'w1' }, connection, REQUEST)).resolves.toBe(true);
     expect(h.requestUnlock).toHaveBeenCalledOnce();
     expect(JSON.stringify(h.confirm.mock.calls[0])).not.toContain(KEY);
@@ -140,12 +139,12 @@ describe('Paja LLM host', () => {
     const locked = harness([OPENAI], { unlock: false });
     await locked.vault.create('correct horse battery staple');
     locked.vault.lock();
-    const connection = locked.host.describe({ windowId: 'w1' }, 'c-openai')!;
+    const connection = (await locked.host.describe({ windowId: 'w1' }, 'c-openai'))!;
     await expect(locked.host.authorize({ windowId: 'w1' }, connection, REQUEST)).rejects.toMatchObject({ code: 'user-cancelled' });
     expect(locked.confirm).not.toHaveBeenCalled();
 
     const session = harness([{ ...OPENAI, id: 'c-session', credentialStorage: 'session' }]);
-    const sessionConnection = session.host.describe({ windowId: 'w1' }, 'c-session')!;
+    const sessionConnection = (await session.host.describe({ windowId: 'w1' }, 'c-session'))!;
     await expect(session.host.generate({ windowId: 'w1' }, sessionConnection, REQUEST, { signal: new AbortController().signal, onDelta: () => undefined })).rejects.toMatchObject({ code: 'unsupported', message: /session/ });
     expect(session.openPanel).toHaveBeenCalledOnce();
     expect(session.provider).not.toHaveBeenCalled();
@@ -174,7 +173,7 @@ describe('Paja adapter NAP-LLM wiring', () => {
   it('advertises llm with the host and reports unconfigured until a connection exists', () => {
     const h = harness([]);
     const adapter = createPajaAdapter(CONFIG, () => simulation(), () => {}, () => {}, () => true, undefined, undefined, undefined, undefined, undefined, undefined, undefined, () => [], h.host);
-    expect(adapter.services.llm?.descriptor.name).toBe('llm');
+    expect(adapter.services?.llm?.descriptor.name).toBe('llm');
     expect(buildShellCapabilities(adapter).domains).toContain('llm');
     expect(getShellDomainState(adapter, 'llm')).toBe('unconfigured');
     h.store.save(OLLAMA);
@@ -183,11 +182,11 @@ describe('Paja adapter NAP-LLM wiring', () => {
 
   it('omits llm without a host or when the simulation disables the domain', () => {
     const withoutHost = createPajaAdapter(CONFIG, () => simulation(), () => {}, () => {}, () => true);
-    expect(withoutHost.services.llm).toBeUndefined();
+    expect(withoutHost.services?.llm).toBeUndefined();
     expect(buildShellCapabilities(withoutHost).domains).not.toContain('llm');
     expect(getShellDomainState(withoutHost, 'llm')).toBe('disabled');
     const disabled = createPajaAdapter(CONFIG, () => simulation({ llm: false }), () => {}, () => {}, () => true, undefined, undefined, undefined, undefined, undefined, undefined, undefined, () => [], harness([OLLAMA]).host);
-    expect(disabled.services.llm).toBeUndefined();
+    expect(disabled.services?.llm).toBeUndefined();
     expect(getShellDomainState(disabled, 'llm')).toBe('disabled');
   });
 });

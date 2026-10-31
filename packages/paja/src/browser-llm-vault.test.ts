@@ -1,4 +1,3 @@
-import { webcrypto } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { PAJA_LLM_VAULT_STORAGE_KEY, createPajaLlmVault, validatePajaLlmVaultPassword } from './browser-llm-vault.js';
 
@@ -14,8 +13,7 @@ class MemoryStorage implements Storage {
 
 const PASSWORD = 'correct horse battery staple';
 const KEY = 'sk-live-very-secret-key';
-const crypto = webcrypto as unknown as Crypto;
-const fast = { crypto, iterations: 1000 };
+const fast = { iterations: 1000 };
 
 describe('Paja LLM credential vault', () => {
   it('rejects weak passwords before deriving a key', () => {

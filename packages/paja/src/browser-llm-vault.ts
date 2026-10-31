@@ -57,7 +57,7 @@ export interface PajaLlmVault {
   subscribe(listener: () => void): () => void;
 }
 
-/** Host crypto surface used by the vault. */
+/** Web Crypto subset the vault needs. */
 export interface PajaLlmVaultCrypto {
   getRandomValues<T extends ArrayBufferView>(array: T): T;
   subtle: Pick<SubtleCrypto, 'importKey' | 'deriveKey' | 'encrypt' | 'decrypt'>;
@@ -107,10 +107,10 @@ function readDocument(storage: Storage | null): VaultDocument | null {
     if (raw === null) return null;
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return null;
-    const doc = parsed as Record<string, unknown>;
-    if (doc.version !== VAULT_VERSION || doc.kdf !== KDF) return null;
-    if (typeof doc.iterations !== 'number' || typeof doc.salt !== 'string' || typeof doc.iv !== 'string' || typeof doc.ciphertext !== 'string') return null;
-    return doc as unknown as VaultDocument;
+    const { version, kdf, iterations, salt, iv, ciphertext } = parsed as Record<string, unknown>;
+    if (version !== VAULT_VERSION || kdf !== KDF) return null;
+    if (typeof iterations !== 'number' || typeof salt !== 'string' || typeof iv !== 'string' || typeof ciphertext !== 'string') return null;
+    return { version: VAULT_VERSION, kdf: KDF, iterations, salt, iv, ciphertext };
   } catch {
     return null;
   }

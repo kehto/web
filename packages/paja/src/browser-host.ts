@@ -1,7 +1,5 @@
 import { installPajaResourceSettings } from './browser-resource-settings.js';
-import { createPajaLlmConnectionStore, createPajaLlmHost } from './browser-llm-connections.js';
-import { installPajaLlmPanel } from './browser-llm-panel.js';
-import { createPajaLlmVault } from './browser-llm-vault.js';
+import { installPajaLlm } from './browser-llm-panel.js';
 import {
   buildShellCapabilities,
   createShellBridge,
@@ -608,9 +606,6 @@ async function installPajaHost(): Promise<void> {
   const disposeSidebarSections = installPajaSidebarSections();
   window.addEventListener('pagehide', disposeSidebarSections, { once: true });
   const resourceSettings = installPajaResourceSettings();
-  const llmStore = createPajaLlmConnectionStore();
-  const llmVault = createPajaLlmVault();
-  const llmPanel = installPajaLlmPanel({ store: llmStore, vault: llmVault, onChange: () => { if (stateRef) setSimulationStatus(stateRef); } });
   const config = await readLatestPajaHostConfig(readPajaHostConfig());
   const stage = getStage();
   const frame = config.target.mode === 'runtime-pointer' ? null : getFrame();
@@ -706,17 +701,10 @@ async function installPajaHost(): Promise<void> {
   const relayInventory = (): PajaRelayInventory => ({
     fallback: adapter.relayConfig.getRelayConfig().outbox,
   });
-  const llmHost = createPajaLlmHost({
-    store: llmStore,
-    vault: llmVault,
+  const llm = installPajaLlm({
     confirm: confirmationController.confirm,
-    chooseConnection: llmPanel.chooseConnection,
-    requestUnlock: llmPanel.requestUnlock,
-    openPanel: llmPanel.open,
-    getIdentity: (windowId) => {
-      const identity = getWindowIdentity(windowId);
-      return { dTag: identity.dTag, aggregateHash: identity.aggregateHash };
-    },
+    getIdentity: (windowId) => ({ dTag: getWindowIdentity(windowId).dTag, aggregateHash: getWindowIdentity(windowId).aggregateHash }),
+    onChange: () => { if (stateRef) setSimulationStatus(stateRef); },
   });
   const adapter = createPajaAdapter(config, getSimulation, (theme) => {
     runtime.themeService = theme;
@@ -745,7 +733,7 @@ async function installPajaHost(): Promise<void> {
         const id = `nip5d:${hint.address}`;
         return candidates.some((candidate) => candidate.id === id) ? id : undefined;
       },
-    }, confirmationController.activation, notifyController?.serviceOptions, configController?.serviceOptions, resourceSettings.getServers, llmHost);
+    }, confirmationController.activation, notifyController?.serviceOptions, configController?.serviceOptions, resourceSettings.getServers, llm.host);
   const relayBackend = adapter.relayPool.getRelayPool() as PajaRelayBackend | null;
   relayBackend?.setRelayEventObserver((sighting) => {
     relayEventCounts.recordEvent(sighting.reason, sighting.event, sighting.sightedOn, sighting.origin);
@@ -803,7 +791,7 @@ async function installPajaHost(): Promise<void> {
   window.addEventListener('pagehide', disposeConsolePanel, { once: true });
   window.addEventListener('pagehide', disposeEventCounterReset, { once: true });
   window.addEventListener('pagehide', resourceSettings.dispose, { once: true });
-  window.addEventListener('pagehide', llmPanel.dispose, { once: true });
+  window.addEventListener('pagehide', llm.dispose, { once: true });
 
   window.__KEHTO_PAJA__ = state;
 

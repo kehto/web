@@ -102,11 +102,9 @@ function isServiceDomainLive(hooks: ShellAdapter, domain: string): boolean {
  */
 export function getShellDomainState(hooks: ShellAdapter, domain: string): ShellDomainState {
   if (!buildShellCapabilities(hooks).domains.includes(domain)) return 'disabled';
-  const configurable = (hooks as unknown as Record<string, { isConfigured?: () => boolean } | undefined>)[domain];
-  if (configurable && typeof configurable === 'object' && typeof configurable.isConfigured === 'function' && !configurable.isConfigured()) {
-    return 'unconfigured';
-  }
-  return 'supported';
+  const configurable: unknown = Reflect.get(hooks, domain);
+  const isConfigured = configurable && typeof configurable === 'object' ? (configurable as { isConfigured?: unknown }).isConfigured : undefined;
+  return typeof isConfigured === 'function' && !isConfigured.call(configurable) ? 'unconfigured' : 'supported';
 }
 
 function getLiveServices(

@@ -47,7 +47,7 @@ function harness(options: Partial<Parameters<typeof createLlmService>[0]> = {}) 
   service.onRegistered?.({} as never);
   const sent = new Map<string, Sent[]>();
   const send = (windowId: string) => (message: NappletMessage) => { sent.set(windowId, [...(sent.get(windowId) ?? []), message as Sent]); };
-  const post = (windowId: string, message: Record<string, unknown>) => service.handleMessage(windowId, message as NappletMessage, send(windowId));
+  const post = (windowId: string, message: Record<string, unknown> & { type: string }) => service.handleMessage(windowId, message, send(windowId));
   const last = (windowId = 'w1') => sent.get(windowId)?.at(-1);
   const all = (windowId = 'w1') => sent.get(windowId) ?? [];
   const flush = () => new Promise((resolve) => setTimeout(resolve, 0));

@@ -50,24 +50,16 @@ export function isLlmRequirements(value: unknown): value is LlmRequirements | un
 }
 
 /** True for a well-formed GenerationRequest record. */
-export function isLlmGenerationRequest(value: unknown): value is LlmGenerationRequest {
-  return generationRequest(value);
-}
+export const isLlmGenerationRequest = generationRequest as (value: unknown) => value is LlmGenerationRequest;
 
 /** True for a well-formed Generation record returned by a provider adapter. */
-export function isLlmGeneration(value: unknown): value is LlmGeneration {
-  return generation(value);
-}
+export const isLlmGeneration = generation as (value: unknown) => value is LlmGeneration;
 
 /** True for a well-formed Usage record. */
-export function isLlmUsage(value: unknown): value is LlmUsage {
-  return usage(value);
-}
+export const isLlmUsage = usage as (value: unknown) => value is LlmUsage;
 
 /** True for non-empty request text usable as a correlation id or handle. */
-export function isNonemptyText(value: unknown): value is string {
-  return nonemptyText(value);
-}
+export const isNonemptyText = nonemptyText as (value: unknown) => value is string;
 
 /** Count inline image parts across a conversation. */
 export function countLlmImages(messages: readonly LlmMessage[]): number {
