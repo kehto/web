@@ -8,6 +8,8 @@
  */
 
 import { createIntentUriNormalizer } from './intent-uri.js';
+import { bindingSource, type ShellExtensionBinding } from './shell-extensions.js';
+import { isExtensionDomain } from '@kehto/acl';
 
 /**
  * Options for rendering the host-owned NIP-5D `window.napplet` namespace prelude.
@@ -25,6 +27,27 @@ export interface NappletNamespacePreludeOptions {
    * Shell is injected only when included in the exposed domains.
    */
   domains: readonly string[];
+  /**
+   * Bindings for experimental `x-` domains, keyed by domain. Only domains also
+   * listed in `domains` are rendered. Each binding is serialized into this
+   * host-owned prelude (never into the verified artifact bytes) and builds the
+   * frozen `window.napplet.<domain>` object from a domain-scoped kit. Use
+   * `getShellExtensionBindings` to derive this map from `ShellAdapter.extensions`.
+   */
+  extensions?: Readonly<Record<string, ShellExtensionBinding>>;
+}
+
+function renderExtensionFactories(
+  domains: readonly string[],
+  extensions: Readonly<Record<string, ShellExtensionBinding>> | undefined,
+): string {
+  if (!extensions) return '{}';
+  const entries: string[] = [];
+  for (const domain of domains) {
+    if (!isExtensionDomain(domain) || !Object.hasOwn(extensions, domain)) continue;
+    entries.push(`${scriptJson(domain)}: (${bindingSource(domain, extensions[domain])})`);
+  }
+  return `{${entries.join(', ')}}`;
 }
 
 function uniqueBareDomains(domains: readonly string[]): string[] {
@@ -60,7 +83,8 @@ function scriptJson(value: unknown): string {
  */
 export function renderNappletNamespacePrelude(options: NappletNamespacePreludeOptions): string {
   const domains = uniqueBareDomains(options.domains);
-  return `<script data-kehto-nip5d-injection>(${nappletNamespacePrelude.toString()})(${scriptJson(domains)}, (${createIntentUriNormalizer.toString()})());</script>`;
+  const factories = renderExtensionFactories(domains, options.extensions);
+  return `<script data-kehto-nip5d-injection>(${nappletNamespacePrelude.toString()})(${scriptJson(domains)}, (${createIntentUriNormalizer.toString()})(), ${factories});</script>`;
 }
 
 /**
@@ -98,6 +122,7 @@ export function injectNappletNamespacePrelude(
 function nappletNamespacePrelude(
   domains: string[],
   normalizeIntentUri: (uri: unknown, options?: unknown) => Record<string, unknown>,
+  extensionFactories: Record<string, (kit: Record<string, unknown>) => Record<string, unknown>> = {},
 ): void {
   const target = window as Window & { napplet?: Record<string, unknown> };
   const allowed = new Set(domains);
@@ -1795,9 +1820,51 @@ function nappletNamespacePrelude(
   }
 
   let media: Record<string, unknown> | undefined;
+  const extensionDomains: Record<string, Record<string, unknown>> = {};
+
+  function hasExtension(domain: string): boolean {
+    return Object.prototype.hasOwnProperty.call(extensionFactories, domain);
+  }
+
+  // Experimental x- bindings run against a kit scoped to their own domain; the
+  // resulting object is frozen and host-owned like the protected built-ins.
+  function makeExtension(domain: string): Record<string, unknown> {
+    const typeFor = (action: unknown): string => {
+      if (typeof action !== 'string' || !/^[a-z][a-zA-Z0-9.-]*$/.test(action)) throw new TypeError(`${domain}: invalid action`);
+      return `${domain}.${action}`;
+    };
+    const kit = Object.freeze({
+      domain,
+      request(action: string, payload: Record<string, unknown> = {}, options: { timeoutMs?: number } = {}) {
+        const type = typeFor(action);
+        return request({ ...payload, type }, `${type}.result`, (msg) => withoutEnvelope(msg), {
+          rejectOnError: false,
+          timeoutMs: options.timeoutMs,
+        });
+      },
+      send(action: string, payload: Record<string, unknown> = {}) {
+        fire({ ...payload, type: typeFor(action) });
+      },
+      on(event: string, callback: (message: Record<string, unknown>) => void) {
+        const type = typeFor(event);
+        return listen((evt) => {
+          if (!isParentMessage(evt)) return;
+          const msg = evt.data as RuntimeMessage;
+          if (typeof msg !== 'object' || msg === null || msg.type !== type) return;
+          callback(withoutEnvelope(msg));
+        });
+      },
+    });
+    try {
+      const built = extensionFactories[domain](kit);
+      return Object.freeze(built && typeof built === 'object' ? { ...built } : {});
+    } catch {
+      return Object.freeze({});
+    }
+  }
 
   function isProtectedDomain(domain: string): boolean {
-    return domain === 'media' || domain === 'gamepad' || domain === 'shell'
+    return hasExtension(domain) || domain === 'media' || domain === 'gamepad' || domain === 'shell'
       || domain === 'inc'
       || domain === 'identity'
       || domain === 'theme'
@@ -1805,6 +1872,7 @@ function nappletNamespacePrelude(
   }
 
   function makeDomain(domain: string, existing: unknown): unknown {
+    if (hasExtension(domain)) return extensionDomains[domain] ??= makeExtension(domain);
     if (domain === 'media') return media ??= makeMedia();
     if (domain === 'gamepad') return gamepad ??= makeGamepad();
     if (domain === 'shell') return shell;

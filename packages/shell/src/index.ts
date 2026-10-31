@@ -65,6 +65,35 @@ export type {
   ServiceRegistry,
 } from './types.js';
 
+// Experimental x- NAP extensions (kehto spec-gap policy; see docs/how-tos/experimental-nap.md)
+export {
+  ShellExtensionError,
+  defineShellExtension,
+  resolveShellExtensions,
+  readShellExtensionState,
+  getShellExtensionBindings,
+  listShellExtensionCapabilities,
+  isExtensionMessageType,
+  bindingSource,
+} from './shell-extensions.js';
+export type {
+  ShellExtension,
+  ShellExtensionBinding,
+  ShellExtensionBindingFactory,
+  ShellExtensionBindingKit,
+  ShellExtensionCapability,
+  ShellExtensionState,
+} from './shell-extensions.js';
+export type { ExtensionCapability } from '@kehto/acl';
+export {
+  EXTENSION_DOMAIN_PREFIX,
+  RESERVED_NAP_DOMAINS,
+  isExtensionCapability,
+  isExtensionDomain,
+  validateExtensionCapability,
+  validateExtensionDomain,
+} from '@kehto/acl';
+
 // Shell initialization — capability construction for shell.ready / shell.init handshake
 export { buildShellCapabilities, getShellDomainState, resolveShellEnvironment } from './shell-init.js';
 
