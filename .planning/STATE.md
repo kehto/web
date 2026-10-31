@@ -8,7 +8,7 @@ status: completed
 stopped_at: Phase 107 complete; PR 289 open and pushed
 last_updated: "2026-10-31T12:00:00.000000Z"
 last_activity: 2026-10-31
-last_activity_desc: "Completed quick task 261031-et9: NAP-LLM across the kehto stack"
+last_activity_desc: "Completed quick task 261031-ia2: experimental x- NAPs on kehto"
 progress:
   total_phases: 7
   completed_phases: 7
@@ -18,6 +18,10 @@ progress:
 ---
 
 # Project State
+
+2026-10-31: Completed quick task 261031-ia2 on `feat/experimental-naps`: experimental `x-` NAPs via
+`ShellAdapter.extensions`, Paja `extensions`, x- ACL capabilities, scoped extension push, the x-echo fixture,
+how-to and the `kehto-experimental-nap` skill. See `quick/261031-ia2-experimental-naps-on-kehto/`.
 
 2026-10-20: Resolved Paja tab Share in GSD debug on `fix/paja-share-button`.
 Every verified tab now has a visible app-link dialog, copy confirmation and manual
