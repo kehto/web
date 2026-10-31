@@ -8,7 +8,7 @@
  * from the form once and handed straight to the vault.
  */
 
-import { LLM_PROVIDER_PRESETS, type LlmProviderPreset, type LlmRequirements } from '@kehto/services';
+import { LLM_PROVIDER_PRESETS, type LlmProviderPreset } from '@kehto/services';
 import type { PajaConfirmationHandler } from './browser-adapter.js';
 import {
   createPajaLlmConnectionStore,

@@ -250,8 +250,9 @@ function cancelWindow(state: ServiceState, windowId: string, error: LlmFailure |
 
 /** Fail generations whose consent prompt is open but whose handle is gone. */
 function expireStaleConsent(state: ServiceState): void {
-  for (const [windowId, perWindow] of [...state.active]) {
-    for (const [requestId, generation] of [...perWindow]) {
+  // Map iteration tolerates the deletions failGeneration performs.
+  for (const [windowId, perWindow] of state.active) {
+    for (const [requestId, generation] of perWindow) {
       if (!generation.awaitingConsent) continue;
       if (generation.epoch === state.epoch && state.handles.get(windowId)?.has(generation.handle)) continue;
       failGeneration(state, windowId, requestId, generation, CHANGED_DURING_CONSENT);
@@ -504,14 +505,14 @@ export function createLlmService(options: LlmServiceOptions): LlmService {
       state.closed = false;
       unsubscribe?.();
       unsubscribe = state.host.subscribe?.(() => {
-        for (const windowId of [...state.active.keys()]) cancelWindow(state, windowId, CANCELLED);
+        for (const windowId of state.active.keys()) cancelWindow(state, windowId, CANCELLED);
         invalidateHandles(state);
       });
     },
     onUnregistered() {
       state.closed = true;
       unsubscribe?.(); unsubscribe = undefined;
-      for (const windowId of [...state.active.keys()]) cancelWindow(state, windowId, null);
+      for (const windowId of state.active.keys()) cancelWindow(state, windowId, null);
       settleSelects(state, null, null);
       state.handles.clear();
     },
