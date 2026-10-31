@@ -8,7 +8,7 @@ status: completed
 stopped_at: Phase 107 complete; PR 289 open and pushed
 last_updated: "2026-10-31T12:00:00.000000Z"
 last_activity: 2026-10-31
-last_activity_desc: "Completed quick task 261031-ia2: experimental x- NAPs on kehto"
+last_activity_desc: "Completed quick task 261031-k14: close experimental NAP review findings"
 progress:
   total_phases: 7
   completed_phases: 7
@@ -18,6 +18,12 @@ progress:
 ---
 
 # Project State
+
+2026-10-31: Completed quick task 261031-k14 on `feat/experimental-naps` (PR #363): closed review findings
+IN-01..IN-09 (frozen x- decisions, unknown capability strings denied, deny-wins migration, kit action grammar and
+generated request id, Paja pathname route and generic 404, no-secrets docs, sanitized playground storage, live
+ACL default toggles, gated test hook) plus a `@kehto/services` x- NAP README section. See
+`quick/261031-k14-close-experimental-nap-review-findings/`.
 
 2026-10-31: Completed quick task 261031-ia2 on `feat/experimental-naps`: experimental `x-` NAPs via
 `ShellAdapter.extensions`, Paja `extensions`, x- ACL capabilities, scoped extension push, the x-echo fixture,
