@@ -116,7 +116,7 @@ For `x-` domains, `messageCapabilities` may also name the domain's own
 types, which the handler sends through its own `sendToEligibleNapplet` after
 the same session, domain-grant, block, ACL and firewall checks. Each attached
 handler receives its own scoped context. See
-[Build an experimental NAP](../how-tos/experimental-nap.md).
+[Build an experimental NAP](https://kehto.github.io/web/docs/how-tos/experimental-nap.html).
 
 ## API Reference
 

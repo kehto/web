@@ -50,7 +50,7 @@ bitfield, which runs through `1 << 27` (`llm:generate`), is never touched. A
 missing decision falls back to the default policy, and `block` overrides it.
 Built-in capability strings and reserved domains (including `llm`) and their
 `x-` aliases are rejected. This is a Kehto spec-gap policy; see
-[Build an experimental NAP](../how-tos/experimental-nap.md).
+[Build an experimental NAP](https://kehto.github.io/web/docs/how-tos/experimental-nap.html).
 
 ## Scope Boundaries
 

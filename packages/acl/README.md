@@ -115,4 +115,4 @@ MIT
 `revokeExtension`); the built-in bitfield is unchanged. `validateExtensionDomain`
 and `validateExtensionCapability` reject reserved domains (`RESERVED_NAP_DOMAINS`,
 including `llm`), `x-` aliases of them, built-in capability strings and borrowed
-capabilities. See [Build an experimental NAP](../../docs/how-tos/experimental-nap.md).
+capabilities. See [Build an experimental NAP](https://kehto.github.io/web/docs/how-tos/experimental-nap.html).

@@ -82,7 +82,7 @@ mapping. `shell` remains adapter-owned; the removed `signer` route cannot be
 revived. INC topics never select an extension service.
 
 For an experimental domain, prefer the shell-level declaration in
-[Build an experimental NAP](./experimental-nap.md). `ShellAdapter.extensions`
+[Build an experimental NAP](https://kehto.github.io/web/docs/how-tos/experimental-nap.html). `ShellAdapter.extensions`
 takes an `x-` domain, its own `x-<domain>:<action>` capabilities, pushes, a
 prelude binding and a tri-state. Paja and the playground wire it end to end.
 
@@ -90,7 +90,7 @@ For a browser host, registration does **not** inject `window.napplet.example`.
 The host must implement the owning domain contract, inject its granted binding
 before app scripts run, and enforce that same availability through its trusted
 source mapping. The stock Paja/playground bindings expose only declared `x-` extensions
-(see [Build an experimental NAP](./experimental-nap.md)). Neither manifest `R`/`O` tags nor `shell.init.services` grants access.
+(see [Build an experimental NAP](https://kehto.github.io/web/docs/how-tos/experimental-nap.html)). Neither manifest `R`/`O` tags nor `shell.init.services` grants access.
 Without an exposed binding, napplets must treat the domain as unavailable.
 
 `routeServiceMessage` is a low-level, policy-free selection primitive. It does not

@@ -3,7 +3,6 @@ import { renderPajaExtensions, type PajaExtensionLoadFailure, type PajaLoadedExt
 import type { NappletMessage } from '@napplet/core';
 import {
   ALL_CAPABILITIES,
-  type Capability,
   type ShellBridge,
   type ShellDomainState,
   type ShellEnvironment,

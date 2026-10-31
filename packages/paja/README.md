@@ -618,4 +618,4 @@ List experimental `x-` NAP modules in the config's `extensions` (paths relative
 to the config). Each module default-exports `(context) => ShellExtension`.
 Paja shows them in Interfaces (tri-state), ACL and an Extensions settings
 section, and logs `paja.extension.*` messages. See
-[Build an experimental NAP](../../docs/how-tos/experimental-nap.md).
+[Build an experimental NAP](https://kehto.github.io/web/docs/how-tos/experimental-nap.html).

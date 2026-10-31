@@ -332,4 +332,4 @@ Declare experimental `x-` domains with `ShellAdapter.extensions` (validated by
 `resolveEnvironment` and reported by `getShellDomainState` like built-ins. Pass
 `getShellExtensionBindings(hooks.extensions, domains)` to the prelude's
 `extensions` option. The package also ships the `kehto-experimental-nap` agent
-skill under `skills/`. See [Build an experimental NAP](../../docs/how-tos/experimental-nap.md).
+skill under `skills/`. See [Build an experimental NAP](https://kehto.github.io/web/docs/how-tos/experimental-nap.html).

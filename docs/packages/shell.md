@@ -157,7 +157,7 @@ Collisions with reserved domains, capabilities or services throw
 `ShellExtensionError`. If `originRegistry.setEnvironment` widens a frame
 beyond the live environment, it still works but warns once
 (`KEHTO_COMPAT_SHELL_ENV_OVERRIDE`). See
-[Build an experimental NAP](../how-tos/experimental-nap.md).
+[Build an experimental NAP](https://kehto.github.io/web/docs/how-tos/experimental-nap.html).
 
 ## LLM integration
 

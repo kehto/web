@@ -354,4 +354,4 @@ This non-normative guidance defers to the living [NAP-LLM](https://github.com/na
 `x-<domain>:<action>` capabilities for `x-` domains, and `pushCapabilities`
 declares host-initiated types sent through the handler's scoped
 `sendToEligibleNapplet` after session, domain-grant, block, ACL and firewall
-checks. See [Build an experimental NAP](../../docs/how-tos/experimental-nap.md).
+checks. See [Build an experimental NAP](https://kehto.github.io/web/docs/how-tos/experimental-nap.html).

@@ -1,7 +1,6 @@
 
 import type { Capability } from '@kehto/acl/capabilities';
-import type { ExtensionCapability } from '@kehto/acl';
-import type { NapMessage } from '@kehto/acl';
+import type { ExtensionCapability, NapMessage } from '@kehto/acl';
 import type { AclCheckEvent } from './types.js';
 
 // Re-export NAP capability resolution for consumers who import through enforce.ts

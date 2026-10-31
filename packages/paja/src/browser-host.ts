@@ -13,7 +13,6 @@ import {
   createShellBridge,
   getShellDomainState,
   originRegistry,
-  type Capability,
   type ShellBridge,
   type ShellCapabilities,
   type ShellDomainState,

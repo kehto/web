@@ -42,7 +42,7 @@ pnpm --filter @kehto/playground preview --port 4174
 | Demo source | `apps/playground/src/` |
 | Napplet source | `apps/playground/napplets/<name>/` |
 | Verification | Playwright E2E target served by `preview` on port `4174` |
-| Experimental extension | `x-echo` via `ShellAdapter.extensions` (`src/playground-extensions.ts`); see [Build an experimental NAP](../how-tos/experimental-nap.md) |
+| Experimental extension | `x-echo` via `ShellAdapter.extensions` (`src/playground-extensions.ts`); see [Build an experimental NAP](https://kehto.github.io/web/docs/how-tos/experimental-nap.html) |
 
 ## Verified catalog and intent delivery
 

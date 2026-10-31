@@ -186,7 +186,7 @@ The playground hosts the toy `x-echo` NAP through `ShellAdapter.extensions`
 `tests/fixtures/experimental-nap/x-echo.js`). The header shows its tri-state
 toggle and prefix setting, ACL panels list `x-echo:send` and `x-echo:listen`, and
 per-napplet denial runs through `capabilities.resolveEnvironment`. See
-[Build an experimental NAP](../../docs/how-tos/experimental-nap.md).
+[Build an experimental NAP](https://kehto.github.io/web/docs/how-tos/experimental-nap.html).
 
 ## Host Hooks
 

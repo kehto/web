@@ -646,7 +646,7 @@ Interfaces tri-state toggles, add ACL toggles and an Extensions settings
 section, and log `paja.extension.*` messages. `deniedDTags` withholds a domain
 from those targets. `--firewall-mode` / `simulation.firewall.mode` now pins the
 development target's firewall policy (`allow` or `deny`). See
-[Build an experimental NAP](../how-tos/experimental-nap.md).
+[Build an experimental NAP](https://kehto.github.io/web/docs/how-tos/experimental-nap.html).
 
 ## Environment Simulation
 
