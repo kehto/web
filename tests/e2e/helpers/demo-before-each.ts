@@ -9,20 +9,22 @@
  * because the demo has no `__aclClear__` global.
  *
  * @param page - Playwright Page instance (must already be configured with baseURL :4174).
- * @param options - Optional { topologyReadyTimeoutMs } (default 15000).
+ * @param options - Optional { topologyReadyTimeoutMs } (default 15000) and
+ *   { path } (default '/'), used for both navigations, e.g. '/?kehto-test'.
  */
 import type { Page } from '@playwright/test';
 import { DEMO_NAPPLETS } from '../../../apps/playground/src/demo-definitions.js';
 
 export async function demoBeforeEach(
   page: Page,
-  options?: { topologyReadyTimeoutMs?: number },
+  options?: { topologyReadyTimeoutMs?: number; path?: string },
 ): Promise<void> {
   const timeout = options?.topologyReadyTimeoutMs ?? 15000;
-  await page.goto('/', { waitUntil: 'commit' });
+  const path = options?.path ?? '/';
+  await page.goto(path, { waitUntil: 'commit' });
   await page.evaluate(() => { try { localStorage.clear(); } catch { /* best-effort */ } });
   // Second goto ensures clean module state after localStorage.clear
-  await page.goto('/', { waitUntil: 'commit' });
+  await page.goto(path, { waitUntil: 'commit' });
   // #topology-root is rendered dynamically by renderDemoTopology() into #topology-pane
   await page.waitForSelector('#topology-root', { state: 'visible', timeout });
   // Wait for at least one service node to render (demo booted + topology built).

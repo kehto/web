@@ -35,20 +35,99 @@ interface PlaygroundExtensionEntry {
 
 const STORAGE_KEY = 'kehto.playground.extensions.v1';
 
-interface StoredExtensionState {
+/** Persisted per-browser extension state, after {@link sanitizeStoredExtensionState}. */
+export interface StoredExtensionState {
   readonly values?: Record<string, Record<string, string>>;
   readonly disabled?: readonly string[];
   /** Domain → napplet d tags whose frame environment withholds it. */
   readonly deniedFor?: Record<string, readonly string[]>;
 }
 
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function stringItems(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+}
+
+function stringValues(value: Record<string, unknown>): Record<string, string> {
+  return Object.fromEntries(Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === 'string'));
+}
+
+/**
+ * Keep only well-formed extension state from untrusted localStorage data.
+ * Setting values keep only string fields of plain-object domain records,
+ * `disabled` keeps only string items of an array, and `deniedFor` keeps only
+ * array entries with string `d` tags. Anything else is dropped.
+ *
+ * @param value - Parsed JSON from storage.
+ * @returns The sanitized state; `{}` for non-object input.
+ * @example
+ * ```ts
+ * sanitizeStoredExtensionState({ values: { 'x-echo': { prefix: 5 } }, disabled: 'x-echo' });
+ * // { values: { 'x-echo': {} }, disabled: [], deniedFor: {} }
+ * ```
+ */
+export function sanitizeStoredExtensionState(value: unknown): StoredExtensionState {
+  if (!isPlainRecord(value)) return {};
+  const values = isPlainRecord(value.values) ? value.values : {};
+  const deniedFor = isPlainRecord(value.deniedFor) ? value.deniedFor : {};
+  return {
+    values: Object.fromEntries(Object.entries(values)
+      .filter((entry): entry is [string, Record<string, unknown>] => isPlainRecord(entry[1]))
+      .map(([domain, record]) => [domain, stringValues(record)])),
+    disabled: stringItems(value.disabled),
+    deniedFor: Object.fromEntries(Object.entries(deniedFor)
+      .filter(([, dTags]) => Array.isArray(dTags))
+      .map(([domain, dTags]) => [domain, stringItems(dTags)])),
+  };
+}
+
 function readStored(): StoredExtensionState {
   try {
-    const parsed: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as StoredExtensionState : {};
+    return sanitizeStoredExtensionState(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}'));
   } catch {
     return {};
   }
+}
+
+/**
+ * Initial state of a playground ACL toggle for an x- capability. An explicit
+ * decision wins whatever the block state; with none, the toggle reads the ACL
+ * default policy through `check` (block-independent, see `defaultCheck`).
+ *
+ * @param decisions - Explicit x- decisions from the ACL snapshot, if any.
+ * @param cap - The x- capability.
+ * @param check - Fallback that reads the ACL default policy.
+ * @returns Whether the toggle starts enabled.
+ * @example
+ * ```ts
+ * extensionToggleEnabled(entry?.extensions, 'x-echo:send', () => adapter.defaultCheck('x-echo:send'));
+ * ```
+ */
+export function extensionToggleEnabled(
+  decisions: Readonly<Record<string, boolean>> | undefined,
+  cap: string,
+  check: () => boolean,
+): boolean {
+  return decisions && Object.hasOwn(decisions, cap) ? decisions[cap] === true : check();
+}
+
+/**
+ * Whether the `__kehtoPlaygroundExtensions__` test hook may be installed:
+ * only in dev builds or when the page URL carries the `kehto-test` query key.
+ *
+ * @param search - `window.location.search`.
+ * @param dev - `import.meta.env.DEV`.
+ * @returns True when the test hook is allowed.
+ * @example
+ * ```ts
+ * if (playgroundExtensionTestHooksEnabled(location.search, import.meta.env.DEV)) installHook();
+ * ```
+ */
+export function playgroundExtensionTestHooksEnabled(search: string, dev: boolean): boolean {
+  return dev || new URLSearchParams(search).has('kehto-test');
 }
 
 const stored = readStored();
@@ -63,7 +142,7 @@ const entries: PlaygroundExtensionEntry[] = [
 ];
 const extensions: readonly ShellExtension[] = Object.freeze(entries.map((entry) => entry.extension));
 const deniedFor = new Map<string, Set<string>>(
-  Object.entries(stored.deniedFor ?? {}).map(([domain, dTags]) => [domain, new Set(Array.isArray(dTags) ? dTags : [])]),
+  Object.entries(stored.deniedFor ?? {}).map(([domain, dTags]) => [domain, new Set(dTags)]),
 );
 
 function persist(): void {

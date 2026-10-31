@@ -157,7 +157,7 @@ test.describe('x-echo in the playground', () => {
 
   test('advertises, configures, round-trips, pushes and honors ACL, firewall and collisions', async ({ page }) => {
     test.setTimeout(90_000);
-    await demoBeforeEach(page);
+    await demoBeforeEach(page, { path: '/?kehto-test' });
     const frame = await chatFrame(page);
     const toggle = page.locator('#playground-extension-controls [data-interface-domain="x-echo"]');
     await expect(toggle).toHaveAttribute('data-state', 'unconfigured');
@@ -203,7 +203,7 @@ test.describe('x-echo in the playground', () => {
 
   test('withholds x-echo from one napplet through resolveEnvironment', async ({ page }) => {
     test.setTimeout(90_000);
-    await demoBeforeEach(page);
+    await demoBeforeEach(page, { path: '/?kehto-test' });
     await chatFrame(page);
     await page.evaluate(() => (window as unknown as { __kehtoPlaygroundExtensions__: { setDenied(x: string, d: string, v: boolean): void } })
       .__kehtoPlaygroundExtensions__.setDenied('x-echo', 'chat', true));
@@ -217,5 +217,12 @@ test.describe('x-echo in the playground', () => {
       const chat = await getNappletFrame(page, 'chat-frame-container');
       return chat ? chat.evaluate(() => (window as Napplet).napplet ? 'x-echo' in (window as Napplet).napplet! : 'pending') : 'none';
     }, { timeout: 20_000 }).toBe(false);
+  });
+
+  test('keeps the extension test hook off without ?kehto-test (IN-05)', async ({ page }) => {
+    test.setTimeout(90_000);
+    await demoBeforeEach(page);
+    expect(await page.evaluate(() => typeof (window as Window & { __clearAclEvents__?: unknown }).__clearAclEvents__)).toBe('function');
+    expect(await page.evaluate(() => '__kehtoPlaygroundExtensions__' in window)).toBe(false);
   });
 });

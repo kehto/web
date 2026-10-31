@@ -31,6 +31,7 @@ import { createConsentModal } from './consent-modal.js';
 import { getPlaygroundShellAdapter } from './demo-hooks.js';
 import {
   getPlaygroundExtensions,
+  playgroundExtensionTestHooksEnabled,
   renderPlaygroundExtensionControls,
   setPlaygroundExtensionDenied,
 } from './playground-extensions.js';
@@ -468,21 +469,24 @@ export function setSelectedNode(id: string | null): void {
 
 // Test/debug hook for the experimental-extension Playwright spec: firewall
 // policy, per-napplet extension denial, and the shell's collision policy.
-(window as Window & { __kehtoPlaygroundExtensions__?: unknown }).__kehtoPlaygroundExtensions__ = Object.freeze({
-  setFirewallPolicy: (dTag: string, policy: 'allow' | 'deny') => relay.runtime.firewallState.setPolicy(dTag, policy),
-  setDenied: (domain: string, dTag: string, denied: boolean) => setPlaygroundExtensionDenied(domain, dTag, denied),
-  declare(domain: string): string | null {
-    const adapter = getPlaygroundShellAdapter();
-    try {
-      resolveShellExtensions([...getPlaygroundExtensions(), {
-        domain, service: { descriptor: { name: domain, version: '0' }, handleMessage() {} },
-      }], Object.keys(adapter?.services ?? {}));
-      return null;
-    } catch (error) {
-      return error instanceof Error ? error.message : String(error);
-    }
-  },
-});
+// It exists only in dev builds or with ?kehto-test (IN-05).
+if (playgroundExtensionTestHooksEnabled(window.location.search, import.meta.env.DEV)) {
+  (window as Window & { __kehtoPlaygroundExtensions__?: unknown }).__kehtoPlaygroundExtensions__ = Object.freeze({
+    setFirewallPolicy: (dTag: string, policy: 'allow' | 'deny') => relay.runtime.firewallState.setPolicy(dTag, policy),
+    setDenied: (domain: string, dTag: string, denied: boolean) => setPlaygroundExtensionDenied(domain, dTag, denied),
+    declare(domain: string): string | null {
+      const adapter = getPlaygroundShellAdapter();
+      try {
+        resolveShellExtensions([...getPlaygroundExtensions(), {
+          domain, service: { descriptor: { name: domain, version: '0' }, handleMessage() {} },
+        }], Object.keys(adapter?.services ?? {}));
+        return null;
+      } catch (error) {
+        return error instanceof Error ? error.message : String(error);
+      }
+    },
+  });
+}
 
 (window as Window & { __clearAclEvents__?: () => void }).__clearAclEvents__ = (): void => {
   const w = window as Window & { __aclEvents__?: Array<unknown> };

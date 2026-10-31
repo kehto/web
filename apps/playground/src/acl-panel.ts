@@ -9,7 +9,7 @@ import { getNapplets, getAclAdapter } from './shell-host.js';
 import { refreshPolicyModal } from './acl-modal.js';
 import type { NappletDebugger } from './debugger.js';
 import type { AclCapability, Capability } from '@kehto/shell';
-import { getPlaygroundExtensionCapabilities } from './playground-extensions.js';
+import { extensionToggleEnabled, getPlaygroundExtensionCapabilities } from './playground-extensions.js';
 
 export const DEMO_CAPABILITY_LABELS: Record<Capability, string> = {
   // NAP-DM is absent from `napplet/naps` at c5cd06f; NAAT-DM only defines
@@ -240,12 +240,12 @@ function renderNappletAcl(containerId: string, windowId: string, info: { name: s
   ];
   for (const { cap, label, hint } of rows) {
     const toggle = document.createElement('button');
-    // Like built-in bits, x- decisions are shown independently of the block flag;
-    // an absent decision follows the playground's permissive default.
-    const snapshotValue = aclSnapshot
-      ? (cap.startsWith('x-') ? aclSnapshot.extensions[cap] ?? true : aclSnapshot.capabilities[cap as Capability])
-      : undefined;
-    const initialEnabled = snapshotValue ?? adapter.check(windowId, cap);
+    // x- decisions, like built-in bits, are shown independently of the block flag.
+    // With no decision the toggle reads the ACL default policy via
+    // adapter.defaultCheck, never the block-gated adapter.check (IN-04).
+    const initialEnabled = cap.startsWith('x-')
+      ? extensionToggleEnabled(aclSnapshot?.extensions, cap, () => adapter.defaultCheck(cap))
+      : aclSnapshot?.capabilities[cap as Capability] ?? adapter.check(windowId, cap);
     applyBtnStyle(toggle, initialEnabled);
     toggle.textContent = label;
     toggle.title = `${cap} (${hint}) — click to ${initialEnabled ? 'revoke' : 'grant'}`;
