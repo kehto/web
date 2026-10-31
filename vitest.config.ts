@@ -26,6 +26,8 @@ export default defineConfig({
       'packages/*/src/**/*.test.ts',
       'packages/*/tests/**/*.test.ts',
       'tests/unit/**/*.test.ts',
+      // The experimental-NAP fixture's downstream unit-test template runs in CI too.
+      'tests/fixtures/experimental-nap/*.test.ts',
     ],
     exclude: [
       'tests/e2e/**',

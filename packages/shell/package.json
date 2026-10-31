@@ -13,7 +13,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "skills"
   ],
   "sideEffects": false,
   "publishConfig": {
@@ -38,7 +39,7 @@
     "@kehto/services": "workspace:^"
   },
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && node ../../scripts/copy-agent-skill.mjs",
     "type-check": "tsc --noEmit",
     "test:unit": "echo 'no unit tests yet'"
   },
