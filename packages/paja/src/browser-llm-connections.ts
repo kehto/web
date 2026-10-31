@@ -19,6 +19,7 @@ import {
   type LlmConnectionHost,
   type LlmCredentialHeader,
   type LlmGenerationRequest,
+  type LlmPromptOptions,
   type LlmProviderProtocol,
   type LlmRequestContext,
   type LlmRequirements,
@@ -178,16 +179,25 @@ export interface PajaLlmHostOptions {
   vault: PajaLlmVault;
   /** Host confirmation dialog shared with signer, upload and other operations. */
   confirm: PajaConfirmationHandler;
-  /** Show the connection chooser; resolve null when the user declines. */
-  chooseConnection(candidates: readonly PajaLlmConnectionRecord[], context: { windowId: string; napplet: PajaLlmRequestIdentity; requirements: LlmRequirements }): Promise<PajaLlmConnectionRecord | null>;
-  /** Ask for the vault password; resolve null when the user cancels. */
-  requestUnlock(): Promise<boolean>;
+  /** Show the connection chooser; resolve null when the user declines or `context.signal` aborts. */
+  chooseConnection(candidates: readonly PajaLlmConnectionRecord[], context: PajaLlmChooserContext): Promise<PajaLlmConnectionRecord | null>;
+  /** Ask for the vault password; resolve false when the user cancels or `signal` aborts. */
+  requestUnlock(signal?: AbortSignal): Promise<boolean>;
   /** Reveal and focus the Language models panel. */
   openPanel(): void;
   /** Resolve the napplet identity bound to a runtime window. */
   getIdentity(windowId: string): PajaLlmRequestIdentity;
   /** Provider transport; defaults to the fetch-based provider. */
   provider?: HttpLlmProvider;
+}
+
+/** What the connection chooser shows for one `llm.select`. */
+export interface PajaLlmChooserContext {
+  readonly windowId: string;
+  readonly napplet: PajaLlmRequestIdentity;
+  readonly requirements: LlmRequirements;
+  /** Aborts when the selection settles without the user's answer; close the chooser. */
+  readonly signal?: AbortSignal;
 }
 
 /** Paja's NAP-LLM host plus the configuration probe the shell adapter needs. */
@@ -246,7 +256,7 @@ export function createPajaLlmHost(options: PajaLlmHostOptions): PajaLlmHost {
   const { store, vault, confirm, getIdentity } = options;
   const provider = options.provider ?? createHttpLlmProvider();
 
-  async function ensureCredential(record: PajaLlmConnectionRecord): Promise<string | undefined> {
+  async function ensureCredential(record: PajaLlmConnectionRecord, signal?: AbortSignal): Promise<string | undefined> {
     if (record.credentialStorage === 'none') return undefined;
     const existing = vault.getCredential(record.id);
     if (existing !== undefined) return existing;
@@ -255,7 +265,7 @@ export function createPajaLlmHost(options: PajaLlmHostOptions): PajaLlmHost {
       throw new LlmServiceError('unsupported', 'This connection\'s API key was kept for one session only. Enter it again in Language models.');
     }
     if (!vault.isUnlocked()) {
-      const unlocked = await options.requestUnlock();
+      const unlocked = await options.requestUnlock(signal);
       if (!unlocked) throw new LlmServiceError('user-cancelled', 'The credential vault stayed locked.');
     }
     const credential = vault.getCredential(record.id);
@@ -266,16 +276,17 @@ export function createPajaLlmHost(options: PajaLlmHostOptions): PajaLlmHost {
     return credential;
   }
 
-  async function select(context: LlmRequestContext, requirements: LlmRequirements): Promise<LlmConnection | null> {
+  async function select(context: LlmRequestContext, requirements: LlmRequirements, prompt?: LlmPromptOptions): Promise<LlmConnection | null> {
+    const signal = prompt?.signal;
     const napplet = getIdentity(context.windowId);
     const candidates = store.list().filter((record) => meets(record, requirements));
     if (candidates.length === 0) {
-      const configure = await confirm({ action: 'llm-configure', windowId: context.windowId, napplet, requirements: describeRequirements(requirements), configured: store.list().length });
+      const configure = await confirm({ action: 'llm-configure', windowId: context.windowId, napplet, requirements: describeRequirements(requirements), configured: store.list().length, ...(signal ? { signal } : {}) });
       if (!configure) return null;
       options.openPanel();
       throw new LlmServiceError('unsupported', 'No compatible language model connection is configured yet. Add one in Paja\'s Language models panel, then select again.');
     }
-    const chosen = await options.chooseConnection(candidates, { windowId: context.windowId, napplet, requirements });
+    const chosen = await options.chooseConnection(candidates, { windowId: context.windowId, napplet, requirements, ...(signal ? { signal } : {}) });
     if (!chosen) return null;
     const current = store.get(chosen.id);
     return current && meets(current, requirements) ? toConnection(current) : null;
@@ -288,11 +299,14 @@ export function createPajaLlmHost(options: PajaLlmHostOptions): PajaLlmHost {
       const record = store.get(connectionId);
       return record ? toConnection(record) : null;
     },
-    async authorize(context, connection, request) {
+    async authorize(context, connection, request, prompt) {
+      const signal = prompt?.signal;
       const record = store.get(connection.id);
       if (!record) throw new LlmServiceError('selection-expired', 'The selected connection was removed; select again.');
-      await ensureCredential(record);
+      await ensureCredential(record, signal);
+      if (signal?.aborted) return false;
       return confirm({
+        ...(signal ? { signal } : {}),
         action: 'llm',
         windowId: context.windowId,
         napplet: getIdentity(context.windowId),

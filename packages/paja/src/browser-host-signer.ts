@@ -260,12 +260,16 @@ export function createPajaConfirmationController(
 
   return {
     confirm(request) {
-      if (!ready || disposed) {
+      if (!ready || disposed || request.signal?.aborted) {
         recordPajaConfirmation(getState(), request, false);
         return false;
       }
+      const { signal } = request;
       return new Promise<boolean>((resolve) => {
-        queue.push({ request, approve: () => resolve(true), deny: () => resolve(false) });
+        const withdraw = () => cancelMatching((candidate) => candidate === request);
+        const detach = () => signal?.removeEventListener('abort', withdraw);
+        signal?.addEventListener('abort', withdraw, { once: true });
+        queue.push({ request, approve: () => { detach(); resolve(true); }, deny: () => { detach(); resolve(false); } });
         pump();
       });
     },
@@ -337,6 +341,7 @@ function signerConsentCandidate(
 }
 
 function isRequestCurrent(request: PajaConfirmationRequest): boolean {
+  if (request.signal?.aborted) return false;
   if (request.isCurrent && !request.isCurrent()) return false;
   return !('signerContext' in request) || !request.signerContext?.isCurrent || request.signerContext.isCurrent();
 }

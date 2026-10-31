@@ -17,6 +17,7 @@ import {
   type PajaLlmConnectionRecord,
   type PajaLlmConnectionStore,
   type PajaLlmHost,
+  type PajaLlmChooserContext,
   type PajaLlmRequestIdentity,
 } from './browser-llm-connections.js';
 import { createPajaLlmVault, validatePajaLlmVaultPassword, type PajaLlmCredentialStorage, type PajaLlmVault } from './browser-llm-vault.js';
@@ -24,9 +25,9 @@ import { createPajaLlmVault, validatePajaLlmVaultPassword, type PajaLlmCredentia
 /** Panel controller exposed to the host page. */
 export interface PajaLlmPanel {
   /** Show the chooser for one `llm.select`; resolves null when the user declines. */
-  chooseConnection(candidates: readonly PajaLlmConnectionRecord[], context: { windowId: string; napplet: PajaLlmRequestIdentity; requirements: LlmRequirements }): Promise<PajaLlmConnectionRecord | null>;
-  /** Prompt for the vault password until it unlocks or the user cancels. */
-  requestUnlock(): Promise<boolean>;
+  chooseConnection(candidates: readonly PajaLlmConnectionRecord[], context: PajaLlmChooserContext): Promise<PajaLlmConnectionRecord | null>;
+  /** Prompt for the vault password until it unlocks, the user cancels or `signal` aborts. */
+  requestUnlock(signal?: AbortSignal): Promise<boolean>;
   /** Expand the panel and focus its first field. */
   open(): void;
   /** Re-render the connection list and vault controls. */
@@ -58,8 +59,15 @@ function defaultId(): string {
   return `conn-${random}`;
 }
 
+/** Close a dialog prompt when its request is withdrawn; returns a detach function. */
+function withdrawOnAbort(signal: AbortSignal | undefined, withdraw: () => void): () => void {
+  if (!signal) return () => undefined;
+  signal.addEventListener('abort', withdraw, { once: true });
+  return () => signal.removeEventListener('abort', withdraw);
+}
+
 interface PasswordDialog {
-  prompt(mode: 'create' | 'unlock'): Promise<string | null>;
+  prompt(mode: 'create' | 'unlock', signal?: AbortSignal): Promise<string | null>;
   dispose(): void;
 }
 
@@ -91,8 +99,9 @@ function createPasswordDialog(): PasswordDialog {
   cancel.addEventListener('click', onCancel);
   dialog.addEventListener('cancel', onCancel);
   return {
-    prompt(mode) {
+    prompt(mode, signal) {
       if (settle) finish(null);
+      if (signal?.aborted) return Promise.resolve(null);
       dialog.dataset.mode = mode;
       title.textContent = mode === 'create' ? 'Create a credential vault password' : 'Unlock the credential vault';
       copy.textContent = mode === 'create'
@@ -100,7 +109,9 @@ function createPasswordDialog(): PasswordDialog {
         : 'Enter the vault password to use a remembered API key for this session.';
       confirm.textContent = mode === 'create' ? 'Create vault' : 'Unlock';
       return new Promise<string | null>((resolve) => {
-        settle = resolve;
+        const mine = (value: string | null): void => { detach(); resolve(value); };
+        const detach = withdrawOnAbort(signal, () => { if (settle === mine) finish(null); });
+        settle = mine;
         dialog.showModal();
         input.focus();
       });
@@ -140,6 +151,7 @@ function createChooserDialog(): ChooserDialog {
   return {
     choose(candidates, context) {
       if (settle) finish(null);
+      if (context.signal?.aborted) return Promise.resolve(null);
       const wanted = [context.requirements.model ? `model ${context.requirements.model}` : null, context.requirements.images ? 'image input' : null, context.requirements.json ? 'JSON output' : null].filter(Boolean).join(', ');
       copy.textContent = `${context.napplet.dTag} (${context.windowId}) asks to use a language model${wanted ? ` with ${wanted}` : ''}. Selecting does not send anything yet; each generation asks for consent.`;
       select.replaceChildren(...candidates.map((record) => {
@@ -151,7 +163,9 @@ function createChooserDialog(): ChooserDialog {
       // A sized list box starts with no selection; default to the first compatible connection.
       select.selectedIndex = candidates.length > 0 ? 0 : -1;
       return new Promise<PajaLlmConnectionRecord | null>((resolve) => {
-        settle = (value) => resolve(candidates.find((record) => record.id === value) ?? null);
+        const mine = (value: string | null): void => { detach(); resolve(candidates.find((record) => record.id === value) ?? null); };
+        const detach = withdrawOnAbort(context.signal, () => { if (settle === mine) finish(null); });
+        settle = mine;
         dialog.showModal();
         select.focus();
       });
@@ -221,10 +235,10 @@ export function installPajaLlmPanel(options: PajaLlmPanelOptions): PajaLlmPanel 
     return requestUnlock();
   }
 
-  async function requestUnlock(): Promise<boolean> {
+  async function requestUnlock(signal?: AbortSignal): Promise<boolean> {
     for (;;) {
       if (vault.isUnlocked()) return true;
-      const entered = await password.prompt('unlock');
+      const entered = await password.prompt('unlock', signal);
       if (entered === null) return false;
       if (await vault.unlock(entered)) return true;
       setStatus('Wrong vault password. Try again or clear the vault to start over.', true);

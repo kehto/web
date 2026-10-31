@@ -153,6 +153,33 @@ describe('Paja LLM host', () => {
     await expect(session.host.authorize({ windowId: 'w1' }, sessionConnection, REQUEST)).rejects.toMatchObject({ code: 'selection-expired' });
   });
 
+  it('threads the service prompt signal into the chooser, configure, unlock and consent prompts', async () => {
+    const chooser = harness([OPENAI]);
+    const selecting = new AbortController();
+    await chooser.host.select({ windowId: 'w1' }, {}, { signal: selecting.signal });
+    expect(chooser.chooseConnection).toHaveBeenCalledWith(expect.any(Array), expect.objectContaining({ signal: selecting.signal }));
+
+    const configure = harness([], { confirm: () => false });
+    await configure.host.select({ windowId: 'w1' }, {}, { signal: selecting.signal });
+    expect(configure.confirm).toHaveBeenCalledWith(expect.objectContaining({ action: 'llm-configure', signal: selecting.signal }));
+
+    const consent = harness([OPENAI], { unlock: false });
+    await consent.vault.create('correct horse battery staple');
+    await consent.vault.setCredential('c-openai', KEY, 'vault');
+    consent.vault.lock();
+    const connection = (await consent.host.describe({ windowId: 'w1' }, 'c-openai'))!;
+    const prompt = new AbortController();
+    consent.requestUnlock.mockImplementation(async () => consent.vault.unlock('correct horse battery staple'));
+    await expect(consent.host.authorize({ windowId: 'w1' }, connection, REQUEST, { signal: prompt.signal })).resolves.toBe(true);
+    expect(consent.requestUnlock).toHaveBeenCalledWith(prompt.signal);
+    expect(consent.confirm).toHaveBeenCalledWith(expect.objectContaining({ action: 'llm', signal: prompt.signal }));
+
+    const withdrawn = harness([OLLAMA]);
+    const local = (await withdrawn.host.describe({ windowId: 'w1' }, 'c-ollama'))!;
+    await expect(withdrawn.host.authorize({ windowId: 'w1' }, local, REQUEST, { signal: AbortSignal.abort() })).resolves.toBe(false);
+    expect(withdrawn.confirm).not.toHaveBeenCalled();
+  });
+
   it('notifies the service when connections or the vault change', async () => {
     const h = harness([OPENAI]);
     const listener = vi.fn();
