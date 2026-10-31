@@ -9,6 +9,13 @@
  */
 
 import type { AclState, AclEntry } from './types.js';
+import { mergeExtensionDecisions } from './extensions.js';
+
+function withExt(a: AclEntry, b: AclEntry): Pick<AclEntry, 'ext'> {
+  const ext = mergeExtensionDecisions(a.ext, b.ext);
+  return ext ? { ext } : {};
+}
+
 
 /**
  * Migrate ACL state from old 3-segment key format to new 2-segment key format.
@@ -52,6 +59,7 @@ export function migrateAclState(state: AclState): AclState {
           caps: existing.caps | entry.caps,
           blocked: existing.blocked || entry.blocked,
           quota: Math.max(existing.quota, entry.quota),
+          ...withExt(existing, entry),
         };
       } else {
         newEntries[newKey] = entry;
@@ -66,6 +74,7 @@ export function migrateAclState(state: AclState): AclState {
           caps: existing.caps | entry.caps,
           blocked: existing.blocked || entry.blocked,
           quota: Math.max(existing.quota, entry.quota),
+          ...withExt(existing, entry),
         };
       } else {
         newEntries[key] = entry;
