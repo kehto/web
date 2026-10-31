@@ -78,6 +78,9 @@ export interface ServiceHandler {
    * Each own key is an exact `domain.action` type; its value is an existing
    * ACL capability, an `x-<domain>:<action>` extension capability owned by the
    * same `x-` domain, or explicit `null` for no additional capability requirement.
+   * `x-` domains accept only their own capabilities or `null`. Their reply is
+   * exactly one `<type>.result` (carry errors inside it); `.error` envelopes and
+   * repeated sends are dropped, so use `pushCapabilities` for anything else.
    * Omission keeps non-built-in services attachment-only. Built-in NAP routes
    * ignore this map and retain their canonical capability mapping.
    *
@@ -90,12 +93,14 @@ export interface ServiceHandler {
   /**
    * Explicit outbound host-initiated (push) types for an experimental `x-`
    * domain. Each own key is an exact `domain.event` type in this handler's own
-   * domain; its value is the capability the recipient must currently hold
-   * (built-in or own-domain extension capability) or explicit `null`.
+   * domain; its value is an own-domain `x-<domain>:<action>` capability the
+   * recipient must currently hold, or explicit `null`.
    *
    * Declared pushes are delivered only through this handler's
-   * `ServiceRuntimeContext.sendToEligibleNapplet`, after the same live-session,
-   * domain-grant, block, ACL and firewall checks as inbound requests. Undeclared
+   * `ServiceRuntimeContext.sendToEligibleNapplet`, after the live-session,
+   * domain-grant, block and ACL checks used for requests. Firewall admission
+   * for pushes is the napplet's hard policy (`deny`/`ask` drop silently); pushes
+   * do not consume its request rate budget or run content matchers. Undeclared
    * types, other domains, and built-in domains are never pushed through it.
    */
   pushCapabilities?: Readonly<Record<string, Capability | ExtensionCapability | null>>;

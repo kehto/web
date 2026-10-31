@@ -11,8 +11,16 @@ tests should prove that the behavior you depend on matches.
 - **Blocked identities** get nothing: no requests and no pushes.
 - **ACL.** Each declared `x-<domain>:<action>` capability is checked for the
   real source on every request, and again before every response and push.
-- **Firewall.** The capability is the firewall `opClass`; block rules and
-  `deny` policies drop the message.
+- **Firewall.** For requests, the capability is the firewall `opClass`, so block
+  rules, rate limits and `deny` policies drop the message. Pushes are admitted on
+  the napplet's hard policy only (`deny`/`ask` drop them silently); they don't
+  consume its rate budget or run matchers.
+- **Replies.** Reply with exactly one `<type>.result` and carry errors inside it
+  (`{ error: { code, message } }`). `.error` envelopes are dropped for `x-`
+  domains.
+- **Reserved names grow.** `RESERVED_NAP_DOMAINS` tracks the napplet/naps
+  registry. When upstream registers a new domain, a later kehto release rejects
+  `x-<that domain>`, so pick a distinctive name.
 - **Response pinning.** A response must be in your domain and goes only to the
   requesting window. It is dropped after re-registration, teardown or
   revocation.

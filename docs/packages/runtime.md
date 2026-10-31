@@ -114,7 +114,8 @@ for examples, lifecycle rules, and specification bounds.
 For `x-` domains, `messageCapabilities` may also name the domain's own
 `x-<domain>:<action>` capabilities. `pushCapabilities` declares host-initiated
 types, which the handler sends through its own `sendToEligibleNapplet` after
-the same session, domain-grant, block, ACL and firewall checks. Each attached
+the session, domain-grant, block and ACL checks. Pushes are admitted on the napplet's firewall policy (`deny`/`ask` drop them silently); they do not consume its request rate budget or run content matchers. An `x-` reply is
+exactly one `<type>.result`, with errors carried inside it. Each attached
 handler receives its own scoped context. See
 [Build an experimental NAP](https://kehto.github.io/web/docs/how-tos/experimental-nap.html).
 

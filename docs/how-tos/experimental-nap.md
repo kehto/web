@@ -31,7 +31,9 @@ each one as a **spec gap** with a bounded local policy:
 
 1. **Experimental domain naming.** Experiments must use the `x-` prefix. A domain
    can't be a registry or in-tree name (`RESERVED_NAP_DOMAINS`), and it can't be
-   an `x-` alias of one, so `x-llm` and `x-relay` are rejected.
+   an `x-` alias of one, so `x-llm` and `x-relay` are rejected. The reserved list
+   follows the registry, so a later kehto release may reject an `x-` name whose
+   bare form has since been registered. Pick a distinctive name.
 2. **Extension capabilities.** These are `x-<domain>:<action>`, owned by their
    own domain. They can't redefine a built-in capability (`llm:generate`, for
    example) and can't borrow another domain's capability.
