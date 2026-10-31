@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, isAbsolute, resolve } from 'node:path';
+
+import { rebasePajaExtensions } from './extensions.js';
 
 import type { PajaRawOptions } from './options.js';
 import type { PajaSimulationRawOptions } from './simulation.js';
@@ -25,7 +27,11 @@ export function loadPajaConfigFile(configPath: string): PajaRawOptions {
     throw new PajaSimulationError(`Invalid --config "${configPath}": expected a JSON object.`);
   }
 
-  return parsed as PajaRawOptions;
+  const raw = parsed as PajaRawOptions;
+  // Extension module paths are relative to the config file, not the cwd.
+  const extensions = rebasePajaExtensions(raw.extensions, (modulePath) =>
+    isAbsolute(modulePath) ? modulePath : resolve(dirname(resolved), modulePath));
+  return extensions ? { ...raw, extensions } : raw;
 }
 
 /**
@@ -58,6 +64,7 @@ export function mergePajaRawOptions(
     readyTimeoutMs: override.readyTimeoutMs ?? base.readyTimeoutMs,
     configPath: override.configPath ?? base.configPath,
     simulation: mergeSimulationOptions(base.simulation, override.simulation),
+    ...(override.extensions ?? base.extensions ? { extensions: override.extensions ?? base.extensions } : {}),
   };
 }
 

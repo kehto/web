@@ -1,5 +1,7 @@
 import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { pajaExtensionUrl } from './extensions.js';
 import {
   createPajaHostConfig,
   formatPajaUrl,
@@ -85,6 +87,15 @@ export async function startPajaServer(input: PajaServerOptions): Promise<PajaSer
         'content-type': 'application/json; charset=utf-8',
       });
       response.end(JSON.stringify(diagnostic));
+      return;
+    }
+
+    const extension = currentOptions.extensions.findIndex((_entry, index) => requestUrl === pajaExtensionUrl(index));
+    if (extension !== -1) {
+      // Served from the Paja origin so the host page can import it; it runs in
+      // the host, never inside the napplet artifact bytes.
+      response.writeHead(200, { 'cache-control': 'no-store', 'content-type': 'text/javascript; charset=utf-8' });
+      response.end(readFileSync(resolve(currentOptions.extensions[extension].modulePath), 'utf8'));
       return;
     }
 

@@ -140,3 +140,24 @@ export function hasEqualPajaEnvironmentMembership(
     && left.services.length === right.services.length
     && left.services.every((service, index) => service === right.services[index]);
 }
+
+/**
+ * Report advertised domains that are neither Paja-advertised built-ins nor the
+ * configured experimental `x-` extension domains. A non-empty result means the
+ * host advertised something it does not account for.
+ *
+ * @param capabilities - Advertised shell capabilities.
+ * @param extensionDomains - Domains of loaded Paja extensions.
+ * @returns Unexpected domains in advertisement order.
+ * @example
+ * ```ts
+ * getUnexpectedAdvertisedDomains(caps, ['x-echo']); // []
+ * ```
+ */
+export function getUnexpectedAdvertisedDomains(
+  capabilities: ShellCapabilities,
+  extensionDomains: readonly string[] = [],
+): string[] {
+  const known = new Set<string>([...PAJA_ADVERTISED_DOMAINS, ...extensionDomains]);
+  return capabilities.domains.filter((domain) => !known.has(domain));
+}

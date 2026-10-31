@@ -1,3 +1,11 @@
+import type { AclCapability } from '@kehto/runtime';
+import {
+  installPajaExtensions,
+  loadPajaExtensions,
+  setPajaExtensionSetting,
+  type PajaExtensionLoadFailure,
+  type PajaLoadedExtension,
+} from './browser-extensions.js';
 import { installPajaResourceSettings } from './browser-resource-settings.js';
 import { installPajaLlm } from './browser-llm-panel.js';
 import {
@@ -118,7 +126,15 @@ export interface PajaBrowserState {
   readonly capabilities: ShellCapabilities;
   services: string[];
   /** Host-facing per-domain state: supported, unconfigured (needs setup) or disabled. */
-  domainState(domain: PajaCapabilityDomain): ShellDomainState;
+  domainState(domain: string): ShellDomainState;
+  /** Experimental `x-` NAP extensions loaded from the `extensions` config. */
+  extensions?: readonly PajaLoadedExtension[];
+  /** Extension modules that failed to load or violated extension policy. */
+  extensionFailures?: readonly PajaExtensionLoadFailure[];
+  /** Enable or disable an extension domain (reloads the target). */
+  setExtensionEnabled?(domain: string, enabled: boolean): void;
+  /** Save an extension setting and re-render its state. */
+  saveExtensionSetting?(domain: string, key: string, value: string): void;
   simulation: PajaSimulation;
   signer: PajaSignerState;
   signerConsentCount: number;
@@ -140,7 +156,7 @@ export interface PajaBrowserState {
   closeTab(tabId: string): void;
   setThemeMode(mode: PajaSimulation['theme']['mode']): void;
   setDomainEnabled(domain: PajaCapabilityDomain, enabled: boolean): void;
-  setAclCapability(capability: Capability, enabled: boolean): void;
+  setAclCapability(capability: AclCapability, enabled: boolean): void;
   useDevSigner(): void;
   connectNip07(): Promise<void>;
   connectBunker(uri: string): Promise<void>;
@@ -374,6 +390,39 @@ function setRuntimeDomainEnabled(
   setSimulationStatus(state);
   appendPajaMessageLog(state, 'paja', { type: `paja.interface.${enabled ? 'enabled' : 'disabled'}`, domain });
   state.reload();
+}
+
+function attachPajaExtensions(
+  state: PajaBrowserState,
+  context: PajaBrowserStateContext,
+  load: Awaited<ReturnType<typeof loadPajaExtensions>>,
+): void {
+  state.extensions = load.loaded;
+  state.extensionFailures = load.failures;
+  for (const item of load.loaded) {
+    appendPajaMessageLog(state, 'paja', { type: 'paja.extension.loaded', domain: item.extension.domain, module: item.name });
+  }
+  for (const failure of load.failures) {
+    appendPajaMessageLog(state, 'paja', { type: 'paja.extension.error', module: failure.name, error: failure.reason });
+  }
+  const find = (domain: string) => load.loaded.find((item) => item.extension.domain === domain);
+  state.setExtensionEnabled = (domain, enabled) => {
+    const item = find(domain);
+    if (!item || item.enabled === enabled) return;
+    item.enabled = enabled;
+    state.services = Object.keys(context.adapter.services ?? {}).sort();
+    appendPajaMessageLog(state, 'paja', { type: `paja.interface.${enabled ? 'enabled' : 'disabled'}`, domain });
+    setSimulationStatus(state);
+    state.reload();
+  };
+  state.saveExtensionSetting = (domain, key, value) => {
+    const item = find(domain);
+    if (!item || !key) return;
+    setPajaExtensionSetting(item, key, value);
+    appendPajaMessageLog(state, 'paja', { type: 'paja.extension.configured', domain, key, state: state.domainState(domain) });
+    setSimulationStatus(state);
+  };
+  setSimulationStatus(state);
 }
 
 async function loadRuntimePointer(
@@ -742,6 +791,8 @@ async function installPajaHost(): Promise<void> {
     relayEventCounts.recordRead(request.reason, request.relayUrls, request.origin);
   });
   await adapter.ready;
+  const extensionLoad = await loadPajaExtensions(config, Object.keys(adapter.services ?? {}));
+  installPajaExtensions(adapter, extensionLoad.loaded);
   const bridge = createShellBridge(adapter);
   const stopIdentityChanges = signerController.subscribe(() => {
     confirmationController.cancelSignerRequests();
@@ -770,6 +821,7 @@ async function installPajaHost(): Promise<void> {
   contextRef = context;
   const state = createPajaBrowserState(context, relayEventCounts, relayInventory);
   stateRef = state;
+  attachPajaExtensions(state, context, extensionLoad);
 
   const stopIntentCatalogChanges = subscribePajaIntentCatalogChanges(state, context);
   window.addEventListener('pagehide', stopIntentCatalogChanges, { once: true });

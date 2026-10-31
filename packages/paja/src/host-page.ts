@@ -269,6 +269,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
           <div class="switch-grid" id="interface-toggles"></div>
           <p class="hint" id="paja-fs-support" role="status"></p>
         </div></details>
+        ${renderExtensionsSection(config)}
         <details class="section" id="paja-section-acl" data-paja-section="acl" open>
           <summary class="section-title">ACL<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
           <div class="acl-grid" id="acl-controls"></div>
@@ -512,4 +513,14 @@ function escapeHtml(value: string): string {
 
 function escapeJsonForHtml(value: string): string {
   return value.replaceAll('<', '\\u003c');
+}
+
+// Only present when the config lists experimental x- NAP extension modules.
+function renderExtensionsSection(config: PajaHostConfig): string {
+  if (!config.extensions?.length) return '';
+  return `<details class="section" id="paja-section-extensions" data-paja-section="extensions" open>
+          <summary class="section-title">Extensions<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
+          <div class="extensions" id="paja-extensions"></div>
+          <p class="hint">Experimental x- NAPs from the Paja config. They follow the same ACL, firewall and interface toggles as built-in domains.</p>
+        </div></details>`;
 }

@@ -24,7 +24,7 @@ export type { BrowserDeps } from './hooks-adapter.js';
 // NIP-01 constants no longer re-exported. Shell consumers import Capability +
 // ALL_CAPABILITIES from @kehto/runtime (sourced from @kehto/acl/capabilities).
 export type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
-export type { Capability } from '@kehto/runtime';
+export type { Capability, ServiceRuntimeContext } from '@kehto/runtime';
 export { ALL_CAPABILITIES } from '@kehto/runtime';
 
 // Types for host app integration (shell-specific)
