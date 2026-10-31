@@ -1,5 +1,16 @@
 # @kehto/runtime
 
+## 0.27.0
+
+### Minor Changes
+
+- fcb5bc9: Dispatch the NAP-LLM `llm` domain (napplet/naps PR #134 at `3e10939`) to a registered `llm` service. Without one, each sanctioned request receives one `llm.<op>.result` carrying `{ code: 'unsupported', message }`; ACL denials use the same NAP result shape. Adds the `llm:generate` ACL bit.
+
+### Patch Changes
+
+- Updated dependencies [fcb5bc9]
+  - @kehto/acl@0.20.0
+
 ## 0.26.1
 
 ### Patch Changes
