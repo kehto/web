@@ -34,8 +34,8 @@
     "@kehto/wm": "workspace:^"
   },
   "peerDependencies": {
-    "@napplet/core": ">=0.32.0 <0.35.0",
-    "@napplet/nap": ">=0.32.0 <0.35.0",
+    "@napplet/core": ">=0.32.0 <0.37.0",
+    "@napplet/nap": ">=0.32.0 <0.36.0",
     "nostr-tools": ">=2.23.3 <=2.x"
   },
   "devDependencies": {
