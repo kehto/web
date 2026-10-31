@@ -6,9 +6,9 @@ This non-normative integration guide defers to the living [NAP-LLM proposal](htt
 
 - **`@kehto/acl`** maps every `llm.*` request to one `llm:generate` grant and gates results and `llm.delta` pushes by the same recipient capability. A grant never replaces per-generation consent.
 - **`@kehto/runtime`** dispatches the `llm` domain to a registered `llm` service. Without one, each sanctioned request receives exactly one `llm.<op>.result` carrying `{ code: 'unsupported', message }`; ACL denials use the same shape instead of a bare `.error` string.
-- **`@kehto/services`** exports `createLlmService({ host })`. The service owns schema checks (`invalid-request`), endpoint-scoped opaque handles, revalidation (`selection-expired`), capability checks (`unsupported`), consent before any prompt leaves the runtime (`user-cancelled`), duplicate active ids, concurrency and size policy (`quota-exceeded`), cancellation and deadline races, zero-based ordered deltas, one terminal result per request, and safe `provider-error` messages that never echo provider bodies. Hosts implement `LlmConnectionHost` (`select`, `describe`, `authorize`, `generate`, optional `subscribe`). Pure wire mappers (`buildLlmProviderRequest`, `parseLlmProviderResponse`) cover the OpenAI Chat Completions dialect, the Anthropic Messages API and Google Gemini `generateContent`; `createHttpLlmProvider()` performs one buffered POST and `LLM_PROVIDER_PRESETS` lists common hosted and local endpoints.
+- **`@kehto/services`** exports `createLlmService({ host })`. The service owns schema checks (`invalid-request`), endpoint-scoped opaque handles, revalidation (`selection-expired`), capability checks (`unsupported`), consent before any prompt leaves the runtime (`user-cancelled`), duplicate active ids, concurrency and size policy (`quota-exceeded`), a per-window bound on live handles (`maxHandlesPerWindow`, default 32, least recently used evicted to `selection-expired`), cancellation and deadline races, zero-based ordered deltas, one terminal result per request, and safe `provider-error` messages that never echo provider bodies. Hosts implement `LlmConnectionHost` (`select`, `describe`, `authorize`, `generate`, optional `subscribe`); `select` and `authorize` receive an optional `{ signal }` that aborts when the request dies before the user answers. Pure wire mappers (`buildLlmProviderRequest`, `parseLlmProviderResponse`) cover the OpenAI Chat Completions dialect, the Anthropic Messages API and Google Gemini `generateContent`; `createHttpLlmProvider()` performs one buffered POST, `createHttpLlmProvider({ stream: true })` streams provider output into `onDelta`, and `LLM_PROVIDER_PRESETS` lists common hosted and local endpoints.
 - **`@kehto/shell`** advertises `llm` as a service-only domain and injects `window.napplet.llm` with `select`, `describe`, `generate` (returns a promise carrying `requestId`, accepts `{ signal, onDelta }`) and `cancel`. Result errors reject with an `Error` whose `code` is the NAP-LLM failure code. `getShellDomainState(hooks, domain)` reports `supported`, `unconfigured` or `disabled` for host UIs; `ShellAdapter.llm` carries `isAvailable()` and optional `isConfigured()`.
-- **`@kehto/paja`** stores connection metadata in `localStorage`, keeps API keys in an AES-GCM vault keyed by PBKDF2-SHA-256 (600 000 iterations) from a user password or in a session-only tier, shows the chooser for `llm.select`, asks for disclosure consent before every generation, and paints the Interfaces toggle yellow with a warning glyph while no connection exists.
+- **`@kehto/paja`** stores connection metadata in `localStorage`, keeps API keys in an AES-GCM vault keyed by PBKDF2-SHA-256 (600 000 iterations) from a user password or in a session-only tier, shows the chooser for `llm.select`, asks for disclosure consent before every generation, closes either prompt when its request is cancelled, times out or is revoked, streams provider output as `llm.delta`, and paints the Interfaces toggle yellow with a warning glyph while no connection exists.
 - **Playground** registers a local echo host so demos exercise the wire without credentials.
 
 ## The unconfigured state
@@ -37,11 +37,33 @@ Keys are optional to remember. A remembered key is encrypted before it touches s
 | Google Gemini | `generateContent` | `x-goog-api-key` |
 | Ollama, LM Studio, llama.cpp server, vLLM | OpenAI Chat Completions on loopback | none by default |
 
+## Streaming
+
+Deltas are optional in NAP-LLM. `createHttpLlmProvider({ stream: true })` requests each dialect's server-sent-event form (OpenAI and Anthropic `stream: true`, with OpenAI `stream_options.include_usage`; Gemini `streamGenerateContent?alt=sse`) and calls its fourth argument with each appended text fragment. Wire it to the service hooks:
+
+```ts
+const provider = createHttpLlmProvider({ stream: true });
+const host: LlmConnectionHost = {
+  // …select, describe, authorize…
+  generate: (_ctx, connection, request, hooks) => provider(endpointFor(connection), request, hooks.signal, hooks.onDelta),
+};
+```
+
+The resolved generation (complete `text`, `finish`, `usage`) matches the buffered path, and it stays authoritative over the provisional deltas. A stream error event or a stream that ends without a completion marker is `provider-error`; partial deltas already sent remain incomplete. A server that answers a stream request with a JSON body is accepted with no deltas. `readLlmSseData` and `createLlmStreamAccumulator` are exported for hosts with their own transport.
+
+## Prompt lifetime and handle limits
+
+The service passes `select` and `authorize` an optional trailing `{ signal }`. It aborts only when the service settles the request without the host's answer: `llm.cancel`, the deadline, handle invalidation or eviction, `revokeWindow`, window destruction or service unregistration. Close the chooser or consent dialog when it aborts; any later answer is ignored. A selection still open when handles are invalidated answers `selection-expired` at once, and one open during revocation answers `cancelled`.
+
+NAP-LLM has no message that releases a handle, so the service bounds live handles per window (`maxHandlesPerWindow`, default 32) rather than refusing new selections. A successful `describe` or generation refreshes a handle. Selecting beyond the bound evicts the least recently used handle, which then answers `selection-expired`, so the napplet selects again. A generation whose consent prompt is open on an evicted or invalidated handle fails `selection-expired` immediately and its prompt is withdrawn.
+
+## Provider notes
+
 Anthropic has no native JSON mode; Kehto appends a JSON-object instruction to the system prompt and still validates the completed text as a JSON object. Anthropic and Gemini reject images in system messages, and Anthropic requires the first turn to be the user's; both are reported as `unsupported` before any request is built.
 
 ## Host checklist
 
 1. Implement `LlmConnectionHost`; throw `new LlmServiceError('unsupported', …)` when no compatible connection exists and return `null` when the user declines.
 2. Register `createLlmService({ host })` as `services.llm` and expose `llm: { isAvailable, isConfigured }` on the shell adapter.
-3. Ask for consent in `authorize` with the napplet identity, route, model, disclosed counts and a charge warning. Treat model output as untrusted text; never execute provider tool calls through this domain.
+3. Ask for consent in `authorize` with the napplet identity, route, model, disclosed counts and a charge warning, and close the dialog when `options.signal` aborts (likewise for the `select` chooser). Treat model output as untrusted text; never execute provider tool calls through this domain.
 4. Keep credentials behind the host: hand them to `createHttpLlmProvider` endpoints only.
