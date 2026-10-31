@@ -4,7 +4,7 @@
 
 - [ ] `x-<name>`, lowercase, `a-z0-9` with single hyphens, at most 64 characters
 - [ ] `validateExtensionDomain('x-<name>') === null` (rejects `llm`, `x-llm`, `x-relay`, …)
-- [ ] The name doesn't duplicate a registry NAP in `napplet/naps` (if it does, implement that NAP in kehto instead)
+- [ ] The name doesn't duplicate a registry NAP **or an open draft PR** in `napplet/naps`. If it does, implement that NAP in kehto instead. The validator only knows the registry and kehto's in-tree domains, so check open PRs by hand.
 
 ## Contract
 
