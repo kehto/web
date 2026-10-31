@@ -46,7 +46,8 @@ app package's development scripts.
 | Host page | `renderPajaHtml`, bundled `/__kehto/browser-host.js` runtime bootstrap |
 | Runtime pointers | `decodePajaPointer`, `resolvePajaPointer`, `injectPajaRuntimeCsp`, `PAJA_NAPPLET_MANIFEST_KIND`, `PAJA_NAPPLET_MANIFEST_KINDS` |
 | Local files | `createPajaLocalTarget`, `isPajaLocalTarget`, `isPajaLocalHtmlFile`, `readNappletIdMeta`, `findRelativeAssetReferences`, `PAJA_LOCAL_SINGLE_FILE_HINT`, `PajaLocalTarget`, `PajaLocalFileInput`, `PajaRuntimeTarget` |
-| Parity metadata | `PAJA_UPSTREAM_WEB_DOMAINS`, `PAJA_ADVERTISED_DOMAINS`, `PAJA_HANDSHAKE_DOMAINS`, `PAJA_COMPATIBILITY_ALIASES`, `PAJA_REQUIRED_SERVICES`, `getMissingAdvertisedDomains`, `getMissingServices` |
+| Parity metadata | `PAJA_UPSTREAM_WEB_DOMAINS`, `PAJA_ADVERTISED_DOMAINS`, `PAJA_HANDSHAKE_DOMAINS`, `PAJA_COMPATIBILITY_ALIASES`, `PAJA_REQUIRED_SERVICES`, `getMissingAdvertisedDomains`, `getMissingServices`, `getUnexpectedAdvertisedDomains` |
+| Experimental extensions | `PajaExtensionContext`, `PajaExtensionFactory`, `PajaExtensionModule`, `PajaExtensionSetting`, `PajaExtensionRawOption`, `PajaExtensionOption`, `PajaHostExtensionConfig`, `PajaExtensionConfigError`, `normalizePajaExtensions`, `rebasePajaExtensions`, `createPajaHostExtensions`, `pajaExtensionUrl` |
 | Readiness | `waitForTargetUrl`, `ReadinessError`, `WaitForTargetUrlOptions`, `ReadinessFetch` |
 | Server | `startPajaServer`, `PajaServer`, `PajaServerOptions` |
 | Target CORS | `probeTargetCors`, `classifyTargetCors`, `PAJA_TARGET_CORS_HINT`, `PajaTargetCorsDiagnostic`, `PajaTargetCorsStatus`, `PajaTargetCorsFetch` |
@@ -635,6 +636,20 @@ with `unsupported-scheme`. HTTP(S) dispatch and Blossom dispatch are separate:
 an ordinary web URL is fetched directly, while `blossom:` can only resolve an
 exact digest through accepted request, event, publisher, verified pointer, or
 configured servers.
+
+## Experimental extensions
+
+The config's `extensions` list loads experimental `x-` NAP modules. Paths are
+relative to the config file. Each module default-exports `(context) =>
+ShellExtension` and may export `settings`. Extension domains share the
+Interfaces tri-state toggles, add ACL toggles and an Extensions settings
+section, and log `paja.extension.*` messages. `deniedDTags` withholds a domain
+from those targets. `--firewall-mode` / `simulation.firewall.mode` now pins the
+development target's firewall policy (`allow` or `deny`).
+**No secrets in config `settings`**: Paja serves them unauthenticated in
+`/__kehto/config.json` and the host HTML, so enter API keys and tokens in the
+Extensions sidebar. See
+[Build an experimental NAP](https://kehto.github.io/web/docs/how-tos/experimental-nap.html).
 
 ## Environment Simulation
 

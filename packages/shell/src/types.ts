@@ -14,6 +14,7 @@ export type { NappletMessage } from '@napplet/core';
 export type { SessionEntry, NappKeyEntry } from '@kehto/runtime';
 
 // Import Capability type locally for use in this file's shell-specific types
+import type { ShellExtension } from './shell-extensions.js';
 import type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
 import type { Capability, RuntimeConfigOverrides, ServiceHandler, ServiceRegistry } from '@kehto/runtime';
 import type { OriginIdentity } from './origin-registry.js';
@@ -480,6 +481,21 @@ export interface ShellAdapter {
    * ```
    */
   services?: ServiceRegistry;
+  /**
+   * Experimental (`x-`) NAP domains hosted by this shell. Each declaration's
+   * service is routed like a registered service, its domain is advertised and
+   * granted through the same environment as built-in domains (still narrowed
+   * by `capabilities.resolveEnvironment` and `disabledDomains`), and its
+   * `state()` feeds {@link getShellDomainState}. Names that collide with a
+   * registry or in-tree NAP domain, `services` keys, or each other throw a
+   * `ShellExtensionError` when the bridge is created.
+   *
+   * @example
+   * ```ts
+   * const hooks: ShellAdapter = { ...required, extensions: [echoExtension] };
+   * ```
+   */
+  extensions?: readonly ShellExtension[];
   /**
    * Optional runtime behavior overrides — demo/debug use only.
    * Called lazily on each relevant operation (replay check, buffer push),

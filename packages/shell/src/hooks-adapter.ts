@@ -6,6 +6,7 @@
  * (windowId strings, persistence interfaces, sendToNapplet callbacks).
  */
 
+import { resolveShellExtensions } from './shell-extensions.js';
 import type { NostrEvent, NostrFilter } from '@napplet/core';
 import { randomUUID } from './random-uuid.js';
 import type {
@@ -337,6 +338,16 @@ function createDmAdapter(shellHooks: ShellAdapter): DmAdapter | undefined {
     : undefined;
 }
 
+// Extension services route like registered services; validation rejects any
+// extension that would override a host service or reserved domain.
+function mergeExtensionServices(shellHooks: ShellAdapter): ShellAdapter['services'] {
+  const extensions = resolveShellExtensions(shellHooks.extensions, Object.keys(shellHooks.services ?? {}));
+  if (extensions.length === 0) return shellHooks.services;
+  const services = { ...shellHooks.services };
+  for (const extension of extensions) services[extension.domain] = extension.service;
+  return services;
+}
+
 /**
  * Convert ShellAdapter (browser-facing) into RuntimeAdapter (environment-agnostic).
  *
@@ -379,7 +390,7 @@ export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): Runtime
     guidPersistence: createGuidPersistence(),
     onAclCheck: shellHooks.onAclCheck,
     onHashMismatch: shellHooks.onHashMismatch,
-    services: shellHooks.services,
+    services: mergeExtensionServices(shellHooks),
     getConfigOverrides: shellHooks.getConfigOverrides,
   };
 }

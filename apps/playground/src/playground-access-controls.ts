@@ -1,4 +1,5 @@
 import type {
+  AclCapability,
   AclCheckEvent,
   Capability,
   ServiceHandler,
@@ -12,9 +13,9 @@ const NOTIFICATION_SERVICE_TARGETS = Object.freeze(['notifications', 'notify'] a
 
 export interface DemoAclAdapter {
   /** Grant a capability on a napplet by windowId. */
-  grant(windowId: string, capability: Capability): void;
+  grant(windowId: string, capability: AclCapability): void;
   /** Revoke a capability on a napplet by windowId. */
-  revoke(windowId: string, capability: Capability): void;
+  revoke(windowId: string, capability: AclCapability): void;
   /** Block a napplet by windowId. */
   block(windowId: string): void;
   /** Unblock a napplet by windowId. */
@@ -28,9 +29,22 @@ export interface DemoAclAdapter {
     aggregateHash: string;
     blocked: boolean;
     capabilities: Record<Capability, boolean>;
+    /** Explicit x- extension decisions; absent decisions follow the ACL default policy (see defaultCheck). */
+    extensions: Record<string, boolean>;
   }>;
   /** Synchronous capability check. */
-  check(windowId: string, capability: Capability): boolean;
+  check(windowId: string, capability: AclCapability): boolean;
+  /**
+   * ACL default policy for a capability, independent of any identity's entry or
+   * block flag. A read-only check that creates no ACL entry.
+   * @param capability - Built-in or x- capability.
+   * @returns True when the default policy allows the capability.
+   * @example
+   * ```ts
+   * adapter.defaultCheck('x-echo:send'); // true when the ACL default policy is permissive
+   * ```
+   */
+  defaultCheck(capability: AclCapability): boolean;
   /** Subscribe to ACL audit events. */
   onCheck(listener: (event: AclCheckEvent, windowId: string, nappletName: string) => void): () => void;
 }
@@ -104,7 +118,7 @@ export class PlaygroundAccessControls {
     }
   }
 
-  toggleCapability(windowId: string, capability: Capability, enabled: boolean): void {
+  toggleCapability(windowId: string, capability: AclCapability, enabled: boolean): void {
     const info = this.host.getNapplets().get(windowId);
     if (!info) {
       console.warn('[acl] toggleCapability: no info for', windowId);
@@ -174,6 +188,7 @@ export class PlaygroundAccessControls {
         unblock: (windowId) => this.toggleBlock(windowId, false),
         snapshot: () => this.snapshot(),
         check: (windowId, capability) => this.check(windowId, capability),
+        defaultCheck: (capability) => this.defaultCheck(capability),
         onCheck: (listener) => this.onCheck(listener),
       };
     }
@@ -230,12 +245,13 @@ export class PlaygroundAccessControls {
         aggregateHash,
         blocked: entry?.blocked ?? false,
         capabilities,
+        extensions: { ...entry?.extensions },
       });
     }
     return out;
   }
 
-  private check(windowId: string, capability: Capability): boolean {
+  private check(windowId: string, capability: AclCapability): boolean {
     const info = this.host.getNapplets().get(windowId);
     if (!info?.identityBound) return false;
     return this.host.getRelay().runtime.aclState.check(
@@ -244,6 +260,12 @@ export class PlaygroundAccessControls {
       info.aggregateHash ?? '',
       capability,
     );
+  }
+
+  private defaultCheck(capability: AclCapability): boolean {
+    // ACL keys are dTag:hash (pubkey is ignored), so the sentinel goes in the dTag
+    // slot: an identity that never has an entry, so only the default policy applies.
+    return this.host.getRelay().runtime.aclState.check('', '__kehto-playground-default-policy__', '', capability);
   }
 
   private onCheck(

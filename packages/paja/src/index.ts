@@ -64,7 +64,24 @@ export {
   PAJA_UPSTREAM_WEB_DOMAINS,
   getMissingAdvertisedDomains,
   getMissingServices,
+  getUnexpectedAdvertisedDomains,
 } from './parity.js';
+export {
+  PajaExtensionConfigError,
+  createPajaHostExtensions,
+  normalizePajaExtensions,
+  pajaExtensionUrl,
+  rebasePajaExtensions,
+} from './extensions.js';
+export type {
+  PajaExtensionContext,
+  PajaExtensionFactory,
+  PajaExtensionModule,
+  PajaExtensionOption,
+  PajaExtensionRawOption,
+  PajaExtensionSetting,
+  PajaHostExtensionConfig,
+} from './extensions.js';
 export { ReadinessError, waitForTargetUrl } from './readiness.js';
 export {
   PAJA_LOCAL_SINGLE_FILE_HINT,

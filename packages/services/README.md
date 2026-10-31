@@ -665,3 +665,21 @@ This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.co
 ## LLM integration
 
 This non-normative guidance defers to the living [NAP-LLM](https://github.com/napplet/naps/pull/134) (checked at `3e10939`). Services export `createLlmService`, `LlmServiceError`, the provider mappers and `LLM_PROVIDER_PRESETS`; shell exports `getShellDomainState` and the `LlmHooks` adapter field; acl exports `llm:generate`. The runtime routes `llm.*` to one registered service and answers every sanctioned request with exactly one `llm.<op>.result`, shaping missing-service and ACL failures as `{ code: 'unsupported' }`. Hosts implement `LlmConnectionHost`; the service enforces schema, handle ownership, consent before submission, duplicate ids, cancellation and deadline races, ordered deltas and safe errors. Advertisement stays binary on the wire while hosts report a third `unconfigured` state until the user adds a connection. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
+
+## Experimental x- NAPs
+
+This package ships reference handlers for registry and in-tree NAP domains
+only; it contains no `x-` service. An experimental NAP implements the same
+`ServiceHandler` contract with its own `x-<domain>:<action>` capabilities
+(`messageCapabilities`, `pushCapabilities`). It lives in the downstream module
+and is registered through `ShellAdapter.extensions` or Paja's config
+`extensions`, so kehto does not change. An extension cannot claim, alias or
+override a domain these services implement (for example `llm`, `notify` or
+`x-llm`), and it cannot override a `ShellAdapter.services` key: the shell throws
+`ShellExtensionError`. An `x-` handler's context sees only windows granted its
+domain and answers `hasCapability` only for its own capabilities. It receives
+only its own `x-<domain>.*` messages and hears only blocks and its own
+revocations. Once a NAP is accepted upstream it moves in-tree under its registry
+name, which is when a reference implementation could land here. This is a Kehto
+spec-gap policy bounded by `napplet/naps` master `43cb3a4`. See
+[Build an experimental NAP](https://kehto.github.io/web/docs/how-tos/experimental-nap.html).

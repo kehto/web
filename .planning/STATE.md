@@ -8,7 +8,7 @@ status: completed
 stopped_at: Phase 107 complete; PR 289 open and pushed
 last_updated: "2026-10-31T12:00:00.000000Z"
 last_activity: 2026-10-31
-last_activity_desc: "Completed quick task 261031-l9b: @napplet peer ranges admit the llm line"
+last_activity_desc: "Completed quick task 261031-ku0: experimental NAPs goal, full pipeline pass"
 progress:
   total_phases: 7
   completed_phases: 7
@@ -18,6 +18,23 @@ progress:
 ---
 
 # Project State
+
+2026-10-31: Completed quick task 261031-ku0 on `feat/experimental-naps` (PR #363): full GOAL.md audit of
+experimental `x-` NAPs. Refs checked: napplet/naps master `43cb3a4` and NIP-5D #2303 head `6e24617`. Result:
+conformant for discovery and advertisement, with three bounded spec gaps. It added the x- `ask` consent,
+Paja status/log and playground toggle-log regressions, the NIP-5D policy section, skill path and how-to
+export guards, and the vitest-scope dry-run fix. It also merged main `f5c3ee82`. Gates: 2549 unit, 92/92
+Chromium, aislop 95. See `quick/261031-ku0-experimental-naps-goal-pipeline/`.
+
+2026-10-31: Completed quick task 261031-k14 on `feat/experimental-naps` (PR #363): closed review findings
+IN-01..IN-09 (frozen x- decisions, unknown capability strings denied, deny-wins migration, kit action grammar and
+generated request id, Paja pathname route and generic 404, no-secrets docs, sanitized playground storage, live
+ACL default toggles, gated test hook) plus a `@kehto/services` x- NAP README section. See
+`quick/261031-k14-close-experimental-nap-review-findings/`.
+
+2026-10-31: Completed quick task 261031-ia2 on `feat/experimental-naps`: experimental `x-` NAPs via
+`ShellAdapter.extensions`, Paja `extensions`, x- ACL capabilities, scoped extension push, the x-echo fixture,
+how-to and the `kehto-experimental-nap` skill. See `quick/261031-ia2-experimental-naps-on-kehto/`.
 
 2026-10-20: Resolved Paja tab Share in GSD debug on `fix/paja-share-button`.
 Every verified tab now has a visible app-link dialog, copy confirmation and manual
@@ -48,7 +65,7 @@ Phase: 107 (Paja Intent Deep Links) — COMPLETE
 Plan: 4 of 4
 Status: Shipped as open PR #289 — https://github.com/kehto/web/pull/289. No merge or release performed.
 
-Last activity: 2026-10-31 - Completed quick task 261031-l9b: @napplet peer ranges admit the llm line (#364)
+Last activity: 2026-10-31 - Completed quick task 261031-ku0: experimental NAPs goal, full pipeline pass (PR #363)
 
 ## Performance Metrics
 
@@ -163,6 +180,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
+| 261031-ku0 | Experimental NAPs goal: full GSD pipeline audit and fixes on PR #363 (spec re-check, regressions, skill guards, downstream dry run) | 2026-10-31 | 38e72465 | complete | [261031-ku0](./quick/261031-ku0-experimental-naps-goal-pipeline/) |
 | 261031-l9b | Admit @napplet/nap 0.35.x and core 0.36.x in published peer ranges (kehto/web#364) | 2026-10-31 | 2977db05 | passed | [261031-l9b](./quick/261031-l9b-napplet-peer-range-364/) |
 | 261031-et9 | Implement NAP-LLM across acl/runtime/services/shell/paja/playground with encrypted Paja credentials and the unconfigured interface state | 2026-10-31 | 588ab732 | passed | [261031-et9](./quick/261031-et9-nap-llm/) |
 | 261030-c0z | Chase NIP-5D presentation media and source pin tags | 2026-10-30 | 7b81a20d | passed | [261030-c0z](./quick/261030-c0z-chase-nip-5d-presentation-media-and-sour/) |

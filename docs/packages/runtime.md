@@ -39,6 +39,7 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
 | Session and manifests | `createSessionRegistry`, `createNappKeyRegistry`, `createManifestCache`, `SessionRegistry`, `NappKeyRegistry`, `ManifestCache` |
 | State and replay | `createAclState`, `handleStorageNap`, `cleanupNappState`, `createReplayDetector`, `createEventBuffer`, `matchesFilter`, `matchesAnyFilter`, `RING_BUFFER_SIZE` |
 | Service dispatch | `routeServiceMessage`, `notifyServiceWindowDestroyed`, `ServiceHandler`, `ServiceRegistry`, `ServiceInfo` |
+| Experimental extensions | `AclCapability`, `ExtensionCapability`, `ServiceHandler.pushCapabilities`, `EXTENSION_DOMAIN_PREFIX`, `RESERVED_NAP_DOMAINS`, `isExtensionDomain`, `isExtensionCapability`, `validateExtensionDomain`, `validateExtensionCapability` |
 | Re-exports | `Capability`, `ALL_CAPABILITIES`, `ServiceDescriptor` |
 
 ## Scope Boundaries
@@ -107,6 +108,16 @@ owns the extension's protocol and, for browsers, its pre-execution binding.
 `routeServiceMessage` bypasses policy and must not handle untrusted ingress.
 See [Register a service](/how-tos/register-service#domains-outside-the-built-in-dispatcher)
 for examples, lifecycle rules, and specification bounds.
+
+### Experimental x- domains
+
+For `x-` domains, `messageCapabilities` may also name the domain's own
+`x-<domain>:<action>` capabilities. `pushCapabilities` declares host-initiated
+types, which the handler sends through its own `sendToEligibleNapplet` after
+the session, domain-grant, block and ACL checks. Pushes are admitted on the napplet's firewall policy (`deny`/`ask` drop them silently); they do not consume its request rate budget or run content matchers. An `x-` reply is
+exactly one `<type>.result`, with errors carried inside it. Each attached
+handler receives its own scoped context. See
+[Build an experimental NAP](https://kehto.github.io/web/docs/how-tos/experimental-nap.html).
 
 ## API Reference
 

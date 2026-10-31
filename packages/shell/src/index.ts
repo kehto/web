@@ -24,7 +24,7 @@ export type { BrowserDeps } from './hooks-adapter.js';
 // NIP-01 constants no longer re-exported. Shell consumers import Capability +
 // ALL_CAPABILITIES from @kehto/runtime (sourced from @kehto/acl/capabilities).
 export type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
-export type { Capability } from '@kehto/runtime';
+export type { AclCapability, Capability, ServiceRuntimeContext } from '@kehto/runtime';
 export { ALL_CAPABILITIES } from '@kehto/runtime';
 
 // Types for host app integration (shell-specific)
@@ -64,6 +64,35 @@ export type {
   ServiceHandler,
   ServiceRegistry,
 } from './types.js';
+
+// Experimental x- NAP extensions (kehto spec-gap policy; see docs/how-tos/experimental-nap.md)
+export {
+  ShellExtensionError,
+  defineShellExtension,
+  resolveShellExtensions,
+  readShellExtensionState,
+  getShellExtensionBindings,
+  listShellExtensionCapabilities,
+  isExtensionMessageType,
+  bindingSource,
+} from './shell-extensions.js';
+export type {
+  ShellExtension,
+  ShellExtensionBinding,
+  ShellExtensionBindingFactory,
+  ShellExtensionBindingKit,
+  ShellExtensionCapability,
+  ShellExtensionState,
+} from './shell-extensions.js';
+export type { ExtensionCapability } from '@kehto/acl';
+export {
+  EXTENSION_DOMAIN_PREFIX,
+  RESERVED_NAP_DOMAINS,
+  isExtensionCapability,
+  isExtensionDomain,
+  validateExtensionCapability,
+  validateExtensionDomain,
+} from '@kehto/acl';
 
 // Shell initialization — capability construction for shell.ready / shell.init handshake
 export { buildShellCapabilities, getShellDomainState, resolveShellEnvironment } from './shell-init.js';

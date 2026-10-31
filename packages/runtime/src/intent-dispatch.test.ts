@@ -77,7 +77,12 @@ describe('runtime intent domain dispatch', () => {
 
       localRuntime.registerService('dynamic', dynamicService);
       expect(dynamicContext).toBeDefined();
-      expect(dynamicContext).toBe(adapterContext);
+      // Contexts are scoped per attached handler (extension pushes stay in the
+      // handler's own domain) but expose the same narrow surface.
+      expect(dynamicContext).not.toBe(adapterContext);
+      expect(Object.isFrozen(dynamicContext)).toBe(true);
+      expect(Object.keys(dynamicContext ?? {}).sort()).toEqual(Object.keys(adapterContext ?? {}).sort());
+      expect(dynamicContext?.resolveDTag(WINDOW_ID)).toBe(DTAG);
     });
 
     it('sends only recipient-mapped messages to a live domain-and-ACL-eligible target', () => {

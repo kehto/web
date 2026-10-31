@@ -6,6 +6,35 @@ coverage. This register records both implemented safeguards and existing debt;
 below identifies the package responsible for the implementation and its tests.
 No removal date is implied by an old source comment.
 
+## Frame environment widening — shell
+
+Identifier: `KEHTO_COMPAT_SHELL_ENV_OVERRIDE`. Before `ShellAdapter.extensions`,
+the only way to expose a custom domain to a browser frame was to call
+`originRegistry.setEnvironment(win, environment)` with domains outside the live
+shell environment. That path still works unchanged, but it is superseded for
+experimental domains: declare an `x-` domain with `ShellAdapter.extensions`
+instead (see [Build an experimental NAP](./how-tos/experimental-nap.md)).
+
+Warning site: `packages/shell/src/shell-ready.ts` (`warnOnEnvironmentWidening`)
+emits one `console.warn` per page lifetime, prefixed
+`[KEHTO_COMPAT_SHELL_ENV_OVERRIDE]`. It fires only when a stored frame
+environment grants domains the live environment does not. The warning names the
+replacement and reports a count, not the domain names or any payload. Narrowing
+overrides, such as Paja and the playground storing their resolved snapshot, stay
+quiet, and so does `ShellAdapter.extensions`.
+
+Regression tests: `packages/shell/src/shell-extensions.test.ts` covers the
+retained widening behavior, the warning's identifier and text, and its
+once-per-page frequency, plus the quiet narrowing and extension paths.
+`shell-environment-lifetime.test.ts` keeps the source-lifetime guarantees.
+
+Retained because external hosts may rely on the exported registry method, and
+because exact per-frame snapshots are still a legitimate narrowing tool. Removal
+prerequisites: supported consumers move custom domains to
+`ShellAdapter.extensions`; a release announces that `setEnvironment` will
+intersect with the live environment; then widening is removed in a minor (0.x)
+release with a negative test, keeping this entry with the removal PR/release.
+
 ## ACL principal fields — runtime
 
 Identifier: `ACL_ENTRY_PRINCIPAL`. ACL lookup/listing now return required `dTag`
@@ -90,7 +119,7 @@ require their own scoped specification check and migration PR.
 | **AUTH_SHAPES** — runtime, shell, acl | `packages/runtime/src/types.ts`: deprecated `SessionEntry.pubkey`, `legacy-auth` provenance, optional shell-secret persistence; `packages/acl/src/types.ts`: ignored optional `pubkey`. Transport type also permits arrays while the shell bridge rejects them. | JSDoc only; no usage warning. This is retained API/type shape, not permission to re-enable AUTH or array dispatch. | Audit actual consumers and remove obsolete shapes in a breaking release. Keep source-identity and array-rejection regressions. |
 | **STORAGE_KEYS** — runtime | `packages/runtime/src/state-handler.ts`: shared storage reads old pubkey-scoped/prefix keys and lists/cleans old keys. Instance scope does not fall back. | Warning missing. Related behavior tests: `packages/runtime/src/state-handler.test.ts`; diagnostic assertion missing. | Add warning on actual legacy read and migration evidence; retire only after persisted data is migrated. Preserve isolation and cleanup coverage. |
 | **STORAGE_OK** — runtime | `state-handler.ts`: storage result includes compatibility `ok` alongside the current value/error shape. | Old consumer use cannot be observed from an additive result field; dedicated retirement regression missing. | Find consumers, document diagnostic limitation, test both response consumers before removing the field. |
-| **ACL_KEYS** — acl, shell | `packages/acl/src/migrate.ts`: pure migration of three-part ACL keys to two-part identity keys. | `packages/acl/src/migrate.test.ts` covers conversion/collisions/idempotency. No runtime warning in the pure function. | Host caller should report actual migration; keep the pure API free of logging side effects. Retire only after persisted-state migration and retention policy are agreed. |
+| **ACL_KEYS** — acl, shell | `packages/acl/src/migrate.ts`: pure migration of three-part ACL keys to two-part identity keys; on a collision caps and blocks merge as a union, quota takes the maximum, and an explicit x- revocation wins. | `packages/acl/src/migrate.test.ts` covers conversion/collisions/idempotency; `packages/acl/src/extensions.test.ts` covers the deny-wins x- merge (IN-08). No runtime warning in the pure function. | Host caller should report actual migration; keep the pure API free of logging side effects. Retire only after persisted-state migration and retention policy are agreed. |
 | **RESOURCE_FIELDS** — services, shell | `packages/shell/src/types/internal-resource.ts`, `packages/services/src/resource-service.ts`: old `requestId` input and legacy resource response type fields. | Warning missing. Related tests: `packages/services/src/resource-service.test.ts`; inventory must distinguish live correlation fallback from historical response-type/comment fields. | Recheck owning NAP, inspect emitted response helpers, map old consumers, then warn/test actual old input use and remove stale types separately. |
 | **DOMAIN_ALIAS** — Paja | `packages/paja/src/parity.ts`: upstream `ifc` capability alias maps to `inc` in parity metadata. | `parity.test.ts` covers the declaration; no runtime warning. This metadata is not evidence that old wire messages are accepted. | Drop the metadata alias once upstream parity no longer needs it; check public export consumers first. |
 | **NOTIFY_NAME** — playground | `apps/playground/src/playground-access-controls.ts`, `node-details.ts`: `notifications` UI/persisted target name maps to the `notify` domain. | Warning and dedicated migration assertion missing. | Separate display labels from persisted aliases, warn on migrated persisted input, prove existing settings survive before removal. |

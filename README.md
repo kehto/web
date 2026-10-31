@@ -56,6 +56,25 @@ Then open <http://127.0.0.1:4175/web/paja/> and enter a napplet `naddr` or
 `nevent`. This builds only Paja and its workspace dependencies, not the
 playground or documentation site.
 
+## Experimental NAPs and agent skill
+
+You can prototype an experimental NAP, such as `x-echo`, with one ES module
+registered through `ShellAdapter.extensions` or the Paja config `extensions`
+list. You don't change any Kehto package. The
+[how-to](./docs/how-tos/experimental-nap.md) walks through it.
+
+The [`kehto-experimental-nap`](./skills/kehto-experimental-nap/SKILL.md) agent
+skill guides a coding agent through the same steps in a downstream repo. It ships
+in this repo and inside the published `@kehto/shell` package. Install it into a
+project's agent skills directory:
+
+```bash
+# from the published package (after installing @kehto/shell)
+mkdir -p .claude/skills && cp -R node_modules/@kehto/shell/skills/kehto-experimental-nap .claude/skills/
+# or straight from the repository
+npx degit kehto/web/skills/kehto-experimental-nap .claude/skills/kehto-experimental-nap
+```
+
 ## Packages
 
 | Package | Use it for | Package root | Markdown docs | VitePress docs |
@@ -84,6 +103,7 @@ same pages used by the VitePress site.
 | Build a minimal host shell | [docs/tutorials/minimal-host-shell.md](./docs/tutorials/minimal-host-shell.md) | [Minimal host shell](https://kehto.github.io/web/docs/tutorials/minimal-host-shell) |
 | Integrate a napplet with Kehto | [docs/tutorials/napplet-integration.md](./docs/tutorials/napplet-integration.md) | [Napplet integration](https://kehto.github.io/web/docs/tutorials/napplet-integration) |
 | Register runtime services | [docs/how-tos/register-service.md](./docs/how-tos/register-service.md) | [Register a service](https://kehto.github.io/web/docs/how-tos/register-service) |
+| Build an experimental `x-` NAP without changing Kehto | [docs/how-tos/experimental-nap.md](./docs/how-tos/experimental-nap.md) | [Build an experimental NAP](https://kehto.github.io/web/docs/how-tos/experimental-nap) |
 | Grant capabilities | [docs/how-tos/grant-capability.md](./docs/how-tos/grant-capability.md) | [Grant a capability](https://kehto.github.io/web/docs/how-tos/grant-capability) |
 | Verify gateway artifacts | [docs/how-tos/verify-gateway-artifact.md](./docs/how-tos/verify-gateway-artifact.md) | [Verify gateway artifacts](https://kehto.github.io/web/docs/how-tos/verify-gateway-artifact) |
 | Read shell policy documents | [docs/policies/index.md](./docs/policies/index.md) | [Policies](https://kehto.github.io/web/docs/policies/) |

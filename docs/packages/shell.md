@@ -44,6 +44,7 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
 | Proxies | `createIdentityProxy`, `createThemeProxy`, `createKeysProxy`, `createMediaProxy`, `createNotifyProxy` |
 | Shell-owned internal models | resource request/result/error types |
 | Topics | `TOPICS`, `TopicKey`, `TopicValue` |
+| Experimental `x-` NAPs | `ShellAdapter.extensions`, `ShellExtension`, `ShellExtensionCapability`, `ShellExtensionBinding`, `ShellExtensionBindingFactory`, `ShellExtensionBindingKit`, `ShellExtensionState`, `ShellExtensionError`, `defineShellExtension`, `resolveShellExtensions`, `readShellExtensionState`, `getShellExtensionBindings`, `listShellExtensionCapabilities`, `isExtensionMessageType`, `bindingSource`, `ServiceRuntimeContext`, `AclCapability` |
 
 ## Scope Boundaries
 
@@ -144,6 +145,19 @@ remain bounded compatibility adapters and warn once per iframe with
 ## GAMEPAD integration
 
 This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja and the playground register one host reader and deny native gamepad/HID/USB paths before frame execution. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, window destruction, and service removal release polling. Non-browser or denied native readers report the proposal's unavailable reasons. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
+
+## Experimental NAPs
+
+`ShellAdapter.extensions` declares experimental `x-` domains. They are
+advertised, granted, routed and narrowed by `resolveEnvironment` exactly like
+built-in domains, and `getShellDomainState` reports their tri-state. Pass
+`getShellExtensionBindings(hooks.extensions, domains)` as the prelude's
+`extensions` option to inject their bindings outside the artifact bytes.
+Collisions with reserved domains, capabilities or services throw
+`ShellExtensionError`. If `originRegistry.setEnvironment` widens a frame
+beyond the live environment, it still works but warns once
+(`KEHTO_COMPAT_SHELL_ENV_OVERRIDE`). See
+[Build an experimental NAP](https://kehto.github.io/web/docs/how-tos/experimental-nap.html).
 
 ## LLM integration
 

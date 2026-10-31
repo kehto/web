@@ -1,7 +1,8 @@
+import type { AclCapability } from '@kehto/runtime';
+import { renderPajaExtensions, type PajaExtensionLoadFailure, type PajaLoadedExtension } from './browser-extensions.js';
 import type { NappletMessage } from '@napplet/core';
 import {
   ALL_CAPABILITIES,
-  type Capability,
   type ShellBridge,
   type ShellDomainState,
   type ShellEnvironment,
@@ -55,7 +56,15 @@ export interface PajaDevtoolsState {
    * Host-facing advertisement state per domain. `unconfigured` marks a domain
    * that is injected but still needs user setup (NAP-LLM connections).
    */
-  readonly domainState?: (domain: PajaCapabilityDomain) => ShellDomainState;
+  readonly domainState?: (domain: string) => ShellDomainState;
+  /** Experimental `x-` NAP extensions loaded from Paja's `extensions` config. */
+  extensions?: readonly PajaLoadedExtension[];
+  /** Extension modules that failed to load or violated extension policy. */
+  extensionFailures?: readonly PajaExtensionLoadFailure[];
+  /** Enable or disable an extension domain. */
+  setExtensionEnabled?(domain: string, enabled: boolean): void;
+  /** Save one extension setting. */
+  saveExtensionSetting?(domain: string, key: string, value: string): void;
   /** Current signer state. */
   signer: PajaSignerState;
   /** Number of remembered exact-identity signer decisions. */
@@ -71,7 +80,7 @@ export interface PajaDevtoolsState {
   /** Enable or disable an injected domain. */
   setDomainEnabled(domain: PajaCapabilityDomain, enabled: boolean): void;
   /** Enable or disable an ACL capability. */
-  setAclCapability(capability: Capability, enabled: boolean): void;
+  setAclCapability(capability: AclCapability, enabled: boolean): void;
   /** Switch signer controls to the dev signer. */
   useDevSigner(): void;
   /** Connect signer controls to a NIP-07 signer. */
@@ -331,6 +340,7 @@ export function renderPajaDevtools(
   options: PajaDevtoolsRenderOptions,
 ): void {
   renderInterfaceControls(state);
+  if (state.domainState) renderPajaExtensions({ ...state, domainState: state.domainState });
   renderFsSupport(state);
   renderAclControls(state, options.bridge);
   renderSignerStatus(state, options.devSignerPubkey);
@@ -381,25 +391,46 @@ export function renderPajaMessageLog(state: PajaDevtoolsState): void {
 function renderInterfaceControls(state: PajaDevtoolsState): void {
   const container = document.getElementById('interface-toggles');
   if (!container) return;
-  container.replaceChildren(...PAJA_SIMULATION_DOMAINS.map((domain) => {
+  const builtIn = PAJA_SIMULATION_DOMAINS.map((domain) => {
     const enabled = domainEnabled(state.simulation, domain);
     const domainState = enabled ? state.domainState?.(domain) ?? 'supported' : 'disabled';
-    const unconfigured = domainState === 'unconfigured';
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'toggle';
-    button.dataset.interfaceDomain = domain;
-    button.dataset.enabled = String(enabled);
-    button.dataset.state = domainState;
-    button.textContent = unconfigured ? `\u26a0 ${domain}` : domain;
-    button.title = unconfigured
-      ? `${domain} injection enabled; no connection is configured yet. Add one in Language models, or click to disable the interface.`
-      : `${domain} injection ${enabled ? 'enabled' : 'disabled'}`;
-    button.addEventListener('click', () => {
+    return interfaceToggle(domain, enabled, domainState, () => {
       state.setDomainEnabled(domain, !domainEnabled(state.simulation, domain));
-    });
+    }, 'Add one in Language models');
+  });
+  // Experimental x- domains share the same tri-state toggle as built-ins.
+  const extensions = (state.extensions ?? []).map((item) => {
+    const { domain } = item.extension;
+    const domainState = item.enabled ? state.domainState?.(domain) ?? 'supported' : 'disabled';
+    const button = interfaceToggle(domain, item.enabled, domainState, () => {
+      state.setExtensionEnabled?.(domain, !item.enabled);
+    }, 'Supply its settings under Extensions');
+    button.dataset.extension = 'true';
     return button;
-  }));
+  });
+  container.replaceChildren(...builtIn, ...extensions);
+}
+
+function interfaceToggle(
+  domain: string,
+  enabled: boolean,
+  domainState: ShellDomainState,
+  toggle: () => void,
+  setupHint: string,
+): HTMLButtonElement {
+  const unconfigured = domainState === 'unconfigured';
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'toggle';
+  button.dataset.interfaceDomain = domain;
+  button.dataset.enabled = String(enabled);
+  button.dataset.state = domainState;
+  button.textContent = unconfigured ? `\u26a0 ${domain}` : domain;
+  button.title = unconfigured
+    ? `${domain} injection enabled; it is not configured yet. ${setupHint}, or click to disable the interface.`
+    : `${domain} injection ${enabled ? 'enabled' : 'disabled'}`;
+  button.addEventListener('click', toggle);
+  return button;
 }
 
 function renderFsSupport(state: PajaDevtoolsState): void {
@@ -422,7 +453,11 @@ function renderAclControls(state: PajaDevtoolsState, bridge: ShellBridge | null)
   const container = document.getElementById('acl-controls');
   if (!container) return;
   const identity = getTargetIdentity(state.config, state.resolvedTarget);
-  container.replaceChildren(...ALL_CAPABILITIES.map((capability) => {
+  const capabilities: AclCapability[] = [
+    ...ALL_CAPABILITIES,
+    ...(state.extensions ?? []).flatMap((item) => (item.extension.capabilities ?? []).map((entry) => entry.capability)),
+  ];
+  container.replaceChildren(...capabilities.map((capability) => {
     const allowed = bridge?.runtime.aclState.check(
       identity.pubkey,
       identity.dTag,

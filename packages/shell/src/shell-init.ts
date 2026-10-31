@@ -1,5 +1,10 @@
 import type { OriginIdentity } from './origin-registry.js';
 import type { ShellAdapter, ShellCapabilities, ShellDomainState, ShellEnvironment } from './types.js';
+import { readShellExtensionState, resolveShellExtensions, type ShellExtension } from './shell-extensions.js';
+
+function shellExtensions(hooks: ShellAdapter): readonly ShellExtension[] {
+  return resolveShellExtensions(hooks.extensions, Object.keys(hooks.services ?? {}));
+}
 
 const RUNTIME_NATIVE_DOMAINS = [
   'shell', 'relay', 'identity', 'storage', 'inc', 'theme', 'keys', 'media', 'notify',
@@ -28,6 +33,12 @@ export function buildShellCapabilities(hooks: ShellAdapter): ShellCapabilities {
 
   for (const domain of SERVICE_ONLY_DOMAINS) {
     if (!disabled.has(domain) && isServiceDomainLive(hooks, domain)) domains.push(domain);
+  }
+
+  // Experimental x- domains are advertised exactly like built-in ones unless
+  // the host disabled them or their own state() reports `disabled`.
+  for (const extension of shellExtensions(hooks)) {
+    if (!disabled.has(extension.domain) && readShellExtensionState(extension) !== 'disabled') domains.push(extension.domain);
   }
 
   return Object.freeze({ domains: freezeList(domains) });
@@ -89,8 +100,13 @@ function isServiceDomainLive(hooks: ShellAdapter, domain: string): boolean {
  * Advertisement itself stays binary on the wire (NIP-5D domain presence), but a
  * host UI needs the third state: the domain is advertised while the user has not
  * configured its backend yet. Only hooks that expose `isConfigured()` (today
- * `llm`) can report `unconfigured`; every other advertised domain is
- * `supported`, and anything not advertised is `disabled`.
+ * `llm`) or an experimental extension's `state()` can report `unconfigured`;
+ * every other advertised domain is `supported`, and anything not advertised is
+ * `disabled`.
+ *
+ * Spec gap: the host-only `unconfigured` state is a bounded Kehto spec-gap
+ * policy. napplet/naps master `43cb3a4` defines no interface state, so wire
+ * advertisement stays binary and `unconfigured` never reaches a napplet.
  *
  * @param hooks - The ShellAdapter provided by the host app.
  * @param domain - Bare NAP domain name such as `llm`.
@@ -102,6 +118,8 @@ function isServiceDomainLive(hooks: ShellAdapter, domain: string): boolean {
  */
 export function getShellDomainState(hooks: ShellAdapter, domain: string): ShellDomainState {
   if (!buildShellCapabilities(hooks).domains.includes(domain)) return 'disabled';
+  const extension = shellExtensions(hooks).find((entry) => entry.domain === domain);
+  if (extension) return readShellExtensionState(extension);
   const configurable: unknown = Reflect.get(hooks, domain);
   const isConfigured = configurable && typeof configurable === 'object' ? (configurable as { isConfigured?: unknown }).isConfigured : undefined;
   return typeof isConfigured === 'function' && !isConfigured.call(configurable) ? 'unconfigured' : 'supported';
@@ -113,10 +131,14 @@ function getLiveServices(
   disabled: ReadonlySet<string>,
 ): string[] {
   const liveDomains = new Set(domains);
-  return Object.keys(hooks.services ?? {}).filter((name) => {
+  const services = Object.keys(hooks.services ?? {}).filter((name) => {
     if (disabled.has(name)) return false;
     return !SERVICE_ONLY_DOMAINS.includes(name as typeof SERVICE_ONLY_DOMAINS[number]) || liveDomains.has(name);
   });
+  for (const extension of shellExtensions(hooks)) {
+    if (liveDomains.has(extension.domain)) services.push(extension.domain);
+  }
+  return services;
 }
 
 function intersectInOrder(available: readonly string[], requested: readonly string[]): string[] {
