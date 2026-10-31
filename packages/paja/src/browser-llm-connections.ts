@@ -187,7 +187,7 @@ export interface PajaLlmHostOptions {
   openPanel(): void;
   /** Resolve the napplet identity bound to a runtime window. */
   getIdentity(windowId: string): PajaLlmRequestIdentity;
-  /** Provider transport; defaults to the fetch-based provider. */
+  /** Provider transport; defaults to the streaming fetch-based provider. */
   provider?: HttpLlmProvider;
 }
 
@@ -254,7 +254,8 @@ function countCharacters(request: LlmGenerationRequest): number {
  */
 export function createPajaLlmHost(options: PajaLlmHostOptions): PajaLlmHost {
   const { store, vault, confirm, getIdentity } = options;
-  const provider = options.provider ?? createHttpLlmProvider();
+  // Stream so napplets see provisional `llm.delta` text; the final result stays authoritative.
+  const provider = options.provider ?? createHttpLlmProvider({ stream: true });
 
   async function ensureCredential(record: PajaLlmConnectionRecord, signal?: AbortSignal): Promise<string | undefined> {
     if (record.credentialStorage === 'none') return undefined;
@@ -330,7 +331,7 @@ export function createPajaLlmHost(options: PajaLlmHostOptions): PajaLlmHost {
         model: record.model,
         ...(credential === undefined ? {} : { credential }),
         ...(record.credentialHeader ? { credentialHeader: record.credentialHeader } : {}),
-      }, request, hooks.signal);
+      }, request, hooks.signal, (text) => hooks.onDelta(text));
     },
     subscribe(listener) {
       const stopStore = store.subscribe(listener);

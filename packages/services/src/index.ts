@@ -375,11 +375,15 @@ export type {
   LlmHttpRequest,
   LlmProviderEndpoint,
   LlmProviderProtocol,
+  LlmProviderRequestOptions,
 } from './llm-providers.js';
+export { createLlmStreamAccumulator, readLlmSseData } from './llm-provider-stream.js';
+export type { LlmStreamAccumulator } from './llm-provider-stream.js';
 export { LLM_PROVIDER_PRESETS, createHttpLlmProvider } from './llm-provider-http.js';
 export type {
   HttpLlmProvider,
   HttpLlmProviderOptions,
   LlmFetch,
+  LlmFetchResponse,
   LlmProviderPreset,
 } from './llm-provider-http.js';

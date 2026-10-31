@@ -77,7 +77,7 @@ function harness(records: PajaLlmConnectionRecord[], overrides: { confirm?: (req
   const chooseConnection = vi.fn(async (candidates: readonly PajaLlmConnectionRecord[]) => overrides.choose === undefined ? candidates[0] ?? null : overrides.choose);
   const requestUnlock = vi.fn(async () => overrides.unlock ?? false);
   const openPanel = vi.fn();
-  const provider = vi.fn(async (_endpoint: LlmProviderEndpoint, _request: LlmGenerationRequest, _signal: AbortSignal) => ({ text: '{"ok":true}', finish: 'stop' as const }));
+  const provider = vi.fn(async (_endpoint: LlmProviderEndpoint, _request: LlmGenerationRequest, _signal: AbortSignal, _onDelta?: (text: string) => void) => ({ text: '{"ok":true}', finish: 'stop' as const }));
   const host = createPajaLlmHost({ store, vault, confirm, chooseConnection, requestUnlock, openPanel, getIdentity: () => IDENTITY, provider });
   return { store, vault, confirm, chooseConnection, requestUnlock, openPanel, provider, host };
 }
@@ -131,8 +131,12 @@ describe('Paja LLM host', () => {
     expect(h.requestUnlock).toHaveBeenCalledOnce();
     expect(JSON.stringify(h.confirm.mock.calls[0])).not.toContain(KEY);
     const controller = new AbortController();
-    await expect(h.host.generate({ windowId: 'w1' }, connection, REQUEST, { signal: controller.signal, onDelta: () => undefined })).resolves.toEqual({ text: '{"ok":true}', finish: 'stop' });
-    expect(h.provider).toHaveBeenCalledWith({ protocol: 'openai-chat', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4.1-mini', credential: KEY }, REQUEST, controller.signal);
+    const deltas: string[] = [];
+    await expect(h.host.generate({ windowId: 'w1' }, connection, REQUEST, { signal: controller.signal, onDelta: (text) => deltas.push(text) })).resolves.toEqual({ text: '{"ok":true}', finish: 'stop' });
+    expect(h.provider).toHaveBeenCalledWith({ protocol: 'openai-chat', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4.1-mini', credential: KEY }, REQUEST, controller.signal, expect.any(Function));
+    const forward = h.provider.mock.calls[0]![3] as (text: string) => void;
+    forward('{"ok"');
+    expect(deltas).toEqual(['{"ok"']);
   });
 
   it('fails typed when the vault stays locked or a session key is gone, and for removed connections', async () => {

@@ -13,6 +13,7 @@
 
 import { LlmServiceError, type LlmGeneration, type LlmGenerationRequest } from './llm-types.js';
 import { buildLlmProviderRequest, parseLlmProviderResponse, type LlmCredentialHeader, type LlmProviderEndpoint, type LlmProviderProtocol } from './llm-providers.js';
+import { createLlmStreamAccumulator, readLlmSseData } from './llm-provider-stream.js';
 
 /** One well-known provider configuration a host can offer in its connection editor. */
 export interface LlmProviderPreset {
@@ -60,42 +61,109 @@ export const LLM_PROVIDER_PRESETS: readonly LlmProviderPreset[] = Object.freeze(
   PRESET_ROWS.map((preset) => Object.freeze({ ...preset, exampleModels: Object.freeze([...preset.exampleModels]) })),
 );
 
-/** Minimal `fetch` surface used by {@link createHttpLlmProvider}. */
-export type LlmFetch = (url: string, init: { method: 'POST'; headers: Record<string, string>; body: string; signal: AbortSignal }) => Promise<{
+/** Response surface {@link createHttpLlmProvider} reads; a `fetch` `Response` satisfies it. */
+export interface LlmFetchResponse {
   ok: boolean;
   status: number;
   json(): Promise<unknown>;
-}>;
+  /** Response body stream; required when streaming. */
+  body?: ReadableStream<Uint8Array> | null;
+  /** Response headers; a streaming request falls back to JSON when `content-type` says so. */
+  headers?: { get(name: string): string | null };
+}
+
+/** Minimal `fetch` surface used by {@link createHttpLlmProvider}. */
+export type LlmFetch = (url: string, init: { method: 'POST'; headers: Record<string, string>; body: string; signal: AbortSignal }) => Promise<LlmFetchResponse>;
 
 /** Options for {@link createHttpLlmProvider}. */
 export interface HttpLlmProviderOptions {
   /** Fetch implementation; defaults to the global `fetch`. */
   fetch?: LlmFetch;
+  /**
+   * Request each dialect's server-sent-event form and forward text fragments to
+   * `onDelta`. The resolved generation is the same as the buffered path's.
+   * Default `false`.
+   */
+  stream?: boolean;
 }
 
-/** Perform one buffered provider generation. */
-export type HttpLlmProvider = (endpoint: LlmProviderEndpoint, request: LlmGenerationRequest, signal: AbortSignal) => Promise<LlmGeneration>;
+/**
+ * Perform one provider generation. `onDelta` receives appended text fragments
+ * when the provider was created with `stream: true`; it is never called on the
+ * buffered path.
+ */
+export type HttpLlmProvider = (
+  endpoint: LlmProviderEndpoint,
+  request: LlmGenerationRequest,
+  signal: AbortSignal,
+  onDelta?: (text: string) => void,
+) => Promise<LlmGeneration>;
+
+async function readJson(response: LlmFetchResponse): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    throw new LlmServiceError('provider-error', 'The provider response was not valid JSON.');
+  }
+}
+
+function parseStreamEvent(data: string): unknown {
+  try {
+    return JSON.parse(data);
+  } catch {
+    throw new LlmServiceError('provider-error', 'The provider stream carried an invalid event.');
+  }
+}
+
+async function readStream(
+  protocol: LlmProviderProtocol,
+  body: ReadableStream<Uint8Array>,
+  signal: AbortSignal,
+  onDelta: ((text: string) => void) | undefined,
+): Promise<LlmGeneration> {
+  const accumulator = createLlmStreamAccumulator(protocol);
+  try {
+    for await (const data of readLlmSseData(body, signal)) {
+      if (data === '[DONE]') continue;
+      const appended = accumulator.push(parseStreamEvent(data));
+      if (appended && !signal.aborted) onDelta?.(appended);
+    }
+  } catch (error) {
+    if (signal.aborted) throw abortReason(signal);
+    if (error instanceof LlmServiceError) throw error;
+    throw new LlmServiceError('provider-error', 'The provider stream was interrupted.');
+  }
+  if (signal.aborted) throw abortReason(signal);
+  return accumulator.finish();
+}
+
+function abortReason(signal: AbortSignal): unknown {
+  return signal.reason ?? new DOMException('The operation was aborted.', 'AbortError');
+}
 
 /**
- * Create a buffered `fetch` provider for the supported dialects.
+ * Create a `fetch` provider for the supported dialects, buffered by default or
+ * streaming with `stream: true`.
  *
  * The credential travels only in the configured header of the single POST to
- * the endpoint's base URL. Transport failures and non-2xx statuses become
+ * the endpoint's base URL. Transport failures, non-2xx statuses, stream error
+ * events and streams that end without a completion marker become
  * `provider-error` with the status code at most; response bodies are never
- * echoed into NAP-LLM errors. Aborts propagate so the service can settle a
- * cancelled or timed-out generation.
+ * echoed into NAP-LLM errors. Aborts propagate, and cancel a stream in flight,
+ * so the service can settle a cancelled or timed-out generation.
  *
- * @param options - Optional fetch override for tests or custom transports.
+ * @param options - Optional fetch override and streaming mode.
  * @returns A provider function for `LlmConnectionHost.generate`.
  * @example
- * const generate = createHttpLlmProvider();
- * const result = await generate({ protocol: 'openai-chat', baseUrl: 'http://127.0.0.1:11434/v1', model: 'llama3.2' }, request, signal);
+ * const generate = createHttpLlmProvider({ stream: true });
+ * const host = { …, generate: (_ctx, connection, request, hooks) => generate(endpointFor(connection), request, hooks.signal, hooks.onDelta) };
  */
 export function createHttpLlmProvider(options: HttpLlmProviderOptions = {}): HttpLlmProvider {
   const fetchImpl: LlmFetch = options.fetch ?? ((url, init) => globalThis.fetch(url, init));
-  return async (endpoint, request, signal) => {
-    const http = buildLlmProviderRequest(endpoint, request);
-    let response: Awaited<ReturnType<LlmFetch>>;
+  const stream = options.stream === true;
+  return async (endpoint, request, signal, onDelta) => {
+    const http = buildLlmProviderRequest(endpoint, request, { stream });
+    let response: LlmFetchResponse;
     try {
       response = await fetchImpl(http.url, { method: http.method, headers: { ...http.headers }, body: http.body, signal });
     } catch (error) {
@@ -103,12 +171,10 @@ export function createHttpLlmProvider(options: HttpLlmProviderOptions = {}): Htt
       throw new LlmServiceError('provider-error', 'The provider could not be reached.');
     }
     if (!response.ok) throw new LlmServiceError('provider-error', `The provider responded with HTTP ${response.status}.`);
-    let json: unknown;
-    try {
-      json = await response.json();
-    } catch {
-      throw new LlmServiceError('provider-error', 'The provider response was not valid JSON.');
-    }
-    return parseLlmProviderResponse(endpoint.protocol, json);
+    // A server that ignores the stream request answers with one JSON body; accept it.
+    const buffered = !stream || response.headers?.get('content-type')?.toLowerCase().includes('application/json') === true;
+    if (buffered) return parseLlmProviderResponse(endpoint.protocol, await readJson(response));
+    if (!response.body) throw new LlmServiceError('provider-error', 'The provider response had no readable stream.');
+    return readStream(endpoint.protocol, response.body, signal, onDelta);
   };
 }
