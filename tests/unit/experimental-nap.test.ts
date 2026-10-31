@@ -42,10 +42,10 @@ function hooks(extra: Partial<ShellAdapter> = {}): ShellAdapter {
   };
 }
 
-function host(prefix: { value?: string }, extra: Partial<ShellAdapter> = {}) {
+function host(prefix: { value?: string }, extra: Partial<ShellAdapter> = {}, firewallAllow = true) {
   const adapter = hooks({ extensions: [createEchoExtension({ getPrefix: () => prefix.value })], ...extra });
   const bridge = createShellBridge(adapter);
-  bridge.runtime.firewallState.setPolicy(identity.dTag, 'allow');
+  if (firewallAllow) bridge.runtime.firewallState.setPolicy(identity.dTag, 'allow');
   const postMessage = vi.fn();
   const win = { postMessage } as unknown as Window;
   originRegistry.register(win, windowId, identity);
@@ -94,8 +94,7 @@ describe('x-echo experimental NAP on the shell', () => {
   });
 
   it('is dropped by a firewall block without an invented envelope', () => {
-    const { bridge, send, replies } = host({ value: '> ' });
-    bridge.runtime.firewallState.setPolicy(identity.dTag, 'default');
+    const { bridge, send, replies } = host({ value: '> ' }, {}, false);
     bridge.runtime.firewallState.addMatcher({ id: 'no-echo', opClass: 'x-echo:send', action: 'block' });
     send({ type: 'x-echo.say', id: 'r1', text: 'a' });
     expect(replies()).toEqual([]);
@@ -134,7 +133,7 @@ describe('x-echo experimental NAP in Paja', () => {
     writeFileSync(config, JSON.stringify({ extensions: [{ module: fixturePath, settings: { prefix: 'cfg: ' } }] }), 'utf8');
     const server = await startPajaServer({ options: { targetUrl: 'http://127.0.0.1:9', port: 0, configPath: config } });
     try {
-      expect(server.hostConfig.extensions).toEqual([{ url: '/__kehto/extensions/0.js', name: 'x-echo.js', enabled: true, settings: { prefix: 'cfg: ' } }]);
+      expect(server.hostConfig.extensions).toEqual([{ url: '/__kehto/extensions/0.js', name: 'x-echo.js', enabled: true, settings: { prefix: 'cfg: ' }, deniedDTags: [] }]);
       const served = await fetch(new URL('/__kehto/extensions/0.js', server.url)).then((response) => response.text());
       expect(served).toBe(readFileSync(fixturePath, 'utf8'));
       const html = await fetch(server.url).then((response) => response.text());
@@ -162,15 +161,21 @@ describe('x-echo experimental NAP in Paja', () => {
     }
     const { loaded, failures } = await loadPajaExtensions(
       { extensions: [
-        { url: 'shadow', name: 'shadow.js', enabled: true, settings: {} },
         { url: 'echo', name: 'x-echo.js', enabled: true, settings: {} },
+        { url: 'shadow', name: 'shadow.js', enabled: true, settings: {} },
+        { url: 'llm', name: 'shadow-llm.js', enabled: true, settings: {} },
       ] },
       [],
-      async (url) => url === 'shadow'
-        ? { default: (context: Parameters<typeof createPajaEchoExtension>[0]) => ({ ...createPajaEchoExtension(context), domain: 'x-llm' }) }
-        : import('../fixtures/experimental-nap/x-echo.js'),
+      async (url) => {
+        if (url === 'shadow') return { default: (context: Parameters<typeof createPajaEchoExtension>[0]) => ({ ...createPajaEchoExtension(context), domain: 'x-llm' }) };
+        if (url === 'llm') return import('../fixtures/experimental-nap/shadow-llm.js');
+        return import('../fixtures/experimental-nap/x-echo.js');
+      },
     );
-    expect(failures).toEqual([{ name: 'shadow.js', reason: expect.stringMatching(/aliases the reserved NAP domain llm/) }]);
+    expect(failures).toEqual([
+      { name: 'shadow.js', reason: expect.stringMatching(/aliases the reserved NAP domain llm/) },
+      { name: 'shadow-llm.js', reason: expect.stringMatching(/reserved NAP domain/) },
+    ]);
     expect(loaded.map((item) => item.extension.domain)).toEqual(['x-echo']);
     expect(loaded[0].extension.state?.()).toBe('unconfigured');
   });

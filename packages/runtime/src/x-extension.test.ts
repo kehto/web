@@ -22,12 +22,12 @@ function echoService(overrides: Partial<ServiceHandler> = {}): ServiceHandler & 
   return handler;
 }
 
-function setup(handler: ServiceHandler, policy: 'permissive' | 'restrictive' = 'permissive') {
+function setup(handler: ServiceHandler, policy: 'permissive' | 'restrictive' = 'permissive', firewallAllow = true) {
   const allowed = vi.fn((_w: string, domain: string) => domain === 'x-echo');
   const ctx = createMockRuntimeAdapter({ isDomainAllowed: allowed, services: { 'x-echo': handler } });
   const runtime = createRuntime(ctx.hooks);
   runtime.sessionRegistry.register(windowId, createNip5dSessionEntry(windowId, dTag, hash));
-  runtime.firewallState.setPolicy(dTag, 'allow');
+  if (firewallAllow) runtime.firewallState.setPolicy(dTag, 'allow');
   if (policy === 'restrictive') {
     runtime.aclState.revoke('', dTag, hash, 'x-echo:send');
     runtime.aclState.revoke('', dTag, hash, 'x-echo:receive');
@@ -63,9 +63,8 @@ describe('x- extension capabilities on inbound routes', () => {
 
   it('applies firewall opClass rules to the extension capability', () => {
     const handler = echoService();
-    const { runtime, sent, hooks } = setup(handler);
+    const { runtime, sent, hooks } = setup(handler, 'permissive', false);
     hooks.onFirewallEvent = vi.fn();
-    runtime.firewallState.setPolicy(dTag, 'default');
     runtime.firewallState.addMatcher({ id: 'block-echo', opClass: 'x-echo:send', action: 'block' });
     runtime.handleMessage(windowId, { type: 'x-echo.say', id: '1' });
     expect(handler.handleMessage).not.toHaveBeenCalled();

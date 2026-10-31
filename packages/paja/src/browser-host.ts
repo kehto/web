@@ -392,6 +392,14 @@ function setRuntimeDomainEnabled(
   state.reload();
 }
 
+// `--firewall-mode` / `simulation.firewall.mode`: allow or deny pins the
+// development target's firewall policy; observe keeps the runtime default.
+function applySimulatedFirewall(bridge: ReturnType<typeof createShellBridge>, config: PajaHostConfig): void {
+  const mode = config.simulation.firewall.mode;
+  if (mode === 'observe') return;
+  bridge.runtime.firewallState.setPolicy(config.window.dTag, mode);
+}
+
 function attachPajaExtensions(
   state: PajaBrowserState,
   context: PajaBrowserStateContext,
@@ -794,6 +802,7 @@ async function installPajaHost(): Promise<void> {
   const extensionLoad = await loadPajaExtensions(config, Object.keys(adapter.services ?? {}));
   installPajaExtensions(adapter, extensionLoad.loaded);
   const bridge = createShellBridge(adapter);
+  applySimulatedFirewall(bridge, config);
   const stopIdentityChanges = signerController.subscribe(() => {
     confirmationController.cancelSignerRequests();
     bridge.publishIdentityChanged(adapter.auth.getUserPubkey() ?? '');

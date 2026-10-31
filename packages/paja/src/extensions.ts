@@ -51,6 +51,8 @@ export type PajaExtensionRawOption = string | {
   readonly enabled?: boolean;
   /** Initial setting values; the sidebar can override them per browser. */
   readonly settings?: Readonly<Record<string, string>>;
+  /** Target `d` tags whose frame environment withholds this domain (via `resolveEnvironment`). */
+  readonly deniedDTags?: readonly string[];
 };
 
 /** Normalized extension entry. */
@@ -61,6 +63,8 @@ export interface PajaExtensionOption {
   readonly enabled: boolean;
   /** Initial setting values. */
   readonly settings: Readonly<Record<string, string>>;
+  /** Target `d` tags whose frames do not get this domain. */
+  readonly deniedDTags: readonly string[];
 }
 
 /** Serialized extension entry embedded in the host-page config. */
@@ -73,6 +77,8 @@ export interface PajaHostExtensionConfig {
   readonly enabled: boolean;
   /** Initial setting values. */
   readonly settings: Readonly<Record<string, string>>;
+  /** Target `d` tags whose frames do not get this domain. */
+  readonly deniedDTags: readonly string[];
 }
 
 /** Thrown when an `extensions` config entry is malformed. */
@@ -92,7 +98,7 @@ export class PajaExtensionConfigError extends Error {
  * @example
  * ```ts
  * normalizePajaExtensions(['./x-echo.js']);
- * // [{ modulePath: './x-echo.js', enabled: true, settings: {} }]
+ * // [{ modulePath: './x-echo.js', enabled: true, settings: {}, deniedDTags: [] }]
  * ```
  */
 export function normalizePajaExtensions(
@@ -113,10 +119,15 @@ export function normalizePajaExtensions(
       if (typeof setting !== 'string') throw new PajaExtensionConfigError(`extensions[${index}].settings.${key} must be a string`);
       settings[key] = setting;
     }
+    const denied = value.deniedDTags ?? [];
+    if (!Array.isArray(denied) || denied.some((dTag) => typeof dTag !== 'string')) {
+      throw new PajaExtensionConfigError(`extensions[${index}].deniedDTags must be an array of d tags`);
+    }
     return Object.freeze({
       modulePath: value.module,
       enabled: value.enabled !== false,
       settings: Object.freeze(settings),
+      deniedDTags: Object.freeze([...denied]),
     });
   });
 }
@@ -137,6 +148,7 @@ export function createPajaHostExtensions(extensions: readonly PajaExtensionOptio
     name: entry.modulePath.split(/[\\/]/).pop() ?? `extension-${index}.js`,
     enabled: entry.enabled,
     settings: entry.settings,
+    deniedDTags: entry.deniedDTags,
   }));
 }
 

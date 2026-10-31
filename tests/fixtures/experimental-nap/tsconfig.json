@@ -7,8 +7,7 @@
     "lib": ["ES2022", "DOM"],
     "baseUrl": ".",
     "paths": {
-      "@kehto/shell": ["../../../packages/shell/dist/index.d.ts"],
-      "@kehto/paja": ["../../../packages/paja/dist/index.d.ts"]
+      "@kehto/shell": ["../../../packages/shell/dist/index.d.ts"]
     }
   },
   "include": ["x-echo.js"]

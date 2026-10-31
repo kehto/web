@@ -20,8 +20,9 @@
 /** @typedef {import('@kehto/shell').ServiceHandler} ServiceHandler */
 /** @typedef {import('@kehto/shell').ServiceRuntimeContext} ServiceRuntimeContext */
 /** @typedef {import('@kehto/shell').ShellExtensionBindingKit} ShellExtensionBindingKit */
-/** @typedef {import('@kehto/paja').PajaExtensionContext} PajaExtensionContext */
-/** @typedef {import('@kehto/paja').PajaExtensionSetting} PajaExtensionSetting */
+/** Matches `PajaExtensionContext` from `@kehto/paja`; kept structural so this file needs only @kehto/shell. */
+/** @typedef {{ readonly settings: { get(key: string): string | undefined } }} PajaExtensionContext */
+/** @typedef {{ readonly key: string, readonly label: string, readonly placeholder?: string }} PajaExtensionSetting */
 
 export const ECHO_DOMAIN = 'x-echo';
 

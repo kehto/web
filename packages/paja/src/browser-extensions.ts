@@ -8,6 +8,8 @@ import {
   defineShellExtension,
   getShellDomainState,
   resolveShellExtensions,
+  type CapabilityHooks,
+  type OriginIdentity,
   type ShellAdapter,
   type ShellDomainState,
   type ShellExtension,
@@ -28,6 +30,8 @@ export interface PajaLoadedExtension {
   enabled: boolean;
   /** Current setting values. */
   readonly values: Record<string, string>;
+  /** Target `d` tags whose frame environment withholds this domain. */
+  readonly deniedDTags: readonly string[];
 }
 
 /** Diagnostic reported when a module cannot load or violates extension policy. */
@@ -77,10 +81,11 @@ export async function loadPajaExtensions(
   const failures: PajaExtensionLoadFailure[] = [];
   for (const entry of config.extensions ?? []) {
     try {
-      loaded.push(await loadOne(entry, importModule));
-      resolveShellExtensions(loaded.map((item) => item.extension), reservedServices);
+      const item = await loadOne(entry, importModule);
+      // Validate against everything already accepted before keeping it.
+      resolveShellExtensions([...loaded.map((accepted) => accepted.extension), item.extension], reservedServices);
+      loaded.push(item);
     } catch (error) {
-      loaded.pop();
       failures.push({ name: entry.name, reason: error instanceof Error ? error.message : String(error) });
     }
   }
@@ -100,12 +105,13 @@ async function loadOne(
   const settings = Array.isArray(module.settings)
     ? module.settings.filter((setting) => typeof setting?.key === 'string' && typeof setting.label === 'string')
     : [];
-  return { extension, settings, name: entry.name, enabled: entry.enabled, values };
+  return { extension, settings, name: entry.name, enabled: entry.enabled, values, deniedDTags: entry.deniedDTags ?? [] };
 }
 
 /**
- * Install loaded extensions on a Paja adapter: set `extensions` and fold
- * disabled extension toggles into `capabilities.disabledDomains`.
+ * Install loaded extensions on a Paja adapter: set `extensions`, fold disabled
+ * extension toggles into `capabilities.disabledDomains`, and withhold domains
+ * from denied targets through `capabilities.resolveEnvironment`.
  *
  * @param adapter - The Paja ShellAdapter, before `createShellBridge`.
  * @param loaded - Loaded extensions (their `enabled` flags stay live).
@@ -121,7 +127,19 @@ export function installPajaExtensions(adapter: ShellAdapter, loaded: readonly Pa
     get() {
       const base = readBase();
       const disabled = loaded.filter((item) => !item.enabled).map((item) => item.extension.domain);
-      return { ...base, disabledDomains: [...(base?.disabledDomains ?? []), ...disabled] };
+      const resolveBase = base?.resolveEnvironment;
+      return {
+        ...base,
+        disabledDomains: [...(base?.disabledDomains ?? []), ...disabled],
+        resolveEnvironment(identity: OriginIdentity, available: Parameters<NonNullable<CapabilityHooks['resolveEnvironment']>>[1]) {
+          const granted = resolveBase ? resolveBase(identity, available) : available;
+          const denied = new Set(loaded.filter((item) => item.deniedDTags.includes(identity.dTag)).map((item) => item.extension.domain));
+          return {
+            domains: granted.domains.filter((domain) => !denied.has(domain)),
+            services: granted.services.filter((service) => !denied.has(service)),
+          };
+        },
+      };
     },
   });
 }
