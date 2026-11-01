@@ -235,6 +235,15 @@ tabs.
 
 The browser page title follows the active napplet tab name, including when switching or closing tabs. With no active napplet, the title is `@kehto/paja`.
 
+Publication consent is bound to the requesting napplet's window, artifact version,
+and signer account. Outbox signing and CVM transport publications (including
+initialization and stream control) use lifecycle-bound per-window scopes, not
+ambient source state. When every target relay rejects a publication, Paja keeps
+each relay URL and its rejection message in the result's `error`; a user refusal
+remains `publish denied`. Partial success retains the per-relay boolean outcomes.
+CVM request publications preserve these diagnostics; the transport's existing
+initialization wrapper still reports handshake failures as `initialization failed`.
+
 The static artifact defaults to Paja's standard live relays and memory uploads.
 To point it at specific live relays or Blossom upload servers, pass
 comma-separated host lists when generating the artifact:
@@ -244,6 +253,25 @@ PAJA_RELAY_URLS="wss://relay.example,wss://relay.example.net" \
 PAJA_UPLOAD_SERVERS="https://blossom.example" \
 node scripts/build-paja-pages.mjs
 ```
+
+`PAJA_PAGES_OUT_DIR` overrides the default `.pages/paja` output directory.
+For example, a public-relay build for kipina2 can use:
+
+```bash
+pnpm --filter @kehto/paja... build
+PAJA_RELAY_URLS="wss://relay.contextvm.org,wss://relay2.contextvm.org" \
+PAJA_UPLOAD_SERVERS="https://blossom.primal.net,https://blossom.band" \
+PAJA_PAGES_OUT_DIR=.pages/paja-kipina2 node scripts/build-paja-pages.mjs
+```
+
+These are deployment choices, not verified service guarantees. The CVM server
+(e.g. muxll) must use at least one shared relay; leaving it only on local khatru
+will not work. This setting moves **all** configured host relay reads, not just
+CVM. Public relay event-kind policies, retention and rate limits apply. Public
+Blossom uploads require server-compatible signed auth and browser CORS; the
+user's discovered server list may add servers. Upload configuration does not
+republish napplet blobs or update their signed manifest `server` hints: do that
+separately before loading a previously local-only pointer from a public host.
 
 When `PAJA_UPLOAD_SERVERS` is set, the runtime enables the Blossom upload rail
 and also makes those servers explicit NAP-RESOURCE fallbacks. It is not needed

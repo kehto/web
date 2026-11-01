@@ -424,6 +424,15 @@ fixture events and local publish echoes never enter live reads, relay-tier edits
 drive the corresponding transports, and event sidecars contain only relay URLs
 that the pool actually observed.
 
+Publication consent is bound to the requesting napplet's window, artifact version,
+and signer account. Outbox signing and CVM transport publications (including
+initialization and stream control) use lifecycle-bound per-window scopes, not
+ambient source state. When every target relay rejects a publication, Paja keeps
+each relay URL and its rejection message in the result's `error`; a user refusal
+remains `publish denied`. Partial success retains the per-relay boolean outcomes.
+CVM request publications preserve these diagnostics; the transport's existing
+initialization wrapper still reports handshake failures as `initialization failed`.
+
 WebRTC is conditional rather than simulated: the domain is advertised only
 with a browser `RTCPeerConnection` implementation, live relay access, and a
 connected NIP-44 signer. Paja owns peer connections and data channels, obtains

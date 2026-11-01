@@ -865,17 +865,36 @@ describe('@kehto/paja relay publish settlement', () => {
         type: 'relay.publish.result',
         id: 'rejected',
         ok: false,
-        error: 'publish failed',
+        error: `relay publish failed (${TEST_RELAYS[0]}: relay rejected; ${TEST_RELAYS[1]}: relay rejected)`,
       }]);
     });
-    expect(await backend.publishToRelays(TEST_RELAYS, event)).toEqual({
-      [TEST_RELAYS[0]!]: false,
-      [TEST_RELAYS[1]!]: false,
-    });
+    await expect(backend.publishToRelays(TEST_RELAYS, event)).rejects.toThrow(
+      `relay publish failed (${TEST_RELAYS[0]}: relay rejected; ${TEST_RELAYS[1]}: relay rejected)`,
+    );
     simulation = normalizePajaSimulation({
       relay: { mode: 'memory', urls: TEST_RELAYS },
     });
     expect(await backend.query(TEST_RELAYS, [{ ids: [event.id] }])).toEqual([]);
     backend.close();
   });
+  it('preserves relay rejection details for authorized signaling and DM gift wraps', async () => {
+    const simulation = normalizePajaSimulation({ relay: { mode: 'live', urls: TEST_RELAYS } });
+    const pool = {
+      publish: (relays: string[]) => relays.map(() => Promise.reject('blocked: relay policy')),
+      destroy() {},
+    } as unknown as SimplePool;
+    const confirm = vi.fn(() => true);
+    const backend = createPajaRelayBackend(() => simulation, confirm, pool);
+    for (const [kind, publish] of [
+      [25050, backend.publishWebrtcSignal], [1059, backend.publishDmGiftWrap],
+    ] as const) {
+      const event = finalizeEvent({ kind, created_at: Math.floor(Date.now() / 1000), tags: [], content: 'encrypted' }, generateSecretKey());
+      await expect(publish(TEST_RELAYS, event)).rejects.toThrow(
+        `relay publish failed (${TEST_RELAYS[0]}: blocked: relay policy; ${TEST_RELAYS[1]}: blocked: relay policy)`,
+      );
+    }
+    expect(confirm).not.toHaveBeenCalled();
+    backend.close();
+  });
+
 });

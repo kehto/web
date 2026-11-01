@@ -199,9 +199,22 @@ function collectMemoryEvents(events: NostrEvent[], filters: NostrFilter[]): Nost
   return [...out.values()].sort((a, b) => b.created_at - a.created_at);
 }
 
-async function publishLive(pool: SimplePool, relayUrls: string[], event: NostrEvent): Promise<Record<string, boolean>> {
+async function publishLive(pool: SimplePool, relayUrls: string[], event: NostrEvent): Promise<{
+  outcomes: Record<string, boolean>;
+  error?: string;
+}> {
   const results = await Promise.allSettled(pool.publish(relayUrls, event));
-  return Object.fromEntries(relayUrls.map((relayUrl, index) => [relayUrl, results[index]?.status === 'fulfilled']));
+  const failures = results.flatMap((result, index) => {
+    if (result.status === 'fulfilled') return [];
+    const reason = result.reason instanceof Error
+      ? result.reason.message
+      : typeof result.reason === 'string' ? result.reason : 'unknown relay error';
+    return [`${relayUrls[index]}: ${reason}`];
+  });
+  return {
+    outcomes: Object.fromEntries(relayUrls.map((relayUrl, index) => [relayUrl, results[index]?.status === 'fulfilled'])),
+    ...(failures.length ? { error: `relay publish failed (${failures.join('; ')})` } : {}),
+  };
 }
 
 async function countLive(
@@ -348,11 +361,12 @@ export function createPajaRelayBackend(
       return { outcomes: rejected, error: 'publish denied' };
     }
 
-    const outcomes = simulation.relay.mode === 'live'
+    const result = simulation.relay.mode === 'live'
       ? await publishLive(livePool, relayUrls, event)
-      : Object.fromEntries(relayUrls.map((url) => [url, true]));
+      : { outcomes: Object.fromEntries(relayUrls.map((url) => [url, true])) };
+    const outcomes = result.outcomes;
     if (!Object.values(outcomes).some(Boolean)) {
-      return { outcomes, error: 'publish failed' };
+      return { outcomes, error: result.error ?? 'publish failed' };
     }
     retainPublishedEvent(event, simulation.relay.mode);
     return { outcomes };
@@ -437,7 +451,9 @@ export function createPajaRelayBackend(
     },
     query,
     async publishToRelays(relayUrls, event, signerContext) {
-      return (await attemptPublish(relayUrls, event, signerContext)).outcomes;
+      const attempt = await attemptPublish(relayUrls, event, signerContext);
+      if (attempt.error) throw new Error(attempt.error);
+      return attempt.outcomes;
     },
     async publishWebrtcSignal(relayUrls, event) {
       if (
@@ -448,8 +464,8 @@ export function createPajaRelayBackend(
       ) {
         throw new Error('signaling unavailable');
       }
-      const outcomes = await publishLive(livePool, relayUrls, event);
-      if (!Object.values(outcomes).some(Boolean)) throw new Error('signaling unavailable');
+      const result = await publishLive(livePool, relayUrls, event);
+      if (!Object.values(result.outcomes).some(Boolean)) throw new Error(result.error ?? 'signaling unavailable');
       retainPublishedEvent(event, 'live');
     },
     async publishDmGiftWrap(relayUrls, event) {
@@ -461,8 +477,8 @@ export function createPajaRelayBackend(
       ) {
         throw new Error('DM relay publication failed');
       }
-      const outcomes = await publishLive(livePool, relayUrls, event);
-      if (!Object.values(outcomes).some(Boolean)) throw new Error('DM relay publication failed');
+      const result = await publishLive(livePool, relayUrls, event);
+      if (!Object.values(result.outcomes).some(Boolean)) throw new Error(result.error ?? 'DM relay publication failed');
       retainPublishedEvent(event, 'live');
     },
     isAvailable,
