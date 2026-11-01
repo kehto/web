@@ -205,7 +205,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
     );
     const connectedAccountPubkey = adapterSource.slice(
       adapterSource.indexOf('function getConnectedAccountPubkey('),
-      adapterSource.indexOf('function createRuntimeSigner('),
+      adapterSource.indexOf('interface PajaServiceBundle'),
     );
     expect(connectedAccountPubkey).toContain('signerProvider?.getPubkey()');
     expect(connectedAccountPubkey).toContain("signerProvider?.getMethod() === 'dev'");
