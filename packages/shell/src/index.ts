@@ -1,6 +1,6 @@
 
 // Factory function — main entry point
-export { createShellBridge } from './shell-bridge.js';
+export { createShellBridge, NAPPLET_HELLO } from './shell-bridge.js';
 export { denyNappletControllerAccess } from './gamepad-policy.js';
 export type { ShellBridge } from './shell-bridge.js';
 export {
@@ -60,6 +60,8 @@ export type {
   AclEntry,
   AclCheckEvent,
   UnroutedMessageInfo,
+  NappletRevocation,
+  NappletRevocationReason,
   ServiceDescriptor,
   ServiceHandler,
   ServiceRegistry,
@@ -73,7 +75,7 @@ export type { PendingUpdate, SessionRegistry } from './session-registry.js';
 
 // Standalone utilities (usable without full shell)
 export { originRegistry } from './origin-registry.js';
-export type { OriginIdentity, OriginRegistry } from './origin-registry.js';
+export type { NappletMessageTarget, OriginIdentity, OriginRegistry } from './origin-registry.js';
 export { audioManager } from './audio-manager.js';
 export type { AudioManager, AudioSource } from './audio-manager.js';
 export { manifestCache } from './manifest-cache.js';

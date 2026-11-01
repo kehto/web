@@ -111,17 +111,28 @@ function nappletNamespacePrelude(
     return `napplet-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   }
 
+  // NIP-5D Transport (nostr-protocol/nips#2303): before any napplet script
+  // runs, open a MessageChannel, keep port1 private to this closure, and hand
+  // port2 to the shell exactly once. Every NAP message in both directions then
+  // travels over the port; window-level messages are never read or sent again,
+  // so a document that replaces this one in the same frame has no channel.
+  // Runs before any napplet script, so the realm's constructor is untampered.
+  const channel = new (target as unknown as { MessageChannel: typeof MessageChannel }).MessageChannel();
+  const port = channel.port1;
+  port.start();
+  target.parent.postMessage({ type: 'napplet.hello' }, '*', [channel.port2]);
+
   function post(message: RuntimeMessage): void {
-    target.parent.postMessage(message, '*');
+    port.postMessage(message);
   }
 
   function listen(listener: Listener): () => void {
-    target.addEventListener('message', listener);
-    return () => target.removeEventListener('message', listener);
+    port.addEventListener('message', listener);
+    return () => port.removeEventListener('message', listener);
   }
 
-  function isParentMessage(event: MessageEvent): boolean {
-    return event.source === target.parent;
+  function isShellMessage(event: MessageEvent): boolean {
+    return event.currentTarget === port;
   }
 
   function request<T>(
@@ -153,7 +164,7 @@ function nappletNamespacePrelude(
         reject(new DOMException('Aborted', 'AbortError'));
       };
       off = listen((event) => {
-        if (!isParentMessage(event)) return;
+        if (!isShellMessage(event)) return;
         const incoming = event.data;
         if (typeof incoming !== 'object' || incoming === null) return;
         const msg = incoming as RuntimeMessage;
@@ -278,7 +289,7 @@ function nappletNamespacePrelude(
     });
 
     const off = listen((event) => {
-      if (!isParentMessage(event) || environment) return;
+      if (!isShellMessage(event) || environment) return;
       const incoming = event.data;
       if (typeof incoming !== 'object' || incoming === null) return;
       const message = incoming as RuntimeMessage;
@@ -346,7 +357,7 @@ function nappletNamespacePrelude(
     select: (message: RuntimeMessage) => unknown = (message) => message.event,
   ): { close(): void } {
     const off = listen((event) => {
-      if (!isParentMessage(event)) return;
+      if (!isShellMessage(event)) return;
       const msg = event.data as RuntimeMessage;
       if (typeof msg === 'object' && msg !== null && msg.type === eventType) callback(select(msg));
     });
@@ -358,7 +369,7 @@ function nappletNamespacePrelude(
       subscribe(filters: unknown, onEvent: (result: unknown) => void, onEose: () => void, options?: { relay?: string }) {
         const subId = id();
         const off = listen((event) => {
-          if (!isParentMessage(event)) return;
+          if (!isShellMessage(event)) return;
           const msg = event.data as RuntimeMessage;
           if (typeof msg !== 'object' || msg === null || msg.subId !== subId) return;
           if (msg.type === 'relay.event') onEvent(msg.result);
@@ -529,7 +540,7 @@ function nappletNamespacePrelude(
     }
 
     listen((event) => {
-      if (!isParentMessage(event)) return;
+      if (!isShellMessage(event)) return;
       const msg = event.data as RuntimeMessage;
       if (typeof msg !== 'object' || msg === null || typeof msg.type !== 'string') return;
       if (msg.type === 'inc.channel.opened' && typeof msg.channelId === 'string' && typeof msg.peer === 'string') {
@@ -567,7 +578,7 @@ function nappletNamespacePrelude(
           const handlers = new Set<(event: IncEvent) => void>();
           const subscriptionId = id();
           const offEvent = listen((event) => {
-            if (!isParentMessage(event)) return;
+            if (!isShellMessage(event)) return;
             const msg = event.data as RuntimeMessage;
             if (
               typeof msg !== 'object'
@@ -582,7 +593,7 @@ function nappletNamespacePrelude(
             for (const handler of handlers) handler(delivered);
           });
           const offResult = listen((event) => {
-            if (!isParentMessage(event)) return;
+            if (!isShellMessage(event)) return;
             const msg = event.data as RuntimeMessage;
             if (typeof msg !== 'object' || msg === null || msg.type !== 'inc.subscribe.result' || msg.id !== subscriptionId) return;
             offResult();
@@ -710,7 +721,7 @@ function nappletNamespacePrelude(
       getBadges: () => read('identity.getBadges', 'badges', []),
       onChanged(handler: (pubkey: string) => void) {
         const off = listen((event) => {
-          if (!isParentMessage(event)) return;
+          if (!isShellMessage(event)) return;
           const msg = event.data as RuntimeMessage;
           if (typeof msg !== 'object' || msg === null || msg.type !== 'identity.changed') return;
           if (typeof msg.pubkey === 'string') handler(msg.pubkey);
@@ -725,7 +736,7 @@ function nappletNamespacePrelude(
       get: () => request({ type: 'theme.get' }, 'theme.get.result', (msg) => msg.theme),
       onChanged(handler: (theme: unknown) => void) {
         const off = listen((event) => {
-          if (!isParentMessage(event)) return;
+          if (!isShellMessage(event)) return;
           const msg = event.data as RuntimeMessage;
           if (typeof msg === 'object' && msg !== null && msg.type === 'theme.changed') handler(msg.theme);
         });
@@ -882,7 +893,7 @@ function nappletNamespacePrelude(
     keysSmartForwardingInstalled = true;
 
     listen((event) => {
-      if (!isParentMessage(event)) return;
+      if (!isShellMessage(event)) return;
       const msg = event.data as RuntimeMessage;
       if (typeof msg === 'object' && msg !== null && msg.type === 'keys.bindings') {
         replaceKeyBindings(msg.bindings);
@@ -954,7 +965,7 @@ function nappletNamespacePrelude(
         }
         callbacks.add(callback);
         const off = listen((event) => {
-          if (!isParentMessage(event)) return;
+          if (!isShellMessage(event)) return;
           const msg = event.data as RuntimeMessage;
           if (typeof msg === 'object' && msg !== null && msg.type === 'keys.action' && msg.actionId === actionId) callback();
         });
@@ -980,7 +991,7 @@ function nappletNamespacePrelude(
       console.warn(`[KEHTO-MEDIA-${name}] Deprecated media API; use ${replacement}. Warned once per endpoint.`);
     };
     listen(event => {
-      if (!isParentMessage(event)) return;
+      if (!isShellMessage(event)) return;
       const msg = event.data as RuntimeMessage;
       if (!msg || typeof msg !== 'object' || typeof msg.sessionId !== 'string') return;
       const sessionId = msg.sessionId;
@@ -1053,7 +1064,7 @@ function nappletNamespacePrelude(
   function makeNotify(): Record<string, unknown> {
     const on = (type: string, callback: (msg: RuntimeMessage) => void) => {
       const off = listen((event) => {
-        if (!isParentMessage(event)) return;
+        if (!isShellMessage(event)) return;
         const msg = event.data as RuntimeMessage;
         if (typeof msg === 'object' && msg !== null && msg.type === type) callback(msg);
       });
@@ -1094,7 +1105,7 @@ function nappletNamespacePrelude(
       get: () => request({ type: 'config.get' }, 'config.values', (msg) => msg.values ?? {}),
       subscribe(callback: (values: unknown) => void) {
         const off = listen((event) => {
-          if (!isParentMessage(event)) return;
+          if (!isShellMessage(event)) return;
           const msg = event.data as RuntimeMessage;
           if (typeof msg === 'object' && msg !== null && msg.type === 'config.values') callback(msg.values ?? {});
         });
@@ -1107,7 +1118,7 @@ function nappletNamespacePrelude(
       openSettings: (options?: unknown) => fire({ type: 'config.openSettings', ...((options && typeof options === 'object') ? options as Record<string, unknown> : {}) }),
       onSchemaError(callback: (error: unknown) => void) {
         const off = listen((event) => {
-          if (!isParentMessage(event)) return;
+          if (!isShellMessage(event)) return;
           const msg = event.data as RuntimeMessage;
           if (typeof msg === 'object' && msg !== null && msg.type === 'config.schemaError') callback(msg);
         });
@@ -1232,7 +1243,7 @@ function nappletNamespacePrelude(
       close: (server: unknown) => req('cvm.close', { server }, (msg) => voidResult(msg, 'cvm close failed')),
       onEvent(callback: (server: unknown, message: unknown) => void) {
         const off = listen((event) => {
-          if (!isParentMessage(event)) return;
+          if (!isShellMessage(event)) return;
           const msg = event.data as RuntimeMessage;
           if (
             typeof msg === 'object'
@@ -1263,7 +1274,7 @@ function nappletNamespacePrelude(
         const subId = id();
         const handlers = { event: new Set<(result: unknown) => void>(), closed: new Set<(reason?: unknown) => void>() };
         const off = listen((event) => {
-          if (!isParentMessage(event)) return;
+          if (!isShellMessage(event)) return;
           const msg = event.data as RuntimeMessage;
           if (typeof msg !== 'object' || msg === null || msg.subId !== subId) return;
           if (msg.type === 'outbox.event') for (const handler of handlers.event) handler(msg.result);
@@ -1298,7 +1309,7 @@ function nappletNamespacePrelude(
       status: (uploadId: string) => request({ type: 'upload.status', uploadId }, 'upload.status.result', (msg) => fieldOrThrow(msg, 'status', 'upload status unavailable')),
       onStatus(callback: (status: unknown) => void) {
         const off = listen((event) => {
-          if (!isParentMessage(event)) return;
+          if (!isShellMessage(event)) return;
           const msg = event.data as RuntimeMessage;
           if (typeof msg === 'object' && msg !== null && msg.type === 'upload.status.changed' && msg.status !== undefined) callback(msg.status);
         });
@@ -1346,7 +1357,7 @@ function nappletNamespacePrelude(
     }
 
     listen((event) => {
-      if (!isParentMessage(event)) return;
+      if (!isShellMessage(event)) return;
       const message = event.data as RuntimeMessage | null;
       if (!message || message.type !== 'intent.deliver') return;
       const value = message.delivery;
@@ -1632,7 +1643,7 @@ function nappletNamespacePrelude(
       });
     };
     listen((event) => {
-      if (!isParentMessage(event)) return;
+      if (!isShellMessage(event)) return;
       const incoming = event.data;
       if (!incoming || incoming.type !== 'gamepad.state' || 'id' in incoming || !valid(incoming)) return;
       state = copy(incoming);
@@ -1665,7 +1676,7 @@ function nappletNamespacePrelude(
       unsubscribe: (subscriptionId: string) => req('dm.unsubscribe', { subscriptionId }),
       onMessage(callback: (message: unknown, subscriptionId: string) => void) {
         const off = listen((event) => {
-          if (!isParentMessage(event)) return;
+          if (!isShellMessage(event)) return;
           const msg = event.data as RuntimeMessage;
           if (
             typeof msg === 'object'
@@ -1729,7 +1740,7 @@ function nappletNamespacePrelude(
         let nextSequence = 0;
         const onAbort = (): void => { post({ type: 'llm.cancel', id: id(), requestId }); };
         const off = listen((event) => {
-          if (!isParentMessage(event)) return;
+          if (!isShellMessage(event)) return;
           const msg = event.data as RuntimeMessage;
           if (typeof msg !== 'object' || msg === null) return;
           if (type === 'llm.generate' && msg.type === 'llm.delta' && msg.requestId === requestId) {

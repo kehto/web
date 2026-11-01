@@ -7,6 +7,23 @@ interface OriginEntry {
   aggregateHash?: string;
   environment?: ShellEnvironment;
   registrationId: number;
+  /** The NIP-5D port handed over by this frame's single `napplet.hello`. */
+  port?: MessagePort;
+}
+
+/**
+ * Minimal outbound target for one napplet. NIP-5D carries every NAP message
+ * over the port bound by `napplet.hello`, so this never wraps the iframe
+ * `Window`.
+ *
+ * @example
+ * ```ts
+ * originRegistry.getNappletTarget('napp-1')?.postMessage({ type: 'relay.eose', subId });
+ * ```
+ */
+export interface NappletMessageTarget {
+  /** Post one NAP envelope over the bound port. Dropped when no port is bound. */
+  postMessage(message: unknown): void;
 }
 
 /** NIP-5D identity metadata associated with a registered iframe window. */
@@ -16,11 +33,34 @@ export interface OriginIdentity {
 }
 
 const registry = new Map<Window, OriginEntry>();
+/**
+ * Windows whose verified document already handed over (or was revoked before
+ * handing over) its NIP-5D port. NIP-5D forbids re-binding a napplet identity
+ * to an existing iframe, so a spent Window can never be registered again.
+ */
+let spentWindows = new WeakSet<Window>();
 let nextRegistrationId = 0;
 
+function entryFor(windowId: string): OriginEntry | undefined {
+  for (const entry of registry.values()) {
+    if (entry.windowId === windowId) return entry;
+  }
+  return undefined;
+}
+
+function closePort(entry: OriginEntry): void {
+  const port = entry.port;
+  if (!port) return;
+  entry.port = undefined;
+  port.onmessage = null;
+  port.close();
+}
+
 /**
- * Bidirectional registry mapping Window references to windowId strings.
- * Optionally stores NIP-5D identity metadata (dTag and aggregateHash) per window.
+ * Registry mapping each shell-created iframe Window to its windowId, verified
+ * NIP-5D identity, and the `MessagePort` bound by its single `napplet.hello`.
+ * The Window is only used to authenticate the hello; all NAP traffic uses the
+ * bound port (NIP-5D, nostr-protocol/nips#2303).
  *
  * @example
  * ```ts
@@ -33,6 +73,11 @@ let nextRegistrationId = 0;
 export interface OriginRegistry {
   register(win: Window, windowId: string, identity?: OriginIdentity): void;
   unregister(windowId: string): void;
+  bindPort(windowId: string, port: MessagePort): boolean;
+  getPort(windowId: string): MessagePort | undefined;
+  postToNapplet(windowId: string, message: unknown): boolean;
+  getNappletTarget(windowId: string): NappletMessageTarget | null;
+  isSpent(win: Window): boolean;
   getWindowId(win: Window): string | undefined;
   getIframeWindow(windowId: string): Window | null;
   getAllWindowIds(): string[];
@@ -51,10 +96,17 @@ export const originRegistry: OriginRegistry = {
    * @param win - The iframe's contentWindow reference
    * @param windowId - The unique identifier for this napplet window
    * @param identity - Optional NIP-5D identity metadata (dTag and aggregateHash)
+   * @throws {Error} When `win` already bound a NIP-5D port. NIP-5D identity is
+   *   bound to one document; hosts must create a fresh iframe instead.
    */
   register(win: Window, windowId: string, identity?: OriginIdentity): void {
+    if (spentWindows.has(win)) {
+      throw new Error('NIP-5D: cannot re-bind a napplet identity to an existing iframe; create a fresh iframe');
+    }
     for (const [registeredWin, entry] of registry.entries()) {
       if (registeredWin === win || entry.windowId === windowId) {
+        closePort(entry);
+        if (registeredWin !== win) spentWindows.add(registeredWin);
         registry.delete(registeredWin);
       }
     }
@@ -75,9 +127,75 @@ export const originRegistry: OriginRegistry = {
   unregister(windowId: string): void {
     for (const [win, entry] of registry.entries()) {
       if (entry.windowId === windowId) {
+        closePort(entry);
+        spentWindows.add(win);
         registry.delete(win);
       }
     }
+  },
+
+  /**
+   * Bind the NIP-5D port from a frame's single `napplet.hello`.
+   *
+   * @param windowId - The registered window identifier
+   * @param port - The one port transferred with the hello
+   * @returns `false` when the window is unknown or already bound
+   */
+  bindPort(windowId: string, port: MessagePort): boolean {
+    for (const [win, entry] of registry.entries()) {
+      if (entry.windowId !== windowId) continue;
+      if (entry.port || spentWindows.has(win)) return false;
+      entry.port = port;
+      spentWindows.add(win);
+      return true;
+    }
+    return false;
+  },
+
+  /**
+   * Look up the bound NIP-5D port for a window.
+   *
+   * @param windowId - The window identifier
+   * @returns The bound port, or undefined before `napplet.hello`
+   */
+  getPort(windowId: string): MessagePort | undefined {
+    return entryFor(windowId)?.port;
+  },
+
+  /**
+   * Send one NAP envelope to a napplet over its bound port. Never falls back
+   * to `iframeWindow.postMessage`.
+   *
+   * @param windowId - The window identifier
+   * @param message - The envelope to send
+   * @returns `true` when a bound port carried the message
+   */
+  postToNapplet(windowId: string, message: unknown): boolean {
+    const port = entryFor(windowId)?.port;
+    if (!port) return false;
+    port.postMessage(message);
+    return true;
+  },
+
+  /**
+   * Return a port-backed outbound target for one napplet window.
+   *
+   * @param windowId - The window identifier
+   * @returns A target that sends through {@link OriginRegistry.postToNapplet}, or null when unregistered
+   */
+  getNappletTarget(windowId: string): NappletMessageTarget | null {
+    if (!entryFor(windowId)) return null;
+    return { postMessage: (message: unknown) => { originRegistry.postToNapplet(windowId, message); } };
+  },
+
+  /**
+   * Whether a Window already handed over (or lost) its one NIP-5D binding.
+   *
+   * @param win - The iframe `contentWindow`
+   * @returns `true` when the Window can never be registered again
+   */
+  isSpent(win: Window): boolean {
+    return spentWindows.has(win);
   },
 
   /**
@@ -149,8 +267,10 @@ export const originRegistry: OriginRegistry = {
     return registry.get(win)?.registrationId;
   },
 
-  /** Clear all registrations. */
+  /** Clear all registrations and close every bound port. */
   clear(): void {
+    for (const entry of registry.values()) closePort(entry);
     registry.clear();
+    spentWindows = new WeakSet<Window>();
   },
 };

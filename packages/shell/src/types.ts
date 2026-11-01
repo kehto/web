@@ -7,6 +7,7 @@
 // SHELL_BRIDGE_URI, PROTOCOL_VERSION, REPLAY_WINDOW_SECONDS, legacy
 // BusKind-value union) are no longer re-exported. Shell internals that need
 // INC_PEER=29000 inline the numeric locally.
+import type { NappletMessageTarget } from './origin-registry.js';
 export type { NostrEvent, NostrFilter } from '@napplet/core';
 export type { Capability, ServiceDescriptor } from '@kehto/runtime';
 export { ALL_CAPABILITIES } from '@kehto/runtime';
@@ -58,7 +59,7 @@ export interface RelayPoolHooks {
   /** Untrack and clean up a subscription. */
   untrackSubscription(subKey: string): void;
   /** Open a scoped relay connection (NIP-29 groups). */
-  openScopedRelay(windowId: string, relayUrl: string, subId: string, filters: NostrFilter[], sourceWindow: Window): void;
+  openScopedRelay(windowId: string, relayUrl: string, subId: string, filters: NostrFilter[], target: NappletMessageTarget): void;
   /** Close a scoped relay connection. */
   closeScopedRelay(windowId: string): void;
   /**
@@ -341,6 +342,41 @@ export interface UnroutedMessageInfo {
 }
 
 /**
+ * Why a NIP-5D napplet binding was revoked.
+ * - `window-message` — a window-level message other than the one `napplet.hello`.
+ * - `second-hello` — a second `napplet.hello` from the same iframe.
+ * - `invalid-hello` — a `napplet.hello` without exactly one transferred port.
+ * - `second-load` — the iframe loaded a second document (navigation or reload).
+ * - `port-closed` — the bound port closed or failed to deserialize a message.
+ * - `host` — the host revoked the binding itself.
+ */
+export type NappletRevocationReason =
+  | 'window-message'
+  | 'second-hello'
+  | 'invalid-hello'
+  | 'second-load'
+  | 'port-closed'
+  | 'host';
+
+/**
+ * Passed to {@link ShellAdapter.onNappletRevoked} after the shell closed the
+ * port and revoked the identity binding, sessions and grants of one frame.
+ *
+ * @example
+ * ```ts
+ * hooks.onNappletRevoked = ({ windowId }) => frames.get(windowId)?.remove();
+ * ```
+ */
+export interface NappletRevocation {
+  /** The revoked window. Its identity can never be re-bound to the same iframe. */
+  readonly windowId: string;
+  /** What the shell observed. */
+  readonly reason: NappletRevocationReason;
+  /** Human-readable detail for diagnostics. Never includes message payloads. */
+  readonly detail: string;
+}
+
+/**
  * Static capability set sent to napplet iframes through the shell.ready /
  * shell.init handshake. Optional runtime domain presence is injected before
  * authored code, while optional NAP-SHELL caches this environment for local
@@ -455,6 +491,16 @@ export interface ShellAdapter {
    * (the FEED-02 / hyprgate#21 class of "a napplet's messages vanish" bug).
    */
   onUnroutedMessage?: (info: UnroutedMessageInfo) => void;
+  /**
+   * Called once when the shell revokes a NIP-5D napplet binding: a second
+   * `napplet.hello`, any other window-level message, an invalid hello, a
+   * second iframe `load` (see `ShellBridge.observeFrame`), the port closing,
+   * or `ShellBridge.revokeNapplet`. The shell has already closed the port and
+   * revoked the identity binding, sessions and grants. NIP-5D requires the
+   * host to remove the iframe here; it MAY create a fresh iframe from the
+   * verified bytes but MUST NOT reuse this one.
+   */
+  onNappletRevoked?: (revocation: NappletRevocation) => void;
   /** Called when aggregate hash verification fails (computed != declared). */
   onHashMismatch?: (dTag: string, claimed: string, computed: string) => void;
   /**
