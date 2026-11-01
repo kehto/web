@@ -39,7 +39,10 @@ describe('Phase 103 identity/theme active-surface guard', () => {
     expect(bridge).toContain('environment?.capabilities.domains.includes(domain)');
     expect(namespace).toContain('function makeProtectedIdentity(): Record<string, unknown>');
     expect(namespace).toContain('function makeProtectedTheme(): Record<string, unknown>');
-    expect(namespace).toContain('return event.source === target.parent;');
+    // NIP-5D port-bound identity (nostr-protocol/nips#2303): inbound NAP
+    // messages are trusted only from the prelude's private hello port.
+    expect(namespace).toContain('return event.currentTarget === port;');
+    expect(namespace).not.toContain('event.source === target.parent');
     expect(namespace).toContain("getPublicKey: () => read('identity.getPublicKey', 'pubkey', '')");
     expect(namespace).not.toContain("type: 'theme.subscribe'");
     expect(namespace).not.toContain("type: 'theme.unsubscribe'");

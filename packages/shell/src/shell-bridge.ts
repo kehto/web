@@ -313,6 +313,11 @@ export function createShellBridge(hooks: ShellAdapter): ShellBridge {
     // NIP-5D envelope-only guard (clean break — no legacy array support)
     if (typeof msg !== 'object' || msg === null || typeof (msg as { type?: unknown }).type !== 'string') return;
     const envelope = msg as NappletMessage;
+    try {
+      hooks.onNappletMessage?.(windowId, envelope);
+    } catch {
+      // Observability must never break routing — swallow host hook errors.
+    }
     const context = {
       hooks,
       origin: binding.origin,

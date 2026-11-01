@@ -201,3 +201,28 @@ describe('NIP-5D port-bound identity', () => {
     bridge.destroy();
   });
 });
+
+describe('NIP-5D port observation hook', () => {
+  beforeEach(() => originRegistry.clear());
+  afterEach(() => originRegistry.clear());
+
+  it('reports each port envelope to onNappletMessage before dispatch and survives hook errors', async () => {
+    const seen: Array<[string, unknown]> = [];
+    const hooks = makeHooks(() => {});
+    hooks.onNappletMessage = (windowId, message) => {
+      seen.push([windowId, message]);
+      throw new Error('host hook failure');
+    };
+    const bridge = createShellBridge(hooks);
+    const win = makeFrameWindow();
+    originRegistry.register(win, 'observed', identity);
+    const channel = new MessageChannel();
+    bridge.handleMessage({ source: win, origin: 'null', data: { type: NAPPLET_HELLO }, ports: [channel.port2] } as unknown as MessageEvent);
+    const reply = nextMessage(channel.port1);
+    channel.port1.postMessage({ type: 'shell.ready' });
+    await expect(reply).resolves.toMatchObject({ type: 'shell.init' });
+    expect(seen).toEqual([['observed', { type: 'shell.ready' }]]);
+    bridge.destroy();
+    channel.port1.close();
+  });
+});

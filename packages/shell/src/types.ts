@@ -7,7 +7,6 @@
 // SHELL_BRIDGE_URI, PROTOCOL_VERSION, REPLAY_WINDOW_SECONDS, legacy
 // BusKind-value union) are no longer re-exported. Shell internals that need
 // INC_PEER=29000 inline the numeric locally.
-import type { NappletMessageTarget } from './origin-registry.js';
 export type { NostrEvent, NostrFilter } from '@napplet/core';
 export type { Capability, ServiceDescriptor } from '@kehto/runtime';
 export { ALL_CAPABILITIES } from '@kehto/runtime';
@@ -17,7 +16,7 @@ export type { SessionEntry, NappKeyEntry } from '@kehto/runtime';
 // Import Capability type locally for use in this file's shell-specific types
 import type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
 import type { Capability, RuntimeConfigOverrides, ServiceHandler, ServiceRegistry } from '@kehto/runtime';
-import type { OriginIdentity } from './origin-registry.js';
+import type { NappletMessageTarget, OriginIdentity } from './origin-registry.js';
 
 // Re-export service types so shell consumers can still import from @kehto/shell
 // (ServiceDescriptor already re-exported above from @kehto/runtime).
@@ -501,6 +500,14 @@ export interface ShellAdapter {
    * verified bytes but MUST NOT reuse this one.
    */
   onNappletRevoked?: (revocation: NappletRevocation) => void;
+  /**
+   * Observe-only: called with each NAP envelope received on a napplet's bound
+   * NIP-5D port, before the shell dispatches it. NIP-5D moves NAP traffic off
+   * window-level `message` events, so hosts that logged or tracked readiness
+   * from those events use this hook instead. It cannot change or drop the
+   * message; host hook errors are swallowed.
+   */
+  onNappletMessage?: (windowId: string, message: NappletMessage) => void;
   /** Called when aggregate hash verification fails (computed != declared). */
   onHashMismatch?: (dTag: string, claimed: string, computed: string) => void;
   /**
