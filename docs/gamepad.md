@@ -9,7 +9,7 @@ const gamepad = createGamepadService(browserGamepadOptions(window, target => ori
 const hooks = { ...hostHooks, services: { ...hostHooks.services, gamepad } };
 ```
 
-Before assigning any napplet document, call `denyNappletControllerAccess(frame)` from `@kehto/shell`. It retains unrelated Permissions-Policy entries and denies `gamepad`, `hid`, and `usb`. The runtime binds incoming subscriptions to the frame's registered source; no SHELL readiness exchange or app-supplied identity is needed. Paja and the playground install this service and apply the policy to their frames.
+Before assigning any napplet document, call `denyNappletControllerAccess(frame)` from `@kehto/shell`. It retains unrelated Permissions-Policy entries and denies `gamepad`, `hid`, and `usb`. The runtime binds incoming subscriptions to the frame's registered source; no SHELL readiness exchange or app-supplied identity is needed. Paja installs this service and applies the policy to its frames.
 
 Only the visible, focused host's input owner receives live axes, buttons, and timestamps. Other subscribers receive connected-controller metadata with neutral controls and timestamp zero. Host focus/visibility and connection events refresh immediately; active subscriptions share one display-frame polling loop. Unsubscribe, window destruction, and service removal stop delivery and release polling. Local listener closure removes that listener; frame lifecycle cleanup ends its wire subscription.
 

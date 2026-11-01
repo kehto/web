@@ -132,9 +132,9 @@ This is a runtime-default policy within NAP-RESOURCE's second tier, not a new
 wire field or an upload-mode dependency. It follows Blossom BUD-03 at exact ref
 [`b5bd2801d1763aa635fc8fea7a76597e0eb18990`](https://github.com/hzrd149/blossom/blob/b5bd2801d1763aa635fc8fea7a76597e0eb18990/buds/03.md).
 
-The playground is a visualization, not the reference runtime. It retains static
-origin grants and iframe CSP fixtures so implementers can see and test the
-optional grant-policy path. Those fixtures do not establish Kehto-wide policy.
+The optional static origin-grant path remains covered by
+`packages/services/src/resource-service.test.ts`; the playground that visualized
+it is retired. Those tests do not establish Kehto-wide policy.
 
 ## Implementation references
 
@@ -144,8 +144,7 @@ optional grant-policy path. Those fixtures do not establish Kehto-wide policy.
   Blossom resolution choices.
 - `packages/paja/src/browser-blossom-events.ts` — per-window OUTBOX resource
   context and author/publisher/user BUD-03 discovery.
-- `apps/playground/src/demo-hooks.ts` — playground grant visualization.
-- `tests/e2e/nap-resource.spec.ts` — browser evidence for image loading versus
-  fetch-visible bytes and canonical failure.
+- `tests/e2e/nap-media-player.spec.ts` — browser evidence for Paja's
+  policy-resolved resource bytes.
 - [NIP-5D conformance policy](./NIP-5D-CONFORMANCE.md) — envelope, provenance,
   and sandbox requirements shared by Kehto host implementations.
