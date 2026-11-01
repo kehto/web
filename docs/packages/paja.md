@@ -685,9 +685,6 @@ the next iframe reload.
   HMR still resolve against the app dev server through the injected `<base>`.
 - Does not guess framework dev-server ports, mutate app build tooling, or add
   framework-specific adapters.
-- Does not replace the full playground. Paja is the package-scoped authoring
-  runtime for one target app; the playground remains the multi-napplet demo and
-  topology surface.
 
 ## API Reference
 

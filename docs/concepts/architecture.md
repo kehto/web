@@ -16,7 +16,6 @@ clear ownership boundaries.
 | Services | `@kehto/services` | Reference service handlers registered with the runtime. |
 | Optional utilities | `@kehto/nip`, `@kehto/wm` | Unique Nostr NIP utilities, including NIP-5A/5D artifact verification/cache helpers, and shell-owned window-management contracts. |
 | Reference runtime | `@kehto/paja` | Concrete developer-runtime choices built from the toolkit. |
-| Visualization | `@kehto/playground` | Protocol visualization and integration verification, not runtime policy. |
 
 `@napplet` packages define portable napplet-side contracts and helpers. Kehto
 provides host-side implementation tools; Paja supplies the concrete reference

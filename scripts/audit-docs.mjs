@@ -4,7 +4,7 @@
  *
  * Run after `pnpm docs:api`. The script checks repo-authored docs metadata,
  * VitePress route coverage, package docs coverage, and generated TypeDoc API
- * targets without depending on a running playground server.
+ * targets without depending on a running dev server.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
@@ -150,11 +150,14 @@ function checkPackageDocs(packages) {
     assertFile(pkg.distModuleFile, `${pkg.name} VitePress API artifact`);
   }
 
-  const playgroundPage = join(docsDir, 'packages', 'playground.md');
-  const playground = assertFile(playgroundPage, '@kehto/playground package page') ? read(playgroundPage) : '';
-  assertContains(packageIndexPath, packageIndex, '@kehto/playground', 'package index');
-  assertContains(vitepressConfigPath, vitepressConfig, "link: '/packages/playground'", 'package sidebar');
-  assertContains(playgroundPage, playground, '| Private | `true` |', '@kehto/playground package page');
+  // The playground app is retired (KEHTO_PLAYGROUND_RETIRED); keep it out of
+  // package navigation so the docs never advertise an unmaintained surface.
+  if (packageIndex.includes('@kehto/playground')) {
+    fail(`${rel(packageIndexPath)} still lists the retired @kehto/playground package`);
+  }
+  if (vitepressConfig.includes("link: '/packages/playground'")) {
+    fail(`${rel(vitepressConfigPath)} still links the retired playground package page`);
+  }
 }
 
 function checkReferencePage(packages) {

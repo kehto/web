@@ -41,7 +41,7 @@ Prefer graceful degradation for optional features. Required features should be d
 
 ## Step 3: Use NAP helpers
 
-Use `@napplet/nap` helpers or the published napplet SDK surface for NAP operations. Do not send unclassified raw envelopes unless the host/playground has explicitly documented the exception.
+Use `@napplet/nap` helpers or the published napplet SDK surface for NAP operations. Do not send unclassified raw envelopes unless the host has explicitly documented the exception.
 
 ```ts
 import { relayPublish } from '@napplet/nap/relay';
@@ -68,11 +68,11 @@ Kehto shell mediates identity, signing, storage, relay, and host capabilities.
 
 ## Step 5: Verify through the gateway path
 
-Build the napplet and load it through the same gateway artifact route used by the playground:
+Build the napplet and load it in Paja, Kehto's reference developer runtime:
 
 ```bash
-pnpm --filter ./apps/playground/napplets/<name> build
-pnpm --filter @kehto/playground preview --port 4174
+pnpm build
+kehto paja --target-url http://127.0.0.1:5173 -- pnpm vite --host 127.0.0.1
 ```
 
 The proof path is signed relay manifest → verified Blossom artifact bytes → runtime injection → opaque iframe `srcdoc`. Gateway output remains untrusted.

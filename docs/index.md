@@ -3,8 +3,8 @@
 Kehto is an unopinionated toolkit and protocol kernel for building NIP-5D
 napplet runtimes. It supplies reusable host-side machinery without choosing one
 origin, signer, or deployment policy for every implementer. Paja is Kehto's
-reference developer runtime; the playground is a visualization and verification
-fixture.
+reference developer runtime. The former playground demo is retired; see the
+[compatibility register](./compatibility.md).
 
 > **Alpha status:** NIP-5D is still under development, and NAP contracts are not
 > final. Package APIs, capability names, `requires` declarations, and
@@ -36,7 +36,6 @@ Kehto works with the `@napplet` packages. `@napplet/core`, `@napplet/shim`, `@na
 | `@kehto/nip` | Framework-agnostic unique Nostr NIP utilities (NIP-51 lists, NIP-65 outbox, NIP-66 relay discovery, NIP-89 app handlers). |
 | `@kehto/wm` | Structural window-management contracts for consumer-owned layout strategies. |
 | `@kehto/paja` | Reference developer runtime with concrete browser and service policies. |
-| `@kehto/playground` | 9-napplet protocol visualization and Playwright verification target. |
 
 ## Current Documentation Shape
 

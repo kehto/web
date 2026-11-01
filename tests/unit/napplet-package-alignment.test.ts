@@ -78,7 +78,7 @@ describe('published Napplet package alignment', () => {
 
     expect(consumers.length).toBeGreaterThan(0);
     for (const { path, manifest } of consumers) {
-      const isExactConsumer = path.startsWith('apps/playground/') || path.startsWith('tests/fixtures/napplets/');
+      const isExactConsumer = path.startsWith('tests/fixtures/napplets/');
       for (const [name, version] of activeNappletPackages(manifest)) {
         const expected = PACKAGE_VERSIONS[name as keyof typeof PACKAGE_VERSIONS];
         if (isExactConsumer || name === '@napplet/shim' || name === '@napplet/sdk' || name === '@napplet/vite-plugin') {

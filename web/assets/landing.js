@@ -15,7 +15,7 @@ function shouldAnimateRoute(anchor, event) {
   const destination = new URL(anchor.href, window.location.href);
   if (destination.origin !== window.location.origin) return false;
 
-  return destination.pathname === '/web/playground/' || destination.pathname === '/web/docs/';
+  return destination.pathname === '/web/paja/' || destination.pathname === '/web/docs/';
 }
 
 function setFinalState() {

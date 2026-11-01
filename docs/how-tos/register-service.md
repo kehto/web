@@ -81,7 +81,7 @@ revived. INC topics never select an extension service.
 For a browser host, registration does **not** inject `window.napplet.example`.
 The host must implement the owning domain contract, inject its granted binding
 before app scripts run, and enforce that same availability through its trusted
-source mapping. The stock Paja/playground bindings do not expose arbitrary
+source mapping. The stock Paja bindings do not expose arbitrary
 extensions. Neither manifest `R`/`O` tags nor `shell.init.services` grants access.
 Without an exposed binding, napplets must treat the domain as unavailable.
 
