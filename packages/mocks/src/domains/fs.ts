@@ -41,19 +41,8 @@ import { LINUX_DISTROS } from '../fixtures/linux-distros.js';
 import { MOCK_ACCOUNTS, MOCK_EPOCH_SECONDS } from '../fixtures/nostr.js';
 import { decodeBase64, encodeBase64, linuxDistroBytes, linuxDistroSums, placeholderPng, utf8Bytes } from './file-bytes.js';
 
-export type {
-  FsChange,
-  FsDirectoryEntry,
-  FsError,
-  FsInfo,
-  FsLimits,
-  FsMetadata,
-  FsPermission,
-  FsPickOptions,
-  FsPickResult,
-  FsPickedEntry,
-  FsRoot,
-} from '@napplet/nap/fs/types';
+export type { FsChange } from '@napplet/nap/fs/types';
+export type { FsDirectoryEntry, FsError, FsInfo, FsLimits, FsMetadata, FsPermission, FsPickOptions, FsPickResult, FsPickedEntry, FsRoot };
 
 /** Spec document the mock was written against. */
 export const FS_SPEC_REF: NapSpecRef = {

@@ -263,7 +263,7 @@ function failGeneration(state: MockLlmState, generation: MockLlmActiveGeneration
 }
 
 function cancelWindow(state: MockLlmState, windowId: string, error: MockLlmFailure | null): void {
-  for (const generation of [...(state.active.get(windowId)?.values() ?? [])]) {
+  for (const generation of Array.from(state.active.get(windowId)?.values() ?? [])) {
     if (error) failGeneration(state, generation, error);
     else settle(state, generation, null);
   }
@@ -438,7 +438,7 @@ export function createMockLlmService(options: MockLlmOptions = {}): MockLlmServi
   const baseReset = base.mock.reset;
   base.mock.reset = () => {
     const state = base.mock.state();
-    for (const windowId of [...state.active.keys()]) cancelWindow(state, windowId, null);
+    for (const windowId of Array.from(state.active.keys())) cancelWindow(state, windowId, null);
     baseReset();
   };
 
@@ -450,7 +450,7 @@ export function createMockLlmService(options: MockLlmOptions = {}): MockLlmServi
       const state = base.mock.state();
       state.epoch += 1;
       state.handles.clear();
-      for (const windowId of [...state.active.keys()]) cancelWindow(state, windowId, CANCELLED);
+      for (const windowId of Array.from(state.active.keys())) cancelWindow(state, windowId, CANCELLED);
     },
   });
   return service;

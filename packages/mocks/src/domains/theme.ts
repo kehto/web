@@ -17,6 +17,7 @@ import type { NappletMessage } from '@kehto/runtime';
 import type { Theme, ThemeChangedMessage } from '@napplet/nap/theme/types';
 import { defineMockService, pushToWindow } from '../core/handler.js';
 import type { MockDomainEntry, MockService, MockServiceOptions, NapSpecRef } from '../core/types.js';
+import { MOCK_URLS } from '../fixtures/urls.js';
 
 /** Spec document read when this mock was written. */
 export const THEME_SPEC_REF: NapSpecRef = {
@@ -47,10 +48,10 @@ export const MOCK_THEMES: Readonly<Record<MockThemeName, Theme>> = Object.freeze
   dark: {
     colors: { background: '#0d1117', text: '#c9d1d9', primary: '#58a6ff' },
     fonts: {
-      body: { name: 'Inter', url: 'https://fonts.example.org/inter.woff2' },
-      title: { name: 'Playfair Display', url: 'https://fonts.example.org/playfair.woff2' },
+      body: { name: 'Inter', url: `${MOCK_URLS.fonts}/inter.woff2` },
+      title: { name: 'Playfair Display', url: `${MOCK_URLS.fonts}/playfair.woff2` },
     },
-    background: { url: 'https://media.example.org/bg.jpg', mode: 'cover', mime: 'image/jpeg' },
+    background: { url: `${MOCK_URLS.media}/bg.jpg`, mode: 'cover', mime: 'image/jpeg' },
     title: 'Mock Dark',
   },
 });

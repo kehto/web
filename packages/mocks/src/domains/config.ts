@@ -174,13 +174,14 @@ export type MockConfigService = MockService<MockConfigState> & {
 type Node = Record<string, unknown>;
 
 const TYPES = new Set(['string', 'number', 'integer', 'boolean', 'array', 'object']);
-const FORBIDDEN: Readonly<Record<string, ConfigSchemaErrorCode>> = Object.freeze({
-  $ref: 'ref-not-allowed', $defs: 'ref-not-allowed', definitions: 'ref-not-allowed', pattern: 'pattern-not-allowed',
-  oneOf: 'invalid-schema', anyOf: 'invalid-schema', allOf: 'invalid-schema', not: 'invalid-schema',
-  if: 'invalid-schema', then: 'invalid-schema', else: 'invalid-schema', patternProperties: 'invalid-schema',
-  propertyNames: 'invalid-schema', dependencies: 'invalid-schema', dependentSchemas: 'invalid-schema',
-  unevaluatedProperties: 'invalid-schema',
-});
+/** Keywords outside the Core Subset, as `[keyword, error code]` pairs. */
+const FORBIDDEN: ReadonlyMap<string, ConfigSchemaErrorCode> = new Map<string, ConfigSchemaErrorCode>([
+  ['$ref', 'ref-not-allowed'], ['$defs', 'ref-not-allowed'], ['definitions', 'ref-not-allowed'], ['pattern', 'pattern-not-allowed'],
+  ...[
+    'oneOf', 'anyOf', 'allOf', 'not', 'if', 'then', 'else', 'patternProperties',
+    'propertyNames', 'dependencies', 'dependentSchemas', 'unevaluatedProperties',
+  ].map((keyword): [string, ConfigSchemaErrorCode] => [keyword, 'invalid-schema']),
+]);
 const DRAFT = /^https?:\/\/json-schema\.org\/(?:draft-0?7\/schema#?|draft\/2019-09\/schema#?|draft\/2020-12\/schema#?)$/u;
 const MAX_DEPTH = 4;
 
@@ -194,7 +195,7 @@ function invalid(code: ConfigSchemaErrorCode, error: string): MockConfigValidati
 
 function validateNode(node: Node, depth: number, path: string): MockConfigValidation {
   for (const key of Object.keys(node)) {
-    const code = FORBIDDEN[key];
+    const code = FORBIDDEN.get(key);
     if (code) return invalid(code, `JSON Schema \`${key}\` keyword is not permitted in the Core Subset at ${path}`);
   }
   if (typeof node.type !== 'string' || !TYPES.has(node.type)) return invalid('invalid-schema', `${path} has an unsupported or missing type`);

@@ -32,6 +32,7 @@ import type {
 import type { NostrTag } from '@napplet/core';
 import { DEFAULT_CLOCK, DEFAULT_SCHEDULER, defineMockService, pushToWindow } from '../core/handler.js';
 import type { MockDomainEntry, MockService, MockServiceOptions, NapSpecRef } from '../core/types.js';
+import { MOCK_URLS, mockOrigin } from '../fixtures/urls.js';
 import { blobType, byteLengthOf, extensionForMime, mimeForFileName, placeholderSha256, toBytes } from './file-bytes.js';
 
 export type {
@@ -167,8 +168,8 @@ function buildCompleted(uploadId: string, rail: UploadRail, request: UploadReque
   const size = byteLengthOf(request.data) ?? bytes.length;
   const sha256 = placeholderSha256(bytes);
   const extension = request.filename?.includes('.') ? request.filename.slice(request.filename.lastIndexOf('.')) : extensionForMime(mime);
-  const host = rail === 'blossom' ? 'blossom.example.org' : rail === 'nip96' ? 'files.example.org' : `${rail}.example.org`;
-  const url = `https://${host}/${sha256}${extension}`;
+  const origin = rail === 'blossom' ? MOCK_URLS.blossom : rail === 'nip96' ? MOCK_URLS.files : mockOrigin(`${rail}.example.org`);
+  const url = `${origin}/${sha256}${extension}`;
   const dimensions = mime.startsWith('image/') ? { width: 1280, height: 720 } : undefined;
   const nip94: NostrTag[] = [['url', url], ['m', mime], ['x', sha256], ['ox', sha256], ['size', String(size)]];
   if (dimensions) nip94.push(['dim', `${dimensions.width}x${dimensions.height}`]);

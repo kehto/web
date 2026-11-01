@@ -214,13 +214,16 @@ function isUint(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0;
 }
 
-function parseTemplate(raw: unknown): PowEventTemplate | undefined {
-  if (!raw || typeof raw !== 'object') return undefined;
+function isPowTemplate(raw: unknown): raw is PowEventTemplate {
+  if (!raw || typeof raw !== 'object') return false;
   const template = raw as Record<string, unknown>;
-  if (!isUint(template.kind) || typeof template.content !== 'string') return undefined;
-  if (template.tags !== undefined && !Array.isArray(template.tags)) return undefined;
-  if (template.created_at !== undefined && !isUint(template.created_at)) return undefined;
-  return template as unknown as PowEventTemplate;
+  if (!isUint(template.kind) || typeof template.content !== 'string') return false;
+  if (template.tags !== undefined && !Array.isArray(template.tags)) return false;
+  return template.created_at === undefined || isUint(template.created_at);
+}
+
+function parseTemplate(raw: unknown): PowEventTemplate | undefined {
+  return isPowTemplate(raw) ? raw : undefined;
 }
 
 /** Shared engine state the module-level helpers operate on. */
@@ -277,8 +280,8 @@ function activeCount(state: MockPowState): number {
   return [...state.jobs.values()].filter((job) => job.state === 'mining').length;
 }
 
-function push(engine: PowEngine, job: MockPowJob, message: Record<string, unknown>): void {
-  pushToWindow(engine.service, job.windowId, message as unknown as NappletMessage);
+function push(engine: PowEngine, job: MockPowJob, message: NappletMessage & Record<string, unknown>): void {
+  pushToWindow(engine.service, job.windowId, message);
 }
 
 function transition(engine: PowEngine, job: MockPowJob, next: PowState): void {
@@ -310,7 +313,15 @@ function armAutoplay(engine: PowEngine, state: MockPowState): void {
   });
 }
 
-function submit(engine: PowEngine, windowId: string, message: Record<string, unknown>, mode: MockPowJob['mode'], reply: (fields?: Record<string, unknown>) => void): void {
+/** Route-supplied inputs for a mining submission. */
+interface PowSubmission {
+  windowId: string;
+  message: Record<string, unknown>;
+  mode: MockPowJob['mode'];
+  reply: (fields?: Record<string, unknown>) => void;
+}
+
+function submit(engine: PowEngine, { windowId, message, mode, reply }: PowSubmission): void {
   const state = engine.service.mock.state();
   const jobId = message.jobId;
   if (typeof jobId !== 'string' || jobId.length === 0) { reply({ jobId, accepted: false, error: 'invalid template' }); return; }
@@ -413,8 +424,8 @@ function advance(engine: PowEngine, steps: number): string[] {
 
 function powRoutes(engine: PowEngine): Record<string, MockRoute<MockPowState>> {
   return {
-    'pow.mine': (context) => submit(engine, context.windowId, context.message, 'mine', context.reply),
-    'pow.mineAndPublish': (context) => submit(engine, context.windowId, context.message, 'mineAndPublish', context.reply),
+    'pow.mine': ({ windowId, message, reply }) => submit(engine, { windowId, message, mode: 'mine', reply }),
+    'pow.mineAndPublish': ({ windowId, message, reply }) => submit(engine, { windowId, message, mode: 'mineAndPublish', reply }),
     'pow.queue': ({ state, windowId, reply }) => {
       const jobs = state.order
         .map((id) => state.jobs.get(id)!)
@@ -493,7 +504,8 @@ function powRoutes(engine: PowEngine): Record<string, MockRoute<MockPowState>> {
 export function createMockPowService(options: MockPowOptions = {}): MockPowService {
   const seed = (options.seed ?? 1) + 0x504f57;
   const engine: PowEngine = {
-    service: undefined as unknown as MockService<MockPowState>,
+    // Routes only read `engine.service` after the factory returns.
+    get service() { return service; },
     options,
     maxConcurrent: options.maxConcurrent ?? 1,
     maxTarget: options.maxTarget ?? 32,
@@ -515,7 +527,6 @@ export function createMockPowService(options: MockPowOptions = {}): MockPowServi
     onWindowDestroyed: (windowId, state) => dropWindow(engine, state, windowId),
     onCapabilityRevoked: (windowId, _capability, state) => dropWindow(engine, state, windowId),
   }, options);
-  engine.service = service;
 
   const baseReset = service.mock.reset;
   service.mock.reset = () => {

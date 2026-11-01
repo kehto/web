@@ -24,6 +24,7 @@ import { DEFAULT_SCHEDULER, defineMockService, pushToWindow } from '../core/hand
 import type { MockRouteContext } from '../core/handler.js';
 import type { MockDomainEntry, MockService, MockServiceOptions, NapSpecRef } from '../core/types.js';
 import { LINUX_DISTROS, findLinuxDistro } from '../fixtures/linux-distros.js';
+import { MOCK_URLS } from '../fixtures/urls.js';
 
 export type { MediaAction, MediaMetadata, MediaSessionContext, MediaSourceRef, MediaState };
 
@@ -64,8 +65,8 @@ export interface MockMediaTrack {
 
 function track(slug: string, title: string, artist: string, album: string, duration: number): MockMediaTrack {
   return {
-    url: `https://media.example.org/cc/${slug}.ogg`, title, artist, album, duration,
-    mimeType: 'audio/ogg', artwork: `https://media.example.org/cc/${slug}.jpg`,
+    url: `${MOCK_URLS.media}/cc/${slug}.ogg`, title, artist, album, duration,
+    mimeType: 'audio/ogg', artwork: `${MOCK_URLS.media}/cc/${slug}.jpg`,
   };
 }
 
@@ -392,13 +393,13 @@ export function createMockMediaService(options: MockMediaOptions = {}): MockMedi
       },
     },
     onWindowDestroyed: (windowId, state) => {
-      for (const session of [...state.sessions.values()]) if (session.windowId === windowId) state.sessions.delete(session.sessionId);
+      for (const session of state.sessions.values()) if (session.windowId === windowId) state.sessions.delete(session.sessionId);
       state.usedIds.delete(windowId);
       if (state.sessions.size === 0) stopLoop(state);
     },
     onCapabilityRevoked: (windowId, capability, state) => {
       if (capability !== null && capability !== 'media:control') return;
-      for (const session of [...state.sessions.values()]) if (session.windowId === windowId) retire(session.sessionId, 'policy');
+      for (const session of Array.from(state.sessions.values())) if (session.windowId === windowId) retire(session.sessionId, 'policy');
     },
   }, options);
 
@@ -452,7 +453,7 @@ export function createMockMediaService(options: MockMediaOptions = {}): MockMedi
     removeTorrentJob(jobId: string) {
       const state = mock.mock.state();
       state.torrentJobs.delete(jobId);
-      for (const session of [...state.sessions.values()]) if (session.torrentJobId === jobId) retire(session.sessionId, 'source-unavailable');
+      for (const session of Array.from(state.sessions.values())) if (session.torrentJobId === jobId) retire(session.sessionId, 'source-unavailable');
     },
   });
 }

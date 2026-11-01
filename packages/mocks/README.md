@@ -71,7 +71,7 @@ each `Mock<Domain>Service`.
 | `catalog` | NAP-CATALOG | draft | PR #95 @ `1020ae53` | extension | 1 route |
 | `class` | NAP-CLASS | draft | PR #16 @ `48282798` | extension | push-only |
 | `class-1` | NAP-CLASS-1 | draft | PR #17 @ `b9128e0c` | posture | Strict baseline: connect-src 'none', no consent prompt, no grant state; the default class when no class-contributing NAP triggers, delivered as class.assigned { class: 1 }. |
-| `class-2` | NAP-CLASS-2 | draft | PR #18 @ `45c9b12d` | posture | User-approved explicit origins: connect-src <granted-origins> after a first-load consent prompt keyed on (dTag, aggregateHash), refuse-to-serve on residual meta-CSP, denied napplets served as class 1. |
+| `class-2` | NAP-CLASS-2 | draft | PR #18 @ `45c9b12d` | posture | User-approved explicit origins: connect-src limited to the granted origins after a first-load consent prompt keyed on (dTag, aggregateHash), refuse-to-serve on residual meta-CSP, denied napplets served as class 1. |
 | `common` | NAP-COMMON | draft | PR #67 @ `8cd0eae8` | service | 8 routes |
 | `config` | NAP-CONFIG | draft | PR #14 @ `bed9cb5b` | service | 5 routes |
 | `connect` | NAP-CONNECT | draft | PR #19 @ `ec81a3a4` | runtime-owned | NAP-CONNECT defines no connect.* envelopes; grants are served as CSP connect-src plus a discovery meta tag. Use createMockConnectGate() and createMockLoopbackNetwork(). |
@@ -136,7 +136,7 @@ See `skills/use-nap-mocks/SKILL.md` (integrating) and
 ## Docs
 
 - Package page: [docs/packages/mocks.md](../../docs/packages/mocks.md)
-- Generated API: <a href="../../docs/api/modules/_kehto_mocks.html" target="_self"><code>docs/api/modules/_kehto_mocks.html</code></a>
+- Generated API module: `docs/api/modules/_kehto_mocks.html` (run `pnpm docs:api`).
 
 ## License
 

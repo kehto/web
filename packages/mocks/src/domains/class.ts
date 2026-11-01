@@ -24,7 +24,7 @@
  */
 import type { NappletMessage } from '@kehto/runtime';
 
-import { defineMockService, pushToWindow } from '../core/handler.js';
+import { defineMockService, inheritMockPush, pushToWindow } from '../core/handler.js';
 import type { MockDomainEntry, MockService, MockServiceOptions, NapSpecRef } from '../core/types.js';
 
 /**
@@ -242,7 +242,7 @@ export function createMockClassService(options: MockClassOptions = {}): MockClas
       return true;
     },
   };
-  Object.defineProperty(service, 'mockPush', { value: (mock as unknown as { mockPush: unknown }).mockPush, enumerable: false });
+  inheritMockPush(service, mock);
   return service;
 }
 
@@ -291,6 +291,6 @@ export const CLASS_2_MOCK_ENTRY: MockDomainEntry = {
   domain: 'class-2',
   kind: 'posture',
   spec: CLASS_2_SPEC_REF,
-  note: 'User-approved explicit origins: connect-src <granted-origins> after a first-load consent prompt '
+  note: 'User-approved explicit origins: connect-src limited to the granted origins after a first-load consent prompt '
     + 'keyed on (dTag, aggregateHash), refuse-to-serve on residual meta-CSP, denied napplets served as class 1.',
 };

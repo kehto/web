@@ -27,7 +27,8 @@ import type {
 } from '@napplet/core';
 import type { SerialCloseMessage, SerialOpenMessage, SerialWriteMessage } from '@napplet/nap/serial/types';
 
-import { defineMockService, pushToWindow } from '../core/handler.js';
+import { defineMockService, inheritMockPush, pushToWindow } from '../core/handler.js';
+import { asRequest } from './nostr-store.js';
 import type { MockDomainEntry, MockService, MockServiceOptions, NapSpecRef } from '../core/types.js';
 
 /**
@@ -250,7 +251,7 @@ export function createMockSerialService(options: MockSerialOptions = {}): MockSe
     initialState: () => ({ ports: [...(options.ports ?? MOCK_SERIAL_PORTS)], sessions: new Map(), nextSession: 1 }),
     routes: {
       'serial.open': ({ message, state, windowId, reply, fail }) => {
-        const { request } = message as unknown as SerialOpenMessage;
+        const { request } = asRequest<SerialOpenMessage>(message);
         if (!isOpenRequest(request)) return fail('open failed');
         const port = selectPort(state.ports, request.filters);
         if (!port) return fail('port unavailable');
@@ -268,7 +269,7 @@ export function createMockSerialService(options: MockSerialOptions = {}): MockSe
         reply({ session: toWireSession(session) });
       },
       'serial.write': ({ message, state, reply, fail, push }) => {
-        const { sessionId, data } = message as unknown as SerialWriteMessage;
+        const { sessionId, data } = asRequest<SerialWriteMessage>(message);
         const session = openSession(state, sessionId);
         if (!session) return fail('session not found');
         if (!isByteArray(data)) return fail('invalid data');
@@ -278,7 +279,7 @@ export function createMockSerialService(options: MockSerialOptions = {}): MockSe
         if (echoed.length > 0) push(eventMessage({ type: 'data', sessionId: session.id, data: echoed }));
       },
       'serial.close': ({ message, state, reply, fail, push }) => {
-        const { sessionId, reason } = message as unknown as SerialCloseMessage;
+        const { sessionId, reason } = asRequest<SerialCloseMessage>(message);
         const session = typeof sessionId === 'string' ? state.sessions.get(sessionId) : undefined;
         if (!session) return fail('session not found');
         if (session.state === 'closed') return reply();
@@ -311,7 +312,7 @@ export function createMockSerialService(options: MockSerialOptions = {}): MockSe
       return true;
     },
   };
-  Object.defineProperty(service, 'mockPush', { value: (mock as unknown as { mockPush: unknown }).mockPush, enumerable: false });
+  inheritMockPush(service, mock);
   return service;
 }
 

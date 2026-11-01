@@ -45,7 +45,8 @@ import type {
   BleWriteMessage,
 } from '@napplet/nap/ble/types';
 
-import { defineMockService, pushToWindow } from '../core/handler.js';
+import { defineMockService, inheritMockPush, pushToWindow } from '../core/handler.js';
+import { asRequest } from './nostr-store.js';
 import { mockHex } from '../core/rng.js';
 import type { MockDomainEntry, MockService, MockServiceOptions, NapSpecRef } from '../core/types.js';
 
@@ -449,7 +450,7 @@ export function createMockBleService(options: MockBleOptions = {}): MockBleServi
     initialState: () => ({ device: options.device ?? MOCK_BLE_DEVICE, sessions: new Map(), nextSession: 1 }),
     routes: {
       'ble.open': ({ message, state, windowId, reply, fail }) => {
-        const { request } = message as unknown as BleOpenMessage;
+        const { request } = asRequest<BleOpenMessage>(message);
         const error = openError(request, state.device);
         if (error) return fail(error);
         const id = `ble-${state.nextSession++}`;
@@ -466,11 +467,11 @@ export function createMockBleService(options: MockBleOptions = {}): MockBleServi
         reply({ session: toWireSession(session, state.device) });
       },
       'ble.services': ({ message, state, reply, fail }) => {
-        if (!openSession(state, (message as unknown as BleServicesMessage).sessionId)) return fail('session not found');
+        if (!openSession(state, (asRequest<BleServicesMessage>(message)).sessionId)) return fail('session not found');
         reply({ services: toWireServices(state.device) });
       },
       'ble.read': ({ message, state, reply, fail }) => {
-        const hit = withTarget(state, message as unknown as BleReadMessage, fail);
+        const hit = withTarget(state, asRequest<BleReadMessage>(message), fail);
         if (!hit) return;
         const { session, resolved } = hit;
         if (resolved.descriptor !== undefined) {
@@ -480,8 +481,8 @@ export function createMockBleService(options: MockBleOptions = {}): MockBleServi
         reply({ data: [...(session.values.get(resolved.characteristic.uuid) ?? resolved.characteristic.value)] });
       },
       'ble.write': ({ message, state, reply, fail, push }) => {
-        const { data, options: writeOptions } = message as unknown as BleWriteMessage;
-        const hit = withTarget(state, message as unknown as BleWriteMessage, fail);
+        const { data, options: writeOptions } = asRequest<BleWriteMessage>(message);
+        const hit = withTarget(state, asRequest<BleWriteMessage>(message), fail);
         if (!hit) return;
         const { session, resolved } = hit;
         if (!isByteArray(data)) return fail('invalid data');
@@ -502,9 +503,9 @@ export function createMockBleService(options: MockBleOptions = {}): MockBleServi
         }
       },
       'ble.subscribe': ({ message, state, reply, fail }) => {
-        const { target } = message as unknown as BleSubscribeMessage;
+        const { target } = asRequest<BleSubscribeMessage>(message);
         if (typeof target === 'object' && target !== null && target.descriptor !== undefined) return fail('operation not supported');
-        const hit = withTarget(state, message as unknown as BleSubscribeMessage, fail);
+        const hit = withTarget(state, asRequest<BleSubscribeMessage>(message), fail);
         if (!hit) return;
         const { notify, indicate } = hit.resolved.characteristic.properties;
         if (!notify && !indicate) return fail('operation not supported');
@@ -512,13 +513,13 @@ export function createMockBleService(options: MockBleOptions = {}): MockBleServi
         reply();
       },
       'ble.unsubscribe': ({ message, state, reply, fail }) => {
-        const hit = withTarget(state, message as unknown as BleUnsubscribeMessage, fail);
+        const hit = withTarget(state, asRequest<BleUnsubscribeMessage>(message), fail);
         if (!hit) return;
         hit.session.subscriptions.delete(hit.resolved.characteristic.uuid);
         reply();
       },
       'ble.close': ({ message, state, reply, fail, push }) => {
-        const { sessionId, reason } = message as unknown as BleCloseMessage;
+        const { sessionId, reason } = asRequest<BleCloseMessage>(message);
         const session = typeof sessionId === 'string' ? state.sessions.get(sessionId) : undefined;
         if (!session) return fail('session not found');
         if (session.state === 'closed') return reply();
@@ -556,7 +557,7 @@ export function createMockBleService(options: MockBleOptions = {}): MockBleServi
       return true;
     },
   };
-  Object.defineProperty(service, 'mockPush', { value: (mock as unknown as { mockPush: unknown }).mockPush, enumerable: false });
+  inheritMockPush(service, mock);
   return service;
 }
 

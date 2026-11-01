@@ -35,7 +35,7 @@ import {
 } from './git-fixtures.js';
 
 export { DEFAULT_GIT_IDENTITY, GitObjectStore, seedDistroNotesRepo } from './git-fixtures.js';
-export type { GitTreeEntryRaw, GitTreeMode, SeededGitRepo } from './git-fixtures.js';
+export type { GitObjectKind, GitStoredObject, GitTreeEntryRaw, GitTreeMode, SeededGitRepo } from './git-fixtures.js';
 
 /** Spec document the mock was written against. */
 export const GIT_SPEC_REF: NapSpecRef = {

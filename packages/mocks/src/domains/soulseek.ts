@@ -317,8 +317,8 @@ function releaseTransfer(state: MockSoulseekState, windowId: string, transferId:
 }
 
 function dropWindow(state: MockSoulseekState, windowId: string): void {
-  for (const query of [...state.queries.values()]) if (query.windowId === windowId) releaseQuery(state, windowId, query.queryId);
-  for (const transfer of [...state.transfers.values()]) if (transfer.windowId === windowId) state.transfers.delete(transfer.transferId);
+  for (const query of Array.from(state.queries.values())) if (query.windowId === windowId) releaseQuery(state, windowId, query.queryId);
+  for (const transfer of state.transfers.values()) if (transfer.windowId === windowId) state.transfers.delete(transfer.transferId);
 }
 
 function stepQuery(engine: SoulseekEngine, query: MockSoulseekQuery): void {
@@ -492,7 +492,8 @@ function soulseekRoutes(engine: SoulseekEngine): Record<string, MockRoute<MockSo
  */
 export function createMockSoulseekService(options: MockSoulseekOptions = {}): MockSoulseekService {
   const engine: SoulseekEngine = {
-    service: undefined as unknown as MockService<MockSoulseekState>,
+    // Routes only read `engine.service` after the factory returns.
+    get service() { return service; },
     options,
     batchSize: options.batchSize ?? 3,
     maxResults: options.maxResults ?? 500,
@@ -514,7 +515,6 @@ export function createMockSoulseekService(options: MockSoulseekOptions = {}): Mo
     onWindowDestroyed: (windowId, state) => dropWindow(state, windowId),
     onCapabilityRevoked: (windowId, _capability, state) => dropWindow(state, windowId),
   }, options);
-  engine.service = service;
 
   const baseReset = service.mock.reset;
   service.mock.reset = () => { service.mock.state().tick?.(); baseReset(); };

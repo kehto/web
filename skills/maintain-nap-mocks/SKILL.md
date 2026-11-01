@@ -68,11 +68,18 @@ into a scheduled job if you want drift surfaced automatically.
 3. Create `src/domains/<domain>.ts` from the template below and
    `src/domains/<domain>.test.ts` (see `src/domains/link.test.ts` for a
    compact example; `src/core/handler.test.ts` shows the scheduler pattern).
-4. Register it: add the module to `src/domains/index.ts` (`export *` plus the
-   entry in `DOMAIN_ENTRIES`) and the row to `INVENTORY` in
-   `src/registry.test.ts`.
-5. Document it: add the row to the domain table in `docs/packages/mocks.md`
-   and `packages/mocks/README.md`.
+4. Register it in `src/domains/index.ts` (import the `<UPPER>_MOCK_ENTRY`, add
+   an `export *` line, append the entry to `DOMAIN_ENTRIES`) and add the row to
+   `INVENTORY` in `src/registry.test.ts`. Social domains that read Nostr data
+   take `store`/`user` options and belong in `MOCK_SOCIAL_DOMAINS`
+   (`src/registry.ts`) so `createMockNapEnvironment` shares one store.
+5. Document it: regenerate the domain tables in `docs/packages/mocks.md` and
+   `packages/mocks/README.md`:
+   ```bash
+   pnpm --filter @kehto/mocks build && pnpm --filter @kehto/mocks docs:table
+   ```
+   (`node scripts/render-domain-table.mjs --check` fails when they are stale.)
+   Keep notes free of raw `<placeholder>` text — VitePress parses it as HTML.
 
 Template:
 

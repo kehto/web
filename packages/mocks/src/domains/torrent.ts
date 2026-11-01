@@ -173,8 +173,8 @@ function status(engine: TorrentEngine, job: MockTorrentJob): Record<string, unkn
   return torrentStatus(job, engine.progressPerStep);
 }
 
-function push(engine: TorrentEngine, job: MockTorrentJob, message: Record<string, unknown>): void {
-  pushToWindow(engine.service, job.windowId, message as unknown as NappletMessage);
+function push(engine: TorrentEngine, job: MockTorrentJob, message: NappletMessage & Record<string, unknown>): void {
+  pushToWindow(engine.service, job.windowId, message);
 }
 
 function transition(engine: TorrentEngine, job: MockTorrentJob, next: TorrentJobState, error?: string): void {
@@ -277,7 +277,7 @@ function read(ctx: Ctx): void {
 }
 
 function endReads(engine: TorrentEngine, state: MockTorrentState, match: (pending: MockTorrentPendingRead) => boolean, error: string): void {
-  for (const pending of [...state.pendingReads.values()]) {
+  for (const pending of Array.from(state.pendingReads.values())) {
     if (!match(pending)) continue;
     state.pendingReads.delete(pending.requestId);
     pushToWindow(engine.service, pending.windowId, { type: 'torrent.read.result', id: pending.requestId, result: { ok: false, error } } as NappletMessage);
@@ -285,7 +285,7 @@ function endReads(engine: TorrentEngine, state: MockTorrentState, match: (pendin
 }
 
 function settlePendingReads(engine: TorrentEngine, state: MockTorrentState): void {
-  for (const pending of [...state.pendingReads.values()]) {
+  for (const pending of Array.from(state.pendingReads.values())) {
     const job = state.jobs.get(pending.jobId);
     if (!job || !job.image) { endReads(engine, state, (item) => item.requestId === pending.requestId, 'job-not-found'); continue; }
     const end = Math.min(pending.offset + pending.length, job.image.sizeBytes);
@@ -380,7 +380,7 @@ function armAutoplay(engine: TorrentEngine, state: MockTorrentState): void {
 function advance(engine: TorrentEngine, steps: number): void {
   const state = engine.service.mock.state();
   for (let index = 0; index < steps; index += 1) {
-    for (const job of [...state.jobs.values()]) stepJob(engine, job);
+    for (const job of Array.from(state.jobs.values())) stepJob(engine, job);
     settlePendingReads(engine, state);
   }
   armAutoplay(engine, state);
@@ -493,7 +493,8 @@ function torrentRoutes(engine: TorrentEngine): Record<string, MockRoute<MockTorr
  */
 export function createMockTorrentService(options: MockTorrentOptions = {}): MockTorrentService {
   const engine: TorrentEngine = {
-    service: undefined as unknown as MockService<MockTorrentState>,
+    // Routes only read `engine.service` after the factory returns.
+    get service() { return service; },
     options,
     progressPerStep: options.progressPerStep ?? 0.25,
     stepMs: options.stepMs ?? 1000,
@@ -509,14 +510,13 @@ export function createMockTorrentService(options: MockTorrentOptions = {}): Mock
     onWindowDestroyed: (windowId, state) => {
       endReads(engine, state, (pending) => pending.windowId === windowId, 'cancelled');
       for (const [id, set] of state.fileSets) if (set.windowId === windowId) state.fileSets.delete(id);
-      for (const job of [...state.jobs.values()]) if (job.windowId === windowId && job.retention === 'session') state.jobs.delete(job.jobId);
+      for (const job of state.jobs.values()) if (job.windowId === windowId && job.retention === 'session') state.jobs.delete(job.jobId);
     },
     onCapabilityRevoked: (windowId, _capability, state) => {
       endReads(engine, state, (pending) => pending.windowId === windowId, 'permission-revoked');
       for (const job of state.jobs.values()) if (job.windowId === windowId && ACTIVE.includes(job.state)) { job.resumeState = job.state; job.state = 'paused'; }
     },
   }, options);
-  engine.service = service;
 
   const baseReset = service.mock.reset;
   service.mock.reset = () => { service.mock.state().tick?.(); baseReset(); };

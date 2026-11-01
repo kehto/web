@@ -124,7 +124,7 @@ export function createMockStatePersistence(options: MockStatePersistenceOptions 
     set: (scopedKey, value) => { store.set(scopedKey, value); return true; },
     remove: (scopedKey) => { store.delete(scopedKey); },
     clear: (prefix) => {
-      for (const key of [...store.keys()]) if (key.startsWith(prefix)) store.delete(key);
+      for (const key of store.keys()) if (key.startsWith(prefix)) store.delete(key);
     },
     keys: (prefix) => [...store.keys()].filter((key) => key.startsWith(prefix)),
     calculateBytes: (prefix, excludeKey) => {

@@ -538,7 +538,8 @@ function nzbRoutes(engine: NzbEngine): Record<string, MockRoute<MockNzbState>> {
  */
 export function createMockNzbService(options: MockNzbOptions = {}): MockNzbService {
   const engine: NzbEngine = {
-    service: undefined as unknown as MockService<MockNzbState>,
+    // Routes only read `engine.service` after the factory returns.
+    get service() { return service; },
     options,
     scheduler: options.scheduler ?? DEFAULT_SCHEDULER,
     deleteAuthorized: options.deleteAuthorized ?? true,
@@ -551,7 +552,6 @@ export function createMockNzbService(options: MockNzbOptions = {}): MockNzbServi
     initialState: () => ({ jobs: new Map(), replay: new Map(), nextJob: 1 }),
     routes: nzbRoutes(engine),
   }, options);
-  engine.service = service;
 
   const baseReset = service.mock.reset;
   service.mock.reset = () => { service.mock.state().tick?.(); baseReset(); };

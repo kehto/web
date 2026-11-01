@@ -187,13 +187,16 @@ function isUint(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0;
 }
 
-function parseRequest(raw: unknown): ValueRequest | undefined {
-  if (!raw || typeof raw !== 'object') return undefined;
+function isValueRequest(raw: unknown): raw is ValueRequest {
+  if (!raw || typeof raw !== 'object') return false;
   const request = raw as Record<string, unknown>;
   const target = request.target;
-  if (typeof request.rail !== 'string' || !isUint(request.amountMsat)) return undefined;
-  if (!target || typeof target !== 'object' || typeof (target as { type?: unknown }).type !== 'string') return undefined;
-  return request as unknown as ValueRequest;
+  if (typeof request.rail !== 'string' || !isUint(request.amountMsat)) return false;
+  return !!target && typeof target === 'object' && typeof (target as { type?: unknown }).type === 'string';
+}
+
+function parseRequest(raw: unknown): ValueRequest | undefined {
+  return isValueRequest(raw) ? raw : undefined;
 }
 
 function validateTarget(request: ValueRequest): string | undefined {

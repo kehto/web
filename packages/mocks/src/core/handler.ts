@@ -13,6 +13,9 @@ import type {
   MockServiceOptions,
 } from './types.js';
 
+/** Push route per mock service, keyed by the service object (never enumerable on it). */
+const PUSH_ROUTES = new WeakMap<MockService, (windowId: string, message: NappletMessage) => void>();
+
 /**
  * Per-request context handed to a route.
  *
@@ -240,8 +243,25 @@ export function defineMockService<TState>(
       definition.onCapabilityRevoked?.(windowId, capability, state);
     },
   };
-  Object.defineProperty(service, 'mockPush', { value: pushTo, enumerable: false });
+  PUSH_ROUTES.set(service, pushTo);
   return service;
+}
+
+/**
+ * Give `target` the same push route as `source`, for domain factories that
+ * wrap a `defineMockService` result in a new object with extra helpers.
+ *
+ * @param target - Wrapper service that should push like `source`.
+ * @param source - Mock built by `defineMockService`.
+ * @example
+ * ```ts
+ * const wrapped = { ...mock, extra() {} };
+ * inheritMockPush(wrapped, mock);
+ * ```
+ */
+export function inheritMockPush(target: MockService, source: MockService): void {
+  const push = PUSH_ROUTES.get(source);
+  if (push) PUSH_ROUTES.set(target, push);
 }
 
 /**
@@ -259,7 +279,7 @@ export function defineMockService<TState>(
  * ```
  */
 export function pushToWindow(service: MockService, windowId: string, message: NappletMessage): boolean {
-  const push = (service as unknown as { mockPush?: (w: string, m: NappletMessage) => void }).mockPush;
+  const push = PUSH_ROUTES.get(service);
   if (!push) return false;
   const before = service.mock.sent.length;
   push(windowId, message);

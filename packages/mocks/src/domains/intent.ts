@@ -34,7 +34,6 @@ import {
   mockContractsFor,
   mockNappletAddress,
   parseMockConvention,
-  resolveMockHandler,
   type MockIntentContract,
   type MockNapplet,
 } from './intent-fixtures.js';

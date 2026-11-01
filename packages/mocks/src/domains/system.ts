@@ -314,7 +314,7 @@ export function createMockSystemService(options: MockSystemOptions = {}): MockSy
       eventCache: { ...(options.eventCache ?? { available: true, health: 'ok', bytesUsed: 7_340_032, bytesQuota: 64 * 1024 * 1024, itemCount: 18_204, persistent: true }) },
       media: { ...(options.media ?? { available: true, health: 'degraded', audioOutput: 'degraded', audioInput: 'unavailable', videoInput: 'unavailable', playback: 'ok', activeSessions: 0 }) },
       storageByWindow: new Map(),
-      errors: { ...(options.errors ?? {}) },
+      errors: { ...options.errors },
     }),
     routes: {
       'system.naps': ({ state, reply }) => {

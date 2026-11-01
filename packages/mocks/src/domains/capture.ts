@@ -273,7 +273,7 @@ export function createMockCaptureService(options: MockCaptureOptions = {}): Mock
       },
     },
     onWindowDestroyed: (windowId, state) => {
-      for (const [captureId, record] of [...state.captures]) if (record.windowId === windowId) { record.expiry?.(); state.captures.delete(captureId); }
+      for (const [captureId, record] of Array.from(state.captures)) if (record.windowId === windowId) { record.expiry?.(); state.captures.delete(captureId); }
     },
     onCapabilityRevoked: (windowId, _capability, state) => {
       for (const [captureId, record] of state.captures) if (record.windowId === windowId && record.status.state === 'recording') cancel(captureId, record, 'revoked');
