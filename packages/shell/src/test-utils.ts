@@ -14,9 +14,7 @@ import type { ShellBridge } from './shell-bridge.js';
 import { originRegistry } from './origin-registry.js';
 
 /** Outbound recorder shape shared by the fake iframe windows in shell tests. */
-export interface PortRecorder {
-  postMessage(message: unknown, targetOrigin?: string): void;
-}
+export type PortRecorder = Pick<Window, 'postMessage'>;
 
 /** A synchronous shell-side port double. */
 export interface FakeShellPort {
@@ -62,7 +60,7 @@ export function createFakeShellPort(recorder: PortRecorder): FakeShellPort {
     for (const listener of listeners.get(type) ?? []) listener(event);
   };
   return {
-    port: port as unknown as MessagePort,
+    port: port as MessagePort,
     deliver(data: unknown): void {
       if (closed) return;
       const event = { data } as MessageEvent;
@@ -95,12 +93,13 @@ export function sendHello(
 ): FakeShellPort {
   const fake = createFakeShellPort(win);
   ports.set(win, fake);
-  bridge.handleMessage({
-    source: win as unknown as Window,
+  const hello: Pick<MessageEvent, 'source' | 'origin' | 'data' | 'ports'> = {
+    source: win as Window,
     origin,
     data: { type: 'napplet.hello' },
     ports: [fake.port],
-  } as unknown as MessageEvent);
+  };
+  bridge.handleMessage(hello as MessageEvent);
   return fake;
 }
 
@@ -117,12 +116,12 @@ export function deliverFromNapplet(
   bridge: Pick<ShellBridge, 'handleMessage'>,
   event: { source: unknown; origin?: string; data: unknown },
 ): void {
-  const win = event.source as PortRecorder | null;
-  if (!win || !originRegistry.getWindowId(win as unknown as Window)) {
+  const win = event.source as Window | null;
+  if (!win || !originRegistry.getWindowId(win)) {
     bridge.handleMessage(event as MessageEvent);
     return;
   }
-  const windowId = originRegistry.getWindowId(win as unknown as Window)!;
+  const windowId = originRegistry.getWindowId(win)!;
   let fake = ports.get(win);
   if (!fake || fake.closed || originRegistry.getPort(windowId) !== fake.port) {
     fake = sendHello(bridge, win, event.origin ?? 'null');

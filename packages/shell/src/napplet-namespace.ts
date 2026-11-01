@@ -99,7 +99,7 @@ function nappletNamespacePrelude(
   domains: string[],
   normalizeIntentUri: (uri: unknown, options?: unknown) => Record<string, unknown>,
 ): void {
-  const target = window as Window & { napplet?: Record<string, unknown> };
+  const target = window as Window & { napplet?: Record<string, unknown>; MessageChannel: typeof MessageChannel };
   const allowed = new Set(domains);
   const requestTimeoutMs = 30_000;
 
@@ -117,7 +117,7 @@ function nappletNamespacePrelude(
   // travels over the port; window-level messages are never read or sent again,
   // so a document that replaces this one in the same frame has no channel.
   // Runs before any napplet script, so the realm's constructor is untampered.
-  const channel = new (target as unknown as { MessageChannel: typeof MessageChannel }).MessageChannel();
+  const channel = new target.MessageChannel();
   const port = channel.port1;
   port.start();
   target.parent.postMessage({ type: 'napplet.hello' }, '*', [channel.port2]);

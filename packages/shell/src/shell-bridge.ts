@@ -6,13 +6,13 @@ import { nappKeyRegistry } from './session-registry.js';
 import { aclStore } from './acl-store.js';
 import { manifestCache } from './manifest-cache.js';
 import { audioManager } from './audio-manager.js';
-import type { NappletRevocationReason, ShellAdapter, UnroutedMessageInfo } from './types.js';
+import type { NappletRevocationReason, ShellAdapter } from './types.js';
 import type { NappletMessage } from '@napplet/core';
 import type { Theme } from '@napplet/nap/theme/types';
-import { createShellReadyState, handleShellReady, registerSourceSession } from './shell-ready.js';
+import { createShellReadyState } from './shell-ready.js';
+import { createNip5dTransport } from './nip5d-transport.js';
 
-/** The NIP-5D port handoff message type (nostr-protocol/nips#2303). */
-export const NAPPLET_HELLO = 'napplet.hello';
+export { NAPPLET_HELLO } from './nip5d-transport.js';
 
 /**
  * Shell-side message bridge that handles NIP-5D communication with napplet iframes.
@@ -205,52 +205,8 @@ export interface ShellBridge {
  * const bridge = createShellBridge(hooks);
  * ```
  */
-/**
- * Fire the optional {@link ShellAdapter.onUnroutedMessage} diagnostic hook for a
- * message the bridge is about to drop. Extracts the envelope `type` defensively
- * (the message-shape guard hasn't run yet at the drop points) and never throws —
- * a misbehaving host hook must not break message handling.
- */
-function reportUnrouted(
-  hooks: ShellAdapter,
-  event: MessageEvent,
-  reason: UnroutedMessageInfo['reason'],
-): void {
-  if (!hooks.onUnroutedMessage) return;
-  const data = event.data as { type?: unknown } | null | undefined;
-  const type = typeof data === 'object' && data !== null && typeof data.type === 'string'
-    ? data.type
-    : undefined;
-  try {
-    hooks.onUnroutedMessage({ type, origin: event.origin, reason });
-  } catch {
-    // Observability must never break routing — swallow host hook errors.
-  }
-}
-
-interface PortBinding {
-  readonly port: MessagePort;
-  readonly sourceWindow: Window;
-  readonly origin: string;
-  readonly registrationId: number;
-}
-
-const REVOCATION_DETAIL: Readonly<Record<NappletRevocationReason, string>> = {
-  'window-message': 'A window-level message other than the single napplet.hello arrived from the frame',
-  'second-hello': 'A second napplet.hello arrived from the frame',
-  'invalid-hello': 'napplet.hello did not carry exactly one MessagePort',
-  'second-load': 'The frame loaded a second document (navigation or reload)',
-  'port-closed': 'The bound NIP-5D port closed or failed',
-  host: 'The host revoked the napplet binding',
-};
-
-function isHello(data: unknown): boolean {
-  return typeof data === 'object' && data !== null && (data as { type?: unknown }).type === NAPPLET_HELLO;
-}
-
 export function createShellBridge(hooks: ShellAdapter): ShellBridge {
   const shellReadyState = createShellReadyState();
-  const bindings = new Map<string, PortBinding>();
   const runtimeHooks = adaptHooks(hooks, {
     originRegistry,
     manifestCache,
@@ -279,137 +235,17 @@ export function createShellBridge(hooks: ShellAdapter): ShellBridge {
     }
   }
 
-  /** The live binding for a window; drops bindings whose port the host already unregistered. */
-  function currentBinding(windowId: string): PortBinding | undefined {
-    const binding = bindings.get(windowId);
-    if (binding && originRegistry.getPort(windowId) !== binding.port) {
-      binding.port.onmessage = null;
-      bindings.delete(windowId);
-      return undefined;
-    }
-    return binding;
-  }
-
-  function revokeNapplet(windowId: string, reason: NappletRevocationReason = 'host'): void {
-    const binding = currentBinding(windowId);
-    const registered = originRegistry.getIframeWindow(windowId) !== null;
-    if (!binding && !registered) return;
-    bindings.delete(windowId);
-    if (binding) binding.port.onmessage = null;
-    // Closes the port and marks the Window spent so it can never be re-bound.
-    originRegistry.unregister(windowId);
-    runtime.destroyWindow(windowId);
-    runtime.sessionRegistry.unregister(windowId);
-    shellReadyState.environments.delete(windowId);
-    shellReadyState.sessionRegistration.delete(windowId);
-    try {
-      hooks.onNappletRevoked?.({ windowId, reason, detail: REVOCATION_DETAIL[reason] });
-    } catch {
-      // A misbehaving host hook must not keep a revoked binding alive.
-    }
-  }
-
-  function dispatchEnvelope(windowId: string, binding: PortBinding, msg: unknown): void {
-    // NIP-5D envelope-only guard (clean break — no legacy array support)
-    if (typeof msg !== 'object' || msg === null || typeof (msg as { type?: unknown }).type !== 'string') return;
-    const envelope = msg as NappletMessage;
-    try {
-      hooks.onNappletMessage?.(windowId, envelope);
-    } catch {
-      // Observability must never break routing — swallow host hook errors.
-    }
-    const context = {
-      hooks,
-      origin: binding.origin,
-      runtime,
-      state: shellReadyState,
-      sourceRegistrationId: binding.registrationId,
-      sourceWindow: binding.sourceWindow,
-      windowId,
-    };
-
-    // Bind a known iframe to its verified creation identity before domain dispatch.
-    if (!registerSourceSession(context)) return;
-
-    // NAP-SHELL's optional readiness exchange is handled locally.
-    if (envelope.type === 'shell.ready') {
-      handleShellReady(context);
-      return;
-    }
-
-    // Delegate to runtime — runtime handles NAP domain dispatch
-    runtime.handleMessage(windowId, envelope);
-  }
-
-  function bindPort(windowId: string, sourceWindow: Window, origin: string, port: MessagePort): void {
-    if (!originRegistry.bindPort(windowId, port)) {
-      port.close();
-      revokeNapplet(windowId, 'second-hello');
-      return;
-    }
-    const binding: PortBinding = {
-      port,
-      sourceWindow,
-      origin,
-      registrationId: originRegistry.getRegistrationId(sourceWindow) ?? 0,
-    };
-    bindings.set(windowId, binding);
-    const isCurrent = (): boolean => currentBinding(windowId) === binding;
-    port.onmessage = (portEvent: MessageEvent) => {
-      if (isCurrent()) dispatchEnvelope(windowId, binding, portEvent.data);
-    };
-    // A host that already unregistered the window closed this port itself;
-    // isCurrent() is then false and the stale binding was dropped.
-    const onPortFailure = (): void => {
-      if (isCurrent()) revokeNapplet(windowId, 'port-closed');
-    };
-    port.addEventListener('close', onPortFailure);
-    port.addEventListener('messageerror', onPortFailure);
-    port.start();
-  }
+  const transport = createNip5dTransport({ hooks, runtime, state: shellReadyState });
 
   return {
-    handleMessage(event: MessageEvent): void {
-      const sourceWindow = event.source as Window | null;
-      if (!sourceWindow) {
-        reportUnrouted(hooks, event, 'no-source-window');
-        return;
-      }
-      const windowId = originRegistry.getWindowId(sourceWindow);
-      if (!windowId) {
-        reportUnrouted(hooks, event, 'unregistered-window');
-        return;
-      }
-
-      // NIP-5D: napplet.hello is the only window-level message a napplet sends.
-      if (currentBinding(windowId) || originRegistry.getPort(windowId)) {
-        revokeNapplet(windowId, isHello(event.data) ? 'second-hello' : 'window-message');
-        return;
-      }
-      if (!isHello(event.data)) {
-        revokeNapplet(windowId, 'window-message');
-        return;
-      }
-      const ports = event.ports ?? [];
-      if (ports.length !== 1) {
-        for (const port of ports) port.close();
-        revokeNapplet(windowId, 'invalid-hello');
-        return;
-      }
-      bindPort(windowId, sourceWindow, event.origin, ports[0]);
-    },
+    handleMessage: transport.handleMessage,
 
     injectEvent(topic: string, payload: unknown): void {
       runtime.injectEvent(topic, payload);
     },
 
     destroy(): void {
-      // Shutdown closes every bound port; those frames can never be re-bound.
-      for (const [windowId, binding] of bindings) {
-        binding.port.onmessage = null;
-        if (originRegistry.getPort(windowId) === binding.port) originRegistry.unregister(windowId);
-      }
-      bindings.clear();
+      transport.destroy();
       runtime.destroy();
       shellReadyState.clear();
     },
@@ -428,17 +264,9 @@ export function createShellBridge(hooks: ShellAdapter): ShellBridge {
       publishToEligibleNapplets(envelope, 'identity', 'identity:read');
     },
 
-    observeFrame(frame, windowId): () => void {
-      let loads = 0;
-      const onLoad = (): void => {
-        loads += 1;
-        if (loads > 1) revokeNapplet(windowId, 'second-load');
-      };
-      frame.addEventListener('load', onLoad);
-      return () => frame.removeEventListener('load', onLoad);
-    },
+    observeFrame: transport.observeFrame,
 
-    revokeNapplet,
+    revokeNapplet: transport.revokeNapplet,
 
     get runtime() {
       return runtime;
