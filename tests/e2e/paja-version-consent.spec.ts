@@ -14,7 +14,6 @@ const signingKey = new Uint8Array(32).fill(11);
 const publisher = new Uint8Array(32).fill(12);
 const makeArtifact = (version: number) => Buffer.from(`<!doctype html><html><body><output id="ready">waiting</output><script>
 window.replies = [];
-window.addEventListener('message', event => { if (event.source === parent) window.replies.push(event.data); });
 window.napplet.shell.ready().then(() => document.getElementById('ready').textContent = 'ready');
 </script><!-- version ${version} --></body></html>`);
 
@@ -66,7 +65,22 @@ async function prepare(page: Page) {
     await expect(page.locator('#signer-status')).toContainText('NIP-07 connected');
     await expect(page.frameLocator('iframe').last().locator('#ready')).toHaveText('ready');
   };
-  const send = async (message: Record<string, unknown>) => page.frameLocator('iframe').last().locator('body').evaluate((_body, payload) => parent.postMessage(payload, '*'), message);
+  // NIP-5D: requests go through the injected namespace's private port; each
+  // outcome is recorded as `{ id, ok, ... }` (or the link result) for polling.
+  const send = async (message: Record<string, unknown>) => page.frameLocator('iframe').last().locator('body').evaluate((_body, payload) => {
+    const host = window as unknown as { replies: Array<Record<string, unknown>>; napplet: Record<string, Record<string, (...args: unknown[]) => Promise<unknown>>> };
+    const { type, id, event, url, options } = payload as { type: string; id: string; event?: unknown; url?: string; options?: Record<string, unknown> };
+    const call = type === 'relay.publish' ? host.napplet.relay.publish(event)
+      : type === 'outbox.publish' ? host.napplet.outbox.publish(event, options)
+      : host.napplet.link.open(url, options);
+    void call.then(
+      (value) => {
+        const record = value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+        host.replies.push(type === 'link.open' ? { ...record, id } : { id, ok: record.ok !== false, value });
+      },
+      (error: unknown) => host.replies.push({ id, ok: false, error: error instanceof Error ? error.message : String(error) }),
+    );
+  }, message);
   const reply = async (id: string) => page.frameLocator('iframe').last().locator('body').evaluate((_body, requestId) => (window as unknown as { replies: Array<Record<string, unknown>> }).replies.find(value => value.id === requestId), id);
   const publish = (id: string, kind = 1, type = 'relay.publish') => send({ type, id, event: { kind, created_at: Math.floor(Date.now() / 1000), tags: [], content: id }, ...(type === 'outbox.publish' ? { options: { relays: [relay], toOutbox: false } } : {}) });
   return { load, send, reply, publish, signed, published, nativeDialogs, hash, nextVersion: () => { revision++; }, otherPublisher: () => { author = new Uint8Array(32).fill(13); revision = 1; } };
@@ -167,6 +181,9 @@ test('offers combined consent at publication and prompts again when the active s
   await expect.poll(() => fixture.reply('signed')).toMatchObject({ ok: true });
   await page.evaluate(() => window.__KEHTO_PAJA__!.useDevSigner());
   await expect(page.locator('#signer-status')).toContainText('dev connected');
+  // Connecting a signer reloads the tab into a fresh NIP-5D frame; requests go
+  // through that document's namespace once it is ready.
+  await expect(page.frameLocator('iframe').last().locator('#ready')).toHaveText('ready');
   await fixture.publish('different-account');
   await expect(page.locator('#paja-confirmation-title')).toHaveText('Sign this Nostr event?');
   await page.locator('#paja-confirmation-deny').click();
