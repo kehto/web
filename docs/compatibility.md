@@ -6,6 +6,32 @@ coverage. This register records both implemented safeguards and existing debt;
 below identifies the package responsible for the implementation and its tests.
 No removal date is implied by an old source comment.
 
+## Outbox routing-author metadata — services / Paja
+
+Identifier: `OUTBOX_ROUTING_AUTHORS`. `OutboxRelayPool.subscribe` now receives an
+optional fifth `authors` argument: actual per-relay NIP-65 owners, or requested
+routing authors for caller-hint/fallback reads. Implement diagnostic adapters with
+this argument rather than inferring relay ownership from event filters. The router
+always supplies an array, including an authoritative empty array. Existing
+four-argument adapters remain valid and continue receiving unchanged filters.
+
+Sources: `packages/services/src/relay-pool-outbox-types.ts`,
+`relay-pool-outbox-router.ts`, and `packages/paja/src/browser-relay-runtime.ts`.
+Runtime/API regressions in `relay-pool-outbox-router.test.ts` cover four-argument
+adapters and metadata-aware adapters, option-derived and shared owners, asynchronous
+discovery, and close boundaries. Paja's `browser-relay-runtime.test.ts` verifies
+router/backend/panel attribution and preserves explicit empty metadata.
+
+Diagnostic limitation: an additive callback argument has no observable old-use
+boundary; function arity does not reliably prove whether an adapter consumes it.
+There is no runtime warning site or warning lifetime. Canonical calls stay quiet;
+the exported parameter and JSDoc provide build-time migration guidance. The host's
+relay observation boundary can surface attribution when available, as Paja does.
+Retain four-argument assignability because metadata is optional for transport-only
+adapters; no deprecated alternate parser or wire format was added. Requiring
+metadata consumption would need a separately announced breaking host-API change
+and migration of supported adapters, not inference from absent warnings.
+
 ## ACL principal fields — runtime
 
 Identifier: `ACL_ENTRY_PRINCIPAL`. ACL lookup/listing now return required `dTag`

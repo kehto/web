@@ -77,6 +77,15 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 - NAP-DM support keeps request correlation, per-window subscriptions, and packaged message shapes in `createDmService`; the concrete NIP-17 adapter verifies gift wraps and hydrates encrypted relay history, while NDR and Cordn specifics remain behind structural adapters.
 - NAP-FS support keeps same-id results and per-window watch ownership in `createFsService`; injected backends own real persistence, virtual-path policy, picker mediation, byte validation, revisions, mutation atomicity, and watch observation.
 - `createRelayPoolOutboxRouter()` starts validated relay hints or fallback reads before asynchronous NIP-65 discovery settles. Its host-side `queryStream()` emits verified results incrementally and exposes the existing aggregate through `result`; the draft NAP-OUTBOX wire query remains one-shot.
+- `OutboxRelayPool.subscribe(filters, relayUrls, callback, origin?, authors?)`
+  receives host-only routing provenance. For `nip65`, the fifth argument contains
+  only requested authors whose policy-allowed write lists selected that relay;
+  missing or denied authors are not credited. Hint and fallback reads receive the
+  deduplicated authors derived from both filters and `options.authors`. The router
+  always supplies an array, including `[]` for authorless reads. Event filters,
+  relay selection, and napplet wire messages are unchanged; pool adapters may
+  ignore the optional metadata argument. This follows the routing inputs in
+  [NAP-OUTBOX draft #32 at `8865f73`](https://github.com/napplet/naps/blob/8865f73d52a4864afee145f28d26520476273927/naps/NAP-OUTBOX.md).
 - `createOutboxService()` accepts a source-scoped `getReadRouter` for
   `outbox.getEvent`, `outbox.query`, and `outbox.subscribe`, while the optional
   `getQueryRouter` can layer query-only policy or caching on top.

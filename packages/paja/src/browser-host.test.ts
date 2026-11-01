@@ -190,7 +190,10 @@ describe('@kehto/paja browser host runtime source guards', () => {
     expect(adapterSource).toContain('uploadRuntime?.getServers()');
     expect(adapterSource).toContain("context?.hasCapability(windowId, 'identity:read') ?? false");
     expect(adapterSource).toContain('getFollows: socialCache.getFollows,');
-    expect(adapterSource).toContain('getActivePubkey: () => getRuntimePubkey(getSimulation, signerProvider),');
+    // Background warming follows a signer account only: a fixed simulation
+    // identity answers napplet identity requests but must never start
+    // author-routed relay reads on its own.
+    expect(adapterSource).toContain('getActivePubkey: () => getConnectedAccountPubkey(signerProvider),');
     expect(adapterSource).toContain('getUserPubkey: () => getRuntimePubkey(getSimulation, signerProvider),');
     const operationSource = readFileSync(new URL('./browser-operation-scope.ts', import.meta.url), 'utf8');
     const runtimePubkey = operationSource.slice(
@@ -200,6 +203,14 @@ describe('@kehto/paja browser host runtime source guards', () => {
     expect(runtimePubkey.indexOf('signerProvider?.getPubkey()')).toBeLessThan(
       runtimePubkey.indexOf('getSimulation().identity.pubkey'),
     );
+    const connectedAccountPubkey = adapterSource.slice(
+      adapterSource.indexOf('function getConnectedAccountPubkey('),
+      adapterSource.indexOf('interface PajaServiceBundle'),
+    );
+    expect(connectedAccountPubkey).toContain('signerProvider?.getPubkey()');
+    expect(connectedAccountPubkey).toContain("signerProvider?.getMethod() === 'dev'");
+    expect(connectedAccountPubkey).not.toContain('getSimulation()');
+    expect(connectedAccountPubkey).not.toContain('identity.pubkey');
     expect(adapterSource).not.toContain('services.social');
     expect(adapterSource).not.toContain('paja.social');
     expect(diagnosticsSource).toContain('export async function reportTargetCorsDiagnostic(state: PajaBrowserState): Promise<void>');
