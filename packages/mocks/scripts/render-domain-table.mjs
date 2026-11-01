@@ -26,7 +26,8 @@ export function renderDomainTable(registry) {
   const lines = ['| Domain | NAP | Status | Spec ref | Kind | Routes / note |', '|--------|-----|--------|----------|------|---------------|'];
   for (const entry of registry) {
     const ref = entry.spec.source === 'pr' ? `PR #${entry.spec.pr} @ \`${entry.spec.sha.slice(0, 8)}\`` : `master @ \`${entry.spec.sha.slice(0, 8)}\``;
-    const detail = entry.create ? String(mocks.get(entry.domain).mock.routes.length) + ' routes' : (entry.note ?? '');
+    const routes = entry.create ? mocks.get(entry.domain).mock.routes.length : 0;
+    const detail = !entry.create ? (entry.note ?? '') : routes === 0 ? 'push-only' : `${routes} route${routes === 1 ? '' : 's'}`;
     lines.push(`| \`${entry.domain}\` | ${entry.spec.nap} | ${entry.spec.status} | ${ref} | ${entry.kind} | ${detail} |`);
   }
   return lines.join('\n');

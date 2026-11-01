@@ -30,22 +30,28 @@ Peers: `@napplet/core`, `@napplet/nap` (same ranges as `@kehto/services`).
 
 ```ts
 import { createShellBridge } from '@kehto/shell';
-import { createMockNapServices, MOCK_NAP_REGISTRY } from '@kehto/mocks';
+import { createMockNapEnvironment } from '@kehto/mocks';
 
-const mocks = createMockNapServices(MOCK_NAP_REGISTRY, { seed: 7 });
+const env = createMockNapEnvironment({ seed: 7, user: 'alice' });
 
 const bridge = createShellBridge({
   ...hooks,
-  services: mocks.services, // relay, identity, llm, torrent, … in one map
+  services: env.services,                 // relay, identity, llm, torrent, … in one map
+  statePersistence: env.statePersistence, // NAP-STORAGE is served by the runtime
 });
+// env.domains → list these in the shell environment's capabilities.domains
 ```
 
-`mocks.get('relay')` returns the typed mock; `mocks.resetAll()` restores every
-seed. Use `only`, `except`, and per-domain `overrides` to mix mocks with real
-services:
+`createMockNapEnvironment` shares one Nostr event store (`env.store`) across
+relay, outbox, count, identity, common, and lists, so a `relay.publish` shows up
+in `count.query`, `identity.*`, and live subscriptions. `env.get('relay')`
+returns the typed mock; `env.resetAll()` restores every seed, the store, and
+storage. Use `only`, `except`, and per-domain `overrides` to mix mocks with real
+services. The lower-level `createMockNapServices(MOCK_NAP_REGISTRY, options)`
+does the same without the shared store:
 
 ```ts
-const mocks = createMockNapServices(MOCK_NAP_REGISTRY, {
+const env = createMockNapEnvironment({
   except: ['relay', 'identity'],           // keep the real social stack
   overrides: { llm: { latencyMs: 40 } },   // stream deltas slowly
 });
@@ -80,7 +86,7 @@ Shared options (`MockServiceOptions`):
 The runtime only routes an extension domain (anything outside the built-in
 dispatcher: torrent, git, mesh, …) when the shell's environment lists it in
 `capabilities.domains`. `mockShellEnvironmentDomains(MOCK_NAP_REGISTRY)`
-returns the full list, including `shell`, `storage`, and `inc`:
+returns the full list, including `shell`, `storage`, and `inc` (`env.domains` is the same list):
 
 ```ts
 import { MOCK_NAP_REGISTRY, mockShellEnvironmentDomains } from '@kehto/mocks';
@@ -99,7 +105,9 @@ the relay mock. Mocks never bypass the runtime's gates.
 | `storage` | Pass `createMockStatePersistence()` as `statePersistence` in your adapter. |
 | `inc` | Nothing — the runtime serves INC; mocks never fabricate INC deliveries. |
 | `shell` | Nothing — `@kehto/shell` owns `shell.init`/`shell.ready`. |
-| `class`, `class-1`, `class-2` | Posture documents; `MOCK_NAPPLET_CLASSES` describes them for tests. |
+| `connect` | No wire protocol — grants become CSP `connect-src`. Use `createMockConnectGate()` and `createMockLoopbackNetwork()`. |
+| `class` | Push-only extension: call `classService.assign(windowId)` right after the iframe is ready to send `class.assigned`. |
+| `class-1`, `class-2` | Posture documents; `MOCK_NAPPLET_CLASSES` describes them. |
 
 ## Step 6 — Drive the mock
 
