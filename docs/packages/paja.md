@@ -449,6 +449,29 @@ objects. The signaling boundary follows pinned
 [NAP-WEBRTC `5fae95dd2c8e59bd06c654e0845656add077dcda`](https://github.com/napplet/naps/blob/5fae95dd2c8e59bd06c654e0845656add077dcda/naps/NAP-WEBRTC.md)
 and [NIP-100 PR #363 head `ead1cd6`](https://github.com/nostr-protocol/nips/pull/363).
 
+### Browser regression coverage
+
+Playwright specs drive these services through the injected `window.napplet.*`
+namespace of a minimal hosted napplet. They check each result at both ends: the
+value the napplet sees and the wire traffic captured by an in-test Nostr relay
+(`tests/e2e/helpers/memory-relay.ts`).
+
+- `tests/e2e/paja-relay.spec.ts`: `relay.publish` through the NIP-07 signer,
+  `relay.publishEncrypted` NIP-44 ciphertext, and `relay.subscribe` delivery
+  (stored events, then EOSE, then live events, then close). Revoking
+  `relay:write` live denies a publish before anything is signed.
+- `tests/e2e/paja-storage.spec.ts`: persistence across a host reload, isolation
+  of the `instance` scope, and live `state:write` revocation.
+- `tests/e2e/paja-identity.spec.ts`: the signer connecting and failing, and
+  NIP-07 reconnecting after a reload.
+- `tests/e2e/paja-cvm.spec.ts`: discovery and one gift-wrapped `tools/call`
+  against an in-test ContextVM server.
+
+Known NAP-IDENTITY gap: on a signer change Paja re-initializes the hosted napplet.
+It does not push `identity.changed` to the napplet that is already loaded. The
+spec's `test.fixme` tracks that contract until Paja refreshes its environment
+without a reload.
+
 ### Standard identity and private social cache
 
 A signed-in napplet uses the existing `identity.getPublicKey`,

@@ -52,14 +52,19 @@ const GROUPS = {
   acl: [
     'tests/e2e/nap-relay.spec.ts',
     'tests/e2e/nap-storage.spec.ts',
+    'tests/e2e/paja-relay.spec.ts',
+    'tests/e2e/paja-storage.spec.ts',
   ],
-  cvm: [],
+  cvm: [
+    'tests/e2e/paja-cvm.spec.ts',
+  ],
   gateway: [
     'tests/e2e/paja-manifest-kinds.spec.ts',
     'tests/e2e/paja-runtime-pointer.spec.ts',
     'tests/e2e/shell-csp.spec.ts',
   ],
   identity: [
+    'tests/e2e/paja-identity.spec.ts',
     'tests/e2e/paja-single-window.spec.ts',
   ],
   inc: [
@@ -69,11 +74,16 @@ const GROUPS = {
     'tests/e2e/nap-notify.spec.ts',
   ],
   paja: [
-    'tests/e2e/paja-single-window.spec.ts',
+    'tests/e2e/paja-cvm.spec.ts',
+    'tests/e2e/paja-identity.spec.ts',
+    'tests/e2e/paja-relay.spec.ts',
     'tests/e2e/paja-runtime-pointer.spec.ts',
+    'tests/e2e/paja-single-window.spec.ts',
+    'tests/e2e/paja-storage.spec.ts',
   ],
   relay: [
     'tests/e2e/nap-relay.spec.ts',
+    'tests/e2e/paja-relay.spec.ts',
   ],
   resource: [
     'tests/e2e/nap-media-player.spec.ts',
@@ -83,6 +93,7 @@ const GROUPS = {
   ],
   storage: [
     'tests/e2e/nap-storage.spec.ts',
+    'tests/e2e/paja-storage.spec.ts',
   ],
   theme: [
     'tests/e2e/nap-theme.spec.ts',

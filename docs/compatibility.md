@@ -111,7 +111,9 @@ The private app was never published to npm or JSR, so the only external surface
 is the public URL `https://kehto.github.io/web/playground/`. That route now
 serves a static redirect page instead of the playground shell. Replacement: the
 [Paja Runtime](https://kehto.github.io/web/paja/) (`@kehto/paja`) for hosting
-napplets, and the harness fixtures under `tests/fixtures/napplets` for e2e coverage.
+napplets, and for e2e coverage the harness fixtures under `tests/fixtures/napplets` plus the
+Paja service-flow specs (`tests/e2e/paja-{relay,storage,identity,cvm}.spec.ts`), which
+took over the playground's relay, storage, ACL-revoke, signer/identity, and CVM scenarios.
 
 Source: `web/playground/index.html`, copied by `scripts/build-pages.mjs` and
 checked by `scripts/audit-pages-artifact.mjs` (which also fails if the portal
