@@ -2,6 +2,12 @@
 > This document captures a historical migration or audit and is not active guidance.
 > Current canonical documentation lives in the repo root [`README.md`](../../README.md), the per-package READMEs under [`packages/`](../../packages/), and the typedoc-generated reference at [`docs/api/`](../api/).
 > Retained for historical reference only.
+>
+> **Superseded transport:** the `event.source` identity and `iframeWindow.postMessage`
+> replies described below are retired (`NIP5D_WINDOW_TRANSPORT_RETIRED` in the
+> [compatibility register](../compatibility.md)). NIP-5D now binds identity to the
+> `napplet.hello` `MessagePort`; see
+> [port-bound identity transport](../policies/NIP-5D-CONFORMANCE.md#port-bound-identity-transport).
 
 ---
 

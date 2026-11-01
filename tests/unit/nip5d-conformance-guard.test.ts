@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -265,6 +265,47 @@ function sourceBetween(source: string, start: string, end: string): string {
 }
 
 describe('NIP-5D conformance static guards', () => {
+  // NIP-5D port-bound identity: nostr-protocol/nips#2303 at
+  // 51ef0cd33a5694784306f3260d90b1872545fdee (napplet/web#302).
+  it('keeps napplet identity bound to the napplet.hello port across shell and hosts', () => {
+    const prelude = removeComments(readRepoFile('packages/shell/src/napplet-namespace.ts'));
+    const bridge = readRepoFile('packages/shell/src/nip5d-transport.ts');
+    const registry = readRepoFile('packages/shell/src/origin-registry.ts');
+    const policy = readRepoFile('docs/policies/NIP-5D-CONFORMANCE.md');
+    const pajaNip5d = readRepoFile('packages/paja/src/browser-nip5d-host.ts');
+
+    expect(prelude).toContain("target.parent.postMessage({ type: 'napplet.hello' }, '*', [channel.port2]);");
+    expect(prelude).toContain('port.postMessage(message);');
+    expect(prelude).toContain('return event.currentTarget === port;');
+    expect(prelude).not.toContain('target.parent.postMessage(message');
+    expect(prelude).not.toContain("target.addEventListener('message'");
+
+    for (const reason of ['window-message', 'second-hello', 'invalid-hello', 'second-load', 'port-closed']) {
+      expect(bridge, `revocation reason ${reason}`).toContain(`'${reason}'`);
+    }
+    expect(bridge).toContain('if (ports.length !== 1) {');
+    expect(registry).toContain("throw new Error('NIP-5D: cannot re-bind a napplet identity to an existing iframe; create a fresh iframe');");
+
+    // No shell, Paja or services source may send NAP through an iframe Window.
+    const windowSend = /\b(?:win|iframeWindow|sourceWindow|contentWindow!?|getIframeWindow\([^)]*\)\??)\.postMessage\(/;
+    for (const dir of ['packages/shell/src', 'packages/paja/src', 'packages/services/src']) {
+      for (const file of readdirSync(join(process.cwd(), dir))) {
+        if (!file.endsWith('.ts') || file.endsWith('.test.ts') || file === 'test-utils.ts') continue;
+        const source = removeComments(readRepoFile(`${dir}/${file}`));
+        if (`${dir}/${file}` === 'packages/paja/src/intent-launcher.ts') continue;
+        expect(windowSend.test(source), `${dir}/${file} posts to an iframe Window`).toBe(false);
+      }
+    }
+
+    // The single window-level exception is the signed Paja launcher's host messages.
+    expect(readRepoFile('packages/paja/src/intent-launcher.ts')).toContain("frame.contentWindow.postMessage(message, '*');");
+    expect(pajaNip5d).toContain("new Set(['paja.intent.launcher.ready', 'paja.intent.launcher.result'])");
+    expect(pajaNip5d).toContain('!originRegistry.getPort(launcher.windowId)');
+    expect(policy).toContain('### Window-level host message allowlist');
+    expect(policy).toContain('`paja.intent.launcher.ready`, `paja.intent.launcher.result` (launcher → host); `paja.intent.launch` (host → launcher)');
+    expect(policy).toContain('51ef0cd33a5694784306f3260d90b1872545fdee');
+  });
+
   it('keeps released intent ownership and the host-owned NAP-SHELL prelude as positive evidence', () => {
     const services = readRepoFile('packages/services/src/index.ts');
     const prelude = readRepoFile('packages/shell/src/napplet-namespace.ts');
