@@ -668,7 +668,7 @@ describe('@kehto/paja relay publish settlement', () => {
       confirm,
     );
     const postMessage = vi.fn();
-    const sourceWindow = { postMessage } as unknown as Window;
+    const sourceWindow = { postMessage };
     const event = finalizeEvent({
       kind: 1,
       created_at: Math.floor(Date.now() / 1000),
@@ -687,7 +687,7 @@ describe('@kehto/paja relay publish settlement', () => {
     expect(livePool.subscribeMapRequests).toEqual([[
       { url: TEST_RELAYS[0], filter: { kinds: [1] } },
     ]]);
-    expect(postMessage).toHaveBeenCalledWith({ type: 'relay.eose', subId: 'scoped-sub' }, '*');
+    expect(postMessage).toHaveBeenCalledWith({ type: 'relay.eose', subId: 'scoped-sub' });
     await expect(adapter.relayPool.publishToScopedRelay('paja-window', event)).resolves.toBe(true);
     expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ action: 'publish', signerContext: expect.objectContaining({
       windowId: 'paja-window', napplet: { dTag: 'paja', aggregateHash: 'aggregate' },
@@ -717,14 +717,14 @@ describe('@kehto/paja relay publish settlement', () => {
       'wss://127.0.0.1/private',
       'blocked-sub',
       [{ kinds: [1] }],
-      { postMessage } as unknown as Window,
+      { postMessage },
     );
 
     expect(postMessage).toHaveBeenCalledWith({
       type: 'relay.closed',
       subId: 'blocked-sub',
       reason: 'scoped relay unavailable',
-    }, '*');
+    });
     await expect(adapter.relayPool.publishToScopedRelay('paja-window', testEvent('f'.repeat(64)))).resolves.toBe(false);
     (adapter.relayPool.getRelayPool() as PajaRelayBackend).close();
   });

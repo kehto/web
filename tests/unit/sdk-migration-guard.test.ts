@@ -334,8 +334,9 @@ describe('current @napplet package graph guard', () => {
     // fields are wired through runtime, services, shell, Paja, docs, and tests.
     // nap 0.35.x ships the `llm` subpath and nap 0.35.1 requires core ^0.36.0,
     // so both lines must be admitted or npm rejects llm installs (kehto/web#364).
-    const CORE_PEER_RANGE = '>=0.32.0 <0.37.0';
-    const NAP_PEER_RANGE = '>=0.32.0 <0.36.0';
+    // core 0.37.0 / nap 0.36.0 carry NIP-5D port-bound identity (napplet/web#302).
+    const CORE_PEER_RANGE = '>=0.32.0 <0.38.0';
+    const NAP_PEER_RANGE = '>=0.32.0 <0.37.0';
     const DEV_RANGE = '>=0.32.0 <0.33.0';
     for (const dir of publicPackageDirs) {
       const packageJsonPath = join(process.cwd(), dir, 'package.json');

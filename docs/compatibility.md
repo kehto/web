@@ -131,6 +131,55 @@ prerequisites: announce the route removal in a release note, then delete
 together. The last commit containing the playground source is the parent of the
 retirement PR; recover it from git history if ever needed.
 
+## Retired window-level NIP-5D transport — shell / Paja
+
+Identifier: `NIP5D_WINDOW_TRANSPORT_RETIRED`. Retired without a compatibility
+path. Kehto used to key napplet sessions on the iframe `Window`
+(`MessageEvent.source`), accept NAP envelopes as window-level `message` events,
+and reply with `iframeWindow.postMessage`. A `Window` survives same-frame
+navigation, so a napplet could replace itself with unverified content that kept
+its identity, sessions and grants. [NIP-5D](https://github.com/nostr-protocol/nips/pull/2303)
+at `51ef0cd33a5694784306f3260d90b1872545fdee` (packaged by napplet/web#302 in
+`@napplet/core@0.37.0`) binds identity to the `MessagePort` the bootstrap
+hands over in a single window-level `napplet.hello`, and forbids processing NAP
+from any other source. A shim would reopen the vulnerability, so none is kept.
+
+Replacement: the injected prelude opens the channel and sends the hello before
+napplet scripts run; `ShellBridge.handleMessage` binds the port; every sender
+uses `originRegistry.postToNapplet` / `getNappletTarget`. Hosts remove frames
+in `ShellAdapter.onNappletRevoked`, watch for a second load with
+`ShellBridge.observeFrame`, observe port traffic with
+`ShellAdapter.onNappletMessage`, and create a fresh iframe for every
+navigation. API changes made for this: `ProxyOriginRegistry` requires
+`postToNapplet` instead of `getIframeWindow`; `RelayPoolHooks.openScopedRelay`
+receives a `NappletMessageTarget` instead of a `Window`; and
+`originRegistry.register` throws for a `Window` that already handed over (or
+lost) its port. Napplets built with a shim that posts at window level, including
+`@napplet/shim` before 0.35.0, are revoked. Napplets on a Kehto host should rely
+on the host-injected `window.napplet`. Importing `@napplet/shim` as well sends a
+second hello, which the shell treats as document replacement.
+
+Sources: `packages/shell/src/shell-bridge.ts`, `origin-registry.ts`,
+`napplet-namespace.ts`, `packages/paja/src/browser-nip5d-host.ts`,
+`browser-target-frame.ts`, and `tests/e2e/harness/harness.ts`. Diagnostic: the
+revocation itself. `onNappletRevoked` receives `{ windowId, reason, detail }`
+(`window-message`, `second-hello`, `invalid-hello`, `second-load`,
+`port-closed`, `host`), at most once per frame because the frame is then removed.
+Paja logs it as `paja.napplet.revoked`. Payloads are never included. Canonical
+traffic produces no diagnostic. Regression coverage:
+`packages/shell/src/nip5d-port-binding.test.ts` (real `MessageChannel`s: binding,
+legacy window-level envelope before and after the hello, second hello, invalid
+hello, second load, port close, host retirement, foreign sources, observe hook),
+`shell-bridge.test.ts` and `shell-environment-lifetime.test.ts` (a stable
+`WindowProxy` cannot be re-bound), `packages/paja/src/browser-nip5d-host.test.ts`,
+`tests/unit/nip5d-conformance-guard.test.ts` (static guards), and
+`tests/e2e/nip5d-port-binding.spec.ts` (real sandbox: self-navigation and
+window-level envelopes revoke and remove the frame).
+
+Reason for retention: none; this entry records the retirement and the one
+remaining window-level exception, Paja's signed intent launcher host messages
+(see [NIP-5D conformance policy](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#window-level-host-message-allowlist)).
+
 ## Existing compatibility inventory
 
 Baseline: PR #277 at `016e9cf3`, reviewed 2026-10-09. These paths are recorded so

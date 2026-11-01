@@ -14,8 +14,8 @@ pnpm add @kehto/shell
 
 ## Published Napplet Compatibility
 
-Peers admit `@napplet/core` `>=0.32.0 <0.37.0` and `@napplet/nap`
-`>=0.32.0 <0.36.0`, so the nap 0.35.x line that ships the `llm` subpath (and the
+Peers admit `@napplet/core` `>=0.32.0 <0.38.0` and `@napplet/nap`
+`>=0.32.0 <0.37.0`, so the nap 0.35.x line that ships the `llm` subpath (and the
 core 0.36.x line nap 0.35.1 requires) installs without peer conflicts; development
 and tests stay on the baseline 0.32.0 line. The installed core 0.32.0 / nap 0.32.0 contracts follow
 NAP-INTENT authority `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`, napplet/web#199
@@ -25,9 +25,9 @@ source `dc1d24153c759152b6ba31a6ec9bea967798f2df`.
 
 ## Overview
 
-`@kehto/shell` is the browser-specific integration layer for kehto. It wraps `@kehto/runtime` with the window/postMessage transport, localStorage persistence hooks, an audio manager, and the five canonical per-domain proxies defined by NIP-5D.
+`@kehto/shell` is the browser-specific integration layer for kehto. It wraps `@kehto/runtime` with the NIP-5D port-bound transport (one window-level `napplet.hello`, then a dedicated `MessagePort`), localStorage persistence hooks, an audio manager, and the five canonical per-domain proxies defined by NIP-5D.
 
-The primary entry point is `createShellBridge()` — it owns the postMessage listener, the NAP-SHELL `shell.ready` / `shell.init` handshake, manifest verification, and every dispatch back into the runtime engine.
+The primary entry point is `createShellBridge()` — it owns the `napplet.hello` listener and port binding, the NAP-SHELL `shell.ready` / `shell.init` handshake, manifest verification, and every dispatch back into the runtime engine.
 
 ACL persistence uses the browser's `localStorage` key `napplet:acl`. A failed
 write is intentionally reported through `bridge.runtime.aclState.persist()` or
@@ -103,6 +103,38 @@ remain bounded compatibility adapters and warn once per iframe with
 `KEHTO_COMPAT_INTENT_OBJECT_INVOKE`. Their removal conditions are tracked in
 [compatibility](https://github.com/kehto/web/blob/main/docs/compatibility.md).
 
+### NIP-5D port-bound transport
+
+NIP-5D ([nostr-protocol/nips#2303 at `51ef0cd`](https://github.com/nostr-protocol/nips/blob/51ef0cd33a5694784306f3260d90b1872545fdee/5D.md))
+binds napplet identity to a `MessagePort`, not the iframe `Window`. A `Window`
+survives same-frame navigation, but the port lives only in the verified document:
+
+- The injected prelude opens a `MessageChannel` before napplet scripts run,
+  keeps one port private, and sends the other once in a window-level
+  `{ type: 'napplet.hello' }` (`NAPPLET_HELLO`). Every NAP message then travels
+  over that port in both directions.
+- `ShellBridge.handleMessage` accepts the hello only from the `contentWindow` of
+  an iframe registered in `originRegistry`, carrying exactly one port. It binds
+  the registered `(dTag, aggregateHash)` to the port. Shell senders use
+  `originRegistry.postToNapplet(windowId, message)` or `getNappletTarget(windowId)`,
+  never `iframeWindow.postMessage`.
+- A second hello, any other window-level message, a hello without exactly one
+  port, a second iframe `load`, or the port closing revokes the napplet. The
+  bridge closes the port, revokes its sessions, subscriptions and environment,
+  and calls `ShellAdapter.onNappletRevoked({ windowId, reason, detail })`. The
+  host must remove that frame. `ShellBridge.revokeNapplet(windowId)` revokes on
+  demand.
+- `ShellBridge.observeFrame(frame, windowId)` watches for the second load. Call
+  it after the frame is in the DOM and before assigning `srcdoc`.
+- `originRegistry.register()` throws for a `Window` that already handed over (or
+  lost) its port. Create a fresh iframe for every reload or navigation.
+- `ShellAdapter.onNappletMessage(windowId, message)` observes each port envelope
+  before dispatch, for logging or readiness tracking.
+
+Napplets hosted with this prelude must not also import `@napplet/shim`, because
+the shim sends a second hello. The retired window-level transport is recorded as
+`NIP5D_WINDOW_TRANSPORT_RETIRED` in the [compatibility register](https://github.com/kehto/web/blob/main/docs/compatibility.md).
+
 ## Quick Start
 
 ```ts
@@ -125,13 +157,16 @@ bridge.runtime.registerService(
 ## Public API
 
 ### Bridge factory
-- `createShellBridge` — primary entry point; returns a `ShellBridge` (exposed `runtime`, `shell.ready`, lifecycle hooks)
+- `createShellBridge` — primary entry point; returns a `ShellBridge` (exposed `runtime`, `shell.ready`, lifecycle hooks, `observeFrame`, `revokeNapplet`)
+- `NAPPLET_HELLO` — the NIP-5D port handoff message type
 - `ShellBridge` — interface type for the returned bridge
 
 ### Hooks adapter
 - `adaptHooks` — convert a `ShellAdapter` + `BrowserDeps` into the canonical `RuntimeAdapter` hook bag consumed by `@kehto/runtime`
 
 ### Diagnostics
+- `ShellAdapter.onNappletRevoked?(revocation)` — called once when the bridge revokes a NIP-5D binding (`NappletRevocation`: `{ windowId, reason, detail }`, `reason` one of `NappletRevocationReason`). The host must remove the frame.
+- `ShellAdapter.onNappletMessage?(windowId, message)` — observe-only; called for each NAP envelope received on a bound port before dispatch.
 - `ShellAdapter.onUnroutedMessage?(info)` — optional observe-only hook fired when `ShellBridge.handleMessage` drops an incoming postMessage it can't route to a registered napplet window. `info` is an `UnroutedMessageInfo` (`{ type?, origin, reason }`) where `reason` is `'no-source-window'` or `'unregistered-window'`. The message is still dropped — this exists so otherwise-silent drops (e.g. an intent/`srcdoc` iframe whose `contentWindow` was never registered in `originRegistry`, or was swapped by a reload) are diagnosable instead of vanishing. Host can `console.warn` inside its own hook; the bridge adds no console output and swallows hook errors so routing is never broken.
 
 ```ts
@@ -220,14 +255,15 @@ payload.
 ### Session / origin registry
 - `sessionRegistry` — canonical windowId ↔ verified-napplet registry singleton
 - `nappKeyRegistry` — deprecated alias for `sessionRegistry`
-- `originRegistry` — origin-to-windowId map used by proxies and bridge broadcasts
+- `originRegistry` — iframe `Window` → windowId/identity map; also holds each window's bound NIP-5D port (`bindPort`, `getPort`, `postToNapplet`, `getNappletTarget`, `isSpent`)
+- `NappletMessageTarget` — port-backed outbound target passed to `RelayPoolHooks.openScopedRelay`
 - `PendingUpdate` — type for pending aggregate-hash change prompts
 
 Environment snapshots belong to one source registration. To retire a window,
 call `bridge.runtime.destroyWindow(windowId)`,
 `bridge.runtime.sessionRegistry.unregister(windowId)`, and
 `originRegistry.unregister(windowId)`. When registering a replacement under the
-same window ID, provide its snapshot with `originRegistry.setEnvironment()` or
+same window ID (always a fresh iframe — a spent `Window` cannot be re-registered), provide its snapshot with `originRegistry.setEnvironment()` or
 let the bridge call `resolveShellEnvironment()` for current host defaults. A
 retired registration's cached domains and service names are discarded even when
 the runtime session was already removed. This applies before any domain dispatch,

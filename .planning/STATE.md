@@ -163,6 +163,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
+| 261101-u20 | Chase NIP-5D port-bound identity security fix (napplet.hello MessagePort; nips#2303 @ 51ef0cd, napplet/web#302) | 2026-11-01 | 8798cac2 | passed | [261101-u20](./quick/261101-u20-nip5d-port-bound-identity/) |
 | 261101-ojp | Deprecate and retire the @kehto/playground app; /web/playground/ redirects to Paja (KEHTO_PLAYGROUND_RETIRED) | 2026-11-01 | bb9817a2 | passed | [261101-ojp](./quick/261101-ojp-deprecate-playground/) |
 | 261031-neu | NAP-LLM service hardening: handle bound, prompt abort signals, streaming providers (kehto/web#368-#370) | 2026-10-31 | 13352e3e | passed | [261031-neu](./quick/261031-neu-llm-service-hardening-368-370/) |
 | 261031-mfp | Prevent demo audit Vite server leaks; use Playwright ownership (follow-up #363) | 2026-10-31 | ac4ae564 | passed | [261031-mfp](./quick/261031-mfp-prevent-demo-audit-tests-from-leaking-th/) |

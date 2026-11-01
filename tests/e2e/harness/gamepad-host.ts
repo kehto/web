@@ -22,6 +22,7 @@ for (const id of ['one', 'two']) {
   frame.id = id; frame.sandbox.add('allow-scripts'); denyNappletControllerAccess(frame);
   document.body.appendChild(frame);
   originRegistry.register(frame.contentWindow!, id, { dTag: id, aggregateHash: id });
+  bridge.observeFrame(frame, id);
   frame.srcdoc = prepareNappletSrcdoc(documentHtml, { domains: ['gamepad'] });
 }
 const target = window as Window & { gamepadFixture?: { disconnect(): void; nativeUnchanged(): boolean } };

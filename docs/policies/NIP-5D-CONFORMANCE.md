@@ -5,6 +5,10 @@ Status: active for current NIP-5D conformance guardrails.
 Authoritative NIP-5D source:
 `https://github.com/nostr-protocol/nips/pull/2303/`
 
+Port-bound identity transport: `nostr-protocol/nips#2303` at
+`51ef0cd33a5694784306f3260d90b1872545fdee`; see
+[Port-bound identity transport](#port-bound-identity-transport).
+
 Current injected-domain clarification:
 `https://github.com/dskvr/nips/pull/4` (merged into the NIP-5D branch behind
 PR #2303 on 2026-06-26)
@@ -171,6 +175,50 @@ and policy rather than extending the wire contract.
 
 Phase 105 completed published Napplet package adoption. This policy records the
 selected released line without turning Kehto-local policy into protocol authority.
+
+### Port-bound identity transport
+
+Authority: [NIP-5D at
+`51ef0cd33a5694784306f3260d90b1872545fdee`](https://github.com/nostr-protocol/nips/blob/51ef0cd33a5694784306f3260d90b1872545fdee/5D.md)
+(`nostr-protocol/nips#2303`, from `dskvr/nips#14`), packaged by
+`napplet/web#302` (`180297b`) in `@napplet/core@0.37.0`, `@napplet/nap@0.36.0`,
+`@napplet/shim@0.35.0` and `@napplet/conformance@0.24.0`. Result: conformant.
+
+- The Kehto prelude (`packages/shell/src/napplet-namespace.ts`) creates a
+  `MessageChannel` before any napplet script runs. It keeps `port1` private to
+  its closure and transfers `port2` once with
+  `window.parent.postMessage({ type: 'napplet.hello' }, '*', [port])`. All NAP
+  traffic in both directions uses the port, and inbound messages are trusted
+  only when `event.currentTarget` is that port.
+- `ShellBridge.handleMessage` accepts a hello only from the `contentWindow` of a
+  registered iframe carrying exactly one port. It binds the verified
+  `(dTag, aggregateHash)` to that port and dispatches NAP only from it. Replies
+  go through `originRegistry.postToNapplet`, never `iframeWindow.postMessage`,
+  and the shell never transfers a port into the iframe.
+- A second hello, any other window-level message, an invalid hello, a second
+  iframe `load` (`ShellBridge.observeFrame`), or the port closing or failing
+  closes the port. It also revokes the binding, sessions, subscriptions and
+  frozen environment, and calls `ShellAdapter.onNappletRevoked` so the host
+  removes the frame. `originRegistry.register` refuses a spent `Window`. Hosts
+  create a fresh iframe for every navigation; Paja and the e2e harness do.
+- Kehto's development line stays on `@napplet/core`/`@napplet/nap` 0.32.0
+  (kehto/web#364); published peers admit core `<0.38.0` and nap `<0.37.0`.
+  Kehto implements both sides of the handoff itself and needs no 0.37-only API.
+- Spec-gap decision: NIP-5D says a reload "is handled as a navigation" and the
+  shell MAY create a fresh iframe from the verified bytes. Kehto removes or
+  replaces the frame but does not reload it automatically. Paja leaves the tab
+  in an error state until the user reloads it, so a self-navigating napplet
+  cannot loop.
+
+### Window-level host message allowlist
+
+After the hello, NIP-5D treats any other window-level message from a napplet
+frame as evidence that the document was replaced. Exceptions must be listed
+here with a matching guard in `tests/unit/nip5d-conformance-guard.test.ts`.
+
+| Host | Frame | Messages | Why it is bounded |
+|------|-------|----------|-------------------|
+| Paja | Verified intent launcher (`packages/paja/src/intent-launcher.ts`, signed manifest `paja-intent-launcher`) | `paja.intent.launcher.ready`, `paja.intent.launcher.result` (launcher → host); `paja.intent.launch` (host → launcher) | Shell-authored, content-addressed bytes whose signing key is not in this repository, so its host protocol cannot move into the signed artifact without re-signing. `browser-nip5d-host.ts` handles these two types itself, never forwards them to the bridge, and accepts them only while the launcher's window is registered with a bound port. A second load revokes the frame, and any other window-level message still reaches the bridge and revokes it. `paja.intent.launch` is not a NAP message. |
 
 ## Runtime Availability Policy
 

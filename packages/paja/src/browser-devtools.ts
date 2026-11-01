@@ -4,7 +4,6 @@ import {
   type Capability,
   type ShellBridge,
   type ShellDomainState,
-  type ShellEnvironment,
 } from '@kehto/shell';
 
 import {
@@ -89,12 +88,6 @@ const FS_PICKER_METHODS: Readonly<Partial<Record<string, keyof ReturnType<typeof
   'fs.pickDirectory.result': 'showDirectoryPicker',
   'fs.pickSaveFile.result': 'showSaveFilePicker',
 };
-const proxyToReal = new WeakMap<object, Window>();
-const realToProxy = new WeakMap<Window, Window>();
-const proxyContexts = new WeakMap<Window, {
-  state: PajaDevtoolsState | null;
-  windowId?: string;
-}>();
 
 interface PajaDevtoolsRenderOptions {
   readonly bridge: ShellBridge | null;
@@ -103,11 +96,7 @@ interface PajaDevtoolsRenderOptions {
 
 interface OriginRegistryLike {
   unregister?(windowId: string): void;
-  getIframeWindow(windowId: string): Window | null;
-  getWindowId(win: Window): string | undefined;
-  getIdentity(win: Window): { dTag: string; aggregateHash: string } | undefined;
-  getEnvironment(win: Window): ShellEnvironment | undefined;
-  getRegistrationId(win: Window): number | undefined;
+  postToNapplet(windowId: string, message: unknown): boolean;
 }
 
 function isNappletMessage(value: unknown): value is NappletMessage {
@@ -203,52 +192,6 @@ export function appendPajaMessageLog(
 }
 
 /**
- * Wrap a target window so outbound postMessage calls are logged.
- *
- * @param realWin - Target iframe window.
- * @param state - Current devtools state, or null before initialization.
- * @param windowId - Optional target window id.
- * @returns Window proxy that preserves normal property access.
- */
-export function createPajaPostMessageProxy(
-  realWin: Window,
-  state: PajaDevtoolsState | null,
-  windowId?: string,
-): Window {
-  const existing = realToProxy.get(realWin);
-  if (existing) {
-    proxyContexts.set(existing, { state, windowId });
-    return existing;
-  }
-  const proxy = new Proxy(realWin, {
-    get(target, prop) {
-      if (prop === 'postMessage') {
-        return (msg: unknown, targetOrigin: string, transfer?: Transferable[]) => {
-          const context = proxyContexts.get(proxy);
-          appendPajaMessageLog(
-            context?.state ?? state,
-            'shell->napplet',
-            redactPajaMessageForLog(msg),
-            context?.windowId ?? windowId,
-          );
-          return target.postMessage(msg, targetOrigin, transfer);
-        };
-      }
-      try {
-        const val = Reflect.get(target, prop, target) as unknown;
-        return typeof val === 'function' ? (val as Function).bind(target) : val;
-      } catch {
-        return undefined;
-      }
-    },
-  });
-  proxyToReal.set(proxy, realWin);
-  realToProxy.set(realWin, proxy);
-  proxyContexts.set(proxy, { state, windowId });
-  return proxy;
-}
-
-/**
  * Remove NAP-CONFIG values from Paja's developer message log.
  *
  * A registered schema may mark individual properties as secrets. Redacting
@@ -272,10 +215,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * Install logging proxies into the shell origin registry.
+ * Log shell → napplet traffic and window removal through the shell origin
+ * registry. NIP-5D sends every NAP message over the napplet's bound
+ * `napplet.hello` port, so Paja observes `postToNapplet` rather than proxying
+ * iframe windows.
  *
  * @param originRegistry - Registry to wrap.
- * @param stateRef - Lazy state getter used by proxied windows.
+ * @param stateRef - Lazy devtools state getter.
+ * @param onWindowRemoved - Optional callback before a window is unregistered.
  */
 export function installPajaOriginRegistryProxy(
   originRegistry: OriginRegistryLike,
@@ -286,37 +233,11 @@ export function installPajaOriginRegistryProxy(
     const unregister = originRegistry.unregister.bind(originRegistry);
     originRegistry.unregister = (windowId) => { onWindowRemoved(windowId); unregister(windowId); };
   }
-  const originalGetIframeWindow = originRegistry.getIframeWindow.bind(originRegistry);
-  originRegistry.getIframeWindow = (windowId: string) => {
-    const win = originalGetIframeWindow(windowId);
-    if (!win) return null;
-    return createPajaPostMessageProxy(win, stateRef(), windowId);
-  };
-
-  const originalGetWindowId = originRegistry.getWindowId.bind(originRegistry);
-  originRegistry.getWindowId = (win: Window) => {
-    const result = originalGetWindowId(win);
-    if (result) return result;
-    const real = proxyToReal.get(win);
-    return real ? originalGetWindowId(real) : undefined;
-  };
-
-  const originalGetIdentity = originRegistry.getIdentity.bind(originRegistry);
-  originRegistry.getIdentity = (win: Window) => {
-    const real = proxyToReal.get(win);
-    return originalGetIdentity(win) ?? (real ? originalGetIdentity(real) : undefined);
-  };
-
-  const originalGetRegistrationId = originRegistry.getRegistrationId.bind(originRegistry);
-  originRegistry.getRegistrationId = (win: Window) => {
-    const real = proxyToReal.get(win);
-    return originalGetRegistrationId(win) ?? (real ? originalGetRegistrationId(real) : undefined);
-  };
-
-  const originalGetEnvironment = originRegistry.getEnvironment.bind(originRegistry);
-  originRegistry.getEnvironment = (win: Window) => {
-    const real = proxyToReal.get(win);
-    return originalGetEnvironment(win) ?? (real ? originalGetEnvironment(real) : undefined);
+  const postToNapplet = originRegistry.postToNapplet.bind(originRegistry);
+  originRegistry.postToNapplet = (windowId, message) => {
+    const delivered = postToNapplet(windowId, message);
+    if (delivered) appendPajaMessageLog(stateRef(), 'shell->napplet', redactPajaMessageForLog(message), windowId);
+    return delivered;
   };
 }
 

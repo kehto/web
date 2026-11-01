@@ -24,11 +24,12 @@ import type { NappletMessage } from '@napplet/core';
  * Minimal origin-registry contract used by per-domain proxies.
  *
  * Accepts the `@kehto/shell` singleton `originRegistry` as well as any test
- * double with a matching `getIframeWindow` method.
+ * double with a matching `postToNapplet` method. NIP-5D carries every NAP
+ * message over the port bound by `napplet.hello`, never the iframe Window.
  */
 export interface ProxyOriginRegistry {
-  /** Resolve a registered napplet windowId to its iframe Window, or null. */
-  getIframeWindow(windowId: string): Window | null;
+  /** Send one envelope over the window's bound NIP-5D port; `false` when unbound. */
+  postToNapplet(windowId: string, message: unknown): boolean;
 }
 
 /**
@@ -45,7 +46,7 @@ export interface ProxyOriginRegistry {
 export interface IdentityProxyDeps {
   /** The runtime engine that owns identity.* dispatch (Plan 12-03). */
   runtime: Runtime;
-  /** Origin registry for resolving windowId → iframe Window. */
+  /** Origin registry that delivers envelopes over each window's bound port. */
   originRegistry: ProxyOriginRegistry;
 }
 

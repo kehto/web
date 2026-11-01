@@ -31,8 +31,8 @@ app package's development scripts.
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.32.0 <0.37.0` |
-| `@napplet/nap` | `>=0.32.0 <0.36.0` |
+| `@napplet/core` | `>=0.32.0 <0.38.0` |
+| `@napplet/nap` | `>=0.32.0 <0.37.0` |
 | `nostr-tools` | `>=2.23.3 <=2.x` |
 
 ## Primary APIs
@@ -127,8 +127,22 @@ authored scripts run and adds a `<base>` tag so target assets and HMR still
 resolve against the app dev server. A real `ShellBridge` completes
 `shell.ready` / `shell.init`; `@kehto/runtime` then handles ACL, firewall, storage,
 INC, relay/outbox, and service dispatch. Reload uses a generation-specific
-internal window id so the same iframe can receive a fresh `shell.init` without
-restarting the CLI or the app dev server.
+internal window id and a fresh iframe, so the new document gets a fresh
+`shell.init` without restarting the CLI or the app dev server.
+
+NIP-5D port-bound identity ([nips#2303 at `51ef0cd`](https://github.com/nostr-protocol/nips/blob/51ef0cd33a5694784306f3260d90b1872545fdee/5D.md)):
+the injected bootstrap hands a private `MessagePort` to Paja in a single
+window-level `napplet.hello`, and every NAP message then travels over that port.
+Paja forwards window-level traffic from its frames to the `ShellBridge`, which
+binds the hello and revokes the napplet on anything else. Paja also watches
+each frame for a second load. A revoked runtime tab keeps a fresh, empty panel in
+the error state until it is reloaded. A revoked single frame is replaced the
+same way, and a revoked intent launcher is removed. Port traffic in both
+directions appears in the message log, and revocations are logged as
+`paja.napplet.revoked`. Napplets must not post NAP envelopes at window level or
+import `@napplet/shim` alongside Paja's injected namespace. The one window-level
+exception is the signed intent launcher's host messages; see the
+[window-level host message allowlist](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#window-level-host-message-allowlist).
 
 Because the frame is sandboxed without `allow-same-origin`, the napplet document
 has an opaque origin and requests its own assets with `Origin: null`. Module

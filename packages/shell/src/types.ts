@@ -16,7 +16,7 @@ export type { SessionEntry, NappKeyEntry } from '@kehto/runtime';
 // Import Capability type locally for use in this file's shell-specific types
 import type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
 import type { Capability, RuntimeConfigOverrides, ServiceHandler, ServiceRegistry } from '@kehto/runtime';
-import type { OriginIdentity } from './origin-registry.js';
+import type { NappletMessageTarget, OriginIdentity } from './origin-registry.js';
 
 // Re-export service types so shell consumers can still import from @kehto/shell
 // (ServiceDescriptor already re-exported above from @kehto/runtime).
@@ -58,7 +58,7 @@ export interface RelayPoolHooks {
   /** Untrack and clean up a subscription. */
   untrackSubscription(subKey: string): void;
   /** Open a scoped relay connection (NIP-29 groups). */
-  openScopedRelay(windowId: string, relayUrl: string, subId: string, filters: NostrFilter[], sourceWindow: Window): void;
+  openScopedRelay(windowId: string, relayUrl: string, subId: string, filters: NostrFilter[], target: NappletMessageTarget): void;
   /** Close a scoped relay connection. */
   closeScopedRelay(windowId: string): void;
   /**
@@ -341,6 +341,41 @@ export interface UnroutedMessageInfo {
 }
 
 /**
+ * Why a NIP-5D napplet binding was revoked.
+ * - `window-message` — a window-level message other than the one `napplet.hello`.
+ * - `second-hello` — a second `napplet.hello` from the same iframe.
+ * - `invalid-hello` — a `napplet.hello` without exactly one transferred port.
+ * - `second-load` — the iframe loaded a second document (navigation or reload).
+ * - `port-closed` — the bound port closed or failed to deserialize a message.
+ * - `host` — the host revoked the binding itself.
+ */
+export type NappletRevocationReason =
+  | 'window-message'
+  | 'second-hello'
+  | 'invalid-hello'
+  | 'second-load'
+  | 'port-closed'
+  | 'host';
+
+/**
+ * Passed to {@link ShellAdapter.onNappletRevoked} after the shell closed the
+ * port and revoked the identity binding, sessions and grants of one frame.
+ *
+ * @example
+ * ```ts
+ * hooks.onNappletRevoked = ({ windowId }) => frames.get(windowId)?.remove();
+ * ```
+ */
+export interface NappletRevocation {
+  /** The revoked window. Its identity can never be re-bound to the same iframe. */
+  readonly windowId: string;
+  /** What the shell observed. */
+  readonly reason: NappletRevocationReason;
+  /** Human-readable detail for diagnostics. Never includes message payloads. */
+  readonly detail: string;
+}
+
+/**
  * Static capability set sent to napplet iframes through the shell.ready /
  * shell.init handshake. Optional runtime domain presence is injected before
  * authored code, while optional NAP-SHELL caches this environment for local
@@ -455,6 +490,24 @@ export interface ShellAdapter {
    * (the FEED-02 / hyprgate#21 class of "a napplet's messages vanish" bug).
    */
   onUnroutedMessage?: (info: UnroutedMessageInfo) => void;
+  /**
+   * Called once when the shell revokes a NIP-5D napplet binding: a second
+   * `napplet.hello`, any other window-level message, an invalid hello, a
+   * second iframe `load` (see `ShellBridge.observeFrame`), the port closing,
+   * or `ShellBridge.revokeNapplet`. The shell has already closed the port and
+   * revoked the identity binding, sessions and grants. NIP-5D requires the
+   * host to remove the iframe here; it MAY create a fresh iframe from the
+   * verified bytes but MUST NOT reuse this one.
+   */
+  onNappletRevoked?: (revocation: NappletRevocation) => void;
+  /**
+   * Observe-only: called with each NAP envelope received on a napplet's bound
+   * NIP-5D port, before the shell dispatches it. NIP-5D moves NAP traffic off
+   * window-level `message` events, so hosts that logged or tracked readiness
+   * from those events use this hook instead. It cannot change or drop the
+   * message; host hook errors are swallowed.
+   */
+  onNappletMessage?: (windowId: string, message: NappletMessage) => void;
   /** Called when aggregate hash verification fails (computed != declared). */
   onHashMismatch?: (dTag: string, claimed: string, computed: string) => void;
   /**

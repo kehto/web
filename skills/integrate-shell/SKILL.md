@@ -46,7 +46,7 @@ const hooks: ShellAdapter = {
       subscriptions.delete(key);
     },
     // NIP-29 group relay support — omit body to disable
-    openScopedRelay: (_windowId, _relayUrl, _subId, _filters, _sourceWindow) => {},
+    openScopedRelay: (_windowId, _relayUrl, _subId, _filters, _target) => {},
     closeScopedRelay: (_windowId) => {},
     publishToScopedRelay: (_windowId, _event) => false,
     selectRelayTier: (_filters) => [],   // return relay URLs for the given filters
@@ -114,27 +114,40 @@ Note: `relayPool.getRelayPool()` must return an object implementing `RelayPoolLi
 ```ts
 const bridge = createShellBridge(hooks);
 
-// Wire the global message listener — all napplet postMessage traffic routes here
+// Wire the global message listener — it receives each napplet's single
+// napplet.hello; NAP traffic then flows over the bound MessagePort
 // bridge.handleMessage is already bound — pass it directly
 window.addEventListener('message', bridge.handleMessage);
 ```
 
 ## Step 4 — Register a napplet iframe
 
-When an iframe loads, register it with `originRegistry` and then send the NIP-42 AUTH challenge. Messages from unregistered windows are dropped silently, so registration MUST happen before `sendChallenge`.
+NIP-5D binds napplet identity to the `MessagePort` that the injected bootstrap
+hands over in a single window-level `napplet.hello`. Register the iframe's
+`contentWindow` and its verified identity before assigning `srcdoc`, so the
+hello finds the registration. Then watch for a second load, and remove the frame
+when the shell revokes it. Never reuse an iframe for another napplet or document.
+Create a fresh one each time.
 
 ```ts
-import { originRegistry } from '@kehto/shell';
+import { injectNappletNamespacePrelude, originRegistry } from '@kehto/shell';
 
-function onIframeLoad(iframe: HTMLIFrameElement, windowId: string): void {
-  if (!iframe.contentWindow) return;
-  // Register BEFORE sendChallenge — order matters
-  originRegistry.register(iframe.contentWindow, windowId);
-  bridge.sendChallenge(windowId);
+function mountNapplet(container: HTMLElement, windowId: string, identity: { dTag: string; aggregateHash: string }, verifiedHtml: string): HTMLIFrameElement {
+  const iframe = document.createElement('iframe');
+  iframe.sandbox.add('allow-scripts');
+  container.append(iframe);
+  originRegistry.register(iframe.contentWindow!, windowId, identity);
+  bridge.observeFrame(iframe, windowId); // a second load revokes the binding
+  iframe.srcdoc = injectNappletNamespacePrelude(verifiedHtml, { domains: ['shell', 'relay'] });
+  return iframe;
 }
 
-function onIframeUnload(windowId: string): void {
-  originRegistry.unregister(windowId);
+// In the ShellAdapter: NIP-5D requires the host to remove a revoked frame.
+hooks.onNappletRevoked = ({ windowId }) => frames.get(windowId)?.remove();
+
+function unmountNapplet(windowId: string): void {
+  originRegistry.unregister(windowId); // closes the bound port
+  frames.get(windowId)?.remove();
 }
 ```
 
@@ -228,7 +241,9 @@ Paja server instead of the target server.
 
 ## Common pitfalls
 
-- `originRegistry.register()` MUST be called before `bridge.sendChallenge()`. Messages from an unregistered window are dropped silently.
+- `originRegistry.register()` MUST be called before the napplet's bootstrap runs (before `srcdoc` is set). A hello from an unregistered window is dropped silently.
+- Only the `napplet.hello` travels at window level. Any other window-level message from a registered frame, a second hello, or a second load revokes the napplet. Do not import `@napplet/shim` inside napplets hosted with Kehto's injected prelude, because it sends a second hello.
+- `originRegistry.register()` throws for an iframe whose `Window` already handed over its port. Create a fresh iframe for every reload or navigation.
 - `relayPool.getRelayPool()` must return an object implementing `RelayPoolLike` (the `subscription()`, `publish()`, and `request()` interface) — not the raw NDK or nostr-tools pool object. Wrap it with an adapter.
 - `bridge.handleMessage` is already bound — pass it directly to `addEventListener`. Do not wrap it in another arrow function or the remove call will fail.
 - `crypto.verifyEvent` must return `Promise<boolean>`. Wrap synchronous verifiers: `async (e) => _verifyEvent(e)`.
