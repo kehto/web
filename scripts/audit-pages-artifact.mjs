@@ -6,20 +6,19 @@
  * artifact root to https://kehto.github.io/web/. The public URLs include
  * /web/, but the artifact root must contain index.html directly.
  */
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const scriptDir = fileURLToPath(new URL('.', import.meta.url));
 const repoRoot = resolve(scriptDir, '..');
 const outputRoot = resolve(repoRoot, process.env.PAGES_OUT_DIR || '.pages');
-const nappletsDir = join(repoRoot, 'apps', 'playground', 'napplets');
 
 const PUBLIC_SITE_BASE = '/web/';
 const PORTAL_GSAP_VENDOR = 'assets/vendor/gsap.min.js';
 const PORTAL_LANDING_CSS = 'assets/landing.css';
 const PORTAL_LANDING_JS = 'assets/landing.js';
-const PLAYGROUND_BASE = '/web/playground/';
+const RETIRED_PLAYGROUND_BASE = '/web/playground/';
 const PAJA_BASE = '/web/paja/';
 const DOCS_BASE = '/web/docs/';
 
@@ -34,10 +33,6 @@ function fail(message) {
 
 function read(path) {
   return readFileSync(path, 'utf8');
-}
-
-function readJson(path) {
-  return JSON.parse(read(path));
 }
 
 function assertFile(path, context) {
@@ -65,16 +60,6 @@ function assertContains(path, content, needle, context) {
   }
 }
 
-function nappletNames() {
-  if (!existsSync(nappletsDir)) {
-    fail(`napplet directory missing: ${rel(nappletsDir)}`);
-    return [];
-  }
-  return readdirSync(nappletsDir)
-    .filter((name) => statSync(join(nappletsDir, name)).isDirectory())
-    .sort();
-}
-
 function checkPortal() {
   const nestedPortalPath = join(outputRoot, 'web', 'index.html');
   if (existsSync(nestedPortalPath)) {
@@ -84,7 +69,9 @@ function checkPortal() {
   const portalPath = join(outputRoot, 'index.html');
   if (!assertFile(portalPath, 'portal route')) return;
   const portal = read(portalPath);
-  assertContains(portalPath, portal, 'href="playground/"', 'portal route');
+  if (portal.includes('href="playground/"')) {
+    fail(`portal route: ${rel(portalPath)} still links the retired playground`);
+  }
   assertContains(portalPath, portal, 'href="paja/"', 'portal route');
   assertContains(portalPath, portal, 'href="docs/"', 'portal route');
   assertContains(portalPath, portal, `href="${PORTAL_LANDING_CSS}"`, 'portal route');
@@ -112,24 +99,15 @@ function checkPaja() {
   assertFile(join(pajaRoot, '__kehto', 'config.json'), 'Paja Runtime host config');
 }
 
-function checkPlayground() {
-  const indexPath = join(outputRoot, 'playground', 'index.html');
-  if (assertFile(indexPath, 'playground route')) {
-    assertContains(indexPath, read(indexPath), `${PLAYGROUND_BASE}assets/`, 'playground route');
-  }
-
-  const names = nappletNames();
-  for (const name of names) {
-    const manifestPath = join(outputRoot, 'playground', 'napplet-gateway', name, 'manifest.json');
-    if (!assertFile(manifestPath, `${name} gateway manifest`)) continue;
-    const manifest = readJson(manifestPath);
-    const htmlUrl = manifest.htmlUrl;
-    if (typeof htmlUrl !== 'string' || !htmlUrl.startsWith(`${PLAYGROUND_BASE}napplet-gateway/${name}/`)) {
-      fail(`${rel(manifestPath)} htmlUrl does not use ${PLAYGROUND_BASE}napplet-gateway/${name}/`);
-      continue;
-    }
-    const routePath = artifactPathFromPublicPath(htmlUrl);
-    assertFile(routePath, `${name} gateway html route`);
+function checkRetiredPlayground() {
+  const indexPath = join(artifactPathFromPublicPath(RETIRED_PLAYGROUND_BASE), 'index.html');
+  if (!assertFile(indexPath, 'retired playground redirect')) return;
+  const html = read(indexPath);
+  assertContains(indexPath, html, 'KEHTO_PLAYGROUND_RETIRED', 'retired playground redirect');
+  assertContains(indexPath, html, `url=${PAJA_BASE}`, 'retired playground redirect');
+  assertContains(indexPath, html, 'console.warn(', 'retired playground redirect');
+  if (existsSync(join(outputRoot, 'playground', 'napplet-gateway'))) {
+    fail('retired playground route still ships napplet-gateway artifacts');
   }
 }
 
@@ -154,7 +132,7 @@ function checkDocs() {
 
 assertFile(join(outputRoot, '.nojekyll'), 'Pages root');
 checkPortal();
-checkPlayground();
+checkRetiredPlayground();
 checkPaja();
 checkDocs();
 
@@ -166,4 +144,4 @@ if (violations.length > 0) {
   process.exit(1);
 }
 
-console.log('[audit:pages] OK - verified /web/, /web/playground/, /web/paja/, /web/docs/, gateway routes, and TypeDoc output');
+console.log('[audit:pages] OK - verified /web/, the retired /web/playground/ redirect, /web/paja/, /web/docs/, and TypeDoc output');

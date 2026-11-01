@@ -20,7 +20,6 @@ jobs:
     name: Build web Pages artifact
     runs-on: ubuntu-latest
     env:
-      PLAYGROUND_BASE_PATH: /web/playground/
       VITEPRESS_BASE: /web/docs/
     steps:
       - name: Checkout
@@ -44,17 +43,11 @@ jobs:
       - name: Type-check all packages
         run: pnpm type-check
 
-      - name: Rebuild playground shell with Pages base
-        run: pnpm --filter @kehto/playground build
-
       - name: Rebuild Paja Runtime for Pages
         run: pnpm --filter @kehto/paja build
 
       - name: Docs quality gate with Pages base
         run: pnpm docs:check
-
-      - name: Audit gateway artifacts
-        run: pnpm audit:gateway-artifacts
 
       - name: Pack web Pages artifact
         run: pnpm build:pages

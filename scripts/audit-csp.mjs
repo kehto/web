@@ -7,8 +7,9 @@
  * HTML file is a build-breaker -- napplet developers must not set CSP via
  * meta tags (canonical NAP-CONNECT forbids it; shell emits HTTP headers).
  *
- * Scope (D14): apps/playground/napplets/{name}/dist/index.html for each napplet
- * directory -- napplet build outputs only, not the demo-app's own dist.
+ * Scope (D14): tests/fixtures/napplets/{name}/dist/index.html for each fixture
+ * napplet directory -- napplet build outputs only. (The retired playground demo
+ * napplets were the original scope; see KEHTO_PLAYGROUND_RETIRED.)
  *
  * Whitelist (D15): none. ANY matching tag fails the build.
  *
@@ -23,7 +24,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const repoRoot = resolve(__dirname, '..');
-const nappletsDir = join(repoRoot, 'apps', 'playground', 'napplets');
+const nappletsDir = join(repoRoot, 'tests', 'fixtures', 'napplets');
 
 // Case-insensitive meta-CSP tag matcher. Matches:
 //   <meta http-equiv="Content-Security-Policy" ...>

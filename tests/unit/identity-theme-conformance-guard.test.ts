@@ -7,13 +7,6 @@ function source(path: string): string {
 }
 
 describe('Phase 103 identity/theme active-surface guard', () => {
-  it('keeps the signer probe on the canonical public-key result path', () => {
-    const signerModal = source('apps/playground/src/signer-modal.ts');
-
-    expect(signerModal).toContain("reply.type === 'identity.getPublicKey.result'");
-    expect(signerModal).not.toContain("identity.getPublicKey.error");
-  });
-
   it('keeps canonical runtime and service results with the complete fixed theme fallback', () => {
     const runtimeResults = source('packages/runtime/src/domain-results.ts');
     const runtime = source('packages/runtime/src/runtime.ts');
@@ -61,20 +54,14 @@ describe('Phase 103 identity/theme active-surface guard', () => {
     expect(acl).toContain("recipientCap: 'theme:read'");
   });
 
-  it('keeps Paja and playground on one ThemeService-to-bridge path without raw identity fanout', () => {
+  it('keeps Paja on one ThemeService-to-bridge path without raw identity fanout', () => {
     const pajaTheme = source('packages/paja/src/theme-broadcast.ts');
     const pajaHost = source('packages/paja/src/browser-host.ts');
-    const playgroundHost = source('apps/playground/src/shell-host.ts');
-    const preferences = source('apps/playground/src/main-preferences.ts');
 
     expect(pajaTheme).toContain('attachedBridge.publishTheme(envelope.theme);');
     expect(pajaHost.match(/themeService\?\.publishTheme/g)).toHaveLength(1);
     expect(pajaHost).not.toContain('bridge.publishTheme');
-    expect(playgroundHost).toContain('onThemeBroadcast: (envelope) => relay.publishTheme(envelope.theme),');
-    expect(preferences).toContain('getThemeServiceBundle()?.publishTheme(currentTheme);');
-    expect(preferences).not.toContain('relay.publishTheme(currentTheme');
-    expect(playgroundHost).not.toContain("type: 'identity.changed'");
-    expect(playgroundHost).not.toContain("msg.envelopeType === 'identity.getPublicKey'");
+    expect(pajaHost).not.toContain("type: 'identity.changed'");
   });
 
   it('keeps current developer guidance on the pinned policy and supported surfaces', () => {
@@ -82,16 +69,14 @@ describe('Phase 103 identity/theme active-surface guard', () => {
     const runtime = source('packages/runtime/README.md');
     const services = source('packages/services/README.md');
     const shell = source('packages/shell/README.md');
-    const playground = source('apps/playground/README.md');
     const pajaE2e = source('tests/e2e/paja-single-window.spec.ts');
-    const guidance = [policy, runtime, services, shell, playground].join('\n');
+    const guidance = [policy, runtime, services, shell].join('\n');
 
     expect(policy).toContain('5ac0490461ca6fec2f0d2e45b4835cf9bc08de24');
     expect(policy).toContain('fixed non-sensitive complete normal');
     expect(runtime).toContain('identity.getPublicKey.result');
     expect(services).toContain('stores that state before it');
     expect(shell).toContain('live authenticated source-bound session');
-    expect(playground).toContain('ThemeService.publishTheme()');
     expect(guidance).not.toContain('identity.getPublicKey.error');
     expect(guidance).not.toMatch(/theme\.(?:subscribe|unsubscribe)/);
     expect(pajaE2e).not.toContain('identity.getPublicKey.error');

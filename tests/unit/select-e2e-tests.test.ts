@@ -30,14 +30,14 @@ describe('selectE2eTests', () => {
 
   test('runs only directly changed e2e specs', () => {
     const result = selectE2eTests([
-      'tests/e2e/nap-resource.spec.ts',
-      'tests/e2e/theme-broadcast.spec.ts',
+      'tests/e2e/nap-media-player.spec.ts',
+      'tests/e2e/nap-theme.spec.ts',
     ]);
 
     expect(result.runE2e).toBe(true);
     expect(result.specs).toEqual([
-      'tests/e2e/nap-resource.spec.ts',
-      'tests/e2e/theme-broadcast.spec.ts',
+      'tests/e2e/nap-media-player.spec.ts',
+      'tests/e2e/nap-theme.spec.ts',
     ]);
   });
 
@@ -60,7 +60,6 @@ describe('selectE2eTests', () => {
 
     expect(result.runE2e).toBe(true);
     expect(result.specs).toContain('tests/e2e/nap-relay.spec.ts');
-    expect(result.specs).toContain('tests/e2e/relay-subscribe.spec.ts');
     expect(result.specs).not.toContain('tests/e2e/paja-single-window.spec.ts');
   });
 
@@ -82,5 +81,15 @@ describe('selectE2eTests', () => {
     expect(result.runE2e).toBe(true);
     expect(result.all).toBe(true);
     expect(result.specArgs).toBe('tests/e2e');
+  });
+
+  test('never selects specs for the retired playground host', () => {
+    const result = selectE2eTests([
+      'tests/e2e/playground-usability-controls.spec.ts',
+      'tests/e2e/demo-boot.spec.ts',
+    ]);
+
+    expect(result.runE2e).toBe(false);
+    expect(result.specs).toEqual([]);
   });
 });
