@@ -87,7 +87,7 @@ each `Mock<Domain>Service`.
 | `inc` | NAP-INC | merged | master @ `43cb3a4e` | runtime-owned | The runtime routes inc.* topics and channels itself (packages/runtime/src/inc-handler.ts) and attests sender/peer from authenticated endpoints. Mocks cannot and must not fabricate INC deliveries; shells get INC for free from the runtime. MOCK_INC_TOPICS supplies topic strings for tests. |
 | `intent` | NAP-INTENT | merged | master @ `43cb3a4e` | service | 3 routes |
 | `keys` | NAP-KEYS | draft | PR #9 @ `8869a4cf` | service | 3 routes |
-| `link` | NAP-LINK | draft | PR #53 @ `50c2d45c` | service | 1 route |
+| `link` | NAP-LINK | draft | PR #53 @ `50a2cd45` | service | 1 route |
 | `lists` | NAP-LISTS | draft | PR #68 @ `7cf00cdb` | service | 3 routes |
 | `llm` | NAP-LLM | draft | PR #134 @ `3e10939c` | service | 4 routes |
 | `location` | NAP-LOCATION | draft | PR #125 @ `24d2039c` | extension | 4 routes |

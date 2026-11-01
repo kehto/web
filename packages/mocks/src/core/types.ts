@@ -126,7 +126,7 @@ export interface MockService<TState = unknown> extends ServiceHandler {
  *   status: 'draft',
  *   source: 'pr',
  *   pr: 53,
- *   sha: '50c2d45c',
+ *   sha: '50a2cd45e76f',
  *   path: 'naps/NAP-LINK.md',
  * };
  * ```

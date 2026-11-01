@@ -14,7 +14,7 @@ describe('createMockLinkService', () => {
     expect(service.descriptor).toMatchObject({ name: 'link', version: '1.0.0' });
     expect(service.mock.routes).toEqual(['link.open']);
     expect(service.messageCapabilities).toBeUndefined();
-    expect(LINK_SPEC_REF).toEqual({ nap: 'NAP-LINK', status: 'draft', source: 'pr', pr: 53, sha: '50c2d45c', path: 'naps/NAP-LINK.md' });
+    expect(LINK_SPEC_REF).toEqual({ nap: 'NAP-LINK', status: 'draft', source: 'pr', pr: 53, sha: '50a2cd45e76f', path: 'naps/NAP-LINK.md' });
     expect(LINK_MOCK_ENTRY.kind).toBe('service');
     expect(LINK_MOCK_ENTRY.create?.({}).descriptor.name).toBe('link');
   });

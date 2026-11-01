@@ -1,7 +1,7 @@
 /**
  * domains/link.ts — Mock NAP-LINK service.
  *
- * Spec: naps/NAP-LINK.md @ napplet/naps PR #53 head 50c2d45c (draft)
+ * Spec: naps/NAP-LINK.md @ napplet/naps PR #53 head 50a2cd45e76f (draft)
  * Routes: link.open
  * Spec gaps / decisions:
  *   - Only `http:` and `https:` open by default; every other scheme (including
@@ -24,7 +24,7 @@ export const LINK_SPEC_REF: NapSpecRef = {
   status: 'draft',
   source: 'pr',
   pr: 53,
-  sha: '50c2d45c',
+  sha: '50a2cd45e76f',
   path: 'naps/NAP-LINK.md',
 };
 

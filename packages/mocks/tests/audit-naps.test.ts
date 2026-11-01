@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { compareRefs, fetchUpstream, formatReport, parseSpecRefs } from '../scripts/audit-naps.mjs';
 
 const SOURCE = `
-export const LINK_SPEC_REF: NapSpecRef = { nap: 'NAP-LINK', status: 'draft', source: 'pr', pr: 53, sha: '50c2d45c', path: 'naps/NAP-LINK.md' };
+export const LINK_SPEC_REF: NapSpecRef = { nap: 'NAP-LINK', status: 'draft', source: 'pr', pr: 53, sha: '50a2cd45e76f', path: 'naps/NAP-LINK.md' };
 export const THEME_SPEC_REF: NapSpecRef = Object.freeze({
   nap: 'NAP-THEME',
   status: 'merged',
@@ -25,7 +25,7 @@ const UPSTREAM = {
 describe('audit-naps', () => {
   it('parses spec ref literals, including frozen multi-line ones', () => {
     expect(parseSpecRefs(SOURCE)).toEqual([
-      { nap: 'NAP-LINK', status: 'draft', source: 'pr', pr: 53, sha: '50c2d45c', path: 'naps/NAP-LINK.md' },
+      { nap: 'NAP-LINK', status: 'draft', source: 'pr', pr: 53, sha: '50a2cd45e76f', path: 'naps/NAP-LINK.md' },
       { nap: 'NAP-THEME', status: 'merged', source: 'master', sha: '43cb3a4e8555', path: 'naps/NAP-THEME.md' },
     ]);
   });

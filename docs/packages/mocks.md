@@ -85,7 +85,7 @@ Kinds: `service` is routed by the runtime's built-in dispatcher to
 | `catalog` | NAP-CATALOG | draft | PR #95 @ `1020ae53` | extension | 1 route |
 | `class` | NAP-CLASS | draft | PR #16 @ `48282798` | extension | push-only |
 | `class-1` | NAP-CLASS-1 | draft | PR #17 @ `b9128e0c` | posture | Strict baseline: connect-src 'none', no consent prompt, no grant state; the default class when no class-contributing NAP triggers, delivered as class.assigned { class: 1 }. |
-| `class-2` | NAP-CLASS-2 | draft | PR #18 @ `45c9b12d` | posture | User-approved explicit origins: connect-src <granted-origins> after a first-load consent prompt keyed on (dTag, aggregateHash), refuse-to-serve on residual meta-CSP, denied napplets served as class 1. |
+| `class-2` | NAP-CLASS-2 | draft | PR #18 @ `45c9b12d` | posture | User-approved explicit origins: connect-src limited to the granted origins after a first-load consent prompt keyed on (dTag, aggregateHash), refuse-to-serve on residual meta-CSP, denied napplets served as class 1. |
 | `common` | NAP-COMMON | draft | PR #67 @ `8cd0eae8` | service | 8 routes |
 | `config` | NAP-CONFIG | draft | PR #14 @ `bed9cb5b` | service | 5 routes |
 | `connect` | NAP-CONNECT | draft | PR #19 @ `ec81a3a4` | runtime-owned | NAP-CONNECT defines no connect.* envelopes; grants are served as CSP connect-src plus a discovery meta tag. Use createMockConnectGate() and createMockLoopbackNetwork(). |
@@ -101,7 +101,7 @@ Kinds: `service` is routed by the runtime's built-in dispatcher to
 | `inc` | NAP-INC | merged | master @ `43cb3a4e` | runtime-owned | The runtime routes inc.* topics and channels itself (packages/runtime/src/inc-handler.ts) and attests sender/peer from authenticated endpoints. Mocks cannot and must not fabricate INC deliveries; shells get INC for free from the runtime. MOCK_INC_TOPICS supplies topic strings for tests. |
 | `intent` | NAP-INTENT | merged | master @ `43cb3a4e` | service | 3 routes |
 | `keys` | NAP-KEYS | draft | PR #9 @ `8869a4cf` | service | 3 routes |
-| `link` | NAP-LINK | draft | PR #53 @ `50c2d45c` | service | 1 route |
+| `link` | NAP-LINK | draft | PR #53 @ `50a2cd45` | service | 1 route |
 | `lists` | NAP-LISTS | draft | PR #68 @ `7cf00cdb` | service | 3 routes |
 | `llm` | NAP-LLM | draft | PR #134 @ `3e10939c` | service | 4 routes |
 | `location` | NAP-LOCATION | draft | PR #125 @ `24d2039c` | extension | 4 routes |
