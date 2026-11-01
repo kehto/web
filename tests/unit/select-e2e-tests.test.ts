@@ -41,16 +41,30 @@ describe('selectE2eTests', () => {
     ]);
   });
 
-  test('narrows paja package changes to both host and verified-pointer browser specs', () => {
+  test('narrows paja package changes to the Paja host, pointer, and service-flow browser specs', () => {
     const result = selectE2eTests([
       'packages/paja/src/server.ts',
     ]);
 
     expect(result.runE2e).toBe(true);
     expect(result.specs).toEqual([
+      'tests/e2e/paja-cvm.spec.ts',
+      'tests/e2e/paja-identity.spec.ts',
+      'tests/e2e/paja-relay.spec.ts',
       'tests/e2e/paja-runtime-pointer.spec.ts',
       'tests/e2e/paja-single-window.spec.ts',
+      'tests/e2e/paja-storage.spec.ts',
     ]);
+  });
+
+  test('routes service-domain changes to the matching Paja service-flow specs', () => {
+    expect(selectE2eTests(['packages/services/src/storage-service.ts']).specs).toContain('tests/e2e/paja-storage.spec.ts');
+    expect(selectE2eTests(['packages/services/src/cvm-nostr-transport.ts']).specs).toContain('tests/e2e/paja-cvm.spec.ts');
+    expect(selectE2eTests(['packages/services/src/identity-service.ts']).specs).toContain('tests/e2e/paja-identity.spec.ts');
+    expect(selectE2eTests(['packages/acl/src/check.ts']).specs).toEqual(expect.arrayContaining([
+      'tests/e2e/paja-relay.spec.ts',
+      'tests/e2e/paja-storage.spec.ts',
+    ]));
   });
 
   test('narrows relay domain changes to relay-related browser specs', () => {
@@ -60,6 +74,7 @@ describe('selectE2eTests', () => {
 
     expect(result.runE2e).toBe(true);
     expect(result.specs).toContain('tests/e2e/nap-relay.spec.ts');
+    expect(result.specs).toContain('tests/e2e/paja-relay.spec.ts');
     expect(result.specs).not.toContain('tests/e2e/paja-single-window.spec.ts');
   });
 
