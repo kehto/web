@@ -14,7 +14,7 @@ pnpm add @kehto/firewall
 
 ## Published Napplet Compatibility
 
-The published `@napplet/core` peer range is `>=0.32.0 <0.37.0`; development and
+The published `@napplet/core` peer range is `>=0.32.0 <0.38.0`; development and
 tests stay on the baseline core 0.32.0 line.
 
 ## Overview
