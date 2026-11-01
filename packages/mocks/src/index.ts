@@ -74,5 +74,11 @@ export {
 } from './fixtures/nostr.js';
 export type { MockAccount } from './fixtures/nostr.js';
 
-export { MOCK_NAP_REGISTRY, findMockDomain } from './registry.js';
+export {
+  MOCK_NAP_REGISTRY,
+  MOCK_SOCIAL_DOMAINS,
+  createMockNapEnvironment,
+  findMockDomain,
+} from './registry.js';
+export type { MockNapEnvironment, MockNapEnvironmentOptions } from './registry.js';
 export * from './domains/index.js';
