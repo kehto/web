@@ -14,8 +14,10 @@ pnpm add @kehto/acl
 
 ## Published Napplet Compatibility
 
-The published peer compatibility floor is `@napplet/core` and `@napplet/nap`
-`>=0.32.0 <0.33.0`, admitting the current core 0.32.0 / nap 0.32.0 convention contract line.
+Peers admit `@napplet/core` `>=0.32.0 <0.37.0` and `@napplet/nap`
+`>=0.32.0 <0.36.0`, so the nap 0.35.x line that ships the `llm` subpath (and the
+core 0.36.x line nap 0.35.1 requires) installs without peer conflicts; development
+and tests stay on the baseline 0.32.0 line.
 
 ## Overview
 

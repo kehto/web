@@ -24,6 +24,7 @@ import { createRuntimeDomainHandlers, type RuntimeDomainHandlers } from './domai
 import {
   createCanonicalDomainResult,
   createIntentPolicyDenial,
+  createLlmErrorResult,
   isIdentityOrThemeMessage,
 } from './domain-results.js';
 
@@ -173,6 +174,8 @@ function createNapEnvelopeDispatcher(handlers: RuntimeNapHandlers): (windowId: s
   napDispatch.registerNap('webrtc', adapt(handlers.webrtc));
   napDispatch.registerNap('dm', adapt(handlers.dm));
   napDispatch.registerNap('fs', adapt(handlers.fs));
+  // NAP-LLM proposal #134 defines this domain; the installed core union predates it.
+  napDispatch.registerNap('llm' as NapDomain, adapt(handlers.llm));
 
   return (windowId, envelope) => {
     currentWindowId = windowId;
@@ -350,6 +353,11 @@ function denialResponseType(envelope: NappletMessage): string | null {
 
 function createDenialResponse(envelope: NappletMessage, error: string): NappletMessage | null {
   const id = (envelope as NappletMessage & { id?: string }).id ?? '';
+  if (envelope.type.startsWith('llm.')) {
+    // NAP-LLM: a declared capability does not guarantee authorization; the
+    // shaped failure is `unsupported`, never a bare string on an `.error` wire.
+    return createLlmErrorResult(envelope, 'unsupported', `Request denied: ${error}`) ?? null;
+  }
   if (envelope.type === 'outbox.query') {
     return {
       type: 'outbox.query.result',
@@ -578,11 +586,15 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   });
   let incRuntime: IncRuntime | null = null;
   const aclState = createAclState(hooks.aclPersistence, 'permissive', (mutation) => {
-    if (mutation.type === 'revoke' && mutation.capability !== 'relay:read') return;
     for (const entry of sessionRegistry.getAllEntries()) {
       if (entry.dTag === mutation.dTag && entry.aggregateHash === mutation.aggregateHash) {
-        revokeRelaySubscriptions({ hooks, serviceRegistry, subscriptions }, entry.windowId);
-        incRuntime?.revokeWindow(entry.windowId);
+        for (const service of Object.values(serviceRegistry)) {
+          service.onCapabilityRevoked?.(entry.windowId, mutation.type === 'block' ? null : mutation.capability);
+        }
+        if (mutation.type === 'block' || mutation.capability === 'relay:read') {
+          revokeRelaySubscriptions({ hooks, serviceRegistry, subscriptions }, entry.windowId);
+          incRuntime?.revokeWindow(entry.windowId);
+        }
       }
     }
   });

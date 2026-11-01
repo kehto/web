@@ -1,5 +1,95 @@
 # @kehto/paja
 
+## 0.27.0
+
+### Minor Changes
+
+- 3089c5e: Harden the NAP-LLM service and add streaming providers (kehto/web#368, #369, #370):
+
+  - `createLlmService` bounds live model handles per window with `maxHandlesPerWindow` (default 32). Selecting beyond the bound evicts the least recently used handle, which then answers `selection-expired`; a successful `describe` or generation refreshes a handle.
+  - `LlmConnectionHost.select` and `authorize` receive an optional trailing `{ signal }` (`LlmPromptOptions`). It aborts when the request settles without the host's answer (cancel, deadline, handle invalidation or eviction, revocation, window destruction or unregistration), so hosts can close stale chooser and consent prompts. A pending selection answers `selection-expired` on invalidation and `cancelled` on revocation.
+  - `buildLlmProviderRequest(endpoint, request, { stream: true })` and `createHttpLlmProvider({ stream: true })` use each dialect's server-sent-event form. The provider forwards text fragments through a new optional `onDelta` argument and resolves the same generation as the buffered path. `LlmFetch` responses may expose `body` and `headers` (`LlmFetchResponse`), and `readLlmSseData` / `createLlmStreamAccumulator` are exported for custom transports.
+  - Paja streams provider output as `llm.delta`, and closes its chooser, consent and vault-unlock prompts when the request dies. `PajaConfirmationRequest` accepts an optional `signal` that withdraws a queued or open confirmation.
+
+### Patch Changes
+
+- Updated dependencies [3089c5e]
+  - @kehto/services@0.28.0
+  - @kehto/shell@0.26.1
+
+## 0.26.1
+
+### Patch Changes
+
+- f5c3ee8: Widen the `@napplet/*` peer ranges so the `llm` domain installs without peer conflicts: `@napplet/core` now accepts `>=0.32.0 <0.37.0` and `@napplet/nap` accepts `>=0.32.0 <0.36.0`. The `llm` subpath first ships in `@napplet/nap@0.35.0`, and `@napplet/nap@0.35.1` requires `@napplet/core@^0.36.0`. The old `<0.35.0` cap made npm fail with ERESOLVE and made pnpm print unmet-peer warnings (kehto/web#364).
+- Updated dependencies [f5c3ee8]
+  - @kehto/acl@0.20.1
+  - @kehto/firewall@0.6.2
+  - @kehto/runtime@0.27.1
+  - @kehto/services@0.27.1
+  - @kehto/shell@0.26.1
+
+## 0.26.0
+
+### Minor Changes
+
+- fcb5bc9: Add a Language models panel for draft NAP-LLM (napplet/naps PR #134 at `3e10939`): provider presets for the common hosted and local APIs, connection metadata in `localStorage`, API keys either session-only or encrypted with AES-GCM under a PBKDF2-SHA-256 vault password, a chooser for `llm.select`, a configure prompt when nothing compatible exists, and a disclosure consent dialog before every generation. Keys travel only to the connection's base URL. The Interfaces toggle gains a yellow `⚠` unconfigured state next to the existing enabled and disabled states.
+
+### Patch Changes
+
+- Updated dependencies [fcb5bc9]
+- Updated dependencies [fcb5bc9]
+- Updated dependencies [fcb5bc9]
+- Updated dependencies [fcb5bc9]
+  - @kehto/acl@0.20.0
+  - @kehto/runtime@0.27.0
+  - @kehto/services@0.27.0
+  - @kehto/shell@0.26.0
+
+## 0.25.1
+
+### Patch Changes
+
+- Updated dependencies [8c49071]
+  - @kehto/nip@0.8.0
+
+## 0.25.0
+
+### Minor Changes
+
+- d49b1bf: Add modal approval for all signing and publishing from one napplet version,
+  bound to its manifest/artifact identity and signer account. Keep signing-only
+  and publishing-only choices separate, retain older signing approvals without
+  granting publication, and expose revocation. Development URL approvals now last
+  only for their loaded session instead of trusting mutable code across reloads.
+  Carry authenticated source context through Paja's publication backends and open
+  NAP-LINK destinations directly from the modal approval click.
+
+## 0.24.5
+
+### Patch Changes
+
+- a1a50d7: Implement NAP-MEDIA shell-owned audio/video and live MP3/AAC radio through host resource policy,
+  with a shared player in Paja and the playground. Bind sessions to their endpoint,
+  validate controls, retire output on destruction or revoked access, and retain
+  terminal notifications in the protected injected API. Add canonical command-object
+  callbacks and command/onEnded operations; retain warned legacy sendCommand and
+  two-argument callbacks. Unary legacy callbacks must migrate to command objects.
+  Use a playable one-second silent PCM clip when priming browser OS media controls.
+- Updated dependencies [a1a50d7]
+  - @kehto/services@0.26.0
+  - @kehto/shell@0.25.0
+  - @kehto/runtime@0.26.1
+
+## 0.24.4
+
+### Patch Changes
+
+- b4c1b14: Make every verified tab's Share button open a dialog with a selectable app link,
+  visible copy confirmation, and manual copying when clipboard access is blocked
+  or unavailable. Keep intent-link creation limited to advertised contracts, and
+  prevent dialog clicks from reaching the loaded apps underneath it.
+
 ## 0.24.3
 
 ### Patch Changes

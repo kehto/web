@@ -18,6 +18,33 @@ Malformed or unsupported icons are ignored; Kehto retains generic artwork and
 does not render unverified icon URLs. Snapshot lineage is metadata, never a
 resolution dependency. HTML metadata cannot override the signed event.
 
+### Source and presentation media
+
+Checked against NIP-5D PR #2303 at `dskvr/nips@6e24617cde507c0a87fa170af9ed6b2b46545b2d`
+(§Source, §Presentation media). Every field below is informational: a
+malformed or repeated tag is ignored and never prevents playback.
+
+| Tag | Manifest field | Rule |
+|-----|----------------|------|
+| `source` | `source` | one tag, two elements; `http`, `https`, `ssh`, `git` or NIP-34 `nostr://` URL, or scp-like `[user@]host:path`; local paths and `file` URLs are ignored (`isSourceLocation`) |
+| `source-commit` | `sourceCommit` | one full lowercase-hex Git commit ID (40 or 64 chars); ignored without a usable `source` |
+| `source-archive` | `sourceArchive` | one tag: HTTPS URL without credentials or fragment, 64-char sha256, MIME type; verify the digest before use |
+| `screenshot` | `screenshots` | any number, manifest order preserved; NIP-92 `key value` fields with exactly one `x`; optional `m` (`image/png`, `image/jpeg`, `image/webp`), `dim`, `size`, `alt` |
+| `preview` | `preview` | at most one; same fields plus `duration`; optional `m` must be `video/*`; several `preview` tags ignore the preview |
+
+Spec-gap decision: an HTTP(S) `source` may name a repository or an archive and
+Kehto cannot tell them apart from the location, so any accepted `source` keeps
+an otherwise valid `source-commit`.
+
+Declarations are not verified media. Before rendering fetched bytes a host MUST
+check the SHA-256, decode screenshots as PNG, JPEG or WebP (previews as video)
+and confirm a declared `m` matches the decoded format.
+`verifyPresentationMediaBytes(bytes, media, kind)` applies the hash, container
+and `m` checks and returns the recognised format or `undefined`; it is a header
+check, so a host still relies on the browser decoder and keeps placeholder
+artwork for anything that fails to decode. Unusable entries never suppress
+other screenshots or block discovery or playback.
+
 Legacy `path` + `["x", hash, "aggregate"]` events remain supported by
 `legacy-manifest.ts`. Only that adapter parses `requires`, `description`, and
 paired `archetype` tags or verifies NIP-5A aggregates. Format selection is explicit;
@@ -44,6 +71,10 @@ Distinct kinds keep napplets out of nsite gateway resolution.
 |--------|-------------|
 | `NAPPLET_KINDS`, `isNappletManifestKind(kind)` | the three kinds + a guard |
 | `parseNappletManifest(event)` | event → `normalized identity, paths, required/optional domains, roles, intents, and metadata` |
+| `parseSourceMetadata(tags)`, `isSourceLocation(value)` | `source`, `sourceCommit`, `sourceArchive` after the NIP-5D ignore rules |
+| `parsePresentationMedia(tags)` | ordered usable `screenshots` and the single `preview` declaration |
+| `sniffPresentationMediaFormat(bytes)` | PNG/JPEG/WebP/WebM/MP4 container recognition from leading bytes |
+| `verifyPresentationMediaBytes(bytes, media, kind)` | hash + container + declared `m` checks; recognised format or `undefined` |
 | `getNappletCatalogId(event)` | opaque publisher/kind-safe intent catalog identity from a verified event |
 | `verifyManifestSignature(event)` | verify the manifest's Nostr signature |
 | `verifyBlobHash(bytes, sha256)` | `true` iff bytes hash to `sha256` |

@@ -3,6 +3,7 @@ import {
   ALL_CAPABILITIES,
   type Capability,
   type ShellBridge,
+  type ShellDomainState,
   type ShellEnvironment,
 } from '@kehto/shell';
 
@@ -50,6 +51,11 @@ export interface PajaDevtoolsState {
   simulation: PajaSimulation;
   /** Registered host service names, independently of ACL grants. */
   readonly services?: readonly string[];
+  /**
+   * Host-facing advertisement state per domain. `unconfigured` marks a domain
+   * that is injected but still needs user setup (NAP-LLM connections).
+   */
+  readonly domainState?: (domain: PajaCapabilityDomain) => ShellDomainState;
   /** Current signer state. */
   signer: PajaSignerState;
   /** Number of remembered exact-identity signer decisions. */
@@ -96,6 +102,7 @@ interface PajaDevtoolsRenderOptions {
 }
 
 interface OriginRegistryLike {
+  unregister?(windowId: string): void;
   getIframeWindow(windowId: string): Window | null;
   getWindowId(win: Window): string | undefined;
   getIdentity(win: Window): { dTag: string; aggregateHash: string } | undefined;
@@ -273,7 +280,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function installPajaOriginRegistryProxy(
   originRegistry: OriginRegistryLike,
   stateRef: () => PajaDevtoolsState | null,
+  onWindowRemoved?: (windowId: string) => void,
 ): void {
+  if (onWindowRemoved && originRegistry.unregister) {
+    const unregister = originRegistry.unregister.bind(originRegistry);
+    originRegistry.unregister = (windowId) => { onWindowRemoved(windowId); unregister(windowId); };
+  }
   const originalGetIframeWindow = originRegistry.getIframeWindow.bind(originRegistry);
   originRegistry.getIframeWindow = (windowId: string) => {
     const win = originalGetIframeWindow(windowId);
@@ -371,13 +383,18 @@ function renderInterfaceControls(state: PajaDevtoolsState): void {
   if (!container) return;
   container.replaceChildren(...PAJA_SIMULATION_DOMAINS.map((domain) => {
     const enabled = domainEnabled(state.simulation, domain);
+    const domainState = enabled ? state.domainState?.(domain) ?? 'supported' : 'disabled';
+    const unconfigured = domainState === 'unconfigured';
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'toggle';
     button.dataset.interfaceDomain = domain;
     button.dataset.enabled = String(enabled);
-    button.textContent = domain;
-    button.title = `${domain} injection ${enabled ? 'enabled' : 'disabled'}`;
+    button.dataset.state = domainState;
+    button.textContent = unconfigured ? `\u26a0 ${domain}` : domain;
+    button.title = unconfigured
+      ? `${domain} injection enabled; no connection is configured yet. Add one in Language models, or click to disable the interface.`
+      : `${domain} injection ${enabled ? 'enabled' : 'disabled'}`;
     button.addEventListener('click', () => {
       state.setDomainEnabled(domain, !domainEnabled(state.simulation, domain));
     });
@@ -446,9 +463,9 @@ function renderSignerStatus(state: PajaDevtoolsState, signerPubkey: string): voi
     ? `${methodLabel} error: ${state.signer.error ?? 'unknown error'} · fallback pubkey ${fallbackPubkey}`
     : `${methodLabel} ${state.signer.status} · pubkey ${pubkey || '(none)'}${relay}`;
   const consentSummary = state.signerConsentCount === 0
-    ? 'signing asks every time'
-    : `${state.signerConsentCount} remembered signing approval${state.signerConsentCount === 1 ? '' : 's'}`;
-  el.textContent = `${prefix} · ${consentSummary} · publishing asks every time`;
+    ? 'signing and publishing ask every time'
+    : `${state.signerConsentCount} remembered signing/publishing approval${state.signerConsentCount === 1 ? '' : 's'}`;
+  el.textContent = `${prefix} · ${consentSummary}`;
 
   clearConsent.hidden = state.signerConsentCount === 0;
   clearConsent.textContent = `Forget ${state.signerConsentCount} remembered approval${state.signerConsentCount === 1 ? '' : 's'}`;

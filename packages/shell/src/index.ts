@@ -52,6 +52,8 @@ export type {
   SerialHooks,
   BleHooks,
   WebrtcHooks,
+  LlmHooks,
+  ShellDomainState,
   CapabilityHooks,
   SessionEntry,
   NappKeyEntry,  // @deprecated — use SessionEntry
@@ -64,7 +66,7 @@ export type {
 } from './types.js';
 
 // Shell initialization — capability construction for shell.ready / shell.init handshake
-export { buildShellCapabilities, resolveShellEnvironment } from './shell-init.js';
+export { buildShellCapabilities, getShellDomainState, resolveShellEnvironment } from './shell-init.js';
 
 export { sessionRegistry, nappKeyRegistry } from './session-registry.js';
 export type { PendingUpdate, SessionRegistry } from './session-registry.js';

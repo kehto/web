@@ -1,5 +1,46 @@
 # @kehto/demo
 
+## 0.1.26
+
+### Patch Changes
+
+- Updated dependencies [3089c5e]
+  - @kehto/services@0.28.0
+  - @kehto/shell@0.26.1
+
+## 0.1.25
+
+### Patch Changes
+
+- Updated dependencies [fcb5bc9]
+- Updated dependencies [fcb5bc9]
+- Updated dependencies [fcb5bc9]
+  - @kehto/runtime@0.27.0
+  - @kehto/services@0.27.0
+  - @kehto/shell@0.26.0
+
+## 0.1.24
+
+### Patch Changes
+
+- Updated dependencies [8c49071]
+  - @kehto/nip@0.8.0
+
+## 0.1.23
+
+### Patch Changes
+
+- Updated dependencies [a1a50d7]
+  - @kehto/services@0.26.0
+  - @kehto/shell@0.25.0
+  - @kehto/runtime@0.26.1
+
+## 0.1.22
+
+### Patch Changes
+
+- 5f07d58: The playground relay service now runs on applesauce v7: it uses a RelayLiveness-backed pool, loads kind-10002 mailboxes through the address loader, and relies on pool-owned request and publish timeouts. NAP-RELAY wire behavior is unchanged.
+
 ## 0.1.21
 
 ### Patch Changes

@@ -1,11 +1,14 @@
 import { installPajaResourceSettings } from './browser-resource-settings.js';
+import { installPajaLlm } from './browser-llm-panel.js';
 import {
   buildShellCapabilities,
   createShellBridge,
+  getShellDomainState,
   originRegistry,
   type Capability,
   type ShellBridge,
   type ShellCapabilities,
+  type ShellDomainState,
 } from '@kehto/shell';
 
 import { installPajaConsolePanel } from './browser-console-panel.js';
@@ -91,6 +94,7 @@ import {
   renderTargetErrorHtml,
 } from './browser-target-frame.js';
 import { isPajaLocalTarget, type PajaRuntimeTarget } from './local-target.js';
+import { pajaDevelopmentConsentScope } from './browser-operation-scope.js';
 import { resolvePajaPointer } from './runtime-resolver.js';
 import { parsePajaIntentLink } from './intent-link.js';
 import {
@@ -113,6 +117,8 @@ export interface PajaBrowserState {
   readonly config: PajaHostConfig;
   readonly capabilities: ShellCapabilities;
   services: string[];
+  /** Host-facing per-domain state: supported, unconfigured (needs setup) or disabled. */
+  domainState(domain: PajaCapabilityDomain): ShellDomainState;
   simulation: PajaSimulation;
   signer: PajaSignerState;
   signerConsentCount: number;
@@ -506,6 +512,7 @@ function createPajaBrowserState(
     config,
     capabilities,
     services: Object.keys(adapter.services ?? {}).sort(),
+    domainState: (domain) => getShellDomainState(adapter, domain),
     simulation: runtime.currentSimulation,
     signer: signerController.getState(),
     signerConsentCount: confirmationController.getSignerConsentCount(),
@@ -655,8 +662,20 @@ async function installPajaHost(): Promise<void> {
     confirmationController.confirm,
   );
   const getWindowIdentity = (windowId?: string) => {
-    const tabTarget = stateRef?.tabs.find((tab) => tab.windowId === windowId)?.resolvedTarget;
-    return getTargetIdentity(config, tabTarget ?? stateRef?.resolvedTarget);
+    const tab = stateRef?.tabs.find((tab) => tab.windowId === windowId);
+    const target = tab?.resolvedTarget ?? stateRef?.resolvedTarget;
+    const identity = getTargetIdentity(config, target);
+    return {
+      ...identity,
+      consentScope: target
+        ? `${isPajaLocalTarget(target) ? 'local-file' : target.manifest.catalogId}:artifact:${target.aggregateHash}`
+        : pajaDevelopmentConsentScope(config.target.url, windowId ?? ''),
+      isCurrent: () => {
+        const targetFrame = tab?.frame ?? frame;
+        return !!targetFrame?.contentWindow && originRegistry.getWindowId(targetFrame.contentWindow) === windowId
+          && (!tab || stateRef?.tabs.includes(tab) === true);
+      },
+    };
   };
   const notifyController = createPajaNotifyController({
     confirm: confirmationController.confirm,
@@ -681,6 +700,11 @@ async function installPajaHost(): Promise<void> {
   // reads and napplet-pinned reads only exist once they happen.
   const relayInventory = (): PajaRelayInventory => ({
     fallback: adapter.relayConfig.getRelayConfig().outbox,
+  });
+  const llm = installPajaLlm({
+    confirm: confirmationController.confirm,
+    getIdentity: (windowId) => ({ dTag: getWindowIdentity(windowId).dTag, aggregateHash: getWindowIdentity(windowId).aggregateHash }),
+    onChange: () => { if (stateRef) setSimulationStatus(stateRef); },
   });
   const adapter = createPajaAdapter(config, getSimulation, (theme) => {
     runtime.themeService = theme;
@@ -709,7 +733,7 @@ async function installPajaHost(): Promise<void> {
         const id = `nip5d:${hint.address}`;
         return candidates.some((candidate) => candidate.id === id) ? id : undefined;
       },
-    }, confirmationController.activation, notifyController?.serviceOptions, configController?.serviceOptions, resourceSettings.getServers);
+    }, confirmationController.activation, notifyController?.serviceOptions, configController?.serviceOptions, resourceSettings.getServers, llm.host);
   const relayBackend = adapter.relayPool.getRelayPool() as PajaRelayBackend | null;
   relayBackend?.setRelayEventObserver((sighting) => {
     relayEventCounts.recordEvent(sighting.reason, sighting.event, sighting.sightedOn, sighting.origin);
@@ -720,11 +744,12 @@ async function installPajaHost(): Promise<void> {
   await adapter.ready;
   const bridge = createShellBridge(adapter);
   const stopIdentityChanges = signerController.subscribe(() => {
+    confirmationController.cancelSignerRequests();
     bridge.publishIdentityChanged(adapter.auth.getUserPubkey() ?? '');
   });
   themeBroadcast.attach(bridge);
   bridgeRef = bridge;
-  installPajaOriginRegistryProxy(originRegistry, () => stateRef);
+  installPajaOriginRegistryProxy(originRegistry, () => stateRef, windowId => confirmationController.cancelWindow(windowId));
   const capabilities = buildShellCapabilities(adapter);
   const context: PajaBrowserStateContext = {
     config,
@@ -766,6 +791,7 @@ async function installPajaHost(): Promise<void> {
   window.addEventListener('pagehide', disposeConsolePanel, { once: true });
   window.addEventListener('pagehide', disposeEventCounterReset, { once: true });
   window.addEventListener('pagehide', resourceSettings.dispose, { once: true });
+  window.addEventListener('pagehide', llm.dispose, { once: true });
 
   window.__KEHTO_PAJA__ = state;
 

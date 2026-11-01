@@ -196,3 +196,10 @@ Existing `aggregateHash` host/cache/ACL fields carry the verified artifact hash
 for current events; legacy identities keep their original aggregate. Both paths
 verify signatures and bytes before runtime injection and `srcdoc` execution.
 For the schema and removal boundary, see [event migration](../../docs/migrations/NIP-5D-EVENT-SCHEMA.md).
+
+## Media player
+
+Active NAP-MEDIA sessions appear in a collapsible player with audio/video output,
+capability-driven controls, seeking, volume, and session retirement. Shell-owned
+source resolution, including live HTTPS MP3/AAC streams, retains the playground resource origin grants. See
+[Media playback](../../docs/media.md).

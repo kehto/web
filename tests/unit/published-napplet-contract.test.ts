@@ -1,13 +1,18 @@
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { verifyEvent } from 'nostr-tools/pure';
+import { parseNappletManifest } from '@kehto/nip/5d';
+import { recomputeManifest } from '../../apps/playground/napplets/shared-vite-config.js';
 import type {
   IntentInvokeResultMessage,
   IntentRequest,
   IntentResult,
 } from '../../node_modules/.pnpm/@napplet+nap@0.32.0/node_modules/@napplet/nap/dist/intent/index.js';
-import type { Nip5aManifestOptions } from '../../node_modules/.pnpm/@napplet+vite-plugin@0.15.0_typescript@5.9.3_vite@6.4.2_jiti@2.6.1_yaml@2.8.3_/node_modules/@napplet/vite-plugin/dist/index.js';
+import type { Nip5aManifestOptions } from '../../node_modules/.pnpm/@napplet+vite-plugin@0.16.2_typescript@5.9.3_vite@6.4.2_jiti@2.6.1_yaml@2.8.3_/node_modules/@napplet/vite-plugin/dist/index.js';
 
 const ROOT = process.cwd();
 const NAP_INTENT_REF = '5ac0490461ca6fec2f0d2e45b4835cf9bc08de24';
@@ -23,13 +28,16 @@ const RESOURCE_SOURCE_REF = 'bfaa2428503d1e9d7fa4677998500e6a0b188b28';
 const RESOURCE_SOURCE_MERGE_REF = '19e0029b228127769a0ebdcf0b6b2f30293bd284';
 const RESOURCE_RELEASE_REF = 'de1cb7ebb94c4acb76e5671babcf077247170af1';
 const RESOURCE_PUBLISH_REF = 'b007587afbefb0ce5592825d6ec1fc5b026c7b08';
+// NIP-5D presentation media and source pins: napplet/web#272 source and Version Packages #273 release.
+const MEDIA_SOURCE_REF = 'ef915243a2e7724c0cbeaf8b401116afa239d201';
+const MEDIA_RELEASE_REF = 'f6839146afda77944d12ecdc371630905c9474f6';
 
 const PACKAGE_MATRIX = {
   '@napplet/core': ['0.32.0', 'packages/core'],
   '@napplet/nap': ['0.32.0', 'packages/nap'],
   '@napplet/shim': ['0.30.0', 'packages/shim'],
   '@napplet/sdk': ['0.28.0', 'packages/sdk'],
-  '@napplet/vite-plugin': ['0.15.0', 'packages/vite-plugin'],
+  '@napplet/vite-plugin': ['0.16.2', 'packages/vite-plugin'],
 } as const;
 
 const REQUEST = {
@@ -98,7 +106,7 @@ describe('published Napplet convention contract', () => {
       importInstalled('@napplet/nap', '0.32.0', 'dist/intent/index.js'),
       importInstalled('@napplet/nap', '0.32.0', 'dist/resource/index.js'),
       importInstalled('@napplet/sdk', '0.28.0', 'dist/index.js'),
-      importInstalled('@napplet/vite-plugin', '0.15.0', 'dist/index.js'),
+      importInstalled('@napplet/vite-plugin', '0.16.2', 'dist/index.js'),
     ]);
 
     expect(REQUEST).toMatchObject({ convention: 'napplet:profile/open' });
@@ -215,11 +223,85 @@ describe('published Napplet convention contract', () => {
 
   it('requires the released structured invoke result and accepts orthogonal role/convention metadata', () => {
     const intentTypes = packageText('@napplet/nap', '0.32.0', 'dist/intent/types.d.ts');
-    const viteDistribution = packageText('@napplet/vite-plugin', '0.15.0', 'dist/index.js');
+    const viteDistribution = packageText('@napplet/vite-plugin', '0.16.2', 'dist/index.js');
 
     expect(interfaceBody(intentTypes, 'IntentInvokeResultMessage')).toContain('result: IntentResult;');
     expect(viteDistribution).toContain('archetype convention must be a queryless napplet:<archetype>/<intent> identity');
     expect(viteDistribution).not.toContain('slug !== conventionMatch[1]');
     expect(viteDistribution).not.toContain('slug !== conventionMatch[1].trim()');
+  });
+});
+
+// Real container headers so the published writer's format sniffing runs on the same
+// bytes the Kehto reader later verifies: 1x1 PNG and an EBML/webm DocType header.
+const PNG_1X1 = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='), (c) => c.charCodeAt(0));
+const WEBM_HEADER = new Uint8Array([0x1a, 0x45, 0xdf, 0xa3, 0x9f, 0x42, 0x86, 0x81, 0x01, 0x42, 0xf7, 0x81, 0x01, 0x42, 0x82, 0x84, 0x77, 0x65, 0x62, 0x6d, 0x42, 0x87, 0x81, 0x02]);
+
+function sha256(bytes: Uint8Array): string {
+  return createHash('sha256').update(bytes).digest('hex');
+}
+
+describe('published NIP-5D writer media and source pins', () => {
+  it('records the upstream source and release refs for the presentation media chase', () => {
+    expect([MEDIA_SOURCE_REF, MEDIA_RELEASE_REF]).toEqual([
+      'ef915243a2e7724c0cbeaf8b401116afa239d201',
+      'f6839146afda77944d12ecdc371630905c9474f6',
+    ]);
+  });
+
+  it('round-trips the released writer tags through playground final-byte signing into the Kehto reader', async () => {
+    const vite = await importInstalled('@napplet/vite-plugin', '0.16.2', 'dist/index.js');
+    const resolvePresentationMedia = vite.resolvePresentationMedia as (
+      options: Pick<Nip5aManifestOptions, 'screenshots' | 'preview'>,
+      warn: (message: string) => void,
+    ) => { tags: string[][]; blobs: unknown[] };
+    const warnings: string[] = [];
+    const { tags: mediaTags } = resolvePresentationMedia(
+      {
+        screenshots: [{ data: PNG_1X1, alt: 'Notes list' }],
+        preview: { data: WEBM_HEADER, dim: '960x600', duration: 8 },
+      },
+      (message) => warnings.push(message),
+    );
+    expect(mediaTags.map((tag) => tag[0])).toEqual(['screenshot', 'preview']);
+
+    const sourceTags = [
+      ['source', 'https://github.com/kehto/web'],
+      ['source-commit', 'b'.repeat(40)],
+      ['source-archive', 'https://example.com/kehto-web.tar.gz', 'c'.repeat(64), 'application/gzip'],
+    ];
+    const dir = mkdtempSync(join(tmpdir(), 'kehto-published-writer-media-'));
+    try {
+      writeFileSync(
+        join(dir, '.nip5a-manifest.json'),
+        JSON.stringify({ content: 'Published writer fixture', tags: [['d', 'media-demo'], ['R', 'relay'], ...sourceTags, ...mediaTags] }),
+      );
+      const html = '<!doctype html><title>Media demo</title>';
+      recomputeManifest(dir, html, []);
+      const event = JSON.parse(readFileSync(join(dir, '.nip5a-manifest.json'), 'utf8')) as Parameters<typeof verifyEvent>[0];
+      expect(verifyEvent(event)).toBe(true);
+      expect(event.tags.filter((tag) => ['source', 'source-commit', 'source-archive', 'screenshot', 'preview'].includes(tag[0]))).toEqual([
+        ...sourceTags,
+        ...mediaTags,
+      ]);
+
+      const manifest = parseNappletManifest(event);
+      expect(manifest.artifactHash).toBe(sha256(new TextEncoder().encode(html)));
+      expect(manifest.source).toBe('https://github.com/kehto/web');
+      expect(manifest.sourceCommit).toBe('b'.repeat(40));
+      expect(manifest.sourceArchive).toEqual({
+        url: 'https://example.com/kehto-web.tar.gz',
+        sha256: 'c'.repeat(64),
+        mimeType: 'application/gzip',
+      });
+      expect(manifest.screenshots).toEqual([
+        { sha256: sha256(PNG_1X1), mimeType: 'image/png', dim: { width: 1, height: 1 }, size: PNG_1X1.length, alt: 'Notes list' },
+      ]);
+      expect(manifest.preview).toEqual({
+        sha256: sha256(WEBM_HEADER), mimeType: 'video/webm', dim: { width: 960, height: 600 }, size: WEBM_HEADER.length, duration: 8,
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

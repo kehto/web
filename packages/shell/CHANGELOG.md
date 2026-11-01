@@ -1,5 +1,53 @@
 # @kehto/shell
 
+## 0.26.1
+
+### Patch Changes
+
+- f5c3ee8: Widen the `@napplet/*` peer ranges so the `llm` domain installs without peer conflicts: `@napplet/core` now accepts `>=0.32.0 <0.37.0` and `@napplet/nap` accepts `>=0.32.0 <0.36.0`. The `llm` subpath first ships in `@napplet/nap@0.35.0`, and `@napplet/nap@0.35.1` requires `@napplet/core@^0.36.0`. The old `<0.35.0` cap made npm fail with ERESOLVE and made pnpm print unmet-peer warnings (kehto/web#364).
+- Updated dependencies [f5c3ee8]
+  - @kehto/acl@0.20.1
+  - @kehto/runtime@0.27.1
+
+## 0.26.0
+
+### Minor Changes
+
+- fcb5bc9: Advertise the NAP-LLM `llm` domain (napplet/naps PR #134 at `3e10939`) when a host registers an `llm` service and inject `window.napplet.llm` (`select`, `describe`, `generate` with `requestId`, `signal` and `onDelta`, `cancel`) with typed `{ code, message }` failures. Adds `ShellAdapter.llm` (`isAvailable`, optional `isConfigured`) and `getShellDomainState(hooks, domain)` returning `supported`, `unconfigured` or `disabled` for host UIs.
+
+### Patch Changes
+
+- Updated dependencies [fcb5bc9]
+- Updated dependencies [fcb5bc9]
+  - @kehto/acl@0.20.0
+  - @kehto/runtime@0.27.0
+
+## 0.25.0
+
+### Minor Changes
+
+- a1a50d7: Implement NAP-MEDIA shell-owned audio/video and live MP3/AAC radio through host resource policy,
+  with a shared player in Paja and the playground. Bind sessions to their endpoint,
+  validate controls, retire output on destruction or revoked access, and retain
+  terminal notifications in the protected injected API. Add canonical command-object
+  callbacks and command/onEnded operations; retain warned legacy sendCommand and
+  two-argument callbacks. Unary legacy callbacks must migrate to command objects.
+  Use a playable one-second silent PCM clip when priming browser OS media controls.
+
+### Patch Changes
+
+- Updated dependencies [a1a50d7]
+  - @kehto/runtime@0.26.1
+
+## 0.24.5
+
+### Patch Changes
+
+- a1b3668: Generate UUID v4 identifiers with `crypto.getRandomValues` when a browser omits
+  `crypto.randomUUID`, including non-localhost HTTP origins. Apply the same helper
+  to event injection, cache queries, and source-session registration. Preserve the
+  native method when available and fail explicitly if secure randomness is absent.
+
 ## 0.24.4
 
 ### Patch Changes

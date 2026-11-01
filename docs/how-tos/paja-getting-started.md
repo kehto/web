@@ -68,6 +68,8 @@ advertises the changed support surface.
 
 `gamepad` adds host-owned controller snapshots. Keep keyboard or pointer controls available and ignore gameplay transitions while `focused` is false. See [GAMEPAD hosting](/gamepad).
 
+`llm` adds user-selected language model inference. Call `select()` on a user action, keep a non-model fallback, and expect `unsupported` until the user adds a connection in Paja's **Language models** panel (the Interfaces toggle shows `⚠ llm` meanwhile). Every `generate()` asks the user for consent first. See [Language models](/llm).
+
 ## 5. Tune ACL
 
 Use **ACL** to grant or revoke runtime capabilities such as `state:write`,

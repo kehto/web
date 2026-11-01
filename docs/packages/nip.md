@@ -20,7 +20,7 @@ pnpm add @kehto/nip nostr-tools
 | Field | Value |
 |-------|-------|
 | Source | `packages/nip/package.json`, `packages/nip/src/index.ts` |
-| Version | `0.7.0` |
+| Version | `0.8.0` |
 | Runtime entry | `./dist/index.js` |
 | Types entry | `./dist/index.d.ts` |
 | Side effects | `false` |
@@ -36,7 +36,7 @@ pnpm add @kehto/nip nostr-tools
 | Subpath | NIP | Exports |
 |---------|-----|---------|
 | `@kehto/nip/5a` | NIP-5A aggregate verification | `computeAggregateHash`, `verifyAggregate`, `pathEntriesFromTags`, `aggregateTagValue` |
-| `@kehto/nip/5d` | NIP-5D napplet manifest resolution | `resolveNapplet`, `parseNappletManifest`, `getNappletCatalogId`, `fetchBlob`, `verifyManifestSignature`, `verifyBlobHash`, `openNappletArtifactCache`, `CacheStorageNappletArtifactCache` |
+| `@kehto/nip/5d` | NIP-5D napplet manifest resolution | `resolveNapplet`, `parseNappletManifest`, `getNappletCatalogId`, `fetchBlob`, `verifyManifestSignature`, `verifyBlobHash`, `parseSourceMetadata`, `isSourceLocation`, `parsePresentationMedia`, `sniffPresentationMediaFormat`, `verifyPresentationMediaBytes`, `openNappletArtifactCache`, `CacheStorageNappletArtifactCache` |
 | `@kehto/nip/51` | NIP-51 lists & sets | `parseList`, `getTagValues`, `decryptPrivateItems`, `isListKind`, `isSetKind`, `listKindName`, `LIST_KINDS`, `SET_KINDS` |
 | `@kehto/nip/65` | NIP-65 relay lists | `parseNip65RelayList`, `selectWriteRelays`, `selectReadRelays`, `createNip65Registry` (outbox/inbox resolution) |
 | `@kehto/nip/66` | NIP-66 relay discovery | `createNip66Aggregator`, `Nip66RelayPool`, `Nip66Filter`, `Nip66AggregatorOptions` |

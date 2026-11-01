@@ -61,14 +61,15 @@ warning, when the target would block the sandboxed frame.
 
 Every drawer section is a flush, independent native accordion: **Pointer** (in
 runtime-pointer mode), **Interfaces**, **ACL**, **Signer**, **Resource servers**,
-**Messages**, then **Events** last. Headers support Enter/Space, visible keyboard focus and
+**Language models**, **Messages**, then **Events** last. Headers support Enter/Space, visible keyboard focus and
 state chevrons; bodies keep their padding and live controls when hidden. Sections
 start expanded unless a validated origin-local boolean preference says otherwise.
 The collapsed map uses `kehto:paja:sidebar-sections:v1`, separately from whole-drawer
 visibility and resource server values. Storage failures leave session-only toggles
 usable; collapsing never reloads the running app or discards unsaved drafts.
 
-The console shows supported interfaces with per-domain injection toggles,
+The console shows supported interfaces with per-domain injection toggles
+(green when ready, yellow `⚠` when advertised but unconfigured, red when disabled),
 runtime ACL controls, signer controls, and a filterable message log with visible
 error details. It starts expanded and collapses to the left with the chevron
 button in the top bar; the same button brings the whole panel back. The toolbar
@@ -83,21 +84,32 @@ available, can connect to a bunker/NIP-46 URI, and only uses the generated local
 development signer when the Dev signer button is selected. Sign, publish, DM
 send, filesystem picker, Blossom upload, and external-link requests use one serialized in-page
 confirmation dialog. Deny has initial focus and Escape denies. A napplet-scoped
-sign request defaults to one-time approval, with explicit options to remember
-that event kind or trust every kind from the napplet identity and target. The trust
-choice carries a visible warning. Remembered signing authority is keyed by the
-active signer pubkey, host-owned napplet d-tag and aggregate hash, and the Paja
-target boundary. Runtime pointers are isolated by verified artifact hash;
-direct development targets are isolated by exact target URL, and their trust
-survives code reloads at that URL. Changing the signer, identity, artifact, or
-target asks again. Missing source identity or a nonnumeric kind remains
-one-shot, denials are never remembered, and the signer controls can revoke
-every remembered approval. If durable deletion fails, Paja keeps the approval
-listed and logs the failure instead of claiming revocation. A full Paja host
-reload creates a new ephemeral Dev signer and therefore asks again; a stable
-NIP-07 or NIP-46 account can reuse its saved choice. Publish and other operation
-confirmations continue to prompt independently. This is Paja runtime policy under draft
-[NAP-RELAY PR #2 at `0be8abce18beb46ca37bd4ddd042f58d30b4eedc`](https://github.com/napplet/naps/pull/2), not
+sign or publish request defaults to one-time approval. The modal can remember
+one event kind, all events for the current action, or **all signing and publishing
+from this napplet version**. Signing-only permission never implies publication;
+the combined choice explicitly grants both. The dialog shows the napplet,
+artifact/version, source scope and signer, with a warning about future effects.
+Grants bind the active account to the host's verified manifest identity (including
+publisher) and artifact hash. Signed versions can reuse approval after reload;
+another manifest, version or account asks again. Local single-file targets use
+their content hash in a separate local scope. Direct development URLs are mutable,
+so approvals last only for the current document/frame load and must be renewed
+after reload; HMR can still change that development session's running code.
+CVM without a user signer uses a separate, document-scoped host-generated
+principal; its approvals never transfer to a user account or another host session.
+Otherwise, unknown identity/account/kind remains one-shot. Denials are never remembered.
+Signer controls revoke every remembered signing/publication approval; failed
+durable deletion is reported instead of claiming revocation. Missing browser
+storage makes new choices memory-only. An ephemeral Dev account changes on a
+full host reload and therefore asks again. Older signing-only records are retained
+without gaining publication and emit `KEHTO-PAJA-SIGNER-CONSENT-V1` once per host
+module lifetime; current records stay quiet. Removing a window or changing the
+signer denies pending signing/publication. Link requests always use the modal,
+and the external browser handoff runs directly from its approval click with
+`noopener,noreferrer`. Other operation permissions remain separate.
+This is Paja host policy under [NAP-RELAY PR #2 at `9f30b350`](https://github.com/napplet/naps/blob/9f30b3505335a52c574ff570576687d6467021ff/naps/NAP-RELAY.md),
+[NAP-OUTBOX PR #32 at `8865f73d`](https://github.com/napplet/naps/blob/8865f73d52a4864afee145f28d26520476273927/naps/NAP-OUTBOX.md)
+and [NAP-LINK PR #53 at `50a2cd45`](https://github.com/napplet/naps/blob/50a2cd45e76f06e87b87e93842badf4c61f17bde/naps/NAP-LINK.md), rather than
 a Kehto kernel default. Upload consent identifies the requesting napplet, file, MIME type,
 size, selected server, and durable public effect before bytes leave the browser.
 A denial or a live publish with no accepting relay returns a canonical failure
@@ -148,11 +160,26 @@ The focused host regression runs in Chromium and Firefox after `pnpm build`:
 `pnpm exec playwright install firefox`, then
 `pnpm exec playwright test --config playwright.paja-fs.config.ts`.
 
+**Language models** configures draft [NAP-LLM](https://github.com/napplet/naps/pull/134)
+connections: pick a provider preset (OpenAI, Anthropic, Google Gemini, OpenRouter,
+Groq, Mistral, DeepSeek, xAI, Together, Fireworks, Perplexity, Azure OpenAI, or local
+Ollama, LM Studio, llama.cpp and vLLM servers), enter the model and an optional API
+key, and choose whether to remember the key. Remembered keys are encrypted with
+AES-GCM under a PBKDF2-SHA-256 key derived from a vault password you create (at
+least 12 characters); otherwise the key lasts for the page session only. Keys are
+sent solely to the connection's base URL (HTTPS, or HTTP on loopback) and never to
+napplets or the message log. The `llm` interface is advertised whenever the panel is
+present; it shows `⚠ llm` until a connection exists. A napplet's `select()` then
+offers to open the panel and answers `unsupported` until you add one; with
+connections, a chooser lists the compatible ones. Every `generate()` shows a consent
+dialog naming the napplet, route, model and disclosed counts before any prompt
+text leaves the browser. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
+
 Other domains are equally capability-bound. Relay, outbox, and count require
 live relays; count uses NIP-45 `COUNT` without downloading events. Storage
 requires writable `localStorage`; the memory setting is an unadvertised fixture.
-Keys requires a document listener, media requires the browser Media Session
-API, notifications require Paja's host renderer, links require browser
+Keys requires a document listener, media requires a browser document and uses audio/video elements (OS Media Session
+integration is optional), notifications require Paja's host renderer, links require browser
 navigation, and intent requires the installed-catalog/runtime-tab host
 controller. DM also requires the Dev signer and live relays; FS requires a
 successful OPFS probe, while picker calls additionally require the corresponding
@@ -567,6 +594,10 @@ remain a documented upstream spec gap; no host sender identity is invented.
 
 This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja and the playground register one host reader and deny native gamepad/HID/USB paths before frame execution. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, window destruction, and service removal release polling. Non-browser or denied native readers report the proposal's unavailable reasons. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
 
+## LLM integration
+
+This non-normative guidance defers to the living [NAP-LLM](https://github.com/napplet/naps/pull/134) (checked at `3e10939`). Services export `createLlmService`, `LlmServiceError`, the provider mappers and `LLM_PROVIDER_PRESETS`; shell exports `getShellDomainState` and the `LlmHooks` adapter field; acl exports `llm:generate`. The runtime routes `llm.*` to one registered service and answers every sanctioned request with exactly one `llm.<op>.result`, shaping missing-service and ACL failures as `{ code: 'unsupported' }`. Hosts implement `LlmConnectionHost`; the service enforces schema, handle ownership, a per-window live-handle bound (`maxHandlesPerWindow`), consent before submission, duplicate ids, cancellation and deadline races, ordered deltas and safe errors, and passes `select`/`authorize` a `{ signal }` that withdraws stale prompts. `createHttpLlmProvider({ stream: true })` streams provider output into `llm.delta`. Advertisement stays binary on the wire while hosts report a third `unconfigured` state until the user adds a connection. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
+
 ## NIP-5D runtime pointers
 
 Paja MUST load all three NIP-5D manifest kinds: root `15129`, named `35129`, and snapshot `5129`. Use an `naddr` with an empty identifier for the latest root, an `naddr` with the literal `d` identifier for the latest named napplet, or a `nevent` to pin a signed event of any of the three kinds. Snapshots require `nevent` because they are immutable events without replaceable coordinates. All paths verify the signed manifest and artifact hash before injecting `srcdoc`. Distinct snapshots retain separate tabs and catalog identities even when their artifact bytes match.
@@ -574,3 +605,11 @@ Paja MUST load all three NIP-5D manifest kinds: root `15129`, named `35129`, and
 ## Controller diagnostics
 
 Paja shows a numbered controller icon directly beside the console arrow for each controller the browser detects. Each slot has its own color and input animation; hover for the controller model and activity state. Buttons and stick movement light up only that controller (stick movement below 0.12 is ignored). Quick taps retain the highlight briefly so they are easy to spot. Reduced-motion settings keep the activity highlight without animation. Disconnecting removes the icon. Browsers may require a button press before exposing a newly connected controller. These host diagnostics work without a napplet gamepad subscription and do not change focus-scoped input delivery.
+
+## Media player
+
+Paja provides shell-owned audio/video playback through its resource resolver and a
+collapsible player with transport, seek, volume, and close controls. It also
+streams live HTTPS MP3/AAC radio without awaiting EOF and displays napplet-owned
+sessions. See [Media playback](../../docs/media.md) for
+source support, lifecycle rules, and canonical API examples.

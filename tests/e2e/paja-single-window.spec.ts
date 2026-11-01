@@ -101,6 +101,7 @@ test('sidebar accordion preserves controls, frames, drawer preferences and flush
   const input = await page.locator('#paja-resource-servers-input').elementHandle();
   const initial = await page.evaluate(() => ({ srcdoc: document.querySelector('iframe')!.srcdoc, tabs: window.__KEHTO_PAJA__?.getState().tabs }));
   const resources = page.locator('[data-paja-section="resource-servers"]');
+  const llm = page.locator('[data-paja-section="llm"]');
   const messages = page.locator('[data-paja-section="messages"]');
   const events = page.locator('[data-paja-section="events"]');
   const acl = page.locator('[data-paja-section="acl"]');
@@ -110,6 +111,10 @@ test('sidebar accordion preserves controls, frames, drawer preferences and flush
   await expect.poll(() => resources.locator('summary').evaluate((element) => getComputedStyle(element).outlineStyle)).toBe('solid');
   await page.keyboard.press('Space');
   await expect(resources).not.toHaveAttribute('open');
+  await page.keyboard.press('Tab');
+  await expect(llm.locator('summary')).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(llm).not.toHaveAttribute('open');
   await page.keyboard.press('Tab');
   await expect(messages.locator('summary')).toBeFocused();
   await page.keyboard.press('Enter');
@@ -367,8 +372,7 @@ test('hosts one sandboxed target iframe and reinitializes it on reload', async (
   await expect(page.locator('.console')).toBeVisible();
   await expect(page.locator('#interface-toggles [data-interface-domain="identity"]')).toHaveAttribute('data-enabled', 'true');
   await expect(page.locator('#acl-controls [data-acl-capability="state:write"]')).toHaveAttribute('data-enabled', 'true');
-  await expect(page.locator('#signer-status')).toContainText('signing asks every time');
-  await expect(page.locator('#signer-status')).toContainText('publishing asks every time');
+  await expect(page.locator('#signer-status')).toContainText('signing and publishing ask every time');
   await expect(page.locator('iframe')).toHaveCount(1);
   await expect(page.locator('#napplet-frame')).toHaveAttribute('sandbox', 'allow-scripts');
   await expect(page.locator('#napplet-frame')).not.toHaveAttribute('sandbox', /allow-same-origin/);
@@ -699,7 +703,7 @@ test('remembers exact kind or napplet signer consent and exposes revocation', as
     const denyPublish = async (id: string): Promise<void> => {
       await expect(page.locator('#paja-confirmation-dialog')).toBeVisible();
       await expect(page.locator('#paja-confirmation-title')).toHaveText('Publish this Nostr event?');
-      await expect(page.locator('#paja-signer-consent')).toBeHidden();
+      await expect(page.locator('#paja-signer-consent')).toBeVisible();
       await page.locator('#paja-confirmation-deny').click();
       await expect.poll(() => readFixtureMessage(frame, 'relay.publish.result', id)).toMatchObject({
         ok: false,
@@ -715,7 +719,7 @@ test('remembers exact kind or napplet signer consent and exposes revocation', as
     await page.locator('#paja-signer-consent-kind').check();
     await page.locator('#paja-confirmation-approve').click();
     await denyPublish('remember-kind-1');
-    await expect(page.locator('#signer-status')).toContainText('1 remembered signing approval');
+    await expect(page.locator('#signer-status')).toContainText('1 remembered signing/publishing approval');
     await expect(page.locator('#signer-consent-clear')).toBeVisible();
 
     await sendPublish('remember-kind-2', 1);
@@ -723,11 +727,13 @@ test('remembers exact kind or napplet signer consent and exposes revocation', as
 
     await page.reload();
     await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
-    await expect(page.locator('#signer-status')).toContainText('1 remembered signing approval');
+    await expect(page.locator('#signer-status')).toContainText('1 remembered signing/publishing approval');
     await expect(page.locator('#signer-status')).toContainText('NIP-07 connected');
     await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
     await expect(frame.locator('#target-status')).toHaveText('shell-init received', { timeout: 15_000 });
     await sendPublish('remember-kind-after-reload', 1);
+    await expect(page.locator('#paja-confirmation-title')).toHaveText('Sign this Nostr event?');
+    await page.locator('#paja-confirmation-approve').click();
     await denyPublish('remember-kind-after-reload');
 
     await sendPublish('trust-napplet-1', 30_023);
@@ -741,7 +747,7 @@ test('remembers exact kind or napplet signer consent and exposes revocation', as
 
     await page.locator('#signer-consent-clear').click();
     await expect(page.locator('#signer-consent-clear')).toBeHidden();
-    await expect(page.locator('#signer-status')).toContainText('signing asks every time');
+    await expect(page.locator('#signer-status')).toContainText('signing and publishing ask every time');
     await sendPublish('after-revoke', 1);
     await expect(page.locator('#paja-confirmation-title')).toHaveText('Sign this Nostr event?');
     await page.locator('#paja-confirmation-deny').click();

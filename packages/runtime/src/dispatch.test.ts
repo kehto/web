@@ -1803,7 +1803,7 @@ describe('theme NAP dispatch (TH-01 + TH-04)', () => {
     expect((result as any).error).toBe('unsupported owner mode');
   });
 
-  it('fallback: media.session.create includes owner for napplet-owned sessions', () => {
+  it('fallback: media.session.create rejects napplet sessions without a registry', () => {
     const ctx2 = createMockRuntimeAdapter();
     const runtime2 = createRuntime(ctx2.hooks);
     runtime2.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
@@ -1819,7 +1819,8 @@ describe('theme NAP dispatch (TH-01 + TH-04)', () => {
     const result = findEnvelopeResponse(ctx2.sent, 'media.session.create.result');
     expect(result).toBeDefined();
     expect((result as any).id).toBe('media-napplet');
-    expect((result as any).sessionId).toBe('napplet-owned');
+    expect((result as any).sessionId).toBeUndefined();
+    expect((result as any).error).toBe('media service unavailable');
     expect((result as any).owner).toBe('napplet');
   });
 });

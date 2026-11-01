@@ -195,9 +195,10 @@ describe('@kehto/paja browser host runtime source guards', () => {
     // author-routed relay reads on its own.
     expect(adapterSource).toContain('getActivePubkey: () => getConnectedAccountPubkey(signerProvider),');
     expect(adapterSource).toContain('getUserPubkey: () => getRuntimePubkey(getSimulation, signerProvider),');
-    const runtimePubkey = adapterSource.slice(
-      adapterSource.indexOf('function getRuntimePubkey('),
-      adapterSource.indexOf('function getConnectedAccountPubkey('),
+    const operationSource = readFileSync(new URL('./browser-operation-scope.ts', import.meta.url), 'utf8');
+    const runtimePubkey = operationSource.slice(
+      operationSource.indexOf('function getRuntimePubkey('),
+      operationSource.indexOf('function createRuntimeSigner('),
     );
     expect(runtimePubkey.indexOf('signerProvider?.getPubkey()')).toBeLessThan(
       runtimePubkey.indexOf('getSimulation().identity.pubkey'),
@@ -248,12 +249,12 @@ describe('@kehto/paja browser host runtime source guards', () => {
     });
     expect(confirmRequest).toHaveBeenCalledWith(expect.objectContaining({
       action: 'sign',
-      signerContext: {
+      signerContext: expect.objectContaining({
         windowId: 'window-a',
-        runtimeScope: 'target-url:http://127.0.0.1:5173/',
+        runtimeScope: expect.stringMatching(/^target-url:http:\/\/127\.0\.0\.1:5173\/\|load:[a-f0-9]{32}:window-a$/),
         napplet: { dTag: 'napplet-window-a', aggregateHash: 'hash-window-a' },
         signerPubkey: PAJA_DEV_SIGNER_PUBKEY,
-      },
+      }),
     }));
   });
 

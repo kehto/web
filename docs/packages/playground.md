@@ -71,7 +71,7 @@ replacement, error, clear, and `pagehide`—never direct remote image URLs.
 
 `theme.get` supplies the current complete state and each eligible frame receives
 one automatic synchronized `theme.changed` after an update. There is no
-subscribe/unsubscribe protocol. Optional SHELL supplies environment information independently of domain routing; GAMEPAD supplies focus-scoped controller snapshots. See [Controller input](/gamepad).
+subscribe/unsubscribe protocol. Optional SHELL supplies environment information independently of domain routing; GAMEPAD supplies focus-scoped controller snapshots. See [Controller input](/gamepad). LLM is served by a local echo host (`playground-llm-host.ts`): one disclosed "Playground echo" connection, a browser confirm before each generation, and a deterministic echo result, so demos exercise draft [NAP-LLM](https://github.com/napplet/naps/pull/134) without provider credentials. See [Language models](/llm).
 
 Resource demo behavior targets draft NAP-RESOURCE at exact ref
 `9511232f69313aa7953d110e35d32cc28d506f66`. It uses the injected canonical

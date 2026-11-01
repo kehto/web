@@ -14,8 +14,10 @@ pnpm add @kehto/shell
 
 ## Published Napplet Compatibility
 
-`@kehto/shell` publishes against `@napplet/core` and `@napplet/nap`
-`>=0.32.0 <0.33.0`. The installed core 0.32.0 / nap 0.32.0 contracts follow
+Peers admit `@napplet/core` `>=0.32.0 <0.37.0` and `@napplet/nap`
+`>=0.32.0 <0.36.0`, so the nap 0.35.x line that ships the `llm` subpath (and the
+core 0.36.x line nap 0.35.1 requires) installs without peer conflicts; development
+and tests stay on the baseline 0.32.0 line. The installed core 0.32.0 / nap 0.32.0 contracts follow
 NAP-INTENT authority `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`, napplet/web#199
 source `3037200c932488f14f7f369b8583c39c9c16510a` / merge
 `b3f0007867eac109fa4917fac9c285d3b7cc6155`, and Version Packages #198 release
@@ -304,3 +306,23 @@ for outer URL encoding, review, routing, and verified launcher behavior.
 ## GAMEPAD integration
 
 This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja and the playground register one host reader and deny native gamepad/HID/USB paths before frame execution. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, window destruction, and service removal release polling. Non-browser or denied native readers report the proposal's unavailable reasons. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
+
+## LLM integration
+
+This non-normative guidance defers to the living [NAP-LLM](https://github.com/napplet/naps/pull/134) (checked at `3e10939`). Services export `createLlmService`, `LlmServiceError`, the provider mappers and `LLM_PROVIDER_PRESETS`; shell exports `getShellDomainState` and the `LlmHooks` adapter field; acl exports `llm:generate`. The runtime routes `llm.*` to one registered service and answers every sanctioned request with exactly one `llm.<op>.result`, shaping missing-service and ACL failures as `{ code: 'unsupported' }`. Hosts implement `LlmConnectionHost`; the service enforces schema, handle ownership, a per-window live-handle bound (`maxHandlesPerWindow`), consent before submission, duplicate ids, cancellation and deadline races, ordered deltas and safe errors, and passes `select`/`authorize` a `{ signal }` that withdraws stale prompts. `createHttpLlmProvider({ stream: true })` streams provider output into `llm.delta`. Advertisement stays binary on the wire while hosts report a third `unconfigured` state until the user adds a connection. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
+
+## UUID support on HTTP origins
+
+Shell event injection, cache queries, and source-session registration use native
+`crypto.randomUUID()` when available. On browsers that omit it (including
+non-localhost plain HTTP origins), the shell generates UUID v4 identifiers from
+16 `crypto.getRandomValues()` bytes. If both methods are unavailable, UUID
+creation throws an explicit capability error. This internal host UUID helper
+never falls back to weak randomness; other identifier generators are outside
+its scope. It does not provide secure-context APIs such as `crypto.subtle` on
+HTTP, so this change does not establish HTTP support for uploads or other domains.
+
+This is a supported platform capability choice, not a deprecated caller API.
+Both standard Web Crypto paths remain quiet. Source-bound identity and optional
+shell readiness are unchanged (NAP-SHELL at `napplet/naps`
+`1e1046bcadabbc552804f6d3354f565184f9fefb`).

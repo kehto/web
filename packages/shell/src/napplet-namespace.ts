@@ -968,36 +968,86 @@ function nappletNamespacePrelude(
   }
 
   function makeMedia(): Record<string, unknown> {
-    const on = (type: string, sessionId: string, callback: (msg: RuntimeMessage) => void) => {
-      const off = listen((event) => {
-        if (!isParentMessage(event)) return;
-        const msg = event.data as RuntimeMessage;
-        if (typeof msg === 'object' && msg !== null && msg.type === type && msg.sessionId === sessionId) callback(msg);
-      });
-      return subscriptionHandle(off);
+    type MediaCallback = (message: RuntimeMessage) => void;
+    const sessions = new Set<string>();
+    const ended = new Map<string, RuntimeMessage>();
+    const retained = new Map<string, Map<string, RuntimeMessage>>();
+    const callbacks = new Map<string, Map<string, Set<MediaCallback>>>();
+    const warnings = new Set<string>();
+    const warn = (name: string, replacement: string) => {
+      if (warnings.has(name)) return;
+      warnings.add(name);
+      console.warn(`[KEHTO-MEDIA-${name}] Deprecated media API; use ${replacement}. Warned once per endpoint.`);
     };
-    return {
+    listen(event => {
+      if (!isParentMessage(event)) return;
+      const msg = event.data as RuntimeMessage;
+      if (!msg || typeof msg !== 'object' || typeof msg.sessionId !== 'string') return;
+      const sessionId = msg.sessionId;
+      if (msg.type === 'media.session.create.result' && !msg.error) {
+        if (!ended.has(sessionId)) sessions.add(sessionId);
+        return;
+      }
+      if (!sessions.has(sessionId) || ended.has(sessionId)) return;
+      if (msg.type === 'media.session.ended') {
+        ended.set(sessionId, msg);
+        retained.delete(sessionId);
+        sessions.delete(sessionId);
+      } else if (['media.state', 'media.capabilities', 'media.controls'].includes(msg.type)) {
+        const cache = retained.get(sessionId) ?? new Map<string, RuntimeMessage>();
+        cache.set(msg.type, msg);
+        retained.set(sessionId, cache);
+      } else if (msg.type !== 'media.command') return;
+      const delivery = Array.from(callbacks.get(sessionId)?.get(msg.type) ?? []);
+      for (const callback of delivery) callback(msg);
+      if (ended.has(sessionId)) callbacks.delete(sessionId);
+    });
+    const on = (type: string, sessionId: string, callback: MediaCallback) => {
+      const terminal = ended.get(sessionId);
+      if (terminal) {
+        if (type === 'media.session.ended') callback(terminal);
+        return subscriptionHandle(() => {});
+      }
+      const byType = callbacks.get(sessionId) ?? new Map<string, Set<MediaCallback>>();
+      const handlers = byType.get(type) ?? new Set<MediaCallback>();
+      handlers.add(callback); byType.set(type, handlers); callbacks.set(sessionId, byType);
+      const cached = retained.get(sessionId)?.get(type);
+      if (cached) callback(cached);
+      return subscriptionHandle(() => { handlers.delete(callback); });
+    };
+    const command = (sessionId: string, value: unknown) => {
+      if (ended.has(sessionId)) return;
+      fire({ ...((value && typeof value === 'object') ? value as Record<string, unknown> : {}), type: 'media.command', sessionId });
+    };
+    return Object.freeze({
       createSession: (options: unknown) => request(
-        { type: 'media.session.create', ...((options && typeof options === 'object') ? options as Record<string, unknown> : {}) },
-        'media.session.create.result',
-        withoutEnvelope,
-        { rejectOnError: false },
+        { ...((options && typeof options === 'object') ? options as Record<string, unknown> : {}), type: 'media.session.create' },
+        'media.session.create.result', withoutEnvelope, { rejectOnError: false },
       ),
       updateSession: (sessionId: string, metadata: unknown) => fire({ type: 'media.session.update', sessionId, metadata }),
       destroySession: (sessionId: string) => fire({ type: 'media.session.destroy', sessionId }),
-      reportState: (sessionId: string, state: unknown) => fire({ type: 'media.state', sessionId, ...((state && typeof state === 'object') ? state as Record<string, unknown> : {}) }),
+      reportState: (sessionId: string, state: unknown) => fire({ ...((state && typeof state === 'object') ? state as Record<string, unknown> : {}), type: 'media.state', sessionId }),
       reportCapabilities: (sessionId: string, actions: unknown) => fire({ type: 'media.capabilities', sessionId, actions }),
-      sendCommand: (sessionId: string, action: string, value?: unknown) => fire({ type: 'media.command', sessionId, action, ...(value === undefined ? {} : { value }) }),
-      onCommand: (sessionId: string, callback: (action: unknown, value?: unknown) => void) => on('media.command', sessionId, (msg) => callback(msg.action, msg.value)),
-      onState: (sessionId: string, callback: (state: Record<string, unknown>) => void) => on('media.state', sessionId, (msg) => callback({
-        status: msg.status,
-        position: msg.position,
-        duration: msg.duration,
-        volume: msg.volume,
-      })),
-      onCapabilities: (sessionId: string, callback: (actions: unknown) => void) => on('media.capabilities', sessionId, (msg) => callback(msg.actions)),
-      onControls: (sessionId: string, callback: (controls: unknown) => void) => on('media.controls', sessionId, (msg) => callback(msg.controls)),
-    };
+      command,
+      sendCommand: (sessionId: string, action: string, value?: unknown) => {
+        warn('SEND-COMMAND', 'media.command(sessionId, { action, value })');
+        command(sessionId, { action, ...(value === undefined ? {} : { value }) });
+      },
+      onCommand: (sessionId: string, callback: (...args: unknown[]) => void) => {
+        const legacy = callback.length >= 2;
+        if (legacy) warn('COMMAND-CALLBACK', 'media.onCommand(sessionId, command => ...)');
+        return on('media.command', sessionId, msg => legacy
+          ? callback(msg.action, msg.value)
+          : callback({ action: msg.action, ...(msg.value === undefined ? {} : { value: msg.value }), ...(msg.reason === undefined ? {} : { reason: msg.reason }) }));
+      },
+      onState: (sessionId: string, callback: (state: Record<string, unknown>) => void) => on('media.state', sessionId, msg => {
+        const { type: _type, sessionId: _sessionId, ...state } = msg;
+        callback(state);
+      }),
+      onCapabilities: (sessionId: string, callback: (actions: unknown) => void) => on('media.capabilities', sessionId, msg => callback(msg.actions)),
+      onControls: (sessionId: string, callback: (controls: unknown) => void) => on('media.controls', sessionId, msg => callback(msg.controls)),
+      onEnded: (sessionId: string, callback: (ended: unknown) => void) => on('media.session.ended', sessionId, msg => callback({ sessionId: msg.sessionId, reason: msg.reason })),
+    });
   }
 
   function makeNotify(): Record<string, unknown> {
@@ -1660,6 +1710,59 @@ function nappletNamespacePrelude(
     };
   }
 
+  // NAP-LLM (napplet/naps PR #134): results carry `{ code, message }` errors on
+  // the `.result` wire, deltas are id-less pushes keyed by requestId, and no
+  // local timeout applies because selection and consent wait on the user while
+  // the runtime owns the generation deadline.
+  function makeLlm(): Record<string, unknown> {
+    type Failure = { code: string; message: string };
+    type GenerateOptions = { signal?: AbortSignal; onDelta?: (delta: { requestId: string; sequence: number; text: string }) => void };
+    const asFailure = (value: unknown): Failure | null => {
+      if (!value || typeof value !== 'object') return null;
+      const { code, message } = value as Record<string, unknown>;
+      return typeof code === 'string' && typeof message === 'string' ? { code, message } : null;
+    };
+    const failure = (entry: Failure): Error => Object.assign(new Error(entry.message), { code: entry.code });
+    function call<T>(type: string, payload: Record<string, unknown>, field: string, options: GenerateOptions = {}): Promise<T> & { readonly requestId: string } {
+      const requestId = id();
+      const promise = new Promise<T>((resolve, reject) => {
+        let nextSequence = 0;
+        const onAbort = (): void => { post({ type: 'llm.cancel', id: id(), requestId }); };
+        const off = listen((event) => {
+          if (!isParentMessage(event)) return;
+          const msg = event.data as RuntimeMessage;
+          if (typeof msg !== 'object' || msg === null) return;
+          if (type === 'llm.generate' && msg.type === 'llm.delta' && msg.requestId === requestId) {
+            if (msg.sequence !== nextSequence || typeof msg.text !== 'string') return;
+            nextSequence += 1;
+            options.onDelta?.({ requestId, sequence: msg.sequence, text: msg.text });
+            return;
+          }
+          if (msg.type !== `${type}.result` || msg.id !== requestId) return;
+          off();
+          options.signal?.removeEventListener('abort', onAbort);
+          const error = asFailure(msg.error);
+          if (error) { reject(failure(error)); return; }
+          if (!Object.prototype.hasOwnProperty.call(msg, field)) {
+            reject(failure({ code: 'provider-error', message: `${type}.result missing ${field}` }));
+            return;
+          }
+          resolve(msg[field] as T);
+        });
+        post({ type, id: requestId, ...payload });
+        if (options.signal?.aborted) onAbort();
+        else options.signal?.addEventListener('abort', onAbort, { once: true });
+      });
+      return Object.assign(promise, { requestId });
+    }
+    return {
+      select: (requirements?: unknown) => call('llm.select', requirements === undefined ? {} : { requirements }, 'model'),
+      describe: (handle: unknown) => call('llm.describe', { handle }, 'model'),
+      generate: (request: unknown, options?: GenerateOptions) => call('llm.generate', { request }, 'result', options ?? {}),
+      cancel: (requestId: unknown) => call('llm.cancel', { requestId }, 'cancelled'),
+    };
+  }
+
   const intentDelivery = allowed.has('intent') ? makeIntentDelivery() : undefined;
   const shell = allowed.has('shell') ? makeShell() : undefined;
   let gamepad: Record<string, unknown> | undefined;
@@ -1691,8 +1794,10 @@ function nappletNamespacePrelude(
     return intent;
   }
 
+  let media: Record<string, unknown> | undefined;
+
   function isProtectedDomain(domain: string): boolean {
-    return domain === 'gamepad' || domain === 'shell'
+    return domain === 'media' || domain === 'gamepad' || domain === 'shell'
       || domain === 'inc'
       || domain === 'identity'
       || domain === 'theme'
@@ -1700,6 +1805,7 @@ function nappletNamespacePrelude(
   }
 
   function makeDomain(domain: string, existing: unknown): unknown {
+    if (domain === 'media') return media ??= makeMedia();
     if (domain === 'gamepad') return gamepad ??= makeGamepad();
     if (domain === 'shell') return shell;
     if (domain === 'inc') return makeProtectedInc(existing);
@@ -1711,7 +1817,6 @@ function nappletNamespacePrelude(
       case 'relay': return makeRelay();
       case 'storage': return makeStorage();
       case 'keys': return makeKeys();
-      case 'media': return makeMedia();
       case 'notify': return makeNotify();
       case 'config': return makeConfig();
       case 'resource': return makeResource();
@@ -1727,6 +1832,7 @@ function nappletNamespacePrelude(
       case 'serial': return makeSerial();
       case 'dm': return makeDm();
       case 'fs': return makeFs();
+      case 'llm': return makeLlm();
       default: return {};
     }
   }

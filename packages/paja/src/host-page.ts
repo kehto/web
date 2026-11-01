@@ -117,6 +117,17 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .toggle { height: 24px; padding: 0 8px; color: var(--muted); }
       .toggle[data-enabled="true"] { color: var(--text); border-color: #5f724f; background: #24301f; }
       .toggle[data-enabled="false"] { color: #8d9187; border-color: #453536; background: #241d1d; }
+      .toggle[data-state="unconfigured"] { color: #e8d27a; border-color: #7a6a2a; background: #2d2814; }
+      .llm-form { display: grid; gap: 6px; min-width: 0; }
+      .llm-form label { display: grid; gap: 2px; color: var(--muted); font-size: 11px; }
+      .llm-form label.llm-check { grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 6px; }
+      .llm-form input:not([type="checkbox"]), .llm-form select { width: 100%; min-width: 0; padding: 0 8px; height: 24px; }
+      .llm-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+      .llm-connections { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+      .llm-connection { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 4px; background: #0b0d0b; font-size: 11px; }
+      .llm-connection-label { min-width: 0; overflow-wrap: anywhere; color: var(--text); }
+      .llm-select-dialog select, .llm-vault-dialog input { width: 100%; min-width: 0; padding: 4px 8px; }
+      .llm-vault-dialog .config-error:empty { display: none; }
       .signer { color: var(--muted); word-break: break-all; font-size: 12px; }
       .signer-controls { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; gap: 6px; }
       .signer-controls button[data-active="true"] { border-color: var(--accent); color: var(--text); background: #2a2a1d; }
@@ -180,10 +191,12 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
       .confirmation-dialog { width: min(520px, calc(100% - 48px)); max-width: none; border: 0; padding: 0; background: transparent; color: var(--text); }
       .confirmation-dialog::backdrop { background: rgb(0 0 0 / 0.68); }
-      .signer-consent { margin: 0; padding: 10px; border: 1px solid var(--line); border-radius: 4px; display: grid; gap: 8px; }
+      .llm-select-dialog, .llm-vault-dialog { width: min(520px, calc(100% - 48px)); max-width: none; border: 0; padding: 0; background: transparent; color: var(--text); }
+      .llm-select-dialog::backdrop, .llm-vault-dialog::backdrop { background: rgb(0 0 0 / 0.68); }
+      .signer-consent { min-width: 0; margin: 0; padding: 10px; border: 1px solid var(--line); border-radius: 4px; display: grid; gap: 8px; }
       .signer-consent[hidden] { display: none; }
       .signer-consent legend { color: var(--accent); padding: 0 5px; }
-      .signer-consent label { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 8px; }
+      .signer-consent label { white-space: normal; overflow-wrap: anywhere; min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 8px; }
       .signer-consent input { margin-top: 3px; }
       .signer-consent-trust { padding: 8px; border: 1px solid #9a5d2f; border-radius: 4px; background: #332014; }
       .signer-consent-warning { display: block; margin-top: 4px; color: #ffbd80; font-weight: 700; }
@@ -279,6 +292,26 @@ export function renderPajaHtml(config: PajaHostConfig): string {
           <div id="paja-resource-servers-status" role="status" aria-live="polite"></div>
         </form>
         </div></details>
+        <details class="section" id="paja-section-llm" data-paja-section="llm" open>
+          <summary class="section-title">Language models<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
+          <ul class="llm-connections" id="paja-llm-connections" aria-label="Configured model connections"></ul>
+          <form class="llm-form" id="paja-llm-form" autocomplete="off">
+            <label>Provider<select id="paja-llm-preset" aria-label="Provider preset"></select></label>
+            <label>Name<input id="paja-llm-name" type="text" required maxlength="64" spellcheck="false"></label>
+            <label>API base URL<input id="paja-llm-base-url" type="url" required spellcheck="false" placeholder="API root; presets fill this in"></label>
+            <label>Model<input id="paja-llm-model" type="text" required maxlength="200" spellcheck="false" list="paja-llm-model-examples"><datalist id="paja-llm-model-examples"></datalist></label>
+            <label>API key<input id="paja-llm-credential" type="password" autocomplete="off" spellcheck="false"></label>
+            <label class="llm-check"><input id="paja-llm-remember" type="checkbox"><span>Remember the key, encrypted with a vault password</span></label>
+            <label class="llm-check"><input id="paja-llm-images" type="checkbox"><span>Accepts image input</span></label>
+            <label class="llm-check"><input id="paja-llm-json" type="checkbox" checked><span>Supports JSON-object output</span></label>
+            <div class="llm-actions">
+              <button type="submit" id="paja-llm-save">Add connection</button>
+              <button type="button" id="paja-llm-vault-lock" hidden>Lock vault</button>
+            </div>
+            <p class="hint" id="paja-llm-status" role="status" aria-live="polite"></p>
+          </form>
+          <p class="hint">Keys go only to the connection's base URL and never to napplets. Every generation asks for your consent first (draft NAP-LLM).</p>
+        </div></details>
         <details class="section" id="paja-section-messages" data-paja-section="messages" open>
           <summary class="section-title">Messages<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
           <div class="log-tools">
@@ -303,6 +336,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
     <div class="paja-notification-badges" id="paja-notification-badges" aria-label="Napplet notification badges"></div>
     <section class="paja-notification-center" id="paja-notification-center" aria-label="Napplet notifications" aria-live="polite"></section>
     ${renderConfirmationDialog()}
+    ${renderLlmDialogs()}
     ${renderConfigDialog()}
     ${renderIntentLinkDialog()}
     ${renderDuplicateDialog()}
@@ -326,25 +360,57 @@ function renderConfirmationDialog(): string {
         <div class="dialog-copy" id="paja-confirmation-summary"></div>
         <pre class="dialog-details" id="paja-confirmation-details"></pre>
         <fieldset class="signer-consent" id="paja-signer-consent" hidden>
-          <legend>Remember this signing choice</legend>
+          <legend id="paja-signer-consent-legend">Remember this signing choice</legend>
           <label>
             <input type="radio" name="paja-signer-consent" id="paja-signer-consent-once" value="once" checked>
-            <span>Sign this event only</span>
+            <span id="paja-signer-consent-once-label">Sign this event only</span>
           </label>
           <label>
             <input type="radio" name="paja-signer-consent" id="paja-signer-consent-kind" value="kind">
-            <span>Always sign kind <code id="paja-signer-consent-kind-value"></code> for this napplet identity and target</span>
+            <span><span id="paja-signer-consent-kind-verb">Always sign kind</span> <code id="paja-signer-consent-kind-value"></code> for this napplet version</span>
           </label>
           <label class="signer-consent-trust">
             <input type="radio" name="paja-signer-consent" id="paja-signer-consent-napplet" value="napplet" aria-describedby="paja-signer-consent-warning">
-            <span>Trust <strong id="paja-signer-consent-napplet-value"></strong> for every event kind at this target
-              <span class="signer-consent-warning" id="paja-signer-consent-warning">Warning: Paja will sign any event this napplet identity requests without asking again. Direct-target trust survives code reloads at the same URL.</span>
+            <span><span id="paja-signer-consent-napplet-verb">Allow all signing from</span> <strong id="paja-signer-consent-napplet-value"></strong> at this version
+              <span class="signer-consent-warning" id="paja-signer-consent-warning">Paja will sign any event this napplet version requests without asking again. A different version or signer needs new approval.</span>
+            </span>
+          </label>
+          <label class="signer-consent-trust">
+            <input type="radio" name="paja-signer-consent" id="paja-signer-consent-version" value="version">
+            <span>Allow all signing and publishing from this napplet version
+              <span class="signer-consent-warning">Future events can be signed and sent to relays without another prompt. Other permissions still require approval.</span>
             </span>
           </label>
         </fieldset>
         <div class="dialog-actions">
           <button type="button" id="paja-confirmation-deny">Deny</button>
           <button type="button" id="paja-confirmation-approve">Approve</button>
+        </div>
+      </div>
+    </dialog>`;
+}
+
+function renderLlmDialogs(): string {
+  return `<dialog class="llm-select-dialog" id="paja-llm-select-dialog" aria-labelledby="paja-llm-select-title" aria-describedby="paja-llm-select-copy">
+      <div class="dialog">
+        <div class="dialog-title" id="paja-llm-select-title">Choose a language model connection</div>
+        <div class="dialog-copy" id="paja-llm-select-copy"></div>
+        <select id="paja-llm-select-options" aria-label="Compatible connections" size="4"></select>
+        <div class="dialog-actions">
+          <button type="button" id="paja-llm-select-deny">Deny</button>
+          <button type="button" id="paja-llm-select-use">Use connection</button>
+        </div>
+      </div>
+    </dialog>
+    <dialog class="llm-vault-dialog" id="paja-llm-vault-dialog" aria-labelledby="paja-llm-vault-title" aria-describedby="paja-llm-vault-copy">
+      <div class="dialog">
+        <div class="dialog-title" id="paja-llm-vault-title">Unlock the credential vault</div>
+        <div class="dialog-copy" id="paja-llm-vault-copy"></div>
+        <input id="paja-llm-vault-password" type="password" autocomplete="off" aria-label="Vault password">
+        <div class="config-error" id="paja-llm-vault-error" role="alert"></div>
+        <div class="dialog-actions">
+          <button type="button" id="paja-llm-vault-cancel">Cancel</button>
+          <button type="button" id="paja-llm-vault-confirm">Unlock</button>
         </div>
       </div>
     </dialog>`;

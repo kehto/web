@@ -6,9 +6,9 @@ current_phase: 107
 current_phase_name: Paja Intent Deep Links
 status: completed
 stopped_at: Phase 107 complete; PR 289 open and pushed
-last_updated: "2026-10-10T11:49:59.294913Z"
-last_activity: 2026-10-10
-last_activity_desc: "Shipped Phase 107 as open PR 289"
+last_updated: "2026-10-31T12:00:00.000000Z"
+last_activity: 2026-10-31
+last_activity_desc: "Completed quick task 261031-neu: NAP-LLM service hardening (#368-#370)"
 progress:
   total_phases: 7
   completed_phases: 7
@@ -48,7 +48,7 @@ Phase: 107 (Paja Intent Deep Links) — COMPLETE
 Plan: 4 of 4
 Status: Shipped as open PR #289 — https://github.com/kehto/web/pull/289. No merge or release performed.
 
-Last activity: 2026-10-20 — Resolved all-kind NIP-5D loading: root coordinates and distinct snapshot tabs; 2,270 unit and 142 browser tests passed.
+Last activity: 2026-10-31 - Completed quick task 261031-neu: NAP-LLM service hardening (#368-#370)
 
 ## Performance Metrics
 
@@ -163,6 +163,14 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
+| 261031-neu | NAP-LLM service hardening: handle bound, prompt abort signals, streaming providers (kehto/web#368-#370) | 2026-10-31 | 13352e3e | passed | [261031-neu](./quick/261031-neu-llm-service-hardening-368-370/) |
+| 261031-mfp | Prevent demo audit Vite server leaks; use Playwright ownership (follow-up #363) | 2026-10-31 | ac4ae564 | passed | [261031-mfp](./quick/261031-mfp-prevent-demo-audit-tests-from-leaking-th/) |
+| 261031-l9b | Admit @napplet/nap 0.35.x and core 0.36.x in published peer ranges (kehto/web#364) | 2026-10-31 | 2977db05 | passed | [261031-l9b](./quick/261031-l9b-napplet-peer-range-364/) |
+| 261031-et9 | Implement NAP-LLM across acl/runtime/services/shell/paja/playground with encrypted Paja credentials and the unconfigured interface state | 2026-10-31 | 588ab732 | passed | [261031-et9](./quick/261031-et9-nap-llm/) |
+| 261030-c0z | Chase NIP-5D presentation media and source pin tags | 2026-10-30 | 7b81a20d | passed | [261030-c0z](./quick/261030-c0z-chase-nip-5d-presentation-media-and-sour/) |
+| 261030-m7q | Adopt the published NIP-5D writer line (vite-plugin 0.16.2) | 2026-10-30 | 0a08e1a4 | passed | [261030-m7q](./quick/261030-m7q-adopt-published-nip-5d-writer-line/) |
+| 261028-b47 | Paja version-specific signing/publication approval and NAP-LINK modal | 2026-10-28 | 212a4e87 | passed | [261028-b47](./quick/261028-b47-paja-version-scoped-signing-and-publishi/) |
+| 261026-jp5 | Address PR 316 review feedback and verify readiness | 2026-10-26 | 4fcf564d | passed | [261026-jp5](./quick/261026-jp5-address-pr-316-review-feedback-and-verif/) |
 | 261017-wx0 | Use active napplet name as browser page title | 2026-10-17 | bcc0ea60 | passed | [261017-wx0](./quick/261017-wx0-use-the-active-napplet-name-as-the-paja-/) |
 | 261017-vlq | Colored animated Paja controller indicators | 2026-10-17 | 9e8c5a74 | passed | [261017-vlq](./quick/261017-vlq-show-colored-animated-controller-indicat/) |
 | 261013-e5s | Allow experimental domain declarations in Paja with optional fallback and required-domain warnings | 2026-10-13 | 2623b79a | passed | [261013-e5s](./quick/261013-e5s-allow-unknown-optional-capability-domain/) |
@@ -257,6 +265,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 261006-ift | Foreground a reused intent handler tab for every behavior.focus hint | 2026-10-06 | e99451be / 4ebf3604 / da8dc309 / 99c7488c | Verified | [261006-ift-foreground-intent-tabs](./quick/261006-ift-foreground-intent-tabs/) |
 | 261009-gxe | Canonical intent delivery with tracked, warned compatibility; AGENTS policy separate in #284 | 2026-10-09 | 05d3e013 | Verified | [261009-gxe](./quick/261009-gxe-migrate-pr-277-intent-delivery-to-intent/) |
 | 261009-h66 | Require compatibility warnings, tracking and tests in AGENTS | 2026-10-09 | 3c595776 | Verified | [261009-h66](./quick/261009-h66-require-tracked-and-tested-backwards-com/) |
+| 261023-oqs | Upgrade playground relay service to applesauce v7 | 2026-10-23 | 40154766 | Verified | [261023-oqs](./quick/261023-oqs-upgrade-playground-relay-service-to-appl/) |
 
 | 260930-gbm | Enforce NIP-5D CSP in shell with validated host overrides | 2026-09-30 | 375b1ee | Verified | [260930-gbm-enforce-nip-5d-csp-in-shell-with-validat](./quick/260930-gbm-enforce-nip-5d-csp-in-shell-with-validat/) |
 | 261009-j8y | Resolve PR #272 conflicts while preserving CSP and local-file admission | 2026-10-09 | 17e3d108 | Verified | [261009-j8y](./quick/261009-j8y-resolve-pr-272-conflicts-with-current-ma/) |
@@ -407,3 +416,6 @@ Build/type/docs/quality and 2,164 unit / 123 browser tests pass.
 | Session | Date | Commit | Result |
 |---------|------|--------|--------|
 | [NIP-5D all event kinds](./debug/resolved/nip5d-all-event-kinds.md) | 2026-10-20 | f30cfa80 | Root 15129, named 35129 and snapshot 5129 loading verified across core and hosts |
+| [NAP-MEDIA player](./debug/resolved/nap-media-player.md) | 2026-10-27 | 72c1a432 | Paja/playground audio-video player, ownership and lifecycle verified; 2,303 unit and 153 browser tests pass against NAP-MEDIA draft 7806f438 |
+| [NAP-MEDIA live radio](./debug/resolved/nap-media-live-radio.md) | 2026-10-27 | ae738167 | Funclet Omarchy stream plays unchanged in local Paja; bounded MP3/AAC transport and both hosts verified; 2,307 unit and 155 browser tests pass |
+| [NAP-MEDIA CI](./debug/resolved/nap-media-ci.md) | 2026-10-27 | 5c9562af | Replace zero-frame OS-prime audio with playable PCM silence; use managed modern-headless Chromium; repeated media/controller checks pass and PR #354 tracks final CI |

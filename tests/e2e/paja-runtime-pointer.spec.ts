@@ -509,8 +509,8 @@ for (const blockedStorage of [false, true]) {
       await page.goto(server.url);
       await expect(page.frameLocator('iframe').locator('#ready')).toHaveText('ready');
       const original = await snapshot();
-      await expect(page.locator('#paja-console > details')).toHaveCount(7);
-      expect(await page.locator('#paja-console > details').evaluateAll((sections) => sections.map((section) => section.getAttribute('data-paja-section')))).toEqual(['pointer', 'interfaces', 'acl', 'signer', 'resource-servers', 'messages', 'events']);
+      await expect(page.locator('#paja-console > details')).toHaveCount(8);
+      expect(await page.locator('#paja-console > details').evaluateAll((sections) => sections.map((section) => section.getAttribute('data-paja-section')))).toEqual(['pointer', 'interfaces', 'acl', 'signer', 'resource-servers', 'llm', 'messages', 'events']);
       const frameNode = await page.locator('iframe').elementHandle();
       const frameWindow = await page.locator('iframe').evaluateHandle((frame) => (frame as HTMLIFrameElement).contentWindow);
       const pointer = page.locator('#runtime-pointer-section');

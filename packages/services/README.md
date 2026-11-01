@@ -16,8 +16,10 @@ pnpm add @kehto/services
 
 ## Published Napplet Compatibility
 
-`@kehto/services` publishes against `@napplet/core` and `@napplet/nap`
-`>=0.32.0 <0.33.0`. The exact installed contracts are core 0.32.0 / nap 0.32.0
+Peers admit `@napplet/core` `>=0.32.0 <0.37.0` and `@napplet/nap`
+`>=0.32.0 <0.36.0`, so the nap 0.35.x line that ships the `llm` subpath (and the
+core 0.36.x line nap 0.35.1 requires) installs without peer conflicts; development
+and tests stay on the baseline 0.32.0 line. The exact installed contracts are core 0.32.0 / nap 0.32.0
 from NAP-INTENT authority `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`,
 napplet/web#199 source `3037200c932488f14f7f369b8583c39c9c16510a` / merge
 `b3f0007867eac109fa4917fac9c285d3b7cc6155`, and Version Packages #198 release
@@ -45,6 +47,7 @@ Current draft posture:
   topic handler.
 - `createOutboxService` supports `outbox.getEvent` from draft NAP-OUTBOX. Single-event lookups run through shell-owned relay routing and only return events whose ID matches the request. Hosts can provide `getReadRouter` to scope all event-returning reads (`getEvent`, query, and subscription) to the authenticated source window, plus `getQueryRouter` when one-shot queries need an additional decorator. The draft wire contract keeps `outbox.query` one-shot and `outbox.subscribe` streaming; Kehto's concrete `createRelayPoolOutboxRouter` additionally exposes host-side `queryStream()` so verified query events can arrive before asynchronous NIP-65 discovery completes.
 - `createResourceService` implements NAP-RESOURCE at exact draft head `9511232f69313aa7953d110e35d32cc28d506f66` without choosing a runtime's network policy. Single requests carry optional advisory Blossom `servers`; bulk requests use canonical per-resource `requests: [{ url, servers? }]` entries. The service forwards hints to the injected resolver only for `blossom:`, preserves order and per-entry failures, and exposes optional `resource.info.maxServers`. By default it delegates every syntactically valid URL to the resolver; `resource.info.schemes` remains advisory. Runtimes that want hierarchical-origin grants can supply `isOriginGranted`, `getConnectGrants`, and `resolveIdentity` together, while scheme resolvers retain responsibility for hint validation, SSRF protection, redirects, and fallback policy. The service enforces supplied size/bulk caps, scopes cancellation to the requesting window, drops cancelled terminal envelopes, never forwards response headers, and preserves explicit `ResourceServiceError` codes.
+- Host playback can use `ResourceService.openStream(windowId, url, signal)` with an optional `stream` resolver. It applies the same endpoint origin grants before opening a response. `createBrowserMediaStreamFetch` classifies live MP3/AAC bytes without waiting for EOF; `createBrowserMediaPlayback({ resource, stream: resource.openStream })` supplies bounded MediaSource playback. Streaming is host-only and adds no resource wire operation. See [Media playback](https://github.com/kehto/web/blob/main/docs/media.md).
 - `createUploadService` supports `upload.info` from draft NAP-UPLOAD. Hosts may expose configured rails, return URL forms, maximum bytes, and MIME type policy without requiring napplets to start an upload.
 - Upload teardown uses exact window ownership, including IDs containing colons.
   Destroying a window invalidates replies before backend cancellation and suppresses
@@ -420,15 +423,21 @@ Reference media backend for the `media.*` NIP-5D NAP. By default mirrors session
 ```ts
 import { createMediaService } from '@kehto/services';
 
-export function createMediaService(options?: MediaServiceOptions): ServiceHandler & { destroy(): void };
+export function createMediaService(options?: MediaServiceOptions): MediaService;
 ```
 
 `destroy()` tears down the active bridge (removes `setActionHandler` listeners, removes the silent-audio prime element in the browser reference implementation) and clears the session registry.
+
+See [Media playback](../../docs/media.md) for the browser audio/video backend,
+player mounting, draft conformance authority, supported source formats, lifecycle,
+and migration from legacy command callbacks. Paja and playground use this player.
 
 ### MediaServiceOptions
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `playback` | `MediaPlaybackBackend` | Source-policy and actual output backend; use `createBrowserMediaPlayback({ resource })`. |
+| `maxSessionsPerWindow` | `number` | Active plus pending session limit (default 16). |
 | `onSessionCreate` | `(windowId, sessionId, metadata?) => void` | Called when a napplet creates a session. |
 | `onState` | `(windowId, sessionId, state) => void` | Called on `media.state` updates — high-frequency; keep handler work minimal. |
 | `onSessionDestroy` | `(windowId, sessionId) => void` | Called when a napplet destroys a session. |
@@ -573,7 +582,7 @@ Each factory returns a `ServiceHandler` registrable via `runtime.registerService
 - `createKeysService` — `keys.registerAction` / `keys.unregisterAction` / `keys.forward` + `keys.bindings` / `keys.action` push envelopes (`keys:forward`). Document-level chord listener by default; implement the `HostKeysBridge` interface to swap in Electron / Tauri / OS-level backends. See [Keys Service](#keys-service) for the full contract.
 
 ### Media NAP
-- `createMediaService` — owner-aware `media.session.create` / `update` / `destroy` / `media.state` / `media.capabilities` + `media.command` push envelopes (`media:control`). Napplet-owned sessions mirror to `navigator.mediaSession` by default; shell-owned creates are rejected until a host playback/fetch bridge is supplied. Implement the `HostMediaBridge` interface to swap in native backends. See [Media Service](#media-service) for the full contract.
+- `createMediaService` — owner-aware `media.session.create` / `update` / `destroy` / `media.state` / `media.capabilities` + `media.command` push envelopes (`media:control`). Napplet-owned sessions mirror to `navigator.mediaSession` by default; shell-owned playback uses the optional `MediaPlaybackBackend`, with `createBrowserMediaPlayback` and `mountMediaPlayer` providing the browser implementation. Implement the `HostMediaBridge` interface to swap in native backends. See [Media Service](#media-service) for the full contract.
 
 ### BLE NAP
 - `createBleService` — `ble.open`, `ble.services`, `ble.read`, `ble.write`, `ble.subscribe`, `ble.unsubscribe`, `ble.close` + host-pushed `ble.event` envelopes. Hook contexts include `ctx.emit(event)`, so host Bluetooth notification listeners can forward `notification`, `state`, and `closed` events to the requesting napplet without replacing the reference handler.
@@ -652,3 +661,7 @@ For the schema and removal boundary, see [event migration](https://kehto.github.
 ## GAMEPAD integration
 
 This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja and the playground register one host reader and deny native gamepad/HID/USB paths before frame execution. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, window destruction, and service removal release polling. Non-browser or denied native readers report the proposal's unavailable reasons. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
+
+## LLM integration
+
+This non-normative guidance defers to the living [NAP-LLM](https://github.com/napplet/naps/pull/134) (checked at `3e10939`). Services export `createLlmService`, `LlmServiceError`, the provider mappers and `LLM_PROVIDER_PRESETS`; shell exports `getShellDomainState` and the `LlmHooks` adapter field; acl exports `llm:generate`. The runtime routes `llm.*` to one registered service and answers every sanctioned request with exactly one `llm.<op>.result`, shaping missing-service and ACL failures as `{ code: 'unsupported' }`. Hosts implement `LlmConnectionHost`; the service enforces schema, handle ownership, a per-window live-handle bound (`maxHandlesPerWindow`), consent before submission, duplicate ids, cancellation and deadline races, ordered deltas and safe errors, and passes `select`/`authorize` a `{ signal }` that withdraws stale prompts. `createHttpLlmProvider({ stream: true })` streams provider output into `llm.delta`. Advertisement stays binary on the wire while hosts report a third `unconfigured` state until the user adds a connection. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).

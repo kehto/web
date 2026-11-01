@@ -1,43 +1,8 @@
 import { test, expect, type Page } from '@playwright/test';
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
-import http from 'node:http';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { getNappletFrame } from './helpers/index.js';
 
-const EXTERNAL_DEMO_URL = process.env.KEHTO_PLAYGROUND_BASE_URL;
-const DEMO_URL = EXTERNAL_DEMO_URL ?? 'http://127.0.0.1:4174';
-const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-
-let demoServer: ChildProcessWithoutNullStreams | null = null;
-
-function waitForServer(url: string, timeoutMs: number): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-
-  return new Promise((resolve, reject) => {
-    const attempt = () => {
-      const req = http.get(url, (res) => {
-        res.resume();
-        if ((res.statusCode ?? 500) < 500) {
-          resolve();
-          return;
-        }
-        retry(new Error(`unexpected status ${res.statusCode}`));
-      });
-      req.on('error', retry);
-    };
-
-    const retry = (error: Error) => {
-      if (Date.now() >= deadline) {
-        reject(error);
-        return;
-      }
-      setTimeout(attempt, 250);
-    };
-
-    attempt();
-  });
-}
+// Playwright's webServer owns startup and teardown of the playground preview.
+const DEMO_URL = process.env.KEHTO_PLAYGROUND_BASE_URL ?? 'http://localhost:4174';
 
 async function openDemo(page: Page): Promise<void> {
   await page.goto(DEMO_URL);
@@ -67,34 +32,6 @@ async function sendChatMessage(page: Page, text: string): Promise<void> {
 }
 
 test.describe.configure({ mode: 'serial' });
-
-test.beforeAll(async () => {
-  if (EXTERNAL_DEMO_URL) {
-    await waitForServer(DEMO_URL, 30_000);
-    return;
-  }
-
-  demoServer = spawn(
-    'pnpm',
-    ['--filter', '@kehto/playground', 'exec', 'vite', '--host', '127.0.0.1', '--port', '4174', '--strictPort'],
-    { cwd: PROJECT_ROOT, stdio: 'pipe' },
-  );
-
-  demoServer.stderr.on('data', () => {
-    // Keep stderr drained so the server process cannot block.
-  });
-  demoServer.stdout.on('data', () => {
-    // Keep stdout drained so the server process cannot block.
-  });
-
-  await waitForServer(DEMO_URL, 30_000);
-});
-
-test.afterAll(async () => {
-  if (demoServer && !demoServer.killed) {
-    demoServer.kill('SIGTERM');
-  }
-});
 
 test('revoke chat relay:write and keep debugger paths legible', async ({ page }) => {
   await openDemo(page);

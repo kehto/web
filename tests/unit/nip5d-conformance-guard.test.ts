@@ -220,7 +220,7 @@ const relayPublishRoutingSurfaces = [
   {
     file: 'packages/paja/src/browser-relay-runtime.ts',
     markers: [
-      'const attempt = await attemptPublish(relayUrls, event);',
+      'const attempt = await attemptPublish(relayUrls, event, signerContext);',
       'if (attempt.error) throw new Error(attempt.error);',
       'retainPublishedEvent(event, simulation.relay.mode);',
     ],
@@ -229,7 +229,7 @@ const relayPublishRoutingSurfaces = [
     file: 'packages/paja/src/browser-relay-policy.ts',
     markers: [
       'publishToScopedRelay: async',
-      'await pool.publish([active.relayUrl], event);',
+      'await getPublishPool(windowId).publish([active.relayUrl], event);',
       '} catch {',
     ],
   },

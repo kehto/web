@@ -31,7 +31,8 @@ export type PajaCapabilityDomain =
   | 'dm'
   | 'fs'
   | 'cvm'
-  | 'inc';
+  | 'inc'
+  | 'llm';
 
 /** Raw simulation controls accepted from CLI args or JSON config. */
 export interface PajaSimulationRawOptions {
@@ -184,6 +185,7 @@ export const PAJA_SIMULATION_DOMAINS: readonly PajaCapabilityDomain[] = [
   'fs',
   'cvm',
   'inc',
+  'llm',
 ];
 
 const DEFAULT_RELAY_URLS = [

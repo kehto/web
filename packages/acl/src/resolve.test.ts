@@ -535,6 +535,23 @@ describe('resolveCapabilitiesNap', () => {
     });
   });
 
+  // NAP-LLM: napplet/naps PR #134 at 3e10939cf788878bbdcc022c101f0ac6193f316c.
+  describe('llm domain (NAP-LLM user-selected language models)', () => {
+    it.each(['select', 'describe', 'generate', 'cancel'])(
+      'llm.%s -> sender llm:generate',
+      (action) => expect(resolveCapabilitiesNap({ type: `llm.${action}` })).toEqual({ senderCap: 'llm:generate', recipientCap: null }),
+    );
+
+    it.each(['select.result', 'describe.result', 'generate.result', 'cancel.result', 'delta'])(
+      'llm.%s -> recipient llm:generate',
+      (action) => expect(resolveCapabilitiesNap({ type: `llm.${action}` })).toEqual({ senderCap: null, recipientCap: 'llm:generate' }),
+    );
+
+    it('lists llm:generate once in ALL_CAPABILITIES', () => {
+      expect(ALL_CAPABILITIES.filter((capability) => capability === 'llm:generate')).toHaveLength(1);
+    });
+  });
+
   describe('ALL_CAPABILITIES content', () => {
     it('contains the 7 v1.2 capability strings', () => {
       expect(ALL_CAPABILITIES).toContain('identity:read');

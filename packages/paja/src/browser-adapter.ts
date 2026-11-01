@@ -1,5 +1,5 @@
 import { originRegistry } from '@kehto/shell';
-import type { NostrEvent, NostrFilter } from '@napplet/core';
+import type { NostrEvent } from '@napplet/core';
 import type {
   SessionEntry,
   ServiceHandler,
@@ -15,11 +15,15 @@ import {
   createCountService,
   createCvmService,
   createFsService,
+  createLlmService,
   createIdentityService,
   createKeysService,
   createLinkService,
   createListsService,
   createMediaService,
+  createBrowserMediaPlayback,
+  createBrowserMediaStreamFetch,
+  mountMediaPlayer,
   createNotifyService,
   createOutboxService,
   createRelayPoolOutboxRouter,
@@ -36,9 +40,6 @@ import {
 } from '@kehto/services';
 import {
   createNostrCvmTransport,
-  type CvmRelayPool,
-  type NostrEventLike,
-  type NostrFilterLike,
 } from '@kehto/services/cvm-nostr-transport';
 import type { Theme, ThemeChangedMessage } from '@napplet/nap/theme/types';
 import { verifyEvent } from 'nostr-tools/pure';
@@ -63,8 +64,8 @@ import { createPajaBrowserFsBackend } from './browser-fs.js';
 import {
   PAJA_DEV_SIGNER_PUBKEY,
   createPajaDevDmService,
-  createPajaDevSigner,
 } from './browser-dev-runtime.js';
+import type { PajaLlmHost } from './browser-llm-connections.js';
 import {
   createPajaRelayConfig,
   createPajaRelayHooks,
@@ -78,70 +79,14 @@ import {
   createPajaOutboxRelayPool,
   createPajaRelayBackend,
   createPajaRelayListLoader,
-  getPajaRelayUrls,
   type PajaRelayBackend,
 } from './browser-relay-runtime.js';
 import { createPajaWorkerRelay } from './browser-worker-relay.js';
-import type {
-  PajaSignerRequestContext,
-  PajaSignerSource,
-} from './browser-signer-consent.js';
+import type { PajaSignerSource } from './browser-signer-consent.js';
+import { createPajaCvmRelayPool, createRuntimeSigner, getRuntimePubkey, createPajaWindowScope, pajaDevelopmentConsentScope, scopePajaService } from './browser-operation-scope.js';
 
-/** Confirmation request emitted before Paja signs, publishes, or uploads. */
-export type PajaConfirmationRequest =
-  | {
-      readonly action: 'sign' | 'publish';
-      readonly event: NostrEvent | Partial<NostrEvent>;
-      readonly signerContext?: PajaSignerRequestContext;
-    }
-  | {
-      readonly action: 'upload';
-      readonly windowId: string;
-      readonly napplet: { readonly dTag: string; readonly aggregateHash: string };
-      readonly filename?: string;
-      readonly size: number;
-      readonly mimeType?: string;
-      readonly server: string;
-      readonly warning: string;
-    }
-  | {
-      readonly action: 'link';
-      readonly windowId: string;
-      readonly napplet: { readonly dTag: string; readonly aggregateHash: string };
-      readonly url: string;
-      readonly label?: string;
-    }
-  | {
-      readonly action: 'serial' | 'ble';
-      readonly windowId: string;
-      readonly label?: string;
-      readonly details: string;
-    }
-  | {
-      readonly action: 'notify';
-      readonly windowId: string;
-      readonly napplet: { readonly dTag: string; readonly aggregateHash: string };
-      readonly channel?: string;
-    }
-  | {
-      readonly action: 'webrtc';
-      readonly windowId: string;
-      readonly napplet: { readonly dTag: string; readonly aggregateHash: string };
-      readonly scope: string;
-      readonly warning: string;
-    }
-  | {
-      readonly action: 'dm';
-      readonly recipients: readonly string[];
-      readonly content: string;
-      readonly warning: string;
-    }
-  | {
-      readonly action: 'fs';
-      readonly windowId: string;
-      readonly kind: 'file' | 'files' | 'directory' | 'save-file';
-      readonly description: string;
-    };
+export type { PajaConfirmationRequest } from './browser-confirmation-request.js';
+import type { PajaConfirmationRequest } from './browser-confirmation-request.js';
 
 /** Async-capable host policy callback for user-visible Paja operations. */
 export type PajaConfirmationHandler = (
@@ -163,7 +108,10 @@ export interface PajaSignerProvider {
 /** Identity provider for Paja's simulated target identity. */
 export type PajaIdentityProvider = (
   windowId?: string,
-) => Pick<SessionEntry, 'dTag' | 'aggregateHash'>;
+) => Pick<SessionEntry, 'dTag' | 'aggregateHash'> & {
+  readonly consentScope?: string;
+  readonly isCurrent?: () => boolean;
+};
 
 /** Paja shell adapter with private verified-pointer resource context wiring. */
 export interface PajaShellAdapter extends ShellAdapter {
@@ -177,32 +125,13 @@ export interface PajaShellAdapter extends ShellAdapter {
 
 export { PAJA_DEV_SIGNER_PUBKEY } from './browser-dev-runtime.js';
 
-function createPajaCvmRelayPool(backend: PajaRelayBackend): CvmRelayPool {
-  return {
-    subscribe(relays: string[], filter: NostrFilterLike, params) {
-      const subscription = backend.subscription(relays, [filter as NostrFilter]).subscribe((item) => {
-        if (item === 'EOSE') params.oneose?.();
-        else if (typeof item === 'object' && item !== null) params.onevent?.(item as NostrEventLike);
-      });
-      return {
-        close() {
-          subscription.unsubscribe();
-        },
-      };
-    },
-    async publish(relays: string[], event: NostrEventLike) {
-      const outcomes = await backend.publishToRelays(relays, event as NostrEvent);
-      if (!Object.values(outcomes).some(Boolean)) throw new Error('publish failed');
-    },
-  };
-}
-
 function createOutboxRouter(
   backend: PajaRelayBackend,
   getSimulation: () => PajaSimulation,
   relayConfig: PajaRelayConfigRuntime,
   confirmRequest: PajaConfirmationHandler,
   signerProvider?: PajaSignerProvider,
+  source?: PajaSignerSource,
 ) {
   return createRelayPoolOutboxRouter({
     relayPool: createPajaOutboxRelayPool(backend),
@@ -214,7 +143,7 @@ function createOutboxRouter(
     ),
     fallbackRelays: relayConfig.outboxRelays,
     signEvent: async (template) => {
-      const signer = createRuntimeSigner(getSimulation, confirmRequest, signerProvider);
+      const signer = createRuntimeSigner(getSimulation, confirmRequest, signerProvider, source);
       if (!signer?.signEvent) throw new Error('no signer configured');
       const event = { ...template };
       event.created_at ??= Math.floor(Date.now() / 1000);
@@ -252,23 +181,6 @@ export function createDevTheme(mode: PajaSimulation['theme']['mode'], values: Pa
 const HEX_PUBKEY = /^[0-9a-f]{64}$/i;
 
 /**
- * Pubkey Paja reports to napplets as the current identity.
- *
- * Precedence is the connected signer account, then the Dev signer's ephemeral
- * account, then the fixed simulation identity. A fixed identity is a read-only
- * stand-in, which is why background work uses {@link getConnectedAccountPubkey}
- * instead of this value.
- */
-function getRuntimePubkey(
-  getSimulation: () => PajaSimulation,
-  signerProvider?: PajaSignerProvider,
-): string {
-  return signerProvider?.getPubkey()
-    || (signerProvider?.getMethod() === 'dev' ? PAJA_DEV_SIGNER_PUBKEY : '')
-    || getSimulation().identity.pubkey;
-}
-
-/**
  * Pubkey of the account Paja may act as right now, or `null` when there is none.
  *
  * Only a connected signer counts: NIP-07/NIP-46 expose the pubkey they
@@ -285,29 +197,6 @@ function getConnectedAccountPubkey(signerProvider?: PajaSignerProvider): string 
   if (typeof pubkey === 'string' && HEX_PUBKEY.test(pubkey)) return pubkey.toLowerCase();
   if (signerProvider?.getMethod() === 'dev') return PAJA_DEV_SIGNER_PUBKEY;
   return null;
-}
-
-function createRuntimeSigner(
-  getSimulation: () => PajaSimulation,
-  confirmRequest: PajaConfirmationHandler,
-  signerProvider?: PajaSignerProvider,
-  source?: PajaSignerSource,
-): Signer | null {
-  const signer = signerProvider?.getSigner(source);
-  if (!signer) {
-    if (signerProvider?.getMethod() === 'dev') {
-      return createPajaDevSigner(getSimulation, confirmRequest, source);
-    }
-    const fixedPubkey = getSimulation().identity.pubkey;
-    if (fixedPubkey) {
-      return {
-        getPublicKey: () => fixedPubkey,
-        getRelays: () => Object.fromEntries(getPajaRelayUrls(getSimulation()).map((relay) => [relay, { read: true, write: true }])),
-      };
-    }
-    return null;
-  }
-  return signer;
 }
 
 interface PajaServiceBundle {
@@ -330,7 +219,23 @@ function createDevServices(
   userActivation?: PajaUserActivationHandler,
   notifyOptions?: NotifyServiceOptions,
   configOptions?: ConfigServiceOptions,
+  getSignerSource?: (windowId: string) => PajaSignerSource,
 ): PajaServiceBundle {
+  const scopeFor = (windowId: string, isCurrent: () => boolean) => createPajaWindowScope({
+    backend,
+    source: getSignerSource?.(windowId) ?? {
+      windowId, napplet: getIdentity?.(windowId) ?? { dTag: 'dev-target', aggregateHash: 'paja' },
+      runtimeScope: `window:${windowId}`,
+    },
+    isCurrent,
+    getPubkey: () => getRuntimePubkey(getSimulation, signerProvider),
+    getSigner: (source) => createRuntimeSigner(getSimulation, confirmRequest, signerProvider, source),
+  });
+  const scopeKey = (windowId: string) => JSON.stringify([
+    getSignerSource?.(windowId).runtimeScope,
+    getIdentity?.(windowId).aggregateHash,
+    getRuntimePubkey(getSimulation, signerProvider),
+  ]);
   const theme = createThemeService({
     initialTheme: createDevTheme(getSimulation().theme.mode, getSimulation().theme.values),
     onBroadcast: onThemeBroadcast,
@@ -368,6 +273,7 @@ function createDevServices(
   });
   void socialCache.refreshActiveIdentity();
   const resourceService = createResourceService({
+    stream: createBrowserMediaStreamFetch(),
     fetch: createPajaResourceFetch({
       getBlossomServers: ({ url, windowId }) => blossomEventResolver.getServers(url, windowId),
     }),
@@ -390,7 +296,7 @@ function createDevServices(
   }
 
   if (getSimulation().relay.mode === 'live') {
-    services.relay = createRelayPoolService({
+    const relayOptions = {
       subscribe: (filters, callback, relayUrls, fromHint) => backend.subscription(
         (relayUrls ?? getReadRelays()).filter((url) => isPajaRelayAllowed(url, getAllRelays)),
         filters, { reason: fromHint ? 'hint' : 'host' },
@@ -402,11 +308,15 @@ function createDevServices(
           );
         }
       }),
-      publish: (event) => backend.publish(getWriteRelays(), event),
       selectRelayTier: getReadRelays,
       isAvailable: () => backend.isAvailable(),
-    });
-    services.outbox = createOutboxService({
+    } satisfies Omit<Parameters<typeof createRelayPoolService>[0], 'publish'>;
+    services.relay = scopePajaService(createRelayPoolService({ ...relayOptions, publish: (event) => backend.publish(getWriteRelays(), event) }),
+      ['relay.publish', 'relay.publishEncrypted'], (windowId, isCurrent) => {
+        const scope = scopeFor(windowId, isCurrent);
+        return createRelayPoolService({ ...relayOptions, publish: (event) => scope.backend.publish(getWriteRelays(), event) });
+      }, scopeKey);
+    const outboxOptions = {
       router: baseOutboxRouter,
       getReadRouter: (windowId) => blossomEventResolver.decorate(baseOutboxRouter, windowId),
       getQueryRouter: (windowId, context) => blossomEventResolver.decorate(
@@ -416,7 +326,13 @@ function createDevServices(
         ),
         windowId,
       ),
-    });
+    } satisfies Parameters<typeof createOutboxService>[0];
+    services.outbox = scopePajaService(createOutboxService(outboxOptions), ['outbox.publish'], (windowId, isCurrent) => {
+      const scope = scopeFor(windowId, isCurrent);
+      return createOutboxService({ ...outboxOptions,
+        router: createOutboxRouter(scope.backend, getSimulation, relayConfig, confirmRequest, signerProvider, scope.source),
+      });
+    }, scopeKey);
   }
   if (getSimulation().capabilities.domains.count && getSimulation().relay.mode === 'live') {
     services.count = createCountService({
@@ -448,22 +364,24 @@ function createDevServices(
   if (getSimulation().notifications.enabled && notifyOptions) {
     services.notify = createNotifyService(notifyOptions);
   }
-  if (
-    getSimulation().media.enabled
-    && typeof navigator !== 'undefined'
-    && 'mediaSession' in navigator
-    && typeof document !== 'undefined'
-  ) services.media = createMediaService({ mediaSessionTarget: navigator.mediaSession, documentTarget: document });
+  if (getSimulation().media.enabled && typeof document !== 'undefined' && document.body) {
+    const media = createMediaService({ playback: createBrowserMediaPlayback({ resource: resourceService, stream: resourceService.openStream }) });
+    const unmount = mountMediaPlayer(media);
+    services.media = { ...media, onUnregistered() { unmount(); media.destroy(); } };
+  }
   if (getSimulation().capabilities.domains.theme) services.theme = theme.handler;
   if (getSimulation().capabilities.domains.config && config) services.config = config.handler;
   if (getSimulation().cvm.enabled && getSimulation().relay.mode === 'live' && backend.isAvailable()) {
-    services.cvm = createCvmService({
-      transport: createNostrCvmTransport({
-        defaultRelays: relayConfig.allRelays,
-        pool: createPajaCvmRelayPool(backend),
-        clientInfo: { name: '@kehto/paja', version: '0.11.0' },
-      }),
-    });
+    const cvm = (relay: PajaRelayBackend) => {
+      const service = createCvmService({
+        transport: createNostrCvmTransport({
+          defaultRelays: relayConfig.allRelays, pool: createPajaCvmRelayPool(relay),
+          clientInfo: { name: '@kehto/paja', version: '0.11.0' },
+        }),
+      });
+      return { ...service, onUnregistered: () => service.dispose() };
+    };
+    services.cvm = scopePajaService(cvm(backend), ['cvm.request', 'cvm.close'], (windowId, isCurrent) => cvm(scopeFor(windowId, isCurrent).backend), scopeKey);
   }
   if (uploadRuntime) {
     services.upload = createUploadService({
@@ -479,33 +397,47 @@ function createDevServices(
     services.link = createLinkService({
       open: async ({ windowId, url, options }) => {
         const napplet = getIdentity?.(windowId) ?? { dTag: 'dev-target', aggregateHash: 'paja' };
-        const allowed = await confirmRequest({
+        const request: PajaConfirmationRequest = {
           action: 'link',
           windowId,
           napplet,
           url: url.href,
           ...(options?.label ? { label: options.label } : {}),
-        });
-        return { status: allowed && openPajaExternalLink(url) ? 'opened' : 'denied' };
+          isCurrent: () => (!('isCurrent' in napplet) || typeof napplet.isCurrent !== 'function' || napplet.isCurrent())
+            && (getIdentity?.(windowId).aggregateHash ?? napplet.aggregateHash) === napplet.aggregateHash,
+        };
+        const open = () => request.isCurrent?.() !== false && openPajaExternalLink(url);
+        try {
+          const opened = userActivation
+            ? await userActivation.run(request, open)
+            : await confirmRequest(request) && open();
+          return { status: opened ? 'opened' : 'denied' };
+        } catch { return { status: 'denied' }; }
       },
     });
   }
   if (getSimulation().capabilities.domains.common && getSimulation().relay.mode === 'live') {
-    services.common = createCommonService({
+    services.common = scopePajaService(createCommonService({
       getProfile: (target) => commonBackend.getProfile(target),
       follows: () => commonBackend.follows(),
       follow: (pubkeys) => commonBackend.follow(pubkeys),
       unfollow: (pubkeys) => commonBackend.unfollow(pubkeys),
       react: (targetEventId, reaction, customEmojiHref) => commonBackend.react(targetEventId, reaction, customEmojiHref),
       report: (target, reason, text) => commonBackend.report(target, reason, text),
-    });
+    }), ['common.follow', 'common.unfollow', 'common.react', 'common.report'], (windowId, isCurrent) => {
+      const scope = scopeFor(windowId, isCurrent);
+      return createCommonService(createPajaCommonBackend({ relay: scope.backend, getRelays: getAllRelays, getSigner: scope.getSigner }));
+    }, scopeKey);
   }
   if (getSimulation().capabilities.domains.lists && getSimulation().relay.mode === 'live') {
-    services.lists = createListsService({
+    services.lists = scopePajaService(createListsService({
       supported: () => listsBackend.supported(),
       add: (list, items, options) => listsBackend.add(list, items, options),
       remove: (list, items, options) => listsBackend.remove(list, items, options),
-    });
+    }), ['lists.add', 'lists.remove'], (windowId, isCurrent) => {
+      const scope = scopeFor(windowId, isCurrent);
+      return createListsService(createPajaListsBackend({ relay: scope.backend, getRelays: getAllRelays, getSigner: scope.getSigner }));
+    }, scopeKey);
   }
   if (getSimulation().capabilities.domains.serial) {
     const controller = userActivation ? createBrowserSerialController(userActivation) : null;
@@ -526,7 +458,7 @@ function createDevServices(
         },
         publish: (event) => backend.publishWebrtcSignal(getAllRelays(), event),
       },
-      getSigner: () => createRuntimeSigner(getSimulation, confirmRequest, signerProvider),
+      getSigner: (windowId) => createRuntimeSigner(getSimulation, confirmRequest, signerProvider, windowId ? getSignerSource?.(windowId) : undefined),
       getPubkey: () => getRuntimePubkey(getSimulation, signerProvider),
       getIdentity: getIdentity ?? (() => ({ dTag: 'dev-target', aggregateHash: 'paja' })),
       confirm: confirmRequest,
@@ -589,6 +521,7 @@ function createDevServices(
  * @param notifyOptions - Host-backed notification presentation hooks.
  * @param configOptions - Host-backed scoped persistence and settings UI hooks.
  * @param getExtraResourceServers - Host-owned live extra Blossom lookup origins, appended after defaults; does not select upload destinations.
+ * @param llmHost - NAP-LLM connection, consent and provider host; the `llm` domain is advertised only when supplied.
  * @returns Shell adapter plus a startup promise for asynchronous host probes.
  * @example
  * const adapter = createPajaAdapter(config, getSimulation, onThemeService, onThemeBroadcast, confirmRequest);
@@ -607,6 +540,7 @@ export function createPajaAdapter(
   notifyOptions?: NotifyServiceOptions,
   configOptions?: ConfigServiceOptions,
   getExtraResourceServers: () => readonly string[] = () => [],
+  llmHost?: PajaLlmHost,
 ): PajaShellAdapter {
   const resolveIdentity = (windowId?: string) => getIdentity?.(windowId) ?? {
     dTag: config.window.dTag,
@@ -614,12 +548,23 @@ export function createPajaAdapter(
   };
   const signerSource = (windowId: string): PajaSignerSource => {
     const napplet = resolveIdentity(windowId);
+    const account = getRuntimePubkey(getSimulation, signerProvider);
+    const runtimeScope = 'consentScope' in napplet && typeof napplet.consentScope === 'string'
+      ? napplet.consentScope
+      : config.target?.mode === 'iframe-url'
+        ? pajaDevelopmentConsentScope(config.target.url, windowId)
+        : `artifact:${napplet.aggregateHash}`;
     return {
       windowId,
       napplet,
-      runtimeScope: config.target?.mode === 'iframe-url'
-        ? `target-url:${config.target.url}`
-        : `artifact:${napplet.aggregateHash}`,
+      runtimeScope,
+      isCurrent: () => {
+        const current = resolveIdentity(windowId);
+        return (!('isCurrent' in napplet) || typeof napplet.isCurrent !== 'function' || napplet.isCurrent())
+          && account === getRuntimePubkey(getSimulation, signerProvider)
+          && current.dTag === napplet.dTag && current.aggregateHash === napplet.aggregateHash
+          && (!('consentScope' in napplet) || ('consentScope' in current && current.consentScope === napplet.consentScope));
+      },
     };
   };
   const relayBackend = createPajaRelayBackend(getSimulation, confirmRequest);
@@ -657,8 +602,12 @@ export function createPajaAdapter(
     userActivation,
     notifyOptions,
     configOptions,
+    signerSource,
   );
   const services = serviceBundle.services;
+  // NAP-LLM is advertised whenever the host wiring exists; configuration state is
+  // reported separately through `llm.isConfigured()` so the panel can show it.
+  if (llmHost && getSimulation().capabilities.domains.llm) services.llm = createLlmService({ host: llmHost });
   const ready = createPajaBrowserFsBackend({
     getIdentity: resolveIdentity,
     userActivation,
@@ -679,7 +628,11 @@ export function createPajaAdapter(
     ready,
     notifyIntentChanged: () => {},
     setWindowBlossomServers: serviceBundle.setWindowBlossomServers,
-    relayPool: createPajaRelayHooks(relayBackend, getSimulation, relayConfig),
+    relayPool: createPajaRelayHooks(relayBackend, getSimulation, relayConfig, (windowId) => createPajaWindowScope({
+      backend: relayBackend, source: signerSource(windowId), isCurrent: () => true,
+      getPubkey: () => getRuntimePubkey(getSimulation, signerProvider),
+      getSigner: (source) => createRuntimeSigner(getSimulation, confirmRequest, signerProvider, source),
+    }).backend),
     relayConfig,
     windowManager: { createWindow: () => null },
     auth: {
@@ -716,6 +669,7 @@ export function createPajaAdapter(
     serial: { isAvailable: () => Object.hasOwn(services, 'serial') },
     ble: { isAvailable: () => Object.hasOwn(services, 'ble') },
     webrtc: { isAvailable: () => Object.hasOwn(services, 'webrtc') },
+    llm: { isAvailable: () => Object.hasOwn(services, 'llm'), isConfigured: () => llmHost?.isConfigured() ?? false },
     crypto: {
       verifyEvent: async (event) => verifyEvent(event as Parameters<typeof verifyEvent>[0]),
     },

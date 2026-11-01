@@ -32,14 +32,19 @@ implementation authority. `RUNTIME-SPEC.md` is internal runtime guidance.
   `b3f0007867eac109fa4917fac9c285d3b7cc6155`; and Version Packages #198 head
   `a79e7f4638f70f4557d4183faee9348847bb8cc7`, merged as release source
   `dc1d24153c759152b6ba31a6ec9bea967798f2df`. The current exact line is core
-  `0.32.0`, nap `0.32.0`, shim `0.30.0`, SDK `0.28.0`, and Vite plugin `0.15.0`.
+  `0.32.0`, nap `0.32.0`, shim `0.30.0`, SDK `0.28.0`, and Vite plugin `0.16.2`.
 
 ### Current event schema and retained compatibility
 
 Checked NIP-5D `dskvr/nips@020cb8b33a9e4c6b8ca4b2f9d0ed0a67843b68f7/5D.md`
 and NAP-INTENT/NAP-SHELL at
 `napplet/naps@a040914b4bbd3a5cd8a14b0f316a723c968ebfb2`. Current writer source:
-`napplet/web@831d3dd5056b84bc03982966279ed8b9167152f8` (Vite plugin 0.15.0).
+`napplet/web@831d3dd5056b84bc03982966279ed8b9167152f8` (Vite plugin 0.15.0);
+the adopted writer is Vite plugin 0.16.2 from
+`napplet/web@f6839146afda77944d12ecdc371630905c9474f6`.
+The schema was rechecked at `dskvr/nips@6e24617cde507c0a87fa170af9ed6b2b46545b2d`
+for the source and presentation media amendments; see
+[Source pins and presentation media](#source-pins-and-presentation-media).
 Current `x` artifact hashes, `content`, `z`/`i`, and `R`/`O` are authoritative.
 Legacy `path`/aggregate events remain a temporary compatibility extension,
 isolated in `packages/nip/src/5d/legacy-manifest.ts`. Never retry malformed current
@@ -178,6 +183,7 @@ Current NIP-5D runtime availability is injected
   errors, and diagnostics belong to the matching NAP spec.
 - NAP-SHELL is optional and does not gate other domain calls. Trusted iframe creation identity and frozen environment grants establish routing independently of `shell.ready`. The optional namespace exposes `ready()`, local `supports(domain)`, read-only `services`, and `onReady()`; napplet artifacts are not required to bundle their own handshake. This non-normative guidance defers to the living [NAP-SHELL](https://github.com/napplet/naps/blob/master/naps/NAP-SHELL.md).
 - GAMEPAD follows the proposed [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). The host denies native gamepad/HID/USB controller access before loading frames and supplies focus-scoped snapshots through the injected namespace. Optional native Gamepad API replacement is deferred because its permission in GAMEPAD conflicts with NIP-5D's restriction of runtime injection to `window.napplet`.
+- LLM follows the draft [NAP-LLM](https://github.com/napplet/naps/pull/134) at `3e10939cf788878bbdcc022c101f0ac6193f316c`. Domain presence is injected only when a host registers an `llm` service; configuration state is a host UI concern (`getShellDomainState`) and never changes the wire. The runtime binds handles, results and cancellation to the authenticated endpoint, obtains disclosure consent before each generation, keeps credentials and provider identifiers behind the host adapter, and performs provider communication itself. `@napplet/nap@0.35.0` ships the `llm` subpath and the published peer ranges admit it; the 0.32.0 development baseline does not, so `@kehto/services` mirrors the upstream `feat/nap-llm` draft types (`6e5c9fa9`), structurally identical to the `@napplet/nap@0.35.1` export, until the development baseline moves to 0.35.
 
 ### Paja local development targets
 
@@ -315,3 +321,43 @@ Runtime regressions cover registration, replacement/removal, source isolation,
 ACL/firewall denial and startup limits, silent unknown types, fixed-domain
 precedence, and delayed replies after teardown or policy revocation. The full
 browser suite guards existing host consumers without inventing an `example` NAP.
+
+## Source pins and presentation media
+
+Checked NIP-5D PR #2303 at `dskvr/nips@6e24617cde507c0a87fa170af9ed6b2b46545b2d`
+(`5D.md` §Source, §Presentation media; content commit `d4f4d89`), the delta since
+`020cb8b`. Upstream `napplet/web@ef915243` chased the same text in `@napplet/cli`,
+`@napplet/conformance` and `@napplet/vite-plugin`, released by Version Packages
+#273 at `napplet/web@f6839146afda77944d12ecdc371630905c9474f6` as Vite plugin
+`0.16.2`, conformance `0.20.5` and CLI `0.13.1`. `@napplet/core` and
+`@napplet/nap` are unchanged, so Kehto keeps its pinned runtime line and owns the
+manifest parsing in `@kehto/nip/5d` (`source-metadata.ts`, `presentation-media.ts`).
+Playground, demo napplet and fixture builds pin the published `0.16.2` writer;
+`tests/unit/published-napplet-contract.test.ts` proves its `screenshot`,
+`preview`, `source-commit` and `source-archive` output survives the playground
+final-byte signing in `recomputeManifest` and parses through `parseNappletManifest`.
+
+Conformant. `parseNappletManifest` keeps one well-formed `source` in the accepted
+HTTP(S), SSH, scp-like, Git or NIP-34 `nostr://` forms, one `source-commit` only
+alongside a usable `source`, and one four-element HTTPS `source-archive`. It
+parses `screenshot` and `preview` tags with NIP-92 `key value` fields, requires
+exactly one `x`, drops malformed or repeated optional fields, preserves screenshot
+order, and ignores the preview when several are declared. Malformed or repeated
+source and media tags are ignored rather than rejecting the manifest, which the
+amendment requires; the previous hard rejection of a repeated `source` tag is
+gone. Legacy aggregate events stay frozen in `legacy-manifest.ts`.
+
+Declarations are never verified media. `verifyPresentationMediaBytes` applies the
+client checks (SHA-256, decodable PNG/JPEG/WebP or video container, declared `m`
+equality) and returns the recognised format or `undefined`; it is a header check,
+so a rendering host still relies on the browser decoder and keeps placeholder
+artwork for anything that fails. No Kehto host renders screenshots, previews or
+source links yet; Paja, the playground and `@kehto/services` project only NAP-INTENT
+routing facts and `title` from the manifest, so they need no new fields.
+
+Spec-gap decision: an HTTP(S) `source` may be a repository or an archive and the
+location alone cannot distinguish them, so any accepted `source` retains an
+otherwise valid `source-commit`. Regressions:
+`packages/nip/src/5d/source-metadata.test.ts`,
+`packages/nip/src/5d/presentation-media.test.ts`, and the manifest-level cases in
+`packages/nip/src/5d/current-manifest.test.ts`.

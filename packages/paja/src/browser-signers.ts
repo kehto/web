@@ -88,6 +88,7 @@ function createConfirmedSigner(
   return {
     ...signer,
     async signEvent(event) {
+      if (source?.isCurrent && !source.isCurrent()) throw new Error('Paja signing source changed');
       if (typeof signer.signEvent !== 'function') {
         throw new Error('Signer does not support event signing');
       }
@@ -99,6 +100,7 @@ function createConfirmedSigner(
       })) {
         throw new Error('Paja signing request denied');
       }
+      if (source?.isCurrent && !source.isCurrent()) throw new Error('Paja signing source changed');
       return signer.signEvent(event);
     },
   };

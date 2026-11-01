@@ -82,8 +82,8 @@ Kehto's runtime packages target the current `@napplet` line:
 | `@napplet/nap`          | `0.32.0` | NAP capability helpers |
 | `@napplet/sdk`          | `0.28.0` | napplet-side SDK (playground napplets)          |
 | `@napplet/shim`         | `0.30.0` | generic non-shell NAP domains; does not supply mandatory shell |
-| `@napplet/vite-plugin`  | `0.15.0` | napplet build/sign plugin |
-| `@napplet/conformance`  | `0.16.2` | registry-audited conformance artifact; not a Kehto dependency |
+| `@napplet/vite-plugin`  | `0.16.2` | napplet build/sign plugin (NIP-5D presentation media and source pins) |
+| `@napplet/conformance`  | `0.20.5` | registry-audited conformance artifact; not a Kehto dependency |
 
 The runtime's domain dispatcher routes via `createDispatch()` + `registerNap()`
 from `@napplet/core` (the rename of the former `registerNap` / `NapHandler`

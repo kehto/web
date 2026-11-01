@@ -377,6 +377,23 @@ function fsMap(action: string): CapabilityResolution {
 }
 
 /**
+ * `llm.*` — NAP-LLM user-selected language model inference (napplet/naps PR #134).
+ *
+ * One grant covers the whole request surface; the runtime still asks the user
+ * before each generation, which the specification keeps separate from stored
+ * selection or credentials.
+ *
+ * - `select` / `describe` / `generate` / `cancel` (napplet → shell) → sender `llm:generate`.
+ * - `*.result` / `delta` (shell → napplet)                       → recipient `llm:generate`.
+ */
+function llmMap(action: string): CapabilityResolution {
+  if (action === 'delta' || action.endsWith('.result')) {
+    return { senderCap: null, recipientCap: 'llm:generate' };
+  }
+  return { senderCap: 'llm:generate', recipientCap: null };
+}
+
+/**
  * `theme.*` — napplet read gate vs shell-initiated push.
  *
  * - `get` / `get.result` (and any other napplet-originated query) →
@@ -489,6 +506,7 @@ export function resolveCapabilitiesNap(msg: NapMessage): CapabilityResolution {
     case 'intent':   return intentMap(action);      // NAP-INTENT archetype intent dispatch
     case 'dm':       return dmMap(action);          // NAP-DM runtime-mediated direct messages
     case 'fs':       return fsMap(action);          // NAP-FS runtime-owned virtual filesystem
+    case 'llm':      return llmMap(action);         // NAP-LLM user-selected language models
     default:         return { senderCap: null, recipientCap: null };
   }
 }

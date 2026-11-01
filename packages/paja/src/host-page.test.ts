@@ -46,8 +46,8 @@ describe('@kehto/paja host page', () => {
       expect(aside!.indexOf('id="paja-resource-servers-form"')).toBeLessThan(aside!.indexOf('id="message-log"'));
       const keys = [...aside!.matchAll(/data-paja-section="([^"]+)"/g)].map((match) => match[1]);
       expect(keys).toEqual(config.target.mode === 'runtime-pointer'
-        ? ['pointer', 'interfaces', 'acl', 'signer', 'resource-servers', 'messages', 'events']
-        : ['interfaces', 'acl', 'signer', 'resource-servers', 'messages', 'events']);
+        ? ['pointer', 'interfaces', 'acl', 'signer', 'resource-servers', 'llm', 'messages', 'events']
+        : ['interfaces', 'acl', 'signer', 'resource-servers', 'llm', 'messages', 'events']);
       expect(aside!.match(/<details[^>]* open>/g)).toHaveLength(keys.length);
       expect(aside!.match(/<summary class="section-title">/g)).toHaveLength(keys.length);
       expect(aside).not.toMatch(/<details[^>]* name=/);
@@ -103,9 +103,9 @@ describe('@kehto/paja host page', () => {
     expect(html).toContain('id="paja-signer-consent-kind"');
     expect(html).toContain('Always sign kind');
     expect(html).toContain('id="paja-signer-consent-napplet"');
-    expect(html).toContain('Trust <strong id="paja-signer-consent-napplet-value"');
-    expect(html).toContain('Warning: Paja will sign any event this napplet identity requests');
-    expect(html).toContain('Direct-target trust survives code reloads at the same URL');
+    expect(html).toContain('id="paja-signer-consent-version"');
+    expect(html).toContain('Allow all signing and publishing from this napplet version');
+    expect(html).toContain('A different version or signer needs new approval');
     expect(html).toContain('id="signer-consent-clear"');
     expect(html).toContain('id="paja-notification-center"');
     expect(html).toContain('id="paja-console-toggle"');

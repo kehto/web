@@ -1,5 +1,52 @@
 # @kehto/services
 
+## 0.28.0
+
+### Minor Changes
+
+- 3089c5e: Harden the NAP-LLM service and add streaming providers (kehto/web#368, #369, #370):
+
+  - `createLlmService` bounds live model handles per window with `maxHandlesPerWindow` (default 32). Selecting beyond the bound evicts the least recently used handle, which then answers `selection-expired`; a successful `describe` or generation refreshes a handle.
+  - `LlmConnectionHost.select` and `authorize` receive an optional trailing `{ signal }` (`LlmPromptOptions`). It aborts when the request settles without the host's answer (cancel, deadline, handle invalidation or eviction, revocation, window destruction or unregistration), so hosts can close stale chooser and consent prompts. A pending selection answers `selection-expired` on invalidation and `cancelled` on revocation.
+  - `buildLlmProviderRequest(endpoint, request, { stream: true })` and `createHttpLlmProvider({ stream: true })` use each dialect's server-sent-event form. The provider forwards text fragments through a new optional `onDelta` argument and resolves the same generation as the buffered path. `LlmFetch` responses may expose `body` and `headers` (`LlmFetchResponse`), and `readLlmSseData` / `createLlmStreamAccumulator` are exported for custom transports.
+  - Paja streams provider output as `llm.delta`, and closes its chooser, consent and vault-unlock prompts when the request dies. `PajaConfirmationRequest` accepts an optional `signal` that withdraws a queued or open confirmation.
+
+## 0.27.1
+
+### Patch Changes
+
+- f5c3ee8: Widen the `@napplet/*` peer ranges so the `llm` domain installs without peer conflicts: `@napplet/core` now accepts `>=0.32.0 <0.37.0` and `@napplet/nap` accepts `>=0.32.0 <0.36.0`. The `llm` subpath first ships in `@napplet/nap@0.35.0`, and `@napplet/nap@0.35.1` requires `@napplet/core@^0.36.0`. The old `<0.35.0` cap made npm fail with ERESOLVE and made pnpm print unmet-peer warnings (kehto/web#364).
+- Updated dependencies [f5c3ee8]
+  - @kehto/runtime@0.27.1
+
+## 0.27.0
+
+### Minor Changes
+
+- fcb5bc9: Add the NAP-LLM reference service (napplet/naps PR #134 at `3e10939`): `createLlmService({ host })` with endpoint-scoped handles, schema and capability checks, consent before submission, duplicate-id rejection, cancellation and deadline races, ordered deltas and safe typed errors behind a `LlmConnectionHost` seam. Also exports the mirrored NAP-LLM types, `LlmServiceError`, pure request/response mappers for the OpenAI Chat Completions, Anthropic Messages and Google Gemini dialects, `createHttpLlmProvider()` and `LLM_PROVIDER_PRESETS`.
+
+### Patch Changes
+
+- Updated dependencies [fcb5bc9]
+  - @kehto/runtime@0.27.0
+
+## 0.26.0
+
+### Minor Changes
+
+- a1a50d7: Implement NAP-MEDIA shell-owned audio/video and live MP3/AAC radio through host resource policy,
+  with a shared player in Paja and the playground. Bind sessions to their endpoint,
+  validate controls, retire output on destruction or revoked access, and retain
+  terminal notifications in the protected injected API. Add canonical command-object
+  callbacks and command/onEnded operations; retain warned legacy sendCommand and
+  two-argument callbacks. Unary legacy callbacks must migrate to command objects.
+  Use a playable one-second silent PCM clip when priming browser OS media controls.
+
+### Patch Changes
+
+- Updated dependencies [a1a50d7]
+  - @kehto/runtime@0.26.1
+
 ## 0.25.1
 
 ### Patch Changes
