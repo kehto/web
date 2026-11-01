@@ -126,6 +126,16 @@ survives same-frame navigation, but the port lives only in the verified document
   demand.
 - `ShellBridge.observeFrame(frame, windowId)` watches for the second load. Call
   it after the frame is in the DOM and before assigning `srcdoc`.
+- Load counting cannot see a napplet that navigates its frame before its own
+  first `load`: only the replacement fires `load`, and browsers fire no
+  MessagePort `close` event. Lock the frame instead: put
+  `renderNappletFramePolicyMeta()` (`Content-Security-Policy: frame-src 'none'`,
+  exported as `NAPPLET_FRAME_POLICY`) in the host page `<head>`, or send the
+  equivalent HTTP header. Browsers check every navigation of a child frame
+  against the embedding page's `frame-src`, including one the frame starts
+  itself, while an unfetched `srcdoc` still loads. `hasNappletFramePolicy(document)`
+  reports whether the meta element is present, and `observeFrame` warns once
+  when it is not. This is host page policy, not napplet protocol surface.
 - `originRegistry.register()` throws for a `Window` that already handed over (or
   lost) its port. Create a fresh iframe for every reload or navigation.
 - `ShellAdapter.onNappletMessage(windowId, message)` observes each port envelope
