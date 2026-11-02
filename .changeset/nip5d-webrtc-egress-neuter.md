@@ -5,9 +5,10 @@
 Neuter direct WebRTC egress in the injected napplet realm. No CSP directive
 covers WebRTC, so an opaque-origin napplet could open an `RTCPeerConnection`
 data channel and exfiltrate past `connect-src 'none'` (napplet/evil finding #1;
-Delta Chat's webxdc write-up). The prelude now removes `RTCPeerConnection` and
-`webkitRTCPeerConnection` from the napplet realm before any napplet script runs,
-as a non-writable, non-configurable `undefined`, so feature detection sees the
+Delta Chat's webxdc write-up). The prelude now removes the whole WebRTC constructor
+surface from the napplet realm before any napplet script runs — every `RTC*`
+global plus the legacy `webkit`/`moz`-prefixed aliases — as a non-writable,
+non-configurable `undefined`, so feature detection sees the
 capability as absent and degrades.
 
 NAP-WEBRTC is unaffected: its `RTCPeerConnection` runs in the shell realm, and

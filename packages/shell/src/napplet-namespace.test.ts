@@ -2185,24 +2185,30 @@ describe('GAMEPAD injected binding', () => {
 });
 
 describe('NIP-5D direct WebRTC egress neutering', () => {
-  it('removes RTCPeerConnection and its legacy alias from the napplet realm before any script runs', () => {
+  it('removes the whole RTC* surface and legacy aliases from the napplet realm before any script runs', () => {
     const target = createPreludeTestWindow();
+    const realm = target as unknown as Record<string, unknown>;
     // A real browser realm exposes these constructors; the fake window stands in.
-    (target as unknown as Record<string, unknown>).RTCPeerConnection = function FakePC() {};
-    (target as unknown as Record<string, unknown>).webkitRTCPeerConnection = function FakePC() {};
+    const names = [
+      'RTCPeerConnection', 'RTCDataChannel', 'RTCSessionDescription', 'RTCIceCandidate',
+      'RTCRtpSender', 'webkitRTCPeerConnection', 'mozRTCPeerConnection',
+    ];
+    for (const name of names) realm[name] = function FakeRtc() {};
 
     runPrelude(renderNappletNamespacePrelude({ domains: ['shell'] }), target);
 
-    const realm = target as unknown as Record<string, unknown>;
-    expect(realm.RTCPeerConnection).toBeUndefined();
-    expect(realm.webkitRTCPeerConnection).toBeUndefined();
+    for (const name of names) expect(realm[name], name).toBeUndefined();
+    expect(Object.keys(realm).filter((key) => key.startsWith('RTC'))).toEqual([]);
+    // Unrelated globals are left alone.
+    expect(typeof realm.MessageChannel).toBe('function');
   });
 
   it('pins the neutered constructors so napplet code cannot restore them', () => {
     const target = createPreludeTestWindow();
+    const realm = target as unknown as Record<string, unknown>;
+    realm.RTCPeerConnection = function FakePC() {};
     runPrelude(renderNappletNamespacePrelude({ domains: ['shell'] }), target);
 
-    const realm = target as unknown as Record<string, unknown>;
     // Non-writable, non-configurable: a napplet reassigning it is a no-op (or throws in strict mode).
     expect(() => Object.defineProperty(realm, 'RTCPeerConnection', { value: function Restored() {} }))
       .toThrow();
