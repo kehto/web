@@ -86,11 +86,19 @@ test('neuters direct WebRTC egress in the napplet realm (no CSP directive covers
   const probed = await result(page);
   expect(probed.rtc).toBe(false);
   expect(probed.shell).toBe('function');
-  const ctors = await page.frameLocator('iframe').locator('body').evaluate(() => ({
-    pc: typeof (window as { RTCPeerConnection?: unknown }).RTCPeerConnection,
-    webkit: typeof (window as { webkitRTCPeerConnection?: unknown }).webkitRTCPeerConnection,
-  }));
-  expect(ctors).toEqual({ pc: 'undefined', webkit: 'undefined' });
+  const rtc = await page.frameLocator('iframe').locator('body').evaluate(() => {
+    const realm = window as unknown as Record<string, unknown>;
+    return {
+      remaining: Object.getOwnPropertyNames(window)
+        .filter((name) => /^(?:webkit|moz)?RTC/.test(name) && realm[name] !== undefined),
+      dataChannel: typeof realm.RTCDataChannel,
+      sessionDescription: typeof realm.RTCSessionDescription,
+      iceCandidate: typeof realm.RTCIceCandidate,
+    };
+  });
+  expect(rtc).toEqual({
+    remaining: [], dataChannel: 'undefined', sessionDescription: 'undefined', iceCandidate: 'undefined',
+  });
 });
 
 test('host overrides grant exact connections and can restrict WASM', async ({ page }) => {

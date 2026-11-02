@@ -108,15 +108,24 @@ function nappletNamespacePrelude(
   // RTCPeerConnection data channel and exfiltrate with no policy recourse
   // (napplet/evil finding #1; https://delta.chat/en/2023-05-22-webxdc-security).
   // NAP-WEBRTC runs the RTCPeerConnection in the shell realm, so a napplet
-  // never needs the raw constructor here. Remove it (and its legacy alias)
+  // never needs any WebRTC constructor here. Remove the whole RTC* surface —
+  // and the legacy vendor-prefixed aliases, which do not start with "RTC" —
   // before any napplet script runs: direct egress is gone and feature
   // detection sees the capability as absent and degrades. Defense-in-depth
   // beyond the current NIP-5D text; it does not reach srcdoc grandchild frames,
-  // which share the per-process WebRTC pool (docs/policies/NIP-5D-CONFORMANCE.md,
-  // "Direct WebRTC egress").
-  for (const rtcCtor of ['RTCPeerConnection', 'webkitRTCPeerConnection']) {
+  // which get their own realm and share the per-process WebRTC pool
+  // (docs/policies/NIP-5D-CONFORMANCE.md, "Direct WebRTC egress").
+  const rtcGlobals = new Set<string>([
+    'webkitRTCPeerConnection', 'mozRTCPeerConnection',
+    'webkitRTCSessionDescription', 'mozRTCSessionDescription',
+    'webkitRTCIceCandidate', 'mozRTCIceCandidate',
+  ]);
+  for (const key of Object.getOwnPropertyNames(target)) {
+    if (key.startsWith('RTC')) rtcGlobals.add(key);
+  }
+  for (const rtcName of rtcGlobals) {
     try {
-      Object.defineProperty(target as object, rtcCtor, {
+      Object.defineProperty(target as object, rtcName, {
         value: undefined,
         writable: false,
         configurable: false,
