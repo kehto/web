@@ -62,7 +62,11 @@ into a scheduled job if you want drift surfaced automatically.
      new built-in domain is runtime work, not mock work.
    - `extension` — every other wire domain. `defineMockService` publishes each
      route in `messageCapabilities` with `null`; map a route to an existing ACL
-     capability only when the NAP says it reuses one.
+     capability only when the NAP says it reuses one. Every shell -> napplet
+     push the mock emits outside a request (`pushToWindow`) must be listed in
+     `pushes` (published as `pushCapabilities`), or the runtime refuses it and
+     `pushToWindow` returns `false`. Live subscription events that belong to an
+     earlier request go through that request's `send` with `pushThrough`.
    - `adapter` / `runtime-owned` / `posture` — no factory; export the spec ref,
      an entry with a `note`, and any helper the shell needs.
 3. Create `src/domains/<domain>.ts` from the template below and
@@ -147,7 +151,10 @@ blocked by upstream drift.
 - `nap 0.32.0` types may lag a draft; prefer the document, note the drift in
   the header, and do not widen the mock to satisfy stale types.
 - Changing a route key changes `messageCapabilities` for extension kinds — the
-  registry test asserts the two stay equal.
+  registry test asserts the two stay equal. Push types live in `pushes`, must
+  belong to the domain, and must not double as routes.
+- `pushToWindow` returns the runtime's verdict; never treat a push as sent when
+  it returns `false`, and keep state (assignments, cursors) unchanged on refusal.
 - Do not reach into another domain's state. Shared data belongs in
   `src/fixtures/`.
 - Files stay under 700 lines and functions under 150 (the aislop gate); split

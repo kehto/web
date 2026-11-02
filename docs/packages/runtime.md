@@ -101,6 +101,15 @@ firewall before delivery. Unknown types are silent; denial does not invent an
 extension error envelope. Static and dynamic registration follow the same path.
 Pending replies remain bound to that registration and source lifecycle and
 recheck current domain/ACL policy. Built-in NAP routing retains its own contracts.
+Shell -> napplet pushes into a custom domain require an exact
+`ServiceHandler.pushCapabilities` map and go through
+`ServiceRuntimeContext.sendToEligibleNapplet`, which applies the same source,
+domain-grant, and ACL gates and returns whether the push was delivered.
+
+When a registered `relay` service accepts a `relay.publish`, that service owns
+storage and fan-out of the event (publisher echo, per-subscription relay scope);
+the runtime ring buffer only fans out publishes it coordinates itself through the
+adapter relay pool.
 
 Registration is not namespace injection or capability authorization. The host
 owns the extension's protocol and, for browsers, its pre-execution binding.

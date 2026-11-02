@@ -96,7 +96,10 @@ const domains = mockShellEnvironmentDomains(MOCK_NAP_REGISTRY);
 ```
 
 Built-in domains still obey ACL: a napplet without `relay:read` never reaches
-the relay mock. Mocks never bypass the runtime's gates.
+the relay mock. Mocks never bypass the runtime's gates: a push the runtime
+refuses (window not live, domain not exposed, capability missing) makes
+`pushToWindow` and controls such as `class.assign()` return `false` and leaves
+`mock.sent` untouched.
 
 ## Step 5 — Domains the runtime owns
 

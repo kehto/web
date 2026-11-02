@@ -116,7 +116,9 @@ each `Mock<Domain>Service`.
 
 Kinds: `service` — routed by the runtime's built-in dispatcher;
 `extension` — routed when the handler declares `messageCapabilities` and the
-shell exposes the domain (`mockShellEnvironmentDomains()` lists them);
+shell exposes the domain (`mockShellEnvironmentDomains()` lists them); pushes
+outside a request are declared as `pushCapabilities` and `pushToWindow` returns
+the runtime's delivery verdict;
 `adapter` / `runtime-owned` / `posture` — no factory (storage uses
 `createMockStatePersistence()`).
 

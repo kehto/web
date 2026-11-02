@@ -18,3 +18,9 @@ instantiates the whole registry for `ShellAdapter.services`;
 against, and `scripts/audit-naps.mjs` reports upstream drift. Transfer-oriented
 mocks (torrent, nzb, soulseek, resource, upload, fs, blossom, hashtree, git) use
 a Linux distribution image catalog as their subject.
+
+Mocks deliver through the real runtime: extension mocks declare their
+out-of-request pushes as `pushCapabilities` (`defineMockService({ pushes })`),
+`pushToWindow` returns the runtime's delivery verdict and records only delivered
+envelopes, and the relay mock owns fan-out through each subscription's own
+runtime `send` (publisher echo, relay scope) via `pushThrough`.

@@ -41,7 +41,7 @@ Workspace dependencies: `@kehto/runtime` (ServiceHandler contract) and
 | Area | Exports |
 |------|---------|
 | Aggregate | `createMockNapEnvironment`, `createMockNapServices`, `MOCK_NAP_REGISTRY`, `MOCK_SOCIAL_DOMAINS`, `findMockDomain`, `mockShellEnvironmentDomains`, `createMockNostrStore`, `createMockStatePersistence` |
-| Builder | `defineMockService`, `pushToWindow`, `resultType`, `DEFAULT_CLOCK`, `DEFAULT_SCHEDULER` |
+| Builder | `defineMockService`, `pushToWindow`, `pushThrough`, `resultType`, `DEFAULT_CLOCK`, `DEFAULT_SCHEDULER` |
 | Determinism | `createSeededRng`, `hashLabel`, `mockHex`, `mockPubkey`, `mockEventId`, `mockSignature` |
 | Fixtures | `MOCK_ACCOUNTS`, `MOCK_EVENTS`, `MOCK_RELAYS`, `MOCK_RELAY_URLS`, `buildMockEvent`, `queryNostrEvents`, `matchesNostrFilter`, `LINUX_DISTROS`, `findLinuxDistro`, `searchLinuxDistros` |
 | Domain factories | `createMock<Domain>Service` per wire domain (table below), `createMockStatePersistence` for storage |
@@ -138,8 +138,16 @@ hashtree, git) model Linux distribution images only.
   cryptographically valid or fetched from the network.
 - Mocks never bypass runtime gates: built-in domains still require their ACL
   capability, extension domains still require the shell to expose the domain,
-  and pushes go through `ServiceRuntimeContext.sendToEligibleNapplet` when the
-  service is registered.
+  and out-of-request pushes go through `ServiceRuntimeContext.sendToEligibleNapplet`
+  when the service is registered. Extension mocks declare those push types as
+  `pushCapabilities` (the `pushes` field of `defineMockService`). A push the
+  runtime refuses is reported as `false` by `pushToWindow` and by domain
+  controls such as `class.assign()`, and is never recorded in `mock.sent`.
+- Live subscription traffic (`relay.event`) is delivered through the `send` of
+  the owning `relay.subscribe` request, exactly as the reference relay services
+  do, so the runtime's liveness and `relay:read` checks apply and the registered
+  relay mock owns fan-out: the publisher's own matching subscriptions receive
+  the event and the runtime ring buffer adds no second copy.
 - INC and NAP-SHELL are served by the runtime and `@kehto/shell`; the package
   records their refs and offers helpers but does not fabricate their traffic.
 - Draft-tracking only: the registry mirrors `napplet/naps` master and open PR
