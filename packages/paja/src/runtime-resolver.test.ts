@@ -16,6 +16,7 @@ import {
   injectPajaRuntimeCsp,
   resolvePajaPointer,
   type PajaPointerRelayPool,
+  PajaRelayUnreachableError,
 } from './runtime-resolver.js';
 
 const SK = Uint8Array.from('11'.repeat(32).match(/.{2}/g)!.map((part) => parseInt(part, 16)));
@@ -450,5 +451,103 @@ describe.each(['current', 'legacy'] as const)('Paja %s runtime pointer resolver'
         arrayBuffer: async () => enc.encode('wrong bytes').buffer,
       } as Response),
     })).rejects.toMatchObject({ code: 'blob-unavailable' });
+  });
+});
+
+
+describe('Paja pointer resolver relay connection tracking', () => {
+  const RELAYS = ['wss://a.example', 'wss://b.example', 'wss://c.example'];
+
+  function trackingPool(
+    ensure: (url: string) => Promise<unknown>,
+    subscribe: 'hang' | { readonly reasons: readonly string[] } = 'hang',
+  ): PajaPointerRelayPool & { ensureCalls: Array<{ url: string; connectionTimeout?: number }> } {
+    const ensureCalls: Array<{ url: string; connectionTimeout?: number }> = [];
+    return {
+      ensureCalls,
+      async querySync() {
+        throw new Error('querySync fallback should not run');
+      },
+      ensureRelay(url, params) {
+        ensureCalls.push({ url, connectionTimeout: params?.connectionTimeout });
+        return ensure(url);
+      },
+      subscribeManyEose(_relays, _filter, params) {
+        if (subscribe === 'hang') return { close: () => undefined };
+        const timer = setTimeout(() => params.onclose([...subscribe.reasons]), 0);
+        return { close: () => clearTimeout(timer) };
+      },
+    };
+  }
+
+  async function pointer(): Promise<string> {
+    const manifest = await buildManifestFixture({ dTag: 'tracking', format: 'current' });
+    return naddrEncode({
+      identifier: manifest.dTag,
+      pubkey: manifest.event.pubkey,
+      kind: PAJA_NAPPLET_MANIFEST_KIND,
+      relays: RELAYS,
+    });
+  }
+
+  it('reports zero connections distinctly when every relay fails to connect, even past the deadline', async () => {
+    const pool = trackingPool(() => Promise.reject(new Error('connection failed')));
+    const value = await pointer();
+
+    const error = await resolvePajaPointer(value, { pool, maxWaitMs: 30 }).then(
+      () => null,
+      (caught: unknown) => caught,
+    );
+
+    expect(error).toBeInstanceOf(PajaRelayUnreachableError);
+    const unreachable = error as PajaRelayUnreachableError;
+    expect(unreachable.code).toBe('relay-unreachable');
+    expect(unreachable.message).toMatch(/No relay connection could be opened.*0 of 3 relays connected within 30ms \(3 failed, 0 still connecting\)/);
+    expect(unreachable.message).toMatch(/WebSocket connection limit/);
+    expect(unreachable.message).toMatch(/Relay errors: connection failed\./);
+    expect(unreachable.message).not.toMatch(/timed out/);
+    expect(unreachable.connections).toMatchObject({ total: 3, connected: [], pending: [] });
+    expect(unreachable.connections.failed.map((entry) => entry.url)).toEqual(RELAYS);
+    // One idempotent ensureRelay per distinct relay, sharing the query deadline.
+    expect(pool.ensureCalls).toEqual(RELAYS.map((url) => ({ url, connectionTimeout: 30 })));
+  });
+
+  it('counts relays still connecting at the deadline instead of calling them slow', async () => {
+    const pool = trackingPool(() => new Promise(() => undefined));
+    const value = await pointer();
+
+    await expect(resolvePajaPointer(value, { pool, maxWaitMs: 25 }))
+      .rejects.toMatchObject({
+        code: 'relay-unreachable',
+        connections: { total: 3, connected: [], failed: [], pending: RELAYS },
+      });
+    await expect(resolvePajaPointer(value, { pool, maxWaitMs: 25 }))
+      .rejects.toThrow(/0 of 3 relays connected within 25ms \(0 failed, 3 still connecting\)/);
+  });
+
+  it('does not misreport partial connectivity as unreachable', async () => {
+    const connectOnlyA = (url: string) => url === RELAYS[0] ? Promise.resolve() : Promise.reject(new Error('connection failed'));
+    const value = await pointer();
+
+    // One relay EOSE'd, two failed: the ordinary incomplete-EOSE failure, not "unreachable".
+    const mixed = await resolvePajaPointer(value, {
+      pool: trackingPool(connectOnlyA, { reasons: ['closed automatically on eose', 'connection failed', 'connection failed'] }),
+    }).then(() => null, (caught: unknown) => caught as Error);
+    expect(mixed).not.toBeInstanceOf(PajaRelayUnreachableError);
+    expect(mixed?.message).toMatch(/Relay query failed for naddr pointer before complete EOSE: connection failed/);
+
+    // Deadline expiry with one live relay keeps the timeout message, now with the count.
+    await expect(resolvePajaPointer(value, { pool: trackingPool(connectOnlyA, 'hang'), maxWaitMs: 25 }))
+      .rejects.toThrow(/timed out after 25ms.*\(1 of 3 relays connected\)\./);
+  });
+
+  it('keeps legacy messages unchanged for pools without ensureRelay', async () => {
+    const value = await pointer();
+    const legacy: PajaPointerRelayPool = {
+      async querySync() { throw new Error('querySync fallback should not run'); },
+      subscribeManyEose() { return { close: () => undefined }; },
+    };
+    await expect(resolvePajaPointer(value, { pool: legacy, maxWaitMs: 20 }))
+      .rejects.toThrow(/timed out after 20ms for naddr pointer across 3 relays before complete EOSE\.$/);
   });
 });
