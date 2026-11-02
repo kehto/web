@@ -99,9 +99,11 @@ write-up](https://delta.chat/en/2023-05-22-webxdc-security). The proposed W3C
 `webrtc` CSP directive (`block`/`allow`) is not reliably implemented and is not
 enforceable from a `<meta>` policy, so CSP cannot close this.
 
-Kehto's injected prelude removes `RTCPeerConnection` and `webkitRTCPeerConnection`
-from the napplet realm before any napplet script runs (set to a non-writable,
-non-configurable `undefined`). NAP-WEBRTC is unaffected: its `RTCPeerConnection`
+Kehto's injected prelude removes the whole WebRTC constructor surface from the
+napplet realm before any napplet script runs: every global whose name starts
+with `RTC` (`RTCPeerConnection`, `RTCDataChannel`, `RTCSessionDescription`,
+`RTCIceCandidate`, `RTCRtp*`, …) plus the legacy `webkit`/`moz`-prefixed aliases,
+each set to a non-writable, non-configurable `undefined`. NAP-WEBRTC is unaffected: its `RTCPeerConnection`
 runs in the shell realm (`packages/paja/src/browser-webrtc.ts`), and the napplet
 reaches it only through the mediated `window.napplet.webrtc` domain, never the
 raw constructor.

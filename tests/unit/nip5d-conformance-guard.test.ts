@@ -273,8 +273,9 @@ describe('NIP-5D conformance static guards', () => {
 
     // The prelude removes both PeerConnection constructors as a pinned undefined,
     // before any napplet script runs. NAP-WEBRTC runs in the shell realm.
-    expect(prelude).toContain("for (const rtcCtor of ['RTCPeerConnection', 'webkitRTCPeerConnection']) {");
-    expect(prelude).toMatch(/Object\.defineProperty\(target as object, rtcCtor, \{[\s\S]*?value: undefined,[\s\S]*?writable: false,[\s\S]*?configurable: false,/);
+    expect(prelude).toContain("if (key.startsWith('RTC')) rtcGlobals.add(key);");
+    expect(prelude).toContain("'webkitRTCPeerConnection', 'mozRTCPeerConnection',");
+    expect(prelude).toMatch(/Object\.defineProperty\(target as object, rtcName, \{[\s\S]*?value: undefined,[\s\S]*?writable: false,[\s\S]*?configurable: false,/);
     expect(policy).toContain('### Direct WebRTC egress');
   });
 
