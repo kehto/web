@@ -18,8 +18,8 @@ pnpm add -D @kehto/mocks
 
 ## Published Napplet Compatibility
 
-Peers admit `@napplet/core` `>=0.32.0 <0.37.0` and `@napplet/nap`
-`>=0.32.0 <0.36.0`, matching `@kehto/services`; development and tests stay on
+Peers admit `@napplet/core` `>=0.32.0 <0.38.0` and `@napplet/nap`
+`>=0.32.0 <0.37.0`, matching `@kehto/services`; development and tests stay on
 the baseline 0.32.0 line.
 
 ## Quick start
