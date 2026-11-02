@@ -507,6 +507,14 @@ export interface ServiceHandler {
    */
   messageCapabilities?: Readonly<Record<string, Capability | null>>;
   /**
+   * Explicit shell -> napplet push types for a domain outside the built-in
+   * dispatcher: exact type -> recipient ACL capability or explicit `null`.
+   * `ServiceRuntimeContext.sendToEligibleNapplet` delivers a declared type only
+   * to a live, unblocked source whose host grants the domain via `isDomainAllowed`.
+   * Undeclared types are refused; built-in NAP domains keep their own mapping.
+   */
+  pushCapabilities?: Readonly<Record<string, Capability | null>>;
+  /**
    * Attach this handler to one runtime instance.
    *
    * @param context - Narrow runtime-owned identity and recipient-send access.
