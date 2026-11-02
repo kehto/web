@@ -163,6 +163,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
+| 261102-edn | Neuter direct WebRTC egress in the napplet realm (napplet/evil #1); RTCPeerConnection removed from the injected prelude | 2026-11-02 | 00cb519e | passed | [261102-edn](./quick/261102-edn-nip5d-webrtc-egress-neuter/) |
 | 261101-pfc | Move playground-only relay, storage, ACL-revoke, identity and CVM e2e coverage to Paja | 2026-11-01 | 08bbf248 | passed | [261101-pfc](./quick/261101-pfc-paja-e2e-coverage/) |
 | 261101-u20 | Chase NIP-5D port-bound identity security fix (napplet.hello MessagePort; nips#2303 @ 51ef0cd, napplet/web#302) | 2026-11-01 | 8798cac2 | passed | [261101-u20](./quick/261101-u20-nip5d-port-bound-identity/) |
 | 261101-ojp | Deprecate and retire the @kehto/playground app; /web/playground/ redirects to Paja (KEHTO_PLAYGROUND_RETIRED) | 2026-11-01 | bb9817a2 | passed | [261101-ojp](./quick/261101-ojp-deprecate-playground/) |
