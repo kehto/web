@@ -335,13 +335,18 @@ export function installPajaLlmPanel(options: PajaLlmPanelOptions): PajaLlmPanel 
     }
   }
 
+  let appliedPreset: LlmProviderPreset | undefined;
+
   function applyPreset(): void {
     if (!elements) return;
     const preset = presetById(elements.preset.value);
     if (!preset) return;
+    // A key entered for one provider must never follow an automatic URL change.
+    if (appliedPreset && appliedPreset.id !== preset.id) elements.credential.value = '';
+    if (!elements.name.value || elements.name.value === appliedPreset?.label) elements.name.value = preset.label;
+    appliedPreset = preset;
     if (preset.baseUrl) elements.baseUrl.value = preset.baseUrl;
     elements.examples.replaceChildren(...preset.exampleModels.map((value) => Object.assign(document.createElement('option'), { value })));
-    if (!elements.name.value) elements.name.value = preset.label;
     elements.credential.placeholder = preset.requiresCredential ? 'API key (sent only to this base URL)' : 'Optional for local servers';
     void refreshModels();
   }
@@ -410,7 +415,6 @@ export function installPajaLlmPanel(options: PajaLlmPanelOptions): PajaLlmPanel 
     elements.credential.value = '';
     elements.name.value = '';
     elements.model.value = '';
-    elements.modelSelect.replaceChildren();
     setStatus(storage === 'vault' ? `Saved ${record.name}; its key is encrypted in the vault.` : storage === 'session' ? `Saved ${record.name}; its key lasts until this page closes.` : `Saved ${record.name} without a key.`);
     renderList();
     options.onChange?.();

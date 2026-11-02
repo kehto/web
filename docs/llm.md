@@ -38,6 +38,10 @@ Keys are optional to remember. A remembered key is encrypted before it touches s
 | Ollama, LM Studio, llama.cpp server, vLLM | OpenAI Chat Completions on loopback | none by default |
 | Routstr (`routstrd` on `:8008`) | OpenAI Chat Completions on loopback, `/v1/models` for listing | none by default |
 
+Switching provider presets clears the unsaved API key before contacting the new
+provider. Auto-filled connection names follow the preset; custom names stay intact.
+After saving a Routstr connection, the model catalogue stays available to add another.
+
 Model listing is a plain `GET <baseUrl><modelsPath>` from the host page, so it
 is subject to browser CORS like any other page request. A loopback daemon that
 answers generation but omits `access-control-allow-origin` on its listing route

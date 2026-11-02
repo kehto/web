@@ -18,3 +18,7 @@ URL re-lists the models.
 The listing is a browser request like generation, so a loopback provider must
 answer CORS on that route; nothing else about the connection changes and the
 key is still placed only on requests to the connection's own base URL.
+
+Switching presets clears the unsaved API key before model discovery and updates
+auto-filled connection names without replacing custom names. Saving a connection
+keeps the model catalogue available for adding another connection.
