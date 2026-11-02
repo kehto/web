@@ -15,6 +15,11 @@ describe('@kehto/paja host page', () => {
       expect(toolbar).toContain('role="group" aria-label="Connected controllers"');
     }
   });
+  it('locks napplet frames to their verified srcdoc with a frame-src CSP in <head>', () => {
+    const html = renderPajaHtml(createPajaRuntimeHostConfig({}));
+    const head = html.slice(html.indexOf('<head>'), html.indexOf('</head>'));
+    expect(head).toContain(`<meta http-equiv="Content-Security-Policy" content="frame-src 'none'">`);
+  });
   it('presents named app choices and a nonmodal notice without a recipient protocol form', () => {
     const html = renderPajaHtml(createPajaRuntimeHostConfig({}));
     const choice = html.match(/<dialog[^>]+id="paja-intent-link-dialog"[\s\S]*?<\/dialog>/)?.[0];

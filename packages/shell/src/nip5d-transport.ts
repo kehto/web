@@ -10,6 +10,7 @@
  * @module
  */
 
+import { hasNappletFramePolicy, NAPPLET_FRAME_POLICY } from './frame-policy.js';
 import type { Runtime } from '@kehto/runtime';
 import type { NappletMessage } from '@napplet/core';
 import { originRegistry } from './origin-registry.js';
@@ -75,6 +76,18 @@ const REVOCATION_DETAIL: Readonly<Record<NappletRevocationReason, string>> = {
 
 function isHello(data: unknown): boolean {
   return typeof data === 'object' && data !== null && (data as { type?: unknown }).type === NAPPLET_HELLO;
+}
+
+let framePolicyWarned = false;
+
+/** Warn once when the host page lacks the frame-src lock that load counting cannot replace. */
+function warnWithoutFramePolicy(frame: object): void {
+  const doc = (frame as { ownerDocument?: Document | null }).ownerDocument;
+  if (framePolicyWarned || !doc || hasNappletFramePolicy(doc)) return;
+  framePolicyWarned = true;
+  console.warn(
+    `[kehto] The host page has no "${NAPPLET_FRAME_POLICY}" CSP. A napplet that navigates its frame before its first load is invisible to NIP-5D's replacement evidence; add renderNappletFramePolicyMeta() to the host page <head>.`,
+  );
 }
 
 /**
@@ -211,6 +224,7 @@ export function createNip5dTransport({ hooks, runtime, state: shellReadyState }:
   }
 
   function observeFrame(frame: Pick<HTMLIFrameElement, 'addEventListener' | 'removeEventListener'>, windowId: string): () => void {
+    warnWithoutFramePolicy(frame);
     let loads = 0;
     const onLoad = (): void => {
       loads += 1;

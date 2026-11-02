@@ -340,6 +340,12 @@ artifact CSP is retained. Set `frame-ancestors` on the host HTTP response, not
 in a meta policy. See the [shared policy contract](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#shell-csp-enforcement).
 Local target-URL authoring mode retains its separate development policy and HMR.
 
+The Paja host page carries `Content-Security-Policy: frame-src 'none'` in its
+`<head>` (`renderNappletFramePolicyMeta()` from `@kehto/shell`), so a napplet
+cannot navigate its frame away from the verified `srcdoc` at any time,
+including before its first `load`, which NIP-5D's replacement evidence cannot
+observe. Paja refuses to load a napplet into a frame whose host page lacks it.
+
 Environment simulation can be supplied through CLI flags or a JSON config file:
 
 ```bash

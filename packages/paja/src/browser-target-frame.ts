@@ -1,5 +1,6 @@
 import {
   denyNappletControllerAccess,
+  hasNappletFramePolicy,
   injectNappletNamespacePrelude,
   prepareNappletSrcdoc,
   originRegistry,
@@ -93,6 +94,11 @@ export async function navigateFrame(
   onRegistered?: (windowId: string | null) => void,
 ): Promise<string | null> {
   denyNappletControllerAccess(frame);
+  // Fail closed: without the host page's frame-src lock, a napplet could navigate its frame before its first load,
+  // which no NIP-5D replacement evidence can observe.
+  if (!hasNappletFramePolicy(frame.ownerDocument)) {
+    throw new Error('[paja] The host page has no frame-src lock; refusing to load a napplet whose frame could navigate away from its verified document.');
+  }
   const identity = getTargetOriginIdentity(config, resolvedTarget);
   const environment = resolvePajaFrameEnvironment(adapter, identity);
   const domains = environment.capabilities.domains;
