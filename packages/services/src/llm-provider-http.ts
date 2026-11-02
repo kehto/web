@@ -34,6 +34,12 @@ export interface LlmProviderPreset {
   readonly docsUrl: string;
   /** Example model identifiers to seed the editor; the user may type any model. */
   readonly exampleModels: readonly string[];
+  /**
+   * Listing path when the provider serves one (`GET <baseUrl><modelsPath>`).
+   * Hosts may offer a model dropdown seeded from it instead of free-text entry;
+   * a provider that omits this keeps manual model entry.
+   */
+  readonly modelsPath?: string;
 }
 
 const PRESET_ROWS: readonly LlmProviderPreset[] = [
@@ -53,6 +59,7 @@ const PRESET_ROWS: readonly LlmProviderPreset[] = [
   { id: 'lmstudio', label: 'LM Studio (local)', protocol: 'openai-chat', baseUrl: 'http://127.0.0.1:1234/v1', requiresCredential: false, local: true, docsUrl: 'https://lmstudio.ai/docs/app/api/endpoints/openai', exampleModels: [] },
   { id: 'llamacpp', label: 'llama.cpp server (local)', protocol: 'openai-chat', baseUrl: 'http://127.0.0.1:8080/v1', requiresCredential: false, local: true, docsUrl: 'https://github.com/ggml-org/llama.cpp/tree/master/tools/server', exampleModels: [] },
   { id: 'vllm', label: 'vLLM (self-hosted)', protocol: 'openai-chat', baseUrl: 'http://127.0.0.1:8000/v1', requiresCredential: false, local: true, docsUrl: 'https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html', exampleModels: [] },
+  { id: 'routstr', label: 'Routstr', protocol: 'openai-chat', baseUrl: 'http://127.0.0.1:8008/v1', requiresCredential: false, local: true, docsUrl: 'https://routstr.com', exampleModels: [], modelsPath: '/models' },
   { id: 'custom', label: 'Custom OpenAI-compatible', protocol: 'openai-chat', baseUrl: '', requiresCredential: false, local: false, docsUrl: 'https://platform.openai.com/docs/api-reference/chat', exampleModels: [] },
 ];
 

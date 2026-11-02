@@ -36,6 +36,12 @@ Keys are optional to remember. A remembered key is encrypted before it touches s
 | Anthropic | Messages API | `x-api-key` (plus `anthropic-version` and the direct-browser-access header) |
 | Google Gemini | `generateContent` | `x-goog-api-key` |
 | Ollama, LM Studio, llama.cpp server, vLLM | OpenAI Chat Completions on loopback | none by default |
+| Routstr (`routstrd` on `:8008`) | OpenAI Chat Completions on loopback, `/v1/models` for listing | none by default |
+
+Model listing is a plain `GET <baseUrl><modelsPath>` from the host page, so it
+is subject to browser CORS like any other page request. A loopback daemon that
+answers generation but omits `access-control-allow-origin` on its listing route
+fails the dropdown, and Paja says so instead of showing an empty select.
 
 ## Streaming
 

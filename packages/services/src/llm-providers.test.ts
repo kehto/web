@@ -170,4 +170,18 @@ describe('LLM_PROVIDER_PRESETS', () => {
     }
     expect(LLM_PROVIDER_PRESETS.find((preset) => preset.id === 'azure-openai')?.credentialHeader).toBe('api-key');
   });
+
+  it('declares a loopback Routstr preset whose models a host can list', () => {
+    const routstr = LLM_PROVIDER_PRESETS.find((preset) => preset.id === 'routstr');
+    expect(routstr).toMatchObject({
+      label: 'Routstr',
+      protocol: 'openai-chat',
+      baseUrl: 'http://127.0.0.1:8008/v1',
+      local: true,
+      requiresCredential: false,
+      modelsPath: '/models',
+    });
+    // Only a listing path makes a host offer a dropdown; the rest keep manual entry.
+    expect(LLM_PROVIDER_PRESETS.filter((preset) => preset.modelsPath !== undefined).map((preset) => preset.id)).toEqual(['routstr']);
+  });
 });
