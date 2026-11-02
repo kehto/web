@@ -96,7 +96,7 @@ import {
 } from './browser-target-frame.js';
 import { isPajaLocalTarget, type PajaRuntimeTarget } from './local-target.js';
 import { pajaDevelopmentConsentScope } from './browser-operation-scope.js';
-import { resolvePajaPointer } from './runtime-resolver.js';
+import { PajaRelayUnreachableError, resolvePajaPointer } from './runtime-resolver.js';
 import { parsePajaIntentLink } from './intent-link.js';
 import {
   createPajaIntentLinkController,
@@ -432,6 +432,20 @@ async function loadRuntimePointer(
     state.resolvedTarget = null;
     setPointerStatus(state, message);
     setStatus(state, 'error');
+    if (error instanceof PajaRelayUnreachableError) {
+      // Zero relays connected: the manifest was never asked for. Log it as its
+      // own event so the console tells the operator why (offline, blocked, or
+      // the browser's WebSocket limit) instead of looking like a napplet bug.
+      const { total, connected, failed, pending } = error.connections;
+      appendPajaMessageLog(state, 'paja', {
+        type: 'paja.relay.unreachable',
+        relays: total,
+        connected: connected.length,
+        failed: failed.map((entry) => `${entry.url}: ${entry.reason}`),
+        pending: [...pending],
+        hint: 'browser offline, relays blocked, or WebSocket connection limit reached — close other tabs holding relay connections and retry',
+      });
+    }
     appendPajaMessageLog(state, 'paja', { type: 'paja.pointer.error', error: message });
   }
 }
