@@ -22,3 +22,5 @@ key is still placed only on requests to the connection's own base URL.
 Switching presets clears the unsaved API key before model discovery and updates
 auto-filled connection names without replacing custom names. Saving a connection
 keeps the model catalogue available for adding another connection.
+
+Failed Routstr model discovery offers an Install routstrd link to https://routstr.com/routstrd; retrying or switching providers clears the guidance.

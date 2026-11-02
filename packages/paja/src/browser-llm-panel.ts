@@ -330,6 +330,15 @@ export function installPajaLlmPanel(options: PajaLlmPanelOptions): PajaLlmPanel 
       if (error instanceof PajaLlmModelsError && error.failure === 'aborted') return;
       setModelMode('text');
       setModelStatus(`${error instanceof Error ? error.message : 'Could not list models.'} Type the model id instead.`, 'error');
+      if (preset.id === 'routstr') {
+        const install = Object.assign(document.createElement('a'), {
+          href: 'https://routstr.com/routstrd',
+          textContent: 'Install routstrd',
+          target: '_blank',
+          rel: 'noopener noreferrer',
+        });
+        elements.modelStatus.append(document.createElement('br'), install);
+      }
     } finally {
       if (modelListing === controller) modelListing = null;
     }

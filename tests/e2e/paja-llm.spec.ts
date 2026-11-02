@@ -232,3 +232,32 @@ test('saving a Routstr connection keeps the catalogue available for another conn
   await expect(page.locator('#paja-llm-connections')).toContainText('First Routstr · alpha');
   await expect(page.locator('#paja-llm-connections')).toContainText('Second Routstr · beta');
 });
+
+
+test('failed Routstr discovery offers installation guidance and clears it on retry or provider switch', async ({ page }) => {
+  let connected = false;
+  await page.route('http://127.0.0.1:8008/v1/models', (route) => connected
+    ? route.fulfill({ json: { data: [{ id: 'alpha' }] } })
+    : route.abort('connectionrefused'));
+  await page.goto(host.url);
+  await page.locator('#paja-section-llm').evaluate((section) => { (section as HTMLDetailsElement).open = true; });
+  const preset = page.locator('#paja-llm-preset');
+  const status = page.locator('#paja-llm-model-status');
+  const install = status.getByRole('link', { name: 'Install routstrd' });
+  await expect(install).toHaveCount(0);
+  await preset.selectOption('routstr');
+  await expect(install).toBeVisible();
+  await expect(install).toHaveAttribute('href', 'https://routstr.com/routstrd');
+  await expect(install).toHaveAttribute('target', '_blank');
+  await expect(install).toHaveAttribute('rel', 'noopener noreferrer');
+  await expect(page.locator('#paja-llm-model')).toBeVisible();
+  await preset.selectOption('openrouter');
+  await expect(install).toHaveCount(0);
+  await preset.selectOption('routstr');
+  await expect(install).toBeVisible();
+  connected = true;
+  await page.locator('#paja-llm-base-url').fill('http://127.0.0.1:8008/v1/');
+  await page.locator('#paja-llm-base-url').blur();
+  await expect(status).toContainText('Connected');
+  await expect(install).toHaveCount(0);
+});

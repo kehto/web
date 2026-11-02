@@ -45,7 +45,7 @@ After saving a Routstr connection, the model catalogue stays available to add an
 Model listing is a plain `GET <baseUrl><modelsPath>` from the host page, so it
 is subject to browser CORS like any other page request. A loopback daemon that
 answers generation but omits `access-control-allow-origin` on its listing route
-fails the dropdown, and Paja says so instead of showing an empty select.
+fails the dropdown, and Paja says so instead of showing an empty select. Failed Routstr model discovery also shows an [Install routstrd](https://routstr.com/routstrd) link below the error; retrying or switching providers clears it.
 
 ## Streaming
 
