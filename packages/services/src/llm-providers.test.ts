@@ -158,6 +158,13 @@ describe('createHttpLlmProvider', () => {
 });
 
 describe('LLM_PROVIDER_PRESETS', () => {
+  it('places Routstr after OpenRouter and Gemini after Routstr', () => {
+    const ids = LLM_PROVIDER_PRESETS.map((preset) => preset.id);
+    const index = ids.indexOf('openrouter');
+    expect(index).toBeGreaterThanOrEqual(0);
+    expect(ids.slice(index, index + 3)).toEqual(['openrouter', 'routstr', 'gemini']);
+  });
+
   it('covers the common hosted and local providers with usable protocol metadata', () => {
     const ids = LLM_PROVIDER_PRESETS.map((preset) => preset.id);
     expect(ids).toEqual(expect.arrayContaining(['openai', 'anthropic', 'gemini', 'openrouter', 'groq', 'mistral', 'deepseek', 'xai', 'together', 'ollama', 'lmstudio', 'azure-openai', 'custom']));
