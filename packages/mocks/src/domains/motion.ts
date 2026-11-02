@@ -196,6 +196,7 @@ export function createMockMotionService(options: MockMotionOptions = {}): MockMo
     version: '0.1.0',
     description: 'Mock NAP-MOTION device motion and orientation',
     kind: 'extension',
+    pushes: { 'motion.state': null, 'motion.sample': null },
     initialState: () => ({ available: options.unavailable === undefined, ...(options.unavailable ? { reason: options.unavailable } : {}), focusedWindow: null, windows: new Map(), sampleIndex: 0 }),
     routes: {
       'motion.subscribe': ({ message, state, windowId }) => {

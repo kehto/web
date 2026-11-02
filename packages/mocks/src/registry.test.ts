@@ -110,6 +110,13 @@ describe('MOCK_NAP_REGISTRY', () => {
       for (const route of service.mock.routes) expect(route.startsWith(`${domain}.`), `${domain}: ${route}`).toBe(true);
       if (entry.kind === 'extension') {
         expect(Object.keys(service.messageCapabilities ?? {}), domain).toEqual([...service.mock.routes]);
+        // Pushes outside a request only reach a napplet through `pushCapabilities`
+        // (ServiceRuntimeContext.sendToEligibleNapplet); every declared type must belong
+        // to the domain and must not double as an inbound route.
+        for (const type of Object.keys(service.pushCapabilities ?? {})) {
+          expect(type.startsWith(`${domain}.`), `${domain} push ${type}`).toBe(true);
+          expect(service.mock.routes, `${domain} push ${type}`).not.toContain(type);
+        }
       }
       // Unknown types are ignored without throwing.
       service.handleMessage('win-registry', { type: `${domain}.__unknown__`, id: 'x' } as NappletMessage, () => {});

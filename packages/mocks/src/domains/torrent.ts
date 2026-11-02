@@ -505,6 +505,7 @@ export function createMockTorrentService(options: MockTorrentOptions = {}): Mock
     version: '0.1.0',
     description: 'Mock NAP-TORRENT runtime-mediated transfers of Linux images',
     kind: 'extension',
+    pushes: { 'torrent.state': null, 'torrent.progress': null, 'torrent.error': null, 'torrent.read.result': null },
     initialState: () => ({ jobs: new Map(), fileSets: new Map(), pendingReads: new Map(), nextJob: 1, nextFileSet: 1, nextPick: 0 }),
     routes: torrentRoutes(engine),
     onWindowDestroyed: (windowId, state) => {

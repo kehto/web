@@ -17,8 +17,13 @@
  *   iframe readiness. The CSP/consent posture itself is shell-enforced at
  *   frame creation and is not simulated here.
  * - `assign()` pushes through `pushToWindow`, which needs the runtime context
- *   (`onRegistered`) since no request ever reaches this handler. The recipient
- *   environment must expose `class` for `sendToEligibleNapplet` to deliver.
+ *   (`onRegistered`) since no request ever reaches this handler. The handler
+ *   declares `class.assigned` in `pushCapabilities` with no ACL capability:
+ *   NAP-CLASS gates delivery on the shell advertising `nap:class`, which the
+ *   runtime models as the registered `class` service plus an explicit
+ *   `isDomainAllowed` grant for the recipient window. A refused push (window
+ *   not live, domain not exposed) makes `assign()` return `false` and leaves
+ *   no assignment recorded, so the lifecycle's single envelope is still owed.
  * - The class integer defaults to `1` (NAP-CLASS-1 is the default posture);
  *   `classFor(windowId)` lets a host simulate NAP-CLASS-2 grants or denials.
  */
@@ -223,6 +228,7 @@ export function createMockClassService(options: MockClassOptions = {}): MockClas
     version: '1.0.0',
     description: 'Mock NAP-CLASS authority: pushes class.assigned once per napplet lifecycle',
     kind: 'extension',
+    pushes: { 'class.assigned': null },
     initialState: () => ({ assigned: new Map(), nextId: 1 }),
     routes: {},
     onWindowDestroyed: (windowId, state) => { state.assigned.delete(windowId); },

@@ -227,6 +227,7 @@ export function createMockCaptureService(options: MockCaptureOptions = {}): Mock
     version: '0.1.0',
     description: 'Mock NAP-CAPTURE microphone recordings',
     kind: 'extension',
+    pushes: { 'capture.changed': null },
     initialState: () => ({ info: { ...MOCK_CAPTURE_INFO, ...options.info, sources: ['microphone'] }, captures: new Map(), counter: 0 }),
     routes: {
       'capture.info': ({ state, reply }) => reply({ info: { ...state.info, sources: [...state.info.sources], mimeTypes: [...state.info.mimeTypes] } }),

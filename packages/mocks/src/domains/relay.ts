@@ -13,9 +13,14 @@
  * - `relay.publish` accepts either an `EventTemplate` (the mock "signs" it as
  *   the shell user with placeholder id/sig) or an already signed event (the
  *   runtime signs before delegating). Events are stored and fanned out to
- *   live subscriptions; when a runtime is attached the runtime's event buffer
- *   already delivers the sender's publish, so the mock suppresses its own
- *   fan-out for that publish to avoid duplicates.
+ *   every live subscription whose filters and relay scope match, the
+ *   publisher's own included, exactly as a relay echoes an accepted event.
+ * - Delivery ownership under a runtime: the registered relay service owns
+ *   storage and fan-out, and the runtime's ring buffer stays out of it. Each
+ *   `relay.event` goes through the `send` of its own `relay.subscribe`, the
+ *   same path the reference relay services use, so the runtime's liveness and
+ *   `relay:read` checks apply and `relay.event` never needs a recipient entry
+ *   in the ACL map (`sendToEligibleNapplet` has none for it).
  * - `relay.publishEncrypted` cannot run NIP-44/NIP-04. The stored event
  *   carries a placeholder ciphertext; subscriptions and queries deliver the
  *   plaintext, honoring "napplets receive plaintext".
@@ -26,7 +31,7 @@
  */
 import type { NappletMessage, NostrEvent, NostrFilter } from '@napplet/core';
 import type { RelayCloseMessage, RelayPublishEncryptedMessage, RelayPublishMessage, RelayQueryMessage, RelaySubscribeMessage } from '@napplet/nap/relay/types';
-import { defineMockService, pushToWindow, type MockRouteContext } from '../core/handler.js';
+import { defineMockService, pushThrough, pushToWindow, type MockRouteContext } from '../core/handler.js';
 import { mockHex } from '../core/rng.js';
 import type { MockDomainEntry, MockService, MockServiceOptions, NapSpecRef } from '../core/types.js';
 import { matchesNostrFilter, queryNostrEvents } from '../fixtures/nostr.js';
@@ -55,7 +60,7 @@ export const RELAY_SPEC_REF: NapSpecRef = {
  *
  * @example
  * ```ts
- * const sub: MockRelaySubscription = { windowId: 'w1', subId: 'sub-1', filters: [{ kinds: [1] }] };
+ * const sub: MockRelaySubscription = { windowId: 'w1', subId: 'sub-1', filters: [{ kinds: [1] }], send: console.log };
  * ```
  */
 export interface MockRelaySubscription {
@@ -67,6 +72,8 @@ export interface MockRelaySubscription {
   filters: NostrFilter[];
   /** Scoped relay URL when the request carried `relay`. */
   relay?: string;
+  /** Delivery callback of the `relay.subscribe` request; live events go through it. */
+  send: (message: NappletMessage) => void;
 }
 
 /**
@@ -147,7 +154,7 @@ function eventMessage(state: MockRelayState, subId: string, event: NostrEvent, r
   return { type: 'relay.event', subId, result: { event: deliverable(state, event), sidecar: { relayHints } } } as NappletMessage;
 }
 
-function handleSubscribe({ message, state, windowId, push }: RelayContext): void {
+function handleSubscribe({ message, state, windowId, push, send }: RelayContext): void {
   const { subId, filters: rawFilters, relay } = asRequest<RelaySubscribeMessage>(message);
   if (typeof subId !== 'string' || subId.length === 0) return;
   const filters = normalizeFilters(rawFilters);
@@ -156,7 +163,7 @@ function handleSubscribe({ message, state, windowId, push }: RelayContext): void
     return;
   }
   const scoped = typeof relay === 'string' && relay.length > 0 ? relay : undefined;
-  const subscription: MockRelaySubscription = { windowId, subId, filters, ...(scoped ? { relay: scoped } : {}) };
+  const subscription: MockRelaySubscription = { windowId, subId, filters, send, ...(scoped ? { relay: scoped } : {}) };
   state.subscriptions.set(`${windowId}:${subId}`, subscription);
   for (const event of matchingEvents(state, filters, scoped)) push(eventMessage(state, subId, event, scoped));
   push({ type: 'relay.eose', subId } as NappletMessage);
@@ -255,7 +262,6 @@ function handleQuery({ message, state, reply }: RelayContext): void {
 export function createMockRelayService(options: MockRelayOptions = {}): MockRelayService {
   const store = options.store ?? createMockNostrStore(options.clock ? { clock: options.clock } : {});
   const ownsStore = options.store === undefined;
-  let suppressed: string | undefined;
 
   const base = defineMockService<MockRelayState>({
     domain: 'relay',
@@ -269,14 +275,8 @@ export function createMockRelayService(options: MockRelayOptions = {}): MockRela
     routes: {
       'relay.subscribe': handleSubscribe,
       'relay.close': handleClose,
-      'relay.publish': (context) => {
-        suppressed = context.runtime ? context.windowId : undefined;
-        try { handlePublish(context); } finally { suppressed = undefined; }
-      },
-      'relay.publishEncrypted': (context) => {
-        suppressed = context.runtime ? context.windowId : undefined;
-        try { handlePublishEncrypted(context); } finally { suppressed = undefined; }
-      },
+      'relay.publish': handlePublish,
+      'relay.publishEncrypted': handlePublishEncrypted,
       'relay.query': handleQuery,
     },
     onWindowDestroyed: (windowId, state) => {
@@ -295,10 +295,9 @@ export function createMockRelayService(options: MockRelayOptions = {}): MockRela
   const fanOut = (event: NostrEvent): void => {
     const state = service.mock.state();
     for (const sub of state.subscriptions.values()) {
-      if (suppressed !== undefined && sub.windowId === suppressed) continue;
       if (!sub.filters.some((filter) => matchesNostrFilter(event, filter))) continue;
       if (observedAt(state, event, sub.relay) === null) continue;
-      pushToWindow(service, sub.windowId, eventMessage(state, sub.subId, event, sub.relay));
+      pushThrough(service, sub.windowId, eventMessage(state, sub.subId, event, sub.relay), sub.send);
     }
   };
   store.onEvent(fanOut);

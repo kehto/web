@@ -284,6 +284,7 @@ export function createMockMeshService(options: MockMeshOptions = {}): MockMeshSe
     version: '1.0.0',
     description: 'Mock NAP-MESH: hop-limited publish/subscribe over a seeded circle of fixture accounts',
     kind: 'extension',
+    pushes: { 'mesh.event': null, 'mesh.eose': null, 'mesh.closed': null },
     initialState: () => seedState(options),
     routes: {
       'mesh.info': infoRoute,

@@ -306,6 +306,7 @@ export function createMockWorkerService(options: MockWorkerOptions = {}): MockWo
     version: '1.0.0',
     description: 'Mock NAP-WORKER: runtime-owned workers running a fixed echo/transform program',
     kind: 'extension',
+    pushes: { 'worker.message': null, 'worker.error': null, 'worker.closed': null },
     initialState: () => ({ limits: { ...MOCK_WORKER_LIMITS, ...options.limits }, workers: new Map() }),
     routes: {
       'worker.info': ({ message, state, reply }) => { if (requestId(message)) reply({ ok: true, limits: { ...state.limits } }); },

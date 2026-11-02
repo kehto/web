@@ -36,6 +36,7 @@ export {
   DEFAULT_CLOCK,
   DEFAULT_SCHEDULER,
   defineMockService,
+  pushThrough,
   pushToWindow,
   resultType,
 } from './core/handler.js';

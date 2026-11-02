@@ -13,8 +13,15 @@ import type {
   MockServiceOptions,
 } from './types.js';
 
-/** Push route per mock service, keyed by the service object (never enumerable on it). */
-const PUSH_ROUTES = new WeakMap<MockService, (windowId: string, message: NappletMessage) => void>();
+/** Delivery internals per mock service, keyed by the service object (never enumerable on it). */
+interface MockDelivery {
+  /** Push through the runtime context (or the window's last `send`); `true` only when delivered. */
+  push(windowId: string, message: NappletMessage): boolean;
+  /** Record and send through a caller-supplied callback. */
+  through(windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void;
+}
+
+const DELIVERY = new WeakMap<MockService, MockDelivery>();
 
 /**
  * Per-request context handed to a route.
@@ -89,6 +96,14 @@ export interface MockServiceDefinition<TState> {
   kind: 'service' | 'extension';
   /** Explicit capability requirements per message type. */
   capabilities?: MockCapabilityMap;
+  /**
+   * Shell -> napplet push types this mock emits outside a request, each mapped
+   * to the recipient capability or explicit `null`. Published as the handler's
+   * `pushCapabilities`, which is how `ServiceRuntimeContext.sendToEligibleNapplet`
+   * authorizes a push into a domain outside the built-in dispatcher. Built-in
+   * domains keep the runtime's own recipient mapping.
+   */
+  pushes?: MockCapabilityMap;
   /** Build the initial state (called on construction and on `reset`). */
   initialState: (rng: SeededRng, options: MockServiceOptions) => TState;
   /** Exact message type → handler. */
@@ -160,8 +175,9 @@ export function defineMockService<TState>(
   let runtime: ServiceRuntimeContext | undefined;
   const lastSend = new Map<string, (msg: NappletMessage) => void>();
 
+  const record = (windowId: string, message: NappletMessage): void => { sent.push({ windowId, message }); };
   const deliver = (windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void => {
-    sent.push({ windowId, message });
+    record(windowId, message);
     send(message);
   };
   const later = (fn: () => void): void => {
@@ -175,15 +191,23 @@ export function defineMockService<TState>(
     });
     pending.add(cancel);
   };
-  const pushTo = (windowId: string, message: NappletMessage): void => {
-    const send = runtime
-      ? (msg: NappletMessage) => { runtime?.sendToEligibleNapplet(windowId, msg); }
-      : lastSend.get(windowId);
-    if (send) deliver(windowId, message, send);
+  const pushTo = (windowId: string, message: NappletMessage): boolean => {
+    if (runtime) {
+      // The runtime decides eligibility (live source, domain grant, recipient
+      // capability). A refused push is reported, never recorded as sent.
+      const delivered = runtime.sendToEligibleNapplet(windowId, message);
+      if (delivered) record(windowId, message);
+      return delivered;
+    }
+    const send = lastSend.get(windowId);
+    if (!send) return false;
+    deliver(windowId, message, send);
+    return true;
   };
 
   const routes = Object.freeze(Object.keys(definition.routes));
   const messageCapabilities = buildCapabilities(definition, routes);
+  const pushCapabilities = definition.pushes ? Object.freeze({ ...definition.pushes }) : undefined;
 
   const service: MockService<TState> = {
     descriptor: {
@@ -192,6 +216,7 @@ export function defineMockService<TState>(
       ...(definition.description ? { description: definition.description } : {}),
     },
     ...(messageCapabilities ? { messageCapabilities } : {}),
+    ...(pushCapabilities ? { pushCapabilities } : {}),
     mock: {
       state: () => state,
       reset: () => {
@@ -243,7 +268,7 @@ export function defineMockService<TState>(
       definition.onCapabilityRevoked?.(windowId, capability, state);
     },
   };
-  PUSH_ROUTES.set(service, pushTo);
+  DELIVERY.set(service, { push: pushTo, through: deliver });
   return service;
 }
 
@@ -260,30 +285,58 @@ export function defineMockService<TState>(
  * ```
  */
 export function inheritMockPush(target: MockService, source: MockService): void {
-  const push = PUSH_ROUTES.get(source);
-  if (push) PUSH_ROUTES.set(target, push);
+  const delivery = DELIVERY.get(source);
+  if (delivery) DELIVERY.set(target, delivery);
 }
 
 /**
  * Push an envelope to a window through a mock built by `defineMockService`.
- * Uses the runtime context when attached, else the last `send` seen for that
- * window. Returns `false` when no route to the window exists yet.
+ * With a runtime attached, delivery goes through
+ * `ServiceRuntimeContext.sendToEligibleNapplet`, whose verdict is returned:
+ * `false` means the runtime refused the push (unknown window, domain not
+ * exposed, missing recipient capability, or an undeclared custom-domain type)
+ * and nothing was recorded in `mock.sent`. Without a runtime, the last `send`
+ * seen for that window is used, and `false` means no request has been seen.
  *
  * @param service - A mock from `defineMockService`.
  * @param windowId - Recipient window.
  * @param message - Envelope to deliver.
- * @returns Whether a delivery path existed.
+ * @returns Whether the envelope was delivered.
  * @example
  * ```ts
  * pushToWindow(gamepad, 'win-1', { type: 'gamepad.state', pads: [] } as NappletMessage);
  * ```
  */
 export function pushToWindow(service: MockService, windowId: string, message: NappletMessage): boolean {
-  const push = PUSH_ROUTES.get(service);
-  if (!push) return false;
-  const before = service.mock.sent.length;
-  push(windowId, message);
-  return service.mock.sent.length > before;
+  return DELIVERY.get(service)?.push(windowId, message) ?? false;
+}
+
+/**
+ * Deliver an envelope through a caller-supplied `send` and record it in
+ * `mock.sent`. Use it when the push belongs to an earlier request whose runtime
+ * callback already carries the right lifecycle checks, such as `relay.event`
+ * for a live `relay.subscribe`, exactly as the reference services do.
+ *
+ * @param service - A mock from `defineMockService`.
+ * @param windowId - Recipient window (for the `sent` record).
+ * @param message - Envelope to deliver.
+ * @param send - The request callback to deliver through.
+ * @returns `false` when `service` was not built by `defineMockService`.
+ * @example
+ * ```ts
+ * pushThrough(relay, sub.windowId, { type: 'relay.event', subId: sub.subId, result } as NappletMessage, sub.send);
+ * ```
+ */
+export function pushThrough(
+  service: MockService,
+  windowId: string,
+  message: NappletMessage,
+  send: (msg: NappletMessage) => void,
+): boolean {
+  const delivery = DELIVERY.get(service);
+  if (!delivery) return false;
+  delivery.through(windowId, message, send);
+  return true;
 }
 
 function buildCapabilities<TState>(

@@ -63,11 +63,13 @@ describe('NAP-CLASS track entries', () => {
 });
 
 describe('createMockClassService', () => {
-  it('declares no request routes and an empty extension capability map', () => {
+  it('declares no request routes, an empty extension capability map, and the class.assigned push', () => {
     const service = createMockClassService();
     expect(service.descriptor).toMatchObject({ name: 'class', version: '1.0.0' });
     expect(service.mock.routes).toEqual([]);
     expect(Object.keys(service.messageCapabilities ?? {})).toEqual([...service.mock.routes]);
+    // NAP-CLASS @ 4828279800dc gates delivery on advertised support, not an ACL grant.
+    expect(service.pushCapabilities).toEqual({ 'class.assigned': null });
     const sent: NappletMessage[] = [];
     service.handleMessage('w1', { type: 'class.anything', id: 'x' } as NappletMessage, (msg) => sent.push(msg));
     expect(sent).toEqual([]);
@@ -86,6 +88,28 @@ describe('createMockClassService', () => {
     expect(runtime.sendToEligibleNapplet).toHaveBeenNthCalledWith(2, 'w2', { type: 'class.assigned', id: 'c2', class: 2 });
     expect(service.mock.state().assigned.get('w1')).toEqual({ id: 'c1', class: 1 });
     expect(service.mock.sent.map((entry) => entry.windowId)).toEqual(['w1', 'w2']);
+  });
+
+  it('records nothing when the runtime refuses the push, and still owes the lifecycle envelope', () => {
+    const service = createMockClassService();
+    let exposed = false;
+    const runtime: ServiceRuntimeContext = {
+      resolveDTag: () => 'dtag',
+      listWindowIds: () => ['w1'],
+      hasCapability: () => true,
+      sendToEligibleNapplet: vi.fn(() => exposed),
+    };
+    service.onRegistered?.(runtime);
+    expect(service.assign('w1', 2)).toBe(false);
+    expect(runtime.sendToEligibleNapplet).toHaveBeenCalledWith('w1', { type: 'class.assigned', id: 'c1', class: 2 });
+    expect(service.mock.state()).toEqual({ assigned: new Map(), nextId: 1 });
+    expect(service.mock.sent).toEqual([]);
+
+    exposed = true;
+    expect(service.assign('w1', 2)).toBe(true);
+    expect(service.mock.state().assigned.get('w1')).toEqual({ id: 'c1', class: 2 });
+    expect(service.mock.sent).toEqual([{ windowId: 'w1', message: { type: 'class.assigned', id: 'c1', class: 2 } }]);
+    expect(service.assign('w1', 1)).toBe(false);
   });
 
   it('resolves the class from classFor, then defaultClass, and rejects bad integers', () => {

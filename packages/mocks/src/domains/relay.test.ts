@@ -50,7 +50,7 @@ describe('createMockRelayService', () => {
     });
     expect((sent[1] as unknown as { result: { event: { id: string } } }).result.event.id).toBe(mockEventId('note:bob:4'));
     expect(sent[2]).toEqual({ type: 'relay.eose', subId: 'sub-1' });
-    expect(service.mock.state().subscriptions.get('w1:sub-1')).toEqual({ windowId: 'w1', subId: 'sub-1', filters: [{ kinds: [1], authors: [bob.pubkey], limit: 2 }] });
+    expect(service.mock.state().subscriptions.get('w1:sub-1')).toEqual({ windowId: 'w1', subId: 'sub-1', filters: [{ kinds: [1], authors: [bob.pubkey], limit: 2 }], send: expect.any(Function) });
   });
 
   it('scopes a subscription to a single relay', () => {
@@ -190,17 +190,31 @@ describe('createMockRelayService', () => {
     expect(live[1]).toEqual({ type: 'relay.event', subId: 'sub-1', result: { event, sidecar: { relayHints: [...MOCK_FALLBACK_RELAYS] } } });
   });
 
-  it('suppresses sender fan-out when a runtime is attached (the runtime buffer delivers it)', () => {
+  it('fans a publish out through each subscription\'s own send, publisher included, under a runtime', () => {
+    // NAP-RELAY @ 9f30b3505335: the shell delivers matching events as relay.event to the
+    // subscribing napplet; a relay echoes an accepted publish to every matching subscription.
+    // `relay.event` has no recipient capability in the ACL map, so a runtime refuses it as a
+    // push; the mock must deliver through the subscribe request's send instead.
     const service = createMockRelayService({ clock });
-    const runtime: ServiceRuntimeContext = { resolveDTag: () => 'd', listWindowIds: () => ['w1', 'w2'], hasCapability: () => true, sendToEligibleNapplet: vi.fn(() => true) };
+    const runtime: ServiceRuntimeContext = { resolveDTag: () => 'd', listWindowIds: () => ['w1', 'w2', 'w3'], hasCapability: () => true, sendToEligibleNapplet: vi.fn(() => false) };
     service.onRegistered?.(runtime);
-    subscribe(service, 'w1', 'own', [{ kinds: [1], since: MOCK_EPOCH_SECONDS + 9_000 }]);
-    subscribe(service, 'w2', 'other', [{ kinds: [1], since: MOCK_EPOCH_SECONDS + 9_000 }]);
-    service.handleMessage('w1', { type: 'relay.publish', id: 'p1', event: { kind: 1, content: 'mine' } } as NappletMessage, () => {});
-    const pushes = (runtime.sendToEligibleNapplet as ReturnType<typeof vi.fn>).mock.calls;
-    expect(pushes).toHaveLength(1);
-    expect(pushes[0]?.[0]).toBe('w2');
-    expect((pushes[0]?.[1] as unknown as { subId: string }).subId).toBe('other');
+    const since = MOCK_EPOCH_SECONDS + 9_000;
+    const own = subscribe(service, 'w1', 'own', [{ kinds: [1], since }]);
+    const other = subscribe(service, 'w2', 'other', [{ kinds: [1], since }]);
+    const observed = subscribe(service, 'w2', 'scoped-hit', [{ kinds: [1], since }], MOCK_RELAYS.primary);
+    const elsewhere = subscribe(service, 'w3', 'scoped-miss', [{ kinds: [1], since }], MOCK_RELAYS.tertiary);
+    const unrelated = subscribe(service, 'w3', 'kinds', [{ kinds: [7], since }]);
+    const { sent, send } = sink();
+    service.handleMessage('w1', { type: 'relay.publish', id: 'p1', event: { kind: 1, content: 'mine' } } as NappletMessage, send);
+    const event = (sent[0] as unknown as { event: unknown }).event;
+
+    expect(runtime.sendToEligibleNapplet).not.toHaveBeenCalled();
+    expect(own).toEqual([{ type: 'relay.eose', subId: 'own' }, { type: 'relay.event', subId: 'own', result: { event, sidecar: { relayHints: [MOCK_RELAYS.primary, MOCK_RELAYS.secondary] } } }]);
+    expect(other).toEqual([{ type: 'relay.eose', subId: 'other' }, { type: 'relay.event', subId: 'other', result: { event, sidecar: { relayHints: [MOCK_RELAYS.primary, MOCK_RELAYS.secondary] } } }]);
+    expect(observed).toEqual([{ type: 'relay.eose', subId: 'scoped-hit' }, { type: 'relay.event', subId: 'scoped-hit', result: { event, sidecar: { relayHints: [MOCK_RELAYS.primary] } } }]);
+    expect(elsewhere).toEqual([{ type: 'relay.eose', subId: 'scoped-miss' }]);
+    expect(unrelated).toEqual([{ type: 'relay.eose', subId: 'kinds' }]);
+    expect(service.mock.sent.filter((entry) => entry.message.type === 'relay.event').map((entry) => entry.windowId)).toEqual(['w1', 'w2', 'w2']);
   });
 
   it('cleans subscriptions on window destroy, capability revoke, and reset', () => {

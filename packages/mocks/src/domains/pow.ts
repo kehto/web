@@ -522,6 +522,7 @@ export function createMockPowService(options: MockPowOptions = {}): MockPowServi
     version: '0.1.0',
     description: 'Mock NAP-POW NIP-13 proof-of-work miner',
     kind: 'extension',
+    pushes: { 'pow.state': null, 'pow.progress': null, 'pow.done': null, 'pow.error': null },
     initialState: () => ({ jobs: new Map(), order: [], minerPaused: false }),
     routes: powRoutes(engine),
     onWindowDestroyed: (windowId, state) => dropWindow(engine, state, windowId),

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { NappletMessage, ServiceRuntimeContext } from '@kehto/runtime';
 
-import { defineMockService, pushToWindow, resultType } from './handler.js';
+import { defineMockService, pushThrough, pushToWindow, resultType } from './handler.js';
 import type { MockScheduler } from './types.js';
 
 interface EchoState { seen: number; byWindow: Map<string, number> }
@@ -12,6 +12,7 @@ function echoService(options: Parameters<typeof defineMockService>[1] = {}) {
     version: '0.1.0',
     kind: 'extension',
     capabilities: { 'echo.privileged': 'relay:read' },
+    pushes: { 'echo.event': null, 'echo.secret': 'relay:read' },
     initialState: () => ({ seen: 0, byWindow: new Map() }),
     routes: {
       'echo.say': ({ message, reply, state, windowId }) => {
@@ -36,7 +37,17 @@ describe('defineMockService', () => {
     const service = echoService();
     expect(service.descriptor).toEqual({ name: 'echo', version: '0.1.0' });
     expect(service.messageCapabilities).toEqual({ 'echo.say': null, 'echo.boom': null, 'echo.privileged': 'relay:read' });
+    expect(service.pushCapabilities).toEqual({ 'echo.event': null, 'echo.secret': 'relay:read' });
+    expect(Object.isFrozen(service.pushCapabilities)).toBe(true);
     expect(service.mock.routes).toEqual(['echo.say', 'echo.boom', 'echo.privileged']);
+  });
+
+  it('omits pushCapabilities when a definition declares no pushes', () => {
+    const service = defineMockService<{ n: number }>({
+      domain: 'quiet', version: '0.1.0', kind: 'extension', initialState: () => ({ n: 0 }), routes: { 'quiet.ping': ({ reply }) => reply() },
+    });
+    expect(service.pushCapabilities).toBeUndefined();
+    expect(Object.hasOwn(service, 'pushCapabilities')).toBe(false);
   });
 
   it('omits messageCapabilities for built-in service kinds unless given', () => {
@@ -100,10 +111,40 @@ describe('defineMockService', () => {
     };
     service.onRegistered?.(runtime);
     expect(service.mock.runtime).toBe(runtime);
-    pushToWindow(service, 'w1', { type: 'echo.event', n: 2 } as NappletMessage);
+    expect(pushToWindow(service, 'w1', { type: 'echo.event', n: 2 } as NappletMessage)).toBe(true);
     expect(runtime.sendToEligibleNapplet).toHaveBeenCalledWith('w1', { type: 'echo.event', n: 2 });
+    expect(service.mock.sent.at(-1)).toEqual({ windowId: 'w1', message: { type: 'echo.event', n: 2 } });
     service.onUnregistered?.();
     expect(service.mock.runtime).toBeUndefined();
+  });
+
+  it('reports a refused runtime push and records nothing, without falling back to a stale send', () => {
+    const service = echoService();
+    const { sent, send } = sink();
+    service.handleMessage('w1', { type: 'echo.say', id: 'r1' } as NappletMessage, send);
+    const runtime: ServiceRuntimeContext = {
+      resolveDTag: () => 'dtag',
+      listWindowIds: () => ['w1'],
+      hasCapability: () => true,
+      sendToEligibleNapplet: vi.fn(() => false),
+    };
+    service.onRegistered?.(runtime);
+    const before = service.mock.sent.length;
+    expect(pushToWindow(service, 'w1', { type: 'echo.event', n: 3 } as NappletMessage)).toBe(false);
+    expect(runtime.sendToEligibleNapplet).toHaveBeenCalledOnce();
+    expect(service.mock.sent).toHaveLength(before);
+    expect(sent.some((msg) => msg.type === 'echo.event')).toBe(false);
+  });
+
+  it('pushThrough delivers via a caller-supplied send and records the envelope', () => {
+    const service = echoService();
+    const { sent, send } = sink();
+    const message = { type: 'echo.event', n: 4 } as NappletMessage;
+    expect(pushThrough(service, 'w9', message, send)).toBe(true);
+    expect(sent).toEqual([message]);
+    expect(service.mock.sent).toEqual([{ windowId: 'w9', message }]);
+    const foreign = { descriptor: { name: 'x', version: '0' }, handleMessage() {}, mock: service.mock };
+    expect(pushThrough(foreign, 'w9', message, send)).toBe(false);
   });
 
   it('cleans per-window state on destroy', () => {

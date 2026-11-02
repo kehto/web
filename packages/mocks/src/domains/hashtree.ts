@@ -612,6 +612,7 @@ export function createMockHashtreeService(options: MockHashtreeOptions = {}): Mo
     version: '1.0.0',
     description: 'Mock NAP-HASHTREE: seeded distro document tree with jobs and pins',
     kind: 'extension',
+    pushes: { 'hashtree.progress': null, 'hashtree.done': null, 'hashtree.error': null },
     initialState,
     routes: { ...readRoutes(core), ...writeRoutes(core), ...jobRoutes(core) },
     onWindowDestroyed: (windowId, state) => {

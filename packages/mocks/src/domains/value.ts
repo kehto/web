@@ -264,6 +264,7 @@ export function createMockValueService(options: MockValueOptions = {}): MockValu
     version: '0.1.0',
     description: 'Mock NAP-VALUE shell-mediated value transfer',
     kind: 'extension',
+    pushes: { 'value.status.changed': null },
     initialState: () => ({
       balanceMsat: (options.balanceSats ?? 100_000) * 1000,
       transfers: new Map(),

@@ -191,6 +191,7 @@ export function createMockLocationService(options: MockLocationOptions = {}): Mo
     version: '0.1.0',
     description: 'Mock NAP-LOCATION shell-mediated geolocation',
     kind: 'extension',
+    pushes: { 'location.state': null, 'location.position': null },
     initialState: () => ({ available: options.unavailable === undefined, ...(options.unavailable ? { reason: options.unavailable } : {}), windows: new Map(), routeIndex: 0 }),
     routes: {
       'location.subscribe': ({ message, state, windowId }) => {
