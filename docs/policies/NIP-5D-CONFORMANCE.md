@@ -97,7 +97,7 @@ policy recourse. Validated by [napplet/evil](https://github.com/napplet/evil)
 finding #1 and described in [Delta Chat's webxdc security
 write-up](https://delta.chat/en/2023-05-22-webxdc-security). The proposed W3C
 `webrtc` CSP directive (`block`/`allow`) is not reliably implemented and is not
-enforceable from a `<meta>` policy, so CSP cannot close this.
+enforceable from a `<meta>` policy, so CSP cannot close this today.
 
 Kehto's injected prelude removes the whole WebRTC constructor surface from the
 napplet realm before any napplet script runs: every global whose name starts
@@ -108,14 +108,47 @@ runs in the shell realm (`packages/paja/src/browser-webrtc.ts`), and the napplet
 reaches it only through the mediated `window.napplet.webrtc` domain, never the
 raw constructor.
 
-Bounded limitation, not yet closed: a napplet can create an un-CSP'd `srcdoc`
-grandchild frame (see finding #9 on `frame-src`) whose realm has a fresh
-`RTCPeerConnection`. Reaching that frame needs a process-wide control — the
-Chromium per-process connection cap — which is shared with the shell's own
-NAP-WEBRTC (napplet `srcdoc` frames are not site-isolated) and is not reliably
-reclaimable, so it is deferred rather than shipped. The portable end state is
-per-napplet process isolation or a shipped `webrtc` CSP directive. Regression:
-`tests/e2e/shell-csp.spec.ts` (real opaque iframe) and the prelude unit tests in
+Bounded limitation, not yet closed: nested browsing contexts. The napplet CSP
+already carries `child-src 'none'` and `frame-src 'none'`, which block every
+fetched child frame (`data:`, `blob:`, `http(s):`), but `about:srcdoc` and
+`about:blank` documents involve no navigation request, so those directives never
+apply to them. This is the same browser behaviour the host-page `frame-src`
+lock (`NAPPLET_FRAME_POLICY`) relies on to let the verified napplet `srcdoc`
+load. A `srcdoc` or `about:blank` grandchild therefore loads, inherits the
+napplet CSP (which has no WebRTC directive), and runs in a fresh realm the
+prelude sweep never touched, so it has a working `RTCPeerConnection`. Measured
+in Chromium 147 with the napplet CSP in place: a `data:` grandchild is blocked
+with a `frame-src` violation, while a `srcdoc` grandchild loads and
+`createDataChannel()` succeeds (napplet/evil finding #9).
+
+Upstream fix: a shipped `webrtc` CSP directive. Unlike the prelude sweep, an
+inherited CSP reaches every `srcdoc` and `about:blank` descendant, so it is the
+only mechanism that closes the nested-realm case for good. Kehto cannot ship
+it; browsers have to. Per-napplet process isolation is not an end state for a
+web shell: a page cannot request process placement, and giving each napplet its
+own origin to obtain it would make the serving origin the identity authority
+again, contradicting `srcdoc` provenance and content-addressed identity. A
+process-wide control (the Chromium per-process connection cap) is also ruled
+out: napplet frames share it with the shell's own NAP-WEBRTC and it is not
+reliably reclaimable.
+
+Kehto-side mitigation, to build: nested-browsing-context revocation. A napplet
+whose CSP denies every fetched child frame has no legitimate use for a nested
+context, so the shell should treat one as replacement-grade evidence, alongside
+a window-level message, a second `load` and a second `napplet.hello`. The shell
+can observe it without reading into the frame: `contentWindow.length` is on the
+HTML cross-origin property allowlist (the same property napplet/evil finding #3
+flags as the `parent.length` leak), and a value above zero means the napplet
+spawned a nested context. On detection, revoke the napplet and tear the frame
+down. This is detection, not prevention: the check runs on a poll or a
+lifecycle hook, and a grandchild's inline script can fire once before teardown,
+so it shrinks the window from an open channel to a single shot that ends with
+the napplet revoked and visible to the user. It needs no wire surface and is a
+candidate for NIP-5D's replacement-evidence list. Tracked in
+[kehto/web#381](https://github.com/kehto/web/issues/381).
+
+Regression for the shipped part: `tests/e2e/shell-csp.spec.ts` (real opaque
+iframe) and the prelude unit tests in
 `packages/shell/src/napplet-namespace.test.ts`.
 
 ### Active NAP-RELAY boundary
