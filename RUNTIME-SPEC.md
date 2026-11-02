@@ -80,7 +80,7 @@ Kehto's runtime packages target the current `@napplet` line:
 | ----------------------- | -------- | ----------------------------------------------- |
 | `@napplet/core`         | `0.32.0` | protocol types, constants, `createDispatch` / `registerNap` |
 | `@napplet/nap`          | `0.32.0` | NAP capability helpers |
-| `@napplet/sdk`          | `0.28.0` | napplet-side SDK (playground napplets)          |
+| `@napplet/sdk`          | `0.28.0` | napplet-side SDK (fixture napplets)             |
 | `@napplet/shim`         | `0.30.0` | generic non-shell NAP domains; does not supply mandatory shell |
 | `@napplet/vite-plugin`  | `0.16.2` | napplet build/sign plugin (NIP-5D presentation media and source pins) |
 | `@napplet/conformance`  | `0.20.5` | registry-audited conformance artifact; not a Kehto dependency |
@@ -147,8 +147,8 @@ to the napplet. Absence means unavailable. Presence does not define operations,
 payloads, versions, errors, or diagnostics; those stay owned by the matching NAP
 spec.
 
-The playground always injects mandatory `shell`, then adds optional domains from
-the verified manifest after stripping permission/protocol entries. Demo napplets
+Hosts such as Paja inject mandatory `shell`, then add optional domains from
+the verified manifest after stripping permission/protocol entries. Napplets
 may preflight optional availability by checking required
 `window.napplet.<domain>` objects or query the cached NAP-SHELL environment.
 
@@ -190,7 +190,7 @@ capabilities: {
 For older consumers, Kehto also emits the flat `naps` and empty `sandbox` fields.
 Host-extended `perm:`-prefixed `sandbox` entries are folded into `domains`.
 Removal of the legacy fields is tracked as CLEANUP-01 and is NOT performed while
-the playground shim path still reads them.
+a supported consumer still reads them.
 
 ## Active Runtime Model
 

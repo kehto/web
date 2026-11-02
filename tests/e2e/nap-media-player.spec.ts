@@ -2,9 +2,6 @@ import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { expect, test, type Frame, type Page } from '@playwright/test';
 import { startPajaServer, type PajaServer } from '../../packages/paja/dist/index.js';
-import { demoBeforeEach } from './helpers/index.js';
-
-test.use({ baseURL: process.env.KEHTO_PLAYGROUND_BASE_URL ?? 'http://localhost:4174' });
 
 // Real PCM WAV: browser decoding, duration and currentTime are not mocked.
 function wav(): Buffer {
@@ -128,19 +125,6 @@ test('Paja plays policy-resolved bytes with controls and ordered retirement', as
   await exercisePlayer(page, frame!, `${targetUrl}/tone.wav`);
 });
 
-test('playground uses the same player and keeps the resource origin grant', async ({ page }) => {
-  test.setTimeout(120_000);
-  const source = 'https://raw.githubusercontent.com/kehto/media-test/tone.wav';
-  await page.route(source, route => route.fulfill({ status: 200, contentType: 'audio/wav', headers: { 'access-control-allow-origin': '*' }, body: bytes }));
-  await page.goto(process.env.KEHTO_PLAYGROUND_BASE_URL ?? 'http://localhost:4174');
-  await demoBeforeEach(page);
-  const handle = await page.locator('#resource-demo-frame-container iframe').elementHandle();
-  const frame = await handle!.contentFrame();
-  await exercisePlayer(page, frame!, source);
-  const blocked = await frame!.evaluate(async () => (window as any).napplet.media.createSession({ owner: 'shell', source: { url: 'https://ungranted.example/song.mp3' } }));
-  expect(blocked.error).toBeTruthy();
-});
-
 test('Paja renders real video and releases its element and Blob URL on endpoint reload', async ({ page }) => {
   test.setTimeout(120_000);
   await page.goto(paja.url);
@@ -164,48 +148,39 @@ test('Paja renders real video and releases its element and Blob URL on endpoint 
   })).toEqual({ paused: true, source: null, connected: false });
 });
 
-for (const host of ['Paja', 'playground'] as const) {
-  test(`${host} starts live radio before EOF and cancels it on retirement`, async ({ page }) => {
-    const source = host === 'Paja' ? 'https://radio.cliamp.stream/omarchy/stream' : 'https://raw.githubusercontent.com/kehto/media-test/live.mp3';
-    // Preserve the live HTTP response body; only its transport address is mapped to the deterministic fixture.
-    await page.addInitScript(({ source, target }) => {
-      const original = window.fetch.bind(window);
-      window.fetch = (input, init) => original(typeof input === 'string' && input === source ? target : input, init);
-    }, { source, target: `${targetUrl}/live.mp3` });
-    await page.goto(host === 'Paja' ? paja.url : (process.env.KEHTO_PLAYGROUND_BASE_URL ?? 'http://localhost:4174'));
-    if (host === 'playground') await demoBeforeEach(page);
-    const selector = host === 'Paja' ? '#napplet-frame' : '#resource-demo-frame-container iframe';
-    const frame = await (await page.locator(selector).elementHandle())!.contentFrame();
-    await expect.poll(() => frame!.evaluate(() => typeof (window as any).napplet?.media?.createSession)).toBe('function');
-    const result = await frame!.evaluate(async url => {
-      const media = (window as any).napplet.media;
-      const session = await media.createSession({ owner: 'shell', source: { url }, metadata: { title: 'Omarchy Radio', mediaType: 'audio' }, live: true, autoplay: false });
-      if (session.error) return session;
-      // Exact Funclet command order: subscribe after result, set volume, then play through the retained SDK alias.
-      media.onCapabilities(session.sessionId, (actions: string[]) => {
-        if (actions.includes('play')) { media.sendCommand(session.sessionId, 'volume', 0.75); media.sendCommand(session.sessionId, 'play'); }
-      });
-      return session;
-    }, source);
-    expect(result.error).toBeUndefined();
-    expect(result.owner).toBe('shell');
-    const panel = page.locator('[data-kehto-media-player]');
-    const row = panel.locator('article', { hasText: 'Omarchy Radio' });
-    await expect(row).toBeVisible();
-    await expect(row.getByRole('slider', { name: 'Position' })).toBeDisabled();
-    await expect.poll(() => row.locator('audio').evaluate((audio: HTMLAudioElement) => audio.currentTime)).toBeGreaterThan(0.3);
-    await expect.poll(() => row.locator('audio').evaluate((audio: HTMLAudioElement) => audio.volume)).toBe(0.75);
-    expect(liveConnections).toBe(1); // No response EOF; creation and playback already succeeded.
-    await row.getByRole('button', { name: 'Pause', exact: true }).click();
-    await expect.poll(() => row.locator('audio').evaluate((audio: HTMLAudioElement) => audio.paused)).toBe(true);
-    await row.getByRole('button', { name: 'Play', exact: true }).click();
-    await row.getByRole('button', { name: 'Close session' }).click();
-    await expect(panel).toBeHidden();
-    await expect.poll(() => liveConnections).toBe(0);
-    if (host === 'playground') {
-      const blocked = await frame!.evaluate(async () => (window as any).napplet.media.createSession({ owner: 'shell', live: true, source: { url: 'https://ungranted.example/live.mp3' } }));
-      expect(blocked.error).toBeTruthy();
-      expect(liveConnections).toBe(0);
-    }
-  });
-}
+test('Paja starts live radio before EOF and cancels it on retirement', async ({ page }) => {
+  const source = 'https://radio.cliamp.stream/omarchy/stream';
+  // Preserve the live HTTP response body; only its transport address is mapped to the deterministic fixture.
+  await page.addInitScript(({ source, target }) => {
+    const original = window.fetch.bind(window);
+    window.fetch = (input, init) => original(typeof input === 'string' && input === source ? target : input, init);
+  }, { source, target: `${targetUrl}/live.mp3` });
+  await page.goto(paja.url);
+  const frame = await (await page.locator('#napplet-frame').elementHandle())!.contentFrame();
+  await expect.poll(() => frame!.evaluate(() => typeof (window as any).napplet?.media?.createSession)).toBe('function');
+  const result = await frame!.evaluate(async url => {
+    const media = (window as any).napplet.media;
+    const session = await media.createSession({ owner: 'shell', source: { url }, metadata: { title: 'Omarchy Radio', mediaType: 'audio' }, live: true, autoplay: false });
+    if (session.error) return session;
+    // Exact Funclet command order: subscribe after result, set volume, then play through the retained SDK alias.
+    media.onCapabilities(session.sessionId, (actions: string[]) => {
+      if (actions.includes('play')) { media.sendCommand(session.sessionId, 'volume', 0.75); media.sendCommand(session.sessionId, 'play'); }
+    });
+    return session;
+  }, source);
+  expect(result.error).toBeUndefined();
+  expect(result.owner).toBe('shell');
+  const panel = page.locator('[data-kehto-media-player]');
+  const row = panel.locator('article', { hasText: 'Omarchy Radio' });
+  await expect(row).toBeVisible();
+  await expect(row.getByRole('slider', { name: 'Position' })).toBeDisabled();
+  await expect.poll(() => row.locator('audio').evaluate((audio: HTMLAudioElement) => audio.currentTime)).toBeGreaterThan(0.3);
+  await expect.poll(() => row.locator('audio').evaluate((audio: HTMLAudioElement) => audio.volume)).toBe(0.75);
+  expect(liveConnections).toBe(1); // No response EOF; creation and playback already succeeded.
+  await row.getByRole('button', { name: 'Pause', exact: true }).click();
+  await expect.poll(() => row.locator('audio').evaluate((audio: HTMLAudioElement) => audio.paused)).toBe(true);
+  await row.getByRole('button', { name: 'Play', exact: true }).click();
+  await row.getByRole('button', { name: 'Close session' }).click();
+  await expect(panel).toBeHidden();
+  await expect.poll(() => liveConnections).toBe(0);
+});

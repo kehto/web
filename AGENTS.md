@@ -81,7 +81,7 @@ In the SAME branch/PR as the code change:
 
 - **Tests**: update or add tests for every behavior you change; assert real vectors, not
   invented values. Keep `pnpm test:unit` green; run `pnpm test:e2e` when you touch the
-  playground, shell wiring, or anything the Playwright specs cover.
+  e2e harness, Paja, shell wiring, or anything the Playwright specs cover.
 - **Docs**: update every README, `docs/*`, and package doc that references what you
   changed. The docs gate (`pnpm docs:check`) requires a full doc set per `@kehto/*`
   package and runs typedoc with `--treatWarningsAsErrors`, so re-export every referenced
@@ -166,29 +166,30 @@ first package that compiles.
   `@napplet/nap/*/types` as its packaged implementation contract. A missing or stale
   package export is upstream drift to report or repair, never permission to omit a
   specified API. Compare new/changed behavior against kehto runtime handlers,
-  shell/playground/Paja adapters, reference services, ACL/capability mapping, docs, and
+  shell/Paja adapters, reference services, ACL/capability mapping, docs, and
   tests.
 - For NAP-RELAY subscribe fields, update all relay subscribe surfaces together:
   `packages/runtime/src/relay-handler.ts`, `packages/services/src/relay-pool-service.ts`,
-  `packages/services/src/coordinated-relay.ts`, `apps/playground/src/playground-relay-service.ts`,
-  and the matching unit/static guards in `tests/unit/nip5d-conformance-guard.test.ts`,
-  `packages/services/src/*relay*.test.ts`, and `tests/unit/playground-relay-service.test.ts`.
-- If the shell or playground adds support for a NAP field, add a guard that proves the
+  `packages/services/src/coordinated-relay.ts`, and the matching unit/static guards in
+  `tests/unit/nip5d-conformance-guard.test.ts` and `packages/services/src/*relay*.test.ts`.
+- If the shell or Paja adds support for a NAP field, add a guard that proves the
   reference service implementation consumes the same field. Example: an explicit
   `relay.subscribe` relay hint must bypass relay selection in runtime fallback,
-  `createRelayPoolService`, `createCoordinatedRelay`, and the playground relay service.
+  `createRelayPoolService`, and `createCoordinatedRelay`.
 - If a canonical NAP message gains a field that is intentionally ignored by a kehto
   surface, document that decision in the nearby test or source comment. Silent omission
   is treated as drift.
 - Domain discovery uses runtime-injected property presence. [NAP-SHELL](https://github.com/napplet/naps/blob/master/naps/NAP-SHELL.md) is optional and is not a prerequisite for other domains. Bind verified iframe identity and host grants independently of shell.ready. When shell is exposed, its receiver must be live before shell.ready and retain the first parent shell.init for readiness/services only. Supports queries the injected namespace locally.
 - Every NAP change needs a regression covering API shape, wire direction,
   lifecycle/idempotency, parent-source trust, and all Kehto host consumers. For
-  NAP-SHELL, prove both Paja and playground iframe paths, not only the shell package.
-- If the playground changes NIP-5D loading, prove provenance in the same change:
+  NAP-SHELL, prove the Paja and e2e-harness iframe paths, not only the shell package.
+- The `@kehto/playground` demo app is retired (`KEHTO_PLAYGROUND_RETIRED` in
+  `docs/compatibility.md`); do not reintroduce it or add new work to its redirect.
+- If Paja changes NIP-5D loading, prove provenance in the same change:
   verified bytes go through `srcdoc`, injected bootstraps stay outside the signed
   artifact bytes, and gateway output remains an untrusted accelerator rather than
   the source of napplet identity.
-- NIP-5D loader and napplet-demo exceptions stay under `tests/unit/nip5d-conformance-guard.test.ts`;
+- NIP-5D loader and napplet exceptions stay under `tests/unit/nip5d-conformance-guard.test.ts`;
   add allowlist rows there only with matching policy text in `docs/policies/NIP-5D-CONFORMANCE.md`.
 
 ### 5. Definition of done = shipped, without being asked

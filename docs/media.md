@@ -1,7 +1,7 @@
 # Media playback
 
 Kehto's media service manages shell-owned audio/video playback and napplet-owned
-sessions. Paja and the playground mount a collapsible **Media player** panel when
+sessions. Paja mounts a collapsible **Media player** panel when
 sessions exist. It shows metadata, playback position, volume, supported transport
 controls, video output, and a **Close session** button. Collapsing the panel does
 not stop playback; closing a session does.
@@ -91,10 +91,9 @@ the parent frame and does not require NAP-SHELL to be exposed.
   to media elements. Only approved Blob URLs reach the player; teardown revokes
   them. Napplet-owned source references are advisory and are never fetched.
 - Paja uses its byte-classifying resource resolver, including configured and
-  window-scoped Blossom servers. The playground retains its resource origin
-  grants. A media capability does not bypass the configured resource policy.
+  window-scoped Blossom servers. A media capability does not bypass the configured resource policy.
 - Finite audio/video files use browser-supported codecs. With `live: true`,
-  Paja and the playground stream MP3 or ADTS AAC through `ResourceService.openStream`
+  Paja streams MP3 or ADTS AAC through `ResourceService.openStream`
   and MediaSource without waiting for the response to finish. The host-only
   `stream` resolver uses the same endpoint origin grants as atomic resources;
   it adds no NAP-RESOURCE wire message and exposes no bytes to the napplet.

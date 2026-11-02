@@ -164,6 +164,11 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
 | 261102-ggx | Resolve PR #376 review: authorized extension pushes (`pushCapabilities`) and relay delivery ownership for `@kehto/mocks` | 2026-11-02 | 331d6f9b | passed | [261102-ggx](./quick/261102-ggx-resolve-pr-376-review-authorized-extensi/) |
+| 261102-g2n | Paja reports zero relay connections distinctly during pointer resolution (PajaRelayUnreachableError, paja.relay.unreachable) | 2026-11-02 | cea679bb | passed | [261102-g2n](./quick/261102-g2n-paja-relay-unreachable-status/) |
+| 261102-edn | Neuter direct WebRTC egress in the napplet realm (napplet/evil #1); RTCPeerConnection removed from the injected prelude | 2026-11-02 | 00cb519e | passed | [261102-edn](./quick/261102-edn-nip5d-webrtc-egress-neuter/) |
+| 261101-pfc | Move playground-only relay, storage, ACL-revoke, identity and CVM e2e coverage to Paja | 2026-11-01 | 08bbf248 | passed | [261101-pfc](./quick/261101-pfc-paja-e2e-coverage/) |
+| 261101-u20 | Chase NIP-5D port-bound identity security fix (napplet.hello MessagePort; nips#2303 @ 51ef0cd, napplet/web#302) | 2026-11-01 | 8798cac2 | passed | [261101-u20](./quick/261101-u20-nip5d-port-bound-identity/) |
+| 261101-ojp | Deprecate and retire the @kehto/playground app; /web/playground/ redirects to Paja (KEHTO_PLAYGROUND_RETIRED) | 2026-11-01 | bb9817a2 | passed | [261101-ojp](./quick/261101-ojp-deprecate-playground/) |
 | 261031-neu | NAP-LLM service hardening: handle bound, prompt abort signals, streaming providers (kehto/web#368-#370) | 2026-10-31 | 13352e3e | passed | [261031-neu](./quick/261031-neu-llm-service-hardening-368-370/) |
 | 261031-mfp | Prevent demo audit Vite server leaks; use Playwright ownership (follow-up #363) | 2026-10-31 | ac4ae564 | passed | [261031-mfp](./quick/261031-mfp-prevent-demo-audit-tests-from-leaking-th/) |
 | 261031-l9b | Admit @napplet/nap 0.35.x and core 0.36.x in published peer ranges (kehto/web#364) | 2026-10-31 | 2977db05 | passed | [261031-l9b](./quick/261031-l9b-napplet-peer-range-364/) |

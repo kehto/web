@@ -25,11 +25,17 @@ const probe = `<body><pre id="result">pending</pre><script>
     const result = {
       shell: typeof window.napplet?.shell?.ready,
       first: document.head.firstElementChild?.getAttribute('http-equiv'),
-      wasm: false, stringEval: false, network: false, worker: false,
+      wasm: false, stringEval: false, network: false, worker: false, rtc: false,
     };
     try {
       await WebAssembly.instantiate(new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0]));
       result.wasm = true;
+    } catch {}
+    try {
+      const pc = new RTCPeerConnection();
+      pc.createDataChannel('probe');
+      pc.close();
+      result.rtc = true;
     } catch {}
     try { result.stringEval = Function('return true')(); } catch {}
     try { result.network = (await fetch('https://network.example/data')).ok; } catch {}
@@ -67,9 +73,32 @@ test('public shell package enforces the default policy in a real opaque iframe',
   await mount(page, `<!doctype html><html><head></head>${probe}</html>`);
   expect(await result(page)).toEqual({
     shell: 'function', first: 'Content-Security-Policy',
-    wasm: true, stringEval: false, network: false, worker: false,
+    wasm: true, stringEval: false, network: false, worker: false, rtc: false,
   });
 
+});
+
+test('neuters direct WebRTC egress in the napplet realm (no CSP directive covers it)', async ({ page }) => {
+  // napplet/evil finding #1: RTCPeerConnection data channels bypass connect-src.
+  // The injected prelude removes the constructor, so the napplet realm cannot
+  // open one directly; NAP-WEBRTC still works because it runs in the shell realm.
+  await mount(page, `<!doctype html><html><head></head>${probe}</html>`);
+  const probed = await result(page);
+  expect(probed.rtc).toBe(false);
+  expect(probed.shell).toBe('function');
+  const rtc = await page.frameLocator('iframe').locator('body').evaluate(() => {
+    const realm = window as unknown as Record<string, unknown>;
+    return {
+      remaining: Object.getOwnPropertyNames(window)
+        .filter((name) => /^(?:webkit|moz)?RTC/.test(name) && realm[name] !== undefined),
+      dataChannel: typeof realm.RTCDataChannel,
+      sessionDescription: typeof realm.RTCSessionDescription,
+      iceCandidate: typeof realm.RTCIceCandidate,
+    };
+  });
+  expect(rtc).toEqual({
+    remaining: [], dataChannel: 'undefined', sessionDescription: 'undefined', iceCandidate: 'undefined',
+  });
 });
 
 test('host overrides grant exact connections and can restrict WASM', async ({ page }) => {

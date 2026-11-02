@@ -46,7 +46,7 @@ Each subpath ships its own `README.md` with full API docs and examples.
 
 ## NIP-5D Artifact Cache
 
-`@kehto/nip/5d` includes the host-side resolver used by the playground to verify
+`@kehto/nip/5d` includes the host-side resolver used by Paja to verify
 NIP-5D manifests and Blossom artifact bytes (legacy: NIP-5A aggregates) before rendering a
 napplet. Browser hosts can pass an optional `NappletArtifactCache` to
 `resolveNapplet()`; the included `CacheStorageNappletArtifactCache` stores only

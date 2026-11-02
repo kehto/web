@@ -18,7 +18,6 @@ Use these pages when you need to choose or integrate one part of Kehto. Each pag
 | `@kehto/mocks` | [Mocks](./mocks.md) | Deterministic mock services for every NAP domain, for shells implementing NAPs without real data sources. |
 | `@kehto/nip` | [NIP utilities](./nip.md) | Unique Nostr NIP utilities, including NIP-5A/5D napplet artifact verification and Cache Storage reuse. |
 | `@kehto/wm` | [Window Management](./wm.md) | Structural window-management contracts. |
-| `@kehto/playground` | [Playground](./playground.md) | 9-napplet protocol visualization and verification target. |
 
 ## Reading Order
 
@@ -29,6 +28,5 @@ Use these pages when you need to choose or integrate one part of Kehto. Each pag
 5. Use `@kehto/nip` and `@kehto/wm` as optional utilities.
 6. Use `@kehto/cli` for package scripts such as `kehto paja`.
 7. Use `@kehto/paja` directly when embedding or extending the Paja implementation API.
-8. Use the playground page to reproduce integrated behavior locally.
 
 Generated API reference lives under `docs/api/`. Package pages link to generated module pages for the public packages included in TypeDoc.

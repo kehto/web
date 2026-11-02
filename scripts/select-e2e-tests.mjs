@@ -45,95 +45,60 @@ const VERSION_METADATA_TRIGGERS = [
   /^packages\/[^/]+\/package\.json$/,
 ];
 
+// Browser specs run against the e2e harness (tests/e2e/harness) or a Paja
+// server. The retired playground host and its specs are gone
+// (KEHTO_PLAYGROUND_RETIRED in docs/compatibility.md).
 const GROUPS = {
   acl: [
-    'tests/e2e/acl-revoke-relay-write.spec.ts',
-    'tests/e2e/acl-revoke-storage-write.spec.ts',
-    'tests/e2e/demo-audit-correctness.spec.ts',
-    'tests/e2e/playground-usability-controls.spec.ts',
-    'tests/e2e/shell-ui-state-surfaces.spec.ts',
+    'tests/e2e/nap-relay.spec.ts',
+    'tests/e2e/nap-storage.spec.ts',
+    'tests/e2e/paja-relay.spec.ts',
+    'tests/e2e/paja-storage.spec.ts',
   ],
   cvm: [
-    'tests/e2e/cvm-relatr.spec.ts',
+    'tests/e2e/paja-cvm.spec.ts',
   ],
   gateway: [
-    'tests/e2e/gateway-artifact-parity.spec.ts',
-    'tests/e2e/naps-path-conformance.spec.ts',
-    'tests/e2e/nip5d-contract-conformance.spec.ts',
+    'tests/e2e/paja-manifest-kinds.spec.ts',
+    'tests/e2e/paja-runtime-pointer.spec.ts',
+    'tests/e2e/shell-csp.spec.ts',
   ],
   identity: [
-    'tests/e2e/identity-flow.spec.ts',
-    'tests/e2e/nap-identity.spec.ts',
-    'tests/e2e/profile-open.spec.ts',
-    'tests/e2e/relay-subscribe.spec.ts',
-    'tests/e2e/signer-persistence.spec.ts',
+    'tests/e2e/paja-identity.spec.ts',
+    'tests/e2e/paja-single-window.spec.ts',
   ],
   inc: [
-    'tests/e2e/inc-roundtrip.spec.ts',
     'tests/e2e/nap-inc.spec.ts',
-    'tests/e2e/profile-open.spec.ts',
   ],
   notify: [
-    'tests/e2e/demo-notification-service.spec.ts',
-    'tests/e2e/demo-service-toggle.spec.ts',
     'tests/e2e/nap-notify.spec.ts',
-    'tests/e2e/notify-lifecycle.spec.ts',
-    'tests/e2e/shell-ui-state-surfaces.spec.ts',
   ],
   paja: [
-    'tests/e2e/paja-single-window.spec.ts',
+    'tests/e2e/paja-cvm.spec.ts',
+    'tests/e2e/paja-identity.spec.ts',
+    'tests/e2e/paja-relay.spec.ts',
     'tests/e2e/paja-runtime-pointer.spec.ts',
+    'tests/e2e/paja-single-window.spec.ts',
+    'tests/e2e/paja-storage.spec.ts',
   ],
   relay: [
-    'tests/e2e/acl-revoke-relay-write.spec.ts',
-    'tests/e2e/demo-audit-correctness.spec.ts',
     'tests/e2e/nap-relay.spec.ts',
-    'tests/e2e/relay-activity.spec.ts',
-    'tests/e2e/relay-publish.spec.ts',
-    'tests/e2e/relay-publish-encrypted.spec.ts',
-    'tests/e2e/relay-subscribe.spec.ts',
-    'tests/e2e/shell-ui-state-surfaces.spec.ts',
+    'tests/e2e/paja-relay.spec.ts',
   ],
   resource: [
-    'tests/e2e/gateway-artifact-parity.spec.ts',
-    'tests/e2e/nap-resource.spec.ts',
+    'tests/e2e/nap-media-player.spec.ts',
   ],
   shellUi: [
-    'tests/e2e/demo-boot.spec.ts',
-    'tests/e2e/demo-concurrent-boot.spec.ts',
-    'tests/e2e/demo-debugger.spec.ts',
-    'tests/e2e/demo-node-inspector.spec.ts',
     'tests/e2e/harness-smoke.spec.ts',
-    'tests/e2e/playground-usability-controls.spec.ts',
-    'tests/e2e/shell-ui-state-surfaces.spec.ts',
-    'tests/e2e/topology-lines.spec.ts',
   ],
   storage: [
-    'tests/e2e/acl-revoke-storage-write.spec.ts',
-    'tests/e2e/demo-audit-correctness.spec.ts',
     'tests/e2e/nap-storage.spec.ts',
-    'tests/e2e/playground-usability-controls.spec.ts',
-    'tests/e2e/storage-persist.spec.ts',
+    'tests/e2e/paja-storage.spec.ts',
   ],
   theme: [
     'tests/e2e/nap-theme.spec.ts',
-    'tests/e2e/playground-usability-controls.spec.ts',
-    'tests/e2e/theme-broadcast.spec.ts',
   ],
 };
-
-const PLAYGROUND_CORE = [
-  ...GROUPS.gateway,
-  ...GROUPS.identity,
-  ...GROUPS.inc,
-  ...GROUPS.notify,
-  ...GROUPS.relay,
-  ...GROUPS.resource,
-  ...GROUPS.shellUi,
-  ...GROUPS.storage,
-  ...GROUPS.theme,
-  'tests/e2e/napplet-auth.spec.ts',
-];
 
 const SERVICE_GROUPS = [
   'cvm',
@@ -222,19 +187,7 @@ function selectionForFile(file) {
     return { specs: GROUPS.shellUi, reason: `${file}: shell UI/window behavior surface` };
   }
 
-  if (file.startsWith('apps/playground/napplets/')) {
-    const nappletSpecs = classifyDomain(file);
-    return {
-      specs: nappletSpecs ?? PLAYGROUND_CORE,
-      reason: `${file}: playground napplet surface`,
-    };
-  }
-
-  if (file.startsWith('apps/playground/')) {
-    return { specs: PLAYGROUND_CORE, reason: `${file}: playground host surface` };
-  }
-
-  if (/^(apps|packages|tests\/e2e)\//.test(file)) {
+  if (/^(packages|tests\/e2e)\//.test(file)) {
     return { all: true, reason: `${file}: unclassified runtime source surface` };
   }
 

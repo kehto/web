@@ -16,8 +16,8 @@ pnpm add @kehto/services
 
 ## Published Napplet Compatibility
 
-Peers admit `@napplet/core` `>=0.32.0 <0.37.0` and `@napplet/nap`
-`>=0.32.0 <0.36.0`, so the nap 0.35.x line that ships the `llm` subpath (and the
+Peers admit `@napplet/core` `>=0.32.0 <0.38.0` and `@napplet/nap`
+`>=0.32.0 <0.37.0`, so the nap 0.35.x line that ships the `llm` subpath (and the
 core 0.36.x line nap 0.35.1 requires) installs without peer conflicts; development
 and tests stay on the baseline 0.32.0 line. The exact installed contracts are core 0.32.0 / nap 0.32.0
 from NAP-INTENT authority `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`,
@@ -78,7 +78,7 @@ receive later completion or failure without a second source result. Source
 teardown does not cancel accepted work. `intent.onDelivery` buffers arrivals;
 INC is not required.
 
-Paja and playground use verified persistent catalogs separately from live frames.
+Paja uses verified persistent catalogs separately from live frames.
 The installed `@napplet/nap@0.32.0` types predate this contract; the bounded local
 canonical types and their removal condition are documented below.
 
@@ -430,7 +430,7 @@ export function createMediaService(options?: MediaServiceOptions): MediaService;
 
 See [Media playback](../../docs/media.md) for the browser audio/video backend,
 player mounting, draft conformance authority, supported source formats, lifecycle,
-and migration from legacy command callbacks. Paja and playground use this player.
+and migration from legacy command callbacks. Paja uses this player.
 
 ### MediaServiceOptions
 
@@ -660,7 +660,7 @@ For the schema and removal boundary, see [event migration](https://kehto.github.
 
 ## GAMEPAD integration
 
-This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja and the playground register one host reader and deny native gamepad/HID/USB paths before frame execution. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, window destruction, and service removal release polling. Non-browser or denied native readers report the proposal's unavailable reasons. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
+This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja registers one host reader and deny native gamepad/HID/USB paths before frame execution. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, window destruction, and service removal release polling. Non-browser or denied native readers report the proposal's unavailable reasons. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
 
 ## LLM integration
 

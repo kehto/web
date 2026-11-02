@@ -62,7 +62,7 @@ Use the package docs for `@kehto/acl` when you need lower-level state migration 
 
 ## Step 5: Load gateway artifacts
 
-Follow the playground order. Hosts that repeatedly load the same napplets can
+Follow Paja's order. Hosts that repeatedly load the same napplets can
 open the optional artifact cache before resolving the manifest:
 
 ```ts

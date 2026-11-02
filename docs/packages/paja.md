@@ -20,7 +20,7 @@ app package's development scripts.
 | Field | Value |
 |-------|-------|
 | Source | `packages/paja/package.json`, `packages/paja/src/index.ts` |
-| Version | `0.27.0` |
+| Version | `0.28.2` |
 | Runtime entry | `./dist/index.js` |
 | CLI runner entry | `./dist/cli.js` |
 | Types entry | `./dist/index.d.ts` |
@@ -31,8 +31,8 @@ app package's development scripts.
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.32.0 <0.37.0` |
-| `@napplet/nap` | `>=0.32.0 <0.36.0` |
+| `@napplet/core` | `>=0.32.0 <0.38.0` |
+| `@napplet/nap` | `>=0.32.0 <0.37.0` |
 | `nostr-tools` | `>=2.23.3 <=2.x` |
 
 ## Primary APIs
@@ -127,8 +127,22 @@ authored scripts run and adds a `<base>` tag so target assets and HMR still
 resolve against the app dev server. A real `ShellBridge` completes
 `shell.ready` / `shell.init`; `@kehto/runtime` then handles ACL, firewall, storage,
 INC, relay/outbox, and service dispatch. Reload uses a generation-specific
-internal window id so the same iframe can receive a fresh `shell.init` without
-restarting the CLI or the app dev server.
+internal window id and a fresh iframe, so the new document gets a fresh
+`shell.init` without restarting the CLI or the app dev server.
+
+NIP-5D port-bound identity ([nips#2303 at `51ef0cd`](https://github.com/nostr-protocol/nips/blob/51ef0cd33a5694784306f3260d90b1872545fdee/5D.md)):
+the injected bootstrap hands a private `MessagePort` to Paja in a single
+window-level `napplet.hello`, and every NAP message then travels over that port.
+Paja forwards window-level traffic from its frames to the `ShellBridge`, which
+binds the hello and revokes the napplet on anything else. Paja also watches
+each frame for a second load. A revoked runtime tab keeps a fresh, empty panel in
+the error state until it is reloaded. A revoked single frame is replaced the
+same way, and a revoked intent launcher is removed. Port traffic in both
+directions appears in the message log, and revocations are logged as
+`paja.napplet.revoked`. Napplets must not post NAP envelopes at window level or
+import `@napplet/shim` alongside Paja's injected namespace. The one window-level
+exception is the signed intent launcher's host messages; see the
+[window-level host message allowlist](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#window-level-host-message-allowlist).
 
 Because the frame is sandboxed without `allow-same-origin`, the napplet document
 has an opaque origin and requests its own assets with `Origin: null`. Module
@@ -435,6 +449,29 @@ objects. The signaling boundary follows pinned
 [NAP-WEBRTC `5fae95dd2c8e59bd06c654e0845656add077dcda`](https://github.com/napplet/naps/blob/5fae95dd2c8e59bd06c654e0845656add077dcda/naps/NAP-WEBRTC.md)
 and [NIP-100 PR #363 head `ead1cd6`](https://github.com/nostr-protocol/nips/pull/363).
 
+### Browser regression coverage
+
+Playwright specs drive these services through the injected `window.napplet.*`
+namespace of a minimal hosted napplet. They check each result at both ends: the
+value the napplet sees and the wire traffic captured by an in-test Nostr relay
+(`tests/e2e/helpers/memory-relay.ts`).
+
+- `tests/e2e/paja-relay.spec.ts`: `relay.publish` through the NIP-07 signer,
+  `relay.publishEncrypted` NIP-44 ciphertext, and `relay.subscribe` delivery
+  (stored events, then EOSE, then live events, then close). Revoking
+  `relay:write` live denies a publish before anything is signed.
+- `tests/e2e/paja-storage.spec.ts`: persistence across a host reload, isolation
+  of the `instance` scope, and live `state:write` revocation.
+- `tests/e2e/paja-identity.spec.ts`: the signer connecting and failing, and
+  NIP-07 reconnecting after a reload.
+- `tests/e2e/paja-cvm.spec.ts`: discovery and one gift-wrapped `tools/call`
+  against an in-test ContextVM server.
+
+Known NAP-IDENTITY gap: on a signer change Paja re-initializes the hosted napplet.
+It does not push `identity.changed` to the napplet that is already loaded. The
+spec's `test.fixme` tracks that contract until Paja refreshes its environment
+without a reload.
+
 ### Standard identity and private social cache
 
 A signed-in napplet uses the existing `identity.getPublicKey`,
@@ -685,9 +722,6 @@ the next iframe reload.
   HMR still resolve against the app dev server through the injected `<base>`.
 - Does not guess framework dev-server ports, mutate app build tooling, or add
   framework-specific adapters.
-- Does not replace the full playground. Paja is the package-scoped authoring
-  runtime for one target app; the playground remains the multi-napplet demo and
-  topology surface.
 
 ## API Reference
 
@@ -768,6 +802,21 @@ remain a documented upstream spec gap; no host sender identity is invented.
 ## NIP-5D runtime pointers
 
 Paja MUST load all three NIP-5D manifest kinds: root `15129`, named `35129`, and snapshot `5129`. Use an `naddr` with an empty identifier for the latest root, an `naddr` with the literal `d` identifier for the latest named napplet, or a `nevent` to pin a signed event of any of the three kinds. Snapshots require `nevent` because they are immutable events without replaceable coordinates. All paths verify the signed manifest and artifact hash before injecting `srcdoc`. Distinct snapshots retain separate tabs and catalog identities even when their artifact bytes match.
+
+
+### Relay unreachable
+
+Pointer resolution tracks each relay's connection outcome, not just whether
+events arrived. When **zero** relays open a WebSocket, the resolver throws
+`PajaRelayUnreachableError` (`code: 'relay-unreachable'`, with a
+`PajaRelayConnectionSummary` of connected/failed/pending relays) instead of the
+generic timeout, and the pointer status reads `No relay connection could be
+opened … 0 of N relays connected …` with the likely causes: the browser is
+offline, the relays are blocked, or the browser reached its WebSocket connection
+limit (for example many open tabs each holding relay connections). Paja logs a
+`paja.relay.unreachable` entry with the per-relay detail. A deadline expiry with
+at least one live relay keeps the timeout message and now states how many relays
+connected. Pools without `ensureRelay` keep the previous messages.
 
 ## Controller diagnostics
 

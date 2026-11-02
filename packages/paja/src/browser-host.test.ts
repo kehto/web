@@ -18,6 +18,16 @@ import { createPajaThemeBroadcastLink } from './theme-broadcast.js';
 import { PAJA_DEV_SIGNER_PUBKEY, createPajaAdapter } from './browser-adapter.js';
 import { createPajaHostConfig, normalizePajaOptions } from './options.js';
 
+/** NIP-5D: bind a port double whose posts land on the fake frame window. */
+function bindTestPort(windowId: string, source: Window): void {
+  const port = {
+    onmessage: null,
+    postMessage: (message: unknown) => source.postMessage(message, '*', undefined),
+    close: () => {},
+  };
+  originRegistry.bindPort(windowId, port as unknown as MessagePort);
+}
+
 describe('@kehto/paja browser host runtime source guards', () => {
   it('forwards one stored theme through one attached bridge without replay or replacement', () => {
     const link = createPajaThemeBroadcastLink();
@@ -110,18 +120,16 @@ describe('@kehto/paja browser host runtime source guards', () => {
   });
 
   it('only marks targets ready after the mandatory shell.ready handshake', () => {
-    const source = readFileSync(new URL('./browser-host.ts', import.meta.url), 'utf8');
+    const nip5dSource = readFileSync(new URL('./browser-nip5d-host.ts', import.meta.url), 'utf8');
     const devtoolsSource = readFileSync(new URL('./browser-devtools.ts', import.meta.url), 'utf8');
-    const readyBranch = source.slice(
-      source.indexOf("data.type === 'shell.ready'"),
-      source.indexOf("frame?.addEventListener('load'"),
-    );
+    const readyBranch = nip5dSource.slice(nip5dSource.indexOf('export function observePajaNappletMessage('));
 
-    expect(readyBranch).toContain("data.type === 'shell.ready'");
+    // NIP-5D: shell.ready arrives on the bound port, observed via onNappletMessage.
+    expect(readyBranch).toContain("message.type !== 'shell.ready'");
     expect(readyBranch).not.toContain("typeof data.type === 'string'");
-    expect(devtoolsSource).toContain('const realToProxy = new WeakMap<Window, Window>();');
-    expect(devtoolsSource).toContain('originRegistry.getRegistrationId = (win: Window) =>');
-    expect(devtoolsSource).toContain('originRegistry.getIdentity = (win: Window) =>');
+    expect(devtoolsSource).toContain('originRegistry.postToNapplet = (windowId, message) =>');
+    expect(devtoolsSource).not.toContain('realToProxy');
+    expect(devtoolsSource).not.toContain('getIframeWindow');
   });
 
   it('keeps runtime pointers in closeable tabs with duplicate-load choices', () => {
@@ -266,8 +274,10 @@ describe('@kehto/paja browser host runtime source guards', () => {
     expect(runtimeSource).toContain('runtime.currentWindowId = null;');
     expect(source).toContain('unregisterSingleFrameWindow(bridge, runtime, windowId);');
     expect(source).toContain('const isCurrentGeneration = () => state.generation === generation;');
-    expect(source).toContain('const registeredWindowId = source ? originRegistry.getWindowId(source) ?? null : null;');
-    expect(source).toContain('if (isSingleFrameMessage && (!sourceWindowId || sourceWindowId !== runtime.currentWindowId)) return;');
+    const nip5dSource = readFileSync(new URL('./browser-nip5d-host.ts', import.meta.url), 'utf8');
+    expect(source).toContain('const frame = ensureFreshNappletFrame(context.frame);');
+    expect(nip5dSource).toContain('const isSingleFrameMessage = context.frame ? source === context.frame.contentWindow : false;');
+    expect(nip5dSource).toContain('if (windowId === context.runtime.currentWindowId) {');
     expect(targetSource).toContain('isCurrent?: () => boolean');
     expect(targetSource).toContain('if (isCurrent && !isCurrent()) return null;');
   });
@@ -289,7 +299,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
   it('uses verified pointer records to retain and source-bind post-acceptance intent delivery', () => {
     const source = readFileSync(new URL('./browser-host.ts', import.meta.url), 'utf8');
     const pointerLoad = source.slice(source.indexOf('async function loadRuntimePointer('), source.indexOf('async function restorePersistedRuntimeTabs('));
-    const messageHandler = source.slice(source.indexOf("window.addEventListener('message'"), source.indexOf("frame?.addEventListener('error'"));
+    const messageHandler = readFileSync(new URL('./browser-nip5d-host.ts', import.meta.url), 'utf8');
 
     expect(source).toContain("import { BrowserIntentController } from './browser-intent-controller.js';");
     expect(source).toContain("from './installed-napplet-catalog.js';");
@@ -335,6 +345,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
       const source = { postMessage: vi.fn() } as unknown as Window;
       const tab = { id, generation: 1, resolvedTarget: target, frame: { contentWindow: source, remove: vi.fn() }, windowId: id, status: 'booting' };
       originRegistry.register(source, id, { dTag: target.dTag, aggregateHash: target.aggregateHash });
+      bindTestPort(id, source);
       return { tab, source };
     };
     const targetA = resolved('aggregate-a');
@@ -394,6 +405,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
         const source = { postMessage: vi.fn() } as unknown as Window;
         const tab = { id, generation: 1, resolvedTarget, frame: { contentWindow: source, remove: vi.fn(), hidden: id !== 'tab-other' }, windowId, status: 'ready' as const, pointerValue: `naddr-${dTag}` };
         originRegistry.register(source, windowId, { dTag, aggregateHash });
+        bindTestPort(windowId, source);
         return { tab, source };
       };
       const otherTarget = {

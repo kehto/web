@@ -12,7 +12,9 @@
  * Anti-features (hard-enforced): NO raw window.addEventListener, NO NIP-01 arrays,
  *   NO raw postMessage, NO NIP-01 envelopes, NO bus-kind references, NO signer service.
  */
-import '@napplet/shim';
+// NIP-5D: the host injects window.napplet and sends the single napplet.hello
+// before this script runs. Importing @napplet/shim would install a second
+// namespace and hello, which revokes the napplet (nostr-protocol/nips#2303).
 import { identityGetProfile, identityGetPublicKey } from '@napplet/nap/identity/sdk';
 
 const statusEl = document.getElementById('nap-status')!;

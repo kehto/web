@@ -1,6 +1,6 @@
 # Gateway Artifacts
 
-The playground loads napplets through content verification:
+Kehto hosts such as Paja load napplets through content verification:
 
 1. Build a self-contained `dist/index.html` and signed `.nip5a-manifest.json`.
 2. Resolve the manifest from the relay simulation and verify its signature.
@@ -12,6 +12,6 @@ The playground loads napplets through content verification:
 
 Gateway routes remain debugging/acceleration surfaces. Neither their metadata nor
 their bytes are trusted. Legacy path/aggregate events share the same verified
-loader through a separate compatibility adapter. Use `pnpm audit:gateway-artifacts`
-to verify the build shape and [event migration](../migrations/NIP-5D-EVENT-SCHEMA.md)
+loader through a separate compatibility adapter. Use `pnpm audit:csp` to check
+built napplet artifacts and [event migration](../migrations/NIP-5D-EVENT-SCHEMA.md)
 for the schema boundary.

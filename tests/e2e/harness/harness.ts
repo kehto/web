@@ -38,132 +38,46 @@ const tap = createMessageTap();
 // Keyed by windowId.
 const envelopeLog = new Map<string, NappletMessage[]>();
 
-// --- Outbound message interception ---
+// --- NIP-5D traffic capture ---
 //
-// The ShellBridge sends messages to napplets via:
-//   1. originRegistry.getIframeWindow(windowId).postMessage() -- for sendChallenge, deliverToSubscriptions
-//   2. sourceWindow.postMessage() -- for handleAuth, handleEvent (sourceWindow = event.source)
-//
-// For cross-origin sandboxed iframes, we can't monkey-patch Window.prototype.postMessage
-// because cross-origin windows use their own prototype chain. Instead, we:
-//   1. Wrap originRegistry.getIframeWindow to return a postMessage-intercepting Proxy
-//   2. Wrap relay.handleMessage to proxy event.source with postMessage interception
-//      while keeping a side-channel so originRegistry.getWindowId still resolves
+// NIP-5D (nostr-protocol/nips#2303) carries every NAP message over the port a
+// napplet hands over in its single window-level napplet.hello. The harness
+// therefore records:
+//   - outbound shell -> napplet traffic by wrapping originRegistry.postToNapplet
+//   - inbound napplet -> shell envelopes through ShellAdapter.onNappletMessage
+// Window-level traffic is only the hello; the bridge revokes anything else.
 
-// Map from proxy to real window for origin registry resolution
-const proxyToReal = new WeakMap<object, Window>();
-
-function createPostMessageProxy(realWin: Window): Window {
-  const proxy = new Proxy(realWin, {
-    get(target, prop) {
-      if (prop === 'postMessage') {
-        return (msg: unknown, targetOrigin: string, transfer?: Transferable[]) => {
-          if (Array.isArray(msg)) {
-            tap.recordOutbound(msg);
-          }
-          return target.postMessage(msg, targetOrigin, transfer);
-        };
-      }
-      // For everything else, return the real property
-      try {
-        const val = (target as any)[prop];
-        return typeof val === 'function' ? val.bind(target) : val;
-      } catch {
-        // Cross-origin property access can throw -- return undefined
-        return undefined;
-      }
-    },
-  });
-  proxyToReal.set(proxy, realWin);
-  return proxy as unknown as Window;
+function recordEnvelope(windowId: string, msg: unknown): void {
+  if (msg === null || typeof msg !== 'object' || typeof (msg as Record<string, unknown>).type !== 'string') return;
+  const clone = JSON.parse(JSON.stringify(msg)) as NappletMessage;
+  const arr = envelopeLog.get(windowId) ?? [];
+  arr.push(clone);
+  envelopeLog.set(windowId, arr);
 }
 
-// Wrap originRegistry.getIframeWindow to return proxied windows.
-// Phase 28 E2E-14: the wrapper also captures outbound NIP-5D object envelopes
-// (shell -> napplet via service send callback) into envelopeLog, keyed by
-// windowId. Array-format messages (NIP-01) continue to be captured by tap only.
-const _origGetIframeWindow = originRegistry.getIframeWindow.bind(originRegistry);
-originRegistry.getIframeWindow = (windowId: string): Window | null => {
-  const win = _origGetIframeWindow(windowId);
-  if (!win) return null;
-  // Create a postMessage-intercepting proxy that additionally records outbound
-  // NIP-5D object envelopes (non-array with type: string) into envelopeLog.
-  const proxy = new Proxy(win, {
-    get(target, prop) {
-      if (prop === 'postMessage') {
-        return (msg: unknown, targetOrigin: string, transfer?: Transferable[]) => {
-          if (Array.isArray(msg)) {
-            tap.recordOutbound(msg);
-          } else if (
-            msg !== null && typeof msg === 'object' &&
-            typeof (msg as Record<string, unknown>).type === 'string'
-          ) {
-            // Outbound NIP-5D envelope (service send callback result).
-            // Record into envelopeLog keyed by windowId so __getNapMessage__ can
-            // retrieve both inbound requests AND outbound response envelopes.
-            const clone = JSON.parse(JSON.stringify(msg)) as NappletMessage;
-            const arr = envelopeLog.get(windowId) ?? [];
-            arr.push(clone);
-            envelopeLog.set(windowId, arr);
-          }
-          return target.postMessage(msg, targetOrigin, transfer);
-        };
-      }
-      // For everything else, return the real property
-      try {
-        const val = (target as any)[prop];
-        return typeof val === 'function' ? val.bind(target) : val;
-      } catch {
-        // Cross-origin property access can throw -- return undefined
-        return undefined;
-      }
-    },
-  });
-  proxyToReal.set(proxy, win);
-  return proxy as unknown as Window;
+const _origPostToNapplet = originRegistry.postToNapplet.bind(originRegistry);
+originRegistry.postToNapplet = (windowId: string, msg: unknown): boolean => {
+  if (Array.isArray(msg)) tap.recordOutbound(msg);
+  else recordEnvelope(windowId, msg);
+  return _origPostToNapplet(windowId, msg);
 };
 
-// Wrap originRegistry.getWindowId to handle both real and proxied windows
-const _origGetWindowId = originRegistry.getWindowId.bind(originRegistry);
-originRegistry.getWindowId = (win: Window): string | undefined => {
-  // First try the real window
-  const result = _origGetWindowId(win);
-  if (result) return result;
-  // If not found, check if it's a proxy and try the real window
-  const real = proxyToReal.get(win);
-  if (real) return _origGetWindowId(real);
-  return undefined;
+const revocations: Array<{ windowId: string; reason: string }> = [];
+mockResult.hooks.onNappletMessage = (windowId, msg) => recordEnvelope(windowId, msg);
+mockResult.hooks.onNappletRevoked = ({ windowId, reason }) => {
+  revocations.push({ windowId, reason });
+  // NIP-5D: the host removes a revoked frame.
+  nappletFrames.get(windowId)?.remove();
+  nappletFrames.delete(windowId);
+  logStatus(`Revoked ${windowId}: ${reason}`);
 };
 
 const relay = createShellBridge(mockResult.hooks);
 
-// Install the message tap (captures napplet->shell messages via addEventListener)
+// Install the message tap (captures window-level napplet->shell messages)
 tap.install(window);
 
-// Wrap relay.handleMessage to proxy event.source for outbound capture.
-const _origHandleMessage = relay.handleMessage;
-relay.handleMessage = (event: MessageEvent) => {
-  if (!event.source || !Array.isArray(event.data)) {
-    _origHandleMessage(event);
-    return;
-  }
-
-  // Create a proxied version of event.source for postMessage interception
-  const proxiedSource = createPostMessageProxy(event.source as Window);
-
-  // Create a synthetic MessageEvent-like object with the proxied source
-  const syntheticEvent = new Proxy(event, {
-    get(target, prop) {
-      if (prop === 'source') return proxiedSource;
-      const val = (target as any)[prop];
-      return typeof val === 'function' ? val.bind(target) : val;
-    },
-  });
-
-  _origHandleMessage(syntheticEvent);
-};
-
-// Attach the relay's wrapped message handler
+// Window-level messages: the bridge binds the napplet.hello port.
 window.addEventListener('message', relay.handleMessage);
 
 // --- Napplet Management ---
@@ -203,28 +117,20 @@ function loadNapplet(name: string, params?: Record<string, string>): string {
   if (container) container.appendChild(iframe);
   nappletFrames.set(windowId, iframe);
 
-  // Register the verified NIP-5D identity BEFORE setting src. The mandatory
-  // shell.ready handshake owns session creation and environment negotiation.
+  // Register the verified NIP-5D identity BEFORE setting src. The napplet's
+  // bootstrap sends napplet.hello before its scripts run; the bridge binds
+  // that port to this identity. A second load revokes the binding.
   if (iframe.contentWindow) {
     originRegistry.register(iframe.contentWindow, windowId, {
       dTag: name,
       aggregateHash: HARNESS_AGGREGATE_HASH,
     });
+    relay.observeFrame(iframe, windowId);
   }
-
-  // Re-register on 'load' in case contentWindow reference changes after navigation.
-  iframe.addEventListener('load', () => {
-    if (iframe.contentWindow) {
-      originRegistry.register(iframe.contentWindow, windowId, {
-        dTag: name,
-        aggregateHash: HARNESS_AGGREGATE_HASH,
-      });
-      logStatus(`Loaded ${name} as ${windowId}, origin identity re-registered`);
-    }
-  });
+  iframe.addEventListener('load', () => logStatus(`Loaded ${name} as ${windowId}`), { once: true });
 
   // Set src LAST — triggers navigation and script execution. By this point,
-  // origin identity is registered, so shell.ready can create the session.
+  // origin identity is registered, so the hello can bind it.
   iframe.src = url;
 
   return windowId;
@@ -256,18 +162,14 @@ window.__getMockHooks__ = () => mockResult;
 // --- Protocol Control Functions (Phase 3) ---
 
 /**
- * Inject a raw NIP-01 message as if it came from the specified napplet iframe.
- * Constructs a MessageEvent with the iframe's contentWindow as source.
+ * Inject a raw NIP-01 message as if it came from the specified napplet's
+ * bound NIP-5D port. The runtime drops non-envelope arrays.
  */
 window.__injectMessage__ = (windowId: string, data: unknown[]) => {
-  const iframe = nappletFrames.get(windowId);
-  if (!iframe?.contentWindow) throw new Error(`No iframe for windowId: ${windowId}`);
-  const event = new MessageEvent('message', {
-    data,
-    source: iframe.contentWindow,
-    origin: 'null',
-  });
-  window.dispatchEvent(event);
+  if (!nappletFrames.has(windowId)) throw new Error(`No iframe for windowId: ${windowId}`);
+  // NIP-5D: injected traffic enters as if from the bound port, never at window
+  // level (a window-level message after the hello revokes the napplet).
+  relay.runtime.handleMessage(windowId, data as unknown as NappletMessage);
 };
 
 /**
@@ -413,41 +315,24 @@ const notificationsShadow: Array<{
   windowId?: string;
 }> = [];
 
-// ─── Envelope interception ──────────────────────────────────────────────────
-//
-// Hook a separate window.addEventListener('message') listener alongside the
-// existing relay.handleMessage listener. When a non-array plain-object message
-// with a `type: string` property arrives from a registered napplet frame,
-// record a deep clone in envelopeLog.
-window.addEventListener('message', (event: MessageEvent) => {
-  if (!event.source || Array.isArray(event.data)) return;
-  const windowId = originRegistry.getWindowId(event.source as Window);
-  if (!windowId) return;
-  const data = event.data;
-  if (data && typeof data === 'object' && typeof (data as Record<string, unknown>).type === 'string') {
-    const clone = JSON.parse(JSON.stringify(data)) as NappletMessage;
-    const arr = envelopeLog.get(windowId) ?? [];
-    arr.push(clone);
-    envelopeLog.set(windowId, arr);
-  }
-});
-
 /**
- * Inject a NIP-5D envelope into the runtime as if posted by the given napplet.
- * Synchronous — the envelope passes through relay.handleMessage immediately.
+ * Inject a NIP-5D envelope into the runtime as if posted on the napplet's
+ * bound port. Synchronous — the envelope passes through runtime dispatch
+ * immediately and is recorded in the envelope log.
  * @param windowId - Harness-assigned window id for the napplet iframe.
  * @param envelope - A NIP-5D NappletMessage (must include `type: string`).
  */
 window.__injectEnvelope__ = (windowId: string, envelope: NappletMessage): void => {
-  const iframe = nappletFrames.get(windowId);
-  if (!iframe?.contentWindow) throw new Error(`No iframe for windowId: ${windowId}`);
-  const event = new MessageEvent('message', {
-    data: envelope,
-    source: iframe.contentWindow,
-    origin: 'null',
-  });
-  window.dispatchEvent(event);
+  if (!nappletFrames.has(windowId)) throw new Error(`No iframe for windowId: ${windowId}`);
+  recordEnvelope(windowId, envelope);
+  relay.runtime.handleMessage(windowId, envelope);
 };
+
+/**
+ * NIP-5D revocations observed by the harness, in order.
+ * @returns Window ids and reasons; structured-clone-safe.
+ */
+window.__getRevocations__ = () => revocations.map((entry) => ({ ...entry }));
 
 /**
  * Return the most recent NIP-5D envelope recorded for a napplet, optionally

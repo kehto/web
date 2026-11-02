@@ -62,8 +62,8 @@ export interface BrowserDeps {
 
 function createSendToNapplet(originRegistry: BrowserDeps['originRegistry']): SendToNapplet {
   return (windowId, msg) => {
-    const win = originRegistry.getIframeWindow(windowId);
-    if (win) win.postMessage(msg, '*');
+    // NIP-5D: NAP messages travel only over the port bound by napplet.hello.
+    originRegistry.postToNapplet(windowId, msg);
   };
 }
 
@@ -114,8 +114,8 @@ function createRelayPoolAdapter(
       filters: NostrFilter[],
       _sendFn: SendToNapplet,
     ): void {
-      const win = originRegistry.getIframeWindow(windowId);
-      if (win) shellHooks.relayPool.openScopedRelay(windowId, relayUrl, subId, filters, win);
+      const target = originRegistry.getNappletTarget(windowId);
+      if (target) shellHooks.relayPool.openScopedRelay(windowId, relayUrl, subId, filters, target);
     },
 
     closeScopedRelay(windowId: string): void {

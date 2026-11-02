@@ -5,6 +5,10 @@ Status: active for current NIP-5D conformance guardrails.
 Authoritative NIP-5D source:
 `https://github.com/nostr-protocol/nips/pull/2303/`
 
+Port-bound identity transport: `nostr-protocol/nips#2303` at
+`51ef0cd33a5694784306f3260d90b1872545fdee`; see
+[Port-bound identity transport](#port-bound-identity-transport).
+
 Current injected-domain clarification:
 `https://github.com/dskvr/nips/pull/4` (merged into the NIP-5D branch behind
 PR #2303 on 2026-06-26)
@@ -60,7 +64,7 @@ The composition was also checked against [NAP-SHELL on master at
 CSP is a NIP-5D web-binding concern; it adds no NAP domain, message, or permission.
 
 `@kehto/shell` owns the policy through `prepareNappletSrcdoc`. Paja runtime-pointer
-and playground verified loading both consume this entry point. Host CSP changes
+verified loading consumes this entry point. Host CSP changes
 are structured source-list replacements, validated before rendering.
 
 | Requirement | Shell treatment | Host choice |
@@ -84,6 +88,36 @@ target-URL development wrapper uses these utilities to retain local HMR; it is
 not a verified runtime-pointer load. The verified production hosts must use
 `prepareNappletSrcdoc`, with verification and source-binding guards intact.
 
+### Direct WebRTC egress
+
+Spec-gap decision (defense-in-depth beyond the current NIP-5D text). No CSP
+directive covers WebRTC: `connect-src 'none'` does not stop `RTCPeerConnection`,
+so an opaque-origin napplet can open a data channel and exfiltrate with no
+policy recourse. Validated by [napplet/evil](https://github.com/napplet/evil)
+finding #1 and described in [Delta Chat's webxdc security
+write-up](https://delta.chat/en/2023-05-22-webxdc-security). The proposed W3C
+`webrtc` CSP directive (`block`/`allow`) is not reliably implemented and is not
+enforceable from a `<meta>` policy, so CSP cannot close this.
+
+Kehto's injected prelude removes the whole WebRTC constructor surface from the
+napplet realm before any napplet script runs: every global whose name starts
+with `RTC` (`RTCPeerConnection`, `RTCDataChannel`, `RTCSessionDescription`,
+`RTCIceCandidate`, `RTCRtp*`, …) plus the legacy `webkit`/`moz`-prefixed aliases,
+each set to a non-writable, non-configurable `undefined`. NAP-WEBRTC is unaffected: its `RTCPeerConnection`
+runs in the shell realm (`packages/paja/src/browser-webrtc.ts`), and the napplet
+reaches it only through the mediated `window.napplet.webrtc` domain, never the
+raw constructor.
+
+Bounded limitation, not yet closed: a napplet can create an un-CSP'd `srcdoc`
+grandchild frame (see finding #9 on `frame-src`) whose realm has a fresh
+`RTCPeerConnection`. Reaching that frame needs a process-wide control — the
+Chromium per-process connection cap — which is shared with the shell's own
+NAP-WEBRTC (napplet `srcdoc` frames are not site-isolated) and is not reliably
+reclaimable, so it is deferred rather than shipped. The portable end state is
+per-napplet process isolation or a shipped `webrtc` CSP directive. Regression:
+`tests/e2e/shell-csp.spec.ts` (real opaque iframe) and the prelude unit tests in
+`packages/shell/src/napplet-namespace.test.ts`.
+
 ### Active NAP-RELAY boundary
 
 Kehto follows [NAP-RELAY PR #2 at
@@ -92,7 +126,7 @@ For `relay.publish`, a napplet supplies an unsigned `EventTemplate`; the shell
 signs it, sends only the signed event to relay services, and returns
 `relay.publish.result` with `ok`, the full signed `event`, and `eventId` on
 success or `error` on failure. Runtime, `createRelayPoolService`,
-`createCoordinatedRelay`, Paja, and the playground must consume the same signed
+`createCoordinatedRelay`, and Paja must consume the same signed
 event and result contract. Failed publications are not delivered through the
 runtime's successful-event buffer.
 
@@ -135,9 +169,9 @@ the superseded opener-only view must not be restored.
 
 ### Intent delivery and invocation boundary
 
-Checked NAP-INTENT PR #106 at `napplet/naps@fc121fc264615482143eda86125863d2e1f741a2` and NIP-5D PR #2303 at `dskvr/nips@020cb8b33a9e4c6b8ca4b2f9d0ed0a67843b68f7`. Paja and playground use verified manifest contracts, opaque publisher-safe catalog IDs, parent-attested sender identity, exact convention matching, and one `intent.deliver` after source-bound readiness. A success result records retained delivery responsibility only; no completion result is sent to the source.
+Checked NAP-INTENT PR #106 at `napplet/naps@fc121fc264615482143eda86125863d2e1f741a2` and NIP-5D PR #2303 at `dskvr/nips@020cb8b33a9e4c6b8ca4b2f9d0ed0a67843b68f7`. Paja uses verified manifest contracts, opaque publisher-safe catalog IDs, parent-attested sender identity, exact convention matching, and one `intent.deliver` after source-bound readiness. A success result records retained delivery responsibility only; no completion result is sent to the source.
 
-`@napplet/nap@0.32.0` is behind the checked NAP. `packages/services/src/intent-types.ts` is the bounded local contract until upstream exports the exact candidate IDs/contracts, accepted result, and delivery shapes. It is not a second transport: remove it only when that release lands and the service, shell, Paja, and playground regressions pass against the upstream export. `sourceWindowId` is internal host correlation and never wire data. Legacy INC fallback remains separately tracked as `KEHTO_COMPAT_INTENT_INC`; legacy object invoke is tracked as `KEHTO_COMPAT_INTENT_OBJECT_INVOKE`.
+`@napplet/nap@0.32.0` is behind the checked NAP. `packages/services/src/intent-types.ts` is the bounded local contract until upstream exports the exact candidate IDs/contracts, accepted result, and delivery shapes. It is not a second transport: remove it only when that release lands and the service, shell, and Paja regressions pass against the upstream export. `sourceWindowId` is internal host correlation and never wire data. Legacy INC fallback remains separately tracked as `KEHTO_COMPAT_INTENT_INC`; legacy object invoke is tracked as `KEHTO_COMPAT_INTENT_OBJECT_INVOKE`.
 
 NIP-5D bytes are verified before `srcdoc` execution; injected bootstraps are deliberately outside the signed artifact hash and unknown `MessageEvent.source` values are dropped. Paja's external URL uses a signed ephemeral launcher to provide an authenticated source. Opening a shared link follows ordinary verified-pointer navigation policy and opens the app directly. A conflicting applicable saved default and verified link hint require a named-app choice; a one-time choice never changes the default. Persisted catalog pointers are discovery inputs that must be reverified independently of open tabs. A native external host source has no verified iframe endpoint and remains a deferred upstream spec gap.
 
@@ -171,6 +205,50 @@ and policy rather than extending the wire contract.
 
 Phase 105 completed published Napplet package adoption. This policy records the
 selected released line without turning Kehto-local policy into protocol authority.
+
+### Port-bound identity transport
+
+Authority: [NIP-5D at
+`51ef0cd33a5694784306f3260d90b1872545fdee`](https://github.com/nostr-protocol/nips/blob/51ef0cd33a5694784306f3260d90b1872545fdee/5D.md)
+(`nostr-protocol/nips#2303`, from `dskvr/nips#14`), packaged by
+`napplet/web#302` (`180297b`) in `@napplet/core@0.37.0`, `@napplet/nap@0.36.0`,
+`@napplet/shim@0.35.0` and `@napplet/conformance@0.24.0`. Result: conformant.
+
+- The Kehto prelude (`packages/shell/src/napplet-namespace.ts`) creates a
+  `MessageChannel` before any napplet script runs. It keeps `port1` private to
+  its closure and transfers `port2` once with
+  `window.parent.postMessage({ type: 'napplet.hello' }, '*', [port])`. All NAP
+  traffic in both directions uses the port, and inbound messages are trusted
+  only when `event.currentTarget` is that port.
+- `ShellBridge.handleMessage` accepts a hello only from the `contentWindow` of a
+  registered iframe carrying exactly one port. It binds the verified
+  `(dTag, aggregateHash)` to that port and dispatches NAP only from it. Replies
+  go through `originRegistry.postToNapplet`, never `iframeWindow.postMessage`,
+  and the shell never transfers a port into the iframe.
+- A second hello, any other window-level message, an invalid hello, a second
+  iframe `load` (`ShellBridge.observeFrame`), or the port closing or failing
+  closes the port. It also revokes the binding, sessions, subscriptions and
+  frozen environment, and calls `ShellAdapter.onNappletRevoked` so the host
+  removes the frame. `originRegistry.register` refuses a spent `Window`. Hosts
+  create a fresh iframe for every navigation; Paja and the e2e harness do.
+- Kehto's development line stays on `@napplet/core`/`@napplet/nap` 0.32.0
+  (kehto/web#364); published peers admit core `<0.38.0` and nap `<0.37.0`.
+  Kehto implements both sides of the handoff itself and needs no 0.37-only API.
+- Spec-gap decision: NIP-5D says a reload "is handled as a navigation" and the
+  shell MAY create a fresh iframe from the verified bytes. Kehto removes or
+  replaces the frame but does not reload it automatically. Paja leaves the tab
+  in an error state until the user reloads it, so a self-navigating napplet
+  cannot loop.
+
+### Window-level host message allowlist
+
+After the hello, NIP-5D treats any other window-level message from a napplet
+frame as evidence that the document was replaced. Exceptions must be listed
+here with a matching guard in `tests/unit/nip5d-conformance-guard.test.ts`.
+
+| Host | Frame | Messages | Why it is bounded |
+|------|-------|----------|-------------------|
+| Paja | Verified intent launcher (`packages/paja/src/intent-launcher.ts`, signed manifest `paja-intent-launcher`) | `paja.intent.launcher.ready`, `paja.intent.launcher.result` (launcher → host); `paja.intent.launch` (host → launcher) | Shell-authored, content-addressed bytes whose signing key is not in this repository, so its host protocol cannot move into the signed artifact without re-signing. `browser-nip5d-host.ts` handles these two types itself, never forwards them to the bridge, and accepts them only while the launcher's window is registered with a bound port. A second load revokes the frame, and any other window-level message still reaches the bridge and revokes it. `paja.intent.launch` is not a NAP message. |
 
 ## Runtime Availability Policy
 
@@ -228,7 +306,7 @@ byte-identical to the recorded `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`.
 |---------|----------------|----------|
 | `connect` | Official Kehto NAP extension | Advertise as `nap:connect` only when the shell enforces the connect-origin policy and response/header behavior for the hosted napplet. |
 | `class` | Official Kehto NAP extension | Advertise as `nap:class` only when the shell assigns the napplet class and applies class-specific policy before iframe use. |
-| `nostrdb` | Out of scope for active playground NIP-5D conformance | Do not count as a required playground NAP until a Kehto NAP contract and shell capability advertisement exist. |
+| `nostrdb` | Out of scope for active NIP-5D conformance | Do not count as a required NAP until a Kehto NAP contract and shell capability advertisement exist. |
 | `relay.publishEncrypted` | Official relay NAP operation | Allowed only when the shell performs encryption/signing policy. Napplets may submit cleartext intent; the shell must not sign or broadcast ciphertext supplied by a napplet. |
 
 ## Raw Envelope Policy
@@ -244,28 +322,16 @@ NAP-RESOURCE host projections follow exact draft ref
 merged in `napplet/web#206` at `19e0029b228127769a0ebdcf0b6b2f30293bd284`
 and released by `b007587afbefb0ce5592825d6ec1fc5b026c7b08`:
 single requests carry optional `servers`, while bulk requests carry
-`requests: [{ url, servers? }]`. The playground resource demo uses the published
-shim and resource SDK over that injected API and needs no raw-envelope exception.
+`requests: [{ url, servers? }]`.
 
 ### Phase 58 Raw-Envelope Allowlist
 
-| Envelope | Location | Classification | Boundary |
-|----------|----------|----------------|----------|
-| `common.*.result` | `apps/playground/napplets/common-demo/src/main.ts` | Disabled source / NAP helper-surface gap | The retained common-demo source is not hosted by the playground. Until it is replaced with a real demo or deleted, raw result listeners stay confined to common-demo, parent-source-bound, and correlation-id/type narrowed. |
-| `cvm.discover` | `apps/playground/napplets/cvm-relatr/src/main.ts` | NAP-CVM helper-surface gap | The `cvm` ContextVM domain has no `@napplet/shim` helper at this SDK version, so the Relatr demo posts `cvm.discover` directly. Raw use is confined to cvm-relatr and the listener is parent-source-bound. |
-| `cvm.request` | `apps/playground/napplets/cvm-relatr/src/main.ts` | NAP-CVM helper-surface gap | Same cvm-relatr-only gap as `cvm.discover`; the shell owns all ContextVM transport, signing, and relay access. |
-| `link.open.result` | `apps/playground/napplets/link-demo/src/main.ts` | Disabled source / NAP helper-surface gap | The retained link-demo source is not hosted by the playground. Until it is replaced with a real demo or deleted, raw result listeners stay confined to link-demo, parent-source-bound, and correlation-id/type narrowed. |
-| `lists.*.result` | `apps/playground/napplets/lists-demo/src/main.ts` | Disabled source / NAP helper-surface gap | The retained lists-demo source is not hosted by the playground. Until it is replaced with a real demo or deleted, raw result listeners stay confined to lists-demo, parent-source-bound, and correlation-id/type narrowed. |
-| `ble.*.result` | `apps/playground/napplets/ble-demo/src/main.ts` | Disabled source / NAP helper-surface gap | The retained BLE demo source is not hosted by the playground. Until it is replaced with a real demo or deleted, raw result listeners stay confined to ble-demo, parent-source-bound, and correlation-id/type narrowed. |
-| `serial.*.result` | `apps/playground/napplets/serial-demo/src/main.ts` | Disabled source / NAP helper-surface gap | The retained serial-demo source is not hosted by the playground. Until it is replaced with a real demo or deleted, raw result listeners stay confined to serial-demo, parent-source-bound, and correlation-id/type narrowed. |
-| `webrtc.*.result` / `webrtc.event` | `apps/playground/napplets/webrtc-demo/src/main.ts` | Disabled source / NAP helper-surface gap | The retained WebRTC demo source is not hosted by the playground. Until it is replaced with a real demo or deleted, raw result/event listeners stay confined to webrtc-demo, parent-source-bound, and correlation-id/type narrowed. |
-| `notify.create` | `apps/playground/napplets/toaster/src/main.ts` | NAP helper-surface gap | Notify service supports create/list, but `@napplet/nap/notify/sdk` lacks create/list helpers. Raw use must stay source-bound and confined to toaster. |
-| `notify.list` | `apps/playground/napplets/toaster/src/main.ts` | NAP helper-surface gap | Same toaster-only helper gap as `notify.create`; raw replies are accepted only from `window.parent`. |
-| `theme.changed` | `apps/playground/src/theme.ts` | NAP helper-surface gap | Theme change is an automatic shell-to-napplet envelope; the raw listener is parent-source-bound and type-narrowed. No subscribe/unsubscribe wire action exists. |
-
-New raw `window.parent.postMessage()` protocol envelopes in playground napplets
-must fail static checks unless they are added to that allowlist with a concrete
-classification.
+The allowlist is currently empty. Its former rows covered only the demo
+napplets of the retired playground (`KEHTO_PLAYGROUND_RETIRED` in the
+[compatibility register](../compatibility.md)); that source is gone. A new raw
+`window.parent.postMessage()` protocol envelope in any Kehto-owned napplet,
+including test fixtures, must be added here with a concrete classification and a
+matching static guard in `tests/unit/nip5d-conformance-guard.test.ts`.
 
 ## Naming Policy
 
@@ -285,8 +351,7 @@ Checked NIP-5D PR #2303 at `dskvr/nips@020cb8b33a9e4c6b8ca4b2f9d0ed0a67843b68f7`
 `projections/web.md`). Paja uses NIP-5D's permitted warning policy when a required
 domain is unavailable, including unknown experimental domains. It warns once per
 frame navigation and continues with its existing granted namespace. Optional `O`
-domains never block loading or produce missing-required warnings. The playground
-retains its permitted rejection policy for missing required domains.
+domains never block loading or produce missing-required warnings.
 
 This admission policy is conformant. Unknown experimental domains have no matching
 NAP contract in the checked registry; accepting their declarations does not invent
@@ -314,7 +379,7 @@ host audit/consent without emitting invented wire responses. Replies recheck
 registration/source lifetime and current domain/ACL policy. Built-in NAPs retain
 their dispatcher and capability mapping; neither metadata nor manifest tags can
 change it. Browser extension hosts must supply the owning contract and inject a
-corresponding granted binding before scripts execute. Stock Paja/playground
+corresponding granted binding before scripts execute. Stock Paja
 bindings do not expose new domains merely because a service is registered.
 
 Runtime regressions cover registration, replacement/removal, source isolation,
@@ -332,10 +397,10 @@ Checked NIP-5D PR #2303 at `dskvr/nips@6e24617cde507c0a87fa170af9ed6b2b46545b2d`
 `0.16.2`, conformance `0.20.5` and CLI `0.13.1`. `@napplet/core` and
 `@napplet/nap` are unchanged, so Kehto keeps its pinned runtime line and owns the
 manifest parsing in `@kehto/nip/5d` (`source-metadata.ts`, `presentation-media.ts`).
-Playground, demo napplet and fixture builds pin the published `0.16.2` writer;
+Fixture napplet builds pin the published `0.16.2` writer;
 `tests/unit/published-napplet-contract.test.ts` proves its `screenshot`,
-`preview`, `source-commit` and `source-archive` output survives the playground
-final-byte signing in `recomputeManifest` and parses through `parseNappletManifest`.
+`preview`, `source-commit` and `source-archive` output survives final-byte
+signing and parses through `parseNappletManifest`.
 
 Conformant. `parseNappletManifest` keeps one well-formed `source` in the accepted
 HTTP(S), SSH, scp-like, Git or NIP-34 `nostr://` forms, one `source-commit` only
@@ -352,7 +417,7 @@ client checks (SHA-256, decodable PNG/JPEG/WebP or video container, declared `m`
 equality) and returns the recognised format or `undefined`; it is a header check,
 so a rendering host still relies on the browser decoder and keeps placeholder
 artwork for anything that fails. No Kehto host renders screenshots, previews or
-source links yet; Paja, the playground and `@kehto/services` project only NAP-INTENT
+source links yet; Paja and `@kehto/services` project only NAP-INTENT
 routing facts and `title` from the manifest, so they need no new fields.
 
 Spec-gap decision: an HTTP(S) `source` may be a repository or an archive and the

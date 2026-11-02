@@ -4,14 +4,6 @@ import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const sdkTargetDirs = [
-  'apps/playground/napplets/bot',
-  'apps/playground/napplets/chat',
-  'apps/playground/napplets/composer',
-  'apps/playground/napplets/feed',
-  'apps/playground/napplets/preferences',
-  'apps/playground/napplets/profile-viewer',
-  'apps/playground/napplets/resource-demo',
-  'apps/playground/napplets/toaster',
   'tests/fixtures/napplets/nap-identity',
   'tests/fixtures/napplets/nap-inc',
   'tests/fixtures/napplets/nap-notify',
@@ -22,7 +14,6 @@ const sdkTargetDirs = [
 
 const helperTargetDirs = [
   ...sdkTargetDirs,
-  'apps/playground/napplets/link-demo',
 ] as const;
 
 const publicPackageDirs = [
@@ -73,7 +64,6 @@ const protocolAuthorities = Object.freeze({
 // Only these executable product paths are migration evidence. Archived plans,
 // release records, and intentional fixture inputs remain classified exclusions.
 const activeMigrationSourceDirs = [
-  ...sdkTargetDirs.filter((dir) => dir.startsWith('apps/playground/')),
   ...publicPackageDirs.map((dir) => `${dir}/src`),
   'packages/nip/src',
 ] as const;
@@ -90,7 +80,6 @@ const historicalMigrationExclusions = [
 // its dated body is historical material and is intentionally not vocabulary-scanned.
 const activeMigrationTextFiles = [
   'README.md',
-  'apps/playground/README.md',
   'docs/reference/api.md',
   'docs/policies/NIP-5D-CONFORMANCE.md',
   'docs/superpowers/specs/2026-06-15-nap-intent-design.md',
@@ -109,10 +98,10 @@ const obsoleteActivePatterns = {
   'query-bearing-stable-identity': { roots: activeMigrationSourceDirs, pattern: /(?:convention|identity|route)\s*(?:=|:)\s*['"`][^'"`\n]*\?/ },
   'prefix-or-query-matching': { roots: activeMigrationSourceDirs, pattern: /\b(?:topic|convention)\.(?:startsWith|includes)\(\s*[^'"`]/ },
   'caller-supplied-sender': { roots: ['packages/runtime/src'], pattern: /(?:m|message)\.sender\b/ },
-  'intent-completion-fields': { roots: ['packages/services/src', 'packages/paja/src', 'apps/playground/src'], pattern: /\btype\s*:\s*['"`]intent\.(?:invoke|deliver)(?:\.result)?['"`][\s\S]{0,120}\b(?:handled|windowId|newWindow)\s*:/ },
-  'inc-coupled-intent': { roots: ['packages/services/src', 'packages/paja/src', 'apps/playground/src'], pattern: /(?:\btype\s*:\s*['"`]inc\.(?:emit|subscribe)['"`][^}]{0,160}['"`]intent\.|\btype\s*:\s*['"`]intent\.(?:invoke|deliver)(?:\.result)?['"`][^}]{0,160}['"`]inc\.(?:emit|subscribe)['"`])/ },
-  'intent-lifecycle-result-fields': { roots: ['packages/services/src', 'packages/paja/src', 'apps/playground/src'], pattern: /intent\.(?:deliver\.result|accepted)\b/ },
-  'intent-delivery-identifiers': { roots: ['packages/services/src', 'packages/paja/src', 'apps/playground/src'], pattern: /\b(?:intentId|deliveryId)\b/ },
+  'intent-completion-fields': { roots: ['packages/services/src', 'packages/paja/src'], pattern: /\btype\s*:\s*['"`]intent\.(?:invoke|deliver)(?:\.result)?['"`][\s\S]{0,120}\b(?:handled|windowId|newWindow)\s*:/ },
+  'inc-coupled-intent': { roots: ['packages/services/src', 'packages/paja/src'], pattern: /(?:\btype\s*:\s*['"`]inc\.(?:emit|subscribe)['"`][^}]{0,160}['"`]intent\.|\btype\s*:\s*['"`]intent\.(?:invoke|deliver)(?:\.result)?['"`][^}]{0,160}['"`]inc\.(?:emit|subscribe)['"`])/ },
+  'intent-lifecycle-result-fields': { roots: ['packages/services/src', 'packages/paja/src'], pattern: /intent\.(?:deliver\.result|accepted)\b/ },
+  'intent-delivery-identifiers': { roots: ['packages/services/src', 'packages/paja/src'], pattern: /\b(?:intentId|deliveryId)\b/ },
 } as const;
 
 // Documentation has a different grammar from executable TypeScript. Keep its
@@ -345,8 +334,9 @@ describe('current @napplet package graph guard', () => {
     // fields are wired through runtime, services, shell, Paja, docs, and tests.
     // nap 0.35.x ships the `llm` subpath and nap 0.35.1 requires core ^0.36.0,
     // so both lines must be admitted or npm rejects llm installs (kehto/web#364).
-    const CORE_PEER_RANGE = '>=0.32.0 <0.37.0';
-    const NAP_PEER_RANGE = '>=0.32.0 <0.36.0';
+    // core 0.37.0 / nap 0.36.0 carry NIP-5D port-bound identity (napplet/web#302).
+    const CORE_PEER_RANGE = '>=0.32.0 <0.38.0';
+    const NAP_PEER_RANGE = '>=0.32.0 <0.37.0';
     const DEV_RANGE = '>=0.32.0 <0.33.0';
     for (const dir of publicPackageDirs) {
       const packageJsonPath = join(process.cwd(), dir, 'package.json');

@@ -1,18 +1,16 @@
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { verifyEvent } from 'nostr-tools/pure';
+import { finalizeEvent, generateSecretKey, verifyEvent } from 'nostr-tools/pure';
 import { parseNappletManifest } from '@kehto/nip/5d';
-import { recomputeManifest } from '../../apps/playground/napplets/shared-vite-config.js';
 import type {
   IntentInvokeResultMessage,
   IntentRequest,
   IntentResult,
 } from '../../node_modules/.pnpm/@napplet+nap@0.32.0/node_modules/@napplet/nap/dist/intent/index.js';
-import type { Nip5aManifestOptions } from '../../node_modules/.pnpm/@napplet+vite-plugin@0.16.2_typescript@5.9.3_vite@6.4.2_jiti@2.6.1_yaml@2.8.3_/node_modules/@napplet/vite-plugin/dist/index.js';
+import type { Nip5aManifestOptions } from '../../node_modules/.pnpm/@napplet+vite-plugin@0.16.2_typescript@5.9.3_vite@6.4.2_yaml@2.8.3_/node_modules/@napplet/vite-plugin/dist/index.js';
 
 const ROOT = process.cwd();
 const NAP_INTENT_REF = '5ac0490461ca6fec2f0d2e45b4835cf9bc08de24';
@@ -249,7 +247,7 @@ describe('published NIP-5D writer media and source pins', () => {
     ]);
   });
 
-  it('round-trips the released writer tags through playground final-byte signing into the Kehto reader', async () => {
+  it('round-trips the released writer tags through final-byte signing into the Kehto reader', async () => {
     const vite = await importInstalled('@napplet/vite-plugin', '0.16.2', 'dist/index.js');
     const resolvePresentationMedia = vite.resolvePresentationMedia as (
       options: Pick<Nip5aManifestOptions, 'screenshots' | 'preview'>,
@@ -270,38 +268,35 @@ describe('published NIP-5D writer media and source pins', () => {
       ['source-commit', 'b'.repeat(40)],
       ['source-archive', 'https://example.com/kehto-web.tar.gz', 'c'.repeat(64), 'application/gzip'],
     ];
-    const dir = mkdtempSync(join(tmpdir(), 'kehto-published-writer-media-'));
-    try {
-      writeFileSync(
-        join(dir, '.nip5a-manifest.json'),
-        JSON.stringify({ content: 'Published writer fixture', tags: [['d', 'media-demo'], ['R', 'relay'], ...sourceTags, ...mediaTags] }),
-      );
-      const html = '<!doctype html><title>Media demo</title>';
-      recomputeManifest(dir, html, []);
-      const event = JSON.parse(readFileSync(join(dir, '.nip5a-manifest.json'), 'utf8')) as Parameters<typeof verifyEvent>[0];
-      expect(verifyEvent(event)).toBe(true);
-      expect(event.tags.filter((tag) => ['source', 'source-commit', 'source-archive', 'screenshot', 'preview'].includes(tag[0]))).toEqual([
-        ...sourceTags,
-        ...mediaTags,
-      ]);
+    const html = '<!doctype html><title>Media demo</title>';
+    // Sign the final-byte manifest the way a NIP-5A writer does: x pins the
+    // artifact hash and the released writer's source/media tags ride along.
+    const event = finalizeEvent({
+      kind: 35129,
+      created_at: 1_700_000_000,
+      content: 'Published writer fixture',
+      tags: [['d', 'media-demo'], ['x', sha256(new TextEncoder().encode(html))], ['R', 'relay'], ...sourceTags, ...mediaTags],
+    }, generateSecretKey());
+    expect(verifyEvent(event)).toBe(true);
+    expect(event.tags.filter((tag) => ['source', 'source-commit', 'source-archive', 'screenshot', 'preview'].includes(tag[0]))).toEqual([
+      ...sourceTags,
+      ...mediaTags,
+    ]);
 
-      const manifest = parseNappletManifest(event);
-      expect(manifest.artifactHash).toBe(sha256(new TextEncoder().encode(html)));
-      expect(manifest.source).toBe('https://github.com/kehto/web');
-      expect(manifest.sourceCommit).toBe('b'.repeat(40));
-      expect(manifest.sourceArchive).toEqual({
-        url: 'https://example.com/kehto-web.tar.gz',
-        sha256: 'c'.repeat(64),
-        mimeType: 'application/gzip',
-      });
-      expect(manifest.screenshots).toEqual([
-        { sha256: sha256(PNG_1X1), mimeType: 'image/png', dim: { width: 1, height: 1 }, size: PNG_1X1.length, alt: 'Notes list' },
-      ]);
-      expect(manifest.preview).toEqual({
-        sha256: sha256(WEBM_HEADER), mimeType: 'video/webm', dim: { width: 960, height: 600 }, size: WEBM_HEADER.length, duration: 8,
-      });
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
+    const manifest = parseNappletManifest(event);
+    expect(manifest.artifactHash).toBe(sha256(new TextEncoder().encode(html)));
+    expect(manifest.source).toBe('https://github.com/kehto/web');
+    expect(manifest.sourceCommit).toBe('b'.repeat(40));
+    expect(manifest.sourceArchive).toEqual({
+      url: 'https://example.com/kehto-web.tar.gz',
+      sha256: 'c'.repeat(64),
+      mimeType: 'application/gzip',
+    });
+    expect(manifest.screenshots).toEqual([
+      { sha256: sha256(PNG_1X1), mimeType: 'image/png', dim: { width: 1, height: 1 }, size: PNG_1X1.length, alt: 'Notes list' },
+    ]);
+    expect(manifest.preview).toEqual({
+      sha256: sha256(WEBM_HEADER), mimeType: 'video/webm', dim: { width: 960, height: 600 }, size: WEBM_HEADER.length, duration: 8,
+    });
   });
 });

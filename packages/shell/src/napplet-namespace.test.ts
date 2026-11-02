@@ -9,6 +9,7 @@ type PreludeListener = (event: PreludeTestEvent) => void;
 
 interface PreludeTestEvent {
   source?: unknown;
+  currentTarget?: unknown;
   data?: unknown;
   key?: string;
   code?: string;
@@ -37,7 +38,8 @@ interface PreludeKeydownInit {
 
 interface PreludeTestWindow {
   napplet?: Record<string, unknown>;
-  parent: { postMessage: (message: PostedMessage, targetOrigin: string) => void };
+  parent: { postMessage: (message: PostedMessage, targetOrigin: string, transfer?: unknown[]) => void };
+  MessageChannel: new () => { port1: unknown; port2: unknown };
   crypto: { randomUUID: () => string };
   document: {
     activeElement: unknown;
@@ -49,20 +51,64 @@ interface PreludeTestWindow {
   dispatchMessage: (source: unknown, message: PostedMessage) => void;
   dispatchParentMessage: (message: PostedMessage) => void;
   dispatchKeydown: (event: PreludeKeydownInit) => PreludeTestEvent;
+  /** NAP envelopes the prelude sent over its private NIP-5D port. */
   postedMessages: PostedMessage[];
   postedMessageListenerCounts: number[];
+  /** Window-level `napplet.hello` handoffs, with their transferred ports. */
+  hellos: Array<{ message: PostedMessage; targetOrigin: string; transfer: unknown[] }>;
+  /** Optional observer called after each port post (lets tests answer synchronously). */
+  onPortPost?: (message: PostedMessage) => void;
+}
+
+/**
+ * Synchronous NIP-5D channel double: the prelude keeps port1 private and
+ * hands port2 to the shell in `napplet.hello`. Real MessageChannel delivery
+ * is asynchronous; transport semantics are proven in shell-bridge tests.
+ */
+function createPreludeChannel(
+  postedMessages: PostedMessage[],
+  postedMessageListenerCounts: number[],
+  portListeners: Set<PreludeListener>,
+  onPost: (message: PostedMessage) => void,
+) {
+  return class PreludeTestChannel {
+    readonly port1 = {
+      postMessage(message: PostedMessage) {
+        postedMessages.push(message);
+        postedMessageListenerCounts.push(portListeners.size);
+        onPost(message);
+      },
+      addEventListener(type: string, listener: PreludeListener) {
+        if (type === 'message') portListeners.add(listener);
+      },
+      removeEventListener(type: string, listener: PreludeListener) {
+        if (type === 'message') portListeners.delete(listener);
+      },
+      start() {},
+      close() {},
+    };
+    readonly port2 = { transferred: true };
+  };
 }
 
 function createPreludeTestWindow(napplet?: Record<string, unknown>): PreludeTestWindow {
   const windowListeners = new Map<string, Set<PreludeListener>>();
   const documentListeners = new Map<string, Set<PreludeListener>>();
+  const portListeners = new Set<PreludeListener>();
   const postedMessages: PostedMessage[] = [];
   const postedMessageListenerCounts: number[] = [];
+  const hellos: PreludeTestWindow['hellos'] = [];
+  let testWindow: PreludeTestWindow | null = null;
+  const Channel = createPreludeChannel(
+    postedMessages, postedMessageListenerCounts, portListeners,
+    (message) => testWindow?.onPortPost?.(message),
+  );
+  let privatePort: unknown = null;
   let nextId = 0;
   const parent = {
-    postMessage(message: PostedMessage) {
-      postedMessages.push(message);
-      postedMessageListenerCounts.push(windowListeners.get('message')?.size ?? 0);
+    postMessage(message: PostedMessage, targetOrigin: string, transfer: unknown[] = []) {
+      // Window-level traffic: NIP-5D allows only the single napplet.hello.
+      hellos.push({ message, targetOrigin, transfer });
     },
   };
   const add = (listeners: Map<string, Set<PreludeListener>>, type: string, listener: PreludeListener): void => {
@@ -88,11 +134,18 @@ function createPreludeTestWindow(napplet?: Record<string, unknown>): PreludeTest
       remove(documentListeners, type, listener);
     },
   };
-  return {
+  testWindow = {
     napplet,
     parent,
+    MessageChannel: class extends Channel {
+      constructor() {
+        super();
+        privatePort = this.port1;
+      }
+    },
     postedMessages,
     postedMessageListenerCounts,
+    hellos,
     document,
     crypto: {
       randomUUID: () => `id-${++nextId}`,
@@ -114,7 +167,16 @@ function createPreludeTestWindow(napplet?: Record<string, unknown>): PreludeTest
       });
     },
     dispatchParentMessage(message) {
-      this.dispatchMessage(parent, message);
+      // The shell answers over the bound port, never at window level.
+      const event: PreludeTestEvent = {
+        data: message,
+        currentTarget: privatePort,
+        defaultPrevented: false,
+        preventDefault() {
+          this.defaultPrevented = true;
+        },
+      };
+      for (const listener of [...portListeners]) listener(event);
     },
     dispatchKeydown(init) {
       const event: PreludeTestEvent = {
@@ -137,6 +199,7 @@ function createPreludeTestWindow(napplet?: Record<string, unknown>): PreludeTest
       return event;
     },
   };
+  return testWindow;
 }
 
 function withoutShellReady(target: PreludeTestWindow): PostedMessage[] {
@@ -1964,9 +2027,7 @@ describe('intent delivery and KEHTO_COMPAT_INTENT_INC', () => {
 
   it('buffers before shell.ready is posted and drains in order without INC or warnings', () => {
     const target = createPreludeTestWindow();
-    const post = target.parent.postMessage;
-    target.parent.postMessage = (message, origin) => {
-      post(message, origin);
+    target.onPortPost = (message) => {
       if (message.type === 'shell.ready') send(target);
     };
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -2120,5 +2181,37 @@ describe('GAMEPAD injected binding', () => {
     target.dispatchParentMessage({ type: 'gamepad.state', available: true, focused: false, pads: [] });
     expect(first).toHaveBeenCalledTimes(1); expect(second).toHaveBeenCalledTimes(1);
     expect(binding.focused).toBe(false);
+  });
+});
+
+describe('NIP-5D direct WebRTC egress neutering', () => {
+  it('removes the whole RTC* surface and legacy aliases from the napplet realm before any script runs', () => {
+    const target = createPreludeTestWindow();
+    const realm = target as unknown as Record<string, unknown>;
+    // A real browser realm exposes these constructors; the fake window stands in.
+    const names = [
+      'RTCPeerConnection', 'RTCDataChannel', 'RTCSessionDescription', 'RTCIceCandidate',
+      'RTCRtpSender', 'webkitRTCPeerConnection', 'mozRTCPeerConnection',
+    ];
+    for (const name of names) realm[name] = function FakeRtc() {};
+
+    runPrelude(renderNappletNamespacePrelude({ domains: ['shell'] }), target);
+
+    for (const name of names) expect(realm[name], name).toBeUndefined();
+    expect(Object.keys(realm).filter((key) => key.startsWith('RTC'))).toEqual([]);
+    // Unrelated globals are left alone.
+    expect(typeof realm.MessageChannel).toBe('function');
+  });
+
+  it('pins the neutered constructors so napplet code cannot restore them', () => {
+    const target = createPreludeTestWindow();
+    const realm = target as unknown as Record<string, unknown>;
+    realm.RTCPeerConnection = function FakePC() {};
+    runPrelude(renderNappletNamespacePrelude({ domains: ['shell'] }), target);
+
+    // Non-writable, non-configurable: a napplet reassigning it is a no-op (or throws in strict mode).
+    expect(() => Object.defineProperty(realm, 'RTCPeerConnection', { value: function Restored() {} }))
+      .toThrow();
+    expect(realm.RTCPeerConnection).toBeUndefined();
   });
 });
