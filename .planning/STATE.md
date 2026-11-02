@@ -163,6 +163,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
+| 261102-ggx | Resolve PR #376 review: authorized extension pushes (`pushCapabilities`) and relay delivery ownership for `@kehto/mocks` | 2026-11-02 | 331d6f9b | passed | [261102-ggx](./quick/261102-ggx-resolve-pr-376-review-authorized-extensi/) |
 | 261031-neu | NAP-LLM service hardening: handle bound, prompt abort signals, streaming providers (kehto/web#368-#370) | 2026-10-31 | 13352e3e | passed | [261031-neu](./quick/261031-neu-llm-service-hardening-368-370/) |
 | 261031-mfp | Prevent demo audit Vite server leaks; use Playwright ownership (follow-up #363) | 2026-10-31 | ac4ae564 | passed | [261031-mfp](./quick/261031-mfp-prevent-demo-audit-tests-from-leaking-th/) |
 | 261031-l9b | Admit @napplet/nap 0.35.x and core 0.36.x in published peer ranges (kehto/web#364) | 2026-10-31 | 2977db05 | passed | [261031-l9b](./quick/261031-l9b-napplet-peer-range-364/) |
