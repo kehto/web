@@ -48,7 +48,7 @@ Phase: 107 (Paja Intent Deep Links) — COMPLETE
 Plan: 4 of 4
 Status: Shipped as open PR #289 — https://github.com/kehto/web/pull/289. No merge or release performed.
 
-Last activity: 2026-11-02 - Completed quick task 261032: PR 383 provider switching and reusable model dropdown
+Last activity: 2026-11-02 - Completed quick task 261033: reorder provider presets
 
 ## Performance Metrics
 
@@ -163,6 +163,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
+| 261033 | Order OpenRouter, Routstr, Google Gemini | 2026-11-02 | 4dafe808 | build/types passed; 2 baseline unit failures | [261033](./quick/261033-reorder-provider-presets-openrouter-rout/) |
 | 261032 | Fix PR 383 provider keys, default names and reusable model dropdown | 2026-11-02 | 2e4b002f | focused checks passed; 2 baseline unit failures | [261032](./quick/261032-fix-pr-383-provider-switching-and-reusab/) |
 | 261031-neu | NAP-LLM service hardening: handle bound, prompt abort signals, streaming providers (kehto/web#368-#370) | 2026-10-31 | 13352e3e | passed | [261031-neu](./quick/261031-neu-llm-service-hardening-368-370/) |
 | 261031-mfp | Prevent demo audit Vite server leaks; use Playwright ownership (follow-up #363) | 2026-10-31 | ac4ae564 | passed | [261031-mfp](./quick/261031-mfp-prevent-demo-audit-tests-from-leaking-th/) |
