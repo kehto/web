@@ -267,6 +267,17 @@ function sourceBetween(source: string, start: string, end: string): string {
 describe('NIP-5D conformance static guards', () => {
   // NIP-5D port-bound identity: nostr-protocol/nips#2303 at
   // 51ef0cd33a5694784306f3260d90b1872545fdee (napplet/web#302).
+  it('neuters direct WebRTC egress in the injected napplet realm (napplet/evil #1)', () => {
+    const prelude = removeComments(readRepoFile('packages/shell/src/napplet-namespace.ts'));
+    const policy = readRepoFile('docs/policies/NIP-5D-CONFORMANCE.md');
+
+    // The prelude removes both PeerConnection constructors as a pinned undefined,
+    // before any napplet script runs. NAP-WEBRTC runs in the shell realm.
+    expect(prelude).toContain("for (const rtcCtor of ['RTCPeerConnection', 'webkitRTCPeerConnection']) {");
+    expect(prelude).toMatch(/Object\.defineProperty\(target as object, rtcCtor, \{[\s\S]*?value: undefined,[\s\S]*?writable: false,[\s\S]*?configurable: false,/);
+    expect(policy).toContain('### Direct WebRTC egress');
+  });
+
   it('keeps napplet identity bound to the napplet.hello port across shell and hosts', () => {
     const prelude = removeComments(readRepoFile('packages/shell/src/napplet-namespace.ts'));
     const bridge = readRepoFile('packages/shell/src/nip5d-transport.ts');

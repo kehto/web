@@ -88,6 +88,34 @@ target-URL development wrapper uses these utilities to retain local HMR; it is
 not a verified runtime-pointer load. The verified production hosts must use
 `prepareNappletSrcdoc`, with verification and source-binding guards intact.
 
+### Direct WebRTC egress
+
+Spec-gap decision (defense-in-depth beyond the current NIP-5D text). No CSP
+directive covers WebRTC: `connect-src 'none'` does not stop `RTCPeerConnection`,
+so an opaque-origin napplet can open a data channel and exfiltrate with no
+policy recourse. Validated by [napplet/evil](https://github.com/napplet/evil)
+finding #1 and described in [Delta Chat's webxdc security
+write-up](https://delta.chat/en/2023-05-22-webxdc-security). The proposed W3C
+`webrtc` CSP directive (`block`/`allow`) is not reliably implemented and is not
+enforceable from a `<meta>` policy, so CSP cannot close this.
+
+Kehto's injected prelude removes `RTCPeerConnection` and `webkitRTCPeerConnection`
+from the napplet realm before any napplet script runs (set to a non-writable,
+non-configurable `undefined`). NAP-WEBRTC is unaffected: its `RTCPeerConnection`
+runs in the shell realm (`packages/paja/src/browser-webrtc.ts`), and the napplet
+reaches it only through the mediated `window.napplet.webrtc` domain, never the
+raw constructor.
+
+Bounded limitation, not yet closed: a napplet can create an un-CSP'd `srcdoc`
+grandchild frame (see finding #9 on `frame-src`) whose realm has a fresh
+`RTCPeerConnection`. Reaching that frame needs a process-wide control — the
+Chromium per-process connection cap — which is shared with the shell's own
+NAP-WEBRTC (napplet `srcdoc` frames are not site-isolated) and is not reliably
+reclaimable, so it is deferred rather than shipped. The portable end state is
+per-napplet process isolation or a shipped `webrtc` CSP directive. Regression:
+`tests/e2e/shell-csp.spec.ts` (real opaque iframe) and the prelude unit tests in
+`packages/shell/src/napplet-namespace.test.ts`.
+
 ### Active NAP-RELAY boundary
 
 Kehto follows [NAP-RELAY PR #2 at
