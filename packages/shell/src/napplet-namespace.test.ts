@@ -2183,3 +2183,29 @@ describe('GAMEPAD injected binding', () => {
     expect(binding.focused).toBe(false);
   });
 });
+
+describe('NIP-5D direct WebRTC egress neutering', () => {
+  it('removes RTCPeerConnection and its legacy alias from the napplet realm before any script runs', () => {
+    const target = createPreludeTestWindow();
+    // A real browser realm exposes these constructors; the fake window stands in.
+    (target as unknown as Record<string, unknown>).RTCPeerConnection = function FakePC() {};
+    (target as unknown as Record<string, unknown>).webkitRTCPeerConnection = function FakePC() {};
+
+    runPrelude(renderNappletNamespacePrelude({ domains: ['shell'] }), target);
+
+    const realm = target as unknown as Record<string, unknown>;
+    expect(realm.RTCPeerConnection).toBeUndefined();
+    expect(realm.webkitRTCPeerConnection).toBeUndefined();
+  });
+
+  it('pins the neutered constructors so napplet code cannot restore them', () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['shell'] }), target);
+
+    const realm = target as unknown as Record<string, unknown>;
+    // Non-writable, non-configurable: a napplet reassigning it is a no-op (or throws in strict mode).
+    expect(() => Object.defineProperty(realm, 'RTCPeerConnection', { value: function Restored() {} }))
+      .toThrow();
+    expect(realm.RTCPeerConnection).toBeUndefined();
+  });
+});

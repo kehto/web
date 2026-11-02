@@ -103,6 +103,31 @@ function nappletNamespacePrelude(
   const allowed = new Set(domains);
   const requestTimeoutMs = 30_000;
 
+  // NIP-5D's CSP advisory governs fetch/WebSocket/Worker egress, but no CSP
+  // directive covers WebRTC: an opaque-origin napplet can open an
+  // RTCPeerConnection data channel and exfiltrate with no policy recourse
+  // (napplet/evil finding #1; https://delta.chat/en/2023-05-22-webxdc-security).
+  // NAP-WEBRTC runs the RTCPeerConnection in the shell realm, so a napplet
+  // never needs the raw constructor here. Remove it (and its legacy alias)
+  // before any napplet script runs: direct egress is gone and feature
+  // detection sees the capability as absent and degrades. Defense-in-depth
+  // beyond the current NIP-5D text; it does not reach srcdoc grandchild frames,
+  // which share the per-process WebRTC pool (docs/policies/NIP-5D-CONFORMANCE.md,
+  // "Direct WebRTC egress").
+  for (const rtcCtor of ['RTCPeerConnection', 'webkitRTCPeerConnection']) {
+    try {
+      Object.defineProperty(target as object, rtcCtor, {
+        value: undefined,
+        writable: false,
+        configurable: false,
+        enumerable: false,
+      });
+    } catch {
+      // Best-effort hardening — a pre-frozen or non-configurable global must
+      // never turn into a load-blocking failure.
+    }
+  }
+
   type RuntimeMessage = { type: string; id?: string; [key: string]: unknown };
   type Listener = (event: MessageEvent) => void;
 
