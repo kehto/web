@@ -13,6 +13,7 @@ import {
 
 import { isPajaLocalTarget, type PajaRuntimeTarget } from './local-target.js';
 import type { PajaHostConfig, PajaNestedContextLockSetting } from './options.js';
+import { readStoredNestedContextLockSetting } from './browser-security-settings.js';
 import type { PajaShellEnvironment } from './parity.js';
 
 /**
@@ -122,13 +123,15 @@ export async function navigateFrame(
       }
     }
     // Resolve the experimental nested-browsing-context lock (opt-in) for this
-    // napplet: `on`/`off` are explicit; `auto` (the default) applies it only to a
-    // napplet granted a privacy-sensitive NAP domain, where exfiltration by an
-    // untrusted app has real consequences. See docs/policies/EXPERIMENTAL.md.
-    const nestedContextLock = resolveNestedContextLock(
-      config.experimental?.nestedContextLock ?? 'auto',
-      domains,
-    );
+    // napplet. Precedence: a per-origin host-GUI override wins, else the
+    // serialized host config (CLI / config file), else `auto`. `on`/`off` are
+    // explicit; `auto` applies the lock only to a napplet granted a
+    // privacy-sensitive NAP domain, where exfiltration by an untrusted app has
+    // real consequences. See docs/policies/EXPERIMENTAL.md.
+    const lockSetting = readStoredNestedContextLockSetting()
+      ?? config.experimental?.nestedContextLock
+      ?? 'auto';
+    const nestedContextLock = resolveNestedContextLock(lockSetting, domains);
     // When locked: reject a napplet whose own markup declares a nested browsing
     // context before it becomes a document. The prelude's Trusted Types policy
     // and factory pins close every scripted iframe path, but static `<iframe>`

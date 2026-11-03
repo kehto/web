@@ -129,6 +129,11 @@ the napplet CSP and is incompatible with frameworks that register their own
 Trusted Types policy (e.g. Angular); see
 [the experimental-namespace policy](/policies/EXPERIMENTAL) for the full cost.
 
+A deployed runtime (no CLI access) can set the same policy from the host-page
+**Security** sidebar's Frame-creation lock control; the choice persists in the
+host origin's `localStorage`, overrides the config, and applies on the next
+napplet load.
+
 For package-manager script examples covering `pnpm`, `npm`, and `yarn`, see
 [Use Paja for local napplet authoring](/how-tos/paja-local-authoring).
 

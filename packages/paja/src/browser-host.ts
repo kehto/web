@@ -1,4 +1,5 @@
 import { installPajaResourceSettings } from './browser-resource-settings.js';
+import { installPajaSecuritySettings } from './browser-security-settings.js';
 import { installPajaLlm } from './browser-llm-panel.js';
 import {
   buildShellCapabilities,
@@ -628,6 +629,8 @@ async function installPajaHost(): Promise<void> {
   const disposeSidebarSections = installPajaSidebarSections();
   window.addEventListener('pagehide', disposeSidebarSections, { once: true });
   const resourceSettings = installPajaResourceSettings();
+  const securitySettings = installPajaSecuritySettings();
+  window.addEventListener('pagehide', securitySettings.dispose, { once: true });
   const config = await readLatestPajaHostConfig(readPajaHostConfig());
   const stage = getStage();
   const frame = config.target.mode === 'runtime-pointer' ? null : getFrame();

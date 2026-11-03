@@ -83,3 +83,13 @@ const config = createPajaRuntimeHostConfig({
 Paja resolves `auto` per napplet at load time against the domains the host
 actually grants, so a messaging napplet gets the lock while a plain viewer does
 not, without the developer choosing per app.
+
+#### GUI switch (deployed runtime)
+
+A deployed Paja runtime cannot be reconfigured by a CLI flag, so its host-page
+Security sidebar carries a **Frame-creation lock** control (Host default / Auto /
+On / Off). The choice persists in that host origin's `localStorage` and applies
+on the next napplet load. Precedence: a GUI choice wins over the serialized host
+config; "Host default" clears the override and defers to the config (CLI /
+config file / `auto`). Turning the lock off for a private-data napplet lowers its
+exfiltration protection, which the control states inline.
