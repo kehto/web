@@ -184,6 +184,8 @@ Options:
   --port <port>               Runtime port. Default: 5197.
   --ready-timeout <ms>        Target readiness timeout. Default: 30000.
   --config <path>             JSON config file using the same option schema.
+  --nested-context-lock <v>   Experimental frame-creation lock: on, off, or auto
+                              (default; on for napplets granted a private domain).
   --identity-mode <mode>      anonymous or fixed.
   --identity-pubkey <hex>     Required when identity mode is fixed.
   --relay-mode <mode>         live, memory, or disabled.
@@ -237,6 +239,11 @@ function applyCoreOption(
       return true;
     case '--config':
       raw.configPath = readValue(args, index, arg);
+      return true;
+    case '--nested-context-lock':
+      raw.experimental = {
+        nestedContextLock: readEnum(args, index, arg, ['on', 'off', 'auto'] as const),
+      };
       return true;
     default:
       return false;

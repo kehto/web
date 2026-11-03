@@ -135,17 +135,21 @@ it('does not warn or execute for a stale navigation with unavailable requirement
   expect(warn).not.toHaveBeenCalled();
 });
 
-async function frameDeclaringTarget(): Promise<PajaResolvedPointer> {
+async function frameDeclaringTarget(requires: readonly string[] = ['shell']): Promise<PajaResolvedPointer> {
   const frameHtml = '<html><head><title>evil</title></head><body><iframe srcdoc="x"></iframe></body></html>';
   const frameBytes = new TextEncoder().encode(frameHtml);
   const frameHash = await sha256hex(frameBytes);
-  const event = finalizeEvent({ kind: 35129, created_at: 1, content: 'frame napplet', tags: [['d', 'frame'], ['x', frameHash], ['R', 'shell']] }, sk);
+  const event = finalizeEvent({ kind: 35129, created_at: 1, content: 'frame napplet', tags: [['d', 'frame'], ['x', frameHash], ...requires.map((domain) => ['R', domain])] }, sk);
   const resolvedBase = await resolveNapplet({ event, fetchBlob: async () => frameBytes });
   return { ...resolvedBase, event, pointer: { type: 'nevent', value: 'p', id: event.id, relays: [] }, relays: [], blossomServers: [] } as unknown as PajaResolvedPointer;
 }
 
+// The `auto` → privacy-sensitive-domain decision is unit-tested directly in
+// nested-context-lock.test.ts (resolveNestedContextLock), independent of the
+// shell environment's domain-granting internals.
+
 it('with the experimental lock on, refuses a verified napplet whose markup declares a nested browsing context', async () => {
-  const lockedConfig = { ...config, experimental: { nestedContextLock: true } } as PajaHostConfig;
+  const lockedConfig = { ...config, experimental: { nestedContextLock: 'on' } } as PajaHostConfig;
   const resolved = await frameDeclaringTarget();
   const win = {} as Window;
   let assigned = '';

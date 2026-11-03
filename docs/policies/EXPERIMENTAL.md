@@ -36,15 +36,50 @@ opinionated host policy is an experimental flag.
 
 ## Enabling a policy
 
+### In `@kehto/shell` (library embedders)
+
+`prepareNappletSrcdoc` takes a boolean per flag — the resolved decision for one
+napplet:
+
 ```ts
-// @kehto/shell
 const srcdoc = prepareNappletSrcdoc(verifiedHtml, {
   domains,
   experimental: { nestedContextLock: true },
 });
+```
 
-// @kehto/paja host config
+### In Paja (developers)
+
+Paja is the usual place a developer turns a policy on or off, so its setting is
+a tri-state rather than a bare boolean:
+
+| Value | Behavior |
+|-------|----------|
+| `on` | Always apply the lock. |
+| `off` | Never apply it. |
+| `auto` (default) | Apply it only to a napplet granted a **privacy-sensitive** NAP domain, where exfiltration by an untrusted app has real consequences. |
+
+Privacy-sensitive domains today: **`dm`** (NAP-DM — decrypted direct messages).
+The set is intentionally small and lives in `@kehto/paja`
+(`resolveNestedContextLock`).
+
+```bash
+# CLI
+kehto paja --target-url http://127.0.0.1:5173 --nested-context-lock on
+```
+
+```json
+// paja config file (--config)
+{ "experimental": { "nestedContextLock": "auto" } }
+```
+
+```ts
+// programmatic runtime-pointer host config
 const config = createPajaRuntimeHostConfig({
-  experimental: { nestedContextLock: true },
+  experimental: { nestedContextLock: 'auto' },
 });
 ```
+
+Paja resolves `auto` per napplet at load time against the domains the host
+actually grants, so a messaging napplet gets the lock while a plain viewer does
+not, without the developer choosing per app.
