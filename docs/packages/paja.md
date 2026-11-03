@@ -111,6 +111,29 @@ The config-file form is the same raw option object:
 
 CLI flags override config-file values at the same nested paths.
 
+### Experimental policies
+
+Paja exposes Kehto's [experimental namespace](/policies/EXPERIMENTAL) of opt-in,
+opinionated host policies (off by default). The first is the nested-browsing-context
+lock, which prevents a napplet from creating an iframe:
+
+```bash
+kehto paja --target-url http://127.0.0.1:5173 --nested-context-lock auto
+```
+
+`--nested-context-lock` (config key `experimental.nestedContextLock`) takes
+`on`, `off`, or `auto` (default). `auto` applies the lock only to a napplet
+granted a privacy-sensitive NAP domain (`dm`), where exfiltration by an
+untrusted app has real consequences. Enabling the lock requires Trusted Types in
+the napplet CSP and is incompatible with frameworks that register their own
+Trusted Types policy (e.g. Angular); see
+[the experimental-namespace policy](/policies/EXPERIMENTAL) for the full cost.
+
+A deployed runtime (no CLI access) can set the same policy from the host-page
+**Security** sidebar's Frame-creation lock control; the choice persists in the
+host origin's `localStorage`, overrides the config, and applies on the next
+napplet load.
+
 For package-manager script examples covering `pnpm`, `npm`, and `yarn`, see
 [Use Paja for local napplet authoring](/how-tos/paja-local-authoring).
 

@@ -299,6 +299,18 @@ export function renderPajaHtml(config: PajaHostConfig): string {
           <div id="paja-resource-servers-status" role="status" aria-live="polite"></div>
         </form>
         </div></details>
+        <details class="section" id="paja-section-security" data-paja-section="security" open>
+          <summary class="section-title">Security<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
+          <label class="section-title" for="paja-nested-context-lock">Frame-creation lock (experimental)</label>
+          <select id="paja-nested-context-lock" aria-describedby="paja-nested-context-lock-help paja-nested-context-lock-status">
+            <option value="">Host default</option>
+            <option value="auto">Auto (lock private-data napplets)</option>
+            <option value="on">On (lock every napplet)</option>
+            <option value="off">Off</option>
+          </select>
+          <small id="paja-nested-context-lock-help">Stops a napplet creating an iframe. Auto locks napplets granted a private domain (e.g. DM). Applies on the next napplet load. Turning it off for a private-data napplet lowers exfiltration protection.</small>
+          <div id="paja-nested-context-lock-status" role="status" aria-live="polite"></div>
+        </div></details>
         <details class="section" id="paja-section-llm" data-paja-section="llm" open>
           <summary class="section-title">Language models<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
           <ul class="llm-connections" id="paja-llm-connections" aria-label="Configured model connections"></ul>

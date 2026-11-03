@@ -107,7 +107,7 @@ function requireBootstrapScripts(directive: string, sources: readonly string[]):
  * });
  * ```
  */
-export function buildNappletCsp(options: NappletCspOptions = {}): string {
+export function buildNappletCsp(options: NappletCspOptions = {}, lockTrustedTypes = false): string {
   const grants = [...new Set((options.connectOrigins ?? []).map(connectionOrigin))].sort();
   const policy: Record<string, readonly string[]> = {
     ...DEFAULT_DIRECTIVES,
@@ -129,8 +129,20 @@ export function buildNappletCsp(options: NappletCspOptions = {}): string {
   }
   requireBootstrapScripts('script-src', policy['script-src']);
   if (policy['script-src-elem']) requireBootstrapScripts('script-src-elem', policy['script-src-elem']);
-  return Object.entries(policy).map(([name, sources]) => `${name} ${sources.join(' ')}`).join('; ');
+  const sourceLists = Object.entries(policy).map(([name, sources]) => `${name} ${sources.join(' ')}`);
+  // The Trusted Types lock applies only to a verified napplet's own srcdoc CSP
+  // (via prepareNappletSrcdoc), never to the trusted Paja host page, which must
+  // create napplet frames and use string sinks freely. `require-trusted-types-
+  // for 'script'` routes every DOM string sink through the prelude's `default`
+  // policy, which rejects frame markup; `trusted-types default` admits exactly
+  // that one policy name so a napplet cannot register a second, laxer `default`
+  // (docs/policies/NIP-5D-CONFORMANCE.md, "Nested browsing contexts").
+  if (lockTrustedTypes) sourceLists.push(TRUSTED_TYPES_DIRECTIVES);
+  return sourceLists.join('; ');
 }
+
+/** Fixed Trusted Types directives appended to a verified napplet's own CSP. */
+export const TRUSTED_TYPES_DIRECTIVES = "require-trusted-types-for 'script'; trusted-types default";
 
 /**
  * Render the shell's validated CSP meta element.
@@ -142,8 +154,8 @@ export function buildNappletCsp(options: NappletCspOptions = {}): string {
  * const meta = renderNappletCspMeta({ directives: { 'img-src': ['data:'] } });
  * ```
  */
-export function renderNappletCspMeta(options: NappletCspOptions = {}): string {
-  const policy = buildNappletCsp(options).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+export function renderNappletCspMeta(options: NappletCspOptions = {}, lockTrustedTypes = false): string {
+  const policy = buildNappletCsp(options, lockTrustedTypes).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
   return `<meta http-equiv="Content-Security-Policy" content="${policy}">`;
 }
 

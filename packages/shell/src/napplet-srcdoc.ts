@@ -27,6 +27,11 @@ export interface NappletSrcdocOptions extends NappletNamespacePreludeOptions {
  * ```
  */
 export function prepareNappletSrcdoc(html: string, options: NappletSrcdocOptions): string {
-  const meta = renderNappletCspMeta(options.csp);
+  // The nested-browsing-context lock (Trusted Types + factory pins + byte scan)
+  // is opt-in via the experimental namespace; off by default so downstream
+  // hosts are not forced into its opinions. When on, the CSP carries the
+  // Trusted Types directives and the prelude installs the policy and pins.
+  const lockNestedContexts = options.experimental?.nestedContextLock === true;
+  const meta = renderNappletCspMeta(options.csp, lockNestedContexts);
   return insertNappletHead(html, meta + renderNappletNamespacePrelude(options));
 }

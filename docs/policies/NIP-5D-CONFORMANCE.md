@@ -132,24 +132,83 @@ process-wide control (the Chromium per-process connection cap) is also ruled
 out: napplet frames share it with the shell's own NAP-WEBRTC and it is not
 reliably reclaimable.
 
-Kehto-side mitigation, to build: nested-browsing-context revocation. A napplet
-whose CSP denies every fetched child frame has no legitimate use for a nested
-context, so the shell should treat one as replacement-grade evidence, alongside
-a window-level message, a second `load` and a second `napplet.hello`. The shell
-can observe it without reading into the frame: `contentWindow.length` is on the
-HTML cross-origin property allowlist (the same property napplet/evil finding #3
-flags as the `parent.length` leak), and a value above zero means the napplet
-spawned a nested context. On detection, revoke the napplet and tear the frame
-down. This is detection, not prevention: the check runs on a poll or a
-lifecycle hook, and a grandchild's inline script can fire once before teardown,
-so it shrinks the window from an open channel to a single shot that ends with
-the napplet revoked and visible to the user. It needs no wire surface and is a
-candidate for NIP-5D's replacement-evidence list. Tracked in
-[kehto/web#381](https://github.com/kehto/web/issues/381).
+Kehto-side mitigation: prevent the nested context in the first place, so no
+fresh realm (and no un-swept `RTCPeerConnection`) ever exists, available as the
+opt-in `experimental.nestedContextLock`. See "Nested browsing contexts" below. The `webrtc` CSP directive remains the portable
+end state for the day a shipped directive can reach descendant realms directly;
+until then the nested-context lock denies the realm that would carry the egress.
 
 Regression for the shipped part: `tests/e2e/shell-csp.spec.ts` (real opaque
 iframe) and the prelude unit tests in
 `packages/shell/src/napplet-namespace.test.ts`.
+
+### Nested browsing contexts
+
+Spec-gap decision (defense-in-depth beyond the current NIP-5D text).
+**Opt-in and off by default**, via the experimental namespace flag
+`experimental.nestedContextLock` (see [Experimental namespace](./EXPERIMENTAL.md)).
+It is opinionated — it requires Trusted Types in the napplet CSP and is
+incompatible with frameworks that register their own Trusted Types policy — so
+it is never imposed on downstream hosts. The rest of this section describes what
+the lock does when a host enables it.
+
+A napplet is untrusted and has no legitimate use for a child frame. The CSP already denies
+every *fetched* child frame (`child-src 'none'`, `frame-src 'none'`), but
+`about:srcdoc` and `about:blank` children involve no navigation request, so CSP
+never applies to them, and such a child is a fresh realm the prelude's
+capability sweep never touched — most importantly it has a live
+`RTCPeerConnection` (see "Direct WebRTC egress"). Kehto closes the two, and only
+two, ways an iframe element can be minted, enforced by the browser and by the
+shell, never by napplet cooperation:
+
+1. **HTML string sinks.** Every napplet CSP carries
+   `require-trusted-types-for 'script'; trusted-types default`, which the napplet
+   cannot loosen (a page cannot widen its own CSP). The prelude registers the
+   single admitted `default` Trusted Types policy before any napplet script; it
+   passes canonical HTML through untouched and rejects any string carrying a
+   frame tag, so `innerHTML`, `outerHTML`, `insertAdjacentHTML`, `DOMParser`,
+   `document.write`, `Range.createContextualFragment`, `setHTMLUnsafe` and the
+   rest are closed.
+2. **Element factories.** The only element-creating methods on the platform are
+   `Document.prototype.createElement` and `createElementNS` (verified by
+   enumerating every `create*` method on `Document`, `Element` and `Node` in
+   Chromium, Firefox and WebKit — all others create non-element nodes). The
+   prelude pins both, non-configurable, to reject frame tag names, along with
+   `DOMImplementation.createDocument`.
+
+Node movement (`cloneNode`, `importNode`, `adoptNode`) needs a pre-existing
+frame node, and both creation routes are closed, so there is no bootstrap.
+Escaping the pins needs a fresh realm, whose only sources are a child frame
+(closed here), a popup (the `allow-scripts`-only sandbox denies `allow-popups`)
+or a worker (not a browsing context, no DOM). The set is closed: no specified
+web-platform API leaves a napplet a way to create a nested browsing context.
+This is a closed structural enumeration, not a sampled probe; its residual is a
+browser implementation bug, the same residual class as the `sandbox` attribute
+itself (which has had escape CVEs).
+
+A napplet's own *static* `<iframe>` is instantiated by the HTML parser, which is
+not a Trusted Types sink, so the shell scans the verified bytes and refuses any
+that declare a frame element (`nappletMarkupHasFrame` / `assertNappletHasNoFrame`
+in `@kehto/shell`; Paja runs it on the verified runtime-pointer path before the
+bytes become a document). The scan parses with the host's own `DOMParser`, a
+superset of what the live sandboxed parser instantiates (zero misses across 22
+parser-differential evasions in all three engines), with a conservative lexical
+backstop for non-browser hosts.
+
+Compatibility: when enabled, requiring Trusted Types changes the napplet
+execution contract. A napplet that assigns plain strings to HTML sinks is
+unaffected (the `default` policy passes them through), but one that registered
+its own `default` policy would collide; tracked as
+`NIP5D_TRUSTED_TYPES_REQUIRED` in [docs/compatibility.md](../compatibility.md).
+Because the lock is opt-in, this contract change applies only to hosts that set
+`experimental.nestedContextLock`.
+
+Regression: `tests/e2e/shell-csp.spec.ts` (real opaque iframe, scripted bypass
+battery and the byte scan), the prelude unit tests in
+`packages/shell/src/napplet-namespace.test.ts`, `napplet-csp.test.ts`,
+`napplet-frame-scan.test.ts`, the Paja rejection test in
+`packages/paja/src/browser-target-frame.test.ts`, and the conformance guard in
+`tests/unit/nip5d-conformance-guard.test.ts`.
 
 ### Active NAP-RELAY boundary
 

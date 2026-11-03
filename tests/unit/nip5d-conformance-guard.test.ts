@@ -279,6 +279,34 @@ describe('NIP-5D conformance static guards', () => {
     expect(policy).toContain('### Direct WebRTC egress');
   });
 
+  it('locks nested browsing contexts: prelude closure, CSP Trusted Types, and host byte scan', () => {
+    const prelude = removeComments(readRepoFile('packages/shell/src/napplet-namespace.ts'));
+    const csp = removeComments(readRepoFile('packages/shell/src/napplet-csp.ts'));
+    const scan = readRepoFile('packages/shell/src/napplet-frame-scan.ts');
+    const paja = removeComments(readRepoFile('packages/paja/src/browser-target-frame.ts'));
+    const srcdocSrc = removeComments(readRepoFile('packages/shell/src/napplet-srcdoc.ts'));
+    const policy = readRepoFile('docs/policies/NIP-5D-CONFORMANCE.md');
+
+    // Prelude installs the Trusted Types default policy rejecting frame markup
+    // and pins the only two element factories, before any napplet script.
+    expect(prelude).toContain("trustedTypes.createPolicy('default'");
+    expect(prelude).toContain('napplets may not create nested browsing contexts');
+    expect(prelude).toContain("pin(docProto, 'createElement'");
+    expect(prelude).toContain("pin(docProto, 'createElementNS'");
+    expect(prelude).toContain('frameLock(target);');
+    // CSP carries the non-overridable Trusted Types lock on every napplet.
+    expect(csp).toContain("require-trusted-types-for 'script'; trusted-types default");
+    // Host rejects static frame markup before the bytes become a document, and
+    // Paja runs that scan on the verified runtime-pointer load path.
+    expect(scan).toContain('export function nappletMarkupHasFrame');
+    expect(paja).toContain('assertNappletHasNoFrame(resolvedTarget.indexHtml);');
+    // The lock is opt-in (experimental namespace), off by default, so it is
+    // never imposed on downstream hosts.
+    expect(srcdocSrc).toContain('options.experimental?.nestedContextLock === true');
+    expect(paja).toContain('config.experimental?.nestedContextLock');
+    expect(policy).toContain('### Nested browsing contexts');
+  });
+
   it('keeps napplet identity bound to the napplet.hello port across shell and hosts', () => {
     const prelude = removeComments(readRepoFile('packages/shell/src/napplet-namespace.ts'));
     const bridge = readRepoFile('packages/shell/src/nip5d-transport.ts');

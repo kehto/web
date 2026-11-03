@@ -52,6 +52,15 @@ describe('@kehto/paja options', () => {
     expect(options.port).toBe(5200);
   });
 
+  it('defaults experimental.nestedContextLock to auto and preserves an explicit choice', () => {
+    expect(normalizePajaOptions({ targetUrl: 'http://127.0.0.1:5173' }).experimental)
+      .toEqual({ nestedContextLock: 'auto' });
+    expect(normalizePajaOptions({ targetUrl: 'http://127.0.0.1:5173', experimental: { nestedContextLock: 'off' } }).experimental)
+      .toEqual({ nestedContextLock: 'off' });
+    expect(() => normalizePajaOptions({ targetUrl: 'http://127.0.0.1:5173', experimental: { nestedContextLock: 'maybe' as never } }))
+      .toThrow(/must be "on", "off", or "auto"/);
+  });
+
   it('rejects missing target URL even when a command is provided', () => {
     expect(() => normalizePajaOptions({
       command: { mode: 'shell', command: 'pnpm vite' },

@@ -182,6 +182,49 @@ Reason for retention: none; this entry records the retirement and the one
 remaining window-level exception, Paja's signed intent launcher host messages
 (see [NIP-5D conformance policy](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#window-level-host-message-allowlist)).
 
+## Required Trusted Types in the napplet CSP — shell / Paja
+
+Identifier: `NIP5D_TRUSTED_TYPES_REQUIRED`. **Opt-in**, off by default: applies
+only when a host sets the experimental flag `experimental.nestedContextLock`
+(see [Experimental namespace](https://github.com/kehto/web/blob/main/docs/policies/EXPERIMENTAL.md)).
+When enabled, to lock nested-browsing-context creation the napplet CSP carries
+`require-trusted-types-for 'script'; trusted-types default`, and the injected
+prelude registers the single admitted `default` Trusted Types policy before any
+napplet script (see [NIP-5D conformance policy](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#nested-browsing-contexts)).
+When enabled, this changes the napplet execution contract: all DOM HTML-string
+sinks pass through that policy. Hosts that do not opt in are unaffected.
+
+Retained behavior: canonical use is unaffected. A napplet that assigns plain
+HTML strings to a sink gets the policy's pass-through result, so existing
+napplets keep working; only a string carrying a frame tag is rejected (an
+operation a napplet has no legitimate reason to perform). The one broken case is
+a napplet that registered its own Trusted Types policy named `default`: the
+`trusted-types default` directive admits exactly one `default`, so the napplet's
+own registration throws `TypeError`. The prelude registers first, so Kehto's
+policy wins and the lock holds; the napplet's call is what fails.
+
+Warning: the prelude's `default` policy creation is wrapped so a collision does
+not block load, and the factory pins plus the host byte scan still hold, so the
+lock degrades rather than fails. A napplet whose own `default` registration
+throws sees the browser's `TypeError` with the Trusted Types identifier in the
+message; Kehto adds no console spam on the canonical path.
+
+Sources: `packages/shell/src/napplet-csp.ts` (directive), `napplet-namespace.ts`
+(prelude policy + factory pins), `napplet-frame-scan.ts` (host byte scan),
+`packages/paja/src/browser-target-frame.ts` (scan on the verified load path).
+Regression coverage: `napplet-csp.test.ts` (directive present, not overridable),
+`napplet-frame-scan.test.ts`, `napplet-namespace.test.ts`,
+`packages/paja/src/browser-target-frame.test.ts` (frame-declaring napplet
+rejected), `tests/unit/nip5d-conformance-guard.test.ts` (static guard), and
+`tests/e2e/shell-csp.spec.ts` (scripted bypass battery + byte scan in real
+Chromium).
+
+Reason for retention: the pass-through default policy is the compatibility path
+itself — it keeps canonical string-sink use working while the frame-tag
+rejection and factory pins close creation. Removal condition: none planned; the
+lock is permanent. Revisit only if a shipped `webrtc` CSP directive makes the
+nested-realm egress moot (see NIP-5D conformance policy, "Direct WebRTC egress").
+
 ## Existing compatibility inventory
 
 Baseline: PR #277 at `016e9cf3`, reviewed 2026-10-09. These paths are recorded so
