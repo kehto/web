@@ -60,7 +60,114 @@ function scriptJson(value: unknown): string {
  */
 export function renderNappletNamespacePrelude(options: NappletNamespacePreludeOptions): string {
   const domains = uniqueBareDomains(options.domains);
-  return `<script data-kehto-nip5d-injection>(${nappletNamespacePrelude.toString()})(${scriptJson(domains)}, (${createIntentUriNormalizer.toString()})());</script>`;
+  return `<script data-kehto-nip5d-injection>(${nappletNamespacePrelude.toString()})(${scriptJson(domains)}, (${createIntentUriNormalizer.toString()})(), ${nappletFrameLock.toString()});</script>`;
+}
+
+/** A window exposing the optional members the frame lock pins or installs. */
+type FrameLockWindow = Window & {
+  trustedTypes?: {
+    createPolicy: (
+      name: string,
+      rules: {
+        createHTML: (input: string, ...rest: unknown[]) => string;
+        createScript: (input: string) => string;
+        createScriptURL: (input: string) => string;
+      },
+    ) => unknown;
+  };
+  Document?: { prototype: Document };
+  DOMImplementation?: { prototype: DOMImplementation };
+};
+
+/**
+ * Close the only two ways an iframe element can be minted in a napplet realm,
+ * before any napplet script runs. Serialized into the prelude and invoked with
+ * the napplet `window`.
+ *
+ * 1. HTML string sinks — a Trusted Types `default` policy (enforced by the
+ *    napplet CSP's `require-trusted-types-for 'script'`) rejects any string
+ *    carrying a frame tag and passes canonical HTML through untouched.
+ * 2. Element factories — `Document.prototype.createElement` / `createElementNS`
+ *    are the only element-creating methods on the platform; pin both
+ *    non-configurable to reject frame tag names, with `createDocument`.
+ *
+ * Node movement needs a pre-existing frame node (both routes are closed), and
+ * escaping the pins needs a fresh realm (child frame closed here, popup denied
+ * by the sandbox, worker has no DOM). The set is closed; verified in Chromium,
+ * Firefox and WebKit.
+ */
+function nappletFrameLock(win: FrameLockWindow): void {
+  const FRAME_ELEMENTS = new Set([
+    'iframe', 'frame', 'frameset', 'object', 'embed', 'portal', 'fencedframe',
+  ]);
+  const isFrameTag = (value: unknown): boolean => FRAME_ELEMENTS.has(String(value).toLowerCase());
+  // A complete frame tag-name token (open or close), so a lexical check cannot
+  // be split by parse-context differences, plus a chunk that ends mid-tag (a
+  // streaming document.write frame-tag prefix).
+  const FRAME_TAG = /<\/?(?:iframe|frame|frameset|object|embed|portal|fencedframe)(?=[\s/>]|$)/i;
+  const FRAME_TAG_PREFIX = /<[a-zA-Z]*$/;
+
+  const { trustedTypes } = win;
+  if (trustedTypes) {
+    try {
+      // Runs on every string sink. Pass canonical HTML through, reject a frame
+      // tag, so existing napplets that assign plain strings are unaffected.
+      trustedTypes.createPolicy('default', {
+        createHTML: (input, ...rest): string => {
+          const sink = rest.length >= 2 ? String(rest[1]) : '';
+          const blocked = /write/i.test(sink)
+            ? FRAME_TAG.test(input) || FRAME_TAG_PREFIX.test(input)
+            : FRAME_TAG.test(input);
+          if (blocked) throw new TypeError('kehto: napplets may not create nested browsing contexts');
+          return input;
+        },
+        createScript: (input): string => input,
+        createScriptURL: (input): string => input,
+      });
+    } catch {
+      // A napplet that pre-registered its own `default` policy would collide;
+      // the factory pins below and the host-side byte scan still hold.
+    }
+  }
+
+  const pin = (object: object, name: string, value: unknown): void => {
+    try {
+      Object.defineProperty(object, name, {
+        value, writable: false, configurable: false, enumerable: false,
+      });
+    } catch {
+      // Never turn hardening into a load-blocking failure.
+    }
+  };
+  const localName = (qualified: unknown): string => String(qualified ?? '').split(':').pop()!.toLowerCase();
+  const HTML_NS = 'http://www.w3.org/1999/xhtml';
+
+  const docProto = win.Document?.prototype;
+  if (docProto) {
+    const createElement = docProto.createElement;
+    pin(docProto, 'createElement', function (this: Document, tagName: unknown, ...rest: unknown[]) {
+      if (isFrameTag(tagName)) throw new TypeError('kehto: napplets may not create nested browsing contexts');
+      return (createElement as (...args: unknown[]) => unknown).call(this, tagName, ...rest);
+    });
+    const createElementNS = docProto.createElementNS;
+    pin(docProto, 'createElementNS', function (this: Document, namespace: unknown, qualifiedName: unknown, ...rest: unknown[]) {
+      if (namespace === HTML_NS && FRAME_ELEMENTS.has(localName(qualifiedName))) {
+        throw new TypeError('kehto: napplets may not create nested browsing contexts');
+      }
+      return (createElementNS as (...args: unknown[]) => unknown).call(this, namespace, qualifiedName, ...rest);
+    });
+  }
+
+  const domImpl = win.DOMImplementation?.prototype;
+  if (domImpl) {
+    const createDocument = domImpl.createDocument;
+    pin(domImpl, 'createDocument', function (this: DOMImplementation, namespace: unknown, qualifiedName: unknown, ...rest: unknown[]) {
+      if (namespace === HTML_NS && FRAME_ELEMENTS.has(localName(qualifiedName))) {
+        throw new TypeError('kehto: napplets may not create nested browsing contexts');
+      }
+      return (createDocument as (...args: unknown[]) => unknown).call(this, namespace, qualifiedName, ...rest);
+    });
+  }
 }
 
 /**
@@ -98,6 +205,7 @@ export function injectNappletNamespacePrelude(
 function nappletNamespacePrelude(
   domains: string[],
   normalizeIntentUri: (uri: unknown, options?: unknown) => Record<string, unknown>,
+  frameLock: (win: Window) => void,
 ): void {
   const target = window as Window & { napplet?: Record<string, unknown>; MessageChannel: typeof MessageChannel };
   const allowed = new Set(domains);
@@ -136,6 +244,13 @@ function nappletNamespacePrelude(
       // never turn into a load-blocking failure.
     }
   }
+
+  // Nested-browsing-context lock (defense-in-depth beyond the current NIP-5D
+  // text; docs/policies/NIP-5D-CONFORMANCE.md, "Nested browsing contexts").
+  // A napplet is untrusted and has no legitimate use for a child frame, and
+  // an about:srcdoc / about:blank child is a fresh realm CSP never reaches.
+  // Close the only two iframe-creation routes before any napplet script.
+  frameLock(target);
 
   type RuntimeMessage = { type: string; id?: string; [key: string]: unknown };
   type Listener = (event: MessageEvent) => void;

@@ -1,4 +1,5 @@
 import {
+  assertNappletHasNoFrame,
   denyNappletControllerAccess,
   hasNappletFramePolicy,
   injectNappletNamespacePrelude,
@@ -120,6 +121,13 @@ export async function navigateFrame(
         console.warn(`[paja] Napplet requires unsupported NAP capabilities: ${missing.join(', ')}; full functionality may be unavailable.`);
       }
     }
+    // Reject a napplet whose own markup declares a nested browsing context
+    // before it becomes a document. The prelude's Trusted Types policy and
+    // factory pins close every scripted iframe path, but static `<iframe>` is
+    // instantiated by the parser, which is not a Trusted Types sink. This scan
+    // runs in the trusted shell realm, so a napplet cannot bypass it
+    // (docs/policies/NIP-5D-CONFORMANCE.md, "Nested browsing contexts").
+    assertNappletHasNoFrame(resolvedTarget.indexHtml);
     // Validate host policy before rebinding an existing window to a new identity.
     const srcdoc = prepareNappletSrcdoc(resolvedTarget.indexHtml, {
       domains,

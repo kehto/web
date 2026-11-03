@@ -101,6 +101,49 @@ test('neuters direct WebRTC egress in the napplet realm (no CSP directive covers
   });
 });
 
+const frameBattery = `<body><pre id="result">pending</pre><div id="h"></div><div id="ce" contenteditable></div><svg id="svg"></svg><style id="st"></style><script>
+  (() => {
+    const out = {};
+    const live = () => { const a = document.querySelectorAll('iframe,frame,object,embed,portal,fencedframe'); let n = 0; for (const e of a) { try { if (e.contentWindow) n++; } catch {} } for (const e of a) e.remove(); return n; };
+    const t = (name, fn) => { try { fn(); out[name] = live() ? 'FRAME' : 'blocked'; } catch (e) { out[name] = live() ? 'FRAME-despite-throw' : 'blocked'; } };
+    const h = document.getElementById('h');
+    t('createElement', () => h.append(document.createElement('iframe')));
+    t('createElementUpper', () => h.append(document.createElement('IFRAME')));
+    t('createElementNS', () => h.append(document.createElementNS('http://www.w3.org/1999/xhtml', 'iframe')));
+    t('innerHTML', () => { h.innerHTML = '<iframe></iframe>'; });
+    t('innerHTMLSplitCase', () => { h.innerHTML = '<IfRaMe></IfRaMe>'; });
+    t('outerHTML', () => { const d = document.createElement('div'); h.append(d); d.outerHTML = '<iframe></iframe>'; });
+    t('insertAdjacentHTML', () => h.insertAdjacentHTML('beforeend', '<iframe></iframe>'));
+    t('styleContext', () => { document.getElementById('st').innerHTML = '<svg><style><!--</style><iframe>'; });
+    t('svgContext', () => { document.getElementById('svg').innerHTML = '<p><iframe></iframe>'; });
+    t('domParserAdopt', () => { const d = new DOMParser().parseFromString('<iframe></iframe>', 'text/html'); h.append(document.adoptNode(d.querySelector('iframe'))); });
+    t('createContextualFragment', () => h.append(document.createRange().createContextualFragment('<iframe></iframe>')));
+    t('setHTMLUnsafe', () => { if (!h.setHTMLUnsafe) throw 0; h.setHTMLUnsafe('<iframe></iframe>'); });
+    t('documentWrite', () => { document.write('<ifr'); document.write('ame></iframe>'); });
+    t('templateClone', () => { const tp = document.createElement('template'); tp.innerHTML = '<iframe></iframe>'; h.append(tp.content.cloneNode(true)); });
+    t('execCommand', () => { const ce = document.getElementById('ce'); ce.focus(); document.execCommand('insertHTML', false, '<iframe></iframe>'); });
+    t('createDocumentRoot', () => { const d = document.implementation.createDocument('http://www.w3.org/1999/xhtml', 'iframe'); h.append(document.adoptNode(d.documentElement)); });
+    t('recoverFactory', () => { const d = Object.getOwnPropertyDescriptor(Document.prototype, 'createElement'); h.append(d.value.call(document, 'iframe')); });
+    t('freshRealm', () => { const d = new Document(); h.append(document.adoptNode(d.createElement('iframe'))); });
+    t('object', () => { const o = document.createElement('object'); o.data = 'about:blank'; h.append(o); });
+    t('embed', () => h.append(document.createElement('embed')));
+    // Canonical, frameless HTML must still work through the pass-through policy.
+    let benign = 'threw';
+    try { h.insertAdjacentHTML('beforeend', '<p id="benign">ok</p>'); benign = document.getElementById('benign') ? 'ok' : 'missing'; } catch {}
+    const created = Object.entries(out).filter(([, v]) => /FRAME/.test(v)).map(([k]) => k);
+    document.getElementById('result').textContent = JSON.stringify({ created, windowLength: window.length, benign });
+  })();
+</script></body>`;
+
+test('napplet realm cannot create a nested browsing context by any scripted path', async ({ page }) => {
+  await mount(page, `<!doctype html><html><head></head>${frameBattery}</html>`);
+  const probed = await result(page) as { created: string[]; windowLength: number; benign: string };
+  expect(probed.created).toEqual([]);
+  expect(probed.windowLength).toBe(0);
+  // Canonical frameless HTML still works through the pass-through default policy.
+  expect(probed.benign).toBe('ok');
+});
+
 test('host overrides grant exact connections and can restrict WASM', async ({ page }) => {
   await mount(page, probe, {
     connectOrigins: [origin],

@@ -135,6 +135,23 @@ it('does not warn or execute for a stale navigation with unavailable requirement
   expect(warn).not.toHaveBeenCalled();
 });
 
+it('refuses to load a verified napplet whose own markup declares a nested browsing context', async () => {
+  const frameHtml = '<html><head><title>evil</title></head><body><iframe srcdoc="x"></iframe></body></html>';
+  const frameBytes = new TextEncoder().encode(frameHtml);
+  const frameHash = await sha256hex(frameBytes);
+  const event = finalizeEvent({ kind: 35129, created_at: 1, content: 'frame napplet', tags: [['d', 'frame'], ['x', frameHash], ['R', 'shell']] }, sk);
+  const resolvedBase = await resolveNapplet({ event, fetchBlob: async () => frameBytes });
+  const resolved = { ...resolvedBase, event, pointer: { type: 'nevent', value: 'p', id: event.id, relays: [] }, relays: [], blossomServers: [] } as unknown as PajaResolvedPointer;
+  const win = {} as Window;
+  let assigned = '';
+  const frame = {
+    contentWindow: win, ownerDocument: LOCKED_HOST, getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn(),
+    set srcdoc(value: string) { assigned = value; },
+  } as unknown as HTMLIFrameElement;
+  await expect(navigateFrame(frame, config, 1, adapter, resolved)).rejects.toThrow(/nested browsing context/);
+  expect(assigned).toBe('');
+});
+
 it('refuses to load a napplet on a host page without the frame-src lock', async () => {
   const resolved = await target('current', ['relay', 'shell'], 35129);
   const frame = { contentWindow: {} as Window, ownerDocument: { querySelectorAll: () => [] }, srcdoc: '', getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;

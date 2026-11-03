@@ -27,6 +27,6 @@ export interface NappletSrcdocOptions extends NappletNamespacePreludeOptions {
  * ```
  */
 export function prepareNappletSrcdoc(html: string, options: NappletSrcdocOptions): string {
-  const meta = renderNappletCspMeta(options.csp);
+  const meta = renderNappletCspMeta(options.csp, true);
   return insertNappletHead(html, meta + renderNappletNamespacePrelude(options));
 }
