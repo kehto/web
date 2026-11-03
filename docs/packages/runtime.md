@@ -16,7 +16,7 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
 | Field | Value |
 |-------|-------|
 | Source | `packages/runtime/package.json`, `packages/runtime/src/index.ts` |
-| Version | `0.27.1` |
+| Version | `0.27.2` |
 | Runtime entry | `./dist/index.js` |
 | Types entry | `./dist/index.d.ts` |
 | Dependencies | `@kehto/acl`, `@noble/hashes`, `@noble/curves` |
@@ -26,8 +26,8 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.32.0 <0.37.0` |
-| `@napplet/nap` | `>=0.32.0 <0.36.0` |
+| `@napplet/core` | `>=0.32.0 <0.38.0` |
+| `@napplet/nap` | `>=0.32.0 <0.37.0` |
 
 ## Primary APIs
 
@@ -137,7 +137,7 @@ It changes no NIP-5D wire messages or NAP-THEME result behavior.
 
 ## GAMEPAD integration
 
-This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja and the playground register one host reader and deny native gamepad/HID/USB paths before frame execution. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, window destruction, and service removal release polling. Non-browser or denied native readers report the proposal's unavailable reasons. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
+This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja registers one host reader and deny native gamepad/HID/USB paths before frame execution. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, window destruction, and service removal release polling. Non-browser or denied native readers report the proposal's unavailable reasons. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
 
 ## LLM integration
 

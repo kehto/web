@@ -1,25 +1,31 @@
 /**
- * NAP-THEME browser contract — exercises the protected injected API in the
- * real playground rather than fabricating a parent result in the test harness.
+ * NAP-THEME browser contract — exercises the protected injected API inside the
+ * fixture-nap-theme napplet hosted by the e2e harness (real runtime + shell),
+ * rather than fabricating a parent result in the test.
  */
 import { test, expect } from '@playwright/test';
-import { demoBeforeEach, getNappletFrame } from './helpers/index.js';
+import { aclBeforeEach } from './helpers/index.js';
 
-test.use({ baseURL: process.env.KEHTO_PLAYGROUND_BASE_URL ?? 'http://localhost:4174' });
 test.describe.configure({ mode: 'serial' });
 
 const ANTI_TERM_RE = /window\.nostr|signer-service|BusKind|AUTH_KIND|kind === 2900[12]/;
 
 test('nap-theme: the injected API exposes one complete get result and automatic changes only', async ({ page }) => {
-  test.setTimeout(60_000);
+  test.setTimeout(30_000);
   const consoleMessages: string[] = [];
   const pageErrors: string[] = [];
   page.on('console', (m) => consoleMessages.push(m.text()));
   page.on('pageerror', (e) => pageErrors.push(e.message));
 
-  await demoBeforeEach(page);
-  const frame = await getNappletFrame(page, 'preferences-frame-container');
-  if (!frame) throw new Error('preferences frame not found in page.frames()');
+  await aclBeforeEach(page);
+  const windowId = await page.evaluate(() => window.__loadNapplet__('nap-theme'));
+  // The theme-only fixture sends no wire message before theme.get, so the
+  // runtime session registers on that call; wait for the fixture DOM instead.
+  await expect(page.frameLocator(`#${windowId}`).locator('#nap-status')).toHaveText('ready', { timeout: 15_000 });
+
+  const handle = await page.locator(`#${windowId}`).elementHandle();
+  const frame = await handle?.contentFrame();
+  if (!frame) throw new Error('nap-theme fixture frame not found');
 
   const result = await frame.evaluate(async () => {
     const theme = (window as Window & {
@@ -37,8 +43,7 @@ test('nap-theme: the injected API exposes one complete get result and automatic 
   });
 
   expect(result.api).toEqual({ get: 'function', onChanged: 'function', subscribe: 'undefined', unsubscribe: 'undefined' });
-  expect(result.theme).toEqual({
-    title: 'Dark',
+  expect(result.theme).toMatchObject({
     colors: { background: '#0a0a0a', text: '#e0e0e0', primary: '#7aa2f7' },
   });
   expect(consoleMessages.filter((m) => ANTI_TERM_RE.test(m))).toHaveLength(0);

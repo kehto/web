@@ -21,10 +21,11 @@ const SUPERSEDED_EXACT_MATRIX = {
 
 const PUBLIC_CORE_RANGE = '>=0.32.0 <0.33.0';
 // Peer ranges admit every verified published line: nap 0.35.x ships the `llm`
-// subpath, and nap 0.35.1 depends on core ^0.36.0 (kehto/web#364).
+// subpath, and nap 0.35.1 depends on core ^0.36.0 (kehto/web#364). core 0.37.0
+// / nap 0.36.0 carry NIP-5D port-bound identity (napplet/web#302).
 const PUBLIC_PEER_RANGES = {
-  '@napplet/core': '>=0.32.0 <0.37.0',
-  '@napplet/nap': '>=0.32.0 <0.36.0',
+  '@napplet/core': '>=0.32.0 <0.38.0',
+  '@napplet/nap': '>=0.32.0 <0.37.0',
 } as const satisfies Partial<Record<keyof typeof PACKAGE_VERSIONS, string>>;
 const JSR_CORE_RANGE = 'jsr:@napplet/core@^0.32.0';
 const JSR_NAP_RANGE = 'jsr:@napplet/nap@^0.32.0';
@@ -78,7 +79,7 @@ describe('published Napplet package alignment', () => {
 
     expect(consumers.length).toBeGreaterThan(0);
     for (const { path, manifest } of consumers) {
-      const isExactConsumer = path.startsWith('apps/playground/') || path.startsWith('tests/fixtures/napplets/');
+      const isExactConsumer = path.startsWith('tests/fixtures/napplets/');
       for (const [name, version] of activeNappletPackages(manifest)) {
         const expected = PACKAGE_VERSIONS[name as keyof typeof PACKAGE_VERSIONS];
         if (isExactConsumer || name === '@napplet/shim' || name === '@napplet/sdk' || name === '@napplet/vite-plugin') {

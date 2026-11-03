@@ -11,6 +11,7 @@ type Listener = (event: { source: unknown; data: Message }) => void;
 
 function createPreludeWindow(): {
   parent: { postMessage: (message: Message) => void };
+  MessageChannel: new () => { port1: unknown; port2: unknown };
   crypto: { randomUUID: () => string };
   addEventListener: (type: string, listener: Listener) => void;
   removeEventListener: (type: string, listener: Listener) => void;
@@ -20,9 +21,18 @@ function createPreludeWindow(): {
 } {
   const listeners = new Set<Listener>();
   const posted: Message[] = [];
-  const parent = { postMessage: (message: Message) => posted.push(message) };
+  // NIP-5D: window-level traffic is only the napplet.hello handoff; NAP
+  // envelopes travel over the prelude's private port1.
+  const parent = { postMessage: () => undefined };
+  const port1 = {
+    postMessage: (message: Message) => posted.push(message),
+    addEventListener: (_type: string, listener: Listener) => listeners.add(listener),
+    removeEventListener: (_type: string, listener: Listener) => listeners.delete(listener),
+    start: () => undefined,
+  };
   return {
     parent,
+    MessageChannel: class { port1 = port1; port2 = {}; },
     crypto: { randomUUID: () => 'tracer-id' },
     addEventListener: (_type, listener) => listeners.add(listener),
     removeEventListener: (_type, listener) => listeners.delete(listener),

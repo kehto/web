@@ -52,6 +52,7 @@ export { renderPajaHtml } from './host-page.js';
 export {
   PAJA_NAPPLET_MANIFEST_KIND,
   PAJA_NAPPLET_MANIFEST_KINDS,
+  PajaRelayUnreachableError,
   decodePajaPointer,
   injectPajaRuntimeCsp,
   resolvePajaPointer,
@@ -115,6 +116,7 @@ export type {
 export type {
   PajaDecodedPointer,
   PajaPointerRelayPool,
+  PajaRelayConnectionSummary,
   PajaResolvedPointer,
   ResolvePajaPointerOptions,
 } from './runtime-resolver.js';

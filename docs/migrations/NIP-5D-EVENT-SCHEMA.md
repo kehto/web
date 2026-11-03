@@ -1,7 +1,7 @@
 # NIP-5D event schema migration
 
 Kehto accepts current single-artifact events and legacy aggregate events. New
-playground and fixture builds use published `@napplet/vite-plugin@0.16.2`.
+fixture builds use published `@napplet/vite-plugin@0.16.2`.
 Core/nap `0.32.0`, shim `0.30.0`, and SDK `0.28.0` remain the published runtime
 contracts; their versions did not change for this writer release.
 
@@ -76,8 +76,8 @@ Renaming the public `aggregateHash` alias is a separate API migration; it is not
 required to remove legacy event support.
 
 While compatibility remains, tests cover both formats through signature/blob
-failure, cache reuse and corruption recovery, all three manifest kinds, Paja and
-playground resolution, host admission, and opaque `srcdoc` execution. Current
+failure, cache reuse and corruption recovery, all three manifest kinds, Paja
+resolution, host admission, and opaque `srcdoc` execution. Current
 producer tests verify the final bytes against `x` after metadata and inlining.
 
 Successful legacy resolution emits `KEHTO_COMPAT_LEGACY_MANIFEST` once per

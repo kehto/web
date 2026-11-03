@@ -4,6 +4,9 @@ import { computeAggregateHash } from '@kehto/nip/5a';
 import { resolveNapplet } from '@kehto/nip/5d';
 import { originRegistry, resolveShellEnvironment, type ShellAdapter } from '@kehto/shell';
 import { navigateFrame } from './browser-target-frame.js';
+
+/** A host page carrying the frame-src lock that navigateFrame requires. */
+const LOCKED_HOST = { querySelectorAll: () => [{ content: "frame-src 'none'" }] };
 import { InstalledNappletCatalog } from './installed-napplet-catalog.js';
 import type { PajaHostConfig } from './options.js';
 import type { PajaResolvedPointer } from './runtime-resolver.js';
@@ -43,7 +46,7 @@ describe.each(['current', 'legacy'] as const)('%s Paja frame admission', (format
     const win = {} as Window;
     let output = '';
     const frame = {
-      contentWindow: win, getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn(),
+      contentWindow: win, ownerDocument: LOCKED_HOST, getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn(),
       set srcdoc(value: string) {
         expect(originRegistry.getIdentity(win)).toEqual({ dTag: resolved.dTag, aggregateHash: resolved.aggregateHash });
         output = value;
@@ -62,7 +65,7 @@ describe.each(['current', 'legacy'] as const)('%s Paja frame admission', (format
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const resolved = await target(format, [domain]);
     const win = {} as Window;
-    const frame = { contentWindow: win, srcdoc: '', getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
+    const frame = { contentWindow: win, ownerDocument: LOCKED_HOST, srcdoc: '', getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
     await navigateFrame(frame, config, 1, adapter, resolved);
     expect(frame.srcdoc).toContain('Verified bytes');
     expect(originRegistry.getIdentity(win)?.aggregateHash).toBe(resolved.aggregateHash);
@@ -101,7 +104,7 @@ it('loads optional-INC artifacts with INC disabled without advertising a handler
   const catalog = new InstalledNappletCatalog();
   catalog.install(resolved);
   const disabled = { capabilities: { disabledDomains: ['inc'] } } as unknown as ShellAdapter;
-  const frame = { contentWindow: {} as Window, srcdoc: '', getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
+  const frame = { contentWindow: {} as Window, ownerDocument: LOCKED_HOST, srcdoc: '', getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
   await navigateFrame(frame, config, 1, disabled, resolved);
   expect(frame.srcdoc).toContain('Verified bytes');
   expect(originRegistry.getEnvironment(frame.contentWindow!)?.capabilities.domains).not.toContain('inc');
@@ -113,7 +116,7 @@ it('loads optional-INC artifacts with INC disabled without advertising a handler
 it.each([35129, 15129, 5129])('loads kind %i with unknown optional domains quietly', async (kind) => {
   const resolved = await target('current', [], kind, ['experimental-nap', 'keys']);
   const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-  const frame = { contentWindow: {} as Window, srcdoc: '', getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
+  const frame = { contentWindow: {} as Window, ownerDocument: LOCKED_HOST, srcdoc: '', getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
   await navigateFrame(frame, config, 1, adapter, resolved);
   expect(frame.srcdoc).toContain('Verified bytes');
   expect(resolved.manifest.optional).toEqual(['experimental-nap', 'keys']);
@@ -125,9 +128,17 @@ it.each([35129, 15129, 5129])('loads kind %i with unknown optional domains quiet
 it('does not warn or execute for a stale navigation with unavailable requirements', async () => {
   const resolved = await target('current', ['experimental-nap']);
   const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-  const frame = { contentWindow: {} as Window, srcdoc: '', getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
+  const frame = { contentWindow: {} as Window, ownerDocument: LOCKED_HOST, srcdoc: '', getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
   expect(await navigateFrame(frame, config, 1, adapter, resolved, undefined, () => false)).toBeNull();
   expect(frame.srcdoc).toBe('');
   expect(originRegistry.getIdentity(frame.contentWindow!)).toBeUndefined();
   expect(warn).not.toHaveBeenCalled();
+});
+
+it('refuses to load a napplet on a host page without the frame-src lock', async () => {
+  const resolved = await target('current', ['relay', 'shell'], 35129);
+  const frame = { contentWindow: {} as Window, ownerDocument: { querySelectorAll: () => [] }, srcdoc: '', getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
+  await expect(navigateFrame(frame, config, 1, adapter, resolved)).rejects.toThrow(/frame-src lock/);
+  expect(frame.srcdoc).toBe('');
+  expect(originRegistry.getIdentity(frame.contentWindow!)).toBeUndefined();
 });

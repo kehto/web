@@ -8,6 +8,7 @@ import {
   PAJA_EVENT_COUNTER_RESET_LABEL,
   PAJA_EVENT_COUNTER_RESET_TITLE,
 } from './browser-relay-panel.js';
+import { renderNappletFramePolicyMeta } from '@kehto/shell';
 import type { PajaHostConfig } from './options.js';
 import { summarizePajaSimulation } from './simulation.js';
 
@@ -26,6 +27,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    ${renderNappletFramePolicyMeta()}
     <title>@kehto/paja</title>
     <style>
       :root {

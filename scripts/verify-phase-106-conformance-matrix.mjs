@@ -11,7 +11,6 @@ const CANONICAL_COMMAND = 'node scripts/verify-phase-106-conformance-matrix.mjs 
 const FOCUSED_TEST_FILES = [
   'tests/unit/nip5d-conformance-guard.test.ts',
   'tests/unit/sdk-migration-guard.test.ts',
-  'tests/unit/playground-gateway-guard.test.ts',
   'tests/unit/napplet-package-alignment.test.ts',
   'tests/unit/published-napplet-contract.test.ts',
   'packages/shell/src/napplet-namespace.test.ts',

@@ -84,7 +84,6 @@ export default defineConfig({
           { text: '@kehto/services', link: '/packages/services' },
           { text: '@kehto/nip', link: '/packages/nip' },
           { text: '@kehto/wm', link: '/packages/wm' },
-          { text: '@kehto/playground', link: '/packages/playground' },
         ],
       },
       {

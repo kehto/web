@@ -1,5 +1,82 @@
 # @kehto/shell
 
+## 0.29.0
+
+### Minor Changes
+
+- e1e2b64: Lock napplet frames to their verified `srcdoc`. NIP-5D's replacement evidence (a second `load` or `napplet.hello`, the port closing) cannot see a napplet that navigates its frame before its own first `load`: only the replacement fires `load`, and browsers fire no MessagePort `close` event, so a `data:` or `blob:` document with script could run in the frame. `@kehto/shell` exports `NAPPLET_FRAME_POLICY` (`frame-src 'none'`), `renderNappletFramePolicyMeta()` and `hasNappletFramePolicy()`, and `ShellBridge.observeFrame` warns once when the host page lacks the policy. Browsers check every navigation of a child frame against the embedding page's `frame-src`, including one the frame starts itself, while an unfetched `srcdoc` still loads. The Paja host page now carries the policy, and Paja refuses to load a napplet on a host page without it.
+
+## 0.28.1
+
+### Patch Changes
+
+- bbcb9da: Remove the whole WebRTC constructor surface from the napplet realm, not just
+  `RTCPeerConnection`. The injected prelude now sweeps every global whose name
+  starts with `RTC` (`RTCDataChannel`, `RTCSessionDescription`, `RTCIceCandidate`,
+  `RTCRtp*`, …) plus the legacy `webkit`/`moz`-prefixed aliases, each as a pinned,
+  non-writable `undefined`, before any napplet script runs. None has a
+  napplet-realm use: NAP-WEBRTC is mediated in the shell realm.
+
+## 0.28.0
+
+### Minor Changes
+
+- 9add95b: Neuter direct WebRTC egress in the injected napplet realm. No CSP directive
+  covers WebRTC, so an opaque-origin napplet could open an `RTCPeerConnection`
+  data channel and exfiltrate past `connect-src 'none'` (napplet/evil finding #1;
+  Delta Chat's webxdc write-up). The prelude now removes `RTCPeerConnection` and
+  `webkitRTCPeerConnection` from the napplet realm before any napplet script runs,
+  as a non-writable, non-configurable `undefined`, so feature detection sees the
+  capability as absent and degrades.
+
+  NAP-WEBRTC is unaffected: its `RTCPeerConnection` runs in the shell realm, and
+  napplets reach it only through the mediated `window.napplet.webrtc` domain. This
+  does not reach un-CSP'd `srcdoc` grandchild frames, which share the Chromium
+  per-process connection pool with the shell and are tracked as a bounded gap in
+  docs/policies/NIP-5D-CONFORMANCE.md ("Direct WebRTC egress"). `@kehto/paja`
+  inherits the hardened prelude through its `@kehto/shell` dependency.
+
+## 0.27.0
+
+### Minor Changes
+
+- 902c1d0: Follow NIP-5D port-bound identity
+  ([nostr-protocol/nips#2303](https://github.com/nostr-protocol/nips/pull/2303) at
+  `51ef0cd`, packaged by napplet/web#302). This is a security fix: a `Window`
+  survives same-frame navigation, so a napplet could previously replace itself
+  with unverified content that kept its identity and grants.
+
+  - `@kehto/shell`: the injected prelude opens a `MessageChannel` before napplet
+    scripts run and hands one port to the shell in a single window-level
+    `napplet.hello`. All NAP traffic then uses that port. `ShellBridge` binds the
+    registered identity to the port, answers only over it, and revokes the
+    binding, sessions and grants on a second hello, any other window-level
+    message, an invalid hello, a second load (`observeFrame`) or the port closing.
+    New APIs: `NAPPLET_HELLO`, `ShellBridge.observeFrame`, `ShellBridge.revokeNapplet`,
+    `ShellAdapter.onNappletRevoked`, `ShellAdapter.onNappletMessage`,
+    `originRegistry.bindPort` / `getPort` / `postToNapplet` / `getNappletTarget` /
+    `isSpent`, and the `NappletRevocation`, `NappletRevocationReason` and
+    `NappletMessageTarget` types.
+    **Breaking:** window-level NAP envelopes are no longer processed and revoke
+    the frame. `originRegistry.register` throws for a `Window` that already handed
+    over its port, so create a fresh iframe for every navigation.
+    `ProxyOriginRegistry` now requires `postToNapplet` instead of `getIframeWindow`,
+    and `RelayPoolHooks.openScopedRelay` receives a `NappletMessageTarget` instead
+    of a `Window`. Napplets on a Kehto host must not import `@napplet/shim`
+    alongside the injected namespace, because it sends a second hello.
+  - `@kehto/paja`: creates a fresh iframe for every navigation, watches for second
+    loads, and removes or replaces revoked frames (logged as
+    `paja.napplet.revoked`). It logs port traffic in both directions and tracks
+    readiness from the port. Intent delivery and scoped relay traffic use the bound
+    port. The signed intent launcher's two host messages are handled outside the
+    bridge, and only while its port is bound.
+
+### Patch Changes
+
+- Updated dependencies [902c1d0]
+  - @kehto/acl@0.20.2
+  - @kehto/runtime@0.27.2
+
 ## 0.26.1
 
 ### Patch Changes

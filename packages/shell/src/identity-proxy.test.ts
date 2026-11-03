@@ -23,9 +23,14 @@ function fakeRuntime(): Runtime & { handleMessage: ReturnType<typeof vi.fn> } {
 }
 
 function fakeOriginRegistry(win: Window | null): {
-  getIframeWindow: (windowId: string) => Window | null;
+  postToNapplet: (windowId: string, message: unknown) => boolean;
 } {
-  return { getIframeWindow: () => win };
+  return {
+    postToNapplet: (_windowId, message) => {
+      win?.postMessage(message, '*');
+      return win !== null;
+    },
+  };
 }
 
 function fakeIframeWindow(): { postMessage: ReturnType<typeof vi.fn> } {

@@ -2,8 +2,8 @@
 
 Kehto is an early toolkit and protocol kernel for implementing NIP-5D napplet
 runtimes. It does not define one mandatory runtime policy for the ecosystem.
-Paja is the concrete reference developer runtime built from Kehto; the
-playground is a visualization and integration fixture.
+Paja is the concrete reference developer runtime built from Kehto. The former
+playground demo is retired and no longer maintained.
 
 ## What Is Still Moving
 
@@ -31,13 +31,11 @@ When describing Kehto, use:
 - "an unopinionated protocol kernel"
 - "host-side implementation tools"
 
-When describing Paja, use "the reference developer runtime". When describing
-the playground, use "a visualization" or "an integration fixture".
+When describing Paja, use "the reference developer runtime".
 
 Do not use:
 
 - "the runtime"
 - "the runtime half of the ecosystem"
 - "the Kehto reference runtime"
-- "the playground reference runtime"
 - wording that implies there will only be one napplet runtime

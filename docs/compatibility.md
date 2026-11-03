@@ -93,14 +93,94 @@ their input grammar is unchanged by this normalization fix.
 
 | ID / owner | Old behavior and replacement | Warning / regression coverage | Retirement prerequisite |
 | --- | --- | --- | --- |
-| **INTENT_INC** — shell, Paja, playground | An exact-topic INC listener consumes a canonical intent locally when no `intent.onDelivery` listener exists. Migrate the consumer to `window.napplet.intent.onDelivery(handler)`. Hosts send only `intent.deliver`. | `KEHTO_COMPAT_INTENT_INC`, once per iframe on actual fallback use in `packages/shell/src/napplet-namespace.ts`. `napplet-namespace.test.ts`, suite `intent delivery and KEHTO_COMPAT_INTENT_INC`, covers matching, warning text/frequency, quiet canonical/ordinary INC paths, trust, close, buffering and no replay. `tests/e2e/paja-runtime-pointer.spec.ts` proves legacy reuse warns once; its cold-target test and `tests/e2e/playground-profile-intent.spec.ts` prove canonical delivery. | Migrate supported installed handlers, announce a removal release, then remove only the local legacy registration/dispatch adapter. Keep canonical buffering and ordinary INC behavior. Convert fallback fixtures to explicit rejection/non-delivery tests. |
+| **INTENT_INC** — shell, Paja | An exact-topic INC listener consumes a canonical intent locally when no `intent.onDelivery` listener exists. Migrate the consumer to `window.napplet.intent.onDelivery(handler)`. Hosts send only `intent.deliver`. | `KEHTO_COMPAT_INTENT_INC`, once per iframe on actual fallback use in `packages/shell/src/napplet-namespace.ts`. `napplet-namespace.test.ts`, suite `intent delivery and KEHTO_COMPAT_INTENT_INC`, covers matching, warning text/frequency, quiet canonical/ordinary INC paths, trust, close, buffering and no replay. `tests/e2e/paja-runtime-pointer.spec.ts` proves legacy reuse warns once; its cold-target test proves canonical delivery (the playground profile-intent spec retired with the playground). | Migrate supported installed handlers, announce a removal release, then remove only the local legacy registration/dispatch adapter. Keep canonical buffering and ordinary INC behavior. Convert fallback fixtures to explicit rejection/non-delivery tests. |
 | **LEGACY_MANIFEST** — nip | Explicit `x` aggregate marker selects the isolated pre-plugin-0.15 parser. Republish as a signed single-artifact event using `@napplet/vite-plugin >=0.15`. Malformed current events never retry as legacy. | `KEHTO_COMPAT_LEGACY_MANIFEST`, once per resolver module lifetime after successful signature, aggregate and blob verification. Implementation: `packages/nip/src/5d/legacy-manifest.ts`, called by `resolveNapplet`. `current-manifest.test.ts` tests quiet current/invalid input, warning and rate limit; `artifact-cache.test.ts` covers both formats and shared verified cache bytes. | Republish supported artifacts and fixtures, document the rejected legacy marker and release impact, then remove the parser/aggregate resolver branch. Preserve current signature/blob/cache checks. Test explicit legacy rejection. |
 | **KEHTO_COMPAT_INTENT_OBJECT_INVOKE** — shell, services | Legacy object-form invoke adapters are retained only for existing napplets; canonical invocation is a complete convention URI plus options. | Warn once per napplet at actual adapter use with `KEHTO_COMPAT_INTENT_OBJECT_INVOKE`; URI normalization tests cover percent encoding, literal `+`, payload separation, and result shape. | Remove after runtime tests prove no installed napplet uses the object adapter and the next breaking service/shell release is announced. |
-| **INTENT_BINDING** — shell, playground | Host-owned `onDelivery` binding and profile demo delivery type bridge the missing API in `@napplet/nap@0.32.0`. | No deprecation warning on canonical API use: this fills a packaged implementation gap, not an old consumer path. `napplet-namespace.test.ts` and `tests/unit/nip5d-conformance-guard.test.ts` cover the protected binding and bounded demo exception. | Upgrade to a package exposing the checked contract; remove local type/binding duplication only after proving early buffering, parent trust, protected namespace and both browser hosts. |
+| **INTENT_BINDING** — shell | Host-owned `onDelivery` binding bridges the missing API in `@napplet/nap@0.32.0` (the playground profile demo consumer retired with the playground). | No deprecation warning on canonical API use: this fills a packaged implementation gap, not an old consumer path. `napplet-namespace.test.ts` and `tests/unit/nip5d-conformance-guard.test.ts` cover the protected binding. | Upgrade to a package exposing the checked contract; remove local type/binding duplication only after proving early buffering, parent trust, protected namespace and the Paja host. |
 | **ARTIFACT_HASH_NAME** — nip, shell, Paja, services | Existing `aggregateHash` fields carry the current artifact hash or the original legacy aggregate. `artifactHash` is available from the resolver. Cache/ACL identity still uses the existing field. | No access warning: plain fields cannot distinguish old consumers from internal identity plumbing. This is an explicit diagnostic limitation, not a claim of runtime detection. `current-manifest.test.ts`, `artifact-cache.test.ts`, `packages/paja/src/browser-target-frame.test.ts` exercise verified identity across formats. | Coordinate a public API and persisted identity migration with cache/ACL owners. Do not rename keys or discard existing grants as part of parser removal. |
 
 Authority: NAP-INTENT PR #106 at [`napplet/naps@fc121fc264615482143eda86125863d2e1f741a2`](https://github.com/napplet/naps/blob/fc121fc264615482143eda86125863d2e1f741a2/naps/NAP-INTENT.md) and NIP-5D PR #2303 at `020cb8b33a9e4c6b8ca4b2f9d0ed0a67843b68f7`. The legacy adapters are Kehto transition policies. Current intent delivery, URI invocation, accepted-result lifecycle, and opaque catalog identifiers align with that working authority; native external-origin sender semantics remain the documented upstream spec gap. See
 [the conformance boundary](./policies/NIP-5D-CONFORMANCE.md#intent-delivery-and-invocation-boundary).
+
+## Retired playground route — Pages
+
+Identifier: `KEHTO_PLAYGROUND_RETIRED`. The `@kehto/playground` demo app
+(`apps/playground` and its demo napplets) is deprecated and removed from the
+workspace, build, CI, Playwright suite, and docs; it is no longer maintained.
+The private app was never published to npm or JSR, so the only external surface
+is the public URL `https://kehto.github.io/web/playground/`. That route now
+serves a static redirect page instead of the playground shell. Replacement: the
+[Paja Runtime](https://kehto.github.io/web/paja/) (`@kehto/paja`) for hosting
+napplets, and for e2e coverage the harness fixtures under `tests/fixtures/napplets` plus the
+Paja service-flow specs (`tests/e2e/paja-{relay,storage,identity,cvm}.spec.ts`), which
+took over the playground's relay, storage, ACL-revoke, signer/identity, and CVM scenarios.
+
+Source: `web/playground/index.html`, copied by `scripts/build-pages.mjs` and
+checked by `scripts/audit-pages-artifact.mjs` (which also fails if the portal
+links the retired route or the route ships napplet-gateway artifacts).
+Warning: a single `console.warn` naming `[KEHTO_PLAYGROUND_RETIRED]` and
+`/web/paja/`, emitted once per visit to the retired route, then a 5-second
+meta refresh to `/web/paja/` (with `noindex` and a canonical link). Canonical
+routes (`/web/`, `/web/paja/`, `/web/docs/`) never emit it. Regression coverage:
+`tests/unit/retired-playground-redirect.test.ts` executes the page script to
+assert the identifier, replacement, and single emission; checks the redirect
+target and that no napplet frames or bundles load; and runs the Pages audit
+against artifacts with and without the redirect.
+
+Reason for retention: external links and bookmarks to the public demo. Removal
+prerequisites: announce the route removal in a release note, then delete
+`web/playground/`, the copy in `build-pages.mjs`, the audit check, and the test
+together. The last commit containing the playground source is the parent of the
+retirement PR; recover it from git history if ever needed.
+
+## Retired window-level NIP-5D transport — shell / Paja
+
+Identifier: `NIP5D_WINDOW_TRANSPORT_RETIRED`. Retired without a compatibility
+path. Kehto used to key napplet sessions on the iframe `Window`
+(`MessageEvent.source`), accept NAP envelopes as window-level `message` events,
+and reply with `iframeWindow.postMessage`. A `Window` survives same-frame
+navigation, so a napplet could replace itself with unverified content that kept
+its identity, sessions and grants. [NIP-5D](https://github.com/nostr-protocol/nips/pull/2303)
+at `51ef0cd33a5694784306f3260d90b1872545fdee` (packaged by napplet/web#302 in
+`@napplet/core@0.37.0`) binds identity to the `MessagePort` the bootstrap
+hands over in a single window-level `napplet.hello`, and forbids processing NAP
+from any other source. A shim would reopen the vulnerability, so none is kept.
+
+Replacement: the injected prelude opens the channel and sends the hello before
+napplet scripts run; `ShellBridge.handleMessage` binds the port; every sender
+uses `originRegistry.postToNapplet` / `getNappletTarget`. Hosts remove frames
+in `ShellAdapter.onNappletRevoked`, watch for a second load with
+`ShellBridge.observeFrame`, observe port traffic with
+`ShellAdapter.onNappletMessage`, and create a fresh iframe for every
+navigation. API changes made for this: `ProxyOriginRegistry` requires
+`postToNapplet` instead of `getIframeWindow`; `RelayPoolHooks.openScopedRelay`
+receives a `NappletMessageTarget` instead of a `Window`; and
+`originRegistry.register` throws for a `Window` that already handed over (or
+lost) its port. Napplets built with a shim that posts at window level, including
+`@napplet/shim` before 0.35.0, are revoked. Napplets on a Kehto host should rely
+on the host-injected `window.napplet`. Importing `@napplet/shim` as well sends a
+second hello, which the shell treats as document replacement.
+
+Sources: `packages/shell/src/shell-bridge.ts`, `origin-registry.ts`,
+`napplet-namespace.ts`, `packages/paja/src/browser-nip5d-host.ts`,
+`browser-target-frame.ts`, and `tests/e2e/harness/harness.ts`. Diagnostic: the
+revocation itself. `onNappletRevoked` receives `{ windowId, reason, detail }`
+(`window-message`, `second-hello`, `invalid-hello`, `second-load`,
+`port-closed`, `host`), at most once per frame because the frame is then removed.
+Paja logs it as `paja.napplet.revoked`. Payloads are never included. Canonical
+traffic produces no diagnostic. Regression coverage:
+`packages/shell/src/nip5d-port-binding.test.ts` (real `MessageChannel`s: binding,
+legacy window-level envelope before and after the hello, second hello, invalid
+hello, second load, port close, host retirement, foreign sources, observe hook),
+`shell-bridge.test.ts` and `shell-environment-lifetime.test.ts` (a stable
+`WindowProxy` cannot be re-bound), `packages/paja/src/browser-nip5d-host.test.ts`,
+`tests/unit/nip5d-conformance-guard.test.ts` (static guards), and
+`tests/e2e/nip5d-port-binding.spec.ts` (real sandbox: self-navigation and
+window-level envelopes revoke and remove the frame).
+
+Reason for retention: none; this entry records the retirement and the one
+remaining window-level exception, Paja's signed intent launcher host messages
+(see [NIP-5D conformance policy](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#window-level-host-message-allowlist)).
 
 ## Existing compatibility inventory
 
@@ -119,7 +199,7 @@ require their own scoped specification check and migration PR.
 | **ACL_KEYS** — acl, shell | `packages/acl/src/migrate.ts`: pure migration of three-part ACL keys to two-part identity keys. | `packages/acl/src/migrate.test.ts` covers conversion/collisions/idempotency. No runtime warning in the pure function. | Host caller should report actual migration; keep the pure API free of logging side effects. Retire only after persisted-state migration and retention policy are agreed. |
 | **RESOURCE_FIELDS** — services, shell | `packages/shell/src/types/internal-resource.ts`, `packages/services/src/resource-service.ts`: old `requestId` input and legacy resource response type fields. | Warning missing. Related tests: `packages/services/src/resource-service.test.ts`; inventory must distinguish live correlation fallback from historical response-type/comment fields. | Recheck owning NAP, inspect emitted response helpers, map old consumers, then warn/test actual old input use and remove stale types separately. |
 | **DOMAIN_ALIAS** — Paja | `packages/paja/src/parity.ts`: upstream `ifc` capability alias maps to `inc` in parity metadata. | `parity.test.ts` covers the declaration; no runtime warning. This metadata is not evidence that old wire messages are accepted. | Drop the metadata alias once upstream parity no longer needs it; check public export consumers first. |
-| **NOTIFY_NAME** — playground | `apps/playground/src/playground-access-controls.ts`, `node-details.ts`: `notifications` UI/persisted target name maps to the `notify` domain. | Warning and dedicated migration assertion missing. | Separate display labels from persisted aliases, warn on migrated persisted input, prove existing settings survive before removal. |
+| **NOTIFY_NAME** — playground (retired) | Was `apps/playground/src/playground-access-controls.ts`, `node-details.ts`: `notifications` UI/persisted target name mapped to the `notify` domain. | Removed with the playground app (`KEHTO_PLAYGROUND_RETIRED`); no remaining source or consumer. Playground-local browser storage is no longer read by any Kehto host. | Retired — kept as history. |
 | **OUTBOX_AGGREGATE** — services | `packages/services/src/relay-pool-outbox-router.ts`, `outbox-service.ts`: aggregate `query()` remains beside streaming `queryStream()`. | `relay-pool-outbox-router.test.ts` exercises both. No deprecation warning; aggregate API is still supported. | Decide whether to deprecate at all; if so add warning at the old callable boundary, publish replacement and test limit/abort/result parity. |
 | **FIREWALL_SCOPE** — firewall | `packages/firewall/src/types.ts`, `evaluate.ts`: pure callers without an init key use dTag burst scope. | `packages/firewall/src/evaluate.test.ts` covers policy evaluation; no diagnostic assertion for this fallback. | Add a host-visible diagnostic when opting into old scope; migrate callers before requiring instance identity. Preserve the pure evaluator. |
 | **PROXY_EMIT** — shell | `identity-proxy.ts`, `theme-proxy.ts`: deprecated `emit` methods throw and direct callers to controlled publication APIs. | Actionable errors already fail closed; related identity/theme proxy tests protect rejection. Stable compatibility IDs missing. | Remove deprecated members after callers migrate; never restore bypass publication while adding diagnostics. |

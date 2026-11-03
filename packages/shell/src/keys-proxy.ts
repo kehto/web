@@ -95,8 +95,7 @@ export function createKeysProxy(deps: KeysProxyDeps): KeysProxy {
       deps.runtime.handleMessage(windowId, envelope);
     },
     emit(windowId: string, envelope: NappletMessage): void {
-      const win = deps.originRegistry.getIframeWindow(windowId);
-      if (win) win.postMessage(envelope, '*');
+      deps.originRegistry.postToNapplet(windowId, envelope);
     },
   };
 }

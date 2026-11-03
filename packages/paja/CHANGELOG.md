@@ -1,5 +1,106 @@
 # @kehto/paja
 
+## 0.29.0
+
+### Minor Changes
+
+- bfe51a1: Report "no relay connection" distinctly during pointer resolution. The resolver
+  now tracks each relay's connection outcome (via the pool's idempotent
+  `ensureRelay`) alongside the manifest query. When zero relays open a WebSocket
+  it throws the new `PajaRelayUnreachableError` (`code: 'relay-unreachable'`,
+  carrying a `PajaRelayConnectionSummary`) with an actionable message — offline,
+  blocked relays, or the browser's WebSocket connection limit from too many open
+  tabs — instead of a generic "timed out", even when the deadline expires first.
+  Paja's pointer status shows that message and logs `paja.relay.unreachable` with
+  per-relay detail. Timeouts with at least one connected relay now include the
+  connected count; pools without `ensureRelay` keep the previous messages.
+
+## 0.28.2
+
+### Patch Changes
+
+- e1e2b64: Lock napplet frames to their verified `srcdoc`. NIP-5D's replacement evidence (a second `load` or `napplet.hello`, the port closing) cannot see a napplet that navigates its frame before its own first `load`: only the replacement fires `load`, and browsers fire no MessagePort `close` event, so a `data:` or `blob:` document with script could run in the frame. `@kehto/shell` exports `NAPPLET_FRAME_POLICY` (`frame-src 'none'`), `renderNappletFramePolicyMeta()` and `hasNappletFramePolicy()`, and `ShellBridge.observeFrame` warns once when the host page lacks the policy. Browsers check every navigation of a child frame against the embedding page's `frame-src`, including one the frame starts itself, while an unfetched `srcdoc` still loads. The Paja host page now carries the policy, and Paja refuses to load a napplet on a host page without it.
+- Updated dependencies [e1e2b64]
+  - @kehto/shell@0.29.0
+
+## 0.28.1
+
+### Patch Changes
+
+- Updated dependencies [9add95b]
+  - @kehto/shell@0.28.0
+
+## 0.28.0
+
+### Minor Changes
+
+- 902c1d0: Follow NIP-5D port-bound identity
+  ([nostr-protocol/nips#2303](https://github.com/nostr-protocol/nips/pull/2303) at
+  `51ef0cd`, packaged by napplet/web#302). This is a security fix: a `Window`
+  survives same-frame navigation, so a napplet could previously replace itself
+  with unverified content that kept its identity and grants.
+
+  - `@kehto/shell`: the injected prelude opens a `MessageChannel` before napplet
+    scripts run and hands one port to the shell in a single window-level
+    `napplet.hello`. All NAP traffic then uses that port. `ShellBridge` binds the
+    registered identity to the port, answers only over it, and revokes the
+    binding, sessions and grants on a second hello, any other window-level
+    message, an invalid hello, a second load (`observeFrame`) or the port closing.
+    New APIs: `NAPPLET_HELLO`, `ShellBridge.observeFrame`, `ShellBridge.revokeNapplet`,
+    `ShellAdapter.onNappletRevoked`, `ShellAdapter.onNappletMessage`,
+    `originRegistry.bindPort` / `getPort` / `postToNapplet` / `getNappletTarget` /
+    `isSpent`, and the `NappletRevocation`, `NappletRevocationReason` and
+    `NappletMessageTarget` types.
+    **Breaking:** window-level NAP envelopes are no longer processed and revoke
+    the frame. `originRegistry.register` throws for a `Window` that already handed
+    over its port, so create a fresh iframe for every navigation.
+    `ProxyOriginRegistry` now requires `postToNapplet` instead of `getIframeWindow`,
+    and `RelayPoolHooks.openScopedRelay` receives a `NappletMessageTarget` instead
+    of a `Window`. Napplets on a Kehto host must not import `@napplet/shim`
+    alongside the injected namespace, because it sends a second hello.
+  - `@kehto/paja`: creates a fresh iframe for every navigation, watches for second
+    loads, and removes or replaces revoked frames (logged as
+    `paja.napplet.revoked`). It logs port traffic in both directions and tracks
+    readiness from the port. Intent delivery and scoped relay traffic use the bound
+    port. The signed intent launcher's two host messages are handled outside the
+    bridge, and only while its port is bound.
+
+### Patch Changes
+
+- Updated dependencies [902c1d0]
+- Updated dependencies [902c1d0]
+  - @kehto/acl@0.20.2
+  - @kehto/firewall@0.6.3
+  - @kehto/runtime@0.27.2
+  - @kehto/services@0.28.2
+  - @kehto/shell@0.27.0
+
+## 0.27.1
+
+### Patch Changes
+
+- 3620a13: Stop background social warming from running without a signer: Paja warmed the
+  active account's contact list and every followed author's kind-0 profile through
+  the outbox router, and with a fixed simulation identity configured that happened
+  with no signer connected at all. The Events panel then filled `outbox relays
+(NIP-65)` with other authors' relays, one kind-0 event each, as if outbox
+  activity had been requested.
+
+  Warming now follows `getConnectedAccountPubkey`, so it needs a connected
+  NIP-07/NIP-46 pubkey or the Dev signer. A fixed simulation identity stays a
+  read-only stand-in: it still answers `identity.getPublicKey`, and
+  `identity.getFollows` still loads follows on demand. A signer dropping out also
+  ends warming instead of falling back to the simulated identity.
+
+  The Events panel now names the authors each box was routed for as short pubkey
+  chips (full pubkey and read count in the tooltip). NIP-65 chips use the router's
+  per-relay owners, including option-only author hints, rather than mistaking event
+  filter authors for the owners of every selected relay. Host reads still name the
+  authors their filters requested.
+
+- Updated dependencies [3620a13]
+  - @kehto/services@0.28.1
+
 ## 0.27.0
 
 ### Minor Changes

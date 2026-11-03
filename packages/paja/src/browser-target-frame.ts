@@ -1,5 +1,6 @@
 import {
   denyNappletControllerAccess,
+  hasNappletFramePolicy,
   injectNappletNamespacePrelude,
   prepareNappletSrcdoc,
   originRegistry,
@@ -63,6 +64,25 @@ export function registerFrameForGeneration(
   return windowId;
 }
 
+/**
+ * Return a frame that has never hosted a napplet document. NIP-5D binds
+ * identity to one document's `napplet.hello` port and forbids re-binding an
+ * identity to an existing iframe, so a frame that was registered (or whose
+ * Window is spent) is replaced in the DOM by an attribute-identical clone.
+ *
+ * @param frame - The current napplet iframe
+ * @returns `frame` when unused, otherwise the fresh replacement
+ */
+export function ensureFreshNappletFrame(frame: HTMLIFrameElement): HTMLIFrameElement {
+  const win = frame.contentWindow;
+  if (!win || (!originRegistry.isSpent(win) && originRegistry.getWindowId(win) === undefined)) return frame;
+  const fresh = frame.cloneNode(false) as HTMLIFrameElement;
+  fresh.removeAttribute('src');
+  fresh.removeAttribute('srcdoc');
+  frame.replaceWith(fresh);
+  return fresh;
+}
+
 export async function navigateFrame(
   frame: HTMLIFrameElement,
   config: PajaHostConfig,
@@ -74,6 +94,11 @@ export async function navigateFrame(
   onRegistered?: (windowId: string | null) => void,
 ): Promise<string | null> {
   denyNappletControllerAccess(frame);
+  // Fail closed: without the host page's frame-src lock, a napplet could navigate its frame before its first load,
+  // which no NIP-5D replacement evidence can observe.
+  if (!hasNappletFramePolicy(frame.ownerDocument)) {
+    throw new Error('[paja] The host page has no frame-src lock; refusing to load a napplet whose frame could navigate away from its verified document.');
+  }
   const identity = getTargetOriginIdentity(config, resolvedTarget);
   const environment = resolvePajaFrameEnvironment(adapter, identity);
   const domains = environment.capabilities.domains;

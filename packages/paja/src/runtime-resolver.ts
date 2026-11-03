@@ -81,8 +81,66 @@ export interface PajaPointerRelayPool {
       readonly onclose: (reasons: string[]) => void;
     },
   ): { close(reason?: string): void | Promise<void> };
+  /** Open (or reuse) the connection to one relay; rejects when it cannot connect. */
+  ensureRelay?(
+    url: string,
+    params?: { readonly connectionTimeout?: number },
+  ): Promise<unknown>;
   close?(relays: string[]): void;
   destroy?(): void;
+}
+
+/**
+ * Per-relay connection outcomes observed while a pointer was being resolved.
+ *
+ * @example
+ * ```ts
+ * const summary: PajaRelayConnectionSummary = {
+ *   total: 3, connected: [], pending: ['wss://slow.example'],
+ *   failed: [{ url: 'wss://down.example', reason: 'connection failed' }],
+ * };
+ * ```
+ */
+export interface PajaRelayConnectionSummary {
+  /** Distinct relays the resolver tried to reach. */
+  readonly total: number;
+  /** Relays whose WebSocket opened. */
+  readonly connected: readonly string[];
+  /** Relays whose connection attempt failed, with the transport reason. */
+  readonly failed: readonly { readonly url: string; readonly reason: string }[];
+  /** Relays still connecting when the query settled. */
+  readonly pending: readonly string[];
+}
+
+/**
+ * Thrown when pointer resolution could not open a single relay connection.
+ *
+ * Zero connections means the manifest was never asked for — the browser is
+ * offline, the relays are blocked, or the browser reached its WebSocket
+ * connection limit (for example many tabs each holding relay sockets). Hosts
+ * surface this distinctly from a slow relay or a missing manifest.
+ *
+ * @example
+ * ```ts
+ * try {
+ *   await resolvePajaPointer(pointer);
+ * } catch (error) {
+ *   if (error instanceof PajaRelayUnreachableError) showRelayBanner(error.connections);
+ * }
+ * ```
+ */
+export class PajaRelayUnreachableError extends Error {
+  /** Stable discriminator for hosts that cannot rely on `instanceof` across bundles. */
+  readonly code = 'relay-unreachable' as const;
+
+  constructor(
+    message: string,
+    /** What the resolver observed per relay. */
+    readonly connections: PajaRelayConnectionSummary,
+  ) {
+    super(message);
+    this.name = 'PajaRelayUnreachableError';
+  }
 }
 
 /** Options for resolving a Paja runtime pointer. */
@@ -225,9 +283,22 @@ async function resolvePointerEvent(
     .filter((candidate) => matchesPointer(pointer, candidate))
     .sort((a, b) => b.created_at - a.created_at || a.id.localeCompare(b.id))[0];
   if (!event) {
+    const connections = result.connections;
+    // Zero opened sockets is a different failure from a slow relay or a
+    // missing manifest: the query never reached any relay. Report it first so
+    // a deadline expiry does not disguise it as "timed out".
+    if (connections && connections.total > 0 && connections.connected.length === 0) {
+      throw new PajaRelayUnreachableError(
+        describeRelayUnreachable(pointer.type, connections, maxWaitMs),
+        connections,
+      );
+    }
     if (result.timedOut) {
+      const connectedNote = connections
+        ? ` (${connections.connected.length} of ${connections.total} relays connected)`
+        : '';
       throw new Error(
-        `Relay resolution timed out after ${maxWaitMs}ms for ${pointer.type} pointer across ${relays.length} relays before complete EOSE.`,
+        `Relay resolution timed out after ${maxWaitMs}ms for ${pointer.type} pointer across ${relays.length} relays before complete EOSE${connectedNote}.`,
       );
     }
     const failures = relayFailureReasons(result.reasons);
@@ -254,18 +325,84 @@ interface PointerRelayQueryResult {
   readonly reasons: readonly string[];
   readonly timedOut: boolean;
   readonly error?: unknown;
+  /** Present when the pool exposes `ensureRelay`; snapshot taken as the query settled. */
+  readonly connections?: PajaRelayConnectionSummary;
 }
 
-function queryPointerRelays(
+async function queryPointerRelays(
   pool: PajaPointerRelayPool,
   relays: readonly string[],
   filter: Filter,
   maxWaitMs: number,
 ): Promise<PointerRelayQueryResult> {
-  if (pool.subscribeManyEose) {
-    return queryPointerRelaySubscription(pool, relays, filter, maxWaitMs);
+  const tracker = trackRelayConnections(pool, relays, maxWaitMs);
+  const result = pool.subscribeManyEose
+    ? await queryPointerRelaySubscription(pool, relays, filter, maxWaitMs)
+    : await queryPointerRelaySync(pool, relays, filter, maxWaitMs);
+  return tracker ? { ...result, connections: tracker.snapshot() } : result;
+}
+
+/**
+ * Observe each relay's connection outcome alongside the query. `ensureRelay`
+ * is idempotent in nostr-tools (it reuses the relay the subscription opens),
+ * so this adds no sockets — it only tells us whether any opened.
+ */
+function trackRelayConnections(
+  pool: PajaPointerRelayPool,
+  relays: readonly string[],
+  maxWaitMs: number,
+): { snapshot(): PajaRelayConnectionSummary } | null {
+  const ensureRelay = pool.ensureRelay?.bind(pool);
+  if (!ensureRelay) return null;
+  const urls = [...new Set(relays)];
+  const connected: string[] = [];
+  const failed: { url: string; reason: string }[] = [];
+  const pending = new Set(urls);
+  for (const url of urls) {
+    const settle = (outcome: 'connected' | 'failed', reason?: string): void => {
+      if (!pending.delete(url)) return;
+      if (outcome === 'connected') connected.push(url);
+      else failed.push({ url, reason: reason ?? 'connection failed' });
+    };
+    try {
+      ensureRelay(url, { connectionTimeout: maxWaitMs }).then(
+        () => settle('connected'),
+        (error: unknown) => settle('failed', describeRelayFailure(error)),
+      );
+    } catch (error) {
+      settle('failed', describeRelayFailure(error));
+    }
   }
-  return queryPointerRelaySync(pool, relays, filter, maxWaitMs);
+  return {
+    snapshot: () => ({
+      total: urls.length,
+      connected: [...connected],
+      failed: [...failed],
+      pending: [...pending],
+    }),
+  };
+}
+
+function describeRelayFailure(error: unknown): string {
+  const text = error instanceof Error ? error.message : String(error ?? '');
+  const trimmed = text.trim();
+  return (trimmed.length > 0 ? trimmed : 'connection failed').slice(0, 160);
+}
+
+function describeRelayUnreachable(
+  pointerType: string,
+  connections: PajaRelayConnectionSummary,
+  maxWaitMs: number,
+): string {
+  const reasons = relayFailureReasons(connections.failed.map((entry) => entry.reason));
+  const parts = [
+    `No relay connection could be opened for the ${pointerType} pointer: 0 of ${connections.total} relays connected within ${maxWaitMs}ms`
+      + ` (${connections.failed.length} failed, ${connections.pending.length} still connecting).`,
+    'The browser is offline, the relays are blocked, or the browser reached its WebSocket connection limit'
+      + ' (for example many open tabs each holding relay connections) — close some tabs and retry.',
+  ];
+  if (reasons.length > 0) parts.push(`Relay errors: ${reasons.join('; ')}.`);
+  return parts.join(' ');
 }
 
 function queryPointerRelaySubscription(

@@ -340,6 +340,12 @@ artifact CSP is retained. Set `frame-ancestors` on the host HTTP response, not
 in a meta policy. See the [shared policy contract](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#shell-csp-enforcement).
 Local target-URL authoring mode retains its separate development policy and HMR.
 
+The Paja host page carries `Content-Security-Policy: frame-src 'none'` in its
+`<head>` (`renderNappletFramePolicyMeta()` from `@kehto/shell`), so a napplet
+cannot navigate its frame away from the verified `srcdoc` at any time,
+including before its first `load`, which NIP-5D's replacement evidence cannot
+observe. Paja refuses to load a napplet into a frame whose host page lacks it.
+
 Environment simulation can be supplied through CLI flags or a JSON config file:
 
 ```bash
@@ -592,7 +598,7 @@ remain a documented upstream spec gap; no host sender identity is invented.
 
 ## GAMEPAD integration
 
-This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja and the playground register one host reader and deny native gamepad/HID/USB paths before frame execution. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, window destruction, and service removal release polling. Non-browser or denied native readers report the proposal's unavailable reasons. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
+This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja registers one host reader and deny native gamepad/HID/USB paths before frame execution. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, window destruction, and service removal release polling. Non-browser or denied native readers report the proposal's unavailable reasons. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
 
 ## LLM integration
 
@@ -601,6 +607,21 @@ This non-normative guidance defers to the living [NAP-LLM](https://github.com/na
 ## NIP-5D runtime pointers
 
 Paja MUST load all three NIP-5D manifest kinds: root `15129`, named `35129`, and snapshot `5129`. Use an `naddr` with an empty identifier for the latest root, an `naddr` with the literal `d` identifier for the latest named napplet, or a `nevent` to pin a signed event of any of the three kinds. Snapshots require `nevent` because they are immutable events without replaceable coordinates. All paths verify the signed manifest and artifact hash before injecting `srcdoc`. Distinct snapshots retain separate tabs and catalog identities even when their artifact bytes match.
+
+
+### Relay unreachable
+
+Pointer resolution tracks each relay's connection outcome, not just whether
+events arrived. When **zero** relays open a WebSocket, the resolver throws
+`PajaRelayUnreachableError` (`code: 'relay-unreachable'`, with a
+`PajaRelayConnectionSummary` of connected/failed/pending relays) instead of the
+generic timeout, and the pointer status reads `No relay connection could be
+opened … 0 of N relays connected …` with the likely causes: the browser is
+offline, the relays are blocked, or the browser reached its WebSocket connection
+limit (for example many open tabs each holding relay connections). Paja logs a
+`paja.relay.unreachable` entry with the per-relay detail. A deadline expiry with
+at least one live relay keeps the timeout message and now states how many relays
+connected. Pools without `ensureRelay` keep the previous messages.
 
 ## Controller diagnostics
 

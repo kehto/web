@@ -16,7 +16,7 @@ test.beforeAll(async () => {
   target = createServer((request, response) => {
     if (request.url === '/v1/chat/completions') { streamCompletion(request.method ?? 'GET', response); return; }
     response.writeHead(200, { 'content-type': 'text/html' });
-    response.end('<!doctype html><body><p>LLM probe</p><script>window.parent.postMessage({type:"shell.ready"}, "*")</script>');
+    response.end('<!doctype html><body><p>LLM probe</p></body>');
   });
   await new Promise<void>((resolve) => target.listen(0, '127.0.0.1', resolve));
   const address = target.address();
@@ -50,17 +50,25 @@ test.afterAll(async () => {
   await new Promise<void>((resolve, reject) => target.close((error) => error ? reject(error) : resolve()));
 });
 
+// NIP-5D: NAP-LLM travels over the injected namespace's private port. Each
+// helper maps the API's resolve/reject back to `{ <field>: value }` or
+// `{ error: { code, message } }`, the `.result` wire payload the host sent.
+const LLM_FIELDS: Record<string, string> = { select: 'model', describe: 'model', generate: 'result', cancel: 'cancelled' };
+
 function request(frame: FrameLocator, type: string, fields: Record<string, unknown> = {}) {
-  return frame.locator('body').evaluate((_body, input) => new Promise<Record<string, unknown>>((resolve) => {
-    const id = crypto.randomUUID();
-    const receive = (event: MessageEvent) => {
-      if (event.source !== window.parent || event.data?.id !== id || event.data?.type !== `${input.type}.result`) return;
-      window.removeEventListener('message', receive);
-      resolve(event.data);
-    };
-    window.addEventListener('message', receive);
-    window.parent.postMessage({ ...input.fields, type: input.type, id }, '*');
-  }), { type, fields });
+  const method = type.slice('llm.'.length);
+  const arg = method === 'select' ? fields.requirements : method === 'describe' ? fields.handle
+    : method === 'generate' ? fields.request : fields.requestId;
+  return frame.locator('body').evaluate(async (_body, input) => {
+    const llm = (window as unknown as { napplet: { llm: Record<string, (arg?: unknown) => Promise<unknown>> } }).napplet.llm;
+    try {
+      const value = input.arg === undefined ? await llm[input.method]() : await llm[input.method](input.arg);
+      return { [input.field]: value } as Record<string, unknown>;
+    } catch (error) {
+      const failure = error as { code?: string; message?: string };
+      return { error: { code: failure.code, message: failure.message } } as Record<string, unknown>;
+    }
+  }, { method, arg, field: LLM_FIELDS[method] });
 }
 
 async function addConnection(page: Page, name: string, baseUrl: string, model: string) {
@@ -129,20 +137,12 @@ test('advertises an unconfigured llm interface, prompts to configure, then selec
 });
 
 function streamGeneration(frame: FrameLocator, generation: Record<string, unknown>) {
-  return frame.locator('body').evaluate((_body, input) => new Promise<{ deltas: Array<Record<string, unknown>>; result: Record<string, unknown> }>((resolve) => {
-    const id = crypto.randomUUID();
+  return frame.locator('body').evaluate(async (_body, input) => {
     const deltas: Array<Record<string, unknown>> = [];
-    const receive = (event: MessageEvent) => {
-      if (event.source !== window.parent) return;
-      if (event.data?.type === 'llm.delta' && event.data.requestId === id) deltas.push(event.data);
-      if (event.data?.type === 'llm.generate.result' && event.data.id === id) {
-        window.removeEventListener('message', receive);
-        resolve({ deltas, result: event.data });
-      }
-    };
-    window.addEventListener('message', receive);
-    window.parent.postMessage({ type: 'llm.generate', id, request: input }, '*');
-  }), generation);
+    const llm = (window as unknown as { napplet: { llm: { generate(request: unknown, options: unknown): Promise<unknown> } } }).napplet.llm;
+    const result = await llm.generate(input, { onDelta: (delta: Record<string, unknown>) => deltas.push(delta) });
+    return { deltas, result: { result } as Record<string, unknown> };
+  }, generation);
 }
 
 test('streams provider output as ordered deltas and withdraws consent when the napplet cancels', async ({ page }) => {
@@ -166,16 +166,16 @@ test('streams provider output as ordered deltas and withdraws consent when the n
   expect(deltas.map((delta) => [delta.sequence, delta.text])).toEqual([[0, 'Hello'], [1, ', napplet']]);
   expect(result).toMatchObject({ result: { text: 'Hello, napplet', finish: 'stop', usage: { inputTokens: 5, outputTokens: 3 } } });
 
-  const requestId = crypto.randomUUID();
-  const pending = frame.locator('body').evaluate((_body, input) => new Promise<Record<string, unknown>>((resolve) => {
-    const receive = (event: MessageEvent) => {
-      if (event.source !== window.parent || event.data?.type !== 'llm.generate.result' || event.data.id !== input.requestId) return;
-      window.removeEventListener('message', receive);
-      resolve(event.data);
-    };
-    window.addEventListener('message', receive);
-    window.parent.postMessage({ type: 'llm.generate', id: input.requestId, request: input.generation }, '*');
-  }), { requestId, generation });
+  const requestId = await frame.locator('body').evaluate((_body, input) => {
+    const llm = (window as unknown as { napplet: { llm: { generate(request: unknown): Promise<unknown> & { requestId: string } } } }).napplet.llm;
+    const generation = llm.generate(input);
+    (window as unknown as { __pendingGeneration: Promise<unknown> }).__pendingGeneration = generation.then(
+      (result) => ({ result }),
+      (error: { code?: string; message?: string }) => ({ error: { code: error.code, message: error.message } }),
+    );
+    return generation.requestId;
+  }, generation);
+  const pending = frame.locator('body').evaluate(() => (window as unknown as { __pendingGeneration: Promise<Record<string, unknown>> }).__pendingGeneration);
   await expect(page.locator('#paja-confirmation-dialog')).toBeVisible();
   expect(await request(frame, 'llm.cancel', { requestId })).toMatchObject({ cancelled: true });
   expect(await pending).toMatchObject({ error: { code: 'cancelled' } });

@@ -8,7 +8,7 @@ let host: PajaServer;
 test.beforeAll(async () => {
   target = createServer((_request, response) => {
     response.writeHead(200, { 'content-type': 'text/html' });
-    response.end('<!doctype html><body><p>FS probe</p><script>window.parent.postMessage({type:"shell.ready"}, "*")</script>');
+    response.end('<!doctype html><body><p>FS probe</p></body>');
   });
   await new Promise<void>((resolve) => target.listen(0, '127.0.0.1', resolve));
   const address = target.address();
@@ -21,17 +21,18 @@ test.afterAll(async () => {
   await new Promise<void>((resolve, reject) => target.close((error) => error ? reject(error) : resolve()));
 });
 
-async function request(frame: FrameLocator, type: string, fields: Record<string, unknown> = {}) {
-  return frame.locator('body').evaluate((_body, input) => new Promise<Record<string, unknown>>((resolve) => {
-    const id = crypto.randomUUID();
-    const receive = (event: MessageEvent) => {
-      if (event.source !== window.parent || event.data?.id !== id || event.data?.type !== `${input.type}.result`) return;
-      window.removeEventListener('message', receive);
-      resolve(event.data);
-    };
-    window.addEventListener('message', receive);
-    window.parent.postMessage({ ...input.fields, type: input.type, id }, '*');
-  }), { type, fields });
+// NIP-5D: NAP traffic travels over the injected namespace's private port.
+// Results resolve as `{ result }`; host errors reject and surface as `{ error }`.
+async function request(frame: FrameLocator, type: string, args: unknown[] = []) {
+  return frame.locator('body').evaluate(async (_body, input) => {
+    const method = input.type.slice('fs.'.length);
+    const fs = (window as unknown as { napplet: { fs: Record<string, (...args: unknown[]) => Promise<unknown>> } }).napplet.fs;
+    try {
+      return { result: await fs[method](...input.args) } as Record<string, unknown>;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) } as Record<string, unknown>;
+    }
+  }, { type, args });
 }
 
 test('OPFS stays usable while missing native pickers are explained separately from ACL grants', async ({ page, browserName }) => {
@@ -49,10 +50,10 @@ test('OPFS stays usable while missing native pickers are explained separately fr
   await expect(page.locator('#paja-fs-support')).toContainText('open unavailable');
   await expect(page.locator('#paja-fs-support')).toContainText('save unavailable');
 
-  expect(await request(frame, 'fs.write', { path: '/workspace/probe.txt', data: 'cHJvYmU=' })).not.toHaveProperty('error');
-  expect(await request(frame, 'fs.read', { path: '/workspace/probe.txt' })).toMatchObject({ result: { data: 'cHJvYmU=' } });
+  expect(await request(frame, 'fs.write', ['/workspace/probe.txt', 'cHJvYmU='])).not.toHaveProperty('error');
+  expect(await request(frame, 'fs.read', ['/workspace/probe.txt'])).toMatchObject({ result: { data: 'cHJvYmU=' } });
   for (const type of ['fs.pickFile', 'fs.pickFiles', 'fs.pickDirectory', 'fs.pickSaveFile']) {
-    expect(await request(frame, type)).toEqual({ type: `${type}.result`, id: expect.any(String), error: 'unsupported' });
+    expect(await request(frame, type)).toEqual({ error: 'unsupported' });
     await expect(page.locator(`[data-message-type="${type}.result"] .log-detail`)).toContainText('browser does not provide');
   }
   await expect(page.locator('#paja-confirmation-dialog')).not.toBeVisible();
@@ -95,7 +96,8 @@ test('available native pickers run from the host approval click and preserve can
     const pending = request(frame, type);
     await expect(page.locator('#paja-confirmation-dialog')).toBeVisible();
     await page.locator('#paja-confirmation-approve').click();
-    expect(await pending).toMatchObject({ type: `${type}.result`, error: 'cancelled' });
+    expect(await pending).toEqual({ error: 'cancelled' });
+    await expect(page.locator(`[data-message-type="${type}.result"]`).last()).toBeVisible();
   }
   expect(await page.evaluate(() => (window as Window & { __fsPickerActivation?: boolean[] }).__fsPickerActivation)).toEqual([true, true]);
 });

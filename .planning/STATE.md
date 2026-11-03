@@ -163,6 +163,12 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
+| 261102-gub | Policy: drop process isolation from the WebRTC-egress end state; name the `webrtc` CSP directive as the upstream fix and nested-context revocation as the Kehto mitigation to build | 2026-11-02 | 0d26bf89 | passed | [261102-gub](./quick/261102-gub-webrtc-egress-end-state/) |
+| 261102-g2n | Paja reports zero relay connections distinctly during pointer resolution (PajaRelayUnreachableError, paja.relay.unreachable) | 2026-11-02 | cea679bb | passed | [261102-g2n](./quick/261102-g2n-paja-relay-unreachable-status/) |
+| 261102-edn | Neuter direct WebRTC egress in the napplet realm (napplet/evil #1); RTCPeerConnection removed from the injected prelude | 2026-11-02 | 00cb519e | passed | [261102-edn](./quick/261102-edn-nip5d-webrtc-egress-neuter/) |
+| 261101-pfc | Move playground-only relay, storage, ACL-revoke, identity and CVM e2e coverage to Paja | 2026-11-01 | 08bbf248 | passed | [261101-pfc](./quick/261101-pfc-paja-e2e-coverage/) |
+| 261101-u20 | Chase NIP-5D port-bound identity security fix (napplet.hello MessagePort; nips#2303 @ 51ef0cd, napplet/web#302) | 2026-11-01 | 8798cac2 | passed | [261101-u20](./quick/261101-u20-nip5d-port-bound-identity/) |
+| 261101-ojp | Deprecate and retire the @kehto/playground app; /web/playground/ redirects to Paja (KEHTO_PLAYGROUND_RETIRED) | 2026-11-01 | bb9817a2 | passed | [261101-ojp](./quick/261101-ojp-deprecate-playground/) |
 | 261034 | Show routstrd install link on discovery failure | 2026-11-02 | 3a76ecfc | build/types/docs/e2e passed; 2 baseline unit failures | [261034](./quick/261034-show-routstrd-installation-link-when-mod/) |
 | 261033 | Order OpenRouter, Routstr, Google Gemini | 2026-11-02 | 4dafe808 | build/types passed; 2 baseline unit failures | [261033](./quick/261033-reorder-provider-presets-openrouter-rout/) |
 | 261032 | Fix PR 383 provider keys, default names and reusable model dropdown | 2026-11-02 | 2e4b002f | focused checks passed; 2 baseline unit failures | [261032](./quick/261032-fix-pr-383-provider-switching-and-reusab/) |

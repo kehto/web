@@ -65,6 +65,12 @@ declare global {
     __injectEnvelope__: (windowId: string, envelope: NappletMessage) => void;
 
     /**
+     * NIP-5D revocations observed by the harness (second hello, window-level
+     * message, second load, port close), in order.
+     */
+    __getRevocations__: () => Array<{ windowId: string; reason: string }>;
+
+    /**
      * Snapshot the most recent NIP-5D envelope recorded for a napplet, optionally
      * filtered by envelope `type`. Returns a deep clone (structured-clone-safe).
      * @param windowId - The harness-assigned window id.
