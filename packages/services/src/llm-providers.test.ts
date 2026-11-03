@@ -158,6 +158,13 @@ describe('createHttpLlmProvider', () => {
 });
 
 describe('LLM_PROVIDER_PRESETS', () => {
+  it('places Routstr after OpenRouter and Gemini after Routstr', () => {
+    const ids = LLM_PROVIDER_PRESETS.map((preset) => preset.id);
+    const index = ids.indexOf('openrouter');
+    expect(index).toBeGreaterThanOrEqual(0);
+    expect(ids.slice(index, index + 3)).toEqual(['openrouter', 'routstr', 'gemini']);
+  });
+
   it('covers the common hosted and local providers with usable protocol metadata', () => {
     const ids = LLM_PROVIDER_PRESETS.map((preset) => preset.id);
     expect(ids).toEqual(expect.arrayContaining(['openai', 'anthropic', 'gemini', 'openrouter', 'groq', 'mistral', 'deepseek', 'xai', 'together', 'ollama', 'lmstudio', 'azure-openai', 'custom']));
@@ -169,5 +176,19 @@ describe('LLM_PROVIDER_PRESETS', () => {
       if (preset.local) expect(preset.baseUrl).toMatch(/^http:\/\/127\.0\.0\.1:/);
     }
     expect(LLM_PROVIDER_PRESETS.find((preset) => preset.id === 'azure-openai')?.credentialHeader).toBe('api-key');
+  });
+
+  it('declares a loopback Routstr preset whose models a host can list', () => {
+    const routstr = LLM_PROVIDER_PRESETS.find((preset) => preset.id === 'routstr');
+    expect(routstr).toMatchObject({
+      label: 'Routstr',
+      protocol: 'openai-chat',
+      baseUrl: 'http://127.0.0.1:8008/v1',
+      local: true,
+      requiresCredential: false,
+      modelsPath: '/models',
+    });
+    // Only a listing path makes a host offer a dropdown; the rest keep manual entry.
+    expect(LLM_PROVIDER_PRESETS.filter((preset) => preset.modelsPath !== undefined).map((preset) => preset.id)).toEqual(['routstr']);
   });
 });

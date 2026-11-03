@@ -226,7 +226,11 @@ The console includes:
   Save button, immediately before the Language models section (see below).
 - **Language models** — draft NAP-LLM connections: provider preset, base URL,
   model, capability flags and an optional API key that is either session-only or
-  encrypted in a password-protected vault. The Interfaces toggle for `llm` is
+  encrypted in a password-protected vault. A preset that declares a listing path
+  (`LLM_PROVIDER_PRESETS[].modelsPath`, Routstr's `/models`) swaps free-text
+  model entry for a dropdown seeded from one `GET` against that path, showing
+  `Connected ✓ — n models` under the field. A failed listing names the reason
+  and falls back to free-text entry so a connection can still be saved. The Interfaces toggle for `llm` is
   yellow (`⚠ llm`) while no connection exists; `select()` offers to open this
   panel and every generation asks for consent. See [Language models](/llm).
 - **Messages** — inbound and outbound envelopes are logged with a text filter,

@@ -35,6 +35,16 @@ Keys are optional to remember. A remembered key is encrypted before it touches s
 | Anthropic | Messages API | `x-api-key` (plus `anthropic-version` and the direct-browser-access header) |
 | Google Gemini | `generateContent` | `x-goog-api-key` |
 | Ollama, LM Studio, llama.cpp server, vLLM | OpenAI Chat Completions on loopback | none by default |
+| Routstr (`routstrd` on `:8008`) | OpenAI Chat Completions on loopback, `/v1/models` for listing | none by default |
+
+Switching provider presets clears the unsaved API key before contacting the new
+provider. Auto-filled connection names follow the preset; custom names stay intact.
+After saving a Routstr connection, the model catalogue stays available to add another.
+
+Model listing is a plain `GET <baseUrl><modelsPath>` from the host page, so it
+is subject to browser CORS like any other page request. A loopback daemon that
+answers generation but omits `access-control-allow-origin` on its listing route
+fails the dropdown, and Paja says so instead of showing an empty select. Failed Routstr model discovery also shows an [Install routstrd](https://routstr.com/routstrd) link below the error; retrying or switching providers clears it.
 
 ## Streaming
 

@@ -34,13 +34,20 @@ export interface LlmProviderPreset {
   readonly docsUrl: string;
   /** Example model identifiers to seed the editor; the user may type any model. */
   readonly exampleModels: readonly string[];
+  /**
+   * Listing path when the provider serves one (`GET <baseUrl><modelsPath>`).
+   * Hosts may offer a model dropdown seeded from it instead of free-text entry;
+   * a provider that omits this keeps manual model entry.
+   */
+  readonly modelsPath?: string;
 }
 
 const PRESET_ROWS: readonly LlmProviderPreset[] = [
   { id: 'openai', label: 'OpenAI', protocol: 'openai-chat', baseUrl: 'https://api.openai.com/v1', requiresCredential: true, local: false, docsUrl: 'https://platform.openai.com/docs/api-reference/chat', exampleModels: ['gpt-4.1-mini', 'gpt-4o-mini'] },
   { id: 'anthropic', label: 'Anthropic', protocol: 'anthropic-messages', baseUrl: 'https://api.anthropic.com/v1', requiresCredential: true, local: false, docsUrl: 'https://docs.anthropic.com/en/api/messages', exampleModels: ['claude-sonnet-4-5', 'claude-haiku-4-5'] },
-  { id: 'gemini', label: 'Google Gemini', protocol: 'gemini', baseUrl: 'https://generativelanguage.googleapis.com/v1beta', requiresCredential: true, local: false, docsUrl: 'https://ai.google.dev/api/generate-content', exampleModels: ['gemini-2.5-flash', 'gemini-2.5-pro'] },
   { id: 'openrouter', label: 'OpenRouter', protocol: 'openai-chat', baseUrl: 'https://openrouter.ai/api/v1', requiresCredential: true, local: false, docsUrl: 'https://openrouter.ai/docs/api-reference/overview', exampleModels: ['openai/gpt-4.1-mini', 'anthropic/claude-sonnet-4.5'] },
+  { id: 'routstr', label: 'Routstr', protocol: 'openai-chat', baseUrl: 'http://127.0.0.1:8008/v1', requiresCredential: false, local: true, docsUrl: 'https://routstr.com', exampleModels: [], modelsPath: '/models' },
+  { id: 'gemini', label: 'Google Gemini', protocol: 'gemini', baseUrl: 'https://generativelanguage.googleapis.com/v1beta', requiresCredential: true, local: false, docsUrl: 'https://ai.google.dev/api/generate-content', exampleModels: ['gemini-2.5-flash', 'gemini-2.5-pro'] },
   { id: 'groq', label: 'Groq', protocol: 'openai-chat', baseUrl: 'https://api.groq.com/openai/v1', requiresCredential: true, local: false, docsUrl: 'https://console.groq.com/docs/openai', exampleModels: ['llama-3.3-70b-versatile'] },
   { id: 'mistral', label: 'Mistral', protocol: 'openai-chat', baseUrl: 'https://api.mistral.ai/v1', requiresCredential: true, local: false, docsUrl: 'https://docs.mistral.ai/api/', exampleModels: ['mistral-small-latest'] },
   { id: 'deepseek', label: 'DeepSeek', protocol: 'openai-chat', baseUrl: 'https://api.deepseek.com/v1', requiresCredential: true, local: false, docsUrl: 'https://api-docs.deepseek.com/', exampleModels: ['deepseek-chat'] },
