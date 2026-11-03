@@ -8,6 +8,7 @@
  */
 
 import { createIntentUriNormalizer } from './intent-uri.js';
+import type { NappletExperimentalOptions } from './napplet-experimental.js';
 
 /**
  * Options for rendering the host-owned NIP-5D `window.napplet` namespace prelude.
@@ -25,6 +26,11 @@ export interface NappletNamespacePreludeOptions {
    * Shell is injected only when included in the exposed domains.
    */
   domains: readonly string[];
+  /**
+   * Opt-in experimental host policies, off by default. See
+   * {@link NappletExperimentalOptions}.
+   */
+  readonly experimental?: NappletExperimentalOptions;
 }
 
 function uniqueBareDomains(domains: readonly string[]): string[] {
@@ -60,7 +66,13 @@ function scriptJson(value: unknown): string {
  */
 export function renderNappletNamespacePrelude(options: NappletNamespacePreludeOptions): string {
   const domains = uniqueBareDomains(options.domains);
-  return `<script data-kehto-nip5d-injection>(${nappletNamespacePrelude.toString()})(${scriptJson(domains)}, (${createIntentUriNormalizer.toString()})(), ${nappletFrameLock.toString()});</script>`;
+  // The nested-browsing-context lock is opt-in (experimental namespace). When
+  // off, inject a no-op so the prelude installs no Trusted Types policy and
+  // pins no factories, leaving the realm exactly as it was before this policy.
+  const frameLock = options.experimental?.nestedContextLock
+    ? nappletFrameLock.toString()
+    : '(function(){})';
+  return `<script data-kehto-nip5d-injection>(${nappletNamespacePrelude.toString()})(${scriptJson(domains)}, (${createIntentUriNormalizer.toString()})(), ${frameLock});</script>`;
 }
 
 /** A window exposing the optional members the frame lock pins or installs. */

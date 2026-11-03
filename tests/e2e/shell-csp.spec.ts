@@ -52,9 +52,9 @@ const probe = `<body><pre id="result">pending</pre><script>
   })();
 </script></body>`;
 
-async function mount(page: Page, html: string, csp?: NappletCspOptions): Promise<void> {
+async function mount(page: Page, html: string, csp?: NappletCspOptions, experimental?: { nestedContextLock?: boolean }): Promise<void> {
   await page.goto(origin);
-  const srcdoc = prepareNappletSrcdoc(html.replaceAll('https://network.example', origin), { domains: ['shell'], csp });
+  const srcdoc = prepareNappletSrcdoc(html.replaceAll('https://network.example', origin), { domains: ['shell'], csp, experimental });
   await page.evaluate((documentHtml) => {
     const iframe = document.createElement('iframe');
     iframe.sandbox.value = 'allow-scripts';
@@ -135,13 +135,33 @@ const frameBattery = `<body><pre id="result">pending</pre><div id="h"></div><div
   })();
 </script></body>`;
 
-test('napplet realm cannot create a nested browsing context by any scripted path', async ({ page }) => {
-  await mount(page, `<!doctype html><html><head></head>${frameBattery}</html>`);
+test('napplet realm cannot create a nested browsing context by any scripted path (experimental lock on)', async ({ page }) => {
+  await mount(page, `<!doctype html><html><head></head>${frameBattery}</html>`, undefined, { nestedContextLock: true });
   const probed = await result(page) as { created: string[]; windowLength: number; benign: string };
   expect(probed.created).toEqual([]);
   expect(probed.windowLength).toBe(0);
   // Canonical frameless HTML still works through the pass-through default policy.
   expect(probed.benign).toBe('ok');
+});
+
+test('without the experimental lock, a napplet can create a frame (opinion not imposed)', async ({ page }) => {
+  // A minimal, non-destructive probe: no document.write, which would reset the
+  // document when not blocked. Proves the default behavior is unchanged.
+  const body = `<body><pre id="result">pending</pre><div id="h"></div><script>
+    (() => {
+      const h = document.getElementById('h');
+      let created = 0;
+      try { h.append(document.createElement('iframe')); } catch {}
+      try { const d = document.createElement('div'); d.innerHTML = '<iframe></iframe>'; h.append(d); } catch {}
+      for (const f of document.querySelectorAll('iframe')) { try { if (f.contentWindow) created++; } catch {} }
+      document.getElementById('result').textContent = JSON.stringify({ created, windowLength: window.length });
+    })();
+  </script></body>`;
+  await mount(page, `<!doctype html><html><head></head>${body}</html>`);
+  const probed = await result(page) as { created: number; windowLength: number };
+  // The lock is opt-in, so creation is not blocked by default.
+  expect(probed.created).toBeGreaterThan(0);
+  expect(probed.windowLength).toBeGreaterThan(0);
 });
 
 test('host overrides grant exact connections and can restrict WASM', async ({ page }) => {

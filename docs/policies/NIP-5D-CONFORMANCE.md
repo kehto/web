@@ -133,8 +133,8 @@ out: napplet frames share it with the shell's own NAP-WEBRTC and it is not
 reliably reclaimable.
 
 Kehto-side mitigation: prevent the nested context in the first place, so no
-fresh realm (and no un-swept `RTCPeerConnection`) ever exists. See "Nested
-browsing contexts" below. The `webrtc` CSP directive remains the portable
+fresh realm (and no un-swept `RTCPeerConnection`) ever exists, available as the
+opt-in `experimental.nestedContextLock`. See "Nested browsing contexts" below. The `webrtc` CSP directive remains the portable
 end state for the day a shipped directive can reach descendant realms directly;
 until then the nested-context lock denies the realm that would carry the egress.
 
@@ -144,8 +144,15 @@ iframe) and the prelude unit tests in
 
 ### Nested browsing contexts
 
-Spec-gap decision (defense-in-depth beyond the current NIP-5D text). A napplet
-is untrusted and has no legitimate use for a child frame. The CSP already denies
+Spec-gap decision (defense-in-depth beyond the current NIP-5D text).
+**Opt-in and off by default**, via the experimental namespace flag
+`experimental.nestedContextLock` (see [Experimental namespace](./EXPERIMENTAL.md)).
+It is opinionated — it requires Trusted Types in the napplet CSP and is
+incompatible with frameworks that register their own Trusted Types policy — so
+it is never imposed on downstream hosts. The rest of this section describes what
+the lock does when a host enables it.
+
+A napplet is untrusted and has no legitimate use for a child frame. The CSP already denies
 every *fetched* child frame (`child-src 'none'`, `frame-src 'none'`), but
 `about:srcdoc` and `about:blank` children involve no navigation request, so CSP
 never applies to them, and such a child is a fresh realm the prelude's
@@ -188,11 +195,13 @@ superset of what the live sandboxed parser instantiates (zero misses across 22
 parser-differential evasions in all three engines), with a conservative lexical
 backstop for non-browser hosts.
 
-Compatibility: requiring Trusted Types changes the napplet execution contract.
-A napplet that assigns plain strings to HTML sinks is unaffected (the `default`
-policy passes them through), but one that registered its own `default` policy
-would collide; tracked as `NIP5D_TRUSTED_TYPES_REQUIRED` in
-[docs/compatibility.md](../compatibility.md).
+Compatibility: when enabled, requiring Trusted Types changes the napplet
+execution contract. A napplet that assigns plain strings to HTML sinks is
+unaffected (the `default` policy passes them through), but one that registered
+its own `default` policy would collide; tracked as
+`NIP5D_TRUSTED_TYPES_REQUIRED` in [docs/compatibility.md](../compatibility.md).
+Because the lock is opt-in, this contract change applies only to hosts that set
+`experimental.nestedContextLock`.
 
 Regression: `tests/e2e/shell-csp.spec.ts` (real opaque iframe, scripted bypass
 battery and the byte scan), the prelude unit tests in

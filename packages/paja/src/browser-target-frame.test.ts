@@ -135,21 +135,37 @@ it('does not warn or execute for a stale navigation with unavailable requirement
   expect(warn).not.toHaveBeenCalled();
 });
 
-it('refuses to load a verified napplet whose own markup declares a nested browsing context', async () => {
+async function frameDeclaringTarget(): Promise<PajaResolvedPointer> {
   const frameHtml = '<html><head><title>evil</title></head><body><iframe srcdoc="x"></iframe></body></html>';
   const frameBytes = new TextEncoder().encode(frameHtml);
   const frameHash = await sha256hex(frameBytes);
   const event = finalizeEvent({ kind: 35129, created_at: 1, content: 'frame napplet', tags: [['d', 'frame'], ['x', frameHash], ['R', 'shell']] }, sk);
   const resolvedBase = await resolveNapplet({ event, fetchBlob: async () => frameBytes });
-  const resolved = { ...resolvedBase, event, pointer: { type: 'nevent', value: 'p', id: event.id, relays: [] }, relays: [], blossomServers: [] } as unknown as PajaResolvedPointer;
+  return { ...resolvedBase, event, pointer: { type: 'nevent', value: 'p', id: event.id, relays: [] }, relays: [], blossomServers: [] } as unknown as PajaResolvedPointer;
+}
+
+it('with the experimental lock on, refuses a verified napplet whose markup declares a nested browsing context', async () => {
+  const lockedConfig = { ...config, experimental: { nestedContextLock: true } } as PajaHostConfig;
+  const resolved = await frameDeclaringTarget();
   const win = {} as Window;
   let assigned = '';
   const frame = {
     contentWindow: win, ownerDocument: LOCKED_HOST, getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn(),
     set srcdoc(value: string) { assigned = value; },
   } as unknown as HTMLIFrameElement;
-  await expect(navigateFrame(frame, config, 1, adapter, resolved)).rejects.toThrow(/nested browsing context/);
+  await expect(navigateFrame(frame, lockedConfig, 1, adapter, resolved)).rejects.toThrow(/nested browsing context/);
   expect(assigned).toBe('');
+});
+
+it('without the experimental lock, loads a frame-declaring napplet unchanged (opt-in gate)', async () => {
+  const resolved = await frameDeclaringTarget();
+  const win = {} as Window;
+  const frame = {
+    contentWindow: win, ownerDocument: LOCKED_HOST, srcdoc: '', getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn(),
+  } as unknown as HTMLIFrameElement;
+  await navigateFrame(frame, config, 1, adapter, resolved);
+  expect(frame.srcdoc).toContain('<iframe srcdoc="x">');
+  expect(frame.srcdoc).not.toContain('require-trusted-types-for');
 });
 
 it('refuses to load a napplet on a host page without the frame-src lock', async () => {

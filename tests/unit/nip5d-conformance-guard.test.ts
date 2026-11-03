@@ -284,6 +284,7 @@ describe('NIP-5D conformance static guards', () => {
     const csp = removeComments(readRepoFile('packages/shell/src/napplet-csp.ts'));
     const scan = readRepoFile('packages/shell/src/napplet-frame-scan.ts');
     const paja = removeComments(readRepoFile('packages/paja/src/browser-target-frame.ts'));
+    const srcdocSrc = removeComments(readRepoFile('packages/shell/src/napplet-srcdoc.ts'));
     const policy = readRepoFile('docs/policies/NIP-5D-CONFORMANCE.md');
 
     // Prelude installs the Trusted Types default policy rejecting frame markup
@@ -299,6 +300,10 @@ describe('NIP-5D conformance static guards', () => {
     // Paja runs that scan on the verified runtime-pointer load path.
     expect(scan).toContain('export function nappletMarkupHasFrame');
     expect(paja).toContain('assertNappletHasNoFrame(resolvedTarget.indexHtml);');
+    // The lock is opt-in (experimental namespace), off by default, so it is
+    // never imposed on downstream hosts.
+    expect(srcdocSrc).toContain('options.experimental?.nestedContextLock === true');
+    expect(paja).toContain('config.experimental?.nestedContextLock');
     expect(policy).toContain('### Nested browsing contexts');
   });
 

@@ -184,13 +184,15 @@ remaining window-level exception, Paja's signed intent launcher host messages
 
 ## Required Trusted Types in the napplet CSP — shell / Paja
 
-Identifier: `NIP5D_TRUSTED_TYPES_REQUIRED`. Compatibility path retained with a
-warning. To lock nested-browsing-context creation, every napplet CSP now carries
+Identifier: `NIP5D_TRUSTED_TYPES_REQUIRED`. **Opt-in**, off by default: applies
+only when a host sets the experimental flag `experimental.nestedContextLock`
+(see [Experimental namespace](https://github.com/kehto/web/blob/main/docs/policies/EXPERIMENTAL.md)).
+When enabled, to lock nested-browsing-context creation the napplet CSP carries
 `require-trusted-types-for 'script'; trusted-types default`, and the injected
 prelude registers the single admitted `default` Trusted Types policy before any
 napplet script (see [NIP-5D conformance policy](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#nested-browsing-contexts)).
-This changes the napplet execution contract: all DOM HTML-string sinks now pass
-through that policy.
+When enabled, this changes the napplet execution contract: all DOM HTML-string
+sinks pass through that policy. Hosts that do not opt in are unaffected.
 
 Retained behavior: canonical use is unaffected. A napplet that assigns plain
 HTML strings to a sink gets the policy's pass-through result, so existing

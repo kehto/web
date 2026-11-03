@@ -14,6 +14,7 @@ export { buildNappletCsp, injectNappletCsp, renderNappletCspMeta } from './nappl
 export type { NappletCspDirective, NappletCspDirectives, NappletCspOptions } from './napplet-csp.js';
 export { prepareNappletSrcdoc } from './napplet-srcdoc.js';
 export { assertNappletHasNoFrame, nappletMarkupHasFrame } from './napplet-frame-scan.js';
+export type { NappletExperimentalOptions } from './napplet-experimental.js';
 export { hasNappletFramePolicy, NAPPLET_FRAME_POLICY, renderNappletFramePolicyMeta } from './frame-policy.js';
 export type { NappletSrcdocOptions } from './napplet-srcdoc.js';
 

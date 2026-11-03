@@ -1,4 +1,4 @@
-import type { NappletCspOptions } from '@kehto/shell';
+import type { NappletCspOptions, NappletExperimentalOptions } from '@kehto/shell';
 import {
   normalizePajaSimulation,
   type PajaSimulation,
@@ -71,6 +71,8 @@ export interface PajaOptions {
 export interface PajaHostConfig {
   /** Host CSP overrides for verified runtime-pointer documents, validated by shell. */
   readonly csp?: NappletCspOptions;
+  /** Opt-in experimental host policies, off by default. */
+  readonly experimental?: NappletExperimentalOptions;
   /** Config schema version. */
   readonly version: 1;
   /** Window identity used for the development target. */
@@ -196,6 +198,7 @@ export function createPajaHostConfig(
 export function createPajaRuntimeHostConfig(
   options: {
     readonly csp?: NappletCspOptions;
+    readonly experimental?: NappletExperimentalOptions;
     readonly pointer?: string;
     readonly relays?: readonly string[];
     readonly blossomServers?: readonly string[];
@@ -208,6 +211,7 @@ export function createPajaRuntimeHostConfig(
   return {
     ...base,
     ...(options.csp ? { csp: options.csp } : {}),
+    ...(options.experimental ? { experimental: options.experimental } : {}),
     target: {
       mode: 'runtime-pointer',
       url: 'about:blank',
