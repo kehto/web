@@ -97,7 +97,7 @@ policy recourse. Validated by [napplet/evil](https://github.com/napplet/evil)
 finding #1 and described in [Delta Chat's webxdc security
 write-up](https://delta.chat/en/2023-05-22-webxdc-security). The proposed W3C
 `webrtc` CSP directive (`block`/`allow`) is not reliably implemented and is not
-enforceable from a `<meta>` policy, so CSP cannot close this.
+enforceable from a `<meta>` policy, so CSP cannot close this today.
 
 Kehto's injected prelude removes the whole WebRTC constructor surface from the
 napplet realm before any napplet script runs: every global whose name starts
@@ -108,15 +108,107 @@ runs in the shell realm (`packages/paja/src/browser-webrtc.ts`), and the napplet
 reaches it only through the mediated `window.napplet.webrtc` domain, never the
 raw constructor.
 
-Bounded limitation, not yet closed: a napplet can create an un-CSP'd `srcdoc`
-grandchild frame (see finding #9 on `frame-src`) whose realm has a fresh
-`RTCPeerConnection`. Reaching that frame needs a process-wide control — the
-Chromium per-process connection cap — which is shared with the shell's own
-NAP-WEBRTC (napplet `srcdoc` frames are not site-isolated) and is not reliably
-reclaimable, so it is deferred rather than shipped. The portable end state is
-per-napplet process isolation or a shipped `webrtc` CSP directive. Regression:
-`tests/e2e/shell-csp.spec.ts` (real opaque iframe) and the prelude unit tests in
+Bounded limitation, not yet closed: nested browsing contexts. The napplet CSP
+already carries `child-src 'none'` and `frame-src 'none'`, which block every
+fetched child frame (`data:`, `blob:`, `http(s):`), but `about:srcdoc` and
+`about:blank` documents involve no navigation request, so those directives never
+apply to them. This is the same browser behaviour the host-page `frame-src`
+lock (`NAPPLET_FRAME_POLICY`) relies on to let the verified napplet `srcdoc`
+load. A `srcdoc` or `about:blank` grandchild therefore loads, inherits the
+napplet CSP (which has no WebRTC directive), and runs in a fresh realm the
+prelude sweep never touched, so it has a working `RTCPeerConnection`. Measured
+in Chromium 147 with the napplet CSP in place: a `data:` grandchild is blocked
+with a `frame-src` violation, while a `srcdoc` grandchild loads and
+`createDataChannel()` succeeds (napplet/evil finding #9).
+
+Upstream fix: a shipped `webrtc` CSP directive. Unlike the prelude sweep, an
+inherited CSP reaches every `srcdoc` and `about:blank` descendant, so it is the
+only mechanism that closes the nested-realm case for good. Kehto cannot ship
+it; browsers have to. Per-napplet process isolation is not an end state for a
+web shell: a page cannot request process placement, and giving each napplet its
+own origin to obtain it would make the serving origin the identity authority
+again, contradicting `srcdoc` provenance and content-addressed identity. A
+process-wide control (the Chromium per-process connection cap) is also ruled
+out: napplet frames share it with the shell's own NAP-WEBRTC and it is not
+reliably reclaimable.
+
+Kehto-side mitigation: prevent the nested context in the first place, so no
+fresh realm (and no un-swept `RTCPeerConnection`) ever exists, available as the
+opt-in `experimental.nestedContextLock`. See "Nested browsing contexts" below. The `webrtc` CSP directive remains the portable
+end state for the day a shipped directive can reach descendant realms directly;
+until then the nested-context lock denies the realm that would carry the egress.
+
+Regression for the shipped part: `tests/e2e/shell-csp.spec.ts` (real opaque
+iframe) and the prelude unit tests in
 `packages/shell/src/napplet-namespace.test.ts`.
+
+### Nested browsing contexts
+
+Spec-gap decision (defense-in-depth beyond the current NIP-5D text).
+**Opt-in and off by default**, via the experimental namespace flag
+`experimental.nestedContextLock` (see [Experimental namespace](./EXPERIMENTAL.md)).
+It is opinionated — it requires Trusted Types in the napplet CSP and is
+incompatible with frameworks that register their own Trusted Types policy — so
+it is never imposed on downstream hosts. The rest of this section describes what
+the lock does when a host enables it.
+
+A napplet is untrusted and has no legitimate use for a child frame. The CSP already denies
+every *fetched* child frame (`child-src 'none'`, `frame-src 'none'`), but
+`about:srcdoc` and `about:blank` children involve no navigation request, so CSP
+never applies to them, and such a child is a fresh realm the prelude's
+capability sweep never touched — most importantly it has a live
+`RTCPeerConnection` (see "Direct WebRTC egress"). Kehto closes the two, and only
+two, ways an iframe element can be minted, enforced by the browser and by the
+shell, never by napplet cooperation:
+
+1. **HTML string sinks.** Every napplet CSP carries
+   `require-trusted-types-for 'script'; trusted-types default`, which the napplet
+   cannot loosen (a page cannot widen its own CSP). The prelude registers the
+   single admitted `default` Trusted Types policy before any napplet script; it
+   passes canonical HTML through untouched and rejects any string carrying a
+   frame tag, so `innerHTML`, `outerHTML`, `insertAdjacentHTML`, `DOMParser`,
+   `document.write`, `Range.createContextualFragment`, `setHTMLUnsafe` and the
+   rest are closed.
+2. **Element factories.** The only element-creating methods on the platform are
+   `Document.prototype.createElement` and `createElementNS` (verified by
+   enumerating every `create*` method on `Document`, `Element` and `Node` in
+   Chromium, Firefox and WebKit — all others create non-element nodes). The
+   prelude pins both, non-configurable, to reject frame tag names, along with
+   `DOMImplementation.createDocument`.
+
+Node movement (`cloneNode`, `importNode`, `adoptNode`) needs a pre-existing
+frame node, and both creation routes are closed, so there is no bootstrap.
+Escaping the pins needs a fresh realm, whose only sources are a child frame
+(closed here), a popup (the `allow-scripts`-only sandbox denies `allow-popups`)
+or a worker (not a browsing context, no DOM). The set is closed: no specified
+web-platform API leaves a napplet a way to create a nested browsing context.
+This is a closed structural enumeration, not a sampled probe; its residual is a
+browser implementation bug, the same residual class as the `sandbox` attribute
+itself (which has had escape CVEs).
+
+A napplet's own *static* `<iframe>` is instantiated by the HTML parser, which is
+not a Trusted Types sink, so the shell scans the verified bytes and refuses any
+that declare a frame element (`nappletMarkupHasFrame` / `assertNappletHasNoFrame`
+in `@kehto/shell`; Paja runs it on the verified runtime-pointer path before the
+bytes become a document). The scan parses with the host's own `DOMParser`, a
+superset of what the live sandboxed parser instantiates (zero misses across 22
+parser-differential evasions in all three engines), with a conservative lexical
+backstop for non-browser hosts.
+
+Compatibility: when enabled, requiring Trusted Types changes the napplet
+execution contract. A napplet that assigns plain strings to HTML sinks is
+unaffected (the `default` policy passes them through), but one that registered
+its own `default` policy would collide; tracked as
+`NIP5D_TRUSTED_TYPES_REQUIRED` in [docs/compatibility.md](../compatibility.md).
+Because the lock is opt-in, this contract change applies only to hosts that set
+`experimental.nestedContextLock`.
+
+Regression: `tests/e2e/shell-csp.spec.ts` (real opaque iframe, scripted bypass
+battery and the byte scan), the prelude unit tests in
+`packages/shell/src/napplet-namespace.test.ts`, `napplet-csp.test.ts`,
+`napplet-frame-scan.test.ts`, the Paja rejection test in
+`packages/paja/src/browser-target-frame.test.ts`, and the conformance guard in
+`tests/unit/nip5d-conformance-guard.test.ts`.
 
 ### Active NAP-RELAY boundary
 

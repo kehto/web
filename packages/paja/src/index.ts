@@ -101,8 +101,10 @@ export {
 
 export type {
   PajaCommand,
+  PajaExperimentalConfig,
   PajaHmrStrategy,
   PajaHostConfig,
+  PajaNestedContextLockSetting,
   PajaOptions,
   PajaPointerRuntimeConfig,
   PajaRawOptions,

@@ -128,6 +128,11 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .llm-connections { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
       .llm-connection { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 4px; background: #0b0d0b; font-size: 11px; }
       .llm-connection-label { min-width: 0; overflow-wrap: anywhere; color: var(--text); }
+      .llm-form label[hidden] { display: none; }
+      .llm-model-status:empty { display: none; }
+      .llm-model-status { margin: 0; min-height: 0; }
+      .llm-model-status[data-state="ready"] { color: #9fd08a; }
+      .llm-model-status[data-state="error"] { color: #e6a5a5; }
       .llm-select-dialog select, .llm-vault-dialog input { width: 100%; min-width: 0; padding: 4px 8px; }
       .llm-vault-dialog .config-error:empty { display: none; }
       .signer { color: var(--muted); word-break: break-all; font-size: 12px; }
@@ -294,6 +299,18 @@ export function renderPajaHtml(config: PajaHostConfig): string {
           <div id="paja-resource-servers-status" role="status" aria-live="polite"></div>
         </form>
         </div></details>
+        <details class="section" id="paja-section-security" data-paja-section="security" open>
+          <summary class="section-title">Security<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
+          <label class="section-title" for="paja-nested-context-lock">Frame-creation lock (experimental)</label>
+          <select id="paja-nested-context-lock" aria-describedby="paja-nested-context-lock-help paja-nested-context-lock-status">
+            <option value="">Host default</option>
+            <option value="auto">Auto (lock private-data napplets)</option>
+            <option value="on">On (lock every napplet)</option>
+            <option value="off">Off</option>
+          </select>
+          <small id="paja-nested-context-lock-help">Stops a napplet creating an iframe. Auto locks napplets granted a private domain (e.g. DM). Applies on the next napplet load. Turning it off for a private-data napplet lowers exfiltration protection.</small>
+          <div id="paja-nested-context-lock-status" role="status" aria-live="polite"></div>
+        </div></details>
         <details class="section" id="paja-section-llm" data-paja-section="llm" open>
           <summary class="section-title">Language models<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
           <ul class="llm-connections" id="paja-llm-connections" aria-label="Configured model connections"></ul>
@@ -301,7 +318,9 @@ export function renderPajaHtml(config: PajaHostConfig): string {
             <label>Provider<select id="paja-llm-preset" aria-label="Provider preset"></select></label>
             <label>Name<input id="paja-llm-name" type="text" required maxlength="64" spellcheck="false"></label>
             <label>API base URL<input id="paja-llm-base-url" type="url" required spellcheck="false" placeholder="API root; presets fill this in"></label>
-            <label>Model<input id="paja-llm-model" type="text" required maxlength="200" spellcheck="false" list="paja-llm-model-examples"><datalist id="paja-llm-model-examples"></datalist></label>
+            <label id="paja-llm-model-field">Model<input id="paja-llm-model" type="text" required maxlength="200" spellcheck="false" list="paja-llm-model-examples"><datalist id="paja-llm-model-examples"></datalist></label>
+            <label id="paja-llm-model-select-field" hidden>Model<select id="paja-llm-model-select" required aria-describedby="paja-llm-model-status"></select></label>
+            <p class="hint llm-model-status" id="paja-llm-model-status" role="status" aria-live="polite"></p>
             <label>API key<input id="paja-llm-credential" type="password" autocomplete="off" spellcheck="false"></label>
             <label class="llm-check"><input id="paja-llm-remember" type="checkbox"><span>Remember the key, encrypted with a vault password</span></label>
             <label class="llm-check"><input id="paja-llm-images" type="checkbox"><span>Accepts image input</span></label>

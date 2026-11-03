@@ -1,5 +1,52 @@
 # @kehto/paja
 
+## 0.30.0
+
+### Minor Changes
+
+- 37457ce: Add a loopback Routstr provider preset and a model dropdown for presets that
+  list their models.
+
+  `LLM_PROVIDER_PRESETS` gains `routstr` (`http://127.0.0.1:8008/v1`, OpenAI Chat
+  Completions, no credential) plus an optional `modelsPath` field. Paja renders a
+  model `<select>` instead of free-text entry for a preset that declares it,
+  seeded from one `GET <baseUrl><modelsPath>` (`/models` for Routstr), and shows
+  `Connected ✓ — n models` below the field. A failed listing names the cause —
+  including a server that does not allow this page cross-origin — and falls back
+  to free-text entry so the connection can still be saved. Editing the API base
+  URL re-lists the models.
+
+  The listing is a browser request like generation, so a loopback provider must
+  answer CORS on that route; nothing else about the connection changes and the
+  key is still placed only on requests to the connection's own base URL.
+
+  Switching presets clears the unsaved API key before model discovery and updates
+  auto-filled connection names without replacing custom names. Saving a connection
+  keeps the model catalogue available for adding another connection.
+
+  Failed Routstr model discovery offers an Install routstrd link to https://routstr.com/routstrd; retrying or switching providers clears the guidance.
+
+### Patch Changes
+
+- Updated dependencies [37457ce]
+  - @kehto/services@0.29.0
+  - @kehto/shell@0.29.0
+
+## 0.29.0
+
+### Minor Changes
+
+- bfe51a1: Report "no relay connection" distinctly during pointer resolution. The resolver
+  now tracks each relay's connection outcome (via the pool's idempotent
+  `ensureRelay`) alongside the manifest query. When zero relays open a WebSocket
+  it throws the new `PajaRelayUnreachableError` (`code: 'relay-unreachable'`,
+  carrying a `PajaRelayConnectionSummary`) with an actionable message — offline,
+  blocked relays, or the browser's WebSocket connection limit from too many open
+  tabs — instead of a generic "timed out", even when the deadline expires first.
+  Paja's pointer status shows that message and logs `paja.relay.unreachable` with
+  per-relay detail. Timeouts with at least one connected relay now include the
+  connected count; pools without `ensureRelay` keep the previous messages.
+
 ## 0.28.2
 
 ### Patch Changes

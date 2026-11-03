@@ -15,6 +15,18 @@ describe('@kehto/paja host page', () => {
       expect(toolbar).toContain('role="group" aria-label="Connected controllers"');
     }
   });
+  it('offers a model dropdown with a listing status beside free-text entry', () => {
+    const html = renderPajaHtml(createPajaRuntimeHostConfig({}));
+    // A preset that lists its models swaps free-text entry for this select.
+    expect(html).toContain('<label id="paja-llm-model-select-field" hidden>Model<select id="paja-llm-model-select" required aria-describedby="paja-llm-model-status"></select></label>');
+    expect(html).toContain('id="paja-llm-model-status" role="status" aria-live="polite"');
+    expect(html).toContain('<label id="paja-llm-model-field">Model');
+    const form = html.slice(html.indexOf('id="paja-llm-form"'), html.indexOf('id="paja-llm-status"'));
+    // The status sits under the dropdown, above the credential field.
+    expect(form.indexOf('id="paja-llm-model-status"')).toBeLessThan(form.indexOf('id="paja-llm-credential"'));
+    expect(html.match(/id="paja-llm-model-select"/g)).toHaveLength(1);
+  });
+
   it('locks napplet frames to their verified srcdoc with a frame-src CSP in <head>', () => {
     const html = renderPajaHtml(createPajaRuntimeHostConfig({}));
     const head = html.slice(html.indexOf('<head>'), html.indexOf('</head>'));
@@ -51,8 +63,8 @@ describe('@kehto/paja host page', () => {
       expect(aside!.indexOf('id="paja-resource-servers-form"')).toBeLessThan(aside!.indexOf('id="message-log"'));
       const keys = [...aside!.matchAll(/data-paja-section="([^"]+)"/g)].map((match) => match[1]);
       expect(keys).toEqual(config.target.mode === 'runtime-pointer'
-        ? ['pointer', 'interfaces', 'acl', 'signer', 'resource-servers', 'llm', 'messages', 'events']
-        : ['interfaces', 'acl', 'signer', 'resource-servers', 'llm', 'messages', 'events']);
+        ? ['pointer', 'interfaces', 'acl', 'signer', 'resource-servers', 'security', 'llm', 'messages', 'events']
+        : ['interfaces', 'acl', 'signer', 'resource-servers', 'security', 'llm', 'messages', 'events']);
       expect(aside!.match(/<details[^>]* open>/g)).toHaveLength(keys.length);
       expect(aside!.match(/<summary class="section-title">/g)).toHaveLength(keys.length);
       expect(aside).not.toMatch(/<details[^>]* name=/);
