@@ -61,4 +61,3 @@ export function parseLlmProviderResponse(protocol: LlmProviderProtocol, json: un
     default: throw providerError('Unknown provider protocol.');
   }
 }
-

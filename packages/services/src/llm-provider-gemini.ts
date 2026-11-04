@@ -2,7 +2,7 @@
 
 import { createLlmBlockBuilder, toolCallParts, type RawToolCall } from './llm-provider-blocks.js';
 import {
-  callsOf, completed, credentialHeaders, finished, isCompletedFinish, nonCallParts, outputLimit, parametersOf, plainParts, providerError, record, splitSystem, textContent, toolResultText, toolsOf, trimBase, unsupported, usageFrom,
+  callsOf, completed, credentialHeaders, finished, isCompletedFinish, outputLimit, parametersOf, plainParts, providerError, record, splitSystem, textContent, toolResultText, toolsOf, trimBase, unsupported, usageFrom,
   type LlmHttpRequest, type LlmProviderEndpoint, type LlmStreamAccumulator,
 } from './llm-provider-shared.js';
 import type { LlmFinish, LlmGeneration, LlmGenerationRequest, LlmMessage, LlmOutputPart, LlmPart, LlmToolChoice, LlmUsage } from './llm-types.js';

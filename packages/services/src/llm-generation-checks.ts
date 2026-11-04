@@ -154,7 +154,6 @@ function callsOf(content: readonly LlmOutputPart[]): LlmToolCallPart[] {
   return content.filter((part): part is LlmToolCallPart => part.type === 'toolCall');
 }
 
-/** Tool-call ids already used by assistant history in the request. */
 function historyIds(request: LlmGenerationRequest): Set<string> {
   const ids = new Set<string>();
   for (const message of request.messages) {
