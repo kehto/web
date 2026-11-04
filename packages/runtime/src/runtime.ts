@@ -585,7 +585,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     extensions?.destroyWindow(windowId);
   });
   let incRuntime: IncRuntime | null = null;
-  const aclState = createAclState(hooks.aclPersistence, 'permissive', (mutation) => {
+  const aclState = createAclState(hooks.aclPersistence, hooks.aclDefaultPolicy ?? 'permissive', (mutation) => {
     for (const entry of sessionRegistry.getAllEntries()) {
       if (entry.dTag === mutation.dTag && entry.aggregateHash === mutation.aggregateHash) {
         for (const service of Object.values(serviceRegistry)) {
@@ -597,7 +597,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
         }
       }
     }
-  });
+  }, hooks.aclDefaultPolicy !== undefined);
   const manifestCache = createManifestCache(hooks.manifestPersistence);
   const replayDetector = createReplayDetector(
     hooks.getConfigOverrides
