@@ -43,7 +43,7 @@ See: .planning/PROJECT.md (updated 2026-07-28)
 Phase: 115 — Firewall final audit complete
 Plan: PR review follow-up
 Status: PR #336 review fixes verified; CONFIG denial/backpressure spec gap explicitly retained.
-Last activity: 2026-11-04 — Merged main's NAP-LLM chase into PR #336.
+Last activity: 2026-11-04 - Completed quick task 261104-l95: Chase #404 into PR 336
 
 ## Performance Metrics
 
@@ -158,6 +158,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
+| 261104-l95 | Chase #404 into PR 336: port host firewall controls to the approval runtime | 2026-11-04 | 6618f01d | passed | [261104-l95](./quick/261104-l95-chase-404-into-firewall-approvals/) |
 | 261104-kmf | Host firewall and dispatch controls for shell and runtime (#397-#400), one PR per issue against `release/host-firewall-controls` | 2026-11-04 | 52b4ea89 | passed | [261104-kmf](./quick/261104-kmf-host-firewall-controls/) |
 | 261104-pr336 | Merge main into PR 336: retire playground edits, port Firewall approvals onto media, stream, and Paja rewrites | 2026-11-04 | 9894561a | passed | [261104-pr336](./quick/261104-pr336-merge-main/) |
 | 261026-bd4 | Validate PR 336 review; fix enforceable findings and document spec qualifications | 2026-10-26 | b7ac109f | passed; CONFIG gap documented | [261026-bd4](./quick/261026-bd4-validate-and-fix-every-pr-336-review-fin/) |
