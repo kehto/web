@@ -171,6 +171,7 @@ bridge.runtime.registerService(
 
 ### Hooks adapter
 - `adaptHooks` — convert a `ShellAdapter` + `BrowserDeps` into the canonical `RuntimeAdapter` hook bag consumed by `@kehto/runtime`
+- `ShellAdapter.aclDefaultPolicy?` — `'permissive' | 'restrictive'`, forwarded to the runtime. See the `@kehto/runtime` docs for how it treats persisted ACL state.
 
 ### Diagnostics
 - `ShellAdapter.onNappletRevoked?(revocation)` — called once when the bridge revokes a NIP-5D binding (`NappletRevocation`: `{ windowId, reason, detail }`, `reason` one of `NappletRevocationReason`). The host must remove the frame.

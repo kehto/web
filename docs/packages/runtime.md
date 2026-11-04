@@ -58,6 +58,12 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
   detached copies, remain identifiable after reload, and preserve existing
   serialized keys. Custom producers must provide the two identity fields.
 
+- `RuntimeAdapter.aclDefaultPolicy` sets the policy for identities with no stored
+  entry. `'restrictive'` starts them with nothing granted. When it's omitted, the
+  policy is `'permissive'` unless persisted ACL state stores another one. When it's
+  set, it replaces the policy in persisted state on load, so an earlier permissive
+  save can't reopen a restrictive host. Stored entries are kept as they are, so a
+  host moving to `'restrictive'` should clear entries it no longer trusts.
 - ACL mutations and revoke/block observers take effect in memory before an
   explicit save. `aclState.persist()` and `aclState.clear()` return `true` when
   their synchronous backend call succeeds and `false` when it throws. Failure
