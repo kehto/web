@@ -329,28 +329,39 @@ describe('current @napplet package graph guard', () => {
     }
   });
 
-  it('accepts the baseline through LLM peer release lines while retaining baseline development', () => {
-    // Kehto runtime packages track the current NAP contract so new canonical
-    // fields are wired through runtime, services, shell, Paja, docs, and tests.
-    // nap 0.35.x ships the `llm` subpath and nap 0.35.1 requires core ^0.36.0,
-    // so both lines must be admitted or npm rejects llm installs (kehto/web#364).
-    // core 0.37.0 / nap 0.36.0 carry NIP-5D port-bound identity (napplet/web#302).
-    const CORE_PEER_RANGE = '>=0.32.0 <0.38.0';
-    const NAP_PEER_RANGE = '>=0.32.0 <0.37.0';
-    const DEV_RANGE = '>=0.32.0 <0.33.0';
+  it('gives every host package its own peer window while developing on the host line', () => {
+    // Host packages develop and build on core 0.38.0 / nap 0.37.0. Packages whose
+    // declarations import the packaged NAP-LLM types (services, paja) require that
+    // line; the rest keep the older floor because they do not consume those types.
+    // Fixture napplets stay on the exact 0.32.0 line and are guarded separately.
+    const HOST_DEV_CORE = '>=0.38.0 <0.39.0';
+    const HOST_DEV_NAP = '>=0.37.0 <0.38.0';
+    const PEER_WINDOWS: Record<string, { core: string; nap: string }> = {
+      'packages/acl': { core: '>=0.32.0 <0.39.0', nap: '>=0.32.0 <0.38.0' },
+      'packages/cli': { core: '>=0.38.0 <0.39.0', nap: '>=0.37.0 <0.38.0' },
+      'packages/firewall': { core: '>=0.32.0 <0.39.0', nap: '' },
+      'packages/paja': { core: '>=0.38.0 <0.39.0', nap: '>=0.37.0 <0.38.0' },
+      'packages/runtime': { core: '>=0.32.0 <0.39.0', nap: '>=0.32.0 <0.38.0' },
+      'packages/services': { core: '>=0.38.0 <0.39.0', nap: '>=0.37.0 <0.38.0' },
+      'packages/shell': { core: '>=0.32.0 <0.39.0', nap: '>=0.32.0 <0.38.0' },
+    };
+    expect(Object.keys(PEER_WINDOWS).sort()).toEqual([...publicPackageDirs].sort());
     for (const dir of publicPackageDirs) {
       const packageJsonPath = join(process.cwd(), dir, 'package.json');
       const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as {
         peerDependencies?: Record<string, string>;
         devDependencies?: Record<string, string>;
       };
+      const window = PEER_WINDOWS[dir];
 
-      if (pkg.peerDependencies?.['@napplet/nap'] || pkg.devDependencies?.['@napplet/nap']) {
-        expect(pkg.peerDependencies?.['@napplet/nap'], `${dir} @napplet/nap peer`).toBe(NAP_PEER_RANGE);
-        expect(pkg.devDependencies?.['@napplet/nap'], `${dir} @napplet/nap dev`).toBe(DEV_RANGE);
+      if (window.nap) {
+        expect(pkg.peerDependencies?.['@napplet/nap'], `${dir} @napplet/nap peer`).toBe(window.nap);
+        expect(pkg.devDependencies?.['@napplet/nap'], `${dir} @napplet/nap dev`).toBe(HOST_DEV_NAP);
+      } else {
+        expect(pkg.peerDependencies?.['@napplet/nap'], `${dir} @napplet/nap peer`).toBeUndefined();
       }
-      expect(pkg.peerDependencies?.['@napplet/core'], `${dir} @napplet/core peer`).toBe(CORE_PEER_RANGE);
-      expect(pkg.devDependencies?.['@napplet/core'], `${dir} @napplet/core dev`).toBe(DEV_RANGE);
+      expect(pkg.peerDependencies?.['@napplet/core'], `${dir} @napplet/core peer`).toBe(window.core);
+      expect(pkg.devDependencies?.['@napplet/core'], `${dir} @napplet/core dev`).toBe(HOST_DEV_CORE);
       expect(pkg.peerDependencies?.[staleNapPackage], `${dir} ${staleNapPackage} peer`).toBeUndefined();
       expect(pkg.devDependencies?.[staleNapPackage], `${dir} ${staleNapPackage} dev`).toBeUndefined();
     }

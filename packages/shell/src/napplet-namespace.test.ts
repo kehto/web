@@ -1909,10 +1909,11 @@ describe('NIP-5D napplet namespace prelude', () => {
     });
   });
 
-  // NAP-LLM (napplet/naps PR #134 at 3e10939): result envelopes carry
-  // `{ code, message }` errors, deltas are id-less and keyed by requestId, and
-  // aborting a generation sends llm.cancel while the generation settles on its own result.
-  it('injects the NAP-LLM API with typed failures, ordered deltas and abort-driven cancellation', async () => {
+  // NAP-LLM (napplet/naps PR #134 at 5e93bdfce0e84c0de728234cb7b3feed498f8635):
+  // result envelopes carry `{ code, message }` errors, deltas are id-less block
+  // lifecycle events keyed by requestId, and aborting a generation sends
+  // llm.cancel while the generation settles on its own result.
+  it('injects the NAP-LLM API with typed failures, ordered block deltas and abort-driven cancellation', async () => {
     const target = createPreludeTestWindow();
     runPrelude(renderNappletNamespacePrelude({ domains: ['llm'] }), target);
 
@@ -1922,7 +1923,7 @@ describe('NIP-5D napplet namespace prelude', () => {
 
       const select = llm.select() as Promise<unknown>;
       expect(target.postedMessages.at(-1)).toEqual({ type: 'llm.select', id: 'id-1' });
-      const model = { handle: 'h1', name: 'My connection', model: 'chosen-model', route: 'Local shell → inference provider', images: false, json: true };
+      const model = { handle: 'h1', name: 'My connection', model: 'chosen-model', route: 'Local shell → inference provider', images: false, json: true, tools: true, toolChoiceModes: ['auto', 'none', 'required', 'tool'] };
       target.dispatchParentMessage({ type: 'llm.select.result', id: 'id-1', model });
       await expect(select).resolves.toEqual(model);
 
@@ -1936,38 +1937,78 @@ describe('NIP-5D napplet namespace prelude', () => {
       target.dispatchParentMessage({ type: 'llm.describe.result', id: 'id-3', model });
       await expect(describe).resolves.toEqual(model);
 
+      // The spec's g1 request and its streamed text lifecycle.
       const deltas: unknown[] = [];
-      const request = { handle: 'h1', messages: [{ role: 'user', content: [{ type: 'text', text: 'Return a JSON object.' }] }], format: 'json' };
+      const request = { handle: 'h1', messages: [{ role: 'user', content: [{ type: 'text', text: 'Return a JSON object with a greeting.' }] }], format: 'json', maxTokens: 128, temperature: 0.7 };
       const generation = llm.generate(request, { onDelta: (delta: unknown) => deltas.push(delta) }) as Promise<unknown> & { requestId: string };
       expect(generation.requestId).toBe('id-4');
       expect(target.postedMessages.at(-1)).toEqual({ type: 'llm.generate', id: 'id-4', request });
-      target.dispatchParentMessage({ type: 'llm.delta', requestId: 'id-4', sequence: 0, text: '{"greeting":' });
-      target.dispatchParentMessage({ type: 'llm.delta', requestId: 'other', sequence: 0, text: 'ignored' });
-      target.dispatchParentMessage({ type: 'llm.delta', requestId: 'id-4', sequence: 5, text: 'out of order' });
-      target.dispatchMessage({}, { type: 'llm.delta', requestId: 'id-4', sequence: 1, text: 'forged source' });
-      target.dispatchParentMessage({ type: 'llm.delta', requestId: 'id-4', sequence: 1, text: '"Hello"}' });
-      const result = { text: '{"greeting":"Hello"}', finish: 'stop', usage: { inputTokens: 12, outputTokens: 7 } };
+      const lifecycle = { requestId: 'id-4', block: 'text', blockIndex: 0 };
+      target.dispatchParentMessage({ type: 'llm.delta', ...lifecycle, sequence: 0, event: 'start' });
+      target.dispatchParentMessage({ type: 'llm.delta', ...lifecycle, requestId: 'other', sequence: 0, event: 'start' });
+      target.dispatchParentMessage({ type: 'llm.delta', ...lifecycle, sequence: 5, event: 'delta', text: 'out of order' });
+      target.dispatchMessage({}, { type: 'llm.delta', ...lifecycle, sequence: 1, event: 'delta', text: 'forged source' });
+      target.dispatchParentMessage({ type: 'llm.delta', ...lifecycle, sequence: 1, event: 'delta', text: '{"greeting":"Hello"}' });
+      target.dispatchParentMessage({ type: 'llm.delta', ...lifecycle, sequence: 2, event: 'end' });
+      const result = { content: [{ type: 'text', text: '{"greeting":"Hello"}' }], finish: 'stop', usage: { inputTokens: 12, outputTokens: 7 } };
       target.dispatchParentMessage({ type: 'llm.generate.result', id: 'id-4', result });
       await expect(generation).resolves.toEqual(result);
       expect(deltas).toEqual([
-        { requestId: 'id-4', sequence: 0, text: '{"greeting":' },
-        { requestId: 'id-4', sequence: 1, text: '"Hello"}' },
+        { requestId: 'id-4', sequence: 0, event: 'start', block: 'text', blockIndex: 0 },
+        { requestId: 'id-4', sequence: 1, event: 'delta', block: 'text', blockIndex: 0, text: '{"greeting":"Hello"}' },
+        { requestId: 'id-4', sequence: 2, event: 'end', block: 'text', blockIndex: 0 },
       ]);
+
+      // The spec's streamed g2 tool-call lifecycle keeps its id and name.
+      const toolDeltas: unknown[] = [];
+      const tooling = llm.generate(request, { onDelta: (delta: unknown) => toolDeltas.push(delta) }) as Promise<unknown> & { requestId: string };
+      expect(tooling.requestId).toBe('id-5');
+      const call = { requestId: 'id-5', block: 'toolCall', blockIndex: 0 };
+      target.dispatchParentMessage({ type: 'llm.delta', ...call, sequence: 0, event: 'start', toolCallId: 'call_1', name: 'get_weather' });
+      target.dispatchParentMessage({ type: 'llm.delta', ...call, sequence: 1, event: 'delta', text: '{"city":"Berlin"}' });
+      target.dispatchParentMessage({ type: 'llm.delta', ...call, sequence: 2, event: 'end' });
+      const toolResult = { content: [{ type: 'toolCall', toolCallId: 'call_1', name: 'get_weather', arguments: { city: 'Berlin' } }], finish: 'toolUse' };
+      target.dispatchParentMessage({ type: 'llm.generate.result', id: 'id-5', result: toolResult });
+      await expect(tooling).resolves.toEqual(toolResult);
+      expect(toolDeltas).toEqual([
+        { requestId: 'id-5', sequence: 0, event: 'start', block: 'toolCall', blockIndex: 0, toolCallId: 'call_1', name: 'get_weather' },
+        { requestId: 'id-5', sequence: 1, event: 'delta', block: 'toolCall', blockIndex: 0, text: '{"city":"Berlin"}' },
+        { requestId: 'id-5', sequence: 2, event: 'end', block: 'toolCall', blockIndex: 0 },
+      ]);
+
+      // Malformed deltas at the expected sequence are dropped without advancing it.
+      const guarded: unknown[] = [];
+      const careful = llm.generate(request, { onDelta: (delta: unknown) => guarded.push(delta) }) as Promise<unknown> & { requestId: string };
+      const base = { requestId: careful.requestId, sequence: 0, block: 'text', blockIndex: 0 };
+      target.dispatchParentMessage({ type: 'llm.delta', ...base, event: 'start', text: 'text on a start' });
+      target.dispatchParentMessage({ type: 'llm.delta', ...base, event: 'start', blockIndex: 0.5 });
+      target.dispatchParentMessage({ type: 'llm.delta', ...base, event: 'start', blockIndex: -1 });
+      target.dispatchParentMessage({ type: 'llm.delta', ...base, event: 'start', block: 'toolCall', name: 'get_weather' });
+      target.dispatchParentMessage({ type: 'llm.delta', ...base, event: 'start', block: 'toolCall', toolCallId: 'call_1' });
+      target.dispatchParentMessage({ type: 'llm.delta', ...base, event: 'start', toolCallId: 'stray' });
+      target.dispatchParentMessage({ type: 'llm.delta', ...base, event: 'delta' });
+      target.dispatchParentMessage({ type: 'llm.delta', ...base, event: 'explode' });
+      target.dispatchParentMessage({ type: 'llm.delta', ...base, event: 'start', block: 'audio' });
+      expect(guarded).toEqual([]);
+      target.dispatchParentMessage({ type: 'llm.delta', ...base, event: 'start' });
+      expect(guarded).toEqual([{ requestId: careful.requestId, sequence: 0, event: 'start', block: 'text', blockIndex: 0 }]);
+      target.dispatchParentMessage({ type: 'llm.generate.result', id: careful.requestId, result: { content: [], finish: 'length' } });
+      await careful;
 
       const controller = new AbortController();
       const cancelled = llm.generate(request, { signal: controller.signal }) as Promise<unknown> & { requestId: string };
       controller.abort();
-      expect(target.postedMessages.at(-1)).toEqual({ type: 'llm.cancel', id: 'id-6', requestId: cancelled.requestId });
+      expect(target.postedMessages.at(-1)).toEqual({ type: 'llm.cancel', id: 'id-8', requestId: cancelled.requestId });
       target.dispatchParentMessage({ type: 'llm.generate.result', id: cancelled.requestId, error: { code: 'cancelled', message: 'Generation cancelled; provider charges may still apply.' } });
       await expect(cancelled).rejects.toMatchObject({ code: 'cancelled' });
 
       const cancel = llm.cancel('id-99') as Promise<unknown>;
-      expect(target.postedMessages.at(-1)).toEqual({ type: 'llm.cancel', id: 'id-7', requestId: 'id-99' });
-      target.dispatchParentMessage({ type: 'llm.cancel.result', id: 'id-7', cancelled: false });
+      expect(target.postedMessages.at(-1)).toEqual({ type: 'llm.cancel', id: 'id-9', requestId: 'id-99' });
+      target.dispatchParentMessage({ type: 'llm.cancel.result', id: 'id-9', cancelled: false });
       await expect(cancel).resolves.toBe(false);
 
       const malformed = llm.describe('h1') as Promise<unknown>;
-      target.dispatchParentMessage({ type: 'llm.describe.result', id: 'id-8' });
+      target.dispatchParentMessage({ type: 'llm.describe.result', id: 'id-10' });
       await expect(malformed).rejects.toMatchObject({ code: 'provider-error' });
     });
   });

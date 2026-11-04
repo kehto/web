@@ -14,10 +14,8 @@ pnpm add @kehto/runtime
 
 ## Published Napplet Compatibility
 
-Peers admit `@napplet/core` `>=0.32.0 <0.38.0` and `@napplet/nap`
-`>=0.32.0 <0.37.0`, so the nap 0.35.x line that ships the `llm` subpath (and the
-core 0.36.x line nap 0.35.1 requires) installs without peer conflicts; development
-and tests stay on the baseline 0.32.0 line. The exact installed convention contracts are core 0.32.0 /
+Peers admit `@napplet/core` `>=0.32.0 <0.39.0` and `@napplet/nap`
+`>=0.32.0 <0.38.0`; the runtime does not import the NAP-LLM types, so it keeps the older floor. Host packages develop and build on core 0.38.0 / nap 0.37.0; fixture napplets stay on the exact 0.32.0 line (shim 0.30.0, sdk 0.28.0, vite-plugin 0.16.2). The exact fixture-line convention contracts are core 0.32.0 /
 nap 0.32.0 from NAP-INTENT authority `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`,
 napplet/web#199 source `3037200c932488f14f7f369b8583c39c9c16510a` / merge
 `b3f0007867eac109fa4917fac9c285d3b7cc6155`, and Version Packages #198 release
@@ -348,4 +346,4 @@ This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.co
 
 ## LLM integration
 
-This non-normative guidance defers to the living [NAP-LLM](https://github.com/napplet/naps/pull/134) (checked at `3e10939`). Services export `createLlmService`, `LlmServiceError`, the provider mappers and `LLM_PROVIDER_PRESETS`; shell exports `getShellDomainState` and the `LlmHooks` adapter field; acl exports `llm:generate`. The runtime routes `llm.*` to one registered service and answers every sanctioned request with exactly one `llm.<op>.result`, shaping missing-service and ACL failures as `{ code: 'unsupported' }`. Hosts implement `LlmConnectionHost`; the service enforces schema, handle ownership, a per-window live-handle bound (`maxHandlesPerWindow`), consent before submission, duplicate ids, cancellation and deadline races, ordered deltas and safe errors, and passes `select`/`authorize` a `{ signal }` that withdraws stale prompts. `createHttpLlmProvider({ stream: true })` streams provider output into `llm.delta`. Advertisement stays binary on the wire while hosts report a third `unconfigured` state until the user adds a connection. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
+This non-normative guidance defers to the living [NAP-LLM](https://github.com/napplet/naps/pull/134) (checked at `5e93bdf`). Services export `createLlmService`, `LlmServiceError`, the provider mappers and `LLM_PROVIDER_PRESETS`; shell exports `getShellDomainState` and the `LlmHooks` adapter field; acl exports `llm:generate`. The runtime routes `llm.*` to one registered service and answers every sanctioned request with exactly one `llm.<op>.result`, shaping missing-service and ACL failures as `{ code: 'unsupported' }`. Hosts implement `LlmConnectionHost`; the service enforces schema, handle ownership, a per-window live-handle bound (`maxHandlesPerWindow`), consent before submission, duplicate ids, cancellation and deadline races, ordered deltas and safe errors, and passes `select`/`authorize` a `{ signal }` that withdraws stale prompts. `createHttpLlmProvider({ stream: true })` streams provider output into `llm.delta` as block start/delta/end events. Results carry `content` parts (text, thinking and tool calls); tool calls and results are validated and relayed, and Kehto never executes one. Advertisement stays binary on the wire while hosts report a third `unconfigured` state until the user adds a connection. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).

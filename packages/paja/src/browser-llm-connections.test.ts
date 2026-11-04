@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { buildShellCapabilities, getShellDomainState } from '@kehto/shell';
-import type { LlmGenerationRequest, LlmProviderEndpoint } from '@kehto/services';
+import type { LlmBlockEvent, LlmGenerationRequest, LlmProviderEndpoint } from '@kehto/services';
 import { createPajaAdapter, type PajaConfirmationRequest } from './browser-adapter.js';
 import {
   PAJA_LLM_CONNECTIONS_STORAGE_KEY,
@@ -63,6 +63,22 @@ describe('Paja LLM connection store', () => {
     expect(createPajaLlmConnectionStore(storage).list()).toHaveLength(1);
   });
 
+  it('loads a row saved before tool support as a tools-off connection under the same storage key', () => {
+    expect(PAJA_LLM_CONNECTIONS_STORAGE_KEY).toBe('kehto:paja:llm-connections:v1');
+    const storage = new MemoryStorage();
+    storage.setItem(PAJA_LLM_CONNECTIONS_STORAGE_KEY, JSON.stringify([OLLAMA]));
+    const [loaded] = createPajaLlmConnectionStore(storage).list();
+    expect(loaded).toMatchObject({ id: 'c-ollama', tools: false, toolChoiceModes: [] });
+  });
+
+  it('stores tool-choice modes in canonical order, de-duplicated, with auto and none always present when on', () => {
+    const store = createPajaLlmConnectionStore(new MemoryStorage());
+    expect(store.save({ ...OLLAMA, tools: true, toolChoiceModes: ['tool', 'required', 'tool'] }).toolChoiceModes).toEqual(['auto', 'none', 'required', 'tool']);
+    expect(store.save({ ...OLLAMA, tools: true, toolChoiceModes: [] }).toolChoiceModes).toEqual(['auto', 'none']);
+    expect(store.save({ ...OLLAMA, tools: true, toolChoiceModes: ['bogus' as never, 'required'] }).toolChoiceModes).toEqual(['auto', 'none', 'required']);
+    expect(store.save({ ...OLLAMA, tools: false, toolChoiceModes: ['auto', 'none', 'tool'] }).toolChoiceModes).toEqual([]);
+  });
+
   it('describes a disclosure route without credentials', () => {
     expect(describePajaLlmRoute(OPENAI)).toBe('Paja (this browser) → OpenAI at https://api.openai.com');
     expect(describePajaLlmRoute({ ...OLLAMA, presetId: 'custom' })).toBe('Paja (this browser) → http://127.0.0.1:11434');
@@ -77,7 +93,7 @@ function harness(records: PajaLlmConnectionRecord[], overrides: { confirm?: (req
   const chooseConnection = vi.fn(async (candidates: readonly PajaLlmConnectionRecord[]) => overrides.choose === undefined ? candidates[0] ?? null : overrides.choose);
   const requestUnlock = vi.fn(async () => overrides.unlock ?? false);
   const openPanel = vi.fn();
-  const provider = vi.fn(async (_endpoint: LlmProviderEndpoint, _request: LlmGenerationRequest, _signal: AbortSignal, _onDelta?: (text: string) => void) => ({ text: '{"ok":true}', finish: 'stop' as const }));
+  const provider = vi.fn(async (_endpoint: LlmProviderEndpoint, _request: LlmGenerationRequest, _signal: AbortSignal, _onDelta?: (event: LlmBlockEvent) => void) => ({ content: [{ type: 'text' as const, text: '{"ok":true}' }], finish: 'stop' as const }));
   const host = createPajaLlmHost({ store, vault, confirm, chooseConnection, requestUnlock, openPanel, getIdentity: () => IDENTITY, provider });
   return { store, vault, confirm, chooseConnection, requestUnlock, openPanel, provider, host };
 }
@@ -101,7 +117,7 @@ describe('Paja LLM host', () => {
     const h = harness([OPENAI, OLLAMA]);
     const model = await h.host.select({ windowId: 'w1' }, { images: true });
     expect(h.chooseConnection).toHaveBeenCalledWith([expect.objectContaining({ id: 'c-openai' })], { windowId: 'w1', napplet: IDENTITY, requirements: { images: true } });
-    expect(model).toEqual({ id: 'c-openai', name: 'OpenAI', model: 'gpt-4.1-mini', route: 'Paja (this browser) → OpenAI at https://api.openai.com', images: true, json: true });
+    expect(model).toEqual({ id: 'c-openai', name: 'OpenAI', model: 'gpt-4.1-mini', route: 'Paja (this browser) → OpenAI at https://api.openai.com', images: true, json: true, tools: false, toolChoiceModes: [] });
     expect(JSON.stringify(model)).not.toContain(KEY);
     expect(h.host.describe({ windowId: 'w1' }, 'c-ollama')).toMatchObject({ id: 'c-ollama', json: false });
     h.store.remove('c-ollama');
@@ -120,6 +136,67 @@ describe('Paja LLM host', () => {
     expect(JSON.stringify(request)).not.toContain('iVBOR');
   });
 
+  const TOOLS = [{ name: 'get_weather', description: 'Look up current weather', parameters: { type: 'object', properties: { city: { type: 'string' } }, required: ['city'] } }];
+  const TOOL_HISTORY: LlmGenerationRequest = {
+    handle: 'h',
+    messages: [
+      { role: 'user', content: [{ type: 'text', text: 'What is the weather in Berlin?' }] },
+      { role: 'assistant', content: [{ type: 'toolCall', toolCallId: 'call_1', name: 'get_weather', arguments: { city: 'Berlin' } }] },
+      { role: 'toolResult', toolCallId: 'call_1', toolName: 'get_weather', content: [{ type: 'text', text: '18°C secret result' }] },
+    ],
+    tools: TOOLS,
+    toolChoice: 'auto',
+  };
+
+  it('LLM-C03: a dialect-unsupported request is rejected before any unlock, consent or provider contact', async () => {
+    const anthropic = harness([{ ...OPENAI, id: 'c-claude', presetId: 'anthropic', protocol: 'anthropic-messages', credentialStorage: 'vault', tools: true }], { unlock: true });
+    await anthropic.vault.create('correct horse battery staple');
+    await anthropic.vault.setCredential('c-claude', KEY, 'vault');
+    anthropic.vault.lock();
+    const connection = (await anthropic.host.describe({ windowId: 'w1' }, 'c-claude'))!;
+    // Anthropic needs tool definitions to continue a conversation that contains tool calls.
+    await expect(anthropic.host.authorize({ windowId: 'w1' }, connection, { ...TOOL_HISTORY, tools: undefined, toolChoice: undefined })).rejects.toMatchObject({ code: 'unsupported' });
+    // Gemini cannot combine JSON output with tools.
+    const gemini = harness([{ ...OPENAI, id: 'c-gem', presetId: 'gemini', protocol: 'gemini', credentialStorage: 'vault', tools: true }], { unlock: true });
+    const geminiConnection = (await gemini.host.describe({ windowId: 'w1' }, 'c-gem'))!;
+    await expect(gemini.host.authorize({ windowId: 'w1' }, geminiConnection, { ...TOOL_HISTORY, format: 'json' })).rejects.toMatchObject({ code: 'unsupported' });
+    for (const h of [anthropic, gemini]) {
+      expect(h.confirm).not.toHaveBeenCalled();
+      expect(h.requestUnlock).not.toHaveBeenCalled();
+      expect(h.provider).not.toHaveBeenCalled();
+    }
+  });
+
+  it('LLM-C23: consent names tool definitions and counts tool results without carrying their content, and counts them in characters', async () => {
+    const h = harness([{ ...OLLAMA, tools: true, toolChoiceModes: ['auto', 'none'] }]);
+    const connection = (await h.host.describe({ windowId: 'w1' }, 'c-ollama'))!;
+    expect(connection).toMatchObject({ tools: true, toolChoiceModes: ['auto', 'none'] });
+    await expect(h.host.authorize({ windowId: 'w1' }, connection, TOOL_HISTORY)).resolves.toBe(true);
+    const request = h.confirm.mock.calls[0]![0] as PajaConfirmationRequest;
+    expect(request).toMatchObject({ action: 'llm', messages: 3, tools: ['get_weather'], toolResults: 1, images: 0 });
+    const expected = 'What is the weather in Berlin?'.length + '18°C secret result'.length + JSON.stringify({ city: 'Berlin' }).length + JSON.stringify(TOOLS[0]).length;
+    expect((request as { characters: number }).characters).toBe(expected);
+    // Counts and names only: no prompt text, tool arguments, tool results or schema bodies reach the request record.
+    for (const secret of ['Berlin', '18°C', 'secret result', 'Look up current weather', 'properties']) expect(JSON.stringify(request)).not.toContain(secret);
+    expect(JSON.stringify(request)).toContain('get_weather');
+  });
+
+  it('LLM-C23: a declined consent means the provider is never called', async () => {
+    const h = harness([{ ...OLLAMA, tools: true }], { confirm: () => false });
+    const connection = (await h.host.describe({ windowId: 'w1' }, 'c-ollama'))!;
+    await expect(h.host.authorize({ windowId: 'w1' }, connection, TOOL_HISTORY)).resolves.toBe(false);
+    expect(h.provider).not.toHaveBeenCalled();
+  });
+
+  it('offers only tool-capable connections when the napplet requires tools, and says so', async () => {
+    const h = harness([OLLAMA, { ...OPENAI, tools: true }]);
+    await h.host.select({ windowId: 'w1' }, { tools: true });
+    expect(h.chooseConnection).toHaveBeenCalledWith([expect.objectContaining({ id: 'c-openai' })], expect.anything());
+    const none = harness([OLLAMA], { confirm: () => true });
+    await expect(none.host.select({ windowId: 'w1' }, { tools: true })).rejects.toMatchObject({ code: 'unsupported' });
+    expect(none.confirm).toHaveBeenCalledWith(expect.objectContaining({ action: 'llm-configure', requirements: 'any model, tool calling' }));
+  });
+
   it('unlocks the vault before consent and sends the credential only on the provider request', async () => {
     const h = harness([OPENAI], { unlock: true });
     await h.vault.create('correct horse battery staple');
@@ -131,12 +208,12 @@ describe('Paja LLM host', () => {
     expect(h.requestUnlock).toHaveBeenCalledOnce();
     expect(JSON.stringify(h.confirm.mock.calls[0])).not.toContain(KEY);
     const controller = new AbortController();
-    const deltas: string[] = [];
-    await expect(h.host.generate({ windowId: 'w1' }, connection, REQUEST, { signal: controller.signal, onDelta: (text) => deltas.push(text) })).resolves.toEqual({ text: '{"ok":true}', finish: 'stop' });
+    const deltas: LlmBlockEvent[] = [];
+    await expect(h.host.generate({ windowId: 'w1' }, connection, REQUEST, { signal: controller.signal, onDelta: (event) => deltas.push(event) })).resolves.toEqual({ content: [{ type: 'text', text: '{"ok":true}' }], finish: 'stop' });
     expect(h.provider).toHaveBeenCalledWith({ protocol: 'openai-chat', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4.1-mini', credential: KEY }, REQUEST, controller.signal, expect.any(Function));
-    const forward = h.provider.mock.calls[0]![3] as (text: string) => void;
-    forward('{"ok"');
-    expect(deltas).toEqual(['{"ok"']);
+    const forward = h.provider.mock.calls[0]![3] as (event: LlmBlockEvent) => void;
+    forward({ event: 'delta', block: 'text', blockIndex: 0, text: '{"ok"' });
+    expect(deltas).toEqual([{ event: 'delta', block: 'text', blockIndex: 0, text: '{"ok"' }]);
   });
 
   it('fails typed when the vault stays locked or a session key is gone, and for removed connections', async () => {

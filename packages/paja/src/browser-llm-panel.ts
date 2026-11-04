@@ -8,7 +8,7 @@
  * from the form once and handed straight to the vault.
  */
 
-import { LLM_PROVIDER_PRESETS, type LlmProviderPreset } from '@kehto/services';
+import { LLM_PROVIDER_PRESETS, type LlmProviderPreset, type LlmToolChoiceMode } from '@kehto/services';
 import type { PajaConfirmationHandler } from './browser-adapter.js';
 import { fetchPajaLlmModels, PajaLlmModelsError } from './browser-llm-models.js';
 import {
@@ -153,7 +153,7 @@ function createChooserDialog(): ChooserDialog {
     choose(candidates, context) {
       if (settle) finish(null);
       if (context.signal?.aborted) return Promise.resolve(null);
-      const wanted = [context.requirements.model ? `model ${context.requirements.model}` : null, context.requirements.images ? 'image input' : null, context.requirements.json ? 'JSON output' : null].filter(Boolean).join(', ');
+      const wanted = [context.requirements.model ? `model ${context.requirements.model}` : null, context.requirements.images ? 'image input' : null, context.requirements.json ? 'JSON output' : null, context.requirements.tools ? 'tool calling' : null].filter(Boolean).join(', ');
       copy.textContent = `${context.napplet.dTag} (${context.windowId}) asks to use a language model${wanted ? ` with ${wanted}` : ''}. Selecting does not send anything yet; each generation asks for consent.`;
       select.replaceChildren(...candidates.map((record) => {
         const option = document.createElement('option');
@@ -184,6 +184,7 @@ interface FormElements {
   form: HTMLFormElement; preset: HTMLSelectElement; name: HTMLInputElement; baseUrl: HTMLInputElement; model: HTMLInputElement;
   modelField: HTMLElement; modelSelect: HTMLSelectElement; modelSelectField: HTMLElement; modelStatus: HTMLElement;
   examples: HTMLDataListElement; credential: HTMLInputElement; remember: HTMLInputElement; images: HTMLInputElement; json: HTMLInputElement;
+  tools: HTMLInputElement; toolRequired: HTMLInputElement; toolNamed: HTMLInputElement;
   list: HTMLElement; status: HTMLElement; lock: HTMLButtonElement; section: HTMLDetailsElement | null;
 }
 
@@ -202,12 +203,15 @@ function readForm(): FormElements | null {
   const remember = byId('paja-llm-remember', HTMLInputElement);
   const images = byId('paja-llm-images', HTMLInputElement);
   const json = byId('paja-llm-json', HTMLInputElement);
+  const tools = byId('paja-llm-tools', HTMLInputElement);
+  const toolRequired = byId('paja-llm-tool-required', HTMLInputElement);
+  const toolNamed = byId('paja-llm-tool-named', HTMLInputElement);
   const list = byId('paja-llm-connections', HTMLElement);
   const status = byId('paja-llm-status', HTMLElement);
   const lock = byId('paja-llm-vault-lock', HTMLButtonElement);
-  if (!form || !preset || !name || !baseUrl || !model || !modelField || !modelSelect || !modelSelectField || !modelStatus || !examples || !credential || !remember || !images || !json || !list || !status || !lock) return null;
+  if (!form || !preset || !name || !baseUrl || !model || !modelField || !modelSelect || !modelSelectField || !modelStatus || !examples || !credential || !remember || !images || !json || !tools || !toolRequired || !toolNamed || !list || !status || !lock) return null;
   return {
-    form, preset, name, baseUrl, model, modelField, modelSelect, modelSelectField, modelStatus, examples, credential, remember, images, json, list, status, lock,
+    form, preset, name, baseUrl, model, modelField, modelSelect, modelSelectField, modelStatus, examples, credential, remember, images, json, tools, toolRequired, toolNamed, list, status, lock,
     section: byId('paja-section-llm', HTMLDetailsElement),
   };
 }
@@ -371,7 +375,7 @@ export function installPajaLlmPanel(options: PajaLlmPanelOptions): PajaLlmPanel 
       const tier = record.credentialStorage === 'vault' ? (vault.isUnlocked() ? 'key unlocked' : 'key encrypted, locked')
         : record.credentialStorage === 'session' ? (vault.getCredential(record.id) ? 'key for this session' : 'key missing') : 'no key';
       label.textContent = `${record.name} · ${record.model} · ${new URL(record.baseUrl).origin} · ${tier}`;
-      label.title = `${record.protocol}${record.images ? ' · images' : ''}${record.json ? ' · json' : ''}`;
+      label.title = `${record.protocol}${record.images ? ' · images' : ''}${record.json ? ' · json' : ''}${record.tools ? ' · tools' : ''}`;
       const remove = document.createElement('button');
       remove.type = 'button';
       remove.textContent = 'Remove';
@@ -396,6 +400,12 @@ export function installPajaLlmPanel(options: PajaLlmPanelOptions): PajaLlmPanel 
     options.onChange?.();
   }
 
+  /** `auto` and `none` are always listed by the store when tools are on; the sub-options add the rest. */
+  function toolChoiceModes(form: FormElements): LlmToolChoiceMode[] {
+    if (!form.tools.checked) return [];
+    return [...(form.toolRequired.checked ? ['required' as const] : []), ...(form.toolNamed.checked ? ['tool' as const] : [])];
+  }
+
   async function submit(event: Event): Promise<void> {
     event.preventDefault();
     if (!elements) return;
@@ -412,6 +422,7 @@ export function installPajaLlmPanel(options: PajaLlmPanelOptions): PajaLlmPanel 
       record = {
         id: createId(), name: elements.name.value, presetId: preset?.id ?? 'custom', protocol: preset?.protocol ?? 'openai-chat',
         baseUrl: normalizePajaLlmBaseUrl(elements.baseUrl.value), model, images: elements.images.checked, json: elements.json.checked,
+        tools: elements.tools.checked, toolChoiceModes: toolChoiceModes(elements),
         credentialStorage: storage, ...(preset?.credentialHeader ? { credentialHeader: preset.credentialHeader } : {}),
       };
       if (storage === 'vault' && !await ensureVaultUnlocked()) { setStatus('The key was not saved: the vault stayed locked.', true); return; }
@@ -440,16 +451,26 @@ export function installPajaLlmPanel(options: PajaLlmPanelOptions): PajaLlmPanel 
       void refreshModels();
     };
     const onSubmit = (event: Event): void => { void submit(event); };
+    // The sub-options only make sense with tool calling on; turning it off clears and disables them.
+    const onTools = (): void => {
+      for (const option of [elements.toolRequired, elements.toolNamed]) {
+        option.disabled = !elements.tools.checked;
+        if (!elements.tools.checked) option.checked = false;
+      }
+    };
     const onLock = (): void => { vault.lock(); renderList(); setStatus('Vault locked for this session.'); options.onChange?.(); };
     elements.preset.addEventListener('change', onPreset);
     elements.baseUrl.addEventListener('change', onBaseUrl);
     elements.form.addEventListener('submit', onSubmit);
+    elements.tools.addEventListener('change', onTools);
     elements.lock.addEventListener('click', onLock);
+    onTools();
     disposers.push(() => {
       modelListing?.abort();
       elements.preset.removeEventListener('change', onPreset);
       elements.baseUrl.removeEventListener('change', onBaseUrl);
       elements.form.removeEventListener('submit', onSubmit);
+      elements.tools.removeEventListener('change', onTools);
       elements.lock.removeEventListener('click', onLock);
     });
     renderList();

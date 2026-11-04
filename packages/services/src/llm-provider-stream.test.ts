@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { buildLlmProviderRequest, parseLlmProviderResponse, type LlmProviderEndpoint, type LlmProviderProtocol } from './llm-providers.js';
 import { createHttpLlmProvider, type LlmFetchResponse } from './llm-provider-http.js';
 import { createLlmStreamAccumulator, readLlmSseData } from './llm-provider-stream.js';
-import type { LlmGenerationRequest } from './llm-types.js';
+import type { LlmBlockEvent, LlmGenerationRequest } from './llm-types.js';
 
 const KEY = 'sk-stream-secret';
 const REQUEST: LlmGenerationRequest = { handle: 'h', messages: [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }] };
@@ -94,13 +94,18 @@ describe('readLlmSseData', () => {
 
 describe('createHttpLlmProvider({ stream: true })', () => {
   for (const [protocol, sse] of [['openai-chat', OPENAI_SSE], ['anthropic-messages', ANTHROPIC_SSE], ['gemini', GEMINI_SSE]] as const) {
-    it(`${protocol}: forwards ordered fragments and resolves the buffered path's generation`, async () => {
+    it(`${protocol}: forwards ordered block events and resolves the buffered path's generation`, async () => {
       for (const size of [1, 7, 4096]) {
-        const deltas: string[] = [];
+        const deltas: LlmBlockEvent[] = [];
         const calls: Array<[string, { body: string; headers: Record<string, string> }]> = [];
         const generate = createHttpLlmProvider({ stream: true, fetch: async (url, init) => { calls.push([url, init]); return sseResponse(sse, size); } });
-        const result = await generate(endpoint(protocol), REQUEST, new AbortController().signal, (text) => deltas.push(text));
-        expect(deltas, `chunk ${size}`).toEqual(['Hél', 'lo']);
+        const result = await generate(endpoint(protocol), REQUEST, new AbortController().signal, (event) => deltas.push(event));
+        expect(deltas, `chunk ${size}`).toEqual([
+          { event: 'start', block: 'text', blockIndex: 0 },
+          { event: 'delta', block: 'text', blockIndex: 0, text: 'Hél' },
+          { event: 'delta', block: 'text', blockIndex: 0, text: 'lo' },
+          { event: 'end', block: 'text', blockIndex: 0 },
+        ]);
         expect(result).toEqual(parseLlmProviderResponse(protocol, BUFFERED[protocol]));
         expect(calls).toHaveLength(1);
         expect(calls[0]![0]).toBe(buildLlmProviderRequest(endpoint(protocol), REQUEST, { stream: true }).url);
@@ -112,10 +117,10 @@ describe('createHttpLlmProvider({ stream: true })', () => {
   it('maps streamed refusals and blocked prompts to refusal like the buffered path', async () => {
     const refusal = 'data: {"choices":[{"index":0,"delta":{"refusal":"I can\'t help."},"finish_reason":null}]}\n\ndata: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}\n\n';
     const openai = createHttpLlmProvider({ stream: true, fetch: async () => sseResponse(refusal) });
-    await expect(openai(endpoint('openai-chat'), REQUEST, new AbortController().signal)).resolves.toEqual({ text: '', finish: 'refusal' });
+    await expect(openai(endpoint('openai-chat'), REQUEST, new AbortController().signal)).resolves.toEqual({ content: [], finish: 'refusal' });
     const blocked = 'data: {"promptFeedback":{"blockReason":"SAFETY"}}\n\n';
     const gemini = createHttpLlmProvider({ stream: true, fetch: async () => sseResponse(blocked) });
-    await expect(gemini(endpoint('gemini'), REQUEST, new AbortController().signal)).resolves.toEqual({ text: '', finish: 'refusal' });
+    await expect(gemini(endpoint('gemini'), REQUEST, new AbortController().signal)).resolves.toEqual({ content: [], finish: 'refusal' });
   });
 
   it('shapes stream errors, missing markers, bad events and missing bodies as provider-error without echoing bodies', async () => {
@@ -126,18 +131,18 @@ describe('createHttpLlmProvider({ stream: true })', () => {
       ['openai-chat', { ok: true, status: 200, json: async () => ({}), body: null, headers: { get: () => 'text/event-stream' } }, 'The provider response had no readable stream.'],
     ];
     for (const [protocol, response, message] of cases) {
-      const deltas: string[] = [];
+      const deltas: LlmBlockEvent[] = [];
       const generate = createHttpLlmProvider({ stream: true, fetch: async () => response });
-      const failure = await generate(endpoint(protocol), REQUEST, new AbortController().signal, (text) => deltas.push(text)).catch((error: unknown) => error);
+      const failure = await generate(endpoint(protocol), REQUEST, new AbortController().signal, (event) => deltas.push(event)).catch((error: unknown) => error);
       expect(failure).toMatchObject({ code: 'provider-error', message });
       expect(JSON.stringify(failure)).not.toContain(KEY);
     }
   });
 
   it('accepts a JSON body from a server that ignored the stream request, with no deltas', async () => {
-    const deltas: string[] = [];
+    const deltas: LlmBlockEvent[] = [];
     const generate = createHttpLlmProvider({ stream: true, fetch: async () => ({ ok: true, status: 200, json: async () => BUFFERED['openai-chat'], body: streamOf([]), headers: { get: () => 'application/json; charset=utf-8' } }) });
-    await expect(generate(endpoint('openai-chat'), REQUEST, new AbortController().signal, (text) => deltas.push(text))).resolves.toEqual({ text: 'Héllo', finish: 'stop', usage: { inputTokens: 9, outputTokens: 2 } });
+    await expect(generate(endpoint('openai-chat'), REQUEST, new AbortController().signal, (event) => deltas.push(event))).resolves.toEqual({ content: [{ type: 'text', text: 'Héllo' }], finish: 'stop', usage: { inputTokens: 9, outputTokens: 2 } });
     expect(deltas).toEqual([]);
   });
 
@@ -148,21 +153,24 @@ describe('createHttpLlmProvider({ stream: true })', () => {
       cancel() { cancelled = true; },
     });
     const controller = new AbortController();
-    const deltas: string[] = [];
+    const deltas: LlmBlockEvent[] = [];
     const generate = createHttpLlmProvider({ stream: true, fetch: async () => ({ ok: true, status: 200, json: async () => ({}), body, headers: { get: () => 'text/event-stream' } }) });
-    const pending = generate(endpoint('openai-chat'), REQUEST, controller.signal, (text) => { deltas.push(text); controller.abort(new DOMException('stop', 'AbortError')); });
+    const pending = generate(endpoint('openai-chat'), REQUEST, controller.signal, (event) => { deltas.push(event); controller.abort(new DOMException('stop', 'AbortError')); });
     await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
     expect(cancelled).toBe(true);
-    expect(deltas).toEqual(['one']);
+    expect(deltas).toEqual([
+      { event: 'start', block: 'text', blockIndex: 0 },
+      { event: 'delta', block: 'text', blockIndex: 0, text: 'one' },
+    ]);
   });
 
   it('never calls onDelta on the buffered path', async () => {
-    const deltas: string[] = [];
+    const deltas: LlmBlockEvent[] = [];
     const generate = createHttpLlmProvider({ fetch: async (_url, init) => {
       expect(JSON.parse(init.body).stream).toBe(false);
       return { ok: true, status: 200, json: async () => BUFFERED['openai-chat'] };
     } });
-    await expect(generate(endpoint('openai-chat'), REQUEST, new AbortController().signal, (text) => deltas.push(text))).resolves.toMatchObject({ text: 'Héllo' });
+    await expect(generate(endpoint('openai-chat'), REQUEST, new AbortController().signal, (event) => deltas.push(event))).resolves.toMatchObject({ content: [{ type: 'text', text: 'Héllo' }] });
     expect(deltas).toEqual([]);
   });
 });

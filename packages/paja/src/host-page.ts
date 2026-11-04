@@ -325,6 +325,9 @@ export function renderPajaHtml(config: PajaHostConfig): string {
             <label class="llm-check"><input id="paja-llm-remember" type="checkbox"><span>Remember the key, encrypted with a vault password</span></label>
             <label class="llm-check"><input id="paja-llm-images" type="checkbox"><span>Accepts image input</span></label>
             <label class="llm-check"><input id="paja-llm-json" type="checkbox" checked><span>Supports JSON-object output</span></label>
+            <label class="llm-check"><input id="paja-llm-tools" type="checkbox"><span>Tool calling</span></label>
+            <label class="llm-check"><input id="paja-llm-tool-required" type="checkbox" disabled><span>Required tool choice</span></label>
+            <label class="llm-check"><input id="paja-llm-tool-named" type="checkbox" disabled><span>Named tool choice</span></label>
             <div class="llm-actions">
               <button type="submit" id="paja-llm-save">Add connection</button>
               <button type="button" id="paja-llm-vault-lock" hidden>Lock vault</button>

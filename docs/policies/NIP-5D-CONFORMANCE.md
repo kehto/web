@@ -35,8 +35,9 @@ implementation authority. `RUNTIME-SPEC.md` is internal runtime guidance.
   `3037200c932488f14f7f369b8583c39c9c16510a`, merged as
   `b3f0007867eac109fa4917fac9c285d3b7cc6155`; and Version Packages #198 head
   `a79e7f4638f70f4557d4183faee9348847bb8cc7`, merged as release source
-  `dc1d24153c759152b6ba31a6ec9bea967798f2df`. The current exact line is core
-  `0.32.0`, nap `0.32.0`, shim `0.30.0`, SDK `0.28.0`, and Vite plugin `0.16.2`.
+  `dc1d24153c759152b6ba31a6ec9bea967798f2df`. The exact fixture-napplet line is core
+  `0.32.0`, nap `0.32.0`, shim `0.30.0`, SDK `0.28.0`, and Vite plugin `0.16.2`; host
+  packages develop on core `0.38.0` and nap `0.37.0`.
 
 ### Current event schema and retained compatibility
 
@@ -263,7 +264,7 @@ the superseded opener-only view must not be restored.
 
 Checked NAP-INTENT PR #106 at `napplet/naps@fc121fc264615482143eda86125863d2e1f741a2` and NIP-5D PR #2303 at `dskvr/nips@020cb8b33a9e4c6b8ca4b2f9d0ed0a67843b68f7`. Paja uses verified manifest contracts, opaque publisher-safe catalog IDs, parent-attested sender identity, exact convention matching, and one `intent.deliver` after source-bound readiness. A success result records retained delivery responsibility only; no completion result is sent to the source.
 
-`@napplet/nap@0.32.0` is behind the checked NAP. `packages/services/src/intent-types.ts` is the bounded local contract until upstream exports the exact candidate IDs/contracts, accepted result, and delivery shapes. It is not a second transport: remove it only when that release lands and the service, shell, and Paja regressions pass against the upstream export. `sourceWindowId` is internal host correlation and never wire data. Legacy INC fallback remains separately tracked as `KEHTO_COMPAT_INTENT_INC`; legacy object invoke is tracked as `KEHTO_COMPAT_INTENT_OBJECT_INVOKE`.
+`@napplet/nap@0.32.0` (the fixture line) is behind the checked NAP. `packages/services/src/intent-types.ts` is the bounded local contract. `@napplet/nap@0.37.0` now exports `IntentCandidate` and related types and `@napplet/core@0.38.0` declares `intent.onDelivery`; adopting them is a tracked follow-up that must show the exact candidate IDs/contracts, accepted result, and delivery shapes match. It is not a second transport: remove it only when that migration lands and the service, shell, and Paja regressions pass against the upstream export. `sourceWindowId` is internal host correlation and never wire data. Legacy INC fallback remains separately tracked as `KEHTO_COMPAT_INTENT_INC`; legacy object invoke is tracked as `KEHTO_COMPAT_INTENT_OBJECT_INVOKE`.
 
 NIP-5D bytes are verified before `srcdoc` execution; injected bootstraps are deliberately outside the signed artifact hash and unknown `MessageEvent.source` values are dropped. Paja's external URL uses a signed ephemeral launcher to provide an authenticated source. Opening a shared link follows ordinary verified-pointer navigation policy and opens the app directly. A conflicting applicable saved default and verified link hint require a named-app choice; a one-time choice never changes the default. Persisted catalog pointers are discovery inputs that must be reverified independently of open tabs. A native external host source has no verified iframe endpoint and remains a deferred upstream spec gap.
 
@@ -323,9 +324,12 @@ Authority: [NIP-5D at
   frozen environment, and calls `ShellAdapter.onNappletRevoked` so the host
   removes the frame. `originRegistry.register` refuses a spent `Window`. Hosts
   create a fresh iframe for every navigation; Paja and the e2e harness do.
-- Kehto's development line stays on `@napplet/core`/`@napplet/nap` 0.32.0
-  (kehto/web#364); published peers admit core `<0.38.0` and nap `<0.37.0`.
-  Kehto implements both sides of the handoff itself and needs no 0.37-only API.
+- Kehto's host packages develop on `@napplet/core` 0.38.0 and `@napplet/nap` 0.37.0;
+  published peers are per package (core `<0.39.0`, nap `<0.38.0`; `@kehto/services` and
+  `@kehto/paja` floor at 0.38.0 / 0.37.0). Fixture napplets, `@napplet/shim` 0.30.0,
+  `@napplet/sdk` 0.28.0 and `@napplet/vite-plugin` 0.16.2 stay on their exact pins
+  (kehto/web#364). Kehto implements both sides of the handoff itself and needs no
+  newer shim API.
 - Spec-gap decision: NIP-5D says a reload "is handled as a navigation" and the
   shell MAY create a fresh iframe from the verified bytes. Kehto removes or
   replaces the frame but does not reload it automatically. Paja leaves the tab
@@ -353,7 +357,7 @@ Current NIP-5D runtime availability is injected
   errors, and diagnostics belong to the matching NAP spec.
 - NAP-SHELL is optional and does not gate other domain calls. Trusted iframe creation identity and frozen environment grants establish routing independently of `shell.ready`. The optional namespace exposes `ready()`, local `supports(domain)`, read-only `services`, and `onReady()`; napplet artifacts are not required to bundle their own handshake. This non-normative guidance defers to the living [NAP-SHELL](https://github.com/napplet/naps/blob/master/naps/NAP-SHELL.md).
 - GAMEPAD follows the proposed [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). The host denies native gamepad/HID/USB controller access before loading frames and supplies focus-scoped snapshots through the injected namespace. Optional native Gamepad API replacement is deferred because its permission in GAMEPAD conflicts with NIP-5D's restriction of runtime injection to `window.napplet`.
-- LLM follows the draft [NAP-LLM](https://github.com/napplet/naps/pull/134) at `3e10939cf788878bbdcc022c101f0ac6193f316c`. Domain presence is injected only when a host registers an `llm` service; configuration state is a host UI concern (`getShellDomainState`) and never changes the wire. The runtime binds handles, results and cancellation to the authenticated endpoint, obtains disclosure consent before each generation, keeps credentials and provider identifiers behind the host adapter, and performs provider communication itself. `@napplet/nap@0.35.0` ships the `llm` subpath and the published peer ranges admit it; the 0.32.0 development baseline does not, so `@kehto/services` mirrors the upstream `feat/nap-llm` draft types (`6e5c9fa9`), structurally identical to the `@napplet/nap@0.35.1` export, until the development baseline moves to 0.35.
+- LLM follows the draft [NAP-LLM](https://github.com/napplet/naps/pull/134) at `5e93bdfce0e84c0de728234cb7b3feed498f8635` (checked: conformant at that head, including tool calls and results, `thinking`, `content` parts, block deltas, `maxTokens`, `temperature`, `toolChoice` modes, usage extras and cases LLM-C01..C23). Domain presence is injected only when a host registers an `llm` service; configuration state is a host UI concern (`getShellDomainState`) and never changes the wire. The runtime binds handles, results and cancellation to the authenticated endpoint, obtains disclosure consent before each generation, keeps credentials and provider identifiers behind the host adapter, and performs provider communication itself. `@kehto/services` re-exports the record and envelope types from `@napplet/nap/llm/types` (nap 0.37.0 over core 0.38.0), so it no longer mirrors the draft. The runtime never executes a provider-returned tool call; it validates and relays it and the napplet owns execution.
 
 ### Paja local development targets
 
