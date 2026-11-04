@@ -62,6 +62,8 @@ export type {
   NappKeyEntry,  // @deprecated — use SessionEntry
   AclEntry,
   AclCheckEvent,
+  FirewallEvent,
+  FirewallPersistence,
   UnroutedMessageInfo,
   NappletRevocation,
   NappletRevocationReason,
