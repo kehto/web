@@ -172,6 +172,11 @@ bridge.runtime.registerService(
 ### Hooks adapter
 - `adaptHooks` — convert a `ShellAdapter` + `BrowserDeps` into the canonical `RuntimeAdapter` hook bag consumed by `@kehto/runtime`
 
+### Firewall hooks
+- `ShellAdapter.getFocusContext?(windowId)` — returns `{ focused, msSinceFocusGain? }`. Without it, every window counts as focused and `unfocusedMultiplier` never applies.
+- `ShellAdapter.onFirewallEvent?(event)` — reports each firewall flag, rejection and prompt as a `FirewallEvent`, so a host can show what was refused.
+- `ShellAdapter.firewallPersistence?` — a `FirewallPersistence` that stores firewall config across reloads. Without it, firewall config stays in memory. Counters are never stored.
+
 ### Diagnostics
 - `ShellAdapter.onNappletRevoked?(revocation)` — called once when the bridge revokes a NIP-5D binding (`NappletRevocation`: `{ windowId, reason, detail }`, `reason` one of `NappletRevocationReason`). The host must remove the frame.
 - `ShellAdapter.onNappletMessage?(windowId, message)` — observe-only; called for each NAP envelope received on a bound port before dispatch.
@@ -290,7 +295,7 @@ including requests sent before the optional `shell.ready` exchange.
 - `TopicKey`, `TopicValue` — typed topic lookup helpers
 
 ### Types
-Exported for host-app integration: `ShellAdapter`, `ShellCapabilities`, `CapabilityHooks`, `OriginIdentity`, `RelayPoolHooks`, `RelayPoolLike`, `RelayConfigHooks`, `WindowManagerHooks`, `AuthHooks`, `ConfigHooks`, `HotkeyHooks`, `WorkerRelayHooks`, `WorkerRelayLike`, `CryptoHooks`, `DmHooks`, `UploadHooks`, `IntentHooks`, `LinkHooks`, `CommonHooks`, `ListsHooks`, `SerialHooks`, `BleHooks`, `WebrtcHooks`, `SessionEntry`, `NappKeyEntry` (deprecated), `AclEntry`, `AclCheckEvent`, `UnroutedMessageInfo`, `ServiceDescriptor`, `ServiceHandler`, `ServiceRegistry`, `NostrEvent`, `NostrFilter`, `NappletMessage`, `ConsentRequest`, and per-proxy `*Deps`/`*Proxy` interfaces.
+Exported for host-app integration: `ShellAdapter`, `ShellCapabilities`, `CapabilityHooks`, `OriginIdentity`, `RelayPoolHooks`, `RelayPoolLike`, `RelayConfigHooks`, `WindowManagerHooks`, `AuthHooks`, `ConfigHooks`, `HotkeyHooks`, `WorkerRelayHooks`, `WorkerRelayLike`, `CryptoHooks`, `DmHooks`, `UploadHooks`, `IntentHooks`, `LinkHooks`, `CommonHooks`, `ListsHooks`, `SerialHooks`, `BleHooks`, `WebrtcHooks`, `SessionEntry`, `NappKeyEntry` (deprecated), `AclEntry`, `AclCheckEvent`, `FirewallEvent`, `FirewallPersistence`, `UnroutedMessageInfo`, `ServiceDescriptor`, `ServiceHandler`, `ServiceRegistry`, `NostrEvent`, `NostrFilter`, `NappletMessage`, `ConsentRequest`, and per-proxy `*Deps`/`*Proxy` interfaces.
 
 `RelayPoolLike.publish()` may return `Promise<void>` when transport acceptance
 is asynchronous. The shell adapter forwards that promise so the runtime does
