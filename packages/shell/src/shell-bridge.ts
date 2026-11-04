@@ -12,7 +12,7 @@ import type { Theme } from '@napplet/nap/theme/types';
 import { createShellReadyState } from './shell-ready.js';
 import { createNip5dTransport } from './nip5d-transport.js';
 
-export { NAPPLET_HELLO } from './nip5d-transport.js';
+export { MAX_DEFERRED_MESSAGES, NAPPLET_HELLO } from './nip5d-transport.js';
 
 /**
  * Shell-side message bridge that handles NIP-5D communication with napplet iframes.
@@ -172,6 +172,20 @@ export interface ShellBridge {
   revokeNapplet(windowId: string, reason?: NappletRevocationReason): void;
 
   /**
+   * Dispatch the envelopes `ShellAdapter.filterNappletMessage` deferred for a
+   * window, in arrival order and without asking the filter again. ACL and
+   * firewall checks run at release. Revoking a binding discards what it held.
+   *
+   * @param windowId - The napplet window to release
+   * @returns How many envelopes were dispatched
+   * @example
+   * ```ts
+   * bridge.releaseDeferred(windowId);
+   * ```
+   */
+  releaseDeferred(windowId: string): number;
+
+  /**
    * Access the underlying runtime instance for advanced use cases.
    * Provides direct access to the runtime's sessionRegistry, aclState,
    * and manifestCache.
@@ -267,6 +281,7 @@ export function createShellBridge(hooks: ShellAdapter): ShellBridge {
     observeFrame: transport.observeFrame,
 
     revokeNapplet: transport.revokeNapplet,
+    releaseDeferred: transport.releaseDeferred,
 
     get runtime() {
       return runtime;
