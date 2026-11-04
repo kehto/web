@@ -15,12 +15,15 @@ export type { SessionEntry, NappKeyEntry } from '@kehto/runtime';
 
 // Import Capability type locally for use in this file's shell-specific types
 import type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
-import type { Capability, RuntimeConfigOverrides, ServiceHandler, ServiceRegistry } from '@kehto/runtime';
+import type { Capability, FirewallEvent, FirewallPersistence, RuntimeConfigOverrides, ServiceHandler, ServiceRegistry } from '@kehto/runtime';
 import type { NappletMessageTarget, OriginIdentity } from './origin-registry.js';
 
 // Re-export service types so shell consumers can still import from @kehto/shell
 // (ServiceDescriptor already re-exported above from @kehto/runtime).
 export type { ServiceHandler, ServiceRegistry };
+
+// Re-export the firewall hook payloads named by ShellAdapter.
+export type { FirewallEvent, FirewallPersistence };
 
 /**
  * ACL entry controlling what a napplet pubkey is permitted to do.
@@ -347,6 +350,7 @@ export interface UnroutedMessageInfo {
  * - `invalid-hello` — a `napplet.hello` without exactly one transferred port.
  * - `second-load` — the iframe loaded a second document (navigation or reload).
  * - `port-closed` — the bound port closed or failed to deserialize a message.
+ * - `deferred-overflow` — too many envelopes were waiting on `filterNappletMessage` deferral.
  * - `host` — the host revoked the binding itself.
  */
 export type NappletRevocationReason =
@@ -355,7 +359,17 @@ export type NappletRevocationReason =
   | 'invalid-hello'
   | 'second-load'
   | 'port-closed'
+  | 'deferred-overflow'
   | 'host';
+
+/**
+ * What {@link ShellAdapter.filterNappletMessage} wants done with an envelope.
+ *
+ * - `dispatch` — hand it to the runtime.
+ * - `drop` — discard it. The binding stays live and nothing is sent back.
+ * - `defer` — hold it until `ShellBridge.releaseDeferred(windowId)`.
+ */
+export type NappletMessageDecision = 'dispatch' | 'drop' | 'defer';
 
 /**
  * Passed to {@link ShellAdapter.onNappletRevoked} after the shell closed the
@@ -483,6 +497,26 @@ export interface ShellAdapter {
   /** Called on every ACL enforcement check. Both allows and denials are reported. */
   onAclCheck?: (event: AclCheckEvent) => void;
   /**
+   * Stores firewall config across reloads. Without it, firewall config stays in
+   * memory and resets when the bridge is recreated. Counters are never stored.
+   */
+  firewallPersistence?: FirewallPersistence;
+  /**
+   * Called when the runtime firewall flags, rejects or prompts for a message, so
+   * a host can show the user what was refused. Passing messages without a flag
+   * are not reported.
+   */
+  onFirewallEvent?: (event: FirewallEvent) => void;
+  /**
+   * Reports whether a napplet window has focus. Without it, every window counts
+   * as focused, so `unfocusedMultiplier` never applies. Focus only scales rate
+   * budgets and never blocks a message by itself.
+   *
+   * @param windowId - The napplet window to query
+   * @returns Current focus state and optional milliseconds since focus was gained
+   */
+  getFocusContext?: (windowId: string) => { focused: boolean; msSinceFocusGain?: number };
+  /**
    * Called when `ShellBridge.handleMessage` drops an incoming postMessage because
    * it cannot be routed to a registered napplet window (no source window, or the
    * source `Window` is not in `originRegistry`). Observe-only — the message is
@@ -508,6 +542,24 @@ export interface ShellAdapter {
    * message; host hook errors are swallowed.
    */
   onNappletMessage?: (windowId: string, message: NappletMessage) => void;
+  /**
+   * Decides what happens to each NAP envelope from a bound port, before the
+   * runtime sees it. `onNappletMessage` still observes every envelope first. A
+   * filter that throws or returns an unknown value drops the envelope.
+   *
+   * `shell.ready` never reaches this hook, because NAP-SHELL requires its first
+   * `shell.init` reply. While envelopes are deferred, a later `dispatch` decision
+   * joins the queue so it can't overtake them, and `drop` still discards. A window
+   * holding more than `MAX_DEFERRED_MESSAGES` is revoked with `deferred-overflow`.
+   *
+   * Spec gap: NAP docs don't define a request that a host holds or drops. A
+   * dropped request gets no reply, and a deferred one gets its reply on release.
+   *
+   * @param windowId - The napplet window that sent the envelope
+   * @param message - The envelope received on the bound port
+   * @returns The decision for this envelope
+   */
+  filterNappletMessage?: (windowId: string, message: NappletMessage) => NappletMessageDecision;
   /** Called when aggregate hash verification fails (computed != declared). */
   onHashMismatch?: (dTag: string, claimed: string, computed: string) => void;
   /**
@@ -539,4 +591,12 @@ export interface ShellAdapter {
    * so changes take effect immediately without runtime recreation.
    */
   getConfigOverrides?(): RuntimeConfigOverrides;
+  /**
+   * ACL policy for identities with no stored entry. `'restrictive'` starts them
+   * with nothing granted. When omitted, the policy is `'permissive'` unless
+   * persisted ACL state stores another one. When set, it replaces the policy in
+   * persisted state on load. Stored entries are kept as they are, so a host
+   * moving to `'restrictive'` should clear entries it no longer trusts.
+   */
+  aclDefaultPolicy?: 'permissive' | 'restrictive';
 }

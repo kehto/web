@@ -378,8 +378,12 @@ export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): Runtime
     shellSecretPersistence: createShellSecretPersistence(),
     guidPersistence: createGuidPersistence(),
     onAclCheck: shellHooks.onAclCheck,
+    firewallPersistence: shellHooks.firewallPersistence,
+    onFirewallEvent: shellHooks.onFirewallEvent,
+    getFocusContext: shellHooks.getFocusContext,
     onHashMismatch: shellHooks.onHashMismatch,
     services: shellHooks.services,
     getConfigOverrides: shellHooks.getConfigOverrides,
+    aclDefaultPolicy: shellHooks.aclDefaultPolicy,
   };
 }

@@ -231,6 +231,10 @@ retried without allowing concurrent duplicate publication.
 `publishToScopedRelay()` may similarly return `Promise<boolean>` when a host
 needs transport settlement before reporting the scoped publication outcome.
 
+`RuntimeAdapter.aclDefaultPolicy` (`'permissive' | 'restrictive'`) sets the ACL
+policy for identities with no stored entry. When set, it replaces the policy in
+persisted ACL state on load. Stored entries are kept as they are.
+
 ## Quick Start
 
 ```ts
