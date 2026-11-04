@@ -16,6 +16,7 @@ import type {
   ContentMatcher,
   NappletPolicy,
   Action,
+  BurstGuard,
 } from './types.js';
 import { defaultConfig } from './defaults.js';
 
@@ -135,6 +136,56 @@ export function setGlobalRate(
       [napplet]: { ...entry, globalRate: limit },
     },
   };
+}
+
+/**
+ * Returns a new FirewallConfig with `unfocusedMultiplier` set.
+ * Values below 1 tighten background budgets and values above 1 loosen them.
+ * Zero is refused because focus alone must never empty a budget.
+ *
+ * @param config - Current firewall config
+ * @param multiplier - Finite number above zero that scales unfocused rate capacity
+ * @returns New FirewallConfig with the multiplier set
+ * @throws RangeError if the multiplier is not a finite number above zero
+ *
+ * @example
+ * ```ts
+ * const cfg2 = setUnfocusedMultiplier(cfg, 0.5);
+ * ```
+ */
+export function setUnfocusedMultiplier(config: FirewallConfig, multiplier: number): FirewallConfig {
+  if (!Number.isFinite(multiplier) || multiplier <= 0) {
+    throw new RangeError('unfocusedMultiplier must be a finite number above zero');
+  }
+  return { ...config, unfocusedMultiplier: multiplier };
+}
+
+/**
+ * Returns a new FirewallConfig with the startup burst guard replaced.
+ * A `windowMs` of zero turns the guard off, since no operation falls inside it.
+ *
+ * @param config - Current firewall config
+ * @param guard - The window, operation limit and exceed-action to apply
+ * @returns New FirewallConfig with the burst guard set
+ * @throws RangeError if `windowMs` is negative or not finite, `maxOps` is not a non-negative safe integer, or `action` is unknown
+ *
+ * @example
+ * ```ts
+ * const cfg2 = setBurstGuard(cfg, { windowMs: 5000, maxOps: 100, action: 'block' });
+ * ```
+ */
+export function setBurstGuard(config: FirewallConfig, guard: BurstGuard): FirewallConfig {
+  const { windowMs, maxOps, action } = guard;
+  if (!Number.isFinite(windowMs) || windowMs < 0) {
+    throw new RangeError('burstGuard.windowMs must be a finite number of zero or more');
+  }
+  if (!Number.isSafeInteger(maxOps) || maxOps < 0) {
+    throw new RangeError('burstGuard.maxOps must be a non-negative safe integer');
+  }
+  if (!isValidAction(action)) {
+    throw new RangeError("burstGuard.action must be 'flag', 'block' or 'ignore'");
+  }
+  return { ...config, burstGuard: { windowMs, maxOps, action } };
 }
 
 /**

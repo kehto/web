@@ -52,6 +52,12 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
   quota does not evict values. This host API conforms to [NAP-STORAGE draft #3
   at `4f4cf0ca7ecbd24c284a5d63bcd85e3de6af37ca`](https://github.com/napplet/naps/blob/4f4cf0ca7ecbd24c284a5d63bcd85e3de6af37ca/naps/NAP-STORAGE.md).
 
+- `runtime.firewallState.setUnfocusedMultiplier(multiplier)` and `setBurstGuard(guard)`
+  let a host change background budgets and the startup burst limit after creation.
+  Both apply on the next evaluation, throw `RangeError` on out-of-range values, and
+  need `persist()` to outlast a reload. A multiplier of zero is refused, because
+  focus alone must never empty a budget. Custom `FirewallStateContainer`
+  implementations must provide both methods.
 - ACL listing and lookup return `AclEntryExternal` with required `dTag` and
   `aggregateHash` fields. Feed those fields into keyed revoke/block/quota methods;
   listing `pubkey` remains empty because it is not the principal key. Results are

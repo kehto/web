@@ -99,7 +99,7 @@ export interface Runtime {
   /** Access the ACL state container. */
   readonly aclState: AclStateContainer;
 
-  /** Access the firewall state container (for tests to pre-set policy/rules). */
+  /** Access the firewall state container, so hosts can set policy, rate budgets and the burst guard. */
   readonly firewallState: FirewallStateContainer;
 
   /** Access the manifest cache. */
