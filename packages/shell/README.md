@@ -201,15 +201,17 @@ bridge.runtime.registerService(
 - `ShellAdapter.aclDefaultPolicy?` — `'permissive' | 'restrictive'`, forwarded to the runtime. See the `@kehto/runtime` docs for how it treats persisted ACL state.
 
 ### Firewall hooks
-- `ShellAdapter.getFocusContext?(windowId)` — returns `{ focused, msSinceFocusGain? }`. Without it, every window counts as focused and `unfocusedMultiplier` never applies.
-- `ShellAdapter.onFirewallEvent?(event)` — reports each firewall flag, rejection and prompt as a `FirewallEvent`, so a host can show what was refused.
-- `ShellAdapter.firewallPersistence?` — a `FirewallPersistence` that stores firewall config across reloads. Without it, firewall config stays in memory. Counters are never stored.
+- `ShellAdapter.getFocusContext?(windowId)` — returns `{ focused, msSinceFocusGain? }`. Without it, every window counts as focused and `unfocusedMultiplier` never applies. Both the legacy gate and the `permissions` budgets use it.
+- `ShellAdapter.onFirewallEvent?(event)` — legacy gate only. Reports each firewall flag, rejection and prompt as a `FirewallEvent`, so a host can show what was refused. With `permissions` set, use `permissions.onRateLimit` and the approval UI.
+- `ShellAdapter.firewallPersistence?` — legacy gate only. A `FirewallPersistence` that stores firewall config across reloads. Without it, firewall config stays in memory. Counters are never stored. With `permissions` set, grants use `permissions.persistence`.
+- `bridge.runtime.permissions.setRateLimit(config)` — changes the operation budget on a host with `permissions`, including `unfocusedMultiplier` and the startup `burst` guard.
+- Setting a legacy-only hook alongside `permissions` warns once with `FW-RUNTIME-LEGACY-IGNORED-001`.
 
 ### Diagnostics
 - `ShellAdapter.onNappletRevoked?(revocation)` — called once when the bridge revokes a NIP-5D binding (`NappletRevocation`: `{ windowId, reason, detail }`, `reason` one of `NappletRevocationReason`). The host must remove the frame.
 - `ShellAdapter.onNappletMessage?(windowId, message)` — observe-only; called for each NAP envelope received on a bound port before dispatch.
 - `ShellAdapter.filterNappletMessage?(windowId, message)` — returns `'dispatch'`, `'drop'` or `'defer'` (`NappletMessageDecision`) for each NAP envelope on a bound port, before the runtime sees it. A filter that throws or returns anything else drops the envelope. `shell.ready` skips the filter, because NAP-SHELL requires its first `shell.init` reply. A dropped request gets no reply.
-- `ShellBridge.releaseDeferred(windowId)` — dispatches a window's deferred envelopes in arrival order and returns how many went through. ACL and firewall checks run at release. While envelopes are deferred, later ones can't overtake them. A window holding more than `MAX_DEFERRED_MESSAGES` (1024) is revoked with `deferred-overflow`, and revoking discards whatever was held.
+- `ShellBridge.releaseDeferred(windowId)` — dispatches a window's deferred envelopes in arrival order and returns how many went through. ACL checks, firewall approvals and budgets run at release, so a held request can prompt or be refused then, and a source retired meanwhile runs nothing. While envelopes are deferred, later ones can't overtake them. A window holding more than `MAX_DEFERRED_MESSAGES` (1024) is revoked with `deferred-overflow`, and revoking discards whatever was held.
 - `ShellAdapter.onUnroutedMessage?(info)` — optional observe-only hook fired when `ShellBridge.handleMessage` drops an incoming postMessage it can't route to a registered napplet window. `info` is an `UnroutedMessageInfo` (`{ type?, origin, reason }`) where `reason` is `'no-source-window'` or `'unregistered-window'`. The message is still dropped — this exists so otherwise-silent drops (e.g. an intent/`srcdoc` iframe whose `contentWindow` was never registered in `originRegistry`, or was swapped by a reload) are diagnosable instead of vanishing. Host can `console.warn` inside its own hook; the bridge adds no console output and swallows hook errors so routing is never broken.
 
 ```ts

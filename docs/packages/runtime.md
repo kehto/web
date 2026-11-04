@@ -74,7 +74,17 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
   Both apply on the next evaluation, throw `RangeError` on out-of-range values, and
   need `persist()` to outlast a reload. A multiplier of zero is refused, because
   focus alone must never empty a budget. Custom `FirewallStateContainer`
-  implementations must provide both methods.
+  implementations must provide both methods. These act on the legacy gate only. With
+  `RuntimeAdapter.permissions` configured, use `runtime.permissions.setRateLimit(config)`
+  below; the legacy setters then warn with `FW-RUNTIME-LEGACY-IGNORED-001`.
+- `runtime.permissions.setRateLimit(config)` changes the operation budget on a host
+  with `RuntimeAdapter.permissions`, including `unfocusedMultiplier` and the startup
+  `burst` guard. `runtime.permissions.rateLimit` reads the one in force, so a partial
+  change spreads it. It applies from the next operation, keeps running counters and
+  throws `RangeError` on out-of-range values, leaving the current budget in force. A
+  multiplier above 1 loosens background windows, and a `burst.windowMs` of zero turns
+  the guard off. It isn't persisted: restore it through `PermissionAdapter.rateLimit`.
+  Prompt budgets are separate and don't change.
 - ACL listing and lookup return `AclEntryExternal` with required `dTag` and
   `aggregateHash` fields. Feed those fields into keyed revoke/block/quota methods;
   listing `pubkey` remains empty because it is not the principal key. Results are
@@ -86,7 +96,10 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
   policy is `'permissive'` unless persisted ACL state stores another one. When it's
   set, it replaces the policy in persisted state on load, so an earlier permissive
   save can't reopen a restrictive host. Stored entries are kept as they are, so a
-  host moving to `'restrictive'` should clear entries it no longer trusts.
+  host moving to `'restrictive'` should clear entries it no longer trusts. With
+  `RuntimeAdapter.permissions` it's a ceiling: admission can still approve an interface,
+  but an operation the ACL denies is refused with no prompt until the host grants the
+  capability.
 - ACL mutations and revoke/block observers take effect in memory before an
   explicit save. `aclState.persist()` and `aclState.clear()` return `true` when
   their synchronous backend call succeeds and `false` when it throws. Failure
@@ -213,7 +226,9 @@ cannot create an extra refill. Subject/operation keys are encoded without delimi
 collisions. Configured runtimes use the independent budget through the shared
 permission coordinator. Hosts without `RuntimeAdapter.permissions` retain the
 legacy temporal gate with `FW-RUNTIME-LEGACY-GATE-001` on actual use; see the
-[compatibility register](/compatibility).
+[compatibility register](/compatibility). `onFirewallEvent`, `firewallPersistence` and
+the `firewallState` mutators belong to that gate, so a configured runtime warns once
+with `FW-RUNTIME-LEGACY-IGNORED-001` when they're used. `getFocusContext` feeds both.
 
 
 ### Cancelling one approved operation

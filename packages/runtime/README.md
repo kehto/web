@@ -233,7 +233,15 @@ needs transport settlement before reporting the scoped publication outcome.
 
 `RuntimeAdapter.aclDefaultPolicy` (`'permissive' | 'restrictive'`) sets the ACL
 policy for identities with no stored entry. When set, it replaces the policy in
-persisted ACL state on load. Stored entries are kept as they are.
+persisted ACL state on load. Stored entries are kept as they are. With
+`RuntimeAdapter.permissions` it's a ceiling: an operation the ACL denies is refused
+with no prompt until the host grants the capability.
+
+On a host with `RuntimeAdapter.permissions`, `runtime.permissions.setRateLimit(config)`
+changes the operation budget after creation, including `unfocusedMultiplier` and the
+startup `burst` guard. `onFirewallEvent`, `firewallPersistence` and the
+`runtime.firewallState` mutators act on the legacy gate only, so a configured runtime
+warns once with `FW-RUNTIME-LEGACY-IGNORED-001` when they're used.
 
 ## Quick Start
 

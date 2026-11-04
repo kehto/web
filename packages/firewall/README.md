@@ -82,7 +82,7 @@ state = result.newState;
 - `defaultConfig` — built-in conservative config
 - `createState` — empty counter state
 - `setPolicy`, `setRateLimit`, `setGlobalRate`, `addMatcher` — immutable config mutations
-- `setUnfocusedMultiplier`, `setBurstGuard` — change the background budget scale and the startup burst limit. Both throw `RangeError` on out-of-range values.
+- `setUnfocusedMultiplier`, `setBurstGuard` — change the background budget scale and the startup burst limit. Both throw `RangeError` on out-of-range values. The runtime's legacy gate reads this config. Hosts with `RuntimeAdapter.permissions` use `runtime.permissions.setRateLimit` from `@kehto/runtime` instead.
 - `serialize`, `deserialize` — JSON round-trip for persistence
 
 ## License

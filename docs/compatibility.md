@@ -81,6 +81,30 @@ No broad legacy policy becomes a scoped interface, resource, or network grant.
 This path remains for external hosts during migration. Once supported hosts
 use the permission adapter, announce its removal in a 0.x minor release,
 delete the legacy gate/state surface, and add negative tests for old config.
+That surface includes `setUnfocusedMultiplier` and `setBurstGuard` on
+`FirewallStateContainer`, and the `ShellAdapter` forwarding of `onFirewallEvent` and
+`firewallPersistence`. `getFocusContext` stays, because the permission budgets use it.
+
+## FW-RUNTIME-LEGACY-IGNORED-001 — legacy Firewall inputs on a configured runtime
+
+`@kehto/runtime` keeps accepting `RuntimeAdapter.onFirewallEvent`,
+`firewallPersistence` and the `runtime.firewallState` mutators (`setPolicy`,
+`setRateLimit`, `setGlobalRate`, `setUnfocusedMultiplier`, `setBurstGuard`,
+`addMatcher`) when `RuntimeAdapter.permissions` is configured, but nothing reads them
+because the legacy gate doesn't run. `@kehto/shell` reaches the same inputs through
+`ShellAdapter`. The replacements are `permissions.onRateLimit`,
+`permissions.persistence` and `runtime.permissions.setRateLimit`. The warning site is
+`createLegacyIgnoredWarning` in `packages/runtime/src/legacy-firewall-gate.ts`, wired
+in `createRuntime` and through the `createFirewallState` mutation observer. It fires
+once per runtime instance, at creation for the hooks and on the first call for the
+mutators, without request data. A mutator call that fails validation doesn't count.
+`permission-rate-controls.test.ts` covers the warning's identifier, text and frequency,
+that the legacy setters can't change a configured budget, and that canonical configured
+use and legacy runtimes stay quiet. `nip5d-message-filter-approvals.test.ts` covers the
+shell path. It's retained because external hosts can't all move to the permission
+adapter at once, and a silent no-op on a rate control is easy to mistake for protection.
+Remove it together with `FW-RUNTIME-LEGACY-GATE-001`, in the same 0.x minor release,
+with negative tests that these inputs are gone.
 
 ## FW-COUNT-LEGACY-001 — unbound COUNT service
 
