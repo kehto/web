@@ -11,7 +11,7 @@
  * Credentials are placed only on the outgoing request to the configured base URL.
  */
 
-import { LlmServiceError, type LlmFinish, type LlmGeneration, type LlmGenerationRequest, type LlmMessage, type LlmPart, type LlmUsage } from './llm-types.js';
+import { LlmServiceError, type LlmFinish, type LlmGeneration, type LlmGenerationRequest, type LlmImagePart, type LlmMessage, type LlmOutputPart, type LlmPart, type LlmTextPart, type LlmUsage } from './llm-types.js';
 
 /** Supported provider request/response dialects. */
 export type LlmProviderProtocol = 'openai-chat' | 'anthropic-messages' | 'gemini';
@@ -84,8 +84,16 @@ function credentialHeaders(endpoint: LlmProviderEndpoint): Record<string, string
   return { [header]: endpoint.credential };
 }
 
+/** Text and image parts: the only parts a text-only turn can carry. */
+function plainParts(parts: readonly LlmPart[]): Array<LlmTextPart | LlmImagePart> {
+  return parts.map((part) => {
+    if (part.type === 'text' || part.type === 'image') return part;
+    throw unsupported('This provider mapping does not accept this content part.');
+  });
+}
+
 function textOf(parts: readonly LlmPart[]): string {
-  return parts.map((part) => part.type === 'text' ? part.text : '').join('');
+  return plainParts(parts).map((part) => part.type === 'text' ? part.text : '').join('');
 }
 
 function hasImage(parts: readonly LlmPart[]): boolean {
@@ -104,13 +112,18 @@ export function usageFrom(input: unknown, output: unknown): LlmUsage | undefined
 }
 
 /** @internal Assemble a Generation, omitting absent usage. */
-export function finished(text: string, finish: LlmFinish, usage: LlmUsage | undefined): LlmGeneration {
-  return usage ? { text, finish, usage } : { text, finish };
+export function finished(content: LlmOutputPart[], finish: LlmFinish, usage: LlmUsage | undefined): LlmGeneration {
+  return usage ? { content, finish, usage } : { content, finish };
+}
+
+/** @internal Terminal content for a buffered reply: one text part only when non-empty. */
+export function textContent(text: string): LlmOutputPart[] {
+  return text === '' ? [] : [{ type: 'text', text }];
 }
 
 function openAiContent(parts: readonly LlmPart[]): unknown {
   if (!hasImage(parts)) return textOf(parts);
-  return parts.map((part) => part.type === 'text'
+  return plainParts(parts).map((part) => part.type === 'text'
     ? { type: 'text', text: part.text }
     : { type: 'image_url', image_url: { url: `data:${part.mimeType};base64,${part.data}` } });
 }
@@ -139,9 +152,9 @@ function parseOpenAiChat(json: unknown): LlmGeneration {
   if (!choice || !message) throw providerError('The provider response had no completion choice.');
   const usage = record(root?.usage);
   const tokens = usageFrom(usage?.prompt_tokens, usage?.completion_tokens);
-  if (typeof message.refusal === 'string' && message.refusal.length > 0) return finished('', 'refusal', tokens);
+  if (typeof message.refusal === 'string' && message.refusal.length > 0) return finished([], 'refusal', tokens);
   const text = typeof message.content === 'string' ? message.content : '';
-  return completed(text, openAiFinish(choice.finish_reason), tokens);
+  return completed(textContent(text), openAiFinish(choice.finish_reason), tokens);
 }
 
 /** @internal Map an OpenAI `finish_reason`; `null` means no recognised marker. */
@@ -159,13 +172,13 @@ export function anthropicFinish(reason: unknown): LlmFinish | null {
 }
 
 /** @internal Finish a generation, or fail when the provider sent no completion marker. */
-export function completed(text: string, finish: LlmFinish | null, usage: LlmUsage | undefined): LlmGeneration {
+export function completed(content: LlmOutputPart[], finish: LlmFinish | null, usage: LlmUsage | undefined): LlmGeneration {
   if (finish === null) throw providerError('The provider response had no recognised completion marker.');
-  return finished(text, finish, usage);
+  return finished(content, finish, usage);
 }
 
 function anthropicBlocks(parts: readonly LlmPart[]): unknown[] {
-  return parts.map((part) => part.type === 'text'
+  return plainParts(parts).map((part) => part.type === 'text'
     ? { type: 'text', text: part.text }
     : { type: 'image', source: { type: 'base64', media_type: part.mimeType, data: part.data } });
 }
@@ -219,11 +232,11 @@ function parseAnthropicMessages(json: unknown): LlmGeneration {
   const text = root.content.map((block) => { const entry = record(block); return entry?.type === 'text' && typeof entry.text === 'string' ? entry.text : ''; }).join('');
   const usage = record(root.usage);
   const tokens = usageFrom(usage?.input_tokens, usage?.output_tokens);
-  return completed(text, anthropicFinish(root.stop_reason), tokens);
+  return completed(textContent(text), anthropicFinish(root.stop_reason), tokens);
 }
 
 function geminiParts(parts: readonly LlmPart[]): unknown[] {
-  return parts.map((part) => part.type === 'text' ? { text: part.text } : { inlineData: { mimeType: part.mimeType, data: part.data } });
+  return plainParts(parts).map((part) => part.type === 'text' ? { text: part.text } : { inlineData: { mimeType: part.mimeType, data: part.data } });
 }
 
 function buildGemini(endpoint: LlmProviderEndpoint, request: LlmGenerationRequest, stream: boolean): LlmHttpRequest {
@@ -252,12 +265,12 @@ function parseGemini(json: unknown): LlmGeneration {
   const usage = record(root?.usageMetadata);
   const tokens = usageFrom(usage?.promptTokenCount, usage?.candidatesTokenCount);
   const feedback = record(root?.promptFeedback);
-  if (typeof feedback?.blockReason === 'string') return finished('', 'refusal', tokens);
+  if (typeof feedback?.blockReason === 'string') return finished([], 'refusal', tokens);
   const candidate = record(Array.isArray(root?.candidates) ? root?.candidates[0] : undefined);
   if (!candidate) throw providerError('The provider response had no candidate.');
   const parts = Array.isArray(record(candidate.content)?.parts) ? record(candidate.content)!.parts as unknown[] : [];
   const text = parts.map((part) => { const entry = record(part); return typeof entry?.text === 'string' ? entry.text : ''; }).join('');
-  return completed(text, geminiFinish(candidate.finishReason), tokens);
+  return completed(textContent(text), geminiFinish(candidate.finishReason), tokens);
 }
 
 /** @internal Map a Gemini `finishReason`; `null` means no recognised marker. */

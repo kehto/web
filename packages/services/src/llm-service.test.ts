@@ -1,7 +1,8 @@
 /**
  * NAP-LLM reference service conformance.
- * Authority: napplet/naps PR #134 at 3e10939cf788878bbdcc022c101f0ac6193f316c,
- * cases LLM-C01..C11 exercised against a controllable host fixture.
+ * Authority: napplet/naps PR #134 at 5e93bdfce0e84c0de728234cb7b3feed498f8635,
+ * cases LLM-C01..C11 exercised against a controllable host fixture. The tool
+ * and stream-lifecycle cases (C12..C23) live in llm-service-tools.test.ts.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NappletMessage } from '@napplet/core';
@@ -10,8 +11,8 @@ import { LlmServiceError, type LlmGeneration, type LlmGenerationRequest } from '
 
 type Sent = Record<string, unknown> & { type: string };
 
-const TEXT_MODEL: LlmConnection = { id: 'c-text', name: 'Text only', model: 'text-1', route: 'Paja → Example provider', images: false, json: true };
-const VISION_MODEL: LlmConnection = { id: 'c-vision', name: 'Vision', model: 'vision-1', route: 'Paja → Example provider', images: true, json: false };
+const TEXT_MODEL: LlmConnection = { id: 'c-text', name: 'Text only', model: 'text-1', route: 'Paja → Example provider', images: false, json: true, tools: false, toolChoiceModes: [] };
+const VISION_MODEL: LlmConnection = { id: 'c-vision', name: 'Vision', model: 'vision-1', route: 'Paja → Example provider', images: true, json: false, tools: false, toolChoiceModes: [] };
 const PNG = 'iVBORw0KGgo=';
 
 function deferred<T>() {
@@ -27,7 +28,7 @@ class Fixture implements LlmConnectionHost {
   consentPrompts: LlmPromptOptions[] = [];
   consent: boolean | Promise<boolean> = true;
   generations: LlmGenerationRequest[] = [];
-  result: LlmGeneration | Error | (() => Promise<LlmGeneration>) = { text: '{"greeting":"Hello"}', finish: 'stop', usage: { inputTokens: 12, outputTokens: 7 } };
+  result: LlmGeneration | Error | (() => Promise<LlmGeneration>) = { content: [{ type: 'text', text: '{"greeting":"Hello"}' }], finish: 'stop', usage: { inputTokens: 12, outputTokens: 7 } };
   hooks: LlmGenerateHooks[] = [];
   listeners = new Set<() => void>();
   select(_ctx: unknown, _req: unknown, options?: LlmPromptOptions) {
@@ -76,13 +77,13 @@ describe('NAP-LLM service', () => {
   it('C01: select, describe and generate correlate by id with one terminal result', async () => {
     const h = harness();
     const handle = await h.select();
-    expect(h.last()).toEqual({ type: 'llm.select.result', id: expect.any(String), model: { handle: 'h1', name: 'Text only', model: 'text-1', route: 'Paja → Example provider', images: false, json: true } });
+    expect(h.last()).toEqual({ type: 'llm.select.result', id: expect.any(String), model: { handle: 'h1', name: 'Text only', model: 'text-1', route: 'Paja → Example provider', images: false, json: true, tools: false, toolChoiceModes: [] } });
     h.post('w1', { type: 'llm.describe', id: 'd1', handle });
     await h.flush();
     expect(h.last()).toMatchObject({ type: 'llm.describe.result', id: 'd1', model: { handle: 'h1' } });
     h.post('w1', { type: 'llm.generate', id: 'g1', request: { handle, messages: [h.userMessage()], format: 'json' } });
     await h.flush();
-    expect(h.last()).toEqual({ type: 'llm.generate.result', id: 'g1', result: { text: '{"greeting":"Hello"}', finish: 'stop', usage: { inputTokens: 12, outputTokens: 7 } } });
+    expect(h.last()).toEqual({ type: 'llm.generate.result', id: 'g1', result: { content: [{ type: 'text', text: '{"greeting":"Hello"}' }], finish: 'stop', usage: { inputTokens: 12, outputTokens: 7 } } });
     expect(h.all().filter((m) => m.id === 'g1')).toHaveLength(1);
     expect(h.service.activeGenerations()).toBe(0);
   });
@@ -111,7 +112,7 @@ describe('NAP-LLM service', () => {
     h.post('w1', { type: 'llm.cancel', id: 'c-bad', requestId: '' });
     expect(h.last()).toMatchObject({ type: 'llm.cancel.result', id: 'c-bad', error: { code: 'invalid-request' } });
     h.post('w1', { type: 'llm.generate', id: '', request: { handle, messages: [h.userMessage()] } });
-    h.post('w1', { type: 'llm.generate.result', id: 'forged', result: { text: '', finish: 'stop' } });
+    h.post('w1', { type: 'llm.generate.result', id: 'forged', result: { content: [], finish: 'stop' } });
     expect(h.host.generations).toHaveLength(0);
   });
 
@@ -183,9 +184,9 @@ describe('NAP-LLM service', () => {
     h.post('w1', { type: 'llm.generate', id: 'g1', request: { handle, messages: [h.userMessage()] } });
     expect(h.last()).toMatchObject({ id: 'g1', error: { code: 'invalid-request' } });
     expect(h.host.generations).toHaveLength(1);
-    pending.resolve({ text: 'done', finish: 'stop' });
+    pending.resolve({ content: [{ type: 'text', text: 'done' }], finish: 'stop' });
     await h.flush();
-    expect(h.last()).toMatchObject({ id: 'g1', result: { text: 'done' } });
+    expect(h.last()).toMatchObject({ id: 'g1', result: { content: [{ type: 'text', text: 'done' }] } });
     expect(h.all().filter((m) => m.type === 'llm.generate.result')).toHaveLength(2);
   });
 
@@ -211,8 +212,8 @@ describe('NAP-LLM service', () => {
     await vi.advanceTimersByTimeAsync(1001);
     expect(h.last()).toMatchObject({ id: 'g2', error: { code: 'timeout' } });
     expect(h.host.hooks.at(-1)?.signal.aborted).toBe(true);
-    h.host.hooks.at(-1)?.onDelta('late');
-    stalled.resolve({ text: 'late', finish: 'stop' });
+    h.host.hooks.at(-1)?.onDelta({ event: 'start', block: 'text', blockIndex: 0 });
+    stalled.resolve({ content: [{ type: 'text', text: 'late' }], finish: 'stop' });
     await h.flush();
     expect(h.all().filter((m) => m.id === 'g2' || m.requestId === 'g2')).toHaveLength(1);
   });
@@ -247,30 +248,35 @@ describe('NAP-LLM service', () => {
     const handle = await h.select();
     h.host.result = async () => {
       const hooks = h.host.hooks.at(-1)!;
-      hooks.onDelta('{"greeting":'); hooks.onDelta('"Hello"}');
-      return { text: '{"greeting":"Hello"}', finish: 'stop' };
+      hooks.onDelta({ event: 'start', block: 'text', blockIndex: 0 });
+      hooks.onDelta({ event: 'delta', block: 'text', blockIndex: 0, text: '{"greeting":' });
+      hooks.onDelta({ event: 'delta', block: 'text', blockIndex: 0, text: '"Hello"}' });
+      hooks.onDelta({ event: 'end', block: 'text', blockIndex: 0 });
+      return { content: [{ type: 'text', text: '{"greeting":"Hello"}' }], finish: 'stop' };
     };
     h.post('w1', { type: 'llm.generate', id: 'g1', request: { handle, messages: [h.userMessage()], format: 'json' } });
     await h.flush();
     const deltas = h.all().filter((m) => m.type === 'llm.delta');
     expect(deltas).toEqual([
-      { type: 'llm.delta', requestId: 'g1', sequence: 0, text: '{"greeting":' },
-      { type: 'llm.delta', requestId: 'g1', sequence: 1, text: '"Hello"}' },
+      { type: 'llm.delta', requestId: 'g1', sequence: 0, event: 'start', block: 'text', blockIndex: 0 },
+      { type: 'llm.delta', requestId: 'g1', sequence: 1, event: 'delta', block: 'text', blockIndex: 0, text: '{"greeting":' },
+      { type: 'llm.delta', requestId: 'g1', sequence: 2, event: 'delta', block: 'text', blockIndex: 0, text: '"Hello"}' },
+      { type: 'llm.delta', requestId: 'g1', sequence: 3, event: 'end', block: 'text', blockIndex: 0 },
     ]);
     expect(deltas.every((d) => !('id' in d))).toBe(true);
     expect(h.last()).toMatchObject({ type: 'llm.generate.result', id: 'g1', result: { finish: 'stop' } });
-    h.host.hooks.at(-1)!.onDelta('after');
-    expect(h.all().filter((m) => m.type === 'llm.delta')).toHaveLength(2);
+    h.host.hooks.at(-1)!.onDelta({ event: 'delta', block: 'text', blockIndex: 0, text: 'after' });
+    expect(h.all().filter((m) => m.type === 'llm.delta')).toHaveLength(4);
 
     const race = deferred<LlmGeneration>();
     h.host.result = () => race.promise;
     h.post('w1', { type: 'llm.generate', id: 'g2', request: { handle, messages: [h.userMessage()] } });
     await h.flush();
-    race.resolve({ text: 'won', finish: 'stop' });
+    race.resolve({ content: [{ type: 'text', text: 'won' }], finish: 'stop' });
     await h.flush();
     h.post('w1', { type: 'llm.cancel', id: 'c', requestId: 'g2' });
     expect(h.last()).toMatchObject({ cancelled: false });
-    expect(h.all().filter((m) => m.id === 'g2')).toEqual([expect.objectContaining({ result: { text: 'won', finish: 'stop' } })]);
+    expect(h.all().filter((m) => m.id === 'g2')).toEqual([expect.objectContaining({ result: { content: [{ type: 'text', text: 'won' }], finish: 'stop' } })]);
   });
 
   it('C10: length and refusal stay partial; missing markers and invalid JSON completions are provider-error', async () => {
@@ -282,12 +288,14 @@ describe('NAP-LLM service', () => {
       await h.flush();
       return h.last();
     };
-    expect(await run('len', { text: 'Incomplete', finish: 'length' })).toMatchObject({ result: { text: 'Incomplete', finish: 'length' } });
-    expect(await run('ref', { text: '', finish: 'refusal' })).toMatchObject({ result: { finish: 'refusal' } });
-    expect(await run('nofinish', { text: 'x' })).toMatchObject({ error: { code: 'provider-error' } });
-    expect(await run('badusage', { text: 'x', finish: 'stop', usage: { inputTokens: -1, outputTokens: 0 } })).toMatchObject({ error: { code: 'provider-error' } });
-    expect(await run('array', { text: '[1]', finish: 'stop' }, 'json')).toMatchObject({ error: { code: 'provider-error' } });
-    expect(await run('partialjson', { text: '{"a":', finish: 'length' }, 'json')).toMatchObject({ result: { finish: 'length' } });
+    const text = (value: string) => [{ type: 'text', text: value }];
+    expect(await run('len', { content: text('Incomplete'), finish: 'length' })).toMatchObject({ result: { content: text('Incomplete'), finish: 'length' } });
+    expect(await run('ref', { content: [], finish: 'refusal' })).toMatchObject({ result: { finish: 'refusal' } });
+    expect(await run('nofinish', { content: text('x') })).toMatchObject({ error: { code: 'provider-error' } });
+    expect(await run('badusage', { content: text('x'), finish: 'stop', usage: { inputTokens: -1, outputTokens: 0 } })).toMatchObject({ error: { code: 'provider-error' } });
+    expect(await run('array', { content: text('[1]'), finish: 'stop' }, 'json')).toMatchObject({ error: { code: 'provider-error' } });
+    expect(await run('split', { content: [...text('{"a":'), ...text('1}')], finish: 'stop' }, 'json')).toMatchObject({ result: { finish: 'stop' } });
+    expect(await run('partialjson', { content: text('{"a":'), finish: 'length' }, 'json')).toMatchObject({ result: { finish: 'length' } });
   });
 
   it('C11: provider failures never leak bodies, inputs or credentials', async () => {
@@ -312,7 +320,7 @@ describe('NAP-LLM service', () => {
     expect(h.last()).toMatchObject({ id: 'g2', error: { code: 'quota-exceeded' } });
     h.service.onWindowDestroyed?.('w1');
     expect(h.service.activeGenerations()).toBe(0);
-    pending.resolve({ text: 'x', finish: 'stop' });
+    pending.resolve({ content: [{ type: 'text', text: 'x' }], finish: 'stop' });
     await h.flush();
     expect(h.all().filter((m) => m.id === 'g1')).toHaveLength(0);
     h.post('w1', { type: 'llm.generate', id: 'g3', request: { handle, messages: [h.userMessage('x'.repeat(400))] } });

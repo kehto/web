@@ -2,7 +2,7 @@ import { createServer } from 'node:http';
 import { expect, test, type FrameLocator, type Page } from '@playwright/test';
 import { startPajaServer, type PajaServer } from '../../packages/paja/dist/index.js';
 
-// Draft NAP-LLM (napplet/naps PR #134 at 3e10939) hosted by Paja: the llm
+// Draft NAP-LLM (napplet/naps PR #134 at 5e93bdfce0e84c0de728234cb7b3feed498f8635) hosted by Paja: the llm
 // interface is advertised while unconfigured, select() offers configuration and
 // answers typed failures, the chooser scopes selection, and every generation
 // asks for consent before a prompt leaves the page. The streaming case covers
@@ -110,7 +110,7 @@ test('advertises an unconfigured llm interface, prompts to configure, then selec
   await expect(page.locator('#paja-llm-select-dialog')).toBeVisible();
   await page.locator('#paja-llm-select-use').click();
   const selection = await selected;
-  expect(selection).toMatchObject({ model: { name: 'Dead local', model: 'probe-model', route: expect.stringContaining('http://127.0.0.1:9'), images: false, json: true } });
+  expect(selection).toMatchObject({ model: { name: 'Dead local', model: 'probe-model', route: expect.stringContaining('http://127.0.0.1:9'), images: false, json: true, tools: false, toolChoiceModes: [] } });
   const handle = (selection.model as { handle: string }).handle;
   expect(JSON.stringify(selection)).not.toContain('probe-secret');
   expect(await request(frame, 'llm.describe', { handle })).toMatchObject({ model: { handle } });
@@ -163,8 +163,13 @@ test('streams provider output as ordered deltas and withdraws consent when the n
   await expect(page.locator('#paja-confirmation-title')).toHaveText('Send this prompt to a language model?');
   await page.locator('#paja-confirmation-approve').click();
   const { deltas, result } = await streamed;
-  expect(deltas.map((delta) => [delta.sequence, delta.text])).toEqual([[0, 'Hello'], [1, ', napplet']]);
-  expect(result).toMatchObject({ result: { text: 'Hello, napplet', finish: 'stop', usage: { inputTokens: 5, outputTokens: 3 } } });
+  expect(deltas.map((delta) => [delta.sequence, delta.event, delta.block, delta.blockIndex, delta.text])).toEqual([
+    [0, 'start', 'text', 0, undefined],
+    [1, 'delta', 'text', 0, 'Hello'],
+    [2, 'delta', 'text', 0, ', napplet'],
+    [3, 'end', 'text', 0, undefined],
+  ]);
+  expect(result).toMatchObject({ result: { content: [{ type: 'text', text: 'Hello, napplet' }], finish: 'stop', usage: { inputTokens: 5, outputTokens: 3 } } });
 
   const requestId = await frame.locator('body').evaluate((_body, input) => {
     const llm = (window as unknown as { napplet: { llm: { generate(request: unknown): Promise<unknown> & { requestId: string } } } }).napplet.llm;

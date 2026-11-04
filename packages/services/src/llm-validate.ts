@@ -7,7 +7,7 @@
  * service.
  */
 
-import type { LlmGeneration, LlmGenerationRequest, LlmMessage, LlmRequirements, LlmUsage } from './llm-types.js';
+import type { LlmGeneration, LlmGenerationRequest, LlmMessage, LlmOutputPart, LlmRequirements, LlmUsage } from './llm-types.js';
 
 type Check = (value: unknown) => boolean;
 type Fields = Record<string, Check>;
@@ -22,6 +22,7 @@ const base64: Check = (value) =>
   && value.length >= 4
   && /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value);
 const nonNegativeInteger: Check = (value) => typeof value === 'number' && Number.isInteger(value) && value >= 0;
+const plainObject: Check = (value) => typeof value === 'object' && value !== null && !Array.isArray(value);
 
 function exactRecord(required: Fields, optional: Fields = {}): Check {
   return (value) => {
@@ -39,10 +40,19 @@ const textPart = exactRecord({ type: oneOf('text'), text });
 const imagePart = exactRecord({ type: oneOf('image'), mimeType: oneOf('image/png', 'image/jpeg', 'image/webp'), data: base64 });
 const part: Check = (value) => textPart(value) || imagePart(value);
 const message = exactRecord({ role: oneOf('system', 'user', 'assistant'), content: nonemptyList(part) });
-const requirements = exactRecord({}, { model: nonemptyText, images: boolean, json: boolean });
+const requirements = exactRecord({}, { model: nonemptyText, images: boolean, json: boolean, tools: boolean });
 const generationRequest = exactRecord({ handle: nonemptyText, messages: nonemptyList(message) }, { format: oneOf('text', 'json') });
-const usage = exactRecord({ inputTokens: nonNegativeInteger, outputTokens: nonNegativeInteger });
-const generation = exactRecord({ text, finish: oneOf('stop', 'length', 'refusal') }, { usage });
+const usage = exactRecord(
+  { inputTokens: nonNegativeInteger, outputTokens: nonNegativeInteger },
+  { cacheReadTokens: nonNegativeInteger, cacheWriteTokens: nonNegativeInteger, reasoningTokens: nonNegativeInteger },
+);
+const thinkingPart = exactRecord({ type: oneOf('thinking'), text });
+const toolCallPart = exactRecord({ type: oneOf('toolCall'), toolCallId: nonemptyText, name: nonemptyText, arguments: plainObject });
+const outputPart: Check = (value) => textPart(value) || thinkingPart(value) || toolCallPart(value);
+const generation = exactRecord(
+  { content: (value) => Array.isArray(value) && value.every(outputPart), finish: oneOf('stop', 'length', 'refusal', 'toolUse') },
+  { usage },
+);
 
 /** True for a well-formed optional Requirements record (omission allowed, `null` rejected). */
 export function isLlmRequirements(value: unknown): value is LlmRequirements | undefined {
@@ -57,6 +67,11 @@ export const isLlmGeneration = generation as (value: unknown) => value is LlmGen
 
 /** True for a well-formed Usage record. */
 export const isLlmUsage = usage as (value: unknown) => value is LlmUsage;
+
+/** Concatenate the text parts of terminal content in order (the `format: "json"` input). */
+export function llmTextOf(content: readonly LlmOutputPart[]): string {
+  return content.map((part) => part.type === 'text' ? part.text : '').join('');
+}
 
 /** True for non-empty request text usable as a correlation id or handle. */
 export const isNonemptyText = nonemptyText as (value: unknown) => value is string;

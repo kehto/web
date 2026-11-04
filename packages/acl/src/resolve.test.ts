@@ -535,7 +535,7 @@ describe('resolveCapabilitiesNap', () => {
     });
   });
 
-  // NAP-LLM: napplet/naps PR #134 at 3e10939cf788878bbdcc022c101f0ac6193f316c.
+  // NAP-LLM: napplet/naps PR #134 at 5e93bdfce0e84c0de728234cb7b3feed498f8635.
   describe('llm domain (NAP-LLM user-selected language models)', () => {
     it.each(['select', 'describe', 'generate', 'cancel'])(
       'llm.%s -> sender llm:generate',

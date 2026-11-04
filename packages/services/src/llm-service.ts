@@ -2,7 +2,7 @@
  * NAP-LLM reference service.
  *
  * Authority: napplet/naps PR #134 (`nap-llm`) at
- * 3e10939cf788878bbdcc022c101f0ac6193f316c. The service owns request
+ * 5e93bdfce0e84c0de728234cb7b3feed498f8635. The service owns request
  * correlation, endpoint-scoped handles, schema and capability checks, the
  * consent-before-submission gate, duplicate-id rejection, cancellation and
  * deadline races, ordered deltas, lifecycle cleanup and safe error shaping.
@@ -15,11 +15,14 @@ import type { NappletMessage } from '@napplet/core';
 import type { ServiceDescriptor, ServiceHandler } from '@kehto/runtime';
 import {
   LlmServiceError,
+  type LlmBlockEvent,
+  type LlmDelta,
   type LlmFailure,
   type LlmGeneration,
   type LlmGenerationRequest,
   type LlmModel,
   type LlmRequirements,
+  type LlmToolChoiceMode,
 } from './llm-types.js';
 import {
   countLlmImages,
@@ -28,6 +31,7 @@ import {
   isLlmGenerationRequest,
   isLlmRequirements,
   isNonemptyText,
+  llmTextOf,
 } from './llm-validate.js';
 
 /** A host-owned connection the user may select. `id` stays host-private. */
@@ -44,6 +48,14 @@ export interface LlmConnection {
   readonly images: boolean;
   /** Whether the connection supports JSON-object output. */
   readonly json: boolean;
+  /** Whether the connection supports tool calling. */
+  readonly tools: boolean;
+  /**
+   * Exactly the supported tool-choice modes without duplicates. A connection with
+   * `tools: true` supports at least `auto` and `none`; the service reports `[]`
+   * to napplets whenever `tools` is false.
+   */
+  readonly toolChoiceModes: readonly LlmToolChoiceMode[];
 }
 
 /** Which authenticated endpoint issued a request. */
@@ -68,8 +80,8 @@ export interface LlmPromptOptions {
 export interface LlmGenerateHooks {
   /** Aborted on cancellation, deadline, revocation or endpoint destruction. */
   readonly signal: AbortSignal;
-  /** Append provisional text; the service numbers and routes the delta. */
-  onDelta(text: string): void;
+  /** Append a block lifecycle event; the service assigns `sequence` and `requestId`, validates and routes it. */
+  onDelta(event: LlmBlockEvent): void;
 }
 
 /**
@@ -192,18 +204,27 @@ function failure(error: unknown): LlmFailure {
   return { code: 'provider-error', message: 'The provider request failed.' };
 }
 
+function sameModes(a: readonly LlmToolChoiceMode[], b: readonly LlmToolChoiceMode[]): boolean {
+  return a.length === b.length && a.every((mode, index) => mode === b[index]);
+}
+
 function sameConnection(a: LlmConnection, b: LlmConnection): boolean {
-  return a.id === b.id && a.name === b.name && a.model === b.model && a.route === b.route && a.images === b.images && a.json === b.json;
+  return a.id === b.id && a.name === b.name && a.model === b.model && a.route === b.route && a.images === b.images && a.json === b.json
+    && a.tools === b.tools && sameModes(a.toolChoiceModes, b.toolChoiceModes);
 }
 
 function meetsRequirements(connection: LlmConnection, requirements: LlmRequirements): boolean {
   if (requirements.model !== undefined && requirements.model !== connection.model) return false;
   if (requirements.images === true && !connection.images) return false;
+  if (requirements.tools === true && !connection.tools) return false;
   return !(requirements.json === true && !connection.json);
 }
 
 function toModel(handle: string, connection: LlmConnection): LlmModel {
-  return { handle, name: connection.name, model: connection.model, route: connection.route, images: connection.images, json: connection.json };
+  return {
+    handle, name: connection.name, model: connection.model, route: connection.route, images: connection.images, json: connection.json,
+    tools: connection.tools, toolChoiceModes: connection.tools ? [...connection.toolChoiceModes] : [],
+  };
 }
 
 function defaultHandleFactory(): () => string {
@@ -375,9 +396,18 @@ function unsupportedInput(connection: LlmConnection, request: LlmGenerationReque
   return null;
 }
 
+/** Build the wire delta from known fields only, so host extras never reach the napplet. */
+function deltaMessage(requestId: string, sequence: number, event: LlmBlockEvent): NappletMessage {
+  const delta: LlmDelta = { requestId, sequence, event: event.event, block: event.block, blockIndex: event.blockIndex };
+  if (event.text !== undefined) delta.text = event.text;
+  if (event.toolCallId !== undefined) delta.toolCallId = event.toolCallId;
+  if (event.name !== undefined) delta.name = event.name;
+  return { type: 'llm.delta', ...delta } as NappletMessage;
+}
+
 function validateGeneration(generation: ActiveGeneration, result: unknown): LlmGeneration | LlmFailure {
   if (!isLlmGeneration(result)) return { code: 'provider-error', message: 'The provider returned an incomplete or malformed completion.' };
-  if (generation.format === 'json' && result.finish === 'stop' && !isJsonObjectText(result.text)) {
+  if (generation.format === 'json' && result.finish === 'stop' && !isJsonObjectText(llmTextOf(result.content))) {
     return { code: 'provider-error', message: 'The provider completed without a JSON object.' };
   }
   return result;
@@ -422,9 +452,9 @@ async function runGeneration(state: ServiceState, windowId: string, requestId: s
     }
     const result = await state.host.generate(context, entry.snapshot, request, {
       signal: generation.controller.signal,
-      onDelta: (text) => {
-        if (generation.settled || typeof text !== 'string') return;
-        send({ type: 'llm.delta', requestId, sequence: generation.sequence++, text } as NappletMessage);
+      onDelta: (event) => {
+        if (generation.settled) return;
+        send(deltaMessage(requestId, generation.sequence++, event));
       },
     });
     if (generation.settled) return;
