@@ -27,6 +27,16 @@ describe('@kehto/paja host page', () => {
     expect(html.match(/id="paja-llm-model-select"/g)).toHaveLength(1);
   });
 
+  it('offers tool calling with required and named choice sub-options that start disabled', () => {
+    const html = renderPajaHtml(createPajaRuntimeHostConfig({}));
+    const form = html.slice(html.indexOf('id="paja-llm-form"'), html.indexOf('id="paja-llm-status"'));
+    expect(form).toContain('<input id="paja-llm-tools" type="checkbox"><span>Tool calling</span>');
+    expect(form).toContain('<input id="paja-llm-tool-required" type="checkbox" disabled><span>Required tool choice</span>');
+    expect(form).toContain('<input id="paja-llm-tool-named" type="checkbox" disabled><span>Named tool choice</span>');
+    expect(form.indexOf('id="paja-llm-json"')).toBeLessThan(form.indexOf('id="paja-llm-tools"'));
+    for (const id of ['paja-llm-tools', 'paja-llm-tool-required', 'paja-llm-tool-named']) expect(html.match(new RegExp(`id="${id}"`, 'g'))).toHaveLength(1);
+  });
+
   it('locks napplet frames to their verified srcdoc with a frame-src CSP in <head>', () => {
     const html = renderPajaHtml(createPajaRuntimeHostConfig({}));
     const head = html.slice(html.indexOf('<head>'), html.indexOf('</head>'));

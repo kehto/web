@@ -136,6 +136,67 @@ describe('Paja LLM host', () => {
     expect(JSON.stringify(request)).not.toContain('iVBOR');
   });
 
+  const TOOLS = [{ name: 'get_weather', description: 'Look up current weather', parameters: { type: 'object', properties: { city: { type: 'string' } }, required: ['city'] } }];
+  const TOOL_HISTORY: LlmGenerationRequest = {
+    handle: 'h',
+    messages: [
+      { role: 'user', content: [{ type: 'text', text: 'What is the weather in Berlin?' }] },
+      { role: 'assistant', content: [{ type: 'toolCall', toolCallId: 'call_1', name: 'get_weather', arguments: { city: 'Berlin' } }] },
+      { role: 'toolResult', toolCallId: 'call_1', toolName: 'get_weather', content: [{ type: 'text', text: '18°C secret result' }] },
+    ],
+    tools: TOOLS,
+    toolChoice: 'auto',
+  };
+
+  it('LLM-C03: a dialect-unsupported request is rejected before any unlock, consent or provider contact', async () => {
+    const anthropic = harness([{ ...OPENAI, id: 'c-claude', presetId: 'anthropic', protocol: 'anthropic-messages', credentialStorage: 'vault', tools: true }], { unlock: true });
+    await anthropic.vault.create('correct horse battery staple');
+    await anthropic.vault.setCredential('c-claude', KEY, 'vault');
+    anthropic.vault.lock();
+    const connection = (await anthropic.host.describe({ windowId: 'w1' }, 'c-claude'))!;
+    // Anthropic needs tool definitions to continue a conversation that contains tool calls.
+    await expect(anthropic.host.authorize({ windowId: 'w1' }, connection, { ...TOOL_HISTORY, tools: undefined, toolChoice: undefined })).rejects.toMatchObject({ code: 'unsupported' });
+    // Gemini cannot combine JSON output with tools.
+    const gemini = harness([{ ...OPENAI, id: 'c-gem', presetId: 'gemini', protocol: 'gemini', credentialStorage: 'vault', tools: true }], { unlock: true });
+    const geminiConnection = (await gemini.host.describe({ windowId: 'w1' }, 'c-gem'))!;
+    await expect(gemini.host.authorize({ windowId: 'w1' }, geminiConnection, { ...TOOL_HISTORY, format: 'json' })).rejects.toMatchObject({ code: 'unsupported' });
+    for (const h of [anthropic, gemini]) {
+      expect(h.confirm).not.toHaveBeenCalled();
+      expect(h.requestUnlock).not.toHaveBeenCalled();
+      expect(h.provider).not.toHaveBeenCalled();
+    }
+  });
+
+  it('LLM-C23: consent names tool definitions and counts tool results without carrying their content, and counts them in characters', async () => {
+    const h = harness([{ ...OLLAMA, tools: true, toolChoiceModes: ['auto', 'none'] }]);
+    const connection = (await h.host.describe({ windowId: 'w1' }, 'c-ollama'))!;
+    expect(connection).toMatchObject({ tools: true, toolChoiceModes: ['auto', 'none'] });
+    await expect(h.host.authorize({ windowId: 'w1' }, connection, TOOL_HISTORY)).resolves.toBe(true);
+    const request = h.confirm.mock.calls[0]![0] as PajaConfirmationRequest;
+    expect(request).toMatchObject({ action: 'llm', messages: 3, tools: ['get_weather'], toolResults: 1, images: 0 });
+    const expected = 'What is the weather in Berlin?'.length + '18°C secret result'.length + JSON.stringify({ city: 'Berlin' }).length + JSON.stringify(TOOLS[0]).length;
+    expect((request as { characters: number }).characters).toBe(expected);
+    // Counts and names only: no prompt text, tool arguments, tool results or schema bodies reach the request record.
+    for (const secret of ['Berlin', '18°C', 'secret result', 'Look up current weather', 'properties']) expect(JSON.stringify(request)).not.toContain(secret);
+    expect(JSON.stringify(request)).toContain('get_weather');
+  });
+
+  it('LLM-C23: a declined consent means the provider is never called', async () => {
+    const h = harness([{ ...OLLAMA, tools: true }], { confirm: () => false });
+    const connection = (await h.host.describe({ windowId: 'w1' }, 'c-ollama'))!;
+    await expect(h.host.authorize({ windowId: 'w1' }, connection, TOOL_HISTORY)).resolves.toBe(false);
+    expect(h.provider).not.toHaveBeenCalled();
+  });
+
+  it('offers only tool-capable connections when the napplet requires tools, and says so', async () => {
+    const h = harness([OLLAMA, { ...OPENAI, tools: true }]);
+    await h.host.select({ windowId: 'w1' }, { tools: true });
+    expect(h.chooseConnection).toHaveBeenCalledWith([expect.objectContaining({ id: 'c-openai' })], expect.anything());
+    const none = harness([OLLAMA], { confirm: () => true });
+    await expect(none.host.select({ windowId: 'w1' }, { tools: true })).rejects.toMatchObject({ code: 'unsupported' });
+    expect(none.confirm).toHaveBeenCalledWith(expect.objectContaining({ action: 'llm-configure', requirements: 'any model, tool calling' }));
+  });
+
   it('unlocks the vault before consent and sends the credential only on the provider request', async () => {
     const h = harness([OPENAI], { unlock: true });
     await h.vault.create('correct horse battery staple');

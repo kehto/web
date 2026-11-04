@@ -12,6 +12,7 @@
 import {
   LLM_PROVIDER_PRESETS,
   LlmServiceError,
+  buildLlmProviderRequest,
   createHttpLlmProvider,
   countLlmImages,
   type HttpLlmProvider,
@@ -20,6 +21,7 @@ import {
   type LlmCredentialHeader,
   type LlmGenerationRequest,
   type LlmPromptOptions,
+  type LlmProviderEndpoint,
   type LlmProviderProtocol,
   type LlmRequestContext,
   type LlmRequirements,
@@ -260,12 +262,25 @@ function describeRequirements(requirements: LlmRequirements): string {
   return parts.join(', ');
 }
 
+/**
+ * Characters that leave the page: text parts (tool results included), each
+ * historical call's serialized arguments and each tool definition. Thinking is
+ * excluded because the provider mapping omits it.
+ */
 function countCharacters(request: LlmGenerationRequest): number {
   let total = 0;
   for (const message of request.messages) {
-    for (const part of message.content) total += part.type === 'text' ? part.text.length : 0;
+    for (const part of message.content) {
+      if (part.type === 'text') total += part.text.length;
+      else if (part.type === 'toolCall') total += JSON.stringify(part.arguments).length;
+    }
   }
+  for (const tool of request.tools ?? []) total += JSON.stringify(tool).length;
   return total;
+}
+
+function countToolResults(request: LlmGenerationRequest): number {
+  return request.messages.filter((message) => message.role === 'toolResult').length;
 }
 
 /**
@@ -280,6 +295,17 @@ export function createPajaLlmHost(options: PajaLlmHostOptions): PajaLlmHost {
   const { store, vault, confirm, getIdentity } = options;
   // Stream so napplets see provisional `llm.delta` blocks; the final result stays authoritative.
   const provider = options.provider ?? createHttpLlmProvider({ stream: true });
+
+  /** One place builds the provider endpoint, so the preflight and the real request agree. */
+  function endpointFor(record: PajaLlmConnectionRecord, credential?: string): LlmProviderEndpoint {
+    return {
+      protocol: record.protocol,
+      baseUrl: record.baseUrl,
+      model: record.model,
+      ...(credential === undefined ? {} : { credential }),
+      ...(record.credentialHeader ? { credentialHeader: record.credentialHeader } : {}),
+    };
+  }
 
   async function ensureCredential(record: PajaLlmConnectionRecord, signal?: AbortSignal): Promise<string | undefined> {
     if (record.credentialStorage === 'none') return undefined;
@@ -328,6 +354,9 @@ export function createPajaLlmHost(options: PajaLlmHostOptions): PajaLlmHost {
       const signal = prompt?.signal;
       const record = store.get(connection.id);
       if (!record) throw new LlmServiceError('selection-expired', 'The selected connection was removed; select again.');
+      // Dialect restrictions answer `unsupported` before any vault unlock or consent prompt.
+      // No credential goes in, and the built request is never sent.
+      buildLlmProviderRequest(endpointFor(record), request, { stream: true });
       await ensureCredential(record, signal);
       if (signal?.aborted) return false;
       return confirm({
@@ -341,21 +370,17 @@ export function createPajaLlmHost(options: PajaLlmHostOptions): PajaLlmHost {
         messages: request.messages.length,
         characters: countCharacters(request),
         images: countLlmImages(request.messages),
+        tools: (request.tools ?? []).map((tool) => tool.name),
+        toolResults: countToolResults(request),
         format: request.format ?? 'text',
-        warning: 'The prompt text and images below leave this device for the provider named in the route. Provider charges and retention follow that service\'s terms.',
+        warning: 'The prompt text, images, tool definitions and tool results disclosed here leave this device for the provider named in the route. Provider charges and retention follow that service\'s terms.',
       });
     },
     async generate(_context, connection, request, hooks) {
       const record = store.get(connection.id);
       if (!record) throw new LlmServiceError('selection-expired', 'The selected connection was removed; select again.');
       const credential = await ensureCredential(record);
-      return provider({
-        protocol: record.protocol,
-        baseUrl: record.baseUrl,
-        model: record.model,
-        ...(credential === undefined ? {} : { credential }),
-        ...(record.credentialHeader ? { credentialHeader: record.credentialHeader } : {}),
-      }, request, hooks.signal, (event) => hooks.onDelta(event));
+      return provider(endpointFor(record, credential), request, hooks.signal, (event) => hooks.onDelta(event));
     },
     subscribe(listener) {
       const stopStore = store.subscribe(listener);
