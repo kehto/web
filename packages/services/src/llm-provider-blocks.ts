@@ -53,15 +53,15 @@ export function synthesizeLlmToolCallId(): string {
 }
 
 /**
- * Parse tool arguments into a JSON object. A provider that sends no arguments
- * means `{}`.
+ * Parse tool arguments into a JSON object. A provider that omits arguments means
+ * `{}`; an explicit `null` is a non-object value, so it fails like any other.
  *
  * @param raw - A JSON string, an already parsed object, or `undefined`.
  * @returns The arguments object.
  * @throws LlmServiceError `provider-error` for malformed or non-object arguments.
  */
 export function parseToolArguments(raw: unknown): Record<string, unknown> {
-  if (raw === undefined || raw === null || raw === '') return {};
+  if (raw === undefined || raw === '') return {};
   let value: unknown = raw;
   if (typeof raw === 'string') {
     try { value = JSON.parse(raw); } catch { throw new LlmServiceError('provider-error', BAD_CALL); }

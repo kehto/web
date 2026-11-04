@@ -266,6 +266,7 @@ describe('buffered tool responses (LLM-C14, C15, C16)', () => {
       ['openai-chat', openAiReply([openAiCall('c', '{}', null)], 'tool_calls')],
       ['anthropic-messages', anthropicReply([{ type: 'tool_use', id: 'c', name: 'get_weather', input: [KEY] }], 'tool_use')],
       ['anthropic-messages', anthropicReply([{ type: 'tool_use', id: 'c', input: {} }], 'tool_use')],
+      ['anthropic-messages', anthropicReply([{ type: 'tool_use', id: 'c', name: 'get_weather', input: null }], 'tool_use')],
       ['gemini', geminiReply([{ functionCall: { name: 'get_weather', args: [KEY] } }])],
       ['gemini', geminiReply([{ functionCall: { args: {} } }])],
     ];
