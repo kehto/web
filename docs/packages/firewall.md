@@ -36,7 +36,7 @@ pnpm add @kehto/firewall
 |------|---------|
 | Decision engine | `evaluate`, `toKey` |
 | Defaults + factories | `defaultConfig`, `createState`, `DEFAULT_EXCEED_ACTION`, `DEFAULT_BURST_ACTION`, `DEFAULT_UNFOCUSED_MULTIPLIER`, `DEFAULT_RATE_CAPACITY`, `DEFAULT_RATE_WINDOW_MS`, `DEFAULT_BURST_WINDOW_MS`, `DEFAULT_BURST_MAX_OPS` |
-| Config mutations | `setPolicy`, `setRateLimit`, `setGlobalRate`, `addMatcher`, `serialize`, `deserialize` |
+| Config mutations | `setPolicy`, `setRateLimit`, `setGlobalRate`, `setUnfocusedMultiplier`, `setBurstGuard`, `addMatcher`, `serialize`, `deserialize` |
 | Types | `Observation`, `FirewallConfig`, `NappletRules`, `RateLimit`, `BurstGuard`, `ContentMatcher`, `NappletPolicy`, `FirewallState`, `Bucket`, `BurstCounter`, `Decision`, `Action`, `EvaluateResult` |
 
 ## Scope Boundaries

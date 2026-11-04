@@ -81,7 +81,8 @@ state = result.newState;
 ### Config mutations
 - `defaultConfig` — built-in conservative config
 - `createState` — empty counter state
-- `setPolicy`, `setRateLimit`, `addMatcher` — immutable config mutations
+- `setPolicy`, `setRateLimit`, `setGlobalRate`, `addMatcher` — immutable config mutations
+- `setUnfocusedMultiplier`, `setBurstGuard` — change the background budget scale and the startup burst limit. Both throw `RangeError` on out-of-range values.
 - `serialize`, `deserialize` — JSON round-trip for persistence
 
 ## License

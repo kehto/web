@@ -74,6 +74,8 @@ export {
   setPolicy,
   setRateLimit,
   setGlobalRate,
+  setUnfocusedMultiplier,
+  setBurstGuard,
   addMatcher,
   serialize,
   deserialize,

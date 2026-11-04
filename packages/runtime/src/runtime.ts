@@ -103,7 +103,7 @@ export interface Runtime {
   /** Access the ACL state container. */
   readonly aclState: AclStateContainer;
 
-  /** Access the firewall state container (for tests to pre-set policy/rules). */
+  /** Access the firewall state container, so hosts can set policy, rate budgets and the burst guard. */
   readonly firewallState: FirewallStateContainer;
 
   /** Access the manifest cache. */
@@ -505,7 +505,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     if (hooks.permissions) notifyServiceWindowDestroyed(windowId, serviceRegistry);
   });
   let incRuntime: IncRuntime | null = null;
-  const aclState = createAclState(hooks.aclPersistence, 'permissive', (mutation) => {
+  const aclState = createAclState(hooks.aclPersistence, hooks.aclDefaultPolicy ?? 'permissive', (mutation) => {
     for (const entry of sessionRegistry.getAllEntries()) {
       if (entry.dTag === mutation.dTag && entry.aggregateHash === mutation.aggregateHash) {
         permissions?.cancelWindow(entry.windowId);
@@ -518,7 +518,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
         }
       }
     }
-  });
+  }, hooks.aclDefaultPolicy !== undefined);
   const manifestCache = createManifestCache(hooks.manifestPersistence);
   const replayDetector = createReplayDetector(
     hooks.getConfigOverrides

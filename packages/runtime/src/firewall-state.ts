@@ -20,6 +20,7 @@ import type {
   FirewallState,
   NappletPolicy,
   RateLimit,
+  BurstGuard,
   ContentMatcher,
   EvaluateResult,
 } from '@kehto/firewall';
@@ -32,6 +33,8 @@ import {
   setPolicy,
   setRateLimit,
   setGlobalRate,
+  setUnfocusedMultiplier,
+  setBurstGuard,
   addMatcher,
 } from '@kehto/firewall';
 import type { FirewallPersistence } from './types.js';
@@ -92,6 +95,23 @@ export interface FirewallStateContainer {
    * @param limit   - The global fallback rate limit.
    */
   setGlobalRate(napplet: string, limit: RateLimit): void;
+  /**
+   * Set how unfocused windows scale rate budgets. Below 1 tightens, above 1 loosens.
+   * Takes effect on the next evaluation. Call persist() to save it.
+   *
+   * @param multiplier - Finite number above zero.
+   * @throws RangeError if the multiplier is not a finite number above zero.
+   */
+  setUnfocusedMultiplier(multiplier: number): void;
+  /**
+   * Replace the startup burst guard. Takes effect on the next evaluation and keeps
+   * the counters already running. A `windowMs` of zero turns the guard off. Call
+   * persist() to save it.
+   *
+   * @param guard - The window, operation limit and exceed-action to apply.
+   * @throws RangeError if a guard field is out of range.
+   */
+  setBurstGuard(guard: BurstGuard): void;
   /**
    * Add a content matcher to the firewall config.
    *
@@ -157,6 +177,14 @@ export function createFirewallState(
 
     setGlobalRate(napplet: string, limit: RateLimit): void {
       config = setGlobalRate(config, napplet, limit);
+    },
+
+    setUnfocusedMultiplier(multiplier: number): void {
+      config = setUnfocusedMultiplier(config, multiplier);
+    },
+
+    setBurstGuard(guard: BurstGuard): void {
+      config = setBurstGuard(config, guard);
     },
 
     addMatcher(matcher: ContentMatcher): void {
