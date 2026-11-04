@@ -163,6 +163,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
+| 261104-kmf | Host firewall and dispatch controls for shell and runtime (#397-#400), one PR per issue against `release/host-firewall-controls` | 2026-11-04 | 52b4ea89 | passed | [261104-kmf](./quick/261104-kmf-host-firewall-controls/) |
 | 261102-gub | Policy: drop process isolation from the WebRTC-egress end state; name the `webrtc` CSP directive as the upstream fix and nested-context revocation as the Kehto mitigation to build | 2026-11-02 | 0d26bf89 | passed | [261102-gub](./quick/261102-gub-webrtc-egress-end-state/) |
 | 261102-g2n | Paja reports zero relay connections distinctly during pointer resolution (PajaRelayUnreachableError, paja.relay.unreachable) | 2026-11-02 | cea679bb | passed | [261102-g2n](./quick/261102-g2n-paja-relay-unreachable-status/) |
 | 261102-edn | Neuter direct WebRTC egress in the napplet realm (napplet/evil #1); RTCPeerConnection removed from the injected prelude | 2026-11-02 | 00cb519e | passed | [261102-edn](./quick/261102-edn-nip5d-webrtc-egress-neuter/) |
