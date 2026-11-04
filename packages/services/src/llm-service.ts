@@ -213,7 +213,15 @@ function sameConnection(a: LlmConnection, b: LlmConnection): boolean {
     && a.tools === b.tools && sameModes(a.toolChoiceModes, b.toolChoiceModes);
 }
 
+/** A tool-capable connection supports `auto` and `none` and lists each mode once; hosts are pluggable, so check it. */
+function declaresValidModes(connection: LlmConnection): boolean {
+  if (!connection.tools) return true;
+  const modes = connection.toolChoiceModes;
+  return new Set(modes).size === modes.length && modes.includes('auto') && modes.includes('none');
+}
+
 function meetsRequirements(connection: LlmConnection, requirements: LlmRequirements): boolean {
+  if (!declaresValidModes(connection)) return false;
   if (requirements.model !== undefined && requirements.model !== connection.model) return false;
   if (requirements.images === true && !connection.images) return false;
   if (requirements.tools === true && !connection.tools) return false;

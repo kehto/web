@@ -199,6 +199,12 @@ function stripPartialCalls(result: unknown): unknown {
  * tool-choice mode, `format: "json"` text is checked on `stop`, and finally the
  * streamed blocks must match. `length` and `refusal` skip the later checks.
  *
+ * Spec gap: NAP-LLM says `content` "may be empty for length or refusal" and does
+ * not rule on an empty `stop`. Providers do end a turn with no output, often right
+ * after a tool result, and that is not malformed, so it passes through as an empty
+ * completed result. `format: "json"` still fails it, and `required` or a named
+ * choice still fails it for having no call.
+ *
  * @returns The Generation to send, or a `provider-error` failure with a safe message.
  */
 export function checkTerminal(request: LlmGenerationRequest, raw: unknown, tracker: LlmDeltaTracker): LlmGeneration | LlmFailure {

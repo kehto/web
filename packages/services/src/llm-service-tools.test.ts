@@ -567,6 +567,27 @@ describe('NAP-LLM service: tools, thinking and block deltas', () => {
     expect(h.sent.at(-1)).toMatchObject({ model: { tools: false, toolChoiceModes: [] } });
   });
 
+  it('refuses a host connection whose tool-choice modes break the Model rules', async () => {
+    const invalid: Array<LlmConnection['toolChoiceModes']> = [['auto'], ['none'], ['auto', 'none', 'auto'], []];
+    for (const [position, toolChoiceModes] of invalid.entries()) {
+      const h = harness();
+      h.host.selection = { ...TOOL_MODEL, id: `c-bad-${position}`, toolChoiceModes };
+      h.post({ type: 'llm.select', id: 'bad-modes' });
+      await h.flush();
+      expect(h.sent.at(-1)).toMatchObject({ id: 'bad-modes', error: { code: 'unsupported' } });
+    }
+  });
+
+  it('passes an empty completed turn through, and still fails it for json output or a required call (spec gap)', async () => {
+    const h = harness();
+    const handle = await h.select();
+    const empty: LlmGeneration = { content: [], finish: 'stop' };
+    h.host.result = empty;
+    expect(h.terminal(await h.generate(handle, { messages: ASK }))).toMatchObject({ result: empty });
+    expect(h.terminal(await h.generate(handle, { messages: ASK, format: 'json' }))).toMatchObject({ error: { code: 'provider-error' } });
+    expect(h.terminal(await h.generate(handle, { messages: ASK, tools: [WEATHER], toolChoice: 'required' }))).toMatchObject({ error: { code: 'provider-error' } });
+  });
+
   it('revalidation fails when the connection changes its tool support', async () => {
     const h = harness();
     const handle = await h.select(TOOL_MODEL);
