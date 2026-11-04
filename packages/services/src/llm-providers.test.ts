@@ -45,7 +45,7 @@ describe('NAP-LLM provider mappers', () => {
     expect(parseLlmProviderResponse('openai-chat', { choices: [{ message: { content: 'cut' }, finish_reason: 'length' }] })).toEqual({ content: [{ type: 'text', text: 'cut' }], finish: 'length' });
     expect(parseLlmProviderResponse('openai-chat', { choices: [{ message: { content: null }, finish_reason: 'content_filter' }] })).toEqual({ content: [], finish: 'refusal' });
     expect(parseLlmProviderResponse('openai-chat', { choices: [{ message: { content: null, refusal: 'no' }, finish_reason: 'stop' }] })).toEqual({ content: [], finish: 'refusal' });
-    for (const bad of [{ choices: [{ message: { content: 'x' }, finish_reason: 'tool_calls' }] }, { choices: [] }, { error: { message: `bad key ${KEY}` } }, 'text', null]) {
+    for (const bad of [{ choices: [{ message: { content: 'x' }, finish_reason: 'unrecognised_reason' }] }, { choices: [] }, { error: { message: `bad key ${KEY}` } }, 'text', null]) {
       let caught: unknown;
       try { parseLlmProviderResponse('openai-chat', bad); } catch (error) { caught = error; }
       expect(caught).toBeInstanceOf(LlmServiceError);
@@ -89,7 +89,7 @@ describe('NAP-LLM provider mappers', () => {
       .toEqual({ content: [{ type: 'text', text: 'Hello' }], finish: 'stop', usage: { inputTokens: 5, outputTokens: 1 } });
     expect(parseLlmProviderResponse('anthropic-messages', { content: [], stop_reason: 'max_tokens' })).toEqual({ content: [], finish: 'length' });
     expect(parseLlmProviderResponse('anthropic-messages', { content: [{ type: 'text', text: 'no' }], stop_reason: 'refusal' })).toEqual({ content: [{ type: 'text', text: 'no' }], finish: 'refusal' });
-    expect(() => parseLlmProviderResponse('anthropic-messages', { content: [{ type: 'text', text: 'x' }], stop_reason: 'tool_use' })).toThrow(expect.objectContaining({ code: 'provider-error' }));
+    expect(() => parseLlmProviderResponse('anthropic-messages', { content: [{ type: 'text', text: 'x' }], stop_reason: 'pause_turn' })).toThrow(expect.objectContaining({ code: 'provider-error' }));
     expect(() => parseLlmProviderResponse('anthropic-messages', { type: 'error' })).toThrow(expect.objectContaining({ code: 'provider-error' }));
   });
 

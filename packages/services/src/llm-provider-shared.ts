@@ -6,7 +6,7 @@
  * dialects. There are no cycles.
  */
 
-import { LlmServiceError, type LlmBlockEvent, type LlmFinish, type LlmGeneration, type LlmImagePart, type LlmMessage, type LlmOutputPart, type LlmPart, type LlmTextPart, type LlmUsage } from './llm-types.js';
+import { LlmServiceError, type LlmBlockEvent, type LlmFinish, type LlmGeneration, type LlmGenerationRequest, type LlmImagePart, type LlmMessage, type LlmOutputPart, type LlmPart, type LlmTextPart, type LlmTool, type LlmToolCallPart, type LlmUsage } from './llm-types.js';
 
 /** Supported provider request/response dialects. */
 export type LlmProviderProtocol = 'openai-chat' | 'anthropic-messages' | 'gemini';
@@ -27,8 +27,15 @@ export interface LlmProviderEndpoint {
   readonly credentialHeader?: LlmCredentialHeader;
   /** Extra static headers, such as OpenRouter attribution. Never used for credentials. */
   readonly headers?: Readonly<Record<string, string>>;
-  /** Output token ceiling. Anthropic requires one; the default is 4096. */
+  /** Output token ceiling. Anthropic requires one; the default is 4096. A request's `maxTokens` can only lower it. */
   readonly maxOutputTokens?: number;
+  /**
+   * Whether continuing a conversation that contains `toolCall` parts needs opaque
+   * or signed reasoning state NAP-LLM cannot represent (LLM-C17). When true,
+   * history with `toolCall` parts is `unsupported` before any request is built.
+   * Gemini defaults it from the model name (3 and later); an explicit value wins.
+   */
+  readonly requiresOpaqueReasoning?: boolean;
 }
 
 /** Options for {@link buildLlmProviderRequest}. */
@@ -100,10 +107,23 @@ export function record(value: unknown): Record<string, unknown> | null {
   return typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : null;
 }
 
+const count = (value: unknown): value is number => typeof value === 'number' && Number.isInteger(value) && value >= 0;
+
+/** Optional provider-reported counts beyond input and output. Omitted when not reported. */
+export interface UsageExtras {
+  readonly cacheReadTokens?: unknown;
+  readonly cacheWriteTokens?: unknown;
+  readonly reasoningTokens?: unknown;
+}
+
 /** @internal Shared by the buffered parsers and the stream accumulators. */
-export function usageFrom(input: unknown, output: unknown): LlmUsage | undefined {
-  if (typeof input !== 'number' || typeof output !== 'number' || !Number.isInteger(input) || !Number.isInteger(output) || input < 0 || output < 0) return undefined;
-  return { inputTokens: input, outputTokens: output };
+export function usageFrom(input: unknown, output: unknown, extras: UsageExtras = {}): LlmUsage | undefined {
+  if (!count(input) || !count(output)) return undefined;
+  const usage: LlmUsage = { inputTokens: input, outputTokens: output };
+  if (count(extras.cacheReadTokens)) usage.cacheReadTokens = extras.cacheReadTokens;
+  if (count(extras.cacheWriteTokens)) usage.cacheWriteTokens = extras.cacheWriteTokens;
+  if (count(extras.reasoningTokens)) usage.reasoningTokens = extras.reasoningTokens;
+  return usage;
 }
 
 /** @internal Assemble a Generation, omitting absent usage. */
@@ -116,10 +136,98 @@ export function textContent(text: string): LlmOutputPart[] {
   return text === '' ? [] : [{ type: 'text', text }];
 }
 
-/** @internal Finish a generation, or fail when the provider sent no completion marker. */
+/**
+ * @internal Finish a generation, or fail when the provider sent no completion
+ * marker. Adapters normalise too: a completed `stop` with any call is `toolUse`,
+ * and truncated or refused turns keep their finish with no `toolCall` parts.
+ */
 export function completed(content: LlmOutputPart[], finish: LlmFinish | null, usage: LlmUsage | undefined): LlmGeneration {
   if (finish === null) throw providerError('The provider response had no recognised completion marker.');
-  return finished(content, finish, usage);
+  if (finish === 'length' || finish === 'refusal') return finished(content.filter((part) => part.type !== 'toolCall'), finish, usage);
+  const calls = content.some((part) => part.type === 'toolCall');
+  return finished(content, finish === 'stop' && calls ? 'toolUse' : finish, usage);
+}
+
+/** True when a finish ends a completed turn (the only turns whose tool calls are kept). */
+export function isCompletedFinish(finish: LlmFinish | null): boolean {
+  return finish === 'stop' || finish === 'toolUse';
+}
+
+/** Schema sent for a tool that omits `parameters`, as NAP-LLM defines it. */
+export const DEFAULT_TOOL_PARAMETERS: Record<string, unknown> = { type: 'object', properties: {}, additionalProperties: false };
+
+/** The request's tools; an empty list is equivalent to omission. */
+export function toolsOf(request: LlmGenerationRequest): readonly LlmTool[] {
+  return request.tools ?? [];
+}
+
+/** Parameters schema for a tool, with the NAP-LLM default for an omitted one. */
+export function parametersOf(tool: LlmTool): Record<string, unknown> {
+  return tool.parameters ?? DEFAULT_TOOL_PARAMETERS;
+}
+
+/** The `toolCall` parts of a message in order. */
+export function callsOf(message: LlmMessage): LlmToolCallPart[] {
+  return message.content.filter((part): part is LlmToolCallPart => part.type === 'toolCall');
+}
+
+/** Text and image parts of a message, in order, with `toolCall` parts removed. */
+export function nonCallParts(message: LlmMessage): Array<LlmTextPart | LlmImagePart> {
+  return plainParts(message.content.filter((part) => part.type !== 'toolCall'));
+}
+
+/** Smaller of the request's `maxTokens` and the endpoint ceiling; `undefined` when neither is set. */
+export function outputLimit(endpoint: LlmProviderEndpoint, request: LlmGenerationRequest): number | undefined {
+  const limits = [request.maxTokens, endpoint.maxOutputTokens].filter((limit): limit is number => limit !== undefined);
+  return limits.length === 0 ? undefined : Math.min(...limits);
+}
+
+/** Sentence NAP-LLM requires ahead of a failed tool result when the provider has no native error flag (LLM-C22). */
+export const TOOL_FAILED = 'Tool execution failed.';
+
+/**
+ * Tool result content as one string for providers that take text only: the text
+ * parts joined by newlines, with {@link TOOL_FAILED} and a newline in front for
+ * an error result.
+ *
+ * @throws LlmServiceError `unsupported` when the result carries an image.
+ */
+export function toolResultText(message: LlmMessage): string {
+  if (hasImage(message.content)) throw unsupported('This provider does not accept images in tool results.');
+  const texts = plainParts(message.content).map((part) => part.type === 'text' ? part.text : '');
+  return (message.isError === true ? [TOOL_FAILED, ...texts] : texts).join('\n');
+}
+
+const OPAQUE_REASONING_MODEL = /^(models\/)?gemini-([3-9]|\d{2,})/;
+const TEMPERATURE_CEILING: Record<LlmProviderProtocol, number> = { 'openai-chat': 2, 'anthropic-messages': 1, gemini: 2 };
+
+function needsOpaqueReasoning(endpoint: LlmProviderEndpoint): boolean {
+  return endpoint.requiresOpaqueReasoning ?? (endpoint.protocol === 'gemini' && OPAQUE_REASONING_MODEL.test(endpoint.model));
+}
+
+/**
+ * Checks and rewrites shared by every dialect, run before any dialect body.
+ *
+ * History containing `toolCall` parts is `unsupported` when the endpoint needs
+ * opaque reasoning state (LLM-C17). A temperature outside the dialect range is
+ * `unsupported`. `thinking` parts are display-only, so they are omitted from
+ * provider input, and a message they leave empty is dropped.
+ *
+ * @throws LlmServiceError `unsupported` as described.
+ */
+export function prepareRequest(endpoint: LlmProviderEndpoint, request: LlmGenerationRequest): LlmGenerationRequest {
+  if (needsOpaqueReasoning(endpoint) && request.messages.some((message) => callsOf(message).length > 0)) {
+    throw unsupported('This model needs reasoning state that NAP-LLM cannot carry, so a conversation containing tool calls cannot continue on it.');
+  }
+  const ceiling = TEMPERATURE_CEILING[endpoint.protocol];
+  if (request.temperature !== undefined && (request.temperature < 0 || request.temperature > ceiling)) {
+    throw unsupported(`This provider accepts a temperature between 0 and ${ceiling}.`);
+  }
+  const messages = request.messages
+    .map((message) => ({ ...message, content: message.content.filter((part) => part.type !== 'thinking') }))
+    .filter((message) => message.content.length > 0);
+  if (messages.length === 0) throw unsupported('Nothing remains to send once display-only thinking is omitted.');
+  return { ...request, messages };
 }
 
 export function splitSystem(messages: readonly LlmMessage[]): { system: string; turns: LlmMessage[] } {

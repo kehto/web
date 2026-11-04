@@ -16,7 +16,7 @@
 import { buildAnthropicMessages, parseAnthropicMessages } from './llm-provider-anthropic.js';
 import { buildGemini, parseGemini } from './llm-provider-gemini.js';
 import { buildOpenAiChat, parseOpenAiChat } from './llm-provider-openai.js';
-import { providerError, unsupported, type LlmHttpRequest, type LlmProviderEndpoint, type LlmProviderProtocol, type LlmProviderRequestOptions } from './llm-provider-shared.js';
+import { prepareRequest, providerError, unsupported, type LlmHttpRequest, type LlmProviderEndpoint, type LlmProviderProtocol, type LlmProviderRequestOptions } from './llm-provider-shared.js';
 import type { LlmGeneration, LlmGenerationRequest } from './llm-types.js';
 
 export type { LlmCredentialHeader, LlmHttpRequest, LlmProviderEndpoint, LlmProviderProtocol, LlmProviderRequestOptions } from './llm-provider-shared.js';
@@ -34,10 +34,11 @@ export type { LlmCredentialHeader, LlmHttpRequest, LlmProviderEndpoint, LlmProvi
  */
 export function buildLlmProviderRequest(endpoint: LlmProviderEndpoint, request: LlmGenerationRequest, options: LlmProviderRequestOptions = {}): LlmHttpRequest {
   const stream = options.stream === true;
+  const prepared = prepareRequest(endpoint, request);
   switch (endpoint.protocol) {
-    case 'openai-chat': return buildOpenAiChat(endpoint, request, stream);
-    case 'anthropic-messages': return buildAnthropicMessages(endpoint, request, stream);
-    case 'gemini': return buildGemini(endpoint, request, stream);
+    case 'openai-chat': return buildOpenAiChat(endpoint, prepared, stream);
+    case 'anthropic-messages': return buildAnthropicMessages(endpoint, prepared, stream);
+    case 'gemini': return buildGemini(endpoint, prepared, stream);
     default: throw unsupported('Unknown provider protocol.');
   }
 }
