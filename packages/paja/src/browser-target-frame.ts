@@ -1,6 +1,8 @@
 import {
   admitBrowserDocument,
+  assertNappletHasNoFrame,
   denyNappletControllerAccess,
+  hasNappletFramePolicy,
   originRegistry,
   resolveShellEnvironment,
   type BrowserRemoteSource,
@@ -12,7 +14,8 @@ import type { Runtime } from '@kehto/runtime';
 
 import { isPajaLocalTarget, readDevelopmentDomains, type PajaRuntimeTarget } from './local-target.js';
 import { developmentRemoteSources } from './target-cors.js';
-import type { PajaHostConfig } from './options.js';
+import type { PajaHostConfig, PajaNestedContextLockSetting } from './options.js';
+import { readStoredNestedContextLockSetting } from './browser-security-settings.js';
 import type { PajaShellEnvironment } from './parity.js';
 
 /**
@@ -71,6 +74,25 @@ export function registerFrameForGeneration(
   return windowId;
 }
 
+/**
+ * Return a frame that has never hosted a napplet document. NIP-5D binds
+ * identity to one document's `napplet.hello` port and forbids re-binding an
+ * identity to an existing iframe, so a frame that was registered (or whose
+ * Window is spent) is replaced in the DOM by an attribute-identical clone.
+ *
+ * @param frame - The current napplet iframe
+ * @returns `frame` when unused, otherwise the fresh replacement
+ */
+export function ensureFreshNappletFrame(frame: HTMLIFrameElement): HTMLIFrameElement {
+  const win = frame.contentWindow;
+  if (!win || (!originRegistry.isSpent(win) && originRegistry.getWindowId(win) === undefined)) return frame;
+  const fresh = frame.cloneNode(false) as HTMLIFrameElement;
+  fresh.removeAttribute('src');
+  fresh.removeAttribute('srcdoc');
+  frame.replaceWith(fresh);
+  return fresh;
+}
+
 export async function navigateFrame(
   frame: HTMLIFrameElement,
   config: PajaHostConfig,
@@ -84,8 +106,20 @@ export async function navigateFrame(
   signal?: AbortSignal,
 ): Promise<string | null> {
   denyNappletControllerAccess(frame);
+  // Fail closed: without the host page's frame-src lock, a napplet could navigate its frame before its first load,
+  // which no NIP-5D replacement evidence can observe.
+  if (!hasNappletFramePolicy(frame.ownerDocument)) {
+    throw new Error('[paja] The host page has no frame-src lock; refusing to load a napplet whose frame could navigate away from its verified document.');
+  }
   if (config.target.mode === 'runtime-pointer') {
-    if (!resolvedTarget || signal?.aborted || (isCurrent && !isCurrent())) return null;
+    // Verified pointers and local development files share this branch: the
+    // same pre-execution admission, CSP, prelude, and sandboxed srcdoc.
+    if (!resolvedTarget) {
+      frame.removeAttribute('src');
+      frame.srcdoc = '<!doctype html><html><body></body></html>';
+      return null;
+    }
+    if (signal?.aborted || (isCurrent && !isCurrent())) return null;
     const identity = getTargetOriginIdentity(config, resolvedTarget);
     const environment = resolvePajaFrameEnvironment(adapter, identity);
     const local = isPajaLocalTarget(resolvedTarget);
@@ -93,11 +127,29 @@ export async function navigateFrame(
       required: resolvedTarget.manifest.requires, optional: resolvedTarget.manifest.optional ?? [],
     };
     const declared = declarations.required.length > 0 || declarations.optional.length > 0;
+    // Resolve the experimental nested-browsing-context lock (opt-in) for this
+    // napplet. Precedence: a per-origin host-GUI override wins, else the
+    // serialized host config (CLI / config file), else `auto`. `on`/`off` are
+    // explicit; `auto` applies the lock only to a napplet offered a
+    // privacy-sensitive NAP domain, where exfiltration by an untrusted app has
+    // real consequences. See docs/policies/EXPERIMENTAL.md.
+    const lockSetting = readStoredNestedContextLockSetting()
+      ?? config.experimental?.nestedContextLock
+      ?? 'auto';
+    const nestedContextLock = resolveNestedContextLock(lockSetting, environment.capabilities.domains);
+    // When locked: reject a napplet whose own markup declares a nested browsing
+    // context before any approval prompt or document. The prelude's Trusted Types
+    // policy and factory pins close every scripted iframe path, but static
+    // `<iframe>` is instantiated by the parser, which is not a Trusted Types
+    // sink. This scan runs in the trusted shell realm, so a napplet cannot bypass
+    // it (docs/policies/NIP-5D-CONFORMANCE.md, "Nested browsing contexts").
+    if (nestedContextLock) assertNappletHasNoFrame(resolvedTarget.indexHtml);
     return admitPajaFrame({
       frame, config, generation, runtime, identity, environment,
       verifiedHtml: resolvedTarget.indexHtml,
       required: declarations.required,
       optional: local && !declared ? environment.capabilities.domains : declarations.optional,
+      ...(nestedContextLock ? { experimental: { nestedContextLock: true } } : {}),
       windowId, isCurrent, onRegistered, signal,
     });
   }
@@ -138,6 +190,7 @@ interface PajaFrameAdmission {
   readonly optional: readonly string[];
   readonly remoteSources?: readonly BrowserRemoteSource[];
   readonly baseOrigin?: string;
+  readonly experimental?: { readonly nestedContextLock?: boolean };
   readonly windowId?: string;
   readonly isCurrent?: () => boolean;
   readonly onRegistered?: (windowId: string | null) => void;
@@ -146,7 +199,7 @@ interface PajaFrameAdmission {
 
 async function admitPajaFrame(options: PajaFrameAdmission): Promise<string | null> {
   const { frame, config, generation, runtime, identity, environment, verifiedHtml,
-    required, optional, remoteSources, baseOrigin, windowId, isCurrent, onRegistered, signal } = options;
+    required, optional, remoteSources, baseOrigin, experimental, windowId, isCurrent, onRegistered, signal } = options;
   if (!identity.permissionPrincipal) throw new Error('Paja source has no trusted permission principal');
   const sourceWindowId = windowId ?? `${config.window.id}:${generation}`;
   const current = () => !signal?.aborted && (!isCurrent || isCurrent()) && frame.isConnected !== false;
@@ -160,7 +213,7 @@ async function admitPajaFrame(options: PajaFrameAdmission): Promise<string | nul
     runtime, entry, verifiedHtml, available: environment.capabilities.domains,
     required, optional,
     remoteSources: remoteSources ?? (config.csp?.connectOrigins ?? []).map((origin) => ({ directive: 'connect-src' as const, origin })),
-    baseOrigin,
+    baseOrigin, experimental,
     isCurrentSource: current, signal,
     commit(srcdoc, admitted) {
       if (!current()) throw new Error('Paja source changed before admission commit');
@@ -187,6 +240,31 @@ async function admitPajaFrame(options: PajaFrameAdmission): Promise<string | nul
   if (result.status === 'committed') return result.windowId;
   if (result.status === 'cancelled') return null;
   throw new Error(`Paja Firewall launch admission ${result.status}${result.deniedRequired.length ? `: ${result.deniedRequired.join(', ')}` : ''}`);
+}
+
+/**
+ * NAP domains whose data is private enough that an untrusted napplet exfiltrating
+ * it has real consequences. Under `auto`, granting one of these turns the
+ * nested-browsing-context lock on. NAP-DM exposes decrypted direct messages.
+ */
+const PRIVACY_SENSITIVE_DOMAINS: ReadonlySet<string> = new Set(['dm']);
+
+/**
+ * Resolve the dev-facing nested-context-lock setting to a boolean for one
+ * napplet. `on`/`off` are explicit; `auto` locks only when the napplet is
+ * granted a privacy-sensitive domain.
+ *
+ * @param setting - The dev's `on` | `off` | `auto` choice.
+ * @param grantedDomains - NAP domains the shell exposes to this napplet.
+ * @returns Whether to apply the lock to this napplet.
+ */
+export function resolveNestedContextLock(
+  setting: PajaNestedContextLockSetting,
+  grantedDomains: readonly string[],
+): boolean {
+  if (setting === 'on') return true;
+  if (setting === 'off') return false;
+  return grantedDomains.some((domain) => PRIVACY_SENSITIVE_DOMAINS.has(domain));
 }
 
 export function renderTargetErrorHtml(error: unknown): string {

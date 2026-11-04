@@ -159,4 +159,6 @@ export interface ServiceHandler {
    * @param windowId - The destroyed napplet's window identifier
    */
   onWindowDestroyed?(windowId: string): void;
+  /** Revoke live output when this endpoint loses a capability or is blocked. */
+  onCapabilityRevoked?(windowId: string, capability: Capability | null): void;
 }

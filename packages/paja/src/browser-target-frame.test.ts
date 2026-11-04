@@ -6,6 +6,9 @@ import { originRegistry, resolveShellEnvironment, type ShellAdapter } from '@keh
 import type { Runtime } from '@kehto/runtime';
 import { createPajaAdmissionTestRuntime } from './browser-admission-test-runtime.js';
 import { navigateFrame } from './browser-target-frame.js';
+
+/** A host page carrying the frame-src lock that navigateFrame requires. */
+const LOCKED_HOST = { querySelectorAll: () => [{ content: "frame-src 'none'" }] };
 import { InstalledNappletCatalog } from './installed-napplet-catalog.js';
 import type { PajaHostConfig } from './options.js';
 import type { PajaResolvedPointer } from './runtime-resolver.js';
@@ -59,7 +62,7 @@ describe.each(['current', 'legacy'] as const)('%s Paja frame admission', (format
     const win = {} as Window;
     let output = '';
     const frame = {
-      contentWindow: win, getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn(),
+      contentWindow: win, ownerDocument: LOCKED_HOST, getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn(),
       set srcdoc(value: string) {
         expect(originRegistry.getIdentity(win)).toEqual({ dTag: resolved.dTag, aggregateHash: resolved.aggregateHash,
           permissionPrincipal: { kind: 'verified', manifestKey: resolved.manifest.catalogId, artifactHash: resolved.aggregateHash } });
@@ -78,7 +81,7 @@ describe.each(['current', 'legacy'] as const)('%s Paja frame admission', (format
   it.each(['unavailable', 'keys'])('blocks when required %s is unavailable before executable bytes', async (domain) => {
     const resolved = await target(format, [domain]);
     const win = {} as Window;
-    const frame = { contentWindow: win, srcdoc: '', getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
+    const frame = { contentWindow: win, ownerDocument: LOCKED_HOST, srcdoc: '', getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
     await expect(navigateFrame(frame, config, 1, adapter, runtime, resolved)).rejects.toThrow(/admission denied/);
     expect(frame.srcdoc).toBe('');
     expect(originRegistry.getIdentity(win)).toBeUndefined();
@@ -112,7 +115,7 @@ it('loads optional-INC artifacts with INC disabled without advertising a handler
   const catalog = new InstalledNappletCatalog();
   catalog.install(resolved);
   const disabled = { capabilities: { disabledDomains: ['inc'] } } as unknown as ShellAdapter;
-  const frame = { contentWindow: {} as Window, srcdoc: '', getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
+  const frame = { contentWindow: {} as Window, ownerDocument: LOCKED_HOST, srcdoc: '', getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
   await navigateFrame(frame, config, 1, disabled, runtime, resolved);
   expect(frame.srcdoc).toContain('Verified bytes');
   expect(originRegistry.getEnvironment(frame.contentWindow!)?.capabilities.domains).not.toContain('inc');
@@ -124,7 +127,7 @@ it('loads optional-INC artifacts with INC disabled without advertising a handler
 it.each([35129, 15129, 5129])('loads kind %i with unknown optional domains quietly', async (kind) => {
   const resolved = await target('current', [], kind, ['experimental-nap', 'keys']);
   const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-  const frame = { contentWindow: {} as Window, srcdoc: '', getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
+  const frame = { contentWindow: {} as Window, ownerDocument: LOCKED_HOST, srcdoc: '', getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
   await navigateFrame(frame, config, 1, adapter, runtime, resolved);
   expect(frame.srcdoc).toContain('Verified bytes');
   expect(resolved.manifest.optional).toEqual(['experimental-nap', 'keys']);
@@ -136,7 +139,7 @@ it.each([35129, 15129, 5129])('loads kind %i with unknown optional domains quiet
 it('does not warn or execute for a stale navigation with unavailable requirements', async () => {
   const resolved = await target('current', ['experimental-nap']);
   const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-  const frame = { contentWindow: {} as Window, srcdoc: '', getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
+  const frame = { contentWindow: {} as Window, ownerDocument: LOCKED_HOST, srcdoc: '', getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
   expect(await navigateFrame(frame, config, 1, adapter, runtime, resolved, undefined, () => false)).toBeNull();
   expect(frame.srcdoc).toBe('');
   expect(originRegistry.getIdentity(frame.contentWindow!)).toBeUndefined();
@@ -153,7 +156,7 @@ it('holds verified bytes until approval and aborts a replaced frame without regi
     return new Promise((resolve) => { answer = resolve; });
   });
   const resolved = await target('current', ['shell']);
-  const frame = { contentWindow: {} as Window, srcdoc: '', getAttribute: vi.fn(() => null),
+  const frame = { contentWindow: {} as Window, ownerDocument: LOCKED_HOST, srcdoc: '', getAttribute: vi.fn(() => null),
     setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
   const controller = new AbortController();
   const pending = navigateFrame(frame, config, 1, adapter, runtime, resolved,
@@ -176,7 +179,7 @@ it('narrows denied optional interfaces and keeps discovery hints outside direct 
   }));
   const resolved = { ...await target('current', ['shell'], 35129, ['inc']),
     relays: ['wss://relay.example.test'], blossomServers: ['https://blossom.example.test'] };
-  const frame = { contentWindow: {} as Window, srcdoc: '', getAttribute: vi.fn(() => null),
+  const frame = { contentWindow: {} as Window, ownerDocument: LOCKED_HOST, srcdoc: '', getAttribute: vi.fn(() => null),
     setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
   expect(await navigateFrame(frame, config, 1, adapter, runtime, resolved)).toBe('test:1');
   expect(originRegistry.getEnvironment(frame.contentWindow!)?.capabilities.domains).toEqual(['shell']);
@@ -195,7 +198,7 @@ it('admits a live development URL with exact asset and HMR origins tied to fetch
   stubDevelopmentHtml('<html><head></head><body><script type="module" src="/src/main.ts"></script></body></html>');
   const dev = { target: { mode: 'iframe-url', url: 'http://127.0.0.1:5173/', hmrStrategy: 'iframe-target-url' },
     window: { id: 'dev', dTag: 'dev-app', aggregateHash: '0'.repeat(64) } } as PajaHostConfig;
-  const frame = { contentWindow: {} as Window, srcdoc: '', getAttribute: vi.fn(() => null),
+  const frame = { contentWindow: {} as Window, ownerDocument: LOCKED_HOST, srcdoc: '', getAttribute: vi.fn(() => null),
     setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
   expect(await navigateFrame(frame, dev, 1, adapter, runtime)).toBe('dev:1');
   const identity = originRegistry.getIdentity(frame.contentWindow!);
@@ -216,10 +219,64 @@ it('rejects a live development document requiring resource before approval or ex
   stubDevelopmentHtml('<meta name="napplet-requires" content="resource"><script type="module" src="/src/main.ts"></script>');
   const dev = { target: { mode: 'iframe-url', url: 'http://127.0.0.1:5173/', hmrStrategy: 'iframe-target-url' },
     window: { id: 'dev', dTag: 'dev-app', aggregateHash: '0'.repeat(64) } } as PajaHostConfig;
-  const frame = { contentWindow: {} as Window, srcdoc: '', getAttribute: vi.fn(() => null),
+  const frame = { contentWindow: {} as Window, ownerDocument: LOCKED_HOST, srcdoc: '', getAttribute: vi.fn(() => null),
     setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
   await expect(navigateFrame(frame, dev, 1, adapter, runtime)).rejects.toThrow(/incompatible: resource/);
   expect(prompt).not.toHaveBeenCalled();
+  expect(frame.srcdoc).toBe('');
+  expect(originRegistry.getIdentity(frame.contentWindow!)).toBeUndefined();
+});
+
+async function frameDeclaringTarget(requires: readonly string[] = ['shell']): Promise<PajaResolvedPointer> {
+  const frameHtml = '<html><head><title>evil</title></head><body><iframe srcdoc="x"></iframe></body></html>';
+  const frameBytes = new TextEncoder().encode(frameHtml);
+  const frameHash = await sha256hex(frameBytes);
+  const event = finalizeEvent({ kind: 35129, created_at: 1, content: 'frame napplet', tags: [['d', 'frame'], ['x', frameHash], ...requires.map((domain) => ['R', domain])] }, sk);
+  const resolvedBase = await resolveNapplet({ event, fetchBlob: async () => frameBytes });
+  return { ...resolvedBase, event, pointer: { type: 'nevent', value: 'p', id: event.id, relays: [] }, relays: [], blossomServers: [] } as unknown as PajaResolvedPointer;
+}
+
+// The `auto` → privacy-sensitive-domain decision is unit-tested directly in
+// nested-context-lock.test.ts (resolveNestedContextLock), independent of the
+// shell environment's domain-granting internals.
+
+it('with the experimental lock on, refuses a verified napplet whose markup declares a nested browsing context', async () => {
+  const lockedConfig = { ...config, experimental: { nestedContextLock: 'on' } } as PajaHostConfig;
+  const resolved = await frameDeclaringTarget();
+  const win = {} as Window;
+  let assigned = '';
+  const frame = {
+    contentWindow: win, ownerDocument: LOCKED_HOST, getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn(),
+    set srcdoc(value: string) { assigned = value; },
+  } as unknown as HTMLIFrameElement;
+  await expect(navigateFrame(frame, lockedConfig, 1, adapter, runtime, resolved)).rejects.toThrow(/nested browsing context/);
+  expect(assigned).toBe('');
+});
+
+it('with the experimental lock on, carries Trusted Types and prelude pins through Firewall admission', async () => {
+  const lockedConfig = { ...config, experimental: { nestedContextLock: 'on' } } as PajaHostConfig;
+  const resolved = await target('current', ['shell']);
+  const frame = { contentWindow: {} as Window, ownerDocument: LOCKED_HOST, srcdoc: '', getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
+  await navigateFrame(frame, lockedConfig, 1, adapter, runtime, resolved);
+  expect(frame.srcdoc).toContain("require-trusted-types-for 'script'");
+  expect(frame.srcdoc).toContain("frame-src 'none'");
+});
+
+it('without the experimental lock, loads a frame-declaring napplet unchanged (opt-in gate)', async () => {
+  const resolved = await frameDeclaringTarget();
+  const win = {} as Window;
+  const frame = {
+    contentWindow: win, ownerDocument: LOCKED_HOST, srcdoc: '', getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn(),
+  } as unknown as HTMLIFrameElement;
+  await navigateFrame(frame, config, 1, adapter, runtime, resolved);
+  expect(frame.srcdoc).toContain('<iframe srcdoc="x">');
+  expect(frame.srcdoc).not.toContain('require-trusted-types-for');
+});
+
+it('refuses to load a napplet on a host page without the frame-src lock', async () => {
+  const resolved = await target('current', ['relay', 'shell'], 35129);
+  const frame = { contentWindow: {} as Window, ownerDocument: { querySelectorAll: () => [] }, srcdoc: '', getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
+  await expect(navigateFrame(frame, config, 1, adapter, runtime, resolved)).rejects.toThrow(/frame-src lock/);
   expect(frame.srcdoc).toBe('');
   expect(originRegistry.getIdentity(frame.contentWindow!)).toBeUndefined();
 });

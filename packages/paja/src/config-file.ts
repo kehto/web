@@ -60,6 +60,7 @@ export function mergePajaRawOptions(
     port: override.port ?? base.port,
     readyTimeoutMs: override.readyTimeoutMs ?? base.readyTimeoutMs,
     configPath: override.configPath ?? base.configPath,
+    experimental: override.experimental ?? base.experimental,
     simulation: mergeSimulationOptions(base.simulation, override.simulation),
   };
 }

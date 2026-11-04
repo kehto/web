@@ -3,6 +3,7 @@ import { createShellBridge, originRegistry, resolveShellEnvironment } from './in
 import type { ShellAdapter } from './index.js';
 import { createLinkService } from '@kehto/services';
 import type { ApprovalPrompt } from '@kehto/runtime';
+import { deliverFromNapplet } from './test-utils.js';
 
 const identity = { dTag: 'example', aggregateHash: 'a'.repeat(64) };
 const windowId = 'example-window';
@@ -44,7 +45,7 @@ function createHarness(overrides: Partial<ShellAdapter> = {}) {
     services: [...defaults.services, 'private-example'],
   };
   const dispatch = (source: Window, data: Record<string, unknown>) => {
-    bridge.handleMessage({ source, origin: 'null', data } as MessageEvent);
+    deliverFromNapplet(bridge, { source, origin: 'null', data } as MessageEvent);
   };
   bridge.runtime.firewallState.setPolicy(identity.dTag, 'allow');
   return { bridge, defaults, explicit, dispatch, handler };
@@ -85,17 +86,16 @@ describe('source environment lifetime (#320)', () => {
     bridge.destroy();
   });
 
+  // NIP-5D (nostr-protocol/nips#2303): identity is bound to one document's
+  // port, so a retired iframe is replaced by a fresh one and never re-bound.
   it.each([
-    { reuseSource: true, unregisterSession: true, readyFirst: true },
-    { reuseSource: false, unregisterSession: true, readyFirst: true },
-    { reuseSource: true, unregisterSession: true, readyFirst: false },
-    { reuseSource: false, unregisterSession: true, readyFirst: false },
-    { reuseSource: true, unregisterSession: false, readyFirst: true },
-    { reuseSource: false, unregisterSession: false, readyFirst: true },
-  ])('resolves defaults after retirement: %j', ({ reuseSource, unregisterSession, readyFirst }) => {
+    { unregisterSession: true, readyFirst: true },
+    { unregisterSession: true, readyFirst: false },
+    { unregisterSession: false, readyFirst: true },
+  ])('resolves defaults after retirement: %j', ({ unregisterSession, readyFirst }) => {
     const { bridge, defaults, explicit, dispatch, handler } = createHarness();
     const first = createFrame();
-    const replacement = reuseSource ? first : createFrame();
+    const replacement = createFrame();
     try {
       expect(defaults.capabilities.domains).not.toContain('example');
       originRegistry.register(first.win, windowId, identity);
@@ -115,6 +115,7 @@ describe('source environment lifetime (#320)', () => {
       dispatch(first.win, { type: 'example.read', id: 'retired' });
       expect(handler).toHaveBeenCalledTimes(1);
 
+      expect(() => originRegistry.register(first.win, windowId, identity)).toThrow(/fresh iframe/);
       originRegistry.register(replacement.win, windowId, identity);
       expect(originRegistry.getEnvironment(replacement.win)).toBeUndefined();
       if (readyFirst) dispatch(replacement.win, { type: 'shell.ready' });
@@ -128,11 +129,9 @@ describe('source environment lifetime (#320)', () => {
       dispatch(replacement.win, { type: 'shell.ready', capabilities: explicit.capabilities });
       const inits = replacement.postMessage.mock.calls.filter(([message]) => message.type === 'shell.init');
       expect(inits).toEqual([[{ type: 'shell.init', ...defaults }, '*']]);
-      if (!reuseSource) {
-        dispatch(first.win, { type: 'shell.ready' });
-        dispatch(first.win, { type: 'example.read', id: 'old-source' });
-        expect(first.postMessage).not.toHaveBeenCalled();
-      }
+      dispatch(first.win, { type: 'shell.ready' });
+      dispatch(first.win, { type: 'example.read', id: 'old-source' });
+      expect(first.postMessage).not.toHaveBeenCalled();
     } finally {
       bridge.destroy();
     }
@@ -140,10 +139,11 @@ describe('source environment lifetime (#320)', () => {
 
   it('honors a replacement snapshot and keeps it across duplicate ready messages', () => {
     const { bridge, defaults, explicit, dispatch, handler } = createHarness();
+    const retired = createFrame();
     const frame = createFrame();
     try {
-      originRegistry.register(frame.win, windowId, identity);
-      dispatch(frame.win, { type: 'shell.ready' });
+      originRegistry.register(retired.win, windowId, identity);
+      dispatch(retired.win, { type: 'shell.ready' });
       bridge.runtime.destroyWindow(windowId);
       bridge.runtime.sessionRegistry.unregister(windowId);
       originRegistry.unregister(windowId);

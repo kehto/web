@@ -1,7 +1,5 @@
 packages:
   - docs
   - packages/*
-  - apps/*
-  - apps/playground/napplets/*
   - tests/fixtures/napplets/*
   - tests/e2e/harness

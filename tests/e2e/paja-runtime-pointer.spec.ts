@@ -260,8 +260,9 @@ test('completes a verified intent and delivers its convention once to a cold tar
       if (!(frame instanceof HTMLIFrameElement)) throw new Error('Missing verified source frame');
       frame.contentWindow?.postMessage({ type: 'test.invoke' }, '*');
     });
-    await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().messageLog
-      .filter((entry) => entry.type === 'test.source.accepted').length ?? 0)).toBe(1);
+    const sourceTabId = await page.evaluate(() => window.__KEHTO_PAJA__?.getState().tabs
+      .find((tab) => tab.title === 'intent-source')?.id ?? null);
+    await expect(page.frameLocator(`#napplet-frame-${sourceTabId}`).locator('#source-accepted')).toHaveText('1');
 
     await page.evaluate(() => {
       const state = window.__KEHTO_PAJA__;
@@ -290,7 +291,20 @@ test('completes a verified intent and delivers its convention once to a cold tar
       forged.srcdoc = '<div id="messages">0</div><script>let count=0;window.addEventListener("message",()=>document.getElementById("messages").textContent=String(++count));parent.postMessage({type:"shell.ready"},"*");</script>';
       document.body.append(forged);
     });
+    // NIP-5D: a frame the shell did not create is dropped silently.
     await expect(page.frameLocator('#forged-ready').locator('#messages')).toHaveText('0');
+    expect(await page.evaluate(() => window.__KEHTO_PAJA__?.getState().messageLog
+      .filter((entry) => entry.type === 'paja.napplet.revoked').length)).toBe(0);
+
+    // A registered napplet that posts a NAP envelope at window level after its
+    // napplet.hello handoff is revoked and its frame replaced.
+    await page.frameLocator(`#napplet-frame-${targetTabId}`).locator('body')
+      .evaluate(() => window.parent.postMessage({ type: 'shell.ready' }, '*'));
+    await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().messageLog
+      .filter((entry) => entry.type === 'paja.napplet.revoked').length)).toBe(1);
+    await expect.poll(async () => page.evaluate((id) => window.__KEHTO_PAJA__?.getState().tabs
+      .find((tab) => tab.id === id)?.status, targetTabId)).toBe('error');
+    await expect(page.frameLocator(`#napplet-frame-${targetTabId}`).locator('#delivery-count')).toHaveCount(0);
   } finally {
     await server.close();
   }
@@ -447,8 +461,7 @@ test('foregrounds a reused canonical intent handler for every behavior.focus hin
         }, '*');
       }, focus);
       await expect(deliveries).toHaveText(String(index + 1));
-      await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().messageLog
-        .filter((entry) => entry.type === 'test.source.accepted').length)).toBe(index + 1);
+      await expect(page.frameLocator(`#napplet-frame-${sourceId}`).locator('#source-accepted')).toHaveText(String(index + 1));
       await expect(sourceFrame).toBeHidden();
       await expect(targetFrame).toBeVisible();
       const snapshot = await page.evaluate(() => window.__KEHTO_PAJA__!.getState());
@@ -514,8 +527,8 @@ for (const blockedStorage of [false, true]) {
       await page.goto(server.url);
       await expect(page.frameLocator('iframe').locator('#ready')).toHaveText('ready');
       const original = await snapshot();
-      await expect(page.locator('#paja-console > details')).toHaveCount(8);
-      expect(await page.locator('#paja-console > details').evaluateAll((sections) => sections.map((section) => section.getAttribute('data-paja-section')))).toEqual(['pointer', 'interfaces', 'permissions', 'acl', 'signer', 'resource-servers', 'messages', 'events']);
+      await expect(page.locator('#paja-console > details')).toHaveCount(10);
+      expect(await page.locator('#paja-console > details').evaluateAll((sections) => sections.map((section) => section.getAttribute('data-paja-section')))).toEqual(['pointer', 'interfaces', 'permissions', 'acl', 'signer', 'resource-servers', 'security', 'llm', 'messages', 'events']);
       const frameNode = await page.locator('iframe').elementHandle();
       const frameWindow = await page.locator('iframe').evaluateHandle((frame) => (frame as HTMLIFrameElement).contentWindow);
       const pointer = page.locator('#runtime-pointer-section');
@@ -593,16 +606,17 @@ function resourceSettingsHtml(hash: string): string {
   return `<!doctype html><html><body><div id="ready">booting</div><button id="read">Read</button><div id="result"></div><div id="count">0</div><script>
     let count = 0;
     window.napplet.shell.onReady(() => { document.getElementById('ready').textContent = 'ready'; });
-    document.getElementById('read').onclick = () => {
+    document.getElementById('read').onclick = async () => {
       document.getElementById('result').textContent = 'pending';
-      parent.postMessage({type:'resource.bytes',id:'read-' + (++count),url:'blossom:sha256:${hash}'}, '*');
-    };
-    window.addEventListener('message', async (event) => {
-      if (event.source !== parent || !event.data.id?.startsWith('read-')) return;
-      const message = event.data;
-      document.getElementById('result').textContent = message.blob ? atob(message.blob) : message.error;
+      count += 1;
+      try {
+        const blob = await window.napplet.resource.bytes('blossom:sha256:${hash}');
+        document.getElementById('result').textContent = await blob.text();
+      } catch (error) {
+        document.getElementById('result').textContent = error.message;
+      }
       document.getElementById('count').textContent = String(count);
-    });
+    };
   </script></body></html>`;
 }
 
@@ -723,30 +737,28 @@ function createPointerFixture(
   };
 }
 
+// NIP-5D: test napplets reach the shell only through the injected namespace's
+// private port. Host test control (`test.invoke`) still arrives at window level
+// from the parent; outcomes are reported through DOM text, never postMessage.
 function sourceIntentHtml(): string {
-  return `<!doctype html><html><body><div id="source-status">booting</div><script>
+  return `<!doctype html><html><body><div id="source-status">booting</div><div id="source-accepted">0</div><script>
+    let accepted = 0;
+    window.napplet.shell.ready().then(() => { document.getElementById('source-status').textContent = 'ready'; });
     window.addEventListener('message', (event) => {
-      if (event.data && event.data.type === 'shell.init') document.getElementById('source-status').textContent = 'ready';
-      if (event.data && event.data.type === 'test.invoke') {
-        window.parent.postMessage({ type: 'intent.invoke', id: 'source-intent', request: {
-          archetype: 'profile', action: 'open', convention: 'napplet:profile/open', payload: { pubkey: '${'f'.repeat(64)}' },
-          ...(event.data.behavior === undefined ? {} : { behavior: event.data.behavior }),
-        } }, '*');
-      }
-      if (event.data && event.data.type === 'intent.invoke.result' && event.data.result && event.data.result.ok) {
-        window.parent.postMessage({ type: 'test.source.accepted' }, '*');
-      }
+      if (event.source !== window.parent || !event.data || event.data.type !== 'test.invoke') return;
+      window.napplet.intent.invoke('napplet:profile/open', {
+        payload: { pubkey: '${'f'.repeat(64)}' },
+        ...(event.data.behavior === undefined ? {} : { behavior: event.data.behavior }),
+      }).then((result) => {
+        if (result && result.ok) document.getElementById('source-accepted').textContent = String(++accepted);
+      });
     });
-    window.parent.postMessage({ type: 'shell.ready' }, '*');
   </script></body></html>`;
 }
 
 function intentOnlyTargetHtml(): string {
   return `<!doctype html><html><body><div id="intent-only-status">booting</div><script>
-    window.addEventListener('message', (event) => {
-      if (event.data && event.data.type === 'shell.init') document.getElementById('intent-only-status').textContent = 'ready';
-    });
-    window.parent.postMessage({ type: 'shell.ready' }, '*');
+    window.napplet.shell.ready().then(() => { document.getElementById('intent-only-status').textContent = 'ready'; });
   </script></body></html>`;
 }
 
@@ -758,7 +770,6 @@ function targetIntentHtml(): string {
       document.getElementById('delivery-count').textContent = String(count);
       document.getElementById('delivery-pubkey').textContent = event.payload && event.payload.pubkey || '';
     });
-    window.parent.postMessage({ type: 'shell.ready' }, '*');
   </script></body></html>`;
 }
 

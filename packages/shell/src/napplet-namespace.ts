@@ -8,6 +8,7 @@
  */
 
 import { createIntentUriNormalizer } from './intent-uri.js';
+import type { NappletExperimentalOptions } from './napplet-experimental.js';
 
 /**
  * Options for rendering the host-owned NIP-5D `window.napplet` namespace prelude.
@@ -25,6 +26,11 @@ export interface NappletNamespacePreludeOptions {
    * Shell is injected only when included in the exposed domains.
    */
   domains: readonly string[];
+  /**
+   * Opt-in experimental host policies, off by default. See
+   * {@link NappletExperimentalOptions}.
+   */
+  readonly experimental?: NappletExperimentalOptions;
 }
 
 function uniqueBareDomains(domains: readonly string[]): string[] {
@@ -60,7 +66,120 @@ function scriptJson(value: unknown): string {
  */
 export function renderNappletNamespacePrelude(options: NappletNamespacePreludeOptions): string {
   const domains = uniqueBareDomains(options.domains);
-  return `<script data-kehto-nip5d-injection>(${nappletNamespacePrelude.toString()})(${scriptJson(domains)}, (${createIntentUriNormalizer.toString()})());</script>`;
+  // The nested-browsing-context lock is opt-in (experimental namespace). When
+  // off, inject a no-op so the prelude installs no Trusted Types policy and
+  // pins no factories, leaving the realm exactly as it was before this policy.
+  const frameLock = options.experimental?.nestedContextLock
+    ? nappletFrameLock.toString()
+    : '(function(){})';
+  return `<script data-kehto-nip5d-injection>(${nappletNamespacePrelude.toString()})(${scriptJson(domains)}, (${createIntentUriNormalizer.toString()})(), ${frameLock});</script>`;
+}
+
+/** A window exposing the optional members the frame lock pins or installs. */
+type FrameLockWindow = Window & {
+  trustedTypes?: {
+    createPolicy: (
+      name: string,
+      rules: {
+        createHTML: (input: string, ...rest: unknown[]) => string;
+        createScript: (input: string) => string;
+        createScriptURL: (input: string) => string;
+      },
+    ) => unknown;
+  };
+  Document?: { prototype: Document };
+  DOMImplementation?: { prototype: DOMImplementation };
+};
+
+/**
+ * Close the only two ways an iframe element can be minted in a napplet realm,
+ * before any napplet script runs. Serialized into the prelude and invoked with
+ * the napplet `window`.
+ *
+ * 1. HTML string sinks — a Trusted Types `default` policy (enforced by the
+ *    napplet CSP's `require-trusted-types-for 'script'`) rejects any string
+ *    carrying a frame tag and passes canonical HTML through untouched.
+ * 2. Element factories — `Document.prototype.createElement` / `createElementNS`
+ *    are the only element-creating methods on the platform; pin both
+ *    non-configurable to reject frame tag names, with `createDocument`.
+ *
+ * Node movement needs a pre-existing frame node (both routes are closed), and
+ * escaping the pins needs a fresh realm (child frame closed here, popup denied
+ * by the sandbox, worker has no DOM). The set is closed; verified in Chromium,
+ * Firefox and WebKit.
+ */
+function nappletFrameLock(win: FrameLockWindow): void {
+  const FRAME_ELEMENTS = new Set([
+    'iframe', 'frame', 'frameset', 'object', 'embed', 'portal', 'fencedframe',
+  ]);
+  const isFrameTag = (value: unknown): boolean => FRAME_ELEMENTS.has(String(value).toLowerCase());
+  // A complete frame tag-name token (open or close), so a lexical check cannot
+  // be split by parse-context differences, plus a chunk that ends mid-tag (a
+  // streaming document.write frame-tag prefix).
+  const FRAME_TAG = /<\/?(?:iframe|frame|frameset|object|embed|portal|fencedframe)(?=[\s/>]|$)/i;
+  const FRAME_TAG_PREFIX = /<[a-zA-Z]*$/;
+
+  const { trustedTypes } = win;
+  if (trustedTypes) {
+    try {
+      // Runs on every string sink. Pass canonical HTML through, reject a frame
+      // tag, so existing napplets that assign plain strings are unaffected.
+      trustedTypes.createPolicy('default', {
+        createHTML: (input, ...rest): string => {
+          const sink = rest.length >= 2 ? String(rest[1]) : '';
+          const blocked = /write/i.test(sink)
+            ? FRAME_TAG.test(input) || FRAME_TAG_PREFIX.test(input)
+            : FRAME_TAG.test(input);
+          if (blocked) throw new TypeError('kehto: napplets may not create nested browsing contexts');
+          return input;
+        },
+        createScript: (input): string => input,
+        createScriptURL: (input): string => input,
+      });
+    } catch {
+      // A napplet that pre-registered its own `default` policy would collide;
+      // the factory pins below and the host-side byte scan still hold.
+    }
+  }
+
+  const pin = (object: object, name: string, value: unknown): void => {
+    try {
+      Object.defineProperty(object, name, {
+        value, writable: false, configurable: false, enumerable: false,
+      });
+    } catch {
+      // Never turn hardening into a load-blocking failure.
+    }
+  };
+  const localName = (qualified: unknown): string => String(qualified ?? '').split(':').pop()!.toLowerCase();
+  const HTML_NS = 'http://www.w3.org/1999/xhtml';
+
+  const docProto = win.Document?.prototype;
+  if (docProto) {
+    const createElement = docProto.createElement;
+    pin(docProto, 'createElement', function (this: Document, tagName: unknown, ...rest: unknown[]) {
+      if (isFrameTag(tagName)) throw new TypeError('kehto: napplets may not create nested browsing contexts');
+      return (createElement as (...args: unknown[]) => unknown).call(this, tagName, ...rest);
+    });
+    const createElementNS = docProto.createElementNS;
+    pin(docProto, 'createElementNS', function (this: Document, namespace: unknown, qualifiedName: unknown, ...rest: unknown[]) {
+      if (namespace === HTML_NS && FRAME_ELEMENTS.has(localName(qualifiedName))) {
+        throw new TypeError('kehto: napplets may not create nested browsing contexts');
+      }
+      return (createElementNS as (...args: unknown[]) => unknown).call(this, namespace, qualifiedName, ...rest);
+    });
+  }
+
+  const domImpl = win.DOMImplementation?.prototype;
+  if (domImpl) {
+    const createDocument = domImpl.createDocument;
+    pin(domImpl, 'createDocument', function (this: DOMImplementation, namespace: unknown, qualifiedName: unknown, ...rest: unknown[]) {
+      if (namespace === HTML_NS && FRAME_ELEMENTS.has(localName(qualifiedName))) {
+        throw new TypeError('kehto: napplets may not create nested browsing contexts');
+      }
+      return (createDocument as (...args: unknown[]) => unknown).call(this, namespace, qualifiedName, ...rest);
+    });
+  }
 }
 
 /**
@@ -98,10 +217,52 @@ export function injectNappletNamespacePrelude(
 function nappletNamespacePrelude(
   domains: string[],
   normalizeIntentUri: (uri: unknown, options?: unknown) => Record<string, unknown>,
+  frameLock: (win: Window) => void,
 ): void {
-  const target = window as Window & { napplet?: Record<string, unknown> };
+  const target = window as Window & { napplet?: Record<string, unknown>; MessageChannel: typeof MessageChannel };
   const allowed = new Set(domains);
   const requestTimeoutMs = 30_000;
+
+  // NIP-5D's CSP advisory governs fetch/WebSocket/Worker egress, but no CSP
+  // directive covers WebRTC: an opaque-origin napplet can open an
+  // RTCPeerConnection data channel and exfiltrate with no policy recourse
+  // (napplet/evil finding #1; https://delta.chat/en/2023-05-22-webxdc-security).
+  // NAP-WEBRTC runs the RTCPeerConnection in the shell realm, so a napplet
+  // never needs any WebRTC constructor here. Remove the whole RTC* surface —
+  // and the legacy vendor-prefixed aliases, which do not start with "RTC" —
+  // before any napplet script runs: direct egress is gone and feature
+  // detection sees the capability as absent and degrades. Defense-in-depth
+  // beyond the current NIP-5D text; it does not reach srcdoc grandchild frames,
+  // which get their own realm and share the per-process WebRTC pool
+  // (docs/policies/NIP-5D-CONFORMANCE.md, "Direct WebRTC egress").
+  const rtcGlobals = new Set<string>([
+    'webkitRTCPeerConnection', 'mozRTCPeerConnection',
+    'webkitRTCSessionDescription', 'mozRTCSessionDescription',
+    'webkitRTCIceCandidate', 'mozRTCIceCandidate',
+  ]);
+  for (const key of Object.getOwnPropertyNames(target)) {
+    if (key.startsWith('RTC')) rtcGlobals.add(key);
+  }
+  for (const rtcName of rtcGlobals) {
+    try {
+      Object.defineProperty(target as object, rtcName, {
+        value: undefined,
+        writable: false,
+        configurable: false,
+        enumerable: false,
+      });
+    } catch {
+      // Best-effort hardening — a pre-frozen or non-configurable global must
+      // never turn into a load-blocking failure.
+    }
+  }
+
+  // Nested-browsing-context lock (defense-in-depth beyond the current NIP-5D
+  // text; docs/policies/NIP-5D-CONFORMANCE.md, "Nested browsing contexts").
+  // A napplet is untrusted and has no legitimate use for a child frame, and
+  // an about:srcdoc / about:blank child is a fresh realm CSP never reaches.
+  // Close the only two iframe-creation routes before any napplet script.
+  frameLock(target);
 
   type RuntimeMessage = { type: string; id?: string; [key: string]: unknown };
   type Listener = (event: MessageEvent) => void;
@@ -111,17 +272,28 @@ function nappletNamespacePrelude(
     return `napplet-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   }
 
+  // NIP-5D Transport (nostr-protocol/nips#2303): before any napplet script
+  // runs, open a MessageChannel, keep port1 private to this closure, and hand
+  // port2 to the shell exactly once. Every NAP message in both directions then
+  // travels over the port; window-level messages are never read or sent again,
+  // so a document that replaces this one in the same frame has no channel.
+  // Runs before any napplet script, so the realm's constructor is untampered.
+  const channel = new target.MessageChannel();
+  const port = channel.port1;
+  port.start();
+  target.parent.postMessage({ type: 'napplet.hello' }, '*', [channel.port2]);
+
   function post(message: RuntimeMessage): void {
-    target.parent.postMessage(message, '*');
+    port.postMessage(message);
   }
 
   function listen(listener: Listener): () => void {
-    target.addEventListener('message', listener);
-    return () => target.removeEventListener('message', listener);
+    port.addEventListener('message', listener);
+    return () => port.removeEventListener('message', listener);
   }
 
-  function isParentMessage(event: MessageEvent): boolean {
-    return event.source === target.parent;
+  function isShellMessage(event: MessageEvent): boolean {
+    return event.currentTarget === port;
   }
 
   function request<T>(
@@ -153,7 +325,7 @@ function nappletNamespacePrelude(
         reject(new DOMException('Aborted', 'AbortError'));
       };
       off = listen((event) => {
-        if (!isParentMessage(event)) return;
+        if (!isShellMessage(event)) return;
         const incoming = event.data;
         if (typeof incoming !== 'object' || incoming === null) return;
         const msg = incoming as RuntimeMessage;
@@ -278,7 +450,7 @@ function nappletNamespacePrelude(
     });
 
     const off = listen((event) => {
-      if (!isParentMessage(event) || environment) return;
+      if (!isShellMessage(event) || environment) return;
       const incoming = event.data;
       if (typeof incoming !== 'object' || incoming === null) return;
       const message = incoming as RuntimeMessage;
@@ -346,7 +518,7 @@ function nappletNamespacePrelude(
     select: (message: RuntimeMessage) => unknown = (message) => message.event,
   ): { close(): void } {
     const off = listen((event) => {
-      if (!isParentMessage(event)) return;
+      if (!isShellMessage(event)) return;
       const msg = event.data as RuntimeMessage;
       if (typeof msg === 'object' && msg !== null && msg.type === eventType) callback(select(msg));
     });
@@ -358,7 +530,7 @@ function nappletNamespacePrelude(
       subscribe(filters: unknown, onEvent: (result: unknown) => void, onEose: () => void, options?: { relay?: string }) {
         const subId = id();
         const off = listen((event) => {
-          if (!isParentMessage(event)) return;
+          if (!isShellMessage(event)) return;
           const msg = event.data as RuntimeMessage;
           if (typeof msg !== 'object' || msg === null || msg.subId !== subId) return;
           if (msg.type === 'relay.event') onEvent(msg.result);
@@ -529,7 +701,7 @@ function nappletNamespacePrelude(
     }
 
     listen((event) => {
-      if (!isParentMessage(event)) return;
+      if (!isShellMessage(event)) return;
       const msg = event.data as RuntimeMessage;
       if (typeof msg !== 'object' || msg === null || typeof msg.type !== 'string') return;
       if (msg.type === 'inc.channel.opened' && typeof msg.channelId === 'string' && typeof msg.peer === 'string') {
@@ -567,7 +739,7 @@ function nappletNamespacePrelude(
           const handlers = new Set<(event: IncEvent) => void>();
           const subscriptionId = id();
           const offEvent = listen((event) => {
-            if (!isParentMessage(event)) return;
+            if (!isShellMessage(event)) return;
             const msg = event.data as RuntimeMessage;
             if (
               typeof msg !== 'object'
@@ -582,7 +754,7 @@ function nappletNamespacePrelude(
             for (const handler of handlers) handler(delivered);
           });
           const offResult = listen((event) => {
-            if (!isParentMessage(event)) return;
+            if (!isShellMessage(event)) return;
             const msg = event.data as RuntimeMessage;
             if (typeof msg !== 'object' || msg === null || msg.type !== 'inc.subscribe.result' || msg.id !== subscriptionId) return;
             offResult();
@@ -710,7 +882,7 @@ function nappletNamespacePrelude(
       getBadges: () => read('identity.getBadges', 'badges', []),
       onChanged(handler: (pubkey: string) => void) {
         const off = listen((event) => {
-          if (!isParentMessage(event)) return;
+          if (!isShellMessage(event)) return;
           const msg = event.data as RuntimeMessage;
           if (typeof msg !== 'object' || msg === null || msg.type !== 'identity.changed') return;
           if (typeof msg.pubkey === 'string') handler(msg.pubkey);
@@ -725,7 +897,7 @@ function nappletNamespacePrelude(
       get: () => request({ type: 'theme.get' }, 'theme.get.result', (msg) => msg.theme),
       onChanged(handler: (theme: unknown) => void) {
         const off = listen((event) => {
-          if (!isParentMessage(event)) return;
+          if (!isShellMessage(event)) return;
           const msg = event.data as RuntimeMessage;
           if (typeof msg === 'object' && msg !== null && msg.type === 'theme.changed') handler(msg.theme);
         });
@@ -882,7 +1054,7 @@ function nappletNamespacePrelude(
     keysSmartForwardingInstalled = true;
 
     listen((event) => {
-      if (!isParentMessage(event)) return;
+      if (!isShellMessage(event)) return;
       const msg = event.data as RuntimeMessage;
       if (typeof msg === 'object' && msg !== null && msg.type === 'keys.bindings') {
         replaceKeyBindings(msg.bindings);
@@ -954,7 +1126,7 @@ function nappletNamespacePrelude(
         }
         callbacks.add(callback);
         const off = listen((event) => {
-          if (!isParentMessage(event)) return;
+          if (!isShellMessage(event)) return;
           const msg = event.data as RuntimeMessage;
           if (typeof msg === 'object' && msg !== null && msg.type === 'keys.action' && msg.actionId === actionId) callback();
         });
@@ -968,42 +1140,92 @@ function nappletNamespacePrelude(
   }
 
   function makeMedia(): Record<string, unknown> {
-    const on = (type: string, sessionId: string, callback: (msg: RuntimeMessage) => void) => {
-      const off = listen((event) => {
-        if (!isParentMessage(event)) return;
-        const msg = event.data as RuntimeMessage;
-        if (typeof msg === 'object' && msg !== null && msg.type === type && msg.sessionId === sessionId) callback(msg);
-      });
-      return subscriptionHandle(off);
+    type MediaCallback = (message: RuntimeMessage) => void;
+    const sessions = new Set<string>();
+    const ended = new Map<string, RuntimeMessage>();
+    const retained = new Map<string, Map<string, RuntimeMessage>>();
+    const callbacks = new Map<string, Map<string, Set<MediaCallback>>>();
+    const warnings = new Set<string>();
+    const warn = (name: string, replacement: string) => {
+      if (warnings.has(name)) return;
+      warnings.add(name);
+      console.warn(`[KEHTO-MEDIA-${name}] Deprecated media API; use ${replacement}. Warned once per endpoint.`);
     };
-    return {
+    listen(event => {
+      if (!isShellMessage(event)) return;
+      const msg = event.data as RuntimeMessage;
+      if (!msg || typeof msg !== 'object' || typeof msg.sessionId !== 'string') return;
+      const sessionId = msg.sessionId;
+      if (msg.type === 'media.session.create.result' && !msg.error) {
+        if (!ended.has(sessionId)) sessions.add(sessionId);
+        return;
+      }
+      if (!sessions.has(sessionId) || ended.has(sessionId)) return;
+      if (msg.type === 'media.session.ended') {
+        ended.set(sessionId, msg);
+        retained.delete(sessionId);
+        sessions.delete(sessionId);
+      } else if (['media.state', 'media.capabilities', 'media.controls'].includes(msg.type)) {
+        const cache = retained.get(sessionId) ?? new Map<string, RuntimeMessage>();
+        cache.set(msg.type, msg);
+        retained.set(sessionId, cache);
+      } else if (msg.type !== 'media.command') return;
+      const delivery = Array.from(callbacks.get(sessionId)?.get(msg.type) ?? []);
+      for (const callback of delivery) callback(msg);
+      if (ended.has(sessionId)) callbacks.delete(sessionId);
+    });
+    const on = (type: string, sessionId: string, callback: MediaCallback) => {
+      const terminal = ended.get(sessionId);
+      if (terminal) {
+        if (type === 'media.session.ended') callback(terminal);
+        return subscriptionHandle(() => {});
+      }
+      const byType = callbacks.get(sessionId) ?? new Map<string, Set<MediaCallback>>();
+      const handlers = byType.get(type) ?? new Set<MediaCallback>();
+      handlers.add(callback); byType.set(type, handlers); callbacks.set(sessionId, byType);
+      const cached = retained.get(sessionId)?.get(type);
+      if (cached) callback(cached);
+      return subscriptionHandle(() => { handlers.delete(callback); });
+    };
+    const command = (sessionId: string, value: unknown) => {
+      if (ended.has(sessionId)) return;
+      fire({ ...((value && typeof value === 'object') ? value as Record<string, unknown> : {}), type: 'media.command', sessionId });
+    };
+    return Object.freeze({
       createSession: (options: unknown) => request(
-        { type: 'media.session.create', ...((options && typeof options === 'object') ? options as Record<string, unknown> : {}) },
-        'media.session.create.result',
-        withoutEnvelope,
-        { rejectOnError: false },
+        { ...((options && typeof options === 'object') ? options as Record<string, unknown> : {}), type: 'media.session.create' },
+        'media.session.create.result', withoutEnvelope, { rejectOnError: false },
       ),
       updateSession: (sessionId: string, metadata: unknown) => fire({ type: 'media.session.update', sessionId, metadata }),
       destroySession: (sessionId: string) => fire({ type: 'media.session.destroy', sessionId }),
-      reportState: (sessionId: string, state: unknown) => fire({ type: 'media.state', sessionId, ...((state && typeof state === 'object') ? state as Record<string, unknown> : {}) }),
+      reportState: (sessionId: string, state: unknown) => fire({ ...((state && typeof state === 'object') ? state as Record<string, unknown> : {}), type: 'media.state', sessionId }),
       reportCapabilities: (sessionId: string, actions: unknown) => fire({ type: 'media.capabilities', sessionId, actions }),
-      sendCommand: (sessionId: string, action: string, value?: unknown) => fire({ type: 'media.command', sessionId, action, ...(value === undefined ? {} : { value }) }),
-      onCommand: (sessionId: string, callback: (action: unknown, value?: unknown) => void) => on('media.command', sessionId, (msg) => callback(msg.action, msg.value)),
-      onState: (sessionId: string, callback: (state: Record<string, unknown>) => void) => on('media.state', sessionId, (msg) => callback({
-        status: msg.status,
-        position: msg.position,
-        duration: msg.duration,
-        volume: msg.volume,
-      })),
-      onCapabilities: (sessionId: string, callback: (actions: unknown) => void) => on('media.capabilities', sessionId, (msg) => callback(msg.actions)),
-      onControls: (sessionId: string, callback: (controls: unknown) => void) => on('media.controls', sessionId, (msg) => callback(msg.controls)),
-    };
+      command,
+      sendCommand: (sessionId: string, action: string, value?: unknown) => {
+        warn('SEND-COMMAND', 'media.command(sessionId, { action, value })');
+        command(sessionId, { action, ...(value === undefined ? {} : { value }) });
+      },
+      onCommand: (sessionId: string, callback: (...args: unknown[]) => void) => {
+        const legacy = callback.length >= 2;
+        if (legacy) warn('COMMAND-CALLBACK', 'media.onCommand(sessionId, command => ...)');
+        return on('media.command', sessionId, msg => legacy
+          ? callback(msg.action, msg.value)
+          : callback({ action: msg.action, ...(msg.value === undefined ? {} : { value: msg.value }), ...(msg.reason === undefined ? {} : { reason: msg.reason }) }));
+      },
+      onState: (sessionId: string, callback: (state: Record<string, unknown>) => void) => on('media.state', sessionId, msg => {
+        const { type: _type, sessionId: _sessionId, ...state } = msg;
+        callback(state);
+      }),
+      onCapabilities: (sessionId: string, callback: (actions: unknown) => void) => on('media.capabilities', sessionId, msg => callback(msg.actions)),
+      onControls: (sessionId: string, callback: (controls: unknown) => void) => on('media.controls', sessionId, msg => callback(msg.controls)),
+      onEnded: (sessionId: string, callback: (ended: unknown) => void) => on('media.session.ended', sessionId, msg => callback({ sessionId: msg.sessionId, reason: msg.reason })),
+    });
   }
 
   function makeNotify(): Record<string, unknown> {
     const on = (type: string, callback: (msg: RuntimeMessage) => void) => {
       const off = listen((event) => {
-        if (!isParentMessage(event)) return;
+        if (!isShellMessage(event)) return;
         const msg = event.data as RuntimeMessage;
         if (typeof msg === 'object' && msg !== null && msg.type === type) callback(msg);
       });
@@ -1044,7 +1266,7 @@ function nappletNamespacePrelude(
       get: () => request({ type: 'config.get' }, 'config.values', (msg) => msg.values ?? {}),
       subscribe(callback: (values: unknown) => void) {
         const off = listen((event) => {
-          if (!isParentMessage(event)) return;
+          if (!isShellMessage(event)) return;
           const msg = event.data as RuntimeMessage;
           if (typeof msg === 'object' && msg !== null && msg.type === 'config.values') callback(msg.values ?? {});
         });
@@ -1057,7 +1279,7 @@ function nappletNamespacePrelude(
       openSettings: (options?: unknown) => fire({ type: 'config.openSettings', ...((options && typeof options === 'object') ? options as Record<string, unknown> : {}) }),
       onSchemaError(callback: (error: unknown) => void) {
         const off = listen((event) => {
-          if (!isParentMessage(event)) return;
+          if (!isShellMessage(event)) return;
           const msg = event.data as RuntimeMessage;
           if (typeof msg === 'object' && msg !== null && msg.type === 'config.schemaError') callback(msg);
         });
@@ -1193,7 +1415,7 @@ function nappletNamespacePrelude(
       close: (server: unknown) => req('cvm.close', { server }, (msg) => voidResult(msg, 'cvm close failed')),
       onEvent(callback: (server: unknown, message: unknown) => void) {
         const off = listen((event) => {
-          if (!isParentMessage(event)) return;
+          if (!isShellMessage(event)) return;
           const msg = event.data as RuntimeMessage;
           if (
             typeof msg === 'object'
@@ -1224,7 +1446,7 @@ function nappletNamespacePrelude(
         const subId = id();
         const handlers = { event: new Set<(result: unknown) => void>(), closed: new Set<(reason?: unknown) => void>() };
         const off = listen((event) => {
-          if (!isParentMessage(event)) return;
+          if (!isShellMessage(event)) return;
           const msg = event.data as RuntimeMessage;
           if (typeof msg !== 'object' || msg === null || msg.subId !== subId) return;
           if (msg.type === 'outbox.event') for (const handler of handlers.event) handler(msg.result);
@@ -1259,7 +1481,7 @@ function nappletNamespacePrelude(
       status: (uploadId: string) => request({ type: 'upload.status', uploadId }, 'upload.status.result', (msg) => fieldOrThrow(msg, 'status', 'upload status unavailable')),
       onStatus(callback: (status: unknown) => void) {
         const off = listen((event) => {
-          if (!isParentMessage(event)) return;
+          if (!isShellMessage(event)) return;
           const msg = event.data as RuntimeMessage;
           if (typeof msg === 'object' && msg !== null && msg.type === 'upload.status.changed' && msg.status !== undefined) callback(msg.status);
         });
@@ -1307,7 +1529,7 @@ function nappletNamespacePrelude(
     }
 
     listen((event) => {
-      if (!isParentMessage(event)) return;
+      if (!isShellMessage(event)) return;
       const message = event.data as RuntimeMessage | null;
       if (!message || message.type !== 'intent.deliver') return;
       const value = message.delivery;
@@ -1593,7 +1815,7 @@ function nappletNamespacePrelude(
       });
     };
     listen((event) => {
-      if (!isParentMessage(event)) return;
+      if (!isShellMessage(event)) return;
       const incoming = event.data;
       if (!incoming || incoming.type !== 'gamepad.state' || 'id' in incoming || !valid(incoming)) return;
       state = copy(incoming);
@@ -1626,7 +1848,7 @@ function nappletNamespacePrelude(
       unsubscribe: (subscriptionId: string) => req('dm.unsubscribe', { subscriptionId }),
       onMessage(callback: (message: unknown, subscriptionId: string) => void) {
         const off = listen((event) => {
-          if (!isParentMessage(event)) return;
+          if (!isShellMessage(event)) return;
           const msg = event.data as RuntimeMessage;
           if (
             typeof msg === 'object'
@@ -1671,6 +1893,59 @@ function nappletNamespacePrelude(
     };
   }
 
+  // NAP-LLM (napplet/naps PR #134): results carry `{ code, message }` errors on
+  // the `.result` wire, deltas are id-less pushes keyed by requestId, and no
+  // local timeout applies because selection and consent wait on the user while
+  // the runtime owns the generation deadline.
+  function makeLlm(): Record<string, unknown> {
+    type Failure = { code: string; message: string };
+    type GenerateOptions = { signal?: AbortSignal; onDelta?: (delta: { requestId: string; sequence: number; text: string }) => void };
+    const asFailure = (value: unknown): Failure | null => {
+      if (!value || typeof value !== 'object') return null;
+      const { code, message } = value as Record<string, unknown>;
+      return typeof code === 'string' && typeof message === 'string' ? { code, message } : null;
+    };
+    const failure = (entry: Failure): Error => Object.assign(new Error(entry.message), { code: entry.code });
+    function call<T>(type: string, payload: Record<string, unknown>, field: string, options: GenerateOptions = {}): Promise<T> & { readonly requestId: string } {
+      const requestId = id();
+      const promise = new Promise<T>((resolve, reject) => {
+        let nextSequence = 0;
+        const onAbort = (): void => { post({ type: 'llm.cancel', id: id(), requestId }); };
+        const off = listen((event) => {
+          if (!isShellMessage(event)) return;
+          const msg = event.data as RuntimeMessage;
+          if (typeof msg !== 'object' || msg === null) return;
+          if (type === 'llm.generate' && msg.type === 'llm.delta' && msg.requestId === requestId) {
+            if (msg.sequence !== nextSequence || typeof msg.text !== 'string') return;
+            nextSequence += 1;
+            options.onDelta?.({ requestId, sequence: msg.sequence, text: msg.text });
+            return;
+          }
+          if (msg.type !== `${type}.result` || msg.id !== requestId) return;
+          off();
+          options.signal?.removeEventListener('abort', onAbort);
+          const error = asFailure(msg.error);
+          if (error) { reject(failure(error)); return; }
+          if (!Object.prototype.hasOwnProperty.call(msg, field)) {
+            reject(failure({ code: 'provider-error', message: `${type}.result missing ${field}` }));
+            return;
+          }
+          resolve(msg[field] as T);
+        });
+        post({ type, id: requestId, ...payload });
+        if (options.signal?.aborted) onAbort();
+        else options.signal?.addEventListener('abort', onAbort, { once: true });
+      });
+      return Object.assign(promise, { requestId });
+    }
+    return {
+      select: (requirements?: unknown) => call('llm.select', requirements === undefined ? {} : { requirements }, 'model'),
+      describe: (handle: unknown) => call('llm.describe', { handle }, 'model'),
+      generate: (request: unknown, options?: GenerateOptions) => call('llm.generate', { request }, 'result', options ?? {}),
+      cancel: (requestId: unknown) => call('llm.cancel', { requestId }, 'cancelled'),
+    };
+  }
+
   const intentDelivery = allowed.has('intent') ? makeIntentDelivery() : undefined;
   const shell = allowed.has('shell') ? makeShell() : undefined;
   let gamepad: Record<string, unknown> | undefined;
@@ -1702,8 +1977,10 @@ function nappletNamespacePrelude(
     return intent;
   }
 
+  let media: Record<string, unknown> | undefined;
+
   function isProtectedDomain(domain: string): boolean {
-    return domain === 'gamepad' || domain === 'shell'
+    return domain === 'media' || domain === 'gamepad' || domain === 'shell'
       || domain === 'inc'
       || domain === 'identity'
       || domain === 'theme'
@@ -1711,6 +1988,7 @@ function nappletNamespacePrelude(
   }
 
   function makeDomain(domain: string, existing: unknown): unknown {
+    if (domain === 'media') return media ??= makeMedia();
     if (domain === 'gamepad') return gamepad ??= makeGamepad();
     if (domain === 'shell') return shell;
     if (domain === 'inc') return makeProtectedInc(existing);
@@ -1722,7 +2000,6 @@ function nappletNamespacePrelude(
       case 'relay': return makeRelay();
       case 'storage': return makeStorage();
       case 'keys': return makeKeys();
-      case 'media': return makeMedia();
       case 'notify': return makeNotify();
       case 'config': return makeConfig();
       case 'resource': return makeResource();
@@ -1738,6 +2015,7 @@ function nappletNamespacePrelude(
       case 'serial': return makeSerial();
       case 'dm': return makeDm();
       case 'fs': return makeFs();
+      case 'llm': return makeLlm();
       default: return {};
     }
   }

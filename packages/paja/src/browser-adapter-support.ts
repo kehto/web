@@ -1,73 +1,18 @@
 /** Host-owned Paja service types and shared, side-effect-free setup helpers. */
-import type { NostrEvent, NostrFilter } from '@napplet/core';
 import type { SessionEntry, ShellAdapter } from '@kehto/shell';
 import type { Signer } from '@kehto/runtime';
 import { createRelayPoolOutboxRouter } from '@kehto/services';
-import type { CvmRelayPool, NostrEventLike, NostrFilterLike } from '@kehto/services/cvm-nostr-transport';
 import type { Theme } from '@napplet/nap/theme/types';
 import { verifyEvent } from 'nostr-tools/pure';
 import type { PajaSignerMethod } from './browser-signers.js';
 import type { PajaSimulation } from './simulation.js';
-import type { PajaSignerRequestContext, PajaSignerSource } from './browser-signer-consent.js';
-import { PAJA_DEV_SIGNER_PUBKEY, createPajaDevSigner } from './browser-dev-runtime.js';
+import type { PajaSignerSource } from './browser-signer-consent.js';
+import { createRuntimeSigner } from './browser-operation-scope.js';
 import { isPajaRelayAllowed, type PajaRelayConfigRuntime } from './browser-relay-policy.js';
-import { PAJA_LIVE_QUERY_WAIT_MS, createPajaOutboxRelayPool, createPajaRelayListLoader, getPajaRelayUrls, type PajaRelayBackend } from './browser-relay-runtime.js';
+import { PAJA_LIVE_QUERY_WAIT_MS, createPajaOutboxRelayPool, createPajaRelayListLoader, type PajaRelayBackend } from './browser-relay-runtime.js';
 
-/** Confirmation request emitted before Paja signs, publishes, or uploads. */
-export type PajaConfirmationRequest =
-  | {
-      readonly action: 'sign' | 'publish';
-      readonly event: NostrEvent | Partial<NostrEvent>;
-      readonly signerContext?: PajaSignerRequestContext;
-    }
-  | {
-      readonly action: 'upload';
-      readonly windowId: string;
-      readonly napplet: { readonly dTag: string; readonly aggregateHash: string };
-      readonly filename?: string;
-      readonly size: number;
-      readonly mimeType?: string;
-      readonly server: string;
-      readonly warning: string;
-    }
-  | {
-      readonly action: 'link';
-      readonly windowId: string;
-      readonly napplet: { readonly dTag: string; readonly aggregateHash: string };
-      readonly url: string;
-      readonly label?: string;
-    }
-  | {
-      readonly action: 'serial' | 'ble';
-      readonly windowId: string;
-      readonly label?: string;
-      readonly details: string;
-    }
-  | {
-      readonly action: 'notify';
-      readonly windowId: string;
-      readonly napplet: { readonly dTag: string; readonly aggregateHash: string };
-      readonly channel?: string;
-    }
-  | {
-      readonly action: 'webrtc';
-      readonly windowId: string;
-      readonly napplet: { readonly dTag: string; readonly aggregateHash: string };
-      readonly scope: string;
-      readonly warning: string;
-    }
-  | {
-      readonly action: 'dm';
-      readonly recipients: readonly string[];
-      readonly content: string;
-      readonly warning: string;
-    }
-  | {
-      readonly action: 'fs';
-      readonly windowId: string;
-      readonly kind: 'file' | 'files' | 'directory' | 'save-file';
-      readonly description: string;
-    };
+export type { PajaConfirmationRequest } from './browser-confirmation-request.js';
+import type { PajaConfirmationRequest } from './browser-confirmation-request.js';
 
 /** Async-capable host policy callback for user-visible Paja operations. */
 export type PajaConfirmationHandler = (
@@ -89,7 +34,10 @@ export interface PajaSignerProvider {
 /** Identity provider for Paja's simulated target identity. */
 export type PajaIdentityProvider = (
   windowId?: string,
-) => Pick<SessionEntry, 'dTag' | 'aggregateHash'>;
+) => Pick<SessionEntry, 'dTag' | 'aggregateHash'> & {
+  readonly consentScope?: string;
+  readonly isCurrent?: () => boolean;
+};
 
 /** Paja shell adapter with private verified-pointer resource context wiring. */
 export interface PajaShellAdapter extends ShellAdapter {
@@ -101,32 +49,13 @@ export interface PajaShellAdapter extends ShellAdapter {
   notifyIntentChanged(archetype: string): void;
 }
 
-export function createPajaCvmRelayPool(backend: PajaRelayBackend): CvmRelayPool {
-  return {
-    subscribe(relays: string[], filter: NostrFilterLike, params) {
-      const subscription = backend.subscription(relays, [filter as NostrFilter]).subscribe((item) => {
-        if (item === 'EOSE') params.oneose?.();
-        else if (typeof item === 'object' && item !== null) params.onevent?.(item as NostrEventLike);
-      });
-      return {
-        close() {
-          subscription.unsubscribe();
-        },
-      };
-    },
-    async publish(relays: string[], event: NostrEventLike) {
-      const outcomes = await backend.publishToRelays(relays, event as NostrEvent);
-      if (!Object.values(outcomes).some(Boolean)) throw new Error('publish failed');
-    },
-  };
-}
-
 export function createOutboxRouter(
   backend: PajaRelayBackend,
   getSimulation: () => PajaSimulation,
   relayConfig: PajaRelayConfigRuntime,
   confirmRequest: PajaConfirmationHandler,
   signerProvider?: PajaSignerProvider,
+  source?: PajaSignerSource,
 ) {
   return createRelayPoolOutboxRouter({
     relayPool: createPajaOutboxRelayPool(backend),
@@ -138,12 +67,12 @@ export function createOutboxRouter(
     ),
     fallbackRelays: relayConfig.outboxRelays,
     getSignerPubkey: async () => {
-      const signer = createRuntimeSigner(getSimulation, confirmRequest, signerProvider);
+      const signer = createRuntimeSigner(getSimulation, confirmRequest, signerProvider, source);
       if (!signer?.getPublicKey) throw new Error('no signer configured');
       return signer.getPublicKey();
     },
     signEvent: async (template) => {
-      const signer = createRuntimeSigner(getSimulation, confirmRequest, signerProvider);
+      const signer = createRuntimeSigner(getSimulation, confirmRequest, signerProvider, source);
       if (!signer?.signEvent) throw new Error('no signer configured');
       const event = { ...template };
       event.created_at ??= Math.floor(Date.now() / 1000);
@@ -176,36 +105,4 @@ export function createDevTheme(mode: PajaSimulation['theme']['mode'], values: Pa
       ...((typeof values.colors === 'object' && values.colors !== null && !Array.isArray(values.colors)) ? values.colors : {}),
     },
   } as Theme;
-}
-
-export function getRuntimePubkey(
-  getSimulation: () => PajaSimulation,
-  signerProvider?: PajaSignerProvider,
-): string {
-  return signerProvider?.getPubkey()
-    || (signerProvider?.getMethod() === 'dev' ? PAJA_DEV_SIGNER_PUBKEY : '')
-    || getSimulation().identity.pubkey;
-}
-
-export function createRuntimeSigner(
-  getSimulation: () => PajaSimulation,
-  confirmRequest: PajaConfirmationHandler,
-  signerProvider?: PajaSignerProvider,
-  source?: PajaSignerSource,
-): Signer | null {
-  const signer = signerProvider?.getSigner(source);
-  if (!signer) {
-    if (signerProvider?.getMethod() === 'dev') {
-      return createPajaDevSigner(getSimulation, confirmRequest, source);
-    }
-    const fixedPubkey = getSimulation().identity.pubkey;
-    if (fixedPubkey) {
-      return {
-        getPublicKey: () => fixedPubkey,
-        getRelays: () => Object.fromEntries(getPajaRelayUrls(getSimulation()).map((relay) => [relay, { read: true, write: true }])),
-      };
-    }
-    return null;
-  }
-  return signer;
 }

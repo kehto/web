@@ -24,6 +24,7 @@ const LOCAL_HTML = '<!doctype html><html><head><title>Local</title></head><body>
 let permissionRuntime: Runtime;
 
 interface FakeFrame {
+  ownerDocument: Pick<Document, 'querySelectorAll'>;
   id: string;
   className: string;
   title: string;
@@ -48,6 +49,7 @@ function fakeFrame(): FakeFrame {
     srcdoc: '',
     dataset: {},
     contentWindow: { postMessage: vi.fn() } as unknown as Window,
+    ownerDocument: { querySelectorAll: () => [{ content: "frame-src 'none'" }] } as unknown as Pick<Document, 'querySelectorAll'>,
     sandbox: { add: vi.fn(), remove: vi.fn() },
     addEventListener: vi.fn(),
     getAttribute: vi.fn(() => null),

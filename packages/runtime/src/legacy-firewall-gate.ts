@@ -4,7 +4,7 @@ import type { Observation } from '@kehto/firewall';
 import type { RuntimeAdapter, FirewallEvent } from './types.js';
 import type { SessionRegistry } from './session-registry.js';
 import type { FirewallStateContainer } from './firewall-state.js';
-import { createCanonicalDomainResult, createIntentPolicyDenial } from './domain-results.js';
+import { createCanonicalDomainResult, createIntentPolicyDenial, createLlmErrorResult } from './domain-results.js';
 
 declare const console: { warn(message: string): void };
 
@@ -179,6 +179,11 @@ function denialResponseType(envelope: NappletMessage): string | null {
 
 export function createDenialResponse(envelope: NappletMessage, error: string): NappletMessage | null {
   const id = (envelope as NappletMessage & { id?: string }).id ?? '';
+  if (envelope.type.startsWith('llm.')) {
+    // NAP-LLM: a declared capability does not guarantee authorization; the
+    // shaped failure is `unsupported`, never a bare string on an `.error` wire.
+    return createLlmErrorResult(envelope, 'unsupported', `Request denied: ${error}`) ?? null;
+  }
   if (envelope.type === 'outbox.query') {
     return {
       type: 'outbox.query.result',

@@ -15,6 +15,7 @@ import { subscribePajaLive, queryPajaLive } from './browser-relay-transport.js';
 
 import type { PajaConfirmationHandler, PajaSignerProvider } from './browser-adapter.js';
 import type { PajaSimulation } from './simulation.js';
+import type { PajaSignerRequestContext } from './browser-signer-consent.js';
 
 export const PAJA_NIP65_RELAY_LIST_KIND = 10_002;
 export const PAJA_CONTACT_LIST_KIND = 3;
@@ -56,6 +57,13 @@ export interface PajaRelayReadContext {
    * outbox-planned leave this undefined, which renders without a chip.
    */
   readonly origin?: PajaRelayReadOrigin;
+  /**
+   * Router-supplied NIP-65 owners, or requested authors for other reads.
+   *
+   * An explicit empty list is authoritative. When omitted, attribution uses
+   * filter authors, for example on ordinary host-pool queries.
+   */
+  readonly authors?: readonly string[];
 }
 
 /** One relay read Paja started, labelled with how its relay set was chosen. */
@@ -91,6 +99,7 @@ export type PajaRelayRequestObserver = (request: PajaRelayReadRequest) => void;
 export type PajaRelayEventObserver = (sighting: PajaRelayEventSighting) => void;
 
 export interface PajaRelayBackend extends RelayPoolLike {
+  publish(relayUrls: string[], event: NostrEvent, context?: PajaSignerRequestContext): Promise<void>;
   subscription(relayUrls: string[], filters: NostrFilter[], context?: PajaRelayReadContext): {
     subscribe(observer: (item: unknown) => void): { unsubscribe(): void };
   };
@@ -108,7 +117,7 @@ export interface PajaRelayBackend extends RelayPoolLike {
     context?: PajaRelayReadContext,
     signal?: AbortSignal,
   ): Promise<NostrEvent[]>;
-  publishToRelays(relayUrls: string[], event: NostrEvent): Promise<Record<string, boolean>>;
+  publishToRelays(relayUrls: string[], event: NostrEvent, context?: PajaSignerRequestContext): Promise<Record<string, boolean>>;
   countWithRelay(relayUrls: string[], filters: NostrFilter[], signal?: ApprovalSignal): Promise<{ count: number; relay: string }>;
   /** Relay URLs on which nostr-tools actually observed an event. */
   observedRelayUrls(eventId: string): string[];
@@ -266,6 +275,22 @@ export function createPajaRelayBackend(
     relayRequestObserver?.({ ...context, relayUrls: [...relayUrls] });
   };
 
+  /**
+   * Name the authors a read asked about, so an author-routed receipt is
+   * attributable in the Events panel instead of merely surprising.
+   *
+   * @param context - How the read was chosen.
+   * @param filters - Filters the read runs with.
+   * @returns The context, extended with the read's authors when it has any.
+   */
+  const attributeAuthors = (
+    context: PajaRelayReadContext,
+    filters: readonly NostrFilter[],
+  ): PajaRelayReadContext => {
+    const authors = readAuthors(context.authors ?? filters.flatMap((filter) => filter.authors ?? []));
+    return authors.length === 0 && context.authors === undefined ? context : { ...context, authors };
+  };
+
   const observeRelayEvent = (
     context: PajaRelayReadContext,
     relayUrls: readonly string[],
@@ -294,9 +319,10 @@ export function createPajaRelayBackend(
     if (signal?.aborted) return [];
     const cached = collectMemoryEvents(cachedEvents(), filters);
     if (getSimulation().relay.mode !== 'live' || relayUrls.length === 0) return cached;
-    observeRelayRequest(context, relayUrls);
+    const readContext = attributeAuthors(context, filters);
+    observeRelayRequest(readContext, relayUrls);
     const liveEvents = await queryPajaLive(livePool, relayUrls, filters, maxWaitMs ?? PAJA_LIVE_QUERY_WAIT_MS,
-      (event, source) => observeRelayEvent(context, relayUrls, event, source), false, signal);
+      (event, source) => observeRelayEvent(readContext, relayUrls, event, source), false, signal);
     const out = new Map<string, NostrEvent>();
     for (const event of [...cached, ...liveEvents]) out.set(event.id, event);
     return [...out.values()].sort((a, b) => b.created_at - a.created_at);
@@ -304,9 +330,10 @@ export function createPajaRelayBackend(
   const queryContactListCandidates: ContactListCandidateQuery = async (relayUrls, filters, maxWaitMs, signal) => {
     const cached = collectMemoryEvents(cachedEvents(), filters);
     if (signal?.aborted || getSimulation().relay.mode !== 'live' || relayUrls.length === 0) return cached;
-    observeRelayRequest({ reason: 'host' }, relayUrls);
+    const readContext = attributeAuthors({ reason: 'host' }, filters);
+    observeRelayRequest(readContext, relayUrls);
     const liveEvents = await queryPajaLive(livePool, relayUrls, filters, maxWaitMs ?? PAJA_LIVE_QUERY_WAIT_MS,
-      (event, source) => observeRelayEvent({ reason: 'host' }, relayUrls, event, source), true, signal);
+      (event, source) => observeRelayEvent(readContext, relayUrls, event, source), true, signal);
     const out = new Map<string, NostrEvent>();
     for (const event of [...cached, ...liveEvents]) out.set(event.id, event);
     return [...out.values()].sort((a, b) => b.created_at - a.created_at);
@@ -323,13 +350,16 @@ export function createPajaRelayBackend(
   async function attemptPublish(
     relayUrls: string[],
     event: NostrEvent,
+    signerContext?: PajaSignerRequestContext,
   ): Promise<{ outcomes: Record<string, boolean>; error?: string }> {
     const simulation = getSimulation();
     const rejected = Object.fromEntries(relayUrls.map((url) => [url, false]));
     if (simulation.relay.mode === 'disabled') {
       return { outcomes: rejected, error: 'relay unavailable' };
     }
-    if (!await confirmRequest({ action: 'publish', event })) {
+    if ((signerContext?.isCurrent && !signerContext.isCurrent())
+      || !await confirmRequest({ action: 'publish', event, ...(signerContext ? { signerContext } : {}) })
+      || (signerContext?.isCurrent && !signerContext.isCurrent())) {
       return { outcomes: rejected, error: 'publish denied' };
     }
 
@@ -358,10 +388,11 @@ export function createPajaRelayBackend(
           };
           subscribers.add(subscriber);
           for (const event of collectMemoryEvents(cachedEvents(), filters)) next(event);
-          if (getSimulation().relay.mode === 'live') observeRelayRequest(context, relayUrls);
+          const readContext = attributeAuthors(context, filters);
+          if (getSimulation().relay.mode === 'live') observeRelayRequest(readContext, relayUrls);
           const liveSub = getSimulation().relay.mode === 'live'
             ? subscribePajaLive(livePool, relayUrls, filters, subscriber.next,
-                (event, source) => observeRelayEvent(context, relayUrls, event, source), PAJA_LIVE_QUERY_WAIT_MS)
+                (event, source) => observeRelayEvent(readContext, relayUrls, event, source), PAJA_LIVE_QUERY_WAIT_MS)
             : null;
           queueMicrotask(() => {
             if (subscribers.has(subscriber) && !liveSub) next('EOSE');
@@ -375,8 +406,8 @@ export function createPajaRelayBackend(
         },
       };
     },
-    async publish(relayUrls: string[], event: NostrEvent): Promise<void> {
-      const attempt = await attemptPublish(relayUrls, event);
+    async publish(relayUrls: string[], event: NostrEvent, signerContext?: PajaSignerRequestContext): Promise<void> {
+      const attempt = await attemptPublish(relayUrls, event, signerContext);
       if (attempt.error) throw new Error(attempt.error);
     },
     request(
@@ -408,7 +439,7 @@ export function createPajaRelayBackend(
     async countWithRelay(relayUrls, filters, signal) {
       if (getSimulation().relay.mode !== 'live') throw new Error('count unavailable');
       if (signal?.aborted) throw new Error('count cancelled');
-      observeRelayRequest({ reason: 'host' }, relayUrls);
+      observeRelayRequest(attributeAuthors({ reason: 'host' }, filters), relayUrls);
       return countLive(livePool, relayUrls, normalizedFilters(filters), signal);
     },
     observedRelayUrls(eventId) {
@@ -421,8 +452,8 @@ export function createPajaRelayBackend(
       relayRequestObserver = observer;
     },
     query,
-    async publishToRelays(relayUrls, event) {
-      return (await attemptPublish(relayUrls, event)).outcomes;
+    async publishToRelays(relayUrls, event, signerContext) {
+      return (await attemptPublish(relayUrls, event, signerContext)).outcomes;
     },
     async publishWebrtcSignal(relayUrls, event) {
       if (
@@ -486,6 +517,23 @@ function dedupeRelayUrls(urls: Iterable<string>): string[] {
     if (trimmed.length > 0) out.add(trimmed);
   }
   return [...out];
+}
+
+/**
+ * Collect well-formed authors from routing metadata or event filters.
+ *
+ * Only exact 64-hex pubkeys are reported, so the Events panel never claims a read
+ * was routed for a prefix, a placeholder, or a malformed author string.
+ *
+ * @param candidates - Authors supplied by the router or requested by filters.
+ * @returns Lowercase hex authors, in first-seen order.
+ */
+function readAuthors(candidates: readonly string[]): string[] {
+  const authors = new Set<string>();
+  for (const author of candidates) {
+    if (typeof author === 'string' && /^[0-9a-f]{64}$/i.test(author)) authors.add(author.toLowerCase());
+  }
+  return [...authors];
 }
 
 async function getSignerRelayUrls(
@@ -614,11 +662,11 @@ export function createPajaRelayListLoader(
 
 export function createPajaOutboxRelayPool(backend: PajaRelayBackend): OutboxRelayPool {
   return {
-    subscribe(filters, relayUrls, callback, origin) {
-      // Every read this pool serves came out of an outbox plan; the router adds
-      // why each relay is in the plan (NIP-65, caller hint, or fallback).
+    subscribe(filters, relayUrls, callback, origin, authors) {
+      // The router supplies owners independently of event filters: options may
+      // select a relay without restricting which authors its events match.
       return backend
-        .subscription(relayUrls, filters, { reason: 'outbox', origin })
+        .subscription(relayUrls, filters, { reason: 'outbox', origin, authors })
         .subscribe((item) => callback(item as NostrEvent | 'EOSE'));
     },
     publish(event, relayUrls) {

@@ -13,7 +13,7 @@ import {
   runtimeTabGenerationId,
   type PajaRuntimeTab,
 } from './browser-runtime-tabs.js';
-import { createPajaPostMessageProxy, appendPajaMessageLog } from './browser-devtools.js';
+import { appendPajaMessageLog } from './browser-devtools.js';
 import { getPajaRelayUrls } from './browser-relay-runtime.js';
 import { isPajaLocalTarget } from './local-target.js';
 import {
@@ -150,7 +150,8 @@ export function createPajaIntentTargetOptions(
       if (!source || originRegistry.getWindowId(source) !== tab.windowId) {
         throw new Error('intent target source is no longer registered');
       }
-      createPajaPostMessageProxy(source, state, tab.windowId).postMessage({
+      // NIP-5D: delivered over the tab's bound napplet.hello port.
+      originRegistry.postToNapplet(tab.windowId, {
         type: 'intent.deliver',
         delivery: {
           sender: params.sender,
@@ -159,7 +160,7 @@ export function createPajaIntentTargetOptions(
           convention: params.convention,
           ...(params.payload === undefined ? {} : { payload: params.payload }),
         },
-      }, '*');
+      });
     },
   };
 }

@@ -1,5 +1,66 @@
 # @kehto/cli
 
+## 0.5.16
+
+### Patch Changes
+
+- Updated dependencies [4d8a569]
+  - @kehto/paja@0.31.0
+
+## 0.5.15
+
+### Patch Changes
+
+- Updated dependencies [37457ce]
+  - @kehto/paja@0.30.0
+
+## 0.5.14
+
+### Patch Changes
+
+- Updated dependencies [bfe51a1]
+  - @kehto/paja@0.29.0
+
+## 0.5.13
+
+### Patch Changes
+
+- 902c1d0: Admit the NIP-5D port-bound napplet release lines in published peers:
+  `@napplet/core >=0.32.0 <0.38.0` and `@napplet/nap >=0.32.0 <0.37.0`
+  (core 0.37.0 / nap 0.36.0, napplet/web#302). Development stays on the 0.32.0
+  baseline.
+- Updated dependencies [902c1d0]
+  - @kehto/paja@0.28.0
+
+## 0.5.12
+
+### Patch Changes
+
+- Updated dependencies [3089c5e]
+  - @kehto/paja@0.27.0
+
+## 0.5.11
+
+### Patch Changes
+
+- f5c3ee8: Widen the `@napplet/*` peer ranges so the `llm` domain installs without peer conflicts: `@napplet/core` now accepts `>=0.32.0 <0.37.0` and `@napplet/nap` accepts `>=0.32.0 <0.36.0`. The `llm` subpath first ships in `@napplet/nap@0.35.0`, and `@napplet/nap@0.35.1` requires `@napplet/core@^0.36.0`. The old `<0.35.0` cap made npm fail with ERESOLVE and made pnpm print unmet-peer warnings (kehto/web#364).
+- Updated dependencies [f5c3ee8]
+  - @kehto/paja@0.26.1
+
+## 0.5.10
+
+### Patch Changes
+
+- Updated dependencies [fcb5bc9]
+  - @kehto/paja@0.26.0
+
+## 0.5.9
+
+### Patch Changes
+
+- Updated dependencies [d49b1bf]
+  - @kehto/paja@0.25.0
+
 ## 0.5.8
 
 ### Patch Changes

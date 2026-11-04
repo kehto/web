@@ -86,6 +86,42 @@ describe('current NIP-5D manifest', () => {
     expect(result.manifest.icon).toEqual({ sha256: 'aa'.repeat(32), mimeType: 'image/png' });
     expect(fetchBlob).toHaveBeenCalledExactlyOnceWith(hash, []);
   });
+  it('carries source pins and presentation media without fetching or verifying them', async () => {
+    const fetchBlob = vi.fn(async () => bytes);
+    const result = await resolveNapplet({
+      event: event([...current,
+        ['source', 'git@git.example.com:owner/napplet.git'], ['source-commit', 'ab'.repeat(20)],
+        ['source-archive', 'https://cdn.example.com/src.tar.gz', 'cd'.repeat(32), 'application/gzip'],
+        ['screenshot', `x ${'aa'.repeat(32)}`, 'm image/png', 'dim 1200x750'], ['screenshot', `x ${'bb'.repeat(32)}`],
+        ['preview', `x ${'cc'.repeat(32)}`, 'm video/webm', 'duration 8.5'],
+      ]),
+      fetchBlob,
+    });
+    expect(result.manifest).toMatchObject({
+      source: 'git@git.example.com:owner/napplet.git', sourceCommit: 'ab'.repeat(20),
+      sourceArchive: { url: 'https://cdn.example.com/src.tar.gz', sha256: 'cd'.repeat(32), mimeType: 'application/gzip' },
+      screenshots: [{ sha256: 'aa'.repeat(32), mimeType: 'image/png', dim: { width: 1200, height: 750 } }, { sha256: 'bb'.repeat(32) }],
+      preview: { sha256: 'cc'.repeat(32), mimeType: 'video/webm', duration: 8.5 },
+    });
+    expect(fetchBlob).toHaveBeenCalledExactlyOnceWith(hash, []);
+  });
+  it('ignores malformed or repeated source and media metadata without preventing playback', async () => {
+    const result = await resolveNapplet({
+      event: event([...current,
+        ['source', 'https://a.example/x.git'], ['source', 'https://b.example/x.git'], ['source-commit', 'ab'.repeat(20)],
+        ['source-archive', 'http://insecure.example/src.tar.gz', 'cd'.repeat(32), 'application/gzip'],
+        ['screenshot', 'm image/png'], ['preview', `x ${'cc'.repeat(32)}`], ['preview', `x ${'dd'.repeat(32)}`],
+      ]),
+      fetchBlob: async () => bytes,
+    });
+    expect(result.indexHtml).toBe(new TextDecoder().decode(bytes));
+    expect(result.manifest).toMatchObject({ screenshots: [] });
+    expect(result.manifest).not.toHaveProperty('source');
+    expect(result.manifest).not.toHaveProperty('sourceCommit');
+    expect(result.manifest).not.toHaveProperty('sourceArchive');
+    expect(result.manifest).not.toHaveProperty('preview');
+    expect(parseNappletManifest(event([...current, ['source', 'file:///tmp/napplet']])).source).toBeUndefined();
+  });
   it('never resolves snapshot lineage on its behalf', async () => {
     const fetchBlob = vi.fn(async () => bytes);
     const parent = `35129:${'ab'.repeat(32)}:parent`;

@@ -6,7 +6,7 @@ Built-in interface dispatch requires its admission grant; LINK and declared
 service extensions also support held operation approvals. Resource/network scope
 enforcement now covers migrated service operations including filesystem, device,
 relay, upload, social, media, and local-state work. Existing Firewall
-configuration is not converted into scoped grants. Paja and playground use
+configuration is not converted into scoped grants. Paja uses
 shared approval presentation and frame admission before executable bytes enter
 an iframe.
 
@@ -138,18 +138,15 @@ store after each decision, so concurrent frames share one visible authority.
 An admission result is an immutable host token bound to the exact source generation.
 Copies and forged results fail revalidation. Revocation, retirement, teardown, or
 ACL blocking invalidate its use. Paja's verified, local-file, and live-development
-frame loaders and the playground's verified demo/installed target loader use this
-transaction.
+frame loaders use this transaction.
 
 Paja's live development target is an unsigned principal bound to its exact URL
 and fetched-byte SHA-256; local files use a separate development principal.
-The playground currently loads resolver-verified catalog artifacts only. It has
-no unsigned file or dev-server launch control. Its demo configuration, relay
-and Blossom hints, and preferences cannot create grants or direct browser
-authority. A future development loader must call `admitBrowserDocument` with a
+Relay and Blossom hints and preferences cannot create grants or direct browser
+authority. A new development loader must call `admitBrowserDocument` with a
 fresh development principal and the same currentness checks.
 
-The shared CSP starts with `default-src 'none'`. A verified playground artifact
+The shared CSP starts with `default-src 'none'`. A verified artifact
 has no direct remote browser sources and can use the mediated `resource`
 interface after its own approval. Paja's live target proposes exact origins per
 supported `connect`, `script`, `style`, `image`, `font`, `worker`, and `media`
@@ -295,12 +292,6 @@ applies exact origin/host/method/content-type policy without permissive CORS,
 pins connection policy, and asks the runtime again for each redirect destination.
 Sandboxed apps receive neither that resolver nor a proxy controller through
 configuration, iframe messages, initialization data, or `window.napplet`.
-
-The playground uses the same resource-service callback contract. It requires
-`authorizeNetwork` before its initial HTTP(S) fetch and deliberately rejects
-redirect responses because it has no trusted per-hop resolver. This bounded host
-policy does not replace Paja's resolver. Playground's verified loader separately
-passes through the shared launch admission transaction.
 
 Standalone or unmigrated hosts retain resolver-owned policy with diagnostic
 `FW-RESOURCE-LEGACY-001`, once per service instance on actual fetch use. Configure

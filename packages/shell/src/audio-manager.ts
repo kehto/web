@@ -96,7 +96,7 @@ export const audioManager: AudioManager = {
   },
 
   /**
-   * Mute or unmute an audio source and notify the napplet via postMessage.
+   * Mute or unmute an audio source and notify the napplet over its bound NIP-5D port.
    *
    * @param windowId - The window identifier
    * @param muted - True to mute, false to unmute
@@ -109,8 +109,7 @@ export const audioManager: AudioManager = {
   mute(windowId: string, muted: boolean): void {
     const src = sources.get(windowId);
     if (src) { src.muted = muted; bump(); }
-    const iframeWindow = originRegistry.getIframeWindow(windowId);
-    if (iframeWindow) {
+    if (originRegistry.getPort(windowId)) {
       const muteEvent = {
         kind: 29000, // INC_PEER — inlined numeric after Phase 24 DRIFT-01 shim removal
         created_at: Math.floor(Date.now() / 1000),
@@ -120,7 +119,8 @@ export const audioManager: AudioManager = {
         id: `audio-mute-${windowId}-${Date.now()}`,
         sig: '',
       };
-      iframeWindow.postMessage(['EVENT', '__shell__', muteEvent], '*');
+      // NIP-5D: delivered over the bound port, never iframeWindow.postMessage.
+      originRegistry.postToNapplet(windowId, ['EVENT', '__shell__', muteEvent]);
     }
   },
 

@@ -18,6 +18,24 @@ describe('Paja LINK confirmation', () => {
     expect(open).toHaveBeenCalledOnce();
   });
 
+  it('opens inside the user activation and refuses once the source is no longer current', async () => {
+    const confirm = vi.fn(async () => true);
+    const open = vi.fn(() => true);
+    let current = true;
+    const identity = () => ({ dTag: 'reader', aggregateHash: 'sha256:current', isCurrent: () => current });
+    const run = vi.fn(async (_request: unknown, operation: () => unknown) => operation());
+    const activation = { run } as unknown as Parameters<typeof confirmPajaExternalLink>[4];
+    await expect(confirmPajaExternalLink(request, confirm, identity, open, activation)).resolves.toEqual({ status: 'opened' });
+    expect(confirm).not.toHaveBeenCalled();
+    expect(open).toHaveBeenCalledOnce();
+    current = false;
+    await expect(confirmPajaExternalLink(request, confirm, identity, open, activation)).resolves.toEqual({ status: 'denied' });
+    expect(open).toHaveBeenCalledOnce();
+    run.mockRejectedValueOnce(new Error('dialog closed'));
+    current = true;
+    await expect(confirmPajaExternalLink(request, confirm, identity, open, activation)).resolves.toEqual({ status: 'denied' });
+  });
+
   it('drops a stale allow after approval cancellation', async () => {
     const controller = new AbortController();
     let answer!: (value: boolean) => void;

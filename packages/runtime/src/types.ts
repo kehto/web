@@ -505,7 +505,8 @@ export interface RuntimeConfigOverrides {
  * import { createRuntime, type RuntimeAdapter } from '@kehto/runtime';
  *
  * const hooks: RuntimeAdapter = {
- *   sendToNapplet: (wid, msg) => iframeWindows.get(wid)?.postMessage(msg, '*'),
+ *   // NIP-5D: send over the port bound by the napplet's napplet.hello.
+ *   sendToNapplet: (wid, msg) => helloPorts.get(wid)?.postMessage(msg),
  *   relayPool: myRelayPoolAdapter,
  *   cache: myCacheAdapter,
  *   auth: myAuthAdapter,

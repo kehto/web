@@ -7,14 +7,18 @@ import { installPajaResourceSettings } from './browser-resource-settings.js';
 import { createPajaPermissionAdapter } from './browser-permission-adapter.js';
 import { permissionPrincipalKey } from '@kehto/firewall';
 import { revokedPajaTabIds } from './browser-grant-retirement.js';
+import { installPajaSecuritySettings } from './browser-security-settings.js';
+import { installPajaLlm } from './browser-llm-panel.js';
 import {
   buildShellCapabilities,
   createShellBridge,
+  getShellDomainState,
   originRegistry,
   type Capability,
   type ShellBridge,
   type ShellCapabilities,
   type SessionEntry,
+  type ShellDomainState,
 } from '@kehto/shell';
 
 import { installPajaConsolePanel } from './browser-console-panel.js';
@@ -31,6 +35,7 @@ import {
   hasNip07Signer,
 } from './browser-host-signer.js';
 import { unregisterSingleFrameWindow } from './browser-host-runtime.js';
+import { handlePajaNappletRevoked, handlePajaWindowMessage, observePajaNappletMessage } from './browser-nip5d-host.js';
 import { installLocalFileControls, loadLocalRuntimeFile } from './browser-local-loader.js';
 import { BrowserIntentController } from './browser-intent-controller.js';
 import {
@@ -79,7 +84,6 @@ import type { BrowserIntentGeneration } from './browser-intent-controller.js';
 import type { PajaRelayBackend } from './browser-relay-runtime.js';
 import {
   appendPajaMessageLog,
-  createPajaPostMessageProxy,
   installPajaOriginRegistryProxy,
   renderPajaDevtools,
   renderPajaMessageLog,
@@ -96,11 +100,13 @@ import {
 import type { PajaHostConfig } from './options.js';
 import {
   getTargetIdentity,
+  ensureFreshNappletFrame,
   navigateFrame,
   renderTargetErrorHtml,
 } from './browser-target-frame.js';
 import { isPajaLocalTarget, type PajaRuntimeTarget } from './local-target.js';
-import { resolvePajaPointer } from './runtime-resolver.js';
+import { pajaDevelopmentConsentScope } from './browser-operation-scope.js';
+import { PajaRelayUnreachableError, resolvePajaPointer } from './runtime-resolver.js';
 import { parsePajaIntentLink } from './intent-link.js';
 import {
   createPajaIntentLinkController,
@@ -122,6 +128,8 @@ export interface PajaBrowserState {
   readonly config: PajaHostConfig;
   readonly capabilities: ShellCapabilities;
   services: string[];
+  /** Host-facing per-domain state: supported, unconfigured (needs setup) or disabled. */
+  domainState(domain: PajaCapabilityDomain): ShellDomainState;
   simulation: PajaSimulation;
   signer: PajaSignerState;
   signerConsentCount: number;
@@ -269,9 +277,15 @@ function startFrameNavigation(
   state: PajaBrowserState,
   context: PajaBrowserStateContext,
 ): void {
-  const { config, frame, bridge, adapter, runtime } = context;
-  if (!frame) return;
-  frameAdmissions.get(frame)?.abort();
+  const { config, bridge, adapter, runtime } = context;
+  if (!context.frame) return;
+  frameAdmissions.get(context.frame)?.abort();
+  // NIP-5D: every navigation gets a fresh iframe; a used one is never re-bound.
+  const frame = ensureFreshNappletFrame(context.frame);
+  if (frame !== context.frame) {
+    frame.addEventListener('error', () => setStatus(state, 'error'));
+    context.frame = frame;
+  }
   const admissionController = new AbortController();
   frameAdmissions.set(frame, admissionController);
   const generation = state.generation;
@@ -286,6 +300,7 @@ function startFrameNavigation(
     undefined,
     isCurrentGeneration,
     (windowId) => {
+      if (windowId) bridge.observeFrame(frame, windowId);
       if (isCurrentGeneration()) runtime.currentWindowId = windowId;
     },
     admissionController.signal,
@@ -434,6 +449,20 @@ async function loadRuntimePointer(
     state.resolvedTarget = null;
     setPointerStatus(state, message);
     setStatus(state, 'error');
+    if (error instanceof PajaRelayUnreachableError) {
+      // Zero relays connected: the manifest was never asked for. Log it as its
+      // own event so the console tells the operator why (offline, blocked, or
+      // the browser's WebSocket limit) instead of looking like a napplet bug.
+      const { total, connected, failed, pending } = error.connections;
+      appendPajaMessageLog(state, 'paja', {
+        type: 'paja.relay.unreachable',
+        relays: total,
+        connected: connected.length,
+        failed: failed.map((entry) => `${entry.url}: ${entry.reason}`),
+        pending: [...pending],
+        hint: 'browser offline, relays blocked, or WebSocket connection limit reached — close other tabs holding relay connections and retry',
+      });
+    }
     appendPajaMessageLog(state, 'paja', { type: 'paja.pointer.error', error: message });
   }
 }
@@ -522,6 +551,7 @@ function createPajaBrowserState(
     config,
     capabilities,
     services: Object.keys(adapter.services ?? {}).sort(),
+    domainState: (domain) => getShellDomainState(adapter, domain),
     simulation: runtime.currentSimulation,
     signer: signerController.getState(),
     signerConsentCount: confirmationController.getSignerConsentCount(),
@@ -620,6 +650,8 @@ async function installPajaHost(): Promise<void> {
   const disposeSidebarSections = installPajaSidebarSections();
   window.addEventListener('pagehide', disposeSidebarSections, { once: true });
   const resourceSettings = installPajaResourceSettings();
+  const securitySettings = installPajaSecuritySettings();
+  window.addEventListener('pagehide', securitySettings.dispose, { once: true });
   const config = await readLatestPajaHostConfig(readPajaHostConfig());
   const stage = getStage();
   const frame = config.target.mode === 'runtime-pointer' ? null : getFrame();
@@ -677,10 +709,21 @@ async function installPajaHost(): Promise<void> {
     confirmationController.confirm,
   );
   const getWindowIdentity = (windowId?: string) => {
+    const tab = stateRef?.tabs.find((tab) => tab.windowId === windowId);
+    const target = tab?.resolvedTarget ?? stateRef?.resolvedTarget;
     const active = bridge.runtime.sessionRegistry.getEntryByWindowId(windowId ?? runtime.currentWindowId ?? '');
-    if (active) return active;
-    const tabTarget = stateRef?.tabs.find((tab) => tab.windowId === windowId)?.resolvedTarget;
-    return getTargetIdentity(config, tabTarget ?? stateRef?.resolvedTarget);
+    const identity = active ?? getTargetIdentity(config, target);
+    return {
+      ...identity,
+      consentScope: target
+        ? `${isPajaLocalTarget(target) ? 'local-file' : target.manifest.catalogId}:artifact:${target.aggregateHash}`
+        : pajaDevelopmentConsentScope(config.target.url, windowId ?? ''),
+      isCurrent: () => {
+        const targetFrame = tab?.frame ?? contextRef?.frame ?? frame;
+        return !!targetFrame?.contentWindow && originRegistry.getWindowId(targetFrame.contentWindow) === windowId
+          && (!tab || stateRef?.tabs.includes(tab) === true);
+      },
+    };
   };
   const notifyController = createPajaNotifyController({
     confirm: confirmationController.confirm,
@@ -705,6 +748,11 @@ async function installPajaHost(): Promise<void> {
   // reads and napplet-pinned reads only exist once they happen.
   const relayInventory = (): PajaRelayInventory => ({
     fallback: adapter.relayConfig.getRelayConfig().outbox,
+  });
+  const llm = installPajaLlm({
+    confirm: confirmationController.confirm,
+    getIdentity: (windowId) => ({ dTag: getWindowIdentity(windowId).dTag, aggregateHash: getWindowIdentity(windowId).aggregateHash }),
+    onChange: () => { if (stateRef) setSimulationStatus(stateRef); },
   });
   const adapter = createPajaAdapter(config, getSimulation, (theme) => {
     runtime.themeService = theme;
@@ -733,7 +781,7 @@ async function installPajaHost(): Promise<void> {
         const id = `nip5d:${hint.address}`;
         return candidates.some((candidate) => candidate.id === id) ? id : undefined;
       },
-    }, confirmationController.activation, notifyController?.serviceOptions, configController?.serviceOptions, resourceSettings.getServers);
+    }, confirmationController.activation, notifyController?.serviceOptions, configController?.serviceOptions, resourceSettings.getServers, llm.host);
   const permissionMount = document.getElementById('paja-permission-ui');
   if (!permissionMount) throw new Error('Paja Firewall permission mount is missing');
   let permissionBridge: ShellBridge | null = null;
@@ -758,18 +806,31 @@ async function installPajaHost(): Promise<void> {
     relayEventCounts.recordEvent(sighting.reason, sighting.event, sighting.sightedOn, sighting.origin);
   });
   relayBackend?.setRelayRequestObserver((request) => {
-    relayEventCounts.recordRead(request.reason, request.relayUrls, request.origin);
+    relayEventCounts.recordRead(request.reason, request.relayUrls, request.origin, request.authors);
   });
   await adapter.ready;
+  const nip5dEffects = {
+    setStatus,
+    renderDevtools(current: PajaBrowserState) {
+      if (permissionBridge) renderPajaDevtools(current, { bridge: permissionBridge, devSignerPubkey: PAJA_DEV_SIGNER_PUBKEY });
+    },
+  };
+  adapter.onNappletMessage = (windowId, message) => {
+    observePajaNappletMessage(stateRef, contextRef, windowId, message, nip5dEffects);
+  };
+  adapter.onNappletRevoked = (revocation) => {
+    handlePajaNappletRevoked(stateRef, contextRef, revocation, nip5dEffects);
+  };
   const bridge = createShellBridge(adapter);
   permissionBridge = bridge;
   permissionController.ui.refresh();
   const stopIdentityChanges = signerController.subscribe(() => {
+    confirmationController.cancelSignerRequests();
     bridge.publishIdentityChanged(adapter.auth.getUserPubkey() ?? '');
   });
   themeBroadcast.attach(bridge);
   bridgeRef = bridge;
-  installPajaOriginRegistryProxy(originRegistry, () => stateRef);
+  installPajaOriginRegistryProxy(originRegistry, () => stateRef, windowId => confirmationController.cancelWindow(windowId));
   const capabilities = buildShellCapabilities(adapter);
   const context: PajaBrowserStateContext = {
     config,
@@ -813,55 +874,13 @@ async function installPajaHost(): Promise<void> {
   window.addEventListener('pagehide', disposeEventCounterReset, { once: true });
   window.addEventListener('pagehide', resourceSettings.dispose, { once: true });
   window.addEventListener('pagehide', permissionController.destroy, { once: true });
+  window.addEventListener('pagehide', llm.dispose, { once: true });
 
   window.__KEHTO_PAJA__ = state;
 
-  window.addEventListener('message', (event) => {
-    const source = event.source as Window | null;
-    const sourceTab = source ? state.tabs.find((tab) => tab.frame.contentWindow === source) ?? null : null;
-    const launcher = source ? runtime.launcherFrames.get(source) : undefined;
-    const isSingleFrameMessage = frame ? event.source === frame.contentWindow : false;
-    if (!sourceTab && !isSingleFrameMessage && !launcher) return;
-    const registeredWindowId = source ? originRegistry.getWindowId(source) ?? null : null;
-    const sourceWindowId = launcher?.windowId ?? sourceTab?.windowId ?? registeredWindowId ?? undefined;
-    if (launcher && (!source || registeredWindowId !== launcher.windowId)) return;
-    if (sourceTab && (!source || !sourceWindowId || registeredWindowId !== sourceWindowId)) return;
-    if (isSingleFrameMessage && (!sourceWindowId || sourceWindowId !== runtime.currentWindowId)) return;
-    appendPajaMessageLog(state, 'napplet->shell', event.data, sourceWindowId);
-    const proxiedSource = createPajaPostMessageProxy(event.source as Window, state, sourceWindowId);
-    const syntheticEvent = new Proxy(event, {
-      get(target, prop) {
-        if (prop === 'source') return proxiedSource;
-        const val = Reflect.get(target, prop, target) as unknown;
-        return typeof val === 'function' ? (val as Function).bind(target) : val;
-      },
-    }) as MessageEvent;
-    bridge.handleMessage(syntheticEvent);
-    const data = event.data as { type?: unknown } | null;
-    if (launcher && data && typeof data === 'object' && data.type === 'paja.intent.launcher.ready') {
-      launcher.ready();
-    }
-    if (data && typeof data === 'object' && data.type === 'shell.ready') {
-      if (sourceTab) {
-        if (source && !markRuntimeTabReady(
-          state,
-          context,
-          sourceTab,
-          source,
-          registeredWindowId,
-          { setReadyStatus: (current) => setStatus(current, 'ready') },
-        )) return;
-      } else {
-        if (sourceWindowId) runtime.readyWindowIds.add(sourceWindowId);
-        setStatus(state, 'ready');
-      }
-      renderPajaDevtools(state, { bridge, devSignerPubkey: PAJA_DEV_SIGNER_PUBKEY });
-    }
-    if (launcher && data && typeof data === 'object' && data.type === 'paja.intent.launcher.result'
-      && typeof (data as { correlation?: unknown }).correlation === 'string') {
-      launcher.result((data as { correlation: string }).correlation, (data as { result?: unknown }).result);
-    }
-  });
+  // NIP-5D: window-level traffic is only the napplet.hello handoff; NAP
+  // envelopes arrive on the bound port (see browser-nip5d-host.ts).
+  window.addEventListener('message', (event) => handlePajaWindowMessage(state, context, event));
 
   frame?.addEventListener('error', () => {
     setStatus(state, 'error');

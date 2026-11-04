@@ -43,7 +43,7 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 | Field | Value |
 |-------|-------|
 | Source | `packages/services/package.json`, `packages/services/src/index.ts` |
-| Version | `0.25.1` |
+| Version | `0.29.0` |
 | Runtime entry | `./dist/index.js` |
 | Types entry | `./dist/index.d.ts` |
 | Dependencies | `@kehto/runtime` |
@@ -53,8 +53,8 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.32.0 <0.33.0` |
-| `@napplet/nap` | `>=0.32.0 <0.33.0` |
+| `@napplet/core` | `>=0.32.0 <0.38.0` |
+| `@napplet/nap` | `>=0.32.0 <0.37.0` |
 
 ## Primary APIs
 
@@ -104,6 +104,15 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 - NAP-DM support keeps request correlation, per-window subscriptions, and packaged message shapes in `createDmService`; the concrete NIP-17 adapter verifies gift wraps and hydrates encrypted relay history, while NDR and Cordn specifics remain behind structural adapters.
 - NAP-FS support keeps same-id results and per-window watch ownership in `createFsService`; injected backends own real persistence, virtual-path policy, picker mediation, byte validation, revisions, mutation atomicity, and watch observation.
 - `createRelayPoolOutboxRouter()` starts validated relay hints or fallback reads before asynchronous NIP-65 discovery settles. Its host-side `queryStream()` emits verified results incrementally and exposes the existing aggregate through `result`; the draft NAP-OUTBOX wire query remains one-shot.
+- `OutboxRelayPool.subscribe(filters, relayUrls, callback, origin?, authors?)`
+  receives host-only routing provenance. For `nip65`, the fifth argument contains
+  only requested authors whose policy-allowed write lists selected that relay;
+  missing or denied authors are not credited. Hint and fallback reads receive the
+  deduplicated authors derived from both filters and `options.authors`. The router
+  always supplies an array, including `[]` for authorless reads. Event filters,
+  relay selection, and napplet wire messages are unchanged; pool adapters may
+  ignore the optional metadata argument. This follows the routing inputs in
+  [NAP-OUTBOX draft #32 at `8865f73`](https://github.com/napplet/naps/blob/8865f73d52a4864afee145f28d26520476273927/naps/NAP-OUTBOX.md).
 - `createOutboxService()` accepts a source-scoped `getReadRouter` for
   `outbox.getEvent`, `outbox.query`, and `outbox.subscribe`, while the optional
   `getQueryRouter` can layer query-only policy or caching on top.
@@ -151,13 +160,25 @@ For the schema and removal boundary, see [event migration](https://kehto.github.
 
 ## GAMEPAD integration
 
-This non-normative guidance defers to [NAP-GAMEPAD at `napplet/naps@19de5ce1`](https://github.com/napplet/naps/blob/19de5ce1cea40cd4c76089cdd8126e9f87648049/naps/NAP-GAMEPAD.md). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja and the playground register one host reader and deny native gamepad/HID/USB paths before frame execution. The first subscription is approved as the host-private `gamepad:input` resource before the native reader or listeners start. The NAP exposes all controllers to the focused source and has no per-device handle, so this scope deliberately covers the shared input surface. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; denial emits a `gamepad.state` with `reason: "blocked"`. Unsubscribe, permission revocation, window destruction, and service removal release polling. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
+This non-normative guidance defers to [NAP-GAMEPAD at `napplet/naps@19de5ce1`](https://github.com/napplet/naps/blob/19de5ce1cea40cd4c76089cdd8126e9f87648049/naps/NAP-GAMEPAD.md). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja registers one host reader and denies native gamepad/HID/USB paths before frame execution. The first subscription is approved as the host-private `gamepad:input` resource before the native reader or listeners start. The NAP exposes all controllers to the focused source and has no per-device handle, so this scope deliberately covers the shared input surface. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; denial emits a `gamepad.state` with `reason: "blocked"`. Unsubscribe, permission revocation, window destruction, and service removal release polling. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
+
+## LLM integration
+
+This non-normative guidance defers to the living [NAP-LLM](https://github.com/napplet/naps/pull/134) (checked at `3e10939`). Services export `createLlmService`, `LlmServiceError`, the provider mappers and `LLM_PROVIDER_PRESETS`; shell exports `getShellDomainState` and the `LlmHooks` adapter field; acl exports `llm:generate`. The runtime routes `llm.*` to one registered service and answers every sanctioned request with exactly one `llm.<op>.result`, shaping missing-service and ACL failures as `{ code: 'unsupported' }`. Hosts implement `LlmConnectionHost`; the service enforces schema, handle ownership, a per-window live-handle bound (`maxHandlesPerWindow`), consent before submission, duplicate ids, cancellation and deadline races, ordered deltas and safe errors, and passes `select`/`authorize` a `{ signal }` that withdraws stale prompts. `createHttpLlmProvider({ stream: true })` streams provider output into `llm.delta`. Advertisement stays binary on the wire while hosts report a third `unconfigured` state until the user adds a connection. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
+
+## Media sessions
+
+See [Media playback](https://github.com/kehto/web/blob/main/docs/media.md) for NAP-MEDIA draft authority, shell-owned audio/video,
+shared host controls, endpoint cleanup, and command API migration.
+Live HTTPS MP3/AAC uses `createBrowserMediaStreamFetch`, the host-only
+`ResourceService.openStream` grant boundary, and bounded MediaSource buffering;
+complete audio/video files retain atomic resource resolution.
 
 ## Notification approvals
 
 `createNotifyService` follows [NAP-NOTIFY PR #11 at `67877ef6`](https://github.com/napplet/naps/blob/67877ef6c31ec8acee3125c1d8b4c781010e37dc/naps/NAP-NOTIFY.md). Under a permission-enabled runtime, `notify.send`, `notify.permission.request`, badge writes, and channel registration require exact operation/channel resource approval. Interface access alone does not permit presentation. Payloads are bounded and detached before approval; denial yields the canonical `notify.send.result` error or `notify.permission.result` with `granted: false`. Dismiss remains an owner-only cleanup action after permission loss. Revocation removes active notifications and host state and suppresses late permission answers or interaction callbacks. The reference service rejects remote icon URLs until a host can fetch them through an approved NAP-RESOURCE path; Paja renders text and does not fetch icons.
 
-The older `createNotificationService` registry uses `notify.create/list/read`, which are outside NAP-NOTIFY. It remains a bounded Kehto compatibility path: calls warn once per service instance, and a permission-enabled runtime authorizes create/read/list before exposing state. New hosts should register `createNotifyService`; the playground migration is tracked separately. See [the compatibility register](/compatibility).
+The older `createNotificationService` registry uses `notify.create/list/read`, which are outside NAP-NOTIFY. It remains a bounded Kehto compatibility path: calls warn once per service instance, and a permission-enabled runtime authorizes create/read/list before exposing state. New hosts should register `createNotifyService`. See [the compatibility register](/compatibility).
 
 
 ### Resource request lifecycle
@@ -187,7 +208,7 @@ body, so revocation can abort active work and discard late bytes. Request
 cancellation also dismisses a pending approval without granting a late answer.
 
 This service boundary does not authorize indirect resolver destinations or make
-browser redirects safe. Paja and playground now pair mediated resource approval
+browser redirects safe. Paja pairs mediated resource approval
 with pre-execution frame admission and a closed browser CSP. Current configured
 ingress uses independent rate budgets; the old temporal gate remains only for
 hosts without a permission adapter.

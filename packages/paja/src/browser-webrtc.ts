@@ -41,7 +41,7 @@ export interface PajaWebrtcPeerFactory {
 /** Host dependencies for Paja's real Nostr-signaled WebRTC controller. */
 export interface PajaWebrtcControllerOptions {
   readonly relay: PajaWebrtcRelay;
-  readonly getSigner: () => Signer | null;
+  readonly getSigner: (windowId?: string) => Signer | null;
   readonly getPubkey: () => string | null;
   readonly getIdentity: PajaIdentityProvider;
   readonly confirm: PajaConfirmationHandler;
@@ -186,7 +186,7 @@ class BrowserWebrtcController implements PajaWebrtcController {
     if (this.windowSessionCount(context.windowId) >= PAJA_WEBRTC_MAX_SESSIONS_PER_WINDOW) {
       throw new Error('session limit reached');
     }
-    const signer = this.requireSigner();
+    const signer = this.requireSigner(context.windowId);
     const localPubkey = normalizePubkey(await signer.getPublicKey!());
     if (!localPubkey || localPubkey !== normalizePubkey(this.options.getPubkey())) throw new Error('signaling unavailable');
     const identity = this.options.getIdentity(context.windowId);
@@ -481,14 +481,14 @@ class BrowserWebrtcController implements PajaWebrtcController {
     return session;
   }
 
-  private requireSigner(): Required<Pick<Signer, 'getPublicKey' | 'signEvent' | 'nip44'>> & Signer {
-    const signer = this.options.getSigner();
+  private requireSigner(windowId?: string): Required<Pick<Signer, 'getPublicKey' | 'signEvent' | 'nip44'>> & Signer {
+    const signer = this.options.getSigner(windowId);
     if (!isSignalingSigner(signer)) throw new Error('signaling unavailable');
     return signer;
   }
 
   private requireSessionSigner(session: SessionState): ReturnType<BrowserWebrtcController['requireSigner']> {
-    const signer = this.requireSigner();
+    const signer = this.requireSigner(session.windowId);
     if (normalizePubkey(this.options.getPubkey()) !== session.localPubkey) throw new Error('signaling unavailable');
     return signer;
   }

@@ -15,7 +15,9 @@
  *
  * Anti-features: NO raw window.addEventListener — fixture is outbound-only.
  */
-import '@napplet/shim';
+// NIP-5D: the host injects window.napplet and sends the single napplet.hello
+// before this script runs. Importing @napplet/shim would install a second
+// namespace and hello, which revokes the napplet (nostr-protocol/nips#2303).
 import { storageGetItem } from '@napplet/nap/storage/sdk';
 
 const statusEl = document.getElementById('nap-status')!;

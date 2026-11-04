@@ -81,7 +81,7 @@ In the SAME branch/PR as the code change:
 
 - **Tests**: update or add tests for every behavior you change; assert real vectors, not
   invented values. Keep `pnpm test:unit` green; run `pnpm test:e2e` when you touch the
-  playground, shell wiring, or anything the Playwright specs cover.
+  e2e harness, Paja, shell wiring, or anything the Playwright specs cover.
 - **Docs**: update every README, `docs/*`, and package doc that references what you
   changed. The docs gate (`pnpm docs:check`) requires a full doc set per `@kehto/*`
   package and runs typedoc with `--treatWarningsAsErrors`, so re-export every referenced
@@ -166,29 +166,30 @@ first package that compiles.
   `@napplet/nap/*/types` as its packaged implementation contract. A missing or stale
   package export is upstream drift to report or repair, never permission to omit a
   specified API. Compare new/changed behavior against kehto runtime handlers,
-  shell/playground/Paja adapters, reference services, ACL/capability mapping, docs, and
+  shell/Paja adapters, reference services, ACL/capability mapping, docs, and
   tests.
 - For NAP-RELAY subscribe fields, update all relay subscribe surfaces together:
   `packages/runtime/src/relay-handler.ts`, `packages/services/src/relay-pool-service.ts`,
-  `packages/services/src/coordinated-relay.ts`, `apps/playground/src/playground-relay-service.ts`,
-  and the matching unit/static guards in `tests/unit/nip5d-conformance-guard.test.ts`,
-  `packages/services/src/*relay*.test.ts`, and `tests/unit/playground-relay-service.test.ts`.
-- If the shell or playground adds support for a NAP field, add a guard that proves the
+  `packages/services/src/coordinated-relay.ts`, and the matching unit/static guards in
+  `tests/unit/nip5d-conformance-guard.test.ts` and `packages/services/src/*relay*.test.ts`.
+- If the shell or Paja adds support for a NAP field, add a guard that proves the
   reference service implementation consumes the same field. Example: an explicit
   `relay.subscribe` relay hint must bypass relay selection in runtime fallback,
-  `createRelayPoolService`, `createCoordinatedRelay`, and the playground relay service.
+  `createRelayPoolService`, and `createCoordinatedRelay`.
 - If a canonical NAP message gains a field that is intentionally ignored by a kehto
   surface, document that decision in the nearby test or source comment. Silent omission
   is treated as drift.
 - Domain discovery uses runtime-injected property presence. [NAP-SHELL](https://github.com/napplet/naps/blob/master/naps/NAP-SHELL.md) is optional and is not a prerequisite for other domains. Bind verified iframe identity and host grants independently of shell.ready. When shell is exposed, its receiver must be live before shell.ready and retain the first parent shell.init for readiness/services only. Supports queries the injected namespace locally.
 - Every NAP change needs a regression covering API shape, wire direction,
   lifecycle/idempotency, parent-source trust, and all Kehto host consumers. For
-  NAP-SHELL, prove both Paja and playground iframe paths, not only the shell package.
-- If the playground changes NIP-5D loading, prove provenance in the same change:
+  NAP-SHELL, prove the Paja and e2e-harness iframe paths, not only the shell package.
+- The `@kehto/playground` demo app is retired (`KEHTO_PLAYGROUND_RETIRED` in
+  `docs/compatibility.md`); do not reintroduce it or add new work to its redirect.
+- If Paja changes NIP-5D loading, prove provenance in the same change:
   verified bytes go through `srcdoc`, injected bootstraps stay outside the signed
   artifact bytes, and gateway output remains an untrusted accelerator rather than
   the source of napplet identity.
-- NIP-5D loader and napplet-demo exceptions stay under `tests/unit/nip5d-conformance-guard.test.ts`;
+- NIP-5D loader and napplet exceptions stay under `tests/unit/nip5d-conformance-guard.test.ts`;
   add allowlist rows there only with matching policy text in `docs/policies/NIP-5D-CONFORMANCE.md`.
 
 ### 5. Definition of done = shipped, without being asked
@@ -204,7 +205,7 @@ back — **do not wait to be told to push or open a PR**:
 6. atomic commits made
 7. `git push -u origin <branch>`
 8. `gh pr create` with a clear body: what, why, any surfaced decision, verification
-   output, and out-of-scope notes.
+   output, and out-of-scope notes (see "Writing issues, PRs, and reviews").
 
 `/gsd:ship` performs steps 6–8 (PR + review) inside a GSD flow. Outward-facing actions
 (push, PR, publish) are authorized as the closing step of the task you were given — you
@@ -269,6 +270,59 @@ registration. Do not run `pnpm publish-packages` locally.
    publish is npm's *unauthorized* response (not "missing") — almost always a Trusted
    Publisher that doesn't match the publishing workflow. Confirm new packages are
    registered on both before relying on the automated publish.
+
+## Writing issues, PRs, and reviews
+
+Issues, PR bodies, review comments, and replies on GitHub use a casual, collegial voice.
+Write like a peer leaving notes for someone you work with, not like a spec or an audit
+report. The content stays precise and verifiable; only the tone relaxes.
+
+- Open with what works before what doesn't ("Nice work, this gets us most of the
+  way.").
+- Use contractions and short sentences. Ask rather than order: "Could we pin down where
+  the results go?", "Mind dropping it from this PR?", "Did you mean positive?"
+- Name the concrete problem in a sentence or two, then suggest a fix. When there are
+  several reasonable fixes, offer them as short bullets and say "either works".
+- Label small things as `Nit:` and keep them to one line.
+- Keep normative words (MUST, SHOULD) for quoting or proposing spec text, not for
+  talking to people.
+- Stay neutral about vendors and implementations. A generic contract such as a NAP is
+  argued from the contract, using patterns ("several providers return opaque reasoning
+  state"), not from what one product or one host does.
+- For a review, put each point inline on the line it concerns. Keep the review body for
+  the summary and for points that don't sit on a changed line.
+- A PR body says what changed, why, which `napplet/naps` ref was checked (for
+  NAP-touching work), the verification output, and known gaps. Say plainly what was not
+  run or not proven.
+
+Example inline review comment:
+
+> This only works in one direction. Providers aren't consistent about the stop reason
+> when a turn contains tool calls, so could we also say that any result containing a
+> `toolCall` part has `finish: "toolUse"`, whatever the provider reported?
+
+### Filing an issue in another repository
+
+When the root cause is in a dependency or in the spec (`@napplet/*` packages in
+`napplet/web`, NAP text in `napplet/naps`), don't hide it with a local workaround.
+Distill the failure into that project's own public API, CLI, protocol contract, or a
+minimal fixture, then file it there.
+
+- The issue must make sense in isolation to a maintainer who has never seen this repo
+  and won't open its branches, issues, PRs, planning notes, or logs.
+- Don't reference this repo's PR numbers, issue numbers, branch names, or internal
+  package context unless the maintainer asks for that background later.
+- Frame it around the other project only: affected package and version, public API or
+  command, protocol field or contract, expected behavior, actual behavior, exact error
+  or output, environment, and a minimal reproduction that runs without this repo.
+- Don't ask the maintainer to read a Kehto PR, clone this repo, or infer the bug from
+  Kehto behavior.
+
+Keep coordination here. Once the issue exists, open a tracking issue in `kehto/web`
+that links to it, summarizes the local impact, names any workaround, and states the
+condition for removing that workaround. A workaround is allowed only when the user asks
+for one or Kehto is otherwise blocked; keep it narrow, documented, tested, and tied to
+the external issue for removal.
 
 ## Project Overview
 

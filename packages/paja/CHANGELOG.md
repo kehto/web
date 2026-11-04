@@ -1,5 +1,265 @@
 # @kehto/paja
 
+## 0.31.0
+
+### Minor Changes
+
+- 4d8a569: Add an experimental, opt-in lock that prevents a napplet from creating a nested
+  browsing context (iframe/frame/object/embed/portal/fencedframe). Off by default,
+  so downstream hosts are not forced into its opinions.
+
+  Establishes a Kehto **experimental namespace** convention (see
+  `docs/policies/EXPERIMENTAL.md`): opinionated host policies that are off by
+  default, namespaced under an `experimental` options object, unstable (may change
+  without a major bump), and distinct from the NAP `x-` extensions (which are
+  experimental protocol domains). `NappletExperimentalOptions.nestedContextLock`
+  is its first member.
+
+  When a host sets `experimental: { nestedContextLock: true }` (on
+  `prepareNappletSrcdoc` / `NappletSrcdocOptions`, or the Paja host config):
+
+  - The verified napplet srcdoc CSP carries
+    `require-trusted-types-for 'script'; trusted-types default`, and the prelude
+    registers the single admitted `default` Trusted Types policy before any napplet
+    script. It passes canonical HTML through and rejects any string carrying a
+    frame tag, closing `innerHTML`, `DOMParser`, `document.write` and the other
+    string sinks.
+  - The prelude pins `Document.prototype.createElement` / `createElementNS` and
+    `DOMImplementation.createDocument`, non-configurable, to reject frame tag
+    names — the only element factories on the platform.
+  - The new `assertNappletHasNoFrame` / `nappletMarkupHasFrame` reject a napplet
+    whose own static markup declares a frame; `@kehto/paja` runs that scan on the
+    verified runtime-pointer path, fail-closed.
+
+  The lock is opinionated: it requires Trusted Types in the napplet CSP (so it is
+  incompatible with frameworks that register their own Trusted Types policy, e.g.
+  Angular) and a string sink carrying a literal frame-tag token is rejected even
+  in text or an attribute. Canonical string-sink use is unaffected (the default
+  policy passes non-frame HTML through). The contract change is tracked as
+  `NIP5D_TRUSTED_TYPES_REQUIRED` in docs/compatibility.md and applies only to hosts
+  that opt in. The new `nappletMarkupHasFrame` / `assertNappletHasNoFrame` exports
+  and the `experimental` option are always available; nothing changes for existing
+  hosts that do not set the flag.
+
+### Patch Changes
+
+- Updated dependencies [4d8a569]
+  - @kehto/shell@0.30.0
+
+## 0.30.0
+
+### Minor Changes
+
+- 37457ce: Add a loopback Routstr provider preset and a model dropdown for presets that
+  list their models.
+
+  `LLM_PROVIDER_PRESETS` gains `routstr` (`http://127.0.0.1:8008/v1`, OpenAI Chat
+  Completions, no credential) plus an optional `modelsPath` field. Paja renders a
+  model `<select>` instead of free-text entry for a preset that declares it,
+  seeded from one `GET <baseUrl><modelsPath>` (`/models` for Routstr), and shows
+  `Connected ✓ — n models` below the field. A failed listing names the cause —
+  including a server that does not allow this page cross-origin — and falls back
+  to free-text entry so the connection can still be saved. Editing the API base
+  URL re-lists the models.
+
+  The listing is a browser request like generation, so a loopback provider must
+  answer CORS on that route; nothing else about the connection changes and the
+  key is still placed only on requests to the connection's own base URL.
+
+  Switching presets clears the unsaved API key before model discovery and updates
+  auto-filled connection names without replacing custom names. Saving a connection
+  keeps the model catalogue available for adding another connection.
+
+  Failed Routstr model discovery offers an Install routstrd link to https://routstr.com/routstrd; retrying or switching providers clears the guidance.
+
+### Patch Changes
+
+- Updated dependencies [37457ce]
+  - @kehto/services@0.29.0
+  - @kehto/shell@0.29.0
+
+## 0.29.0
+
+### Minor Changes
+
+- bfe51a1: Report "no relay connection" distinctly during pointer resolution. The resolver
+  now tracks each relay's connection outcome (via the pool's idempotent
+  `ensureRelay`) alongside the manifest query. When zero relays open a WebSocket
+  it throws the new `PajaRelayUnreachableError` (`code: 'relay-unreachable'`,
+  carrying a `PajaRelayConnectionSummary`) with an actionable message — offline,
+  blocked relays, or the browser's WebSocket connection limit from too many open
+  tabs — instead of a generic "timed out", even when the deadline expires first.
+  Paja's pointer status shows that message and logs `paja.relay.unreachable` with
+  per-relay detail. Timeouts with at least one connected relay now include the
+  connected count; pools without `ensureRelay` keep the previous messages.
+
+## 0.28.2
+
+### Patch Changes
+
+- e1e2b64: Lock napplet frames to their verified `srcdoc`. NIP-5D's replacement evidence (a second `load` or `napplet.hello`, the port closing) cannot see a napplet that navigates its frame before its own first `load`: only the replacement fires `load`, and browsers fire no MessagePort `close` event, so a `data:` or `blob:` document with script could run in the frame. `@kehto/shell` exports `NAPPLET_FRAME_POLICY` (`frame-src 'none'`), `renderNappletFramePolicyMeta()` and `hasNappletFramePolicy()`, and `ShellBridge.observeFrame` warns once when the host page lacks the policy. Browsers check every navigation of a child frame against the embedding page's `frame-src`, including one the frame starts itself, while an unfetched `srcdoc` still loads. The Paja host page now carries the policy, and Paja refuses to load a napplet on a host page without it.
+- Updated dependencies [e1e2b64]
+  - @kehto/shell@0.29.0
+
+## 0.28.1
+
+### Patch Changes
+
+- Updated dependencies [9add95b]
+  - @kehto/shell@0.28.0
+
+## 0.28.0
+
+### Minor Changes
+
+- 902c1d0: Follow NIP-5D port-bound identity
+  ([nostr-protocol/nips#2303](https://github.com/nostr-protocol/nips/pull/2303) at
+  `51ef0cd`, packaged by napplet/web#302). This is a security fix: a `Window`
+  survives same-frame navigation, so a napplet could previously replace itself
+  with unverified content that kept its identity and grants.
+
+  - `@kehto/shell`: the injected prelude opens a `MessageChannel` before napplet
+    scripts run and hands one port to the shell in a single window-level
+    `napplet.hello`. All NAP traffic then uses that port. `ShellBridge` binds the
+    registered identity to the port, answers only over it, and revokes the
+    binding, sessions and grants on a second hello, any other window-level
+    message, an invalid hello, a second load (`observeFrame`) or the port closing.
+    New APIs: `NAPPLET_HELLO`, `ShellBridge.observeFrame`, `ShellBridge.revokeNapplet`,
+    `ShellAdapter.onNappletRevoked`, `ShellAdapter.onNappletMessage`,
+    `originRegistry.bindPort` / `getPort` / `postToNapplet` / `getNappletTarget` /
+    `isSpent`, and the `NappletRevocation`, `NappletRevocationReason` and
+    `NappletMessageTarget` types.
+    **Breaking:** window-level NAP envelopes are no longer processed and revoke
+    the frame. `originRegistry.register` throws for a `Window` that already handed
+    over its port, so create a fresh iframe for every navigation.
+    `ProxyOriginRegistry` now requires `postToNapplet` instead of `getIframeWindow`,
+    and `RelayPoolHooks.openScopedRelay` receives a `NappletMessageTarget` instead
+    of a `Window`. Napplets on a Kehto host must not import `@napplet/shim`
+    alongside the injected namespace, because it sends a second hello.
+  - `@kehto/paja`: creates a fresh iframe for every navigation, watches for second
+    loads, and removes or replaces revoked frames (logged as
+    `paja.napplet.revoked`). It logs port traffic in both directions and tracks
+    readiness from the port. Intent delivery and scoped relay traffic use the bound
+    port. The signed intent launcher's two host messages are handled outside the
+    bridge, and only while its port is bound.
+
+### Patch Changes
+
+- Updated dependencies [902c1d0]
+- Updated dependencies [902c1d0]
+  - @kehto/acl@0.20.2
+  - @kehto/firewall@0.6.3
+  - @kehto/runtime@0.27.2
+  - @kehto/services@0.28.2
+  - @kehto/shell@0.27.0
+
+## 0.27.1
+
+### Patch Changes
+
+- 3620a13: Stop background social warming from running without a signer: Paja warmed the
+  active account's contact list and every followed author's kind-0 profile through
+  the outbox router, and with a fixed simulation identity configured that happened
+  with no signer connected at all. The Events panel then filled `outbox relays
+(NIP-65)` with other authors' relays, one kind-0 event each, as if outbox
+  activity had been requested.
+
+  Warming now follows `getConnectedAccountPubkey`, so it needs a connected
+  NIP-07/NIP-46 pubkey or the Dev signer. A fixed simulation identity stays a
+  read-only stand-in: it still answers `identity.getPublicKey`, and
+  `identity.getFollows` still loads follows on demand. A signer dropping out also
+  ends warming instead of falling back to the simulated identity.
+
+  The Events panel now names the authors each box was routed for as short pubkey
+  chips (full pubkey and read count in the tooltip). NIP-65 chips use the router's
+  per-relay owners, including option-only author hints, rather than mistaking event
+  filter authors for the owners of every selected relay. Host reads still name the
+  authors their filters requested.
+
+- Updated dependencies [3620a13]
+  - @kehto/services@0.28.1
+
+## 0.27.0
+
+### Minor Changes
+
+- 3089c5e: Harden the NAP-LLM service and add streaming providers (kehto/web#368, #369, #370):
+
+  - `createLlmService` bounds live model handles per window with `maxHandlesPerWindow` (default 32). Selecting beyond the bound evicts the least recently used handle, which then answers `selection-expired`; a successful `describe` or generation refreshes a handle.
+  - `LlmConnectionHost.select` and `authorize` receive an optional trailing `{ signal }` (`LlmPromptOptions`). It aborts when the request settles without the host's answer (cancel, deadline, handle invalidation or eviction, revocation, window destruction or unregistration), so hosts can close stale chooser and consent prompts. A pending selection answers `selection-expired` on invalidation and `cancelled` on revocation.
+  - `buildLlmProviderRequest(endpoint, request, { stream: true })` and `createHttpLlmProvider({ stream: true })` use each dialect's server-sent-event form. The provider forwards text fragments through a new optional `onDelta` argument and resolves the same generation as the buffered path. `LlmFetch` responses may expose `body` and `headers` (`LlmFetchResponse`), and `readLlmSseData` / `createLlmStreamAccumulator` are exported for custom transports.
+  - Paja streams provider output as `llm.delta`, and closes its chooser, consent and vault-unlock prompts when the request dies. `PajaConfirmationRequest` accepts an optional `signal` that withdraws a queued or open confirmation.
+
+### Patch Changes
+
+- Updated dependencies [3089c5e]
+  - @kehto/services@0.28.0
+  - @kehto/shell@0.26.1
+
+## 0.26.1
+
+### Patch Changes
+
+- f5c3ee8: Widen the `@napplet/*` peer ranges so the `llm` domain installs without peer conflicts: `@napplet/core` now accepts `>=0.32.0 <0.37.0` and `@napplet/nap` accepts `>=0.32.0 <0.36.0`. The `llm` subpath first ships in `@napplet/nap@0.35.0`, and `@napplet/nap@0.35.1` requires `@napplet/core@^0.36.0`. The old `<0.35.0` cap made npm fail with ERESOLVE and made pnpm print unmet-peer warnings (kehto/web#364).
+- Updated dependencies [f5c3ee8]
+  - @kehto/acl@0.20.1
+  - @kehto/firewall@0.6.2
+  - @kehto/runtime@0.27.1
+  - @kehto/services@0.27.1
+  - @kehto/shell@0.26.1
+
+## 0.26.0
+
+### Minor Changes
+
+- fcb5bc9: Add a Language models panel for draft NAP-LLM (napplet/naps PR #134 at `3e10939`): provider presets for the common hosted and local APIs, connection metadata in `localStorage`, API keys either session-only or encrypted with AES-GCM under a PBKDF2-SHA-256 vault password, a chooser for `llm.select`, a configure prompt when nothing compatible exists, and a disclosure consent dialog before every generation. Keys travel only to the connection's base URL. The Interfaces toggle gains a yellow `⚠` unconfigured state next to the existing enabled and disabled states.
+
+### Patch Changes
+
+- Updated dependencies [fcb5bc9]
+- Updated dependencies [fcb5bc9]
+- Updated dependencies [fcb5bc9]
+- Updated dependencies [fcb5bc9]
+  - @kehto/acl@0.20.0
+  - @kehto/runtime@0.27.0
+  - @kehto/services@0.27.0
+  - @kehto/shell@0.26.0
+
+## 0.25.1
+
+### Patch Changes
+
+- Updated dependencies [8c49071]
+  - @kehto/nip@0.8.0
+
+## 0.25.0
+
+### Minor Changes
+
+- d49b1bf: Add modal approval for all signing and publishing from one napplet version,
+  bound to its manifest/artifact identity and signer account. Keep signing-only
+  and publishing-only choices separate, retain older signing approvals without
+  granting publication, and expose revocation. Development URL approvals now last
+  only for their loaded session instead of trusting mutable code across reloads.
+  Carry authenticated source context through Paja's publication backends and open
+  NAP-LINK destinations directly from the modal approval click.
+
+## 0.24.5
+
+### Patch Changes
+
+- a1a50d7: Implement NAP-MEDIA shell-owned audio/video and live MP3/AAC radio through host resource policy,
+  with a shared player in Paja and the playground. Bind sessions to their endpoint,
+  validate controls, retire output on destruction or revoked access, and retain
+  terminal notifications in the protected injected API. Add canonical command-object
+  callbacks and command/onEnded operations; retain warned legacy sendCommand and
+  two-argument callbacks. Unary legacy callbacks must migrate to command objects.
+  Use a playable one-second silent PCM clip when priming browser OS media controls.
+- Updated dependencies [a1a50d7]
+  - @kehto/services@0.26.0
+  - @kehto/shell@0.25.0
+  - @kehto/runtime@0.26.1
+
 ## 0.24.4
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 
 // Factory function — main entry point
-export { createShellBridge } from './shell-bridge.js';
+export { createShellBridge, NAPPLET_HELLO } from './shell-bridge.js';
 export { denyNappletControllerAccess } from './gamepad-policy.js';
 export type { ShellBridge } from './shell-bridge.js';
 export {
@@ -18,6 +18,9 @@ export type { BrowserAdmissionRequest, BrowserAdmissionResult, BrowserAdmissionC
 export { createBrowserApprovalUi } from './browser-approval-ui.js';
 export type { BrowserApprovalUi, BrowserApprovalUiOptions } from './browser-approval-ui.js';
 export { prepareNappletSrcdoc } from './napplet-srcdoc.js';
+export { assertNappletHasNoFrame, nappletMarkupHasFrame } from './napplet-frame-scan.js';
+export type { NappletExperimentalOptions } from './napplet-experimental.js';
+export { hasNappletFramePolicy, NAPPLET_FRAME_POLICY, renderNappletFramePolicyMeta } from './frame-policy.js';
 export type { NappletSrcdocOptions } from './napplet-srcdoc.js';
 
 // Hooks adapter — for advanced integrators who need to customize the adapter
@@ -57,26 +60,30 @@ export type {
   SerialHooks,
   BleHooks,
   WebrtcHooks,
+  LlmHooks,
+  ShellDomainState,
   CapabilityHooks,
   SessionEntry,
   NappKeyEntry,  // @deprecated — use SessionEntry
   AclEntry,
   AclCheckEvent,
   UnroutedMessageInfo,
+  NappletRevocation,
+  NappletRevocationReason,
   ServiceDescriptor,
   ServiceHandler,
   ServiceRegistry,
 } from './types.js';
 
 // Shell initialization — capability construction for shell.ready / shell.init handshake
-export { buildShellCapabilities, resolveShellEnvironment } from './shell-init.js';
+export { buildShellCapabilities, getShellDomainState, resolveShellEnvironment } from './shell-init.js';
 
 export { sessionRegistry, nappKeyRegistry } from './session-registry.js';
 export type { PendingUpdate, SessionRegistry } from './session-registry.js';
 
 // Standalone utilities (usable without full shell)
 export { originRegistry } from './origin-registry.js';
-export type { OriginIdentity, OriginRegistry } from './origin-registry.js';
+export type { NappletMessageTarget, OriginIdentity, OriginRegistry } from './origin-registry.js';
 export type { PermissionAdapter, PermissionRateEvent, PermissionPrincipal, ApprovalPrompt, ApprovalAnswer, ApprovalSignal, ApprovalCancellation, PermissionPersistence, PermissionStorageFailure, RuntimePermissions } from '@kehto/runtime';
 export type { PermissionAdmission, PermissionAdmissionRequest, ApprovalFailure } from '@kehto/runtime';
 export { audioManager } from './audio-manager.js';

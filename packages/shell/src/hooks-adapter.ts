@@ -7,6 +7,7 @@
  */
 
 import type { NostrEvent, NostrFilter } from '@napplet/core';
+import { randomUUID } from './random-uuid.js';
 import type {
   RuntimeAdapter,
   RelayPoolAdapter,
@@ -61,8 +62,8 @@ export interface BrowserDeps {
 
 function createSendToNapplet(originRegistry: BrowserDeps['originRegistry']): SendToNapplet {
   return (windowId, msg) => {
-    const win = originRegistry.getIframeWindow(windowId);
-    if (win) win.postMessage(msg, '*');
+    // NIP-5D: NAP messages travel only over the port bound by napplet.hello.
+    originRegistry.postToNapplet(windowId, msg);
   };
 }
 
@@ -132,8 +133,8 @@ function createRelayPoolAdapter(
       filters: NostrFilter[],
       _sendFn: SendToNapplet,
     ): void {
-      const win = originRegistry.getIframeWindow(windowId);
-      if (win) shellHooks.relayPool.openScopedRelay(windowId, relayUrl, subId, filters, win);
+      const target = originRegistry.getNappletTarget(windowId);
+      if (target) shellHooks.relayPool.openScopedRelay(windowId, relayUrl, subId, filters, target);
     },
 
     closeScopedRelay(windowId: string): void {
@@ -155,7 +156,7 @@ function createCacheAdapter(shellHooks: ShellAdapter): CacheAdapter {
     async query(filters: NostrFilter[]): Promise<NostrEvent[]> {
       const workerRelay = shellHooks.workerRelay.getWorkerRelay();
       if (!workerRelay) return [];
-      const subId = crypto.randomUUID();
+      const subId = randomUUID();
       return workerRelay.query(['REQ', subId, ...filters]);
     },
 
@@ -204,7 +205,7 @@ function createCryptoAdapter(shellHooks: ShellAdapter): CryptoAdapter {
       return shellHooks.crypto.verifyEvent(event);
     },
     randomUUID(): string {
-      return crypto.randomUUID();
+      return randomUUID();
     },
     randomBytes(length: number): Uint8Array {
       const bytes = new Uint8Array(length);

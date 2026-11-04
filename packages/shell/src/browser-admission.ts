@@ -1,8 +1,8 @@
 import type { PermissionAdmission, Runtime, SessionEntry } from '@kehto/runtime';
-import { buildApprovedNappletCsp, classifyBrowserRemoteSources } from './napplet-csp.js';
+import { buildApprovedNappletCsp, classifyBrowserRemoteSources, TRUSTED_TYPES_DIRECTIVES } from './napplet-csp.js';
 import type { BrowserLaunchMode, BrowserRemoteSource } from './napplet-csp.js';
 import { insertNappletHead } from './napplet-head.js';
-import { renderNappletNamespacePrelude } from './napplet-namespace.js';
+import { renderNappletNamespacePrelude, type NappletNamespacePreludeOptions } from './napplet-namespace.js';
 
 /** A required interface conflicts with direct browser authority. */
 export interface BrowserAdmissionOmission {
@@ -26,6 +26,11 @@ export interface BrowserAdmissionRequest {
   readonly remoteSources: readonly BrowserRemoteSource[];
   /** Exact development origin for the host-injected base URL, if present. */
   readonly baseOrigin?: string;
+  /**
+   * Opt-in experimental document policies. Scan the verified bytes with
+   * `assertNappletHasNoFrame` before requesting the nested-context lock.
+   */
+  readonly experimental?: NappletNamespacePreludeOptions['experimental'];
   /** True only while this exact frame generation remains the active source. */
   readonly isCurrentSource: () => boolean;
   /** Navigation, closure, or replacement cancellation. */
@@ -136,9 +141,11 @@ export async function admitBrowserDocument(request: BrowserAdmissionRequest): Pr
       ? ['shell', ...admission.domains] : admission.domains;
     const mode: BrowserLaunchMode = direct ? 'direct-network'
       : domains.includes('resource') ? 'mediated-resource' : 'isolated';
-    const csp = buildApprovedNappletCsp({ mode, remoteSources: remote.sources, baseOrigin: request.baseOrigin });
+    const approvedCsp = buildApprovedNappletCsp({ mode, remoteSources: remote.sources, baseOrigin: request.baseOrigin });
+    const lockNestedContexts = request.experimental?.nestedContextLock === true;
+    const csp = lockNestedContexts ? `${approvedCsp}; ${TRUSTED_TYPES_DIRECTIVES}` : approvedCsp;
     const srcdoc = insertNappletHead(request.verifiedHtml,
-      cspMeta(csp) + renderNappletNamespacePrelude({ domains }));
+      cspMeta(csp) + renderNappletNamespacePrelude({ domains, ...(lockNestedContexts ? { experimental: request.experimental } : {}) }));
     unsubscribe = permissions.subscribeInvalidation(() => {
       if (!permissions.isAdmissionCurrent(entry.windowId, admission) || !request.isCurrentSource()) retire();
     });

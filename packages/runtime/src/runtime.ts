@@ -179,6 +179,8 @@ function createNapEnvelopeDispatcher(handlers: RuntimeNapHandlers): (windowId: s
   napDispatch.registerNap('webrtc', adapt(handlers.webrtc));
   napDispatch.registerNap('dm', adapt(handlers.dm));
   napDispatch.registerNap('fs', adapt(handlers.fs));
+  // NAP-LLM proposal #134 defines this domain; the installed core union predates it.
+  napDispatch.registerNap('llm' as NapDomain, adapt(handlers.llm));
 
   return (windowId, envelope) => {
     currentWindowId = windowId;
@@ -507,13 +509,13 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     for (const entry of sessionRegistry.getAllEntries()) {
       if (entry.dTag === mutation.dTag && entry.aggregateHash === mutation.aggregateHash) {
         permissions?.cancelWindow(entry.windowId);
-      }
-    }
-    if (mutation.type === 'revoke' && mutation.capability !== 'relay:read') return;
-    for (const entry of sessionRegistry.getAllEntries()) {
-      if (entry.dTag === mutation.dTag && entry.aggregateHash === mutation.aggregateHash) {
-        revokeRelaySubscriptions({ hooks, serviceRegistry, subscriptions }, entry.windowId);
-        incRuntime?.revokeWindow(entry.windowId);
+        for (const service of Object.values(serviceRegistry)) {
+          service.onCapabilityRevoked?.(entry.windowId, mutation.type === 'block' ? null : mutation.capability);
+        }
+        if (mutation.type === 'block' || mutation.capability === 'relay:read') {
+          revokeRelaySubscriptions({ hooks, serviceRegistry, subscriptions }, entry.windowId);
+          incRuntime?.revokeWindow(entry.windowId);
+        }
       }
     }
   });

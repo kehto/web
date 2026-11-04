@@ -88,6 +88,8 @@ export type ResourceInfoProvider =
  * or origin policy.
  */
 export interface ResourceServiceOptions {
+  /** Host-only streaming resolver. Apply source safety policy before returning classified bytes; never exposed over the resource wire API. */
+  stream?(url: string, init: ResourceFetchInit): Promise<Response>;
   /**
    * Runtime-supplied resource resolver. Receives the requested URL and returns
    * a byte-classified `Response`.
@@ -116,10 +118,19 @@ export interface ResourceServiceOptions {
 }
 
 /**
- * Type alias for the ServiceHandler returned by `createResourceService`.
- * Exported for host apps that need to type-annotate the handler reference.
+ * Resource wire handler plus host-only streaming resolution for playback.
+ * Stream consumers own their response cancellation and output lifetime.
  */
-export type ResourceService = ServiceHandler;
+export interface ResourceService extends ServiceHandler {
+  /**
+   * Open host-owned playback under the same resource and network approvals as atomic resources.
+   * @param windowId - Authenticated source endpoint.
+   * @param url - Source URL subject to host policy.
+   * @param signal - Playback lifetime cancellation.
+   * @returns A host-classified streaming response; the host consumer owns cancellation.
+   */
+  openStream(windowId: string, url: string, signal: AbortSignal): Promise<Response>;
+}
 
 interface ResourceRequestState {
   runtime?: ServiceRuntimeContext;
@@ -399,6 +410,7 @@ async function fetchResourceItem(
   };
 }
 
+
 async function handleBytes(
   options: ResourceServiceOptions,
   state: ResourceRequestState,
@@ -568,7 +580,7 @@ export function createResourceService(options: ResourceServiceOptions): Resource
       'NAP-RESOURCE service — runtime-resolved byte transport (RESOURCE-01..06)',
   };
 
-  const handler: ServiceHandler = {
+  const handler: ResourceService = {
     descriptor,
     onRegistered(context) { state.runtime = context; },
     onPermissionRevoked(windowId) {
@@ -584,6 +596,37 @@ export function createResourceService(options: ResourceServiceOptions): Resource
           } as NappletMessage);
         }
       }
+    },
+
+    async openStream(windowId, url, signal) {
+      if (signal.aborted) throw new DOMException('Playback cancelled', 'AbortError');
+      const parsed = parseResourceUrl(url);
+      if (!parsed) throw new ResourceServiceError('invalid-request', 'invalid media URL');
+      const { stream } = options;
+      if (!stream) throw new ResourceServiceError('unsupported-scheme', 'live media unavailable');
+      // The response outlives this approval: `signal` owns the playback lifetime,
+      // and the media service aborts it when the source's permission is revoked.
+      // The approval signals only guard the open, so a denial cannot orphan a stream.
+      const open = new AbortController();
+      const abortOpen = (): void => open.abort();
+      signal.addEventListener('abort', abortOpen, { once: true });
+      const outcome = await authorizeResource(state.runtime, windowId, url, signal, async (requestSignal, authorizeNetwork) => {
+        const start = async (guard: AbortSignal): Promise<Response> => {
+          guard.addEventListener('abort', abortOpen, { once: true });
+          if (guard.aborted) abortOpen();
+          try { return await stream(url, { method: 'GET', signal: open.signal, windowId }); }
+          finally { guard.removeEventListener('abort', abortOpen); }
+        };
+        return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+          ? authorizeNetwork(url, start)
+          : start(requestSignal);
+      }, state.warnLegacy);
+      if (outcome.status !== 'executed') {
+        open.abort();
+        signal.removeEventListener('abort', abortOpen);
+        throw new ResourceServiceError('blocked-by-policy', 'resource permission unavailable or denied');
+      }
+      return outcome.value;
     },
 
     handleMessage(

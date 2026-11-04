@@ -59,7 +59,10 @@ export async function launchPajaSharedIntent(
   try {
     const registered = await context.navigateFrame(frame, context.config, state.generation + 1,
       context.adapter, context.bridge.runtime, launcher, windowId,
-      () => progress.isActive(), undefined, admissionController.signal);
+      () => progress.isActive(),
+      // NIP-5D: a second load of the launcher frame revokes its binding.
+      (registeredWindowId) => { if (registeredWindowId) context.bridge.observeFrame(frame, registeredWindowId); },
+      admissionController.signal);
     if (registered !== windowId) throw new Error('Paja intent launcher registration failed');
     const timeout = window.setTimeout(() => readyReject(new Error('Paja intent launcher did not become ready')), 10_000);
     try { await ready; } finally { window.clearTimeout(timeout); }

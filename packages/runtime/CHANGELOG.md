@@ -1,5 +1,49 @@
 # @kehto/runtime
 
+## 0.27.2
+
+### Patch Changes
+
+- 902c1d0: Admit the NIP-5D port-bound napplet release lines in published peers:
+  `@napplet/core >=0.32.0 <0.38.0` and `@napplet/nap >=0.32.0 <0.37.0`
+  (core 0.37.0 / nap 0.36.0, napplet/web#302). Development stays on the 0.32.0
+  baseline.
+- Updated dependencies [902c1d0]
+  - @kehto/acl@0.20.2
+  - @kehto/firewall@0.6.3
+
+## 0.27.1
+
+### Patch Changes
+
+- f5c3ee8: Widen the `@napplet/*` peer ranges so the `llm` domain installs without peer conflicts: `@napplet/core` now accepts `>=0.32.0 <0.37.0` and `@napplet/nap` accepts `>=0.32.0 <0.36.0`. The `llm` subpath first ships in `@napplet/nap@0.35.0`, and `@napplet/nap@0.35.1` requires `@napplet/core@^0.36.0`. The old `<0.35.0` cap made npm fail with ERESOLVE and made pnpm print unmet-peer warnings (kehto/web#364).
+- Updated dependencies [f5c3ee8]
+  - @kehto/acl@0.20.1
+  - @kehto/firewall@0.6.2
+
+## 0.27.0
+
+### Minor Changes
+
+- fcb5bc9: Dispatch the NAP-LLM `llm` domain (napplet/naps PR #134 at `3e10939`) to a registered `llm` service. Without one, each sanctioned request receives one `llm.<op>.result` carrying `{ code: 'unsupported', message }`; ACL denials use the same NAP result shape. Adds the `llm:generate` ACL bit.
+
+### Patch Changes
+
+- Updated dependencies [fcb5bc9]
+  - @kehto/acl@0.20.0
+
+## 0.26.1
+
+### Patch Changes
+
+- a1a50d7: Implement NAP-MEDIA shell-owned audio/video and live MP3/AAC radio through host resource policy,
+  with a shared player in Paja and the playground. Bind sessions to their endpoint,
+  validate controls, retire output on destruction or revoked access, and retain
+  terminal notifications in the protected injected API. Add canonical command-object
+  callbacks and command/onEnded operations; retain warned legacy sendCommand and
+  two-argument callbacks. Unary legacy callbacks must migrate to command objects.
+  Use a playable one-second silent PCM clip when priming browser OS media controls.
+
 ## 0.26.0
 
 ### Minor Changes

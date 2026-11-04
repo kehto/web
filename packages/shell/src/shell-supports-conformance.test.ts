@@ -18,18 +18,26 @@ function createInjectedShell(): {
   shell: { supports: (domain: string) => boolean };
   init: (environment: { capabilities: ShellCapabilities; services: readonly string[] }) => void;
   posted: unknown[];
+  hellos: unknown[];
 } {
-  const listeners = new Set<(event: { source: unknown; data: unknown }) => void>();
+  const listeners = new Set<(event: { currentTarget: unknown; data: unknown }) => void>();
   const posted: unknown[] = [];
-  const parent = { postMessage: (message: unknown) => posted.push(message) };
-  const target = {
-    parent,
-    crypto: { randomUUID: () => 'id-1' },
-    addEventListener: (type: string, listener: (event: { source: unknown; data: unknown }) => void) => {
+  const hellos: unknown[] = [];
+  // NIP-5D: the prelude keeps port1 private and hands port2 over in napplet.hello.
+  const port1 = {
+    postMessage: (message: unknown) => posted.push(message),
+    addEventListener: (type: string, listener: (event: { currentTarget: unknown; data: unknown }) => void) => {
       if (type === 'message') listeners.add(listener);
     },
-    removeEventListener: (_type: string, listener: (event: { source: unknown; data: unknown }) => void) => listeners.delete(listener),
-  } as { parent: typeof parent; crypto: { randomUUID: () => string }; napplet?: { shell?: { supports: (domain: string) => boolean } }; addEventListener: unknown; removeEventListener: unknown };
+    removeEventListener: (_type: string, listener: (event: { currentTarget: unknown; data: unknown }) => void) => listeners.delete(listener),
+    start: () => {},
+  };
+  const parent = { postMessage: (message: unknown) => hellos.push(message) };
+  const target = {
+    parent,
+    MessageChannel: class { port1 = port1; port2 = {}; },
+    crypto: { randomUUID: () => 'id-1' },
+  } as { parent: typeof parent; MessageChannel: unknown; crypto: { randomUUID: () => string }; napplet?: { shell?: { supports: (domain: string) => boolean } } };
   const script = renderNappletNamespacePrelude({ domains: ['shell', 'inc'] });
   const source = script.match(/<script[^>]*>([\s\S]*)<\/script>/)?.[1];
   if (!source) throw new Error('missing prelude source');
@@ -38,9 +46,10 @@ function createInjectedShell(): {
   return {
     shell: target.napplet?.shell ?? (() => { throw new Error('missing injected shell'); })(),
     init: (environment) => {
-      for (const listener of listeners) listener({ source: parent, data: { type: 'shell.init', ...environment } });
+      for (const listener of listeners) listener({ currentTarget: port1, data: { type: 'shell.init', ...environment } });
     },
     posted,
+    hellos,
   };
 }
 
@@ -54,6 +63,7 @@ describe('shell.supports domain-only environment', () => {
     expect(Object.keys(typedCapabilities)).toEqual(['domains']);
     expect(Object.keys(environment)).toEqual(['capabilities', 'services']);
     expect(environment.capabilities).toEqual(capabilities);
+    expect(injected.hellos).toEqual([{ type: 'napplet.hello' }]);
     expect(injected.posted).toEqual([{ type: 'shell.ready' }]);
     expect(injected.shell.supports.length).toBe(1);
     expect(injected.shell.supports('inc')).toBe(true);

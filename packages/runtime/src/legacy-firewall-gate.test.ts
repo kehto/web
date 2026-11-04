@@ -1,4 +1,5 @@
 import { expect, it, vi } from 'vitest';
+import { createDenialResponse } from './legacy-firewall-gate.js';
 import { createRuntime } from './runtime.js';
 import { createMockRuntimeAdapter, createNip5dSessionEntry } from './test-utils.js';
 import type { ApprovalCancellation } from './approval-coordinator.js';
@@ -34,4 +35,10 @@ it('warns once when the legacy gate is used and keeps configured ingress quiet',
   } finally {
     warning.mockRestore();
   }
+});
+
+it('shapes a legacy gate LLM denial as the NAP-LLM unsupported result', () => {
+  expect(createDenialResponse({ type: 'llm.generate', id: 'g1' } as never, 'firewall: blocked')).toMatchObject({
+    type: 'llm.generate.result', id: 'g1', error: { code: 'unsupported' },
+  });
 });

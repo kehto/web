@@ -1,5 +1,5 @@
 import type { NappletMessage, NostrEvent } from '@napplet/core';
-import { createRelayPoolService } from '@kehto/services';
+import { createRelayPoolOutboxRouter, createRelayPoolService } from '@kehto/services';
 import { buildShellCapabilities } from '@kehto/shell';
 import type { SimplePool } from 'nostr-tools/pool';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools/pure';
@@ -94,6 +94,7 @@ import { createPajaAdapter } from './browser-adapter.js';
 import { isPajaRelayAllowed } from './browser-relay-policy.js';
 import type { PajaHostConfig } from './options.js';
 import { normalizePajaSimulation } from './simulation.js';
+import { createPajaRelayEventCounter } from './browser-relay-panel.js';
 
 const TEST_RELAYS = ['wss://relay-one.example', 'wss://relay-two.example'];
 
@@ -181,6 +182,100 @@ describe('@kehto/paja effective relay URLs', () => {
 
     expect(backend.observedRelayUrls(event.id)).toEqual([TEST_RELAYS[1]]);
     expect(backend.observedRelayUrls('unknown')).toEqual([]);
+    backend.close();
+  });
+
+  it('names the authors a read asked about so author-routed receipts are attributable', async () => {
+    const author = 'a'.repeat(64);
+    const otherAuthor = 'B'.repeat(64);
+    const reads: Array<{ reason: string; origin?: string; authors?: readonly string[] }> = [];
+    const simulation = normalizePajaSimulation({ relay: { mode: 'live', urls: TEST_RELAYS } });
+    const backend = createPajaRelayBackend(() => simulation, () => true);
+    backend.setRelayRequestObserver(({ reason, origin, authors }) => reads.push({
+      reason,
+      ...(origin ? { origin } : {}),
+      ...(authors ? { authors } : {}),
+    }));
+
+    await backend.query(TEST_RELAYS, [{ kinds: [0], authors: [author, otherAuthor] }]);
+    backend.subscription(TEST_RELAYS, [{ kinds: [10002], authors: [author] }]).subscribe(() => {});
+    // Reads without authors keep their old shape: no attribution is invented.
+    await backend.query(TEST_RELAYS, [{ kinds: [1] }]);
+    // Malformed author strings never reach the panel as attribution.
+    await backend.query(TEST_RELAYS, [{ kinds: [0], authors: ['', 'abc', `${author}0`] }]);
+
+    expect(reads).toEqual([
+      { reason: 'host', authors: [author, otherAuthor.toLowerCase()] },
+      { reason: 'host', authors: [author] },
+      { reason: 'host' },
+      { reason: 'host' },
+    ]);
+    backend.close();
+  });
+
+  it.each(['query', 'queryStream', 'subscribe'] as const)(
+    'attributes %s reads to option-derived NIP-65 owners, not filter authors',
+    async (operation) => {
+      const filterAuthor = 'a'.repeat(64);
+      const owner = 'b'.repeat(64);
+      const simulation = normalizePajaSimulation({ relay: { mode: 'live', urls: TEST_RELAYS } });
+      const backend = createPajaRelayBackend(() => simulation, () => true);
+      const counter = createPajaRelayEventCounter();
+      const reads: Array<{ relayUrls: readonly string[]; authors?: readonly string[] }> = [];
+      backend.setRelayRequestObserver((read) => {
+        reads.push(read);
+        counter.recordRead(read.reason, read.relayUrls, read.origin, read.authors);
+      });
+      const router = createRelayPoolOutboxRouter({
+        relayPool: createPajaOutboxRelayPool(backend),
+        loadRelayLists: async () => new Map([[owner, { read: [], write: [TEST_RELAYS[0]!] }]]),
+        fallbackRelays: [],
+        defaultTimeoutMs: 100,
+      });
+      livePool.subscriptionEvents = [];
+      livePool.subscribeMapRequests = [];
+      try {
+        for (const authors of [undefined, [filterAuthor]]) {
+          reads.length = 0;
+          counter.reset();
+          const filters = [{ kinds: [1], ...(authors ? { authors } : {}) }];
+          const options = { authors: [owner] };
+          if (operation === 'query') await router.query(filters, options);
+          else if (operation === 'queryStream') {
+            await router.queryStream(filters, options, { event() {} }).result;
+          } else {
+            const sub = router.subscribe(filters, options, { event() {}, closed() {} });
+            await vi.waitFor(() => expect(reads).toHaveLength(1));
+            sub.close();
+          }
+          expect(reads).toMatchObject([{ relayUrls: [TEST_RELAYS[0]], authors: [owner] }]);
+          const nip65 = counter.snapshot().find((box) => box.kind === 'nip65');
+          expect(nip65?.authors).toEqual([{ pubkey: owner, count: 1 }]);
+          expect(nip65?.relays.map((relay) => relay.relayUrl)).toEqual([TEST_RELAYS[0]]);
+          expect(livePool.subscribeMapRequests.at(-1)?.[0]?.filter).toEqual(filters[0]);
+        }
+      } finally {
+        backend.close();
+      }
+    },
+  );
+
+  it('keeps explicit empty routing attribution instead of inventing filter owners', async () => {
+    const author = 'a'.repeat(64);
+    const simulation = normalizePajaSimulation({ relay: { mode: 'live', urls: TEST_RELAYS } });
+    const backend = createPajaRelayBackend(() => simulation, () => true);
+    const reads: Array<readonly string[] | undefined> = [];
+    backend.setRelayRequestObserver((read) => reads.push(read.authors));
+    const sub = createPajaOutboxRelayPool(backend)
+      .subscribe([{ kinds: [1], authors: [author] }], [TEST_RELAYS[0]!], () => {}, 'nip65', []);
+    expect(reads).toEqual([[]]);
+    sub.unsubscribe();
+    const attributed = createPajaOutboxRelayPool(backend).subscribe(
+      [{ kinds: [1], authors: [author] }], [TEST_RELAYS[0]!], () => {}, 'nip65',
+      ['B'.repeat(64), 'b'.repeat(64), 'prefix', ''],
+    );
+    expect(reads).toEqual([[], ['b'.repeat(64)]]);
+    attributed.unsubscribe();
     backend.close();
   });
 
@@ -555,20 +650,49 @@ describe('@kehto/paja effective relay URLs', () => {
 });
 
 describe('@kehto/paja relay publish settlement', () => {
+  it('attributes signerless CVM publication to its authenticated napplet and denies without sending', async () => {
+    livePool.publishRequests = [];
+    const simulation = normalizePajaSimulation({ relay: { mode: 'live', urls: TEST_RELAYS } });
+    const confirm = vi.fn(() => false);
+    const adapter = createPajaAdapter(
+      { window: { id: 'paja-window', dTag: 'radio', aggregateHash: 'radio-artifact' } } as PajaHostConfig,
+      () => simulation, () => {}, () => {}, confirm,
+    );
+    const service = adapter.services!.cvm!;
+    const send = vi.fn();
+    service.handleMessage('paja-window', {
+      type: 'cvm.request', id: 'radio-request',
+      server: { pubkey: 'a'.repeat(64), relays: TEST_RELAYS },
+      message: { jsonrpc: '2.0', id: 'rpc-1', method: 'tools/list', params: {} },
+      signerContext: { windowId: 'spoofed' },
+    } as NappletMessage, send);
+    await vi.waitFor(() => expect(confirm).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'publish', signerContext: expect.objectContaining({
+        windowId: 'paja-window', napplet: { dTag: 'radio', aggregateHash: 'radio-artifact' }, signerPubkey: 'host-generated',
+      }),
+    })));
+    await vi.waitFor(() => expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: 'cvm.request.result', error: expect.any(String) })));
+    expect(livePool.publishRequests).toEqual([]);
+    service.onWindowDestroyed?.('paja-window');
+    service.onUnregistered?.();
+    (adapter.relayPool.getRelayPool() as PajaRelayBackend).close();
+  });
+
   it('owns a verified live scoped-relay subscription and publish lifecycle', async () => {
     livePool.publishRequests = [];
     livePool.subscribeMapRequests = [];
     livePool.subscriptionClose = undefined;
     const simulation = normalizePajaSimulation({ relay: { mode: 'live', urls: TEST_RELAYS } });
+    const confirm = vi.fn(() => true);
     const adapter = createPajaAdapter(
       { window: { id: 'paja-window', dTag: 'paja', aggregateHash: 'aggregate' } } as PajaHostConfig,
       () => simulation,
       () => {},
       () => {},
-      () => true,
+      confirm,
     );
     const postMessage = vi.fn();
-    const sourceWindow = { postMessage } as unknown as Window;
+    const sourceWindow = { postMessage };
     const event = finalizeEvent({
       kind: 1,
       created_at: Math.floor(Date.now() / 1000),
@@ -587,8 +711,12 @@ describe('@kehto/paja relay publish settlement', () => {
     expect(livePool.subscribeMapRequests).toEqual([[
       { url: TEST_RELAYS[0], filter: { kinds: [1] } },
     ]]);
-    expect(postMessage).toHaveBeenCalledWith({ type: 'relay.eose', subId: 'scoped-sub' }, '*');
+    expect(postMessage).toHaveBeenCalledWith({ type: 'relay.eose', subId: 'scoped-sub' });
     await expect(adapter.relayPool.publishToScopedRelay('paja-window', event)).resolves.toBe(true);
+    expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ action: 'publish', signerContext: expect.objectContaining({
+      windowId: 'paja-window', napplet: { dTag: 'paja', aggregateHash: 'aggregate' },
+      signerPubkey: 'host-generated',
+    }) }));
     expect(livePool.publishRequests).toEqual([{ relayUrls: [TEST_RELAYS[0]], event }]);
 
     adapter.relayPool.closeScopedRelay('paja-window');
@@ -613,14 +741,14 @@ describe('@kehto/paja relay publish settlement', () => {
       'wss://127.0.0.1/private',
       'blocked-sub',
       [{ kinds: [1] }],
-      { postMessage } as unknown as Window,
+      { postMessage },
     );
 
     expect(postMessage).toHaveBeenCalledWith({
       type: 'relay.closed',
       subId: 'blocked-sub',
       reason: 'scoped relay unavailable',
-    }, '*');
+    });
     await expect(adapter.relayPool.publishToScopedRelay('paja-window', testEvent('f'.repeat(64)))).resolves.toBe(false);
     (adapter.relayPool.getRelayPool() as PajaRelayBackend).close();
   });

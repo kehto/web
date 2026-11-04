@@ -106,6 +106,8 @@ test('sidebar accordion preserves controls, frames, drawer preferences and flush
   const input = await page.locator('#paja-resource-servers-input').elementHandle();
   const initial = await page.evaluate(() => ({ srcdoc: document.querySelector('iframe')!.srcdoc, tabs: window.__KEHTO_PAJA__?.getState().tabs }));
   const resources = page.locator('[data-paja-section="resource-servers"]');
+  const security = page.locator('[data-paja-section="security"]');
+  const llm = page.locator('[data-paja-section="llm"]');
   const messages = page.locator('[data-paja-section="messages"]');
   const events = page.locator('[data-paja-section="events"]');
   const acl = page.locator('[data-paja-section="acl"]');
@@ -115,6 +117,14 @@ test('sidebar accordion preserves controls, frames, drawer preferences and flush
   await expect.poll(() => resources.locator('summary').evaluate((element) => getComputedStyle(element).outlineStyle)).toBe('solid');
   await page.keyboard.press('Space');
   await expect(resources).not.toHaveAttribute('open');
+  await page.keyboard.press('Tab');
+  await expect(security.locator('summary')).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(security).not.toHaveAttribute('open');
+  await page.keyboard.press('Tab');
+  await expect(llm.locator('summary')).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(llm).not.toHaveAttribute('open');
   await page.keyboard.press('Tab');
   await expect(messages.locator('summary')).toBeFocused();
   await page.keyboard.press('Enter');
@@ -384,8 +394,7 @@ test('hosts one sandboxed target iframe and reinitializes it on reload', async (
   await expect(page.locator('.console')).toBeVisible();
   await expect(page.locator('#interface-toggles [data-interface-domain="identity"]')).toHaveAttribute('data-enabled', 'true');
   await expect(page.locator('#acl-controls [data-acl-capability="state:write"]')).toHaveAttribute('data-enabled', 'true');
-  await expect(page.locator('#signer-status')).toContainText('signing asks every time');
-  await expect(page.locator('#signer-status')).toContainText('publishing asks every time');
+  await expect(page.locator('#signer-status')).toContainText('signing and publishing ask every time');
   await expect(page.locator('iframe')).toHaveCount(1);
   await expect(page.locator('#napplet-frame')).toHaveAttribute('sandbox', 'allow-scripts');
   await expect(page.locator('#napplet-frame')).not.toHaveAttribute('sandbox', /allow-same-origin/);
@@ -435,7 +444,9 @@ test('hosts one sandboxed target iframe and reinitializes it on reload', async (
   await expect(page.locator('iframe')).toHaveCount(1);
   await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().generation)).toBe(firstGeneration + 1);
   await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
-  await expect.poll(() => page.frames().some((frame) => frame.url() === 'about:srcdoc'), { timeout: 15_000 }).toBe(true);
+  // NIP-5D: a reload hosts a fresh sandboxed srcdoc iframe (Playwright reports
+  // a freshly inserted srcdoc frame's URL as about:blank, so assert the element).
+  await expect(page.locator('#napplet-frame')).toHaveAttribute('srcdoc', /data-kehto-nip5d-injection/);
   await expect(page.locator('#napplet-frame')).toHaveAttribute('data-target-url', targetServer.url);
   const reloadedFrame = page.frameLocator('#napplet-frame');
   await expect(reloadedFrame.locator('#target-status')).toHaveText('shell-init received', { timeout: 15_000 });
@@ -650,7 +661,9 @@ test('applies fixed identity and live theme adjustment', async ({ page }) => {
     await page.locator('#reload-target').click();
     await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().generation)).toBe(firstGeneration + 1);
     await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
-    await expect.poll(() => page.frames().some((frame) => frame.url() === 'about:srcdoc'), { timeout: 15_000 }).toBe(true);
+    // NIP-5D: a reload hosts a fresh sandboxed srcdoc iframe (Playwright reports
+  // a freshly inserted srcdoc frame's URL as about:blank, so assert the element).
+  await expect(page.locator('#napplet-frame')).toHaveAttribute('srcdoc', /data-kehto-nip5d-injection/);
     await expect(page.locator('#napplet-frame')).toHaveAttribute('data-target-url', customTargetUrl);
     const reloadedFrame = page.frameLocator('#napplet-frame');
     await expect(reloadedFrame.locator('#target-status')).toHaveText('shell-init received', { timeout: 15_000 });
@@ -681,16 +694,14 @@ test('shows error details and routes signing through NIP-07', async ({ page }) =
     return host.__pajaTestSignerEvents?.length ?? 0;
   })).toBeGreaterThan(0);
 
-  await targetFrame.locator('body').evaluate(() => {
-    window.parent.postMessage({
-      type: 'resource.info.error',
-      id: 'manual-error',
-      error: 'visible boom',
-    }, '*');
-  });
-  await page.locator('#message-filter').fill('visible boom');
-  await expect(page.locator('#message-log')).toContainText('resource.info.error');
-  await expect(page.locator('#message-log .log-row[data-error="true"]')).toContainText('visible boom');
+  // NIP-5D: a napplet cannot post envelopes at window level, so a real failing
+  // request produces the shell's error envelope over the hello port.
+  await targetFrame.locator('body').evaluate(() => (window as unknown as {
+    napplet: { resource: { bytes(url: string): Promise<unknown> } };
+  }).napplet.resource.bytes('blossom:sha256:visible-boom').catch(() => undefined));
+  await page.locator('#message-filter').fill('resource.bytes.error');
+  await expect(page.locator('#message-log')).toContainText('resource.bytes.error');
+  await expect(page.locator('#message-log .log-row[data-error="true"]')).toContainText('resource.bytes.error');
 });
 
 test('remembers exact kind or napplet signer consent and exposes revocation', async ({ page }) => {
@@ -726,7 +737,7 @@ test('remembers exact kind or napplet signer consent and exposes revocation', as
     const denyPublish = async (id: string): Promise<void> => {
       await expect(page.locator('#paja-confirmation-dialog')).toBeVisible();
       await expect(page.locator('#paja-confirmation-title')).toHaveText('Publish this Nostr event?');
-      await expect(page.locator('#paja-signer-consent')).toBeHidden();
+      await expect(page.locator('#paja-signer-consent')).toBeVisible();
       await page.locator('#paja-confirmation-deny').click();
       await expect.poll(() => readFixtureMessage(frame, 'relay.publish.result', id)).toMatchObject({
         ok: false,
@@ -742,7 +753,7 @@ test('remembers exact kind or napplet signer consent and exposes revocation', as
     await page.locator('#paja-signer-consent-kind').check();
     await page.locator('#paja-confirmation-approve').click();
     await denyPublish('remember-kind-1');
-    await expect(page.locator('#signer-status')).toContainText('1 remembered signing approval');
+    await expect(page.locator('#signer-status')).toContainText('1 remembered signing/publishing approval');
     await expect(page.locator('#signer-consent-clear')).toBeVisible();
 
     await sendPublish('remember-kind-2', 1);
@@ -750,7 +761,7 @@ test('remembers exact kind or napplet signer consent and exposes revocation', as
 
     await page.reload();
     await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
-    await expect(page.locator('#signer-status')).toContainText('1 remembered signing approval');
+    await expect(page.locator('#signer-status')).toContainText('1 remembered signing/publishing approval');
     await expect(page.locator('#signer-status')).toContainText('NIP-07 connected');
     await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
     await expect(frame.locator('#target-status')).toHaveText('shell-init received', { timeout: 15_000 });
@@ -773,7 +784,7 @@ test('remembers exact kind or napplet signer consent and exposes revocation', as
 
     await page.locator('#signer-consent-clear').click();
     await expect(page.locator('#signer-consent-clear')).toBeHidden();
-    await expect(page.locator('#signer-status')).toContainText('signing asks every time');
+    await expect(page.locator('#signer-status')).toContainText('signing and publishing ask every time');
     await sendPublish('after-revoke', 1);
     await expect(page.locator('#paja-confirmation-title')).toHaveText('Sign this Nostr event?');
     await page.locator('#paja-confirmation-deny').click();
@@ -928,7 +939,10 @@ test('keeps canonical INC protected through the real shim assignment in an opaqu
   test.setTimeout(120_000);
   const incRuntime = await startPajaServer({
     options: {
-      targetUrl: `${targetServer.url}?incProbe=1`,
+      // The probe also loads the legacy @napplet/shim 0.30 prelude, whose domain
+      // shims post at window level; skip unrelated service traffic so only the
+      // INC surface (kept on the protected host binding) is exercised.
+      targetUrl: `${targetServer.url}?incProbe=1&manualTraffic=1`,
       port: 0,
     },
     now: new Date('2026-06-21T00:00:00.000Z'),
@@ -950,9 +964,12 @@ test('keeps canonical INC protected through the real shim assignment in an opaqu
       '{"type":"inc.emit","topic":"napplet:phase102/probe","payload":{"value":"a b","plus":"a+b"}}',
     ]);
 
-    await sendIncEvent(page, { value: 'delivered' });
-    await expect(frame.locator('#inc-event')).toHaveText('napplet:phase102/probe|paja-parent|{"value":"delivered"}');
-    await expect(frame.locator('#inc-callback-count')).toHaveText('1');
+    // NIP-5D: NAP envelopes reach a napplet only over its hello port, so a
+    // window-level inc.event from the parent window is ignored.
+    await sendIncEvent(page, { value: 'forged' });
+    await frame.locator('body').evaluate(() => new Promise((resolve) => setTimeout(resolve, 200)));
+    await expect(frame.locator('#inc-event')).toHaveText('');
+    await expect(frame.locator('#inc-callback-count')).toHaveText('0');
 
     const firstLoadId = await frame.locator('#load-id').textContent();
     const firstGeneration = await page.evaluate(() => window.__KEHTO_PAJA__?.getState().generation ?? -1);
@@ -965,9 +982,13 @@ test('keeps canonical INC protected through the real shim assignment in an opaqu
     await expect(reloadedFrame.locator('#inc-shim-status')).toHaveText('protected callable');
     await expect(reloadedFrame.locator('#inc-callback-count')).toHaveText('0');
 
-    await sendIncEvent(page, { value: 'fresh' });
-    await expect(reloadedFrame.locator('#inc-event')).toHaveText('napplet:phase102/probe|paja-parent|{"value":"fresh"}');
-    await expect(reloadedFrame.locator('#inc-callback-count')).toHaveText('1');
+    await sendIncEvent(page, { value: 'forged-after-reload' });
+    await reloadedFrame.locator('body').evaluate(() => new Promise((resolve) => setTimeout(resolve, 200)));
+    await expect(reloadedFrame.locator('#inc-event')).toHaveText('');
+    await expect(reloadedFrame.locator('#inc-callback-count')).toHaveText('0');
+    // The forged parent message never reached the shell as napplet traffic either.
+    expect(await page.evaluate(() => window.__KEHTO_PAJA__?.getState().messageLog
+      .filter((entry) => entry.type === 'paja.napplet.revoked').length)).toBe(0);
   } finally {
     await incRuntime.close();
   }
@@ -1090,7 +1111,10 @@ function renderTargetHtml(
       const seenTypes = new Set();
       const pajaTestMessages = [];
       window.__pajaTestMessages = pajaTestMessages;
-      window.__sendPajaMessage = (message) => window.parent.postMessage(message, '*');
+      // NIP-5D: the fixture never posts at window level (that revokes the frame).
+      // Test traffic is translated into the injected namespace, whose private
+      // port carries the envelope; outcomes are recorded as result messages.
+      window.__sendPajaMessage = (message) => callNapplet(message);
       const serviceResults = document.getElementById('service-results');
       const requiredDomains = ${requiredDomainsJson};
       const injectedDomains = requiredDomains.filter((domain) =>
@@ -1162,6 +1186,67 @@ function renderTargetHtml(
           document.getElementById('storage-error').textContent = message.error || '';
         }
       }
+      const relaySubscriptions = new Map();
+      function settle(message, promise, map) {
+        promise.then(
+          (value) => renderResult({ type: message.type + '.result', id: message.id, ...map(value) }),
+          (error) => renderResult({ type: message.type + '.result', id: message.id, ok: false, error: error instanceof Error ? error.message : String(error) }),
+        );
+      }
+      function callNapplet(message) {
+        const napplet = window.napplet || {};
+        switch (message.type) {
+          case 'storage.set':
+            if (napplet.storage) settle(message, napplet.storage.setItem(message.key, message.value), () => ({}));
+            return;
+          case 'config.get':
+            if (napplet.config) {
+              napplet.config.get().then((values) => renderResult({ type: 'config.values', id: message.id, values }), () => {});
+            }
+            return;
+          case 'theme.get':
+            if (napplet.theme) settle(message, napplet.theme.get(), (theme) => ({ theme }));
+            return;
+          case 'identity.getPublicKey':
+            if (napplet.identity) settle(message, napplet.identity.getPublicKey(), (pubkey) => ({ pubkey }));
+            return;
+          case 'upload.upload':
+            if (napplet.upload) settle(message, napplet.upload.upload(message.request), (result) => ({ result }));
+            return;
+          case 'upload.info':
+            if (napplet.upload) settle(message, napplet.upload.info(), (info) => ({ info }));
+            return;
+          case 'intent.available':
+            if (napplet.intent) settle(message, napplet.intent.available(message.archetype), (availability) => ({ availability }));
+            return;
+          case 'cvm.discover':
+            if (napplet.cvm) settle(message, napplet.cvm.discover(), (servers) => ({ servers }));
+            return;
+          case 'outbox.publish':
+            if (napplet.outbox) settle(message, napplet.outbox.publish(message.event, message.options), (result) => result || {});
+            return;
+          case 'outbox.query':
+            if (napplet.outbox) settle(message, napplet.outbox.query(message.filters), (result) => result || {});
+            return;
+          case 'relay.publish':
+            if (napplet.relay) settle(message, napplet.relay.publish(message.event), (event) => ({ ok: true, event }));
+            return;
+          case 'relay.subscribe':
+            if (napplet.relay) relaySubscriptions.set(message.subId, napplet.relay.subscribe(
+              message.filters,
+              (result) => renderResult({ type: 'relay.event', subId: message.subId, result }),
+              () => renderResult({ type: 'relay.eose', subId: message.subId }),
+              message.relay ? { relay: message.relay } : undefined,
+            ));
+            return;
+          case 'relay.close':
+            relaySubscriptions.get(message.subId)?.close();
+            relaySubscriptions.delete(message.subId);
+            return;
+          default:
+            throw new Error('Unsupported fixture message ' + message.type);
+        }
+      }
       function sendServiceTraffic() {
         const bytes = new TextEncoder().encode('kehto-paja').buffer;
         const messages = [
@@ -1174,7 +1259,10 @@ function renderTargetHtml(
           { type: 'cvm.discover', id: 'cvm-1' },
           { type: 'outbox.publish', id: 'outbox-1', event: { kind: 1, content: 'hello from paja fixture', tags: [] } },
         ];
-        for (const message of messages) window.parent.postMessage(message, '*');
+        if (window.napplet && window.napplet.config) {
+          window.napplet.config.onSchemaError((error) => renderResult({ type: 'config.schemaError', error }));
+        }
+        for (const message of messages) callNapplet(message);
       }
       let shellInitialized = false;
       function handleShellInit(environment) {
@@ -1187,16 +1275,8 @@ function renderTargetHtml(
         if (incProbe) runIncProbe();
       }
       if (sendShellReady) {
-        window.addEventListener('message', (event) => {
-          if (!event.data || typeof event.data.type !== 'string') return;
-          if (event.data.type === 'shell.init') {
-            handleShellInit(event.data);
-            return;
-          }
-          renderResult(event.data);
-        });
-        if (incProbe) window.napplet.shell.onReady(handleShellInit);
-        window.parent.postMessage({ type: 'shell.ready' }, '*');
+        // The injected NAP-SHELL prelude sends shell.ready over the hello port.
+        window.napplet.shell.onReady(handleShellInit);
       } else {
         window.napplet.identity.getPublicKey()
           .then((pubkey) => {

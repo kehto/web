@@ -3,7 +3,7 @@ import {
   ALL_CAPABILITIES,
   type Capability,
   type ShellBridge,
-  type ShellEnvironment,
+  type ShellDomainState,
 } from '@kehto/shell';
 
 import {
@@ -50,6 +50,11 @@ export interface PajaDevtoolsState {
   simulation: PajaSimulation;
   /** Registered host service names, independently of ACL grants. */
   readonly services?: readonly string[];
+  /**
+   * Host-facing advertisement state per domain. `unconfigured` marks a domain
+   * that is injected but still needs user setup (NAP-LLM connections).
+   */
+  readonly domainState?: (domain: PajaCapabilityDomain) => ShellDomainState;
   /** Current signer state. */
   signer: PajaSignerState;
   /** Number of remembered exact-identity signer decisions. */
@@ -85,12 +90,6 @@ const FS_PICKER_METHODS: Readonly<Partial<Record<string, keyof ReturnType<typeof
   'fs.pickDirectory.result': 'showDirectoryPicker',
   'fs.pickSaveFile.result': 'showSaveFilePicker',
 };
-const proxyToReal = new WeakMap<object, Window>();
-const realToProxy = new WeakMap<Window, Window>();
-const proxyContexts = new WeakMap<Window, {
-  state: PajaDevtoolsState | null;
-  windowId?: string;
-}>();
 
 interface PajaDevtoolsRenderOptions {
   readonly bridge: ShellBridge | null;
@@ -98,11 +97,8 @@ interface PajaDevtoolsRenderOptions {
 }
 
 interface OriginRegistryLike {
-  getIframeWindow(windowId: string): Window | null;
-  getWindowId(win: Window): string | undefined;
-  getIdentity(win: Window): { dTag: string; aggregateHash: string } | undefined;
-  getEnvironment(win: Window): ShellEnvironment | undefined;
-  getRegistrationId(win: Window): number | undefined;
+  unregister?(windowId: string): void;
+  postToNapplet(windowId: string, message: unknown): boolean;
 }
 
 function isNappletMessage(value: unknown): value is NappletMessage {
@@ -198,52 +194,6 @@ export function appendPajaMessageLog(
 }
 
 /**
- * Wrap a target window so outbound postMessage calls are logged.
- *
- * @param realWin - Target iframe window.
- * @param state - Current devtools state, or null before initialization.
- * @param windowId - Optional target window id.
- * @returns Window proxy that preserves normal property access.
- */
-export function createPajaPostMessageProxy(
-  realWin: Window,
-  state: PajaDevtoolsState | null,
-  windowId?: string,
-): Window {
-  const existing = realToProxy.get(realWin);
-  if (existing) {
-    proxyContexts.set(existing, { state, windowId });
-    return existing;
-  }
-  const proxy = new Proxy(realWin, {
-    get(target, prop) {
-      if (prop === 'postMessage') {
-        return (msg: unknown, targetOrigin: string, transfer?: Transferable[]) => {
-          const context = proxyContexts.get(proxy);
-          appendPajaMessageLog(
-            context?.state ?? state,
-            'shell->napplet',
-            redactPajaMessageForLog(msg),
-            context?.windowId ?? windowId,
-          );
-          return target.postMessage(msg, targetOrigin, transfer);
-        };
-      }
-      try {
-        const val = Reflect.get(target, prop, target) as unknown;
-        return typeof val === 'function' ? (val as Function).bind(target) : val;
-      } catch {
-        return undefined;
-      }
-    },
-  });
-  proxyToReal.set(proxy, realWin);
-  realToProxy.set(realWin, proxy);
-  proxyContexts.set(proxy, { state, windowId });
-  return proxy;
-}
-
-/**
  * Remove NAP-CONFIG values from Paja's developer message log.
  *
  * A registered schema may mark individual properties as secrets. Redacting
@@ -267,46 +217,29 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * Install logging proxies into the shell origin registry.
+ * Log shell → napplet traffic and window removal through the shell origin
+ * registry. NIP-5D sends every NAP message over the napplet's bound
+ * `napplet.hello` port, so Paja observes `postToNapplet` rather than proxying
+ * iframe windows.
  *
  * @param originRegistry - Registry to wrap.
- * @param stateRef - Lazy state getter used by proxied windows.
+ * @param stateRef - Lazy devtools state getter.
+ * @param onWindowRemoved - Optional callback before a window is unregistered.
  */
 export function installPajaOriginRegistryProxy(
   originRegistry: OriginRegistryLike,
   stateRef: () => PajaDevtoolsState | null,
+  onWindowRemoved?: (windowId: string) => void,
 ): void {
-  const originalGetIframeWindow = originRegistry.getIframeWindow.bind(originRegistry);
-  originRegistry.getIframeWindow = (windowId: string) => {
-    const win = originalGetIframeWindow(windowId);
-    if (!win) return null;
-    return createPajaPostMessageProxy(win, stateRef(), windowId);
-  };
-
-  const originalGetWindowId = originRegistry.getWindowId.bind(originRegistry);
-  originRegistry.getWindowId = (win: Window) => {
-    const result = originalGetWindowId(win);
-    if (result) return result;
-    const real = proxyToReal.get(win);
-    return real ? originalGetWindowId(real) : undefined;
-  };
-
-  const originalGetIdentity = originRegistry.getIdentity.bind(originRegistry);
-  originRegistry.getIdentity = (win: Window) => {
-    const real = proxyToReal.get(win);
-    return originalGetIdentity(win) ?? (real ? originalGetIdentity(real) : undefined);
-  };
-
-  const originalGetRegistrationId = originRegistry.getRegistrationId.bind(originRegistry);
-  originRegistry.getRegistrationId = (win: Window) => {
-    const real = proxyToReal.get(win);
-    return originalGetRegistrationId(win) ?? (real ? originalGetRegistrationId(real) : undefined);
-  };
-
-  const originalGetEnvironment = originRegistry.getEnvironment.bind(originRegistry);
-  originRegistry.getEnvironment = (win: Window) => {
-    const real = proxyToReal.get(win);
-    return originalGetEnvironment(win) ?? (real ? originalGetEnvironment(real) : undefined);
+  if (onWindowRemoved && originRegistry.unregister) {
+    const unregister = originRegistry.unregister.bind(originRegistry);
+    originRegistry.unregister = (windowId) => { onWindowRemoved(windowId); unregister(windowId); };
+  }
+  const postToNapplet = originRegistry.postToNapplet.bind(originRegistry);
+  originRegistry.postToNapplet = (windowId, message) => {
+    const delivered = postToNapplet(windowId, message);
+    if (delivered) appendPajaMessageLog(stateRef(), 'shell->napplet', redactPajaMessageForLog(message), windowId);
+    return delivered;
   };
 }
 
@@ -373,13 +306,18 @@ function renderInterfaceControls(state: PajaDevtoolsState): void {
   if (!container) return;
   container.replaceChildren(...PAJA_SIMULATION_DOMAINS.map((domain) => {
     const enabled = domainEnabled(state.simulation, domain);
+    const domainState = enabled ? state.domainState?.(domain) ?? 'supported' : 'disabled';
+    const unconfigured = domainState === 'unconfigured';
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'toggle';
     button.dataset.interfaceDomain = domain;
     button.dataset.enabled = String(enabled);
-    button.textContent = domain;
-    button.title = `${domain} injection ${enabled ? 'enabled' : 'disabled'}`;
+    button.dataset.state = domainState;
+    button.textContent = unconfigured ? `\u26a0 ${domain}` : domain;
+    button.title = unconfigured
+      ? `${domain} injection enabled; no connection is configured yet. Add one in Language models, or click to disable the interface.`
+      : `${domain} injection ${enabled ? 'enabled' : 'disabled'}`;
     button.addEventListener('click', () => {
       state.setDomainEnabled(domain, !domainEnabled(state.simulation, domain));
     });
@@ -448,9 +386,9 @@ function renderSignerStatus(state: PajaDevtoolsState, signerPubkey: string): voi
     ? `${methodLabel} error: ${state.signer.error ?? 'unknown error'} · fallback pubkey ${fallbackPubkey}`
     : `${methodLabel} ${state.signer.status} · pubkey ${pubkey || '(none)'}${relay}`;
   const consentSummary = state.signerConsentCount === 0
-    ? 'signing asks every time'
-    : `${state.signerConsentCount} remembered signing approval${state.signerConsentCount === 1 ? '' : 's'}`;
-  el.textContent = `${prefix} · ${consentSummary} · publishing asks every time`;
+    ? 'signing and publishing ask every time'
+    : `${state.signerConsentCount} remembered signing/publishing approval${state.signerConsentCount === 1 ? '' : 's'}`;
+  el.textContent = `${prefix} · ${consentSummary}`;
 
   clearConsent.hidden = state.signerConsentCount === 0;
   clearConsent.textContent = `Forget ${state.signerConsentCount} remembered approval${state.signerConsentCount === 1 ? '' : 's'}`;

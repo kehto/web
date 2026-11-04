@@ -72,6 +72,20 @@ describe('shared browser admission transaction', () => {
     f.runtime.destroy();
   });
 
+  it('adds the experimental nested-context lock only when the host opts in', async () => {
+    const locked = fixture();
+    const result = await admitBrowserDocument({ ...locked.options, experimental: { nestedContextLock: true } });
+    if (result.status !== 'committed') throw new Error('admission failed');
+    expect(result.csp).toContain("require-trusted-types-for 'script'");
+    expect(locked.commit.mock.calls[0][0] as string).toContain('require-trusted-types-for');
+    result.retire();
+    const open = fixture();
+    const baseline = await admitBrowserDocument(open.options);
+    if (baseline.status !== 'committed') throw new Error('admission failed');
+    expect(baseline.csp).not.toContain('trusted-types');
+    baseline.retire();
+  });
+
   it('denies required interfaces without frame commit and omits declined optional domains', async () => {
     const denied = fixture(async () => ({ effect: 'deny', lifetime: 'once' }));
     expect((await admitBrowserDocument(denied.options)).status).toBe('denied');
