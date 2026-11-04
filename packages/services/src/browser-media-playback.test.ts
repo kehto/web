@@ -21,7 +21,7 @@ function fixture(mime = 'audio/wav') {
     descriptor: { name: 'resource', version: '1' },
     handleMessage(windowId, message, send) {
       requests.push({ windowId, message });
-      if (message.type === 'resource.bytes') send({ type: 'resource.bytes.result', id: (message as NappletMessage & { id: string }).id, blob: new Blob(['test'], { type: mime }) } as NappletMessage);
+      if (message.type === 'resource.bytes') send({ type: 'resource.bytes.result', id: (message as NappletMessage & { id: string }).id, blob: btoa('test'), mime } as NappletMessage);
     },
   };
   const backend = createBrowserMediaPlayback({ resource, document: doc, urls });

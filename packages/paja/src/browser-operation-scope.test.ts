@@ -87,6 +87,27 @@ describe('Paja operation source scopes', () => {
     expect(destroyed).toHaveBeenCalledTimes(3);
   });
 
+  it('routes selected relay planning and execution to the window-scoped service', () => {
+    const planning = (name: string) => ({
+      descriptor: { name, version: '1' }, handleMessage() {},
+      planRelayOperation: vi.fn(() => ({ kind: 'read' as const, relayUrls: [name] })),
+      executeRelayOperation: vi.fn(),
+    });
+    const base = planning('base');
+    const scoped = planning('scoped');
+    const service = scopePajaService(base as unknown as ServiceHandler, ['relay.publish'], () => scoped as unknown as ServiceHandler) as unknown as ReturnType<typeof planning>;
+    const publish = { type: 'relay.publish' } as NappletMessage;
+    const subscribe = { type: 'relay.subscribe' } as NappletMessage;
+    const plan = service.planRelayOperation as unknown as (windowId: string, message: NappletMessage) => unknown;
+    plan('one', publish);
+    plan('one', subscribe);
+    expect(scoped.planRelayOperation).toHaveBeenCalledOnce();
+    expect(base.planRelayOperation).toHaveBeenCalledOnce();
+    (service.executeRelayOperation as unknown as (...args: unknown[]) => void)('one', publish, {}, {}, () => {});
+    expect(scoped.executeRelayOperation).toHaveBeenCalledOnce();
+    expect(base.executeRelayOperation).not.toHaveBeenCalled();
+  });
+
   it('retires scoped services on Firewall revocation and forwards to base, falling back to window cleanup', () => {
     const revoked = vi.fn();
     const cleanup = vi.fn();

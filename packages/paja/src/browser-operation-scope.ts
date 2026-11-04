@@ -3,8 +3,9 @@ import type { PajaConfirmationHandler, PajaSignerProvider } from './browser-adap
 import type { PajaSimulation } from './simulation.js';
 import { PAJA_DEV_SIGNER_PUBKEY, createPajaDevSigner } from './browser-dev-runtime.js';
 import { getPajaRelayUrls } from './browser-relay-runtime.js';
-import type { NostrEvent, NostrFilter } from '@napplet/core';
-import type { ServiceHandler, ServiceRuntimeContext, Signer } from '@kehto/runtime';
+import type { NappletMessage, NostrEvent, NostrFilter } from '@napplet/core';
+import { isRelayPlanningServiceHandler } from '@kehto/runtime';
+import type { RelayPlanningServiceHandler, ServiceHandler, ServiceRuntimeContext, Signer } from '@kehto/runtime';
 import type { PajaRelayBackend } from './browser-relay-runtime.js';
 import type { PajaSignerRequestContext, PajaSignerSource } from './browser-signer-consent.js';
 
@@ -22,29 +23,44 @@ export function scopePajaService(base: ServiceHandler, types: readonly string[],
   const windows = new Map<string, { service: ServiceHandler; active: boolean; key?: string }>();
   let runtime: ServiceRuntimeContext | undefined;
   let attached = true;
+  const scopedService = (windowId: string): ServiceHandler => {
+    let entry = windows.get(windowId);
+    const key = scopeKey?.(windowId);
+    if (entry && entry.key !== key) {
+      entry.active = false;
+      entry.service.onWindowDestroyed?.(windowId);
+      entry.service.onUnregistered?.();
+      windows.delete(windowId);
+      entry = undefined;
+    }
+    if (!entry) {
+      const state = { active: true, key };
+      const service = create(windowId, () => attached && state.active && (!runtime || runtime.listWindowIds().includes(windowId)));
+      entry = Object.assign(state, { service });
+      windows.set(windowId, entry);
+      if (runtime) service.onRegistered?.(runtime);
+    }
+    return entry.service;
+  };
+  // The runtime plans and executes relay work directly, without handleMessage,
+  // so selected operations must reach the same window-scoped service here too.
+  const planningService = (windowId: string, message: NappletMessage): RelayPlanningServiceHandler => {
+    const scoped = attached && types.includes(message.type) ? scopedService(windowId) : base;
+    return (isRelayPlanningServiceHandler(scoped) ? scoped : base) as RelayPlanningServiceHandler;
+  };
+  const planning: Partial<RelayPlanningServiceHandler> = isRelayPlanningServiceHandler(base) ? {
+    planRelayOperation: (windowId, message) => planningService(windowId, message).planRelayOperation(windowId, message),
+    executeRelayOperation: (windowId, message, plan, signal, send) => planningService(windowId, message)
+      .executeRelayOperation(windowId, message, plan, signal, send),
+  } : {};
   return {
     ...base,
     onRegistered(context) { runtime = context; attached = true; base.onRegistered?.(context); },
+    ...planning,
     handleMessage(windowId, message, send) {
       if (!attached) return;
       if (!types.includes(message.type)) return base.handleMessage(windowId, message, send);
-      let entry = windows.get(windowId);
-      const key = scopeKey?.(windowId);
-      if (entry && entry.key !== key) {
-        entry.active = false;
-        entry.service.onWindowDestroyed?.(windowId);
-        entry.service.onUnregistered?.();
-        windows.delete(windowId);
-        entry = undefined;
-      }
-      if (!entry) {
-        const state = { active: true, key };
-        const service = create(windowId, () => attached && state.active && (!runtime || runtime.listWindowIds().includes(windowId)));
-        entry = Object.assign(state, { service });
-        windows.set(windowId, entry);
-        if (runtime) service.onRegistered?.(runtime);
-      }
-      entry.service.handleMessage(windowId, message, send);
+      scopedService(windowId).handleMessage(windowId, message, send);
     },
     onWindowDestroyed(windowId) {
       const entry = windows.get(windowId);
