@@ -691,6 +691,15 @@ export interface RuntimeAdapter {
   onAclCheck?: (event: AclCheckEvent) => void;
 
   /**
+   * ACL policy for identities with no stored entry. `'restrictive'` starts them
+   * with nothing granted. When omitted, the policy is `'permissive'` unless
+   * persisted ACL state stores another one. When set, it replaces the policy in
+   * persisted state on load. Stored entries are kept as they are, so a host
+   * moving to `'restrictive'` should clear entries it no longer trusts.
+   */
+  aclDefaultPolicy?: 'permissive' | 'restrictive';
+
+  /**
    * Firewall config persistence (save/load firewall config).
    * When absent, firewall config is in-memory only and resets on reload.
    * Only the config is persisted; ephemeral counters are never stored.
