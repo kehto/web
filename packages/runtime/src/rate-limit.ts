@@ -96,13 +96,24 @@ function validAction(value: RateLimitAction): boolean {
   return value === 'flag' || value === 'block' || value === 'ignore';
 }
 
-function validate(config: RateLimitConfig, observation: RateLimitObservation): void {
-  if (!positive(config.capacity) || !positive(config.windowMs)
-    || !positive(config.unfocusedMultiplier) || config.unfocusedMultiplier > 1
-    || !positive(config.burst.windowMs) || !Number.isSafeInteger(config.burst.maxOperations)
-    || config.burst.maxOperations < 1 || !validAction(config.action) || !validAction(config.burst.action)) {
-    throw new RangeError('Rate limits require finite positive budgets and valid actions');
+/**
+ * Check a budget before it is used. A multiplier above 1 loosens background
+ * windows, and a burst `windowMs` of zero turns the startup guard off.
+ * @param config - Budget to check.
+ * @throws RangeError if a budget is out of range or an action is unknown.
+ */
+export function assertRateLimitConfig(config: RateLimitConfig): void {
+  const { burst } = config;
+  if (!positive(config.capacity) || !positive(config.windowMs) || !positive(config.unfocusedMultiplier)
+    || !Number.isFinite(burst.windowMs) || burst.windowMs < 0
+    || !Number.isSafeInteger(burst.maxOperations) || burst.maxOperations < 0
+    || !validAction(config.action) || !validAction(burst.action)) {
+    throw new RangeError('Rate limits require finite budgets in range and valid actions');
   }
+}
+
+function validate(config: RateLimitConfig, observation: RateLimitObservation): void {
+  assertRateLimitConfig(config);
   if (!observation.subject || !observation.operation || !observation.lifecycle
     || !Number.isFinite(observation.now) || !Number.isFinite(observation.elapsedSinceStartMs)
     || observation.elapsedSinceStartMs < 0 || typeof observation.focused !== 'boolean') {

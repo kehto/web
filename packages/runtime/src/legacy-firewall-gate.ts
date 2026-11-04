@@ -87,6 +87,26 @@ function buildObservation(
   };
 }
 
+/**
+ * Warn once that legacy Firewall inputs do nothing on a runtime with `permissions`,
+ * where the legacy gate never runs. The warning carries no request data.
+ *
+ * @returns A function that warns the first time it's called.
+ * @example
+ * ```ts
+ * const warnIgnored = createLegacyIgnoredWarning();
+ * if (hooks.onFirewallEvent) warnIgnored();
+ * ```
+ */
+export function createLegacyIgnoredWarning(): () => void {
+  let warned = false;
+  return () => {
+    if (warned) return;
+    warned = true;
+    console.warn('FW-RUNTIME-LEGACY-IGNORED-001: onFirewallEvent, firewallPersistence and firewallState mutators have no effect when RuntimeAdapter.permissions is configured; use permissions.onRateLimit, permissions.persistence and runtime.permissions.setRateLimit instead (warns once per runtime instance).');
+  };
+}
+
 /** Configuration for createFirewallGate. */
 interface FirewallGateConfig {
   firewallState: FirewallStateContainer;

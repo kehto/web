@@ -137,6 +137,7 @@ export interface FirewallStateContainer {
  * need durable per-napplet policies.
  *
  * @param persistence - Optional storage backend for firewall config.
+ * @param onMutation - Internal runtime observer, called after a config change validates.
  * @returns A FirewallStateContainer instance.
  *
  * @example
@@ -149,9 +150,14 @@ export interface FirewallStateContainer {
  */
 export function createFirewallState(
   persistence?: FirewallPersistence,
+  onMutation?: () => void,
 ): FirewallStateContainer {
   let config: FirewallConfig = defaultConfig();
   let counters: FirewallState = createState();
+  const mutate = (next: FirewallConfig): void => {
+    onMutation?.();
+    config = next;
+  };
 
   return {
     evaluate(observation: Observation): EvaluateResult {
@@ -168,27 +174,27 @@ export function createFirewallState(
     },
 
     setPolicy(napplet: string, policy: NappletPolicy): void {
-      config = setPolicy(config, napplet, policy);
+      mutate(setPolicy(config, napplet, policy));
     },
 
     setRateLimit(napplet: string, opClass: string, limit: RateLimit): void {
-      config = setRateLimit(config, napplet, opClass, limit);
+      mutate(setRateLimit(config, napplet, opClass, limit));
     },
 
     setGlobalRate(napplet: string, limit: RateLimit): void {
-      config = setGlobalRate(config, napplet, limit);
+      mutate(setGlobalRate(config, napplet, limit));
     },
 
     setUnfocusedMultiplier(multiplier: number): void {
-      config = setUnfocusedMultiplier(config, multiplier);
+      mutate(setUnfocusedMultiplier(config, multiplier));
     },
 
     setBurstGuard(guard: BurstGuard): void {
-      config = setBurstGuard(config, guard);
+      mutate(setBurstGuard(config, guard));
     },
 
     addMatcher(matcher: ContentMatcher): void {
-      config = addMatcher(config, matcher);
+      mutate(addMatcher(config, matcher));
     },
 
     getConfig(): FirewallConfig {

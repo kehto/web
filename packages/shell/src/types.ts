@@ -501,18 +501,21 @@ export interface ShellAdapter {
   /**
    * Stores firewall config across reloads. Without it, firewall config stays in
    * memory and resets when the bridge is recreated. Counters are never stored.
+   * Legacy gate only: with `permissions` set, grants use `permissions.persistence`.
    */
   firewallPersistence?: FirewallPersistence;
   /**
    * Called when the runtime firewall flags, rejects or prompts for a message, so
    * a host can show the user what was refused. Passing messages without a flag
-   * are not reported.
+   * are not reported. Legacy gate only: with `permissions` set, the approval UI
+   * sees refusals and `permissions.onRateLimit` reports budget events.
    */
   onFirewallEvent?: (event: FirewallEvent) => void;
   /**
    * Reports whether a napplet window has focus. Without it, every window counts
    * as focused, so `unfocusedMultiplier` never applies. Focus only scales rate
-   * budgets and never blocks a message by itself.
+   * budgets and never blocks a message by itself. The legacy gate and the
+   * `permissions` budgets both use it.
    *
    * @param windowId - The napplet window to query
    * @returns Current focus state and optional milliseconds since focus was gained
@@ -598,7 +601,9 @@ export interface ShellAdapter {
    * with nothing granted. When omitted, the policy is `'permissive'` unless
    * persisted ACL state stores another one. When set, it replaces the policy in
    * persisted state on load. Stored entries are kept as they are, so a host
-   * moving to `'restrictive'` should clear entries it no longer trusts.
+   * moving to `'restrictive'` should clear entries it no longer trusts. With
+   * `permissions` set it's a ceiling: an approval can't exceed what the ACL denies,
+   * and no prompt is shown for it.
    */
   aclDefaultPolicy?: 'permissive' | 'restrictive';
 }

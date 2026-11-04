@@ -87,7 +87,7 @@ export type { PendingUpdate, SessionRegistry } from './session-registry.js';
 // Standalone utilities (usable without full shell)
 export { originRegistry } from './origin-registry.js';
 export type { NappletMessageTarget, OriginIdentity, OriginRegistry } from './origin-registry.js';
-export type { PermissionAdapter, PermissionRateEvent, PermissionPrincipal, ApprovalPrompt, ApprovalAnswer, ApprovalSignal, ApprovalCancellation, PermissionPersistence, PermissionStorageFailure, RuntimePermissions } from '@kehto/runtime';
+export type { RateLimitConfig, PermissionAdapter, PermissionRateEvent, PermissionPrincipal, ApprovalPrompt, ApprovalAnswer, ApprovalSignal, ApprovalCancellation, PermissionPersistence, PermissionStorageFailure, RuntimePermissions } from '@kehto/runtime';
 export type { PermissionAdmission, PermissionAdmissionRequest, ApprovalFailure } from '@kehto/runtime';
 export { audioManager } from './audio-manager.js';
 export type { AudioManager, AudioSource } from './audio-manager.js';

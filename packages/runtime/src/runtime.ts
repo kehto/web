@@ -12,7 +12,7 @@ import { notifyServiceWindowDestroyed, notifyServicePermissionRevoked } from './
 import { createSessionRegistry, type SessionRegistry } from './session-registry.js';
 import { createAclState, type AclStateContainer } from './acl-state.js';
 import { createFirewallState, type FirewallStateContainer } from './firewall-state.js';
-import { createFirewallGate, createDenialResponse } from './legacy-firewall-gate.js';
+import { createFirewallGate, createDenialResponse, createLegacyIgnoredWarning } from './legacy-firewall-gate.js';
 import { createPermissionRuntime, type RuntimePermissions } from './permission-runtime.js';
 import type { ApprovalSignal } from './approval-coordinator.js';
 import { createManifestCache, type ManifestCache } from './manifest-cache.js';
@@ -103,7 +103,7 @@ export interface Runtime {
   /** Access the ACL state container. */
   readonly aclState: AclStateContainer;
 
-  /** Access the firewall state container, so hosts can set policy, rate budgets and the burst guard. */
+  /** Legacy gate policy and budgets. With `permissions` set, nothing reads them: use `permissions.setRateLimit`. */
   readonly firewallState: FirewallStateContainer;
 
   /** Access the manifest cache. */
@@ -492,7 +492,9 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   const subscriptions = new Map<string, SubscriptionEntry>();
   const serviceRegistry: ServiceRegistry = { ...hooks.services };
   const registeredServices = createRegisteredServices(serviceRegistry);
-  const firewallState = createFirewallState(hooks.firewallPersistence);
+  const warnLegacyIgnored = hooks.permissions ? createLegacyIgnoredWarning() : undefined;
+  if (hooks.onFirewallEvent || hooks.firewallPersistence) warnLegacyIgnored?.();
+  const firewallState = createFirewallState(hooks.firewallPersistence, warnLegacyIgnored);
   let extensions: ReturnType<typeof createServiceExtensionRouter> | undefined;
   let permissions: ReturnType<typeof createPermissionRuntime> | undefined;
   const sessionRegistry = createSessionRegistry(hooks.onPendingUpdate, (windowId) => {

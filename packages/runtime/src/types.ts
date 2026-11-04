@@ -612,7 +612,8 @@ export interface RuntimeAdapter {
   /**
    * ACL policy for identities with no stored entry. When omitted, `'permissive'`
    * unless persisted state stores another. When set, it replaces the persisted
-   * policy on load and keeps stored entries.
+   * policy on load and keeps stored entries. With `permissions` set it's a ceiling:
+   * an approval can't exceed what the ACL denies, and no prompt is shown for it.
    */
   aclDefaultPolicy?: 'permissive' | 'restrictive';
 
@@ -620,12 +621,14 @@ export interface RuntimeAdapter {
    * Firewall config persistence (save/load firewall config).
    * When absent, firewall config is in-memory only and resets on reload.
    * Only the config is persisted; ephemeral counters are never stored.
+   * Legacy gate only: with `permissions` set, use `permissions.persistence`.
    */
   firewallPersistence?: FirewallPersistence;
 
   /**
    * Called on every firewall evaluation that results in an audit-level decision
    * (flag, block, or prompt). When absent, firewall decisions are not audited.
+   * Legacy gate only: with `permissions` set, use `permissions.onRateLimit`.
    */
   onFirewallEvent?: (event: FirewallEvent) => void;
 

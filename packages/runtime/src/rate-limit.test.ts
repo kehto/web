@@ -93,10 +93,29 @@ describe('independent temporal budgets', () => {
   });
 
   it.each([
-    { windowMs: 0 }, { unfocusedMultiplier: 0 }, { unfocusedMultiplier: 2 },
-    { burst: { ...config.burst, maxOperations: 1.5 } },
+    { windowMs: 0 }, { unfocusedMultiplier: 0 }, { unfocusedMultiplier: -1 }, { unfocusedMultiplier: Infinity },
+    { burst: { ...config.burst, maxOperations: 1.5 } }, { burst: { ...config.burst, maxOperations: -1 } },
+    { burst: { ...config.burst, windowMs: -1 } }, { burst: { ...config.burst, windowMs: NaN } },
   ])('rejects an invalid configuration %j', (override) => {
     expect(() => evaluateRateLimit({ ...config, ...override }, createRateLimitState(), observation)).toThrow(RangeError);
+  });
+
+  it('lets a multiplier above 1 loosen an unfocused budget', () => {
+    const budget = { ...config, capacity: 1, action: 'block' as const, unfocusedMultiplier: 2 };
+    const input = { ...observation, focused: false, elapsedSinceStartMs: 60_000 };
+    const first = evaluateRateLimit(budget, createRateLimitState(), input);
+    const second = evaluateRateLimit(budget, first.state, input);
+    expect([first.allowed, second.allowed, evaluateRateLimit(budget, second.state, input).allowed]).toEqual([true, true, false]);
+  });
+
+  it('turns the burst guard off with a zero window', () => {
+    const budget = { ...config, burst: { windowMs: 0, maxOperations: 0, action: 'block' as const } };
+    expect(evaluateRateLimit(budget, createRateLimitState(), { ...observation, elapsedSinceStartMs: 0 }).reason).toBe('within-budget');
+  });
+
+  it('blocks startup operations with a zero burst limit', () => {
+    const budget = { ...config, burst: { ...config.burst, maxOperations: 0 } };
+    expect(evaluateRateLimit(budget, createRateLimitState(), { ...observation, elapsedSinceStartMs: 0 }).reason).toBe('burst-exceeded');
   });
 
   it('rejects nonfinite clocks', () => {

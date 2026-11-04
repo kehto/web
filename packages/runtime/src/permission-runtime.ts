@@ -4,7 +4,7 @@ import { createApprovalCoordinator } from './approval-coordinator.js';
 import type { ApprovalCoordinatorOptions, ApprovalOutcome, ApprovalSignal } from './approval-coordinator.js';
 import { createPermissionStore } from './permission-state.js';
 import type { PermissionPersistence, PermissionStorageFailure } from './permission-state.js';
-import { createRateLimitState, defaultRateLimitConfig, defaultPromptRateLimitConfig, evaluateRateLimit, retireRateLimitLifecycle } from './rate-limit.js';
+import { assertRateLimitConfig, createRateLimitState, defaultRateLimitConfig, defaultPromptRateLimitConfig, evaluateRateLimit, retireRateLimitLifecycle } from './rate-limit.js';
 import type { RateLimitConfig, RateLimitResult } from './rate-limit.js';
 import type { SessionEntry } from './types.js';
 import { createPermissionAdmission, interfaceRequirements } from './permission-admission.js';
@@ -52,6 +52,22 @@ export interface RuntimePermissions {
   retryPersistence(): boolean;
   /** Observe grant invalidation so a host can retire an executing document. */
   subscribeInvalidation(listener: () => void): () => void;
+  /** The operation budget in force. Prompt budgets are separate and unaffected. */
+  readonly rateLimit: RateLimitConfig;
+  /**
+   * Replace the operation budget, including its unfocused multiplier and startup
+   * burst guard. Applies from the next operation and keeps running counters. Not
+   * persisted: a host restores it through `PermissionAdapter.rateLimit`.
+   *
+   * @param config - The budget to apply.
+   * @throws RangeError if a budget is out of range, leaving the current one in force.
+   * @example
+   * ```ts
+   * const permissions = runtime.permissions!;
+   * permissions.setRateLimit({ ...permissions.rateLimit, unfocusedMultiplier: 0.5 });
+   * ```
+   */
+  setRateLimit(config: RateLimitConfig): void;
 }
 
 interface PermissionRuntimeContext {
@@ -72,6 +88,8 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
   const retiredSources = new WeakSet<SessionEntry>();
   let rates = createRateLimitState();
   let promptRates = createRateLimitState();
+  let rateLimitOverride: RateLimitConfig | undefined;
+  const currentRateLimit = (): RateLimitConfig => rateLimitOverride ?? adapter.rateLimit ?? defaultRateLimitConfig();
   let disposed = false;
   let globalAdmissionRevision = 0;
   const sourceAdmissionRevisions = new WeakMap<SessionEntry, number>();
@@ -126,7 +144,7 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
       || context.getSession(windowId) !== lifetime.entry) return 'unavailable';
     try {
       const now = adapter.now();
-      const configured = adapter.rateLimit ?? defaultRateLimitConfig();
+      const configured = currentRateLimit();
       const config = mode === 'observe' ? { ...configured,
         action: configured.action === 'block' ? 'flag' as const : configured.action,
         burst: { ...configured.burst, action: configured.burst.action === 'block' ? 'flag' as const : configured.burst.action },
@@ -223,6 +241,11 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
     subscribeInvalidation(listener) {
       invalidationListeners.add(listener);
       return () => { invalidationListeners.delete(listener); };
+    },
+    get rateLimit() { return currentRateLimit(); },
+    setRateLimit(config) {
+      assertRateLimitConfig(config);
+      rateLimitOverride = Object.freeze({ ...config, burst: Object.freeze({ ...config.burst }) });
     },
   };
   return { management, run, retire, charge,
