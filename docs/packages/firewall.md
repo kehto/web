@@ -19,7 +19,7 @@ pnpm add @kehto/firewall
 | Field | Value |
 |-------|-------|
 | Source | `packages/firewall/package.json`, `packages/firewall/src/index.ts` |
-| Version | `0.6.3` |
+| Version | `0.6.4` |
 | Runtime entry | `./dist/index.js` |
 | Types entry | `./dist/index.d.ts` |
 | Side effects | `false` |
@@ -28,7 +28,7 @@ pnpm add @kehto/firewall
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.32.0 <0.38.0` |
+| `@napplet/core` | `>=0.32.0 <0.39.0` |
 
 ## Primary APIs
 

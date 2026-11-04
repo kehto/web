@@ -1,5 +1,14 @@
 # @kehto/runtime
 
+## 0.27.3
+
+### Patch Changes
+
+- 66beed4: Widen the `@napplet/core` and `@napplet/nap` peer ranges to admit core 0.38.x and nap 0.37.x while keeping the 0.32.0 floor.
+- Updated dependencies [66beed4]
+  - @kehto/acl@0.20.3
+  - @kehto/firewall@0.6.4
+
 ## 0.27.2
 
 ### Patch Changes

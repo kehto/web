@@ -43,7 +43,7 @@ See: .planning/PROJECT.md (updated 2026-07-28)
 Phase: 115 — Firewall final audit complete
 Plan: PR review follow-up
 Status: PR #336 review fixes verified; CONFIG denial/backpressure spec gap explicitly retained.
-Last activity: 2026-10-26 — Validated review fixes with 2,733 unit and 159 Chromium tests; shipping follow-up.
+Last activity: 2026-11-04 — Merged main's NAP-LLM chase into PR #336.
 
 ## Performance Metrics
 
@@ -272,6 +272,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 261009-gxe | Canonical intent delivery with tracked, warned compatibility; AGENTS policy separate in #284 | 2026-10-09 | 05d3e013 | Verified | [261009-gxe](./quick/261009-gxe-migrate-pr-277-intent-delivery-to-intent/) |
 | 261009-h66 | Require compatibility warnings, tracking and tests in AGENTS | 2026-10-09 | 3c595776 | Verified | [261009-h66](./quick/261009-h66-require-tracked-and-tested-backwards-com/) |
 | 261023-oqs | Upgrade playground relay service to applesauce v7 | 2026-10-23 | 40154766 | Verified | [261023-oqs](./quick/261023-oqs-upgrade-playground-relay-service-to-appl/) |
+| 261104-fjx | Chase NAP-LLM draft across kehto | 2026-11-04 | c9474917 | Verified | [261104-fjx-chase-nap-llm-draft-across-kehto](./quick/261104-fjx-chase-nap-llm-draft-across-kehto/) |
 
 | 260930-gbm | Enforce NIP-5D CSP in shell with validated host overrides | 2026-09-30 | 375b1ee | Verified | [260930-gbm-enforce-nip-5d-csp-in-shell-with-validat](./quick/260930-gbm-enforce-nip-5d-csp-in-shell-with-validat/) |
 | 261009-j8y | Resolve PR #272 conflicts while preserving CSP and local-file admission | 2026-10-09 | 17e3d108 | Verified | [261009-j8y](./quick/261009-j8y-resolve-pr-272-conflicts-with-current-ma/) |

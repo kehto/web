@@ -305,7 +305,7 @@ completeness are outside this behavior.
 [NAP-IDENTITY `6461e4b37c29dc09a20dff35d9515889c4433874`](https://github.com/napplet/naps/blob/6461e4b37c29dc09a20dff35d9515889c4433874/naps/NAP-IDENTITY.md)
 is byte-identical to the recorded `napplet/naps` master document. Pinned
 [NAP-OUTBOX `4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e`](https://github.com/napplet/naps/blob/4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e/naps/NAP-OUTBOX.md)
-with installed `@napplet/nap@0.32.0` types is the PoC contract because current
+with the installed `@napplet/nap` NAP-OUTBOX types (0.37.0 for host packages) is the PoC contract because current
 master has no NAP-OUTBOX path; this is not a current-master OUTBOX conformance
 claim. Blossom behavior targets pinned
 [NAP-UPLOAD `a7cc17463cbf5d9cb87884b31071bc4fc826034c`](https://github.com/napplet/naps/blob/a7cc17463cbf5d9cb87884b31071bc4fc826034c/naps/NAP-UPLOAD.md).

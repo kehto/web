@@ -175,7 +175,7 @@ The focused host regression runs in Chromium and Firefox after `pnpm build`:
 connections: pick a provider preset (OpenAI, Anthropic, Google Gemini, OpenRouter,
 Groq, Mistral, DeepSeek, xAI, Together, Fireworks, Perplexity, Azure OpenAI, or local
 Ollama, LM Studio, llama.cpp and vLLM servers), enter the model and an optional API
-key, and choose whether to remember the key. Remembered keys are encrypted with
+key, tick the capabilities the model supports (images, JSON output, and **Tool calling** with optional **Required tool choice** and **Named tool choice**) and choose whether to remember the key. Remembered keys are encrypted with
 AES-GCM under a PBKDF2-SHA-256 key derived from a vault password you create (at
 least 12 characters); otherwise the key lasts for the page session only. Keys are
 sent solely to the connection's base URL (HTTPS, or HTTP on loopback) and never to
@@ -183,8 +183,8 @@ napplets or the message log. The `llm` interface is advertised whenever the pane
 present; it shows `⚠ llm` until a connection exists. A napplet's `select()` then
 offers to open the panel and answers `unsupported` until you add one; with
 connections, a chooser lists the compatible ones. Every `generate()` shows a consent
-dialog naming the napplet, route, model and disclosed counts before any prompt
-text leaves the browser. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
+dialog naming the napplet, route, model, disclosed counts, any tool definitions offered and the number of tool results being sent before any prompt
+text leaves the browser. Paja relays tool calls to the napplet and never runs one. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
 
 Other domains are equally capability-bound. Relay, outbox, and count require
 live relays; count uses NIP-45 `COUNT` without downloading events. Storage
@@ -231,7 +231,7 @@ outside this behavior.
 [NAP-IDENTITY at `6461e4b37c29dc09a20dff35d9515889c4433874`](https://github.com/napplet/naps/blob/6461e4b37c29dc09a20dff35d9515889c4433874/naps/NAP-IDENTITY.md)
 is byte-identical to the recorded `napplet/naps` master document for this phase.
 Pinned [NAP-OUTBOX at `4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e`](https://github.com/napplet/naps/blob/4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e/naps/NAP-OUTBOX.md)
-together with installed `@napplet/nap@0.32.0` types is the PoC contract because
+together with the installed `@napplet/nap` NAP-OUTBOX types (0.37.0 for host packages) is the PoC contract because
 current master has no NAP-OUTBOX path. Paja therefore makes no current-master
 OUTBOX conformance claim. Blossom upload behavior targets pinned
 [NAP-UPLOAD at `a7cc17463cbf5d9cb87884b31071bc4fc826034c`](https://github.com/napplet/naps/blob/a7cc17463cbf5d9cb87884b31071bc4fc826034c/naps/NAP-UPLOAD.md).
@@ -681,7 +681,7 @@ This non-normative guidance defers to [NAP-GAMEPAD at `napplet/naps@19de5ce1`](h
 
 ## LLM integration
 
-This non-normative guidance defers to the living [NAP-LLM](https://github.com/napplet/naps/pull/134) (checked at `3e10939`). Services export `createLlmService`, `LlmServiceError`, the provider mappers and `LLM_PROVIDER_PRESETS`; shell exports `getShellDomainState` and the `LlmHooks` adapter field; acl exports `llm:generate`. The runtime routes `llm.*` to one registered service and answers every sanctioned request with exactly one `llm.<op>.result`, shaping missing-service and ACL failures as `{ code: 'unsupported' }`. Hosts implement `LlmConnectionHost`; the service enforces schema, handle ownership, a per-window live-handle bound (`maxHandlesPerWindow`), consent before submission, duplicate ids, cancellation and deadline races, ordered deltas and safe errors, and passes `select`/`authorize` a `{ signal }` that withdraws stale prompts. `createHttpLlmProvider({ stream: true })` streams provider output into `llm.delta`. Advertisement stays binary on the wire while hosts report a third `unconfigured` state until the user adds a connection. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
+This non-normative guidance defers to the living [NAP-LLM](https://github.com/napplet/naps/pull/134) (checked at `5e93bdf`). Services export `createLlmService`, `LlmServiceError`, the provider mappers and `LLM_PROVIDER_PRESETS`; shell exports `getShellDomainState` and the `LlmHooks` adapter field; acl exports `llm:generate`. The runtime routes `llm.*` to one registered service and answers every sanctioned request with exactly one `llm.<op>.result`, shaping missing-service and ACL failures as `{ code: 'unsupported' }`. Hosts implement `LlmConnectionHost`; the service enforces schema, handle ownership, a per-window live-handle bound (`maxHandlesPerWindow`), consent before submission, duplicate ids, cancellation and deadline races, ordered deltas and safe errors, and passes `select`/`authorize` a `{ signal }` that withdraws stale prompts. `createHttpLlmProvider({ stream: true })` streams provider output into `llm.delta` as block start/delta/end events. Results carry `content` parts (text, thinking and tool calls); tool calls and results are validated and relayed, and Kehto never executes one. Advertisement stays binary on the wire while hosts report a third `unconfigured` state until the user adds a connection. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
 
 ## NIP-5D runtime pointers
 

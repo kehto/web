@@ -29,7 +29,7 @@ app package's development scripts.
 | Field | Value |
 |-------|-------|
 | Source | `packages/paja/package.json`, `packages/paja/src/index.ts` |
-| Version | `0.31.0` |
+| Version | `0.32.0` |
 | Runtime entry | `./dist/index.js` |
 | CLI runner entry | `./dist/cli.js` |
 | Types entry | `./dist/index.d.ts` |
@@ -40,8 +40,8 @@ app package's development scripts.
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.32.0 <0.38.0` |
-| `@napplet/nap` | `>=0.32.0 <0.37.0` |
+| `@napplet/core` | `>=0.38.0 <0.39.0` |
+| `@napplet/nap` | `>=0.37.0 <0.38.0` |
 | `nostr-tools` | `>=2.23.3 <=2.x` |
 
 ## Primary APIs
@@ -264,14 +264,14 @@ The console includes:
 - **Resource servers** — extra Blossom lookup origins with a newline textarea and
   Save button, immediately before the Language models section (see below).
 - **Language models** — draft NAP-LLM connections: provider preset, base URL,
-  model, capability flags and an optional API key that is either session-only or
+  model, capability flags (images, JSON output, **Tool calling** with optional **Required tool choice** and **Named tool choice**; a connection that never ticks tool calling serves none) and an optional API key that is either session-only or
   encrypted in a password-protected vault. A preset that declares a listing path
   (`LLM_PROVIDER_PRESETS[].modelsPath`, Routstr's `/models`) swaps free-text
   model entry for a dropdown seeded from one `GET` against that path, showing
   `Connected ✓ — n models` under the field. A failed listing names the reason
   and falls back to free-text entry so a connection can still be saved. The Interfaces toggle for `llm` is
   yellow (`⚠ llm`) while no connection exists; `select()` offers to open this
-  panel and every generation asks for consent. See [Language models](/llm).
+  panel and every generation asks for consent that names the napplet, route, model, counts, any tool definitions offered and the number of tool results being sent. Paja relays tool calls to the napplet and never runs one. See [Language models](/llm).
 - **Messages** — inbound and outbound envelopes are logged with a text filter,
   including Paja system events such as interface changes, ACL changes, signer
   connection changes, signing/publish confirmations, and visible details for
@@ -570,7 +570,7 @@ completeness remain outside this behavior.
 [NAP-IDENTITY `6461e4b37c29dc09a20dff35d9515889c4433874`](https://github.com/napplet/naps/blob/6461e4b37c29dc09a20dff35d9515889c4433874/naps/NAP-IDENTITY.md)
 is byte-identical to the phase's recorded `napplet/naps` master document. Pinned
 [NAP-OUTBOX `4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e`](https://github.com/napplet/naps/blob/4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e/naps/NAP-OUTBOX.md)
-and installed `@napplet/nap@0.32.0` types govern this PoC because current master
+and the installed `@napplet/nap` NAP-OUTBOX types (0.37.0 for host packages) govern this PoC because current master
 has no NAP-OUTBOX path. This is not a current-master OUTBOX conformance claim.
 Blossom behavior targets pinned
 [NAP-UPLOAD `a7cc17463cbf5d9cb87884b31071bc4fc826034c`](https://github.com/napplet/naps/blob/a7cc17463cbf5d9cb87884b31071bc4fc826034c/naps/NAP-UPLOAD.md).

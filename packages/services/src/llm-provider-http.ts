@@ -11,7 +11,7 @@
  * aislop-ignore-file ai-slop/hardcoded-url
  */
 
-import { LlmServiceError, type LlmGeneration, type LlmGenerationRequest } from './llm-types.js';
+import { LlmServiceError, type LlmBlockEvent, type LlmGeneration, type LlmGenerationRequest } from './llm-types.js';
 import { buildLlmProviderRequest, parseLlmProviderResponse, type LlmCredentialHeader, type LlmProviderEndpoint, type LlmProviderProtocol } from './llm-providers.js';
 import { createLlmStreamAccumulator, readLlmSseData } from './llm-provider-stream.js';
 
@@ -87,15 +87,15 @@ export interface HttpLlmProviderOptions {
   /** Fetch implementation; defaults to the global `fetch`. */
   fetch?: LlmFetch;
   /**
-   * Request each dialect's server-sent-event form and forward text fragments to
-   * `onDelta`. The resolved generation is the same as the buffered path's.
+   * Request each dialect's server-sent-event form and forward block lifecycle
+   * events to `onDelta`. The resolved generation is the same as the buffered path's.
    * Default `false`.
    */
   stream?: boolean;
 }
 
 /**
- * Perform one provider generation. `onDelta` receives appended text fragments
+ * Perform one provider generation. `onDelta` receives block lifecycle events
  * when the provider was created with `stream: true`; it is never called on the
  * buffered path.
  */
@@ -103,7 +103,7 @@ export type HttpLlmProvider = (
   endpoint: LlmProviderEndpoint,
   request: LlmGenerationRequest,
   signal: AbortSignal,
-  onDelta?: (text: string) => void,
+  onDelta?: (event: LlmBlockEvent) => void,
 ) => Promise<LlmGeneration>;
 
 async function readJson(response: LlmFetchResponse): Promise<unknown> {
@@ -126,14 +126,15 @@ async function readStream(
   protocol: LlmProviderProtocol,
   body: ReadableStream<Uint8Array>,
   signal: AbortSignal,
-  onDelta: ((text: string) => void) | undefined,
+  onDelta: ((event: LlmBlockEvent) => void) | undefined,
 ): Promise<LlmGeneration> {
   const accumulator = createLlmStreamAccumulator(protocol);
   try {
     for await (const data of readLlmSseData(body, signal)) {
       if (data === '[DONE]') continue;
-      const appended = accumulator.push(parseStreamEvent(data));
-      if (appended && !signal.aborted) onDelta?.(appended);
+      const events = accumulator.push(parseStreamEvent(data));
+      if (signal.aborted) continue;
+      for (const event of events) onDelta?.(event);
     }
   } catch (error) {
     if (signal.aborted) throw abortReason(signal);

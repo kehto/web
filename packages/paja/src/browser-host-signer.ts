@@ -432,7 +432,8 @@ function describeConfirmation(request: PajaConfirmationRequest): ConfirmationCop
       `Version: ${request.napplet.aggregateHash}`,
       `Route: ${request.route}`,
       `Model: ${request.model}`,
-      `Disclosed: ${request.messages} message(s), ${request.characters} characters, ${request.images} image(s); ${request.format} output`,
+      `Disclosed: ${request.messages} message(s), ${request.characters} characters, ${request.images} image(s), ${request.toolResults} tool result(s); ${request.format} output`,
+      `Tools offered: ${request.tools.length === 0 ? 'none' : `${request.tools.length} (${request.tools.join(', ')})`}`,
       request.warning,
     );
   }
@@ -556,14 +557,14 @@ function recordPajaConfirmation(
     return;
   }
   if (request.action === 'llm' || request.action === 'llm-configure') {
-    // Prompt content and credentials are never logged; counts and the route are enough to audit consent.
+    // Prompt content, tool names, tool arguments, tool results and credentials are never logged; counts and the route are enough to audit consent.
     appendPajaMessageLog(state, 'paja', {
       type: `paja.${request.action}.${allowed ? 'confirmed' : 'denied'}`,
       windowId: request.windowId,
       dTag: request.napplet.dTag,
       aggregateHash: request.napplet.aggregateHash,
       ...(request.action === 'llm'
-        ? { connection: request.connection, model: request.model, route: request.route, messages: request.messages, images: request.images, format: request.format }
+        ? { connection: request.connection, model: request.model, route: request.route, messages: request.messages, images: request.images, tools: request.tools.length, toolResults: request.toolResults, format: request.format }
         : { requirements: request.requirements }),
     });
     return;

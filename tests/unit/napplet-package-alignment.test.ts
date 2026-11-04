@@ -3,13 +3,32 @@ import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const ROOT = process.cwd();
-const PACKAGE_VERSIONS = {
+
+// Two deliberately separate lines. Fixture napplets stay on the exact published
+// 0.32.0 matrix that the real shim/sdk/vite-plugin pins resolve against. Host
+// packages (`packages/*`) develop and build on the line that carries the
+// packaged NAP-LLM types.
+const FIXTURE_VERSIONS = {
   '@napplet/core': '0.32.0',
   '@napplet/nap': '0.32.0',
   '@napplet/shim': '0.30.0',
   '@napplet/sdk': '0.28.0',
   '@napplet/vite-plugin': '0.16.2',
 } as const;
+
+const HOST_VERSIONS = {
+  '@napplet/core': '0.38.0',
+  '@napplet/nap': '0.37.0',
+} as const;
+
+const HOST_DEV_RANGES = {
+  '@napplet/core': '>=0.38.0 <0.39.0',
+  '@napplet/nap': '>=0.37.0 <0.38.0',
+} as const;
+
+const EXACT_ANYWHERE = ['@napplet/shim', '@napplet/sdk', '@napplet/vite-plugin'] as const;
+
+type NappletName = keyof typeof FIXTURE_VERSIONS;
 
 const SUPERSEDED_EXACT_MATRIX = {
   '@napplet/core': '0.31.1',
@@ -19,16 +38,24 @@ const SUPERSEDED_EXACT_MATRIX = {
   '@napplet/vite-plugin': '0.15.0',
 } as const;
 
-const PUBLIC_CORE_RANGE = '>=0.32.0 <0.33.0';
-// Peer ranges admit every verified published line: nap 0.35.x ships the `llm`
-// subpath, and nap 0.35.1 depends on core ^0.36.0 (kehto/web#364). core 0.37.0
-// / nap 0.36.0 carry NIP-5D port-bound identity (napplet/web#302).
-const PUBLIC_PEER_RANGES = {
-  '@napplet/core': '>=0.32.0 <0.38.0',
-  '@napplet/nap': '>=0.32.0 <0.37.0',
-} as const satisfies Partial<Record<keyof typeof PACKAGE_VERSIONS, string>>;
-const JSR_CORE_RANGE = 'jsr:@napplet/core@^0.32.0';
-const JSR_NAP_RANGE = 'jsr:@napplet/nap@^0.32.0';
+// Per-package peer windows. Packages whose declarations import the packaged
+// NAP-LLM types (services, paja) need core 0.38 / nap 0.37, and cli follows its
+// paja dependency so consumers never see a transitive peer conflict; the rest do not
+// consume those types and keep the older floor. Upper bounds admit the host line.
+const PEER_WINDOWS: Record<string, Partial<Record<NappletName, string>>> = {
+  'packages/acl': { '@napplet/core': '>=0.32.0 <0.39.0', '@napplet/nap': '>=0.32.0 <0.38.0' },
+  'packages/cli': { '@napplet/core': '>=0.38.0 <0.39.0', '@napplet/nap': '>=0.37.0 <0.38.0' },
+  'packages/firewall': { '@napplet/core': '>=0.32.0 <0.39.0' },
+  'packages/paja': { '@napplet/core': '>=0.38.0 <0.39.0', '@napplet/nap': '>=0.37.0 <0.38.0' },
+  'packages/runtime': { '@napplet/core': '>=0.32.0 <0.39.0', '@napplet/nap': '>=0.32.0 <0.38.0' },
+  'packages/services': { '@napplet/core': '>=0.38.0 <0.39.0', '@napplet/nap': '>=0.37.0 <0.38.0' },
+  'packages/shell': { '@napplet/core': '>=0.32.0 <0.39.0', '@napplet/nap': '>=0.32.0 <0.38.0' },
+};
+
+const JSR_HOST_RANGES = {
+  '@napplet/core': 'jsr:@napplet/core@^0.38.0',
+  '@napplet/nap': 'jsr:@napplet/nap@^0.37.0',
+} as const;
 
 type PackageJson = {
   dependencies?: Record<string, string>;
@@ -51,10 +78,25 @@ function readJson<T>(path: string): T {
   return JSON.parse(readFileSync(path, 'utf8')) as T;
 }
 
-function activeNappletPackages(manifest: PackageJson): Array<[string, string]> {
-  return [manifest.dependencies, manifest.devDependencies, manifest.peerDependencies]
-    .flatMap((group) => Object.entries(group ?? {}))
-    .filter(([name]) => name in PACKAGE_VERSIONS);
+function isFixture(path: string): boolean {
+  return path.startsWith('tests/fixtures/napplets/');
+}
+
+function isNapplet(name: string): name is NappletName {
+  return name in FIXTURE_VERSIONS;
+}
+
+function groupEntries(group: Record<string, string> | undefined): Array<[NappletName, string]> {
+  return Object.entries(group ?? {}).filter((entry): entry is [NappletName, string] => isNapplet(entry[0]));
+}
+
+function napplets(manifest: PackageJson): Array<[NappletName, string]> {
+  return [manifest.dependencies, manifest.devDependencies, manifest.peerDependencies].flatMap(groupEntries);
+}
+
+function expectedVersion(path: string, name: NappletName): string {
+  if (isFixture(path) || !(name in HOST_VERSIONS)) return FIXTURE_VERSIONS[name];
+  return HOST_VERSIONS[name as keyof typeof HOST_VERSIONS];
 }
 
 function escapeRegExp(value: string): string {
@@ -70,64 +112,74 @@ function lockImporterBlock(lock: string, importer: string): string {
   return lock.slice(start, boundary === -1 ? lock.length : start + marker.length + boundary);
 }
 
-describe('published Napplet package alignment', () => {
-  it('discovers every active npm consumer and accepts only the published public range or exact app pin', () => {
-    const manifests = walk(ROOT, 'package.json');
-    const consumers = manifests
-      .map((path) => ({ path: relative(ROOT, path), manifest: readJson<PackageJson>(path) }))
-      .filter(({ manifest }) => activeNappletPackages(manifest).length > 0);
+function consumers(): Array<{ path: string; manifest: PackageJson }> {
+  return walk(ROOT, 'package.json')
+    .map((path) => ({ path: relative(ROOT, path), manifest: readJson<PackageJson>(path) }))
+    .filter(({ manifest }) => napplets(manifest).length > 0);
+}
 
-    expect(consumers.length).toBeGreaterThan(0);
-    for (const { path, manifest } of consumers) {
-      const isExactConsumer = path.startsWith('tests/fixtures/napplets/');
-      for (const [name, version] of activeNappletPackages(manifest)) {
-        const expected = PACKAGE_VERSIONS[name as keyof typeof PACKAGE_VERSIONS];
-        if (isExactConsumer || name === '@napplet/shim' || name === '@napplet/sdk' || name === '@napplet/vite-plugin') {
-          expect(version, `${path} ${name} exact published pin`).toBe(expected);
-        } else {
-          const expectedRange = manifest.peerDependencies?.[name] === version
-            ? PUBLIC_PEER_RANGES[name as keyof typeof PUBLIC_PEER_RANGES]
-            : PUBLIC_CORE_RANGE;
-          expect(version, `${path} ${name} public declaration range`).toBe(expectedRange);
+describe('published Napplet package alignment', () => {
+  it('pins fixture napplets to the exact matrix and shim, sdk and vite-plugin exactly everywhere', () => {
+    const all = consumers();
+    expect(all.length).toBeGreaterThan(0);
+    for (const { path, manifest } of all) {
+      for (const [name, version] of napplets(manifest)) {
+        if (isFixture(path) || (EXACT_ANYWHERE as readonly string[]).includes(name)) {
+          expect(version, `${path} ${name} exact published pin`).toBe(FIXTURE_VERSIONS[name]);
         }
       }
     }
+    expect(all.some(({ path }) => isFixture(path))).toBe(true);
   });
 
-  it('discovers every JSR map and keeps core and nap on their matching published release line', () => {
+  it('develops host packages on the host line and gives each its own peer window', () => {
+    const hosts = consumers().filter(({ path }) => !isFixture(path));
+    expect(hosts.map(({ path }) => path.replace(/\/package\.json$/, '')).sort()).toEqual(Object.keys(PEER_WINDOWS).sort());
+    for (const { path, manifest } of hosts) {
+      const dir = path.replace(/\/package\.json$/, '');
+      const window = PEER_WINDOWS[dir];
+      for (const [name, version] of groupEntries(manifest.devDependencies)) {
+        if ((EXACT_ANYWHERE as readonly string[]).includes(name)) continue;
+        expect(version, `${path} ${name} host development range`).toBe(HOST_DEV_RANGES[name as keyof typeof HOST_DEV_RANGES]);
+      }
+      const peers = Object.fromEntries(groupEntries(manifest.peerDependencies));
+      expect(peers, `${path} peer window`).toEqual(window);
+    }
+  });
+
+  it('discovers every JSR map and moves core and nap to the host release line', () => {
     const jsrMaps = walk(ROOT, 'jsr.json')
       .map((path) => ({ path: relative(ROOT, path), imports: readJson<{ imports?: Record<string, string> }>(path).imports ?? {} }))
       .filter(({ imports }) => '@napplet/core' in imports || '@napplet/nap' in imports);
 
     expect(jsrMaps.length).toBeGreaterThan(0);
     for (const { path, imports } of jsrMaps) {
-      if ('@napplet/core' in imports) expect(imports['@napplet/core'], `${path} core JSR map`).toBe(JSR_CORE_RANGE);
-      if ('@napplet/nap' in imports) expect(imports['@napplet/nap'], `${path} nap JSR map`).toBe(JSR_NAP_RANGE);
+      if ('@napplet/core' in imports) expect(imports['@napplet/core'], `${path} core JSR map`).toBe(JSR_HOST_RANGES['@napplet/core']);
+      if ('@napplet/nap' in imports) expect(imports['@napplet/nap'], `${path} nap JSR map`).toBe(JSR_HOST_RANGES['@napplet/nap']);
     }
   });
 
-  it('proves every active importer and final package snapshot resolves the exact official matrix', () => {
+  it('proves every active importer and both package snapshots resolve the official matrix', () => {
     const lock = readFileSync(join(ROOT, 'pnpm-lock.yaml'), 'utf8');
-    const manifests = walk(ROOT, 'package.json');
 
-    for (const path of manifests) {
-      const relativePath = relative(ROOT, path);
-      const manifest = readJson<PackageJson>(path);
-      const dependencies = activeNappletPackages(manifest).filter(([name, version]) => manifest.dependencies?.[name] === version || manifest.devDependencies?.[name] === version);
+    for (const { path, manifest } of consumers()) {
+      const dependencies = napplets(manifest).filter(
+        ([name, version]) => manifest.dependencies?.[name] === version || manifest.devDependencies?.[name] === version,
+      );
       if (dependencies.length === 0) continue;
-      const importer = lockImporterBlock(lock, relativePath.replace(/\/package\.json$/, '') || '.');
+      const importer = lockImporterBlock(lock, path.replace(/\/package\.json$/, ''));
       for (const [name, version] of dependencies) {
-        expect(importer, `${relativePath} locks ${name}`).toContain(`'${name}':`);
-        expect(importer, `${relativePath} retains ${name} manifest specifier`).toMatch(
+        expect(importer, `${path} locks ${name}`).toContain(`'${name}':`);
+        expect(importer, `${path} retains ${name} manifest specifier`).toMatch(
           new RegExp(`specifier: ['"]?${escapeRegExp(version)}['"]?`),
         );
-        expect(importer, `${relativePath} resolves ${name} to its exact published release`).toContain(
-          `version: ${PACKAGE_VERSIONS[name as keyof typeof PACKAGE_VERSIONS]}`,
+        expect(importer, `${path} resolves ${name} to its exact published release`).toContain(
+          `version: ${expectedVersion(path, name)}`,
         );
       }
     }
 
-    for (const [name, version] of Object.entries(PACKAGE_VERSIONS)) {
+    for (const [name, version] of [...Object.entries(FIXTURE_VERSIONS), ...Object.entries(HOST_VERSIONS)]) {
       expect(lock, `final package snapshot for ${name}`).toContain(`'${name}@${version}':`);
     }
 
@@ -137,7 +189,7 @@ describe('published Napplet package alignment', () => {
   });
 
   it('resolves the installed published package metadata from the frozen lock materialization', () => {
-    for (const [name, version] of Object.entries(PACKAGE_VERSIONS)) {
+    for (const [name, version] of [...Object.entries(FIXTURE_VERSIONS), ...Object.entries(HOST_VERSIONS)]) {
       const escaped = name.replace('@', '').replace('/', '+');
       const packageDir = readdirSync(join(ROOT, 'node_modules/.pnpm'))
         .find((entry) => entry.startsWith(`@${escaped}@${version}`));
