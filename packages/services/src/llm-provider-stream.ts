@@ -8,120 +8,12 @@
  * terminal result: NAP-LLM makes the final `content` authoritative.
  */
 
-import { createLlmBlockBuilder } from './llm-provider-blocks.js';
-import type { LlmBlockEvent, LlmFinish, LlmGeneration, LlmUsage } from './llm-types.js';
-import {
-  anthropicFinish,
-  completed,
-  geminiFinish,
-  openAiFinish,
-  providerError,
-  record,
-  usageFrom,
-  type LlmProviderProtocol,
-} from './llm-providers.js';
+import { anthropicAccumulator } from './llm-provider-anthropic.js';
+import { geminiAccumulator } from './llm-provider-gemini.js';
+import { openAiAccumulator } from './llm-provider-openai.js';
+import { providerError, type LlmProviderProtocol, type LlmStreamAccumulator } from './llm-provider-shared.js';
 
-/** Folds one provider stream into block events and a final generation. */
-export interface LlmStreamAccumulator {
-  /**
-   * Consume one parsed event payload.
-   * @returns Ordered block events this payload produced; empty when it carried none.
-   * @throws LlmServiceError `provider-error` when the provider reports a stream error.
-   */
-  push(event: unknown): LlmBlockEvent[];
-  /**
-   * Resolve the complete generation after the stream ended.
-   * @throws LlmServiceError `provider-error` when no completion marker arrived.
-   */
-  finish(): LlmGeneration;
-}
-
-const STREAM_ERROR = 'The provider reported an error while streaming.';
-
-function textField(value: unknown): string {
-  return typeof value === 'string' ? value : '';
-}
-
-function openAiAccumulator(): LlmStreamAccumulator {
-  const blocks = createLlmBlockBuilder();
-  let refused = false;
-  let finish: LlmFinish | null = null;
-  let usage: LlmUsage | undefined;
-  return {
-    push(event) {
-      const root = record(event);
-      if (root?.error !== undefined) throw providerError(STREAM_ERROR);
-      const reported = record(root?.usage);
-      if (reported) usage = usageFrom(reported.prompt_tokens, reported.completion_tokens) ?? usage;
-      const choice = record(Array.isArray(root?.choices) ? root?.choices[0] : undefined);
-      if (!choice) return [];
-      const delta = record(choice.delta);
-      if (textField(delta?.refusal).length > 0) refused = true;
-      // Content precedes the finish marker: one chunk may carry both.
-      const events = blocks.append('text', 'text', textField(delta?.content));
-      finish = openAiFinish(choice.finish_reason) ?? finish;
-      if (finish !== null) events.push(...blocks.closeAll());
-      return events;
-    },
-    finish: () => refused ? completed([], 'refusal', usage) : completed(blocks.content(), finish, usage),
-  };
-}
-
-function anthropicAccumulator(): LlmStreamAccumulator {
-  const blocks = createLlmBlockBuilder();
-  let finish: LlmFinish | null = null;
-  let inputTokens: unknown;
-  let outputTokens: unknown;
-  return {
-    push(event) {
-      const root = record(event);
-      switch (root?.type) {
-        case 'error': throw providerError(STREAM_ERROR);
-        case 'message_start': inputTokens = record(record(root.message)?.usage)?.input_tokens; return [];
-        case 'message_delta': {
-          finish = anthropicFinish(record(root.delta)?.stop_reason) ?? finish;
-          const usage = record(root.usage);
-          if (usage?.output_tokens !== undefined) outputTokens = usage.output_tokens;
-          if (usage?.input_tokens !== undefined) inputTokens = usage.input_tokens;
-          return [];
-        }
-        case 'content_block_delta': {
-          const delta = record(root.delta);
-          return delta?.type === 'text_delta' ? blocks.append('text', `${String(root.index)}`, textField(delta.text)) : [];
-        }
-        case 'content_block_stop': return blocks.end(`${String(root.index)}`);
-        case 'message_stop': return blocks.closeAll();
-        default: return [];
-      }
-    },
-    finish: () => completed(blocks.content(), finish, usageFrom(inputTokens, outputTokens)),
-  };
-}
-
-function geminiAccumulator(): LlmStreamAccumulator {
-  const blocks = createLlmBlockBuilder();
-  let blocked = false;
-  let finish: LlmFinish | null = null;
-  let usage: LlmUsage | undefined;
-  return {
-    push(event) {
-      const root = record(event);
-      if (root?.error !== undefined) throw providerError(STREAM_ERROR);
-      const metadata = record(root?.usageMetadata);
-      if (metadata) usage = usageFrom(metadata.promptTokenCount, metadata.candidatesTokenCount) ?? usage;
-      if (typeof record(root?.promptFeedback)?.blockReason === 'string') blocked = true;
-      const candidate = record(Array.isArray(root?.candidates) ? root?.candidates[0] : undefined);
-      if (!candidate) return [];
-      const parts = record(candidate.content)?.parts;
-      const appended = Array.isArray(parts) ? parts.map((part) => textField(record(part)?.text)).join('') : '';
-      const events = blocks.append('text', 'text', appended);
-      finish = geminiFinish(candidate.finishReason) ?? finish;
-      if (finish !== null) events.push(...blocks.closeAll());
-      return events;
-    },
-    finish: () => blocked ? completed([], 'refusal', usage) : completed(blocks.content(), finish, usage),
-  };
-}
+export type { LlmStreamAccumulator } from './llm-provider-shared.js';
 
 /**
  * Create the stream accumulator for one provider dialect.
