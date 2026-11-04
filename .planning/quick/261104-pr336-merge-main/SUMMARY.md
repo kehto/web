@@ -16,6 +16,12 @@ Executed inline rather than through planner/executor subagents, because each hun
 - `scopePajaService`: forwards `onPermissionRevoked` to window-scoped services.
 - `confirmPajaExternalLink`: user activation and source-currentness checks.
 
+## Found by the browser suite after the merge
+
+- `scopePajaService` spread the base relay's planning methods, so publishes bypassed window-scoped services and lost their source context. They now route to the scoped service.
+- `createBrowserMediaPlayback` expected a `Blob` from `resource.bytes`; the wire carries canonical base64 now.
+- Fixtures from main relied on undeclared domains. They now declare only what they use, because each declared domain costs one admission prompt per load against the 12-per-minute budget.
+
 ## Removed
 
 All remaining playground sources, specs, and doc claims this branch had added.

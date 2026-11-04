@@ -580,6 +580,7 @@ for (const blockedStorage of [false, true]) {
       const beforeClearRead = server.resourceRequests.length;
       await frame.locator('#read').click();
       await expect(frame.locator('#result')).toHaveText('blocked-by-policy');
+      await expect(page.locator('#message-log .log-row[data-error="true"]').first()).toContainText('resource.bytes.error');
       expect(fetched).toEqual([]);
       expect(server.resourceRequests).toHaveLength(beforeClearRead);
       expect(await snapshot()).toEqual(restored);

@@ -9,7 +9,6 @@ const TARGET_HTML = `<!doctype html><html><head>
   <script>
     document.getElementById('executed').textContent = 'yes';
     document.getElementById('theme-state').textContent = typeof window.napplet.theme;
-    window.parent.postMessage({ type: 'shell.ready' }, '*');
   </script></body></html>`;
 
 let target: ReturnType<typeof createServer>;
