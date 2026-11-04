@@ -1479,7 +1479,7 @@ function nappletNamespacePrelude(
     };
   }
 
-  // NAP-INTENT@25b29ee: the packaged 0.32 binding lacks delivery support.
+  // NAP-INTENT@25b29ee: the packaged 0.32 binding (fixtures, shim 0.30.0) lacks delivery support.
   // Keep this receiver live before shell.ready, independently of listener timing.
   function makeIntentDelivery() {
     type Delivery = Readonly<{

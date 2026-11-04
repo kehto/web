@@ -14,10 +14,9 @@ pnpm add @kehto/acl
 
 ## Published Napplet Compatibility
 
-Peers admit `@napplet/core` `>=0.32.0 <0.38.0` and `@napplet/nap`
-`>=0.32.0 <0.37.0`, so the nap 0.35.x line that ships the `llm` subpath (and the
-core 0.36.x line nap 0.35.1 requires) installs without peer conflicts; development
-and tests stay on the baseline 0.32.0 line.
+Peers admit `@napplet/core` `>=0.32.0 <0.39.0` and `@napplet/nap`
+`>=0.32.0 <0.38.0`. This package does not import the NAP-LLM types, so it keeps the older
+floor. Host packages develop and build on core 0.38.0 / nap 0.37.0; fixture napplets stay on the exact 0.32.0 line (shim 0.30.0, sdk 0.28.0, vite-plugin 0.16.2).
 
 ## Overview
 
