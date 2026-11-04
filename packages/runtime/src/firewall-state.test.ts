@@ -176,3 +176,48 @@ describe('runtime firewall state', () => {
     expect(hasFlagOrBlock).toBe(true);
   });
 });
+
+describe('runtime firewall budget setters (#400)', () => {
+  it('applies a new multiplier on the next evaluation and keeps it through persist and load', () => {
+    const persistence = makePersistence();
+    const firewall = createFirewallState(persistence);
+    firewall.setUnfocusedMultiplier(0.5);
+    expect(firewall.getConfig().unfocusedMultiplier).toBe(0.5);
+
+    firewall.persist();
+    const reloaded = createFirewallState(persistence);
+    reloaded.load();
+    expect(reloaded.getConfig().unfocusedMultiplier).toBe(0.5);
+  });
+
+  it('applies a new burst guard and keeps it through persist and load', () => {
+    const persistence = makePersistence();
+    const firewall = createFirewallState(persistence);
+    firewall.setBurstGuard({ windowMs: 5000, maxOps: 1, action: 'block' });
+    const observation = { ...makeObs('chat', 1_000_000), initElapsedMs: 0, initKey: 'first' };
+    expect(firewall.evaluate(observation).decision).toBe('pass');
+    expect(firewall.evaluate(observation)).toMatchObject({ decision: 'reject', ruleId: 'burst' });
+
+    firewall.persist();
+    const reloaded = createFirewallState(persistence);
+    reloaded.load();
+    expect(reloaded.getConfig().burstGuard).toEqual({ windowMs: 5000, maxOps: 1, action: 'block' });
+  });
+
+  it('keeps the current config when a setter refuses a value', () => {
+    const firewall = createFirewallState();
+    const before = firewall.getConfig();
+    expect(() => firewall.setUnfocusedMultiplier(0)).toThrow(RangeError);
+    expect(() => firewall.setBurstGuard({ windowMs: -1, maxOps: 1, action: 'block' })).toThrow(RangeError);
+    expect(firewall.getConfig()).toBe(before);
+  });
+
+  it('goes back to the defaults on clear', () => {
+    const firewall = createFirewallState();
+    const defaults = firewall.getConfig();
+    firewall.setUnfocusedMultiplier(0.5);
+    firewall.setBurstGuard({ windowMs: 5000, maxOps: 1, action: 'flag' });
+    firewall.clear();
+    expect(firewall.getConfig()).toEqual(defaults);
+  });
+});
