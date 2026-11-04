@@ -96,6 +96,10 @@ longer maintained. Use [Paja](./docs/packages/paja.md) to host napplets. The old
 [compatibility register](./docs/compatibility.md). Its source remains in git
 history.
 
+The harness uses port 4173. If another local
+service owns the harness port, run `KEHTO_HARNESS_PORT=42873 pnpm test:e2e`.
+The harness, Playwright base URL, and resource redirect fixtures share this port.
+
 ## Repository Layout
 
 | Path | Contents |

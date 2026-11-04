@@ -151,6 +151,30 @@ export function readNappletIdMeta(html: string): string | undefined {
   return undefined;
 }
 
+/** Unsigned development declarations request interfaces but never grant them. */
+export function readDevelopmentDomains(html: string): {
+  readonly required: readonly string[];
+  readonly optional: readonly string[];
+} {
+  const required = new Set<string>();
+  const optional = new Set<string>();
+  for (const match of html.matchAll(/<meta\b([^>]*)>/gi)) {
+    const attributes = parseAttributes(match[1] ?? '');
+    const name = attributes.get('name')?.toLowerCase();
+    const target = name === 'napplet-requires' ? required
+      : name === 'napplet-optional' ? optional : null;
+    if (!target) continue;
+    for (const domain of (attributes.get('content') ?? '').split(/\s+/)) {
+      if (!domain) continue;
+      if (!/^[a-z][a-z0-9-]{0,63}$/.test(domain)) throw new TypeError('Invalid development NAP domain declaration');
+      if (required.size + optional.size >= 64) throw new RangeError('Too many development NAP declarations');
+      target.add(domain);
+    }
+  }
+  for (const domain of required) optional.delete(domain);
+  return { required: [...required], optional: [...optional] };
+}
+
 /**
  * List relative `src`/`href` references that a `srcdoc` document cannot load.
  *

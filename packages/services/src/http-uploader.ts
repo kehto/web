@@ -39,9 +39,11 @@ import type {
   UploadRail,
   UploadRequest,
   UploadResult,
+  UploadExecutionPlan,
   Uploader,
   UploaderContext,
 } from './upload-service.js';
+import type { ApprovalSignal } from '@kehto/runtime';
 
 /** NIP-98 HTTP-auth event kind. */
 const KIND_NIP98 = 27235;
@@ -75,6 +77,8 @@ export interface HttpUploaderOptions {
   defaultRail?: UploadRail;
   /** Signs NIP-98 / Blossom auth events. Required. */
   signEvent: SignEvent;
+  /** Host-attested signer identity required for shared-policy upload plans. */
+  signingPubkey?: string;
   /** Fetch implementation; defaults to the global `fetch`. */
   fetch?: typeof fetch;
   /** Hex SHA-256 of the payload bytes; defaults to Web Crypto. */
@@ -98,27 +102,46 @@ export function createHttpUploader(options: HttpUploaderOptions): Uploader {
     throw new Error('createHttpUploader: options.signEvent is required');
   }
   const rails = options.rails ?? {};
-  const signEvent = options.signEvent;
+  const signEvent: SignEvent = async (template) => {
+    const event = await options.signEvent(template);
+    if (options.signingPubkey && event.pubkey !== options.signingPubkey) {
+      throw new Error('upload signing identity changed');
+    }
+    return event;
+  };
   const fetchFn = options.fetch ?? fetch;
   const digest = options.digestSha256 ?? defaultDigestSha256;
   const nowS = options.now ?? (() => Math.floor(Date.now() / 1000));
   const defaultRail = options.defaultRail ?? firstConfiguredRail(rails);
   const inFlight = new Map<string, AbortController>();
 
-  async function upload(request: UploadRequest, ctx: UploaderContext): Promise<UploadResult> {
+  function planUpload(request: UploadRequest, ctx: UploaderContext): UploadExecutionPlan {
     const rail = request.rail ?? defaultRail;
     const config = rail === 'nip96' ? rails.nip96 : rail === 'blossom' ? rails.blossom : undefined;
     if (rail !== 'nip96' && rail !== 'blossom') {
-      return failed(ctx.uploadId, rail ?? 'unknown', 'unsupported rail');
+      throw new Error('unsupported rail');
     }
-
+    const selectedRail = rail as 'nip96' | 'blossom';
     const server = config?.servers?.[0];
-    if (!server) {
-      return failed(ctx.uploadId, rail, 'no server configured');
+    if (!server) throw new Error('no server configured');
+    const destination = new URL(server);
+    if (!['https:', 'http:'].includes(destination.protocol) || destination.username || destination.password || destination.hash) {
+      throw new Error('invalid upload server');
     }
+    const endpoint = rail === 'blossom' ? `${destination.href.replace(/\/$/, '')}/upload` : destination.href;
+    return Object.freeze({ rail: selectedRail, destination: endpoint,
+      ...(options.signingPubkey ? { signingPubkey: options.signingPubkey } : {}),
+      execute: (signal: ApprovalSignal) => uploadSelected(request, ctx, selectedRail, destination.href, signal),
+    });
+  }
 
+  async function uploadSelected(request: UploadRequest, ctx: UploaderContext,
+    rail: 'nip96' | 'blossom', server: string, approval?: ApprovalSignal): Promise<UploadResult> {
     const controller = new AbortController();
     inFlight.set(ctx.uploadId, controller);
+    const abort = () => controller.abort();
+    approval?.addEventListener('abort', abort, { once: true });
+    if (approval?.aborted) abort();
     let sha256: string | undefined;
 
     try {
@@ -136,7 +159,18 @@ export function createHttpUploader(options: HttpUploaderOptions): Uploader {
       }
       return failed(ctx.uploadId, rail, toErrorMessage(err), sha256);
     } finally {
+      approval?.removeEventListener('abort', abort);
       inFlight.delete(ctx.uploadId);
+    }
+  }
+
+  async function upload(request: UploadRequest, ctx: UploaderContext): Promise<UploadResult> {
+    const rail = request.rail ?? defaultRail;
+    try {
+      const plan = planUpload(request, ctx);
+      return plan.execute(new AbortController().signal);
+    } catch (error) {
+      return failed(ctx.uploadId, rail ?? 'unknown', toErrorMessage(error));
     }
   }
 
@@ -144,7 +178,7 @@ export function createHttpUploader(options: HttpUploaderOptions): Uploader {
     inFlight.get(uploadId)?.abort();
   }
 
-  return { upload, cancel };
+  return { planUpload, upload, cancel };
 }
 
 interface RailUploadArgs {
@@ -172,6 +206,7 @@ async function uploadNip96(args: RailUploadArgs): Promise<UploadResult> {
       ['payload', sha256],
     ],
   });
+  if (controller.signal.aborted) return cancelled(ctx.uploadId, 'nip96', sha256);
 
   const form = new FormData();
   form.append('file', new Blob([bytesToArrayBuffer(bytes)], { type: request.mimeType }), request.filename ?? 'file');
@@ -186,7 +221,12 @@ async function uploadNip96(args: RailUploadArgs): Promise<UploadResult> {
     headers: { Authorization: nostrAuthHeader(auth) },
     body: form,
     signal: controller.signal,
+    redirect: 'manual',
   });
+
+  if (!matchesRequestedEndpoint(res, server)) {
+    return failed(ctx.uploadId, 'nip96', 'unapproved upload redirect', sha256);
+  }
 
   if (!res.ok) {
     return failed(ctx.uploadId, 'nip96', `server rejected (HTTP ${res.status})`, sha256);
@@ -253,6 +293,7 @@ async function uploadBlossom(args: RailUploadArgs): Promise<UploadResult> {
       ['expiration', String(nowS() + BLOSSOM_AUTH_TTL_S)],
     ],
   });
+  if (controller.signal.aborted) return cancelled(ctx.uploadId, 'blossom', sha256);
 
   const endpoint = `${trimTrailingSlash(server)}/upload`;
   const headers: Record<string, string> = { Authorization: nostrAuthHeader(auth) };
@@ -265,7 +306,12 @@ async function uploadBlossom(args: RailUploadArgs): Promise<UploadResult> {
     headers,
     body: bytesToArrayBuffer(bytes),
     signal: controller.signal,
+    redirect: 'manual',
   });
+
+  if (!matchesRequestedEndpoint(res, endpoint)) {
+    return failed(ctx.uploadId, 'blossom', 'unapproved upload redirect', sha256);
+  }
 
   if (!res.ok) {
     return failed(ctx.uploadId, 'blossom', `server rejected (HTTP ${res.status})`, sha256);
@@ -312,6 +358,13 @@ interface BlossomDescriptor {
   sha256?: string;
   size?: number;
   type?: string;
+}
+
+function matchesRequestedEndpoint(response: Response, endpoint: string): boolean {
+  if (response.redirected || response.type === 'opaqueredirect') return false;
+  if (!response.url) return true;
+  try { return new URL(response.url).href === new URL(endpoint).href; }
+  catch { return false; }
 }
 
 function failed(uploadId: string, rail: UploadRail, error: string, sha256?: string): UploadResult {

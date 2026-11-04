@@ -44,9 +44,6 @@ export interface PajaSimulationRawOptions {
   readonly acl?: {
     readonly mode?: 'allow' | 'deny';
   };
-  readonly firewall?: {
-    readonly mode?: 'allow' | 'deny' | 'observe';
-  };
   readonly identity?: {
     readonly mode?: 'anonymous' | 'fixed';
     readonly pubkey?: string;
@@ -101,9 +98,6 @@ export interface PajaSimulation {
   };
   readonly acl: {
     readonly mode: 'allow' | 'deny';
-  };
-  readonly firewall: {
-    readonly mode: 'allow' | 'deny' | 'observe';
   };
   readonly identity: {
     readonly mode: 'anonymous' | 'fixed';
@@ -213,6 +207,9 @@ const DEFAULT_THEME_VALUES: JsonRecord = {
 export function normalizePajaSimulation(
   raw: PajaSimulationRawOptions | undefined,
 ): PajaSimulation {
+  if (raw && Object.prototype.hasOwnProperty.call(raw, 'firewall')) {
+    throw new PajaSimulationError('simulation.firewall was removed; approve exact scopes in Paja Firewall grants.');
+  }
   const domainOverrides = raw?.capabilities?.domains ?? {};
   const domains = Object.fromEntries(
     PAJA_SIMULATION_DOMAINS.map((domain) => [domain, domainOverrides[domain] ?? true]),
@@ -318,9 +315,6 @@ export function normalizePajaSimulation(
     },
     acl: {
       mode: raw?.acl?.mode ?? 'allow',
-    },
-    firewall: {
-      mode: raw?.firewall?.mode ?? 'observe',
     },
     identity: {
       mode: identityMode,

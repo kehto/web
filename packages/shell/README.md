@@ -2,9 +2,36 @@
 
 Browser adapter over @kehto/runtime — ShellBridge and domain proxies.
 
+`ShellAdapter.permissions` forwards approval UI, storage, clock, and cancellation
+adapters to runtime. Supply a resolver-verified `permissionPrincipal` with
+`OriginIdentity` or `onNip5dIframeCreate`; source registration preserves its frozen
+catalog/artifact identity independently of optional `shell.ready`. The reference
+LINK service consumes these approvals. See [the approval guide](../../docs/firewall-approvals.md)
+for configuration and host migration status.
+
+`admitBrowserDocument()` is the shared launch transaction for verified artifacts
+and explicit development targets. It registers a provisional source, obtains
+runtime interface and directive-specific browser-source approval, then supplies a prepared
+`srcdoc` with the admitted namespace and a closed default-deny CSP to one
+synchronous `commit` callback. Hosts must retire the returned source on navigation
+or closure. Direct browser origins exclude `resource`; revoking a launch grant
+retires the frame. Browser direct traffic is not mediated or metered by the parent.
+
+`createBrowserApprovalUi()` supplies a framework-free `<dialog>` prompt and a
+grant-management view. Pass `ui.prompt` into `ShellAdapter.permissions`, call
+`ui.reportStorageError` from the persistence error hook, and call `ui.refresh()`
+when the runtime changes. The view always reads `RuntimePermissions.grants` and
+uses its `revoke`, `clear`, and `retryPersistence` methods; it keeps no grant
+store. The prompt shows trusted identity, every exact scope, and only offered
+lifetimes. Escape, close, and abort cancel without creating a denial grant.
+
 > **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
 > protocol. NAP contracts and injected-domain behavior are still draft; treat
 > this package as current implementation guidance.
+
+Browser source grants follow CSP scheme/port matching, including HTTP to HTTPS
+upgrades; the approval UI discloses this when relevant. Mediated network scopes
+continue to require exact canonical origins.
 
 ## Install
 
@@ -42,7 +69,7 @@ Current draft behaviors this package enforces:
   without imposing a consent policy; host runtimes may ignore it or use it to
   resolve their own identity-scoped signer decisions.
 - `prepareNappletSrcdoc()` inserts validated CSP and the runtime namespace outside verified artifact bytes. It exposes only the host-selected bare domains. Optional `shell` installs its parent-bound receiver before readiness; routing uses trusted iframe creation identity independently of that exchange. See the living [NAP-SHELL](https://github.com/napplet/naps/blob/master/naps/NAP-SHELL.md).
-- The injected resource projection follows draft NAP-RESOURCE `9511232f69313aa7953d110e35d32cc28d506f66`: `bytes(url, { servers? })` carries advisory Blossom locations and `bytesMany(requests)` keeps each `{ url, servers? }` entry intact.
+- The injected resource projection follows NAP-RESOURCE PR #80 at `ae5b9c64ab8a4d8909f288829a01e99d6bd713bc`: `bytes(url)` and `bytesMany(urls)` carry one URL or an ordered URL array. Results use canonical padded base64 on the wire and decode to `Blob` values only in the injected projection.
 - `window.napplet.shell.supports(domain)` answers synchronously and locally from the cached first `shell.init` environment. It returns `false` before `shell.init`, for unknown values, and for domains that are not live and granted to that napplet; it never sends a support-query message.
 - Five optional per-domain proxies — `createIdentityProxy`, `createThemeProxy`, `createKeysProxy`, `createMediaProxy`, `createNotifyProxy` — can be composed between napplet and runtime to intercept request traffic per NAP. They are NOT wired by default. Identity/theme proxy `emit()` compatibility members fail closed; hosts must deliver automatic changes through `ShellBridge.publishIdentityChanged()` / `publishTheme()`, which enforce live session, granted domain, and current ACL.
 - `keys.forward` is napplet-to-shell only. Active napplets suppress locally-bound keys from `keys.bindings` before forwarding; shell-initiated action triggers use `keys.action`.
@@ -174,15 +201,17 @@ bridge.runtime.registerService(
 - `ShellAdapter.aclDefaultPolicy?` — `'permissive' | 'restrictive'`, forwarded to the runtime. See the `@kehto/runtime` docs for how it treats persisted ACL state.
 
 ### Firewall hooks
-- `ShellAdapter.getFocusContext?(windowId)` — returns `{ focused, msSinceFocusGain? }`. Without it, every window counts as focused and `unfocusedMultiplier` never applies.
-- `ShellAdapter.onFirewallEvent?(event)` — reports each firewall flag, rejection and prompt as a `FirewallEvent`, so a host can show what was refused.
-- `ShellAdapter.firewallPersistence?` — a `FirewallPersistence` that stores firewall config across reloads. Without it, firewall config stays in memory. Counters are never stored.
+- `ShellAdapter.getFocusContext?(windowId)` — returns `{ focused, msSinceFocusGain? }`. Without it, every window counts as focused and `unfocusedMultiplier` never applies. Both the legacy gate and the `permissions` budgets use it.
+- `ShellAdapter.onFirewallEvent?(event)` — legacy gate only. Reports each firewall flag, rejection and prompt as a `FirewallEvent`, so a host can show what was refused. With `permissions` set, use `permissions.onRateLimit` and the approval UI.
+- `ShellAdapter.firewallPersistence?` — legacy gate only. A `FirewallPersistence` that stores firewall config across reloads. Without it, firewall config stays in memory. Counters are never stored. With `permissions` set, grants use `permissions.persistence`.
+- `bridge.runtime.permissions.setRateLimit(config)` — changes the operation budget on a host with `permissions`, including `unfocusedMultiplier` and the startup `burst` guard.
+- Setting a legacy-only hook alongside `permissions` warns once with `FW-RUNTIME-LEGACY-IGNORED-001`.
 
 ### Diagnostics
 - `ShellAdapter.onNappletRevoked?(revocation)` — called once when the bridge revokes a NIP-5D binding (`NappletRevocation`: `{ windowId, reason, detail }`, `reason` one of `NappletRevocationReason`). The host must remove the frame.
 - `ShellAdapter.onNappletMessage?(windowId, message)` — observe-only; called for each NAP envelope received on a bound port before dispatch.
 - `ShellAdapter.filterNappletMessage?(windowId, message)` — returns `'dispatch'`, `'drop'` or `'defer'` (`NappletMessageDecision`) for each NAP envelope on a bound port, before the runtime sees it. A filter that throws or returns anything else drops the envelope. `shell.ready` skips the filter, because NAP-SHELL requires its first `shell.init` reply. A dropped request gets no reply.
-- `ShellBridge.releaseDeferred(windowId)` — dispatches a window's deferred envelopes in arrival order and returns how many went through. ACL and firewall checks run at release. While envelopes are deferred, later ones can't overtake them. A window holding more than `MAX_DEFERRED_MESSAGES` (1024) is revoked with `deferred-overflow`, and revoking discards whatever was held.
+- `ShellBridge.releaseDeferred(windowId)` — dispatches a window's deferred envelopes in arrival order and returns how many went through. ACL checks, firewall approvals and budgets run at release, so a held request can prompt or be refused then, and a source retired meanwhile runs nothing. While envelopes are deferred, later ones can't overtake them. A window holding more than `MAX_DEFERRED_MESSAGES` (1024) is revoked with `deferred-overflow`, and revoking discards whatever was held.
 - `ShellAdapter.onUnroutedMessage?(info)` — optional observe-only hook fired when `ShellBridge.handleMessage` drops an incoming postMessage it can't route to a registered napplet window. `info` is an `UnroutedMessageInfo` (`{ type?, origin, reason }`) where `reason` is `'no-source-window'` or `'unregistered-window'`. The message is still dropped — this exists so otherwise-silent drops (e.g. an intent/`srcdoc` iframe whose `contentWindow` was never registered in `originRegistry`, or was swapped by a reload) are diagnosable instead of vanishing. Host can `console.warn` inside its own hook; the bridge adds no console output and swallows hook errors so routing is never broken.
 
 ```ts

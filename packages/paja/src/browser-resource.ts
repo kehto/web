@@ -1,6 +1,8 @@
 import { verifyBlobHash } from '@kehto/nip/5d';
 import {
+  ResourceAuthorizationError,
   ResourceServiceError,
+  type AuthorizeNetwork,
   type ResourceInfo,
   type ResourceServiceOptions,
 } from '@kehto/services';
@@ -32,6 +34,10 @@ export interface PajaResourceFetchOptions {
   readonly getBlossomServers?: (context: {
     readonly url: string;
     readonly windowId?: string;
+    /** Resource-wide cancellation propagated to discovery reads. */
+    readonly signal: AbortSignal;
+    /** Approves every exact relay or HTTP(S) destination before contact. */
+    readonly authorizeNetwork: AuthorizeNetwork;
   }) => readonly string[] | Promise<readonly string[]>;
   /** Fetch implementation used for configured Blossom server requests. */
   readonly fetch?: typeof fetch;
@@ -43,10 +49,10 @@ export interface PajaResourceFetchOptions {
  * `data:` bytes are decoded locally. `blossom:<hex>` URLs and the
  * `blossom:sha256:<hex>` compatibility alias are
  * resolved through accepted request hints followed by host-configured Blossom
- * servers, with redirects disabled and SHA-256 verified before delivery.
- * Direct HTTP(S) URLs are resolved from any origin through the browser,
- * subject to its CORS rules. All bytes are capped and classified locally;
- * upstream media types are ignored.
+ * servers, with redirects resolved one hop at a time through the local Paja
+ * proxy and SHA-256 verified before delivery. Direct HTTP(S) URLs use that
+ * same proxy. The browser never contacts a remote resource origin directly.
+ * All bytes are capped and classified locally; upstream media types are ignored.
  *
  * @param options - Host-owned Blossom server and transport hooks.
  * @returns A sanitized resource fetch implementation.
@@ -63,14 +69,12 @@ export function createPajaResourceFetch(
     if (url.protocol === 'blossom:') {
       return fetchBlossomResource(
         value,
-        init.signal,
-        init.servers ?? [],
-        init.windowId,
+        init,
         options,
       );
     }
     if (url.protocol === 'http:' || url.protocol === 'https:') {
-      return fetchNetworkResource(value, init.signal, options.fetch ?? globalThis.fetch);
+      return fetchNetworkResource(value, init, options.fetch ?? globalThis.fetch);
     }
     if (url.protocol !== 'data:') {
       throw new ResourceServiceError('unsupported-scheme', `Paja does not enable ${url.protocol}`);
@@ -101,37 +105,46 @@ export function pajaResourceInfo(): ResourceInfo {
   const schemes = [
     { scheme: 'data', enabled: true },
     { scheme: 'https', enabled: true },
-    { scheme: 'http', enabled: true },
     { scheme: 'blossom', enabled: true },
   ];
   return {
     schemes,
     maxBytes: PAJA_RESOURCE_MAX_BYTES,
     maxUrls: PAJA_RESOURCE_MAX_URLS,
-    maxServers: PAJA_RESOURCE_MAX_SERVERS,
   };
 }
 
 async function fetchNetworkResource(
   value: string,
-  signal: AbortSignal,
+  init: Parameters<ResourceServiceOptions['fetch']>[1],
   fetcher: typeof fetch,
 ): Promise<Response> {
-  let response: Response;
-  try {
-    response = await fetcher(value, {
-      method: 'GET',
-      signal,
-      credentials: 'omit',
-      referrerPolicy: 'no-referrer',
-    });
-  } catch (error: unknown) {
-    if (signal.aborted || isAbortError(error)) throw error;
-    throw new ResourceServiceError(
-      'network-error',
-      error instanceof Error ? error.message : String(error),
-    );
+  if (!init.authorizeNetwork) {
+    throw new ResourceServiceError('blocked-by-policy', 'Paja resource network approval is unavailable');
   }
+  let destination = value;
+  let response: Response | undefined;
+  for (let hops = 0; hops <= 5; hops += 1) {
+    try {
+    response = await init.authorizeNetwork(destination, (signal) => fetcher('/__kehto/resource', {
+        method: 'POST', signal, credentials: 'same-origin', redirect: 'manual',
+        headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: destination }),
+      }));
+    } catch (error: unknown) {
+      if ((error instanceof ResourceServiceError && error.code === 'blocked-by-policy')
+        || error instanceof ResourceAuthorizationError) throw error;
+      if (init.signal.aborted || isAbortError(error)) throw error;
+      throw new ResourceServiceError('network-error', error instanceof Error ? error.message : String(error));
+    }
+    if (response.headers.get('x-kehto-resource-redirect') !== '1') break;
+    const redirect = await response.json() as { status?: unknown; location?: unknown };
+    if (typeof redirect.location !== 'string' || hops === 5) {
+      throw new ResourceServiceError('network-error', 'resource redirect limit exceeded');
+    }
+    try { destination = new URL(redirect.location, destination).href; }
+    catch { throw new ResourceServiceError('network-error', 'resource proxy returned an invalid redirect'); }
+  }
+  if (!response) throw new ResourceServiceError('network-error', 'resource transport did not respond');
   if (response.status === 404 || response.status === 410) {
     throw new ResourceServiceError('not-found', 'HTTP resource was not found');
   }
@@ -139,7 +152,7 @@ async function fetchNetworkResource(
     throw new ResourceServiceError('network-error', `HTTP resource returned ${response.status}`);
   }
 
-  const bytes = await readCappedResponse(response, signal);
+  const bytes = await readCappedResponse(response, init.signal);
   const classification = classifyResourceBytes(bytes);
   if (classification.kind !== 'recognized') {
     throw new ResourceServiceError('decode-failed', 'resource bytes are not an enabled safe media type');
@@ -149,9 +162,7 @@ async function fetchNetworkResource(
 
 async function fetchBlossomResource(
   value: string,
-  signal: AbortSignal,
-  requestServers: readonly string[],
-  windowId: string | undefined,
+  init: Parameters<ResourceServiceOptions['fetch']>[1],
   options: PajaResourceFetchOptions,
 ): Promise<Response> {
   const parsed = parsePajaBlossomUri(value);
@@ -161,13 +172,21 @@ async function fetchBlossomResource(
   warnLegacyBlossomPrefix(value);
   if (parsed.expectedSize !== undefined && parsed.expectedSize > PAJA_RESOURCE_MAX_BYTES) throw resourceTooLarge();
   const expectedHash = parsed.hash;
-  const configuredServers = await options.getBlossomServers?.({ url: value, windowId }) ?? [];
-  if (signal.aborted) throw new DOMException('Resource request cancelled', 'AbortError');
+  if (!init.authorizeNetwork) {
+    throw new ResourceServiceError('blocked-by-policy', 'Paja resource network approval is unavailable');
+  }
+  const configuredServers = await options.getBlossomServers?.({
+    url: value,
+    windowId: init.windowId,
+    signal: init.signal,
+    authorizeNetwork: init.authorizeNetwork,
+  }) ?? [];
+  if (init.signal.aborted) throw new DOMException('Resource request cancelled', 'AbortError');
   const uriServers = parsed.servers.flatMap((value) => {
     const server = normalizeBlossomUriServer(value);
     return server ? [server] : [];
   });
-  const servers = resolveBlossomServers([...requestServers, ...uriServers], configuredServers);
+  const servers = resolveBlossomServers(uriServers, configuredServers);
   if (servers.length === 0) {
     throw new ResourceServiceError('blocked-by-policy', 'Paja has no accepted Blossom server');
   }
@@ -178,20 +197,27 @@ async function fetchBlossomResource(
   let foundInconclusive = false;
   let lastNetworkMessage = 'all accepted Blossom servers failed';
   for (const server of servers) {
-    if (signal.aborted) throw new DOMException('Resource request cancelled', 'AbortError');
-    const resourceUrl = `${server}/${expectedHash}${parsed.extension ? `.${parsed.extension}` : ''}`;
+    if (init.signal.aborted) throw new DOMException('Resource request cancelled', 'AbortError');
+    let resourceUrl = `${server}/${expectedHash}${parsed.extension ? `.${parsed.extension}` : ''}`;
     let response: Response;
     try {
-      response = await fetcher(resourceUrl, {
-        method: 'GET',
-        signal,
-        redirect: 'error',
-        cache: 'no-store',
-        credentials: 'omit',
-        referrerPolicy: 'no-referrer',
-      });
+      for (let hops = 0; ; hops += 1) {
+        response = await init.authorizeNetwork(resourceUrl, (signal) => fetcher('/__kehto/resource', {
+          method: 'POST', signal, credentials: 'same-origin', redirect: 'manual',
+          headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: resourceUrl }),
+        }));
+        if (response.headers.get('x-kehto-resource-redirect') !== '1') break;
+        const redirect = await response.json() as { location?: unknown };
+        if (typeof redirect.location !== 'string' || hops === 5) {
+          throw new ResourceServiceError('network-error', 'resource redirect limit exceeded');
+        }
+        try { resourceUrl = new URL(redirect.location, resourceUrl).href; }
+        catch { throw new ResourceServiceError('network-error', 'resource proxy returned an invalid redirect'); }
+      }
     } catch (error: unknown) {
-      if (signal.aborted || isAbortError(error)) throw error;
+      if ((error instanceof ResourceServiceError && error.code === 'blocked-by-policy')
+        || error instanceof ResourceAuthorizationError) throw error;
+      if (init.signal.aborted || isAbortError(error)) throw error;
       foundInconclusive = true;
       lastNetworkMessage = error instanceof Error ? error.message : String(error);
       continue;
@@ -214,7 +240,7 @@ async function fetchBlossomResource(
       foundHashMismatch = true;
       continue;
     }
-    const bytes = await readCappedResponse(response, signal);
+    const bytes = await readCappedResponse(response, init.signal);
     if ((parsed.expectedSize !== undefined && bytes.byteLength !== parsed.expectedSize)
       || !verifyBlobHash(bytes, expectedHash)) {
       foundHashMismatch = true;

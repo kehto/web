@@ -9,7 +9,13 @@ import {
   relayEventResultFromCarrier,
   type RelayEventResult,
 } from './relay-result.js';
-import type { RuntimeAdapter, ServiceHandler, ServiceRegistry, Signer } from './types.js';
+import type { RuntimeAdapter, ServiceHandler, ServiceRegistry, ServiceRuntimeContext, Signer } from './types.js';
+import { isRelayPlanningServiceHandler, type RelayOperationPlan } from './service-types.js';
+import type { PermissionRequirement } from '@kehto/firewall';
+import type { ApprovalSignal } from './approval-coordinator.js';
+import { snapshotApprovalEnvelope } from './approval-envelope.js';
+
+declare const console: { warn(message: string): void };
 
 declare function setTimeout(callback: () => void, ms: number): unknown;
 declare function clearTimeout(id: unknown): void;
@@ -30,7 +36,40 @@ type RelayHandlerContext = {
   eventBuffer: EventBuffer;
   replayDetector: ReplayDetector;
   canReadRelay: (windowId: string) => boolean;
+  getSource: (windowId: string) => object | undefined;
+  authorizeOperation?: ServiceRuntimeContext['authorizeOperation'];
 };
+
+const legacyRelayServiceWarnings = new WeakSet<object>();
+const legacyRelayAdapterWarnings = new WeakSet<object>();
+
+function relayRequirements(plan: RelayOperationPlan): PermissionRequirement[] {
+  const requirements: PermissionRequirement[] = [{
+    category: 'interface', domain: 'relay', operation: 'access', scope: { kind: 'exact', value: 'relay' },
+  }];
+  for (const relayUrl of plan.relayUrls) {
+    try {
+      const origin = /^(wss?:\/\/[^/?#]+)/.exec(relayUrl)?.[1];
+      if (!origin) throw new Error('scheme');
+      requirements.push({ category: 'network', domain: 'relay', operation: 'relay.network',
+        scope: { kind: 'origin', value: origin } });
+    } catch {
+      throw new Error('invalid relay destination');
+    }
+  }
+  return requirements;
+}
+
+async function authorizeRelay<T>(context: RelayHandlerContext, windowId: string, operation: string,
+  plan: RelayOperationPlan, execute: (signal: ApprovalSignal) => T | Promise<T>): Promise<void> {
+  const run = context.authorizeOperation;
+  if (!run) {
+    await execute({ aborted: false, addEventListener() {}, removeEventListener() {} });
+    return;
+  }
+  const outcome = await run(windowId, operation, relayRequirements(plan), execute);
+  if (outcome.status !== 'executed') throw new Error(`relay authorization ${outcome.status}`);
+}
 
 export type RelayHandler = (windowId: string, msg: NappletMessage) => void;
 
@@ -87,48 +126,97 @@ function handleRelaySubscribe(
   msg: NappletMessage,
   m: RuntimeRelayMessage,
 ): void {
-  const { eventBuffer, hooks, serviceRegistry, subscriptions } = context;
+  const { eventBuffer, hooks, subscriptions } = context;
   const subId = m.subId ?? '';
   const filters = m.filters ?? [];
   if (!subId) return;
 
-  const subKey = `${windowId}:${subId}`;
-  const entry = { windowId, filters };
-  subscriptions.set(subKey, entry);
-  const isActive = (): boolean => subscriptions.get(subKey) === entry && context.canReadRelay(windowId);
-  const send = (response: NappletMessage): void => {
-    if (isActive()) hooks.sendToNapplet(windowId, normalizeRelayServiceResponse(response));
-  };
-
-  const seenIds = new Set<string>();
-  function deliver(event: NostrEvent, relayHints?: string[]): void {
-    if (seenIds.has(event.id)) return;
-    seenIds.add(event.id);
-    if (isActive()) {
-      sendRelayEvent(hooks, windowId, subId, createRelayEventResultWithHints(event, relayHints));
-    }
-  }
-
-  for (const bufferedEvent of eventBuffer.getBufferedEvents()) {
-    if (matchesAnyFilter(bufferedEvent, filters)) deliver(bufferedEvent);
-  }
-
-  const isShellKind = isShellKindQuery(filters);
   const relayService = relayServiceFrom(context);
-  const cacheService = !serviceRegistry['relay'] ? serviceRegistry['cache'] : undefined;
-
-  if (!isShellKind && relayService) {
-    relayService.handleMessage(windowId, msg, send);
-    if (cacheService && isActive()) cacheService.handleMessage(windowId, msg, send);
-    // A synchronous backend callback may cause the host to revoke access before
-    // the backend finishes registering its cleanup handle.
-    if (!isActive()) closeRelayBackends(context, windowId, subId, subKey);
+  if (relayService) {
+    if (!isRelayPlanningServiceHandler(relayService)) {
+      if (!legacyRelayServiceWarnings.has(relayService)) {
+        legacyRelayServiceWarnings.add(relayService);
+        console.warn('FW-RELAY-SERVICE-LEGACY-001: relay service must implement planRelayOperation and executeRelayOperation; legacy service was denied (warns once per service instance).');
+      }
+      hooks.sendToNapplet(windowId, { type: 'relay.closed', subId, reason: 'relay service requires explicit planned execution' } as NappletMessage);
+      return;
+    }
+    let plan: RelayOperationPlan;
+    try { plan = relayService.planRelayOperation(windowId, msg); }
+    catch {
+      hooks.sendToNapplet(windowId, { type: 'relay.closed', subId, reason: 'invalid relay destination' } as NappletMessage);
+      return;
+    }
+    void authorizeRelay(context, windowId, 'relay.subscribe', plan, (signal) => {
+      if (signal.aborted) return;
+      const subKey = `${windowId}:${subId}`;
+      const entry = { windowId, filters };
+      subscriptions.set(subKey, entry);
+      const isActive = (): boolean => !signal.aborted && subscriptions.get(subKey) === entry && context.canReadRelay(windowId);
+      const send = (response: NappletMessage): void => {
+        if (isActive()) hooks.sendToNapplet(windowId, normalizeRelayServiceResponse(response));
+      };
+      const seenIds = new Set<string>();
+      const deliver = (event: NostrEvent, relayHints?: string[]): void => {
+        if (!isActive() || seenIds.has(event.id)) return;
+        seenIds.add(event.id);
+        sendRelayEvent(hooks, windowId, subId, createRelayEventResultWithHints(event, relayHints));
+      };
+      for (const bufferedEvent of eventBuffer.getBufferedEvents()) {
+        if (matchesAnyFilter(bufferedEvent, filters)) deliver(bufferedEvent);
+      }
+      relayService.executeRelayOperation(windowId, msg, plan, signal, send);
+      signal.addEventListener('abort', () => {
+        if (subscriptions.get(subKey) !== entry) return;
+        subscriptions.delete(subKey);
+        closeRelayBackends(context, windowId, subId, subKey);
+      }, { once: true });
+      if (!isActive()) closeRelayBackends(context, windowId, subId, subKey);
+    }).catch(() => {
+      hooks.sendToNapplet(windowId, { type: 'relay.closed', subId, reason: 'relay authorization unavailable or denied' } as NappletMessage);
+    });
     return;
   }
 
-  const relayHint = typeof m.relay === 'string' && m.relay.length > 0 ? m.relay : undefined;
-  if (!isActive()) return;
-  deliverFromRuntimeBackends(context, subId, subKey, filters, isShellKind, deliver, send, isActive, relayHint);
+  const subKey = `${windowId}:${subId}`;
+  const isShellKind = isShellKindQuery(filters);
+  const pool = hooks.relayPool;
+  const relayUrls = isShellKind ? [] : (typeof m.relay === 'string' && m.relay.length > 0
+    ? [m.relay] : pool?.selectRelayTier(filters) ?? []);
+  const plan: RelayOperationPlan = Object.freeze({ operation: 'subscribe', relayUrls: Object.freeze([...new Set(relayUrls)]), localOnly: isShellKind });
+  if (!isShellKind && !pool?.subscribeToRelays) {
+    if (pool && !legacyRelayAdapterWarnings.has(pool)) {
+      legacyRelayAdapterWarnings.add(pool);
+      console.warn('FW-RELAY-ADAPTER-LEGACY-001: relay adapter must implement subscribeToRelays/publishToRelays; legacy adapter was denied (warns once per adapter instance).');
+    }
+    hooks.sendToNapplet(windowId, { type: 'relay.closed', subId, reason: 'relay adapter requires explicit planned execution' } as NappletMessage);
+    return;
+  }
+  void authorizeRelay(context, windowId, 'relay.subscribe', plan, (signal) => {
+    if (signal.aborted) return;
+    const entry = { windowId, filters };
+    subscriptions.set(subKey, entry);
+    const isActive = (): boolean => !signal.aborted && subscriptions.get(subKey) === entry && context.canReadRelay(windowId);
+    const send = (response: NappletMessage): void => {
+      if (isActive()) hooks.sendToNapplet(windowId, normalizeRelayServiceResponse(response));
+    };
+    const seenIds = new Set<string>();
+    const deliver = (event: NostrEvent, relayHints?: string[]): void => {
+      if (seenIds.has(event.id)) return;
+      seenIds.add(event.id);
+      if (isActive()) sendRelayEvent(hooks, windowId, subId, createRelayEventResultWithHints(event, relayHints));
+    };
+    for (const bufferedEvent of eventBuffer.getBufferedEvents()) {
+      if (matchesAnyFilter(bufferedEvent, filters)) deliver(bufferedEvent);
+    }
+    deliverFromRuntimeBackends(context, subId, subKey, filters, isShellKind, deliver, send, isActive, plan.relayUrls);
+    signal.addEventListener('abort', () => {
+      if (subscriptions.get(subKey) !== entry) return;
+      subscriptions.delete(subKey);
+      closeRelayBackends(context, windowId, subId, subKey);
+    }, { once: true });
+  }).catch(() => hooks.sendToNapplet(windowId,
+    { type: 'relay.closed', subId, reason: 'relay authorization unavailable or denied' } as NappletMessage));
 }
 
 function deliverFromRuntimeBackends(
@@ -140,7 +228,7 @@ function deliverFromRuntimeBackends(
   deliver: (event: NostrEvent, relayHints?: string[]) => void,
   send: (response: NappletMessage) => void,
   isActive: () => boolean,
-  relayHint?: string,
+  relayUrls: readonly string[],
 ): void {
   const { hooks } = context;
   const cache = hooks.cache;
@@ -160,7 +248,6 @@ function deliverFromRuntimeBackends(
   }
   if (!pool?.isAvailable() || isShellKind) return;
 
-  const relayUrls = relayHint ? [relayHint] : pool.selectRelayTier(filters);
   let eoseSent = false;
   const eoseFallbackTimer = setTimeout(() => {
     if (!eoseSent) {
@@ -169,7 +256,7 @@ function deliverFromRuntimeBackends(
     }
   }, 15_000);
 
-  const subscription = pool.subscribe(filters, (item) => {
+  const subscription = pool.subscribeToRelays!([...relayUrls], filters, (item) => {
     if (!isActive()) return;
     if (item === 'EOSE') {
       clearTimeout(eoseFallbackTimer);
@@ -180,11 +267,11 @@ function deliverFromRuntimeBackends(
       return;
     }
     const event = item as NostrEvent;
-    deliver(event, relayUrls);
+    deliver(event, [...relayUrls]);
     if (cache?.isAvailable() && !isShellKind) {
       try { cache.store(event); } catch { return; }
     }
-  }, relayUrls);
+  });
 
   pool.trackSubscription(subKey, () => {
     clearTimeout(eoseFallbackTimer);
@@ -249,6 +336,29 @@ function handleRelayPublish(
     return;
   }
 
+  const relayService = relayServiceFrom(context);
+  let plan: RelayOperationPlan;
+  try {
+    if (relayService) {
+      if (!isRelayPlanningServiceHandler(relayService)) throw new Error('legacy relay service');
+      plan = relayService.planRelayOperation(windowId, { type: 'relay.publish', id, event: eventTemplate } as NappletMessage);
+    } else {
+      const pool = hooks.relayPool;
+      if (!pool?.publishToRelays) throw new Error('legacy relay adapter');
+      plan = Object.freeze({ operation: 'publish', relayUrls: Object.freeze([...new Set(pool.selectRelayTier([]))]), localOnly: false });
+    }
+  } catch {
+    if (relayService && !legacyRelayServiceWarnings.has(relayService)) {
+      legacyRelayServiceWarnings.add(relayService);
+      console.warn('FW-RELAY-SERVICE-LEGACY-001: relay service must implement planRelayOperation and executeRelayOperation; legacy service was denied (warns once per service instance).');
+    } else if (!relayService && hooks.relayPool && !legacyRelayAdapterWarnings.has(hooks.relayPool)) {
+      legacyRelayAdapterWarnings.add(hooks.relayPool);
+      console.warn('FW-RELAY-ADAPTER-LEGACY-001: relay adapter must implement subscribeToRelays/publishToRelays; legacy adapter was denied (warns once per adapter instance).');
+    }
+    sendRelayPublishResult(hooks, windowId, id, false, undefined, 'relay operation requires explicit planned execution');
+    return;
+  }
+
   const signer = hooks.auth.getSigner(windowId);
   const signEvent = signer?.signEvent?.bind(signer);
   if (!signEvent) {
@@ -256,9 +366,11 @@ function handleRelayPublish(
     return;
   }
 
-  void (async (): Promise<void> => {
+  void authorizeRelay(context, windowId, 'relay.publish', plan, async (signal): Promise<void> => {
     try {
+      if (signal.aborted) return;
       const signed = await signEvent(eventTemplate);
+      if (signal.aborted) return;
       if (!signed) {
         sendRelayPublishResult(hooks, windowId, id, false, undefined, 'signEvent returned no event');
         return;
@@ -268,7 +380,7 @@ function handleRelayPublish(
         sendRelayPublishResult(hooks, windowId, id, false, undefined, replayResult);
         return;
       }
-      publishSignedRelayEvent(context, windowId, id, signed, (ok, error) => {
+      publishSignedRelayEvent(context, windowId, id, signed, plan, signal, (ok, error) => {
         if (ok) replayDetector.commit(signed.id);
         else replayDetector.release(signed.id);
         sendRelayPublishResult(hooks, windowId, id, ok, ok ? signed : undefined, error);
@@ -283,7 +395,7 @@ function handleRelayPublish(
         error instanceof Error && error.message ? error.message : 'event signing failed',
       );
     }
-  })();
+  }).catch(() => sendRelayPublishResult(hooks, windowId, id, false, undefined, 'relay authorization unavailable or denied'));
 }
 
 function sendRelayPublishResult(
@@ -305,12 +417,14 @@ function publishSignedRelayEvent(
   windowId: string,
   id: string,
   signed: NostrEvent,
+  plan: RelayOperationPlan,
+  signal: ApprovalSignal,
   reply: (ok: boolean, error?: string) => void,
 ): void {
   const { eventBuffer, hooks } = context;
   let settled = false;
   const settle = (ok: boolean, error?: string): void => {
-    if (settled) return;
+    if (settled || signal.aborted) return;
     settled = true;
     if (ok) {
       try { eventBuffer.bufferAndDeliver(signed, windowId); } catch { /* local delivery is best-effort */ }
@@ -319,10 +433,10 @@ function publishSignedRelayEvent(
   };
 
   const relayService = relayServiceFrom(context);
-  if (relayService) {
+  if (relayService && isRelayPlanningServiceHandler(relayService)) {
     const publishMessage = { type: 'relay.publish', id, event: signed } as NappletMessage;
     try {
-      relayService.handleMessage(windowId, publishMessage, (response: NappletMessage) => {
+      relayService.executeRelayOperation(windowId, publishMessage, plan, signal, (response: NappletMessage) => {
         if (
           response.type !== 'relay.publish.result'
           && response.type !== 'relay.publish.error'
@@ -353,7 +467,7 @@ function publishSignedRelayEvent(
     return;
   }
   try {
-    const publishResult = hooks.relayPool.publish(signed);
+    const publishResult = hooks.relayPool.publishToRelays?.(plan.relayUrls, signed);
     void Promise.resolve(publishResult).then(
       () => settle(true),
       (error: unknown) => settle(
@@ -410,17 +524,36 @@ function publishEncrypted(
   peSigner: Signer,
   replyPe: (ok: boolean, extra?: Record<string, unknown>) => void,
 ): void {
-  (async (): Promise<void> => {
+  let plan: RelayOperationPlan;
+  try {
+    const relayService = relayServiceFrom(context);
+    if (relayService) {
+      if (!isRelayPlanningServiceHandler(relayService)) throw new Error('legacy relay service');
+      plan = relayService.planRelayOperation(windowId,
+        { type: 'relay.publishEncrypted', id, event: eventTemplate, recipient, encryption } as NappletMessage);
+    } else {
+      const pool = context.hooks.relayPool;
+      if (!pool?.publishToRelays) throw new Error('legacy relay adapter');
+      plan = Object.freeze({ operation: 'publishEncrypted', relayUrls: Object.freeze([...new Set(pool.selectRelayTier([]))]), localOnly: false });
+    }
+  } catch {
+    replyPe(false, { error: 'relay operation requires explicit planned execution' });
+    return;
+  }
+  void authorizeRelay(context, windowId, 'relay.publishEncrypted', plan, async (signal): Promise<void> => {
     try {
+      if (signal.aborted) return;
       const plaintext = String((eventTemplate as { content?: unknown }).content ?? '');
       const ciphertext: string = encryption === 'nip44'
         ? (await peSigner.nip44?.encrypt(recipient, plaintext)) ?? ''
         : (await peSigner.nip04?.encrypt(recipient, plaintext)) ?? '';
+      if (signal.aborted) return;
       const eventWithCiphertext = { ...eventTemplate, content: ciphertext };
       const signed = await peSigner.signEvent?.(eventWithCiphertext);
+      if (signal.aborted) return;
       if (!signed) { replyPe(false, { error: 'signEvent returned null' }); return; }
 
-      publishSignedRelayEvent(context, windowId, id, signed, (ok, error) => {
+      publishSignedRelayEvent(context, windowId, id, signed, plan, signal, (ok, error) => {
         replyPe(ok, ok
           ? { event: signed, eventId: signed.id }
           : { error: error ?? 'publish failed' });
@@ -428,150 +561,156 @@ function publishEncrypted(
     } catch (err) {
       replyPe(false, { error: (err as Error)?.message ?? 'encryption failed' });
     }
-  })();
+  }).catch(() => replyPe(false, { error: 'relay authorization unavailable or denied' }));
 }
 
-function handleRelayQuery(
-  context: RelayHandlerContext,
-  windowId: string,
-  m: RuntimeRelayMessage,
-): void {
-  const { hooks, serviceRegistry, eventBuffer } = context;
-  const id = m.id ?? '';
-  const filters = m.filters ?? [];
-
-  const seenIds = new Set<string>();
-  const events: RelayEventResult[] = [];
-  for (const event of eventBuffer.getBufferedEvents()) {
-    if (matchesAnyFilter(event, filters) && !seenIds.has(event.id)) {
-      seenIds.add(event.id);
-      events.push(createRelayEventResult(event));
-    }
-  }
-
-  let settled = false;
-  let fallbackTimer: unknown;
-
-  function settle(): void {
-    if (settled) return;
-    settled = true;
-    clearTimeout(fallbackTimer);
-    hooks.sendToNapplet(windowId, { type: 'relay.query.result', id, events } as NappletMessage);
-  }
-
-  // Shell-kind queries (kinds 29000-29999): buffer-only, no relay delegation
-  if (isShellKindQuery(filters)) {
-    settle();
+function handleRelayQuery(context: RelayHandlerContext, windowId: string, input: RuntimeRelayMessage): void {
+  const source = context.getSource(windowId);
+  const id = typeof input.id === 'string' ? input.id : '';
+  const current = (): boolean => !!source && context.getSource(windowId) === source;
+  let replied = false;
+  const respond = (result: { events: RelayEventResult[] } | { error: string }): void => {
+    if (replied || !current()) return;
+    replied = true;
+    const response = { type: 'relay.query.result', id, ...result };
+    context.hooks.sendToNapplet(windowId, response);
+  };
+  const message = snapshotApprovalEnvelope(input) as RuntimeRelayMessage | undefined;
+  if (!message || (message.filters !== undefined && !Array.isArray(message.filters))) {
+    respond({ error: 'invalid relay query' });
     return;
   }
-
-  const relayService = relayServiceFrom(context);
-  const cacheService = !serviceRegistry['relay'] ? serviceRegistry['cache'] : undefined;
-
-  if (relayService) {
-    const svc = relayService;
-    // Delegate to registered relay service via a synthesized relay.subscribe
-    const subId = '__query__:' + id;
-    const subscribeMsg: RuntimeRelayMessage = {
-      type: 'relay.subscribe',
-      id,
-      subId,
-      filters,
-    };
-    if (typeof m.relay === 'string' && m.relay.length > 0) {
-      subscribeMsg.relay = m.relay;
-    }
-
-    let openBackends = cacheService ? 2 : 1;
-
-    function onBackendEose(): void {
-      openBackends--;
-      if (openBackends <= 0) {
-        // Tear down the delegated subscriptions
-        const closeMsg = { type: 'relay.close', id, subId } as NappletMessage;
-        svc.handleMessage(windowId, closeMsg, () => {});
-        if (cacheService) {
-          cacheService.handleMessage(windowId, closeMsg, () => {});
+  const filters = message.filters ?? [];
+  let service = relayServiceFrom(context);
+  let plan: RelayOperationPlan;
+  try {
+    if (isShellKindQuery(filters)) {
+      service = undefined;
+      plan = { operation: 'query', relayUrls: [], localOnly: true };
+    } else if (service) {
+      if (!isRelayPlanningServiceHandler(service)) {
+        if (!legacyRelayServiceWarnings.has(service)) {
+          legacyRelayServiceWarnings.add(service);
+          console.warn('FW-RELAY-SERVICE-LEGACY-001: relay service must implement planRelayOperation and executeRelayOperation; legacy service was denied (warns once per service instance).');
         }
-        settle();
+        throw new Error('relay service requires explicit planned execution');
       }
+      plan = service.planRelayOperation(windowId, message);
+    } else {
+      const pool = context.hooks.relayPool;
+      if (pool?.isAvailable() && !pool.subscribeToRelays) {
+        if (!legacyRelayAdapterWarnings.has(pool)) {
+          legacyRelayAdapterWarnings.add(pool);
+          console.warn('FW-RELAY-ADAPTER-LEGACY-001: relay adapter must implement subscribeToRelays/publishToRelays; legacy adapter was denied (warns once per adapter instance).');
+        }
+        throw new Error('relay adapter requires explicit planned execution');
+      }
+      // The query relay hint is retained as a bounded Kehto extension; the
+      // NAP-RELAY query wire only specifies filters. It never grants authority.
+      const relayUrls = !pool?.isAvailable() ? []
+        : typeof message.relay === 'string' && message.relay.length > 0
+          ? [message.relay] : pool.selectRelayTier(filters);
+      plan = { operation: 'query', relayUrls, localOnly: !pool?.isAvailable() };
     }
+    plan = Object.freeze({ ...plan, operation: 'query', relayUrls: Object.freeze([...new Set(plan.relayUrls)]) });
+  } catch (error) {
+    respond({ error: error instanceof Error ? error.message : 'invalid relay destination' });
+    return;
+  }
+  const plannedService = isRelayPlanningServiceHandler(service) ? service : undefined;
+  void authorizeRelay(context, windowId, 'relay.query', plan, (signal) =>
+    collectRelayQuery(context, windowId, message, plan, plannedService, signal, current, respond),
+  ).catch(() => respond({ error: 'relay authorization unavailable or denied' }));
+}
 
-    function makeCollector(): (resp: NappletMessage) => void {
-      return function collector(resp: NappletMessage): void {
-        const r = resp as RuntimeRelayMessage;
-        const result = r.type === 'relay.event' ? relayEventResultFromCarrier(r) : null;
-        if (result && !seenIds.has(result.event.id)) {
-          seenIds.add(result.event.id);
-          events.push(result);
-        } else if (r.type === 'relay.eose') {
-          onBackendEose();
+/** Keep the one query authorization alive until all reads finish or abort. */
+function collectRelayQuery(
+  context: RelayHandlerContext, windowId: string, message: RuntimeRelayMessage,
+  plan: RelayOperationPlan, service: ReturnType<typeof relayServiceFrom>, signal: ApprovalSignal,
+  current: () => boolean, respond: (result: { events: RelayEventResult[] } | { error: string }) => void,
+): Promise<void> {
+  const filters = message.filters ?? [];
+  const events: RelayEventResult[] = [];
+  const seen = new Set<string>();
+  const active = (): boolean => !signal.aborted && current() && context.canReadRelay(windowId);
+  const collect = (result: RelayEventResult): void => {
+    if (!active() || seen.has(result.event.id)) return;
+    seen.add(result.event.id);
+    events.push(result);
+  };
+  for (const event of context.eventBuffer.getBufferedEvents()) {
+    if (matchesAnyFilter(event, filters)) collect(createRelayEventResult(event));
+  }
+  if (isShellKindQuery(filters)) {
+    if (active()) respond({ events });
+    return Promise.resolve();
+  }
+  return new Promise<void>((resolve) => {
+    const subId = `__query__:${message.id ?? ''}:${context.hooks.crypto.randomUUID()}`;
+    const cacheService = service && !context.serviceRegistry['relay'] ? context.serviceRegistry['cache'] : undefined;
+    const cache = !service && context.hooks.cache?.isAvailable() ? context.hooks.cache : undefined;
+    let remaining = 1 + (cacheService || cache ? 1 : 0);
+    let settled = false;
+    let subscription: { unsubscribe(): void } | undefined;
+    let timer: unknown;
+    const close = (): void => {
+      const closeMessage = { type: 'relay.close', subId } as NappletMessage;
+      for (const backend of new Set([service, cacheService])) {
+        try { backend?.handleMessage(windowId, closeMessage, () => {}); }
+        catch { /* Every backend must still get its cleanup. */ }
+      }
+      try { subscription?.unsubscribe(); } catch { /* Transport cleanup cannot prevent settlement. */ }
+    };
+    const finish = (error?: string): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      signal.removeEventListener('abort', abort);
+      try { close(); } finally {
+        if (error) respond({ error });
+        else if (active()) respond({ events });
+        resolve();
+      }
+    };
+    const abort = (): void => finish('relay authorization cancelled');
+    const completed = (): void => { if (--remaining === 0) finish(); };
+    const collector = (): ((response: NappletMessage) => void) => {
+      let ended = false;
+      return (response) => {
+        if (settled || ended || !active()) return;
+        const result = relayEventResultFromCarrier(response as RuntimeRelayMessage);
+        if (response.type === 'relay.event' && result) collect(result);
+        else if (response.type === 'relay.eose' || response.type === 'relay.closed') {
+          ended = true;
+          if (response.type === 'relay.closed') finish('relay query closed');
+          else completed();
         }
       };
-    }
-
-    fallbackTimer = setTimeout(() => {
-      const closeMsg = { type: 'relay.close', id, subId } as NappletMessage;
-      svc.handleMessage(windowId, closeMsg, () => {});
-      if (cacheService) {
-        cacheService.handleMessage(windowId, closeMsg, () => {});
+    };
+    signal.addEventListener('abort', abort, { once: true });
+    if (!active()) { abort(); return; }
+    timer = setTimeout(() => finish(), 15_000);
+    try {
+      if (isRelayPlanningServiceHandler(service)) {
+        const subscribe = { ...message, type: 'relay.subscribe', subId, filters } as NappletMessage;
+        service.executeRelayOperation(windowId, subscribe, plan, signal, collector());
+        if (!settled) cacheService?.handleMessage(windowId, subscribe, collector());
+      } else {
+        if (cache) void cache.query(filters).then((cached) => {
+          if (!settled) for (const event of cached) collect(createRelayEventResult(event));
+        }).catch(() => {}).finally(completed);
+        const pool = context.hooks.relayPool;
+        if (!pool?.isAvailable()) { completed(); return; }
+        const receive = collector();
+        subscription = pool.subscribeToRelays!([...plan.relayUrls], filters, (item) => {
+          if (settled || !active()) return;
+          receive(item === 'EOSE' ? { type: 'relay.eose' } : {
+            type: 'relay.event', result: createRelayEventResultWithHints(item, [...plan.relayUrls]),
+          } as NappletMessage);
+          if (item !== 'EOSE') { try { cache?.store(item); } catch { /* Cache writes are best-effort. */ } }
+        });
+        if (settled) subscription.unsubscribe();
       }
-      settle();
-    }, 15_000);
-
-    svc.handleMessage(windowId, subscribeMsg as NappletMessage, makeCollector());
-    if (cacheService) {
-      cacheService.handleMessage(windowId, subscribeMsg as NappletMessage, makeCollector());
-    }
-    return;
-  }
-
-  // No registered relay service — fall back to runtime hooks (cache + relay pool)
-  const cache = hooks.cache;
-  const pool = hooks.relayPool;
-
-  if (cache?.isAvailable()) {
-    cache.query(filters)
-      .then((cachedEvents) => {
-        for (const event of cachedEvents) {
-          if (!seenIds.has(event.id)) {
-            seenIds.add(event.id);
-            events.push(createRelayEventResult(event));
-          }
-        }
-      })
-      .catch(() => {});
-  }
-
-  if (!pool?.isAvailable()) {
-    settle();
-    return;
-  }
-
-  const relayHint = typeof m.relay === 'string' && m.relay.length > 0 ? m.relay : undefined;
-  const relayUrls = relayHint ? [relayHint] : pool.selectRelayTier(filters);
-
-  let poolSubscription: { unsubscribe(): void } | undefined;
-
-  fallbackTimer = setTimeout(() => {
-    poolSubscription?.unsubscribe();
-    settle();
-  }, 15_000);
-
-  poolSubscription = pool.subscribe(filters, (item) => {
-    if (item === 'EOSE') {
-      clearTimeout(fallbackTimer);
-      poolSubscription?.unsubscribe();
-      settle();
-      return;
-    }
-    const event = item as NostrEvent;
-    if (!seenIds.has(event.id)) {
-      seenIds.add(event.id);
-      events.push(createRelayEventResultWithHints(event, relayUrls));
-    }
-    if (cache?.isAvailable()) {
-      try { cache.store(event); } catch { return; }
-    }
-  }, relayUrls);
+    } catch { finish('relay query failed'); }
+  });
 }

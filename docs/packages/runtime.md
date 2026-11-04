@@ -1,5 +1,22 @@
 # @kehto/runtime
 
+## Relay approval boundary
+
+Relay requests create an immutable destination plan before approval. Registered
+services use `RelayPlanningServiceHandler`; direct adapters use
+`subscribeToRelays()` and `publishToRelays()`. Approval encloses buffer/cache
+delivery, encryption, signing, and transport. See [compatibility](/compatibility)
+for the retained legacy diagnostics.
+
+Scoped approvals are available through `RuntimeAdapter.permissions`, source-bound
+`SessionEntry.permissionPrincipal`, and `ServiceRuntimeContext.authorizeOperation`.
+The reference LINK service and declared extension routes are integrated; other
+service scope migration is ongoing. `runtime.permissions.admit` and
+`isAdmissionCurrent` support pre-execution interface approval; built-in interface
+dispatch requires the resulting grants. Prompt budgets are independently blocking.
+See [the approval guide](/firewall-approvals) for storage, cancellation,
+revocation, and independent rate-budget contracts.
+
 Browser-agnostic protocol engine for NIP-5D napplet hosting.
 
 > **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
@@ -57,7 +74,17 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
   Both apply on the next evaluation, throw `RangeError` on out-of-range values, and
   need `persist()` to outlast a reload. A multiplier of zero is refused, because
   focus alone must never empty a budget. Custom `FirewallStateContainer`
-  implementations must provide both methods.
+  implementations must provide both methods. These act on the legacy gate only. With
+  `RuntimeAdapter.permissions` configured, use `runtime.permissions.setRateLimit(config)`
+  below; the legacy setters then warn with `FW-RUNTIME-LEGACY-IGNORED-001`.
+- `runtime.permissions.setRateLimit(config)` changes the operation budget on a host
+  with `RuntimeAdapter.permissions`, including `unfocusedMultiplier` and the startup
+  `burst` guard. `runtime.permissions.rateLimit` reads the one in force, so a partial
+  change spreads it. It applies from the next operation, keeps running counters and
+  throws `RangeError` on out-of-range values, leaving the current budget in force. A
+  multiplier above 1 loosens background windows, and a `burst.windowMs` of zero turns
+  the guard off. It isn't persisted: restore it through `PermissionAdapter.rateLimit`.
+  Prompt budgets are separate and don't change.
 - ACL listing and lookup return `AclEntryExternal` with required `dTag` and
   `aggregateHash` fields. Feed those fields into keyed revoke/block/quota methods;
   listing `pubkey` remains empty because it is not the principal key. Results are
@@ -69,7 +96,10 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
   policy is `'permissive'` unless persisted ACL state stores another one. When it's
   set, it replaces the policy in persisted state on load, so an earlier permissive
   save can't reopen a restrictive host. Stored entries are kept as they are, so a
-  host moving to `'restrictive'` should clear entries it no longer trusts.
+  host moving to `'restrictive'` should clear entries it no longer trusts. With
+  `RuntimeAdapter.permissions` it's a ceiling: admission can still approve an interface,
+  but an operation the ACL denies is refused with no prompt until the host grants the
+  capability.
 - ACL mutations and revoke/block observers take effect in memory before an
   explicit save. `aclState.persist()` and `aclState.clear()` return `true` when
   their synchronous backend call succeeds and `false` when it throws. Failure
@@ -149,7 +179,7 @@ It changes no NIP-5D wire messages or NAP-THEME result behavior.
 
 ## GAMEPAD integration
 
-This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja registers one host reader and deny native gamepad/HID/USB paths before frame execution. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, window destruction, and service removal release polling. Non-browser or denied native readers report the proposal's unavailable reasons. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
+This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja registers one host reader and denies native gamepad/HID/USB paths before frame execution. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, window destruction, and service removal release polling. Non-browser or denied native readers report the proposal's unavailable reasons. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
 
 ## LLM integration
 
@@ -159,3 +189,65 @@ This non-normative guidance defers to the living [NAP-LLM](https://github.com/na
 
 See [Media playback](https://github.com/kehto/web/blob/main/docs/media.md) for NAP-MEDIA draft authority, shell-owned audio/video,
 shared host controls, endpoint cleanup, and command API migration.
+
+## Independent rate limits
+
+`evaluateRateLimit` is a pure temporal evaluator exported separately from permission
+policy. Callers supply a trusted subject, operation, endpoint lifecycle, and clock;
+the returned state must be passed to the next call. Approval never bypasses this
+module. The default budgets are 60 operations per minute and 20 operations in the
+first three seconds of a lifecycle, with one-quarter capacity while unfocused.
+The rate default flags excess traffic; the startup burst default blocks it.
+
+```ts
+import {
+  createRateLimitState,
+  defaultRateLimitConfig,
+  evaluateRateLimit,
+} from '@kehto/runtime';
+
+let counters = createRateLimitState();
+const result = evaluateRateLimit(defaultRateLimitConfig(), counters, {
+  subject: 'verified-manifest-key',
+  operation: 'link.open',
+  lifecycle: 'frame-generation-1',
+  elapsedSinceStartMs: 0,
+  focused: true,
+  now: 0,
+});
+counters = result.state;
+// Enforce result.allowed; report flagged excess through host diagnostics.
+```
+
+`retireRateLimitLifecycle` removes startup counters while preserving the subject's
+operation budget. State is ephemeral; it is not a permission grant or a persistence
+format. Invalid budgets and nonfinite clocks throw `RangeError`. Clock rollback
+cannot create an extra refill. Subject/operation keys are encoded without delimiter
+collisions. Configured runtimes use the independent budget through the shared
+permission coordinator. Hosts without `RuntimeAdapter.permissions` retain the
+legacy temporal gate with `FW-RUNTIME-LEGACY-GATE-001` on actual use; see the
+[compatibility register](/compatibility). `onFirewallEvent`, `firewallPersistence` and
+the `firewallState` mutators belong to that gate, so a configured runtime warns once
+with `FW-RUNTIME-LEGACY-IGNORED-001` when they're used. `getFocusContext` feeds both.
+
+
+### Cancelling one approved operation
+
+Services may pass a request-owned signal as the fifth argument to
+`ServiceRuntimeContext.authorizeOperation(windowId, operation, requirements,
+execute, signal)`. Aborting it settles that request as `cancelled`, dismisses its
+prompt through the prompt signal, and aborts the signal passed to `execute`.
+Sibling requests keep their own lifetimes. Late approval answers cannot create
+grants; late action results are discarded. The service must still observe the
+execution signal before each later side effect and apply its protocol's
+cancellation response rules.
+
+A cancelled queued request settles immediately, but later equivalent requests
+still wait behind the active prompt. Retained queue entries count toward the
+queue bound until their predecessor settles. Request listeners are removed when
+the operation settles. An already-aborted signal never opens a prompt or invokes
+the action.
+
+Registered extensions revalidate their exact capability declaration after approval
+and before sending deferred replies. Replacing, removing, or changing that
+declaration invalidates the captured operation; a late answer grants nothing.

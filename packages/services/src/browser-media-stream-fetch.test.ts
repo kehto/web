@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createBrowserMediaStreamFetch } from './browser-media-stream-fetch.js';
-import { createResourceService } from './resource-service.js';
+import type { ApprovalSignal, PermissionRequirement, ServiceRuntimeContext } from '@kehto/runtime';
+import { createResourceService, type ResourceFetchInit } from './resource-service.js';
 
 describe('host-only live audio resolution', () => {
   it('starts from split MP3 bytes without EOF and cancels its upstream reader', async () => {
@@ -36,21 +37,49 @@ describe('host-only live audio resolution', () => {
     expect(fetcher).not.toHaveBeenCalled();
   });
 
-  it('enforces the same live endpoint grants as atomic resources and passes cancellation identity', async () => {
-    const stream = vi.fn(async () => new Response('audio'));
-    const resource = createResourceService({
-      fetch: vi.fn(), stream,
-      resolveIdentity: id => id === 'owner' ? { dTag: 'radio', aggregateHash: 'a'.repeat(64) } : null,
-      getConnectGrants: () => ['https://radio.example'], isOriginGranted: (origin, grants) => grants.includes(origin),
-    });
+  it('requires the same resource and network approvals as atomic resources and keeps playback cancellation', async () => {
+    const stream = vi.fn(async (_url: string, _init: ResourceFetchInit) => new Response('audio'));
+    const resource = createResourceService({ fetch: vi.fn(), stream });
+    const operations: string[] = [];
+    resource.onRegistered?.({
+      authorizeOperation: async (_windowId: string, operation: string, requirements: readonly PermissionRequirement[], execute: (signal: ApprovalSignal) => Promise<unknown>) => {
+        operations.push(operation);
+        if (requirements.some((item) => item.category === 'network' && item.scope.value !== 'https://radio.example')) return { status: 'denied' };
+        return { status: 'executed', value: await execute(new AbortController().signal as unknown as ApprovalSignal) };
+      },
+    } as unknown as ServiceRuntimeContext);
     const controller = new AbortController();
-    await expect(resource.openStream('owner', 'https://blocked.example/stream', controller.signal)).rejects.toThrow('not granted');
-    await expect(resource.openStream('stranger', 'https://radio.example/stream', controller.signal)).rejects.toThrow('identity not resolvable');
+    await expect(resource.openStream('owner', 'https://blocked.example/stream', controller.signal)).rejects.toThrow();
     expect(stream).not.toHaveBeenCalled();
     await resource.openStream('owner', 'https://radio.example/stream', controller.signal);
-    expect(stream).toHaveBeenCalledWith('https://radio.example/stream', { method: 'GET', signal: controller.signal, windowId: 'owner' });
+    expect(operations).toEqual(['resource.bytes', 'resource.network', 'resource.bytes', 'resource.network']);
+    expect(stream).toHaveBeenCalledOnce();
+    const init = stream.mock.calls[0][1];
+    expect(init).toMatchObject({ method: 'GET', windowId: 'owner' });
+    expect(init.signal.aborted).toBe(false);
     controller.abort();
+    expect(init.signal.aborted).toBe(true);
     await expect(resource.openStream('owner', 'https://radio.example/stream', controller.signal)).rejects.toThrow('cancelled');
     expect(stream).toHaveBeenCalledOnce();
+  });
+
+  it('warns once on the legacy stream path and stays quiet once a runtime approves it', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const stream = vi.fn(async () => new Response('audio'));
+    const legacy = createResourceService({ fetch: vi.fn(), stream });
+    const signal = new AbortController().signal;
+    await legacy.openStream('owner', 'https://radio.example/stream', signal);
+    await legacy.openStream('owner', 'https://radio.example/stream', signal);
+    expect(warn.mock.calls.filter(([text]) => String(text).includes('FW-RESOURCE-LEGACY-001'))).toHaveLength(1);
+    warn.mockClear();
+    const canonical = createResourceService({ fetch: vi.fn(), stream });
+    canonical.onRegistered?.({
+      authorizeOperation: async (_windowId: string, _operation: string, _requirements: unknown, execute: (signal: ApprovalSignal) => Promise<unknown>) => ({
+        status: 'executed', value: await execute(new AbortController().signal as unknown as ApprovalSignal),
+      }),
+    } as unknown as ServiceRuntimeContext);
+    await canonical.openStream('owner', 'https://radio.example/stream', signal);
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
   });
 });

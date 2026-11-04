@@ -30,6 +30,8 @@ import { ensureFreshNappletFrame } from './browser-target-frame.js';
 /** Host effects Paja's NIP-5D integration needs from the browser host. */
 export interface PajaNip5dHostEffects {
   setStatus(state: PajaBrowserState, status: PajaBrowserState['status']): void;
+  /** Refresh devtools once a source reports ready, so they show its admitted interfaces. */
+  renderDevtools(state: PajaBrowserState): void;
 }
 
 const LAUNCHER_MESSAGE_TYPES = new Set(['paja.intent.launcher.ready', 'paja.intent.launcher.result']);
@@ -113,12 +115,11 @@ export function observePajaNappletMessage(
         setReadyStatus: (current) => effects.setStatus(current, 'ready'),
       });
     }
-    return;
-  }
-  if (windowId === context.runtime.currentWindowId) {
+  } else if (windowId === context.runtime.currentWindowId) {
     context.runtime.readyWindowIds.add(windowId);
     effects.setStatus(state, 'ready');
   }
+  effects.renderDevtools(state);
 }
 
 /**

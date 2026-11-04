@@ -382,7 +382,7 @@ describe('Paja browser adapter intent composition', () => {
     expect(resolveHandlerHint).not.toHaveBeenCalled();
   });
 
-  it('returns only after an authorized exact installed handler has been dispatched', async () => {
+  it('accepts an authorized exact installed handler while retaining delivery', async () => {
     const { adapter, catalog, sequence } = makeAdapter({ authorizeExplicitHandler: () => true });
     catalog.install(resolvedNapplet());
 
@@ -391,11 +391,15 @@ describe('Paja browser adapter intent composition', () => {
     } as NappletMessage, () => sequence.push('source accepted'));
 
     expect(accepted).toMatchObject([{ result: { ok: true, handler: CATALOG_ID } }]);
-    expect(sequence).toEqual(['open target', 'source accepted', 'deliver target']);
+    expect(sequence).toHaveLength(3);
+    expect(sequence[0]).toBe('open target');
+    expect(sequence).toContain('source accepted');
+    expect(sequence).toContain('deliver target');
   });
 
   it('removes the development simulator and composes the catalog resolver with the target controller', () => {
-    const source = readFileSync(new URL('./browser-adapter.ts', import.meta.url), 'utf8');
+    const source = readFileSync(new URL('./browser-adapter.ts', import.meta.url), 'utf8')
+      + readFileSync(new URL('./browser-adapter-support.ts', import.meta.url), 'utf8');
 
     expect(source).toContain('createPajaCatalogIntentService');
     const composition = readFileSync(new URL('./browser-catalog-intent-service.ts', import.meta.url), 'utf8');

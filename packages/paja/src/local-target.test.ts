@@ -6,6 +6,7 @@ import {
   findRelativeAssetReferences,
   isPajaLocalHtmlFile,
   isPajaLocalTarget,
+  readDevelopmentDomains,
   readNappletIdMeta,
 } from './local-target.js';
 
@@ -93,5 +94,13 @@ describe('@kehto/paja local index.html targets', () => {
 
     expect(target.relativeAssets).toEqual(['./main.js', 'style.css']);
     expect(findRelativeAssetReferences(SINGLE_FILE)).toEqual([]);
+  });
+
+  it('reads unsigned development interface requests without treating them as grants', () => {
+    const html = '<meta name="napplet-requires" content="shell resource">'
+      + '<meta content="theme resource" name="napplet-optional">';
+    expect(readDevelopmentDomains(html)).toEqual({ required: ['shell', 'resource'], optional: ['theme'] });
+    expect(readDevelopmentDomains('<p>no declarations</p>')).toEqual({ required: [], optional: [] });
+    expect(() => readDevelopmentDomains('<meta name="napplet-requires" content="resource.*">')).toThrow(/Invalid/);
   });
 });

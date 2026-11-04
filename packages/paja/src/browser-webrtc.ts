@@ -8,6 +8,7 @@ import type {
 } from '@napplet/core';
 import type {
   WebrtcServiceContext,
+  WebrtcOpenPlan,
   WebrtcServiceOptions,
 } from '@kehto/services';
 import type { Signer } from '@kehto/runtime';
@@ -27,8 +28,14 @@ const ICE_GATHER_TIMEOUT_MS = 8_000;
 const BUFFERED_AMOUNT_LIMIT = 1024 * 1024;
 
 interface PajaWebrtcRelay {
-  subscribe(filters: NostrFilter[], onEvent: (event: NostrEvent) => void): { close(): void };
-  publish(event: NostrEvent): Promise<void>;
+  subscribe(relayUrls: readonly string[], filters: NostrFilter[], onEvent: (event: NostrEvent) => void): { close(): void };
+  publish(relayUrls: readonly string[], event: NostrEvent): Promise<void>;
+}
+
+/** An injected factory must declare every configured ICE/TURN endpoint. */
+export interface PajaWebrtcPeerFactory {
+  readonly iceEndpoints: readonly string[];
+  create(): RTCPeerConnection;
 }
 
 /** Host dependencies for Paja's real Nostr-signaled WebRTC controller. */
@@ -38,6 +45,9 @@ export interface PajaWebrtcControllerOptions {
   readonly getPubkey: () => string | null;
   readonly getIdentity: PajaIdentityProvider;
   readonly confirm: PajaConfirmationHandler;
+  readonly signalingRelayUrls: () => readonly string[];
+  readonly peerFactory?: PajaWebrtcPeerFactory;
+  /** @deprecated Opaque factories are rejected; use peerFactory with iceEndpoints. */
   readonly createPeerConnection?: () => RTCPeerConnection;
   readonly crypto?: Crypto;
 }
@@ -49,6 +59,8 @@ export interface PajaWebrtcController {
   refreshAvailability(): boolean;
   /** Close all relay subscriptions, peer connections, and data channels. */
   dispose(): void;
+  /** Close all work for a revoked source without publishing a disconnect signal. */
+  revokeWindow(windowId: string): void;
 }
 
 interface SignalPayload {
@@ -77,6 +89,7 @@ interface SessionState {
   readonly roomHash?: string;
   readonly allowedPeers: Set<string> | null;
   readonly context: WebrtcServiceContext;
+  readonly signalingRelayUrls: readonly string[];
   readonly peers: Map<string, PeerState>;
   readonly acknowledgedPeers: Set<string>;
   readonly seenSignals: Set<string>;
@@ -99,7 +112,9 @@ export function createPajaWebrtcController(
   options: PajaWebrtcControllerOptions,
 ): PajaWebrtcController | null {
   const crypto = options.crypto ?? globalThis.crypto;
-  const createPeerConnection = options.createPeerConnection ?? defaultPeerConnectionFactory();
+  if (options.createPeerConnection && !options.peerFactory) return null;
+  const peerFactory = options.peerFactory;
+  const createPeerConnection = peerFactory?.create ?? defaultPeerConnectionFactory();
   if (!crypto?.subtle || !createPeerConnection) return null;
   return new BrowserWebrtcController(options, crypto, createPeerConnection);
 }
@@ -116,10 +131,12 @@ class BrowserWebrtcController implements PajaWebrtcController {
   ) {}
 
   readonly serviceOptions: WebrtcServiceOptions = {
-    open: (request, context) => this.open(request, context),
+    planOpen: (request, context) => this.planOpen(request, context),
+    open: (request, context, plan) => this.open(request, context, plan),
     send: (sessionId, payload, context) => this.send(sessionId, payload, context),
     close: (sessionId, reason, context) => this.close(sessionId, reason, context),
     destroyWindow: (windowId) => this.destroyWindow(windowId),
+    revokeWindow: (windowId) => this.revokeWindow(windowId),
   };
 
   refreshAvailability(): boolean {
@@ -139,10 +156,31 @@ class BrowserWebrtcController implements PajaWebrtcController {
     }
   }
 
+  revokeWindow(windowId: string): void {
+    for (const session of this.sessions.values()) {
+      if (session.windowId !== windowId) continue;
+      session.closing = true;
+      this.disposeSession(session, undefined, false);
+    }
+  }
+
+  private planOpen(request: WebrtcOpenRequest, _context: WebrtcServiceContext): WebrtcOpenPlan {
+    validateOpenRequest(request);
+    const signalingRelayUrls = [...new Set(this.options.signalingRelayUrls().map((url) => String(url).trim()).filter(Boolean))];
+    if (signalingRelayUrls.length === 0) throw new Error('signaling unavailable');
+    return Object.freeze({
+      signalingRelayUrls: Object.freeze(signalingRelayUrls),
+      iceEndpoints: Object.freeze([...(this.options.peerFactory?.iceEndpoints ?? [])]),
+      resource: request.scope.type === 'direct' ? `peer:${request.scope.pubkey}` : `room:${request.scope.room}`,
+    });
+  }
+
   private async open(
     request: WebrtcOpenRequest,
     context: WebrtcServiceContext,
+    plan: WebrtcOpenPlan = this.planOpen(request, context),
   ): Promise<WebrtcOpenResult> {
+    if (context.signal?.aborted) throw new Error('policy denied');
     if (!this.refreshAvailability()) throw new Error('signaling unavailable');
     validateOpenRequest(request);
     if (this.windowSessionCount(context.windowId) >= PAJA_WEBRTC_MAX_SESSIONS_PER_WINDOW) {
@@ -160,6 +198,7 @@ class BrowserWebrtcController implements PajaWebrtcController {
       warning: 'WebRTC reveals network metadata to connected peers.',
     });
     if (!allowed) throw new Error('policy denied');
+    if (context.signal?.aborted) throw new Error('policy denied');
 
     const id = this.crypto.randomUUID();
     const channel = request.channel ?? 'default';
@@ -179,6 +218,7 @@ class BrowserWebrtcController implements PajaWebrtcController {
       ...(roomHash ? { roomHash } : {}),
       allowedPeers,
       context,
+      signalingRelayUrls: plan.signalingRelayUrls,
       peers: new Map(),
       acknowledgedPeers: new Set(),
       seenSignals: new Set(),
@@ -188,12 +228,16 @@ class BrowserWebrtcController implements PajaWebrtcController {
     };
     this.sessions.set(id, session);
     try {
-      session.subscription = this.options.relay.subscribe(signalFilters(session), (event) => {
+      session.subscription = this.options.relay.subscribe(session.signalingRelayUrls, signalFilters(session), (event) => {
         void this.handleSignal(session, event).catch(() => {
           // A remote peer cannot fail the host event loop with malformed signaling.
         });
       });
       await this.publishPresence(session, 'connect');
+      context.signal?.addEventListener('abort', () => {
+        session.closing = true;
+        this.disposeSession(session, undefined, false);
+      }, { once: true });
     } catch (cause) {
       this.disposeSession(session, undefined, false);
       throw cause;
@@ -415,7 +459,8 @@ class BrowserWebrtcController implements PajaWebrtcController {
     if (event.pubkey !== session.localPubkey || event.kind !== PAJA_WEBRTC_SIGNAL_KIND || !verifyEvent(event)) {
       throw new Error('signaling unavailable');
     }
-    await this.options.relay.publish(event);
+    if (session.context.signal?.aborted || session.state === 'closed') throw new Error('policy denied');
+    await this.options.relay.publish(session.signalingRelayUrls, event);
   }
 
   private async decryptSignal(session: SessionState, event: NostrEvent): Promise<SignalPayload | null> {

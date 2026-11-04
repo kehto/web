@@ -37,7 +37,7 @@ export interface FlowTarget {
 
 const FLOW_TARGET_HTML = `<!doctype html>
 <html>
-  <head><meta charset="utf-8"><title>Kehto Paja flow target</title></head>
+  <head><meta charset="utf-8"><meta name="napplet-requires" content="shell"><meta name="napplet-optional" content="__OPTIONAL_DOMAINS__"><title>Kehto Paja flow target</title></head>
   <body>
     <output id="flow-status">booting</output>
     <script>
@@ -60,13 +60,15 @@ const FLOW_TARGET_HTML = `<!doctype html>
 /**
  * Start the HTTP server that serves the flow target napplet.
  *
+ * @param optionalDomains - NAP domains the target declares; each one costs an admission prompt per load.
  * @returns Target URL and a close handle.
  * @example
  * ```ts
- * const target = await startFlowTarget();
+ * const target = await startFlowTarget(['relay']);
  * ```
  */
-export async function startFlowTarget(): Promise<FlowTarget> {
+export async function startFlowTarget(optionalDomains: readonly string[]): Promise<FlowTarget> {
+  const html = FLOW_TARGET_HTML.replace('__OPTIONAL_DOMAINS__', optionalDomains.join(' '));
   const server = createServer((request, response) => {
     if ((request.url ?? '/').split('?')[0] !== '/') {
       response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
@@ -78,7 +80,7 @@ export async function startFlowTarget(): Promise<FlowTarget> {
       'cache-control': 'no-store',
       'content-type': 'text/html; charset=utf-8',
     });
-    response.end(FLOW_TARGET_HTML);
+    response.end(html);
   });
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject);
