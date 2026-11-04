@@ -347,6 +347,7 @@ export interface UnroutedMessageInfo {
  * - `invalid-hello` — a `napplet.hello` without exactly one transferred port.
  * - `second-load` — the iframe loaded a second document (navigation or reload).
  * - `port-closed` — the bound port closed or failed to deserialize a message.
+ * - `deferred-overflow` — too many envelopes were waiting on `filterNappletMessage` deferral.
  * - `host` — the host revoked the binding itself.
  */
 export type NappletRevocationReason =
@@ -355,7 +356,17 @@ export type NappletRevocationReason =
   | 'invalid-hello'
   | 'second-load'
   | 'port-closed'
+  | 'deferred-overflow'
   | 'host';
+
+/**
+ * What {@link ShellAdapter.filterNappletMessage} wants done with an envelope.
+ *
+ * - `dispatch` — hand it to the runtime.
+ * - `drop` — discard it. The binding stays live and nothing is sent back.
+ * - `defer` — hold it until `ShellBridge.releaseDeferred(windowId)`.
+ */
+export type NappletMessageDecision = 'dispatch' | 'drop' | 'defer';
 
 /**
  * Passed to {@link ShellAdapter.onNappletRevoked} after the shell closed the
@@ -508,6 +519,24 @@ export interface ShellAdapter {
    * message; host hook errors are swallowed.
    */
   onNappletMessage?: (windowId: string, message: NappletMessage) => void;
+  /**
+   * Decides what happens to each NAP envelope from a bound port, before the
+   * runtime sees it. `onNappletMessage` still observes every envelope first. A
+   * filter that throws or returns an unknown value drops the envelope.
+   *
+   * `shell.ready` never reaches this hook, because NAP-SHELL requires its first
+   * `shell.init` reply. While envelopes are deferred, a later `dispatch` decision
+   * joins the queue so it can't overtake them, and `drop` still discards. A window
+   * holding more than `MAX_DEFERRED_MESSAGES` is revoked with `deferred-overflow`.
+   *
+   * Spec gap: NAP docs don't define a request that a host holds or drops. A
+   * dropped request gets no reply, and a deferred one gets its reply on release.
+   *
+   * @param windowId - The napplet window that sent the envelope
+   * @param message - The envelope received on the bound port
+   * @returns The decision for this envelope
+   */
+  filterNappletMessage?: (windowId: string, message: NappletMessage) => NappletMessageDecision;
   /** Called when aggregate hash verification fails (computed != declared). */
   onHashMismatch?: (dTag: string, claimed: string, computed: string) => void;
   /**
