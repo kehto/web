@@ -1,6 +1,5 @@
 ---
 "@kehto/acl": patch
-"@kehto/cli": patch
 "@kehto/firewall": patch
 "@kehto/runtime": patch
 ---

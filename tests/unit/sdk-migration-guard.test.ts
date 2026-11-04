@@ -338,7 +338,7 @@ describe('current @napplet package graph guard', () => {
     const HOST_DEV_NAP = '>=0.37.0 <0.38.0';
     const PEER_WINDOWS: Record<string, { core: string; nap: string }> = {
       'packages/acl': { core: '>=0.32.0 <0.39.0', nap: '>=0.32.0 <0.38.0' },
-      'packages/cli': { core: '>=0.32.0 <0.39.0', nap: '>=0.32.0 <0.38.0' },
+      'packages/cli': { core: '>=0.38.0 <0.39.0', nap: '>=0.37.0 <0.38.0' },
       'packages/firewall': { core: '>=0.32.0 <0.39.0', nap: '' },
       'packages/paja': { core: '>=0.38.0 <0.39.0', nap: '>=0.37.0 <0.38.0' },
       'packages/runtime': { core: '>=0.32.0 <0.39.0', nap: '>=0.32.0 <0.38.0' },

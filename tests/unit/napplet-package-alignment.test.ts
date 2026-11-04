@@ -39,11 +39,12 @@ const SUPERSEDED_EXACT_MATRIX = {
 } as const;
 
 // Per-package peer windows. Packages whose declarations import the packaged
-// NAP-LLM types (services, paja) need core 0.38 / nap 0.37; the rest do not
+// NAP-LLM types (services, paja) need core 0.38 / nap 0.37, and cli follows its
+// paja dependency so consumers never see a transitive peer conflict; the rest do not
 // consume those types and keep the older floor. Upper bounds admit the host line.
 const PEER_WINDOWS: Record<string, Partial<Record<NappletName, string>>> = {
   'packages/acl': { '@napplet/core': '>=0.32.0 <0.39.0', '@napplet/nap': '>=0.32.0 <0.38.0' },
-  'packages/cli': { '@napplet/core': '>=0.32.0 <0.39.0', '@napplet/nap': '>=0.32.0 <0.38.0' },
+  'packages/cli': { '@napplet/core': '>=0.38.0 <0.39.0', '@napplet/nap': '>=0.37.0 <0.38.0' },
   'packages/firewall': { '@napplet/core': '>=0.32.0 <0.39.0' },
   'packages/paja': { '@napplet/core': '>=0.38.0 <0.39.0', '@napplet/nap': '>=0.37.0 <0.38.0' },
   'packages/runtime': { '@napplet/core': '>=0.32.0 <0.39.0', '@napplet/nap': '>=0.32.0 <0.38.0' },
