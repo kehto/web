@@ -163,6 +163,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
+| 261102-ggx | Resolve PR #376 review: authorized extension pushes (`pushCapabilities`) and relay delivery ownership for `@kehto/mocks` | 2026-11-02 | 331d6f9b | passed | [261102-ggx](./quick/261102-ggx-resolve-pr-376-review-authorized-extensi/) |
 | 261104-kmf | Host firewall and dispatch controls for shell and runtime (#397-#400), one PR per issue against `release/host-firewall-controls` | 2026-11-04 | 52b4ea89 | passed | [261104-kmf](./quick/261104-kmf-host-firewall-controls/) |
 | 261102-gub | Policy: drop process isolation from the WebRTC-egress end state; name the `webrtc` CSP directive as the upstream fix and nested-context revocation as the Kehto mitigation to build | 2026-11-02 | 0d26bf89 | passed | [261102-gub](./quick/261102-gub-webrtc-egress-end-state/) |
 | 261102-g2n | Paja reports zero relay connections distinctly during pointer resolution (PajaRelayUnreachableError, paja.relay.unreachable) | 2026-11-02 | cea679bb | passed | [261102-g2n](./quick/261102-g2n-paja-relay-unreachable-status/) |

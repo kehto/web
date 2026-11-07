@@ -10,6 +10,7 @@
     "packages/runtime",
     "packages/shell",
     "packages/services",
+    "packages/mocks",
     "packages/wm"
   ],
   "out": "docs/api",
