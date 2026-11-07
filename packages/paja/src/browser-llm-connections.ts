@@ -12,6 +12,7 @@
 import {
   LLM_PROVIDER_PRESETS,
   LlmServiceError,
+  buildLlmProviderRequest,
   createHttpLlmProvider,
   countLlmImages,
   type HttpLlmProvider,
@@ -20,9 +21,11 @@ import {
   type LlmCredentialHeader,
   type LlmGenerationRequest,
   type LlmPromptOptions,
+  type LlmProviderEndpoint,
   type LlmProviderProtocol,
   type LlmRequestContext,
   type LlmRequirements,
+  type LlmToolChoiceMode,
 } from '@kehto/services';
 import type { PajaConfirmationHandler } from './browser-adapter.js';
 import type { PajaLlmCredentialStorage, PajaLlmVault } from './browser-llm-vault.js';
@@ -32,6 +35,8 @@ export const PAJA_LLM_CONNECTIONS_STORAGE_KEY = 'kehto:paja:llm-connections:v1';
 const MAX_CONNECTIONS = 32;
 const PROTOCOLS = new Set<LlmProviderProtocol>(['openai-chat', 'anthropic-messages', 'gemini']);
 const CREDENTIAL_HEADERS = new Set<LlmCredentialHeader>(['authorization-bearer', 'api-key', 'x-api-key', 'x-goog-api-key']);
+/** Canonical order of stored tool-choice modes; `auto` and `none` are always supported when tools are on. */
+const TOOL_CHOICE_ORDER: readonly LlmToolChoiceMode[] = ['auto', 'none', 'required', 'tool'];
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
 
 /** One saved provider connection. Credentials are referenced, never embedded. */
@@ -44,6 +49,10 @@ export interface PajaLlmConnectionRecord {
   readonly model: string;
   readonly images: boolean;
   readonly json: boolean;
+  /** Tool calling support; rows saved before it existed omit it and load as off. */
+  readonly tools?: boolean;
+  /** Supported tool-choice modes in canonical order; stored as `[]` when tools are off. */
+  readonly toolChoiceModes?: readonly LlmToolChoiceMode[];
   readonly credentialHeader?: LlmCredentialHeader;
   readonly credentialStorage: PajaLlmCredentialStorage;
 }
@@ -85,6 +94,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+/** Canonical modes: empty when tools are off; otherwise ordered, de-duplicated, with `auto` and `none` always present. */
+function canonicalToolChoiceModes(tools: boolean, requested: unknown): LlmToolChoiceMode[] {
+  if (!tools) return [];
+  const wanted = new Set<unknown>(Array.isArray(requested) ? requested : []);
+  return TOOL_CHOICE_ORDER.filter((mode) => mode === 'auto' || mode === 'none' || wanted.has(mode));
+}
+
 function normalizeRecord(input: Record<string, unknown>): PajaLlmConnectionRecord {
   const text = (value: unknown): string => typeof value === 'string' ? value : '';
   const name = text(input.name).trim();
@@ -99,9 +115,11 @@ function normalizeRecord(input: Record<string, unknown>): PajaLlmConnectionRecor
   if (!PROTOCOLS.has(protocol)) throw new Error('Unknown provider protocol.');
   if (credentialHeader !== undefined && !CREDENTIAL_HEADERS.has(credentialHeader)) throw new Error('Unknown credential header.');
   if (!['vault', 'session', 'none'].includes(credentialStorage)) throw new Error('Unknown credential storage.');
+  const tools = input.tools === true;
   const record: PajaLlmConnectionRecord = {
     id, name, presetId: text(input.presetId).slice(0, 64), protocol,
     baseUrl: normalizePajaLlmBaseUrl(text(input.baseUrl)), model, images: input.images === true, json: input.json === true,
+    tools, toolChoiceModes: Object.freeze(canonicalToolChoiceModes(tools, input.toolChoiceModes)),
     credentialStorage,
     ...(credentialHeader ? { credentialHeader } : {}),
   };
@@ -220,12 +238,17 @@ export function describePajaLlmRoute(record: PajaLlmConnectionRecord): string {
 }
 
 function toConnection(record: PajaLlmConnectionRecord): LlmConnection {
-  return { id: record.id, name: record.name, model: record.model, route: describePajaLlmRoute(record), images: record.images, json: record.json };
+  const tools = record.tools === true;
+  return {
+    id: record.id, name: record.name, model: record.model, route: describePajaLlmRoute(record), images: record.images, json: record.json,
+    tools, toolChoiceModes: tools ? canonicalToolChoiceModes(true, record.toolChoiceModes) : [],
+  };
 }
 
 function meets(record: PajaLlmConnectionRecord, requirements: LlmRequirements): boolean {
   if (requirements.model !== undefined && requirements.model !== record.model) return false;
   if (requirements.images === true && !record.images) return false;
+  if (requirements.tools === true && record.tools !== true) return false;
   return !(requirements.json === true && !record.json);
 }
 
@@ -234,14 +257,30 @@ function describeRequirements(requirements: LlmRequirements): string {
     requirements.model ? `model ${requirements.model}` : 'any model',
     requirements.images ? 'image input' : null,
     requirements.json ? 'JSON output' : null,
+    requirements.tools ? 'tool calling' : null,
   ].filter((part): part is string => part !== null);
   return parts.join(', ');
 }
 
+/**
+ * Characters that leave the page: text parts (tool results included), each
+ * historical call's serialized arguments and each tool definition. Thinking is
+ * excluded because the provider mapping omits it.
+ */
 function countCharacters(request: LlmGenerationRequest): number {
   let total = 0;
-  for (const message of request.messages) for (const part of message.content) total += part.type === 'text' ? part.text.length : 0;
+  for (const message of request.messages) {
+    for (const part of message.content) {
+      if (part.type === 'text') total += part.text.length;
+      else if (part.type === 'toolCall') total += JSON.stringify(part.arguments).length;
+    }
+  }
+  for (const tool of request.tools ?? []) total += JSON.stringify(tool).length;
   return total;
+}
+
+function countToolResults(request: LlmGenerationRequest): number {
+  return request.messages.filter((message) => message.role === 'toolResult').length;
 }
 
 /**
@@ -254,8 +293,19 @@ function countCharacters(request: LlmGenerationRequest): number {
  */
 export function createPajaLlmHost(options: PajaLlmHostOptions): PajaLlmHost {
   const { store, vault, confirm, getIdentity } = options;
-  // Stream so napplets see provisional `llm.delta` text; the final result stays authoritative.
+  // Stream so napplets see provisional `llm.delta` blocks; the final result stays authoritative.
   const provider = options.provider ?? createHttpLlmProvider({ stream: true });
+
+  /** One place builds the provider endpoint, so the preflight and the real request agree. */
+  function endpointFor(record: PajaLlmConnectionRecord, credential?: string): LlmProviderEndpoint {
+    return {
+      protocol: record.protocol,
+      baseUrl: record.baseUrl,
+      model: record.model,
+      ...(credential === undefined ? {} : { credential }),
+      ...(record.credentialHeader ? { credentialHeader: record.credentialHeader } : {}),
+    };
+  }
 
   async function ensureCredential(record: PajaLlmConnectionRecord, signal?: AbortSignal): Promise<string | undefined> {
     if (record.credentialStorage === 'none') return undefined;
@@ -304,6 +354,9 @@ export function createPajaLlmHost(options: PajaLlmHostOptions): PajaLlmHost {
       const signal = prompt?.signal;
       const record = store.get(connection.id);
       if (!record) throw new LlmServiceError('selection-expired', 'The selected connection was removed; select again.');
+      // Dialect restrictions answer `unsupported` before any vault unlock or consent prompt.
+      // No credential goes in, and the built request is never sent.
+      buildLlmProviderRequest(endpointFor(record), request, { stream: true });
       await ensureCredential(record, signal);
       if (signal?.aborted) return false;
       return confirm({
@@ -317,21 +370,17 @@ export function createPajaLlmHost(options: PajaLlmHostOptions): PajaLlmHost {
         messages: request.messages.length,
         characters: countCharacters(request),
         images: countLlmImages(request.messages),
+        tools: (request.tools ?? []).map((tool) => tool.name),
+        toolResults: countToolResults(request),
         format: request.format ?? 'text',
-        warning: 'The prompt text and images below leave this device for the provider named in the route. Provider charges and retention follow that service\'s terms.',
+        warning: 'The prompt text, images, tool definitions and tool results disclosed here leave this device for the provider named in the route. Provider charges and retention follow that service\'s terms.',
       });
     },
     async generate(_context, connection, request, hooks) {
       const record = store.get(connection.id);
       if (!record) throw new LlmServiceError('selection-expired', 'The selected connection was removed; select again.');
       const credential = await ensureCredential(record);
-      return provider({
-        protocol: record.protocol,
-        baseUrl: record.baseUrl,
-        model: record.model,
-        ...(credential === undefined ? {} : { credential }),
-        ...(record.credentialHeader ? { credentialHeader: record.credentialHeader } : {}),
-      }, request, hooks.signal, (text) => hooks.onDelta(text));
+      return provider(endpointFor(record, credential), request, hooks.signal, (event) => hooks.onDelta(event));
     },
     subscribe(listener) {
       const stopStore = store.subscribe(listener);

@@ -3,131 +3,26 @@
  *
  * `readLlmSseData` yields the `data` payload of each server-sent event, and
  * `createLlmStreamAccumulator` folds one dialect's stream events into the same
- * `LlmGeneration` the buffered parsers produce while surfacing each appended
- * text fragment for `llm.delta`. Provisional fragments never replace the
- * terminal result: NAP-LLM makes the final `text` authoritative.
+ * `LlmGeneration` the buffered parsers produce while surfacing ordered block
+ * lifecycle events for `llm.delta`. Provisional blocks never replace the
+ * terminal result: NAP-LLM makes the final `content` authoritative.
  */
 
-import type { LlmFinish, LlmGeneration, LlmUsage } from './llm-types.js';
-import {
-  anthropicFinish,
-  completed,
-  geminiFinish,
-  openAiFinish,
-  providerError,
-  record,
-  usageFrom,
-  type LlmProviderProtocol,
-} from './llm-providers.js';
+import { anthropicAccumulator } from './llm-provider-anthropic.js';
+import { geminiAccumulator } from './llm-provider-gemini.js';
+import { openAiAccumulator } from './llm-provider-openai.js';
+import { providerError, type LlmProviderProtocol, type LlmStreamAccumulator } from './llm-provider-shared.js';
 
-/** Folds one provider stream into deltas and a final generation. */
-export interface LlmStreamAccumulator {
-  /**
-   * Consume one parsed event payload.
-   * @returns Text appended by this event, or `''` when it carried none.
-   * @throws LlmServiceError `provider-error` when the provider reports a stream error.
-   */
-  push(event: unknown): string;
-  /**
-   * Resolve the complete generation after the stream ended.
-   * @throws LlmServiceError `provider-error` when no completion marker arrived.
-   */
-  finish(): LlmGeneration;
-}
-
-const STREAM_ERROR = 'The provider reported an error while streaming.';
-
-function textField(value: unknown): string {
-  return typeof value === 'string' ? value : '';
-}
-
-function openAiAccumulator(): LlmStreamAccumulator {
-  let text = '';
-  let refused = false;
-  let finish: LlmFinish | null = null;
-  let usage: LlmUsage | undefined;
-  return {
-    push(event) {
-      const root = record(event);
-      if (root?.error !== undefined) throw providerError(STREAM_ERROR);
-      const reported = record(root?.usage);
-      if (reported) usage = usageFrom(reported.prompt_tokens, reported.completion_tokens) ?? usage;
-      const choice = record(Array.isArray(root?.choices) ? root?.choices[0] : undefined);
-      if (!choice) return '';
-      const delta = record(choice.delta);
-      if (textField(delta?.refusal).length > 0) refused = true;
-      finish = openAiFinish(choice.finish_reason) ?? finish;
-      const appended = textField(delta?.content);
-      text += appended;
-      return appended;
-    },
-    finish: () => refused ? completed('', 'refusal', usage) : completed(text, finish, usage),
-  };
-}
-
-function anthropicAccumulator(): LlmStreamAccumulator {
-  let text = '';
-  let finish: LlmFinish | null = null;
-  let inputTokens: unknown;
-  let outputTokens: unknown;
-  return {
-    push(event) {
-      const root = record(event);
-      switch (root?.type) {
-        case 'error': throw providerError(STREAM_ERROR);
-        case 'message_start': inputTokens = record(record(root.message)?.usage)?.input_tokens; return '';
-        case 'message_delta': {
-          finish = anthropicFinish(record(root.delta)?.stop_reason) ?? finish;
-          const usage = record(root.usage);
-          if (usage?.output_tokens !== undefined) outputTokens = usage.output_tokens;
-          if (usage?.input_tokens !== undefined) inputTokens = usage.input_tokens;
-          return '';
-        }
-        case 'content_block_delta': {
-          const delta = record(root.delta);
-          const appended = delta?.type === 'text_delta' ? textField(delta.text) : '';
-          text += appended;
-          return appended;
-        }
-        default: return '';
-      }
-    },
-    finish: () => completed(text, finish, usageFrom(inputTokens, outputTokens)),
-  };
-}
-
-function geminiAccumulator(): LlmStreamAccumulator {
-  let text = '';
-  let blocked = false;
-  let finish: LlmFinish | null = null;
-  let usage: LlmUsage | undefined;
-  return {
-    push(event) {
-      const root = record(event);
-      if (root?.error !== undefined) throw providerError(STREAM_ERROR);
-      const metadata = record(root?.usageMetadata);
-      if (metadata) usage = usageFrom(metadata.promptTokenCount, metadata.candidatesTokenCount) ?? usage;
-      if (typeof record(root?.promptFeedback)?.blockReason === 'string') blocked = true;
-      const candidate = record(Array.isArray(root?.candidates) ? root?.candidates[0] : undefined);
-      if (!candidate) return '';
-      finish = geminiFinish(candidate.finishReason) ?? finish;
-      const parts = record(candidate.content)?.parts;
-      const appended = Array.isArray(parts) ? parts.map((part) => textField(record(part)?.text)).join('') : '';
-      text += appended;
-      return appended;
-    },
-    finish: () => blocked ? completed('', 'refusal', usage) : completed(text, finish, usage),
-  };
-}
+export type { LlmStreamAccumulator } from './llm-provider-shared.js';
 
 /**
  * Create the stream accumulator for one provider dialect.
  *
  * @param protocol - Dialect whose streaming events will be pushed.
- * @returns Accumulator yielding appended text per event and the final generation.
+ * @returns Accumulator yielding block events per payload and the final generation.
  * @example
  * const stream = createLlmStreamAccumulator('openai-chat');
- * for await (const data of readLlmSseData(response.body!)) if (data !== '[DONE]') onDelta(stream.push(JSON.parse(data)));
+ * for await (const data of readLlmSseData(response.body!)) if (data !== '[DONE]') for (const event of stream.push(JSON.parse(data))) onDelta(event);
  * const generation = stream.finish();
  */
 export function createLlmStreamAccumulator(protocol: LlmProviderProtocol): LlmStreamAccumulator {

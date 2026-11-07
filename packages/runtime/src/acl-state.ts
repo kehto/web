@@ -163,6 +163,7 @@ export interface AclStateContainer {
  * @param persistence - Storage backend for ACL state
  * @param defaultPolicy - Default ACL policy for unknown identities
  * @param onMutation - Internal runtime observer for revoke and block facts
+ * @param pinDefaultPolicy - When true, `defaultPolicy` replaces the policy stored in persisted state on load
  * @returns An AclStateContainer instance
  *
  * @example
@@ -175,6 +176,7 @@ export function createAclState(
   persistence: AclPersistence,
   defaultPolicy: 'permissive' | 'restrictive' = 'permissive',
   onMutation?: AclMutationObserver,
+  pinDefaultPolicy = false,
 ): AclStateContainer {
   let state: AclState = createState(defaultPolicy);
 
@@ -279,7 +281,8 @@ export function createAclState(
       try {
         const raw = persistence.load();
         if (!raw) return;
-        state = deserialize(raw);
+        const loaded = deserialize(raw);
+        state = pinDefaultPolicy ? { ...loaded, defaultPolicy } : loaded;
       } catch {
         state = createState(defaultPolicy);
       }

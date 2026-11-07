@@ -14,8 +14,7 @@ pnpm add @kehto/firewall
 
 ## Published Napplet Compatibility
 
-The published `@napplet/core` peer range is `>=0.32.0 <0.38.0`; development and
-tests stay on the baseline core 0.32.0 line.
+The published `@napplet/core` peer range is `>=0.32.0 <0.39.0`. Host packages develop and build on core 0.38.0 / nap 0.37.0; fixture napplets stay on the exact 0.32.0 line (shim 0.30.0, sdk 0.28.0, vite-plugin 0.16.2).
 
 ## Overview
 
@@ -82,7 +81,8 @@ state = result.newState;
 ### Config mutations
 - `defaultConfig` — built-in conservative config
 - `createState` — empty counter state
-- `setPolicy`, `setRateLimit`, `addMatcher` — immutable config mutations
+- `setPolicy`, `setRateLimit`, `setGlobalRate`, `addMatcher` — immutable config mutations
+- `setUnfocusedMultiplier`, `setBurstGuard` — change the background budget scale and the startup burst limit. Both throw `RangeError` on out-of-range values.
 - `serialize`, `deserialize` — JSON round-trip for persistence
 
 ## License

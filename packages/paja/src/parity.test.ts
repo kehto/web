@@ -50,7 +50,7 @@ describe('@kehto/paja parity metadata', () => {
     expect(PAJA_ADVERTISED_DOMAINS).toContain('gamepad');
   });
 
-  // NAP-LLM (napplet/naps PR #134): advertised ahead of the published @napplet/nap llm subpath.
+  // NAP-LLM (napplet/naps PR #134 at 5e93bdfce0e84c0de728234cb7b3feed498f8635): advertised alongside the packaged @napplet/nap llm subpath.
   it('advertises draft LLM alongside the installed NAP exports', () => {
     expect(PAJA_UPSTREAM_WEB_DOMAINS).toContain('llm');
     expect(PAJA_ADVERTISED_DOMAINS).toContain('llm');

@@ -1,5 +1,11 @@
 # @kehto/acl
 
+## 0.20.3
+
+### Patch Changes
+
+- 66beed4: Widen the `@napplet/core` and `@napplet/nap` peer ranges to admit core 0.38.x and nap 0.37.x while keeping the 0.32.0 floor.
+
 ## 0.20.2
 
 ### Patch Changes

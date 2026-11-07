@@ -1,6 +1,6 @@
 
 // Factory function — main entry point
-export { createShellBridge, NAPPLET_HELLO } from './shell-bridge.js';
+export { createShellBridge, MAX_DEFERRED_MESSAGES, NAPPLET_HELLO } from './shell-bridge.js';
 export { denyNappletControllerAccess } from './gamepad-policy.js';
 export type { ShellBridge } from './shell-bridge.js';
 export {
@@ -62,9 +62,12 @@ export type {
   NappKeyEntry,  // @deprecated — use SessionEntry
   AclEntry,
   AclCheckEvent,
+  FirewallEvent,
+  FirewallPersistence,
   UnroutedMessageInfo,
   NappletRevocation,
   NappletRevocationReason,
+  NappletMessageDecision,
   ServiceDescriptor,
   ServiceHandler,
   ServiceRegistry,

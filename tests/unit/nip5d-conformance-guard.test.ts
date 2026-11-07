@@ -363,8 +363,9 @@ describe('NIP-5D conformance static guards', () => {
     for (const authority of Object.values(publishedConventionAuthorities)) {
       expect(publishedContract, `published contract authority ${authority}`).toContain(authority);
     }
-    // @napplet/nap 0.32 lacks the pinned PR #106 contract. Kehto contains the
-    // exact temporary canonical types until that package exports them.
+    // The 0.32 fixture line lacks the pinned PR #106 contract; nap 0.37.0 now exports
+    // the candidate types, and adopting them is a tracked follow-up. Until then Kehto
+    // contains the exact temporary canonical types.
     expect(services).toContain("from './intent-types.js'");
     expect(existsSync(join(process.cwd(), 'packages/services/src/intent-types.ts'))).toBe(true);
     expect(publishedContract).toContain('NAP-INTENT PR #106');

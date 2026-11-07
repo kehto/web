@@ -2,7 +2,7 @@
  * llm-dispatch.test.ts — NAP-LLM runtime dispatch.
  *
  * Authority: napplet/naps PR #134 (`nap-llm`) at
- * 3e10939cf788878bbdcc022c101f0ac6193f316c. The runtime routes `llm.*` to one
+ * 5e93bdfce0e84c0de728234cb7b3feed498f8635. The runtime routes `llm.*` to one
  * registered `llm` service, answers with a shaped `unsupported` result when the
  * advertised domain has no service, and shapes ACL denials on the NAP result
  * wire rather than a bare `.error` string.
@@ -51,8 +51,8 @@ describe('runtime llm domain dispatch', () => {
   });
 
   it('ignores forged result and delta envelopes from a napplet without a service', () => {
-    runtime.handleMessage(WINDOW_ID, { type: 'llm.generate.result', id: 'g1', result: { text: 'x', finish: 'stop' } } as NappletMessage);
-    runtime.handleMessage(WINDOW_ID, { type: 'llm.delta', requestId: 'g1', sequence: 0, text: 'x' } as NappletMessage);
+    runtime.handleMessage(WINDOW_ID, { type: 'llm.generate.result', id: 'g1', result: { content: [{ type: 'text', text: 'x' }], finish: 'stop' } } as NappletMessage);
+    runtime.handleMessage(WINDOW_ID, { type: 'llm.delta', requestId: 'g1', sequence: 0, event: 'delta', block: 'text', blockIndex: 0, text: 'x' } as NappletMessage);
     expect(ctx.sent).toHaveLength(0);
   });
 

@@ -1,5 +1,37 @@
 # @kehto/shell
 
+## 0.32.0
+
+### Minor Changes
+
+- 6eb1ea4: Hosts can now choose the ACL default policy with `aclDefaultPolicy: 'permissive' | 'restrictive'` on `RuntimeAdapter` and `ShellAdapter`. With `'restrictive'`, identities with no stored entry start with nothing granted. A policy set this way replaces the one stored in persisted ACL state on load, and stored entries are kept. Leaving it out keeps today's behaviour.
+- 6eb1ea4: `ShellAdapter` now accepts `getFocusContext`, `onFirewallEvent` and `firewallPersistence`, and `adaptHooks` forwards them to the runtime firewall. A shell built on `createShellBridge` gets focus-scaled rate budgets, sees firewall flags and refusals, and can keep firewall config across reloads. `FirewallEvent` and `FirewallPersistence` are also exported from `@kehto/shell`. Hosts that set none of these see no change.
+- 6eb1ea4: Hosts can now decide what happens to port traffic before dispatch. `ShellAdapter.filterNappletMessage(windowId, message)` returns `'dispatch'`, `'drop'` or `'defer'`, and `ShellBridge.releaseDeferred(windowId)` dispatches what was deferred, in arrival order. `shell.ready` skips the filter, because NAP-SHELL requires its first `shell.init` reply. A window holding more than `MAX_DEFERRED_MESSAGES` is revoked with the new `deferred-overflow` reason, so exhaustive switches on `NappletRevocationReason` need one more case. Hosts without a filter see no change.
+
+### Patch Changes
+
+- Updated dependencies [6eb1ea4]
+- Updated dependencies [6eb1ea4]
+  - @kehto/runtime@0.28.0
+
+## 0.31.0
+
+### Minor Changes
+
+- 66beed4: Track NAP-LLM (napplet/naps PR #134 at `5e93bdfce0e84c0de728234cb7b3feed498f8635`) end to end. This is a breaking host API on the 0.x draft contract, with no compatibility path for the removed shapes.
+
+  - Tool calls and results, `thinking` parts, `maxTokens`, `temperature`, `tools`, `toolChoice`, `Model.tools`, `Model.toolChoiceModes`, `Requirements.tools` and extended `Usage` are supported. Kehto validates and relays tool calls and never executes one.
+  - `Generation.text` is replaced by `Generation.content` parts and text-only deltas by `start`/`delta`/`end` block events. The shell prelude forwards the full structured delta, and only for the next sequence with valid fields.
+  - `@kehto/services`: `LlmConnection` gains required `tools` and `toolChoiceModes`; `LlmGenerateHooks.onDelta` and the `createHttpLlmProvider` callback take a block event while the service assigns `sequence` and `requestId`; `llm-types` re-exports the packaged `@napplet/nap/llm/types`. Provider endpoints accept `requiresOpaqueReasoning` (Gemini 3+ defaults it on), and the dialects map tools, reasoning and usage extras.
+  - `@kehto/paja`: connections can opt into tool calling (rows saved earlier load as tools off under the same storage key), consent discloses tool definitions and tool results, and a dialect restriction answers `unsupported` before any prompt.
+  - Host packages now build on `@napplet/core` 0.38.0 and `@napplet/nap` 0.37.0; `@kehto/services`, `@kehto/paja` and `@kehto/cli` (through its Paja dependency) require them.
+
+### Patch Changes
+
+- Updated dependencies [66beed4]
+  - @kehto/acl@0.20.3
+  - @kehto/runtime@0.27.3
+
 ## 0.30.0
 
 ### Minor Changes

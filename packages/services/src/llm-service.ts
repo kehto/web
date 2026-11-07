@@ -2,7 +2,7 @@
  * NAP-LLM reference service.
  *
  * Authority: napplet/naps PR #134 (`nap-llm`) at
- * 3e10939cf788878bbdcc022c101f0ac6193f316c. The service owns request
+ * 5e93bdfce0e84c0de728234cb7b3feed498f8635. The service owns request
  * correlation, endpoint-scoped handles, schema and capability checks, the
  * consent-before-submission gate, duplicate-id rejection, cancellation and
  * deadline races, ordered deltas, lifecycle cleanup and safe error shaping.
@@ -15,20 +15,23 @@ import type { NappletMessage } from '@napplet/core';
 import type { ServiceDescriptor, ServiceHandler } from '@kehto/runtime';
 import {
   LlmServiceError,
+  type LlmBlockEvent,
+  type LlmDelta,
   type LlmFailure,
   type LlmGeneration,
   type LlmGenerationRequest,
   type LlmModel,
   type LlmRequirements,
+  type LlmToolChoiceMode,
 } from './llm-types.js';
 import {
-  countLlmImages,
-  isJsonObjectText,
-  isLlmGeneration,
-  isLlmGenerationRequest,
-  isLlmRequirements,
-  isNonemptyText,
-} from './llm-validate.js';
+  LLM_LIFECYCLE_FAILURE,
+  checkTerminal,
+  createLlmDeltaTracker,
+  unsupportedInput,
+  type LlmDeltaTracker,
+} from './llm-generation-checks.js';
+import { isLlmGenerationRequest, isLlmRequirements, isNonemptyText } from './llm-validate.js';
 
 /** A host-owned connection the user may select. `id` stays host-private. */
 export interface LlmConnection {
@@ -44,6 +47,14 @@ export interface LlmConnection {
   readonly images: boolean;
   /** Whether the connection supports JSON-object output. */
   readonly json: boolean;
+  /** Whether the connection supports tool calling. */
+  readonly tools: boolean;
+  /**
+   * Exactly the supported tool-choice modes without duplicates. A connection with
+   * `tools: true` supports at least `auto` and `none`; the service reports `[]`
+   * to napplets whenever `tools` is false.
+   */
+  readonly toolChoiceModes: readonly LlmToolChoiceMode[];
 }
 
 /** Which authenticated endpoint issued a request. */
@@ -68,8 +79,8 @@ export interface LlmPromptOptions {
 export interface LlmGenerateHooks {
   /** Aborted on cancellation, deadline, revocation or endpoint destruction. */
   readonly signal: AbortSignal;
-  /** Append provisional text; the service numbers and routes the delta. */
-  onDelta(text: string): void;
+  /** Append a block lifecycle event; the service assigns `sequence` and `requestId`, validates and routes it. */
+  onDelta(event: LlmBlockEvent): void;
 }
 
 /**
@@ -147,7 +158,8 @@ type ActiveGeneration = {
   readonly handle: string;
   awaitingConsent: boolean;
   readonly send: Send;
-  readonly format: 'text' | 'json';
+  readonly request: LlmGenerationRequest;
+  readonly tracker: LlmDeltaTracker;
   readonly epoch: number;
   sequence: number;
   settled: boolean;
@@ -192,18 +204,35 @@ function failure(error: unknown): LlmFailure {
   return { code: 'provider-error', message: 'The provider request failed.' };
 }
 
+function sameModes(a: readonly LlmToolChoiceMode[], b: readonly LlmToolChoiceMode[]): boolean {
+  return a.length === b.length && a.every((mode, index) => mode === b[index]);
+}
+
 function sameConnection(a: LlmConnection, b: LlmConnection): boolean {
-  return a.id === b.id && a.name === b.name && a.model === b.model && a.route === b.route && a.images === b.images && a.json === b.json;
+  return a.id === b.id && a.name === b.name && a.model === b.model && a.route === b.route && a.images === b.images && a.json === b.json
+    && a.tools === b.tools && sameModes(a.toolChoiceModes, b.toolChoiceModes);
+}
+
+/** A tool-capable connection supports `auto` and `none` and lists each mode once; hosts are pluggable, so check it. */
+function declaresValidModes(connection: LlmConnection): boolean {
+  if (!connection.tools) return true;
+  const modes = connection.toolChoiceModes;
+  return new Set(modes).size === modes.length && modes.includes('auto') && modes.includes('none');
 }
 
 function meetsRequirements(connection: LlmConnection, requirements: LlmRequirements): boolean {
+  if (!declaresValidModes(connection)) return false;
   if (requirements.model !== undefined && requirements.model !== connection.model) return false;
   if (requirements.images === true && !connection.images) return false;
+  if (requirements.tools === true && !connection.tools) return false;
   return !(requirements.json === true && !connection.json);
 }
 
 function toModel(handle: string, connection: LlmConnection): LlmModel {
-  return { handle, name: connection.name, model: connection.model, route: connection.route, images: connection.images, json: connection.json };
+  return {
+    handle, name: connection.name, model: connection.model, route: connection.route, images: connection.images, json: connection.json,
+    tools: connection.tools, toolChoiceModes: connection.tools ? [...connection.toolChoiceModes] : [],
+  };
 }
 
 function defaultHandleFactory(): () => string {
@@ -369,18 +398,13 @@ function admitGeneration(state: ServiceState, windowId: string, message: Record<
   return null;
 }
 
-function unsupportedInput(connection: LlmConnection, request: LlmGenerationRequest): LlmFailure | null {
-  if (countLlmImages(request.messages) > 0 && !connection.images) return { code: 'unsupported', message: 'This connection does not accept image input.' };
-  if (request.format === 'json' && !connection.json) return { code: 'unsupported', message: 'This connection does not support JSON-object output.' };
-  return null;
-}
-
-function validateGeneration(generation: ActiveGeneration, result: unknown): LlmGeneration | LlmFailure {
-  if (!isLlmGeneration(result)) return { code: 'provider-error', message: 'The provider returned an incomplete or malformed completion.' };
-  if (generation.format === 'json' && result.finish === 'stop' && !isJsonObjectText(result.text)) {
-    return { code: 'provider-error', message: 'The provider completed without a JSON object.' };
-  }
-  return result;
+/** Build the wire delta from known fields only, so host extras never reach the napplet. */
+function deltaMessage(requestId: string, sequence: number, event: LlmBlockEvent): NappletMessage {
+  const delta: LlmDelta = { requestId, sequence, event: event.event, block: event.block, blockIndex: event.blockIndex };
+  if (event.text !== undefined) delta.text = event.text;
+  if (event.toolCallId !== undefined) delta.toolCallId = event.toolCallId;
+  if (event.name !== undefined) delta.name = event.name;
+  return { type: 'llm.delta', ...delta } as NappletMessage;
 }
 
 /** Ask for consent with a prompt signal that aborts only if the generation settles first. */
@@ -422,13 +446,15 @@ async function runGeneration(state: ServiceState, windowId: string, requestId: s
     }
     const result = await state.host.generate(context, entry.snapshot, request, {
       signal: generation.controller.signal,
-      onDelta: (text) => {
-        if (generation.settled || typeof text !== 'string') return;
-        send({ type: 'llm.delta', requestId, sequence: generation.sequence++, text } as NappletMessage);
+      onDelta: (event) => {
+        if (generation.settled) return;
+        // A lifecycle violation fails the generation; it is never a silent drop.
+        if (!generation.tracker.accept(event)) { fail(LLM_LIFECYCLE_FAILURE); return; }
+        send(deltaMessage(requestId, generation.sequence++, event));
       },
     });
     if (generation.settled) return;
-    const checked = validateGeneration(generation, result);
+    const checked = checkTerminal(request, result, generation.tracker);
     if ('code' in checked) fail(checked);
     else settle(state, windowId, requestId, generation, { type: 'llm.generate.result', id: requestId, result: checked } as NappletMessage);
   } catch (error) {
@@ -442,7 +468,7 @@ function handleGenerate(state: ServiceState, windowId: string, message: Record<s
   if (rejected) { reply(send, 'llm.generate', requestId, { error: rejected }); return; }
   const request = message.request as LlmGenerationRequest;
   const generation: ActiveGeneration = {
-    controller: new AbortController(), handle: request.handle, awaitingConsent: false, send, format: request.format ?? 'text', epoch: state.epoch, sequence: 0, settled: false, timer: undefined,
+    controller: new AbortController(), handle: request.handle, awaitingConsent: false, send, request, tracker: createLlmDeltaTracker(), epoch: state.epoch, sequence: 0, settled: false, timer: undefined,
   };
   let perWindow = state.active.get(windowId);
   if (!perWindow) { perWindow = new Map(); state.active.set(windowId, perWindow); }

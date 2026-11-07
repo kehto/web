@@ -1479,7 +1479,7 @@ function nappletNamespacePrelude(
     };
   }
 
-  // NAP-INTENT@25b29ee: the packaged 0.32 binding lacks delivery support.
+  // NAP-INTENT@25b29ee: the packaged 0.32 binding (fixtures, shim 0.30.0) lacks delivery support.
   // Keep this receiver live before shell.ready, independently of listener timing.
   function makeIntentDelivery() {
     type Delivery = Readonly<{
@@ -1882,13 +1882,35 @@ function nappletNamespacePrelude(
     };
   }
 
-  // NAP-LLM (napplet/naps PR #134): results carry `{ code, message }` errors on
+  // NAP-LLM (napplet/naps PR #134 at 5e93bdfce0e84c0de728234cb7b3feed498f8635): results carry `{ code, message }` errors on
   // the `.result` wire, deltas are id-less pushes keyed by requestId, and no
   // local timeout applies because selection and consent wait on the user while
   // the runtime owns the generation deadline.
   function makeLlm(): Record<string, unknown> {
     type Failure = { code: string; message: string };
-    type GenerateOptions = { signal?: AbortSignal; onDelta?: (delta: { requestId: string; sequence: number; text: string }) => void };
+    type Delta = {
+      requestId: string; sequence: number; event: string; block: string; blockIndex: number;
+      text?: string; toolCallId?: string; name?: string;
+    };
+    type GenerateOptions = { signal?: AbortSignal; onDelta?: (delta: Delta) => void };
+    // Lifecycle shape of one block delta (NAP-LLM Delta table). The helper lives
+    // inside makeLlm because the prelude is serialized into the napplet frame.
+    const asDelta = (msg: RuntimeMessage, requestId: string, expected: number): Delta | null => {
+      const { sequence, event, block, blockIndex, text, toolCallId, name } = msg as Record<string, unknown>;
+      if (sequence !== expected) return null;
+      if (event !== 'start' && event !== 'delta' && event !== 'end') return null;
+      if (block !== 'text' && block !== 'thinking' && block !== 'toolCall') return null;
+      if (typeof blockIndex !== 'number' || !Number.isInteger(blockIndex) || blockIndex < 0) return null;
+      if (event === 'delta' ? typeof text !== 'string' : text !== undefined) return null;
+      const identified = event === 'start' && block === 'toolCall';
+      const validId = typeof toolCallId === 'string' && toolCallId.length > 0;
+      const validName = typeof name === 'string' && name.length > 0;
+      if (identified ? !validId || !validName : toolCallId !== undefined || name !== undefined) return null;
+      const delta: Delta = { requestId, sequence: expected, event, block, blockIndex };
+      if (text !== undefined) delta.text = text as string;
+      if (identified) { delta.toolCallId = toolCallId as string; delta.name = name as string; }
+      return delta;
+    };
     const asFailure = (value: unknown): Failure | null => {
       if (!value || typeof value !== 'object') return null;
       const { code, message } = value as Record<string, unknown>;
@@ -1905,9 +1927,10 @@ function nappletNamespacePrelude(
           const msg = event.data as RuntimeMessage;
           if (typeof msg !== 'object' || msg === null) return;
           if (type === 'llm.generate' && msg.type === 'llm.delta' && msg.requestId === requestId) {
-            if (msg.sequence !== nextSequence || typeof msg.text !== 'string') return;
+            const delta = asDelta(msg, requestId, nextSequence);
+            if (!delta) return;
             nextSequence += 1;
-            options.onDelta?.({ requestId, sequence: msg.sequence, text: msg.text });
+            options.onDelta?.(delta);
             return;
           }
           if (msg.type !== `${type}.result` || msg.id !== requestId) return;
