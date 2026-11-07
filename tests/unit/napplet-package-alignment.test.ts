@@ -46,6 +46,7 @@ const PEER_WINDOWS: Record<string, Partial<Record<NappletName, string>>> = {
   'packages/acl': { '@napplet/core': '>=0.32.0 <0.39.0', '@napplet/nap': '>=0.32.0 <0.38.0' },
   'packages/cli': { '@napplet/core': '>=0.38.0 <0.39.0', '@napplet/nap': '>=0.37.0 <0.38.0' },
   'packages/firewall': { '@napplet/core': '>=0.32.0 <0.39.0' },
+  'packages/mocks': { '@napplet/core': '>=0.32.0 <0.39.0', '@napplet/nap': '>=0.32.0 <0.38.0' },
   'packages/paja': { '@napplet/core': '>=0.38.0 <0.39.0', '@napplet/nap': '>=0.37.0 <0.38.0' },
   'packages/runtime': { '@napplet/core': '>=0.32.0 <0.39.0', '@napplet/nap': '>=0.32.0 <0.38.0' },
   'packages/services': { '@napplet/core': '>=0.38.0 <0.39.0', '@napplet/nap': '>=0.37.0 <0.38.0' },
