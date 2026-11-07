@@ -21,7 +21,7 @@ pnpm add -D @kehto/mocks
 | Field | Value |
 |-------|-------|
 | Source | `packages/mocks/package.json`, `packages/mocks/src/index.ts` |
-| Version | `0.0.0` |
+| Version | `0.1.0` |
 | Runtime entry | `./dist/index.js` |
 | Types entry | `./dist/index.d.ts` |
 | Side effects | `false` |
