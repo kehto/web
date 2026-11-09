@@ -10,6 +10,7 @@ import {
 } from './browser-relay-panel.js';
 import { renderNappletFramePolicyMeta } from '@kehto/shell';
 import type { PajaHostConfig } from './options.js';
+import { PAJA_MOCKED_MARK } from './mocked-domains.js';
 import { summarizePajaSimulation } from './simulation.js';
 
 /**
@@ -120,6 +121,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .toggle[data-enabled="true"] { color: var(--text); border-color: #5f724f; background: #24301f; }
       .toggle[data-enabled="false"] { color: #8d9187; border-color: #453536; background: #241d1d; }
       .toggle[data-state="unconfigured"] { color: #e8d27a; border-color: #7a6a2a; background: #2d2814; }
+      .toggle[data-mocked="true"] { border-style: dashed; }
       .llm-form { display: grid; gap: 6px; min-width: 0; }
       .llm-form label { display: grid; gap: 2px; color: var(--muted); font-size: 11px; }
       .llm-form label.llm-check { grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 6px; }
@@ -276,6 +278,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
         <details class="section" id="paja-section-interfaces" data-paja-section="interfaces" open>
           <summary class="section-title">Interfaces<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
           <div class="switch-grid" id="interface-toggles"></div>
+          <p class="hint" id="paja-interface-legend">${PAJA_MOCKED_MARK} mocked: deterministic fixture data from @kehto/mocks, not a real backend.</p>
           <p class="hint" id="paja-fs-support" role="status"></p>
         </div></details>
         <details class="section" id="paja-section-acl" data-paja-section="acl" open>

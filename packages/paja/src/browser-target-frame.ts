@@ -15,11 +15,17 @@ import { isPajaLocalTarget, type PajaRuntimeTarget } from './local-target.js';
 import type { PajaHostConfig, PajaNestedContextLockSetting } from './options.js';
 import { readStoredNestedContextLockSetting } from './browser-security-settings.js';
 import type { PajaShellEnvironment } from './parity.js';
+import { pajaMockedBindings } from './browser-mocked-services.js';
+import { PAJA_MOCKED_DOMAINS } from './mocked-domains.js';
 
 /**
  * Resolve Paja's one authoritative environment from a trusted frame identity.
  * The caller persists this exact snapshot with the frame registration so its
  * prelude and later shell.init cannot drift when host policy changes.
+ *
+ * `@kehto/shell` only advertises domains it knows how to wire. Paja appends
+ * each enabled `@kehto/mocks` domain whose handler is registered, so the
+ * snapshot also grants the runtime's extension routing (`isDomainAllowed`).
  */
 export function resolvePajaFrameEnvironment(
   hooks: ShellAdapter,
@@ -28,7 +34,21 @@ export function resolvePajaFrameEnvironment(
   if (typeof identity.dTag !== 'string' || !identity.aggregateHash) {
     throw new Error('Paja frame identity requires a dTag and aggregate hash');
   }
-  return resolveShellEnvironment(hooks, identity);
+  const environment = resolveShellEnvironment(hooks, identity);
+  const disabled = new Set(hooks.capabilities?.disabledDomains ?? []);
+  const available = PAJA_MOCKED_DOMAINS.filter((domain) => Object.hasOwn(hooks.services ?? {}, domain)
+    && !disabled.has(domain) && !environment.capabilities.domains.includes(domain));
+  // Mocked domains pass through the same host grant policy as shell-built ones.
+  const granted = hooks.capabilities?.resolveEnvironment?.(identity, {
+    domains: Object.freeze([...environment.capabilities.domains, ...available]),
+    services: environment.services,
+  });
+  const mocked = granted ? available.filter((domain) => granted.domains.includes(domain)) : available;
+  if (mocked.length === 0) return environment;
+  return Object.freeze({
+    capabilities: Object.freeze({ domains: Object.freeze([...environment.capabilities.domains, ...mocked]) }),
+    services: environment.services,
+  });
 }
 
 export function getTargetIdentity(
@@ -144,6 +164,7 @@ export async function navigateFrame(
     // Validate host policy before rebinding an existing window to a new identity.
     const srcdoc = prepareNappletSrcdoc(resolvedTarget.indexHtml, {
       domains,
+      bindings: pajaMockedBindings(domains),
       ...(nestedContextLock ? { experimental: { nestedContextLock: true } } : {}),
       csp: {
         ...config.csp,
@@ -166,7 +187,7 @@ export async function navigateFrame(
   frame.removeAttribute('src');
   frame.srcdoc = injectNappletNamespacePrelude(
     injectBaseHref(html, config.target.url),
-    { domains },
+    { domains, bindings: pajaMockedBindings(domains) },
   );
   return registeredWindowId;
 }
