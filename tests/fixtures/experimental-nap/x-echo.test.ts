@@ -26,14 +26,28 @@ function adapter(extra: Partial<ShellAdapter> = {}): ShellAdapter {
   };
 }
 
+// NIP-5D: a napplet hands the shell a MessagePort in one window-level
+// napplet.hello, then every message in both directions uses that port. This
+// synchronous port double records shell -> napplet replies on `reply`.
+function connect(bridge: { handleMessage(event: MessageEvent): void }, win: Window, reply: (message: unknown) => void) {
+  let onmessage: ((event: MessageEvent) => void) | null = null;
+  const port = {
+    postMessage: reply, start() {}, close() {}, addEventListener() {}, removeEventListener() {},
+    get onmessage() { return onmessage; },
+    set onmessage(listener: ((event: MessageEvent) => void) | null) { onmessage = listener; },
+  };
+  bridge.handleMessage({ source: win, origin: 'null', data: { type: 'napplet.hello' }, ports: [port] } as unknown as MessageEvent);
+  return (data: Record<string, unknown>) => onmessage?.({ data } as MessageEvent);
+}
+
 function frame(hooks: ShellAdapter) {
   originRegistry.clear();
   const bridge = createShellBridge(hooks);
   bridge.runtime.firewallState.setPolicy(identity.dTag, 'allow');
   const postMessage = vi.fn();
-  const win = { postMessage } as unknown as Window;
+  const win = {} as Window;
   originRegistry.register(win, 'echo-window', identity);
-  const send = (data: Record<string, unknown>) => bridge.handleMessage({ source: win, origin: 'null', data } as MessageEvent);
+  const send = connect(bridge, win, postMessage);
   return { bridge, send, replies: () => postMessage.mock.calls.map(([message]) => message) };
 }
 

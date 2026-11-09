@@ -4,23 +4,23 @@ These notes collect failure modes surfaced during previous Kehto milestones. The
 
 ## Stale package resolution
 
-**Symptom:** Source changes do not appear in the playground.
+**Symptom:** Source changes do not appear in Paja or the e2e harness.
 
-**Check:** Inspect package manifests and lockfile resolution. The playground should consume the intended local workspace packages when testing repo-local protocol behavior.
+**Check:** Inspect package manifests and lockfile resolution. Hosts should consume the intended local workspace packages when testing repo-local protocol behavior.
 
 **Fix:** Reinstall and rebuild from the monorepo root. Do not trust a passing browser session until the package graph points at the code you changed.
 
 ## Missing built napplet artifacts
 
-**Symptom:** The playground shell cannot load a napplet through `/napplet-gateway/...`.
+**Symptom:** The e2e harness cannot load a fixture napplet.
 
-**Check:** Verify `apps/playground/napplets/<name>/dist/index.html` and `dist/.nip5a-manifest.json` exist.
+**Check:** Verify `tests/fixtures/napplets/<name>/dist/index.html` and `dist/.nip5a-manifest.json` exist.
 
 **Fix:**
 
 ```bash
-pnpm --filter "./apps/playground/napplets/*" build
-pnpm audit:gateway-artifacts
+pnpm --filter "./tests/fixtures/napplets/*" build
+pnpm audit:csp
 ```
 
 ## Sandbox policy drift

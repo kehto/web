@@ -52,6 +52,7 @@ export { renderPajaHtml } from './host-page.js';
 export {
   PAJA_NAPPLET_MANIFEST_KIND,
   PAJA_NAPPLET_MANIFEST_KINDS,
+  PajaRelayUnreachableError,
   decodePajaPointer,
   injectPajaRuntimeCsp,
   resolvePajaPointer,
@@ -117,8 +118,10 @@ export {
 
 export type {
   PajaCommand,
+  PajaExperimentalConfig,
   PajaHmrStrategy,
   PajaHostConfig,
+  PajaNestedContextLockSetting,
   PajaOptions,
   PajaPointerRuntimeConfig,
   PajaRawOptions,
@@ -132,6 +135,7 @@ export type {
 export type {
   PajaDecodedPointer,
   PajaPointerRelayPool,
+  PajaRelayConnectionSummary,
   PajaResolvedPointer,
   ResolvePajaPointerOptions,
 } from './runtime-resolver.js';
@@ -169,6 +173,7 @@ export type { PajaIntentLinkDescriptor, ParsedPajaIntentLink } from './intent-li
 export type { PajaConfirmationHandler, PajaConfirmationRequest } from './browser-adapter.js';
 export type { PajaSignerRequestContext, PajaSignerSource } from './browser-signer-consent.js';
 export type {
+  PajaLlmChooserContext,
   PajaLlmConnectionRecord,
   PajaLlmConnectionStore,
   PajaLlmHost,

@@ -16,10 +16,8 @@ pnpm add @kehto/services
 
 ## Published Napplet Compatibility
 
-Peers admit `@napplet/core` `>=0.32.0 <0.37.0` and `@napplet/nap`
-`>=0.32.0 <0.36.0`, so the nap 0.35.x line that ships the `llm` subpath (and the
-core 0.36.x line nap 0.35.1 requires) installs without peer conflicts; development
-and tests stay on the baseline 0.32.0 line. The exact installed contracts are core 0.32.0 / nap 0.32.0
+Peers admit `@napplet/core` `>=0.38.0 <0.39.0` and `@napplet/nap`
+`>=0.37.0 <0.38.0`: the declarations import the packaged NAP-LLM types from `@napplet/nap/llm/types`. Host packages develop and build on core 0.38.0 / nap 0.37.0; fixture napplets stay on the exact 0.32.0 line (shim 0.30.0, sdk 0.28.0, vite-plugin 0.16.2). The exact fixture-line contracts are core 0.32.0 / nap 0.32.0
 from NAP-INTENT authority `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`,
 napplet/web#199 source `3037200c932488f14f7f369b8583c39c9c16510a` / merge
 `b3f0007867eac109fa4917fac9c285d3b7cc6155`, and Version Packages #198 release
@@ -78,8 +76,8 @@ receive later completion or failure without a second source result. Source
 teardown does not cancel accepted work. `intent.onDelivery` buffers arrivals;
 INC is not required.
 
-Paja and playground use verified persistent catalogs separately from live frames.
-The installed `@napplet/nap@0.32.0` types predate this contract; the bounded local
+Paja uses verified persistent catalogs separately from live frames.
+The fixture-line `@napplet/nap@0.32.0` types predate this contract (nap 0.37.0 now exports them; adopting those is a tracked follow-up); the bounded local
 canonical types and their removal condition are documented below.
 
 ## Quick Start
@@ -430,7 +428,7 @@ export function createMediaService(options?: MediaServiceOptions): MediaService;
 
 See [Media playback](../../docs/media.md) for the browser audio/video backend,
 player mounting, draft conformance authority, supported source formats, lifecycle,
-and migration from legacy command callbacks. Paja and playground use this player.
+and migration from legacy command callbacks. Paja uses this player.
 
 ### MediaServiceOptions
 
@@ -656,15 +654,15 @@ For the schema and removal boundary, see [event migration](https://kehto.github.
 
 ## Canonical intent contracts
 
-`@kehto/services` temporarily owns the canonical NAP-INTENT PR #106 contracts because `@napplet/nap@0.32.0` has not yet published them. Candidates use opaque `id` plus exact `contracts`; successful results contain only `ok`, `archetype`, `action`, `convention`, and `handler` (never `handled`, `windowId`, or `newWindow`). `createIntentService` requires `resolveSender(windowId)` and rejects caller-supplied sender fields. `IntentResolverContext.sourceWindowId` and `IntentDispatchParams.sourceWindowId` are host-only correlation fields: they must never appear in `intent.deliver` or `intent.invoke.result`. A target controller accepts retained work as `{ completion }`; completion failure is host observation, not a second canonical result. Remove these local types only when an upstream package exports the checked PR #106 surface and Kehto's service/runtime regression suite proves direct replacement.
+`@kehto/services` temporarily owns the canonical NAP-INTENT PR #106 contracts. `@napplet/nap@0.32.0` (the fixture line) has not published them; `@napplet/nap@0.37.0` now exports `IntentCandidate` and related types and `@napplet/core@0.38.0` declares `intent.onDelivery`, so adopting the upstream types and removing the local mirror is a tracked follow-up, not part of the NAP-LLM change. Candidates use opaque `id` plus exact `contracts`; successful results contain only `ok`, `archetype`, `action`, `convention`, and `handler` (never `handled`, `windowId`, or `newWindow`). `createIntentService` requires `resolveSender(windowId)` and rejects caller-supplied sender fields. `IntentResolverContext.sourceWindowId` and `IntentDispatchParams.sourceWindowId` are host-only correlation fields: they must never appear in `intent.deliver` or `intent.invoke.result`. A target controller accepts retained work as `{ completion }`; completion failure is host observation, not a second canonical result. Remove these local types only when an upstream package exports the checked PR #106 surface and Kehto's service/runtime regression suite proves direct replacement.
 
 ## GAMEPAD integration
 
-This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja and the playground register one host reader and deny native gamepad/HID/USB paths before frame execution. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, window destruction, and service removal release polling. Non-browser or denied native readers report the proposal's unavailable reasons. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
+This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja registers one host reader and deny native gamepad/HID/USB paths before frame execution. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, window destruction, and service removal release polling. Non-browser or denied native readers report the proposal's unavailable reasons. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
 
 ## LLM integration
 
-This non-normative guidance defers to the living [NAP-LLM](https://github.com/napplet/naps/pull/134) (checked at `3e10939`). Services export `createLlmService`, `LlmServiceError`, the provider mappers and `LLM_PROVIDER_PRESETS`; shell exports `getShellDomainState` and the `LlmHooks` adapter field; acl exports `llm:generate`. The runtime routes `llm.*` to one registered service and answers every sanctioned request with exactly one `llm.<op>.result`, shaping missing-service and ACL failures as `{ code: 'unsupported' }`. Hosts implement `LlmConnectionHost`; the service enforces schema, handle ownership, consent before submission, duplicate ids, cancellation and deadline races, ordered deltas and safe errors. Advertisement stays binary on the wire while hosts report a third `unconfigured` state until the user adds a connection. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
+This non-normative guidance defers to the living [NAP-LLM](https://github.com/napplet/naps/pull/134) (checked at `5e93bdf`). Services export `createLlmService`, `LlmServiceError`, the provider mappers and `LLM_PROVIDER_PRESETS`; shell exports `getShellDomainState` and the `LlmHooks` adapter field; acl exports `llm:generate`. The runtime routes `llm.*` to one registered service and answers every sanctioned request with exactly one `llm.<op>.result`, shaping missing-service and ACL failures as `{ code: 'unsupported' }`. Hosts implement `LlmConnectionHost`; the service enforces schema, handle ownership, a per-window live-handle bound (`maxHandlesPerWindow`), consent before submission, duplicate ids, cancellation and deadline races, ordered deltas and safe errors, and passes `select`/`authorize` a `{ signal }` that withdraws stale prompts. `createHttpLlmProvider({ stream: true })` streams provider output into `llm.delta` as block start/delta/end events. Results carry `content` parts (text, thinking and tool calls); tool calls and results are validated and relayed, and Kehto never executes one. Advertisement stays binary on the wire while hosts report a third `unconfigured` state until the user adds a connection. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
 
 ## Experimental x- NAPs
 

@@ -11,7 +11,9 @@
  *   - __getNapMessage__(windowId, 'relay.publish') returns the request envelope
  *   - On click: __getNapMessage__(windowId, 'relay.publishEncrypted') returns the encrypted envelope
  */
-import '@napplet/shim';
+// NIP-5D: the host injects window.napplet and sends the single napplet.hello
+// before this script runs. Importing @napplet/shim would install a second
+// namespace and hello, which revokes the napplet (nostr-protocol/nips#2303).
 import { relayPublish, relayPublishEncrypted } from '@napplet/nap/relay/sdk';
 import type { EventTemplate } from '@napplet/core';
 

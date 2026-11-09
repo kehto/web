@@ -1,5 +1,69 @@
 # @test/harness
 
+## 0.0.41
+
+### Patch Changes
+
+- Updated dependencies [6eb1ea4]
+- Updated dependencies [6eb1ea4]
+- Updated dependencies [6eb1ea4]
+  - @kehto/shell@0.32.0
+  - @kehto/services@0.30.1
+
+## 0.0.40
+
+### Patch Changes
+
+- Updated dependencies [66beed4]
+  - @kehto/services@0.30.0
+  - @kehto/shell@0.31.0
+
+## 0.0.39
+
+### Patch Changes
+
+- Updated dependencies [4d8a569]
+  - @kehto/shell@0.30.0
+
+## 0.0.38
+
+### Patch Changes
+
+- Updated dependencies [37457ce]
+  - @kehto/services@0.29.0
+  - @kehto/shell@0.29.0
+
+## 0.0.37
+
+### Patch Changes
+
+- Updated dependencies [e1e2b64]
+  - @kehto/shell@0.29.0
+
+## 0.0.36
+
+### Patch Changes
+
+- Updated dependencies [9add95b]
+  - @kehto/shell@0.28.0
+
+## 0.0.35
+
+### Patch Changes
+
+- Updated dependencies [902c1d0]
+- Updated dependencies [902c1d0]
+  - @kehto/services@0.28.2
+  - @kehto/shell@0.27.0
+
+## 0.0.34
+
+### Patch Changes
+
+- Updated dependencies [3089c5e]
+  - @kehto/services@0.28.0
+  - @kehto/shell@0.26.1
+
 ## 0.0.33
 
 ### Patch Changes

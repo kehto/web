@@ -20,6 +20,20 @@ export type PajaCommand =
   | { readonly mode: 'shell'; readonly command: string };
 
 /** Raw, unnormalized options accepted from CLI arguments or config files. */
+/**
+ * Dev-facing setting for the experimental nested-browsing-context lock
+ * ([[EXPERIMENTAL]]): `on` always applies it, `off` never does, and `auto`
+ * (the default) applies it only to napplets granted a privacy-sensitive NAP
+ * domain, where exfiltration by an untrusted app has real consequences.
+ */
+export type PajaNestedContextLockSetting = 'on' | 'off' | 'auto';
+
+/** Dev-facing experimental host policies for Paja, resolved per napplet. */
+export interface PajaExperimentalConfig {
+  /** Nested-browsing-context lock policy. Default: `auto`. */
+  readonly nestedContextLock?: PajaNestedContextLockSetting;
+}
+
 export interface PajaRawOptions {
   /** App dev-server URL that Paja should load. */
   readonly targetUrl?: string;
@@ -33,6 +47,8 @@ export interface PajaRawOptions {
   readonly readyTimeoutMs?: number | string;
   /** Optional JSON config file path. */
   readonly configPath?: string;
+  /** Opt-in experimental host policies (dev-facing). */
+  readonly experimental?: PajaExperimentalConfig;
   /** Simulation controls for injected shell domains. */
   readonly simulation?: PajaSimulationRawOptions;
   /** Experimental `x-` NAP extension modules (see docs/how-tos/experimental-nap.md). */
@@ -74,6 +90,8 @@ export interface PajaOptions {
   readonly simulation: PajaSimulation;
   /** Experimental `x-` NAP extension modules. */
   readonly extensions: readonly PajaExtensionOption[];
+  /** Normalized experimental policies. */
+  readonly experimental: PajaExperimentalConfig;
   /** Whether Paja owns a managed command or attaches to an external target. */
   readonly mode: 'external-target' | 'managed-command';
 }
@@ -82,6 +100,8 @@ export interface PajaOptions {
 export interface PajaHostConfig {
   /** Host CSP overrides for verified runtime-pointer documents, validated by shell. */
   readonly csp?: NappletCspOptions;
+  /** Opt-in experimental host policies (dev-facing, resolved per napplet). */
+  readonly experimental?: PajaExperimentalConfig;
   /** Config schema version. */
   readonly version: 1;
   /** Window identity used for the development target. */
@@ -144,6 +164,18 @@ export const DEFAULT_PAJA_RUNTIME_WAIT_MS = 5_000;
  * @param raw - Raw options from CLI parsing or a config file.
  * @returns Fully normalized runtime options.
  */
+
+/** Normalize and validate the dev-facing experimental config. Default: auto. */
+export function normalizePajaExperimental(
+  raw: PajaExperimentalConfig | undefined,
+): PajaExperimentalConfig {
+  const setting = raw?.nestedContextLock ?? 'auto';
+  if (setting !== 'on' && setting !== 'off' && setting !== 'auto') {
+    throw new Error(`experimental.nestedContextLock must be "on", "off", or "auto"; got ${String(setting)}`);
+  }
+  return { nestedContextLock: setting };
+}
+
 export function normalizePajaOptions(raw: PajaRawOptions): PajaOptions {
   const targetUrl = normalizeTargetUrl(raw.targetUrl);
   const host = normalizeHost(raw.host);
@@ -161,6 +193,7 @@ export function normalizePajaOptions(raw: PajaRawOptions): PajaOptions {
   } catch (error) {
     throw new PajaOptionsError(error instanceof Error ? error.message : String(error));
   }
+  const experimental = normalizePajaExperimental(raw.experimental);
 
   return {
     targetUrl,
@@ -171,6 +204,7 @@ export function normalizePajaOptions(raw: PajaRawOptions): PajaOptions {
     configPath: configPath && configPath.length > 0 ? configPath : undefined,
     simulation,
     extensions,
+    experimental,
     mode: command ? 'managed-command' : 'external-target',
   };
 }
@@ -190,6 +224,7 @@ export function createPajaHostConfig(
   return {
     ...base,
     ...(options.extensions.length > 0 ? { extensions: createPajaHostExtensions(options.extensions) } : {}),
+    ...(options.experimental ? { experimental: options.experimental } : {}),
     target: {
       mode: 'iframe-url',
       url: options.targetUrl,
@@ -217,6 +252,7 @@ export function createPajaHostConfig(
 export function createPajaRuntimeHostConfig(
   options: {
     readonly csp?: NappletCspOptions;
+    readonly experimental?: PajaExperimentalConfig;
     readonly pointer?: string;
     readonly relays?: readonly string[];
     readonly blossomServers?: readonly string[];
@@ -229,6 +265,7 @@ export function createPajaRuntimeHostConfig(
   return {
     ...base,
     ...(options.csp ? { csp: options.csp } : {}),
+    ...(options.experimental ? { experimental: options.experimental } : {}),
     target: {
       mode: 'runtime-pointer',
       url: 'about:blank',

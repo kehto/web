@@ -13,6 +13,25 @@ describe('host-customizable NIP-5D CSP', () => {
     expect(policy).not.toMatch(/frame-ancestors|sandbox|report-uri|prefetch-src/);
   });
 
+  it('gates the Trusted Types nested-context lock behind the experimental flag, off by default', () => {
+    // Off by default: no downstream host is forced into the opinion.
+    const unlocked = prepareNappletSrcdoc('<html><head></head><body></body></html>', { domains: [] });
+    expect(unlocked).not.toContain('require-trusted-types-for');
+    expect(unlocked).not.toContain('trusted-types');
+    // Opt-in via the experimental namespace: the napplet CSP carries the lock.
+    const locked = prepareNappletSrcdoc('<html><head></head><body></body></html>', {
+      domains: [], experimental: { nestedContextLock: true },
+    });
+    expect(locked).toContain("require-trusted-types-for 'script'; trusted-types default");
+    // The trusted host-page CSP never requires Trusted Types.
+    expect(buildNappletCsp()).not.toContain('require-trusted-types-for');
+    // Host directive overrides cannot inject or widen the Trusted Types lock.
+    expect(() => buildNappletCsp({ directives: { 'trusted-types': ['*'] } as unknown as NappletCspDirectives }))
+      .toThrow(/Unsupported meta CSP directive/);
+    expect(() => buildNappletCsp({ directives: { 'require-trusted-types-for': ["'none'"] } as unknown as NappletCspDirectives }))
+      .toThrow(/Unsupported meta CSP directive/);
+  });
+
   it('allows host changes without freezing the example baseline', () => {
     const directives = Object.freeze({
       'media-src': Object.freeze(['blob:']),

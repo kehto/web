@@ -5,13 +5,13 @@ import type { Observation } from '@kehto/firewall';
 
 import type {
   RuntimeAdapter, ConsentHandler, FirewallEvent,
-  ServiceHandler, ServiceRegistry, ServiceInfo, ServiceRuntimeContext,
+  ServiceHandler, ServiceRegistry, ServiceInfo,
 } from './types.js';
 import { createServiceExtensionRouter } from './service-extensions.js';
+import { createServiceRuntimeContext } from './service-context.js';
 import { notifyServiceWindowDestroyed } from './service-dispatch.js';
 import { createSessionRegistry, type SessionRegistry } from './session-registry.js';
-import { createAclState, type AclCapability, type AclStateContainer } from './acl-state.js';
-import { isExtensionDomain } from '@kehto/acl';
+import { createAclState, type AclStateContainer } from './acl-state.js';
 import { createFirewallState, type FirewallStateContainer } from './firewall-state.js';
 import { createManifestCache, type ManifestCache } from './manifest-cache.js';
 import { createReplayDetector, type ReplayDetector } from './replay.js';
@@ -100,7 +100,7 @@ export interface Runtime {
   /** Access the ACL state container. */
   readonly aclState: AclStateContainer;
 
-  /** Access the firewall state container (for tests to pre-set policy/rules). */
+  /** Access the firewall state container, so hosts can set policy, rate budgets and the burst guard. */
   readonly firewallState: FirewallStateContainer;
 
   /** Access the manifest cache. */
@@ -129,6 +129,7 @@ type RuntimeInstanceContext = {
   consentHandlerRef: { current: ConsentHandler | null };
   handleMessage: Runtime['handleMessage'];
   extensions: ReturnType<typeof createServiceExtensionRouter>;
+  builtInDomains: ReadonlySet<string>;
 };
 
 function createRegisteredServices(serviceRegistry: ServiceRegistry): Map<string, ServiceInfo> {
@@ -445,60 +446,11 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
   } = context;
   const undeclaredServiceConsents = new Set<string>();
   const attachedServices = new Map<string, ServiceHandler>();
-  const isDomainAllowed = hooks.isDomainAllowed;
-  const sendToNapplet = hooks.sendToNapplet;
-  // Each attached handler gets its own context so extension pushes stay scoped
-  // to the handler's own registered `x-` domain.
-  const createServiceContext = (name: string, handler: ServiceHandler): ServiceRuntimeContext => {
-    // An x- handler sees only windows granted its domain and only its own capabilities.
-    const scoped = name.startsWith('x-');
-    const visible = (windowId: string): boolean => !scoped
-      || (isExtensionDomain(name) && isDomainAllowed?.(windowId, name) === true);
-    return Object.freeze({
-    resolveDTag(windowId: string): string | undefined {
-      return visible(windowId) ? sessionRegistry.getEntryByWindowId(windowId)?.dTag : undefined;
-    },
-    listWindowIds(): readonly string[] {
-      return Object.freeze(
-        sessionRegistry.getAllEntries().map((entry) => entry.windowId).filter(visible),
-      );
-    },
-    hasCapability(windowId: string, capability: AclCapability): boolean {
-      if (scoped && !capability.startsWith(`${name}:`)) return false;
-      const entry = visible(windowId) ? sessionRegistry.getEntryByWindowId(windowId) : undefined;
-      return !!entry && aclState.check('', entry.dTag, entry.aggregateHash, capability);
-    },
-    sendToEligibleNapplet(windowId: string, message: NappletMessage): boolean {
-      const entry = sessionRegistry.getEntryByWindowId(windowId);
-      if (!entry || typeof message.type !== 'string') return false;
-      const dotIndex = message.type.indexOf('.');
-      if (dotIndex <= 0) return false;
-      const domain = message.type.slice(0, dotIndex);
-      // An x- handler may push only its own declared x- types; it never reaches
-      // the built-in push path (no theme/identity/llm/gamepad impersonation).
-      if (scoped || domain.startsWith('x-')) return extensions.push(name, handler, windowId, message);
-      try {
-        if (isDomainAllowed && !isDomainAllowed(windowId, domain)) return false;
-        const { recipientCap } = resolveCapabilitiesNap(message);
-        // NAP-GAMEPAD requires source/domain isolation; its ACL checks are optional.
-        // Do not fabricate a gamepad:read capability absent from the proposal.
-        if (!recipientCap && message.type !== 'gamepad.state') return false;
-        if (recipientCap && !aclState.check('', entry.dTag, entry.aggregateHash, recipientCap as Capability)) {
-          return false;
-        }
-        sendToNapplet(windowId, message);
-        return true;
-      } catch {
-        return false;
-      }
-    },
-  });
-  };
 
   function attachService(name: string, handler: ServiceHandler): void {
     attachedServices.set(name, handler);
     try {
-      handler.onRegistered?.(createServiceContext(name, handler));
+      handler.onRegistered?.(createServiceRuntimeContext(context, name, handler));
     } catch {
       // A failed optional attachment leaves the service safely context-free.
     }
@@ -598,7 +550,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     extensions?.destroyWindow(windowId);
   });
   let incRuntime: IncRuntime | null = null;
-  const aclState = createAclState(hooks.aclPersistence, 'permissive', (mutation) => {
+  const aclState = createAclState(hooks.aclPersistence, hooks.aclDefaultPolicy ?? 'permissive', (mutation) => {
     for (const entry of sessionRegistry.getAllEntries()) {
       if (entry.dTag === mutation.dTag && entry.aggregateHash === mutation.aggregateHash) {
         for (const [serviceName, service] of Object.entries(serviceRegistry)) {
@@ -613,7 +565,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
         }
       }
     }
-  });
+  }, hooks.aclDefaultPolicy !== undefined);
   const manifestCache = createManifestCache(hooks.manifestPersistence);
   const replayDetector = createReplayDetector(
     hooks.getConfigOverrides
@@ -730,5 +682,6 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     consentHandlerRef,
     handleMessage,
     extensions,
+    builtInDomains,
   });
 }

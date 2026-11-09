@@ -1,6 +1,6 @@
 
 // Factory function — main entry point
-export { createShellBridge } from './shell-bridge.js';
+export { createShellBridge, MAX_DEFERRED_MESSAGES, NAPPLET_HELLO } from './shell-bridge.js';
 export { denyNappletControllerAccess } from './gamepad-policy.js';
 export type { ShellBridge } from './shell-bridge.js';
 export {
@@ -13,6 +13,9 @@ export type { NormalizedIntentUri } from './intent-uri.js';
 export { buildNappletCsp, injectNappletCsp, renderNappletCspMeta } from './napplet-csp.js';
 export type { NappletCspDirective, NappletCspDirectives, NappletCspOptions } from './napplet-csp.js';
 export { prepareNappletSrcdoc } from './napplet-srcdoc.js';
+export { assertNappletHasNoFrame, nappletMarkupHasFrame } from './napplet-frame-scan.js';
+export type { NappletExperimentalOptions } from './napplet-experimental.js';
+export { hasNappletFramePolicy, NAPPLET_FRAME_POLICY, renderNappletFramePolicyMeta } from './frame-policy.js';
 export type { NappletSrcdocOptions } from './napplet-srcdoc.js';
 
 // Hooks adapter — for advanced integrators who need to customize the adapter
@@ -59,7 +62,12 @@ export type {
   NappKeyEntry,  // @deprecated — use SessionEntry
   AclEntry,
   AclCheckEvent,
+  FirewallEvent,
+  FirewallPersistence,
   UnroutedMessageInfo,
+  NappletRevocation,
+  NappletRevocationReason,
+  NappletMessageDecision,
   ServiceDescriptor,
   ServiceHandler,
   ServiceRegistry,
@@ -102,7 +110,7 @@ export type { PendingUpdate, SessionRegistry } from './session-registry.js';
 
 // Standalone utilities (usable without full shell)
 export { originRegistry } from './origin-registry.js';
-export type { OriginIdentity, OriginRegistry } from './origin-registry.js';
+export type { NappletMessageTarget, OriginIdentity, OriginRegistry } from './origin-registry.js';
 export { audioManager } from './audio-manager.js';
 export type { AudioManager, AudioSource } from './audio-manager.js';
 export { manifestCache } from './manifest-cache.js';

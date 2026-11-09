@@ -10,7 +10,9 @@
  *   - #nap-notif-id contains the returned notificationId (matches /^shell-\d+$/)
  *   - __getNapMessage__(windowId, 'notify.send') returns the request envelope
  */
-import '@napplet/shim';
+// NIP-5D: the host injects window.napplet and sends the single napplet.hello
+// before this script runs. Importing @napplet/shim would install a second
+// namespace and hello, which revokes the napplet (nostr-protocol/nips#2303).
 import { notifySend } from '@napplet/nap/notify/sdk';
 
 const statusEl = document.getElementById('nap-status')!;

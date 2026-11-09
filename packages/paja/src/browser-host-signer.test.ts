@@ -192,6 +192,35 @@ describe('Paja confirmation controller', () => {
     expect(dom.dialog.open).toBe(false);
   });
 
+  it('withdraws queued and open prompts when their request signal aborts', async () => {
+    const dom = installConfirmationDom();
+    const controller = createPajaConfirmationController(() => null, { storage: new FakeStorage() });
+    expect(await controller.confirm({ ...signRequest(1), signal: AbortSignal.abort() })).toBe(false);
+    expect(dom.dialog.showCalls).toBe(0);
+
+    const activeAbort = new AbortController();
+    const queuedAbort = new AbortController();
+    const active = controller.confirm({ ...signRequest(1), signal: activeAbort.signal });
+    const queued = controller.confirm({ ...signRequest(2), signal: queuedAbort.signal });
+    const later = controller.confirm(signRequest(3));
+    queuedAbort.abort();
+    await expect(queued).resolves.toBe(false);
+    expect(dom.dialog.open).toBe(true);
+    activeAbort.abort();
+    await expect(active).resolves.toBe(false);
+    await Promise.resolve();
+    expect(dom.dialog.open).toBe(true);
+    dom.approve.click();
+    await expect(later).resolves.toBe(true);
+
+    const answered = new AbortController();
+    const approved = controller.confirm({ ...signRequest(4), signal: answered.signal });
+    dom.approve.click();
+    await expect(approved).resolves.toBe(true);
+    answered.abort();
+    expect(dom.dialog.open).toBe(false);
+  });
+
   it('remembers an exact event kind and skips only matching prompts', async () => {
     const dom = installConfirmationDom();
     const onSignerConsentChange = vi.fn();

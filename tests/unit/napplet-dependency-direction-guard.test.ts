@@ -35,6 +35,14 @@ function createHistory(baseManifest: Manifest, headManifest: Manifest): { root: 
   return { root, base, head: git(root, ['rev-parse', 'HEAD']).trim() };
 }
 
+function commitManifest(root: string, path: string, manifest: Manifest, message: string): string {
+  mkdirSync(join(root, path, '..'), { recursive: true });
+  writeFileSync(join(root, path), `${JSON.stringify(manifest, null, 2)}\n`);
+  git(root, ['add', path]);
+  git(root, ['commit', '--quiet', '-m', message]);
+  return git(root, ['rev-parse', 'HEAD']).trim();
+}
+
 function runGuard(root: string, base: string, head: string) {
   return spawnSync(process.execPath, [SCRIPT, '--base', base, '--head', head], {
     cwd: root,
@@ -93,6 +101,44 @@ describe('Napplet dependency direction guard', () => {
       expect(result.status).toBe(1);
       expect(result.stderr).toContain('packages/demo/package.json dependencies.@napplet/nap was removed');
       expect(result.stderr).toContain('packages/demo/package.json pnpm.overrides.@napplet/vite-plugin decreased from 0.14.0 to 0.12.0');
+    } finally {
+      rmSync(history.root, { recursive: true, force: true });
+    }
+  });
+
+  it('accepts a newly added package manifest with no base revision', () => {
+    const history = createHistory({ dependencies: { '@napplet/core': '0.31.0' } }, { dependencies: { '@napplet/core': '0.31.0', react: '19.0.0' } });
+    try {
+      const head = commitManifest(history.root, 'packages/fresh/package.json', {
+        peerDependencies: { '@napplet/core': '>=0.32.0 <0.37.0', '@napplet/nap': '>=0.32.0 <0.36.0' },
+      }, 'add fresh package');
+      const result = runGuard(history.root, history.base, head);
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.stdout).toContain('Napplet dependency direction check passed.');
+    } finally {
+      rmSync(history.root, { recursive: true, force: true });
+    }
+  });
+
+  it('compares a renamed manifest against its pre-rename path', () => {
+    // Enough unchanged keys that git still detects the move as a rename.
+    const stable = Object.fromEntries(Array.from({ length: 12 }, (_, i) => [`dep-${i}`, `1.${i}.0`]));
+    const history = createHistory(
+      { dependencies: { ...stable, '@napplet/core': '0.31.0' } },
+      { dependencies: { ...stable, '@napplet/core': '0.31.0' }, devDependencies: { react: '19.0.0' } },
+    );
+    try {
+      git(history.root, ['mv', 'packages/demo', 'packages/renamed']);
+      writeFileSync(
+        join(history.root, 'packages', 'renamed', 'package.json'),
+        `${JSON.stringify({ dependencies: { ...stable, '@napplet/core': '0.29.0' }, devDependencies: { react: '19.0.0' } }, null, 2)}\n`,
+      );
+      git(history.root, ['add', '-A']);
+      git(history.root, ['commit', '--quiet', '-m', 'rename']);
+      const head = git(history.root, ['rev-parse', 'HEAD']).trim();
+      const result = runGuard(history.root, history.base, head);
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain('packages/renamed/package.json dependencies.@napplet/core decreased from 0.31.0 to 0.29.0');
     } finally {
       rmSync(history.root, { recursive: true, force: true });
     }

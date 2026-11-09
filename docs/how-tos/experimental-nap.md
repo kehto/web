@@ -1,7 +1,7 @@
 # How-to: Build an experimental NAP
 
 This guide takes a toy NAP, `x-echo`, from nothing to running in Paja and
-the playground. You don't change any kehto package to do it. You write one
+your own host. You don't change any kehto package to do it. You write one
 ES module and register it through public `@kehto/*` APIs.
 
 Use this route for an **out-of-tree experiment**: a domain you want to try in
@@ -13,7 +13,7 @@ belongs in kehto itself. Follow the [NAP-LLM wiring](../llm.md) instead.
 |---|---|---|
 | Domain | `x-<name>`, reserved for experiments | Registry name such as `llm` |
 | Capabilities | `x-<name>:<action>`, ACL extension decisions | Built-in bits in `@kehto/acl` |
-| Where code lives | Your repo, one module | acl, runtime, services, shell, Paja, playground |
+| Where code lives | Your repo, one module | acl, runtime, services, shell, Paja |
 | Binding | Your factory, serialized into the prelude | Shell prelude factory |
 | Registration | `ShellAdapter.extensions` / Paja `extensions` | Adapter hooks + `registerService` |
 
@@ -147,7 +147,7 @@ extension domain.
 A module must be a browser ES module with no bare imports. Type-only JSDoc
 imports from `@kehto/shell` are fine, as the fixture shows.
 
-## 5. Run it in your own host (and the playground)
+## 5. Run it in your own host
 
 Any `ShellAdapter` host passes the same declaration:
 
@@ -168,10 +168,8 @@ iframe.srcdoc = prepareNappletSrcdoc(verifiedHtml, {
 });
 ```
 
-The playground does exactly this in `apps/playground/src/playground-extensions.ts`.
-Its shell controls show the `x-echo` toggle and prefix field, and each napplet's
-ACL panel lists the `x-echo` capabilities. It narrows per napplet through
-`capabilities.resolveEnvironment`.
+Narrow per napplet through `capabilities.resolveEnvironment`: a domain it leaves
+out is neither advertised nor bound for that frame.
 
 ## 6. Test it
 
@@ -181,7 +179,7 @@ ACL panel lists the `x-echo` capabilities. It narrows per napplet through
   block, `resolveEnvironment` denial and collision rejection.
 - **Browser**: start Paja with `startPajaServer({ options: { configPath } })` and
   call `window.napplet['x-echo']` inside `#napplet-frame`.
-  `tests/e2e/experimental-nap.spec.ts` covers Paja and the playground.
+  `tests/e2e/experimental-nap.spec.ts` covers Paja.
 - **Downstream layout**: with the skill templates in one directory, scope vitest
   to `*.test.ts` (for example `test: { include: ['**/*.test.ts'] }` in
   `vitest.config.ts`). Otherwise vitest also collects the Playwright

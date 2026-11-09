@@ -41,11 +41,11 @@ describe('NAP-LLM provider mappers', () => {
   it('parses OpenAI finish reasons, refusals and usage; missing markers are provider-error without the body', () => {
     const usage = { prompt_tokens: 3, completion_tokens: 2 };
     expect(parseLlmProviderResponse('openai-chat', { choices: [{ message: { content: '{"a":1}' }, finish_reason: 'stop' }], usage }))
-      .toEqual({ text: '{"a":1}', finish: 'stop', usage: { inputTokens: 3, outputTokens: 2 } });
-    expect(parseLlmProviderResponse('openai-chat', { choices: [{ message: { content: 'cut' }, finish_reason: 'length' }] })).toEqual({ text: 'cut', finish: 'length' });
-    expect(parseLlmProviderResponse('openai-chat', { choices: [{ message: { content: null }, finish_reason: 'content_filter' }] })).toEqual({ text: '', finish: 'refusal' });
-    expect(parseLlmProviderResponse('openai-chat', { choices: [{ message: { content: null, refusal: 'no' }, finish_reason: 'stop' }] })).toEqual({ text: '', finish: 'refusal' });
-    for (const bad of [{ choices: [{ message: { content: 'x' }, finish_reason: 'tool_calls' }] }, { choices: [] }, { error: { message: `bad key ${KEY}` } }, 'text', null]) {
+      .toEqual({ content: [{ type: 'text', text: '{"a":1}' }], finish: 'stop', usage: { inputTokens: 3, outputTokens: 2 } });
+    expect(parseLlmProviderResponse('openai-chat', { choices: [{ message: { content: 'cut' }, finish_reason: 'length' }] })).toEqual({ content: [{ type: 'text', text: 'cut' }], finish: 'length' });
+    expect(parseLlmProviderResponse('openai-chat', { choices: [{ message: { content: null }, finish_reason: 'content_filter' }] })).toEqual({ content: [], finish: 'refusal' });
+    expect(parseLlmProviderResponse('openai-chat', { choices: [{ message: { content: null, refusal: 'no' }, finish_reason: 'stop' }] })).toEqual({ content: [], finish: 'refusal' });
+    for (const bad of [{ choices: [{ message: { content: 'x' }, finish_reason: 'unrecognised_reason' }] }, { choices: [] }, { error: { message: `bad key ${KEY}` } }, 'text', null]) {
       let caught: unknown;
       try { parseLlmProviderResponse('openai-chat', bad); } catch (error) { caught = error; }
       expect(caught).toBeInstanceOf(LlmServiceError);
@@ -86,10 +86,10 @@ describe('NAP-LLM provider mappers', () => {
 
   it('parses Anthropic stop reasons and usage', () => {
     expect(parseLlmProviderResponse('anthropic-messages', { content: [{ type: 'text', text: 'Hel' }, { type: 'text', text: 'lo' }], stop_reason: 'end_turn', usage: { input_tokens: 5, output_tokens: 1 } }))
-      .toEqual({ text: 'Hello', finish: 'stop', usage: { inputTokens: 5, outputTokens: 1 } });
-    expect(parseLlmProviderResponse('anthropic-messages', { content: [], stop_reason: 'max_tokens' })).toEqual({ text: '', finish: 'length' });
-    expect(parseLlmProviderResponse('anthropic-messages', { content: [{ type: 'text', text: 'no' }], stop_reason: 'refusal' })).toEqual({ text: 'no', finish: 'refusal' });
-    expect(() => parseLlmProviderResponse('anthropic-messages', { content: [{ type: 'text', text: 'x' }], stop_reason: 'tool_use' })).toThrow(expect.objectContaining({ code: 'provider-error' }));
+      .toEqual({ content: [{ type: 'text', text: 'Hello' }], finish: 'stop', usage: { inputTokens: 5, outputTokens: 1 } });
+    expect(parseLlmProviderResponse('anthropic-messages', { content: [], stop_reason: 'max_tokens' })).toEqual({ content: [], finish: 'length' });
+    expect(parseLlmProviderResponse('anthropic-messages', { content: [{ type: 'text', text: 'no' }], stop_reason: 'refusal' })).toEqual({ content: [{ type: 'text', text: 'no' }], finish: 'refusal' });
+    expect(() => parseLlmProviderResponse('anthropic-messages', { content: [{ type: 'text', text: 'x' }], stop_reason: 'pause_turn' })).toThrow(expect.objectContaining({ code: 'provider-error' }));
     expect(() => parseLlmProviderResponse('anthropic-messages', { type: 'error' })).toThrow(expect.objectContaining({ code: 'provider-error' }));
   });
 
@@ -110,10 +110,10 @@ describe('NAP-LLM provider mappers', () => {
 
   it('parses Gemini candidates, block reasons and usage', () => {
     expect(parseLlmProviderResponse('gemini', { candidates: [{ content: { parts: [{ text: 'Hi' }] }, finishReason: 'STOP' }], usageMetadata: { promptTokenCount: 2, candidatesTokenCount: 1 } }))
-      .toEqual({ text: 'Hi', finish: 'stop', usage: { inputTokens: 2, outputTokens: 1 } });
-    expect(parseLlmProviderResponse('gemini', { candidates: [{ content: { parts: [{ text: 'cut' }] }, finishReason: 'MAX_TOKENS' }] })).toEqual({ text: 'cut', finish: 'length' });
-    expect(parseLlmProviderResponse('gemini', { candidates: [{ finishReason: 'SAFETY' }] })).toEqual({ text: '', finish: 'refusal' });
-    expect(parseLlmProviderResponse('gemini', { promptFeedback: { blockReason: 'SAFETY' } })).toEqual({ text: '', finish: 'refusal' });
+      .toEqual({ content: [{ type: 'text', text: 'Hi' }], finish: 'stop', usage: { inputTokens: 2, outputTokens: 1 } });
+    expect(parseLlmProviderResponse('gemini', { candidates: [{ content: { parts: [{ text: 'cut' }] }, finishReason: 'MAX_TOKENS' }] })).toEqual({ content: [{ type: 'text', text: 'cut' }], finish: 'length' });
+    expect(parseLlmProviderResponse('gemini', { candidates: [{ finishReason: 'SAFETY' }] })).toEqual({ content: [], finish: 'refusal' });
+    expect(parseLlmProviderResponse('gemini', { promptFeedback: { blockReason: 'SAFETY' } })).toEqual({ content: [], finish: 'refusal' });
     expect(() => parseLlmProviderResponse('gemini', { candidates: [{ content: { parts: [{ text: 'x' }] }, finishReason: 'OTHER' }] })).toThrow(expect.objectContaining({ code: 'provider-error' }));
     expect(() => parseLlmProviderResponse('gemini', {})).toThrow(expect.objectContaining({ code: 'provider-error' }));
   });
@@ -131,7 +131,7 @@ describe('createHttpLlmProvider', () => {
     const fetchImpl = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ choices: [{ message: { content: 'yo' }, finish_reason: 'stop' }] }) }));
     const generate = createHttpLlmProvider({ fetch: fetchImpl });
     const controller = new AbortController();
-    await expect(generate(endpoint({}), request, controller.signal)).resolves.toEqual({ text: 'yo', finish: 'stop' });
+    await expect(generate(endpoint({}), request, controller.signal)).resolves.toEqual({ content: [{ type: 'text', text: 'yo' }], finish: 'stop' });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, { headers: Record<string, string>; signal: AbortSignal; body: string }];
     expect(url).toBe('https://api.example.test/v1/chat/completions');
@@ -158,6 +158,13 @@ describe('createHttpLlmProvider', () => {
 });
 
 describe('LLM_PROVIDER_PRESETS', () => {
+  it('places Routstr after OpenRouter and Gemini after Routstr', () => {
+    const ids = LLM_PROVIDER_PRESETS.map((preset) => preset.id);
+    const index = ids.indexOf('openrouter');
+    expect(index).toBeGreaterThanOrEqual(0);
+    expect(ids.slice(index, index + 3)).toEqual(['openrouter', 'routstr', 'gemini']);
+  });
+
   it('covers the common hosted and local providers with usable protocol metadata', () => {
     const ids = LLM_PROVIDER_PRESETS.map((preset) => preset.id);
     expect(ids).toEqual(expect.arrayContaining(['openai', 'anthropic', 'gemini', 'openrouter', 'groq', 'mistral', 'deepseek', 'xai', 'together', 'ollama', 'lmstudio', 'azure-openai', 'custom']));
@@ -169,5 +176,19 @@ describe('LLM_PROVIDER_PRESETS', () => {
       if (preset.local) expect(preset.baseUrl).toMatch(/^http:\/\/127\.0\.0\.1:/);
     }
     expect(LLM_PROVIDER_PRESETS.find((preset) => preset.id === 'azure-openai')?.credentialHeader).toBe('api-key');
+  });
+
+  it('declares a loopback Routstr preset whose models a host can list', () => {
+    const routstr = LLM_PROVIDER_PRESETS.find((preset) => preset.id === 'routstr');
+    expect(routstr).toMatchObject({
+      label: 'Routstr',
+      protocol: 'openai-chat',
+      baseUrl: 'http://127.0.0.1:8008/v1',
+      local: true,
+      requiresCredential: false,
+      modelsPath: '/models',
+    });
+    // Only a listing path makes a host offer a dropdown; the rest keep manual entry.
+    expect(LLM_PROVIDER_PRESETS.filter((preset) => preset.modelsPath !== undefined).map((preset) => preset.id)).toEqual(['routstr']);
   });
 });

@@ -19,7 +19,7 @@ pnpm add @kehto/firewall
 | Field | Value |
 |-------|-------|
 | Source | `packages/firewall/package.json`, `packages/firewall/src/index.ts` |
-| Version | `0.6.2` |
+| Version | `0.7.0` |
 | Runtime entry | `./dist/index.js` |
 | Types entry | `./dist/index.d.ts` |
 | Side effects | `false` |
@@ -28,7 +28,7 @@ pnpm add @kehto/firewall
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.32.0 <0.37.0` |
+| `@napplet/core` | `>=0.32.0 <0.39.0` |
 
 ## Primary APIs
 
@@ -36,7 +36,7 @@ pnpm add @kehto/firewall
 |------|---------|
 | Decision engine | `evaluate`, `toKey` |
 | Defaults + factories | `defaultConfig`, `createState`, `DEFAULT_EXCEED_ACTION`, `DEFAULT_BURST_ACTION`, `DEFAULT_UNFOCUSED_MULTIPLIER`, `DEFAULT_RATE_CAPACITY`, `DEFAULT_RATE_WINDOW_MS`, `DEFAULT_BURST_WINDOW_MS`, `DEFAULT_BURST_MAX_OPS` |
-| Config mutations | `setPolicy`, `setRateLimit`, `setGlobalRate`, `addMatcher`, `serialize`, `deserialize` |
+| Config mutations | `setPolicy`, `setRateLimit`, `setGlobalRate`, `setUnfocusedMultiplier`, `setBurstGuard`, `addMatcher`, `serialize`, `deserialize` |
 | Types | `Observation`, `FirewallConfig`, `NappletRules`, `RateLimit`, `BurstGuard`, `ContentMatcher`, `NappletPolicy`, `FirewallState`, `Bucket`, `BurstCounter`, `Decision`, `Action`, `EvaluateResult` |
 
 ## Scope Boundaries

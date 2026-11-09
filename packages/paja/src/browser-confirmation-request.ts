@@ -68,6 +68,10 @@ export type PajaConfirmationRequest = (
       readonly messages: number;
       readonly characters: number;
       readonly images: number;
+      /** Tool definition names offered to the model; shown in the dialog only, never logged. */
+      readonly tools: readonly string[];
+      /** Tool results re-entering the conversation as model input. */
+      readonly toolResults: number;
       readonly format: 'text' | 'json';
       readonly warning: string;
     }
@@ -84,5 +88,9 @@ export type PajaConfirmationRequest = (
       readonly windowId: string;
       readonly kind: 'file' | 'files' | 'directory' | 'save-file';
       readonly description: string;
-    }) & { readonly isCurrent?: () => boolean };
+    }) & {
+      readonly isCurrent?: () => boolean;
+      /** Withdraws the request: a queued prompt is dropped and an open dialog closes as denied. */
+      readonly signal?: AbortSignal;
+    };
 

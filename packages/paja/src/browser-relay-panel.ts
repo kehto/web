@@ -32,6 +32,14 @@ export interface PajaEventKindCount {
   count: number;
 }
 
+/** One author whose relay lists routed reads into a box. */
+export interface PajaRelayAuthorCount {
+  /** Lowercase hex pubkey the read was routed for. */
+  readonly pubkey: string;
+  /** Reads in this box that were routed for this author. */
+  readonly count: number;
+}
+
 /**
  * Cumulative receipt counters for one relay inside one box.
  *
@@ -79,6 +87,8 @@ export interface PajaRelayBox {
   readonly origin?: PajaRelayReadOrigin;
   /** Events received in this box, counting every relay sighting. */
   readonly count: number;
+  /** Authors whose relay lists routed reads into this box, busiest first. */
+  readonly authors: PajaRelayAuthorCount[];
   /** Relays in this box, including configured relays with no traffic yet. */
   readonly relays: PajaRelayReceipt[];
   /** Rendered in the header when the box holds no relays but the session has receipts. */
@@ -108,8 +118,14 @@ export interface PajaRelayEventCounter {
    * @param reason - How the read's relay set was chosen.
    * @param relayUrls - Relay URLs the read runs against.
    * @param origin - How a relay was routed inside an outbox plan, when known.
+   * @param authors - Authors whose relay lists routed the read, when known.
    */
-  recordRead(reason: PajaRelayReadReason, relayUrls: readonly string[], origin?: PajaRelayReadOrigin): void;
+  recordRead(
+    reason: PajaRelayReadReason,
+    relayUrls: readonly string[],
+    origin?: PajaRelayReadOrigin,
+    authors?: readonly string[],
+  ): void;
   /**
    * Count one event received from a live relay.
    *
@@ -187,9 +203,10 @@ interface MutableRelayReceipt {
 function emptyBox(): {
   count: number;
   reads: Map<string, number>;
+  authors: Map<string, number>;
   relays: Map<string, MutableRelayReceipt>;
 } {
-  return { count: 0, reads: new Map(), relays: new Map() };
+  return { count: 0, reads: new Map(), authors: new Map(), relays: new Map() };
 }
 
 /** Coalesce equivalent relay identities within one observation batch. */
@@ -201,6 +218,15 @@ function distinctRelayUrls(urls: readonly string[]): string[] {
     if (!unique.has(key)) unique.set(key, url);
   }
   return [...unique.values()];
+}
+
+/** Coalesce the authors of one read so a repeated author counts once per read. */
+function distinctAuthors(authors: readonly string[] | undefined): string[] {
+  const unique = new Set<string>();
+  for (const author of authors ?? []) {
+    if (typeof author === 'string' && author.length > 0) unique.add(author.toLowerCase());
+  }
+  return [...unique];
 }
 
 /**
@@ -227,6 +253,12 @@ export function createPajaRelayEventCounter(onChange?: () => void): PajaRelayEve
       boxes.set(kind, box);
     }
     return box;
+  };
+  const attributeAuthors = (kind: PajaRelayBoxKind, authors: readonly string[] | undefined): void => {
+    const box = boxFor(kind);
+    for (const author of distinctAuthors(authors)) {
+      box.authors.set(author, (box.authors.get(author) ?? 0) + 1);
+    }
   };
   const relayFor = (kind: PajaRelayBoxKind, relayUrl: string) => {
     const box = boxFor(kind);
@@ -281,13 +313,17 @@ export function createPajaRelayEventCounter(onChange?: () => void): PajaRelayEve
           reason: spec.reason,
           ...(spec.origin ? { origin: spec.origin } : {}),
           count: box?.count ?? 0,
+          authors: [...(box?.authors.entries() ?? [])]
+            .sort(([leftKey, leftCount], [rightKey, rightCount]) =>
+              rightCount - leftCount || leftKey.localeCompare(rightKey))
+            .map(([pubkey, count]) => ({ pubkey, count })),
           relays,
           ...(relays.length === 0 && spec.emptyNote ? { emptyNote: spec.emptyNote } : {}),
         });
       }
       return out;
     },
-    recordRead(reason, relayUrls, origin) {
+    recordRead(reason, relayUrls, origin, authors) {
       const kind = boxKindFor(reason, origin);
       const box = boxFor(kind);
       let changed = false;
@@ -297,7 +333,10 @@ export function createPajaRelayEventCounter(onChange?: () => void): PajaRelayEve
         relayFor(kind, relayUrl);
         changed = true;
       }
-      if (changed) onChange?.();
+      if (changed) {
+        attributeAuthors(kind, authors);
+        onChange?.();
+      }
     },
     recordEvent(reason, event, sightedOn, origin) {
       if (typeof event !== 'object' || event === null) return;
@@ -350,6 +389,41 @@ export function installPajaEventCounterReset(counter: PajaRelayEventCounter): ()
 }
 
 /**
+ * Render the authors whose relay lists routed reads into one box.
+ *
+ * Attribution is what turns a surprising NIP-65 receipt into a readable fact:
+ * a relay box belonging to someone else looks identical to the account's own
+ * relays until the author is named. Chips stay compact and keep the full pubkey
+ * in the tooltip rather than in the sidebar.
+ *
+ * @param authors - Authors routed into this box, busiest first.
+ * @returns Author chip row for the box.
+ */
+function renderBoxAuthors(authors: readonly PajaRelayAuthorCount[]): HTMLDivElement {
+  const row = document.createElement('div');
+  row.className = 'event-box-authors';
+  row.replaceChildren(...authors.map(({ pubkey, count }) => {
+    const chip = document.createElement('span');
+    chip.className = 'event-author';
+    chip.dataset.authorPubkey = pubkey;
+    chip.dataset.authorReads = String(count);
+    chip.textContent = count > 1
+      ? `${shortPubkey(pubkey)} · ${count}`
+      : shortPubkey(pubkey);
+    chip.title = count > 1
+      ? `${pubkey} · routed ${count} reads into this box`
+      : `${pubkey} · routed 1 read into this box`;
+    return chip;
+  }));
+  return row;
+}
+
+/** Render a pubkey as a stable, copy-distinct short label. */
+function shortPubkey(pubkey: string): string {
+  return pubkey.length > 12 ? `${pubkey.slice(0, 8)}…${pubkey.slice(-4)}` : pubkey;
+}
+
+/**
  * Render Paja's relay receipts grouped into routing boxes, relay, and kind.
  *
  * Bars are scaled against the busiest relay of the session so cross-box
@@ -397,6 +471,7 @@ export function renderPajaEventKindCounts(
     boxCount.textContent = box.relays.length === 0 ? box.emptyNote ?? '0' : String(box.count);
     head.append(name, boxCount);
     section.append(head);
+    if (box.authors.length > 0) section.append(renderBoxAuthors(box.authors));
 
     for (const relay of box.relays) {
       const row = document.createElement('div');

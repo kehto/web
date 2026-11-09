@@ -20,7 +20,7 @@ app package's development scripts.
 | Field | Value |
 |-------|-------|
 | Source | `packages/paja/package.json`, `packages/paja/src/index.ts` |
-| Version | `0.26.1` |
+| Version | `0.32.1` |
 | Runtime entry | `./dist/index.js` |
 | CLI runner entry | `./dist/cli.js` |
 | Types entry | `./dist/index.d.ts` |
@@ -31,8 +31,8 @@ app package's development scripts.
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.32.0 <0.37.0` |
-| `@napplet/nap` | `>=0.32.0 <0.36.0` |
+| `@napplet/core` | `>=0.38.0 <0.39.0` |
+| `@napplet/nap` | `>=0.37.0 <0.38.0` |
 | `nostr-tools` | `>=2.23.3 <=2.x` |
 
 ## Primary APIs
@@ -112,6 +112,29 @@ The config-file form is the same raw option object:
 
 CLI flags override config-file values at the same nested paths.
 
+### Experimental policies
+
+Paja exposes Kehto's [experimental namespace](/policies/EXPERIMENTAL) of opt-in,
+opinionated host policies (off by default). The first is the nested-browsing-context
+lock, which prevents a napplet from creating an iframe:
+
+```bash
+kehto paja --target-url http://127.0.0.1:5173 --nested-context-lock auto
+```
+
+`--nested-context-lock` (config key `experimental.nestedContextLock`) takes
+`on`, `off`, or `auto` (default). `auto` applies the lock only to a napplet
+granted a privacy-sensitive NAP domain (`dm`), where exfiltration by an
+untrusted app has real consequences. Enabling the lock requires Trusted Types in
+the napplet CSP and is incompatible with frameworks that register their own
+Trusted Types policy (e.g. Angular); see
+[the experimental-namespace policy](/policies/EXPERIMENTAL) for the full cost.
+
+A deployed runtime (no CLI access) can set the same policy from the host-page
+**Security** sidebar's Frame-creation lock control; the choice persists in the
+host origin's `localStorage`, overrides the config, and applies on the next
+napplet load.
+
 For package-manager script examples covering `pnpm`, `npm`, and `yarn`, see
 [Use Paja for local napplet authoring](/how-tos/paja-local-authoring).
 
@@ -128,8 +151,22 @@ authored scripts run and adds a `<base>` tag so target assets and HMR still
 resolve against the app dev server. A real `ShellBridge` completes
 `shell.ready` / `shell.init`; `@kehto/runtime` then handles ACL, firewall, storage,
 INC, relay/outbox, and service dispatch. Reload uses a generation-specific
-internal window id so the same iframe can receive a fresh `shell.init` without
-restarting the CLI or the app dev server.
+internal window id and a fresh iframe, so the new document gets a fresh
+`shell.init` without restarting the CLI or the app dev server.
+
+NIP-5D port-bound identity ([nips#2303 at `51ef0cd`](https://github.com/nostr-protocol/nips/blob/51ef0cd33a5694784306f3260d90b1872545fdee/5D.md)):
+the injected bootstrap hands a private `MessagePort` to Paja in a single
+window-level `napplet.hello`, and every NAP message then travels over that port.
+Paja forwards window-level traffic from its frames to the `ShellBridge`, which
+binds the hello and revokes the napplet on anything else. Paja also watches
+each frame for a second load. A revoked runtime tab keeps a fresh, empty panel in
+the error state until it is reloaded. A revoked single frame is replaced the
+same way, and a revoked intent launcher is removed. Port traffic in both
+directions appears in the message log, and revocations are logged as
+`paja.napplet.revoked`. Napplets must not post NAP envelopes at window level or
+import `@napplet/shim` alongside Paja's injected namespace. The one window-level
+exception is the signed intent launcher's host messages; see the
+[window-level host message allowlist](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#window-level-host-message-allowlist).
 
 Because the frame is sandboxed without `allow-same-origin`, the napplet document
 has an opaque origin and requests its own assets with `Origin: null`. Module
@@ -212,10 +249,14 @@ The console includes:
 - **Resource servers** — extra Blossom lookup origins with a newline textarea and
   Save button, immediately before the Language models section (see below).
 - **Language models** — draft NAP-LLM connections: provider preset, base URL,
-  model, capability flags and an optional API key that is either session-only or
-  encrypted in a password-protected vault. The Interfaces toggle for `llm` is
+  model, capability flags (images, JSON output, **Tool calling** with optional **Required tool choice** and **Named tool choice**; a connection that never ticks tool calling serves none) and an optional API key that is either session-only or
+  encrypted in a password-protected vault. A preset that declares a listing path
+  (`LLM_PROVIDER_PRESETS[].modelsPath`, Routstr's `/models`) swaps free-text
+  model entry for a dropdown seeded from one `GET` against that path, showing
+  `Connected ✓ — n models` under the field. A failed listing names the reason
+  and falls back to free-text entry so a connection can still be saved. The Interfaces toggle for `llm` is
   yellow (`⚠ llm`) while no connection exists; `select()` offers to open this
-  panel and every generation asks for consent. See [Language models](/llm).
+  panel and every generation asks for consent that names the napplet, route, model, counts, any tool definitions offered and the number of tool results being sent. Paja relays tool calls to the napplet and never runs one. See [Language models](/llm).
 - **Messages** — inbound and outbound envelopes are logged with a text filter,
   including Paja system events such as interface changes, ACL changes, signer
   connection changes, signing/publish confirmations, and visible details for
@@ -249,7 +290,13 @@ The console includes:
   Counting happens in the relay backend before delivery, so every read path is
   covered, while simulated memory-mode fixtures and Paja's own publishes are not.
   Each relay row carries a bar scaled against the busiest relay of the session,
-  its receipt count, and its `kind - count` rows. A box is a routing decision
+  its receipt count, and its `kind - count` rows. A box also names the authors
+  its reads were routed for, as short pubkey chips with the full pubkey and the
+  read count in their tooltip. NIP-65 chips name the actual relay-list owners
+  supplied by the router, including `options.authors` hints; event-filter authors
+  with no matching relay list are not credited for someone else's relay.
+  Caller-hint and fallback boxes name requested routing authors; Paja's own
+  `host pool` reads name the authors their filters asked about. A box is a routing decision
   rather than a relay set, so the same relay appears in two boxes when two reads
   reached it for different reasons — a relay that is both an app hint and a
   configured fallback keeps its two receipt counts apart instead of showing one
@@ -430,6 +477,29 @@ objects. The signaling boundary follows pinned
 [NAP-WEBRTC `5fae95dd2c8e59bd06c654e0845656add077dcda`](https://github.com/napplet/naps/blob/5fae95dd2c8e59bd06c654e0845656add077dcda/naps/NAP-WEBRTC.md)
 and [NIP-100 PR #363 head `ead1cd6`](https://github.com/nostr-protocol/nips/pull/363).
 
+### Browser regression coverage
+
+Playwright specs drive these services through the injected `window.napplet.*`
+namespace of a minimal hosted napplet. They check each result at both ends: the
+value the napplet sees and the wire traffic captured by an in-test Nostr relay
+(`tests/e2e/helpers/memory-relay.ts`).
+
+- `tests/e2e/paja-relay.spec.ts`: `relay.publish` through the NIP-07 signer,
+  `relay.publishEncrypted` NIP-44 ciphertext, and `relay.subscribe` delivery
+  (stored events, then EOSE, then live events, then close). Revoking
+  `relay:write` live denies a publish before anything is signed.
+- `tests/e2e/paja-storage.spec.ts`: persistence across a host reload, isolation
+  of the `instance` scope, and live `state:write` revocation.
+- `tests/e2e/paja-identity.spec.ts`: the signer connecting and failing, and
+  NIP-07 reconnecting after a reload.
+- `tests/e2e/paja-cvm.spec.ts`: discovery and one gift-wrapped `tools/call`
+  against an in-test ContextVM server.
+
+Known NAP-IDENTITY gap: on a signer change Paja re-initializes the hosted napplet.
+It does not push `identity.changed` to the napplet that is already loaded. The
+spec's `test.fixme` tracks that contract until Paja refreshes its environment
+without a reload.
+
 ### Standard identity and private social cache
 
 A signed-in napplet uses the existing `identity.getPublicKey`,
@@ -438,7 +508,18 @@ custom social service, direct networking path, or signer/key capability. It
 privately validates the active account's replacement kind-3 contact list and
 warms followed kind-0 profile records through the established outbox router.
 
-That snapshot is active-account-scoped and memory-only, separate from generic
+Warming is background traffic, so it runs only for an account Paja can act as: a
+connected NIP-07/NIP-46 pubkey or the ephemeral Dev signer. A fixed simulation
+identity (`simulation.identity.mode: "fixed"`) is a read-only stand-in — it
+answers `identity.getPublicKey`, and `identity.getFollows` still loads that
+account's contact list on demand — but with no signer connected it never starts
+author-routed relay reads. Without that gate a signer-less session fetched the
+fallback identity's contact list and every followed author's profile through the
+outbox router, which surfaced other people's NIP-65 relays in the Events panel
+and looked like outbox activity nobody had requested. A signer dropping out ends
+warming the same way: the next cycle only starts once a signer account is back.
+
+The social cache is active-account-scoped and memory-only, separate from generic
 simulation cache mode. It is not napplet-owned storage and has no durable-cache
 controls. Captured-key request correlation keeps a follows response associated
 with the account that started it, and generation-safe background writes prevent
@@ -453,7 +534,7 @@ completeness remain outside this behavior.
 [NAP-IDENTITY `6461e4b37c29dc09a20dff35d9515889c4433874`](https://github.com/napplet/naps/blob/6461e4b37c29dc09a20dff35d9515889c4433874/naps/NAP-IDENTITY.md)
 is byte-identical to the phase's recorded `napplet/naps` master document. Pinned
 [NAP-OUTBOX `4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e`](https://github.com/napplet/naps/blob/4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e/naps/NAP-OUTBOX.md)
-and installed `@napplet/nap@0.32.0` types govern this PoC because current master
+and the installed `@napplet/nap` NAP-OUTBOX types (0.37.0 for host packages) govern this PoC because current master
 has no NAP-OUTBOX path. This is not a current-master OUTBOX conformance claim.
 Blossom behavior targets pinned
 [NAP-UPLOAD `a7cc17463cbf5d9cb87884b31071bc4fc826034c`](https://github.com/napplet/naps/blob/a7cc17463cbf5d9cb87884b31071bc4fc826034c/naps/NAP-UPLOAD.md).
@@ -683,9 +764,6 @@ the next iframe reload.
   HMR still resolve against the app dev server through the injected `<base>`.
 - Does not guess framework dev-server ports, mutate app build tooling, or add
   framework-specific adapters.
-- Does not replace the full playground. Paja is the package-scoped authoring
-  runtime for one target app; the playground remains the multi-napplet demo and
-  topology surface.
 
 ## API Reference
 
@@ -766,6 +844,21 @@ remain a documented upstream spec gap; no host sender identity is invented.
 ## NIP-5D runtime pointers
 
 Paja MUST load all three NIP-5D manifest kinds: root `15129`, named `35129`, and snapshot `5129`. Use an `naddr` with an empty identifier for the latest root, an `naddr` with the literal `d` identifier for the latest named napplet, or a `nevent` to pin a signed event of any of the three kinds. Snapshots require `nevent` because they are immutable events without replaceable coordinates. All paths verify the signed manifest and artifact hash before injecting `srcdoc`. Distinct snapshots retain separate tabs and catalog identities even when their artifact bytes match.
+
+
+### Relay unreachable
+
+Pointer resolution tracks each relay's connection outcome, not just whether
+events arrived. When **zero** relays open a WebSocket, the resolver throws
+`PajaRelayUnreachableError` (`code: 'relay-unreachable'`, with a
+`PajaRelayConnectionSummary` of connected/failed/pending relays) instead of the
+generic timeout, and the pointer status reads `No relay connection could be
+opened … 0 of N relays connected …` with the likely causes: the browser is
+offline, the relays are blocked, or the browser reached its WebSocket connection
+limit (for example many open tabs each holding relay connections). Paja logs a
+`paja.relay.unreachable` entry with the per-relay detail. A deadline expiry with
+at least one live relay keeps the timeout message and now states how many relays
+connected. Pools without `ensureRelay` keep the previous messages.
 
 ## Controller diagnostics
 

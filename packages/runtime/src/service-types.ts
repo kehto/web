@@ -91,17 +91,17 @@ export interface ServiceHandler {
    */
   messageCapabilities?: Readonly<Record<string, Capability | ExtensionCapability | null>>;
   /**
-   * Explicit outbound host-initiated (push) types for an experimental `x-`
-   * domain. Each own key is an exact `domain.event` type in this handler's own
-   * domain; its value is an own-domain `x-<domain>:<action>` capability the
-   * recipient must currently hold, or explicit `null`.
+   * Shell -> napplet push types for a custom domain: exact type -> recipient ACL
+   * capability or explicit `null`. `sendToEligibleNapplet` delivers declared
+   * types to live, unblocked, `isDomainAllowed`-granted sources whose current
+   * grant holds the capability. Built-in domains keep their canonical map.
    *
-   * Declared pushes are delivered only through this handler's
-   * `ServiceRuntimeContext.sendToEligibleNapplet`, after the live-session,
-   * domain-grant, block and ACL checks used for requests. Firewall admission
-   * for pushes is the napplet's hard policy (`deny`/`ask` drop silently); pushes
-   * do not consume its request rate budget or run content matchers. Undeclared
-   * types, other domains, and built-in domains are never pushed through it.
+   * For an experimental `x-` domain each key must be in the handler's own
+   * domain and each value an own-domain `x-<domain>:<action>` capability or
+   * `null`; the push goes only through this handler's own context. Firewall
+   * admission for `x-` pushes is the napplet's hard policy (`deny`/`ask` drop
+   * silently); pushes do not consume its request rate budget or run content
+   * matchers. Undeclared types and other handlers' `x-` domains are never pushed.
    */
   pushCapabilities?: Readonly<Record<string, Capability | ExtensionCapability | null>>;
   /**

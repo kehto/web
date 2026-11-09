@@ -7,6 +7,7 @@ import {
 } from './index.js';
 import type { ServiceHandler, ServiceRuntimeContext, ShellAdapter, ShellExtension } from './index.js';
 import { resetShellEnvironmentOverrideWarning } from './shell-ready.js';
+import { deliverFromNapplet } from './test-utils.js';
 import { validateExtensionCapability } from '@kehto/acl';
 
 // Kehto spec-gap policy for experimental x- NAPs, bounded by napplet/naps master
@@ -69,26 +70,41 @@ function bridgeWith(hooks: ShellAdapter) {
   bridge.runtime.firewallState.setPolicy(identity.dTag, 'allow');
   const target = frame();
   originRegistry.register(target.win, windowId, identity);
-  const dispatch = (data: Record<string, unknown>) => bridge.handleMessage({ source: target.win, origin: 'null', data } as MessageEvent);
+  const dispatch = (data: Record<string, unknown>) => deliverFromNapplet(bridge, { source: target.win, origin: 'null', data });
   return { bridge, target, dispatch };
 }
 
-type Listener = (event: { source: unknown; data: unknown }) => void;
+type Listener = (event: { source?: unknown; currentTarget?: unknown; data: unknown }) => void;
+// Runs the rendered kehto scripts in a fake realm. NIP-5D: the prelude posts
+// only napplet.hello at window level and talks to the shell over port1, so
+// `posted` records port traffic and `deliver` answers on the port. Passing a
+// `from` source sends a window-level message instead, which must be ignored.
 function runFrame(html: string) {
-  const listeners = new Set<Listener>();
+  const windowListeners = new Set<Listener>();
+  const portListeners = new Set<Listener>();
   const posted: Record<string, unknown>[] = [];
-  const parent = { postMessage: (message: Record<string, unknown>) => posted.push(message) };
+  const port1 = {
+    postMessage: (message: Record<string, unknown>) => posted.push(message),
+    addEventListener: (type: string, l: Listener) => { if (type === 'message') portListeners.add(l); },
+    removeEventListener: (type: string, l: Listener) => { portListeners.delete(l); },
+    start() {}, close() {},
+  };
+  const parent = { postMessage() {} };
   const win: Record<string, unknown> = {
     parent, crypto: { randomUUID: () => `id-${posted.length}` },
+    MessageChannel: class { readonly port1 = port1; readonly port2 = {}; },
     document: { addEventListener() {}, removeEventListener() {} },
-    addEventListener: (_t: string, l: Listener) => listeners.add(l),
-    removeEventListener: (_t: string, l: Listener) => listeners.delete(l),
+    addEventListener: (_t: string, l: Listener) => windowListeners.add(l),
+    removeEventListener: (_t: string, l: Listener) => windowListeners.delete(l),
   };
   // Each kehto script is its own element: a syntax error only skips that one.
   for (const [, source] of html.matchAll(/<script data-kehto-nip5d-(?:extension|injection)>([\s\S]*?)<\/script>/g)) {
     try { new Function('window', source)(win); } catch { /* isolated like a separate <script> */ }
   }
-  const deliver = (data: unknown, from: unknown = parent) => { for (const l of [...listeners]) l({ source: from, data }); };
+  const deliver = (data: unknown, from?: unknown) => {
+    if (from !== undefined) for (const l of [...windowListeners]) l({ source: from, data });
+    else for (const l of [...portListeners]) l({ currentTarget: port1, data });
+  };
   return { win, posted, deliver };
 }
 
@@ -358,7 +374,7 @@ describe('originRegistry.setEnvironment compatibility (KEHTO_COMPAT_SHELL_ENV_OV
       originRegistry.register(target.win, `${windowId}-${run}`, identity);
       const live = resolveShellEnvironment(hooks, identity);
       originRegistry.setEnvironment(target.win, { capabilities: { domains: [...live.capabilities.domains, 'example'] }, services: live.services });
-      bridge.handleMessage({ source: target.win, origin: 'null', data: { type: 'example.read', id: `r${run}` } } as MessageEvent);
+      deliverFromNapplet(bridge, { source: target.win, origin: 'null', data: { type: 'example.read', id: `r${run}` } });
       expect(target.postMessage).toHaveBeenCalledWith({ type: 'example.result', id: `r${run}` }, '*');
       bridge.destroy();
     }

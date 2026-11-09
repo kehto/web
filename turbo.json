@@ -1,20 +1,9 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalDependencies": [
-    "apps/playground/napplets/shared-vite-config.ts",
-    "apps/playground/napplets/shared-theme.ts"
-  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]
-    },
-    "build:napplets": {
-      "dependsOn": ["^build"],
-      "outputs": [
-        "apps/playground/napplets/*/dist/**",
-        "tests/fixtures/napplets/*/dist/**"
-      ]
     },
     "@kehto/runtime#build": {
       "dependsOn": ["@kehto/acl#build", "@kehto/firewall#build"],
@@ -28,10 +17,6 @@
       "dependsOn": ["@kehto/acl#build", "@kehto/runtime#build"],
       "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/skills/kehto-experimental-nap/**", "$TURBO_ROOT$/scripts/copy-agent-skill.mjs"],
       "outputs": ["dist/**", "skills/**"]
-    },
-    "@kehto/playground#build": {
-      "dependsOn": ["^build", "build:napplets"],
-      "outputs": ["dist/**"]
     },
     "@kehto/paja#build": {
       "dependsOn": [

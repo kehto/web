@@ -58,7 +58,7 @@ export function handleShellReady({
 
   const environment = registerSourceSession({ hooks, origin, runtime, state, sourceRegistrationId, sourceWindow, windowId });
   if (!environment?.capabilities.domains.includes('shell')) return;
-  postShellInit(sourceWindow, environment);
+  postShellInit(windowId, environment);
   state.initSent.set(sourceWindow, sourceRegistrationId);
 }
 
@@ -182,7 +182,7 @@ function resolveNip5dIdentity(
 }
 
 function postShellInit(
-  win: Window,
+  windowId: string,
   environment: ShellEnvironment,
 ): void {
   const initMsg = {
@@ -190,5 +190,6 @@ function postShellInit(
     capabilities: environment.capabilities,
     services: environment.services,
   };
-  win.postMessage(initMsg, '*');
+  // NIP-5D: shell.init travels over the port bound by napplet.hello.
+  originRegistry.postToNapplet(windowId, initMsg);
 }

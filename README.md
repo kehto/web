@@ -3,7 +3,7 @@
 [![CI](https://github.com/kehto/web/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kehto/web/actions/workflows/ci.yml)
 [![Version Packages](https://github.com/kehto/web/actions/workflows/publish.yml/badge.svg)](https://github.com/kehto/web/actions/workflows/publish.yml)
 [![Release](https://github.com/kehto/web/actions/workflows/release.yml/badge.svg)](https://github.com/kehto/web/actions/workflows/release.yml)
-[![Publish Web to GitHub Pages](https://github.com/kehto/web/actions/workflows/playground-pages.yml/badge.svg?branch=main)](https://github.com/kehto/web/actions/workflows/playground-pages.yml)
+[![Publish Web to GitHub Pages](https://github.com/kehto/web/actions/workflows/pages.yml/badge.svg?branch=main)](https://github.com/kehto/web/actions/workflows/pages.yml)
 [![AI Slop Score](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkehto%2Fweb%2Fbadges%2Faislop-score.json)](https://github.com/kehto/web/actions/workflows/aislop-badge.yml)
 
 <!-- AI Slop Badge scans main and publishes generated JSON to the badges branch.
@@ -12,8 +12,7 @@
 Kehto is an unopinionated toolkit and protocol kernel for building NIP-5D Nostr
 applet ("napplet") runtimes. It supplies routing, lifecycle, capability, service,
 and browser-shell primitives without deciding a runtime's origin, signer, or
-deployment policy. Paja is Kehto's reference developer runtime; the playground
-is a visualization and integration fixture.
+deployment policy. Paja is Kehto's reference developer runtime.
 
 > **Alpha status:** kehto/web is under heavy development and is far from complete,
 > It presently offers components but still requires the implementer to
@@ -34,7 +33,7 @@ runtime toolkit, while Paja demonstrates one complete implementation.
 ## Start Here
 
 - Public web portal: <https://kehto.github.io/web/>
-- Playground demo: <https://kehto.github.io/web/playground/>
+- Paja Runtime: <https://kehto.github.io/web/paja/>
 - Docs: <https://kehto.github.io/web/docs/>
 - Alpha status: [docs/alpha-status.md](./docs/alpha-status.md)
 - Local docs entry: [docs/index.md](./docs/index.md)
@@ -54,7 +53,7 @@ pnpm paja
 
 Then open <http://127.0.0.1:4175/web/paja/> and enter a napplet `naddr` or
 `nevent`. This builds only Paja and its workspace dependencies, not the
-playground or documentation site.
+documentation site.
 
 ## Experimental NAPs and agent skill
 
@@ -84,10 +83,10 @@ npx degit kehto/web/skills/kehto-experimental-nap .claude/skills/kehto-experimen
 | `@kehto/runtime` | Browser-agnostic NIP-5D dispatch, ACL gates, service registry, sessions, manifests, replay checks, and event buffering. | [packages/runtime](./packages/runtime/) | [docs/packages/runtime.md](./docs/packages/runtime.md) | [Runtime docs](https://kehto.github.io/web/docs/packages/runtime) |
 | `@kehto/shell` | Browser iframe/session adapter over a Kehto runtime, gateway loading, postMessage transport, hosted `supports()`, and shell policy. | [packages/shell](./packages/shell/) | [docs/packages/shell.md](./docs/packages/shell.md) | [Shell docs](https://kehto.github.io/web/docs/packages/shell) |
 | `@kehto/services` | Reference handlers for identity, relay, keys, media, notify, config, resource, cache, theme, and audio surfaces. | [packages/services](./packages/services/) | [docs/packages/services.md](./docs/packages/services.md) | [Services docs](https://kehto.github.io/web/docs/packages/services) |
+| `@kehto/mocks` | Deterministic mock services for every NAP domain (merged and draft), so a shell has data while implementing a NAP without a real relay, device, downloader, or provider. | [packages/mocks](./packages/mocks/) | [docs/packages/mocks.md](./docs/packages/mocks.md) | [Mocks docs](https://kehto.github.io/web/docs/packages/mocks) |
 | `@kehto/nip` | Tree-shakable bundle of unique Nostr NIP utilities, including NIP-5A/5D napplet artifact verification and optional Cache Storage reuse, plus NIP-51/65/66/89 helpers. | [packages/nip](./packages/nip/) | [docs/packages/nip.md](./docs/packages/nip.md) | [NIP docs](https://kehto.github.io/web/docs/packages/nip) |
 | `@kehto/wm` | Structural window-management contracts for shell-owned layout strategies. | [packages/wm](./packages/wm/) | [docs/packages/wm.md](./docs/packages/wm.md) | [WM docs](https://kehto.github.io/web/docs/packages/wm) |
 | `@kehto/paja` | Reference developer runtime with concrete browser, relay, resource, and signer choices. | [packages/paja](./packages/paja/) | [docs/packages/paja.md](./docs/packages/paja.md) | [Paja docs](https://kehto.github.io/web/docs/packages/paja) |
-| `@kehto/playground` | 9-napplet protocol visualization and integration verification target. | [apps/playground](./apps/playground/) | [docs/packages/playground.md](./docs/packages/playground.md) | [Playground docs](https://kehto.github.io/web/docs/packages/playground) |
 
 Package roots link to package-local READMEs and source. Markdown docs are the
 same pages used by the VitePress site.
@@ -109,32 +108,14 @@ same pages used by the VitePress site.
 | Read shell policy documents | [docs/policies/index.md](./docs/policies/index.md) | [Policies](https://kehto.github.io/web/docs/policies/) |
 | Browse generated API docs | [docs/reference/api.md](./docs/reference/api.md) | [API reference](https://kehto.github.io/web/docs/reference/api) |
 
-## Playground Demo
+## Playground (retired)
 
-The playground visualizes protocol and toolkit behavior. It loads 9 sandboxed
-napplets through the same gateway artifact shape used by the static Pages build;
-it is not Kehto's reference runtime and does not define runtime policy. Use Paja
-for the reference developer-runtime implementation.
-
-- Public demo: <https://kehto.github.io/web/playground/>
-- Local app root: [apps/playground](./apps/playground/)
-- Playground README: [apps/playground/README.md](./apps/playground/README.md)
-- Playground docs: [docs/packages/playground.md](./docs/packages/playground.md)
-
-Run it locally from the repository root:
-
-```bash
-pnpm install
-pnpm --filter "./apps/playground/napplets/*" build
-pnpm --filter @kehto/playground dev
-```
-
-Use the preview command when reproducing the production build used by the
-Playwright suite:
-
-```bash
-pnpm --filter @kehto/playground preview
-```
+The `@kehto/playground` demo app is deprecated and has been removed; it is no
+longer maintained. Use [Paja](./docs/packages/paja.md) to host napplets. The old
+<https://kehto.github.io/web/playground/> URL now redirects to Paja; see
+`KEHTO_PLAYGROUND_RETIRED` in the
+[compatibility register](./docs/compatibility.md). Its source remains in git
+history.
 
 ## Repository Layout
 
@@ -147,7 +128,6 @@ pnpm --filter @kehto/playground preview
 | [packages/services](./packages/services/) | Reference service implementations. |
 | [packages/nip](./packages/nip/) | Standalone Nostr NIP utilities (per-NIP subpaths). |
 | [packages/wm](./packages/wm/) | Window-management type contracts. |
-| [apps/playground](./apps/playground/) | Demo host and demo napplets. |
 | [docs](./docs/) | VitePress documentation source. |
 | [specs](./specs/) | Pinned protocol specifications consumed by this repo. |
 | [scripts](./scripts/) | Build and audit helpers. |

@@ -63,6 +63,7 @@ export function mergePajaRawOptions(
     port: override.port ?? base.port,
     readyTimeoutMs: override.readyTimeoutMs ?? base.readyTimeoutMs,
     configPath: override.configPath ?? base.configPath,
+    experimental: override.experimental ?? base.experimental,
     simulation: mergeSimulationOptions(base.simulation, override.simulation),
     ...(override.extensions ?? base.extensions ? { extensions: override.extensions ?? base.extensions } : {}),
   };

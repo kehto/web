@@ -7,8 +7,8 @@ current_phase_name: Paja Intent Deep Links
 status: completed
 stopped_at: Phase 107 complete; PR 289 open and pushed
 last_updated: "2026-10-31T12:00:00.000000Z"
-last_activity: 2026-10-31
-last_activity_desc: "Completed quick task 261031-ku0: experimental NAPs goal, full pipeline pass"
+last_activity: 2026-11-02
+last_activity_desc: "Completed quick task 261032: PR 383 provider switching and reusable model dropdown"
 progress:
   total_phases: 7
   completed_phases: 7
@@ -65,7 +65,7 @@ Phase: 107 (Paja Intent Deep Links) — COMPLETE
 Plan: 4 of 4
 Status: Shipped as open PR #289 — https://github.com/kehto/web/pull/289. No merge or release performed.
 
-Last activity: 2026-10-31 - Completed quick task 261031-ku0: experimental NAPs goal, full pipeline pass (PR #363)
+Last activity: 2026-11-04 - Completed quick task 261104-fjx: Chase NAP-LLM draft across kehto
 
 ## Performance Metrics
 
@@ -180,6 +180,19 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
+| 261102-ggx | Resolve PR #376 review: authorized extension pushes (`pushCapabilities`) and relay delivery ownership for `@kehto/mocks` | 2026-11-02 | 331d6f9b | passed | [261102-ggx](./quick/261102-ggx-resolve-pr-376-review-authorized-extensi/) |
+| 261104-kmf | Host firewall and dispatch controls for shell and runtime (#397-#400), one PR per issue against `release/host-firewall-controls` | 2026-11-04 | 52b4ea89 | passed | [261104-kmf](./quick/261104-kmf-host-firewall-controls/) |
+| 261102-gub | Policy: drop process isolation from the WebRTC-egress end state; name the `webrtc` CSP directive as the upstream fix and nested-context revocation as the Kehto mitigation to build | 2026-11-02 | 0d26bf89 | passed | [261102-gub](./quick/261102-gub-webrtc-egress-end-state/) |
+| 261102-g2n | Paja reports zero relay connections distinctly during pointer resolution (PajaRelayUnreachableError, paja.relay.unreachable) | 2026-11-02 | cea679bb | passed | [261102-g2n](./quick/261102-g2n-paja-relay-unreachable-status/) |
+| 261102-edn | Neuter direct WebRTC egress in the napplet realm (napplet/evil #1); RTCPeerConnection removed from the injected prelude | 2026-11-02 | 00cb519e | passed | [261102-edn](./quick/261102-edn-nip5d-webrtc-egress-neuter/) |
+| 261101-pfc | Move playground-only relay, storage, ACL-revoke, identity and CVM e2e coverage to Paja | 2026-11-01 | 08bbf248 | passed | [261101-pfc](./quick/261101-pfc-paja-e2e-coverage/) |
+| 261101-u20 | Chase NIP-5D port-bound identity security fix (napplet.hello MessagePort; nips#2303 @ 51ef0cd, napplet/web#302) | 2026-11-01 | 8798cac2 | passed | [261101-u20](./quick/261101-u20-nip5d-port-bound-identity/) |
+| 261101-ojp | Deprecate and retire the @kehto/playground app; /web/playground/ redirects to Paja (KEHTO_PLAYGROUND_RETIRED) | 2026-11-01 | bb9817a2 | passed | [261101-ojp](./quick/261101-ojp-deprecate-playground/) |
+| 261034 | Show routstrd install link on discovery failure | 2026-11-02 | 3a76ecfc | build/types/docs/e2e passed; 2 baseline unit failures | [261034](./quick/261034-show-routstrd-installation-link-when-mod/) |
+| 261033 | Order OpenRouter, Routstr, Google Gemini | 2026-11-02 | 4dafe808 | build/types passed; 2 baseline unit failures | [261033](./quick/261033-reorder-provider-presets-openrouter-rout/) |
+| 261032 | Fix PR 383 provider keys, default names and reusable model dropdown | 2026-11-02 | 2e4b002f | focused checks passed; 2 baseline unit failures | [261032](./quick/261032-fix-pr-383-provider-switching-and-reusab/) |
+| 261031-neu | NAP-LLM service hardening: handle bound, prompt abort signals, streaming providers (kehto/web#368-#370) | 2026-10-31 | 13352e3e | passed | [261031-neu](./quick/261031-neu-llm-service-hardening-368-370/) |
+| 261031-mfp | Prevent demo audit Vite server leaks; use Playwright ownership (follow-up #363) | 2026-10-31 | ac4ae564 | passed | [261031-mfp](./quick/261031-mfp-prevent-demo-audit-tests-from-leaking-th/) |
 | 261031-ku0 | Experimental NAPs goal: full GSD pipeline audit and fixes on PR #363 (spec re-check, regressions, skill guards, downstream dry run) | 2026-10-31 | 38e72465 | complete | [261031-ku0](./quick/261031-ku0-experimental-naps-goal-pipeline/) |
 | 261031-l9b | Admit @napplet/nap 0.35.x and core 0.36.x in published peer ranges (kehto/web#364) | 2026-10-31 | 2977db05 | passed | [261031-l9b](./quick/261031-l9b-napplet-peer-range-364/) |
 | 261031-et9 | Implement NAP-LLM across acl/runtime/services/shell/paja/playground with encrypted Paja credentials and the unconfigured interface state | 2026-10-31 | 588ab732 | passed | [261031-et9](./quick/261031-et9-nap-llm/) |
@@ -282,6 +295,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 261009-gxe | Canonical intent delivery with tracked, warned compatibility; AGENTS policy separate in #284 | 2026-10-09 | 05d3e013 | Verified | [261009-gxe](./quick/261009-gxe-migrate-pr-277-intent-delivery-to-intent/) |
 | 261009-h66 | Require compatibility warnings, tracking and tests in AGENTS | 2026-10-09 | 3c595776 | Verified | [261009-h66](./quick/261009-h66-require-tracked-and-tested-backwards-com/) |
 | 261023-oqs | Upgrade playground relay service to applesauce v7 | 2026-10-23 | 40154766 | Verified | [261023-oqs](./quick/261023-oqs-upgrade-playground-relay-service-to-appl/) |
+| 261104-fjx | Chase NAP-LLM draft across kehto | 2026-11-04 | c9474917 | Verified | [261104-fjx-chase-nap-llm-draft-across-kehto](./quick/261104-fjx-chase-nap-llm-draft-across-kehto/) |
 
 | 260930-gbm | Enforce NIP-5D CSP in shell with validated host overrides | 2026-09-30 | 375b1ee | Verified | [260930-gbm-enforce-nip-5d-csp-in-shell-with-validat](./quick/260930-gbm-enforce-nip-5d-csp-in-shell-with-validat/) |
 | 261009-j8y | Resolve PR #272 conflicts while preserving CSP and local-file admission | 2026-10-09 | 17e3d108 | Verified | [261009-j8y](./quick/261009-j8y-resolve-pr-272-conflicts-with-current-ma/) |

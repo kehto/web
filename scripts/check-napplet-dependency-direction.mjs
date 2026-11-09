@@ -24,10 +24,27 @@ function runGit(args) {
   }
 }
 
-function changedManifestPaths(base, head) {
-  return runGit(['diff', '--name-only', '--diff-filter=ACMR', `${base}...${head}`])
+function isManifest(path) {
+  return path === 'package.json' || path.endsWith('/package.json');
+}
+
+/**
+ * Changed manifests with the path to compare against at the base revision.
+ * Added and copied manifests are new packages: they have no prior @napplet
+ * declarations to regress, so their base path is null (an empty manifest).
+ * Renamed manifests compare against their pre-rename path.
+ */
+function changedManifests(base, head) {
+  return runGit(['diff', '--name-status', '--diff-filter=ACMR', `${base}...${head}`])
     .split('\n')
-    .filter((path) => path === 'package.json' || path.endsWith('/package.json'));
+    .filter(Boolean)
+    .map((line) => {
+      const [status, ...paths] = line.split('\t');
+      const path = paths.at(-1);
+      if (status.startsWith('A') || status.startsWith('C')) return { path, basePath: null };
+      return { path, basePath: paths[0] };
+    })
+    .filter(({ path }) => isManifest(path));
 }
 
 function manifestAt(revision, path) {
@@ -103,8 +120,9 @@ function main() {
 
   const violations = [];
   try {
-    for (const path of changedManifestPaths(base, head)) {
-      violations.push(...validateManifest(path, manifestAt(base, path), manifestAt(head, path)));
+    for (const { path, basePath } of changedManifests(base, head)) {
+      const baseManifest = basePath === null ? {} : manifestAt(base, basePath);
+      violations.push(...validateManifest(path, baseManifest, manifestAt(head, path)));
     }
   } catch (error) {
     console.error(`Napplet dependency direction check failed closed: ${error instanceof Error ? error.message : String(error)}`);

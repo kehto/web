@@ -62,6 +62,7 @@ import { createPajaResourceFetch, pajaResourceInfo } from './browser-resource.js
 import { createPajaWebrtcController } from './browser-webrtc.js';
 import { createPajaBrowserFsBackend } from './browser-fs.js';
 import {
+  PAJA_DEV_SIGNER_PUBKEY,
   createPajaDevDmService,
 } from './browser-dev-runtime.js';
 import type { PajaLlmHost } from './browser-llm-connections.js';
@@ -177,6 +178,27 @@ export function createDevTheme(mode: PajaSimulation['theme']['mode'], values: Pa
   } as Theme;
 }
 
+const HEX_PUBKEY = /^[0-9a-f]{64}$/i;
+
+/**
+ * Pubkey of the account Paja may act as right now, or `null` when there is none.
+ *
+ * Only a connected signer counts: NIP-07/NIP-46 expose the pubkey they
+ * authorized, and the Dev signer is its own ephemeral account. A fixed
+ * simulation identity is deliberately excluded because it is a read-only
+ * stand-in — treating it as a signed-in account would let a signer-less session
+ * start author-routed relay reads (social warming) that nobody asked for.
+ *
+ * @param signerProvider - Host signer controller, when one is wired.
+ * @returns Lowercase hex pubkey of the connected account, or `null`.
+ */
+function getConnectedAccountPubkey(signerProvider?: PajaSignerProvider): string | null {
+  const pubkey = signerProvider?.getPubkey();
+  if (typeof pubkey === 'string' && HEX_PUBKEY.test(pubkey)) return pubkey.toLowerCase();
+  if (signerProvider?.getMethod() === 'dev') return PAJA_DEV_SIGNER_PUBKEY;
+  return null;
+}
+
 interface PajaServiceBundle {
   readonly services: Record<string, ServiceHandler>;
   refreshAvailability(): boolean;
@@ -233,7 +255,10 @@ function createDevServices(
     baseRouter: baseOutboxRouter,
     loadContactList: createPajaContactListLoader(backend, getSimulation, signerProvider, getReadRelays),
     verifyEvent: (event) => verifyEvent(event as Parameters<typeof verifyEvent>[0]),
-    getActivePubkey: () => getRuntimePubkey(getSimulation, signerProvider),
+    // Background warming is speculative relay traffic, so it only runs for a
+    // signer account. `getFollows` still answers on demand for any requested
+    // pubkey, including the fixed simulation identity.
+    getActivePubkey: () => getConnectedAccountPubkey(signerProvider),
     subscribeSignerChange: signerProvider?.subscribe?.bind(signerProvider),
   });
   const commonBackend = createPajaCommonBackend({

@@ -5,9 +5,9 @@ Use this when checking whether a napplet build matches the production-equivalent
 ## Commands
 
 ```bash
-pnpm --filter "./apps/playground/napplets/*" build
-pnpm audit:gateway-artifacts
-pnpm --filter @kehto/playground preview --port 4174
+pnpm --filter "./tests/fixtures/napplets/*" build
+pnpm audit:csp
+kehto paja --target-url http://127.0.0.1:5173 -- pnpm vite --host 127.0.0.1
 ```
 
 ## What to check
@@ -22,8 +22,8 @@ pnpm --filter @kehto/playground preview --port 4174
 
 Do not treat direct `/napplets/<name>/` static serving as the canonical proof path.
 
-The audit checks the playground loader's `prepareNappletSrcdoc` assignment and
-the shared helper's CSP and namespace injection. The helper receives verified
+Paja's loader and the shared `prepareNappletSrcdoc` helper own CSP and
+namespace injection. The helper receives verified
 `resolved.indexHtml`; its additions stay outside the signed artifact bytes.
 Executable regression tests reject raw `srcdoc`, unverified input, and removal
 of either CSP or namespace injection.

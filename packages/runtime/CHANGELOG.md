@@ -1,5 +1,57 @@
 # @kehto/runtime
 
+## 0.28.1
+
+### Patch Changes
+
+- 0379d16: Add `ServiceHandler.pushCapabilities`: a registered service outside the built-in
+  dispatcher can declare the exact shell -> napplet push types it emits (each
+  mapped to the recipient's ACL capability or explicit `null`), and
+  `ServiceRuntimeContext.sendToEligibleNapplet` delivers them under the same
+  gates as inbound extension routing (registered handler, live unblocked source,
+  explicit `isDomainAllowed` grant, declared capability). Built-in domains keep
+  their canonical recipient mapping; undeclared types are still refused.
+
+  When a registered `relay` service accepts a `relay.publish`, that service now
+  owns storage and fan-out of the event. The runtime ring buffer no longer
+  re-delivers it, which previously skipped the publisher's own subscriptions,
+  ignored per-subscription relay scope, and sent every other window a second
+  legacy `['EVENT', …]` copy. Publishes coordinated by the runtime through the
+  adapter relay pool keep the buffer fan-out.
+
+## 0.28.0
+
+### Minor Changes
+
+- 6eb1ea4: Hosts can now choose the ACL default policy with `aclDefaultPolicy: 'permissive' | 'restrictive'` on `RuntimeAdapter` and `ShellAdapter`. With `'restrictive'`, identities with no stored entry start with nothing granted. A policy set this way replaces the one stored in persisted ACL state on load, and stored entries are kept. Leaving it out keeps today's behaviour.
+- 6eb1ea4: Hosts can now change firewall budgets after creation. `@kehto/firewall` adds `setUnfocusedMultiplier` and `setBurstGuard`, and `FirewallStateContainer` adds methods with the same names, reachable through `runtime.firewallState`. Both throw `RangeError` on out-of-range values. A multiplier of zero is refused, because focus alone must never empty a budget. Custom `FirewallStateContainer` implementations must add both methods.
+
+### Patch Changes
+
+- Updated dependencies [6eb1ea4]
+  - @kehto/firewall@0.7.0
+
+## 0.27.3
+
+### Patch Changes
+
+- 66beed4: Widen the `@napplet/core` and `@napplet/nap` peer ranges to admit core 0.38.x and nap 0.37.x while keeping the 0.32.0 floor.
+- Updated dependencies [66beed4]
+  - @kehto/acl@0.20.3
+  - @kehto/firewall@0.6.4
+
+## 0.27.2
+
+### Patch Changes
+
+- 902c1d0: Admit the NIP-5D port-bound napplet release lines in published peers:
+  `@napplet/core >=0.32.0 <0.38.0` and `@napplet/nap >=0.32.0 <0.37.0`
+  (core 0.37.0 / nap 0.36.0, napplet/web#302). Development stays on the 0.32.0
+  baseline.
+- Updated dependencies [902c1d0]
+  - @kehto/acl@0.20.2
+  - @kehto/firewall@0.6.3
+
 ## 0.27.1
 
 ### Patch Changes

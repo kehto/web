@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 // Guards the downstream kehto-experimental-nap agent skill: valid frontmatter,
 // resolvable links, real public API references, and templates that cannot
-// drift from the x-echo fixture (or the playground's copy of it).
+// drift from the x-echo fixture.
 const repoRoot = resolve(__dirname, '../..');
 const skillDir = join(repoRoot, 'skills/kehto-experimental-nap');
 const fixtureDir = join(repoRoot, 'tests/fixtures/experimental-nap');
@@ -108,13 +108,12 @@ describe('kehto-experimental-nap skill', () => {
     }
   });
 
-  it('ships templates byte-identical to the x-echo fixture and the playground copy', () => {
+  it('ships templates byte-identical to the x-echo fixture', () => {
     const templates = readdirSync(join(skillDir, 'templates')).sort();
     expect(templates).toEqual(['paja.config.json', 'x-echo.js', 'x-echo.paja.spec.ts', 'x-echo.test.ts']);
     for (const name of templates) {
       expect(read(join(skillDir, 'templates', name)), name).toBe(read(join(fixtureDir, name)));
     }
-    expect(read(join(repoRoot, 'apps/playground/src/extensions/x-echo.js'))).toBe(read(join(fixtureDir, 'x-echo.js')));
   });
 
   it('is packaged into the published @kehto/shell tarball', () => {

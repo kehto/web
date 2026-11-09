@@ -474,7 +474,8 @@ export interface RuntimeConfigOverrides {
  * import { createRuntime, type RuntimeAdapter } from '@kehto/runtime';
  *
  * const hooks: RuntimeAdapter = {
- *   sendToNapplet: (wid, msg) => iframeWindows.get(wid)?.postMessage(msg, '*'),
+ *   // NIP-5D: send over the port bound by the napplet's napplet.hello.
+ *   sendToNapplet: (wid, msg) => helloPorts.get(wid)?.postMessage(msg),
  *   relayPool: myRelayPoolAdapter,
  *   cache: myCacheAdapter,
  *   auth: myAuthAdapter,
@@ -574,6 +575,13 @@ export interface RuntimeAdapter {
 
   /** Called on every ACL enforcement check (audit). */
   onAclCheck?: (event: AclCheckEvent) => void;
+
+  /**
+   * ACL policy for identities with no stored entry. When omitted, `'permissive'`
+   * unless persisted state stores another. When set, it replaces the persisted
+   * policy on load and keeps stored entries.
+   */
+  aclDefaultPolicy?: 'permissive' | 'restrictive';
 
   /**
    * Firewall config persistence (save/load firewall config).

@@ -16,7 +16,7 @@ pnpm add @kehto/acl @napplet/core @napplet/nap
 | Field | Value |
 |-------|-------|
 | Source | `packages/acl/package.json`, `packages/acl/src/index.ts` |
-| Version | `0.20.1` |
+| Version | `0.20.3` |
 | Runtime entry | `./dist/index.js` |
 | Types entry | `./dist/index.d.ts` |
 | Exported subpaths | `.`, `./capabilities` |
@@ -26,8 +26,8 @@ pnpm add @kehto/acl @napplet/core @napplet/nap
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.32.0 <0.37.0` |
-| `@napplet/nap` | `>=0.32.0 <0.36.0` |
+| `@napplet/core` | `>=0.32.0 <0.39.0` |
+| `@napplet/nap` | `>=0.32.0 <0.38.0` |
 
 ## Primary APIs
 

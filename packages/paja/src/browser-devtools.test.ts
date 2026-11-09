@@ -7,7 +7,6 @@ import {
 } from '@kehto/shell';
 import { createPajaRelayEventCounter } from './browser-relay-panel.js';
 import {
-  createPajaPostMessageProxy,
   installPajaOriginRegistryProxy,
   redactPajaMessageForLog,
   renderPajaDevtools,
@@ -17,12 +16,30 @@ import { createPajaRuntimeHostConfig } from './options.js';
 import { normalizePajaSimulation } from './simulation.js';
 
 const originalRegistryMethods = {
-  getIframeWindow: originRegistry.getIframeWindow,
-  getWindowId: originRegistry.getWindowId,
-  getIdentity: originRegistry.getIdentity,
-  getEnvironment: originRegistry.getEnvironment,
-  getRegistrationId: originRegistry.getRegistrationId,
+  postToNapplet: originRegistry.postToNapplet,
+  unregister: originRegistry.unregister,
 };
+
+/**
+ * NIP-5D napplet.hello with a synchronous port double: shell → napplet posts
+ * are recorded on `recorder.postMessage(message, '*')`.
+ */
+function helloWithPort(
+  bridge: ReturnType<typeof createShellBridge>,
+  source: Window,
+  recorder: { postMessage(message: unknown, targetOrigin: string): void },
+): (data: unknown) => void {
+  const port = {
+    onmessage: null as ((event: MessageEvent) => void) | null,
+    postMessage: (message: unknown) => recorder.postMessage(message, '*'),
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    start: () => {},
+    close: () => {},
+  };
+  bridge.handleMessage({ source, origin: 'null', data: { type: 'napplet.hello' }, ports: [port] } as unknown as MessageEvent);
+  return (data) => port.onmessage?.({ data } as MessageEvent);
+}
 
 function makeHooks(disabledDomains: () => readonly string[]): ShellAdapter {
   return {
@@ -99,40 +116,44 @@ describe('Paja origin-registry proxy', () => {
     originRegistry.clear();
   });
 
-  it('keeps the captured environment through a proxied shell.ready and later dispatch', () => {
+  it('logs port deliveries while keeping the captured environment through shell.ready and later dispatch', () => {
     let disabledDomains: readonly string[] = [];
     const hooks = makeHooks(() => disabledDomains);
-    const realWindow = { postMessage: vi.fn() } as unknown as Window;
+    const frameWindow = { postMessage: vi.fn() };
+    const realWindow = frameWindow as unknown as Window;
     const identity = { dTag: 'paja-proxy', aggregateHash: 'paja-proxy-hash' };
     const environment = resolveShellEnvironment(hooks, identity);
     originRegistry.register(realWindow, 'paja-proxy-window', identity);
     originRegistry.setEnvironment(realWindow, environment);
-    installPajaOriginRegistryProxy(originRegistry, () => null);
-    const proxiedWindow = createPajaPostMessageProxy(realWindow, null, 'paja-proxy-window');
+    const state = { messageLog: [], messageFilter: '' } as unknown as PajaDevtoolsState;
+    vi.stubGlobal('document', { getElementById: () => null });
+    installPajaOriginRegistryProxy(originRegistry, () => state);
 
     disabledDomains = ['relay'];
     const bridge = createShellBridge(hooks);
-    bridge.handleMessage({ source: proxiedWindow, origin: 'https://paja.example', data: { type: 'shell.ready' } } as MessageEvent);
+    // NIP-5D: napplet.hello binds the port; replies use it, never the Window.
+    const send = helloWithPort(bridge, realWindow, frameWindow);
+    send({ type: 'shell.ready' });
 
-    expect((realWindow as unknown as { postMessage: ReturnType<typeof vi.fn> }).postMessage).toHaveBeenCalledWith({
+    expect(frameWindow.postMessage).toHaveBeenCalledWith({
       type: 'shell.init',
       capabilities: environment.capabilities,
       services: environment.services,
-    }, '*', undefined);
+    }, '*');
 
-    (realWindow as unknown as { postMessage: ReturnType<typeof vi.fn> }).postMessage.mockClear();
-    bridge.handleMessage({
-      source: proxiedWindow,
-      origin: 'https://paja.example',
-      data: { type: 'relay.subscribe', subId: 'paja-proxy-subscription', filters: [] },
-    } as MessageEvent);
-    expect((realWindow as unknown as { postMessage: ReturnType<typeof vi.fn> }).postMessage).toHaveBeenCalledWith(
+    frameWindow.postMessage.mockClear();
+    send({ type: 'relay.subscribe', subId: 'paja-proxy-subscription', filters: [] });
+    expect(frameWindow.postMessage).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'relay.eose', subId: 'paja-proxy-subscription' }),
       '*',
-      undefined,
     );
+    expect(state.messageLog.map((entry) => [entry.direction, entry.windowId])).toEqual([
+      ['shell->napplet', 'paja-proxy-window'],
+      ['shell->napplet', 'paja-proxy-window'],
+    ]);
 
     bridge.destroy();
+    vi.unstubAllGlobals();
   });
 });
 

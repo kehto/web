@@ -16,7 +16,7 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
 | Field | Value |
 |-------|-------|
 | Source | `packages/runtime/package.json`, `packages/runtime/src/index.ts` |
-| Version | `0.27.1` |
+| Version | `0.28.1` |
 | Runtime entry | `./dist/index.js` |
 | Types entry | `./dist/index.d.ts` |
 | Dependencies | `@kehto/acl`, `@noble/hashes`, `@noble/curves` |
@@ -26,8 +26,8 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.32.0 <0.37.0` |
-| `@napplet/nap` | `>=0.32.0 <0.36.0` |
+| `@napplet/core` | `>=0.32.0 <0.39.0` |
+| `@napplet/nap` | `>=0.32.0 <0.38.0` |
 
 ## Primary APIs
 
@@ -53,12 +53,24 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
   quota does not evict values. This host API conforms to [NAP-STORAGE draft #3
   at `4f4cf0ca7ecbd24c284a5d63bcd85e3de6af37ca`](https://github.com/napplet/naps/blob/4f4cf0ca7ecbd24c284a5d63bcd85e3de6af37ca/naps/NAP-STORAGE.md).
 
+- `runtime.firewallState.setUnfocusedMultiplier(multiplier)` and `setBurstGuard(guard)`
+  let a host change background budgets and the startup burst limit after creation.
+  Both apply on the next evaluation, throw `RangeError` on out-of-range values, and
+  need `persist()` to outlast a reload. A multiplier of zero is refused, because
+  focus alone must never empty a budget. Custom `FirewallStateContainer`
+  implementations must provide both methods.
 - ACL listing and lookup return `AclEntryExternal` with required `dTag` and
   `aggregateHash` fields. Feed those fields into keyed revoke/block/quota methods;
   listing `pubkey` remains empty because it is not the principal key. Results are
   detached copies, remain identifiable after reload, and preserve existing
   serialized keys. Custom producers must provide the two identity fields.
 
+- `RuntimeAdapter.aclDefaultPolicy` sets the policy for identities with no stored
+  entry. `'restrictive'` starts them with nothing granted. When it's omitted, the
+  policy is `'permissive'` unless persisted ACL state stores another one. When it's
+  set, it replaces the policy in persisted state on load, so an earlier permissive
+  save can't reopen a restrictive host. Stored entries are kept as they are, so a
+  host moving to `'restrictive'` should clear entries it no longer trusts.
 - ACL mutations and revoke/block observers take effect in memory before an
   explicit save. `aclState.persist()` and `aclState.clear()` return `true` when
   their synchronous backend call succeeds and `false` when it throws. Failure
@@ -102,6 +114,15 @@ firewall before delivery. Unknown types are silent; denial does not invent an
 extension error envelope. Static and dynamic registration follow the same path.
 Pending replies remain bound to that registration and source lifecycle and
 recheck current domain/ACL policy. Built-in NAP routing retains its own contracts.
+Shell -> napplet pushes into a custom domain require an exact
+`ServiceHandler.pushCapabilities` map and go through
+`ServiceRuntimeContext.sendToEligibleNapplet`, which applies the same source,
+domain-grant, and ACL gates and returns whether the push was delivered.
+
+When a registered `relay` service accepts a `relay.publish`, that service owns
+storage and fan-out of the event (publisher echo, per-subscription relay scope);
+the runtime ring buffer only fans out publishes it coordinates itself through the
+adapter relay pool.
 
 Registration is not namespace injection or capability authorization. The host
 owns the extension's protocol and, for browsers, its pre-execution binding.
@@ -148,11 +169,11 @@ It changes no NIP-5D wire messages or NAP-THEME result behavior.
 
 ## GAMEPAD integration
 
-This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja and the playground register one host reader and deny native gamepad/HID/USB paths before frame execution. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, window destruction, and service removal release polling. Non-browser or denied native readers report the proposal's unavailable reasons. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
+This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja registers one host reader and deny native gamepad/HID/USB paths before frame execution. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, window destruction, and service removal release polling. Non-browser or denied native readers report the proposal's unavailable reasons. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
 
 ## LLM integration
 
-This non-normative guidance defers to the living [NAP-LLM](https://github.com/napplet/naps/pull/134) (checked at `3e10939`). Services export `createLlmService`, `LlmServiceError`, the provider mappers and `LLM_PROVIDER_PRESETS`; shell exports `getShellDomainState` and the `LlmHooks` adapter field; acl exports `llm:generate`. The runtime routes `llm.*` to one registered service and answers every sanctioned request with exactly one `llm.<op>.result`, shaping missing-service and ACL failures as `{ code: 'unsupported' }`. Hosts implement `LlmConnectionHost`; the service enforces schema, handle ownership, consent before submission, duplicate ids, cancellation and deadline races, ordered deltas and safe errors. Advertisement stays binary on the wire while hosts report a third `unconfigured` state until the user adds a connection. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
+This non-normative guidance defers to the living [NAP-LLM](https://github.com/napplet/naps/pull/134) (checked at `5e93bdf`). Services export `createLlmService`, `LlmServiceError`, the provider mappers and `LLM_PROVIDER_PRESETS`; shell exports `getShellDomainState` and the `LlmHooks` adapter field; acl exports `llm:generate`. The runtime routes `llm.*` to one registered service and answers every sanctioned request with exactly one `llm.<op>.result`, shaping missing-service and ACL failures as `{ code: 'unsupported' }`. Hosts implement `LlmConnectionHost`; the service enforces schema, handle ownership, a per-window live-handle bound (`maxHandlesPerWindow`), consent before submission, duplicate ids, cancellation and deadline races, ordered deltas and safe errors, and passes `select`/`authorize` a `{ signal }` that withdraws stale prompts. `createHttpLlmProvider({ stream: true })` streams provider output into `llm.delta` as block start/delta/end events. Results carry `content` parts (text, thinking and tool calls); tool calls and results are validated and relayed, and Kehto never executes one. Advertisement stays binary on the wire while hosts report a third `unconfigured` state until the user adds a connection. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
 
 ## Media sessions
 

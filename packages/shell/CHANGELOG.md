@@ -1,5 +1,155 @@
 # @kehto/shell
 
+## 0.32.0
+
+### Minor Changes
+
+- 6eb1ea4: Hosts can now choose the ACL default policy with `aclDefaultPolicy: 'permissive' | 'restrictive'` on `RuntimeAdapter` and `ShellAdapter`. With `'restrictive'`, identities with no stored entry start with nothing granted. A policy set this way replaces the one stored in persisted ACL state on load, and stored entries are kept. Leaving it out keeps today's behaviour.
+- 6eb1ea4: `ShellAdapter` now accepts `getFocusContext`, `onFirewallEvent` and `firewallPersistence`, and `adaptHooks` forwards them to the runtime firewall. A shell built on `createShellBridge` gets focus-scaled rate budgets, sees firewall flags and refusals, and can keep firewall config across reloads. `FirewallEvent` and `FirewallPersistence` are also exported from `@kehto/shell`. Hosts that set none of these see no change.
+- 6eb1ea4: Hosts can now decide what happens to port traffic before dispatch. `ShellAdapter.filterNappletMessage(windowId, message)` returns `'dispatch'`, `'drop'` or `'defer'`, and `ShellBridge.releaseDeferred(windowId)` dispatches what was deferred, in arrival order. `shell.ready` skips the filter, because NAP-SHELL requires its first `shell.init` reply. A window holding more than `MAX_DEFERRED_MESSAGES` is revoked with the new `deferred-overflow` reason, so exhaustive switches on `NappletRevocationReason` need one more case. Hosts without a filter see no change.
+
+### Patch Changes
+
+- Updated dependencies [6eb1ea4]
+- Updated dependencies [6eb1ea4]
+  - @kehto/runtime@0.28.0
+
+## 0.31.0
+
+### Minor Changes
+
+- 66beed4: Track NAP-LLM (napplet/naps PR #134 at `5e93bdfce0e84c0de728234cb7b3feed498f8635`) end to end. This is a breaking host API on the 0.x draft contract, with no compatibility path for the removed shapes.
+
+  - Tool calls and results, `thinking` parts, `maxTokens`, `temperature`, `tools`, `toolChoice`, `Model.tools`, `Model.toolChoiceModes`, `Requirements.tools` and extended `Usage` are supported. Kehto validates and relays tool calls and never executes one.
+  - `Generation.text` is replaced by `Generation.content` parts and text-only deltas by `start`/`delta`/`end` block events. The shell prelude forwards the full structured delta, and only for the next sequence with valid fields.
+  - `@kehto/services`: `LlmConnection` gains required `tools` and `toolChoiceModes`; `LlmGenerateHooks.onDelta` and the `createHttpLlmProvider` callback take a block event while the service assigns `sequence` and `requestId`; `llm-types` re-exports the packaged `@napplet/nap/llm/types`. Provider endpoints accept `requiresOpaqueReasoning` (Gemini 3+ defaults it on), and the dialects map tools, reasoning and usage extras.
+  - `@kehto/paja`: connections can opt into tool calling (rows saved earlier load as tools off under the same storage key), consent discloses tool definitions and tool results, and a dialect restriction answers `unsupported` before any prompt.
+  - Host packages now build on `@napplet/core` 0.38.0 and `@napplet/nap` 0.37.0; `@kehto/services`, `@kehto/paja` and `@kehto/cli` (through its Paja dependency) require them.
+
+### Patch Changes
+
+- Updated dependencies [66beed4]
+  - @kehto/acl@0.20.3
+  - @kehto/runtime@0.27.3
+
+## 0.30.0
+
+### Minor Changes
+
+- 4d8a569: Add an experimental, opt-in lock that prevents a napplet from creating a nested
+  browsing context (iframe/frame/object/embed/portal/fencedframe). Off by default,
+  so downstream hosts are not forced into its opinions.
+
+  Establishes a Kehto **experimental namespace** convention (see
+  `docs/policies/EXPERIMENTAL.md`): opinionated host policies that are off by
+  default, namespaced under an `experimental` options object, unstable (may change
+  without a major bump), and distinct from the NAP `x-` extensions (which are
+  experimental protocol domains). `NappletExperimentalOptions.nestedContextLock`
+  is its first member.
+
+  When a host sets `experimental: { nestedContextLock: true }` (on
+  `prepareNappletSrcdoc` / `NappletSrcdocOptions`, or the Paja host config):
+
+  - The verified napplet srcdoc CSP carries
+    `require-trusted-types-for 'script'; trusted-types default`, and the prelude
+    registers the single admitted `default` Trusted Types policy before any napplet
+    script. It passes canonical HTML through and rejects any string carrying a
+    frame tag, closing `innerHTML`, `DOMParser`, `document.write` and the other
+    string sinks.
+  - The prelude pins `Document.prototype.createElement` / `createElementNS` and
+    `DOMImplementation.createDocument`, non-configurable, to reject frame tag
+    names — the only element factories on the platform.
+  - The new `assertNappletHasNoFrame` / `nappletMarkupHasFrame` reject a napplet
+    whose own static markup declares a frame; `@kehto/paja` runs that scan on the
+    verified runtime-pointer path, fail-closed.
+
+  The lock is opinionated: it requires Trusted Types in the napplet CSP (so it is
+  incompatible with frameworks that register their own Trusted Types policy, e.g.
+  Angular) and a string sink carrying a literal frame-tag token is rejected even
+  in text or an attribute. Canonical string-sink use is unaffected (the default
+  policy passes non-frame HTML through). The contract change is tracked as
+  `NIP5D_TRUSTED_TYPES_REQUIRED` in docs/compatibility.md and applies only to hosts
+  that opt in. The new `nappletMarkupHasFrame` / `assertNappletHasNoFrame` exports
+  and the `experimental` option are always available; nothing changes for existing
+  hosts that do not set the flag.
+
+## 0.29.0
+
+### Minor Changes
+
+- e1e2b64: Lock napplet frames to their verified `srcdoc`. NIP-5D's replacement evidence (a second `load` or `napplet.hello`, the port closing) cannot see a napplet that navigates its frame before its own first `load`: only the replacement fires `load`, and browsers fire no MessagePort `close` event, so a `data:` or `blob:` document with script could run in the frame. `@kehto/shell` exports `NAPPLET_FRAME_POLICY` (`frame-src 'none'`), `renderNappletFramePolicyMeta()` and `hasNappletFramePolicy()`, and `ShellBridge.observeFrame` warns once when the host page lacks the policy. Browsers check every navigation of a child frame against the embedding page's `frame-src`, including one the frame starts itself, while an unfetched `srcdoc` still loads. The Paja host page now carries the policy, and Paja refuses to load a napplet on a host page without it.
+
+## 0.28.1
+
+### Patch Changes
+
+- bbcb9da: Remove the whole WebRTC constructor surface from the napplet realm, not just
+  `RTCPeerConnection`. The injected prelude now sweeps every global whose name
+  starts with `RTC` (`RTCDataChannel`, `RTCSessionDescription`, `RTCIceCandidate`,
+  `RTCRtp*`, …) plus the legacy `webkit`/`moz`-prefixed aliases, each as a pinned,
+  non-writable `undefined`, before any napplet script runs. None has a
+  napplet-realm use: NAP-WEBRTC is mediated in the shell realm.
+
+## 0.28.0
+
+### Minor Changes
+
+- 9add95b: Neuter direct WebRTC egress in the injected napplet realm. No CSP directive
+  covers WebRTC, so an opaque-origin napplet could open an `RTCPeerConnection`
+  data channel and exfiltrate past `connect-src 'none'` (napplet/evil finding #1;
+  Delta Chat's webxdc write-up). The prelude now removes `RTCPeerConnection` and
+  `webkitRTCPeerConnection` from the napplet realm before any napplet script runs,
+  as a non-writable, non-configurable `undefined`, so feature detection sees the
+  capability as absent and degrades.
+
+  NAP-WEBRTC is unaffected: its `RTCPeerConnection` runs in the shell realm, and
+  napplets reach it only through the mediated `window.napplet.webrtc` domain. This
+  does not reach un-CSP'd `srcdoc` grandchild frames, which share the Chromium
+  per-process connection pool with the shell and are tracked as a bounded gap in
+  docs/policies/NIP-5D-CONFORMANCE.md ("Direct WebRTC egress"). `@kehto/paja`
+  inherits the hardened prelude through its `@kehto/shell` dependency.
+
+## 0.27.0
+
+### Minor Changes
+
+- 902c1d0: Follow NIP-5D port-bound identity
+  ([nostr-protocol/nips#2303](https://github.com/nostr-protocol/nips/pull/2303) at
+  `51ef0cd`, packaged by napplet/web#302). This is a security fix: a `Window`
+  survives same-frame navigation, so a napplet could previously replace itself
+  with unverified content that kept its identity and grants.
+
+  - `@kehto/shell`: the injected prelude opens a `MessageChannel` before napplet
+    scripts run and hands one port to the shell in a single window-level
+    `napplet.hello`. All NAP traffic then uses that port. `ShellBridge` binds the
+    registered identity to the port, answers only over it, and revokes the
+    binding, sessions and grants on a second hello, any other window-level
+    message, an invalid hello, a second load (`observeFrame`) or the port closing.
+    New APIs: `NAPPLET_HELLO`, `ShellBridge.observeFrame`, `ShellBridge.revokeNapplet`,
+    `ShellAdapter.onNappletRevoked`, `ShellAdapter.onNappletMessage`,
+    `originRegistry.bindPort` / `getPort` / `postToNapplet` / `getNappletTarget` /
+    `isSpent`, and the `NappletRevocation`, `NappletRevocationReason` and
+    `NappletMessageTarget` types.
+    **Breaking:** window-level NAP envelopes are no longer processed and revoke
+    the frame. `originRegistry.register` throws for a `Window` that already handed
+    over its port, so create a fresh iframe for every navigation.
+    `ProxyOriginRegistry` now requires `postToNapplet` instead of `getIframeWindow`,
+    and `RelayPoolHooks.openScopedRelay` receives a `NappletMessageTarget` instead
+    of a `Window`. Napplets on a Kehto host must not import `@napplet/shim`
+    alongside the injected namespace, because it sends a second hello.
+  - `@kehto/paja`: creates a fresh iframe for every navigation, watches for second
+    loads, and removes or replaces revoked frames (logged as
+    `paja.napplet.revoked`). It logs port traffic in both directions and tracks
+    readiness from the port. Intent delivery and scoped relay traffic use the bound
+    port. The signed intent launcher's two host messages are handled outside the
+    bridge, and only while its port is bound.
+
+### Patch Changes
+
+- Updated dependencies [902c1d0]
+  - @kehto/acl@0.20.2
+  - @kehto/runtime@0.27.2
+
 ## 0.26.1
 
 ### Patch Changes

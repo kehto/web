@@ -5,7 +5,6 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test, type Frame, type Page } from '@playwright/test';
 import { startPajaServer, type PajaServer } from '../../packages/paja/dist/index.js';
-import { demoBeforeEach, getNappletFrame } from './helpers/index.js';
 
 // Experimental x- NAP (`x-echo` fixture) hosted without changing any kehto
 // package. Kehto spec-gap policy: x- domains, x-<domain>:<action> capabilities
@@ -47,7 +46,9 @@ test.describe('x-echo in Paja', () => {
   test.beforeAll(async () => {
     target = createServer((_request, response) => {
       response.writeHead(200, { 'content-type': 'text/html' });
-      response.end('<!doctype html><body><p>echo probe</p><script>window.parent.postMessage({type:"shell.ready"}, "*")</script>');
+      // NIP-5D: the injected prelude owns the port handshake; a window-level
+      // envelope from the napplet would revoke it.
+      response.end('<!doctype html><body><p>echo probe</p></body>');
     });
     await new Promise<void>((done) => target.listen(0, '127.0.0.1', done));
     const address = target.address();
@@ -144,98 +145,5 @@ test.describe('x-echo in Paja', () => {
       const frame = await (await page.locator('#napplet-frame').elementHandle())?.contentFrame();
       return frame?.evaluate(() => 'x-echo' in ((window as Napplet).napplet ?? {}));
     }).toBe(false);
-  });
-});
-
-test.describe('x-echo in the playground', () => {
-  test.use({ baseURL: 'http://localhost:4174' });
-  test.describe.configure({ mode: 'serial' });
-
-  async function chatFrame(page: Page): Promise<Frame> {
-    await expect.poll(async () => {
-      const frame = await getNappletFrame(page, 'chat-frame-container');
-      return frame ? frame.evaluate(() => typeof (window as Napplet).napplet?.['x-echo']?.say) : 'none';
-    }, { timeout: 20_000 }).toBe('function');
-    return (await getNappletFrame(page, 'chat-frame-container'))!;
-  }
-
-  test('advertises, configures, round-trips, pushes and honors ACL, firewall and collisions', async ({ page }) => {
-    test.setTimeout(90_000);
-    await demoBeforeEach(page, { path: '/?kehto-test' });
-    const frame = await chatFrame(page);
-    const toggle = page.locator('#playground-extension-controls [data-interface-domain="x-echo"]');
-    await expect(toggle).toHaveAttribute('data-state', 'unconfigured');
-    await expect(toggle).toHaveText(/^⚠ x-echo$/);
-    expect(await frame.evaluate(() => {
-      const shell = (window as Napplet).napplet?.shell;
-      return shell ? (shell.supports as (d: string) => boolean)('x-echo') : 'x-echo' in ((window as Napplet).napplet ?? {});
-    })).toBe(true);
-
-    expect(await say(frame, 'early')).toBe('error:not-configured');
-    await page.locator('#playground-extension-x-echo-prefix').fill('pg>');
-    await page.locator('#playground-extension-x-echo-save').click();
-    await expect(toggle).toHaveAttribute('data-state', 'supported');
-
-    // Header toggle logs DISABLE/ENABLE system messages; restore it before the rest.
-    const debuggerLog = page.locator('napplet-debugger');
-    await toggle.click();
-    await expect(toggle).toHaveAttribute('data-state', 'disabled');
-    await expect(debuggerLog).toContainText('DISABLE extension x-echo');
-    await toggle.click();
-    await expect(toggle).toHaveAttribute('data-state', 'supported');
-    await expect(debuggerLog).toContainText('ENABLE extension x-echo');
-
-    await listenHeard(frame);
-    expect(await say(frame, 'hi')).toBe('ok:pg>hi');
-    await expect.poll(() => heard(frame)).toEqual(['pg>hi']);
-
-    await page.locator('#acl-expand-all-btn').click();
-    const sendAcl = page.locator('#chat-acl [data-acl-capability="x-echo:send"]');
-    await sendAcl.click();
-    await expect(sendAcl).toHaveAttribute('data-enabled', 'false');
-    expect(await say(frame, 'denied')).toBe('timeout');
-    await sendAcl.click();
-    expect(await say(frame, 'granted')).toBe('ok:pg>granted');
-
-    type Hook = { setFirewallPolicy(d: string, p: string): void; declare(d: string): string | null; setDenied(x: string, d: string, v: boolean): void };
-    await page.evaluate(() => (window as unknown as { __kehtoPlaygroundExtensions__: Hook }).__kehtoPlaygroundExtensions__.setFirewallPolicy('chat', 'deny'));
-    expect(await say(frame, 'walled')).toBe('timeout');
-    await page.evaluate(() => (window as unknown as { __kehtoPlaygroundExtensions__: Hook }).__kehtoPlaygroundExtensions__.setFirewallPolicy('chat', 'allow'));
-    expect(await say(frame, 'open')).toBe('ok:pg>open');
-
-    expect(await page.evaluate(() => {
-      const hook = (window as unknown as { __kehtoPlaygroundExtensions__: Hook }).__kehtoPlaygroundExtensions__;
-      return ['llm', 'x-llm', 'x-echo', 'x-new'].map((domain) => hook.declare(domain));
-    })).toEqual([
-      expect.stringMatching(/reserved NAP domain/),
-      expect.stringMatching(/aliases the reserved NAP domain llm/),
-      expect.stringMatching(/declared twice/),
-      null,
-    ]);
-  });
-
-  test('withholds x-echo from one napplet through resolveEnvironment', async ({ page }) => {
-    test.setTimeout(90_000);
-    await demoBeforeEach(page, { path: '/?kehto-test' });
-    await chatFrame(page);
-    await page.evaluate(() => (window as unknown as { __kehtoPlaygroundExtensions__: { setDenied(x: string, d: string, v: boolean): void } })
-      .__kehtoPlaygroundExtensions__.setDenied('x-echo', 'chat', true));
-    await page.reload({ waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('#topology-root', { state: 'visible', timeout: 15_000 });
-    await expect.poll(async () => {
-      const prefs = await getNappletFrame(page, 'preferences-frame-container');
-      return prefs ? prefs.evaluate(() => typeof (window as Napplet).napplet?.['x-echo']?.say) : 'none';
-    }, { timeout: 20_000 }).toBe('function');
-    await expect.poll(async () => {
-      const chat = await getNappletFrame(page, 'chat-frame-container');
-      return chat ? chat.evaluate(() => (window as Napplet).napplet ? 'x-echo' in (window as Napplet).napplet! : 'pending') : 'none';
-    }, { timeout: 20_000 }).toBe(false);
-  });
-
-  test('keeps the extension test hook off without ?kehto-test (IN-05)', async ({ page }) => {
-    test.setTimeout(90_000);
-    await demoBeforeEach(page);
-    expect(await page.evaluate(() => typeof (window as Window & { __clearAclEvents__?: unknown }).__clearAclEvents__)).toBe('function');
-    expect(await page.evaluate(() => '__kehtoPlaygroundExtensions__' in window)).toBe(false);
   });
 });

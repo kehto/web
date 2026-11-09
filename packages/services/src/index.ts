@@ -325,15 +325,20 @@ export type {
   LlmConnection,
   LlmConnectionHost,
   LlmGenerateHooks,
+  LlmPromptOptions,
   LlmRequestContext,
   LlmService,
   LlmServiceOptions,
 } from './llm-service.js';
 export { LLM_DOMAIN, LLM_ERROR_CODES, LlmServiceError } from './llm-types.js';
 export type {
+  LlmApi,
+  LlmBlockEvent,
   LlmCancelMessage,
   LlmCancelResultMessage,
   LlmDelta,
+  LlmDeltaBlock,
+  LlmDeltaEvent,
   LlmDeltaMessage,
   LlmDescribeMessage,
   LlmDescribeResultMessage,
@@ -342,6 +347,7 @@ export type {
   LlmFinish,
   LlmFormat,
   LlmGenerateMessage,
+  LlmGenerateOptions,
   LlmGenerateResultMessage,
   LlmGeneration,
   LlmGenerationRequest,
@@ -350,15 +356,23 @@ export type {
   LlmInboundMessage,
   LlmMessage,
   LlmModel,
+  LlmNamedToolChoice,
   LlmNapMessage,
   LlmOutboundMessage,
+  LlmOutputPart,
   LlmPart,
+  LlmPendingGeneration,
   LlmReply,
   LlmRequirements,
   LlmRole,
   LlmSelectMessage,
   LlmSelectResultMessage,
   LlmTextPart,
+  LlmThinkingPart,
+  LlmTool,
+  LlmToolCallPart,
+  LlmToolChoice,
+  LlmToolChoiceMode,
   LlmUsage,
 } from './llm-types.js';
 export {
@@ -374,11 +388,15 @@ export type {
   LlmHttpRequest,
   LlmProviderEndpoint,
   LlmProviderProtocol,
+  LlmProviderRequestOptions,
 } from './llm-providers.js';
+export { createLlmStreamAccumulator, readLlmSseData } from './llm-provider-stream.js';
+export type { LlmStreamAccumulator } from './llm-provider-stream.js';
 export { LLM_PROVIDER_PRESETS, createHttpLlmProvider } from './llm-provider-http.js';
 export type {
   HttpLlmProvider,
   HttpLlmProviderOptions,
   LlmFetch,
+  LlmFetchResponse,
   LlmProviderPreset,
 } from './llm-provider-http.js';

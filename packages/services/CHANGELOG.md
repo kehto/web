@@ -1,5 +1,90 @@
 # @kehto/services
 
+## 0.30.1
+
+### Patch Changes
+
+- Updated dependencies [6eb1ea4]
+- Updated dependencies [6eb1ea4]
+  - @kehto/runtime@0.28.0
+
+## 0.30.0
+
+### Minor Changes
+
+- 66beed4: Track NAP-LLM (napplet/naps PR #134 at `5e93bdfce0e84c0de728234cb7b3feed498f8635`) end to end. This is a breaking host API on the 0.x draft contract, with no compatibility path for the removed shapes.
+
+  - Tool calls and results, `thinking` parts, `maxTokens`, `temperature`, `tools`, `toolChoice`, `Model.tools`, `Model.toolChoiceModes`, `Requirements.tools` and extended `Usage` are supported. Kehto validates and relays tool calls and never executes one.
+  - `Generation.text` is replaced by `Generation.content` parts and text-only deltas by `start`/`delta`/`end` block events. The shell prelude forwards the full structured delta, and only for the next sequence with valid fields.
+  - `@kehto/services`: `LlmConnection` gains required `tools` and `toolChoiceModes`; `LlmGenerateHooks.onDelta` and the `createHttpLlmProvider` callback take a block event while the service assigns `sequence` and `requestId`; `llm-types` re-exports the packaged `@napplet/nap/llm/types`. Provider endpoints accept `requiresOpaqueReasoning` (Gemini 3+ defaults it on), and the dialects map tools, reasoning and usage extras.
+  - `@kehto/paja`: connections can opt into tool calling (rows saved earlier load as tools off under the same storage key), consent discloses tool definitions and tool results, and a dialect restriction answers `unsupported` before any prompt.
+  - Host packages now build on `@napplet/core` 0.38.0 and `@napplet/nap` 0.37.0; `@kehto/services`, `@kehto/paja` and `@kehto/cli` (through its Paja dependency) require them.
+
+### Patch Changes
+
+- Updated dependencies [66beed4]
+  - @kehto/runtime@0.27.3
+
+## 0.29.0
+
+### Minor Changes
+
+- 37457ce: Add a loopback Routstr provider preset and a model dropdown for presets that
+  list their models.
+
+  `LLM_PROVIDER_PRESETS` gains `routstr` (`http://127.0.0.1:8008/v1`, OpenAI Chat
+  Completions, no credential) plus an optional `modelsPath` field. Paja renders a
+  model `<select>` instead of free-text entry for a preset that declares it,
+  seeded from one `GET <baseUrl><modelsPath>` (`/models` for Routstr), and shows
+  `Connected ✓ — n models` below the field. A failed listing names the cause —
+  including a server that does not allow this page cross-origin — and falls back
+  to free-text entry so the connection can still be saved. Editing the API base
+  URL re-lists the models.
+
+  The listing is a browser request like generation, so a loopback provider must
+  answer CORS on that route; nothing else about the connection changes and the
+  key is still placed only on requests to the connection's own base URL.
+
+  Switching presets clears the unsaved API key before model discovery and updates
+  auto-filled connection names without replacing custom names. Saving a connection
+  keeps the model catalogue available for adding another connection.
+
+  Failed Routstr model discovery offers an Install routstrd link to https://routstr.com/routstrd; retrying or switching providers clears the guidance.
+
+## 0.28.2
+
+### Patch Changes
+
+- 902c1d0: Admit the NIP-5D port-bound napplet release lines in published peers:
+  `@napplet/core >=0.32.0 <0.38.0` and `@napplet/nap >=0.32.0 <0.37.0`
+  (core 0.37.0 / nap 0.36.0, napplet/web#302). Development stays on the 0.32.0
+  baseline.
+- Updated dependencies [902c1d0]
+  - @kehto/runtime@0.27.2
+
+## 0.28.1
+
+### Patch Changes
+
+- 3620a13: Pass routing-author provenance as the optional fifth argument to
+  `OutboxRelayPool.subscribe`. NIP-65 reads name only the requested authors whose
+  allowed write lists selected each relay, including authors supplied through query
+  options. Hint and fallback reads name the requested routing authors; authorless
+  reads explicitly carry an empty array. This host-only metadata leaves event
+  filters, relay selection, and wire results unchanged. Existing pool adapters can
+  continue to ignore the additional optional argument.
+
+## 0.28.0
+
+### Minor Changes
+
+- 3089c5e: Harden the NAP-LLM service and add streaming providers (kehto/web#368, #369, #370):
+
+  - `createLlmService` bounds live model handles per window with `maxHandlesPerWindow` (default 32). Selecting beyond the bound evicts the least recently used handle, which then answers `selection-expired`; a successful `describe` or generation refreshes a handle.
+  - `LlmConnectionHost.select` and `authorize` receive an optional trailing `{ signal }` (`LlmPromptOptions`). It aborts when the request settles without the host's answer (cancel, deadline, handle invalidation or eviction, revocation, window destruction or unregistration), so hosts can close stale chooser and consent prompts. A pending selection answers `selection-expired` on invalidation and `cancelled` on revocation.
+  - `buildLlmProviderRequest(endpoint, request, { stream: true })` and `createHttpLlmProvider({ stream: true })` use each dialect's server-sent-event form. The provider forwards text fragments through a new optional `onDelta` argument and resolves the same generation as the buffered path. `LlmFetch` responses may expose `body` and `headers` (`LlmFetchResponse`), and `readLlmSseData` / `createLlmStreamAccumulator` are exported for custom transports.
+  - Paja streams provider output as `llm.delta`, and closes its chooser, consent and vault-unlock prompts when the request dies. `PajaConfirmationRequest` accepts an optional `signal` that withdraws a queued or open confirmation.
+
 ## 0.27.1
 
 ### Patch Changes
