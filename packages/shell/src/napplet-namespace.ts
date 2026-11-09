@@ -9,6 +9,7 @@
 
 import { createIntentUriNormalizer } from './intent-uri.js';
 import type { NappletExperimentalOptions } from './napplet-experimental.js';
+import { serializeDomainBindings, type NappletDomainBinding, type SerializedDomainBinding } from './napplet-domain-binding.js';
 
 /**
  * Options for rendering the host-owned NIP-5D `window.napplet` namespace prelude.
@@ -31,6 +32,13 @@ export interface NappletNamespacePreludeOptions {
    * {@link NappletExperimentalOptions}.
    */
   readonly experimental?: NappletExperimentalOptions;
+  /**
+   * Table-driven bindings for exposed domains the prelude has no built-in
+   * implementation for (for example draft NAPs served by `@kehto/mocks`).
+   * See {@link NappletDomainBinding}. Bindings for unexposed or built-in
+   * domains are ignored.
+   */
+  readonly bindings?: Readonly<Record<string, NappletDomainBinding>>;
 }
 
 function uniqueBareDomains(domains: readonly string[]): string[] {
@@ -72,7 +80,8 @@ export function renderNappletNamespacePrelude(options: NappletNamespacePreludeOp
   const frameLock = options.experimental?.nestedContextLock
     ? nappletFrameLock.toString()
     : '(function(){})';
-  return `<script data-kehto-nip5d-injection>(${nappletNamespacePrelude.toString()})(${scriptJson(domains)}, (${createIntentUriNormalizer.toString()})(), ${frameLock});</script>`;
+  const bindings = serializeDomainBindings(options.bindings, domains);
+  return `<script data-kehto-nip5d-injection>(${nappletNamespacePrelude.toString()})(${scriptJson(domains)}, (${createIntentUriNormalizer.toString()})(), ${frameLock}, ${scriptJson(bindings)});</script>`;
 }
 
 /** A window exposing the optional members the frame lock pins or installs. */
@@ -218,6 +227,7 @@ function nappletNamespacePrelude(
   domains: string[],
   normalizeIntentUri: (uri: unknown, options?: unknown) => Record<string, unknown>,
   frameLock: (win: Window) => void,
+  bindings: Record<string, SerializedDomainBinding> = {},
 ): void {
   const target = window as Window & { napplet?: Record<string, unknown>; MessageChannel: typeof MessageChannel };
   const allowed = new Set(domains);
@@ -1990,9 +2000,65 @@ function nappletNamespacePrelude(
   }
 
   let media: Record<string, unknown> | undefined;
+  const bound = new Map<string, Record<string, unknown>>();
+
+  // Host-supplied wire tables for domains without a built-in binding. Each
+  // method sends its positional arguments as the listed wire fields; results
+  // resolve with the named field (or the payload) and an `error` rejects with
+  // an Error carrying `code`. Pushes reach `on(event)` and named handlers.
+  function makeBound(domain: string, binding: SerializedDomainBinding): Record<string, unknown> {
+    const failure = (value: unknown): Error => {
+      if (typeof value === 'string') return new Error(value);
+      const record = typeof value === 'object' && value !== null ? value as Record<string, unknown> : {};
+      const message = typeof record.message === 'string' ? record.message : `${domain} request failed`;
+      return Object.assign(new Error(message), typeof record.code === 'string' ? { code: record.code } : {});
+    };
+    const subscribe = (types: readonly string[], handler: unknown): { close(): void } => {
+      if (typeof handler !== 'function') throw new TypeError(`${domain} handler must be a function`);
+      const off = listen((event) => {
+        if (!isShellMessage(event)) return;
+        const incoming = event.data as RuntimeMessage | null;
+        if (typeof incoming !== 'object' || incoming === null || !types.includes(incoming.type)) return;
+        (handler as (payload: unknown, type: string) => void)(withoutEnvelope(incoming), incoming.type);
+      });
+      return subscriptionHandle(off);
+    };
+    const api: Record<string, unknown> = {};
+    for (const name of Object.keys(binding.methods)) {
+      const method = binding.methods[name]!;
+      api[name] = (...args: unknown[]): Promise<unknown> => {
+        const message: RuntimeMessage = { type: method.type };
+        method.params.forEach((param, index) => {
+          if (args[index] !== undefined) message[param] = args[index];
+        });
+        if (!method.reply) {
+          post(method.id ? { ...message, id: id() } : message);
+          return Promise.resolve(undefined);
+        }
+        return request(message, `${method.type}.result`, (msg) => {
+          if (msg.error !== undefined && msg.error !== null) throw failure(msg.error);
+          if (method.result !== null) return msg[method.result] ?? null;
+          const { error: _error, ...payload } = withoutEnvelope(msg);
+          return payload;
+        }, { rejectOnError: false });
+      };
+    }
+    if (binding.events.length > 0) {
+      api.on = (event: unknown, handler: unknown) => {
+        const type = `${domain}.${String(event)}`;
+        if (!binding.events.includes(type)) throw new TypeError(`${domain} has no "${String(event)}" event`);
+        return subscribe([type], handler);
+      };
+    }
+    for (const name of Object.keys(binding.handlers)) {
+      api[name] = (handler: unknown) => subscribe(binding.handlers[name]!, handler);
+    }
+    return Object.freeze(api);
+  }
 
   function isProtectedDomain(domain: string): boolean {
-    return domain === 'media' || domain === 'gamepad' || domain === 'shell'
+    return Object.prototype.hasOwnProperty.call(bindings, domain)
+      || domain === 'media' || domain === 'gamepad' || domain === 'shell'
       || domain === 'inc'
       || domain === 'identity'
       || domain === 'theme'
@@ -2007,6 +2073,14 @@ function nappletNamespacePrelude(
     if (domain === 'identity') return makeProtectedIdentity();
     if (domain === 'theme') return makeProtectedTheme();
     if (domain === 'intent') return makeProtectedIntent();
+    if (Object.prototype.hasOwnProperty.call(bindings, domain)) {
+      let api = bound.get(domain);
+      if (!api) {
+        api = makeBound(domain, bindings[domain]!);
+        bound.set(domain, api);
+      }
+      return api;
+    }
     if (existing && typeof existing === 'object' && Object.keys(existing).length > 0) return existing;
     switch (domain) {
       case 'relay': return makeRelay();

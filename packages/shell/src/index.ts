@@ -8,6 +8,8 @@ export {
   renderNappletNamespacePrelude,
 } from './napplet-namespace.js';
 export type { NappletNamespacePreludeOptions } from './napplet-namespace.js';
+export { NAPPLET_PRELUDE_BUILT_IN_DOMAINS, serializeDomainBindings } from './napplet-domain-binding.js';
+export type { NappletBindingMethod, NappletDomainBinding, SerializedDomainBinding } from './napplet-domain-binding.js';
 export { normalizeIntentUri } from './intent-uri.js';
 export type { NormalizedIntentUri } from './intent-uri.js';
 export { buildNappletCsp, injectNappletCsp, renderNappletCspMeta } from './napplet-csp.js';
