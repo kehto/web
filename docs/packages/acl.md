@@ -40,6 +40,19 @@ pnpm add @kehto/acl @napplet/core @napplet/nap
 | Migration | `migrateAclState` |
 | Capability strings | `ALL_CAPABILITIES`, `CAP_IDENTITY_READ`, `CAP_KEYS_BIND`, `CAP_KEYS_FORWARD`, `CAP_MEDIA_CONTROL`, `CAP_NOTIFY_SEND`, `CAP_NOTIFY_CHANNEL`, `CAP_THEME_READ`, `CAP_DM_READ`, `CAP_DM_WRITE`, `CAP_FS_READ`, `CAP_FS_WRITE`, `Capability` |
 | NAP mapping | `resolveCapabilitiesNap`, `CapabilityResolution`, `NapMessage` |
+| Experimental `x-` extensions | `EXTENSION_DOMAIN_PREFIX`, `RESERVED_NAP_DOMAINS`, `ExtensionCapability`, `validateExtensionDomain`, `isExtensionDomain`, `validateExtensionCapability`, `isExtensionCapability`, `checkExtension`, `grantExtension`, `revokeExtension`, `sanitizeExtensionDecisions`, `mergeExtensionDecisions` |
+
+## Experimental extension capabilities
+
+Experimental NAP capabilities are `x-<domain>:<action>` strings. They are
+stored as explicit per-identity decisions in `AclEntry.ext`; the built-in
+bitfield, which runs through `1 << 27` (`llm:generate`), is never touched. A
+missing decision falls back to the default policy, and `block` overrides it.
+Built-in capability strings and reserved domains (including `llm`) and their
+`x-` aliases are rejected. When `migrateAclState` merges a legacy three-part
+key into a two-part key, an explicit `x-` revocation on either side wins, while
+built-in bits keep their union. This is a Kehto spec-gap policy; see
+[Build an experimental NAP](https://kehto.github.io/web/docs/how-tos/experimental-nap.html).
 
 ## Scope Boundaries
 

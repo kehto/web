@@ -31,7 +31,9 @@ declare module 'node:fs' {
 }
 
 declare module 'node:path' {
-  export function resolve(path: string): string;
+  export function resolve(...paths: string[]): string;
+  export function dirname(path: string): string;
+  export function isAbsolute(path: string): boolean;
 }
 
 declare module 'node:child_process' {

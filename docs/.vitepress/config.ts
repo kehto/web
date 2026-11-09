@@ -62,6 +62,7 @@ export default defineConfig({
           { text: 'How-tos', link: '/how-tos/' },
           { text: 'Grant a Capability', link: '/how-tos/grant-capability' },
           { text: 'Register a Service', link: '/how-tos/register-service' },
+          { text: 'Experimental NAP', link: '/how-tos/experimental-nap' },
           { text: 'Unsupported Requires', link: '/how-tos/unsupported-requires' },
           { text: 'Add a Reference Service', link: '/how-tos/add-reference-service' },
           { text: 'Paja Getting Started', link: '/how-tos/paja-getting-started' },

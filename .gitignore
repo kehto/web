@@ -13,3 +13,5 @@ docs/.vitepress/dist/
 *-snapshot.yml
 .omx
 .aislop/
+# Build copy of skills/kehto-experimental-nap shipped in the @kehto/shell tarball
+packages/shell/skills/

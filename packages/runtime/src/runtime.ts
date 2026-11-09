@@ -1,13 +1,14 @@
 
 import { createDispatch, type NappletMessage, type NostrEvent, type NapHandler, type NapDomain } from '@napplet/core';
-import { ALL_CAPABILITIES, type Capability } from '@kehto/acl/capabilities';
+import type { Capability } from '@kehto/acl/capabilities';
 import type { Observation } from '@kehto/firewall';
 
 import type {
   RuntimeAdapter, ConsentHandler, FirewallEvent,
-  ServiceHandler, ServiceRegistry, ServiceInfo, ServiceRuntimeContext,
+  ServiceHandler, ServiceRegistry, ServiceInfo,
 } from './types.js';
 import { createServiceExtensionRouter } from './service-extensions.js';
+import { createServiceRuntimeContext } from './service-context.js';
 import { notifyServiceWindowDestroyed } from './service-dispatch.js';
 import { createSessionRegistry, type SessionRegistry } from './session-registry.js';
 import { createAclState, type AclStateContainer } from './acl-state.js';
@@ -438,80 +439,6 @@ function createInjectedEvent(hooks: RuntimeAdapter, topic: string, payload: unkn
   };
 }
 
-/**
- * Recipient capability for a shell -> napplet push into a custom domain, or
- * `undefined` when no authorized push route exists. Mirrors the inbound
- * extension router: the domain must be a registered service whose handler
- * declares the exact type in `pushCapabilities` with an existing capability
- * or an explicit `null`.
- */
-function resolveExtensionPushCapability(
-  domain: string,
-  type: string,
-  serviceRegistry: ServiceRegistry,
-  registeredServices: Map<string, ServiceInfo>,
-): Capability | null | undefined {
-  if (!/^[a-z][a-z0-9-]*$/.test(domain) || !Object.hasOwn(serviceRegistry, domain) || !registeredServices.has(domain)) {
-    return undefined;
-  }
-  const policies = serviceRegistry[domain].pushCapabilities;
-  if (!policies || !Object.hasOwn(policies, type)) return undefined;
-  const capability = policies[type];
-  if (capability !== null && !ALL_CAPABILITIES.includes(capability)) return undefined;
-  return capability;
-}
-
-function createServiceRuntimeContext(context: RuntimeInstanceContext): ServiceRuntimeContext {
-  const { aclState, builtInDomains, hooks, registeredServices, serviceRegistry, sessionRegistry } = context;
-  const isDomainAllowed = hooks.isDomainAllowed;
-  const sendToNapplet = hooks.sendToNapplet;
-  return Object.freeze({
-    resolveDTag(windowId: string): string | undefined {
-      return sessionRegistry.getEntryByWindowId(windowId)?.dTag;
-    },
-    listWindowIds(): readonly string[] {
-      return Object.freeze(
-        sessionRegistry.getAllEntries().map((entry) => entry.windowId),
-      );
-    },
-    hasCapability(windowId: string, capability: Capability): boolean {
-      const entry = sessionRegistry.getEntryByWindowId(windowId);
-      return !!entry && aclState.check('', entry.dTag, entry.aggregateHash, capability);
-    },
-    sendToEligibleNapplet(windowId: string, message: NappletMessage): boolean {
-      const entry = sessionRegistry.getEntryByWindowId(windowId);
-      if (!entry || typeof message.type !== 'string') return false;
-      const dotIndex = message.type.indexOf('.');
-      if (dotIndex <= 0) return false;
-      const domain = message.type.slice(0, dotIndex);
-      try {
-        if (!builtInDomains.has(domain)) {
-          // Custom-domain pushes need the same explicit host grant as inbound
-          // extension routing; an absent hook never means permission-free.
-          if (hooks.isDomainAllowed?.(windowId, domain) !== true) return false;
-          const capability = resolveExtensionPushCapability(domain, message.type, serviceRegistry, registeredServices);
-          if (capability === undefined || aclState.isBlocked('', entry.dTag, entry.aggregateHash)) return false;
-          if (capability !== null && !aclState.check('', entry.dTag, entry.aggregateHash, capability)) return false;
-          sendToNapplet(windowId, message);
-          return true;
-        }
-        if (isDomainAllowed && !isDomainAllowed(windowId, domain)) return false;
-        const { recipientCap } = resolveCapabilitiesNap(message);
-        // NAP-GAMEPAD requires source/domain isolation; its ACL checks are optional.
-        // Do not fabricate a gamepad:read capability absent from the proposal.
-        if (!recipientCap && message.type !== 'gamepad.state') return false;
-        if (recipientCap && !aclState.check('', entry.dTag, entry.aggregateHash, recipientCap as Capability)) {
-          return false;
-        }
-        sendToNapplet(windowId, message);
-        return true;
-      } catch {
-        return false;
-      }
-    },
-  });
-}
-
 function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
   const {
     aclState, firewallState, eventBuffer, hooks, incRuntime, manifestCache, registeredServices,
@@ -519,12 +446,11 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
   } = context;
   const undeclaredServiceConsents = new Set<string>();
   const attachedServices = new Map<string, ServiceHandler>();
-  const serviceContext = createServiceRuntimeContext(context);
 
   function attachService(name: string, handler: ServiceHandler): void {
     attachedServices.set(name, handler);
     try {
-      handler.onRegistered?.(serviceContext);
+      handler.onRegistered?.(createServiceRuntimeContext(context, name, handler));
     } catch {
       // A failed optional attachment leaves the service safely context-free.
     }
@@ -627,8 +553,11 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   const aclState = createAclState(hooks.aclPersistence, hooks.aclDefaultPolicy ?? 'permissive', (mutation) => {
     for (const entry of sessionRegistry.getAllEntries()) {
       if (entry.dTag === mutation.dTag && entry.aggregateHash === mutation.aggregateHash) {
-        for (const service of Object.values(serviceRegistry)) {
-          service.onCapabilityRevoked?.(entry.windowId, mutation.type === 'block' ? null : mutation.capability);
+        for (const [serviceName, service] of Object.entries(serviceRegistry)) {
+          const capability = mutation.type === 'block' ? null : mutation.capability;
+          // x- services hear only blocks and their own capabilities.
+          if (serviceName.startsWith('x-') && capability !== null && !capability.startsWith(`${serviceName}:`)) continue;
+          service.onCapabilityRevoked?.(entry.windowId, capability);
         }
         if (mutation.type === 'block' || mutation.capability === 'relay:read') {
           revokeRelaySubscriptions({ hooks, serviceRegistry, subscriptions }, entry.windowId);
@@ -730,6 +659,11 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   extensions = createServiceExtensionRouter({
     hooks, services: serviceRegistry, registrations: registeredServices,
     sessions: sessionRegistry, acl: aclState, enforce: enforceNap, firewall: firewallGate,
+    pushAdmitted(windowId) {
+      const entry = sessionRegistry.getEntryByWindowId(windowId);
+      const policy = entry ? firewallState.getConfig().napplets[entry.dTag]?.policy : undefined;
+      return !!entry && policy !== 'deny' && policy !== 'ask';
+    },
   });
   const handleMessage = createMessageHandler(hooks, sessionRegistry, enforceNap, dispatchNapEnvelope, { builtInDomains, extensions }, firewallGate);
 

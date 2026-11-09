@@ -56,11 +56,18 @@ export interface Identity {
  * @param caps - Bitfield of granted capabilities (use CAP_* constants)
  * @param blocked - Orthogonal block flag; when true, all checks fail regardless of caps
  * @param quota - State storage quota in bytes
+ * @param ext - Optional explicit extension-capability decisions (see `checkExtension`)
  */
 export interface AclEntry {
   readonly caps: number;
   readonly blocked: boolean;
   readonly quota: number;
+  /**
+   * Explicit experimental extension decisions keyed by `x-<domain>:<action>`.
+   * Missing keys fall back to the state's default policy. Built-in
+   * capabilities never appear here; they stay in the `caps` bitfield.
+   */
+  readonly ext?: Readonly<Record<string, boolean>>;
 }
 
 /**

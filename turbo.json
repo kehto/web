@@ -15,7 +15,8 @@
     },
     "@kehto/shell#build": {
       "dependsOn": ["@kehto/acl#build", "@kehto/runtime#build"],
-      "outputs": ["dist/**"]
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/skills/kehto-experimental-nap/**", "$TURBO_ROOT$/scripts/copy-agent-skill.mjs"],
+      "outputs": ["dist/**", "skills/**"]
     },
     "@kehto/paja#build": {
       "dependsOn": [

@@ -9,6 +9,13 @@
  */
 
 import type { AclState, AclEntry } from './types.js';
+import { mergeExtensionDecisions } from './extensions.js';
+
+function withExt(a: AclEntry, b: AclEntry): Pick<AclEntry, 'ext'> {
+  const ext = mergeExtensionDecisions(a.ext, b.ext);
+  return ext ? { ext } : {};
+}
+
 
 /**
  * Migrate ACL state from old 3-segment key format to new 2-segment key format.
@@ -18,6 +25,8 @@ import type { AclState, AclEntry } from './types.js';
  * - caps: OR of both bitfields (never removes a granted capability)
  * - blocked: OR of both flags (blocks if either source was blocked)
  * - quota: MAX of both values (keeps the higher allocation)
+ * - ext: an explicit x- extension revocation on either side wins (deny wins);
+ *   other decisions are kept
  *
  * Idempotent: if no 3-segment keys are found, returns the original state
  * unchanged (same object reference).
@@ -52,6 +61,7 @@ export function migrateAclState(state: AclState): AclState {
           caps: existing.caps | entry.caps,
           blocked: existing.blocked || entry.blocked,
           quota: Math.max(existing.quota, entry.quota),
+          ...withExt(existing, entry),
         };
       } else {
         newEntries[newKey] = entry;
@@ -66,6 +76,7 @@ export function migrateAclState(state: AclState): AclState {
           caps: existing.caps | entry.caps,
           blocked: existing.blocked || entry.blocked,
           quota: Math.max(existing.quota, entry.quota),
+          ...withExt(existing, entry),
         };
       } else {
         newEntries[key] = entry;

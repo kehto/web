@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import { createAclState } from './acl-state.js';
+import { createAclState, type AclCapability } from './acl-state.js';
 import type { AclPersistence } from './types.js';
 
 function makePersistence(initial: string | null = null): AclPersistence & { data: string | null } {
@@ -180,5 +180,28 @@ describe('runtime ACL state', () => {
       { type: 'revoke', dTag: 'chat', aggregateHash: 'hash', capability: 'relay:read' },
       { type: 'block', dTag: 'chat', aggregateHash: 'hash' },
     ]);
+  });
+
+  it('denies and ignores strings that are neither built-in nor extension capabilities (IN-02)', () => {
+    const unknown: string[] = ['x-llm:generate', 'not-a-capability', 'x-echo:Bad', 'sign:event', ''];
+    const permissive = createAclState(makePersistence(), 'permissive');
+    const restrictive = createAclState(makePersistence(), 'restrictive');
+    for (const capability of unknown) {
+      expect(permissive.check('', 'probe', 'hash', capability as AclCapability)).toBe(false);
+      expect(restrictive.check('', 'probe', 'hash', capability as AclCapability)).toBe(false);
+    }
+    expect(permissive.check('', 'probe', 'hash', 'x-echo:send')).toBe(true);
+    expect(permissive.check('', 'probe', 'hash', 'relay:read')).toBe(true);
+
+    const mutations: unknown[] = [];
+    const acl = createAclState(makePersistence(), 'permissive', (mutation) => mutations.push(mutation));
+    const bogus: string = 'bogus';
+    acl.grant('', 'probe', 'hash', bogus as AclCapability);
+    acl.revoke('', 'probe', 'hash', bogus as AclCapability);
+    expect(acl.getEntry('', 'probe', 'hash')).toBeUndefined();
+    expect(acl.getAllEntries()).toEqual([]);
+    expect(mutations).toEqual([]);
+    acl.grant('', 'probe', 'hash', 'relay:read');
+    expect(acl.getEntry('', 'probe', 'hash')?.capabilities).toContain('relay:read');
   });
 });

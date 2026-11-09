@@ -69,6 +69,22 @@ export {
 
 export { migrateAclState } from './migrate.js';
 
+// Experimental (out-of-tree) NAP extension namespace — kehto spec-gap policy
+export type { ExtensionCapability } from './extensions.js';
+export {
+  EXTENSION_DOMAIN_PREFIX,
+  RESERVED_NAP_DOMAINS,
+  validateExtensionDomain,
+  isExtensionDomain,
+  validateExtensionCapability,
+  isExtensionCapability,
+  checkExtension,
+  grantExtension,
+  revokeExtension,
+  sanitizeExtensionDecisions,
+  mergeExtensionDecisions,
+} from './extensions.js';
+
 // NAP domain resolution
 export type { CapabilityResolution, NapMessage } from './resolve.js';
 export { resolveCapabilitiesNap } from './resolve.js';

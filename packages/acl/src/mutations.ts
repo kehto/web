@@ -7,6 +7,7 @@
 
 import { CAP_ALL, DEFAULT_QUOTA, type AclEntry, type AclState, type Identity } from './types.js';
 import { toKey } from './check.js';
+import { sanitizeExtensionDecisions } from './extensions.js';
 
 /**
  * Create a new ACL state with the given default policy.
@@ -254,10 +255,12 @@ export function deserialize(json: string): AclState {
           typeof entry.blocked === 'boolean' &&
           typeof entry.quota === 'number'
         ) {
+          const ext = sanitizeExtensionDecisions(entry.ext);
           entries[key] = {
             caps: entry.caps,
             blocked: entry.blocked,
             quota: entry.quota,
+            ...(ext ? { ext } : {}),
           };
         }
       }

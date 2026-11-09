@@ -1,6 +1,7 @@
 import {
   assertNappletHasNoFrame,
   denyNappletControllerAccess,
+  getShellExtensionBindings,
   hasNappletFramePolicy,
   injectNappletNamespacePrelude,
   prepareNappletSrcdoc,
@@ -104,6 +105,8 @@ export async function navigateFrame(
   const identity = getTargetOriginIdentity(config, resolvedTarget);
   const environment = resolvePajaFrameEnvironment(adapter, identity);
   const domains = environment.capabilities.domains;
+  // Extension bindings join the host-owned prelude, outside the artifact bytes.
+  const extensions = getShellExtensionBindings(adapter.extensions, domains);
   if (config.target.mode === 'runtime-pointer') {
     // Verified pointers and local development files share this branch: the
     // same pre-execution registration, CSP, prelude, and sandboxed srcdoc.
@@ -144,6 +147,7 @@ export async function navigateFrame(
     // Validate host policy before rebinding an existing window to a new identity.
     const srcdoc = prepareNappletSrcdoc(resolvedTarget.indexHtml, {
       domains,
+      extensions,
       ...(nestedContextLock ? { experimental: { nestedContextLock: true } } : {}),
       csp: {
         ...config.csp,
@@ -166,7 +170,7 @@ export async function navigateFrame(
   frame.removeAttribute('src');
   frame.srcdoc = injectNappletNamespacePrelude(
     injectBaseHref(html, config.target.url),
-    { domains },
+    { domains, extensions },
   );
   return registeredWindowId;
 }

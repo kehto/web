@@ -1,5 +1,12 @@
 import type { NappletCspOptions } from '@kehto/shell';
 import {
+  createPajaHostExtensions,
+  normalizePajaExtensions,
+  type PajaExtensionOption,
+  type PajaExtensionRawOption,
+  type PajaHostExtensionConfig,
+} from './extensions.js';
+import {
   normalizePajaSimulation,
   type PajaSimulation,
   type PajaSimulationRawOptions,
@@ -44,6 +51,8 @@ export interface PajaRawOptions {
   readonly experimental?: PajaExperimentalConfig;
   /** Simulation controls for injected shell domains. */
   readonly simulation?: PajaSimulationRawOptions;
+  /** Experimental `x-` NAP extension modules (see docs/how-tos/experimental-nap.md). */
+  readonly extensions?: readonly PajaExtensionRawOption[];
 }
 
 /** Paja target loading mode. */
@@ -79,6 +88,8 @@ export interface PajaOptions {
   readonly configPath?: string;
   /** Normalized simulation model. */
   readonly simulation: PajaSimulation;
+  /** Experimental `x-` NAP extension modules. */
+  readonly extensions: readonly PajaExtensionOption[];
   /** Normalized experimental policies. */
   readonly experimental: PajaExperimentalConfig;
   /** Whether Paja owns a managed command or attaches to an external target. */
@@ -120,6 +131,8 @@ export interface PajaHostConfig {
     readonly sidePanels: false;
   };
   readonly simulation: PajaSimulation;
+  /** Experimental `x-` NAP extension modules served by the Paja server. */
+  readonly extensions?: readonly PajaHostExtensionConfig[];
 }
 
 /** Thrown when raw Paja options cannot be normalized. */
@@ -174,6 +187,12 @@ export function normalizePajaOptions(raw: PajaRawOptions): PajaOptions {
   const command = normalizeCommand(raw.command);
   const configPath = raw.configPath?.trim();
   const simulation = normalizePajaSimulation(raw.simulation);
+  let extensions: readonly PajaExtensionOption[];
+  try {
+    extensions = normalizePajaExtensions(raw.extensions);
+  } catch (error) {
+    throw new PajaOptionsError(error instanceof Error ? error.message : String(error));
+  }
   const experimental = normalizePajaExperimental(raw.experimental);
 
   return {
@@ -184,6 +203,7 @@ export function normalizePajaOptions(raw: PajaRawOptions): PajaOptions {
     readyTimeoutMs,
     configPath: configPath && configPath.length > 0 ? configPath : undefined,
     simulation,
+    extensions,
     experimental,
     mode: command ? 'managed-command' : 'external-target',
   };
@@ -203,6 +223,7 @@ export function createPajaHostConfig(
   const base = createPajaHostConfigBase(options.simulation);
   return {
     ...base,
+    ...(options.extensions.length > 0 ? { extensions: createPajaHostExtensions(options.extensions) } : {}),
     ...(options.experimental ? { experimental: options.experimental } : {}),
     target: {
       mode: 'iframe-url',

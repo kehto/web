@@ -69,9 +69,40 @@ export function registerSourceSession(options: ShellReadyOptions): ShellEnvironm
   if (!identity) return null;
   registerNip5dSessionIfNeeded({ origin, runtime, state, sourceRegistrationId, windowId, identity });
   const existing = state.environments.get(windowId);
-  const environment = originRegistry.getEnvironment(sourceWindow) ?? existing ?? resolveShellEnvironment(hooks, identity);
+  const override = originRegistry.getEnvironment(sourceWindow);
+  if (override && !existing) warnOnEnvironmentWidening(hooks, identity, override);
+  const environment = override ?? existing ?? resolveShellEnvironment(hooks, identity);
   state.environments.set(windowId, environment);
   return environment;
+}
+
+/** Stable identifier for the retained `originRegistry.setEnvironment` widening path. */
+export const SHELL_ENV_OVERRIDE_WARNING = 'KEHTO_COMPAT_SHELL_ENV_OVERRIDE';
+let environmentWideningWarned = false;
+
+/**
+ * Compatibility (docs/compatibility.md `KEHTO_COMPAT_SHELL_ENV_OVERRIDE`): a
+ * host-set frame environment may still grant domains outside the live shell
+ * wiring. That was the only way to expose a custom domain before
+ * `ShellAdapter.extensions`; warn once per page lifetime when it happens.
+ * Narrowing overrides (subsets of the live environment) stay quiet.
+ */
+function warnOnEnvironmentWidening(hooks: ShellAdapter, identity: OriginIdentity, override: ShellEnvironment): void {
+  if (environmentWideningWarned) return;
+  const live = new Set(resolveShellEnvironment(hooks, identity).capabilities.domains);
+  const widened = override.capabilities.domains.filter((domain) => !live.has(domain));
+  if (widened.length === 0) return;
+  environmentWideningWarned = true;
+  console.warn(
+    `[${SHELL_ENV_OVERRIDE_WARNING}] originRegistry.setEnvironment granted ${widened.length} domain(s) outside the live shell environment. `
+    + 'Declare experimental x- domains with ShellAdapter.extensions instead; this override path is retained for compatibility. '
+    + 'This warning is shown once per page.',
+  );
+}
+
+/** Test-only: reset the once-per-page compatibility warning latch. */
+export function resetShellEnvironmentOverrideWarning(): void {
+  environmentWideningWarned = false;
 }
 
 function registerNip5dSessionIfNeeded({

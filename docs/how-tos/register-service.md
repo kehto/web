@@ -53,7 +53,8 @@ const example: ServiceHandler = {
 runtime.registerService('example', example);
 ```
 
-Each map value is an existing Kehto ACL capability, such as `state:read`, or
+Each map value is an existing Kehto ACL capability, such as `state:read`, an
+`x-<domain>:<action>` extension capability owned by the same `x-` domain, or
 explicit `null` when the operation needs no additional ACL grant. Choose that
 mapping from the operation's actual authority requirements. Do not invent
 capability strings or reuse an unrelated capability to simulate authorization.
@@ -96,17 +97,23 @@ domain to that window, and the declared capability (if any) is currently
 granted; the boolean result reports the verdict. Undeclared types, absent maps,
 invalid capability strings, and built-in domains are refused: built-in NAP
 domains keep their canonical recipient capability mapping regardless of
-`pushCapabilities`.
+`pushCapabilities`. An `x-` handler pushes only the types it declares in its own domain, with its
+own `x-<domain>:<action>` capabilities, and only through its own context.
 
 Built-in NAP domains ignore extension maps and retain their own routing and ACL
 mapping. `shell` remains adapter-owned; the removed `signer` route cannot be
 revived. INC topics never select an extension service.
 
+For an experimental domain, prefer the shell-level declaration in
+[Build an experimental NAP](https://kehto.github.io/web/docs/how-tos/experimental-nap.html). `ShellAdapter.extensions`
+takes an `x-` domain, its own `x-<domain>:<action>` capabilities, pushes, a
+prelude binding and a tri-state. Paja wires it end to end.
+
 For a browser host, registration does **not** inject `window.napplet.example`.
 The host must implement the owning domain contract, inject its granted binding
 before app scripts run, and enforce that same availability through its trusted
-source mapping. The stock Paja bindings do not expose arbitrary
-extensions. Neither manifest `R`/`O` tags nor `shell.init.services` grants access.
+source mapping. The stock Paja bindings expose only declared `x-` extensions
+(see [Build an experimental NAP](https://kehto.github.io/web/docs/how-tos/experimental-nap.html)). Neither manifest `R`/`O` tags nor `shell.init.services` grants access.
 Without an exposed binding, napplets must treat the domain as unavailable.
 
 `routeServiceMessage` is a low-level, policy-free selection primitive. It does not
