@@ -163,6 +163,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
+| 261109-gnn | Paja serves `@kehto/mocks` for every NAP it has no backend for: generated wire-table napplet bindings, shell table-driven bindings, `◌` mocked marker + legend | 2026-11-09 | 28acf037 | passed | [261109-gnn](./quick/261109-gnn-paja-mocked-naps/) |
 | 261102-ggx | Resolve PR #376 review: authorized extension pushes (`pushCapabilities`) and relay delivery ownership for `@kehto/mocks` | 2026-11-02 | 331d6f9b | passed | [261102-ggx](./quick/261102-ggx-resolve-pr-376-review-authorized-extensi/) |
 | 261104-kmf | Host firewall and dispatch controls for shell and runtime (#397-#400), one PR per issue against `release/host-firewall-controls` | 2026-11-04 | 52b4ea89 | passed | [261104-kmf](./quick/261104-kmf-host-firewall-controls/) |
 | 261102-gub | Policy: drop process isolation from the WebRTC-egress end state; name the `webrtc` CSP directive as the upstream fix and nested-context revocation as the Kehto mitigation to build | 2026-11-02 | 0d26bf89 | passed | [261102-gub](./quick/261102-gub-webrtc-egress-end-state/) |
