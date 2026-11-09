@@ -101,7 +101,7 @@ export function observePajaNappletMessage(
   appendPajaMessageLog(state, 'napplet->shell', message, windowId);
   if (!state || !context || message.type !== 'shell.ready') return;
   // After the bridge has registered the session for this readiness message.
-  queueMicrotask(() => context.adapter.mocked?.onWindowReady(windowId));
+  queueMicrotask(() => context.adapter.mocked.onWindowReady(windowId));
   const launcher = findLauncher(context, windowId);
   if (launcher) {
     launcher.ready();

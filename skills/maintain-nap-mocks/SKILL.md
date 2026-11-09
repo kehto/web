@@ -118,6 +118,15 @@ export const <UPPER>_MOCK_ENTRY: MockDomainEntry = { domain: '<domain>', kind: '
 3. Bump `sha` in `<UPPER>_SPEC_REF`, update the header comment, and note any
    new spec gap decision there.
 4. If the change is only editorial, bump the sha and say so in the commit.
+5. For an `extension` mock (and after adding or retiring one), regenerate the
+   napplet-facing bindings from the new ref and commit the result:
+   ```bash
+   pnpm --filter @kehto/mocks build
+   pnpm --filter @kehto/mocks bindings:generate   # writes src/napplet-bindings.ts
+   ```
+   `tests/napplet-bindings.test.ts` fails when a binding's spec sha, routes, or
+   push events disagree with the mock. Fix the mock or the generator rule, not
+   the generated file.
 
 ## Step 4 — Retire or promote
 

@@ -206,7 +206,9 @@ The console includes:
 
 - **Interfaces** — every supported Paja domain has an injection toggle. Toggling
   a domain updates the live capability override and reloads the target so the
-  next `shell.init` reflects the changed support surface.
+  next `shell.init` reflects the changed support surface. Domains served by
+  `@kehto/mocks` carry a `◌` prefix, explained by the panel legend (see
+  [Mocked interfaces](#mocked-interfaces)).
 - **ACL** — every runtime capability can be granted or revoked for the target
   napplet identity. In runtime-pointer mode, both the displayed state and the
   mutation use the active tab's resolver-verified d-tag and aggregate hash. The
@@ -418,6 +420,22 @@ Paja activates delivered handler tabs because its stage shows one tab at a time.
 tabs remain open. Installed contracts and domains appear in pointer diagnostics.
 
 Kehto provides the optional `window.napplet.shell` interface for environment information. Other domains route through trusted iframe creation identity independently of readiness. `supports(domain)` queries namespace presence locally. See the living [NAP-SHELL](https://github.com/napplet/naps/blob/master/naps/NAP-SHELL.md).
+
+## Mocked interfaces
+
+NAPs Paja has no real backend for are served by deterministic
+[`@kehto/mocks`](https://kehto.github.io/web/docs/packages/mocks.html) handlers: `blossom`, `capture`,
+`catalog`, `class`, `display`, `git`, `hashtree`, `location`, `mesh`, `motion`,
+`navigation`, `nzb`, `pow`, `soulseek`, `system`, `torrent`, `value` and `worker`
+(`PAJA_MOCKED_DOMAINS`). They are enabled by default and toggle like any other
+interface. The Interfaces panel prefixes each one with `◌` (`PAJA_MOCKED_MARK`)
+and a single legend line explains the mark. A napplet calls them as
+`window.napplet.<domain>.<operation>(...)`. The methods are generated from each
+NAP's wire table at the ref the mock records, and arguments are the request's
+wire fields in table order. Pushes arrive through `on(event, handler)` and the
+NAP's named handlers, such as `location.onState`. Results are fixture data, so
+don't treat them as evidence that a real backend works. The mock for `class`
+sends `class.assigned` right after `shell.ready`.
 
 ## NAP and Service Parity
 

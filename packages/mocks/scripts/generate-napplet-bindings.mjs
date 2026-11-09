@@ -49,7 +49,7 @@ export function sectionRows(doc, heading) {
   if (start < 0) return [];
   const rows = [];
   for (const line of lines.slice(start + 1)) {
-    if (/^## /.test(line)) break;
+    if (line.startsWith('## ')) break;
     if (!line.startsWith('|')) {
       if (rows.length > 0 && heading === 'API Surface') break;
       continue;

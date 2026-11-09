@@ -37,7 +37,7 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
 | Factory | `createShellBridge`, `ShellBridge`, `NAPPLET_HELLO` |
 | Hooks | `adaptHooks`, `BrowserDeps`, `ShellAdapter`, `ShellCapabilities`, `UploadHooks`, `IntentHooks`, `LinkHooks`, `CommonHooks`, `ListsHooks`, `SerialHooks`, `BleHooks`, `WebrtcHooks`, `DmHooks`, `UnroutedMessageInfo`, `NappletRevocation`, `NappletRevocationReason`, `NappletMessageDecision`, `MAX_DEFERRED_MESSAGES`, `NappletMessageTarget` |
 | Protocol and capability types | `NostrEvent`, `NostrFilter`, `NappletMessage`, `Capability`, `ALL_CAPABILITIES` |
-| Shell init and bootstrap | `buildShellCapabilities`, `injectNappletNamespacePrelude`, `renderNappletNamespacePrelude`, `NappletNamespacePreludeOptions` |
+| Shell init and bootstrap | `buildShellCapabilities`, `injectNappletNamespacePrelude`, `renderNappletNamespacePrelude`, `NappletNamespacePreludeOptions`, `NappletDomainBinding`, `NappletBindingMethod`, `SerializedDomainBinding`, `serializeDomainBindings`, `NAPPLET_PRELUDE_BUILT_IN_DOMAINS` |
 | Verified documents and CSP | `prepareNappletSrcdoc`, `NappletSrcdocOptions`, `buildNappletCsp`, `renderNappletCspMeta`, `injectNappletCsp`, `NappletCspOptions`, `NappletCspDirectives`, `NappletCspDirective` |
 | Registries and caches | `sessionRegistry`, `nappKeyRegistry`, `originRegistry`, `manifestCache`, `audioManager`, `PendingUpdate`, `ManifestCacheEntry`, `AudioSource` |
 | Enforcement re-exports | `FirewallEvent`, `FirewallPersistence`, `createEnforceGate`, `createNapEnforceGate`, `formatDenialReason`, `EnforceResult`, `EnforceConfig`, `NapEnforceConfig`, `IdentityResolver`, `AclChecker`, `NapMessage` |
@@ -144,6 +144,33 @@ Legacy object-form `invoke(request)` and `open(archetype, payload?, opts?)`
 remain bounded compatibility adapters and warn once per iframe with
 `KEHTO_COMPAT_INTENT_OBJECT_INVOKE`. Their removal conditions are tracked in
 [compatibility](https://github.com/kehto/web/blob/main/docs/compatibility.md).
+
+## Table-driven domain bindings
+
+`prepareNappletSrcdoc`, `injectNappletNamespacePrelude`, and
+`renderNappletNamespacePrelude` accept `bindings`, a map from exposed domain to
+`NappletDomainBinding`. For a domain the prelude has no built-in binding for
+(anything outside `NAPPLET_PRELUDE_BUILT_IN_DOMAINS`), each `methods` row
+becomes `window.napplet.<domain>.<name>(...args)`, which works like this:
+
+- The positional arguments fill `params` as wire fields. The request goes over
+  the private NIP-5D port with a fresh `id`, unless the row sets `id: false`.
+- With `reply: true`, the method resolves with `<type>.result`'s `result` field,
+  or the payload minus `type`/`id` when no field is named. An `error` rejects
+  with an `Error` that keeps any `code`.
+- With `reply: false`, the method sends and resolves `undefined`.
+- `on(event, handler)` and the named `handlers` (`onState`, …) deliver the
+  listed pushes as `handler(payload, type)` and return `{ close() }`.
+
+Tables are validated on the host (`serializeDomainBindings`, which throws
+`TypeError`), only reach exposed domains, and are frozen and protected from
+napplet reassignment. Paja uses them for `@kehto/mocks`' generated
+`MOCK_NAPPLET_BINDINGS`.
+
+Spec-gap decision: NIP-5D leaves each domain's JavaScript shape to its NAP, and
+draft NAPs only fix the wire envelopes. Kehto treats the wire table as the
+contract. NAP operations that return handle objects, read local caches, or are
+local helpers have no table row, so they aren't bound.
 
 ## GAMEPAD integration
 

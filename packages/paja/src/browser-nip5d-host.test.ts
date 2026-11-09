@@ -25,6 +25,7 @@ function setup() {
   const launcherFrame = { remove: vi.fn() };
   const launcher = { windowId: 'launcher', frame: launcherFrame, progress: {}, ready: vi.fn(), result: vi.fn() };
   const handleMessage = vi.fn();
+  const onWindowReady = vi.fn();
   const runtime = {
     launcherFrames: new Map([[launcherWindow, launcher]]),
     intentSenderIds: new Map([['launcher', 'catalog']]),
@@ -37,9 +38,10 @@ function setup() {
     runtime,
     frame: { contentWindow: singleWindow },
     bridge: { handleMessage },
+    adapter: { mocked: { onWindowReady } },
   } as unknown as PajaBrowserStateContext;
   const setStatus = vi.fn();
-  return { state, context, runtime, launcher, launcherWindow, launcherFrame, singleWindow, handleMessage, setStatus };
+  return { state, context, runtime, launcher, launcherWindow, launcherFrame, singleWindow, handleMessage, setStatus, onWindowReady };
 }
 
 describe('Paja NIP-5D host integration', () => {
@@ -82,13 +84,25 @@ describe('Paja NIP-5D host integration', () => {
     expect(handleMessage).toHaveBeenCalledExactlyOnceWith(nap);
   });
 
-  it('marks the single frame ready from shell.ready observed on its port', () => {
-    const { state, context, runtime, setStatus } = setup();
+  it('marks the single frame ready from shell.ready observed on its port', async () => {
+    const { state, context, runtime, setStatus, onWindowReady } = setup();
     observePajaNappletMessage(state, context, 'single', { type: 'relay.subscribe' } as never, { setStatus });
     expect(setStatus).not.toHaveBeenCalled();
     observePajaNappletMessage(state, context, 'single', { type: 'shell.ready' } as never, { setStatus });
     expect(runtime.readyWindowIds.has('single')).toBe(true);
     expect(setStatus).toHaveBeenCalledWith(state, 'ready');
+    // The mocked NAP-CLASS assignment waits for the bridge to register the session.
+    expect(onWindowReady).not.toHaveBeenCalled();
+    await Promise.resolve();
+    expect(onWindowReady).toHaveBeenCalledExactlyOnceWith('single');
+  });
+
+  it('assigns the mocked class to launcher frames too, and only on shell.ready', async () => {
+    const { state, context, onWindowReady, setStatus } = setup();
+    observePajaNappletMessage(state, context, 'launcher', { type: 'intent.invoke' } as never, { setStatus });
+    observePajaNappletMessage(state, context, 'launcher', { type: 'shell.ready' } as never, { setStatus });
+    await Promise.resolve();
+    expect(onWindowReady).toHaveBeenCalledExactlyOnceWith('launcher');
   });
 
   it('removes a revoked launcher frame and forgets its identity', () => {
