@@ -15,6 +15,7 @@ Use these pages when you need to choose or integrate one part of Kehto. Each pag
 | `@kehto/runtime` | [Runtime](./runtime.md) | Browser-agnostic NIP-5D protocol engine. |
 | `@kehto/shell` | [Shell](./shell.md) | Browser shell adapter over the runtime. |
 | `@kehto/services` | [Services](./services.md) | Reference service handlers for runtime domains. |
+| `@kehto/mocks` | [Mocks](./mocks.md) | Deterministic mock services for every NAP domain, for shells implementing NAPs without real data sources. |
 | `@kehto/nip` | [NIP utilities](./nip.md) | Unique Nostr NIP utilities, including NIP-5A/5D napplet artifact verification and Cache Storage reuse. |
 | `@kehto/wm` | [Window Management](./wm.md) | Structural window-management contracts. |
 
@@ -22,7 +23,7 @@ Use these pages when you need to choose or integrate one part of Kehto. Each pag
 
 1. Start with `@kehto/runtime` if you are building a host.
 2. Add `@kehto/shell` when you need browser iframe/session integration.
-3. Add `@kehto/services` for reference implementations of runtime services.
+3. Add `@kehto/services` for reference implementations of runtime services, or `@kehto/mocks` while a domain's real backend does not exist yet.
 4. Use `@kehto/acl` directly when you need capability-state persistence or policy tests, and `@kehto/firewall` for behavioral rate-limiting and abuse detection over time.
 5. Use `@kehto/nip` and `@kehto/wm` as optional utilities.
 6. Use `@kehto/cli` for package scripts such as `kehto paja`.

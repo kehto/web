@@ -1,5 +1,18 @@
 # @kehto/paja
 
+## 0.32.1
+
+### Patch Changes
+
+- Updated dependencies [6eb1ea4]
+- Updated dependencies [6eb1ea4]
+- Updated dependencies [6eb1ea4]
+- Updated dependencies [6eb1ea4]
+  - @kehto/runtime@0.28.0
+  - @kehto/shell@0.32.0
+  - @kehto/firewall@0.7.0
+  - @kehto/services@0.30.1
+
 ## 0.32.0
 
 ### Minor Changes

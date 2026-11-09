@@ -110,6 +110,31 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
+  packages/mocks:
+    dependencies:
+      '@kehto/acl':
+        specifier: workspace:^
+        version: link:../acl
+      '@kehto/runtime':
+        specifier: workspace:^
+        version: link:../runtime
+    devDependencies:
+      '@napplet/core':
+        specifier: '>=0.38.0 <0.39.0'
+        version: 0.38.0
+      '@napplet/nap':
+        specifier: '>=0.37.0 <0.38.0'
+        version: 0.37.0(typescript@5.9.3)
+      tsup:
+        specifier: ^8.5.0
+        version: 8.5.1(postcss@8.5.15)(typescript@5.9.3)(yaml@2.8.3)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.2
+        version: 4.1.2(yaml@2.8.3)
+
   packages/nip:
     dependencies:
       '@noble/hashes':

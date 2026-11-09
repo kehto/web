@@ -1,5 +1,19 @@
 # @kehto/shell
 
+## 0.32.0
+
+### Minor Changes
+
+- 6eb1ea4: Hosts can now choose the ACL default policy with `aclDefaultPolicy: 'permissive' | 'restrictive'` on `RuntimeAdapter` and `ShellAdapter`. With `'restrictive'`, identities with no stored entry start with nothing granted. A policy set this way replaces the one stored in persisted ACL state on load, and stored entries are kept. Leaving it out keeps today's behaviour.
+- 6eb1ea4: `ShellAdapter` now accepts `getFocusContext`, `onFirewallEvent` and `firewallPersistence`, and `adaptHooks` forwards them to the runtime firewall. A shell built on `createShellBridge` gets focus-scaled rate budgets, sees firewall flags and refusals, and can keep firewall config across reloads. `FirewallEvent` and `FirewallPersistence` are also exported from `@kehto/shell`. Hosts that set none of these see no change.
+- 6eb1ea4: Hosts can now decide what happens to port traffic before dispatch. `ShellAdapter.filterNappletMessage(windowId, message)` returns `'dispatch'`, `'drop'` or `'defer'`, and `ShellBridge.releaseDeferred(windowId)` dispatches what was deferred, in arrival order. `shell.ready` skips the filter, because NAP-SHELL requires its first `shell.init` reply. A window holding more than `MAX_DEFERRED_MESSAGES` is revoked with the new `deferred-overflow` reason, so exhaustive switches on `NappletRevocationReason` need one more case. Hosts without a filter see no change.
+
+### Patch Changes
+
+- Updated dependencies [6eb1ea4]
+- Updated dependencies [6eb1ea4]
+  - @kehto/runtime@0.28.0
+
 ## 0.31.0
 
 ### Minor Changes

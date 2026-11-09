@@ -327,7 +327,11 @@ type). `Runtime.handleMessage` requires a live unblocked source, an explicit
 types and extension policy denials stay silent on the wire. Registration alone
 attaches a service; it does not expose or grant a domain. Fixed NAP routes retain
 their own authorization. Pending replies are invalidated by service/source
-replacement or teardown and recheck current domain/ACL policy.
+replacement or teardown and recheck current domain/ACL policy. Unsolicited
+shell -> napplet pushes into such a domain need an exact `pushCapabilities` map
+(recipient capability or explicit `null` per push type) and are delivered through
+`ServiceRuntimeContext.sendToEligibleNapplet` under the same source, domain-grant,
+and ACL gates; the call's boolean reports whether the push was delivered.
 
 Browser hosts must provide the owning extension contract and inject its granted
 namespace binding before scripts run. Stock Paja bindings do not inject

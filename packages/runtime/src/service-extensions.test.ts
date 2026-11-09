@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import type { NappletMessage } from '@napplet/core';
 import { createRuntime } from './runtime.js';
 import { createMockRuntimeAdapter, createNip5dSessionEntry } from './test-utils.js';
-import type { ServiceHandler } from './types.js';
+import type { Capability } from '@kehto/acl/capabilities';
+import type { ServiceHandler, ServiceRuntimeContext } from './types.js';
 
 const windowId = 'disposable-window';
 const dTag = 'disposable-routing';
@@ -238,5 +239,70 @@ describe('registered service extension routing (issue #303)', () => {
     for (let i = 0; i < 21; i++) runtime.handleMessage(windowId, ping);
     expect(handler.handleMessage).toHaveBeenCalledTimes(20);
     expect(sent).toHaveLength(20);
+  });
+});
+
+describe('registered extension pushes (kehto/web#376 review)', () => {
+  const assigned = { type: 'example.assigned', id: 'c1', value: 1 } as NappletMessage;
+  const secret = { type: 'example.secret', id: 'c2' } as NappletMessage;
+
+  function pushing(pushCapabilities?: ServiceHandler['pushCapabilities']) {
+    const handler = service();
+    let context: ServiceRuntimeContext | undefined;
+    handler.onRegistered = vi.fn((value) => { context = value; });
+    if (pushCapabilities) handler.pushCapabilities = pushCapabilities;
+    return { handler, context: () => context! };
+  }
+
+  it('delivers declared pushes to a live, exposed, unblocked source and checks the declared capability', () => {
+    const { handler, context } = pushing({ 'example.assigned': null, 'example.secret': 'state:read' });
+    const { runtime, sent, allowed } = setup(handler);
+    expect(context().sendToEligibleNapplet(windowId, assigned)).toBe(true);
+    expect(sent).toEqual([{ windowId, message: assigned }]);
+    expect(allowed).toHaveBeenCalledWith(windowId, 'example');
+
+    expect(context().sendToEligibleNapplet(windowId, secret)).toBe(true);
+    runtime.aclState.revoke('', dTag, hash, 'state:read');
+    expect(context().sendToEligibleNapplet(windowId, secret)).toBe(false);
+    expect(context().sendToEligibleNapplet(windowId, assigned)).toBe(true);
+    expect(sent.map(({ message }) => (message as NappletMessage).type)).toEqual(['example.assigned', 'example.secret', 'example.assigned']);
+  });
+
+  it.each([
+    'undeclared type', 'absent push map', 'absent domain hook', 'denied domain', 'unknown window',
+    'blocked identity', 'invalid capability string', 'unregistered service', 'replaced service',
+  ])('refuses a push on %s and sends nothing', (reason) => {
+    const { handler, context } = pushing(
+      reason === 'absent push map' ? undefined
+        : reason === 'invalid capability string' ? { 'example.assigned': 'not:a-capability' as unknown as Capability }
+          : { 'example.assigned': null },
+    );
+    const { runtime, hooks, sent, allowed } = setup(handler);
+    const push = context();
+    if (reason === 'absent domain hook') delete hooks.isDomainAllowed;
+    if (reason === 'denied domain') allowed.mockReturnValue(false);
+    if (reason === 'blocked identity') runtime.aclState.block('', dTag, hash);
+    if (reason === 'unregistered service') runtime.unregisterService('example');
+    if (reason === 'replaced service') runtime.registerService('example', service());
+    const message = reason === 'undeclared type' ? { type: 'example.other', id: 'x' } as NappletMessage : assigned;
+    expect(push.sendToEligibleNapplet(reason === 'unknown window' ? 'ghost' : windowId, message)).toBe(false);
+    expect(sent).toEqual([]);
+  });
+
+  it('never widens a built-in domain through pushCapabilities', () => {
+    const relay = service();
+    relay.descriptor = { name: 'relay', version: '1.0.0' };
+    relay.pushCapabilities = { 'relay.event': null };
+    let context: ServiceRuntimeContext | undefined;
+    relay.onRegistered = vi.fn((value) => { context = value; });
+    const { sent } = setup();
+    const ctx = createMockRuntimeAdapter({ isDomainAllowed: () => true, services: { relay } });
+    const runtime = createRuntime(ctx.hooks);
+    runtime.sessionRegistry.register(windowId, createNip5dSessionEntry(windowId, dTag, hash));
+    // relay.event has no recipient capability in the canonical ACL map; the
+    // extension push map must not create one.
+    expect(context!.sendToEligibleNapplet(windowId, { type: 'relay.event', subId: 's' } as NappletMessage)).toBe(false);
+    expect(ctx.sent).toEqual([]);
+    expect(sent).toEqual([]);
   });
 });

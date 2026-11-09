@@ -1,6 +1,6 @@
 
 import { createDispatch, type NappletMessage, type NostrEvent, type NapHandler, type NapDomain } from '@napplet/core';
-import type { Capability } from '@kehto/acl/capabilities';
+import { ALL_CAPABILITIES, type Capability } from '@kehto/acl/capabilities';
 import type { PermissionRequirement } from '@kehto/firewall';
 
 import type {
@@ -133,6 +133,7 @@ type RuntimeInstanceContext = {
   consentHandlerRef: { current: ConsentHandler | null };
   handleMessage: Runtime['handleMessage'];
   extensions: ReturnType<typeof createServiceExtensionRouter>;
+  builtInDomains: ReadonlySet<string>;
 };
 
 function createRegisteredServices(serviceRegistry: ServiceRegistry): Map<string, ServiceInfo> {
@@ -303,17 +304,34 @@ function createInjectedEvent(hooks: RuntimeAdapter, topic: string, payload: unkn
   };
 }
 
-function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
-  const {
-    aclState, firewallState, eventBuffer, hooks, incRuntime, manifestCache, registeredServices,
-    replayDetector, serviceRegistry, sessionRegistry, subscriptions, consentHandlerRef, extensions,
-  } = context;
-  const undeclaredServiceConsents = new Set<string>();
-  const attachedServices = new Map<string, ServiceHandler>();
-  const serviceLifetimes = new Map<string, object>();
+/**
+ * Recipient capability for a shell -> napplet push into a custom domain, or
+ * `undefined` when no authorized push route exists. Mirrors the inbound
+ * extension router: the domain must be a registered service whose handler
+ * declares the exact type in `pushCapabilities` with an existing capability
+ * or an explicit `null`.
+ */
+function resolveExtensionPushCapability(
+  domain: string,
+  type: string,
+  serviceRegistry: ServiceRegistry,
+  registeredServices: Map<string, ServiceInfo>,
+): Capability | null | undefined {
+  if (!/^[a-z][a-z0-9-]*$/.test(domain) || !Object.hasOwn(serviceRegistry, domain) || !registeredServices.has(domain)) {
+    return undefined;
+  }
+  const policies = serviceRegistry[domain].pushCapabilities;
+  if (!policies || !Object.hasOwn(policies, type)) return undefined;
+  const capability = policies[type];
+  if (capability !== null && !ALL_CAPABILITIES.includes(capability)) return undefined;
+  return capability;
+}
+
+function createServiceRuntimeContext(context: RuntimeInstanceContext): ServiceRuntimeContext {
+  const { aclState, builtInDomains, hooks, registeredServices, serviceRegistry, sessionRegistry } = context;
   const isDomainAllowed = hooks.isDomainAllowed;
   const sendToNapplet = hooks.sendToNapplet;
-  const serviceContext: ServiceRuntimeContext = Object.freeze({
+  return Object.freeze({
     resolveDTag(windowId: string): string | undefined {
       return sessionRegistry.getEntryByWindowId(windowId)?.dTag;
     },
@@ -333,6 +351,16 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
       if (dotIndex <= 0) return false;
       const domain = message.type.slice(0, dotIndex);
       try {
+        if (!builtInDomains.has(domain)) {
+          // Custom-domain pushes need the same explicit host grant as inbound
+          // extension routing; an absent hook never means permission-free.
+          if (hooks.isDomainAllowed?.(windowId, domain) !== true) return false;
+          const capability = resolveExtensionPushCapability(domain, message.type, serviceRegistry, registeredServices);
+          if (capability === undefined || aclState.isBlocked('', entry.dTag, entry.aggregateHash)) return false;
+          if (capability !== null && !aclState.check('', entry.dTag, entry.aggregateHash, capability)) return false;
+          sendToNapplet(windowId, message);
+          return true;
+        }
         if (isDomainAllowed && !isDomainAllowed(windowId, domain)) return false;
         const { recipientCap } = resolveCapabilitiesNap(message);
         // NAP-GAMEPAD requires source/domain isolation; its ACL checks are optional.
@@ -348,6 +376,17 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
       }
     },
   });
+}
+
+function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
+  const {
+    aclState, firewallState, eventBuffer, hooks, incRuntime, manifestCache, registeredServices,
+    replayDetector, serviceRegistry, sessionRegistry, subscriptions, consentHandlerRef, extensions,
+  } = context;
+  const undeclaredServiceConsents = new Set<string>();
+  const attachedServices = new Map<string, ServiceHandler>();
+  const serviceLifetimes = new Map<string, object>();
+  const serviceContext = createServiceRuntimeContext(context);
 
   function attachService(name: string, handler: ServiceHandler): void {
     attachedServices.set(name, handler);
@@ -642,5 +681,6 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     handleMessage,
     extensions,
     permissions,
+    builtInDomains,
   });
 }

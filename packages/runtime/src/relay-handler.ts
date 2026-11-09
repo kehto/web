@@ -422,18 +422,26 @@ function publishSignedRelayEvent(
   reply: (ok: boolean, error?: string) => void,
 ): void {
   const { eventBuffer, hooks } = context;
+  const candidate = relayServiceFrom(context);
+  const relayService = candidate && isRelayPlanningServiceHandler(candidate) ? candidate : undefined;
   let settled = false;
   const settle = (ok: boolean, error?: string): void => {
     if (settled || signal.aborted) return;
     settled = true;
-    if (ok) {
+    // A registered relay service owns storage and fan-out of an accepted
+    // publish: like a relay (NAP-RELAY), it echoes the event to every matching
+    // subscription it holds, the publisher's own included, honoring each
+    // subscription's relay scope. Re-delivering from the ring buffer would skip
+    // the publisher, ignore scope, and duplicate every other window's copy, so
+    // the buffer only fans out when the runtime itself coordinates the publish
+    // through the adapter relay pool.
+    if (ok && !relayService) {
       try { eventBuffer.bufferAndDeliver(signed, windowId); } catch { /* local delivery is best-effort */ }
     }
     reply(ok, error);
   };
 
-  const relayService = relayServiceFrom(context);
-  if (relayService && isRelayPlanningServiceHandler(relayService)) {
+  if (relayService) {
     const publishMessage = { type: 'relay.publish', id, event: signed } as NappletMessage;
     try {
       relayService.executeRelayOperation(windowId, publishMessage, plan, signal, (response: NappletMessage) => {

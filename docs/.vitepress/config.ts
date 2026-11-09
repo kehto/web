@@ -82,6 +82,7 @@ export default defineConfig({
           { text: '@kehto/runtime', link: '/packages/runtime' },
           { text: '@kehto/shell', link: '/packages/shell' },
           { text: '@kehto/services', link: '/packages/services' },
+          { text: '@kehto/mocks', link: '/packages/mocks' },
           { text: '@kehto/nip', link: '/packages/nip' },
           { text: '@kehto/wm', link: '/packages/wm' },
         ],

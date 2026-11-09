@@ -336,6 +336,7 @@ Extracted from [@napplet](https://github.com/sandwichfarm/napplet) (v0.13.0 mile
 - `packages/runtime` — **@kehto/runtime** — Protocol engine (message dispatch, AUTH, subscription lifecycle)
 - `packages/shell` — **@kehto/shell** — Browser adapter (ShellBridge, signer proxy, storage proxy)
 - `packages/services` — **@kehto/services** — Reference service handlers (audio, notifications)
+- `packages/mocks` — **@kehto/mocks** — Deterministic mock services for every NAP domain (see `skills/use-nap-mocks`, `skills/maintain-nap-mocks`)
 - `packages/firewall` — **@kehto/firewall** — Pure firewall-policy module + runtime gate
 - `packages/nip` — **@kehto/nip** — NIP-5A/5D resolver (content-addressed napplet resolution)
 - `packages/wm` — **@kehto/wm** — Window-manager primitives for the shell
