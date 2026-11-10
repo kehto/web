@@ -1,5 +1,34 @@
 # @kehto/shell
 
+## 0.33.0
+
+### Minor Changes
+
+- 249fe8c: Admit verified and development iframe bytes through shared Firewall approvals before execution. Add exact directive-scoped browser network decisions, a closed CSP, shared prompt and grant management, and source-bound retirement on revocation. Paja now rejects its ineffective firewall simulation mode and resolves development assets only through an approved origin.
+- 249fe8c: Hosts with `RuntimeAdapter.permissions` can now change the operation budget after creation with `runtime.permissions.setRateLimit(config)`, and read it with `runtime.permissions.rateLimit`. It covers `unfocusedMultiplier` and the startup `burst` guard, keeps running counters, and throws `RangeError` on out-of-range values. `RuntimePermissions` implementers must add both members.
+
+  `RateLimitConfig` now accepts an `unfocusedMultiplier` above 1, and a `burst.windowMs` or `burst.maxOperations` of zero. A zero window turns the guard off.
+
+  `onFirewallEvent`, `firewallPersistence` and the `runtime.firewallState` mutators act on the legacy gate only, so a runtime with `permissions` warns once with `FW-RUNTIME-LEGACY-IGNORED-001` when they're used. `getFocusContext` scales both. With `permissions`, `aclDefaultPolicy` is a ceiling that approvals can't exceed. Deferred `filterNappletMessage` envelopes meet approvals and budgets at release. `@kehto/shell` also exports `RateLimitConfig`.
+
+- 249fe8c: Require relay operations to plan immutable destinations before approval and
+  execute only those approved targets across runtime, reference services, shell,
+  and Paja integrations.
+- 249fe8c: Adopt the NAP-RESOURCE draft's canonical exact `url`/ordered `urls` requests and
+  padded base64 result bytes. Resource authorization now covers the immutable
+  resource URL plus every resolver-reported HTTP(S) or WebSocket destination, with cancellation,
+  live revocation, and stale completion handling at the service boundary.
+- 249fe8c: Integrate NAP-LINK with runtime-scoped interface and destination approvals, preserving canonical results and cancelling stale source work. Freeze trusted permission principals through shell source registration. Add live-source permission revocation handling, bounded replay protection, and a migration warning for host-only LINK openers. Unknown LINK actions are ignored and forbidden local/code schemes cannot be enabled by configuration.
+
+  Authorize each resource URL and immediate HTTP(S) origin through shared runtime grants. Hold authorization through response body consumption, propagate request cancellation, retain bulk partial outcomes, and diagnose resolver-only compatibility use once per service instance.
+
+### Patch Changes
+
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+  - @kehto/runtime@0.29.0
+
 ## 0.32.0
 
 ### Minor Changes

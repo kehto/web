@@ -1,6 +1,6 @@
 {
   "name": "@kehto/mocks",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Deterministic mock services for every napplet NAP domain — in-memory data for shells implementing NAPs without real relays, devices, or providers",
   "type": "module",
   "main": "./dist/index.js",

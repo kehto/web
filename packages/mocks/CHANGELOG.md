@@ -1,5 +1,15 @@
 # @kehto/mocks
 
+## 0.1.1
+
+### Patch Changes
+
+- 249fe8c: The relay mock now implements the runtime's planned-execution relay contract (`planRelayOperation` / `executeRelayOperation`) with local-only plans, so the Firewall approval runtime routes relay traffic to it instead of denying it as a legacy relay service.
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+  - @kehto/runtime@0.29.0
+
 ## 0.1.0
 
 ### Minor Changes
