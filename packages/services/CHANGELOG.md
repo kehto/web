@@ -1,5 +1,55 @@
 # @kehto/services
 
+## 0.31.0
+
+### Minor Changes
+
+- 249fe8c: Require scoped Firewall approval for mediated service operations, with immutable
+  resource, device, file, and relay plans, source-owned cancellation, and revocation
+  cleanup. Wire Paja's supported backends to the same operation contracts and
+  remove the retired NAP-RESOURCE wire inputs.
+- 249fe8c: Require shared Firewall approval before gamepad input and notification effects in permission-enabled runtimes. Bind Paja notification permissions to verified app identity, suppress late effects after revocation, and document the retained legacy notification paths.
+- 249fe8c: Require relay operations to plan immutable destinations before approval and
+  execute only those approved targets across runtime, reference services, shell,
+  and Paja integrations.
+- 249fe8c: Adopt the NAP-RESOURCE draft's canonical exact `url`/ordered `urls` requests and
+  padded base64 result bytes. Resource authorization now covers the immutable
+  resource URL plus every resolver-reported HTTP(S) or WebSocket destination, with cancellation,
+  live revocation, and stale completion handling at the service boundary.
+- 249fe8c: Integrate NAP-LINK with runtime-scoped interface and destination approvals, preserving canonical results and cancelling stale source work. Freeze trusted permission principals through shell source registration. Add live-source permission revocation handling, bounded replay protection, and a migration warning for host-only LINK openers. Unknown LINK actions are ignored and forbidden local/code schemes cannot be enabled by configuration.
+
+  Authorize each resource URL and immediate HTTP(S) origin through shared runtime grants. Hold authorization through response body consumption, propagate request cancellation, retain bulk partial outcomes, and diagnose resolver-only compatibility use once per service instance.
+
+- 249fe8c: Require prepared, signer-bound upload plans for runtime approval, authorize exact
+  upload resources and selected network origins before signing or egress, and
+  cancel progress on revocation. Paja prepares its Blossom destination before
+  approval and the reference HTTP uploader rejects unapproved redirects.
+  Window teardown invalidates all callbacks before cancellation and continues
+  cleaning up sibling uploads when a backend cancellation throws.
+- 249fe8c: Require runtime-approved WebRTC signaling plans, reject opaque peer factories,
+  and fail closed for configured ICE/TURN endpoints until typed Firewall support exists.
+
+### Patch Changes
+
+- 249fe8c: Authorize immutable OUTBOX and COUNT relay plans before transport, signing, or
+  fanout, and suppress work and results after source revocation.
+- 249fe8c: Prevent resource fetches after cancellation during asynchronous metadata lookup.
+  Capture bulk inputs, preserve cancellation ownership across duplicate IDs and
+  source replacement, and cancel outstanding work when the service detaches.
+
+  Require network approval for WebSocket resolver destinations and reject unsupported
+  network schemes or embedded credentials before invoking transport callbacks.
+
+  Retain the latest 1,024 completed resource IDs per source window to suppress
+  repeated side effects and terminal responses, while preserving cancellation and
+  clearing replay history on source destruction or service detachment.
+
+- 249fe8c: Prevent duplicate `theme.changed` delivery when a host bridge owns theme broadcasts.
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+  - @kehto/runtime@0.29.0
+
 ## 0.30.1
 
 ### Patch Changes

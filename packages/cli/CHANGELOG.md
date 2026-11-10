@@ -1,5 +1,18 @@
 # @kehto/cli
 
+## 0.6.1
+
+### Patch Changes
+
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+  - @kehto/paja@0.33.0
+
 ## 0.6.0
 
 ### Minor Changes
