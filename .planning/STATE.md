@@ -726,3 +726,7 @@ See debug/resolved/pr336-main-integration.md. WINDOWS.md restored unchanged.
 | [NAP-MEDIA player](./debug/resolved/nap-media-player.md) | 2026-10-27 | 72c1a432 | Paja/playground audio-video player, ownership and lifecycle verified; 2,303 unit and 153 browser tests pass against NAP-MEDIA draft 7806f438 |
 | [NAP-MEDIA live radio](./debug/resolved/nap-media-live-radio.md) | 2026-10-27 | ae738167 | Funclet Omarchy stream plays unchanged in local Paja; bounded MP3/AAC transport and both hosts verified; 2,307 unit and 155 browser tests pass |
 | [NAP-MEDIA CI](./debug/resolved/nap-media-ci.md) | 2026-10-27 | 5c9562af | Replace zero-frame OS-prime audio with playable PCM silence; use managed modern-headless Chromium; repeated media/controller checks pass and PR #354 tracks final CI |
+
+## Debug closeout: issue #416
+
+2026-11-10: PR [#419](https://github.com/kehto/web/pull/419) admits core 0.40 / nap 0.39 across all eight host consumers, aligns development/JSR maps and release changesets, and accounts for five optional unimplemented domains. Build/type/docs/frozen install, 3,368 units, 124 browser tests (one existing skip), strict packed npm/pnpm installs and quality 100/100 pass. Upstream intent-type drift is tracked in napplet/web#328 and kehto/web#418; current no-ID/string-sender wire stays conformant with NAP-INTENT draft #128 at 74f9bf85. See [the resolved session](debug/resolved/416-current-napplet-peers.md). Publication follows review and the normal release flow.

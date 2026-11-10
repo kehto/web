@@ -1,4 +1,8 @@
-/** Canonical NAP-INTENT contracts pending upstream @napplet/nap publication. */
+/**
+ * Canonical NAP-INTENT contracts, checked against naps PR #128 at 74f9bf85.
+ * Core 0.40 still requires the withdrawn delivery ID and allows null senders;
+ * retain the no-ID, string-sender contract pending napplet/web#328 (kehto/web#418).
+ */
 
 /** Lifecycle hints that remain subject to host workspace policy. */
 export interface IntentBehavior {

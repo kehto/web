@@ -11,6 +11,8 @@ const PAJA_LEGACY_COMPATIBILITY_DOMAIN: string = `i${'fc'}`;
 /** Domain list mirrored from the upstream web runtime for parity checks. */
 export const PAJA_UPSTREAM_WEB_DOMAINS = [
   'ble',
+  'blossom',
+  'catalog',
   'common',
   'config',
   'count',
@@ -27,14 +29,17 @@ export const PAJA_UPSTREAM_WEB_DOMAINS = [
   'lists',
   'llm',
   'media',
+  'navigation',
   'notify',
   'outbox',
   'relay',
   'resource',
   'serial',
   'shell',
+  'soulseek',
   'storage',
   'theme',
+  'torrent',
   'upload',
   'webrtc',
 ] as const;
@@ -42,7 +47,9 @@ export const PAJA_UPSTREAM_WEB_DOMAINS = [
 /** Retained compatibility export; no domain requires a Paja handshake. */
 export const PAJA_HANDSHAKE_DOMAINS = [] as const;
 /** Upstream domains intentionally deferred because no runtime implementation exists. */
-export const PAJA_DEFERRED_DOMAINS = [] as const;
+// Package exports alone do not establish a live host backend. Checked draft refs
+// and the absence policy are recorded in docs/policies/NIP-5D-CONFORMANCE.md.
+export const PAJA_DEFERRED_DOMAINS = ['blossom', 'catalog', 'navigation', 'soulseek', 'torrent'] as const;
 
 /** Compatibility aliases for renamed upstream capability domains. */
 export const PAJA_COMPATIBILITY_ALIASES = {
