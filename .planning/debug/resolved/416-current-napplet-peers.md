@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: resolved
 trigger: resolve https://github.com/kehto/web/issues/416
 created: 2026-11-10
 updated: 2026-11-10
@@ -8,7 +8,7 @@ updated: 2026-11-10
 # Current Focus
 
 hypothesis: Host peer upper bounds reject core 0.40 / nap 0.39; intent delivery contracts need comparison before widening them.
-next_action: Complete strict downstream pnpm installation, commit the verified fix, push and open the PR.
+next_action: Maintainer review and the normal merge/version-packages release flow for PR #419.
 
 # Symptoms
 
@@ -37,3 +37,13 @@ Reproduction: npm install @napplet/core@0.40.0 @napplet/nap@0.39.0 @kehto/paja@0
 - Build and type-check pass. 265 unit files / 3,368 tests pass. Browser suite: 124 passed, one pre-existing identity lifecycle fixme skipped. Docs gate passes, including strict TypeDoc and all ten package pages.
 - AI-slop 0.12.0 full and changed-source scans score 100/100; config unchanged.
 - Packed all ten packages and installed with npm --strict-peer-deps alongside core 0.40 / nap 0.39; npm ls proves one deduplicated generation throughout. Packed startPajaServer serves HTTP 200 with a host iframe and closes cleanly.
+
+# Resolution
+
+Root cause: host package peer upper bounds and JSR maps lagged the published Napplet line; the export inventory also omitted five newly packaged optional domains.
+
+Strict downstream installations pass in npm, pnpm 10.24.0 and pinned pnpm 10.8.0. pnpm overrides select the unpublished local tarballs for every internal dependency; no peer rule is weakened. The initial pnpm attempt selected released transitive packages, so the clean fixture was rerun with tarball overrides before accepting the result.
+
+Final gates: build/types/docs/frozen install pass; 3,368 unit tests pass; 124 browser tests pass with one pre-existing identity lifecycle fixme; changed and full AI-slop scores are 100/100. README guidance is synced. NAP-INTENT draft #128 head was rechecked at 74f9bf85 before opening the PR.
+
+Shipped as open PR https://github.com/kehto/web/pull/419 with implementation 20b7ff5a and documentation 375a845b. Merge and package publication are intentionally left to the normal release flow; no release was run locally.
