@@ -18,6 +18,7 @@ import type {
   UploadStatus,
 } from './upload-service.js';
 import type { NappletMessage } from '@napplet/core';
+import type { ApprovalSignal, ServiceRuntimeContext } from '@kehto/runtime';
 
 const WINDOW = 'win-1';
 
@@ -155,7 +156,10 @@ describe('createUploadService', () => {
       await Promise.resolve();
       expect(uploader.upload).toHaveBeenCalledTimes(1);
       const [reqArg, ctxArg] = (uploader.upload as ReturnType<typeof vi.fn>).mock.calls[0];
-      expect(reqArg).toBe(request);
+      expect(reqArg).toMatchObject({ rail: 'nip96', filename: 'x.png' });
+      expect(reqArg.data).toBeInstanceOf(Blob);
+      expect(reqArg.data).not.toBe(request.data);
+      expect(Array.from(new Uint8Array(await reqArg.data.arrayBuffer()))).toEqual(Array.from(new Uint8Array(request.data as ArrayBuffer)));
       expect(ctxArg.uploadId).toBe('upload-1');
       expect(ctxArg.windowId).toBe(WINDOW);
     });
@@ -220,7 +224,7 @@ describe('createUploadService', () => {
       expect(res?.status).toMatchObject({ uploadId: 'upload-1', status: 'complete', updatedAt: 1000 });
     });
 
-    it('falls back to uploader.status() when the upload is not tracked', async () => {
+    it('never asks a backend for an upload that this window does not own', async () => {
       const tracked: UploadStatus = { ok: true, uploadId: 'remote-9', status: 'complete', rail: 'blossom', updatedAt: 5 };
       const uploader = mockUploader({ status: vi.fn(async () => tracked) });
       const svc = createUploadService({ uploader, generateId: ID, now: NOW });
@@ -229,8 +233,8 @@ describe('createUploadService', () => {
       svc.handleMessage(WINDOW, { type: 'upload.status', id: 's2', uploadId: 'remote-9' } as NappletMessage, c.send);
       await Promise.resolve();
       const res = c.sent.find((m) => m.type === 'upload.status.result') as { status?: UploadStatus } | undefined;
-      expect(uploader.status).toHaveBeenCalledWith('remote-9');
-      expect(res?.status).toBe(tracked);
+      expect(uploader.status).not.toHaveBeenCalled();
+      expect(res).toMatchObject({ error: 'unknown upload' });
     });
 
     it('errors when an unknown upload cannot be resolved', async () => {
@@ -269,6 +273,141 @@ describe('createUploadService', () => {
       const c = collector();
       svc.handleMessage(WINDOW, { type: 'upload.frobnicate', id: 'x' } as NappletMessage, c.send);
       expect(c.sent).toHaveLength(0);
+    });
+  });
+
+  describe('runtime approval boundary', () => {
+    it('does not repeat an upload for a replayed request ID or disclose another window status', async () => {
+      const uploader = mockUploader();
+      const svc = createUploadService({ uploader, generateId: ID });
+      const owner = collector();
+      const other = collector();
+      const message = { type: 'upload.upload', id: 'same', request: { data: bytes() } } as NappletMessage;
+      svc.handleMessage(WINDOW, message, owner.send);
+      await vi.waitFor(() => expect(owner.sent).toContainEqual(expect.objectContaining({ type: 'upload.upload.result', id: 'same' })));
+      svc.handleMessage(WINDOW, message, owner.send);
+      expect(uploader.upload).toHaveBeenCalledTimes(1);
+      expect(owner.sent).toContainEqual(expect.objectContaining({ type: 'upload.upload.result', id: 'same', error: 'duplicate request id' }));
+      svc.handleMessage('other-window', { type: 'upload.status', id: 'lookup', uploadId: 'upload-1' } as NappletMessage, other.send);
+      expect(other.sent).toContainEqual(expect.objectContaining({ type: 'upload.status.result', id: 'lookup', error: 'unknown upload' }));
+    });
+
+    it('warns once when the retained host-only upload path is actually used', async () => {
+      const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        let next = 0;
+        const svc = createUploadService({ uploader: mockUploader(), generateId: () => `upload-${++next}` });
+        const c = collector();
+        for (const id of ['legacy-1', 'legacy-2']) {
+          svc.handleMessage(WINDOW, { type: 'upload.upload', id, request: { data: bytes() } } as NappletMessage, c.send);
+        }
+        await vi.waitFor(() => expect(c.sent.filter((message) => message.type === 'upload.upload.result')).toHaveLength(2));
+        expect(warning).toHaveBeenCalledTimes(1);
+        expect(warning.mock.calls[0]?.[0]).toMatch(/FW-UPLOAD-LEGACY-001.*planUpload.*permissions.*once per service instance/);
+        expect(warning.mock.calls[0]?.[0]).not.toContain('legacy-1');
+      } finally { warning.mockRestore(); }
+    });
+
+    it('binds detached bytes and selected destination before executing exactly once', async () => {
+      const original = new Uint8Array([1, 2, 3]);
+      const execute = vi.fn(async (_signal: ApprovalSignal): Promise<UploadResult> => baseResult({ size: 3 }));
+      const planUpload = vi.fn((_request: UploadRequest) => ({
+        rail: 'nip96' as const,
+        destination: 'https://files.test/upload',
+        signingPubkey: 'a'.repeat(64),
+        execute,
+      }));
+      let approve!: () => void;
+      const gate = new Promise<void>((resolve) => { approve = resolve; });
+      const authorizeOperation = vi.fn(async (_windowId, _operation, _requirements, run: (signal: ApprovalSignal) => Promise<UploadResult>) => {
+        await gate;
+        return { status: 'executed' as const, value: await run(new AbortController().signal) };
+      });
+      const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        const uploader = mockUploader({ planUpload });
+        const svc = createUploadService({ uploader, generateId: ID });
+        svc.onRegistered?.({ authorizeOperation } as unknown as ServiceRuntimeContext);
+        const c = collector();
+        svc.handleMessage(WINDOW, { type: 'upload.upload', id: 'approved', request: {
+          data: original.buffer, filename: 'photo.png', mimeType: 'image/png',
+        } } as NappletMessage, c.send);
+        original[0] = 9;
+        await vi.waitFor(() => expect(authorizeOperation).toHaveBeenCalledTimes(1));
+        expect(execute).not.toHaveBeenCalled();
+        expect(uploader.upload).not.toHaveBeenCalled();
+        expect(authorizeOperation.mock.calls[0]?.slice(0, 2)).toEqual([WINDOW, 'upload.upload']);
+        expect(authorizeOperation.mock.calls[0]?.[2]).toMatchObject([
+          { category: 'resource', domain: 'upload', operation: 'upload.upload', scope: { kind: 'exact' } },
+          { category: 'network', domain: 'upload', operation: 'upload.upload', scope: { kind: 'origin', value: 'https://files.test' } },
+        ]);
+        const snapshot = planUpload.mock.calls[0]?.[0];
+        expect(snapshot).toBeDefined();
+        expect(snapshot!.data).toBeInstanceOf(Blob);
+        expect(Array.from(new Uint8Array(await (snapshot!.data as Blob).arrayBuffer()))).toEqual([1, 2, 3]);
+        approve();
+        await vi.waitFor(() => expect(c.sent).toEqual([expect.objectContaining({
+          type: 'upload.upload.result', id: 'approved', result: expect.objectContaining({ ok: true }),
+        })]));
+        expect(execute).toHaveBeenCalledTimes(1);
+        expect(warning).not.toHaveBeenCalled();
+      } finally { warning.mockRestore(); }
+    });
+
+    it('denies an unavailable approval without signing, egress, or a legacy fallback', async () => {
+      const execute = vi.fn(async () => baseResult());
+      const uploader = mockUploader({ planUpload: vi.fn(() => ({
+        rail: 'nip96', destination: 'https://files.test/upload', signingPubkey: 'a'.repeat(64), execute,
+      })) });
+      const authorizeOperation = vi.fn(async () => ({ status: 'denied' as const }));
+      const svc = createUploadService({ uploader, generateId: ID });
+      svc.onRegistered?.({ authorizeOperation } as unknown as ServiceRuntimeContext);
+      const c = collector();
+      svc.handleMessage(WINDOW, { type: 'upload.upload', id: 'denied', request: { data: bytes() } } as NappletMessage, c.send);
+      await vi.waitFor(() => expect(c.sent).toContainEqual(expect.objectContaining({
+        type: 'upload.upload.result', id: 'denied', error: 'policy denied',
+      })));
+      expect(execute).not.toHaveBeenCalled();
+      expect(uploader.upload).not.toHaveBeenCalled();
+    });
+
+    it('fails closed when a prepared signer has no host-attested identity', async () => {
+      const execute = vi.fn(async () => baseResult());
+      const uploader = mockUploader({ planUpload: vi.fn(() => ({
+        rail: 'nip96', destination: 'https://files.test/upload', execute,
+      })) });
+      const authorizeOperation = vi.fn();
+      const svc = createUploadService({ uploader, generateId: ID });
+      svc.onRegistered?.({ authorizeOperation } as unknown as ServiceRuntimeContext);
+      const c = collector();
+      svc.handleMessage(WINDOW, { type: 'upload.upload', id: 'no-identity', request: { data: bytes() } } as NappletMessage, c.send);
+      await vi.waitFor(() => expect(c.sent).toContainEqual(expect.objectContaining({
+        type: 'upload.upload.result', id: 'no-identity', error: 'upload signing identity unavailable',
+      })));
+      expect(authorizeOperation).not.toHaveBeenCalled();
+      expect(execute).not.toHaveBeenCalled();
+    });
+
+    it('aborts a pending approval and suppresses late progress and result after revocation', async () => {
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => { release = resolve; });
+      let progress!: UploaderContext['onStatus'];
+      const uploader = mockUploader({ planUpload: vi.fn((_request, ctx) => {
+        progress = ctx.onStatus;
+        return { rail: 'nip96', destination: 'https://files.test/upload', signingPubkey: 'a'.repeat(64), execute: vi.fn(async () => baseResult()) };
+      }) });
+      const authorizeOperation = vi.fn(async () => { await gate; return { status: 'denied' as const }; });
+      const svc = createUploadService({ uploader, generateId: ID });
+      svc.onRegistered?.({ authorizeOperation } as unknown as ServiceRuntimeContext);
+      const c = collector();
+      svc.handleMessage(WINDOW, { type: 'upload.upload', id: 'retired', request: { data: bytes() } } as NappletMessage, c.send);
+      await vi.waitFor(() => expect(authorizeOperation).toHaveBeenCalledTimes(1));
+      svc.onPermissionRevoked?.(WINDOW);
+      progress({ ok: true, uploadId: 'upload-1', status: 'uploading', rail: 'nip96', updatedAt: 1 });
+      release();
+      await Promise.resolve();
+      expect(c.sent).toEqual([]);
+      expect(uploader.cancel).toHaveBeenCalledWith('upload-1');
     });
   });
 });

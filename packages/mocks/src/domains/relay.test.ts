@@ -235,4 +235,22 @@ describe('createMockRelayService', () => {
     expect(service.mock.sent).toEqual([]);
     expect(service.mock.state().published).toEqual([]);
   });
+
+  it('plans every routed operation as local-only and honors an aborted approval signal', () => {
+    const service = createMockRelayService({ clock });
+    const plan = (type: string) => service.planRelayOperation('w1', { type, id: 'p', subId: 's', filters: [{ kinds: [1] }] } as NappletMessage);
+    expect(['relay.subscribe', 'relay.query', 'relay.publish', 'relay.publishEncrypted'].map((type) => plan(type).operation))
+      .toEqual(['subscribe', 'query', 'publish', 'publishEncrypted']);
+    expect(plan('relay.subscribe')).toEqual({ operation: 'subscribe', relayUrls: [], localOnly: true });
+    expect(Object.isFrozen(plan('relay.query'))).toBe(true);
+    expect(() => plan('relay.close')).toThrow('relay mock cannot plan relay.close');
+
+    const subscribeMessage = { type: 'relay.subscribe', id: 'r1', subId: 's1', filters: [{ kinds: [1], limit: 1 }] } as NappletMessage;
+    const aborted = sink();
+    service.executeRelayOperation('w1', subscribeMessage, plan('relay.subscribe'), { aborted: true, addEventListener() {}, removeEventListener() {} }, aborted.send);
+    expect(aborted.sent).toEqual([]);
+    const live = sink();
+    service.executeRelayOperation('w1', subscribeMessage, plan('relay.subscribe'), { aborted: false, addEventListener() {}, removeEventListener() {} }, live.send);
+    expect(live.sent.at(-1)).toMatchObject({ type: 'relay.eose', subId: 's1' });
+  });
 });

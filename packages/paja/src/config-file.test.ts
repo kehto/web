@@ -87,4 +87,21 @@ describe('@kehto/paja config files', () => {
       unlinkSync(path);
     }
   });
+
+  it('rejects a retired broad Firewall setting even when overrides are present', () => {
+    const path = `/tmp/kehto-paja-retired-firewall-${Date.now()}.json`;
+    writeFileSync(path, JSON.stringify({
+      targetUrl: 'http://127.0.0.1:5173', simulation: { firewall: { mode: 'allow' } },
+    }), 'utf8');
+    try {
+      expect(() => resolvePajaRawOptions({ configPath: path, simulation: { theme: { mode: 'light' } } }))
+        .toThrow('simulation.firewall was removed; approve exact scopes in Paja Firewall grants.');
+      expect(() => normalizePajaOptions({
+        targetUrl: 'http://127.0.0.1:5173',
+        simulation: { firewall: { mode: 'allow' } } as never,
+      })).toThrow('simulation.firewall was removed; approve exact scopes in Paja Firewall grants.');
+    } finally {
+      unlinkSync(path);
+    }
+  });
 });

@@ -204,6 +204,17 @@ describe('createConfigService', () => {
     expect(service.getSchema('window-1')).toBeNull();
   });
 
+  it('removes source-owned config subscriptions on permission revocation', () => {
+    const service = createConfigService({ getValues: () => ({}) });
+    const sent: NappletMessage[] = [];
+    service.handler.handleMessage('window-1', message('config.registerSchema', { id: 'schema', schema: SCHEMA }), (item) => sent.push(item));
+    service.handler.handleMessage('window-1', message('config.subscribe'), (item) => sent.push(item));
+    service.handler.onPermissionRevoked?.('window-1');
+    service.publishValues({ theme: 'light' }, 'window-1');
+
+    expect(sent).toHaveLength(2);
+  });
+
   it('rejects schema version rollback and normalizes unknown sections', () => {
     const openSettings = vi.fn();
     const service = createConfigService({ getValues: () => ({}), openSettings });

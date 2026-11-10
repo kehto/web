@@ -1,10 +1,12 @@
 
 import type { ShellEnvironment } from './types.js';
+import type { PermissionPrincipal } from '@kehto/runtime';
 
 interface OriginEntry {
   windowId: string;
   dTag?: string;
   aggregateHash?: string;
+  permissionPrincipal?: PermissionPrincipal;
   environment?: ShellEnvironment;
   registrationId: number;
   /** The NIP-5D port handed over by this frame's single `napplet.hello`. */
@@ -30,6 +32,8 @@ export interface NappletMessageTarget {
 export interface OriginIdentity {
   readonly dTag: string;
   readonly aggregateHash: string;
+  /** Verified catalog/artifact identity or explicit development target, supplied by the host. */
+  readonly permissionPrincipal?: PermissionPrincipal;
 }
 
 const registry = new Map<Window, OriginEntry>();
@@ -115,6 +119,7 @@ export const originRegistry: OriginRegistry = {
       windowId,
       dTag: identity?.dTag,
       aggregateHash: identity?.aggregateHash,
+      ...(identity?.permissionPrincipal ? { permissionPrincipal: Object.freeze({ ...identity.permissionPrincipal }) } : {}),
       registrationId: ++nextRegistrationId,
     });
   },
@@ -239,7 +244,8 @@ export const originRegistry: OriginRegistry = {
   getIdentity(win: Window): OriginIdentity | undefined {
     const entry = registry.get(win);
     if (typeof entry?.dTag !== 'string' || !entry?.aggregateHash) return undefined;
-    return { dTag: entry.dTag, aggregateHash: entry.aggregateHash };
+    return { dTag: entry.dTag, aggregateHash: entry.aggregateHash,
+      ...(entry.permissionPrincipal ? { permissionPrincipal: entry.permissionPrincipal } : {}) };
   },
 
   /** Store the immutable environment captured for this exact frame registration. */

@@ -59,7 +59,7 @@ export interface DmRelayPool {
     callback: (item: NostrEvent | 'EOSE') => void,
     relayUrls?: string[],
   ): { unsubscribe(): void };
-  publish(event: NostrEvent): void | Promise<void>;
+  publish(event: NostrEvent, relayUrls?: readonly string[]): void | Promise<void>;
   /** Query persisted encrypted messages before serving normalized history. */
   query?(filters: NostrFilter[], relayUrls?: string[]): Promise<NostrEvent[]>;
   selectRelayTier(filters: NostrFilter[]): string[];
@@ -77,5 +77,20 @@ export interface DmAdapter {
     onMessage: (message: DmMessage) => void,
   ): Promise<DmSubscription> | DmSubscription;
   unsubscribe(subscriptionId: string): Promise<DmOk> | DmOk;
+  /** Return the immutable relay set selected for an operation without contacting it. */
+  planRelays?(operation: 'history' | 'send' | 'subscribe'): readonly string[];
+  /** Execute NIP-17 history retrieval against a previously approved relay plan. */
+  conversationsWithRelays?(query: DmConversationQuery | undefined, relayUrls: readonly string[], signal: { readonly aborted: boolean }): Promise<DmConversationPage> | DmConversationPage;
+  /** Execute NIP-17 message retrieval against a previously approved relay plan. */
+  messagesWithRelays?(query: DmMessageQuery, relayUrls: readonly string[], signal: { readonly aborted: boolean }): Promise<DmMessagePage> | DmMessagePage;
+  /** Encrypt, sign, and publish only after the service approves the relay plan. */
+  sendWithRelays?(request: DmSendRequest, relayUrls: readonly string[], signal: { readonly aborted: boolean }): Promise<DmSendResult>;
+  /** Subscribe only after the service approves the relay plan. */
+  subscribeWithRelays?(
+    request: DmSubscribeRequest,
+    onMessage: (message: DmMessage) => void,
+    relayUrls: readonly string[],
+    signal: { readonly aborted: boolean },
+  ): Promise<DmSubscription> | DmSubscription;
   close?(): void;
 }

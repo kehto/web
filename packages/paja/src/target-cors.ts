@@ -11,6 +11,39 @@
  * Paja can report the cause instead of leaving an empty frame behind.
  */
 
+import type { BrowserRemoteSource, NappletCspOptions } from '@kehto/shell';
+
+const DEVELOPMENT_DIRECTIVES = [
+  'script-src', 'style-src', 'img-src', 'font-src', 'worker-src', 'media-src', 'connect-src',
+] as const;
+
+/** Exact browser origins required by a live development target and host extras. */
+export function developmentRemoteSources(
+  targetUrl: URL,
+  csp?: NappletCspOptions,
+): BrowserRemoteSource[] {
+  if (!['http:', 'https:'].includes(targetUrl.protocol) || targetUrl.username || targetUrl.password) {
+    throw new TypeError('Live development target needs an exact HTTP(S) URL');
+  }
+  const sources: BrowserRemoteSource[] = DEVELOPMENT_DIRECTIVES.map((directive) => ({
+    directive, origin: targetUrl.origin,
+  }));
+  const websocket = new URL(targetUrl.href);
+  websocket.protocol = targetUrl.protocol === 'https:' ? 'wss:' : 'ws:';
+  sources.push({ directive: 'connect-src', origin: websocket.origin });
+  for (const origin of csp?.connectOrigins ?? []) sources.push({ directive: 'connect-src', origin });
+  for (const [directive, origins] of Object.entries(csp?.directives ?? {})) {
+    if (!DEVELOPMENT_DIRECTIVES.includes(directive as BrowserRemoteSource['directive'])) {
+      throw new TypeError(`Unsupported direct browser source directive: ${directive}`);
+    }
+    if (!Array.isArray(origins)) throw new TypeError('Direct browser sources must be exact origin lists');
+    for (const origin of origins) {
+      sources.push({ directive: directive as BrowserRemoteSource['directive'], origin });
+    }
+  }
+  return sources;
+}
+
 /** Whether the target dev server will serve the sandboxed frame's subresources. */
 export type PajaTargetCorsStatus = 'allowed' | 'blocked' | 'unreachable';
 

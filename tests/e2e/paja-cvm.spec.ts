@@ -23,6 +23,9 @@ import {
   type FlowTarget,
   type FlowWindow,
 } from './helpers/paja-flows.js';
+import { installPajaApprovalDriver } from './paja-approval-driver.js';
+
+test.beforeEach(async ({ page }) => { await installPajaApprovalDriver(page); });
 
 const RELAY_URL = 'wss://paja-cvm-flows.example';
 const KIND_CVM = 25910;
@@ -33,7 +36,7 @@ let target: FlowTarget;
 let runtime: PajaServer;
 
 test.beforeAll(async () => {
-  target = await startFlowTarget();
+  target = await startFlowTarget(['cvm']);
   runtime = await startFlowRuntime(target, RELAY_URL);
 });
 

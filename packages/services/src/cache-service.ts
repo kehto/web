@@ -95,6 +95,20 @@ export type HostCacheBridge = CacheServiceOptions;
  * ```
  */
 export function createCacheService(options: CacheServiceOptions): ServiceHandler {
+  const generations = new Map<string, symbol>();
+  const subscriptions = new Map<string, symbol>();
+  const generationFor = (windowId: string): symbol => {
+    let generation = generations.get(windowId);
+    if (!generation) { generation = Symbol(windowId); generations.set(windowId, generation); }
+    return generation;
+  };
+  const subscriptionKey = (windowId: string, subId: string): string => `${windowId}:${subId}`;
+  const current = (windowId: string, subId: string, generation: symbol): boolean =>
+    generations.get(windowId) === generation && subscriptions.get(subscriptionKey(windowId, subId)) === generation;
+  const clearWindow = (windowId: string): void => {
+    generations.delete(windowId);
+    for (const key of subscriptions.keys()) if (key.startsWith(`${windowId}:`)) subscriptions.delete(key);
+  };
   return {
     descriptor: {
       name: 'cache',
@@ -102,31 +116,35 @@ export function createCacheService(options: CacheServiceOptions): ServiceHandler
       description: 'Local event cache (IndexedDB, worker relay, etc.)',
     },
 
-    handleMessage(_windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void {
+    handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void {
+      const generation = generationFor(windowId);
       const relayMessage = message as RelayServiceMessage;
       if (message.type === 'relay.subscribe') {
         const subId = relayMessage.subId;
         if (typeof subId !== 'string') return;
+        subscriptions.set(subscriptionKey(windowId, subId), generation);
         const filters = Array.isArray(relayMessage.filters)
           ? relayMessage.filters as NostrFilter[]
           : [];
 
         if (!options.isAvailable()) {
-          send({ type: 'relay.eose', subId } as NappletMessage);
+          if (current(windowId, subId, generation)) send({ type: 'relay.eose', subId } as NappletMessage);
           return;
         }
 
         options
           .query(filters)
           .then((events) => {
+            if (!current(windowId, subId, generation)) return;
             for (const event of events) {
+              if (!current(windowId, subId, generation)) return;
               send({ type: 'relay.event', subId, result: createRelayEventResult(event) } as NappletMessage);
             }
-            send({ type: 'relay.eose', subId } as NappletMessage);
+            if (current(windowId, subId, generation)) send({ type: 'relay.eose', subId } as NappletMessage);
           })
           .catch(() => {
-            // Cache query is best-effort — send EOSE even on failure
-            send({ type: 'relay.eose', subId } as NappletMessage);
+            // Cache query is best-effort — send EOSE even on failure.
+            if (current(windowId, subId, generation)) send({ type: 'relay.eose', subId } as NappletMessage);
           });
         return;
       }
@@ -144,9 +162,7 @@ export function createCacheService(options: CacheServiceOptions): ServiceHandler
       }
     },
 
-    // Cache has no per-window state to clean up
-    onWindowDestroyed(_windowId: string): void {
-      /* no-op */
-    },
+    onWindowDestroyed(windowId: string): void { clearWindow(windowId); },
+    onPermissionRevoked(windowId: string): void { clearWindow(windowId); },
   };
 }

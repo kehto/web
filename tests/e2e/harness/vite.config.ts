@@ -1,4 +1,5 @@
 import { defineConfig, type Plugin } from 'vite';
+import { HARNESS_PORT, HARNESS_URL } from '../helpers/harness-url.js';
 import { injectNappletNamespacePrelude } from '@kehto/shell';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -8,7 +9,7 @@ const nappletFixturesDir = path.resolve(__dirname, '../../fixtures/napplets');
 
 const RESOURCE_CORS_REDIRECT_PATH = '/resource-cors/redirect.png';
 const RESOURCE_CORS_FINAL_PATH = '/resource-cors/final.png';
-const RESOURCE_CORS_FINAL_URL = `http://localhost:4173${RESOURCE_CORS_FINAL_PATH}`;
+const RESOURCE_CORS_FINAL_URL = `${HARNESS_URL}${RESOURCE_CORS_FINAL_PATH}`;
 const RESOURCE_CORS_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
   'base64',
@@ -123,7 +124,7 @@ export default defineConfig({
     },
   },
   server: {
-    port: 4173,
+    port: HARNESS_PORT,
     strictPort: true,
     cors: true,
     headers: {
@@ -131,7 +132,7 @@ export default defineConfig({
     },
   },
   preview: {
-    port: 4173,
+    port: HARNESS_PORT,
     strictPort: true,
     cors: true,
     headers: {

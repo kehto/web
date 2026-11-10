@@ -2,8 +2,9 @@
  * notification-service.test.ts — Unit tests for the direct notification service.
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { NappletMessage } from '@napplet/core';
+import type { ServiceRuntimeContext } from '@kehto/runtime';
 import { createNotificationService } from './notification-service.js';
 
 const WINDOW_ID = 'win-test-1';
@@ -157,5 +158,44 @@ describe('createNotificationService', () => {
     service.onWindowDestroyed?.(WINDOW_ID);
 
     expect(changes.at(-1)).toEqual([]);
+  });
+
+  it('gates legacy create through the runtime and suppresses a late grant after revocation', async () => {
+    let execute!: (signal: AbortSignal) => void;
+    const authorizeOperation = vi.fn((_windowId, _operation, _requirements, callback) => {
+      execute = callback;
+      return new Promise(() => {});
+    }) as unknown as NonNullable<ServiceRuntimeContext['authorizeOperation']>;
+    const changes = vi.fn();
+    const sent: NappletMessage[] = [];
+    const service = createNotificationService({ onChange: changes });
+    service.onRegistered?.({ authorizeOperation, resolveDTag: () => 'app', listWindowIds: () => [],
+      hasCapability: () => true, sendToEligibleNapplet: () => true });
+    const request = makeNotify('create', { title: 'Original' });
+    service.handleMessage(WINDOW_ID, request, (message) => sent.push(message));
+    expect(authorizeOperation).toHaveBeenCalledWith(WINDOW_ID, 'notify.create', [expect.objectContaining({
+      scope: { kind: 'exact', value: 'legacy:notification' },
+    })], expect.any(Function));
+    (request as unknown as { title: string }).title = 'Changed';
+    execute(new AbortController().signal);
+    expect(changes).toHaveBeenCalledWith([expect.objectContaining({ title: 'Original' })]);
+    service.handleMessage(WINDOW_ID, makeNotify('create', { title: 'Late' }), (message) => sent.push(message));
+    service.onPermissionRevoked?.(WINDOW_ID);
+    execute(new AbortController().signal);
+    expect(changes).toHaveBeenCalledTimes(2);
+    expect(sent).toHaveLength(1);
+  });
+
+  it('warns once for the retained legacy wire and leaves unrelated INC traffic quiet', () => {
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const service = createService();
+      service.handleMessage(WINDOW_ID, makeIncEmit('notify.create'), () => {});
+      expect(warning).not.toHaveBeenCalled();
+      service.handleMessage(WINDOW_ID, makeNotify('list'), () => {});
+      service.handleMessage(WINDOW_ID, makeNotify('list'), () => {});
+      expect(warning).toHaveBeenCalledTimes(1);
+      expect(warning.mock.calls[0][0]).toMatch(/FW-NOTIFICATION-LEGACY-001.*notify\.send.*once per service instance/i);
+    } finally { warning.mockRestore(); }
   });
 });

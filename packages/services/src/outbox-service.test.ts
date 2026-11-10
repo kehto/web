@@ -19,6 +19,7 @@ import type {
 } from './outbox-service.js';
 import type { NappletMessage, NostrEvent } from '@napplet/core';
 import type { RelayEventResult } from '@kehto/runtime';
+import type { ApprovalSignal, ServiceRuntimeContext } from '@kehto/runtime';
 
 const WINDOW = 'win-1';
 const EVENT: NostrEvent = {
@@ -330,6 +331,24 @@ describe('createOutboxService', () => {
   });
 
   describe('outbox.publish', () => {
+    it('waits for approval before signing or publishing a planned fanout', async () => {
+      const router = mockRouter() as MockRouter & { planPublish: ReturnType<typeof vi.fn>; publishWithPlan: ReturnType<typeof vi.fn> };
+      router.planPublish = vi.fn(async () => ({ relays: ['wss://r.test'], source: 'nip65', author: EVENT.pubkey }));
+      router.publishWithPlan = vi.fn(async () => ({ ok: true, event: EVENT, eventId: EVENT.id }));
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => { release = resolve; });
+      const svc = createOutboxService({ router });
+      svc.onRegistered?.({ authorizeOperation: async (_windowId: string, _operation: string, _requirements: readonly unknown[], run: (signal: ApprovalSignal) => unknown) => {
+        await gate;
+        return { status: 'executed' as const, value: await run(new AbortController().signal) };
+      } } as unknown as ServiceRuntimeContext);
+      const c = collector();
+      svc.handleMessage(WINDOW, { type: 'outbox.publish', id: 'held', event: { kind: 1, content: '', tags: [], created_at: 1 } } as NappletMessage, c.send);
+      await vi.waitFor(() => expect(router.planPublish).toHaveBeenCalled());
+      expect(router.publishWithPlan).not.toHaveBeenCalled();
+      release();
+      await vi.waitFor(() => expect(router.publishWithPlan).toHaveBeenCalledTimes(1));
+    });
     it('marshals a successful publish result', async () => {
       const router = mockRouter();
       const svc = createOutboxService({ router });

@@ -148,6 +148,10 @@ hashtree, git) model Linux distribution images only.
   do, so the runtime's liveness and `relay:read` checks apply and the registered
   relay mock owns fan-out: the publisher's own matching subscriptions receive
   the event and the runtime ring buffer adds no second copy.
+- The relay mock implements the runtime's planned-execution relay contract
+  (`planRelayOperation` / `executeRelayOperation`). It opens no relay
+  transport, so every plan is local-only with no relay URLs and needs no
+  network approval. Execution is skipped once the approval signal has aborted.
 - INC and NAP-SHELL are served by the runtime and `@kehto/shell`; the package
   records their refs and offers helpers but does not fabricate their traffic.
 - Draft-tracking only: the registry mirrors `napplet/naps` master and open PR

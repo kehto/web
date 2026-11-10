@@ -40,7 +40,7 @@
  */
 
 import type { NappletMessage } from '@napplet/core';
-import type { ServiceDescriptor, ServiceHandler } from '@kehto/runtime';
+import type { ApprovalSignal, ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
 import type {
   KeysForwardMessage,
   KeysRegisterActionMessage,
@@ -358,6 +358,37 @@ function pushChangedBindings(
 export function createKeysService(
   options: KeysServiceOptions = {},
 ): ServiceHandler & { destroy(): void } {
+  let runtime: ServiceRuntimeContext | undefined;
+  const generations = new Map<string, symbol>();
+  const generationFor = (windowId: string): symbol => {
+    let generation = generations.get(windowId);
+    if (!generation) { generation = Symbol(windowId); generations.set(windowId, generation); }
+    return generation;
+  };
+  const current = (windowId: string, generation: symbol): boolean => generations.get(windowId) === generation;
+  const authorizeRegister = (windowId: string, message: KeysRegisterActionMessage, send: SendNappletMessage, register: RegisterActionHandler): void => {
+    if (!message.action || typeof message.action.id !== 'string' || message.action.id.length === 0 || message.action.id.length > 256) {
+      sendRegisterActionResult(send, message, undefined, 'invalid action');
+      return;
+    }
+    let chordScope: string | undefined;
+    if (message.action.defaultKey) {
+      try { chordScope = formatChord(parseChord(message.action.defaultKey)); }
+      catch (error) { sendRegisterActionResult(send, message, undefined, `invalid chord: ${(error as Error).message}`); return; }
+    }
+    const generation = generationFor(windowId);
+    const guardedSend: SendNappletMessage = (outbound) => { if (current(windowId, generation)) send(outbound); };
+    const run = async (signal?: ApprovalSignal): Promise<void> => {
+      if (!current(windowId, generation) || signal?.aborted) throw new Error('policy denied');
+      register(windowId, message, guardedSend);
+    };
+    if (!runtime?.authorizeOperation) { void run(); return; }
+    void runtime.authorizeOperation(windowId, 'keys.registerAction', [
+      { category: 'interface' as const, domain: 'keys', operation: 'access', scope: { kind: 'exact' as const, value: 'keys' } },
+      { category: 'resource' as const, domain: 'keys', operation: 'keys.registerAction', scope: { kind: 'exact' as const, value: `keys:action:${message.action.id}` } },
+      ...(chordScope ? [{ category: 'resource' as const, domain: 'keys', operation: 'keys.registerAction', scope: { kind: 'exact' as const, value: `keys:chord:${chordScope}` } }] : []),
+    ], (signal) => run(signal)).catch(() => undefined);
+  };
   const descriptor: ServiceDescriptor = {
     name: 'keys',
     version: KEYS_SERVICE_VERSION,
@@ -493,9 +524,25 @@ export function createKeysService(
     return {
       descriptor,
 
+      onRegistered(context) { runtime = context; },
+      onUnregistered() { runtime = undefined; generations.clear(); },
+      onPermissionRevoked(windowId: string): void {
+        generations.delete(windowId);
+        const actions = bridgeWindowActions.get(windowId);
+        if (!actions) return;
+        for (const actionId of actions) {
+          const key = actionRegistryKey(windowId, actionId);
+          try { unsubscribeHandles.get(key)?.(); } catch { /* best-effort */ }
+          unsubscribeHandles.delete(key);
+          bridgeActionRegistry.delete(key);
+        }
+        bridgeWindowActions.delete(windowId);
+        bridgeSendHandles.delete(windowId);
+      },
+
       handleMessage: createKeysMessageHandler({
         onForward: options.onForward,
-        onRegisterAction: handleBridgeRegisterAction,
+        onRegisterAction: (windowId, message, send) => authorizeRegister(windowId, message, send, handleBridgeRegisterAction),
         onUnregisterAction: handleBridgeUnregisterAction,
       }),
 
@@ -667,9 +714,21 @@ export function createKeysService(
   return {
     descriptor,
 
+    onRegistered(context) { runtime = context; },
+    onUnregistered() { runtime = undefined; generations.clear(); },
+    onPermissionRevoked(windowId: string): void {
+      generations.delete(windowId);
+      const actions = windowActions.get(windowId);
+      if (actions) {
+        for (const actionId of actions) actionRegistry.delete(actionRegistryKey(windowId, actionId));
+        windowActions.delete(windowId);
+      }
+      sendHandles.delete(windowId);
+    },
+
     handleMessage: createKeysMessageHandler({
       onForward: options.onForward,
-      onRegisterAction: handleDocumentRegisterAction,
+      onRegisterAction: (windowId, message, send) => authorizeRegister(windowId, message, send, handleDocumentRegisterAction),
       onUnregisterAction: handleDocumentUnregisterAction,
     }),
 

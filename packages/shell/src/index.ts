@@ -10,8 +10,13 @@ export {
 export type { NappletNamespacePreludeOptions } from './napplet-namespace.js';
 export { normalizeIntentUri } from './intent-uri.js';
 export type { NormalizedIntentUri } from './intent-uri.js';
-export { buildNappletCsp, injectNappletCsp, renderNappletCspMeta } from './napplet-csp.js';
+export { buildNappletCsp, injectNappletCsp, renderNappletCspMeta, classifyBrowserRemoteSources } from './napplet-csp.js';
 export type { NappletCspDirective, NappletCspDirectives, NappletCspOptions } from './napplet-csp.js';
+export type { BrowserLaunchMode, BrowserRemoteSource } from './napplet-csp.js';
+export { admitBrowserDocument } from './browser-admission.js';
+export type { BrowserAdmissionRequest, BrowserAdmissionResult, BrowserAdmissionCommit, BrowserAdmissionOmission } from './browser-admission.js';
+export { createBrowserApprovalUi } from './browser-approval-ui.js';
+export type { BrowserApprovalUi, BrowserApprovalUiOptions } from './browser-approval-ui.js';
 export { prepareNappletSrcdoc } from './napplet-srcdoc.js';
 export { assertNappletHasNoFrame, nappletMarkupHasFrame } from './napplet-frame-scan.js';
 export type { NappletExperimentalOptions } from './napplet-experimental.js';
@@ -82,6 +87,8 @@ export type { PendingUpdate, SessionRegistry } from './session-registry.js';
 // Standalone utilities (usable without full shell)
 export { originRegistry } from './origin-registry.js';
 export type { NappletMessageTarget, OriginIdentity, OriginRegistry } from './origin-registry.js';
+export type { RateLimitConfig, PermissionAdapter, PermissionRateEvent, PermissionPrincipal, ApprovalPrompt, ApprovalAnswer, ApprovalSignal, ApprovalCancellation, PermissionPersistence, PermissionStorageFailure, RuntimePermissions } from '@kehto/runtime';
+export type { PermissionAdmission, PermissionAdmissionRequest, ApprovalFailure } from '@kehto/runtime';
 export { audioManager } from './audio-manager.js';
 export type { AudioManager, AudioSource } from './audio-manager.js';
 export { manifestCache } from './manifest-cache.js';

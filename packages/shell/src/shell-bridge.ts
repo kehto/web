@@ -173,8 +173,10 @@ export interface ShellBridge {
 
   /**
    * Dispatch the envelopes `ShellAdapter.filterNappletMessage` deferred for a
-   * window, in arrival order and without asking the filter again. ACL and
-   * firewall checks run at release. Revoking a binding discards what it held.
+   * window, in arrival order and without asking the filter again. ACL, firewall
+   * approvals and budgets run at release, so held requests can prompt or be refused
+   * then, and a source retired meanwhile runs nothing. Revoking a binding discards
+   * what it held.
    *
    * @param windowId - The napplet window to release
    * @returns How many envelopes were dispatched

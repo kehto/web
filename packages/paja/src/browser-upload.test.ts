@@ -49,6 +49,35 @@ function blossomEvent(pubkey: string, createdAt: number, servers: string[]): Nos
 }
 
 describe('createPajaUploadRuntime', () => {
+  it('plans the exact endpoint without prompting, signing, or egress and cancels after identity replacement', async () => {
+    const activeSigner = signer();
+    let available = true;
+    const confirmRequest = vi.fn(() => true);
+    const fetchFn = vi.fn();
+    const runtime = createPajaUploadRuntime({
+      getSimulation: () => normalizePajaSimulation({ upload: { mode: 'blossom', servers: ['https://blossom.example'] } }),
+      getSigner: () => available ? activeSigner : null,
+      getProviderPubkey: () => PUBKEY,
+      queryDiscovery: vi.fn(async () => []),
+      getRelayUrls: () => [],
+      confirmRequest,
+      getNappletIdentity: () => ({ dTag: 'demo', aggregateHash: 'hash' }),
+      fetch: fetchFn as unknown as typeof fetch,
+    });
+    await runtime.refreshIdentity();
+    const plan = await runtime.uploader.planUpload!({ data: new Uint8Array([1]).buffer }, context());
+    expect(plan).toMatchObject({ rail: 'blossom', destination: 'https://blossom.example/upload', signingPubkey: PUBKEY });
+    expect(confirmRequest).not.toHaveBeenCalled();
+    expect(activeSigner.signEvent).not.toHaveBeenCalled();
+    expect(fetchFn).not.toHaveBeenCalled();
+    available = false;
+    await runtime.refreshIdentity();
+    await expect(plan.execute(new AbortController().signal)).resolves.toMatchObject({ ok: false, status: 'cancelled' });
+    expect(confirmRequest).not.toHaveBeenCalled();
+    expect(activeSigner.signEvent).not.toHaveBeenCalled();
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+
   it('never registers or advertises the memory fixture and advertises only a usable Blossom backend', async () => {
     const config = {
       window: { id: 'upload-window', dTag: 'upload-napplet', aggregateHash: 'upload-hash' },
