@@ -331,8 +331,8 @@ describe('current @napplet package graph guard', () => {
 
   it('gives every host package its own peer window while developing on the host line', () => {
     // Host packages develop and build on core 0.40.0 / nap 0.39.0. Packages whose
-    // declarations import the packaged NAP-LLM types (services, paja) require that
-    // line; the rest keep the older floor because they do not consume those types.
+    // declarations import the packaged NAP-LLM types (services, paja) retain their
+    // 0.38/0.37 floors; other packages retain the earlier 0.32 floor.
     // Fixture napplets stay on the exact 0.32.0 line and are guarded separately.
     const HOST_DEV_CORE = '>=0.40.0 <0.41.0';
     const HOST_DEV_NAP = '>=0.39.0 <0.40.0';

@@ -18,9 +18,9 @@ pnpm add -D @kehto/mocks
 
 ## Published Napplet Compatibility
 
-Peers admit `@napplet/core` `>=0.32.0 <0.39.0` and `@napplet/nap`
-`>=0.32.0 <0.38.0`, matching `@kehto/runtime`. Development, tests, and JSR
-imports use the host line: core 0.38.0 and nap 0.37.0.
+Peers admit `@napplet/core` `>=0.32.0 <0.41.0` and `@napplet/nap`
+`>=0.32.0 <0.40.0`, matching `@kehto/runtime`. Development, tests, and JSR
+imports use the host line: core 0.40.0 and nap 0.39.0.
 
 ## Quick start
 
