@@ -330,20 +330,20 @@ describe('current @napplet package graph guard', () => {
   });
 
   it('gives every host package its own peer window while developing on the host line', () => {
-    // Host packages develop and build on core 0.38.0 / nap 0.37.0. Packages whose
+    // Host packages develop and build on core 0.40.0 / nap 0.39.0. Packages whose
     // declarations import the packaged NAP-LLM types (services, paja) require that
     // line; the rest keep the older floor because they do not consume those types.
     // Fixture napplets stay on the exact 0.32.0 line and are guarded separately.
-    const HOST_DEV_CORE = '>=0.38.0 <0.39.0';
-    const HOST_DEV_NAP = '>=0.37.0 <0.38.0';
+    const HOST_DEV_CORE = '>=0.40.0 <0.41.0';
+    const HOST_DEV_NAP = '>=0.39.0 <0.40.0';
     const PEER_WINDOWS: Record<string, { core: string; nap: string }> = {
-      'packages/acl': { core: '>=0.32.0 <0.39.0', nap: '>=0.32.0 <0.38.0' },
-      'packages/cli': { core: '>=0.38.0 <0.39.0', nap: '>=0.37.0 <0.38.0' },
-      'packages/firewall': { core: '>=0.32.0 <0.39.0', nap: '' },
-      'packages/paja': { core: '>=0.38.0 <0.39.0', nap: '>=0.37.0 <0.38.0' },
-      'packages/runtime': { core: '>=0.32.0 <0.39.0', nap: '>=0.32.0 <0.38.0' },
-      'packages/services': { core: '>=0.38.0 <0.39.0', nap: '>=0.37.0 <0.38.0' },
-      'packages/shell': { core: '>=0.32.0 <0.39.0', nap: '>=0.32.0 <0.38.0' },
+      'packages/acl': { core: '>=0.32.0 <0.41.0', nap: '>=0.32.0 <0.40.0' },
+      'packages/cli': { core: '>=0.38.0 <0.41.0', nap: '>=0.37.0 <0.40.0' },
+      'packages/firewall': { core: '>=0.32.0 <0.41.0', nap: '' },
+      'packages/paja': { core: '>=0.38.0 <0.41.0', nap: '>=0.37.0 <0.40.0' },
+      'packages/runtime': { core: '>=0.32.0 <0.41.0', nap: '>=0.32.0 <0.40.0' },
+      'packages/services': { core: '>=0.38.0 <0.41.0', nap: '>=0.37.0 <0.40.0' },
+      'packages/shell': { core: '>=0.32.0 <0.41.0', nap: '>=0.32.0 <0.40.0' },
     };
     expect(Object.keys(PEER_WINDOWS).sort()).toEqual([...publicPackageDirs].sort());
     for (const dir of publicPackageDirs) {

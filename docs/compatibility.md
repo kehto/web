@@ -622,3 +622,9 @@ not new NAP wire operations.
   breaking 0.x minor release, and add negative tests for legacy calls. No removal
   release is selected. Authority: NAP-OUTBOX PR #32 `8865f73d52a4864afee145f28d26520476273927`;
   this diagnostic is a host API migration, not a NAP wire extension.
+
+## Packaged intent type drift — core 0.40
+
+**KEHTO_INTENT_TYPES_UPSTREAM_DRIFT** is owned by `@kehto/services` and the shell binding. Core 0.40.0 exports a required delivery ID and nullable sender from a withdrawn NAP-INTENT revision. The replacement is the current draft's no-ID delivery with a runtime-attested string sender. Kehto keeps the existing `packages/services/src/intent-types.ts` contract and `packages/shell/src/napplet-namespace.ts` binding until [napplet/web#328](https://github.com/napplet/web/issues/328) is fixed; [kehto/web#418](https://github.com/kehto/web/issues/418) tracks removal.
+
+These are erased types, so there is no observable old-use boundary or runtime warning site. Do not rely on core 0.40's delivery ID or nullable sender in consumers; use Kehto's exported `IntentDelivery` contract. Canonical delivery stays quiet. `packages/services/src/intent-types.test.ts` covers the local API shape, shell `napplet-namespace.test.ts` covers trusted-parent binding/buffering, and Paja intent browser tests cover actual delivery. Remove the local type/binding duplication only after upstream exports and binding match the checked draft and those regressions pass against the replacement. This records an existing diagnostic limitation rather than adding another wire path.

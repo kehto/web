@@ -87,7 +87,7 @@ function interfaceBody(source: string, name: string): string {
 }
 
 describe('published Napplet convention contract', () => {
-  it('keeps services on published intent declarations without a competing local mirror', () => {
+  it('tracks the bounded local intent contract while published types drift', () => {
     const servicesSource = join(ROOT, 'packages/services/src');
     const activeSources = readdirSync(servicesSource)
       .filter((entry) => entry.endsWith('.ts') && !entry.endsWith('.test.ts'))
@@ -95,7 +95,7 @@ describe('published Napplet convention contract', () => {
 
     const localTypes = join(servicesSource, 'intent-types.ts');
     expect(existsSync(localTypes)).toBe(true);
-    expect(readFileSync(localTypes, 'utf8')).toContain('pending upstream @napplet/nap publication');
+    expect(readFileSync(localTypes, 'utf8')).toContain('pending napplet/web#328 (kehto/web#418)');
     expect(activeSources.join('\n')).toMatch(/from ['\"]\.\/intent-types\.js['\"]/);
   });
 

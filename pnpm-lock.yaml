@@ -61,11 +61,11 @@ importers:
   packages/acl:
     devDependencies:
       '@napplet/core':
-        specifier: '>=0.38.0 <0.39.0'
-        version: 0.38.0
+        specifier: '>=0.40.0 <0.41.0'
+        version: 0.40.0
       '@napplet/nap':
-        specifier: '>=0.37.0 <0.38.0'
-        version: 0.37.0(typescript@5.9.3)
+        specifier: '>=0.39.0 <0.40.0'
+        version: 0.39.0(typescript@5.9.3)
       tsup:
         specifier: ^8.5.0
         version: 8.5.1(postcss@8.5.15)(typescript@5.9.3)(yaml@2.8.3)
@@ -80,11 +80,11 @@ importers:
         version: link:../paja
     devDependencies:
       '@napplet/core':
-        specifier: '>=0.38.0 <0.39.0'
-        version: 0.38.0
+        specifier: '>=0.40.0 <0.41.0'
+        version: 0.40.0
       '@napplet/nap':
-        specifier: '>=0.37.0 <0.38.0'
-        version: 0.37.0(typescript@5.9.3)
+        specifier: '>=0.39.0 <0.40.0'
+        version: 0.39.0(typescript@5.9.3)
       nostr-tools:
         specifier: ^2.23.3
         version: 2.23.3(typescript@5.9.3)
@@ -101,8 +101,8 @@ importers:
   packages/firewall:
     devDependencies:
       '@napplet/core':
-        specifier: '>=0.38.0 <0.39.0'
-        version: 0.38.0
+        specifier: '>=0.40.0 <0.41.0'
+        version: 0.40.0
       tsup:
         specifier: ^8.5.0
         version: 8.5.1(postcss@8.5.15)(typescript@5.9.3)(yaml@2.8.3)
@@ -120,11 +120,11 @@ importers:
         version: link:../runtime
     devDependencies:
       '@napplet/core':
-        specifier: '>=0.38.0 <0.39.0'
-        version: 0.38.0
+        specifier: '>=0.40.0 <0.41.0'
+        version: 0.40.0
       '@napplet/nap':
-        specifier: '>=0.37.0 <0.38.0'
-        version: 0.37.0(typescript@5.9.3)
+        specifier: '>=0.39.0 <0.40.0'
+        version: 0.39.0(typescript@5.9.3)
       tsup:
         specifier: ^8.5.0
         version: 8.5.1(postcss@8.5.15)(typescript@5.9.3)(yaml@2.8.3)
@@ -179,11 +179,11 @@ importers:
         version: link:../wm
     devDependencies:
       '@napplet/core':
-        specifier: '>=0.38.0 <0.39.0'
-        version: 0.38.0
+        specifier: '>=0.40.0 <0.41.0'
+        version: 0.40.0
       '@napplet/nap':
-        specifier: '>=0.37.0 <0.38.0'
-        version: 0.37.0(typescript@5.9.3)
+        specifier: '>=0.39.0 <0.40.0'
+        version: 0.39.0(typescript@5.9.3)
       nostr-tools:
         specifier: ^2.23.3
         version: 2.23.3(typescript@5.9.3)
@@ -213,11 +213,11 @@ importers:
         version: 2.0.1
     devDependencies:
       '@napplet/core':
-        specifier: '>=0.38.0 <0.39.0'
-        version: 0.38.0
+        specifier: '>=0.40.0 <0.41.0'
+        version: 0.40.0
       '@napplet/nap':
-        specifier: '>=0.37.0 <0.38.0'
-        version: 0.37.0(typescript@5.9.3)
+        specifier: '>=0.39.0 <0.40.0'
+        version: 0.39.0(typescript@5.9.3)
       tsup:
         specifier: ^8.5.0
         version: 8.5.1(postcss@8.5.15)(typescript@5.9.3)(yaml@2.8.3)
@@ -235,11 +235,11 @@ importers:
         version: link:../runtime
     devDependencies:
       '@napplet/core':
-        specifier: '>=0.38.0 <0.39.0'
-        version: 0.38.0
+        specifier: '>=0.40.0 <0.41.0'
+        version: 0.40.0
       '@napplet/nap':
-        specifier: '>=0.37.0 <0.38.0'
-        version: 0.37.0(typescript@5.9.3)
+        specifier: '>=0.39.0 <0.40.0'
+        version: 0.39.0(typescript@5.9.3)
       nostr-tools:
         specifier: ^2.23.3
         version: 2.23.3(typescript@5.9.3)
@@ -266,11 +266,11 @@ importers:
         specifier: workspace:^
         version: link:../services
       '@napplet/core':
-        specifier: '>=0.38.0 <0.39.0'
-        version: 0.38.0
+        specifier: '>=0.40.0 <0.41.0'
+        version: 0.40.0
       '@napplet/nap':
-        specifier: '>=0.37.0 <0.38.0'
-        version: 0.37.0(typescript@5.9.3)
+        specifier: '>=0.39.0 <0.40.0'
+        version: 0.39.0(typescript@5.9.3)
       '@napplet/shim':
         specifier: 0.30.0
         version: 0.30.0
@@ -982,8 +982,8 @@ packages:
   '@napplet/core@0.32.0':
     resolution: {integrity: sha512-gP+U7xd32gD7uFYINK+NWDJfW2TMvhLcIPr+Boafta7tZWTRIlyzozvqsooyFg7XUapCOnGKqnjIUa0DFo6Brw==}
 
-  '@napplet/core@0.38.0':
-    resolution: {integrity: sha512-kAcmTiAYX00mPlCOUqK9rtuxysN5XBqBrwxeGf/r8NS+EdmYq6DtMqFBQ1+ii/DNO0uxN5JFChPzZfLA9FS5Uw==}
+  '@napplet/core@0.40.0':
+    resolution: {integrity: sha512-Y9RS4r5EHTTJYHs49/0P8VvqWkDFq5jFlsi7PNGbZmgRwwkhsOwN20pbJ5KUG8KU2BlWPJ/dBPM27Dmno3mFTg==}
 
   '@napplet/nap@0.32.0':
     resolution: {integrity: sha512-DvlneleMpcUtOZmLGRGj9QSCor67veL4gWOYGTWaXPDkBEaEuiU4Ijtreb3+kVky/4ghjL3qmScOFMW6WorWQw==}
@@ -993,8 +993,8 @@ packages:
       json-schema-to-ts:
         optional: true
 
-  '@napplet/nap@0.37.0':
-    resolution: {integrity: sha512-EeUeXlHGEScRHU3WJgJax8di8zr6QXTdnE013TXwEm7zRkrh+TpRpm9KBt3KlDP2WV+JgRJ7Jw7PnTdzCjP3BA==}
+  '@napplet/nap@0.39.0':
+    resolution: {integrity: sha512-67SNdo2tExn4YdCv6QVkQpdmbBqcRFVe1RR75cqVmvEbVGGKfyKdnXvfyinYsPTzM8pnwSrQEoo2W1xd2A49CQ==}
     peerDependencies:
       json-schema-to-ts: ^3.1.1
     peerDependenciesMeta:
@@ -2874,15 +2874,15 @@ snapshots:
 
   '@napplet/core@0.32.0': {}
 
-  '@napplet/core@0.38.0': {}
+  '@napplet/core@0.40.0': {}
 
   '@napplet/nap@0.32.0':
     dependencies:
       '@napplet/core': 0.32.0
 
-  '@napplet/nap@0.37.0(typescript@5.9.3)':
+  '@napplet/nap@0.39.0(typescript@5.9.3)':
     dependencies:
-      '@napplet/core': 0.38.0
+      '@napplet/core': 0.40.0
       nostr-tools: 2.25.2(typescript@5.9.3)
     transitivePeerDependencies:
       - typescript
