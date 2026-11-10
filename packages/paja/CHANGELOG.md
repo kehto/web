@@ -1,5 +1,17 @@
 # @kehto/paja
 
+## 0.33.1
+
+### Patch Changes
+
+- f4e7e8a: Accept @napplet/core 0.40.x and @napplet/nap 0.39.x throughout the Paja host dependency graph and update host development dependencies and JSR maps to that line. Keep existing peer floors. Account for the newly packaged blossom, catalog, navigation, soulseek and torrent domains without advertising unimplemented host backends.
+- Updated dependencies [f4e7e8a]
+  - @kehto/acl@0.20.4
+  - @kehto/firewall@0.8.1
+  - @kehto/runtime@0.29.1
+  - @kehto/services@0.31.1
+  - @kehto/shell@0.33.1
+
 ## 0.33.0
 
 ### Minor Changes
