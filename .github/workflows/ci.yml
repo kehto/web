@@ -213,6 +213,15 @@ jobs:
             ${{ runner.os }}-playwright-${{ steps.pw-version.outputs.version }}-
             ${{ runner.os }}-playwright-
 
+      - name: Use primary Ubuntu archive for browser dependencies
+        shell: bash
+        run: |
+          # The hosted runner's Azure mirror can fail DNS resolution during apt
+          # downloads. Use Ubuntu's primary archive for the same signed packages.
+          if [[ -f /etc/apt/apt-mirrors.txt ]]; then
+            printf '%s\n' 'https://archive.ubuntu.com/ubuntu/' | sudo tee /etc/apt/apt-mirrors.txt > /dev/null
+          fi
+
       - name: Install Playwright browsers
         if: steps.pw-cache.outputs.cache-hit != 'true'
         run: pnpm exec playwright install --with-deps chromium
