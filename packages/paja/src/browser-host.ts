@@ -6,7 +6,7 @@
 import { installPajaResourceSettings } from './browser-resource-settings.js';
 import { createPajaPermissionAdapter } from './browser-permission-adapter.js';
 import { permissionPrincipalKey } from '@kehto/firewall';
-import { revokedPajaTabIds } from './browser-grant-retirement.js';
+import { pajaPrincipalLabel, revokedPajaTabIds } from './browser-grant-retirement.js';
 import { installPajaSecuritySettings } from './browser-security-settings.js';
 import { installPajaLlm } from './browser-llm-panel.js';
 import {
@@ -785,18 +785,28 @@ async function installPajaHost(): Promise<void> {
   const permissionMount = document.getElementById('paja-permission-ui');
   if (!permissionMount) throw new Error('Paja Firewall permission mount is missing');
   let permissionBridge: ShellBridge | null = null;
+  const retiringPrincipals = new Set<string>();
   const permissionController = createPajaPermissionAdapter({
     mount: permissionMount,
     getPermissions: () => permissionBridge?.runtime.permissions,
+    labelForPrincipal: (principal) => pajaPrincipalLabel(config, stateRef?.tabs ?? [], principal),
     onGrantRevoked(grant) {
       if (!stateRef) return;
       const revoked = permissionPrincipalKey(grant.principal);
+      // Revoking a group reports each grant; retire the napplet once per burst.
+      if (retiringPrincipals.has(revoked)) return;
+      retiringPrincipals.add(revoked);
+      queueMicrotask(() => retiringPrincipals.delete(revoked));
       if (config.target.mode === 'runtime-pointer') {
         for (const tabId of revokedPajaTabIds(config, stateRef.tabs, grant)) stateRef.closeTab(tabId);
       } else {
         const source = frame?.contentWindow;
         const principal = source ? originRegistry.getIdentity(source)?.permissionPrincipal : undefined;
-        if (principal && permissionPrincipalKey(principal) === revoked) stateRef.reload();
+        // The runtime retires the frame before this notice, so its identity is
+        // usually gone already. Start the target again through full admission
+        // rather than leaving an empty stage.
+        const retired = contextRef?.runtime.currentWindowId === null;
+        if (retired || (principal && permissionPrincipalKey(principal) === revoked)) stateRef.reload();
       }
     },
   });

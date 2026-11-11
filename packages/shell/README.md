@@ -22,8 +22,14 @@ grant-management view. Pass `ui.prompt` into `ShellAdapter.permissions`, call
 `ui.reportStorageError` from the persistence error hook, and call `ui.refresh()`
 when the runtime changes. The view always reads `RuntimePermissions.grants` and
 uses its `revoke`, `clear`, and `retryPersistence` methods; it keeps no grant
-store. The prompt shows trusted identity, every exact scope, and only offered
-lifetimes. Escape, close, and abort cancel without creating a denial grant.
+store. The prompt asks a plain-language question, names the napplet with the
+host's label, lists every exact scope, and preselects the narrowest offered
+lifetime; the full trusted identity is one disclosure away. Deny has initial
+focus. Escape, close, and abort cancel without creating a denial grant. Grants
+are grouped by napplet and interface with group revoke. Pass `rules` to add an
+editor for host default rules and a "do this for every future request" choice
+on each prompt. The UI ships unstyled: add `BROWSER_APPROVAL_UI_STYLES` to a
+`<style>` element, or style the `kehto-approval-*` and `kehto-fw-*` classes.
 If grant management lives in collapsible controls, pass an always-visible
 `promptMount` such as `document.body`; otherwise the prompt shares `mount`.
 `ui.destroy()` removes both surfaces and cancels outstanding prompts.

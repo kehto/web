@@ -12,7 +12,7 @@ export type { PermissionAdmission, PermissionAdmissionRequest } from './permissi
 
 /** Host UI, time, cancellation, and storage adapters for scoped approvals. */
 export interface PermissionAdapter extends Pick<ApprovalCoordinatorOptions,
-  'prompt' | 'createCancellation' | 'schedule' | 'extensions' | 'maxPending' | 'timeoutMs'> {
+  'prompt' | 'defaultDecision' | 'createCancellation' | 'schedule' | 'extensions' | 'maxPending' | 'timeoutMs'> {
   /** Durable storage. Without it, persistent decisions fail explicitly. */
   readonly persistence?: PermissionPersistence;
   readonly onStorageError?: (failure: PermissionStorageFailure) => void;

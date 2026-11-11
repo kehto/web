@@ -56,7 +56,16 @@ export type { TemporalPolicy, TemporalObservation, TemporalDecision } from './te
 export type { PermissionAdapter, PermissionRateEvent, RuntimePermissions, PermissionAdmission, PermissionAdmissionRequest } from './permission-runtime.js';
 export type { PermissionPersistence, PermissionStorageFailure } from './permission-state.js';
 export type { ApprovalAnswer, ApprovalPrompt, ApprovalSignal, ApprovalCancellation, ApprovalOutcome, ApprovalFailure } from './approval-coordinator.js';
-export type { PermissionPrincipal, PermissionRequirement, PermissionScope, PermissionGrant } from '@kehto/firewall';
+export { DEFAULT_RULE_GRANT_PREFIX } from './approval-coordinator.js';
+export type { PermissionPrincipal, PermissionRequirement, PermissionRequest, PermissionScope, PermissionGrant } from '@kehto/firewall';
+export {
+  createPermissionRules, permissionRuleSubject, resolvePermissionRule, setPermissionRule,
+  serializePermissionRules, deserializePermissionRules,
+} from '@kehto/firewall';
+export type {
+  PermissionRuleAction, PermissionRuleScope, PermissionRules, PermissionRuleTarget,
+  PermissionRulesLoadResult,
+} from '@kehto/firewall';
 
 export { createManifestCache } from './manifest-cache.js';
 export type { ManifestCache } from './manifest-cache.js';

@@ -74,7 +74,7 @@ runtime ACL controls, Firewall permissions, signer controls, and a filterable me
 error details. It starts expanded and collapses to the left with the chevron
 button in the top bar; the same button brings the whole panel back. The toolbar
 stays onscreen after restoring a saved collapsed preference, including when no
-runtime tab is open. Firewall approval prompts stay visible outside the sidebar, so new napplets can
+runtime tab is open. Paja allows every interface and operation by default and asks before each `link.open`; the Firewall panel edits those default rules for every napplet or one. Firewall approval prompts stay visible outside the sidebar, so new napplets can
 still receive consent before executing. Grant management stays in the sidebar.
 Collapsing
 is presentation-only — the target iframe keeps its identity and the loaded
@@ -202,8 +202,10 @@ For `notify`, Paja renders attributed text without fetching icons. The shared
 Firewall approves the exact notification operation/channel before the browser
 effect; Paja's own permission cache is tied to the current verified app artifact.
 Window teardown or revocation clears the UI and invalidates pending answers.
-For `link.open`, Paja approves the exact HTTP(S) URL and rechecks the approval
-signal and verified artifact after host confirmation before navigation. It
+For `link.open`, Paja approves the exact HTTP(S) URL and opens it from the
+click that approved it. When no click is live, such as a link allowed by a
+standing rule, a host confirmation supplies one; Paja rechecks the approval
+signal and verified artifact before navigation. It
 opens external links with `noopener,noreferrer`.
 Live relay URLs are validated before advertisement, fixture events and local
 publish echoes never enter live reads, and relay event sidecars disclose only

@@ -71,6 +71,11 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
 
 - Optional host-owned limiters implement `TemporalPolicy`; runtime never imports
   their implementation. See Independent rate limits below for explicit setup.
+- `PermissionAdapter.defaultDecision(request, missing)` answers a request no stored
+  decision covers without prompting: `allow` commits session grants whose ids start
+  with `DEFAULT_RULE_GRANT_PREFIX`, `deny` refuses, `ask` prompts. Stored denials, the
+  ACL ceiling and operation budgets still apply. The rule model (`createPermissionRules`,
+  `resolvePermissionRule`, `setPermissionRule`) is re-exported from `@kehto/firewall`.
 - ACL listing and lookup return `AclEntryExternal` with required `dTag` and
   `aggregateHash` fields. Feed those fields into keyed revoke/block/quota methods;
   listing `pubkey` remains empty because it is not the principal key. Results are

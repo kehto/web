@@ -43,7 +43,7 @@ See: .planning/PROJECT.md (updated 2026-07-28)
 Phase: 115 — Firewall final audit complete
 Plan: PR review follow-up
 Status: PR #336 review fixes verified; CONFIG denial/backpressure spec gap explicitly retained.
-Last activity: 2026-11-11 - Completed quick task 261111-m3y: Extract optional rate limiting
+Last activity: 2026-11-11 - Completed quick task 261111-nzp: Resolve PR 424 conflicts
 
 ## Performance Metrics
 
@@ -158,7 +158,9 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
+| 261111-nzp | Resolve PR 424 conflicts with default Firewall rules and approval UI | 2026-11-11 | merge of b5734145 | passed | [261111-nzp](./quick/261111-nzp-resolve-pr-424-conflicts-against-current/) |
 | 261111-m3y | Extract independent optional @kehto/rate-limit and remove runtime defaults | 2026-11-11 | 6744ace0 | passed | [261111-m3y](./quick/261111-m3y-extract-optional-rate-limiting-into-keht/) |
+| 261111-mbh | Paja Firewall UX overhaul: default rules (allow, ask per link), rule editor, readable prompt, grouped grants | 2026-11-11 | 8f345073 | passed | [261111-mbh](./quick/261111-mbh-paja-firewall-ux-overhaul-default-rules-/) |
 | 261111-adq | Resolve #418: adopt core 0.41 / nap 0.40 no-ID intent delivery and retire the local intent contract | 2026-11-11 | 742ba7db | passed | [261111-adq](./quick/261111-adq-intent-delivery-upstream-types-418/) |
 | 261104-l95 | Chase #404 into PR 336: port host firewall controls to the approval runtime | 2026-11-04 | 6618f01d | passed | [261104-l95](./quick/261104-l95-chase-404-into-firewall-approvals/) |
 | 261102-ggx | Resolve PR #376 review: authorized extension pushes (`pushCapabilities`) and relay delivery ownership for `@kehto/mocks` | 2026-11-02 | 331d6f9b | passed | [261102-ggx](./quick/261102-ggx-resolve-pr-376-review-authorized-extensi/) |

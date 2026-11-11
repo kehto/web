@@ -243,6 +243,13 @@ Hosts opt into temporal protection with an explicitly constructed
 Hold the limiter to change its configuration. `legacyFirewall` is an explicit
 compatibility adapter for hosts without scoped permissions.
 
+`PermissionAdapter.defaultDecision(request, missing)` lets a host answer a request
+no stored decision covers without prompting. `allow` commits session grants whose ids
+start with `DEFAULT_RULE_GRANT_PREFIX`, `deny` refuses, and `ask` prompts. It runs
+before the prompt budget, and stored denials, the ACL ceiling and operation budgets
+still apply. The rule model (`createPermissionRules`, `resolvePermissionRule`,
+`setPermissionRule`) is re-exported from `@kehto/firewall`.
+
 ## Quick Start
 
 ```ts

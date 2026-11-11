@@ -9,3 +9,11 @@ export type {
   PermissionRequest, PermissionGrant, PermissionState, PermissionPolicyOptions,
   PermissionDecision, PermissionLoadResult,
 } from './permission-types.js';
+export {
+  createPermissionRules, permissionRuleSubject, resolvePermissionRule, setPermissionRule,
+  serializePermissionRules, deserializePermissionRules,
+} from './permission-rules.js';
+export type {
+  PermissionRuleAction, PermissionRuleScope, PermissionRules, PermissionRuleTarget,
+  PermissionRulesLoadResult,
+} from './permission-rules.js';
