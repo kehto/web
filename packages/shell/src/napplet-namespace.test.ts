@@ -2116,13 +2116,26 @@ describe('intent delivery and KEHTO_COMPAT_INTENT_INC', () => {
     const handler = vi.fn();
     binding.onDelivery(handler);
     target.dispatchMessage({}, { type: 'intent.deliver', delivery });
-    for (const value of [null, [], {}, { ...delivery, sender: 1 }, { ...delivery, action: undefined }]) send(target, value);
+    for (const value of [
+      null, [], {}, { ...delivery, sender: 1 }, { ...delivery, sender: '' }, { ...delivery, sender: null },
+      { ...delivery, action: undefined },
+    ]) send(target, value);
     target.dispatchParentMessage({ type: 'inc.event', topic: delivery.convention, sender: delivery.sender, payload: delivery.payload });
     expect(handler).not.toHaveBeenCalled();
     target.napplet = { intent: { onDelivery: vi.fn() } };
     expect(intent(target)).toBe(binding);
     send(target);
     expect(handler).toHaveBeenCalledExactlyOnceWith(delivery);
+  });
+
+  it('never forwards a withdrawn delivery ID (NAP-INTENT PR #128 @ 74f9bf85)', () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['intent'] }), target);
+    const handler = vi.fn();
+    intent(target).onDelivery(handler);
+    send(target, { ...delivery, id: 'delivery-1' });
+    expect(handler).toHaveBeenCalledExactlyOnceWith(delivery);
+    expect(handler.mock.calls[0][0]).not.toHaveProperty('id');
   });
 
   it('adapts only matching legacy listeners, warns once, and never also delivers to INC when canonical listeners exist', () => {

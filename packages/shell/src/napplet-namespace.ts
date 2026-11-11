@@ -1535,7 +1535,9 @@ function nappletNamespacePrelude(
       const value = message.delivery;
       if (!value || typeof value !== 'object' || Array.isArray(value)) return;
       const delivery = value as Record<string, unknown>;
-      if (typeof delivery.sender !== 'string' || typeof delivery.archetype !== 'string'
+      // NAP-INTENT PR #128 @ 74f9bf85: sender is a required runtime-attested string and
+      // deliveries carry no ID. Like the @napplet/nap 0.40 binding, drop empty senders.
+      if (typeof delivery.sender !== 'string' || delivery.sender === '' || typeof delivery.archetype !== 'string'
         || typeof delivery.action !== 'string' || typeof delivery.convention !== 'string') return;
       pending.push(Object.freeze({
         sender: delivery.sender, archetype: delivery.archetype,
