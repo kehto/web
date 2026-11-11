@@ -2,6 +2,9 @@ import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { expect, test, type Frame, type Page } from '@playwright/test';
 import { startPajaServer, type PajaServer } from '../../packages/paja/dist/index.js';
+import { installPajaApprovalDriver } from './paja-approval-driver.js';
+
+test.beforeEach(async ({ page }) => { await installPajaApprovalDriver(page); });
 
 // Real PCM WAV: browser decoding, duration and currentTime are not mocked.
 function wav(): Buffer {
@@ -34,7 +37,7 @@ const server = createServer((request, response) => {
   }
   else if (request.url === '/tone.wav') { response.setHeader('Content-Type', 'audio/wav'); response.end(bytes); }
   else if (request.url === '/video.webm') { response.setHeader('Content-Type', 'video/webm'); response.end(videoBytes); }
-  else { response.setHeader('Content-Type', 'text/html'); response.end('<!doctype html><html><head><title>Media test</title></head><body>Media endpoint</body></html>'); }
+  else { response.setHeader('Content-Type', 'text/html'); response.end('<!doctype html><html><head><meta name="napplet-requires" content="shell"><meta name="napplet-optional" content="media"><title>Media test</title></head><body>Media endpoint</body></html>'); }
 });
 
 test.beforeAll(async () => {
@@ -49,6 +52,21 @@ test.afterAll(async () => {
   server.closeAllConnections();
   await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
 });
+
+// Paja's resource proxy blocks loopback by design, so atomic sources use a public
+// URL and this test answers the proxy endpoint from the local byte fixture.
+const PUBLIC_MEDIA_ORIGIN = 'https://media.example';
+async function routeResourceProxy(page: Page): Promise<void> {
+  await page.route('**/__kehto/resource', async (route) => {
+    const { url } = route.request().postDataJSON() as { url: string };
+    const upstream = await fetch(`${targetUrl}${new URL(url).pathname}`);
+    await route.fulfill({
+      status: upstream.status,
+      contentType: upstream.headers.get('content-type') ?? 'application/octet-stream',
+      body: Buffer.from(await upstream.arrayBuffer()),
+    });
+  });
+}
 
 async function exercisePlayer(page: Page, frame: Frame, url: string): Promise<void> {
   await expect.poll(() => frame.evaluate(() => typeof (window as any).napplet?.media?.onEnded)).toBe('function');
@@ -119,19 +137,21 @@ async function exercisePlayer(page: Page, frame: Frame, url: string): Promise<vo
 
 test('Paja plays policy-resolved bytes with controls and ordered retirement', async ({ page }) => {
   test.setTimeout(120_000);
+  await routeResourceProxy(page);
   await page.goto(paja.url);
   const handle = await page.locator('#napplet-frame').elementHandle();
   const frame = await handle!.contentFrame();
-  await exercisePlayer(page, frame!, `${targetUrl}/tone.wav`);
+  await exercisePlayer(page, frame!, `${PUBLIC_MEDIA_ORIGIN}/tone.wav`);
 });
 
 test('Paja renders real video and releases its element and Blob URL on endpoint reload', async ({ page }) => {
   test.setTimeout(120_000);
+  await routeResourceProxy(page);
   await page.goto(paja.url);
   const handle = await page.locator('#napplet-frame').elementHandle();
   const frame = await handle!.contentFrame();
   await expect.poll(() => frame!.evaluate(() => typeof (window as any).napplet?.media?.createSession)).toBe('function');
-  const result = await frame!.evaluate(async url => (window as any).napplet.media.createSession({ owner: 'shell', source: { url }, metadata: { title: 'Video playback', artist: 'Kehto', mediaType: 'video' } }), `${targetUrl}/video.webm`);
+  const result = await frame!.evaluate(async url => (window as any).napplet.media.createSession({ owner: 'shell', source: { url }, metadata: { title: 'Video playback', artist: 'Kehto', mediaType: 'video' } }), `${PUBLIC_MEDIA_ORIGIN}/video.webm`);
   expect(result.error).toBeUndefined();
   const panel = page.locator('[data-kehto-media-player]');
   await expect(panel.locator('video')).toBeVisible();

@@ -28,6 +28,9 @@ import {
   type FlowTarget,
   type FlowWindow,
 } from './helpers/paja-flows.js';
+import { installPajaApprovalDriver } from './paja-approval-driver.js';
+
+test.beforeEach(async ({ page }) => { await installPajaApprovalDriver(page); });
 
 const RELAY_URL = 'wss://paja-identity-flows.example';
 
@@ -38,7 +41,7 @@ let readCounter = 0;
 test.describe.configure({ mode: 'serial' });
 
 test.beforeAll(async () => {
-  target = await startFlowTarget();
+  target = await startFlowTarget(['identity']);
   runtime = await startFlowRuntime(target, RELAY_URL);
 });
 

@@ -1,0 +1,181 @@
+---
+phase: 113
+slug: service-authorization-boundaries
+status: planned
+nyquist_compliant: true
+wave_0_complete: true
+created: 2026-10-17
+---
+
+# Phase 113 — Validation Strategy
+
+> Continuous proof that every service operation reaches the runtime authorization coordinator, preserves its owning NAP contract, keeps rate limiting independent, and closes cancellation, revocation, replay, compatibility, and host-consumer boundaries.
+
+## Test Infrastructure
+
+| Property | Value |
+|---|---|
+| Framework | Vitest unit/integration suites plus Playwright browser coverage |
+| Config files | `vitest.config.ts`, `playwright.config.ts` |
+| Fast task command | The exact focused `pnpm exec vitest run ...` command in the owning plan and map below |
+| Atomic resource command | Resource service/lifecycle/runtime/shell/Paja/conformance unit suites plus `tests/e2e/nap-resource.spec.ts` |
+| Atomic relay command | Relay runtime/service/shell/Paja/playground/conformance suites plus package build and type checks from Plan 19 Task 3 |
+| Full phase command | `pnpm build && pnpm type-check && pnpm test:unit && pnpm test:e2e && pnpm docs:check && npx --yes aislop@0.12.0 scan -d && pnpm changeset status && git diff --check` |
+| Feedback target | Focused unit checks under 120 seconds; browser and full wave checks may take up to 10 minutes |
+
+## Sampling and Blocking Rules
+
+- Run the mapped command after each task before its atomic code commit.
+- Plans 01 and 02 are one atomic verification unit. Plan 01's focused checks provide feedback only; neither `113-01-SUMMARY.md` nor `113-02-SUMMARY.md` is complete until the Wave 2 combined resource gate passes.
+- A failed task command blocks that task. A failed wave gate blocks every dependent wave.
+- Plans 03, 05-08, and 10-15 may run in parallel only after Plan 02 closes the resource unit. Plans 03 and 19 are one atomic relay migration: Plan 03's focused checks are provisional, Plan 19 closes every adapter/host consumer, and neither summary nor downstream relay work is released until the combined Plan 19 gate passes. Plan 04 follows Plan 19; Plan 09 follows Plan 05 because both extend the shared Paja DM/filesystem regression.
+- Every new or absent regression named by a plan is created first inside that task's TDD cycle. No separate Wave 0 scaffold or new test dependency is required.
+- Live-source permission revocation must produce the owning domain's canonical blocked/closed terminal when the protocol requires one. An explicit app `resource.cancel` is silent after cleanup and must suppress later terminal envelopes. Control/cancel/close paths remain usable after grants are consumed or operation/prompt limits are reached.
+- Recheck each exact draft head immediately before implementation and record it in the plan summary. Retrieval alone never counts as semantic review.
+
+## Resource network lifetime regressions
+
+The resource group gate also includes the integration regressions added during
+execution. Run these after changes to resolver authorization or its lifetime:
+
+```bash
+pnpm exec vitest run tests/unit/resource-network-lifetime.test.ts tests/unit/resource-network-concurrency.test.ts tests/unit/paja-resource-network-redirect-lifetime.test.ts tests/unit/paja-resource-network-denial.test.ts
+```
+
+These prove that network revocation remains effective after response headers,
+concurrent same-origin work waits for actual approval, same-origin redirects do
+not queue behind their own retained approval, denied Paja HTTPS/Blossom requests
+use `blocked-by-policy` without transport, and rejected transport does not leave
+an unhandled approval rejection. Their focused results do not replace the full
+resource group gate. Record the result after the final source changes, including
+any additional concurrent-success or cancellation vectors added during repair.
+
+## Per-Task Verification Map
+
+| Task ID | Wave | Requirements | Behavior proved | Automated command |
+|---|---:|---|---|---|
+| 113-01-01 | 1 | SVC-02, SVC-05 | Exact resource URI and immediate origin are approved before a DNS-safe, capability-protected host connection; direct app endpoint attempts stop before DNS. | `pnpm exec vitest run packages/services/src/resource-service.test.ts packages/paja/src/browser-resource.test.ts packages/paja/src/server.test.ts` |
+| 113-01-02 | 1 | SVC-02, SVC-05 | Canonical bulk/info, bounded completed-ID replay, cancel silence, live-revocation terminal, body lifetime, redirects, and per-item outcomes are enforced. | `pnpm exec vitest run packages/services/src/resource-service.test.ts packages/services/src/resource-lifecycle.test.ts packages/paja/src/browser-resource.test.ts` |
+| 113-02-01 | 2 | SVC-02, SVC-05 | Injected resource API and internal types use the canonical wire and retain bounded compatibility diagnostics. | `pnpm exec vitest run packages/shell/src/napplet-namespace.test.ts` |
+| 113-02-02 | 2 | SVC-02, SVC-05 | Paja consumers and browser flow use verified bytes and the protected resolver transport without exposing its capability. | `pnpm exec vitest run packages/paja/src/browser-blossom-integration.test.ts packages/paja/src/browser-resource-settings-integration.test.ts tests/unit/nip5d-conformance-guard.test.ts && pnpm exec playwright test tests/e2e/nap-resource.spec.ts --workers=1` |
+| 113-02-03 | 2 | SVC-02, SVC-05 | Resource support boundaries, canonical wire, and retained compatibility are documented. | `pnpm docs:check` |
+| 113-03-01 | 3 | SVC-03, SVC-05 | Registered-service subscribe obtains a pure exact-destination plan and one runtime approval before buffer/cache delivery, service execution, or socket work. | `pnpm exec vitest run packages/runtime/src/relay-handler.test.ts` |
+| 113-03-02 | 3 | SVC-03, SVC-05 | Reference services execute only the approved frozen plan and exact-generation guards defeat selector mutation and same-ID stale callbacks. | `pnpm exec vitest run packages/services/src/relay-pool-service.test.ts packages/services/src/coordinated-relay.test.ts` |
+| 113-03-03 | 3 | SVC-03, SVC-05 | Publish cryptography, cache/buffer work, and query synthesis share one current runtime authorization with no double rate/once charge or denial hang. | `pnpm exec vitest run packages/runtime/src/relay-handler.test.ts packages/runtime/src/dispatch.test.ts` |
+| 113-19-01 | 4 | SVC-03, SVC-05 | Runtime adapter fallback and shell hooks select once before approval and execute subscribe/publish with required explicit approved URLs. | `pnpm exec vitest run packages/runtime/src/relay-handler.test.ts packages/shell/src/hooks-adapter.test.ts` |
+| 113-19-02 | 4 | SVC-03, SVC-05 | Paja uses the planned registered-service contract and exact generation for subscribe/query/publish/encrypted-publish lifecycle. | `pnpm exec vitest run packages/paja/src/browser-relay-runtime.test.ts packages/runtime/src/relay-handler.test.ts` |
+| 113-19-03 | 4 | SVC-03, SVC-05 | Playground and all mandated consumers pass the combined no-reselection, pre-sign, query, lifecycle, build, type, and conformance gate. | `pnpm exec vitest run packages/runtime/src/relay-handler.test.ts packages/runtime/src/dispatch.test.ts packages/services/src/relay-pool-service.test.ts packages/services/src/coordinated-relay.test.ts packages/shell/src/hooks-adapter.test.ts packages/paja/src/browser-relay-runtime.test.ts tests/unit/playground-relay-service.test.ts tests/unit/nip5d-conformance-guard.test.ts && pnpm --filter @kehto/runtime build && pnpm --filter @kehto/runtime type-check && pnpm --filter @kehto/services build && pnpm --filter @kehto/services type-check && pnpm --filter @kehto/shell build && pnpm --filter @kehto/shell type-check && pnpm --filter @kehto/paja build && pnpm --filter @kehto/paja type-check && pnpm exec tsc -p apps/playground/tsconfig.json --noEmit` |
+| 113-04-01 | 5 | SVC-03, SVC-05 | Outbox discovery and relay planning complete before authorized relay contact and preserve exact close semantics. | `pnpm exec vitest run packages/services/src/outbox-service.test.ts packages/services/src/relay-pool-outbox-router.test.ts` |
+| 113-04-02 | 5 | SVC-03, SVC-05 | Local count remains local; remote count authorizes its actual relay targets. | `pnpm exec vitest run packages/services/src/count-service.test.ts packages/runtime/src/count-dispatch.test.ts packages/paja/src/browser-relay-runtime.test.ts` |
+| 113-05-01 | 3 | SVC-04, SVC-05 | Picker approval and exact-file read authorization precede filesystem access. | `pnpm exec vitest run packages/services/src/fs-service.test.ts packages/paja/src/browser-fs.test.ts` |
+| 113-05-02 | 3 | SVC-04, SVC-05 | Path operations and watches bind to the source and close precisely on revoke/replacement. | `pnpm exec vitest run packages/services/src/fs-service.test.ts packages/paja/src/browser-fs.test.ts packages/paja/src/browser-dm-fs.test.ts` |
+| 113-06-01 | 3 | SVC-04, SVC-05 | Serial selection and session operations authorize the selected device and remain source-owned. | `pnpm exec vitest run packages/services/src/serial-service.test.ts packages/paja/src/browser-device-services.test.ts` |
+| 113-06-02 | 3 | SVC-04, SVC-05 | BLE device, service, characteristic, and notification lifetimes are separately scoped and revoked. | `pnpm exec vitest run packages/services/src/ble-service.test.ts packages/paja/src/browser-device-services.test.ts` |
+| 113-07-01 | 3 | SVC-03, SVC-04, SVC-05 | Upload target/type/size/identity approval precedes signing and public egress. | `pnpm exec vitest run packages/services/src/upload-service.test.ts packages/services/src/http-uploader.test.ts packages/paja/src/browser-upload.test.ts` |
+| 113-07-02 | 3 | SVC-03, SVC-04, SVC-05 | Revocation aborts upload transport and suppresses late status without blocking cancel. | `pnpm exec vitest run packages/services/src/upload-service.test.ts packages/services/src/http-uploader.test.ts` |
+| 113-08-01 | 3 | SVC-03, SVC-04, SVC-05 | CVM target/model/request authorization precedes transport. | `pnpm exec vitest run packages/services/src/cvm-service.test.ts packages/services/src/cvm-nostr-transport.test.ts packages/paja/src/browser-cvm.test.ts` |
+| 113-08-02 | 3 | SVC-03, SVC-04, SVC-05 | CVM sessions are source-owned, replay-safe, closable, and revocable. | `pnpm exec vitest run packages/services/src/cvm-service.test.ts packages/services/src/cvm-nostr-transport.test.ts` |
+| 113-09-01 | 4 | SVC-03, SVC-04, SVC-05 | DM send approval precedes encryption, signing, and relay egress. | `pnpm exec vitest run packages/services/src/dm-service.test.ts packages/paja/src/browser-dm-fs.test.ts tests/unit/dm-nip17-nak.test.ts` |
+| 113-09-02 | 4 | SVC-03, SVC-04, SVC-05 | DM reads and subscriptions authorize relay/peer scope and stop on revoke. | `pnpm exec vitest run packages/services/src/dm-service.test.ts packages/paja/src/browser-dm-fs.test.ts` |
+| 113-10-01 | 3 | SVC-03, SVC-04, SVC-05 | Signaling and ICE destinations are approved before peer setup. | `pnpm exec vitest run packages/services/src/webrtc-service.test.ts packages/paja/src/browser-webrtc.test.ts` |
+| 113-10-02 | 3 | SVC-03, SVC-04, SVC-05 | Peer sessions and callbacks are source-owned and terminate without late delivery. | `pnpm exec vitest run packages/services/src/webrtc-service.test.ts packages/paja/src/browser-webrtc.test.ts` |
+| 113-11-01 | 3 | SVC-03, SVC-04, SVC-05 | COMMON relay reads and signed actions authorize every operation and target. | `pnpm exec vitest run packages/services/src/common-service.test.ts packages/paja/src/browser-common.test.ts` |
+| 113-11-02 | 3 | SVC-03, SVC-04, SVC-05 | LISTS read-modify-sign-publish keeps one authorized snapshot across side effects. | `pnpm exec vitest run packages/services/src/lists-service.test.ts packages/paja/src/browser-lists.test.ts` |
+| 113-12-01 | 3 | SVC-04, SVC-05 | Identity/account reads authorize the exact operation and revalidate signer state. | `pnpm exec vitest run packages/services/src/identity-service.test.ts packages/paja/src/browser-host-signer.test.ts` |
+| 113-12-02 | 3 | SVC-04, SVC-05 | Key/action registration and invocation are source-owned and revoked cleanly. | `pnpm exec vitest run packages/services/src/keys-service.test.ts packages/services/src/keys-ownership.test.ts` |
+| 113-13-01 | 3 | SVC-04, SVC-05 | Intent approval binds the exact resolver-verified target before retain/start. | `pnpm exec vitest run packages/services/src/intent-service.test.ts packages/paja/src/browser-intent-host.test.ts` |
+| 113-13-02 | 3 | SVC-04, SVC-05 | Retained intent work revokes consistently in Paja and playground. | `pnpm exec vitest run packages/paja/src/browser-intent-controller.test.ts tests/unit/playground-intent-controller.test.ts` |
+| 113-14-01 | 3 | SVC-04, SVC-05 | Cache operations authorize exact local resource keys without inventing network scope. | `pnpm exec vitest run packages/services/src/cache-service.test.ts` |
+| 113-14-02 | 3 | SVC-04, SVC-05 | Config and theme are explicitly classified and authorized as local boundaries. | `pnpm exec vitest run packages/services/src/config-service.test.ts packages/services/src/theme-service.test.ts` |
+| 113-15-01 | 3 | SVC-04, SVC-05 | Gamepad ownership is source-bound and revoked without late events. | `pnpm exec vitest run packages/services/src/gamepad-service.test.ts` |
+| 113-15-02 | 3 | SVC-04, SVC-05 | Media-session ownership and callbacks authorize exact operations and stop on revoke. | `pnpm exec vitest run packages/services/src/media-service.test.ts` |
+| 113-15-03 | 3 | SVC-04, SVC-05 | Both notification service families authorize their exact effect and preserve host parity. | `pnpm exec vitest run packages/services/src/notification-service.test.ts packages/services/src/notify-service.test.ts packages/paja/src/browser-notify.test.ts` |
+| 113-16-01 | 6 | SVC-01, SVC-03, SVC-04, SVC-05 | Authenticated service ingress uses one runtime authorization owner before dispatch. | `pnpm exec vitest run packages/runtime/src/runtime.test.ts packages/runtime/src/service-dispatch.test.ts packages/runtime/src/service-extension-approvals.test.ts` |
+| 113-16-02 | 6 | SVC-01, SVC-03, SVC-04, SVC-05 | The old temporal Firewall gate is retired while independent rate limits and control paths remain correct. | `pnpm exec vitest run packages/runtime/src/firewall-dispatch.test.ts packages/runtime/src/rate-limit.test.ts packages/runtime/src/runtime.test.ts` |
+| 113-16-03 | 6 | SVC-01, SVC-03, SVC-04, SVC-05 | LINK and retained compatibility paths pass through the closed ingress with warnings only on old use. | `pnpm exec vitest run packages/services/src/link-service.test.ts tests/unit/firewall-link-approval.test.ts packages/runtime/src/service-dispatch.test.ts` |
+| 113-17-01 | 7 | SVC-01–05 | Paja and playground register every migrated contract; trusted resource capability stays main-frame-only. | `pnpm exec vitest run packages/paja/src/browser-adapter-host-actions.test.ts tests/unit/nip5d-conformance-guard.test.ts tests/unit/playground-relay-service.test.ts` |
+| 113-17-02 | 7 | SVC-01–05 | Every service implementation maps to a host consumer, authority status, lifecycle owner, regression, and docs owner. | `pnpm docs:check && pnpm exec vitest run tests/unit/nip5d-conformance-guard.test.ts` |
+| 113-18-01 | 8 | SVC-01–05 | Public docs and compatibility register match pure Firewall policy, runtime coordination, independent rates, canonical APIs, and bounded legacy diagnostics. | `pnpm docs:check && pnpm exec vitest run tests/unit/nip5d-conformance-guard.test.ts packages/services/src/resource-service.test.ts packages/services/src/link-service.test.ts` |
+| 113-18-02 | 8 | SVC-01–05 | Changesets cover shipped output and every repository quality gate passes. | `pnpm build && pnpm type-check && pnpm test:unit && pnpm test:e2e && pnpm docs:check && npx --yes aislop@0.12.0 scan -d && pnpm changeset status && git diff --check` |
+
+## Wave Feedback Gates
+
+| Wave | Plans | Aggregate gate and release condition |
+|---:|---|---|
+| 1 | 01 | Run both focused resource commands. Results are provisional; retain the work for Plan 02 and do not emit either resource completion summary. |
+| 2 | 02 | `pnpm exec vitest run packages/services/src/resource-service.test.ts packages/services/src/resource-lifecycle.test.ts tests/unit/resource-approval-runtime.test.ts packages/shell/src/napplet-namespace.test.ts packages/paja/src/browser-resource.test.ts packages/paja/src/server.test.ts packages/paja/src/browser-blossom-integration.test.ts packages/paja/src/browser-resource-settings-integration.test.ts tests/unit/nip5d-conformance-guard.test.ts && pnpm exec playwright test tests/e2e/nap-resource.spec.ts --workers=1 && pnpm --filter @kehto/services type-check && pnpm --filter @kehto/shell type-check && pnpm --filter @kehto/paja type-check && pnpm docs:check` — focused feedback only. Release both 01/02 summaries and Wave 3 only after this check AND the full phase command from Test Infrastructure pass, with public API/types, changesets, and compatibility tracking synced. The reduced focused command alone never releases the atomic resource group. |
+| 3 | 03, 05-08, 10-15 | `pnpm exec vitest run packages/runtime/src/relay-handler.test.ts packages/runtime/src/dispatch.test.ts packages/services/src packages/paja/src tests/unit/playground-intent-controller.test.ts tests/unit/playground-relay-service.test.ts` — Plan 03 results are provisional and do not release its summary or dependent relay work. |
+| 4 | 09, 19 | `pnpm exec vitest run packages/services/src/dm-service.test.ts packages/paja/src/browser-dm-fs.test.ts tests/unit/dm-nip17-nak.test.ts packages/runtime/src/relay-handler.test.ts packages/runtime/src/dispatch.test.ts packages/services/src/relay-pool-service.test.ts packages/services/src/coordinated-relay.test.ts packages/shell/src/hooks-adapter.test.ts packages/paja/src/browser-relay-runtime.test.ts tests/unit/playground-relay-service.test.ts tests/unit/nip5d-conformance-guard.test.ts && pnpm --filter @kehto/runtime build && pnpm --filter @kehto/runtime type-check && pnpm --filter @kehto/services build && pnpm --filter @kehto/services type-check && pnpm --filter @kehto/shell build && pnpm --filter @kehto/shell type-check && pnpm --filter @kehto/paja build && pnpm --filter @kehto/paja type-check && pnpm exec tsc -p apps/playground/tsconfig.json --noEmit` — only this combined relay gate releases both 03/19 summaries and Plan 04. |
+| 5 | 04 | `pnpm exec vitest run packages/services/src/outbox-service.test.ts packages/services/src/relay-pool-outbox-router.test.ts packages/services/src/count-service.test.ts packages/runtime/src/count-dispatch.test.ts packages/paja/src/browser-relay-runtime.test.ts` |
+| 6 | 16 | `pnpm exec vitest run packages/runtime/src/runtime.test.ts packages/runtime/src/service-dispatch.test.ts packages/runtime/src/service-extension-approvals.test.ts packages/runtime/src/firewall-dispatch.test.ts packages/runtime/src/rate-limit.test.ts packages/services/src/link-service.test.ts tests/unit/firewall-link-approval.test.ts` |
+| 7 | 17 | `pnpm exec vitest run packages/paja/src/browser-adapter-host-actions.test.ts tests/unit/nip5d-conformance-guard.test.ts tests/unit/playground-relay-service.test.ts && pnpm docs:check` |
+| 8 | 18 | Full phase command from Test Infrastructure; any failure blocks Phase 113 completion. |
+
+## Coverage Audit
+
+| Source | Item | Plans | Status |
+|---|---|---|---|
+| GOAL | Move interface/resource/network/device/file authorization into the Firewall policy plus runtime coordination chain, with independent rate limiting. | 01-19 | Covered |
+| REQ | SVC-01 runtime service ingress ownership and legacy gate retirement. | 16-18 | Covered |
+| REQ | SVC-02 resource resolver, canonical wire, replay, cancel/revoke, host consumer migration. | 01, 02, 17, 18 | Covered |
+| REQ | SVC-03 all real network destinations authorized before I/O. | 03, 04, 07-11, 16-19 | Covered |
+| REQ | SVC-04 filesystem, device, account, local interface, intent, notification, and other resource scopes. | 05-15, 16-18 | Covered |
+| REQ | SVC-05 lifecycle, revocation, cancellation, replacement, and late-delivery suppression. | 01-19 | Covered |
+| RESEARCH | Exact draft authorities and mandatory implementation-time semantic rechecks. | 01-13, 16, 17 | Covered |
+| RESEARCH | Protected trusted resolver/proxy with DNS and direct-app bypass defenses. | 01, 02, 17 | Covered |
+| CONTEXT | All operation approvals use concrete targets, stay source-owned, and keep rate limiting independent. | 01-18 | Covered |
+| DEFERRED | Phase 114 app admission, approval UI, and CSP; Phase 115 shipment. | none | Excluded by phase boundary |
+
+## Manual-Only Verifications
+
+All Phase 113 behavior has an automated task or wave proof. No manual-only acceptance remains.
+
+## Validation Sign-Off
+
+- [x] Every plan task maps to a runnable automated command.
+- [x] No three consecutive implementation tasks lack automated feedback.
+- [x] Plans 01 and 02 have one explicit atomic completion gate.
+- [x] Plans 03 and 19 have one explicit producer/runtime/service/adapter/host completion gate.
+- [x] Every requirement has task and wave coverage.
+- [x] Host adapter changes trigger browser coverage before final completion.
+- [x] Compatibility paths require warning, canonical quiet-path, security/lifecycle, and retirement evidence.
+- [x] Full phase gates include build, type, unit, browser, docs, pinned AI-slop, changeset, and diff checks.
+
+**Approval state:** planned; executors update task and wave evidence in their summaries, and Phase 113 may be marked complete only after the Wave 7 gate is green.
+
+### Resource completed-ID replay regression
+
+`pnpm exec vitest run tests/unit/resource-replay-lifecycle.test.ts` proves
+completed and cancelled IDs cannot repeat resolver side effects, malformed
+reuse emits no second terminal, windows remain independent, source destruction
+and detach clear history, and the 1,024-entry bound never evicts active work.
+Five cases passed on 2026-10-17; this does not close the outstanding discovery
+transport regression or replace the full group gates.
+
+### Playground constructor and type-check coverage
+
+Direct `pnpm --filter @kehto/playground exec tsc --noEmit` failed on 2026-10-17
+with six diagnostics from removed resource constructor options in demo-hooks.ts.
+The package currently has no type-check script, so root pnpm type-check does not
+prove this app compiles. Plan113-17 must add the package script, complete the
+constructor/resolver migration, and pass the direct command. Evidence:
+`/tmp/kehto-playground-direct-types.log` (session51527 terminal exit1).
+
+### Discovery transport cancellation
+
+`packages/paja/src/browser-relay-runtime-resource.test.ts` exercises the real
+backend query and live query functions with SimplePool socket methods mocked.
+It proves pre-abort opens no connection, abort during connection setup prevents
+a late subscription, and active abort closes the subscription exactly once and
+suppresses late events/EOSE. Three new cases plus25 existing relay-runtime cases
+passed; Paja type-check passed (session72803 terminal0, 2026-10-17). Include
+this suite in the combined resource gate after discovery integration stabilizes.
+
+### Actual Paja adapter discovery approvals
+
+`tests/unit/resource-blossom-adapter-authorization.test.ts` invokes the real Paja
+resource service using signed NIP65/BUD03 fixtures. Three cases prove bootstrap
+denial, selected author-relay denial, and successful verified resource bytes.
+The backend query mock asserts approval already exists and the passed signal is
+live at invocation. Newest relay-list selection excludes the stale destination.
+Passed2026-10-17 in22e5f35d; include in combined unit verification.

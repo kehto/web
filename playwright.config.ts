@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { HARNESS_PORT, HARNESS_URL } from './tests/e2e/helpers/harness-url.js';
 
 const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 
@@ -10,7 +11,7 @@ export default defineConfig({
   workers: 1,
   reporter: 'list',
   use: {
-    baseURL: 'http://localhost:4173',
+    baseURL: HARNESS_URL,
     trace: 'on-first-retry',
   },
   projects: [
@@ -25,8 +26,8 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: 'pnpm --filter @test/harness preview',
-      url: 'http://localhost:4173',
+      command: `pnpm --filter @test/harness exec vite preview --port ${HARNESS_PORT} --strictPort`,
+      url: HARNESS_URL,
       reuseExistingServer: !process.env.CI,
       timeout: 60000,
     },

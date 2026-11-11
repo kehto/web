@@ -18,6 +18,9 @@ import {
   type FlowWindow,
   type TrackedResult,
 } from './helpers/paja-flows.js';
+import { installPajaApprovalDriver } from './paja-approval-driver.js';
+
+test.beforeEach(async ({ page }) => { await installPajaApprovalDriver(page); });
 
 const RELAY_URL = 'wss://paja-storage-flows.example';
 
@@ -27,7 +30,7 @@ let runtime: PajaServer;
 test.describe.configure({ mode: 'serial' });
 
 test.beforeAll(async () => {
-  target = await startFlowTarget();
+  target = await startFlowTarget(['storage']);
   runtime = await startFlowRuntime(target, RELAY_URL);
 });
 

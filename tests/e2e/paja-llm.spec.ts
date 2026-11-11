@@ -1,6 +1,9 @@
 import { createServer } from 'node:http';
 import { expect, test, type FrameLocator, type Page } from '@playwright/test';
 import { startPajaServer, type PajaServer } from '../../packages/paja/dist/index.js';
+import { installPajaApprovalDriver } from './paja-approval-driver.js';
+
+test.beforeEach(async ({ page }) => { await installPajaApprovalDriver(page); });
 
 // Draft NAP-LLM (napplet/naps PR #134 at 5e93bdfce0e84c0de728234cb7b3feed498f8635) hosted by Paja: the llm
 // interface is advertised while unconfigured, select() offers configuration and
@@ -18,7 +21,7 @@ test.beforeAll(async () => {
   target = createServer((request, response) => {
     if (request.url === '/v1/chat/completions') { respond(request, response); return; }
     response.writeHead(200, { 'content-type': 'text/html' });
-    response.end('<!doctype html><body><p>LLM probe</p></body>');
+    response.end('<!doctype html><head><meta name="napplet-requires" content="shell"><meta name="napplet-optional" content="llm"></head><body><p>LLM probe</p></body>');
   });
   await new Promise<void>((resolve) => target.listen(0, '127.0.0.1', resolve));
   const address = target.address();

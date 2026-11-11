@@ -1,12 +1,45 @@
 import { describe, expect, it } from 'vitest';
+import { classifyBrowserRemoteSources } from '@kehto/shell';
 import {
   PAJA_TARGET_CORS_HINT,
   classifyTargetCors,
+  developmentRemoteSources,
   probeTargetCors,
   type PajaTargetCorsFetch,
 } from './target-cors.js';
 
 const TARGET = 'http://127.0.0.1:5173/';
+
+describe('live development browser authority', () => {
+  it('requires exact target HTTP and HMR WebSocket origins for each remote request class', () => {
+    const sources = classifyBrowserRemoteSources(developmentRemoteSources(new URL(TARGET)));
+    expect(sources.sources.map((source) => source.directive)).toEqual([
+      'connect-src', 'connect-src', 'font-src', 'img-src', 'media-src',
+      'script-src', 'style-src', 'worker-src',
+    ]);
+    expect(sources.sources).toContainEqual({ directive: 'connect-src', origin: 'ws://127.0.0.1:5173' });
+    expect(sources.sources).toContainEqual({ directive: 'script-src', origin: 'http://127.0.0.1:5173' });
+  });
+
+  it('accepts exact configured extras and rejects unsupported or wildcard browser sources', () => {
+    const target = new URL('https://dev.example.test/');
+    const configured = developmentRemoteSources(target, {
+      connectOrigins: ['https://api.example.test'],
+      directives: { 'img-src': ['https://images.example.test'] },
+    });
+    expect(classifyBrowserRemoteSources(configured).sources).toContainEqual({
+      directive: 'img-src', origin: 'https://images.example.test',
+    });
+    expect(classifyBrowserRemoteSources(configured).sources).toContainEqual({
+      directive: 'connect-src', origin: 'wss://dev.example.test',
+    });
+    expect(() => developmentRemoteSources(target, { directives: { 'frame-src': ['https://frame.example.test'] } }))
+      .toThrow(/Unsupported/);
+    expect(() => classifyBrowserRemoteSources(developmentRemoteSources(target, {
+      directives: { 'img-src': ['https://*.example.test'] },
+    }))).toThrow();
+  });
+});
 
 describe('classifyTargetCors', () => {
   it('accepts a wildcard allow-origin', () => {

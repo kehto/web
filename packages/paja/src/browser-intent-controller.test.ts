@@ -15,6 +15,14 @@ function params(overrides: Partial<IntentDispatchParams> = {}): IntentDispatchPa
 }
 
 describe('BrowserIntentController', () => {
+  it('does not retain delivery when its approval lifetime is already aborted', async () => {
+    const abort = new AbortController();
+    abort.abort();
+    const openOrReuse = vi.fn();
+    const controller = new BrowserIntentController({ openOrReuse, waitForReady: () => undefined, isCurrent: () => true, send: () => undefined });
+    await expect(controller.accept(params({ signal: abort.signal })).completion).rejects.toThrow('cancelled');
+    expect(openOrReuse).not.toHaveBeenCalled();
+  });
   it('waits for a current ready generation and completes after one send', async () => {
     let releaseReady!: () => void;
     const ready = new Promise<void>((resolve) => {

@@ -1,5 +1,24 @@
 # @kehto/mocks
 
+## 0.1.2
+
+### Patch Changes
+
+- f4e7e8a: Accept @napplet/core 0.40.x and @napplet/nap 0.39.x throughout the Paja host dependency graph and update host development dependencies and JSR maps to that line. Keep existing peer floors. Account for the newly packaged blossom, catalog, navigation, soulseek and torrent domains without advertising unimplemented host backends.
+- Updated dependencies [f4e7e8a]
+  - @kehto/acl@0.20.4
+  - @kehto/runtime@0.29.1
+
+## 0.1.1
+
+### Patch Changes
+
+- 249fe8c: The relay mock now implements the runtime's planned-execution relay contract (`planRelayOperation` / `executeRelayOperation`) with local-only plans, so the Firewall approval runtime routes relay traffic to it instead of denying it as a legacy relay service.
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+  - @kehto/runtime@0.29.0
+
 ## 0.1.0
 
 ### Minor Changes

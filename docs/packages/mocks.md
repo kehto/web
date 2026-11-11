@@ -21,7 +21,7 @@ pnpm add -D @kehto/mocks
 | Field | Value |
 |-------|-------|
 | Source | `packages/mocks/package.json`, `packages/mocks/src/index.ts` |
-| Version | `0.1.0` |
+| Version | `0.1.2` |
 | Runtime entry | `./dist/index.js` |
 | Types entry | `./dist/index.d.ts` |
 | Side effects | `false` |
@@ -30,8 +30,8 @@ pnpm add -D @kehto/mocks
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.32.0 <0.39.0` |
-| `@napplet/nap` | `>=0.32.0 <0.38.0` |
+| `@napplet/core` | `>=0.32.0 <0.42.0` |
+| `@napplet/nap` | `>=0.32.0 <0.41.0` |
 
 Workspace dependencies: `@kehto/runtime` (ServiceHandler contract) and
 `@kehto/acl` (capability names).
@@ -177,6 +177,10 @@ mock's spec sha.
   do, so the runtime's liveness and `relay:read` checks apply and the registered
   relay mock owns fan-out: the publisher's own matching subscriptions receive
   the event and the runtime ring buffer adds no second copy.
+- The relay mock implements the runtime's planned-execution relay contract
+  (`planRelayOperation` / `executeRelayOperation`). It opens no relay
+  transport, so every plan is local-only with no relay URLs and needs no
+  network approval. Execution is skipped once the approval signal has aborted.
 - INC and NAP-SHELL are served by the runtime and `@kehto/shell`; the package
   records their refs and offers helpers but does not fabricate their traffic.
 - Draft-tracking only: the registry mirrors `napplet/naps` master and open PR

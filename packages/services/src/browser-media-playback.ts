@@ -30,14 +30,24 @@ function readSource(resource: ServiceHandler, windowId: string, url: string, sig
     if (signal.aborted) return abort();
     try {
       resource.handleMessage(windowId, { type: 'resource.bytes', id, url } as NappletMessage, message => {
-        const result = message as NappletMessage & { blob?: Blob; id?: string };
+        const result = message as NappletMessage & { blob?: unknown; mime?: unknown; id?: string };
         if (result.id !== id || signal.aborted) return;
         cleanup();
-        if (result.type === 'resource.bytes.result' && result.blob instanceof Blob) resolve(result.blob);
+        const blob = result.type === 'resource.bytes.result' ? decodeResourceBlob(result.blob, result.mime) : null;
+        if (blob) resolve(blob);
         else reject(new Error('media source blocked or unavailable'));
       });
     } catch (error) { cleanup(); reject(error); }
   });
+}
+
+/** NAP-RESOURCE PR #80 carries canonical padded base64 in `blob`; playback needs bytes. */
+function decodeResourceBlob(value: unknown, mime: unknown): Blob | null {
+  if (typeof value !== 'string') return null;
+  try {
+    const bytes = Uint8Array.from(atob(value), (character) => character.charCodeAt(0));
+    return new Blob([bytes], typeof mime === 'string' ? { type: mime } : {});
+  } catch { return null; }
 }
 
 function sourceUrl(options: MediaSessionCreateOptions): string {

@@ -19,6 +19,7 @@ export interface NormalizedIntentUri {
  * normalize('napplet:profile/open');
  * ```
  */
+// aislop-ignore-next-line complexity/function-too-long -- Helpers stay enclosed so this parser can be serialized into verified srcdoc.
 export function createIntentUriNormalizer(): (uri: unknown, options?: unknown) => NormalizedIntentUri {
   type RecordValue = Record<string, unknown>;
   const hasOwn = (value: RecordValue, key: string): boolean => Object.prototype.hasOwnProperty.call(value, key);

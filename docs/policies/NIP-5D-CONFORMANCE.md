@@ -37,7 +37,7 @@ implementation authority. `RUNTIME-SPEC.md` is internal runtime guidance.
   `a79e7f4638f70f4557d4183faee9348847bb8cc7`, merged as release source
   `dc1d24153c759152b6ba31a6ec9bea967798f2df`. The exact fixture-napplet line is core
   `0.32.0`, nap `0.32.0`, shim `0.30.0`, SDK `0.28.0`, and Vite plugin `0.16.2`; host
-  packages develop on core `0.38.0` and nap `0.37.0`.
+  packages develop on core `0.41.0` and nap `0.40.0`.
 
 ### Current event schema and retained compatibility
 
@@ -64,9 +64,15 @@ The composition was also checked against [NAP-SHELL on master at
 `a040914b4bbd3a5cd8a14b0f316a723c968ebfb2`](https://github.com/napplet/naps/blob/a040914b4bbd3a5cd8a14b0f316a723c968ebfb2/naps/NAP-SHELL.md).
 CSP is a NIP-5D web-binding concern; it adds no NAP domain, message, or permission.
 
-`@kehto/shell` owns the policy through `prepareNappletSrcdoc`. Paja runtime-pointer
-verified loading consumes this entry point. Host CSP changes
-are structured source-list replacements, validated before rendering.
+`@kehto/shell` owns CSP preparation. Paja's admitted verified and development
+launches use `admitBrowserDocument` with the closed approved-browser policy;
+`prepareNappletSrcdoc` remains the preparation API for other hosts.
+The Paja policy was checked against NIP-5D draft PR 2303 at
+`5560820fa4f37f45b8ab742a11aeb3001b17dc67`. On the admitted path,
+explicit `csp.connectOrigins` entries become exact network approval requests;
+relay and Blossom hints do not grant iframe network access, and legacy
+`csp.directives` overrides are not applied. The table below describes the
+`prepareNappletSrcdoc` API.
 
 | Requirement | Shell treatment | Host choice |
 | --- | --- | --- |
@@ -84,10 +90,33 @@ The inline bootstrap currently requires `'unsafe-inline'` in `script-src` and
 any explicit `script-src-elem`, without overriding nonce/hash/`strict-dynamic`
 expressions. `script-src-attr` may independently deny inline event handlers.
 
-Low-level namespace render/injection utilities do not apply CSP. Paja's existing
-target-URL development wrapper uses these utilities to retain local HMR; it is
-not a verified runtime-pointer load. The verified production hosts must use
-`prepareNappletSrcdoc`, with verification and source-binding guards intact.
+Low-level namespace render/injection utilities do not apply CSP. Paja's
+target-URL development wrapper is now admitted using its normalized URL and
+fetched artifact hash as an unsigned identity. Verified production hosts must
+verify bytes and source identity before either CSP preparation entry point.
+
+### Resource host projection exception
+
+`RESOURCE_HOST_PROJECTION` applies to Kehto-owned resource consumers, including
+test fixtures. They use the
+`window.napplet.resource` binding injected by Kehto before authored scripts.
+They must not import `@napplet/shim@0.30.0`, whose resource helper replaces that
+binding and sends the retired object-form `requests` payload.
+
+The working authority is [NAP-RESOURCE PR #80 at
+`ae5b9c64ab8a4d8909f288829a01e99d6bd713bc`](https://github.com/napplet/naps/blob/ae5b9c64ab8a4d8909f288829a01e99d6bd713bc/naps/NAP-RESOURCE.md).
+Bulk wire requests use ordered `urls`; wire results carry canonical padded
+base64, which the web binding validates and converts to `Blob`. Consumers call
+that binding rather than creating a separate message receiver or wire adapter.
+This is a bounded dependency-drift exception, not permission to weaken the
+runtime contract. Reintroduce the packaged binding only after it preserves this
+contract and the real browser regression remains green.
+
+`tests/unit/nip5d-conformance-guard.test.ts` registers this exception and prevents
+the stale import from returning. `tests/e2e/nap-resource.spec.ts` proves the
+actual injected API, runtime service, bulk bytes, and image rendering together;
+static source assertions alone do not prove this path works. Resource exposure
+still requires the host isolation work tracked in the Firewall migration.
 
 ### Direct WebRTC egress
 
@@ -264,7 +293,7 @@ the superseded opener-only view must not be restored.
 
 Checked NAP-INTENT PR #106 at `napplet/naps@fc121fc264615482143eda86125863d2e1f741a2` and NIP-5D PR #2303 at `dskvr/nips@020cb8b33a9e4c6b8ca4b2f9d0ed0a67843b68f7`. Paja uses verified manifest contracts, opaque publisher-safe catalog IDs, parent-attested sender identity, exact convention matching, and one `intent.deliver` after source-bound readiness. A success result records retained delivery responsibility only; no completion result is sent to the source.
 
-`@napplet/nap@0.32.0` (the fixture line) is behind the checked NAP. `packages/services/src/intent-types.ts` is the bounded local contract. `@napplet/nap@0.37.0` now exports `IntentCandidate` and related types and `@napplet/core@0.38.0` declares `intent.onDelivery`; adopting them is a tracked follow-up that must show the exact candidate IDs/contracts, accepted result, and delivery shapes match. It is not a second transport: remove it only when that migration lands and the service, shell, and Paja regressions pass against the upstream export. `sourceWindowId` is internal host correlation and never wire data. Legacy INC fallback remains separately tracked as `KEHTO_COMPAT_INTENT_INC`; legacy object invoke is tracked as `KEHTO_COMPAT_INTENT_OBJECT_INVOKE`.
+`@napplet/nap@0.32.0` (the fixture line) is behind the checked NAP. Host packages take the intent value types from `@napplet/core@0.41.0`, which matches the checked draft (napplet/web#329): `packages/services/src/intent-types.ts` only re-exports them under the existing `@kehto/services` names and declares no local contract. The shell's injected `window.napplet.intent` receiver stays Kehto-owned because the host must install it before `shell.ready`. Like the `@napplet/nap@0.40.0` binding, it drops deliveries without a non-empty string sender and never forwards a delivery ID. `sourceWindowId` is internal host correlation and never wire data. Legacy INC fallback remains separately tracked as `KEHTO_COMPAT_INTENT_INC`; legacy object invoke is tracked as `KEHTO_COMPAT_INTENT_OBJECT_INVOKE`.
 
 NIP-5D bytes are verified before `srcdoc` execution; injected bootstraps are deliberately outside the signed artifact hash and unknown `MessageEvent.source` values are dropped. Paja's external URL uses a signed ephemeral launcher to provide an authenticated source. Opening a shared link follows ordinary verified-pointer navigation policy and opens the app directly. A conflicting applicable saved default and verified link hint require a named-app choice; a one-time choice never changes the default. Persisted catalog pointers are discovery inputs that must be reverified independently of open tabs. A native external host source has no verified iframe endpoint and remains a deferred upstream spec gap.
 
@@ -324,9 +353,10 @@ Authority: [NIP-5D at
   frozen environment, and calls `ShellAdapter.onNappletRevoked` so the host
   removes the frame. `originRegistry.register` refuses a spent `Window`. Hosts
   create a fresh iframe for every navigation; Paja and the e2e harness do.
-- Kehto's host packages develop on `@napplet/core` 0.38.0 and `@napplet/nap` 0.37.0;
-  published peers are per package (core `<0.39.0`, nap `<0.38.0`; `@kehto/services` and
-  `@kehto/paja` floor at 0.38.0 / 0.37.0). Fixture napplets, `@napplet/shim` 0.30.0,
+- Kehto's host packages develop on `@napplet/core` 0.41.0 and `@napplet/nap` 0.40.0;
+  published peers are per package (core `<0.42.0`, nap `<0.41.0`; `@kehto/services` and
+  `@kehto/paja` and `@kehto/cli` floor core at 0.41.0 because services re-exports core's no-ID
+  intent types, and keep the nap floor at 0.37.0). Fixture napplets, `@napplet/shim` 0.30.0,
   `@napplet/sdk` 0.28.0 and `@napplet/vite-plugin` 0.16.2 stay on their exact pins
   (kehto/web#364). Kehto implements both sides of the handoff itself and needs no
   newer shim API.
@@ -413,12 +443,13 @@ they are either:
 - a documented NAP domain envelope whose SDK helper surface is incomplete; or
 - a demo/test-only envelope listed in the milestone raw-envelope allowlist.
 
-NAP-RESOURCE host projections follow exact draft ref
-`9511232f69313aa7953d110e35d32cc28d506f66` and package contract
-merged in `napplet/web#206` at `19e0029b228127769a0ebdcf0b6b2f30293bd284`
-and released by `b007587afbefb0ce5592825d6ec1fc5b026c7b08`:
-single requests carry optional `servers`, while bulk requests carry
-`requests: [{ url, servers? }]`.
+NAP-RESOURCE host projections follow PR #80 at exact ref
+`ae5b9c64ab8a4d8909f288829a01e99d6bd713bc`: single requests carry `url`,
+bulk requests carry ordered `urls`, and responses use canonical padded base64
+before the projection decodes `Blob` values. The published shim/resource SDK at
+the pinned dependency version retains the retired object-form `requests` wire
+shape. Active resource consumers use the host-injected projection until that
+upstream drift is resolved; they do not introduce a raw-envelope exception.
 
 ### Phase 58 Raw-Envelope Allowlist
 
@@ -441,21 +472,17 @@ the napplet protocol identity path.
 
 ## Experimental domain admission in Paja
 
-Checked NIP-5D PR #2303 at `dskvr/nips@020cb8b33a9e4c6b8ca4b2f9d0ed0a67843b68f7`
-(Required and Optional Capabilities, Runtime Domain Availability) and
-`napplet/naps@d73f6f9480dcec1d75712cf4eafbe70337fe1e42` (`naps/NAP-SHELL.md`,
-`projections/web.md`). Paja uses NIP-5D's permitted warning policy when a required
-domain is unavailable, including unknown experimental domains. It warns once per
-frame navigation and continues with its existing granted namespace. Optional `O`
-domains never block loading or produce missing-required warnings.
-
-This admission policy is conformant. Unknown experimental domains have no matching
-NAP contract in the checked registry; accepting their declarations does not invent
-operations, inject placeholder objects, authorize messages, or implement their
-protocol. Apps discover absence and gracefully degrade. Signature and artifact
-verification, CSP, and ACL enforcement remain in effect. Browser regression coverage
-in `tests/e2e/paja-runtime-pointer.spec.ts` exercises signed current manifests,
-unknown and disabled domains, actual fallback execution, and reload.
+Rechecked NIP-5D PR #2303 head at
+`nostr-protocol/nips@5560820fa4f37f45b8ab742a11aeb3001b17dc67` and
+NAP-SHELL master at `napplet/naps@19de5ce1cea40cd4c76089cdd8126e9f87648049`.
+Paja now prevents execution when a required available domain is
+denied or unavailable. Denying an optional domain narrows the namespace and
+services without blocking the app. Unknown experimental domains cannot gain an
+implementation through declarations alone. The read-only `shell` host control
+plane is offered when supported; NAP-SHELL is optional and does not gate other
+domain calls. The older warn-and-continue Paja behavior is retired by the
+shared pre-execution admission policy. Browser regressions cover required
+denial, optional narrowing, verified manifests, and reload/replacement.
 
 ## Registered service extensions (#303)
 
@@ -522,3 +549,50 @@ otherwise valid `source-commit`. Regressions:
 `packages/nip/src/5d/source-metadata.test.ts`,
 `packages/nip/src/5d/presentation-media.test.ts`, and the manifest-level cases in
 `packages/nip/src/5d/current-manifest.test.ts`.
+
+## Shared host launch admission
+
+Rechecked NIP-5D PR #2303 head
+`5560820fa4f37f45b8ab742a11aeb3001b17dc67`, NAP-SHELL master
+`19de5ce1cea40cd4c76089cdd8126e9f87648049`, NAP-RESOURCE PR #80 head
+`ae5b9c64ab8a4d8909f288829a01e99d6bd713bc`, and NAP-CONNECT PR #19
+head `ec81a3a4a1fc4da1ad2601215353b7f822e44b8f`. Paja registers
+source-bound principals provisionally, awaits shared approval, then
+prepends CSP and namespace bootstraps to a `srcdoc` copy. Signed artifact bytes
+and hashes remain unchanged; gateway output cannot establish identity. Paja's
+unsigned targets use development principals bound to exact target and byte hash.
+The experimental nested-context lock passes through the same transaction: Paja
+scans the verified bytes first, and admission adds the Trusted Types directives
+and prelude pins.
+
+The common CSP defaults to no remote sources. Verified artifacts
+request none; Paja live development proposes canonical directive/origin pairs.
+Those browser source expressions follow [CSP scheme matching](https://www.w3.org/TR/CSP3/#match-schemes)
+and port matching: HTTP can match HTTPS, WS can match WSS/HTTP/HTTPS, and WSS
+can match HTTPS. Nondefault ports stay bounded; default port upgrades follow
+CSP. The Chromium 152 regression confirms the default-port HTTP upgrade and
+its narrower rejection on the same nondefault port. It also verifies allowed
+HTTP/HTTPS transport and sibling-port denial. The approval UI discloses these
+browser-only rules. Mediated network authorization still requires exact canonical
+origin equality. A direct source cannot use mediated `resource`; required conflicts block launch.
+Paja's host-injected base URL may point only to an already approved exact
+development origin. Frame, child, object, manifest, and form destinations
+remain closed. This directive-specific CSP and base behavior are bounded Kehto
+host policy, not a new NAP-CONNECT wire contract. A new host consumer must use the same shared admission
+transaction and add a conformance guard before executing bytes.
+
+### Host dependency line: core 0.41 / nap 0.40
+
+Host peer ranges admit core 0.41.x and nap 0.40.x; development builds and JSR maps use that line. `@kehto/services`, `@kehto/paja` and `@kehto/cli` floor core at 0.41.0 because services re-exports core's intent types; other peer floors and the older fixture matrix remain supported.
+
+Checked NAP-INTENT PR #128 at `74f9bf85ebb83b50b7b2ad8308a835d5f3113cd9` alongside PR #106 at `fc121fc264615482143eda86125863d2e1f741a2`. The current proposal withdraws delivery IDs and nullable senders. Core 0.40.0 exported that withdrawn shape ([napplet/web#328](https://github.com/napplet/web/issues/328)). Core 0.41.0 and nap 0.40.0 (napplet/web#329) export the no-ID, string-sender delivery, so Kehto retired its local copy ([kehto/web#418](https://github.com/kehto/web/issues/418)). Result: conformant. No delivery-ID or null-sender fallback exists.
+
+The new package subpaths do not imply host support. Paja records `blossom`, `catalog`, `navigation`, `soulseek` and `torrent` as deferred and does not inject or advertise those domains. This is an implementation coverage decision, not a spec gap or a blocker on the draft status. Existing resource/upload Blossom operations remain their own domains. The checked owning documents are:
+
+- NAP-BLOSSOM PR #71: `5e74daa4808290a3efb8de117502d52ba2e0d2a5`.
+- NAP-CATALOG PR #95: `1020ae53884a177b7ffc58a679126bc8800d0c6d`.
+- NAP-NAVIGATION PR #126: `9a4b179ea5fe76e90ae986b2fbf77a3f8b84672d`.
+- NAP-SOULSEEK PR #135: `892ed8d4909c28ab5c1a469ef8984721b75d6c8f`.
+- NAP-TORRENT PR #72: `bc99787e3cf049229da5e6bde55362a040724096`.
+
+`packages/paja/src/parity.test.ts` verifies the installed export inventory and the resolved environment's domain/service absence. Existing shell and Paja browser regressions cover canonical intent shape, parent trust, readiness buffering and exactly-once delivery.

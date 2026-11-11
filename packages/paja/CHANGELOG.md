@@ -1,5 +1,67 @@
 # @kehto/paja
 
+## 0.33.1
+
+### Patch Changes
+
+- f4e7e8a: Accept @napplet/core 0.40.x and @napplet/nap 0.39.x throughout the Paja host dependency graph and update host development dependencies and JSR maps to that line. Keep existing peer floors. Account for the newly packaged blossom, catalog, navigation, soulseek and torrent domains without advertising unimplemented host backends.
+- Updated dependencies [f4e7e8a]
+  - @kehto/acl@0.20.4
+  - @kehto/firewall@0.8.1
+  - @kehto/runtime@0.29.1
+  - @kehto/services@0.31.1
+  - @kehto/shell@0.33.1
+
+## 0.33.0
+
+### Minor Changes
+
+- 249fe8c: Admit verified and development iframe bytes through shared Firewall approvals before execution. Add exact directive-scoped browser network decisions, a closed CSP, shared prompt and grant management, and source-bound retirement on revocation. Paja now rejects its ineffective firewall simulation mode and resolves development assets only through an approved origin.
+- 249fe8c: Require scoped Firewall approval for mediated service operations, with immutable
+  resource, device, file, and relay plans, source-owned cancellation, and revocation
+  cleanup. Wire Paja's supported backends to the same operation contracts and
+  remove the retired NAP-RESOURCE wire inputs.
+- 249fe8c: Require shared Firewall approval before gamepad input and notification effects in permission-enabled runtimes. Bind Paja notification permissions to verified app identity, suppress late effects after revocation, and document the retained legacy notification paths.
+- 249fe8c: Require relay operations to plan immutable destinations before approval and
+  execute only those approved targets across runtime, reference services, shell,
+  and Paja integrations.
+- 249fe8c: Route resource fetches through a protected one-hop transport with public-address
+  pinning, bounded bodies and deadlines, disconnect cancellation, and redirect
+  metadata for per-destination authorization. Reject direct proxy access from
+  untrusted frames before DNS or network activity.
+
+  Authorize Paja BUD-03 discovery relay sockets individually, preserve NIP-65 author routing, and scope discovery caches to a live source-window generation so cancellation or source replacement cannot deliver stale server lists. Refresh signer-derived bootstrap relays at host signer lifecycle boundaries, then use that cache during resource requests instead of invoking external signer hooks.
+
+- 249fe8c: Require prepared, signer-bound upload plans for runtime approval, authorize exact
+  upload resources and selected network origins before signing or egress, and
+  cancel progress on revocation. Paja prepares its Blossom destination before
+  approval and the reference HTTP uploader rejects unapproved redirects.
+  Window teardown invalidates all callbacks before cancellation and continues
+  cleaning up sibling uploads when a backend cancellation throws.
+- 249fe8c: Require runtime-approved WebRTC signaling plans, reject opaque peer factories,
+  and fail closed for configured ICE/TURN endpoints until typed Firewall support exists.
+
+### Patch Changes
+
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+  - @kehto/firewall@0.8.0
+  - @kehto/runtime@0.29.0
+  - @kehto/shell@0.33.0
+  - @kehto/services@0.31.0
+
 ## 0.32.1
 
 ### Patch Changes

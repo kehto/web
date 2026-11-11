@@ -4,6 +4,9 @@ import { expect, test, type Page } from '@playwright/test';
 import { finalizeEvent, getPublicKey, verifyEvent, type EventTemplate } from 'nostr-tools/pure';
 import { naddrEncode } from 'nostr-tools/nip19';
 import { createPajaRuntimeHostConfig, renderPajaHtml } from '../../packages/paja/dist/index.js';
+import { installPajaApprovalDriver } from './paja-approval-driver.js';
+
+test.beforeEach(async ({ page }) => { await installPajaApprovalDriver(page); });
 
 // NAP-LINK #53@50a2cd4, NAP-RELAY #2@9f30b35, NAP-OUTBOX #32@8865f73.
 // Host policy binds approvals to verified publisher/artifact and signer, never wire-supplied context.
@@ -45,7 +48,7 @@ async function prepare(page: Page) {
   });
   const artifact = () => makeArtifact(revision);
   const hash = () => createHash('sha256').update(artifact()).digest('hex');
-  const manifest = () => finalizeEvent({ kind: 35129, created_at: 1_700_000_000 + revision, content: 'Consent fixture', tags: [['d', 'consent-fixture'], ['x', hash()], ['title', 'Consent fixture'], ['server', blossom]] }, author);
+  const manifest = () => finalizeEvent({ kind: 35129, created_at: 1_700_000_000 + revision, content: 'Consent fixture', tags: [['d', 'consent-fixture'], ['R', 'shell'], ['O', 'relay'], ['O', 'outbox'], ['O', 'link'], ['x', hash()], ['title', 'Consent fixture'], ['server', blossom]] }, author);
   await page.route(`${blossom}/**`, route => route.fulfill({ headers: { 'access-control-allow-origin': '*' }, contentType: 'text/html', body: artifact() }));
   await page.routeWebSocket(`${relay}/`, socket => socket.onMessage(message => {
     const [action, id, filter] = JSON.parse(String(message));

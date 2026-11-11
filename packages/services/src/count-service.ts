@@ -1,5 +1,7 @@
 import type { NappletMessage, NostrFilter } from '@napplet/core';
-import type { ServiceHandler } from '@kehto/runtime';
+import type { ApprovalSignal, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
+
+declare const console: { warn(message: string): void };
 
 export interface CountRequest {
   /** NIP-01 filters with NIP-45 COUNT OR semantics. */
@@ -8,6 +10,10 @@ export interface CountRequest {
   readonly options?: Record<string, unknown>;
   /** Window requesting the count. */
   readonly windowId: string;
+  /** Current operation approval; remote backends must stop when it aborts. */
+  readonly signal?: ApprovalSignal;
+  /** Frozen relay destinations selected before approval; undefined for local work. */
+  readonly relays?: readonly string[];
 }
 
 export interface CountResult {
@@ -21,6 +27,8 @@ export interface CountResult {
 }
 
 export interface CountServiceOptions {
+  /** Report remote relay destinations before counting; omit or return no relays for local work. */
+  planCount?(request: CountRequest): { relays?: readonly string[] } | Promise<{ relays?: readonly string[] }>;
   /**
    * Count matching events without returning event payloads.
    *
@@ -53,6 +61,14 @@ type CountServiceMessage = NappletMessage & {
 const DEFAULT_MAX_FILTERS = 16;
 
 export function createCountService(options: CountServiceOptions): ServiceHandler {
+  let runtime: ServiceRuntimeContext | undefined;
+  let warnedLegacy = false;
+  const generations = new Map<string, object>();
+  const generationFor = (windowId: string): object => {
+    let generation = generations.get(windowId);
+    if (!generation) { generation = {}; generations.set(windowId, generation); }
+    return generation;
+  };
   return {
     descriptor: {
       name: 'count',
@@ -64,6 +80,7 @@ export function createCountService(options: CountServiceOptions): ServiceHandler
       if (message.type !== 'count.query') return;
 
       const countMessage = message as CountServiceMessage;
+      const generation = generationFor(windowId);
       const id = typeof countMessage.id === 'string' ? countMessage.id : '';
       const filters = countMessage.filters;
       if (!isValidFilterArray(filters)) {
@@ -95,11 +112,29 @@ export function createCountService(options: CountServiceOptions): ServiceHandler
         ...(isPlainObject(countMessage.options) ? { options: countMessage.options } : {}),
       };
 
-      Promise.resolve(options.count(request))
+      const run = (plan: { relays?: readonly string[] }) => {
+        const relays = plan.relays ? Object.freeze([...plan.relays]) : undefined;
+        if (!runtime?.authorizeOperation) {
+          if (!warnedLegacy) {
+            warnedLegacy = true;
+            console.warn('FW-COUNT-LEGACY-001: COUNT without RuntimeAdapter.permissions uses host-only execution; attach scoped Firewall approvals (warns once per service instance; retained through the next minor release).');
+          }
+          return options.count({ ...request, ...(relays ? { relays } : {}) });
+        }
+        return runtime.authorizeOperation(windowId, 'count.query', [
+          { category: 'interface', domain: 'count', operation: 'access', scope: { kind: 'exact', value: 'count' } },
+          ...(relays ?? []).map((url) => ({ category: 'network' as const, domain: 'count', operation: 'count.query', scope: { kind: 'origin' as const, value: new URL(url).origin } })),
+        ], (signal) => signal.aborted ? { ok: false, error: 'policy denied' } : options.count({ ...request, signal, ...(relays ? { relays } : {}) }))
+          .then((outcome) => outcome.status === 'executed' && outcome.value ? outcome.value : { ok: false, error: 'policy denied' });
+      };
+      const planned = options.planCount?.(request);
+      void (planned === undefined ? Promise.resolve(run({})) : Promise.resolve(planned).then(run))
         .then((countResult) => {
+          if (generations.get(windowId) !== generation) return;
           send(result(id, normalizeCountResult(countResult)));
         })
         .catch((error: unknown) => {
+          if (generations.get(windowId) !== generation) return;
           send(result(id, {
             ok: false,
             error: 'count-unavailable',
@@ -107,6 +142,9 @@ export function createCountService(options: CountServiceOptions): ServiceHandler
           }));
         });
     },
+    onRegistered(context) { runtime = context; },
+    onPermissionRevoked(windowId) { generations.set(windowId, {}); },
+    onWindowDestroyed(windowId) { generations.set(windowId, {}); },
   };
 }
 
@@ -131,12 +169,21 @@ function normalizeCountResult(value: CountResult | number): CountResult {
       : { ok: false, error: 'count-unavailable', reason: 'count backend returned an invalid count' };
   }
 
+  if (value.ok !== true) {
+    return {
+      ok: false,
+      error: typeof value.error === 'string' ? value.error : 'count-unavailable',
+      ...(typeof value.reason === 'string' ? { reason: value.reason } : {}),
+    };
+  }
+
   const count = typeof value.count === 'number' && Number.isFinite(value.count) && value.count >= 0
     ? Math.floor(value.count)
     : undefined;
+  if (count === undefined) return { ok: false, error: 'count-unavailable', reason: 'count backend returned an invalid count' };
   return {
-    ok: value.ok === true,
-    ...(count !== undefined ? { count } : {}),
+    ok: true,
+    count,
     ...(typeof value.approximate === 'boolean' ? { approximate: value.approximate } : {}),
     ...(typeof value.hll === 'string' ? { hll: value.hll } : {}),
     ...(Array.isArray(value.relays) ? { relays: value.relays } : {}),

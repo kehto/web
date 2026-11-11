@@ -111,6 +111,7 @@ function registerNip5dSessionIfNeeded({
     type: 'nip5d',
     dTag: identity.dTag,
     aggregateHash: identity.aggregateHash,
+    ...(identity.permissionPrincipal ? { permissionPrincipal: identity.permissionPrincipal } : {}),
     registeredAt: Date.now(),
     instanceId: randomUUID(),
     provenance: 'nip-5d',
@@ -124,7 +125,7 @@ function resolveNip5dIdentity(
   windowId: string,
   sourceWindow: Window,
   existingSession?: SessionEntry,
-): { dTag: string; aggregateHash: string } | null {
+): OriginIdentity | null {
   // Identity resolution order:
   //   1. hooks.onNip5dIframeCreate?.(windowId) — preferred.
   //   2. originRegistry.getIdentity(win) — fallback for hosts that register
@@ -134,6 +135,7 @@ function resolveNip5dIdentity(
     return Object.freeze({
       dTag: hookIdentity.dTag,
       aggregateHash: hookIdentity.aggregateHash,
+      ...(hookIdentity.permissionPrincipal ? { permissionPrincipal: hookIdentity.permissionPrincipal } : {}),
     });
   }
 
@@ -141,12 +143,14 @@ function resolveNip5dIdentity(
   if (!originIdentity) {
     // An integrator may have bound verified identity in the runtime registry first.
     if (existingSession?.provenance !== 'nip-5d' || typeof existingSession.dTag !== 'string' || typeof existingSession.aggregateHash !== 'string') return null;
-    return Object.freeze({ dTag: existingSession.dTag, aggregateHash: existingSession.aggregateHash });
+    return Object.freeze({ dTag: existingSession.dTag, aggregateHash: existingSession.aggregateHash,
+      ...(existingSession.permissionPrincipal ? { permissionPrincipal: existingSession.permissionPrincipal } : {}) });
   }
 
   return Object.freeze({
     dTag: originIdentity.dTag,
     aggregateHash: originIdentity.aggregateHash,
+    ...(originIdentity.permissionPrincipal ? { permissionPrincipal: originIdentity.permissionPrincipal } : {}),
   });
 }
 

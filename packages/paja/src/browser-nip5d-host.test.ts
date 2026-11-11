@@ -44,6 +44,8 @@ function setup() {
   return { state, context, runtime, launcher, launcherWindow, launcherFrame, singleWindow, handleMessage, setStatus, onWindowReady };
 }
 
+const renderDevtools = vi.fn();
+
 describe('Paja NIP-5D host integration', () => {
   beforeEach(() => {
     originRegistry.clear();
@@ -86,11 +88,12 @@ describe('Paja NIP-5D host integration', () => {
 
   it('marks the single frame ready from shell.ready observed on its port', async () => {
     const { state, context, runtime, setStatus, onWindowReady } = setup();
-    observePajaNappletMessage(state, context, 'single', { type: 'relay.subscribe' } as never, { setStatus });
+    observePajaNappletMessage(state, context, 'single', { type: 'relay.subscribe' } as never, { setStatus, renderDevtools });
     expect(setStatus).not.toHaveBeenCalled();
-    observePajaNappletMessage(state, context, 'single', { type: 'shell.ready' } as never, { setStatus });
+    observePajaNappletMessage(state, context, 'single', { type: 'shell.ready' } as never, { setStatus, renderDevtools });
     expect(runtime.readyWindowIds.has('single')).toBe(true);
     expect(setStatus).toHaveBeenCalledWith(state, 'ready');
+    expect(renderDevtools).toHaveBeenCalledWith(state);
     // The mocked NAP-CLASS assignment waits for the bridge to register the session.
     expect(onWindowReady).not.toHaveBeenCalled();
     await Promise.resolve();
@@ -99,15 +102,15 @@ describe('Paja NIP-5D host integration', () => {
 
   it('assigns the mocked class to launcher frames too, and only on shell.ready', async () => {
     const { state, context, onWindowReady, setStatus } = setup();
-    observePajaNappletMessage(state, context, 'launcher', { type: 'intent.invoke' } as never, { setStatus });
-    observePajaNappletMessage(state, context, 'launcher', { type: 'shell.ready' } as never, { setStatus });
+    observePajaNappletMessage(state, context, 'launcher', { type: 'intent.invoke' } as never, { setStatus, renderDevtools });
+    observePajaNappletMessage(state, context, 'launcher', { type: 'shell.ready' } as never, { setStatus, renderDevtools });
     await Promise.resolve();
     expect(onWindowReady).toHaveBeenCalledExactlyOnceWith('launcher');
   });
 
   it('removes a revoked launcher frame and forgets its identity', () => {
     const { state, context, runtime, launcherFrame, setStatus } = setup();
-    handlePajaNappletRevoked(state, context, { windowId: 'launcher', reason: 'second-load', detail: 'x' }, { setStatus });
+    handlePajaNappletRevoked(state, context, { windowId: 'launcher', reason: 'second-load', detail: 'x' }, { setStatus, renderDevtools });
     expect(launcherFrame.remove).toHaveBeenCalledOnce();
     expect(runtime.launcherFrames.size).toBe(0);
     expect(runtime.intentSenderIds.has('launcher')).toBe(false);
@@ -123,7 +126,7 @@ describe('Paja NIP-5D host integration', () => {
     const used = { contentWindow: singleWindow, cloneNode: vi.fn(() => fresh), replaceWith: vi.fn() };
     context.frame = used as unknown as HTMLIFrameElement;
 
-    handlePajaNappletRevoked(state, context, { windowId: 'single', reason: 'window-message', detail: 'x' }, { setStatus });
+    handlePajaNappletRevoked(state, context, { windowId: 'single', reason: 'window-message', detail: 'x' }, { setStatus, renderDevtools });
 
     expect(used.replaceWith).toHaveBeenCalledExactlyOnceWith(fresh);
     expect(fresh.removeAttribute).toHaveBeenCalledWith('srcdoc');

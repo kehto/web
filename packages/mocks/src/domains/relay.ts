@@ -28,8 +28,15 @@
  *   relay (the author's kind-10002 write relays, else `MOCK_FALLBACK_RELAYS`).
  * - Sidecar `resources` pre-resolution is default OFF per the NAP; the mock
  *   never emits `sidecar.resources`.
+ * - Kehto's runtime only routes relay traffic to a service implementing the
+ *   planned-execution contract (`planRelayOperation`/`executeRelayOperation`).
+ *   The mock opens no relay transport, so every plan is local-only with no
+ *   relay URLs and needs no network approval; a `relay` hint only scopes
+ *   results inside the in-memory store. Execution is skipped once the
+ *   runtime's approval signal has aborted.
  */
 import type { NappletMessage, NostrEvent, NostrFilter } from '@napplet/core';
+import type { ApprovalSignal, RelayOperationPlan, RelayPlanningServiceHandler } from '@kehto/runtime';
 import type { RelayCloseMessage, RelayPublishEncryptedMessage, RelayPublishMessage, RelayQueryMessage, RelaySubscribeMessage } from '@napplet/nap/relay/types';
 import { defineMockService, pushThrough, pushToWindow, type MockRouteContext } from '../core/handler.js';
 import { mockHex } from '../core/rng.js';
@@ -122,7 +129,7 @@ export interface MockRelayOptions extends MockServiceOptions {
  * relay.inject({ kind: 1, content: 'from the network' }, 'bob');
  * ```
  */
-export type MockRelayService = MockService<MockRelayState> & {
+export type MockRelayService = MockService<MockRelayState> & Pick<RelayPlanningServiceHandler, 'planRelayOperation' | 'executeRelayOperation'> & {
   /**
    * Store an event as if observed from the network and fan it out to live
    * subscriptions. `author` is a fixture name or hex pubkey.
@@ -248,6 +255,19 @@ function handleQuery({ message, state, reply }: RelayContext): void {
   reply({ events });
 }
 
+const PLANNED_OPERATIONS: Readonly<Record<string, RelayOperationPlan['operation']>> = {
+  'relay.subscribe': 'subscribe',
+  'relay.query': 'query',
+  'relay.publish': 'publish',
+  'relay.publishEncrypted': 'publishEncrypted',
+};
+
+function planOperation(message: NappletMessage): RelayOperationPlan['operation'] {
+  const operation = Object.hasOwn(PLANNED_OPERATIONS, message.type) ? PLANNED_OPERATIONS[message.type] : undefined;
+  if (!operation) throw new Error(`relay mock cannot plan ${message.type}`);
+  return operation;
+}
+
 /**
  * Create the NAP-RELAY mock.
  *
@@ -303,6 +323,13 @@ export function createMockRelayService(options: MockRelayOptions = {}): MockRela
   store.onEvent(fanOut);
 
   const service: MockRelayService = Object.assign(base, {
+    planRelayOperation(_windowId: string, message: NappletMessage): RelayOperationPlan {
+      return Object.freeze({ operation: planOperation(message), relayUrls: Object.freeze([]), localOnly: true });
+    },
+    executeRelayOperation(windowId: string, message: NappletMessage, _plan: RelayOperationPlan, signal: ApprovalSignal,
+      send: (message: NappletMessage) => void): void {
+      if (!signal.aborted) base.handleMessage(windowId, message, send);
+    },
     inject(template: MockEventTemplate, author: string): NostrEvent {
       return store.publish(template, resolveMockUser(author));
     },

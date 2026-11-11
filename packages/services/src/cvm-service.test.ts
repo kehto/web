@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { NappletMessage } from '@napplet/core';
+import type { ServiceRuntimeContext } from '@kehto/runtime';
 
 import { createCvmService, type CvmService, type CvmTransport } from './cvm-service.js';
 import type { CvmServer, CvmServerRef, McpMessage } from './cvm-types.js';
@@ -69,6 +70,19 @@ describe('createCvmService', () => {
   });
 
   describe('cvm.discover', () => {
+    it('rejects invalid relay hints before authorization or transport', async () => {
+      const authorizeOperation = vi.fn();
+      svc.onRegistered?.({ authorizeOperation } as unknown as ServiceRuntimeContext);
+      const { sent, send } = collectSent();
+
+      svc.handleMessage(WINDOW, { type: 'cvm.discover', id: 'invalid', query: { relays: ['https://not-a-relay.example'] } } as NappletMessage, send);
+      await flush();
+
+      expect(sent).toEqual([{ type: 'cvm.discover.result', id: 'invalid', servers: [], error: 'invalid relay' }]);
+      expect(authorizeOperation).not.toHaveBeenCalled();
+      expect(transport.discover).not.toHaveBeenCalled();
+    });
+
     it('resolves servers and echoes the id', async () => {
       const servers: CvmServer[] = [{ pubkey: SERVER.pubkey, name: 'Relatr' }];
       transport.discover = vi.fn(async () => servers);
@@ -89,6 +103,36 @@ describe('createCvmService', () => {
   });
 
   describe('cvm.request', () => {
+    it('approves selected server relay origins before transport', async () => {
+      const authorizeOperation = vi.fn(async (_windowId, _operation, _requirements, execute) => ({
+        status: 'executed' as const,
+        value: await execute({ aborted: false, addEventListener() {}, removeEventListener() {} }),
+      }));
+      svc.onRegistered?.({ authorizeOperation } as unknown as ServiceRuntimeContext);
+      const { sent, send } = collectSent();
+
+      svc.handleMessage(WINDOW, { type: 'cvm.request', id: 'approved', server: SERVER, message: { jsonrpc: '2.0', id: 1, method: 'tools/list' } } as NappletMessage, send);
+      await flush();
+
+      expect(authorizeOperation).toHaveBeenCalledWith(WINDOW, 'cvm.request', expect.arrayContaining([
+        expect.objectContaining({ category: 'interface', domain: 'cvm', operation: 'access' }),
+        expect.objectContaining({ category: 'network', domain: 'cvm', operation: 'cvm.request', scope: { kind: 'origin', value: 'wss://relay.example' } }),
+      ]), expect.any(Function));
+      expect(transport.request).toHaveBeenCalledTimes(1);
+      expect(sent).toEqual([expect.objectContaining({ type: 'cvm.request.result', id: 'approved' })]);
+    });
+
+    it('does not contact a server when authorization is denied', async () => {
+      const authorizeOperation = vi.fn(async () => ({ status: 'denied' as const }));
+      svc.onRegistered?.({ authorizeOperation } as unknown as ServiceRuntimeContext);
+      const { sent, send } = collectSent();
+
+      svc.handleMessage(WINDOW, { type: 'cvm.request', id: 'denied', server: SERVER, message: { jsonrpc: '2.0', id: 1, method: 'tools/list' } } as NappletMessage, send);
+      await flush();
+
+      expect(transport.request).not.toHaveBeenCalled();
+      expect(sent).toEqual([{ type: 'cvm.request.result', id: 'denied', error: 'policy denied' }]);
+    });
     it('returns the MCP response message with the echoed id', async () => {
       const mcp: McpMessage = { jsonrpc: '2.0', id: 2, result: { content: [], isError: false } };
       transport.request = vi.fn(async () => mcp);
@@ -136,9 +180,42 @@ describe('createCvmService', () => {
   describe('cvm.close', () => {
     it('closes transport session and echoes id', async () => {
       const { sent, send } = collectSent();
+      svc.handleMessage(WINDOW, { type: 'cvm.request', id: 'open', server: SERVER, message: { jsonrpc: '2.0', id: 1 } } as NappletMessage, send);
+      await flush();
+      sent.length = 0;
       svc.handleMessage(WINDOW, { type: 'cvm.close', id: 'c1', server: SERVER } as NappletMessage, send);
       await flush();
       expect(sent[0]).toEqual({ type: 'cvm.close.result', id: 'c1' });
+      expect(transport.close).toHaveBeenCalledWith(SERVER);
+    });
+
+    it('does not let another window close an owned session', async () => {
+      const owner = collectSent();
+      const intruder = collectSent();
+      svc.handleMessage(WINDOW, { type: 'cvm.request', id: 'open', server: SERVER, message: { jsonrpc: '2.0', id: 1 } } as NappletMessage, owner.send);
+      await flush();
+      svc.handleMessage('other-window', { type: 'cvm.close', id: 'forged', server: SERVER } as NappletMessage, intruder.send);
+      await flush();
+
+      expect(intruder.sent).toEqual([{ type: 'cvm.close.result', id: 'forged', error: 'session closed' }]);
+      expect(transport.close).not.toHaveBeenCalled();
+    });
+
+    it('allows an owned close after later authorization is denied', async () => {
+      const approve = vi.fn(async (_windowId, _operation, _requirements, execute) => ({
+        status: 'executed' as const,
+        value: await execute({ aborted: false, addEventListener() {}, removeEventListener() {} }),
+      }));
+      svc.onRegistered?.({ authorizeOperation: approve } as unknown as ServiceRuntimeContext);
+      const { sent, send } = collectSent();
+      svc.handleMessage(WINDOW, { type: 'cvm.request', id: 'open', server: SERVER, message: { jsonrpc: '2.0', id: 1 } } as NappletMessage, send);
+      await flush();
+      svc.onRegistered?.({ authorizeOperation: async () => ({ status: 'denied' }) } as unknown as ServiceRuntimeContext);
+      sent.length = 0;
+      svc.handleMessage(WINDOW, { type: 'cvm.close', id: 'close', server: SERVER } as NappletMessage, send);
+      await flush();
+
+      expect(sent).toEqual([{ type: 'cvm.close.result', id: 'close' }]);
       expect(transport.close).toHaveBeenCalledWith(SERVER);
     });
   });
@@ -171,7 +248,30 @@ describe('createCvmService', () => {
       await flush();
       transport.emitEvent(SERVER, { jsonrpc: '2.0', method: 'notifications/progress' });
       expect(sent.some((m) => m.type === 'cvm.event')).toBe(false);
-      expect(transport.close).toHaveBeenCalledWith({ pubkey: SERVER.pubkey });
+      expect(transport.close).toHaveBeenCalledWith(SERVER);
+    });
+
+    it('revokes only the affected source and suppresses its late result', async () => {
+      let resolveRequest!: (message: McpMessage) => void;
+      transport.request = vi.fn(() => new Promise<McpMessage>((resolve) => { resolveRequest = resolve; }));
+      const authorizeOperation = vi.fn(async (_windowId, _operation, _requirements, execute) => ({
+        status: 'executed' as const,
+        value: await execute({ aborted: false, addEventListener() {}, removeEventListener() {} }),
+      }));
+      svc.onRegistered?.({ authorizeOperation } as unknown as ServiceRuntimeContext);
+      const first = collectSent();
+      const sibling = collectSent();
+      svc.handleMessage(WINDOW, { type: 'cvm.request', id: 'pending', server: SERVER, message: { jsonrpc: '2.0', id: 1 } } as NappletMessage, first.send);
+      svc.handleMessage('sibling', { type: 'cvm.request', id: 'open', server: SERVER, message: { jsonrpc: '2.0', id: 2 } } as NappletMessage, sibling.send);
+      await flush();
+      svc.onPermissionRevoked?.(WINDOW);
+      resolveRequest({ jsonrpc: '2.0', id: 1, result: {} });
+      await flush();
+
+      expect(first.sent).toEqual([]);
+      transport.emitEvent(SERVER, { jsonrpc: '2.0', method: 'notifications/progress' });
+      expect(sibling.sent).toContainEqual(expect.objectContaining({ type: 'cvm.event' }));
+      expect(transport.close).not.toHaveBeenCalled();
     });
   });
 

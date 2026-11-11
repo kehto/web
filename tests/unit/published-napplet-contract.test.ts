@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -87,15 +87,16 @@ function interfaceBody(source: string, name: string): string {
 }
 
 describe('published Napplet convention contract', () => {
-  it('keeps services on published intent declarations without a competing local mirror', () => {
+  it('takes host intent types from the published core export (kehto/web#418)', () => {
     const servicesSource = join(ROOT, 'packages/services/src');
     const activeSources = readdirSync(servicesSource)
       .filter((entry) => entry.endsWith('.ts') && !entry.endsWith('.test.ts'))
       .map((entry) => readFileSync(join(servicesSource, entry), 'utf8'));
 
-    const localTypes = join(servicesSource, 'intent-types.ts');
-    expect(existsSync(localTypes)).toBe(true);
-    expect(readFileSync(localTypes, 'utf8')).toContain('pending upstream @napplet/nap publication');
+    const localTypes = readFileSync(join(servicesSource, 'intent-types.ts'), 'utf8');
+    expect(localTypes).toContain("from '@napplet/core'");
+    expect(localTypes).not.toMatch(/\binterface\s+Intent/);
+    expect(localTypes).not.toContain('pending napplet/web#328');
     expect(activeSources.join('\n')).toMatch(/from ['\"]\.\/intent-types\.js['\"]/);
   });
 

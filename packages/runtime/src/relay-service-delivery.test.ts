@@ -5,6 +5,7 @@ import type { NappletMessage, NostrEvent, NostrFilter } from '@napplet/core';
 import { matchesAnyFilter } from './event-buffer.js';
 import { createRuntime } from './runtime.js';
 import { createMockRuntimeAdapter, createNip5dSessionEntry } from './test-utils.js';
+import type { RelayPlanningServiceHandler } from './service-types.js';
 import type { ServiceHandler, Signer } from './types.js';
 
 // Disposable scalar key; no external identity.
@@ -19,8 +20,12 @@ const flush = (): Promise<void> => new Promise((resolve) => { setTimeout(resolve
 type Sub = { windowId: string; subId: string; filters: NostrFilter[]; send: (message: NappletMessage) => void };
 type Wire = NappletMessage & { subId?: string; id?: string; filters?: NostrFilter[]; event?: NostrEvent; result?: { event: NostrEvent } };
 
-/** Minimal relay-shaped service: stores publishes and echoes them to every matching subscription. */
-function relayService(): ServiceHandler & { subs: Map<string, Sub>; store: NostrEvent[] } {
+/**
+ * Minimal relay-shaped service: stores publishes and echoes them to every matching
+ * subscription. It implements the planned-execution contract the runtime requires
+ * of a relay service, with local-only plans because it opens no relay transport.
+ */
+function relayService(): RelayPlanningServiceHandler & { subs: Map<string, Sub>; store: NostrEvent[] } {
   const subs = new Map<string, Sub>();
   const store: NostrEvent[] = [];
   const event = (subId: string, item: NostrEvent): NappletMessage => ({ type: 'relay.event', subId, result: { event: item } } as NappletMessage);
@@ -28,6 +33,13 @@ function relayService(): ServiceHandler & { subs: Map<string, Sub>; store: Nostr
     descriptor: { name: 'relay', version: '1.0.0' },
     subs,
     store,
+    planRelayOperation(_windowId, message) {
+      const operation = message.type === 'relay.publish' ? 'publish' : 'subscribe';
+      return Object.freeze({ operation, relayUrls: Object.freeze([]), localOnly: true });
+    },
+    executeRelayOperation(windowId, message, _plan, signal, send) {
+      if (!signal.aborted) this.handleMessage(windowId, message, send);
+    },
     handleMessage(windowId, message, send) {
       const m = message as Wire;
       if (m.type === 'relay.subscribe' && m.subId) {

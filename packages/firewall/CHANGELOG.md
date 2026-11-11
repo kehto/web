@@ -1,5 +1,17 @@
 # @kehto/firewall
 
+## 0.8.1
+
+### Patch Changes
+
+- f4e7e8a: Accept @napplet/core 0.40.x and @napplet/nap 0.39.x throughout the Paja host dependency graph and update host development dependencies and JSR maps to that line. Keep existing peer floors. Account for the newly packaged blossom, catalog, navigation, soulseek and torrent domains without advertising unimplemented host backends.
+
+## 0.8.0
+
+### Minor Changes
+
+- 249fe8c: Add pure approval policy for NAP interfaces, resources, network origins and registered extensions. Grants bind to verified manifest and artifact identities, compose with interface access, and support explicit denial, one-request, session and persistent lifetimes.
+
 ## 0.7.0
 
 ### Minor Changes

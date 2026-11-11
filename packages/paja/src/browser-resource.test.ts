@@ -11,6 +11,13 @@ import {
 import type { PajaHostConfig } from './options.js';
 import { normalizePajaSimulation } from './simulation.js';
 
+function approved(signal: AbortSignal) {
+  return {
+    signal,
+    authorizeNetwork: async <T>(_destination: string, execute: (approvedSignal: AbortSignal) => Promise<T>) => execute(signal),
+  };
+}
+
 const CONFIG = {
   window: { id: 'resource-window', dTag: 'resource-napplet', aggregateHash: 'resource-hash' },
 } as PajaHostConfig;
@@ -81,9 +88,9 @@ describe('Paja resource backend', () => {
       '?sz=9007199254740992', '?sz=1&sz=1', '?as=bad', '?xs=%zz', '?unknown=%FF',
       '?xs=bad host', `?xs=${'x'.repeat(8192)}`, '?sz=1%00',
     ]) {
-      await expect(read(`${prefix}${hash}${suffix}`, { signal })).rejects.toMatchObject({ code: 'invalid-request' });
+      await expect(read(`${prefix}${hash}${suffix}`, approved(signal))).rejects.toMatchObject({ code: 'invalid-request' });
     }
-    await expect(read(`${prefix}${hash}?sz=${PAJA_RESOURCE_MAX_BYTES + 1}`, { signal }))
+    await expect(read(`${prefix}${hash}?sz=${PAJA_RESOURCE_MAX_BYTES + 1}`, approved(signal)))
       .rejects.toMatchObject({ code: 'too-large' });
     expect(getBlossomServers).not.toHaveBeenCalled();
     expect(fetchFn).not.toHaveBeenCalled();
@@ -99,11 +106,12 @@ describe('Paja resource backend', () => {
       }))
       .mockResolvedValueOnce(new Response(bytes, { headers: { 'content-type': 'image/png' } }));
     const read = createPajaResourceFetch({ fetch: fetchFn });
-    const response = await read(`blossom:${hash}.png?xs=one.example&xs=two.example&sz=${bytes.length}`, {
-      signal: new AbortController().signal,
-    });
+    const response = await read(`blossom:${hash}.png?xs=one.example&xs=two.example&sz=${bytes.length}`, approved(new AbortController().signal));
     expect(cancel).toHaveBeenCalledOnce();
     expect(fetchFn.mock.calls.map(([url]) => url)).toEqual([
+      '/__kehto/resource', '/__kehto/resource',
+    ]);
+    expect(fetchFn.mock.calls.map(([, init]) => JSON.parse(String(init?.body)).url)).toEqual([
       `https://one.example/${hash}.png`, `https://two.example/${hash}.png`,
     ]);
     expect(response.headers.get('content-type')).toBe('application/json');
@@ -116,9 +124,7 @@ describe('Paja resource backend', () => {
     const read = createPajaResourceFetch({
       fetch: vi.fn(async () => new Response(bytes, { headers: length ? { 'content-length': length } : {} })),
     });
-    await expect(read(`blossom:${hash}.txt?xs=cdn.example&sz=${bytes.length + 1}`, {
-      signal: new AbortController().signal,
-    })).rejects.toMatchObject({ code: 'decode-failed' });
+    await expect(read(`blossom:${hash}.txt?xs=cdn.example&sz=${bytes.length + 1}`, approved(new AbortController().signal))).rejects.toMatchObject({ code: 'decode-failed' });
   });
 
   it('never upgrades unsafe URI hints into trusted loopback config', async () => {
@@ -128,13 +134,13 @@ describe('Paja resource backend', () => {
     const read = createPajaResourceFetch({ fetch: fetchFn });
     const hints = ['http://public.example', 'http://localhost:3000', 'https://127.0.0.1',
       'https://user:pass@cdn.example', 'https://cdn.example/path', 'https://cdn.example?key=value'];
-    await expect(read(`blossom:${hash}.txt?${hints.map((hint) => `xs=${encodeURIComponent(hint)}`).join('&')}`, {
-      signal: new AbortController().signal,
-    })).rejects.toMatchObject({ code: 'blocked-by-policy' });
+    await expect(read(`blossom:${hash}.txt?${hints.map((hint) => `xs=${encodeURIComponent(hint)}`).join('&')}`, approved(new AbortController().signal))).rejects.toMatchObject({ code: 'blocked-by-policy' });
     expect(fetchFn).not.toHaveBeenCalled();
     const trusted = createPajaResourceFetch({ fetch: fetchFn, getBlossomServers: () => ['http://localhost:3000'] });
-    await trusted(`blossom:${hash}.txt?xs=http://localhost:3000`, { signal: new AbortController().signal });
-    expect(fetchFn).toHaveBeenCalledWith(`http://localhost:3000/${hash}.txt`, expect.anything());
+    await trusted(`blossom:${hash}.txt?xs=http://localhost:3000`, approved(new AbortController().signal));
+    expect(fetchFn).toHaveBeenCalledWith('/__kehto/resource', expect.objectContaining({
+      body: JSON.stringify({ url: `http://localhost:3000/${hash}.txt` }),
+    }));
   });
 
   it('delivers hash-verified opaque Blossom bytes with a runtime-owned MIME', async () => {
@@ -145,9 +151,7 @@ describe('Paja resource backend', () => {
       fetch: vi.fn(async () => new Response(bytes, { headers: { 'content-type': 'text/html' } })),
     });
 
-    const response = await fetchResource(`blossom:sha256:${hash}`, {
-      signal: new AbortController().signal,
-    });
+    const response = await fetchResource(`blossom:sha256:${hash}`, approved(new AbortController().signal));
 
     expect(response.headers.get('content-type')).toBe('application/octet-stream');
     expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes);
@@ -169,33 +173,29 @@ describe('Paja resource backend', () => {
       adapter.services?.resource?.handleMessage('resource-window', {
         type: 'resource.bytes',
         id: 'opaque-1',
-        url: `blossom:sha256:${hash}`,
-        servers: ['https://blossom.example'],
+        url: `blossom:sha256:${hash}?xs=blossom.example`,
       } as NappletMessage, (message) => sent.push(message));
       await vi.waitFor(() => expect(sent).toHaveLength(1));
 
-      const result = sent[0] as NappletMessage & { blob: Blob; mime: string };
+      const result = sent[0] as NappletMessage & { blob: string; mime: string };
       expect(result).toMatchObject({
         type: 'resource.bytes.result', id: 'opaque-1', mime: 'application/octet-stream',
       });
-      expect(result.blob.type).toBe('application/octet-stream');
-      expect(new Uint8Array(await result.blob.arrayBuffer())).toEqual(bytes);
+      expect(new Uint8Array(Uint8Array.from(atob(result.blob), (value) => value.charCodeAt(0)))).toEqual(bytes);
     } finally {
       (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
     }
   });
 
-  it('discloses permissive browser network schemes and request-hinted Blossom support', () => {
+  it('discloses canonical data, HTTPS, and Blossom support', () => {
     expect(pajaResourceInfo()).toEqual({
       schemes: [
         { scheme: 'data', enabled: true },
         { scheme: 'https', enabled: true },
-        { scheme: 'http', enabled: true },
         { scheme: 'blossom', enabled: true },
       ],
       maxBytes: PAJA_RESOURCE_MAX_BYTES,
       maxUrls: PAJA_RESOURCE_MAX_URLS,
-      maxServers: PAJA_RESOURCE_MAX_SERVERS,
     });
   });
 
@@ -209,7 +209,7 @@ describe('Paja resource backend', () => {
       fetch: vi.fn(async () => new Response(bytes, { headers: { 'content-type': 'image/png' } })),
     });
     const signal = new AbortController().signal;
-    const response = await fetchResource(`blossom:sha256:${hash}`, { signal });
+    const response = await fetchResource(`blossom:sha256:${hash}`, approved(signal));
     expect(response.headers.get('content-type')).toBe('application/octet-stream');
     expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes);
 
@@ -219,7 +219,7 @@ describe('Paja resource backend', () => {
       'http://media.example/binary',
       'https://media.example/binary',
     ]) {
-      await expect(fetchResource(url, { signal })).rejects.toMatchObject({ code: 'decode-failed' });
+      await expect(fetchResource(url, approved(signal))).rejects.toMatchObject({ code: 'decode-failed' });
     }
   });
 
@@ -245,9 +245,7 @@ describe('Paja resource backend', () => {
         getBlossomServers: () => ['https://blossom.example'],
         fetch: vi.fn(async () => new Response(bytes, { headers: { 'content-type': 'image/png' } })),
       });
-      await expect(fetchResource(`blossom:sha256:${hash}`, {
-        signal: new AbortController().signal,
-      })).rejects.toMatchObject({ code: 'decode-failed' });
+      await expect(fetchResource(`blossom:sha256:${hash}`, approved(new AbortController().signal))).rejects.toMatchObject({ code: 'decode-failed' });
     }
   });
 
@@ -266,9 +264,7 @@ describe('Paja resource backend', () => {
           getBlossomServers: () => ['https://blossom.example'],
           fetch: vi.fn(async () => new Response(bytes, { headers: { 'content-type': 'image/png' } })),
         });
-        await expect(fetchResource(`blossom:sha256:${hash}`, {
-          signal: new AbortController().signal,
-        })).rejects.toMatchObject({ code: 'decode-failed' });
+        await expect(fetchResource(`blossom:sha256:${hash}`, approved(new AbortController().signal))).rejects.toMatchObject({ code: 'decode-failed' });
       }
     }
   });
@@ -301,9 +297,12 @@ describe('Paja resource backend', () => {
       }
     }
     const hashes = await Promise.all(cases.map(({ bytes }) => sha256Hex(bytes)));
-    const urls = hashes.map((hash) => `blossom:sha256:${hash}`);
-    vi.stubGlobal('fetch', vi.fn(async (value: string) => {
-      const index = hashes.indexOf(value.split('/').at(-1) ?? '');
+    const urls = hashes.map((hash) => `blossom:sha256:${hash}?xs=blossom.example`);
+    vi.stubGlobal('fetch', vi.fn(async (value: string, init?: RequestInit) => {
+      const destination = value === '/__kehto/resource'
+        ? String(JSON.parse(String(init?.body)).url)
+        : value;
+      const index = hashes.indexOf(destination.split('/').at(-1)?.split('?')[0] ?? '');
       expect(index).toBeGreaterThanOrEqual(0);
       return new Response(cases[index]?.bytes, { headers: { 'content-type': 'text/plain' } });
     }));
@@ -318,11 +317,11 @@ describe('Paja resource backend', () => {
       const sent: NappletMessage[] = [];
       adapter.services?.resource?.handleMessage('resource-window', {
         type: 'resource.bytesMany', id: 'encoded-bulk',
-        requests: urls.map((url) => ({ url, servers: ['https://blossom.example'] })),
+        urls,
       } as unknown as NappletMessage, (message) => sent.push(message));
       await vi.waitFor(() => expect(sent).toHaveLength(1));
       const result = sent[0] as NappletMessage & {
-        items: { url: string; ok: boolean; blob?: Blob; mime?: string; error?: string }[];
+        items: { url: string; ok: boolean; blob?: string; mime?: string; error?: string }[];
       };
       expect(result).toMatchObject({ type: 'resource.bytesMany.result', id: 'encoded-bulk' });
       expect(result.items.map((item) => item.url)).toEqual(urls);
@@ -333,8 +332,7 @@ describe('Paja resource backend', () => {
           expect(item).not.toHaveProperty('blob');
         } else {
           expect(item).toMatchObject({ ok: true, mime: 'application/octet-stream' });
-          expect(item?.blob?.type).toBe('application/octet-stream');
-          expect(new Uint8Array(await item!.blob!.arrayBuffer())).toEqual(bytes);
+          expect(new Uint8Array(Uint8Array.from(atob(item!.blob!), (value) => value.charCodeAt(0)))).toEqual(bytes);
         }
       }
       await flushPromises();
@@ -353,7 +351,7 @@ describe('Paja resource backend', () => {
         fetch: vi.fn(async () => new Response(bytes, { headers: { 'content-type': 'text/html' } })),
       });
       const signal = new AbortController().signal;
-      const response = await fetchResource(`blossom:sha256:${hash}`, { signal });
+      const response = await fetchResource(`blossom:sha256:${hash}`, approved(signal));
       expect(response.headers.get('content-type')).toBe('application/octet-stream');
       expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes);
       for (const url of [
@@ -361,7 +359,7 @@ describe('Paja resource backend', () => {
         'http://media.example/encoded-text',
         `data:text/plain;base64,${btoa(String.fromCharCode(...bytes))}`,
       ]) {
-        await expect(fetchResource(url, { signal })).rejects.toMatchObject({ code: 'decode-failed' });
+        await expect(fetchResource(url, approved(signal))).rejects.toMatchObject({ code: 'decode-failed' });
       }
     }
   });
@@ -376,9 +374,7 @@ describe('Paja resource backend', () => {
         getBlossomServers: () => ['https://blossom.example'],
         fetch: vi.fn(async () => new Response(bytes)),
       });
-      await expect(fetchResource(`blossom:sha256:${hash}`, {
-        signal: new AbortController().signal,
-      })).rejects.toMatchObject({ code: 'decode-failed' });
+      await expect(fetchResource(`blossom:sha256:${hash}`, approved(new AbortController().signal))).rejects.toMatchObject({ code: 'decode-failed' });
     }
   });
 
@@ -407,9 +403,7 @@ describe('Paja resource backend', () => {
       getBlossomServers: () => ['https://blossom.example'],
       fetch: vi.fn(async () => new Response(bytes, { headers: { 'content-type': 'text/html' } })),
     });
-    const response = await fetchResource(`blossom:sha256:${hash}`, {
-      signal: new AbortController().signal,
-    });
+    const response = await fetchResource(`blossom:sha256:${hash}`, approved(new AbortController().signal));
     expect(response.headers.get('content-type')).toBe(mime);
     expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes);
   });
@@ -423,11 +417,11 @@ describe('Paja resource backend', () => {
       fetch: fetchFn,
     });
     const signal = new AbortController().signal;
-    await expect(fetchResource(`blossom:sha256:${hash}`, { signal }))
+    await expect(fetchResource(`blossom:sha256:${hash}`, approved(signal)))
       .rejects.toMatchObject({ code: 'decode-failed' });
     fetchFn.mockResolvedValueOnce(new Response(new Uint8Array([0xff])))
       .mockResolvedValueOnce(new Response(bytes));
-    const response = await fetchResource(`blossom:sha256:${hash}`, { signal });
+    const response = await fetchResource(`blossom:sha256:${hash}`, approved(signal));
     expect(response.headers.get('content-type')).toBe('application/octet-stream');
     expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes);
     expect(fetchFn).toHaveBeenCalledTimes(4);
@@ -448,9 +442,7 @@ describe('Paja resource backend', () => {
         headers: length ? { 'content-length': length } : {},
       })),
     });
-    await expect(fetchResource(`blossom:sha256:${'b'.repeat(64)}`, {
-      signal: new AbortController().signal,
-    })).rejects.toMatchObject({ code: 'too-large' });
+    await expect(fetchResource(`blossom:sha256:${'b'.repeat(64)}`, approved(new AbortController().signal))).rejects.toMatchObject({ code: 'too-large' });
     expect(cancel).toHaveBeenCalledOnce();
   });
 
@@ -473,8 +465,7 @@ describe('Paja resource backend', () => {
     try {
       const sent: NappletMessage[] = [];
       adapter.services?.resource?.handleMessage('resource-window', {
-        type: 'resource.bytes', id: `failure-${failure}`, url: `blossom:sha256:${hash}`,
-        servers: ['https://blossom.example'],
+        type: 'resource.bytes', id: `failure-${failure}`, url: `blossom:sha256:${hash}?xs=blossom.example`,
       } as NappletMessage, (message) => sent.push(message));
       await vi.waitFor(() => expect(sent).toHaveLength(1));
       expect(sent[0]).toMatchObject({
@@ -498,12 +489,15 @@ describe('Paja resource backend', () => {
       new Uint8Array([0xff, 0x02]),
     ];
     const hashes = await Promise.all(vectors.map(sha256Hex));
-    const urls = hashes.map((hash) => `blossom:sha256:${hash}`);
+    const urls = hashes.map((hash) => `blossom:sha256:${hash}?xs=blossom.example`);
     let releaseFirst!: (response: Response) => void;
     const firstResponse = new Promise<Response>((resolve) => { releaseFirst = resolve; });
     const completed: number[] = [];
-    const fetchFn = vi.fn(async (value: string) => {
-      const index = hashes.indexOf(value.split('/').at(-1) ?? '');
+    const fetchFn = vi.fn(async (value: string, init?: RequestInit) => {
+      const destination = value === '/__kehto/resource'
+        ? String(JSON.parse(String(init?.body)).url)
+        : value;
+      const index = hashes.indexOf(destination.split('/').at(-1)?.split('?')[0] ?? '');
       expect(index).toBeGreaterThanOrEqual(0);
       const response = index === 0 ? await firstResponse : new Response(
         index === 5 ? new Uint8Array([0xff]) : vectors[index],
@@ -528,7 +522,7 @@ describe('Paja resource backend', () => {
       // Keep installed per-resource hints; PR #80's URLs-only wire drift is out of scope.
       adapter.services?.resource?.handleMessage('resource-window', {
         type: 'resource.bytesMany', id: 'mixed-bulk',
-        requests: urls.map((url) => ({ url, servers: ['https://blossom.example'] })),
+        urls,
       } as unknown as NappletMessage, (message) => sent.push(message));
       // The existing service fetches bulk items serially, not concurrently.
       await vi.waitFor(() => expect(fetchFn).toHaveBeenCalledOnce());
@@ -538,7 +532,7 @@ describe('Paja resource backend', () => {
       await vi.waitFor(() => expect(sent).toHaveLength(1));
       expect(completed).toEqual(vectors.map((_bytes, index) => index));
       const result = sent[0] as NappletMessage & {
-        items: { url: string; ok: boolean; blob?: Blob; mime?: string; error?: string }[];
+        items: { url: string; ok: boolean; blob?: string; mime?: string; error?: string }[];
       };
       expect(result).toMatchObject({ type: 'resource.bytesMany.result', id: 'mixed-bulk' });
       expect(result.items.map((item) => item.url)).toEqual(urls);
@@ -549,8 +543,7 @@ describe('Paja resource backend', () => {
       for (const [index, mime] of mimes.entries()) {
         const item = result.items[index];
         expect(item).toMatchObject({ ok: true, mime });
-        expect(item?.blob?.type).toBe(mime);
-        expect(new Uint8Array(await item!.blob!.arrayBuffer())).toEqual(vectors[index]);
+        expect(new Uint8Array(Uint8Array.from(atob(item!.blob!), (value) => value.charCodeAt(0)))).toEqual(vectors[index]);
       }
       for (const [offset, error] of ['decode-failed', 'decode-failed', 'too-large'].entries()) {
         const item = result.items[offset + mimes.length];
@@ -562,7 +555,7 @@ describe('Paja resource backend', () => {
 
       adapter.services?.resource?.handleMessage('resource-window', {
         type: 'resource.bytesMany', id: 'over-cap',
-        requests: Array.from({ length: PAJA_RESOURCE_MAX_URLS + 1 }, () => ({ url: urls[0] })),
+        urls: Array.from({ length: PAJA_RESOURCE_MAX_URLS + 1 }, () => urls[0]!),
       } as unknown as NappletMessage, (message) => sent.push(message));
       await vi.waitFor(() => expect(sent).toHaveLength(2));
       expect(sent[1]).toMatchObject({ type: 'resource.bytesMany.error', id: 'over-cap', error: 'too-large' });
@@ -582,19 +575,14 @@ describe('Paja resource backend', () => {
       fetch: fetchFn,
     });
 
-    const response = await fetchResource(`${prefix}${hash}`, {
-      signal: new AbortController().signal,
-      servers: [
-        'http://public.example',
-        'https://localhost',
-        'https://hint.example/',
-        'https://HINT.example',
-      ],
-    });
+    const response = await fetchResource(
+      `${prefix}${hash}?xs=http%3A%2F%2Fpublic.example&xs=https%3A%2F%2Flocalhost&xs=https%3A%2F%2Fhint.example%2F&xs=https%3A%2F%2FHINT.example`,
+      approved(new AbortController().signal),
+    );
 
     expect(fetchFn).toHaveBeenCalledOnce();
-    expect(fetchFn).toHaveBeenCalledWith(`https://hint.example/${hash}`, expect.objectContaining({
-      redirect: 'error',
+    expect(fetchFn).toHaveBeenCalledWith('/__kehto/resource', expect.objectContaining({
+      body: JSON.stringify({ url: `https://hint.example/${hash}` }),
     }));
     expect(await response.text()).toBe('{"from":"request-hint"}');
   });
@@ -607,17 +595,19 @@ describe('Paja resource backend', () => {
     const fetchResource = createPajaResourceFetch({ getBlossomServers, fetch: fetchFn });
 
     const response = await fetchResource(`${prefix}${hash}`, {
-      signal: new AbortController().signal,
+      ...approved(new AbortController().signal),
       windowId: 'rom-window',
     });
 
-    expect(getBlossomServers).toHaveBeenCalledWith({
+    expect(getBlossomServers).toHaveBeenCalledWith(expect.objectContaining({
       url: `${prefix}${hash}`,
       windowId: 'rom-window',
-    });
+      signal: expect.any(AbortSignal),
+      authorizeNetwork: expect.any(Function),
+    }));
     expect(fetchFn).toHaveBeenCalledWith(
-      `https://publisher.example/${hash}`,
-      expect.objectContaining({ redirect: 'error' }),
+      '/__kehto/resource',
+      expect.objectContaining({ body: JSON.stringify({ url: `https://publisher.example/${hash}` }) }),
     );
     expect(await response.text()).toBe('{"from":"publisher-list"}');
   });
@@ -635,10 +625,10 @@ describe('Paja resource backend', () => {
       fetch: fetchFn,
     });
 
-    await expect(fetchResource(`${prefix}${'d'.repeat(64)}`, {
-      signal: new AbortController().signal,
-      servers,
-    })).rejects.toMatchObject({ code: 'network-error' });
+    await expect(fetchResource(
+      `${prefix}${'d'.repeat(64)}?${servers.map((server) => `xs=${encodeURIComponent(server)}`).join('&')}`,
+      approved(new AbortController().signal),
+    )).rejects.toMatchObject({ code: 'network-error' });
 
     expect(fetchFn).toHaveBeenCalledTimes(PAJA_RESOURCE_MAX_SERVERS);
     expect(fetchFn).not.toHaveBeenCalledWith(
@@ -651,7 +641,7 @@ describe('Paja resource backend', () => {
     const fetchResource = createPajaResourceFetch();
     const response = await fetchResource(
       'data:image/png,%7B%22actual%22%3A%22json%22%7D',
-      { signal: new AbortController().signal },
+      approved(new AbortController().signal),
     );
 
     expect(response.headers.get('content-type')).toBe('application/json');
@@ -672,19 +662,14 @@ describe('Paja resource backend', () => {
     const mixedCaseHash = hash.replace(/[a-f]/g, (letter, index) => index % 2 ? letter.toUpperCase() : letter);
     const response = await fetchResource(`${prefix}${mixedCaseHash}`, {
       method: 'GET',
-      signal: new AbortController().signal,
+      ...approved(new AbortController().signal),
     });
 
-    expect(fetchFn).toHaveBeenNthCalledWith(1, `https://one.example/${hash}`, expect.objectContaining({
-      method: 'GET',
-      redirect: 'error',
-      cache: 'no-store',
-      credentials: 'omit',
-      referrerPolicy: 'no-referrer',
+    expect(fetchFn).toHaveBeenNthCalledWith(1, '/__kehto/resource', expect.objectContaining({
+      body: JSON.stringify({ url: `https://one.example/${hash}` }),
     }));
-    expect(fetchFn).toHaveBeenNthCalledWith(2, `http://localhost:3000/${hash}`, expect.objectContaining({
-      method: 'GET',
-      redirect: 'error',
+    expect(fetchFn).toHaveBeenNthCalledWith(2, '/__kehto/resource', expect.objectContaining({
+      body: JSON.stringify({ url: `http://localhost:3000/${hash}` }),
     }));
     expect(response.headers.get('content-type')).toBe('application/json');
     expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes);
@@ -703,32 +688,89 @@ describe('Paja resource backend', () => {
       )),
     });
 
-    const response = await fetchResource(`blossom:sha256:${hash}`, {
-      signal: new AbortController().signal,
-    });
+    const response = await fetchResource(`blossom:sha256:${hash}`, approved(new AbortController().signal));
 
     expect(response.headers.get('content-type')).toBe('application/vnd.nintendo.gb-rom');
     expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes);
   });
 
-  it('resolves arbitrary HTTP(S) origins through the browser and classifies returned bytes', async () => {
+  it('uses the local resource proxy for HTTP(S) requests and classifies returned bytes', async () => {
     const fetchFn = vi.fn(async () => new Response('{"network":true}', {
       headers: { 'content-type': 'image/svg+xml' },
     }));
     const fetchResource = createPajaResourceFetch({ fetch: fetchFn });
     const signal = new AbortController().signal;
 
-    const httpsResponse = await fetchResource('https://media.example/avatar', { signal });
-    const httpResponse = await fetchResource('http://localhost:3000/avatar', { signal });
+    const httpsResponse = await fetchResource('https://media.example/avatar', approved(signal));
+    const httpResponse = await fetchResource('http://localhost:3000/avatar', approved(signal));
 
-    expect(fetchFn).toHaveBeenNthCalledWith(1, 'https://media.example/avatar', expect.objectContaining({
-      method: 'GET',
-      credentials: 'omit',
-      referrerPolicy: 'no-referrer',
+    expect(fetchFn).toHaveBeenNthCalledWith(1, '/__kehto/resource', expect.objectContaining({
+      method: 'POST', body: JSON.stringify({ url: 'https://media.example/avatar' }),
     }));
-    expect(fetchFn).toHaveBeenNthCalledWith(2, 'http://localhost:3000/avatar', expect.any(Object));
+    expect(fetchFn).toHaveBeenNthCalledWith(2, '/__kehto/resource', expect.objectContaining({
+      method: 'POST', body: JSON.stringify({ url: 'http://localhost:3000/avatar' }),
+    }));
     expect(httpsResponse.headers.get('content-type')).toBe('application/json');
     expect(httpResponse.headers.get('content-type')).toBe('application/json');
+  });
+
+  it('re-authorizes each proxy redirect hop before requesting it', async () => {
+    const fetchFn = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: 302, location: '/final.png' }), {
+        headers: { 'x-kehto-resource-redirect': '1', 'content-type': 'application/json' },
+      }))
+      .mockResolvedValueOnce(new Response('redirected bytes'));
+    const destinations: string[] = [];
+    const fetchResource = createPajaResourceFetch({ fetch: fetchFn });
+    const signal = new AbortController().signal;
+
+    const response = await fetchResource('https://media.example/start.png', {
+      signal,
+      authorizeNetwork: async (destination, execute) => {
+        destinations.push(destination);
+        return execute(signal);
+      },
+    });
+
+    expect(destinations).toEqual([
+      'https://media.example/start.png',
+      'https://media.example/final.png',
+    ]);
+    expect(fetchFn).toHaveBeenNthCalledWith(1, '/__kehto/resource', expect.objectContaining({
+      body: JSON.stringify({ url: 'https://media.example/start.png' }),
+    }));
+    expect(fetchFn).toHaveBeenNthCalledWith(2, '/__kehto/resource', expect.objectContaining({
+      body: JSON.stringify({ url: 'https://media.example/final.png' }),
+    }));
+    await expect(response.text()).resolves.toBe('redirected bytes');
+  });
+
+  it('re-authorizes each proxy redirect hop while resolving Blossom bytes', async () => {
+    const bytes = new TextEncoder().encode('verified redirect resource');
+    const hash = await sha256Hex(bytes);
+    const fetchFn = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: 307, location: 'https://mirror.example/asset' }), {
+        headers: { 'x-kehto-resource-redirect': '1', 'content-type': 'application/json' },
+      }))
+      .mockResolvedValueOnce(new Response(bytes));
+    const destinations: string[] = [];
+    const response = await createPajaResourceFetch({
+      getBlossomServers: () => ['https://blossom.example'], fetch: fetchFn,
+    })(`blossom:${hash}`, {
+      signal: new AbortController().signal,
+      authorizeNetwork: async (destination, execute) => {
+        destinations.push(destination);
+        return execute(new AbortController().signal);
+      },
+    });
+
+    expect(destinations).toEqual([
+      `https://blossom.example/${hash}`,
+      'https://mirror.example/asset',
+    ]);
+    expect(fetchFn).toHaveBeenNthCalledWith(1, '/__kehto/resource', expect.objectContaining({ redirect: 'manual' }));
+    expect(fetchFn).toHaveBeenNthCalledWith(2, '/__kehto/resource', expect.objectContaining({ redirect: 'manual' }));
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes);
   });
 
   it('maps browser CORS rejection to the canonical network error', async () => {
@@ -736,27 +778,25 @@ describe('Paja resource backend', () => {
       fetch: vi.fn(async () => { throw new TypeError('Failed to fetch'); }),
     });
 
-    await expect(fetchResource('https://media.example/avatar', {
-      signal: new AbortController().signal,
-    })).rejects.toMatchObject({ code: 'network-error', message: 'Failed to fetch' });
+    await expect(fetchResource('https://media.example/avatar', approved(new AbortController().signal))).rejects.toMatchObject({ code: 'network-error', message: 'Failed to fetch' });
   });
 
   it.each(['blossom:', 'blossom:sha256:'])('rejects malformed %s identifiers, hash mismatches, oversize responses, raw SVG, and unknown schemes', async (prefix) => {
     const fetchResource = createPajaResourceFetch();
     const signal = new AbortController().signal;
 
-    await expect(fetchResource('data:image/svg+xml,%3Csvg%3E%3C/svg%3E', { signal }))
+    await expect(fetchResource('data:image/svg+xml,%3Csvg%3E%3C/svg%3E', approved(signal)))
       .rejects.toMatchObject({ code: 'decode-failed' });
-    await expect(fetchResource('ftp://example.com/image.png', { signal }))
+    await expect(fetchResource('ftp://example.com/image.png', approved(signal)))
       .rejects.toMatchObject({ code: 'unsupported-scheme' });
 
     const blossomFetch = createPajaResourceFetch({
       getBlossomServers: () => ['https://blossom.example'],
       fetch: vi.fn(async () => new Response('wrong bytes')),
     });
-    await expect(blossomFetch(`${prefix}not-a-hash`, { signal }))
+    await expect(blossomFetch(`${prefix}not-a-hash`, approved(signal)))
       .rejects.toMatchObject({ code: 'invalid-request' });
-    await expect(blossomFetch(`${prefix}${'a'.repeat(64)}`, { signal }))
+    await expect(blossomFetch(`${prefix}${'a'.repeat(64)}`, approved(signal)))
       .rejects.toMatchObject({ code: 'decode-failed' });
 
     const oversizeFetch = createPajaResourceFetch({
@@ -765,7 +805,7 @@ describe('Paja resource backend', () => {
         headers: { 'content-length': String(PAJA_RESOURCE_MAX_BYTES + 1) },
       })),
     });
-    await expect(oversizeFetch(`${prefix}${'b'.repeat(64)}`, { signal }))
+    await expect(oversizeFetch(`${prefix}${'b'.repeat(64)}`, approved(signal)))
       .rejects.toMatchObject({ code: 'too-large' });
 
     const svg = new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"></svg>');
@@ -774,7 +814,7 @@ describe('Paja resource backend', () => {
       getBlossomServers: () => ['https://blossom.example'],
       fetch: vi.fn(async () => new Response(svg)),
     });
-    await expect(svgFetch(`${prefix}${svgHash}`, { signal }))
+    await expect(svgFetch(`${prefix}${svgHash}`, approved(signal)))
       .rejects.toMatchObject({ code: 'decode-failed' });
   });
 
@@ -784,12 +824,12 @@ describe('Paja resource backend', () => {
       fetch: vi.fn(async () => new Response(null, { status: 404 })),
     });
     const signal = new AbortController().signal;
-    await expect(fetchResource(`${prefix}${'c'.repeat(64)}`, { signal }))
+    await expect(fetchResource(`${prefix}${'c'.repeat(64)}`, approved(signal)))
       .rejects.toMatchObject({ code: 'not-found' });
 
     const controller = new AbortController();
     controller.abort();
-    await expect(fetchResource(`${prefix}${'c'.repeat(64)}`, { signal: controller.signal }))
+    await expect(fetchResource(`${prefix}${'c'.repeat(64)}`, approved(controller.signal)))
       .rejects.toMatchObject({ name: 'AbortError' });
   });
 
@@ -803,7 +843,7 @@ describe('Paja resource backend', () => {
       'a'.repeat(63), 'a'.repeat(65), `${'a'.repeat(63)}g`,
       `sha512:${hash}`, `${hash}.`, `${hash}.png/other`, `${hash}#fragment`,
     ]) {
-      await expect(fetchResource(`${prefix}${identifier}`, { signal }))
+      await expect(fetchResource(`${prefix}${identifier}`, approved(signal)))
         .rejects.toMatchObject({ code: 'invalid-request' });
     }
     expect(getBlossomServers).not.toHaveBeenCalled();
@@ -821,9 +861,7 @@ describe('Paja resource backend', () => {
         },
       }))),
     });
-    await expect(fetchResource(`${prefix}${'a'.repeat(64)}`, {
-      signal: new AbortController().signal,
-    })).rejects.toMatchObject({ code: 'too-large' });
+    await expect(fetchResource(`${prefix}${'a'.repeat(64)}`, approved(new AbortController().signal))).rejects.toMatchObject({ code: 'too-large' });
   });
 
   it('routes data and arbitrary HTTPS bytes through the service', async () => {
@@ -845,13 +883,13 @@ describe('Paja resource backend', () => {
     } as NappletMessage, (message) => sent.push(message));
     await flushPromises();
 
-    const result = sent[0] as NappletMessage & { blob: Blob; mime: string };
+    const result = sent[0] as NappletMessage & { blob: string; mime: string };
     expect(result).toMatchObject({
       type: 'resource.bytes.result',
       id: 'data-1',
       mime: 'text/plain',
     });
-    expect(await result.blob.text()).toBe('hello world');
+    expect(atob(result.blob)).toBe('hello world');
 
     vi.stubGlobal('fetch', vi.fn(async () => new Response('{"remote":true}', {
       headers: { 'content-type': 'text/html' },
@@ -862,13 +900,13 @@ describe('Paja resource backend', () => {
       url: 'https://example.com/tracker.png',
     } as NappletMessage, (message) => sent.push(message));
     await flushPromises();
-    const httpsResult = sent[1] as NappletMessage & { blob: Blob; mime: string };
+    const httpsResult = sent[1] as NappletMessage & { blob: string; mime: string };
     expect(httpsResult).toMatchObject({
       type: 'resource.bytes.result',
       id: 'https-1',
       mime: 'application/json',
     });
-    expect(await httpsResult.blob.text()).toBe('{"remote":true}');
+    expect(atob(httpsResult.blob)).toBe('{"remote":true}');
 
     (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
   });
@@ -891,20 +929,19 @@ describe('Paja resource backend', () => {
     service?.handleMessage('resource-window', {
       type: 'resource.bytes',
       id: 'blossom-1',
-      url: `${prefix}${hash}`,
-      servers: ['https://blossom.example'],
+      url: `${prefix}${hash}?xs=blossom.example`,
     } as NappletMessage, (message) => sent.push(message));
     await flushPromises();
 
-    const result = sent[0] as NappletMessage & { blob: Blob; mime: string };
+    const result = sent[0] as NappletMessage & { blob: string; mime: string };
     expect(result).toMatchObject({
       type: 'resource.bytes.result',
       id: 'blossom-1',
       mime: 'text/plain',
     });
-    expect(await result.blob.text()).toBe('hello from blossom');
-    expect(fetchFn).toHaveBeenCalledWith(`https://blossom.example/${hash}`, expect.objectContaining({
-      redirect: 'error',
+    expect(atob(result.blob)).toBe('hello from blossom');
+    expect(fetchFn).toHaveBeenCalledWith('/__kehto/resource', expect.objectContaining({
+      body: JSON.stringify({ url: `https://blossom.example/${hash}` }),
     }));
 
     (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();

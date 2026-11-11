@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
 import { expect, test } from '@playwright/test';
+import { installPajaApprovalDriver } from './paja-approval-driver.js';
 import { LINUX_DISTROS } from '../../packages/mocks/dist/index.js';
 import { startPajaServer, type PajaServer } from '../../packages/paja/dist/index.js';
 
@@ -14,6 +15,8 @@ const MOCKED = ['blossom', 'capture', 'catalog', 'class', 'display', 'git', 'has
   'motion', 'navigation', 'nzb', 'pow', 'soulseek', 'system', 'torrent', 'value', 'worker'];
 
 const PROBE = `<!doctype html><html><head><title>Mocked NAP probe</title>
+<meta name="napplet-requires" content="shell class git system catalog location">
+<meta name="napplet-optional" content="torrent">
 <style>body{font:12px/1.4 ui-monospace,monospace;background:#101211;color:#f4f0df;margin:12px}h1{font-size:14px;color:#d8c36a}
 li{margin:2px 0}.err{color:#e6a5a5}</style></head><body><h1>Mocked NAP probe</h1><ul id="out"></ul>
 <script>
@@ -61,9 +64,13 @@ li{margin:2px 0}.err{color:#e6a5a5}</style></head><body><h1>Mocked NAP probe</h1
 let target: ReturnType<typeof createServer>;
 let host: PajaServer;
 
+test.beforeEach(async ({ page }) => {
+  await installPajaApprovalDriver(page);
+});
+
 test.beforeAll(async () => {
   target = createServer((_request, response) => {
-    response.writeHead(200, { 'content-type': 'text/html' });
+    response.writeHead(200, { 'content-type': 'text/html', 'access-control-allow-origin': '*' });
     response.end(PROBE);
   });
   await new Promise<void>((resolve) => target.listen(0, '127.0.0.1', resolve));

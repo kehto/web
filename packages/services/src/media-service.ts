@@ -4,6 +4,7 @@ import type { MediaPlayback, MediaPlaybackBackend, MediaPlaybackCommand, MediaPl
 import type { NappletMessage } from '@napplet/core';
 // DRIFT-CORE-06 — Phase 11-deviation: ServiceDescriptor dropped from @napplet/core
 // v0.2.0+ (napplet phase-81). Re-exported from @kehto/runtime (canonical home after Phase 24 DRIFT-01).
+import type { ApprovalSignal, ServiceRuntimeContext } from '@kehto/runtime';
 import type {
   MediaAction,
   MediaCapabilitiesMessage,
@@ -393,6 +394,33 @@ function normalizeActions(value: unknown): MediaAction[] {
   return Array.isArray(value) ? [...new Set(value.filter(action => all.includes(action)))] : [];
 }
 
+type MediaPermissionRequirement = Parameters<NonNullable<ServiceRuntimeContext['authorizeOperation']>>[2][number];
+
+const MEDIA_APPROVED_OPERATIONS: ReadonlySet<string> = new Set([
+  'media.session.create',
+  'media.session.update',
+  'media.session.destroy',
+  'media.state',
+  'media.capabilities',
+  'media.command',
+]);
+
+function mediaOperation(message: NappletMessage): string | null {
+  return MEDIA_APPROVED_OPERATIONS.has(message.type) ? message.type : null;
+}
+
+function mediaSessionScope(message: NappletMessage): string {
+  const sessionId = Object.getOwnPropertyDescriptor(message, 'sessionId')?.value;
+  return typeof sessionId === 'string' && sessionId.length > 0 ? sessionId : 'new-session';
+}
+
+function mediaRequirements(operation: string, sessionId: string): readonly MediaPermissionRequirement[] {
+  return [
+    { category: 'interface', domain: 'media', operation: 'access', scope: { kind: 'exact', value: 'media' } },
+    { category: 'resource', domain: 'media', operation, scope: { kind: 'exact', value: sessionId } },
+  ];
+}
+
 /**
  * Create owner-bound NAP-MEDIA sessions with optional shell playback.
  * @param options - OS integration, policy-mediated playback and host observers.
@@ -407,19 +435,53 @@ export function createMediaService(options: MediaServiceOptions = {}): MediaServ
   const bridge = options.hostBridge ?? createBrowserMediaBridge(options);
   const registry = new MediaRegistry(options, bridge);
   const off = bridge.onAction((sessionId, action, value) => registry.command(sessionId, { action, value }));
+  const generations = new Map<string, symbol>();
+  let runtime: ServiceRuntimeContext | undefined;
+  const revokeWindow = (windowId: string): void => {
+    for (const [abort, pending] of registry.pending) {
+      if (pending.windowId !== windowId) continue;
+      abort.abort();
+      registry.pending.delete(abort);
+      pending.fail('permission revoked');
+    }
+    for (const entry of registry.sessions.values()) if (entry.windowId === windowId) registry.retire(entry.sessionId, 'policy');
+  };
   const service: MediaService = {
     descriptor: { name: 'media', version: MEDIA_SERVICE_VERSION, description: 'NAP-MEDIA session registry and player' },
-    handleMessage: (windowId, message, send) => registry.handle(windowId, message, send),
-    onWindowDestroyed: windowId => registry.destroyWindow(windowId),
+    onRegistered(context) { runtime = context; },
+    handleMessage(windowId, message, send) {
+      const operation = mediaOperation(message);
+      if (!operation || !runtime?.authorizeOperation) {
+        registry.handle(windowId, message, send);
+        return;
+      }
+      const generation = generations.get(windowId) ?? Symbol(windowId);
+      generations.set(windowId, generation);
+      const denyCreate = (): void => {
+        if (message.type !== 'media.session.create' || generations.get(windowId) !== generation) return;
+        const { id } = message as NappletMessage & { id?: unknown };
+        send({ type: 'media.session.create.result', id: typeof id === 'string' ? id : '', error: 'user-denied' } as NappletMessage);
+      };
+      void runtime.authorizeOperation(windowId, operation, mediaRequirements(operation, mediaSessionScope(message)), async (signal: ApprovalSignal) => {
+        if (generations.get(windowId) !== generation || signal.aborted) throw new Error('user-denied');
+        registry.handle(windowId, message, send);
+        if (generations.get(windowId) !== generation || signal.aborted) throw new Error('user-denied');
+      }).then((outcome) => {
+        if (outcome.status !== 'executed') denyCreate();
+      }).catch(denyCreate);
+    },
+    onWindowDestroyed(windowId) {
+      generations.delete(windowId);
+      registry.destroyWindow(windowId);
+    },
+    onPermissionRevoked(windowId) {
+      generations.delete(windowId);
+      revokeWindow(windowId);
+    },
     onCapabilityRevoked(windowId, capability) {
       if (capability !== null && capability !== 'media:control') return;
-      for (const [abort, pending] of registry.pending) {
-        if (pending.windowId !== windowId) continue;
-        abort.abort();
-        registry.pending.delete(abort);
-        pending.fail('permission revoked');
-      }
-      for (const entry of registry.sessions.values()) if (entry.windowId === windowId) registry.retire(entry.sessionId, 'policy');
+      generations.delete(windowId);
+      revokeWindow(windowId);
     },
     getSessions: () => registry.snapshots(),
     subscribe(listener) {
@@ -442,9 +504,13 @@ export function createMediaService(options: MediaServiceOptions = {}): MediaServ
       for (const id of registry.sessions.keys()) registry.retire(id, 'policy');
       registry.used.clear();
       registry.listeners.clear();
+      generations.clear();
       bridge.setActiveSession?.(null);
     },
   };
-  service.onUnregistered = service.destroy;
+  service.onUnregistered = () => {
+    runtime = undefined;
+    service.destroy();
+  };
   return service;
 }
