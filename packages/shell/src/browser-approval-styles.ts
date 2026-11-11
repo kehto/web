@@ -41,7 +41,7 @@ export const BROWSER_APPROVAL_UI_STYLES = `
 .kehto-fw-domain > summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; }
 .kehto-fw-domain > ul { margin: 6px 0; }
 .kehto-fw-domain li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 2px 8px; padding: 6px 8px; border-radius: 4px; background: var(--fw-inset); }
-.kehto-fw-domain li code { grid-column: 1 / -1; grid-row: 2; }
+.kehto-fw-domain li code { grid-column: 1 / 3; grid-row: 2; }
 .kehto-fw-domain li small { grid-column: 1 / 3; grid-row: 3; }
 .kehto-fw-domain li button { grid-column: 3; grid-row: 1 / span 3; align-self: center; }
 .kehto-fw-effect { font-size: 10px; font-weight: 700; text-transform: uppercase; }
@@ -62,7 +62,8 @@ export const BROWSER_APPROVAL_UI_STYLES = `
 .kehto-approval-remember span { color: var(--fw-muted); font-size: 11px; margin-right: 2px; }
 .kehto-approval-remember button[aria-pressed="true"] { border-color: var(--fw-accent); color: var(--fw-accent); }
 .kehto-approval-remember button:disabled { opacity: 0.45; cursor: default; }
-.kehto-approval-rule { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; }
+.kehto-approval-rule { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.kehto-approval-rule input { margin: 0; flex: none; }
 .kehto-approval-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .kehto-approval-actions button { min-width: 88px; }
 .kehto-approval-primary { border-color: var(--fw-accent); color: var(--fw-accent); font-weight: 700; }

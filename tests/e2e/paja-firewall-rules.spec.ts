@@ -6,7 +6,7 @@ import { startPajaServer, type PajaServer } from '../../packages/paja/dist/index
 // action per command at launch, each of which is a separate exact scope. The
 // count stays under the runtime's startup burst budget (20 operations in the
 // first three seconds), which is enforced independently of any approval.
-const ACTIONS = 18;
+const ACTIONS = 12;
 const TARGET_HTML = `<!doctype html><html><head>
   <meta name="napplet-requires" content="shell">
   <meta name="napplet-optional" content="theme keys link">

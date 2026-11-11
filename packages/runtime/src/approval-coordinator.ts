@@ -49,7 +49,7 @@ export interface ApprovalCoordinatorOptions extends PermissionPolicyOptions {
   /**
    * Host default rules for scopes no stored decision covers, consulted before
    * the prompt budget and the prompt. `allow` commits session grants whose ids
-   * start with {@link DEFAULT_RULE_GRANT_PREFIX}; `deny` refuses without a
+   * start with `DEFAULT_RULE_GRANT_PREFIX`; `deny` refuses without a
    * grant; `ask` or a thrown error prompts. Stored denials, ACL restrictions,
    * domain availability, and operation budgets still apply.
    */

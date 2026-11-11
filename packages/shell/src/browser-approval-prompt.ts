@@ -146,7 +146,9 @@ export function createBrowserApprovalPrompt(
         resolve(result);
       };
       finishActive = finish;
-      listen(request.signal as unknown as EventTarget, 'abort', () => finish(CANCELLED));
+      const onAbort = (): void => finish(CANCELLED);
+      request.signal.addEventListener('abort', onAbort, { once: true });
+      listeners.push(() => request.signal.removeEventListener('abort', onAbort));
       listen(deny, 'click', () => finish({ answer: { effect: 'deny', lifetime: 'once' }, asRule: view.ruleBox.checked }));
       listen(allow, 'click', () => {
         const asRule = view.ruleBox.checked;
