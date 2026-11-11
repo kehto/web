@@ -11,7 +11,7 @@ import { createServiceExtensionRouter } from './service-extensions.js';
 import { notifyServiceWindowDestroyed, notifyServicePermissionRevoked } from './service-dispatch.js';
 import { createSessionRegistry, type SessionRegistry } from './session-registry.js';
 import { createAclState, type AclStateContainer } from './acl-state.js';
-import { createFirewallState, type FirewallStateContainer } from './firewall-state.js';
+import type { LegacyFirewallAdapter } from './legacy-firewall-adapter.js';
 import { createFirewallGate, createDenialResponse, createLegacyIgnoredWarning } from './legacy-firewall-gate.js';
 import { createPermissionRuntime, type RuntimePermissions } from './permission-runtime.js';
 import type { ApprovalSignal } from './approval-coordinator.js';
@@ -103,8 +103,8 @@ export interface Runtime {
   /** Access the ACL state container. */
   readonly aclState: AclStateContainer;
 
-  /** Legacy gate policy and budgets. With `permissions` set, nothing reads them: use `permissions.setRateLimit`. */
-  readonly firewallState: FirewallStateContainer;
+  /** Explicit legacy policy adapter, absent unless supplied by the host. */
+  readonly legacyFirewall: LegacyFirewallAdapter | undefined;
 
   /** Access the manifest cache. */
   readonly manifestCache: ManifestCache;
@@ -128,7 +128,7 @@ type RuntimeInstanceContext = {
   incRuntime: IncRuntime;
   sessionRegistry: SessionRegistry;
   aclState: AclStateContainer;
-  firewallState: FirewallStateContainer;
+  firewallState: LegacyFirewallAdapter | undefined;
   manifestCache: ManifestCache;
   consentHandlerRef: { current: ConsentHandler | null };
   handleMessage: Runtime['handleMessage'];
@@ -433,7 +433,7 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
       for (const name of attachedServices.keys()) detachService(name);
       manifestCache.persist();
       aclState.persist();
-      firewallState.persist();
+      firewallState?.persist();
       replayDetector.clear();
       subscriptions.clear();
       incRuntime.clear();
@@ -475,7 +475,7 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
     },
     get sessionRegistry() { return sessionRegistry; },
     get aclState() { return aclState; },
-    get firewallState() { return firewallState; },
+    get legacyFirewall() { return firewallState; },
     get permissions() { return context.permissions?.management; },
     get manifestCache() { return manifestCache; },
   };
@@ -532,12 +532,12 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   const serviceRegistry: ServiceRegistry = { ...hooks.services };
   const registeredServices = createRegisteredServices(serviceRegistry);
   const warnLegacyIgnored = hooks.permissions ? createLegacyIgnoredWarning() : undefined;
-  if (hooks.onFirewallEvent || hooks.firewallPersistence) warnLegacyIgnored?.();
-  const firewallState = createFirewallState(hooks.firewallPersistence, warnLegacyIgnored);
+  if (hooks.onFirewallEvent || hooks.legacyFirewall) warnLegacyIgnored?.();
+  const firewallState = hooks.permissions ? undefined : hooks.legacyFirewall;
   let extensions: ReturnType<typeof createServiceExtensionRouter> | undefined;
   let permissions: ReturnType<typeof createPermissionRuntime> | undefined;
   const sessionRegistry = createSessionRegistry(hooks.onPendingUpdate, (windowId) => {
-    firewallState.resetInitBudget(windowId);
+    firewallState?.resetInitBudget(windowId);
     extensions?.destroyWindow(windowId);
     permissions?.retire(windowId);
     if (hooks.permissions) notifyServiceWindowDestroyed(windowId, serviceRegistry);
@@ -584,8 +584,8 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
       napplet,
       pubkey: '',
       resolve: (allowed: boolean): void => {
-        firewallState.setPolicy(napplet, allowed ? 'allow' : 'deny');
-        firewallState.persist();
+        firewallState?.setPolicy(napplet, allowed ? 'allow' : 'deny');
+        firewallState?.persist();
       },
     });
   };
@@ -636,7 +636,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   );
 
   aclState.load();
-  firewallState.load();
+  firewallState?.load();
   manifestCache.load();
 
   const domainHandlers = createRuntimeDomainHandlers({ hooks, serviceRegistry, sessionRegistry, aclState });

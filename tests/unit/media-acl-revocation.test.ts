@@ -12,7 +12,6 @@ describe('runtime media output authority', () => {
     const hash = 'a'.repeat(64);
     for (const [windowId, dTag] of [['a', 'player'], ['b', 'player'], ['c', 'other']]) {
       runtime.sessionRegistry.register(windowId, createNip5dSessionEntry(windowId, dTag, hash));
-      runtime.firewallState.setPolicy(dTag, 'allow');
       runtime.handleMessage(windowId, { type: 'media.session.create', id: windowId, owner: 'napplet', sessionId: windowId } as NappletMessage);
     }
     expect(media.getSessions()).toHaveLength(3);

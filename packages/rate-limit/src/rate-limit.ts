@@ -99,12 +99,13 @@ function validAction(value: RateLimitAction): boolean {
 /**
  * Check a budget before it is used. A multiplier above 1 loosens background
  * windows, and a burst `windowMs` of zero turns the startup guard off.
+ * Zero capacity always exceeds the operation budget, preserving legacy controls.
  * @param config - Budget to check.
  * @throws RangeError if a budget is out of range or an action is unknown.
  */
 export function assertRateLimitConfig(config: RateLimitConfig): void {
   const { burst } = config;
-  if (!positive(config.capacity) || !positive(config.windowMs) || !positive(config.unfocusedMultiplier)
+  if (!Number.isFinite(config.capacity) || config.capacity < 0 || !positive(config.windowMs) || !positive(config.unfocusedMultiplier)
     || !Number.isFinite(burst.windowMs) || burst.windowMs < 0
     || !Number.isSafeInteger(burst.maxOperations) || burst.maxOperations < 0
     || !validAction(config.action) || !validAction(burst.action)) {

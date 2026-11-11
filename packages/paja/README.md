@@ -715,3 +715,10 @@ collapsible player with transport, seek, volume, and close controls. It also
 streams live HTTPS MP3/AAC radio without awaiting EOF and displays napplet-owned
 sessions. See [Media playback](../../docs/media.md) for
 source support, lifecycle rules, and canonical API examples.
+
+## Optional temporal protection
+
+Paja explicitly installs operation and prompt limiters from `@kehto/rate-limit`
+in `createPajaPermissionAdapter`. These are Paja host choices; runtime and Firewall
+do not impose them on other hosts. Limiter configuration and counters are separate
+from approval grants.

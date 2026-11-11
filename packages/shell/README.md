@@ -203,12 +203,14 @@ bridge.runtime.registerService(
 - `adaptHooks` — convert a `ShellAdapter` + `BrowserDeps` into the canonical `RuntimeAdapter` hook bag consumed by `@kehto/runtime`
 - `ShellAdapter.aclDefaultPolicy?` — `'permissive' | 'restrictive'`, forwarded to the runtime. See the `@kehto/runtime` docs for how it treats persisted ACL state.
 
-### Firewall hooks
-- `ShellAdapter.getFocusContext?(windowId)` — returns `{ focused, msSinceFocusGain? }`. Without it, every window counts as focused and `unfocusedMultiplier` never applies. Both the legacy gate and the `permissions` budgets use it.
-- `ShellAdapter.onFirewallEvent?(event)` — legacy gate only. Reports each firewall flag, rejection and prompt as a `FirewallEvent`, so a host can show what was refused. With `permissions` set, use `permissions.onRateLimit` and the approval UI.
-- `ShellAdapter.firewallPersistence?` — legacy gate only. A `FirewallPersistence` that stores firewall config across reloads. Without it, firewall config stays in memory. Counters are never stored. With `permissions` set, grants use `permissions.persistence`.
-- `bridge.runtime.permissions.setRateLimit(config)` — changes the operation budget on a host with `permissions`, including `unfocusedMultiplier` and the startup `burst` guard.
-- Setting a legacy-only hook alongside `permissions` warns once with `FW-RUNTIME-LEGACY-IGNORED-001`.
+### Firewall and optional rate controls
+
+`ShellAdapter.permissions` forwards scoped approvals and optional `rateLimiter`
+and `promptRateLimiter` instances without constructing defaults. Hold each
+`@kehto/rate-limit` instance to update its `config` through `setConfig`.
+`getFocusContext` supplies trusted focus to installed controls. Hosts without
+permissions can explicitly pass `legacyFirewall` from `@kehto/rate-limit/legacy`
+and audit it through `onFirewallEvent`. The legacy adapter owns its config storage.
 
 ### Diagnostics
 - `ShellAdapter.onNappletRevoked?(revocation)` — called once when the bridge revokes a NIP-5D binding (`NappletRevocation`: `{ windowId, reason, detail }`, `reason` one of `NappletRevocationReason`). The host must remove the frame.

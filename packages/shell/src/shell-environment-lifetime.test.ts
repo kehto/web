@@ -47,7 +47,6 @@ function createHarness(overrides: Partial<ShellAdapter> = {}) {
   const dispatch = (source: Window, data: Record<string, unknown>) => {
     deliverFromNapplet(bridge, { source, origin: 'null', data } as MessageEvent);
   };
-  bridge.runtime.firewallState.setPolicy(identity.dTag, 'allow');
   return { bridge, defaults, explicit, dispatch, handler };
 }
 

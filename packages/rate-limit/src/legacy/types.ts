@@ -1,5 +1,5 @@
 /**
- * @kehto/firewall — Pure, side-effect-free type surface.
+ * @kehto/rate-limit/legacy — Pure, side-effect-free type surface.
  *
  * All types are immutable (readonly members, Readonly<Record<>> for maps).
  * No runtime logic lives here — defaults and constants with values live in defaults.ts.
@@ -65,7 +65,7 @@ export type Decision = 'pass' | 'reject' | 'prompt';
 /**
  * Per-napplet policy posture — hard override for a specific dTag.
  *
- * - `'allow'` — always pass, bypassing rate/burst/content checks.
+ * - `'allow'` — skip content checks; installed temporal limits still apply.
  * - `'deny'`  — always reject, regardless of budgets.
  * - `'ask'`   — always prompt for user consent.
  */

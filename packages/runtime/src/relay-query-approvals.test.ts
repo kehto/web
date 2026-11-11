@@ -1,3 +1,4 @@
+import { createRateLimiter } from '@kehto/rate-limit';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { NappletMessage, NostrEvent } from '@napplet/core';
 import { createRuntime } from './runtime.js';
@@ -5,7 +6,7 @@ import { createMockRuntimeAdapter, createNip5dSessionEntry } from './test-utils.
 import type { ApprovalAnswer, ApprovalCancellation, ApprovalPrompt, ApprovalSignal } from './approval-coordinator.js';
 import type { PermissionAdapter } from './permission-runtime.js';
 import type { RelayOperationPlan, RelayPlanningServiceHandler } from './service-types.js';
-import { defaultRateLimitConfig } from './rate-limit.js';
+import { defaultRateLimitConfig } from '@kehto/rate-limit';
 
 declare const console: { warn(message: string): void };
 declare const AbortController: { new(): ApprovalCancellation };
@@ -182,7 +183,7 @@ describe('relay.query operation authority', () => {
   it('charges one operation for a query even when it reads only local shell events', async () => {
     const onRateLimit = vi.fn();
     const base = defaultRateLimitConfig();
-    const f = await fixture({ onRateLimit, rateLimit: { ...base, burst: { ...base.burst, maxOperations: 2 } } });
+    const f = await fixture({ onRateLimit, rateLimiter: createRateLimiter({ ...base, burst: { ...base.burst, maxOperations: 2 } }) });
     for (let i = 0; i < 3; i++) f.runtime.handleMessage('window', { type: 'relay.query', id: `local-${i}`, filters: [{ kinds: [29000] }] });
     await vi.waitFor(() => expect(f.results()).toHaveLength(3));
     expect(f.results().filter((result) => 'events' in result)).toHaveLength(2);

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createShellBridge, MAX_DEFERRED_MESSAGES, originRegistry } from './index.js';
+import { MAX_DEFERRED_MESSAGES, originRegistry } from './index.js';
+import { createLegacyShellBridge as createShellBridge } from './legacy-test-utils.js';
 import type { NappletMessage, NappletMessageDecision, NappletRevocation, ShellAdapter } from './index.js';
 import { deliverFromNapplet } from './test-utils.js';
 

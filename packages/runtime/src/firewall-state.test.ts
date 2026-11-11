@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createFirewallState } from './firewall-state.js';
-import type { FirewallPersistence } from './types.js';
+import { createFirewallState } from '@kehto/rate-limit/legacy';
+import type { FirewallPersistence } from '@kehto/rate-limit/legacy';
 
 function makePersistence(initial: string | null = null): FirewallPersistence & { data: string | null } {
   return {

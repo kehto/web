@@ -67,7 +67,6 @@ function setup(relay?: ServiceHandler) {
   const runtime = createRuntime(ctx.hooks);
   for (const windowId of WINDOWS) {
     runtime.sessionRegistry.register(windowId, createNip5dSessionEntry(windowId, `napp-${windowId}`, HASH));
-    runtime.firewallState.setPolicy(`napp-${windowId}`, 'allow');
   }
   const subscribe = (windowId: string, subId: string): void => {
     runtime.handleMessage(windowId, { type: 'relay.subscribe', id: `req-${subId}`, subId, filters: [{ kinds: [1], authors: [AUTHOR] }] } as NappletMessage);

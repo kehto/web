@@ -26,7 +26,6 @@ export type {
   ManifestCacheEntry,
   AclEntryExternal,
   AclCheckEvent,
-  FirewallPersistence,
   FirewallEvent,
   ServiceHandler,
   ServiceRuntimeContext,
@@ -52,15 +51,12 @@ export type { SessionRegistry, NappKeyRegistry } from './session-registry.js';
 export { createAclState } from './acl-state.js';
 export type { AclMutation, AclMutationObserver, AclStateContainer } from './acl-state.js';
 
-export { createFirewallState } from './firewall-state.js';
-export type { FirewallStateContainer } from './firewall-state.js';
+export type { LegacyFirewallAdapter, LegacyFirewallObservation } from './legacy-firewall-adapter.js';
+export type { TemporalPolicy, TemporalObservation, TemporalDecision } from './temporal-policy.js';
 export type { PermissionAdapter, PermissionRateEvent, RuntimePermissions, PermissionAdmission, PermissionAdmissionRequest } from './permission-runtime.js';
 export type { PermissionPersistence, PermissionStorageFailure } from './permission-state.js';
 export type { ApprovalAnswer, ApprovalPrompt, ApprovalSignal, ApprovalCancellation, ApprovalOutcome, ApprovalFailure } from './approval-coordinator.js';
 export type { PermissionPrincipal, PermissionRequirement, PermissionScope, PermissionGrant } from '@kehto/firewall';
-
-export { defaultRateLimitConfig, defaultPromptRateLimitConfig, createRateLimitState, evaluateRateLimit, retireRateLimitLifecycle } from './rate-limit.js';
-export type { RateLimitAction, RateLimitConfig, RateLimitObservation, RateBucket, RateBurst, RateLimitState, RateLimitResult } from './rate-limit.js';
 
 export { createManifestCache } from './manifest-cache.js';
 export type { ManifestCache } from './manifest-cache.js';

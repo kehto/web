@@ -238,11 +238,10 @@ persisted ACL state on load. Stored entries are kept as they are. With
 `RuntimeAdapter.permissions` it's a ceiling: an operation the ACL denies is refused
 with no prompt until the host grants the capability.
 
-On a host with `RuntimeAdapter.permissions`, `runtime.permissions.setRateLimit(config)`
-changes the operation budget after creation, including `unfocusedMultiplier` and the
-startup `burst` guard. `onFirewallEvent`, `firewallPersistence` and the
-`runtime.firewallState` mutators act on the legacy gate only, so a configured runtime
-warns once with `FW-RUNTIME-LEGACY-IGNORED-001` when they're used.
+Hosts opt into temporal protection with an explicitly constructed
+`PermissionAdapter.rateLimiter` or `promptRateLimiter` from `@kehto/rate-limit`.
+Hold the limiter to change its configuration. `legacyFirewall` is an explicit
+compatibility adapter for hosts without scoped permissions.
 
 ## Quick Start
 
@@ -294,9 +293,8 @@ duplicate readiness signals cannot bypass the startup limit. Per-napplet rate
 limits remain shared across registrations and versions.
 
 Standalone registries accept an optional second `onRegister(windowId)` callback.
-The runtime uses it to call `firewallState.resetInitBudget(windowId)`, which removes
-only the selected startup counter and preserves policy and token buckets. Custom
-implementations of `FirewallStateContainer` must provide this method.
+Runtime retires a supplied limiter's startup lifecycle without resetting shared
+token budgets. No limiter means there are no temporal counters to retire.
 
 ### ACL state container
 - `createAclState` — persistence-backed wrapper around `@kehto/acl` state
@@ -367,41 +365,22 @@ This non-normative guidance defers to the living [NAP-LLM](https://github.com/na
 
 ## Independent rate limits
 
-`evaluateRateLimit` is a pure temporal evaluator exported separately from permission
-policy. Callers supply a trusted subject, operation, endpoint lifecycle, and clock;
-the returned state must be passed to the next call. Approval never bypasses this
-module. The default budgets are 60 operations per minute and 20 operations in the
-first three seconds of a lifecycle, with one-quarter capacity while unfocused.
-The rate default flags excess traffic; the startup burst default blocks it.
+Rate limiting is optional and lives in `@kehto/rate-limit`, not runtime or Firewall.
+Supply `PermissionAdapter.rateLimiter` and/or `promptRateLimiter` to opt in;
+omitting either installs no default counters or limits for that traffic.
 
 ```ts
-import {
-  createRateLimitState,
-  defaultRateLimitConfig,
-  evaluateRateLimit,
-} from '@kehto/runtime';
-
-let counters = createRateLimitState();
-const result = evaluateRateLimit(defaultRateLimitConfig(), counters, {
-  subject: 'verified-manifest-key',
-  operation: 'link.open',
-  lifecycle: 'frame-generation-1',
-  elapsedSinceStartMs: 0,
-  focused: true,
-  now: 0,
-});
-counters = result.state;
-// Enforce result.allowed; report flagged excess through host diagnostics.
+import { createRateLimiter, defaultRateLimitConfig } from '@kehto/rate-limit';
+const limiter = createRateLimiter(defaultRateLimitConfig());
+const permissions = { ...approvalAdapter, rateLimiter: limiter };
+limiter.setConfig({ ...limiter.config, unfocusedMultiplier: 0.5 });
 ```
 
-`retireRateLimitLifecycle` removes startup counters while preserving the subject's
-operation budget. State is ephemeral; it is not a permission grant or a persistence
-format. Invalid budgets and nonfinite clocks throw `RangeError`. Clock rollback
-cannot create an extra refill. Subject/operation keys are encoded without delimiter
-collisions. Configured runtimes use the independent budget through the shared
-permission coordinator. Hosts without `RuntimeAdapter.permissions` retain the
-legacy temporal gate with `FW-RUNTIME-LEGACY-GATE-001` on actual use; see the
-[compatibility register](../../docs/compatibility.md).
+Hold the limiter to inspect `config` or call `setConfig`, which validates without
+resetting counters. Runtime passes trusted identity/lifecycle observations and
+retires lifecycle counters on teardown. Approval, ACL and source checks remain
+independent. Without scoped permissions, hosts may explicitly install
+`legacyFirewall` from `@kehto/rate-limit/legacy`; the default installs neither.
 
 ### Scoped approval integration
 

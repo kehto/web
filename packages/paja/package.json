@@ -31,7 +31,8 @@
     "@kehto/runtime": "workspace:^",
     "@kehto/services": "workspace:^",
     "@kehto/shell": "workspace:^",
-    "@kehto/wm": "workspace:^"
+    "@kehto/wm": "workspace:^",
+    "@kehto/rate-limit": "workspace:^"
   },
   "peerDependencies": {
     "@napplet/core": ">=0.41.0 <0.42.0",
