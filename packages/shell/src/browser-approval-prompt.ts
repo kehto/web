@@ -1,6 +1,6 @@
 import type { ApprovalAnswer, ApprovalPrompt, PermissionGrant, PermissionPrincipal } from '@kehto/runtime';
 import {
-  LIFETIME_LABELS, describeRequirement, principalIdentity, promptTitle, ruleTargetFor,
+  LIFETIME_LABELS, describeRequirements, principalIdentity, promptTitle, ruleTargetFor,
 } from './browser-approval-format.js';
 import { element } from './browser-approval-dom.js';
 
@@ -90,8 +90,7 @@ export function createBrowserApprovalPrompt(
       element(document, 'span', ' is asking to:'),
     );
     view.identityText.textContent = principalIdentity(principal);
-    view.requirements.replaceChildren(...request.missing.map((item) => {
-      const text = describeRequirement(item);
+    view.requirements.replaceChildren(...describeRequirements(request.missing).map((text) => {
       const row = element(document, 'li');
       row.append(element(document, 'span', text.action));
       if (text.target !== undefined) row.append(element(document, 'code', text.target));
@@ -124,7 +123,7 @@ export function createBrowserApprovalPrompt(
       }
     };
     view.remember.replaceChildren(element(document, 'span', 'Remember'), ...choices);
-    view.remember.hidden = choices.length < 2;
+    view.remember.hidden = choices.length === 0;
     allow.disabled = selected === undefined;
     mark();
     const priorFocus = document.activeElement;

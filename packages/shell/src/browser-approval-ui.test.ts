@@ -129,7 +129,7 @@ describe('common browser approval UI', () => {
     const answer = f.ui.prompt(f.prompt(new AbortController().signal));
     const dialog = f.mount.find('dialog')!;
     expect(dialog.open).toBe(true);
-    expect(dialog.find('h2')!.textContent).toBe('Allow network.connect-src?');
+    expect(dialog.find('h2')!.textContent).toBe('Allow direct network access?');
     expect(dialog.textContent).toContain('Trusted app');
     expect(dialog.textContent).toContain(principal.manifestKey);
     expect(dialog.textContent).toContain(principal.artifactHash);
@@ -176,6 +176,21 @@ describe('common browser approval UI', () => {
     byText(dialog, 'button', 'Deny')!.click();
     expect(await answer).toEqual({ effect: 'deny', lifetime: 'once' });
     f.ui.destroy();
+  });
+
+  it('merges the directives of one direct origin into a single row', async () => {
+    const f = setup();
+    const answer = f.ui.prompt({ ...f.prompt(new AbortController().signal), missing: [
+      requirement, { ...requirement, operation: 'network.script-src' },
+      { ...requirement, scope: { kind: 'origin', value: 'wss://api.example.test' } },
+    ] });
+    const dialog = f.mount.find('dialog')!;
+    expect(dialog.all('li').map((row) => row.textContent)).toEqual([
+      'Connect directly (connect-src, script-src)https://api.example.test',
+      'Connect directly (connect-src)wss://api.example.test',
+    ]);
+    f.ui.destroy();
+    await answer;
   });
 
   it('does not apply browser scheme upgrades to mediated network approval', async () => {
@@ -308,6 +323,8 @@ describe('common browser approval UI', () => {
     expect(domains[0].find('li')!.textContent).toBe('AllowedRegister shortcutaction app.action-0AlwaysRevoke');
     expect(domains[1].find('li')!.textContent).toContain('Blocked');
 
+    // The host hears about a group only after every grant in it is gone.
+    f.onGrantRevoked.mockImplementation(() => { expect(f.revoke).toHaveBeenCalledTimes(40); });
     byText(f.mount, 'button', 'Revoke all keys')!.click();
     expect(f.revoke).toHaveBeenCalledTimes(40);
     expect(f.onGrantRevoked).toHaveBeenCalledTimes(40);

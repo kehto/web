@@ -83,9 +83,29 @@ function distinct<T>(values: readonly T[]): T[] {
   return [...new Set(values)];
 }
 
+const DIRECT = 'network.';
+
+/**
+ * Describe every scope of a request. Direct browser sources to one origin are
+ * merged into a single row naming each directive, so a development target
+ * does not show the same origin once per directive.
+ */
+export function describeRequirements(missing: readonly PermissionRequirement[]): RequirementText[] {
+  const rows: RequirementText[] = [];
+  const direct = new Map<string, string[]>();
+  for (const item of missing) {
+    if (item.category !== 'network' || !item.operation.startsWith(DIRECT)) { rows.push(describeRequirement(item)); continue; }
+    const directives = direct.get(item.scope.value);
+    if (directives) directives.push(item.operation.slice(DIRECT.length));
+    else direct.set(item.scope.value, [item.operation.slice(DIRECT.length)]);
+  }
+  return [...rows, ...[...direct].map(([target, directives]) => ({ action: `Connect directly (${distinct(directives).join(', ')})`, target }))];
+}
+
 /** The question a prompt asks, derived only from the exact scopes shown. */
 export function promptTitle(missing: readonly PermissionRequirement[]): string {
   const operations = distinct(missing.filter((item) => item.category !== 'interface').map((item) => item.operation));
+  if (operations.length && operations.every((operation) => operation.startsWith(DIRECT))) return 'Allow direct network access?';
   if (operations.length === 1) return PROMPT_TITLES[operations[0]] ?? `Allow ${operations[0]}?`;
   if (operations.length > 1) return `Allow ${operations.length} operations?`;
   const domains = distinct(missing.map((item) => item.domain));

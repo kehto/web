@@ -83,13 +83,11 @@ export function createBrowserApprovalUi(options: BrowserApprovalUiOptions): Brow
   function revoke(grants: readonly PermissionGrant[]): void {
     const live = options.getPermissions();
     if (!live) return;
-    let failed = false;
-    for (const grant of grants) {
-      const durable = live.revoke(grant.id);
-      options.onGrantRevoked?.(grant, durable);
-      failed ||= !durable;
-    }
-    if (failed) reportStorageError('save-failed');
+    // Remove all authority before telling the host: a host that restarts a
+    // napplet on the first notice must not have the rest revoked under it.
+    const results = grants.map((grant) => [grant, live.revoke(grant.id)] as const);
+    for (const [grant, durable] of results) options.onGrantRevoked?.(grant, durable);
+    if (results.some(([, durable]) => !durable)) reportStorageError('save-failed');
     refresh();
   }
 

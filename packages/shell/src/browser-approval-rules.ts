@@ -62,7 +62,7 @@ export function createRulesEditor(document: Document, options: RulesEditorOption
   const root = element(document, 'section', undefined, 'kehto-fw-rules');
   root.setAttribute('aria-label', 'Default rules');
   const hint = element(document, 'p',
-    'Applied when no remembered decision covers a request. The most specific rule wins.', 'kehto-fw-hint');
+    'Applied when no remembered decision covers a request. The most specific rule wins. Tightening a rule stops napplets that relied on it.', 'kehto-fw-hint');
   const list = element(document, 'ul', undefined, 'kehto-fw-rule-list');
   const form = element(document, 'form', undefined, 'kehto-fw-rule-add');
   const scope = element(document, 'select');
