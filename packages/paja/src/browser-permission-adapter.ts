@@ -1,6 +1,8 @@
 import { createBrowserApprovalUi } from '@kehto/shell';
 import type { BrowserApprovalUi } from '@kehto/shell';
 import type { PermissionAdapter, PermissionGrant, PermissionPrincipal, RuntimePermissions } from '@kehto/runtime';
+import { createPajaPermissionRuleStore } from './browser-permission-rules.js';
+import type { PajaPermissionRuleStore } from './browser-permission-rules.js';
 
 /** Versioned durable store used only by the runtime's validated grant format. */
 export const PAJA_PERMISSION_STORAGE_KEY = 'kehto:paja:firewall-permissions:v1';
@@ -19,6 +21,8 @@ export interface PajaPermissionAdapterOptions {
 export interface PajaPermissionAdapter {
   readonly adapter: PermissionAdapter;
   readonly ui: BrowserApprovalUi;
+  /** Default rules applied before a prompt; edited in the Firewall UI. */
+  readonly rules: PajaPermissionRuleStore;
   destroy(): void;
 }
 
@@ -44,6 +48,7 @@ function readStorage(): Storage | null {
  */
 export function createPajaPermissionAdapter(options: PajaPermissionAdapterOptions): PajaPermissionAdapter {
   const storage = options.storage === undefined ? readStorage() : options.storage;
+  const rules = createPajaPermissionRuleStore(storage);
   const ui = createBrowserApprovalUi({
     mount: options.mount,
     // A modal inside collapsed details/display:none still blocks the page,
@@ -52,7 +57,15 @@ export function createPajaPermissionAdapter(options: PajaPermissionAdapterOption
     getPermissions: options.getPermissions,
     labelForPrincipal: options.labelForPrincipal ?? ((principal) => principal.kind === 'verified' ? 'Verified napplet' : 'Development target'),
     onGrantRevoked: options.onGrantRevoked,
+    rules,
   });
+  let refreshPending = false;
+  const scheduleRefresh = (): void => {
+    if (refreshPending) return;
+    refreshPending = true;
+    // One redraw per burst: a napplet can register hundreds of scopes at launch.
+    window.setTimeout(() => { refreshPending = false; ui.refresh(); }, 0);
+  };
   const adapter: PermissionAdapter = {
     now: Date.now,
     createCancellation: () => new AbortController(),
@@ -61,6 +74,12 @@ export function createPajaPermissionAdapter(options: PajaPermissionAdapterOption
       return () => window.clearTimeout(timer);
     },
     prompt: ui.prompt,
+    defaultDecision(request, missing) {
+      const decision = rules.decide(request, missing);
+      // A rule grants without a prompt, so nothing else would redraw the list.
+      if (decision === 'allow') scheduleRefresh();
+      return decision;
+    },
     onStorageError: ui.reportStorageError,
     ...(storage ? { persistence: {
       load: () => storage.getItem(PAJA_PERMISSION_STORAGE_KEY),
@@ -68,5 +87,5 @@ export function createPajaPermissionAdapter(options: PajaPermissionAdapterOption
     } } : {}),
   };
   if (!storage) ui.reportStorageError('storage-unavailable');
-  return { adapter, ui, destroy: () => ui.destroy() };
+  return { adapter, ui, rules, destroy: () => ui.destroy() };
 }
