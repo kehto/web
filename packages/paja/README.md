@@ -74,7 +74,9 @@ runtime ACL controls, Firewall permissions, signer controls, and a filterable me
 error details. It starts expanded and collapses to the left with the chevron
 button in the top bar; the same button brings the whole panel back. The toolbar
 stays onscreen after restoring a saved collapsed preference, including when no
-runtime tab is open. Collapsing
+runtime tab is open. Firewall approval prompts stay visible outside the sidebar, so new napplets can
+still receive consent before executing. Grant management stays in the sidebar.
+Collapsing
 is presentation-only — the target iframe keeps its identity and the loaded
 napplet keeps running — and Paja remembers the choice per browser origin. In
 runtime-pointer mode, ACL controls always display and mutate

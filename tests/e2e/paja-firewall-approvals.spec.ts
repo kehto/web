@@ -80,6 +80,28 @@ test('optional denial narrows the executing namespace', async ({ page }) => {
   await expect(frame.locator('#theme-state')).toHaveText('undefined');
 });
 
+for (const collapsed of ['console', 'permissions'] as const) {
+  test(`approval remains usable with persisted collapsed ${collapsed}`, async ({ page }) => {
+    await page.addInitScript((preference) => {
+      if (window !== window.top) return;
+      if (preference === 'console') localStorage.setItem('kehto:paja:console:v1', 'collapsed');
+      else localStorage.setItem('kehto:paja:sidebar-sections:v1', JSON.stringify({ permissions: true }));
+    }, collapsed);
+    await page.goto(host.url);
+    await expect(page.frameLocator('#napplet-frame').locator('#executed')).toHaveCount(0);
+    await choose(page, 'network.connect-src', 'Allow');
+    await choose(page, 'interface access exact:theme', 'Deny');
+    const frame = page.frameLocator('#napplet-frame');
+    await expect(frame.locator('#executed')).toHaveText('yes');
+    await expect(frame.locator('#theme-state')).toHaveText('undefined');
+    if (collapsed === 'console') {
+      await expect(page.locator('html')).toHaveAttribute('data-paja-console', 'collapsed');
+    } else {
+      await expect(page.locator('#paja-section-permissions')).not.toHaveAttribute('open');
+    }
+  });
+}
+
 test('revoking an approved interface retires the executing frame', async ({ page }) => {
   await page.goto(host.url);
   await choose(page, 'network.connect-src', 'Allow');

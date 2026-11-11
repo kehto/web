@@ -29,6 +29,11 @@ block new grants. A host retirement callback must remove live direct-network
 frames when a relevant grant changes; the parent cannot meter direct iframe
 traffic.
 
+For collapsible grant-management panels, set `promptMount: document.body` on
+`createBrowserApprovalUi` so a hidden panel cannot hide a modal and block the
+page. Without `promptMount`, prompts share `mount`. `destroy()` removes both
+surfaces and cancels outstanding prompts.
+
 > **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
 > protocol. Injected-domain behavior and NAP contracts are not final.
 
