@@ -225,7 +225,14 @@ The console includes:
   mutation use the active tab's resolver-verified d-tag and aggregate hash. The
   controls write through `bridge.runtime.aclState`, rerender immediately, and
   the next matching request is allowed or denied by the real runtime gate.
-- **Firewall permissions** — shows the current runtime grants and offers revoke,
+- **Firewall permissions** — default rules first, then grants. Paja allows
+  every interface and operation by default and asks before each `link.open`.
+  Change the default, or add an exception for an interface (`fs`) or operation
+  (`upload.upload`), for every napplet or one; rules are stored in the browser
+  under `kehto:paja:firewall-rules:v1` and **Restore defaults** resets them.
+  Tightening a rule stops napplets that relied on it. Grants are grouped by
+  napplet and interface, scopes allowed by a rule collapse to a count, and the
+  panel offers single and group revoke,
   clear, and storage retry. Launch and operation prompts show the trusted source,
   exact scope, and available lifetimes. Without browser storage, persistent
   approval is unavailable; failed durable writes do not activate grants.
@@ -494,9 +501,10 @@ persistence through the runtime, browser or configured identity, schema-validate
 identity-scoped config and host-owned theme, notification, media, upload, intent, resource, common-profile,
 bookmark-list, serial, BLE, WebRTC, NIP-17 DM, OPFS, and CVM adapters. `keys.forward` dispatches
 an unbound forwarded keystroke in the host context. `link.open` accepts only
-HTTP(S), asks for exact-URL approval, then rechecks the current verified app
-artifact and approval signal after host confirmation before opening with
-`noopener,noreferrer`. A stale confirmation cannot navigate.
+HTTP(S), asks for exact-URL approval, then opens from the approving click with
+`noopener,noreferrer`. A link allowed without a live click, such as by a
+standing rule, gets a host confirmation first. The current verified app
+artifact and approval signal are rechecked before opening. A stale confirmation cannot navigate.
 Relay/outbox uses NIP-65 relay lists (`kind:10002`) with fallback relays, and the
 identity service reads contact lists (`kind:3`) so social-graph napplets can be
 tested against real account state. `--relay-mode memory` retains an internal
