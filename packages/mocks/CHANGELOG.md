@@ -1,5 +1,13 @@
 # @kehto/mocks
 
+## 0.1.4
+
+### Patch Changes
+
+- Updated dependencies [b573414]
+- Updated dependencies [e291825]
+  - @kehto/runtime@0.30.0
+
 ## 0.1.3
 
 ### Patch Changes

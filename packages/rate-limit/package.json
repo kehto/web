@@ -1,6 +1,6 @@
 {
   "name": "@kehto/rate-limit",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Optional host-installed temporal budgets and burst controls",
   "type": "module",
   "main": "./dist/index.js",
