@@ -46,6 +46,9 @@ export function createPajaPermissionAdapter(options: PajaPermissionAdapterOption
   const storage = options.storage === undefined ? readStorage() : options.storage;
   const ui = createBrowserApprovalUi({
     mount: options.mount,
+    // A modal inside collapsed details/display:none still blocks the page,
+    // but cannot show the decision admission is waiting for.
+    promptMount: options.mount.ownerDocument.body,
     getPermissions: options.getPermissions,
     labelForPrincipal: options.labelForPrincipal ?? ((principal) => principal.kind === 'verified' ? 'Verified napplet' : 'Development target'),
     onGrantRevoked: options.onGrantRevoked,

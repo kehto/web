@@ -58,9 +58,10 @@ const requirement = {
   scope: { kind: 'origin' as const, value: 'https://api.example.test' },
 };
 
-function setup() {
+function setup(separatePrompt = false) {
   const document = new TestDocument();
   const mount = document.createElement('main');
+  const promptMount = document.createElement('aside');
   let grants: PermissionGrant[] = [];
   let available = true;
   const revoke = vi.fn((id: string) => { grants = grants.filter((grant) => grant.id !== id); return true; });
@@ -73,6 +74,7 @@ function setup() {
   const onGrantRevoked = vi.fn();
   const ui = createBrowserApprovalUi({
     mount: mount as unknown as HTMLElement,
+    ...(separatePrompt ? { promptMount: promptMount as unknown as HTMLElement } : {}),
     labelForPrincipal: () => 'Trusted app',
     getPermissions: () => permissions,
     onGrantRevoked,
@@ -81,12 +83,27 @@ function setup() {
     request: { principal, sessionId: 's', requestId: 'r', requirements: [requirement] },
     missing: [requirement], signal, allowLifetimes: lifetimes,
   });
-  return { document, mount, ui, prompt, revoke, clear, retryPersistence, onGrantRevoked,
+  return { document, mount, promptMount, ui, prompt, revoke, clear, retryPersistence, onGrantRevoked,
     setGrants(value: PermissionGrant[]) { grants = value; },
     setAvailable(value: boolean) { available = value; } };
 }
 
 describe('common browser approval UI', () => {
+  it('keeps prompts outside collapsible management and removes both mounts on destroy', async () => {
+    const f = setup(true);
+    const answer = f.ui.prompt(f.prompt(new AbortController().signal));
+    expect(f.mount.find('dialog')).toBeUndefined();
+    expect(f.mount.textContent).toContain('Firewall grants');
+    const dialog = f.promptMount.find('dialog')!;
+    expect(dialog.open).toBe(true);
+    expect(dialog.parent?.className).toBe('kehto-approval-ui');
+    expect(f.promptMount.textContent).toContain('Permission request');
+    f.ui.destroy();
+    await expect(answer).resolves.toEqual({ effect: 'cancel' });
+    expect(f.mount.children).toHaveLength(0);
+    expect(f.promptMount.children).toHaveLength(0);
+  });
+
   it('shows the full trusted identity and direct target, then requires an offered lifetime to allow', async () => {
     const f = setup();
     const controller = new AbortController();

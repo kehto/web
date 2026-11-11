@@ -24,6 +24,9 @@ when the runtime changes. The view always reads `RuntimePermissions.grants` and
 uses its `revoke`, `clear`, and `retryPersistence` methods; it keeps no grant
 store. The prompt shows trusted identity, every exact scope, and only offered
 lifetimes. Escape, close, and abort cancel without creating a denial grant.
+If grant management lives in collapsible controls, pass an always-visible
+`promptMount` such as `document.body`; otherwise the prompt shares `mount`.
+`ui.destroy()` removes both surfaces and cancels outstanding prompts.
 
 > **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
 > protocol. NAP contracts and injected-domain behavior are still draft; treat

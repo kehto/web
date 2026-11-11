@@ -7,6 +7,10 @@ publication. Host policy selects the list; approval waits cannot replace it.
 
 Single-window Paja local authoring workshop for napplet development.
 
+Firewall approval prompts remain visible when the development console or its
+Firewall section is collapsed. Grant management stays in the sidebar; napplet
+execution still waits for the user's admission decision.
+
 Paja's WebRTC controller snapshots the host-selected signaling relays before
 approval. It has no configured ICE/TURN endpoints by default and rejects opaque
 injected peer factories that cannot declare their destinations.

@@ -7,6 +7,8 @@ import { createBrowserApprovalPrompt, principalIdentity } from './browser-approv
 /** Host-provided labels and live runtime grant management for one browser UI. */
 export interface BrowserApprovalUiOptions {
   readonly mount: HTMLElement;
+  /** Optional always-visible mount for prompts when grant management can be hidden. Defaults to mount. */
+  readonly promptMount?: HTMLElement;
   /** Host display name; the technical verified identity is always shown too. */
   readonly labelForPrincipal: (principal: PermissionPrincipal) => string;
   /** Read the active runtime, which may be constructed after this UI. */
@@ -55,6 +57,8 @@ export function createBrowserApprovalUi(options: BrowserApprovalUiOptions): Brow
   const document = options.mount.ownerDocument;
   const root = element(document, 'section');
   root.className = 'kehto-approval-ui';
+  const promptRoot = options.promptMount ? element(document, 'section') : root;
+  promptRoot.className = 'kehto-approval-ui';
   const presenter = createBrowserApprovalPrompt(document, options.labelForPrincipal);
 
   const management = element(document, 'section');
@@ -69,8 +73,10 @@ export function createBrowserApprovalUi(options: BrowserApprovalUiOptions): Brow
   const retry = element(document, 'button', 'Retry permission storage');
   retry.type = 'button';
   management.append(heading, status, list, clear, retry);
-  root.append(presenter.dialog, management);
+  promptRoot.append(presenter.dialog);
+  root.append(management);
   options.mount.append(root);
+  options.promptMount?.append(promptRoot);
 
   let destroyed = false;
 
@@ -149,6 +155,7 @@ export function createBrowserApprovalUi(options: BrowserApprovalUiOptions): Brow
   function destroy(): void {
     destroyed = true;
     presenter.destroy();
+    if (promptRoot !== root) promptRoot.remove();
     root.remove();
   }
 

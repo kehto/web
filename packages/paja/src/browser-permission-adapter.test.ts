@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { PAJA_PERMISSION_STORAGE_KEY, createPajaPermissionAdapter } from './browser-permission-adapter.js';
+import { createBrowserApprovalUi } from '@kehto/shell';
 
 const ui = vi.hoisted(() => ({
   prompt: vi.fn(async () => ({ effect: 'allow' as const, lifetime: 'session' as const })),
@@ -19,13 +20,17 @@ function storage(): Storage {
   };
 }
 
+const promptMount = {} as HTMLElement;
+const mount = { ownerDocument: { body: promptMount } } as unknown as HTMLElement;
+
 describe('Paja runtime permission adapter', () => {
   it('routes prompt and exact durable records through the shared UI/runtime boundary', async () => {
     vi.clearAllMocks();
     const browserStorage = storage();
     const controller = createPajaPermissionAdapter({
-      mount: {} as HTMLElement, getPermissions: () => undefined, storage: browserStorage,
+      mount, getPermissions: () => undefined, storage: browserStorage,
     });
+    expect(createBrowserApprovalUi).toHaveBeenCalledWith(expect.objectContaining({ mount, promptMount }));
     expect(controller.adapter.persistence?.load()).toBeNull();
     controller.adapter.persistence?.persist('{"version":1,"grants":[]}');
     expect(browserStorage.getItem(PAJA_PERMISSION_STORAGE_KEY)).toBe('{"version":1,"grants":[]}');
@@ -41,7 +46,7 @@ describe('Paja runtime permission adapter', () => {
   it('keeps persistent choices unavailable when browser storage cannot be opened', () => {
     vi.clearAllMocks();
     const controller = createPajaPermissionAdapter({
-      mount: {} as HTMLElement, getPermissions: () => undefined, storage: null,
+      mount, getPermissions: () => undefined, storage: null,
     });
     expect(controller.adapter.persistence).toBeUndefined();
     expect(ui.reportStorageError).toHaveBeenCalledWith('storage-unavailable');
