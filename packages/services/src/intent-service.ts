@@ -49,10 +49,11 @@ function hint(value: unknown): IntentHandlerHint | undefined {
   if (!source || !own(source, 'address') || typeof source.address !== 'string' || !HINT_ADDRESS.test(source.address)) return undefined;
   if (Object.keys(source).some((key) => key !== 'address' && key !== 'relays')) return undefined;
   if (source.relays !== undefined && (!Array.isArray(source.relays) || source.relays.some((relay) => typeof relay !== 'string'))) return undefined;
+  // Core's IntentHandlerHint is mutable; the parsed value stays frozen at runtime.
   return Object.freeze({
     address: source.address,
-    ...(source.relays === undefined ? {} : { relays: Object.freeze([...source.relays] as string[]) }),
-  });
+    ...(source.relays === undefined ? {} : { relays: Object.freeze([...source.relays]) as string[] }),
+  }) as IntentHandlerHint;
 }
 
 function validateRequest(value: unknown): IntentRequest | undefined {
