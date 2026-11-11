@@ -41,8 +41,8 @@ pnpm add @kehto/shell
 
 ## Published Napplet Compatibility
 
-Peers admit `@napplet/core` `>=0.32.0 <0.41.0` and `@napplet/nap`
-`>=0.32.0 <0.40.0`; the shell does not import the NAP-LLM types, so it keeps the older floor. Host packages develop and build on core 0.40.0 / nap 0.39.0; fixture napplets stay on the exact 0.32.0 line (shim 0.30.0, sdk 0.28.0, vite-plugin 0.16.2). The fixture-line core 0.32.0 / nap 0.32.0 contracts follow
+Peers admit `@napplet/core` `>=0.32.0 <0.42.0` and `@napplet/nap`
+`>=0.32.0 <0.41.0`; the shell does not import the NAP-LLM types, so it keeps the older floor. Host packages develop and build on core 0.41.0 / nap 0.40.0; fixture napplets stay on the exact 0.32.0 line (shim 0.30.0, sdk 0.28.0, vite-plugin 0.16.2). The fixture-line core 0.32.0 / nap 0.32.0 contracts follow
 NAP-INTENT authority `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`, napplet/web#199
 source `3037200c932488f14f7f369b8583c39c9c16510a` / merge
 `b3f0007867eac109fa4917fac9c285d3b7cc6155`, and Version Packages #198 release
