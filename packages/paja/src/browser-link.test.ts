@@ -61,4 +61,45 @@ describe('Paja LINK confirmation', () => {
     expect(await pending).toEqual({ status: 'denied' });
     expect(open).not.toHaveBeenCalled();
   });
+
+  it('opens a Firewall-approved link from the approving click without a second dialog', async () => {
+    const confirm = vi.fn(async () => true);
+    const open = vi.fn(() => true);
+    const signal = new AbortController().signal;
+    const result = await confirmPajaExternalLink({ ...request, signal }, confirm,
+      () => ({ dTag: 'reader', aggregateHash: 'sha256:current' }), open, undefined, () => true);
+    expect(result).toEqual({ status: 'opened' });
+    expect(confirm).not.toHaveBeenCalled();
+    expect(open).toHaveBeenCalledOnce();
+  });
+
+  it('still confirms when no click is live, the browser blocks the tab, or the Firewall did not approve', async () => {
+    const confirm = vi.fn(async () => true);
+    const identity = () => ({ dTag: 'reader', aggregateHash: 'sha256:current' });
+    const signal = new AbortController().signal;
+
+    const idle = vi.fn(() => true);
+    await confirmPajaExternalLink({ ...request, signal }, confirm, identity, idle, undefined, () => false);
+    expect(confirm).toHaveBeenCalledTimes(1);
+
+    const blocked = vi.fn().mockReturnValueOnce(false).mockReturnValue(true);
+    expect(await confirmPajaExternalLink({ ...request, signal }, confirm, identity, blocked, undefined, () => true))
+      .toEqual({ status: 'opened' });
+    expect(confirm).toHaveBeenCalledTimes(2);
+    expect(blocked).toHaveBeenCalledTimes(2);
+
+    const unapproved = vi.fn(() => true);
+    await confirmPajaExternalLink(request, confirm, identity, unapproved, undefined, () => true);
+    expect(confirm).toHaveBeenCalledTimes(3);
+  });
+
+  it('does not open from a live click once the approval was cancelled', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const open = vi.fn(() => true);
+    const result = await confirmPajaExternalLink({ ...request, signal: controller.signal }, vi.fn(async () => true),
+      () => ({ dTag: 'reader', aggregateHash: 'sha256:current' }), open, undefined, () => true);
+    expect(result).toEqual({ status: 'denied' });
+    expect(open).not.toHaveBeenCalled();
+  });
 });
