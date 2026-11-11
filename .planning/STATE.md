@@ -43,7 +43,7 @@ See: .planning/PROJECT.md (updated 2026-07-28)
 Phase: 115 — Firewall final audit complete
 Plan: PR review follow-up
 Status: PR #336 review fixes verified; CONFIG denial/backpressure spec gap explicitly retained.
-Last activity: 2026-11-04 - Completed quick task 261104-l95: Chase #404 into PR 336
+Last activity: 2026-11-11 - Completed quick task 261111-b5u: Resolve PR 413 conflicts with main
 
 ## Performance Metrics
 
@@ -158,6 +158,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
+| 261111-b5u | Resolve PR 413 conflicts with main; carry mock bindings through Firewall launch admission | 2026-11-11 | f8d7ccb5 | passed | [261111-b5u](./quick/261111-b5u-resolve-pr-413-conflicts-with-main/) |
 | 261109-gnn | Paja serves `@kehto/mocks` for every NAP it has no backend for: generated wire-table napplet bindings, shell table-driven bindings, `◌` mocked marker + legend | 2026-11-09 | 28acf037 | passed | [261109-gnn](./quick/261109-gnn-paja-mocked-naps/) |
 | 261111-adq | Resolve #418: adopt core 0.41 / nap 0.40 no-ID intent delivery and retire the local intent contract | 2026-11-11 | 742ba7db | passed | [261111-adq](./quick/261111-adq-intent-delivery-upstream-types-418/) |
 | 261104-l95 | Chase #404 into PR 336: port host firewall controls to the approval runtime | 2026-11-04 | 6618f01d | passed | [261104-l95](./quick/261104-l95-chase-404-into-firewall-approvals/) |
