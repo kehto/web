@@ -14,7 +14,7 @@ pnpm add @kehto/rate-limit
 | Field | Value |
 |-------|-------|
 | Source | `packages/rate-limit/package.json`, `packages/rate-limit/src/index.ts` |
-| Version | `0.1.0` |
+| Version | `0.2.0` |
 | Runtime entry | `./dist/index.js` |
 | Legacy entry | `./dist/legacy/index.js` |
 | Side effects | `false` |

@@ -1,6 +1,6 @@
 {
   "name": "@kehto/firewall",
-  "version": "0.8.2",
+  "version": "0.9.0",
   "description": "Pure scoped approval and access policy for the napplet protocol",
   "type": "module",
   "main": "./dist/index.js",
