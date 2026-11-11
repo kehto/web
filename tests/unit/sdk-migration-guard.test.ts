@@ -330,20 +330,21 @@ describe('current @napplet package graph guard', () => {
   });
 
   it('gives every host package its own peer window while developing on the host line', () => {
-    // Host packages develop and build on core 0.40.0 / nap 0.39.0. Packages whose
-    // declarations import the packaged NAP-LLM types (services, paja) retain their
-    // 0.38/0.37 floors; other packages retain the earlier 0.32 floor.
+    // Host packages develop and build on core 0.41.0 / nap 0.40.0. Services re-exports
+    // core's NAP-INTENT types, and core < 0.41 carries the withdrawn delivery ID
+    // (kehto/web#418), so services and its pinning dependents (paja, cli) floor core at
+    // 0.41.0 and keep the NAP-LLM nap floor at 0.37; other packages retain 0.32.
     // Fixture napplets stay on the exact 0.32.0 line and are guarded separately.
-    const HOST_DEV_CORE = '>=0.40.0 <0.41.0';
-    const HOST_DEV_NAP = '>=0.39.0 <0.40.0';
+    const HOST_DEV_CORE = '>=0.41.0 <0.42.0';
+    const HOST_DEV_NAP = '>=0.40.0 <0.41.0';
     const PEER_WINDOWS: Record<string, { core: string; nap: string }> = {
-      'packages/acl': { core: '>=0.32.0 <0.41.0', nap: '>=0.32.0 <0.40.0' },
-      'packages/cli': { core: '>=0.38.0 <0.41.0', nap: '>=0.37.0 <0.40.0' },
-      'packages/firewall': { core: '>=0.32.0 <0.41.0', nap: '' },
-      'packages/paja': { core: '>=0.38.0 <0.41.0', nap: '>=0.37.0 <0.40.0' },
-      'packages/runtime': { core: '>=0.32.0 <0.41.0', nap: '>=0.32.0 <0.40.0' },
-      'packages/services': { core: '>=0.38.0 <0.41.0', nap: '>=0.37.0 <0.40.0' },
-      'packages/shell': { core: '>=0.32.0 <0.41.0', nap: '>=0.32.0 <0.40.0' },
+      'packages/acl': { core: '>=0.32.0 <0.42.0', nap: '>=0.32.0 <0.41.0' },
+      'packages/cli': { core: '>=0.41.0 <0.42.0', nap: '>=0.37.0 <0.41.0' },
+      'packages/firewall': { core: '>=0.32.0 <0.42.0', nap: '' },
+      'packages/paja': { core: '>=0.41.0 <0.42.0', nap: '>=0.37.0 <0.41.0' },
+      'packages/runtime': { core: '>=0.32.0 <0.42.0', nap: '>=0.32.0 <0.41.0' },
+      'packages/services': { core: '>=0.41.0 <0.42.0', nap: '>=0.37.0 <0.41.0' },
+      'packages/shell': { core: '>=0.32.0 <0.42.0', nap: '>=0.32.0 <0.41.0' },
     };
     expect(Object.keys(PEER_WINDOWS).sort()).toEqual([...publicPackageDirs].sort());
     for (const dir of publicPackageDirs) {

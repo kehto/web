@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -297,11 +297,12 @@ describe('NIP-5D conformance static guards', () => {
     for (const authority of Object.values(publishedConventionAuthorities)) {
       expect(publishedContract, `published contract authority ${authority}`).toContain(authority);
     }
-    // The 0.32 fixture line lacks the pinned PR #106 contract; nap 0.37.0 now exports
-    // the candidate types, and adopting them is a tracked follow-up. Until then Kehto
-    // contains the exact temporary canonical types.
+    // The 0.32 fixture line lacks the pinned PR #106 contract. Host packages take the
+    // intent types from core 0.41.0, which matches NAP-INTENT PR #128 @ 74f9bf85
+    // (kehto/web#418); intent-types.ts only re-exports them.
     expect(services).toContain("from './intent-types.js'");
-    expect(existsSync(join(process.cwd(), 'packages/services/src/intent-types.ts'))).toBe(true);
+    const intentTypes = removeComments(readRepoFile('packages/services/src/intent-types.ts')).trim();
+    expect(intentTypes).toMatch(/^export type \{[^}]+\} from '@napplet\/core';$/);
     expect(publishedContract).toContain('NAP-INTENT PR #106');
 
     // Published core/shim omit generic shell, so NAP-SHELL stays a Kehto-owned
@@ -368,14 +369,12 @@ describe('NIP-5D conformance static guards', () => {
     ].join('\n');
     const forbiddenCanonicalField = /\b(?:protocol|protocols)\s*(?:\?|):/;
 
-    const localIntentTypes = readRepoFile('packages/services/src/intent-types.ts');
-    expect(existsSync(join(process.cwd(), 'packages/services/src/intent-types.ts'))).toBe(true);
-    expect(localInterfaceFieldNames(localIntentTypes, 'IntentCandidate')).toEqual([
+    expect(interfaceFieldNames(publishedIntentTypes, 'IntentCandidate')).toEqual([
       'id', 'title', 'actions', 'conventions', 'contracts', 'isDefault',
     ]);
-    expect(localIntentTypes).toContain('export type IntentResult =');
-    expect(localIntentTypes).not.toContain('handled');
-    expect(localIntentTypes).not.toContain('windowId');
+    expect(interfaceFieldNames(publishedIntentTypes, 'IntentDelivery')).toEqual([
+      'sender', 'archetype', 'action', 'convention', 'payload',
+    ]);
     expect(localInterfaceFieldNames(resolver, 'IntentDispatchParams')).toEqual([
       'handler',
       'sender',
@@ -718,8 +717,10 @@ describe('NIP-5D conformance static guards', () => {
   });
 });
 
-it('bounds the temporary intent delivery binding to the protected host', () => {
+it('records the retired local intent contract and the checked NAP-INTENT refs', () => {
   const policy = readFileSync('docs/policies/NIP-5D-CONFORMANCE.md', 'utf8');
   expect(policy).toContain('packages/services/src/intent-types.ts');
   expect(policy).toContain('fc121fc264615482143eda86125863d2e1f741a2');
+  expect(policy).toContain('74f9bf85ebb83b50b7b2ad8308a835d5f3113cd9');
+  expect(policy).toContain('kehto/web/issues/418');
 });

@@ -14,8 +14,8 @@ pnpm add @kehto/runtime
 
 ## Published Napplet Compatibility
 
-Peers admit `@napplet/core` `>=0.32.0 <0.41.0` and `@napplet/nap`
-`>=0.32.0 <0.40.0`; the runtime does not import the NAP-LLM types, so it keeps the older floor. Host packages develop and build on core 0.40.0 / nap 0.39.0; fixture napplets stay on the exact 0.32.0 line (shim 0.30.0, sdk 0.28.0, vite-plugin 0.16.2). The exact fixture-line convention contracts are core 0.32.0 /
+Peers admit `@napplet/core` `>=0.32.0 <0.42.0` and `@napplet/nap`
+`>=0.32.0 <0.41.0`; the runtime does not import the NAP-LLM types, so it keeps the older floor. Host packages develop and build on core 0.41.0 / nap 0.40.0; fixture napplets stay on the exact 0.32.0 line (shim 0.30.0, sdk 0.28.0, vite-plugin 0.16.2). The exact fixture-line convention contracts are core 0.32.0 /
 nap 0.32.0 from NAP-INTENT authority `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`,
 napplet/web#199 source `3037200c932488f14f7f369b8583c39c9c16510a` / merge
 `b3f0007867eac109fa4917fac9c285d3b7cc6155`, and Version Packages #198 release
@@ -181,8 +181,9 @@ the protocol-defined correlated result wire: `outbox.query.result` with
 `events: []` and `error`. The runtime does not synthesize an
 `outbox.query.error` message.
 
-The installed `@napplet/nap@0.32.0` contract trails PR #106. The bounded local
-`@kehto/services` intent types and their removal condition are documented in
+The fixture-line `@napplet/nap@0.32.0` contract trails PR #106. Host packages
+take the intent types from `@napplet/core@0.41.0`, which `@kehto/services`
+re-exports; see the
 [conformance policy](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md).
 
 Phase 105 completed released package adoption and persistent installed-manifest

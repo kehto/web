@@ -100,7 +100,7 @@ function candidateFor(entry: IntentCatalogEntry, archetype: string, defaultId?: 
     conventions: Object.freeze(conventions),
     contracts: Object.freeze(contracts),
     ...(entry.id === defaultId ? { isDefault: true } : {}),
-  });
+  }) as IntentCandidate; // core's types are mutable; the catalog value stays frozen
 }
 
 function candidatesFor(catalog: readonly IntentCatalogEntry[], archetype: string, defaultId?: string): IntentCandidate[] {
@@ -151,7 +151,7 @@ async function availabilityFor(options: CatalogIntentResolverOptions, archetype:
     available: candidates.length > 0,
     candidates: Object.freeze(candidates),
     hasDefault: candidates.some((candidate) => candidate.isDefault),
-  });
+  }) as IntentAvailability;
 }
 
 async function invoke(options: CatalogIntentResolverOptions, request: IntentRequest, context: IntentResolverContext): Promise<IntentResult> {

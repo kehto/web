@@ -24,8 +24,8 @@ pnpm add @kehto/services
 
 ## Published Napplet Compatibility
 
-Peers admit `@napplet/core` `>=0.38.0 <0.41.0` and `@napplet/nap`
-`>=0.37.0 <0.40.0`: the declarations import the packaged NAP-LLM types from `@napplet/nap/llm/types`. Host packages develop and build on core 0.40.0 / nap 0.39.0; fixture napplets stay on the exact 0.32.0 line (shim 0.30.0, sdk 0.28.0, vite-plugin 0.16.2). The exact fixture-line contracts are core 0.32.0 / nap 0.32.0
+Peers admit `@napplet/core` `>=0.41.0 <0.42.0` and `@napplet/nap`
+`>=0.37.0 <0.41.0`: the declarations import the packaged NAP-LLM types from `@napplet/nap/llm/types`, and the exported NAP-INTENT types come from `@napplet/core`, whose releases before 0.41.0 carry the withdrawn delivery ID and nullable sender. Host packages develop and build on core 0.41.0 / nap 0.40.0; fixture napplets stay on the exact 0.32.0 line (shim 0.30.0, sdk 0.28.0, vite-plugin 0.16.2). The exact fixture-line contracts are core 0.32.0 / nap 0.32.0
 from NAP-INTENT authority `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`,
 napplet/web#199 source `3037200c932488f14f7f369b8583c39c9c16510a` / merge
 `b3f0007867eac109fa4917fac9c285d3b7cc6155`, and Version Packages #198 release
@@ -88,8 +88,10 @@ teardown does not cancel accepted work. `intent.onDelivery` buffers arrivals;
 INC is not required.
 
 Paja uses verified persistent catalogs separately from live frames.
-The fixture-line `@napplet/nap@0.32.0` types predate this contract (nap 0.37.0 now exports them; adopting those is a tracked follow-up); the bounded local
-canonical types and their removal condition are documented below.
+The fixture-line `@napplet/nap@0.32.0` types predate this contract. The exported
+intent types (`IntentDelivery`, `IntentRequest`, `IntentCandidate`, and related)
+are re-exported from `@napplet/core@0.41.0`, whose delivery has no ID and a
+required string sender (kehto/web#418).
 
 ## Quick Start
 

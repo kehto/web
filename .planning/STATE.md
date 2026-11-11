@@ -158,6 +158,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
+| 261111-adq | Resolve #418: adopt core 0.41 / nap 0.40 no-ID intent delivery and retire the local intent contract | 2026-11-11 | 742ba7db | passed | [261111-adq](./quick/261111-adq-intent-delivery-upstream-types-418/) |
 | 261104-l95 | Chase #404 into PR 336: port host firewall controls to the approval runtime | 2026-11-04 | 6618f01d | passed | [261104-l95](./quick/261104-l95-chase-404-into-firewall-approvals/) |
 | 261102-ggx | Resolve PR #376 review: authorized extension pushes (`pushCapabilities`) and relay delivery ownership for `@kehto/mocks` | 2026-11-02 | 331d6f9b | passed | [261102-ggx](./quick/261102-ggx-resolve-pr-376-review-authorized-extensi/) |
 | 261104-kmf | Host firewall and dispatch controls for shell and runtime (#397-#400), one PR per issue against `release/host-firewall-controls` | 2026-11-04 | 52b4ea89 | passed | [261104-kmf](./quick/261104-kmf-host-firewall-controls/) |

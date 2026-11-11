@@ -37,7 +37,7 @@ implementation authority. `RUNTIME-SPEC.md` is internal runtime guidance.
   `a79e7f4638f70f4557d4183faee9348847bb8cc7`, merged as release source
   `dc1d24153c759152b6ba31a6ec9bea967798f2df`. The exact fixture-napplet line is core
   `0.32.0`, nap `0.32.0`, shim `0.30.0`, SDK `0.28.0`, and Vite plugin `0.16.2`; host
-  packages develop on core `0.40.0` and nap `0.39.0`.
+  packages develop on core `0.41.0` and nap `0.40.0`.
 
 ### Current event schema and retained compatibility
 
@@ -293,7 +293,7 @@ the superseded opener-only view must not be restored.
 
 Checked NAP-INTENT PR #106 at `napplet/naps@fc121fc264615482143eda86125863d2e1f741a2` and NIP-5D PR #2303 at `dskvr/nips@020cb8b33a9e4c6b8ca4b2f9d0ed0a67843b68f7`. Paja uses verified manifest contracts, opaque publisher-safe catalog IDs, parent-attested sender identity, exact convention matching, and one `intent.deliver` after source-bound readiness. A success result records retained delivery responsibility only; no completion result is sent to the source.
 
-`@napplet/nap@0.32.0` (the fixture line) is behind the checked NAP. `packages/services/src/intent-types.ts` is the bounded local contract. `@napplet/nap@0.37.0` now exports `IntentCandidate` and related types and `@napplet/core@0.38.0` declares `intent.onDelivery`; adopting them is a tracked follow-up that must show the exact candidate IDs/contracts, accepted result, and delivery shapes match. It is not a second transport: remove it only when that migration lands and the service, shell, and Paja regressions pass against the upstream export. `sourceWindowId` is internal host correlation and never wire data. Legacy INC fallback remains separately tracked as `KEHTO_COMPAT_INTENT_INC`; legacy object invoke is tracked as `KEHTO_COMPAT_INTENT_OBJECT_INVOKE`.
+`@napplet/nap@0.32.0` (the fixture line) is behind the checked NAP. Host packages take the intent value types from `@napplet/core@0.41.0`, which matches the checked draft (napplet/web#329): `packages/services/src/intent-types.ts` only re-exports them under the existing `@kehto/services` names and declares no local contract. The shell's injected `window.napplet.intent` receiver stays Kehto-owned because the host must install it before `shell.ready`. Like the `@napplet/nap@0.40.0` binding, it drops deliveries without a non-empty string sender and never forwards a delivery ID. `sourceWindowId` is internal host correlation and never wire data. Legacy INC fallback remains separately tracked as `KEHTO_COMPAT_INTENT_INC`; legacy object invoke is tracked as `KEHTO_COMPAT_INTENT_OBJECT_INVOKE`.
 
 NIP-5D bytes are verified before `srcdoc` execution; injected bootstraps are deliberately outside the signed artifact hash and unknown `MessageEvent.source` values are dropped. Paja's external URL uses a signed ephemeral launcher to provide an authenticated source. Opening a shared link follows ordinary verified-pointer navigation policy and opens the app directly. A conflicting applicable saved default and verified link hint require a named-app choice; a one-time choice never changes the default. Persisted catalog pointers are discovery inputs that must be reverified independently of open tabs. A native external host source has no verified iframe endpoint and remains a deferred upstream spec gap.
 
@@ -353,9 +353,10 @@ Authority: [NIP-5D at
   frozen environment, and calls `ShellAdapter.onNappletRevoked` so the host
   removes the frame. `originRegistry.register` refuses a spent `Window`. Hosts
   create a fresh iframe for every navigation; Paja and the e2e harness do.
-- Kehto's host packages develop on `@napplet/core` 0.40.0 and `@napplet/nap` 0.39.0;
-  published peers are per package (core `<0.41.0`, nap `<0.40.0`; `@kehto/services` and
-  `@kehto/paja` floor at 0.38.0 / 0.37.0). Fixture napplets, `@napplet/shim` 0.30.0,
+- Kehto's host packages develop on `@napplet/core` 0.41.0 and `@napplet/nap` 0.40.0;
+  published peers are per package (core `<0.42.0`, nap `<0.41.0`; `@kehto/services` and
+  `@kehto/paja` and `@kehto/cli` floor core at 0.41.0 because services re-exports core's no-ID
+  intent types, and keep the nap floor at 0.37.0). Fixture napplets, `@napplet/shim` 0.30.0,
   `@napplet/sdk` 0.28.0 and `@napplet/vite-plugin` 0.16.2 stay on their exact pins
   (kehto/web#364). Kehto implements both sides of the handoff itself and needs no
   newer shim API.
@@ -580,11 +581,11 @@ remain closed. This directive-specific CSP and base behavior are bounded Kehto
 host policy, not a new NAP-CONNECT wire contract. A new host consumer must use the same shared admission
 transaction and add a conformance guard before executing bytes.
 
-### Host dependency line: core 0.40 / nap 0.39
+### Host dependency line: core 0.41 / nap 0.40
 
-Host peer ranges admit core 0.40.x and nap 0.39.x; development builds and JSR maps use that line. Existing peer floors and the older fixture matrix remain supported.
+Host peer ranges admit core 0.41.x and nap 0.40.x; development builds and JSR maps use that line. `@kehto/services`, `@kehto/paja` and `@kehto/cli` floor core at 0.41.0 because services re-exports core's intent types; other peer floors and the older fixture matrix remain supported.
 
-Checked NAP-INTENT PR #128 at `74f9bf85ebb83b50b7b2ad8308a835d5f3113cd9` alongside PR #106 at `fc121fc264615482143eda86125863d2e1f741a2`. The current proposal withdraws delivery IDs and nullable senders. Core 0.40.0 still exports that withdrawn shape, so Kehto retains its existing no-ID, string-sender contract and parent-trusted binding. This is conformant with the checked draft; the packaged-type mismatch is upstream drift tracked in [napplet/web#328](https://github.com/napplet/web/issues/328) and [kehto/web#418](https://github.com/kehto/web/issues/418). No delivery-ID or null-sender fallback is introduced.
+Checked NAP-INTENT PR #128 at `74f9bf85ebb83b50b7b2ad8308a835d5f3113cd9` alongside PR #106 at `fc121fc264615482143eda86125863d2e1f741a2`. The current proposal withdraws delivery IDs and nullable senders. Core 0.40.0 exported that withdrawn shape ([napplet/web#328](https://github.com/napplet/web/issues/328)). Core 0.41.0 and nap 0.40.0 (napplet/web#329) export the no-ID, string-sender delivery, so Kehto retired its local copy ([kehto/web#418](https://github.com/kehto/web/issues/418)). Result: conformant. No delivery-ID or null-sender fallback exists.
 
 The new package subpaths do not imply host support. Paja records `blossom`, `catalog`, `navigation`, `soulseek` and `torrent` as deferred and does not inject or advertise those domains. This is an implementation coverage decision, not a spec gap or a blocker on the draft status. Existing resource/upload Blossom operations remain their own domains. The checked owning documents are:
 

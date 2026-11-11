@@ -1,16 +1,28 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
+import type * as Core from '@napplet/core';
 import type { IntentCandidate, IntentDelivery, IntentRequest, IntentResult } from './intent-types.js';
 
 describe('canonical intent contracts', () => {
-  it('keeps the current draft delivery shape despite core 0.40 type drift', () => {
-    // naps PR #128 @ 74f9bf85 withdraws delivery IDs and null shell senders.
-    // napplet/web#328 tracks the published core 0.40 mismatch.
+  it('re-exports the published core contracts unchanged (kehto/web#418)', () => {
+    expectTypeOf<IntentDelivery>().toEqualTypeOf<Core.IntentDelivery>();
+    expectTypeOf<IntentRequest>().toEqualTypeOf<Core.IntentRequest>();
+    expectTypeOf<IntentCandidate>().toEqualTypeOf<Core.IntentCandidate>();
+    expectTypeOf<IntentResult>().toEqualTypeOf<Core.IntentResult>();
+  });
+
+  it('keeps the no-ID, string-sender delivery from NAP-INTENT PR #128 @ 74f9bf85', () => {
+    // Core 0.41.0 (napplet/web#329) dropped the withdrawn delivery ID and null sender.
     const delivery = {
       sender: 'catalog-viewer', archetype: 'profile', action: 'open',
       convention: 'napplet:profile/open',
     } satisfies IntentDelivery;
     expectTypeOf<IntentDelivery['sender']>().toEqualTypeOf<string>();
     expectTypeOf<Extract<keyof IntentDelivery, 'id'>>().toEqualTypeOf<never>();
+    // @ts-expect-error a null sender is not part of the delivery contract
+    const nullSender: IntentDelivery = { ...delivery, sender: null };
+    // @ts-expect-error the withdrawn delivery ID is rejected
+    const withId: IntentDelivery = { ...delivery, id: 'delivery-1' };
+    expect([nullSender, withId]).toHaveLength(2);
     expect(delivery).not.toHaveProperty('id');
   });
 
