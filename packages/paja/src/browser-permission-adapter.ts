@@ -1,6 +1,7 @@
 import { createBrowserApprovalUi } from '@kehto/shell';
 import type { BrowserApprovalUi } from '@kehto/shell';
 import type { PermissionAdapter, PermissionGrant, PermissionPrincipal, RuntimePermissions } from '@kehto/runtime';
+import { notePajaApprovalClick } from './browser-link.js';
 import { createPajaPermissionRuleStore } from './browser-permission-rules.js';
 import type { PajaPermissionRuleStore } from './browser-permission-rules.js';
 
@@ -58,6 +59,9 @@ export function createPajaPermissionAdapter(options: PajaPermissionAdapterOption
     labelForPrincipal: options.labelForPrincipal ?? ((principal) => principal.kind === 'verified' ? 'Verified napplet' : 'Development target'),
     onGrantRevoked: options.onGrantRevoked,
     rules,
+    onAnswer(answer, userGesture) {
+      if (answer.effect === 'allow' && userGesture) notePajaApprovalClick();
+    },
   });
   let refreshPending = false;
   const scheduleRefresh = (): void => {

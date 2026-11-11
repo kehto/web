@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { confirmPajaExternalLink } from './browser-link.js';
+import { confirmPajaExternalLink, hasPajaApprovalClick, notePajaApprovalClick } from './browser-link.js';
 
 const request = { windowId: 'window-1', url: new URL('https://example.test/article'),
   options: { label: 'Read article' } };
@@ -91,6 +91,22 @@ describe('Paja LINK confirmation', () => {
     const unapproved = vi.fn(() => true);
     await confirmPajaExternalLink(request, confirm, identity, unapproved, undefined, () => true);
     expect(confirm).toHaveBeenCalledTimes(3);
+  });
+
+  it('treats only a fresh approving click with live browser activation as openable', () => {
+    vi.stubGlobal('navigator', { userActivation: { isActive: true } });
+    try {
+      // An unrelated click leaves the browser activated but approved nothing.
+      expect(hasPajaApprovalClick(5_000)).toBe(false);
+      notePajaApprovalClick(5_000);
+      expect(hasPajaApprovalClick(5_400)).toBe(true);
+      expect(hasPajaApprovalClick(6_001)).toBe(false);
+      vi.stubGlobal('navigator', { userActivation: { isActive: false } });
+      notePajaApprovalClick(7_000);
+      expect(hasPajaApprovalClick(7_100)).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('does not open from a live click once the approval was cancelled', async () => {

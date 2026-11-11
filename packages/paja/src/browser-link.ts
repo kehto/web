@@ -3,8 +3,29 @@ import type { PajaConfirmationHandler, PajaIdentityProvider } from './browser-ad
 import type { PajaConfirmationRequest } from './browser-confirmation-request.js';
 import type { PajaUserActivationHandler } from './browser-device-services.js';
 
-/** Whether a click is still fresh enough for the browser to permit a new tab. */
-function hasBrowserActivation(): boolean {
+const APPROVAL_CLICK_WINDOW_MS = 1_000;
+let approvalClickAt = Number.NEGATIVE_INFINITY;
+
+/**
+ * Record that the user just allowed a Firewall prompt with a real click. A
+ * link approved by that click may open from it; a scripted answer or an older,
+ * unrelated click may not.
+ *
+ * @param now - Monotonic clock reading, injectable for tests.
+ * @example
+ * ```ts
+ * createBrowserApprovalUi({ onAnswer: (answer, gesture) => {
+ *   if (answer.effect === 'allow' && gesture) notePajaApprovalClick();
+ * } });
+ * ```
+ */
+export function notePajaApprovalClick(now: number = performance.now()): void {
+  approvalClickAt = now;
+}
+
+/** Whether the click that approved a Firewall prompt can still open a tab. */
+export function hasPajaApprovalClick(now: number = performance.now()): boolean {
+  if (now - approvalClickAt > APPROVAL_CLICK_WINDOW_MS) return false;
   return typeof navigator !== 'undefined'
     && (navigator as Navigator & { userActivation?: { isActive: boolean } }).userActivation?.isActive === true;
 }
@@ -12,8 +33,9 @@ function hasBrowserActivation(): boolean {
 /**
  * Resolve one LINK handoff against the current source. A link the Firewall
  * approved opens straight from the click that approved it; the confirmation
- * dialog appears only when no click is available to open a tab from, such as a
- * link allowed by a standing rule, or when no Firewall approval ran at all.
+ * dialog appears only when that click is not available to open a tab from, such
+ * as a link allowed by a standing rule or a remembered grant, or when no
+ * Firewall approval ran at all.
  */
 export async function confirmPajaExternalLink(
   context: LinkOpenContext,
@@ -21,7 +43,7 @@ export async function confirmPajaExternalLink(
   getIdentity: PajaIdentityProvider | undefined,
   open: (url: URL) => boolean,
   userActivation?: PajaUserActivationHandler,
-  isActivated: () => boolean = hasBrowserActivation,
+  isActivated: () => boolean = hasPajaApprovalClick,
 ): Promise<{ status: 'opened' | 'denied' }> {
   const { windowId, url, options, signal } = context;
   if (signal?.aborted) return { status: 'denied' };

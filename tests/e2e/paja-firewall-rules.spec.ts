@@ -156,9 +156,15 @@ test('answered decisions are grouped under one napplet heading and revoked as a 
   await popup;
   await expect(page.locator('.kehto-fw-napplet')).toHaveCount(1);
   const link = page.locator('.kehto-fw-domain', { hasText: 'link' });
-  await expect(link.locator('summary')).toContainText('1 decision');
-  await link.locator('summary').click();
-  await expect(link.locator('li')).toContainText('https://example.com/docs');
+  // Collapsed, an interface is one row: name, count, and a revoke icon.
+  await expect(link.locator('> summary')).toHaveText('link1×');
+  await expect(link.locator('.kehto-fw-grant')).toBeHidden();
+  await link.locator('> summary').click();
+  const grant = link.locator('.kehto-fw-grant');
+  await expect(grant.locator('summary')).toContainText('https://example.com/docs');
+  await expect(grant.locator('.kehto-fw-more')).toBeHidden();
+  await grant.locator('summary').click();
+  await expect(grant.locator('.kehto-fw-more')).toContainText('link.open exact:https://example.com/docs');
   await link.getByRole('button', { name: /Revoke all link/ }).click();
   await expect(page.locator('.kehto-fw-domain')).toHaveCount(0);
 });

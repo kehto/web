@@ -72,6 +72,10 @@ const keysGrant = (id: string, value: string, lifetime: 'session' | 'persistent'
 });
 const byText = (root: TestElement, tag: string, text: string): TestElement | undefined =>
   root.all(tag).find((node) => node.textContent === text);
+const byLabel = (root: TestElement, label: string): TestElement | undefined =>
+  root.all('button').find((node) => node.getAttribute('aria-label') === label);
+const revokeButtons = (root: TestElement): TestElement[] =>
+  root.all('button').filter((node) => node.getAttribute('aria-label')?.startsWith('Revoke network.') ?? false);
 const DEFAULTS = createPermissionRules({ default: 'allow', operations: { 'link.open': 'ask' } });
 
 function setup(separatePrompt = false, withRules = false) {
@@ -88,6 +92,7 @@ function setup(separatePrompt = false, withRules = false) {
     revoke, clear, retryPersistence,
   } as unknown as RuntimePermissions;
   const onGrantRevoked = vi.fn();
+  const onAnswer = vi.fn();
   let rules: PermissionRules = DEFAULTS;
   const setRules = vi.fn((next: PermissionRules) => { rules = next; });
   const ui = createBrowserApprovalUi({
@@ -96,13 +101,13 @@ function setup(separatePrompt = false, withRules = false) {
     ...(separatePrompt ? { promptMount: promptMount as unknown as HTMLElement } : {}),
     labelForPrincipal: () => 'Trusted app',
     getPermissions: () => permissions,
-    onGrantRevoked,
+    onGrantRevoked, onAnswer,
   });
   const prompt = (signal: AbortSignal, lifetimes: Array<'once' | 'session' | 'persistent'> = ['session']): ApprovalPrompt => ({
     request: { principal, sessionId: 's', requestId: 'r', requirements: [requirement] },
     missing: [requirement], signal, allowLifetimes: lifetimes,
   });
-  return { document, mount, promptMount, ui, prompt, revoke, clear, retryPersistence, onGrantRevoked, setRules,
+  return { document, mount, promptMount, ui, prompt, revoke, clear, retryPersistence, onGrantRevoked, onAnswer, setRules,
     rules: () => rules,
     setGrants(value: PermissionGrant[]) { grants = value; },
     setAvailable(value: boolean) { available = value; } };
@@ -144,6 +149,8 @@ describe('common browser approval UI', () => {
     expect(allow.disabled).toBe(false);
     allow.click();
     expect(await answer).toEqual({ effect: 'allow', lifetime: 'session' });
+    // A scripted click is reported as such: it must not unlock gesture-gated actions.
+    expect(f.onAnswer).toHaveBeenCalledWith({ effect: 'allow', lifetime: 'session' }, false);
     expect(dialog.open).toBe(false);
     f.ui.destroy();
   });
@@ -269,7 +276,7 @@ describe('common browser approval UI', () => {
     f.setGrants([grant]);
     await Promise.resolve();
     await Promise.resolve();
-    expect(byText(f.mount, 'button', 'Revoke')).toBeDefined();
+    expect(revokeButtons(f.mount)).toHaveLength(1);
     f.ui.destroy();
   });
 
@@ -281,18 +288,18 @@ describe('common browser approval UI', () => {
     };
     f.setGrants([grant]);
     f.ui.refresh();
-    expect(f.mount.find('li')!.textContent).toContain('https://api.example.test');
-    const revokeButton = byText(f.mount, 'button', 'Revoke')!;
-    expect(revokeButton.getAttribute('aria-label')).toBe('Revoke network.connect-src origin:https://api.example.test');
+    expect(f.mount.textContent).toContain('https://api.example.test');
+    const revokeButton = byLabel(f.mount, 'Revoke network.connect-src origin:https://api.example.test')!;
+    expect(revokeButton.title).toBe('Revoke network.connect-src origin:https://api.example.test');
     revokeButton.click();
     expect(f.revoke).toHaveBeenCalledWith('grant-1');
     expect(f.onGrantRevoked).toHaveBeenCalledWith(grant, true);
-    expect(byText(f.mount, 'button', 'Revoke')).toBeUndefined();
+    expect(revokeButtons(f.mount)).toHaveLength(0);
     expect(f.mount.textContent).toContain('No grants yet');
 
     f.setGrants([grant]);
     f.ui.refresh();
-    byText(f.mount, 'button', 'Clear all grants')!.click();
+    byLabel(f.mount, 'Clear all grants')!.click();
     expect(f.clear).toHaveBeenCalledOnce();
     expect(f.onGrantRevoked).toHaveBeenCalledTimes(2);
 
@@ -313,22 +320,41 @@ describe('common browser approval UI', () => {
     const napplets = f.mount.all('details').filter((node) => node.className === 'kehto-fw-napplet');
     expect(napplets).toHaveLength(1);
     expect(napplets[0].open).toBe(true);
-    expect(napplets[0].find('summary')!.textContent).toBe('Trusted appverified41 grants');
+    expect(napplets[0].find('summary')!.textContent).toBe('Trusted appverified41×');
     // The full identity is a tooltip; the visible line is shortened and appears once.
     expect(f.mount.textContent.split(principal.artifactHash)).toHaveLength(1);
     expect(byText(f.mount, 'p', '15129:bbbbbbbb…bbbbbb · artifact aaaaaaaa…aaaaaa')!.title).toContain(principal.artifactHash);
     const domains = f.mount.all('details').filter((node) => node.className === 'kehto-fw-domain');
-    expect(domains.map((node) => node.find('summary')!.textContent)).toEqual(['keys40 decisions', 'network1 decision']);
+    expect(domains.map((node) => node.find('summary')!.textContent)).toEqual(['keys40×', 'network1×']);
     expect(domains.every((node) => !node.open)).toBe(true);
-    expect(domains[0].find('li')!.textContent).toBe('AllowedRegister shortcutaction app.action-0AlwaysRevoke');
-    expect(domains[1].find('li')!.textContent).toContain('Blocked');
+    // A grant is one row; its full scope and wording appear only when expanded.
+    const grant = domains[0].all('details').find((node) => node.className === 'kehto-fw-grant')!;
+    expect(grant.open).toBe(false);
+    expect(grant.find('summary')!.textContent).toBe('Register shortcutaction app.action-0always×');
+    expect(grant.find('p')!.textContent).toBe('Allowed · Alwayskeys.registerAction exact:keys:action:app.action-0');
+    expect(domains[1].find('p')!.textContent).toContain('Blocked');
+    const dots = (node: TestElement) => node.find('summary')!.all('span').map((dot) => dot.className).filter((name) => name.startsWith('kehto-fw-dot'));
+    expect(dots(napplets[0])).toEqual(['kehto-fw-dot kehto-fw-mixed']);
+    expect(dots(domains[0])).toEqual(['kehto-fw-dot kehto-fw-allow']);
+    expect(dots(domains[1])).toEqual(['kehto-fw-dot kehto-fw-deny']);
 
     // The host hears about a group only after every grant in it is gone.
     f.onGrantRevoked.mockImplementation(() => { expect(f.revoke).toHaveBeenCalledTimes(40); });
-    byText(f.mount, 'button', 'Revoke all keys')!.click();
+    byLabel(f.mount, 'Revoke all keys decisions for Trusted app')!.click();
     expect(f.revoke).toHaveBeenCalledTimes(40);
     expect(f.onGrantRevoked).toHaveBeenCalledTimes(40);
     expect(f.mount.all('details').filter((node) => node.className === 'kehto-fw-domain')).toHaveLength(1);
+    f.ui.destroy();
+  });
+
+  it('acts from a row button without toggling the row it sits in', () => {
+    const f = setup();
+    f.setGrants([keysGrant('keys-1', 'keys:chord:Escape', 'persistent')]);
+    f.ui.refresh();
+    const click = new Event('click', { cancelable: true });
+    byLabel(f.mount, 'Revoke every grant for Trusted app')!.dispatchEvent(click);
+    expect(click.defaultPrevented).toBe(true);
+    expect(f.revoke).toHaveBeenCalledWith('keys-1');
     f.ui.destroy();
   });
 
@@ -350,9 +376,9 @@ describe('common browser approval UI', () => {
     const f = setup();
     f.setGrants(Array.from({ length: 100 }, (_, index) => keysGrant(`rule:r${index}-0`, `keys:action:app.action-${index}`)));
     f.ui.refresh();
-    expect(f.mount.textContent).toContain('100 scopes allowed by default rules until it closes');
-    expect(f.mount.all('li')).toHaveLength(0);
-    byText(f.mount, 'button', 'Reset')!.click();
+    expect(f.mount.textContent).toContain('100 allowed by default rules');
+    expect(f.mount.all('details').filter((node) => node.className === 'kehto-fw-grant')).toHaveLength(0);
+    byLabel(f.mount, 'Reset default-rule grants for Trusted app')!.click();
     expect(f.revoke).toHaveBeenCalledTimes(100);
     f.ui.destroy();
   });
@@ -382,7 +408,7 @@ describe('browser approval default rules', () => {
   it('lists the default and each exception, and changes one in place', () => {
     const f = setup(false, true);
     const rows = ruleList(f.mount).all('li');
-    expect(rows.map((row) => row.find('span')!.textContent)).toEqual(['Everything elseevery napplet', 'link.openevery napplet']);
+    expect(rows.map((row) => row.all('span')[1].textContent)).toEqual(['Everything elseall', 'link.openall']);
     expect(ruleSelects(f.mount).map((node) => node.value)).toEqual(['allow', 'ask']);
     expect(rows[0].all('button')).toHaveLength(0);
     const fallback = ruleSelects(f.mount)[0];
@@ -399,8 +425,9 @@ describe('browser approval default rules', () => {
     f.ui.refresh();
     const form = f.mount.find('form')!;
     const [scope, action] = form.all('select');
+    expect(byLabel(form, 'Add rule')!.textContent).toBe('+');
     const capability = form.find('input')!;
-    expect(scope.all('option').map((node) => [node.value, node.textContent])).toEqual([['', 'Every napplet'], [subject, 'Trusted app']]);
+    expect(scope.all('option').map((node) => [node.value, node.textContent])).toEqual([['', 'All napplets'], [subject, 'Trusted app']]);
     expect(form.find('datalist')!.all('option').map((node) => node.value)).toEqual(['keys', 'keys.registerAction']);
 
     capability.value = 'fs';
@@ -416,7 +443,7 @@ describe('browser approval default rules', () => {
     expect(f.rules().napplets[subject]).toEqual({ domains: {}, operations: { 'keys.registerAction': 'ask' } });
     expect(ruleList(f.mount).textContent).toContain('keys.registerActionTrusted app');
 
-    f.mount.all('button').find((node) => node.getAttribute('aria-label') === 'Remove rule for fs (whole interface), every napplet')!.click();
+    f.mount.all('button').find((node) => node.getAttribute('aria-label') === 'Remove rule for fs.*, all')!.click();
     expect(f.rules().domains).toEqual({});
     f.ui.destroy();
   });
@@ -439,7 +466,7 @@ describe('browser approval default rules', () => {
     fallback.value = 'deny';
     fallback.dispatchEvent(new Event('change'));
     expect(f.rules()).not.toEqual(DEFAULTS);
-    byText(f.mount, 'button', 'Restore defaults')!.click();
+    byLabel(f.mount, 'Restore defaults')!.click();
     expect(f.rules()).toEqual(DEFAULTS);
     f.ui.destroy();
   });

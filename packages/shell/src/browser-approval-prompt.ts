@@ -16,6 +16,8 @@ export interface PromptResult {
   readonly answer: ApprovalAnswer;
   /** Apply the answer to every future request the offered rule covers. */
   readonly asRule: boolean;
+  /** The answer came from a real pointer or key press, not a scripted click. */
+  readonly userGesture: boolean;
 }
 
 interface QueuedPrompt {
@@ -24,7 +26,7 @@ interface QueuedPrompt {
   readonly onAbort: () => void;
 }
 
-const CANCELLED: PromptResult = Object.freeze({ answer: Object.freeze({ effect: 'cancel' }), asRule: false });
+const CANCELLED: PromptResult = Object.freeze({ answer: Object.freeze({ effect: 'cancel' }), asRule: false, userGesture: false });
 
 function buildDialog(document: Document) {
   const dialog = element(document, 'dialog', undefined, 'kehto-approval-dialog');
@@ -149,12 +151,12 @@ export function createBrowserApprovalPrompt(
       const onAbort = (): void => finish(CANCELLED);
       request.signal.addEventListener('abort', onAbort, { once: true });
       listeners.push(() => request.signal.removeEventListener('abort', onAbort));
-      listen(deny, 'click', () => finish({ answer: { effect: 'deny', lifetime: 'once' }, asRule: view.ruleBox.checked }));
-      listen(allow, 'click', () => {
+      listen(deny, 'click', (event) => finish({ answer: { effect: 'deny', lifetime: 'once' }, asRule: view.ruleBox.checked, userGesture: event.isTrusted }));
+      listen(allow, 'click', (event) => {
         const asRule = view.ruleBox.checked;
         // A standing rule needs no exact grant beyond the life of this napplet.
         const lifetime = asRule && request.allowLifetimes.includes('session') ? 'session' : selected;
-        if (lifetime) finish({ answer: { effect: 'allow', lifetime }, asRule });
+        if (lifetime) finish({ answer: { effect: 'allow', lifetime }, asRule, userGesture: event.isTrusted });
       });
       for (const choice of choices) listen(choice, 'click', () => { selected = choice.value as Lifetime; mark(); });
       listen(view.ruleBox, 'change', mark);

@@ -109,7 +109,7 @@ test('revoking an approved interface retires the executing frame', async ({ page
   await choose(page, 'Use the theme interface', 'Allow');
   const frame = page.frameLocator('#napplet-frame');
   await expect(frame.locator('#theme-state')).toHaveText('object');
-  await page.locator('.kehto-fw-domain', { hasText: 'theme' }).locator('summary').click();
+  await page.locator('.kehto-fw-domain', { hasText: 'theme' }).locator('> summary').click();
   const revoke = page.getByRole('button', { name: 'Revoke access exact:theme' });
   await expect(revoke).toBeVisible();
   await revoke.click();

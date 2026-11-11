@@ -47,7 +47,7 @@ function scopeRows(scope: PermissionRuleScope | PermissionRules, napplet?: strin
 }
 
 function capabilityText(target: PermissionRuleTarget): string {
-  return target.operation ?? (target.domain !== undefined ? `${target.domain} (whole interface)` : 'Everything');
+  return target.operation ?? (target.domain !== undefined ? `${target.domain}.*` : 'Everything');
 }
 
 /**
@@ -61,8 +61,9 @@ function capabilityText(target: PermissionRuleTarget): string {
 export function createRulesEditor(document: Document, options: RulesEditorOptions): { readonly root: HTMLElement; refresh(): void } {
   const root = element(document, 'section', undefined, 'kehto-fw-rules');
   root.setAttribute('aria-label', 'Default rules');
-  const hint = element(document, 'p',
-    'Applied when no remembered decision covers a request. The most specific rule wins. Tightening a rule stops napplets that relied on it.', 'kehto-fw-hint');
+  const head = element(document, 'div', undefined, 'kehto-fw-head');
+  const title = element(document, 'h3', 'Default rules');
+  title.title = 'Used when no grant covers a request. The most specific rule wins. Tightening a rule stops napplets that relied on it.';
   const list = element(document, 'ul', undefined, 'kehto-fw-rule-list');
   const form = element(document, 'form', undefined, 'kehto-fw-rule-add');
   const scope = element(document, 'select');
@@ -77,14 +78,19 @@ export function createRulesEditor(document: Document, options: RulesEditorOption
   const suggestions = element(document, 'datalist');
   suggestions.id = 'kehto-fw-capabilities';
   const action = select(document, 'Rule action', ACTIONS, 'ask');
-  const add = element(document, 'button', 'Add rule');
+  const add = element(document, 'button', '+', 'kehto-fw-icon');
   add.type = 'submit';
-  form.append(scope, capability, suggestions, action, add);
+  add.title = 'Add rule';
+  add.setAttribute('aria-label', 'Add rule');
+  form.append(capability, suggestions, scope, action, add);
   const error = element(document, 'p', undefined, 'kehto-fw-error');
   error.setAttribute('role', 'alert');
-  const restore = element(document, 'button', 'Restore defaults');
+  const restore = element(document, 'button', '↺', 'kehto-fw-icon');
   restore.type = 'button';
-  root.append(element(document, 'h3', 'Default rules'), hint, list, form, error, restore);
+  restore.title = 'Restore defaults';
+  restore.setAttribute('aria-label', 'Restore defaults');
+  head.append(title, restore);
+  root.append(head, list, form, error);
 
   function apply(next: () => PermissionRules): void {
     try {
@@ -97,17 +103,20 @@ export function createRulesEditor(document: Document, options: RulesEditorOption
   }
 
   function row(label: string, capabilityLabel: string, entry: RuleRow, removable: boolean): HTMLLIElement {
-    const item = element(document, 'li');
-    const name = element(document, 'span', undefined, 'kehto-fw-rule-name');
+    const item = element(document, 'li', undefined, 'kehto-fw-row');
+    const state = element(document, 'span', undefined, `kehto-fw-dot kehto-fw-${entry.action}`);
+    state.setAttribute('aria-hidden', 'true');
+    const name = element(document, 'span', undefined, 'kehto-fw-name');
     name.append(element(document, 'code', capabilityLabel), element(document, 'small', label));
     const choice = select(document, `Action for ${capabilityLabel}, ${label}`, ACTIONS, entry.action);
     choice.addEventListener('change', () => {
       apply(() => setPermissionRule(options.rules.get(), entry.target, choice.value as PermissionRuleAction));
     });
-    item.append(name, choice);
+    item.append(state, name, choice);
     if (removable) {
       const remove = element(document, 'button', '×', 'kehto-fw-icon');
       remove.type = 'button';
+      remove.title = 'Remove rule';
       remove.setAttribute('aria-label', `Remove rule for ${capabilityLabel}, ${label}`);
       remove.addEventListener('click', () => apply(() => setPermissionRule(options.rules.get(), entry.target, undefined)));
       item.append(remove);
@@ -120,15 +129,15 @@ export function createRulesEditor(document: Document, options: RulesEditorOption
     const subjects = options.subjects();
     const labelFor = (subject: string): string => subjects.find((item) => item.subject === subject)?.label ?? subject;
     list.replaceChildren(
-      row('every napplet', 'Everything else', { target: {}, action: rules.default }, false),
-      ...scopeRows(rules).map((entry) => row('every napplet', capabilityText(entry.target), entry, true)),
+      row('all', 'Everything else', { target: {}, action: rules.default }, false),
+      ...scopeRows(rules).map((entry) => row('all', capabilityText(entry.target), entry, true)),
       ...Object.entries(rules.napplets).flatMap(([subject, napplet]) => scopeRows(napplet, subject)
         .map((entry) => row(labelFor(subject), capabilityText(entry.target), entry, true))),
     );
     const chosen = scope.value;
     const known = new Map([...subjects, ...Object.keys(rules.napplets).map((subject) => ({ subject, label: labelFor(subject) }))]
       .map((item) => [item.subject, item.label]));
-    scope.replaceChildren(...[[EVERY_NAPPLET, 'Every napplet'] as const, ...known].map(([value, text]) => {
+    scope.replaceChildren(...[[EVERY_NAPPLET, 'All napplets'] as const, ...known].map(([value, text]) => {
       const option = element(document, 'option', text);
       option.value = value;
       return option;

@@ -15,7 +15,7 @@ export const LIFETIME_LABELS: Readonly<Record<Lifetime, string>> = Object.freeze
 /** Wording for each default-rule action. */
 export const RULE_ACTION_LABELS: Readonly<Record<PermissionRuleAction, string>> = Object.freeze({
   allow: 'Allow',
-  ask: 'Ask every time',
+  ask: 'Ask',
   deny: 'Block',
 });
 

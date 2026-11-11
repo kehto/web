@@ -11,13 +11,14 @@ interface GrantListOptions {
   readonly revoke: (grants: readonly PermissionGrant[]) => void;
 }
 
-function plural(count: number, noun: string): string {
-  return `${count} ${noun}${count === 1 ? '' : 's'}`;
-}
+const SHORT_LIFETIME: Readonly<Record<PermissionGrant['lifetime'], string>> = Object.freeze({
+  once: 'once', session: 'session', persistent: 'always',
+});
 
 /**
- * Grant list grouped by napplet, then interface, so identity is stated once
- * and hundreds of exact scopes collapse behind a count.
+ * Grant list as a tree of single-line rows: napplet, interface, grant. Every
+ * row shows a status dot, a name and a count or lifetime; identity, the full
+ * scope and the remaining facts appear only when a row is expanded.
  *
  * @param document - Document that owns the list.
  * @param options - Host label and the runtime-backed revoke action.
@@ -25,15 +26,22 @@ function plural(count: number, noun: string): string {
  */
 export function createGrantList(document: Document, options: GrantListOptions): { readonly root: HTMLElement; render(grants: readonly PermissionGrant[]): void } {
   const root = element(document, 'div', undefined, 'kehto-fw-grants');
-  // Collapsed state is the user's; a re-render after each decision keeps it.
+  // Expansion is the user's; a re-render after each decision keeps it.
   const closedNapplets = new Set<string>();
-  const openDomains = new Set<string>();
+  const openRows = new Set<string>();
 
-  function button(text: string, label: string, grants: readonly PermissionGrant[]): HTMLButtonElement {
-    const node = element(document, 'button', text);
+  /** Icon button; the label carries the meaning for assistive tech and as a tooltip. */
+  function icon(glyph: string, label: string, grants: readonly PermissionGrant[]): HTMLButtonElement {
+    const node = element(document, 'button', glyph, 'kehto-fw-icon');
     node.type = 'button';
+    node.title = label;
     node.setAttribute('aria-label', label);
-    node.addEventListener('click', () => options.revoke(grants));
+    node.addEventListener('click', (event) => {
+      // The button sits in a summary: acting must not also toggle the row.
+      event.preventDefault();
+      event.stopPropagation();
+      options.revoke(grants);
+    });
     return node;
   }
 
@@ -45,20 +53,36 @@ export function createGrantList(document: Document, options: GrantListOptions): 
     });
   }
 
-  function grantRow(grant: PermissionGrant): HTMLLIElement {
+  function dot(effect: 'allow' | 'deny' | 'mixed'): HTMLSpanElement {
+    const node = element(document, 'span', undefined, `kehto-fw-dot kehto-fw-${effect}`);
+    node.setAttribute('aria-hidden', 'true');
+    return node;
+  }
+
+  function effectOf(grants: readonly PermissionGrant[]): 'allow' | 'deny' | 'mixed' {
+    const denied = grants.filter((grant) => grant.effect === 'deny').length;
+    return denied === 0 ? 'allow' : denied === grants.length ? 'deny' : 'mixed';
+  }
+
+  function grantRow(group: GrantGroup, grant: PermissionGrant): HTMLDetailsElement {
     const text = describeRequirement(grant.permission);
     const scope = grant.permission.scope;
-    const row = element(document, 'li');
-    row.append(
-      element(document, 'span', grant.effect === 'allow' ? 'Allowed' : 'Blocked', `kehto-fw-effect kehto-fw-${grant.effect}`),
-      element(document, 'span', text.action, 'kehto-fw-action'),
-    );
+    const details = element(document, 'details', undefined, 'kehto-fw-grant');
+    track(details, `${group.key}#${grant.id}`, openRows, false);
+    const row = element(document, 'summary', undefined, 'kehto-fw-row');
+    row.append(dot(grant.effect), element(document, 'span', text.action, 'kehto-fw-name'));
     if (text.target !== undefined) row.append(element(document, 'code', text.target));
     row.append(
-      element(document, 'small', LIFETIME_LABELS[grant.lifetime]),
-      button('Revoke', `Revoke ${grant.permission.operation} ${scope.kind}:${scope.value}`, [grant]),
+      element(document, 'small', SHORT_LIFETIME[grant.lifetime]),
+      icon('×', `Revoke ${grant.permission.operation} ${scope.kind}:${scope.value}`, [grant]),
     );
-    return row;
+    const more = element(document, 'p', undefined, 'kehto-fw-more');
+    more.append(
+      element(document, 'span', `${grant.effect === 'allow' ? 'Allowed' : 'Blocked'} · ${LIFETIME_LABELS[grant.lifetime]}`),
+      element(document, 'code', `${grant.permission.operation} ${scope.kind}:${scope.value}`),
+    );
+    details.append(row, more);
+    return details;
   }
 
   function nappletGroup(group: GrantGroup): HTMLDetailsElement {
@@ -66,34 +90,40 @@ export function createGrantList(document: Document, options: GrantListOptions): 
     const all = [...group.decided.flatMap((domain) => domain.grants), ...group.byRule];
     const details = element(document, 'details', undefined, 'kehto-fw-napplet');
     track(details, group.key, closedNapplets, true);
-    const summary = element(document, 'summary');
+    const summary = element(document, 'summary', undefined, 'kehto-fw-row');
     summary.append(
-      element(document, 'strong', label),
-      element(document, 'span', group.principal.kind === 'verified' ? 'verified' : 'development', 'kehto-approval-badge'),
-      element(document, 'small', plural(all.length, 'grant')),
+      dot(effectOf(all)),
+      element(document, 'strong', label, 'kehto-fw-name'),
+      element(document, 'span', group.principal.kind === 'verified' ? 'verified' : 'dev', 'kehto-approval-badge'),
+      element(document, 'small', String(all.length)),
+      icon('×', `Revoke every grant for ${label}`, all),
     );
     const identity = element(document, 'p', principalSummary(group.principal), 'kehto-fw-identity');
     identity.title = principalIdentity(group.principal);
     details.append(summary, identity);
     if (group.byRule.length) {
-      const byRule = element(document, 'p', undefined, 'kehto-fw-by-rule');
+      const byRule = element(document, 'div', undefined, 'kehto-fw-row kehto-fw-by-rule');
       byRule.append(
-        element(document, 'span', `${plural(group.byRule.length, 'scope')} allowed by default rules until it closes`),
-        button('Reset', `Reset default-rule grants for ${label}`, group.byRule),
+        dot('allow'),
+        element(document, 'span', `${group.byRule.length} allowed by default rules`, 'kehto-fw-name'),
+        element(document, 'small', 'session'),
+        icon('↺', `Reset default-rule grants for ${label}`, group.byRule),
       );
       details.append(byRule);
     }
     for (const domain of group.decided) {
       const section = element(document, 'details', undefined, 'kehto-fw-domain');
-      track(section, `${group.key}#${domain.domain}`, openDomains, false);
-      const heading = element(document, 'summary');
-      heading.append(element(document, 'code', domain.domain), element(document, 'small', plural(domain.grants.length, 'decision')));
-      const rows = element(document, 'ul');
-      rows.append(...domain.grants.map(grantRow));
-      section.append(heading, rows, button(`Revoke all ${domain.domain}`, `Revoke all ${domain.domain} decisions for ${label}`, domain.grants));
+      track(section, `${group.key}#${domain.domain}`, openRows, false);
+      const heading = element(document, 'summary', undefined, 'kehto-fw-row');
+      heading.append(
+        dot(effectOf(domain.grants)),
+        element(document, 'code', domain.domain, 'kehto-fw-name'),
+        element(document, 'small', String(domain.grants.length)),
+        icon('×', `Revoke all ${domain.domain} decisions for ${label}`, domain.grants),
+      );
+      section.append(heading, ...domain.grants.map((grant) => grantRow(group, grant)));
       details.append(section);
     }
-    details.append(button('Revoke everything for this napplet', `Revoke every grant for ${label}`, all));
     return details;
   }
 
@@ -101,7 +131,7 @@ export function createGrantList(document: Document, options: GrantListOptions): 
     const groups = groupGrants(grants);
     root.replaceChildren(...(groups.length
       ? groups.map(nappletGroup)
-      : [element(document, 'p', 'No grants yet. Decisions you make appear here.', 'kehto-fw-hint')]));
+      : [element(document, 'p', 'No grants yet.', 'kehto-fw-hint')]));
   }
 
   return { root, render };

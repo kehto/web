@@ -30,6 +30,12 @@ export interface BrowserApprovalUiOptions {
    * standing rule from each prompt, and resets grants a changed rule no longer allows.
    */
   readonly rules?: BrowserApprovalRules;
+  /**
+   * Observe each answered prompt. `userGesture` is true only for a real pointer
+   * or key press, so a host can run a gesture-gated browser action, such as
+   * opening a tab, from the approving click. It cannot change the answer.
+   */
+  readonly onAnswer?: (answer: ApprovalAnswer, userGesture: boolean) => void;
 }
 
 /** Common presentation adapter and live runtime-backed management controls. */
@@ -73,12 +79,14 @@ export function createBrowserApprovalUi(options: BrowserApprovalUiOptions): Brow
   const status = element(document, 'p', undefined, 'kehto-fw-error');
   status.setAttribute('role', 'alert');
   status.setAttribute('aria-live', 'assertive');
-  const clear = element(document, 'button', 'Clear all grants');
+  const clear = element(document, 'button', '×', 'kehto-fw-icon');
   clear.type = 'button';
+  clear.title = 'Clear all grants';
+  clear.setAttribute('aria-label', 'Clear all grants');
   const retry = element(document, 'button', 'Retry permission storage');
   retry.type = 'button';
-  const footer = element(document, 'div', undefined, 'kehto-fw-footer');
-  footer.append(clear, retry);
+  const head = element(document, 'div', undefined, 'kehto-fw-head');
+  head.append(element(document, 'h3', 'Firewall grants'), clear);
 
   function revoke(grants: readonly PermissionGrant[]): void {
     const live = options.getPermissions();
@@ -119,7 +127,7 @@ export function createBrowserApprovalUi(options: BrowserApprovalUiOptions): Brow
     ]),
   }) : undefined;
 
-  management.append(element(document, 'h3', 'Firewall grants'), status, grantList.root, footer);
+  management.append(head, status, retry, grantList.root);
   promptRoot.append(presenter.dialog);
   if (rulesEditor) root.append(rulesEditor.root);
   root.append(management);
@@ -187,7 +195,8 @@ export function createBrowserApprovalUi(options: BrowserApprovalUiOptions): Brow
   }
 
   async function prompt(request: ApprovalPrompt): Promise<ApprovalAnswer> {
-    const { answer, asRule } = await presenter.prompt(request);
+    const { answer, asRule, userGesture } = await presenter.prompt(request);
+    try { options.onAnswer?.(answer, userGesture); } catch { /* Observers cannot change the answer. */ }
     if (asRule && answer.effect !== 'cancel') rememberAsRule(request, answer.effect);
     // The coordinator commits the grant in its continuation of this promise.
     // Refresh in the following microtask so management reads runtime truth.

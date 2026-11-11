@@ -22,32 +22,50 @@ export const BROWSER_APPROVAL_UI_STYLES = `
 .kehto-approval-ui button { white-space: nowrap; }
 .kehto-approval-ui [hidden] { display: none !important; }
 .kehto-approval-badge { margin: 0 6px; padding: 1px 6px; border: 1px solid var(--fw-line); border-radius: 999px; color: var(--fw-muted); font-size: 10px; text-transform: uppercase; }
-.kehto-fw-hint, .kehto-fw-identity { color: var(--fw-muted); font-size: 11px; overflow-wrap: anywhere; }
-.kehto-fw-error { color: var(--fw-deny); font-size: 12px; }
+.kehto-fw-hint { color: var(--fw-muted); font-size: 11px; }
+.kehto-fw-error { color: var(--fw-deny); font-size: 11px; }
 .kehto-fw-error:empty { display: none; }
-.kehto-fw-rules, .kehto-fw-management, .kehto-fw-grants { display: grid; gap: 8px; }
-.kehto-fw-rule-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto 26px; align-items: center; gap: 6px; padding: 4px 0; border-bottom: 1px solid var(--fw-line); }
-.kehto-fw-rule-name { display: grid; }
-.kehto-fw-rule-name small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.kehto-fw-icon { width: 26px; padding: 0; }
-.kehto-fw-rule-add { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px; }
-.kehto-fw-rule-add input { padding: 0 8px; }
-.kehto-fw-napplet { border: 1px solid var(--fw-line); border-radius: 6px; background: var(--fw-bg); }
-.kehto-fw-napplet > summary { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; padding: 8px 10px; cursor: pointer; }
-.kehto-fw-napplet > summary small { margin-left: auto; }
-.kehto-fw-napplet > :not(summary) { margin: 0 10px 8px; }
-.kehto-fw-by-rule { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--fw-muted); font-size: 12px; }
-.kehto-fw-domain { border-top: 1px solid var(--fw-line); padding-top: 6px; }
-.kehto-fw-domain > summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; }
-.kehto-fw-domain > ul { margin: 6px 0; }
-.kehto-fw-domain li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 2px 8px; padding: 6px 8px; border-radius: 4px; background: var(--fw-inset); }
-.kehto-fw-domain li code { grid-column: 1 / 3; grid-row: 2; }
-.kehto-fw-domain li small { grid-column: 1 / 3; grid-row: 3; }
-.kehto-fw-domain li button { grid-column: 3; grid-row: 1 / span 3; align-self: center; }
-.kehto-fw-effect { font-size: 10px; font-weight: 700; text-transform: uppercase; }
-.kehto-fw-allow { color: var(--fw-allow); }
-.kehto-fw-deny { color: var(--fw-deny); }
-.kehto-fw-footer { display: flex; flex-wrap: wrap; gap: 6px; }
+.kehto-fw-rules, .kehto-fw-management { display: grid; gap: 4px; }
+.kehto-fw-head { display: flex; align-items: center; justify-content: space-between; height: 22px; }
+.kehto-fw-row { display: flex; align-items: center; gap: 6px; height: 24px; padding: 0 4px; border-radius: 4px; font-size: 12px; list-style: none; white-space: nowrap; }
+.kehto-fw-row::-webkit-details-marker { display: none; }
+summary.kehto-fw-row { cursor: pointer; }
+.kehto-fw-row:hover { background: color-mix(in srgb, var(--fw-text) 7%, transparent); }
+summary.kehto-fw-row::before { content: '›'; width: 8px; color: var(--fw-muted); transition: transform 120ms; }
+details[open] > summary.kehto-fw-row::before { transform: rotate(90deg); }
+.kehto-fw-row > * { flex: none; }
+.kehto-fw-row > .kehto-fw-name { flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; }
+.kehto-fw-row > .kehto-fw-name small { margin-left: 6px; }
+.kehto-fw-row > code:not(.kehto-fw-name) { flex: 1 1 0; overflow: hidden; text-overflow: ellipsis; color: var(--fw-muted); }
+.kehto-fw-row > small, .kehto-fw-row > select { margin-left: auto; }
+.kehto-fw-row > code:not(.kehto-fw-name) + small { margin-left: 0; }
+.kehto-fw-row > small { font-variant-numeric: tabular-nums; }
+.kehto-fw-row .kehto-approval-badge { margin: 0; padding: 0 5px; font-size: 9px; }
+.kehto-fw-row select { height: 20px; min-height: 0; padding: 0 2px; font-size: 11px; }
+.kehto-fw-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--fw-muted); }
+.kehto-fw-dot.kehto-fw-allow { background: var(--fw-allow); }
+.kehto-fw-dot.kehto-fw-deny { background: var(--fw-deny); }
+.kehto-fw-dot.kehto-fw-ask, .kehto-fw-dot.kehto-fw-mixed { background: var(--fw-accent); }
+.kehto-approval-ui button.kehto-fw-icon { width: 20px; height: 20px; min-height: 0; padding: 0; border-color: transparent; background: transparent; color: var(--fw-muted); font-size: 14px; line-height: 1; }
+.kehto-approval-ui button.kehto-fw-icon:hover:not(:disabled), .kehto-approval-ui button.kehto-fw-icon:focus-visible { color: var(--fw-text); border-color: var(--fw-line); }
+.kehto-approval-ui button.kehto-fw-icon:disabled { opacity: 0.3; cursor: default; }
+.kehto-fw-row > .kehto-fw-icon { opacity: 0.35; }
+.kehto-fw-row:hover > .kehto-fw-icon, .kehto-fw-row > .kehto-fw-icon:focus-visible { opacity: 1; }
+.kehto-fw-rule-list { gap: 0 !important; }
+.kehto-fw-rule-list li.kehto-fw-row { padding-right: 0; }
+.kehto-fw-rule-list li.kehto-fw-row > select + .kehto-fw-icon { margin-left: 0; }
+.kehto-fw-rule-list li.kehto-fw-row > select:last-child { margin-right: 26px; }
+.kehto-fw-rule-add { display: flex; gap: 4px; align-items: center; margin-top: 2px; }
+.kehto-fw-rule-add input { flex: 1 1 0; height: 22px; min-height: 0; padding: 0 6px; font-size: 11px; }
+.kehto-fw-rule-add select { flex: 0 1 auto; max-width: 96px; height: 22px; min-height: 0; padding: 0 2px; font-size: 11px; }
+.kehto-fw-grants { display: grid; }
+.kehto-fw-napplet > :not(summary) { margin-left: 14px; }
+.kehto-fw-domain > :not(summary) { margin-left: 14px; }
+.kehto-fw-identity, .kehto-fw-more { padding: 0 4px 4px 18px; color: var(--fw-muted); font-size: 11px; overflow-wrap: anywhere; }
+.kehto-fw-more { display: grid; gap: 2px; }
+.kehto-fw-grant > summary.kehto-fw-row::before, .kehto-fw-by-rule::before { content: ''; width: 8px; transform: none; }
+.kehto-fw-more code { font-size: 11px; }
+.kehto-fw-grant[open] > summary.kehto-fw-row > code { color: var(--fw-text); }
 .kehto-approval-dialog { width: min(480px, calc(100% - 32px)); max-height: calc(100% - 32px); overflow: auto; padding: 20px; border: 1px solid var(--fw-line); border-radius: 8px; background: var(--fw-bg); color: var(--fw-text); box-shadow: 0 18px 60px rgb(0 0 0 / 0.45); }
 .kehto-approval-dialog[open] { display: grid; gap: 12px; }
 .kehto-approval-dialog::backdrop { background: rgb(0 0 0 / 0.68); }
