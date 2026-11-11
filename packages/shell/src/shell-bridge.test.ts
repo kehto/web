@@ -24,7 +24,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createGamepadService } from '@kehto/services';
-import { createShellBridge } from './shell-bridge.js';
+import { createLegacyShellBridge as createShellBridge } from './legacy-test-utils.js';
 import { originRegistry } from './origin-registry.js';
 import { resolveShellEnvironment } from './shell-init.js';
 import { renderNappletNamespacePrelude } from './napplet-namespace.js';

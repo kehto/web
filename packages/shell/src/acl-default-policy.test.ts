@@ -34,7 +34,6 @@ function connect(aclDefaultPolicy?: ShellAdapter['aclDefaultPolicy']) {
     aclDefaultPolicy,
   };
   const bridge = createShellBridge(hooks);
-  bridge.runtime.firewallState.setPolicy(identity.dTag, 'allow');
   const win = { postMessage: vi.fn() } as unknown as Window;
   originRegistry.register(win, 'acl-window', identity);
   originRegistry.setEnvironment(win, { capabilities: { domains: ['shell', 'example'] }, services: [] });

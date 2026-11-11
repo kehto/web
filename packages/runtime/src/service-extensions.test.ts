@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { NappletMessage } from '@napplet/core';
-import { createRuntime } from './runtime.js';
+import { createLegacyRuntime as createRuntime } from './legacy-test-utils.js';
 import { createMockRuntimeAdapter, createNip5dSessionEntry } from './test-utils.js';
 import type { Capability } from '@kehto/acl/capabilities';
 import type { ServiceHandler, ServiceRuntimeContext } from './types.js';

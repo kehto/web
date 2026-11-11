@@ -40,7 +40,6 @@ function setup(path: 'adapter' | 'service') {
   ];
   for (const [windowId, dTag, aggregateHash] of principals) {
     runtime.sessionRegistry.register(windowId!, createNip5dSessionEntry(windowId!, dTag!, aggregateHash!));
-    runtime.firewallState.setPolicy(dTag!, 'allow');
     runtime.handleMessage(windowId!, { type: 'relay.subscribe', subId: 'events', filters: [{ kinds: [1] }] } as NappletMessage);
   }
   return { ...context, hooks, pool, runtime, listeners, cleanups };
@@ -102,7 +101,6 @@ describe.each(['adapter', 'service'] as const)('relay ACL retirement via %s', (p
       }
     };
     runtime.sessionRegistry.register('sync', createNip5dSessionEntry('sync', 'sync', hash));
-    runtime.firewallState.setPolicy('sync', 'allow');
     runtime.handleMessage('sync', { type: 'relay.subscribe', subId: 'events', filters: [] } as NappletMessage);
     expect(cleanups).toEqual([4]);
     expect(sent.filter(({ message }) => (message as NappletMessage).type === 'relay.event')).toHaveLength(1);

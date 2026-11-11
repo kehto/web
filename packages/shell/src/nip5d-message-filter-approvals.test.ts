@@ -1,3 +1,4 @@
+import { createRateLimiter } from '@kehto/rate-limit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ApprovalCancellation, PermissionAdapter } from '@kehto/runtime';
 import { createShellBridge, originRegistry } from './index.js';
@@ -82,7 +83,7 @@ describe('filterNappletMessage on a configured host (#399)', () => {
   });
 
   it('does not charge the budget for a dropped or held envelope', async () => {
-    const f = await setup({ permissions: { rateLimit: { capacity: 1, windowMs: 60_000, action: 'block', unfocusedMultiplier: 1, burst: { windowMs: 0, maxOperations: 0, action: 'block' } } } });
+    const f = await setup({ permissions: { rateLimiter: createRateLimiter({ capacity: 1, windowMs: 60_000, action: 'block', unfocusedMultiplier: 1, burst: { windowMs: 0, maxOperations: 0, action: 'block' } }) } });
     f.control.decision = 'drop';
     f.read('dropped');
     f.control.decision = 'defer';
@@ -96,7 +97,7 @@ describe('filterNappletMessage on a configured host (#399)', () => {
   });
 
   it('charges the budget at release and refuses what it no longer covers', async () => {
-    const f = await setup({ permissions: { rateLimit: { capacity: 1, windowMs: 60_000, action: 'block', unfocusedMultiplier: 1, burst: { windowMs: 0, maxOperations: 0, action: 'block' } } } });
+    const f = await setup({ permissions: { rateLimiter: createRateLimiter({ capacity: 1, windowMs: 60_000, action: 'block', unfocusedMultiplier: 1, burst: { windowMs: 0, maxOperations: 0, action: 'block' } }) } });
     f.read('first');
     f.read('second');
     f.bridge.releaseDeferred(windowId);
@@ -142,7 +143,7 @@ describe('ShellAdapter firewall hooks on a configured host (#397)', () => {
   it('forwards getFocusContext to the approval budgets', async () => {
     const f = await setup({
       hooks: { filterNappletMessage: undefined, getFocusContext: () => ({ focused: false }) },
-      permissions: { rateLimit: { capacity: 4, windowMs: 60_000, action: 'block', unfocusedMultiplier: 0.5, burst: { windowMs: 0, maxOperations: 0, action: 'block' } } },
+      permissions: { rateLimiter: createRateLimiter({ capacity: 4, windowMs: 60_000, action: 'block', unfocusedMultiplier: 0.5, burst: { windowMs: 0, maxOperations: 0, action: 'block' } }) },
     });
     for (let i = 0; i < 6; i++) f.read(`m${i}`);
     await flush();
@@ -158,11 +159,11 @@ describe('ShellAdapter firewall hooks on a configured host (#397)', () => {
     warn.mockRestore();
   });
 
-  it('exposes setRateLimit through the bridge', async () => {
-    const f = await setup({ hooks: { filterNappletMessage: undefined } });
-    const permissions = f.bridge.runtime.permissions!;
-    permissions.setRateLimit({ ...permissions.rateLimit, capacity: 7 });
-    expect(permissions.rateLimit.capacity).toBe(7);
+  it('uses configuration changed on the host-owned limiter', async () => {
+    const limiter = createRateLimiter({ capacity: 60, windowMs: 60_000, action: 'block', unfocusedMultiplier: 1, burst: { windowMs: 3000, maxOperations: 20, action: 'block' } });
+    const f = await setup({ hooks: { filterNappletMessage: undefined }, permissions: { rateLimiter: limiter } });
+    limiter.setConfig({ ...limiter.config, capacity: 7 });
+    expect(limiter.config.capacity).toBe(7);
     f.bridge.destroy();
   });
 });

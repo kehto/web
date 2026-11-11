@@ -69,22 +69,8 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
   quota does not evict values. This host API conforms to [NAP-STORAGE draft #3
   at `4f4cf0ca7ecbd24c284a5d63bcd85e3de6af37ca`](https://github.com/napplet/naps/blob/4f4cf0ca7ecbd24c284a5d63bcd85e3de6af37ca/naps/NAP-STORAGE.md).
 
-- `runtime.firewallState.setUnfocusedMultiplier(multiplier)` and `setBurstGuard(guard)`
-  let a host change background budgets and the startup burst limit after creation.
-  Both apply on the next evaluation, throw `RangeError` on out-of-range values, and
-  need `persist()` to outlast a reload. A multiplier of zero is refused, because
-  focus alone must never empty a budget. Custom `FirewallStateContainer`
-  implementations must provide both methods. These act on the legacy gate only. With
-  `RuntimeAdapter.permissions` configured, use `runtime.permissions.setRateLimit(config)`
-  below; the legacy setters then warn with `FW-RUNTIME-LEGACY-IGNORED-001`.
-- `runtime.permissions.setRateLimit(config)` changes the operation budget on a host
-  with `RuntimeAdapter.permissions`, including `unfocusedMultiplier` and the startup
-  `burst` guard. `runtime.permissions.rateLimit` reads the one in force, so a partial
-  change spreads it. It applies from the next operation, keeps running counters and
-  throws `RangeError` on out-of-range values, leaving the current budget in force. A
-  multiplier above 1 loosens background windows, and a `burst.windowMs` of zero turns
-  the guard off. It isn't persisted: restore it through `PermissionAdapter.rateLimit`.
-  Prompt budgets are separate and don't change.
+- Optional host-owned limiters implement `TemporalPolicy`; runtime never imports
+  their implementation. See Independent rate limits below for explicit setup.
 - `PermissionAdapter.defaultDecision(request, missing)` answers a request no stored
   decision covers without prompting: `allow` commits session grants whose ids start
   with `DEFAULT_RULE_GRANT_PREFIX`, `deny` refuses, `ask` prompts. Stored denials, the
@@ -176,12 +162,12 @@ Use `getEntryByWindowId` for per-window identity in that case.
 Each trusted `runtime.sessionRegistry.register(windowId, entry)` starts a fresh
 initialization budget, even when a replacement iframe retains the logical window
 ID. Duplicate `shell.ready` messages do not re-register a live source, and neither
-request fields nor `destroyWindow()` alone reset the budget. The default startup
-guard still rejects operation 21 within three seconds; ordinary per-napplet rate
+request fields nor `destroyWindow()` alone reset the budget. An explicitly installed legacy adapter using its suggested startup
+guard rejects operation 21 within three seconds; ordinary per-napplet rate
 limits remain shared across registrations and versions.
 
 `createSessionRegistry(notifier?, onRegister?)` supports a host registration callback.
-The runtime wires it to `firewallState.resetInitBudget(windowId)`, which retires only
+When a legacy adapter is explicitly installed, runtime calls its `resetInitBudget(windowId)`, which retires only
 that startup counter. Custom `FirewallStateContainer` implementations must implement
 `resetInitBudget(initKey)` while preserving other counters and policy.
 
@@ -206,44 +192,22 @@ shared host controls, endpoint cleanup, and command API migration.
 
 ## Independent rate limits
 
-`evaluateRateLimit` is a pure temporal evaluator exported separately from permission
-policy. Callers supply a trusted subject, operation, endpoint lifecycle, and clock;
-the returned state must be passed to the next call. Approval never bypasses this
-module. The default budgets are 60 operations per minute and 20 operations in the
-first three seconds of a lifecycle, with one-quarter capacity while unfocused.
-The rate default flags excess traffic; the startup burst default blocks it.
+Rate limiting is optional and lives in `@kehto/rate-limit`, not runtime or Firewall.
+Supply `PermissionAdapter.rateLimiter` and/or `promptRateLimiter` to opt in;
+omitting either installs no default counters or limits for that traffic.
 
 ```ts
-import {
-  createRateLimitState,
-  defaultRateLimitConfig,
-  evaluateRateLimit,
-} from '@kehto/runtime';
-
-let counters = createRateLimitState();
-const result = evaluateRateLimit(defaultRateLimitConfig(), counters, {
-  subject: 'verified-manifest-key',
-  operation: 'link.open',
-  lifecycle: 'frame-generation-1',
-  elapsedSinceStartMs: 0,
-  focused: true,
-  now: 0,
-});
-counters = result.state;
-// Enforce result.allowed; report flagged excess through host diagnostics.
+import { createRateLimiter, defaultRateLimitConfig } from '@kehto/rate-limit';
+const limiter = createRateLimiter(defaultRateLimitConfig());
+const permissions = { ...approvalAdapter, rateLimiter: limiter };
+limiter.setConfig({ ...limiter.config, unfocusedMultiplier: 0.5 });
 ```
 
-`retireRateLimitLifecycle` removes startup counters while preserving the subject's
-operation budget. State is ephemeral; it is not a permission grant or a persistence
-format. Invalid budgets and nonfinite clocks throw `RangeError`. Clock rollback
-cannot create an extra refill. Subject/operation keys are encoded without delimiter
-collisions. Configured runtimes use the independent budget through the shared
-permission coordinator. Hosts without `RuntimeAdapter.permissions` retain the
-legacy temporal gate with `FW-RUNTIME-LEGACY-GATE-001` on actual use; see the
-[compatibility register](/compatibility). `onFirewallEvent`, `firewallPersistence` and
-the `firewallState` mutators belong to that gate, so a configured runtime warns once
-with `FW-RUNTIME-LEGACY-IGNORED-001` when they're used. `getFocusContext` feeds both.
-
+Hold the limiter to inspect `config` or call `setConfig`, which validates without
+resetting counters. Runtime passes trusted identity/lifecycle observations and
+retires lifecycle counters on teardown. Approval, ACL and source checks remain
+independent. Without scoped permissions, hosts may explicitly install
+`legacyFirewall` from `@kehto/rate-limit/legacy`; the default installs neither.
 
 ### Cancelling one approved operation
 

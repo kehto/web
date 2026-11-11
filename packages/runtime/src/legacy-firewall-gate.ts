@@ -1,9 +1,8 @@
 /** Legacy temporal Firewall ingress kept for hosts without permission adapters. */
 import type { NappletMessage } from '@napplet/core';
-import type { Observation } from '@kehto/firewall';
+import type { LegacyFirewallObservation as Observation, LegacyFirewallAdapter } from './legacy-firewall-adapter.js';
 import type { RuntimeAdapter, FirewallEvent } from './types.js';
 import type { SessionRegistry } from './session-registry.js';
-import type { FirewallStateContainer } from './firewall-state.js';
 import { createCanonicalDomainResult, createIntentPolicyDenial, createLlmErrorResult } from './domain-results.js';
 
 declare const console: { warn(message: string): void };
@@ -103,13 +102,13 @@ export function createLegacyIgnoredWarning(): () => void {
   return () => {
     if (warned) return;
     warned = true;
-    console.warn('FW-RUNTIME-LEGACY-IGNORED-001: onFirewallEvent, firewallPersistence and firewallState mutators have no effect when RuntimeAdapter.permissions is configured; use permissions.onRateLimit, permissions.persistence and runtime.permissions.setRateLimit instead (warns once per runtime instance).');
+    console.warn('FW-RUNTIME-LEGACY-IGNORED-001: onFirewallEvent and legacyFirewall have no effect when RuntimeAdapter.permissions is configured; use permissions.onRateLimit, permissions.persistence and an explicit permissions.rateLimiter instead (warns once per runtime instance).');
   };
 }
 
 /** Configuration for createFirewallGate. */
 interface FirewallGateConfig {
-  firewallState: FirewallStateContainer;
+  firewallState: LegacyFirewallAdapter | undefined;
   sessionRegistry: SessionRegistry;
   hooks: RuntimeAdapter;
   fireConsent: (windowId: string, napplet: string) => void;
@@ -133,6 +132,7 @@ export function createFirewallGate(config: FirewallGateConfig): (windowId: strin
   let warned = false;
 
   return function firewallGate(windowId: string, envelope: NappletMessage, senderCap: string | null, respond = true): 'dispatch' | 'drop' {
+    if (!firewallState) return 'dispatch';
     if (!warned) {
       warned = true;
       console.warn('FW-RUNTIME-LEGACY-GATE-001: the legacy temporal Firewall gate is active; configure RuntimeAdapter.permissions for scoped Firewall approvals and independent rate limits (warns once per runtime instance; retained through the next minor release).');

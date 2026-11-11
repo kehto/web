@@ -1,7 +1,7 @@
 {
   "name": "@kehto/shell",
   "version": "0.33.2",
-  "description": "Shell runtime — relay bridge, ACL enforcement, signer proxy, storage proxy for hosting napplet iframe applications",
+  "description": "Shell runtime \u2014 relay bridge, ACL enforcement, signer proxy, storage proxy for hosting napplet iframe applications",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -35,7 +35,8 @@
     "nostr-tools": "^2.23.3",
     "tsup": "^8.5.0",
     "typescript": "^5.9.3",
-    "@kehto/services": "workspace:^"
+    "@kehto/services": "workspace:^",
+    "@kehto/rate-limit": "workspace:^"
   },
   "scripts": {
     "build": "tsup",

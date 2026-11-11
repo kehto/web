@@ -79,6 +79,7 @@ export default defineConfig({
           { text: '@kehto/cli', link: '/packages/cli' },
           { text: '@kehto/paja', link: '/packages/paja' },
           { text: '@kehto/firewall', link: '/packages/firewall' },
+          { text: '@kehto/rate-limit', link: '/packages/rate-limit' },
           { text: '@kehto/runtime', link: '/packages/runtime' },
           { text: '@kehto/shell', link: '/packages/shell' },
           { text: '@kehto/services', link: '/packages/services' },

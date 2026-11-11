@@ -1,3 +1,4 @@
+import type { LegacyFirewallAdapter } from './legacy-firewall-adapter.js';
 /**
  * types.ts — Runtime adapter interfaces and supporting types.
  *
@@ -13,7 +14,7 @@ export type { ServiceHandler, ServiceRuntimeContext } from './service-types.js';
 import type { PermissionAdapter } from './permission-runtime.js';
 // Persistence + cache data types live in a sibling module (file-size budget);
 // imported here for internal use by RuntimeAdapter and re-exported below.
-import type { AclPersistence, FirewallPersistence, FirewallEvent, ManifestPersistence, ShellSecretPersistence, GuidPersistence, StatePersistence } from './persistence-types.js';
+import type { AclPersistence, FirewallEvent, ManifestPersistence, ShellSecretPersistence, GuidPersistence, StatePersistence } from './persistence-types.js';
 
 /**
  * Event emitted on every ACL enforcement check.
@@ -618,12 +619,12 @@ export interface RuntimeAdapter {
   aclDefaultPolicy?: 'permissive' | 'restrictive';
 
   /**
-   * Firewall config persistence (save/load firewall config).
-   * When absent, firewall config is in-memory only and resets on reload.
+   * Explicit legacy behavioral adapter from @kehto/rate-limit/legacy.
+   * When absent, no legacy temporal controls are installed.
    * Only the config is persisted; ephemeral counters are never stored.
    * Legacy gate only: with `permissions` set, use `permissions.persistence`.
    */
-  firewallPersistence?: FirewallPersistence;
+  legacyFirewall?: LegacyFirewallAdapter;
 
   /**
    * Called on every firewall evaluation that results in an audit-level decision

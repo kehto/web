@@ -398,7 +398,7 @@ export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): Runtime
     shellSecretPersistence: createShellSecretPersistence(),
     guidPersistence: createGuidPersistence(),
     onAclCheck: shellHooks.onAclCheck,
-    firewallPersistence: shellHooks.firewallPersistence,
+    legacyFirewall: shellHooks.legacyFirewall,
     onFirewallEvent: shellHooks.onFirewallEvent,
     getFocusContext: shellHooks.getFocusContext,
     onHashMismatch: shellHooks.onHashMismatch,

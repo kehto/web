@@ -54,7 +54,7 @@ adapters must throw when a write fails. A persistent approval is published only
 after a successful write. Without storage, once/session choices work; persistent
 choices fail explicitly. Defaults bound pending operations to 64 with a 60-second
 deadline, including queue time. `maxPending` and `timeoutMs` configure these bounds.
-`rateLimit` configures independent operation budgets; `onRateLimit` reports excess
+`rateLimiter` accepts an explicitly constructed limiter from `@kehto/rate-limit`; without it no operation budget is installed. `onRateLimit` reports excess
 budgets without including payloads or destinations. Diagnostic failures cannot
 override enforcement. Startup interface admission does not spend an app operation
 budget; actual operations are charged after launch.
@@ -77,12 +77,12 @@ values after the budget is exceeded. The current schema depth checks are not a
 total work/size bound; this residual flood risk is intentionally deferred to that
 missing denial/backpressure contract.
 
-`promptRateLimit` separately bounds actual UI prompts. The default blocks beyond
+`promptRateLimiter` independently opts into UI throttling. Omitting it installs no prompt budget. The optional `defaultPromptRateLimitConfig()` suggestion blocks beyond
 12 prompts per minute, with eight permitted during the first three seconds of a
 source lifecycle. Existing grants and deduplicated requests do not consume this
 budget unless they need another prompt. Replacement does not replenish the
 principal's prompt or operation token buckets. `defaultPromptRateLimitConfig()`
-exports this default independently of the permission model.
+is exported by `@kehto/rate-limit`, independently of the permission model.
 
 Hosts register `permissionPrincipal` through `OriginIdentity` or `SessionEntry`:
 

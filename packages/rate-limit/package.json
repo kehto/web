@@ -1,0 +1,45 @@
+{
+  "name": "@kehto/rate-limit",
+  "version": "0.1.0",
+  "description": "Optional host-installed temporal budgets and burst controls",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./legacy": {
+      "types": "./dist/legacy/index.d.ts",
+      "import": "./dist/legacy/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.3"
+  },
+  "scripts": {
+    "build": "tsup",
+    "type-check": "tsc --noEmit",
+    "test:unit": "vitest run --config ../../vitest.config.ts"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kehto/web.git",
+    "directory": "packages/rate-limit"
+  },
+  "keywords": [
+    "kehto",
+    "rate-limit"
+  ]
+}

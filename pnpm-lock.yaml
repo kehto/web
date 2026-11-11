@@ -165,6 +165,9 @@ importers:
       '@kehto/nip':
         specifier: workspace:^
         version: link:../nip
+      '@kehto/rate-limit':
+        specifier: workspace:^
+        version: link:../rate-limit
       '@kehto/runtime':
         specifier: workspace:^
         version: link:../runtime
@@ -197,6 +200,15 @@ importers:
         specifier: ^4.1.2
         version: 4.1.2(yaml@2.8.3)
 
+  packages/rate-limit:
+    devDependencies:
+      tsup:
+        specifier: ^8.5.0
+        version: 8.5.1(postcss@8.5.15)(typescript@5.9.3)(yaml@2.8.3)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
   packages/runtime:
     dependencies:
       '@kehto/acl':
@@ -212,6 +224,9 @@ importers:
         specifier: ^2.0.0
         version: 2.0.1
     devDependencies:
+      '@kehto/rate-limit':
+        specifier: workspace:^
+        version: link:../rate-limit
       '@napplet/core':
         specifier: '>=0.41.0 <0.42.0'
         version: 0.41.0
@@ -262,6 +277,9 @@ importers:
         specifier: workspace:^
         version: link:../runtime
     devDependencies:
+      '@kehto/rate-limit':
+        specifier: workspace:^
+        version: link:../rate-limit
       '@kehto/services':
         specifier: workspace:^
         version: link:../services

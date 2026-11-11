@@ -901,3 +901,10 @@ See [Media playback](https://github.com/kehto/web/blob/main/docs/media.md) for N
 shared host controls, endpoint cleanup, and command API migration.
 
 The host peer window accepts `@napplet/core` 0.40.x and `@napplet/nap` 0.39.x. The newly packaged `blossom`, `catalog`, `navigation`, `soulseek` and `torrent` domains remain absent until Paja has corresponding host backends. See the [checked contract and dependency policy](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#host-dependency-line-core-0-40-nap-0-39), including the published intent-type mismatch.
+
+## Optional temporal protection
+
+Paja explicitly installs operation and prompt limiters from `@kehto/rate-limit`
+in `createPajaPermissionAdapter`. These are Paja host choices; runtime and Firewall
+do not impose them on other hosts. Limiter configuration and counters are separate
+from approval grants.

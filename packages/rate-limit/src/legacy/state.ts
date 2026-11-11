@@ -1,7 +1,7 @@
 /**
  * firewall-state.ts — Firewall state container with persistence hooks.
  *
- * Wraps @kehto/firewall's pure functions with persistence via
+ * Wraps @kehto/rate-limit/legacy's pure functions with persistence via
  * FirewallPersistence. No localStorage or DOM references.
  *
  * Two independent `let`-bound cells:
@@ -23,7 +23,7 @@ import type {
   BurstGuard,
   ContentMatcher,
   EvaluateResult,
-} from '@kehto/firewall';
+} from './index.js';
 import {
   evaluate,
   defaultConfig,
@@ -36,11 +36,11 @@ import {
   setUnfocusedMultiplier,
   setBurstGuard,
   addMatcher,
-} from '@kehto/firewall';
-import type { FirewallPersistence } from './types.js';
+} from './index.js';
+export interface FirewallPersistence { persist(serialized: string): void; load(): string | null; }
 
 /**
- * Stateful firewall container — wraps @kehto/firewall's pure functions
+ * Stateful firewall container — wraps @kehto/rate-limit/legacy's pure functions
  * with persistence and a convenient imperative API.
  *
  * Mirrors AclStateContainer from acl-state.ts in structure and naming.
@@ -129,7 +129,7 @@ export interface FirewallStateContainer {
 }
 
 /**
- * Create a firewall state container backed by @kehto/firewall and optionally
+ * Create a firewall state container backed by @kehto/rate-limit/legacy and optionally
  * persisted via the given persistence hooks.
  *
  * When `persistence` is absent (or undefined), firewall config is in-memory

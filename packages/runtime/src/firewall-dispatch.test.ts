@@ -20,12 +20,12 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { createRuntime } from './runtime.js';
-import type { Runtime } from './runtime.js';
+import { createLegacyRuntime as createRuntime } from './legacy-test-utils.js';
+type Runtime = ReturnType<typeof createRuntime>;
 import { createMockRuntimeAdapter, createNip5dSessionEntry, findEnvelopeResponse } from './test-utils.js';
 import type { MockRuntimeContext } from './test-utils.js';
 import type { NappletMessage } from '@napplet/core';
-import { DEFAULT_BURST_MAX_OPS } from '@kehto/firewall';
+import { DEFAULT_BURST_MAX_OPS } from '@kehto/rate-limit/legacy';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 

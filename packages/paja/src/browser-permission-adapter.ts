@@ -1,3 +1,4 @@
+import { createRateLimiter, defaultRateLimitConfig, defaultPromptRateLimitConfig } from '@kehto/rate-limit';
 import { createBrowserApprovalUi } from '@kehto/shell';
 import type { BrowserApprovalUi } from '@kehto/shell';
 import type { PermissionAdapter, PermissionGrant, PermissionPrincipal, RuntimePermissions } from '@kehto/runtime';
@@ -72,6 +73,8 @@ export function createPajaPermissionAdapter(options: PajaPermissionAdapterOption
   };
   const adapter: PermissionAdapter = {
     now: Date.now,
+    rateLimiter: createRateLimiter(defaultRateLimitConfig()),
+    promptRateLimiter: createRateLimiter(defaultPromptRateLimitConfig()),
     createCancellation: () => new AbortController(),
     schedule(callback, delayMs) {
       const timer = window.setTimeout(callback, delayMs);

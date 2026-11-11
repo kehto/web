@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createRuntime, type Runtime } from './runtime.js';
+import { createLegacyRuntime as createRuntime } from './legacy-test-utils.js';
+type Runtime = ReturnType<typeof createRuntime>;
 import { createMockRuntimeAdapter, createNip5dSessionEntry } from './test-utils.js';
 
 // Host policy under NAP-SHELL at napplet/naps@a040914b4bbd3a5cd8a14b0f316a723c968ebfb2:

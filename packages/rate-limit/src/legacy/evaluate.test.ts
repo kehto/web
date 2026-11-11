@@ -623,14 +623,16 @@ describe('precedence: policy → burst → matcher → rate (A1)', () => {
     expect(result.ruleId).toBe('policy:deny');
   });
 
-  it('allow policy bypasses burst guard, matchers, and rate limits', () => {
+  it('allow policy skips content matching but never installed temporal limits', () => {
     let cfg = setPolicy(defaultConfig(), 'chat', 'allow');
     cfg = addMatcher(cfg, { id: 'block-writes', opClass: 'relay:write', action: 'block' });
-    cfg = setRateLimit(cfg, 'chat', 'relay:write', { capacity: 0, windowMs: 60_000, action: 'block' });
+    cfg = setRateLimit(cfg, 'chat', 'relay:write', { capacity: 1, windowMs: 60_000, action: 'block' });
     const obs = makeObs({ initElapsedMs: 100 });
-    const result = evaluate(cfg, createState(), obs);
-    expect(result.decision).toBe('pass');
-    expect(result.ruleId).toBe('policy:allow');
+    const first = evaluate(cfg, createState(), obs);
+    expect(first.decision).toBe('pass');
+    const second = evaluate(cfg, first.newState, obs);
+    expect(second.decision).toBe('reject');
+    expect(second.ruleId).toBe('rate:opclass');
   });
 
   it('ask policy yields prompt (and skips other tiers)', () => {
@@ -740,12 +742,12 @@ describe('unfocused multiplier (A2)', () => {
 // ---------------------------------------------------------------------------
 
 describe('policy short-circuits skip counter updates', () => {
-  it('allow policy returns same state reference (no counter modification)', () => {
+  it('allow policy advances temporal counters', () => {
     const cfg = setPolicy(defaultConfig(), 'chat', 'allow');
     const state = createState();
     const result = evaluate(cfg, state, makeObs());
-    // policy returns without touching buckets/bursts
-    expect(Object.keys(result.newState.buckets)).toHaveLength(0);
+    // Explicit allow does not disable the installed temporal policy.
+    expect(Object.keys(result.newState.buckets)).toHaveLength(1);
     expect(Object.keys(result.newState.bursts)).toHaveLength(0);
   });
 

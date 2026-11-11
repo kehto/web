@@ -1,5 +1,5 @@
 /**
- * @kehto/firewall — Pure config mutation functions and serialization.
+ * @kehto/rate-limit/legacy — Pure config mutation functions and serialization.
  *
  * Every mutation function takes a FirewallConfig and returns a NEW FirewallConfig.
  * The original config is never modified. No side effects, no I/O.
@@ -305,7 +305,7 @@ function isValidNappletRules(v: unknown): v is NappletRules {
  * This function NEVER throws.
  *
  * Security control for T-80-01 (Tampering — persisted config string):
- * the config string is the only untrusted input to @kehto/firewall. Poisoned
+ * the config string is the only untrusted input to @kehto/rate-limit/legacy. Poisoned
  * or malformed strings always produce a safe, valid default config.
  *
  * @param json - JSON string to parse (may be untrusted)

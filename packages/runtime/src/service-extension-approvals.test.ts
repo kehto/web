@@ -1,7 +1,8 @@
+import { createRateLimiter } from '@kehto/rate-limit';
 import { describe, expect, it, vi } from 'vitest';
 import type { NappletMessage } from '@napplet/core';
 import { createRuntime } from './runtime.js';
-import { defaultPromptRateLimitConfig, defaultRateLimitConfig } from './rate-limit.js';
+import { defaultPromptRateLimitConfig, defaultRateLimitConfig } from '@kehto/rate-limit';
 import { createMockRuntimeAdapter, createNip5dSessionEntry } from './test-utils.js';
 import type { PermissionAdapter } from './permission-runtime.js';
 import type { ApprovalAnswer, ApprovalCancellation, ApprovalPrompt } from './approval-coordinator.js';
@@ -197,8 +198,7 @@ describe('registered extension scoped approvals', () => {
   });
 
   it('enforces independent rates despite legacy broad allow and a scoped grant', async () => {
-    const f = fixture({ rateLimit: { ...defaultRateLimitConfig(), capacity: 1, action: 'block' } });
-    f.runtime.firewallState.setPolicy('app', 'allow');
+    const f = fixture({ rateLimiter: createRateLimiter({ ...defaultRateLimitConfig(), capacity: 1, action: 'block' }) });
     f.send('one'); await flush();
     f.send('two'); await flush();
     expect(f.prompt).toHaveBeenCalledTimes(1);
@@ -209,7 +209,7 @@ describe('registered extension scoped approvals', () => {
   it('blocks prompt spam independently of operation audit settings', async () => {
     const prompt = vi.fn(async (): Promise<ApprovalAnswer> => ({ effect: 'deny', lifetime: 'once' }));
     const onRateLimit = vi.fn();
-    const f = fixture({ prompt, onRateLimit, promptRateLimit: { ...defaultPromptRateLimitConfig(), capacity: 2 } });
+    const f = fixture({ prompt, onRateLimit, promptRateLimiter: createRateLimiter({ ...defaultPromptRateLimitConfig(), capacity: 2 }) });
     for (const id of ['one', 'two', 'three']) { f.send(id); await flush(); }
     expect(prompt).toHaveBeenCalledTimes(2);
     expect(f.handler.handleMessage).not.toHaveBeenCalled();
@@ -218,7 +218,7 @@ describe('registered extension scoped approvals', () => {
   });
 
   it('does not charge the prompt budget for existing grants', async () => {
-    const f = fixture({ promptRateLimit: { ...defaultPromptRateLimitConfig(), capacity: 1 } });
+    const f = fixture({ promptRateLimiter: createRateLimiter({ ...defaultPromptRateLimitConfig(), capacity: 1 }) });
     f.send('one'); await flush(); f.send('two'); await flush();
     expect(f.prompt).toHaveBeenCalledTimes(1);
     expect(f.handler.handleMessage).toHaveBeenCalledTimes(2);
