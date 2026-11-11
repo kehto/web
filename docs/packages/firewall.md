@@ -37,6 +37,7 @@ pnpm add @kehto/firewall
 | Decision engine | `evaluate`, `toKey` |
 | Defaults + factories | `defaultConfig`, `createState`, `DEFAULT_EXCEED_ACTION`, `DEFAULT_BURST_ACTION`, `DEFAULT_UNFOCUSED_MULTIPLIER`, `DEFAULT_RATE_CAPACITY`, `DEFAULT_RATE_WINDOW_MS`, `DEFAULT_BURST_WINDOW_MS`, `DEFAULT_BURST_MAX_OPS` |
 | Config mutations | `setPolicy`, `setRateLimit`, `setGlobalRate`, `setUnfocusedMultiplier`, `setBurstGuard`, `addMatcher`, `serialize`, `deserialize` |
+| Default rules | `createPermissionRules`, `permissionRuleSubject`, `resolvePermissionRule`, `setPermissionRule`, `serializePermissionRules`, `deserializePermissionRules`, `PermissionRuleAction`, `PermissionRuleScope`, `PermissionRules`, `PermissionRuleTarget`, `PermissionRulesLoadResult` |
 | Types | `Observation`, `FirewallConfig`, `NappletRules`, `RateLimit`, `BurstGuard`, `ContentMatcher`, `NappletPolicy`, `FirewallState`, `Bucket`, `BurstCounter`, `Decision`, `Action`, `EvaluateResult` |
 
 ## Scope Boundaries
@@ -118,6 +119,19 @@ Firewall's broad allow policy into new authority. Storage I/O, failure reporting
 approval UI, request cancellation, protocol responses and rate controls belong to
 host/runtime integration. Extension categories must be explicitly registered via
 `PermissionPolicyOptions.extensions` and use exact scope keys.
+
+## Default rules
+
+`PermissionRules` describe what a host does with a request no stored decision
+covers: one default action (`allow`, `ask` or `deny`) plus exceptions per
+interface or per operation, each overridable per napplet.
+`createPermissionRules()` with no argument asks for everything.
+`resolvePermissionRule(rules, principal, requirement)` returns the most specific
+match, `setPermissionRule` returns changed rules, and
+`serializePermissionRules` / `deserializePermissionRules` store them; a damaged
+document is refused whole rather than partly applied. Rules never create
+authority themselves: the runtime turns an `allow` into a session grant through
+`PermissionAdapter.defaultDecision`. See [Scoped Firewall approvals](/firewall-approvals#default-rules).
 
 This policy API is an intermediate migration surface. Existing behavioral APIs
 remain until runtime and app consumers migrate; their documented old behavior

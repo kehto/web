@@ -8,7 +8,7 @@ import {
   PAJA_EVENT_COUNTER_RESET_LABEL,
   PAJA_EVENT_COUNTER_RESET_TITLE,
 } from './browser-relay-panel.js';
-import { renderNappletFramePolicyMeta } from '@kehto/shell';
+import { BROWSER_APPROVAL_UI_STYLES, renderNappletFramePolicyMeta } from '@kehto/shell';
 import type { PajaHostConfig } from './options.js';
 import { summarizePajaSimulation } from './simulation.js';
 
@@ -107,8 +107,8 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .section-chevron { transition: transform 120ms; }
       .section[open] > summary .section-chevron { transform: rotate(90deg); }
       .section-body { padding: 0 12px 12px; display: grid; gap: 8px; }
-      .kehto-approval-ui, .kehto-approval-ui section, .kehto-approval-ui li { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
-      .kehto-approval-ui button { white-space: normal; }
+      .kehto-approval-ui { --kehto-fw-bg: var(--bar); --kehto-fw-line: var(--line); --kehto-fw-text: var(--text); --kehto-fw-muted: var(--muted); --kehto-fw-accent: var(--accent); }
+      ${BROWSER_APPROVAL_UI_STYLES}
       .resource-servers { display: grid; gap: 8px; }
       .resource-servers > label { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
       .section-title { color: var(--accent); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0; }

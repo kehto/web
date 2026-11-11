@@ -85,6 +85,11 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
   multiplier above 1 loosens background windows, and a `burst.windowMs` of zero turns
   the guard off. It isn't persisted: restore it through `PermissionAdapter.rateLimit`.
   Prompt budgets are separate and don't change.
+- `PermissionAdapter.defaultDecision(request, missing)` answers a request no stored
+  decision covers without prompting: `allow` commits session grants whose ids start
+  with `DEFAULT_RULE_GRANT_PREFIX`, `deny` refuses, `ask` prompts. Stored denials, the
+  ACL ceiling and operation budgets still apply. The rule model (`createPermissionRules`,
+  `resolvePermissionRule`, `setPermissionRule`) is re-exported from `@kehto/firewall`.
 - ACL listing and lookup return `AclEntryExternal` with required `dTag` and
   `aggregateHash` fields. Feed those fields into keyed revoke/block/quota methods;
   listing `pubkey` remains empty because it is not the principal key. Results are

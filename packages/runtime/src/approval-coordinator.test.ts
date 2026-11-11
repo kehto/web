@@ -333,4 +333,66 @@ describe('approval coordination', () => {
     expect(await f.run()).toEqual({ status: 'cancelled' });
     expect(f.action).not.toHaveBeenCalled();
   });
+
+  it('allows by default rule without prompting or spending the prompt budget, as a marked session grant', async () => {
+    const beforePrompt = vi.fn(() => false);
+    const defaultDecision = vi.fn(() => 'allow' as const);
+    const f = fixture({ defaultDecision, beforePrompt });
+    expect(await f.run()).toEqual({ status: 'executed', value: 'opened' });
+    expect(f.prompt).not.toHaveBeenCalled();
+    expect(beforePrompt).not.toHaveBeenCalled();
+    const grants = f.state().grants;
+    expect(grants.map((grant) => [grant.effect, grant.lifetime, grant.sessionId])).toEqual([
+      ['allow', 'session', 'session-1'], ['allow', 'session', 'session-1'],
+    ]);
+    expect(grants.every((grant) => grant.id.startsWith('rule:'))).toBe(true);
+    // The session grant now covers the scope, so the rule is not consulted again.
+    expect(await f.run()).toEqual({ status: 'executed', value: 'opened' });
+    expect(defaultDecision).toHaveBeenCalledTimes(1);
+    f.coordinator.dispose();
+  });
+
+  it('shows the default rule the exact missing scopes and leaves prompted grants unmarked', async () => {
+    const defaultDecision = vi.fn(() => 'ask' as const);
+    const f = fixture({ defaultDecision, prompt: async () => session });
+    expect(await f.run()).toEqual({ status: 'executed', value: 'opened' });
+    const [request, missing] = defaultDecision.mock.calls[0] as unknown as [{ principal: PermissionPrincipal }, PermissionRequirement[]];
+    expect(request.principal).toEqual(principal);
+    expect(missing.map((item) => `${item.category} ${item.operation}`)).toEqual(['resource link.open', 'interface access']);
+    expect(f.state().grants.some((grant) => grant.id.startsWith('rule:'))).toBe(false);
+    f.coordinator.dispose();
+  });
+
+  it('denies by default rule without prompting or storing a denial', async () => {
+    const f = fixture({ defaultDecision: () => 'deny' });
+    expect(await f.run()).toEqual({ status: 'denied' });
+    expect(f.prompt).not.toHaveBeenCalled();
+    expect(f.action).not.toHaveBeenCalled();
+    expect(f.state().grants).toEqual([]);
+    f.coordinator.dispose();
+  });
+
+  it('keeps a stored denial ahead of an allowing default rule', async () => {
+    const defaultDecision = vi.fn(() => 'allow' as const);
+    const f = fixture({ defaultDecision });
+    f.replace(putPermissionGrant(createPermissionState(), {
+      id: 'stored-denial', principal, permission: requirement, effect: 'deny', lifetime: 'session', sessionId: 'session-1',
+    }));
+    expect(await f.run()).toEqual({ status: 'denied' });
+    expect(defaultDecision).not.toHaveBeenCalled();
+    expect(f.action).not.toHaveBeenCalled();
+    f.coordinator.dispose();
+  });
+
+  it('prompts when the default rule throws, and when a rule allows an action that offers no session lifetime', async () => {
+    const thrown = fixture({ defaultDecision: () => { throw new Error('rules unavailable'); } });
+    expect(await thrown.run()).toEqual({ status: 'executed', value: 'opened' });
+    expect(thrown.prompt).toHaveBeenCalledTimes(1);
+    thrown.coordinator.dispose();
+    const onceOnly = fixture({ defaultDecision: () => 'allow' });
+    const result = await onceOnly.coordinator.run(principal, 'session-1', [requirement], () => true, onceOnly.action, ['once']);
+    expect(result).toEqual({ status: 'executed', value: 'opened' });
+    expect(onceOnly.prompt).toHaveBeenCalledTimes(1);
+    onceOnly.coordinator.dispose();
+  });
 });

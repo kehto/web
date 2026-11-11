@@ -238,6 +238,13 @@ persisted ACL state on load. Stored entries are kept as they are. With
 `RuntimeAdapter.permissions` it's a ceiling: an operation the ACL denies is refused
 with no prompt until the host grants the capability.
 
+`PermissionAdapter.defaultDecision(request, missing)` lets a host answer a request
+no stored decision covers without prompting. `allow` commits session grants whose ids
+start with `DEFAULT_RULE_GRANT_PREFIX`, `deny` refuses, and `ask` prompts. It runs
+before the prompt budget, and stored denials, the ACL ceiling and operation budgets
+still apply. The rule model (`createPermissionRules`, `resolvePermissionRule`,
+`setPermissionRule`) is re-exported from `@kehto/firewall`.
+
 On a host with `RuntimeAdapter.permissions`, `runtime.permissions.setRateLimit(config)`
 changes the operation budget after creation, including `unfocusedMultiplier` and the
 startup `burst` guard. `onFirewallEvent`, `firewallPersistence` and the

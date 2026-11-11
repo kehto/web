@@ -157,6 +157,19 @@ approval UI, request cancellation, protocol responses and rate controls belong t
 host/runtime integration. Extension categories must be explicitly registered via
 `PermissionPolicyOptions.extensions` and use exact scope keys.
 
+## Default rules
+
+`PermissionRules` describe what a host does with a request no stored decision
+covers: one default action (`allow`, `ask` or `deny`) plus exceptions per
+interface or per operation, each overridable per napplet.
+`createPermissionRules()` with no argument asks for everything.
+`resolvePermissionRule(rules, principal, requirement)` returns the most specific
+match, `setPermissionRule` returns changed rules, and
+`serializePermissionRules` / `deserializePermissionRules` store them; a damaged
+document is refused whole rather than partly applied. Rules never create
+authority themselves: the runtime turns an `allow` into a session grant through
+`PermissionAdapter.defaultDecision`. See [Scoped Firewall approvals](https://github.com/kehto/web/blob/main/docs/firewall-approvals.md#default-rules).
+
 This policy API is an intermediate migration surface. Existing behavioral APIs
 remain until runtime and app consumers migrate; their documented old behavior
 must not be interpreted as the new approval policy. The independent temporal

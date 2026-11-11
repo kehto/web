@@ -97,6 +97,51 @@ does not establish publisher identity and cannot authorize this path. Registries
 detach and freeze principal data; no identity is taken from wire messages. Session
 grant generations are runtime-generated and do not reuse persistent instance GUIDs.
 
+## Default rules
+
+A host may answer requests that no stored decision covers without prompting.
+`PermissionAdapter.defaultDecision(request, missing)` runs after stored grants
+and denials are checked and before the prompt budget and the prompt:
+
+- `allow` commits session grants for exactly the missing scopes. Their ids start
+  with `DEFAULT_RULE_GRANT_PREFIX` (`rule:`) so a host UI can tell them from
+  answered prompts. Persistent grants are never created this way.
+- `deny` refuses the request without storing a denial.
+- `ask`, an omitted hook, or a thrown error prompts exactly as before.
+
+Stored denials, ACL restrictions, domain availability, and operation budgets
+still apply to a rule-allowed request. A host with no hook keeps asking for
+every scope; nothing is allowed by default in the library.
+
+`@kehto/firewall` supplies the pure rule model. `PermissionRules` hold one
+default action plus exceptions per interface (`link`) or per operation
+(`link.open`), each overridable per napplet. `resolvePermissionRule` picks the
+most specific match: napplet operation, napplet interface, napplet default, then
+the same three globally. Interface access has no operation, so only interface
+rules and defaults apply to it. A verified napplet's rules are keyed by its
+manifest, so they survive a new artifact version; grants remain bound to the
+exact artifact.
+
+```ts
+import { createPermissionRules, resolvePermissionRule } from '@kehto/firewall';
+
+let rules = createPermissionRules({ default: 'allow', operations: { 'link.open': 'ask' } });
+const permissions: PermissionAdapter = {
+  // ...prompt, storage and time adapters
+  defaultDecision(request, missing) {
+    const actions = missing.map((item) => resolvePermissionRule(rules, request.principal, item));
+    if (actions.includes('deny')) return 'deny';
+    return actions.every((action) => action === 'allow') ? 'allow' : 'ask';
+  },
+};
+```
+
+When a rule is tightened, the host must revoke the `rule:` grants it no longer
+allows; `createBrowserApprovalUi` does this when given `rules`. Paja ships
+`allow` with `link.open: ask` and stores edits under
+`kehto:paja:firewall-rules:v1`. NAP-LINK (draft branch `nap-link` at `100e5c9`)
+leaves prompting to shell policy, so both an allowing and an asking rule conform.
+
 ## Admission before executing app bytes
 
 Register a trusted provisional session before rendering the app. Pass the verified

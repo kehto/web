@@ -20,11 +20,22 @@ preparation, and the final currentness check before a synchronous frame commit.
 Paja's verified, local-file, and live development frames use this transaction
 before scripts execute.
 
-`createBrowserApprovalUi` presents the runtime prompt with trusted technical
-identity, exact operation scopes, and offered lifetimes. It returns explicit
-allow, deny, or cancel decisions; Escape, close, and abort cancel. Its grant
-view reads `RuntimePermissions.grants` on refresh and delegates revoke, clear,
-and persistence retry to the runtime. Storage failures remain visible and
+`createBrowserApprovalUi` presents the runtime prompt as a plain-language
+question with the host's label for the napplet, every exact scope, and the
+offered lifetimes with the narrowest preselected, so one click answers. The
+full technical identity is one disclosure away. It returns explicit allow,
+deny, or cancel decisions; Deny has initial focus, and Escape, close, and abort
+cancel. Its grant view is a tree of single-line rows (napplet, interface,
+grant) with a status dot, a count or lifetime, and an icon button per row;
+identity and the full scope appear on expand. Grants made by default rules
+collapse into one counted row. It and delegates single and group revoke, clear, and persistence
+retry to the runtime. Given `rules`, it also renders an editor for the host's
+default rules, offers to turn a prompt answer into a standing rule for that
+napplet, and revokes rule-made grants a changed rule no longer allows.
+`onAnswer(answer, userGesture)` reports each answer and whether a real click
+made it, for hosts that run a gesture-gated browser action from that click. The UI
+ships unstyled; add `BROWSER_APPROVAL_UI_STYLES` to a `<style>` element or
+style the `kehto-approval-*` and `kehto-fw-*` classes yourself. Storage failures remain visible and
 block new grants. A host retirement callback must remove live direct-network
 frames when a relevant grant changes; the parent cannot meter direct iframe
 traffic.
@@ -75,7 +86,7 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
 | Protocol and capability types | `NostrEvent`, `NostrFilter`, `NappletMessage`, `Capability`, `ALL_CAPABILITIES` |
 | Shell init and bootstrap | `buildShellCapabilities`, `injectNappletNamespacePrelude`, `renderNappletNamespacePrelude`, `NappletNamespacePreludeOptions` |
 | Verified documents and CSP | `prepareNappletSrcdoc`, `NappletSrcdocOptions`, `buildNappletCsp`, `renderNappletCspMeta`, `injectNappletCsp`, `NappletCspOptions`, `NappletCspDirectives`, `NappletCspDirective` |
-| Browser admission and approval | `admitBrowserDocument`, `BrowserAdmissionRequest`, `BrowserAdmissionResult`, `BrowserAdmissionCommit`, `BrowserAdmissionOmission`, `BrowserLaunchMode`, `BrowserRemoteSource`, `createBrowserApprovalUi`, `BrowserApprovalUi`, `BrowserApprovalUiOptions` |
+| Browser admission and approval | `admitBrowserDocument`, `BrowserAdmissionRequest`, `BrowserAdmissionResult`, `BrowserAdmissionCommit`, `BrowserAdmissionOmission`, `BrowserLaunchMode`, `BrowserRemoteSource`, `createBrowserApprovalUi`, `BrowserApprovalUi`, `BrowserApprovalUiOptions`, `BrowserApprovalRules`, `BROWSER_APPROVAL_UI_STYLES` |
 | Registries and caches | `sessionRegistry`, `nappKeyRegistry`, `originRegistry`, `manifestCache`, `audioManager`, `PendingUpdate`, `ManifestCacheEntry`, `AudioSource` |
 | Enforcement re-exports | `FirewallEvent`, `FirewallPersistence`, `createEnforceGate`, `createNapEnforceGate`, `formatDenialReason`, `EnforceResult`, `EnforceConfig`, `NapEnforceConfig`, `IdentityResolver`, `AclChecker`, `NapMessage` |
 | Proxies | `createIdentityProxy`, `createThemeProxy`, `createKeysProxy`, `createMediaProxy`, `createNotifyProxy` |
