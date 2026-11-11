@@ -46,7 +46,18 @@ export interface ApprovalCoordinatorOptions extends PermissionPolicyOptions {
   readonly timeoutMs?: number;
   /** Independent prompt-spam budget, charged only when a prompt will be shown. */
   readonly beforePrompt?: (request: PermissionRequest) => boolean;
+  /**
+   * Host default rules for scopes no stored decision covers, consulted before
+   * the prompt budget and the prompt. `allow` commits session grants whose ids
+   * start with {@link DEFAULT_RULE_GRANT_PREFIX}; `deny` refuses without a
+   * grant; `ask` or a thrown error prompts. Stored denials, ACL restrictions,
+   * domain availability, and operation budgets still apply.
+   */
+  readonly defaultDecision?: (request: PermissionRequest, missing: readonly PermissionRequirement[]) => 'allow' | 'ask' | 'deny';
 }
+
+/** Id prefix of session grants created by a host default rule, not by a prompt. */
+export const DEFAULT_RULE_GRANT_PREFIX = 'rule:';
 
 /** Non-execution outcome; domain adapters choose their own wire projection. */
 export type ApprovalFailure = 'denied' | 'cancelled' | 'unavailable' | 'busy';
@@ -95,15 +106,24 @@ export function createApprovalCoordinator(options: ApprovalCoordinatorOptions) {
     const decision = evaluatePermissions(state, request, options);
     if (decision.decision === 'deny') return { status: 'denied' };
     if (decision.decision === 'allow') return undefined;
-    if (!options.prompt) return { status: 'unavailable' };
-    try {
-      if (options.beforePrompt && !options.beforePrompt(request)) return { status: 'busy' };
-    } catch { return { status: 'unavailable' }; }
+    let preset: 'allow' | 'ask' | 'deny' = 'ask';
+    try { preset = options.defaultDecision?.(request, decision.missing) ?? 'ask'; }
+    catch { preset = 'ask'; }
+    if (preset === 'deny') return { status: 'denied' };
+    const byRule = preset === 'allow' && allowLifetimes.includes('session');
     let answer: ApprovalAnswer;
-    try {
-      answer = await options.prompt(Object.freeze({ request, missing: decision.missing, signal: entry.controller.signal, allowLifetimes }));
-    } catch {
-      return { status: current() ? 'unavailable' : 'cancelled' };
+    if (byRule) {
+      answer = { effect: 'allow', lifetime: 'session' };
+    } else {
+      if (!options.prompt) return { status: 'unavailable' };
+      try {
+        if (options.beforePrompt && !options.beforePrompt(request)) return { status: 'busy' };
+      } catch { return { status: 'unavailable' }; }
+      try {
+        answer = await options.prompt(Object.freeze({ request, missing: decision.missing, signal: entry.controller.signal, allowLifetimes }));
+      } catch {
+        return { status: current() ? 'unavailable' : 'cancelled' };
+      }
     }
     if (!current()) return { status: 'cancelled' };
     if (answer?.effect === 'cancel') return { status: 'cancelled' };
@@ -122,7 +142,7 @@ export function createApprovalCoordinator(options: ApprovalCoordinatorOptions) {
       let next = latest;
       for (const [index, permission] of decision.missing.entries()) {
         next = putPermissionGrant(next, {
-          id: `${request.requestId}-${index}`, principal: request.principal, permission,
+          id: `${byRule ? DEFAULT_RULE_GRANT_PREFIX : ''}${request.requestId}-${index}`, principal: request.principal, permission,
           effect: answer.effect, lifetime: answer.lifetime,
           ...(answer.lifetime !== 'persistent' ? { sessionId: request.sessionId } : {}),
           ...(answer.lifetime === 'once' ? { requestId: request.requestId } : {}),
