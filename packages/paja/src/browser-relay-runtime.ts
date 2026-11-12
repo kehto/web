@@ -13,7 +13,7 @@ import { verifyEvent } from 'nostr-tools/pure';
 
 import { subscribePajaLive, queryPajaLive } from './browser-relay-transport.js';
 
-import type { PajaConfirmationHandler, PajaSignerProvider } from './browser-adapter.js';
+import type { PajaConfirmationHandler } from './browser-adapter.js';
 import type { PajaSimulation } from './simulation.js';
 import type { PajaSignerRequestContext } from './browser-signer-consent.js';
 
@@ -536,41 +536,18 @@ function readAuthors(candidates: readonly string[]): string[] {
   return [...authors];
 }
 
-async function getSignerRelayUrls(
-  signerProvider: PajaSignerProvider | undefined,
-  direction: 'read' | 'write',
-): Promise<string[]> {
-  const signer = signerProvider?.getSigner();
-  if (!signer?.getRelays) return [];
-  try {
-    const relays = await signer.getRelays();
-    return dedupeRelayUrls(Object.entries(relays).flatMap(([url, permissions]) => {
-      if (direction === 'read' && permissions.read) return [url];
-      if (direction === 'write' && permissions.write) return [url];
-      return [];
-    }));
-  } catch {
-    return [];
-  }
-}
-
 /**
  * Return the Paja bootstrap relay set used to resolve an author's NIP-65 list.
  *
  * @param getSimulation - Active Paja simulation accessor.
- * @param signerProvider - Optional signer relay provider.
  * @param getHostRelayUrls - Optional scoped host relay source.
  * @returns Deduplicated bootstrap read relay URLs.
  */
-export async function getPajaBootstrapRelayUrls(
+export function getPajaBootstrapRelayUrls(
   getSimulation: () => PajaSimulation,
-  signerProvider: PajaSignerProvider | undefined,
   getHostRelayUrls?: () => string[],
-): Promise<string[]> {
-  return dedupeRelayUrls([
-    ...(getHostRelayUrls?.() ?? getPajaRelayUrls(getSimulation())),
-    ...await getSignerRelayUrls(signerProvider, 'read'),
-  ]);
+): string[] {
+  return dedupeRelayUrls(getHostRelayUrls?.() ?? getPajaRelayUrls(getSimulation()));
 }
 
 /**
@@ -580,12 +557,11 @@ export async function getPajaBootstrapRelayUrls(
 export function createPajaContactListLoader(
   backend: PajaRelayBackend,
   getSimulation: () => PajaSimulation,
-  signerProvider?: PajaSignerProvider,
   getHostRelayUrls?: () => string[],
 ): (pubkey: string, signal?: AbortSignal) => Promise<NostrEvent[]> {
   return async (pubkey: string, signal?: AbortSignal): Promise<NostrEvent[]> => {
     if (!/^[0-9a-fA-F]{64}$/.test(pubkey) || signal?.aborted) return [];
-    const relayUrls = await getPajaBootstrapRelayUrls(getSimulation, signerProvider, getHostRelayUrls);
+    const relayUrls = getPajaBootstrapRelayUrls(getSimulation, getHostRelayUrls);
     if (signal?.aborted) return [];
     const filters = [{
       kinds: [PAJA_CONTACT_LIST_KIND],
@@ -624,7 +600,6 @@ function contactPubkeys(event: NostrEvent | undefined): string[] {
 export function createPajaRelayListLoader(
   backend: PajaRelayBackend,
   getSimulation: () => PajaSimulation,
-  signerProvider?: PajaSignerProvider,
   getHostRelayUrls?: () => string[],
 ): (pubkeys: string[]) => Promise<Map<string, RelayListEntry>> {
   const registry = createNip65Registry();
@@ -632,9 +607,8 @@ export function createPajaRelayListLoader(
     const uniquePubkeys = [...new Set(pubkeys.filter((pubkey) => /^[0-9a-fA-F]{64}$/.test(pubkey)))];
     const missing = uniquePubkeys.filter((pubkey) => !registry.has(pubkey));
     if (missing.length > 0) {
-      const events = await backend.query(await getPajaBootstrapRelayUrls(
+      const events = await backend.query(getPajaBootstrapRelayUrls(
         getSimulation,
-        signerProvider,
         getHostRelayUrls,
       ), [{
         kinds: [PAJA_NIP65_RELAY_LIST_KIND],
@@ -681,7 +655,6 @@ export function createPajaOutboxRelayPool(backend: PajaRelayBackend): OutboxRela
 export function createPajaIdentityProviders(
   backend: PajaRelayBackend,
   getSimulation: () => PajaSimulation,
-  signerProvider?: PajaSignerProvider,
 ): { getFollows(pubkey: string): Promise<string[]> } {
   const followsCache = new Map<string, string[]>();
   return {
@@ -689,7 +662,7 @@ export function createPajaIdentityProviders(
       if (!/^[0-9a-fA-F]{64}$/.test(pubkey)) return [];
       const cached = followsCache.get(pubkey);
       if (cached) return [...cached];
-      const events = await backend.query(await getPajaBootstrapRelayUrls(getSimulation, signerProvider), [{
+      const events = await backend.query(getPajaBootstrapRelayUrls(getSimulation), [{
         kinds: [PAJA_CONTACT_LIST_KIND],
         authors: [pubkey],
         limit: 1,
