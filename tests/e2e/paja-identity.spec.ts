@@ -119,9 +119,13 @@ test('fresh startup leaves an available extension untouched and None clears iden
   await expectNappletIdentity(page, '7'.repeat(64));
   await page.locator('#signer-none').click();
   await expectNappletIdentity(page, '');
+  await page.reload();
+  await openFlowTarget(page, runtime);
+  await expect(page.locator('#signer-none')).toHaveAttribute('data-active', 'true');
+  expect(await page.evaluate(() => (window as unknown as { signerCalls: number }).signerCalls)).toBe(0);
 });
 
-test('an explicitly selected NIP-07 signer connects', async ({ page }) => {
+test('an explicitly selected NIP-07 signer reconnects after reload', async ({ page }) => {
   test.setTimeout(60_000);
   await installMemoryRelay(page, RELAY_URL);
   const signer = await installKeySigner(page, generateSecretKey());
@@ -130,6 +134,10 @@ test('an explicitly selected NIP-07 signer connects', async ({ page }) => {
   await expect(page.locator('#signer-status')).toContainText(`NIP-07 connected · pubkey ${signer.pubkey}`);
   await expectNappletIdentity(page, signer.pubkey);
 
+  await page.reload();
+  await openFlowTarget(page, runtime);
+  await expect(page.locator('#signer-status')).toContainText(`NIP-07 connected · pubkey ${signer.pubkey}`);
+  await expectNappletIdentity(page, signer.pubkey);
 });
 
 test.fixme('a loaded napplet receives identity.changed for connect and disconnect without being re-initialized', async ({ page }) => {
