@@ -43,7 +43,7 @@ See: .planning/PROJECT.md (updated 2026-07-28)
 Phase: 115 — Firewall final audit complete
 Plan: PR review follow-up
 Status: PR #336 review fixes verified; CONFIG denial/backpressure spec gap explicitly retained.
-Last activity: 2026-11-12 - Completed quick task 261112-qi2: Resolve issue 410 stale napplet repository links
+Last activity: 2026-11-12 - Completed quick task 261112-hew: Default Paja signer to None and persist selections; full browser suite retains popup failure
 
 ## Performance Metrics
 
@@ -158,6 +158,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
+| 261112-hew | Default Paja signer to None and persist explicit selections | 2026-11-12 | 19aa2973 | implemented; browser gate blocked by popup failure | [261112-hew](./quick/261112-hew-default-paja-signer-to-none-and-persist-/) |
 | 261112-qi2 | Correct public SDK repo links for #410; track upstream npm metadata in #431 | 2026-11-12 | 0b73feb0 | passed | [261112-qi2](./quick/261112-qi2-resolve-issue-410-stale-napplet-reposito/) |
 | 261111-nzp | Resolve PR 424 conflicts with default Firewall rules and approval UI | 2026-11-11 | merge of b5734145 | passed | [261111-nzp](./quick/261111-nzp-resolve-pr-424-conflicts-against-current/) |
 | 261111-m3y | Extract independent optional @kehto/rate-limit and remove runtime defaults | 2026-11-11 | 6744ace0 | passed | [261111-m3y](./quick/261111-m3y-extract-optional-rate-limiting-into-keht/) |
