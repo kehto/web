@@ -27,7 +27,7 @@ It provides packages for building a napplet host client by handling capability
 enforcement, message routing, host service registration, gateway artifacts, and
 development tooling. The applet-side packages (`@napplet/core`, `@napplet/shim`,
 `@napplet/sdk`, and `@napplet/vite-plugin`) live in the
-[@napplet](https://github.com/sandwichfarm/napplet) repo; Kehto supplies the
+[@napplet](https://github.com/napplet/web) repo; Kehto supplies the
 runtime toolkit, while Paja demonstrates one complete implementation.
 
 ## Start Here
@@ -146,6 +146,9 @@ Generated API docs are produced by:
 ```bash
 pnpm docs:api
 ```
+
+Release automation setup, registry permissions, and recovery commands are in the
+[release runbook](docs/guides/releases.md).
 
 ## License
 

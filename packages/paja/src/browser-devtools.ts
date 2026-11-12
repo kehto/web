@@ -75,6 +75,8 @@ export interface PajaDevtoolsState {
   getActiveIdentity?(): Pick<ReturnType<typeof getTargetIdentity>, 'pubkey' | 'dTag' | 'aggregateHash'>;
   /** Switch signer controls to the dev signer. */
   useDevSigner(): void;
+  /** Disconnect the selected signer. */
+  useNoSigner(): void;
   /** Connect signer controls to a NIP-07 signer. */
   connectNip07(): Promise<void>;
   /** Connect signer controls to a bunker URI. */
@@ -395,6 +397,12 @@ function renderSignerStatus(state: PajaDevtoolsState, signerPubkey: string): voi
   clearConsent.onclick = () => state.clearSignerConsent();
 
   const previousInput = controls.querySelector<HTMLInputElement>('#signer-bunker-uri')?.value ?? '';
+  const noneButton = document.createElement('button');
+  noneButton.type = 'button';
+  noneButton.id = 'signer-none';
+  noneButton.dataset.active = String(state.signer.method === 'none');
+  noneButton.textContent = 'None';
+  noneButton.addEventListener('click', () => state.useNoSigner());
   const devButton = document.createElement('button');
   devButton.type = 'button';
   devButton.id = 'signer-dev';
@@ -424,5 +432,5 @@ function renderSignerStatus(state: PajaDevtoolsState, signerPubkey: string): voi
   bunkerButton.textContent = 'Bunker';
   bunkerButton.addEventListener('click', () => void state.connectBunker(bunkerInput.value));
 
-  controls.replaceChildren(devButton, nip07Button, bunkerInput, bunkerButton);
+  controls.replaceChildren(noneButton, devButton, nip07Button, bunkerInput, bunkerButton);
 }

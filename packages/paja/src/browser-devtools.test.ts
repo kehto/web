@@ -199,6 +199,7 @@ describe('Paja interface toggles', () => {
       setDomainEnabled: vi.fn(),
       setAclCapability: vi.fn(),
       useDevSigner: vi.fn(),
+      useNoSigner: vi.fn(),
       connectNip07: vi.fn(async () => {}),
       connectBunker: vi.fn(async () => {}),
       clearSignerConsent: vi.fn(),
@@ -260,6 +261,7 @@ describe('Paja ACL controls', () => {
         renderPajaDevtools(state, { bridge, devSignerPubkey: '' });
       },
       useDevSigner: vi.fn(),
+      useNoSigner: vi.fn(),
       connectNip07: vi.fn(async () => {}),
       connectBunker: vi.fn(async () => {}),
       clearSignerConsent: vi.fn(),
