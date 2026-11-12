@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { NostrEvent } from '@napplet/core';
 import { finalizeEvent, generateSecretKey, getPublicKey } from 'nostr-tools/pure';
 import { useWebSocketImplementation } from 'nostr-tools/pool';
@@ -206,8 +206,9 @@ describe('Paja relay traffic without a connected signer', () => {
     useWebSocketImplementation(RecordingRelaySocket);
     resetTraffic();
     const simulation = createSimulation({ mode: 'anonymous' });
-    createAdapter(simulation, {
-      getSigner: () => null,
+    const getRelays = vi.fn(() => { throw new Error('obsolete extension hook'); });
+    const adapter = createAdapter(simulation, {
+      getSigner: () => ({ getRelays }),
       getMethod: () => 'nip07',
       getPubkey: () => ACCOUNT,
     });
@@ -219,6 +220,11 @@ describe('Paja relay traffic without a connected signer', () => {
     // which is the traffic the panel reports under "outbox relays (NIP-65)".
     await waitFor(() => sink.sent.some(({ relayUrl, kinds, authors }) =>
       kinds.includes(0) && authors.includes(FOLLOW) && FOLLOW_WRITE_RELAYS.map(normalized).includes(relayUrl)));
+    const discovery = sink.sent.filter(({ kinds }) => kinds.includes(3) || kinds.includes(10002));
+    expect(discovery.length).toBeGreaterThan(0);
+    expect(discovery.every(({ relayUrl }) => BOOTSTRAP_RELAYS.map(normalized).includes(relayUrl))).toBe(true);
+    (adapter.relayPool.getRelayPool() as PajaRelayBackend).close();
+    expect(getRelays).not.toHaveBeenCalled();
   });
 
   it('keeps the session quiet for an anonymous simulation identity as well', async () => {
