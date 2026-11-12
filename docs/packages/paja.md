@@ -236,9 +236,16 @@ The console includes:
   clear, and storage retry. Launch and operation prompts show the trusted source,
   exact scope, and available lifetimes. Without browser storage, persistent
   approval is unavailable; failed durable writes do not activate grants.
-- **Signer** — Paja auto-connects a browser NIP-07 signer when `window.nostr`
-  is available, can connect to a bunker/NIP-46 URI, and only uses the generated
-  development signer when the Dev signer button is selected. Sign, publish,
+- **Signer** — **None** is the first-run default: extension presence does not
+  trigger a public-key request. Choose **None**, **Dev**, **NIP-07**, or **Bunker**;
+  the method is remembered per origin (`kehto:paja:signer-method:v1`). None
+  disconnects and invalidates pending connections. Reload restores Dev or
+  reconnects an explicitly selected NIP-07 extension. Bunker remains selected
+  but disconnected until its URI is entered again. Only the method is persisted,
+  never keys, bunker credentials/URIs, or approvals. Invalid/unreadable storage
+  defaults to None; failed writes leave in-session controls usable. Missing
+  extensions report an error without switching methods. Fixed simulation identity
+  remains separate from signing authority. Sign, publish,
   Blossom upload, and external-link requests use one serialized in-page
   confirmation dialog. Deny has initial focus and Escape denies. Napplet-scoped
   signing and publishing default to one-time approval. The modal can remember

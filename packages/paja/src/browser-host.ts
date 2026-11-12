@@ -32,7 +32,6 @@ import {
 import {
   createPajaConfirmationController,
   createHostSignerController,
-  hasNip07Signer,
 } from './browser-host-signer.js';
 import { unregisterSingleFrameWindow } from './browser-host-runtime.js';
 import { handlePajaNappletRevoked, handlePajaWindowMessage, observePajaNappletMessage } from './browser-nip5d-host.js';
@@ -154,6 +153,7 @@ export interface PajaBrowserState {
   getActiveIdentity(): Pick<SessionEntry, 'pubkey' | 'dTag' | 'aggregateHash'>;
   setAclCapability(capability: Capability, enabled: boolean): void;
   useDevSigner(): void;
+  useNoSigner(): void;
   connectNip07(): Promise<void>;
   connectBunker(uri: string): Promise<void>;
   clearSignerConsent(): void;
@@ -608,6 +608,9 @@ function createPajaBrowserState(
     useDevSigner() {
       signerController.useDevSigner();
     },
+    useNoSigner() {
+      signerController.useNoSigner();
+    },
     connectNip07() {
       return signerController.connectNip07();
     },
@@ -968,7 +971,7 @@ async function installPajaHost(): Promise<void> {
     startFrameNavigation(state, context);
     void reportTargetCorsDiagnostic(state);
   }
-  if (hasNip07Signer()) void state.connectNip07();
+  void signerController.restorePreference();
 }
 
 if (typeof document !== 'undefined') {

@@ -163,7 +163,8 @@ describe('@kehto/paja browser host runtime source guards', () => {
     expect(relaySource).toContain('...await getSignerRelayUrls(signerProvider, \'read\'),');
     expect(relaySource).toContain('backend.query(await getPajaBootstrapRelayUrls(getSimulation, signerProvider), [{');
     expect(intentSource).toContain('...getPajaRelayUrls(context.runtime.currentSimulation),');
-    expect(hostSource).toContain('if (hasNip07Signer()) void state.connectNip07();');
+    expect(hostSource).toContain('void signerController.restorePreference();');
+    expect(hostSource).not.toContain('if (hasNip07Signer())');
     expect(hostSource).toContain("bridge.publishIdentityChanged(adapter.auth.getUserPubkey() ?? '');");
   });
 
