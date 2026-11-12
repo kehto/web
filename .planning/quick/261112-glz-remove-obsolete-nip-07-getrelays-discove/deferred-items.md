@@ -1,0 +1,7 @@
+# Deferred verification issues
+
+- **Resolved:** initial `pnpm test:unit` failure at `tests/unit/retired-playground-redirect.test.ts:64` was caused by retired local residue, not tracked source. Parent preserved the entire directory at `/tmp/opencode/kehto-retired-playground-261112-glz`; fresh unit run passed all 3,416 tests across 267 files, exit 0. Evidence: `/tmp/opencode/glz-unit-clean.log`. No implementation or test changes.
+- Unversioned `npx --no-install aislop scan -d` cannot find the latest package locally. Equivalent scan using the already-cached CI-pinned `aislop@0.12.0` passed, 100/100. No installation, dependency substitution or config edit.
+- Pinned slop scan reports a pre-existing function-length warning at `packages/paja/src/browser-llm-panel.ts:229`; unchanged and outside scope.
+- Full Playwright: 131 passed, one failed, one skipped. `tests/e2e/paja-firewall-rules.spec.ts:121` expects the new popup URL to contain `example.com/docs` but gets an empty string. One isolated diagnostic reproduces it. Test/link implementation unchanged; fixture does not install a signer or use discovery. Baseline reproduction was not performed, so report as unresolved browser verification failure, not proven flakiness.
+- Existing `test.fixme` at `tests/e2e/paja-identity.spec.ts:116` skips identity.changed delivery across account lifecycle without frame reload. Not introduced or addressed by this task.

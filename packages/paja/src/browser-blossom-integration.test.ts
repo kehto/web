@@ -272,12 +272,17 @@ describe('Paja OUTBOX-to-RESOURCE Blossom wiring', () => {
     (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
   });
 
-  it('reads cached signer bootstrap relays without invoking an external signer during resource discovery', async () => {
-    const getRelays = vi.fn(async () => ({ 'wss://signer-bootstrap.example': { read: true, write: false } }));
+  it('uses only host bootstrap relays across lifecycle notifications and repeated resource discovery', async () => {
+    const getRelays = vi.fn(() => { throw new Error('obsolete extension hook'); });
+    const listeners = new Set<() => void>();
     const signerProvider = {
       getSigner: () => ({ getRelays }),
       getMethod: () => 'nip07' as const,
       getPubkey: () => null,
+      subscribe: (listener: () => void) => {
+        listeners.add(listener);
+        return () => { listeners.delete(listener); };
+      },
     };
     const adapter = createPajaAdapter(
       CONFIG,
@@ -292,23 +297,22 @@ describe('Paja OUTBOX-to-RESOURCE Blossom wiring', () => {
     );
     const backend = adapter.relayPool.getRelayPool() as unknown as PajaRelayBackend;
     const query = vi.spyOn(backend, 'query').mockResolvedValue([]);
-    await vi.waitFor(() => expect(getRelays).toHaveBeenCalledOnce());
-
-    const sent: NappletMessage[] = [];
-    adapter.services?.resource?.handleMessage('rom-window', {
-      type: 'resource.bytes',
-      id: 'cached-signer-bootstrap',
-      url: `${RESOURCE_URL}?as=${PUBLISHER}`,
-    } as NappletMessage, (message) => sent.push(message));
-    await vi.waitFor(() => expect(sent).toHaveLength(1));
-
-    expect(getRelays).toHaveBeenCalledOnce();
-    expect(query.mock.calls.some(([relays]) => relays.includes('wss://signer-bootstrap.example'))).toBe(true);
-    expect(sent[0]).toMatchObject({ type: 'resource.bytes.error', error: 'blocked-by-policy' });
+    for (const id of ['host-bootstrap-first', 'host-bootstrap-second']) {
+      for (const listener of listeners) listener();
+      const sent: NappletMessage[] = [];
+      adapter.services?.resource?.handleMessage('rom-window', {
+        type: 'resource.bytes', id, url: `${RESOURCE_URL}?as=${PUBLISHER}`,
+      } as NappletMessage, (message) => sent.push(message));
+      await vi.waitFor(() => expect(sent).toHaveLength(1));
+      expect(sent[0]).toMatchObject({ type: 'resource.bytes.error', id, error: 'blocked-by-policy' });
+    }
+    expect(getRelays).not.toHaveBeenCalled();
+    expect(query).toHaveBeenCalled();
+    expect(query.mock.calls.every(([relays]) => relays.every((relay) => relay === 'wss://resource-relay.example'))).toBe(true);
     (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
   });
 
-  it('contains synchronous external signer cache refresh failures', async () => {
+  it('does not invoke an obsolete signer hook at initialization', async () => {
     const getRelays = vi.fn(() => { throw new Error('extension unavailable'); });
     const signerProvider = {
       getSigner: () => ({ getRelays }),
@@ -323,7 +327,8 @@ describe('Paja OUTBOX-to-RESOURCE Blossom wiring', () => {
       () => true,
       signerProvider,
     );
-    await vi.waitFor(() => expect(getRelays).toHaveBeenCalledOnce());
+    await adapter.ready;
+    expect(getRelays).not.toHaveBeenCalled();
     expect(adapter.services?.resource).toBeDefined();
     (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
   });
