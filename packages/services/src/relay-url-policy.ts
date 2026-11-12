@@ -1,7 +1,7 @@
 /** Parse a WebSocket relay URL without accepting credentials or URL-parser rewrites. */
 export function parseRelayUrl(value: string): URL | undefined {
   try {
-    if (typeof value !== 'string' || /[\u0000-\u0020\\]/u.test(value)) return undefined;
+    if (typeof value !== 'string' || /[\u0000-\u0020\\#]/u.test(value)) return undefined;
     const url = new URL(value);
     return ['ws:', 'wss:'].includes(url.protocol) && !url.username && !url.password && !url.hash ? url : undefined;
   } catch {
@@ -18,8 +18,7 @@ export function defaultRelayAllowed(value: string, configuredRelays: readonly st
   if (configuredRelays.some((configured) => parseRelayUrl(configured)?.href === url.href)) return true;
   const hostname = url.hostname.replace(/^\[|\]$/gu, '').toLowerCase();
   if (hostname.includes(':')) {
-    return hostname !== '::' && hostname !== '::1' && !hostname.startsWith('::ffff:')
-      && !/^(?:fc|fd|fe[89ab]|ff)/iu.test(hostname);
+    return !hostname.startsWith('::') && !/^(?:fc|fd|fe[89a-f]|ff)/iu.test(hostname);
   }
   if (!hostname.includes('.') || /(?:^|\.)(?:localhost|local|internal)\.?$/u.test(hostname)) return false;
   const octets = hostname.split('.').map(Number);

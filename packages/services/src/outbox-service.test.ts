@@ -332,7 +332,7 @@ describe('createOutboxService', () => {
   describe('outbox.publish', () => {
     it('waits for approval before signing or publishing a planned fanout', async () => {
       const router = mockRouter() as MockRouter & { planPublish: ReturnType<typeof vi.fn>; publishWithPlan: ReturnType<typeof vi.fn> };
-      router.planPublish = vi.fn(async () => ({ relays: ['wss://r.test'], source: 'nip65', author: EVENT.pubkey }));
+      router.planPublish = vi.fn(async () => ({ relays: ['wss://r.test'], requiredRelays: ['wss://r.test'], source: 'nip65', author: EVENT.pubkey }));
       router.publishWithPlan = vi.fn(async () => ({ ok: true, event: EVENT, eventId: EVENT.id }));
       let release!: () => void;
       const gate = new Promise<void>((resolve) => { release = resolve; });

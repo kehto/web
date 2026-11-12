@@ -37,3 +37,24 @@ describe('FW-RELAY-NETWORK-LEGACY-001', () => {
     } finally { warning.mockRestore(); }
   });
 });
+
+describe('KEHTO_COMPAT_RELAY_QUERY_HINT', () => {
+  it('warns once only when the authorized query extension actually executes', async () => {
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const signal = { aborted: false, addEventListener() {}, removeEventListener() {} };
+      const authorizeOperation: NonNullable<ServiceRuntimeContext['authorizeOperation']> = async (_window, _operation, _requirements, execute) => ({
+        status: 'executed', value: await execute(signal),
+      });
+      const context = { authorizeOperation };
+      const execute = vi.fn();
+      await authorizeRelay(context, 'window', 'relay.query', plan, execute);
+      await authorizeRelay(context, 'window', 'relay.subscribe', plan, execute, plan.relayUrls[0]);
+      expect(warning).not.toHaveBeenCalled();
+      await authorizeRelay(context, 'window', 'relay.query', plan, execute, plan.relayUrls[0]);
+      await authorizeRelay(context, 'window', 'relay.query', plan, execute, plan.relayUrls[0]);
+      expect(execute).toHaveBeenCalledTimes(4);
+      expect(warning).toHaveBeenCalledExactlyOnceWith('[KEHTO_COMPAT_RELAY_QUERY_HINT] Use relay.subscribe with options.relay and collect until EOSE; relay.query.relay is a Kehto-only compatibility extension. Warning once per runtime instance.');
+    } finally { warning.mockRestore(); }
+  });
+});

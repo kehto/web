@@ -95,6 +95,8 @@ export interface OutboxRelayPlan {
   missingAuthors?: string[];
   /** Signing identity captured for a pre-sign publish plan. */
   author?: string;
+  /** Host-only required publish targets. Required when a publish requests own/inbox fanout. */
+  requiredRelays?: string[];
 }
 
 /** Outcome of a single-event outbox lookup. */
@@ -189,7 +191,8 @@ export interface StreamingOutboxRouter extends OutboxRouter {
   queryWithPlan?(filters: NostrFilter[], options: OutboxQueryOptions | undefined, plan: OutboxRelayPlan, signal?: ApprovalSignal): Promise<OutboxResult>;
   /** Resolve publish fanout from the signer identity before signature creation. */
   planPublish?(options?: OutboxPublishOptions): Promise<OutboxRelayPlan>;
-  publishWithPlan?(template: EventTemplate, plan: OutboxRelayPlan): Promise<OutboxPublishResult>;
+  /** Execute an approved fanout; abort must be checked again after asynchronous signing. */
+  publishWithPlan?(template: EventTemplate, plan: OutboxRelayPlan, signal?: ApprovalSignal): Promise<OutboxPublishResult>;
   subscribeWithPlan?(filters: NostrFilter[], plan: OutboxRelayPlan, sink: OutboxSubscriptionSink): OutboxRouterSubscription;
   /**
    * Start policy/fallback reads immediately, stream verified events through
@@ -378,9 +381,20 @@ function handleGetEvent(actions: OutboxActions, windowId: string, msg: NappletMe
 
 function capturePlan(plan: OutboxRelayPlan): OutboxRelayPlan {
   for (const url of plan.relays) relayOrigin(url);
-  const captured = { ...plan, relays: [...plan.relays] };
+  const captured = { ...plan, relays: [...plan.relays],
+    ...(plan.requiredRelays ? { requiredRelays: [...plan.requiredRelays] } : {}) };
+  if (captured.requiredRelays?.some((url) => !captured.relays.includes(url))) throw new Error('invalid required relay destination');
+  if (captured.requiredRelays) Object.freeze(captured.requiredRelays);
   Object.freeze(captured.relays);
   return Object.freeze(captured);
+}
+
+function capturePublishPlan(plan: OutboxRelayPlan, options?: OutboxPublishOptions): OutboxRelayPlan {
+  const captured = capturePlan(plan);
+  if ((options?.toOutbox !== false || options?.toInboxes?.length) && !captured.requiredRelays?.length) {
+    throw new Error('publish plan must identify required relay destinations');
+  }
+  return captured;
 }
 
 async function queryApproved(
@@ -519,10 +533,10 @@ function handlePublish(actions: OutboxActions, windowId: string, msg: NappletMes
   const publishOptions = sanitizePublishOptions(m.options);
   const planned = router as StreamingOutboxRouter;
   const operation = planned.planPublish && planned.publishWithPlan && runtimeContext?.authorizeOperation
-    ? planned.planPublish(publishOptions).then(capturePlan).then((plan) => runtimeContext!.authorizeOperation!(windowId, 'outbox.publish', [
+    ? planned.planPublish(publishOptions).then((plan) => capturePublishPlan(plan, publishOptions)).then((plan) => runtimeContext!.authorizeOperation!(windowId, 'outbox.publish', [
       { category: 'interface', domain: 'outbox', operation: 'access', scope: { kind: 'exact', value: 'outbox' } },
       ...plan.relays.map((url) => ({ category: 'network' as const, domain: 'outbox', operation: 'outbox.publish', scope: { kind: 'origin' as const, value: relayOrigin(url) } })),
-    ], (signal) => signal.aborted ? { ok: false, error: 'policy denied' } : planned.publishWithPlan!(m.event!, plan)).then((outcome) => outcome.status === 'executed' && outcome.value ? outcome.value : { ok: false, error: 'policy denied' }))
+    ], (signal) => signal.aborted ? { ok: false, error: 'policy denied' } : planned.publishWithPlan!(m.event!, plan, signal)).then((outcome) => outcome.status === 'executed' && outcome.value ? outcome.value : { ok: false, error: 'policy denied' }))
     : runtimeContext?.authorizeOperation
       ? Promise.resolve({ ok: false, error: 'policy denied' } as OutboxPublishResult)
       : (actions.warnLegacy(), router.publish(m.event, publishOptions));

@@ -562,8 +562,9 @@ function startSubscription(
 /** Resolve the full write/inbox/hint relay set a publish should fan out to. */
 async function resolvePublishTargets(
   ctx: RouterCtx,
-  signed: NostrEvent,
+  signed: { readonly pubkey: string },
   options?: OutboxPublishOptions,
+  allowOwnFallback = false,
 ): Promise<PublishTargetResolution> {
   const targets = new Set<string>();
   const requiredTargets = new Set<string>();
@@ -571,9 +572,10 @@ async function resolvePublishTargets(
   if (options?.toOutbox !== false) {
     // The author's own write relays (outbox model for the user's own event).
     const outboxPlan = await resolveRequiredRelays(ctx, [signed.pubkey], 'read');
-    if (outboxPlan.missingAuthors.length > 0) return { relayUrls: [], requiredRelayUrls: [], error: 'relay list unavailable' };
     if (outboxPlan.deniedAuthors.length > 0) return { relayUrls: [], requiredRelayUrls: [], error: 'policy denied' };
-    for (const url of outboxPlan.relays) {
+    const ownRelays = outboxPlan.missingAuthors.length > 0 && allowOwnFallback ? allowed(ctx, ctx.fallbackRelays) : outboxPlan.relays;
+    if (ownRelays.length === 0) return { relayUrls: [], requiredRelayUrls: [], error: 'relay list unavailable' };
+    for (const url of ownRelays) {
       targets.add(url);
       requiredTargets.add(url);
     }
@@ -672,15 +674,19 @@ export function createRelayPoolOutboxRouter(options: RelayPoolOutboxRouterOption
   async function planPublish(publishOptions?: OutboxPublishOptions): Promise<OutboxRelayPlan> {
     if (!ctx.getSignerPubkey) return { relays: [], source: 'policy' };
     const pubkey = await ctx.getSignerPubkey();
-    const plan = await resolvePlan(ctx, publishOptions?.toOutbox === false ? [] : [pubkey], 'read', publishOptions?.relays);
-    return { ...plan, author: pubkey };
+    const targets = await resolvePublishTargets(ctx, { pubkey }, publishOptions, true);
+    if (targets.error) throw new Error(targets.error);
+    return { relays: targets.relayUrls, requiredRelays: targets.requiredRelayUrls, source: 'policy', author: pubkey };
   }
-  async function publishWithPlan(template: EventTemplate, plan: OutboxRelayPlan): Promise<OutboxPublishResult> {
+  async function publishWithPlan(template: EventTemplate, plan: OutboxRelayPlan, signal?: ApprovalSignal): Promise<OutboxPublishResult> {
+    if (signal?.aborted) return { ok: false, error: 'policy denied' };
     if (!ctx.signEvent || plan.relays.length === 0) return { ok: false, error: 'publish denied' };
     const event = await ctx.signEvent(template);
+    if (signal?.aborted) return { ok: false, error: 'policy denied' };
     if (plan.author && event.pubkey !== plan.author) return { ok: false, event, eventId: event.id, error: 'signing identity changed' };
     const relays = normalizePublishResult(await ctx.relayPool.publish(event, [...plan.relays]), [...plan.relays]);
-    return { ok: Object.values(relays).some(Boolean), event, eventId: event.id, relays };
+    const ok = plan.requiredRelays?.length ? plan.requiredRelays.every((url) => relays[url] === true) : Object.values(relays).some(Boolean);
+    return { ok, event, eventId: event.id, relays, ...(ok ? {} : { error: 'publish denied' }) };
   }
 
   return {

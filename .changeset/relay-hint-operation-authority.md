@@ -14,8 +14,16 @@ Standalone OUTBOX requests with explicit relay hints now require a permission-en
 runtime and immutable planning. Its default router rejects unconfigured local/private
 destinations and malformed or credential-bearing URLs. Host-configured development
 relays remain supported. Paja rejects trailing-dot private hostnames too.
+Planned OUTBOX publishing carries its operation cancellation signal through
+signing and rechecks it before transport, preventing a revoked hinted fanout.
+It plans the complete own-outbox/inbox/hint union and preserves required targets
+in host-only metadata, so explicit hint success cannot mask a required inbox failure.
+Custom planners must include required destinations for requested own/inbox fanout.
 
 Unhinted legacy host routing remains temporarily available with documented,
 bounded migration warnings. Relay network approval does not authorize NIP-42
 signing; hosts must keep automatic-authentication pools out of napplet-directed
 traffic.
+
+The retained noncanonical query relay field warns once per runtime on authorized
+use with `KEHTO_COMPAT_RELAY_QUERY_HINT`, naming scoped subscribe as its replacement.

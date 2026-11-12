@@ -83,3 +83,28 @@ the primary checkout's index; current worktree source is authoritative.
   Focused Paja relay browser gate PASS 5/5, including new NIP-42 fixture.
 - Remaining: audit compatibility of the pre-existing query hint extension,
   full browser gate, protocol-head recheck, draft PR and requirement audit.
+
+## Final audit fixes
+
+- Authorized use of the existing noncanonical query hint now emits
+  KEHTO_COMPAT_RELAY_QUERY_HINT once per runtime, with scoped subscribe as its
+  replacement. Canonical and denied paths remain quiet; compatibility tests
+  cover actual execution and warning lifetime.
+- The first full browser gate passed 133 tests with one existing skip. A later
+  audit reproduced OUTBOX transport starting after revocation during signing.
+  publishWithPlan now receives the operation signal and checks it again after
+  signing. Both Paja decorators forward the exact signal, proven by runtime tests.
+- The authorized OUTBOX publish path also omitted required inbox fanout from
+  its plan. Reused the full own-outbox/inbox/hint target resolver before signing,
+  preserved existing standalone missing-own-list behavior, and kept the existing
+  planned own-list fallback. Host-only requiredRelays metadata is copied/frozen;
+  incomplete required-fanout plans are denied before authorization or signing.
+  Optional hint success cannot mask failed required relay publication.
+- Added real signed vectors for required fanout, explicit toOutbox false,
+  missing/denied inboxes, pre-sign cancellation and held-signing revocation.
+  Trusted two-argument host publish calls remain covered; compatibility documents
+  the diagnostic limits of optional cancellation and required-target metadata.
+- Tightened empty-fragment and IPv4-compatible/site-local IPv6 validation.
+- Build/type-check PASS; all 273 unit files / 3508 tests PASS; docs PASS;
+  pinned quality 100/100 with no new findings. Both protocol draft heads were
+  rechecked unchanged. Final full browser gate remains before draft PR creation.

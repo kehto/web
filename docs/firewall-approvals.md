@@ -27,8 +27,15 @@ retire pending and active subscriptions. Both reference relay services use this
 boundary when registered through the runtime; direct `handleMessage` calls are
 trusted host integration calls, not an alternative napplet ingress.
 
-OUTBOX `options.relays` is also subject to planned operation authority. Legacy
-standalone hint requests fail before calling any router or signer. Unhinted
+OUTBOX `options.relays` is also subject to planned operation authority. Planned
+publishing receives the operation cancellation signal too: a revocation
+while signing waits prevents the concrete router from starting transport.
+The Paja social-cache and Blossom decorators preserve that signal.
+Publish plans also snapshot the complete own-outbox/inbox/hint union. Their
+host-only `requiredRelays` list marks mandatory fanout, and the service rejects
+incomplete plans before approval or signing. An optional hinted relay's success
+cannot mask failure of a required recipient inbox.
+Legacy standalone hint requests fail before calling any router or signer. Unhinted
 legacy router calls remain available with `FW-OUTBOX-LEGACY-001`; unhinted runtime
 relay transport warns once with `FW-RELAY-NETWORK-LEGACY-001`. Both are migration
 paths, not destination approval. See [compatibility](/compatibility).
@@ -57,6 +64,9 @@ Checked against `napplet/naps` NAP-RELAY draft #2 at
 `8865f73d52a4864afee145f28d26520476273927`. The destination restrictions are
 conformant host policy. The existing query relay field remains a Kehto extension;
 this change adds no wire fields or capabilities.
+Actual approved use of the noncanonical query hint emits
+`KEHTO_COMPAT_RELAY_QUERY_HINT` once per runtime. Use scoped subscribe and collect
+until EOSE instead; its retirement commitment is recorded in compatibility.
 
 ## Responsibilities
 

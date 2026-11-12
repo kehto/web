@@ -90,7 +90,7 @@ describe.each(['fallback', 'pool', 'coordinated'] as const)('%s relay hint autho
     expect(f.subscribe).toHaveBeenCalledWith([HINT], [{ kinds: [1] }], expect.any(Function));
   });
 
-  it.each(['wss://user:secret@relay.example', 'wss://relay.example:invalid', 'wss://relay.example/#fragment'])('rejects malformed or credential-bearing hint %s before transport', async (hint) => {
+  it.each(['wss://user:secret@relay.example', 'wss://relay.example:invalid', 'wss://relay.example/#fragment', 'wss://relay.example/#'])('rejects malformed or credential-bearing hint %s before transport', async (hint) => {
     const f = await fixture(kind, async () => ({ effect: 'allow', lifetime: 'session' }));
     f.send('relay.subscribe', hint);
     await vi.waitFor(() => expect(f.ctx.sent).toHaveLength(1));

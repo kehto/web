@@ -4,6 +4,12 @@ Relay hints are candidates, not authority. Register relay services through a
 runtime with `RuntimeAdapter.permissions`; execute only its approved plan.
 Standalone OUTBOX requests with nonempty `options.relays` now fail before router
 execution. Unhinted standalone calls retain `FW-OUTBOX-LEGACY-001` during migration.
+Planned OUTBOX publishing receives the operation cancellation signal and checks
+it again after signing, so revocation while signing waits prevents transport.
+The plan includes the complete own-outbox, required inbox and explicit relay
+union. Host-only `requiredRelays` metadata prevents optional hint success from
+masking failure of a required destination. Custom planners must supply that
+metadata for own/inbox fanout; incomplete plans fail before signing.
 The concrete OUTBOX router validates WebSocket URLs and defaults to rejecting
 unconfigured local/private literals and names. Explicit host fallback relays
 and the host's `isRelayAllowed` policy can admit development destinations;

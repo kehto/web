@@ -162,6 +162,8 @@ See [relay destination policy](../../docs/firewall-approvals.md#relay-destinatio
 Authority: NAP-RELAY draft `napplet/naps#2` at
 `9f30b3505335a52c574ff570576687d6467021ff`. Scoped subscribe is canonical;
 query's relay field remains an existing Kehto extension, not a new wire API.
+Executing that extension emits `KEHTO_COMPAT_RELAY_QUERY_HINT` once per runtime;
+migrate to scoped `relay.subscribe` and close after EOSE. Canonical calls stay quiet.
 
 ## Identity and theme result policy
 

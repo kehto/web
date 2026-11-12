@@ -9,6 +9,7 @@ declare const URL: {
 };
 declare const console: { warn(message: string): void };
 const legacyNetworkWarnings = new WeakSet<object>();
+const legacyQueryHintWarnings = new WeakSet<object>();
 
 /** Validate every planned destination before deriving its canonical origin. */
 function relayRequirements(plan: RelayOperationPlan): PermissionRequirement[] {
@@ -16,7 +17,7 @@ function relayRequirements(plan: RelayOperationPlan): PermissionRequirement[] {
     category: 'interface', domain: 'relay', operation: 'access', scope: { kind: 'exact', value: 'relay' },
   }];
   for (const value of plan.relayUrls) {
-    if (typeof value !== 'string' || /[\u0000-\u0020\\]/u.test(value)) throw new Error('invalid relay destination');
+    if (typeof value !== 'string' || /[\u0000-\u0020\\#]/u.test(value)) throw new Error('invalid relay destination');
     const url = new URL(value);
     if (!['ws:', 'wss:'].includes(url.protocol) || url.username || url.password || url.hash) {
       throw new Error('invalid relay destination');
@@ -52,6 +53,13 @@ export async function authorizeRelay<T>(
     await execute({ aborted: false, addEventListener() {}, removeEventListener() {} });
     return;
   }
-  const outcome = await run(windowId, operation, requirements, execute);
+  const outcome = await run(windowId, operation, requirements, (signal) => {
+    if (!signal.aborted && operation === 'relay.query' && relayHint && plan.relayUrls.length > 0
+      && !legacyQueryHintWarnings.has(context)) {
+      legacyQueryHintWarnings.add(context);
+      console.warn('[KEHTO_COMPAT_RELAY_QUERY_HINT] Use relay.subscribe with options.relay and collect until EOSE; relay.query.relay is a Kehto-only compatibility extension. Warning once per runtime instance.');
+    }
+    return execute(signal);
+  });
   if (outcome.status !== 'executed') throw new Error(`relay authorization ${outcome.status}`);
 }
