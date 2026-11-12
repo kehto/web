@@ -1,5 +1,11 @@
 # @kehto/paja
 
+## 0.35.1
+
+### Patch Changes
+
+- 226b4ad: Default Paja to no signer without prompting browser extensions. Remember explicit signer methods across reloads, provide a None disconnect control, and ignore stale connection results. Bunker credentials are never persisted.
+
 ## 0.35.0
 
 ### Minor Changes
