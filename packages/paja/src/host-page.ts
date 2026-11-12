@@ -138,9 +138,9 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .llm-select-dialog select, .llm-vault-dialog input { width: 100%; min-width: 0; padding: 4px 8px; }
       .llm-vault-dialog .config-error:empty { display: none; }
       .signer { color: var(--muted); word-break: break-all; font-size: 12px; }
-      .signer-controls { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; gap: 6px; }
+      .signer-controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
       .signer-controls button[data-active="true"] { border-color: var(--accent); color: var(--text); background: #2a2a1d; }
-      .signer-controls input { min-width: 0; padding: 0 8px; }
+      .signer-controls input { grid-column: span 2; min-width: 0; padding: 0 8px; }
       .signer-consent-clear { width: 100%; margin-top: 6px; }
       .pointer-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; }
       .pointer-status { min-width: 0; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }

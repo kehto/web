@@ -51,6 +51,7 @@ async function prepare(page: Page): Promise<{ relay: MemoryRelay; signer: KeySig
   const relay = await installMemoryRelay(page, RELAY_URL);
   const signer = await installKeySigner(page, generateSecretKey());
   const frame = await openFlowTarget(page, runtime);
+  await page.locator('#signer-nip07').click();
   await expect(page.locator('#signer-status')).toContainText('NIP-07 connected');
   return { relay, signer, frame };
 }

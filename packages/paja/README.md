@@ -89,9 +89,20 @@ is presentation-only — the target iframe keeps its identity and the loaded
 napplet keeps running — and Paja remembers the choice per browser origin. In
 runtime-pointer mode, ACL controls always display and mutate
 the active tab's resolver-verified d-tag and aggregate hash; a grant or revoke
-rerenders that same identity immediately. Paja auto-connects a browser NIP-07 signer when `window.nostr` is
-available, can connect to a bunker/NIP-46 URI, and only uses the generated local
-development signer when the Dev signer button is selected. Sign, publish, DM
+rerenders that same identity immediately. Paja starts with **None** selected and never
+asks an available browser extension for its public key on first startup. Choose
+**Dev**, **NIP-07**, or **Bunker** explicitly; **None** disconnects and cancels pending
+connections. The selected method (including None) is remembered per browser origin
+under `kehto:paja:signer-method:v1`. Reload restores Dev or reconnects an explicitly
+selected NIP-07 extension. Bunker restores selected but disconnected: enter its URI
+again. Only the method is stored, never credentials, keys, URIs, or approvals.
+Invalid or unreadable storage defaults to None; failed writes still allow selection
+for the current session. An unavailable extension stays selected with an error,
+without falling back to another signer. Fixed simulation identity is independent of
+signing authority. Known NAP-IDENTITY gap: signer changes currently re-initialize
+the hosted frame rather than delivering `identity.changed` to the existing frame;
+the new frame reads the updated identity. The browser suite keeps that push gap
+explicitly skipped. Sign, publish, DM
 send, filesystem picker, Blossom upload, and external-link requests use one serialized in-page
 confirmation dialog. Deny has initial focus and Escape denies. A napplet-scoped
 serial or BLE chooser receives runtime approval first; Paja then keeps the

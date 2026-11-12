@@ -99,11 +99,38 @@ test('napplets read the connected signer identity and an empty identity after th
   await expectNappletIdentity(page, '');
 });
 
-test('an available NIP-07 signer is reconnected after a host reload', async ({ page }) => {
+test('fresh startup leaves an available extension untouched and None clears identity', async ({ page }) => {
+  await installMemoryRelay(page, RELAY_URL);
+  await page.addInitScript(() => {
+    Object.assign(window, { signerCalls: 0, nostr: {
+      getPublicKey: async () => {
+        const host = window as unknown as { signerCalls: number };
+        host.signerCalls += 1;
+        return '7'.repeat(64);
+      },
+      signEvent: async () => { throw new Error('not used'); },
+    } });
+  });
+  await openFlowTarget(page, runtime);
+  expect(await page.evaluate(() => (window as unknown as { signerCalls: number }).signerCalls)).toBe(0);
+  await expect(page.locator('#signer-none')).toHaveAttribute('data-active', 'true');
+  await expectNappletIdentity(page, '');
+  await page.locator('#signer-nip07').click();
+  await expectNappletIdentity(page, '7'.repeat(64));
+  await page.locator('#signer-none').click();
+  await expectNappletIdentity(page, '');
+  await page.reload();
+  await openFlowTarget(page, runtime);
+  await expect(page.locator('#signer-none')).toHaveAttribute('data-active', 'true');
+  expect(await page.evaluate(() => (window as unknown as { signerCalls: number }).signerCalls)).toBe(0);
+});
+
+test('an explicitly selected NIP-07 signer reconnects after reload', async ({ page }) => {
   test.setTimeout(60_000);
   await installMemoryRelay(page, RELAY_URL);
   const signer = await installKeySigner(page, generateSecretKey());
   await openFlowTarget(page, runtime);
+  await page.locator('#signer-nip07').click();
   await expect(page.locator('#signer-status')).toContainText(`NIP-07 connected · pubkey ${signer.pubkey}`);
   await expectNappletIdentity(page, signer.pubkey);
 
@@ -129,4 +156,21 @@ test.fixme('a loaded napplet receives identity.changed for connect and disconnec
   await connectKeySigner(page);
   await expect.poll(() => readLog(frame, 'identity')).toEqual([signer.pubkey]);
   expect(await page.evaluate(() => window.__KEHTO_PAJA__?.getState().generation)).toBe(generation);
+});
+
+test('Dev and disconnected Bunker choices survive reload without credentials', async ({ page }) => {
+  await installMemoryRelay(page, RELAY_URL);
+  await openFlowTarget(page, runtime);
+  await page.locator('#signer-dev').click();
+  await page.reload();
+  await openFlowTarget(page, runtime);
+  await expect(page.locator('#signer-dev')).toHaveAttribute('data-active', 'true');
+  await page.locator('#signer-bunker-uri').fill('invalid-private-uri');
+  await page.locator('#signer-bunker').click();
+  await page.reload();
+  await openFlowTarget(page, runtime);
+  await expect(page.locator('#signer-bunker')).toHaveAttribute('data-active', 'true');
+  await expect(page.locator('#signer-bunker-uri')).toHaveValue('');
+  await expect(page.locator('#signer-status')).toContainText('no signer connected');
+  await expectNappletIdentity(page, '');
 });
