@@ -47,6 +47,8 @@ export interface PajaSignerController {
   useDevSigner(): void;
   /** Disconnect and discard pending signer connections. */
   useNoSigner(): void;
+  /** Restore the origin-local method, never bunker credentials or approvals. */
+  restorePreference(): Promise<void>;
   /** Connect to `window.nostr` when a NIP-07 signer is available. */
   connectNip07(): Promise<void>;
   /** Connect to a NIP-46 bunker signer URI. */
@@ -62,9 +64,12 @@ interface Nip07Signer {
 }
 
 interface PajaSignerControllerOptions {
+  storage?: Pick<Storage, 'getItem' | 'setItem'>;
   confirmRequest: PajaConfirmationHandler;
   onChange(state: PajaSignerState): void;
 }
+
+const SIGNER_METHOD_KEY = 'kehto:paja:signer-method:v1';
 
 function cloneState(state: PajaSignerState): PajaSignerState {
   return { ...state };
@@ -139,6 +144,22 @@ function createNip07Adapter(signer: Nip07Signer): Signer {
  * @returns Signer controller for dev, NIP-07, and NIP-46 modes.
  */
 export function createPajaSignerController(options: PajaSignerControllerOptions): PajaSignerController {
+  const readPreference = (): PajaSignerMethod => {
+    try {
+      const method = (options.storage ?? localStorage).getItem(SIGNER_METHOD_KEY);
+      if (method === 'dev' || method === 'nip07' || method === 'nip46') return method;
+    } catch {
+      // Storage denial must not turn extension availability into consent.
+    }
+    return 'none';
+  };
+  const persist = (method: PajaSignerMethod): void => {
+    try {
+      (options.storage ?? localStorage).setItem(SIGNER_METHOD_KEY, method);
+    } catch {
+      // Selection remains usable for this session when storage is unavailable.
+    }
+  };
   let state: PajaSignerState = {
     method: 'none',
     status: 'disconnected',
@@ -175,6 +196,7 @@ export function createPajaSignerController(options: PajaSignerControllerOptions)
       return () => listeners.delete(listener);
     },
     useDevSigner() {
+      persist('dev');
       generation += 1;
       closeClient();
       activeSigner = null;
@@ -187,12 +209,14 @@ export function createPajaSignerController(options: PajaSignerControllerOptions)
       });
     },
     useNoSigner() {
+      persist('none');
       generation += 1;
       closeClient();
       activeSigner = null;
       update({ method: 'none', status: 'disconnected', pubkey: null, relay: null, error: null });
     },
     async connectNip07() {
+      persist('nip07');
       const current = ++generation;
       closeClient();
       activeSigner = null;
@@ -211,6 +235,7 @@ export function createPajaSignerController(options: PajaSignerControllerOptions)
       }
     },
     async connectBunker(uri: string) {
+      persist('nip46');
       const current = ++generation;
       closeClient();
       activeSigner = null;
@@ -244,6 +269,16 @@ export function createPajaSignerController(options: PajaSignerControllerOptions)
         activeSigner = null;
         update({ method: 'nip46', status: 'error', pubkey: null, relay: parsed.relay, error: toErrorMessage(error) });
       }
+    },
+    async restorePreference() {
+      const method = readPreference();
+      if (method === 'nip07') return this.connectNip07();
+      if (method === 'dev') return this.useDevSigner();
+      if (method === 'none') return this.useNoSigner();
+      generation += 1;
+      closeClient();
+      activeSigner = null;
+      update({ method: 'nip46', status: 'disconnected', pubkey: null, relay: null, error: null });
     },
   };
 }

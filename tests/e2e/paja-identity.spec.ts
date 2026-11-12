@@ -157,3 +157,20 @@ test.fixme('a loaded napplet receives identity.changed for connect and disconnec
   await expect.poll(() => readLog(frame, 'identity')).toEqual([signer.pubkey]);
   expect(await page.evaluate(() => window.__KEHTO_PAJA__?.getState().generation)).toBe(generation);
 });
+
+test('Dev and disconnected Bunker choices survive reload without credentials', async ({ page }) => {
+  await installMemoryRelay(page, RELAY_URL);
+  await openFlowTarget(page, runtime);
+  await page.locator('#signer-dev').click();
+  await page.reload();
+  await openFlowTarget(page, runtime);
+  await expect(page.locator('#signer-dev')).toHaveAttribute('data-active', 'true');
+  await page.locator('#signer-bunker-uri').fill('invalid-private-uri');
+  await page.locator('#signer-bunker').click();
+  await page.reload();
+  await openFlowTarget(page, runtime);
+  await expect(page.locator('#signer-bunker')).toHaveAttribute('data-active', 'true');
+  await expect(page.locator('#signer-bunker-uri')).toHaveValue('');
+  await expect(page.locator('#signer-status')).toContainText('no signer connected');
+  await expectNappletIdentity(page, '');
+});

@@ -971,6 +971,7 @@ async function installPajaHost(): Promise<void> {
     startFrameNavigation(state, context);
     void reportTargetCorsDiagnostic(state);
   }
+  void signerController.restorePreference();
 }
 
 if (typeof document !== 'undefined') {
