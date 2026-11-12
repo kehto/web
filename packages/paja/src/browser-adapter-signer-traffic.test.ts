@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { NostrEvent } from '@napplet/core';
+import type { NappletMessage, NostrEvent } from '@napplet/core';
 import { finalizeEvent, generateSecretKey, getPublicKey } from 'nostr-tools/pure';
 import { useWebSocketImplementation } from 'nostr-tools/pool';
 
@@ -238,6 +238,41 @@ describe('Paja relay traffic without a connected signer', () => {
 
     expect(sink.sockets).toEqual([]);
     expect(sink.sent).toEqual([]);
+  });
+
+  it('returns empty correlated identity relay metadata across refresh, switch and disconnect without extension discovery', async () => {
+    useWebSocketImplementation(RecordingRelaySocket);
+    resetTraffic();
+    const getRelays = vi.fn(() => { throw new Error('obsolete extension hook'); });
+    const listeners = new Set<() => void>();
+    let pubkey: string | null = ACCOUNT;
+    const adapter = createAdapter(createSimulation({ mode: 'anonymous' }), {
+      getSigner: () => pubkey ? { getRelays, getPublicKey: async () => pubkey! } : null,
+      getMethod: () => 'nip07',
+      getPubkey: () => pubkey,
+      subscribe: (listener) => {
+        listeners.add(listener);
+        return () => { listeners.delete(listener); };
+      },
+    });
+    try {
+      await waitFor(() => sink.sent.some(({ kinds, authors }) => kinds.includes(0) && authors.includes(FOLLOW)));
+      for (const [index, account] of [ACCOUNT, ACCOUNT, FOLLOW, null].entries()) {
+        pubkey = account;
+        for (const listener of listeners) listener();
+        const sent: NappletMessage[] = [];
+        const id = `identity-relays-${index}`;
+        adapter.services?.identity?.handleMessage('identity-window', {
+          type: 'identity.getRelays', id,
+        } as NappletMessage, (message) => sent.push(message));
+        await vi.waitFor(() => expect(sent).toHaveLength(1));
+        expect(sent[0]).toEqual({ type: 'identity.getRelays.result', id, relays: {} });
+      }
+      await waitForQuiet();
+      expect(getRelays).not.toHaveBeenCalled();
+    } finally {
+      (adapter.relayPool.getRelayPool() as PajaRelayBackend).close();
+    }
   });
 
   it('does not warm the fixed fallback on reused relay sockets after disconnect', async () => {
