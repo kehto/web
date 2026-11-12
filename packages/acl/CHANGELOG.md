@@ -1,5 +1,11 @@
 # @kehto/acl
 
+## 0.20.6
+
+### Patch Changes
+
+- 0df0ad1: Map runtime-originated `intent.deliver` pushes to recipient `intent:read` so eligible targets can receive deliveries through `ServiceRuntimeContext.sendToEligibleNapplet` without an INC capability.
+
 ## 0.20.5
 
 ### Patch Changes
