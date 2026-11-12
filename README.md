@@ -147,6 +147,9 @@ Generated API docs are produced by:
 pnpm docs:api
 ```
 
+Release automation setup, registry permissions, and recovery commands are in the
+[release runbook](docs/guides/releases.md).
+
 ## License
 
 MIT
