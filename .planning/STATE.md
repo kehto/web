@@ -5,11 +5,11 @@ milestone_name: Firewall approvals
 current_phase: 115
 current_phase_name: Firewall final audit complete
 status: verifying
-stopped_at: Quick 261112-glz implementation complete; unit gate resolved; browser failure remains; parent owns draft PR
-last_updated: "2026-11-12T18:11:33Z"
+stopped_at: PR #433 conflicts resolved; existing identity.changed browser skip retained
+last_updated: "2026-11-12T22:03:57Z"
 last_activity: 2026-11-12
-last_activity_desc: "Completed quick task 261112-glz: Remove obsolete NIP-07 relay discovery; browser verification limitation retained"
-state_head: 38989c0bfeed3aa7a94f1d511c7e3ab15d9a577f
+last_activity_desc: "Completed quick task 261112-vyl: Resolve PR #433 conflicts; build/types/docs/quality, 3441 unit and 134 browser tests passed"
+state_head: b2606f9a09fccdab1f68b2b564f137d8152da0ae
 progress:
   total_phases: 5
   completed_phases: 0
@@ -48,7 +48,7 @@ See: .planning/PROJECT.md (updated 2026-07-28)
 Phase: 115 — Firewall final audit complete
 Plan: PR review follow-up
 Status: PR #336 review fixes verified; CONFIG denial/backpressure spec gap explicitly retained.
-Last activity: 2026-11-12 - Resolving PR #433 conflicts against main; preserving both signer regression suites
+Last activity: 2026-11-12 - Completed quick task 261112-vyl: Resolve PR #433 conflicts; build/types/docs/quality, 3441 unit and 134 browser tests passed
 
 ## Performance Metrics
 
@@ -165,6 +165,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
+| 261112-vyl | Resolve PR #433 merge conflicts with main, retaining both signer regression suites | 2026-11-12 | b2606f9a | passed; 134 browser tests, one existing skip | [261112-vyl](./quick/261112-vyl-resolve-pr-433-merge-conflicts-with-main/) |
 | 261112-hew | Default Paja signer to None and persist explicit selections | 2026-11-12 | 19aa2973 | implemented; browser gate blocked by popup failure | [261112-hew](./quick/261112-hew-default-paja-signer-to-none-and-persist-/) |
 | 261112-qi2 | Correct public SDK repo links for #410; track upstream npm metadata in #431 | 2026-11-12 | 0b73feb0 | passed | [261112-qi2](./quick/261112-qi2-resolve-issue-410-stale-napplet-reposito/) |
 | 261112-glz | Remove obsolete NIP-07 relay discovery; preserve NAP identity API | 2026-11-12 | 38989c0b | complete; browser gate failed, draft PR only | [261112-glz](./quick/261112-glz-remove-obsolete-nip-07-getrelays-discove/) |
@@ -296,9 +297,9 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 ## Session Continuity
 
-Last session: 2026-11-12T18:11:33Z
-Stopped at: Quick 261112-glz implementation complete; unit gate resolved; browser failure remains; parent owns draft PR
-Resume file: .planning/quick/261112-glz-remove-obsolete-nip-07-getrelays-discove/261112-glz-SUMMARY.md
+Last session: 2026-11-12T22:03:57Z
+Stopped at: PR #433 conflicts resolved; existing identity.changed browser skip retained
+Resume file: .planning/quick/261112-vyl-resolve-pr-433-merge-conflicts-with-main/261112-vyl-SUMMARY.md
 
 ## Operator Next Steps
 
