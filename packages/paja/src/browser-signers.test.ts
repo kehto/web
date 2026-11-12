@@ -14,6 +14,31 @@ const TEMPLATE: EventTemplate = {
 describe('Paja browser signers', () => {
   afterEach(() => vi.unstubAllGlobals());
 
+  it('ignores obsolete relay properties while retaining supported NIP-07 methods', async () => {
+    const obsoleteRead = vi.fn(() => { throw new Error('obsolete extension property'); });
+    const signed = { ...TEMPLATE, id: '8'.repeat(64), pubkey: PUBKEY, sig: '9'.repeat(128) };
+    const signEvent = vi.fn(async () => signed);
+    const nip04 = { encrypt: vi.fn(async () => 'nip04-cipher'), decrypt: vi.fn(async () => 'plain04') };
+    const nip44 = { encrypt: vi.fn(async () => 'nip44-cipher'), decrypt: vi.fn(async () => 'plain44') };
+    vi.stubGlobal('nostr', Object.defineProperty({
+      getPublicKey: async () => PUBKEY, signEvent, nip04, nip44,
+    }, 'getRelays', { get: obsoleteRead }));
+    const controller = createPajaSignerController({ confirmRequest: () => true, onChange: () => {} });
+    await controller.connectNip07();
+
+    expect(obsoleteRead).not.toHaveBeenCalled();
+    const signer = controller.getSigner();
+    expect(signer).not.toBeNull();
+    expect(signer).not.toHaveProperty('getRelays');
+    await expect(signer?.getPublicKey?.()).resolves.toBe(PUBKEY);
+    await expect(signer?.signEvent?.(TEMPLATE)).resolves.toEqual(signed);
+    await expect(signer?.nip04?.encrypt(PUBKEY, 'plain04')).resolves.toBe('nip04-cipher');
+    await expect(signer?.nip04?.decrypt(PUBKEY, 'nip04-cipher')).resolves.toBe('plain04');
+    await expect(signer?.nip44?.encrypt(PUBKEY, 'plain44')).resolves.toBe('nip44-cipher');
+    await expect(signer?.nip44?.decrypt(PUBKEY, 'nip44-cipher')).resolves.toBe('plain44');
+    expect(signEvent).toHaveBeenCalledWith(TEMPLATE);
+  });
+
   it('creates a request-scoped confirmation wrapper for a connected signer', async () => {
     const signed: NostrEvent = {
       ...TEMPLATE,
