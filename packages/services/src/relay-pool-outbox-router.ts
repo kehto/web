@@ -36,6 +36,7 @@
  */
 
 import { allowed, deriveAuthors, resolvePlan, resolveRequiredRelays } from './relay-pool-outbox-planning.js';
+import { defaultRelayAllowed, parseRelayUrl } from './relay-url-policy.js';
 import type { EventTemplate, NostrEvent, NostrFilter } from '@napplet/core';
 import { createRelayEventResultWithHints, type ApprovalSignal, type RelayEventResult } from '@kehto/runtime';
 import type {
@@ -78,11 +79,6 @@ declare function clearTimeout(id: unknown): void;
 
 /** Default per-query wall-clock budget when `options.timeoutMs` is unset. */
 const DEFAULT_QUERY_TIMEOUT_MS = 4000;
-
-/** Default relay gate: only ws(s):// URLs are permitted. */
-function defaultRelayAllowed(url: string): boolean {
-  return typeof url === 'string' && (url.startsWith('wss://') || url.startsWith('ws://'));
-}
 
 /** Extract policy-allowed author write relays from already-loaded NIP-65 data. */
 function discoveredReadRelays(
@@ -660,7 +656,8 @@ export function createRelayPoolOutboxRouter(options: RelayPoolOutboxRouterOption
     fallbackRelays: options.fallbackRelays,
     signEvent: options.signEvent,
     getSignerPubkey: options.getSignerPubkey,
-    isRelayAllowed: options.isRelayAllowed ?? defaultRelayAllowed,
+    isRelayAllowed: (url) => !!parseRelayUrl(url)
+      && (options.isRelayAllowed?.(url) ?? defaultRelayAllowed(url, options.fallbackRelays)),
     defaultTimeoutMs: options.defaultTimeoutMs ?? DEFAULT_QUERY_TIMEOUT_MS,
     async verify(event: NostrEvent): Promise<boolean> {
       if (!verifyEvent) return true;

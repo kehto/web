@@ -1,5 +1,16 @@
 # @kehto/services
 
+Relay hints are candidates, not authority. Register relay services through a
+runtime with `RuntimeAdapter.permissions`; execute only its approved plan.
+Standalone OUTBOX requests with nonempty `options.relays` now fail before router
+execution. Unhinted standalone calls retain `FW-OUTBOX-LEGACY-001` during migration.
+The concrete OUTBOX router validates WebSocket URLs and defaults to rejecting
+unconfigured local/private literals and names. Explicit host fallback relays
+and the host's `isRelayAllowed` policy can admit development destinations;
+credentials, fragments and malformed URLs are always rejected. Adapters still
+need DNS-time address checks to prevent rebinding. See
+[relay destination policy](../../docs/firewall-approvals.md#relay-destination-policy).
+
 `createLinkService` uses `ServiceRuntimeContext.authorizeOperation` when attached
 to a runtime with approval adapters. It requires both interface and exact URL
 scopes, preserves request IDs in canonical results, rejects forbidden local/code

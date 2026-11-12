@@ -145,14 +145,14 @@ describe('createOutboxService', () => {
         type: 'outbox.getEvent',
         id: 'e2',
         eventId: EVENT.id,
-        options: { author: EVENT.pubkey, relays: ['wss://hint.test'], timeoutMs: 500 },
+        options: { author: EVENT.pubkey, timeoutMs: 500 },
       } as NappletMessage, c.send);
       await Promise.resolve();
       await Promise.resolve();
 
       expect(router.query).toHaveBeenCalledWith(
         [{ ids: [EVENT.id], authors: [EVENT.pubkey] }],
-        { limit: 1, authors: [EVENT.pubkey], relays: ['wss://hint.test'], timeoutMs: 500 },
+        { limit: 1, authors: [EVENT.pubkey], timeoutMs: 500 },
       );
       expect(c.sent[0]).toMatchObject({
         type: 'outbox.getEvent.result',
@@ -265,11 +265,10 @@ describe('createOutboxService', () => {
         id: 's1',
         subId: 'sub-1',
         filters: [{ kinds: [1] }],
-        options: { relays: ['wss://hint.test'] },
       } as NappletMessage, c.send);
       expect(router.subscribe).toHaveBeenCalledWith(
         [{ kinds: [1] }],
-        { relays: ['wss://hint.test'] },
+        undefined,
         expect.any(Object),
       );
 
@@ -358,13 +357,12 @@ describe('createOutboxService', () => {
         type: 'outbox.publish',
         id: 'p1',
         event: template,
-        options: { toOutbox: false, toInboxes: [EVENT.pubkey], relays: ['wss://direct.test'] },
+        options: { toOutbox: false, toInboxes: [EVENT.pubkey] },
       } as NappletMessage, c.send);
       await Promise.resolve();
       expect(router.publish).toHaveBeenCalledWith(template, {
         toOutbox: false,
         toInboxes: [EVENT.pubkey],
-        relays: ['wss://direct.test'],
       });
       expect(c.sent[0]).toMatchObject({ type: 'outbox.publish.result', id: 'p1', ok: true, eventId: EVENT.id, relays: { 'wss://r.test': true } });
     });

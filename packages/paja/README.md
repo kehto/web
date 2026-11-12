@@ -3,6 +3,14 @@
 Development runtime for local napplet authoring and static pointer-loaded
 napplet testing.
 
+Scoped relay and OUTBOX hints use the runtime's destination approvals. Paja's
+host policy rejects unconfigured local/private relay names, including trailing-dot
+spellings such as `localhost.`. Explicitly configured development relays remain
+available. Its default relay pool has no automatic NIP-42 signer. Network grants
+do not authorize relay authentication; keep signer-enabled third-party pools
+separate from napplet-directed traffic. See
+[relay destination policy](../../docs/firewall-approvals.md#relay-destination-policy).
+
 The runtime is designed to be used from a napplet package script:
 
 ```json

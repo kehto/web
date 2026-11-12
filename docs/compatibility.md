@@ -551,6 +551,28 @@ in [PR #284](https://github.com/kehto/web/pull/284). This implementation PR leav
   tests, announce a 0.x minor removal, and record its release before deleting
   the fallback diagnostic.
 
+## FW-RELAY-NETWORK-LEGACY-001 — unapproved host-selected relay routing
+
+- Owner: `@kehto/runtime`.
+- Old behavior: unhinted host-tier relay traffic executes without
+  `RuntimeAdapter.permissions`. Napplet-supplied network hints are no longer
+  accepted on that path; local-only services are unaffected.
+- Replacement: configure permissions and source-bound `permissionPrincipal`,
+  approve canonical `relay.network` origins, and execute immutable destination
+  plans through the normal runtime handler.
+- Source/warning: `packages/runtime/src/relay-authorization.ts`; warns once per
+  runtime instance only when unhinted legacy network execution occurs, naming
+  the replacement without logging URLs, events, credentials, or principals.
+- Tests: `tests/unit/relay-network-compatibility.test.ts` verifies legacy execution,
+  warning text/frequency, quiet canonical/local calls, and rejection of hints.
+  `tests/unit/relay-hint-authority.test.ts` covers fallback and both reference
+  services, denial, immutable inputs, origin approval, revocation and replacement.
+- Retention: unhinted adapters can migrate without losing their host-selected
+  routing. Remove after supported hosts install operation authority, announce a
+  breaking 0.x minor release, and retain negative tests for the retired path.
+  No removal release is selected; issue #435's runtime minor changeset disables
+  unapproved network hints now.
+
 ## FW-RELAY-ADAPTER-LEGACY-001 — implicit relay-pool adapter execution
 
 - Owner: `@kehto/runtime` and `@kehto/shell`.
@@ -618,6 +640,11 @@ not new NAP wire operations.
   breaking 0.x minor release, and add negative tests for legacy calls. No removal
   release is selected. Authority: NAP-OUTBOX PR #32 `8865f73d52a4864afee145f28d26520476273927`;
   this diagnostic is a host API migration, not a NAP wire extension.
+
+  Issue #435 retires explicit `options.relays` on this standalone path in the
+  services minor changeset. Unhinted calls alone retain this compatibility
+  behavior. `packages/services/src/relay-hint-security.test.ts` covers correlated
+  rejection before reads, subscriptions, publishing, discovery, or signing.
 
 ## Packaged intent type drift — core 0.40 (retired)
 

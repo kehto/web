@@ -11,7 +11,7 @@ import {
 } from './relay-result.js';
 import type { RuntimeAdapter, ServiceHandler, ServiceRegistry, ServiceRuntimeContext, Signer } from './types.js';
 import { isRelayPlanningServiceHandler, type RelayOperationPlan } from './service-types.js';
-import type { PermissionRequirement } from '@kehto/firewall';
+import { authorizeRelay, snapshotRelayPlan } from './relay-authorization.js';
 import type { ApprovalSignal } from './approval-coordinator.js';
 import { snapshotApprovalEnvelope } from './approval-envelope.js';
 
@@ -43,34 +43,6 @@ type RelayHandlerContext = {
 const legacyRelayServiceWarnings = new WeakSet<object>();
 const legacyRelayAdapterWarnings = new WeakSet<object>();
 
-function relayRequirements(plan: RelayOperationPlan): PermissionRequirement[] {
-  const requirements: PermissionRequirement[] = [{
-    category: 'interface', domain: 'relay', operation: 'access', scope: { kind: 'exact', value: 'relay' },
-  }];
-  for (const relayUrl of plan.relayUrls) {
-    try {
-      const origin = /^(wss?:\/\/[^/?#]+)/.exec(relayUrl)?.[1];
-      if (!origin) throw new Error('scheme');
-      requirements.push({ category: 'network', domain: 'relay', operation: 'relay.network',
-        scope: { kind: 'origin', value: origin } });
-    } catch {
-      throw new Error('invalid relay destination');
-    }
-  }
-  return requirements;
-}
-
-async function authorizeRelay<T>(context: RelayHandlerContext, windowId: string, operation: string,
-  plan: RelayOperationPlan, execute: (signal: ApprovalSignal) => T | Promise<T>): Promise<void> {
-  const run = context.authorizeOperation;
-  if (!run) {
-    await execute({ aborted: false, addEventListener() {}, removeEventListener() {} });
-    return;
-  }
-  const outcome = await run(windowId, operation, relayRequirements(plan), execute);
-  if (outcome.status !== 'executed') throw new Error(`relay authorization ${outcome.status}`);
-}
-
 export type RelayHandler = (windowId: string, msg: NappletMessage) => void;
 
 export function createRelayHandler(context: RelayHandlerContext): RelayHandler {
@@ -80,9 +52,15 @@ export function createRelayHandler(context: RelayHandlerContext): RelayHandler {
     const action = msg.type.slice(dotIdx + 1);
 
     switch (action) {
-      case 'subscribe':
-        handleRelaySubscribe(context, windowId, msg, m);
+      case 'subscribe': {
+        const captured = snapshotApprovalEnvelope(msg) as RuntimeRelayMessage | undefined;
+        if (!captured || (captured.filters !== undefined && !Array.isArray(captured.filters))) {
+          context.hooks.sendToNapplet(windowId, { type: 'relay.closed', subId: m.subId ?? '', reason: 'invalid relay subscription' } as NappletMessage);
+          return;
+        }
+        handleRelaySubscribe(context, windowId, captured, captured);
         return;
+      }
       case 'close':
         handleRelayClose(context, windowId, msg, m);
         return;
@@ -130,6 +108,8 @@ function handleRelaySubscribe(
   const subId = m.subId ?? '';
   const filters = m.filters ?? [];
   if (!subId) return;
+  const source = context.getSource(windowId);
+  const current = (): boolean => !!source && context.getSource(windowId) === source;
 
   const relayService = relayServiceFrom(context);
   if (relayService) {
@@ -142,17 +122,17 @@ function handleRelaySubscribe(
       return;
     }
     let plan: RelayOperationPlan;
-    try { plan = relayService.planRelayOperation(windowId, msg); }
+    try { plan = snapshotRelayPlan(relayService.planRelayOperation(windowId, msg)); }
     catch {
       hooks.sendToNapplet(windowId, { type: 'relay.closed', subId, reason: 'invalid relay destination' } as NappletMessage);
       return;
     }
     void authorizeRelay(context, windowId, 'relay.subscribe', plan, (signal) => {
-      if (signal.aborted) return;
+      if (signal.aborted || !current()) return;
       const subKey = `${windowId}:${subId}`;
       const entry = { windowId, filters };
       subscriptions.set(subKey, entry);
-      const isActive = (): boolean => !signal.aborted && subscriptions.get(subKey) === entry && context.canReadRelay(windowId);
+      const isActive = (): boolean => !signal.aborted && current() && subscriptions.get(subKey) === entry && context.canReadRelay(windowId);
       const send = (response: NappletMessage): void => {
         if (isActive()) hooks.sendToNapplet(windowId, normalizeRelayServiceResponse(response));
       };
@@ -172,8 +152,8 @@ function handleRelaySubscribe(
         closeRelayBackends(context, windowId, subId, subKey);
       }, { once: true });
       if (!isActive()) closeRelayBackends(context, windowId, subId, subKey);
-    }).catch(() => {
-      hooks.sendToNapplet(windowId, { type: 'relay.closed', subId, reason: 'relay authorization unavailable or denied' } as NappletMessage);
+    }, m.relay).catch(() => {
+      if (current()) hooks.sendToNapplet(windowId, { type: 'relay.closed', subId, reason: 'relay authorization unavailable or denied' } as NappletMessage);
     });
     return;
   }
@@ -193,10 +173,10 @@ function handleRelaySubscribe(
     return;
   }
   void authorizeRelay(context, windowId, 'relay.subscribe', plan, (signal) => {
-    if (signal.aborted) return;
+    if (signal.aborted || !current()) return;
     const entry = { windowId, filters };
     subscriptions.set(subKey, entry);
-    const isActive = (): boolean => !signal.aborted && subscriptions.get(subKey) === entry && context.canReadRelay(windowId);
+    const isActive = (): boolean => !signal.aborted && current() && subscriptions.get(subKey) === entry && context.canReadRelay(windowId);
     const send = (response: NappletMessage): void => {
       if (isActive()) hooks.sendToNapplet(windowId, normalizeRelayServiceResponse(response));
     };
@@ -215,8 +195,10 @@ function handleRelaySubscribe(
       subscriptions.delete(subKey);
       closeRelayBackends(context, windowId, subId, subKey);
     }, { once: true });
-  }).catch(() => hooks.sendToNapplet(windowId,
-    { type: 'relay.closed', subId, reason: 'relay authorization unavailable or denied' } as NappletMessage));
+  }, m.relay).catch(() => {
+    if (current()) hooks.sendToNapplet(windowId,
+      { type: 'relay.closed', subId, reason: 'relay authorization unavailable or denied' } as NappletMessage);
+  });
 }
 
 function deliverFromRuntimeBackends(
@@ -620,14 +602,14 @@ function handleRelayQuery(context: RelayHandlerContext, windowId: string, input:
           ? [message.relay] : pool.selectRelayTier(filters);
       plan = { operation: 'query', relayUrls, localOnly: !pool?.isAvailable() };
     }
-    plan = Object.freeze({ ...plan, operation: 'query', relayUrls: Object.freeze([...new Set(plan.relayUrls)]) });
+    plan = snapshotRelayPlan({ ...plan, operation: 'query' });
   } catch (error) {
     respond({ error: error instanceof Error ? error.message : 'invalid relay destination' });
     return;
   }
   const plannedService = isRelayPlanningServiceHandler(service) ? service : undefined;
   void authorizeRelay(context, windowId, 'relay.query', plan, (signal) =>
-    collectRelayQuery(context, windowId, message, plan, plannedService, signal, current, respond),
+    collectRelayQuery(context, windowId, message, plan, plannedService, signal, current, respond), message.relay,
   ).catch(() => respond({ error: 'relay authorization unavailable or denied' }));
 }
 

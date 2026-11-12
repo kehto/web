@@ -35,6 +35,7 @@
 
 import type { EventTemplate, NappletMessage, NostrEvent, NostrFilter } from '@napplet/core';
 import type { ApprovalSignal, RelayEventResult, ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
+import { relayOrigin } from './relay-url-policy.js';
 
 /** Outbox service version — follows semver. */
 const OUTBOX_SERVICE_VERSION = '1.0.0';
@@ -376,6 +377,7 @@ function handleGetEvent(actions: OutboxActions, windowId: string, msg: NappletMe
 }
 
 function capturePlan(plan: OutboxRelayPlan): OutboxRelayPlan {
+  for (const url of plan.relays) relayOrigin(url);
   const captured = { ...plan, relays: [...plan.relays] };
   Object.freeze(captured.relays);
   return Object.freeze(captured);
@@ -394,7 +396,7 @@ async function queryApproved(
   const plan = capturePlan(await planned.planRead(filters, options));
   const outcome = await runtime.authorizeOperation!(windowId, operation, [
     { category: 'interface', domain: 'outbox', operation: 'access', scope: { kind: 'exact', value: 'outbox' } },
-    ...plan.relays.map((url) => ({ category: 'network' as const, domain: 'outbox', operation, scope: { kind: 'origin' as const, value: new URL(url).origin } })),
+    ...plan.relays.map((url) => ({ category: 'network' as const, domain: 'outbox', operation, scope: { kind: 'origin' as const, value: relayOrigin(url) } })),
   ], async (signal) => {
     if (signal.aborted) return { events: [], error: 'policy denied' };
     const result = await planned.queryWithPlan!(filters, options, plan, signal);
@@ -476,7 +478,7 @@ function handleSubscribe(actions: OutboxActions, windowId: string, msg: NappletM
   if (planned.planRead && planned.subscribeWithPlan && runtimeContext?.authorizeOperation) {
     void planned.planRead(filters, subscribeOptions).then(capturePlan).then((plan) => runtimeContext!.authorizeOperation!(windowId, 'outbox.subscribe', [
       { category: 'interface', domain: 'outbox', operation: 'access', scope: { kind: 'exact', value: 'outbox' } },
-      ...plan.relays.map((url) => ({ category: 'network' as const, domain: 'outbox', operation: 'outbox.subscribe', scope: { kind: 'origin' as const, value: new URL(url).origin } })),
+      ...plan.relays.map((url) => ({ category: 'network' as const, domain: 'outbox', operation: 'outbox.subscribe', scope: { kind: 'origin' as const, value: relayOrigin(url) } })),
     ], (signal) => {
       if (signal.aborted) return;
       const sub = planned.subscribeWithPlan!(filters, plan, sink);
@@ -519,7 +521,7 @@ function handlePublish(actions: OutboxActions, windowId: string, msg: NappletMes
   const operation = planned.planPublish && planned.publishWithPlan && runtimeContext?.authorizeOperation
     ? planned.planPublish(publishOptions).then(capturePlan).then((plan) => runtimeContext!.authorizeOperation!(windowId, 'outbox.publish', [
       { category: 'interface', domain: 'outbox', operation: 'access', scope: { kind: 'exact', value: 'outbox' } },
-      ...plan.relays.map((url) => ({ category: 'network' as const, domain: 'outbox', operation: 'outbox.publish', scope: { kind: 'origin' as const, value: new URL(url).origin } })),
+      ...plan.relays.map((url) => ({ category: 'network' as const, domain: 'outbox', operation: 'outbox.publish', scope: { kind: 'origin' as const, value: relayOrigin(url) } })),
     ], (signal) => signal.aborted ? { ok: false, error: 'policy denied' } : planned.publishWithPlan!(m.event!, plan)).then((outcome) => outcome.status === 'executed' && outcome.value ? outcome.value : { ok: false, error: 'policy denied' }))
     : runtimeContext?.authorizeOperation
       ? Promise.resolve({ ok: false, error: 'policy denied' } as OutboxPublishResult)
@@ -601,6 +603,19 @@ export function createOutboxService(options: OutboxServiceOptions): ServiceHandl
       }
     },
     handleMessage(windowId: string, message: NappletMessage, send: Send): void {
+      const request = message as NappletMessage & { id?: string; subId?: string; options?: unknown };
+      if (!runtimeContext?.authorizeOperation && isRecord(request.options)
+        && Array.isArray(request.options.relays) && request.options.relays.length > 0
+        && ['outbox.getEvent', 'outbox.query', 'outbox.subscribe', 'outbox.publish'].includes(message.type)) {
+        const error = 'relay hints require RuntimeAdapter.permissions and planned OUTBOX execution';
+        const response = message.type === 'outbox.subscribe'
+          ? { type: 'outbox.closed', subId: request.subId ?? '', reason: error }
+          : { type: `${message.type}.result`, id: request.id ?? '', error,
+            ...(message.type === 'outbox.query' ? { events: [] } : {}),
+            ...(message.type === 'outbox.publish' ? { ok: false } : {}) };
+        send(response as NappletMessage);
+        return;
+      }
       switch (message.type) {
         case 'outbox.getEvent':
           handleGetEvent(actions, windowId, message, send);
