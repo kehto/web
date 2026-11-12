@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: resolved
 trigger: "Resolve kehto/web#435 with a draft PR"
 created: 2026-11-12
 updated: 2026-11-12
@@ -108,3 +108,33 @@ the primary checkout's index; current worktree source is authoritative.
 - Build/type-check PASS; all 273 unit files / 3508 tests PASS; docs PASS;
   pinned quality 100/100 with no new findings. Both protocol draft heads were
   rechecked unchanged. Final full browser gate remains before draft PR creation.
+
+## Final integration and completion audit
+
+Integrated origin/main 226b4ad4 (explicit Paja signer selection) in 7c358458.
+The added browser AUTH test selects NIP-07 explicitly through the updated shared
+prepare helper, then proves scoped traffic cannot trigger authentication.
+
+| Requirement | Evidence |
+| --- | --- |
+| Hints are approval candidates, never grants | `relay-hint-authority.test.ts` drives fallback, pool and coordinated services through the real runtime, showing exact origin requirements and denial before I/O/signing. No authority means hinted network execution fails. |
+| Approval cannot be switched to another destination | Detached envelopes and plans in runtime; required OUTBOX target metadata is copied/frozen. The publish-planning regression mutates the host plan during approval and injects napplet-owned metadata, proving neither changes required fanout. |
+| Canonical API/wire behavior | Canonical scoped subscribe remains supported, guarded across runtime and both reference services. OUTBOX authority tests drive all four hinted read/write operations through the real runtime. New requiredRelays and cancellation arguments are host-only; request sanitizers ignore forged host metadata. |
+| Source identity and operation lifetime | Runtime matrix covers replacement during approval, origin revocation and late callbacks. Full browser suite exercises shell/Paja iframe trust and isolation. OUTBOX signed fanout checks cancellation before and after signing; decorators forward the exact token. |
+| Private destination and AUTH behavior | Router tests cover literal/encoded IPv4, compatible/mapped/site-local IPv6, credentials, invalid ports and fragments. Paja rejects trailing-dot local names. Browser fixture sends AUTH plus auth-required CLOSED with a connected signer and observes no signed/auth event. |
+| Full publish fanout | Plans include own write relays, required recipient inboxes and validated hints before signing. Missing/denied inboxes and incomplete custom plans fail closed; optional hint success cannot mask required failure. Existing standalone missing-own-list behavior is retained. |
+| Compatibility | FW-RELAY-NETWORK-LEGACY-001 and KEHTO_COMPAT_RELAY_QUERY_HINT have runtime warning/frequency/quiet-path tests and central entries. OUTBOX unhinted fallback retains its existing warning; hinted legacy execution is rejected. Optional callback and metadata diagnostic limits are documented and tested. |
+| Documentation and release metadata | Runtime/services/Paja READMEs and package pages, approval guide, compatibility register and changesets move together. Runtime/services minor and Paja patch changesets remain unconsumed. |
+| Protocol authority | NAP-RELAY #2 9f30b3505335a52c574ff570576687d6467021ff and NAP-OUTBOX #32 8865f73d52a4864afee145f28d26520476273927 rechecked unchanged. Canonical behavior is conformant host policy; the existing query hint remains an explicitly deferred, warned compatibility extension outside the draft. |
+
+Final integrated gates: build/type-check PASS; 273 unit files / 3524 tests PASS;
+docs PASS; full Chromium 135 PASS with one existing skipped identity-push gap;
+pinned quality 100/100 and diff integrity PASS. Logs are under
+/tmp/kehto-435-integrated-{types,unit,docs,e2e,quality}.*.
+
+Delivery branch: fix/435-relay-destination-approval, targeting a draft PR closing
+kehto/web#435. The issue's older applesauce dependency is not changed or published
+by this task. Generic host pools retain responsibility for DNS/address enforcement
+and disabling automatic AUTH; a network-origin grant does not authorize signing.
+The primary checkout's unrelated WIP remains untouched. Graph metadata belongs to
+that primary checkout; new/missing graph paths were inspected from current source.
