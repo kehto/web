@@ -82,6 +82,12 @@ describe('CI release-only gates', () => {
     expect(release).toContain("name: Publish to JSR (topologically ordered)\n        if: ${{ !cancelled() && steps.jsr_metadata.outcome == 'success' }}");
   });
 
+  test('verifies public registry availability after a successful npm upload', () => {
+    const release = releaseWorkflowSource();
+    expect(release).toContain('name: Publish to npm (OIDC Trusted Publishing)\n        id: npm_publish');
+    expect(release).toContain("name: Verify npm versions are public\n        if: ${{ !cancelled() && steps.npm_publish.outcome == 'success' }}\n        run: node scripts/check-npm-publication.mjs");
+  });
+
   test('attempts independent JSR packages after a rejection and keeps partial releases red', () => {
     const directory = mkdtempSync(join(tmpdir(), 'kehto-release-jsr-'));
     try {

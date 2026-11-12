@@ -1,5 +1,5 @@
 ---
-status: fixing
+status: verifying
 trigger: "version packages and release CI have been failing. please fix and make sure published releases are up to date."
 created: 2026-11-12
 updated: 2026-11-12
@@ -76,11 +76,32 @@ Execute gsd-debug inline per skill spawn restriction.
   0.1.4, and shell 0.34.0 published to JSR.
 - User repaired npm/JSR settings. Public JSR API confirms rate-limit now
   links to kehto/web. Recovery 43273088163 published rate-limit 0.2.0,
-  Paja 0.35.0, and CLI 0.7.1 to JSR, completing that registry. npm mocks
-  0.1.4 also published; rate-limit was rejected before settings confirmation.
+  Paja 0.35.0, and CLI 0.7.1 to JSR, completing that registry. npm reported
+  mocks upload success, later proven to mean staging rather than public release.
 - Retrying the full release after the settings confirmation. Target remains
   b2d15ab6; exact main CI, Pages, and versioning prerequisites rechecked green.
 - Explained fine-grained PAT creation and the CHANGESETS_GITHUB_TOKEN secret
   directly to the user. Awaiting secret configuration; no credentials in chat.
 - actionlint 1.7.7 passed both changed workflows. Final docs and pinned quality
   gates pass after the runbook edit; primary checkout remains unchanged.
+
+## Staged npm upload correction
+
+- Recovery 43273499732 authenticated successfully and uploaded rate-limit.
+  Its only npm error is mocks E409: cannot publish over previously staged
+  version 0.1.4. Public npm metadata still showed 0.1.0 for both packages.
+  Earlier CLI "published successfully" output was insufficient proof.
+- Asked user to approve the two staged versions with interactive npm 2FA.
+  npm docs confirm OIDC cannot perform stage approval. No further upload
+  retries until the existing versions become public.
+- Added scripts/check-npm-publication.mjs after successful npm upload, checking
+  exact public names/versions with bounded propagation retries. Regression
+  tests cover private exclusions, publication, propagation, staged/unavailable
+  versions, incorrect metadata, and transport errors.
+- User approvals are now reflected in public metadata: mocks 0.1.4 and
+  rate-limit 0.2.0. Live script reports "Verified 11 public npm package
+  versions." mocks' published dependencies correctly reference acl ^0.20.6
+  and runtime ^0.30.0, with no workspace protocol left in the artifact metadata.
+- Final local gates PASS: build, types, docs, 268 unit files / 3424 tests,
+  actionlint, and pinned quality 100/100. Full GitHub CI will rerun for the
+  publication guard. Dedicated versioning secret setup remains pending.

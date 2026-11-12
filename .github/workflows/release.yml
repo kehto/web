@@ -128,8 +128,13 @@ jobs:
       # npm exchanges the OIDC token for a short-lived publish credential and
       # attaches provenance automatically (public repo + public package).
       - name: Publish to npm (OIDC Trusted Publishing)
+        id: npm_publish
         if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.skip_npm) }}
         run: pnpm changeset publish
+
+      - name: Verify npm versions are public
+        if: ${{ !cancelled() && steps.npm_publish.outcome == 'success' }}
+        run: node scripts/check-npm-publication.mjs
 
       # ── JSR publish ─────────────────────────────────────────────────────────
       # JSR publishes from the same admitted commit as npm, reading the same

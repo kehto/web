@@ -39,9 +39,19 @@ The human triggering the main CI/recovery run needs to belong to the JSR scope.
 the repository link is missing. npm `E404` on a publish PUT can mean an absent
 or mismatched Trusted Publisher even when the package already exists.
 
+An upload can also be staged without becoming public. npm may report the upload
+as successful while public metadata still shows the old version. A retry then
+fails with `E409 Cannot publish over previously staged version`. Open your npm
+account's **Staged Packages** tab and approve the existing version with 2FA.
+Enabling direct publishing doesn't promote versions already staged. Don't bump
+the version or keep retrying that upload. The release workflow checks public
+metadata after a successful npm upload, makes six attempts five seconds apart,
+and fails with approval guidance if a version is still unavailable.
+
 See [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/),
 [JSR publishing](https://jsr.io/docs/publishing-packages), and
 [JSR authorization errors](https://jsr.io/docs/troubleshooting).
+See also [npm staged publishing](https://docs.npmjs.com/staged-publishing/).
 
 ## Recover a partial release
 
