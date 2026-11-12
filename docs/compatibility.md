@@ -6,6 +6,32 @@ coverage. This register records both implemented safeguards and existing debt;
 below identifies the package responsible for the implementation and its tests.
 No removal date is implied by an old source comment.
 
+## PAJA-NIP07-RELAY-DISCOVERY-REMOVED — retired extension integration
+
+`@kehto/paja` no longer reads, binds, or calls the obsolete NIP-07 `getRelays`
+property. Host-configured discovery/super relays replace extension-provided
+bootstrap URLs for contacts, NIP-65 routing and Blossom discovery. The old
+signer-lifecycle bootstrap cache is deleted, not retained behind a warning.
+No legacy path, warning site, or warning lifetime remains.
+
+Sources: `packages/paja/src/browser-signers.ts`, `browser-relay-runtime.ts`,
+`browser-adapter-support.ts`, and `browser-adapter.ts`. Regression coverage:
+`browser-signers.test.ts` (throwing property accessor and supported methods),
+`browser-adapter-signer-traffic.test.ts` (signed relay fixtures, account changes
+and correlated identity results), and `browser-blossom-integration.test.ts`
+(host-only resource discovery and zero obsolete-hook calls).
+
+Authority: [NIP-07 master](https://github.com/nostr-protocol/nips/blob/master/07.md),
+checked 2026-11-12, no longer defines this extension capability.
+[NAP-IDENTITY at `43cb3a4e855570ec4b90b9cc05f0c721e5ad0aab`](https://github.com/napplet/naps/blob/43cb3a4e855570ec4b90b9cc05f0c721e5ad0aab/naps/NAP-IDENTITY.md)
+still defines `identity.getRelays`; that wire API and the general host service
+remain intact. Paja returns an empty map for unsupported external-user relay
+metadata, as the spec permits, without fabricating preferences from host URLs.
+
+Removal ships with `.changeset/paja-remove-obsolete-relay-discovery.md` (Paja
+patch); PR and release number are pending. There are no remaining retirement
+prerequisites or upstream publication dependencies.
+
 ## Outbox routing-author metadata — services / Paja
 
 Identifier: `OUTBOX_ROUTING_AUTHORS`. `OutboxRelayPool.subscribe` now receives an

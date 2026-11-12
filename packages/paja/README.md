@@ -552,11 +552,15 @@ shell user's BUD-03 list through the same approval-bound relay path, then uses
 the current window's verified pointer-manifest servers, followed by upload-runtime
 fallbacks and saved extra resource servers. Every bootstrap and author relay is
 authorized as its exact `ws:`/`wss:` destination before its socket opens. The
-host refreshes signer-derived bootstrap URLs only at signer initialization or a
-signer lifecycle change; a resource request reads that bounded host cache and
-never calls an external signer's `getRelays()` hook, because that hook can
-perform opaque extension work before an origin exists to approve. If refreshing
-the cache fails, configured host bootstrap relays remain available. The user-list
+host uses only configured discovery/super relays for bootstrap discovery,
+including contact-list and followed-author warming. Paja neither reads nor calls
+the obsolete NIP-07 `getRelays()` extension property, including during signer
+initialization and account changes; there is no signer-bootstrap cache.
+The retained NAP `identity.getRelays` operation returns an empty relay map for
+unsupported external-user metadata, not host URLs presented as user NIP-65
+preferences. This follows [current NIP-07](https://github.com/nostr-protocol/nips/blob/master/07.md)
+(checked 2026-11-12) and [NAP-IDENTITY at `43cb3a4`](https://github.com/napplet/naps/blob/43cb3a4e855570ec4b90b9cc05f0c721e5ad0aab/naps/NAP-IDENTITY.md),
+which permits empty unsupported results. The user-list
 lookup works independently of upload mode; an upload runtime may reuse the same
 servers when present. ROM-specific event and publisher locations retain
 priority over the user/runtime fallbacks. URI length is capped at 8192 characters;
