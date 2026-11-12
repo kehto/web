@@ -44,6 +44,7 @@ pnpm add @kehto/acl @napplet/core @napplet/nap
 ## Scope Boundaries
 
 - Owns pure capability state and capability resolution.
+- Maps `intent.deliver`, `intent.changed`, and sanctioned intent result envelopes to recipient `intent:read`. Delivery is runtime-to-napplet and does not require `inc:read`, matching [NAP-INTENT at `43cb3a4`](https://github.com/napplet/naps/blob/43cb3a4e855570ec4b90b9cc05f0c721e5ad0aab/naps/NAP-INTENT.md); the capability name is Kehto policy.
 - Maps `dm.status`, `dm.conversations`, `dm.messages`, `dm.subscribe`, and `dm.unsubscribe` to `dm:read`; maps `dm.send` to `dm:write`; maps `dm.message` and DM result/error envelopes back to recipient `dm:read`.
 - Maps filesystem discovery, picker, metadata, read, and watch envelopes to `fs:read`; maps save destinations and filesystem mutations to `fs:write`; maps `fs.changed` and result envelopes back to recipient `fs:read`.
 - Performs no I/O and has no runtime service registry.
