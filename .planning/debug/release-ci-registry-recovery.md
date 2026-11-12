@@ -67,3 +67,20 @@ Execute gsd-debug inline per skill spawn restriction.
 - Rechecked exact target prerequisites, then dispatched recovery 43272633903
   against b2d15ab6 with npm skipped and eight linked JSR packages selected.
   rate-limit and its Paja/CLI dependents remain held for registry registration.
+
+## Recovery progress
+
+- PR #430: https://github.com/kehto/web/pull/430. GitHub build/type/docs and
+  unit gates pass; Playwright is running.
+- Recovery 43272633903 succeeded: runtime 0.30.0, services 0.32.1, mocks
+  0.1.4, and shell 0.34.0 published to JSR.
+- User repaired npm/JSR settings. Public JSR API confirms rate-limit now
+  links to kehto/web. Recovery 43273088163 published rate-limit 0.2.0,
+  Paja 0.35.0, and CLI 0.7.1 to JSR, completing that registry. npm mocks
+  0.1.4 also published; rate-limit was rejected before settings confirmation.
+- Retrying the full release after the settings confirmation. Target remains
+  b2d15ab6; exact main CI, Pages, and versioning prerequisites rechecked green.
+- Explained fine-grained PAT creation and the CHANGESETS_GITHUB_TOKEN secret
+  directly to the user. Awaiting secret configuration; no credentials in chat.
+- actionlint 1.7.7 passed both changed workflows. Final docs and pinned quality
+  gates pass after the runbook edit; primary checkout remains unchanged.
