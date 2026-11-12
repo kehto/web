@@ -30,6 +30,35 @@ function fixture(options: { missingOwn?: boolean; missingInbox?: boolean; denyIn
 }
 
 describe('NAP-OUTBOX complete immutable publish fanout', () => {
+  it('keeps required targets host-owned and detached while approval waits', async () => {
+    const f = fixture();
+    const plan = { relays: [own, inbox, hint], requiredRelays: [own, inbox], source: 'policy' as const, author: signed.pubkey };
+    const planning = vi.spyOn(f.router, 'planPublish').mockResolvedValue(plan);
+    f.publish.mockResolvedValue({ [own]: true, [inbox]: false, [hint]: true, [fallback]: true });
+    let approve!: () => void;
+    const gate = new Promise<void>((resolve) => { approve = resolve; });
+    let authorizationCount = 0;
+    const authorizeOperation: NonNullable<ServiceRuntimeContext['authorizeOperation']> = async (_window, _operation, _requirements, execute) => {
+      authorizationCount++;
+      await gate;
+      return { status: 'executed', value: await execute(new AbortController().signal) };
+    };
+    const service = createOutboxService({ router: f.router });
+    service.onRegistered?.({ authorizeOperation,
+      resolveDTag: () => undefined, listWindowIds: () => [], hasCapability: () => false, sendToEligibleNapplet: () => false });
+    const send = vi.fn();
+    service.handleMessage('window', { type: 'outbox.publish', id: 'held', event: template,
+      options: { toInboxes: [recipient], relays: [hint], requiredRelays: [hint], author: recipient },
+    } as NappletMessage, send);
+    await vi.waitFor(() => expect(authorizationCount).toBe(1));
+    expect(planning).toHaveBeenCalledWith({ toInboxes: [recipient], relays: [hint] });
+    plan.requiredRelays[1] = hint;
+    approve();
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ ok: false, error: 'publish denied' }));
+    expect(f.publish).toHaveBeenCalledWith(signed, [own, inbox, hint]);
+  });
+
   it('rejects old required-fanout plans lacking required target metadata before authorization or transport', async () => {
     const f = fixture();
     vi.spyOn(f.router, 'planPublish').mockResolvedValue({ relays: [hint], source: 'policy' });
