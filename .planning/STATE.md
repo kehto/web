@@ -1,15 +1,20 @@
 ---
-gsd_state_version: 1.0
+gsd_state_version: "1.0"
 milestone: v1.31
 milestone_name: Firewall approvals
+current_phase: 115
+current_phase_name: Firewall final audit complete
 status: verifying
-last_updated: "2026-10-17T18:04:43.677Z"
-last_activity: 2026-10-17
+stopped_at: Quick 261112-glz implementation complete; unit gate resolved; browser failure remains; parent owns draft PR
+last_updated: "2026-11-12T18:11:33Z"
+last_activity: 2026-11-12
+last_activity_desc: "Completed quick task 261112-glz: Remove obsolete NIP-07 relay discovery; browser verification limitation retained"
+state_head: 38989c0bfeed3aa7a94f1d511c7e3ab15d9a577f
 progress:
-  total_phases: 0
+  total_phases: 5
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 35
+  completed_plans: 34
   percent: 0
 ---
 
@@ -43,7 +48,7 @@ See: .planning/PROJECT.md (updated 2026-07-28)
 Phase: 115 — Firewall final audit complete
 Plan: PR review follow-up
 Status: PR #336 review fixes verified; CONFIG denial/backpressure spec gap explicitly retained.
-Last activity: 2026-11-11 - Completed quick task 261111-nzp: Resolve PR 424 conflicts
+Last activity: 2026-11-12 - Completed quick task 261112-glz: Remove obsolete NIP-07 relay discovery; browser verification limitation retained
 
 ## Performance Metrics
 
@@ -153,11 +158,14 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 ### Blockers/Concerns
 
 - Phase 105's 12/24 desktop/mobile UI audit remains non-passing post-merge debt owned by Kehto maintainers; it is not visual sign-off for the released package line.
+- Quick 261112-glz unit blocker resolved: parent preserved retired residue at `/tmp/opencode/kehto-retired-playground-261112-glz`; fresh `pnpm test:unit` passes all 3416 tests (267 files), log `/tmp/opencode/glz-unit-clean.log`.
+- Quick 261112-glz: Playwright 131 passed, 1 failed (external-link popup URL empty at paja-firewall-rules.spec.ts:121, isolated diagnostic also fails), 1 pre-existing identity.changed test.fixme skipped; browser gate not green.
 
 ### Quick Tasks Completed
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
+| 261112-glz | Remove obsolete NIP-07 relay discovery; preserve NAP identity API | 2026-11-12 | 38989c0b | complete; browser gate failed, draft PR only | [261112-glz](./quick/261112-glz-remove-obsolete-nip-07-getrelays-discove/) |
 | 261111-nzp | Resolve PR 424 conflicts with default Firewall rules and approval UI | 2026-11-11 | merge of b5734145 | passed | [261111-nzp](./quick/261111-nzp-resolve-pr-424-conflicts-against-current/) |
 | 261111-m3y | Extract independent optional @kehto/rate-limit and remove runtime defaults | 2026-11-11 | 6744ace0 | passed | [261111-m3y](./quick/261111-m3y-extract-optional-rate-limiting-into-keht/) |
 | 261111-mbh | Paja Firewall UX overhaul: default rules (allow, ask per link), rule editor, readable prompt, grouped grants | 2026-11-11 | 8f345073 | passed | [261111-mbh](./quick/261111-mbh-paja-firewall-ux-overhaul-default-rules-/) |
@@ -286,9 +294,9 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 ## Session Continuity
 
-Last session: 2026-10-07T22:00:27.303Z
-Stopped at: Completed quick 261007-n18: all sections flush persisted accordions; Messages last; full gates green; parent owns shipment
-Resume file: None
+Last session: 2026-11-12T18:11:33Z
+Stopped at: Quick 261112-glz implementation complete; unit gate resolved; browser failure remains; parent owns draft PR
+Resume file: .planning/quick/261112-glz-remove-obsolete-nip-07-getrelays-discove/261112-glz-SUMMARY.md
 
 ## Operator Next Steps
 
