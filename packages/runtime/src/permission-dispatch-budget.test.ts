@@ -1,8 +1,9 @@
+import { createRateLimiter } from '@kehto/rate-limit';
 import { describe, expect, it, vi } from 'vitest';
 import type { NappletMessage } from '@napplet/core';
 import { createRuntime } from './runtime.js';
 import { createMockRuntimeAdapter, createNip5dSessionEntry } from './test-utils.js';
-import { defaultRateLimitConfig } from './rate-limit.js';
+import { defaultRateLimitConfig } from '@kehto/rate-limit';
 import type { ApprovalCancellation } from './approval-coordinator.js';
 import type { ServiceRuntimeContext } from './types.js';
 
@@ -17,7 +18,7 @@ async function fixture(domains: string[]) {
     now: () => 0, prompt: async () => ({ effect: 'allow', lifetime: 'session' }),
     createCancellation: () => new AbortController(), onRateLimit,
     schedule: (callback, delay) => { const timer = setTimeout(callback, delay); return () => clearTimeout(timer); },
-    rateLimit: { ...base, burst: { ...base.burst, maxOperations: 2 } },
+    rateLimiter: createRateLimiter({ ...base, burst: { ...base.burst, maxOperations: 2 } }),
   } });
   const runtime = createRuntime(ctx.hooks);
   const entry = { ...createNip5dSessionEntry('window', 'app', 'a'.repeat(64)),

@@ -1,3 +1,5 @@
+import { createLegacyRuntime } from './legacy-test-utils.js';
+import { createFirewallState } from '@kehto/rate-limit/legacy';
 import { expect, it, vi } from 'vitest';
 import { createDenialResponse } from './legacy-firewall-gate.js';
 import { createRuntime } from './runtime.js';
@@ -12,7 +14,7 @@ declare function clearTimeout(timer: unknown): void;
 it('warns once when the legacy gate is used and keeps configured ingress quiet', () => {
   const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
   try {
-    const legacy = createRuntime(createMockRuntimeAdapter().hooks);
+    const legacy = createLegacyRuntime(createMockRuntimeAdapter().hooks);
     legacy.sessionRegistry.register('legacy', createNip5dSessionEntry('legacy', 'app', 'a'.repeat(64)));
     legacy.handleMessage('legacy', { type: 'theme.get', id: 'one' });
     legacy.handleMessage('legacy', { type: 'theme.get', id: 'two' });
@@ -41,4 +43,23 @@ it('shapes a legacy gate LLM denial as the NAP-LLM unsupported result', () => {
   expect(createDenialResponse({ type: 'llm.generate', id: 'g1' } as never, 'firewall: blocked')).toMatchObject({
     type: 'llm.generate.result', id: 'g1', error: { code: 'unsupported' },
   });
+});
+
+it('warns once and never loads an ignored legacy adapter alongside scoped permissions', () => {
+  const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  const legacyFirewall = createFirewallState();
+  const load = vi.spyOn(legacyFirewall, 'load');
+  const persist = vi.spyOn(legacyFirewall, 'persist');
+  const runtime = createRuntime(createMockRuntimeAdapter({ legacyFirewall, permissions: {
+    prompt: async () => ({ effect: 'deny', lifetime: 'once' }), now: () => 0,
+    createCancellation: () => new AbortController(),
+    schedule: (callback, delay) => { const timer = setTimeout(callback, delay); return () => clearTimeout(timer); },
+  } }).hooks);
+  runtime.destroy();
+  expect(load).not.toHaveBeenCalled();
+  expect(persist).not.toHaveBeenCalled();
+  expect(warning).toHaveBeenCalledTimes(1);
+  expect(warning).toHaveBeenCalledWith(expect.stringContaining('FW-RUNTIME-LEGACY-IGNORED-001'));
+  expect(warning).toHaveBeenCalledWith(expect.stringContaining('permissions.rateLimiter'));
+  warning.mockRestore();
 });

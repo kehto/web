@@ -1,8 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import { createState, defaultConfig, deserialize, evaluate, serialize, setBurstGuard, setUnfocusedMultiplier } from './index.js';
+import { createState, createFirewallState, defaultConfig, deserialize, evaluate, serialize, setBurstGuard, setUnfocusedMultiplier } from './index.js';
 import type { BurstGuard, FirewallConfig } from './index.js';
 
 const guard: BurstGuard = { windowMs: 5000, maxOps: 2, action: 'block' };
+
+it('preserves a zero-capacity legacy budget across persistence without throwing', () => {
+  let saved = '';
+  const persistence = { persist(value: string) { saved = value; }, load: () => saved };
+  const original = createFirewallState(persistence);
+  original.setRateLimit('app', 'storage:write', { capacity: 0, windowMs: 60_000, action: 'block' });
+  original.persist();
+  const restored = createFirewallState(persistence);
+  restored.load();
+  for (const limiter of [original, restored]) {
+    expect(limiter.evaluate({ napplet: 'app', opClass: 'storage:write', focused: true, now: 0 }).decision).toBe('reject');
+    expect(limiter.evaluate({ napplet: 'app', opClass: 'storage:write', focused: true, now: 120_000 }).decision).toBe('reject');
+  }
+});
 
 /** Count how many unfocused ops pass with a budget of 8 and no refill between them. */
 function unfocusedPasses(config: FirewallConfig): number {

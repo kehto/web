@@ -6,7 +6,7 @@
 import { installPajaResourceSettings } from './browser-resource-settings.js';
 import { createPajaPermissionAdapter } from './browser-permission-adapter.js';
 import { permissionPrincipalKey } from '@kehto/firewall';
-import { revokedPajaTabIds } from './browser-grant-retirement.js';
+import { pajaPrincipalLabel, revokedPajaTabIds } from './browser-grant-retirement.js';
 import { installPajaSecuritySettings } from './browser-security-settings.js';
 import { installPajaLlm } from './browser-llm-panel.js';
 import {
@@ -32,7 +32,6 @@ import {
 import {
   createPajaConfirmationController,
   createHostSignerController,
-  hasNip07Signer,
 } from './browser-host-signer.js';
 import { unregisterSingleFrameWindow } from './browser-host-runtime.js';
 import { handlePajaNappletRevoked, handlePajaWindowMessage, observePajaNappletMessage } from './browser-nip5d-host.js';
@@ -155,6 +154,7 @@ export interface PajaBrowserState {
   getActiveIdentity(): Pick<SessionEntry, 'pubkey' | 'dTag' | 'aggregateHash'>;
   setAclCapability(capability: Capability, enabled: boolean): void;
   useDevSigner(): void;
+  useNoSigner(): void;
   connectNip07(): Promise<void>;
   connectBunker(uri: string): Promise<void>;
   clearSignerConsent(): void;
@@ -609,6 +609,9 @@ function createPajaBrowserState(
     useDevSigner() {
       signerController.useDevSigner();
     },
+    useNoSigner() {
+      signerController.useNoSigner();
+    },
     connectNip07() {
       return signerController.connectNip07();
     },
@@ -786,18 +789,28 @@ async function installPajaHost(): Promise<void> {
   const permissionMount = document.getElementById('paja-permission-ui');
   if (!permissionMount) throw new Error('Paja Firewall permission mount is missing');
   let permissionBridge: ShellBridge | null = null;
+  const retiringPrincipals = new Set<string>();
   const permissionController = createPajaPermissionAdapter({
     mount: permissionMount,
     getPermissions: () => permissionBridge?.runtime.permissions,
+    labelForPrincipal: (principal) => pajaPrincipalLabel(config, stateRef?.tabs ?? [], principal),
     onGrantRevoked(grant) {
       if (!stateRef) return;
       const revoked = permissionPrincipalKey(grant.principal);
+      // Revoking a group reports each grant; retire the napplet once per burst.
+      if (retiringPrincipals.has(revoked)) return;
+      retiringPrincipals.add(revoked);
+      queueMicrotask(() => retiringPrincipals.delete(revoked));
       if (config.target.mode === 'runtime-pointer') {
         for (const tabId of revokedPajaTabIds(config, stateRef.tabs, grant)) stateRef.closeTab(tabId);
       } else {
         const source = frame?.contentWindow;
         const principal = source ? originRegistry.getIdentity(source)?.permissionPrincipal : undefined;
-        if (principal && permissionPrincipalKey(principal) === revoked) stateRef.reload();
+        // The runtime retires the frame before this notice, so its identity is
+        // usually gone already. Start the target again through full admission
+        // rather than leaving an empty stage.
+        const retired = contextRef?.runtime.currentWindowId === null;
+        if (retired || (principal && permissionPrincipalKey(principal) === revoked)) stateRef.reload();
       }
     },
   });
@@ -959,7 +972,7 @@ async function installPajaHost(): Promise<void> {
     startFrameNavigation(state, context);
     void reportTargetCorsDiagnostic(state);
   }
-  if (hasNip07Signer()) void state.connectNip07();
+  void signerController.restorePreference();
 }
 
 if (typeof document !== 'undefined') {

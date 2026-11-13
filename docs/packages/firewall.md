@@ -1,16 +1,10 @@
 # @kehto/firewall
 
-Pure permission policy and retained behavioral controls for the napplet protocol — zero
-dependencies, zero side effects. Every function is pure: config + state +
-observation in, decision + next state out.
-
-> **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
-> protocol. The firewall engine API is not yet final; treat this package as
-> current implementation guidance, not as a stable protocol guarantee.
+Pure scoped approval and access policy. No temporal counters or rate enforcement.
 
 ## Install
 
-```bash
+```sh
 pnpm add @kehto/firewall
 ```
 
@@ -19,7 +13,7 @@ pnpm add @kehto/firewall
 | Field | Value |
 |-------|-------|
 | Source | `packages/firewall/package.json`, `packages/firewall/src/index.ts` |
-| Version | `0.8.1` |
+| Version | `0.9.0` |
 | Runtime entry | `./dist/index.js` |
 | Types entry | `./dist/index.d.ts` |
 | Side effects | `false` |
@@ -29,27 +23,6 @@ pnpm add @kehto/firewall
 | Package | Range |
 |---------|-------|
 | `@napplet/core` | `>=0.32.0 <0.42.0` |
-
-## Primary APIs
-
-| Area | Exports |
-|------|---------|
-| Decision engine | `evaluate`, `toKey` |
-| Defaults + factories | `defaultConfig`, `createState`, `DEFAULT_EXCEED_ACTION`, `DEFAULT_BURST_ACTION`, `DEFAULT_UNFOCUSED_MULTIPLIER`, `DEFAULT_RATE_CAPACITY`, `DEFAULT_RATE_WINDOW_MS`, `DEFAULT_BURST_WINDOW_MS`, `DEFAULT_BURST_MAX_OPS` |
-| Config mutations | `setPolicy`, `setRateLimit`, `setGlobalRate`, `setUnfocusedMultiplier`, `setBurstGuard`, `addMatcher`, `serialize`, `deserialize` |
-| Types | `Observation`, `FirewallConfig`, `NappletRules`, `RateLimit`, `BurstGuard`, `ContentMatcher`, `NappletPolicy`, `FirewallState`, `Bucket`, `BurstCounter`, `Decision`, `Action`, `EvaluateResult` |
-
-## Scope Boundaries
-
-- The retained behavioral API asks *"is this napplet abusing an operation over time?"*, the temporal complement to `@kehto/acl`'s static *"is this napplet allowed?"*.
-- `evaluate(config, state, observation)` is pure — no I/O, no timers, no globals; the current time is injected via `observation.now` and never read from a wall clock.
-- Implements token-bucket rate limiting per `(napplet dTag, opClass)` pair, an init-burst guard, declarative content matchers, a focus multiplier, and rule precedence (per-napplet policy → op-class rule → global fallback → built-in defaults).
-- Consumes a normalized `Observation`, never a raw protocol envelope; building observations from envelopes is the host runtime's concern.
-- Does not perform persistence itself — `serialize`/`deserialize` provide a JSON round-trip the host owns.
-
-## API Reference
-
-- Generated module: <a href="../api/modules/_kehto_firewall.html" target="_self"><code>docs/api/modules/_kehto_firewall.html</code></a>
 
 ## Approval policy
 
@@ -115,11 +88,29 @@ the runtime remains responsible for cancelling affected pending and live work.
 validates the version and every grant and reports an explicit failure for malformed,
 duplicate, ephemeral or unknown-category records. It never converts the old
 Firewall's broad allow policy into new authority. Storage I/O, failure reporting,
-approval UI, request cancellation, protocol responses and rate controls belong to
+approval UI, request cancellation, protocol responses belong to
 host/runtime integration. Extension categories must be explicitly registered via
 `PermissionPolicyOptions.extensions` and use exact scope keys.
 
-This policy API is an intermediate migration surface. Existing behavioral APIs
-remain until runtime and app consumers migrate; their documented old behavior
-must not be interpreted as the new approval policy. The independent temporal
-module is exported by `@kehto/runtime` as `evaluateRateLimit`.
+## Default rules
+
+`PermissionRules` describe what a host does with a request no stored decision
+covers: one default action (`allow`, `ask` or `deny`) plus exceptions per
+interface or per operation, each overridable per napplet.
+`createPermissionRules()` with no argument asks for everything.
+`resolvePermissionRule(rules, principal, requirement)` returns the most specific
+match, `setPermissionRule` returns changed rules, and
+`serializePermissionRules` / `deserializePermissionRules` store them; a damaged
+document is refused whole rather than partly applied. Rules never create
+authority themselves: the runtime turns an `allow` into a session grant through
+`PermissionAdapter.defaultDecision`. See [Scoped Firewall approvals](/firewall-approvals#default-rules).
+
+## Scope Boundaries
+
+Approval grants cannot bypass a host-installed limiter. Runtime does not install
+one automatically. Temporal controls and the previous behavioral API live in
+`@kehto/rate-limit` and its explicit `/legacy` migration entry point.
+
+## API Reference
+
+<a href="../api/modules/_kehto_firewall.html" target="_self">Generated API reference</a>.

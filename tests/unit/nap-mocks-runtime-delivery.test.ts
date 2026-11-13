@@ -39,7 +39,6 @@ function setup(classExposedTo: (windowId: string) => boolean = () => true) {
   runtimes.push(runtime);
   for (const windowId of WINDOWS) {
     runtime.sessionRegistry.register(windowId, createNip5dSessionEntry(windowId, `napp-${windowId}`, HASH));
-    runtime.firewallState.setPolicy(`napp-${windowId}`, 'allow');
   }
   const envelopes = (type: string) => ctx.sent
     .filter(({ message }) => !Array.isArray(message) && (message as NappletMessage).type === type)

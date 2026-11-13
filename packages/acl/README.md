@@ -97,6 +97,12 @@ check(state, id, CAP_RELAY_WRITE); // true (restored)
 - `toKey` — compute the `dTag:hash` composite key
 - `resolveCapabilitiesNap` — map a NIP-5D NAP envelope type to the required sender/recipient capabilities across the current supported domains
 
+`intent.deliver` is a runtime-to-napplet push gated by the target's
+`intent:read`, alongside intent availability updates and results. It does not
+require NAP-INC or `inc:read`. This mapping follows
+[NAP-INTENT at `43cb3a4`](https://github.com/napplet/naps/blob/43cb3a4e855570ec4b90b9cc05f0c721e5ad0aab/naps/NAP-INTENT.md);
+the capability name is Kehto policy.
+
 ### Migration
 - `migrateAclState` — one-shot migration from the legacy 3-segment `pubkey:dTag:hash` keys to the v1.2 2-segment `dTag:hash` keys; idempotent (returns the same reference when nothing to migrate)
 

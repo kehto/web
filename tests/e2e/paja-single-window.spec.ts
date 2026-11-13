@@ -679,6 +679,7 @@ test('shows error details and routes signing through NIP-07', async ({ page }) =
   await page.goto(runtimeServer.url);
   await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
 
+  await page.locator('#signer-nip07').click();
   await expect(page.locator('#signer-status')).toContainText('NIP-07 connected');
   await expect(page.locator('#signer-status')).toContainText(pubkey);
   await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().signer.method)).toBe('nip07');
@@ -709,6 +710,7 @@ test('remembers exact kind or napplet signer consent and exposes revocation', as
   try {
     await page.goto(signerRuntime.url);
     await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
+    await page.locator('#signer-nip07').click();
     await expect(page.locator('#signer-status')).toContainText('NIP-07 connected');
     await expect.poll(async () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('ready');
     const frame = page.frameLocator('#napplet-frame');

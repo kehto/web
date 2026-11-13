@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { confirmPajaExternalLink } from './browser-link.js';
+import { confirmPajaExternalLink, hasPajaApprovalClick, notePajaApprovalClick } from './browser-link.js';
 
 const request = { windowId: 'window-1', url: new URL('https://example.test/article'),
   options: { label: 'Read article' } };
@@ -59,6 +59,63 @@ describe('Paja LINK confirmation', () => {
     hash = 'sha256:second';
     answer(true);
     expect(await pending).toEqual({ status: 'denied' });
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it('opens a Firewall-approved link from the approving click without a second dialog', async () => {
+    const confirm = vi.fn(async () => true);
+    const open = vi.fn(() => true);
+    const signal = new AbortController().signal;
+    const result = await confirmPajaExternalLink({ ...request, signal }, confirm,
+      () => ({ dTag: 'reader', aggregateHash: 'sha256:current' }), open, undefined, () => true);
+    expect(result).toEqual({ status: 'opened' });
+    expect(confirm).not.toHaveBeenCalled();
+    expect(open).toHaveBeenCalledOnce();
+  });
+
+  it('still confirms when no click is live, the browser blocks the tab, or the Firewall did not approve', async () => {
+    const confirm = vi.fn(async () => true);
+    const identity = () => ({ dTag: 'reader', aggregateHash: 'sha256:current' });
+    const signal = new AbortController().signal;
+
+    const idle = vi.fn(() => true);
+    await confirmPajaExternalLink({ ...request, signal }, confirm, identity, idle, undefined, () => false);
+    expect(confirm).toHaveBeenCalledTimes(1);
+
+    const blocked = vi.fn().mockReturnValueOnce(false).mockReturnValue(true);
+    expect(await confirmPajaExternalLink({ ...request, signal }, confirm, identity, blocked, undefined, () => true))
+      .toEqual({ status: 'opened' });
+    expect(confirm).toHaveBeenCalledTimes(2);
+    expect(blocked).toHaveBeenCalledTimes(2);
+
+    const unapproved = vi.fn(() => true);
+    await confirmPajaExternalLink(request, confirm, identity, unapproved, undefined, () => true);
+    expect(confirm).toHaveBeenCalledTimes(3);
+  });
+
+  it('treats only a fresh approving click with live browser activation as openable', () => {
+    vi.stubGlobal('navigator', { userActivation: { isActive: true } });
+    try {
+      // An unrelated click leaves the browser activated but approved nothing.
+      expect(hasPajaApprovalClick(5_000)).toBe(false);
+      notePajaApprovalClick(5_000);
+      expect(hasPajaApprovalClick(5_400)).toBe(true);
+      expect(hasPajaApprovalClick(6_001)).toBe(false);
+      vi.stubGlobal('navigator', { userActivation: { isActive: false } });
+      notePajaApprovalClick(7_000);
+      expect(hasPajaApprovalClick(7_100)).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('does not open from a live click once the approval was cancelled', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const open = vi.fn(() => true);
+    const result = await confirmPajaExternalLink({ ...request, signal: controller.signal }, vi.fn(async () => true),
+      () => ({ dTag: 'reader', aggregateHash: 'sha256:current' }), open, undefined, () => true);
+    expect(result).toEqual({ status: 'denied' });
     expect(open).not.toHaveBeenCalled();
   });
 });

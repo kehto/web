@@ -86,10 +86,20 @@ describe('independent temporal budgets', () => {
     expect(initial).toEqual({ buckets: {}, bursts: {} });
   });
 
-  it.each([0, -1, NaN, Infinity])('rejects invalid capacity %s before changing counters', (capacity) => {
+  it.each([-1, NaN, Infinity])('rejects invalid capacity %s before changing counters', (capacity) => {
     const state = createRateLimitState();
     expect(() => evaluateRateLimit({ ...config, capacity }, state, observation)).toThrow(RangeError);
     expect(state).toEqual({ buckets: {}, bursts: {} });
+  });
+
+  it.each(['block', 'flag', 'ignore'] as const)('treats zero capacity as an exhausted budget with action %s', (action) => {
+    const budget = { ...config, capacity: 0, action };
+    const first = evaluateRateLimit(budget, createRateLimitState(), observation);
+    expect(first.reason).toBe('rate-exceeded');
+    expect(first.allowed).toBe(action !== 'block');
+    const later = evaluateRateLimit(budget, first.state, { ...observation, now: observation.now + 120_000 });
+    expect(later.reason).toBe('rate-exceeded');
+    expect(later.allowed).toBe(action !== 'block');
   });
 
   it.each([

@@ -65,7 +65,6 @@ export function createOutboxRouter(
     loadRelayLists: createPajaRelayListLoader(
       backend,
       getSimulation,
-      signerProvider,
       () => relayConfig.getRelayUrls(['discovery', 'super']),
     ),
     fallbackRelays: relayConfig.outboxRelays,

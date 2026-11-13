@@ -4,8 +4,7 @@ import { createApprovalCoordinator } from './approval-coordinator.js';
 import type { ApprovalCoordinatorOptions, ApprovalOutcome, ApprovalSignal } from './approval-coordinator.js';
 import { createPermissionStore } from './permission-state.js';
 import type { PermissionPersistence, PermissionStorageFailure } from './permission-state.js';
-import { assertRateLimitConfig, createRateLimitState, defaultRateLimitConfig, defaultPromptRateLimitConfig, evaluateRateLimit, retireRateLimitLifecycle } from './rate-limit.js';
-import type { RateLimitConfig, RateLimitResult } from './rate-limit.js';
+import type { TemporalPolicy, TemporalDecision } from './temporal-policy.js';
 import type { SessionEntry } from './types.js';
 import { createPermissionAdmission, interfaceRequirements } from './permission-admission.js';
 import type { PermissionAdmission, PermissionAdmissionRequest } from './permission-admission.js';
@@ -13,15 +12,15 @@ export type { PermissionAdmission, PermissionAdmissionRequest } from './permissi
 
 /** Host UI, time, cancellation, and storage adapters for scoped approvals. */
 export interface PermissionAdapter extends Pick<ApprovalCoordinatorOptions,
-  'prompt' | 'createCancellation' | 'schedule' | 'extensions' | 'maxPending' | 'timeoutMs'> {
+  'prompt' | 'defaultDecision' | 'createCancellation' | 'schedule' | 'extensions' | 'maxPending' | 'timeoutMs'> {
   /** Durable storage. Without it, persistent decisions fail explicitly. */
   readonly persistence?: PermissionPersistence;
   readonly onStorageError?: (failure: PermissionStorageFailure) => void;
   readonly now: () => number;
   /** Independent temporal policy; approvals cannot override it. */
-  readonly rateLimit?: RateLimitConfig;
+  readonly rateLimiter?: TemporalPolicy;
   /** Blocking UI-spam budgets, separate from operation budgets. */
-  readonly promptRateLimit?: RateLimitConfig;
+  readonly promptRateLimiter?: TemporalPolicy;
   /** Budget diagnostics omit payloads, URLs, and stored permission records. */
   readonly onRateLimit?: (event: PermissionRateEvent) => void;
 }
@@ -30,8 +29,8 @@ export interface PermissionAdapter extends Pick<ApprovalCoordinatorOptions,
 export interface PermissionRateEvent {
   readonly windowId: string;
   readonly operation: string;
-  readonly action: RateLimitResult['action'];
-  readonly reason: RateLimitResult['reason'];
+  readonly action: TemporalDecision['action'];
+  readonly reason: TemporalDecision['reason'];
 }
 
 /** Host management surface. Revocation failures require retry or explicit reset. */
@@ -52,22 +51,6 @@ export interface RuntimePermissions {
   retryPersistence(): boolean;
   /** Observe grant invalidation so a host can retire an executing document. */
   subscribeInvalidation(listener: () => void): () => void;
-  /** The operation budget in force. Prompt budgets are separate and unaffected. */
-  readonly rateLimit: RateLimitConfig;
-  /**
-   * Replace the operation budget, including its unfocused multiplier and startup
-   * burst guard. Applies from the next operation and keeps running counters. Not
-   * persisted: a host restores it through `PermissionAdapter.rateLimit`.
-   *
-   * @param config - The budget to apply.
-   * @throws RangeError if a budget is out of range, leaving the current one in force.
-   * @example
-   * ```ts
-   * const permissions = runtime.permissions!;
-   * permissions.setRateLimit({ ...permissions.rateLimit, unfocusedMultiplier: 0.5 });
-   * ```
-   */
-  setRateLimit(config: RateLimitConfig): void;
 }
 
 interface PermissionRuntimeContext {
@@ -86,10 +69,6 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
   const { adapter } = context;
   const lifetimes = new Map<string, { entry: SessionEntry; id: string; subject: string; started: number }>();
   const retiredSources = new WeakSet<SessionEntry>();
-  let rates = createRateLimitState();
-  let promptRates = createRateLimitState();
-  let rateLimitOverride: RateLimitConfig | undefined;
-  const currentRateLimit = (): RateLimitConfig => rateLimitOverride ?? adapter.rateLimit ?? defaultRateLimitConfig();
   let disposed = false;
   let globalAdmissionRevision = 0;
   const sourceAdmissionRevisions = new WeakMap<SessionEntry, number>();
@@ -125,12 +104,12 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
     const source = [...lifetimes].find(([, lifetime]) => lifetime.id === request.sessionId);
     if (!source) return false;
     const [windowId, lifetime] = source;
+    if (!adapter.promptRateLimiter) return true;
     const now = adapter.now();
-    const rate = evaluateRateLimit(adapter.promptRateLimit ?? defaultPromptRateLimitConfig(), promptRates, {
+    const rate = adapter.promptRateLimiter.evaluate({
       subject: lifetime.subject, operation: 'permission.prompt', lifecycle: lifetime.id,
       elapsedSinceStartMs: Math.max(0, now - lifetime.started), focused: context.focused(windowId), now,
     });
-    promptRates = rate.state;
     if (rate.reason !== 'within-budget') {
       try { adapter.onRateLimit?.({ windowId, operation: 'permission.prompt', action: rate.action, reason: rate.reason }); }
       catch { /* Diagnostics cannot authorize another prompt. */ }
@@ -143,17 +122,12 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
     if (disposed || !store.available || !lifetime || retiredSources.has(lifetime.entry)
       || context.getSession(windowId) !== lifetime.entry) return 'unavailable';
     try {
+      if (!adapter.rateLimiter) return undefined;
       const now = adapter.now();
-      const configured = currentRateLimit();
-      const config = mode === 'observe' ? { ...configured,
-        action: configured.action === 'block' ? 'flag' as const : configured.action,
-        burst: { ...configured.burst, action: configured.burst.action === 'block' ? 'flag' as const : configured.burst.action },
-      } : configured;
-      const rate = evaluateRateLimit(config, rates, {
+      const rate = adapter.rateLimiter.evaluate({
         subject: lifetime.subject, operation, lifecycle: lifetime.id,
         elapsedSinceStartMs: Math.max(0, now - lifetime.started), focused: context.focused(windowId), now,
-      });
-      rates = rate.state;
+      }, mode);
       if (rate.reason !== 'within-budget') {
         try { adapter.onRateLimit?.({ windowId, operation, action: rate.action, reason: rate.reason }); }
         catch { /* Audit failures cannot override temporal enforcement. */ }
@@ -169,8 +143,10 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
     // Remove first: retiring a source does not recursively request host cleanup.
     lifetimes.delete(windowId);
     store.retire(lifetime.id);
-    rates = retireRateLimitLifecycle(rates, lifetime.subject, lifetime.id);
-    promptRates = retireRateLimitLifecycle(promptRates, lifetime.subject, lifetime.id);
+    for (const limiter of [adapter.rateLimiter, adapter.promptRateLimiter]) {
+      try { limiter?.retire(lifetime.subject, lifetime.id); }
+      catch { /* Optional host cleanup cannot interrupt source or sibling retirement. */ }
+    }
   }
 
   function run<T>(windowId: string, operation: string, requirements: readonly PermissionRequirement[],
@@ -241,11 +217,6 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
     subscribeInvalidation(listener) {
       invalidationListeners.add(listener);
       return () => { invalidationListeners.delete(listener); };
-    },
-    get rateLimit() { return currentRateLimit(); },
-    setRateLimit(config) {
-      assertRateLimitConfig(config);
-      rateLimitOverride = Object.freeze({ ...config, burst: Object.freeze({ ...config.burst }) });
     },
   };
   return { management, run, retire, charge,

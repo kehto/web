@@ -7,8 +7,8 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { createRuntime } from './runtime.js';
-import type { Runtime } from './runtime.js';
+import { createLegacyRuntime as createRuntime } from './legacy-test-utils.js';
+type Runtime = ReturnType<typeof createRuntime>;
 import { createMockRuntimeAdapter, createNip5dSessionEntry, findEnvelopeResponse } from './test-utils.js';
 import type { MockRuntimeContext, SentMessage } from './test-utils.js';
 import type { EventTemplate, NappletMessage, NostrEvent } from '@napplet/core';

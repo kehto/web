@@ -27,8 +27,17 @@ grant-management view. Pass `ui.prompt` into `ShellAdapter.permissions`, call
 `ui.reportStorageError` from the persistence error hook, and call `ui.refresh()`
 when the runtime changes. The view always reads `RuntimePermissions.grants` and
 uses its `revoke`, `clear`, and `retryPersistence` methods; it keeps no grant
-store. The prompt shows trusted identity, every exact scope, and only offered
-lifetimes. Escape, close, and abort cancel without creating a denial grant.
+store. The prompt asks a plain-language question, names the napplet with the
+host's label, lists every exact scope, and preselects the narrowest offered
+lifetime; the full trusted identity is one disclosure away. Deny has initial
+focus. Escape, close, and abort cancel without creating a denial grant. Grants
+are grouped by napplet and interface with group revoke. Pass `rules` to add an
+editor for host default rules and a "do this for every future request" choice
+on each prompt. The UI ships unstyled: add `BROWSER_APPROVAL_UI_STYLES` to a
+`<style>` element, or style the `kehto-approval-*` and `kehto-fw-*` classes.
+If grant management lives in collapsible controls, pass an always-visible
+`promptMount` such as `document.body`; otherwise the prompt shares `mount`.
+`ui.destroy()` removes both surfaces and cancels outstanding prompts.
 
 > **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
 > protocol. NAP contracts and injected-domain behavior are still draft; treat
@@ -205,12 +214,14 @@ bridge.runtime.registerService(
 - `adaptHooks` — convert a `ShellAdapter` + `BrowserDeps` into the canonical `RuntimeAdapter` hook bag consumed by `@kehto/runtime`
 - `ShellAdapter.aclDefaultPolicy?` — `'permissive' | 'restrictive'`, forwarded to the runtime. See the `@kehto/runtime` docs for how it treats persisted ACL state.
 
-### Firewall hooks
-- `ShellAdapter.getFocusContext?(windowId)` — returns `{ focused, msSinceFocusGain? }`. Without it, every window counts as focused and `unfocusedMultiplier` never applies. Both the legacy gate and the `permissions` budgets use it.
-- `ShellAdapter.onFirewallEvent?(event)` — legacy gate only. Reports each firewall flag, rejection and prompt as a `FirewallEvent`, so a host can show what was refused. With `permissions` set, use `permissions.onRateLimit` and the approval UI.
-- `ShellAdapter.firewallPersistence?` — legacy gate only. A `FirewallPersistence` that stores firewall config across reloads. Without it, firewall config stays in memory. Counters are never stored. With `permissions` set, grants use `permissions.persistence`.
-- `bridge.runtime.permissions.setRateLimit(config)` — changes the operation budget on a host with `permissions`, including `unfocusedMultiplier` and the startup `burst` guard.
-- Setting a legacy-only hook alongside `permissions` warns once with `FW-RUNTIME-LEGACY-IGNORED-001`.
+### Firewall and optional rate controls
+
+`ShellAdapter.permissions` forwards scoped approvals and optional `rateLimiter`
+and `promptRateLimiter` instances without constructing defaults. Hold each
+`@kehto/rate-limit` instance to update its `config` through `setConfig`.
+`getFocusContext` supplies trusted focus to installed controls. Hosts without
+permissions can explicitly pass `legacyFirewall` from `@kehto/rate-limit/legacy`
+and audit it through `onFirewallEvent`. The legacy adapter owns its config storage.
 
 ### Diagnostics
 - `ShellAdapter.onNappletRevoked?(revocation)` — called once when the bridge revokes a NIP-5D binding (`NappletRevocation`: `{ windowId, reason, detail }`, `reason` one of `NappletRevocationReason`). The host must remove the frame.

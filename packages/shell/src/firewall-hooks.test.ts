@@ -1,12 +1,14 @@
+import type { FirewallPersistence } from '@kehto/rate-limit/legacy';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createShellBridge, originRegistry } from './index.js';
-import type { FirewallEvent, FirewallPersistence, ShellAdapter } from './index.js';
+import { originRegistry } from './index.js';
+import { createLegacyShellBridge as createShellBridge } from './legacy-test-utils.js';
+import type { FirewallEvent, ShellAdapter } from './index.js';
 import { deliverFromNapplet } from './test-utils.js';
 
 const identity = { dTag: 'example', aggregateHash: 'a'.repeat(64) };
 const windowId = 'firewall-window';
 
-function createHooks(overrides: Partial<ShellAdapter>): ShellAdapter {
+function createHooks(overrides: Partial<ShellAdapter> & { firewallPersistence?: FirewallPersistence }): ShellAdapter & { firewallPersistence?: FirewallPersistence } {
   return {
     services: {
       example: {

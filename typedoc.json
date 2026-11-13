@@ -11,10 +11,15 @@
     "packages/shell",
     "packages/services",
     "packages/mocks",
-    "packages/wm"
+    "packages/wm",
+    "packages/rate-limit"
   ],
   "out": "docs/api",
-  "exclude": ["**/*.test.ts", "**/dist/**", "**/node_modules/**"],
+  "exclude": [
+    "**/*.test.ts",
+    "**/dist/**",
+    "**/node_modules/**"
+  ],
   "readme": "none",
   "includeVersion": true,
   "hideGenerator": true,

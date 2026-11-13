@@ -6,6 +6,32 @@ coverage. This register records both implemented safeguards and existing debt;
 below identifies the package responsible for the implementation and its tests.
 No removal date is implied by an old source comment.
 
+## PAJA-NIP07-RELAY-DISCOVERY-REMOVED — retired extension integration
+
+`@kehto/paja` no longer reads, binds, or calls the obsolete NIP-07 `getRelays`
+property. Host-configured discovery/super relays replace extension-provided
+bootstrap URLs for contacts, NIP-65 routing and Blossom discovery. The old
+signer-lifecycle bootstrap cache is deleted, not retained behind a warning.
+No legacy path, warning site, or warning lifetime remains.
+
+Sources: `packages/paja/src/browser-signers.ts`, `browser-relay-runtime.ts`,
+`browser-adapter-support.ts`, and `browser-adapter.ts`. Regression coverage:
+`browser-signers.test.ts` (throwing property accessor and supported methods),
+`browser-adapter-signer-traffic.test.ts` (signed relay fixtures, account changes
+and correlated identity results), and `browser-blossom-integration.test.ts`
+(host-only resource discovery and zero obsolete-hook calls).
+
+Authority: [NIP-07 master](https://github.com/nostr-protocol/nips/blob/master/07.md),
+checked 2026-11-12, no longer defines this extension capability.
+[NAP-IDENTITY at `43cb3a4e855570ec4b90b9cc05f0c721e5ad0aab`](https://github.com/napplet/naps/blob/43cb3a4e855570ec4b90b9cc05f0c721e5ad0aab/naps/NAP-IDENTITY.md)
+still defines `identity.getRelays`; that wire API and the general host service
+remain intact. Paja returns an empty map for unsupported external-user relay
+metadata, as the spec permits, without fabricating preferences from host URLs.
+
+Removal ships with `.changeset/paja-remove-obsolete-relay-discovery.md` (Paja
+patch); PR and release number are pending. There are no remaining retirement
+prerequisites or upstream publication dependencies.
+
 ## Outbox routing-author metadata — services / Paja
 
 Identifier: `OUTBOX_ROUTING_AUTHORS`. `OutboxRelayPool.subscribe` now receives an
@@ -64,47 +90,43 @@ add negative tests that reject the legacy record. No old record is imported as
 a Firewall grant. NIP-5D authority: draft PR 2303 at
 `5560820fa4f37f45b8ab742a11aeb3001b17dc67`.
 
-## FW-RUNTIME-LEGACY-GATE-001 — runtime without a permission adapter
+## FW-RUNTIME-LEGACY-GATE-001 — explicitly installed legacy behavioral policy
 
-`@kehto/runtime` retains the old temporal Firewall ingress for hosts that omit
-`RuntimeAdapter.permissions`. It evaluates the older broad per-napplet policy,
-content matchers, and burst counters. Configure `RuntimeAdapter.permissions`
-and service-owned `authorizeOperation` calls for scoped approvals and the
-independent rate limiter. The source and warning site is
-`packages/runtime/src/legacy-firewall-gate.ts`; the public retained state
-container is `packages/runtime/src/firewall-state.ts`. The warning fires once
-per runtime instance on actual legacy ingress, without request data, and is
-absent on configured ingress. `legacy-firewall-gate.test.ts` covers warning
-content, frequency, legacy invocation, and canonical quietness; the existing
-`firewall-dispatch.test.ts` covers retained burst, matcher, and policy behavior.
-No broad legacy policy becomes a scoped interface, resource, or network grant.
-This path remains for external hosts during migration. Once supported hosts
-use the permission adapter, announce its removal in a 0.x minor release,
-delete the legacy gate/state surface, and add negative tests for old config.
-That surface includes `setUnfocusedMultiplier` and `setBurstGuard` on
-`FirewallStateContainer`, and the `ShellAdapter` forwarding of `onFirewallEvent` and
-`firewallPersistence`. `getFocusContext` stays, because the permission budgets use it.
+The old behavioral APIs now live in `@kehto/rate-limit/legacy`, including
+`createFirewallState`. Hosts without scoped permissions must explicitly construct
+and pass `RuntimeAdapter.legacyFirewall` (or `ShellAdapter.legacyFirewall`). Omission
+installs no temporal gate. `@kehto/firewall` exports approval policy only.
+Legacy policy/content controls remain for migration, but `allow` cannot bypass
+installed temporal limits. The compatibility evaluator delegates to the canonical
+rate evaluator rather than keeping a second counter algorithm.
 
-## FW-RUNTIME-LEGACY-IGNORED-001 — legacy Firewall inputs on a configured runtime
+`packages/runtime/src/legacy-firewall-gate.ts` warns on first actual legacy use,
+once per runtime, without request data. Tests in `legacy-firewall-gate.test.ts`,
+`firewall-dispatch.test.ts` and `firewall-registration.test.ts` cover use, frequency,
+source lifetimes and limits; `@kehto/rate-limit/legacy` tests preserve config and
+matcher behavior. Canonical hosts install `permissions.rateLimiter` and optionally
+`promptRateLimiter`, retaining the instance for `setConfig` updates.
 
-`@kehto/runtime` keeps accepting `RuntimeAdapter.onFirewallEvent`,
-`firewallPersistence` and the `runtime.firewallState` mutators (`setPolicy`,
-`setRateLimit`, `setGlobalRate`, `setUnfocusedMultiplier`, `setBurstGuard`,
-`addMatcher`) when `RuntimeAdapter.permissions` is configured, but nothing reads them
-because the legacy gate doesn't run. `@kehto/shell` reaches the same inputs through
-`ShellAdapter`. The replacements are `permissions.onRateLimit`,
-`permissions.persistence` and `runtime.permissions.setRateLimit`. The warning site is
-`createLegacyIgnoredWarning` in `packages/runtime/src/legacy-firewall-gate.ts`, wired
-in `createRuntime` and through the `createFirewallState` mutation observer. It fires
-once per runtime instance, at creation for the hooks and on the first call for the
-mutators, without request data. A mutator call that fails validation doesn't count.
-`permission-rate-controls.test.ts` covers the warning's identifier, text and frequency,
-that the legacy setters can't change a configured budget, and that canonical configured
-use and legacy runtimes stay quiet. `nip5d-message-filter-approvals.test.ts` covers the
-shell path. It's retained because external hosts can't all move to the permission
-adapter at once, and a silent no-op on a rate control is easy to mistake for protection.
-Remove it together with `FW-RUNTIME-LEGACY-GATE-001`, in the same 0.x minor release,
-with negative tests that these inputs are gone.
+Retirement requires migrating external hosts to scoped permissions, announcing a
+breaking minor release and removing this subpath and host hook together. Pure
+legacy exports cannot emit use warnings; runtime integration supplies diagnostics.
+
+## FW-RUNTIME-LEGACY-IGNORED-001 — legacy inputs on a configured runtime
+
+With `RuntimeAdapter.permissions`, `legacyFirewall` and `onFirewallEvent` are ignored.
+The runtime does not load or persist the ignored adapter. `createLegacyIgnoredWarning`
+in `packages/runtime/src/legacy-firewall-gate.ts` warns once at creation; replacements
+are `permissions.onRateLimit`, `permissions.persistence` and an explicitly supplied
+`permissions.rateLimiter`. Shell forwards the same contract. Regression coverage is
+in `legacy-firewall-gate.test.ts` and `nip5d-message-filter-approvals.test.ts`.
+Remove this warning with the legacy gate above.
+
+The previous `firewallPersistence` hook, `runtime.firewallState`,
+`runtime.permissions.rateLimit`/`setRateLimit`, and runtime/shell rate evaluator
+exports are removed in this breaking minor release. Construct an optional limiter
+from `@kehto/rate-limit` and hold it to change configuration; legacy config persistence
+is passed directly to `createFirewallState`. Types and exports provide compile-time
+migration diagnostics; removed JavaScript properties have no retained fallback.
 
 ## FW-COUNT-LEGACY-001 — unbound COUNT service
 
@@ -434,7 +456,7 @@ require their own scoped specification check and migration PR.
 | **DOMAIN_ALIAS** — Paja | `packages/paja/src/parity.ts`: upstream `ifc` capability alias maps to `inc` in parity metadata. | `parity.test.ts` covers the declaration; no runtime warning. This metadata is not evidence that old wire messages are accepted. | Drop the metadata alias once upstream parity no longer needs it; check public export consumers first. |
 | **NOTIFY_NAME** — playground (retired) | Was `apps/playground/src/playground-access-controls.ts`, `node-details.ts`: `notifications` UI/persisted target name mapped to the `notify` domain. | Removed with the playground app (`KEHTO_PLAYGROUND_RETIRED`); no remaining source or consumer. Playground-local browser storage is no longer read by any Kehto host. | Retired — kept as history. |
 | **OUTBOX_AGGREGATE** — services | `packages/services/src/relay-pool-outbox-router.ts`, `outbox-service.ts`: aggregate `query()` remains beside streaming `queryStream()`. | `relay-pool-outbox-router.test.ts` exercises both. No deprecation warning; aggregate API is still supported. | Decide whether to deprecate at all; if so add warning at the old callable boundary, publish replacement and test limit/abort/result parity. |
-| **FIREWALL_SCOPE** — firewall | `packages/firewall/src/types.ts`, `evaluate.ts`: pure callers without an init key use dTag burst scope. | `packages/firewall/src/evaluate.test.ts` covers policy evaluation; no diagnostic assertion for this fallback. | Add a host-visible diagnostic when opting into old scope; migrate callers before requiring instance identity. Preserve the pure evaluator. |
+| **FIREWALL_SCOPE** — rate-limit legacy | `packages/rate-limit/src/legacy/types.ts`, `evaluate.ts`: pure callers without an init key use dTag burst scope. | `packages/rate-limit/src/legacy/evaluate.test.ts` covers policy evaluation; no diagnostic assertion for this fallback. | Add a host-visible diagnostic when opting into old scope; migrate callers before requiring instance identity. Preserve the pure evaluator. |
 | **PROXY_EMIT** — shell | `identity-proxy.ts`, `theme-proxy.ts`: deprecated `emit` methods throw and direct callers to controlled publication APIs. | Actionable errors already fail closed; related identity/theme proxy tests protect rejection. Stable compatibility IDs missing. | Remove deprecated members after callers migrate; never restore bypass publication while adding diagnostics. |
 | **ENFORCE_EXPORT** — shell | `packages/shell/src/index.ts` re-exports runtime enforcement helpers. | No warning: module re-export cannot observe which import path was used. Dedicated public-export retirement test missing. | Decide whether to retain as supported convenience; if deprecated, use JSDoc/build-time guidance and a documented diagnostic limitation. |
 | **ADDITIVE_TYPES** — runtime | `packages/runtime/src/types.ts`: optional audit reason and confirmation discriminator. | No runtime warning for erased aliases or optional type fields. Dedicated removal/type-compatibility assertions missing. | Inventory consumers before making fields mandatory or deleting aliases. Record compile-time diagnostics and type tests if deprecating. |

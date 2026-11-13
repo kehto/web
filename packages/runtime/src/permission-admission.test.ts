@@ -1,9 +1,10 @@
+import { createRateLimiter } from '@kehto/rate-limit';
 import { describe, expect, it, vi } from 'vitest';
 import { createRuntime } from './runtime.js';
 import { createMockRuntimeAdapter, createNip5dSessionEntry } from './test-utils.js';
 import type { ApprovalAnswer, ApprovalCancellation, ApprovalPrompt } from './approval-coordinator.js';
 import type { PermissionAdapter } from './permission-runtime.js';
-import { defaultRateLimitConfig } from './rate-limit.js';
+import { defaultRateLimitConfig } from '@kehto/rate-limit';
 
 declare const AbortController: { new(): ApprovalCancellation };
 declare function setTimeout(callback: () => void, ms: number): unknown;
@@ -134,9 +135,9 @@ describe('pre-execution interface admission', () => {
   it('reserves the operation budget for app actions after startup admission', async () => {
     const onRateLimit = vi.fn();
     const base = defaultRateLimitConfig();
-    const f = fixture({ onRateLimit, rateLimit: {
+    const f = fixture({ onRateLimit, rateLimiter: createRateLimiter({
       ...base, burst: { ...base.burst, maxOperations: 1 },
-    } });
+    }) });
     const action = vi.fn();
     f.runtime.registerService('example', { descriptor: { name: 'example', version: '1' },
       messageCapabilities: { 'example.run': null }, handleMessage: action });

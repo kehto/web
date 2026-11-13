@@ -320,16 +320,17 @@ function uploadMap(action: string): CapabilityResolution {
  *   recipient `null`. The runtime resolves and completes target dispatch.
  * - `available` / `handlers` (napplet → runtime)        →
  *   sender `intent:read`, recipient `null`. Read-side catalog introspection.
- * - `changed` / sanctioned `*.result` (runtime → napplet)   →
+ * - `deliver` / `changed` / sanctioned `*.result` (runtime → napplet) →
  *   sender `null`, recipient `intent:read`. The push is gated against the
  *   receiving napplet's cap so a napplet without `intent:read` never sees
- *   availability updates or results. Selected convention delivery uses the
- *   target's ordinary `inc.event` carrier and `inc:read` recipient gate.
+ *   deliveries, availability updates, or results. NAP-INTENT delivery does not
+ *   depend on NAP-INC or `inc:read`.
  * - every other action → no capability mapping in either direction.
  */
 function intentMap(action: string): CapabilityResolution {
   if (
     action === 'changed'
+    || action === 'deliver'
     || action === 'invoke.result'
     || action === 'available.result'
     || action === 'handlers.result'

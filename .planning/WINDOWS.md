@@ -1,15 +1,15 @@
 ---
 schema_version: 1
-open_count: 21
+open_count: 23
 waived_count: 0
-fixed_count: 7
-total_count: 28
-last_updated: 2026-08-04T10:00:54.503Z
+fixed_count: 8
+total_count: 31
+last_updated: 2026-11-12T18:11:33Z
 ---
 
 # Broken Windows Ledger
 
-> Cross-phase defect register. `/gsd-ship` blocks while `open_count > 0`.
+> Cross-phase defect register. With `workflow.windows_enforce` enabled, `/gsd-ship` blocks while `open_count > 0`.
 > Waive with `gsd-tools windows waive <id> "<reason>"` (reason required).
 > Mark fixed with `gsd-tools windows fixed <id>`.
 
@@ -43,6 +43,9 @@ last_updated: 2026-08-04T10:00:54.503Z
 | 26 | 105 | deviation | tests/unit/sdk-migration-guard.test.ts |  | Excluded generated dependency directories from classified active-source evidence. | open |  | 2026-07-27T11:14:53.294Z |  |
 | 27 | 105 | deviation | tests/unit/sdk-migration-guard.test.ts |  | Made guard classification assertions test declarations rather than their own literals. | open |  | 2026-07-27T11:14:53.368Z |  |
 | 28 | quick-260804-dql | unrun-verify | .aislop/config.yml |  | AI-slop gate could not run because pnpm exec aislop reports Command not found | open |  | 2026-08-04T10:00:54.503Z |  |
+| 29 | quick-261112-glz | deviation | tests/unit/retired-playground-redirect.test.ts | 64 | Unit gate blocked by pre-existing local apps/playground build/dependency remnants; unrelated files preserved. | fixed | Parent preserved residue at /tmp/opencode/kehto-retired-playground-261112-glz; fresh unit run passes 3416 tests, log /tmp/opencode/glz-unit-clean.log. | 2026-11-12T18:07:54.791Z | 2026-11-12T18:11:33Z |
+| 30 | quick-261112-glz | unmet-truth | tests/e2e/paja-firewall-rules.spec.ts | 121 | Full browser gate fails on empty external-link popup URL; isolated diagnostic reproduces failure; unchanged link test is outside discovery scope. | open |  | 2026-11-12T18:10:19.739Z |  |
+| 31 | quick-261112-glz | skipped-test | tests/e2e/paja-identity.spec.ts | 116 | Pre-existing identity.changed connect/disconnect without frame reload test.fixme remains skipped; not addressed by obsolete extension relay removal. | open |  | 2026-11-12T18:10:19.881Z |  |
 
 ````json
 [
@@ -381,6 +384,45 @@ last_updated: 2026-08-04T10:00:54.503Z
     "reason": "",
     "recorded_at": "2026-08-04T10:00:54.503Z",
     "resolved_at": null
+  },
+  {
+    "id": 29,
+    "kind": "deviation",
+    "phase": "quick-261112-glz",
+    "file": "tests/unit/retired-playground-redirect.test.ts",
+    "line": 64,
+    "description": "Unit gate blocked by pre-existing local apps/playground build/dependency remnants; unrelated files preserved.",
+    "status": "fixed",
+    "reason": "Parent preserved residue at /tmp/opencode/kehto-retired-playground-261112-glz; fresh unit run passes 3416 tests, log /tmp/opencode/glz-unit-clean.log.",
+    "recorded_at": "2026-11-12T18:07:54.791Z",
+    "resolved_at": "2026-11-12T18:11:33Z",
+    "milestone": "v1.31"
+  },
+  {
+    "id": 30,
+    "kind": "unmet-truth",
+    "phase": "quick-261112-glz",
+    "file": "tests/e2e/paja-firewall-rules.spec.ts",
+    "line": 121,
+    "description": "Full browser gate fails on empty external-link popup URL; isolated diagnostic reproduces failure; unchanged link test is outside discovery scope.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-11-12T18:10:19.739Z",
+    "resolved_at": null,
+    "milestone": "v1.31"
+  },
+  {
+    "id": 31,
+    "kind": "skipped-test",
+    "phase": "quick-261112-glz",
+    "file": "tests/e2e/paja-identity.spec.ts",
+    "line": 116,
+    "description": "Pre-existing identity.changed connect/disconnect without frame reload test.fixme remains skipped; not addressed by obsolete extension relay removal.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-11-12T18:10:19.881Z",
+    "resolved_at": null,
+    "milestone": "v1.31"
   }
 ]
 ````

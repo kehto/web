@@ -1,5 +1,68 @@
 # @kehto/paja
 
+## 0.35.2
+
+### Patch Changes
+
+- 071cef0: Remove obsolete NIP-07 extension relay discovery and its signer-lifecycle cache.
+  Use host-configured bootstrap relays for contact, NIP-65 and Blossom discovery.
+  Keep NAP identity.getRelays available with an empty map for unsupported external-user metadata rather than forwarding the obsolete extension hook.
+
+## 0.35.1
+
+### Patch Changes
+
+- 226b4ad: Default Paja to no signer without prompting browser extensions. Remember explicit signer methods across reloads, provide a None disconnect control, and ignore stale connection results. Bunker credentials are never persisted.
+
+## 0.35.0
+
+### Minor Changes
+
+- b573414: Stop the Paja Firewall from asking about every exact scope, and make its decisions readable.
+
+  - **Paja** allows every interface and operation by default and asks before each `link.open`. The Firewall panel edits those default rules: change the default, or add an exception per interface or operation, for every napplet or one. Rules persist in the browser. An approved link opens from the approving click instead of raising a second confirmation, and a revoked single-target napplet starts again through admission instead of leaving an empty stage.
+  - **Shell** rebuilds `createBrowserApprovalUi`. The prompt asks a plain-language question, lists each exact scope, preselects the narrowest lifetime so one click answers, counts queued requests, and can turn an answer into a standing rule. Grants are a compact tree of single-line rows (napplet, interface, grant) with status dots and icon buttons, expanding for identity and the full scope; scopes allowed by a rule collapse to one counted row. The prompt no longer has a Cancel button or a lifetime select; Escape still cancels. New `rules` and `onAnswer` options, `BrowserApprovalRules` type and `BROWSER_APPROVAL_UI_STYLES` stylesheet.
+  - **Runtime** adds `PermissionAdapter.defaultDecision`, consulted before the prompt budget and the prompt. `allow` commits session grants whose ids start with `DEFAULT_RULE_GRANT_PREFIX`. Hosts that set no hook still ask for every scope.
+  - **Firewall** adds the pure rule model: `createPermissionRules`, `resolvePermissionRule`, `setPermissionRule`, `permissionRuleSubject`, `serializePermissionRules`, `deserializePermissionRules`.
+
+### Patch Changes
+
+- e291825: Restore voluntary temporal protection with the independent `@kehto/rate-limit` package.
+  Runtime no longer constructs operation or prompt limiters implicitly. Hosts opt in
+  with `permissions.rateLimiter` and `permissions.promptRateLimiter`; Paja explicitly
+  installs both. Limiter configuration is managed on the host-owned instance.
+
+  Move the old behavioral Firewall APIs and runtime `createFirewallState` into the
+  explicit `@kehto/rate-limit/legacy` migration subpath. Legacy hosts supply the
+  constructed state through `legacyFirewall`; runtime `firewallState` and
+  `firewallPersistence` are removed. Legacy allow policies no longer bypass installed
+  temporal controls. Firewall now exports only scoped approval/access policy.
+
+- 25311db: Keep Paja Firewall permission prompts visible when the development console or Firewall section is collapsed. Mount prompts separately from grant management so an invisible modal cannot block napplet admission and freeze the host. The shared browser approval UI accepts an optional prompt mount and removes both surfaces on teardown.
+- Updated dependencies [b573414]
+- Updated dependencies [e291825]
+- Updated dependencies [25311db]
+  - @kehto/firewall@0.9.0
+  - @kehto/runtime@0.30.0
+  - @kehto/shell@0.34.0
+  - @kehto/rate-limit@0.2.0
+  - @kehto/services@0.32.1
+
+## 0.34.0
+
+### Minor Changes
+
+- 11ae71c: Adopt @napplet/core 0.41.x and @napplet/nap 0.40.x, which export the current NAP-INTENT no-ID, string-sender delivery. `@kehto/services` now re-exports its intent types from `@napplet/core` instead of keeping a local copy. Because core releases before 0.41.0 carry the withdrawn delivery ID and nullable sender, `@kehto/services`, `@kehto/paja` and `@kehto/cli` now require `@napplet/core` >=0.41.0. Other packages widen their peer windows to core <0.42.0 and nap <0.41.0 and move development builds and JSR maps to the new line. The shell's injected intent receiver now drops deliveries with an empty sender, matching the nap 0.40 binding.
+
+### Patch Changes
+
+- Updated dependencies [11ae71c]
+  - @kehto/services@0.32.0
+  - @kehto/shell@0.33.2
+  - @kehto/acl@0.20.5
+  - @kehto/firewall@0.8.2
+  - @kehto/runtime@0.29.2
+
 ## 0.33.1
 
 ### Patch Changes

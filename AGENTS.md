@@ -328,7 +328,7 @@ the external issue for removal.
 
 This is the **kehto** monorepo — runtime packages for the napplet protocol. Kehto provides the server-side (shell) runtime that hosts napplet sandboxed iframe apps, including the protocol engine, ACL enforcement, service handlers, and browser adapter.
 
-Extracted from [@napplet](https://github.com/sandwichfarm/napplet) (v0.13.0 milestone). The @napplet repo retains the portable SDK packages (core, shim, sdk, vite-plugin); this repo contains the runtime and shell implementation.
+Extracted from [@napplet](https://github.com/napplet/web) (v0.13.0 milestone). The @napplet repo retains the portable SDK packages (core, shim, sdk, vite-plugin); this repo contains the runtime and shell implementation.
 
 ## Packages
 

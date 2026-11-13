@@ -8,7 +8,7 @@ import {
   PAJA_EVENT_COUNTER_RESET_LABEL,
   PAJA_EVENT_COUNTER_RESET_TITLE,
 } from './browser-relay-panel.js';
-import { renderNappletFramePolicyMeta } from '@kehto/shell';
+import { BROWSER_APPROVAL_UI_STYLES, renderNappletFramePolicyMeta } from '@kehto/shell';
 import type { PajaHostConfig } from './options.js';
 import { PAJA_MOCKED_MARK } from './mocked-domains.js';
 import { summarizePajaSimulation } from './simulation.js';
@@ -108,8 +108,8 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .section-chevron { transition: transform 120ms; }
       .section[open] > summary .section-chevron { transform: rotate(90deg); }
       .section-body { padding: 0 12px 12px; display: grid; gap: 8px; }
-      .kehto-approval-ui, .kehto-approval-ui section, .kehto-approval-ui li { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
-      .kehto-approval-ui button { white-space: normal; }
+      .kehto-approval-ui { --kehto-fw-bg: var(--bar); --kehto-fw-line: var(--line); --kehto-fw-text: var(--text); --kehto-fw-muted: var(--muted); --kehto-fw-accent: var(--accent); }
+      ${BROWSER_APPROVAL_UI_STYLES}
       .resource-servers { display: grid; gap: 8px; }
       .resource-servers > label { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
       .section-title { color: var(--accent); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0; }
@@ -140,9 +140,9 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .llm-select-dialog select, .llm-vault-dialog input { width: 100%; min-width: 0; padding: 4px 8px; }
       .llm-vault-dialog .config-error:empty { display: none; }
       .signer { color: var(--muted); word-break: break-all; font-size: 12px; }
-      .signer-controls { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; gap: 6px; }
+      .signer-controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
       .signer-controls button[data-active="true"] { border-color: var(--accent); color: var(--text); background: #2a2a1d; }
-      .signer-controls input { min-width: 0; padding: 0 8px; }
+      .signer-controls input { grid-column: span 2; min-width: 0; padding: 0 8px; }
       .signer-consent-clear { width: 100%; margin-top: 6px; }
       .pointer-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; }
       .pointer-status { min-width: 0; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }

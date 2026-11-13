@@ -144,8 +144,10 @@ for a local Blossom fixture, which must permit browser CORS preflight, `PUT`,
 
 Paja begins without a writable signer. Select **Dev**, use **NIP-07** to connect
 a browser extension signer, or paste a `bunker://` or `nostrconnect://` URI and
-choose **Bunker** for a NIP-46 signer. Every sign, publish, Blossom upload, or
-external-link request opens Paja's serialized in-page confirmation dialog.
+choose **Bunker** for a NIP-46 signer. Every sign, publish, or Blossom upload
+request opens Paja's serialized in-page confirmation dialog. An external link
+asks once through the Firewall prompt, unless you change the `link.open` rule
+in **Firewall permissions**.
 Deny has initial focus and Escape denies. Signing defaults to one-time approval;
 for a napplet-attributed request, you can instead remember the exact event kind
 or trust every kind from that napplet identity and Paja target. The trust choice

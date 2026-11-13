@@ -1,0 +1,9 @@
+{
+  "command": "pnpm exec vitest run packages/paja/src/browser-adapter-signer-traffic.test.ts --reporter=tap",
+  "exitCode": 1,
+  "targetTest": "warms the connected account and routes each followed profile through NIP-65 relays",
+  "expected": "zero obsolete hook calls",
+  "actual": "3 calls; assertion failed",
+  "normalization": "Vitest nested TAP flattened to leaf results with counts for the GSD node:test parser; raw output /tmp/opencode/glz-task1-red.tap",
+  "output": "ok 1 - starts no author-routed reads while a fixed simulation identity has no signer\nnot ok 2 - warms the connected account and routes each followed profile through NIP-65 relays\nok 3 - keeps the session quiet for an anonymous simulation identity as well\nok 4 - does not warm the fixed fallback on reused relay sockets after disconnect\n# tests 4\n# pass 3\n# fail 1"
+}

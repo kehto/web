@@ -74,14 +74,27 @@ runtime ACL controls, Firewall permissions, signer controls, and a filterable me
 error details. It starts expanded and collapses to the left with the chevron
 button in the top bar; the same button brings the whole panel back. The toolbar
 stays onscreen after restoring a saved collapsed preference, including when no
-runtime tab is open. Collapsing
+runtime tab is open. Paja allows every interface and operation by default and asks before each `link.open`; the Firewall panel edits those default rules for every napplet or one. Firewall approval prompts stay visible outside the sidebar, so new napplets can
+still receive consent before executing. Grant management stays in the sidebar.
+Collapsing
 is presentation-only — the target iframe keeps its identity and the loaded
 napplet keeps running — and Paja remembers the choice per browser origin. In
 runtime-pointer mode, ACL controls always display and mutate
 the active tab's resolver-verified d-tag and aggregate hash; a grant or revoke
-rerenders that same identity immediately. Paja auto-connects a browser NIP-07 signer when `window.nostr` is
-available, can connect to a bunker/NIP-46 URI, and only uses the generated local
-development signer when the Dev signer button is selected. Sign, publish, DM
+rerenders that same identity immediately. Paja starts with **None** selected and never
+asks an available browser extension for its public key on first startup. Choose
+**Dev**, **NIP-07**, or **Bunker** explicitly; **None** disconnects and cancels pending
+connections. The selected method (including None) is remembered per browser origin
+under `kehto:paja:signer-method:v1`. Reload restores Dev or reconnects an explicitly
+selected NIP-07 extension. Bunker restores selected but disconnected: enter its URI
+again. Only the method is stored, never credentials, keys, URIs, or approvals.
+Invalid or unreadable storage defaults to None; failed writes still allow selection
+for the current session. An unavailable extension stays selected with an error,
+without falling back to another signer. Fixed simulation identity is independent of
+signing authority. Known NAP-IDENTITY gap: signer changes currently re-initialize
+the hosted frame rather than delivering `identity.changed` to the existing frame;
+the new frame reads the updated identity. The browser suite keeps that push gap
+explicitly skipped. Sign, publish, DM
 send, filesystem picker, Blossom upload, and external-link requests use one serialized in-page
 confirmation dialog. Deny has initial focus and Escape denies. A napplet-scoped
 serial or BLE chooser receives runtime approval first; Paja then keeps the
@@ -200,8 +213,10 @@ For `notify`, Paja renders attributed text without fetching icons. The shared
 Firewall approves the exact notification operation/channel before the browser
 effect; Paja's own permission cache is tied to the current verified app artifact.
 Window teardown or revocation clears the UI and invalidates pending answers.
-For `link.open`, Paja approves the exact HTTP(S) URL and rechecks the approval
-signal and verified artifact after host confirmation before navigation. It
+For `link.open`, Paja approves the exact HTTP(S) URL and opens it from the
+click that approved it. When no click is live, such as a link allowed by a
+standing rule, a host confirmation supplies one; Paja rechecks the approval
+signal and verified artifact before navigation. It
 opens external links with `noopener,noreferrer`.
 Live relay URLs are validated before advertisement, fixture events and local
 publish echoes never enter live reads, and relay event sidecars disclose only
@@ -564,11 +579,15 @@ shell user's BUD-03 list through the same approval-bound relay path, then uses
 the current window's verified pointer-manifest servers, followed by upload-runtime
 fallbacks and saved extra resource servers. Every bootstrap and author relay is
 authorized as its exact `ws:`/`wss:` destination before its socket opens. The
-host refreshes signer-derived bootstrap URLs only at signer initialization or a
-signer lifecycle change; a resource request reads that bounded host cache and
-never calls an external signer's `getRelays()` hook, because that hook can
-perform opaque extension work before an origin exists to approve. If refreshing
-the cache fails, configured host bootstrap relays remain available. The user-list
+host uses only configured discovery/super relays for bootstrap discovery,
+including contact-list and followed-author warming. Paja neither reads nor calls
+the obsolete NIP-07 `getRelays()` extension property, including during signer
+initialization and account changes; there is no signer-bootstrap cache.
+The retained NAP `identity.getRelays` operation returns an empty relay map for
+unsupported external-user metadata, not host URLs presented as user NIP-65
+preferences. This follows [current NIP-07](https://github.com/nostr-protocol/nips/blob/master/07.md)
+(checked 2026-11-12) and [NAP-IDENTITY at `43cb3a4`](https://github.com/napplet/naps/blob/43cb3a4e855570ec4b90b9cc05f0c721e5ad0aab/naps/NAP-IDENTITY.md),
+which permits empty unsupported results. The user-list
 lookup works independently of upload mode; an upload runtime may reuse the same
 servers when present. ROM-specific event and publisher locations retain
 priority over the user/runtime fallbacks. URI length is capped at 8192 characters;
@@ -729,3 +748,10 @@ collapsible player with transport, seek, volume, and close controls. It also
 streams live HTTPS MP3/AAC radio without awaiting EOF and displays napplet-owned
 sessions. See [Media playback](../../docs/media.md) for
 source support, lifecycle rules, and canonical API examples.
+
+## Optional temporal protection
+
+Paja explicitly installs operation and prompt limiters from `@kehto/rate-limit`
+in `createPajaPermissionAdapter`. These are Paja host choices; runtime and Firewall
+do not impose them on other hosts. Limiter configuration and counters are separate
+from approval grants.

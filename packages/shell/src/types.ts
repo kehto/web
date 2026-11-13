@@ -15,7 +15,7 @@ export type { SessionEntry, NappKeyEntry } from '@kehto/runtime';
 
 // Import Capability type locally for use in this file's shell-specific types
 import type { NostrEvent, NostrFilter, NappletMessage } from '@napplet/core';
-import type { Capability, FirewallEvent, FirewallPersistence, PermissionAdapter, RuntimeConfigOverrides, ServiceHandler, ServiceRegistry } from '@kehto/runtime';
+import type { Capability, FirewallEvent, LegacyFirewallAdapter, PermissionAdapter, RuntimeConfigOverrides, ServiceHandler, ServiceRegistry } from '@kehto/runtime';
 import type { NappletMessageTarget, OriginIdentity } from './origin-registry.js';
 
 // Re-export service types so shell consumers can still import from @kehto/shell
@@ -23,7 +23,7 @@ import type { NappletMessageTarget, OriginIdentity } from './origin-registry.js'
 export type { ServiceHandler, ServiceRegistry };
 
 // Re-export the firewall hook payloads named by ShellAdapter.
-export type { FirewallEvent, FirewallPersistence };
+export type { FirewallEvent, LegacyFirewallAdapter };
 
 /**
  * ACL entry controlling what a napplet pubkey is permitted to do.
@@ -499,11 +499,11 @@ export interface ShellAdapter {
   /** Called on every ACL enforcement check. Both allows and denials are reported. */
   onAclCheck?: (event: AclCheckEvent) => void;
   /**
-   * Stores firewall config across reloads. Without it, firewall config stays in
-   * memory and resets when the bridge is recreated. Counters are never stored.
+   * Supplies optional legacy behavioral controls. Its config persistence belongs to
+   * the supplied adapter. Without an adapter no temporal limits are installed.
    * Legacy gate only: with `permissions` set, grants use `permissions.persistence`.
    */
-  firewallPersistence?: FirewallPersistence;
+  legacyFirewall?: LegacyFirewallAdapter;
   /**
    * Called when the runtime firewall flags, rejects or prompts for a message, so
    * a host can show the user what was refused. Passing messages without a flag

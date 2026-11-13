@@ -1,5 +1,7 @@
+import { createRateLimiter } from '@kehto/rate-limit';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createRuntime, defaultRateLimitConfig } from '@kehto/runtime';
+import { createRuntime } from '@kehto/runtime';
+import { defaultRateLimitConfig } from '@kehto/rate-limit';
 import type { ApprovalAnswer, ApprovalPrompt, PermissionAdapter } from '@kehto/runtime';
 import { createLinkService } from '@kehto/services';
 import { createMockRuntimeAdapter, createNip5dSessionEntry } from '../../packages/runtime/src/test-utils.js';
@@ -94,7 +96,7 @@ describe('runtime Firewall LINK integration', () => {
   it('rate limits even a previously approved operation', async () => {
     const rateLimit = { ...defaultRateLimitConfig(), capacity: 1, action: 'block' as const, unfocusedMultiplier: 1 };
     const onRateLimit = vi.fn();
-    const f = fixture({ rateLimit, onRateLimit, now: () => 0, prompt: async () => ({ effect: 'allow', lifetime: 'session' }) });
+    const f = fixture({ rateLimiter: createRateLimiter(rateLimit), onRateLimit, now: () => 0, prompt: async () => ({ effect: 'allow', lifetime: 'session' }) });
     f.send('one'); await flush();
     f.send('two'); await flush();
     expect(f.open).toHaveBeenCalledTimes(1);
@@ -135,7 +137,7 @@ describe('runtime Firewall LINK integration', () => {
   });
 
   it('does not reset the operation budget when a source is replaced', async () => {
-    const f = fixture({ now: () => 0, rateLimit: { ...defaultRateLimitConfig(), capacity: 1, action: 'block' } });
+    const f = fixture({ now: () => 0, rateLimiter: createRateLimiter({ ...defaultRateLimitConfig(), capacity: 1, action: 'block' }) });
     f.send(); await flush();
     f.runtime.sessionRegistry.register('window', { ...f.entry });
     f.send(); await flush();

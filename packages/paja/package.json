@@ -1,6 +1,6 @@
 {
   "name": "@kehto/paja",
-  "version": "0.33.1",
+  "version": "0.35.2",
   "description": "Paja local authoring workshop for hosting napplets in a real Kehto iframe during development",
   "type": "module",
   "main": "./dist/index.js",
@@ -32,7 +32,8 @@
     "@kehto/runtime": "workspace:^",
     "@kehto/services": "workspace:^",
     "@kehto/shell": "workspace:^",
-    "@kehto/wm": "workspace:^"
+    "@kehto/wm": "workspace:^",
+    "@kehto/rate-limit": "workspace:^"
   },
   "peerDependencies": {
     "@napplet/core": ">=0.41.0 <0.42.0",

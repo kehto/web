@@ -1,11 +1,11 @@
 {
   "name": "@kehto/runtime",
-  "version": "0.29.1",
+  "version": "0.30.0",
   "license": "MIT",
   "exports": "./src/index.ts",
   "imports": {
-    "@kehto/acl": "jsr:@kehto/acl@^0.20.4",
-    "@kehto/firewall": "jsr:@kehto/firewall@^0.8.1",
+    "@kehto/acl": "jsr:@kehto/acl@^0.20.6",
+    "@kehto/firewall": "jsr:@kehto/firewall@^0.9.0",
     "@napplet/core": "jsr:@napplet/core@^0.41.0",
     "@napplet/nap": "jsr:@napplet/nap@^0.40.0",
     "@noble/hashes": "npm:@noble/hashes@^2.0.0",
@@ -19,7 +19,8 @@
     ],
     "exclude": [
       "src/**/*.test.ts",
-      "src/**/*.spec.ts"
+      "src/**/*.spec.ts",
+      "src/legacy-test-utils.ts"
     ]
   }
 }

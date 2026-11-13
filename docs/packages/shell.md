@@ -25,14 +25,30 @@ The prelude exposes bindings only for admitted domains; denied or unoffered
 domains stay absent, and built-in bindings cannot be replaced. Paja uses this
 path for its mocked interfaces.
 
-`createBrowserApprovalUi` presents the runtime prompt with trusted technical
-identity, exact operation scopes, and offered lifetimes. It returns explicit
-allow, deny, or cancel decisions; Escape, close, and abort cancel. Its grant
-view reads `RuntimePermissions.grants` on refresh and delegates revoke, clear,
-and persistence retry to the runtime. Storage failures remain visible and
+`createBrowserApprovalUi` presents the runtime prompt as a plain-language
+question with the host's label for the napplet, every exact scope, and the
+offered lifetimes with the narrowest preselected, so one click answers. The
+full technical identity is one disclosure away. It returns explicit allow,
+deny, or cancel decisions; Deny has initial focus, and Escape, close, and abort
+cancel. Its grant view is a tree of single-line rows (napplet, interface,
+grant) with a status dot, a count or lifetime, and an icon button per row;
+identity and the full scope appear on expand. Grants made by default rules
+collapse into one counted row. It and delegates single and group revoke, clear, and persistence
+retry to the runtime. Given `rules`, it also renders an editor for the host's
+default rules, offers to turn a prompt answer into a standing rule for that
+napplet, and revokes rule-made grants a changed rule no longer allows.
+`onAnswer(answer, userGesture)` reports each answer and whether a real click
+made it, for hosts that run a gesture-gated browser action from that click. The UI
+ships unstyled; add `BROWSER_APPROVAL_UI_STYLES` to a `<style>` element or
+style the `kehto-approval-*` and `kehto-fw-*` classes yourself. Storage failures remain visible and
 block new grants. A host retirement callback must remove live direct-network
 frames when a relevant grant changes; the parent cannot meter direct iframe
 traffic.
+
+For collapsible grant-management panels, set `promptMount: document.body` on
+`createBrowserApprovalUi` so a hidden panel cannot hide a modal and block the
+page. Without `promptMount`, prompts share `mount`. `destroy()` removes both
+surfaces and cancels outstanding prompts.
 
 > **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
 > protocol. Injected-domain behavior and NAP contracts are not final.
@@ -52,7 +68,7 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
 | Field | Value |
 |-------|-------|
 | Source | `packages/shell/package.json`, `packages/shell/src/index.ts` |
-| Version | `0.33.1` |
+| Version | `0.34.0` |
 | Runtime entry | `./dist/index.js` |
 | Types entry | `./dist/index.d.ts` |
 | Dependencies | `@kehto/acl`, `@kehto/runtime` |
@@ -75,7 +91,7 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
 | Protocol and capability types | `NostrEvent`, `NostrFilter`, `NappletMessage`, `Capability`, `ALL_CAPABILITIES` |
 | Shell init and bootstrap | `buildShellCapabilities`, `injectNappletNamespacePrelude`, `renderNappletNamespacePrelude`, `NappletNamespacePreludeOptions`, `NappletDomainBinding`, `NappletBindingMethod`, `SerializedDomainBinding`, `serializeDomainBindings`, `NAPPLET_PRELUDE_BUILT_IN_DOMAINS` |
 | Verified documents and CSP | `prepareNappletSrcdoc`, `NappletSrcdocOptions`, `buildNappletCsp`, `renderNappletCspMeta`, `injectNappletCsp`, `NappletCspOptions`, `NappletCspDirectives`, `NappletCspDirective` |
-| Browser admission and approval | `admitBrowserDocument`, `BrowserAdmissionRequest`, `BrowserAdmissionResult`, `BrowserAdmissionCommit`, `BrowserAdmissionOmission`, `BrowserLaunchMode`, `BrowserRemoteSource`, `createBrowserApprovalUi`, `BrowserApprovalUi`, `BrowserApprovalUiOptions` |
+| Browser admission and approval | `admitBrowserDocument`, `BrowserAdmissionRequest`, `BrowserAdmissionResult`, `BrowserAdmissionCommit`, `BrowserAdmissionOmission`, `BrowserLaunchMode`, `BrowserRemoteSource`, `createBrowserApprovalUi`, `BrowserApprovalUi`, `BrowserApprovalUiOptions`, `BrowserApprovalRules`, `BROWSER_APPROVAL_UI_STYLES` |
 | Registries and caches | `sessionRegistry`, `nappKeyRegistry`, `originRegistry`, `manifestCache`, `audioManager`, `PendingUpdate`, `ManifestCacheEntry`, `AudioSource` |
 | Enforcement re-exports | `FirewallEvent`, `FirewallPersistence`, `createEnforceGate`, `createNapEnforceGate`, `formatDenialReason`, `EnforceResult`, `EnforceConfig`, `NapEnforceConfig`, `IdentityResolver`, `AclChecker`, `NapMessage` |
 | Proxies | `createIdentityProxy`, `createThemeProxy`, `createKeysProxy`, `createMediaProxy`, `createNotifyProxy` |
@@ -98,7 +114,7 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
 - Its injected resource projection follows [NAP-RESOURCE at `ae5b9c6`](https://github.com/napplet/naps/blob/ae5b9c64ab8a4d8909f288829a01e99d6bd713bc/naps/NAP-RESOURCE.md): wire requests carry `id` plus `url` or ordered `urls`. Responses carry canonical padded base64; the web binding validates and converts it into `Blob` values. Legacy object payloads and noncanonical base64 are rejected. Blossom discovery hints belong in the URI or trusted resolver configuration, not a wire `servers` field.
 - Forwards `ShellAdapter.aclDefaultPolicy` to the runtime, so a host can start unknown identities with nothing granted. With `permissions` set it's a ceiling approvals can't exceed.
 - Advertises `count` in shell capabilities and the injected `window.napplet` namespace only when `ShellAdapter.services.count` is wired, so `shell.supports("count")` tracks an actual NAP-COUNT backend.
-- Forwards `ShellAdapter.getFocusContext`, `onFirewallEvent` and `firewallPersistence` to the runtime. `getFocusContext` scales rate budgets for the legacy gate and for `permissions`. The other two belong to the legacy gate, so with `permissions` set they warn once with `FW-RUNTIME-LEGACY-IGNORED-001`; use `permissions.onRateLimit` and `permissions.persistence` instead. Hosts change budgets with `bridge.runtime.permissions.setRateLimit`.
+- Forwards optional `permissions.rateLimiter`, `permissions.promptRateLimiter`, `legacyFirewall`, `getFocusContext` and diagnostics without constructing temporal defaults. Hosts retain their limiter instance for configuration changes.
 - Surfaces unroutable inbound messages via the optional `ShellAdapter.onUnroutedMessage` hook (`UnroutedMessageInfo`) — observe-only; the bridge still drops messages from unidentified or unregistered windows, but hosts can now log them instead of debugging a silent vanish.
 - Advertises and injects `dm` or `fs` only when the matching runtime service is registered and host domain policy permits it.
 - Treats `keys.forward` as napplet-to-shell only; shell-initiated key actions are emitted as `keys.action` through the keys proxy/runtime service path.

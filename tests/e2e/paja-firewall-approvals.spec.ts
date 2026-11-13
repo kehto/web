@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 import { expect, test, type Page } from '@playwright/test';
 import { startPajaServer, type PajaServer } from '../../packages/paja/dist/index.js';
+import { installPajaAskEverythingRules } from './paja-approval-driver.js';
 
 const TARGET_HTML = `<!doctype html><html><head>
   <meta name="napplet-requires" content="shell">
@@ -58,34 +59,57 @@ async function choose(page: Page, permission: string, effect: 'Allow' | 'Deny'):
   const dialog = page.locator('.kehto-approval-ui dialog');
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText(permission);
-  if (effect === 'Allow') {
-    await dialog.locator('select').selectOption('session');
-  }
-  await dialog.getByRole('button', { name: effect }).click();
+  await dialog.getByRole('button', { name: effect, exact: true }).click();
 }
+
+test.describe('with every request set to ask', () => {
+test.beforeEach(async ({ page }) => { await installPajaAskEverythingRules(page); });
 
 test('required network denial prevents the target script from executing', async ({ page }) => {
   await page.goto(host.url);
-  await choose(page, 'network.connect-src', 'Deny');
+  await choose(page, 'connect-src', 'Deny');
   await expect.poll(() => page.evaluate(() => window.__KEHTO_PAJA__?.getState().status)).toBe('error');
   await expect(page.frameLocator('#napplet-frame').locator('#executed')).toHaveCount(0);
 });
 
 test('optional denial narrows the executing namespace', async ({ page }) => {
   await page.goto(host.url);
-  await choose(page, 'network.connect-src', 'Allow');
-  await choose(page, 'interface access exact:theme', 'Deny');
+  await choose(page, 'connect-src', 'Allow');
+  await choose(page, 'Use the theme interface', 'Deny');
   const frame = page.frameLocator('#napplet-frame');
   await expect(frame.locator('#executed')).toHaveText('yes');
   await expect(frame.locator('#theme-state')).toHaveText('undefined');
 });
 
+for (const collapsed of ['console', 'permissions'] as const) {
+  test(`approval remains usable with persisted collapsed ${collapsed}`, async ({ page }) => {
+    await page.addInitScript((preference) => {
+      if (window !== window.top) return;
+      if (preference === 'console') localStorage.setItem('kehto:paja:console:v1', 'collapsed');
+      else localStorage.setItem('kehto:paja:sidebar-sections:v1', JSON.stringify({ permissions: true }));
+    }, collapsed);
+    await page.goto(host.url);
+    await expect(page.frameLocator('#napplet-frame').locator('#executed')).toHaveCount(0);
+    await choose(page, 'connect-src', 'Allow');
+    await choose(page, 'Use the theme interface', 'Deny');
+    const frame = page.frameLocator('#napplet-frame');
+    await expect(frame.locator('#executed')).toHaveText('yes');
+    await expect(frame.locator('#theme-state')).toHaveText('undefined');
+    if (collapsed === 'console') {
+      await expect(page.locator('html')).toHaveAttribute('data-paja-console', 'collapsed');
+    } else {
+      await expect(page.locator('#paja-section-permissions')).not.toHaveAttribute('open');
+    }
+  });
+}
+
 test('revoking an approved interface retires the executing frame', async ({ page }) => {
   await page.goto(host.url);
-  await choose(page, 'network.connect-src', 'Allow');
-  await choose(page, 'interface access exact:theme', 'Allow');
+  await choose(page, 'connect-src', 'Allow');
+  await choose(page, 'Use the theme interface', 'Allow');
   const frame = page.frameLocator('#napplet-frame');
   await expect(frame.locator('#theme-state')).toHaveText('object');
+  await page.locator('.kehto-fw-domain', { hasText: 'theme' }).locator('> summary').click();
   const revoke = page.getByRole('button', { name: 'Revoke access exact:theme' });
   await expect(revoke).toBeVisible();
   await revoke.click();
@@ -96,8 +120,8 @@ test('direct network approval reaches its exact origin and blocks a sibling orig
   const allowedBefore = allowedRequests;
   const siblingBefore = siblingRequests;
   await page.goto(host.url);
-  await choose(page, 'network.connect-src', 'Allow');
-  await choose(page, 'interface access exact:theme', 'Deny');
+  await choose(page, 'connect-src', 'Allow');
+  await choose(page, 'Use the theme interface', 'Deny');
   const frame = page.frameLocator('#napplet-frame');
   await expect(frame.locator('#executed')).toHaveText('yes');
   await frame.locator('body').evaluate(async (_body, blocked) => {
@@ -106,4 +130,5 @@ test('direct network approval reaches its exact origin and blocks a sibling orig
   }, siblingUrl);
   await expect.poll(() => allowedRequests).toBe(allowedBefore + 1);
   expect(siblingRequests).toBe(siblingBefore);
+});
 });

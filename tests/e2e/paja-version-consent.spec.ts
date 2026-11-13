@@ -65,6 +65,9 @@ async function prepare(page: Page) {
   const load = async () => {
     const pointer = naddrEncode({ kind: 35129, pubkey: getPublicKey(author), identifier: 'consent-fixture', relays: [relay] });
     await page.goto(`${origin}/?naddr=${pointer}`);
+    if (await page.locator('#signer-none').getAttribute('data-active') === 'true') {
+      await page.locator('#signer-nip07').click();
+    }
     await expect(page.locator('#signer-status')).toContainText('NIP-07 connected');
     await expect(page.frameLocator('iframe').last().locator('#ready')).toHaveText('ready');
   };

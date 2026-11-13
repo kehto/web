@@ -27,7 +27,7 @@ It provides packages for building a napplet host client by handling capability
 enforcement, message routing, host service registration, gateway artifacts, and
 development tooling. The applet-side packages (`@napplet/core`, `@napplet/shim`,
 `@napplet/sdk`, and `@napplet/vite-plugin`) live in the
-[@napplet](https://github.com/sandwichfarm/napplet) repo; Kehto supplies the
+[@napplet](https://github.com/napplet/web) repo; Kehto supplies the
 runtime toolkit, while Paja demonstrates one complete implementation.
 
 ## Start Here
@@ -60,7 +60,8 @@ documentation site.
 | Package | Use it for | Package root | Markdown docs | VitePress docs |
 |---------|------------|--------------|---------------|----------------|
 | `@kehto/acl` | Pure capability state, grants, blocks, quotas, and policy checks. | [packages/acl](./packages/acl/) | [docs/packages/acl.md](./docs/packages/acl.md) | [ACL docs](https://kehto.github.io/web/docs/packages/acl) |
-| `@kehto/firewall` | Pure, zero-dependency behavioral anti-abuse engine — rate/burst/content rules with allow/deny/ask policy and focus-aware tightening. | [packages/firewall](./packages/firewall/) | [docs/packages/firewall.md](./docs/packages/firewall.md) | [Firewall docs](https://kehto.github.io/web/docs/packages/firewall) |
+| `@kehto/firewall` | Pure scoped approval and access policy. | [packages/firewall](./packages/firewall/) | [docs/packages/firewall.md](./docs/packages/firewall.md) | [Firewall docs](https://kehto.github.io/web/docs/packages/firewall) |
+| `@kehto/rate-limit` | Optional temporal budgets, burst controls and legacy behavioral migration. | [packages/rate-limit](./packages/rate-limit/) | [docs/packages/rate-limit.md](./docs/packages/rate-limit.md) | [Rate-limit docs](https://kehto.github.io/web/docs/packages/rate-limit) |
 | `@kehto/runtime` | Browser-agnostic NIP-5D dispatch, ACL gates, service registry, sessions, manifests, replay checks, and event buffering. | [packages/runtime](./packages/runtime/) | [docs/packages/runtime.md](./docs/packages/runtime.md) | [Runtime docs](https://kehto.github.io/web/docs/packages/runtime) |
 | `@kehto/shell` | Browser iframe/session adapter over a Kehto runtime, gateway loading, postMessage transport, hosted `supports()`, and shell policy. | [packages/shell](./packages/shell/) | [docs/packages/shell.md](./docs/packages/shell.md) | [Shell docs](https://kehto.github.io/web/docs/packages/shell) |
 | `@kehto/services` | Reference handlers for identity, relay, keys, media, notify, config, resource, cache, theme, and audio surfaces. | [packages/services](./packages/services/) | [docs/packages/services.md](./docs/packages/services.md) | [Services docs](https://kehto.github.io/web/docs/packages/services) |
@@ -106,7 +107,7 @@ The harness, Playwright base URL, and resource redirect fixtures share this port
 | Path | Contents |
 |------|----------|
 | [packages/acl](./packages/acl/) | Capability and ACL primitives. |
-| [packages/firewall](./packages/firewall/) | Pure behavioral anti-abuse firewall engine. |
+| [packages/firewall](./packages/firewall/) | Pure scoped approval policy. |
 | [packages/runtime](./packages/runtime/) | Protocol runtime and service routing. |
 | [packages/shell](./packages/shell/) | Browser shell adapter and gateway/session integration. |
 | [packages/services](./packages/services/) | Reference service implementations. |
@@ -145,6 +146,9 @@ Generated API docs are produced by:
 ```bash
 pnpm docs:api
 ```
+
+Release automation setup, registry permissions, and recovery commands are in the
+[release runbook](docs/guides/releases.md).
 
 ## License
 
