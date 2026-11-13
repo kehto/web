@@ -13,6 +13,8 @@
  *  - Discovery reads kind-11316 (server) + kind-11317 (tools) announcements.
  *  - CEP-22 oversized transfers and CEP-41 open streams ride
  *    `notifications/progress` frames addressed by the request progressToken.
+ *    Outbound requests are not split into CEP-22 frames; encrypted arguments
+ *    must fit one NIP-44 plaintext message.
  *
  * Shipped on a separate entry (`@kehto/services/cvm-nostr-transport`) so the
  * `nostr-tools` dependency stays out of the core `@kehto/services` bundle.
@@ -69,6 +71,7 @@ const SUPPORT_OVERSIZED_TRANSFER = 'support_oversized_transfer';
 const SUPPORT_OPEN_STREAM = 'support_open_stream';
 
 const DEFAULT_TIMEOUT_MS = 30_000;
+const MAX_REQUEST_TIMEOUT_MS = 300_000;
 const DEFAULT_DISCOVER_TIMEOUT_MS = 6_000;
 const MCP_PROTOCOL_VERSION = '2025-11-25';
 const SEEN_WRAP_LIMIT = 512;
@@ -115,7 +118,7 @@ export interface CvmRelayPool {
 export interface NostrCvmTransportOptions {
   /** Relays used when a server reference carries no relay hints. */
   defaultRelays?: string[];
-  /** Default per-request timeout in milliseconds. */
+  /** Default request duration, including initialization; integer 1..300000, default 30000. */
   timeoutMs?: number;
   /** Whether to CEP-4 gift-wrap requests. Default true (most servers require it). */
   encrypt?: boolean;
@@ -139,7 +142,8 @@ interface PendingRequest extends CvmProgressEntry {
   resolve(message: McpMessage): void;
   reject(error: Error): void;
   timer: ReturnType<typeof setTimeout>;
-  timeoutMs: number;
+  /** Absolute monotonic admission deadline, including initialization. */
+  deadline: number;
   /** The caller's original JSON-RPC id, restored on the response. */
   originalId: string | number | undefined;
   /** Server identity that must sign the correlated inner response. */
@@ -154,17 +158,22 @@ interface ServerSession {
   initializing: Promise<void> | null;
 }
 
+function randomIdSuffix(): string {
+  return Array.from(crypto.getRandomValues(new Uint8Array(4)),
+    (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
 let correlationCounter = 0;
 function nextCorrelationId(): string {
   correlationCounter += 1;
-  return `cvm-${correlationCounter}-${getPublicKey(generateSecretKey()).slice(0, 8)}`;
+  return `cvm-${correlationCounter}-${randomIdSuffix()}`;
 }
 
 let streamNonceCounter = 0;
 /** Unique ping nonce within a stream, well under the 64-byte maximum. */
 function nextStreamNonce(): string {
   streamNonceCounter += 1;
-  return `cvm-ping-${streamNonceCounter}-${getPublicKey(generateSecretKey()).slice(0, 8)}`;
+  return `cvm-ping-${streamNonceCounter}-${randomIdSuffix()}`;
 }
 
 function randomizedPastTimestamp(): number {
@@ -225,6 +234,7 @@ export function createNostrCvmTransport(
   const streamProbeTimeoutMs = options.streamProbeTimeoutMs ?? DEFAULT_STREAM_PROBE_TIMEOUT_MS;
 
   const sessions = new Map<string, ServerSession>();
+  // Hosts own per-napplet concurrency admission; this transport has no caller principal.
   const pending = new Map<string, PendingRequest>();
   const eventHandlers = new Set<EventHandler>();
   const relayRefcount = new Map<string, number>();
@@ -262,7 +272,11 @@ export function createNostrCvmTransport(
     },
     routeMessage,
     routeEvent,
-    refreshPendingTimeout,
+    admit(entry) {
+      if (performance.now() < entry.deadline) return true;
+      settlePending(entry.correlationId)?.reject(new Error('relay timeout'));
+      return false;
+    },
   });
   let inbound: CvmSubCloser | null = null;
   let subscribedRelays = '';
@@ -351,15 +365,6 @@ export function createNostrCvmTransport(
     return entry;
   }
 
-  /** Extend a request's deadline while its admitted frames keep arriving. */
-  function refreshPendingTimeout(entry: PendingRequest): void {
-    clearTimeout(entry.timer);
-    entry.timer = setTimeout(() => {
-      const settled = settlePending(entry.correlationId);
-      settled?.reject(new Error('relay timeout'));
-    }, entry.timeoutMs);
-  }
-
   /** Route a decrypted MCP message to a pending request or event handlers. */
   function routeMessage(serverPubkey: string, mcp: McpMessage): void {
     const id = mcp.id;
@@ -367,7 +372,8 @@ export function createNostrCvmTransport(
       const entry = pending.get(String(id))!;
       if (entry.serverPubkey !== serverPubkey) return;
       const settled = settlePending(String(id));
-      settled?.resolve({ ...mcp, id: entry.originalId });
+      if (performance.now() >= entry.deadline) settled?.reject(new Error('relay timeout'));
+      else settled?.resolve({ ...mcp, id: entry.originalId });
       return;
     }
     routeEvent(serverPubkey, mcp);
@@ -381,7 +387,7 @@ export function createNostrCvmTransport(
     }
   }
 
-  async function publishMcp(server: CvmServerRef, relays: string[], message: McpMessage, signal?: ApprovalSignal): Promise<void> {
+  async function publishMcp(server: CvmServerRef, relays: string[], message: McpMessage, deadline?: number, signal?: ApprovalSignal): Promise<void> {
     if (signal?.aborted) throw new Error('policy denied');
     // Capability discovery lives on the INNER signed kind-25910 event. Without
     // these single-element tags, muxll correctly assumes a legacy client and
@@ -403,6 +409,7 @@ export function createNostrCvmTransport(
       clientSecretKey,
     ) as NostrEventLike;
     if (!encrypt) {
+      if (deadline !== undefined) remainingTime(deadline);
       await pool.publish(relays, inner, { signal });
       return;
     }
@@ -422,6 +429,7 @@ export function createNostrCvmTransport(
       },
       wrapSecretKey,
     ) as NostrEventLike;
+    if (deadline !== undefined) remainingTime(deadline);
     await pool.publish(relays, wrap, { signal });
   }
 
@@ -429,10 +437,11 @@ export function createNostrCvmTransport(
     server: CvmServerRef,
     relays: string[],
     message: McpMessage,
-    timeout: number,
+    deadline: number,
     signal?: ApprovalSignal,
   ): Promise<McpMessage> {
     if (signal?.aborted) return Promise.reject(new Error('policy denied'));
+    remainingTime(deadline);
     const correlationId = nextCorrelationId();
     const originalId = message.id;
     let outgoing: McpMessage = { ...message, id: correlationId };
@@ -486,8 +495,8 @@ export function createNostrCvmTransport(
         timer: setTimeout(() => {
           const settled = settlePending(correlationId);
           settled?.reject(new Error('relay timeout'));
-        }, timeout),
-        timeoutMs: timeout,
+        }, remainingTime(deadline)),
+        deadline,
         originalId,
         serverPubkey: server.pubkey,
         correlationId,
@@ -501,7 +510,7 @@ export function createNostrCvmTransport(
         const settled = settlePending(correlationId);
         settled?.reject(new Error('policy denied'));
       }, { once: true });
-      void publishMcp(server, relays, outgoing, signal).catch((err: unknown) => {
+      void publishMcp(server, relays, outgoing, deadline, signal).catch((err: unknown) => {
         const settled = settlePending(correlationId);
         settled?.reject(err instanceof Error ? err : new Error('publish failed'));
       });
@@ -519,11 +528,38 @@ export function createNostrCvmTransport(
     return session;
   }
 
-  async function ensureInitialized(server: CvmServerRef, session: ServerSession, timeout: number, signal?: ApprovalSignal): Promise<void> {
+  /** Read the remaining admission budget without silently extending it. */
+  function remainingTime(deadline: number): number {
+    const remaining = deadline - performance.now();
+    if (remaining <= 0) throw new Error('relay timeout');
+    return remaining;
+  }
+
+  /** Bound an asynchronous stage, including a shared initialization wait. */
+  async function beforeDeadline<T>(deadline: number, operation: () => Promise<T>): Promise<T> {
+    const timeout = remainingTime(deadline);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(() => reject(new Error('relay timeout')), timeout);
+        }),
+        operation(),
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function ensureInitialized(server: CvmServerRef, session: ServerSession, deadline: number, signal?: ApprovalSignal): Promise<void> {
     if (session.initialized) return;
-    if (session.initializing) return session.initializing;
-    session.initializing = (async () => {
+    if (session.initializing) {
+      await beforeDeadline(deadline, () => session.initializing!);
+      return;
+    }
+    session.initializing = Promise.resolve().then(async () => {
       try {
+        if (sessions.get(server.pubkey) !== session) throw new Error('server closed');
         await sendCorrelated(
           server,
           session.relays,
@@ -533,18 +569,24 @@ export function createNostrCvmTransport(
             method: 'initialize',
             params: { protocolVersion: MCP_PROTOCOL_VERSION, capabilities: {}, clientInfo },
           },
-          timeout,
+          deadline,
           signal,
         );
-        // notifications/initialized completes the handshake; no response expected.
-        await publishMcp(server, session.relays, { jsonrpc: '2.0', method: 'notifications/initialized' }, signal);
+        remainingTime(deadline);
+        if (sessions.get(server.pubkey) !== session) throw new Error('server closed');
+        // Notification publication consumes the same budget as the initialize response.
+        await beforeDeadline(deadline, () => publishMcp(server, session.relays,
+          { jsonrpc: '2.0', method: 'notifications/initialized' }, deadline, signal));
+        remainingTime(deadline);
+        if (sessions.get(server.pubkey) !== session) throw new Error('server closed');
         session.initialized = true;
-      } catch {
+      } catch (error) {
+        if (error instanceof Error && (error.message === 'relay timeout' || error.message === 'server closed')) throw error;
         throw new Error('initialization failed');
       } finally {
         session.initializing = null;
       }
-    })();
+    });
     return session.initializing;
   }
 
@@ -610,10 +652,16 @@ export function createNostrCvmTransport(
 
     async request(server: CvmServerRef, message: McpMessage, requestOptions?: CvmRequestOptions, execution?: { signal: ApprovalSignal }): Promise<McpMessage> {
       if (execution?.signal.aborted) throw new Error('policy denied');
+      const timeout = requestOptions?.timeoutMs === undefined ? timeoutMs : requestOptions.timeoutMs;
+      // NAP-CVM #31 @28cf1bdb: reject before acquiring a session or publishing.
+      if (!Number.isInteger(timeout) || timeout < 1 || timeout > MAX_REQUEST_TIMEOUT_MS) {
+        throw new Error('invalid timeout');
+      }
+      const deadline = performance.now() + timeout;
       const session = getSession(server);
-      const timeout = requestOptions?.timeoutMs ?? timeoutMs;
-      if (requestOptions?.initialize) await ensureInitialized(server, session, timeout, execution?.signal);
-      return sendCorrelated(server, session.relays, message, timeout, execution?.signal);
+      if (requestOptions?.initialize) await ensureInitialized(server, session, deadline, execution?.signal);
+      if (sessions.get(server.pubkey) !== session) throw new Error('server closed');
+      return sendCorrelated(server, session.relays, message, deadline, execution?.signal);
     },
 
     async close(server: CvmServerRef): Promise<void> {
