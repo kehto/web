@@ -152,7 +152,7 @@ Release automation setup, registry permissions, and recovery commands are in the
 
 ## License
 
-MIT
+[MIT](LICENSE) © 2026 Kehto contributors.
 
 ## NIP-5D event compatibility
 
