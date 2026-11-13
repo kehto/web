@@ -2,7 +2,7 @@
 import type { NappletMessage } from '@napplet/core';
 // DRIFT-CORE-06 — Phase 11-deviation: ServiceDescriptor dropped from @napplet/core
 // v0.2.0+ (napplet phase-81). Re-exported from @kehto/runtime (canonical home after Phase 24 DRIFT-01).
-import type { ServiceDescriptor, ServiceHandler } from '@kehto/runtime';
+import type { ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
 import type { Notification, NotificationServiceOptions } from './types.js';
 
 /** Notification service version — follows semver. */
@@ -150,9 +150,12 @@ function handleNotifyEnvelope(
  * per napplet window. It accepts direct `notify.*` service envelopes; INC
  * topics are opaque application data and never select a host service. The
  * shell host controls presentation through the onChange callback.
+ * This retained Kehto registry predates NAP-NOTIFY PR #11 and has no owning
+ * upstream NAP. New hosts should use createNotifyService and notify.send.
  *
  * @param options - Optional configuration (onChange callback, maxPerWindow limit)
  * @returns A ServiceHandler to register with the runtime
+ * @deprecated Use createNotifyService for NAP-NOTIFY wire messages.
  *
  * @example
  * ```ts
@@ -181,25 +184,56 @@ export function createNotificationService(options?: NotificationServiceOptions):
     version: NOTIFICATION_SERVICE_VERSION,
     description: 'Notification state registry — tracks notifications per napplet window',
   };
+  const generations = new Map<string, object>();
+  let runtime: ServiceRuntimeContext | undefined;
+  let warnedLegacy = false;
+
+  const current = (windowId: string, generation: object): boolean => generations.get(windowId) === generation;
+  const cleanup = (windowId: string): void => {
+    generations.delete(windowId);
+    if (store.notifications.delete(windowId)) notify(store);
+  };
 
   return {
     descriptor,
 
-    handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void {
-      if (!message.type.startsWith('notify.')) return;
-      handleNotifyEnvelope(
-        store,
-        windowId,
-        message.type.slice(7),
-        message as NappletMessage & Record<string, unknown>,
-        send,
-      );
+    onRegistered(context) { runtime = context; },
+    onUnregistered() {
+      for (const windowId of generations.keys()) cleanup(windowId);
+      runtime = undefined;
     },
 
-    onWindowDestroyed(windowId: string): void {
-      if (store.notifications.delete(windowId)) {
-        notify(store);
+    handleMessage(windowId: string, message: NappletMessage, send: (msg: NappletMessage) => void): void {
+      if (!message.type.startsWith('notify.')) return;
+      const action = message.type.slice(7);
+      if (!['create', 'list', 'read', 'dismiss'].includes(action)) return;
+      if (!warnedLegacy) {
+        warnedLegacy = true;
+        console.warn('[FW-NOTIFICATION-LEGACY-001] Migrate notify.create/list/read to NAP-NOTIFY notify.send; legacy registry wire is deprecated. Warning once per service instance.');
       }
+      const fields = message as NappletMessage & Record<string, unknown>;
+      const snapshot = { type: message.type,
+        ...(typeof fields.title === 'string' ? { title: fields.title.slice(0, 256) } : {}),
+        ...(typeof fields.body === 'string' ? { body: fields.body.slice(0, 4096) } : {}),
+        ...(typeof fields.notificationId === 'string' ? { notificationId: fields.notificationId.slice(0, 128) } : {}),
+      } as NappletMessage & Record<string, unknown>;
+      const generation = generations.get(windowId) ?? {};
+      generations.set(windowId, generation);
+      const execute = (): void => {
+        if (!current(windowId, generation)) return;
+        handleNotifyEnvelope(store, windowId, action, snapshot, send);
+      };
+      if (action === 'dismiss' || !runtime?.authorizeOperation) { execute(); return; }
+      const scope = action === 'create' ? 'legacy:notification'
+        : action === 'list' ? 'legacy:list'
+          : `legacy:${snapshot.notificationId ?? ''}`;
+      void runtime.authorizeOperation(windowId, `notify.${action}`, [{
+        category: 'resource', domain: 'notify', operation: `notify.${action}`,
+        scope: { kind: 'exact', value: scope },
+      }], (signal) => { if (!signal.aborted) execute(); });
     },
+
+    onPermissionRevoked(windowId: string): void { cleanup(windowId); },
+    onWindowDestroyed(windowId: string): void { cleanup(windowId); },
   };
 }

@@ -1,69 +1,6 @@
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-
-const playgroundNapplets = [
-  'bot',
-  'chat',
-  'composer',
-  'cvm-relatr',
-  'feed',
-  'preferences',
-  'profile-viewer',
-  'resource-demo',
-  'toaster',
-] as const;
-
-const retainedDisabledDemoNapplets = [
-  'ble-demo',
-  'common-demo',
-  'link-demo',
-  'lists-demo',
-  'serial-demo',
-  'webrtc-demo',
-] as const;
-
-const sourceCheckedNapplets = [
-  ...playgroundNapplets,
-  ...retainedDisabledDemoNapplets,
-] as const;
-
-const expectedRequires: Record<(typeof playgroundNapplets)[number], readonly string[]> = {
-  bot: ['inc', 'storage', 'theme'],
-  chat: ['inc', 'storage', 'relay', 'theme'],
-  composer: ['relay', 'theme'],
-  'cvm-relatr': ['cvm', 'theme'],
-  feed: ['identity', 'intent', 'relay', 'resource', 'theme'],
-  preferences: ['storage', 'theme'],
-  'profile-viewer': ['intent', 'relay', 'resource', 'theme'],
-  'resource-demo': ['resource', 'theme'],
-  toaster: ['notify', 'theme'],
-};
-
-const rawListenerFiles = [
-  'apps/playground/src/theme.ts',
-  'apps/playground/napplets/common-demo/src/main.ts',
-  'apps/playground/napplets/cvm-relatr/src/main.ts',
-  'apps/playground/napplets/link-demo/src/main.ts',
-  'apps/playground/napplets/lists-demo/src/main.ts',
-  'apps/playground/napplets/ble-demo/src/main.ts',
-  'apps/playground/napplets/serial-demo/src/main.ts',
-  'apps/playground/napplets/webrtc-demo/src/main.ts',
-  'apps/playground/napplets/toaster/src/main.ts',
-] as const;
-
-const rawPostMessageTypes: Record<string, readonly string[]> = {
-  'apps/playground/napplets/cvm-relatr/src/main.ts': ['cvm.discover', 'cvm.request'],
-  'apps/playground/napplets/toaster/src/main.ts': ['notify.create', 'notify.list'],
-};
-
-const policyAllowlistTypes = [
-  'cvm.discover',
-  'cvm.request',
-  'notify.create',
-  'notify.list',
-  'theme.changed',
-] as const;
 
 const installedNapDist = 'packages/paja/node_modules/@napplet/nap/dist';
 const installedCoreDist = 'packages/paja/node_modules/@napplet/core/dist/index.d.ts';
@@ -75,15 +12,11 @@ const relaySubscribeRoutingSurfaces = [
   },
   {
     file: 'packages/services/src/relay-pool-service.ts',
-    markers: ['relay?: unknown;', 'relayHint'],
+    markers: ['relay?: unknown;', 'relayHint', 'planRelayOperation', 'executeRelayOperation'],
   },
   {
     file: 'packages/services/src/coordinated-relay.ts',
     markers: ['relay?: unknown;', 'relayHint'],
-  },
-  {
-    file: 'apps/playground/src/playground-relay-service.ts',
-    markers: ['relay?: string;', 'message.relay'],
   },
   {
     file: 'packages/services/src/relay-pool-service.test.ts',
@@ -93,102 +26,28 @@ const relaySubscribeRoutingSurfaces = [
     file: 'packages/services/src/coordinated-relay.test.ts',
     markers: ['relay: \'wss://explicit.test\'', 'expect(selectRelayTier).not.toHaveBeenCalled()'],
   },
-  {
-    file: 'tests/unit/playground-relay-service.test.ts',
-    markers: ['relay: \'wss://explicit.test\'', 'expect(pool.log.requests).toHaveLength(0)'],
-  },
 ] as const;
 
-const resourceServerHintRoutingSurfaces = [
+const resourceCanonicalWireSurfaces = [
   {
     file: 'packages/shell/src/napplet-namespace.ts',
-    markers: ['servers: Array.from(options.servers)', "type: 'resource.bytesMany'", 'requests: Array.from(requests || []'],
+    markers: ["type: 'resource.bytes'", "type: 'resource.bytesMany'", 'const decode = (value: unknown, mime: unknown): Blob'],
   },
   {
     file: 'packages/shell/src/types/internal-resource.ts',
-    markers: [
-      "from '@napplet/nap/resource/types'",
-      'ResourceBytesItem as CanonicalResourceBytesItem',
-      'requests: readonly CanonicalResourceBytesRequest[]',
-    ],
+    markers: ["from '@napplet/nap/resource/types'", 'urls: readonly string[]', 'blob: string'],
   },
   {
     file: 'packages/services/src/resource-service.ts',
-    markers: [
-      "from '@napplet/nap/resource/types'",
-      'windowId?: string;',
-      'servers?: readonly string[];',
-      'm.requests ?? []',
-      "parsedUrl.protocol === 'blossom:'",
-    ],
+    markers: ['encodeCanonicalBase64', 'windowId?: string;', 'authorizeNetwork,', 'urls?: readonly string[]'],
   },
   {
     file: 'packages/paja/src/browser-resource.ts',
-    markers: [
-      'PAJA_RESOURCE_MAX_SERVERS = 8',
-      'init.servers ?? []',
-      'options.getBlossomServers?.({ url: value, windowId })',
-      'resolveBlossomServers(',
-      'normalizePublicBlossomServer(',
-    ],
-  },
-  {
-    file: 'packages/paja/src/browser-blossom-events.ts',
-    markers: [
-      'BLOSSOM_SERVER_LIST_KIND = 10_063',
-      '[{ kinds: [BLOSSOM_SERVER_LIST_KIND], authors: [pubkey], limit: 1 }]',
-      'for (const context of contexts) appendUnique(servers, context.servers);',
-      'for (const context of contexts) appendUnique(authors, [context.publisher]);',
-      'if (target.length >= PAJA_RESOURCE_MAX_SERVERS) return;',
-      'for (const author of options.getDefaultAuthors?.() ?? [])',
-      'authors.map((author) => discoverServerList(author))',
-    ],
-  },
-  {
-    file: 'packages/paja/src/browser-adapter.ts',
-    markers: [
-      'createPajaBlossomEventResolver({',
-      'getDefaultAuthors: () => [getRuntimePubkey(getSimulation, signerProvider)]',
-      'getBlossomServers: ({ url, windowId }) => blossomEventResolver.getServers(url, windowId)',
-      'getReadRouter: (windowId) => blossomEventResolver.decorate(baseOutboxRouter, windowId)',
-      'getQueryRouter: (windowId, context) => blossomEventResolver.decorate(',
-      'uploadRuntime?.getServers() ?? getSimulation().upload.servers',
-      'blossomEventResolver.clearWindow(windowId);',
-    ],
-  },
-  {
-    file: 'packages/services/src/outbox-service.ts',
-    markers: [
-      'getReadRouter?(windowId: string, context: ServiceRuntimeContext | undefined): OutboxRouter;',
-      'handleGetEvent(getReadRouter?.(windowId, runtimeContext) ?? router, message, send);',
-      'const readRouter = getReadRouter?.(windowId, runtimeContext) ?? router;',
-    ],
+    markers: ["'/__kehto/resource'", 'init.authorizeNetwork', "x-kehto-resource-redirect"],
   },
   {
     file: 'packages/paja/src/browser-resource.test.ts',
-    markers: ['accepted request hints before configured defaults', 'reports an inconclusive fallback as network-error'],
-  },
-  {
-    file: 'packages/paja/src/browser-blossom-events.test.ts',
-    markers: [
-      'prioritizes ROM-event hints and publisher lists before the shell signer fallback',
-      'uses the active shell user list without event context or Blossom upload mode',
-      'uses a canonical resource event publisher when no event-local hint exists',
-      'observes single-event and subscription results for the authenticated window',
-      'keeps event-derived locations window-scoped and clears them on teardown',
-    ],
-  },
-  {
-    file: 'packages/paja/src/browser-blossom-integration.test.ts',
-    markers: [
-      'uses event hints before the event publisher list with upload disabled',
-      'falls through request, ROM, publisher, user, and runtime candidates in order',
-      'expect(adapter.upload).toBeUndefined()',
-    ],
-  },
-  {
-    file: 'apps/playground/napplets/resource-demo/src/main.ts',
-    markers: ["import '@napplet/shim'", "from '@napplet/nap/resource/sdk'", 'REMOTE_IMAGE_URLS.map((url) => ({ url }))'],
+    markers: ['uses the local resource proxy for HTTP(S) requests', 're-authorizes each proxy redirect hop'],
   },
 ] as const;
 
@@ -207,20 +66,16 @@ const relayPublishRoutingSurfaces = [
   },
   {
     file: 'packages/services/src/relay-pool-service.ts',
-    markers: ["publishEvent(relayMessage, 'relay.publish.result', send);", 'eventId: event.id'],
+    markers: ["publishEvent(relayMessage, 'relay.publish.result', send, plan, signal);", 'eventId: event.id'],
   },
   {
     file: 'packages/services/src/coordinated-relay.ts',
-    markers: ['publishCoordinatedEvent(options, relayMessage, send);', 'eventId: event.id'],
-  },
-  {
-    file: 'apps/playground/src/playground-relay-service.ts',
-    markers: ['if (!ok) {', 'ok: true,', 'eventId: event.id'],
+    markers: ['publishCoordinatedEvent(options, relayMessage, send, plan, signal);', 'eventId: event.id'],
   },
   {
     file: 'packages/paja/src/browser-relay-runtime.ts',
     markers: [
-      'const attempt = await attemptPublish(relayUrls, event);',
+      'const attempt = await attemptPublish(relayUrls, event, signerContext);',
       'if (attempt.error) throw new Error(attempt.error);',
       'retainPublishedEvent(event, simulation.relay.mode);',
     ],
@@ -229,7 +84,7 @@ const relayPublishRoutingSurfaces = [
     file: 'packages/paja/src/browser-relay-policy.ts',
     markers: [
       'publishToScopedRelay: async',
-      'await pool.publish([active.relayUrl], event);',
+      'await getPublishPool(windowId).publish([active.relayUrl], event);',
       '} catch {',
     ],
   },
@@ -246,10 +101,6 @@ const relayPublishRoutingSurfaces = [
     markers: ['publishes, caches, and returns the canonical signed event result', 'eventId: event.id'],
   },
   {
-    file: 'tests/unit/playground-relay-service.test.ts',
-    markers: ["not.toHaveProperty('accepted')", "not.toHaveProperty('message')"],
-  },
-  {
     file: 'packages/paja/src/browser-relay-runtime.test.ts',
     markers: [
       'returns a canonical failure and retains nothing when confirmation is denied',
@@ -257,24 +108,6 @@ const relayPublishRoutingSurfaces = [
     ],
   },
 ] as const;
-
-const rawListenerTypeGuards: Record<string, readonly string[]> = {
-  'apps/playground/src/theme.ts': ["data.type !== 'theme.changed'"],
-  'apps/playground/napplets/common-demo/src/main.ts': ['msg.type !== resultType'],
-  'apps/playground/napplets/cvm-relatr/src/main.ts': ['data.type !== resultType'],
-  'apps/playground/napplets/link-demo/src/main.ts': ["msg.type !== 'link.open.result'"],
-  'apps/playground/napplets/lists-demo/src/main.ts': ['msg.type !== resultType'],
-  'apps/playground/napplets/ble-demo/src/main.ts': ['msg.type !== resultType'],
-  'apps/playground/napplets/serial-demo/src/main.ts': ['msg.type !== resultType'],
-  'apps/playground/napplets/webrtc-demo/src/main.ts': ['msg.type !== resultType'],
-  'apps/playground/napplets/toaster/src/main.ts': [
-    "type === 'notify.created'",
-    "type === 'notify.listed'",
-    "type === 'notify.create.error'",
-    "type === 'notify.list.error'",
-    "type === 'notify.dismiss.error'",
-  ],
-};
 
 const activeShellSurfaceFiles = [
   'packages/shell/src/napplet-namespace.ts',
@@ -284,7 +117,6 @@ const activeShellSurfaceFiles = [
 ] as const;
 
 const activeServiceGuidanceFiles = [
-  'apps/playground/README.md',
   'packages/services/README.md',
   'docs/packages/services.md',
   'skills/add-service/SKILL.md',
@@ -295,15 +127,10 @@ const activeIntentContractFiles = [
   'packages/services/src/catalog-intent-resolver.ts',
   'packages/services/src/manifest-intent-catalog.ts',
   'packages/services/src/index.ts',
-  'apps/playground/src/playground-intent-catalog.ts',
 ] as const;
 
 const activeArchetypeMetadataFiles = [
   'packages/nip/src/5d/index.ts',
-  'apps/playground/napplets/shared-vite-config.ts',
-  'apps/playground/napplets/profile-viewer/vite.config.ts',
-  'apps/playground/src/napplet-resolver.ts',
-  'apps/playground/src/playground-intent-catalog.ts',
 ] as const;
 
 const unsafeServiceGuidancePatterns = [
@@ -329,17 +156,6 @@ const publishedConventionAuthorities = Object.freeze({
   publishedReleaseMerge: 'dc1d24153c759152b6ba31a6ec9bea967798f2df',
 });
 
-const forbiddenNappletSourcePatterns = [
-  { label: 'window.nostr', pattern: /\bwindow\s*\.\s*nostr\b/ },
-  { label: 'localStorage', pattern: /\blocalStorage\b/ },
-  { label: 'sessionStorage', pattern: /\bsessionStorage\b/ },
-  { label: 'IndexedDB', pattern: /\bindexedDB\b|\bIndexedDB\b/ },
-  { label: 'direct WebSocket', pattern: /\bnew\s+WebSocket\b|\bWebSocket\s*\(/ },
-  { label: 'direct fetch', pattern: /\bfetch\s*\(/ },
-  { label: 'nostr-tools import', pattern: /from\s+['"]nostr-tools(?:\/pure)?['"]/ },
-  { label: 'direct event signing', pattern: /\bfinalizeEvent\b|\bgenerateSecretKey\b|\bgetPublicKey\s*\(/ },
-] as const;
-
 function readRepoFile(path: string): string {
   return readFileSync(join(process.cwd(), path), 'utf8');
 }
@@ -352,33 +168,6 @@ function removeComments(source: string): string {
 
 function removeExplicitLegacyProhibitions(source: string): string {
   return source.replace(/(?:do not|never|must not)\b[^.]*\./gi, '');
-}
-
-function listFiles(root: string): string[] {
-  if (!existsSync(root)) return [];
-  const stat = statSync(root);
-  if (!stat.isDirectory()) return [root];
-
-  const files: string[] = [];
-  for (const entry of readdirSync(root)) {
-    if (entry === 'dist' || entry === 'node_modules' || entry === '.turbo') continue;
-    files.push(...listFiles(join(root, entry)));
-  }
-  return files;
-}
-
-function nappletSourceFiles(): string[] {
-  return [
-    join(process.cwd(), 'apps/playground/src/theme.ts'),
-    ...sourceCheckedNapplets.flatMap((name) =>
-      listFiles(join(process.cwd(), 'apps/playground/napplets', name, 'src'))
-        .filter((file) => /\.[cm]?tsx?$/.test(file)),
-    ),
-  ];
-}
-
-function stringLiteralList(values: readonly string[]): string {
-  return values.map((value) => `'${value}'`).join(', ');
 }
 
 function interfaceBody(source: string, interfaceName: string): string {
@@ -410,6 +199,87 @@ function sourceBetween(source: string, start: string, end: string): string {
 }
 
 describe('NIP-5D conformance static guards', () => {
+  // NIP-5D port-bound identity: nostr-protocol/nips#2303 at
+  // 51ef0cd33a5694784306f3260d90b1872545fdee (napplet/web#302).
+  it('neuters direct WebRTC egress in the injected napplet realm (napplet/evil #1)', () => {
+    const prelude = removeComments(readRepoFile('packages/shell/src/napplet-namespace.ts'));
+    const policy = readRepoFile('docs/policies/NIP-5D-CONFORMANCE.md');
+
+    // The prelude removes both PeerConnection constructors as a pinned undefined,
+    // before any napplet script runs. NAP-WEBRTC runs in the shell realm.
+    expect(prelude).toContain("if (key.startsWith('RTC')) rtcGlobals.add(key);");
+    expect(prelude).toContain("'webkitRTCPeerConnection', 'mozRTCPeerConnection',");
+    expect(prelude).toMatch(/Object\.defineProperty\(target as object, rtcName, \{[\s\S]*?value: undefined,[\s\S]*?writable: false,[\s\S]*?configurable: false,/);
+    expect(policy).toContain('### Direct WebRTC egress');
+  });
+
+  it('locks nested browsing contexts: prelude closure, CSP Trusted Types, and host byte scan', () => {
+    const prelude = removeComments(readRepoFile('packages/shell/src/napplet-namespace.ts'));
+    const csp = removeComments(readRepoFile('packages/shell/src/napplet-csp.ts'));
+    const scan = readRepoFile('packages/shell/src/napplet-frame-scan.ts');
+    const paja = removeComments(readRepoFile('packages/paja/src/browser-target-frame.ts'));
+    const srcdocSrc = removeComments(readRepoFile('packages/shell/src/napplet-srcdoc.ts'));
+    const policy = readRepoFile('docs/policies/NIP-5D-CONFORMANCE.md');
+
+    // Prelude installs the Trusted Types default policy rejecting frame markup
+    // and pins the only two element factories, before any napplet script.
+    expect(prelude).toContain("trustedTypes.createPolicy('default'");
+    expect(prelude).toContain('napplets may not create nested browsing contexts');
+    expect(prelude).toContain("pin(docProto, 'createElement'");
+    expect(prelude).toContain("pin(docProto, 'createElementNS'");
+    expect(prelude).toContain('frameLock(target);');
+    // CSP carries the non-overridable Trusted Types lock on every napplet.
+    expect(csp).toContain("require-trusted-types-for 'script'; trusted-types default");
+    // Host rejects static frame markup before the bytes become a document, and
+    // Paja runs that scan on the verified runtime-pointer load path.
+    expect(scan).toContain('export function nappletMarkupHasFrame');
+    expect(paja).toContain('assertNappletHasNoFrame(resolvedTarget.indexHtml);');
+    // The lock is opt-in (experimental namespace), off by default, so it is
+    // never imposed on downstream hosts.
+    expect(srcdocSrc).toContain('options.experimental?.nestedContextLock === true');
+    expect(paja).toContain('config.experimental?.nestedContextLock');
+    expect(policy).toContain('### Nested browsing contexts');
+  });
+
+  it('keeps napplet identity bound to the napplet.hello port across shell and hosts', () => {
+    const prelude = removeComments(readRepoFile('packages/shell/src/napplet-namespace.ts'));
+    const bridge = readRepoFile('packages/shell/src/nip5d-transport.ts');
+    const registry = readRepoFile('packages/shell/src/origin-registry.ts');
+    const policy = readRepoFile('docs/policies/NIP-5D-CONFORMANCE.md');
+    const pajaNip5d = readRepoFile('packages/paja/src/browser-nip5d-host.ts');
+
+    expect(prelude).toContain("target.parent.postMessage({ type: 'napplet.hello' }, '*', [channel.port2]);");
+    expect(prelude).toContain('port.postMessage(message);');
+    expect(prelude).toContain('return event.currentTarget === port;');
+    expect(prelude).not.toContain('target.parent.postMessage(message');
+    expect(prelude).not.toContain("target.addEventListener('message'");
+
+    for (const reason of ['window-message', 'second-hello', 'invalid-hello', 'second-load', 'port-closed']) {
+      expect(bridge, `revocation reason ${reason}`).toContain(`'${reason}'`);
+    }
+    expect(bridge).toContain('if (ports.length !== 1) {');
+    expect(registry).toContain("throw new Error('NIP-5D: cannot re-bind a napplet identity to an existing iframe; create a fresh iframe');");
+
+    // No shell, Paja or services source may send NAP through an iframe Window.
+    const windowSend = /\b(?:win|iframeWindow|sourceWindow|contentWindow!?|getIframeWindow\([^)]*\)\??)\.postMessage\(/;
+    for (const dir of ['packages/shell/src', 'packages/paja/src', 'packages/services/src']) {
+      for (const file of readdirSync(join(process.cwd(), dir))) {
+        if (!file.endsWith('.ts') || file.endsWith('.test.ts') || file === 'test-utils.ts') continue;
+        const source = removeComments(readRepoFile(`${dir}/${file}`));
+        if (`${dir}/${file}` === 'packages/paja/src/intent-launcher.ts') continue;
+        expect(windowSend.test(source), `${dir}/${file} posts to an iframe Window`).toBe(false);
+      }
+    }
+
+    // The single window-level exception is the signed Paja launcher's host messages.
+    expect(readRepoFile('packages/paja/src/intent-launcher.ts')).toContain("frame.contentWindow.postMessage(message, '*');");
+    expect(pajaNip5d).toContain("new Set(['paja.intent.launcher.ready', 'paja.intent.launcher.result'])");
+    expect(pajaNip5d).toContain('!originRegistry.getPort(launcher.windowId)');
+    expect(policy).toContain('### Window-level host message allowlist');
+    expect(policy).toContain('`paja.intent.launcher.ready`, `paja.intent.launcher.result` (launcher → host); `paja.intent.launch` (host → launcher)');
+    expect(policy).toContain('51ef0cd33a5694784306f3260d90b1872545fdee');
+  });
+
   it('keeps released intent ownership and the host-owned NAP-SHELL prelude as positive evidence', () => {
     const services = readRepoFile('packages/services/src/index.ts');
     const prelude = readRepoFile('packages/shell/src/napplet-namespace.ts');
@@ -427,10 +297,12 @@ describe('NIP-5D conformance static guards', () => {
     for (const authority of Object.values(publishedConventionAuthorities)) {
       expect(publishedContract, `published contract authority ${authority}`).toContain(authority);
     }
-    // @napplet/nap 0.32 lacks the pinned PR #106 contract. Kehto contains the
-    // exact temporary canonical types until that package exports them.
+    // The 0.32 fixture line lacks the pinned PR #106 contract. Host packages take the
+    // intent types from core 0.41.0, which matches NAP-INTENT PR #128 @ 74f9bf85
+    // (kehto/web#418); intent-types.ts only re-exports them.
     expect(services).toContain("from './intent-types.js'");
-    expect(existsSync(join(process.cwd(), 'packages/services/src/intent-types.ts'))).toBe(true);
+    const intentTypes = removeComments(readRepoFile('packages/services/src/intent-types.ts')).trim();
+    expect(intentTypes).toMatch(/^export type \{[^}]+\} from '@napplet\/core';$/);
     expect(publishedContract).toContain('NAP-INTENT PR #106');
 
     // Published core/shim omit generic shell, so NAP-SHELL stays a Kehto-owned
@@ -481,26 +353,10 @@ describe('NIP-5D conformance static guards', () => {
     expect(e2eViteConfig).not.toContain('/home/sandwich/Develop/napplet');
   });
 
-  it('keeps forbidden browser and protocol primitives out of playground napplet source', () => {
-    const violations: string[] = [];
-
-    for (const file of nappletSourceFiles()) {
-      const source = removeComments(readFileSync(file, 'utf8'));
-      for (const { label, pattern } of forbiddenNappletSourcePatterns) {
-        if (pattern.test(source)) {
-          violations.push(`${relative(process.cwd(), file)}: ${label}`);
-        }
-      }
-    }
-
-    expect(violations).toEqual([]);
-  });
-
   it('keeps active intent and manifest surfaces on exact convention contracts', () => {
     const publishedIntentTypes = readRepoFile(installedCoreDist);
     const resolver = readRepoFile('packages/services/src/catalog-intent-resolver.ts');
     const manifestParser = readRepoFile('packages/nip/src/5d/current-manifest.ts');
-    const playgroundManifest = readRepoFile('apps/playground/napplets/shared-vite-config.ts');
     const paja = readRepoFile('packages/paja/src/browser-adapter.ts');
     const pajaHost = readRepoFile('packages/paja/src/browser-host.ts');
     const pajaIntent = [
@@ -513,14 +369,12 @@ describe('NIP-5D conformance static guards', () => {
     ].join('\n');
     const forbiddenCanonicalField = /\b(?:protocol|protocols)\s*(?:\?|):/;
 
-    const localIntentTypes = readRepoFile('packages/services/src/intent-types.ts');
-    expect(existsSync(join(process.cwd(), 'packages/services/src/intent-types.ts'))).toBe(true);
-    expect(localInterfaceFieldNames(localIntentTypes, 'IntentCandidate')).toEqual([
+    expect(interfaceFieldNames(publishedIntentTypes, 'IntentCandidate')).toEqual([
       'id', 'title', 'actions', 'conventions', 'contracts', 'isDefault',
     ]);
-    expect(localIntentTypes).toContain('export type IntentResult =');
-    expect(localIntentTypes).not.toContain('handled');
-    expect(localIntentTypes).not.toContain('windowId');
+    expect(interfaceFieldNames(publishedIntentTypes, 'IntentDelivery')).toEqual([
+      'sender', 'archetype', 'action', 'convention', 'payload',
+    ]);
     expect(localInterfaceFieldNames(resolver, 'IntentDispatchParams')).toEqual([
       'handler',
       'sender',
@@ -530,6 +384,7 @@ describe('NIP-5D conformance static guards', () => {
       'payload',
       'behavior',
       'sourceWindowId',
+      'signal',
     ]);
 
     for (const file of activeIntentContractFiles) {
@@ -551,92 +406,12 @@ describe('NIP-5D conformance static guards', () => {
     expect(paja).not.toContain('DEV_INTENT');
 
     expect(manifestParser).toContain('eligible only for the same declared role');
-    expect(playgroundManifest).toContain('archetype');
 
     for (const file of activeArchetypeMetadataFiles) {
       const source = removeComments(readRepoFile(file));
       expect(source, `${file} numbered archetype metadata`).not.toMatch(
         /\bnap\s*:|NAP-[0-9]+/,
       );
-    }
-  });
-
-  it('requires every playground napplet to declare and preflight its NAP contract', () => {
-    for (const name of playgroundNapplets) {
-      const config = readRepoFile(`apps/playground/napplets/${name}/vite.config.ts`);
-      const source = readRepoFile(`apps/playground/napplets/${name}/src/main.ts`);
-      const requiresLiteral = stringLiteralList(expectedRequires[name]);
-
-      // profile-viewer also declares one exact queryless archetype convention.
-      const expectedConfigCall =
-        name === 'profile-viewer'
-          ? `definePlaygroundNappletConfig('${name}', { requires: [${requiresLiteral}], archetypes: [{ slug: 'profile', convention: 'napplet:profile/open' }] })`
-          : `definePlaygroundNappletConfig('${name}', { requires: [${requiresLiteral}] })`;
-      expect(config, `${name} vite requires`).toContain(expectedConfigCall);
-      expect(source, `${name} source requires`).toContain(
-        `const REQUIRED_NAPS = [${requiresLiteral}] as const;`,
-      );
-      expect(source, `${name} source domain preflight`).toContain('getMissingNapDomains(REQUIRED_NAPS)');
-      expect(source, `${name} source unsupported path`).toContain('unsupported NAP capability');
-    }
-  });
-
-  it('confines raw napplet message listeners to the Phase 58 allowlist', () => {
-    const listeners: string[] = [];
-
-    for (const file of nappletSourceFiles()) {
-      const relativePath = relative(process.cwd(), file);
-      const source = removeComments(readFileSync(file, 'utf8'));
-      if (/window\.addEventListener\s*\(\s*['"]message['"]/.test(source)) {
-        listeners.push(relativePath);
-      }
-    }
-
-    expect(listeners.sort()).toEqual([...rawListenerFiles].sort());
-    for (const file of rawListenerFiles) {
-      const source = readRepoFile(file);
-      expect(source, `${file} parent-source guard`).toContain('event.source !== window.parent');
-      expect(source, `${file} policy marker`).toMatch(/Phase 58 .*allowlist/i);
-      for (const guard of rawListenerTypeGuards[file]) {
-        expect(source, `${file} ${guard}`).toContain(guard);
-      }
-    }
-  });
-
-  it('confines raw parent postMessage envelopes to documented demo exceptions', () => {
-    const outboundByFile = new Map<string, string[]>();
-
-    for (const file of nappletSourceFiles()) {
-      const relativePath = relative(process.cwd(), file);
-      const source = removeComments(readFileSync(file, 'utf8'));
-      const matches = [...source.matchAll(/window\.parent\.postMessage\s*\(\s*\{[\s\S]*?type:\s*['"]([^'"]+)['"]/g)]
-        .map((match) => match[1])
-        .sort();
-      if (matches.length > 0) outboundByFile.set(relativePath, matches);
-    }
-
-    expect([...outboundByFile.keys()].sort()).toEqual(Object.keys(rawPostMessageTypes).sort());
-    for (const [file, expectedTypes] of Object.entries(rawPostMessageTypes)) {
-      expect(outboundByFile.get(file), file).toEqual([...expectedTypes].sort());
-    }
-  });
-
-  it('keeps the policy allowlist synchronized with raw demo envelope exceptions', () => {
-    const policy = readRepoFile('docs/policies/NIP-5D-CONFORMANCE.md');
-
-    for (const type of policyAllowlistTypes) {
-      expect(policy, `${type} policy entry`).toContain(`| \`${type}\``);
-    }
-
-    for (const [file, types] of Object.entries(rawPostMessageTypes)) {
-      expect(policy, `${file} policy path`).toContain(file);
-      for (const type of types) {
-        expect(policy, `${type} policy entry`).toContain(`\`${type}\``);
-      }
-    }
-
-    for (const file of Object.keys(rawListenerTypeGuards)) {
-      expect(policy, `${file} policy path`).toContain(file);
     }
   });
 
@@ -648,6 +423,25 @@ describe('NIP-5D conformance static guards', () => {
     expect(agents).toMatch(/A missing or stale\s+package export is upstream drift/);
     expect(policy).toContain('NAP-SHELL is optional and does not gate other domain calls.');
     expect(policy).toContain('napplet artifacts are not required to bundle their own handshake');
+  });
+
+  it('keeps the Paja host loader behind verified-byte admission and the closed browser CSP', () => {
+    const paja = readRepoFile('packages/paja/src/browser-target-frame.ts');
+    const admission = readRepoFile('packages/shell/src/browser-admission.ts');
+    const csp = readRepoFile('packages/shell/src/napplet-csp.ts');
+
+    expect(paja).toContain('await admitBrowserDocument({');
+    expect(paja).toContain('verifiedHtml: injectBaseHref(fetched.html, targetUrl.href)');
+    expect(paja).toContain('frame.srcdoc = srcdoc;');
+    expect(admission).toContain('permissions.isAdmissionCurrent(entry.windowId, admission)');
+    expect(admission).toContain('cspMeta(csp) + renderNappletNamespacePrelude({ domains,');
+    expect(admission).toContain("request.required.filter((domain) => domain !== 'shell')");
+    expect(admission).toContain("const offersShell = request.available.includes('shell')");
+    expect(csp).toContain("'default-src': [\"'none'\"]");
+    for (const directive of ['frame-src', 'child-src', 'object-src', 'manifest-src', 'form-action']) {
+      expect(csp).toContain(`'${directive}': [\"'none'\"]`);
+    }
+    expect(csp).toContain('Development base origin needs matching exact approved network authority');
   });
 
   it('keeps active NAP-SHELL support domain-only and host resolution out of injected APIs', () => {
@@ -699,7 +493,7 @@ describe('NIP-5D conformance static guards', () => {
     );
   });
 
-  it('keeps NAP-RELAY subscribe routing fields wired through runtime, services, playground, and tests', () => {
+  it('keeps NAP-RELAY subscribe routing fields wired through runtime, services, and tests', () => {
     const relayTypes = readRepoFile(`${installedNapDist}/relay/types.d.ts`);
     const fields = interfaceFieldNames(relayTypes, 'RelaySubscribeMessage');
 
@@ -713,13 +507,19 @@ describe('NIP-5D conformance static guards', () => {
     }
   });
 
-  it('keeps NAP-RESOURCE server hints wired through shell, services, Paja, playground, and tests', () => {
-    for (const { file, markers } of resourceServerHintRoutingSurfaces) {
+  it('keeps canonical NAP-RESOURCE URL/base64 transport wired through shell, services, Paja, and tests', () => {
+    for (const { file, markers } of resourceCanonicalWireSurfaces) {
       const source = readRepoFile(file);
       for (const marker of markers) {
         expect(source, `${file} missing ${marker}`).toContain(marker);
       }
     }
+  });
+
+  it('keeps the documented canonical resource host projection', () => {
+    const policy = readRepoFile('docs/policies/NIP-5D-CONFORMANCE.md');
+    expect(policy).toContain('RESOURCE_HOST_PROJECTION');
+    expect(policy).toContain('ae5b9c64ab8a4d8909f288829a01e99d6bd713bc');
   });
 
   it('keeps NAP-RELAY publish signing and canonical results wired through every host surface', () => {
@@ -758,10 +558,13 @@ describe('NIP-5D conformance static guards', () => {
       "'relay.query.result'",
     );
 
-    // (b) relay-handler.ts produces the canonical events field (not count)
-    //     The result object literal must carry `events` (the settled reply).
-    expect(relayHandlerSrc, 'relay-handler relay.query.result must carry events field').toContain(
-      '{ type: \'relay.query.result\', id, events }',
+    // (b) Success and denial share a correlated terminal sender. Only the
+    //     success branch supplies the canonical events field, never a count.
+    expect(relayHandlerSrc, 'query terminal sender must preserve the result fields').toContain(
+      "{ type: 'relay.query.result', id, ...result }",
+    );
+    expect(relayHandlerSrc, 'successful query must send its collected events').toContain(
+      'respond({ events })',
     );
     expect(relayHandlerSrc, 'relay-handler query events must be RelayEventResult records').toContain(
       'const events: RelayEventResult[] = []',
@@ -914,11 +717,10 @@ describe('NIP-5D conformance static guards', () => {
   });
 });
 
-it('bounds the temporary intent delivery binding to the protected host and profile consumer', () => {
-  const profile = readFileSync('apps/playground/napplets/profile-viewer/src/main.ts', 'utf8');
+it('records the retired local intent contract and the checked NAP-INTENT refs', () => {
   const policy = readFileSync('docs/policies/NIP-5D-CONFORMANCE.md', 'utf8');
-  expect(profile).toContain('intent.onDelivery(');
-  expect(profile).not.toContain("from '@napplet/nap/inc/sdk'");
   expect(policy).toContain('packages/services/src/intent-types.ts');
   expect(policy).toContain('fc121fc264615482143eda86125863d2e1f741a2');
+  expect(policy).toContain('74f9bf85ebb83b50b7b2ad8308a835d5f3113cd9');
+  expect(policy).toContain('kehto/web/issues/418');
 });

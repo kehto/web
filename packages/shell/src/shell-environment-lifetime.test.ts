@@ -1,11 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createShellBridge, originRegistry, resolveShellEnvironment } from './index.js';
 import type { ShellAdapter } from './index.js';
+import { createLinkService } from '@kehto/services';
+import type { ApprovalPrompt } from '@kehto/runtime';
+import { deliverFromNapplet } from './test-utils.js';
 
 const identity = { dTag: 'example', aggregateHash: 'a'.repeat(64) };
 const windowId = 'example-window';
 
-function createHarness() {
+function createHarness(overrides: Partial<ShellAdapter> = {}) {
   const handler = vi.fn((_windowId, message, send) => {
     send({ type: 'example.result', id: message.id });
   });
@@ -33,6 +36,7 @@ function createHarness() {
       selectRelayTier: () => [],
     },
     workerRelay: { getWorkerRelay: () => null },
+    ...overrides,
   };
   const bridge = createShellBridge(hooks);
   const defaults = resolveShellEnvironment(hooks, identity);
@@ -41,9 +45,8 @@ function createHarness() {
     services: [...defaults.services, 'private-example'],
   };
   const dispatch = (source: Window, data: Record<string, unknown>) => {
-    bridge.handleMessage({ source, origin: 'null', data } as MessageEvent);
+    deliverFromNapplet(bridge, { source, origin: 'null', data } as MessageEvent);
   };
-  bridge.runtime.firewallState.setPolicy(identity.dTag, 'allow');
   return { bridge, defaults, explicit, dispatch, handler };
 }
 
@@ -58,17 +61,40 @@ describe('source environment lifetime (#320)', () => {
   beforeEach(() => originRegistry.clear());
   afterEach(() => originRegistry.clear());
 
+  it.each(['registry', 'hook'] as const)('propagates trusted %s principals without accepting wire identity', async (source) => {
+    const principal = { kind: 'verified' as const, manifestKey: `nip5d:15129:${'b'.repeat(64)}`, artifactHash: identity.aggregateHash };
+    const original = { ...principal };
+    const prompt = vi.fn(async (_prompt: ApprovalPrompt) => ({ effect: 'allow' as const, lifetime: 'once' as const }));
+    const open = vi.fn(() => ({ status: 'opened' as const }));
+    const { bridge, dispatch } = createHarness({ services: { link: createLinkService({ open }) },
+      ...(source === 'hook' ? { onNip5dIframeCreate: () => ({ ...identity, permissionPrincipal: original }) } : {}),
+      permissions: { prompt, now: Date.now, createCancellation: () => new AbortController(),
+        schedule(callback, delay) { const timer = setTimeout(callback, delay); return () => clearTimeout(timer); } },
+    });
+    const frame = createFrame();
+    originRegistry.register(frame.win, windowId, { ...identity, ...(source === 'registry' ? { permissionPrincipal: principal } : {}) });
+    originRegistry.setEnvironment(frame.win, { capabilities: { domains: ['link'] }, services: ['link'] });
+    principal.manifestKey = `nip5d:15129:${'c'.repeat(64)}`;
+    dispatch(frame.win, { type: 'link.open', id: 'one', url: 'https://example.com/', permissionPrincipal: principal });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(prompt).toHaveBeenCalledTimes(1);
+    expect(prompt.mock.calls[0][0].request.principal).toEqual(original);
+    expect(bridge.runtime.sessionRegistry.getEntryByWindowId(windowId)?.permissionPrincipal).toEqual(original);
+    expect(open).toHaveBeenCalledTimes(1);
+    expect(frame.postMessage).toHaveBeenCalledWith({ type: 'link.open.result', id: 'one', status: 'opened' }, '*');
+    bridge.destroy();
+  });
+
+  // NIP-5D (nostr-protocol/nips#2303): identity is bound to one document's
+  // port, so a retired iframe is replaced by a fresh one and never re-bound.
   it.each([
-    { reuseSource: true, unregisterSession: true, readyFirst: true },
-    { reuseSource: false, unregisterSession: true, readyFirst: true },
-    { reuseSource: true, unregisterSession: true, readyFirst: false },
-    { reuseSource: false, unregisterSession: true, readyFirst: false },
-    { reuseSource: true, unregisterSession: false, readyFirst: true },
-    { reuseSource: false, unregisterSession: false, readyFirst: true },
-  ])('resolves defaults after retirement: %j', ({ reuseSource, unregisterSession, readyFirst }) => {
+    { unregisterSession: true, readyFirst: true },
+    { unregisterSession: true, readyFirst: false },
+    { unregisterSession: false, readyFirst: true },
+  ])('resolves defaults after retirement: %j', ({ unregisterSession, readyFirst }) => {
     const { bridge, defaults, explicit, dispatch, handler } = createHarness();
     const first = createFrame();
-    const replacement = reuseSource ? first : createFrame();
+    const replacement = createFrame();
     try {
       expect(defaults.capabilities.domains).not.toContain('example');
       originRegistry.register(first.win, windowId, identity);
@@ -88,6 +114,7 @@ describe('source environment lifetime (#320)', () => {
       dispatch(first.win, { type: 'example.read', id: 'retired' });
       expect(handler).toHaveBeenCalledTimes(1);
 
+      expect(() => originRegistry.register(first.win, windowId, identity)).toThrow(/fresh iframe/);
       originRegistry.register(replacement.win, windowId, identity);
       expect(originRegistry.getEnvironment(replacement.win)).toBeUndefined();
       if (readyFirst) dispatch(replacement.win, { type: 'shell.ready' });
@@ -101,11 +128,9 @@ describe('source environment lifetime (#320)', () => {
       dispatch(replacement.win, { type: 'shell.ready', capabilities: explicit.capabilities });
       const inits = replacement.postMessage.mock.calls.filter(([message]) => message.type === 'shell.init');
       expect(inits).toEqual([[{ type: 'shell.init', ...defaults }, '*']]);
-      if (!reuseSource) {
-        dispatch(first.win, { type: 'shell.ready' });
-        dispatch(first.win, { type: 'example.read', id: 'old-source' });
-        expect(first.postMessage).not.toHaveBeenCalled();
-      }
+      dispatch(first.win, { type: 'shell.ready' });
+      dispatch(first.win, { type: 'example.read', id: 'old-source' });
+      expect(first.postMessage).not.toHaveBeenCalled();
     } finally {
       bridge.destroy();
     }
@@ -113,10 +138,11 @@ describe('source environment lifetime (#320)', () => {
 
   it('honors a replacement snapshot and keeps it across duplicate ready messages', () => {
     const { bridge, defaults, explicit, dispatch, handler } = createHarness();
+    const retired = createFrame();
     const frame = createFrame();
     try {
-      originRegistry.register(frame.win, windowId, identity);
-      dispatch(frame.win, { type: 'shell.ready' });
+      originRegistry.register(retired.win, windowId, identity);
+      dispatch(retired.win, { type: 'shell.ready' });
       bridge.runtime.destroyWindow(windowId);
       bridge.runtime.sessionRegistry.unregister(windowId);
       originRegistry.unregister(windowId);

@@ -373,4 +373,76 @@ describe('createHttpUploader', () => {
       expect(result.error).toMatch(/no server configured/);
     });
   });
+
+  describe('prepared approval execution', () => {
+    it('selects the actual Blossom endpoint without signing or contacting it', async () => {
+      const signEvent = signer();
+      const fetchFn = vi.fn(async () => blossomResponse());
+      const uploader = createHttpUploader({
+        rails: { blossom: { servers: ['https://blossom.test'] } }, signEvent,
+        fetch: fetchFn as unknown as typeof fetch, digestSha256: DIGEST, now: NOW,
+      });
+      const plan = await uploader.planUpload!({ data: new ArrayBuffer(8) }, ctx());
+      expect(plan).toMatchObject({ rail: 'blossom', destination: 'https://blossom.test/upload' });
+      expect(signEvent).not.toHaveBeenCalled();
+      expect(fetchFn).not.toHaveBeenCalled();
+      await plan.execute(new AbortController().signal);
+      expect(signEvent).toHaveBeenCalledTimes(1);
+      expect(fetchFn).toHaveBeenCalledTimes(1);
+    });
+
+    it('never egresses when approval is revoked while signing', async () => {
+      let finishSigning!: (event: NostrEvent) => void;
+      const signEvent = vi.fn((template: EventTemplate) => new Promise<NostrEvent>((resolve) => {
+        finishSigning = (event) => resolve({ ...template, ...event });
+      }));
+      const fetchFn = vi.fn();
+      const uploader = createHttpUploader({
+        rails: { blossom: { servers: ['https://blossom.test'] } }, signEvent,
+        fetch: fetchFn as unknown as typeof fetch, digestSha256: DIGEST, now: NOW,
+      });
+      const approval = new AbortController();
+      const plan = await uploader.planUpload!({ data: new ArrayBuffer(8) }, ctx());
+      const pending = plan.execute(approval.signal);
+      await vi.waitFor(() => expect(signEvent).toHaveBeenCalledTimes(1));
+      approval.abort();
+      finishSigning(signedEventForTest());
+      await expect(pending).resolves.toMatchObject({ ok: false, status: 'cancelled' });
+      expect(fetchFn).not.toHaveBeenCalled();
+    });
+
+    it('rejects a followed redirect even if an injected fetch reports success', async () => {
+      const fetchFn = vi.fn(async (_url: string | URL | Request, _init?: RequestInit) => ({ ...blossomResponse(), redirected: true,
+        url: 'https://different.example/upload' }) as unknown as Response);
+      const uploader = createHttpUploader({
+        rails: { blossom: { servers: ['https://blossom.test'] } }, signEvent: signer(),
+        fetch: fetchFn as unknown as typeof fetch, digestSha256: DIGEST, now: NOW,
+      });
+      const plan = await uploader.planUpload!({ data: new ArrayBuffer(8) }, ctx());
+      await expect(plan.execute(new AbortController().signal)).resolves.toMatchObject({
+        ok: false, status: 'failed', error: 'unapproved upload redirect',
+      });
+      expect(fetchFn.mock.calls[0]?.[1]).toMatchObject({ redirect: 'manual' });
+    });
+
+    it('stops before fetch if the signed pubkey differs from the approved identity', async () => {
+      const fetchFn = vi.fn();
+      const uploader = createHttpUploader({
+        rails: { blossom: { servers: ['https://blossom.test'] } },
+        signingPubkey: 'a'.repeat(64), signEvent: signer(),
+        fetch: fetchFn as unknown as typeof fetch, digestSha256: DIGEST, now: NOW,
+      });
+      const plan = await uploader.planUpload!({ data: new ArrayBuffer(8) }, ctx());
+      expect(plan.signingPubkey).toBe('a'.repeat(64));
+      await expect(plan.execute(new AbortController().signal)).resolves.toMatchObject({
+        ok: false, status: 'failed', error: 'upload signing identity changed',
+      });
+      expect(fetchFn).not.toHaveBeenCalled();
+    });
+  });
 });
+
+function signedEventForTest(): NostrEvent {
+  return { kind: 24242, created_at: NOW(), content: '', tags: [], id: 'e'.repeat(64),
+    pubkey: 'p'.repeat(64), sig: 'f'.repeat(128) };
+}

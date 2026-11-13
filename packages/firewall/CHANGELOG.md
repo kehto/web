@@ -1,5 +1,72 @@
 # @kehto/firewall
 
+## 0.9.0
+
+### Minor Changes
+
+- b573414: Stop the Paja Firewall from asking about every exact scope, and make its decisions readable.
+
+  - **Paja** allows every interface and operation by default and asks before each `link.open`. The Firewall panel edits those default rules: change the default, or add an exception per interface or operation, for every napplet or one. Rules persist in the browser. An approved link opens from the approving click instead of raising a second confirmation, and a revoked single-target napplet starts again through admission instead of leaving an empty stage.
+  - **Shell** rebuilds `createBrowserApprovalUi`. The prompt asks a plain-language question, lists each exact scope, preselects the narrowest lifetime so one click answers, counts queued requests, and can turn an answer into a standing rule. Grants are a compact tree of single-line rows (napplet, interface, grant) with status dots and icon buttons, expanding for identity and the full scope; scopes allowed by a rule collapse to one counted row. The prompt no longer has a Cancel button or a lifetime select; Escape still cancels. New `rules` and `onAnswer` options, `BrowserApprovalRules` type and `BROWSER_APPROVAL_UI_STYLES` stylesheet.
+  - **Runtime** adds `PermissionAdapter.defaultDecision`, consulted before the prompt budget and the prompt. `allow` commits session grants whose ids start with `DEFAULT_RULE_GRANT_PREFIX`. Hosts that set no hook still ask for every scope.
+  - **Firewall** adds the pure rule model: `createPermissionRules`, `resolvePermissionRule`, `setPermissionRule`, `permissionRuleSubject`, `serializePermissionRules`, `deserializePermissionRules`.
+
+- e291825: Restore voluntary temporal protection with the independent `@kehto/rate-limit` package.
+  Runtime no longer constructs operation or prompt limiters implicitly. Hosts opt in
+  with `permissions.rateLimiter` and `permissions.promptRateLimiter`; Paja explicitly
+  installs both. Limiter configuration is managed on the host-owned instance.
+
+  Move the old behavioral Firewall APIs and runtime `createFirewallState` into the
+  explicit `@kehto/rate-limit/legacy` migration subpath. Legacy hosts supply the
+  constructed state through `legacyFirewall`; runtime `firewallState` and
+  `firewallPersistence` are removed. Legacy allow policies no longer bypass installed
+  temporal controls. Firewall now exports only scoped approval/access policy.
+
+## 0.8.2
+
+### Patch Changes
+
+- 11ae71c: Adopt @napplet/core 0.41.x and @napplet/nap 0.40.x, which export the current NAP-INTENT no-ID, string-sender delivery. `@kehto/services` now re-exports its intent types from `@napplet/core` instead of keeping a local copy. Because core releases before 0.41.0 carry the withdrawn delivery ID and nullable sender, `@kehto/services`, `@kehto/paja` and `@kehto/cli` now require `@napplet/core` >=0.41.0. Other packages widen their peer windows to core <0.42.0 and nap <0.41.0 and move development builds and JSR maps to the new line. The shell's injected intent receiver now drops deliveries with an empty sender, matching the nap 0.40 binding.
+
+## 0.8.1
+
+### Patch Changes
+
+- f4e7e8a: Accept @napplet/core 0.40.x and @napplet/nap 0.39.x throughout the Paja host dependency graph and update host development dependencies and JSR maps to that line. Keep existing peer floors. Account for the newly packaged blossom, catalog, navigation, soulseek and torrent domains without advertising unimplemented host backends.
+
+## 0.8.0
+
+### Minor Changes
+
+- 249fe8c: Add pure approval policy for NAP interfaces, resources, network origins and registered extensions. Grants bind to verified manifest and artifact identities, compose with interface access, and support explicit denial, one-request, session and persistent lifetimes.
+
+## 0.7.0
+
+### Minor Changes
+
+- 6eb1ea4: Hosts can now change firewall budgets after creation. `@kehto/firewall` adds `setUnfocusedMultiplier` and `setBurstGuard`, and `FirewallStateContainer` adds methods with the same names, reachable through `runtime.firewallState`. Both throw `RangeError` on out-of-range values. A multiplier of zero is refused, because focus alone must never empty a budget. Custom `FirewallStateContainer` implementations must add both methods.
+
+## 0.6.4
+
+### Patch Changes
+
+- 66beed4: Widen the `@napplet/core` and `@napplet/nap` peer ranges to admit core 0.38.x and nap 0.37.x while keeping the 0.32.0 floor.
+
+## 0.6.3
+
+### Patch Changes
+
+- 902c1d0: Admit the NIP-5D port-bound napplet release lines in published peers:
+  `@napplet/core >=0.32.0 <0.38.0` and `@napplet/nap >=0.32.0 <0.37.0`
+  (core 0.37.0 / nap 0.36.0, napplet/web#302). Development stays on the 0.32.0
+  baseline.
+
+## 0.6.2
+
+### Patch Changes
+
+- f5c3ee8: Widen the `@napplet/*` peer ranges so the `llm` domain installs without peer conflicts: `@napplet/core` now accepts `>=0.32.0 <0.37.0` and `@napplet/nap` accepts `>=0.32.0 <0.36.0`. The `llm` subpath first ships in `@napplet/nap@0.35.0`, and `@napplet/nap@0.35.1` requires `@napplet/core@^0.36.0`. The old `<0.35.0` cap made npm fail with ERESOLVE and made pnpm print unmet-peer warnings (kehto/web#364).
+
 ## 0.6.1
 
 ### Patch Changes

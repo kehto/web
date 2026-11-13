@@ -1,6 +1,7 @@
 /** Verified-manifest NAP-INTENT catalog resolution. */
 
 import type { IntentResolver, IntentResolverContext } from './intent-service.js';
+import type { ApprovalSignal } from '@kehto/runtime';
 import type {
   IntentAvailability,
   IntentBehavior,
@@ -34,6 +35,8 @@ export interface IntentDispatchParams {
   readonly behavior?: Readonly<IntentBehavior>;
   /** Authenticated host-only source correlation. Never serialize into delivery. */
   readonly sourceWindowId?: string;
+  /** Host-only approval lifetime for retained target work. */
+  readonly signal?: ApprovalSignal;
 }
 
 /** Retained work observable by the host without a second source result. */
@@ -97,7 +100,7 @@ function candidateFor(entry: IntentCatalogEntry, archetype: string, defaultId?: 
     conventions: Object.freeze(conventions),
     contracts: Object.freeze(contracts),
     ...(entry.id === defaultId ? { isDefault: true } : {}),
-  });
+  }) as IntentCandidate; // core's types are mutable; the catalog value stays frozen
 }
 
 function candidatesFor(catalog: readonly IntentCatalogEntry[], archetype: string, defaultId?: string): IntentCandidate[] {
@@ -148,7 +151,7 @@ async function availabilityFor(options: CatalogIntentResolverOptions, archetype:
     available: candidates.length > 0,
     candidates: Object.freeze(candidates),
     hasDefault: candidates.some((candidate) => candidate.isDefault),
-  });
+  }) as IntentAvailability;
 }
 
 async function invoke(options: CatalogIntentResolverOptions, request: IntentRequest, context: IntentResolverContext): Promise<IntentResult> {
@@ -166,6 +169,7 @@ async function invoke(options: CatalogIntentResolverOptions, request: IntentRequ
     ...(request.behavior.focus === undefined ? {} : { focus: request.behavior.focus }),
     ...(request.behavior.reuse === undefined ? {} : { reuse: request.behavior.reuse }),
   });
+  if (context.signal?.aborted) return rejected('invoke rejected');
   const params = Object.freeze({
     handler: selected.id,
     sender: context.sender,
@@ -175,6 +179,7 @@ async function invoke(options: CatalogIntentResolverOptions, request: IntentRequ
     ...(request.payload === undefined ? {} : { payload: request.payload }),
     ...(behavior === undefined ? {} : { behavior }),
     ...(context.sourceWindowId === undefined ? {} : { sourceWindowId: context.sourceWindowId }),
+    ...(context.signal === undefined ? {} : { signal: context.signal }),
   }) satisfies IntentDispatchParams;
   try {
     const accepted = options.targets.accept(params);

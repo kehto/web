@@ -78,12 +78,13 @@ Kehto's runtime packages target the current `@napplet` line:
 
 | Package                 | Version  | Role                                            |
 | ----------------------- | -------- | ----------------------------------------------- |
-| `@napplet/core`         | `0.32.0` | protocol types, constants, `createDispatch` / `registerNap` |
-| `@napplet/nap`          | `0.32.0` | NAP capability helpers |
-| `@napplet/sdk`          | `0.28.0` | napplet-side SDK (playground napplets)          |
+| `@napplet/core`         | `0.38.0` | host packages (`packages/*`): protocol types, constants, `createDispatch` / `registerNap` |
+| `@napplet/nap`          | `0.37.0` | host packages: NAP capability helpers and the packaged `llm` types |
+| `@napplet/core` / `@napplet/nap` | `0.32.0` | fixture napplets (`tests/fixtures/napplets/*`) keep the exact 0.32.0 pins |
+| `@napplet/sdk`          | `0.28.0` | napplet-side SDK (fixture napplets)             |
 | `@napplet/shim`         | `0.30.0` | generic non-shell NAP domains; does not supply mandatory shell |
-| `@napplet/vite-plugin`  | `0.15.0` | napplet build/sign plugin |
-| `@napplet/conformance`  | `0.16.2` | registry-audited conformance artifact; not a Kehto dependency |
+| `@napplet/vite-plugin`  | `0.16.2` | napplet build/sign plugin (NIP-5D presentation media and source pins) |
+| `@napplet/conformance`  | `0.20.5` | registry-audited conformance artifact; not a Kehto dependency |
 
 The runtime's domain dispatcher routes via `createDispatch()` + `registerNap()`
 from `@napplet/core` (the rename of the former `registerNap` / `NapHandler`
@@ -96,7 +97,7 @@ surface). The NAP-INTENT patch artifacts are from napplet/web#199 source
 ## Published Intent Contract
 
 NAP-INTENT public `Intent*` request, result, and catalog types are the canonical
-published core 0.32.0 / nap 0.32.0 declarations; Kehto retains no local mirror.
+published core / nap declarations (the 0.32.0 line for fixture napplets; host packages build on core 0.38.0 / nap 0.37.0); Kehto retains no local mirror.
 `intent.invoke` accepts a structured `IntentRequest`, defaults `action` to
 `open`, and produces one final `IntentResult` after target selection, readiness,
 and convention dispatch. A successful result includes `handled`, `handler`,
@@ -147,15 +148,15 @@ to the napplet. Absence means unavailable. Presence does not define operations,
 payloads, versions, errors, or diagnostics; those stay owned by the matching NAP
 spec.
 
-The playground always injects mandatory `shell`, then adds optional domains from
-the verified manifest after stripping permission/protocol entries. Demo napplets
+Hosts such as Paja inject mandatory `shell`, then add optional domains from
+the verified manifest after stripping permission/protocol entries. Napplets
 may preflight optional availability by checking required
 `window.napplet.<domain>` objects or query the cached NAP-SHELL environment.
 
 ### Published shell-package exception
 
 NAP-SHELL at `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24` remains mandatory.
-Published core 0.32.0 and shim 0.30.0 omit a generic mandatory
+The pinned shim 0.30.0 and the fixture-line core 0.32.0 omit a generic mandatory
 `window.napplet.shell` surface, so Kehto retains its host-owned, parent-bound
 prelude. This is a locked upstream package-drift exception, not a claim that
 the shim supplies shell.
@@ -190,7 +191,7 @@ capabilities: {
 For older consumers, Kehto also emits the flat `naps` and empty `sandbox` fields.
 Host-extended `perm:`-prefixed `sandbox` entries are folded into `domains`.
 Removal of the legacy fields is tracked as CLEANUP-01 and is NOT performed while
-the playground shim path still reads them.
+a supported consumer still reads them.
 
 ## Active Runtime Model
 

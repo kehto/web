@@ -1,5 +1,123 @@
 # @test/harness
 
+## 0.0.44
+
+### Patch Changes
+
+- Updated dependencies [b573414]
+- Updated dependencies [e291825]
+- Updated dependencies [25311db]
+  - @kehto/shell@0.34.0
+  - @kehto/services@0.32.1
+
+## 0.0.43
+
+### Patch Changes
+
+- Updated dependencies [11ae71c]
+  - @kehto/services@0.32.0
+  - @kehto/shell@0.33.2
+
+## 0.0.42
+
+### Patch Changes
+
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+  - @kehto/shell@0.33.0
+  - @kehto/services@0.31.0
+
+## 0.0.41
+
+### Patch Changes
+
+- Updated dependencies [6eb1ea4]
+- Updated dependencies [6eb1ea4]
+- Updated dependencies [6eb1ea4]
+  - @kehto/shell@0.32.0
+  - @kehto/services@0.30.1
+
+## 0.0.40
+
+### Patch Changes
+
+- Updated dependencies [66beed4]
+  - @kehto/services@0.30.0
+  - @kehto/shell@0.31.0
+
+## 0.0.39
+
+### Patch Changes
+
+- Updated dependencies [4d8a569]
+  - @kehto/shell@0.30.0
+
+## 0.0.38
+
+### Patch Changes
+
+- Updated dependencies [37457ce]
+  - @kehto/services@0.29.0
+  - @kehto/shell@0.29.0
+
+## 0.0.37
+
+### Patch Changes
+
+- Updated dependencies [e1e2b64]
+  - @kehto/shell@0.29.0
+
+## 0.0.36
+
+### Patch Changes
+
+- Updated dependencies [9add95b]
+  - @kehto/shell@0.28.0
+
+## 0.0.35
+
+### Patch Changes
+
+- Updated dependencies [902c1d0]
+- Updated dependencies [902c1d0]
+  - @kehto/services@0.28.2
+  - @kehto/shell@0.27.0
+
+## 0.0.34
+
+### Patch Changes
+
+- Updated dependencies [3089c5e]
+  - @kehto/services@0.28.0
+  - @kehto/shell@0.26.1
+
+## 0.0.33
+
+### Patch Changes
+
+- Updated dependencies [fcb5bc9]
+- Updated dependencies [fcb5bc9]
+  - @kehto/services@0.27.0
+  - @kehto/shell@0.26.0
+
+## 0.0.32
+
+### Patch Changes
+
+- Updated dependencies [a1a50d7]
+  - @kehto/services@0.26.0
+  - @kehto/shell@0.25.0
+
 ## 0.0.31
 
 ### Patch Changes

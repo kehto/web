@@ -19,7 +19,7 @@ import type { IntentArchetypeSupport, IntentCatalogEntry } from './catalog-inten
 
 /**
  * The structural subset of `@kehto/nip/5d` `NappletManifest` the adapter needs.
- * Intentionally a duck-typed shape so the playground (or any caller) can pass a
+ * Intentionally a duck-typed shape so any caller can pass a
  * resolved manifest without importing `@kehto/nip`.
  */
 export interface ManifestArchetypeInput {

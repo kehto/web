@@ -3,9 +3,11 @@ export const PAJA_SIDEBAR_SECTIONS_STORAGE_KEY = 'kehto:paja:sidebar-sections:v1
 const SECTION_IDS = {
   pointer: 'runtime-pointer-section',
   interfaces: 'paja-section-interfaces',
+  permissions: 'paja-section-permissions',
   acl: 'paja-section-acl',
   signer: 'paja-section-signer',
   'resource-servers': 'paja-section-resource-servers',
+  llm: 'paja-section-llm',
   messages: 'paja-section-messages',
   events: 'paja-section-events',
 } as const;

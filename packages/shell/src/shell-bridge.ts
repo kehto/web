@@ -6,19 +6,29 @@ import { nappKeyRegistry } from './session-registry.js';
 import { aclStore } from './acl-store.js';
 import { manifestCache } from './manifest-cache.js';
 import { audioManager } from './audio-manager.js';
-import type { ShellAdapter, UnroutedMessageInfo } from './types.js';
+import type { NappletRevocationReason, ShellAdapter } from './types.js';
 import type { NappletMessage } from '@napplet/core';
 import type { Theme } from '@napplet/nap/theme/types';
-import { createShellReadyState, handleShellReady, registerSourceSession } from './shell-ready.js';
+import { createShellReadyState } from './shell-ready.js';
+import { createNip5dTransport } from './nip5d-transport.js';
+
+export { MAX_DEFERRED_MESSAGES, NAPPLET_HELLO } from './nip5d-transport.js';
 
 /**
  * Shell-side message bridge that handles NIP-5D communication with napplet iframes.
  *
- * The bridge acts as a browser adapter: it receives raw MessageEvents from
- * window.addEventListener('message', ...), extracts the source Window, resolves
- * it to a windowId via originRegistry, and delegates NIP-5D envelope messages
- * to the runtime engine. The shell.ready/shell.init capability handshake is
- * handled locally within the bridge and never forwarded to the runtime.
+ * NIP-5D binds napplet identity to a `MessagePort`, not to the iframe Window:
+ * the injected bootstrap transfers one port to the shell in a single
+ * window-level `napplet.hello`. The bridge accepts that hello only from the
+ * `contentWindow` of a registered iframe carrying exactly one port, binds the
+ * frame's verified `(dTag, aggregateHash)` to the port, and then processes NAP
+ * envelopes only from that port and replies only over it. A second hello, any
+ * other window-level message, an invalid hello, a second iframe `load`
+ * ({@link ShellBridge.observeFrame}) or the port closing revokes the binding,
+ * its sessions and grants, and asks the host to remove the frame through
+ * `ShellAdapter.onNappletRevoked`. The shell.ready/shell.init capability
+ * handshake is handled locally within the bridge and never forwarded to the
+ * runtime.
  *
  * @example
  * ```ts
@@ -30,15 +40,19 @@ import { createShellReadyState, handleShellReady, registerSourceSession } from '
  */
 export interface ShellBridge {
   /**
-   * Handle an incoming postMessage from a napplet iframe.
+   * Handle a window-level message from a napplet iframe.
    *
-   * Only NIP-5D envelope objects (plain objects with a `.type` string) are
-   * accepted. NIP-01 arrays and all other message shapes are silently dropped
-   * (clean break — no legacy array fallback).
+   * The only window-level message a napplet may send is its single
+   * `napplet.hello` carrying exactly one `MessagePort`. The bridge binds that
+   * port and receives every later NAP envelope from it. Any other window-level
+   * message from a registered iframe, a second hello, or a hello without
+   * exactly one port revokes the frame. Messages from unregistered sources are
+   * dropped.
    *
-   * shell.ready messages are handled locally: the bridge responds with shell.init
-   * containing the capability set and registered service list. All other envelopes
-   * are delegated to the runtime's NAP domain dispatch.
+   * On the bound port, only NIP-5D envelope objects (plain objects with a
+   * `.type` string) are accepted. shell.ready is handled locally (the bridge
+   * answers with shell.init over the port); all other envelopes are delegated
+   * to the runtime's NAP domain dispatch.
    *
    * @param event - The raw MessageEvent from window.addEventListener('message', ...)
    * @example
@@ -126,6 +140,54 @@ export interface ShellBridge {
   publishIdentityChanged(pubkey: string): void;
 
   /**
+   * Watch a napplet iframe for a second `load`, which NIP-5D treats as
+   * evidence that the verified document was replaced. Call after the frame is
+   * in the DOM and before assigning its `srcdoc`/`src`.
+   *
+   * @param frame - The shell-created napplet iframe
+   * @param windowId - The windowId registered for this frame
+   * @returns A function that stops watching
+   * @example
+   * ```ts
+   * document.body.append(frame);
+   * originRegistry.register(frame.contentWindow!, windowId, identity);
+   * const stop = bridge.observeFrame(frame, windowId);
+   * frame.srcdoc = verifiedSrcdoc;
+   * ```
+   */
+  observeFrame(frame: Pick<HTMLIFrameElement, 'addEventListener' | 'removeEventListener'>, windowId: string): () => void;
+
+  /**
+   * Revoke one napplet binding: close its port, unregister it, destroy its
+   * sessions and subscriptions, and call `ShellAdapter.onNappletRevoked` so
+   * the host removes the frame. No-op for unknown windows.
+   *
+   * @param windowId - The window to revoke
+   * @param reason - Why the binding is revoked (defaults to `host`)
+   * @example
+   * ```ts
+   * bridge.revokeNapplet(windowId);
+   * ```
+   */
+  revokeNapplet(windowId: string, reason?: NappletRevocationReason): void;
+
+  /**
+   * Dispatch the envelopes `ShellAdapter.filterNappletMessage` deferred for a
+   * window, in arrival order and without asking the filter again. ACL, firewall
+   * approvals and budgets run at release, so held requests can prompt or be refused
+   * then, and a source retired meanwhile runs nothing. Revoking a binding discards
+   * what it held.
+   *
+   * @param windowId - The napplet window to release
+   * @returns How many envelopes were dispatched
+   * @example
+   * ```ts
+   * bridge.releaseDeferred(windowId);
+   * ```
+   */
+  releaseDeferred(windowId: string): number;
+
+  /**
    * Access the underlying runtime instance for advanced use cases.
    * Provides direct access to the runtime's sessionRegistry, aclState,
    * and manifestCache.
@@ -159,29 +221,6 @@ export interface ShellBridge {
  * const bridge = createShellBridge(hooks);
  * ```
  */
-/**
- * Fire the optional {@link ShellAdapter.onUnroutedMessage} diagnostic hook for a
- * message the bridge is about to drop. Extracts the envelope `type` defensively
- * (the message-shape guard hasn't run yet at the drop points) and never throws —
- * a misbehaving host hook must not break message handling.
- */
-function reportUnrouted(
-  hooks: ShellAdapter,
-  event: MessageEvent,
-  reason: UnroutedMessageInfo['reason'],
-): void {
-  if (!hooks.onUnroutedMessage) return;
-  const data = event.data as { type?: unknown } | null | undefined;
-  const type = typeof data === 'object' && data !== null && typeof data.type === 'string'
-    ? data.type
-    : undefined;
-  try {
-    hooks.onUnroutedMessage({ type, origin: event.origin, reason });
-  } catch {
-    // Observability must never break routing — swallow host hook errors.
-  }
-}
-
 export function createShellBridge(hooks: ShellAdapter): ShellBridge {
   const shellReadyState = createShellReadyState();
   const runtimeHooks = adaptHooks(hooks, {
@@ -208,60 +247,21 @@ export function createShellBridge(hooks: ShellAdapter): ShellBridge {
       const environment = shellReadyState.environments.get(entry.windowId);
       if (!environment?.capabilities.domains.includes(domain)) continue;
       if (!runtime.aclState.check(entry.pubkey, entry.dTag, entry.aggregateHash, capability)) continue;
-
-      const win = originRegistry.getIframeWindow(entry.windowId);
-      if (!win) continue;
-      win.postMessage(envelope, '*');
+      originRegistry.postToNapplet(entry.windowId, envelope);
     }
   }
 
+  const transport = createNip5dTransport({ hooks, runtime, state: shellReadyState });
+
   return {
-    handleMessage(event: MessageEvent): void {
-      const sourceWindow = event.source as Window | null;
-      if (!sourceWindow) {
-        reportUnrouted(hooks, event, 'no-source-window');
-        return;
-      }
-      const windowId = originRegistry.getWindowId(sourceWindow);
-      if (!windowId) {
-        reportUnrouted(hooks, event, 'unregistered-window');
-        return;
-      }
-      const msg = event.data;
-
-      // NIP-5D envelope-only guard (clean break — no legacy array support)
-      if (typeof msg !== 'object' || msg === null || typeof msg.type !== 'string') return;
-
-      // Bind a known iframe to its verified creation identity before domain dispatch.
-      if (!registerSourceSession({
-        hooks, origin: event.origin, runtime, state: shellReadyState,
-        sourceRegistrationId: originRegistry.getRegistrationId(sourceWindow) ?? 0,
-        sourceWindow, windowId,
-      })) return;
-
-      // NAP-SHELL's optional readiness exchange is handled locally.
-      if (msg.type === 'shell.ready') {
-        handleShellReady({
-          hooks,
-          origin: event.origin,
-          runtime,
-          state: shellReadyState,
-          sourceRegistrationId: originRegistry.getRegistrationId(sourceWindow) ?? 0,
-          sourceWindow,
-          windowId,
-        });
-        return;
-      }
-
-      // Delegate to runtime — runtime handles NAP domain dispatch
-      runtime.handleMessage(windowId, msg);
-    },
+    handleMessage: transport.handleMessage,
 
     injectEvent(topic: string, payload: unknown): void {
       runtime.injectEvent(topic, payload);
     },
 
     destroy(): void {
+      transport.destroy();
       runtime.destroy();
       shellReadyState.clear();
     },
@@ -279,6 +279,11 @@ export function createShellBridge(hooks: ShellAdapter): ShellBridge {
       const envelope: NappletMessage = { type: 'identity.changed', pubkey } as NappletMessage;
       publishToEligibleNapplets(envelope, 'identity', 'identity:read');
     },
+
+    observeFrame: transport.observeFrame,
+
+    revokeNapplet: transport.revokeNapplet,
+    releaseDeferred: transport.releaseDeferred,
 
     get runtime() {
       return runtime;

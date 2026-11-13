@@ -1,10 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
+import { HARNESS_PORT, HARNESS_URL } from './tests/e2e/helpers/harness-url.js';
 
-const chromiumExecutablePath =
-  process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ??
-  (process.platform === 'darwin'
-    ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-    : '/usr/bin/chromium');
+const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -14,7 +11,7 @@ export default defineConfig({
   workers: 1,
   reporter: 'list',
   use: {
-    baseURL: 'http://localhost:4173',
+    baseURL: HARNESS_URL,
     trace: 'on-first-retry',
   },
   projects: [
@@ -22,22 +19,15 @@ export default defineConfig({
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
-        launchOptions: {
-          executablePath: chromiumExecutablePath,
-        },
+        channel: 'chromium',
+        launchOptions: chromiumExecutablePath ? { executablePath: chromiumExecutablePath } : {},
       },
     },
   ],
   webServer: [
     {
-      command: 'pnpm --filter @test/harness preview',
-      url: 'http://localhost:4173',
-      reuseExistingServer: !process.env.CI,
-      timeout: 60000,
-    },
-    {
-      command: 'pnpm --filter @kehto/playground preview --port 4174',
-      url: 'http://localhost:4174',
+      command: `pnpm --filter @test/harness exec vite preview --port ${HARNESS_PORT} --strictPort`,
+      url: HARNESS_URL,
       reuseExistingServer: !process.env.CI,
       timeout: 60000,
     },

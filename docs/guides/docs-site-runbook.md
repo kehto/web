@@ -24,7 +24,7 @@ Use this guide when updating the VitePress site, package reference pages, or gen
 5. Add the package entrypoint to `typedoc.json` if it is a public package.
 6. Run `pnpm docs:check`.
 
-Private demos such as `@kehto/playground` need package docs and navigation, but do not need TypeDoc entrypoints.
+Private apps need package docs and navigation, but do not need TypeDoc entrypoints.
 
 ## Add a Guide or How-to
 

@@ -35,9 +35,9 @@
  * @packageDocumentation
  */
 
+import { allowed, deriveAuthors, resolvePlan, resolveRequiredRelays } from './relay-pool-outbox-planning.js';
 import type { EventTemplate, NostrEvent, NostrFilter } from '@napplet/core';
-import { createRelayEventResultWithHints } from '@kehto/runtime';
-import type { RelayEventResult } from '@kehto/runtime';
+import { createRelayEventResultWithHints, type ApprovalSignal, type RelayEventResult } from '@kehto/runtime';
 import type {
   OutboxResult,
   OutboxPublishResult,
@@ -62,7 +62,6 @@ import type {
   PublishTargetResolution,
   RelayListEntry,
   RelayPoolOutboxRouterOptions,
-  RequiredRelayResolution,
   RouterCtx,
 } from './relay-pool-outbox-types.js';
 
@@ -85,109 +84,6 @@ function defaultRelayAllowed(url: string): boolean {
   return typeof url === 'string' && (url.startsWith('wss://') || url.startsWith('ws://'));
 }
 
-/** Collect a deduplicated author set from filters + explicit option hints. */
-function deriveAuthors(filters: NostrFilter[], optionAuthors?: string[]): string[] {
-  const authors = new Set<string>();
-  for (const filter of filters) {
-    for (const author of filter.authors ?? []) authors.add(author);
-  }
-  for (const author of optionAuthors ?? []) authors.add(author);
-  return [...authors];
-}
-
-/** Apply the relay gate to a candidate set, deduplicating. */
-function allowed(ctx: RouterCtx, urls: Iterable<string>): string[] {
-  const out = new Set<string>();
-  for (const url of urls) {
-    if (ctx.isRelayAllowed(url)) out.add(url);
-  }
-  return [...out];
-}
-
-async function resolveRequiredRelays(
-  ctx: RouterCtx,
-  pubkeys: string[],
-  direction: 'read' | 'write',
-): Promise<RequiredRelayResolution> {
-  const useWrite = direction === 'read';
-  const relays = new Set<string>();
-  const missingAuthors: string[] = [];
-  const deniedAuthors: string[] = [];
-  const uniquePubkeys = [...new Set(pubkeys)];
-
-  if (uniquePubkeys.length === 0) return { relays: [], missingAuthors, deniedAuthors };
-
-  const lists = await ctx.loadRelayLists(uniquePubkeys);
-  for (const pubkey of uniquePubkeys) {
-    const entry = lists.get(pubkey);
-    const candidateRelays = entry ? (useWrite ? entry.write : entry.read) : undefined;
-    if (!candidateRelays || candidateRelays.length === 0) {
-      missingAuthors.push(pubkey);
-      continue;
-    }
-
-    const allowedRelays = allowed(ctx, candidateRelays);
-    if (allowedRelays.length === 0) {
-      deniedAuthors.push(pubkey);
-      continue;
-    }
-
-    for (const url of allowedRelays) relays.add(url);
-  }
-
-  return { relays: [...relays], missingAuthors, deniedAuthors };
-}
-
-/**
- * Resolve the relay plan for a set of pubkeys. Returns the allowed relay set,
- * its provenance, and any pubkeys whose relay list was unavailable.
- */
-async function resolvePlan(
-  ctx: RouterCtx,
-  pubkeys: string[],
-  direction: 'read' | 'write',
-  relayHints?: string[],
-): Promise<OutboxRelayPlan> {
-  const useWrite = direction === 'read';
-  const discovered = new Set<string>();
-  const missingAuthors: string[] = [];
-  let sawNip65 = false;
-
-  if (pubkeys.length > 0) {
-    const lists = await ctx.loadRelayLists(pubkeys);
-    for (const pubkey of pubkeys) {
-      const entry = lists.get(pubkey);
-      const relays = entry ? (useWrite ? entry.write : entry.read) : undefined;
-      if (relays && relays.length > 0) {
-        sawNip65 = true;
-        for (const url of relays) discovered.add(url);
-      } else {
-        missingAuthors.push(pubkey);
-      }
-    }
-  }
-
-  const hintRelays = allowed(ctx, relayHints ?? []);
-  let relays = allowed(ctx, discovered);
-  let source: OutboxRelayPlan['source'];
-  if (relays.length > 0) {
-    source = sawNip65 ? 'nip65' : 'policy';
-  } else {
-    relays = allowed(ctx, ctx.fallbackRelays);
-    source = relays.length > 0 ? 'fallback' : 'policy';
-  }
-
-  // Relay hints from the napplet augment the host-owned plan, subject to the relay gate.
-  for (const url of hintRelays) {
-    if (!relays.includes(url)) relays.push(url);
-  }
-  if (relays.length === 0) source = 'fallback';
-
-  const plan: OutboxRelayPlan = { relays, source };
-  if (missingAuthors.length > 0) plan.missingAuthors = missingAuthors;
-  return plan;
-}
-
 /** Extract policy-allowed author write relays from already-loaded NIP-65 data. */
 function discoveredReadRelays(
   ctx: RouterCtx,
@@ -195,6 +91,7 @@ function discoveredReadRelays(
   lists: Map<string, RelayListEntry>,
 ): DiscoveredReadRelays {
   const relays = new Set<string>();
+  const authorsByRelay = new Map<string, string[]>();
   const missingAuthors: string[] = [];
   for (const author of new Set(authors)) {
     const writeRelays = lists.get(author)?.write;
@@ -202,9 +99,14 @@ function discoveredReadRelays(
       missingAuthors.push(author);
       continue;
     }
-    for (const url of allowed(ctx, writeRelays)) relays.add(url);
+    for (const url of allowed(ctx, writeRelays)) {
+      relays.add(url);
+      const owners = authorsByRelay.get(url) ?? [];
+      owners.push(author);
+      authorsByRelay.set(url, owners);
+    }
   }
-  return { relays: [...relays], missingAuthors };
+  return { relays: [...relays], authorsByRelay, missingAuthors };
 }
 
 /**
@@ -287,8 +189,9 @@ function relayPoolSubscribe(
   relayUrl: string,
   cb: (item: NostrEvent | 'EOSE') => void,
   origin: OutboxRelayOrigin,
+  authors: readonly string[],
 ): { unsubscribe(): void } {
-  return ctx.relayPool.subscribe(filters, [relayUrl], cb, origin);
+  return ctx.relayPool.subscribe(filters, [relayUrl], cb, origin, authors);
 }
 
 function startQueryImpl(
@@ -343,7 +246,7 @@ function startQueryImpl(
     if (activeRelays.size === 0 || eoseRelays.size >= activeRelays.size) finalize();
   }
 
-  function attachRelay(relayUrl: string, origin: OutboxRelayOrigin): void {
+  function attachRelay(relayUrl: string, origin: OutboxRelayOrigin, relayAuthors: readonly string[]): void {
     if (finished || activeRelays.has(relayUrl)) return;
     activeRelays.add(relayUrl);
     try {
@@ -356,7 +259,7 @@ function startQueryImpl(
         }
         recordRelay(collector, item.id, relayUrl);
         admitEvent(ctx, collector, item, sink, () => !finished, maybeFinalize);
-      }, origin);
+      }, origin, relayAuthors);
       subscribedAny = true;
       if (finished) {
         try { handle.unsubscribe(); } catch { /* best-effort */ }
@@ -369,15 +272,21 @@ function startQueryImpl(
     }
   }
 
-  function attachMany(relayUrls: Iterable<string>, origin: OutboxRelayOrigin): void {
-    for (const relayUrl of relayUrls) attachRelay(relayUrl, origin);
+  function attachMany(
+    relayUrls: Iterable<string>,
+    origin: OutboxRelayOrigin,
+    authorsByRelay?: ReadonlyMap<string, readonly string[]>,
+  ): void {
+    for (const relayUrl of relayUrls) {
+      attachRelay(relayUrl, origin, origin === 'nip65' ? authorsByRelay?.get(relayUrl) ?? [] : authors);
+    }
   }
 
   /** Attach caller hints and discovered NIP-65 relays with their own origins. */
-  function attachHintedAndDiscovered(hintRelays: string[], discoveredRelays: string[]): void {
+  function attachHintedAndDiscovered(hintRelays: string[], discovery: DiscoveredReadRelays): void {
     attachMany(hintRelays, 'hint');
-    attachMany(discoveredRelays, 'nip65');
-    if (hintRelays.length === 0 && discoveredRelays.length === 0) {
+    attachMany(discovery.relays, 'nip65', discovery.authorsByRelay);
+    if (hintRelays.length === 0 && discovery.relays.length === 0) {
       attachMany(allowed(ctx, ctx.fallbackRelays), 'fallback');
     }
   }
@@ -406,7 +315,7 @@ function startQueryImpl(
       const discovery = discoveredReadRelays(ctx, authors, loaded);
       discoveryPending = false;
       incomplete ||= discovery.missingAuthors.length > 0;
-      attachHintedAndDiscovered(allowed(ctx, options?.relays ?? []), discovery.relays);
+      attachHintedAndDiscovered(allowed(ctx, options?.relays ?? []), discovery);
       maybeFinalize();
     } else {
       const immediate = immediateReadPlan(ctx, options?.relays);
@@ -416,7 +325,7 @@ function startQueryImpl(
         const discovery = discoveredReadRelays(ctx, authors, lists);
         discoveryPending = false;
         incomplete ||= discovery.missingAuthors.length > 0;
-        attachMany(discovery.relays, 'nip65');
+        attachMany(discovery.relays, 'nip65', discovery.authorsByRelay);
         maybeFinalize();
       }).catch(() => {
         if (finished) return;
@@ -432,6 +341,59 @@ function startQueryImpl(
 
 function queryImpl(ctx: RouterCtx, filters: NostrFilter[], options?: OutboxQueryOptions): Promise<OutboxResult> {
   return startQueryImpl(ctx, filters, options, { event: () => { /* aggregate only */ } }).result;
+}
+
+function queryPlanImpl(ctx: RouterCtx, filters: NostrFilter[], options: OutboxQueryOptions | undefined, plan: OutboxRelayPlan, signal?: ApprovalSignal): Promise<OutboxResult> {
+  if (signal?.aborted) return Promise.resolve({ events: [], error: 'policy denied' });
+  if (!ctx.relayPool.isAvailable()) return Promise.resolve({ events: [], incomplete: true, error: 'relay list unavailable' });
+  const seen = new Map<string, NostrEvent>();
+  const origin: OutboxRelayOrigin = plan.source === 'nip65' ? 'nip65' : plan.source === 'fallback' ? 'fallback' : 'hint';
+  // A frozen plan keeps no per-relay owners, so it reports the requested routing authors.
+  const routingAuthors = deriveAuthors(filters, options?.authors);
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const handles: { unsubscribe(): void }[] = [];
+    const cleanup = (): void => {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', abort);
+      for (const handle of handles) {
+        try { handle.unsubscribe(); } catch { /* release the remaining subscriptions */ }
+      }
+    };
+    const finish = (result: OutboxResult): void => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(result);
+    };
+    const abort = (): void => finish({ events: [], error: 'policy denied' });
+    const timer = setTimeout(() => finish({ events: [...seen.values()].map((event) => createRelayEventResultWithHints(event, plan.relays)) }), options?.timeoutMs ?? ctx.defaultTimeoutMs);
+    signal?.addEventListener('abort', abort, { once: true });
+    if (signal?.aborted) { abort(); return; }
+    try {
+      for (const relayUrl of plan.relays) {
+        if (settled) break;
+        const handle = relayPoolSubscribe(ctx, filters, relayUrl, (item) => {
+          if (settled || item === 'EOSE') return;
+          void ctx.verify(item).then((ok) => { if (ok && !settled) seen.set(item.id, item); });
+        }, origin, routingAuthors);
+        if (settled) handle.unsubscribe(); else handles.push(handle);
+      }
+    } catch (error) {
+      settled = true;
+      cleanup();
+      reject(error);
+    }
+  });
+}
+
+function subscribePlanImpl(ctx: RouterCtx, filters: NostrFilter[], plan: OutboxRelayPlan, sink: OutboxSubscriptionSink): OutboxRouterSubscription {
+  let closed = false;
+  const handles = plan.relays.map((relayUrl) => relayPoolSubscribe(ctx, filters, relayUrl, (item) => {
+    if (closed || item === 'EOSE') return;
+    void ctx.verify(item).then((ok) => { if (ok && !closed) sink.event(createRelayEventResultWithHints(item, [relayUrl])); });
+  }, plan.source === 'nip65' ? 'nip65' : plan.source === 'fallback' ? 'fallback' : 'hint', deriveAuthors(filters)));
+  return { close() { if (closed) return; closed = true; for (const handle of handles) handle.unsubscribe(); } };
 }
 
 async function getEventImpl(ctx: RouterCtx, eventId: string, options?: OutboxEventOptions): Promise<OutboxEventResult> {
@@ -472,7 +434,7 @@ function attachLiveRelay(
   filters: NostrFilter[],
   relayUrl: string,
   sink: OutboxSubscriptionSink,
-  origin: OutboxRelayOrigin,
+  routing: { origin: OutboxRelayOrigin; authors: readonly string[] },
 ): boolean {
   if (sub.closed || sub.relays.has(relayUrl)) return false;
   sub.relays.add(relayUrl);
@@ -485,7 +447,7 @@ function attachLiveRelay(
         sub.seen.add(item.id);
         sink.event(createRelayEventResultWithHints(item, [relayUrl]));
       });
-    }, origin);
+    }, routing.origin, routing.authors);
     if (sub.closed) {
       try { handle.unsubscribe(); } catch { /* best-effort */ }
     } else {
@@ -515,15 +477,24 @@ function startSubscription(
   let discoveryOpen = authors.length > 0;
   let discoveryTimer: unknown;
 
-  function attachMany(relayUrls: Iterable<string>, origin: OutboxRelayOrigin): void {
-    for (const relayUrl of relayUrls) attachLiveRelay(ctx, sub, filters, relayUrl, sink, origin);
+  function attachMany(
+    relayUrls: Iterable<string>,
+    origin: OutboxRelayOrigin,
+    authorsByRelay?: ReadonlyMap<string, readonly string[]>,
+  ): void {
+    for (const relayUrl of relayUrls) {
+      attachLiveRelay(ctx, sub, filters, relayUrl, sink, {
+        origin,
+        authors: origin === 'nip65' ? authorsByRelay?.get(relayUrl) ?? [] : authors,
+      });
+    }
   }
 
   /** Attach caller hints and discovered NIP-65 relays with their own origins. */
-  function attachHintedAndDiscovered(hintRelays: string[], discoveredRelays: string[]): void {
+  function attachHintedAndDiscovered(hintRelays: string[], discovery: DiscoveredReadRelays): void {
     attachMany(hintRelays, 'hint');
-    attachMany(discoveredRelays, 'nip65');
-    if (hintRelays.length === 0 && discoveredRelays.length === 0) {
+    attachMany(discovery.relays, 'nip65', discovery.authorsByRelay);
+    if (hintRelays.length === 0 && discovery.relays.length === 0) {
       attachMany(allowed(ctx, ctx.fallbackRelays), 'fallback');
     }
   }
@@ -556,7 +527,7 @@ function startSubscription(
     if (discoveryOpen && loaded instanceof Map) {
       const discovery = discoveredReadRelays(ctx, authors, loaded);
       discoveryOpen = false;
-      attachHintedAndDiscovered(allowed(ctx, options?.relays ?? []), discovery.relays);
+      attachHintedAndDiscovered(allowed(ctx, options?.relays ?? []), discovery);
       closeUnavailable();
     } else if (discoveryOpen) {
       const immediate = immediateReadPlan(ctx, options?.relays);
@@ -569,7 +540,8 @@ function startSubscription(
         if (!discoveryOpen || sub.closed) return;
         discoveryOpen = false;
         clearTimeout(discoveryTimer);
-        attachMany(discoveredReadRelays(ctx, authors, lists).relays, 'nip65');
+        const discovery = discoveredReadRelays(ctx, authors, lists);
+        attachMany(discovery.relays, 'nip65', discovery.authorsByRelay);
         closeUnavailable();
       }).catch(() => {
         if (!discoveryOpen || sub.closed) return;
@@ -687,6 +659,7 @@ export function createRelayPoolOutboxRouter(options: RelayPoolOutboxRouterOption
     loadRelayLists: options.loadRelayLists,
     fallbackRelays: options.fallbackRelays,
     signEvent: options.signEvent,
+    getSignerPubkey: options.getSignerPubkey,
     isRelayAllowed: options.isRelayAllowed ?? defaultRelayAllowed,
     defaultTimeoutMs: options.defaultTimeoutMs ?? DEFAULT_QUERY_TIMEOUT_MS,
     async verify(event: NostrEvent): Promise<boolean> {
@@ -699,7 +672,26 @@ export function createRelayPoolOutboxRouter(options: RelayPoolOutboxRouterOption
     },
   };
 
+  async function planPublish(publishOptions?: OutboxPublishOptions): Promise<OutboxRelayPlan> {
+    if (!ctx.getSignerPubkey) return { relays: [], source: 'policy' };
+    const pubkey = await ctx.getSignerPubkey();
+    const plan = await resolvePlan(ctx, publishOptions?.toOutbox === false ? [] : [pubkey], 'read', publishOptions?.relays);
+    return { ...plan, author: pubkey };
+  }
+  async function publishWithPlan(template: EventTemplate, plan: OutboxRelayPlan): Promise<OutboxPublishResult> {
+    if (!ctx.signEvent || plan.relays.length === 0) return { ok: false, error: 'publish denied' };
+    const event = await ctx.signEvent(template);
+    if (plan.author && event.pubkey !== plan.author) return { ok: false, event, eventId: event.id, error: 'signing identity changed' };
+    const relays = normalizePublishResult(await ctx.relayPool.publish(event, [...plan.relays]), [...plan.relays]);
+    return { ok: Object.values(relays).some(Boolean), event, eventId: event.id, relays };
+  }
+
   return {
+    planRead: (filters, queryOptions) => resolvePlan(ctx, deriveAuthors(filters, queryOptions?.authors), 'read', queryOptions?.relays),
+    queryWithPlan: (filters, queryOptions, plan, signal) => queryPlanImpl(ctx, filters, queryOptions, plan, signal),
+    subscribeWithPlan: (filters, plan, sink) => subscribePlanImpl(ctx, filters, plan, sink),
+    planPublish,
+    publishWithPlan,
     getEvent: (eventId, eventOptions) => getEventImpl(ctx, eventId, eventOptions),
     query: (filters, queryOptions) => queryImpl(ctx, filters, queryOptions),
     queryStream: (filters, queryOptions, sink) => startQueryImpl(ctx, filters, queryOptions, sink),

@@ -114,6 +114,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build all packages
+        id: build
         run: pnpm build
 
       # Trusted Publishing is implemented in the npm CLI (>= 11.5.1); Node 22.14
@@ -127,8 +128,13 @@ jobs:
       # npm exchanges the OIDC token for a short-lived publish credential and
       # attaches provenance automatically (public repo + public package).
       - name: Publish to npm (OIDC Trusted Publishing)
+        id: npm_publish
         if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.skip_npm) }}
         run: pnpm changeset publish
+
+      - name: Verify npm versions are public
+        if: ${{ !cancelled() && steps.npm_publish.outcome == 'success' }}
+        run: node scripts/check-npm-publication.mjs
 
       # ── JSR publish ─────────────────────────────────────────────────────────
       # JSR publishes from the same admitted commit as npm, reading the same
@@ -137,16 +143,15 @@ jobs:
       # `id-token: write` OIDC — no JSR_TOKEN secret — once each @kehto/* package
       # is linked to kehto/web under the @kehto scope at jsr.io.
       #
-      # `if: always()` so a non-fatal npm hiccup (e.g. an already-published
-      # version, which `changeset publish` treats as success anyway) never
-      # silently skips the JSR release.
+      # Attempt JSR after an npm failure, but only with a successful build.
 
       # Idempotent — copies each packages/*/package.json#version into the sibling
       # jsr.json#version and pins internal @kehto/* import constraints to the
       # current versions. Guards against a hand-edited package.json that skipped
       # `pnpm version-packages`.
       - name: Sync jsr.json versions
-        if: always()
+        id: jsr_metadata
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: node scripts/sync-jsr-versions.mjs
 
       # `pnpm -r exec` runs in topological order (respects workspace deps), so
@@ -163,8 +168,10 @@ jobs:
       # --allow-slow-types relaxes JSR's strict type-inference checks until the
       # public type exports are tightened (tracked separately).
       # --allow-dirty tolerates the sync step's jsr.json edits without a commit.
+      # --no-bail lets independent packages publish after one registry rejection;
+      # pnpm still exits nonzero so a partial release cannot appear successful.
       - name: Publish to JSR (topologically ordered)
-        if: always()
+        if: ${{ !cancelled() && steps.jsr_metadata.outcome == 'success' }}
         env:
           JSR_FILTERS: ${{ github.event_name == 'workflow_dispatch' && inputs.jsr_filter || './packages/*' }}
         run: |
@@ -173,4 +180,4 @@ jobs:
             filter_args+=(--filter="$filter")
           done
 
-          pnpm -r --workspace-concurrency=1 "${filter_args[@]}" exec npx jsr publish --allow-slow-types --allow-dirty
+          pnpm -r --no-bail --workspace-concurrency=1 "${filter_args[@]}" exec npx jsr publish --allow-slow-types --allow-dirty

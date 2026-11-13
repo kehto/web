@@ -14,8 +14,9 @@ pnpm add @kehto/acl
 
 ## Published Napplet Compatibility
 
-The published peer compatibility floor is `@napplet/core` and `@napplet/nap`
-`>=0.32.0 <0.33.0`, admitting the current core 0.32.0 / nap 0.32.0 convention contract line.
+Peers admit `@napplet/core` `>=0.32.0 <0.42.0` and `@napplet/nap`
+`>=0.32.0 <0.41.0`. This package does not import the NAP-LLM types, so it keeps the older
+floor. Host packages develop and build on core 0.41.0 / nap 0.40.0; fixture napplets stay on the exact 0.32.0 line (shim 0.30.0, sdk 0.28.0, vite-plugin 0.16.2).
 
 ## Overview
 
@@ -95,6 +96,12 @@ check(state, id, CAP_RELAY_WRITE); // true (restored)
 - `check` — evaluate identity + capability against state
 - `toKey` — compute the `dTag:hash` composite key
 - `resolveCapabilitiesNap` — map a NIP-5D NAP envelope type to the required sender/recipient capabilities across the current supported domains
+
+`intent.deliver` is a runtime-to-napplet push gated by the target's
+`intent:read`, alongside intent availability updates and results. It does not
+require NAP-INC or `inc:read`. This mapping follows
+[NAP-INTENT at `43cb3a4`](https://github.com/napplet/naps/blob/43cb3a4e855570ec4b90b9cc05f0c721e5ad0aab/naps/NAP-INTENT.md);
+the capability name is Kehto policy.
 
 ### Migration
 - `migrateAclState` — one-shot migration from the legacy 3-segment `pubkey:dTag:hash` keys to the v1.2 2-segment `dTag:hash` keys; idempotent (returns the same reference when nothing to migrate)

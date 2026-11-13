@@ -8,7 +8,7 @@ import type {
   NostrEvent,
   NostrFilter,
 } from '@napplet/core';
-import type { Signer } from '@kehto/runtime';
+import type { ApprovalSignal, Signer } from '@kehto/runtime';
 import { verifyEvent } from 'nostr-tools/pure';
 import {
   PAJA_LIVE_QUERY_WAIT_MS,
@@ -73,8 +73,10 @@ export interface PajaListsBackendOptions {
 /** NAP-LISTS hooks backed by verified NIP-51/NIP-65 events. */
 export interface PajaListsBackend {
   supported(): readonly ListSupport[];
-  add(list: ListRef, items: readonly ListItem[], options?: ListOptions): Promise<ListMutationResult>;
-  remove(list: ListRef, items: readonly ListItem[], options?: ListOptions): Promise<ListMutationResult>;
+  /** Validate a mutation and disclose immutable destinations before approval. */
+  planMutation(list: ListRef, items: readonly ListItem[], options?: ListOptions): { readonly relays: readonly string[]; readonly resource: string } | ListMutationResult;
+  add(list: ListRef, items: readonly ListItem[], options?: ListOptions, relays?: readonly string[], signal?: ApprovalSignal): Promise<ListMutationResult>;
+  remove(list: ListRef, items: readonly ListItem[], options?: ListOptions, relays?: readonly string[], signal?: ApprovalSignal): Promise<ListMutationResult>;
 }
 
 interface ResolvedList {
@@ -238,7 +240,8 @@ function newestList(events: NostrEvent[], resolved: ResolvedList, author: string
  * @returns Host hooks consumed by `createListsService`.
  */
 export function createPajaListsBackend(options: PajaListsBackendOptions): PajaListsBackend {
-  const activeSigner = async (): Promise<{ signer: Signer; pubkey: string }> => {
+  const activeSigner = async (signal?: ApprovalSignal): Promise<{ signer: Signer; pubkey: string }> => {
+    if (signal?.aborted) throw new Error('user-denied');
     const signer = options.getSigner();
     if (!signer?.getPublicKey || !signer.signEvent) throw new Error('not-signed-in');
     const pubkey = (await signer.getPublicKey()).toLowerCase();
@@ -251,6 +254,8 @@ export function createPajaListsBackend(options: PajaListsBackendOptions): PajaLi
     ref: ListRef,
     items: readonly ListItem[],
     mutationOptions?: ListOptions,
+    relays: readonly string[] = options.getRelays(),
+    signal?: ApprovalSignal,
   ): Promise<ListMutationResult> => {
     const resolved = resolveList(ref);
     if ('ok' in resolved) return resolved;
@@ -263,16 +268,18 @@ export function createPajaListsBackend(options: PajaListsBackendOptions): PajaLi
     }
     let active: { signer: Signer; pubkey: string };
     try {
-      active = await activeSigner();
+      active = await activeSigner(signal);
     } catch {
       return failure('not-signed-in', 'list mutations require an active signer');
     }
     let current: NostrEvent | null;
     try {
       const events = await options.relay.query(
-        options.getRelays(),
+        [...relays],
         [listFilter(resolved, active.pubkey)],
         PAJA_LIVE_QUERY_WAIT_MS,
+        undefined,
+        signal as AbortSignal | undefined,
       );
       current = newestList(events, resolved, active.pubkey);
     } catch {
@@ -324,12 +331,14 @@ export function createPajaListsBackend(options: PajaListsBackendOptions): PajaLi
         tags,
         content: current?.content ?? '',
       };
+      if (signal?.aborted) return failure('user-denied', 'list mutation approval was revoked');
       const event = await active.signer.signEvent!(template);
+      if (signal?.aborted) return failure('user-denied', 'list mutation approval was revoked');
       if (event.pubkey.toLowerCase() !== active.pubkey
         || !verifyEvent(event as Parameters<typeof verifyEvent>[0])) {
         return failure('publish-failed', 'signer returned an invalid list event');
       }
-      await options.relay.publish(options.getRelays(), event);
+      await options.relay.publish([...relays], event);
       return {
         ok: true,
         eventId: event.id,
@@ -345,7 +354,19 @@ export function createPajaListsBackend(options: PajaListsBackendOptions): PajaLi
 
   return {
     supported: publicSupport,
-    add: (list, items, mutationOptions) => mutation('add', list, items, mutationOptions),
-    remove: (list, items, mutationOptions) => mutation('remove', list, items, mutationOptions),
+    planMutation(list, items) {
+      const resolved = resolveList(list);
+      if ('ok' in resolved) return resolved;
+      for (const item of items as readonly PajaListItem[]) {
+        const tag = itemTag(resolved.support, item);
+        if (isFailure(tag)) return tag;
+      }
+      return {
+        relays: Object.freeze([...options.getRelays()]),
+        resource: `${resolved.support.kind}${resolved.identifier ? `:${resolved.identifier}` : ''}`,
+      };
+    },
+    add: (list, items, mutationOptions, relays, signal) => mutation('add', list, items, mutationOptions, relays, signal),
+    remove: (list, items, mutationOptions, relays, signal) => mutation('remove', list, items, mutationOptions, relays, signal),
   };
 }

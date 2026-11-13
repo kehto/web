@@ -1,0 +1,9 @@
+{
+  "command": "pnpm exec vitest run packages/paja/src/browser-signers.test.ts --reporter=tap",
+  "exitCode": 1,
+  "targetTest": "ignores obsolete relay properties while retaining supported NIP-07 methods",
+  "expected": "zero obsolete property reads",
+  "actual": "1 read; assertion failed",
+  "normalization": "Vitest nested TAP flattened to leaf results with counts for the GSD node:test parser; raw output /tmp/opencode/glz-task2-red.tap",
+  "output": "not ok 1 - ignores obsolete relay properties while retaining supported NIP-07 methods\nok 2 - creates a request-scoped confirmation wrapper for a connected signer\nok 3 - re-reads the signer account before matching remembered authority\nok 4 - keeps host-internal signatures one-shot without napplet attribution\n# tests 4\n# pass 3\n# fail 1"
+}

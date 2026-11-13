@@ -17,12 +17,20 @@ pnpm add -D @kehto/cli
 | Field | Value |
 |-------|-------|
 | Source | `packages/cli/package.json`, `packages/cli/src/index.ts` |
-| Version | `0.5.8` |
+| Version | `0.7.1` |
 | Runtime entry | `./dist/index.js` |
 | Binary | `kehto` |
 | Types entry | `./dist/index.d.ts` |
 | Dependencies | `@kehto/paja` |
 | Side effects | `false` |
+
+## Peer Dependencies
+
+| Package | Range |
+|---------|-------|
+| `@napplet/core` | `>=0.41.0 <0.42.0` |
+| `@napplet/nap` | `>=0.37.0 <0.41.0` |
+| `nostr-tools` | `>=2.23.3 <=2.x` |
 
 ## Commands
 

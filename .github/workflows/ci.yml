@@ -179,6 +179,14 @@ jobs:
     needs: [change_scope, build, unit, e2e_changes]
     if: ${{ needs.change_scope.outputs.release_only != 'true' && needs.e2e_changes.outputs.run_e2e == 'true' }}
     runs-on: ubuntu-latest
+    # Keep this image aligned with @playwright/test in pnpm-lock.yaml.
+    # It contains browsers and system libraries, avoiding apt mirror outages.
+    container:
+      image: mcr.microsoft.com/playwright:v1.59.1-noble
+      options: --ipc=host
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -197,29 +205,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Resolve Playwright version
-        id: pw-version
+      - name: Verify Playwright image matches installed package
         run: |
-          VERSION=$(node -p "require('./node_modules/@playwright/test/package.json').version")
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Cache Playwright browsers
-        id: pw-cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ steps.pw-version.outputs.version }}-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-playwright-${{ steps.pw-version.outputs.version }}-
-            ${{ runner.os }}-playwright-
-
-      - name: Install Playwright browsers
-        if: steps.pw-cache.outputs.cache-hit != 'true'
-        run: pnpm exec playwright install --with-deps chromium
-
-      - name: Install system dependencies (cache hit path)
-        if: steps.pw-cache.outputs.cache-hit == 'true'
-        run: pnpm exec playwright install-deps chromium
+          node -e "const v = require('@playwright/test/package.json').version; if (v !== '1.59.1') throw new Error('Update the Playwright CI container image to match installed version ' + v)"
 
       - name: Run Playwright tests
         run: pnpm test:e2e -- ${{ needs.e2e_changes.outputs.spec_args }}

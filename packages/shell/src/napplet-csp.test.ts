@@ -1,6 +1,58 @@
 import { describe, expect, it } from 'vitest';
-import { buildNappletCsp, injectNappletCsp, type NappletCspDirectives } from './napplet-csp.js';
+import { buildApprovedNappletCsp, buildNappletCsp, classifyBrowserRemoteSources, injectNappletCsp, type NappletCspDirectives } from './napplet-csp.js';
 import { prepareNappletSrcdoc } from './napplet-srcdoc.js';
+
+describe('closed admitted browser CSP', () => {
+  it('denies every remote-capable source in isolated and mediated-resource modes', () => {
+    for (const mode of ['isolated', 'mediated-resource'] as const) {
+      const policy = buildApprovedNappletCsp({ mode, remoteSources: [] });
+      expect(policy).toContain("default-src 'none'");
+      for (const directive of ['connect-src', 'worker-src', 'media-src', 'frame-src', 'child-src', 'object-src', 'manifest-src', 'base-uri', 'form-action']) {
+        expect(policy).toContain(`${directive} 'none'`);
+      }
+      expect(policy).not.toContain('https://');
+    }
+  });
+
+  it('binds each reviewed remote class to its own exact origin requirement', () => {
+    const directives = ['connect-src', 'script-src', 'style-src', 'img-src', 'font-src', 'worker-src', 'media-src'] as const;
+    const remoteSources = directives.map((directive) => ({ directive, origin: `https://${directive}.example.test` }));
+    const classified = classifyBrowserRemoteSources(remoteSources);
+    expect(classified.requirements).toEqual(directives.map((directive) => ({
+      category: 'network', domain: 'network', operation: `network.${directive}`,
+      scope: { kind: 'origin', value: `https://${directive}.example.test` },
+    })).sort((a, b) => a.operation.localeCompare(b.operation)));
+    const policy = buildApprovedNappletCsp({ mode: 'direct-network', remoteSources });
+    for (const directive of directives) expect(policy).toContain(`https://${directive}.example.test`);
+    for (const directive of ['frame-src', 'child-src', 'object-src', 'manifest-src', 'base-uri', 'form-action']) {
+      expect(policy).toContain(`${directive} 'none'`);
+    }
+    expect(policy).toContain('script-src-attr \'none\'');
+  });
+
+  it('rejects mixed modes, unsupported directives, passthrough, wildcards, and WebSocket assets', () => {
+    const connect = [{ directive: 'connect-src' as const, origin: 'wss://relay.example.test' }];
+    expect(buildApprovedNappletCsp({ mode: 'direct-network', remoteSources: connect })).toContain('connect-src wss://relay.example.test');
+    expect(() => buildApprovedNappletCsp({ mode: 'mediated-resource', remoteSources: connect })).toThrow();
+    expect(() => buildApprovedNappletCsp({ mode: 'direct-network', remoteSources: [] })).toThrow();
+    expect(() => classifyBrowserRemoteSources([{ directive: 'frame-src', origin: 'https://a.example.test' } as never])).toThrow();
+    expect(() => classifyBrowserRemoteSources([{ directive: 'img-src', origin: 'https://*.example.test' }])).toThrow();
+    expect(() => classifyBrowserRemoteSources([{ directive: 'img-src', origin: 'wss://relay.example.test' }])).toThrow();
+    expect(() => buildApprovedNappletCsp({ mode: 'isolated', remoteSources: [], directives: { 'connect-src': ['https://a.example.test'] } } as never)).toThrow();
+  });
+
+  it('permits only the approved development origin as a host-injected base URL', () => {
+    const remoteSources = [{ directive: 'script-src' as const, origin: 'https://dev.example.test' }];
+    const policy = buildApprovedNappletCsp({ mode: 'direct-network', remoteSources,
+      baseOrigin: 'https://dev.example.test' });
+    expect(policy).toContain('base-uri https://dev.example.test');
+    expect(policy).toContain("frame-src 'none'");
+    expect(() => buildApprovedNappletCsp({ mode: 'direct-network', remoteSources,
+      baseOrigin: 'https://other.example.test' })).toThrow();
+    expect(() => buildApprovedNappletCsp({ mode: 'mediated-resource', remoteSources: [],
+      baseOrigin: 'https://dev.example.test' })).toThrow();
+  });
+});
 
 describe('host-customizable NIP-5D CSP', () => {
   it('defaults to the upstream baseline with WASM and no direct connections', () => {
@@ -11,6 +63,25 @@ describe('host-customizable NIP-5D CSP', () => {
     }
     expect(policy).not.toContain("'unsafe-eval'");
     expect(policy).not.toMatch(/frame-ancestors|sandbox|report-uri|prefetch-src/);
+  });
+
+  it('gates the Trusted Types nested-context lock behind the experimental flag, off by default', () => {
+    // Off by default: no downstream host is forced into the opinion.
+    const unlocked = prepareNappletSrcdoc('<html><head></head><body></body></html>', { domains: [] });
+    expect(unlocked).not.toContain('require-trusted-types-for');
+    expect(unlocked).not.toContain('trusted-types');
+    // Opt-in via the experimental namespace: the napplet CSP carries the lock.
+    const locked = prepareNappletSrcdoc('<html><head></head><body></body></html>', {
+      domains: [], experimental: { nestedContextLock: true },
+    });
+    expect(locked).toContain("require-trusted-types-for 'script'; trusted-types default");
+    // The trusted host-page CSP never requires Trusted Types.
+    expect(buildNappletCsp()).not.toContain('require-trusted-types-for');
+    // Host directive overrides cannot inject or widen the Trusted Types lock.
+    expect(() => buildNappletCsp({ directives: { 'trusted-types': ['*'] } as unknown as NappletCspDirectives }))
+      .toThrow(/Unsupported meta CSP directive/);
+    expect(() => buildNappletCsp({ directives: { 'require-trusted-types-for': ["'none'"] } as unknown as NappletCspDirectives }))
+      .toThrow(/Unsupported meta CSP directive/);
   });
 
   it('allows host changes without freezing the example baseline', () => {

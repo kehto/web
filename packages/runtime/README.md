@@ -14,8 +14,8 @@ pnpm add @kehto/runtime
 
 ## Published Napplet Compatibility
 
-`@kehto/runtime` publishes against `@napplet/core` and `@napplet/nap`
-`>=0.32.0 <0.33.0`. The exact installed convention contracts are core 0.32.0 /
+Peers admit `@napplet/core` `>=0.32.0 <0.42.0` and `@napplet/nap`
+`>=0.32.0 <0.41.0`; the runtime does not import the NAP-LLM types, so it keeps the older floor. Host packages develop and build on core 0.41.0 / nap 0.40.0; fixture napplets stay on the exact 0.32.0 line (shim 0.30.0, sdk 0.28.0, vite-plugin 0.16.2). The exact fixture-line convention contracts are core 0.32.0 /
 nap 0.32.0 from NAP-INTENT authority `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`,
 napplet/web#199 source `3037200c932488f14f7f369b8583c39c9c16510a` / merge
 `b3f0007867eac109fa4917fac9c285d3b7cc6155`, and Version Packages #198 release
@@ -181,12 +181,13 @@ the protocol-defined correlated result wire: `outbox.query.result` with
 `events: []` and `error`. The runtime does not synthesize an
 `outbox.query.error` message.
 
-The installed `@napplet/nap@0.32.0` contract trails PR #106. The bounded local
-`@kehto/services` intent types and their removal condition are documented in
+The fixture-line `@napplet/nap@0.32.0` contract trails PR #106. Host packages
+take the intent types from `@napplet/core@0.41.0`, which `@kehto/services`
+re-exports; see the
 [conformance policy](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md).
 
 Phase 105 completed released package adoption and persistent installed-manifest
-controllers for the live Paja and playground hosts.
+controllers for the live Paja host.
 
 ## NAP-INC Contract
 
@@ -230,6 +231,24 @@ and releases failed replay reservations so a deterministic signed event can be
 retried without allowing concurrent duplicate publication.
 `publishToScopedRelay()` may similarly return `Promise<boolean>` when a host
 needs transport settlement before reporting the scoped publication outcome.
+
+`RuntimeAdapter.aclDefaultPolicy` (`'permissive' | 'restrictive'`) sets the ACL
+policy for identities with no stored entry. When set, it replaces the policy in
+persisted ACL state on load. Stored entries are kept as they are. With
+`RuntimeAdapter.permissions` it's a ceiling: an operation the ACL denies is refused
+with no prompt until the host grants the capability.
+
+Hosts opt into temporal protection with an explicitly constructed
+`PermissionAdapter.rateLimiter` or `promptRateLimiter` from `@kehto/rate-limit`.
+Hold the limiter to change its configuration. `legacyFirewall` is an explicit
+compatibility adapter for hosts without scoped permissions.
+
+`PermissionAdapter.defaultDecision(request, missing)` lets a host answer a request
+no stored decision covers without prompting. `allow` commits session grants whose ids
+start with `DEFAULT_RULE_GRANT_PREFIX`, `deny` refuses, and `ask` prompts. It runs
+before the prompt budget, and stored denials, the ACL ceiling and operation budgets
+still apply. The rule model (`createPermissionRules`, `resolvePermissionRule`,
+`setPermissionRule`) is re-exported from `@kehto/firewall`.
 
 ## Quick Start
 
@@ -281,9 +300,8 @@ duplicate readiness signals cannot bypass the startup limit. Per-napplet rate
 limits remain shared across registrations and versions.
 
 Standalone registries accept an optional second `onRegister(windowId)` callback.
-The runtime uses it to call `firewallState.resetInitBudget(windowId)`, which removes
-only the selected startup counter and preserves policy and token buckets. Custom
-implementations of `FirewallStateContainer` must provide this method.
+Runtime retires a supplied limiter's startup lifecycle without resetting shared
+token budgets. No limiter means there are no temporal counters to retire.
 
 ### ACL state container
 - `createAclState` — persistence-backed wrapper around `@kehto/acl` state
@@ -315,10 +333,14 @@ type). `Runtime.handleMessage` requires a live unblocked source, an explicit
 types and extension policy denials stay silent on the wire. Registration alone
 attaches a service; it does not expose or grant a domain. Fixed NAP routes retain
 their own authorization. Pending replies are invalidated by service/source
-replacement or teardown and recheck current domain/ACL policy.
+replacement or teardown and recheck current domain/ACL policy. Unsolicited
+shell -> napplet pushes into such a domain need an exact `pushCapabilities` map
+(recipient capability or explicit `null` per push type) and are delivered through
+`ServiceRuntimeContext.sendToEligibleNapplet` under the same source, domain-grant,
+and ACL gates; the call's boolean reports whether the push was delivered.
 
 Browser hosts must provide the owning extension contract and inject its granted
-namespace binding before scripts run. Stock Paja/playground bindings do not inject
+namespace binding before scripts run. Stock Paja bindings do not inject
 arbitrary extensions. See [Register a service](../../docs/how-tos/register-service.md#domains-outside-the-built-in-dispatcher)
 for the complete host contract and spec bounds.
 
@@ -342,4 +364,66 @@ MIT
 
 ## GAMEPAD integration
 
-This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja and the playground register one host reader and deny native gamepad/HID/USB paths before frame execution. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, window destruction, and service removal release polling. Non-browser or denied native readers report the proposal's unavailable reasons. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
+This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja registers one host reader and denies native gamepad/HID/USB paths before frame execution. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, window destruction, and service removal release polling. Non-browser or denied native readers report the proposal's unavailable reasons. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
+
+## LLM integration
+
+This non-normative guidance defers to the living [NAP-LLM](https://github.com/napplet/naps/pull/134) (checked at `5e93bdf`). Services export `createLlmService`, `LlmServiceError`, the provider mappers and `LLM_PROVIDER_PRESETS`; shell exports `getShellDomainState` and the `LlmHooks` adapter field; acl exports `llm:generate`. The runtime routes `llm.*` to one registered service and answers every sanctioned request with exactly one `llm.<op>.result`, shaping missing-service and ACL failures as `{ code: 'unsupported' }`. Hosts implement `LlmConnectionHost`; the service enforces schema, handle ownership, a per-window live-handle bound (`maxHandlesPerWindow`), consent before submission, duplicate ids, cancellation and deadline races, ordered deltas and safe errors, and passes `select`/`authorize` a `{ signal }` that withdraws stale prompts. `createHttpLlmProvider({ stream: true })` streams provider output into `llm.delta` as block start/delta/end events. Results carry `content` parts (text, thinking and tool calls); tool calls and results are validated and relayed, and Kehto never executes one. Advertisement stays binary on the wire while hosts report a third `unconfigured` state until the user adds a connection. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
+
+## Independent rate limits
+
+Rate limiting is optional and lives in `@kehto/rate-limit`, not runtime or Firewall.
+Supply `PermissionAdapter.rateLimiter` and/or `promptRateLimiter` to opt in;
+omitting either installs no default counters or limits for that traffic.
+
+```ts
+import { createRateLimiter, defaultRateLimitConfig } from '@kehto/rate-limit';
+const limiter = createRateLimiter(defaultRateLimitConfig());
+const permissions = { ...approvalAdapter, rateLimiter: limiter };
+limiter.setConfig({ ...limiter.config, unfocusedMultiplier: 0.5 });
+```
+
+Hold the limiter to inspect `config` or call `setConfig`, which validates without
+resetting counters. Runtime passes trusted identity/lifecycle observations and
+retires lifecycle counters on teardown. Approval, ACL and source checks remain
+independent. Without scoped permissions, hosts may explicitly install
+`legacyFirewall` from `@kehto/rate-limit/legacy`; the default installs neither.
+
+### Scoped approval integration
+
+Supply `RuntimeAdapter.permissions` and trusted `SessionEntry.permissionPrincipal`
+to enable shared approval for migrated service operations. Runtime exposes
+`permissions.grants`, `revoke`, `clear`, and `retryPersistence` for host settings.
+Persistent grants require successful durable writes; revocation failures disable
+access until recovery. Services use `ServiceRuntimeContext.authorizeOperation`
+and observe its cancellation signal. See [scoped approvals](../../docs/firewall-approvals.md)
+for adapter examples, lifetimes, failure handling, and the remaining migration scope.
+
+Use `runtime.permissions.admit` with a trusted provisional session before starting
+an app, then `isAdmissionCurrent` immediately before injecting the returned domains.
+Required denial blocks admission; optional denial narrows the result. Built-in
+interfaces require these grants. Declared service extensions use shared held
+approvals, immutable bounded requests, replay protection, and independent prompt
+budgets. Their `onPermissionDenied` hook owns any extension-specific error response.
+
+
+### Cancelling one approved operation
+
+Services may pass a request-owned signal as the fifth argument to
+`ServiceRuntimeContext.authorizeOperation(windowId, operation, requirements,
+execute, signal)`. Aborting it settles that request as `cancelled`, dismisses its
+prompt through the prompt signal, and aborts the signal passed to `execute`.
+Sibling requests keep their own lifetimes. Late approval answers cannot create
+grants; late action results are discarded. The service must still observe the
+execution signal before each later side effect and apply its protocol's
+cancellation response rules.
+
+A cancelled queued request settles immediately, but later equivalent requests
+still wait behind the active prompt. Retained queue entries count toward the
+queue bound until their predecessor settles. Request listeners are removed when
+the operation settles. An already-aborted signal never opens a prompt or invokes
+the action.
+
+Registered extensions revalidate their exact capability declaration after approval
+and before sending deferred replies. Replacing, removing, or changing that
+declaration invalidates the captured operation; a late answer grants nothing.

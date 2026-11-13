@@ -7,8 +7,9 @@ import type {
   BleService,
   NappletMessage,
 } from '@napplet/core';
+import type { ServiceRuntimeContext } from '@kehto/runtime';
 
-import { createBleService, type BleServiceOptions } from './ble-service.js';
+import { createBleService, type BleServiceContext, type BleServiceOptions } from './ble-service.js';
 
 const WINDOW_ID = 'win-ble';
 const TARGET: BleAttribute = { service: 'battery_service', characteristic: 'battery_level' };
@@ -42,6 +43,10 @@ describe('createBleService', () => {
     const service = createBleService();
     expect(service.descriptor.name).toBe('ble');
     expect(service.descriptor.version).toBe('1.0.0');
+  });
+
+  it('rejects malformed host options before creating a handler', () => {
+    expect(() => createBleService(null as unknown as BleServiceOptions)).toThrow(TypeError);
   });
 
   it('returns structured unsupported results for unavailable hooks', () => {
@@ -81,11 +86,17 @@ describe('createBleService', () => {
     const { sent, send } = collectSent();
 
     service.handleMessage(WINDOW_ID, { type: 'ble.open', id: 'open-2', request: REQUEST } as NappletMessage, send);
+    await flush();
     service.handleMessage(WINDOW_ID, { type: 'ble.services', id: 'services-2', sessionId: 'ble-session-1' } as NappletMessage, send);
+    await flush();
     service.handleMessage(WINDOW_ID, { type: 'ble.read', id: 'read-2', sessionId: 'ble-session-1', target: TARGET } as NappletMessage, send);
+    await flush();
     service.handleMessage(WINDOW_ID, { type: 'ble.write', id: 'write-2', sessionId: 'ble-session-1', target: TARGET, data: [1, 2], options: { response: 'with-response' } } as NappletMessage, send);
+    await flush();
     service.handleMessage(WINDOW_ID, { type: 'ble.subscribe', id: 'sub-2', sessionId: 'ble-session-1', target: TARGET } as NappletMessage, send);
+    await flush();
     service.handleMessage(WINDOW_ID, { type: 'ble.unsubscribe', id: 'unsub-2', sessionId: 'ble-session-1', target: TARGET } as NappletMessage, send);
+    await flush();
     service.handleMessage(WINDOW_ID, { type: 'ble.close', id: 'close-2', sessionId: 'ble-session-1', reason: 'done' } as NappletMessage, send);
     await flush();
 
@@ -121,29 +132,38 @@ describe('createBleService', () => {
       data: [87],
     };
     const service = createBleService({
+      open: () => OPEN_RESULT,
       subscribe: (_sessionId, _target, context) => {
         context.emit(event);
       },
     });
     const { sent, send } = collectSent();
 
+    service.handleMessage(WINDOW_ID, { type: 'ble.open', id: 'open-before-subscribe', request: REQUEST } as NappletMessage, send);
+    await flush();
     service.handleMessage(WINDOW_ID, { type: 'ble.subscribe', id: 'sub-3', sessionId: 'ble-session-1', target: TARGET } as NappletMessage, send);
     await flush();
 
     expect(sent).toEqual([
+      { type: 'ble.open.result', id: 'open-before-subscribe', session: OPEN_RESULT.session },
       { type: 'ble.event', event },
       { type: 'ble.subscribe.result', id: 'sub-3' },
     ]);
   });
 
   it('contains host exceptions as shaped error results', async () => {
-    const service = createBleService({ read: () => { throw new Error('device disconnected'); } });
     const { sent, send } = collectSent();
 
-    service.handleMessage(WINDOW_ID, { type: 'ble.read', id: 'read-3', sessionId: 'missing', target: TARGET } as NappletMessage, send);
+    const opened = createBleService({ open: () => OPEN_RESULT, read: () => { throw new Error('device disconnected'); } });
+    opened.handleMessage(WINDOW_ID, { type: 'ble.open', id: 'open-before-read-error', request: REQUEST } as NappletMessage, send);
+    await flush();
+    opened.handleMessage(WINDOW_ID, { type: 'ble.read', id: 'read-3', sessionId: 'ble-session-1', target: TARGET } as NappletMessage, send);
     await flush();
 
-    expect(sent).toEqual([{ type: 'ble.read.result', id: 'read-3', error: 'device disconnected' }]);
+    expect(sent).toEqual([
+      { type: 'ble.open.result', id: 'open-before-read-error', session: OPEN_RESULT.session },
+      { type: 'ble.read.result', id: 'read-3', error: 'device disconnected' },
+    ]);
   });
 
   it('contains unknown ble actions', () => {
@@ -162,5 +182,53 @@ describe('createBleService', () => {
     service.onWindowDestroyed?.(WINDOW_ID);
 
     expect(destroyWindow).toHaveBeenCalledWith(WINDOW_ID);
+  });
+
+  it('denies BLE selection before the host chooser when the shared approval rejects it', async () => {
+    const open = vi.fn(() => OPEN_RESULT);
+    const authorizeOperation = vi.fn(async () => ({ status: 'denied' as const }));
+    const service = createBleService({ open });
+    const { sent, send } = collectSent();
+    service.onRegistered?.({ authorizeOperation } as unknown as ServiceRuntimeContext);
+
+    service.handleMessage(WINDOW_ID, { type: 'ble.open', id: 'denied-open', request: REQUEST } as NappletMessage, send);
+    await flush();
+
+    expect(open).not.toHaveBeenCalled();
+    expect(sent).toEqual([{ type: 'ble.open.result', id: 'denied-open', error: 'policy denied' }]);
+  });
+
+  it('rejects a forged BLE session from a different source before host GATT access', async () => {
+    const read = vi.fn(() => [1]);
+    const service = createBleService({ open: () => OPEN_RESULT, read });
+    const { send } = collectSent();
+    const other = collectSent();
+    service.handleMessage(WINDOW_ID, { type: 'ble.open', id: 'owner-open', request: REQUEST } as NappletMessage, send);
+    await flush();
+    service.handleMessage('other-window', {
+      type: 'ble.read', id: 'forged-read', sessionId: OPEN_RESULT.session.id, target: TARGET,
+    } as NappletMessage, other.send);
+    await flush();
+
+    expect(read).not.toHaveBeenCalled();
+    expect(other.sent).toEqual([{ type: 'ble.read.result', id: 'forged-read', error: 'session not found' }]);
+  });
+
+  it('disconnects BLE and suppresses late host events when permission is revoked', async () => {
+    let context!: BleServiceContext;
+    const close = vi.fn();
+    const service = createBleService({
+      open: (_request, value) => { context = value; return OPEN_RESULT; },
+      close,
+    });
+    const { sent, send } = collectSent();
+    service.handleMessage(WINDOW_ID, { type: 'ble.open', id: 'open-before-revoke', request: REQUEST } as NappletMessage, send);
+    await flush();
+    service.onPermissionRevoked?.(WINDOW_ID);
+    context.emit({ type: 'notification', sessionId: OPEN_RESULT.session.id, target: TARGET, data: [1] });
+    await flush();
+
+    expect(close).toHaveBeenCalledWith(OPEN_RESULT.session.id, 'policy denied', expect.objectContaining({ windowId: WINDOW_ID }));
+    expect(sent).toEqual([{ type: 'ble.open.result', id: 'open-before-revoke', session: OPEN_RESULT.session }]);
   });
 });

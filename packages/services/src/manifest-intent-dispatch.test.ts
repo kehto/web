@@ -8,13 +8,6 @@ const CONVENTION = 'napplet:profile/open';
 const SOURCE = `nip5d:35129:${'a'.repeat(64)}:source`;
 const TARGET = `nip5d:35129:${'b'.repeat(64)}:profile-viewer`;
 
-async function flush(): Promise<void> {
-  await Promise.resolve();
-  await Promise.resolve();
-  await Promise.resolve();
-  await Promise.resolve();
-}
-
 describe('verified manifest intent dispatch', () => {
   it('acknowledges accepted retained work, survives source removal, and never emits a completion result', async () => {
     let rejectCompletion!: (reason: Error) => void;
@@ -39,7 +32,7 @@ describe('verified manifest intent dispatch', () => {
       type: 'intent.invoke', id: 'intent-1',
       request: { archetype: 'profile', action: 'open', convention: CONVENTION, payload: { pubkey: 'c'.repeat(64) } },
     } as unknown as NappletMessage, (message) => sent.push(message));
-    await flush();
+    await vi.waitFor(() => expect(sent).toHaveLength(1));
 
     expect(accept).toHaveBeenCalledWith({
       handler: TARGET,
@@ -57,7 +50,7 @@ describe('verified manifest intent dispatch', () => {
 
     sourceIsBound = false;
     rejectCompletion(new Error('target terminal failure'));
-    await flush();
+    await Promise.resolve();
     expect(sent).toHaveLength(1);
   });
 
@@ -75,7 +68,7 @@ describe('verified manifest intent dispatch', () => {
       type: 'intent.invoke', id: 'intent-2',
       request: { archetype: 'profile', action: 'open', convention: CONVENTION },
     } as unknown as NappletMessage, (message) => sent.push(message));
-    await flush();
+    await vi.waitFor(() => expect(sent).toHaveLength(1));
 
     expect(sent).toEqual([{
       type: 'intent.invoke.result', id: 'intent-2', result: { ok: false, error: 'invoke rejected' },

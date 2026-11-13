@@ -42,6 +42,7 @@ export function createPajaDevSigner(
     getPublicKey: () => PAJA_DEV_SIGNER_PUBKEY,
     getRelays: () => Object.fromEntries(getPajaRelayUrls(getSimulation()).map((relay) => [relay, { read: true, write: true }])),
     async signEvent(event: Parameters<typeof finalizeEvent>[0]): Promise<NostrEvent> {
+      if (source?.isCurrent && !source.isCurrent()) throw new Error('Paja signing source changed');
       const signerContext = source
         ? { ...source, signerPubkey: PAJA_DEV_SIGNER_PUBKEY }
         : undefined;
@@ -52,6 +53,7 @@ export function createPajaDevSigner(
       })) {
         throw new Error('Paja signing request denied');
       }
+      if (source?.isCurrent && !source.isCurrent()) throw new Error('Paja signing source changed');
       const template = { ...event };
       template.created_at ??= Math.floor(Date.now() / 1000);
       template.tags ??= [];
@@ -77,7 +79,7 @@ function createDmRelayPool(backend: PajaRelayBackend, getRelays: () => string[])
       });
       return { unsubscribe: () => subscription.unsubscribe() };
     },
-    publish: (event) => backend.publishDmGiftWrap(getRelays(), event),
+    publish: (event, relayUrls) => backend.publishDmGiftWrap([...(relayUrls ?? getRelays())], event),
     query: (filters, relayUrls) => backend.query(relayUrls ?? getRelays(), filters),
     selectRelayTier: (_filters: NostrFilter[]) => getRelays(),
     isAvailable: () => backend.isAvailable(),

@@ -39,6 +39,7 @@ const CAP_DM_READ        = 1 << 23;   // 8388608 (NAP-DM read/history/subscripti
 const CAP_DM_WRITE       = 1 << 24;   // 16777216 (NAP-DM send)
 const CAP_FS_READ        = 1 << 25;   // 33554432 (NAP-FS discovery/read/watch)
 const CAP_FS_WRITE       = 1 << 26;   // 67108864 (NAP-FS mutations)
+const CAP_LLM_GENERATE   = 1 << 27;   // 134217728 (NAP-LLM user-selected inference)
 
 const CAP_MAP: Record<Capability, number> = {
   'relay:read': CAP_RELAY_READ,
@@ -67,6 +68,7 @@ const CAP_MAP: Record<Capability, number> = {
   'dm:write': CAP_DM_WRITE,
   'fs:read': CAP_FS_READ,
   'fs:write': CAP_FS_WRITE,
+  'llm:generate': CAP_LLM_GENERATE,
 };
 
 const RUNTIME_CAP_ALL = Object.values(CAP_MAP).reduce((bits, bit) => bits | bit, 0);
@@ -161,6 +163,7 @@ export interface AclStateContainer {
  * @param persistence - Storage backend for ACL state
  * @param defaultPolicy - Default ACL policy for unknown identities
  * @param onMutation - Internal runtime observer for revoke and block facts
+ * @param pinDefaultPolicy - When true, `defaultPolicy` replaces the policy stored in persisted state on load
  * @returns An AclStateContainer instance
  *
  * @example
@@ -173,6 +176,7 @@ export function createAclState(
   persistence: AclPersistence,
   defaultPolicy: 'permissive' | 'restrictive' = 'permissive',
   onMutation?: AclMutationObserver,
+  pinDefaultPolicy = false,
 ): AclStateContainer {
   let state: AclState = createState(defaultPolicy);
 
@@ -277,7 +281,8 @@ export function createAclState(
       try {
         const raw = persistence.load();
         if (!raw) return;
-        state = deserialize(raw);
+        const loaded = deserialize(raw);
+        state = pinDefaultPolicy ? { ...loaded, defaultPolicy } : loaded;
       } catch {
         state = createState(defaultPolicy);
       }

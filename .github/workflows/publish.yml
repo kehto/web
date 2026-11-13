@@ -41,6 +41,7 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.workflow_run.head_sha }}
           submodules: recursive
+          token: ${{ secrets.CHANGESETS_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
 
       - uses: pnpm/action-setup@v4
 
@@ -51,6 +52,22 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Explain version PR workflow approval requirements
+        uses: actions/github-script@v7
+        env:
+          CHANGESETS_TOKEN: ${{ secrets.CHANGESETS_GITHUB_TOKEN }}
+        with:
+          script: |
+            const { readdirSync } = require('node:fs');
+            const pending = readdirSync('.changeset').some((name) => name.endsWith('.md') && name !== 'README.md');
+            if (pending && !process.env.CHANGESETS_TOKEN) {
+              core.warning('Set CHANGESETS_GITHUB_TOKEN to a dedicated App/PAT token with Contents and Pull requests write access. Without it, approve the Version Packages PR workflows before they expire. See docs/guides/releases.md.');
+              await core.summary
+                .addHeading('Version PR checks need approval')
+                .addRaw('CHANGESETS_GITHUB_TOKEN is missing. Open the Version Packages PR and select **Approve workflows to run**, or configure the dedicated token described in docs/guides/releases.md.\n')
+                .write();
+            }
+
       # No `publish:` input — this workflow only opens/updates the Version
       # Packages PR. Publishing is release.yml's responsibility (it owns the npm
       # OIDC Trusted Publisher). With no pending changesets, changesets/action is
@@ -59,5 +76,5 @@ jobs:
         uses: changesets/action@v1
         with:
           version: pnpm version-packages
-        env:
-          GITHUB_TOKEN: ${{ secrets.CHANGESETS_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          # The action reads this input; an env-only token is ignored.
+          github-token: ${{ secrets.CHANGESETS_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}

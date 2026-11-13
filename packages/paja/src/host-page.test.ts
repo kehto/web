@@ -1,8 +1,32 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { createPajaHostConfig, createPajaRuntimeHostConfig, normalizePajaOptions } from './options.js';
 import { renderPajaHtml } from './host-page.js';
 
 describe('@kehto/paja host page', () => {
+  it('routes CLI, server, and generated pages through one admitted executable frame path', () => {
+    const source = (name: string) => readFileSync(new URL(`./${name}.ts`, import.meta.url), 'utf8');
+    const cli = source('cli');
+    const server = source('server');
+    const host = source('browser-host');
+    const tabs = source('browser-runtime-tabs');
+    const frame = source('browser-target-frame');
+    const html = renderPajaHtml(createPajaHostConfig(normalizePajaOptions({ targetUrl: 'http://127.0.0.1:5173' })));
+
+    expect(cli).toContain("import { startPajaServer } from './server.js'");
+    expect(server).toContain("import { renderPajaHtml } from './host-page.js'");
+    expect(server).toContain("new URL('./browser-host.js', import.meta.url)");
+    expect(html).toContain('<script type="module" src="./__kehto/browser-host.js"></script>');
+    expect(html).not.toMatch(/<iframe[^>]+\ssrc=/);
+    expect(host).toContain("from './browser-target-frame.js'");
+    expect(tabs).toContain('context.navigateFrame(');
+    expect(frame).toContain('await admitBrowserDocument({');
+    expect(frame).toContain('frame.srcdoc = srcdoc;');
+    expect(host.match(/frame\.srcdoc\s*=/g)).toHaveLength(1);
+    expect(tabs.match(/tab\.frame\.srcdoc\s*=/g)).toHaveLength(1);
+    expect(host).toContain('frame.srcdoc = renderTargetErrorHtml(error)');
+    expect(tabs).toContain('tab.frame.srcdoc = context.renderTargetErrorHtml(error)');
+  });
   it('places controller diagnostics between the console arrow and tabs in both host modes', () => {
     for (const config of [
       createPajaRuntimeHostConfig({}),
@@ -14,6 +38,33 @@ describe('@kehto/paja host page', () => {
       expect(toolbar.indexOf('id="paja-gamepads"')).toBeLessThan(toolbar.indexOf('id="napplet-tabs"'));
       expect(toolbar).toContain('role="group" aria-label="Connected controllers"');
     }
+  });
+  it('offers a model dropdown with a listing status beside free-text entry', () => {
+    const html = renderPajaHtml(createPajaRuntimeHostConfig({}));
+    // A preset that lists its models swaps free-text entry for this select.
+    expect(html).toContain('<label id="paja-llm-model-select-field" hidden>Model<select id="paja-llm-model-select" required aria-describedby="paja-llm-model-status"></select></label>');
+    expect(html).toContain('id="paja-llm-model-status" role="status" aria-live="polite"');
+    expect(html).toContain('<label id="paja-llm-model-field">Model');
+    const form = html.slice(html.indexOf('id="paja-llm-form"'), html.indexOf('id="paja-llm-status"'));
+    // The status sits under the dropdown, above the credential field.
+    expect(form.indexOf('id="paja-llm-model-status"')).toBeLessThan(form.indexOf('id="paja-llm-credential"'));
+    expect(html.match(/id="paja-llm-model-select"/g)).toHaveLength(1);
+  });
+
+  it('offers tool calling with required and named choice sub-options that start disabled', () => {
+    const html = renderPajaHtml(createPajaRuntimeHostConfig({}));
+    const form = html.slice(html.indexOf('id="paja-llm-form"'), html.indexOf('id="paja-llm-status"'));
+    expect(form).toContain('<input id="paja-llm-tools" type="checkbox"><span>Tool calling</span>');
+    expect(form).toContain('<input id="paja-llm-tool-required" type="checkbox" disabled><span>Required tool choice</span>');
+    expect(form).toContain('<input id="paja-llm-tool-named" type="checkbox" disabled><span>Named tool choice</span>');
+    expect(form.indexOf('id="paja-llm-json"')).toBeLessThan(form.indexOf('id="paja-llm-tools"'));
+    for (const id of ['paja-llm-tools', 'paja-llm-tool-required', 'paja-llm-tool-named']) expect(html.match(new RegExp(`id="${id}"`, 'g'))).toHaveLength(1);
+  });
+
+  it('locks napplet frames to their verified srcdoc with a frame-src CSP in <head>', () => {
+    const html = renderPajaHtml(createPajaRuntimeHostConfig({}));
+    const head = html.slice(html.indexOf('<head>'), html.indexOf('</head>'));
+    expect(head).toContain(`<meta http-equiv="Content-Security-Policy" content="frame-src 'none'">`);
   });
   it('presents named app choices and a nonmodal notice without a recipient protocol form', () => {
     const html = renderPajaHtml(createPajaRuntimeHostConfig({}));
@@ -46,8 +97,8 @@ describe('@kehto/paja host page', () => {
       expect(aside!.indexOf('id="paja-resource-servers-form"')).toBeLessThan(aside!.indexOf('id="message-log"'));
       const keys = [...aside!.matchAll(/data-paja-section="([^"]+)"/g)].map((match) => match[1]);
       expect(keys).toEqual(config.target.mode === 'runtime-pointer'
-        ? ['pointer', 'interfaces', 'acl', 'signer', 'resource-servers', 'messages', 'events']
-        : ['interfaces', 'acl', 'signer', 'resource-servers', 'messages', 'events']);
+        ? ['pointer', 'interfaces', 'permissions', 'acl', 'signer', 'resource-servers', 'security', 'llm', 'messages', 'events']
+        : ['interfaces', 'permissions', 'acl', 'signer', 'resource-servers', 'security', 'llm', 'messages', 'events']);
       expect(aside!.match(/<details[^>]* open>/g)).toHaveLength(keys.length);
       expect(aside!.match(/<summary class="section-title">/g)).toHaveLength(keys.length);
       expect(aside).not.toMatch(/<details[^>]* name=/);
@@ -103,9 +154,9 @@ describe('@kehto/paja host page', () => {
     expect(html).toContain('id="paja-signer-consent-kind"');
     expect(html).toContain('Always sign kind');
     expect(html).toContain('id="paja-signer-consent-napplet"');
-    expect(html).toContain('Trust <strong id="paja-signer-consent-napplet-value"');
-    expect(html).toContain('Warning: Paja will sign any event this napplet identity requests');
-    expect(html).toContain('Direct-target trust survives code reloads at the same URL');
+    expect(html).toContain('id="paja-signer-consent-version"');
+    expect(html).toContain('Allow all signing and publishing from this napplet version');
+    expect(html).toContain('A different version or signer needs new approval');
     expect(html).toContain('id="signer-consent-clear"');
     expect(html).toContain('id="paja-notification-center"');
     expect(html).toContain('id="paja-console-toggle"');

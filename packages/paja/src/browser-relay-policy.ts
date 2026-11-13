@@ -147,6 +147,7 @@ export function createPajaRelayHooks(
   pool: RelayPoolLike,
   getSimulation: () => PajaSimulation,
   relayConfig: PajaRelayConfigRuntime,
+  getPublishPool: (windowId: string) => RelayPoolLike = () => pool,
 ): RelayPoolHooks {
   const cleanups = new Map<string, () => void>();
   const scoped = new Map<string, { relayUrl: string; unsubscribe(): void }>();
@@ -165,7 +166,7 @@ export function createPajaRelayHooks(
       cleanups.get(subKey)?.();
       cleanups.delete(subKey);
     },
-    openScopedRelay(windowId, relayUrl, subId, filters, sourceWindow) {
+    openScopedRelay(windowId, relayUrl, subId, filters, target) {
       closeScopedRelay(windowId);
       const configured = new Map(relayConfig.getRelayUrls().flatMap((url) => {
         const normalized = normalizeRelayUrl(url);
@@ -176,20 +177,20 @@ export function createPajaRelayHooks(
         ? configured.get(requested) ?? requested
         : undefined;
       if (getSimulation().relay.mode !== 'live' || !allowedUrl) {
-        sourceWindow.postMessage({ type: 'relay.closed', subId, reason: 'scoped relay unavailable' }, '*');
+        target.postMessage({ type: 'relay.closed', subId, reason: 'scoped relay unavailable' });
         return;
       }
       const subscription = pool.subscription([allowedUrl], filters).subscribe((item) => {
         if (item === 'EOSE') {
-          sourceWindow.postMessage({ type: 'relay.eose', subId }, '*');
+          target.postMessage({ type: 'relay.eose', subId });
           return;
         }
         if (!isVerifiedNostrEvent(item)) return;
-        sourceWindow.postMessage({
+        target.postMessage({
           type: 'relay.event',
           subId,
           result: { event: item, sidecar: { relayHints: [allowedUrl] } },
-        }, '*');
+        });
       });
       scoped.set(windowId, { relayUrl: allowedUrl, unsubscribe: () => subscription.unsubscribe() });
     },
@@ -198,7 +199,7 @@ export function createPajaRelayHooks(
       const active = scoped.get(windowId);
       if (getSimulation().relay.mode !== 'live' || !active || !verifyEvent(event)) return false;
       try {
-        await pool.publish([active.relayUrl], event);
+        await getPublishPool(windowId).publish([active.relayUrl], event);
         return true;
       } catch {
         return false;

@@ -50,6 +50,12 @@ describe('@kehto/paja parity metadata', () => {
     expect(PAJA_ADVERTISED_DOMAINS).toContain('gamepad');
   });
 
+  // NAP-LLM (napplet/naps PR #134 at 5e93bdfce0e84c0de728234cb7b3feed498f8635): advertised alongside the packaged @napplet/nap llm subpath.
+  it('advertises draft LLM alongside the installed NAP exports', () => {
+    expect(PAJA_UPSTREAM_WEB_DOMAINS).toContain('llm');
+    expect(PAJA_ADVERTISED_DOMAINS).toContain('llm');
+  });
+
   it('covers installed NAP exports and the coordinated GAMEPAD/SHELL additions', () => {
     const supported = new Set<string>(PAJA_UPSTREAM_WEB_DOMAINS);
     for (const domain of readNapDomainDirectories()) expect(supported.has(domain)).toBe(true);
@@ -57,7 +63,20 @@ describe('@kehto/paja parity metadata', () => {
     expect(supported.has('shell')).toBe(true);
   });
 
-  it('covers every upstream domain as advertised, handshake-only, or compatibility alias', () => {
+  it('keeps newly packaged domains absent until a host backend implements them', () => {
+    const environment = resolvePajaFrameEnvironment(baseHooks(), {
+      dTag: 'optional-domains', aggregateHash: 'verified-artifact',
+    });
+    expect(PAJA_DEFERRED_DOMAINS).toEqual(['blossom', 'catalog', 'navigation', 'soulseek', 'torrent']);
+    for (const domain of PAJA_DEFERRED_DOMAINS) {
+      expect(PAJA_UPSTREAM_WEB_DOMAINS).toContain(domain);
+      expect(PAJA_ADVERTISED_DOMAINS).not.toContain(domain);
+      expect(environment.capabilities.domains).not.toContain(domain);
+      expect(environment.services).not.toContain(domain);
+    }
+  });
+
+  it('accounts for every upstream domain including explicitly deferred backends', () => {
     const advertised = new Set<string>(PAJA_ADVERTISED_DOMAINS);
     const handshakeOnly = new Set<string>(PAJA_HANDSHAKE_DOMAINS);
     const deferred = new Set<string>(PAJA_DEFERRED_DOMAINS);

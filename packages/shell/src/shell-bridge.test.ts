@@ -24,12 +24,13 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createGamepadService } from '@kehto/services';
-import { createShellBridge } from './shell-bridge.js';
+import { createLegacyShellBridge as createShellBridge } from './legacy-test-utils.js';
 import { originRegistry } from './origin-registry.js';
 import { resolveShellEnvironment } from './shell-init.js';
 import { renderNappletNamespacePrelude } from './napplet-namespace.js';
 import type { ShellAdapter, SessionEntry } from './types.js';
 import type { Theme } from '@napplet/nap/theme/types';
+import { deliverFromNapplet } from './test-utils.js';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -138,7 +139,7 @@ function establishReadySession(
     capabilities: { domains },
     services: [],
   });
-  bridge.handleMessage({
+  deliverFromNapplet(bridge, {
     source: win,
     origin: `https://${windowId}.example.test`,
     data: { type: 'shell.ready' },
@@ -217,7 +218,9 @@ describe('ShellBridge initialization burst lifecycle', () => {
 
   // NAP-SHELL at napplet/naps a040914: duplicate readiness cannot replace a
   // session. Only a trusted source registration starts another lifecycle.
-  it.each(['replacement source', 'stable WindowProxy'])(
+  // NIP-5D (nostr-protocol/nips#2303): only a fresh iframe can start another
+  // lifecycle; a stable WindowProxy can never be re-bound after napplet.hello.
+  it.each(['replacement source'])(
     'renews the burst budget for a %s with the same logical window ID',
     (replacement) => {
       const service = vi.fn();
@@ -232,7 +235,7 @@ describe('ShellBridge initialization burst lifecycle', () => {
       const firstFrame = makeFakeIframe();
       const firstWin = firstFrame as unknown as Window;
       const send = (source: Window, data: Record<string, unknown>) => {
-        bridge.handleMessage({ source, origin: 'null', data } as MessageEvent);
+        deliverFromNapplet(bridge, { source, origin: 'null', data } as MessageEvent);
       };
       let requestId = 0;
       const requestTheme = (source: Window, count = 1) => {
@@ -254,7 +257,9 @@ describe('ShellBridge initialization burst lifecycle', () => {
         expect(service).toHaveBeenCalledTimes(maxOps);
         expect(evaluate.mock.results.at(-1)?.value).toMatchObject({ decision: 'reject', ruleId: 'burst' });
 
-        const nextFrame = replacement === 'stable WindowProxy' ? firstFrame : makeFakeIframe();
+        expect(() => originRegistry.register(firstWin, 'burst-window', { dTag: 'd-burst-window', aggregateHash: 'h-burst-window' }))
+          .toThrow(/fresh iframe/);
+        const nextFrame = makeFakeIframe();
         const nextWin = nextFrame as unknown as Window;
         const nextEntry = establishReadySession(bridge, nextFrame, 'burst-window', ['theme']);
         expect(nextEntry).not.toBe(firstEntry);
@@ -262,7 +267,7 @@ describe('ShellBridge initialization burst lifecycle', () => {
 
         const evaluationsBeforeUntrusted = evaluate.mock.calls.length;
         const unknownWin = makeFakeIframe() as unknown as Window;
-        for (const source of replacement === 'replacement source' ? [firstWin, unknownWin] : [unknownWin]) {
+        for (const source of [firstWin, unknownWin]) {
           send(source, { type: 'shell.ready' });
           requestTheme(source);
         }
@@ -588,7 +593,7 @@ describe('ShellBridge.handleMessage source validation', () => {
     const envelope = { type: 'relay.subscribe', subId: 'sub-unknown', filters: [] };
 
     expect(() =>
-      bridge.handleMessage({
+      deliverFromNapplet(bridge, {
         source: unknownWindow,
         data: envelope,
       } as MessageEvent),
@@ -616,7 +621,7 @@ describe('ShellBridge.handleMessage onUnroutedMessage hook', () => {
     const onUnroutedMessage = vi.fn();
     const bridge = createShellBridge({ ...makeTestHooks(), onUnroutedMessage });
 
-    bridge.handleMessage({
+    deliverFromNapplet(bridge, {
       source: null,
       origin: 'https://feed.example.com',
       data: { type: 'outbox.subscribe', subId: 's1', filters: [] },
@@ -637,7 +642,7 @@ describe('ShellBridge.handleMessage onUnroutedMessage hook', () => {
     const bridge = createShellBridge({ ...makeTestHooks(), onUnroutedMessage });
     const unknownWindow = makeFakeIframe() as unknown as Window;
 
-    bridge.handleMessage({
+    deliverFromNapplet(bridge, {
       source: unknownWindow,
       origin: 'https://feed.example.com',
       data: { type: 'outbox.subscribe', subId: 's1', filters: [] },
@@ -658,7 +663,7 @@ describe('ShellBridge.handleMessage onUnroutedMessage hook', () => {
     const bridge = createShellBridge({ ...makeTestHooks(), onUnroutedMessage });
     const unknownWindow = makeFakeIframe() as unknown as Window;
 
-    bridge.handleMessage({
+    deliverFromNapplet(bridge, {
       source: unknownWindow,
       origin: 'https://feed.example.com',
       data: 'not-an-envelope',
@@ -683,7 +688,7 @@ describe('ShellBridge.handleMessage onUnroutedMessage hook', () => {
     const bridge = createShellBridge({ ...makeTestHooks(), onUnroutedMessage });
     const runtimeSpy = vi.spyOn(bridge.runtime, 'handleMessage');
 
-    bridge.handleMessage({
+    deliverFromNapplet(bridge, {
       source: win,
       origin: 'https://feed.example.com',
       data: { type: 'outbox.subscribe', subId: 's1', filters: [] },
@@ -704,7 +709,7 @@ describe('ShellBridge.handleMessage onUnroutedMessage hook', () => {
     const unknownWindow = makeFakeIframe() as unknown as Window;
 
     expect(() =>
-      bridge.handleMessage({
+      deliverFromNapplet(bridge, {
         source: unknownWindow,
         origin: 'https://feed.example.com',
         data: { type: 'outbox.subscribe' },
@@ -720,7 +725,7 @@ describe('ShellBridge.handleMessage onUnroutedMessage hook', () => {
     const unknownWindow = makeFakeIframe() as unknown as Window;
 
     expect(() =>
-      bridge.handleMessage({
+      deliverFromNapplet(bridge, {
         source: unknownWindow,
         origin: 'https://feed.example.com',
         data: { type: 'outbox.subscribe' },
@@ -807,7 +812,7 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
     expect(bridge.runtime.sessionRegistry.getEntryByWindowId('win-nip5d')).toBeUndefined();
 
     // Napplet sends shell.ready
-    bridge.handleMessage({
+    deliverFromNapplet(bridge, {
       source: win,
       origin: 'https://my-napp.example.com',
       data: { type: 'shell.ready' },
@@ -853,7 +858,7 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
 
     const bridge = createShellBridge(hooks);
 
-    bridge.handleMessage({
+    deliverFromNapplet(bridge, {
       source: win,
       origin: 'https://hook-napp.example.com',
       data: { type: 'shell.ready' },
@@ -887,7 +892,7 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
     const bridge = createShellBridge(makeTestHooks());
 
     // Send shell.ready to trigger registration
-    bridge.handleMessage({
+    deliverFromNapplet(bridge, {
       source: win,
       origin: 'https://store-napp.example.com',
       data: { type: 'shell.ready' },
@@ -902,7 +907,7 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
     iframe.postMessage.mockClear();
 
     // Send storage.get — should not produce 'not registered'
-    bridge.handleMessage({
+    deliverFromNapplet(bridge, {
       source: win,
       origin: 'https://store-napp.example.com',
       data: { type: 'storage.get', id: 'req-1', key: 'myKey' },
@@ -938,7 +943,7 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
     const bridge = createShellBridge(makeTestHooks());
 
     // Trigger NIP-5D registration via shell.ready
-    bridge.handleMessage({
+    deliverFromNapplet(bridge, {
       source: win,
       origin: 'https://rt-napp.example.com',
       data: { type: 'shell.ready' },
@@ -948,7 +953,7 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
     iframe.postMessage.mockClear();
 
     // storage.set — localStorage not available in Node, but should not error 'not registered'
-    bridge.handleMessage({
+    deliverFromNapplet(bridge, {
       source: win,
       origin: 'https://rt-napp.example.com',
       data: { type: 'storage.set', id: 'set-1', key: 'greeting', value: 'hello' },
@@ -978,7 +983,7 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
     const bridge = createShellBridge(makeTestHooks());
 
     expect(() =>
-      bridge.handleMessage({
+      deliverFromNapplet(bridge, {
         source: win,
         origin: 'https://unknown.example.com',
         data: { type: 'shell.ready' },
@@ -1001,7 +1006,7 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
     });
     const bridge = createShellBridge(makeTestHooks());
 
-    bridge.handleMessage({
+    deliverFromNapplet(bridge, {
       source: win,
       origin: 'https://trusted.example.com',
       data: {
@@ -1049,7 +1054,7 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
     };
     bridge.runtime.sessionRegistry.register('win-existing', preEntry);
 
-    bridge.handleMessage({
+    deliverFromNapplet(bridge, {
       source: win,
       origin: 'https://pre.example.com',
       data: { type: 'shell.ready' },
@@ -1079,7 +1084,7 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
     const bridge = createShellBridge(makeTestHooks());
 
     // First shell.ready → shell.init posted once.
-    bridge.handleMessage({
+    deliverFromNapplet(bridge, {
       source: win,
       origin: 'https://once-napp.example.com',
       data: { type: 'shell.ready' },
@@ -1090,7 +1095,7 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
     const instanceIdAfterFirst = entryAfterFirst?.instanceId;
 
     // Second (duplicate) shell.ready from the same window → no resend.
-    bridge.handleMessage({
+    deliverFromNapplet(bridge, {
       source: win,
       origin: 'https://once-napp.example.com',
       data: { type: 'shell.ready' },
@@ -1109,22 +1114,25 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
     bridge.destroy();
   });
 
-  it('establishes a session again when a replacement bridge receives duplicate shell.ready', () => {
-    const iframe = makeFakeIframe();
-    const win = iframe as unknown as Window;
-    originRegistry.register(win, 'win-replacement', {
-      dTag: 'replacement-napp',
-      aggregateHash: 'replacement-hash',
-    });
+  it('serves a fresh iframe from a replacement bridge after the previous bridge is destroyed', () => {
+    const identity = { dTag: 'replacement-napp', aggregateHash: 'replacement-hash' };
+    const oldIframe = makeFakeIframe();
+    const oldWin = oldIframe as unknown as Window;
+    originRegistry.register(oldWin, 'win-replacement', identity);
 
     const bridgeA = createShellBridge(makeTestHooks());
-    bridgeA.handleMessage({ source: win, origin: 'https://replacement.example', data: { type: 'shell.ready' } } as MessageEvent);
+    deliverFromNapplet(bridgeA, { source: oldWin, origin: 'https://replacement.example', data: { type: 'shell.ready' } } as MessageEvent);
     expect(bridgeA.runtime.sessionRegistry.getEntryByWindowId('win-replacement')).toBeDefined();
     bridgeA.destroy();
+    // Destroying the bridge closes every bound port; the old frame is spent.
+    expect(originRegistry.getPort('win-replacement')).toBeUndefined();
+    expect(() => originRegistry.register(oldWin, 'win-replacement', identity)).toThrow(/fresh iframe/);
 
-    iframe.postMessage.mockClear();
+    const iframe = makeFakeIframe();
+    const win = iframe as unknown as Window;
+    originRegistry.register(win, 'win-replacement', identity);
     const bridgeB = createShellBridge(makeTestHooks());
-    bridgeB.handleMessage({ source: win, origin: 'https://replacement.example', data: { type: 'shell.ready' } } as MessageEvent);
+    deliverFromNapplet(bridgeB, { source: win, origin: 'https://replacement.example', data: { type: 'shell.ready' } } as MessageEvent);
 
     expect(bridgeB.runtime.sessionRegistry.getEntryByWindowId('win-replacement')).toMatchObject({
       dTag: 'replacement-napp',
@@ -1133,7 +1141,7 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
     expect(iframe.postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'shell.init' }), '*');
 
     iframe.postMessage.mockClear();
-    bridgeB.handleMessage({
+    deliverFromNapplet(bridgeB, {
       source: win,
       origin: 'https://replacement.example',
       data: { type: 'relay.subscribe', subId: 'replacement-sub', filters: [] },
@@ -1157,7 +1165,7 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
 
     const bridge = createShellBridge(makeTestHooks());
 
-    bridge.handleMessage({
+    deliverFromNapplet(bridge, {
       source: firstWin,
       origin: 'https://reload-napp.example.com',
       data: { type: 'shell.ready' },
@@ -1176,7 +1184,7 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
       aggregateHash: 'reloadHash',
     });
 
-    bridge.handleMessage({
+    deliverFromNapplet(bridge, {
       source: secondWin,
       origin: 'https://reload-napp.example.com',
       data: { type: 'shell.ready' },
@@ -1192,43 +1200,25 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
     bridge.destroy();
   });
 
-  it('resends shell.init when a stable WindowProxy is re-registered for the same windowId', () => {
+  it('refuses to re-bind a stable WindowProxy after its napplet.hello', () => {
     const iframe = makeFakeIframe();
     const win = iframe as unknown as Window;
-
-    originRegistry.register(win, 'win-window-proxy', {
-      dTag: 'proxy-napp',
-      aggregateHash: 'proxyHash',
-    });
+    const identity = { dTag: 'proxy-napp', aggregateHash: 'proxyHash' };
+    originRegistry.register(win, 'win-window-proxy', identity);
 
     const bridge = createShellBridge(makeTestHooks());
-
-    bridge.handleMessage({
+    deliverFromNapplet(bridge, {
       source: win,
       origin: 'https://proxy-napp.example.com',
       data: { type: 'shell.ready' },
     } as MessageEvent);
-
-    let shellInitCalls = iframe.postMessage.mock.calls.filter(
+    expect(iframe.postMessage.mock.calls.filter(
       (call) => (call[0] as Record<string, unknown>).type === 'shell.init',
-    );
-    expect(shellInitCalls).toHaveLength(1);
+    )).toHaveLength(1);
 
-    originRegistry.register(win, 'win-window-proxy', {
-      dTag: 'proxy-napp',
-      aggregateHash: 'proxyHash',
-    });
-
-    bridge.handleMessage({
-      source: win,
-      origin: 'https://proxy-napp.example.com',
-      data: { type: 'shell.ready' },
-    } as MessageEvent);
-
-    shellInitCalls = iframe.postMessage.mock.calls.filter(
-      (call) => (call[0] as Record<string, unknown>).type === 'shell.init',
-    );
-    expect(shellInitCalls).toHaveLength(2);
+    // NIP-5D: the shell MUST NOT re-bind a napplet identity to an existing iframe.
+    expect(() => originRegistry.register(win, 'win-window-proxy', identity)).toThrow(/fresh iframe/);
+    expect(originRegistry.getWindowId(win)).toBe('win-window-proxy');
 
     bridge.destroy();
   });
@@ -1260,8 +1250,8 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
     originRegistry.register(winB, 'window-b', { dTag: 'frame-b', aggregateHash: 'hash-b' });
     const bridge = createShellBridge(hooks);
 
-    bridge.handleMessage({ source: winA, origin: 'https://a.example', data: { type: 'shell.ready' } } as MessageEvent);
-    bridge.handleMessage({ source: winB, origin: 'https://b.example', data: { type: 'shell.ready' } } as MessageEvent);
+    deliverFromNapplet(bridge, { source: winA, origin: 'https://a.example', data: { type: 'shell.ready' } } as MessageEvent);
+    deliverFromNapplet(bridge, { source: winB, origin: 'https://b.example', data: { type: 'shell.ready' } } as MessageEvent);
 
     const initA = frameA.postMessage.mock.calls[0][0] as { type: string; capabilities: { domains: readonly string[] }; services: readonly string[] };
     const initB = frameB.postMessage.mock.calls[0][0] as { type: string; capabilities: { domains: readonly string[] }; services: readonly string[] };
@@ -1280,7 +1270,7 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
     expect(() => (initA.services as string[]).push('forged')).toThrow();
     expect(initB).toEqual({ type: 'shell.init', capabilities: { domains: ['shell', 'storage', 'count'] }, services: ['count'] });
 
-    bridge.handleMessage({ source: winA, origin: 'https://a.example', data: { type: 'shell.ready' } } as MessageEvent);
+    deliverFromNapplet(bridge, { source: winA, origin: 'https://a.example', data: { type: 'shell.ready' } } as MessageEvent);
     expect(frameA.postMessage).toHaveBeenCalledTimes(1);
     expect(bridge.runtime.sessionRegistry.getEntryByWindowId('window-a')?.dTag).toBe('frame-a');
 
@@ -1304,11 +1294,11 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
     });
     const bridge = createShellBridge(hooks);
 
-    bridge.handleMessage({ source: win, origin: 'https://restricted.example', data: { type: 'shell.ready' } } as MessageEvent);
+    deliverFromNapplet(bridge, { source: win, origin: 'https://restricted.example', data: { type: 'shell.ready' } } as MessageEvent);
     iframe.postMessage.mockClear();
 
     // Bypass the injected namespace and post a valid-looking envelope directly.
-    bridge.handleMessage({
+    deliverFromNapplet(bridge, {
       source: win,
       origin: 'https://restricted.example',
       data: { type: 'relay.subscribe', subId: 'forged', filters: [] },
@@ -1342,7 +1332,7 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
     // This models a host toggle after srcdoc construction but before shell.ready.
     disabledDomains = ['relay'];
     const bridge = createShellBridge(hooks);
-    bridge.handleMessage({ source: win, origin: 'https://snapshot.example', data: { type: 'shell.ready' } } as MessageEvent);
+    deliverFromNapplet(bridge, { source: win, origin: 'https://snapshot.example', data: { type: 'shell.ready' } } as MessageEvent);
 
     expect(prelude).toContain('relay');
     expect(iframe.postMessage).toHaveBeenCalledWith({
@@ -1374,16 +1364,19 @@ describe('ShellBridge NIP-5D session registration on shell.ready', () => {
     originRegistry.register(win, 'window-reload', { dTag: 'first', aggregateHash: 'first-hash' });
     const bridge = createShellBridge(hooks);
 
-    bridge.handleMessage({ source: win, origin: 'https://reload.example', data: { type: 'shell.ready' } } as MessageEvent);
+    deliverFromNapplet(bridge, { source: win, origin: 'https://reload.example', data: { type: 'shell.ready' } } as MessageEvent);
     const firstSession = bridge.runtime.sessionRegistry.getEntryByWindowId('window-reload');
     expect(iframe.postMessage.mock.calls[0][0]).toEqual({
       type: 'shell.init', capabilities: { domains: ['shell', 'relay'] }, services: ['config'],
     });
 
-    originRegistry.register(win, 'window-reload', { dTag: 'second', aggregateHash: 'second-hash' });
-    bridge.handleMessage({ source: win, origin: 'https://reload.example', data: { type: 'shell.ready' } } as MessageEvent);
+    // A reload is a fresh iframe under NIP-5D; the old WindowProxy is spent.
+    const reloaded = makeFakeIframe();
+    const reloadedWin = reloaded as unknown as Window;
+    originRegistry.register(reloadedWin, 'window-reload', { dTag: 'second', aggregateHash: 'second-hash' });
+    deliverFromNapplet(bridge, { source: reloadedWin, origin: 'https://reload.example', data: { type: 'shell.ready' } } as MessageEvent);
 
-    expect(iframe.postMessage.mock.calls[1][0]).toEqual({
+    expect(reloaded.postMessage.mock.calls[0][0]).toEqual({
       type: 'shell.init', capabilities: { domains: ['shell', 'count'] }, services: ['count'],
     });
     const secondSession = bridge.runtime.sessionRegistry.getEntryByWindowId('window-reload');
@@ -1405,12 +1398,12 @@ describe('root/snapshot identity handshake', () => {
     const identity = { dTag: '', aggregateHash: 'a'.repeat(64) };
     originRegistry.register(win, 'snapshot', identity);
     const ready = { source: win, origin: 'null', data: { type: 'shell.ready' } } as MessageEvent;
-    bridge.handleMessage({ ...ready, source: {} as Window } as MessageEvent);
+    deliverFromNapplet(bridge, { ...ready, source: {} as Window } as MessageEvent);
     expect(bridge.runtime.sessionRegistry.getEntryByWindowId('snapshot')).toBeUndefined();
-    bridge.handleMessage(ready);
+    deliverFromNapplet(bridge, ready);
     const session = bridge.runtime.sessionRegistry.getEntryByWindowId('snapshot');
     expect(session).toMatchObject(identity);
-    bridge.handleMessage(ready);
+    deliverFromNapplet(bridge, ready);
     expect(bridge.runtime.sessionRegistry.getEntryByWindowId('snapshot')).toBe(session);
     expect(iframe.postMessage.mock.calls.filter(([message]) => message.type === 'shell.init')).toHaveLength(1);
     bridge.destroy();
@@ -1418,6 +1411,38 @@ describe('root/snapshot identity handshake', () => {
   });
 });
 
+
+describe('LLM source-bound routing', () => {
+  beforeEach(() => originRegistry.clear());
+  afterEach(() => originRegistry.clear());
+  it('routes llm requests to the registered service and drops them when no service makes the domain live', () => {
+    const frame = makeFakeIframe(); const win = frame as unknown as Window;
+    const handleMessage = vi.fn((_windowId: string, message: { type: string; id?: string }, send: (message: unknown) => void) => {
+      send({ type: `${message.type}.result`, id: message.id, cancelled: false });
+    });
+    originRegistry.register(win, 'llm-frame', { dTag: 'assistant', aggregateHash: 'artifact-hash' });
+    const bridge = createShellBridge({ ...makeTestHooks(), services: { llm: { descriptor: { name: 'llm', version: '1.0.0' }, handleMessage } }, capabilities: { resolveEnvironment: () => ({ domains: ['llm'], services: ['llm'] }) } });
+    deliverFromNapplet(bridge, { source: win, origin: 'null', data: { type: 'llm.cancel', id: 'c1', requestId: 'g1' } } as MessageEvent);
+    expect(handleMessage).toHaveBeenCalledOnce();
+    expect(frame.postMessage).toHaveBeenCalledExactlyOnceWith({ type: 'llm.cancel.result', id: 'c1', cancelled: false }, '*');
+    bridge.destroy();
+
+    const fallback = createShellBridge({ ...makeTestHooks(), services: {}, capabilities: { resolveEnvironment: () => ({ domains: ['llm'], services: [] }) } });
+    frame.postMessage.mockClear();
+    deliverFromNapplet(fallback, { source: win, origin: 'null', data: { type: 'llm.select', id: 's1' } } as MessageEvent);
+    expect(frame.postMessage).not.toHaveBeenCalled();
+    fallback.destroy();
+  });
+  it('does not route llm when the host environment excludes it', () => {
+    const frame = makeFakeIframe(); const win = frame as unknown as Window;
+    const handleMessage = vi.fn();
+    originRegistry.register(win, 'denied-llm', { dTag: 'assistant', aggregateHash: 'artifact-hash' });
+    const bridge = createShellBridge({ ...makeTestHooks(), services: { llm: { descriptor: { name: 'llm', version: '1.0.0' }, handleMessage } }, capabilities: { disabledDomains: ['llm'] } });
+    deliverFromNapplet(bridge, { source: win, origin: 'null', data: { type: 'llm.generate', id: 'g1', request: {} } } as MessageEvent);
+    expect(handleMessage).not.toHaveBeenCalled(); expect(frame.postMessage).not.toHaveBeenCalled();
+    bridge.destroy();
+  });
+});
 
 describe('GAMEPAD source-bound routing', () => {
   beforeEach(() => originRegistry.clear());
@@ -1428,15 +1453,15 @@ describe('GAMEPAD source-bound routing', () => {
     const hooks = { ...makeTestHooks(), services: { gamepad: service }, capabilities: { resolveEnvironment: () => ({ domains: ['gamepad'], services: ['gamepad'] }) } };
     const bridge = createShellBridge(hooks);
     const subscribe = { type: 'gamepad.subscribe' };
-    bridge.handleMessage({ source: {}, origin: 'null', data: subscribe } as MessageEvent);
+    deliverFromNapplet(bridge, { source: {}, origin: 'null', data: subscribe } as MessageEvent);
     expect(frame.postMessage).not.toHaveBeenCalled();
     originRegistry.register(win, 'controller-frame', { dTag: 'game', aggregateHash: 'artifact-hash' });
-    bridge.handleMessage({ source: win, origin: 'null', data: subscribe } as MessageEvent);
+    deliverFromNapplet(bridge, { source: win, origin: 'null', data: subscribe } as MessageEvent);
     expect(frame.postMessage).toHaveBeenCalledExactlyOnceWith({ type: 'gamepad.state', available: false, reason: 'unavailable', focused: false, pads: [] }, '*');
     expect(bridge.runtime.sessionRegistry.getEntryByWindowId('controller-frame')?.dTag).toBe('game');
-    bridge.handleMessage({ source: win, origin: 'null', data: { type: 'shell.ready' } } as MessageEvent);
+    deliverFromNapplet(bridge, { source: win, origin: 'null', data: { type: 'shell.ready' } } as MessageEvent);
     expect(frame.postMessage).toHaveBeenCalledTimes(1);
-    bridge.handleMessage({ source: win, origin: 'null', data: { type: 'gamepad.unsubscribe' } } as MessageEvent);
+    deliverFromNapplet(bridge, { source: win, origin: 'null', data: { type: 'gamepad.unsubscribe' } } as MessageEvent);
     service.refresh(); expect(frame.postMessage).toHaveBeenCalledTimes(1);
     bridge.destroy();
   });
@@ -1446,7 +1471,7 @@ describe('GAMEPAD source-bound routing', () => {
     const bridge = createShellBridge({ ...makeTestHooks(), services: { gamepad: createGamepadService() }, capabilities: { resolveEnvironment: () => ({ domains: ['gamepad'], services: ['gamepad'] }) } });
     const entry = makeSessionEntry({ windowId: 'prebound-frame', dTag: 'game', aggregateHash: 'artifact-hash' });
     bridge.runtime.sessionRegistry.register('prebound-frame', entry);
-    bridge.handleMessage({ source: win, origin: 'null', data: { type: 'gamepad.subscribe' } } as MessageEvent);
+    deliverFromNapplet(bridge, { source: win, origin: 'null', data: { type: 'gamepad.subscribe' } } as MessageEvent);
     expect(frame.postMessage.mock.lastCall![0].type).toBe('gamepad.state');
     expect(bridge.runtime.sessionRegistry.getEntryByWindowId('prebound-frame')).toEqual(entry);
     bridge.destroy();
@@ -1456,7 +1481,7 @@ describe('GAMEPAD source-bound routing', () => {
     const handleMessage = vi.fn();
     originRegistry.register(win, 'denied-frame', { dTag: 'game', aggregateHash: 'artifact-hash' });
     const bridge = createShellBridge({ ...makeTestHooks(), services: { gamepad: { descriptor: { name: 'gamepad', version: '1.0.0' }, handleMessage } }, capabilities: { disabledDomains: ['gamepad'] } });
-    bridge.handleMessage({ source: win, origin: 'null', data: { type: 'gamepad.subscribe' } } as MessageEvent);
+    deliverFromNapplet(bridge, { source: win, origin: 'null', data: { type: 'gamepad.subscribe' } } as MessageEvent);
     expect(handleMessage).not.toHaveBeenCalled(); expect(frame.postMessage).not.toHaveBeenCalled();
     bridge.destroy();
   });
@@ -1483,7 +1508,7 @@ describe('ShellBridge without crypto.randomUUID (issue #237)', () => {
     originRegistry.setEnvironment(win, { capabilities: { domains: ['relay'] }, services: [] });
     try {
       bridge.injectEvent('http-topic', { message: 'works without randomUUID' });
-      bridge.handleMessage({ source: win, origin: 'null', data: {
+      deliverFromNapplet(bridge, { source: win, origin: 'null', data: {
         type: 'relay.subscribe', subId: 'http-query', filters: [{ kinds: [1] }],
       } } as MessageEvent);
       await Promise.resolve();

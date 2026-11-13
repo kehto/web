@@ -47,6 +47,10 @@ export const ALL_CAPABILITIES = [
   // NAP-FS — runtime-owned virtual filesystem: discovery/read/list/pickers/
   // watches vs byte writes, create, delete, move, and save destinations.
   'fs:read', 'fs:write',
+  // NAP-LLM — user-selected language model inference: one grant covers select/
+  // describe/generate/cancel requests and receipt of results and deltas. Per-
+  // generation disclosure consent is a separate runtime obligation, not an ACL bit.
+  'llm:generate',
 ] as const;
 
 /** Union of every capability string in ALL_CAPABILITIES. */
@@ -90,3 +94,5 @@ export const CAP_DM_WRITE        = 'dm:write' as const;
 export const CAP_FS_READ         = 'fs:read' as const;
 /** fs.pickSaveFile / write / mkdir / remove / move */
 export const CAP_FS_WRITE        = 'fs:write' as const;
+/** llm.select / llm.describe / llm.generate / llm.cancel (inbound) + llm.*.result / llm.delta (outbound) */
+export const CAP_LLM_GENERATE    = 'llm:generate' as const;

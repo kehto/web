@@ -6,10 +6,13 @@ export default defineConfig({
     alias: {
       '@kehto/acl/capabilities': resolve(__dirname, 'packages/acl/src/capabilities.ts'),
       '@kehto/acl': resolve(__dirname, 'packages/acl/src/index.ts'),
+      '@kehto/rate-limit/legacy': resolve(__dirname, 'packages/rate-limit/src/legacy/index.ts'),
+      '@kehto/rate-limit': resolve(__dirname, 'packages/rate-limit/src/index.ts'),
       '@kehto/firewall': resolve(__dirname, 'packages/firewall/src/index.ts'),
       '@kehto/runtime': resolve(__dirname, 'packages/runtime/src/index.ts'),
       '@kehto/services/cvm-nostr-transport': resolve(__dirname, 'packages/services/src/cvm-nostr-transport.ts'),
       '@kehto/services': resolve(__dirname, 'packages/services/src/index.ts'),
+      '@kehto/mocks': resolve(__dirname, 'packages/mocks/src/index.ts'),
       '@kehto/shell': resolve(__dirname, 'packages/shell/src/index.ts'),
       '@kehto/nip/5a': resolve(__dirname, 'packages/nip/src/5a/index.ts'),
       '@kehto/nip/5d': resolve(__dirname, 'packages/nip/src/5d/index.ts'),

@@ -29,6 +29,16 @@ describe('@kehto/paja CLI', () => {
     });
   });
 
+  it('parses the experimental nested-context-lock flag and rejects bad values', () => {
+    const parsed = parsePajaArgs(['--target-url', 'http://127.0.0.1:5173', '--nested-context-lock', 'on']);
+    expect(parsed).toEqual({
+      help: false,
+      options: { targetUrl: 'http://127.0.0.1:5173', experimental: { nestedContextLock: 'on' } },
+    });
+    expect(() => parsePajaArgs(['--nested-context-lock', 'maybe']))
+      .toThrow(/must be one of: on, off, auto/);
+  });
+
   it('parses simulation flags into the shared raw option schema', () => {
     const pubkey = '2'.repeat(64);
     const parsed = parsePajaArgs([
@@ -66,6 +76,11 @@ describe('@kehto/paja CLI', () => {
         },
       },
     });
+  });
+
+  it('rejects the retired broad Firewall switch with scoped-grant guidance', () => {
+    expect(() => parsePajaArgs(['--target-url', 'http://127.0.0.1:5173', '--firewall-mode', 'allow']))
+      .toThrow('--firewall-mode was removed; approve exact scopes in Paja Firewall grants.');
   });
 
   it('parses opt-in Blossom mode with repeatable shell-owned servers', () => {

@@ -184,6 +184,8 @@ Options:
   --port <port>               Runtime port. Default: 5197.
   --ready-timeout <ms>        Target readiness timeout. Default: 30000.
   --config <path>             JSON config file using the same option schema.
+  --nested-context-lock <v>   Experimental frame-creation lock: on, off, or auto
+                              (default; on for napplets granted a private domain).
   --identity-mode <mode>      anonymous or fixed.
   --identity-pubkey <hex>     Required when identity mode is fixed.
   --relay-mode <mode>         live, memory, or disabled.
@@ -200,7 +202,6 @@ Options:
   --config-value <key=json>   Add a JSON config value.
   --capability <domain:on|off> Toggle an advertised capability domain.
   --acl-mode <mode>           allow or deny.
-  --firewall-mode <mode>      allow, deny, or observe.
   --help, -h                  Show this help.`;
 
 function readValue(args: readonly string[], index: number, option: string): string {
@@ -237,6 +238,11 @@ function applyCoreOption(
       return true;
     case '--config':
       raw.configPath = readValue(args, index, arg);
+      return true;
+    case '--nested-context-lock':
+      raw.experimental = {
+        nestedContextLock: readEnum(args, index, arg, ['on', 'off', 'auto'] as const),
+      };
       return true;
     default:
       return false;
@@ -299,8 +305,7 @@ function applySimulationOption(
       ensureSimulation(raw).acl = { ...raw.simulation?.acl, mode: readEnum(args, index, arg, ['allow', 'deny']) };
       return true;
     case '--firewall-mode':
-      ensureSimulation(raw).firewall = { ...raw.simulation?.firewall, mode: readEnum(args, index, arg, ['allow', 'deny', 'observe']) };
-      return true;
+      throw new PajaOptionsError('--firewall-mode was removed; approve exact scopes in Paja Firewall grants.');
     default:
       return false;
   }

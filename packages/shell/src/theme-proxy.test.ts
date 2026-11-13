@@ -14,7 +14,7 @@ describe('theme-proxy', () => {
     const runtime = fakeRuntime();
     const proxy = createThemeProxy({
       runtime,
-      originRegistry: { getIframeWindow: () => null },
+      originRegistry: { postToNapplet: () => false },
     });
     const envelope = { type: 'theme.get', id: 'theme-1' } as NappletMessage;
 
@@ -28,9 +28,7 @@ describe('theme-proxy', () => {
     const runtime = fakeRuntime();
     const proxy = createThemeProxy({
       runtime,
-      originRegistry: {
-        getIframeWindow: () => ({ postMessage }) as unknown as Window,
-      },
+      originRegistry: { postToNapplet: postMessage },
     });
     const envelope = {
       type: 'theme.changed',

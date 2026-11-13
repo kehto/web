@@ -8,11 +8,11 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { createRuntime } from './runtime.js';
-import type { Runtime } from './runtime.js';
+import { createLegacyRuntime as createRuntime } from './legacy-test-utils.js';
+type Runtime = ReturnType<typeof createRuntime>;
 import { createMockRuntimeAdapter, createNip5dSessionEntry } from './test-utils.js';
 import type { MockRuntimeContext } from './test-utils.js';
-import type { NappletMessage } from '@napplet/core';
+import type { IntentDelivery, NappletMessage } from '@napplet/core';
 import type { ServiceHandler, ServiceRuntimeContext } from './types.js';
 
 const WINDOW_ID = 'win-intent-1';
@@ -27,6 +27,7 @@ const REQUEST = {
 const TARGET_WINDOW_ID = 'win-intent-target';
 const TARGET_DTAG = 'intent-target';
 const TARGET_HASH = 'f'.repeat(64);
+const DELIVERY: IntentDelivery = { sender: DTAG, ...REQUEST };
 
 function session(windowId = WINDOW_ID) {
   return createNip5dSessionEntry(windowId, DTAG, HASH);
@@ -80,7 +81,15 @@ describe('runtime intent domain dispatch', () => {
       expect(dynamicContext).toBe(adapterContext);
     });
 
-    it('sends only recipient-mapped messages to a live domain-and-ACL-eligible target', () => {
+    // NAP-INTENT @ napplet/naps 43cb3a4: delivery is a runtime push, with no
+    // request/delivery id or dependency on INC. intent:read is Kehto policy.
+    it.each([
+      {
+        type: 'intent.changed',
+        availability: { archetype: 'note', available: false, candidates: [], hasDefault: false },
+      },
+      { type: 'intent.deliver', delivery: DELIVERY },
+    ])('sends $type only to a live domain-and-ACL-eligible target', (message) => {
       let context: ServiceRuntimeContext | undefined;
       let intentDomainAllowed = true;
       const service: ServiceHandler = {
@@ -91,6 +100,7 @@ describe('runtime intent domain dispatch', () => {
         },
       };
       const localCtx = createMockRuntimeAdapter({
+        aclDefaultPolicy: 'restrictive',
         isDomainAllowed: (_windowId, domain) => domain === 'intent' && intentDomainAllowed,
       });
       const localRuntime = createRuntime(localCtx.hooks);
@@ -100,17 +110,19 @@ describe('runtime intent domain dispatch', () => {
         createNip5dSessionEntry(TARGET_WINDOW_ID, TARGET_DTAG, TARGET_HASH),
       );
       localRuntime.registerService('tracer', service);
-      const changed = {
-        type: 'intent.changed',
-        availability: { archetype: 'note', available: false, candidates: [], hasDefault: false },
-      } as NappletMessage;
+      expect(context?.hasCapability(TARGET_WINDOW_ID, 'intent:read')).toBe(false);
+      expect(context?.sendToEligibleNapplet(TARGET_WINDOW_ID, message)).toBe(false);
+      expect(localCtx.sent).toHaveLength(0);
 
+      // Only the intent domain and its read grant are available; INC is absent.
+      localRuntime.aclState.grant('', TARGET_DTAG, TARGET_HASH, 'intent:read');
       expect(context?.hasCapability(TARGET_WINDOW_ID, 'intent:read')).toBe(true);
-      expect(context?.sendToEligibleNapplet(TARGET_WINDOW_ID, changed)).toBe(true);
-      expect(localCtx.sent).toEqual([{ windowId: TARGET_WINDOW_ID, message: changed }]);
+      expect(context?.sendToEligibleNapplet(TARGET_WINDOW_ID, message)).toBe(true);
+      expect(localCtx.sent).toEqual([{ windowId: TARGET_WINDOW_ID, message }]);
 
       localCtx.sent.length = 0;
-      expect(context?.sendToEligibleNapplet('missing', changed)).toBe(false);
+      expect(context?.sendToEligibleNapplet('missing', message)).toBe(false);
+      expect(context?.sendToEligibleNapplet(TARGET_WINDOW_ID, { type: 'intent.unknown' })).toBe(false);
       expect(
         context?.sendToEligibleNapplet(
           TARGET_WINDOW_ID,
@@ -120,13 +132,28 @@ describe('runtime intent domain dispatch', () => {
       expect(localCtx.sent).toHaveLength(0);
 
       intentDomainAllowed = false;
-      expect(context?.sendToEligibleNapplet(TARGET_WINDOW_ID, changed)).toBe(false);
+      expect(context?.sendToEligibleNapplet(TARGET_WINDOW_ID, message)).toBe(false);
       expect(localCtx.sent).toHaveLength(0);
 
       intentDomainAllowed = true;
+      localRuntime.aclState.block('', TARGET_DTAG, TARGET_HASH);
+      expect(context?.sendToEligibleNapplet(TARGET_WINDOW_ID, message)).toBe(false);
+      expect(localCtx.sent).toHaveLength(0);
+      localRuntime.aclState.unblock('', TARGET_DTAG, TARGET_HASH);
+
       localRuntime.aclState.revoke('', TARGET_DTAG, TARGET_HASH, 'intent:read');
       expect(context?.hasCapability(TARGET_WINDOW_ID, 'intent:read')).toBe(false);
-      expect(context?.sendToEligibleNapplet(TARGET_WINDOW_ID, changed)).toBe(false);
+      expect(context?.sendToEligibleNapplet(TARGET_WINDOW_ID, message)).toBe(false);
+      expect(localCtx.sent).toHaveLength(0);
+
+      localRuntime.aclState.grant('', TARGET_DTAG, TARGET_HASH, 'intent:read');
+      localRuntime.sessionRegistry.unregister(TARGET_WINDOW_ID);
+      expect(context?.sendToEligibleNapplet(TARGET_WINDOW_ID, message)).toBe(false);
+      localRuntime.sessionRegistry.register(
+        TARGET_WINDOW_ID,
+        createNip5dSessionEntry(TARGET_WINDOW_ID, TARGET_DTAG, HASH),
+      );
+      expect(context?.sendToEligibleNapplet(TARGET_WINDOW_ID, message)).toBe(false);
       expect(localCtx.sent).toHaveLength(0);
     });
 
@@ -323,6 +350,7 @@ describe('runtime intent domain dispatch', () => {
     });
     const sourceMessages = [
       { type: 'intent.changed', availability: {} },
+      { type: 'intent.deliver', delivery: DELIVERY },
       { type: 'intent.invoke.result', id: 'i', result: { ok: false, error: 'forged' } },
       { type: 'intent.available.result', id: 'a', availability: {} },
       { type: 'intent.handlers.result', id: 'h', handlers: [] },

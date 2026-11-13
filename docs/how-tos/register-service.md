@@ -71,8 +71,32 @@ and any additional authorization beyond the built-in ACL vocabulary.
 The response callback is restricted to the same source and domain. Before sending,
 it rechecks the registration, source lifecycle, domain grant, block state, and
 request capability. Replacement, removal, source re-registration, window teardown,
-and runtime destruction invalidate pending callbacks. Unsolicited custom-domain
-messages are not enabled through `ServiceRuntimeContext.sendToEligibleNapplet`.
+and runtime destruction invalidate pending callbacks.
+
+Unsolicited shell -> napplet pushes into a custom domain go through
+`ServiceRuntimeContext.sendToEligibleNapplet` only when the handler declares the
+exact push type in `pushCapabilities`, mapped to the recipient's required ACL
+capability or explicit `null`:
+
+```ts
+const example: ServiceHandler = {
+  descriptor: { name: 'example', version: '1.0.0' },
+  messageCapabilities: { 'example.ping': null },
+  pushCapabilities: { 'example.changed': null },
+  onRegistered(context) {
+    // Later: context.sendToEligibleNapplet(windowId, { type: 'example.changed', ... })
+  },
+  handleMessage() {},
+};
+```
+
+A push is delivered only when the handler is the registered service for that
+domain, the recipient is a live unblocked source, `isDomainAllowed` grants the
+domain to that window, and the declared capability (if any) is currently
+granted; the boolean result reports the verdict. Undeclared types, absent maps,
+invalid capability strings, and built-in domains are refused: built-in NAP
+domains keep their canonical recipient capability mapping regardless of
+`pushCapabilities`.
 
 Built-in NAP domains ignore extension maps and retain their own routing and ACL
 mapping. `shell` remains adapter-owned; the removed `signer` route cannot be
@@ -81,7 +105,7 @@ revived. INC topics never select an extension service.
 For a browser host, registration does **not** inject `window.napplet.example`.
 The host must implement the owning domain contract, inject its granted binding
 before app scripts run, and enforce that same availability through its trusted
-source mapping. The stock Paja/playground bindings do not expose arbitrary
+source mapping. The stock Paja bindings do not expose arbitrary
 extensions. Neither manifest `R`/`O` tags nor `shell.init.services` grants access.
 Without an exposed binding, napplets must treat the domain as unavailable.
 

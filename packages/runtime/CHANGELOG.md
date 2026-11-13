@@ -1,5 +1,164 @@
 # @kehto/runtime
 
+## 0.30.0
+
+### Minor Changes
+
+- b573414: Stop the Paja Firewall from asking about every exact scope, and make its decisions readable.
+
+  - **Paja** allows every interface and operation by default and asks before each `link.open`. The Firewall panel edits those default rules: change the default, or add an exception per interface or operation, for every napplet or one. Rules persist in the browser. An approved link opens from the approving click instead of raising a second confirmation, and a revoked single-target napplet starts again through admission instead of leaving an empty stage.
+  - **Shell** rebuilds `createBrowserApprovalUi`. The prompt asks a plain-language question, lists each exact scope, preselects the narrowest lifetime so one click answers, counts queued requests, and can turn an answer into a standing rule. Grants are a compact tree of single-line rows (napplet, interface, grant) with status dots and icon buttons, expanding for identity and the full scope; scopes allowed by a rule collapse to one counted row. The prompt no longer has a Cancel button or a lifetime select; Escape still cancels. New `rules` and `onAnswer` options, `BrowserApprovalRules` type and `BROWSER_APPROVAL_UI_STYLES` stylesheet.
+  - **Runtime** adds `PermissionAdapter.defaultDecision`, consulted before the prompt budget and the prompt. `allow` commits session grants whose ids start with `DEFAULT_RULE_GRANT_PREFIX`. Hosts that set no hook still ask for every scope.
+  - **Firewall** adds the pure rule model: `createPermissionRules`, `resolvePermissionRule`, `setPermissionRule`, `permissionRuleSubject`, `serializePermissionRules`, `deserializePermissionRules`.
+
+- e291825: Restore voluntary temporal protection with the independent `@kehto/rate-limit` package.
+  Runtime no longer constructs operation or prompt limiters implicitly. Hosts opt in
+  with `permissions.rateLimiter` and `permissions.promptRateLimiter`; Paja explicitly
+  installs both. Limiter configuration is managed on the host-owned instance.
+
+  Move the old behavioral Firewall APIs and runtime `createFirewallState` into the
+  explicit `@kehto/rate-limit/legacy` migration subpath. Legacy hosts supply the
+  constructed state through `legacyFirewall`; runtime `firewallState` and
+  `firewallPersistence` are removed. Legacy allow policies no longer bypass installed
+  temporal controls. Firewall now exports only scoped approval/access policy.
+
+### Patch Changes
+
+- Updated dependencies [b573414]
+- Updated dependencies [e291825]
+  - @kehto/firewall@0.9.0
+
+## 0.29.2
+
+### Patch Changes
+
+- 11ae71c: Adopt @napplet/core 0.41.x and @napplet/nap 0.40.x, which export the current NAP-INTENT no-ID, string-sender delivery. `@kehto/services` now re-exports its intent types from `@napplet/core` instead of keeping a local copy. Because core releases before 0.41.0 carry the withdrawn delivery ID and nullable sender, `@kehto/services`, `@kehto/paja` and `@kehto/cli` now require `@napplet/core` >=0.41.0. Other packages widen their peer windows to core <0.42.0 and nap <0.41.0 and move development builds and JSR maps to the new line. The shell's injected intent receiver now drops deliveries with an empty sender, matching the nap 0.40 binding.
+- Updated dependencies [11ae71c]
+  - @kehto/acl@0.20.5
+  - @kehto/firewall@0.8.2
+
+## 0.29.1
+
+### Patch Changes
+
+- f4e7e8a: Accept @napplet/core 0.40.x and @napplet/nap 0.39.x throughout the Paja host dependency graph and update host development dependencies and JSR maps to that line. Keep existing peer floors. Account for the newly packaged blossom, catalog, navigation, soulseek and torrent domains without advertising unimplemented host backends.
+- Updated dependencies [f4e7e8a]
+  - @kehto/acl@0.20.4
+  - @kehto/firewall@0.8.1
+
+## 0.29.0
+
+### Minor Changes
+
+- 249fe8c: Add independent temporal budgets for mediated operations and approval prompts, with caller-owned clocks and lifecycle counters. Permission grants cannot bypass this evaluator.
+
+  Add scoped approval adapters, durable-write-before-grant semantics, explicit revocation recovery, and service authorization bound to immutable source principals. LINK uses this coordinator with independent rate checks and ACL ceilings. Retiring or replacing a source cancels pending approval and removes its session grants.
+
+  Add pre-execution required/optional interface admission with generation-bound revalidation. Enforce shared interface approvals on built-in dispatch and registered extensions. Extensions capture bounded immutable JSON, reject replayed IDs, retain host-owned denial schemas, and apply independent blocking prompt-spam budgets.
+
+  Allow services to cancel one pending or active authorization using a request signal, without cancelling sibling work or accepting late grants. Preserve equivalent-request ordering and bound retained cancelled queue entries.
+
+  Invalidate pending extension approval when its host capability declaration changes.
+
+- 249fe8c: Hosts with `RuntimeAdapter.permissions` can now change the operation budget after creation with `runtime.permissions.setRateLimit(config)`, and read it with `runtime.permissions.rateLimit`. It covers `unfocusedMultiplier` and the startup `burst` guard, keeps running counters, and throws `RangeError` on out-of-range values. `RuntimePermissions` implementers must add both members.
+
+  `RateLimitConfig` now accepts an `unfocusedMultiplier` above 1, and a `burst.windowMs` or `burst.maxOperations` of zero. A zero window turns the guard off.
+
+  `onFirewallEvent`, `firewallPersistence` and the `runtime.firewallState` mutators act on the legacy gate only, so a runtime with `permissions` warns once with `FW-RUNTIME-LEGACY-IGNORED-001` when they're used. `getFocusContext` scales both. With `permissions`, `aclDefaultPolicy` is a ceiling that approvals can't exceed. Deferred `filterNappletMessage` envelopes meet approvals and budgets at release. `@kehto/shell` also exports `RateLimitConfig`.
+
+- 249fe8c: Require relay operations to plan immutable destinations before approval and
+  execute only those approved targets across runtime, reference services, shell,
+  and Paja integrations.
+
+### Patch Changes
+
+- Updated dependencies [249fe8c]
+  - @kehto/firewall@0.8.0
+
+## 0.28.1
+
+### Patch Changes
+
+- 0379d16: Add `ServiceHandler.pushCapabilities`: a registered service outside the built-in
+  dispatcher can declare the exact shell -> napplet push types it emits (each
+  mapped to the recipient's ACL capability or explicit `null`), and
+  `ServiceRuntimeContext.sendToEligibleNapplet` delivers them under the same
+  gates as inbound extension routing (registered handler, live unblocked source,
+  explicit `isDomainAllowed` grant, declared capability). Built-in domains keep
+  their canonical recipient mapping; undeclared types are still refused.
+
+  When a registered `relay` service accepts a `relay.publish`, that service now
+  owns storage and fan-out of the event. The runtime ring buffer no longer
+  re-delivers it, which previously skipped the publisher's own subscriptions,
+  ignored per-subscription relay scope, and sent every other window a second
+  legacy `['EVENT', …]` copy. Publishes coordinated by the runtime through the
+  adapter relay pool keep the buffer fan-out.
+
+## 0.28.0
+
+### Minor Changes
+
+- 6eb1ea4: Hosts can now choose the ACL default policy with `aclDefaultPolicy: 'permissive' | 'restrictive'` on `RuntimeAdapter` and `ShellAdapter`. With `'restrictive'`, identities with no stored entry start with nothing granted. A policy set this way replaces the one stored in persisted ACL state on load, and stored entries are kept. Leaving it out keeps today's behaviour.
+- 6eb1ea4: Hosts can now change firewall budgets after creation. `@kehto/firewall` adds `setUnfocusedMultiplier` and `setBurstGuard`, and `FirewallStateContainer` adds methods with the same names, reachable through `runtime.firewallState`. Both throw `RangeError` on out-of-range values. A multiplier of zero is refused, because focus alone must never empty a budget. Custom `FirewallStateContainer` implementations must add both methods.
+
+### Patch Changes
+
+- Updated dependencies [6eb1ea4]
+  - @kehto/firewall@0.7.0
+
+## 0.27.3
+
+### Patch Changes
+
+- 66beed4: Widen the `@napplet/core` and `@napplet/nap` peer ranges to admit core 0.38.x and nap 0.37.x while keeping the 0.32.0 floor.
+- Updated dependencies [66beed4]
+  - @kehto/acl@0.20.3
+  - @kehto/firewall@0.6.4
+
+## 0.27.2
+
+### Patch Changes
+
+- 902c1d0: Admit the NIP-5D port-bound napplet release lines in published peers:
+  `@napplet/core >=0.32.0 <0.38.0` and `@napplet/nap >=0.32.0 <0.37.0`
+  (core 0.37.0 / nap 0.36.0, napplet/web#302). Development stays on the 0.32.0
+  baseline.
+- Updated dependencies [902c1d0]
+  - @kehto/acl@0.20.2
+  - @kehto/firewall@0.6.3
+
+## 0.27.1
+
+### Patch Changes
+
+- f5c3ee8: Widen the `@napplet/*` peer ranges so the `llm` domain installs without peer conflicts: `@napplet/core` now accepts `>=0.32.0 <0.37.0` and `@napplet/nap` accepts `>=0.32.0 <0.36.0`. The `llm` subpath first ships in `@napplet/nap@0.35.0`, and `@napplet/nap@0.35.1` requires `@napplet/core@^0.36.0`. The old `<0.35.0` cap made npm fail with ERESOLVE and made pnpm print unmet-peer warnings (kehto/web#364).
+- Updated dependencies [f5c3ee8]
+  - @kehto/acl@0.20.1
+  - @kehto/firewall@0.6.2
+
+## 0.27.0
+
+### Minor Changes
+
+- fcb5bc9: Dispatch the NAP-LLM `llm` domain (napplet/naps PR #134 at `3e10939`) to a registered `llm` service. Without one, each sanctioned request receives one `llm.<op>.result` carrying `{ code: 'unsupported', message }`; ACL denials use the same NAP result shape. Adds the `llm:generate` ACL bit.
+
+### Patch Changes
+
+- Updated dependencies [fcb5bc9]
+  - @kehto/acl@0.20.0
+
+## 0.26.1
+
+### Patch Changes
+
+- a1a50d7: Implement NAP-MEDIA shell-owned audio/video and live MP3/AAC radio through host resource policy,
+  with a shared player in Paja and the playground. Bind sessions to their endpoint,
+  validate controls, retire output on destruction or revoked access, and retain
+  terminal notifications in the protected injected API. Add canonical command-object
+  callbacks and command/onEnded operations; retain warned legacy sendCommand and
+  two-argument callbacks. Unary legacy callbacks must migrate to command objects.
+  Use a playable one-second silent PCM clip when priming browser OS media controls.
+
 ## 0.26.0
 
 ### Minor Changes

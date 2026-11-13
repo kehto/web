@@ -1,7 +1,7 @@
 {
   "name": "@kehto/firewall",
-  "version": "0.6.1",
-  "description": "Pure, WASM-ready behavioral firewall engine for the napplet protocol — zero dependencies, zero side effects",
+  "version": "0.9.0",
+  "description": "Pure scoped approval and access policy for the napplet protocol",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -20,10 +20,10 @@
     "access": "public"
   },
   "peerDependencies": {
-    "@napplet/core": ">=0.32.0 <0.35.0"
+    "@napplet/core": ">=0.32.0 <0.42.0"
   },
   "devDependencies": {
-    "@napplet/core": ">=0.32.0 <0.33.0",
+    "@napplet/core": ">=0.41.0 <0.42.0",
     "tsup": "^8.5.0",
     "typescript": "^5.9.3"
   },
@@ -42,7 +42,6 @@
     "nostr",
     "napplet",
     "kehto",
-    "firewall",
-    "rate-limit"
+    "firewall"
   ]
 }

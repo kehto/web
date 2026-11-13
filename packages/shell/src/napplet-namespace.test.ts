@@ -9,6 +9,7 @@ type PreludeListener = (event: PreludeTestEvent) => void;
 
 interface PreludeTestEvent {
   source?: unknown;
+  currentTarget?: unknown;
   data?: unknown;
   key?: string;
   code?: string;
@@ -37,7 +38,8 @@ interface PreludeKeydownInit {
 
 interface PreludeTestWindow {
   napplet?: Record<string, unknown>;
-  parent: { postMessage: (message: PostedMessage, targetOrigin: string) => void };
+  parent: { postMessage: (message: PostedMessage, targetOrigin: string, transfer?: unknown[]) => void };
+  MessageChannel: new () => { port1: unknown; port2: unknown };
   crypto: { randomUUID: () => string };
   document: {
     activeElement: unknown;
@@ -49,20 +51,64 @@ interface PreludeTestWindow {
   dispatchMessage: (source: unknown, message: PostedMessage) => void;
   dispatchParentMessage: (message: PostedMessage) => void;
   dispatchKeydown: (event: PreludeKeydownInit) => PreludeTestEvent;
+  /** NAP envelopes the prelude sent over its private NIP-5D port. */
   postedMessages: PostedMessage[];
   postedMessageListenerCounts: number[];
+  /** Window-level `napplet.hello` handoffs, with their transferred ports. */
+  hellos: Array<{ message: PostedMessage; targetOrigin: string; transfer: unknown[] }>;
+  /** Optional observer called after each port post (lets tests answer synchronously). */
+  onPortPost?: (message: PostedMessage) => void;
+}
+
+/**
+ * Synchronous NIP-5D channel double: the prelude keeps port1 private and
+ * hands port2 to the shell in `napplet.hello`. Real MessageChannel delivery
+ * is asynchronous; transport semantics are proven in shell-bridge tests.
+ */
+function createPreludeChannel(
+  postedMessages: PostedMessage[],
+  postedMessageListenerCounts: number[],
+  portListeners: Set<PreludeListener>,
+  onPost: (message: PostedMessage) => void,
+) {
+  return class PreludeTestChannel {
+    readonly port1 = {
+      postMessage(message: PostedMessage) {
+        postedMessages.push(message);
+        postedMessageListenerCounts.push(portListeners.size);
+        onPost(message);
+      },
+      addEventListener(type: string, listener: PreludeListener) {
+        if (type === 'message') portListeners.add(listener);
+      },
+      removeEventListener(type: string, listener: PreludeListener) {
+        if (type === 'message') portListeners.delete(listener);
+      },
+      start() {},
+      close() {},
+    };
+    readonly port2 = { transferred: true };
+  };
 }
 
 function createPreludeTestWindow(napplet?: Record<string, unknown>): PreludeTestWindow {
   const windowListeners = new Map<string, Set<PreludeListener>>();
   const documentListeners = new Map<string, Set<PreludeListener>>();
+  const portListeners = new Set<PreludeListener>();
   const postedMessages: PostedMessage[] = [];
   const postedMessageListenerCounts: number[] = [];
+  const hellos: PreludeTestWindow['hellos'] = [];
+  let testWindow: PreludeTestWindow | null = null;
+  const Channel = createPreludeChannel(
+    postedMessages, postedMessageListenerCounts, portListeners,
+    (message) => testWindow?.onPortPost?.(message),
+  );
+  let privatePort: unknown = null;
   let nextId = 0;
   const parent = {
-    postMessage(message: PostedMessage) {
-      postedMessages.push(message);
-      postedMessageListenerCounts.push(windowListeners.get('message')?.size ?? 0);
+    postMessage(message: PostedMessage, targetOrigin: string, transfer: unknown[] = []) {
+      // Window-level traffic: NIP-5D allows only the single napplet.hello.
+      hellos.push({ message, targetOrigin, transfer });
     },
   };
   const add = (listeners: Map<string, Set<PreludeListener>>, type: string, listener: PreludeListener): void => {
@@ -88,11 +134,18 @@ function createPreludeTestWindow(napplet?: Record<string, unknown>): PreludeTest
       remove(documentListeners, type, listener);
     },
   };
-  return {
+  testWindow = {
     napplet,
     parent,
+    MessageChannel: class extends Channel {
+      constructor() {
+        super();
+        privatePort = this.port1;
+      }
+    },
     postedMessages,
     postedMessageListenerCounts,
+    hellos,
     document,
     crypto: {
       randomUUID: () => `id-${++nextId}`,
@@ -114,7 +167,16 @@ function createPreludeTestWindow(napplet?: Record<string, unknown>): PreludeTest
       });
     },
     dispatchParentMessage(message) {
-      this.dispatchMessage(parent, message);
+      // The shell answers over the bound port, never at window level.
+      const event: PreludeTestEvent = {
+        data: message,
+        currentTarget: privatePort,
+        defaultPrevented: false,
+        preventDefault() {
+          this.defaultPrevented = true;
+        },
+      };
+      for (const listener of [...portListeners]) listener(event);
     },
     dispatchKeydown(init) {
       const event: PreludeTestEvent = {
@@ -137,6 +199,7 @@ function createPreludeTestWindow(napplet?: Record<string, unknown>): PreludeTest
       return event;
     },
   };
+  return testWindow;
 }
 
 function withoutShellReady(target: PreludeTestWindow): PostedMessage[] {
@@ -164,6 +227,74 @@ function runPrelude(script: string, target: PreludeTestWindow): void {
   }
   new Function('window', source)(target);
 }
+
+describe('NAP-MEDIA injected lifecycle', () => {
+  it('retains terminal events, guards parent source and survives shim reassignment without shell', () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['media'] }), target);
+    const media = target.napplet!.media as {
+      command(id: string, command: unknown): void;
+      onState(id: string, cb: (state: unknown) => void): { close(): void };
+      onCommand(id: string, cb: (command: unknown) => void): { close(): void };
+      onEnded(id: string, cb: (ended: unknown) => void): { close(): void };
+    };
+    const states = vi.fn(), commands = vi.fn(), ended = vi.fn();
+    media.onState('s', states); media.onCommand('s', commands); media.onEnded('s', ended);
+    const result = { type: 'media.session.create.result', id: 'c', sessionId: 's', owner: 'shell' };
+    target.dispatchMessage({}, result);
+    target.dispatchParentMessage({ type: 'media.state', sessionId: 's', status: 'playing' });
+    expect(states).not.toHaveBeenCalled();
+    target.dispatchParentMessage(result);
+    target.dispatchMessage({}, { type: 'media.session.ended', sessionId: 's', reason: 'policy' });
+    target.dispatchParentMessage({ type: 'media.state', sessionId: 's', status: 'paused', reason: 'focus-lost' });
+    target.dispatchParentMessage({ type: 'media.command', sessionId: 's', action: 'play', reason: 'focus-gained' });
+    expect(states).toHaveBeenCalledWith({ status: 'paused', reason: 'focus-lost' });
+    expect(commands).toHaveBeenCalledWith({ action: 'play', reason: 'focus-gained' });
+    target.napplet = { media: { onEnded: () => {} } };
+    expect(target.napplet.media).toBe(media);
+    const terminal = { type: 'media.session.ended', sessionId: 's', reason: 'preempted' };
+    target.dispatchParentMessage(terminal); target.dispatchParentMessage(terminal);
+    target.dispatchParentMessage({ type: 'media.state', sessionId: 's', status: 'playing' });
+    target.dispatchParentMessage({ type: 'media.command', sessionId: 's', action: 'play' });
+    expect(states).toHaveBeenCalledTimes(1); expect(commands).toHaveBeenCalledTimes(1);
+    expect(ended).toHaveBeenCalledTimes(1);
+    const late = vi.fn(); media.onEnded('s', late);
+    expect(late).toHaveBeenCalledExactlyOnceWith({ sessionId: 's', reason: 'preempted' });
+    const before = target.postedMessages.length;
+    media.command('s', { action: 'play' });
+    expect(target.postedMessages).toHaveLength(before);
+  });
+
+  it('warns once per legacy boundary and keeps canonical commands quiet', () => {
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const target = createPreludeTestWindow();
+      runPrelude(renderNappletNamespacePrelude({ domains: ['media'] }), target);
+      const media = target.napplet!.media as {
+        command(id: string, command: unknown): void;
+        sendCommand(id: string, action: string, value?: number): void;
+        onCommand(id: string, cb: (action: unknown, value?: unknown) => void): { close(): void };
+      };
+      media.command('s', { action: 'seek', value: 12, reason: 'user' });
+      media.onCommand('s', command => { void command; });
+      expect(warning).not.toHaveBeenCalled();
+      media.sendCommand('s', 'seek', 12); media.sendCommand('s', 'play');
+      const calls: unknown[] = [];
+      const sub = media.onCommand('s', (action, value) => calls.push({ action, value }));
+      media.onCommand('s', (_action, _value) => {});
+      expect(warning.mock.calls).toEqual([
+        [expect.stringContaining('[KEHTO-MEDIA-SEND-COMMAND] Deprecated media API; use media.command')],
+        [expect.stringContaining('[KEHTO-MEDIA-COMMAND-CALLBACK] Deprecated media API; use media.onCommand')],
+      ]);
+      target.dispatchParentMessage({ type: 'media.session.create.result', id: 'c', sessionId: 's', owner: 'napplet' });
+      target.dispatchParentMessage({ type: 'media.command', sessionId: 's', action: 'seek', value: 12 });
+      expect(calls).toEqual([{ action: 'seek', value: 12 }]);
+      sub.close();
+      target.dispatchParentMessage({ type: 'media.command', sessionId: 's', action: 'play' });
+      expect(calls).toHaveLength(1);
+    } finally { warning.mockRestore(); }
+  });
+});
 
 async function withGlobalWindow<T>(target: PreludeTestWindow, run: () => T | Promise<T>): Promise<T> {
   const hadWindow = Object.prototype.hasOwnProperty.call(globalThis, 'window');
@@ -562,52 +693,69 @@ describe('NIP-5D napplet namespace prelude', () => {
     });
   });
 
-  it('projects canonical per-resource server hints for resource bytes and bytesMany', async () => {
+  it('projects canonical resource URL and base64 wire values', async () => {
     const target = createPreludeTestWindow();
     runPrelude(renderNappletNamespacePrelude({ domains: ['resource'] }), target);
 
     const resource = target.napplet?.resource as {
-      bytes: (url: string, options?: { servers?: string[] }) => Promise<Blob>;
-      bytesMany: (
-        requests: Array<{ url: string; servers?: string[] }>,
-      ) => Promise<Array<{ url: string; ok: boolean }>>;
+      bytes: (url: string) => Promise<Blob>;
+      bytesMany: (urls: string[]) => Promise<Array<{ url: string; ok: boolean }>>;
     };
     const url = `blossom:sha256:${'a'.repeat(64)}`;
-    const single = resource.bytes(url, { servers: ['https://cdn.example'] });
+    const single = resource.bytes(url);
     const singleRequest = withoutShellReady(target).at(-1);
     expect(singleRequest).toEqual({
       type: 'resource.bytes',
       id: 'id-1',
       url,
-      servers: ['https://cdn.example'],
     });
-    const blob = new Blob(['rom']);
     target.dispatchParentMessage({
       type: 'resource.bytes.result',
       id: singleRequest?.id,
-      blob,
+      blob: 'cm9t',
       mime: 'application/octet-stream',
     });
-    await expect(single).resolves.toBe(blob);
+    const singleResult = await single;
+    expect(singleResult).toBeInstanceOf(Blob);
+    await expect(singleResult.text()).resolves.toBe('rom');
 
-    const requests = [
-      { url, servers: ['https://one.example'] },
-      { url: 'https://media.example/image.png' },
-    ];
-    const many = resource.bytesMany(requests);
+    const urls = [url, 'https://media.example/image.png'];
+    const many = resource.bytesMany(urls);
     const manyRequest = withoutShellReady(target).at(-1);
     expect(manyRequest).toEqual({
       type: 'resource.bytesMany',
       id: 'id-2',
-      requests,
+      urls,
     });
-    const items = requests.map(({ url: requestUrl }) => ({ url: requestUrl, ok: false }));
+    const items = urls.map((requestUrl) => ({ url: requestUrl, ok: false }));
     target.dispatchParentMessage({
       type: 'resource.bytesMany.result',
       id: manyRequest?.id,
       items,
     });
     await expect(many).resolves.toEqual(items);
+  });
+
+  it('rejects retired Blob values and non-canonical base64 resource results', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['resource'] }), target);
+    const resource = target.napplet?.resource as { bytes: (url: string) => Promise<Blob> };
+
+    const retired = resource.bytes('https://media.example/retired');
+    const retiredRequest = withoutShellReady(target).at(-1);
+    target.dispatchParentMessage({
+      type: 'resource.bytes.result', id: retiredRequest?.id,
+      blob: new Blob(['retired']), mime: 'text/plain',
+    });
+    await expect(retired).rejects.toThrow(/canonical base64/i);
+
+    const nonCanonical = resource.bytes('https://media.example/noncanonical');
+    const nonCanonicalRequest = withoutShellReady(target).at(-1);
+    target.dispatchParentMessage({
+      type: 'resource.bytes.result', id: nonCanonicalRequest?.id,
+      blob: 'YR==', mime: 'text/plain',
+    });
+    await expect(nonCanonical).rejects.toThrow(/canonical base64/i);
   });
 
   it('keeps an active resource transfer pending beyond the ordinary request timeout', async () => {
@@ -638,14 +786,15 @@ describe('NIP-5D napplet namespace prelude', () => {
       expect(ordinaryState).toBe('rejected');
       expect(transferState).toBe('pending');
       const request = withoutShellReady(target).find((message) => message.type === 'resource.bytes');
-      const blob = new Blob(['late resource']);
       target.dispatchParentMessage({
         type: 'resource.bytes.result',
         id: request?.id,
-        blob,
+        blob: btoa('late resource'),
         mime: 'application/octet-stream',
       });
-      await expect(transfer).resolves.toBe(blob);
+      const transferResult = await transfer;
+      expect(transferResult).toBeInstanceOf(Blob);
+      await expect(transferResult.text()).resolves.toBe('late resource');
     } finally {
       vi.useRealTimers();
     }
@@ -693,13 +842,11 @@ describe('NIP-5D napplet namespace prelude', () => {
       runPrelude(renderNappletNamespacePrelude({ domains: ['resource'] }), target);
       const resource = target.napplet?.resource as {
         bytesMany: (
-          requests: Array<{ url: string; servers?: string[] }>,
+          urls: string[],
         ) => Promise<Array<{ url: string; ok: boolean; blob?: Blob }>>;
       };
-      const requests = [
-        { url: `blossom:sha256:${'c'.repeat(64)}`, servers: ['https://cdn.example'] },
-      ];
-      const transfer = resource.bytesMany(requests);
+      const urls = [`blossom:sha256:${'c'.repeat(64)}`];
+      const transfer = resource.bytesMany(urls);
       let transferState = 'pending';
       void transfer.then(
         () => { transferState = 'resolved'; },
@@ -710,9 +857,9 @@ describe('NIP-5D napplet namespace prelude', () => {
 
       expect(transferState).toBe('pending');
       const request = withoutShellReady(target).find((message) => message.type === 'resource.bytesMany');
-      const items = [{ url: requests[0]!.url, ok: true, blob: new Blob(['late batch resource']) }];
+      const items = [{ url: urls[0]!, ok: true, blob: btoa('late batch resource'), mime: 'text/plain' }];
       target.dispatchParentMessage({ type: 'resource.bytesMany.result', id: request?.id, items });
-      await expect(transfer).resolves.toEqual(items);
+      await expect(transfer).resolves.toEqual([{ ...items[0], blob: new Blob(['late batch resource'], { type: 'text/plain' }) }]);
     } finally {
       vi.useRealTimers();
     }
@@ -1703,6 +1850,7 @@ describe('NIP-5D napplet namespace prelude', () => {
       expect(notifyActions).toEqual([{ notificationId: 'notification-1', actionId: 'open' }]);
       notifySubscription.close();
 
+      target.dispatchParentMessage({ type: 'media.session.create.result', id: 'media-create', sessionId: 'media-session', owner: 'napplet' });
       const mediaCommands: unknown[] = [];
       const mediaSubscription = sdkLike.media.onCommand('media-session', (action, value) => {
         mediaCommands.push({ action, value });
@@ -1777,6 +1925,110 @@ describe('NIP-5D napplet namespace prelude', () => {
     });
   });
 
+  // NAP-LLM (napplet/naps PR #134 at 5e93bdfce0e84c0de728234cb7b3feed498f8635):
+  // result envelopes carry `{ code, message }` errors, deltas are id-less block
+  // lifecycle events keyed by requestId, and aborting a generation sends
+  // llm.cancel while the generation settles on its own result.
+  it('injects the NAP-LLM API with typed failures, ordered block deltas and abort-driven cancellation', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['llm'] }), target);
+
+    await withGlobalWindow(target, async () => {
+      const llm = requireDomain('llm');
+      expect(Object.keys(llm).sort()).toEqual(['cancel', 'describe', 'generate', 'select']);
+
+      const select = llm.select() as Promise<unknown>;
+      expect(target.postedMessages.at(-1)).toEqual({ type: 'llm.select', id: 'id-1' });
+      const model = { handle: 'h1', name: 'My connection', model: 'chosen-model', route: 'Local shell → inference provider', images: false, json: true, tools: true, toolChoiceModes: ['auto', 'none', 'required', 'tool'] };
+      target.dispatchParentMessage({ type: 'llm.select.result', id: 'id-1', model });
+      await expect(select).resolves.toEqual(model);
+
+      const constrained = llm.select({ json: true }) as Promise<unknown>;
+      expect(target.postedMessages.at(-1)).toEqual({ type: 'llm.select', id: 'id-2', requirements: { json: true } });
+      target.dispatchParentMessage({ type: 'llm.select.result', id: 'id-2', error: { code: 'user-cancelled', message: 'Declined.' } });
+      await expect(constrained).rejects.toMatchObject({ code: 'user-cancelled', message: 'Declined.' });
+
+      const describe = llm.describe('h1') as Promise<unknown>;
+      expect(target.postedMessages.at(-1)).toEqual({ type: 'llm.describe', id: 'id-3', handle: 'h1' });
+      target.dispatchParentMessage({ type: 'llm.describe.result', id: 'id-3', model });
+      await expect(describe).resolves.toEqual(model);
+
+      // The spec's g1 request and its streamed text lifecycle.
+      const deltas: unknown[] = [];
+      const request = { handle: 'h1', messages: [{ role: 'user', content: [{ type: 'text', text: 'Return a JSON object with a greeting.' }] }], format: 'json', maxTokens: 128, temperature: 0.7 };
+      const generation = llm.generate(request, { onDelta: (delta: unknown) => deltas.push(delta) }) as Promise<unknown> & { requestId: string };
+      expect(generation.requestId).toBe('id-4');
+      expect(target.postedMessages.at(-1)).toEqual({ type: 'llm.generate', id: 'id-4', request });
+      const lifecycle = { requestId: 'id-4', block: 'text', blockIndex: 0 };
+      target.dispatchParentMessage({ type: 'llm.delta', ...lifecycle, sequence: 0, event: 'start' });
+      target.dispatchParentMessage({ type: 'llm.delta', ...lifecycle, requestId: 'other', sequence: 0, event: 'start' });
+      target.dispatchParentMessage({ type: 'llm.delta', ...lifecycle, sequence: 5, event: 'delta', text: 'out of order' });
+      target.dispatchMessage({}, { type: 'llm.delta', ...lifecycle, sequence: 1, event: 'delta', text: 'forged source' });
+      target.dispatchParentMessage({ type: 'llm.delta', ...lifecycle, sequence: 1, event: 'delta', text: '{"greeting":"Hello"}' });
+      target.dispatchParentMessage({ type: 'llm.delta', ...lifecycle, sequence: 2, event: 'end' });
+      const result = { content: [{ type: 'text', text: '{"greeting":"Hello"}' }], finish: 'stop', usage: { inputTokens: 12, outputTokens: 7 } };
+      target.dispatchParentMessage({ type: 'llm.generate.result', id: 'id-4', result });
+      await expect(generation).resolves.toEqual(result);
+      expect(deltas).toEqual([
+        { requestId: 'id-4', sequence: 0, event: 'start', block: 'text', blockIndex: 0 },
+        { requestId: 'id-4', sequence: 1, event: 'delta', block: 'text', blockIndex: 0, text: '{"greeting":"Hello"}' },
+        { requestId: 'id-4', sequence: 2, event: 'end', block: 'text', blockIndex: 0 },
+      ]);
+
+      // The spec's streamed g2 tool-call lifecycle keeps its id and name.
+      const toolDeltas: unknown[] = [];
+      const tooling = llm.generate(request, { onDelta: (delta: unknown) => toolDeltas.push(delta) }) as Promise<unknown> & { requestId: string };
+      expect(tooling.requestId).toBe('id-5');
+      const call = { requestId: 'id-5', block: 'toolCall', blockIndex: 0 };
+      target.dispatchParentMessage({ type: 'llm.delta', ...call, sequence: 0, event: 'start', toolCallId: 'call_1', name: 'get_weather' });
+      target.dispatchParentMessage({ type: 'llm.delta', ...call, sequence: 1, event: 'delta', text: '{"city":"Berlin"}' });
+      target.dispatchParentMessage({ type: 'llm.delta', ...call, sequence: 2, event: 'end' });
+      const toolResult = { content: [{ type: 'toolCall', toolCallId: 'call_1', name: 'get_weather', arguments: { city: 'Berlin' } }], finish: 'toolUse' };
+      target.dispatchParentMessage({ type: 'llm.generate.result', id: 'id-5', result: toolResult });
+      await expect(tooling).resolves.toEqual(toolResult);
+      expect(toolDeltas).toEqual([
+        { requestId: 'id-5', sequence: 0, event: 'start', block: 'toolCall', blockIndex: 0, toolCallId: 'call_1', name: 'get_weather' },
+        { requestId: 'id-5', sequence: 1, event: 'delta', block: 'toolCall', blockIndex: 0, text: '{"city":"Berlin"}' },
+        { requestId: 'id-5', sequence: 2, event: 'end', block: 'toolCall', blockIndex: 0 },
+      ]);
+
+      // Malformed deltas at the expected sequence are dropped without advancing it.
+      const guarded: unknown[] = [];
+      const careful = llm.generate(request, { onDelta: (delta: unknown) => guarded.push(delta) }) as Promise<unknown> & { requestId: string };
+      const base = { requestId: careful.requestId, sequence: 0, block: 'text', blockIndex: 0 };
+      target.dispatchParentMessage({ type: 'llm.delta', ...base, event: 'start', text: 'text on a start' });
+      target.dispatchParentMessage({ type: 'llm.delta', ...base, event: 'start', blockIndex: 0.5 });
+      target.dispatchParentMessage({ type: 'llm.delta', ...base, event: 'start', blockIndex: -1 });
+      target.dispatchParentMessage({ type: 'llm.delta', ...base, event: 'start', block: 'toolCall', name: 'get_weather' });
+      target.dispatchParentMessage({ type: 'llm.delta', ...base, event: 'start', block: 'toolCall', toolCallId: 'call_1' });
+      target.dispatchParentMessage({ type: 'llm.delta', ...base, event: 'start', toolCallId: 'stray' });
+      target.dispatchParentMessage({ type: 'llm.delta', ...base, event: 'delta' });
+      target.dispatchParentMessage({ type: 'llm.delta', ...base, event: 'explode' });
+      target.dispatchParentMessage({ type: 'llm.delta', ...base, event: 'start', block: 'audio' });
+      expect(guarded).toEqual([]);
+      target.dispatchParentMessage({ type: 'llm.delta', ...base, event: 'start' });
+      expect(guarded).toEqual([{ requestId: careful.requestId, sequence: 0, event: 'start', block: 'text', blockIndex: 0 }]);
+      target.dispatchParentMessage({ type: 'llm.generate.result', id: careful.requestId, result: { content: [], finish: 'length' } });
+      await careful;
+
+      const controller = new AbortController();
+      const cancelled = llm.generate(request, { signal: controller.signal }) as Promise<unknown> & { requestId: string };
+      controller.abort();
+      expect(target.postedMessages.at(-1)).toEqual({ type: 'llm.cancel', id: 'id-8', requestId: cancelled.requestId });
+      target.dispatchParentMessage({ type: 'llm.generate.result', id: cancelled.requestId, error: { code: 'cancelled', message: 'Generation cancelled; provider charges may still apply.' } });
+      await expect(cancelled).rejects.toMatchObject({ code: 'cancelled' });
+
+      const cancel = llm.cancel('id-99') as Promise<unknown>;
+      expect(target.postedMessages.at(-1)).toEqual({ type: 'llm.cancel', id: 'id-9', requestId: 'id-99' });
+      target.dispatchParentMessage({ type: 'llm.cancel.result', id: 'id-9', cancelled: false });
+      await expect(cancel).resolves.toBe(false);
+
+      const malformed = llm.describe('h1') as Promise<unknown>;
+      target.dispatchParentMessage({ type: 'llm.describe.result', id: 'id-10' });
+      await expect(malformed).rejects.toMatchObject({ code: 'provider-error' });
+    });
+  });
+
   it('injects the complete NAP-FS API with correlated results and id-less changes', async () => {
     const target = createPreludeTestWindow();
     runPrelude(renderNappletNamespacePrelude({ domains: ['fs'] }), target);
@@ -1832,9 +2084,7 @@ describe('intent delivery and KEHTO_COMPAT_INTENT_INC', () => {
 
   it('buffers before shell.ready is posted and drains in order without INC or warnings', () => {
     const target = createPreludeTestWindow();
-    const post = target.parent.postMessage;
-    target.parent.postMessage = (message, origin) => {
-      post(message, origin);
+    target.onPortPost = (message) => {
       if (message.type === 'shell.ready') send(target);
     };
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -1866,13 +2116,26 @@ describe('intent delivery and KEHTO_COMPAT_INTENT_INC', () => {
     const handler = vi.fn();
     binding.onDelivery(handler);
     target.dispatchMessage({}, { type: 'intent.deliver', delivery });
-    for (const value of [null, [], {}, { ...delivery, sender: 1 }, { ...delivery, action: undefined }]) send(target, value);
+    for (const value of [
+      null, [], {}, { ...delivery, sender: 1 }, { ...delivery, sender: '' }, { ...delivery, sender: null },
+      { ...delivery, action: undefined },
+    ]) send(target, value);
     target.dispatchParentMessage({ type: 'inc.event', topic: delivery.convention, sender: delivery.sender, payload: delivery.payload });
     expect(handler).not.toHaveBeenCalled();
     target.napplet = { intent: { onDelivery: vi.fn() } };
     expect(intent(target)).toBe(binding);
     send(target);
     expect(handler).toHaveBeenCalledExactlyOnceWith(delivery);
+  });
+
+  it('never forwards a withdrawn delivery ID (NAP-INTENT PR #128 @ 74f9bf85)', () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['intent'] }), target);
+    const handler = vi.fn();
+    intent(target).onDelivery(handler);
+    send(target, { ...delivery, id: 'delivery-1' });
+    expect(handler).toHaveBeenCalledExactlyOnceWith(delivery);
+    expect(handler.mock.calls[0][0]).not.toHaveProperty('id');
   });
 
   it('adapts only matching legacy listeners, warns once, and never also delivers to INC when canonical listeners exist', () => {
@@ -1988,5 +2251,37 @@ describe('GAMEPAD injected binding', () => {
     target.dispatchParentMessage({ type: 'gamepad.state', available: true, focused: false, pads: [] });
     expect(first).toHaveBeenCalledTimes(1); expect(second).toHaveBeenCalledTimes(1);
     expect(binding.focused).toBe(false);
+  });
+});
+
+describe('NIP-5D direct WebRTC egress neutering', () => {
+  it('removes the whole RTC* surface and legacy aliases from the napplet realm before any script runs', () => {
+    const target = createPreludeTestWindow();
+    const realm = target as unknown as Record<string, unknown>;
+    // A real browser realm exposes these constructors; the fake window stands in.
+    const names = [
+      'RTCPeerConnection', 'RTCDataChannel', 'RTCSessionDescription', 'RTCIceCandidate',
+      'RTCRtpSender', 'webkitRTCPeerConnection', 'mozRTCPeerConnection',
+    ];
+    for (const name of names) realm[name] = function FakeRtc() {};
+
+    runPrelude(renderNappletNamespacePrelude({ domains: ['shell'] }), target);
+
+    for (const name of names) expect(realm[name], name).toBeUndefined();
+    expect(Object.keys(realm).filter((key) => key.startsWith('RTC'))).toEqual([]);
+    // Unrelated globals are left alone.
+    expect(typeof realm.MessageChannel).toBe('function');
+  });
+
+  it('pins the neutered constructors so napplet code cannot restore them', () => {
+    const target = createPreludeTestWindow();
+    const realm = target as unknown as Record<string, unknown>;
+    realm.RTCPeerConnection = function FakePC() {};
+    runPrelude(renderNappletNamespacePrelude({ domains: ['shell'] }), target);
+
+    // Non-writable, non-configurable: a napplet reassigning it is a no-op (or throws in strict mode).
+    expect(() => Object.defineProperty(realm, 'RTCPeerConnection', { value: function Restored() {} }))
+      .toThrow();
+    expect(realm.RTCPeerConnection).toBeUndefined();
   });
 });

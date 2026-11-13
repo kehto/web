@@ -487,6 +487,10 @@ describe('resolveCapabilitiesNap', () => {
       expect(resolveCapabilitiesNap({ type: 'intent.changed' })).toEqual({ senderCap: null, recipientCap: 'intent:read' });
     });
 
+    it('intent.deliver -> recipient intent:read (runtime -> napplet push, independent of INC)', () => {
+      expect(resolveCapabilitiesNap({ type: 'intent.deliver' })).toEqual({ senderCap: null, recipientCap: 'intent:read' });
+    });
+
     it('intent.unknown has no sanctioned sender or recipient direction', () => {
       expect(resolveCapabilitiesNap({ type: 'intent.unknown' })).toEqual({
         senderCap: null,
@@ -532,6 +536,23 @@ describe('resolveCapabilitiesNap', () => {
       expect(resolveCapabilitiesNap({ type: 'fs.read.result' })).toEqual({ senderCap: null, recipientCap: 'fs:read' });
       expect(resolveCapabilitiesNap({ type: 'fs.write.result' })).toEqual({ senderCap: null, recipientCap: 'fs:write' });
       expect(resolveCapabilitiesNap({ type: 'fs.changed' })).toEqual({ senderCap: null, recipientCap: 'fs:read' });
+    });
+  });
+
+  // NAP-LLM: napplet/naps PR #134 at 5e93bdfce0e84c0de728234cb7b3feed498f8635.
+  describe('llm domain (NAP-LLM user-selected language models)', () => {
+    it.each(['select', 'describe', 'generate', 'cancel'])(
+      'llm.%s -> sender llm:generate',
+      (action) => expect(resolveCapabilitiesNap({ type: `llm.${action}` })).toEqual({ senderCap: 'llm:generate', recipientCap: null }),
+    );
+
+    it.each(['select.result', 'describe.result', 'generate.result', 'cancel.result', 'delta'])(
+      'llm.%s -> recipient llm:generate',
+      (action) => expect(resolveCapabilitiesNap({ type: `llm.${action}` })).toEqual({ senderCap: null, recipientCap: 'llm:generate' }),
+    );
+
+    it('lists llm:generate once in ALL_CAPABILITIES', () => {
+      expect(ALL_CAPABILITIES.filter((capability) => capability === 'llm:generate')).toHaveLength(1);
     });
   });
 

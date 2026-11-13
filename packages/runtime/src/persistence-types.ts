@@ -7,7 +7,9 @@
  * the public @kehto/runtime API is unchanged.
  */
 
-import type { Decision, Action } from "@kehto/firewall";
+import type { LegacyFirewallAdapter } from './legacy-firewall-adapter.js';
+type Decision = ReturnType<LegacyFirewallAdapter['evaluate']>['decision'];
+type Action = ReturnType<LegacyFirewallAdapter['evaluate']>['action'];
 import type { NappletMessage } from "@napplet/core";
 
 /**
@@ -15,19 +17,6 @@ import type { NappletMessage } from "@napplet/core";
  * Implementor decides storage backend (localStorage, file, DB, etc.).
  */
 export interface AclPersistence {
-  persist(data: string): void;
-  load(): string | null;
-}
-
-/**
- * Firewall persistence — runtime calls these to save/load firewall config.
- * Implementor decides storage backend (localStorage, file, DB, etc.).
- * Only the firewall config is persisted; ephemeral counters are never stored.
- *
- * @param persist - Store serialized config data; called after each policy mutation.
- * @param load    - Retrieve previously stored config, or null on first boot.
- */
-export interface FirewallPersistence {
   persist(data: string): void;
   load(): string | null;
 }

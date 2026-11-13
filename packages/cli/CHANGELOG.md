@@ -1,5 +1,124 @@
 # @kehto/cli
 
+## 0.7.1
+
+### Patch Changes
+
+- Updated dependencies [b573414]
+- Updated dependencies [e291825]
+- Updated dependencies [25311db]
+  - @kehto/paja@0.35.0
+
+## 0.7.0
+
+### Minor Changes
+
+- 11ae71c: Adopt @napplet/core 0.41.x and @napplet/nap 0.40.x, which export the current NAP-INTENT no-ID, string-sender delivery. `@kehto/services` now re-exports its intent types from `@napplet/core` instead of keeping a local copy. Because core releases before 0.41.0 carry the withdrawn delivery ID and nullable sender, `@kehto/services`, `@kehto/paja` and `@kehto/cli` now require `@napplet/core` >=0.41.0. Other packages widen their peer windows to core <0.42.0 and nap <0.41.0 and move development builds and JSR maps to the new line. The shell's injected intent receiver now drops deliveries with an empty sender, matching the nap 0.40 binding.
+
+### Patch Changes
+
+- Updated dependencies [11ae71c]
+  - @kehto/paja@0.34.0
+
+## 0.6.2
+
+### Patch Changes
+
+- f4e7e8a: Accept @napplet/core 0.40.x and @napplet/nap 0.39.x throughout the Paja host dependency graph and update host development dependencies and JSR maps to that line. Keep existing peer floors. Account for the newly packaged blossom, catalog, navigation, soulseek and torrent domains without advertising unimplemented host backends.
+- Updated dependencies [f4e7e8a]
+  - @kehto/paja@0.33.1
+
+## 0.6.1
+
+### Patch Changes
+
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+  - @kehto/paja@0.33.0
+
+## 0.6.0
+
+### Minor Changes
+
+- 66beed4: Track NAP-LLM (napplet/naps PR #134 at `5e93bdfce0e84c0de728234cb7b3feed498f8635`) end to end. This is a breaking host API on the 0.x draft contract, with no compatibility path for the removed shapes.
+
+  - Tool calls and results, `thinking` parts, `maxTokens`, `temperature`, `tools`, `toolChoice`, `Model.tools`, `Model.toolChoiceModes`, `Requirements.tools` and extended `Usage` are supported. Kehto validates and relays tool calls and never executes one.
+  - `Generation.text` is replaced by `Generation.content` parts and text-only deltas by `start`/`delta`/`end` block events. The shell prelude forwards the full structured delta, and only for the next sequence with valid fields.
+  - `@kehto/services`: `LlmConnection` gains required `tools` and `toolChoiceModes`; `LlmGenerateHooks.onDelta` and the `createHttpLlmProvider` callback take a block event while the service assigns `sequence` and `requestId`; `llm-types` re-exports the packaged `@napplet/nap/llm/types`. Provider endpoints accept `requiresOpaqueReasoning` (Gemini 3+ defaults it on), and the dialects map tools, reasoning and usage extras.
+  - `@kehto/paja`: connections can opt into tool calling (rows saved earlier load as tools off under the same storage key), consent discloses tool definitions and tool results, and a dialect restriction answers `unsupported` before any prompt.
+  - Host packages now build on `@napplet/core` 0.38.0 and `@napplet/nap` 0.37.0; `@kehto/services`, `@kehto/paja` and `@kehto/cli` (through its Paja dependency) require them.
+
+### Patch Changes
+
+- Updated dependencies [66beed4]
+  - @kehto/paja@0.32.0
+
+## 0.5.16
+
+### Patch Changes
+
+- Updated dependencies [4d8a569]
+  - @kehto/paja@0.31.0
+
+## 0.5.15
+
+### Patch Changes
+
+- Updated dependencies [37457ce]
+  - @kehto/paja@0.30.0
+
+## 0.5.14
+
+### Patch Changes
+
+- Updated dependencies [bfe51a1]
+  - @kehto/paja@0.29.0
+
+## 0.5.13
+
+### Patch Changes
+
+- 902c1d0: Admit the NIP-5D port-bound napplet release lines in published peers:
+  `@napplet/core >=0.32.0 <0.38.0` and `@napplet/nap >=0.32.0 <0.37.0`
+  (core 0.37.0 / nap 0.36.0, napplet/web#302). Development stays on the 0.32.0
+  baseline.
+- Updated dependencies [902c1d0]
+  - @kehto/paja@0.28.0
+
+## 0.5.12
+
+### Patch Changes
+
+- Updated dependencies [3089c5e]
+  - @kehto/paja@0.27.0
+
+## 0.5.11
+
+### Patch Changes
+
+- f5c3ee8: Widen the `@napplet/*` peer ranges so the `llm` domain installs without peer conflicts: `@napplet/core` now accepts `>=0.32.0 <0.37.0` and `@napplet/nap` accepts `>=0.32.0 <0.36.0`. The `llm` subpath first ships in `@napplet/nap@0.35.0`, and `@napplet/nap@0.35.1` requires `@napplet/core@^0.36.0`. The old `<0.35.0` cap made npm fail with ERESOLVE and made pnpm print unmet-peer warnings (kehto/web#364).
+- Updated dependencies [f5c3ee8]
+  - @kehto/paja@0.26.1
+
+## 0.5.10
+
+### Patch Changes
+
+- Updated dependencies [fcb5bc9]
+  - @kehto/paja@0.26.0
+
+## 0.5.9
+
+### Patch Changes
+
+- Updated dependencies [d49b1bf]
+  - @kehto/paja@0.25.0
+
 ## 0.5.8
 
 ### Patch Changes

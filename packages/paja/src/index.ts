@@ -52,6 +52,7 @@ export { renderPajaHtml } from './host-page.js';
 export {
   PAJA_NAPPLET_MANIFEST_KIND,
   PAJA_NAPPLET_MANIFEST_KINDS,
+  PajaRelayUnreachableError,
   decodePajaPointer,
   injectPajaRuntimeCsp,
   resolvePajaPointer,
@@ -80,6 +81,19 @@ export { parsePajaIntentLink, createPajaIntentLink } from './intent-link.js';
 export { resolvePajaIntentLauncher, postPajaIntentLauncherMessage } from './intent-launcher.js';
 export { startPajaServer } from './server.js';
 export {
+  PAJA_LLM_CONNECTIONS_STORAGE_KEY,
+  createPajaLlmConnectionStore,
+  createPajaLlmHost,
+  describePajaLlmRoute,
+  normalizePajaLlmBaseUrl,
+} from './browser-llm-connections.js';
+export {
+  PAJA_LLM_VAULT_MIN_PASSWORD_LENGTH,
+  PAJA_LLM_VAULT_STORAGE_KEY,
+  createPajaLlmVault,
+  validatePajaLlmVaultPassword,
+} from './browser-llm-vault.js';
+export {
   PAJA_TARGET_CORS_HINT,
   classifyTargetCors,
   probeTargetCors,
@@ -87,8 +101,10 @@ export {
 
 export type {
   PajaCommand,
+  PajaExperimentalConfig,
   PajaHmrStrategy,
   PajaHostConfig,
+  PajaNestedContextLockSetting,
   PajaOptions,
   PajaPointerRuntimeConfig,
   PajaRawOptions,
@@ -102,6 +118,7 @@ export type {
 export type {
   PajaDecodedPointer,
   PajaPointerRelayPool,
+  PajaRelayConnectionSummary,
   PajaResolvedPointer,
   ResolvePajaPointerOptions,
 } from './runtime-resolver.js';
@@ -136,5 +153,21 @@ export type {
   BrowserIntentTerminalReason,
 } from './browser-intent-controller.js';
 export type { PajaIntentLinkDescriptor, ParsedPajaIntentLink } from './intent-link.js';
+export type { PajaConfirmationHandler, PajaConfirmationRequest } from './browser-adapter.js';
+export type { PajaSignerRequestContext, PajaSignerSource } from './browser-signer-consent.js';
+export type {
+  PajaLlmChooserContext,
+  PajaLlmConnectionRecord,
+  PajaLlmConnectionStore,
+  PajaLlmHost,
+  PajaLlmHostOptions,
+  PajaLlmRequestIdentity,
+} from './browser-llm-connections.js';
+export type {
+  PajaLlmCredentialStorage,
+  PajaLlmVault,
+  PajaLlmVaultCrypto,
+  PajaLlmVaultOptions,
+} from './browser-llm-vault.js';
 export type { PajaIntentLauncherMessage } from './intent-launcher.js';
 export type { NappletCspOptions, NappletCspDirectives, NappletCspDirective } from '@kehto/shell';

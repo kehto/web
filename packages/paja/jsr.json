@@ -1,6 +1,6 @@
 {
   "name": "@kehto/paja",
-  "version": "0.24.4",
+  "version": "0.35.2",
   "license": "MIT",
   "nodeModulesDir": "auto",
   "exports": {
@@ -8,16 +8,17 @@
     "./cli": "./src/cli.ts"
   },
   "imports": {
-    "@kehto/acl": "jsr:@kehto/acl@^0.19.1",
-    "@kehto/firewall": "jsr:@kehto/firewall@^0.6.1",
-    "@kehto/nip": "jsr:@kehto/nip@^0.7.0",
-    "@kehto/runtime": "jsr:@kehto/runtime@^0.26.0",
-    "@kehto/services": "jsr:@kehto/services@^0.25.1",
-    "@kehto/shell": "jsr:@kehto/shell@^0.24.5",
+    "@kehto/acl": "jsr:@kehto/acl@^0.20.6",
+    "@kehto/firewall": "jsr:@kehto/firewall@^0.9.0",
+    "@kehto/nip": "jsr:@kehto/nip@^0.8.0",
+    "@kehto/runtime": "jsr:@kehto/runtime@^0.30.0",
+    "@kehto/services": "jsr:@kehto/services@^0.32.1",
+    "@kehto/shell": "jsr:@kehto/shell@^0.34.0",
     "@kehto/wm": "jsr:@kehto/wm@^0.0.2",
-    "@napplet/core": "jsr:@napplet/core@^0.32.0",
-    "@napplet/nap": "jsr:@napplet/nap@^0.32.0",
-    "nostr-tools": "npm:nostr-tools@^2.23.3"
+    "@napplet/core": "jsr:@napplet/core@^0.41.0",
+    "@napplet/nap": "jsr:@napplet/nap@^0.40.0",
+    "nostr-tools": "npm:nostr-tools@^2.23.3",
+    "@kehto/rate-limit": "jsr:@kehto/rate-limit@^0.2.0"
   },
   "publish": {
     "include": [

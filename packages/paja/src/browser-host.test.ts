@@ -18,6 +18,16 @@ import { createPajaThemeBroadcastLink } from './theme-broadcast.js';
 import { PAJA_DEV_SIGNER_PUBKEY, createPajaAdapter } from './browser-adapter.js';
 import { createPajaHostConfig, normalizePajaOptions } from './options.js';
 
+/** NIP-5D: bind a port double whose posts land on the fake frame window. */
+function bindTestPort(windowId: string, source: Window): void {
+  const port = {
+    onmessage: null,
+    postMessage: (message: unknown) => source.postMessage(message, '*', undefined),
+    close: () => {},
+  };
+  originRegistry.bindPort(windowId, port as unknown as MessagePort);
+}
+
 describe('@kehto/paja browser host runtime source guards', () => {
   it('forwards one stored theme through one attached bridge without replay or replacement', () => {
     const link = createPajaThemeBroadcastLink();
@@ -68,41 +78,22 @@ describe('@kehto/paja browser host runtime source guards', () => {
     expect(tabsSource).toContain('if (state.activeTabId === tab.id) context.runtime.currentWindowId = windowId;');
   });
 
-  it('injects the Class-1 CSP before the runtime-owned namespace only for verified pointers', () => {
+  it('routes verified and development bytes through the shared admission boundary', () => {
     const source = readFileSync(new URL('./browser-target-frame.ts', import.meta.url), 'utf8');
 
-    expect(source).toContain('injectNappletNamespacePrelude(');
-    expect(source).toContain('const domains = environment.capabilities.domains;');
-    expect(source).toContain("resolvedTarget.manifest.requires.filter((domain) => domain !== 'shell' && !domains.includes(domain))");
-    expect(source).not.toContain('domains: resolvedTarget.manifest.requires');
-    expect(source).toContain("fetch(new URL('./__kehto/target.html', window.location.href)");
-    expect(source).toContain('frame.removeAttribute(\'src\');');
-    expect(source).toContain('frame.srcdoc = injectNappletNamespacePrelude(');
-    expect(source).toContain(
-      'const srcdoc = prepareNappletSrcdoc(resolvedTarget.indexHtml, {',
-    );
-    expect(source).toContain("if (config.target.mode === 'runtime-pointer')");
-    expect(source).toContain(
-      'frame.srcdoc = injectNappletNamespacePrelude(\n    injectBaseHref(html, config.target.url),',
-    );
-    expect(source).not.toContain('bridge.runtime.sessionRegistry.register(');
+    expect(source.match(/admitBrowserDocument\(\{/g)).toHaveLength(1);
+    expect(source.match(/admitPajaFrame\(\{/g)).toHaveLength(2);
+    expect(source).toContain('verifiedHtml: resolvedTarget.indexHtml');
+    expect(source).toContain('verifiedHtml: injectBaseHref(fetched.html, targetUrl.href)');
+    expect(source).toContain('frame.srcdoc = srcdoc;');
+    expect(source).not.toContain('resolvedTarget.relays, ...resolvedTarget.blossomServers');
   });
 
-  it('registers both Paja target modes before their shared protected INC prelude executes', () => {
+  it('keeps protected namespace injection in the shared admission helper', () => {
     const targetSource = readFileSync(new URL('./browser-target-frame.ts', import.meta.url), 'utf8');
     const preludeSource = readFileSync(new URL('../../shell/src/napplet-namespace.ts', import.meta.url), 'utf8');
-    const registration = 'registerFrameForGeneration(frame, config, generation, identity, environment, windowId);';
-    const injection = 'frame.srcdoc = srcdoc;';
-    const devInjection = 'frame.srcdoc = injectNappletNamespacePrelude(';
-
-    expect(targetSource.match(new RegExp(registration.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'))).toHaveLength(2);
-    expect(targetSource.match(new RegExp(injection.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'))).toHaveLength(1);
-    expect(targetSource.indexOf('prepareNappletSrcdoc(resolvedTarget.indexHtml')).toBeLessThan(targetSource.indexOf(registration));
-    expect(targetSource.indexOf(registration)).toBeLessThan(targetSource.indexOf(injection));
-    expect(targetSource.lastIndexOf(registration)).toBeLessThan(targetSource.lastIndexOf(devInjection));
-    expect(targetSource).toContain('resolvedTarget.indexHtml');
-    expect(targetSource).toContain('injectBaseHref(html, config.target.url)');
-
+    expect(targetSource).toContain('registerFrameForGeneration(');
+    expect(targetSource).toContain('onRegistered?.(registeredWindowId);');
     expect(targetSource).not.toMatch(/decodeURIComponent\(|URLSearchParams|makeInc|inc\.channel\.(?:open|list|broadcast)/);
     expect(preludeSource).toContain('function makeProtectedInc(existing: unknown)');
     expect(preludeSource).toContain('return { ...extensions, ...inc };');
@@ -110,18 +101,16 @@ describe('@kehto/paja browser host runtime source guards', () => {
   });
 
   it('only marks targets ready after the mandatory shell.ready handshake', () => {
-    const source = readFileSync(new URL('./browser-host.ts', import.meta.url), 'utf8');
+    const nip5dSource = readFileSync(new URL('./browser-nip5d-host.ts', import.meta.url), 'utf8');
     const devtoolsSource = readFileSync(new URL('./browser-devtools.ts', import.meta.url), 'utf8');
-    const readyBranch = source.slice(
-      source.indexOf("data.type === 'shell.ready'"),
-      source.indexOf("frame?.addEventListener('load'"),
-    );
+    const readyBranch = nip5dSource.slice(nip5dSource.indexOf('export function observePajaNappletMessage('));
 
-    expect(readyBranch).toContain("data.type === 'shell.ready'");
+    // NIP-5D: shell.ready arrives on the bound port, observed via onNappletMessage.
+    expect(readyBranch).toContain("message.type !== 'shell.ready'");
     expect(readyBranch).not.toContain("typeof data.type === 'string'");
-    expect(devtoolsSource).toContain('const realToProxy = new WeakMap<Window, Window>();');
-    expect(devtoolsSource).toContain('originRegistry.getRegistrationId = (win: Window) =>');
-    expect(devtoolsSource).toContain('originRegistry.getIdentity = (win: Window) =>');
+    expect(devtoolsSource).toContain('originRegistry.postToNapplet = (windowId, message) =>');
+    expect(devtoolsSource).not.toContain('realToProxy');
+    expect(devtoolsSource).not.toContain('getIframeWindow');
   });
 
   it('keeps runtime pointers in closeable tabs with duplicate-load choices', () => {
@@ -158,26 +147,30 @@ describe('@kehto/paja browser host runtime source guards', () => {
 
   it('keeps Paja wired to real relay, outbox, and identity bootstrap paths', () => {
     const adapterSource = readFileSync(new URL('./browser-adapter.ts', import.meta.url), 'utf8');
+    const supportSource = readFileSync(new URL('./browser-adapter-support.ts', import.meta.url), 'utf8');
     const intentSource = readFileSync(new URL('./browser-intent-host.ts', import.meta.url), 'utf8');
     const relaySource = readFileSync(new URL('./browser-relay-runtime.ts', import.meta.url), 'utf8');
     const hostSource = readFileSync(new URL('./browser-host.ts', import.meta.url), 'utf8');
 
-    expect(adapterSource).toContain('createRelayPoolOutboxRouter');
-    expect(adapterSource).toContain('() => relayConfig.getRelayUrls([\'discovery\', \'super\']),');
+    expect(adapterSource).toContain('createOutboxRouter(backend, getSimulation, relayConfig, confirmRequest, signerProvider)');
+    expect(supportSource).toContain('createRelayPoolOutboxRouter');
+    expect(supportSource).toContain('() => relayConfig.getRelayUrls([\'discovery\', \'super\']),');
     expect(relaySource).toContain('createNip65Registry');
     expect(relaySource).toContain('export const PAJA_NIP65_RELAY_LIST_KIND = 10_002;');
     expect(relaySource).toContain('export const PAJA_CONTACT_LIST_KIND = 3;');
     expect(relaySource).toContain('export function createPajaIdentityProviders(');
-    expect(relaySource).toContain('async function getBootstrapRelayUrls(');
-    expect(relaySource).toContain('...await getSignerRelayUrls(signerProvider, \'read\'),');
-    expect(relaySource).toContain('backend.query(await getBootstrapRelayUrls(getSimulation, signerProvider), [{');
+    expect(relaySource).toContain('export function getPajaBootstrapRelayUrls(');
+    expect(relaySource).not.toContain('getSignerRelayUrls');
+    expect(relaySource).toContain('backend.query(getPajaBootstrapRelayUrls(getSimulation), [{');
     expect(intentSource).toContain('...getPajaRelayUrls(context.runtime.currentSimulation),');
-    expect(hostSource).toContain('if (hasNip07Signer()) void state.connectNip07();');
+    expect(hostSource).toContain('void signerController.restorePreference();');
+    expect(hostSource).not.toContain('if (hasNip07Signer())');
     expect(hostSource).toContain("bridge.publishIdentityChanged(adapter.auth.getUserPubkey() ?? '');");
   });
 
   it('keeps the private social cache inside the established identity and outbox host boundary', () => {
     const adapterSource = readFileSync(new URL('./browser-adapter.ts', import.meta.url), 'utf8');
+    const supportSource = readFileSync(new URL('./browser-adapter-support.ts', import.meta.url), 'utf8');
     const hostSource = readFileSync(new URL('./browser-host.ts', import.meta.url), 'utf8');
     const diagnosticsSource = readFileSync(new URL('./browser-target-diagnostics.ts', import.meta.url), 'utf8');
 
@@ -190,15 +183,27 @@ describe('@kehto/paja browser host runtime source guards', () => {
     expect(adapterSource).toContain('uploadRuntime?.getServers()');
     expect(adapterSource).toContain("context?.hasCapability(windowId, 'identity:read') ?? false");
     expect(adapterSource).toContain('getFollows: socialCache.getFollows,');
-    expect(adapterSource).toContain('getActivePubkey: () => getRuntimePubkey(getSimulation, signerProvider),');
+    // Background warming follows a signer account only: a fixed simulation
+    // identity answers napplet identity requests but must never start
+    // author-routed relay reads on its own.
+    expect(adapterSource).toContain('getActivePubkey: () => getConnectedAccountPubkey(signerProvider),');
     expect(adapterSource).toContain('getUserPubkey: () => getRuntimePubkey(getSimulation, signerProvider),');
-    const runtimePubkey = adapterSource.slice(
-      adapterSource.indexOf('function getRuntimePubkey('),
-      adapterSource.indexOf('function createRuntimeSigner('),
+    const operationSource = readFileSync(new URL('./browser-operation-scope.ts', import.meta.url), 'utf8');
+    const runtimePubkey = operationSource.slice(
+      operationSource.indexOf('function getRuntimePubkey('),
+      operationSource.indexOf('function createRuntimeSigner('),
     );
     expect(runtimePubkey.indexOf('signerProvider?.getPubkey()')).toBeLessThan(
       runtimePubkey.indexOf('getSimulation().identity.pubkey'),
     );
+    const connectedAccountPubkey = adapterSource.slice(
+      adapterSource.indexOf('function getConnectedAccountPubkey('),
+      adapterSource.indexOf('interface PajaServiceBundle'),
+    );
+    expect(connectedAccountPubkey).toContain('signerProvider?.getPubkey()');
+    expect(connectedAccountPubkey).toContain("signerProvider?.getMethod() === 'dev'");
+    expect(connectedAccountPubkey).not.toContain('getSimulation()');
+    expect(connectedAccountPubkey).not.toContain('identity.pubkey');
     expect(adapterSource).not.toContain('services.social');
     expect(adapterSource).not.toContain('paja.social');
     expect(diagnosticsSource).toContain('export async function reportTargetCorsDiagnostic(state: PajaBrowserState): Promise<void>');
@@ -237,12 +242,12 @@ describe('@kehto/paja browser host runtime source guards', () => {
     });
     expect(confirmRequest).toHaveBeenCalledWith(expect.objectContaining({
       action: 'sign',
-      signerContext: {
+      signerContext: expect.objectContaining({
         windowId: 'window-a',
-        runtimeScope: 'target-url:http://127.0.0.1:5173/',
+        runtimeScope: expect.stringMatching(/^target-url:http:\/\/127\.0\.0\.1:5173\/\|load:[a-f0-9]{32}:window-a$/),
         napplet: { dTag: 'napplet-window-a', aggregateHash: 'hash-window-a' },
         signerPubkey: PAJA_DEV_SIGNER_PUBKEY,
-      },
+      }),
     }));
   });
 
@@ -253,11 +258,13 @@ describe('@kehto/paja browser host runtime source guards', () => {
 
     expect(runtimeSource).toContain('runtime.currentWindowId = null;');
     expect(source).toContain('unregisterSingleFrameWindow(bridge, runtime, windowId);');
-    expect(source).toContain('const isCurrentGeneration = () => state.generation === generation;');
-    expect(source).toContain('const registeredWindowId = source ? originRegistry.getWindowId(source) ?? null : null;');
-    expect(source).toContain('if (isSingleFrameMessage && (!sourceWindowId || sourceWindowId !== runtime.currentWindowId)) return;');
+    expect(source).toContain('const isCurrentGeneration = () => state.generation === generation && frameAdmissions.get(frame) === admissionController;');
+    const nip5dSource = readFileSync(new URL('./browser-nip5d-host.ts', import.meta.url), 'utf8');
+    expect(source).toContain('const frame = ensureFreshNappletFrame(context.frame);');
+    expect(nip5dSource).toContain('const isSingleFrameMessage = context.frame ? source === context.frame.contentWindow : false;');
+    expect(nip5dSource).toContain('if (windowId === context.runtime.currentWindowId) {');
     expect(targetSource).toContain('isCurrent?: () => boolean');
-    expect(targetSource).toContain('if (isCurrent && !isCurrent()) return null;');
+    expect(targetSource).toContain('signal?.aborted || (isCurrent && !isCurrent())');
   });
 
   it('registers the trusted frame identity before resolver-built srcdoc can run', () => {
@@ -267,7 +274,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
 
     expect(targetSource).toContain('const identity = getTargetOriginIdentity(config, resolvedTarget);');
     expect(targetSource).toContain('resolvePajaFrameEnvironment(adapter, identity);');
-    expect(targetSource).toContain('registerFrameForGeneration(frame, config, generation, identity, environment, windowId);');
+    expect(targetSource).toContain('registerFrameForGeneration(');
     expect(targetSource).toContain('originRegistry.setEnvironment(win, environment);');
     expect(targetSource).toContain('onRegistered?.(registeredWindowId);');
     expect(hostSource).not.toContain("frame?.addEventListener('load'");
@@ -277,7 +284,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
   it('uses verified pointer records to retain and source-bind post-acceptance intent delivery', () => {
     const source = readFileSync(new URL('./browser-host.ts', import.meta.url), 'utf8');
     const pointerLoad = source.slice(source.indexOf('async function loadRuntimePointer('), source.indexOf('async function restorePersistedRuntimeTabs('));
-    const messageHandler = source.slice(source.indexOf("window.addEventListener('message'"), source.indexOf("frame?.addEventListener('error'"));
+    const messageHandler = readFileSync(new URL('./browser-nip5d-host.ts', import.meta.url), 'utf8');
 
     expect(source).toContain("import { BrowserIntentController } from './browser-intent-controller.js';");
     expect(source).toContain("from './installed-napplet-catalog.js';");
@@ -321,8 +328,10 @@ describe('@kehto/paja browser host runtime source guards', () => {
     }) as PajaResolvedPointer;
     const makeTab = (id: string, target: PajaResolvedPointer) => {
       const source = { postMessage: vi.fn() } as unknown as Window;
-      const tab = { id, generation: 1, resolvedTarget: target, frame: { contentWindow: source, remove: vi.fn() }, windowId: id, status: 'booting' };
+      const tab = { id, generation: 1, admissionController: new AbortController(), resolvedTarget: target,
+        frame: { contentWindow: source, remove: vi.fn() }, windowId: id, status: 'booting' };
       originRegistry.register(source, id, { dTag: target.dTag, aggregateHash: target.aggregateHash });
+      bindTestPort(id, source);
       return { tab, source };
     };
     const targetA = resolved('aggregate-a');
@@ -380,8 +389,11 @@ describe('@kehto/paja browser host runtime source guards', () => {
       } as PajaResolvedPointer;
       const makeTab = (id: string, dTag: string, aggregateHash: string, windowId: string, resolvedTarget: PajaResolvedPointer) => {
         const source = { postMessage: vi.fn() } as unknown as Window;
-        const tab = { id, generation: 1, resolvedTarget, frame: { contentWindow: source, remove: vi.fn(), hidden: id !== 'tab-other' }, windowId, status: 'ready' as const, pointerValue: `naddr-${dTag}` };
+        const tab = { id, generation: 1, admissionController: new AbortController(), resolvedTarget,
+          frame: { contentWindow: source, remove: vi.fn(), hidden: id !== 'tab-other' },
+          windowId, status: 'ready' as const, pointerValue: `naddr-${dTag}` };
         originRegistry.register(source, windowId, { dTag, aggregateHash });
+        bindTestPort(windowId, source);
         return { tab, source };
       };
       const otherTarget = {

@@ -337,6 +337,36 @@ describe('createNostrCvmTransport', () => {
     }
   });
 
+  it('preserves approval cancellation and forwards the signal with deadline publication', async () => {
+    const inner = createServerPool(generateSecretKey(), () => null);
+    const publish = vi.fn(inner.pool.publish);
+    const transport = createNostrCvmTransport({ pool: { ...inner.pool, publish }, defaultRelays: RELAYS });
+    const controller = new AbortController();
+    try {
+      const response = transport.request({ pubkey: inner.serverPubkey },
+        { jsonrpc: '2.0', id: 'cancel', method: 'tools/list' }, { timeoutMs: 1000 },
+        { signal: controller.signal });
+      const rejection = expect(response).rejects.toThrow('policy denied');
+      expect(publish).toHaveBeenCalledWith(RELAYS, expect.any(Object), { signal: controller.signal });
+      controller.abort();
+      await rejection;
+      await expect(transport.request({ pubkey: inner.serverPubkey },
+        { jsonrpc: '2.0', id: 'cancelled', method: 'tools/list' }, { timeoutMs: 1000 },
+        { signal: controller.signal })).rejects.toThrow('policy denied');
+      expect(publish).toHaveBeenCalledTimes(1);
+    } finally {
+      transport.dispose();
+    }
+  });
+
+  it('exposes detached canonical relay plans before live transport', () => {
+    const transport = createNostrCvmTransport({ defaultRelays: ['wss://relay.example/'], clientSecretKey: generateSecretKey() });
+
+    expect(transport.planDiscover?.()).toEqual(['wss://relay.example']);
+    expect(transport.planRequest?.({ pubkey: 'a'.repeat(64), relays: ['wss://server.example/'] })).toEqual(['wss://server.example']);
+    transport.dispose();
+  });
+
   it('round-trips an MCP request through CEP-4 gift wrap and restores the caller id', async () => {
     const serverSk = generateSecretKey();
     const { pool, serverPubkey, publishedPlain, publishedInnerTags } = createServerPool(serverSk, (mcp) =>

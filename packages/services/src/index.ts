@@ -97,6 +97,8 @@ export type {
 } from './config-service.js';
 
 export { createResourceService, ResourceServiceError } from './resource-service.js';
+export { ResourceAuthorizationError } from './resource-authorization.js';
+export type { AuthorizeNetwork } from './resource-authorization.js';
 export type {
   ResourceErrorCode,
   ResourceBytesRequest,
@@ -146,6 +148,7 @@ export type {
   UploadRailInfo,
   Uploader,
   UploaderContext,
+  UploadExecutionPlan,
   UploadRequest,
   UploadResult,
   UploadStatus,
@@ -231,6 +234,7 @@ export { createListsService } from './lists-service.js';
 export type {
   ListsServiceContext,
   ListsServiceOptions,
+  ListsMutationPlan,
 } from './lists-service.js';
 
 export { createSerialService } from './serial-service.js';
@@ -249,12 +253,14 @@ export { createWebrtcService } from './webrtc-service.js';
 export type {
   WebrtcServiceContext,
   WebrtcServiceOptions,
+  WebrtcOpenPlan,
 } from './webrtc-service.js';
 
 export { createCommonService } from './common-service.js';
 export type {
   CommonServiceContext,
   CommonServiceOptions,
+  CommonRelayOperation,
 } from './common-service.js';
 
 export { createDmService } from './dm-service.js';
@@ -313,3 +319,90 @@ export type {
 } from './fs-service.js';
 
 export { browserGamepadOptions } from './browser-gamepad.js';
+
+export { createBrowserMediaPlayback } from './browser-media-playback.js';
+export { createBrowserMediaStreamFetch } from './browser-media-stream-fetch.js';
+export type { BrowserMediaPlaybackOptions } from './browser-media-playback.js';
+export { mountMediaPlayer } from './media-player.js';
+export type { MediaPlayback, MediaPlaybackBackend, MediaPlaybackCommand, MediaPlaybackState, MediaService, MediaSessionSnapshot } from './media-playback.js';
+
+export { createLlmService } from './llm-service.js';
+export type {
+  LlmConnection,
+  LlmConnectionHost,
+  LlmGenerateHooks,
+  LlmPromptOptions,
+  LlmRequestContext,
+  LlmService,
+  LlmServiceOptions,
+} from './llm-service.js';
+export { LLM_DOMAIN, LLM_ERROR_CODES, LlmServiceError } from './llm-types.js';
+export type {
+  LlmApi,
+  LlmBlockEvent,
+  LlmCancelMessage,
+  LlmCancelResultMessage,
+  LlmDelta,
+  LlmDeltaBlock,
+  LlmDeltaEvent,
+  LlmDeltaMessage,
+  LlmDescribeMessage,
+  LlmDescribeResultMessage,
+  LlmErrorCode,
+  LlmFailure,
+  LlmFinish,
+  LlmFormat,
+  LlmGenerateMessage,
+  LlmGenerateOptions,
+  LlmGenerateResultMessage,
+  LlmGeneration,
+  LlmGenerationRequest,
+  LlmImageMimeType,
+  LlmImagePart,
+  LlmInboundMessage,
+  LlmMessage,
+  LlmModel,
+  LlmNamedToolChoice,
+  LlmNapMessage,
+  LlmOutboundMessage,
+  LlmOutputPart,
+  LlmPart,
+  LlmPendingGeneration,
+  LlmReply,
+  LlmRequirements,
+  LlmRole,
+  LlmSelectMessage,
+  LlmSelectResultMessage,
+  LlmTextPart,
+  LlmThinkingPart,
+  LlmTool,
+  LlmToolCallPart,
+  LlmToolChoice,
+  LlmToolChoiceMode,
+  LlmUsage,
+} from './llm-types.js';
+export {
+  countLlmImages,
+  isJsonObjectText,
+  isLlmGeneration,
+  isLlmGenerationRequest,
+  isLlmRequirements,
+} from './llm-validate.js';
+export { buildLlmProviderRequest, parseLlmProviderResponse } from './llm-providers.js';
+export type {
+  LlmCredentialHeader,
+  LlmHttpRequest,
+  LlmProviderEndpoint,
+  LlmProviderProtocol,
+  LlmProviderRequestOptions,
+} from './llm-providers.js';
+export { createLlmStreamAccumulator, readLlmSseData } from './llm-provider-stream.js';
+export type { LlmStreamAccumulator } from './llm-provider-stream.js';
+export { LLM_PROVIDER_PRESETS, createHttpLlmProvider } from './llm-provider-http.js';
+export type {
+  HttpLlmProvider,
+  HttpLlmProviderOptions,
+  LlmFetch,
+  LlmFetchResponse,
+  LlmProviderPreset,
+} from './llm-provider-http.js';

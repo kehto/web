@@ -68,6 +68,8 @@ advertises the changed support surface.
 
 `gamepad` adds host-owned controller snapshots. Keep keyboard or pointer controls available and ignore gameplay transitions while `focused` is false. See [GAMEPAD hosting](/gamepad).
 
+`llm` adds user-selected language model inference. Call `select()` on a user action, keep a non-model fallback, and expect `unsupported` until the user adds a connection in Paja's **Language models** panel (the Interfaces toggle shows `⚠ llm` meanwhile). Tick **Tool calling** on a connection to let a napplet send tools; `select({ tools: true })` then offers only those connections. Every `generate()` asks the user for consent first, and the dialog names the tool definitions and counts the tool results it will send. Paja never runs a tool call; your napplet does. See [Language models](/llm).
+
 ## 5. Tune ACL
 
 Use **ACL** to grant or revoke runtime capabilities such as `state:write`,
@@ -136,8 +138,10 @@ for a local Blossom fixture, which must permit browser CORS preflight, `PUT`,
 
 Paja begins without a writable signer. Select **Dev**, use **NIP-07** to connect
 a browser extension signer, or paste a `bunker://` or `nostrconnect://` URI and
-choose **Bunker** for a NIP-46 signer. Every sign, publish, Blossom upload, or
-external-link request opens Paja's serialized in-page confirmation dialog.
+choose **Bunker** for a NIP-46 signer. Every sign, publish, or Blossom upload
+request opens Paja's serialized in-page confirmation dialog. An external link
+asks once through the Firewall prompt, unless you change the `link.open` rule
+in **Firewall permissions**.
 Deny has initial focus and Escape denies. Signing defaults to one-time approval;
 for a napplet-attributed request, you can instead remember the exact event kind
 or trust every kind from that napplet identity and Paja target. The trust choice

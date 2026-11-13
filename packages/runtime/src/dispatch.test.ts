@@ -7,12 +7,13 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { createRuntime } from './runtime.js';
-import type { Runtime } from './runtime.js';
+import { createLegacyRuntime as createRuntime } from './legacy-test-utils.js';
+type Runtime = ReturnType<typeof createRuntime>;
 import { createMockRuntimeAdapter, createNip5dSessionEntry, findEnvelopeResponse } from './test-utils.js';
 import type { MockRuntimeContext, SentMessage } from './test-utils.js';
 import type { EventTemplate, NappletMessage, NostrEvent } from '@napplet/core';
 import type { RelayPoolAdapter } from './types.js';
+import type { RelayPlanningServiceHandler, ServiceHandler } from './service-types.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -25,6 +26,15 @@ const TEST_HASH = 'b'.repeat(64);
 
 function makeSessionEntry(windowId: string = WINDOW_ID) {
   return createNip5dSessionEntry(windowId, TEST_DTAG, TEST_HASH);
+}
+
+function createQueryService(handleMessage: ServiceHandler['handleMessage']): RelayPlanningServiceHandler {
+  return {
+    descriptor: { name: 'relay-pool', version: '1.0.0' },
+    planRelayOperation: () => ({ operation: 'query', relayUrls: ['wss://relay.example'], localOnly: false }),
+    executeRelayOperation: (windowId, message, _plan, _signal, send) => handleMessage(windowId, message, send),
+    handleMessage,
+  };
 }
 
 // ─── Envelope Guard Tests ──────────────────────────────────────────────────────
@@ -233,6 +243,12 @@ describe('NIP-5D Envelope Dispatch', () => {
       const relayPool: RelayPoolAdapter = {
         subscribe: () => ({ unsubscribe() { /* no-op */ } }),
         publish,
+        subscribeToRelays(relayUrls, filters, callback) {
+          return this.subscribe(filters, callback, [...relayUrls]);
+        },
+        publishToRelays(_relayUrls, event) {
+          return this.publish(event);
+        },
         selectRelayTier: () => [],
         trackSubscription: () => { /* no-op */ },
         untrackSubscription: () => { /* no-op */ },
@@ -296,6 +312,12 @@ describe('NIP-5D Envelope Dispatch', () => {
           return { unsubscribe() { /* no-op */ } };
         },
         publish: () => { /* no-op */ },
+        subscribeToRelays(relayUrls, filters, callback) {
+          return this.subscribe(filters, callback, [...relayUrls]);
+        },
+        publishToRelays(_relayUrls, event) {
+          return this.publish(event);
+        },
         selectRelayTier: () => {
           selected = true;
           return ['wss://selected.test'];
@@ -585,9 +607,7 @@ describe('NIP-5D Envelope Dispatch', () => {
         sig: 'c3'.repeat(64),
       };
 
-      runtime2.registerService('relay-pool', {
-        descriptor: { name: 'relay-pool', version: '1.0.0' },
-        handleMessage(_wid: string, msg: NappletMessage, send: (m: NappletMessage) => void) {
+      runtime2.registerService('relay-pool', createQueryService((_wid: string, msg: NappletMessage, send: (m: NappletMessage) => void) => {
           const m = msg as NappletMessage & { subId?: string };
           serviceLog.push({ type: msg.type, subId: m.subId });
           if (msg.type === 'relay.subscribe') {
@@ -598,8 +618,7 @@ describe('NIP-5D Envelope Dispatch', () => {
           if (msg.type === 'relay.close') {
             serviceLog.push({ type: 'relay.close', subId: m.subId });
           }
-        },
-      });
+        }));
 
       runtime2.handleMessage(WINDOW_ID, {
         type: 'relay.query',
@@ -649,16 +668,13 @@ describe('NIP-5D Envelope Dispatch', () => {
       await Promise.resolve();
 
       // Register a relay-pool service that also emits the same event
-      publishing.runtime.registerService('relay-pool', {
-        descriptor: { name: 'relay-pool', version: '1.0.0' },
-        handleMessage(_wid: string, msg: NappletMessage, send: (m: NappletMessage) => void) {
+      publishing.runtime.registerService('relay-pool', createQueryService((_wid: string, msg: NappletMessage, send: (m: NappletMessage) => void) => {
           const m = msg as NappletMessage & { subId?: string };
           if (msg.type === 'relay.subscribe') {
             send({ type: 'relay.event', subId: m.subId, event: sharedEvent } as NappletMessage);
             send({ type: 'relay.eose', subId: m.subId } as NappletMessage);
           }
-        },
-      });
+        }));
 
       publishing.ctx.sent.length = 0;
       publishing.runtime.handleMessage(WINDOW_ID, {
@@ -1803,7 +1819,7 @@ describe('theme NAP dispatch (TH-01 + TH-04)', () => {
     expect((result as any).error).toBe('unsupported owner mode');
   });
 
-  it('fallback: media.session.create includes owner for napplet-owned sessions', () => {
+  it('fallback: media.session.create rejects napplet sessions without a registry', () => {
     const ctx2 = createMockRuntimeAdapter();
     const runtime2 = createRuntime(ctx2.hooks);
     runtime2.sessionRegistry.register(WINDOW_ID, makeSessionEntry(WINDOW_ID));
@@ -1819,7 +1835,8 @@ describe('theme NAP dispatch (TH-01 + TH-04)', () => {
     const result = findEnvelopeResponse(ctx2.sent, 'media.session.create.result');
     expect(result).toBeDefined();
     expect((result as any).id).toBe('media-napplet');
-    expect((result as any).sessionId).toBe('napplet-owned');
+    expect((result as any).sessionId).toBeUndefined();
+    expect((result as any).error).toBe('media service unavailable');
     expect((result as any).owner).toBe('napplet');
   });
 });

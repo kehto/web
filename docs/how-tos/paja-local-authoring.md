@@ -187,20 +187,20 @@ the list, the inline status explains the failure. Valid changes remain usable
 session-only when persistence fails; a stale durable list can return after
 reload if clearing could not be saved.
 
-Extras come after request hints, event/publisher/user discovery, per-window
-manifest hints and existing configured defaults. The combined cap stays eight
-servers, so extras may not be tried when earlier candidates fill the cap. This
-does not change upload destinations, initial pointer/artifact fetching, direct
-HTTP(S) resource URLs, or napplet CSP/network grants. Browser CORS still applies;
-browser-only Paja cannot enforce DNS-time private-address checks.
+Extras come after event/publisher/user discovery, per-window manifest hints and
+existing configured defaults. The combined cap stays eight servers, so extras
+may not be tried when earlier candidates fill the cap. This does not change
+upload destinations, initial pointer/artifact fetching, or napplet
+CSP/network grants. HTTP(S) resource reads use Paja's same-origin proxy, which
+pins a DNS-approved public address for one hop; browser CORS never grants a
+napplet direct access to the destination.
 
-The host-owned policy was checked against
-[NAP-RESOURCE `9511232f69313aa7953d110e35d32cc28d506f66`](https://github.com/napplet/naps/blob/9511232f69313aa7953d110e35d32cc28d506f66/naps/NAP-RESOURCE.md)
-and PR #80 head
-[`fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1`](https://github.com/napplet/naps/blob/fa6bcc6935aa19e7b70ab2a2c721dafca77c78e1/naps/NAP-RESOURCE.md).
-The latter removes request `servers` and changes bulk `requests` to `urls`;
-this UI feature does not migrate the existing packaged wire contract or claim
-full browser network conformance.
+The host-owned policy follows [NAP-RESOURCE PR #80 at
+`ae5b9c64ab8a4d8909f288829a01e99d6bd713bc`](https://github.com/napplet/naps/blob/ae5b9c64ab8a4d8909f288829a01e99d6bd713bc/naps/NAP-RESOURCE.md).
+URI and trusted host discovery select Blossom destinations; resource wire input
+uses a single `url` or ordered `urls`, without request `servers`. See the
+[resource proxy policy](/policies/RESOURCE-PROXY) for caller checks, DNS
+pinning, redirect reauthorization, and its remaining host-isolation prerequisite.
 
 ## Use Real Blossom Uploads
 
@@ -282,6 +282,16 @@ networking, or signer/key access for follows and profiles. It privately validate
 the active account's replacement kind-3 contact list and warms followed kind-0
 profile records through its established outbox router.
 
+That warming needs an account Paja can act as, meaning a connected NIP-07/NIP-46
+pubkey or the Dev signer. A fixed simulation identity is a read-only stand-in:
+it answers `identity.getPublicKey`, and `identity.getFollows` still loads that
+account's contact list on demand, but with no signer connected it starts no
+author-routed reads. Keep that in mind when reading the **Events** section — a
+relay under `outbox relays (NIP-65)` is named by the author chips above it.
+Those chips credit the relay-list owners supplied by the router, including
+`options.authors`, not unrelated filter authors whose relay lists were missing.
+Host-pool chips instead describe the authors their filters requested.
+
 The snapshot is active-account-scoped and memory-only, not napplet-owned storage
 or a durable-cache control, and is separate from generic simulation cache mode.
 Captured-key request correlation keeps follows tied to the account that started
@@ -295,7 +305,7 @@ completeness are outside this behavior.
 [NAP-IDENTITY `6461e4b37c29dc09a20dff35d9515889c4433874`](https://github.com/napplet/naps/blob/6461e4b37c29dc09a20dff35d9515889c4433874/naps/NAP-IDENTITY.md)
 is byte-identical to the recorded `napplet/naps` master document. Pinned
 [NAP-OUTBOX `4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e`](https://github.com/napplet/naps/blob/4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e/naps/NAP-OUTBOX.md)
-with installed `@napplet/nap@0.32.0` types is the PoC contract because current
+with the installed `@napplet/nap` NAP-OUTBOX types (0.40.0 for host packages) is the PoC contract because current
 master has no NAP-OUTBOX path; this is not a current-master OUTBOX conformance
 claim. Blossom behavior targets pinned
 [NAP-UPLOAD `a7cc17463cbf5d9cb87884b31071bc4fc826034c`](https://github.com/napplet/naps/blob/a7cc17463cbf5d9cb87884b31071bc4fc826034c/naps/NAP-UPLOAD.md).

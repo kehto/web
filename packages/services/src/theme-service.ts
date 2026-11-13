@@ -4,12 +4,10 @@
  * Handles the single napplet->shell request type from @napplet/nap/theme:
  *   - `theme.get`         -> `theme.get.result { theme }` (current theme)
  *
- * Exposes a host-facing `publishTheme(theme)` handle that:
- *   1. Replaces the service's internal current theme.
- *   2. Invokes `options.onBroadcast(envelope)` synchronously with a
- *      `theme.changed` envelope so the shell adapter (Plan 13-02) can
- *      fan-out the push to every registered napplet.
- *   3. Returns the envelope so callers can use it directly if they prefer.
+ * Exposes a host-facing `publishTheme(theme)` handle that replaces the
+ * service's internal current theme, then sends exactly one `theme.changed`
+ * delivery path. A host-provided `onBroadcast` owns delivery when supplied;
+ * otherwise the registered runtime sends to its eligible napplets.
  *
  * The default theme values are centralized here and mirrored in the runtime's
  * fallback path (`packages/runtime/src/runtime.ts`) — runtime does NOT import
@@ -36,7 +34,7 @@ import type { NappletMessage } from '@napplet/core';
 // DRIFT-CORE-06 — Phase 11-deviation: ServiceDescriptor dropped from
 // @napplet/core v0.2.0+ (napplet phase-81). Re-exported from
 // @kehto/runtime (canonical home after Phase 24 DRIFT-01).
-import type { ServiceDescriptor, ServiceHandler } from '@kehto/runtime';
+import type { ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
 import type {
   Theme,
   ThemeChangedMessage,
@@ -95,9 +93,9 @@ export interface ThemeServiceOptions {
 
   /**
    * Called synchronously from `publishTheme(theme)` with a `theme.changed`
-   * envelope. Intended for the shell adapter (Plan 13-02) to fan-out the
-   * push to every registered napplet via the runtime's sendToNapplet
-   * primitive.
+   * envelope. When supplied, it is the sole delivery owner, so shell adapters
+   * can apply their live-session and ACL checks without duplicate runtime
+   * fan-out.
    *
    * Keep this callback shape framework-agnostic — the service does NOT
    * import any shell / browser APIs.
@@ -116,8 +114,8 @@ export interface ThemeService {
 
   /**
    * Publish a theme-change to the shell adapter. Updates the service's
-   * internal current theme, invokes `options.onBroadcast` with a
-   * `theme.changed` envelope, and returns the envelope.
+   * internal current theme, routes one `theme.changed` envelope through the
+   * configured delivery owner, and returns the envelope.
    *
    * @param theme - The new theme payload
    * @returns A `theme.changed` envelope (same one passed to onBroadcast)
@@ -150,6 +148,8 @@ export interface ThemeService {
  */
 export function createThemeService(options: ThemeServiceOptions = {}): ThemeService {
   let currentTheme: Theme = normalizeTheme(options.initialTheme);
+  let runtime: ServiceRuntimeContext | undefined;
+  const generations = new Map<string, symbol>();
 
   const descriptor: ServiceDescriptor = {
     name: 'theme',
@@ -160,6 +160,9 @@ export function createThemeService(options: ThemeServiceOptions = {}): ThemeServ
   const handler: ServiceHandler = {
     descriptor,
 
+    onRegistered(context): void { runtime = context; },
+    onUnregistered(): void { runtime = undefined; generations.clear(); },
+
     handleMessage(
       _windowId: string,
       message: NappletMessage,
@@ -168,28 +171,40 @@ export function createThemeService(options: ThemeServiceOptions = {}): ThemeServ
       const id = (message as NappletMessage & { id?: string }).id ?? '';
 
       if (message.type === 'theme.get') {
-        const result: ThemeGetResultMessage = {
-          type: 'theme.get.result',
-          id,
-          theme: currentTheme,
+        let generation = generations.get(_windowId);
+        if (!generation) { generation = Symbol(_windowId); generations.set(_windowId, generation); }
+        let settled = false;
+        const complete = (result: NappletMessage): void => {
+          if (settled || generations.get(_windowId) !== generation) return;
+          settled = true;
+          send(result);
         };
-        send(result as NappletMessage);
+        const reply = (): void => complete({ type: 'theme.get.result', id, theme: currentTheme } as ThemeGetResultMessage as NappletMessage);
+        if (!runtime?.authorizeOperation) { reply(); return; }
+        const deny = (): void => complete({ type: 'theme.get.result', id, error: 'policy denied' } as NappletMessage);
+        void runtime.authorizeOperation(_windowId, 'theme.get', [{ category: 'interface', domain: 'theme', operation: 'access', scope: { kind: 'exact', value: 'theme' } }], async (signal) => {
+          if (signal.aborted) throw new Error('user-denied');
+          reply();
+        }).then((outcome) => { if (outcome.status !== 'executed') deny(); }).catch(deny);
         return;
       }
 
       return;
     },
 
-    // Theme service has no per-window state to clean up.
-    onWindowDestroyed(_windowId: string): void {
-      /* no-op */
+    onWindowDestroyed(windowId: string): void {
+      generations.delete(windowId);
     },
   };
 
   function publishTheme(theme: Theme): ThemeChangedMessage {
     currentTheme = normalizeTheme(theme);
     const envelope: ThemeChangedMessage = { type: 'theme.changed', theme: currentTheme };
-    options.onBroadcast?.(envelope);
+    if (options.onBroadcast) {
+      options.onBroadcast(envelope);
+      return envelope;
+    }
+    for (const windowId of runtime?.listWindowIds() ?? []) runtime?.sendToEligibleNapplet(windowId, envelope as NappletMessage);
     return envelope;
   }
 

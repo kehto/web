@@ -1,4 +1,5 @@
 import { denyNappletControllerAccess, originRegistry, type ShellAdapter, type ShellBridge } from '@kehto/shell';
+import type { Runtime } from '@kehto/runtime';
 import { NAPPLET_KIND_SNAPSHOT } from '@kehto/nip/5d';
 
 import {
@@ -39,6 +40,7 @@ export interface PajaRuntimeTab {
   resolvedTarget: PajaRuntimeTarget;
   frame: HTMLIFrameElement;
   generation: number;
+  admissionController: AbortController;
   windowId: string | null;
   status: PajaRuntimeStatus;
 }
@@ -73,16 +75,20 @@ export interface PajaRuntimeTabContext {
     config: PajaHostConfig,
     generation: number,
     adapter: ShellAdapter,
+    permissionRuntime: Runtime,
     resolvedTarget: PajaRuntimeTarget,
     windowId: string,
     isCurrent?: () => boolean,
     onRegistered?: (windowId: string | null) => void,
+    signal?: AbortSignal,
   ): Promise<string | null>;
   renderTargetErrorHtml(error: unknown): string;
   setPointerStatus(state: PajaRuntimeTabState, message: string): void;
   setStatus(state: PajaRuntimeTabState, status: PajaRuntimeStatus): void;
   /** Clear host-owned retained-delivery state before session and frame teardown. */
   onTabDestroyed?(tab: PajaRuntimeTab): void;
+  /** Reject retained delivery work when admission never creates an executable frame. */
+  onTabNavigationFailed?(tab: PajaRuntimeTab): void;
 }
 
 export type PajaDuplicateChoice = 'load-again' | 'open-tab' | 'cancel';
@@ -269,6 +275,7 @@ export function addRuntimeTab(
     resolvedTarget,
     frame: document.createElement('iframe'),
     generation: state.generation,
+    admissionController: new AbortController(),
     windowId: null,
     status: 'booting',
   };
@@ -288,12 +295,46 @@ export function reloadActiveRuntimeTab(
   if (!tab) return;
   destroyRuntimeTab(tab, context);
   tab.generation = ++state.generation;
+  tab.admissionController = new AbortController();
   tab.windowId = null;
   tab.status = 'reloading';
   tab.frame = createRuntimeTabFrame(tab, state, context);
   context.stage.append(tab.frame);
   activateRuntimeTab(state, context, tab.id);
   startRuntimeTabNavigation(tab, state, context);
+}
+
+/**
+ * Replace a tab frame whose NIP-5D binding the shell revoked. The shell has
+ * already closed the port and revoked the identity, sessions and grants;
+ * NIP-5D requires the frame itself to go. The tab keeps a fresh, empty panel
+ * in the error state until the user reloads it.
+ *
+ * @param state - Runtime tab state.
+ * @param context - Runtime tab context.
+ * @param windowId - The revoked window.
+ * @returns Whether a tab owned the window.
+ */
+export function replaceRevokedRuntimeTabFrame(
+  state: PajaRuntimeTabState,
+  context: PajaRuntimeTabContext,
+  windowId: string,
+): boolean {
+  const tab = state.tabs.find((candidate) => candidate.windowId === windowId);
+  if (!tab) return false;
+  context.onTabDestroyed?.(tab);
+  context.runtime.readyWindowIds.delete(windowId);
+  if (context.runtime.currentWindowId === windowId) context.runtime.currentWindowId = null;
+  tab.generation = ++state.generation;
+  tab.windowId = null;
+  tab.status = 'error';
+  const fresh = createRuntimeTabFrame(tab, state, context);
+  fresh.hidden = tab.frame.hidden;
+  tab.frame.replaceWith(fresh);
+  tab.frame = fresh;
+  if (state.activeTabId === tab.id) context.setStatus(state, 'error');
+  renderRuntimeTabs(state);
+  return true;
 }
 
 export function showDuplicatePointerDialog(): Promise<PajaDuplicateChoice> {
@@ -540,6 +581,7 @@ export function resolvedTargetTitle(target: PajaRuntimeTarget): string {
 }
 
 function destroyRuntimeTab(tab: PajaRuntimeTab, context: PajaRuntimeTabContext): void {
+  tab.admissionController.abort();
   context.onTabDestroyed?.(tab);
   if (tab.windowId) {
     context.bridge.runtime.destroyWindow(tab.windowId);
@@ -590,20 +632,26 @@ function startRuntimeTabNavigation(
     context.config,
     generation,
     context.adapter,
+    context.bridge.runtime,
     tab.resolvedTarget,
     windowId,
     () => tab.generation === generation,
     (windowId) => {
       if (tab.generation !== generation) return;
+      // NIP-5D: a second load of this frame revokes its binding.
+      if (windowId) context.bridge.observeFrame(tab.frame, windowId);
       tab.windowId = windowId;
       if (state.activeTabId === tab.id) context.runtime.currentWindowId = windowId;
     },
+    tab.admissionController.signal,
   ).then((windowId) => {
     if (tab.generation !== generation) return;
     tab.windowId = windowId;
+    if (!windowId) context.onTabNavigationFailed?.(tab);
     if (state.activeTabId === tab.id) context.runtime.currentWindowId = windowId;
   }).catch((error) => {
     if (tab.generation !== generation) return;
+    context.onTabNavigationFailed?.(tab);
     tab.frame.removeAttribute('src');
     tab.frame.srcdoc = context.renderTargetErrorHtml(error);
     tab.status = 'error';

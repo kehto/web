@@ -76,6 +76,7 @@ interface ConfirmationDom {
   readonly once: FakeInput;
   readonly kind: FakeInput;
   readonly napplet: FakeInput;
+  readonly version: FakeInput;
   readonly kindValue: FakeHTMLElement;
   readonly nappletValue: FakeHTMLElement;
 }
@@ -89,6 +90,7 @@ function installConfirmationDom(): ConfirmationDom {
     once: new FakeInput(),
     kind: new FakeInput(),
     napplet: new FakeInput(),
+    version: new FakeInput(),
     kindValue: new FakeHTMLElement(),
     nappletValue: new FakeHTMLElement(),
   };
@@ -103,6 +105,7 @@ function installConfirmationDom(): ConfirmationDom {
     ['paja-signer-consent-once', dom.once],
     ['paja-signer-consent-kind', dom.kind],
     ['paja-signer-consent-napplet', dom.napplet],
+    ['paja-signer-consent-version', dom.version],
     ['paja-signer-consent-kind-value', dom.kindValue],
     ['paja-signer-consent-napplet-value', dom.nappletValue],
   ]);
@@ -137,14 +140,94 @@ function signRequest(kind: number, aggregateHash = 'aggregate-a'): SignConfirmat
 }
 
 describe('Paja confirmation controller', () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+
+  it('allows signing and publication only after explicit version approval and drains matching queued work', async () => {
+    const dom = installConfirmationDom();
+    const controller = createPajaConfirmationController(() => null, { storage: new FakeStorage(), sharedFirewall: true });
+    const sign = controller.confirm(signRequest(1));
+    const publish = controller.confirm({ ...signRequest(1), action: 'publish' });
+    dom.version.checked = true;
+    dom.approve.click();
+    await expect(sign).resolves.toBe(true);
+    await expect(publish).resolves.toBe(true);
+    expect(dom.dialog.showCalls).toBe(1);
+    await expect(controller.confirm({ ...signRequest(30_023), action: 'publish' })).resolves.toBe(true);
+    const changed = controller.confirm({ ...signRequest(1, 'another-version'), action: 'publish' });
+    expect(dom.dialog.open).toBe(true);
+    dom.deny.click();
+    await expect(changed).resolves.toBe(false);
+  });
+
+  it('never treats signing-only approval as publication permission', async () => {
+    const dom = installConfirmationDom();
+    const controller = createPajaConfirmationController(() => null, { storage: new FakeStorage() });
+    const sign = controller.confirm(signRequest(1));
+    dom.napplet.checked = true;
+    dom.approve.click();
+    await sign;
+    const publish = controller.confirm({ ...signRequest(1), action: 'publish' });
+    expect(dom.dialog.open).toBe(true);
+    expect(dom.consent.hidden).toBe(false);
+    dom.deny.click();
+    await expect(publish).resolves.toBe(false);
+  });
+
+  it('denies stale approvals and cancels active and queued requests on endpoint removal', async () => {
+    const dom = installConfirmationDom();
+    const controller = createPajaConfirmationController(() => null, { storage: new FakeStorage() });
+    let current = true;
+    const request = { ...signRequest(1), isCurrent: () => current };
+    const pending = controller.confirm(request);
+    current = false;
+    dom.version.checked = true;
+    dom.approve.click();
+    await expect(pending).resolves.toBe(false);
+    expect(controller.getSignerConsentCount()).toBe(0);
+    const active = controller.confirm(signRequest(1));
+    const queued = controller.confirm({ ...signRequest(1), action: 'publish' });
+    controller.cancelWindow('window-a');
+    await expect(active).resolves.toBe(false);
+    await expect(queued).resolves.toBe(false);
+    expect(dom.dialog.open).toBe(false);
+  });
+
+  it('withdraws queued and open prompts when their request signal aborts', async () => {
+    const dom = installConfirmationDom();
+    const controller = createPajaConfirmationController(() => null, { storage: new FakeStorage() });
+    expect(await controller.confirm({ ...signRequest(1), signal: AbortSignal.abort() })).toBe(false);
+    expect(dom.dialog.showCalls).toBe(0);
+
+    const activeAbort = new AbortController();
+    const queuedAbort = new AbortController();
+    const active = controller.confirm({ ...signRequest(1), signal: activeAbort.signal });
+    const queued = controller.confirm({ ...signRequest(2), signal: queuedAbort.signal });
+    const later = controller.confirm(signRequest(3));
+    queuedAbort.abort();
+    await expect(queued).resolves.toBe(false);
+    expect(dom.dialog.open).toBe(true);
+    activeAbort.abort();
+    await expect(active).resolves.toBe(false);
+    await Promise.resolve();
+    expect(dom.dialog.open).toBe(true);
+    dom.approve.click();
+    await expect(later).resolves.toBe(true);
+
+    const answered = new AbortController();
+    const approved = controller.confirm({ ...signRequest(4), signal: answered.signal });
+    dom.approve.click();
+    await expect(approved).resolves.toBe(true);
+    answered.abort();
+    expect(dom.dialog.open).toBe(false);
+  });
 
   it('remembers an exact event kind and skips only matching prompts', async () => {
     const dom = installConfirmationDom();
     const onSignerConsentChange = vi.fn();
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const controller = createPajaConfirmationController(
       () => null,
-      { storage: new FakeStorage(), onSignerConsentChange },
+      { storage: new FakeStorage(), onSignerConsentChange, sharedFirewall: true },
     );
 
     const first = controller.confirm(signRequest(1));
@@ -162,6 +245,9 @@ describe('Paja confirmation controller', () => {
     const showCalls = dom.dialog.showCalls;
     await expect(controller.confirm(signRequest(1))).resolves.toBe(true);
     expect(dom.dialog.showCalls).toBe(showCalls);
+    expect(warning).toHaveBeenCalledOnce();
+    expect(warning.mock.calls[0][0]).toContain('FW-PAJA-SIGNER-CONSENT-LEGACY-001');
+    expect(warning.mock.calls[0][0]).toContain('Firewall grants');
 
     const differentKind = controller.confirm(signRequest(2));
     expect(dom.dialog.open).toBe(true);
@@ -173,13 +259,14 @@ describe('Paja confirmation controller', () => {
     dom.deny.click();
     await expect(changedArtifact).resolves.toBe(false);
     expect(controller.getSignerConsentCount()).toBe(1);
+    warning.mockRestore();
   });
 
   it('warned napplet trust covers all kinds until explicitly revoked', async () => {
     const dom = installConfirmationDom();
     const controller = createPajaConfirmationController(
       () => null,
-      { storage: new FakeStorage() },
+      { storage: new FakeStorage(), sharedFirewall: true },
     );
 
     const first = controller.confirm(signRequest(1));
@@ -198,6 +285,22 @@ describe('Paja confirmation controller', () => {
     expect(dom.dialog.showCalls).toBe(showCalls + 1);
     dom.deny.click();
     await expect(afterRevocation).resolves.toBe(false);
+  });
+
+  it('never lets a remembered signer record bypass confirmation without shared Firewall', async () => {
+    const dom = installConfirmationDom();
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const controller = createPajaConfirmationController(() => null, { storage: new FakeStorage() });
+    const first = controller.confirm(signRequest(1));
+    dom.kind.checked = true;
+    dom.approve.click();
+    await expect(first).resolves.toBe(true);
+    const second = controller.confirm(signRequest(1));
+    expect(dom.dialog.open).toBe(true);
+    dom.deny.click();
+    await expect(second).resolves.toBe(false);
+    expect(warning).not.toHaveBeenCalled();
+    warning.mockRestore();
   });
 
   it('keeps unscoped and unknown-kind signatures one-shot and never remembers denial', async () => {

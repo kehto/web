@@ -6,6 +6,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { NAPPLET_KIND_NAMED } from '../../packages/nip/dist/5d/index.js';
 import { finalizeEvent } from 'nostr-tools/pure';
 import { naddrEncode } from 'nostr-tools/nip19';
+import { installPajaApprovalDriver } from './paja-approval-driver.js';
 import {
   createPajaRuntimeHostConfig,
   normalizePajaSimulation,
@@ -128,7 +129,6 @@ test.describe('Paja intent links', () => {
           const result = await window.napplet.intent.invoke('napplet:profile/open');
           document.getElementById('result').textContent = JSON.stringify(result);
         };
-        window.parent.postMessage({ type: 'shell.ready' }, '*');
       </script></body></html>`, undefined, []);
     const handler = createSignedTarget(server.url, 'new-profile-handler', delayedTargetHtml(), 'napplet:profile/open', []);
     server.blobs.set(source.hash, source.bytes);
@@ -479,6 +479,7 @@ async function configureRuntime(
   events: readonly ReturnType<typeof finalizeEvent>[],
   pointer?: string,
 ): Promise<void> {
+  await installPajaApprovalDriver(page);
   server.setConfig({
     ...createPajaRuntimeHostConfig({ maxWaitMs: 2_000, ...(pointer === undefined ? {} : { pointer }) }),
     simulation: normalizePajaSimulation({ relay: { mode: 'live', urls: [RELAY] } }),
@@ -512,6 +513,7 @@ async function configureDelayedRuntime(
   server: PointerServer,
   events: readonly ReturnType<typeof finalizeEvent>[],
 ): Promise<DelayedRelay> {
+  await installPajaApprovalDriver(page);
   server.setConfig({
     ...createPajaRuntimeHostConfig({ maxWaitMs: 2_000 }),
     simulation: normalizePajaSimulation({ relay: { mode: 'live', urls: [RELAY] } }),
@@ -586,7 +588,6 @@ function delayedTargetHtml(label = ''): string {
       window.napplet.intent.onChanged((availability) => {
         document.getElementById('last-availability').textContent = JSON.stringify(availability);
       });
-      window.parent.postMessage({ type: 'shell.ready' }, '*');
       setTimeout(() => window.napplet.intent.onDelivery((delivery) => {
         count += 1;
         document.getElementById('delivery-count').textContent = String(count);

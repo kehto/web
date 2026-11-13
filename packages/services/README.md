@@ -1,5 +1,13 @@
 # @kehto/services
 
+`createLinkService` uses `ServiceRuntimeContext.authorizeOperation` when attached
+to a runtime with approval adapters. It requires both interface and exact URL
+scopes, preserves request IDs in canonical results, rejects forbidden local/code
+schemes, and drops retired-source results. The temporary host-only opener path
+warns once per service instance (`FW-LINK-LEGACY-001`). See
+[scoped approvals](../../docs/firewall-approvals.md) and
+[compatibility](/compatibility) for migration details.
+
 Reference service handlers for the napplet protocol — identity, relay pool,
 cache, keys, media, notify, theme, link, common, lists, serial, BLE, WebRTC,
 and DM.
@@ -44,8 +52,8 @@ pnpm add @kehto/services
 
 ## Published Napplet Compatibility
 
-`@kehto/services` publishes against `@napplet/core` and `@napplet/nap`
-`>=0.32.0 <0.33.0`. The exact installed contracts are core 0.32.0 / nap 0.32.0
+Peers admit `@napplet/core` `>=0.41.0 <0.42.0` and `@napplet/nap`
+`>=0.37.0 <0.41.0`: the declarations import the packaged NAP-LLM types from `@napplet/nap/llm/types`, and the exported NAP-INTENT types come from `@napplet/core`, whose releases before 0.41.0 carry the withdrawn delivery ID and nullable sender. Host packages develop and build on core 0.41.0 / nap 0.40.0; fixture napplets stay on the exact 0.32.0 line (shim 0.30.0, sdk 0.28.0, vite-plugin 0.16.2). The exact fixture-line contracts are core 0.32.0 / nap 0.32.0
 from NAP-INTENT authority `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`,
 napplet/web#199 source `3037200c932488f14f7f369b8583c39c9c16510a` / merge
 `b3f0007867eac109fa4917fac9c285d3b7cc6155`, and Version Packages #198 release
@@ -70,9 +78,13 @@ Current draft posture:
 - The v1.1 signer service is deleted outright. Its responsibilities split into two: read-only identity lookups go through `createIdentityService` (`getPublicKey`, `getRelays`, `getProfile`, `getFollows`, `getList`, `getZaps`, `getMutes`, `getBlocked`, `getBadges`); signing happens inside the shell as part of `relay.publish` / `relay.publishEncrypted` and is never exposed to napplets.
 - `createKeysService` and `createMediaService` ship real reference backends as of v1.4 (see the dedicated sections below). `createKeysService` attaches a document-level `keydown` listener by default and delivers `keys.action` push envelopes to registered napplets; `createMediaService` mirrors session metadata and playback state to `navigator.mediaSession` and emits `media.command` push envelopes on OS transport events. Both accept a host-bridge option (`HostKeysBridge` / `HostMediaBridge`) so Electron / Tauri / native shells can swap in OS-level backends without re-implementing the wire-protocol bookkeeping.
 - `createNotifyService` handles direct `notify.*` envelopes. It is not an INC
-  topic handler.
+  topic handler. A permission-enabled runtime approves `notify.send` and
+  channel/badge effects before the host callback runs. Dismiss remains
+  owner-only cleanup. `createNotificationService` retains the older
+  `notify.create/list/read` registry as a deprecated compatibility path.
 - `createOutboxService` supports `outbox.getEvent` from draft NAP-OUTBOX. Single-event lookups run through shell-owned relay routing and only return events whose ID matches the request. Hosts can provide `getReadRouter` to scope all event-returning reads (`getEvent`, query, and subscription) to the authenticated source window, plus `getQueryRouter` when one-shot queries need an additional decorator. The draft wire contract keeps `outbox.query` one-shot and `outbox.subscribe` streaming; Kehto's concrete `createRelayPoolOutboxRouter` additionally exposes host-side `queryStream()` so verified query events can arrive before asynchronous NIP-65 discovery completes.
-- `createResourceService` implements NAP-RESOURCE at exact draft head `9511232f69313aa7953d110e35d32cc28d506f66` without choosing a runtime's network policy. Single requests carry optional advisory Blossom `servers`; bulk requests use canonical per-resource `requests: [{ url, servers? }]` entries. The service forwards hints to the injected resolver only for `blossom:`, preserves order and per-entry failures, and exposes optional `resource.info.maxServers`. By default it delegates every syntactically valid URL to the resolver; `resource.info.schemes` remains advisory. Runtimes that want hierarchical-origin grants can supply `isOriginGranted`, `getConnectGrants`, and `resolveIdentity` together, while scheme resolvers retain responsibility for hint validation, SSRF protection, redirects, and fallback policy. The service enforces supplied size/bulk caps, scopes cancellation to the requesting window, drops cancelled terminal envelopes, never forwards response headers, and preserves explicit `ResourceServiceError` codes.
+- `createResourceService` implements NAP-RESOURCE at draft PR #80 head `ae5b9c64ab8a4d8909f288829a01e99d6bd713bc` without choosing a runtime's resolver policy. Single requests carry `url`; bulk requests carry an ordered `urls` array, and results use canonical padded RFC 4648 base64 in `blob`. `resource.info.schemes` remains advisory. Runtime permission integration authorizes the exact resource URL and each resolver-reported HTTP(S) or WebSocket origin through `init.authorizeNetwork(destination, execute)`; the resolver remains responsible for scheme handling, redirects, and upstream byte classification. The service scopes cancellation to the requesting window, drops cancelled terminal envelopes, and preserves explicit `ResourceServiceError` codes.
+- Host playback can use `ResourceService.openStream(windowId, url, signal)` with an optional `stream` resolver. It requires the same resource and network approvals as atomic requests before opening a response; on a host without a permission adapter it takes the `FW-RESOURCE-LEGACY-001` path. `createBrowserMediaStreamFetch` classifies live MP3/AAC bytes without waiting for EOF; `createBrowserMediaPlayback({ resource, stream: resource.openStream })` supplies bounded MediaSource playback. Streaming is host-only and adds no resource wire operation. See [Media playback](https://github.com/kehto/web/blob/main/docs/media.md).
 - `createUploadService` supports `upload.info` from draft NAP-UPLOAD. Hosts may expose configured rails, return URL forms, maximum bytes, and MIME type policy without requiring napplets to start an upload.
 - Upload teardown uses exact window ownership, including IDs containing colons.
   Destroying a window invalidates replies before backend cancellation and suppresses
@@ -103,9 +115,11 @@ receive later completion or failure without a second source result. Source
 teardown does not cancel accepted work. `intent.onDelivery` buffers arrivals;
 INC is not required.
 
-Paja and playground use verified persistent catalogs separately from live frames.
-The installed `@napplet/nap@0.32.0` types predate this contract; the bounded local
-canonical types and their removal condition are documented below.
+Paja uses verified persistent catalogs separately from live frames.
+The fixture-line `@napplet/nap@0.32.0` types predate this contract. The exported
+intent types (`IntentDelivery`, `IntentRequest`, `IntentCandidate`, and related)
+are re-exported from `@napplet/core@0.41.0`, whose delivery has no ID and a
+required string sender (kehto/web#418).
 
 ## Quick Start
 
@@ -223,6 +237,33 @@ runtime.registerService(
   }),
 );
 ```
+
+When a service is attached to a runtime with Firewall approvals, browser-backed
+`open` hooks must call `ctx.authorizeDevice(hostPrivateScope, connect)` after a
+chooser returns and before opening the selected port or GATT connection. The
+scope stays host-private; later serial writes and BLE GATT operations are bound
+to the source-owned session and require their own operation approval. Revocation
+closes active device sessions and suppresses late events.
+
+## Approval-aware relay services
+
+With runtime operation authorization, OUTBOX `getEvent`, query, subscribe, and
+publish require immutable relay planning and execution hooks. Missing hooks fail
+closed with the correlated result/closed envelope. `getEvent` uses a planned
+one-event query; its author hint and relay candidates remain subject to the same
+approval as other reads. Planned queries receive an optional `ApprovalSignal`,
+which the reference router uses to close subscriptions and suppress late results.
+Standalone OUTBOX routers without runtime authorization retain the legacy API with
+one `FW-OUTBOX-LEGACY-001` warning per service instance.
+
+Relay pool and coordinated relay services require `publishToRelays` to execute a
+publish plan; a generic `publish` callback cannot guarantee approved destinations.
+Hosts must supply the destination-aware callback before publishing through these
+services.
+
+Theme and identity denials return correlated terminal results. As required by
+NAP-IDENTITY, denied `getPublicKey` returns an empty pubkey without an error;
+other identity reads return their empty result shape with `error`.
 
 ## Outbox Streaming Queries
 
@@ -448,15 +489,21 @@ Reference media backend for the `media.*` NIP-5D NAP. By default mirrors session
 ```ts
 import { createMediaService } from '@kehto/services';
 
-export function createMediaService(options?: MediaServiceOptions): ServiceHandler & { destroy(): void };
+export function createMediaService(options?: MediaServiceOptions): MediaService;
 ```
 
 `destroy()` tears down the active bridge (removes `setActionHandler` listeners, removes the silent-audio prime element in the browser reference implementation) and clears the session registry.
+
+See [Media playback](../../docs/media.md) for the browser audio/video backend,
+player mounting, draft conformance authority, supported source formats, lifecycle,
+and migration from legacy command callbacks. Paja uses this player.
 
 ### MediaServiceOptions
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `playback` | `MediaPlaybackBackend` | Source-policy and actual output backend; use `createBrowserMediaPlayback({ resource })`. |
+| `maxSessionsPerWindow` | `number` | Active plus pending session limit (default 16). |
 | `onSessionCreate` | `(windowId, sessionId, metadata?) => void` | Called when a napplet creates a session. |
 | `onState` | `(windowId, sessionId, state) => void` | Called on `media.state` updates — high-frequency; keep handler work minimal. |
 | `onSessionDestroy` | `(windowId, sessionId) => void` | Called when a napplet destroys a session. |
@@ -583,7 +630,18 @@ Each factory returns a `ServiceHandler` registrable via `runtime.registerService
 `createIdentityService` uses `getSigner()` for `identity.getPublicKey` and `identity.getRelays`. Hosts may also pass optional read-only provider hooks for `getProfile`, `getFollows`, `getList`, `getZaps`, `getMutes`, `getBlocked`, and `getBadges`. These hooks receive the current signer pubkey (or `""` when no signer is connected) and return the payload portion of the corresponding `.result` envelope. Kehto does not query relays itself; the hooks are for hosts that already maintain profile, contact-list, list, zap, moderation, or badge data.
 
 ### Notify NAP
-- `createNotifyService` — canonical direct `notify.*` envelopes.
+- `createNotifyService` — canonical direct `notify.*` envelopes per
+  [NAP-NOTIFY PR #11 at `67877ef6`](https://github.com/napplet/naps/blob/67877ef6c31ec8acee3125c1d8b4c781010e37dc/naps/NAP-NOTIFY.md).
+  Runtime approval scopes presentation, permission requests, badges, and
+  channels to the exact operation/channel. Payloads are copied before approval;
+  revoked or destroyed sources cannot render or receive late callbacks. Remote
+  icon URLs are rejected until a host supplies an approved NAP-RESOURCE fetch.
+  `notify.dismiss` silently ignores unknown or foreign IDs and stays available
+  after revocation. Paja also checks the current verified artifact before
+  caching a browser notification permission.
+- `createNotificationService` — deprecated Kehto `notify.create/list/read`
+  registry with a once-per-instance `FW-NOTIFICATION-LEGACY-001` diagnostic.
+  No upstream NAP defines this wire; new consumers should use `notify.send`.
 
 ### Relay NAP
 - `createRelayPoolService` — `relay.publish`, `relay.publishEncrypted`,
@@ -601,10 +659,10 @@ Each factory returns a `ServiceHandler` registrable via `runtime.registerService
 - `createKeysService` — `keys.registerAction` / `keys.unregisterAction` / `keys.forward` + `keys.bindings` / `keys.action` push envelopes (`keys:forward`). Document-level chord listener by default; implement the `HostKeysBridge` interface to swap in Electron / Tauri / OS-level backends. See [Keys Service](#keys-service) for the full contract.
 
 ### Media NAP
-- `createMediaService` — owner-aware `media.session.create` / `update` / `destroy` / `media.state` / `media.capabilities` + `media.command` push envelopes (`media:control`). Napplet-owned sessions mirror to `navigator.mediaSession` by default; shell-owned creates are rejected until a host playback/fetch bridge is supplied. Implement the `HostMediaBridge` interface to swap in native backends. See [Media Service](#media-service) for the full contract.
+- `createMediaService` — owner-aware `media.session.create` / `update` / `destroy` / `media.state` / `media.capabilities` + `media.command` push envelopes (`media:control`). Napplet-owned sessions mirror to `navigator.mediaSession` by default; shell-owned playback uses the optional `MediaPlaybackBackend`, with `createBrowserMediaPlayback` and `mountMediaPlayer` providing the browser implementation. Implement the `HostMediaBridge` interface to swap in native backends. See [Media Service](#media-service) for the full contract.
 
 ### BLE NAP
-- `createBleService` — `ble.open`, `ble.services`, `ble.read`, `ble.write`, `ble.subscribe`, `ble.unsubscribe`, `ble.close` + host-pushed `ble.event` envelopes. Hook contexts include `ctx.emit(event)`, so host Bluetooth notification listeners can forward `notification`, `state`, and `closed` events to the requesting napplet without replacing the reference handler.
+- `createBleService` — `ble.open`, `ble.services`, `ble.read`, `ble.write`, `ble.subscribe`, `ble.unsubscribe`, `ble.close` + host-pushed `ble.event` envelopes. Hook contexts include `ctx.emit(event)`, so host Bluetooth notification listeners can forward `notification`, `state`, and `closed` events to the requesting napplet without replacing the reference handler. Under runtime approvals, `ctx.authorizeDevice(...)` binds a host-private selected device before connection; each GATT operation is separately authorized and source-owned.
 
 ### WebRTC NAP
 - `createWebrtcService` — `webrtc.open`, `webrtc.send`, `webrtc.close` + host-pushed `webrtc.event` envelopes. The reference handler owns only the NAP request/result bookkeeping; host bridges own signaling, SDP, ICE, peer connection lifecycle, and policy.
@@ -675,8 +733,68 @@ For the schema and removal boundary, see [event migration](https://kehto.github.
 
 ## Canonical intent contracts
 
-`@kehto/services` temporarily owns the canonical NAP-INTENT PR #106 contracts because `@napplet/nap@0.32.0` has not yet published them. Candidates use opaque `id` plus exact `contracts`; successful results contain only `ok`, `archetype`, `action`, `convention`, and `handler` (never `handled`, `windowId`, or `newWindow`). `createIntentService` requires `resolveSender(windowId)` and rejects caller-supplied sender fields. `IntentResolverContext.sourceWindowId` and `IntentDispatchParams.sourceWindowId` are host-only correlation fields: they must never appear in `intent.deliver` or `intent.invoke.result`. A target controller accepts retained work as `{ completion }`; completion failure is host observation, not a second canonical result. Remove these local types only when an upstream package exports the checked PR #106 surface and Kehto's service/runtime regression suite proves direct replacement.
+`@kehto/services` temporarily owns the canonical NAP-INTENT PR #106 contracts. `@napplet/nap@0.32.0` (the fixture line) has not published them; `@napplet/nap@0.37.0` now exports `IntentCandidate` and related types and `@napplet/core@0.38.0` declares `intent.onDelivery`, so adopting the upstream types and removing the local mirror is a tracked follow-up, not part of the NAP-LLM change. Candidates use opaque `id` plus exact `contracts`; successful results contain only `ok`, `archetype`, `action`, `convention`, and `handler` (never `handled`, `windowId`, or `newWindow`). `createIntentService` requires `resolveSender(windowId)` and rejects caller-supplied sender fields. `IntentResolverContext.sourceWindowId` and `IntentDispatchParams.sourceWindowId` are host-only correlation fields: they must never appear in `intent.deliver` or `intent.invoke.result`. A target controller accepts retained work as `{ completion }`; completion failure is host observation, not a second canonical result. Remove these local types only when an upstream package exports the checked PR #106 surface and Kehto's service/runtime regression suite proves direct replacement.
 
 ## GAMEPAD integration
 
-This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja and the playground register one host reader and deny native gamepad/HID/USB paths before frame execution. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, window destruction, and service removal release polling. Non-browser or denied native readers report the proposal's unavailable reasons. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
+This non-normative guidance defers to [NAP-GAMEPAD at `napplet/naps@19de5ce1`](https://github.com/napplet/naps/blob/19de5ce1cea40cd4c76089cdd8126e9f87648049/naps/NAP-GAMEPAD.md). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja registers one host reader and denies native gamepad/HID/USB paths before frame execution. A runtime-approved `gamepad.subscribe` must authorize the host-private `gamepad:input` resource before the reader starts; the NAP has no device handle for a narrower scope. Denial emits `reason: "blocked"`. Only the visible host's input owner receives live controls; focus loss supplies neutral controls and timestamp zero. Unsubscribe, revocation, window destruction, and service removal release polling. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
+
+## LLM integration
+
+This non-normative guidance defers to the living [NAP-LLM](https://github.com/napplet/naps/pull/134) (checked at `5e93bdf`). Services export `createLlmService`, `LlmServiceError`, the provider mappers and `LLM_PROVIDER_PRESETS`; shell exports `getShellDomainState` and the `LlmHooks` adapter field; acl exports `llm:generate`. The runtime routes `llm.*` to one registered service and answers every sanctioned request with exactly one `llm.<op>.result`, shaping missing-service and ACL failures as `{ code: 'unsupported' }`. Hosts implement `LlmConnectionHost`; the service enforces schema, handle ownership, a per-window live-handle bound (`maxHandlesPerWindow`), consent before submission, duplicate ids, cancellation and deadline races, ordered deltas and safe errors, and passes `select`/`authorize` a `{ signal }` that withdraws stale prompts. `createHttpLlmProvider({ stream: true })` streams provider output into `llm.delta` as block start/delta/end events. Results carry `content` parts (text, thinking and tool calls); tool calls and results are validated and relayed, and Kehto never executes one. Advertisement stays binary on the wire while hosts report a third `unconfigured` state until the user adds a connection. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
+
+
+### Resource request lifecycle
+
+Resource requests are tracked before asynchronous metadata resolution. Cancelling
+byte requests before that resolution prevents a fetch; cancelling an active fetch
+aborts its signal and suppresses its terminal response. Window destruction and
+service detachment cancel outstanding work, including advisory info responses.
+The service captures each exact `url` or ordered `urls` list before awaiting host
+work. A duplicate in-flight ID cannot replace the original cancellation handle,
+and old source cleanup cannot remove a replacement source's request. Successful
+results carry canonical padded RFC 4648 base64 in `blob`; shell consumers decode
+only that canonical form into a `Blob`. `resource.cancel` stays silent, while a
+live permission revocation emits exactly one `blocked-by-policy` terminal and
+suppresses stale completions.
+
+These lifecycle rules were checked against NAP-RESOURCE PR #80 at
+`ae5b9c64ab8a4d8909f288829a01e99d6bd713bc`. The NAP package declarations are
+behind that draft, so Kehto keeps its local envelope types only until packaged
+exports catch up.
+
+
+### Scoped resource authorization
+
+When attached to a runtime configured with `permissions`, the resource service
+checks each original URL against a resource grant and, for HTTP(S) or WebSocket destinations, a separate
+origin grant. Interface permission remains required. Bulk requests authorize each
+item independently. The authorization covers fetching and reading the response
+body, so revocation can abort active work and discard late bytes. Request
+cancellation also dismisses a pending approval without granting a late answer.
+
+Resolvers must call `init.authorizeNetwork(destination, execute)` before every
+actual HTTP(S) or WebSocket contact. That callback runs under a distinct origin requirement,
+including each proxy-reported redirect hop, and its signal covers connection and
+body reading. Paja's local proxy adds DNS-time address screening and pinned
+connections; see [Paja resource proxy policy](../../docs/policies/RESOURCE-PROXY.md).
+
+This host-side boundary does not isolate unrestricted iframe subresource or direct
+network access. Phase 114 must close frame admission/CSP isolation before any
+end-to-end resource-security claim is made.
+
+Standalone or unmigrated hosts retain resolver-owned policy with diagnostic
+`FW-RESOURCE-LEGACY-001`, once per service instance on actual fetch use. Configure
+`RuntimeAdapter.permissions` and trusted session `permissionPrincipal` to use
+shared grants. No old origin list is imported into Firewall permission grants.
+
+### Resource request replay policy
+
+Kehto retains the latest 1,024 completed resource request IDs per source window.
+Reusing a retained ID, including with a different resource operation or malformed
+payload, causes no additional resolver call or terminal response. Active IDs are
+tracked separately and cannot be evicted by completed requests. Cancellation
+always reaches active work; cancelled IDs enter the replay ledger when their
+work settles. Source destruction and service detachment clear the corresponding
+history. This bounded Kehto policy supplements NAP-RESOURCE's cancellation rules;
+callers should generate fresh IDs because older completed entries are evicted.

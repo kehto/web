@@ -11,7 +11,8 @@
  * not contain a nested web/ directory:
  *
  *   .pages/index.html
- *   .pages/playground/
+ *   .pages/playground/   (retired-route redirect to Paja)
+ *   .pages/paja/
  *   .pages/docs/
  */
 import {
@@ -36,8 +37,10 @@ const portalOutput = join(outputRoot, 'index.html');
 const portalAssetsOutput = join(outputRoot, 'assets');
 const gsapSource = join(repoRoot, 'node_modules', 'gsap', 'dist', 'gsap.min.js');
 const vendorAssetsOutput = join(portalAssetsOutput, 'vendor');
-const playgroundOutput = join(outputRoot, 'playground');
-const playgroundBasePath = process.env.PLAYGROUND_BASE_PATH || '/web/playground/';
+// The playground app is retired; its public route keeps a tracked redirect
+// (KEHTO_PLAYGROUND_RETIRED in docs/compatibility.md) so old links land on Paja.
+const retiredPlaygroundSource = join(repoRoot, 'web', 'playground', 'index.html');
+const retiredPlaygroundOutput = join(outputRoot, 'playground', 'index.html');
 const pajaOutput = join(outputRoot, 'paja');
 const docsDist = join(repoRoot, 'docs', '.vitepress', 'dist');
 const docsApi = join(repoRoot, 'docs', 'api');
@@ -63,15 +66,9 @@ cpSync(portalAssets, portalAssetsOutput, { recursive: true });
 mkdirSync(vendorAssetsOutput, { recursive: true });
 copyFileSync(gsapSource, join(vendorAssetsOutput, 'gsap.min.js'));
 
-execFileSync(process.execPath, [join(scriptDir, 'build-playground-pages.mjs')], {
-  cwd: repoRoot,
-  stdio: 'inherit',
-  env: {
-    ...process.env,
-    PLAYGROUND_BASE_PATH: playgroundBasePath,
-    PLAYGROUND_PAGES_OUT_DIR: playgroundOutput,
-  },
-});
+ensureFile(retiredPlaygroundSource, 'retired playground redirect source');
+mkdirSync(dirname(retiredPlaygroundOutput), { recursive: true });
+copyFileSync(retiredPlaygroundSource, retiredPlaygroundOutput);
 
 execFileSync(process.execPath, [join(scriptDir, 'build-paja-pages.mjs')], {
   cwd: repoRoot,
@@ -87,4 +84,4 @@ ensureFile(join(docsApi, 'modules', '_kehto_shell.html'), 'TypeDoc API output');
 cpSync(docsDist, docsOutput, { recursive: true });
 cpSync(docsApi, join(docsOutput, 'api'), { recursive: true });
 
-console.log(`[build:pages] OK - wrote ${rel(outputRoot)} portal, playground, paja, and docs roots`);
+console.log(`[build:pages] OK - wrote ${rel(outputRoot)} portal, retired playground redirect, paja, and docs roots`);

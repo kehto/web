@@ -62,8 +62,8 @@ export interface BrowserDeps {
 
 function createSendToNapplet(originRegistry: BrowserDeps['originRegistry']): SendToNapplet {
   return (windowId, msg) => {
-    const win = originRegistry.getIframeWindow(windowId);
-    if (win) win.postMessage(msg, '*');
+    // NIP-5D: NAP messages travel only over the port bound by napplet.hello.
+    originRegistry.postToNapplet(windowId, msg);
   };
 }
 
@@ -72,6 +72,25 @@ function createRelayPoolAdapter(
   originRegistry: BrowserDeps['originRegistry'],
 ): RelayPoolAdapter {
   return {
+    subscribeToRelays(
+      relayUrls: readonly string[],
+      filters: NostrFilter[],
+      callback: (item: NostrEvent | 'EOSE') => void,
+    ): RelaySubscriptionHandle {
+      const pool = shellHooks.relayPool.getRelayPool();
+      if (!pool) return { unsubscribe() { /* no-op */ } };
+      const sub = pool.subscription([...relayUrls], filters).subscribe((item) => {
+        callback(item === 'EOSE' ? 'EOSE' : item as NostrEvent);
+      });
+      return { unsubscribe: () => sub.unsubscribe() };
+    },
+
+    publishToRelays(relayUrls: readonly string[], event: NostrEvent): void | Promise<void> {
+      const pool = shellHooks.relayPool.getRelayPool();
+      if (!pool) return;
+      return pool.publish([...relayUrls], event);
+    },
+
     subscribe(
       filters: NostrFilter[],
       callback: (item: NostrEvent | 'EOSE') => void,
@@ -114,8 +133,8 @@ function createRelayPoolAdapter(
       filters: NostrFilter[],
       _sendFn: SendToNapplet,
     ): void {
-      const win = originRegistry.getIframeWindow(windowId);
-      if (win) shellHooks.relayPool.openScopedRelay(windowId, relayUrl, subId, filters, win);
+      const target = originRegistry.getNappletTarget(windowId);
+      if (target) shellHooks.relayPool.openScopedRelay(windowId, relayUrl, subId, filters, target);
     },
 
     closeScopedRelay(windowId: string): void {
@@ -362,6 +381,7 @@ export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): Runtime
   const { originRegistry } = deps;
 
   return {
+    permissions: shellHooks.permissions,
     sendToNapplet: createSendToNapplet(originRegistry),
     relayPool: createRelayPoolAdapter(shellHooks, originRegistry),
     cache: createCacheAdapter(shellHooks),
@@ -378,8 +398,12 @@ export function adaptHooks(shellHooks: ShellAdapter, deps: BrowserDeps): Runtime
     shellSecretPersistence: createShellSecretPersistence(),
     guidPersistence: createGuidPersistence(),
     onAclCheck: shellHooks.onAclCheck,
+    legacyFirewall: shellHooks.legacyFirewall,
+    onFirewallEvent: shellHooks.onFirewallEvent,
+    getFocusContext: shellHooks.getFocusContext,
     onHashMismatch: shellHooks.onHashMismatch,
     services: shellHooks.services,
     getConfigOverrides: shellHooks.getConfigOverrides,
+    aclDefaultPolicy: shellHooks.aclDefaultPolicy,
   };
 }

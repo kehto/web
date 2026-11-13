@@ -79,12 +79,13 @@ export default defineConfig({
           { text: '@kehto/cli', link: '/packages/cli' },
           { text: '@kehto/paja', link: '/packages/paja' },
           { text: '@kehto/firewall', link: '/packages/firewall' },
+          { text: '@kehto/rate-limit', link: '/packages/rate-limit' },
           { text: '@kehto/runtime', link: '/packages/runtime' },
           { text: '@kehto/shell', link: '/packages/shell' },
           { text: '@kehto/services', link: '/packages/services' },
+          { text: '@kehto/mocks', link: '/packages/mocks' },
           { text: '@kehto/nip', link: '/packages/nip' },
           { text: '@kehto/wm', link: '/packages/wm' },
-          { text: '@kehto/playground', link: '/packages/playground' },
         ],
       },
       {
@@ -101,6 +102,7 @@ export default defineConfig({
           { text: 'Policy Index', link: '/policies/' },
           { text: 'NIP-5D Conformance', link: '/policies/NIP-5D-CONFORMANCE' },
           { text: 'Runtime Resource Boundary', link: '/policies/SHELL-RESOURCE-POLICY' },
+          { text: 'Resource Proxy', link: '/policies/RESOURCE-PROXY' },
         ],
       },
       {

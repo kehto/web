@@ -1,5 +1,203 @@
 # @kehto/services
 
+## 0.32.1
+
+### Patch Changes
+
+- Updated dependencies [b573414]
+- Updated dependencies [e291825]
+  - @kehto/runtime@0.30.0
+
+## 0.32.0
+
+### Minor Changes
+
+- 11ae71c: Adopt @napplet/core 0.41.x and @napplet/nap 0.40.x, which export the current NAP-INTENT no-ID, string-sender delivery. `@kehto/services` now re-exports its intent types from `@napplet/core` instead of keeping a local copy. Because core releases before 0.41.0 carry the withdrawn delivery ID and nullable sender, `@kehto/services`, `@kehto/paja` and `@kehto/cli` now require `@napplet/core` >=0.41.0. Other packages widen their peer windows to core <0.42.0 and nap <0.41.0 and move development builds and JSR maps to the new line. The shell's injected intent receiver now drops deliveries with an empty sender, matching the nap 0.40 binding.
+
+### Patch Changes
+
+- Updated dependencies [11ae71c]
+  - @kehto/runtime@0.29.2
+
+## 0.31.1
+
+### Patch Changes
+
+- f4e7e8a: Accept @napplet/core 0.40.x and @napplet/nap 0.39.x throughout the Paja host dependency graph and update host development dependencies and JSR maps to that line. Keep existing peer floors. Account for the newly packaged blossom, catalog, navigation, soulseek and torrent domains without advertising unimplemented host backends.
+- Updated dependencies [f4e7e8a]
+  - @kehto/runtime@0.29.1
+
+## 0.31.0
+
+### Minor Changes
+
+- 249fe8c: Require scoped Firewall approval for mediated service operations, with immutable
+  resource, device, file, and relay plans, source-owned cancellation, and revocation
+  cleanup. Wire Paja's supported backends to the same operation contracts and
+  remove the retired NAP-RESOURCE wire inputs.
+- 249fe8c: Require shared Firewall approval before gamepad input and notification effects in permission-enabled runtimes. Bind Paja notification permissions to verified app identity, suppress late effects after revocation, and document the retained legacy notification paths.
+- 249fe8c: Require relay operations to plan immutable destinations before approval and
+  execute only those approved targets across runtime, reference services, shell,
+  and Paja integrations.
+- 249fe8c: Adopt the NAP-RESOURCE draft's canonical exact `url`/ordered `urls` requests and
+  padded base64 result bytes. Resource authorization now covers the immutable
+  resource URL plus every resolver-reported HTTP(S) or WebSocket destination, with cancellation,
+  live revocation, and stale completion handling at the service boundary.
+- 249fe8c: Integrate NAP-LINK with runtime-scoped interface and destination approvals, preserving canonical results and cancelling stale source work. Freeze trusted permission principals through shell source registration. Add live-source permission revocation handling, bounded replay protection, and a migration warning for host-only LINK openers. Unknown LINK actions are ignored and forbidden local/code schemes cannot be enabled by configuration.
+
+  Authorize each resource URL and immediate HTTP(S) origin through shared runtime grants. Hold authorization through response body consumption, propagate request cancellation, retain bulk partial outcomes, and diagnose resolver-only compatibility use once per service instance.
+
+- 249fe8c: Require prepared, signer-bound upload plans for runtime approval, authorize exact
+  upload resources and selected network origins before signing or egress, and
+  cancel progress on revocation. Paja prepares its Blossom destination before
+  approval and the reference HTTP uploader rejects unapproved redirects.
+  Window teardown invalidates all callbacks before cancellation and continues
+  cleaning up sibling uploads when a backend cancellation throws.
+- 249fe8c: Require runtime-approved WebRTC signaling plans, reject opaque peer factories,
+  and fail closed for configured ICE/TURN endpoints until typed Firewall support exists.
+
+### Patch Changes
+
+- 249fe8c: Authorize immutable OUTBOX and COUNT relay plans before transport, signing, or
+  fanout, and suppress work and results after source revocation.
+- 249fe8c: Prevent resource fetches after cancellation during asynchronous metadata lookup.
+  Capture bulk inputs, preserve cancellation ownership across duplicate IDs and
+  source replacement, and cancel outstanding work when the service detaches.
+
+  Require network approval for WebSocket resolver destinations and reject unsupported
+  network schemes or embedded credentials before invoking transport callbacks.
+
+  Retain the latest 1,024 completed resource IDs per source window to suppress
+  repeated side effects and terminal responses, while preserving cancellation and
+  clearing replay history on source destruction or service detachment.
+
+- 249fe8c: Prevent duplicate `theme.changed` delivery when a host bridge owns theme broadcasts.
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+- Updated dependencies [249fe8c]
+  - @kehto/runtime@0.29.0
+
+## 0.30.1
+
+### Patch Changes
+
+- Updated dependencies [6eb1ea4]
+- Updated dependencies [6eb1ea4]
+  - @kehto/runtime@0.28.0
+
+## 0.30.0
+
+### Minor Changes
+
+- 66beed4: Track NAP-LLM (napplet/naps PR #134 at `5e93bdfce0e84c0de728234cb7b3feed498f8635`) end to end. This is a breaking host API on the 0.x draft contract, with no compatibility path for the removed shapes.
+
+  - Tool calls and results, `thinking` parts, `maxTokens`, `temperature`, `tools`, `toolChoice`, `Model.tools`, `Model.toolChoiceModes`, `Requirements.tools` and extended `Usage` are supported. Kehto validates and relays tool calls and never executes one.
+  - `Generation.text` is replaced by `Generation.content` parts and text-only deltas by `start`/`delta`/`end` block events. The shell prelude forwards the full structured delta, and only for the next sequence with valid fields.
+  - `@kehto/services`: `LlmConnection` gains required `tools` and `toolChoiceModes`; `LlmGenerateHooks.onDelta` and the `createHttpLlmProvider` callback take a block event while the service assigns `sequence` and `requestId`; `llm-types` re-exports the packaged `@napplet/nap/llm/types`. Provider endpoints accept `requiresOpaqueReasoning` (Gemini 3+ defaults it on), and the dialects map tools, reasoning and usage extras.
+  - `@kehto/paja`: connections can opt into tool calling (rows saved earlier load as tools off under the same storage key), consent discloses tool definitions and tool results, and a dialect restriction answers `unsupported` before any prompt.
+  - Host packages now build on `@napplet/core` 0.38.0 and `@napplet/nap` 0.37.0; `@kehto/services`, `@kehto/paja` and `@kehto/cli` (through its Paja dependency) require them.
+
+### Patch Changes
+
+- Updated dependencies [66beed4]
+  - @kehto/runtime@0.27.3
+
+## 0.29.0
+
+### Minor Changes
+
+- 37457ce: Add a loopback Routstr provider preset and a model dropdown for presets that
+  list their models.
+
+  `LLM_PROVIDER_PRESETS` gains `routstr` (`http://127.0.0.1:8008/v1`, OpenAI Chat
+  Completions, no credential) plus an optional `modelsPath` field. Paja renders a
+  model `<select>` instead of free-text entry for a preset that declares it,
+  seeded from one `GET <baseUrl><modelsPath>` (`/models` for Routstr), and shows
+  `Connected ✓ — n models` below the field. A failed listing names the cause —
+  including a server that does not allow this page cross-origin — and falls back
+  to free-text entry so the connection can still be saved. Editing the API base
+  URL re-lists the models.
+
+  The listing is a browser request like generation, so a loopback provider must
+  answer CORS on that route; nothing else about the connection changes and the
+  key is still placed only on requests to the connection's own base URL.
+
+  Switching presets clears the unsaved API key before model discovery and updates
+  auto-filled connection names without replacing custom names. Saving a connection
+  keeps the model catalogue available for adding another connection.
+
+  Failed Routstr model discovery offers an Install routstrd link to https://routstr.com/routstrd; retrying or switching providers clears the guidance.
+
+## 0.28.2
+
+### Patch Changes
+
+- 902c1d0: Admit the NIP-5D port-bound napplet release lines in published peers:
+  `@napplet/core >=0.32.0 <0.38.0` and `@napplet/nap >=0.32.0 <0.37.0`
+  (core 0.37.0 / nap 0.36.0, napplet/web#302). Development stays on the 0.32.0
+  baseline.
+- Updated dependencies [902c1d0]
+  - @kehto/runtime@0.27.2
+
+## 0.28.1
+
+### Patch Changes
+
+- 3620a13: Pass routing-author provenance as the optional fifth argument to
+  `OutboxRelayPool.subscribe`. NIP-65 reads name only the requested authors whose
+  allowed write lists selected each relay, including authors supplied through query
+  options. Hint and fallback reads name the requested routing authors; authorless
+  reads explicitly carry an empty array. This host-only metadata leaves event
+  filters, relay selection, and wire results unchanged. Existing pool adapters can
+  continue to ignore the additional optional argument.
+
+## 0.28.0
+
+### Minor Changes
+
+- 3089c5e: Harden the NAP-LLM service and add streaming providers (kehto/web#368, #369, #370):
+
+  - `createLlmService` bounds live model handles per window with `maxHandlesPerWindow` (default 32). Selecting beyond the bound evicts the least recently used handle, which then answers `selection-expired`; a successful `describe` or generation refreshes a handle.
+  - `LlmConnectionHost.select` and `authorize` receive an optional trailing `{ signal }` (`LlmPromptOptions`). It aborts when the request settles without the host's answer (cancel, deadline, handle invalidation or eviction, revocation, window destruction or unregistration), so hosts can close stale chooser and consent prompts. A pending selection answers `selection-expired` on invalidation and `cancelled` on revocation.
+  - `buildLlmProviderRequest(endpoint, request, { stream: true })` and `createHttpLlmProvider({ stream: true })` use each dialect's server-sent-event form. The provider forwards text fragments through a new optional `onDelta` argument and resolves the same generation as the buffered path. `LlmFetch` responses may expose `body` and `headers` (`LlmFetchResponse`), and `readLlmSseData` / `createLlmStreamAccumulator` are exported for custom transports.
+  - Paja streams provider output as `llm.delta`, and closes its chooser, consent and vault-unlock prompts when the request dies. `PajaConfirmationRequest` accepts an optional `signal` that withdraws a queued or open confirmation.
+
+## 0.27.1
+
+### Patch Changes
+
+- f5c3ee8: Widen the `@napplet/*` peer ranges so the `llm` domain installs without peer conflicts: `@napplet/core` now accepts `>=0.32.0 <0.37.0` and `@napplet/nap` accepts `>=0.32.0 <0.36.0`. The `llm` subpath first ships in `@napplet/nap@0.35.0`, and `@napplet/nap@0.35.1` requires `@napplet/core@^0.36.0`. The old `<0.35.0` cap made npm fail with ERESOLVE and made pnpm print unmet-peer warnings (kehto/web#364).
+- Updated dependencies [f5c3ee8]
+  - @kehto/runtime@0.27.1
+
+## 0.27.0
+
+### Minor Changes
+
+- fcb5bc9: Add the NAP-LLM reference service (napplet/naps PR #134 at `3e10939`): `createLlmService({ host })` with endpoint-scoped handles, schema and capability checks, consent before submission, duplicate-id rejection, cancellation and deadline races, ordered deltas and safe typed errors behind a `LlmConnectionHost` seam. Also exports the mirrored NAP-LLM types, `LlmServiceError`, pure request/response mappers for the OpenAI Chat Completions, Anthropic Messages and Google Gemini dialects, `createHttpLlmProvider()` and `LLM_PROVIDER_PRESETS`.
+
+### Patch Changes
+
+- Updated dependencies [fcb5bc9]
+  - @kehto/runtime@0.27.0
+
+## 0.26.0
+
+### Minor Changes
+
+- a1a50d7: Implement NAP-MEDIA shell-owned audio/video and live MP3/AAC radio through host resource policy,
+  with a shared player in Paja and the playground. Bind sessions to their endpoint,
+  validate controls, retire output on destruction or revoked access, and retain
+  terminal notifications in the protected injected API. Add canonical command-object
+  callbacks and command/onEnded operations; retain warned legacy sendCommand and
+  two-argument callbacks. Unary legacy callbacks must migrate to command objects.
+  Use a playable one-second silent PCM clip when priming browser OS media controls.
+
+### Patch Changes
+
+- Updated dependencies [a1a50d7]
+  - @kehto/runtime@0.26.1
+
 ## 0.25.1
 
 ### Patch Changes
