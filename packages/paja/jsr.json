@@ -1,6 +1,6 @@
 {
   "name": "@kehto/paja",
-  "version": "0.35.2",
+  "version": "0.35.3",
   "license": "MIT",
   "nodeModulesDir": "auto",
   "exports": {
@@ -12,7 +12,7 @@
     "@kehto/firewall": "jsr:@kehto/firewall@^0.9.0",
     "@kehto/nip": "jsr:@kehto/nip@^0.8.0",
     "@kehto/runtime": "jsr:@kehto/runtime@^0.30.0",
-    "@kehto/services": "jsr:@kehto/services@^0.32.1",
+    "@kehto/services": "jsr:@kehto/services@^0.33.0",
     "@kehto/shell": "jsr:@kehto/shell@^0.34.0",
     "@kehto/wm": "jsr:@kehto/wm@^0.0.2",
     "@napplet/core": "jsr:@napplet/core@^0.41.0",
