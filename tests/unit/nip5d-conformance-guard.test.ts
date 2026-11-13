@@ -26,6 +26,14 @@ const relaySubscribeRoutingSurfaces = [
     file: 'packages/services/src/coordinated-relay.test.ts',
     markers: ['relay: \'wss://explicit.test\'', 'expect(selectRelayTier).not.toHaveBeenCalled()'],
   },
+  {
+    file: 'packages/runtime/src/relay-authorization.ts',
+    markers: ['relay hints require RuntimeAdapter.permissions', 'new URL(value)', 'snapshotRelayPlan'],
+  },
+  {
+    file: 'tests/unit/relay-hint-authority.test.ts',
+    markers: ["'fallback', 'pool', 'coordinated'", 'origin revocation', 'replacement source'],
+  },
 ] as const;
 
 const resourceCanonicalWireSurfaces = [

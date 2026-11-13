@@ -6,6 +6,19 @@ the supplied immutable plan. Custom registered relay services implement
 `executeRelayOperation()`. Reference publish services require `publishToRelays`;
 a generic publisher cannot enforce the approved destination list.
 
+Standalone OUTBOX calls with nonempty `options.relays` require a permission-enabled
+runtime and planned execution. The default router rejects unconfigured private
+destinations. Planned publishing honors cancellation before and after signing.
+The router also rejects
+credentials, fragments and malformed WebSocket URLs; configured
+development fallbacks remain host policy. DNS-time validation is the transport's
+responsibility. See [relay destination policy](/firewall-approvals#relay-destination-policy).
+
+Publish planning captures the complete own-outbox/inbox/hint union before
+approval, including host-only `requiredRelays` metadata. Required recipient
+fanout cannot be replaced by a successful hint; missing required-plan metadata
+is rejected before authorization or signing.
+
 Reference service handlers for Kehto runtime implementations.
 
 WebRTC opening uses a side-effect-free signaling plan before runtime approval.

@@ -101,6 +101,9 @@ describe('createPajaSocialCache', () => {
     expect(decorated.subscribeWithPlan).toBeTypeOf('function');
     expect(decorated.planPublish).toBeTypeOf('function');
     expect(decorated.publishWithPlan).toBeTypeOf('function');
+    const template = { kind: 1, content: 'approved publish', tags: [], created_at: 1 };
+    await decorated.publishWithPlan!(template, plan, signal);
+    expect(baseRouter.publishWithPlan).toHaveBeenCalledWith(template, plan, signal);
     cache.dispose();
   });
 

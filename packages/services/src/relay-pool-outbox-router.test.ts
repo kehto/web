@@ -87,11 +87,11 @@ function makePool() {
 }
 
 const NIP65 = new Map<string, RelayListEntry>([
-  [PK_A, { read: ['wss://a-read'], write: ['wss://a-write'] }],
-  [PK_B, { read: ['wss://b-read'], write: ['wss://b-write'] }],
+  [PK_A, { read: ['wss://a-read.example'], write: ['wss://a-write.example'] }],
+  [PK_B, { read: ['wss://b-read.example'], write: ['wss://b-write.example'] }],
 ]);
 
-const FALLBACK = ['wss://fallback'];
+const FALLBACK = ['wss://fallback.example'];
 
 function makeRouter(pool: OutboxRelayPool, overrides: Partial<Parameters<typeof createRelayPoolOutboxRouter>[0]> = {}) {
   return createRelayPoolOutboxRouter({
@@ -134,7 +134,7 @@ describe('createRelayPoolOutboxRouter', () => {
         await tick();
       }
       const discovered = pool.subs.find((sub) => sub.origin === 'nip65');
-      expect(discovered).toMatchObject({ relays: ['wss://b-write'], authors: [PK_B] });
+      expect(discovered).toMatchObject({ relays: ['wss://b-write.example'], authors: [PK_B] });
       for (const sub of pool.subs) expect(sub.filters).toBe(filters);
       expect(filters).toEqual([{ kinds: [1] }]);
       pool.eoseAll();
@@ -148,11 +148,11 @@ describe('createRelayPoolOutboxRouter', () => {
       const owners = new Map([[PK_B, NIP65.get(PK_B)!]]);
       const router = makeRouter(pool, { loadRelayLists: () => asyncDiscovery ? lists.promise : owners });
       const filters: NostrFilter[] = [{ authors: [PK_A], kinds: [1] }];
-      const read = startRead(mode, router, filters, { authors: [PK_B], relays: ['wss://hint'] });
+      const read = startRead(mode, router, filters, { authors: [PK_B], relays: ['wss://hint.example'] });
       lists.resolve(owners);
       await tick();
       expect(pool.subs.find((sub) => sub.origin === 'nip65')).toMatchObject({
-        relays: ['wss://b-write'], authors: [PK_B],
+        relays: ['wss://b-write.example'], authors: [PK_B],
       });
       expect(pool.subs.find((sub) => sub.origin === 'hint')).toMatchObject({ authors: [PK_A, PK_B] });
       for (const sub of pool.subs) expect(sub.filters).toBe(filters);
@@ -166,14 +166,14 @@ describe('createRelayPoolOutboxRouter', () => {
       const lists = deferred<Map<string, RelayListEntry>>();
       const denied = 'c'.repeat(64);
       const owners = new Map([
-        [PK_A, { read: [], write: ['wss://a-write', 'wss://shared', 'wss://shared'] }],
-        [PK_B, { read: [], write: ['wss://b-write', 'wss://shared'] }],
-        [denied, { read: [], write: ['wss://denied'] }],
-        ['unrequested', { read: [], write: ['wss://a-write'] }],
+        [PK_A, { read: [], write: ['wss://a-write.example', 'wss://shared.example', 'wss://shared.example'] }],
+        [PK_B, { read: [], write: ['wss://b-write.example', 'wss://shared.example'] }],
+        [denied, { read: [], write: ['wss://denied.example'] }],
+        ['unrequested', { read: [], write: ['wss://a-write.example'] }],
       ]);
       const router = makeRouter(pool, {
         loadRelayLists: () => asyncDiscovery ? lists.promise : owners,
-        isRelayAllowed: (url) => url !== 'wss://denied',
+        isRelayAllowed: (url) => url !== 'wss://denied.example',
       });
       const read = startRead(mode, router, [{ authors: [PK_A, denied] }], { authors: [PK_B, PK_A] });
       if (asyncDiscovery) {
@@ -183,9 +183,9 @@ describe('createRelayPoolOutboxRouter', () => {
       await tick();
       expect(Object.fromEntries(pool.subs.filter((sub) => sub.origin === 'nip65')
         .map((sub) => [sub.relays[0], sub.authors]))).toEqual({
-        'wss://a-write': [PK_A],
-        'wss://b-write': [PK_B],
-        'wss://shared': [PK_A, PK_B],
+        'wss://a-write.example': [PK_A],
+        'wss://b-write.example': [PK_B],
+        'wss://shared.example': [PK_A, PK_B],
       });
       pool.eoseAll();
       await read.result;
@@ -195,7 +195,7 @@ describe('createRelayPoolOutboxRouter', () => {
     it('keeps a validated hint origin when it is also an author write relay', async () => {
       const pool = makePool();
       const read = startRead(mode, makeRouter(pool), [{ kinds: [1] }], {
-        authors: [PK_B], relays: ['wss://b-write'],
+        authors: [PK_B], relays: ['wss://b-write.example'],
       });
       expect(pool.subs).toHaveLength(1);
       expect(pool.subs[0]).toMatchObject({ origin: 'hint', authors: [PK_B] });
@@ -255,35 +255,35 @@ describe('createRelayPoolOutboxRouter', () => {
     const pool: OutboxRelayPool = { subscribe, publish() {}, isAvailable: () => true };
     const filters: NostrFilter[] = [{ kinds: [1] }];
     await expect(makeRouter(pool).query(filters, { authors: [PK_B] })).resolves.toEqual({ events: [] });
-    expect(subscribe).toHaveBeenCalledWith(filters, ['wss://b-write'], expect.any(Function), 'nip65', [PK_B]);
+    expect(subscribe).toHaveBeenCalledWith(filters, ['wss://b-write.example'], expect.any(Function), 'nip65', [PK_B]);
   });
 
   it('reports per-relay routing origins for queries and subscriptions', async () => {
     const pool = makePool();
     const router = makeRouter(pool);
 
-    const result = await router.query([{ authors: [PK_A] }], { relays: ['wss://hinted'] });
+    const result = await router.query([{ authors: [PK_A] }], { relays: ['wss://hinted.example'] });
     expect(result.events).toEqual([]);
     expect(pool.originsByRelay()).toEqual({
-      'wss://hinted': 'hint',
-      'wss://a-write': 'nip65',
+      'wss://hinted.example': 'hint',
+      'wss://a-write.example': 'nip65',
     });
 
     pool.subs.length = 0;
     const sub = router.subscribe(
       [{ authors: [PK_A] }],
-      { timeoutMs: 20, relays: ['wss://hinted'] },
+      { timeoutMs: 20, relays: ['wss://hinted.example'] },
       { event() {}, closed() {} },
     );
     expect(pool.originsByRelay()).toEqual({
-      'wss://hinted': 'hint',
-      'wss://a-write': 'nip65',
+      'wss://hinted.example': 'hint',
+      'wss://a-write.example': 'nip65',
     });
     sub.close();
 
     pool.subs.length = 0;
     await router.query([{ kinds: [1] }]);
-    expect(pool.originsByRelay()).toEqual({ 'wss://fallback': 'fallback' });
+    expect(pool.originsByRelay()).toEqual({ 'wss://fallback.example': 'fallback' });
   });
 
   it('throws on missing required options', () => {
@@ -305,22 +305,22 @@ describe('createRelayPoolOutboxRouter', () => {
 
     it('read direction → author WRITE relays (outbox model), source nip65', async () => {
       const plan = await router.resolveRelays({ pubkey: PK_A, direction: 'read' });
-      expect(plan).toEqual({ relays: ['wss://a-write'], source: 'nip65' });
+      expect(plan).toEqual({ relays: ['wss://a-write.example'], source: 'nip65' });
     });
 
     it('write direction → author READ relays (inbox model)', async () => {
       const plan = await router.resolveRelays({ pubkey: PK_A, direction: 'write' });
-      expect(plan).toEqual({ relays: ['wss://a-read'], source: 'nip65' });
+      expect(plan).toEqual({ relays: ['wss://a-read.example'], source: 'nip65' });
     });
 
     it('aggregates multiple authors and dedups', async () => {
       const plan = await router.resolveRelays({ authors: [PK_A, PK_B], direction: 'read' });
-      expect(plan.relays.sort()).toEqual(['wss://a-write', 'wss://b-write']);
+      expect(plan.relays.sort()).toEqual(['wss://a-write.example', 'wss://b-write.example']);
     });
 
     it('reports missingAuthors and falls back when no list is known', async () => {
       const plan = await router.resolveRelays({ authors: ['c'.repeat(64)], direction: 'read' });
-      expect(plan).toEqual({ relays: ['wss://fallback'], source: 'fallback', missingAuthors: ['c'.repeat(64)] });
+      expect(plan).toEqual({ relays: ['wss://fallback.example'], source: 'fallback', missingAuthors: ['c'.repeat(64)] });
     });
 
     it('gates non-ws relay hints out of the plan', async () => {
@@ -337,7 +337,7 @@ describe('createRelayPoolOutboxRouter', () => {
     const router = makeRouter(pool);
     const plan = await router.planRead!([{ authors: [PK_A] }], { relays: ['wss://hint.test'] });
 
-    expect(plan.relays).toEqual(expect.arrayContaining(['wss://a-write', 'wss://hint.test']));
+    expect(plan.relays).toEqual(expect.arrayContaining(['wss://a-write.example', 'wss://hint.test']));
     expect(pool.subs).toEqual([]);
     expect(pool.published).toEqual([]);
   });
@@ -350,13 +350,13 @@ describe('createRelayPoolOutboxRouter', () => {
 
       const pending = router.query([{ authors: [PK_A], kinds: [1] }], { timeoutMs: 10 });
 
-      expect(pool.subs.map((sub) => sub.relays[0])).toEqual(['wss://fallback']);
-      pool.emit('wss://fallback', ev('seed'));
+      expect(pool.subs.map((sub) => sub.relays[0])).toEqual(['wss://fallback.example']);
+      pool.emit('wss://fallback.example', ev('seed'));
       const result = await Promise.race([pending, delay(100).then(() => 'deadline missed' as const)]);
 
       expect(result).not.toBe('deadline missed');
       expect(result).toEqual({
-        events: [{ event: ev('seed'), sidecar: { relayHints: ['wss://fallback'] } }],
+        events: [{ event: ev('seed'), sidecar: { relayHints: ['wss://fallback.example'] } }],
         incomplete: true,
       });
 
@@ -378,25 +378,25 @@ describe('createRelayPoolOutboxRouter', () => {
         { event: (result) => streamed.push(result.event.content) },
       );
 
-      expect(pool.subs.map((sub) => sub.relays[0])).toEqual(['wss://fallback']);
-      pool.emit('wss://fallback', ev('shared'));
+      expect(pool.subs.map((sub) => sub.relays[0])).toEqual(['wss://fallback.example']);
+      pool.emit('wss://fallback.example', ev('shared'));
       await tick();
       expect(streamed).toEqual(['shared']);
 
       relayLists.resolve(NIP65);
       await tick();
-      expect(pool.subs.map((sub) => sub.relays[0]).sort()).toEqual(['wss://a-write', 'wss://fallback']);
+      expect(pool.subs.map((sub) => sub.relays[0]).sort()).toEqual(['wss://a-write.example', 'wss://fallback.example']);
 
-      pool.emit('wss://a-write', ev('shared'));
-      pool.emit('wss://a-write', ev('discovered'));
+      pool.emit('wss://a-write.example', ev('shared'));
+      pool.emit('wss://a-write.example', ev('discovered'));
       pool.eoseAll();
       const result = await stream.result;
 
       expect(streamed).toEqual(['shared', 'discovered']);
       expect(result.events.map((item) => item.event.content).sort()).toEqual(['discovered', 'shared']);
       expect(result.events.find((item) => item.event.content === 'shared')?.sidecar?.relayHints?.sort()).toEqual([
-        'wss://a-write',
-        'wss://fallback',
+        'wss://a-write.example',
+        'wss://fallback.example',
       ]);
       expect(result.incomplete).toBeUndefined();
     });
@@ -415,8 +415,8 @@ describe('createRelayPoolOutboxRouter', () => {
 
       relayLists.resolve(NIP65);
       await tick();
-      expect(pool.subs.map((sub) => sub.relays[0]).sort()).toEqual(['wss://a-write', 'wss://fallback']);
-      pool.emit('wss://a-write', 'EOSE');
+      expect(pool.subs.map((sub) => sub.relays[0]).sort()).toEqual(['wss://a-write.example', 'wss://fallback.example']);
+      pool.emit('wss://a-write.example', 'EOSE');
 
       await expect(stream.result).resolves.toEqual({ events: [] });
     });
@@ -427,10 +427,10 @@ describe('createRelayPoolOutboxRouter', () => {
       const hinted = makeRouter(hintedPool, { loadRelayLists: () => hintedLists.promise });
       const hintedStream = hinted.queryStream(
         [{ authors: [PK_A] }],
-        { relays: ['wss://hint'], timeoutMs: 100 },
+        { relays: ['wss://hint.example'], timeoutMs: 100 },
         { event: () => {} },
       );
-      expect(hintedPool.subs.map((sub) => sub.relays[0])).toEqual(['wss://hint']);
+      expect(hintedPool.subs.map((sub) => sub.relays[0])).toEqual(['wss://hint.example']);
       hintedStream.close();
 
       const fallbackPool = makePool();
@@ -441,7 +441,7 @@ describe('createRelayPoolOutboxRouter', () => {
         { relays: ['https://not-a-relay'], timeoutMs: 100 },
         { event: () => {} },
       );
-      expect(fallbackPool.subs.map((sub) => sub.relays[0])).toEqual(['wss://fallback']);
+      expect(fallbackPool.subs.map((sub) => sub.relays[0])).toEqual(['wss://fallback.example']);
       fallbackStream.close();
     });
 
@@ -473,7 +473,7 @@ describe('createRelayPoolOutboxRouter', () => {
         { timeoutMs: 10 },
         { event: streamed },
       );
-      pool.emit('wss://a-write', ev('unverified'));
+      pool.emit('wss://a-write.example', ev('unverified'));
 
       const result = await Promise.race([stream.result, delay(100).then(() => 'deadline missed' as const)]);
       expect(result).toEqual({ events: [], incomplete: true });
@@ -487,12 +487,12 @@ describe('createRelayPoolOutboxRouter', () => {
       });
 
       const pending = router.query([{ authors: [PK_A], kinds: [1] }], { timeoutMs: 100 });
-      expect(pool.subs.map((sub) => sub.relays[0])).toEqual(['wss://fallback']);
-      pool.emit('wss://fallback', ev('cached'));
+      expect(pool.subs.map((sub) => sub.relays[0])).toEqual(['wss://fallback.example']);
+      pool.emit('wss://fallback.example', ev('cached'));
       pool.eoseAll();
 
       await expect(pending).resolves.toEqual({
-        events: [{ event: ev('cached'), sidecar: { relayHints: ['wss://fallback'] } }],
+        events: [{ event: ev('cached'), sidecar: { relayHints: ['wss://fallback.example'] } }],
         incomplete: true,
       });
     });
@@ -503,17 +503,17 @@ describe('createRelayPoolOutboxRouter', () => {
       const p = router.query([{ authors: [PK_A, PK_B], kinds: [1] }]);
       await tick();
       // Subscriptions: one per resolved write relay (a-write, b-write).
-      expect(pool.subs.map((s) => s.relays[0]).sort()).toEqual(['wss://a-write', 'wss://b-write']);
+      expect(pool.subs.map((s) => s.relays[0]).sort()).toEqual(['wss://a-write.example', 'wss://b-write.example']);
 
-      pool.emit('wss://a-write', ev('e1'));
-      pool.emit('wss://b-write', ev('e1')); // same event from a second relay
-      pool.emit('wss://b-write', ev('e2', PK_B));
+      pool.emit('wss://a-write.example', ev('e1'));
+      pool.emit('wss://b-write.example', ev('e1')); // same event from a second relay
+      pool.emit('wss://b-write.example', ev('e2', PK_B));
       pool.eoseAll();
 
       const result = await p;
       expect(result.events.map((e) => e.event.content).sort()).toEqual(['e1', 'e2']);
-      expect(result.events.find((e) => e.event.id === ev('e1').id)?.sidecar?.relayHints?.sort()).toEqual(['wss://a-write', 'wss://b-write']);
-      expect(result.events.find((e) => e.event.id === ev('e2', PK_B).id)?.sidecar?.relayHints).toEqual(['wss://b-write']);
+      expect(result.events.find((e) => e.event.id === ev('e1').id)?.sidecar?.relayHints?.sort()).toEqual(['wss://a-write.example', 'wss://b-write.example']);
+      expect(result.events.find((e) => e.event.id === ev('e2', PK_B).id)?.sidecar?.relayHints).toEqual(['wss://b-write.example']);
       expect(result.incomplete).toBeUndefined();
     });
 
@@ -523,8 +523,8 @@ describe('createRelayPoolOutboxRouter', () => {
       const router = makeRouter(pool, { verifyEvent });
       const p = router.query([{ authors: [PK_A] }]);
       await tick();
-      pool.emit('wss://a-write', ev('good'));
-      pool.emit('wss://a-write', ev('bad'));
+      pool.emit('wss://a-write.example', ev('good'));
+      pool.emit('wss://a-write.example', ev('bad'));
       pool.eoseAll();
       const result = await p;
       expect(result.events.map((e) => e.event.content)).toEqual(['good']);
@@ -536,9 +536,9 @@ describe('createRelayPoolOutboxRouter', () => {
       const router = makeRouter(pool);
       const p = router.query([{ authors: [PK_A] }], { limit: 2 });
       await tick();
-      pool.emit('wss://a-write', ev('old', PK_A, 100));
-      pool.emit('wss://a-write', ev('mid', PK_A, 200));
-      pool.emit('wss://a-write', ev('new', PK_A, 300));
+      pool.emit('wss://a-write.example', ev('old', PK_A, 100));
+      pool.emit('wss://a-write.example', ev('mid', PK_A, 200));
+      pool.emit('wss://a-write.example', ev('new', PK_A, 300));
       pool.eoseAll();
       const result = await p;
       expect(result.events.map((e) => e.event.content)).toEqual(['new', 'mid']);
@@ -549,7 +549,7 @@ describe('createRelayPoolOutboxRouter', () => {
       const router = makeRouter(pool, { defaultTimeoutMs: 20 });
       const p = router.query([{ authors: [PK_A] }]);
       await tick();
-      pool.emit('wss://a-write', ev('e1'));
+      pool.emit('wss://a-write.example', ev('e1'));
       // no EOSE — let the timeout fire
       const result = await p;
       expect(result.events.map((e) => e.event.content)).toEqual(['e1']);
@@ -569,10 +569,10 @@ describe('createRelayPoolOutboxRouter', () => {
     it('treats authorless query relay hints as augmenting fallback relays', async () => {
       const pool = makePool();
       const router = makeRouter(pool);
-      const p = router.query([{ kinds: [30831], limit: 24 }], { relays: ['wss://hint'], timeoutMs: 20 });
+      const p = router.query([{ kinds: [30831], limit: 24 }], { relays: ['wss://hint.example'], timeoutMs: 20 });
       await tick();
 
-      expect(pool.subs.map((s) => s.relays[0]).sort()).toEqual(['wss://fallback', 'wss://hint']);
+      expect(pool.subs.map((s) => s.relays[0]).sort()).toEqual(['wss://fallback.example', 'wss://hint.example']);
 
       pool.eoseAll();
       await p;
@@ -605,13 +605,13 @@ describe('createRelayPoolOutboxRouter', () => {
       const p = router.getEvent!(target.id, { author: PK_A, timeoutMs: 20 });
       await tick();
 
-      expect(pool.subs.map((s) => s.relays[0])).toEqual(['wss://a-write']);
+      expect(pool.subs.map((s) => s.relays[0])).toEqual(['wss://a-write.example']);
 
-      pool.emit('wss://a-write', target);
+      pool.emit('wss://a-write.example', target);
       pool.eoseAll();
 
       const result = await p;
-      expect(result).toEqual({ result: { event: target, sidecar: { relayHints: ['wss://a-write'] } } });
+      expect(result).toEqual({ result: { event: target, sidecar: { relayHints: ['wss://a-write.example'] } } });
     });
 
     it('does not return a relay event whose id differs from the requested id', async () => {
@@ -621,7 +621,7 @@ describe('createRelayPoolOutboxRouter', () => {
       const p = router.getEvent!(wantedId, { author: PK_A, timeoutMs: 20 });
       await tick();
 
-      pool.emit('wss://a-write', ev('other'));
+      pool.emit('wss://a-write.example', ev('other'));
       pool.eoseAll();
 
       const result = await p;
@@ -635,25 +635,25 @@ describe('createRelayPoolOutboxRouter', () => {
       const p = router.getEvent!(target.id, { author: PK_A });
       await tick();
 
-      pool.emit('wss://a-write', target);
+      pool.emit('wss://a-write.example', target);
 
       const result = await p;
-      expect(result).toEqual({ result: { event: target, sidecar: { relayHints: ['wss://a-write'] } }, incomplete: true });
+      expect(result).toEqual({ result: { event: target, sidecar: { relayHints: ['wss://a-write.example'] } }, incomplete: true });
     });
   });
 
   describe('subscribe', () => {
     it('uses only validated hints for authorless live reads', () => {
       const pool = makePool();
-      const router = makeRouter(pool, { isRelayAllowed: (url) => url !== 'wss://denied' });
+      const router = makeRouter(pool, { isRelayAllowed: (url) => url !== 'wss://denied.example' });
       const sub = router.subscribe(
         [{ kinds: [1] }],
-        { relays: ['wss://hint', 'wss://denied', 'wss://hint'] },
+        { relays: ['wss://hint.example', 'wss://denied.example', 'wss://hint.example'] },
         { event() {}, closed() {} },
       );
 
-      expect(pool.subs.map((item) => item.relays)).toEqual([['wss://hint']]);
-      expect(pool.originsByRelay()).toEqual({ 'wss://hint': 'hint' });
+      expect(pool.subs.map((item) => item.relays)).toEqual([['wss://hint.example']]);
+      expect(pool.originsByRelay()).toEqual({ 'wss://hint.example': 'hint' });
       sub.close();
       expect(pool.subs.every((item) => item.closed)).toBe(true);
     });
@@ -661,14 +661,14 @@ describe('createRelayPoolOutboxRouter', () => {
     it.each([
       { label: 'absent', options: undefined },
       { label: 'empty', options: { relays: [] } },
-      { label: 'policy-denied', options: { relays: ['wss://denied'] } },
+      { label: 'policy-denied', options: { relays: ['wss://denied.example'] } },
     ])('uses fallback for authorless live reads with $label hints', ({ options }) => {
       const pool = makePool();
-      const router = makeRouter(pool, { isRelayAllowed: (url) => url !== 'wss://denied' });
+      const router = makeRouter(pool, { isRelayAllowed: (url) => url !== 'wss://denied.example' });
       const sub = router.subscribe([{ kinds: [1] }], options, { event() {}, closed() {} });
 
       expect(pool.subs.map((item) => item.relays)).toEqual([FALLBACK]);
-      expect(pool.originsByRelay()).toEqual({ 'wss://fallback': 'fallback' });
+      expect(pool.originsByRelay()).toEqual({ 'wss://fallback.example': 'fallback' });
       sub.close();
       expect(pool.subs.every((item) => item.closed)).toBe(true);
     });
@@ -684,15 +684,15 @@ describe('createRelayPoolOutboxRouter', () => {
         closed: () => { /* ignore */ },
       });
 
-      expect(pool.subs.map((item) => item.relays[0])).toEqual(['wss://fallback']);
-      pool.emit('wss://fallback', ev('seed'));
+      expect(pool.subs.map((item) => item.relays[0])).toEqual(['wss://fallback.example']);
+      pool.emit('wss://fallback.example', ev('seed'));
       await tick();
       expect(events).toEqual(['seed']);
 
       relayLists.resolve(NIP65);
       await tick();
-      expect(pool.subs.map((item) => item.relays[0]).sort()).toEqual(['wss://a-write', 'wss://fallback']);
-      pool.emit('wss://a-write', ev('discovered'));
+      expect(pool.subs.map((item) => item.relays[0]).sort()).toEqual(['wss://a-write.example', 'wss://fallback.example']);
+      pool.emit('wss://a-write.example', ev('discovered'));
       await tick();
       expect(events).toEqual(['seed', 'discovered']);
 
@@ -713,7 +713,7 @@ describe('createRelayPoolOutboxRouter', () => {
         closed: () => { closed = true; },
       });
       await tick();
-      pool.emit('wss://fallback', ev('still-live'));
+      pool.emit('wss://fallback.example', ev('still-live'));
       await tick();
 
       expect(events).toEqual(['still-live']);
@@ -730,14 +730,14 @@ describe('createRelayPoolOutboxRouter', () => {
         closed: () => { /* ignore */ },
       });
       await tick();
-      pool.emit('wss://a-write', ev('s1'));
-      pool.emit('wss://b-write', ev('s2', PK_B));
-      pool.emit('wss://a-write', ev('s1')); // dup ignored
+      pool.emit('wss://a-write.example', ev('s1'));
+      pool.emit('wss://b-write.example', ev('s2', PK_B));
+      pool.emit('wss://a-write.example', ev('s1')); // dup ignored
       pool.eoseAll();
       await tick();
       expect(events).toEqual([
-        { content: 's1', relayHints: ['wss://a-write'] },
-        { content: 's2', relayHints: ['wss://b-write'] },
+        { content: 's1', relayHints: ['wss://a-write.example'] },
+        { content: 's2', relayHints: ['wss://b-write.example'] },
       ]);
       expect(pool.subs.some((s) => !s.closed)).toBe(true);
       sub.close();
@@ -764,7 +764,7 @@ describe('createRelayPoolOutboxRouter', () => {
       const sub = router.subscribe([{ authors: [PK_A] }], undefined, {
         event: () => { /* ignore */ }, closed: () => { /* ignore */ },
       });
-      expect(pool.subs.map((item) => item.relays[0])).toEqual(['wss://fallback']);
+      expect(pool.subs.map((item) => item.relays[0])).toEqual(['wss://fallback.example']);
       sub.close();
       relayLists.resolve(NIP65);
       await tick();
@@ -788,24 +788,24 @@ describe('createRelayPoolOutboxRouter', () => {
       const result = await router.publish(template);
       expect(signEvent).toHaveBeenCalledWith(template);
       expect(pool.published).toHaveLength(1);
-      expect(pool.published[0].relays).toEqual(['wss://a-write']);
-      expect(result).toEqual({ ok: true, event: expect.objectContaining({ pubkey: PK_A }), eventId: 'signedid'.padEnd(64, '0'), relays: { 'wss://a-write': true } });
+      expect(pool.published[0].relays).toEqual(['wss://a-write.example']);
+      expect(result).toEqual({ ok: true, event: expect.objectContaining({ pubkey: PK_A }), eventId: 'signedid'.padEnd(64, '0'), relays: { 'wss://a-write.example': true } });
     });
 
     it('includes recipient inbox (read) relays for directed events and merges explicit relay targets', async () => {
       const pool = makePool();
       const signEvent = async (t: EventTemplate): Promise<NostrEvent> => ({ ...ev('d'), ...t, pubkey: PK_A });
       const router = makeRouter(pool, { signEvent });
-      await router.publish(template, { toInboxes: [PK_B], relays: ['wss://extra'] });
-      expect(pool.published[0].relays.sort()).toEqual(['wss://a-write', 'wss://b-read', 'wss://extra']);
+      await router.publish(template, { toInboxes: [PK_B], relays: ['wss://extra.example'] });
+      expect(pool.published[0].relays.sort()).toEqual(['wss://a-write.example', 'wss://b-read.example', 'wss://extra.example']);
     });
 
     it('honors toOutbox:false while still publishing to required inboxes and explicit relays', async () => {
       const pool = makePool();
       const signEvent = async (t: EventTemplate): Promise<NostrEvent> => ({ ...ev('d'), ...t, pubkey: PK_A });
       const router = makeRouter(pool, { signEvent });
-      await router.publish(template, { toOutbox: false, toInboxes: [PK_B], relays: ['wss://extra'] });
-      expect(pool.published[0].relays.sort()).toEqual(['wss://b-read', 'wss://extra']);
+      await router.publish(template, { toOutbox: false, toInboxes: [PK_B], relays: ['wss://extra.example'] });
+      expect(pool.published[0].relays.sort()).toEqual(['wss://b-read.example', 'wss://extra.example']);
     });
 
     it('fails when the default own outbox publish target cannot resolve NIP-65 write relays', async () => {
@@ -832,7 +832,7 @@ describe('createRelayPoolOutboxRouter', () => {
       const signEvent = async (t: EventTemplate): Promise<NostrEvent> => ({ ...ev('d'), ...t, pubkey: PK_A });
       const router = makeRouter(pool, {
         signEvent,
-        isRelayAllowed: (url) => url !== 'wss://b-read',
+        isRelayAllowed: (url) => url !== 'wss://b-read.example',
       });
       const result = await router.publish(template, { toInboxes: [PK_B] });
       expect(result).toMatchObject({ ok: false, error: 'policy denied' });
@@ -841,34 +841,34 @@ describe('createRelayPoolOutboxRouter', () => {
 
     it('reports per-relay failure and ok:false when every relay rejects', async () => {
       const pool = makePool();
-      pool.publishReturn = { 'wss://a-write': false };
+      pool.publishReturn = { 'wss://a-write.example': false };
       const signEvent = async (t: EventTemplate): Promise<NostrEvent> => ({ ...ev('d'), ...t, pubkey: PK_A });
       const router = makeRouter(pool, { signEvent });
       const result = await router.publish(template);
       expect(result.ok).toBe(false);
-      expect(result.relays).toEqual({ 'wss://a-write': false });
+      expect(result.relays).toEqual({ 'wss://a-write.example': false });
       expect(result.error).toBe('publish denied');
     });
 
     it('reports ok:false when a required relay rejects even if an explicit candidate succeeds', async () => {
       const pool = makePool();
-      pool.publishReturn = { 'wss://a-write': false, 'wss://extra': true };
+      pool.publishReturn = { 'wss://a-write.example': false, 'wss://extra.example': true };
       const signEvent = async (t: EventTemplate): Promise<NostrEvent> => ({ ...ev('d'), ...t, pubkey: PK_A });
       const router = makeRouter(pool, { signEvent });
-      const result = await router.publish(template, { relays: ['wss://extra'] });
+      const result = await router.publish(template, { relays: ['wss://extra.example'] });
       expect(result.ok).toBe(false);
-      expect(result.relays).toEqual({ 'wss://a-write': false, 'wss://extra': true });
+      expect(result.relays).toEqual({ 'wss://a-write.example': false, 'wss://extra.example': true });
       expect(result.error).toBe('publish denied');
     });
 
     it('allows explicit candidate failures when every required relay succeeds', async () => {
       const pool = makePool();
-      pool.publishReturn = { 'wss://a-write': true, 'wss://extra': false };
+      pool.publishReturn = { 'wss://a-write.example': true, 'wss://extra.example': false };
       const signEvent = async (t: EventTemplate): Promise<NostrEvent> => ({ ...ev('d'), ...t, pubkey: PK_A });
       const router = makeRouter(pool, { signEvent });
-      const result = await router.publish(template, { relays: ['wss://extra'] });
+      const result = await router.publish(template, { relays: ['wss://extra.example'] });
       expect(result.ok).toBe(true);
-      expect(result.relays).toEqual({ 'wss://a-write': true, 'wss://extra': false });
+      expect(result.relays).toEqual({ 'wss://a-write.example': true, 'wss://extra.example': false });
       expect(result.error).toBeUndefined();
     });
 

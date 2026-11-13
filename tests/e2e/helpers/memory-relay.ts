@@ -24,6 +24,8 @@ export interface MemoryRelay {
   readonly url: string;
   /** Valid EVENT messages received from browser clients, in arrival order. */
   readonly published: NostrEvent[];
+  /** Client AUTH events, kept separate from ordinary publications. */
+  readonly authEvents: NostrEvent[];
   /** Every REQ filter list received, in arrival order. */
   readonly requests: Filter[][];
   /** Subscription ids closed by a client CLOSE message. */
@@ -46,6 +48,7 @@ function isEphemeral(kind: number): boolean {
  *
  * @param page - Playwright page whose WebSockets to intercept.
  * @param url - Relay URL configured in Paja (with or without a trailing slash).
+ * @param options - Optional NIP-42 challenge fixture for authentication tests.
  * @returns The relay handle used to seed and observe traffic.
  * @example
  * ```ts
@@ -53,11 +56,12 @@ function isEphemeral(kind: number): boolean {
  * relay.store(finalizeEvent({ kind: 1, created_at: 1, tags: [], content: 'hi' }, key));
  * ```
  */
-export async function installMemoryRelay(page: Page, url: string): Promise<MemoryRelay> {
+export async function installMemoryRelay(page: Page, url: string, options: { requireAuth?: boolean } = {}): Promise<MemoryRelay> {
   const normalized = url.replace(/\/$/, '');
   const clients = new Set<RelayClient>();
   const stored: NostrEvent[] = [];
   const published: NostrEvent[] = [];
+  const authEvents: NostrEvent[] = [];
   const requests: Filter[][] = [];
   const closed: string[] = [];
   const publishHandlers: Array<(event: NostrEvent) => void> = [];
@@ -81,6 +85,12 @@ export async function installMemoryRelay(page: Page, url: string): Promise<Memor
     socket.onMessage((raw) => {
       const message = JSON.parse(String(raw)) as unknown[];
       const [verb] = message;
+      if (verb === 'AUTH') {
+        const event = message[1] as NostrEvent;
+        authEvents.push(event);
+        socket.send(JSON.stringify(['OK', event.id, true, '']));
+        return;
+      }
       if (verb === 'EVENT') {
         const event = message[1] as NostrEvent;
         if (!verifyEvent(event)) {
@@ -97,6 +107,11 @@ export async function installMemoryRelay(page: Page, url: string): Promise<Memor
         const subId = String(message[1]);
         const filters = message.slice(2) as Filter[];
         requests.push(filters);
+        if (options.requireAuth) {
+          socket.send(JSON.stringify(['AUTH', 'kehto-435-auth-challenge']));
+          socket.send(JSON.stringify(['CLOSED', subId, 'auth-required: authenticate before reading']));
+          return;
+        }
         client.subscriptions.set(subId, filters);
         for (const event of stored) {
           if (matchFilters(filters, event)) socket.send(JSON.stringify(['EVENT', subId, event]));
@@ -115,6 +130,7 @@ export async function installMemoryRelay(page: Page, url: string): Promise<Memor
   return {
     url: normalized,
     published,
+    authEvents,
     requests,
     closed,
     liveSubscriptionCount: () => [...clients].reduce((count, client) => count + client.subscriptions.size, 0),

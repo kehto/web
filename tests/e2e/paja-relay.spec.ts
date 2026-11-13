@@ -174,3 +174,27 @@ test('revoking relay:write denies the next publish before signing and re-grantin
   expect(result.ok).toBe(true);
   await expect.poll(() => relay.published.map((event) => event.content)).toContain('regranted publish');
 });
+
+test('a napplet-directed relay cannot make Paja auto-sign a NIP-42 AUTH challenge', async ({ page }) => {
+  test.setTimeout(60_000);
+  // NAP-RELAY #2@9f30b350 permits scoped reads, not implicit identity signing.
+  const scopedUrl = 'wss://napplet-directed-auth.example';
+  const scoped = await installMemoryRelay(page, scopedUrl, { requireAuth: true });
+  const { signer, frame } = await prepare(page);
+  const signedBefore = signer.signed.length;
+  await frame.locator('body').evaluate((_body, relay) => {
+    const flow = window as unknown as FlowWindow;
+    flow.napplet.relay.subscribe(
+      { kinds: [1], limit: 1 },
+      () => flow.__push('hint-auth-event', true),
+      () => flow.__push('hint-auth-eose', true),
+      { relay },
+    );
+  }, scopedUrl);
+  await expect.poll(() => scoped.requests.length).toBe(1);
+  await expect.poll(() => readLog(frame, 'hint-auth-eose')).toEqual([true]);
+  expect(scoped.authEvents).toEqual([]);
+  expect(scoped.published).toEqual([]);
+  expect(signer.signed).toHaveLength(signedBefore);
+  expect(await readLog(frame, 'hint-auth-event')).toEqual([]);
+});

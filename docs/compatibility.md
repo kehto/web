@@ -577,6 +577,49 @@ in [PR #284](https://github.com/kehto/web/pull/284). This implementation PR leav
   tests, announce a 0.x minor removal, and record its release before deleting
   the fallback diagnostic.
 
+## FW-RELAY-NETWORK-LEGACY-001 — unapproved host-selected relay routing
+
+- Owner: `@kehto/runtime`.
+- Old behavior: unhinted host-tier relay traffic executes without
+  `RuntimeAdapter.permissions`. Napplet-supplied network hints are no longer
+  accepted on that path; local-only services are unaffected.
+- Replacement: configure permissions and source-bound `permissionPrincipal`,
+  approve canonical `relay.network` origins, and execute immutable destination
+  plans through the normal runtime handler.
+- Source/warning: `packages/runtime/src/relay-authorization.ts`; warns once per
+  runtime instance only when unhinted legacy network execution occurs, naming
+  the replacement without logging URLs, events, credentials, or principals.
+- Tests: `tests/unit/relay-network-compatibility.test.ts` verifies legacy execution,
+  warning text/frequency, quiet canonical/local calls, and rejection of hints.
+  `tests/unit/relay-hint-authority.test.ts` covers fallback and both reference
+  services, denial, immutable inputs, origin approval, revocation and replacement.
+- Retention: unhinted adapters can migrate without losing their host-selected
+  routing. Remove after supported hosts install operation authority, announce a
+  breaking 0.x minor release, and retain negative tests for the retired path.
+  No removal release is selected; issue #435's runtime minor changeset disables
+  unapproved network hints now.
+
+## KEHTO_COMPAT_RELAY_QUERY_HINT — noncanonical query relay field
+
+- Owner: `@kehto/runtime`.
+- Old input: `relay.query.relay`, a pre-existing Kehto wire extension absent
+  from NAP-RELAY draft #2 at `9f30b3505335a52c574ff570576687d6467021ff`.
+- Replacement: canonical `relay.subscribe` with `options.relay`, collect events
+  until EOSE, then close. Query without a hint stays canonical and quiet.
+- Source/warning: `packages/runtime/src/relay-handler.ts` preserves the input;
+  `relay-authorization.ts` emits `KEHTO_COMPAT_RELAY_QUERY_HINT` once per runtime
+  instance only when the approved hinted query executes. It names the replacement,
+  states the frequency, and logs no relay URL or event data. Denied hints do not
+  execute or warn as successful compatibility use.
+- Tests: `tests/unit/relay-network-compatibility.test.ts` covers actual execution,
+  diagnostic text/frequency and quiet canonical paths; `relay-hint-authority.test.ts`
+  covers denied hints across fallback and both reference services.
+- Retention: preserve deployed consumers while they move to the scoped subscribe
+  lifecycle. It remains intentionally outside the draft, never a bypass or a new
+  specified API. Migrate supported consumers, announce a breaking removal release,
+  add a negative wire test, then retire the input and keep this entry as history.
+  No removal release selected; no upstream API addition is needed for retirement.
+
 ## FW-RELAY-ADAPTER-LEGACY-001 — implicit relay-pool adapter execution
 
 - Owner: `@kehto/runtime` and `@kehto/shell`.
@@ -644,6 +687,31 @@ not new NAP wire operations.
   breaking 0.x minor release, and add negative tests for legacy calls. No removal
   release is selected. Authority: NAP-OUTBOX PR #32 `8865f73d52a4864afee145f28d26520476273927`;
   this diagnostic is a host API migration, not a NAP wire extension.
+
+  Issue #435 retires explicit `options.relays` on this standalone path in the
+  services minor changeset. Unhinted calls alone retain this compatibility
+  behavior. `packages/services/src/relay-hint-security.test.ts` covers correlated
+  rejection before reads, subscriptions, publishing, discovery, or signing.
+
+  `StreamingOutboxRouter.publishWithPlan` now receives the operation's optional
+  third cancellation signal. The runtime-bound service always supplies it;
+  the concrete router checks it before signing and again before transport.
+  Existing two-argument host calls remain valid, but carry no operation lifetime.
+  A callback's arity cannot reliably establish whether it honors cancellation,
+  so no blanket runtime warning diagnoses old callback implementations. External
+  routers must implement the signal contract. Regression coverage includes the
+  held-signing revocation case in `relay-hint-security.test.ts` and real forwarding
+  through both Paja decorators in their social-cache and Blossom-event tests.
+
+  Planned OUTBOX publication now snapshots the complete own-outbox/inbox/hint
+  union. Host-only `requiredRelays` metadata records the mandatory targets;
+  a successful optional hint cannot mask a failed inbox. The service rejects
+  missing metadata for a requested own/inbox fanout before authorization or
+  signing. Trusted direct two-argument `publishWithPlan` calls remain possible;
+  without request intent the helper cannot diagnose omitted required-fanout
+  metadata. `relay-publish-planning.test.ts` covers both that diagnostic limit
+  and negative retirement of incomplete plans at the service boundary. No
+  `requiredRelays` field is added to a NAP wire message.
 
 ## Packaged intent type drift — core 0.40 (retired)
 
