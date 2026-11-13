@@ -86,6 +86,7 @@ import {
   type PajaRelayBackend,
 } from './browser-relay-runtime.js';
 import { createPajaWorkerRelay } from './browser-worker-relay.js';
+import { createPajaMockedServices } from './browser-mocked-services.js';
 import type { PajaSignerSource } from './browser-signer-consent.js';
 import { createPajaCvmRelayPool, createRuntimeSigner, getRuntimePubkey, createPajaWindowScope, pajaDevelopmentConsentScope, scopePajaService } from './browser-operation-scope.js';
 
@@ -586,6 +587,7 @@ export function createPajaAdapter(
     signerSource,
   );
   const services = serviceBundle.services;
+  const mocked = createPajaMockedServices(services);
   // NAP-LLM is advertised whenever the host wiring exists; configuration state is
   // reported separately through `llm.isConfigured()` so the panel can show it.
   if (llmHost && getSimulation().capabilities.domains.llm) services.llm = createLlmService({ host: llmHost });
@@ -607,6 +609,7 @@ export function createPajaAdapter(
   });
   const adapter: PajaShellAdapter = {
     ready,
+    mocked,
     notifyIntentChanged: () => {},
     setWindowBlossomServers: serviceBundle.setWindowBlossomServers,
     relayPool: createPajaRelayHooks(relayBackend, getSimulation, relayConfig, (windowId) => createPajaWindowScope({

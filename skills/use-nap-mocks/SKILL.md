@@ -95,6 +95,18 @@ const domains = mockShellEnvironmentDomains(MOCK_NAP_REGISTRY);
 // → use when building the ShellEnvironment / injected namespace domain list
 ```
 
+Extension domains have no built-in `window.napplet` binding. Pass the generated
+tables so napplets can call them (`MOCK_NAPPLET_BINDINGS` holds one per
+`extension` mock, derived from the NAP wire table at the mock's ref):
+
+```ts
+import { MOCK_NAPPLET_BINDINGS } from '@kehto/mocks';
+import { prepareNappletSrcdoc } from '@kehto/shell';
+
+iframe.srcdoc = prepareNappletSrcdoc(html, { domains, bindings: MOCK_NAPPLET_BINDINGS });
+// napplet: await window.napplet.torrent.add(request); window.napplet.torrent.on('progress', fn)
+```
+
 Built-in domains still obey ACL: a napplet without `relay:read` never reaches
 the relay mock. Mocks never bypass the runtime's gates: a push the runtime
 refuses (window not live, domain not exposed, capability missing) makes

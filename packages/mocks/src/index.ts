@@ -82,4 +82,7 @@ export {
   findMockDomain,
 } from './registry.js';
 export type { MockNapEnvironment, MockNapEnvironmentOptions } from './registry.js';
+
+export { MOCK_NAPPLET_BINDINGS } from './napplet-bindings.js';
+export type { MockNappletBinding, MockNappletBindingMethod } from './core/binding-types.js';
 export * from './domains/index.js';

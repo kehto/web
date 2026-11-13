@@ -26,6 +26,8 @@ export interface BrowserAdmissionRequest {
   readonly remoteSources: readonly BrowserRemoteSource[];
   /** Exact development origin for the host-injected base URL, if present. */
   readonly baseOrigin?: string;
+  /** Host-owned extension bindings; only admitted domains reach the prelude. */
+  readonly bindings?: NappletNamespacePreludeOptions['bindings'];
   /**
    * Opt-in experimental document policies. Scan the verified bytes with
    * `assertNappletHasNoFrame` before requesting the nested-context lock.
@@ -145,7 +147,7 @@ export async function admitBrowserDocument(request: BrowserAdmissionRequest): Pr
     const lockNestedContexts = request.experimental?.nestedContextLock === true;
     const csp = lockNestedContexts ? `${approvedCsp}; ${TRUSTED_TYPES_DIRECTIVES}` : approvedCsp;
     const srcdoc = insertNappletHead(request.verifiedHtml,
-      cspMeta(csp) + renderNappletNamespacePrelude({ domains, ...(lockNestedContexts ? { experimental: request.experimental } : {}) }));
+      cspMeta(csp) + renderNappletNamespacePrelude({ domains, bindings: request.bindings, ...(lockNestedContexts ? { experimental: request.experimental } : {}) }));
     unsubscribe = permissions.subscribeInvalidation(() => {
       if (!permissions.isAdmissionCurrent(entry.windowId, admission) || !request.isCurrentSource()) retire();
     });

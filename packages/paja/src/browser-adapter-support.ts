@@ -5,6 +5,7 @@ import { createRelayPoolOutboxRouter } from '@kehto/services';
 import type { Theme } from '@napplet/nap/theme/types';
 import { verifyEvent } from 'nostr-tools/pure';
 import type { PajaSignerMethod } from './browser-signers.js';
+import type { PajaMockedServices } from './browser-mocked-services.js';
 import type { PajaSimulation } from './simulation.js';
 import type { PajaSignerSource } from './browser-signer-consent.js';
 import { createRuntimeSigner } from './browser-operation-scope.js';
@@ -43,6 +44,8 @@ export type PajaIdentityProvider = (
 export interface PajaShellAdapter extends ShellAdapter {
   /** Startup promise for asynchronous host probes. */
   readonly ready: Promise<void>;
+  /** `@kehto/mocks` services for NAPs Paja has no backend for. */
+  readonly mocked: PajaMockedServices;
   /** Bind verified runtime-pointer Blossom hints to one authenticated window. */
   setWindowBlossomServers(windowId: string, servers: readonly string[]): void;
   /** Recompute intent availability after a host-owned default-handler update. */
