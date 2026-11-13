@@ -48,7 +48,7 @@ See: .planning/PROJECT.md (updated 2026-07-28)
 Phase: 115 — Firewall final audit complete
 Plan: PR review follow-up
 Status: PR #336 review fixes verified; CONFIG denial/backpressure spec gap explicitly retained.
-Last activity: 2026-11-12 - Completed quick task 261112-vyl: Resolve PR #433 conflicts; build/types/docs/quality, 3441 unit and 134 browser tests passed
+Last activity: 2026-11-13 - Completed quick task 261113-hwh: Add MIT license and require every contributor's consent before PR merge
 
 ## Performance Metrics
 
@@ -165,6 +165,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
+| 261113-hwh | Add MIT license and open a PR requiring every contributor's consent before merging | 2026-11-13 | 45349324 | passed | [261113-hwh](./quick/261113-hwh-add-an-mit-license-and-open-a-pr-requiri/) |
 | 261112-vyl | Resolve PR #433 merge conflicts with main, retaining both signer regression suites | 2026-11-12 | b2606f9a | passed; 134 browser tests, one existing skip | [261112-vyl](./quick/261112-vyl-resolve-pr-433-merge-conflicts-with-main/) |
 | 261112-hew | Default Paja signer to None and persist explicit selections | 2026-11-12 | 19aa2973 | implemented; browser gate blocked by popup failure | [261112-hew](./quick/261112-hew-default-paja-signer-to-none-and-persist-/) |
 | 261112-qi2 | Correct public SDK repo links for #410; track upstream npm metadata in #431 | 2026-11-12 | 0b73feb0 | passed | [261112-qi2](./quick/261112-qi2-resolve-issue-410-stale-napplet-reposito/) |
