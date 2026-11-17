@@ -22,6 +22,19 @@ function approved() {
 }
 
 describe('permission composition', () => {
+  it('approves ICE endpoints separately from web origins and other transports', () => {
+    const endpoint: PermissionRequirement = { ...network, scope: { kind: 'ice', value: 'turn:relay.example:3478?transport=udp' } };
+    const state = putPermissionGrant(approved(), grant(endpoint, 'ice'));
+    expect(evaluatePermissions(state, { ...request, requirements: [endpoint] }).decision).toBe('allow');
+    for (const value of ['turn:relay.example:3478?transport=tcp', 'turn:other.example:3478?transport=udp', 'turns:relay.example:5349']) {
+      expect(evaluatePermissions(state, { ...request, requirements: [{ ...endpoint, scope: { kind: 'ice', value } }] }).decision).toBe('ask');
+    }
+    expect(normalizePermissionScope({ kind: 'ice', value: 'STUN:RELAY.EXAMPLE' })).toEqual({ kind: 'ice', value: 'stun:relay.example:3478' });
+    for (const value of ['turn:user:password@host', 'turn:host/path', 'turn:host#fragment', 'turn:host:65536', 'stun:host?transport=udp', 'https://host']) {
+      expect(() => normalizePermissionScope({ kind: 'ice', value })).toThrow();
+    }
+    expect(deserializePermissions(serializePermissions(state))).toMatchObject({ ok: true, state });
+  });
   it('requires interface access even when a network permission is supplied alone', () => {
     const state = putPermissionGrant(createPermissionState(), grant(network));
     expect(evaluatePermissions(state, request)).toMatchObject({ decision: 'ask', missing: [access] });

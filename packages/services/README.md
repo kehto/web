@@ -806,3 +806,8 @@ always reaches active work; cancelled IDs enter the replay ledger when their
 work settles. Source destruction and service detachment clear the corresponding
 history. This bounded Kehto policy supplements NAP-RESOURCE's cancellation rules;
 callers should generate fresh IDs because older completed entries are evicted.
+
+WebRTC plans declare every configured ICE endpoint before approval. The reference
+handler requests typed `network`/`ice` scopes; it invokes no peer hook on denial.
+Synchronous send failures return the matching result ID. Optional `sendBytes` and
+`stats` currently return `unsupported` results.

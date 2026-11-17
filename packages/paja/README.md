@@ -141,15 +141,16 @@ and is not added to Paja's in-memory relay view. Paja's scoped-relay hook
 likewise waits for the backend result and returns `false` after denial or
 transport failure.
 
-WebRTC is advertised only when the host has the browser WebRTC API, a live
-relay boundary, and a connected signer with NIP-44 support. Paja owns the
+By default, WebRTC needs the browser WebRTC API, live relays, and a connected
+NIP-44 signer. An explicitly configured multiplayer profile instead uses an
+isolated temporary key shared with that window’s CVM transport. Paja owns the
 `RTCPeerConnection` and data channels, uses signed kind-25050 Nostr events for
 encrypted offer/answer signaling, and asks for explicit session consent with a
 network-metadata warning. Napplets receive only NAP session/events and JSON data
 channel payloads—never SDP, ICE state, relay sockets, or peer-connection objects.
 Connecting or disconnecting a signer updates the runtime's service registration
 before the replacement iframe loads, so an advertised WebRTC domain can answer requests.
-This implementation tracks pinned
+The default signaling implementation tracks pinned
 [NAP-WEBRTC `5fae95dd2c8e59bd06c654e0845656add077dcda`](https://github.com/napplet/naps/blob/5fae95dd2c8e59bd06c654e0845656add077dcda/naps/NAP-WEBRTC.md)
 and the kind/tag conventions in
 [NIP-100 PR #363 at `ead1cd6`](https://github.com/nostr-protocol/nips/pull/363).
@@ -741,3 +742,11 @@ Paja explicitly installs operation and prompt limiters from `@kehto/rate-limit`
 in `createPajaPermissionAdapter`. These are Paja host choices; runtime and Firewall
 do not impose them on other hosts. Limiter configuration and counters are separate
 from approval grants.
+
+### Configurable multiplayer providers
+
+The **Multiplayer providers** sidebar accepts explicit JSON settings, also available
+as `simulation.multiplayer` in a Paja config file. Select `soy-rtc/1`, signaling
+relays, and CVM families with pinned tool schemas. Optional static STUN/TURN
+settings receive separate endpoint approval. No provider is selected from an app
+URL. See [configuration and interoperability](/paja-multiplayer).

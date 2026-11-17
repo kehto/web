@@ -305,6 +305,16 @@ export function renderPajaHtml(config: PajaHostConfig): string {
           <div id="paja-resource-servers-status" role="status" aria-live="polite"></div>
         </form>
         </div></details>
+        <details class="section" id="paja-section-multiplayer" data-paja-section="multiplayer">
+          <summary class="section-title">Multiplayer providers<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
+          <form class="resource-servers" id="paja-multiplayer-form">
+            <label for="paja-multiplayer-input">Provider configuration (JSON)</label>
+            <textarea id="paja-multiplayer-input" rows="8" spellcheck="false" aria-describedby="paja-multiplayer-help paja-multiplayer-status"></textarea>
+            <small id="paja-multiplayer-help">Configure signaling relays and CVM families using your provider's settings. Saving reloads all apps. Clear to restore the host default.</small>
+            <button type="submit">Save and reload</button>
+            <div id="paja-multiplayer-status" role="status" aria-live="polite"></div>
+          </form>
+        </div></details>
         <details class="section" id="paja-section-security" data-paja-section="security" open>
           <summary class="section-title">Security<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
           <label class="section-title" for="paja-nested-context-lock">Frame-creation lock (experimental)</label>

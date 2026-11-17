@@ -118,6 +118,8 @@ test('sidebar accordion preserves controls, frames, drawer preferences and flush
   await page.keyboard.press('Space');
   await expect(resources).not.toHaveAttribute('open');
   await page.keyboard.press('Tab');
+  await expect(page.locator('[data-paja-section="multiplayer"] summary')).toBeFocused();
+  await page.keyboard.press('Tab');
   await expect(security.locator('summary')).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(security).not.toHaveAttribute('open');

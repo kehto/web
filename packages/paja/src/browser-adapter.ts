@@ -65,6 +65,7 @@ import { createPajaCommonBackend } from './browser-common.js';
 import { createPajaListsBackend } from './browser-lists.js';
 import { createPajaResourceFetch, pajaResourceInfo } from './browser-resource.js';
 import { createPajaWebrtcController } from './browser-webrtc.js';
+import { createPajaMultiplayerServices, PAJA_CVM_OPERATIONS } from './browser-multiplayer-services.js';
 import { confirmPajaExternalLink } from './browser-link.js';
 import { createPajaBrowserFsBackend } from './browser-fs.js';
 import {
@@ -378,6 +379,12 @@ function createDevServices(
   }
   if (getSimulation().capabilities.domains.theme) services.theme = theme.handler;
   if (getSimulation().capabilities.domains.config && config) services.config = config.handler;
+  const multiplayerConfig = getSimulation().multiplayer;
+  const multiplayer = multiplayerConfig && getSimulation().relay.mode === 'live' && backend.isAvailable()
+    ? createPajaMultiplayerServices({ config: multiplayerConfig, scopeKey,
+      namespace: windowId => getIdentity?.(windowId).signalingNamespace,
+      backend: (windowId, isCurrent) => scopeFor(windowId, isCurrent).backend,
+    }) : null;
   if (getSimulation().cvm.enabled && getSimulation().relay.mode === 'live' && backend.isAvailable()) {
     const cvm = (relay: PajaRelayBackend) => {
       const service = createCvmService({
@@ -388,7 +395,7 @@ function createDevServices(
       });
       return { ...service, onUnregistered: () => service.dispose() };
     };
-    services.cvm = scopePajaService(cvm(backend), ['cvm.request', 'cvm.close'], (windowId, isCurrent) => cvm(scopeFor(windowId, isCurrent).backend), scopeKey);
+    services.cvm = multiplayer?.cvm ?? scopePajaService(cvm(backend), PAJA_CVM_OPERATIONS, (windowId, isCurrent) => cvm(scopeFor(windowId, isCurrent).backend), scopeKey);
   }
   if (uploadRuntime) {
     services.upload = createUploadService({
@@ -427,7 +434,7 @@ function createDevServices(
     const controller = userActivation ? createBrowserBleController(userActivation) : null;
     if (controller) services.ble = createBleService(controller);
   }
-  const webrtcController = getSimulation().relay.mode === 'live' && backend.isAvailable()
+  const webrtcController = !multiplayer && getSimulation().relay.mode === 'live' && backend.isAvailable()
     ? createPajaWebrtcController({
       relay: {
         subscribe(relayUrls, filters, onEvent) {
@@ -445,7 +452,7 @@ function createDevServices(
       signalingRelayUrls: () => [...getAllRelays()],
     })
     : null;
-  const webrtcService = webrtcController ? createWebrtcService(webrtcController.serviceOptions) : null;
+  const webrtcService = multiplayer?.webrtc ?? (webrtcController ? createWebrtcService(webrtcController.serviceOptions) : null);
   let dmService: DmService | null = null;
 
   function setDmAvailability(enabled: boolean): boolean {
@@ -466,7 +473,7 @@ function createDevServices(
     const webrtcEnabled = getSimulation().capabilities.domains.webrtc
       && getSimulation().relay.mode === 'live'
       && backend.isAvailable()
-      && webrtcController?.refreshAvailability() === true;
+      && (multiplayer ? typeof RTCPeerConnection === 'function' : webrtcController?.refreshAvailability() === true);
     if (webrtcEnabled && webrtcService) services.webrtc = webrtcService;
     else delete services.webrtc;
     const dmChanged = setDmAvailability(

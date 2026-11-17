@@ -9,9 +9,10 @@ a generic publisher cannot enforce the approved destination list.
 Reference service handlers for Kehto runtime implementations.
 
 WebRTC opening uses a side-effect-free signaling plan before runtime approval.
-The reference host rejects configured ICE/TURN endpoints until Firewall gains a
-typed endpoint scope; this does not claim to constrain direct iframe networking,
-which remains a launch-policy concern.
+The reference handler requires separate `network` permissions with typed `ice`
+scopes for each configured STUN/TURN endpoint. This does not constrain direct
+iframe networking, which remains a launch-policy concern. Optional bytes/stats
+requests return correlated `unsupported` results until a host implements them.
 
 OUTBOX and COUNT resolve relay destinations before approval. Their remote
 backends receive the approved immutable URL list and cancellation signal; local
