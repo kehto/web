@@ -28,7 +28,7 @@ function text(value: unknown): string {
   if (typeof value !== 'string' || !value.trim() || value.length > 256) throw new Error('Expected nonempty text (at most 256 characters).');
   return value;
 }
-function relayUrls(value: unknown): string[] {
+export function normalizePajaCvmRelays(value: unknown): string[] {
   if (!Array.isArray(value) || !value.length || value.length > 16) throw new Error('Configure 1–16 relay URLs.');
   return [...new Set(value.map(item => {
     if (typeof item !== 'string') throw new Error('Invalid relay URL.');
@@ -38,7 +38,7 @@ function relayUrls(value: unknown): string[] {
   }))];
 }
 
-function family(value: unknown): CvmRegistryFamily {
+export function normalizePajaCvmFamily(value: unknown): CvmRegistryFamily {
   if (!record(value) || !record(value.server) || typeof value.server.pubkey !== 'string' || !HEX.test(value.server.pubkey)) throw new Error('Each registry family needs a provider public key.');
   if (!Array.isArray(value.tools) || !value.tools.length || value.tools.length > 64) throw new Error('Each family needs 1–64 tool name/hash pins.');
   const tools = value.tools.map(tool => {
@@ -47,7 +47,7 @@ function family(value: unknown): CvmRegistryFamily {
   });
   if (new Set(tools.map(tool => tool.name)).size !== tools.length) throw new Error('Family tool names must be unique.');
   return {
-    family: text(value.family), server: { pubkey: value.server.pubkey, relays: relayUrls(value.server.relays) }, tools,
+    family: text(value.family), server: { pubkey: value.server.pubkey, relays: normalizePajaCvmRelays(value.server.relays) }, tools,
     ...(value.description === undefined ? {} : { description: text(value.description) }),
     ...(value.categories === undefined ? {} : { categories: Array.isArray(value.categories) ? value.categories.map(text) : (() => { throw new Error('Categories must be a text list.'); })() }),
   };
@@ -75,7 +75,7 @@ export function normalizePajaMultiplayer(value: unknown): PajaMultiplayerConfig 
   if (!record(value) || value.profile !== 'soy-rtc/1') throw new Error('Select a supported multiplayer signaling profile.');
   if (!Array.isArray(value.registry) || value.registry.length > 16) throw new Error('Configure at most 16 registry families.');
   if (value.iceServers !== undefined && (!Array.isArray(value.iceServers) || value.iceServers.length > 8)) throw new Error('Configure at most 8 ICE servers.');
-  return { profile: value.profile, relays: relayUrls(value.relays), registry: value.registry.map(family),
+  return { profile: value.profile, relays: normalizePajaCvmRelays(value.relays), registry: value.registry.map(normalizePajaCvmFamily),
     ...(Array.isArray(value.iceServers) ? { iceServers: value.iceServers.map(iceServer) } : {}),
     ...(value.developmentNamespace === undefined ? {} : { developmentNamespace: text(value.developmentNamespace) }) };
 }
