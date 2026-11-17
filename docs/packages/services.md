@@ -73,6 +73,17 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 
 ## Scope Boundaries
 
+`createCvmService` accepts optional `registry: CvmRegistryFamily[]`. Each entry
+names an operator-selected provider and a family of tool name/hash pins. The
+registry verifies live schemas with `computeCvmToolSchemaHash` (CEP-15) before
+selection or invocation. A hash selector takes precedence over a family label;
+provider pins are mandatory when supplied. Registry calls use ordinary CVM
+authorization and one deadline across schema checks and invocation. No result
+cache, provider retry or paginated tool inventory is supported. Without configured
+families, `registry.has` returns false and other registry methods return
+`unsupported method`. The injected namespace accepts canonical selectors and
+warns once per iframe on old string-family calls; see the compatibility register.
+
 - Provides reference service handlers that host apps register with `runtime.registerService()`.
 - The CVM Nostr transport rejects noninteger request durations or values outside
   1..300,000ms with `invalid timeout` before session acquisition or publication

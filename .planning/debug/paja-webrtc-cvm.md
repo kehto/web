@@ -39,4 +39,10 @@ next_action: implement provider-neutral registry and multiplayer configuration a
 
 ## Resolution
 
-Pending investigation and verification.
+Partial implementation only; goal remains active.
+
+- b5507d4c fixes dynamic registration. Focused unit, Paja type-check and browser regression passed; AI-slop 100.
+- Registry implementation checkpoint: injected canonical selector API plus bounded string-family adapter, configured pinned-schema resolver, ordinary CVM authorization, deadline and teardown cancellation. Focused service/namespace suites pass 75 tests, services/shell types pass, AI-slop 100. Paja configuration and cross-host profile are not wired yet; full gates/PR remain pending.
+- Direct live CVM `soy_session` call through current transport succeeded (actor returned); this confirms the transport itself works with the referenced provider.
+- Upstream drift filed as napplet/web#336; local tracking kehto/web#441. Current upstream main checked at 133bb166e6ccea268a780751d84447752c7b024b.
+- Rechecked Soy docs at upstream a0863d7cdc71c0553a49481deaa1c4e24beb0314: soy-rtc/1 adds optional authenticated realtime extension; absent extension remains reliable ordered JSON compatible. Original local checkout is older; use current remote contract for implementation.

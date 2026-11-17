@@ -6,6 +6,29 @@ coverage. This register records both implemented safeguards and existing debt;
 below identifies the package responsible for the implementation and its tests.
 No removal date is implied by an old source comment.
 
+## KEHTO_CVM_FAMILY_SELECTOR — injected CVM registry calls
+
+Owner: `@kehto/shell`. The injected registry accepts the existing SDK's
+`registry.has/describe/call(familyString, ...)` form and translates it to the
+canonical `{ family }` selector. An old `options.schemaHash` becomes the
+authoritative selector hash. No family-only wire envelope is emitted.
+Canonical calls take `{ family }` or `{ schemaHash }` directly and stay quiet.
+
+Source and warning site: `packages/shell/src/napplet-namespace.ts`, `makeCvm`.
+The warning identifies this entry, names the replacement and fires once per
+injected iframe lifetime. Tests in `napplet-namespace.test.ts` cover canonical
+wire fields, quiet canonical usage, warning text/frequency, trusted parent
+delivery and duplicate result handling. `cvm-registry.test.ts` covers runtime
+hash verification, pinned providers, deadlines and window teardown.
+
+Retention reason: published napplets use the string-family API exported by
+`@napplet/nap@0.40.0`. Upstream selector/entry type drift is tracked in
+[napplet/web#336](https://github.com/napplet/web/issues/336) and
+[kehto/web#441](https://github.com/kehto/web/issues/441). Remove the local canonical
+types when supported upstream peer versions export the draft contract; remove
+the string adapter only after supported consumers migrate and a removal release
+is announced. New local types follow NAP-CVM #31 at `28cf1bdb5c64`.
+
 ## PAJA-NIP07-RELAY-DISCOVERY-REMOVED — retired extension integration
 
 `@kehto/paja` no longer reads, binds, or calls the obsolete NIP-07 `getRelays`
