@@ -117,7 +117,7 @@ describe('createCvmService', () => {
       expect(authorizeOperation).toHaveBeenCalledWith(WINDOW, 'cvm.request', expect.arrayContaining([
         expect.objectContaining({ category: 'interface', domain: 'cvm', operation: 'access' }),
         expect.objectContaining({ category: 'network', domain: 'cvm', operation: 'cvm.request', scope: { kind: 'origin', value: 'wss://relay.example' } }),
-      ]), expect.any(Function));
+      ]), expect.any(Function), undefined);
       expect(transport.request).toHaveBeenCalledTimes(1);
       expect(sent).toEqual([expect.objectContaining({ type: 'cvm.request.result', id: 'approved' })]);
     });
@@ -197,7 +197,7 @@ describe('createCvmService', () => {
       svc.handleMessage('other-window', { type: 'cvm.close', id: 'forged', server: SERVER } as NappletMessage, intruder.send);
       await flush();
 
-      expect(intruder.sent).toEqual([{ type: 'cvm.close.result', id: 'forged', error: 'session closed' }]);
+      expect(intruder.sent).toEqual([{ type: 'cvm.close.result', id: 'forged' }]);
       expect(transport.close).not.toHaveBeenCalled();
     });
 

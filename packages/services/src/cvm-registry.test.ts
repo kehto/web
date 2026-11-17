@@ -4,6 +4,7 @@ import { computeCvmToolSchemaHash } from './cvm-schema-hash.js';
 import { createCvmService, type CvmTransport } from './cvm-service.js';
 import type { CvmRegistryFamily } from './cvm-registry-types.js';
 import type { NappletMessage } from '@napplet/core';
+import type { ApprovalSignal, ServiceRuntimeContext } from '@kehto/runtime';
 
 // CEP-15 documentation's get_weather example. Digest independently checked with @contextvm/sdk.
 const WEATHER = { name: 'get_weather', inputSchema: { properties: { location: { type: 'string' } }, required: ['location'] },
@@ -64,6 +65,34 @@ describe('CVM registry schema verification', () => {
     service.onWindowDestroyed?.('a');
     await vi.waitFor(() => expect(aborted).toHaveBeenCalledTimes(2));
     expect(send).not.toHaveBeenCalled();
+    service.dispose();
+  });
+
+  it('cancels pending registry approval before close acknowledgement and isolates another endpoint', async () => {
+    const signals = new Map<string, ApprovalSignal>();
+    const transport: CvmTransport = { discover: async () => [], request: vi.fn(async () => tools()), close: vi.fn(async () => {}), onEvent: () => ({ close() {} }) };
+    const service = createCvmService({ transport, registry: FAMILIES });
+    service.onRegistered?.({ authorizeOperation: (windowId: string, _op: string, _requirements: unknown, _run: unknown, signal: ApprovalSignal) => {
+      signals.set(windowId, signal);
+      return new Promise(resolve => signal.addEventListener('abort', () => resolve({ status: 'cancelled' }), { once: true }));
+    } } as unknown as ServiceRuntimeContext);
+    const a = vi.fn(), b = vi.fn();
+    for (const [windowId, send] of [['a', a], ['b', b]] as const) {
+      service.handleMessage(windowId, { type: 'cvm.registry.describe', id: windowId, selector: { family: 'weather' } } as unknown as NappletMessage, send);
+    }
+    service.handleMessage('a', { type: 'cvm.close', id: 'close', server: SERVER } as NappletMessage, a);
+    await vi.waitFor(() => expect(a).toHaveBeenCalledTimes(2));
+    expect(a.mock.calls.map(call => call[0])).toEqual([
+      { type: 'cvm.registry.describe.result', id: 'a', error: 'session closed' },
+      { type: 'cvm.close.result', id: 'close' },
+    ]);
+    expect(signals.get('a')!.aborted).toBe(true);
+    expect(signals.get('b')!.aborted).toBe(false);
+    expect(b).not.toHaveBeenCalled();
+    expect(transport.request).not.toHaveBeenCalled();
+    expect(transport.close).not.toHaveBeenCalled();
+    service.handleMessage('a', { type: 'cvm.close', id: 'again', server: SERVER } as NappletMessage, a);
+    await vi.waitFor(() => expect(a).toHaveBeenLastCalledWith({ type: 'cvm.close.result', id: 'again' }));
     service.dispose();
   });
 });
