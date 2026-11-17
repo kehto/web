@@ -526,7 +526,8 @@ with a browser `RTCPeerConnection` implementation, live relay access, and a
 connected NIP-44 signer. Paja owns peer connections and data channels, obtains
 explicit session consent, signs kind-25050 Nostr signaling, encrypts
 offer/answer SDP, and keeps application payloads exclusively on the data
-channel. Signer changes tear down sessions and refresh the shell environment;
+channel. Signer changes tear down sessions, synchronize runtime service handlers,
+and refresh the shell environment before loading a replacement iframe;
 napplets never receive SDP, ICE internals, relay sockets, or browser networking
 objects. The signaling boundary follows pinned
 [NAP-WEBRTC `5fae95dd2c8e59bd06c654e0845656add077dcda`](https://github.com/napplet/naps/blob/5fae95dd2c8e59bd06c654e0845656add077dcda/naps/NAP-WEBRTC.md)

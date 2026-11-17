@@ -147,6 +147,8 @@ relay boundary, and a connected signer with NIP-44 support. Paja owns the
 encrypted offer/answer signaling, and asks for explicit session consent with a
 network-metadata warning. Napplets receive only NAP session/events and JSON data
 channel payloads—never SDP, ICE state, relay sockets, or peer-connection objects.
+Connecting or disconnecting a signer updates the runtime's service registration
+before the replacement iframe loads, so an advertised WebRTC domain can answer requests.
 This implementation tracks pinned
 [NAP-WEBRTC `5fae95dd2c8e59bd06c654e0845656add077dcda`](https://github.com/napplet/naps/blob/5fae95dd2c8e59bd06c654e0845656add077dcda/naps/NAP-WEBRTC.md)
 and the kind/tag conventions in
