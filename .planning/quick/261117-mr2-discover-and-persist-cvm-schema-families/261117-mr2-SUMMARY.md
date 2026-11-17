@@ -29,3 +29,12 @@ Implemented in `a4b7f00d` and `5d8c03ae` on `feat/paja-cvm-discovery`.
 NAP-CVM draft PR 31 head rechecked before shipment: `28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f`. Conformant host configuration and existing canonical registry selectors; no wire changes. CEP-6, draft CEP-15 and draft CEP-17 checked. Named-family manifests remain a documented spec gap; labels and tool membership are explicit local choices.
 
 External issue https://github.com/soytec/napplet-soy/issues/70 and tracker https://github.com/kehto/web/issues/444 cover Soy's missing i/k announcement tags. URL discovery works now. naddr is intentionally unsupported per user clarification. Browser URL discovery requires CORS; announcements must be present on queried relays. No runtime fallback bypasses missing discovery tags or schema verification.
+
+## PR visual proof
+
+`visual-proof.png` is an unaltered Chromium screenshot of the final UI against
+live napplet.soy. Two locally labelled tool families were imported and saved,
+then the page was reloaded. The screenshot shows both persisted entries and the
+selected room family's source-labelled JSON; its `readOnly` property was checked
+as true. The PR body embeds this screenshot directly from its immutable commit.
+No application code changed for this follow-up.
