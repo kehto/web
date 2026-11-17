@@ -66,6 +66,7 @@ import { createPajaListsBackend } from './browser-lists.js';
 import { createPajaResourceFetch, pajaResourceInfo } from './browser-resource.js';
 import { createPajaWebrtcController } from './browser-webrtc.js';
 import { createPajaMultiplayerServices, PAJA_CVM_OPERATIONS } from './browser-multiplayer-services.js';
+import { mergeCvmFamilies, readCvmFamilies } from './cvm-family-store.js';
 import { confirmPajaExternalLink } from './browser-link.js';
 import { createPajaBrowserFsBackend } from './browser-fs.js';
 import {
@@ -380,14 +381,16 @@ function createDevServices(
   if (getSimulation().capabilities.domains.theme) services.theme = theme.handler;
   if (getSimulation().capabilities.domains.config && config) services.config = config.handler;
   const multiplayerConfig = getSimulation().multiplayer;
+  const registry = mergeCvmFamilies(multiplayerConfig?.registry ?? [], readCvmFamilies());
   const multiplayer = multiplayerConfig && getSimulation().relay.mode === 'live' && backend.isAvailable()
-    ? createPajaMultiplayerServices({ config: multiplayerConfig, scopeKey,
+    ? createPajaMultiplayerServices({ config: { ...multiplayerConfig, registry }, scopeKey,
       namespace: windowId => getIdentity?.(windowId).signalingNamespace,
       backend: (windowId, isCurrent) => scopeFor(windowId, isCurrent).backend,
     }) : null;
   if (getSimulation().cvm.enabled && getSimulation().relay.mode === 'live' && backend.isAvailable()) {
     const cvm = (relay: PajaRelayBackend) => {
       const service = createCvmService({
+        registry,
         transport: createNostrCvmTransport({
           defaultRelays: relayConfig.allRelays, pool: createPajaCvmRelayPool(relay),
           clientInfo: { name: '@kehto/paja', version: '0.11.0' },

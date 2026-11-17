@@ -11,9 +11,14 @@ export interface SavedCvmFamily {
 
 function normalize(value: unknown): SavedCvmFamily[] {
   if (!Array.isArray(value) || value.length > 16) throw new Error('Save at most 16 CVM families.');
+  const pairs = new Set<string>();
   return value.map(entry => {
     if (!entry || typeof entry.source !== 'string' || entry.source.length > 4096 || typeof entry.manual !== 'boolean') throw new Error('Invalid saved CVM family.');
-    return { config: normalizePajaCvmFamily(entry.config), source: entry.source, manual: entry.manual };
+    const config = normalizePajaCvmFamily(entry.config);
+    const pair = JSON.stringify([config.family, config.server.pubkey]);
+    if (pairs.has(pair)) throw new Error('This family label and provider are already saved.');
+    pairs.add(pair);
+    return { config, source: entry.source, manual: entry.manual };
   });
 }
 

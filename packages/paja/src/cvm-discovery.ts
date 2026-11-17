@@ -43,8 +43,20 @@ async function websiteProvider(url: string, deps: CvmDiscoveryDependencies, sign
   catch (error) { if (signal.aborted) throw error; throw new Error('Cannot read the discovery document. The website must allow cross-origin requests (CORS).'); }
   if (!response.ok) throw new Error(`Discovery document returned HTTP ${response.status}.`);
   if (Number(response.headers.get('content-length')) > MAX_BYTES) throw new Error('Discovery document is too large.');
-  const body = await response.text();
-  if (body.length > MAX_BYTES) throw new Error('Discovery document is too large.');
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error('Discovery document is empty.');
+  const decoder = new TextDecoder();
+  let body = '', bytes = 0;
+  try {
+    for (;;) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      bytes += chunk.value.byteLength;
+      if (bytes > MAX_BYTES) throw new Error('Discovery document is too large.');
+      body += decoder.decode(chunk.value, { stream: true });
+    }
+    body += decoder.decode();
+  } finally { await reader.cancel(); reader.releaseLock(); }
   const document: unknown = JSON.parse(body);
   if (!record(document) || document.version !== 1 || !record(document.backend)
     || typeof document.backend.pubkey !== 'string' || !HASH.test(document.backend.pubkey)) throw new Error('Expected version 1 with backend.pubkey and backend.relays.');
@@ -109,15 +121,18 @@ export async function discoverCvmFamilies(input: string, deps: CvmDiscoveryDepen
   // Kinds 11316/11317 are replaceable: never rescue an invalid newest inventory with stale schemas.
   const latest = new Map<string, NostrEvent>();
   for (const event of events) if (!latest.has(event.pubkey)) latest.set(event.pubkey, event);
+  const relayLists = reference.type === 'website' || !latest.size ? []
+    : await query(deps, relays, { kinds: [10002], authors: [...latest.keys()] }, signal);
   const candidates: CvmDiscoveryCandidate[] = [];
   let failure: unknown;
   for (const event of latest.values()) {
     try {
       const tools = await inventory(event);
       if (reference.type === 'hash' && !tools.some(tool => tool.schemaHash === reference.hash)) throw new Error('Announcement does not implement the requested schema hash.');
-      const relayList = reference.type === 'website' ? undefined
-        : (await query(deps, relays, { kinds: [10002], authors: [event.pubkey] }, signal))[0];
-      const providerRelays = relayList ? normalizePajaCvmRelays(relayList.tags.filter(tag => tag[0] === 'r').map(tag => tag[1])) : relays;
+      const relayList = relayLists.find(list => list.pubkey === event.pubkey);
+      const relayTags = relayList?.tags.filter(tag => tag[0] === 'r');
+      const unmarked = relayTags?.filter(tag => !tag[2]);
+      const providerRelays = relayTags ? normalizePajaCvmRelays((unmarked?.length ? unmarked : relayTags).map(tag => tag[1])) : relays;
       candidates.push({ config: { family: `cvm.${event.pubkey.slice(0, 12)}`, server: { pubkey: event.pubkey, relays: providerRelays }, tools },
         eventId: event.id, source: `${reference.type === 'website' ? reference.url : input.trim()} · event ${event.id}` });
     } catch (error) { failure = error; }

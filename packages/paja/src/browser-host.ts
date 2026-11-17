@@ -5,6 +5,7 @@
  */
 import { installPajaResourceSettings } from './browser-resource-settings.js';
 import { installPajaMultiplayerSettings, readPajaMultiplayerSettings } from './browser-multiplayer-settings.js';
+import { installPajaCvmSettings } from './browser-cvm-settings.js';
 import { pajaMultiplayerNamespace } from './browser-multiplayer-identity.js';
 import { trackPajaServices } from './browser-service-registration.js';
 import { createPajaPermissionAdapter } from './browser-permission-adapter.js';
@@ -831,6 +832,15 @@ async function installPajaHost(): Promise<void> {
   });
   adapter.permissions = permissionController.adapter;
   const relayBackend = adapter.relayPool.getRelayPool() as PajaRelayBackend | null;
+  const disposeCvmSettings = installPajaCvmSettings({
+    relays: [...runtime.currentSimulation.relay.urls],
+    fetch: window.fetch.bind(window),
+    query: (relays, filters, signal) => {
+      if (!relayBackend || runtime.currentSimulation.relay.mode !== 'live') throw new Error('CVM discovery requires live relays.');
+      return relayBackend.query(relays, filters, 5000, { reason: 'host' }, signal);
+    },
+  });
+  window.addEventListener('pagehide', disposeCvmSettings, { once: true });
   relayBackend?.setRelayEventObserver((sighting) => {
     relayEventCounts.recordEvent(sighting.reason, sighting.event, sighting.sightedOn, sighting.origin);
   });

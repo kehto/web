@@ -82,6 +82,12 @@ describe('CVM discovery', () => {
     await expect(discoverCvmFamilies('provider.example', deps, signal())).rejects.toThrow('CORS');
   });
 
+  it('bounds discovery document bodies even without a Content-Length header', async () => {
+    const deps = dependencies();
+    deps.fetch = vi.fn(async () => new Response('x'.repeat(1_000_001)));
+    await expect(discoverCvmFamilies('provider.example', deps, signal())).rejects.toThrow('too large');
+  });
+
   it('rejects hash mismatches, duplicate names, partial inventories, and false hash claims', async () => {
     for (const tools of [[{ ...tool, inputSchema: { type: 'string' } }], [tool, tool]]) {
       await expect(discoverCvmFamilies(HASH, dependencies([event({ content: JSON.stringify({ tools }) })]), signal())).rejects.toThrow();
@@ -119,6 +125,7 @@ describe('persistent CVM families', () => {
     saveCvmFamilies([second]);
     expect(readCvmFamilies()).toEqual([second]);
     expect(() => saveCvmFamilies(Array(17).fill(first))).toThrow('16');
+    expect(() => saveCvmFamilies([first, first])).toThrow('already saved');
     expect(readCvmFamilies()).toEqual([second]);
     storage.set('kehto:paja:cvm-families:v1', '{invalid');
     expect(readCvmFamilies()).toEqual([]);
