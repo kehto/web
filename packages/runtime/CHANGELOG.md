@@ -1,5 +1,12 @@
 # @kehto/runtime
 
+## 0.30.1
+
+### Patch Changes
+
+- Updated dependencies [e989352]
+  - @kehto/firewall@0.10.0
+
 ## 0.30.0
 
 ### Minor Changes

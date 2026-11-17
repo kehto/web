@@ -1,5 +1,21 @@
 # @kehto/paja
 
+## 0.36.0
+
+### Minor Changes
+
+- e989352: Add explicit multiplayer provider settings, isolated shared CVM/WebRTC transport keys, soy-rtc/1 signaling, and separately approved STUN/TURN endpoint scopes.
+
+### Patch Changes
+
+- e989352: Register newly available host services before reloading napplets after signer changes. WebRTC room requests now reach the handler when a signer is connected after Paja starts.
+- Updated dependencies [e989352]
+- Updated dependencies [e989352]
+  - @kehto/firewall@0.10.0
+  - @kehto/services@0.34.0
+  - @kehto/shell@0.35.0
+  - @kehto/runtime@0.30.1
+
 ## 0.35.3
 
 ### Patch Changes

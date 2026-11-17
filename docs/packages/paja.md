@@ -33,7 +33,7 @@ app package's development scripts.
 | Field | Value |
 |-------|-------|
 | Source | `packages/paja/package.json`, `packages/paja/src/index.ts` |
-| Version | `0.35.3` |
+| Version | `0.36.0` |
 | Runtime entry | `./dist/index.js` |
 | CLI runner entry | `./dist/cli.js` |
 | Types entry | `./dist/index.d.ts` |
