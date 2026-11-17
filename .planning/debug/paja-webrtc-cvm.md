@@ -1,5 +1,5 @@
 ---
-status: verified
+status: resolved
 trigger: WebRTC room creation and napplet.soy CVM work on napplet.soy but fail in Paja for the supplied boost-ball naddr.
 created: 2026-11-17
 updated: 2026-11-17
@@ -15,7 +15,7 @@ updated: 2026-11-17
 ## Current Focus
 
 hypothesis: independent host registration, CVM registry, signaling profile and transport identity gaps explain the failures.
-next_action: commit the verified integration, push the branch and open the PR.
+next_action: none; solution verified and PR opened.
 
 ## Evidence
 
@@ -39,7 +39,7 @@ next_action: commit the verified integration, push the branch and open the PR.
 
 ## Resolution
 
-Solution verified; PR creation remains pending.
+Solution verified and shipped for review: https://github.com/kehto/web/pull/442. CI is queued; no merge or deployment performed.
 
 - b5507d4c fixes dynamic registration. Focused unit, Paja type-check and browser regression passed; AI-slop 100.
 - Registry implementation checkpoint: injected canonical selector API plus bounded string-family adapter, configured pinned-schema resolver, ordinary CVM authorization, deadline and teardown cancellation. Focused service/namespace suites pass 75 tests, services/shell types pass, AI-slop 100. Paja configuration and cross-host profile are not wired yet; full gates/PR remain pending.
