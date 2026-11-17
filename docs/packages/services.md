@@ -9,9 +9,10 @@ a generic publisher cannot enforce the approved destination list.
 Reference service handlers for Kehto runtime implementations.
 
 WebRTC opening uses a side-effect-free signaling plan before runtime approval.
-The reference host rejects configured ICE/TURN endpoints until Firewall gains a
-typed endpoint scope; this does not claim to constrain direct iframe networking,
-which remains a launch-policy concern.
+The reference handler requires separate `network` permissions with typed `ice`
+scopes for each configured STUN/TURN endpoint. This does not constrain direct
+iframe networking, which remains a launch-policy concern. Optional bytes/stats
+requests return correlated `unsupported` results until a host implements them.
 
 OUTBOX and COUNT resolve relay destinations before approval. Their remote
 backends receive the approved immutable URL list and cancellation signal; local
@@ -72,6 +73,17 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 | FS | `createFsService`, `FsServiceError`, `FsServiceOptions`, `FsBackend`, `FsBackendWatch`, `FsBackendChange` |
 
 ## Scope Boundaries
+
+`createCvmService` accepts optional `registry: CvmRegistryFamily[]`. Each entry
+names an operator-selected provider and a family of tool name/hash pins. The
+registry verifies live schemas with `computeCvmToolSchemaHash` (CEP-15) before
+selection or invocation. A hash selector takes precedence over a family label;
+provider pins are mandatory when supplied. Registry calls use ordinary CVM
+authorization and one deadline across schema checks and invocation. No result
+cache, provider retry or paginated tool inventory is supported. Without configured
+families, `registry.has` returns false and other registry methods return
+`unsupported method`. The injected namespace accepts canonical selectors and
+warns once per iframe on old string-family calls; see the compatibility register.
 
 - Provides reference service handlers that host apps register with `runtime.registerService()`.
 - The CVM Nostr transport rejects noninteger request durations or values outside

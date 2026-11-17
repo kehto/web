@@ -41,6 +41,14 @@ use random bytes plus counters, without per-ID key derivation.
 
 Authority: [NAP-CVM draft #31](https://github.com/napplet/naps/blob/28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f/naps/NAP-CVM.md)
 and [CEP-41](https://github.com/contextvm/contextvm-docs/blob/3b4f9dc9f9012a418abd9faec6a70db774754862/src/content/docs/reference/ceps/cep-41.md).
+`createCvmService({ transport, registry })` optionally accepts host-configured
+`CvmRegistryFamily` entries with a provider and tool name/hash pins. Registry
+selection checks live `tools/list` schemas using `computeCvmToolSchemaHash`
+(CEP-15), honors provider pins, and authorizes calls through the ordinary CVM
+boundary. Without registry configuration, `registry.has` returns false and the
+other registry operations return `unsupported method`. Paginated tool inventories
+are currently rejected; no result cache or automatic provider failover is used.
+
 These transport limits do not claim implementation of every newer NAP-CVM
 session or payment field.
 
@@ -798,3 +806,8 @@ always reaches active work; cancelled IDs enter the replay ledger when their
 work settles. Source destruction and service detachment clear the corresponding
 history. This bounded Kehto policy supplements NAP-RESOURCE's cancellation rules;
 callers should generate fresh IDs because older completed entries are evicted.
+
+WebRTC plans declare every configured ICE endpoint before approval. The reference
+handler requests typed `network`/`ice` scopes; it invokes no peer hook on denial.
+Synchronous send failures return the matching result ID. Optional `sendBytes` and
+`stats` currently return `unsupported` results.

@@ -228,6 +228,46 @@ function runPrelude(script: string, target: PreludeTestWindow): void {
   new Function('window', source)(target);
 }
 
+describe('CVM registry injected binding', () => {
+  it('uses canonical selectors before shell.ready and ignores untrusted results', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['cvm'] }), target);
+    const registry = (target.napplet!.cvm as { registry: Record<string, (...args: unknown[]) => Promise<unknown>> }).registry;
+    const settled = vi.fn();
+    const pending = registry.has({ family: 'rooms' }).then(settled);
+    const sent = target.postedMessages.at(-1)!;
+    expect(sent).toMatchObject({ type: 'cvm.registry.has', selector: { family: 'rooms' } });
+    expect(sent).not.toHaveProperty('family');
+    target.dispatchMessage({}, { type: 'cvm.registry.has.result', id: sent.id, has: true });
+    await Promise.resolve();
+    expect(settled).not.toHaveBeenCalled();
+    target.dispatchParentMessage({ type: 'cvm.registry.has.result', id: sent.id, has: false });
+    await pending;
+    expect(settled).toHaveBeenCalledExactlyOnceWith(false);
+    target.dispatchParentMessage({ type: 'cvm.registry.has.result', id: sent.id, has: true });
+    expect(settled).toHaveBeenCalledTimes(1);
+  });
+
+  it('warns once for string-family calls while canonical selectors stay quiet', async () => {
+    const target = createPreludeTestWindow();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      runPrelude(renderNappletNamespacePrelude({ domains: ['cvm'] }), target);
+      const registry = (target.napplet!.cvm as { registry: Record<string, (...args: unknown[]) => Promise<unknown>> }).registry;
+      target.onPortPost = message => target.dispatchParentMessage({ type: `${message.type}.result`, id: message.id, has: false });
+      await registry.has({ family: 'rooms' });
+      expect(warn).not.toHaveBeenCalled();
+      await registry.has('rooms');
+      await registry.has('rooms');
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('[KEHTO_CVM_FAMILY_SELECTOR]'));
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('{ family } or { schemaHash }'));
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('once per iframe'));
+      expect(target.postedMessages.at(-1)).toMatchObject({ selector: { family: 'rooms' } });
+    } finally { warn.mockRestore(); }
+  });
+});
+
 describe('NAP-MEDIA injected lifecycle', () => {
   it('retains terminal events, guards parent source and survives shim reassignment without shell', () => {
     const target = createPreludeTestWindow();

@@ -4,6 +4,9 @@
  * aislop-ignore-file complexity/file-too-large complexity/function-too-long
  */
 import { installPajaResourceSettings } from './browser-resource-settings.js';
+import { installPajaMultiplayerSettings, readPajaMultiplayerSettings } from './browser-multiplayer-settings.js';
+import { pajaMultiplayerNamespace } from './browser-multiplayer-identity.js';
+import { trackPajaServices } from './browser-service-registration.js';
 import { createPajaPermissionAdapter } from './browser-permission-adapter.js';
 import { permissionPrincipalKey } from '@kehto/firewall';
 import { pajaPrincipalLabel, revokedPajaTabIds } from './browser-grant-retirement.js';
@@ -656,11 +659,14 @@ async function installPajaHost(): Promise<void> {
   const securitySettings = installPajaSecuritySettings();
   window.addEventListener('pagehide', securitySettings.dispose, { once: true });
   const config = await readLatestPajaHostConfig(readPajaHostConfig());
+  const multiplayer = readPajaMultiplayerSettings(config.simulation.multiplayer);
+  const disposeMultiplayer = installPajaMultiplayerSettings(multiplayer);
+  window.addEventListener('pagehide', disposeMultiplayer, { once: true });
   const stage = getStage();
   const frame = config.target.mode === 'runtime-pointer' ? null : getFrame();
   displayPajaTargetUrl(config, frame);
   const runtime: PajaHostRuntimeState = {
-    currentSimulation: config.simulation,
+    currentSimulation: { ...config.simulation, ...(multiplayer ? { multiplayer } : {}) },
     themeService: null,
     catalog: new InstalledNappletCatalog(),
     readyWaiters: new Map(),
@@ -716,8 +722,11 @@ async function installPajaHost(): Promise<void> {
     const target = tab?.resolvedTarget ?? stateRef?.resolvedTarget;
     const active = bridge.runtime.sessionRegistry.getEntryByWindowId(windowId ?? runtime.currentWindowId ?? '');
     const identity = active ?? getTargetIdentity(config, target);
+    const ownTarget = tab?.resolvedTarget ?? (windowId === runtime.currentWindowId ? stateRef?.resolvedTarget : undefined);
     return {
       ...identity,
+      // An unbound runtime window must not inherit the currently selected app's namespace.
+      signalingNamespace: ownTarget ? pajaMultiplayerNamespace(ownTarget) : config.target.mode === 'runtime-pointer' ? '' : undefined,
       consentScope: target
         ? `${isPajaLocalTarget(target) ? 'local-file' : target.manifest.catalogId}:artifact:${target.aggregateHash}`
         : pajaDevelopmentConsentScope(config.target.url, windowId ?? ''),
@@ -757,9 +766,16 @@ async function installPajaHost(): Promise<void> {
     getIdentity: (windowId) => ({ dTag: getWindowIdentity(windowId).dTag, aggregateHash: getWindowIdentity(windowId).aggregateHash }),
     onChange: () => { if (stateRef) setSimulationStatus(stateRef); },
   });
+  let syncServices: (() => void) | undefined;
   const adapter = createPajaAdapter(config, getSimulation, (theme) => {
     runtime.themeService = theme;
-  }, themeBroadcast.onBroadcast, confirmationController.confirm, signerController, getWindowIdentity, () => stateRef?.reload(), {
+  }, themeBroadcast.onBroadcast, confirmationController.confirm, signerController, getWindowIdentity, () => {
+    syncServices?.();
+    if (stateRef) {
+      stateRef.services = Object.keys(adapter.services ?? {}).sort();
+      stateRef.reload();
+    }
+  }, {
       catalog: runtime.catalog,
       controller: intentController,
       resolveSender(windowId) {
@@ -835,6 +851,8 @@ async function installPajaHost(): Promise<void> {
     handlePajaNappletRevoked(stateRef, contextRef, revocation, nip5dEffects);
   };
   const bridge = createShellBridge(adapter);
+  const synchronize = trackPajaServices(bridge.runtime, adapter.services ?? {});
+  syncServices = () => synchronize(adapter.services ?? {});
   permissionBridge = bridge;
   permissionController.ui.refresh();
   const stopIdentityChanges = signerController.subscribe(() => {

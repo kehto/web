@@ -6,9 +6,9 @@ export type PermissionPrincipal =
 /** Built-in permission families plus explicitly registered host extensions. */
 export type PermissionCategory = 'interface' | 'resource' | 'network' | `extension:${string}`;
 
-/** Exact resource keys, network origins, or virtual directory subtrees. */
+/** Exact resource keys, network origins, ICE endpoints, or virtual directory subtrees. */
 export interface PermissionScope {
-  readonly kind: 'exact' | 'origin' | 'directory';
+  readonly kind: 'exact' | 'origin' | 'ice' | 'directory';
   readonly value: string;
 }
 
