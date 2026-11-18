@@ -4,7 +4,7 @@ Paja can use an operator-selected CVM provider and the documented `soy-rtc/1`
 signaling profile. This lets the same signed napplet use compatible rooms across
 hosts. No provider URL, public key, family label, or app address is built in.
 
-Open **Multiplayer providers** in the host sidebar. Paste your provider settings
+Open **Multiplayer providers** in the host sidebar. To configure signaling, paste your provider settings
 as JSON, then choose **Save and reload**. Settings belong to this host origin;
 clearing the field restores the server's config. A file-based host can instead
 set the same object at `simulation.multiplayer`:
@@ -18,7 +18,7 @@ set the same object at `simulation.multiplayer`:
 }
 ```
 
-For CVM discovery, add one or more entries to `registry`. Each entry has `family`
+For file-based CVM configuration, add one or more entries to `registry`. Each entry has `family`
 (the local label expected by your app), `server: { pubkey, relays }`, and `tools`,
 an array of `{ name, schemaHash }` pins. `pubkey` and each hash are lowercase
 64-character hex. Obtain the inventory with `cvm.listTools(server)` or a trusted
@@ -32,8 +32,57 @@ provider. All provider requests still pass ordinary runtime approvals.
 Paja does not infer signaling from a provider's hostname. The currently observed
 `.well-known/napplet.json` discovery document exposes backend key/relay hints but
 does not describe signaling profiles, family membership, key coupling, or ICE.
-Automatic selection of those settings is a discovery-contract gap, so this
-implementation requires explicit settings.
+Automatic selection of signaling and ICE settings is a discovery-contract gap,
+so those settings remain explicit.
+
+## Discover and save CVM families
+
+The **Discover CVM tools** input accepts:
+
+- A `nevent` (optionally prefixed with `nostr:`) referencing a signed kind-11316
+  server announcement or kind-11317 tool inventory. Relay hints take precedence
+  over the host relay set. A server announcement resolves its author's inventory.
+- A 64-character CEP-15 tool schema hash. Paja queries the host's configured live
+  relays for kind-11317 announcements with a matching `i` tag.
+- An HTTPS website URL or hostname. Paja reads the origin's
+  `/.well-known/napplet.json`, expects `version: 1` and
+  `backend: { pubkey, relays }`, then queries those relays for that author's
+  tool inventory. The website must allow browser cross-origin requests (CORS).
+
+For Nostr references, a signed CEP-17 kind-10002 relay list selects the provider's
+operational relays when available; unmarked relay URLs take precedence. Otherwise
+Paja retains the discovery relays for review in the generated JSON.
+
+Choose a provider when multiple results are found. Review the tool pins, choose
+the tools to include, and set the **Local family label** expected by your app
+(for example, `soy.rooms.v1`). The generated JSON is read-only and labelled with
+its source document or event. **Edit JSON manually** makes an editable copy and
+marks its source as manual; **New manual family** starts a separate entry.
+
+**Save family and reload** persists the selection for this host origin. Several
+families and providers can coexist. Saved entries are merged with the file or
+multiplayer JSON registry; the same label/provider pair uses the saved entry.
+Removing a saved entry restores any configured entry with that pair. Saved
+families also work with ordinary CVM, without selecting a signaling profile.
+All apps reload after a save or removal so their existing scopes are disposed.
+
+Paja verifies announcement signatures and recomputes each tool's CEP-15 hash.
+Advertised metadata or named hash tags that disagree are rejected. The newest
+inventory per author is used; an invalid newest inventory doesn't fall back to
+older schemas. Imports are limited to complete inventories of 1–64 tools and
+16 saved families. Discovery times out after 15 seconds. Registry calls still
+verify the live schemas and require the existing runtime permissions.
+
+Family labels and membership are host choices: ContextVM defines per-tool
+identity, not a portable named-family manifest. `naddr` is therefore unsupported;
+use `nevent` for ContextVM's replaceable announcements. Website discovery uses
+the provider's published endpoint convention, not a new NAP wire contract.
+No WebRTC profile, ICE credentials, or tool invocation is inferred from it.
+
+A hash search needs the provider's CEP-15 `i` tags and a relay carrying its
+announcement. Missing tags can prevent hash discovery even when URL or `nevent`
+discovery works. Soy's missing tags are tracked in
+[soytec/napplet-soy#70](https://github.com/soytec/napplet-soy/issues/70).
 
 ## Identity, transport and lifecycle
 

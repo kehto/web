@@ -750,3 +750,11 @@ as `simulation.multiplayer` in a Paja config file. Select `soy-rtc/1`, signaling
 relays, and CVM families with pinned tool schemas. Optional static STUN/TURN
 settings receive separate endpoint approval. No provider is selected from an app
 URL. See [configuration and interoperability](/paja-multiplayer).
+
+The same sidebar discovers CVM tool inventories from a `nevent`, a CEP-15 tool
+schema hash, or an HTTPS website's `/.well-known/napplet.json`. Choose a provider,
+local family label, and tools; generated JSON is read-only and shows its source.
+Manual JSON remains editable. Saved families persist per host origin and coexist
+in the registry, including without a multiplayer signaling profile. Saves and
+removals reload the host. ContextVM doesn't define named-family manifests or
+`naddr` discovery; labels and membership are local choices.
