@@ -1,5 +1,12 @@
 # @kehto/cli
 
+## 0.7.3
+
+### Patch Changes
+
+- Updated dependencies [cc8fcd7]
+  - @kehto/paja@0.37.0
+
 ## 0.7.2
 
 ### Patch Changes

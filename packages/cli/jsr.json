@@ -1,11 +1,11 @@
 {
   "name": "@kehto/cli",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "license": "MIT",
   "nodeModulesDir": "auto",
   "exports": "./src/index.ts",
   "imports": {
-    "@kehto/paja": "jsr:@kehto/paja@^0.36.0"
+    "@kehto/paja": "jsr:@kehto/paja@^0.37.0"
   },
   "publish": {
     "include": [
