@@ -1,5 +1,11 @@
 # @kehto/paja
 
+## 0.37.0
+
+### Minor Changes
+
+- cc8fcd7: Discover CVM providers from nevent references, tool schema hashes, and website discovery documents. Review source-labelled JSON and persist multiple local families alongside the configured registry.
+
 ## 0.36.0
 
 ### Minor Changes
