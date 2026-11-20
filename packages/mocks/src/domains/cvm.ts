@@ -19,6 +19,8 @@
  * - Every accepted request completes synchronously; `relay timeout` is never
  *   produced. `timeoutMs` is validated against `maxTimeoutMs` policy.
  * - `policy denied` is produced only for pubkeys listed in `deniedServers`.
+ * - Per-endpoint concurrency admission (draft Security Considerations) is
+ *   not modelled: nothing stays in flight, so no request is queued or refused.
  */
 import type { NappletMessage } from '@kehto/runtime';
 import type { CvmRegistryEntry } from '@napplet/core';

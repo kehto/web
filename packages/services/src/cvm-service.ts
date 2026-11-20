@@ -19,8 +19,12 @@
  * transport/shell-policy failures are returned in the envelope `error` field.
  *
  * `cvm.event` is fanned out to every window that holds an active session with
- * the originating server (a window opens a session by issuing a `cvm.request`
- * and closes it via `cvm.close` or window teardown).
+ * the originating server (a window opens a session when a `cvm.request` is
+ * accepted for the transport and closes it via `cvm.close` or window teardown).
+ *
+ * Admission (NAP-CVM #31 @ 28cf1bdb, Security Considerations): every operation
+ * that can reach the transport holds one slot of its endpoint's own budget
+ * from receipt until it settles. See `CvmServiceOptions.concurrency`.
  *
  * @example
  * ```ts
@@ -35,6 +39,7 @@
 import type { ApprovalSignal, ServiceHandler } from '@kehto/runtime';
 import type { CvmDiscoverQuery, CvmRequestOptions, CvmServer, CvmServerRef, McpMessage } from './cvm-types.js';
 import type { CvmRegistryFamily } from './cvm-registry-types.js';
+import type { CvmConcurrencyOptions } from './cvm-admission.js';
 
 /**
  * Abstract ContextVM transport. Implementors own Nostr relay access, signing,
@@ -66,6 +71,13 @@ export interface CvmServiceOptions {
   transport: CvmTransport;
   /** Optional operator-selected providers and pinned CEP-15 family memberships. */
   registry?: readonly CvmRegistryFamily[];
+  /**
+   * Per-endpoint admission limits for `cvm.discover`, `cvm.request`, and
+   * `cvm.registry.*`. Defaults to 8 running and 32 queued operations per
+   * authenticated endpoint. Queued time counts against the request deadline;
+   * an operation arriving with both full is refused with `policy denied`.
+   */
+  concurrency?: CvmConcurrencyOptions;
 }
 
 /** The created CVM service, exposing the handler plus a disposal hook. */

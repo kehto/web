@@ -384,6 +384,7 @@ function createDevServices(
   const registry = mergeCvmFamilies(multiplayerConfig?.registry ?? [], readCvmFamilies());
   const multiplayer = multiplayerConfig && getSimulation().relay.mode === 'live' && backend.isAvailable()
     ? createPajaMultiplayerServices({ config: { ...multiplayerConfig, registry }, scopeKey,
+      concurrency: getSimulation().cvm.concurrency,
       namespace: windowId => getIdentity?.(windowId).signalingNamespace,
       backend: (windowId, isCurrent) => scopeFor(windowId, isCurrent).backend,
     }) : null;
@@ -391,6 +392,7 @@ function createDevServices(
     const cvm = (relay: PajaRelayBackend) => {
       const service = createCvmService({
         registry,
+        concurrency: getSimulation().cvm.concurrency,
         transport: createNostrCvmTransport({
           defaultRelays: relayConfig.allRelays, pool: createPajaCvmRelayPool(relay),
           clientInfo: { name: '@kehto/paja', version: '0.11.0' },

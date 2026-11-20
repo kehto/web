@@ -234,7 +234,8 @@ export function createNostrCvmTransport(
   const streamProbeTimeoutMs = options.streamProbeTimeoutMs ?? DEFAULT_STREAM_PROBE_TIMEOUT_MS;
 
   const sessions = new Map<string, ServerSession>();
-  // Hosts own per-napplet concurrency admission; this transport has no caller principal.
+  // This transport has no caller principal, so it does not cap this map. The CVM
+  // service admits work per authenticated endpoint before calling in (cvm-operations.ts).
   const pending = new Map<string, PendingRequest>();
   const eventHandlers = new Set<EventHandler>();
   const relayRefcount = new Map<string, number>();

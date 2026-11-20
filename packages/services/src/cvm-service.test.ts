@@ -90,7 +90,7 @@ describe('createCvmService', () => {
       svc.handleMessage(WINDOW, { type: 'cvm.discover', id: 'd1', query: { search: 'relay' } } as NappletMessage, send);
       await flush();
       expect(sent).toEqual([{ type: 'cvm.discover.result', id: 'd1', servers }]);
-      expect(transport.discover).toHaveBeenCalledWith({ search: 'relay' });
+      expect(transport.discover).toHaveBeenCalledWith({ search: 'relay' }, { signal: expect.any(AbortSignal) });
     });
 
     it('returns empty servers + error string on transport failure', async () => {
@@ -117,7 +117,7 @@ describe('createCvmService', () => {
       expect(authorizeOperation).toHaveBeenCalledWith(WINDOW, 'cvm.request', expect.arrayContaining([
         expect.objectContaining({ category: 'interface', domain: 'cvm', operation: 'access' }),
         expect.objectContaining({ category: 'network', domain: 'cvm', operation: 'cvm.request', scope: { kind: 'origin', value: 'wss://relay.example' } }),
-      ]), expect.any(Function), undefined);
+      ]), expect.any(Function), expect.any(AbortSignal));
       expect(transport.request).toHaveBeenCalledTimes(1);
       expect(sent).toEqual([expect.objectContaining({ type: 'cvm.request.result', id: 'approved' })]);
     });
@@ -150,8 +150,13 @@ describe('createCvmService', () => {
       expect(transport.request).toHaveBeenCalledWith(
         SERVER,
         { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'x' } },
-        { initialize: true },
+        // The service owns the deadline from receipt and hands over what is left of it.
+        { initialize: true, timeoutMs: expect.any(Number) },
+        { signal: expect.any(AbortSignal) },
       );
+      const timeoutMs = vi.mocked(transport.request).mock.calls[0][2]!.timeoutMs!;
+      expect(timeoutMs).toBeGreaterThan(29_000);
+      expect(timeoutMs).toBeLessThanOrEqual(30_000);
     });
 
     it('rejects with "server not found" when server pubkey is missing', async () => {

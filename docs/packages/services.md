@@ -88,6 +88,42 @@ families, `registry.has` returns false and other registry methods return
 `unsupported method`. The injected namespace accepts canonical selectors and
 warns once per iframe on old string-family calls; see the compatibility register.
 
+### CVM admission
+
+`createCvmService({ transport, concurrency })` bounds each authenticated endpoint
+(runtime window id) separately, following the NAP-CVM
+[draft #31](https://github.com/napplet/naps/blob/28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f/naps/NAP-CVM.md)
+Security Considerations (shells SHOULD apply per-napplet concurrency limits).
+
+| Option | Default | Meaning |
+|--------|---------|---------|
+| `concurrency.maxInFlight` | `8` (`DEFAULT_CVM_MAX_IN_FLIGHT`) | Operations one endpoint may have running. Integer >= 1. |
+| `concurrency.maxQueued` | `32` (`DEFAULT_CVM_MAX_QUEUED`) | Operations one endpoint may have waiting, first in first out. Integer >= 0; `0` refuses instead of queueing. |
+
+- One `cvm.discover`, `cvm.request`, or `cvm.registry.*` envelope holds one slot
+  from receipt until it settles. A registry call keeps its single slot across its
+  schema check and invocation. `cvm.close` is never queued or refused.
+- The deadline starts at receipt. Queueing and approval spend the same budget, and
+  the transport receives only the time left. A request that expires in the queue
+  returns `relay timeout` and is never published. `cvm.request` now validates
+  `timeoutMs` (integer 1..300,000, default 30,000) before admission.
+- With slots and queue both full, the operation is refused at once with
+  `policy denied`. Spec gap: the draft's error table has no load-shedding entry,
+  so the service reuses the shell-policy error rather than inventing a string.
+- Slots return on result, error, deadline, `cvm.close` (pending and queued work
+  for that server completes with `session closed` before the acknowledgement),
+  approval cancellation, permission revocation, window destroy, unregistration,
+  and `dispose()`. Aborted work also aborts the signal the transport was given.
+- Endpoints never share a budget. Two windows of the same napplet are two
+  endpoints. When the runtime retires an endpoint and registers a new source under
+  the same window id, the new source starts with a full budget. Hosts that
+  replace a source without notifying services keep counting the old source's
+  running work against that window id until it settles.
+- A session is recorded when a request is handed to the transport, not when it
+  succeeds, so a failed or timed-out request no longer leaves a transport session
+  and relay hold behind after its endpoint closes or goes away. The number of
+  distinct server sessions one endpoint may hold open is not capped.
+
 - Provides reference service handlers that host apps register with `runtime.registerService()`.
 - The CVM Nostr transport rejects noninteger request durations or values outside
   1..300,000ms with `invalid timeout` before session acquisition or publication
@@ -96,11 +132,10 @@ warns once per iframe on old string-family calls; see the compatibility register
   `relay timeout`. CEP-22 buffers live for the remaining request budget, bounded
   by `min(request timeout, 300_000)`; progress never extends it. CEP-41 closes with
   remaining gaps fail immediately, including boundless closes. Outbound oversized requests
-  are unsupported; encrypted arguments must fit one NIP-44 message. Hosts own
-  per-napplet concurrency admission before invoking the transport, which has no
-  caller principal; Kehto does not yet enforce this cap (follow-up tracked in
-  [#355](https://github.com/kehto/web/issues/355)). Sessions and relay holds remain
-  until close or disposal; frame caps do not bound pending request count.
+  are unsupported; encrypted arguments must fit one NIP-44 message. The transport
+  has no caller principal and no pending-request cap of its own; `createCvmService`
+  admits work per endpoint before invoking it (see CVM admission below). Transport
+  sessions and relay holds remain until close or disposal.
   Correlation IDs and ping nonces use random bytes rather than per-ID key derivation. These policies follow [NAP-CVM #31 at
   `28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f`](https://github.com/napplet/naps/blob/28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f/naps/NAP-CVM.md)
   and [CEP-41](https://github.com/contextvm/contextvm-docs/blob/3b4f9dc9f9012a418abd9faec6a70db774754862/src/content/docs/reference/ceps/cep-41.md).
