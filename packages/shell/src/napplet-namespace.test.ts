@@ -228,6 +228,35 @@ function runPrelude(script: string, target: PreludeTestWindow): void {
   new Function('window', source)(target);
 }
 
+describe('napplet request correlation ids', () => {
+  // kehto/web#351: these ids only pair a napplet's own request with its result
+  // inside one private MessagePort, so the realm may fall back to a non-random
+  // source where a sandboxed frame on non-localhost HTTP has no randomUUID.
+  it('still sends distinct request ids when the napplet realm has no crypto.randomUUID', async () => {
+    const target = createPreludeTestWindow();
+    (target as { crypto: unknown }).crypto = { getRandomValues: (bytes: Uint8Array) => bytes };
+    runPrelude(renderNappletNamespacePrelude({ domains: ['cvm'] }), target);
+    const registry = (target.napplet!.cvm as { registry: Record<string, (...args: unknown[]) => Promise<unknown>> }).registry;
+    target.onPortPost = message => target.dispatchParentMessage({ type: `${message.type}.result`, id: message.id, has: true });
+    await expect(registry.has({ family: 'rooms' })).resolves.toBe(true);
+    await expect(registry.has({ family: 'rooms' })).resolves.toBe(true);
+    const ids = target.postedMessages.filter(message => message.type === 'cvm.registry.has').map(message => message.id);
+    expect(ids).toHaveLength(2);
+    expect(new Set(ids).size).toBe(2);
+    for (const id of ids) expect(id).toMatch(/^napplet-\d+-/);
+  });
+
+  it('calls native randomUUID on the realm Crypto receiver', async () => {
+    const target = createPreludeTestWindow();
+    const provider = { randomUUID(this: unknown) { if (this !== provider) throw new TypeError('Illegal invocation'); return 'native-id'; } };
+    (target as { crypto: unknown }).crypto = provider;
+    runPrelude(renderNappletNamespacePrelude({ domains: ['cvm'] }), target);
+    const registry = (target.napplet!.cvm as { registry: Record<string, (...args: unknown[]) => Promise<unknown>> }).registry;
+    void registry.has({ family: 'rooms' });
+    expect(target.postedMessages.at(-1)).toMatchObject({ type: 'cvm.registry.has', id: 'native-id' });
+  });
+});
+
 describe('CVM registry injected binding', () => {
   it('uses canonical selectors before shell.ready and ignores untrusted results', async () => {
     const target = createPreludeTestWindow();

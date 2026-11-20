@@ -804,6 +804,12 @@ the next iframe reload.
   HMR still resolve against the app dev server through the injected `<base>`.
 - Does not guess framework dev-server ports, mutate app build tooling, or add
   framework-specific adapters.
+- Mints frame-admission `instanceId`, intent-launcher window ids and launch
+  correlations, and NIP-46 request ids with the `@kehto/shell` `randomUUID` helper,
+  so they stay secure on origins without `crypto.randomUUID()` (non-localhost plain
+  HTTP). Development-target hashing, filesystem hashing, WebRTC, and the LLM vault
+  still need `crypto.subtle` and stay unavailable there; see the
+  [shell package doc](https://github.com/kehto/web/blob/main/docs/packages/shell.md#uuid-support-on-http-origins).
 
 ## API Reference
 

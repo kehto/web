@@ -267,6 +267,10 @@ function nappletNamespacePrelude(
   type RuntimeMessage = { type: string; id?: string; [key: string]: unknown };
   type Listener = (event: MessageEvent) => void;
 
+  // Correlation only: pairs this realm's own requests with their results on
+  // its private port. A sandboxed frame on non-localhost HTTP has no
+  // randomUUID, so a non-random fallback is acceptable here; host identifiers
+  // use the secure `randomUUID` helper instead (docs/packages/shell.md).
   function id(): string {
     if (target.crypto?.randomUUID) return target.crypto.randomUUID();
     return `napplet-${Date.now()}-${Math.random().toString(16).slice(2)}`;

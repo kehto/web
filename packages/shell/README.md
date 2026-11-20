@@ -212,6 +212,7 @@ then the shell leaves them out and logs `[KEHTO_SERVICE_NOT_REGISTERED]` once.
 - `ShellBridge` — interface type for the returned bridge
 
 ### Hooks adapter
+- `randomUUID` — secure UUID v4 for host identifiers; falls back to `crypto.getRandomValues()` where the browser omits `crypto.randomUUID()` and throws when neither exists
 - `adaptHooks` — convert a `ShellAdapter` + `BrowserDeps` into the canonical `RuntimeAdapter` hook bag consumed by `@kehto/runtime`
 - `ShellAdapter.aclDefaultPolicy?` — `'permissive' | 'restrictive'`, forwarded to the runtime. See the `@kehto/runtime` docs for how it treats persisted ACL state.
 
@@ -411,16 +412,32 @@ This non-normative guidance defers to the living [NAP-LLM](https://github.com/na
 
 ## UUID support on HTTP origins
 
-Shell event injection, cache queries, and source-session registration use native
-`crypto.randomUUID()` when available. On browsers that omit it (including
-non-localhost plain HTTP origins), the shell generates UUID v4 identifiers from
-16 `crypto.getRandomValues()` bytes. If both methods are unavailable, UUID
-creation throws an explicit capability error. This internal host UUID helper
-never falls back to weak randomness; other identifier generators are outside
-its scope. It does not provide secure-context APIs such as `crypto.subtle` on
-HTTP, so this change does not establish HTTP support for uploads or other domains.
+Host identifiers that must be unguessable come from `randomUUID`, exported by
+`@kehto/shell`. It calls native `crypto.randomUUID()` on its `Crypto` receiver
+when available. On browsers that omit it (including non-localhost plain HTTP
+origins), it builds a UUID v4 from 16 `crypto.getRandomValues()` bytes. If both
+methods are unavailable it throws an explicit capability error; it never falls
+back to weak randomness. `@kehto/services` has no dependency on the shell, so
+it keeps a private twin of the same function; `tests/unit/random-uuid-sync.test.ts`
+fails when the two bodies drift.
+
+Each identifier has one of three contracts:
+
+| Contract | Identifiers | Without `crypto.randomUUID` |
+|----------|-------------|-----------------------------|
+| Secure, fails explicitly | Shell event-injection subscription ids, cache-query ids, and the `RuntimeAdapter` `crypto.randomUUID` hook (injected event ids, relay query ids, NAP-INC channel ids, approval request ids); source-session `instanceId` in the shell and in Paja frame admission; Paja intent-launcher window ids and launch correlations; Paja NIP-46 request ids; default upload ids (`createUploadService`); the browser media backend's `media-resource-*` read ids, which share a window's resource-request id space with the napplet; registry JSON-RPC ids in `createCvmService` | UUID v4 from `crypto.getRandomValues()`, or a thrown capability error when that is missing too |
+| Correlation only, uniqueness from a counter or timestamp | Injected napplet-namespace request ids (the napplet realm pairing its own requests on its private port); default LLM connection handles and synthesized tool-call ids (window- and conversation-scoped); notification ids; Paja filesystem mount ids and LLM panel connection ids | Feature-detected; a counter or timestamp keeps ids unique. These ids are never credentials |
+| Behind `crypto.subtle` | Paja WebRTC session, nonce, and peer ids (`browser-webrtc.ts`, `browser-webrtc-profile.ts`) | Unavailable. Both paths need `crypto.subtle` before they mint an id, and every browser context that has `crypto.subtle` also has `crypto.randomUUID` |
+
+A UUID fallback does not provide secure-context APIs. `crypto.subtle` stays
+unavailable on non-localhost HTTP, so SHA-256 digest paths still fail there:
+approval-scoped uploads and the default `createHttpUploader` digest, CVM
+schema-hash verification and progress tokens, Paja development-target and
+filesystem hashing, and the Paja LLM vault. This section does not establish
+HTTP support for uploads, CVM, or any other domain.
 
 This is a supported platform capability choice, not a deprecated caller API.
-Both standard Web Crypto paths remain quiet. Source-bound identity and optional
-shell readiness are unchanged (NAP-SHELL at `napplet/naps`
-`1e1046bcadabbc552804f6d3354f565184f9fefb`).
+Both standard Web Crypto paths remain quiet. Identifier generation is host
+implementation policy: no NAP wire message, source-trust rule, or readiness
+rule changes. Source-bound identity and optional shell readiness are unchanged
+(NAP-SHELL at `napplet/naps` `377bf939c6c906817084b43dd21d424de646dbc2`).
