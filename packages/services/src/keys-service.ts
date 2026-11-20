@@ -41,11 +41,10 @@
 
 import type { NappletMessage } from '@napplet/core';
 import { createUnrecognizedTypeDiagnostic } from '@kehto/runtime';
-import type { ApprovalSignal, ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
+import type { ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
 import type {
   KeysForwardMessage,
   KeysRegisterActionMessage,
-  KeysRegisterActionResultMessage,
   KeysActionMessage,
 } from '@napplet/nap/keys/types';
 import {
@@ -61,6 +60,7 @@ import {
   type ActionEntry,
   type ChordSpec,
 } from './keys-service-internals.js';
+import { authorizeRegisterAction, sendRegisterActionResult } from './keys-register-authorization.js';
 
 /**
  * Minimal structural subset of the DOM `KeyboardEvent` exposed to
@@ -293,22 +293,6 @@ function createKeysMessageHandler(options: {
   };
 }
 
-function sendRegisterActionResult(
-  send: SendNappletMessage,
-  message: KeysRegisterActionMessage,
-  binding?: string,
-  error?: string,
-): void {
-  const result: KeysRegisterActionResultMessage & { error?: string } = {
-    type: 'keys.registerAction.result',
-    id: message.id,
-    actionId: message.action.id,
-    ...(binding ? { binding } : {}),
-    ...(error ? { error } : {}),
-  };
-  send(result as NappletMessage);
-}
-
 function pushChangedBindings(
   changedWindowIds: Iterable<string>,
   registry: ReadonlyMap<string, ActionEntry>,
@@ -360,29 +344,14 @@ export function createKeysService(
     return generation;
   };
   const current = (windowId: string, generation: symbol): boolean => generations.get(windowId) === generation;
-  const authorizeRegister = (windowId: string, message: KeysRegisterActionMessage, send: SendNappletMessage, register: RegisterActionHandler): void => {
-    if (!message.action || typeof message.action.id !== 'string' || message.action.id.length === 0 || message.action.id.length > 256) {
-      sendRegisterActionResult(send, message, undefined, 'invalid action');
-      return;
-    }
-    let chordScope: string | undefined;
-    if (message.action.defaultKey) {
-      try { chordScope = formatChord(parseChord(message.action.defaultKey)); }
-      catch (error) { sendRegisterActionResult(send, message, undefined, `invalid chord: ${(error as Error).message}`); return; }
-    }
-    const generation = generationFor(windowId);
-    const guardedSend: SendNappletMessage = (outbound) => { if (current(windowId, generation)) send(outbound); };
-    const run = async (signal?: ApprovalSignal): Promise<void> => {
-      if (!current(windowId, generation) || signal?.aborted) throw new Error('policy denied');
-      register(windowId, message, guardedSend);
-    };
-    if (!runtime?.authorizeOperation) { void run(); return; }
-    void runtime.authorizeOperation(windowId, 'keys.registerAction', [
-      { category: 'interface' as const, domain: 'keys', operation: 'access', scope: { kind: 'exact' as const, value: 'keys' } },
-      { category: 'resource' as const, domain: 'keys', operation: 'keys.registerAction', scope: { kind: 'exact' as const, value: `keys:action:${message.action.id}` } },
-      ...(chordScope ? [{ category: 'resource' as const, domain: 'keys', operation: 'keys.registerAction', scope: { kind: 'exact' as const, value: `keys:chord:${chordScope}` } }] : []),
-    ], (signal) => run(signal)).catch(() => undefined);
+  const lifetimes = new Map<string, symbol>();
+  const liveSource = (windowId: string): (() => boolean) => {
+    const token = lifetimes.get(windowId) ?? Symbol(windowId);
+    lifetimes.set(windowId, token);
+    return () => lifetimes.get(windowId) === token;
   };
+  const authorizeRegister = (windowId: string, message: KeysRegisterActionMessage, send: SendNappletMessage, register: RegisterActionHandler): void =>
+    authorizeRegisterAction({ runtime: () => runtime, generationFor, current, liveSource }, windowId, message, send, register);
   const descriptor: ServiceDescriptor = {
     name: 'keys',
     version: KEYS_SERVICE_VERSION,
@@ -541,6 +510,8 @@ export function createKeysService(
       }),
 
       onWindowDestroyed(windowId: string): void {
+        generations.delete(windowId);
+        lifetimes.delete(windowId);
         const actions = bridgeWindowActions.get(windowId);
         if (!actions) return;
         for (const actionId of actions) {
@@ -727,6 +698,8 @@ export function createKeysService(
     }),
 
     onWindowDestroyed(windowId: string): void {
+      generations.delete(windowId);
+      lifetimes.delete(windowId);
       const actions = windowActions.get(windowId);
       if (actions) {
         for (const actionId of actions) actionRegistry.delete(actionRegistryKey(windowId, actionId));
