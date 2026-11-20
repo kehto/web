@@ -110,8 +110,12 @@ export function createPolicyDenialResult(message: NappletMessage, reason: string
  * 8869a4cf, NAP-MEDIA #10 @ 7806f438, NAP-NOTIFY #11 @ 67877ef6, NAP-STORAGE #3
  * @ 4f4cf0ca, NAP-CONFIG #14 @ bed9cb5b, NAP-RESOURCE #80 @ ae5b9c64, NAP-CVM
  * #31 @ 28cf1bdb, NAP-OUTBOX #32 @ 8865f73d, NAP-UPLOAD #33 @ f5cc981e, NAP-DM
- * #74 @ 2c4e4423, NAP-FS #88 @ bd1b9e91, NAP-LLM #134 @ 5e93bdfc, and
- * NAP-IDENTITY / NAP-INC / NAP-THEME / NAP-INTENT on master @ 377bf939.
+ * #74 @ 2c4e4423, NAP-FS #88 @ bd1b9e91, NAP-LLM #134 @ 5e93bdfc, NAP-COMMON
+ * #67 @ 8cd0eae8, NAP-LISTS #68 @ 7cf00cdb, NAP-SERIAL #61 @ 0c6e88ab, NAP-BLE
+ * #62 @ b46b8691, NAP-WEBRTC #59 @ fb4dd6f0, NAP-LINK #53 @ 100e5c93,
+ * NAP-GAMEPAD #130 @ 0b28f77e, and NAP-IDENTITY / NAP-INC / NAP-THEME /
+ * NAP-INTENT on master @ 377bf939. Every runtime-dispatched domain has a row,
+ * so a firewall drop of a defined request keeps its reply.
  */
 const NAPPLET_REQUEST_ACTIONS: Readonly<Record<string, readonly string[]>> = {
   relay: ['subscribe', 'close', 'publish', 'publishEncrypted', 'query'],
@@ -132,6 +136,13 @@ const NAPPLET_REQUEST_ACTIONS: Readonly<Record<string, readonly string[]>> = {
   dm: DM_REQUESTS.map((type) => type.slice('dm.'.length)),
   fs: FS_REQUESTS.map((type) => type.slice('fs.'.length)),
   llm: ['select', 'describe', 'generate', 'cancel'],
+  common: ['getProfile', 'follows', 'follow', 'unfollow', 'react', 'report', 'encodeNip19', 'decodeNip19'],
+  lists: ['supported', 'add', 'remove'],
+  serial: ['open', 'write', 'close'],
+  ble: ['open', 'services', 'read', 'write', 'subscribe', 'unsubscribe', 'close'],
+  webrtc: ['open', 'send', 'sendBytes', 'close'],
+  link: ['open'],
+  gamepad: ['subscribe', 'unsubscribe'],
 };
 
 const NAPPLET_REQUEST_TYPES: ReadonlySet<string> = new Set(Object.entries(NAPPLET_REQUEST_ACTIONS)

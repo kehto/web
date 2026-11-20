@@ -5,6 +5,7 @@ import type { NappletMessage } from '@napplet/core';
 import { createRuntime } from '@kehto/runtime';
 import { createMockNapEnvironment } from '@kehto/mocks';
 import { createMockRuntimeAdapter, createNip5dSessionEntry } from '../../packages/runtime/src/test-utils.js';
+import { createDenialResponse } from '../../packages/runtime/src/legacy-firewall-gate.js';
 import { PROBE_WINDOW, SERVICE_PROBES, probeService, serviceFactoryExports, settle, unknownTypesFor } from './unknown-type-probes.js';
 
 const installedNapDist = 'packages/paja/node_modules/@napplet/nap/dist';
@@ -778,6 +779,18 @@ describe('unrecognized message types get no reply (NIP-5D)', () => {
     expect(ctx.sent).toEqual([]);
     runtime.destroy();
     warn.mockRestore();
+  });
+
+  it('the shared ACL/firewall denial projection drops unknown types but keeps known ones', () => {
+    for (const type of BUILT_IN.flatMap(unknownTypesFor)) {
+      expect(createDenialResponse({ type, id: 'probe', subId: 's1' } as NappletMessage, 'firewall: blocked')).toBeNull();
+    }
+    // Defined requests in every runtime-dispatched domain keep a reply (here the
+    // pre-existing generic projection, a separate spec gap in RUNTIME-SPEC.md).
+    for (const type of ['serial.open', 'ble.read', 'common.encodeNip19', 'lists.add', 'webrtc.open', 'link.open',
+      'gamepad.subscribe', 'keys.registerAction', 'config.get', 'notify.send', 'storage.get']) {
+      expect(createDenialResponse({ type, id: 'probe' } as NappletMessage, 'firewall: blocked'), type).not.toBeNull();
+    }
   });
 
   it('every NAP mock ignores unknown types', async () => {
