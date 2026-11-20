@@ -43,7 +43,6 @@ import { createRelayEventResultWithHints, type RelayEventResult } from '@kehto/r
 import type {
   OutboxResult,
   OutboxPublishResult,
-  OutboxRelayPlan,
   OutboxEventOptions,
   OutboxEventResult,
   OutboxQueryOptions,
