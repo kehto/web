@@ -842,5 +842,11 @@ callers should generate fresh IDs because older completed entries are evicted.
 
 WebRTC plans declare every configured ICE endpoint before approval. The reference
 handler requests typed `network`/`ice` scopes; it invokes no peer hook on denial.
-Synchronous send failures return the matching result ID. Optional `sendBytes` and
-`stats` currently return `unsupported` results.
+Synchronous send failures return the matching result ID. `sendBytes` currently
+returns `unsupported`, as NAP-WEBRTC requires of a shell without byte payloads. A
+`stats` request gets no reply, since NAP-WEBRTC defines `stats` only as a pushed
+event.
+
+Every reference service drops a message whose type its NAP does not define,
+without a reply (NIP-5D), and warns the host once per domain/type through
+`createUnrecognizedTypeDiagnostic` from `@kehto/runtime`.

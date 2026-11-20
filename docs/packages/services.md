@@ -11,8 +11,10 @@ Reference service handlers for Kehto runtime implementations.
 WebRTC opening uses a side-effect-free signaling plan before runtime approval.
 The reference handler requires separate `network` permissions with typed `ice`
 scopes for each configured STUN/TURN endpoint. This does not constrain direct
-iframe networking, which remains a launch-policy concern. Optional bytes/stats
-requests return correlated `unsupported` results until a host implements them.
+iframe networking, which remains a launch-policy concern. Without a byte hook,
+`webrtc.sendBytes` returns a correlated `unsupported` result, as NAP-WEBRTC
+requires. A `webrtc.stats` request gets no reply: NAP-WEBRTC defines `stats`
+only as a pushed event.
 
 OUTBOX and COUNT resolve relay destinations before approval. Their remote
 backends receive the approved immutable URL list and cancellation signal; local
@@ -25,7 +27,7 @@ service instance with `FW-OUTBOX-LEGACY-001`. See [compatibility](/compatibility
 The reference LINK service integrates shared runtime approvals after URL
 validation. A LINK grant never gives direct network access. Runtime cancellation
 and source replacement prevent stale opens/results; repeated request IDs cannot
-reopen a link. Unknown methods are silent. The temporary host-only opener path
+reopen a link. The temporary host-only opener path
 emits `FW-LINK-LEGACY-001` once per instance. See
 [the approval guide](/firewall-approvals) for its migration contract and the
 remaining launch admission and host approval UI work.
@@ -33,6 +35,13 @@ remaining launch admission and host approval UI work.
 > **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
 > protocol. Service envelopes and NAP contracts are not final.
 
+
+Every reference service drops a message whose type its NAP does not define,
+with no reply, as NIP-5D requires. That includes a `webrtc.stats` request, which
+NAP-WEBRTC defines only as a pushed event. The host gets one
+`[KEHTO_UNRECOGNIZED_MESSAGE_TYPE]` warning per domain/type through
+`createUnrecognizedTypeDiagnostic` from `@kehto/runtime`. A known type with a
+bad payload still gets the domain's specified failure result.
 ## Install
 
 ```bash

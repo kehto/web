@@ -56,6 +56,7 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
 | Session and manifests | `createSessionRegistry`, `createNappKeyRegistry`, `createManifestCache`, `SessionRegistry`, `NappKeyRegistry`, `ManifestCache` |
 | State and replay | `createAclState`, `handleStorageNap`, `cleanupNappState`, `createReplayDetector`, `createEventBuffer`, `matchesFilter`, `matchesAnyFilter`, `RING_BUFFER_SIZE` |
 | Service dispatch | `routeServiceMessage`, `notifyServiceWindowDestroyed`, `ServiceHandler`, `ServiceRegistry`, `ServiceInfo` |
+| Unrecognized types | `createUnrecognizedTypeDiagnostic`, `KEHTO_UNRECOGNIZED_MESSAGE_TYPE`, `UNRECOGNIZED_TYPE_WARNING_LIMIT`, `IgnoreUnrecognizedType`, `UnrecognizedTypeDiagnosticOptions` |
 | Re-exports | `Capability`, `ALL_CAPABILITIES`, `ServiceDescriptor` |
 
 ## Scope Boundaries
@@ -142,7 +143,9 @@ ACL and legacy Firewall denials answer each recognized request on its owning
 NAP's failure wire, never an invented `<type>.error`. A denied `cvm.*` request
 gets its matching `.result` with `error: "policy denied"` (NAP-CVM #31 at
 `28cf1bdb`); `relay`, `outbox`, `upload.upload`, `count`, `notify`, `dm` and
-`fs` follow their own NAPs, and requests with no defined reply stay silent. The
+`fs` follow their own NAPs, and requests with no defined reply stay silent. A
+denied type that its NAP does not define as a napplet request gets no reply in
+any domain. The
 per-type table, refs and remaining spec gaps are in
 [RUNTIME-SPEC.md](https://github.com/kehto/web/blob/main/RUNTIME-SPEC.md).
 
@@ -186,6 +189,31 @@ A request for a service-only domain with no handler is dropped without a reply:
 [NIP-5D at `f60550c`](https://github.com/dskvr/nips/blob/f60550c3409d6d81a875088ec83e660571e10504/5D.md) requires unrecognized types to be silently ignored. The runtime logs
 `[KEHTO_UNROUTED_SERVICE_DOMAIN]` once per domain per runtime, naming the domain
 only. See [Services that arrive late](/how-tos/register-service#services-that-arrive-late).
+
+### Unrecognized message types
+
+A type that the owning NAP does not define gets no reply from any runtime handler,
+from any `@kehto/services` reference service, or through the ACL/firewall denial
+path. This holds even when a capability would be denied, because NIP-5D says
+"Unrecognized message types are silently ignored, preventing capability probing."
+A known type with a malformed payload still gets its NAP's failure result.
+
+`createUnrecognizedTypeDiagnostic()` gives a service the matching host-side
+diagnostic. Call it once per service instance, drop the message, and call the
+returned function with your domain and the incoming type:
+
+```ts
+import { createUnrecognizedTypeDiagnostic } from '@kehto/runtime';
+
+const ignoreUnrecognized = createUnrecognizedTypeDiagnostic();
+// inside handleMessage, after the known types:
+ignoreUnrecognized('serial', message.type); // no reply
+```
+
+It logs `[KEHTO_UNRECOGNIZED_MESSAGE_TYPE]` once per domain/type, for at most
+`UNRECOGNIZED_TYPE_WARNING_LIMIT` (16) types per instance, then goes quiet. It
+prints the type only when it is a plain `domain.action` string of up to 64
+characters, and never logs payloads or ids. Pass `{ warn }` to send it elsewhere.
 
 ### Registration and initialization limits
 

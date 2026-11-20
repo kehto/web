@@ -73,3 +73,20 @@ describe('runtime ACL denial projection', () => {
     expect(ctx.sent.some(({ message }) => (message as NappletMessage).type.endsWith('.error'))).toBe(false);
   });
 });
+
+// kehto/web#465. NIP-5D (nostr-protocol/nips#2303 @ dskvr/nips@f60550c3):
+// "Messages with an unrecognized `type` MUST be silently ignored." A denial is
+// a reply, so a blocked napplet probing an undefined type must get nothing.
+describe('runtime ACL denial of unrecognized types', () => {
+  const DOMAINS = ['relay', 'count', 'identity', 'keys', 'media', 'notify', 'storage', 'inc', 'theme', 'config',
+    'resource', 'cvm', 'outbox', 'upload', 'intent', 'dm', 'fs', 'llm'];
+
+  it.each(DOMAINS.flatMap((domain) => [`${domain}.bogus`, `${domain}.send.result`]))('%s gets no reply', (type) => {
+    const ctx = createMockRuntimeAdapter();
+    const runtime = createRuntime(ctx.hooks);
+    runtime.sessionRegistry.register(WINDOW_ID, createNip5dSessionEntry(WINDOW_ID, DTAG, HASH));
+    runtime.aclState.block('', DTAG, HASH);
+    runtime.handleMessage(WINDOW_ID, { type, id: 'probe', subId: 's1' } as NappletMessage);
+    expect(ctx.sent).toEqual([]);
+  });
+});
