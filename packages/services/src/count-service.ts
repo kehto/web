@@ -1,5 +1,6 @@
 import type { NappletMessage, NostrFilter } from '@napplet/core';
 import type { ApprovalSignal, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
+import { MAX_PERMISSION_REQUIREMENTS } from '@kehto/runtime';
 
 declare const console: { warn(message: string): void };
 
@@ -121,9 +122,16 @@ export function createCountService(options: CountServiceOptions): ServiceHandler
           }
           return options.count({ ...request, ...(relays ? { relays } : {}) });
         }
+        // One requirement per relay origin. A plan over the Firewall's request cap
+        // is `too-expensive` (NAP-COUNT draft napplet/naps#69 at `9353a0c6`,
+        // Error Handling), never a denial (kehto/web#455).
+        const origins = [...new Set((relays ?? []).map((url) => new URL(url).origin))];
+        if (origins.length > MAX_PERMISSION_REQUIREMENTS - 1) {
+          return { ok: false, error: 'too-expensive', reason: 'too many relays for one approval' };
+        }
         return runtime.authorizeOperation(windowId, 'count.query', [
           { category: 'interface', domain: 'count', operation: 'access', scope: { kind: 'exact', value: 'count' } },
-          ...(relays ?? []).map((url) => ({ category: 'network' as const, domain: 'count', operation: 'count.query', scope: { kind: 'origin' as const, value: new URL(url).origin } })),
+          ...origins.map((value) => ({ category: 'network' as const, domain: 'count', operation: 'count.query', scope: { kind: 'origin' as const, value } })),
         ], (signal) => signal.aborted ? { ok: false, error: 'policy-denied' } : options.count({ ...request, signal, ...(relays ? { relays } : {}) }))
           .then((outcome) => outcome.status === 'executed' && outcome.value ? outcome.value : { ok: false, error: 'policy-denied' });
       };

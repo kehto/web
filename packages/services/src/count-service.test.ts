@@ -150,6 +150,40 @@ describe('createCountService', () => {
     expect(count).not.toHaveBeenCalled();
   });
 
+  // kehto/web#455: the Firewall caps one request at MAX_PERMISSION_REQUIREMENTS.
+  // NAP-COUNT draft #69 @ 9353a0c6, Error Handling, lists `"too-expensive"`.
+  it('reports a relay plan over the approval cap as too-expensive, never a denial', async () => {
+    const count = vi.fn(() => 1);
+    const authorizeOperation = vi.fn();
+    const relays = Array.from({ length: 200 }, (_, index) => `wss://r${index}.example`);
+    const service = createCountService({ planCount: () => ({ relays }), count });
+    service.onRegistered?.({ authorizeOperation } as unknown as ServiceRuntimeContext);
+    const sent: NappletMessage[] = [];
+    service.handleMessage('window-a', { type: 'count.query', id: 'wide', filters: [{ kinds: [1] }] } as NappletMessage, (message) => sent.push(message));
+    await vi.waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]).toMatchObject({ type: 'count.query.result', id: 'wide', ok: false, error: 'too-expensive' });
+    expect(authorizeOperation).not.toHaveBeenCalled();
+    expect(count).not.toHaveBeenCalled();
+  });
+
+  it('asks for each relay origin once, however many paths share it', async () => {
+    const requirements: unknown[][] = [];
+    const relays = Array.from({ length: 200 }, (_, index) => `wss://same.example/r${index}`);
+    const service = createCountService({ planCount: () => ({ relays }), count: () => 3 });
+    service.onRegistered?.({ authorizeOperation: async (_windowId: string, _operation: string, required: readonly unknown[], execute: (signal: ApprovalSignal) => unknown) => {
+      requirements.push([...required]);
+      return { status: 'executed' as const, value: await execute(new AbortController().signal) };
+    } } as unknown as ServiceRuntimeContext);
+    const sent: NappletMessage[] = [];
+    service.handleMessage('window-a', { type: 'count.query', id: 'paths', filters: [{ kinds: [1] }] } as NappletMessage, (message) => sent.push(message));
+    await vi.waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]).toMatchObject({ ok: true, count: 3 });
+    expect(requirements[0]).toEqual([
+      { category: 'interface', domain: 'count', operation: 'access', scope: { kind: 'exact', value: 'count' } },
+      { category: 'network', domain: 'count', operation: 'count.query', scope: { kind: 'origin', value: 'wss://same.example' } },
+    ]);
+  });
+
   it('reports an approval aborted before execution as policy-denied', async () => {
     const count = vi.fn(() => 1);
     const service = createCountService({ count });
