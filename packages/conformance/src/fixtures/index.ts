@@ -3,6 +3,7 @@
  */
 import { IDENTITY_FIXTURE } from './identity.js';
 import { KEYS_FIXTURE } from './keys.js';
+import { MEDIA_FIXTURE } from './media.js';
 import { NOTIFY_FIXTURE } from './notify.js';
 import { OUTBOX_FIXTURE } from './outbox.js';
 import { RELAY_FIXTURE } from './relay.js';
@@ -20,5 +21,6 @@ export const FIXTURES: Readonly<Record<string, DomainFixture>> = Object.freeze(O
     OUTBOX_FIXTURE,
     KEYS_FIXTURE,
     NOTIFY_FIXTURE,
+    MEDIA_FIXTURE,
   ].map((fixture) => [fixture.domain, fixture]),
 ));
