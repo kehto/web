@@ -7,10 +7,10 @@
  * Pushes: cvm.event (progress notifications; scripted server notifications
  *         and server requests via controls)
  * Spec gaps / decisions:
- * - `@napplet/nap@0.32.0` registry envelopes carry `family: string`; the
- *   draft uses a `selector` record (`schemaHash` | `family`) and required
- *   `schemaHashes`. The mock follows the draft and declares those shapes
- *   locally (drift noted, not copied).
+ * - Registry shapes (`CvmRegistrySelector`, `CvmRegistryEntry`) come from
+ *   `@napplet/core` >= 0.42.0, which matches the draft (napplet/web#337,
+ *   kehto/web#441). The mock only narrows the entry: its seeded families
+ *   always carry a label, a selected provider and a provider list.
  * - Payment is never required by the seeded servers, so `payment required`/
  *   `payment denied` are never produced; `payment` is validated only.
  * - `cvm.close` on a server with no open session succeeds (the draft says
@@ -21,6 +21,7 @@
  * - `policy denied` is produced only for pubkeys listed in `deniedServers`.
  */
 import type { NappletMessage } from '@kehto/runtime';
+import type { CvmRegistryEntry } from '@napplet/core';
 import type { CvmServerRef, McpMessage } from '@napplet/nap/cvm/types';
 import { defineMockService, pushToWindow, type MockRouteContext } from '../core/handler.js';
 import type { MockDomainEntry, MockService, MockServiceOptions, NapSpecRef } from '../core/types.js';
@@ -88,20 +89,17 @@ export interface MockCvmSession {
 }
 
 /**
- * Registry entry wire shape (draft `CvmRegistryEntry`).
+ * Registry entry the mock returns: upstream `CvmRegistryEntry` with the
+ * optional label and provider fields always present.
  *
  * @example
  * ```ts
  * const entry: MockCvmRegistryEntry = { family: 'echo', schemaHashes: [], tools: [], selected: { pubkey: 'ab'.repeat(32) }, providers: [] };
  * ```
  */
-export interface MockCvmRegistryEntry {
+export interface MockCvmRegistryEntry extends CvmRegistryEntry {
   /** Shell-local family label. */
   family: string;
-  /** Family description. */
-  description?: string;
-  /** Distinct CEP-15 hashes of `tools`. */
-  schemaHashes: string[];
   /** Selected provider. */
   selected: CvmServerRef;
   /** Candidate providers. */
