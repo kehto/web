@@ -1,6 +1,7 @@
 /**
  * fixtures/index.ts — Every domain fixture, keyed by domain.
  */
+import { BLE_FIXTURE } from './ble.js';
 import { GAMEPAD_FIXTURE } from './gamepad.js';
 import { IDENTITY_FIXTURE } from './identity.js';
 import { LLM_FIXTURE } from './llm.js';
@@ -12,6 +13,7 @@ import type { DomainFixture } from './types.js';
 /** Fixtures the generic domain scenario runs. */
 export const FIXTURES: Readonly<Record<string, DomainFixture>> = Object.freeze(Object.fromEntries(
   [
+    BLE_FIXTURE,
     GAMEPAD_FIXTURE,
     IDENTITY_FIXTURE,
     LLM_FIXTURE,
