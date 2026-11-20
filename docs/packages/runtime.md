@@ -152,6 +152,19 @@ for examples, lifecycle rules, and specification bounds.
 
 ## API Reference
 
+### Service registry snapshot
+
+`createRuntime()` copies `RuntimeAdapter.services` once. Later changes go through
+`registerService()` and `unregisterService()`, which also run `onRegistered` and
+`onUnregistered` and bind the permission context; the runtime never writes to the
+host's `services` object. `hasService(name)` reports what is routed right now, and
+`@kehto/shell` uses it to keep advertisement in step with routing.
+
+A request for a service-only domain with no handler is dropped without a reply:
+[NIP-5D at `f60550c`](https://github.com/dskvr/nips/blob/f60550c3409d6d81a875088ec83e660571e10504/5D.md) requires unrecognized types to be silently ignored. The runtime logs
+`[KEHTO_UNROUTED_SERVICE_DOMAIN]` once per domain per runtime, naming the domain
+only. See [Services that arrive late](/how-tos/register-service#services-that-arrive-late).
+
 ### Registration and initialization limits
 
 `sessionRegistry.unregister(windowId)` removes registration and lookup state for

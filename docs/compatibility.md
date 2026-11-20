@@ -151,6 +151,40 @@ from `@kehto/rate-limit` and hold it to change configuration; legacy config pers
 is passed directly to `createFirewallState`. Types and exports provide compile-time
 migration diagnostics; removed JavaScript properties have no retained fallback.
 
+## KEHTO_SERVICE_NOT_REGISTERED — late adapter services, shell
+
+Identifier: `KEHTO_SERVICE_NOT_REGISTERED`. Owning package: `@kehto/shell`
+(with `Runtime.hasService` from `@kehto/runtime`).
+
+Old behavior: a handler added to `ShellAdapter.services` after
+`createShellBridge()` was advertised in `shell.init` and injected domains, while
+the runtime's creation-time copy never routed it, so requests went unanswered
+(kehto/web#428). That input is retired rather than kept: there was no working
+behavior to preserve. Replacement: also call
+`bridge.runtime.registerService(name, handler)`, and `unregisterService(name)`
+on removal.
+
+Warning: `console.warn` naming `[KEHTO_SERVICE_NOT_REGISTERED]`, the service and
+the replacement call, once per service per bridge, in
+`packages/shell/src/shell-init.ts`. Canonical wiring (declared at creation, or
+declared and registered) stays quiet. The related
+`[KEHTO_UNROUTED_SERVICE_DOMAIN]` line in
+`packages/runtime/src/domain-handlers.ts` is a host diagnostic, once per domain
+per runtime, for a request that reaches a service-only domain with no handler;
+the wire stays silent as NIP-5D requires.
+
+Tests: `packages/shell/src/shell-late-services.test.ts`,
+`packages/runtime/src/late-service-registration.test.ts` and
+`tests/unit/paja-service-registration.test.ts` cover the withheld advertisement
+and its warning, the quiet canonical paths, removal, and the adapter with no
+live bridge.
+
+Limit: an adapter that is not bound to a live bridge has no runtime to consult,
+so `buildShellCapabilities(adapter)` keeps reading declared services there.
+Removal prerequisite: none for the withheld advertisement, which is the fix. The
+warning can go once hosts have a declarative way to change services after
+creation.
+
 ## FW-COUNT-LEGACY-001 — unbound COUNT service
 
 `@kehto/services` retains direct `createCountService` execution when a host has

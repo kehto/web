@@ -124,6 +124,18 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
 
 ## API Reference
 
+### Advertisement follows routing
+
+While a bridge is live for an adapter, `buildShellCapabilities`,
+`resolveShellEnvironment` and `getShellDomainState` count a declared service as
+live only if `bridge.runtime.hasService(name)` is true. A handler added to
+`ShellAdapter.services` after `createShellBridge()` is left out of `shell.init`
+and domain injection, and logs `[KEHTO_SERVICE_NOT_REGISTERED]` once per service
+per bridge, until the host calls `bridge.runtime.registerService(name, handler)`.
+Unregistering stops advertisement for new frames. An adapter with no live bridge
+keeps the plain declared-services reading. See
+[Services that arrive late](/how-tos/register-service#services-that-arrive-late).
+
 ### Source environment lifetime
 
 Retire a window with `bridge.runtime.destroyWindow(windowId)`,

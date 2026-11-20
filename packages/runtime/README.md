@@ -325,6 +325,7 @@ token budgets. No limiter means there are no temporal counters to retire.
 - `routeServiceMessage` — policy-free domain selection primitive; never a fallback for untrusted ingress
 - `notifyServiceWindowDestroyed` — lifecycle fan-out to every service handler
 - Service-only NAP domains, including `dm` and `fs`, route through handlers registered with `runtime.registerService('<domain>', handler)`.
+- `RuntimeAdapter.services` is copied once at creation. Add later services with `registerService`, and check routing with `runtime.hasService('<domain>')`. A request for a domain with no handler is ignored on the wire (NIP-5D) and logged once as `[KEHTO_UNROUTED_SERVICE_DOMAIN]`.
 
 For domains outside the built-in dispatcher, handlers opt in with an exact
 `messageCapabilities` map (existing ACL capability or explicit `null` per inbound
