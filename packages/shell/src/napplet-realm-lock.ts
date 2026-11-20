@@ -28,11 +28,11 @@ type LockWindow = Window & {
   };
   Document?: { prototype: Document };
   DOMImplementation?: { prototype: DOMImplementation };
-  HTMLLinkElement?: { prototype: HTMLLinkElement };
+  HTMLLinkElement?: typeof HTMLLinkElement;
   DOMTokenList?: { prototype: DOMTokenList };
   Element?: { prototype: Element };
   NamedNodeMap?: { prototype: NamedNodeMap };
-  Attr?: { prototype: Attr };
+  Attr?: typeof Attr;
   Node?: { prototype: Node };
 };
 
@@ -187,7 +187,7 @@ function nappletHintLock(win: LockWindow, guards: HtmlGuard[]): void {
   const hasHint = (value: unknown): boolean => String(value ?? '').toLowerCase().split(/[\t\n\f\r ]+/).some((token) => HINTS.has(token));
   const reject = (): never => { throw new TypeError(message); };
   const LinkElement = win.HTMLLinkElement;
-  const isLink = (node: unknown): boolean => !!LinkElement && node instanceof (LinkElement as unknown as typeof HTMLLinkElement);
+  const isLink = (node: unknown): boolean => !!LinkElement && node instanceof LinkElement;
   const isRel = (name: unknown): boolean => String(name ?? '').split(':').pop()!.toLowerCase() === 'rel';
 
   const inert = win.document.implementation.createHTMLDocument('');
@@ -199,7 +199,7 @@ function nappletHintLock(win: LockWindow, guards: HtmlGuard[]): void {
     const fragments: ParentNode[] = [template.content];
     while (fragments.length) {
       const root = fragments.pop()!;
-      for (const element of [...root.querySelectorAll('link, template')]) {
+      for (const element of root.querySelectorAll('link, template')) {
         if (element.localName === 'template') fragments.push((element as HTMLTemplateElement).content);
         else if (hasHint(element.getAttribute('rel'))) return message;
       }
@@ -267,7 +267,7 @@ function nappletHintLock(win: LockWindow, guards: HtmlGuard[]): void {
 
   const AttrType = win.Attr;
   const guardsAttr = (self: unknown, value: unknown): boolean => {
-    if (!AttrType || !(self instanceof (AttrType as unknown as typeof Attr))) return false;
+    if (!AttrType || !(self instanceof AttrType)) return false;
     return isRel(self.localName) && hasHint(value) && (self.ownerElement === null || isLink(self.ownerElement));
   };
   for (const [object, name] of [[AttrType?.prototype, 'value'], [win.Node?.prototype, 'nodeValue'], [win.Node?.prototype, 'textContent']] as const) {

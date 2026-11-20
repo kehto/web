@@ -157,6 +157,45 @@ function observeFrameLoads(
   return () => frame.removeEventListener('load', onLoad);
 }
 
+/** Tripwire backstop for the nested-context lock: a locked napplet Window that holds a child frame. */
+function tripsNestedContext(windowId: string, win: Window | null): boolean {
+  return isNestedContextLocked(windowId) && hasNestedContext(win);
+}
+
+/**
+ * Why a window-level message must revoke instead of binding a port, or null for a valid first hello.
+ * NIP-5D: `napplet.hello` is the only window-level message a napplet sends, once, with exactly one port.
+ */
+function helloFailure(event: MessageEvent, alreadyBound: boolean): NappletRevocationReason | null {
+  if (alreadyBound) return isHello(event.data) ? 'second-hello' : 'window-message';
+  if (!isHello(event.data)) return 'window-message';
+  const ports = event.ports ?? [];
+  if (ports.length !== 1) {
+    for (const port of ports) port.close();
+    return 'invalid-hello';
+  }
+  return null;
+}
+
+/** Watch one frame: a second load revokes, and under the nested-context lock so does a child frame at load. */
+function observeNappletFrame(
+  frame: Pick<HTMLIFrameElement, 'addEventListener' | 'removeEventListener'>,
+  windowId: string,
+  observation: NappletFrameObservation,
+  revoke: (reason: NappletRevocationReason) => void,
+): () => void {
+  if (observation.nestedContextLock === true) setNestedContextLocked(windowId, true);
+  const stopLoads = observeFrameLoads(frame, () => revoke('second-load'));
+  const onLoad = (): void => {
+    if (tripsNestedContext(windowId, originRegistry.getIframeWindow(windowId))) revoke('nested-context');
+  };
+  frame.addEventListener('load', onLoad);
+  return () => {
+    stopLoads();
+    frame.removeEventListener('load', onLoad);
+  };
+}
+
 /** The session and readiness inputs for one bound window. */
 function sessionContext(
   { hooks, runtime, state }: Nip5dTransportOptions,
@@ -294,11 +333,8 @@ export function createNip5dTransport(options: Nip5dTransportOptions): Nip5dTrans
     const isCurrent = (): boolean => currentBinding(windowId) === binding;
     port.onmessage = (portEvent: MessageEvent) => {
       if (!isCurrent()) return;
-      if (isNestedContextLocked(windowId) && hasNestedContext(binding.sourceWindow)) {
-        revokeNapplet(windowId, 'nested-context');
-        return;
-      }
-      dispatchEnvelope(windowId, binding, portEvent.data);
+      if (tripsNestedContext(windowId, binding.sourceWindow)) revokeNapplet(windowId, 'nested-context');
+      else dispatchEnvelope(windowId, binding, portEvent.data);
     };
     // A host that already unregistered the window closed this port itself;
     // isCurrent() is then false and the stale binding was dropped.
@@ -322,22 +358,10 @@ export function createNip5dTransport(options: Nip5dTransportOptions): Nip5dTrans
       return;
     }
 
-    // NIP-5D: napplet.hello is the only window-level message a napplet sends.
-    if (currentBinding(windowId) || originRegistry.getPort(windowId)) {
-      revokeNapplet(windowId, isHello(event.data) ? 'second-hello' : 'window-message');
-      return;
-    }
-    if (!isHello(event.data)) {
-      revokeNapplet(windowId, 'window-message');
-      return;
-    }
-    const ports = event.ports ?? [];
-    if (ports.length !== 1) {
-      for (const port of ports) port.close();
-      revokeNapplet(windowId, 'invalid-hello');
-      return;
-    }
-    bindPort(windowId, sourceWindow, event.origin, ports[0]);
+    const bound = Boolean(currentBinding(windowId) || originRegistry.getPort(windowId));
+    const failure = helloFailure(event, bound);
+    if (failure) revokeNapplet(windowId, failure);
+    else bindPort(windowId, sourceWindow, event.origin, event.ports[0]);
   }
 
   function observeFrame(
@@ -345,19 +369,7 @@ export function createNip5dTransport(options: Nip5dTransportOptions): Nip5dTrans
     windowId: string,
     observation: NappletFrameObservation = {},
   ): () => void {
-    if (observation.nestedContextLock === true) setNestedContextLocked(windowId, true);
-    const stopLoads = observeFrameLoads(frame, () => revokeNapplet(windowId, 'second-load'));
-    // Tripwire backstop for the nested-context lock: checked on load, never polled.
-    const onLoad = (): void => {
-      if (isNestedContextLocked(windowId) && hasNestedContext(originRegistry.getIframeWindow(windowId))) {
-        revokeNapplet(windowId, 'nested-context');
-      }
-    };
-    frame.addEventListener('load', onLoad);
-    return () => {
-      stopLoads();
-      frame.removeEventListener('load', onLoad);
-    };
+    return observeNappletFrame(frame, windowId, observation, (reason) => revokeNapplet(windowId, reason));
   }
 
   function destroy(): void {
