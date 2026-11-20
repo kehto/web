@@ -60,6 +60,11 @@ are currently rejected; no result cache or automatic provider failover is used.
 `cvm.request` checks its MCP `message` against the NAP-CVM request, notification
 and response forms before admission; a missing message, batch, invalid id or
 invalid field combination returns `invalid message` and is never published.
+Notifications and responses complete on publication with a result that has
+only `type` and `id`, through the optional `CvmTransport.publish()` (transports
+without it fall back to `request()` and warn once, `KEHTO_CVM_TRANSPORT_PUBLISH`).
+A reused client request id or a response matching no delivered server request
+is `invalid message`, and a malformed `server` is `invalid request`.
 
 These transport limits do not claim implementation of every newer NAP-CVM
 session or payment field.
