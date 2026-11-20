@@ -171,7 +171,7 @@ it('does not warn or execute for a stale navigation with unavailable requirement
   const resolved = await target('current', ['experimental-nap']);
   const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
   const frame = { contentWindow: {} as Window, ownerDocument: LOCKED_HOST, srcdoc: '', getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
-  expect(await navigateFrame(frame, config, 1, adapter, runtime, resolved, undefined, () => false)).toBeNull();
+  expect(await navigateFrame(frame, config, 1, adapter, runtime, resolved, { isCurrent: () => false })).toBeNull();
   expect(frame.srcdoc).toBe('');
   expect(originRegistry.getIdentity(frame.contentWindow!)).toBeUndefined();
   expect(warn).not.toHaveBeenCalled();
@@ -191,7 +191,7 @@ it('holds verified bytes until approval and aborts a replaced frame without regi
     setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
   const controller = new AbortController();
   const pending = navigateFrame(frame, config, 1, adapter, runtime, resolved,
-    'old-generation', () => !controller.signal.aborted, undefined, controller.signal);
+    { windowId: 'old-generation', isCurrent: () => !controller.signal.aborted, signal: controller.signal });
   await visible;
   expect(frame.srcdoc).toBe('');
   expect(originRegistry.getIdentity(frame.contentWindow!)).toBeUndefined();

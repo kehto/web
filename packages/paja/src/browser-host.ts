@@ -302,13 +302,15 @@ function startFrameNavigation(
     adapter,
     bridge.runtime,
     state.resolvedTarget,
-    undefined,
-    isCurrentGeneration,
-    (windowId) => {
-      if (windowId) bridge.observeFrame(frame, windowId);
-      if (isCurrentGeneration()) runtime.currentWindowId = windowId;
+    {
+      isCurrent: isCurrentGeneration,
+      onRegistered: (windowId) => {
+        if (windowId) bridge.observeFrame(frame, windowId);
+        if (isCurrentGeneration()) runtime.currentWindowId = windowId;
+      },
+      signal: admissionController.signal,
+      revokeNapplet: (windowId) => bridge.revokeNapplet(windowId, 'host'),
     },
-    admissionController.signal,
   ).then((windowId) => {
     if (!isCurrentGeneration()) {
       unregisterSingleFrameWindow(bridge, runtime, windowId);
