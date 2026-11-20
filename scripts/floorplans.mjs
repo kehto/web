@@ -174,7 +174,7 @@ function coverageText(build) {
  * @param {{ short: string, url: string }} commit @param {string} builtAt @param {any} build @returns {string}
  */
 function stampHtml(commit, builtAt, build) {
-  const style = 'position:fixed;left:12px;bottom:12px;z-index:2147483000;font:12px/1.4 system-ui,sans-serif;'
+  const style = 'position:fixed;left:16px;bottom:64px;z-index:2147483000;font:12px/1.4 system-ui,sans-serif;'
     + 'background:rgba(20,20,24,.88);color:#e8e8ec;padding:6px 10px;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.3)';
   const link = 'color:#9fd0ff';
   return `<div data-kehto-floorplan-stamp style="${style}">`
