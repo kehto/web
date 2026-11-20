@@ -1,0 +1,40 @@
+{
+  "files": {
+    "src/cli.ts": {
+      "name": "kehto paja command",
+      "description": "Reads the command's flags and config file, starts the napplet's own dev command if given, waits for the target, then starts the Paja server."
+    },
+    "src/config-file.ts": {
+      "name": "Config file loader",
+      "description": "Loads a JSON Paja config file from disk and merges it with flags given on the command line, flags winning."
+    },
+    "src/host-page.ts": {
+      "name": "Host page",
+      "description": "Builds the HTML of the Paja page: top bar, collapsible sidebar sections, approval and LLM dialogs, frame policy and the embedded host config for the browser code."
+    },
+    "src/node-compat.d.ts": {
+      "name": "Node type stand-ins",
+      "description": "Declares the few Node built-ins (HTTP server, files, child processes, DNS) Paja uses so it type-checks without full Node types."
+    },
+    "src/readiness.ts": {
+      "name": "Wait for dev server",
+      "description": "Polls the target URL every 250 ms until it answers without a server error, or gives up after the configured timeout with the last failure."
+    },
+    "src/server-resource-transport.ts": {
+      "name": "Pinned resource fetch",
+      "description": "Fetches one web address for a napplet after pinning its public IP right after the DNS lookup, never following redirects."
+    },
+    "src/server.ts": {
+      "name": "Paja local server",
+      "description": "Serves the host page, the browser bundle and the resource proxy on a loopback port, checks the target's CORS and plans its network mode."
+    },
+    "src/target-cors.ts": {
+      "name": "Dev-server CORS check",
+      "description": "Probes whether the target dev server accepts the sandboxed frame's null origin and explains the fix, and lists the exact origins a live target's frame may load from."
+    },
+    "tsup.config.ts": {
+      "name": "Build setup",
+      "description": "Builds the Node entry points and, separately, the self-contained browser-host.js bundle with all Kehto and napplet code inlined."
+    }
+  }
+}

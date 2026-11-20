@@ -1,0 +1,16 @@
+{
+  "files": {
+    "src/index.ts": {
+      "name": "Package front door",
+      "description": "Lists every service, helper and type the package offers hosts."
+    },
+    "src/types.ts": {
+      "name": "Notification record shapes",
+      "description": "Describes the notification record and options used by the older notification list service."
+    },
+    "tsup.config.ts": {
+      "name": "Build settings",
+      "description": "Builds the package front door and the ContextVM Nostr link as separate entry files, with type definitions."
+    }
+  }
+}

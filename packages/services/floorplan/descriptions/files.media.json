@@ -1,0 +1,32 @@
+{
+  "files": {
+    "src/browser-media-bridge.ts": {
+      "name": "Browser media controls link",
+      "description": "Mirrors what is playing to the browser's system media controls and passes play, pause, next, previous and seek back."
+    },
+    "src/browser-media-playback.ts": {
+      "name": "Browser player",
+      "description": "Plays approved audio or video bytes, or live audio streams, using the browser's own media elements."
+    },
+    "src/browser-media-stream-fetch.ts": {
+      "name": "Live audio fetcher",
+      "description": "Fetches live MP3 or AAC radio-style audio and starts handing it over without waiting for the end."
+    },
+    "src/browser-media-stream.ts": {
+      "name": "Live audio buffer",
+      "description": "Feeds a fetched live audio stream into the browser player with a size limit and the ability to cancel."
+    },
+    "src/media-playback.ts": {
+      "name": "Playback shapes",
+      "description": "Describes playback state, commands and session snapshots, and checks commands are valid."
+    },
+    "src/media-player.ts": {
+      "name": "Floating media player",
+      "description": "Shows a small on-screen player with controls for every media session, including video."
+    },
+    "src/media-service.ts": {
+      "name": "Media sessions",
+      "description": "Tracks each napplet's media sessions and playback state, and can play media itself through the shell."
+    }
+  }
+}

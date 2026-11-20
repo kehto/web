@@ -1,0 +1,28 @@
+{
+  "files": {
+    "src/legacy/index.ts": {
+      "name": "Legacy entry",
+      "description": "Gathers the older policy model's functions for hosts still migrating to scoped approvals."
+    },
+    "src/legacy/types.ts": {
+      "name": "Legacy policy shapes",
+      "description": "Defines the older model's observations, decisions, per-napplet rules, content matchers and settings."
+    },
+    "src/legacy/defaults.ts": {
+      "name": "Legacy default limits",
+      "description": "Sets the older model's built-in limits: flag on excess, block startup floods, and a quarter budget out of focus."
+    },
+    "src/legacy/config.ts": {
+      "name": "Legacy settings changes",
+      "description": "Changes per-napplet stance, limits and content matchers by returning new settings, and saves or safely reloads them as text."
+    },
+    "src/legacy/evaluate.ts": {
+      "name": "Legacy check",
+      "description": "Applies the older per-napplet rules and content matchers, then hands counting to the current budget check."
+    },
+    "src/legacy/state.ts": {
+      "name": "Legacy settings holder",
+      "description": "Keeps the older model's settings and counts together, saving settings through a host-supplied hook while counts reset on reload."
+    }
+  }
+}

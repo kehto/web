@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -24,11 +24,11 @@ function runRedirectScripts(html: string): string[] {
   return warnings;
 }
 
-function writeMinimalPagesArtifact(root: string, retiredPlaygroundHtml: string | null): void {
+function writeMinimalPagesArtifact(root: string, retiredPlaygroundHtml: string | null, floorplanStamp = true): void {
   writeFileSync(join(root, '.nojekyll'), '');
   writeFileSync(
     join(root, 'index.html'),
-    '<a href="paja/"></a><a href="docs/"></a><link href="assets/landing.css"><script src="assets/vendor/gsap.min.js"></script><script src="assets/landing.js"></script><i id="hairline-accent"></i><i class="wordmark"></i><i class="notice"></i>',
+    '<a href="paja/"></a><a href="docs/"></a><a href="floorplans/"></a><link href="assets/landing.css"><script src="assets/vendor/gsap.min.js"></script><script src="assets/landing.js"></script><i id="hairline-accent"></i><i class="wordmark"></i><i class="notice"></i>',
   );
   mkdirSync(join(root, 'assets', 'vendor'), { recursive: true });
   for (const asset of ['landing.css', 'landing.js', 'vendor/gsap.min.js']) writeFileSync(join(root, 'assets', asset), '');
@@ -44,9 +44,25 @@ function writeMinimalPagesArtifact(root: string, retiredPlaygroundHtml: string |
     writeFileSync(join(root, 'docs', page), '');
   }
   writeFileSync(join(root, 'docs', 'index.html'), '/web/docs/assets/');
+  writeMinimalFloorplans(root, { stamp: floorplanStamp });
   if (retiredPlaygroundHtml !== null) {
     mkdirSync(join(root, 'playground'), { recursive: true });
     writeFileSync(join(root, 'playground', 'index.html'), retiredPlaygroundHtml);
+  }
+}
+
+/** Mirrors scripts/floorplans.mjs pages output: an index plus one stamped export per mapped package. */
+function writeMinimalFloorplans(root: string, { stamp = true }: { stamp?: boolean } = {}): void {
+  const mapped = readdirSync(join(ROOT, 'packages')).filter((name) => existsSync(join(ROOT, 'packages', name, 'floorplan', 'architecture.json')));
+  mkdirSync(join(root, 'floorplans'), { recursive: true });
+  writeFileSync(
+    join(root, 'floorplans', 'index.html'),
+    `${mapped.map((name) => `<a href="${name}/"></a>`).join('')}<a href="https://github.com/kehto/web/commit/abc"></a>`,
+  );
+  for (const name of mapped) {
+    mkdirSync(join(root, 'floorplans', name), { recursive: true });
+    const stampHtml = stamp ? '<div data-kehto-floorplan-stamp></div>' : '';
+    writeFileSync(join(root, 'floorplans', name, 'index.html'), `<meta data-floorplan-policy="export">${stampHtml}`);
   }
 }
 
@@ -119,6 +135,18 @@ describe('retired playground compatibility redirect (KEHTO_PLAYGROUND_RETIRED)',
     } finally {
       rmSync(missing, { recursive: true, force: true });
       rmSync(shipped, { recursive: true, force: true });
+    }
+  });
+
+  it('fails the Pages audit when a published floorplan has no commit stamp', () => {
+    const unstamped = mkdtempSync(join(tmpdir(), 'kehto-pages-floorplan-'));
+    try {
+      writeMinimalPagesArtifact(unstamped, read('web/playground/index.html'), false);
+      const failed = auditPages(unstamped);
+      expect(failed.status).toBe(1);
+      expect(failed.output).toContain('floorplan commit stamp');
+    } finally {
+      rmSync(unstamped, { recursive: true, force: true });
     }
   });
 });

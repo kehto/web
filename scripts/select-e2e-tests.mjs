@@ -37,6 +37,10 @@ const NO_E2E_TRIGGERS = [
   /^\.aislop\//,
   /^scripts\/(?:audit-docs|copy-docs-api|sync-jsr-versions|sync-package-doc-versions|check-changeset-deletions)\.mjs$/,
   /^tests\/unit\//,
+  // Floorplan maps and their tooling are docs: they never reach a browser runtime.
+  /^packages\/[^/]+\/floorplan\//,
+  /^tools\/floorplan\//,
+  /^scripts\/floorplans\.mjs$/,
 ];
 
 const VERSION_METADATA_TRIGGERS = [

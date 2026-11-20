@@ -1,0 +1,248 @@
+{
+  "$schema": "floorplan/architecture@1",
+  "project": {
+    "name": "@kehto/nip",
+    "summary": "A TypeScript library of Nostr NIP helpers that nostr-tools does not ship, each at its own import path (@kehto/nip/5d, /65, ...). Its centrepiece checks and loads a napplet (a small sandboxed web app published on Nostr) from its signed manifest event; the rest parse relay lists, relay-discovery reports, lists/sets and app-handler announcements.",
+    "entrypoints": [
+      "src/index.ts",
+      "src/5d/index.ts"
+    ]
+  },
+  "nodes": [
+    {
+      "id": "entry",
+      "label": "Package entry",
+      "kind": "config",
+      "summary": "The one import that re-exports every NIP helper, plus the build settings that publish each NIP at its own import path.",
+      "paths": [
+        "src/index.ts",
+        "tsup.config.ts"
+      ]
+    },
+    {
+      "id": "nip5d",
+      "label": "Napplet loader (NIP-5D)",
+      "kind": "library",
+      "summary": "Checks a napplet's signed manifest event, fetches its app bytes by hash and refuses anything whose signature or hash doesn't match.",
+      "paths": [
+        "src/5d/**"
+      ],
+      "exclude": [
+        "**/*.test.ts"
+      ]
+    },
+    {
+      "id": "nip5d.resolver",
+      "parent": "nip5d",
+      "label": "Resolve and verify",
+      "kind": "feature",
+      "summary": "The main entry: verifies the signature, picks the right manifest parser, fetches and hashes the artifact, and reports failures with a stable error code.",
+      "paths": [
+        "src/5d/index.ts",
+        "src/5d/errors.ts",
+        "src/5d/kinds.ts",
+        "src/5d/catalog-id.ts"
+      ]
+    },
+    {
+      "id": "nip5d.manifests",
+      "parent": "nip5d",
+      "label": "Manifest formats",
+      "kind": "feature",
+      "summary": "Reads the current manifest tag layout and, for older publishing tools, the legacy layout, with a warning when the old one is used.",
+      "paths": [
+        "src/5d/current-manifest.ts",
+        "src/5d/legacy-manifest.ts"
+      ]
+    },
+    {
+      "id": "nip5d.metadata",
+      "parent": "nip5d",
+      "label": "Media and source info",
+      "kind": "feature",
+      "summary": "Reads optional screenshots, preview videos and source-code pointers from a manifest, ignoring malformed entries instead of failing.",
+      "paths": [
+        "src/5d/presentation-media.ts",
+        "src/5d/source-metadata.ts"
+      ]
+    },
+    {
+      "id": "nip5d.cache",
+      "parent": "nip5d",
+      "label": "Saved app copies",
+      "kind": "data",
+      "summary": "Keeps already-verified napplet bytes in the browser's built-in storage within size budgets and freshness windows, so repeat loads skip the download.",
+      "paths": [
+        "src/5d/artifact-cache.ts"
+      ]
+    },
+    {
+      "id": "nip5a",
+      "label": "Aggregate hash (NIP-5A)",
+      "kind": "library",
+      "summary": "Computes and checks the single hash that fingerprints a whole set of published files, used by the legacy napplet manifest format.",
+      "paths": [
+        "src/5a/**"
+      ],
+      "exclude": [
+        "**/*.test.ts"
+      ]
+    },
+    {
+      "id": "relays",
+      "label": "Relay discovery",
+      "kind": "library",
+      "summary": "Helpers for finding which relays (Nostr message servers) to use: a person's own read/write relay list and community relay-monitor reports.",
+      "paths": [
+        "src/65/**",
+        "src/66/**"
+      ],
+      "exclude": [
+        "**/*.test.ts"
+      ]
+    },
+    {
+      "id": "relays.nip65",
+      "parent": "relays",
+      "label": "Relay lists (NIP-65)",
+      "kind": "feature",
+      "summary": "Parses a person's published relay list and keeps the latest one per person to pick where to read and write.",
+      "paths": [
+        "src/65/**"
+      ]
+    },
+    {
+      "id": "relays.nip66",
+      "parent": "relays",
+      "label": "Relay monitor reports (NIP-66)",
+      "kind": "feature",
+      "summary": "Subscribes to relay-monitor reports through a supplied relay pool and groups relays by the attributes they advertise.",
+      "paths": [
+        "src/66/**"
+      ]
+    },
+    {
+      "id": "content",
+      "label": "Lists and app handlers",
+      "kind": "library",
+      "summary": "Parsers for personal lists and sets (mutes, bookmarks, relay sets...) and for announcements of which apps can open which kinds of event.",
+      "paths": [
+        "src/51/**",
+        "src/89/**"
+      ],
+      "exclude": [
+        "**/*.test.ts"
+      ]
+    },
+    {
+      "id": "content.nip51",
+      "parent": "content",
+      "label": "Lists and sets (NIP-51)",
+      "kind": "feature",
+      "summary": "Parses list and set events, including private items decrypted with a caller-supplied decryptor.",
+      "paths": [
+        "src/51/**"
+      ]
+    },
+    {
+      "id": "content.nip89",
+      "parent": "content",
+      "label": "App handlers (NIP-89)",
+      "kind": "feature",
+      "summary": "Parses app-handler announcements and recommendations and builds the link that opens an event in a handler app.",
+      "paths": [
+        "src/89/**"
+      ]
+    },
+    {
+      "id": "tests",
+      "label": "Tests",
+      "kind": "test",
+      "summary": "Automatic checks for every NIP helper, kept next to the code they test.",
+      "paths": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
+      "id": "nostr",
+      "label": "nostr-tools",
+      "kind": "external",
+      "summary": "The standard Nostr toolkit; used for event types and signature checks.",
+      "packages": [
+        "nostr-tools",
+        "npm:nostr-tools"
+      ]
+    },
+    {
+      "id": "noble",
+      "label": "@noble/hashes",
+      "kind": "external",
+      "summary": "Audited hashing library; supplies SHA-256 for artifact and aggregate hashes.",
+      "packages": [
+        "@noble/hashes",
+        "npm:@noble/hashes"
+      ]
+    }
+  ],
+  "flows": [
+    {
+      "id": "load-napplet",
+      "title": "Load a napplet safely",
+      "description": "How a host turns a signed manifest event into trusted app bytes.",
+      "steps": [
+        {
+          "node": "nip5d.resolver",
+          "note": "The host hands resolveNapplet the manifest event and a function that downloads bytes by hash."
+        },
+        {
+          "node": "nostr",
+          "note": "The event's signature is checked first; a bad signature stops everything."
+        },
+        {
+          "node": "nip5d.manifests",
+          "note": "The tags are read with the current format, or the legacy one with a warning."
+        },
+        {
+          "node": "nip5a",
+          "note": "Legacy manifests are checked against their aggregate hash of all files."
+        },
+        {
+          "node": "nip5d.cache",
+          "note": "If a cache was supplied, verified bytes are reused or saved for next time."
+        }
+      ]
+    }
+  ],
+  "tour": [
+    {
+      "node": "entry",
+      "title": "One package, many NIPs",
+      "note": "Each NIP lives in its own folder and import path, so an app only pulls in the helpers it uses."
+    },
+    {
+      "node": "nip5d",
+      "title": "The napplet loader",
+      "note": "The most important part: it decides whether a published napplet can be trusted and returns its verified bytes."
+    },
+    {
+      "node": "nip5d.cache",
+      "title": "Faster repeat loads",
+      "note": "An optional browser cache that only ever stores bytes that already passed verification."
+    },
+    {
+      "node": "relays",
+      "title": "Finding relays",
+      "note": "Helpers for choosing which Nostr servers to read from and write to."
+    },
+    {
+      "node": "content",
+      "title": "Lists and app handlers",
+      "note": "Parsers for everyday list events and for announcements of which app opens what."
+    },
+    {
+      "node": "src/5d/index.ts",
+      "title": "Start reading here",
+      "note": "resolveNapplet in this file is the single function most hosts call."
+    }
+  ]
+}

@@ -1,0 +1,263 @@
+{
+  "$schema": "floorplan/architecture@1",
+  "project": {
+    "name": "@kehto/shell",
+    "summary": "The browser side of the Kehto runtime, written in TypeScript. A host web page uses it to load napplets (small sandboxed web apps published on Nostr) into locked-down iframes, talk to each one over its own private message channel, ask the user before granting sensitive permissions, and pass approved requests to @kehto/runtime, which does the protocol work.",
+    "entrypoints": [
+      "src/index.ts",
+      "src/shell-bridge.ts"
+    ]
+  },
+  "nodes": [
+    {
+      "id": "api",
+      "label": "Entry point and types",
+      "kind": "config",
+      "summary": "The package's single entry point and the shapes a host fills in to plug its own relays, signer, windows and services into the shell.",
+      "paths": [
+        "src/index.ts",
+        "src/types.ts",
+        "src/types/**",
+        "src/topics.ts",
+        "tsup.config.ts"
+      ]
+    },
+    {
+      "id": "bridge",
+      "label": "Napplet message bridge",
+      "kind": "service",
+      "summary": "Accepts each napplet's one-time hello, ties its verified identity to a private message channel, and routes its messages to the runtime and back.",
+      "paths": [
+        "src/shell-bridge.ts"
+      ],
+      "exclude": [
+        "**/*.test.ts"
+      ]
+    },
+    {
+      "id": "bridge.transport",
+      "parent": "bridge",
+      "label": "Private channel per napplet",
+      "kind": "feature",
+      "summary": "Binds each napplet frame to the message port it hands over, and cuts it off if the frame is reloaded, says hello twice or closes the port.",
+      "paths": [
+        "src/nip5d-transport.ts",
+        "src/random-uuid.ts"
+      ]
+    },
+    {
+      "id": "bridge.adapter",
+      "parent": "bridge",
+      "label": "Host hooks translator",
+      "kind": "feature",
+      "summary": "Turns the host page's browser-facing hooks (relays, signer, storage, windows) into the plain interface the runtime expects.",
+      "paths": [
+        "src/hooks-adapter.ts"
+      ]
+    },
+    {
+      "id": "bridge.handshake",
+      "parent": "bridge",
+      "label": "Startup handshake",
+      "kind": "feature",
+      "summary": "Answers a napplet's ready signal with the list of services the host really offers, so napplets never see a promise the runtime can't keep.",
+      "paths": [
+        "src/shell-init.ts",
+        "src/shell-ready.ts"
+      ]
+    },
+    {
+      "id": "document",
+      "label": "Napplet page preparation",
+      "kind": "library",
+      "summary": "Prepares a napplet's verified HTML before it runs: adds the built-in window.napplet helpers, a strict content security policy and frame rules, without changing the signed bytes.",
+      "paths": [
+        "src/napplet-*.ts",
+        "src/frame-policy.ts",
+        "src/gamepad-policy.ts",
+        "src/intent-uri.ts"
+      ],
+      "exclude": [
+        "**/*.test.ts"
+      ]
+    },
+    {
+      "id": "document.namespace",
+      "parent": "document",
+      "label": "In-napplet helper script",
+      "kind": "feature",
+      "summary": "Generates the self-contained script injected ahead of the napplet's own code that gives it window.napplet and talks over its private channel.",
+      "paths": [
+        "src/napplet-namespace.ts",
+        "src/intent-uri.ts",
+        "src/napplet-experimental.ts"
+      ]
+    },
+    {
+      "id": "document.lockdown",
+      "parent": "document",
+      "label": "Sandbox rules",
+      "kind": "feature",
+      "summary": "Builds the security policy and frame rules that stop a napplet reaching the network directly, opening nested frames or using game controllers.",
+      "paths": [
+        "src/napplet-csp.ts",
+        "src/napplet-head.ts",
+        "src/napplet-srcdoc.ts",
+        "src/napplet-frame-scan.ts",
+        "src/frame-policy.ts",
+        "src/gamepad-policy.ts"
+      ]
+    },
+    {
+      "id": "approvals",
+      "label": "Permission prompts",
+      "kind": "ui",
+      "summary": "Admits a napplet page only after its required permissions are settled, and shows the user a ready-made dialog to allow or deny each request.",
+      "paths": [
+        "src/browser-*.ts"
+      ],
+      "exclude": [
+        "**/*.test.ts"
+      ]
+    },
+    {
+      "id": "state",
+      "label": "Host records and helpers",
+      "kind": "library",
+      "summary": "Shared records the bridge relies on (which frame is which napplet and what it may do), plus small optional proxies that pass single-domain requests to the runtime.",
+      "paths": [
+        "src/*-registry.ts",
+        "src/acl-store.ts",
+        "src/manifest-cache.ts",
+        "src/audio-manager.ts",
+        "src/*-proxy.ts"
+      ],
+      "exclude": [
+        "**/*.test.ts"
+      ]
+    },
+    {
+      "id": "state.records",
+      "parent": "state",
+      "label": "Napplet records",
+      "kind": "data",
+      "summary": "Remembers which frame is which napplet, its sign-in key, its granted permissions, verified build hashes and which windows are playing audio.",
+      "paths": [
+        "src/*-registry.ts",
+        "src/acl-store.ts",
+        "src/manifest-cache.ts",
+        "src/audio-manager.ts"
+      ]
+    },
+    {
+      "id": "state.proxies",
+      "parent": "state",
+      "label": "Service proxies",
+      "kind": "feature",
+      "summary": "Small per-domain helpers for identity, theme, keys, media and notifications that pass napplet requests to the runtime.",
+      "paths": [
+        "src/*-proxy.ts"
+      ]
+    },
+    {
+      "id": "tests",
+      "label": "Tests",
+      "kind": "test",
+      "summary": "Automatic checks for the bridge, page preparation, permission prompts and handshake, plus shared fake-frame helpers.",
+      "paths": [
+        "src/**/*.test.ts",
+        "tests/**",
+        "src/test-utils.ts",
+        "src/legacy-test-utils.ts"
+      ]
+    },
+    {
+      "id": "runtime",
+      "label": "Kehto runtime packages",
+      "kind": "external",
+      "summary": "The protocol engine and its siblings (permissions, request caps, reference services, Paja) that the shell hands approved messages to.",
+      "packages": [
+        "npm:@kehto/runtime",
+        "npm:@kehto/rate-limit",
+        "npm:@kehto/services",
+        "npm:@kehto/acl",
+        "npm:@kehto/paja"
+      ]
+    },
+    {
+      "id": "napplet",
+      "label": "Napplet protocol types",
+      "kind": "external",
+      "summary": "The shared napplet message and NAP domain definitions published by the @napplet project.",
+      "packages": [
+        "npm:@napplet/core",
+        "npm:@napplet/nap"
+      ]
+    }
+  ],
+  "flows": [
+    {
+      "id": "launch",
+      "title": "Launch a napplet",
+      "description": "From verified bytes to a napplet that can send its first request.",
+      "steps": [
+        {
+          "node": "approvals",
+          "note": "The host passes the verified page; required permissions are settled, asking the user if needed."
+        },
+        {
+          "node": "document",
+          "note": "The page gets the window.napplet helper script and strict sandbox rules added in front of its own code."
+        },
+        {
+          "node": "bridge.transport",
+          "note": "Once loaded, the napplet hands over one private message port and the shell ties its identity to it."
+        },
+        {
+          "node": "bridge.handshake",
+          "note": "The napplet says it's ready and is told which services the host offers."
+        },
+        {
+          "node": "bridge",
+          "note": "From then on each request arriving on that port is routed onward."
+        },
+        {
+          "node": "runtime",
+          "note": "The runtime checks permissions and runs the request, replying over the same port."
+        }
+      ]
+    }
+  ],
+  "tour": [
+    {
+      "node": "api",
+      "title": "What a host plugs in",
+      "note": "A host page fills in hooks for its relays, signer and windows, then creates one shell bridge."
+    },
+    {
+      "node": "bridge",
+      "title": "The heart of the shell",
+      "note": "Every napplet message comes through here, on a private channel tied to a verified identity."
+    },
+    {
+      "node": "document",
+      "title": "Before the napplet runs",
+      "note": "Its page is wrapped with helper code and strict rules, without touching the signed bytes."
+    },
+    {
+      "node": "approvals",
+      "title": "Asking the user",
+      "note": "Sensitive permissions are confirmed in a dialog before the napplet is admitted."
+    },
+    {
+      "node": "runtime",
+      "title": "Where the real work happens",
+      "note": "Approved requests are handed to the Kehto runtime, which this package wraps for browsers."
+    },
+    {
+      "node": "src/shell-bridge.ts",
+      "title": "Start reading here",
+      "note": "createShellBridge in this file is what a host calls first."
+    }
+  ]
+}

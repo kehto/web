@@ -142,6 +142,25 @@ jobs:
       - name: Run unit tests
         run: pnpm test
 
+  floorplans:
+    name: Floorplan freshness (advisory)
+    needs: [change_scope]
+    if: ${{ needs.change_scope.outputs.release_only != 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Advisory only: drift shows up as ::warning annotations and never fails
+      # the PR. A weekly scheduled agent refreshes the maps (see AGENTS.md).
+      - name: Check floorplan maps against the code
+        run: node scripts/floorplans.mjs check
+
   e2e_changes:
     name: Detect Playwright Scope
     needs: [change_scope]

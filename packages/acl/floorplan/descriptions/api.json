@@ -1,0 +1,8 @@
+{
+  "files": {
+    "src/index.ts": {
+      "name": "Public entry",
+      "description": "Gathers every permission record function, capability name and message lookup into the one list other packages import."
+    }
+  }
+}

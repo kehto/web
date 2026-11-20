@@ -1,0 +1,16 @@
+{
+  "files": {
+    "src/fixtures/linux-distros.ts": {
+      "name": "Linux image catalog",
+      "description": "A fixed catalog of Linux distribution images with search and lookup by id, file name, info hash or checksum, used as download and file subjects."
+    },
+    "src/fixtures/nostr.ts": {
+      "name": "Sample Nostr accounts and notes",
+      "description": "Six fixed accounts, example relays, profiles, contacts, relay lists and 36 #linux notes, plus filter matching and search over events."
+    },
+    "src/fixtures/urls.ts": {
+      "name": "Placeholder web addresses",
+      "description": "Builds fixed placeholder origins on reserved hosts for addresses the media, theme and upload mocks hand out."
+    }
+  }
+}

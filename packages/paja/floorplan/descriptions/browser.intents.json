@@ -1,0 +1,56 @@
+{
+  "files": {
+    "src/browser-catalog-intent-service.ts": {
+      "name": "Intent availability service",
+      "description": "Connects the installed-napplet catalog to NAP-INTENT so napplets see which intents can be handled, and cleans up with the service."
+    },
+    "src/browser-intent-builder-controls.ts": {
+      "name": "Link builder controls",
+      "description": "Creates the form controls of the intent-link builder dialog and keeps option order as the manifest lists it."
+    },
+    "src/browser-intent-builder-payload.ts": {
+      "name": "Link builder output",
+      "description": "Builds the intent link from the form and parses it back, so the preview, Copy and Test all use the same checked link."
+    },
+    "src/browser-intent-builder-rows.ts": {
+      "name": "Link builder parameter rows",
+      "description": "Adds one parameter row, advertised or custom, to the intent-link builder."
+    },
+    "src/browser-intent-builder.ts": {
+      "name": "Intent link builder",
+      "description": "Runs the dialog where a developer composes, previews, copies and tests a shareable intent link for the current napplet."
+    },
+    "src/browser-intent-controller.ts": {
+      "name": "Intent target lifecycle",
+      "description": "Opens or focuses the napplet chosen for an intent and queues one delivery to it, tracking when it ends."
+    },
+    "src/browser-intent-host.ts": {
+      "name": "Intent host glue",
+      "description": "Gives intent dispatch its tab operations, logs each installed napplet's intents, and resolves or rejects waits for a tab to be ready."
+    },
+    "src/browser-intent-launcher-host.ts": {
+      "name": "Shared link launch",
+      "description": "Opens shared content through a short-lived, verified launcher frame that hands the link to the right napplet."
+    },
+    "src/browser-intent-link-target.ts": {
+      "name": "Shared link app choice",
+      "description": "Works out which verified napplet a shared link names or the user prefers, under the normal pointer checks."
+    },
+    "src/browser-intent-links.ts": {
+      "name": "Shared link controller",
+      "description": "Opens shared content straight away, asking the recipient to pick an app only when more than one fits."
+    },
+    "src/installed-napplet-catalog.ts": {
+      "name": "Installed napplets catalog",
+      "description": "Keeps a saved list of verified napplet installs and their intents, separate from which tabs are open, and notifies listeners of changes."
+    },
+    "src/intent-launcher.ts": {
+      "name": "Signed intent launcher",
+      "description": "Verifies Paja's bundled, signed launcher napplet and sends it a shared-link address only on its own registered frame."
+    },
+    "src/intent-link.ts": {
+      "name": "Intent link format",
+      "description": "Creates and parses Paja's shareable intent deep links, capped at a configurable size, without running them."
+    }
+  }
+}

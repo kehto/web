@@ -1,0 +1,8 @@
+{
+  "files": {
+    "tsup.config.ts": {
+      "name": "Build settings",
+      "description": "Bundles the main entry and the separate capability-names entry for publishing."
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "files": {
+    "src/domain-handlers.ts": {
+      "name": "Domain switchboard",
+      "description": "Maps each NAP domain to its handler: storage, media, keys, notify, theme and LLM directly, the rest straight to host services."
+    },
+    "src/domain-results.ts": {
+      "name": "Standard domain replies",
+      "description": "Builds the fixed reply shapes for identity, theme, intent and LLM failures, including a safe default theme."
+    }
+  }
+}

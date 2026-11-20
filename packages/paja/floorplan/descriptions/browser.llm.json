@@ -1,0 +1,20 @@
+{
+  "files": {
+    "src/browser-llm-connections.ts": {
+      "name": "Model connections and host",
+      "description": "Keeps the list of model provider connections (no keys) and answers NAP-LLM select and chat requests with chooser and consent."
+    },
+    "src/browser-llm-models.ts": {
+      "name": "List provider models",
+      "description": "Fetches a connection's model list straight from the provider with an 8-second timeout, returns sorted unique model ids, and names CORS as a possible cause when the request fails."
+    },
+    "src/browser-llm-panel.ts": {
+      "name": "Language models panel",
+      "description": "Draws the Language models sidebar and its dialogs, and wires the connection store, vault and NAP-LLM host together."
+    },
+    "src/browser-llm-vault.ts": {
+      "name": "Key vault",
+      "description": "Encrypts remembered provider keys with a password-derived key (AES-GCM, minimum 12-character password) in host storage, or keeps a key for this session only."
+    }
+  }
+}

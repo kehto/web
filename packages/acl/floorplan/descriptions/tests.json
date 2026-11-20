@@ -1,0 +1,20 @@
+{
+  "files": {
+    "src/check.test.ts": {
+      "name": "Yes or no check tests",
+      "description": "Checks default stance, blocking and granted capabilities give the right answers."
+    },
+    "src/mutations.test.ts": {
+      "name": "Permission change tests",
+      "description": "Checks granting, revoking, blocking, storage limits and saving leave earlier copies untouched."
+    },
+    "src/migrate.test.ts": {
+      "name": "Old record upgrade tests",
+      "description": "Checks old publisher-keyed records are rewritten correctly and current ones pass through."
+    },
+    "src/resolve.test.ts": {
+      "name": "Capability table tests",
+      "description": "Checks each NAP message maps to the expected sender and receiver capabilities."
+    }
+  }
+}

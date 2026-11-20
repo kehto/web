@@ -1,0 +1,16 @@
+{
+  "files": {
+    "src/common-service.ts": {
+      "name": "Common social actions",
+      "description": "Handles follow, react, report, profile lookups and Nostr address encoding for napplets, with the shell signing and publishing."
+    },
+    "src/identity-service.ts": {
+      "name": "User identity",
+      "description": "Answers read-only questions about the signed-in user: public key, relays, profile, follows, lists, zaps, mutes and badges."
+    },
+    "src/lists-service.ts": {
+      "name": "User lists",
+      "description": "Reads and changes the user's Nostr lists for napplets, planning and approving each change as one step."
+    }
+  }
+}

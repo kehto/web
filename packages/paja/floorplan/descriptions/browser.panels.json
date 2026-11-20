@@ -1,0 +1,36 @@
+{
+  "files": {
+    "src/browser-console-panel.ts": {
+      "name": "Console show/hide",
+      "description": "Wires the top-bar toggle that shows or hides the developer console and remembers the choice."
+    },
+    "src/browser-cvm-settings.ts": {
+      "name": "CVM discovery section",
+      "description": "Draws the ContextVM discovery section where the developer finds, edits and saves server families; saving reloads the page."
+    },
+    "src/browser-devtools.ts": {
+      "name": "Developer console and log",
+      "description": "Renders the developer console panels and the filterable message log, hiding NAP-CONFIG values and logging shell-to-napplet traffic."
+    },
+    "src/browser-gamepad-indicators.ts": {
+      "name": "Gamepad indicators",
+      "description": "Shows connected game controllers and their activity in the top bar, whether or not a napplet listens."
+    },
+    "src/browser-relay-panel.ts": {
+      "name": "Relay receipts panel",
+      "description": "Counts events received per relay, grouped by why each read was routed, and draws the Relays sidebar with a reset button."
+    },
+    "src/browser-resource-settings.ts": {
+      "name": "Resource servers section",
+      "description": "Lets the developer save extra resource servers in the sidebar, keeping them for this session only when storage is unavailable."
+    },
+    "src/browser-security-settings.ts": {
+      "name": "Nested-frame lock switch",
+      "description": "Lets the developer override the experimental nested-context lock (on, off or auto) from the page."
+    },
+    "src/browser-sidebar-sections.ts": {
+      "name": "Sidebar fold memory",
+      "description": "Remembers which sidebar sections are open or closed, separately from real settings."
+    }
+  }
+}

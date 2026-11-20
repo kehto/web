@@ -1,0 +1,12 @@
+{
+  "files": {
+    "src/http-uploader.ts": {
+      "name": "Web uploader",
+      "description": "Uploads files to NIP-96 or Blossom storage servers, signing the required sign-in event with the user's key."
+    },
+    "src/upload-service.ts": {
+      "name": "Uploads service",
+      "description": "Runs napplet uploads through a host uploader, reports progress and results, and cancels them when the napplet closes."
+    }
+  }
+}

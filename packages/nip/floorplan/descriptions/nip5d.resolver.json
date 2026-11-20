@@ -1,0 +1,20 @@
+{
+  "files": {
+    "src/5d/catalog-id.ts": {
+      "name": "Napplet catalog ID",
+      "description": "Gives each verified napplet a stable ID scoped to its publisher and kind, or to the event itself for snapshots."
+    },
+    "src/5d/errors.ts": {
+      "name": "Load failure reasons",
+      "description": "Defines the error and its fixed codes, such as bad signature or hash mismatch, so callers can refuse a napplet cleanly."
+    },
+    "src/5d/index.ts": {
+      "name": "Napplet resolver",
+      "description": "Checks a manifest's signature, reads its tags, downloads the app by hash from Blossom servers and returns verified HTML."
+    },
+    "src/5d/kinds.ts": {
+      "name": "Manifest event kinds",
+      "description": "Lists the three manifest event kinds: snapshot (5129), root (15129) and named (35129)."
+    }
+  }
+}
