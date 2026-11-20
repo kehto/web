@@ -194,8 +194,8 @@ Security Considerations (shells SHOULD apply per-napplet concurrency limits).
     the correlation id it actually sent, keeping the rest of the message, and
     publishes nothing if the request settled meanwhile or was not sent yet;
   - one that already settled, or is already being cancelled, is acknowledged
-    (only `type` and `id`) under the same policy as any `cvm.request` to that
-    server, and not published;
+    (only `type` and `id`) under the policy every `cvm.request` to that
+    server gets, and not published;
   - any other `requestId`, or none, is `invalid message` and never published
     (spec-gap decision: the NAP names the restriction but no error for it).
 

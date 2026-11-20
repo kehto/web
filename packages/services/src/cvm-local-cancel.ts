@@ -24,7 +24,7 @@
  * The cancellation itself never takes an admission slot: it only ever ends
  * work that was already admitted. Except for a local drop, which publishes
  * nothing and withdraws the target's own prompt, it runs under the same
- * policy and approval as any `cvm.request`, keeps its own deadline, and ends
+ * policy and approval every `cvm.request` gets, keeps its own deadline, and ends
  * on close or teardown like any operation.
  *
  * Spec-gap decision: the draft's error table names no error for a request
@@ -58,7 +58,7 @@ export interface CvmCancelDeps {
   readonly operations: CvmOperations;
   readonly correlations: CvmCorrelations;
   readonly requests: WeakMap<CvmRequestHandle, CvmRequestState>;
-  /** Run `execute` under the same policy and approval as any `cvm.request` to this server. */
+  /** Run `execute` under the policy and approval every `cvm.request` to this server gets. */
   readonly authorize: (work: CvmOperation, execute: () => Promise<void>) => Promise<void>;
   /** Publish the mapped cancellation; see `CvmTransport.cancel`. */
   readonly publish: (work: CvmOperation, handle: CvmRequestHandle) => Promise<void>;
@@ -102,7 +102,7 @@ export function handleCvmCancellation(deps: CvmCancelDeps, envelope: CvmCancelEn
   // Not handed to the transport yet: dropped here, so there is nothing to approve.
   if (live && !live.dispatched) { void settleTarget().then(ack); return; }
   // Settled or already being cancelled: nothing to publish, but still under
-  // the same policy as any cvm.request, so a denied napplet stays denied.
+  // the policy every cvm.request gets, so a denied napplet stays denied.
   operations.run(windowId, envelope.duration, [server.pubkey], (work) => deps.authorize(work, async () => {
     // It may have settled while this cancellation awaited approval.
     if (live && handle && correlations.cancelTarget(windowId, generation, server.pubkey, requestId).state === 'in-flight') await deps.publish(work, handle);
