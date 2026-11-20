@@ -344,6 +344,132 @@ describe('createWebrtcService', () => {
     });
   });
 
+  // NAP-WEBRTC (napplet/naps#59 @ fb4dd6f0, Error Handling): "The shell SHOULD
+  // send a webrtc.event with type: "closed" when an established session ends
+  // because ... policy revokes the capability." Shell Behavior: "The shell MUST
+  // respond to every request with a result message carrying the same id."
+  describe('on policy revocation', () => {
+    const approveAll = { authorizeOperation: async (_w: string, _o: string, _r: readonly unknown[], run: (signal: ApprovalSignal) => unknown) =>
+      ({ status: 'executed' as const, value: await run(new AbortController().signal) }) } as unknown as ServiceRuntimeContext;
+    const SECOND: WebrtcOpenResult = { session: { ...OPEN_RESULT.session, id: 'webrtc-session-2' } };
+    const revokedClosed = (sessionId: string): NappletMessage =>
+      ({ type: 'webrtc.event', event: { type: 'closed', sessionId, reason: 'policy denied' } }) as NappletMessage;
+
+    function setup(overrides: Partial<WebrtcServiceOptions> = {}) {
+      const emits = new Map<string, (event: WebrtcEvent) => void>();
+      const results = [OPEN_RESULT, SECOND];
+      const revokeWindow = vi.fn((windowId: string) => {
+        // A backend that reports its own teardown must not produce a second `closed`.
+        if (windowId !== WINDOW_ID) return;
+        for (const [id, emit] of emits) emit({ type: 'closed', sessionId: id, reason: 'backend teardown' });
+      });
+      const close = vi.fn();
+      const send = vi.fn();
+      const service = createWebrtcService({
+        planOpen: () => ({ signalingRelayUrls: [], iceEndpoints: [], resource: `peer:${PEER_PUBKEY}` }),
+        open: (_request, context) => { const result = results.shift()!; emits.set(result.session.id, (event) => context.emit(event)); return result; },
+        send, close, revokeWindow, ...overrides,
+      });
+      service.onRegistered?.(approveAll);
+      const { sent, send: reply } = collectSent();
+      const call = (message: Record<string, unknown>) => service.handleMessage(WINDOW_ID, message as unknown as NappletMessage, reply);
+      return { service, sent, call, emits, revokeWindow, close, send };
+    }
+
+    it.each([
+      ['permission revocation', (service: ReturnType<typeof createWebrtcService>) => service.onPermissionRevoked?.(WINDOW_ID)],
+      ['an ACL block', (service: ReturnType<typeof createWebrtcService>) => service.onCapabilityRevoked?.(WINDOW_ID, null)],
+    ] as const)('sends closed once for each live session on %s, then forgets them', async (_label, revokeBy) => {
+      const h = setup();
+      h.call({ type: 'webrtc.open', id: 'o1', request: REQUEST });
+      h.call({ type: 'webrtc.open', id: 'o2', request: REQUEST });
+      await flush();
+      h.sent.length = 0;
+
+      revokeBy(h.service);
+      h.emits.get('webrtc-session-1')!(MESSAGE_EVENT);
+      expect(h.sent).toEqual([revokedClosed('webrtc-session-1'), revokedClosed('webrtc-session-2')]);
+      expect(h.revokeWindow).toHaveBeenCalledWith(WINDOW_ID);
+
+      h.sent.length = 0;
+      h.call({ type: 'webrtc.send', id: 's', sessionId: 'webrtc-session-1', payload: 1 });
+      h.call({ type: 'webrtc.close', id: 'c', sessionId: 'webrtc-session-2' });
+      await flush();
+      expect(h.sent).toEqual([
+        { type: 'webrtc.send.result', id: 's', error: 'session not found' },
+        { type: 'webrtc.close.result', id: 'c', error: 'session not found' },
+      ]);
+      expect(h.send).not.toHaveBeenCalled();
+      expect(h.close).not.toHaveBeenCalled();
+    });
+
+    it('leaves other windows and unrelated capability revocations alone', async () => {
+      const h = setup();
+      h.call({ type: 'webrtc.open', id: 'o1', request: REQUEST });
+      await flush();
+      h.sent.length = 0;
+      h.service.onPermissionRevoked?.('another-window');
+      h.service.onCapabilityRevoked?.(WINDOW_ID, 'relay:read');
+      h.emits.get('webrtc-session-1')!(MESSAGE_EVENT);
+      expect(h.sent).toEqual([{ type: 'webrtc.event', event: MESSAGE_EVENT }]);
+      expect(h.revokeWindow).toHaveBeenCalledTimes(1);
+    });
+
+    it('stays silent when the window is destroyed', async () => {
+      const h = setup();
+      h.call({ type: 'webrtc.open', id: 'o1', request: REQUEST });
+      await flush();
+      h.sent.length = 0;
+      h.service.onWindowDestroyed?.(WINDOW_ID);
+      expect(h.sent).toEqual([]);
+    });
+
+    it('sends no closed for a session the napplet is already closing, and still answers the close', async () => {
+      let finish!: () => void;
+      const h = setup({ close: vi.fn(() => new Promise<void>((resolve) => { finish = resolve; })) });
+      h.call({ type: 'webrtc.open', id: 'o1', request: REQUEST });
+      await flush();
+      h.sent.length = 0;
+      h.call({ type: 'webrtc.close', id: 'c', sessionId: 'webrtc-session-1' });
+      await flush();
+      h.service.onPermissionRevoked?.(WINDOW_ID);
+      finish();
+      await flush();
+      expect(h.sent).toEqual([{ type: 'webrtc.close.result', id: 'c' }]);
+    });
+
+    it('answers a send in flight at revocation', async () => {
+      let finish!: () => void;
+      const h = setup({ send: vi.fn(() => new Promise<void>((resolve) => { finish = resolve; })) });
+      h.call({ type: 'webrtc.open', id: 'o1', request: REQUEST });
+      await flush();
+      h.sent.length = 0;
+      h.call({ type: 'webrtc.send', id: 's', sessionId: 'webrtc-session-1', payload: 1 });
+      await flush();
+      h.service.onPermissionRevoked?.(WINDOW_ID);
+      finish();
+      await flush();
+      expect(h.sent).toEqual([revokedClosed('webrtc-session-1'), { type: 'webrtc.send.result', id: 's' }]);
+    });
+
+    it('answers an open still awaiting approval with policy denied', async () => {
+      let approve!: () => void;
+      const gate = new Promise<void>((resolve) => { approve = resolve; });
+      const h = setup();
+      h.service.onRegistered?.({ authorizeOperation: async (_w: string, _o: string, _r: readonly unknown[], run: (signal: ApprovalSignal) => unknown) => {
+        await gate;
+        try { return { status: 'executed' as const, value: await run(new AbortController().signal) }; }
+        catch { return { status: 'denied' as const }; }
+      } } as unknown as ServiceRuntimeContext);
+      h.call({ type: 'webrtc.open', id: 'o1', request: REQUEST });
+      await flush();
+      h.service.onPermissionRevoked?.(WINDOW_ID);
+      approve();
+      await flush();
+      expect(h.sent).toEqual([{ type: 'webrtc.open.result', id: 'o1', error: 'policy denied' }]);
+    });
+  });
+
   it('plans signaling destinations and waits for runtime approval before opening a peer', async () => {
     const open = vi.fn(() => OPEN_RESULT);
     const planOpen = vi.fn(() => ({

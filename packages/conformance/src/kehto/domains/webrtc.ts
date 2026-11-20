@@ -21,6 +21,8 @@ function peerOf(request: OpenRequest): string {
  * `webrtc.peerMessage` makes the authenticated peer of every session ever
  * opened send a payload, as a late data-channel message racing a close would:
  * the shell "MUST NOT deliver messages for an unknown sessionId".
+ * `webrtc.revoke` revokes every stored `webrtc` permission grant through the
+ * runtime's permission management, as a host's permission UI would.
  */
 export const WEBRTC_BACKEND: DomainBackendModule = {
   domain: 'webrtc',
@@ -59,6 +61,10 @@ export const WEBRTC_BACKEND: DomainBackendModule = {
           }
         },
         'webrtc.sent': () => sent.map((item) => ({ ...item })),
+        'webrtc.revoke': (_payload, { bridge }) => {
+          const permissions = bridge.runtime.permissions;
+          for (const grant of permissions?.grants ?? []) if (grant.permission.domain === 'webrtc') permissions!.revoke(grant.id);
+        },
       },
     };
   },

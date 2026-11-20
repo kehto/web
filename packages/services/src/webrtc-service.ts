@@ -3,6 +3,7 @@ import type { NappletMessage, WebrtcEvent, WebrtcOpenRequest, WebrtcOpenResult }
 import type { WebrtcCloseMessage, WebrtcOpenMessage, WebrtcSendBytesMessage, WebrtcSendMessage } from '@napplet/nap/webrtc/types';
 import { createUnrecognizedTypeDiagnostic } from '@kehto/runtime';
 import type { ApprovalSignal, PermissionRequirement, ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
+import { createWebrtcSessions, type Opening } from './webrtc-sessions.js';
 
 const WEBRTC_SERVICE_VERSION = '1.0.0';
 
@@ -38,9 +39,6 @@ export interface WebrtcServiceOptions {
 }
 
 type Send = (msg: NappletMessage) => void;
-type SessionEntry = { readonly windowId: string; readonly generation: object };
-/** One pending open: early `state` events pass, and a backend `closed` is held for after the result. */
-type Opening = { active: boolean; closed?: WebrtcEvent };
 
 const WEBRTC_DESCRIPTOR: ServiceDescriptor = {
   name: 'webrtc', version: WEBRTC_SERVICE_VERSION,
@@ -94,54 +92,14 @@ function normalizePlan(candidate: WebrtcOpenPlan): { plan: WebrtcOpenPlan; requi
 export function createWebrtcService(options: WebrtcServiceOptions = {}): ServiceHandler {
   const ignoreUnrecognized = createUnrecognizedTypeDiagnostic();
   let runtime: ServiceRuntimeContext | undefined;
-  const generations = new Map<string, object>();
-  const sessions = new Map<string, SessionEntry>();
-  /** Napplet closes in flight, and whether the backend reported `closed` meanwhile. */
-  const closingSessions = new Map<string, { endedByBackend: boolean }>();
-  const generationFor = (windowId: string): object => {
-    let generation = generations.get(windowId);
-    if (!generation) { generation = {}; generations.set(windowId, generation); }
-    return generation;
-  };
-  const current = (windowId: string, generation: object, signal?: ApprovalSignal): boolean =>
-    generations.get(windowId) === generation && !signal?.aborted;
-  // NAP-WEBRTC #59 @ fb4dd6f0: the shell "may deliver webrtc.event state
-  // updates before open() resolves ... but it MUST NOT deliver messages for an
-  // unknown sessionId". A session is known from its open result until close
-  // starts, the backend emits `closed` for it, revocation or destroy;
-  // `opening` admits only those early states.
-  const known = (sessionId: unknown, windowId: string, generation: object): boolean => {
-    const entry = typeof sessionId === 'string' ? sessions.get(sessionId) : undefined;
-    return entry?.windowId === windowId && entry.generation === generation;
-  };
-  const deliver = (event: WebrtcEvent, windowId: string, generation: object, send: Send, opening?: Opening): void => {
-    const sessionId = (event as { sessionId?: unknown } | undefined)?.sessionId;
-    if (typeof sessionId !== 'string') return;
-    if (known(sessionId, windowId, generation)) {
-      send({ type: 'webrtc.event', event } as NappletMessage);
-      // Once `closed` is out the session is unknown, so nothing after it is delivered.
-      if (event.type === 'closed') sessions.delete(sessionId);
-      return;
-    }
-    if (event.type === 'closed') {
-      const pending = closingSessions.get(sessionId);
-      if (pending) pending.endedByBackend = true;
-      else if (opening?.active) opening.closed = event;
-      return;
-    }
-    if (opening?.active && event.type === 'state' && !sessions.has(sessionId)) send({ type: 'webrtc.event', event } as NappletMessage);
-  };
+  const { sessions, closingSessions, revokedGenerations, generations, generationFor, current, answerable, deliver, retire, revokeSessions } = createWebrtcSessions();
   const contextFor = (windowId: string, send: Send, generation: object, signal?: ApprovalSignal, opening?: Opening): WebrtcServiceContext => ({
     windowId, ...(signal ? { signal } : {}),
     emit(event) {
       if (current(windowId, generation, signal)) deliver(event, windowId, generation, send, opening);
     },
   });
-  const retire = (windowId: string): void => {
-    generations.set(windowId, {});
-    for (const [id, entry] of sessions) if (entry.windowId === windowId) sessions.delete(id);
-    options.revokeWindow?.(windowId);
-  };
+  const revoke = (windowId: string): void => { revokeSessions(windowId); options.revokeWindow?.(windowId); };
 
   function open(windowId: string, message: WebrtcOpenMessage, send: Send): void {
     const id = message.id ?? '';
@@ -166,16 +124,20 @@ export function createWebrtcService(options: WebrtcServiceOptions = {}): Service
       return result;
     }).then((outcome) => {
       opening.active = false;
-      if (!current(windowId, generation)) return;
+      if (!current(windowId, generation)) {
+        if (revokedGenerations.has(generation)) send({ type: 'webrtc.open.result', id, error: 'policy denied' } as NappletMessage);
+        return;
+      }
       if (outcome.status !== 'executed' || !outcome.value) { send({ type: 'webrtc.open.result', id, error: 'policy denied' } as NappletMessage); return; }
       send({ type: 'webrtc.open.result', id, session: outcome.value.session } as NappletMessage);
       // A session the backend already ended while opening is reported closed
       // right after its result, and never kept.
       if (opening.closed?.sessionId === outcome.value.session.id) { send({ type: 'webrtc.event', event: opening.closed } as NappletMessage); return; }
-      sessions.set(outcome.value.session.id, { windowId, generation });
+      sessions.set(outcome.value.session.id, { windowId, generation, send });
     }).catch((error) => {
       opening.active = false;
       if (current(windowId, generation)) send({ type: 'webrtc.open.result', id, error: errorMessage(error, 'webrtc request failed') } as NappletMessage);
+      else if (revokedGenerations.has(generation)) send({ type: 'webrtc.open.result', id, error: 'policy denied' } as NappletMessage);
     });
   }
 
@@ -198,10 +160,11 @@ export function createWebrtcService(options: WebrtcServiceOptions = {}): Service
     const settled = () => { if (closingSessions.get(message.sessionId) === pending) closingSessions.delete(message.sessionId); };
     void Promise.resolve().then(call).then(() => {
       settled();
-      if (current(windowId, entry.generation)) send({ type: resultType, id } as NappletMessage);
+      if (answerable(windowId, entry.generation)) send({ type: resultType, id } as NappletMessage);
     }).catch((error) => {
       settled();
-      if (!current(windowId, entry.generation)) return;
+      if (!answerable(windowId, entry.generation)) return;
+      if (!current(windowId, entry.generation)) { send({ type: resultType, id, error: errorMessage(error, 'webrtc request failed') } as NappletMessage); return; }
       // A failed close leaves the session open, so it stays deliverable,
       // unless the backend reported it closed in the meantime.
       if (closing && !pending.endedByBackend && !sessions.has(message.sessionId)) sessions.set(message.sessionId, entry);
@@ -212,8 +175,10 @@ export function createWebrtcService(options: WebrtcServiceOptions = {}): Service
   return {
     descriptor: WEBRTC_DESCRIPTOR,
     onRegistered(context) { runtime = context; },
-    onUnregistered() { for (const windowId of generations.keys()) retire(windowId); runtime = undefined; },
-    onPermissionRevoked(windowId) { retire(windowId); },
+    onUnregistered() { for (const windowId of generations.keys()) { retire(windowId); options.revokeWindow?.(windowId); } runtime = undefined; },
+    onPermissionRevoked(windowId) { revoke(windowId); },
+    // An ACL block (`null`) revokes everything; no ACL capability maps to webrtc.
+    onCapabilityRevoked(windowId, capability) { if (capability === null) revoke(windowId); },
     handleMessage(windowId, message, send) {
       if (message.type === 'webrtc.open') { open(windowId, message as WebrtcOpenMessage, send); return; }
       if (message.type === 'webrtc.send' || message.type === 'webrtc.close') { sessionAction(windowId, message as WebrtcSendMessage | WebrtcCloseMessage, send); return; }
@@ -227,6 +192,6 @@ export function createWebrtcService(options: WebrtcServiceOptions = {}): Service
       }
       ignoreUnrecognized('webrtc', message.type);
     },
-    onWindowDestroyed(windowId) { retire(windowId); options.destroyWindow?.(windowId); },
+    onWindowDestroyed(windowId) { retire(windowId); options.revokeWindow?.(windowId); options.destroyWindow?.(windowId); },
   };
 }

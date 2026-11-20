@@ -42,7 +42,15 @@ host hooks, and the session map no longer grows over a long-lived window. A
 `closed` reported while the open is still pending is delivered right after the
 `webrtc.open.result`, and that session is never kept. A napplet-initiated
 `webrtc.close` gets no `closed` event; the NAP only asks for one when a peer,
-ICE, signaling or policy ends the session (spec-gap decision).
+ICE, signaling or policy ends the session (spec-gap decision). When policy
+revokes WebRTC for a window (`onPermissionRevoked`, or an ACL block through
+`onCapabilityRevoked(windowId, null)`), each live session gets one `closed` with
+reason `policy denied` and is then forgotten the same way; the host
+`revokeWindow` hook runs after that, so its own teardown events are dropped.
+Requests in flight at revocation still get their result (an open still waiting
+on approval gets `policy denied`). Window destroy stays silent. The
+`@kehto/mocks` WebRTC mock gives the same answers, held together by
+`tests/unit/webrtc-session-lifecycle-parity.test.ts`.
 
 OUTBOX and COUNT resolve relay destinations before approval. Their remote
 backends receive the approved immutable URL list and cancellation signal; local

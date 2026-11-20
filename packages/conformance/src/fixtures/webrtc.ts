@@ -83,5 +83,20 @@ export const WEBRTC_FIXTURE: DomainFixture = {
         },
       },
     },
+    {
+      id: 'webrtc/event-closed-on-revoke', type: 'webrtc.event', isolation: false,
+      subscribe: { id: 'webrtc/open-revoked', type: 'webrtc.open', payload: { request: { scope: DIRECT_SCOPE, channel: 'revoked' } } },
+      trigger: { control: 'webrtc.revoke' },
+      // No follow-up request: once the grant is gone a runtime may stop routing webrtc requests at all.
+      semantics: {
+        rule: 'The shell SHOULD send a webrtc.event with type "closed" when an established session ends because "policy revokes the capability"',
+        verify(push) {
+          const event = push?.event as { type?: unknown; sessionId?: unknown; reason?: unknown } | undefined;
+          if (event?.type !== 'closed') return `event.type was ${JSON.stringify(event?.type)}, expected "closed"`;
+          if (typeof event.sessionId !== 'string' || !event.sessionId) return `event.sessionId was ${JSON.stringify(event.sessionId)}`;
+          return event.reason === undefined || typeof event.reason === 'string' ? null : `event.reason was ${JSON.stringify(event.reason)}`;
+        },
+      },
+    },
   ],
 };

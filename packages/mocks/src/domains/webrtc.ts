@@ -30,8 +30,17 @@
  *   called. The loopback peer echoes every `send` back as a `message` event.
  * - Error strings beyond the draft's list: `invalid request` (malformed
  *   open) and `session not open` (send while connecting).
- * - `webrtc.close` on an owned, already closed session succeeds; the closer
- *   receives no `closed` event (its own call ended the session).
+ * - An ended session is unknown, as in `createWebrtcService`: once it closes
+ *   (napplet close, peer leaves, revocation), `webrtc.send`, `webrtc.sendBytes`
+ *   and `webrtc.close` answer `session not found`. The draft lists both
+ *   `session not found` and `session closed` without saying when each applies;
+ *   its only rule here is "MUST NOT deliver messages for an unknown
+ *   `sessionId`". A napplet's own close sends it no `closed` event. The record
+ *   stays in `state().sessions` for inspection.
+ * - Revocation (`onPermissionRevoked`, or `onCapabilityRevoked` with `null` or a
+ *   `webrtc` capability) sends `closed` with reason `policy denied` for each
+ *   live session: the draft's `closed` triggers include "policy revokes the
+ *   capability".
  */
 import type { NappletMessage } from '@kehto/runtime';
 import type { WebrtcEvent, WebrtcScope, WebrtcSession } from '@napplet/nap/webrtc/types';
@@ -302,8 +311,7 @@ function owned(state: MockWebrtcState, windowId: string, sessionId: unknown): Mo
 /** The caller's open session for a send, or `undefined` after replying with the NAP error. */
 function openRecord({ message, windowId, state, fail }: Context): MockWebrtcSessionRecord | undefined {
   const record = owned(state, windowId, message.sessionId);
-  if (!record) { fail('session not found'); return undefined; }
-  if (record.session.state === 'closed') { fail('session closed'); return undefined; }
+  if (!record || record.session.state === 'closed') { fail('session not found'); return undefined; }
   if (record.session.state === 'connecting') { fail('session not open'); return undefined; }
   return record;
 }
@@ -406,7 +414,7 @@ export function createMockWebrtcService(options: MockWebrtcOptions = {}): MockWe
 
   const closeRoute = ({ message, windowId, state, reply, fail }: Context): void => {
     const record = owned(state, windowId, message.sessionId);
-    if (!record) { fail('session not found'); return; }
+    if (!record || record.session.state === 'closed') { fail('session not found'); return; }
     if (message.reason !== undefined && typeof message.reason !== 'string') { fail('invalid request'); return; }
     closeRecord(emit, state, record, typeof message.reason === 'string' ? message.reason : 'closed by napplet', false);
     reply();
@@ -440,6 +448,7 @@ export function createMockWebrtcService(options: MockWebrtcOptions = {}): MockWe
   };
 
   const service: MockWebrtcService = Object.assign(base, {
+    onPermissionRevoked(windowId: string): void { closeWindow(base.mock.state(), windowId, 'policy denied', true); },
     peerAnswer,
     peerMessage(sessionId: string, payload: unknown, from?: string): boolean {
       const record = base.mock.state().sessions.get(sessionId);
