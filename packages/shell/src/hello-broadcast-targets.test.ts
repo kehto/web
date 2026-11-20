@@ -16,7 +16,8 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createThemeService } from '@kehto/services';
+import { createIntentService, createThemeService, type IntentResolver } from '@kehto/services';
+import type { IntentAvailability, IntentResult } from '@napplet/nap/intent/types';
 import { createShellBridge, NAPPLET_HELLO } from './shell-bridge.js';
 import { originRegistry } from './origin-registry.js';
 import { sendHello } from './test-utils.js';
@@ -121,6 +122,29 @@ describe('ShellBridge broadcast targets bind at napplet.hello (#480)', () => {
     theme.publishTheme(THEME);
 
     expect(received(frame)).toEqual([{ type: 'theme.changed', theme: expect.objectContaining({ colors: THEME.colors }) }]);
+    bridge.destroy();
+  });
+
+  it('lists a hello-only napplet for intent.changed availability pushes', () => {
+    let notify: ((availability: IntentAvailability) => void) | undefined;
+    const resolver: IntentResolver = {
+      invoke: () => ({ ok: false, error: 'unused' }) as IntentResult,
+      available: (archetype) => ({ archetype, available: false, candidates: [], hasDefault: false }),
+      handlers: () => [],
+      onChanged(listener) {
+        notify = listener;
+        return () => { notify = undefined; };
+      },
+    };
+    const intent = createIntentService({ resolver, resolveSender: () => undefined });
+    const bridge = createShellBridge(makeHooks({ services: { intent } }));
+    const frame = loadFrame('intent-target', ['intent']);
+    sendHello(bridge, frame);
+
+    const availability: IntentAvailability = { archetype: 'note', available: false, candidates: [], hasDefault: false };
+    notify?.(availability);
+
+    expect(received(frame)).toEqual([{ type: 'intent.changed', availability }]);
     bridge.destroy();
   });
 
