@@ -74,6 +74,9 @@ export function createPajaPermissionAdapter(options: PajaPermissionAdapterOption
     window.setTimeout(() => { refreshPending = false; ui.refresh(); }, 0);
   };
   const adapter: PermissionAdapter = {
+    // Read once per adapter: the coordinator snapshots its bounds (applies on reload).
+    maxRequirements: getPajaSetting('firewall.maxRequirements'),
+    maxGrants: getPajaSetting('firewall.maxGrants'),
     now: Date.now,
     rateLimiter: createRateLimiter(defaultRateLimitConfig()),
     promptRateLimiter: createRateLimiter(defaultPromptRateLimitConfig()),

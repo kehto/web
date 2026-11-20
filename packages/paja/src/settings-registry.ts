@@ -131,7 +131,9 @@ export const PAJA_SETTING_DEFINITIONS = Object.freeze([
     ['link.labelMaxChars', 'Maximum link label length', 256, 1, 4096, 'chars'],
   ]),
   ...define('Firewall', 'browser', [
-    ['firewall.promptOpenOrigins', 'Relay origins listed open in a prompt', 5, 0, 127, 'count'],
+    ['firewall.maxRequirements', 'Requirements per approval request', 128, 2, 1024, 'count'],
+    ['firewall.maxGrants', 'Grants in the permission table', 2048, 64, 16_384, 'count'],
+    ['firewall.promptOpenOrigins', 'Relay origins listed open in a prompt', 5, 0, 1023, 'count'],
   ]),
   ...define('Signer', 'browser', [
     ['signer.nip46TimeoutMs', 'Remote signer request timeout', 30 * SECOND_MS, SECOND_MS, 10 * MINUTE_MS, 'ms'],

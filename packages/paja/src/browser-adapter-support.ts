@@ -68,6 +68,8 @@ export function createOutboxRouter(
       () => relayConfig.getRelayUrls(['discovery', 'super']),
     ),
     fallbackRelays: relayConfig.outboxRelays,
+    // One approval names the interface plus these origins (kehto/web#514).
+    maxRelayOrigins: () => getPajaSetting('firewall.maxRequirements') - 1,
     getSignerPubkey: async () => {
       const signer = createRuntimeSigner(getSimulation, confirmRequest, signerProvider, source);
       if (!signer?.getPublicKey) throw new Error('no signer configured');
