@@ -306,7 +306,10 @@ export function createUploadService(options: UploadServiceOptions): ServiceHandl
         if (generations.get(windowId) === generation) send({ type: 'upload.info.result', id, info: normalizeUploadInfo(info) } as NappletMessage);
       })
       .catch((err) => {
-        if (generations.get(windowId) === generation) send({ type: 'upload.info.result', id, error: toErrorMessage(err) } as NappletMessage);
+        // NAP-UPLOAD (napplet/naps#33 @ f5cc981e): `info` is required on
+        // `upload.info.result`, so a failure discloses no rails alongside the
+        // error ("Shells MAY redact unavailable rails"). kehto/web#518.
+        if (generations.get(windowId) === generation) send({ type: 'upload.info.result', id, info: { rails: [] }, error: toErrorMessage(err) } as NappletMessage);
       });
   }
 
@@ -355,6 +358,13 @@ export function createUploadService(options: UploadServiceOptions): ServiceHandl
       windowId, id, entry, key, entries, current, warnLegacy, now, send });
   }
 
+  /**
+   * Bounded spec gap (napplet/naps#33 @ f5cc981e, kehto/web#518): the wire
+   * table requires `status`, but `UploadStatus` requires `ok`, `uploadId`,
+   * `status`, `rail` and `updatedAt`, and an invalid or unknown lookup has no
+   * honest rail, state or timestamp. Those replies carry only `error` until the
+   * NAP says what a failed lookup returns.
+   */
   function handleStatus(windowId: string, msg: NappletMessage, send: Send): void {
     const m = msg as NappletMessage & { id?: string; uploadId?: string };
     const id = m.id ?? '';
