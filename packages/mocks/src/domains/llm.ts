@@ -359,6 +359,14 @@ function planStream(answer: MockLlmAnswer, request: MockLlmGenerationRequest, wo
   return { events, terminal: { result: { content: answer.parts, finish: answer.finish, usage } } };
 }
 
+/** A call id not already used in the supplied conversation (ids are unique per conversation). */
+function freshCallId(request: MockLlmGenerationRequest, next: () => string): string {
+  const used = new Set(request.messages.flatMap((entry) => entry.content.map((item) => item.toolCallId)));
+  let id = next();
+  while (used.has(id)) id = next();
+  return id;
+}
+
 function scriptedAnswer(scripted: MockLlmScriptedAnswer): MockLlmAnswer {
   return { parts: scripted.text.length > 0 ? [{ type: 'text', text: scripted.text }] : [], finish: scripted.finish };
 }
@@ -421,7 +429,7 @@ export function createMockLlmService(options: MockLlmOptions = {}): MockLlmServi
     if (rejected) { failWith(push, 'llm.generate', id, rejected); return; }
     const request = message.request as MockLlmGenerationRequest;
     const scripted = state.scripted.shift();
-    const answer: MockLlmAnswer = scripted ? scriptedAnswer(scripted) : deriveAnswer(request, `call_${rng.hex(8)}`);
+    const answer: MockLlmAnswer = scripted ? scriptedAnswer(scripted) : deriveAnswer(request, freshCallId(request, () => `call_${rng.hex(8)}`));
     state.generations += 1;
     const generation: MockLlmActiveGeneration = {
       requestId: id, windowId, handle: request.handle, sequence: 0, settled: false, cancel: () => {}, push,

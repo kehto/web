@@ -273,6 +273,21 @@ describe('createMockLlmService', () => {
     call({ type: 'llm.generate', id: 'again', request: { handle, messages: [user('x'), { role: 'assistant', content: [callPart] }, answer], tools: [TOOL], toolChoice: 'required' } });
     drain();
     expect(out.sent.at(-1)?.result).toMatchObject({ finish: 'toolUse', content: [{ type: 'toolCall', name: 'get_weather' }] });
+
+    // A new call never reuses an id from the supplied history, even when the seeded id would collide.
+    const replay = setup();
+    const replayHandle = replay.select();
+    replay.call({ type: 'llm.generate', id: 'r1', request: { handle: replayHandle, messages: [user('x')], tools: [TOOL] } });
+    replay.drain();
+    const seeded = ((replay.out.sent.at(-1)?.result as { content: Array<{ toolCallId: string }> }).content[0] as { toolCallId: string }).toolCallId;
+    const twin = setup();
+    const twinHandle = twin.select();
+    const history = [user('x'), { role: 'assistant', content: [{ ...callPart, toolCallId: seeded }] }, { ...answer, toolCallId: seeded }];
+    twin.call({ type: 'llm.generate', id: 'r1', request: { handle: twinHandle, messages: history, tools: [TOOL], toolChoice: 'required' } });
+    twin.drain();
+    const fresh = ((twin.out.sent.at(-1)?.result as { content: Array<{ toolCallId: string }> }).content[0] as { toolCallId: string }).toolCallId;
+    expect(fresh).toMatch(/^call_[0-9a-f]{8}$/);
+    expect(fresh).not.toBe(seeded);
   });
 
   it('answers unlisted tool-choice modes, tool history and tool-result images on an incapable connection with unsupported (LLM-C19, LLM-C22)', () => {
