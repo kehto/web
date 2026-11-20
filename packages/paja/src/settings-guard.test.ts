@@ -42,9 +42,10 @@ const NOT_SETTINGS: Readonly<Record<string, { readonly values: readonly number[]
     values: [10, 100, 127, 16, 168, 169, 172, 18, 19, 192, 198, 224, 254, 255, 31, 4, 64],
     reason: 'RFC 1918/6598/3927/2544 private and reserved IPv4 ranges',
   },
-  'server-resource-transport.ts': {
-    values: [10, 100, 113, 127, 16, 16_383, 168, 169, 172, 18, 19, 192, 198, 203, 224, 254, 31, 3512, 4, 4096, 502, 51, 512, 6, 64, 8192, 8193, 8194, 88, 99],
-    reason: 'reserved IPv4/IPv6 ranges, IP families, hex radix and HTTP 502',
+  'server-resource-transport.ts': { values: [502], reason: 'HTTP 502' },
+  'resource-address.ts': {
+    values: [10, 100, 113, 127, 16, 16_383, 168, 169, 172, 18, 19, 192, 198, 203, 224, 254, 31, 3512, 4096, 51, 512, 64, 8192, 8193, 8194, 88, 99],
+    reason: 'reserved IPv4/IPv6 ranges and hex radix',
   },
   'browser-resource.ts': {
     values: [10, 100, 102, 1024, 103, 11, 110, 115, 12, 127, 13, 131, 136, 137, 14, 153, 159, 16, 163, 168, 169, 17, 172, 18, 185, 187, 19,

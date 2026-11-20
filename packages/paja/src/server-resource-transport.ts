@@ -2,6 +2,7 @@ import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 import { lookup as dnsLookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
+import { isPajaPublicResourceAddress } from './resource-address.js';
 import { getPajaSetting } from './settings.js';
 
 
@@ -38,7 +39,7 @@ export async function fetchPinnedResource(input: URL, signal?: AbortSignal): Pro
     const answers = family ? [{ address: hostname, family }]
       : await abortable(dnsLookup(hostname, { all: true, verbatim: true }), controller.signal);
     controller.signal.throwIfAborted();
-    const answer = answers.find((candidate) => isPublicResourceAddress(candidate.address));
+    const answer = answers.find((candidate) => isPajaPublicResourceAddress(candidate.address));
     if (!answer) throw new Error('Resource destination resolved to a blocked address');
     const transport = url.protocol === 'https:' ? httpsRequest : httpRequest;
     return await new Promise((resolve, reject) => {
@@ -104,34 +105,6 @@ function abortable<T>(pending: Promise<T>, signal: AbortSignal): Promise<T> {
     signal.addEventListener('abort', abort, { once: true });
     pending.then(resolve, reject).finally(() => signal.removeEventListener('abort', abort));
   });
-}
-
-// IANA special-purpose registries, checked 2026-10-17. Deliberately stricter
-// than the NAP private-IP minimum: reject documentation, translation, benchmark,
-// protocol-assignment and reserved ranges too, including their public exceptions.
-function isPublicResourceAddress(address: string): boolean {
-  const family = isIP(address);
-  if (family === 4) {
-    const [a, b, c] = address.split('.').map(Number);
-    return a !== 0 && a !== 10 && a !== 127 && a < 224
-      && !(a === 100 && b >= 64 && b <= 127)
-      && !(a === 169 && b === 254) && !(a === 172 && b >= 16 && b <= 31)
-      && !(a === 192 && (b === 168 || b === 0 && (c === 0 || c === 2) || b === 88 && c === 99))
-      && !(a === 198 && (b === 18 || b === 19 || b === 51 && c === 100))
-      && !(a === 203 && b === 0 && c === 113);
-  }
-  if (family !== 6) return false;
-  let canonical: string;
-  try { canonical = new URL(`http://[${address}]/`).hostname.slice(1, -1); }
-  catch { return false; }
-  // Only global-unicast 2000::/3 is eligible. Canonicalization prevents expanded
-  // mapped/loopback spellings from bypassing textual-prefix classification.
-  const [first, second = '0'] = canonical.split(':');
-  const high = Number.parseInt(first, 16);
-  const next = Number.parseInt(second || '0', 16);
-  return high >= 0x2000 && high <= 0x3fff
-    && !(high === 0x2001 && (next < 0x0200 || next === 0x0db8))
-    && high !== 0x2002 && !(high === 0x3fff && next < 0x1000);
 }
 
 /** Join bounded response chunks without exposing Buffer through browser-facing types. */

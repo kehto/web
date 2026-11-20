@@ -256,7 +256,7 @@ function createDevServices(
       ),
       getProxyEndpoint: getResourceProxy,
     }),
-    resourceInfo: () => pajaResourceInfo(getResourceProxy() !== undefined),
+    resourceInfo: () => pajaResourceInfo(),
   });
   const services: Record<string, ServiceHandler> = {
     resource: {
@@ -600,7 +600,7 @@ export function createPajaAdapter(
     notifyOptions,
     configOptions,
     signerSource,
-    // The static build has no server proxy (kehto/web: images in /web/paja/).
+    // The static build has no server proxy: fetch directly and drop private destinations.
     () => (config.runtime?.host === 'static' ? undefined : PAJA_RESOURCE_PROXY_PATH),
   );
   const services = serviceBundle.services;

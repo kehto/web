@@ -403,11 +403,15 @@ The console includes:
   section header's `reset` button clears them without a reload.
 
 The GitHub Pages artifact also includes a static Paja Runtime at `/web/paja/`.
-NAP-RESOURCE requires DNS-time private-IP checks, and only Paja's server proxy
-(`/__kehto/resource`) can make them. So the static runtime's `resource.info`
-reports `https` and `blossom` as disabled, and those reads fail with
-`unsupported-scheme` before anything goes out on the network. `data:` still
-works. Run the Paja CLI to get network images.
+The static artifact has no server proxy, so it reads `https` and `blossom`
+resources directly from the browser, with no cookies and no referrer. It drops
+destinations it can tell are private from the URL: `localhost`, `.local`,
+`.internal`, `.home.arpa` and similar names, names without a dot, and
+private, loopback or reserved IP literals. Blossom bytes are still hash-checked.
+NAP-RESOURCE asks for DNS-time private-IP checks, which a browser can't make
+for its own fetches: a public-looking name that resolves to a private address
+gets through. That is a recorded spec gap. Hosts without CORS headers can't be
+read this way at all.
 That route uses `createPajaRuntimeHostConfig`, keeps `hmr: none`, and loads
 verified napplets into ShellBridge-backed iframe tabs from pasted `naddr` or
 `nevent` pointers. `naddr` pointers resolve the latest matching NIP-5D named

@@ -11,6 +11,7 @@ import { normalizeUploadServers } from './simulation.js';
 import { parsePajaBlossomUri } from './browser-blossom-uri.js';
 import { warnLegacyBlossomPrefix } from './browser-blossom-compat.js';
 import { getPajaSetting, getPajaSettingDefault } from './settings.js';
+import { isPajaPublicResourceHost } from './resource-address.js';
 
 /** Built-in default decoded-payload cap; the effective cap is the `resource.maxBytes` setting. */
 export const PAJA_RESOURCE_MAX_BYTES = getPajaSettingDefault('resource.maxBytes');
@@ -43,10 +44,13 @@ export interface PajaResourceFetchOptions {
   /** Fetch implementation used for configured Blossom server requests. */
   readonly fetch?: typeof fetch;
   /**
-   * The resource proxy that performs NAP-RESOURCE's DNS-time private-IP checks.
-   * Defaults to the Paja server's same-origin `/__kehto/resource`. Returns
-   * `undefined` when there is no proxy, as in the static build: HTTP(S) and
-   * Blossom are then disabled rather than fetched without those checks.
+   * Optional resource proxy that makes NAP-RESOURCE's DNS-time private-IP
+   * checks. Defaults to the Paja server's same-origin `/__kehto/resource`.
+   * Returns `undefined` when there is none, as in a static build without a
+   * configured proxy. Paja then fetches directly from the browser and drops
+   * private destinations it can recognize from the URL. It can't catch a
+   * public-looking name that resolves to a private address; that recorded
+   * spec gap is what a proxy closes.
    */
   readonly getProxyEndpoint?: () => string | undefined;
 }
@@ -54,13 +58,62 @@ export interface PajaResourceFetchOptions {
 /** Paja server's same-origin resource proxy. */
 export const PAJA_RESOURCE_PROXY_PATH = '/__kehto/resource';
 
-function proxyEndpoint(options: PajaResourceFetchOptions): string {
-  const endpoint = (options.getProxyEndpoint ?? (() => PAJA_RESOURCE_PROXY_PATH))();
-  if (endpoint === undefined) {
-    // NAP-RESOURCE (napplet/naps#80 @ ae5b9c6): DNS-time private-IP checks are mandatory.
-    throw new ResourceServiceError('unsupported-scheme', 'Paja has no resource proxy to check this destination');
+function proxyEndpoint(options: PajaResourceFetchOptions): string | undefined {
+  return (options.getProxyEndpoint ?? (() => PAJA_RESOURCE_PROXY_PATH))();
+}
+
+/**
+ * Drop a destination the browser must not contact without a proxy.
+ * NAP-RESOURCE (napplet/naps#80 @ ae5b9c6) wants DNS-time checks; a browser
+ * sees only the URL, so this checks names and IP literals (recorded spec gap).
+ */
+function assertDirectDestination(value: string): void {
+  let url: URL;
+  try { url = new URL(value); } catch { throw new ResourceServiceError('invalid-request', 'invalid resource URL'); }
+  if ((url.protocol !== 'https:' && url.protocol !== 'http:') || url.username || url.password
+    || !isPajaPublicResourceHost(url.hostname)) {
+    throw new ResourceServiceError('blocked-by-policy', 'Paja drops private resource destinations');
   }
-  return endpoint;
+}
+
+/**
+ * Read one hop: through the proxy when there is one, otherwise directly.
+ * A direct read lets the browser follow redirects, then refuses the bytes if
+ * the final URL is private. A proxy hands each hop back for approval instead.
+ */
+async function requestHop(
+  fetcher: typeof fetch,
+  endpoint: string | undefined,
+  destination: string,
+  signal: AbortSignal,
+): Promise<Response> {
+  if (endpoint !== undefined) {
+    return fetcher(endpoint, {
+      method: 'POST', signal, credentials: proxyCredentials(endpoint), redirect: 'manual',
+      headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: destination }),
+    });
+  }
+  assertDirectDestination(destination);
+  const response = await fetcher(destination, {
+    method: 'GET', signal, credentials: 'omit', referrerPolicy: 'no-referrer', redirect: 'follow', mode: 'cors',
+  });
+  if (response.url) assertDirectDestination(response.url);
+  return response;
+}
+
+/** The Paja server's capability cookie is same-origin; never send cookies to a remote proxy. */
+function proxyCredentials(endpoint: string): RequestCredentials {
+  return endpoint.startsWith('/') ? 'same-origin' : 'omit';
+}
+
+/**
+ * Upstream 404/410 is `not-found`. A remote proxy marks upstream replies, so its
+ * own refusals (unknown path, origin not allowed) are never mistaken for one.
+ */
+function isUpstreamMissing(response: Response, endpoint: string | undefined): boolean {
+  if (response.status !== 404 && response.status !== 410) return false;
+  if (endpoint === undefined || endpoint.startsWith('/')) return true;
+  return response.headers.get('x-kehto-resource-upstream') === '1';
 }
 
 /**
@@ -120,15 +173,13 @@ export function createPajaResourceFetch(
 /**
  * Return Paja's truthful NAP-RESOURCE policy disclosure.
  *
- * @param proxyAvailable - Whether a resource proxy can serve network schemes.
  * @returns Current resource schemes and enforced limits.
  */
-export function pajaResourceInfo(proxyAvailable = true): ResourceInfo {
-  // Without a proxy there is no DNS-time private-IP check, so network schemes are off.
+export function pajaResourceInfo(): ResourceInfo {
   const schemes = [
     { scheme: 'data', enabled: true },
-    { scheme: 'https', enabled: proxyAvailable },
-    { scheme: 'blossom', enabled: proxyAvailable },
+    { scheme: 'https', enabled: true },
+    { scheme: 'blossom', enabled: true },
   ];
   return {
     schemes,
@@ -141,7 +192,7 @@ async function fetchNetworkResource(
   value: string,
   init: Parameters<ResourceServiceOptions['fetch']>[1],
   fetcher: typeof fetch,
-  endpoint: string,
+  endpoint: string | undefined,
 ): Promise<Response> {
   if (!init.authorizeNetwork) {
     throw new ResourceServiceError('blocked-by-policy', 'Paja resource network approval is unavailable');
@@ -150,10 +201,8 @@ async function fetchNetworkResource(
   let response: Response | undefined;
   for (let hops = 0, maxHops = getPajaSetting('resource.maxRedirects'); hops <= maxHops; hops += 1) {
     try {
-    response = await init.authorizeNetwork(destination, (signal) => fetcher(endpoint, {
-        method: 'POST', signal, credentials: 'same-origin', redirect: 'manual',
-        headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: destination }),
-      }));
+    if (endpoint === undefined) assertDirectDestination(destination);
+    response = await init.authorizeNetwork(destination, (signal) => requestHop(fetcher, endpoint, destination, signal));
     } catch (error: unknown) {
       if ((error instanceof ResourceServiceError && error.code === 'blocked-by-policy')
         || error instanceof ResourceAuthorizationError) throw error;
@@ -169,7 +218,7 @@ async function fetchNetworkResource(
     catch { throw new ResourceServiceError('network-error', 'resource proxy returned an invalid redirect'); }
   }
   if (!response) throw new ResourceServiceError('network-error', 'resource transport did not respond');
-  if (response.status === 404 || response.status === 410) {
+  if (isUpstreamMissing(response, endpoint)) {
     throw new ResourceServiceError('not-found', 'HTTP resource was not found');
   }
   if (!response.ok) {
@@ -188,7 +237,7 @@ async function fetchBlossomResource(
   value: string,
   init: Parameters<ResourceServiceOptions['fetch']>[1],
   options: PajaResourceFetchOptions,
-  endpoint: string,
+  endpoint: string | undefined,
 ): Promise<Response> {
   const parsed = parsePajaBlossomUri(value);
   if (!parsed) {
@@ -227,10 +276,9 @@ async function fetchBlossomResource(
     let response: Response;
     try {
       for (let hops = 0; ; hops += 1) {
-        response = await init.authorizeNetwork(resourceUrl, (signal) => fetcher(endpoint, {
-          method: 'POST', signal, credentials: 'same-origin', redirect: 'manual',
-          headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: resourceUrl }),
-        }));
+        if (endpoint === undefined) assertDirectDestination(resourceUrl);
+        const hop = resourceUrl;
+        response = await init.authorizeNetwork(hop, (signal) => requestHop(fetcher, endpoint, hop, signal));
         if (response.headers.get('x-kehto-resource-redirect') !== '1') break;
         const redirect = await response.json() as { location?: unknown };
         if (typeof redirect.location !== 'string' || hops >= getPajaSetting('resource.maxRedirects')) {
@@ -247,7 +295,7 @@ async function fetchBlossomResource(
       lastNetworkMessage = error instanceof Error ? error.message : String(error);
       continue;
     }
-    if (response.status === 404 || response.status === 410) {
+    if (isUpstreamMissing(response, endpoint)) {
       foundNotFound = true;
       continue;
     }
