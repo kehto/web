@@ -548,6 +548,8 @@ const keys = createKeysService({
 runtime.registerService('keys', keys);
 ```
 
+**One result per request.** Every `keys.registerAction` gets exactly one `keys.registerAction.result` while its window is live, as NAP-KEYS (napplet/naps#9 at `8869a4cf`) requires. When the approval doesn't execute, the result carries `error` and echoes `actionId` (or `''`): `denied` and `cancelled` send `policy denied`, while `capacity`, `busy` and `unavailable` send `approval capacity reached`, `approval busy` and `approval unavailable`. Those are host conditions, not denials. NAP-KEYS names no code for them, so the strings are a recorded spec gap. A window that is destroyed or revoked before approval settles gets no reply.
+
 **Precedence contract: reserved > binding.** When a napplet registers an action whose `defaultKey` matches `reservedChords`, the service acknowledges the action with `keys.registerAction.result` but leaves `binding` undefined and does not add the chord to `keys.bindings`. That prevents the active napplet from suppressing a shell-owned chord locally.
 
 - If a document keydown matches a reserved chord: `onForward` fires exactly once and no `keys.action` envelope is dispatched.
