@@ -4,7 +4,13 @@ import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import type { PathEntry } from '../5a/index.js';
 import { NappletResolutionError } from './errors.js';
-import { parseLegacyManifest, verifyLegacyAggregate, warnLegacyManifest } from './legacy-manifest.js';
+import {
+  assertUniquePaths,
+  canonicalNappletPath,
+  parseLegacyManifest,
+  verifyLegacyAggregate,
+  warnLegacyManifest,
+} from './legacy-manifest.js';
 import { parseCurrentManifest } from './current-manifest.js';
 import {
   NAPPLET_KIND_NAMED,
@@ -199,23 +205,29 @@ function stripTrailingSlash(url: string): string {
  * @param fetchBytes - Fetches raw bytes for a URL (`<server>/<sha256>`)
  * @returns The verified blob bytes
  * @throws {@link NappletResolutionError} `blob-unavailable` if no server serves
- *   a hash-matching blob
+ *   a hash-matching blob; the message names any server whose bytes mismatched
  */
 export async function fetchBlob(
   servers: readonly string[],
   sha256Hex: string,
   fetchBytes: (url: string) => Promise<Uint8Array>,
 ): Promise<Uint8Array> {
+  const mismatched: string[] = [];
   for (const server of servers) {
     const url = `${stripTrailingSlash(server)}/${sha256Hex}`;
+    let bytes: Uint8Array;
     try {
-      const bytes = await fetchBytes(url);
-      if (verifyBlobHash(bytes, sha256Hex)) return bytes;
+      bytes = await fetchBytes(url);
     } catch {
-      // try the next server
+      continue; // try the next server
     }
+    if (verifyBlobHash(bytes, sha256Hex)) return bytes;
+    mismatched.push(stripTrailingSlash(server));
   }
-  throw new NappletResolutionError('blob-unavailable', `no server served blob ${sha256Hex}`);
+  const detail = mismatched.length === 0
+    ? ''
+    : `; ${mismatched.join(', ')} returned bytes that do not match sha256 ${sha256Hex}`;
+  throw new NappletResolutionError('blob-unavailable', `no server served blob ${sha256Hex}${detail}`);
 }
 
 /** A fully verified napplet, ready to inject via `iframe.srcdoc`. */
@@ -254,8 +266,6 @@ export interface ResolveNappletOptions {
   cache?: NappletArtifactCache;
 }
 
-const INDEX_PATHS = ['/index.html', 'index.html', '/'];
-
 function defaultDecode(bytes: Uint8Array): string {
   return new TextDecoder().decode(bytes);
 }
@@ -291,6 +301,8 @@ export async function resolveNapplet(options: ResolveNappletOptions): Promise<Re
   const manifest = parseNappletManifest(event);
 
   if (manifest.format === 'legacy') verifyLegacyAggregate(manifest);
+  // One canonical key per entry, so the file map and the index lookup agree.
+  assertUniquePaths(manifest.paths);
 
   const files = new Map<string, Uint8Array>();
   for (const entry of manifest.paths) {
@@ -309,7 +321,7 @@ export async function resolveNapplet(options: ResolveNappletOptions): Promise<Re
     files.set(entry.path, bytes);
   }
 
-  const indexEntry = manifest.paths.find((e) => INDEX_PATHS.includes(e.path));
+  const indexEntry = manifest.paths.find((e) => canonicalNappletPath(e.path) === '/index.html');
   if (!indexEntry) {
     throw new NappletResolutionError('missing-index', 'manifest has no /index.html entry');
   }
