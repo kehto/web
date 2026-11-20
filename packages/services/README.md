@@ -324,12 +324,31 @@ denial. Following the error codes in [NAP-OUTBOX draft #32 at
 | Planned relays never answer before the deadline | `relay timeout`, with `incomplete: true` |
 | Some planned relays fail, others answer | Events from the rest, with `incomplete: true` |
 | No planned relay accepts a publish, or a required own/inbox relay does not accept (even when hinted relays did) | `relay timeout` |
-| A plan names an unusable relay URL | `relay list unavailable` |
+| A plan names an unusable relay URL | Skipped; only a plan with no usable relay, or an unusable required publish relay, is `relay list unavailable` |
+| A read plan spans more relay origins than one approval can name | Bounded to the budget (below); a read that left an author without relays is `incomplete: true` |
+| A publish's required own/inbox relays span more origins than one approval can name | `too many relays`, before signing |
 | Signer or user declines a publish | `publish denied` |
 | Approval not executed, approval revoked, relay gate refuses every inbox relay, or a router that cannot plan | `policy denied` |
 
 The draft has no code for "no relay reachable" or "every relay refused", so the
-closest defined codes are used and no new code is introduced.
+closest defined codes are used. Its error list is open ("Common errors
+include"), and a publish whose required relays cannot fit one approval gets its
+own non-denial reason, `too many relays`. A live stream has no `incomplete`
+field, so a bounded `outbox.subscribe` cannot report a lost author (spec gap).
+
+The Firewall caps one request at `MAX_PERMISSION_REQUIREMENTS` (128)
+requirements, which bounds evaluation work, grant growth and prompt size. An
+OUTBOX plan is not purely host-generated (the napplet picks the authors, third
+parties publish the relay lists, and read hints are appended), so the plan is
+bounded instead of the cap being raised. Each operation contacts at most 127
+relay origins, one approval requirement per origin (paths on one origin share
+it). `createRelayPoolOutboxRouter()` picks a larger plan's relays by author
+coverage, deterministically, with napplet hints last. The service also bounds a
+custom router's plan in the router's order. Publish never drops a required
+relay; only explicit `options.relays` extras are trimmed. This follows
+NAP-OUTBOX Shell Behavior ("The shell MAY use NIP-66 or other relay
+intelligence to choose among candidate relays") and Security Considerations
+("Shells SHOULD enforce limits, timeouts, and maximum subscription counts").
 
 Relay pool and coordinated relay services require `publishToRelays` to execute a
 publish plan; a generic `publish` callback cannot guarantee approved destinations.

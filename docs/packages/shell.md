@@ -23,7 +23,10 @@ before scripts execute.
 `createBrowserApprovalUi` presents the runtime prompt as a plain-language
 question with the host's label for the napplet, every exact scope, and the
 offered lifetimes with the narrowest preselected, so one click answers. The
-full technical identity is one disclosure away. It returns explicit allow,
+full technical identity is one disclosure away. Network origins sharing one
+mediated operation, such as an outbox plan's relays, are one "contact N
+origins" row with the exact origins in a collapsed list; each is still granted
+on its own. It returns explicit allow,
 deny, or cancel decisions; Deny has initial focus, and Escape, close, and abort
 cancel. Its grant view is a tree of single-line rows (napplet, interface,
 grant) with a status dot, a count or lifetime, and an icon button per row;

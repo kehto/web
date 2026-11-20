@@ -24,7 +24,10 @@ when the runtime changes. The view always reads `RuntimePermissions.grants` and
 uses its `revoke`, `clear`, and `retryPersistence` methods; it keeps no grant
 store. The prompt asks a plain-language question, names the napplet with the
 host's label, lists every exact scope, and preselects the narrowest offered
-lifetime; the full trusted identity is one disclosure away. Deny has initial
+lifetime; the full trusted identity is one disclosure away. Network origins that
+share one mediated operation, such as the relays of an outbox plan, are one
+"contact N origins" row whose exact origins sit in a collapsed list; each origin
+is still granted on its own. Deny has initial
 focus. Escape, close, and abort cancel without creating a denial grant. Grants
 are grouped by napplet and interface with group revoke. Pass `rules` to add an
 editor for host default rules and a "do this for every future request" choice

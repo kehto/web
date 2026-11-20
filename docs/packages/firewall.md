@@ -32,6 +32,11 @@ automatically requires interface access for every requested domain. A resource o
 network grant cannot supply interface access, and interface access cannot supply
 resource or network authority. Matching explicit denials take precedence.
 
+One request carries at most `MAX_PERMISSION_REQUIREMENTS` (128) requirements,
+counting the interface requirement; a larger request is invalid. The cap bounds
+evaluation work, grant growth and prompt size, so callers plan within it, for
+example by naming each network origin once and bounding relay plans.
+
 A verified principal uses the catalog ID from a signature-verified manifest plus
 its verified artifact hash. Named/root IDs include the publisher; snapshot IDs use
 the signed event ID. Shape validation does not verify signatures: the host must
