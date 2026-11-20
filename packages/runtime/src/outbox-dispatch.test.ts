@@ -116,9 +116,12 @@ describe('runtime outbox domain dispatch', () => {
       } as NappletMessage);
     }
 
-    const err = findEnvelopeResponse(ctx.sent, 'outbox.subscribe.error');
-    expect(err).toBeDefined();
-    expect((err as { error?: string }).error).toMatch(/init-burst/);
+    // NAP-OUTBOX #32 @ 8865f73d: a shell-ended subscription is `outbox.closed`
+    // (`subId`, `reason?`); the NAP defines no `outbox.subscribe.error`.
+    const closed = findEnvelopeResponse(ctx.sent, 'outbox.closed');
+    expect(closed).toMatchObject({ subId: `sub-burst-${DEFAULT_BURST_MAX_OPS}` });
+    expect((closed as { reason?: string }).reason).toMatch(/init-burst/);
+    expect(findEnvelopeResponse(ctx.sent, 'outbox.subscribe.error')).toBeUndefined();
     expect(received).toHaveLength(DEFAULT_BURST_MAX_OPS);
   });
 

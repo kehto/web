@@ -28,6 +28,14 @@ const CASES: Readonly<Record<string, Case>> = {
     [{ type: 'relay.publish.result', id: 'r1', ok: false, error: 'denied: relay:write' }]],
   'relay.query': [{ filters: [{ kinds: [1] }] },
     [{ type: 'relay.query.result', id: 'r1', error: 'denied: relay:read' }]],
+  // NAP-OUTBOX #32 @ 8865f73d
+  'outbox.getEvent': [{ eventId: 'e'.repeat(64) },
+    [{ type: 'outbox.getEvent.result', id: 'r1', error: 'denied: outbox:read' }]],
+  'outbox.subscribe': [{ subId: 's1', filters: [{ kinds: [1] }] },
+    [{ type: 'outbox.closed', subId: 's1', reason: 'denied: outbox:read' }]],
+  'outbox.close': [{ subId: 's1' }, []],
+  'outbox.publish': [{ event: { kind: 1, content: '', tags: [], created_at: 0 } },
+    [{ type: 'outbox.publish.result', id: 'r1', ok: false, error: 'denied: outbox:write' }]],
 };
 
 describe('runtime ACL denial projection', () => {

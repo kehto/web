@@ -205,14 +205,6 @@ export function createDenialResponse(envelope: NappletMessage, error: string): N
     // shaped failure is `unsupported`, never a bare string on an `.error` wire.
     return createLlmErrorResult(envelope, 'unsupported', `Request denied: ${error}`) ?? null;
   }
-  if (envelope.type === 'outbox.query') {
-    return {
-      type: 'outbox.query.result',
-      id,
-      events: [],
-      error,
-    } as NappletMessage;
-  }
   // NAP-specific failure wires first; see policy-denials.ts for the refs.
   const projected = createPolicyDenialResult(envelope, error);
   if (projected !== undefined) return projected;

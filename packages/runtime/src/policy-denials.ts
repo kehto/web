@@ -15,6 +15,13 @@
  *   `error` string on failure. `relay.closed` indicates the shell terminated a
  *   subscription, with an optional `reason`. `relay.query.result` MAY include an
  *   `error` field instead of `events` if the query fails."
+ * - NAP-OUTBOX #32 @ 8865f73d — result rows carry `error?` ("Result messages MAY
+ *   include `error`"); `outbox.closed` carries `subId`, `reason?`;
+ *   `outbox.query.result` keeps its required `events` (empty on denial).
+ *
+ * Where the NAP lists only common error strings, the runtime's reason passes
+ * through unchanged; a fixed code is used only where the NAP mandates one or
+ * defines an enumerated code set.
  */
 
 import type { NappletMessage } from '@napplet/core';
@@ -28,10 +35,10 @@ function resultError(type: string, error?: string, fields: Record<string, unknow
 }
 
 /** Subscription denials close the napplet's subscription id. */
-function closed(type: 'relay.closed' | 'outbox.closed', reason?: string): DenialProjection {
-  return (_id, fallback, message) => {
+function closed(type: 'relay.closed' | 'outbox.closed'): DenialProjection {
+  return (_id, reason, message) => {
     const subId = (message as NappletMessage & { subId?: unknown }).subId;
-    return typeof subId === 'string' ? { type, subId, reason: reason ?? fallback } as NappletMessage : null;
+    return typeof subId === 'string' ? { type, subId, reason } as NappletMessage : null;
   };
 }
 
@@ -47,6 +54,11 @@ const POLICY_DENIALS: Readonly<Record<string, DenialProjection>> = Object.freeze
   'relay.publish': resultError('relay.publish', undefined, { ok: false }),
   'relay.publishEncrypted': resultError('relay.publishEncrypted', undefined, { ok: false }),
   'relay.query': resultError('relay.query'),
+  'outbox.getEvent': resultError('outbox.getEvent'),
+  'outbox.query': resultError('outbox.query', undefined, { events: [] }),
+  'outbox.subscribe': closed('outbox.closed'),
+  'outbox.close': silent,
+  'outbox.publish': resultError('outbox.publish', undefined, { ok: false }),
 });
 
 /**
