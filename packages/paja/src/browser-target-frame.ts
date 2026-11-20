@@ -14,7 +14,8 @@ import {
 import type { Runtime } from '@kehto/runtime';
 
 import { isPajaLocalTarget, readDevelopmentDomains, type PajaRuntimeTarget } from './local-target.js';
-import { developmentRemoteSources } from './target-cors.js';
+import { developmentRemoteSources, hostRemoteSources } from './target-cors.js';
+import { planTargetNetwork } from './target-network.js';
 import type { PajaHostConfig, PajaNestedContextLockSetting } from './options.js';
 import { readStoredNestedContextLockSetting } from './browser-security-settings.js';
 import type { PajaShellEnvironment } from './parity.js';
@@ -168,13 +169,18 @@ export async function navigateFrame(
   const environment = resolvePajaFrameEnvironment(adapter, identity);
   const declarations = readDevelopmentDomains(fetched.html);
   const declared = declarations.required.length > 0 || declarations.optional.length > 0;
+  // NAP-RESOURCE PR #80 at ae5b9c64 forbids `resource` in a frame with direct
+  // network, external subresource loads included. A target that requires it
+  // runs as a closed snapshot of the fetched bytes: no dev origin, no base URL.
+  // Host-configured origins still reach admission, which then refuses them.
+  const isolated = planTargetNetwork(fetched.html).mode === 'isolated';
   return admitPajaFrame({
     frame, config, generation, runtime, identity, environment,
-    verifiedHtml: injectBaseHref(fetched.html, targetUrl.href),
+    verifiedHtml: isolated ? fetched.html : injectBaseHref(fetched.html, targetUrl.href),
     required: declarations.required,
     optional: declared ? declarations.optional : environment.capabilities.domains,
-    remoteSources: developmentRemoteSources(targetUrl, config.csp),
-    baseOrigin: targetUrl.origin,
+    remoteSources: isolated ? hostRemoteSources(config.csp) : developmentRemoteSources(targetUrl, config.csp),
+    ...(isolated ? {} : { baseOrigin: targetUrl.origin }),
     windowId, isCurrent, onRegistered, signal,
   });
 }
@@ -240,8 +246,14 @@ async function admitPajaFrame(options: PajaFrameAdmission): Promise<string | nul
   });
   if (result.status === 'committed') return result.windowId;
   if (result.status === 'cancelled') return null;
-  throw new Error(`Paja Firewall launch admission ${result.status}${result.deniedRequired.length ? `: ${result.deniedRequired.join(', ')}` : ''}`);
+  throw new Error(`Paja Firewall launch admission ${result.status}${result.deniedRequired.length ? `: ${result.deniedRequired.join(', ')}` : ''}${
+    result.status === 'incompatible' && result.deniedRequired.includes('resource') ? `. ${RESOURCE_CONFLICT_HELP}` : ''}`);
 }
+
+/** Why a required `resource` cannot be combined with host-granted direct origins. */
+const RESOURCE_CONFLICT_HELP = 'This napplet requires `resource`, but the host CSP config grants its frame direct browser '
+  + 'origins. NAP-RESOURCE allows `resource` only in a frame with no direct network: remove the `csp` origins from the '
+  + 'Paja config, or declare `resource` under `napplet-optional`.';
 
 /**
  * NAP domains whose data is private enough that an untrusted napplet exfiltrating

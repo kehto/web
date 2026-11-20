@@ -595,6 +595,43 @@ remain closed. This directive-specific CSP and base behavior are bounded Kehto
 host policy, not a new NAP-CONNECT wire contract. A new host consumer must use the same shared admission
 transaction and add a conformance guard before executing bytes.
 
+### Target-URL documents that require `resource`
+
+Checked for kehto/web#447 against NAP-RESOURCE PR #80 head
+`ae5b9c64ab8a4d8909f288829a01e99d6bd713bc` (`naps/NAP-RESOURCE.md` and the
+resource binding in `projections/web.md`); `napplet/naps` master
+`377bf939c6c906817084b43dd21d424de646dbc2` has no NAP-RESOURCE yet. The binding
+requires a browser policy that blocks direct `fetch`, XHR, WebSocket,
+EventSource, beacon, and external subresource loads before `resource` is
+exposed, and says the direct-network exception must not be applied to such a
+napplet.
+
+A live target-URL frame loads scripts, styles, images, fonts, media, workers, and
+an HMR socket from its dev origin. Narrowing that to "assets only" would still
+leave external subresource loads, and images or scripts are an egress channel to
+a loopback origin that the resource policy itself must block. An opt-in flag
+would expose `resource` to a frame the host knowingly cannot isolate. Neither is
+conformant, so Kehto does neither.
+
+- **Conformant:** when the fetched development document lists `resource` under
+  `napplet-requires`, Paja admits it as a network-isolated snapshot. The Paja
+  server fetches `index.html`; the frame gets those bytes through `srcdoc` with no
+  remote sources and no host-injected base URL, under the same closed CSP as a
+  local single-file target (`default-src 'none'`, `connect-src 'none'`,
+  `img-src data: blob:`). `tests/e2e/paja-target-url-resource.spec.ts` proves in
+  Chromium that fetch, XHR, WebSocket, EventSource, beacon, image, script, style,
+  media, and worker requests reach neither the dev origin nor a third origin.
+- **Unchanged:** `admitBrowserDocument` still returns `incompatible` for a
+  required `resource` whenever any direct browser origin remains, and still omits
+  an optional `resource` from a direct-network frame. Verified pointer and local
+  file admission did not change.
+- **Bounded host policy, not a NAP contract:** the snapshot does not hot-reload
+  and loads no asset by URL. `planTargetNetwork` names the references that will
+  not load; the CLI prints the decision at startup and the browser host logs
+  `paja.target.network.isolated` or `paja.target.resource.omitted`. A target that
+  wants live dev-server loading declares `resource` under `napplet-optional` and
+  runs without it.
+
 ### Host dependency line: core 0.42 / nap 0.41
 
 Host peer ranges admit core 0.42.x and nap 0.41.x; development builds and JSR maps use that line. `@kehto/services`, `@kehto/paja`, `@kehto/cli` and `@kehto/mocks` floor core at 0.42.0 because services and mocks expose core's CVM registry types (services also re-exports core's intent types); other peer floors and the older fixture matrix remain supported.

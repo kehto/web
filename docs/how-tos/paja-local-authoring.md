@@ -113,6 +113,24 @@ Other dev servers need the equivalent: answer `Origin: null` with
 Paja logs a `paja.target.cors.error` entry in the **Messages** panel and warns on
 the browser console with the remedy, so a blank frame is never the only signal.
 
+## Napplets That Require `resource`
+
+`window.napplet.resource` is only offered to a frame with no direct network, so
+it cannot be combined with live dev-server loading. If your `index.html` has
+`<meta name="napplet-requires" content="resource">`, Paja loads it as a
+network-isolated snapshot: inline scripts, inline styles, and `data:` assets run,
+but nothing is fetched from the dev server by the frame and there is no hot
+reload. The CLI prints a `Target network: isolated snapshot` notice listing any
+references that will not load.
+
+Pick whichever fits the moment:
+
+- Serve a self-contained single-file build and reload Paja after each rebuild.
+- Declare `resource` under `napplet-optional` while iterating on UI. The frame
+  stays live and `window.napplet.resource` is absent, so guard its use.
+
+See [Targets that require `resource`](/packages/paja#targets-that-require-resource).
+
 ## Use an Existing Target Server
 
 If another process already serves the app, omit the command:

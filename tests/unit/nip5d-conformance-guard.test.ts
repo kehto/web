@@ -431,7 +431,15 @@ describe('NIP-5D conformance static guards', () => {
     const csp = readRepoFile('packages/shell/src/napplet-csp.ts');
 
     expect(paja).toContain('await admitBrowserDocument({');
-    expect(paja).toContain('verifiedHtml: injectBaseHref(fetched.html, targetUrl.href)');
+    // kehto/web#447, NAP-RESOURCE PR #80 at ae5b9c64ab8a4d8909f288829a01e99d6bd713bc:
+    // a target-URL document requiring `resource` runs as a closed snapshot with
+    // no dev origin and no base URL; shared admission still refuses any frame
+    // that keeps a direct origin.
+    expect(paja).toContain('verifiedHtml: isolated ? fetched.html : injectBaseHref(fetched.html, targetUrl.href)');
+    expect(paja).toContain('remoteSources: isolated ? hostRemoteSources(config.csp) : developmentRemoteSources(targetUrl, config.csp)');
+    expect(paja).toContain('...(isolated ? {} : { baseOrigin: targetUrl.origin })');
+    expect(admission).toContain("if (direct && request.required.includes('resource')) return failed('incompatible', ['resource']);");
+    expect(readRepoFile('docs/policies/NIP-5D-CONFORMANCE.md')).toContain('### Target-URL documents that require `resource`');
     expect(paja).toContain('frame.srcdoc = srcdoc;');
     expect(admission).toContain('permissions.isAdmissionCurrent(entry.windowId, admission)');
     expect(admission).toContain('cspMeta(csp) + renderNappletNamespacePrelude({ domains,');

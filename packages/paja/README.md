@@ -59,6 +59,32 @@ Any dev server works as long as it answers `Origin: null` with
 and logs a `paja.target.cors.error` entry in the message log, plus a console
 warning, when the target would block the sandboxed frame.
 
+## Targets that require `resource`
+
+[NAP-RESOURCE](https://github.com/napplet/naps/blob/ae5b9c64ab8a4d8909f288829a01e99d6bd713bc/naps/NAP-RESOURCE.md)
+exposes `window.napplet.resource` only to a frame the browser denies all direct
+network: fetch, XHR, WebSocket, EventSource, beacon, and external subresource
+loads. A live dev-server frame loads its scripts and HMR socket from the dev
+origin, so the two cannot be combined.
+
+When the target's `index.html` lists `resource` under `napplet-requires`, Paja
+loads it as a **network-isolated snapshot**: the Paja server fetches the
+document, and the frame runs those bytes under the same closed CSP as a local
+single-file target. Nothing is requested from the dev server by the frame, there
+is no `<base>` URL, and there is no hot reload; reload Paja after a rebuild.
+Inline scripts and styles and `data:` assets work. Anything referenced by URL
+does not, so serve a self-contained single-file build.
+
+Paja says so up front. The CLI prints a `Target network: isolated snapshot`
+notice with the references that will not load, `GET /__kehto/target-network.json`
+returns the same plan, and the browser host logs `paja.target.network.isolated`
+in the message log and warns on the console. `planTargetNetwork` and
+`findExternalAssetReferences` are exported for reuse.
+
+To keep live dev-server loading, declare `resource` under `napplet-optional`. The
+frame then loads live without `window.napplet.resource`, and Paja logs
+`paja.target.resource.omitted`.
+
 Every drawer section is a flush, independent native accordion: **Pointer** (in
 runtime-pointer mode), **Interfaces**, **ACL**, **Signer**, **Resource servers**,
 **Language models**, **Messages**, then **Events** last. Headers support Enter/Space, visible keyboard focus and
@@ -370,10 +396,13 @@ Unsigned development HTML can request interfaces with space-separated
 approval; they do not grant it. Paja binds each development grant to the exact
 target URL and fetched HTML hash, so editing the document requires a new
 approval. A live dev server uses directive-specific browser source approval
-for its script, style, image, font, worker, media, and connection sources. Its
-frame cannot receive `resource`; declare `resource` only for a self-contained
-local HTML file with no remote sources. When no development declarations exist,
-Paja offers available interfaces as optional for the current session.
+for its script, style, image, font, worker, media, and connection sources. That
+live frame cannot receive `resource`: NAP-RESOURCE allows it only in a frame with
+no direct network. A target that lists `resource` under `napplet-requires` is
+loaded as a network-isolated snapshot instead (see
+[Targets that require `resource`](#targets-that-require-resource)). When no
+development declarations exist, Paja offers available interfaces as optional for
+the current session.
 
 Hosts can pass `csp` to `createPajaRuntimeHostConfig`:
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { isDirectPajaCli, parsePajaArgs, runPajaCli } from './cli.js';
 import { createPajaHostConfig, normalizePajaOptions, type PajaHostConfig } from './options.js';
+import { planTargetNetwork } from './target-network.js';
 
 describe('@kehto/paja CLI', () => {
   it('parses target URL and argv command separator', () => {
@@ -221,6 +222,7 @@ describe('@kehto/paja CLI', () => {
           };
           return hostConfig;
         },
+        inspectTargetNetwork: async () => planTargetNetwork('<meta name="napplet-requires" content="resource"><script src="/src/main.ts"></script>'),
         close: async () => undefined,
       }),
       startCommand: () => ({
@@ -237,6 +239,11 @@ describe('@kehto/paja CLI', () => {
     expect(hostConfig.target.url).toBe('http://localhost:5174/');
     expect(waitedFor).toEqual(['http://127.0.0.1:5173/', 'http://localhost:5174/']);
     expect(stdout.join('')).toContain('Target URL updated: http://localhost:5174/');
+    // kehto/web#447: the CLI names the blocking declaration and the way out up front.
+    expect(stdout.join('')).toContain('Target network: isolated snapshot');
+    expect(stdout.join('')).toContain('Target requires `resource`');
+    expect(stdout.join('')).toContain('These references will not load: /src/main.ts.');
+    expect(stdout.join('')).toContain('napplet-optional');
   });
 
   it('detects package binary symlinks as direct Paja CLI execution', () => {

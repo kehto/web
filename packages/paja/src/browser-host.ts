@@ -117,7 +117,7 @@ import {
 } from './browser-intent-links.js';
 import { createPajaIntentLinkBuilder } from './browser-intent-builder.js';
 import { launchPajaSharedIntent } from './browser-intent-launcher-host.js';
-import { reportTargetCorsDiagnostic } from './browser-target-diagnostics.js';
+import { reportTargetDiagnostics } from './browser-target-diagnostics.js';
 import { createPajaNotifyController } from './browser-notify.js';
 import { createPajaConfigController } from './browser-config.js';
 import {
@@ -997,7 +997,7 @@ async function installPajaHost(): Promise<void> {
     }
   } else {
     startFrameNavigation(state, context);
-    void reportTargetCorsDiagnostic(state);
+    void reportTargetDiagnostics(state);
   }
   void signerController.restorePreference();
 }

@@ -197,6 +197,32 @@ host requests it once per target-url boot and, for anything other than
 on the console with the remedy. `classifyTargetCors` and `probeTargetCors` are
 exported for reuse.
 
+### Targets that require `resource`
+
+[NAP-RESOURCE](https://github.com/napplet/naps/blob/ae5b9c64ab8a4d8909f288829a01e99d6bd713bc/naps/NAP-RESOURCE.md)
+exposes `window.napplet.resource` only to a frame the browser denies all direct
+network: fetch, XHR, WebSocket, EventSource, beacon, and external subresource
+loads. A live dev-server frame loads its scripts and HMR socket from the dev
+origin, so the two cannot be combined.
+
+When the target's `index.html` lists `resource` under `napplet-requires`, Paja
+loads it as a **network-isolated snapshot**: the Paja server fetches the
+document, and the frame runs those bytes under the same closed CSP as a local
+single-file target. Nothing is requested from the dev server by the frame, there
+is no `<base>` URL, and there is no hot reload; reload Paja after a rebuild.
+Inline scripts and styles and `data:` assets work. Anything referenced by URL
+does not, so serve a self-contained single-file build.
+
+Paja says so up front. The CLI prints a `Target network: isolated snapshot`
+notice with the references that will not load, `GET /__kehto/target-network.json`
+returns the same plan, and the browser host logs `paja.target.network.isolated`
+in the message log and warns on the console. `planTargetNetwork` and
+`findExternalAssetReferences` are exported for reuse.
+
+To keep live dev-server loading, declare `resource` under `napplet-optional`. The
+frame then loads live without `window.napplet.resource`, and Paja logs
+`paja.target.resource.omitted`.
+
 The console is a collapsible left column. It starts expanded, and one chevron
 button in the top bar collapses it to the left and restores it; the toggle stays
 visible in both states, including after a reload with no runtime tabs open, so a
@@ -370,8 +396,11 @@ artifact hash as its unsigned development identity. Development HTML can request
 interfaces with space-separated `napplet-requires` and `napplet-optional` meta
 declarations. They never grant authority. A live dev server receives only its
 approved browser sources and cannot combine direct network loading with
-the protected `resource` interface. A self-contained local file can request
-`resource` under the closed local-only CSP. Loading an
+the protected `resource` interface. A target that lists `resource` under
+`napplet-requires` is loaded as a network-isolated snapshot instead (see
+[Targets that require `resource`](#targets-that-require-resource)), and a
+self-contained local file can request `resource` under the same closed CSP.
+Loading an
 already-running napplet
 opens an in-page choice to load another instance, switch to the existing tab, or
 cancel. Each verified tab's Share control opens a dialog with its selectable
