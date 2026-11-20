@@ -72,8 +72,9 @@ of it (default 512; Paja setting `firewall.maxGrantsPerNapplet`), so one
 napplet's approvals can't starve another's (kehto/web#513). Only explicit
 decisions take space: a default-rule `allow` is consulted on every check and
 writes no grant, so revoking or tightening the rule applies to the next check,
-`RuntimePermissions.rulesChanged()` closes live work admitted under the old
-rules, and a stored denial still beats a default allow. A new decision that
+`RuntimePermissions.rulesChanged()` (called by the shell rules editor on a
+tightening edit) closes live operations and rechecks frame admissions under
+the new rules, and a stored denial still beats a default allow. A new decision that
 doesn't fit evicts the oldest `session` grants, first the napplet's own, then
 those of the napplet holding the most; eviction forgets a cached session
 answer, so work already approved keeps running and the next request asks

@@ -555,7 +555,7 @@ describe('browser approval default rules', () => {
     f.ui.destroy();
   });
 
-  it('tells the runtime about every rule change, since a default allow writes no grant (#513)', () => {
+  it('tells the runtime about a tightening rule change, since a default allow writes no grant (#513)', () => {
     const f = setup(false, true);
     f.ui.refresh();
     const form = f.mount.find('form')!;
@@ -564,6 +564,11 @@ describe('browser approval default rules', () => {
     form.dispatchEvent(new Event('submit', { cancelable: true }));
     expect(f.rulesChanged).toHaveBeenCalledOnce();
     expect(f.revoke).not.toHaveBeenCalled();
+    // Loosening it back to allow takes nothing away, so live work keeps running.
+    form.find('input')!.value = 'keys';
+    form.all('select')[1].value = 'allow';
+    form.dispatchEvent(new Event('submit', { cancelable: true }));
+    expect(f.rulesChanged).toHaveBeenCalledOnce();
     f.ui.destroy();
   });
 

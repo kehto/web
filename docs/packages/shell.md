@@ -35,8 +35,9 @@ identity and the full scope appear on expand. A default allow writes no grant
 row only shows `rule:` grants an older runtime made. It and delegates single and group revoke, clear, and persistence
 retry to the runtime. Given `rules`, it also renders an editor for the host's
 default rules, offers to turn a prompt answer into a standing rule for that
-napplet, and on every rule change calls `RuntimePermissions.rulesChanged()` so
-live work admitted under the old rules closes.
+napplet, and on a tightening rule change (anything but moving rules toward
+allow) calls `RuntimePermissions.rulesChanged()` so live work admitted under
+the old rules closes; its napplet list includes `RuntimePermissions.principals`.
 `onAnswer(answer, userGesture)` reports each answer and whether a real click
 made it, for hosts that run a gesture-gated browser action from that click. The UI
 ships unstyled; add `BROWSER_APPROVAL_UI_STYLES` to a `<style>` element or

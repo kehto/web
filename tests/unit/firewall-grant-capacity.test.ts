@@ -70,6 +70,8 @@ describe('Firewall grant table capacity (#513)', () => {
     expect(plans * ORIGINS_PER_PLAN).toBeGreaterThan(MAX_PERMISSION_GRANTS);
     // The rule answers: no relay origin became a stored grant.
     expect(h.runtime.permissions!.grants.filter((grant) => grant.permission.category !== 'interface')).toEqual([]);
+    // With no grant to list it by, the napplet is still known to a rules editor.
+    expect(h.runtime.permissions!.principals?.map((principal) => principal.kind === 'development' && principal.target)).toEqual(['http://feed.localhost']);
     expect((await h.query('window', plans)).error).toBeUndefined();
     expect(h.prompt).not.toHaveBeenCalled();
   });

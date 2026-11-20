@@ -490,4 +490,19 @@ describe('default rules answer their own scopes (#513)', () => {
     expect(await f.run()).toEqual({ status: 'executed', value: 'opened' });
     f.coordinator.dispose();
   });
+
+  it('counts a grant this coordinator evicted for a run it already admitted', async () => {
+    // Share of 2: the first run's two grants fill it; a second decision evicts them mid-run.
+    const done = deferred<string>();
+    const started = deferred<void>();
+    const other: PermissionRequirement = { ...requirement, scope: { kind: 'exact', value: 'https://example.com/other' } };
+    const f = fixture({ prompt: async () => session, maxGrantsPerPrincipal: 2 });
+    const first = f.coordinator.run(principal, 'session-1', [requirement], () => true, () => { started.resolve(); return done.promise; });
+    await started.promise;
+    expect(await f.coordinator.run(principal, 'session-1', [other], () => true, f.action)).toEqual({ status: 'executed', value: 'opened' });
+    expect(f.state().grants.some((grant) => grant.permission.scope.value === requirement.scope.value)).toBe(false);
+    done.resolve('opened');
+    expect(await first).toEqual({ status: 'executed', value: 'opened' });
+    f.coordinator.dispose();
+  });
 });

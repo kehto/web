@@ -120,7 +120,8 @@ interface PendingApproval {
 
 /** Decide one request; `undefined` means its scopes are granted and it may run. */
 async function approve(options: ApprovalCoordinatorOptions, request: PermissionRequest, entry: PendingApproval,
-  current: () => boolean, allowLifetimes: readonly PermissionGrant['lifetime'][]): Promise<ApprovalOutcome<never> | undefined> {
+  current: () => boolean, allowLifetimes: readonly PermissionGrant['lifetime'][],
+  onEvicted: (grants: readonly PermissionGrant[]) => void): Promise<ApprovalOutcome<never> | undefined> {
   if (!current()) return { status: 'cancelled' };
   const state = options.getState();
   const decision = evaluatePermissions(state, request, options);
@@ -164,7 +165,9 @@ async function approve(options: ApprovalCoordinatorOptions, request: PermissionR
     // A full share or table evicts the oldest session grants (kehto/web#513).
     // Eviction forgets a cached session answer; it is not a revocation, so work
     // already approved keeps running and the next request for that scope asks.
-    options.commit(admitPermissionGrants(latest, grants, options, rechecked.grantIds).state);
+    const admitted = admitPermissionGrants(latest, grants, options, rechecked.grantIds);
+    options.commit(admitted.state);
+    onEvicted(admitted.evicted);
   } catch (error) {
     // A full grant table is capacity, never a denial (kehto/web#513).
     return { status: error instanceof RangeError && error.message === 'Permission grant limit exceeded' ? 'capacity' : 'unavailable' };
@@ -183,6 +186,13 @@ export function createApprovalCoordinator(options: ApprovalCoordinatorOptions) {
   // Fail at construction, not per request, for an out-of-range policy bound.
   permissionLimits(options);
   const pending = new Set<PendingApproval>();
+  // Session grants this coordinator evicted while requests were in flight. An
+  // in-flight run still counts them, so eviction is never mistaken for a
+  // revocation; the set empties whenever nothing is pending.
+  const evicted = new Set<PermissionGrant>();
+  const recordEvicted = (grants: readonly PermissionGrant[]): void => {
+    for (const grant of grants) evicted.add(grant);
+  };
   const groups = new Map<string, Promise<unknown>>();
   let reserved = 0;
   let disposed = false;
@@ -191,6 +201,13 @@ export function createApprovalCoordinator(options: ApprovalCoordinatorOptions) {
     for (const entry of pending) {
       if (sessionId === undefined || entry.sessionId === sessionId) entry.controller.abort();
     }
+  }
+
+  /** Whether stored grants, then the default rules, cover every scope. */
+  function covered(grants: readonly PermissionGrant[], request: PermissionRequest, allowLifetimes: readonly PermissionGrant['lifetime'][]): boolean {
+    const decision = evaluatePermissions({ version: 1, grants }, request, options);
+    return decision.decision === 'allow'
+      || (decision.decision === 'ask' && defaultRuleAllows(options, request, decision.missing, allowLifetimes));
   }
 
   function snapshot(principal: PermissionPrincipal, sessionId: string, requirements: readonly PermissionRequirement[]): PermissionRequest {
@@ -250,16 +267,17 @@ export function createApprovalCoordinator(options: ApprovalCoordinatorOptions) {
     signal?.addEventListener('abort', abortRequest, { once: true });
     if (signal?.aborted) abortRequest();
     const operation = previous.then(async (): Promise<ApprovalOutcome<T>> => {
-      const failure = await approve(options, request, entry, current, allowLifetimes);
+      const failure = await approve(options, request, entry, current, allowLifetimes, recordEvicted);
       if (failure) return failure;
       if (!current()) return { status: 'cancelled' };
       const state = options.getState();
       const consumed = consumePermissionGrants(state, request, options);
       if (consumed.decision.decision === 'deny') return { status: 'denied' };
-      // Scopes left uncovered are either the default rule's to answer, or lost
-      // to a concurrent revocation or eviction: that is not a policy denial.
-      if (consumed.decision.decision === 'ask'
-        && !defaultRuleAllows(options, request, consumed.decision.missing, allowLifetimes)) return { status: 'cancelled' };
+      // Scopes left uncovered are the default rule's to answer; failing that,
+      // a gap the evicted grants would fill is capacity, not a denial (#513).
+      if (consumed.decision.decision === 'ask' && !covered(state.grants, request, allowLifetimes)) {
+        return { status: covered([...state.grants, ...evicted], request, allowLifetimes) ? 'capacity' : 'cancelled' };
+      }
       try {
         if (consumed.state.grants.length !== state.grants.length) options.commit(consumed.state);
       }
@@ -272,16 +290,17 @@ export function createApprovalCoordinator(options: ApprovalCoordinatorOptions) {
       const value = await execute(controller.signal);
       if (!current()) return { status: 'cancelled' };
       const latest = options.getState();
-      const continuation = evaluatePermissions({ version: 1, grants: [...latest.grants, ...spent] }, request, options);
-      const still = continuation.decision === 'allow' || (continuation.decision === 'ask'
-        && defaultRuleAllows(options, request, continuation.missing, allowLifetimes));
-      return still ? { status: 'executed', value } : { status: 'cancelled' };
+      // An approval evicted for room is forgotten, not withdrawn, so it still
+      // counts for the run it already admitted.
+      return covered([...latest.grants, ...spent, ...evicted], request, allowLifetimes)
+        ? { status: 'executed', value } : { status: 'cancelled' };
     });
     const settled = Promise.race([operation, cancelled]).finally(() => {
       endApproval();
       controller.signal.removeEventListener('abort', onAbort);
       signal?.removeEventListener('abort', abortRequest);
       pending.delete(entry);
+      if (!pending.size) evicted.clear();
     });
     // Cancelling a queued caller settles it immediately, but must not let later
     // equivalents skip the predecessor that still owns the active prompt.

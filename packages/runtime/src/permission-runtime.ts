@@ -41,6 +41,11 @@ export interface RuntimePermissions {
   isAdmissionCurrent(windowId: string, admission: PermissionAdmission): boolean;
   /** Immutable granted/denied scopes, including ephemeral sessions. */
   readonly grants: readonly PermissionGrant[];
+  /**
+   * Principals of napplets with a live permission session. A default allow
+   * writes no grant (kehto/web#513), so a rules editor lists napplets from here.
+   */
+  readonly principals?: readonly PermissionPrincipal[];
   /** False after a load failure or a durable revocation that could not be saved. */
   readonly available: boolean;
   /** Revoke locally immediately; false means durable removal failed. */
@@ -224,6 +229,9 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
   const management: RuntimePermissions = {
     ...admission,
     get grants() { return store.getState().grants; },
+    get principals() {
+      return Object.freeze([...lifetimes.values()].flatMap(({ entry }) => entry.permissionPrincipal ? [entry.permissionPrincipal] : []));
+    },
     get available() { return store.available; },
     revoke: store.revoke,
     clear: store.clear,

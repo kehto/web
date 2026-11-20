@@ -16,6 +16,7 @@ import { createIdentityService } from './identity-service.js';
 import { createLinkService } from './link-service.js';
 import { createCommonService } from './common-service.js';
 import { createSerialService } from './serial-service.js';
+import { createResourceService } from './resource-service.js';
 
 const PK = 'a'.repeat(64);
 const event: NostrEvent = { id: 'e'.repeat(64), pubkey: PK, kind: 1, tags: [], content: 'hi', created_at: 1, sig: 'f'.repeat(128) };
@@ -106,5 +107,15 @@ describe('capacity, busy and unavailable approvals are not denials on the wire',
       { type: 'serial.open.result', id: 's', error: APPROVAL_CAPACITY }],
   ] as const)('%s capacity surfaces the host reason', async (_name, make, message, expected) => {
     expect(await reply(withStatus(make(), 'capacity'), message as unknown as NappletMessage)).toEqual(expected);
+  });
+
+  it('RESOURCE capacity is a network-error, not blocked-by-policy (spec gap, NAP-RESOURCE #80 @ ae5b9c64)', async () => {
+    const make = () => createResourceService({ fetch: vi.fn() as never });
+    const capacity = await reply(withStatus(make(), 'capacity'), { type: 'resource.bytes', id: 'r', url: 'https://example.com/a' } as NappletMessage);
+    expect(JSON.stringify(capacity)).toContain('network-error');
+    expect(JSON.stringify(capacity)).toContain(APPROVAL_CAPACITY);
+    expect(JSON.stringify(capacity)).not.toContain('blocked-by-policy');
+    const denied = await reply(withStatus(make(), 'denied'), { type: 'resource.bytes', id: 'r', url: 'https://example.com/a' } as NappletMessage);
+    expect(JSON.stringify(denied)).toContain('blocked-by-policy');
   });
 });

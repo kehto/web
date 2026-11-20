@@ -7,7 +7,7 @@ import { createBrowserApprovalPrompt } from './browser-approval-prompt.js';
 import { createGrantList } from './browser-approval-grants.js';
 import { createRulesEditor } from './browser-approval-rules.js';
 import type { BrowserApprovalRules, RuleSubject } from './browser-approval-rules.js';
-import { isRuleGrant, ruleTargetFor } from './browser-approval-format.js';
+import { isRuleGrant, ruleTargetFor, rulesOnlyLoosened } from './browser-approval-format.js';
 import { element } from './browser-approval-dom.js';
 
 export type { BrowserApprovalRules } from './browser-approval-rules.js';
@@ -110,9 +110,11 @@ export function createBrowserApprovalUi(options: BrowserApprovalUiOptions): Brow
 
   function subjects(): RuleSubject[] {
     const seen = new Map<string, string>();
-    for (const grant of options.getPermissions()?.grants ?? []) {
-      const subject = permissionRuleSubject(grant.principal);
-      if (!seen.has(subject)) seen.set(subject, options.labelForPrincipal(grant.principal));
+    const live = options.getPermissions();
+    // Rule-allowed napplets hold no grant (kehto/web#513); list live ones too.
+    for (const principal of [...(live?.principals ?? []), ...(live?.grants ?? []).map((grant) => grant.principal)]) {
+      const subject = permissionRuleSubject(principal);
+      if (!seen.has(subject)) seen.set(subject, options.labelForPrincipal(principal));
     }
     return [...seen].map(([subject, label]) => ({ subject, label }));
   }
@@ -122,12 +124,16 @@ export function createBrowserApprovalUi(options: BrowserApprovalUiOptions): Brow
    * allow writes no grant (kehto/web#513), so the runtime closes live work that
    * may have relied on the old rules; legacy `rule:` grants are reset as before.
    */
+  let lastRules = options.rules?.get();
   function resetStaleRuleGrants(): void {
     const rules = options.rules?.get();
     const live = options.getPermissions();
     const grants = live?.grants ?? [];
     if (!rules) return;
-    live?.rulesChanged?.();
+    // A loosening edit can't take access away, so live work keeps running.
+    const tightened = !lastRules || !rulesOnlyLoosened(lastRules, rules);
+    lastRules = rules;
+    if (tightened) live?.rulesChanged?.();
     try { options.onRulesChanged?.(); } catch { /* Host follow-up cannot undo the rule change. */ }
     const stale = grants.filter((grant) => isRuleGrant(grant)
       && resolvePermissionRule(rules, grant.principal, grant.permission) !== 'allow');
