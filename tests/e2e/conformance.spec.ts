@@ -12,15 +12,10 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
+import { KNOWN_KEHTO_FINDINGS } from './helpers/conformance-findings.js';
 
 const CLI = join(process.cwd(), 'packages/cli/dist/index.js');
 
-/**
- * Real Kehto conformance failures the suite found that are still open. The
- * first one (`nip5d/unknown-envelope`, storage answering unknown actions) was
- * fixed on staging by #472, so the list is empty: any failure fails this spec.
- */
-const KNOWN_KEHTO_FINDINGS: readonly string[] = [];
 
 interface CliRun {
   readonly status: number;

@@ -12,7 +12,7 @@ const define = {
 
 export default defineConfig([
   {
-    entry: ['src/index.ts', 'src/kehto-target.ts', 'src/cli.ts'],
+    entry: ['src/index.ts', 'src/kehto-target.ts', 'src/mutations.ts', 'src/cli.ts'],
     format: ['esm'],
     dts: true,
     sourcemap: true,

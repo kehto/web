@@ -36,6 +36,8 @@ interface ShellFacts {
   readonly trust: { readonly report: ProbeReport | null; readonly rogueReceived: readonly unknown[]; readonly rogueDispatched: number } | null;
   readonly scope: readonly { readonly name: string; readonly injected: readonly string[]; readonly init: Environment | null; readonly granted: readonly string[] }[];
   readonly retained: { readonly report: ProbeReport | null; readonly wire: EndpointWire; readonly injected: readonly string[]; readonly ungranted: string } | null;
+  /** A first port-delivered shell.init that claims a domain whose object is absent. */
+  readonly invented: { readonly report: ProbeReport | null; readonly ungranted: string } | null;
 }
 
 const typeOf = (envelope: unknown): string => String((envelope as { type?: unknown } | null)?.type ?? '');
@@ -170,6 +172,23 @@ async function collectRetained(context: CollectContext, grants: readonly string[
   return { report, wire: endpointWire(context, endpoint.id), injected: report?.classic?.domains ?? [], ungranted };
 }
 
+async function collectInvented(context: CollectContext, grants: readonly string[]): Promise<ShellFacts['invented']> {
+  const ungranted = context.advertised.domains.find((domain) => !grants.includes(domain)) ?? UNAVAILABLE_DOMAIN;
+  const claim = { type: 'shell.init', capabilities: { domains: [...grants, ungranted] }, services: [] };
+  const { report } = await runProbe(context, {
+    plan: {
+      label: 'shell-invented',
+      steps: [
+        { op: 'call', as: 'inject', root: 'window', path: [WIRE_HANDLE, 'inject'], args: [claim] },
+        { op: 'call', as: 'ready', path: ['shell', 'ready'] },
+        { op: 'call', as: 'supportsClaimed', path: ['shell', 'supports'], args: [ungranted] },
+      ],
+    },
+    dTag: 'probe-shell-invented', grants, rawWire: true, hold: { inbound: ['shell.init'] },
+  });
+  return { report, ungranted };
+}
+
 async function collect(context: CollectContext): Promise<ShellFacts> {
   const variantShell = context.variant.shell === 'shell-present' && context.advertised.domains.includes('shell');
   const grants = context.anchor ? ['shell', context.anchor.domain] : ['shell'];
@@ -178,7 +197,7 @@ async function collect(context: CollectContext): Promise<ShellFacts> {
     advertised: context.advertised.domains, services: context.advertised.services,
     optional: await collectOptional(context),
   };
-  if (!variantShell) return { ...base, echo: null, once: [], trust: null, scope: [], retained: null };
+  if (!variantShell) return { ...base, echo: null, once: [], trust: null, scope: [], retained: null, invented: null };
   const echoRun = await runProbe(context, {
     plan: { label: 'shell-echo', steps: [{ op: 'call', as: 'ready', path: ['shell', 'ready'] }, { op: 'quiet', as: 'quiet' }] },
     dTag: 'probe-shell-echo', grants, rawWire: true, hold: { echoInit: true },
@@ -190,6 +209,7 @@ async function collect(context: CollectContext): Promise<ShellFacts> {
     trust: await collectTrust(context, grants),
     scope: await collectScope(context),
     retained: await collectRetained(context, grants),
+    invented: await collectInvented(context, grants),
   };
 }
 
@@ -236,6 +256,7 @@ function sourceTrust(facts: ShellFacts): CheckOutcome {
     readyForged: step(report, 'readyForged')?.state, readyFinal: step(report, 'ready')?.state, rogueReceived, rogueDispatched,
   };
   if (!report) return fail('The trust probe did not finish', diagnostics);
+  if (diagnostics.readyForged === 'missing') return fail('window.napplet.shell.ready is missing although shell was granted', diagnostics);
   if (diagnostics.readyForged !== 'pending') return fail('A window-level shell.init resolved ready()', diagnostics);
   if ((diagnostics.servicesForged as unknown[] | undefined)?.length) return fail('A window-level shell.init populated services', diagnostics);
   if (diagnostics.supportsForged !== false) return fail('A window-level shell.init made an absent domain supported', diagnostics);
@@ -293,8 +314,14 @@ function localSupports(facts: ShellFacts): CheckOutcome {
   const { report, wire, injected, ungranted } = facts.retained;
   const before = Object.fromEntries((report?.steps ?? []).filter((record) => record.as?.startsWith('before:')).map((record) => [record.as!.slice(7), record.value]));
   const queries = wire.outbound.filter((entry) => typeOf(entry.envelope).startsWith('shell.') && typeOf(entry.envelope) !== 'shell.ready');
-  const diagnostics = { injected: sorted(injected), before, afterUngranted: value(report, 'after:ungranted'), ungranted, wireQueries: queries.map((entry) => entry.envelope) };
-  if (!report) return fail('The supports probe did not finish', diagnostics);
+  const invented = facts.invented;
+  const diagnostics = {
+    injected: sorted(injected), before, afterUngranted: value(report, 'after:ungranted'), ungranted, wireQueries: queries.map((entry) => entry.envelope),
+    firstInitClaim: invented ? { ready: step(invented.report, 'ready')?.state, supports: value(invented.report, 'supportsClaimed'), domain: invented.ungranted } : null,
+  };
+  if (!report || !invented?.report) return fail('The supports probes did not finish', diagnostics);
+  if (diagnostics.firstInitClaim?.ready !== 'resolved') return fail('A port-delivered shell.init did not resolve ready()', diagnostics);
+  if (diagnostics.firstInitClaim.supports !== false) return fail('A first shell.init claiming an absent domain made it supported', diagnostics);
   const wrong = injected.filter((domain) => domain in before && before[domain] !== true);
   if (wrong.length) return fail(`supports() was not true before shell.init for injected domains: ${wrong.join(', ')}`, diagnostics);
   if (before.ungranted !== false || before.unknown !== false) return fail('supports() is true for an unexposed or unknown domain', diagnostics);

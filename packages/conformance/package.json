@@ -15,6 +15,10 @@
       "types": "./dist/kehto-target.d.ts",
       "import": "./dist/kehto-target.js"
     },
+    "./mutations": {
+      "types": "./dist/mutations.d.ts",
+      "import": "./dist/mutations.js"
+    },
     "./cli": {
       "types": "./dist/cli.d.ts",
       "import": "./dist/cli.js"
