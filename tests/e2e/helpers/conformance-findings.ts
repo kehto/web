@@ -14,8 +14,6 @@
  *   not define (staging's #463 fixed the other domains).
  * - `catalog/package-drift`: `@napplet/nap@0.41.0` lacks `media.session.ended`
  *   and `webrtc.sendBytes(.result)` that the pinned NAPs specify (upstream).
- * - `relay/semantics`: `relay.publishEncrypted` with a signer that cannot
- *   encrypt publishes an empty-content event and reports `ok: true`.
  * - `webrtc/push`: `webrtc.event` is still delivered for a closed session.
  */
 export const KNOWN_KEHTO_FINDINGS: Readonly<Record<'minimal' | 'full', readonly string[]>> = {
@@ -24,7 +22,6 @@ export const KNOWN_KEHTO_FINDINGS: Readonly<Record<'minimal' | 'full', readonly 
     'catalog/acl-denial',
     'catalog/broadcast-to-loaded',
     'catalog/package-drift',
-    'relay/semantics',
     'webrtc/push',
   ],
 };
