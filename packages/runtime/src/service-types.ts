@@ -51,6 +51,12 @@ export interface ServiceRuntimeContext {
   authorizeOperation?<T>(windowId: string, operation: string, requirements: readonly PermissionRequirement[],
     execute: (signal: ApprovalSignal) => T | Promise<T>, signal?: ApprovalSignal): Promise<ApprovalOutcome<T>>;
   /**
+   * Most requirements one `authorizeOperation` request may carry, from the
+   * host's `PermissionAdapter.maxRequirements`. Present with `authorizeOperation`;
+   * services size their plans to it (kehto/web#514).
+   */
+  readonly maxPermissionRequirements?: number;
+  /**
    * Resolve a currently registered window to its authenticated napplet dTag.
    *
    * @param windowId - Internal live window identifier.

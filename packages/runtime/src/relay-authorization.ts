@@ -3,7 +3,7 @@ import type { PermissionRequirement } from '@kehto/firewall';
 import type { ApprovalSignal } from './approval-coordinator.js';
 import type { RelayOperationPlan } from './service-types.js';
 import type { ServiceRuntimeContext } from './types.js';
-import { RELAY_TOO_MANY_RELAYS, guardRelayTransport } from './relay-failure.js';
+import { RELAY_APPROVAL_CAPACITY, RELAY_TOO_MANY_RELAYS, guardRelayTransport } from './relay-failure.js';
 
 // WHATWG URL is supplied by the Node/browser host; no DOM dependency is needed.
 declare const URL: {
@@ -38,7 +38,7 @@ export function snapshotRelayPlan(plan: RelayOperationPlan): RelayOperationPlan 
 
 /** Require operation authority for caller hints; unhinted legacy host routing remains supported. */
 export async function authorizeRelay<T>(
-  context: { authorizeOperation?: ServiceRuntimeContext['authorizeOperation'] },
+  context: Pick<ServiceRuntimeContext, 'authorizeOperation' | 'maxPermissionRequirements'>,
   windowId: string,
   operation: string,
   plan: RelayOperationPlan,
@@ -63,7 +63,7 @@ export async function authorizeRelay<T>(
   // plan over that many origins fails with its own reason instead of being
   // refused as a denial (kehto/web#455). NAP-RELAY leaves `relay.closed.reason`
   // free-form and lets the shell terminate a subscription for a resource limit.
-  if (requirements.length > MAX_PERMISSION_REQUIREMENTS) throw new Error(RELAY_TOO_MANY_RELAYS);
+  if (requirements.length > (context.maxPermissionRequirements ?? MAX_PERMISSION_REQUIREMENTS)) throw new Error(RELAY_TOO_MANY_RELAYS);
   const outcome = await run(windowId, operation, requirements, (signal) => {
     if (!signal.aborted && operation === 'relay.query' && relayHint && plan.relayUrls.length > 0
       && !legacyQueryHintWarnings.has(context)) {
@@ -72,5 +72,6 @@ export async function authorizeRelay<T>(
     }
     return guarded(signal);
   });
+  if (outcome.status === 'capacity') throw new Error(RELAY_APPROVAL_CAPACITY);
   if (outcome.status !== 'executed') throw new Error(`relay authorization ${outcome.status}`);
 }

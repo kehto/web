@@ -57,10 +57,11 @@ export type { PermissionAdapter, PermissionRateEvent, RuntimePermissions, Permis
 export type { PermissionPersistence, PermissionStorageFailure } from './permission-state.js';
 export type { ApprovalAnswer, ApprovalPrompt, ApprovalSignal, ApprovalCancellation, ApprovalOutcome, ApprovalFailure } from './approval-coordinator.js';
 export { DEFAULT_RULE_GRANT_PREFIX } from './approval-coordinator.js';
-export type { PermissionPrincipal, PermissionRequirement, PermissionRequest, PermissionScope, PermissionGrant } from '@kehto/firewall';
+export type { PermissionPrincipal, PermissionRequirement, PermissionRequest, PermissionScope, PermissionGrant, PermissionLimits, PermissionPolicyOptions } from '@kehto/firewall';
 export {
   createPermissionRules, permissionRuleSubject, resolvePermissionRule, setPermissionRule,
   serializePermissionRules, deserializePermissionRules, MAX_PERMISSION_REQUIREMENTS,
+  MAX_PERMISSION_REQUIREMENTS_CEILING, MAX_PERMISSION_GRANTS, MAX_PERMISSION_GRANTS_CEILING, permissionLimits,
 } from '@kehto/firewall';
 export type {
   PermissionRuleAction, PermissionRuleScope, PermissionRules, PermissionRuleTarget,

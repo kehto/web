@@ -1,6 +1,7 @@
 
 import { createDispatch, type NappletMessage, type NostrEvent, type NapHandler, type NapDomain } from '@napplet/core';
 import { ALL_CAPABILITIES, type Capability } from '@kehto/acl/capabilities';
+import { permissionLimits } from '@kehto/firewall';
 import type { PermissionRequirement } from '@kehto/firewall';
 
 import type {
@@ -438,6 +439,7 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
     const lifetime = {};
     serviceLifetimes.set(name, lifetime);
     const boundContext: ServiceRuntimeContext = context.permissions ? Object.freeze({ ...serviceContext,
+      maxPermissionRequirements: permissionLimits(hooks.permissions).maxRequirements,
       authorizeOperation<T>(windowId: string, operation: string, requirements: readonly PermissionRequirement[],
         execute: (signal: ApprovalSignal) => T | Promise<T>, signal?: ApprovalSignal) {
         return context.permissions!.run(windowId, operation, requirements, () => serviceLifetimes.get(name) === lifetime, execute, 'operation', signal);
@@ -702,6 +704,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
         const entry = sessionRegistry.getEntryByWindowId(windowId);
         return !!entry && aclState.check('', entry.dTag, entry.aggregateHash, 'relay:read');
       },
+      ...(permissions ? { maxPermissionRequirements: permissionLimits(hooks.permissions).maxRequirements } : {}),
       authorizeOperation: permissions ? (windowId, operation, requirements, execute, signal) =>
         permissions.run(windowId, operation, requirements,
           () => !!sessionRegistry.getEntryByWindowId(windowId), execute, 'operation', signal) : undefined,

@@ -18,6 +18,9 @@ const RELAY_AUTHORIZATION_REFUSED = 'relay authorization unavailable or denied';
 /** A host relay plan spanning more origins than one approval can name; not a denial. */
 export const RELAY_TOO_MANY_RELAYS = 'too many relays';
 
+/** The grant table is full (`maxGrants`): host capacity, not a denial (kehto/web#513). */
+export const RELAY_APPROVAL_CAPACITY = 'approval capacity reached';
+
 /** A relay transport failure raised while an approved operation ran. */
 class RelayTransportFailure {
   constructor(readonly cause: unknown) {}
@@ -51,6 +54,6 @@ export function guardRelayTransport<T>(execute: (signal: ApprovalSignal) => T | 
  */
 export function relayFailureReason(error: unknown, transportReason: string): string {
   if (error instanceof RelayTransportFailure) return transportReason;
-  if (error instanceof Error && (error.message === 'invalid relay destination' || error.message === RELAY_TOO_MANY_RELAYS)) return error.message;
+  if (error instanceof Error && (error.message === 'invalid relay destination' || error.message === RELAY_TOO_MANY_RELAYS || error.message === RELAY_APPROVAL_CAPACITY)) return error.message;
   return RELAY_AUTHORIZATION_REFUSED;
 }
