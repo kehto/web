@@ -1,0 +1,148 @@
+{
+  "files": {
+    "src/approval-compatibility.test.ts": {
+      "name": "Old-host approval warning tests",
+      "description": "Checks services used without an approval setup still work but warn once, and stay quiet when approval is in place."
+    },
+    "src/approval-review.test.ts": {
+      "name": "Approval boundary tests",
+      "description": "Checks outbox, relay, identity and theme services ask approval for the planned relays before acting and stop when aborted."
+    },
+    "src/ble-service.test.ts": {
+      "name": "Bluetooth tests",
+      "description": "Checks the Bluetooth service's device requests, approvals and replies."
+    },
+    "src/browser-gamepad.test.ts": {
+      "name": "Browser controller reader tests",
+      "description": "Checks browser controller readings and focus changes reach the controller service."
+    },
+    "src/browser-media-playback.test.ts": {
+      "name": "Browser player tests",
+      "description": "Checks the browser player plays approved bytes and live audio and releases them correctly."
+    },
+    "src/browser-media-stream-fetch.test.ts": {
+      "name": "Live audio fetch tests",
+      "description": "Checks live MP3 and AAC audio is recognised and handed over before the stream ends."
+    },
+    "src/cache-service.test.ts": {
+      "name": "Saved events tests",
+      "description": "Checks the saved-events service passes reads and writes to the host's store."
+    },
+    "src/catalog-intent-resolver.test.ts": {
+      "name": "Handler choice tests",
+      "description": "Checks the catalog picks the right verified napplet for an intent request."
+    },
+    "src/common-service.test.ts": {
+      "name": "Common actions tests",
+      "description": "Checks follow, react, report, profile and address encoding requests and their approvals."
+    },
+    "src/config-service.test.ts": {
+      "name": "Napplet settings tests",
+      "description": "Checks settings forms are validated, values stored and live updates pushed to napplets."
+    },
+    "src/coordinated-relay.test.ts": {
+      "name": "Relays plus saved copy tests",
+      "description": "Checks combined subscriptions remove duplicates and signal catch-up once."
+    },
+    "src/count-service.test.ts": {
+      "name": "Event count tests",
+      "description": "Checks event counts run only on approved relays and report failures properly."
+    },
+    "src/cvm-nostr-transport.test.ts": {
+      "name": "Nostr tool link tests",
+      "description": "Checks the Nostr link to tool servers: deadlines, encryption, piece-by-piece replies, streaming and closing."
+    },
+    "src/cvm-registry.test.ts": {
+      "name": "Trusted tool lookup tests",
+      "description": "Checks trusted tools are chosen only when their live description matches the pinned fingerprint."
+    },
+    "src/cvm-service.test.ts": {
+      "name": "ContextVM service tests",
+      "description": "Checks discover, request and close messages through the ContextVM service."
+    },
+    "src/dm-service.test.ts": {
+      "name": "Private messages tests",
+      "description": "Checks listing, sending and following private messages and their relay approvals."
+    },
+    "src/fs-service.test.ts": {
+      "name": "File request tests",
+      "description": "Checks file requests and watches are passed to the host store and tied to the right napplet."
+    },
+    "src/gamepad-service.test.ts": {
+      "name": "Game controller tests",
+      "description": "Checks controller readings reach only the focused, subscribed napplet."
+    },
+    "src/http-uploader.test.ts": {
+      "name": "Web uploader tests",
+      "description": "Checks uploads to NIP-96 and Blossom servers, including the signed sign-in events."
+    },
+    "src/identity-service.test.ts": {
+      "name": "User identity tests",
+      "description": "Checks each identity question returns the host's answer or an empty result."
+    },
+    "src/intent-service.test.ts": {
+      "name": "Intents service tests",
+      "description": "Checks intent requests reach the resolver with the sender's verified identity."
+    },
+    "src/intent-types.test.ts": {
+      "name": "Intent shape tests",
+      "description": "Checks the intent record shapes match the published protocol package."
+    },
+    "src/keys-ownership.test.ts": {
+      "name": "Shortcut ownership tests",
+      "description": "Checks each napplet can only register, rebind or remove its own keyboard shortcuts."
+    },
+    "src/keys-service.test.ts": {
+      "name": "Keyboard shortcut tests",
+      "description": "Checks shortcut registration, key matching, reserved keys and delivery to the right napplet."
+    },
+    "src/link-service.test.ts": {
+      "name": "Opening links tests",
+      "description": "Checks allowed links open after approval and forbidden addresses are refused."
+    },
+    "src/lists-service.test.ts": {
+      "name": "User lists tests",
+      "description": "Checks list reads and approved list changes."
+    },
+    "src/llm-provider-stream.test.ts": {
+      "name": "Streamed AI answer tests",
+      "description": "Checks streamed provider replies are read and assembled into answers."
+    },
+    "src/llm-provider-tools.test.ts": {
+      "name": "Provider tool call tests",
+      "description": "Checks every provider format handles tool calls, thinking and streamed blocks the same way."
+    },
+    "src/llm-providers.test.ts": {
+      "name": "Provider format tests",
+      "description": "Checks requests are built and replies read correctly for each provider format."
+    },
+    "src/llm-service-tools.test.ts": {
+      "name": "AI service tool tests",
+      "description": "Checks the AI service handles tool calls, thinking and streamed blocks as the protocol requires."
+    },
+    "src/llm-service.test.ts": {
+      "name": "AI service tests",
+      "description": "Checks connection choice, consent, errors and replies in the AI chat service."
+    },
+    "src/manifest-intent-catalog.test.ts": {
+      "name": "Manifest catalog tests",
+      "description": "Checks a napplet manifest becomes the right intent catalog entry."
+    },
+    "src/manifest-intent-dispatch.test.ts": {
+      "name": "Intent hand-over tests",
+      "description": "Checks an accepted intent is acknowledged once and a failed hand-over is rejected once."
+    },
+    "src/media-playback.test.ts": {
+      "name": "Playback tests",
+      "description": "Checks shell-run playback follows commands and session ownership."
+    },
+    "src/media-service.test.ts": {
+      "name": "Media session tests",
+      "description": "Checks media sessions, playback state, system media controls and session retirement."
+    },
+    "src/notification-service.test.ts": {
+      "name": "Older notification list tests",
+      "description": "Checks creating, listing and marking notifications read in the older service."
+    }
+  }
+}

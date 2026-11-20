@@ -1,0 +1,8 @@
+{
+  "files": {
+    "tsup.config.ts": {
+      "name": "Build settings",
+      "description": "Bundles the package's entry files into the published dist folder."
+    }
+  }
+}

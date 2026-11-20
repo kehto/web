@@ -36,6 +36,7 @@ runtime toolkit, while Paja demonstrates one complete implementation.
 - Paja Runtime: <https://kehto.github.io/web/paja/>
 - Docs: <https://kehto.github.io/web/docs/>
 - Runtime conformance UI: <https://kehto.github.io/web/conformance/>
+- Floorplans (architecture maps per package): <https://kehto.github.io/web/floorplans/>
 - Alpha status: [docs/alpha-status.md](./docs/alpha-status.md)
 - Local docs entry: [docs/index.md](./docs/index.md)
 - Package reference index: [docs/packages/index.md](./docs/packages/index.md)

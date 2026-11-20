@@ -1,0 +1,24 @@
+{
+  "files": {
+    "src/browser-relay-policy.ts": {
+      "name": "Relay rules",
+      "description": "Keeps the host's relay tiers, decides whether a napplet-supplied relay URL is allowed, and checks that local storage really works."
+    },
+    "src/browser-relay-runtime.ts": {
+      "name": "Live relay connection",
+      "description": "Opens live relay reads and publishes, bootstraps from NIP-65 relay lists and contacts, and reports each read to the message log."
+    },
+    "src/browser-relay-transport.ts": {
+      "name": "Relay query helpers",
+      "description": "Collects matching events from several relays until all finish, time out or hit a cap, and streams live matches without duplicates."
+    },
+    "src/browser-social-cache.ts": {
+      "name": "Profile and contact memory",
+      "description": "Keeps an in-memory copy of the signed-in account's profiles and contacts, cleared when the account changes."
+    },
+    "src/browser-worker-relay.ts": {
+      "name": "In-page relay",
+      "description": "Serves events from a list kept in the page, as a relay that never leaves the browser."
+    }
+  }
+}

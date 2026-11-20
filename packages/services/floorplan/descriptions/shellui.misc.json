@@ -1,0 +1,12 @@
+{
+  "files": {
+    "src/link-service.ts": {
+      "name": "Opening links",
+      "description": "Opens a link a napplet asks for after checking the address is allowed and getting approval, refusing local and code addresses."
+    },
+    "src/theme-service.ts": {
+      "name": "Theme sharing",
+      "description": "Tells napplets the shell's current theme and pushes changes to them when the host updates it."
+    }
+  }
+}

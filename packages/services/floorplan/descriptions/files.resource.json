@@ -1,0 +1,12 @@
+{
+  "files": {
+    "src/resource-authorization.ts": {
+      "name": "Resource approval",
+      "description": "Asks approval for the exact address and each server the fetch reaches, warning once when the host has no approval setup."
+    },
+    "src/resource-service.ts": {
+      "name": "Resource fetching",
+      "description": "Fetches bytes behind one or many addresses for a napplet through the host's resolver, with cancellation, plus streaming for playback."
+    }
+  }
+}

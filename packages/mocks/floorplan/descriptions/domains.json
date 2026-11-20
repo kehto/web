@@ -1,0 +1,12 @@
+{
+  "files": {
+    "src/domains/index.ts": {
+      "name": "All domain mocks list",
+      "description": "Re-exports every domain module and collects each one's registry row into one unsorted list for the registry."
+    },
+    "src/domains/mesh.ts": {
+      "name": "Mesh mock",
+      "description": "Pretends to be a small circle of five sample accounts one to three hops away: publishes reach members within a hop budget, subscriptions get backlog then live events, and members' stored files can be looked up."
+    }
+  }
+}

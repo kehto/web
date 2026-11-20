@@ -1,0 +1,40 @@
+{
+  "files": {
+    "src/browser-adapter-support.ts": {
+      "name": "Adapter shared types",
+      "description": "Defines the confirmation, signer and identity hooks the adapter takes, plus helpers for the outbox router and the simulated theme."
+    },
+    "src/browser-adapter.ts": {
+      "name": "Kehto shell adapter",
+      "description": "Builds the ShellAdapter that hands each NAP domain to its @kehto/services handler, scoped to the napplet window, and opens approved external links."
+    },
+    "src/browser-common.ts": {
+      "name": "NAP-COMMON on Nostr",
+      "description": "Answers NAP-COMMON requests (profiles, reactions, reports and similar) by reading relays and publishing signed events."
+    },
+    "src/browser-config.ts": {
+      "name": "NAP-CONFIG backend",
+      "description": "Stores each napplet's declared config values in the host and shows a page where the developer edits them."
+    },
+    "src/browser-dev-runtime.ts": {
+      "name": "Development signer and DMs",
+      "description": "Creates a throwaway signing key for each page load and a NIP-17 direct-message service that uses it over live relays."
+    },
+    "src/browser-device-services.ts": {
+      "name": "Serial and Bluetooth",
+      "description": "Backs NAP-SERIAL and NAP-BLE with the browser's Web Serial and Web Bluetooth choosers, opened only from an approval click."
+    },
+    "src/browser-link.ts": {
+      "name": "External link handoff",
+      "description": "Remembers whether an approval click just happened so an approved LINK request may open a new browser tab."
+    },
+    "src/browser-lists.ts": {
+      "name": "NAP-LISTS on Nostr",
+      "description": "Answers NAP-LISTS requests from verified NIP-51 and NIP-65 list events, public items only."
+    },
+    "src/browser-notify.ts": {
+      "name": "Notification center",
+      "description": "Shows napplet notifications in a host-drawn notification center instead of the browser's own."
+    }
+  }
+}

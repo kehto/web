@@ -1,0 +1,136 @@
+{
+  "files": {
+    "src/acl-default-policy.test.ts": {
+      "name": "Default grant policy tests",
+      "description": "Checks the host's default allow or deny setting, alone and alongside scoped approvals."
+    },
+    "src/acl-state.test.ts": {
+      "name": "Grants store tests",
+      "description": "Checks granting, revoking, blocking and storage allowances in the napplet grants store."
+    },
+    "src/approval-coordinator.test.ts": {
+      "name": "Approval prompt tests",
+      "description": "Checks prompt queuing, answers, cancellation and default-rule grants."
+    },
+    "src/approval-envelope.test.ts": {
+      "name": "Approval snapshot tests",
+      "description": "Checks that approval copies are detached and ignore tricky data."
+    },
+    "src/count-dispatch.test.ts": {
+      "name": "Count request tests",
+      "description": "Checks that event count requests reach the host's count service and get answers."
+    },
+    "src/cvm-dispatch.test.ts": {
+      "name": "ContextVM bridge tests",
+      "description": "Checks that ContextVM bridge messages are routed to the host service."
+    },
+    "src/discovery.test.ts": {
+      "name": "Service discovery tests",
+      "description": "Checks registering host services and how napplets discover them over a session."
+    },
+    "src/dispatch.test.ts": {
+      "name": "Domain routing tests",
+      "description": "Checks that messages for every built-in NAP domain reach the right handler and get correct replies."
+    },
+    "src/firewall-dispatch.test.ts": {
+      "name": "Firewall gate tests",
+      "description": "Checks that the firewall stops, flags or allows messages at the single point every message passes."
+    },
+    "src/firewall-registration.test.ts": {
+      "name": "Firewall lifecycle tests",
+      "description": "Checks firewall behaviour as napplet windows are registered and removed."
+    },
+    "src/firewall-state.test.ts": {
+      "name": "Firewall settings tests",
+      "description": "Checks the runtime's firewall state and the setters for its rate budgets."
+    },
+    "src/intent-dispatch.test.ts": {
+      "name": "Intent request tests",
+      "description": "Checks routing of intent requests and their denial replies."
+    },
+    "src/legacy-firewall-gate.test.ts": {
+      "name": "Older firewall tests",
+      "description": "Checks the older firewall gate and its one-time ignored-settings warning."
+    },
+    "src/legacy-test-utils.ts": {
+      "name": "Older firewall test helper",
+      "description": "Creates a test runtime with the historical firewall policy switched on."
+    },
+    "src/llm-dispatch.test.ts": {
+      "name": "LLM request tests",
+      "description": "Checks routing of LLM requests and their failure replies."
+    },
+    "src/notify-dispatch.test.ts": {
+      "name": "Notification tests",
+      "description": "Checks that notification requests are routed to the host's notification service."
+    },
+    "src/optional-rate-limit.test.ts": {
+      "name": "Optional rate limit tests",
+      "description": "Checks the runtime with and without the optional host limiter."
+    },
+    "src/outbox-dispatch.test.ts": {
+      "name": "Outbox routing tests",
+      "description": "Checks routing of outbox requests that pick relays for each author."
+    },
+    "src/permission-admission.test.ts": {
+      "name": "Start-up admission tests",
+      "description": "Checks approving a napplet's declared interfaces before it runs."
+    },
+    "src/permission-dispatch-budget.test.ts": {
+      "name": "Request budget tests",
+      "description": "Checks prompt budgets on dispatch when no service coordinates approvals."
+    },
+    "src/permission-rate-controls.test.ts": {
+      "name": "Limiter setting tests",
+      "description": "Checks host-owned limiter settings and the focus information hosts supply."
+    },
+    "src/permission-state.test.ts": {
+      "name": "Saved approval tests",
+      "description": "Checks saving and reloading approvals, and failures when saving does not work."
+    },
+    "src/relay-query-approvals.test.ts": {
+      "name": "Relay query approval tests",
+      "description": "Checks that relay queries need and respect operation approvals."
+    },
+    "src/relay-service-delivery.test.ts": {
+      "name": "Relay delivery tests",
+      "description": "Checks who delivers published events when a relay service is registered."
+    },
+    "src/runtime.test.ts": {
+      "name": "Messaging and encryption tests",
+      "description": "Checks napplet-to-napplet channels and encrypted relay publishing end to end."
+    },
+    "src/service-dispatch.test.ts": {
+      "name": "Service router tests",
+      "description": "Checks routing messages to registered host services."
+    },
+    "src/service-extension-approvals.test.ts": {
+      "name": "Extension approval tests",
+      "description": "Checks scoped approvals for host-defined extension domains."
+    },
+    "src/service-extensions.test.ts": {
+      "name": "Extension routing tests",
+      "description": "Checks routing of host-defined extension domains and messages pushed back from services."
+    },
+    "src/session-registry.test.ts": {
+      "name": "Window list tests",
+      "description": "Checks removing napplet windows from the live window list."
+    },
+    "src/state-handler.test.ts": {
+      "name": "Storage handler tests",
+      "description": "Checks saving, reading, listing and removing napplet data, and storage allowance limits."
+    },
+    "src/test-utils.ts": {
+      "name": "Shared test helpers",
+      "description": "Provides a fake host, sample napplet sessions and helpers to find replies, for the other tests."
+    },
+    "src/types.test.ts": {
+      "name": "Contract shape tests",
+      "description": "Checks session details and window-list lookups described by the plug-in contracts."
+    },
+    "src/upload-dispatch.test.ts": {
+      "name": "Upload request tests",
+      "description": "Checks routing of file upload requests to the host's upload service."
+    }
+  }
+}

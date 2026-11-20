@@ -1,0 +1,12 @@
+{
+  "files": {
+    "src/5d/presentation-media.ts": {
+      "name": "Screenshots and previews",
+      "description": "Reads screenshot and preview-video entries and checks downloaded media bytes against their hash and real format."
+    },
+    "src/5d/source-metadata.ts": {
+      "name": "Source code pointers",
+      "description": "Reads optional links to a napplet's source repository and archive, quietly skipping malformed ones."
+    }
+  }
+}

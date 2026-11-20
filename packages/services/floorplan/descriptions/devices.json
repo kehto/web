@@ -1,0 +1,32 @@
+{
+  "files": {
+    "src/ble-service.ts": {
+      "name": "Bluetooth devices",
+      "description": "Lets napplets find and talk to Bluetooth devices through host hooks, after approval."
+    },
+    "src/browser-gamepad.ts": {
+      "name": "Browser controller reader",
+      "description": "Connects the browser's game controller readings and window focus changes to the controller service."
+    },
+    "src/gamepad-service.ts": {
+      "name": "Game controllers",
+      "description": "Shares controller button and stick readings with subscribed napplets, but only the one that has focus."
+    },
+    "src/keys-service-internals.ts": {
+      "name": "Shortcut helpers",
+      "description": "Parses and formats key combinations, blocks reserved keys and tracks which napplet owns each shortcut."
+    },
+    "src/keys-service.ts": {
+      "name": "Keyboard shortcuts",
+      "description": "Listens for key presses and tells the napplet that registered a matching shortcut, with a swappable source for desktop shells."
+    },
+    "src/serial-service.ts": {
+      "name": "Serial ports",
+      "description": "Lets napplets open and use serial port devices through host hooks, after approval."
+    },
+    "src/webrtc-service.ts": {
+      "name": "Peer-to-peer connections",
+      "description": "Lets napplets open WebRTC connections that the shell sets up and approves on their behalf."
+    }
+  }
+}

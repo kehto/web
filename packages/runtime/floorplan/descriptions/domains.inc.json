@@ -1,0 +1,8 @@
+{
+  "files": {
+    "src/inc-handler.ts": {
+      "name": "Napplet messaging handler",
+      "description": "Opens channels between napplets, relays their messages and broadcasts, and closes channels when a window goes away."
+    }
+  }
+}

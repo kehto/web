@@ -15,6 +15,7 @@
  *   .pages/paja/
  *   .pages/docs/
  *   .pages/conformance/  (static @kehto/conformance web UI)
+ *   .pages/floorplans/ (per-package architecture maps, scripts/floorplans.mjs)
  */
 import {
   copyFileSync,
@@ -90,4 +91,9 @@ cpSync(docsApi, join(docsOutput, 'api'), { recursive: true });
 ensureFile(join(conformanceDist, 'index.html'), 'conformance UI build (pnpm --filter @kehto/conformance-app build)');
 cpSync(conformanceDist, conformanceOutput, { recursive: true });
 
-console.log(`[build:pages] OK - wrote ${rel(outputRoot)} portal, retired playground redirect, paja, docs and conformance roots`);
+execFileSync(process.execPath, [join(scriptDir, 'floorplans.mjs'), 'pages', '--out', join(outputRoot, 'floorplans')], {
+  cwd: repoRoot,
+  stdio: 'inherit',
+});
+
+console.log(`[build:pages] OK - wrote ${rel(outputRoot)} portal, retired playground redirect, paja, docs, conformance and floorplans roots`);

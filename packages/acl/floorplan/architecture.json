@@ -1,0 +1,32 @@
+{
+  "$schema": "floorplan/architecture@1",
+  "project": {
+    "name": "@kehto/acl",
+    "summary": "Kehto's access-control core: a pure TypeScript library that records which napplets (sandboxed iframe apps) may use which capabilities, and works out which capability each NAP protocol message needs. State in, state out, with no outside dependencies, so the host shell and runtime can ask it the same questions every time.",
+    "entrypoints": ["src/index.ts"]
+  },
+  "nodes": [
+    { "id": "api", "label": "Public entry", "kind": "library", "summary": "The single front door: gathers every permission record, check, change and capability name into what other Kehto packages import.", "paths": ["src/index.ts"] },
+    { "id": "state", "label": "Permission records", "kind": "library", "summary": "Keeps the per-napplet list of allowed capabilities, blocked flags and storage limits, and answers yes or no to 'may this napplet do this?'.", "paths": ["src/types.ts", "src/check.ts", "src/mutations.ts", "src/migrate.ts"] },
+    { "id": "caps", "label": "Capability lookup", "kind": "library", "summary": "Names every capability a napplet can be granted and maps each NAP message (relay, identity, storage, notify and so on) to the capabilities the sender and receiver need.", "paths": ["src/capabilities.ts", "src/resolve.ts"] },
+    { "id": "tests", "label": "Tests", "kind": "test", "summary": "Automatic checks for permission changes, yes/no decisions, old-record upgrades and the message-to-capability table.", "paths": ["src/**/*.test.ts"] },
+    { "id": "build", "label": "Build settings", "kind": "config", "summary": "How the package is bundled for publishing.", "paths": ["tsup.config.ts"] }
+  ],
+  "flows": [
+    { "id": "decide", "title": "Deciding whether a napplet may act", "steps": [
+      { "node": "caps", "note": "A NAP message such as relay.subscribe is looked up to find the capability it needs." },
+      { "node": "api", "note": "The runtime asks the public entry for a decision about that napplet and capability." },
+      { "node": "state", "note": "The napplet's record is found by its identity (name tag plus content hash); blocked napplets are refused and otherwise the granted capabilities decide." }
+    ]},
+    { "id": "grant", "title": "Granting and saving permissions", "steps": [
+      { "node": "api", "note": "The shell grants, revokes or blocks a capability for a napplet." },
+      { "node": "state", "note": "A fresh copy of the permission records is returned with the change applied, ready to be turned into text and saved by the host; old saved records keyed by publisher are upgraded on load." }
+    ]}
+  ],
+  "tour": [
+    { "node": "api", "title": "What this package is", "note": "A small, pure library that decides what each napplet is allowed to do. Everything goes through this front door." },
+    { "node": "state", "title": "The permission records", "note": "One record per napplet: which capabilities it holds, whether it is blocked, and how much storage it may use. Every change returns a new copy instead of editing in place." },
+    { "node": "caps", "title": "Which capability does a message need?", "note": "The lookup table that turns each NAP protocol message into the capability names the runtime checks." },
+    { "node": "src/resolve.ts", "title": "The big table", "note": "The largest file: the full mapping from every NAP message to the capabilities it requires." }
+  ]
+}

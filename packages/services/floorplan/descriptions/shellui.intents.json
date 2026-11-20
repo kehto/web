@@ -1,0 +1,20 @@
+{
+  "files": {
+    "src/catalog-intent-resolver.ts": {
+      "name": "Finding a handler napplet",
+      "description": "Chooses an installed, verified napplet that can handle a request, applies the user's choices and hands the work over."
+    },
+    "src/intent-service.ts": {
+      "name": "Intents service",
+      "description": "Answers napplet requests to hand work to another napplet, passing them to the host's resolver with the sender's verified identity."
+    },
+    "src/intent-types.ts": {
+      "name": "Intent shapes",
+      "description": "Re-exports the shared intent record shapes from the napplet protocol package."
+    },
+    "src/manifest-intent-catalog.ts": {
+      "name": "Manifest to catalog entry",
+      "description": "Turns what a signed napplet manifest says it can handle into an entry in the intent catalog."
+    }
+  }
+}

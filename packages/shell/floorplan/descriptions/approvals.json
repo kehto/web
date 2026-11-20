@@ -1,0 +1,36 @@
+{
+  "files": {
+    "src/browser-admission.ts": {
+      "name": "Napplet admission",
+      "description": "Holds a napplet's page until its required permissions are decided, then commits the exact grants, script and security policy."
+    },
+    "src/browser-approval-dom.ts": {
+      "name": "Dialog element helpers",
+      "description": "Builds dialog elements and choice lists without inserting raw HTML."
+    },
+    "src/browser-approval-format.ts": {
+      "name": "Approval wording",
+      "description": "Holds the wording for grant lifetimes and rule actions and formats napplet identities for display."
+    },
+    "src/browser-approval-grants.ts": {
+      "name": "Granted permissions list",
+      "description": "Shows current grants as a tree of napplet, interface and grant, with controls to manage them."
+    },
+    "src/browser-approval-prompt.ts": {
+      "name": "Permission question",
+      "description": "Asks the user one permission question at a time, and can offer to make the answer a standing rule."
+    },
+    "src/browser-approval-rules.ts": {
+      "name": "Default rules editor",
+      "description": "Lets the user set a default answer and per-interface exceptions; the host decides where rules are kept."
+    },
+    "src/browser-approval-styles.ts": {
+      "name": "Approval dialog styles",
+      "description": "The stylesheet for the permission dialogs and lists."
+    },
+    "src/browser-approval-ui.ts": {
+      "name": "Approval interface",
+      "description": "Combines the question, grant list and rules editor into one ready-made permission interface wired to the runtime."
+    }
+  }
+}

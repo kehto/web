@@ -1,0 +1,96 @@
+{
+  "files": {
+    "src/acl-default-policy.test.ts": {
+      "name": "Default permission policy tests",
+      "description": "Checks how unknown napplets are treated under permissive and restrictive host policies."
+    },
+    "src/browser-admission.test.ts": {
+      "name": "Admission tests",
+      "description": "Checks a napplet's page is held until one launch decision commits its grants and security policy."
+    },
+    "src/browser-approval-ui.test.ts": {
+      "name": "Approval interface tests",
+      "description": "Checks the permission question, grant list and rules editor."
+    },
+    "src/firewall-hooks.test.ts": {
+      "name": "Firewall hook tests",
+      "description": "Checks that the host's focus information feeds the firewall's decisions."
+    },
+    "src/frame-policy.test.ts": {
+      "name": "Host frame rule tests",
+      "description": "Checks the frame rule tag and detection."
+    },
+    "src/gamepad-policy.test.ts": {
+      "name": "Controller lockout tests",
+      "description": "Checks controller and device access is denied on napplet frames."
+    },
+    "src/identity-proxy.test.ts": {
+      "name": "Identity request tests",
+      "description": "Checks identity requests reach the runtime and direct sends are refused."
+    },
+    "src/legacy-test-utils.ts": {
+      "name": "Legacy bridge fixture",
+      "description": "Test helper that builds a bridge with the optional older firewall controls installed."
+    },
+    "src/napplet-csp.test.ts": {
+      "name": "Security policy tests",
+      "description": "Checks the napplet security policy and where it lands in the page."
+    },
+    "src/napplet-frame-scan.test.ts": {
+      "name": "Nested frame check tests",
+      "description": "Checks napplet HTML with frames or embeds is rejected."
+    },
+    "src/napplet-namespace.test.ts": {
+      "name": "window.napplet script tests",
+      "description": "Checks the injected window.napplet script domain by domain."
+    },
+    "src/nip5d-message-filter-approvals.test.ts": {
+      "name": "Held message tests",
+      "description": "Checks messages held by the host filter run later under their grant, in arrival order."
+    },
+    "src/nip5d-message-filter.test.ts": {
+      "name": "Message filter tests",
+      "description": "Checks the host's optional message filter can pass, drop or hold napplet messages."
+    },
+    "src/nip5d-port-binding.test.ts": {
+      "name": "Channel binding tests",
+      "description": "Checks with real message channels that identity is tied to the port and revoked on replacement."
+    },
+    "src/random-uuid.test.ts": {
+      "name": "Random ID tests",
+      "description": "Checks IDs come from secure randomness with the right format."
+    },
+    "src/shell-bridge.test.ts": {
+      "name": "Shell bridge tests",
+      "description": "Checks the bridge end to end, including broadcasting theme changes to napplets."
+    },
+    "src/shell-environment-lifetime.test.ts": {
+      "name": "Napplet environment tests",
+      "description": "Checks a napplet's environment snapshot survives duplicate ready messages."
+    },
+    "src/shell-init.test.ts": {
+      "name": "Offered services tests",
+      "description": "Checks the list of services napplets are told about."
+    },
+    "src/shell-supports-conformance.test.ts": {
+      "name": "Supported domains tests",
+      "description": "Checks the advertised, injected and typed lists of supported domains agree."
+    },
+    "src/test-utils.ts": {
+      "name": "Fake channel helpers",
+      "description": "Test helpers with an instant fake message port and fake frames for shell tests."
+    },
+    "src/theme-proxy.test.ts": {
+      "name": "Theme request tests",
+      "description": "Checks theme requests reach the runtime and direct sends are refused."
+    },
+    "tests/no-window-nostr.test.ts": {
+      "name": "No window.nostr tests",
+      "description": "Checks the shell no longer injects a window.nostr signer into napplets."
+    },
+    "tests/perm-namespace.test.ts": {
+      "name": "Domain-only posture tests",
+      "description": "Checks the shell answers only bare domain membership and sends no sandbox details."
+    }
+  }
+}

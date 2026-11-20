@@ -1,0 +1,24 @@
+{
+  "files": {
+    "src/approval-coordinator.ts": {
+      "name": "Approval prompts",
+      "description": "Queues prompts for the user, applies their answer only to the scopes shown, and handles cancellation and default rules."
+    },
+    "src/approval-envelope.ts": {
+      "name": "Approval request snapshot",
+      "description": "Makes a safe, fixed copy of a request's data before it is shown for approval, so it cannot change afterwards."
+    },
+    "src/permission-admission.ts": {
+      "name": "Start-up admission",
+      "description": "Checks a napplet's declared interfaces before it runs, so only approved domains are switched on for it."
+    },
+    "src/permission-runtime.ts": {
+      "name": "Scoped approval engine",
+      "description": "Decides whether an operation is approved, asks the user if needed, tracks how long grants last and withdraws them on revoke."
+    },
+    "src/permission-state.ts": {
+      "name": "Saved approvals",
+      "description": "Keeps remembered approvals and writes them through the host, failing loudly if a save does not succeed."
+    }
+  }
+}

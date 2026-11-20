@@ -1,0 +1,44 @@
+{
+  "files": {
+    "src/51/index.test.ts": {
+      "name": "Lists and sets tests",
+      "description": "Checks list and set parsing, including private item decryption."
+    },
+    "src/5a/index.test.ts": {
+      "name": "Aggregate hash tests",
+      "description": "Checks the aggregate fingerprint against known values and tampered tags."
+    },
+    "src/5d/artifact-cache.test.ts": {
+      "name": "App storage tests",
+      "description": "Checks saving, reusing, expiring and trimming verified napplet bytes."
+    },
+    "src/5d/current-manifest.test.ts": {
+      "name": "Current manifest tests",
+      "description": "Checks strict reading of today's manifest tags, roles and intents."
+    },
+    "src/5d/index.test.ts": {
+      "name": "Napplet resolver tests",
+      "description": "Checks end-to-end napplet loading, including bad signatures, hash mismatches and legacy manifests."
+    },
+    "src/5d/presentation-media.test.ts": {
+      "name": "Screenshot and preview tests",
+      "description": "Checks media entry parsing and byte-format checks."
+    },
+    "src/5d/source-metadata.test.ts": {
+      "name": "Source pointer tests",
+      "description": "Checks which source links are kept and which are ignored."
+    },
+    "src/65/index.test.ts": {
+      "name": "Relay list tests",
+      "description": "Checks relay list parsing and newest-list selection."
+    },
+    "src/66/index.test.ts": {
+      "name": "Relay monitor tests",
+      "description": "Checks collecting and grouping relay-monitor reports."
+    },
+    "src/89/index.test.ts": {
+      "name": "App handler tests",
+      "description": "Checks handler announcement parsing and link building."
+    }
+  }
+}

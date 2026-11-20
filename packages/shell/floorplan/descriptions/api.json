@@ -1,0 +1,24 @@
+{
+  "files": {
+    "src/index.ts": {
+      "name": "Package front door",
+      "description": "Gathers everything a host page imports from the shell into one place, including types passed through from the runtime."
+    },
+    "src/topics.ts": {
+      "name": "Shell topic names",
+      "description": "Passes through the shared topic names from the napplet core package; it holds no names of its own."
+    },
+    "src/types.ts": {
+      "name": "Host hook shapes",
+      "description": "Describes every hook a host fills in (relays, signer, windows, uploads, AI models, devices) and the permission records the shell keeps."
+    },
+    "src/types/internal-resource.ts": {
+      "name": "Resource message shapes",
+      "description": "Describes the request and reply messages for fetching files by address, tracking the draft spec until the published types catch up."
+    },
+    "tsup.config.ts": {
+      "name": "Build settings",
+      "description": "Builds the package as one ES module with type definitions."
+    }
+  }
+}

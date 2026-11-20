@@ -1,0 +1,24 @@
+{
+  "files": {
+    "src/index.ts": {
+      "name": "Package exports",
+      "description": "Lists everything other code can import from @kehto/paja: config files, launch options, simulation, host page, pointer resolution, parity lists, intent links, the dev server and LLM connection helpers."
+    },
+    "src/multiplayer-config.ts": {
+      "name": "Multiplayer settings check",
+      "description": "Validates host multiplayer settings (ICE servers, CVM relays and family) from a file or the settings page; credentials never reach napplets."
+    },
+    "src/options.ts": {
+      "name": "Launch options",
+      "description": "Checks raw launch options, including the experimental nested-frame lock, and turns them into the options and host config served to the page, with default host, port and timeouts."
+    },
+    "src/parity.ts": {
+      "name": "Advertised NAP domains",
+      "description": "Lists which NAP domains Paja may advertise and which services it needs, and finds any missing from a live shell."
+    },
+    "src/simulation.ts": {
+      "name": "Simulated environment",
+      "description": "Turns flags or config into a complete simulated setup: identity, relays, storage, uploads, theme, config values and enabled domains."
+    }
+  }
+}
