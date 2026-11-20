@@ -109,7 +109,8 @@ import {
 } from './browser-target-frame.js';
 import { isPajaLocalTarget, type PajaRuntimeTarget } from './local-target.js';
 import { pajaDevelopmentConsentScope } from './browser-operation-scope.js';
-import { PajaRelayUnreachableError, resolvePajaPointer } from './runtime-resolver.js';
+import { PajaPointerNotFoundError, PajaRelayUnreachableError, resolvePajaPointer } from './runtime-resolver.js';
+import { clearPajaPointerReplacementOffer, offerPajaPointerReplacements } from './browser-pointer-offer.js';
 import { parsePajaIntentLink } from './intent-link.js';
 import {
   createPajaIntentLinkController,
@@ -421,6 +422,7 @@ async function loadRuntimePointer(
     setPointerStatus(state, 'idle');
     return;
   }
+  clearPajaPointerReplacementOffer();
   setPointerStatus(state, 'resolving');
   setStatus(state, 'booting');
   appendPajaMessageLog(state, 'paja', { type: 'paja.pointer.resolve', pointer });
@@ -468,6 +470,15 @@ async function loadRuntimePointer(
       });
     }
     appendPajaMessageLog(state, 'paja', { type: 'paja.pointer.error', error: message });
+    if (error instanceof PajaPointerNotFoundError) {
+      appendPajaMessageLog(state, 'paja', { type: 'paja.pointer.not-found', answered: error.answered, failed: error.failed });
+      void offerPajaPointerReplacements(pointer, error, {
+        lookup: { maxWaitMs: context.config.target.pointer?.maxWaitMs },
+        isCurrent: () => state.pointerValue === pointer,
+        log: (entry) => appendPajaMessageLog(state, 'paja', entry),
+        open: (naddr) => void loadRuntimePointer(state, context, naddr),
+      });
+    }
   }
 }
 
