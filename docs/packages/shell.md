@@ -113,7 +113,7 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
 - Surfaces unroutable inbound messages via the optional `ShellAdapter.onUnroutedMessage` hook (`UnroutedMessageInfo`) — observe-only; the bridge still drops messages from unidentified or unregistered windows, but hosts can now log them instead of debugging a silent vanish.
 - Advertises and injects `dm` or `fs` only when the matching runtime service is registered and host domain policy permits it.
 - Treats `keys.forward` as napplet-to-shell only; shell-initiated key actions are emitted as `keys.action` through the keys proxy/runtime service path.
-- Keeps identity/theme proxy delivery fail-closed. Hosts publish automatic changes only through `ShellBridge.publishIdentityChanged()` / `publishTheme()`, which filter by live session, granted domain, and current ACL.
+- Keeps identity/theme proxy delivery fail-closed. Hosts publish automatic changes only through `ShellBridge.publishIdentityChanged()` / `publishTheme()`, which filter by live session, granted domain, and current ACL. The session and its frozen grants exist from the window's first valid `napplet.hello`, so a napplet that only listens receives these pushes (and service broadcasts such as `theme.changed` from `@kehto/services`) without sending a message or `shell.ready` first; revoking or replacing the binding removes it as a target.
 - Lets `bridge.runtime.aclState.persist()` and `clear()` report a browser
   `localStorage` write failure as `false`. The mutation remains live, while a
   fresh bridge continues to load the previous durable ACL until a retry

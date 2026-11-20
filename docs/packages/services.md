@@ -14,7 +14,13 @@ scopes for each configured STUN/TURN endpoint. This does not constrain direct
 iframe networking, which remains a launch-policy concern. Without a byte hook,
 `webrtc.sendBytes` returns a correlated `unsupported` result, as NAP-WEBRTC
 requires. A `webrtc.stats` request gets no reply: NAP-WEBRTC defines `stats`
-only as a pushed event.
+only as a pushed event. `ctx.emit` delivers a `webrtc.event` only for a session
+the window owns: from its `webrtc.open.result` until `webrtc.close` starts,
+revocation or window destroy, plus early `state` events while the open is still
+pending. Close removes the session from delivery before the host `close` hook
+runs, so teardown notifications and late peer `message`, `peer`, `state` or
+`stats` events for it are dropped (NAP-WEBRTC "MUST NOT deliver messages for an
+unknown sessionId"). A failed close keeps the session deliverable.
 
 OUTBOX and COUNT resolve relay destinations before approval. Their remote
 backends receive the approved immutable URL list and cancellation signal; local
