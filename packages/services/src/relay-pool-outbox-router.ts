@@ -37,6 +37,7 @@
 
 import { allowed, deriveAuthors, resolvePlan, resolvePublishTargets } from './relay-pool-outbox-planning.js';
 import { defaultRelayAllowed, parseRelayUrl } from './relay-url-policy.js';
+import { OUTBOX_RELAY_ORIGIN_BUDGET } from './outbox-relay-budget.js';
 import { normalizePublishResult, planPublishImpl, publishWithPlanImpl, queryPlanImpl, subscribePlanImpl } from './relay-pool-outbox-planned.js';
 import { OUTBOX_RELAY_TIMEOUT, outboxPublishFailureReason } from './outbox-reasons.js';
 import type { EventTemplate, NostrEvent, NostrFilter } from '@napplet/core';
@@ -571,6 +572,10 @@ export function createRelayPoolOutboxRouter(options: RelayPoolOutboxRouterOption
     getSignerPubkey: options.getSignerPubkey,
     isRelayAllowed: (url) => !!parseRelayUrl(url)
       && (options.isRelayAllowed?.(url) ?? defaultRelayAllowed(url, options.fallbackRelays)),
+    maxRelayOrigins: () => {
+      const value = typeof options.maxRelayOrigins === 'function' ? options.maxRelayOrigins() : options.maxRelayOrigins;
+      return Number.isSafeInteger(value) && value! >= 1 ? value! : OUTBOX_RELAY_ORIGIN_BUDGET;
+    },
     defaultTimeoutMs: options.defaultTimeoutMs ?? DEFAULT_QUERY_TIMEOUT_MS,
     async verify(event: NostrEvent): Promise<boolean> {
       if (!verifyEvent) return true;

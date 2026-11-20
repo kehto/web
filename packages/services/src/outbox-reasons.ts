@@ -35,6 +35,11 @@ export const OUTBOX_RELAY_TIMEOUT = 'relay timeout';
 export const OUTBOX_POLICY_DENIED = 'policy denied';
 /** The shell (signer or user consent) refused to sign or publish. */
 export const OUTBOX_PUBLISH_DENIED = 'publish denied';
+/**
+ * The Firewall grant table is full (`maxGrants`). Host capacity, not policy, so
+ * not a denial (kehto/web#513, spec gap: the draft has no capacity code).
+ */
+export const OUTBOX_APPROVAL_CAPACITY = 'approval capacity reached';
 /** A publish's required relays span more origins than one approval can name; not a denial. */
 export const OUTBOX_TOO_MANY_RELAYS = 'too many relays';
 
