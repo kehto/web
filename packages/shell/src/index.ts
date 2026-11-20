@@ -26,6 +26,7 @@ export type { NappletSrcdocOptions } from './napplet-srcdoc.js';
 
 // Hooks adapter — for advanced integrators who need to customize the adapter
 export { adaptHooks } from './hooks-adapter.js';
+export { randomUUID } from './random-uuid.js';
 export type { BrowserDeps } from './hooks-adapter.js';
 
 // Protocol types (re-exported from @napplet/core + @kehto/runtime).

@@ -21,13 +21,36 @@ wire fields, quiet canonical usage, warning text/frequency, trusted parent
 delivery and duplicate result handling. `cvm-registry.test.ts` covers runtime
 hash verification, pinned providers, deadlines and window teardown.
 
-Retention reason: published napplets use the string-family API exported by
-`@napplet/nap@0.40.0`. Upstream selector/entry type drift is tracked in
-[napplet/web#336](https://github.com/napplet/web/issues/336) and
-[kehto/web#441](https://github.com/kehto/web/issues/441). Remove the local canonical
-types when supported upstream peer versions export the draft contract; remove
-the string adapter only after supported consumers migrate and a removal release
-is announced. New local types follow NAP-CVM #31 at `28cf1bdb5c64`.
+Retention reason: napplets built against `@napplet/nap@0.40.0` or older call
+the string-family API. `@napplet/nap@0.41.0` / `@napplet/core@0.42.0`
+([napplet/web#337](https://github.com/napplet/web/pull/337), closing
+[napplet/web#336](https://github.com/napplet/web/issues/336)) switched the SDK to
+selectors as a breaking change and added no translation of their own: the SDK
+helpers forward their first argument to `window.napplet.cvm.registry` untouched.
+So an older bundle still reaches Kehto's injected boundary with a string, and
+this adapter is the only thing that keeps it working. A napplet that bundles
+the older upstream shim instead of using the injected namespace posts a
+top-level `family`, which Kehto rejects as `invalid request`; no family-only
+wire fallback exists.
+
+Upstream type drift is resolved
+([kehto/web#441](https://github.com/kehto/web/issues/441)): the checked
+contract is NAP-CVM #31 at `28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f`, and
+`@kehto/services` and `@kehto/mocks` now take `CvmRegistrySelector`,
+`CvmRegistryEntry` and the related types from `@napplet/core` (peer floor
+0.42.0) instead of declaring them. `cvm-registry-types.test.ts` and
+`published-napplet-contract.test.ts` pin that. `@kehto/shell` keeps its older
+peer floor because the injected binding is untyped and imports none of them.
+
+Diagnostic limit: the stricter upstream `CvmRegistrySelector` (at least one
+field) is an erased type, so a TypeScript host that built `{}` selectors gets a
+compile error rather than a runtime warning; the runtime already rejected them.
+
+Removal prerequisites for the adapter: supported consumers of the string-family
+API move to selectors (rebuilding against `@napplet/nap` 0.41.0 or newer forces
+that at compile time), a removal release is announced, then the string branch, its warning and its tests go together with a
+negative test for string selectors. Silence from the warning is not proof that
+external napplets migrated.
 
 ## PAJA-NIP07-RELAY-DISCOVERY-REMOVED — retired extension integration
 
@@ -150,6 +173,40 @@ exports are removed in this breaking minor release. Construct an optional limite
 from `@kehto/rate-limit` and hold it to change configuration; legacy config persistence
 is passed directly to `createFirewallState`. Types and exports provide compile-time
 migration diagnostics; removed JavaScript properties have no retained fallback.
+
+## KEHTO_SERVICE_NOT_REGISTERED — late adapter services, shell
+
+Identifier: `KEHTO_SERVICE_NOT_REGISTERED`. Owning package: `@kehto/shell`
+(with `Runtime.hasService` from `@kehto/runtime`).
+
+Old behavior: a handler added to `ShellAdapter.services` after
+`createShellBridge()` was advertised in `shell.init` and injected domains, while
+the runtime's creation-time copy never routed it, so requests went unanswered
+(kehto/web#428). That input is retired rather than kept: there was no working
+behavior to preserve. Replacement: also call
+`bridge.runtime.registerService(name, handler)`, and `unregisterService(name)`
+on removal.
+
+Warning: `console.warn` naming `[KEHTO_SERVICE_NOT_REGISTERED]`, the service and
+the replacement call, once per service per bridge, in
+`packages/shell/src/shell-init.ts`. Canonical wiring (declared at creation, or
+declared and registered) stays quiet. The related
+`[KEHTO_UNROUTED_SERVICE_DOMAIN]` line in
+`packages/runtime/src/domain-handlers.ts` is a host diagnostic, once per domain
+per runtime, for a request that reaches a service-only domain with no handler;
+the wire stays silent as NIP-5D requires.
+
+Tests: `packages/shell/src/shell-late-services.test.ts`,
+`packages/runtime/src/late-service-registration.test.ts` and
+`tests/unit/paja-service-registration.test.ts` cover the withheld advertisement
+and its warning, the quiet canonical paths, removal, and the adapter with no
+live bridge.
+
+Limit: an adapter that is not bound to a live bridge has no runtime to consult,
+so `buildShellCapabilities(adapter)` keeps reading declared services there.
+Removal prerequisite: none for the withheld advertisement, which is the fix. The
+warning can go once hosts have a declarative way to change services after
+creation.
 
 ## FW-COUNT-LEGACY-001 — unbound COUNT service
 
@@ -367,6 +424,60 @@ prerequisites: announce the route removal in a release note, then delete
 `web/playground/`, the copy in `build-pages.mjs`, the audit check, and the test
 together. The last commit containing the playground source is the parent of the
 retirement PR; recover it from git history if ever needed.
+
+## KEHTO_INC_DTAG_TARGET_RETIRED — INC peers by manifest d tag — runtime
+
+Identifier: `KEHTO_INC_DTAG_TARGET_RETIRED`. Owner: `@kehto/runtime`. Retired
+without a compatibility path. Through `@kehto/runtime` 0.26, `inc.event.sender`,
+`inc.channel.event.sender`, and every channel `peer` were the manifest `d` tag,
+and `inc.channel.open` resolved `target` as a `d` tag when exactly one live
+session carried it. Two live instances of one name were indistinguishable and
+unaddressable, and an endpoint whose manifest has no `d` tag could not emit or
+join a channel ([kehto/web#331](https://github.com/kehto/web/issues/331)).
+
+Authority: [NAP-INC at `377bf939c6c906817084b43dd21d424de646dbc2`](https://github.com/napplet/naps/blob/377bf939c6c906817084b43dd21d424de646dbc2/naps/NAP-INC.md#schemas)
+(text last changed by `f4545b1f`). `target`, `sender`, and `peer` "are opaque
+text, unique to a live endpoint within the runtime, and MUST NOT be interpreted
+as a manifest `d` tag". A fallback that resolved an unambiguous `d` tag would
+interpret it as exactly that, and would let a napplet address a peer by a public
+name instead of an identifier it obtained from an attested event or a host
+selection. So no fallback is kept, bounded or otherwise.
+
+Replacement: the runtime assigns each live registered endpoint an opaque
+identifier from the injected `crypto.randomUUID`. Napplets read it from
+`inc.event.sender`, `inc.channel.opened.peer`, `inc.channel.open.result.peer`,
+`inc.channel.event.sender`, or `inc.channel.list.result`; hosts select a peer
+with `Runtime.getIncEndpointId(windowId)`. Migration for a napplet: keep the
+`sender` you received and pass it to `channel.open`; do not hardcode a peer
+name or compare `sender` with one. Firewall, ACL, and permission records are
+unchanged and stay keyed by the verified principal.
+
+Sources: `packages/runtime/src/inc-endpoints.ts` (assignment, binding to the
+registration, non-reuse), `inc-handler.ts` (wire use and the diagnostic), and
+`runtime.ts` (retirement on replacement or unregistration). Diagnostic: a `d`
+tag of a live session used as a target still fails as `target not found`, the
+same result as any unknown target, so the wire gives no liveness oracle. The
+host console gets one `console.warn` naming this identifier and the replacement,
+at most once per runtime instance, without the target value. Canonical targets
+and unknown text are quiet. The old `sender`/`peer` output has no observable
+old-use boundary (a napplet comparing it with a name just stops matching), so
+that half is covered by this entry, the changeset, and the README migration note
+rather than a runtime warning.
+
+Regression coverage: `packages/runtime/src/inc-endpoint-identity.test.ts`
+(issue fixture, opacity, stability, root manifests, rejected `d` tag / window ID
+/ instance ID / hash / empty / non-text targets, warning text and frequency,
+quiet canonical path, replacement and unregistration, repeated UUID source),
+`runtime.test.ts` and `dispatch.test.ts` (channel lifecycle, limits, ACL at
+open), `tests/unit/nap-inc-conformance.test.ts`,
+`tests/unit/nip5d-conformance-guard.test.ts` (static guard that the handler
+reads no `dTag`), and `tests/e2e/nap-inc.spec.ts` (two same-name instances in
+real sandboxed iframes).
+
+Removal ships with `.changeset/inc-endpoint-identifiers.md` (runtime minor); PR
+and release number are pending. Nothing remains to retire. Upstream note:
+`@napplet/nap@0.40.0` INC type comments still call `sender`, `target`, and the
+open-result `peer` a napplet identity; field shapes already match.
 
 ## Retired window-level NIP-5D transport — shell / Paja
 

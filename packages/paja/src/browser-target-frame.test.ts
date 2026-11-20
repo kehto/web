@@ -13,6 +13,9 @@ import { InstalledNappletCatalog } from './installed-napplet-catalog.js';
 import type { PajaHostConfig } from './options.js';
 import type { PajaResolvedPointer } from './runtime-resolver.js';
 
+/** Captured before any test stubs the global, so stubs can delegate real entropy. */
+const nativeCrypto = globalThis.crypto;
+
 const html = '<html><head><title>fixture</title></head><body>Verified bytes</body></html>';
 const bytes = new TextEncoder().encode(html);
 async function sha256hex(value: Uint8Array): Promise<string> {
@@ -93,6 +96,34 @@ describe.each(['current', 'legacy'] as const)('%s Paja frame admission', (format
     expect(catalog.intentCatalog((record) => resolveShellEnvironment(adapter, record).capabilities.domains.includes('inc'))[0].archetypes).toEqual({ note: { contracts: [{ convention: 'napplet:note/open', params: format === 'current' ? ['filters'] : [] }] } });
     expect(catalog.installed()[0].requires).not.toContain('keys');
   });
+});
+
+it('admits a verified frame with a secure session instanceId when crypto.randomUUID is missing (kehto/web#351)', async () => {
+  const resolved = await target('current');
+  const frame = { contentWindow: {} as Window, ownerDocument: LOCKED_HOST, srcdoc: '', getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
+  // Non-localhost HTTP: getRandomValues exists, randomUUID and subtle do not.
+  const provider = {
+    getRandomValues: vi.fn(function (this: unknown, bytes: Uint8Array) {
+      if (this !== provider) throw new TypeError('Illegal invocation');
+      return nativeCrypto.getRandomValues(bytes);
+    }),
+  };
+  vi.stubGlobal('crypto', provider);
+  const windowId = await navigateFrame(frame, config, 7, adapter, runtime, resolved);
+  expect(windowId).toBe('test:7');
+  expect(runtime.sessionRegistry.getEntryByWindowId('test:7')?.instanceId)
+    .toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  expect(provider.getRandomValues).toHaveBeenCalled();
+  expect(frame.srcdoc).toContain('Verified bytes');
+});
+
+it('refuses frame admission instead of minting a weak instanceId without secure randomness', async () => {
+  const resolved = await target('current');
+  const frame = { contentWindow: {} as Window, ownerDocument: LOCKED_HOST, srcdoc: '', getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
+  vi.stubGlobal('crypto', {});
+  await expect(navigateFrame(frame, config, 8, adapter, runtime, resolved)).rejects.toThrow('@kehto/shell requires crypto.randomUUID or crypto.getRandomValues');
+  expect(frame.srcdoc).toBe('');
+  expect(runtime.sessionRegistry.getEntryByWindowId('test:8')).toBeUndefined();
 });
 
 it('keeps roots and snapshots under publisher-safe catalog IDs without conflating their empty d-tags', async () => {

@@ -18,9 +18,11 @@ pnpm add -D @kehto/mocks
 
 ## Published Napplet Compatibility
 
-Peers admit `@napplet/core` `>=0.32.0 <0.42.0` and `@napplet/nap`
-`>=0.32.0 <0.41.0`, matching `@kehto/runtime`. Development, tests, and JSR
-imports use the host line: core 0.41.0 and nap 0.40.0.
+Peers admit `@napplet/core` `>=0.42.0 <0.43.0` and `@napplet/nap`
+`>=0.32.0 <0.42.0`. The core floor is 0.42.0 because `MockCvmRegistryEntry`
+extends core's selector-based `CvmRegistryEntry`; earlier releases export the
+older family-only registry shape. Development, tests, and JSR imports use the
+host line: core 0.42.0 and nap 0.41.0.
 
 ## Quick start
 
@@ -84,7 +86,7 @@ each `Mock<Domain>Service`.
 | `git` | NAP-GIT | draft | PR #137 @ `a73bf8de` | extension | 10 routes |
 | `hashtree` | NAP-HASHTREE | draft | PR #73 @ `67997706` | extension | 17 routes |
 | `identity` | NAP-IDENTITY | merged | master @ `43cb3a4e` | service | 9 routes |
-| `inc` | NAP-INC | merged | master @ `43cb3a4e` | runtime-owned | The runtime routes inc.* topics and channels itself (packages/runtime/src/inc-handler.ts) and attests sender/peer from authenticated endpoints. Mocks cannot and must not fabricate INC deliveries; shells get INC for free from the runtime. MOCK_INC_TOPICS supplies topic strings for tests. |
+| `inc` | NAP-INC | merged | master @ `377bf939` | runtime-owned | The runtime routes inc.* topics and channels itself (packages/runtime/src/inc-handler.ts) and attests sender/peer from authenticated endpoints. Mocks cannot and must not fabricate INC deliveries; shells get INC for free from the runtime. MOCK_INC_TOPICS supplies topic strings for tests. |
 | `intent` | NAP-INTENT | merged | master @ `43cb3a4e` | service | 3 routes |
 | `keys` | NAP-KEYS | draft | PR #9 @ `8869a4cf` | service | 3 routes |
 | `link` | NAP-LINK | draft | PR #53 @ `50a2cd45` | service | 1 route |

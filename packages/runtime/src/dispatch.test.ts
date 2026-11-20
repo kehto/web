@@ -102,7 +102,7 @@ describe('runtime NAP dispatch — envelope guard', () => {
     expect(firewallEvents).not.toHaveBeenCalled();
   });
 
-  it('fails closed for sessionless INC emit, subscribe, and channel open (NAP-INC 5ac0490461ca6fec2f0d2e45b4835cf9bc08de24)', () => {
+  it('fails closed for sessionless INC emit, subscribe, and channel open (NAP-INC 377bf939c6c906817084b43dd21d424de646dbc2)', () => {
     const unregisteredCtx = createMockRuntimeAdapter();
     const unregistered = createRuntime(unregisteredCtx.hooks);
 
@@ -1081,7 +1081,7 @@ describe('NIP-5D Envelope Dispatch', () => {
       expect(event).toBeDefined();
       expect((event!.message as any).topic).toBe('news');
       expect((event!.message as any).payload).toEqual({ text: 'hello' });
-      expect((event!.message as any).sender).toBe(TEST_DTAG);
+      expect((event!.message as any).sender).toBe(runtime.getIncEndpointId(WINDOW_ID));
     });
 
     it('inc.emit does not echo to sender', () => {
@@ -1178,7 +1178,7 @@ describe('NIP-5D Envelope Dispatch', () => {
       expect(event).toBeDefined();
       expect((event!.message as any).topic).toBe('inc-news');
       expect((event!.message as any).payload).toEqual({ text: 'inc hello' });
-      expect((event!.message as any).sender).toBe(TEST_DTAG);
+      expect((event!.message as any).sender).toBe(runtime.getIncEndpointId(WINDOW_ID));
     });
 
     it('denies a blocked channel open without creating channel state', () => {
@@ -1189,7 +1189,7 @@ describe('NIP-5D Envelope Dispatch', () => {
       runtime.aclState.block('', TEST_DTAG, TEST_HASH);
 
       runtime.handleMessage(WINDOW_ID, {
-        type: 'inc.channel.open', id: 'blocked-open', target: 'peer-napp',
+        type: 'inc.channel.open', id: 'blocked-open', target: runtime.getIncEndpointId(WINDOW_ID_2),
       } as NappletMessage);
 
       expect(findEnvelopeResponse(ctx.sent, 'inc.channel.open.result')).toMatchObject({
@@ -1234,7 +1234,7 @@ describe('NIP-5D Envelope Dispatch', () => {
         expect.arrayContaining([WINDOW_ID, WINDOW_ID_2]),
       );
       runtime.handleMessage(WINDOW_ID, {
-        type: 'inc.channel.open', id: 'open-once', target: 'peer-napp',
+        type: 'inc.channel.open', id: 'open-once', target: runtime.getIncEndpointId(WINDOW_ID_2),
       } as NappletMessage);
       const openResult = findEnvelopeResponse(ctx.sent, 'inc.channel.open.result');
       expect(openResult).toBeDefined();
@@ -1249,7 +1249,7 @@ describe('NIP-5D Envelope Dispatch', () => {
       expect(ctx.sent).toContainEqual({
         windowId: WINDOW_ID_2,
         message: expect.objectContaining({
-          type: 'inc.channel.event', channelId: opened.channelId, sender: TEST_DTAG,
+          type: 'inc.channel.event', channelId: opened.channelId, sender: runtime.getIncEndpointId(WINDOW_ID),
         }),
       });
     });
@@ -1265,7 +1265,7 @@ describe('NIP-5D Envelope Dispatch', () => {
         createNip5dSessionEntry(WINDOW_ID_2, 'peer-napp', 'c'.repeat(64)),
       );
       runtime.handleMessage(WINDOW_ID, {
-        type: 'inc.channel.open', id: 'revocable-open', target: 'peer-napp',
+        type: 'inc.channel.open', id: 'revocable-open', target: runtime.getIncEndpointId(WINDOW_ID_2),
       } as NappletMessage);
       const openResult = findEnvelopeResponse(ctx.sent, 'inc.channel.open.result');
       expect(openResult).toBeDefined();
@@ -1315,7 +1315,7 @@ describe('NIP-5D Envelope Dispatch', () => {
         createNip5dSessionEntry(WINDOW_ID_2, 'peer-napp', 'c'.repeat(64)),
       );
       runtime.handleMessage(WINDOW_ID, {
-        type: 'inc.channel.open', id: 'stable-open', target: 'peer-napp',
+        type: 'inc.channel.open', id: 'stable-open', target: runtime.getIncEndpointId(WINDOW_ID_2),
       } as NappletMessage);
       const openResult = findEnvelopeResponse(ctx.sent, 'inc.channel.open.result');
       expect(openResult).toBeDefined();

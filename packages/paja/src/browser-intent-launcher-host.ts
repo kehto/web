@@ -1,4 +1,4 @@
-import { denyNappletControllerAccess, originRegistry } from '@kehto/shell';
+import { denyNappletControllerAccess, originRegistry, randomUUID } from '@kehto/shell';
 import { resolvePajaSharedLinkHandler } from './browser-intent-link-target.js';
 import type { PajaIntentLinkProgress } from './browser-intent-links.js';
 import type { ParsedPajaIntentLink } from './intent-link.js';
@@ -25,7 +25,7 @@ export async function launchPajaSharedIntent(
   frame.sandbox.add('allow-scripts');
   frame.setAttribute('aria-hidden', 'true');
   context.stage.append(frame);
-  const windowId = `${context.config.window.id}:intent-launcher:${crypto.randomUUID()}`;
+  const windowId = `${context.config.window.id}:intent-launcher:${randomUUID()}`;
   const admissionController = new AbortController();
   let readyResolve!: () => void;
   let readyReject!: (reason: Error) => void;
@@ -67,7 +67,7 @@ export async function launchPajaSharedIntent(
     const timeout = window.setTimeout(() => readyReject(new Error('Paja intent launcher did not become ready')), 10_000);
     try { await ready; } finally { window.clearTimeout(timeout); }
     if (!progress.isActive()) return;
-    const correlation = crypto.randomUUID();
+    const correlation = randomUUID();
     let outcomeTimer: number | undefined;
     const outcome = new Promise<unknown>((resolve, reject) => {
       outcomes.set(correlation, resolve);

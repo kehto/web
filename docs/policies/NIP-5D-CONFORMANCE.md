@@ -25,7 +25,7 @@ implementation authority. `RUNTIME-SPEC.md` is internal runtime guidance.
 
 - **NAP-INTENT:** draft PR #106 `napplet/naps@fc121fc264615482143eda86125863d2e1f741a2` (the working authority for this implementation).
 - **NAP-INC:** merged `napplet/naps` master
-  `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`.
+  `377bf939c6c906817084b43dd21d424de646dbc2`.
 - **NAP-IDENTITY / NAP-THEME / NAP-SHELL:** merged `napplet/naps` master
   `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`.
 - **NAP-RELAY:** open PR #2 at
@@ -37,7 +37,7 @@ implementation authority. `RUNTIME-SPEC.md` is internal runtime guidance.
   `a79e7f4638f70f4557d4183faee9348847bb8cc7`, merged as release source
   `dc1d24153c759152b6ba31a6ec9bea967798f2df`. The exact fixture-napplet line is core
   `0.32.0`, nap `0.32.0`, shim `0.30.0`, SDK `0.28.0`, and Vite plugin `0.16.2`; host
-  packages develop on core `0.41.0` and nap `0.40.0`.
+  packages develop on core `0.42.0` and nap `0.41.0`.
 
 ### Current event schema and retained compatibility
 
@@ -259,9 +259,9 @@ recorded upstream drift, not authority to let a napplet bypass shell signing.
 ### Active NAP-INC boundary
 
 NAP-INC is governed by merged
-[`naps/NAP-INC.md`](https://github.com/napplet/naps/blob/5ac0490461ca6fec2f0d2e45b4835cf9bc08de24/naps/NAP-INC.md)
+[`naps/NAP-INC.md`](https://github.com/napplet/naps/blob/377bf939c6c906817084b43dd21d424de646dbc2/naps/NAP-INC.md)
 on `napplet/naps` master
-`5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`. The document remains marked
+`377bf939c6c906817084b43dd21d424de646dbc2`. The document remains marked
 draft, but the merged path supersedes the earlier stacked PR heads as protocol
 authority.
 
@@ -272,9 +272,22 @@ discovery identities, while routing arbitrary opaque strings (including `?` and
 `#`) by their complete exact text. It must not add prefix, wildcard, or
 query-aware matching, service-over-INC prefix dispatch, synthetic senderless
 events, or runtime payload-kind inference. The runtime attaches a
-**runtime-attested dTag** to
+**runtime-attested endpoint identifier** to
 delivered events, does not accept caller `sender`, keeps payloads and IDs
 opaque, and excludes the source endpoint from topic fan-out.
+
+`target`, `sender`, and `peer` are runtime-assigned endpoint identifiers: opaque text, one per live registered
+endpoint, taken from the injected `crypto.randomUUID`, and carrying no manifest `d` tag, artifact hash, window ID,
+instance ID, or ordering. An identifier is assigned on first use, lasts until that registration is replaced or
+unregistered, and is never reused; a replacement registration is a new endpoint whose old channels close as
+`peer destroyed`. Root and snapshot manifests without a `d` tag get identifiers like any other endpoint. A `d` tag is
+never resolved as a channel target (`KEHTO_INC_DTAG_TARGET_RETIRED` in
+[the compatibility register](https://github.com/kehto/web/blob/main/docs/compatibility.md)). Napplets learn a peer
+from an attested `sender`/`peer`; a host selects one with `Runtime.getIncEndpointId(windowId)`.
+Firewall, ACL, and permission records stay keyed by the verified principal (`dTag` plus artifact hash); only the INC
+wire identity changed. The packaged `@napplet/nap@0.40.0` INC types still describe `sender`, `target`, and
+`inc.channel.open.result.peer` as napplet identities (comment text only; the field shapes match). That wording lags
+the NAP and is upstream drift, not a Kehto contract.
 
 Merged NAP-INC and released `@napplet/nap@0.32.0` both define
 `on(topic, callback)` with one `IncEvent`.
@@ -353,10 +366,11 @@ Authority: [NIP-5D at
   frozen environment, and calls `ShellAdapter.onNappletRevoked` so the host
   removes the frame. `originRegistry.register` refuses a spent `Window`. Hosts
   create a fresh iframe for every navigation; Paja and the e2e harness do.
-- Kehto's host packages develop on `@napplet/core` 0.41.0 and `@napplet/nap` 0.40.0;
-  published peers are per package (core `<0.42.0`, nap `<0.41.0`; `@kehto/services` and
-  `@kehto/paja` and `@kehto/cli` floor core at 0.41.0 because services re-exports core's no-ID
-  intent types, and keep the nap floor at 0.37.0). Fixture napplets, `@napplet/shim` 0.30.0,
+- Kehto's host packages develop on `@napplet/core` 0.42.0 and `@napplet/nap` 0.41.0;
+  published peers are per package (core `<0.43.0`, nap `<0.42.0`; `@kehto/services` and
+  `@kehto/paja` and `@kehto/cli` floor core at 0.42.0 because services re-exports core's no-ID
+  intent types and selector-based CVM registry types, and keep the nap floor at 0.37.0;
+  `@kehto/mocks` floors core at 0.42.0 for the same registry types). Fixture napplets, `@napplet/shim` 0.30.0,
   `@napplet/sdk` 0.28.0 and `@napplet/vite-plugin` 0.16.2 stay on their exact pins
   (kehto/web#364). Kehto implements both sides of the handoff itself and needs no
   newer shim API.
@@ -618,9 +632,11 @@ conformant, so Kehto does neither.
   wants live dev-server loading declares `resource` under `napplet-optional` and
   runs without it.
 
-### Host dependency line: core 0.41 / nap 0.40
+### Host dependency line: core 0.42 / nap 0.41
 
-Host peer ranges admit core 0.41.x and nap 0.40.x; development builds and JSR maps use that line. `@kehto/services`, `@kehto/paja` and `@kehto/cli` floor core at 0.41.0 because services re-exports core's intent types; other peer floors and the older fixture matrix remain supported.
+Host peer ranges admit core 0.42.x and nap 0.41.x; development builds and JSR maps use that line. `@kehto/services`, `@kehto/paja`, `@kehto/cli` and `@kehto/mocks` floor core at 0.42.0 because services and mocks expose core's CVM registry types (services also re-exports core's intent types); other peer floors and the older fixture matrix remain supported.
+
+Checked NAP-CVM PR #31 at `28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f` (still the PR head on 2026-11-20). Core 0.41.0 / nap 0.40.0 exported the older family-only registry contract ([napplet/web#336](https://github.com/napplet/web/issues/336)). Core 0.42.0 and nap 0.41.0 (napplet/web#337) export `CvmRegistrySelector`, `schemaHashes` entries, required per-tool hashes, the `category` query hint and `selector` envelopes, field for field with the draft, so Kehto retired its local registry types ([kehto/web#441](https://github.com/kehto/web/issues/441)). That release changes no other NAP domain. Result: conformant. No family-only wire fallback exists; the injected string-family adapter stays as `KEHTO_CVM_FAMILY_SELECTOR`.
 
 Checked NAP-INTENT PR #128 at `74f9bf85ebb83b50b7b2ad8308a835d5f3113cd9` alongside PR #106 at `fc121fc264615482143eda86125863d2e1f741a2`. The current proposal withdraws delivery IDs and nullable senders. Core 0.40.0 exported that withdrawn shape ([napplet/web#328](https://github.com/napplet/web/issues/328)). Core 0.41.0 and nap 0.40.0 (napplet/web#329) export the no-ID, string-sender delivery, so Kehto retired its local copy ([kehto/web#418](https://github.com/kehto/web/issues/418)). Result: conformant. No delivery-ID or null-sender fallback exists.
 
