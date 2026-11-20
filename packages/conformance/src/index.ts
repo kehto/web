@@ -28,7 +28,7 @@ export { SCENARIOS } from './scenarios/index.js';
 export { renderProbeArtifact, renderWireTap, COLLECTOR_FRAME_NAME, REPORT_FIELD, SIGNAL_FIELD, WIRE_HANDLE } from './probe/artifact.js';
 export type { ProbeDeclarations, WireHold } from './probe/artifact.js';
 export type {
-  CallStep, CallbackArg, ExpectStep, HandleArg, InvokeStep, MarkStep, PlanArg, ProbePlan, ProbeReport,
+  AssignStep, CallStep, CallbackArg, ExpectStep, HandleArg, InvokeStep, MarkStep, PlanArg, ProbePlan, ProbeReport,
   ProbeStep, QuietStep, ReadStep, RealmSnapshot, SendStep, SleepStep, SnapshotStep, StepRecord, StepState,
   WaitSignalStep, WindowPostStep,
 } from './probe/plan.js';

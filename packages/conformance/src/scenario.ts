@@ -50,7 +50,7 @@ export interface Scenario<F = unknown> {
 
 /** Keep a scenario's fact type while storing it in a heterogeneous list. */
 export function defineScenario<F>(scenario: Scenario<F>): Scenario {
-  return scenario as unknown as Scenario;
+  return scenario as Scenario;
 }
 
 const ANCHORS: readonly AnchorDomain[] = [

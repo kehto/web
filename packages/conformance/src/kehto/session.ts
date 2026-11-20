@@ -275,7 +275,7 @@ export async function bootKehtoSession(variant: TargetVariant, host: HTMLElement
     controls: backends.controls,
     control: (name, payload) => backends.control(name, payload, { bridge, hooks }),
     async dispose() {
-      for (const id of [...state.frames.keys()]) destroyEndpoint(state, id);
+      for (const id of Array.from(state.frames.keys())) destroyEndpoint(state, id);
       window.removeEventListener('message', bridge.handleMessage);
       originRegistry.postToNapplet = postToNapplet;
       bridge.destroy();

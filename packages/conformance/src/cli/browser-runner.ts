@@ -7,7 +7,7 @@ import type { ConformanceRun, RunOptions } from '../model.js';
 import { HARNESS_GLOBAL } from './server.js';
 
 /** The slice of a Playwright page the runner uses. */
-interface PageLike {
+export interface PageLike {
   goto(url: string): Promise<unknown>;
   waitForFunction(script: string, arg: unknown, options: { timeout: number }): Promise<unknown>;
   evaluate<R, A>(fn: (arg: A) => R | Promise<R>, arg: A): Promise<R>;

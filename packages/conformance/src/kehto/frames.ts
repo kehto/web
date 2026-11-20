@@ -59,11 +59,10 @@ export function createProbeStage(host: HTMLElement): ProbeStage {
     const channel = event.source ? channels.get(event.source as Window) : undefined;
     const data = event.data as { [REPORT_FIELD]?: unknown; body?: unknown } | null;
     if (!channel || !data || typeof data[REPORT_FIELD] !== 'string') return;
-    const body = data.body as Record<string, unknown>;
     if (data[REPORT_FIELD] === 'boot') channel.booted = true;
-    if (data[REPORT_FIELD] === 'mark') channel.marks.push(String(body.name));
-    if (data[REPORT_FIELD] === 'wire') channel.onWire(body as unknown as FrameWire);
-    if (data[REPORT_FIELD] === 'done') channel.report = body as unknown as ProbeReport;
+    if (data[REPORT_FIELD] === 'mark') channel.marks.push(String((data.body as { name?: unknown }).name));
+    if (data[REPORT_FIELD] === 'wire') channel.onWire(data.body as FrameWire);
+    if (data[REPORT_FIELD] === 'done') channel.report = data.body as ProbeReport;
     for (const wake of channel.waiters.splice(0)) wake();
   };
   collector.contentWindow?.addEventListener('message', onReport);

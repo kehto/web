@@ -60,7 +60,7 @@ function wireTap(emit: Emit, hold: { outbound: string[]; inbound: string[]; echo
   const backlog: unknown[] = [];
   let bound: MessagePort | null = null;
   let receivers = 0;
-  let send: (message: unknown) => void = () => {};
+  let send: (message: unknown) => void = () => undefined;
   const typeOf = (value: unknown): string => String((value as { type?: unknown } | null)?.type ?? '');
   const copy = (value: unknown): unknown => {
     try { return JSON.parse(JSON.stringify(value === undefined ? null : value)) as unknown; } catch { return String(value); }
@@ -118,7 +118,7 @@ function wireTap(emit: Emit, hold: { outbound: string[]; inbound: string[]; echo
         // postMessage call: only a receiver installed before the signal left sees it.
         if (hold.echoInit && typeOf(message) === 'shell.ready') {
           hold.echoInit = false;
-          const ns = (window as unknown as { napplet?: Record<string, unknown> }).napplet;
+          const ns = Reflect.get(window, 'napplet') as Record<string, unknown> | undefined;
           const data = { type: 'shell.init', capabilities: { domains: ns ? Object.keys(ns) : [] }, services: ['conformance-echo'] };
           const event = new MessageEvent('message', { data });
           released.add(event);
@@ -148,7 +148,7 @@ function wireTap(emit: Emit, hold: { outbound: string[]; inbound: string[]; echo
     }
     return channel;
   };
-  window.MessageChannel = Tapped as unknown as typeof MessageChannel;
+  Reflect.set(window, 'MessageChannel', Tapped);
 }
 
 /** Install the realm snapshot helper and take the classic-script snapshot. */
@@ -175,8 +175,8 @@ function snapshotInstall(): void {
     }
   };
   const snapshot = (): RealmSnapshot => {
-    const global = window as unknown as Window & Record<string, unknown>;
-    const namespace = global.napplet as Record<string, unknown> | undefined;
+    const global = window as Window & { napplet?: Record<string, unknown>; nostr?: unknown };
+    const namespace = global.napplet;
     const reachablePorts: string[] = [];
     scan(global, 'window', 2, reachablePorts);
     if (namespace) scan(namespace, 'window.napplet', 6, reachablePorts);
@@ -202,9 +202,14 @@ function snapshotInstall(): void {
 function probeMain(plan: ProbePlan, emit: Emit): void {
   type Wire = { post(message: unknown): boolean; listen(listener: (data: unknown) => void): void };
   type Record_ = { index: number; op: string; as?: string; state: string; value?: unknown; error?: string; at: number };
-  const global = window as unknown as Window & Record<string, unknown>;
-  const probe = global.__kehtoProbe as { snapshot(): RealmSnapshot; classic: RealmSnapshot; module: RealmSnapshot | null };
-  const wire = global.__kehtoConformanceWire as Wire | undefined;
+  const global = window as Window & {
+    napplet?: Record<string, unknown>;
+    __kehtoProbe?: { snapshot(): RealmSnapshot; classic: RealmSnapshot; module: RealmSnapshot | null };
+    __kehtoConformanceWire?: Wire;
+  };
+  // Installed by snapshotInstall in the head, before this body script runs.
+  const probe = global.__kehtoProbe!;
+  const wire = global.__kehtoConformanceWire;
   const started = performance.now();
   const defaultTimeout = plan.timeoutMs ?? 2000;
   const defaultSettle = plan.settleMs ?? 120;

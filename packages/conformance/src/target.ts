@@ -144,7 +144,7 @@ export interface ProbeEndpoint {
 export interface RevocationEvidence {
   readonly endpoint: string;
   readonly reason: string;
-  /** Whether the frame was removed from the document afterwards. */
+  /** Whether the revoked frame is no longer in the document. */
   readonly frameRemoved: boolean;
 }
 

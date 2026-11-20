@@ -103,18 +103,12 @@ importers:
 
   packages/conformance:
     dependencies:
-      '@kehto/acl':
-        specifier: workspace:^
-        version: link:../acl
       '@kehto/nip':
         specifier: workspace:^
         version: link:../nip
       '@kehto/runtime':
         specifier: workspace:^
         version: link:../runtime
-      '@kehto/services':
-        specifier: workspace:^
-        version: link:../services
       '@kehto/shell':
         specifier: workspace:^
         version: link:../shell

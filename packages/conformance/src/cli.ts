@@ -17,7 +17,7 @@ import { formatReport } from './reporters/index.js';
 export { parseConformanceArgs, ConformanceUsageError, CONFORMANCE_HELP } from './cli/args.js';
 export type { ConformanceCliOptions } from './cli/args.js';
 export { BrowserUnavailableError } from './cli/browser-runner.js';
-export type { ChromiumLike } from './cli/browser-runner.js';
+export type { ChromiumLike, PageLike } from './cli/browser-runner.js';
 export { startHarnessServer } from './cli/server.js';
 export type { HarnessServer } from './cli/server.js';
 
@@ -27,7 +27,7 @@ export interface ConformanceCliIo {
   readonly stderr: { write(chunk: string): void };
 }
 
-/** Embedding controls, used by tests. */
+/** Embedding controls for wrappers and tests. */
 export interface RunConformanceCliOptions {
   /** Replace the browser run, e.g. with a canned result. */
   readonly execute?: (options: RunOptions) => Promise<ConformanceRun>;
