@@ -327,9 +327,13 @@ permits, with an upstream question for the owning draft:
   injected `config.get()` rejects after the request timeout instead of at once).
 - `outbox.resolveRelays`: `plan` is required, so the denial sends the empty
   policy-derived plan the NAP allows for untrusted napplets, plus `error`.
-- `upload.info`/`upload.status`: the wire table lists `info`/`status` as
-  required while `@napplet/nap@0.45.0` marks both optional; the denial sends
-  only `error`, like `upload.upload`, rather than invent upload state.
+- `upload.info`: `info` is required, so the denial sends `info: { rails: [] }`
+  with `error`, the fully redacted disclosure NAP-UPLOAD allows for untrusted
+  napplets (kehto/web#518).
+- `upload.status`: bounded spec gap (napplet/naps#33 @ f5cc981e,
+  kehto/web#518). `status` is required, but a denied lookup has no honest
+  rail, state or timestamp for `UploadStatus`, so the denial sends only
+  `error`, like `upload.upload`, rather than invent upload state.
 
 Spec-gap decisions (kehto/web#494):
 
