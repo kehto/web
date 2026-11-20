@@ -13,3 +13,5 @@ status: passed
 - `pnpm test:unit`: 309 files, 4087 tests passed.
 - `npx aislop@0.12.0 scan`: 100/100 (one pre-existing warning in
   `paja/src/browser-llm-panel.ts`).
+- Playwright (`--workers=1`): conformance, conformance-mutations,
+  paja-firewall-rules: 23 passed.
