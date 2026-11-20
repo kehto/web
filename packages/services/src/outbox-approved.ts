@@ -21,6 +21,7 @@ import type { ApprovalOutcome, PermissionRequirement, ServiceRuntimeContext } fr
 import {
   OUTBOX_POLICY_DENIED,
   OUTBOX_RELAY_LIST_UNAVAILABLE,
+  OUTBOX_TOO_MANY_RELAYS,
   outboxNetworkReason,
   outboxPublishFailureReason,
 } from './outbox-reasons.js';
@@ -36,22 +37,27 @@ import type {
   OutboxSubscriptionSink,
   StreamingOutboxRouter,
 } from './outbox-service.js';
-import { relayOrigin } from './relay-url-policy.js';
+import { boundPlanRelays, relayOrigins } from './outbox-relay-budget.js';
 
 /**
  * Freeze a router plan so the approved destinations cannot change before execution.
  *
- * Every relay must be a valid relay URL (throws `invalid relay destination`),
- * and host-only `requiredRelays` must be a subset of the approved relays.
+ * Any router's plan is bounded to one approval ({@link boundPlanRelays}):
+ * unusable best-effort URLs are skipped and the plan is cut at the origin
+ * budget in the router's order, which marks the plan `partial` (kehto/web#455).
+ * A required relay must be usable (throws `invalid relay destination`), the
+ * required origins must fit (throws `too many relays`), and host-only
+ * `requiredRelays` must be a subset of the approved relays.
  *
  * @param plan - The router's relay plan.
  * @returns A frozen copy with frozen relay lists.
  */
 export function capturePlan(plan: OutboxRelayPlan): OutboxRelayPlan {
-  for (const url of plan.relays) relayOrigin(url);
-  const captured = { ...plan, relays: [...plan.relays],
-    ...(plan.requiredRelays ? { requiredRelays: [...plan.requiredRelays] } : {}) };
-  if (captured.requiredRelays?.some((url) => !captured.relays.includes(url))) throw new Error('invalid required relay destination');
+  if (plan.requiredRelays?.some((url) => !plan.relays.includes(url))) throw new Error('invalid required relay destination');
+  const bounded = boundPlanRelays(plan.relays, plan.requiredRelays ?? []);
+  const captured = { ...plan, relays: bounded.relays,
+    ...(plan.requiredRelays ? { requiredRelays: [...plan.requiredRelays] } : {}),
+    ...(bounded.partial || plan.partial ? { partial: true } : {}) };
   if (captured.requiredRelays) Object.freeze(captured.requiredRelays);
   Object.freeze(captured.relays);
   return Object.freeze(captured);
@@ -72,11 +78,11 @@ function capturePublishPlan(plan: OutboxRelayPlan, options?: OutboxPublishOption
   return captured;
 }
 
-/** Interface plus per-relay network requirements for one approved OUTBOX operation. */
+/** Interface plus one network requirement per relay origin for one approved OUTBOX operation. */
 function outboxRequirements(operation: string, plan: OutboxRelayPlan): PermissionRequirement[] {
   return [
     { category: 'interface', domain: 'outbox', operation: 'access', scope: { kind: 'exact', value: 'outbox' } },
-    ...plan.relays.map((url) => ({ category: 'network' as const, domain: 'outbox', operation, scope: { kind: 'origin' as const, value: relayOrigin(url) } })),
+    ...relayOrigins(plan.relays).map((value) => ({ category: 'network' as const, domain: 'outbox', operation, scope: { kind: 'origin' as const, value } })),
   ];
 }
 
@@ -130,7 +136,9 @@ export async function queryApproved(
     } catch (error) {
       return { events: [], incomplete: true, error: outboxNetworkReason(error) };
     }
-    return signal.aborted ? { events: [], error: OUTBOX_POLICY_DENIED } : result;
+    if (signal.aborted) return { events: [], error: OUTBOX_POLICY_DENIED };
+    // Relays the shell left out cost some author every relay: the read is partial.
+    return plan.partial ? { ...result, incomplete: true } : result;
   });
   return outcome.status === 'executed' && outcome.value ? outcome.value : { events: [], error: OUTBOX_POLICY_DENIED };
 }
@@ -179,6 +187,9 @@ export function subscribeApproved(
     try { opened?.close(); } catch { /* already released */ }
     if (!announced) send({ type: 'outbox.closed', subId, reason } as NappletMessage);
   };
+  // Spec gap: a `partial` plan (some author lost every relay) cannot be
+  // reported on a stream; `outbox.event` and `outbox.closed` carry no
+  // `incomplete` field in NAP-OUTBOX draft napplet/naps#32 at `8865f73d`.
   void (async () => {
     let plan: OutboxRelayPlan;
     let requirements: PermissionRequirement[];
@@ -215,8 +226,10 @@ export function subscribeApproved(
  * Planning rejections pass through with their own message: a signer failure,
  * a relay-gate refusal of a required author (`policy denied`), a recipient
  * without a relay list (`relay list unavailable`), or a router plan that
- * breaks the required-destination contract. A plan naming an unusable relay
- * URL is `relay list unavailable`. None of these reach approval,
+ * breaks the required-destination contract. An unusable required relay URL is
+ * `relay list unavailable`, and required relays spanning more origins than
+ * one approval can name are `too many relays`; unusable or over-budget
+ * explicit relays are skipped as best effort. None of these reach approval,
  * signing, or transport. A transport failure inside the approved callback is a
  * network reason, and only a non-executed approval outcome is `policy denied`.
  * The approval signal is threaded into `publishWithPlan`, which rechecks it
@@ -241,8 +254,10 @@ export async function publishApproved(
   try {
     plan = capturePublishPlan(routed, options);
   } catch (error) {
-    // An unusable relay URL in the plan is a planning outcome, not a denial (#467).
+    // An unusable required relay URL in the plan is a planning outcome, not a denial (#467).
     if (error instanceof Error && error.message === 'invalid relay destination') return { ok: false, error: OUTBOX_RELAY_LIST_UNAVAILABLE };
+    // Required relays too many to approve at once: report it, never as a denial (#455).
+    if (error instanceof Error && error.message === OUTBOX_TOO_MANY_RELAYS) return { ok: false, error: OUTBOX_TOO_MANY_RELAYS };
     throw error;
   }
   const requirements = outboxRequirements('outbox.publish', plan);

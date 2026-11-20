@@ -60,7 +60,7 @@ export { DEFAULT_RULE_GRANT_PREFIX } from './approval-coordinator.js';
 export type { PermissionPrincipal, PermissionRequirement, PermissionRequest, PermissionScope, PermissionGrant } from '@kehto/firewall';
 export {
   createPermissionRules, permissionRuleSubject, resolvePermissionRule, setPermissionRule,
-  serializePermissionRules, deserializePermissionRules,
+  serializePermissionRules, deserializePermissionRules, MAX_PERMISSION_REQUIREMENTS,
 } from '@kehto/firewall';
 export type {
   PermissionRuleAction, PermissionRuleScope, PermissionRules, PermissionRuleTarget,
