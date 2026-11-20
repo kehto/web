@@ -90,6 +90,24 @@ export interface Runtime {
   unregisterService(name: string): void;
 
   /**
+   * Report whether this runtime currently routes an exact service domain.
+   *
+   * The runtime copies `RuntimeAdapter.services` once at creation, so a handler
+   * added to that object later is not routed until `registerService()` runs.
+   * Hosts read this before exposing a domain so advertisement cannot outrun
+   * routing.
+   *
+   * @param name - Exact domain name (e.g., 'webrtc')
+   * @returns true while a handler is registered for the name
+   * @example
+   * ```ts
+   * runtime.registerService('webrtc', handler);
+   * runtime.hasService('webrtc'); // true
+   * ```
+   */
+  hasService(name: string): boolean;
+
+  /**
    * Clean up all state associated with a napplet window.
    * Removes subscriptions, pending state, and notifies service handlers.
    *
@@ -461,6 +479,7 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
       detachService(name);
       delete serviceRegistry[name];
     },
+    hasService: (name: string): boolean => registeredServices.has(name) && Object.hasOwn(serviceRegistry, name),
     destroyWindow(windowId: string): void {
       context.permissions?.close(windowId);
       extensions.destroyWindow(windowId);
