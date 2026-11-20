@@ -10,6 +10,7 @@ import type { NappletRevocationReason, ShellAdapter } from './types.js';
 import type { NappletMessage } from '@napplet/core';
 import type { Theme } from '@napplet/nap/theme/types';
 import { createShellReadyState } from './shell-ready.js';
+import { bindShellServiceRouting } from './shell-init.js';
 import { createNip5dTransport } from './nip5d-transport.js';
 
 export { MAX_DEFERRED_MESSAGES, NAPPLET_HELLO } from './nip5d-transport.js';
@@ -251,6 +252,9 @@ export function createShellBridge(hooks: ShellAdapter): ShellBridge {
     }
   }
 
+  // Advertisement reads the adapter while routing reads the runtime's own
+  // registry; binding them keeps a late adapter entry from being advertised.
+  const releaseServiceRouting = bindShellServiceRouting(hooks, runtime);
   const transport = createNip5dTransport({ hooks, runtime, state: shellReadyState });
 
   return {
@@ -263,6 +267,7 @@ export function createShellBridge(hooks: ShellAdapter): ShellBridge {
     destroy(): void {
       transport.destroy();
       runtime.destroy();
+      releaseServiceRouting();
       shellReadyState.clear();
     },
 

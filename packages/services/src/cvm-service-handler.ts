@@ -4,6 +4,7 @@ import type { CvmDiscoverQuery, CvmRequestOptions, CvmServerRef, McpMessage } fr
 import type { CvmService, CvmServiceOptions } from './cvm-service.js';
 import { handleCvmRegistry, isCvmRegistryMethod } from './cvm-registry.js';
 import { createCvmOperations, type CvmOperation, type CvmOperations } from './cvm-operations.js';
+import { randomUUID } from './random-uuid.js';
 
 const CVM_SERVICE_VERSION = '1.0.0';
 /** NAP-CVM #31 @ 28cf1bdb, Timeouts: default and maximum accepted duration. */
@@ -143,7 +144,7 @@ function handleRegistry(actions: CvmActions, windowId: string, generation: symbo
       const timeoutMs = work.remaining();
       remember(windowId, generation, target);
       return transport.request(target, {
-        jsonrpc: '2.0', id: globalThis.crypto.randomUUID(), method, ...(params ? { params } : {}),
+        jsonrpc: '2.0', id: randomUUID(), method, ...(params ? { params } : {}),
       }, { ...requestOptions, timeoutMs }, { signal: work.signal });
     });
   }), reply, (error) => reply({ error: toErrorMessage(error) }));

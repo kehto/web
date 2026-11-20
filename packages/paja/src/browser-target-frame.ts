@@ -4,6 +4,7 @@ import {
   denyNappletControllerAccess,
   hasNappletFramePolicy,
   originRegistry,
+  randomUUID,
   resolveShellEnvironment,
   type BrowserRemoteSource,
   type OriginIdentity,
@@ -207,7 +208,7 @@ async function admitPajaFrame(options: PajaFrameAdmission): Promise<string | nul
     pubkey: '', windowId: sourceWindowId, origin: 'null', type: 'nip5d',
     dTag: identity.dTag, aggregateHash: identity.aggregateHash,
     permissionPrincipal: identity.permissionPrincipal,
-    registeredAt: Date.now(), instanceId: crypto.randomUUID(), provenance: 'nip-5d',
+    registeredAt: Date.now(), instanceId: randomUUID(), provenance: 'nip-5d',
   };
   const result = await admitBrowserDocument({
     runtime, entry, verifiedHtml, available: environment.capabilities.domains,

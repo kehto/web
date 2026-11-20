@@ -1,11 +1,12 @@
 /**
  * Pure NAP-LLM ↔ provider wire mappers.
  *
- * Three request/response dialects cover the hosted and local inference APIs
+ * Four request/response dialects cover the hosted and local inference APIs
  * napplet developers reach for most: the OpenAI Chat Completions shape (OpenAI,
  * OpenRouter, Groq, Mistral, DeepSeek, xAI, Together, Fireworks, Perplexity,
  * Azure OpenAI, and local Ollama, LM Studio, llama.cpp and vLLM servers), the
- * Anthropic Messages API and Google Gemini `generateContent`. Mapping roles and
+ * OpenAI Responses API, the Anthropic Messages API and Google Gemini
+ * `generateContent`. Mapping roles and
  * parts into a provider's equivalent is permitted by NAP-LLM; provider-specific
  * input restrictions are reported as `unsupported` before any request is built.
  * Credentials are placed only on the outgoing request to the configured base URL.
@@ -16,10 +17,11 @@
 import { buildAnthropicMessages, parseAnthropicMessages } from './llm-provider-anthropic.js';
 import { buildGemini, parseGemini } from './llm-provider-gemini.js';
 import { buildOpenAiChat, parseOpenAiChat } from './llm-provider-openai.js';
+import { buildOpenAiResponses, parseOpenAiResponses } from './llm-provider-responses.js';
 import { prepareRequest, providerError, unsupported, type LlmHttpRequest, type LlmProviderEndpoint, type LlmProviderProtocol, type LlmProviderRequestOptions } from './llm-provider-shared.js';
 import type { LlmGeneration, LlmGenerationRequest } from './llm-types.js';
 
-export type { LlmCredentialHeader, LlmHttpRequest, LlmProviderEndpoint, LlmProviderProtocol, LlmProviderRequestOptions } from './llm-provider-shared.js';
+export type { LlmCredentialHeader, LlmHttpRequest, LlmProviderEndpoint, LlmProviderProtocol, LlmProviderRequestOptions, LlmResponsesOptions } from './llm-provider-shared.js';
 
 /**
  * Build the provider HTTP request for one NAP-LLM generation.
@@ -37,6 +39,7 @@ export function buildLlmProviderRequest(endpoint: LlmProviderEndpoint, request: 
   const prepared = prepareRequest(endpoint, request);
   switch (endpoint.protocol) {
     case 'openai-chat': return buildOpenAiChat(endpoint, prepared, stream);
+    case 'openai-responses': return buildOpenAiResponses(endpoint, prepared, stream);
     case 'anthropic-messages': return buildAnthropicMessages(endpoint, prepared, stream);
     case 'gemini': return buildGemini(endpoint, prepared, stream);
     default: throw unsupported('Unknown provider protocol.');
@@ -56,6 +59,7 @@ export function buildLlmProviderRequest(endpoint: LlmProviderEndpoint, request: 
 export function parseLlmProviderResponse(protocol: LlmProviderProtocol, json: unknown): LlmGeneration {
   switch (protocol) {
     case 'openai-chat': return parseOpenAiChat(json);
+    case 'openai-responses': return parseOpenAiResponses(json);
     case 'anthropic-messages': return parseAnthropicMessages(json);
     case 'gemini': return parseGemini(json);
     default: throw providerError('Unknown provider protocol.');

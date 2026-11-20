@@ -10,6 +10,8 @@ import type { SessionRegistry } from './session-registry.js';
 import { handleStorageNap } from './state-handler.js';
 import type { RuntimeAdapter, ServiceRegistry } from './types.js';
 
+declare const console: { warn(message: string): void };
+
 type DomainHandler = (windowId: string, msg: NappletMessage) => void;
 
 type RuntimeDomainContext = {
@@ -44,27 +46,28 @@ export type RuntimeDomainHandlers = {
 };
 
 export function createRuntimeDomainHandlers(context: RuntimeDomainContext): RuntimeDomainHandlers {
+  const warnedUnrouted = new Set<string>();
   return {
-    gamepad: (windowId, msg) => handleServiceOnlyMessage(context, 'gamepad', windowId, msg),
+    gamepad: (windowId, msg) => handleServiceOnlyMessage(context, 'gamepad', windowId, msg, warnedUnrouted),
     storage: (windowId, msg) => handleStorageMessage(context, windowId, msg),
     media: (windowId, msg) => handleMediaMessage(context, windowId, msg),
     keys: (windowId, msg) => handleKeysMessage(context, windowId, msg),
     notify: (windowId, msg) => handleNotifyMessage(context, windowId, msg),
     theme: (windowId, msg) => handleThemeMessage(context, windowId, msg),
-    config: (windowId, msg) => handleServiceOnlyMessage(context, 'config', windowId, msg),
-    resource: (windowId, msg) => handleServiceOnlyMessage(context, 'resource', windowId, msg),
-    cvm: (windowId, msg) => handleServiceOnlyMessage(context, 'cvm', windowId, msg),
-    outbox: (windowId, msg) => handleServiceOnlyMessage(context, 'outbox', windowId, msg),
-    upload: (windowId, msg) => handleServiceOnlyMessage(context, 'upload', windowId, msg),
-    intent: (windowId, msg) => handleServiceOnlyMessage(context, 'intent', windowId, msg),
-    link: (windowId, msg) => handleServiceOnlyMessage(context, 'link', windowId, msg),
-    common: (windowId, msg) => handleServiceOnlyMessage(context, 'common', windowId, msg),
-    lists: (windowId, msg) => handleServiceOnlyMessage(context, 'lists', windowId, msg),
-    serial: (windowId, msg) => handleServiceOnlyMessage(context, 'serial', windowId, msg),
-    ble: (windowId, msg) => handleServiceOnlyMessage(context, 'ble', windowId, msg),
-    webrtc: (windowId, msg) => handleServiceOnlyMessage(context, 'webrtc', windowId, msg),
-    dm: (windowId, msg) => handleServiceOnlyMessage(context, 'dm', windowId, msg),
-    fs: (windowId, msg) => handleServiceOnlyMessage(context, 'fs', windowId, msg),
+    config: (windowId, msg) => handleServiceOnlyMessage(context, 'config', windowId, msg, warnedUnrouted),
+    resource: (windowId, msg) => handleServiceOnlyMessage(context, 'resource', windowId, msg, warnedUnrouted),
+    cvm: (windowId, msg) => handleServiceOnlyMessage(context, 'cvm', windowId, msg, warnedUnrouted),
+    outbox: (windowId, msg) => handleServiceOnlyMessage(context, 'outbox', windowId, msg, warnedUnrouted),
+    upload: (windowId, msg) => handleServiceOnlyMessage(context, 'upload', windowId, msg, warnedUnrouted),
+    intent: (windowId, msg) => handleServiceOnlyMessage(context, 'intent', windowId, msg, warnedUnrouted),
+    link: (windowId, msg) => handleServiceOnlyMessage(context, 'link', windowId, msg, warnedUnrouted),
+    common: (windowId, msg) => handleServiceOnlyMessage(context, 'common', windowId, msg, warnedUnrouted),
+    lists: (windowId, msg) => handleServiceOnlyMessage(context, 'lists', windowId, msg, warnedUnrouted),
+    serial: (windowId, msg) => handleServiceOnlyMessage(context, 'serial', windowId, msg, warnedUnrouted),
+    ble: (windowId, msg) => handleServiceOnlyMessage(context, 'ble', windowId, msg, warnedUnrouted),
+    webrtc: (windowId, msg) => handleServiceOnlyMessage(context, 'webrtc', windowId, msg, warnedUnrouted),
+    dm: (windowId, msg) => handleServiceOnlyMessage(context, 'dm', windowId, msg, warnedUnrouted),
+    fs: (windowId, msg) => handleServiceOnlyMessage(context, 'fs', windowId, msg, warnedUnrouted),
     llm: (windowId, msg) => handleLlmMessage(context, windowId, msg),
   };
 }
@@ -197,6 +200,7 @@ function handleServiceOnlyMessage(
   name: 'gamepad' | 'config' | 'resource' | 'cvm' | 'outbox' | 'upload' | 'intent' | 'link' | 'common' | 'lists' | 'serial' | 'ble' | 'webrtc' | 'dm' | 'fs',
   windowId: string,
   msg: NappletMessage,
+  warnedUnrouted: Set<string>,
 ): void {
   if (
     name === 'intent'
@@ -211,8 +215,26 @@ function handleServiceOnlyMessage(
     if (name === 'intent') {
       const result = createIntentServiceUnavailableResult(msg);
       if (result) context.hooks.sendToNapplet(windowId, result);
+      return;
     }
+    warnUnroutedServiceDomain(name, warnedUnrouted);
     return;
   }
   service.handleMessage(windowId, msg, (resp: NappletMessage) => context.hooks.sendToNapplet(windowId, resp));
+}
+
+/**
+ * Host-side diagnostic for a service-only domain with no registered handler.
+ *
+ * NIP-5D (nostr-protocol/nips#2303 at dskvr/nips@f60550c3) says messages with
+ * an unrecognized `type` MUST be silently ignored, which also prevents
+ * capability probing, so the napplet gets no reply here. The host still needs
+ * to hear about it: a napplet only reaches this path through a raw probe or
+ * because the host exposed a domain it never registered (#428). The domain
+ * comes from a fixed list and the napplet-controlled type is never logged.
+ */
+function warnUnroutedServiceDomain(name: string, warned: Set<string>): void {
+  if (warned.has(name)) return;
+  warned.add(name);
+  console.warn(`[KEHTO_UNROUTED_SERVICE_DOMAIN] Ignored a "${name}" request: no "${name}" service is registered with this runtime, so the napplet gets no reply (NIP-5D ignores unrecognized types). If this shell exposes "${name}", register it with runtime.registerService("${name}", handler). Warned once per domain per runtime.`);
 }

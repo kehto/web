@@ -1,4 +1,20 @@
-/** Generate a UUID v4 even when the browser omits secure-context randomUUID. */
+/**
+ * Generate a UUID v4 for a host identifier that must be unguessable.
+ *
+ * Uses native `crypto.randomUUID()` (called on its `Crypto` receiver) when the
+ * browser exposes it. Browsers omit it outside secure contexts, including
+ * non-localhost plain HTTP, so the fallback builds a UUID v4 from 16
+ * `crypto.getRandomValues()` bytes. There is no weak-randomness fallback.
+ *
+ * @returns A lowercase RFC 9562 UUID v4 string.
+ * @throws If neither `crypto.randomUUID` nor `crypto.getRandomValues` exists.
+ * @example
+ * ```ts
+ * import { randomUUID } from '@kehto/shell';
+ *
+ * const windowId = `host:${randomUUID()}`;
+ * ```
+ */
 export function randomUUID(): string {
   const provider = globalThis.crypto;
   if (typeof provider?.randomUUID === 'function') return provider.randomUUID();
