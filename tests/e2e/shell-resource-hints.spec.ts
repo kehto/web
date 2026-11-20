@@ -61,6 +61,7 @@ const battery = (collector: string) => `<!doctype html><html><head></head><body>
     t('documentWriteSplit', () => { document.write('<link rel="pre'); document.write('render" href="' + C + '/t">'); });
     t('execCommand', () => { const ce = document.getElementById('ce'); ce.focus(); document.execCommand('insertHTML', false, '<link rel="prerender" href="' + C + '/u">'); });
     t('xmlPrefixedAdopt', () => { const d = new DOMParser().parseFromString('<h:div xmlns:h="http://www.w3.org/1999/xhtml"><h:link rel="prerender" href="' + C + '/w"/></h:div>', 'application/xml'); document.head.append(document.adoptNode(d.documentElement.firstChild)); });
+    t('xmlDtdEntity', () => { const d = new DOMParser().parseFromString('<!DOCTYPE x [<!ENTITY e "&#60;link xmlns=\\'http://www.w3.org/1999/xhtml\\' rel=\\'prerender\\' href=\\'' + C + '/d\\'/&#62;">]><x>&e;</x>', 'application/xml'); document.head.append(document.adoptNode(d.documentElement.firstChild)); });
     t('xslt', () => {
       const XSL = 'http://www.w3.org/1999/XSL/Transform';
       const doc = document.implementation.createDocument(XSL, 'xsl:stylesheet', null);
@@ -112,13 +113,13 @@ test('without the lock, a napplet prerender hint reaches the network despite the
 test('without the lock, every battery vector creates a live hint link (sensitivity control)', async ({ page, browserName }) => {
   test.skip(browserName !== 'chromium', 'The exact live-vector list is Chromium-specific (Firefox also honors execCommand).');
   const probed = await mount(page, battery(`${origin}/collect`)) as { created: string[]; vectors: number; canonical: string };
-  expect(probed.vectors).toBe(23);
+  expect(probed.vectors).toBe(24);
   // Every vector is live without the lock except execCommand, whose insertHTML drops a lone <link> in Chromium.
   expect(probed.created).toEqual([
     'relProperty', 'setAttribute', 'setAttributeNS', 'relListAdd', 'relListToggle', 'relListReplace', 'relListValue',
     'setAttributeNode', 'setNamedItem', 'attachedAttrValue', 'attachedAttrTextContent', 'innerHTML', 'innerHTMLEntity',
     'insertAdjacentHTML', 'outerHTML', 'createContextualFragment', 'domParserAdopt', 'setHTMLUnsafe',
-    'nestedTemplateClone', 'documentWriteSplit', 'xmlPrefixedAdopt', 'xslt',
+    'nestedTemplateClone', 'documentWriteSplit', 'xmlPrefixedAdopt', 'xmlDtdEntity', 'xslt',
   ]);
   expect(probed.canonical).toBe('ok');
 });
@@ -126,7 +127,7 @@ test('without the lock, every battery vector creates a live hint link (sensitivi
 test('with the resource-hint lock, no scripted path creates a live hint link and nothing reaches the network', async ({ page }) => {
   hits.length = 0;
   const probed = await mount(page, battery(`${origin}/collect`), { resourceHintLock: true }) as { created: string[]; vectors: number; canonical: string; xslt: string };
-  expect(probed.vectors).toBe(23);
+  expect(probed.vectors).toBe(24);
   expect(probed.created).toEqual([]);
   expect(probed.canonical).toBe('ok');
   expect(probed.xslt).toBe('undefined');

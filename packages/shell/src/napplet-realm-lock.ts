@@ -14,6 +14,9 @@ import type { NappletExperimentalOptions } from './napplet-experimental.js';
 /** Returns a rejection message for a string headed to a DOM sink, or null to let it through. */
 type HtmlGuard = (input: string, sink: string) => string | null;
 
+/** Returns a rejection message for an element found in a parsed document, or null. */
+type ElementGuard = (element: Element) => string | null;
+
 /** A window exposing the optional members the locks pin or install. */
 type LockWindow = Window & {
   trustedTypes?: {
@@ -28,6 +31,7 @@ type LockWindow = Window & {
   };
   Document?: { prototype: Document };
   DOMImplementation?: { prototype: DOMImplementation };
+  DOMParser?: { prototype: DOMParser };
   HTMLLinkElement?: typeof HTMLLinkElement;
   DOMTokenList?: { prototype: DOMTokenList };
   Element?: { prototype: Element };
@@ -67,8 +71,8 @@ export function renderNappletRealmLock(experimental: NappletExperimentalOptions 
     experimental?.resourceHintLock === true ? nappletHintLock.toString() : null,
   ].filter((part): part is string => part !== null);
   if (!parts.length) return '(function(){})';
-  const calls = parts.map((part) => `(${part})(win, guards);`).join('');
-  return `(function(win){var guards=[];${calls}(${installDefaultPolicy.toString()})(win, guards);})`;
+  const calls = parts.map((part) => `(${part})(win, guards, elementGuards);`).join('');
+  return `(function(win){var guards=[],elementGuards=[];${calls}(${installDefaultPolicy.toString()})(win, guards, elementGuards);})`;
 }
 
 /**
@@ -76,7 +80,39 @@ export function renderNappletRealmLock(experimental: NappletExperimentalOptions 
  * every guard on every string sink. Canonical HTML passes through untouched. A nested sink call made while a guard
  * parses its input passes through: the outer call already checks the whole string.
  */
-function installDefaultPolicy(win: LockWindow, guards: HtmlGuard[]): void {
+function installDefaultPolicy(win: LockWindow, guards: HtmlGuard[], elementGuards: ElementGuard[]): void {
+  // DOMParser's XML modes expand DTD internal entities, so markup can arrive as character references that no string
+  // check sees (`<!ENTITY e "&#60;h:iframe …/&#62;">`, measured minting a frame and a hint link in Chromium 147,
+  // Firefox 148 and WebKit 26.4). Check the parsed result instead, template content and shadow roots included.
+  const parserProto = win.DOMParser?.prototype;
+  if (parserProto && elementGuards.length) {
+    const parse = parserProto.parseFromString;
+    const inspect = (root: ParentNode): string | null => {
+      for (const element of root.querySelectorAll('*')) {
+        for (const guard of elementGuards) {
+          const rejection = guard(element);
+          if (rejection) return rejection;
+        }
+        const nested = (element as HTMLTemplateElement).content ?? element.shadowRoot;
+        const rejection = nested ? inspect(nested) : null;
+        if (rejection) return rejection;
+      }
+      return null;
+    };
+    try {
+      Object.defineProperty(parserProto, 'parseFromString', {
+        value(this: DOMParser, ...args: unknown[]) {
+          const parsed = (parse as (...inner: unknown[]) => Document).apply(this, args);
+          const rejection = inspect(parsed);
+          if (rejection) throw new TypeError(rejection);
+          return parsed;
+        },
+        writable: false, configurable: false, enumerable: false,
+      });
+    } catch {
+      // Never turn hardening into a load-blocking failure.
+    }
+  }
   const { trustedTypes } = win;
   if (!trustedTypes) return;
   let busy = false;
@@ -113,12 +149,13 @@ function installDefaultPolicy(win: LockWindow, guards: HtmlGuard[]): void {
  * 3. XSLT: `XSLTProcessor.transformToFragment` builds elements from an XSL DOM without any factory or string sink
  *    (measured minting an iframe under this lock in Chromium 147, Firefox 148 and WebKit 26.4), so the constructor
  *    is removed from the realm. Namespace-prefixed frame tags, which DOMParser's XML modes make live, are matched
- *    by the string-sink guard.
+ *    by the string-sink guard, and every `DOMParser` result is inspected for XHTML frame elements (DTD entities hide
+ *    markup from any string check).
  *
  * Node movement needs a pre-existing frame node (all routes closed), and escaping the pins needs a fresh realm
  * (child frame closed here, popup denied by the sandbox, worker has no DOM).
  */
-function nappletFrameLock(win: LockWindow, guards: HtmlGuard[]): void {
+function nappletFrameLock(win: LockWindow, guards: HtmlGuard[], elementGuards: ElementGuard[]): void {
   const FRAME_ELEMENTS = new Set([
     'iframe', 'frame', 'frameset', 'object', 'embed', 'portal', 'fencedframe',
   ]);
@@ -134,6 +171,8 @@ function nappletFrameLock(win: LockWindow, guards: HtmlGuard[]): void {
     const blocked = /write/i.test(sink) ? FRAME_TAG.test(input) || FRAME_TAG_PREFIX.test(input) : FRAME_TAG.test(input);
     return blocked ? message : null;
   });
+  const XHTML = 'http://www.w3.org/1999/xhtml';
+  elementGuards.push((element) => (element.namespaceURI === XHTML && isFrameTag(element.localName) ? message : null));
 
   const pin = (object: object, name: string, value: unknown): void => {
     try {
@@ -184,7 +223,7 @@ function nappletFrameLock(win: LockWindow, guards: HtmlGuard[]): void {
  * 3. XSLT is removed, as in the frame lock. Static hints in the verified bytes are refused by the host before load
  *    (`assertNappletHasNoResourceHint`): a script can rewrite a static hint's `href` into a data channel.
  */
-function nappletHintLock(win: LockWindow, guards: HtmlGuard[]): void {
+function nappletHintLock(win: LockWindow, guards: HtmlGuard[], elementGuards: ElementGuard[]): void {
   const message = 'kehto: napplets may not add dns-prefetch, preconnect or prerender hints';
   const HINTS = new Set(['dns-prefetch', 'preconnect', 'prerender']);
   const hasHint = (value: unknown): boolean => String(value ?? '').toLowerCase().split(/[\t\n\f\r ]+/).some((token) => HINTS.has(token));
@@ -193,6 +232,8 @@ function nappletHintLock(win: LockWindow, guards: HtmlGuard[]): void {
   const isLink = (node: unknown): boolean => !!LinkElement && node instanceof LinkElement;
   const isRel = (name: unknown): boolean => String(name ?? '').split(':').pop()!.toLowerCase() === 'rel';
 
+  elementGuards.push((element) => (element.namespaceURI === 'http://www.w3.org/1999/xhtml' && element.localName === 'link'
+    && hasHint(element.getAttribute('rel')) ? message : null));
   const inert = win.document.implementation.createHTMLDocument('');
   guards.push((input, sink) => {
     if (/write/i.test(sink) && /<[^>]*$/.test(input)) return message;

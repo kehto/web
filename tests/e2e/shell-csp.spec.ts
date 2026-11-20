@@ -129,6 +129,8 @@ const frameBattery = `<body><pre id="result">pending</pre><div id="h"></div><div
     t('embed', () => h.append(document.createElement('embed')));
     // DOMParser's XML modes build a live XHTML iframe from a prefixed tag once the node is adopted.
     t('xmlPrefixedAdopt', () => { const d = new DOMParser().parseFromString('<h:div xmlns:h="http://www.w3.org/1999/xhtml"><h:iframe/></h:div>', 'application/xml'); h.append(document.adoptNode(d.documentElement.firstChild)); });
+    // A DTD internal entity hides the frame markup from every string check until XML parsing expands it.
+    t('xmlDtdEntity', () => { const d = new DOMParser().parseFromString('<!DOCTYPE x [<!ENTITY e "&#60;h:iframe xmlns:h=\\'http://www.w3.org/1999/xhtml\\'/&#62;">]><x>&e;</x>', 'application/xml'); h.append(document.adoptNode(d.documentElement.firstChild)); });
     // XSLT builds elements from an XSL DOM with no factory or string sink (kehto/web#381 follow-up).
     t('xslt', () => {
       const XSL = 'http://www.w3.org/1999/XSL/Transform';

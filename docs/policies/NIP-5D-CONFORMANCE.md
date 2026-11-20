@@ -218,7 +218,13 @@ shell, never by napplet cooperation:
    iframe once the node is adopted, and the frame-tag check only matched an
    unprefixed tag name, so this also got past the first cut (measured in all
    three engines). The `default` policy now matches an optional namespace prefix
-   on frame tags; the battery carries a prefixed-XML vector.
+   on frame tags. A string check alone cannot close XML parsing, though: a DTD
+   internal entity (`<!ENTITY e "&#60;h:iframe …/&#62;">`) hides the markup
+   until the parser expands it, which also minted a frame under the lock in all
+   three engines. So the prelude pins `DOMParser.prototype.parseFromString` to
+   inspect the parsed document (template content and shadow roots included) and
+   throw when it holds an XHTML frame element. The battery carries both the
+   prefixed and the entity vector.
 
 Node movement (`cloneNode`, `importNode`, `adoptNode`) needs a pre-existing
 frame node, and every creation route above is closed, so there is no bootstrap.
@@ -305,8 +311,11 @@ the closure like the nested-context lock:
    an inert document (descending into nested `<template>` content) and rejects
    it when a `<link>` would carry `dns-prefetch`, `preconnect` or `prerender`;
    a `document.write` chunk that ends inside a tag is rejected so a hint cannot
-   be split across chunks, and any namespace-prefixed `link` tag is rejected
-   because `DOMParser`'s XML modes make it a live XHTML link.
+   be split across chunks (this also rejects a chunk of plain text with an
+   unmatched `<`), and any namespace-prefixed `link` tag is rejected because
+   `DOMParser`'s XML modes make it a live XHTML link. The shared
+   `parseFromString` pin rejects a parsed document holding an XHTML hint link,
+   which closes DTD-entity tricks the string check cannot see.
 2. The prelude pins every attribute writer that can set a link's `rel`: the
    `rel` setter, `relList` `add`/`toggle`/`replace`/`value`, `setAttribute(NS)`,
    `setAttributeNode(NS)`, `NamedNodeMap.setNamedItem(NS)` and the `Attr`
@@ -325,7 +334,7 @@ Residual with the lock off (the default): the bold rows above stay open. The
 upstream fix is browser conformance with CSP3's resource-hint rules.
 
 Regression: `tests/e2e/shell-resource-hints.spec.ts` (Chromium prerender egress
-control, a 23-vector scripted battery of which 22 create live hint links in
+control, a 24-vector scripted battery of which 23 create live hint links in
 Chromium without the lock (`execCommand` does not) and none with it, and a
 zero-request sink assertion), the same battery and the frame battery run
 cross-engine for this change with a throwaway three-project Playwright config

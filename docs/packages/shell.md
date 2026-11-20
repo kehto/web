@@ -220,9 +220,10 @@ The experimental namespace adds `resourceHintLock` next to `nestedContextLock`.
 It rejects `<link rel="dns-prefetch" | "preconnect" | "prerender">`, which
 browsers act on outside the napplet CSP, on every string sink and attribute
 writer; scan the bytes first with `assertNappletHasNoResourceHint` (or
-`nappletMarkupHasResourceHint`). Both locks remove `XSLTProcessor` and reject
-namespace-prefixed frame and link tags, which otherwise mint frames past the
-nested-context lock through XSLT or `DOMParser`'s XML modes. Under the nested-context
+`nappletMarkupHasResourceHint`). Both locks remove `XSLTProcessor`, reject
+namespace-prefixed frame and link tags, and inspect `DOMParser` results, which
+otherwise mint frames past the nested-context lock through XSLT or XML parsing
+(prefixes, DTD entities). Under the nested-context
 lock the bridge revokes a napplet whose Window holds a child frame
 (`nested-context`); hosts that prepare the `srcdoc` themselves opt in with
 `observeFrame(frame, windowId, { nestedContextLock: true })`

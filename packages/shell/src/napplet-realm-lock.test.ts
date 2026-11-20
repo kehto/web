@@ -30,6 +30,11 @@ describe('napplet realm locks', () => {
     expect(renderNappletRealmLock({ resourceHintLock: true })).toMatch(/["']XSLTProcessor["']/);
   });
 
+  it('inspects DOMParser results under either lock (DTD entities hide markup from string checks)', () => {
+    expect(renderNappletRealmLock({ nestedContextLock: true })).toMatch(/["']parseFromString["']/);
+    expect(renderNappletRealmLock({ resourceHintLock: true })).toMatch(/["']parseFromString["']/);
+  });
+
   it('requires the Trusted Types directives for either lock', () => {
     expect(needsTrustedTypes({ nestedContextLock: true })).toBe(true);
     expect(needsTrustedTypes({ resourceHintLock: true })).toBe(true);
