@@ -43,6 +43,11 @@ export function selectionToSearch(profile: ConformanceProfile, domains: readonly
   return `?${params.toString()}`;
 }
 
+/** Replace an element's content with markup built only by the escaping renderers in render.ts. */
+function show(element: HTMLElement, markup: string): void {
+  element.replaceChildren(element.ownerDocument.createRange().createContextualFragment(markup));
+}
+
 function controls(profile: ConformanceProfile, domains: readonly string[], live: boolean): string {
   const option = (value: ConformanceProfile) => `<option value="${value}"${value === profile ? ' selected' : ''}>${value}</option>`;
   return `<form class="controls" data-controls>
@@ -76,8 +81,8 @@ export function mountConformanceUi(root: HTMLElement, options: ConformanceUiOpti
     doc.head.append(style);
   }
   const selection = selectionFromUrl(doc.location.search);
-  root.innerHTML = `<header class="top"><h1>${escapeHtml(options.title ?? 'Kehto runtime conformance')}</h1>${controls(selection.profile, selection.domains, Boolean(options.eventsUrl))}</header>
-<main data-report><p class="running">Running…</p></main>`;
+  show(root, `<header class="top"><h1>${escapeHtml(options.title ?? 'Kehto runtime conformance')}</h1>${controls(selection.profile, selection.domains, Boolean(options.eventsUrl))}</header>
+<main data-report><p class="running">Running…</p></main>`);
   const report = root.querySelector('[data-report]') as HTMLElement;
   const form = root.querySelector('[data-controls]') as HTMLFormElement;
   const download = root.querySelector('[data-download]') as HTMLAnchorElement;
@@ -85,18 +90,18 @@ export function mountConformanceUi(root: HTMLElement, options: ConformanceUiOpti
   const start = async (profile: ConformanceProfile, domains: string[]): Promise<void> => {
     if (state.running) return;
     state.running = true;
-    report.innerHTML = '<p class="running">Running…</p>';
+    show(report, '<p class="running">Running…</p>');
     try {
       const run = await options.run({ profile, domains });
       state.last = run;
       state.error = null;
-      report.innerHTML = renderRun(run);
+      show(report, renderRun(run));
       download.hidden = false;
       download.download = `kehto-conformance-${profile}.json`;
       download.href = URL.createObjectURL(new Blob([JSON.stringify(run, null, 2)], { type: 'application/json' }));
     } catch (error) {
       state.error = error instanceof Error ? error.message : String(error);
-      report.innerHTML = `<section class="verdict verdict-fail"><h2>Harness error</h2><p>${escapeHtml(state.error)}</p></section>`;
+      show(report, `<section class="verdict verdict-fail"><h2>Harness error</h2><p>${escapeHtml(state.error)}</p></section>`);
     } finally {
       state.running = false;
       state.runs += 1;

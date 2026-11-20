@@ -9,6 +9,7 @@ pnpm add -D @kehto/cli @playwright/test
 npx playwright install chromium
 kehto conformance --profile minimal
 kehto conformance --reporter junit --out conformance.xml
+kehto conformance --ui --exec "pnpm build --watch"   # live web UI
 ```
 
 Exit codes: `0` all applicable checks passed, `1` an error-severity check

@@ -55,7 +55,7 @@ importers:
   apps/conformance:
     dependencies:
       '@kehto/conformance':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../packages/conformance
 
   docs:

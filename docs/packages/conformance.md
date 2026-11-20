@@ -10,8 +10,8 @@ against a reference shell. Here the napplet is the fixture and the runtime is
 under test.
 
 > **Alpha status:** the catalog covers NIP-5D core, optional NAP-SHELL, every
-> supported NAP domain against its pinned revision, and mutation self-tests.
-> The browser UI lands in a follow-up change (kehto/web#187). A passing run is
+> supported NAP domain against its pinned revision, and mutation self-tests,
+> behind a headless CLI and a live web UI (kehto/web#187). A passing run is
 > never a claim of full NAP conformance; the final report line states the
 > tested scope.
 
@@ -49,6 +49,8 @@ npx playwright install chromium
 kehto conformance                                  # full profile, pretty output
 kehto conformance --profile minimal
 kehto conformance --reporter junit --out conformance.xml
+kehto conformance --ui                             # live web UI
+kehto conformance --ui --exec "pnpm build --watch" # re-run on every rebuild
 ```
 
 `--domain <name>` (repeatable) restricts per-domain and catalog cases to those
@@ -63,6 +65,28 @@ Every run executes both shell variants of the selected profile:
 `<profile>/shell-present` and `<profile>/shell-absent`. NAP-SHELL is optional,
 so the shell-absent variant must pass while another granted domain keeps
 working.
+
+## Web UI
+
+`kehto conformance --ui` serves the web UI on loopback (`--port <n>`, default
+a free port), prints its URL and opens it unless `--no-open` is given. The page
+runs the catalog in the browser against the first-party target and shows the
+verdict and counts, the advertised-versus-tested domain matrix with operation
+coverage and drift per variant, the checks grouped by scope (NIP-5D core, NAP
+semantics, wire contract, Kehto policy, catalog) with each check's authority
+links and diagnostics, the authority refs, and the captured wire transcript.
+`?profile=minimal&domain=theme` deep-links a selection, and the JSON report can
+be downloaded.
+
+The server watches the served bundle. When it changes, for example because
+`--exec "pnpm build --watch"` rebuilt a fixture, it waits for a 300 ms quiet
+period and then sends one `rerun` server-sent event on `/events`; the page
+reloads and runs its selection again. `Ctrl-C` stops the server and the
+`--exec` command, and exits `0`.
+
+A static build of the same UI (no live re-runs) is published at
+[/web/conformance/](https://kehto.github.io/web/conformance/) from
+`apps/conformance`.
 
 ## Profiles
 
@@ -204,7 +228,8 @@ domains, and the installed `@napplet/nap`/`@napplet/core` versions.
 | Reporters | `formatReport`, `REPORTERS` |
 | Mutations | `MUTATIONS`, `createMutation`, `MutationSpec` (`@kehto/conformance/mutations`) |
 | First-party target | `createKehtoTarget` (`@kehto/conformance/kehto-target`) |
-| Headless runner | `runConformanceCli`, `startHarnessServer` (`@kehto/conformance/cli`) |
+| Headless runner and live UI | `runConformanceCli`, `startHarnessServer`, `startLiveUi`, `renderUiPage` (`@kehto/conformance/cli`) |
+| Web UI | `mountKehtoConformanceUi`, `mountConformanceUi`, `renderRun` (`@kehto/conformance/browser`) |
 
 ## Scope Boundaries
 
