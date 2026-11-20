@@ -32,10 +32,15 @@ automatically requires interface access for every requested domain. A resource o
 network grant cannot supply interface access, and interface access cannot supply
 resource or network authority. Matching explicit denials take precedence.
 
-One request carries at most `MAX_PERMISSION_REQUIREMENTS` (128) requirements,
-counting the interface requirement; a larger request is invalid. The cap bounds
-evaluation work, grant growth and prompt size, so callers plan within it, for
-example by naming each network origin once and bounding relay plans.
+One request carries at most `maxRequirements` requirements, counting the
+interface requirement (default `MAX_PERMISSION_REQUIREMENTS`, 128); a larger
+request is invalid. The grant table holds at most `maxGrants` grants (default
+`MAX_PERMISSION_GRANTS`, 2048). Both are `PermissionPolicyOptions` and host
+policy, not protocol: `permissionLimits(options)` resolves them and throws a
+`RangeError` outside 1 to `MAX_PERMISSION_REQUIREMENTS_CEILING` (1024) or
+`MAX_PERMISSION_GRANTS_CEILING` (16384), because evaluation costs requirements ×
+grants. Callers plan within the bound, for example by naming each network
+origin once and bounding relay plans.
 
 A verified principal uses the catalog ID from a signature-verified manifest plus
 its verified artifact hash. Named/root IDs include the publisher; snapshot IDs use

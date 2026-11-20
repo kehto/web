@@ -124,9 +124,14 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
   denied`. A subscription that fails after it opened is retired, so no event
   or EOSE follows its `relay.closed`. NAP-RELAY reasons are free-form, so only
   that split is fixed.
+- `PermissionAdapter.maxRequirements` and `maxGrants` set the Firewall bounds
+  (validated by `permissionLimits` when the runtime starts); services read the
+  first as `ServiceRuntimeContext.maxPermissionRequirements`. A full grant table
+  returns the `capacity` approval outcome, which relay reports as
+  `approval capacity reached`, never a denial.
 - Relay approval names each relay origin once. A host relay plan spanning more
-  origins than one Firewall request can carry (`MAX_PERMISSION_REQUIREMENTS`,
-  re-exported from `@kehto/firewall`) fails with `too many relays` instead of a
+  origins than one Firewall request can carry (`maxRequirements`, default
+  `MAX_PERMISSION_REQUIREMENTS`) fails with `too many relays` instead of a
   denial; NAP-RELAY lets the shell terminate a subscription for a resource
   limit. Hosts without `RuntimeAdapter.permissions` are unchanged.
 - Follows draft NAP-RELAY PR #2 at

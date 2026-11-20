@@ -44,11 +44,15 @@ interface Harness {
 async function harness(lists: Map<string, RelayListEntry>, options: {
   readonly decision?: 'allow' | 'ask';
   readonly isRelayAllowed?: (url: string) => boolean;
+  readonly maxRequirements?: number;
+  readonly maxGrants?: number;
 } = {}): Promise<Harness> {
   const prompt = vi.fn(async (_prompt: ApprovalPrompt): Promise<ApprovalAnswer> => ({ effect: 'allow', lifetime: 'session' }));
   const decision = options.decision ?? 'allow';
   const ctx = createMockRuntimeAdapter({ permissions: {
     now: Date.now, prompt, createCancellation: () => new AbortController(),
+    ...(options.maxRequirements ? { maxRequirements: options.maxRequirements } : {}),
+    ...(options.maxGrants ? { maxGrants: options.maxGrants } : {}),
     defaultDecision: (_request, missing) => decision === 'allow' || missing.every((item) => item.category === 'interface') ? 'allow' : 'ask',
     schedule: (callback, delay) => { const timer = setTimeout(callback, delay); return () => clearTimeout(timer); },
   } });
@@ -67,6 +71,7 @@ async function harness(lists: Map<string, RelayListEntry>, options: {
     fallbackRelays: [], loadRelayLists: () => lists,
     getSignerPubkey: () => signed.pubkey, signEvent,
     ...(options.isRelayAllowed ? { isRelayAllowed: options.isRelayAllowed } : {}),
+    ...(options.maxRequirements ? { maxRelayOrigins: options.maxRequirements - 1 } : {}),
   });
   runtime.registerService('outbox', createOutboxService({ router }));
   runtime.sessionRegistry.register('window', { ...createNip5dSessionEntry('window', 'app', 'b'.repeat(64)),
@@ -223,5 +228,39 @@ describe('outbox publish plans larger than the Firewall requirement cap (#455)',
     const targets = h.publish.mock.calls[0]![1] as string[];
     expect(targets[0]).toBe('wss://own.example');
     expect(new Set(targets.map(origin)).size).toBe(BUDGET);
+  });
+});
+
+/**
+ * kehto/web#514: the Firewall bounds are host policy. The per-operation origin
+ * budget follows the configured `maxRequirements`, and a full grant table is
+ * capacity, not a denial (kehto/web#513).
+ */
+describe('configured Firewall limits (#514)', () => {
+  it('uses a larger configured maxRequirements for the whole plan', async () => {
+    const h = await harness(distinctRelays(200), { maxRequirements: 256 });
+    h.send({ type: 'outbox.query', id: 'q', filters: timeline(200) });
+    await vi.waitFor(() => expect(messages(h).some((message) => message.type === 'outbox.query.result')).toBe(true));
+    expect(messages(h).find((message) => message.type === 'outbox.query.result')).toEqual({ type: 'outbox.query.result', id: 'q', events: [] });
+    expect(new Set(h.subscribedRelays().map(origin)).size).toBe(200);
+  });
+
+  it('follows a smaller configured maxRequirements', async () => {
+    const h = await harness(distinctRelays(200), { maxRequirements: 32 });
+    h.send({ type: 'outbox.subscribe', id: 's', subId: 'timeline', filters: timeline(200) });
+    await vi.waitFor(() => expect(h.subscribedRelays().length).toBeGreaterThan(0));
+    expect(new Set(h.subscribedRelays().map(origin)).size).toBe(31);
+    expect(messages(h).filter((message) => message.type === 'outbox.closed')).toEqual([]);
+  });
+
+  it('reports a full grant table as capacity, never as policy denied', async () => {
+    // 64 grants: the admission grant plus 63 relay origins fit; the next plan does not.
+    const h = await harness(distinctRelays(100), { maxGrants: 64 });
+    h.send({ type: 'outbox.query', id: 'first', filters: timeline(62) });
+    await vi.waitFor(() => expect(messages(h).some((message) => message.type === 'outbox.query.result')).toBe(true));
+    expect(messages(h).find((message) => message.type === 'outbox.query.result')).not.toHaveProperty('error');
+    h.send({ type: 'outbox.query', id: 'second', filters: [{ kinds: [1], authors: Array.from({ length: 30 }, (_, index) => author(70 + index)) }] });
+    await vi.waitFor(() => expect(messages(h).filter((message) => message.type === 'outbox.query.result')).toHaveLength(2));
+    expect(messages(h).filter((message) => message.type === 'outbox.query.result')[1]).toMatchObject({ id: 'second', error: 'approval capacity reached' });
   });
 });
