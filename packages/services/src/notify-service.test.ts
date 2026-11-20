@@ -302,16 +302,22 @@ describe('createNotifyService', () => {
     ]);
   });
 
-  it('returns an error envelope for unknown notify methods', () => {
-    const service = createNotifyService();
-    const sent: NappletMessage[] = [];
+  it('silently ignores unknown notify types and warns the host once', () => {
+    // NIP-5D (nostr-protocol/nips#2303 @ dskvr/nips@f60550c3): "Messages with an
+    // unrecognized `type` MUST be silently ignored." The old `.error` reply broke that.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const service = createNotifyService({ setBadge: () => undefined });
+    const sent: NappletMessage[] = []; const send = (message: NappletMessage): void => { sent.push(message); };
 
-    service.handleMessage(WINDOW_ID, makeMsg('notify.bogus', { id: 'x' }), (message) => sent.push(message));
+    service.handleMessage(WINDOW_ID, makeMsg('notify.unknown', { id: 'u1' }), send);
+    service.handleMessage(WINDOW_ID, makeMsg('notify.unknown', { id: 'u2' }), send);
 
-    expect(sent).toEqual([{
-      type: 'notify.bogus.error',
-      id: 'x',
-      error: 'Unknown notify method: notify.bogus',
-    }]);
+    // Not even the first notify.controls push a known request would trigger.
+    expect(sent).toEqual([]);
+    const lines = warn.mock.calls.map(([line]) => String(line)).filter((line) => line.includes('[KEHTO_UNRECOGNIZED_MESSAGE_TYPE]'));
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain('"notify.unknown"');
+    expect(lines[0]).not.toContain('u1');
+    warn.mockRestore();
   });
 });

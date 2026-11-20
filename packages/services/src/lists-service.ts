@@ -18,6 +18,7 @@ import type {
   ListsAddMessage,
   ListsRemoveMessage,
 } from '@napplet/nap/lists/types';
+import { createUnrecognizedTypeDiagnostic } from '@kehto/runtime';
 import type { ApprovalSignal, ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
 
 const LISTS_SERVICE_VERSION = '1.0.0';
@@ -107,6 +108,7 @@ function snapshot(list: ListRef, items: readonly ListItem[], options: ListOption
  */
 // aislop-ignore-next-line function-too-long -- List planning, atomic approval execution, and source generations form one transaction boundary.
 export function createListsService(options: ListsServiceOptions = {}): ServiceHandler {
+  const ignoreUnrecognized = createUnrecognizedTypeDiagnostic();
   const generations = new Map<string, symbol>();
   let runtime: ServiceRuntimeContext | undefined;
   let warnedLegacy = false;
@@ -150,7 +152,8 @@ export function createListsService(options: ListsServiceOptions = {}): ServiceHa
       }
       if (message.type === 'lists.add') { settleMutation(options.add, message as ListsAddMessage, windowId, generation, send, 'lists.add.result'); return; }
       if (message.type === 'lists.remove') { settleMutation(options.remove, message as ListsRemoveMessage, windowId, generation, send, 'lists.remove.result'); return; }
-      send({ type: `${message.type}.error`, id, error: `Unknown lists method: ${message.type}` } as NappletMessage);
+      // NIP-5D (nips#2303 @ f60550c3): unrecognized types get no reply.
+      ignoreUnrecognized('lists', message.type);
     },
     onWindowDestroyed(windowId): void { generations.delete(windowId); },
     onPermissionRevoked(windowId): void { generations.delete(windowId); },

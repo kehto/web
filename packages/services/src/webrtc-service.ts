@@ -1,6 +1,7 @@
 /** Shell-mediated NAP-WEBRTC service. Raw SDP, ICE, and peer handles stay host-private. */
 import type { NappletMessage, WebrtcEvent, WebrtcOpenRequest, WebrtcOpenResult } from '@napplet/core';
 import type { WebrtcCloseMessage, WebrtcOpenMessage, WebrtcSendMessage } from '@napplet/nap/webrtc/types';
+import { createUnrecognizedTypeDiagnostic } from '@kehto/runtime';
 import type { ApprovalSignal, PermissionRequirement, ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
 
 const WEBRTC_SERVICE_VERSION = '1.0.0';
@@ -89,6 +90,7 @@ function normalizePlan(candidate: WebrtcOpenPlan): { plan: WebrtcOpenPlan; requi
  * pure destination plan, so opaque host peer factories cannot hide endpoints.
  */
 export function createWebrtcService(options: WebrtcServiceOptions = {}): ServiceHandler {
+  const ignoreUnrecognized = createUnrecognizedTypeDiagnostic();
   let runtime: ServiceRuntimeContext | undefined;
   const generations = new Map<string, object>();
   const sessions = new Map<string, SessionEntry>();
@@ -168,12 +170,15 @@ export function createWebrtcService(options: WebrtcServiceOptions = {}): Service
     handleMessage(windowId, message, send) {
       if (message.type === 'webrtc.open') { open(windowId, message as WebrtcOpenMessage, send); return; }
       if (message.type === 'webrtc.send' || message.type === 'webrtc.close') { sessionAction(windowId, message as WebrtcSendMessage | WebrtcCloseMessage, send); return; }
-      const id = (message as NappletMessage & { id?: string }).id ?? '';
-      if (message.type === 'webrtc.sendBytes' || message.type === 'webrtc.stats') {
-        send({ type: `${message.type}.result`, id, error: 'unsupported' } as NappletMessage);
+      // NAP-WEBRTC #59 @ fb4dd6f0: "A shell that does not support byte payloads
+      // returns the error `unsupported`". It defines `stats` only as a pushed
+      // event, so a `webrtc.stats` request is unrecognized like any other type
+      // and, per NIP-5D (nips#2303 @ f60550c3), gets no reply.
+      if (message.type === 'webrtc.sendBytes') {
+        send({ type: 'webrtc.sendBytes.result', id: (message as NappletMessage & { id?: string }).id ?? '', error: 'unsupported' } as NappletMessage);
         return;
       }
-      send({ type: `${message.type}.error`, id, error: `Unknown webrtc method: ${message.type}` } as NappletMessage);
+      ignoreUnrecognized('webrtc', message.type);
     },
     onWindowDestroyed(windowId) { retire(windowId); options.destroyWindow?.(windowId); },
   };
