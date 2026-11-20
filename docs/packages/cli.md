@@ -42,13 +42,15 @@ kehto paja --target-url http://127.0.0.1:5173 -- pnpm vite --host 127.0.0.1
 ```bash
 kehto conformance --profile minimal
 kehto conformance --reporter junit --out conformance.xml
+kehto conformance --ui --exec "pnpm build --watch"
 ```
 
 `kehto conformance` delegates to `@kehto/conformance/cli`: it runs the NIP-5D
 and NAP runtime conformance catalog against a real Kehto runtime in headless
 Chromium and exits `0` (pass), `1` (an error-severity check failed) or `2`
 (usage or harness error). It needs the optional `@playwright/test` peer and its
-Chromium. See [@kehto/conformance](./conformance.md).
+Chromium. `--ui` serves the live web UI instead and re-runs on each rebuild of
+the served bundle. See [@kehto/conformance](./conformance.md).
 
 `kehto paja` delegates to the Paja implementation package. Keeping the binary
 in `@kehto/cli` leaves room for future top-level commands without causing

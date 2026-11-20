@@ -37,9 +37,13 @@ describe('kehto conformance', () => {
   it('parses every headless option', () => {
     expect(parseConformanceArgs(['--profile', 'minimal', '--domain', 'theme', '--domain', 'inc', '--reporter', 'junit', '--out', 'x.xml', '--ready-timeout', '500', '--settle', '40'])).toEqual({
       help: false,
-      options: { profile: 'minimal', domains: ['theme', 'inc'], reporter: 'junit', out: 'x.xml', readyTimeoutMs: 500, settleMs: 40 },
+      options: { profile: 'minimal', domains: ['theme', 'inc'], reporter: 'junit', out: 'x.xml', readyTimeoutMs: 500, settleMs: 40, ui: false, open: true },
     });
-    expect(parseConformanceArgs([])).toEqual({ help: false, options: { profile: 'full', domains: [], reporter: 'pretty' } });
+    expect(parseConformanceArgs([])).toEqual({ help: false, options: { profile: 'full', domains: [], reporter: 'pretty', ui: false, open: true } });
+    expect(parseConformanceArgs(['--ui', '--exec', 'pnpm build --watch', '--port', '4321', '--no-open'])).toEqual({
+      help: false,
+      options: { profile: 'full', domains: [], reporter: 'pretty', ui: true, open: false, exec: 'pnpm build --watch', port: 4321 },
+    });
   });
 
   it('exits 0 when every applicable check passes and 1 on an error failure', async () => {
@@ -57,6 +61,9 @@ describe('kehto conformance', () => {
     expect(usage.err.join('')).toContain('--profile must be one of minimal, full');
     expect(await runConformanceCli(['--settle', '-1'], io().io)).toBe(2);
     expect(await runConformanceCli(['--nope'], io().io)).toBe(2);
+    expect(await runConformanceCli(['--exec', 'true'], io().io)).toBe(2);
+    expect(await runConformanceCli(['--ui', '--out', 'x.json'], io().io)).toBe(2);
+    expect(await runConformanceCli(['--ui', '--port', '70000'], io().io)).toBe(2);
     const harness = io();
     expect(await runConformanceCli([], harness.io, { execute: () => Promise.reject(new Error('target boot failed')) })).toBe(2);
     expect(harness.err.join('')).toContain('harness error: target boot failed');

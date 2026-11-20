@@ -10,11 +10,15 @@ import { runConformance } from './engine.js';
 import { createKehtoTarget, type KehtoTargetOptions } from './kehto-target.js';
 import type { ConformanceRun, RunOptions } from './model.js';
 import { createMutation } from './mutations.js';
+import { mountConformanceUi, type ConformanceUiState } from './ui/app.js';
 
 export { runConformance, conformanceStatement, ConformanceHarnessError } from './engine.js';
 export { createKehtoTarget } from './kehto-target.js';
 export { AUTHORITY, authorityUrl } from './authority.js';
 export { MUTATIONS } from './mutations.js';
+export { mountConformanceUi, selectionFromUrl, selectionToSearch } from './ui/app.js';
+export type { ConformanceUiOptions, ConformanceUiState } from './ui/app.js';
+export { renderRun } from './ui/render.js';
 
 /**
  * Run the catalog against the first-party target in this page.
@@ -55,4 +59,19 @@ export async function runKehtoMutation(name: string, options: RunOptions = {}): 
   const { spec, tamper, applied } = createMutation(name);
   const run = await runConformance(createKehtoTarget({ tamper }), { domains: spec.domains ?? ['storage'], ...options });
   return { run, expect: spec.expect, applied: applied.count };
+}
+
+/**
+ * Mount the web UI over the first-party Kehto target.
+ *
+ * @param root - Element the UI owns.
+ * @param eventsUrl - `kehto conformance --ui` server-sent events URL, for live re-runs.
+ * @returns The UI state.
+ * @example
+ * ```ts
+ * mountKehtoConformanceUi(document.getElementById('app')!);
+ * ```
+ */
+export function mountKehtoConformanceUi(root: HTMLElement, eventsUrl?: string): ConformanceUiState {
+  return mountConformanceUi(root, { run: (options) => runKehtoConformance(options), ...(eventsUrl ? { eventsUrl } : {}) });
 }

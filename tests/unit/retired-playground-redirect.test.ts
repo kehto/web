@@ -28,7 +28,7 @@ function writeMinimalPagesArtifact(root: string, retiredPlaygroundHtml: string |
   writeFileSync(join(root, '.nojekyll'), '');
   writeFileSync(
     join(root, 'index.html'),
-    '<a href="paja/"></a><a href="docs/"></a><link href="assets/landing.css"><script src="assets/vendor/gsap.min.js"></script><script src="assets/landing.js"></script><i id="hairline-accent"></i><i class="wordmark"></i><i class="notice"></i>',
+    '<a href="paja/"></a><a href="docs/"></a><a href="conformance/"></a><link href="assets/landing.css"><script src="assets/vendor/gsap.min.js"></script><script src="assets/landing.js"></script><i id="hairline-accent"></i><i class="wordmark"></i><i class="notice"></i>',
   );
   mkdirSync(join(root, 'assets', 'vendor'), { recursive: true });
   for (const asset of ['landing.css', 'landing.js', 'vendor/gsap.min.js']) writeFileSync(join(root, 'assets', asset), '');
@@ -44,6 +44,9 @@ function writeMinimalPagesArtifact(root: string, retiredPlaygroundHtml: string |
     writeFileSync(join(root, 'docs', page), '');
   }
   writeFileSync(join(root, 'docs', 'index.html'), '/web/docs/assets/');
+  mkdirSync(join(root, 'conformance'), { recursive: true });
+  writeFileSync(join(root, 'conformance', 'index.html'), "import * as api from './conformance.js'; api.mountKehtoConformanceUi(app);");
+  writeFileSync(join(root, 'conformance', 'conformance.js'), '');
   if (retiredPlaygroundHtml !== null) {
     mkdirSync(join(root, 'playground'), { recursive: true });
     writeFileSync(join(root, 'playground', 'index.html'), retiredPlaygroundHtml);

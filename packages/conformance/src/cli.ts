@@ -10,6 +10,7 @@
 import { writeFileSync } from 'node:fs';
 import { ConformanceUsageError, CONFORMANCE_HELP, parseConformanceArgs, type ConformanceCliOptions } from './cli/args.js';
 import { BrowserUnavailableError, loadChromium, runInBrowser, type ChromiumLike } from './cli/browser-runner.js';
+import { startLiveUi, type LiveUi } from './cli/live.js';
 import { startHarnessServer } from './cli/server.js';
 import type { ConformanceRun, RunOptions } from './model.js';
 import { formatReport } from './reporters/index.js';
@@ -18,8 +19,10 @@ export { parseConformanceArgs, ConformanceUsageError, CONFORMANCE_HELP } from '.
 export type { ConformanceCliOptions } from './cli/args.js';
 export { BrowserUnavailableError } from './cli/browser-runner.js';
 export type { ChromiumLike, PageLike } from './cli/browser-runner.js';
-export { startHarnessServer } from './cli/server.js';
-export type { HarnessServer } from './cli/server.js';
+export { startHarnessServer, renderUiPage } from './cli/server.js';
+export type { EventClient, HarnessServer, HarnessServerExtras } from './cli/server.js';
+export { startLiveUi } from './cli/live.js';
+export type { LiveUi, LiveUiOptions } from './cli/live.js';
 
 /** Output streams. */
 export interface ConformanceCliIo {
@@ -35,6 +38,28 @@ export interface RunConformanceCliOptions {
   readonly chromium?: ChromiumLike;
   /** Bundle to serve. Default: `dist/browser/conformance.js` next to this module. */
   readonly bundle?: URL;
+  /** With `--ui`: resolve to stop the server. Default: SIGINT or SIGTERM. */
+  readonly untilStopped?: (ui: LiveUi) => Promise<void>;
+}
+
+const bundleUrl = (embed: RunConformanceCliOptions): URL => embed.bundle ?? new URL('./browser/conformance.js', import.meta.url);
+
+async function serveUi(options: ConformanceCliOptions, io: ConformanceCliIo, embed: RunConformanceCliOptions): Promise<number> {
+  const ui = await startLiveUi({
+    bundle: bundleUrl(embed), open: options.open,
+    ...(options.port ? { port: options.port } : {}),
+    ...(options.exec ? { exec: options.exec } : {}),
+    log: (line) => io.stderr.write(`kehto conformance: ${line}\n`),
+  });
+  const search = new URLSearchParams({ profile: options.profile });
+  for (const domain of options.domains) search.append('domain', domain);
+  io.stdout.write(`Kehto conformance UI: ${ui.url}?${search.toString()}\n`);
+  await (embed.untilStopped ?? (() => new Promise<void>((resolve) => {
+    process.on('SIGINT', resolve);
+    process.on('SIGTERM', resolve);
+  })))(ui);
+  await ui.close();
+  return 0;
 }
 
 const defaultIo: ConformanceCliIo = {
@@ -44,7 +69,7 @@ const defaultIo: ConformanceCliIo = {
 
 async function executeHeadless(options: RunOptions, embed: RunConformanceCliOptions): Promise<ConformanceRun> {
   const chromium = embed.chromium ?? await loadChromium();
-  const server = await startHarnessServer(embed.bundle ?? new URL('./browser/conformance.js', import.meta.url));
+  const server = await startHarnessServer(bundleUrl(embed));
   try { return await runInBrowser(chromium, server.url, options); }
   finally { await server.close(); }
 }
@@ -85,6 +110,13 @@ export async function runConformanceCli(
     return 0;
   }
   const { options } = parsed;
+  if (options.ui) {
+    try { return await serveUi(options, io, embed); }
+    catch (error) {
+      io.stderr.write(`kehto conformance: harness error: ${error instanceof Error ? error.message : String(error)}\n`);
+      return 2;
+    }
+  }
   let run: ConformanceRun;
   try { run = await (embed.execute ?? ((runOptions) => executeHeadless(runOptions, embed)))(toRunOptions(options)); }
   catch (error) {

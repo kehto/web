@@ -12,6 +12,14 @@ export interface ConformanceCliOptions {
   readonly out?: string;
   readonly readyTimeoutMs?: number;
   readonly settleMs?: number;
+  /** Serve the live web UI instead of running headless. */
+  readonly ui: boolean;
+  /** Command to run alongside the UI, e.g. a watch build. */
+  readonly exec?: string;
+  /** Port for the UI (or headless harness) server. */
+  readonly port?: number;
+  /** Open the UI in a browser. */
+  readonly open: boolean;
 }
 
 /** A usage error; the CLI exits with code 2. */
@@ -25,9 +33,11 @@ export class ConformanceUsageError extends Error {
 const PROFILES: readonly ConformanceProfile[] = ['minimal', 'full'];
 const REPORTER_NAMES: readonly ReporterName[] = ['pretty', 'json', 'junit'];
 
-function positive(flag: string, raw: string | undefined): number {
+function positive(flag: string, raw: string | undefined, unit = 'milliseconds'): number {
   const parsed = Number(raw);
-  if (raw === undefined || !Number.isInteger(parsed) || parsed <= 0) throw new ConformanceUsageError(`${flag} needs a positive integer (milliseconds)`);
+  if (raw === undefined || !Number.isInteger(parsed) || parsed <= 0 || (unit !== 'milliseconds' && parsed > 65535)) {
+    throw new ConformanceUsageError(`${flag} needs a positive integer (${unit})`);
+  }
   return parsed;
 }
 
@@ -55,10 +65,16 @@ export function parseConformanceArgs(args: readonly string[]): { readonly help: 
   let out: string | undefined;
   let readyTimeoutMs: number | undefined;
   let settleMs: number | undefined;
+  let exec: string | undefined;
+  let port: number | undefined;
+  let ui = false;
+  let open = true;
   for (let index = 0; index < args.length; index += 1) {
     const flag = args[index] as string;
     if (flag === '--help' || flag === '-h') return { help: true };
-    const takes = ['--profile', '--domain', '--reporter', '--out', '--ready-timeout', '--settle'];
+    if (flag === '--ui') { ui = true; continue; }
+    if (flag === '--no-open') { open = false; continue; }
+    const takes = ['--profile', '--domain', '--reporter', '--out', '--ready-timeout', '--settle', '--exec', '--port'];
     if (!takes.includes(flag)) throw new ConformanceUsageError(`Unknown option "${flag}". Run kehto conformance --help for usage.`);
     const raw = valueOf(args, index, flag);
     index += 1;
@@ -70,9 +86,13 @@ export function parseConformanceArgs(args: readonly string[]): { readonly help: 
       reporter = raw as ReporterName;
     } else if (flag === '--domain') domains.push(raw);
     else if (flag === '--out') out = raw;
+    else if (flag === '--exec') exec = raw;
+    else if (flag === '--port') port = positive(flag, raw, 'a port number');
     else if (flag === '--ready-timeout') readyTimeoutMs = positive(flag, raw);
     else settleMs = positive(flag, raw);
   }
+  if (!ui && (exec !== undefined || !open)) throw new ConformanceUsageError('--exec and --no-open need --ui');
+  if (ui && out) throw new ConformanceUsageError('--out writes a headless report; it cannot be combined with --ui');
   return {
     help: false,
     options: {
@@ -80,6 +100,9 @@ export function parseConformanceArgs(args: readonly string[]): { readonly help: 
       ...(out ? { out } : {}),
       ...(readyTimeoutMs ? { readyTimeoutMs } : {}),
       ...(settleMs ? { settleMs } : {}),
+      ui, open,
+      ...(exec ? { exec } : {}),
+      ...(port ? { port } : {}),
     },
   };
 }
@@ -99,9 +122,14 @@ Options:
   --out <file>                  Write the report to a file instead of stdout.
   --ready-timeout <ms>          Longest a probe step waits for a reply. Default: 2000.
   --settle <ms>                 Quiet window used to prove nothing was sent. Default: 120.
+  --ui                          Serve the live web UI instead of running headless.
+  --exec <command>              With --ui: run a command alongside (e.g. "pnpm build --watch");
+                                each rebuild of the served bundle triggers one debounced re-run.
+  --port <number>               Port for the UI or harness server. Default: a free port.
+  --no-open                     With --ui: print the URL instead of opening a browser.
   --help, -h                    Show this help.
 
 Exit codes:
-  0  every applicable check passed (spec gaps are printed and counted)
+  0  every applicable check passed (spec gaps are printed and counted); --ui exits 0 on Ctrl-C
   1  one or more error-severity checks failed
   2  usage, target boot or harness error`;

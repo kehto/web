@@ -23,7 +23,8 @@
       "types": "./dist/cli.d.ts",
       "import": "./dist/cli.js"
     },
-    "./browser": "./dist/browser/conformance.js"
+    "./browser": "./dist/browser/conformance.js",
+    "./package.json": "./package.json"
   },
   "files": [
     "dist",
