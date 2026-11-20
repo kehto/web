@@ -63,6 +63,8 @@ export interface ExpectStep {
   readonly as: string;
   readonly match: Readonly<Record<string, unknown>>;
   readonly timeoutMs?: number;
+  /** Only consider messages that arrived after this mark step ran. */
+  readonly since?: string;
 }
 
 /** Record every inbound port message that arrives during a quiet window. */
@@ -70,6 +72,8 @@ export interface QuietStep {
   readonly op: 'quiet';
   readonly as: string;
   readonly ms?: number;
+  /** Start the window at this mark instead of at the step itself. */
+  readonly since?: string;
 }
 
 /** Tell the harness the probe reached a named point. */

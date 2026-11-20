@@ -7,7 +7,7 @@
  * judge whether the advertised catalog is truthful and fully covered against
  * the pinned operation inventory.
  */
-import { inventoryDrift, outboundOperations } from '../catalog/inventory.js';
+import { inventoryDrift, missingPackageOperations, outboundOperations } from '../catalog/inventory.js';
 import { SUPPORTED_DOMAINS } from '../catalog/domains.js';
 import { FIXTURES } from '../fixtures/index.js';
 import type { DomainFixture, OperationCase, PushCase } from '../fixtures/types.js';
@@ -54,12 +54,12 @@ function pushSteps(push: PushCase, settleMs: number): ProbeStep[] {
     ...(push.subscribe ? requestSteps(push.subscribe, settleMs) : []),
     ...gate(`push:${push.id}`),
     // Match the push's fields while waiting, so an earlier push of the same type cannot stand in for it.
-    { op: 'expect', as: `p:${push.id}`, match: { ...push.match, type: push.type } },
+    { op: 'expect', as: `p:${push.id}`, match: { ...push.match, type: push.type }, ...(push.trigger ? { since: `push:${push.id}` } : {}) },
     ...(push.then ?? []).flatMap((item) => requestSteps(item, settleMs)),
     ...(push.unsubscribe ? [
       ...requestSteps(push.unsubscribe, settleMs),
       ...gate(`off:${push.id}`),
-      { op: 'quiet', as: `poff:${push.id}`, ms: settleMs * 2 } as ProbeStep,
+      { op: 'quiet', as: `poff:${push.id}`, ms: settleMs * 2, ...(push.trigger ? { since: `off:${push.id}` } : {}) } as ProbeStep,
     ] : []),
   ];
 }
@@ -274,6 +274,12 @@ function capabilityTruthfulness(facts: DomainFacts): CheckOutcome {
   return pass('Every advertised domain with a fixture serviced at least one request or push');
 }
 
+function packageDrift(facts: DomainFacts): CheckOutcome {
+  const rows = facts.selected.map((domain) => ({ domain, missing: missingPackageOperations(domain) })).filter((row) => row.missing.length);
+  if (rows.length) return fail(`The installed @napplet/nap types lack operations their pinned NAP specifies in ${rows.map((row) => row.domain).join(', ')}`, rows);
+  return pass(`The installed @napplet/nap types cover every operation the pinned NAPs specify for ${facts.selected.length} advertised domains`);
+}
+
 function domainChecks(domain: string): Check<DomainFacts>[] {
   const authority = [`nap-${domain}`, 'nap-package'];
   return [
@@ -285,6 +291,7 @@ function domainChecks(domain: string): Check<DomainFacts>[] {
 
 const checks: readonly Check<DomainFacts>[] = [
   { id: 'catalog/advertised-domain-covered', title: 'Every advertised domain is covered by the catalog', scope: 'catalog', severity: 'error', authority: ['nap-package'], evaluate: advertisedCovered },
+  { id: 'catalog/package-drift', title: 'Packaged types cover every specified operation of advertised domains', scope: 'catalog', severity: 'error', authority: ['nap-package'], evaluate: packageDrift },
   { id: 'catalog/capability-truthfulness', title: 'Advertised domains are actually serviced', scope: 'nip5d-core', severity: 'error', authority: ['nip5d'], evaluate: capabilityTruthfulness },
   ...SUPPORTED_DOMAINS.filter((domain) => domain !== 'shell').flatMap(domainChecks),
 ];

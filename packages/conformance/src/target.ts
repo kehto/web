@@ -185,6 +185,8 @@ export interface TargetSession {
   loadRogue(plan: ProbePlan): Promise<RogueEvidence>;
   /** Destroy one endpoint the way the host does when a napplet closes. */
   destroyEndpoint(id: string): Promise<void>;
+  /** Destroy every live endpoint; the engine calls it between scenarios. */
+  releaseEndpoints?(): Promise<void>;
   /** Revocations performed so far, oldest first. */
   revocations(): readonly RevocationEvidence[];
   /** Host-side wire entries captured so far. Frame-side entries arrive through probe taps. */
