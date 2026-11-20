@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./kehto-target": "./src/kehto-target.ts",
+    "./mutations": "./src/mutations.ts",
     "./cli": "./src/cli.ts"
   },
   "imports": {

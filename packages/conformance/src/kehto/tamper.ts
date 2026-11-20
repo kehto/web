@@ -27,8 +27,11 @@ export interface KehtoTamper {
   filterMessage?(windowId: string, message: NappletMessage): 'dispatch' | 'defer' | 'drop';
   /** Replace the adapter handed to `createShellBridge`. */
   hooks?(hooks: ShellAdapter): ShellAdapter;
-  /** Called before a rogue frame loads; a mutation can register it with the runtime. */
-  adoptRogue?(frame: HTMLIFrameElement, id: string, bridge: ShellBridge): void;
+  /**
+   * Admit rogue frames as if they were verified endpoints, so a source the
+   * runtime never verified is serviced. Breaks `nip5d/source-binding`.
+   */
+  adoptRogue?: boolean;
   /** Called once the bridge exists. */
   attached?(bridge: ShellBridge): void;
 }

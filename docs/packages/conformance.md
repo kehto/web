@@ -9,9 +9,10 @@ This is the inverse of `@napplet/conformance`, which runs an untrusted napplet
 against a reference shell. Here the napplet is the fixture and the runtime is
 under test.
 
-> **Alpha status:** the catalog covers NIP-5D core and optional NAP-SHELL. Per-domain
-> NAP coverage, the advertised-domain coverage gate, mutation self-tests and
-> the browser UI land in follow-up changes (kehto/web#187). A passing run is
+> **Alpha status:** the catalog covers NIP-5D core and optional NAP-SHELL, with
+> mutation self-tests for every check. Per-domain NAP coverage, the
+> advertised-domain coverage gate and the browser UI land in follow-up changes
+> (kehto/web#187). A passing run is
 > never a claim of full NAP conformance; the final report line states the
 > tested scope.
 
@@ -30,7 +31,7 @@ npx playwright install chromium
 | Version | `0.0.0` |
 | Runtime entry | `./dist/index.js` |
 | Types entry | `./dist/index.d.ts` |
-| Subpaths | `./kehto-target`, `./cli`, `./browser` (self-contained browser bundle) |
+| Subpaths | `./kehto-target`, `./mutations`, `./cli`, `./browser` (self-contained browser bundle) |
 | Dependencies | `@kehto/nip`, `@kehto/runtime`, `@kehto/shell` |
 | Side effects | `false` |
 
@@ -100,6 +101,28 @@ are checked, never used as grants.
 | `shell/retained-environment` | `nap-spec` | `ready()`, `services` and `onReady()` retain the first environment |
 | `shell/local-supports` | `nap-spec` | `supports(domain)` is synchronous, local and follows injected presence only |
 
+## Mutation Self-Tests
+
+`tests/e2e/conformance-mutations.spec.ts` proves the checks are not
+decorative. Each named mutation in `packages/conformance/src/mutations.ts`
+breaks one property of the real first-party target, and the run must then
+fail exactly the mutation's declared check ids plus the target's known
+findings (`tests/e2e/helpers/conformance-findings.ts`). Each mutation also
+counts the places it took effect, so one that silently stops applying fails
+the spec.
+
+| Mutation | Must fail |
+|----------|-----------|
+| `inject-window-nostr` | `nip5d/no-window-nostr` |
+| `accept-forged-source` | `nip5d/source-binding`, `shell/source-trust` |
+| `omit-granted-shell` | `nip5d/injection-order`, `nip5d/injection-scope`, and downstream every check that needs the shell object |
+| `duplicate-shell-init` | `shell/once-per-lifecycle` |
+| `gate-on-shell-ready` | `nip5d/readiness-independent` |
+| `supports-depends-on-init` | `shell/local-supports` |
+| `init-invents-domain` | `shell/local-supports` |
+
+In a page, `runKehtoMutation(name, options)` from the browser bundle runs one.
+
 ## Authority and Spec Gaps
 
 Every run records the exact sources the catalog was written against in
@@ -126,6 +149,7 @@ domains, and the installed `@napplet/nap`/`@napplet/core` versions.
 | Target contract | `ConformanceTarget`, `TargetSession`, `ProbeSpec`, `ProbeEndpoint` |
 | Probe fixtures | `renderProbeArtifact`, `renderWireTap`, `ProbePlan`, `ProbeReport` |
 | Reporters | `formatReport`, `REPORTERS` |
+| Mutations | `MUTATIONS`, `createMutation`, `MutationSpec` (`@kehto/conformance/mutations`) |
 | First-party target | `createKehtoTarget` (`@kehto/conformance/kehto-target`) |
 | Headless runner | `runConformanceCli`, `startHarnessServer` (`@kehto/conformance/cli`) |
 

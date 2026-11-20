@@ -169,11 +169,42 @@ async function loadProbe(state: SessionState, spec: ProbeSpec): Promise<ProbeEnd
   return endpointFor(state, { id, frame, channel, rejection: null, granted: result.domains, artifact, verifiedHash: verified.artifactHash });
 }
 
+/** Mutation only: register a frame whose bytes were never verified, with every advertised domain. */
+async function admitUnverified(state: SessionState, frame: HTMLIFrameElement, id: string): Promise<void> {
+  const hash = 'a'.repeat(64);
+  const identity: OriginIdentity = Object.freeze({
+    dTag: 'unverified', aggregateHash: hash,
+    permissionPrincipal: { kind: 'development' as const, target: 'conformance-unverified', artifactHash: hash },
+  });
+  const environment = resolveShellEnvironment(state.hooks, identity);
+  const result = await admitBrowserDocument({
+    runtime: state.bridge.runtime,
+    entry: {
+      pubkey: '', windowId: id, origin: 'null', type: 'nip5d', dTag: identity.dTag, aggregateHash: hash,
+      permissionPrincipal: identity.permissionPrincipal, registeredAt: Date.now(), instanceId: crypto.randomUUID(), provenance: 'nip-5d',
+    },
+    verifiedHtml: '<!doctype html><html><head></head><body></body></html>',
+    available: environment.capabilities.domains, required: [], optional: environment.capabilities.domains, remoteSources: [],
+    isCurrentSource: () => frame.isConnected,
+    commit(_srcdoc, admitted) {
+      const win = frame.contentWindow;
+      if (!win) return;
+      originRegistry.register(win, id, identity);
+      originRegistry.setEnvironment(win, Object.freeze({
+        capabilities: Object.freeze({ domains: Object.freeze([...admitted.domains]) }),
+        services: Object.freeze([...environment.services]),
+      }));
+    },
+    onRetire() { originRegistry.unregister(id); },
+  });
+  if (result.status !== 'committed') throw new Error(`mutation could not admit the rogue frame: ${result.status}`);
+}
+
 /** Load a frame the runtime never registered, with its own hello and raw port. */
 async function loadRogue(state: SessionState, plan: ProbePlan): Promise<RogueEvidence> {
   const id = `rogue-${state.counter += 1}`;
   const { frame, channel } = state.stage.createFrame((wire) => record(state, id, wire.direction, 'frame', wire.envelope, wire));
-  state.tamper.adoptRogue?.(frame, id, state.bridge);
+  if (state.tamper.adoptRogue) await admitUnverified(state, frame, id);
   const hello = '<script>(function(){var c=new MessageChannel();c.port1.start();window.parent.postMessage({type:"napplet.hello"},"*",[c.port2]);})();</script>';
   frame.srcdoc = renderProbeArtifact(plan).replace('<head>', () => `<head>${renderWireTap()}${hello}`);
   await state.stage.waitFor(channel, () => channel.report !== null, 6000);
@@ -245,6 +276,7 @@ export async function bootKehtoSession(variant: TargetVariant, host: HTMLElement
   const state: SessionState = { ...partial, bridge, hooks };
   holder.state = state;
   backends.attach(bridge);
+  tamper.attached?.(bridge);
 
   const postToNapplet = originRegistry.postToNapplet.bind(originRegistry);
   originRegistry.postToNapplet = (windowId: string, message: unknown): boolean => {

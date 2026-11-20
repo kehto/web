@@ -12,16 +12,10 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
+import { KNOWN_KEHTO_FINDINGS } from './helpers/conformance-findings.js';
 
 const CLI = join(process.cwd(), 'packages/cli/dist/index.js');
 
-/**
- * Real Kehto conformance failures the suite found. Each is a runtime finding,
- * not a check to relax. `nip5d/unknown-envelope`: `storage.<unknown action>`
- * gets `storage.<action>.result` with `error: "unknown storage action: …"`,
- * while NIP-5D (Wire Format) says an unrecognized `type` MUST be silently ignored.
- */
-const KNOWN_KEHTO_FINDINGS = ['nip5d/unknown-envelope'];
 
 interface CliRun {
   readonly status: number;

@@ -90,3 +90,14 @@ Findings (real Kehto failures, not relaxed):
   unrecognized `type` MUST be silently ignored." NAP-STORAGE@4f4cf0ca's "MUST return
   an `error` field … for invalid requests" covers its own result messages, not
   unrecognized types.
+
+## Phase order change (2026-11-20)
+
+The mutation self-tests for the phase-1 checks moved ahead of the per-domain
+catalog (own PR, stacked on phase 1). Phase 1 showed only one check failing,
+and only through a real finding, so every other green was unproven; proving
+the base before stacking 25 domains on it is cheaper than debugging both at
+once. Mutations are selected by name (`MUTATIONS`) so they cross
+`page.evaluate`; each counts its applications so a silently dead mutation
+fails. `shell/local-supports` gained a first-init probe because the retained
+snapshot alone cannot show an init inventing availability.

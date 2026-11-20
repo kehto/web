@@ -1,4 +1,9 @@
 {
   "$schema": "https://typedoc.org/schema.json",
-  "entryPoints": ["src/index.ts", "src/kehto-target.ts", "src/cli.ts"]
+  "entryPoints": [
+    "src/index.ts",
+    "src/kehto-target.ts",
+    "src/mutations.ts",
+    "src/cli.ts"
+  ]
 }
