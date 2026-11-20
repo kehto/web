@@ -30,3 +30,9 @@ passes again.
   (NAP-WEBMCP #150, NAP-NEIGHBOR #146, NAP-EMAIL #139) to their head; they are
   reported as `deferred` and do not fail `--strict` until the head moves or the
   PR closes.
+
+**Migration** (`KEHTO_MOCKS_NAP_DRIFT_RETIRED` in `docs/compatibility.md`):
+replace `LLM_TOOLS_SPEC_REF` with `LLM_SPEC_REF`; read LLM output from
+`result.content` instead of `result.text`; match delta `block: 'toolCall'` and
+the `start`/`delta`/`end` events; script only `stop`/`length`/`refusal` with
+`respondWith`; drop any use of the NAP-MESH mock (no replacement yet).

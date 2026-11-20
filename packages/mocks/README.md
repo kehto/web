@@ -142,6 +142,21 @@ closes.
 See `skills/use-nap-mocks/SKILL.md` (integrating) and
 `skills/maintain-nap-mocks/SKILL.md` (updating) at the repository root.
 
+## Migrating to 0.2
+
+0.2 removes mock APIs that no longer match `napplet/naps` (tracked as
+`KEHTO_MOCKS_NAP_DRIFT_RETIRED` in the repository's `docs/compatibility.md`):
+
+- **NAP-MESH:** `createMockMeshService`, `MESH_MOCK_ENTRY`, `MESH_SPEC_REF` and
+  the `mesh` registry row are gone. The draft was retracted in favour of
+  NAP-NEIGHBOR, which is not mocked yet.
+- **`LLM_TOOLS_SPEC_REF`:** use `LLM_SPEC_REF` (PR #134 now includes tool use).
+- **LLM `result.text`:** join the `text` parts of `result.content`.
+- **`respondWith(text, 'toolUse')`:** offer `tools` and let the mock derive the
+  call; scripted answers take `stop`, `length` or `refusal`.
+- **Delta `block: 'toolcall'`:** it is now `'toolCall'`, and each block streams
+  as `event: 'start'`, `'delta'`s, then `'end'`.
+
 ## Docs
 
 - Package page: [docs/packages/mocks.md](../../docs/packages/mocks.md)
