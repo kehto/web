@@ -346,6 +346,11 @@ export function createNip5dTransport(options: Nip5dTransportOptions): Nip5dTrans
     port.addEventListener('close', onPortFailure);
     port.addEventListener('messageerror', onPortFailure);
     port.start();
+    // NIP-5D binds the verified identity at the first valid hello, so the
+    // session and its frozen grants exist from here on. Shell pushes
+    // (theme.changed, identity.changed, service broadcasts) then reach a
+    // napplet that only listens, without waiting for its first envelope.
+    registerSourceSession(sessionContext(options, windowId, binding));
   }
 
   function handleMessage(event: MessageEvent): void {

@@ -60,7 +60,7 @@ async function setup(options: { permissions?: Partial<PermissionAdapter>; hooks?
   originRegistry.setEnvironment(win, { capabilities: { domains: ['shell', 'example', 'storage'] }, services: ['example'] });
   const deliver = (data: Record<string, unknown>) => deliverFromNapplet(bridge, { source: win, origin: 'null', data });
   const read = (id: string) => deliver({ type: 'example.read', id });
-  // The session binds on the first envelope, so the host admits after it.
+  // The session binds at napplet.hello (the first delivery), so the host admits after it.
   deliver({ type: 'shell.ready' });
   await bridge.runtime.permissions!.admit(windowId, { required: ['example'], optional: [], available: ['example'] });
   return { bridge, control, handled, prompt, onRateLimit, deliver, read };
