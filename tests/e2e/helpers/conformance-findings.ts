@@ -9,14 +9,15 @@
  * typed `media.session.ended` and `webrtc.sendBytes(.result)` from the pinned
  * NAP-MEDIA and NAP-WEBRTC drafts.
  *
- * - `catalog/package-field-drift` (full; upstream, kehto/web#508):
- *   `@napplet/nap@0.43.0` requires `servers` on `cvm.discover.result`, which
- *   the pinned NAP-CVM table makes optional, and makes optional the primary
- *   field of `upload.info/status/upload.result` and
- *   `intent.available/handlers.result`, which the pinned NAP-UPLOAD and
- *   NAP-INTENT tables require. Minimal reports a `spec-gap` (NAP-IDENTITY's
- *   table and prose disagree on `identity.getProfile.result` `profile`), not
- *   a failure.
+ * - `catalog/package-field-drift` (full; upstream, kehto/web#508, #518):
+ *   `@napplet/nap@0.45.0` (napplet/web#360) aligned the `cvm.discover.result`
+ *   and `intent.available/handlers.result` rows with their NAPs. It still makes
+ *   `info` / `status` optional on `upload.info.result` / `upload.status.result`,
+ *   which the pinned NAP-UPLOAD table requires and no NAP-UPLOAD sentence
+ *   omits; that question is open on napplet/naps#33. `upload.upload.result`
+ *   `result` is a recorded table-versus-Error-Handling contradiction, so it is
+ *   a `spec-gap` like NAP-IDENTITY's `identity.getProfile.result` `profile`
+ *   (napplet/naps#155), not a failure. Minimal reports only that spec gap.
  */
 export const KNOWN_KEHTO_FINDINGS: Readonly<Record<'minimal' | 'full', readonly string[]>> = {
   minimal: [],

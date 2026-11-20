@@ -22,7 +22,7 @@ pnpm add @kehto/firewall
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.32.0 <0.45.0` |
+| `@napplet/core` | `>=0.32.0 <0.46.0` |
 
 ## Approval policy
 

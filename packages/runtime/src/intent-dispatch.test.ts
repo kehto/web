@@ -328,6 +328,8 @@ describe('runtime intent domain dispatch', () => {
         message: {
           type: 'intent.available.result',
           id: 'a-denied',
+          // NAP-INTENT master @ 377bf939: `availability` is required beside `error`? (kehto/web#518).
+          availability: { archetype: 'note', available: false, candidates: [], hasDefault: false },
           error: 'intent request denied',
         },
       },
@@ -336,6 +338,7 @@ describe('runtime intent domain dispatch', () => {
         message: {
           type: 'intent.handlers.result',
           id: 'h-denied',
+          handlers: [],
           error: 'intent request denied',
         },
       },
@@ -352,7 +355,7 @@ describe('runtime intent domain dispatch', () => {
       { type: 'intent.changed', availability: {} },
       { type: 'intent.deliver', delivery: DELIVERY },
       { type: 'intent.invoke.result', id: 'i', result: { ok: false, error: 'forged' } },
-      { type: 'intent.available.result', id: 'a', availability: {} },
+      { type: 'intent.available.result', id: 'a', availability: { archetype: 'note', available: false, candidates: [], hasDefault: false } },
       { type: 'intent.handlers.result', id: 'h', handlers: [] },
       { type: 'intent.unknown', id: 'u' },
     ] as unknown as NappletMessage[];

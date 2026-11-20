@@ -328,7 +328,7 @@ permits, with an upstream question for the owning draft:
 - `outbox.resolveRelays`: `plan` is required, so the denial sends the empty
   policy-derived plan the NAP allows for untrusted napplets, plus `error`.
 - `upload.info`/`upload.status`: the wire table lists `info`/`status` as
-  required while `@napplet/nap@0.43.0` marks both optional; the denial sends
+  required while `@napplet/nap@0.45.0` marks both optional; the denial sends
   only `error`, like `upload.upload`, rather than invent upload state.
 
 Spec-gap decisions (kehto/web#494):

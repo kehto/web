@@ -821,16 +821,18 @@ in [PR #284](https://github.com/kehto/web/pull/284). This implementation PR leav
 - **Tests:** `packages/shell/src/napplet-namespace.test.ts`, NAP-MEDIA injected
   lifecycle suite covers canonical silence, legacy behavior, warning text and
   frequency, close handles, parent trust, reassignment, and retired-session guards;
-  the "published @napplet/nap 0.43 SDK" suite drives the real 0.43 `mediaSendCommand`
-  / `mediaOnCommand` through the legacy path and checks `reason` both ways.
-- **Retention reason:** published `@napplet/nap` 0.32 through 0.43 delegate
+  the "published @napplet/nap 0.43 SDK" suite drives the installed SDK's `mediaSendCommand`
+  / `mediaOnCommand` (0.45.0 since kehto/web#518) through the legacy path and checks
+  `reason` both ways.
+- **Retention reason:** published `@napplet/nap` 0.32 through 0.45 delegate
   `mediaSendCommand` and positional `mediaOnCommand` callbacks to the injected
   namespace. nap 0.43.0 (napplet/web#344) added `onEnded` and `reason` but still
   types only the positional forms, not NAP-MEDIA's `command(sessionId, MediaCommand)`
-  and object `onCommand` handler, so every SDK-built napplet still takes this path.
+  and object `onCommand` handler. nap 0.45.0 has no media type change, so every
+  SDK-built napplet still takes this path.
 - **Removal prerequisites:** upstream packages implement NAP-MEDIA PR #10
   `7806f438530251fce5129f8e6239d6b642278759`'s `command` API (not yet in nap
-  0.43.0), supported consumers migrate, and a removal release is announced. Track removal in this register; warning silence
+  0.45.0), supported consumers migrate, and a removal release is announced. Track removal in this register; warning silence
   is not proof of migration.
 
 ## Paja signing-only approval records (2026-10-28)

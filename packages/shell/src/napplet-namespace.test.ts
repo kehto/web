@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { mediaOnCommand, mediaOnEnded, mediaSendCommand } from '@napplet/nap/media/sdk';
-import { resourceBytesMany } from '@napplet/nap/resource/sdk';
+import { cvmDiscover } from '@napplet/nap/cvm/sdk';
+import { intentAvailable, intentHandlers } from '@napplet/nap/intent/sdk';
+import { resourceBytes, resourceBytesMany } from '@napplet/nap/resource/sdk';
 import { webrtcOnEvent, webrtcSendBytes } from '@napplet/nap/webrtc/sdk';
 import {
   injectNappletNamespacePrelude,
@@ -2516,6 +2518,80 @@ describe('published @napplet/nap 0.43 SDK over the injected namespace', () => {
         { url: urls[0], ok: false, error: 'not-found' },
         { url: urls[1], ok: true, blob: new Blob(['hi'], { type: 'text/plain' }), mime: 'text/plain' },
       ]);
+    });
+  });
+});
+
+// kehto/web#518: the published @napplet/nap 0.45 SDK (napplet/web#360) types
+// `cvm.discover.result` as a success/error union and requires `availability` /
+// `handlers` on the intent results. NAP-CVM #31 @ 28cf1bdb, NAP-INTENT master
+// @ 377bf939, NAP-RESOURCE #80 @ ae5b9c64.
+describe('published @napplet/nap 0.45 SDK over the injected namespace', () => {
+  const lastRequest = (target: PreludeTestWindow, type: string) => target.postedMessages.filter((message) => message.type === type).at(-1);
+
+  it('narrows the cvm.discover.result union: servers on success, error otherwise', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['cvm'] }), target);
+    await withGlobalWindow(target, async () => {
+      const server = { pubkey: 'ab'.repeat(32), name: 'relatr' };
+      const found = cvmDiscover({ search: 'relay', limit: 5 });
+      const request = lastRequest(target, 'cvm.discover');
+      expect(request).toEqual({ type: 'cvm.discover', id: request?.id, query: { search: 'relay', limit: 5 } });
+      target.dispatchParentMessage({ type: 'cvm.discover.result', id: request?.id, servers: [server] });
+      await expect(found).resolves.toEqual([server]);
+
+      const none = cvmDiscover();
+      target.dispatchParentMessage({ type: 'cvm.discover.result', id: lastRequest(target, 'cvm.discover')?.id, servers: [] });
+      await expect(none).resolves.toEqual([]);
+
+      const refused = cvmDiscover();
+      target.dispatchParentMessage({ type: 'cvm.discover.result', id: lastRequest(target, 'cvm.discover')?.id, error: 'unsupported kind' });
+      await expect(refused).rejects.toThrow('unsupported kind');
+
+      // A success reply without `servers` breaks "On success, the operation's payload is required".
+      const bare = cvmDiscover();
+      target.dispatchParentMessage({ type: 'cvm.discover.result', id: lastRequest(target, 'cvm.discover')?.id });
+      await expect(bare).rejects.toThrow('cvm.discover.result missing servers');
+    });
+  });
+
+  it('resolves intent availability and handlers, and rejects on error even beside the required field', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['intent'] }), target);
+    await withGlobalWindow(target, async () => {
+      const availability = { archetype: 'profile', available: true, candidates: [], hasDefault: false };
+      const found = intentAvailable('profile');
+      const request = lastRequest(target, 'intent.available');
+      expect(request).toEqual({ type: 'intent.available', id: request?.id, archetype: 'profile' });
+      target.dispatchParentMessage({ type: 'intent.available.result', id: request?.id, availability });
+      await expect(found).resolves.toEqual(availability);
+
+      const listed = intentHandlers();
+      target.dispatchParentMessage({ type: 'intent.handlers.result', id: lastRequest(target, 'intent.handlers')?.id, handlers: [availability] });
+      await expect(listed).resolves.toEqual([availability]);
+
+      const empty = { archetype: 'profile', available: false, candidates: [], hasDefault: false };
+      const denied = intentAvailable('profile');
+      target.dispatchParentMessage({ type: 'intent.available.result', id: lastRequest(target, 'intent.available')?.id, availability: empty, error: 'intent request denied' });
+      await expect(denied).rejects.toThrow('intent request denied');
+      const unlisted = intentHandlers();
+      target.dispatchParentMessage({ type: 'intent.handlers.result', id: lastRequest(target, 'intent.handlers')?.id, handlers: [], error: 'catalog unavailable' });
+      await expect(unlisted).rejects.toThrow('catalog unavailable');
+    });
+  });
+
+  it('decodes canonical base64 resource bytes into a Blob typed with the classified MIME', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['resource'] }), target);
+    await withGlobalWindow(target, async () => {
+      const url = 'data:application/octet-stream;base64,AAEC/w==';
+      const fetched = resourceBytes(url);
+      const request = lastRequest(target, 'resource.bytes');
+      expect(request).toMatchObject({ type: 'resource.bytes', url });
+      target.dispatchParentMessage({ type: 'resource.bytes.result', id: request?.id, blob: 'AAEC/w==', mime: 'application/octet-stream' });
+      const blob = await fetched;
+      expect(blob.type).toBe('application/octet-stream');
+      expect([...new Uint8Array(await blob.arrayBuffer())]).toEqual([0, 1, 2, 255]);
     });
   });
 });

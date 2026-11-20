@@ -57,6 +57,11 @@ function hint(value: unknown): IntentHandlerHint | undefined {
   }) as IntentHandlerHint;
 }
 
+/** Empty availability sent with an `intent.available.result` error; a non-text archetype echoes as `''`. */
+function unavailableIntent(archetype: unknown): IntentAvailability {
+  return { archetype: typeof archetype === 'string' ? archetype : '', available: false, candidates: [], hasDefault: false };
+}
+
 function validateRequest(value: unknown): IntentRequest | undefined {
   const source = record(value);
   if (!source || !own(source, 'archetype') || !own(source, 'action') || !own(source, 'convention')) return undefined;
@@ -164,17 +169,20 @@ export function createIntentService(options: IntentServiceOptions): ServiceHandl
     ).catch(() => {});
   }
 
+  // NAP-INTENT master @ 377bf939 requires `availability` / `handlers` beside
+  // `error?`, so a failure carries an empty record, never a bare `error`.
   function availability(message: NappletMessage, send: Send): void {
     const envelope = message as NappletMessage & { id?: unknown; archetype?: unknown };
     const id = typeof envelope.id === 'string' ? envelope.id : '';
+    const fail = (error: string) => send({ type: 'intent.available.result', id, availability: unavailableIntent(envelope.archetype), error } as NappletMessage);
     if (typeof envelope.archetype !== 'string' || envelope.archetype.length === 0) {
-      send({ type: 'intent.available.result', id, error: 'invalid archetype' } as NappletMessage);
+      fail('invalid archetype');
       return;
     }
     const archetype = envelope.archetype;
     void Promise.resolve().then(() => resolver.available(archetype)).then(
       (value) => send({ type: 'intent.available.result', id, availability: value } as NappletMessage),
-      () => send({ type: 'intent.available.result', id, error: 'catalog unavailable' } as NappletMessage),
+      () => fail('catalog unavailable'),
     ).catch(() => {});
   }
 
@@ -183,7 +191,7 @@ export function createIntentService(options: IntentServiceOptions): ServiceHandl
     const id = typeof envelope.id === 'string' ? envelope.id : '';
     void Promise.resolve().then(() => resolver.handlers()).then(
       (value) => send({ type: 'intent.handlers.result', id, handlers: value } as NappletMessage),
-      () => send({ type: 'intent.handlers.result', id, error: 'catalog unavailable' } as NappletMessage),
+      () => send({ type: 'intent.handlers.result', id, handlers: [], error: 'catalog unavailable' } as NappletMessage),
     ).catch(() => {});
   }
 

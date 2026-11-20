@@ -1,6 +1,6 @@
 import type { NappletMessage } from '@napplet/core';
 import type { ServiceDescriptor, ServiceRuntimeContext } from '@kehto/runtime';
-import type { CvmDiscoverQuery, CvmRequestOptions, CvmServerRef, McpMessage } from './cvm-types.js';
+import type { CvmDiscoverQuery, CvmDiscoverResultMessage, CvmRequestOptions, CvmServerRef, McpMessage } from './cvm-types.js';
 import type { CvmService, CvmServiceOptions } from './cvm-service.js';
 import { handleCvmRegistry, isCvmRegistryMethod } from './cvm-registry.js';
 import { createCvmOperations, type CvmOperation, type CvmOperations } from './cvm-operations.js';
@@ -108,7 +108,7 @@ function handleDiscover(actions: CvmActions, windowId: string, generation: symbo
   const { transport, currentSend, authorize, operations } = actions;
   const m = msg as NappletMessage & { id?: string; query?: CvmDiscoverQuery };
   const id = m.id ?? '';
-  const fail = (error: unknown) => currentSend(windowId, generation, { type: 'cvm.discover.result', id, error: toErrorMessage(error) } as NappletMessage);
+  const fail = (error: unknown) => currentSend(windowId, generation, { type: 'cvm.discover.result', id, error: toErrorMessage(error) } satisfies CvmDiscoverResultMessage as NappletMessage);
   if (!validQuery(m.query)) { fail('invalid request'); return; }
   let relays: readonly string[];
   try { relays = relayPlan(transport.planDiscover?.(m.query) ?? m.query?.relays ?? []); }
@@ -116,7 +116,7 @@ function handleDiscover(actions: CvmActions, windowId: string, generation: symbo
   operations.run(windowId, DEFAULT_DURATION_MS, [],
     (work) => authorize(windowId, generation, 'cvm.discover', relays, undefined, work,
       () => transport.discover(m.query, { signal: work.signal })),
-    (servers) => currentSend(windowId, generation, { type: 'cvm.discover.result', id, servers } as NappletMessage), fail);
+    (servers) => currentSend(windowId, generation, { type: 'cvm.discover.result', id, servers } satisfies CvmDiscoverResultMessage as NappletMessage), fail);
 }
 
 function handleRequest(actions: CvmActions, windowId: string, generation: symbol, msg: NappletMessage): void {

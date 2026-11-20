@@ -104,8 +104,8 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.42.0 <0.45.0` |
-| `@napplet/nap` | `>=0.37.0 <0.44.0` |
+| `@napplet/core` | `>=0.42.0 <0.46.0` |
+| `@napplet/nap` | `>=0.37.0 <0.46.0` |
 
 ## Primary APIs
 
@@ -150,6 +150,10 @@ Security Considerations (shells SHOULD apply per-napplet concurrency limits).
 | `concurrency.maxInFlight` | `8` (`DEFAULT_CVM_MAX_IN_FLIGHT`) | Operations one endpoint may have running. Integer >= 1. |
 | `concurrency.maxQueued` | `32` (`DEFAULT_CVM_MAX_QUEUED`) | Operations one endpoint may have waiting, first in first out. Integer >= 0; `0` refuses instead of queueing. |
 
+- `cvm.discover.result` carries `servers` (possibly empty) on success and only
+  `error` on failure. `CvmDiscoverResultMessage` is that union of
+  `CvmDiscoverSuccessResultMessage` and `CvmDiscoverErrorResultMessage`, as
+  `@napplet/nap` 0.45 types it (kehto/web#518).
 - One `cvm.discover`, `cvm.request`, or `cvm.registry.*` envelope holds one slot
   from receipt until it settles. A registry call keeps its single slot across its
   schema check and invocation. `cvm.close` is never queued or refused.
@@ -385,7 +389,7 @@ For the schema and removal boundary, see [event migration](https://kehto.github.
 
 ## Canonical intent contracts
 
-`@kehto/services` temporarily owns the canonical NAP-INTENT PR #106 contracts. `@napplet/nap@0.32.0` (the fixture line) has not published them; `@napplet/nap@0.37.0` now exports `IntentCandidate` and related types and `@napplet/core@0.38.0` declares `intent.onDelivery`, so adopting the upstream types and removing the local mirror is a tracked follow-up, not part of the NAP-LLM change. Candidates use opaque `id` plus exact `contracts`; successful results contain only `ok`, `archetype`, `action`, `convention`, and `handler` (never `handled`, `windowId`, or `newWindow`). `createIntentService` requires `resolveSender(windowId)` and rejects caller-supplied sender fields. `IntentResolverContext.sourceWindowId` and `IntentDispatchParams.sourceWindowId` are host-only correlation fields: they must never appear in `intent.deliver` or `intent.invoke.result`. A target controller accepts retained work as `{ completion }`; completion failure is host observation, not a second canonical result. Remove these local types only when an upstream package exports the checked PR #106 surface and Kehto's service/runtime regression suite proves direct replacement.
+`@kehto/services` temporarily owns the canonical NAP-INTENT PR #106 contracts. `@napplet/nap@0.32.0` (the fixture line) has not published them; `@napplet/nap@0.37.0` now exports `IntentCandidate` and related types and `@napplet/core@0.38.0` declares `intent.onDelivery`, so adopting the upstream types and removing the local mirror is a tracked follow-up, not part of the NAP-LLM change. Candidates use opaque `id` plus exact `contracts`; successful results contain only `ok`, `archetype`, `action`, `convention`, and `handler` (never `handled`, `windowId`, or `newWindow`). `createIntentService` requires `resolveSender(windowId)` and rejects caller-supplied sender fields. Its `intent.available.result` / `intent.handlers.result` failures keep the required `availability` (empty, `available: false`) or `handlers: []` beside `error` (kehto/web#518). `IntentResolverContext.sourceWindowId` and `IntentDispatchParams.sourceWindowId` are host-only correlation fields: they must never appear in `intent.deliver` or `intent.invoke.result`. A target controller accepts retained work as `{ completion }`; completion failure is host observation, not a second canonical result. Remove these local types only when an upstream package exports the checked PR #106 surface and Kehto's service/runtime regression suite proves direct replacement.
 
 ## GAMEPAD integration
 
