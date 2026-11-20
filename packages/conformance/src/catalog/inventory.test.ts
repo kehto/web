@@ -58,7 +58,8 @@ describe('operation inventory drift guard', () => {
       expect(Object.keys(fields).sort(), `${domain} packaged messages`).toEqual([...new Set([...(entry?.package.outbound ?? []), ...(entry?.package.inbound ?? [])])].sort());
       expect(Object.keys(entry?.specFields ?? {}).sort(), `${domain} wire-table messages`).toEqual([...new Set([...(entry?.spec.outbound ?? []), ...(entry?.spec.inbound ?? [])])].sort());
     }
-  });
+    // Parsing every packaged d.ts takes ~1.6 s alone and over 5 s on a loaded CI runner.
+  }, 30_000);
 
   it('has a fixture for every supported domain, covering every inventoried request', () => {
     for (const domain of SUPPORTED_DOMAINS.filter((name) => name !== 'shell')) {
