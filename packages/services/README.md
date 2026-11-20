@@ -42,7 +42,8 @@ use random bytes plus counters, without per-ID key derivation.
 Authority: [NAP-CVM draft #31](https://github.com/napplet/naps/blob/28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f/naps/NAP-CVM.md)
 and [CEP-41](https://github.com/contextvm/contextvm-docs/blob/3b4f9dc9f9012a418abd9faec6a70db774754862/src/content/docs/reference/ceps/cep-41.md).
 `createCvmService({ transport, registry })` optionally accepts host-configured
-`CvmRegistryFamily` entries with a provider and tool name/hash pins. Registry
+`CvmRegistryFamily` entries with a provider and tool name/hash pins. Selector,
+entry and option types are re-exported from `@napplet/core` (>= 0.42.0). Registry
 selection checks live `tools/list` schemas using `computeCvmToolSchemaHash`
 (CEP-15), honors provider pins, and authorizes calls through the ordinary CVM
 boundary. Without registry configuration, `registry.has` returns false and the
@@ -60,8 +61,8 @@ pnpm add @kehto/services
 
 ## Published Napplet Compatibility
 
-Peers admit `@napplet/core` `>=0.41.0 <0.42.0` and `@napplet/nap`
-`>=0.37.0 <0.41.0`: the declarations import the packaged NAP-LLM types from `@napplet/nap/llm/types`, and the exported NAP-INTENT types come from `@napplet/core`, whose releases before 0.41.0 carry the withdrawn delivery ID and nullable sender. Host packages develop and build on core 0.41.0 / nap 0.40.0; fixture napplets stay on the exact 0.32.0 line (shim 0.30.0, sdk 0.28.0, vite-plugin 0.16.2). The exact fixture-line contracts are core 0.32.0 / nap 0.32.0
+Peers admit `@napplet/core` `>=0.42.0 <0.43.0` and `@napplet/nap`
+`>=0.37.0 <0.42.0`: the declarations import the packaged NAP-LLM types from `@napplet/nap/llm/types`, and the exported NAP-INTENT types come from `@napplet/core`, whose releases before 0.41.0 carry the withdrawn delivery ID and nullable sender. The exported NAP-CVM registry types (`CvmRegistrySelector`, `CvmRegistryEntry`, `CvmRegistryTool`, `CvmRegistryOptions`, `CvmRegistryCallOptions`, `CvmRegistryQuery`) also come from `@napplet/core`, and releases before 0.42.0 carry the older family-only registry contract, so the core floor is 0.42.0. Host packages develop and build on core 0.42.0 / nap 0.41.0; fixture napplets stay on the exact 0.32.0 line (shim 0.30.0, sdk 0.28.0, vite-plugin 0.16.2). The exact fixture-line contracts are core 0.32.0 / nap 0.32.0
 from NAP-INTENT authority `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`,
 napplet/web#199 source `3037200c932488f14f7f369b8583c39c9c16510a` / merge
 `b3f0007867eac109fa4917fac9c285d3b7cc6155`, and Version Packages #198 release

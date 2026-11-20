@@ -17,13 +17,13 @@ const FIXTURE_VERSIONS = {
 } as const;
 
 const HOST_VERSIONS = {
-  '@napplet/core': '0.41.0',
-  '@napplet/nap': '0.40.0',
+  '@napplet/core': '0.42.0',
+  '@napplet/nap': '0.41.0',
 } as const;
 
 const HOST_DEV_RANGES = {
-  '@napplet/core': '>=0.41.0 <0.42.0',
-  '@napplet/nap': '>=0.40.0 <0.41.0',
+  '@napplet/core': '>=0.42.0 <0.43.0',
+  '@napplet/nap': '>=0.41.0 <0.42.0',
 } as const;
 
 const EXACT_ANYWHERE = ['@napplet/shim', '@napplet/sdk', '@napplet/vite-plugin'] as const;
@@ -41,21 +41,23 @@ const SUPERSEDED_EXACT_MATRIX = {
 // Per-package peer windows. Packages whose declarations import the packaged
 // NAP-LLM types (services, paja) need core 0.38 / nap 0.37, and cli follows its
 // paja dependency so consumers never see a transitive peer conflict; the rest do not
-// consume those types and keep the older floor. Upper bounds admit the host line.
+// consume those types and keep the older floor. Services and mocks also expose core's
+// selector-based CVM registry types, which first ship in core 0.42.0 (kehto/web#441),
+// so they and the services dependents floor core there. Upper bounds admit the host line.
 const PEER_WINDOWS: Record<string, Partial<Record<NappletName, string>>> = {
-  'packages/acl': { '@napplet/core': '>=0.32.0 <0.42.0', '@napplet/nap': '>=0.32.0 <0.41.0' },
-  'packages/cli': { '@napplet/core': '>=0.41.0 <0.42.0', '@napplet/nap': '>=0.37.0 <0.41.0' },
-  'packages/firewall': { '@napplet/core': '>=0.32.0 <0.42.0' },
-  'packages/mocks': { '@napplet/core': '>=0.32.0 <0.42.0', '@napplet/nap': '>=0.32.0 <0.41.0' },
-  'packages/paja': { '@napplet/core': '>=0.41.0 <0.42.0', '@napplet/nap': '>=0.37.0 <0.41.0' },
-  'packages/runtime': { '@napplet/core': '>=0.32.0 <0.42.0', '@napplet/nap': '>=0.32.0 <0.41.0' },
-  'packages/services': { '@napplet/core': '>=0.41.0 <0.42.0', '@napplet/nap': '>=0.37.0 <0.41.0' },
-  'packages/shell': { '@napplet/core': '>=0.32.0 <0.42.0', '@napplet/nap': '>=0.32.0 <0.41.0' },
+  'packages/acl': { '@napplet/core': '>=0.32.0 <0.43.0', '@napplet/nap': '>=0.32.0 <0.42.0' },
+  'packages/cli': { '@napplet/core': '>=0.42.0 <0.43.0', '@napplet/nap': '>=0.37.0 <0.42.0' },
+  'packages/firewall': { '@napplet/core': '>=0.32.0 <0.43.0' },
+  'packages/mocks': { '@napplet/core': '>=0.42.0 <0.43.0', '@napplet/nap': '>=0.32.0 <0.42.0' },
+  'packages/paja': { '@napplet/core': '>=0.42.0 <0.43.0', '@napplet/nap': '>=0.37.0 <0.42.0' },
+  'packages/runtime': { '@napplet/core': '>=0.32.0 <0.43.0', '@napplet/nap': '>=0.32.0 <0.42.0' },
+  'packages/services': { '@napplet/core': '>=0.42.0 <0.43.0', '@napplet/nap': '>=0.37.0 <0.42.0' },
+  'packages/shell': { '@napplet/core': '>=0.32.0 <0.43.0', '@napplet/nap': '>=0.32.0 <0.42.0' },
 };
 
 const JSR_HOST_RANGES = {
-  '@napplet/core': 'jsr:@napplet/core@^0.41.0',
-  '@napplet/nap': 'jsr:@napplet/nap@^0.40.0',
+  '@napplet/core': 'jsr:@napplet/core@^0.42.0',
+  '@napplet/nap': 'jsr:@napplet/nap@^0.41.0',
 } as const;
 
 type PackageJson = {

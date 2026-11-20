@@ -1,19 +1,21 @@
 import { computeCvmToolSchemaHash } from './cvm-schema-hash.js';
-import type { CvmRegistryCallOptions, CvmRegistryEntry, CvmRegistryFamily, CvmRegistrySelector, CvmRegistryTool } from './cvm-registry-types.js';
+import type { CvmRegistryCallOptions, CvmRegistryEntry, CvmRegistryFamily, CvmRegistryQuery, CvmRegistryTool } from './cvm-registry-types.js';
 import type { CvmServerRef, McpMessage } from './cvm-types.js';
 
 export type CvmRegistryRequest = (server: CvmServerRef, method: string, params?: Record<string, unknown>, options?: CvmRegistryCallOptions) => Promise<McpMessage>;
+/** Validated selector, or a list query's selector fields (which may both be absent). */
+type Selection = Pick<CvmRegistryQuery, 'family' | 'schemaHash'>;
 const HASH = /^[0-9a-f]{64}$/u;
 const METHODS = new Set(['cvm.registry.list', 'cvm.registry.has', 'cvm.registry.describe', 'cvm.registry.call']);
 
 export function isCvmRegistryMethod(type: string): boolean { return METHODS.has(type); }
 function record(value: unknown): value is Record<string, unknown> { return !!value && typeof value === 'object' && !Array.isArray(value); }
-function selector(value: unknown, optional = false): CvmRegistrySelector {
+function selector(value: unknown, optional = false): Selection {
   if (!record(value)) { if (optional && value === undefined) return {}; throw new Error('invalid request'); }
   if ((value.family !== undefined && (typeof value.family !== 'string' || !value.family.trim()))
     || (value.schemaHash !== undefined && (typeof value.schemaHash !== 'string' || !HASH.test(value.schemaHash)))
     || (!optional && value.family === undefined && value.schemaHash === undefined)) throw new Error('invalid request');
-  return value as CvmRegistrySelector;
+  return value as Selection;
 }
 function result(message: McpMessage): Record<string, unknown> {
   if (message.error !== undefined) {
@@ -62,7 +64,7 @@ async function verifiedTools(server: CvmServerRef, request: CvmRegistryRequest, 
   return tools;
 }
 
-async function entries(families: readonly CvmRegistryFamily[], select: CvmRegistrySelector, request: CvmRegistryRequest,
+async function entries(families: readonly CvmRegistryFamily[], select: Selection, request: CvmRegistryRequest,
   opts: CvmRegistryCallOptions): Promise<CvmRegistryEntry[]> {
   const found: CvmRegistryEntry[] = [];
   const inventories = new Map<string, CvmRegistryTool[]>();

@@ -199,7 +199,10 @@ export type { ManifestArchetypeInput } from './manifest-intent-catalog.js';
 
 export { createCvmService } from './cvm-service.js';
 export { computeCvmToolSchemaHash } from './cvm-schema-hash.js';
-export type { CvmRegistrySelector, CvmRegistryFamily, CvmRegistryTool, CvmRegistryEntry, CvmRegistryCallOptions } from './cvm-registry-types.js';
+export type {
+  CvmRegistrySelector, CvmRegistryFamily, CvmRegistryTool, CvmRegistryEntry, CvmRegistryCallOptions,
+  CvmRegistryOptions, CvmRegistryQuery,
+} from './cvm-registry-types.js';
 export type {
   CvmService,
   CvmServiceOptions,

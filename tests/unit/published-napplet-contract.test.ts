@@ -100,6 +100,27 @@ describe('published Napplet convention contract', () => {
     expect(activeSources.join('\n')).toMatch(/from ['\"]\.\/intent-types\.js['\"]/);
   });
 
+  it('takes host CVM registry types from the published core export (kehto/web#441)', () => {
+    // NAP-CVM PR #31 @ 28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f; released by napplet/web#337.
+    const localTypes = readFileSync(join(ROOT, 'packages/services/src/cvm-registry-types.ts'), 'utf8');
+    expect(localTypes).toContain("from '@napplet/core'");
+    expect(localTypes).not.toMatch(/\b(?:interface|type)\s+CvmRegistry(?:Selector|Entry|Tool|Options|CallOptions|Query)\b/);
+    const mock = readFileSync(join(ROOT, 'packages/mocks/src/domains/cvm.ts'), 'utf8');
+    expect(mock).toContain('interface MockCvmRegistryEntry extends CvmRegistryEntry');
+
+    const core = packageText('@napplet/core', '0.42.0', 'dist/index.d.ts');
+    const cvmTypes = packageText('@napplet/nap', '0.41.0', 'dist/cvm/types.d.ts');
+    expect(core).toMatch(/type CvmRegistrySelector = \{\s+schemaHash: string;\s+family\?: string;\s+\} \| \{\s+family: string;\s+schemaHash\?: string;\s+\};/);
+    expect(interfaceBody(core, 'CvmRegistryEntry')).toContain('schemaHashes: string[];');
+    expect(interfaceBody(core, 'CvmRegistryEntry')).toContain('family?: string;');
+    expect(interfaceBody(core, 'CvmRegistryTool')).toContain('schemaHash: string;');
+    expect(interfaceBody(core, 'CvmRegistryOptions')).not.toContain('schemaHash');
+    for (const name of ['CvmRegistryHasMessage', 'CvmRegistryDescribeMessage', 'CvmRegistryCallMessage']) {
+      expect(interfaceBody(cvmTypes, name)).toContain('selector: CvmRegistrySelector;');
+      expect(interfaceBody(cvmTypes, name)).not.toMatch(/\bfamily\b\??:/);
+    }
+  });
+
   it('compiles and imports the released intent, resource, SDK, and convention-archetype Vite surfaces', async () => {
     const [intent, resourceApi, sdk, vite] = await Promise.all([
       importInstalled('@napplet/nap', '0.32.0', 'dist/intent/index.js'),
