@@ -17,6 +17,11 @@ synchronous `commit` callback. Hosts must retire the returned source on navigati
 or closure. Direct browser origins exclude `resource`; revoking a launch grant
 retires the frame. Browser direct traffic is not mediated or metered by the parent.
 
+Hosts can pass extension tables through `BrowserAdmissionRequest.bindings`.
+The prelude exposes bindings only for admitted domains; denied or unoffered
+domains stay absent, and built-in bindings cannot be replaced. Paja uses this
+path for its mocked interfaces.
+
 `createBrowserApprovalUi()` supplies a framework-free `<dialog>` prompt and a
 grant-management view. Pass `ui.prompt` into `ShellAdapter.permissions`, call
 `ui.reportStorageError` from the persistence error hook, and call `ui.refresh()`
@@ -286,6 +291,33 @@ for normative requirements, enforced recommendations and configurable defaults.
 - `createThemeProxy` — intercept `theme.get`; direct `emit()` is prohibited
 - `createKeysProxy` — intercept `keys.bind/unbind/bindings`
 - `createMediaProxy` — intercept `media.*` playback control
+
+### Table-driven domain bindings
+
+`prepareNappletSrcdoc`, `injectNappletNamespacePrelude`, and
+`renderNappletNamespacePrelude` accept `bindings`, a map from exposed domain to
+`NappletDomainBinding`. For a domain the prelude has no built-in binding for
+(anything outside `NAPPLET_PRELUDE_BUILT_IN_DOMAINS`), each `methods` row
+becomes `window.napplet.<domain>.<name>(...args)`, which works like this:
+
+- The positional arguments fill `params` as wire fields. The request goes over
+  the private NIP-5D port with a fresh `id`, unless the row sets `id: false`.
+- With `reply: true`, the method resolves with `<type>.result`'s `result` field,
+  or the payload minus `type`/`id` when no field is named. An `error` rejects
+  with an `Error` that keeps any `code`.
+- With `reply: false`, the method sends and resolves `undefined`.
+- `on(event, handler)` and the named `handlers` (`onState`, …) deliver the
+  listed pushes as `handler(payload, type)` and return `{ close() }`.
+
+Tables are validated on the host (`serializeDomainBindings`, which throws
+`TypeError`), only reach exposed domains, and are frozen and protected from
+napplet reassignment. Paja uses them for `@kehto/mocks`' generated
+`MOCK_NAPPLET_BINDINGS`.
+
+Spec-gap decision: NIP-5D leaves each domain's JavaScript shape to its NAP, and
+draft NAPs only fix the wire envelopes. Kehto treats the wire table as the
+contract. NAP operations that return handle objects, read local caches, or are
+local helpers have no table row, so they aren't bound.
 
 ### Protected identity and theme delivery
 

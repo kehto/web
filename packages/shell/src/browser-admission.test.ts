@@ -3,6 +3,26 @@ import type { ApprovalAnswer, ApprovalPrompt } from '@kehto/runtime';
 import type { ShellAdapter } from './index.js';
 import { createShellBridge } from './index.js';
 import { admitBrowserDocument } from './browser-admission.js';
+import type { NappletDomainBinding } from './napplet-domain-binding.js';
+
+function executePrelude(srcdoc: string) {
+  const posted: unknown[] = [];
+  const realm = {
+    napplet: undefined as Record<string, Record<string, unknown>> | undefined,
+    parent: { postMessage() {} },
+    MessageChannel: class {
+      port1 = { postMessage: (message: unknown) => posted.push(message), addEventListener() {}, start() {} };
+      port2 = {};
+    },
+    crypto: { randomUUID: () => 'request-1' },
+    addEventListener() {},
+    removeEventListener() {},
+    document: { addEventListener() {}, removeEventListener() {} },
+  };
+  const source = srcdoc.match(/<script data-kehto-nip5d-injection>([\s\S]*?)<\/script>/)![1]!;
+  new Function('window', source)(realm);
+  return { namespace: realm.napplet!, posted };
+}
 
 function fixture(prompt: (prompt: ApprovalPrompt) => Promise<ApprovalAnswer> = async () => ({ effect: 'allow', lifetime: 'session' })) {
   const ask = vi.fn(prompt);
@@ -47,6 +67,31 @@ function fixture(prompt: (prompt: ApprovalPrompt) => Promise<ApprovalAnswer> = a
 }
 
 describe('shared browser admission transaction', () => {
+  it.each([true, false])('keeps extension bindings behind interface approval (allowed=%s)', async (allowed) => {
+    // NAP-LOCATION #125 @ 24d2039c: result-less subscription with no request id.
+    const location: NappletDomainBinding = {
+      methods: { subscribe: { type: 'location.subscribe', params: ['highAccuracy'], reply: false, id: false } },
+    };
+    const f = fixture(async () => ({ effect: allowed ? 'allow' : 'deny', lifetime: 'session' }));
+    const result = await admitBrowserDocument({
+      ...f.options, available: ['location'], required: [], optional: ['location'],
+      bindings: { location, torrent: { methods: { jobs: { type: 'torrent.jobs', params: [], reply: true } } } },
+    });
+    expect(result.status).toBe('committed');
+    if (result.status !== 'committed') throw new Error('admission failed');
+    const { namespace, posted } = executePrelude(f.commit.mock.calls[0][0] as string);
+    expect('torrent' in namespace).toBe(false);
+    expect('location' in namespace).toBe(allowed);
+    if (allowed) {
+      await (namespace.location!.subscribe as (highAccuracy: boolean) => Promise<void>)(true);
+      expect(posted).toEqual([{ type: 'location.subscribe', highAccuracy: true }]);
+    } else {
+      expect(posted).toEqual([]);
+    }
+    result.retire();
+    f.runtime.destroy();
+  });
+
   it('holds executable bytes until one current launch decision commits exact namespace and CSP', async () => {
     let answer!: (value: ApprovalAnswer) => void;
     let shown!: () => void;

@@ -1,3 +1,4 @@
+import { PAJA_MOCKED_DOMAINS, type PajaMockedDomain } from './mocked-domains.js';
 import { normalizePajaMultiplayer, type PajaMultiplayerConfig } from './multiplayer-config.js';
 
 /** JSON primitive accepted in Paja simulation config values. */
@@ -7,8 +8,9 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { readonly [key: string]: 
 /** JSON object used for Paja simulation fixtures and config/theme values. */
 export type JsonRecord = Record<string, JsonValue>;
 
-/** Capability domain names Paja can advertise or disable. */
+/** Capability domain names Paja can advertise or disable; mocked domains come last. */
 export type PajaCapabilityDomain =
+  | PajaMockedDomain
   | 'shell'
   | 'gamepad'
   | 'relay'
@@ -186,6 +188,7 @@ export const PAJA_SIMULATION_DOMAINS: readonly PajaCapabilityDomain[] = [
   'cvm',
   'inc',
   'llm',
+  ...PAJA_MOCKED_DOMAINS,
 ];
 
 const DEFAULT_RELAY_URLS = [

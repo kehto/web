@@ -45,6 +45,7 @@ Workspace dependencies: `@kehto/runtime` (ServiceHandler contract) and
 | Determinism | `createSeededRng`, `hashLabel`, `mockHex`, `mockPubkey`, `mockEventId`, `mockSignature` |
 | Fixtures | `MOCK_ACCOUNTS`, `MOCK_EVENTS`, `MOCK_RELAYS`, `MOCK_RELAY_URLS`, `buildMockEvent`, `queryNostrEvents`, `matchesNostrFilter`, `LINUX_DISTROS`, `findLinuxDistro`, `searchLinuxDistros` |
 | Domain factories | `createMock<Domain>Service` per wire domain (table below), `createMockStatePersistence` for storage |
+| Napplet bindings | `MOCK_NAPPLET_BINDINGS`, `MockNappletBinding`, `MockNappletBindingMethod` |
 | Types | `MockService`, `MockServiceOptions`, `MockControls`, `MockDomainEntry`, `MockDomainKind`, `NapSpecRef`, `MockClock`, `MockScheduler`, `MockRouteContext`, `MockServiceDefinition`, per-domain `Mock<Domain>State` / `Mock<Domain>Options` / `Mock<Domain>Service` |
 
 ## Usage
@@ -130,6 +131,34 @@ Kinds: `service` is routed by the runtime's built-in dispatcher to
 
 Transfer-oriented mocks (torrent, nzb, soulseek, resource, upload, fs, blossom,
 hashtree, git) model Linux distribution images only.
+
+## Napplet bindings
+
+`MOCK_NAPPLET_BINDINGS` maps every `extension` mock to a napplet-facing table
+that `@kehto/shell`'s prelude turns into `window.napplet.<domain>` methods
+(`prepareNappletSrcdoc(html, { domains, bindings: MOCK_NAPPLET_BINDINGS })`).
+`scripts/generate-napplet-bindings.mjs` derives the tables from each NAP's API
+Surface and Wire Protocol tables at the ref the mock records:
+
+- Each napplet → host wire row becomes a method, named after the API operation
+  that maps to it, or after the wire action.
+- Arguments are that request's wire fields in table order.
+- A method waits for `<type>.result` unless the table has none, and resolves
+  with the single listed result field, or the payload when there are several.
+- Host → napplet rows become `on(event)` pushes. "handler for" rows become
+  named handlers such as `onState`.
+- API rows with no wire message (local caches, local helpers) are listed in
+  `gaps` and aren't bound.
+
+```bash
+pnpm --filter @kehto/mocks build
+pnpm --filter @kehto/mocks bindings:generate   # needs `gh`; --docs DIR reads local copies
+pnpm --filter @kehto/mocks bindings:check      # exit 1 when the committed file is stale
+```
+
+`tests/napplet-bindings.test.ts` checks that every table binds exactly the
+routes its mock answers, lists only pushes the mock may send, and carries the
+mock's spec sha.
 
 ## Scope Boundaries
 

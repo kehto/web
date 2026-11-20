@@ -16,6 +16,7 @@ import { browserPickers } from './browser-fs-support.js';
 import type { PajaSignerState } from './browser-signers.js';
 import { getTargetIdentity } from './browser-target-frame.js';
 import type { PajaRuntimeTarget } from './local-target.js';
+import { PAJA_MOCKED_MARK, isPajaMockedDomain } from './mocked-domains.js';
 import {
   PAJA_SIMULATION_DOMAINS,
   type PajaCapabilityDomain,
@@ -316,10 +317,12 @@ function renderInterfaceControls(state: PajaDevtoolsState): void {
     button.dataset.interfaceDomain = domain;
     button.dataset.enabled = String(enabled);
     button.dataset.state = domainState;
-    button.textContent = unconfigured ? `\u26a0 ${domain}` : domain;
+    const mocked = isPajaMockedDomain(domain);
+    if (mocked) button.dataset.mocked = 'true';
+    button.textContent = unconfigured ? `\u26a0 ${domain}` : mocked ? `${PAJA_MOCKED_MARK} ${domain}` : domain;
     button.title = unconfigured
       ? `${domain} injection enabled; no connection is configured yet. Add one in Language models, or click to disable the interface.`
-      : `${domain} injection ${enabled ? 'enabled' : 'disabled'}`;
+      : `${domain} injection ${enabled ? 'enabled' : 'disabled'}${mocked ? ' (mocked: @kehto/mocks fixture data)' : ''}`;
     button.addEventListener('click', () => {
       state.setDomainEnabled(domain, !domainEnabled(state.simulation, domain));
     });

@@ -27,6 +27,7 @@
   "dependencies": {
     "@kehto/acl": "workspace:^",
     "@kehto/firewall": "workspace:^",
+    "@kehto/mocks": "workspace:^",
     "@kehto/nip": "workspace:^",
     "@kehto/runtime": "workspace:^",
     "@kehto/services": "workspace:^",

@@ -162,6 +162,9 @@ importers:
       '@kehto/firewall':
         specifier: workspace:^
         version: link:../firewall
+      '@kehto/mocks':
+        specifier: workspace:^
+        version: link:../mocks
       '@kehto/nip':
         specifier: workspace:^
         version: link:../nip
