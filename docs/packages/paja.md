@@ -989,6 +989,7 @@ policy in their drafts (NAP-FS `bd1b9e9`, NAP-WEBRTC `fb4dd6f`, NAP-RESOURCE
 | `vault.pbkdf2Iterations` | PBKDF2 iterations for new vaults | 600000 | 600000–10000000 |
 | **Multiplayer providers** | | | |
 | `cvm.discoveryTimeoutMs` | Provider discovery timeout | 15000 ms | 1000–300000 |
+| `cvm.serverRequestTimeoutMs` | Server request answer window | 30000 ms | 1000–300000 |
 | `cvm.discoveryMaxBytes` | Maximum discovery document size | 1000000 bytes | 1024–67108864 |
 | `cvm.discoveryEventLimit` | Events per discovery query | 64 | 1–1000 |
 | `cvm.referenceMaxChars` | Maximum discovery input length | 2048 chars | 64–65536 |
@@ -1009,6 +1010,7 @@ policy in their drafts (NAP-FS `bd1b9e9`, NAP-WEBRTC `fb4dd6f`, NAP-RESOURCE
 | `target.runtimeWaitMs` | Pointer resolution relay deadline | 5000 ms | 250–300000 |
 | `target.failureReasonChars` | Characters per relay failure reason | 160 chars | 16–4096 |
 | `target.failureReasonCount` | Relay failure reasons shown | 3 | 1–50 |
+| `target.pointerReplacementLimit` | Replacement manifests offered for a gone nevent | 50 | 1–500 |
 | **Console and indicators** | | | |
 | `console.messageLogLimit` | Messages kept in the log | 500 | 10–100000 |
 | `console.messageLogVisibleRows` | Messages rendered in the log | 120 | 10–10000 |

@@ -36,6 +36,8 @@ const NOT_SETTINGS: Readonly<Record<string, { readonly values: readonly number[]
   'browser-llm-vault.ts': { values: [12, 16, 256], reason: 'AES-GCM IV, PBKDF2 salt and AES key sizes; persisted vault format' },
   'browser-host-signer.ts': { values: [65_535], reason: 'NIP-01 kind range' },
   'browser-signer-consent.ts': { values: [65_535], reason: 'NIP-01 kind range' },
+  'runtime-pointer-replacements.ts': { values: [30_000, 40_000], reason: 'NIP-01 addressable kind range' },
+  'browser-pointer-offer.ts': { values: [1000, 16], reason: 'created_at conversion; presentation: ISO timestamp to the minute' },
   'browser-relay-policy.ts': {
     values: [10, 100, 127, 16, 168, 169, 172, 18, 19, 192, 198, 224, 254, 255, 31, 4, 64],
     reason: 'RFC 1918/6598/3927/2544 private and reserved IPv4 ranges',

@@ -5,6 +5,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { generateSecretKey } from 'nostr-tools/pure';
 import type { NostrEvent } from 'nostr-tools';
+import { neventEncode } from 'nostr-tools/nip19';
 import { setActivePajaSettings } from './settings.js';
 import { createPajaContactListLoader, type PajaRelayBackend } from './browser-relay-runtime.js';
 import { normalizePajaSimulation } from './simulation.js';
@@ -20,6 +21,9 @@ import { parseCvmDiscoveryInput } from './cvm-discovery.js';
 import { findRelativeAssetReferences } from './local-target.js';
 import { appendPajaMessageLog } from './browser-devtools.js';
 import { waitForTargetUrl } from './readiness.js';
+import { describePointerNotFound, tallyPointerRelayReasons } from './runtime-pointer-outcome.js';
+import { findPajaPointerReplacements } from './runtime-pointer-replacements.js';
+import type { PajaPointerRelayPool } from './runtime-resolver.js';
 
 class MemoryStorage implements Storage {
   private readonly map = new Map<string, string>();
@@ -135,6 +139,33 @@ describe('settings overrides reach their call sites', () => {
     expect(findRelativeAssetReferences(html)).toHaveLength(3);
     setActivePajaSettings({ 'target.maxReportedAssets': 2 });
     expect(findRelativeAssetReferences(html)).toEqual(['./a.js', './b.js']);
+  });
+
+  it('development target: bounds pointer-miss relay reasons by target.failureReason*', () => {
+    setActivePajaSettings({ 'target.failureReasonChars': 16, 'target.failureReasonCount': 1 });
+    const relays = ['wss://a.example', 'wss://b.example'];
+    const tally = tallyPointerRelayReasons(relays, ['connection failed: '.repeat(4), 'blocked: rate limited']);
+    expect(tally.failed.map((entry) => entry.reason)).toEqual(['connection faile', 'blocked: rate li']);
+    expect(describePointerNotFound('nevent', tally)).toContain('(wss://a.example: connection faile; +1 more)');
+  });
+
+  it('development target: caps nevent replacement lookups by target.pointerReplacementLimit and target.runtimeWaitMs', async () => {
+    setActivePajaSettings({ 'target.pointerReplacementLimit': 7, 'target.runtimeWaitMs': 1234 });
+    const filters: unknown[] = [];
+    const waits: number[] = [];
+    const pool: PajaPointerRelayPool = {
+      async querySync() { return []; },
+      subscribeManyEose(_relays, filter, params) {
+        filters.push(filter);
+        waits.push(params.maxWait ?? -1);
+        setTimeout(() => params.onclose(['closed automatically on eose']), 0);
+        return { close: () => undefined };
+      },
+    };
+    const nevent = neventEncode({ id: 'c'.repeat(64), author: 'd'.repeat(64), kind: 35129, relays: [] });
+    await findPajaPointerReplacements(nevent, { relays: ['wss://relay.example'], pool });
+    expect(filters).toEqual([expect.objectContaining({ limit: 7 })]);
+    expect(waits).toEqual([1234]);
   });
 
   it('console: trims the message log to console.messageLogLimit', () => {

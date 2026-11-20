@@ -149,6 +149,7 @@ export const PAJA_SETTING_DEFINITIONS = Object.freeze([
   ]),
   ...define('Multiplayer providers', 'browser', [
     ['cvm.discoveryTimeoutMs', 'Provider discovery timeout', 15 * SECOND_MS, SECOND_MS, 5 * MINUTE_MS, 'ms'],
+    ['cvm.serverRequestTimeoutMs', 'Server request answer window', 30 * SECOND_MS, SECOND_MS, 5 * MINUTE_MS, 'ms'],
     ['cvm.discoveryMaxBytes', 'Maximum discovery document size', 1_000_000, KIB, 64 * MIB, 'bytes'],
     ['cvm.discoveryEventLimit', 'Events per discovery query', 64, 1, 1000, 'count'],
     ['cvm.referenceMaxChars', 'Maximum discovery input length', 2048, 64, 64 * KIB, 'chars'],
@@ -170,6 +171,7 @@ export const PAJA_SETTING_DEFINITIONS = Object.freeze([
     ['target.runtimeWaitMs', 'Pointer resolution relay deadline', 5 * SECOND_MS, 250, 5 * MINUTE_MS, 'ms'],
     ['target.failureReasonChars', 'Characters per relay failure reason', 160, 16, 4096, 'chars'],
     ['target.failureReasonCount', 'Relay failure reasons shown', 3, 1, 50, 'count'],
+    ['target.pointerReplacementLimit', 'Replacement manifests offered for a gone nevent', 50, 1, 500, 'count'],
   ]),
   ...define('Console and indicators', 'browser', [
     ['console.messageLogLimit', 'Messages kept in the log', 500, 10, 100_000, 'count'],

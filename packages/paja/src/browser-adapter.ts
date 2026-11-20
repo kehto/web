@@ -394,6 +394,7 @@ function createDevServices(
       const service = createCvmService({
         registry,
         concurrency: getSimulation().cvm.concurrency,
+        serverRequestTimeoutMs: getPajaSetting('cvm.serverRequestTimeoutMs'),
         transport: createNostrCvmTransport({
           defaultRelays: relayConfig.allRelays, pool: createPajaCvmRelayPool(relay),
           clientInfo: { name: '@kehto/paja', version: '0.11.0' },
