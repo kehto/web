@@ -253,8 +253,10 @@ export function createShellBridge(hooks: ShellAdapter): ShellBridge {
     domain: 'identity' | 'theme',
     capability: 'identity:read' | 'theme:read',
   ): void {
-    // A session exists only after shell.ready. Iterate entries, not a pubkey
-    // lookup, because different live windows may legitimately share pubkey ''.
+    // A session exists from the window's first valid napplet.hello, so a
+    // napplet that never sends anything still receives pushes. Iterate entries,
+    // not a pubkey lookup, because different live windows may legitimately
+    // share pubkey ''.
     for (const entry of runtime.sessionRegistry.getAllEntries()) {
       const environment = shellReadyState.environments.get(entry.windowId);
       if (!environment?.capabilities.domains.includes(domain)) continue;
