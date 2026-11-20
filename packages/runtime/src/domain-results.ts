@@ -105,12 +105,10 @@ export function createIntentPolicyDenial(
   if (message.type === 'intent.invoke') {
     return createIntentInvokeRejection(message, 'invoke rejected');
   }
+  // NAP-INTENT master @ 377bf939 requires `availability` / `handlers` beside
+  // `error?` (kehto/web#518), so the denial carries the empty record too.
   if (message.type === 'intent.available' || message.type === 'intent.handlers') {
-    return {
-      type: `${message.type}.result`,
-      id,
-      error: 'intent request denied',
-    } as NappletMessage;
+    return { ...createIntentServiceUnavailableResult(message), error: 'intent request denied' } as NappletMessage;
   }
   return undefined;
 }

@@ -367,7 +367,10 @@ export function createMockIntentService(options: MockIntentOptions = {}): MockIn
       'intent.invoke': (context) => { context.state.seen.add(context.windowId); handleInvoke(context, base); },
       'intent.available': ({ message, windowId, state, reply }) => {
         state.seen.add(windowId);
-        if (typeof message.archetype !== 'string' || message.archetype.length === 0) return reply({ error: 'invalid archetype' });
+        // NAP-INTENT master @ 377bf939: `availability` is required beside `error`? (kehto/web#518).
+        if (typeof message.archetype !== 'string' || message.archetype.length === 0) {
+          return reply({ availability: { archetype: '', available: false, candidates: [], hasDefault: false }, error: 'invalid archetype' });
+        }
         reply({ availability: mockIntentAvailability(state.napplets, message.archetype, state.defaults) });
       },
       'intent.handlers': ({ windowId, state, reply }) => {

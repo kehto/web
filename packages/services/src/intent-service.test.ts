@@ -65,4 +65,31 @@ describe('createIntentService', () => {
     await flush();
     expect(sent).toEqual([{ type: 'intent.invoke.result', id: 'sync', result: { ok: false, error: 'invoke rejected' } }]);
   });
+
+  // kehto/web#518: NAP-INTENT master @ 377bf939 wire table: `intent.available.result`
+  // is `id`, `availability`, `error`?; `intent.handlers.result` is `id`, `handlers`, `error`?.
+  it('keeps the required availability and handlers fields on every failure', async () => {
+    const service = createIntentService({
+      resolveSender: () => 'source',
+      resolver: {
+        invoke: async () => ({ ok: false as const, error: 'no handler' }),
+        available: () => { throw new Error('catalog down'); },
+        handlers: async () => { throw new Error('catalog down'); },
+      },
+    });
+    const sent: NappletMessage[] = [];
+    const send = (message: NappletMessage) => sent.push(message);
+    service.handleMessage('w', { type: 'intent.available', id: 'a0' } as NappletMessage, send);
+    service.handleMessage('w', { type: 'intent.available', id: 'a1', archetype: 7 } as unknown as NappletMessage, send);
+    service.handleMessage('w', { type: 'intent.available', id: 'a2', archetype: 'profile' } as NappletMessage, send);
+    service.handleMessage('w', { type: 'intent.handlers', id: 'h1' } as NappletMessage, send);
+    await flush();
+    const empty = (archetype: string) => ({ archetype, available: false, candidates: [], hasDefault: false });
+    expect(sent).toEqual([
+      { type: 'intent.available.result', id: 'a0', availability: empty(''), error: 'invalid archetype' },
+      { type: 'intent.available.result', id: 'a1', availability: empty(''), error: 'invalid archetype' },
+      { type: 'intent.available.result', id: 'a2', availability: empty('profile'), error: 'catalog unavailable' },
+      { type: 'intent.handlers.result', id: 'h1', handlers: [], error: 'catalog unavailable' },
+    ]);
+  });
 });

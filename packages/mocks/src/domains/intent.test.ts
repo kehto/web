@@ -68,7 +68,7 @@ describe('createMockIntentService', () => {
     service.handleMessage('w1', { type: 'intent.handlers', id: 'h1' } as NappletMessage, send);
     expect(sent[0]).toEqual({ type: 'intent.available.result', id: 'a1', availability: { archetype: 'profile', available: true, candidates: [PROFILE_CANDIDATE], hasDefault: false } });
     expect(sent[1]).toEqual({ type: 'intent.available.result', id: 'a2', availability: { archetype: 'emoji-list', available: false, candidates: [], hasDefault: false } });
-    expect(sent[2]).toEqual({ type: 'intent.available.result', id: 'a3', error: 'invalid archetype' });
+    expect(sent[2]).toEqual({ type: 'intent.available.result', id: 'a3', availability: { archetype: '', available: false, candidates: [], hasDefault: false }, error: 'invalid archetype' });
     expect(sent[3]).toMatchObject({ type: 'intent.handlers.result', id: 'h1' });
     const handlers = (sent[3] as unknown as { handlers: Array<{ archetype: string; hasDefault: boolean; candidates: Array<{ id: string; isDefault: boolean; actions: string[] }> }> }).handlers;
     expect(handlers.map((h) => h.archetype)).toEqual(['profile', 'note', 'feed']);
