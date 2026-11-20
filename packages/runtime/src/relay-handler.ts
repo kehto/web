@@ -128,7 +128,7 @@ function handleRelaySubscribe(
   msg: NappletMessage,
   m: RuntimeRelayMessage,
 ): void {
-  const { eventBuffer, hooks, subscriptions } = context;
+  const { eventBuffer, hooks } = context;
   const subId = m.subId ?? '';
   const filters = m.filters ?? [];
   if (!subId) return;
@@ -153,12 +153,8 @@ function handleRelaySubscribe(
     let opened: object | undefined;
     void authorizeRelay(context, windowId, 'relay.subscribe', plan, (signal) => {
       if (signal.aborted) return;
-      const entry = { windowId, filters };
-      subscriptions.set(subKey, opened = entry);
-      const isActive = (): boolean => !signal.aborted && subscriptions.get(subKey) === entry && context.canReadRelay(windowId);
-      const send = (response: NappletMessage): void => {
-        if (isActive()) hooks.sendToNapplet(windowId, normalizeRelayServiceResponse(response));
-      };
+      const { entry, isActive, send } = openSubscriptionEntry(context, windowId, subKey, filters, signal);
+      opened = entry;
       const seenIds = new Set<string>();
       const deliver = (event: NostrEvent, relayHints?: string[]): void => {
         if (!isActive() || seenIds.has(event.id)) return;
@@ -169,11 +165,7 @@ function handleRelaySubscribe(
         if (matchesAnyFilter(bufferedEvent, filters)) deliver(bufferedEvent);
       }
       relayService.executeRelayOperation(windowId, msg, plan, signal, send);
-      signal.addEventListener('abort', () => {
-        if (subscriptions.get(subKey) !== entry) return;
-        subscriptions.delete(subKey);
-        closeRelayBackends(context, windowId, subId, subKey);
-      }, { once: true });
+      retireOnAbort(context, signal, windowId, subId, entry);
       if (!isActive()) closeRelayBackends(context, windowId, subId, subKey);
     }).catch((error: unknown) => closeFailedSubscription(context, windowId, subId, opened, error));
     return;
@@ -196,12 +188,8 @@ function handleRelaySubscribe(
   let opened: object | undefined;
   void authorizeRelay(context, windowId, 'relay.subscribe', plan, (signal) => {
     if (signal.aborted) return;
-    const entry = { windowId, filters };
-    subscriptions.set(subKey, opened = entry);
-    const isActive = (): boolean => !signal.aborted && subscriptions.get(subKey) === entry && context.canReadRelay(windowId);
-    const send = (response: NappletMessage): void => {
-      if (isActive()) hooks.sendToNapplet(windowId, normalizeRelayServiceResponse(response));
-    };
+    const { entry, isActive, send } = openSubscriptionEntry(context, windowId, subKey, filters, signal);
+    opened = entry;
     const seenIds = new Set<string>();
     const deliver = (event: NostrEvent, relayHints?: string[]): void => {
       if (seenIds.has(event.id)) return;
@@ -212,12 +200,29 @@ function handleRelaySubscribe(
       if (matchesAnyFilter(bufferedEvent, filters)) deliver(bufferedEvent);
     }
     deliverFromRuntimeBackends(context, subId, subKey, filters, isShellKind, deliver, send, isActive, plan.relayUrls);
-    signal.addEventListener('abort', () => {
-      if (subscriptions.get(subKey) !== entry) return;
-      subscriptions.delete(subKey);
-      closeRelayBackends(context, windowId, subId, subKey);
-    }, { once: true });
+    retireOnAbort(context, signal, windowId, subId, entry);
   }).catch((error: unknown) => closeFailedSubscription(context, windowId, subId, opened, error));
+}
+
+/** Register one approved subscription and gate its delivery on that registration. */
+function openSubscriptionEntry(context: RelayHandlerContext, windowId: string, subKey: string, filters: NostrFilter[], signal: ApprovalSignal) {
+  const entry: SubscriptionEntry = { windowId, filters };
+  context.subscriptions.set(subKey, entry);
+  const isActive = (): boolean => !signal.aborted && context.subscriptions.get(subKey) === entry && context.canReadRelay(windowId);
+  const send = (response: NappletMessage): void => {
+    if (isActive()) context.hooks.sendToNapplet(windowId, normalizeRelayServiceResponse(response));
+  };
+  return { entry, isActive, send };
+}
+
+/** Retire `entry` and close its backends when the approval signal aborts. */
+function retireOnAbort(context: RelayHandlerContext, signal: ApprovalSignal, windowId: string, subId: string, entry: SubscriptionEntry): void {
+  const subKey = `${windowId}:${subId}`;
+  signal.addEventListener('abort', () => {
+    if (context.subscriptions.get(subKey) !== entry) return;
+    context.subscriptions.delete(subKey);
+    closeRelayBackends(context, windowId, subId, subKey);
+  }, { once: true });
 }
 
 /** Retire a subscription whose approval or transport failed after it opened, then say why. */
