@@ -123,7 +123,8 @@ function referenceHost(): Host {
 function mockHost(): Host {
   // The mock's loopback peer echoes what the napplet sends one scheduler tick
   // later. The reference service has no loopback, so the echo is held back
-  // (never scheduled) and only what a real peer sends is compared.
+  // (never scheduled) and only what a real peer sends is compared. The only
+  // other scheduled work in the mock, auto-answer, is already off here.
   const mock = createMockWebrtcService({ autoAnswer: false, scheduler: { schedule: () => () => undefined } });
   const { sent, send, reply, closedEvents, bytesEvents } = recorder();
   return {
