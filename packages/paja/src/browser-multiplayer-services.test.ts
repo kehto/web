@@ -31,3 +31,21 @@ describe('createPajaMultiplayerServices unknown types', () => {
     warn.mockRestore();
   });
 });
+
+// kehto/web#507. NAP-WEBRTC (napplet/naps#59 @ fb4dd6f0): "A shell that does
+// not support byte payloads returns the error `unsupported`." The documented
+// soy-rtc/1 profile carries JSON only (docs/paja-multiplayer.md), so its
+// `webrtc.sendBytes` stays on the hookless base service and answers that.
+describe('createPajaMultiplayerServices byte payloads', () => {
+  it('answers webrtc.sendBytes with unsupported and never reaches a backend', () => {
+    const { webrtc } = createPajaMultiplayerServices({
+      config: { relays: [] } as unknown as PajaMultiplayerConfig,
+      scopeKey: () => 'scope',
+      namespace: () => undefined,
+      backend: () => { throw new Error('sendBytes must not need a backend'); },
+    });
+    const sent: NappletMessage[] = [];
+    webrtc.handleMessage('w1', { type: 'webrtc.sendBytes', id: 'b1', sessionId: 's1', bytes: 'AAEC/w==' } as NappletMessage, (message) => sent.push(message));
+    expect(sent).toEqual([{ type: 'webrtc.sendBytes.result', id: 'b1', error: 'unsupported' }]);
+  });
+});

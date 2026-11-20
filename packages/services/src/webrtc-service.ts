@@ -3,7 +3,8 @@ import type { NappletMessage, WebrtcEvent, WebrtcOpenRequest, WebrtcOpenResult }
 import type { WebrtcCloseMessage, WebrtcOpenMessage, WebrtcSendBytesMessage, WebrtcSendMessage } from '@napplet/nap/webrtc/types';
 import { createUnrecognizedTypeDiagnostic } from '@kehto/runtime';
 import type { ApprovalSignal, PermissionRequirement, ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
-import { createWebrtcSessions, type Opening } from './webrtc-sessions.js';
+import { decodeWebrtcBytes } from './webrtc-bytes.js';
+import { createWebrtcSessions, type Opening, type SessionEntry } from './webrtc-sessions.js';
 
 const WEBRTC_SERVICE_VERSION = '1.0.0';
 
@@ -32,6 +33,13 @@ export interface WebrtcServiceOptions {
   /** Host-owned peer setup, called only under the approved plan. */
   open?: (request: WebrtcOpenRequest, context: WebrtcServiceContext, plan: WebrtcOpenPlan) => WebrtcOpenResult | Promise<WebrtcOpenResult>;
   send?: (sessionId: string, payload: unknown, context: WebrtcServiceContext) => void | Promise<void>;
+  /**
+   * Send one decoded byte sequence as a single binary payload (NAP-WEBRTC
+   * `sendBytes`). The service has already rejected non-canonical base64 and
+   * payloads over the session's `maxPayloadBytes`; the hook must never send
+   * the base64 text. Without this hook `webrtc.sendBytes` answers `unsupported`.
+   */
+  sendBytes?: (sessionId: string, bytes: Uint8Array, context: WebrtcServiceContext) => void | Promise<void>;
   close?: (sessionId: string, reason: string | undefined, context: WebrtcServiceContext) => void | Promise<void>;
   /** Physically stop peer and signaling work when authorization is revoked. */
   revokeWindow?: (windowId: string) => void;
@@ -39,6 +47,12 @@ export interface WebrtcServiceOptions {
 }
 
 type Send = (msg: NappletMessage) => void;
+type SessionMessage = WebrtcSendMessage | WebrtcSendBytesMessage | WebrtcCloseMessage;
+type SessionCall = () => void | Promise<void>;
+
+const RESULT_TYPES: Readonly<Record<SessionMessage['type'], string>> = {
+  'webrtc.send': 'webrtc.send.result', 'webrtc.sendBytes': 'webrtc.sendBytes.result', 'webrtc.close': 'webrtc.close.result',
+};
 
 const WEBRTC_DESCRIPTOR: ServiceDescriptor = {
   name: 'webrtc', version: WEBRTC_SERVICE_VERSION,
@@ -83,6 +97,38 @@ function normalizePlan(candidate: WebrtcOpenPlan): { plan: WebrtcOpenPlan; requi
   ] };
 }
 
+/** A reported `maxPayloadBytes`, when it is an unsigned integer. */
+function payloadLimit(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : undefined;
+}
+
+/** UTF-8 length of the serialized `send` payload, or `undefined` when it does not serialize (the host reports that). */
+function serializedSize(payload: unknown): number | undefined {
+  try {
+    const json = JSON.stringify(payload);
+    return json === undefined ? undefined : new TextEncoder().encode(json).byteLength;
+  } catch { return undefined; }
+}
+
+/**
+ * The host call for one session request, or the NAP error it fails with
+ * before reaching the host. NAP-WEBRTC #59 @ fb4dd6f0, Limits: `maxPayloadBytes`
+ * "counts decoded bytes for `sendBytes` and serialized payload bytes for
+ * `send`. A larger payload fails with "payload too large"." Byte payloads:
+ * "Receivers MUST reject non-canonical encodings" (`invalid request`, as the
+ * `@kehto/mocks` mock answers).
+ */
+function sessionCall(options: WebrtcServiceOptions, message: SessionMessage, entry: SessionEntry, context: WebrtcServiceContext): SessionCall | string {
+  const tooLarge = (size: number | undefined): boolean => entry.maxPayloadBytes !== undefined && size !== undefined && size > entry.maxPayloadBytes;
+  if (message.type === 'webrtc.close') return () => options.close!(message.sessionId, message.reason, context);
+  if (message.type === 'webrtc.send') {
+    return tooLarge(serializedSize(message.payload)) ? 'payload too large' : () => options.send!(message.sessionId, message.payload, context);
+  }
+  const bytes = decodeWebrtcBytes(message.bytes);
+  if (!bytes) return 'invalid request';
+  return tooLarge(bytes.byteLength) ? 'payload too large' : () => options.sendBytes!(message.sessionId, bytes, context);
+}
+
 /**
  * Create the NAP-WEBRTC reference service.
  *
@@ -96,6 +142,8 @@ export function createWebrtcService(options: WebrtcServiceOptions = {}): Service
   const contextFor = (windowId: string, send: Send, generation: object, signal?: ApprovalSignal, opening?: Opening): WebrtcServiceContext => ({
     windowId, ...(signal ? { signal } : {}),
     emit(event) {
+      // Backends hand over peer bytes already encoded; non-canonical text never reaches the napplet.
+      if (event?.type === 'bytes' && decodeWebrtcBytes(event.bytes) === undefined) return;
       if (current(windowId, generation, signal)) deliver(event, windowId, generation, send, opening);
     },
   });
@@ -133,7 +181,8 @@ export function createWebrtcService(options: WebrtcServiceOptions = {}): Service
       // A session the backend already ended while opening is reported closed
       // right after its result, and never kept.
       if (opening.closed?.sessionId === outcome.value.session.id) { send({ type: 'webrtc.event', event: opening.closed } as NappletMessage); return; }
-      sessions.set(outcome.value.session.id, { windowId, generation, send });
+      const maxPayloadBytes = payloadLimit(outcome.value.session.maxPayloadBytes);
+      sessions.set(outcome.value.session.id, { windowId, generation, send, ...(maxPayloadBytes === undefined ? {} : { maxPayloadBytes }) });
     }).catch((error) => {
       opening.active = false;
       if (current(windowId, generation)) send({ type: 'webrtc.open.result', id, error: errorMessage(error, 'webrtc request failed') } as NappletMessage);
@@ -141,18 +190,17 @@ export function createWebrtcService(options: WebrtcServiceOptions = {}): Service
     });
   }
 
-  function sessionAction(windowId: string, message: WebrtcSendMessage | WebrtcCloseMessage, send: Send): void {
+  function sessionAction(windowId: string, message: SessionMessage, send: Send): void {
     const id = message.id ?? '';
     const closing = message.type === 'webrtc.close';
-    const resultType = closing ? 'webrtc.close.result' : 'webrtc.send.result';
+    const resultType = RESULT_TYPES[message.type];
     const entry = sessions.get(message.sessionId);
     if (!entry || entry.windowId !== windowId || !current(windowId, entry.generation)) { send({ type: resultType, id, error: 'session not found' } as NappletMessage); return; }
     const context = contextFor(windowId, send, entry.generation);
-    const hook = closing ? options.close : options.send;
+    const hook = closing ? options.close : message.type === 'webrtc.send' ? options.send : options.sendBytes;
     if (!hook) { send(unsupported(resultType, id)); return; }
-    const call = () => closing
-      ? options.close!(message.sessionId, (message as WebrtcCloseMessage).reason, context)
-      : options.send!(message.sessionId, (message as WebrtcSendMessage).payload, context);
+    const call = sessionCall(options, message, entry, context);
+    if (typeof call === 'string') { send({ type: resultType, id, error: call } as NappletMessage); return; }
     // A closing session leaves delivery before transport teardown starts, so
     // teardown notifications and late peer events for it are dropped.
     const pending = { endedByBackend: false };
@@ -181,13 +229,15 @@ export function createWebrtcService(options: WebrtcServiceOptions = {}): Service
     onCapabilityRevoked(windowId, capability) { if (capability === null) revoke(windowId); },
     handleMessage(windowId, message, send) {
       if (message.type === 'webrtc.open') { open(windowId, message as WebrtcOpenMessage, send); return; }
-      if (message.type === 'webrtc.send' || message.type === 'webrtc.close') { sessionAction(windowId, message as WebrtcSendMessage | WebrtcCloseMessage, send); return; }
+      if (message.type === 'webrtc.send' || message.type === 'webrtc.close') { sessionAction(windowId, message as SessionMessage, send); return; }
       // NAP-WEBRTC #59 @ fb4dd6f0: "A shell that does not support byte payloads
-      // returns the error `unsupported`". It defines `stats` only as a pushed
-      // event, so a `webrtc.stats` request is unrecognized like any other type
-      // and, per NIP-5D (nips#2303 @ f60550c3), gets no reply.
+      // returns the error `unsupported`": a host without a `sendBytes` hook.
+      // It defines `stats` only as a pushed event, so a `webrtc.stats` request
+      // is unrecognized like any other type and, per NIP-5D
+      // (nips#2303 @ f60550c3), gets no reply.
       if (message.type === 'webrtc.sendBytes') {
-        send({ type: 'webrtc.sendBytes.result', id: (message as Partial<WebrtcSendBytesMessage>).id ?? '', error: 'unsupported' } as NappletMessage);
+        if (options.sendBytes) sessionAction(windowId, message as WebrtcSendBytesMessage, send);
+        else send({ type: 'webrtc.sendBytes.result', id: (message as Partial<WebrtcSendBytesMessage>).id ?? '', error: 'unsupported' } as NappletMessage);
         return;
       }
       ignoreUnrecognized('webrtc', message.type);

@@ -187,8 +187,12 @@ NIP-44 signer. An explicitly configured multiplayer profile instead uses an
 isolated temporary key shared with that window’s CVM transport. Paja owns the
 `RTCPeerConnection` and data channels, uses signed kind-25050 Nostr events for
 encrypted offer/answer signaling, and asks for explicit session consent with a
-network-metadata warning. Napplets receive only NAP session/events and JSON data
-channel payloads—never SDP, ICE state, relay sockets, or peer-connection objects.
+network-metadata warning. Napplets receive only NAP session/events and data
+channel payloads: JSON `send` payloads as `message` events and `sendBytes`
+payloads, sent as one binary data-channel message, as `bytes` events. Sessions
+report `maxPayloadBytes` from the `webrtc.maxPayloadBytes` setting (default 64 KiB). The `soy-rtc/1` multiplayer profile stays
+JSON-only and answers `sendBytes` with `unsupported`. Napplets never see SDP,
+ICE state, relay sockets, or peer-connection objects.
 Connecting or disconnecting a signer updates the runtime's service registration
 before the replacement iframe loads, so an advertised WebRTC domain can answer requests.
 The default signaling implementation tracks pinned

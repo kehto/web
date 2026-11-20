@@ -898,12 +898,20 @@ callers should generate fresh IDs because older completed entries are evicted.
 
 WebRTC plans declare every configured ICE endpoint before approval. The reference
 handler requests typed `network`/`ice` scopes; it invokes no peer hook on denial.
-Synchronous send failures return the matching result ID. `sendBytes` currently
-returns `unsupported`, as NAP-WEBRTC requires of a shell without byte payloads, so
-the shell's injected `window.napplet.webrtc.sendBytes` (which `@napplet/nap`
-0.43's `webrtcSendBytes` calls) rejects with `unsupported`. A
-`stats` request gets no reply, since NAP-WEBRTC defines `stats` only as a pushed
-event.
+Synchronous send failures return the matching result ID. Byte payloads
+(NAP-WEBRTC #59 `fb4dd6f0`) need a `sendBytes(sessionId, bytes, context)` hook,
+which receives the decoded `Uint8Array` and must send it as one binary payload,
+never as base64 text. Before the hook runs, the service rejects non-canonical
+padded base64 with `invalid request` and anything over the session's reported
+`maxPayloadBytes` with `payload too large`. The limit counts decoded bytes for
+`sendBytes` and serialized JSON bytes for `send`, and it applies only when the
+open result reports `maxPayloadBytes`. A host emits peer bytes as
+`{ type: 'bytes', sessionId, from, bytes }` with `encodeWebrtcBytes`; the service
+drops a `bytes` event whose text is not canonical. Without the hook,
+`webrtc.sendBytes` answers `unsupported`, as NAP-WEBRTC requires of a shell
+without byte payloads. `encodeWebrtcBytes` / `decodeWebrtcBytes` are exported
+for hosts. A `stats` request gets no reply, since NAP-WEBRTC defines `stats`
+only as a pushed event.
 
 Every reference service drops a message whose type its NAP does not define,
 without a reply (NIP-5D), and warns the host once per domain/type through

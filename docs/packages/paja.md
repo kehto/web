@@ -588,7 +588,13 @@ profile also requires a connected NIP-44 signer; an explicitly configured
 multiplayer profile uses a temporary transport key instead. Paja owns peer connections and data channels, obtains
 explicit session consent, signs kind-25050 Nostr signaling, encrypts
 offer/answer SDP, and keeps application payloads exclusively on the data
-channel. Signer changes tear down sessions and synchronize runtime service
+channel. The default profile carries NAP-WEBRTC byte payloads: `sendBytes`
+goes out as one binary data-channel message, an incoming binary message
+becomes a `bytes` event, and text stays a JSON `message` event, with no
+conversion between them. Sessions report `maxPayloadBytes` from the `webrtc.maxPayloadBytes` setting (default 64 KiB); the
+`soy-rtc/1` multiplayer profile stays JSON-only and answers `sendBytes` with
+`unsupported`. `tests/e2e/paja-webrtc-bytes.spec.ts` runs two Paja hosts with
+their own signers over a real Chromium data channel. Signer changes tear down sessions and synchronize runtime service
 handlers. When `webrtc` appears or disappears, a frame that declared it gets a
 replacement iframe with the new environment (see the signer-change notes below);
 napplets never receive SDP, ICE internals, relay sockets, or browser networking

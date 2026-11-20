@@ -10,8 +10,11 @@ import type { NappletMessage, WebrtcEvent } from '@napplet/core';
 import type { ApprovalSignal } from '@kehto/runtime';
 
 type Send = (msg: NappletMessage) => void;
-/** A live session: its owner, the window lifetime that opened it, and where its events go. */
-type SessionEntry = { readonly windowId: string; readonly generation: object; readonly send: Send };
+/**
+ * A live session: its owner, the window lifetime that opened it, where its
+ * events go, and the `maxPayloadBytes` its open result reported.
+ */
+export type SessionEntry = { readonly windowId: string; readonly generation: object; readonly send: Send; readonly maxPayloadBytes?: number };
 /** One pending open: early `state` events pass, and a backend `closed` is held for after the result. */
 export type Opening = { active: boolean; closed?: WebrtcEvent };
 

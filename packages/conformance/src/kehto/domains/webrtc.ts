@@ -1,4 +1,4 @@
-import { createWebrtcService, type WebrtcServiceContext } from '@kehto/services';
+import { createWebrtcService, encodeWebrtcBytes, type WebrtcServiceContext } from '@kehto/services';
 import { createSessionTable } from './sessions.js';
 import type { DomainBackendModule } from './types.js';
 
@@ -18,7 +18,8 @@ function peerOf(request: OpenRequest): string {
  * Open plans name no relay or ICE endpoint, so approval covers only the
  * `webrtc` interface and the session resource. Sessions open immediately with
  * the lowest free `sess-<n>` id and the requested delivery semantics.
- * `webrtc.peerMessage` makes the authenticated peer of every session ever
+ * `webrtc.sendBytes` is supported, so the fixture's byte cases take the
+ * success path. `webrtc.peerMessage` makes the authenticated peer of every session ever
  * opened send a payload, as a late data-channel message racing a close would:
  * the shell "MUST NOT deliver messages for an unknown sessionId".
  * `webrtc.revoke` revokes every stored `webrtc` permission grant through the
@@ -29,7 +30,7 @@ export const WEBRTC_BACKEND: DomainBackendModule = {
   create() {
     const sessions = createSessionTable<WebrtcEvent>('sess');
     const peers = new Map<string, string>();
-    const sent: { sessionId: string; payload: unknown }[] = [];
+    const sent: ({ sessionId: string; payload: unknown } | { sessionId: string; bytes: string })[] = [];
     const service = createWebrtcService({
       planOpen: () => ({ signalingRelayUrls: [], iceEndpoints: [], resource: 'webrtc:conformance' }),
       open(rawRequest, context) {
@@ -47,6 +48,8 @@ export const WEBRTC_BACKEND: DomainBackendModule = {
         };
       },
       send(sessionId, payload) { sent.push({ sessionId, payload: structuredClone(payload) }); },
+      // Byte payloads are supported: the reference service hands over decoded bytes.
+      sendBytes(sessionId, bytes) { sent.push({ sessionId, bytes: encodeWebrtcBytes(bytes) }); },
       close(sessionId) { sessions.close(sessionId); },
       destroyWindow(windowId) { sessions.dropWindow(windowId); },
     });

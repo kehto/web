@@ -12,6 +12,7 @@ import type {
   WebrtcServiceOptions,
 } from '@kehto/services';
 import type { Signer } from '@kehto/runtime';
+import { encodeWebrtcBytes } from '@kehto/services';
 import { verifyEvent } from 'nostr-tools/pure';
 import type {
   PajaConfirmationHandler,
@@ -130,6 +131,7 @@ class BrowserWebrtcController implements PajaWebrtcController {
     planOpen: (request, context) => this.planOpen(request, context),
     open: (request, context, plan) => this.open(request, context, plan),
     send: (sessionId, payload, context) => this.send(sessionId, payload, context),
+    sendBytes: (sessionId, bytes, context) => this.sendBytes(sessionId, bytes, context),
     close: (sessionId, reason, context) => this.close(sessionId, reason, context),
     destroyWindow: (windowId) => this.destroyWindow(windowId),
     revokeWindow: (windowId) => this.revokeWindow(windowId),
@@ -245,22 +247,29 @@ class BrowserWebrtcController implements PajaWebrtcController {
         channel,
         ...(request.protocol ? { protocol: request.protocol } : {}),
         state: 'connecting',
+        maxPayloadBytes: getPajaSetting('webrtc.maxPayloadBytes'),
       },
     };
   }
 
   private send(sessionId: string, payload: unknown, context: WebrtcServiceContext): void {
-    const session = this.requireSession(sessionId, context.windowId);
-    if (session.state === 'closed') throw new Error('session closed');
+    const session = this.requireLiveSession(sessionId, context.windowId);
     const serialized = serializePayload(payload, this.encoder);
-    const channels = [...session.peers.values()]
-      .map((peer) => peer.channel)
-      .filter((channel): channel is RTCDataChannel => channel?.readyState === 'open');
-    if (channels.length === 0) throw new Error('peer unavailable');
-    for (const channel of channels) {
-      if (channel.bufferedAmount > getPajaSetting('webrtc.bufferedAmountLimitBytes')) throw new Error('peer unavailable');
-      channel.send(serialized);
-    }
+    for (const channel of openChannels(session)) channel.send(serialized);
+  }
+
+  /** NAP-WEBRTC `sendBytes`: the decoded bytes go out as one binary data-channel message, never as base64 text. */
+  private sendBytes(sessionId: string, bytes: Uint8Array, context: WebrtcServiceContext): void {
+    const session = this.requireLiveSession(sessionId, context.windowId);
+    if (bytes.byteLength > getPajaSetting('webrtc.maxPayloadBytes')) throw new Error('payload too large');
+    const payload = new Uint8Array(bytes);
+    for (const channel of openChannels(session)) channel.send(payload);
+  }
+
+  private requireLiveSession(sessionId: string, windowId: string): SessionState {
+    const session = this.requireSession(sessionId, windowId);
+    if (session.state === 'closed') throw new Error('session closed');
+    return session;
   }
 
   private async close(
@@ -388,6 +397,8 @@ class BrowserWebrtcController implements PajaWebrtcController {
 
   private attachChannel(session: SessionState, peer: PeerState, channel: RTCDataChannel): void {
     peer.channel = channel;
+    // Binary messages arrive as ArrayBuffer, so they can be told apart from JSON text.
+    channel.binaryType = 'arraybuffer';
     channel.addEventListener('open', () => {
       if (session.state === 'closed' || peer.joined) return;
       peer.joined = true;
@@ -398,6 +409,14 @@ class BrowserWebrtcController implements PajaWebrtcController {
       }
     });
     channel.addEventListener('message', (event) => {
+      // NAP-WEBRTC #59 @ fb4dd6f0: "A payload sent with `send` MUST be received
+      // as a `message` event. A payload sent with `sendBytes` MUST be received
+      // as a `bytes` event. The shell MUST NOT convert between them."
+      if (event.data instanceof ArrayBuffer) {
+        if (event.data.byteLength > getPajaSetting('webrtc.maxPayloadBytes')) return;
+        this.emit(session, { type: 'bytes', sessionId: session.id, from: peer.pubkey, bytes: encodeWebrtcBytes(new Uint8Array(event.data)) });
+        return;
+      }
       if (typeof event.data !== 'string' || this.encoder.encode(event.data).byteLength > getPajaSetting('webrtc.maxPayloadBytes')) return;
       try {
         const payload = JSON.parse(event.data) as unknown;
@@ -529,6 +548,15 @@ class BrowserWebrtcController implements PajaWebrtcController {
     for (const session of this.sessions.values()) if (session.windowId === windowId) count += 1;
     return count;
   }
+}
+
+/** Open data channels of every peer, or `peer unavailable` when none is open or any is backed up. */
+function openChannels(session: SessionState): RTCDataChannel[] {
+  const channels = [...session.peers.values()]
+    .map((peer) => peer.channel)
+    .filter((channel): channel is RTCDataChannel => channel?.readyState === 'open');
+  if (channels.length === 0 || channels.some((channel) => channel.bufferedAmount > getPajaSetting('webrtc.bufferedAmountLimitBytes'))) throw new Error('peer unavailable');
+  return channels;
 }
 
 function validateOpenRequest(request: WebrtcOpenRequest): void {
