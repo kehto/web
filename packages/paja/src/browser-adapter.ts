@@ -64,6 +64,7 @@ import { createPajaSocialCache } from './browser-social-cache.js';
 import { createPajaCommonBackend } from './browser-common.js';
 import { createPajaListsBackend } from './browser-lists.js';
 import { createPajaResourceFetch, PAJA_RESOURCE_PROXY_PATH, pajaResourceInfo } from './browser-resource.js';
+import { readPajaResourceProxyUrl } from './browser-resource-proxy-setting.js';
 import { createPajaWebrtcController } from './browser-webrtc.js';
 import { createPajaMultiplayerServices, PAJA_CVM_OPERATIONS } from './browser-multiplayer-services.js';
 import { mergeCvmFamilies, readCvmFamilies } from './cvm-family-store.js';
@@ -600,8 +601,8 @@ export function createPajaAdapter(
     notifyOptions,
     configOptions,
     signerSource,
-    // The static build has no server proxy: fetch directly and drop private destinations.
-    () => (config.runtime?.host === 'static' ? undefined : PAJA_RESOURCE_PROXY_PATH),
+    // The static build has no server proxy: use the user's saved or the host-configured standalone proxy.
+    () => (config.runtime?.host === 'static' ? readPajaResourceProxyUrl() ?? config.resource?.proxyUrl : PAJA_RESOURCE_PROXY_PATH),
   );
   const services = serviceBundle.services;
   // NAP-LLM is advertised whenever the host wiring exists; configuration state is

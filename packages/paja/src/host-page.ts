@@ -356,6 +356,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
           <button type="submit" id="paja-resource-servers-save">Save</button>
           <div id="paja-resource-servers-status" role="status" aria-live="polite"></div>
         </form>
+        ${config.runtime.host === 'static' ? renderResourceProxyForm() : ''}
         </div></details>
         <details class="section" id="paja-section-intent-handlers" data-paja-section="intent-handlers" open>
           <summary class="section-title">App handlers<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
@@ -585,6 +586,20 @@ function renderIntentLinkDialog(): string {
         </div>
       </div>
     </dialog>`;
+}
+
+/**
+ * Static builds can't make NAP-RESOURCE's DNS-time checks, so network images
+ * need a standalone proxy (`kehto paja resource-proxy`).
+ */
+function renderResourceProxyForm(): string {
+  return `<form class="resource-servers" id="paja-resource-proxy-form">
+          <label class="section-title" for="paja-resource-proxy-input">Resource proxy</label>
+          <input id="paja-resource-proxy-input" type="url" aria-describedby="paja-resource-proxy-help paja-resource-proxy-status" spellcheck="false">
+          <small id="paja-resource-proxy-help">Network images need a proxy that checks destinations (run <code>kehto paja resource-proxy</code>). It sees every resource URL. Leave empty to turn network images off.</small>
+          <button type="submit" id="paja-resource-proxy-save">Save</button>
+          <div id="paja-resource-proxy-status" role="status" aria-live="polite"></div>
+        </form>`;
 }
 
 function renderStage(config: PajaHostConfig, targetLabel: string): string {

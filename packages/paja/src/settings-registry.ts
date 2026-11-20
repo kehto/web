@@ -196,6 +196,7 @@ export const PAJA_SETTING_DEFINITIONS = Object.freeze([
     ['server.requestBodyMaxBytes', 'Maximum request body', 4 * KIB, 256, MIB, 'bytes'],
     ['server.resourceMaxBytes', 'Maximum proxied resource size', 10 * MIB, KIB, 512 * MIB, 'bytes'],
     ['server.resourceTimeoutMs', 'Proxied resource timeout', 30 * SECOND_MS, SECOND_MS, 10 * MINUTE_MS, 'ms'],
+    ['server.resourceProxyPreflightMaxAgeSeconds', 'Standalone resource proxy preflight cache', 10 * 60, 0, 24 * 60 * 60, 'seconds'],
     ['server.targetNoticeTimeoutMs', 'Target network notice timeout', 2 * SECOND_MS, 100, MINUTE_MS, 'ms'],
     ['server.discoveryGraceMs', 'Managed command URL discovery grace', SECOND_MS, 0, MINUTE_MS, 'ms'],
   ]),

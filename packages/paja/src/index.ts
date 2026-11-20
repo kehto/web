@@ -102,6 +102,8 @@ export { BrowserIntentController } from './browser-intent-controller.js';
 export { parsePajaIntentLink, createPajaIntentLink } from './intent-link.js';
 export { resolvePajaIntentLauncher, postPajaIntentLauncherMessage } from './intent-launcher.js';
 export { startPajaServer } from './server.js';
+export { normalizePajaProxyOrigin, startPajaResourceProxy } from './server-resource-proxy.js';
+export type { PajaResourceProxy, PajaResourceProxyOptions } from './server-resource-proxy.js';
 export {
   PAJA_LLM_CONNECTIONS_STORAGE_KEY,
   createPajaLlmConnectionStore,
