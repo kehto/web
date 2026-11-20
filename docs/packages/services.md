@@ -101,6 +101,14 @@ warns once per iframe on old string-family calls; see the compatibility register
   Correlation IDs and ping nonces use random bytes rather than per-ID key derivation. These policies follow [NAP-CVM #31 at
   `28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f`](https://github.com/napplet/naps/blob/28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f/naps/NAP-CVM.md)
   and [CEP-41](https://github.com/contextvm/contextvm-docs/blob/3b4f9dc9f9012a418abd9faec6a70db774754862/src/content/docs/reference/ceps/cep-41.md).
+- Default upload ids, browser media `media-resource-*` read ids, and CVM registry
+  JSON-RPC ids are secure UUID v4 values: native `crypto.randomUUID()`, or 16
+  `crypto.getRandomValues()` bytes where the browser omits it (non-localhost plain
+  HTTP), and an explicit error when neither exists. This is host identifier policy
+  with no wire change, and it does not make `crypto.subtle` paths (approval-scoped
+  uploads, the default HTTP uploader digest, CVM schema hashes) work on such
+  origins. The full per-identifier contract is in the
+  [shell package doc](https://github.com/kehto/web/blob/main/docs/packages/shell.md#uuid-support-on-http-origins).
 - Uploads belong to exact window IDs, including IDs containing colons. Window
   teardown and service removal invalidate callbacks before backend cancellation;
   late progress, results, and errors cannot reach destroyed or replacement

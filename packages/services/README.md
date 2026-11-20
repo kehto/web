@@ -94,6 +94,14 @@ Current draft posture:
 - `createResourceService` implements NAP-RESOURCE at draft PR #80 head `ae5b9c64ab8a4d8909f288829a01e99d6bd713bc` without choosing a runtime's resolver policy. Single requests carry `url`; bulk requests carry an ordered `urls` array, and results use canonical padded RFC 4648 base64 in `blob`. `resource.info.schemes` remains advisory. Runtime permission integration authorizes the exact resource URL and each resolver-reported HTTP(S) or WebSocket origin through `init.authorizeNetwork(destination, execute)`; the resolver remains responsible for scheme handling, redirects, and upstream byte classification. The service scopes cancellation to the requesting window, drops cancelled terminal envelopes, and preserves explicit `ResourceServiceError` codes.
 - Host playback can use `ResourceService.openStream(windowId, url, signal)` with an optional `stream` resolver. It requires the same resource and network approvals as atomic requests before opening a response; on a host without a permission adapter it takes the `FW-RESOURCE-LEGACY-001` path. `createBrowserMediaStreamFetch` classifies live MP3/AAC bytes without waiting for EOF; `createBrowserMediaPlayback({ resource, stream: resource.openStream })` supplies bounded MediaSource playback. Streaming is host-only and adds no resource wire operation. See [Media playback](https://github.com/kehto/web/blob/main/docs/media.md).
 - `createUploadService` supports `upload.info` from draft NAP-UPLOAD. Hosts may expose configured rails, return URL forms, maximum bytes, and MIME type policy without requiring napplets to start an upload.
+- Default upload ids, browser media `media-resource-*` read ids, and CVM registry
+  JSON-RPC ids are secure UUID v4 values: native `crypto.randomUUID()`, or 16
+  `crypto.getRandomValues()` bytes where the browser omits it (non-localhost plain
+  HTTP), and an explicit error when neither exists. This is host identifier policy
+  with no wire change, and it does not make `crypto.subtle` paths (approval-scoped
+  uploads, the default HTTP uploader digest, CVM schema hashes) work on such
+  origins. The full per-identifier contract is in the
+  [shell package doc](https://github.com/kehto/web/blob/main/docs/packages/shell.md#uuid-support-on-http-origins).
 - Upload teardown uses exact window ownership, including IDs containing colons.
   Destroying a window invalidates replies before backend cancellation and suppresses
   late progress, results, and errors even if cancellation throws or settles later.
