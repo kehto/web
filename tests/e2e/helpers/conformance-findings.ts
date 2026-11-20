@@ -7,13 +7,10 @@
  *
  * - `catalog/package-drift`: `@napplet/nap@0.41.0` lacks `media.session.ended`
  *   and `webrtc.sendBytes(.result)` that the pinned NAPs specify (upstream).
- * - `relay/semantics`: `relay.publishEncrypted` with a signer that cannot
- *   encrypt publishes an empty-content event and reports `ok: true`.
  */
 export const KNOWN_KEHTO_FINDINGS: Readonly<Record<'minimal' | 'full', readonly string[]>> = {
   minimal: [],
   full: [
     'catalog/package-drift',
-    'relay/semantics',
   ],
 };

@@ -517,7 +517,7 @@ function handleRelayPublishEncrypted(
   const eventTemplate = (msg as RuntimeRelayMessage).event;
   const peMsg = msg as NappletMessage & { recipient?: string; encryption?: string };
   const recipient = peMsg.recipient ?? '';
-  const encryption = (peMsg.encryption ?? 'nip44') as 'nip04' | 'nip44' | string;
+  const encryption: unknown = peMsg.encryption ?? 'nip44';
 
   const replyPe = (ok: boolean, extra: Record<string, unknown> = {}) => {
     hooks.sendToNapplet(windowId, { type: 'relay.publishEncrypted.result', id, ok, ...extra } as NappletMessage);
@@ -525,7 +525,7 @@ function handleRelayPublishEncrypted(
 
   if (!recipient) { replyPe(false, { error: 'missing recipient' }); return; }
   if (encryption !== 'nip44' && encryption !== 'nip04') {
-    replyPe(false, { error: `unsupported encryption scheme: ${encryption}` });
+    replyPe(false, { error: `unsupported encryption scheme: ${String(encryption)}` });
     return;
   }
   const peSigner = hooks.auth.getSigner(windowId);
@@ -534,8 +534,19 @@ function handleRelayPublishEncrypted(
     replyPe(false, { error: 'invalid event template' });
     return;
   }
+  // NAP-RELAY #2 @ 9f30b350: "The shell MUST encrypt content and sign event
+  // templates from `relay.publishEncrypted`". A signer without the requested
+  // scheme fails closed before any consent prompt, plan or publish (#482).
+  // "NIP-44 by default, NIP-04 as fallback" (API Surface) is read as naming
+  // the alternative value, not as permission to downgrade silently: an
+  // omitted `encryption` with a NIP-04-only signer still fails (spec gap).
+  const scheme: 'nip04' | 'nip44' = encryption;
+  if (typeof peSigner[scheme]?.encrypt !== 'function') {
+    replyPe(false, { error: `encryption unavailable: ${scheme}` });
+    return;
+  }
 
-  publishEncrypted(context, windowId, id, recipient, encryption, eventTemplate, peSigner, replyPe);
+  publishEncrypted(context, windowId, id, recipient, scheme, eventTemplate, peSigner, replyPe);
 }
 
 function publishEncrypted(
@@ -543,7 +554,7 @@ function publishEncrypted(
   windowId: string,
   id: string,
   recipient: string,
-  encryption: 'nip04' | 'nip44' | string,
+  encryption: 'nip04' | 'nip44',
   eventTemplate: EventTemplate,
   peSigner: Signer,
   replyPe: (ok: boolean, extra?: Record<string, unknown>) => void,
@@ -568,10 +579,13 @@ function publishEncrypted(
     try {
       if (signal.aborted) return;
       const plaintext = String((eventTemplate as { content?: unknown }).content ?? '');
-      const ciphertext: string = encryption === 'nip44'
-        ? (await peSigner.nip44?.encrypt(recipient, plaintext)) ?? ''
-        : (await peSigner.nip04?.encrypt(recipient, plaintext)) ?? '';
+      const ciphertext: unknown = await peSigner[encryption]?.encrypt(recipient, plaintext);
       if (signal.aborted) return;
+      // Never sign or publish content the signer did not actually encrypt.
+      if (typeof ciphertext !== 'string' || ciphertext === '' || ciphertext === plaintext) {
+        replyPe(false, { error: 'encryption failed' });
+        return;
+      }
       const eventWithCiphertext = { ...eventTemplate, content: ciphertext };
       const signed = await peSigner.signEvent?.(eventWithCiphertext);
       if (signal.aborted) return;

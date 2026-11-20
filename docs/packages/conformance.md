@@ -93,7 +93,7 @@ A static build of the same UI (no live re-runs) is published at
 | Profile | Exposed domains |
 |---------|-----------------|
 | `minimal` | The always-on built-in domains that work without a backend: `identity`, `storage`, `inc`, `theme` (plus `shell` in the shell-present variant). `relay`, `keys`, `media` and `notify` are disabled, and no service is registered. |
-| `full` | Every supported domain, each with a deterministic in-memory backend from `packages/conformance/src/kehto/domains/` (no network, devices or prompts): `relay`, `outbox`, `identity`, `storage`, `inc`, `theme`, `keys`, `media`, `notify`, `config`, `resource`, `cvm`, `upload`, `intent`, `count`, `link`, `common`, `lists`, `serial`, `ble`, `webrtc`, `dm`, `fs`, `gamepad`, `llm`, plus `shell`. |
+| `full` | Every supported domain, each with a deterministic in-memory backend from `packages/conformance/src/kehto/domains/` (no network, devices or prompts): `relay`, `outbox`, `identity`, `storage`, `inc`, `theme`, `keys`, `media`, `notify`, `config`, `resource`, `cvm`, `upload`, `intent`, `count`, `link`, `common`, `lists`, `serial`, `ble`, `webrtc`, `dm`, `fs`, `gamepad`, `llm`, plus `shell`. The fixture user's signer signs and really encrypts (NIP-44 v2 and NIP-04, from `nostr-tools`), so the `relay.publishEncrypted` success path proves ciphertext. |
 
 All probe endpoints get explicit host grants. Manifest `R`/`O` declarations
 are checked, never used as grants.
