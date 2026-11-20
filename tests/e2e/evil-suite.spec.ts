@@ -5,8 +5,11 @@
  * the variable. The suite is hostile code, so this runner only reads its prebuilt `napplets/<id>/index.html` files
  * (never its build scripts) and loads each one through Paja's local-file loader: the production NIP-5D path with the
  * napplet CSP, injected `window.napplet`, `sandbox="allow-scripts"` srcdoc and a real ShellBridge. The browser has no
- * signer and no keys, relays and uploads are disabled, and every request that does not target the Paja test server
- * is aborted, so the suite's collector (`evil.example.invalid`) stays unreachable even if a probe escaped.
+ * signer and no keys, relays and uploads are disabled, and every request Playwright can route that does not target
+ * the Paja test server is aborted. Routing does not see browser-initiated resource hints (prerender, preconnect,
+ * dns-prefetch), and Playwright's default context runs with network prediction off, so this runner cannot observe
+ * hint egress; tests/e2e/shell-resource-hints.spec.ts covers that. The collector stays unreachable because
+ * `evil.example.invalid` is a non-resolving RFC 2606 name, plus the routing above.
  *
  * Demo mode only. The runner never arms the suite's "VERY EVIL" mode. The one active step is `evil-09`'s
  * operator-triggered self-replacement, the suite's own regression gate for kehto/web#378.
@@ -32,6 +35,10 @@ const LOCK = (['on', 'off', 'auto'] as const).find((value) => value === process.
 const DOCUMENTED_RESIDUALS: Readonly<Record<string, readonly string[]>> = {
   // Passive fingerprinting: NIP-5D makes no promise here.
   'evil-07-fingerprint': ['core-id', 'hardware', 'display', 'locale-tz', 'fonts', 'media-devices', 'gpu', 'network-class', 'shell-composition'],
+  // NIP-5D's baseline CSP grants 'wasm-unsafe-eval' and makes no timer promise.
+  'evil-08-wasm-timing': ['wasm-compile', 'timer-resolution'],
+  // Grandchild-realm WebRTC is closed only by the opt-in nested-context lock.
+  ...(LOCK === 'on' ? {} : { 'evil-02-csp-egress': ['webrtc-grandchild'] }),
 };
 
 interface RowResult { readonly status: string; readonly evidence: string }
@@ -112,14 +119,24 @@ async function waitForSuiteFrame(page: Page): Promise<Frame | null> {
   return null;
 }
 
-/** Wait for the auto-run sweep (every row leaves `pending`), then read each row; a revoked frame keeps its last state. */
+/**
+ * Read every row until the auto-run sweep settles (no row `pending`). Paja removes a revoked frame, so the last
+ * snapshot taken before removal is what the napplet reported up to its revocation.
+ */
 async function settledRows(frame: Frame): Promise<Record<string, RowResult>> {
-  await frame.waitForFunction(() => [...document.querySelectorAll<HTMLElement>('.attack')]
-    .every((row) => row.dataset.status && row.dataset.status !== 'pending'), null, { timeout: 45_000 }).catch(() => undefined);
-  return frame.evaluate(() => Object.fromEntries([...document.querySelectorAll<HTMLElement>('.attack')].map((row) => [
-    row.dataset.attack ?? '?',
-    { status: row.dataset.status ?? 'unknown', evidence: (row.querySelector('.evidence')?.textContent ?? '').slice(0, 240) },
-  ]))).catch(() => ({}));
+  let last: Record<string, RowResult> = {};
+  const deadline = Date.now() + 45_000;
+  while (Date.now() < deadline) {
+    const snapshot = await frame.evaluate(() => Object.fromEntries([...document.querySelectorAll<HTMLElement>('.attack')].map((row) => [
+      row.dataset.attack ?? '?',
+      { status: row.dataset.status ?? 'unknown', evidence: (row.querySelector('.evidence')?.textContent ?? '').slice(0, 240) },
+    ]))).catch(() => null);
+    if (!snapshot) return last;
+    last = snapshot;
+    if (Object.values(last).every((row) => row.status !== 'pending')) return last;
+    await frame.page().waitForTimeout(100);
+  }
+  return last;
 }
 
 /** Revocation reasons Paja logged, e.g. `window-message` or `second-load`. */
