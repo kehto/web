@@ -307,6 +307,39 @@ describe('NIP-5D conformance static guards', () => {
     expect(policy).toContain('51ef0cd33a5694784306f3260d90b1872545fdee');
   });
 
+  it('keeps the conformance harness exceptions bounded', () => {
+    const policy = readRepoFile('docs/policies/NIP-5D-CONFORMANCE.md');
+    const root = 'packages/conformance/src';
+    const files: string[] = [];
+    const visit = (dir: string): void => {
+      for (const entry of readdirSync(join(process.cwd(), dir), { withFileTypes: true })) {
+        const path = `${dir}/${entry.name}`;
+        if (entry.isDirectory()) visit(path);
+        else if (path.endsWith('.ts') && !path.endsWith('.test.ts') && !path.endsWith('.d.ts')) files.push(path);
+      }
+    };
+    visit(root);
+    const windowPost = /\bcontentWindow\??\.postMessage\(|\btarget\.postMessage\(/;
+    const srcdocAssign = /\.srcdoc\s*=/;
+    const allowed: Record<string, { post: boolean; srcdoc: boolean }> = {
+      [`${root}/kehto/session.ts`]: { post: true, srcdoc: true },
+      [`${root}/kehto/frames.ts`]: { post: true, srcdoc: false },
+    };
+    for (const file of files) {
+      const source = removeComments(readRepoFile(file));
+      const allow = allowed[file] ?? { post: false, srcdoc: false };
+      if (!allow.post) expect(windowPost.test(source), `${file} posts to a frame window`).toBe(false);
+      if (!allow.srcdoc) expect(srcdocAssign.test(source), `${file} assigns srcdoc`).toBe(false);
+    }
+    const session = removeComments(readRepoFile(`${root}/kehto/session.ts`));
+    expect(session).toContain('if (!spec.rawWire) return srcdoc;');
+    expect(session).toContain('admitBrowserDocument({');
+    expect(session.match(/\.srcdoc\s*=/g)?.length).toBe(2);
+    expect(policy).toContain('### Conformance harness exceptions');
+    expect(policy).toContain('`kehto/session.ts` `loadRogue()`');
+    expect(policy).toContain('only for probes loaded with `rawWire`');
+  });
+
   it('keeps released intent ownership and the host-owned NAP-SHELL prelude as positive evidence', () => {
     const services = readRepoFile('packages/services/src/index.ts');
     const prelude = readRepoFile('packages/shell/src/napplet-namespace.ts');

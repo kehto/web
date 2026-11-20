@@ -47,6 +47,7 @@ const SUPERSEDED_EXACT_MATRIX = {
 const PEER_WINDOWS: Record<string, Partial<Record<NappletName, string>>> = {
   'packages/acl': { '@napplet/core': '>=0.32.0 <0.43.0', '@napplet/nap': '>=0.32.0 <0.42.0' },
   'packages/cli': { '@napplet/core': '>=0.42.0 <0.43.0', '@napplet/nap': '>=0.37.0 <0.42.0' },
+  'packages/conformance': { '@napplet/core': '>=0.42.0 <0.43.0', '@napplet/nap': '>=0.37.0 <0.42.0' },
   'packages/firewall': { '@napplet/core': '>=0.32.0 <0.43.0' },
   'packages/mocks': { '@napplet/core': '>=0.42.0 <0.43.0', '@napplet/nap': '>=0.32.0 <0.42.0' },
   'packages/paja': { '@napplet/core': '>=0.42.0 <0.43.0', '@napplet/nap': '>=0.37.0 <0.42.0' },

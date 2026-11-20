@@ -4,6 +4,7 @@
   "entryPoints": [
     "packages/acl",
     "packages/cli",
+    "packages/conformance",
     "packages/paja",
     "packages/firewall",
     "packages/nip",

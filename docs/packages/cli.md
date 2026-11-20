@@ -21,7 +21,7 @@ pnpm add -D @kehto/cli
 | Runtime entry | `./dist/index.js` |
 | Binary | `kehto` |
 | Types entry | `./dist/index.d.ts` |
-| Dependencies | `@kehto/paja` |
+| Dependencies | `@kehto/paja`, `@kehto/conformance` |
 | Side effects | `false` |
 
 ## Peer Dependencies
@@ -31,12 +31,24 @@ pnpm add -D @kehto/cli
 | `@napplet/core` | `>=0.42.0 <0.43.0` |
 | `@napplet/nap` | `>=0.37.0 <0.42.0` |
 | `nostr-tools` | `>=2.23.3 <=2.x` |
+| `@playwright/test` | `^1.54.0` (optional; needed by `kehto conformance`) |
 
 ## Commands
 
 ```bash
 kehto paja --target-url http://127.0.0.1:5173 -- pnpm vite --host 127.0.0.1
 ```
+
+```bash
+kehto conformance --profile minimal
+kehto conformance --reporter junit --out conformance.xml
+```
+
+`kehto conformance` delegates to `@kehto/conformance/cli`: it runs the NIP-5D
+and NAP runtime conformance catalog against a real Kehto runtime in headless
+Chromium and exits `0` (pass), `1` (an error-severity check failed) or `2`
+(usage or harness error). It needs the optional `@playwright/test` peer and its
+Chromium. See [@kehto/conformance](./conformance.md).
 
 `kehto paja` delegates to the Paja implementation package. Keeping the binary
 in `@kehto/cli` leaves room for future top-level commands without causing
@@ -66,7 +78,7 @@ deterministic memory simulator.
 
 - Owns the top-level `kehto` binary and command routing.
 - Delegates `kehto paja` to `@kehto/paja` instead of reimplementing runtime
-  hosting behavior.
+  hosting behavior, and `kehto conformance` to `@kehto/conformance/cli`.
 - Does not own Paja's option schema, server lifecycle, browser host, or service
   simulation adapters.
 - Should be the only `@kehto/*` package that claims the `kehto` binary.

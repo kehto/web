@@ -550,6 +550,21 @@ here with a matching guard in `tests/unit/nip5d-conformance-guard.test.ts`.
 |------|-------|----------|-------------------|
 | Paja | Verified intent launcher (`packages/paja/src/intent-launcher.ts`, signed manifest `paja-intent-launcher`) | `paja.intent.launcher.ready`, `paja.intent.launcher.result` (launcher → host); `paja.intent.launch` (host → launcher) | Shell-authored, content-addressed bytes whose signing key is not in this repository, so its host protocol cannot move into the signed artifact without re-signing. `browser-nip5d-host.ts` handles these two types itself, never forwards them to the bridge, and accepts them only while the launcher's window is registered with a bound port. A second load revokes the frame, and any other window-level message still reaches the bridge and revokes it. `paja.intent.launch` is not a NAP message. |
 
+### Conformance harness exceptions
+
+`@kehto/conformance` (kehto/web#187) drives a real Kehto runtime with a probe
+napplet, so its first-party target deliberately does a few things a host
+must not do in production. Each site is pinned by the
+`keeps the conformance harness exceptions bounded` guard in
+`tests/unit/nip5d-conformance-guard.test.ts`; nothing else in
+`packages/conformance/src` may post to a frame window or assign `srcdoc`.
+
+| Site | What it does | Why it is bounded |
+|------|--------------|-------------------|
+| `kehto/session.ts` `instrument()` | Inserts the host-owned wire tap (`renderWireTap`, which defines `window.__kehtoConformanceWire`) ahead of the injected bootstrap, only for probes loaded with `rawWire`. | The tap sits outside the verified artifact bytes like the prelude, and `nip5d/artifact-provenance` and `nip5d/injection-*` run on uninstrumented loads only, so the extra global never counts as NIP-5D evidence. |
+| `kehto/session.ts` `loadRogue()` | Assigns unverified bytes to a sandboxed frame the runtime never registered, which then sends its own `napplet.hello`. | Its only purpose is to prove that an unregistered source is silently dropped (`nip5d/source-binding`, `shell/source-trust`). It never goes through `admitBrowserDocument` and is removed after the probe reports. |
+| `kehto/session.ts` `forge()`, `kehto/frames.ts` `signal()` / `postFromSibling()` | Posts window-level messages into a probe frame: harness signals (`kehtoConformanceSignal`) and forged `shell.init` from the parent or a sibling realm. | Harness signals are not NAP messages and are read only by the probe's own plan runner. Forged `shell.init` exists to prove the bootstrap ignores window-level NAP traffic. |
+
 ## Runtime Availability Policy
 
 Current NIP-5D runtime availability is injected

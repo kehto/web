@@ -77,6 +77,7 @@ export default defineConfig({
           { text: 'Packages', link: '/packages/' },
           { text: '@kehto/acl', link: '/packages/acl' },
           { text: '@kehto/cli', link: '/packages/cli' },
+          { text: '@kehto/conformance', link: '/packages/conformance' },
           { text: '@kehto/paja', link: '/packages/paja' },
           { text: '@kehto/firewall', link: '/packages/firewall' },
           { text: '@kehto/rate-limit', link: '/packages/rate-limit' },
