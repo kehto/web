@@ -14,7 +14,7 @@ Implemented on `feat/414-openai-responses-dialect`.
 ## Verification
 
 - `pnpm build`: 18/18 tasks. `pnpm type-check`: 20/20 tasks.
-- `pnpm test:unit`: 275 files, 3,519 tests, all pass (27 new in `llm-provider-responses.test.ts`, plus additions to the stream, preset and Paja connection tests).
+- `pnpm test:unit`: 275 files, 3,519 tests, all pass (23 new in `llm-provider-responses.test.ts`, plus additions to the stream, preset and Paja connection tests).
 - `pnpm docs:check`: pass (strict TypeDoc and package docs audit).
 - `npx playwright test tests/e2e/paja-llm.spec.ts --project chromium --workers=1 --trace off`: 7 passed.
 - `npx aislop@0.12.0 ci`: 99/100, the same two function-length warnings main already carries in unchanged `browser-llm-panel.ts` and `cvm-service-handler.ts`; no finding in a changed file.
