@@ -819,9 +819,12 @@ special-purpose addresses are rejected, including development loopback targets.
 
 ### Resource proxy for static builds
 
-The static `/web/paja/` build has no server, so on its own it disables `https`
-and `blossom` resources. To turn network images on, run the standalone proxy
-and point the static build at it:
+A resource proxy is optional. Without one, the static `/web/paja/` build reads
+`https` and `blossom` resources directly and drops private destinations it can
+see in the URL. A proxy adds what the browser can't do: DNS-time checks that
+catch public-looking names resolving to private addresses, hop-by-hop approval
+of every redirect, and reads from hosts that don't send CORS headers. To use
+one, run the standalone proxy and point the static build at it:
 
 ```bash
 kehto paja resource-proxy --allow-origin https://kehto.github.io --port 8787

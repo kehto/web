@@ -42,7 +42,7 @@ describe('@kehto/paja host page', () => {
   it('renders a visibly labelled resource proxy field only in the static build', () => {
     const html = renderPajaHtml(createPajaRuntimeHostConfig({}));
     expect(html).toContain('<form class="resource-servers resource-proxy" id="paja-resource-proxy-form">');
-    expect(html).toContain('<label class="section-title" for="paja-resource-proxy-input">Resource proxy</label>');
+    expect(html).toContain('<label class="section-title" for="paja-resource-proxy-input">Resource proxy (optional)</label>');
     expect(html).toContain('.resource-servers.resource-proxy > label { position: static;');
     const served = renderPajaHtml(createPajaHostConfig(normalizePajaOptions({ targetUrl: 'http://127.0.0.1:5173/' })));
     expect(served).not.toContain('paja-resource-proxy-form');

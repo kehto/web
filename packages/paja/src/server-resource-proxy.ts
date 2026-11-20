@@ -8,8 +8,9 @@
  * itself (each hop goes back to the browser for approval), and caps time and
  * bytes with the `server.resource*` settings.
  *
- * The static `/web/paja/` build has no server. It can point at a standalone
- * proxy started with {@link startPajaResourceProxy}. That proxy is reachable
+ * The static `/web/paja/` build has no server and reads resources directly by
+ * default. It can optionally point at a standalone proxy started with
+ * {@link startPajaResourceProxy} to get DNS-time checks. That proxy is reachable
  * cross-origin, so it answers only allowlisted browser origins over CORS. An
  * origin allowlist is not authentication, because non-browser clients can send
  * any `Origin`. Operators run an open fetch proxy that is limited to public

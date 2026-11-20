@@ -18,21 +18,27 @@ import {
 // so the static build reads network resources only through a resource proxy.
 const KEY = Uint8Array.from('77'.repeat(32).match(/.{2}/g)!.map((part) => Number.parseInt(part, 16)));
 const RELAY = 'wss://static-resource.example';
+const IMAGE_URL = 'https://image.example/a.png';
+const PRIVATE_URL = 'https://192.168.1.1/admin.png';
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52]);
 
-const NAPPLET = `<!doctype html><html><body><pre id="out"></pre><script>
+function nappletHtml(urls: readonly string[]): string {
+  return `<!doctype html><html><body><pre id="out"></pre><script>
   (async () => {
     const info = await window.napplet.resource.info();
-    let bytes;
-    try {
-      const blob = await window.napplet.resource.bytes('https://image.example/a.png');
-      bytes = { size: blob.size, mime: blob.type };
-    } catch (error) {
-      bytes = { error: String(error && (error.code || error.message || error)) };
+    const reads = {};
+    for (const url of ${JSON.stringify(urls)}) {
+      try {
+        const blob = await window.napplet.resource.bytes(url);
+        reads[url] = { size: blob.size, mime: blob.type };
+      } catch (error) {
+        reads[url] = { error: String(error && (error.code || error.message || error)) };
+      }
     }
-    document.getElementById('out').textContent = JSON.stringify({ schemes: info.schemes, bytes });
+    document.getElementById('out').textContent = JSON.stringify({ schemes: info.schemes, reads });
   })();
 </script></body></html>`;
+}
 
 interface StaticServer {
   readonly url: string;
@@ -73,8 +79,8 @@ async function startStaticServer(blob: Buffer, hash: string): Promise<StaticServ
   };
 }
 
-async function loadStatic(page: Page, proxyUrl: string | undefined) {
-  const bytes = Buffer.from(NAPPLET);
+async function loadStatic(page: Page, proxyUrl: string | undefined, urls: readonly string[] = [IMAGE_URL]) {
+  const bytes = Buffer.from(nappletHtml(urls));
   const hash = createHash('sha256').update(bytes).digest('hex');
   const server = await startStaticServer(bytes, hash);
   const target = finalizeEvent({
@@ -98,22 +104,31 @@ async function loadStatic(page: Page, proxyUrl: string | undefined) {
   await expect(out).toContainText('schemes', { timeout: 30_000 });
   const result = JSON.parse((await out.textContent()) ?? '{}') as {
     schemes: { scheme: string; enabled: boolean }[];
-    bytes: Record<string, unknown>;
+    reads: Record<string, Record<string, unknown>>;
   };
   return { result, server };
 }
 
-test('static Paja without a proxy disables network resources and never fetches them', async ({ page }) => {
+test('static Paja without a proxy reads public resources directly and drops private ones', async ({ page }) => {
+  const direct: { url: string; cookie: boolean; referer: boolean }[] = [];
+  await page.route('https://image.example/**', async (route) => {
+    const headers = route.request().headers();
+    direct.push({ url: route.request().url(), cookie: 'cookie' in headers, referer: 'referer' in headers });
+    await route.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'text/html' }, body: PNG });
+  });
   const requested: string[] = [];
   page.on('request', (request) => requested.push(request.url()));
-  const { result, server } = await loadStatic(page, undefined);
+  const { result, server } = await loadStatic(page, undefined, [IMAGE_URL, PRIVATE_URL]);
   try {
     expect(result.schemes).toEqual(expect.arrayContaining([
-      { scheme: 'https', enabled: false },
-      { scheme: 'blossom', enabled: false },
+      { scheme: 'https', enabled: true },
+      { scheme: 'blossom', enabled: true },
     ]));
-    expect(result.bytes).toEqual({ error: 'unsupported-scheme' });
-    expect(requested.filter((url) => url.includes('image.example') || url.includes('/__kehto/resource'))).toEqual([]);
+    // Upstream content-type is ignored; Paja sniffs the bytes itself.
+    expect(result.reads[IMAGE_URL]).toEqual({ size: PNG.byteLength, mime: 'image/png' });
+    expect(direct).toEqual([{ url: IMAGE_URL, cookie: false, referer: false }]);
+    expect(result.reads[PRIVATE_URL]).toEqual({ error: 'blocked-by-policy' });
+    expect(requested.filter((url) => url.includes('192.168.1.1') || url.includes('/__kehto/resource'))).toEqual([]);
   } finally {
     await server.close();
   }
@@ -156,7 +171,7 @@ test('static Paja reads images through a configured CORS proxy, one hop at a tim
       { scheme: 'https', enabled: true },
       { scheme: 'blossom', enabled: true },
     ]));
-    expect(result.bytes).toEqual({ size: PNG.byteLength, mime: 'image/png' });
+    expect(result.reads[IMAGE_URL]).toEqual({ size: PNG.byteLength, mime: 'image/png' });
     expect(seen).toEqual(['no-cookie https://image.example/a.png', 'no-cookie https://cdn.example/b.png']);
   } finally {
     await server.close();

@@ -1,10 +1,11 @@
 /**
  * The resource proxy that a static Paja build uses for NAP-RESOURCE reads.
  *
- * The static `/web/paja/` build has no server, so it can't make NAP-RESOURCE's
- * mandatory DNS-time private-IP checks itself (napplet/naps#80 @ `ae5b9c6`).
- * The host can point it at a standalone proxy (`kehto paja resource-proxy`)
- * that makes them. The URL comes from host config or this host-only setting.
+ * The static `/web/paja/` build has no server. Without a proxy it reads
+ * resources directly and drops private destinations it can see in the URL,
+ * but it can't make NAP-RESOURCE's DNS-time private-IP checks
+ * (napplet/naps#80 @ `ae5b9c6`). An optional standalone proxy
+ * (`kehto paja resource-proxy`) adds them. The URL comes from host config or this host-only setting.
  * A napplet can never set it. The proxy sees every resource URL it fetches and
  * could change plain HTTPS bytes. Blossom bytes are still hash-checked in the
  * browser.
@@ -80,7 +81,7 @@ export function savePajaResourceProxyUrl(
   } catch {
     return { ok: false, message: 'Storage is unavailable, so the proxy could not be saved.' };
   }
-  return { ok: true, message: url === null ? 'Resource proxy cleared. Network images are off.' : 'Resource proxy saved for this host origin.' };
+  return { ok: true, message: url === null ? 'Resource proxy cleared. Paja reads resources directly and drops private destinations.' : 'Resource proxy saved for this host origin.' };
 }
 
 /**
@@ -104,7 +105,7 @@ export function installPajaResourceProxySetting(configured: string | undefined):
   input.placeholder = configured ?? 'https://proxy.example/';
   status.textContent = saved
     ? 'Using your saved resource proxy.'
-    : configured ? 'Using the host-configured resource proxy.' : 'No resource proxy: network images are off.';
+    : configured ? 'Using the host-configured resource proxy.' : 'No proxy: Paja reads resources directly and drops private destinations.';
   const submit = (event: Event) => {
     event.preventDefault();
     const result = savePajaResourceProxyUrl(input.value);

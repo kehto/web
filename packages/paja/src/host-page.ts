@@ -591,14 +591,14 @@ function renderIntentLinkDialog(): string {
 }
 
 /**
- * Static builds can't make NAP-RESOURCE's DNS-time checks, so network images
- * need a standalone proxy (`kehto paja resource-proxy`).
+ * Static builds read resources directly and can't make NAP-RESOURCE's DNS-time
+ * checks. An optional standalone proxy (`kehto paja resource-proxy`) adds them.
  */
 function renderResourceProxyForm(): string {
   return `<form class="resource-servers resource-proxy" id="paja-resource-proxy-form">
-          <label class="section-title" for="paja-resource-proxy-input">Resource proxy</label>
+          <label class="section-title" for="paja-resource-proxy-input">Resource proxy (optional)</label>
           <input id="paja-resource-proxy-input" type="url" aria-describedby="paja-resource-proxy-help paja-resource-proxy-status" spellcheck="false">
-          <small id="paja-resource-proxy-help">Network images need a proxy that checks destinations (run <code>kehto paja resource-proxy</code>). It sees every resource URL. Leave empty to turn network images off.</small>
+          <small id="paja-resource-proxy-help">Without a proxy, Paja reads resources directly and drops private destinations it can see in the URL. A proxy (<code>kehto paja resource-proxy</code>) also checks what names resolve to and reads hosts without CORS. It sees every resource URL.</small>
           <button type="submit" id="paja-resource-proxy-save">Save</button>
           <div id="paja-resource-proxy-status" role="status" aria-live="polite"></div>
         </form>`;
