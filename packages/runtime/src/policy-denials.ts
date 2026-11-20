@@ -18,6 +18,8 @@
  * - NAP-OUTBOX #32 @ 8865f73d — result rows carry `error?` ("Result messages MAY
  *   include `error`"); `outbox.closed` carries `subId`, `reason?`;
  *   `outbox.query.result` keeps its required `events` (empty on denial).
+ * - NAP-UPLOAD #33 @ f5cc981e — "The shell SHOULD return a top-level `error` when
+ *   no upload was created."
  *
  * Where the NAP lists only common error strings, the runtime's reason passes
  * through unchanged; a fixed code is used only where the NAP mandates one or
@@ -59,6 +61,7 @@ const POLICY_DENIALS: Readonly<Record<string, DenialProjection>> = Object.freeze
   'outbox.subscribe': closed('outbox.closed'),
   'outbox.close': silent,
   'outbox.publish': resultError('outbox.publish', undefined, { ok: false }),
+  'upload.upload': resultError('upload.upload'),
 });
 
 /**
