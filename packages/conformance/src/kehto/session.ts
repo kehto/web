@@ -4,7 +4,10 @@
  * Probes are loaded the way a Kehto host loads a napplet: a signed manifest is
  * verified, the artifact hash is computed from its bytes, and
  * `admitBrowserDocument` produces the CSP and namespace prelude and commits the
- * `srcdoc` after the frame's identity is registered.
+ * `srcdoc` after the frame's identity is registered. The one exception is the
+ * scoped legacy-Firewall session (`openLegacyFirewall`, kehto/web#494): its
+ * runtime has no `permissions`, which canonical admission requires, so it
+ * loads through `admitLegacyDocument` instead.
  */
 import {
   admitBrowserDocument,

@@ -338,6 +338,12 @@ describe('NIP-5D conformance static guards', () => {
     expect(policy).toContain('### Conformance harness exceptions');
     expect(policy).toContain('`kehto/session.ts` `loadRogue()`');
     expect(policy).toContain('only for probes loaded with `rawWire`');
+    // kehto/web#494: only the scoped legacy-Firewall session skips canonical admission.
+    expect(session).toContain("state.gate === 'legacy-firewall' ? admitLegacyDocument : admitBrowserDocument");
+    expect(session).toContain("{ gate: 'legacy-firewall', parent: link }");
+    const importers = files.filter((file) => /from '\.\/legacy-admission\.js'/.test(readRepoFile(file)));
+    expect(importers).toEqual([`${root}/kehto/session.ts`]);
+    expect(policy).toContain('`kehto/legacy-admission.ts` `admitLegacyDocument()`');
   });
 
   it('keeps released intent ownership and the host-owned NAP-SHELL prelude as positive evidence', () => {
