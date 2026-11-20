@@ -5,7 +5,7 @@ import type { CvmService, CvmServiceOptions } from './cvm-service.js';
 import { handleCvmRegistry, isCvmRegistryMethod } from './cvm-registry.js';
 import { createCvmOperations, type CvmOperation, type CvmOperations } from './cvm-operations.js';
 import { mcpMessageForm } from './cvm-message.js';
-import { createCvmCorrelations, type CvmCorrelations } from './cvm-correlation.js';
+import { createCvmCorrelations, type CvmCorrelations, type CvmRequestHandle } from './cvm-correlation.js';
 import { randomUUID } from './random-uuid.js';
 
 const CVM_SERVICE_VERSION = '1.0.0';
@@ -14,6 +14,8 @@ const DEFAULT_DURATION_MS = 30_000;
 const MAX_DURATION_MS = 300_000;
 /** Stable id of the legacy publish fallback; see docs/compatibility.md. */
 const PUBLISH_FALLBACK_WARNING = '[KEHTO_CVM_TRANSPORT_PUBLISH] This CvmTransport has no publish(), so a cvm.request notification or response went through request() and waits for its result. Implement CvmTransport.publish() to acknowledge after publication, as NAP-CVM requires. Warned once per CVM service.';
+/** Stable id of the unmapped-cancellation fallback; see docs/compatibility.md. */
+const CANCEL_FALLBACK_WARNING = '[KEHTO_CVM_TRANSPORT_CANCEL] This CvmTransport has no cancel(), so a napplet\'s notifications/cancelled was published with its own requestId, which a transport that maps request ids never sent. Implement CvmTransport.cancel() to map it, as NAP-CVM requires. Warned once per CVM service.';
 
 type Send = (msg: NappletMessage) => void;
 
@@ -62,6 +64,15 @@ function validServer(server: unknown): server is CvmServerRef {
       && value.relays.every((relay) => typeof relay === 'string')));
 }
 
+/** NAP-CVM #31 @ 28cf1bdb, Timeouts bounds for how long a delivered server request stays answerable. */
+function serverRequestTimeout(value: number | undefined): number {
+  if (value === undefined) return DEFAULT_DURATION_MS;
+  if (!Number.isInteger(value) || value < 1 || value > MAX_DURATION_MS) {
+    throw new RangeError(`createCvmService: serverRequestTimeoutMs must be an integer from 1 through ${MAX_DURATION_MS}`);
+  }
+  return value;
+}
+
 /** Accepted duration for an envelope, or `undefined` for `invalid timeout`. */
 function acceptedDuration(options: unknown): number | undefined {
   const supplied = (options as { timeoutMs?: unknown } | undefined)?.timeoutMs;
@@ -80,6 +91,8 @@ interface CvmActions {
   readonly correlations: CvmCorrelations;
   /** Publish a notification or response without awaiting an MCP reply. */
   readonly publish: (server: CvmServerRef, message: McpMessage, options: CvmRequestOptions, execution: { signal: AbortSignal }) => Promise<void>;
+  /** Publish a cancellation of an in-flight request; `false` when it already settled. */
+  readonly cancel: (server: CvmServerRef, handle: CvmRequestHandle, message: McpMessage, options: CvmRequestOptions, execution: { signal: AbortSignal }) => Promise<boolean>;
   readonly currentSend: (windowId: string, generation: symbol, message: NappletMessage) => void;
   readonly current: (windowId: string, generation: symbol) => boolean;
   readonly remember: (windowId: string, generation: symbol, server: CvmServerRef) => void;
@@ -103,7 +116,7 @@ function handleDiscover(actions: CvmActions, windowId: string, generation: symbo
 }
 
 function handleRequest(actions: CvmActions, windowId: string, generation: symbol, msg: NappletMessage): void {
-  const { transport, currentSend, authorize, remember, operations, correlations, publish } = actions;
+  const { transport, currentSend, authorize, remember, operations, correlations, publish, cancel } = actions;
   const m = msg as NappletMessage & {
     id?: string;
     server?: CvmServerRef;
@@ -128,24 +141,44 @@ function handleRequest(actions: CvmActions, windowId: string, generation: symbol
   // duplicates cannot both pass approval.
   if (form === 'request' && !correlations.claimRequest(windowId, generation, server.pubkey, message.id!)) { fail('invalid message'); return; }
   if (form === 'response' && !correlations.takeResponse(windowId, generation, server.pubkey, message.id!)) { fail('invalid message'); return; }
+  // Spec-gap decision: "notifications/cancelled may refer only to this
+  // napplet's requests". One naming no request this napplet sent in this
+  // session is `invalid message` and never published.
+  const cancellation = form === 'notification' && message.method === 'notifications/cancelled';
+  const requestId = cancellation ? (message.params as { requestId?: unknown } | undefined)?.requestId : undefined;
+  if (cancellation && correlations.cancelTarget(windowId, generation, server.pubkey, requestId).state === 'foreign') { fail('invalid message'); return; }
+  const handle = form === 'request' ? correlations.startRequest(windowId, generation, server.pubkey, message.id!) : undefined;
+  const settle = () => { if (handle) correlations.finishRequest(windowId, generation, server.pubkey, message.id!, handle); };
   const requestOptions = m.options && typeof m.options === 'object' ? m.options : {};
   operations.run(windowId, duration, [server.pubkey],
-    (work) => authorize(windowId, generation, 'cvm.request', relays, server, work, () => {
+    (work) => authorize(windowId, generation, 'cvm.request', relays, server, work, async () => {
       const timeoutMs = work.remaining();
+      const options = { ...requestOptions, timeoutMs };
+      const execution = { signal: work.signal };
+      if (cancellation) {
+        // A cancellation of a request that already settled has nothing to
+        // cancel: acknowledged without publication.
+        const target = correlations.cancelTarget(windowId, generation, server.pubkey, requestId);
+        if (target.state !== 'in-flight') return null;
+        remember(windowId, generation, server);
+        await cancel(server, target.handle, message, options, execution);
+        return null;
+      }
       // NAP-CVM: an accepted outbound message establishes participation. Record
       // it before the transport acquires its session so a failed or timed-out
       // request cannot strand a transport session and relay hold.
       remember(windowId, generation, server);
-      const execution = { signal: work.signal };
       return form === 'request'
-        ? transport.request(server, message, { ...requestOptions, timeoutMs }, execution)
-        : publish(server, message, { ...requestOptions, timeoutMs }, execution).then(() => null);
+        ? transport.request(server, message, options, { ...execution, handle })
+        : publish(server, message, options, execution).then(() => null);
     }),
     // Notification and response: "After transport publication, result without
     // `message`" — the success result has only `type` and `id`.
-    (response) => currentSend(windowId, generation, {
-      type: 'cvm.request.result', id, ...(form === 'request' ? { message: response } : {}),
-    } as NappletMessage), fail);
+    (response) => {
+      settle();
+      currentSend(windowId, generation, { type: 'cvm.request.result', id, ...(form === 'request' ? { message: response } : {}) } as NappletMessage);
+    },
+    (error) => { settle(); fail(error); });
 }
 
 function handleRegistry(actions: CvmActions, windowId: string, generation: symbol, message: NappletMessage): void {
@@ -206,13 +239,21 @@ export function createCvmServiceHandler(options: CvmServiceOptions): CvmService 
   const generations = new Map<string, symbol>();
   const sessions = new Map<string, Map<string, CvmSession>>();
   const operations = createCvmOperations(options.concurrency);
-  const correlations = createCvmCorrelations();
+  const correlations = createCvmCorrelations({ serverRequestTimeoutMs: serverRequestTimeout(options.serverRequestTimeoutMs) });
   let warnedPublishFallback = false;
+  let warnedCancelFallback = false;
   async function publish(server: CvmServerRef, message: McpMessage, requestOptions: CvmRequestOptions, execution: { signal: AbortSignal }): Promise<void> {
     if (transport.publish) { await transport.publish(server, message, requestOptions, execution); return; }
     // Compatibility (KEHTO_CVM_TRANSPORT_PUBLISH): older transports only have request().
     if (!warnedPublishFallback) { warnedPublishFallback = true; console.warn(PUBLISH_FALLBACK_WARNING); }
     await transport.request(server, message, requestOptions, execution);
+  }
+  async function cancel(server: CvmServerRef, handle: CvmRequestHandle, message: McpMessage, requestOptions: CvmRequestOptions, execution: { signal: AbortSignal }): Promise<boolean> {
+    if (transport.cancel) return transport.cancel(server, handle, message, requestOptions, execution);
+    // Compatibility (KEHTO_CVM_TRANSPORT_CANCEL): older transports cannot map the requestId.
+    if (!warnedCancelFallback) { warnedCancelFallback = true; console.warn(CANCEL_FALLBACK_WARNING); }
+    await publish(server, message, requestOptions, execution);
+    return true;
   }
   let runtime: ServiceRuntimeContext | undefined;
 
@@ -281,7 +322,7 @@ export function createCvmServiceHandler(options: CvmServiceOptions): CvmService 
   });
 
   const actions: CvmActions = {
-    transport, registry: options.registry ?? [], operations, correlations, publish, currentSend, current, remember, release, authorize,
+    transport, registry: options.registry ?? [], operations, correlations, publish, cancel, currentSend, current, remember, release, authorize,
   };
 
   /** Retire an endpoint: no further replies, every slot and session returned. */

@@ -174,6 +174,36 @@ Security Considerations (shells SHOULD apply per-napplet concurrency limits).
   rejected before admission (for example `invalid timeout`) does not use up its
   id. `cvm.close`, revocation and window destroy clear the books; shell-owned
   registry and initialization ids never enter them.
+- A server request delivered to a napplet stays answerable for
+  `serverRequestTimeoutMs` (default `30000`; an integer from 1 through 300,000,
+  the NAP's Timeouts bounds, otherwise `createCvmService` throws a
+  `RangeError`). NAP-CVM: server requests "still require a response or expire
+  under session policy". After that a response to it is unmatched and gets
+  `invalid message`. Expired entries are dropped whenever the session's books
+  are touched, so a napplet that never answers can't grow them. The deadline
+  bounds how long an entry lives, not how many a busy server can deliver within
+  it.
+- `notifications/cancelled` "may refer only to this napplet's requests". Its
+  `params.requestId` must name a request this napplet sent in the session:
+  - one still in flight goes to the new optional `CvmTransport.cancel()` with
+    that request's handle (passed to `request()` as `execution.handle`).
+    `createNostrCvmTransport` rewrites `requestId` to the correlation id it
+    actually sent, keeping the rest of the message, and publishes nothing if
+    the request settled meanwhile;
+  - one that already settled is acknowledged (only `type` and `id`) and not
+    published, since there is nothing left to cancel;
+  - any other `requestId`, or none, is `invalid message` and never published
+    (spec-gap decision: the NAP names the restriction but no error for it).
+
+  A transport without `cancel()` gets the in-flight cancellation through
+  `publish()` unchanged and the service warns once
+  (`KEHTO_CVM_TRANSPORT_CANCEL`, see `docs/compatibility.md`). A cancellation
+  only asks the server to stop; the napplet's own `cvm.request` still ends with
+  the server's answer or `relay timeout`. Known limits: a cancellation that
+  arrives while its request is still queued, awaiting approval or initializing
+  reaches a transport that hasn't sent it yet, so nothing is published and the
+  request still goes out; and a cancellation takes an admission slot like any
+  `cvm.request`, so a saturated endpoint queues or refuses it.
 - A malformed `server` reference returns `invalid request` on `cvm.request` and
   `cvm.close` (it used to be `server not found` and `session closed`). An
   unknown but well-formed server is still `server not found`.

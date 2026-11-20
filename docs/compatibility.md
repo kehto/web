@@ -85,6 +85,42 @@ Removal prerequisites: supported host transports implement `publish()`, a
 release makes it required, and then the fallback branch, its warning and its
 tests are removed together, with a type test that `publish` is required.
 
+## KEHTO_CVM_TRANSPORT_CANCEL — CVM transports without cancel()
+
+Owner: `@kehto/services`. NAP-CVM
+([#31 @ `28cf1bdb`](https://github.com/napplet/naps/blob/28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f/naps/NAP-CVM.md),
+Message handling) lets a shell send requests under its own transport ids only
+"if it ... consistently maps request references such as cancellation".
+`CvmTransport.cancel(server, handle, message, …)` is the replacement path: the
+service passes each napplet request's handle to `request()` as
+`execution.handle`, and hands a cancellation of that request to `cancel()`,
+which maps `params.requestId` to the id the transport sent. It is optional, so
+a host transport written against the older interface keeps working: the service
+publishes the cancellation unchanged through `publish()` (or the
+`KEHTO_CVM_TRANSPORT_PUBLISH` fallback). That is correct for a transport that
+sends napplet ids as given, and ineffective for one that rewrites them.
+`createNostrCvmTransport` and the conformance backend implement `cancel()` and
+stay quiet.
+
+Source and warning site: `packages/services/src/cvm-service-handler.ts`,
+`cancel` inside `createCvmServiceHandler`. The `console.warn` carries the
+`[KEHTO_CVM_TRANSPORT_CANCEL]` identifier, names `CvmTransport.cancel()` as the
+replacement and fires once per CVM service instance. It logs no message
+payload. It fires only for a cancellation of a request still in flight: settled
+and foreign cancellations are answered before any transport call. Tests:
+`cvm-cancel-expiry.test.ts` covers the fallback (published unchanged, warning
+text, once across two cancellations), quiet settled/foreign cancellations on the
+fallback path, and quiet canonical use with `cancel()`.
+`cvm-nostr-cancel.test.ts` covers the canonical Nostr mapping and the settled,
+unknown-handle and other-server cases.
+
+Retention reason: `CvmTransport` is a public, host-implemented interface.
+Requiring `cancel()` would break host transports at compile time.
+
+Removal prerequisites: supported host transports implement `cancel()`, a release
+makes it required, and then the fallback branch, its warning and its tests are
+removed together, with a type test that `cancel` is required.
+
 ## PAJA-NIP07-RELAY-DISCOVERY-REMOVED — retired extension integration
 
 `@kehto/paja` no longer reads, binds, or calls the obsolete NIP-07 `getRelays`

@@ -21,11 +21,19 @@
  * - `policy denied` is produced only for pubkeys listed in `deniedServers`.
  * - Per-endpoint concurrency admission (draft Security Considerations) is
  *   not modelled: nothing stays in flight, so no request is queued or refused.
+ * - `notifications/cancelled` "may refer only to this napplet's requests": a
+ *   `requestId` this window never used in the session is `invalid message`
+ *   (kehto decision, as `createCvmService`). Every request here has already
+ *   settled, so a cancellation of one of its own is acknowledged and dropped.
+ * - Server requests "still require a response or expire under session
+ *   policy": a delivered server request stays answerable for
+ *   `serverRequestTimeoutMs` (default 30000, the Timeouts default), then a
+ *   response to it is `invalid message`.
  */
 import type { NappletMessage } from '@kehto/runtime';
 import type { CvmRegistryEntry } from '@napplet/core';
 import type { CvmServerRef, McpMessage } from '@napplet/nap/cvm/types';
-import { defineMockService, pushToWindow, type MockRouteContext } from '../core/handler.js';
+import { DEFAULT_SCHEDULER, defineMockService, pushToWindow, type MockRouteContext } from '../core/handler.js';
 import type { MockDomainEntry, MockService, MockServiceOptions, NapSpecRef } from '../core/types.js';
 import {
   MOCK_CVM_ANNOUNCEMENT_KINDS,
@@ -140,6 +148,8 @@ export interface MockCvmOptions extends MockServiceOptions {
   maxTimeoutMs?: number;
   /** Server pubkeys whose requests fail with `policy denied`. */
   deniedServers?: readonly string[];
+  /** How long a delivered server request stays answerable, in ms. Default 30000. */
+  serverRequestTimeoutMs?: number;
 }
 
 /**
@@ -362,6 +372,11 @@ function registryHasRoute({ message, state, reply, fail }: Context): void {
  */
 export function createMockCvmService(options: MockCvmOptions = {}): MockCvmService {
   const maxTimeoutMs = options.maxTimeoutMs ?? 300_000;
+  const serverRequestTimeoutMs = options.serverRequestTimeoutMs ?? 30_000;
+  if (!Number.isInteger(serverRequestTimeoutMs) || serverRequestTimeoutMs < 1 || serverRequestTimeoutMs > 300_000) {
+    throw new RangeError('createMockCvmService: serverRequestTimeoutMs must be an integer from 1 through 300000');
+  }
+  const scheduler = options.scheduler ?? DEFAULT_SCHEDULER;
   const denied = new Set(options.deniedServers ?? []);
 
   const requestRoute = ({ message, windowId, state, reply, fail, push }: Context): void => {
@@ -376,6 +391,11 @@ export function createMockCvmService(options: MockCvmOptions = {}): MockCvmServi
     if (!fixture) { fail('server not found'); return; }
     const session = openSession(state, windowId, server.pubkey);
     const mcp = message.message as McpMessage;
+    if (form === 'notification' && mcp.method === 'notifications/cancelled') {
+      const requestId = isRecord(mcp.params) ? mcp.params.requestId : undefined;
+      const own = (typeof requestId === 'string' || typeof requestId === 'number') && session.usedRequestIds.has(mcpIdKey(requestId));
+      if (!own) { fail('invalid message'); return; }
+    }
     if (form === 'notification') { reply(); return; }
     if (form === 'response') {
       if (!session.outstandingServerRequests.delete(mcpIdKey(mcp.id as string | number))) { fail('invalid message'); return; }
@@ -448,6 +468,7 @@ export function createMockCvmService(options: MockCvmOptions = {}): MockCvmServi
       state.serverRequests += 1;
       const id = `srv-${state.serverRequests}`;
       session.outstandingServerRequests.add(mcpIdKey(id));
+      scheduler.schedule(serverRequestTimeoutMs, () => { session.outstandingServerRequests.delete(mcpIdKey(id)); });
       pushToWindow(service, windowId, event(pubkey, { jsonrpc: '2.0', id, method, ...(params ? { params } : {}) }));
       return id;
     },

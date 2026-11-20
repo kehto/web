@@ -155,8 +155,14 @@ describe('createMockCvmService', () => {
     const { service, request, sent, last } = setup();
     expect(service.emitNotification('w1', ECHO, 'notifications/tools/list_changed')).toBe(false);
     expect(service.emitServerRequest('w1', ECHO, 'ping')).toBeUndefined();
-    request('n1', ECHO, { method: 'notifications/cancelled', params: { requestId: 2 } });
+    request('n1', ECHO, { method: 'notifications/initialized' });
     expect(last()).toEqual({ type: 'cvm.request.result', id: 'n1' });
+    // "notifications/cancelled may refer only to this napplet's requests".
+    request('n2', ECHO, { method: 'notifications/cancelled', params: { requestId: 2 } });
+    expect(last()).toEqual({ type: 'cvm.request.result', id: 'n2', error: 'invalid message' });
+    request('q2', ECHO, { id: 2, method: 'ping' });
+    request('n3', ECHO, { method: 'notifications/cancelled', params: { requestId: 2 } });
+    expect(last()).toEqual({ type: 'cvm.request.result', id: 'n3' });
 
     expect(service.emitNotification('w1', ECHO, 'notifications/tools/list_changed')).toBe(true);
     expect(last()).toEqual({ type: 'cvm.event', server: { pubkey: ECHO }, message: { jsonrpc: '2.0', method: 'notifications/tools/list_changed' } });
@@ -169,6 +175,11 @@ describe('createMockCvmService', () => {
     expect(last()).toEqual({ type: 'cvm.request.result', id: 'a2', error: 'invalid message' });
     expect(service.emitNotification('w2', ECHO, 'ping')).toBe(false);
     expect(sent.filter((msg) => msg.type === 'cvm.event')).toHaveLength(2);
+  });
+
+  it('bounds serverRequestTimeoutMs like the service (NAP-CVM Timeouts: 1 through 300000)', () => {
+    for (const value of [0, 1.5, 300_001]) expect(() => createMockCvmService({ serverRequestTimeoutMs: value })).toThrow(RangeError);
+    expect(() => createMockCvmService({ serverRequestTimeoutMs: 300_000 })).not.toThrow();
   });
 
   it('cvm.close releases only the caller session and is idempotent', () => {
