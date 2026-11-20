@@ -15,7 +15,7 @@ import { expect, test, type FrameLocator, type Page } from '@playwright/test';
 import { generateSecretKey } from 'nostr-tools/pure';
 import type { PajaServer } from '../../packages/paja/dist/index.js';
 import { installMemoryRelay, type MemoryRelay } from './helpers/memory-relay.js';
-import { connectKeySigner, installKeySigner, openFlowTarget, readLog, settleApproving, startFlowRuntime, startFlowTarget, type FlowTarget, type FlowWindow, type TrackedResult } from './helpers/paja-flows.js';
+import { connectKeySigner, installKeySigner, openFlowTarget, readLog, readTracked, startFlowRuntime, startFlowTarget, type FlowTarget, type FlowWindow, type TrackedResult } from './helpers/paja-flows.js';
 import { installPajaApprovalDriver } from './paja-approval-driver.js';
 
 const RELAY = 'wss://paja-webrtc-bytes.example';
@@ -44,23 +44,26 @@ async function startPeer(page: Page): Promise<Omit<Peer, 'sessionId'>> {
   // Advertising webrtc needs a fresh injection (NIP-5D), so the frame reloads once.
   await expect.poll(() => page.evaluate(() => window.__KEHTO_PAJA__!.getState().generation)).toBe(before + 1);
   const frame = page.frameLocator('#napplet-frame');
-  await expect.poll(() => frame.locator('body').evaluate(() => typeof (window as unknown as FlowWindow).napplet.webrtc)).toBe('object');
+  // The replacement frame may not have its namespace yet while it loads.
+  await expect.poll(() => frame.locator('body').evaluate(() => typeof (window as unknown as Partial<FlowWindow>).napplet?.webrtc)).toBe('object');
   await expect(frame.locator('#flow-status')).toHaveText('ready');
   return { page, frame, relay, pubkey: signer.pubkey };
 }
 
-/** Run one napplet call in the frame and settle it, approving host prompts. */
+/** Run one napplet call in the frame and wait for it to settle; {@link keepApproving} answers host prompts. */
 async function napplet(peer: Peer, key: string, call: string, ...args: unknown[]): Promise<TrackedResult> {
   await peer.frame.locator('body').evaluate((_body, [name, method, params]) => {
     const w = window as unknown as FlowWindow;
     w.__track(name as string, w.napplet.webrtc[method as string](...(params as unknown[])));
   }, [key, call, args] as const);
-  return (await settleApproving(peer.page, peer.frame, key)).result;
+  await expect.poll(() => readTracked(peer.frame, key), { timeout: 20_000 }).not.toBeNull();
+  return (await readTracked(peer.frame, key))!;
 }
 
 /**
- * Approve host prompts as the user would, for the whole handshake: after
- * `open` returns, Paja still asks before signing each signaling event.
+ * Approve host prompts as the user would, for the whole test: `open` asks for
+ * session consent, and Paja still asks before signing each signaling event
+ * after `open` returns. One in-page approver, so no two clickers race.
  */
 async function keepApproving(peer: Peer): Promise<void> {
   await peer.page.evaluate(() => {
