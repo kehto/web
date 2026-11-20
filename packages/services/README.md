@@ -280,6 +280,23 @@ which the reference router uses to close subscriptions and suppress late results
 Standalone OUTBOX routers without runtime authorization retain the legacy API with
 one `FW-OUTBOX-LEGACY-001` warning per service instance.
 
+Relays fail from time to time, so OUTBOX never reports a relay failure as a
+denial. Following the error codes in [NAP-OUTBOX draft #32 at
+`8865f73`](https://github.com/napplet/naps/blob/8865f73d52a4864afee145f28d26520476273927/naps/NAP-OUTBOX.md):
+
+| Failure | Reason |
+|---|---|
+| Relay-list lookup throws or rejects | Falls back to `fallbackRelays`; a required `toInboxes` author becomes `relay list unavailable` |
+| `planRead` rejects, or no planned relay attaches | `relay list unavailable` (or the network reason the router names) |
+| Planned relays never answer before the deadline | `relay timeout`, with `incomplete: true` |
+| Some planned relays fail, others answer | Events from the rest, with `incomplete: true` |
+| No planned relay accepts a publish | `relay timeout` |
+| Signer or user declines a publish | `publish denied` |
+| Approval not executed, approval revoked, relay gate refuses every inbox relay, or a router that cannot plan | `policy denied` |
+
+The draft has no code for "no relay reachable" or "every relay refused", so the
+closest defined codes are used and no new code is introduced.
+
 Relay pool and coordinated relay services require `publishToRelays` to execute a
 publish plan; a generic `publish` callback cannot guarantee approved destinations.
 Hosts must supply the destination-aware callback before publishing through these

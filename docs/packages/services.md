@@ -186,6 +186,16 @@ Security Considerations (shells SHOULD apply per-napplet concurrency limits).
   relay selection, and napplet wire messages are unchanged; pool adapters may
   ignore the optional metadata argument. This follows the routing inputs in
   [NAP-OUTBOX draft #32 at `8865f73`](https://github.com/napplet/naps/blob/8865f73d52a4864afee145f28d26520476273927/naps/NAP-OUTBOX.md).
+- OUTBOX relay failures are never reported as `policy denied`. A failing
+  relay-list loader falls back to configured relays (Shell Behavior: "SHOULD fall
+  back to configured relays when NIP-65 data is absent, stale, or unreachable");
+  planning and transport failures carry `relay list unavailable` or
+  `relay timeout`; planned reads settle on EOSE and mark partial relay failure
+  `incomplete: true`. Only an approval that did not execute, a revoked approval,
+  a relay-gate refusal, or an unplannable router is `policy denied`; a declined
+  publish is `publish denied`. Spec gap: the draft has no "no relay reachable" or
+  "relay refused" code, so the closest defined codes are used. See the
+  [services README](https://github.com/kehto/web/blob/main/packages/services/README.md#approval-aware-relay-services).
 - `createOutboxService()` accepts a source-scoped `getReadRouter` for
   `outbox.getEvent`, `outbox.query`, and `outbox.subscribe`, while the optional
   `getQueryRouter` can layer query-only policy or caching on top.

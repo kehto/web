@@ -157,6 +157,10 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .log-list { min-height: 160px; max-height: 38vh; overflow: auto; border: 1px solid var(--line); border-radius: 4px; background: #0b0d0b; }
       .log-row { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 6px; padding: 5px 7px; border-bottom: 1px solid #1b1f1a; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
       .log-row[data-error="true"] { background: #1d1414; }
+      .log-row[data-outcome="failed"] { background: #1d1a12; }
+      .log-row[data-outcome="failed"] .log-detail { color: #e2c78a; }
+      .log-outcome { justify-self: start; padding: 0 4px; border-radius: 3px; font-size: 10px; background: #4a2020; color: #f0b8b8; }
+      .log-row[data-outcome="failed"] .log-outcome { background: #3d3418; color: #e2c78a; }
       .log-row:last-child { border-bottom: 0; }
       .log-dir { color: var(--muted); }
       .log-body { min-width: 0; display: grid; gap: 2px; }

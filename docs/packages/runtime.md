@@ -110,6 +110,13 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
   retired subscriptions remain suppressed after regrant and `subId` reuse.
   This host policy conforms to [NAP-RELAY draft PR #2 at
   `9f30b3505335a52c574ff570576687d6467021ff`](https://github.com/napplet/naps/blob/9f30b3505335a52c574ff570576687d6467021ff/naps/NAP-RELAY.md).
+- A relay that throws while an approved `relay.subscribe`, `relay.publish`,
+  `relay.publishEncrypted`, or `relay.query` runs reports a transport reason
+  (`relay subscription failed`, `publish failed`, `relay query failed`). Only an
+  approval that did not execute keeps `relay authorization unavailable or
+  denied`. A subscription that fails after it opened is retired, so no event
+  or EOSE follows its `relay.closed`. NAP-RELAY reasons are free-form, so only
+  that split is fixed.
 - Follows draft NAP-RELAY PR #2 at
   `0be8abce18beb46ca37bd4ddd042f58d30b4eedc`: `relay.publish` accepts an
   unsigned template, signs it through the shell-owned signer, publishes only
