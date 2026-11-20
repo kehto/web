@@ -187,7 +187,9 @@ calls `ShellBridge.revokeNapplet(windowId, 'host')`, the same teardown as any
 other revoke: the port binding, cached shell environment, runtime session and
 per-window service state all go, and services get `onWindowDestroyed` once for
 that registration, even though the Firewall retire and the bridge revoke both
-tear the window down. That
+tear the window down. A handler without `onPermissionRevoked` also gets
+`onWindowDestroyed` as its revocation fallback when a grant revoke starts the
+retire. That
 retire is logged as `paja.napplet.retired`, not `paja.napplet.revoked`. Port traffic in both
 directions appears in the message log, and revocations are logged as
 `paja.napplet.revoked`. The log

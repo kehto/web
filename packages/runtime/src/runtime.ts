@@ -112,6 +112,8 @@ export interface Runtime {
    * Removes subscriptions, pending state, and notifies service handlers.
    * Services hear `onWindowDestroyed` at most once per session registration,
    * even when `sessionRegistry.unregister` or a repeated call retires it too.
+   * With the permission runtime the source is retired; without it, a source
+   * that keeps dispatching is live again and its next destroy notifies.
    *
    * @param windowId - The window to clean up
    */
@@ -240,6 +242,7 @@ function createMessageHandler(
   dispatchNapEnvelope: (windowId: string, envelope: NappletMessage) => void,
   serviceRouting: { builtInDomains: ReadonlySet<string>; extensions: ReturnType<typeof createServiceExtensionRouter> },
   firewallGate: (windowId: string, envelope: NappletMessage, senderCap: string | null) => 'dispatch' | 'drop',
+  windowDestroys: WindowDestroyTracker,
   permissions?: ReturnType<typeof createPermissionRuntime>,
 ): Runtime['handleMessage'] {
   return (windowId: string, msg: unknown): void => {
@@ -251,6 +254,8 @@ function createMessageHandler(
     // trusted creation identity independently of the optional NAP-SHELL exchange.
     if (!sessionRegistry.getEntryByWindowId(windowId)) return;
     if (permissions && !permissions.isSourceActive(windowId)) return;
+    // A source still dispatching after a cleanup destroy gets its next destroy too (#498).
+    windowDestroys.dispatching(windowId);
     const domain = envelope.type.slice(0, dotIdx);
     if (!serviceRouting.builtInDomains.has(domain)) {
       serviceRouting.extensions.handleMessage(windowId, envelope);
@@ -713,7 +718,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     hooks, services: serviceRegistry, registrations: registeredServices,
     sessions: sessionRegistry, acl: aclState, enforce: enforceNap, firewall: firewallGate, permissions,
   });
-  const handleMessage = createMessageHandler(hooks, sessionRegistry, enforceNap, dispatchNapEnvelope, { builtInDomains, extensions }, firewallGate, permissions);
+  const handleMessage = createMessageHandler(hooks, sessionRegistry, enforceNap, dispatchNapEnvelope, { builtInDomains, extensions }, firewallGate, windowDestroys, permissions);
 
   return createRuntimeInstance({
     hooks,

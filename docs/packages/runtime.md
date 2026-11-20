@@ -247,8 +247,12 @@ that runs both again. Services hear `onWindowDestroyed` at most once per session
 registration, whichever call comes first. A later `register()` of the same
 window ID is a new lifetime with its own destroy, and replacing a live
 registration with the permission runtime installed retires the old one once.
-`destroyWindow()` for a window ID this runtime never registered still notifies
-on every call. Permission revocation stays separate: `onPermissionRevoked` (or
+With the permission runtime, `destroyWindow()` also retires the source, so it
+dispatches nothing more. Without it, a source that keeps sending messages after
+a cleanup `destroyWindow()` is live again, and its next destroy notifies
+services, so state it gathered in between is still cleaned. A window
+ID with no tracked registration has nothing to deduplicate against, so each
+`destroyWindow()` call for it is broadcast. Permission revocation stays separate: `onPermissionRevoked` (or
 its `onWindowDestroyed` fallback for handlers without it) never consumes the
 registration's destroy. The exported `notifyServiceWindowDestroyed()` helper is
 a raw broadcaster and does not deduplicate.

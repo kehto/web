@@ -95,6 +95,8 @@ export interface WindowDestroyTracker {
   registered(windowId: string): void;
   /** Notify services unless this window's last registration was already destroyed. */
   destroyed(windowId: string): void;
+  /** A registered source dispatched again after a cleanup destroy; its next destroy must notify. */
+  dispatching(windowId: string): void;
 }
 
 /**
@@ -104,7 +106,9 @@ export interface WindowDestroyTracker {
  * A later registration of the same windowId is a new lifetime with its own
  * destroy. A windowId this runtime never registered keeps the previous
  * notify-on-every-call behavior. Permission revocation is a separate
- * callback and is not tracked here. The most recent retired windowIds
+ * callback and is not tracked here. A source that keeps dispatching after a
+ * cleanup `destroyWindow` (legacy hosts without the permission runtime, which
+ * otherwise retires the source) is live again, so its next destroy notifies. The most recent retired windowIds
  * (bounded by `SPENT_WINDOW_LIMIT`) are remembered to absorb late duplicates.
  *
  * @param services - The live service registry to notify
@@ -126,6 +130,11 @@ export function createWindowDestroyTracker(services: ServiceRegistry, retireRepl
         if (spent.size > SPENT_WINDOW_LIMIT) spent.delete(spent.values().next().value as string);
       } else if (spent.has(windowId)) return;
       notifyServiceWindowDestroyed(windowId, services);
+    },
+    dispatching(windowId: string): void {
+      if (live.has(windowId)) return;
+      spent.delete(windowId);
+      live.add(windowId);
     },
   };
 }

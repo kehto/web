@@ -12,13 +12,18 @@ import { createMockRuntimeAdapter, createNip5dSessionEntry } from './test-utils.
 import type { ServiceHandler } from './service-types.js';
 
 declare const AbortController: { new(): { readonly signal: unknown; abort(reason?: unknown): void } };
+declare function setTimeout(callback: () => void, ms: number): unknown;
+
+const settle = (): Promise<void> => new Promise((resolve) => { setTimeout(resolve, 0); });
 
 function fixture(withPermissions: boolean) {
   const destroyed: string[] = [];
   const revoked: string[] = [];
+  const handled: string[] = [];
   const counting: ServiceHandler = {
     descriptor: { name: 'counting', version: '1.0.0' },
-    handleMessage() {},
+    messageCapabilities: { 'counting.ping': null },
+    handleMessage: (windowId) => { handled.push(windowId); },
     onWindowDestroyed: (windowId) => { destroyed.push(windowId); },
     onPermissionRevoked: (windowId) => { revoked.push(windowId); },
   };
@@ -30,6 +35,7 @@ function fixture(withPermissions: boolean) {
   };
   const { hooks } = createMockRuntimeAdapter({
     services: { counting, legacy },
+    isDomainAllowed: () => true,
     ...(withPermissions ? {
       permissions: {
         now: () => 0,
@@ -44,7 +50,7 @@ function fixture(withPermissions: boolean) {
     ...createNip5dSessionEntry(windowId, 'app', 'a'.repeat(64)),
     permissionPrincipal: { kind: 'development' as const, target: 'http://localhost:5173', artifactHash: 'a'.repeat(64) },
   });
-  return { runtime, register, destroyed, revoked, legacyDestroyed };
+  return { runtime, register, destroyed, revoked, legacyDestroyed, handled };
 }
 
 /** The Paja admission retire followed by the bridge revoke teardown (#495). */
@@ -83,6 +89,30 @@ describe.each([true, false])('window destroy notifications (permissions: %s)', (
     expect(f.destroyed).toEqual(['window']);
     retireThroughEveryPath(f.runtime);
     expect(f.destroyed).toEqual(['window', 'window']);
+    f.runtime.destroy();
+  });
+
+  it('never leaves state a source gathered after a cleanup destroy without its own destroy', async () => {
+    const f = fixture(withPermissions);
+    const admit = async () => {
+      if (!withPermissions) return;
+      const admission = await f.runtime.permissions!.admit('window', { available: ['counting'], required: ['counting'], optional: [] });
+      expect(admission.status).toBe('admitted');
+    };
+    f.register();
+    await admit();
+    f.runtime.handleMessage('window', { type: 'counting.ping' });
+    await settle();
+    expect(f.handled).toEqual(['window']);
+    f.runtime.destroyWindow('window');
+    f.runtime.handleMessage('window', { type: 'counting.ping' });
+    await settle();
+    // The permission runtime retires the source; a legacy host keeps it live.
+    const afterCleanup = withPermissions ? ['window'] : ['window', 'window'];
+    expect(f.handled).toEqual(afterCleanup);
+    f.runtime.sessionRegistry.unregister('window');
+    f.runtime.destroyWindow('window');
+    expect(f.destroyed).toEqual(afterCleanup);
     f.runtime.destroy();
   });
 
