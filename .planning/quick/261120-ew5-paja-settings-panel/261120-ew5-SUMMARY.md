@@ -47,3 +47,12 @@ After rebasing onto staging `8023fbe6`: `pnpm build`, `pnpm type-check`,
 files 100/100 (one `installPajaLlmPanel` length warning that already exists on
 the staging baseline), and a clean `pnpm test:e2e` run (144 passed, 1
 pre-existing skip).
+
+## Follow-up (same day)
+
+The settings dialog is now tabbed (ARIA tabs, one tab per group, invalid tabs
+flagged), the top-bar controls share one vertical centre, and read-only server
+fields are dimmed. After rebasing onto the current staging head: `test:unit`
+295 files / 3840 tests, `test:e2e` 146 passed (1 existing skip), docs and slop
+gates green.
+

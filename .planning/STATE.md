@@ -165,7 +165,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
-| 261120-ew5 | Paja settings panel: every tunable number is a persisted user default | 2026-11-20 | feat/paja-settings-panel | passed; 3795 unit and 144 browser tests (1 pre-existing skip) | [261120-ew5](./quick/261120-ew5-paja-settings-panel/) |
+| 261120-ew5 | Paja settings panel: every tunable number is a persisted user default | 2026-11-20 | feat/paja-settings-panel | passed; 3840 unit and 146 browser tests (1 pre-existing skip) | [261120-ew5](./quick/261120-ew5-paja-settings-panel/) |
 | 261117-mr2 | Discover and persist CVM families from nevent, schema hash and website | 2026-11-17 | 5d8c03ae | passed; 3494 unit and 138 browser tests | [261117-mr2](./quick/261117-mr2-discover-and-persist-cvm-schema-families/) |
 | 261113-hwh | Add MIT license and open a PR requiring every contributor's consent before merging | 2026-11-13 | 45349324 | passed | [261113-hwh](./quick/261113-hwh-add-an-mit-license-and-open-a-pr-requiri/) |
 | 261112-vyl | Resolve PR #433 merge conflicts with main, retaining both signer regression suites | 2026-11-12 | b2606f9a | passed; 134 browser tests, one existing skip | [261112-vyl](./quick/261112-vyl-resolve-pr-433-merge-conflicts-with-main/) |
