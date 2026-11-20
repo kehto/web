@@ -52,8 +52,20 @@ export interface CvmTransport {
   planRequest?(server: CvmServerRef): readonly string[];
   /** Resolve public ContextVM server announcements matching the query. */
   discover(query?: CvmDiscoverQuery, execution?: { signal: ApprovalSignal }): Promise<CvmServer[]>;
-  /** Send a raw MCP message to a server and resolve with the MCP response. */
+  /** Send an MCP request-form message to a server and resolve with the matching MCP response. */
   request(server: CvmServerRef, message: McpMessage, options?: CvmRequestOptions, execution?: { signal: ApprovalSignal }): Promise<McpMessage>;
+  /**
+   * Publish an MCP notification or a response to a server request, and
+   * resolve once it is published (NAP-CVM #31 @ 28cf1bdb: "After transport
+   * publication, result without `message`"). No MCP response is awaited, and
+   * the message is sent as given: a notification gets no id and a response
+   * keeps the napplet's id. Rejects with `relay timeout` past `timeoutMs`.
+   *
+   * Optional for older transports. Without it the service warns once
+   * (`KEHTO_CVM_TRANSPORT_PUBLISH`, see docs/compatibility.md) and falls back
+   * to {@link CvmTransport.request}, still answering without `message`.
+   */
+  publish?(server: CvmServerRef, message: McpMessage, options?: CvmRequestOptions, execution?: { signal: ApprovalSignal }): Promise<void>;
   /** Release any session state held for a server (subscriptions, init cache). */
   close(server: CvmServerRef): Promise<void>;
   /**

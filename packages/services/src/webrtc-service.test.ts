@@ -237,6 +237,111 @@ describe('createWebrtcService', () => {
       emit({ ...MESSAGE_EVENT, sessionId: 'someone-else' });
       expect(sent).toEqual([]);
     });
+
+    // Spec-gap decision: NAP-WEBRTC asks for `closed` only "when an established
+    // session ends because a peer disconnects, ICE fails, signaling expires, or
+    // policy revokes the capability"; `close()` "Closes the session and asks the
+    // shell to publish any corresponding disconnect signal". It says nothing
+    // about a `closed` event for a napplet-initiated close, so none is sent:
+    // `webrtc.close.result` is the napplet's confirmation.
+    it('sends no closed event for a napplet-initiated close', async () => {
+      const { service, sent, send } = await openSession(vi.fn((_id, _reason, context) => {
+        context.emit({ type: 'closed', sessionId: 'webrtc-session-1', reason: 'done' });
+      }));
+      service.handleMessage(WINDOW_ID, { type: 'webrtc.close', id: 'close', sessionId: 'webrtc-session-1', reason: 'done' } as NappletMessage, send);
+      await flush();
+      expect(sent).toEqual([{ type: 'webrtc.close.result', id: 'close' }]);
+    });
+
+    it('does not resurrect a session the backend closed while a failing close was in flight', async () => {
+      const close = vi.fn(async (_id: string, _reason: string | undefined, context: { emit(event: WebrtcEvent): void }) => {
+        context.emit({ type: 'closed', sessionId: 'webrtc-session-1', reason: 'peer disconnected' });
+        throw new Error('signaling unavailable');
+      });
+      const { service, sent, send, emit } = await openSession(close);
+      service.handleMessage(WINDOW_ID, { type: 'webrtc.close', id: 'close', sessionId: 'webrtc-session-1' } as NappletMessage, send);
+      await flush();
+      emit(MESSAGE_EVENT);
+      service.handleMessage(WINDOW_ID, { type: 'webrtc.close', id: 'again', sessionId: 'webrtc-session-1' } as NappletMessage, send);
+      await flush();
+      expect(sent).toEqual([
+        { type: 'webrtc.close.result', id: 'close', error: 'signaling unavailable' },
+        { type: 'webrtc.close.result', id: 'again', error: 'session not found' },
+      ]);
+      expect(close).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // NAP-WEBRTC (napplet/naps#59 @ fb4dd6f0): "The shell SHOULD send a
+  // webrtc.event with type: "closed" when an established session ends because a
+  // peer disconnects, ICE fails, signaling expires, or policy revokes the
+  // capability", and it "MUST NOT deliver messages for an unknown sessionId".
+  // Once `closed` is delivered the session is unknown.
+  describe('after the backend reports closed', () => {
+    const approveAll = { authorizeOperation: async (_w: string, _o: string, _r: readonly unknown[], run: (signal: ApprovalSignal) => unknown) =>
+      ({ status: 'executed' as const, value: await run(new AbortController().signal) }) } as unknown as ServiceRuntimeContext;
+    const CLOSED: WebrtcEvent = { type: 'closed', sessionId: 'webrtc-session-1', reason: 'peer disconnected' };
+    const STATE_CLOSED: WebrtcEvent = { type: 'state', sessionId: 'webrtc-session-1', state: 'closed' };
+    // `stats` is in NAP-WEBRTC @ fb4dd6f0 but not yet in @napplet/core's WebrtcEvent (upstream package drift).
+    const STATS_EVENT = { type: 'stats', sessionId: 'webrtc-session-1', pubkey: PEER_PUBKEY, rttMs: 42 } as unknown as WebrtcEvent;
+
+    function setup(open?: (emit: (event: WebrtcEvent) => void) => void) {
+      let emit!: (event: WebrtcEvent) => void;
+      const send = vi.fn();
+      const close = vi.fn();
+      const service = createWebrtcService({
+        planOpen: () => ({ signalingRelayUrls: [], iceEndpoints: [], resource: `peer:${PEER_PUBKEY}` }),
+        open: (_request, context) => { emit = (event) => context.emit(event); open?.(emit); return OPEN_RESULT; },
+        send, close,
+      });
+      service.onRegistered?.(approveAll);
+      const { sent, send: reply } = collectSent();
+      service.handleMessage(WINDOW_ID, { type: 'webrtc.open', id: 'open', request: REQUEST } as NappletMessage, reply);
+      return { service, sent, reply, send, close, emit: (event: WebrtcEvent) => emit(event) };
+    }
+
+    it.each([MESSAGE_EVENT, STATE_CLOSED, STATS_EVENT, CLOSED,
+      { type: 'peer', sessionId: 'webrtc-session-1', pubkey: PEER_PUBKEY, state: 'left' } as WebrtcEvent,
+    ].map((event) => [event.type, event] as const))('delivers closed once, then drops a late %s event', async (_type, event) => {
+      const h = setup();
+      await flush();
+      h.sent.length = 0;
+      h.emit(STATE_CLOSED);
+      h.emit(CLOSED);
+      h.emit(event);
+      expect(h.sent).toEqual([{ type: 'webrtc.event', event: STATE_CLOSED }, { type: 'webrtc.event', event: CLOSED }]);
+    });
+
+    it('forgets the session: later send and close get session not found and never reach the backend', async () => {
+      const h = setup();
+      await flush();
+      h.emit(CLOSED);
+      h.sent.length = 0;
+      h.service.handleMessage(WINDOW_ID, { type: 'webrtc.send', id: 's', sessionId: 'webrtc-session-1', payload: 1 } as NappletMessage, h.reply);
+      h.service.handleMessage(WINDOW_ID, { type: 'webrtc.close', id: 'c', sessionId: 'webrtc-session-1' } as NappletMessage, h.reply);
+      await flush();
+      expect(h.sent).toEqual([
+        { type: 'webrtc.send.result', id: 's', error: 'session not found' },
+        { type: 'webrtc.close.result', id: 'c', error: 'session not found' },
+      ]);
+      expect(h.send).not.toHaveBeenCalled();
+      expect(h.close).not.toHaveBeenCalled();
+    });
+
+    it('reports a session the backend closed while opening right after its result, and never keeps it', async () => {
+      const h = setup((emit) => { emit(STATE_CLOSED); emit(CLOSED); emit(MESSAGE_EVENT); });
+      await flush();
+      h.emit(MESSAGE_EVENT);
+      h.service.handleMessage(WINDOW_ID, { type: 'webrtc.close', id: 'c', sessionId: 'webrtc-session-1' } as NappletMessage, h.reply);
+      await flush();
+      expect(h.sent).toEqual([
+        { type: 'webrtc.event', event: STATE_CLOSED },
+        { type: 'webrtc.open.result', id: 'open', session: OPEN_RESULT.session },
+        { type: 'webrtc.event', event: CLOSED },
+        { type: 'webrtc.close.result', id: 'c', error: 'session not found' },
+      ]);
+      expect(h.close).not.toHaveBeenCalled();
+    });
   });
 
   it('plans signaling destinations and waits for runtime approval before opening a peer', async () => {

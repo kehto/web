@@ -159,11 +159,13 @@ describe('createCvmService', () => {
       expect(timeoutMs).toBeLessThanOrEqual(30_000);
     });
 
-    it('rejects with "server not found" when server pubkey is missing', async () => {
+    // NAP-CVM #31 @ 28cf1bdb, Errors: `invalid request` is a "Malformed server
+    // reference, query, selector, or other non-message parameter".
+    it('rejects with "invalid request" when the server reference is missing', async () => {
       const { sent, send } = collectSent();
       svc.handleMessage(WINDOW, { type: 'cvm.request', id: 'r2', message: { jsonrpc: '2.0' } } as NappletMessage, send);
       await flush();
-      expect(sent[0]).toEqual({ type: 'cvm.request.result', id: 'r2', error: 'server not found' });
+      expect(sent[0]).toEqual({ type: 'cvm.request.result', id: 'r2', error: 'invalid request' });
     });
 
     // NAP-CVM (napplet/naps#31 @ 28cf1bdb, Message handling + Conformance):
@@ -205,13 +207,31 @@ describe('createCvmService', () => {
     it.each([
       ['a request', { jsonrpc: '2.0', id: 'r-1', method: 'tools/call', params: { name: 'x' } }],
       ['a notification', { jsonrpc: '2.0', method: 'notifications/cancelled', params: { requestId: 2 } }],
-      ['a result response', { jsonrpc: '2.0', id: 3, result: {} }],
-      ['an error response', { jsonrpc: '2.0', id: 'srv-1', error: { code: -1, message: 'no' } }],
     ])('admits %s unchanged', async (_label, message) => {
+      const publish = vi.fn(async () => {});
+      svc = createCvmService({ transport: { ...transport, publish } });
       const { send } = collectSent();
       svc.handleMessage(WINDOW, { type: 'cvm.request', id: 'ok', server: SERVER, message } as NappletMessage, send);
       await flush();
-      expect(transport.request).toHaveBeenCalledWith(SERVER, message, expect.any(Object), expect.any(Object));
+      const carried = 'id' in message ? transport.request : publish;
+      expect(carried).toHaveBeenCalledWith(SERVER, message, expect.any(Object), expect.any(Object));
+    });
+
+    // A response must answer "an outstanding server request delivered to that
+    // napplet"; cvm-request-lifecycle.test.ts covers the unmatched cases.
+    it.each([
+      ['a result response', { jsonrpc: '2.0', id: 3, result: {} }],
+      ['an error response', { jsonrpc: '2.0', id: 'srv-1', error: { code: -1, message: 'no' } }],
+    ])('admits %s to a delivered server request unchanged', async (_label, message) => {
+      const publish = vi.fn(async () => {});
+      svc = createCvmService({ transport: { ...transport, publish } });
+      const { send } = collectSent();
+      svc.handleMessage(WINDOW, { type: 'cvm.request', id: 'open', server: SERVER, message: { jsonrpc: '2.0', id: 1, method: 'tools/list' } } as NappletMessage, send);
+      await flush();
+      transport.emitEvent(SERVER, { jsonrpc: '2.0', id: message.id, method: 'roots/list' });
+      svc.handleMessage(WINDOW, { type: 'cvm.request', id: 'ok', server: SERVER, message } as NappletMessage, send);
+      await flush();
+      expect(publish).toHaveBeenCalledWith(SERVER, message, expect.any(Object), expect.any(Object));
     });
 
     it('surfaces a transport error as the envelope error', async () => {

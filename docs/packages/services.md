@@ -33,7 +33,16 @@ revocation or window destroy, plus early `state` events while the open is still
 pending. Close removes the session from delivery before the host `close` hook
 runs, so teardown notifications and late peer `message`, `peer`, `state` or
 `stats` events for it are dropped (NAP-WEBRTC "MUST NOT deliver messages for an
-unknown sessionId"). A failed close keeps the session deliverable.
+unknown sessionId"). A failed close keeps the session deliverable, unless the
+backend reported it `closed` meanwhile. When the backend ends a session itself
+(peer gone, ICE failure, signaling or policy), the service forgets it as soon as
+it delivers that `closed` event: nothing later is delivered, a later
+`webrtc.send` or `webrtc.close` gets `session not found` without reaching the
+host hooks, and the session map no longer grows over a long-lived window. A
+`closed` reported while the open is still pending is delivered right after the
+`webrtc.open.result`, and that session is never kept. A napplet-initiated
+`webrtc.close` gets no `closed` event; the NAP only asks for one when a peer,
+ICE, signaling or policy ends the session (spec-gap decision).
 
 OUTBOX and COUNT resolve relay destinations before approval. Their remote
 backends receive the approved immutable URL list and cancellation signal; local
@@ -141,6 +150,25 @@ Security Considerations (shells SHOULD apply per-napplet concurrency limits).
   string or integer `id` and object `params`/`result`/`error`. Anything else (a
   missing message, a batch, `id: null`, both `result` and `error`, …) returns
   `invalid message` and is never authorized, admitted or published.
+- Notifications and responses complete on publication: the result has only
+  `type` and `id`, with no `message`, and no MCP response is awaited. They go
+  through the new optional `CvmTransport.publish()`, which sends the message as
+  given (no id added to a notification, a response keeps the napplet's id).
+  `createNostrCvmTransport` implements it under the same deadline. A transport
+  without `publish()` falls back to `request()` and warns once
+  (`KEHTO_CVM_TRANSPORT_PUBLISH`, see `docs/compatibility.md`). The injected
+  `window.napplet.cvm.request()` from `@kehto/shell` resolves `null` for these,
+  as the NAP's API column says; a request still resolves with its MCP response.
+- MCP ids are tracked per endpoint, server and direction, typed (`1` is not
+  `"1"`). A client request id already used in the session, and a response that
+  matches no server request delivered to that napplet (or one already answered),
+  return `invalid message` at receipt, before approval or publication. A request
+  rejected before admission (for example `invalid timeout`) does not use up its
+  id. `cvm.close`, revocation and window destroy clear the books; shell-owned
+  registry and initialization ids never enter them.
+- A malformed `server` reference returns `invalid request` on `cvm.request` and
+  `cvm.close` (it used to be `server not found` and `session closed`). An
+  unknown but well-formed server is still `server not found`.
 - With slots and queue both full, the operation is refused at once with
   `policy denied`. Spec gap: the draft's error table has no load-shedding entry,
   so the service reuses the shell-policy error rather than inventing a string.

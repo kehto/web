@@ -84,7 +84,7 @@ export interface MockCvmSession {
   pubkey: string;
   /** Client request ids already used in this session (`type:value`). */
   usedRequestIds: Set<string>;
-  /** Server-initiated request ids awaiting a napplet response. */
+  /** Server-initiated request ids awaiting a napplet response (`type:value`). */
   outstandingServerRequests: Set<string>;
   /** Whether `initialize` ran. */
   initialized: boolean;
@@ -165,6 +165,11 @@ const HEX64 = /^[0-9a-f]{64}$/;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** JSON-RPC ids are typed: `1` and `"1"` are different ids. */
+function mcpIdKey(id: string | number): string {
+  return `${typeof id}:${String(id)}`;
 }
 
 function sessionKey(windowId: string, pubkey: string): string {
@@ -373,11 +378,11 @@ export function createMockCvmService(options: MockCvmOptions = {}): MockCvmServi
     const mcp = message.message as McpMessage;
     if (form === 'notification') { reply(); return; }
     if (form === 'response') {
-      if (!session.outstandingServerRequests.delete(String(mcp.id))) { fail('invalid message'); return; }
+      if (!session.outstandingServerRequests.delete(mcpIdKey(mcp.id as string | number))) { fail('invalid message'); return; }
       reply();
       return;
     }
-    const key = `${typeof mcp.id}:${String(mcp.id)}`;
+    const key = mcpIdKey(mcp.id as string | number);
     if (session.usedRequestIds.has(key)) { fail('invalid message'); return; }
     session.usedRequestIds.add(key);
     const meta = isRecord(mcp.params) && isRecord(mcp.params._meta) ? mcp.params._meta : undefined;
@@ -442,7 +447,7 @@ export function createMockCvmService(options: MockCvmOptions = {}): MockCvmServi
       if (!session) return undefined;
       state.serverRequests += 1;
       const id = `srv-${state.serverRequests}`;
-      session.outstandingServerRequests.add(id);
+      session.outstandingServerRequests.add(mcpIdKey(id));
       pushToWindow(service, windowId, event(pubkey, { jsonrpc: '2.0', id, method, ...(params ? { params } : {}) }));
       return id;
     },

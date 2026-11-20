@@ -297,6 +297,27 @@ describe('CVM registry injected binding', () => {
   });
 });
 
+describe('CVM request injected binding', () => {
+  // NAP-CVM #31 @ 28cf1bdb, Message handling: a notification or response
+  // completes "After transport publication, result without `message`; API
+  // returns `null`", while a request resolves with its MCP response.
+  it('resolves null for notification and response acks, and the MCP response for a request', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['cvm'] }), target);
+    const cvm = target.napplet!.cvm as { request(server: unknown, message: unknown): Promise<unknown> };
+    target.onPortPost = (message) => target.dispatchParentMessage({ type: 'cvm.request.result', id: message.id });
+    await expect(cvm.request({ pubkey: 'a'.repeat(64) }, { jsonrpc: '2.0', method: 'notifications/initialized' })).resolves.toBeNull();
+    await expect(cvm.request({ pubkey: 'a'.repeat(64) }, { jsonrpc: '2.0', id: 'srv-1', result: {} })).resolves.toBeNull();
+    // A request-form ack without its response is still a failure.
+    await expect(cvm.request({ pubkey: 'a'.repeat(64) }, { jsonrpc: '2.0', id: 1, method: 'tools/list' })).rejects.toThrow('cvm.request.result missing message');
+    const response = { jsonrpc: '2.0', id: 2, result: { tools: [] } };
+    target.onPortPost = (message) => target.dispatchParentMessage({ type: 'cvm.request.result', id: message.id, message: response });
+    await expect(cvm.request({ pubkey: 'a'.repeat(64) }, { jsonrpc: '2.0', id: 2, method: 'tools/list' })).resolves.toEqual(response);
+    target.onPortPost = (message) => target.dispatchParentMessage({ type: 'cvm.request.result', id: message.id, error: 'invalid message' });
+    await expect(cvm.request({ pubkey: 'a'.repeat(64) }, { jsonrpc: '2.0', id: 'srv-9', result: {} })).rejects.toThrow('invalid message');
+  });
+});
+
 describe('NAP-MEDIA injected lifecycle', () => {
   it('retains terminal events, guards parent source and survives shim reassignment without shell', () => {
     const target = createPreludeTestWindow();

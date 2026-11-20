@@ -316,6 +316,54 @@ describe('Paja browser WebRTC controller', () => {
     expect(sent).toEqual([{ type: 'webrtc.close.result', id: 'close' }]);
   });
 
+  // NAP-WEBRTC (napplet/naps#59 @ fb4dd6f0): `closed` is sent "when an
+  // established session ends because a peer disconnects", and the shell "MUST
+  // NOT deliver messages for an unknown sessionId". After `closed` the service
+  // forgets the session, so a later napplet close never reaches the controller.
+  it('forgets a session the remote peer ended once closed is delivered', async () => {
+    const relay = new MemorySignalRelay();
+    const network = new FakeRtcNetwork();
+    const make = (seed: number, dTag: string) => {
+      const signer = signalingSigner(new Uint8Array(32).fill(seed));
+      const pubkey = getPublicKey(new Uint8Array(32).fill(seed));
+      return { pubkey, controller: createPajaWebrtcController({
+        relay, getSigner: () => signer, getPubkey: () => pubkey,
+        getIdentity: () => ({ dTag, aggregateHash: `hash-${dTag}` }), confirm: async () => true,
+        signalingRelayUrls: () => ['wss://signal.example'],
+        peerFactory: { create: () => network.create(), iceEndpoints: [] }, crypto: globalThis.crypto,
+      })! };
+    };
+    const a = make(1, 'caller-a');
+    const b = make(2, 'caller-b');
+    a.controller.refreshAvailability();
+    b.controller.refreshAvailability();
+    const close = vi.fn(a.controller.serviceOptions.close!);
+    const service = createWebrtcService({ ...a.controller.serviceOptions, close });
+    service.onRegistered?.({ authorizeOperation: async (_w: string, _o: string, _r: readonly unknown[], run: (signal: ApprovalSignal) => unknown) =>
+      ({ status: 'executed' as const, value: await run(new AbortController().signal) }) } as unknown as ServiceRuntimeContext);
+    const sent: NappletMessage[] = [];
+    service.handleMessage('window-a', { type: 'webrtc.open', id: 'open', request: { scope: { type: 'direct', pubkey: b.pubkey }, channel: 'chat' } } as NappletMessage, (m) => sent.push(m));
+    await vi.waitFor(() => expect(sent.some((m) => m.type === 'webrtc.open.result')).toBe(true));
+    const sessionId = (sent.find((m) => m.type === 'webrtc.open.result') as NappletMessage & { session: { id: string } }).session.id;
+    const requestB = { scope: { type: 'direct', pubkey: a.pubkey }, channel: 'chat' } as const;
+    const contextB = { windowId: 'window-b', emit: () => {} };
+    const openedB = await b.controller.serviceOptions.open!(requestB, contextB, b.controller.serviceOptions.planOpen!(requestB, contextB));
+    await settle();
+
+    sent.length = 0;
+    await b.controller.serviceOptions.close!(openedB.session.id, 'bye', contextB);
+    await vi.waitFor(() => expect(sent).toContainEqual({ type: 'webrtc.event', event: { type: 'closed', sessionId, reason: 'peer disconnected' } }));
+    sent.length = 0;
+    service.handleMessage('window-a', { type: 'webrtc.close', id: 'late-close', sessionId } as NappletMessage, (m) => sent.push(m));
+    service.handleMessage('window-a', { type: 'webrtc.send', id: 'late-send', sessionId, payload: 'x' } as NappletMessage, (m) => sent.push(m));
+    await settle();
+    expect(sent).toEqual([
+      { type: 'webrtc.close.result', id: 'late-close', error: 'session not found' },
+      { type: 'webrtc.send.result', id: 'late-send', error: 'session not found' },
+    ]);
+    expect(close).not.toHaveBeenCalled();
+  });
+
   it('fails closed without a NIP-44 signer or browser peer connection', () => {
     const relay = new MemorySignalRelay();
     const controller = createPajaWebrtcController({
