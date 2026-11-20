@@ -102,18 +102,23 @@ export async function startFlowTarget(optionalDomains: readonly string[]): Promi
  *
  * @param target - Flow target server.
  * @param relayUrl - Relay URL Paja treats as its live relay set.
+ * @param simulation - Extra simulation options (for example `cvm.concurrency`).
  * @returns The running Paja server.
  * @example
  * ```ts
  * const runtime = await startFlowRuntime(target, 'wss://flows-relay.example');
  * ```
  */
-export async function startFlowRuntime(target: FlowTarget, relayUrl: string): Promise<PajaServer> {
+export async function startFlowRuntime(
+  target: FlowTarget,
+  relayUrl: string,
+  simulation: Record<string, unknown> = {},
+): Promise<PajaServer> {
   return startPajaServer({
     options: {
       targetUrl: target.url,
       port: 0,
-      simulation: { relay: { mode: 'live', urls: [relayUrl] } },
+      simulation: { ...simulation, relay: { mode: 'live', urls: [relayUrl] } },
     },
     now: new Date('2026-11-01T00:00:00.000Z'),
   });
