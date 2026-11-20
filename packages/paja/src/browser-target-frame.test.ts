@@ -212,16 +212,68 @@ it('admits a live development URL with exact asset and HMR origins tied to fetch
   expect(prompts).toContain('network.connect-src');
 });
 
-it('rejects a live development document requiring resource before approval or execution', async () => {
+const DEV_CONFIG = { target: { mode: 'iframe-url', url: 'http://127.0.0.1:5173/', hmrStrategy: 'iframe-target-url' },
+  window: { id: 'dev', dTag: 'dev-app', aggregateHash: '0'.repeat(64) } } as PajaHostConfig;
+const RESOURCE_ADAPTER = { services: { resource: {} } } as unknown as ShellAdapter;
+function devFrame(): HTMLIFrameElement {
+  return { contentWindow: {} as Window, ownerDocument: LOCKED_HOST, srcdoc: '', getAttribute: vi.fn(() => null),
+    setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
+}
+function recordPrompts(): string[] {
+  const prompts: string[] = [];
+  runtime.destroy();
+  runtime = createPajaAdmissionTestRuntime(async ({ missing }) => {
+    prompts.push(...missing.map((item) => item.operation));
+    return { effect: 'allow', lifetime: 'session' };
+  });
+  return prompts;
+}
+
+// kehto/web#447, NAP-RESOURCE PR #80 at ae5b9c64ab8a4d8909f288829a01e99d6bd713bc:
+// `resource` needs a frame with no direct network, external subresources included.
+it('admits a target-URL document requiring resource as a network-isolated snapshot', async () => {
+  const prompts = recordPrompts();
+  const source = '<html><head><meta name="napplet-requires" content="resource"></head><body><script>1</script></body></html>';
+  stubDevelopmentHtml(source);
+  const frame = devFrame();
+  expect(await navigateFrame(frame, DEV_CONFIG, 1, RESOURCE_ADAPTER, runtime)).toBe('dev:1');
+  const csp = /Content-Security-Policy" content="([^"]*)"/.exec(frame.srcdoc)?.[1] ?? '';
+  expect(csp).toContain("default-src 'none'");
+  expect(csp).toContain("connect-src 'none'");
+  expect(csp).toContain("base-uri 'none'");
+  expect(csp).toContain('img-src data: blob:');
+  expect(csp).toContain("media-src 'none'");
+  expect(csp).toContain("worker-src 'none'");
+  expect(frame.srcdoc).not.toContain('127.0.0.1:5173');
+  expect(frame.srcdoc).not.toContain('<base');
+  expect(frame.srcdoc).toContain('<body><script>1</script></body>');
+  expect(originRegistry.getEnvironment(frame.contentWindow!)?.capabilities.domains).toContain('resource');
+  expect(originRegistry.getIdentity(frame.contentWindow!)?.permissionPrincipal)
+    .toMatchObject({ kind: 'development', target: 'http://127.0.0.1:5173/' });
+  expect(prompts.filter((operation) => operation.startsWith('network.'))).toEqual([]);
+});
+
+it('keeps a target-URL document with optional resource live and leaves resource out', async () => {
+  const prompts = recordPrompts();
+  stubDevelopmentHtml('<html><head><meta name="napplet-optional" content="resource theme"></head><body><script type="module" src="/src/main.ts"></script></body></html>');
+  const frame = devFrame();
+  expect(await navigateFrame(frame, DEV_CONFIG, 1, RESOURCE_ADAPTER, runtime)).toBe('dev:1');
+  expect(frame.srcdoc).toContain('<base href="http://127.0.0.1:5173/">');
+  expect(frame.srcdoc).toContain('ws://127.0.0.1:5173');
+  expect(originRegistry.getEnvironment(frame.contentWindow!)?.capabilities.domains).not.toContain('resource');
+  expect(prompts).toContain('network.connect-src');
+  expect(prompts).not.toContain('resource');
+});
+
+it('still refuses required resource when the host config grants the frame direct origins', async () => {
   const prompt = vi.fn(async () => ({ effect: 'allow' as const, lifetime: 'session' as const }));
   runtime.destroy();
   runtime = createPajaAdmissionTestRuntime(prompt);
-  stubDevelopmentHtml('<meta name="napplet-requires" content="resource"><script type="module" src="/src/main.ts"></script>');
-  const dev = { target: { mode: 'iframe-url', url: 'http://127.0.0.1:5173/', hmrStrategy: 'iframe-target-url' },
-    window: { id: 'dev', dTag: 'dev-app', aggregateHash: '0'.repeat(64) } } as PajaHostConfig;
-  const frame = { contentWindow: {} as Window, ownerDocument: LOCKED_HOST, srcdoc: '', getAttribute: vi.fn(() => null),
-    setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
-  await expect(navigateFrame(frame, dev, 1, adapter, runtime)).rejects.toThrow(/incompatible: resource/);
+  stubDevelopmentHtml('<meta name="napplet-requires" content="resource"><script>1</script>');
+  const open = { ...DEV_CONFIG, csp: { connectOrigins: ['https://api.example.test'] } } as PajaHostConfig;
+  const frame = devFrame();
+  await expect(navigateFrame(frame, open, 1, RESOURCE_ADAPTER, runtime))
+    .rejects.toThrow(/incompatible: resource\. This napplet requires `resource`, but the host CSP config grants/);
   expect(prompt).not.toHaveBeenCalled();
   expect(frame.srcdoc).toBe('');
   expect(originRegistry.getIdentity(frame.contentWindow!)).toBeUndefined();

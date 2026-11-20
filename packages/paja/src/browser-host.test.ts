@@ -84,7 +84,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
     expect(source.match(/admitBrowserDocument\(\{/g)).toHaveLength(1);
     expect(source.match(/admitPajaFrame\(\{/g)).toHaveLength(2);
     expect(source).toContain('verifiedHtml: resolvedTarget.indexHtml');
-    expect(source).toContain('verifiedHtml: injectBaseHref(fetched.html, targetUrl.href)');
+    expect(source).toContain('verifiedHtml: isolated ? fetched.html : injectBaseHref(fetched.html, targetUrl.href)');
     expect(source).toContain('frame.srcdoc = srcdoc;');
     expect(source).not.toContain('resolvedTarget.relays, ...resolvedTarget.blossomServers');
   });
@@ -207,8 +207,9 @@ describe('@kehto/paja browser host runtime source guards', () => {
     expect(adapterSource).not.toContain('services.social');
     expect(adapterSource).not.toContain('paja.social');
     expect(diagnosticsSource).toContain('export async function reportTargetCorsDiagnostic(state: PajaBrowserState): Promise<void>');
-    expect(hostSource).toContain("import { reportTargetCorsDiagnostic } from './browser-target-diagnostics.js';");
-    expect(hostSource).toContain('startFrameNavigation(state, context);\n    void reportTargetCorsDiagnostic(state);');
+    expect(diagnosticsSource).toContain("if (plan?.mode === 'isolated') return;\n  await reportTargetCorsDiagnostic(state);");
+    expect(hostSource).toContain("import { reportTargetDiagnostics } from './browser-target-diagnostics.js';");
+    expect(hostSource).toContain('startFrameNavigation(state, context);\n    void reportTargetDiagnostics(state);');
   });
 
   it('uses the selected development signer identity and binds signing to the requesting napplet', async () => {

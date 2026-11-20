@@ -101,6 +101,11 @@ export {
   classifyTargetCors,
   probeTargetCors,
 } from './target-cors.js';
+export {
+  PAJA_TARGET_RESOURCE_HINT,
+  findExternalAssetReferences,
+  planTargetNetwork,
+} from './target-network.js';
 
 export type {
   PajaCommand,
@@ -141,6 +146,11 @@ export type {
   ReadinessFetch,
   WaitForTargetUrlOptions,
 } from './readiness.js';
+export type {
+  PajaTargetNetworkMode,
+  PajaTargetNetworkPlan,
+  PajaTargetResourceDeclaration,
+} from './target-network.js';
 export type {
   PajaTargetCorsDiagnostic,
   PajaTargetCorsFetch,

@@ -14,6 +14,7 @@ import {
 import { renderPajaHtml } from './host-page.js';
 import { resolvePajaRawOptions } from './config-file.js';
 import { probeTargetCors } from './target-cors.js';
+import { planTargetNetwork, type PajaTargetNetworkPlan } from './target-network.js';
 
 /** Options for starting the Paja local HTTP server. */
 export interface PajaServerOptions {
@@ -29,6 +30,12 @@ export interface PajaServer {
   readonly url: string;
   /** Current host-page config. */
   readonly hostConfig: PajaHostConfig;
+  /**
+   * Fetch the current target and report whether its frame loads live from the
+   * dev server or as a network-isolated snapshot (a required `resource`).
+   * Rejects when the target is unreachable.
+   */
+  inspectTargetNetwork(): Promise<PajaTargetNetworkPlan>;
   /** Update the target iframe URL without restarting the server. */
   updateTargetUrl(targetUrl: string): PajaHostConfig;
   /** Stop the HTTP server. */
@@ -103,6 +110,16 @@ export async function startPajaServer(input: PajaServerOptions): Promise<PajaSer
       return;
     }
 
+    if (requestUrl === '/__kehto/target-network.json') {
+      const plan = planTargetNetwork(await fetchTargetHtml(hostConfig.target.url));
+      response.writeHead(200, {
+        'cache-control': 'no-store',
+        'content-type': 'application/json; charset=utf-8',
+      });
+      response.end(JSON.stringify(plan));
+      return;
+    }
+
     if (requestUrl === '/__kehto/browser-host.js') {
       const browserScript = readBrowserHostScript();
       response.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8' });
@@ -137,6 +154,7 @@ export async function startPajaServer(input: PajaServerOptions): Promise<PajaSer
     get hostConfig() {
       return hostConfig;
     },
+    inspectTargetNetwork: async () => planTargetNetwork(await fetchTargetHtml(hostConfig.target.url)),
     updateTargetUrl(targetUrl) {
       return setHostConfig(withTargetUrl(currentOptions, targetUrl));
     },

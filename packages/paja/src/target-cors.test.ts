@@ -4,6 +4,7 @@ import {
   PAJA_TARGET_CORS_HINT,
   classifyTargetCors,
   developmentRemoteSources,
+  hostRemoteSources,
   probeTargetCors,
   type PajaTargetCorsFetch,
 } from './target-cors.js';
@@ -33,6 +34,9 @@ describe('live development browser authority', () => {
     expect(classifyBrowserRemoteSources(configured).sources).toContainEqual({
       directive: 'connect-src', origin: 'wss://dev.example.test',
     });
+    expect(hostRemoteSources({ connectOrigins: ['https://api.example.test'], directives: { 'img-src': ['https://images.example.test'] } }))
+      .toEqual([{ directive: 'connect-src', origin: 'https://api.example.test' }, { directive: 'img-src', origin: 'https://images.example.test' }]);
+    expect(hostRemoteSources()).toEqual([]);
     expect(() => developmentRemoteSources(target, { directives: { 'frame-src': ['https://frame.example.test'] } }))
       .toThrow(/Unsupported/);
     expect(() => classifyBrowserRemoteSources(developmentRemoteSources(target, {
