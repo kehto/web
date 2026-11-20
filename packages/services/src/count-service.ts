@@ -126,7 +126,7 @@ export function createCountService(options: CountServiceOptions): ServiceHandler
         // is `too-expensive` (NAP-COUNT draft napplet/naps#69 at `9353a0c6`,
         // Error Handling), never a denial (kehto/web#455).
         const origins = [...new Set((relays ?? []).map((url) => new URL(url).origin))];
-        if (origins.length > MAX_PERMISSION_REQUIREMENTS - 1) {
+        if (origins.length > (runtime.maxPermissionRequirements ?? MAX_PERMISSION_REQUIREMENTS) - 1) {
           return { ok: false, error: 'too-expensive', reason: 'too many relays for one approval' };
         }
         return runtime.authorizeOperation(windowId, 'count.query', [

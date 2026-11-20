@@ -74,6 +74,12 @@ export interface RelayPoolOutboxRouterOptions {
   verifyEvent?(event: NostrEvent): Promise<boolean> | boolean;
   /** Gate every relay URL, including caller hints. */
   isRelayAllowed?(url: string): boolean;
+  /**
+   * Distinct relay origins one read plan may name, or a getter read per plan.
+   * Default `OUTBOX_RELAY_ORIGIN_BUDGET` (127); set it to the host's Firewall
+   * `maxRequirements` less one so coverage selection uses the whole budget.
+   */
+  maxRelayOrigins?: number | (() => number);
   /** Default bounded-query and initial-discovery timeout in milliseconds. */
   defaultTimeoutMs?: number;
 }
@@ -86,6 +92,8 @@ export interface RouterCtx {
   signEvent?: RelayPoolOutboxRouterOptions['signEvent'];
   getSignerPubkey?: RelayPoolOutboxRouterOptions['getSignerPubkey'];
   isRelayAllowed: (url: string) => boolean;
+  /** Distinct relay origins one read plan may name. */
+  maxRelayOrigins: () => number;
   defaultTimeoutMs: number;
   verify(event: NostrEvent): Promise<boolean>;
 }

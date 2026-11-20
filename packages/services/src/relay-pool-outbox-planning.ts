@@ -130,7 +130,7 @@ export async function resolvePlan(
   for (const url of allowed(ctx, relayHints ?? [])) {
     if (!candidates.has(url)) candidates.set(url, new Set());
   }
-  const { relays, partial } = selectReadRelays(candidates);
+  const { relays, partial } = selectReadRelays(candidates, ctx.maxRelayOrigins());
   if (relays.length === 0) source = 'fallback';
 
   const plan: OutboxRelayPlan = { relays, source };

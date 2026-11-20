@@ -330,6 +330,7 @@ denial. Following the error codes in [NAP-OUTBOX draft #32 at
 | A plan names an unusable relay URL | Skipped; only a plan with no usable relay, or an unusable required publish relay, is `relay list unavailable` |
 | A read plan spans more relay origins than one approval can name | Bounded to the budget (below); a read that left an author without relays is `incomplete: true` |
 | A publish's required own/inbox relays span more origins than one approval can name | `too many relays`, before signing |
+| The Firewall grant table is full (`maxGrants`) | `approval capacity reached` (host capacity, not a denial) |
 | Signer or user declines a publish | `publish denied` |
 | Approval not executed, approval revoked, relay gate refuses every inbox relay, or a router that cannot plan | `policy denied` |
 
@@ -339,12 +340,14 @@ include"), and a publish whose required relays cannot fit one approval gets its
 own non-denial reason, `too many relays`. A live stream has no `incomplete`
 field, so a bounded `outbox.subscribe` cannot report a lost author (spec gap).
 
-The Firewall caps one request at `MAX_PERMISSION_REQUIREMENTS` (128)
-requirements, which bounds evaluation work, grant growth and prompt size. An
+The Firewall caps one request at the host's `maxRequirements` (default
+`MAX_PERMISSION_REQUIREMENTS`, 128; read from
+`ServiceRuntimeContext.maxPermissionRequirements`) requirements, which bounds evaluation work, grant growth and prompt size. An
 OUTBOX plan is not purely host-generated (the napplet picks the authors, third
 parties publish the relay lists, and read hints are appended), so the plan is
-bounded instead of the cap being raised. Each operation contacts at most 127
-relay origins, one approval requirement per origin (paths on one origin share
+bounded to that cap. Each operation contacts at most `maxRequirements` less one
+relay origins (127 by default; pass the same budget to the router as
+`maxRelayOrigins`), one approval requirement per origin (paths on one origin share
 it). `createRelayPoolOutboxRouter()` picks a larger plan's relays by author
 coverage, deterministically, with napplet hints last. The service also bounds a
 custom router's plan in the router's order. Publish never drops a required

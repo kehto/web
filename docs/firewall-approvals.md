@@ -53,17 +53,23 @@ shipped developer rules allow operations by default, so a missing dialog is not
 proof that the destination escaped the coordinator. Hosts needing per-origin
 consent must choose `ask` for the relevant relay/OUTBOX network operations.
 
-One Firewall request carries at most `MAX_PERMISSION_REQUIREMENTS` (128)
-requirements. That cap stays: it bounds evaluation work, grant growth and prompt
-size, and an OUTBOX plan's size is steered by the napplet's authors and by
+One Firewall request carries at most `maxRequirements` requirements (default
+`MAX_PERMISSION_REQUIREMENTS`, 128; `PermissionAdapter.maxRequirements`, Paja
+setting `firewall.maxRequirements`). A bound stays: it limits evaluation work,
+grant growth and prompt size, and an OUTBOX plan's size is steered by the napplet's authors and by
 third-party relay lists. So approval names each relay origin once, and an OUTBOX
-operation contacts at most 127 origins. The reference router chooses a larger
+operation contacts at most `maxRequirements` less one origins. The reference router chooses a larger
 read plan's relays by author coverage, deterministically and with hints last,
 so the user sees one prompt with one "contact N origins" row. Every contacted
 origin is still an exact approved scope. A read that left an author without
 relays is `incomplete: true`. A publish whose required relays cannot fit fails
 with `too many relays`, and a runtime relay or COUNT plan over the cap fails
 with `too many relays` or `too-expensive`. None of these is a denial.
+
+The grant table is bounded by `maxGrants` (default 2048; Paja setting
+`firewall.maxGrants`). A full table makes the approval coordinator return the
+`capacity` outcome, which OUTBOX and runtime `relay.*` report as
+`approval capacity reached`, not as a denial (kehto/web#513).
 
 NIP-42 authentication is independent from network access. This approval flow
 does not authorize signing an AUTH event. The built-in Paja pool has no automatic

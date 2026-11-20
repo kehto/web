@@ -1,6 +1,6 @@
 import {
   consumePermissionGrants, createPermissionState, evaluatePermissions,
-  permissionPrincipalKey, putPermissionGrant,
+  permissionLimits, permissionPrincipalKey, putPermissionGrant,
 } from '@kehto/firewall';
 import type {
   PermissionGrant, PermissionPolicyOptions, PermissionPrincipal,
@@ -65,8 +65,12 @@ export interface ApprovalCoordinatorOptions extends PermissionPolicyOptions {
 /** Id prefix of session grants created by a host default rule, not by a prompt. */
 export const DEFAULT_RULE_GRANT_PREFIX = 'rule:';
 
-/** Non-execution outcome; domain adapters choose their own wire projection. */
-export type ApprovalFailure = 'denied' | 'cancelled' | 'unavailable' | 'busy';
+/**
+ * Non-execution outcome; domain adapters choose their own wire projection.
+ * `capacity` means the grant table is full (`maxGrants`): a host limit, not a
+ * policy decision, so adapters must not report it as a denial (kehto/web#513).
+ */
+export type ApprovalFailure = 'denied' | 'cancelled' | 'unavailable' | 'busy' | 'capacity';
 
 export type ApprovalOutcome<T> =
   | { readonly status: 'executed'; readonly value: T }
@@ -128,8 +132,9 @@ async function approve(options: ApprovalCoordinatorOptions, request: PermissionR
       }, options);
     }
     options.commit(next);
-  } catch {
-    return { status: 'unavailable' };
+  } catch (error) {
+    // A full grant table is capacity, never a denial (kehto/web#513).
+    return { status: error instanceof RangeError && error.message === 'Permission grant limit exceeded' ? 'capacity' : 'unavailable' };
   }
   return answer.effect === 'deny' ? { status: 'denied' } : undefined;
 }
@@ -142,6 +147,8 @@ export function createApprovalCoordinator(options: ApprovalCoordinatorOptions) {
     || !Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 2_147_483_647) {
     throw new RangeError('Invalid approval queue limits');
   }
+  // Fail at construction, not per request, for an out-of-range policy bound.
+  permissionLimits(options);
   const pending = new Set<PendingApproval>();
   const groups = new Map<string, Promise<unknown>>();
   let reserved = 0;

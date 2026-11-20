@@ -12,7 +12,7 @@ export type { PermissionAdmission, PermissionAdmissionRequest } from './permissi
 
 /** Host UI, time, cancellation, and storage adapters for scoped approvals. */
 export interface PermissionAdapter extends Pick<ApprovalCoordinatorOptions,
-  'prompt' | 'defaultDecision' | 'createCancellation' | 'schedule' | 'extensions' | 'maxPending' | 'timeoutMs'> {
+  'prompt' | 'defaultDecision' | 'createCancellation' | 'schedule' | 'extensions' | 'maxRequirements' | 'maxGrants' | 'maxPending' | 'timeoutMs'> {
   /** Durable storage. Without it, persistent decisions fail explicitly. */
   readonly persistence?: PermissionPersistence;
   readonly onStorageError?: (failure: PermissionStorageFailure) => void;
@@ -75,7 +75,7 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
   const invalidationListeners = new Set<() => void>();
   let coordinator: ReturnType<typeof createApprovalCoordinator>;
   const store = createPermissionStore({
-    persistence: adapter.persistence, extensions: adapter.extensions, onError: adapter.onStorageError,
+    persistence: adapter.persistence, extensions: adapter.extensions, maxGrants: adapter.maxGrants, onError: adapter.onStorageError,
     invalidate(target) {
       if (target === undefined) {
         globalAdmissionRevision++;

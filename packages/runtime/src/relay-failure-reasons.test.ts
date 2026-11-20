@@ -21,12 +21,12 @@ const cleanups: Array<() => void> = [];
 afterEach(() => { for (const cleanup of cleanups.splice(0)) cleanup(); vi.restoreAllMocks(); });
 
 async function fixture(network: ApprovalAnswer['effect'], execute: RelayPlanningServiceHandler['executeRelayOperation'],
-  relayUrls: readonly string[] = ['wss://relay.example']) {
+  relayUrls: readonly string[] = ['wss://relay.example'], limits: { maxRequirements?: number; maxGrants?: number } = {}) {
   // Admission is allowed; only the relay destination answer varies.
   const prompt = vi.fn(async ({ missing }: ApprovalPrompt): Promise<ApprovalAnswer> =>
     ({ effect: missing.some((item) => item.category === 'network') ? network : 'allow', lifetime: 'session' }));
   const ctx = createMockRuntimeAdapter({ permissions: {
-    now: () => 0, prompt, createCancellation: () => new AbortController(),
+    now: () => 0, prompt, createCancellation: () => new AbortController(), ...limits,
     schedule: (callback, delay) => { const timer = setTimeout(callback, delay); return () => clearTimeout(timer); },
   } });
   const runtime = createRuntime(ctx.hooks);
@@ -93,5 +93,24 @@ describe('relay.subscribe plans larger than one approval', () => {
     const network = closed.prompt.mock.calls.flatMap(([call]) => call.missing).filter((item) => item.category === 'network');
     expect(network).toEqual([{ category: 'network', domain: 'relay', operation: 'relay.network', scope: { kind: 'origin', value: 'wss://same.example' } }]);
     expect(closed()).toEqual([]);
+  });
+});
+
+// kehto/web#514/#513: the bound follows the host option, and a full grant table is not a denial.
+describe('relay.subscribe under configured Firewall limits', () => {
+  it('accepts a host plan up to a larger configured maxRequirements', async () => {
+    const execute = vi.fn();
+    const relays = Array.from({ length: 200 }, (_, index) => `wss://r${index}.example`);
+    const closed = await fixture('allow', execute, relays, { maxRequirements: 256 });
+    await vi.waitFor(() => expect(execute).toHaveBeenCalledTimes(1));
+    expect(closed()).toEqual([]);
+  });
+
+  it('closes with approval capacity reached when the grant table is full', async () => {
+    const execute = vi.fn();
+    // One grant: the relay interface admission fits, the relay origin does not.
+    const closed = await fixture('allow', execute, ['wss://relay.example'], { maxGrants: 1 });
+    await vi.waitFor(() => expect(closed()).toEqual([{ type: 'relay.closed', subId: 'feed', reason: 'approval capacity reached' }]));
+    expect(execute).not.toHaveBeenCalled();
   });
 });

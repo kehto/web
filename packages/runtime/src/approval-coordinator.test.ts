@@ -444,3 +444,32 @@ describe('approval coordination', () => {
     onceOnly.coordinator.dispose();
   });
 });
+
+// kehto/web#514/#513: bounds are host options; a full grant table is capacity, not a denial.
+describe('configured permission limits', () => {
+  it('refuses an out-of-range bound when the coordinator is built', () => {
+    expect(() => fixture({ maxRequirements: 0 })).toThrow(RangeError);
+    expect(() => fixture({ maxGrants: 1_000_000 })).toThrow(RangeError);
+  });
+
+  it('reports a full grant table as capacity and runs nothing', async () => {
+    // Room for the first request's interface and resource grants only.
+    const f = fixture({ maxGrants: 2, prompt: async () => session });
+    expect(await f.run()).toEqual({ status: 'executed', value: 'opened' });
+    const other: PermissionRequirement = { ...requirement, scope: { kind: 'exact', value: 'https://example.com/other' } };
+    const action = vi.fn();
+    expect(await f.coordinator.run(principal, 'session-1', [other], () => true, action)).toEqual({ status: 'capacity' });
+    expect(action).not.toHaveBeenCalled();
+    f.coordinator.dispose();
+  });
+
+  it('honours a larger maxRequirements', async () => {
+    const many = Array.from({ length: 200 }, (_, index): PermissionRequirement => ({ ...requirement, scope: { kind: 'exact', value: `https://example.com/${index}` } }));
+    const small = fixture({ prompt: async () => session });
+    expect(await small.coordinator.run(principal, 'session-1', many, () => true, small.action)).toEqual({ status: 'denied' });
+    const large = fixture({ maxRequirements: 256, prompt: async () => session });
+    expect(await large.coordinator.run(principal, 'session-1', many, () => true, large.action)).toEqual({ status: 'executed', value: 'opened' });
+    small.coordinator.dispose();
+    large.coordinator.dispose();
+  });
+});

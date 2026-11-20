@@ -21,6 +21,7 @@ import type { ApprovalOutcome, PermissionRequirement, ServiceRuntimeContext } fr
 import {
   OUTBOX_POLICY_DENIED,
   OUTBOX_RELAY_LIST_UNAVAILABLE,
+  OUTBOX_APPROVAL_CAPACITY,
   OUTBOX_TOO_MANY_RELAYS,
   outboxNetworkReason,
   outboxPublishFailureReason,
@@ -37,7 +38,8 @@ import type {
   OutboxSubscriptionSink,
   StreamingOutboxRouter,
 } from './outbox-service.js';
-import { boundPlanRelays, relayOrigins } from './outbox-relay-budget.js';
+import { OUTBOX_RELAY_ORIGIN_BUDGET, boundPlanRelays, relayOrigins } from './outbox-relay-budget.js';
+import { MAX_PERMISSION_REQUIREMENTS } from '@kehto/runtime';
 
 /**
  * Freeze a router plan so the approved destinations cannot change before execution.
@@ -50,11 +52,12 @@ import { boundPlanRelays, relayOrigins } from './outbox-relay-budget.js';
  * `requiredRelays` must be a subset of the approved relays.
  *
  * @param plan - The router's relay plan.
+ * @param budget - Distinct origins one approval may name; default {@link OUTBOX_RELAY_ORIGIN_BUDGET}.
  * @returns A frozen copy with frozen relay lists.
  */
-export function capturePlan(plan: OutboxRelayPlan): OutboxRelayPlan {
+export function capturePlan(plan: OutboxRelayPlan, budget: number = OUTBOX_RELAY_ORIGIN_BUDGET): OutboxRelayPlan {
   if (plan.requiredRelays?.some((url) => !plan.relays.includes(url))) throw new Error('invalid required relay destination');
-  const bounded = boundPlanRelays(plan.relays, plan.requiredRelays ?? []);
+  const bounded = boundPlanRelays(plan.relays, plan.requiredRelays ?? [], budget);
   const captured = { ...plan, relays: bounded.relays,
     ...(plan.requiredRelays ? { requiredRelays: [...plan.requiredRelays] } : {}),
     ...(bounded.partial || plan.partial ? { partial: true } : {}) };
@@ -70,8 +73,8 @@ export function capturePlan(plan: OutboxRelayPlan): OutboxRelayPlan {
  * @param options - Sanitized publish options.
  * @returns The frozen plan.
  */
-function capturePublishPlan(plan: OutboxRelayPlan, options?: OutboxPublishOptions): OutboxRelayPlan {
-  const captured = capturePlan(plan);
+function capturePublishPlan(plan: OutboxRelayPlan, options: OutboxPublishOptions | undefined, budget: number): OutboxRelayPlan {
+  const captured = capturePlan(plan, budget);
   if ((options?.toOutbox !== false || options?.toInboxes?.length) && !captured.requiredRelays?.length) {
     throw new Error('publish plan must identify required relay destinations');
   }
@@ -84,6 +87,16 @@ function outboxRequirements(operation: string, plan: OutboxRelayPlan): Permissio
     { category: 'interface', domain: 'outbox', operation: 'access', scope: { kind: 'exact', value: 'outbox' } },
     ...relayOrigins(plan.relays).map((value) => ({ category: 'network' as const, domain: 'outbox', operation, scope: { kind: 'origin' as const, value } })),
   ];
+}
+
+/** Origins one approval may name under the host's configured `maxRequirements` (kehto/web#514). */
+function relayOriginBudget(runtime: ServiceRuntimeContext): number {
+  return (runtime.maxPermissionRequirements ?? MAX_PERMISSION_REQUIREMENTS) - 1;
+}
+
+/** A full grant table is host capacity, never a denial (kehto/web#513); other failures stay `policy denied`. */
+function approvalFailureReason(status: string): string {
+  return status === 'capacity' ? OUTBOX_APPROVAL_CAPACITY : OUTBOX_POLICY_DENIED;
 }
 
 /** A relay failure raised inside an approved callback, kept apart from approval outcomes. */
@@ -123,7 +136,7 @@ export async function queryApproved(
   let plan: OutboxRelayPlan;
   let requirements: PermissionRequirement[];
   try {
-    plan = capturePlan(await planned.planRead(filters, options));
+    plan = capturePlan(await planned.planRead(filters, options), relayOriginBudget(runtime));
     requirements = outboxRequirements(operation, plan);
   } catch (error) {
     return { events: [], incomplete: true, error: outboxNetworkReason(error) };
@@ -140,7 +153,7 @@ export async function queryApproved(
     // Relays the shell left out cost some author every relay: the read is partial.
     return plan.partial ? { ...result, incomplete: true } : result;
   });
-  return outcome.status === 'executed' && outcome.value ? outcome.value : { events: [], error: OUTBOX_POLICY_DENIED };
+  return outcome.status === 'executed' && outcome.value ? outcome.value : { events: [], error: approvalFailureReason(outcome.status) };
 }
 
 /** One live subscription request handed to {@link subscribeApproved}. */
@@ -194,7 +207,7 @@ export function subscribeApproved(
     let plan: OutboxRelayPlan;
     let requirements: PermissionRequirement[];
     try {
-      plan = capturePlan(await planned.planRead!(filters, request.options));
+      plan = capturePlan(await planned.planRead!(filters, request.options), relayOriginBudget(runtime));
       requirements = outboxRequirements('outbox.subscribe', plan);
     } catch (error) {
       end(outboxNetworkReason(error));
@@ -216,7 +229,7 @@ export function subscribeApproved(
       end(error instanceof OutboxTransportFailure ? error.reason : OUTBOX_POLICY_DENIED);
       return;
     }
-    if (outcome.status !== 'executed') end(OUTBOX_POLICY_DENIED);
+    if (outcome.status !== 'executed') end(approvalFailureReason(outcome.status));
   })();
 }
 
@@ -252,7 +265,7 @@ export async function publishApproved(
   const routed = await planned.planPublish!(options);
   let plan: OutboxRelayPlan;
   try {
-    plan = capturePublishPlan(routed, options);
+    plan = capturePublishPlan(routed, options, relayOriginBudget(runtime));
   } catch (error) {
     // An unusable required relay URL in the plan is a planning outcome, not a denial (#467).
     if (error instanceof Error && error.message === 'invalid relay destination') return { ok: false, error: OUTBOX_RELAY_LIST_UNAVAILABLE };
@@ -269,5 +282,5 @@ export async function publishApproved(
       return { ok: false, error: outboxPublishFailureReason(error) };
     }
   });
-  return outcome.status === 'executed' && outcome.value ? outcome.value : { ok: false, error: OUTBOX_POLICY_DENIED };
+  return outcome.status === 'executed' && outcome.value ? outcome.value : { ok: false, error: approvalFailureReason(outcome.status) };
 }

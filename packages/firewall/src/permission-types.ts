@@ -45,9 +45,20 @@ export interface PermissionState {
   readonly grants: readonly PermissionGrant[];
 }
 
-/** Host-owned category registry; extension scopes use exact equality. */
+/** Host-owned category registry and policy bounds; extension scopes use exact equality. */
 export interface PermissionPolicyOptions {
   readonly extensions?: readonly `extension:${string}`[];
+  /**
+   * Most requirements one request may carry, counting implicit interface
+   * requirements. Default `MAX_PERMISSION_REQUIREMENTS` (128), at most
+   * `MAX_PERMISSION_REQUIREMENTS_CEILING`.
+   */
+  readonly maxRequirements?: number;
+  /**
+   * Most grants the policy may hold. Default `MAX_PERMISSION_GRANTS` (2048), at
+   * most `MAX_PERMISSION_GRANTS_CEILING`.
+   */
+  readonly maxGrants?: number;
 }
 
 /** Pure authorization outcome. Missing requirements may be shown for approval. */

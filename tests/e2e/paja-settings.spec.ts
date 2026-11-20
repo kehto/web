@@ -54,6 +54,8 @@ test('settings are grouped into keyboard-navigable tabs', async ({ page }) => {
   await expect(field(dialog, 'Maximum resource size')).toBeVisible();
   await tab(dialog, 'Firewall').click();
   await expect(field(dialog, 'Relay origins listed open in a prompt')).toHaveValue('5');
+  await expect(field(dialog, 'Requirements per approval request')).toHaveValue('128');
+  await expect(field(dialog, 'Grants in the permission table')).toHaveValue('2048');
   await page.keyboard.press('End');
   await expect(tab(dialog, 'Server (config file only)')).toHaveAttribute('aria-selected', 'true');
   // Server-scope settings are shown but only editable in the config file.
