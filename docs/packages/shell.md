@@ -140,7 +140,8 @@ keeps the plain declared-services reading. See
 
 Retire a window with `bridge.runtime.destroyWindow(windowId)`,
 `bridge.runtime.sessionRegistry.unregister(windowId)`, and
-`originRegistry.unregister(windowId)`. A replacement `originRegistry.register()`
+`originRegistry.unregister(windowId)`. Services get `onWindowDestroyed` once per
+session registration, however many of these teardown calls run. A replacement `originRegistry.register()`
 gets its own environment, even if it reuses the logical window ID. It must use a
 fresh iframe: a `Window` that handed over its NIP-5D port cannot be registered again. Set its snapshot with `originRegistry.setEnvironment()` before dispatch;
 otherwise the bridge resolves current host defaults. Retired cached domains and

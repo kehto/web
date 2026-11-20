@@ -8,7 +8,7 @@ import type {
   ServiceHandler, ServiceRegistry, ServiceInfo, ServiceRuntimeContext,
 } from './types.js';
 import { createServiceExtensionRouter } from './service-extensions.js';
-import { notifyServiceWindowDestroyed, notifyServicePermissionRevoked } from './service-dispatch.js';
+import { createWindowDestroyTracker, notifyServicePermissionRevoked, type WindowDestroyTracker } from './service-dispatch.js';
 import { createSessionRegistry, type SessionRegistry } from './session-registry.js';
 import { createAclState, type AclStateContainer } from './acl-state.js';
 import type { LegacyFirewallAdapter } from './legacy-firewall-adapter.js';
@@ -110,6 +110,10 @@ export interface Runtime {
   /**
    * Clean up all state associated with a napplet window.
    * Removes subscriptions, pending state, and notifies service handlers.
+   * Services hear `onWindowDestroyed` at most once per session registration,
+   * even when `sessionRegistry.unregister` or a repeated call retires it too.
+   * With the permission runtime the source is retired; without it, a source
+   * that keeps dispatching is live again and its next destroy notifies.
    *
    * @param windowId - The window to clean up
    */
@@ -168,6 +172,7 @@ type RuntimeInstanceContext = {
   firewallState: LegacyFirewallAdapter | undefined;
   manifestCache: ManifestCache;
   consentHandlerRef: { current: ConsentHandler | null };
+  windowDestroys: WindowDestroyTracker;
   handleMessage: Runtime['handleMessage'];
   extensions: ReturnType<typeof createServiceExtensionRouter>;
   builtInDomains: ReadonlySet<string>;
@@ -237,6 +242,7 @@ function createMessageHandler(
   dispatchNapEnvelope: (windowId: string, envelope: NappletMessage) => void,
   serviceRouting: { builtInDomains: ReadonlySet<string>; extensions: ReturnType<typeof createServiceExtensionRouter> },
   firewallGate: (windowId: string, envelope: NappletMessage, senderCap: string | null) => 'dispatch' | 'drop',
+  windowDestroys: WindowDestroyTracker,
   permissions?: ReturnType<typeof createPermissionRuntime>,
 ): Runtime['handleMessage'] {
   return (windowId: string, msg: unknown): void => {
@@ -248,6 +254,8 @@ function createMessageHandler(
     // trusted creation identity independently of the optional NAP-SHELL exchange.
     if (!sessionRegistry.getEntryByWindowId(windowId)) return;
     if (permissions && !permissions.isSourceActive(windowId)) return;
+    // A source still dispatching after a cleanup destroy gets its next destroy too (#498).
+    windowDestroys.dispatching(windowId);
     const domain = envelope.type.slice(0, dotIdx);
     if (!serviceRouting.builtInDomains.has(domain)) {
       serviceRouting.extensions.handleMessage(windowId, envelope);
@@ -418,7 +426,7 @@ function createServiceRuntimeContext(context: RuntimeInstanceContext): ServiceRu
 function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
   const {
     aclState, firewallState, eventBuffer, hooks, incRuntime, manifestCache, registeredServices,
-    replayDetector, serviceRegistry, sessionRegistry, subscriptions, consentHandlerRef, extensions,
+    replayDetector, serviceRegistry, sessionRegistry, subscriptions, consentHandlerRef, extensions, windowDestroys,
   } = context;
   const undeclaredServiceConsents = new Set<string>();
   const attachedServices = new Map<string, ServiceHandler>();
@@ -509,7 +517,7 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
         }
       }
       incRuntime.destroyWindow(windowId);
-      notifyServiceWindowDestroyed(windowId, serviceRegistry);
+      windowDestroys.destroyed(windowId);
     },
     getIncEndpointId(windowId: string): string | undefined {
       return incRuntime.endpointId(windowId);
@@ -580,16 +588,18 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   let incRuntime: IncRuntime | null = null;
   // NAP-INC: a replacement or removed registration is a different endpoint.
   // Its identifier, channels, and subscriptions end with it.
+  // kehto/web#498: services hear one destroy per registration, whichever teardown path runs.
+  const windowDestroys = createWindowDestroyTracker(serviceRegistry, !!hooks.permissions);
   const sessionRegistry = createSessionRegistry(hooks.onPendingUpdate, (windowId) => {
     incRuntime?.retireEndpoint(windowId);
     firewallState?.resetInitBudget(windowId);
     extensions?.destroyWindow(windowId);
     permissions?.retire(windowId);
-    if (hooks.permissions) notifyServiceWindowDestroyed(windowId, serviceRegistry);
+    windowDestroys.registered(windowId);
   }, (windowId) => {
     incRuntime?.retireEndpoint(windowId);
     permissions?.retire(windowId);
-    if (hooks.permissions) notifyServiceWindowDestroyed(windowId, serviceRegistry);
+    if (hooks.permissions) windowDestroys.destroyed(windowId);
   });
   const aclState = createAclState(hooks.aclPersistence, hooks.aclDefaultPolicy ?? 'permissive', (mutation) => {
     for (const entry of sessionRegistry.getAllEntries()) {
@@ -708,7 +718,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     hooks, services: serviceRegistry, registrations: registeredServices,
     sessions: sessionRegistry, acl: aclState, enforce: enforceNap, firewall: firewallGate, permissions,
   });
-  const handleMessage = createMessageHandler(hooks, sessionRegistry, enforceNap, dispatchNapEnvelope, { builtInDomains, extensions }, firewallGate, permissions);
+  const handleMessage = createMessageHandler(hooks, sessionRegistry, enforceNap, dispatchNapEnvelope, { builtInDomains, extensions }, firewallGate, windowDestroys, permissions);
 
   return createRuntimeInstance({
     hooks,
@@ -723,6 +733,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     firewallState,
     manifestCache,
     consentHandlerRef,
+    windowDestroys,
     handleMessage,
     extensions,
     permissions,
