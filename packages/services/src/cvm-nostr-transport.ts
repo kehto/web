@@ -45,7 +45,8 @@ import {
   progressTokenKey,
 } from './cvm-progress-controller.js';
 import type { CvmProgressEntry } from './cvm-progress-controller.js';
-import type { CvmTransport } from './cvm-service.js';
+import type { CvmRequestHandle, CvmTransport, CvmTransportExecution } from './cvm-service.js';
+import { mapCancellation } from './cvm-cancellation.js';
 import type { ApprovalSignal } from '@kehto/runtime';
 import type {
   CvmDiscoverQuery,
@@ -150,6 +151,8 @@ interface PendingRequest extends CvmProgressEntry {
   serverPubkey: string;
   /** Wire correlation id this entry is keyed by. */
   correlationId: string;
+  /** The service's handle for this napplet request, if it may be cancelled. */
+  handle?: CvmRequestHandle;
 }
 
 interface ServerSession {
@@ -237,6 +240,8 @@ export function createNostrCvmTransport(
   // This transport has no caller principal, so it does not cap this map. The CVM
   // service admits work per authenticated endpoint before calling in (cvm-operations.ts).
   const pending = new Map<string, PendingRequest>();
+  /** In-flight napplet requests by service handle → correlation id, for cancellation. */
+  const handles = new WeakMap<CvmRequestHandle, string>();
   const eventHandlers = new Set<EventHandler>();
   const relayRefcount = new Map<string, number>();
   const seenWraps = new Set<string>();
@@ -362,6 +367,7 @@ export function createNostrCvmTransport(
     if (!entry) return null;
     clearTimeout(entry.timer);
     pending.delete(correlationId);
+    if (entry.handle) handles.delete(entry.handle);
     progressController.release(entry);
     return entry;
   }
@@ -440,6 +446,7 @@ export function createNostrCvmTransport(
     message: McpMessage,
     deadline: number,
     signal?: ApprovalSignal,
+    handle?: CvmRequestHandle,
   ): Promise<McpMessage> {
     if (signal?.aborted) return Promise.reject(new Error('policy denied'));
     remainingTime(deadline);
@@ -501,7 +508,9 @@ export function createNostrCvmTransport(
         originalId,
         serverPubkey: server.pubkey,
         correlationId,
+        ...(handle ? { handle } : {}),
       };
+      if (handle) handles.set(handle, correlationId);
       if (issuedKey) {
         entry.tokenKey = issuedKey;
         issuedTokens.set(issuedKey, correlationId);
@@ -603,6 +612,18 @@ export function createNostrCvmTransport(
     return { session: getSession(server), deadline };
   }
 
+  /**
+   * NAP-CVM #31 @28cf1bdb: notifications and responses complete on
+   * publication. Sent as given: no id is added and a response keeps the
+   * napplet's id, so nothing is correlated or awaited.
+   */
+  async function publishAsGiven(server: CvmServerRef, message: McpMessage, requestOptions?: CvmRequestOptions, execution?: { signal: ApprovalSignal }): Promise<void> {
+    const { session, deadline } = prepareSend(server, requestOptions, execution?.signal);
+    if (requestOptions?.initialize) await ensureInitialized(server, session, deadline, execution?.signal);
+    assertOpen(server, session);
+    await beforeDeadline(deadline, () => publishMcp(server, session.relays, message, deadline, execution?.signal));
+  }
+
   /** A close that ran while the send was being prepared ends it. */
   function assertOpen(server: CvmServerRef, session: ServerSession): void {
     if (sessions.get(server.pubkey) !== session) throw new Error('server closed');
@@ -668,21 +689,22 @@ export function createNostrCvmTransport(
       return query?.limit ? filtered.slice(0, query.limit) : filtered;
     },
 
-    async request(server: CvmServerRef, message: McpMessage, requestOptions?: CvmRequestOptions, execution?: { signal: ApprovalSignal }): Promise<McpMessage> {
+    async request(server: CvmServerRef, message: McpMessage, requestOptions?: CvmRequestOptions, execution?: CvmTransportExecution): Promise<McpMessage> {
       const { session, deadline } = prepareSend(server, requestOptions, execution?.signal);
       if (requestOptions?.initialize) await ensureInitialized(server, session, deadline, execution?.signal);
       assertOpen(server, session);
-      return sendCorrelated(server, session.relays, message, deadline, execution?.signal);
+      return sendCorrelated(server, session.relays, message, deadline, execution?.signal, execution?.handle);
     },
 
-    async publish(server: CvmServerRef, message: McpMessage, requestOptions?: CvmRequestOptions, execution?: { signal: ApprovalSignal }): Promise<void> {
-      // NAP-CVM #31 @28cf1bdb: notifications and responses complete on
-      // publication. Sent as given: no id is added and a response keeps the
-      // napplet's id, so nothing is correlated or awaited.
-      const { session, deadline } = prepareSend(server, requestOptions, execution?.signal);
-      if (requestOptions?.initialize) await ensureInitialized(server, session, deadline, execution?.signal);
-      assertOpen(server, session);
-      await beforeDeadline(deadline, () => publishMcp(server, session.relays, message, deadline, execution?.signal));
+    publish: publishAsGiven,
+
+    async cancel(server: CvmServerRef, handle: CvmRequestHandle, message: McpMessage, requestOptions?: CvmRequestOptions, execution?: { signal: ApprovalSignal }): Promise<boolean> {
+      // The napplet's requestId names its own id; the server only ever saw the
+      // correlation id. Settled requests have nothing left to cancel.
+      const correlationId = handles.get(handle);
+      if (correlationId === undefined || pending.get(correlationId)?.serverPubkey !== server.pubkey) return false;
+      await publishAsGiven(server, mapCancellation(message, correlationId), requestOptions, execution);
+      return true;
     },
 
     async close(server: CvmServerRef): Promise<void> {

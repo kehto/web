@@ -152,7 +152,8 @@ describe('createCvmService', () => {
         { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'x' } },
         // The service owns the deadline from receipt and hands over what is left of it.
         { initialize: true, timeoutMs: expect.any(Number) },
-        { signal: expect.any(AbortSignal) },
+        // The handle lets a later notifications/cancelled name this request.
+        { signal: expect.any(AbortSignal), handle: expect.any(Object) },
       );
       const timeoutMs = vi.mocked(transport.request).mock.calls[0][2]!.timeoutMs!;
       expect(timeoutMs).toBeGreaterThan(29_000);
@@ -206,7 +207,8 @@ describe('createCvmService', () => {
 
     it.each([
       ['a request', { jsonrpc: '2.0', id: 'r-1', method: 'tools/call', params: { name: 'x' } }],
-      ['a notification', { jsonrpc: '2.0', method: 'notifications/cancelled', params: { requestId: 2 } }],
+      // A cancellation must name one of this napplet's requests; cvm-cancel-expiry.test.ts covers it.
+      ['a notification', { jsonrpc: '2.0', method: 'notifications/progress', params: { progressToken: 't', progress: 1 } }],
     ])('admits %s unchanged', async (_label, message) => {
       const publish = vi.fn(async () => {});
       svc = createCvmService({ transport: { ...transport, publish } });
