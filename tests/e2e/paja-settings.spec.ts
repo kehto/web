@@ -20,6 +20,9 @@ async function openSettings(page: Page) {
   await page.getByRole('button', { name: 'Settings' }).click();
   const dialog = page.getByRole('dialog', { name: 'Paja settings' });
   await expect(dialog).toBeVisible();
+  // Only the field list scrolls; the title and actions stay reachable.
+  await expect(dialog.getByText('Paja settings', { exact: true })).toBeInViewport();
+  await expect(dialog.getByRole('button', { name: 'Save and reload' })).toBeInViewport();
   return dialog;
 }
 

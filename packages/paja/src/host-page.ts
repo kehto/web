@@ -234,6 +234,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .config-group { margin: 0; padding: 10px; border: 1px solid var(--line); border-radius: 4px; display: grid; gap: 10px; }
       .config-group legend { color: var(--accent); padding: 0 5px; }
       .config-error { min-height: 1.4em; color: #e6a5a5; }
+      .settings-dialog .dialog { box-sizing: border-box; height: min(760px, calc(100vh - 48px)); }
       .settings-status { color: var(--muted); }
       .settings-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
       .settings-field input[aria-invalid="true"] { border-color: #e6a5a5; }
