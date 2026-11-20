@@ -11,6 +11,7 @@
 import { anthropicAccumulator } from './llm-provider-anthropic.js';
 import { geminiAccumulator } from './llm-provider-gemini.js';
 import { openAiAccumulator } from './llm-provider-openai.js';
+import { openAiResponsesAccumulator } from './llm-provider-responses.js';
 import { providerError, type LlmProviderProtocol, type LlmStreamAccumulator } from './llm-provider-shared.js';
 
 export type { LlmStreamAccumulator } from './llm-provider-shared.js';
@@ -28,6 +29,7 @@ export type { LlmStreamAccumulator } from './llm-provider-shared.js';
 export function createLlmStreamAccumulator(protocol: LlmProviderProtocol): LlmStreamAccumulator {
   switch (protocol) {
     case 'openai-chat': return openAiAccumulator();
+    case 'openai-responses': return openAiResponsesAccumulator();
     case 'anthropic-messages': return anthropicAccumulator();
     case 'gemini': return geminiAccumulator();
     default: throw providerError('Unknown provider protocol.');

@@ -52,6 +52,7 @@ describe('Paja LLM connection store', () => {
     expect(storage.getItem(PAJA_LLM_CONNECTIONS_STORAGE_KEY)).not.toContain(KEY);
     expect(() => store.save({ ...OPENAI, name: '' })).toThrow(/name/);
     expect(() => store.save({ ...OPENAI, protocol: 'soap' as never })).toThrow(/protocol/);
+    expect(() => createPajaLlmConnectionStore(new MemoryStorage()).save({ ...OPENAI, presetId: 'openai-responses', protocol: 'openai-responses' })).not.toThrow();
     store.save({ ...OPENAI, model: 'gpt-4.1' });
     expect(store.get('c-openai')?.model).toBe('gpt-4.1');
     expect(store.remove('c-openai')).toBe(true);
@@ -160,7 +161,11 @@ describe('Paja LLM host', () => {
     const gemini = harness([{ ...OPENAI, id: 'c-gem', presetId: 'gemini', protocol: 'gemini', credentialStorage: 'vault', tools: true }], { unlock: true });
     const geminiConnection = (await gemini.host.describe({ windowId: 'w1' }, 'c-gem'))!;
     await expect(gemini.host.authorize({ windowId: 'w1' }, geminiConnection, { ...TOOL_HISTORY, format: 'json' })).rejects.toMatchObject({ code: 'unsupported' });
-    for (const h of [anthropic, gemini]) {
+    // The Responses dialect needs a turn besides the system text it sends as instructions.
+    const responses = harness([{ ...OPENAI, id: 'c-resp', presetId: 'openai-responses', protocol: 'openai-responses', credentialStorage: 'vault', tools: true }], { unlock: true });
+    const responsesConnection = (await responses.host.describe({ windowId: 'w1' }, 'c-resp'))!;
+    await expect(responses.host.authorize({ windowId: 'w1' }, responsesConnection, { handle: 'h', messages: [{ role: 'system', content: [{ type: 'text', text: 'Be brief.' }] }] })).rejects.toMatchObject({ code: 'unsupported' });
+    for (const h of [anthropic, gemini, responses]) {
       expect(h.confirm).not.toHaveBeenCalled();
       expect(h.requestUnlock).not.toHaveBeenCalled();
       expect(h.provider).not.toHaveBeenCalled();
