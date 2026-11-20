@@ -1,13 +1,12 @@
 /**
- * domains/llm-fixtures.ts — Seed connections, schema checks and canned
+ * domains/llm-fixtures.ts — Wire records, seed connections and canned
  * answers for the mock NAP-LLM service.
  *
- * Spec: naps/NAP-LLM.md @ napplet/naps PR #134 head 3e10939cf788 (draft) is
- * the base contract; PR #138 head 8f741326c111 (draft) adds tools, inference
- * controls (`maxTokens`, `temperature`, `samplingParams`), `thinking` and
- * `toolCall` parts, the `toolResult` role and block-aware deltas.
- * `@napplet/nap@0.32.0` ships no `llm` subpath, so the wire records are
- * declared here (drift: upstream 0.35 exports pr134-shaped types only).
+ * Spec: naps/NAP-LLM.md @ napplet/naps PR #134 head 5e93bdfce0e8 (draft).
+ * That head folds in PR #138 (tools, inference controls, thinking and
+ * toolCall parts, the toolResult role, block lifecycle deltas). Request
+ * checks live in `llm-validate.ts`. `@napplet/nap@0.32.0` ships no `llm`
+ * subpath, so the wire records are declared here.
  */
 
 /**
@@ -57,12 +56,24 @@ export interface MockLlmConnection {
   images: boolean;
   /** Supports JSON-object output. */
   json: boolean;
-  /** Supports tool calling (pr138). */
+  /** Supports tool calling. */
   tools: boolean;
+  /** Supported tool-choice modes; empty when `tools` is false, else at least `auto` and `none`. */
+  toolChoiceModes: readonly MockLlmToolChoiceMode[];
 }
 
 /**
- * Selection requirements (pr134 plus pr138 `tools`).
+ * A tool-choice mode a connection may support; `tool` is named-tool forcing.
+ *
+ * @example
+ * ```ts
+ * const mode: MockLlmToolChoiceMode = 'required';
+ * ```
+ */
+export type MockLlmToolChoiceMode = 'auto' | 'none' | 'required' | 'tool';
+
+/**
+ * Selection requirements.
  *
  * @example
  * ```ts
@@ -81,7 +92,7 @@ export interface MockLlmRequirements {
 }
 
 /**
- * One content part (pr134 `text`/`image`; pr138 `thinking`/`toolCall`).
+ * One content part. `thinking` and `toolCall` belong to assistant messages only.
  *
  * @example
  * ```ts
@@ -114,7 +125,7 @@ export interface MockLlmPart {
  * ```
  */
 export interface MockLlmMessage {
-  /** Role; `toolResult` is a pr138 addition. */
+  /** Message role. */
   role: 'system' | 'user' | 'assistant' | 'toolResult';
   /** Ordered, non-empty parts. */
   content: MockLlmPart[];
@@ -127,7 +138,7 @@ export interface MockLlmMessage {
 }
 
 /**
- * A tool the model may call (pr138).
+ * A tool the model may call.
  *
  * @example
  * ```ts
@@ -135,16 +146,16 @@ export interface MockLlmMessage {
  * ```
  */
 export interface MockLlmTool {
-  /** Tool name. */
+  /** Portable tool name matching `^[A-Za-z0-9_-]{1,64}$`. */
   name: string;
   /** What the tool does. */
   description?: string;
-  /** JSON Schema for the arguments. */
+  /** JSON Schema with root `type: "object"`. */
   parameters?: Record<string, unknown>;
 }
 
 /**
- * How the model selects tools (pr138).
+ * How the model selects tools.
  *
  * @example
  * ```ts
@@ -154,7 +165,7 @@ export interface MockLlmTool {
 export type MockLlmToolChoice = 'auto' | 'none' | 'required' | { type: 'tool'; name: string };
 
 /**
- * A validated GenerationRequest (pr134 fields plus pr138 additions).
+ * A validated GenerationRequest.
  *
  * @example
  * ```ts
@@ -168,12 +179,10 @@ export interface MockLlmGenerationRequest {
   messages: MockLlmMessage[];
   /** Output format; defaults to `text`. */
   format?: 'text' | 'json';
-  /** Output token limit. */
+  /** Positive output token limit. */
   maxTokens?: number;
   /** Sampling temperature. */
   temperature?: number;
-  /** Provider-neutral sampling parameters (dropped by the mock). */
-  samplingParams?: Record<string, unknown>;
   /** Tools the model may call. */
   tools?: MockLlmTool[];
   /** Tool selection policy. */
@@ -181,17 +190,15 @@ export interface MockLlmGenerationRequest {
 }
 
 /**
- * A derived answer before streaming: its parts, flat text and finish reason.
+ * A derived answer before streaming: its content parts and finish reason.
  *
  * @example
  * ```ts
- * const answer: MockLlmAnswer = { text: 'Hi', parts: [{ type: 'text', text: 'Hi' }], finish: 'stop' };
+ * const answer: MockLlmAnswer = { parts: [{ type: 'text', text: 'Hi' }], finish: 'stop' };
  * ```
  */
 export interface MockLlmAnswer {
-  /** Flat text (empty for a tool call). */
-  text: string;
-  /** Content parts for the pr138 `content` list. */
+  /** Terminal `content`: text or toolCall parts. */
   parts: MockLlmPart[];
   /** Finish reason. */
   finish: MockLlmFinish;
@@ -215,6 +222,7 @@ export const MOCK_LLM_CONNECTIONS: readonly MockLlmConnection[] = Object.freeze(
     images: false,
     json: true,
     tools: true,
+    toolChoiceModes: ['auto', 'none', 'required', 'tool'],
   },
   {
     id: 'hosted-vision',
@@ -224,6 +232,7 @@ export const MOCK_LLM_CONNECTIONS: readonly MockLlmConnection[] = Object.freeze(
     images: true,
     json: true,
     tools: false,
+    toolChoiceModes: [],
   },
 ]);
 
@@ -237,157 +246,8 @@ export const MOCK_LLM_CONNECTIONS: readonly MockLlmConnection[] = Object.freeze(
  */
 export const MOCK_LLM_ANSWER_SUFFIX = 'This is a deterministic mock completion; no provider was contacted.';
 
-type Check = (value: unknown) => boolean;
-
-const isText: Check = (value) => typeof value === 'string';
-const isNonempty: Check = (value) => typeof value === 'string' && value.length > 0;
-const isBool: Check = (value) => typeof value === 'boolean';
-const isNonNegInt: Check = (value) => typeof value === 'number' && Number.isInteger(value) && value >= 0;
-const isFinite: Check = (value) => typeof value === 'number' && Number.isFinite(value);
-const isRecord: Check = (value) => typeof value === 'object' && value !== null && !Array.isArray(value);
-const oneOf = (...allowed: readonly string[]): Check => (value) => typeof value === 'string' && allowed.includes(value);
-const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
-const isBase64: Check = (value) => typeof value === 'string' && value.length >= 4 && BASE64.test(value);
-const list = (item: Check, min = 1): Check => (value) => Array.isArray(value) && value.length >= min && value.every(item);
-
-/** Exact record: unknown keys, explicit `null` and wrong types all fail. */
-function record(required: Record<string, Check>, optional: Record<string, Check> = {}): Check {
-  return (value) => {
-    if (!isRecord(value)) return false;
-    const data = value as Record<string, unknown>;
-    for (const key of Object.keys(data)) {
-      if (!Object.hasOwn(required, key) && !Object.hasOwn(optional, key)) return false;
-    }
-    return Object.entries(required).every(([key, check]) => check(data[key]))
-      && Object.entries(optional).every(([key, check]) => data[key] === undefined || check(data[key]));
-  };
-}
-
-const textPart = record({ type: oneOf('text', 'thinking'), text: isText });
-const imagePart = record({ type: oneOf('image'), mimeType: oneOf('image/png', 'image/jpeg', 'image/webp'), data: isBase64 });
-const toolCallPart = record({ type: oneOf('toolCall'), toolCallId: isNonempty, name: isNonempty, arguments: isRecord });
-const part: Check = (value) => textPart(value) || imagePart(value) || toolCallPart(value);
-const chatMessage = record({ role: oneOf('system', 'user', 'assistant'), content: list(part) });
-const toolResultMessage = record(
-  { role: oneOf('toolResult'), toolCallId: isNonempty, toolName: isNonempty, content: list(part) },
-  { isError: isBool },
-);
-const message: Check = (value) => chatMessage(value) || toolResultMessage(value);
-const tool = record({ name: isNonempty }, { description: isText, parameters: isRecord });
-const toolChoice: Check = (value) => oneOf('auto', 'none', 'required')(value) || record({ type: oneOf('tool'), name: isNonempty })(value);
-const requirements = record({}, { model: isNonempty, images: isBool, json: isBool, tools: isBool });
-const generationRequest = record(
-  { handle: isNonempty, messages: list(message) },
-  {
-    format: oneOf('text', 'json'),
-    maxTokens: isNonNegInt,
-    temperature: isFinite,
-    samplingParams: isRecord,
-    tools: list(tool, 0),
-    toolChoice,
-  },
-);
-
-function invalid(message: string): MockLlmFailure {
-  return { code: 'invalid-request', message };
-}
-
-/** Every `toolCall` must be answered by exactly one later `toolResult`, and vice versa (pr138, LLM-C12). */
-function toolPairingValid(messages: readonly MockLlmMessage[]): boolean {
-  const open = new Set<string>();
-  const seen = new Set<string>();
-  for (const entry of messages) {
-    if (entry.role === 'toolResult') {
-      if (!entry.toolCallId || !open.delete(entry.toolCallId)) return false;
-      continue;
-    }
-    if (entry.role !== 'assistant') continue;
-    for (const item of entry.content) {
-      if (item.type !== 'toolCall' || !item.toolCallId) continue;
-      if (seen.has(item.toolCallId)) return false;
-      seen.add(item.toolCallId);
-      open.add(item.toolCallId);
-    }
-  }
-  return open.size === 0;
-}
-
-/**
- * Validate an optional Requirements record. Omission is fine; `null`,
- * unknown fields and wrong types are `invalid-request`.
- *
- * @param value - The `requirements` field of `llm.select`.
- * @returns A failure or `null` when valid.
- * @example
- * ```ts
- * validateRequirements({ json: true }) === null;
- * validateRequirements(null)?.code === 'invalid-request';
- * ```
- */
-export function validateRequirements(value: unknown): MockLlmFailure | null {
-  if (value === undefined || requirements(value)) return null;
-  return invalid('requirements must be a Requirements record.');
-}
-
-/**
- * Validate a GenerationRequest (pr134 schema plus pr138 additions).
- *
- * @param value - The `request` field of `llm.generate`.
- * @returns A failure or `null` when valid.
- * @example
- * ```ts
- * validateGenerationRequest({ handle: 'h1', messages: [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }] }) === null;
- * ```
- */
-export function validateGenerationRequest(value: unknown): MockLlmFailure | null {
-  if (!generationRequest(value)) return invalid('request must be a GenerationRequest record.');
-  const request = value as MockLlmGenerationRequest;
-  if (!toolPairingValid(request.messages)) return invalid('Every toolCall part must be answered by exactly one toolResult message.');
-  if (request.toolChoice !== undefined && request.toolChoice !== 'none' && (request.tools?.length ?? 0) === 0) {
-    return invalid('toolChoice requires at least one tool.');
-  }
-  return null;
-}
-
-/**
- * Whether a connection satisfies selection requirements.
- *
- * @param connection - Candidate connection.
- * @param wanted - Validated requirements.
- * @returns `true` when every required capability is present.
- * @example
- * ```ts
- * meetsRequirements(MOCK_LLM_CONNECTIONS[0], { tools: true }) === true;
- * ```
- */
-export function meetsRequirements(connection: MockLlmConnection, wanted: MockLlmRequirements): boolean {
-  if (wanted.model !== undefined && wanted.model !== connection.model) return false;
-  if (wanted.images === true && !connection.images) return false;
-  if (wanted.json === true && !connection.json) return false;
-  return !(wanted.tools === true && !connection.tools);
-}
-
-/**
- * Provider-specific input restrictions that must fail with `unsupported`
- * before any generation starts.
- *
- * @param connection - The selected connection.
- * @param request - Validated generation request.
- * @returns A failure or `null`.
- * @example
- * ```ts
- * unsupportedInput(MOCK_LLM_CONNECTIONS[0], { handle: 'h', messages: [], format: 'json' }) === null;
- * ```
- */
-export function unsupportedInput(connection: MockLlmConnection, request: MockLlmGenerationRequest): MockLlmFailure | null {
-  const hasImage = request.messages.some((entry) => entry.content.some((item) => item.type === 'image'));
-  if (hasImage && !connection.images) return { code: 'unsupported', message: 'This connection does not accept image input.' };
-  if (request.format === 'json' && !connection.json) return { code: 'unsupported', message: 'This connection does not support JSON-object output.' };
-  if ((request.tools?.length ?? 0) > 0 && !connection.tools) return { code: 'unsupported', message: 'This connection does not support tool calling.' };
-  if (request.temperature !== undefined && (request.temperature < 0 || request.temperature > 2)) {
-    return { code: 'unsupported', message: 'temperature must be between 0 and 2 for this connection.' };
-  }
-  return null;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function partsText(parts: readonly MockLlmPart[]): string {
@@ -423,16 +283,17 @@ function deriveArguments(tool: MockLlmTool, prompt: string): Record<string, unkn
 
 /**
  * Derive the deterministic answer for a request: a tool call when tools are
- * offered and not yet answered, a tool-aware sentence after a `toolResult`,
- * a JSON object for `format: "json"`, else a canned sentence quoting the
- * last user prompt.
+ * offered and the turn is not answering a tool result (always, under
+ * `required` or a named choice), a tool-aware sentence after a `toolResult`,
+ * a JSON object for `format: "json"`, else a canned sentence quoting the last
+ * user prompt. A turn with a call always finishes `toolUse`.
  *
  * @param request - Validated generation request.
  * @param toolCallId - Id to stamp on a tool call part.
  * @returns The answer to stream.
  * @example
  * ```ts
- * deriveAnswer({ handle: 'h', messages: [{ role: 'user', content: [{ type: 'text', text: 'Hi' }] }] }, 'call_1').text;
+ * deriveAnswer({ handle: 'h', messages: [{ role: 'user', content: [{ type: 'text', text: 'Hi' }] }] }, 'call_1').parts[0]?.text;
  * // 'You asked: "Hi". This is a deterministic mock completion; no provider was contacted.'
  * ```
  */
@@ -441,11 +302,12 @@ export function deriveAnswer(request: MockLlmGenerationRequest, toolCallId: stri
   const prompt = lastUserText(request.messages);
   const tools = request.tools ?? [];
   const choice = request.toolChoice ?? 'auto';
-  if (tools.length > 0 && choice !== 'none' && last?.role !== 'toolResult') {
+  const mustCall = choice === 'required' || typeof choice === 'object';
+  if (tools.length > 0 && choice !== 'none' && (mustCall || last?.role !== 'toolResult')) {
     const forced = typeof choice === 'object' ? tools.find((item) => item.name === choice.name) : undefined;
     const chosen = forced ?? tools[0] as MockLlmTool;
     const part: MockLlmPart = { type: 'toolCall', toolCallId, name: chosen.name, arguments: deriveArguments(chosen, prompt) };
-    return { text: '', parts: [part], finish: 'toolUse' };
+    return { parts: [part], finish: 'toolUse' };
   }
   let text: string;
   if (last?.role === 'toolResult') {
@@ -456,7 +318,7 @@ export function deriveAnswer(request: MockLlmGenerationRequest, toolCallId: stri
   } else {
     text = `You asked: "${excerpt(prompt)}". ${MOCK_LLM_ANSWER_SUFFIX}`;
   }
-  return { text, parts: [{ type: 'text', text }], finish: 'stop' };
+  return { parts: [{ type: 'text', text }], finish: 'stop' };
 }
 
 /**

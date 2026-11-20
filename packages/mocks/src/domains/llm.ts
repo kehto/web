@@ -1,23 +1,25 @@
 /**
  * domains/llm.ts — Mock NAP-LLM service.
  *
- * Spec: naps/NAP-LLM.md @ napplet/naps PR #134 head 3e10939cf788 (draft) —
- *       base contract (select/describe/generate/cancel, deltas, errors);
- *       naps/NAP-LLM.md @ napplet/naps PR #138 head 8f741326c111 (draft) —
- *       tools, `maxTokens`/`temperature`/`samplingParams`, `thinking` and
- *       `toolCall` parts, `toolResult` role, block-aware deltas.
+ * Spec: naps/NAP-LLM.md @ napplet/naps PR #134 head 5e93bdfce0e8 (draft).
+ *       PR #138 (head 8f741326c111) merged into the PR #134 branch, so one
+ *       draft now carries the base contract and tool use; the separate PR
+ *       #138 ref is retired.
  * Routes: llm.select, llm.describe, llm.generate, llm.cancel
  * Pushes: llm.delta, llm.generate.result (terminal, after streaming)
  * Spec gaps / decisions:
- * - pr134 `Generation.text` and pr138 `Generation.content` disagree on the
- *   result shape; the mock emits both (`text` is the flat text, `content` the
- *   part list) so a napplet written against either draft reads its field.
- * - Deltas carry pr138 `block`/`blockIndex` in addition to pr134 `text`; a
- *   pr134 consumer ignores the extra fields.
+ * - Every content block streams as `start`, word-grouped `delta`s and `end`;
+ *   a `toolCall` start carries `toolCallId` and `name`, and its argument
+ *   fragments concatenate to the terminal `arguments` JSON.
+ * - A scripted answer (`respondWith`) that breaks the requested tool-choice
+ *   mode, or a `format: "json"` stop whose text is not a JSON object, ends
+ *   in `provider-error`, as the draft requires of a runtime.
+ * - The mock never emits `thinking` parts; replayed `thinking` and other
+ *   non-text parts are left out of the input-token estimate.
+ * - `maxTokens` is validated but does not truncate canned answers.
  * - Disclosure consent is auto-granted: the mock has no UI. `user-cancelled`
  *   is never produced; a shell adds its own consent gate.
  * - No generation deadline is modelled; `timeout` is never produced.
- * - `samplingParams` are accepted and dropped, as pr138 requires.
  */
 import type { NappletMessage } from '@kehto/runtime';
 import { DEFAULT_SCHEDULER, defineMockService, type MockRouteContext } from '../core/handler.js';
@@ -26,12 +28,8 @@ import {
   MOCK_LLM_CONNECTIONS,
   deriveAnswer,
   estimateTokens,
-  meetsRequirements,
   requestInputText,
   splitDeltas,
-  unsupportedInput,
-  validateGenerationRequest,
-  validateRequirements,
   type MockLlmAnswer,
   type MockLlmConnection,
   type MockLlmFailure,
@@ -39,6 +37,7 @@ import {
   type MockLlmGenerationRequest,
   type MockLlmRequirements,
 } from './llm-fixtures.js';
+import { meetsRequirements, mockToolChoiceMode, unsupportedInput, validateGenerationRequest, validateRequirements } from './llm-validate.js';
 
 export type {
   MockLlmAnswer,
@@ -51,22 +50,20 @@ export type {
   MockLlmRequirements,
   MockLlmTool,
   MockLlmToolChoice,
+  MockLlmToolChoiceMode,
 } from './llm-fixtures.js';
 export {
   MOCK_LLM_ANSWER_SUFFIX,
   MOCK_LLM_CONNECTIONS,
   deriveAnswer,
   estimateTokens,
-  meetsRequirements,
   requestInputText,
   splitDeltas,
-  unsupportedInput,
-  validateGenerationRequest,
-  validateRequirements,
 } from './llm-fixtures.js';
+export { meetsRequirements, mockToolChoiceMode, unsupportedInput, validateGenerationRequest, validateRequirements } from './llm-validate.js';
 
 /**
- * Base NAP-LLM draft the mock implements.
+ * NAP-LLM draft the mock implements.
  *
  * @example
  * ```ts
@@ -78,24 +75,7 @@ export const LLM_SPEC_REF: NapSpecRef = {
   status: 'draft',
   source: 'pr',
   pr: 134,
-  sha: '3e10939cf788',
-  path: 'naps/NAP-LLM.md',
-};
-
-/**
- * Tool-use / inference-control extension of NAP-LLM also honored by the mock.
- *
- * @example
- * ```ts
- * LLM_TOOLS_SPEC_REF.pr === 138;
- * ```
- */
-export const LLM_TOOLS_SPEC_REF: NapSpecRef = {
-  nap: 'NAP-LLM',
-  status: 'draft',
-  source: 'pr',
-  pr: 138,
-  sha: '8f741326c111',
+  sha: '5e93bdfce0e8',
   path: 'naps/NAP-LLM.md',
 };
 
@@ -154,8 +134,18 @@ export interface MockLlmScriptedAnswer {
   /** Text to stream. */
   text: string;
   /** Finish reason. */
-  finish: MockLlmFinish;
+  finish: MockLlmScriptedFinish;
 }
+
+/**
+ * Finish reasons a scripted text answer may use (`toolUse` requires a call).
+ *
+ * @example
+ * ```ts
+ * const finish: MockLlmScriptedFinish = 'refusal';
+ * ```
+ */
+export type MockLlmScriptedFinish = Exclude<MockLlmFinish, 'toolUse'>;
 
 /**
  * In-memory state of the mock LLM service.
@@ -210,8 +200,12 @@ export interface MockLlmOptions extends MockServiceOptions {
  * ```
  */
 export type MockLlmService = MockService<MockLlmState> & {
-  /** Queue the text the next generation streams (with `finish`, default `stop`). */
-  respondWith(text: string, finish?: MockLlmFinish): void;
+  /**
+   * Queue the text the next generation streams (with `finish`, default
+   * `stop`). Empty text yields empty `content`. Throws for `toolUse`, which
+   * needs a call part.
+   */
+  respondWith(text: string, finish?: MockLlmScriptedFinish): void;
   /** Expire every handle and cancel active work (account/connection change). */
   invalidateHandles(): void;
 };
@@ -238,6 +232,7 @@ function toModel(handle: string, connection: MockLlmConnection): Record<string, 
     images: connection.images,
     json: connection.json,
     tools: connection.tools,
+    toolChoiceModes: [...connection.toolChoiceModes],
   };
 }
 
@@ -312,24 +307,60 @@ function cancelRoute({ message, windowId, state, reply, push }: Context): void {
   reply({ cancelled: true });
 }
 
+/** One `llm.delta` body before `requestId` and `sequence` are stamped. */
+type DeltaEvent = Record<string, unknown> & { event: 'start' | 'delta' | 'end'; block: 'text' | 'toolCall'; blockIndex: number };
+
 interface StreamPlan {
-  /** Delta chunks in order. */
-  chunks: string[];
-  /** pr138 block kind. */
-  block: 'text' | 'toolcall';
-  /** Terminal result payload. */
-  result: Record<string, unknown>;
+  /** Block lifecycle events in order. */
+  events: DeltaEvent[];
+  /** Terminal `llm.generate.result` body: `{ result }` or `{ error }`. */
+  terminal: Record<string, unknown>;
+}
+
+const BAD_MODE: MockLlmFailure = { code: 'provider-error', message: 'The provider result does not honour the requested tool choice.' };
+const NO_JSON: MockLlmFailure = { code: 'provider-error', message: 'The provider completed without a JSON object.' };
+
+function blockEvents(part: MockLlmAnswer['parts'][number], blockIndex: number, wordsPerDelta: number): DeltaEvent[] {
+  const call = part.type === 'toolCall';
+  const block = call ? 'toolCall' : 'text';
+  const body = call ? JSON.stringify(part.arguments ?? {}) : part.text ?? '';
+  const start: DeltaEvent = { event: 'start', block, blockIndex, ...(call ? { toolCallId: part.toolCallId, name: part.name } : {}) };
+  const deltas = body.length === 0 ? [] : splitDeltas(body, wordsPerDelta).map((text): DeltaEvent => ({ event: 'delta', block, blockIndex, text }));
+  return [start, ...deltas, { event: 'end', block, blockIndex }];
+}
+
+function isJsonObjectText(text: string): boolean {
+  try {
+    const parsed: unknown = JSON.parse(text);
+    return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed);
+  } catch {
+    return false;
+  }
+}
+
+/** The completed-turn rules a runtime applies to provider output (tool-choice mode, JSON object text). */
+function terminalFailure(answer: MockLlmAnswer, request: MockLlmGenerationRequest): MockLlmFailure | null {
+  if (answer.finish === 'length' || answer.finish === 'refusal') return null;
+  const calls = answer.parts.filter((item) => item.type === 'toolCall');
+  const mode = mockToolChoiceMode(request);
+  if (mode === 'none' && calls.length > 0) return BAD_MODE;
+  if ((mode === 'required' || mode === 'tool') && calls.length === 0) return BAD_MODE;
+  const text = answer.parts.map((item) => (item.type === 'text' ? item.text ?? '' : '')).join('');
+  if (request.format === 'json' && answer.finish === 'stop' && !isJsonObjectText(text)) return NO_JSON;
+  return null;
 }
 
 function planStream(answer: MockLlmAnswer, request: MockLlmGenerationRequest, wordsPerDelta: number): StreamPlan {
-  const toolCall = answer.parts.find((item) => item.type === 'toolCall');
-  const streamed = toolCall ? JSON.stringify(toolCall.arguments ?? {}) : answer.text;
+  const events = answer.parts.flatMap((part, index) => blockEvents(part, index, wordsPerDelta));
+  const failure = terminalFailure(answer, request);
+  if (failure) return { events, terminal: { error: failure } };
+  const streamed = events.map((item) => (typeof item.text === 'string' ? item.text : '')).join('');
   const usage = { inputTokens: estimateTokens(requestInputText(request)), outputTokens: estimateTokens(streamed) };
-  return {
-    chunks: splitDeltas(streamed, wordsPerDelta),
-    block: toolCall ? 'toolcall' : 'text',
-    result: { text: answer.text, content: answer.parts, finish: answer.finish, usage },
-  };
+  return { events, terminal: { result: { content: answer.parts, finish: answer.finish, usage } } };
+}
+
+function scriptedAnswer(scripted: MockLlmScriptedAnswer): MockLlmAnswer {
+  return { parts: scripted.text.length > 0 ? [{ type: 'text', text: scripted.text }] : [], finish: scripted.finish };
 }
 
 function admit(context: Context, id: string, max: number): MockLlmFailure | null {
@@ -366,17 +397,15 @@ export function createMockLlmService(options: MockLlmOptions = {}): MockLlmServi
   const stream = (state: MockLlmState, generation: MockLlmActiveGeneration, plan: StreamPlan): void => {
     const step = (index: number): void => {
       if (generation.settled) return;
-      if (index >= plan.chunks.length) {
-        settle(state, generation, { type: 'llm.generate.result', id: generation.requestId, result: plan.result } as NappletMessage);
+      if (index >= plan.events.length) {
+        settle(state, generation, { type: 'llm.generate.result', id: generation.requestId, ...plan.terminal } as NappletMessage);
         return;
       }
       generation.push({
         type: 'llm.delta',
         requestId: generation.requestId,
         sequence: generation.sequence,
-        block: plan.block,
-        blockIndex: 0,
-        text: plan.chunks[index],
+        ...plan.events[index],
       } as NappletMessage);
       generation.sequence += 1;
       generation.cancel = scheduler.schedule(tickMs, () => step(index + 1));
@@ -392,9 +421,7 @@ export function createMockLlmService(options: MockLlmOptions = {}): MockLlmServi
     if (rejected) { failWith(push, 'llm.generate', id, rejected); return; }
     const request = message.request as MockLlmGenerationRequest;
     const scripted = state.scripted.shift();
-    const answer: MockLlmAnswer = scripted
-      ? { text: scripted.text, parts: [{ type: 'text', text: scripted.text }], finish: scripted.finish }
-      : deriveAnswer(request, `call_${rng.hex(8)}`);
+    const answer: MockLlmAnswer = scripted ? scriptedAnswer(scripted) : deriveAnswer(request, `call_${rng.hex(8)}`);
     state.generations += 1;
     const generation: MockLlmActiveGeneration = {
       requestId: id, windowId, handle: request.handle, sequence: 0, settled: false, cancel: () => {}, push,
@@ -443,7 +470,8 @@ export function createMockLlmService(options: MockLlmOptions = {}): MockLlmServi
   };
 
   const service: MockLlmService = Object.assign(base, {
-    respondWith(text: string, finish: MockLlmFinish = 'stop'): void {
+    respondWith(text: string, finish: MockLlmScriptedFinish = 'stop'): void {
+      if ((finish as MockLlmFinish) === 'toolUse') throw new TypeError('respondWith scripts text only; a toolUse turn needs a toolCall part.');
       base.mock.state().scripted.push({ text, finish });
     },
     invalidateHandles(): void {

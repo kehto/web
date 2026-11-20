@@ -91,7 +91,7 @@ each `Mock<Domain>Service`.
 | `keys` | NAP-KEYS | draft | PR #9 @ `8869a4cf` | service | 3 routes |
 | `link` | NAP-LINK | draft | PR #53 @ `100e5c93` | service | 1 route |
 | `lists` | NAP-LISTS | draft | PR #68 @ `7cf00cdb` | service | 3 routes |
-| `llm` | NAP-LLM | draft | PR #134 @ `3e10939c` | service | 4 routes |
+| `llm` | NAP-LLM | draft | PR #134 @ `5e93bdfc` | service | 4 routes |
 | `location` | NAP-LOCATION | draft | PR #125 @ `24d2039c` | extension | 4 routes |
 | `media` | NAP-MEDIA | draft | PR #10 @ `7806f438` | service | 6 routes |
 | `motion` | NAP-MOTION | draft | PR #124 @ `3069a945` | extension | 3 routes |

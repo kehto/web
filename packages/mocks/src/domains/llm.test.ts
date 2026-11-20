@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { NappletMessage } from '@kehto/runtime';
 
 import type { MockScheduler } from '../core/types.js';
-import { LLM_MOCK_ENTRY, LLM_SPEC_REF, LLM_TOOLS_SPEC_REF, MOCK_LLM_CONNECTIONS, createMockLlmService, splitDeltas } from './llm.js';
+import { LLM_MOCK_ENTRY, LLM_SPEC_REF, MOCK_LLM_CONNECTIONS, createMockLlmService, splitDeltas, type MockLlmConnection } from './llm.js';
 
 type Msg = NappletMessage & Record<string, unknown>;
 
@@ -23,9 +23,9 @@ function sink() {
   return { sent, send: (msg: NappletMessage) => { sent.push(msg as Msg); } };
 }
 
-function setup() {
+function setup(connections?: readonly MockLlmConnection[]) {
   const timers = manualScheduler();
-  const service = createMockLlmService({ scheduler: timers.scheduler });
+  const service = createMockLlmService({ scheduler: timers.scheduler, ...(connections ? { connections } : {}) });
   const out = sink();
   const call = (message: Record<string, unknown>, windowId = 'w1') => service.handleMessage(windowId, message as unknown as NappletMessage, out.send);
   const select = (windowId = 'w1', requirements?: Record<string, unknown>): string => {
@@ -56,8 +56,7 @@ describe('createMockLlmService', () => {
     expect(service.mock.routes).toEqual(['llm.select', 'llm.describe', 'llm.generate', 'llm.cancel']);
     expect(service.messageCapabilities).toBeUndefined();
     expect(LLM_MOCK_ENTRY).toMatchObject({ domain: 'llm', kind: 'service', spec: LLM_SPEC_REF });
-    expect(LLM_SPEC_REF).toEqual({ nap: 'NAP-LLM', status: 'draft', source: 'pr', pr: 134, sha: '3e10939cf788', path: 'naps/NAP-LLM.md' });
-    expect(LLM_TOOLS_SPEC_REF.pr).toBe(138);
+    expect(LLM_SPEC_REF).toEqual({ nap: 'NAP-LLM', status: 'draft', source: 'pr', pr: 134, sha: '5e93bdfce0e8', path: 'naps/NAP-LLM.md' });
   });
 
   it('llm.select returns the first seeded model meeting requirements; describe revalidates it', () => {
@@ -75,12 +74,13 @@ describe('createMockLlmService', () => {
       images: false,
       json: true,
       tools: true,
+      toolChoiceModes: ['auto', 'none', 'required', 'tool'],
     });
     call({ type: 'llm.describe', id: 'd1', handle: model.handle });
     expect(out.sent[1]).toEqual({ type: 'llm.describe.result', id: 'd1', model });
 
     call({ type: 'llm.select', id: 's2', requirements: { images: true } });
-    expect((out.sent[2]?.model as Record<string, unknown>).model).toBe(MOCK_LLM_CONNECTIONS[1]?.model);
+    expect(out.sent[2]?.model).toMatchObject({ model: MOCK_LLM_CONNECTIONS[1]?.model, tools: false, toolChoiceModes: [] });
   });
 
   it('select is deterministic per seed', () => {
@@ -116,7 +116,7 @@ describe('createMockLlmService', () => {
     expect(out.sent.at(-1)).toEqual({ type: 'llm.describe.result', id: 'd3', error: { code: 'invalid-request', message: 'handle must be non-empty text.' } });
   });
 
-  it('llm.generate streams ordered deltas through the scheduler, then one terminal result', () => {
+  it('llm.generate streams one start/delta/end text block through the scheduler, then one terminal result', () => {
     const { service, call, out, select, user, queue, drain } = setup();
     const handle = select();
     out.sent.length = 0;
@@ -125,47 +125,60 @@ describe('createMockLlmService', () => {
     expect(queue).toHaveLength(1);
     drain();
     const deltas = out.sent.filter((msg) => msg.type === 'llm.delta');
-    expect(deltas.map((msg) => msg.sequence)).toEqual([0, 1, 2, 3, 4]);
-    expect(deltas[0]).toEqual({ type: 'llm.delta', requestId: 'g1', sequence: 0, block: 'text', blockIndex: 0, text: 'You asked: "What' });
-    expect(deltas.map((msg) => msg.text).join('')).toBe(ANSWER);
+    expect(deltas.map((msg) => msg.sequence)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    expect(deltas.map((msg) => msg.event)).toEqual(['start', 'delta', 'delta', 'delta', 'delta', 'delta', 'end']);
+    expect(deltas[0]).toEqual({ type: 'llm.delta', requestId: 'g1', sequence: 0, event: 'start', block: 'text', blockIndex: 0 });
+    expect(deltas[1]).toEqual({ type: 'llm.delta', requestId: 'g1', sequence: 1, event: 'delta', block: 'text', blockIndex: 0, text: 'You asked: "What' });
+    expect(deltas[6]).toEqual({ type: 'llm.delta', requestId: 'g1', sequence: 6, event: 'end', block: 'text', blockIndex: 0 });
+    expect(deltas.map((msg) => msg.text ?? '').join('')).toBe(ANSWER);
     expect(splitDeltas(ANSWER)).toEqual(['You asked: "What', ' is Debian?". This', ' is a deterministic', ' mock completion; no', ' provider was contacted.']);
     expect(out.sent.at(-1)).toEqual({
       type: 'llm.generate.result',
       id: 'g1',
       result: {
-        text: ANSWER,
         content: [{ type: 'text', text: ANSWER }],
         finish: 'stop',
         usage: { inputTokens: 4, outputTokens: Math.ceil(ANSWER.length / 4) },
       },
     });
-    expect(out.sent.indexOf(out.sent.at(-1) as Msg)).toBe(5);
+    expect(out.sent.indexOf(out.sent.at(-1) as Msg)).toBe(7);
     expect(queue).toHaveLength(0);
     expect(service.mock.state().active.size).toBe(0);
   });
 
-  it('format json yields a JSON object; samplingParams and maxTokens are accepted', () => {
-    const { call, out, select, user, drain } = setup();
+  it('format json yields a JSON object; samplingParams is gone and maxTokens must be positive', () => {
+    const { service, call, out, select, user, drain } = setup();
     const handle = select();
-    call({ type: 'llm.generate', id: 'g1', request: { handle, messages: [user('Return a greeting.')], format: 'json', maxTokens: 64, temperature: 0.5, samplingParams: { top_p: 0.9 } } });
+    call({ type: 'llm.generate', id: 'g1', request: { handle, messages: [user('Return a greeting.')], format: 'json', maxTokens: 64, temperature: 0.5 } });
     drain();
-    const result = out.sent.at(-1)?.result as { text: string; finish: string };
+    const result = out.sent.at(-1)?.result as { content: Array<{ text: string }>; finish: string };
     expect(result.finish).toBe('stop');
-    expect(JSON.parse(result.text)).toEqual({ answer: 'This is a deterministic mock completion; no provider was contacted.', prompt: 'Return a greeting.' });
+    expect(result).not.toHaveProperty('text');
+    expect(JSON.parse(result.content.map((part) => part.text).join(''))).toEqual({ answer: 'This is a deterministic mock completion; no provider was contacted.', prompt: 'Return a greeting.' });
+
+    call({ type: 'llm.generate', id: 'g2', request: { handle, messages: [user('x')], samplingParams: { top_p: 0.9 } } });
+    expect((out.sent.at(-1)?.error as { code: string }).code).toBe('invalid-request');
+    call({ type: 'llm.generate', id: 'g3', request: { handle, messages: [user('x')], maxTokens: 0 } });
+    expect((out.sent.at(-1)?.error as { code: string }).code).toBe('invalid-request');
+    expect(service.mock.state().generations).toBe(1);
   });
 
-  it('answers with a deterministic tool call when tools are offered, then uses the tool result (pr138)', () => {
+  it('answers with a deterministic tool call when tools are offered, then uses the tool result', () => {
     const { call, out, select, user, drain } = setup();
     const handle = select();
     const question = user('What is the weather in Berlin?');
     call({ type: 'llm.generate', id: 'g2', request: { handle, messages: [question], tools: [TOOL], toolChoice: 'auto' } });
     drain();
-    const first = out.sent.filter((msg) => msg.type === 'llm.delta')[0] as Msg;
-    expect(first.block).toBe('toolcall');
-    const result = out.sent.at(-1)?.result as { content: Array<Record<string, unknown>>; finish: string; text: string };
+    const deltas = out.sent.filter((msg) => msg.type === 'llm.delta');
+    const result = out.sent.at(-1)?.result as { content: Array<Record<string, unknown>>; finish: string };
     expect(result.finish).toBe('toolUse');
-    expect(result.text).toBe('');
+    expect(result).not.toHaveProperty('text');
     const callPart = result.content[0] as { type: string; toolCallId: string; name: string; arguments: Record<string, unknown> };
+    // LLM-C18: the start carries id and name, fragments parse to the final arguments, then end.
+    expect(deltas[0]).toEqual({ type: 'llm.delta', requestId: 'g2', sequence: 0, event: 'start', block: 'toolCall', blockIndex: 0, toolCallId: callPart.toolCallId, name: 'get_weather' });
+    expect(deltas.at(-1)).toMatchObject({ event: 'end', block: 'toolCall', blockIndex: 0 });
+    expect(deltas.at(-1)).not.toHaveProperty('text');
+    expect(JSON.parse(deltas.slice(1, -1).map((msg) => msg.text).join(''))).toEqual(callPart.arguments);
     expect(callPart.type).toBe('toolCall');
     expect(callPart.toolCallId).toMatch(/^call_[0-9a-f]{8}$/);
     expect(callPart.name).toBe('get_weather');
@@ -178,7 +191,7 @@ describe('createMockLlmService', () => {
     ];
     call({ type: 'llm.generate', id: 'g3', request: { handle, messages, tools: [TOOL] } });
     drain();
-    expect((out.sent.at(-1)?.result as { text: string }).text).toBe('Using get_weather: 18°C and clear');
+    expect(out.sent.at(-1)?.result).toMatchObject({ content: [{ type: 'text', text: 'Using get_weather: 18°C and clear' }], finish: 'stop' });
 
     call({ type: 'llm.generate', id: 'g4', request: { handle, messages: [user('Check the weather.')], tools: [TOOL], toolChoice: { type: 'tool', name: 'get_weather' } } });
     drain();
@@ -190,7 +203,7 @@ describe('createMockLlmService', () => {
     const handle = select();
     const callPart = { type: 'toolCall', toolCallId: 'call_1', name: 'get_weather', arguments: {} };
     call({ type: 'llm.generate', id: 'e1', request: { handle, messages: [user('x'), { role: 'assistant', content: [callPart] }], tools: [TOOL] } });
-    expect(out.sent.at(-1)).toEqual({ type: 'llm.generate.result', id: 'e1', error: { code: 'invalid-request', message: 'Every toolCall part must be answered by exactly one toolResult message.' } });
+    expect(out.sent.at(-1)).toEqual({ type: 'llm.generate.result', id: 'e1', error: { code: 'invalid-request', message: 'Every toolCall must be answered by one matching toolResult immediately after its assistant turn.' } });
 
     call({ type: 'llm.generate', id: 'e2', request: { handle, messages: [{ role: 'user', content: [{ type: 'image', mimeType: 'image/png', data: 'AAAA' }] }] } });
     expect(out.sent.at(-1)).toEqual({ type: 'llm.generate.result', id: 'e2', error: { code: 'unsupported', message: 'This connection does not accept image input.' } });
@@ -210,6 +223,74 @@ describe('createMockLlmService', () => {
     call({ type: 'llm.generate', id: 'dup', request: { handle, messages: [user('x')] } });
     expect(out.sent.at(-1)).toEqual({ type: 'llm.generate.result', id: 'dup', error: { code: 'invalid-request', message: 'A generation with this id is already active.' } });
     expect(service.mock.state().generations).toBe(1);
+  });
+
+  it('rejects invalid tools, choices and part placements before any generation (LLM-C20, placement rules)', () => {
+    const { service, call, out, select, user } = setup();
+    const handle = select();
+    const code = () => (out.sent.at(-1)?.error as { code: string } | undefined)?.code;
+    const cases: Array<Record<string, unknown>> = [
+      { tools: [TOOL, TOOL] },
+      { tools: [{ name: 'has space' }] },
+      { tools: [{ name: 'x'.repeat(65) }] },
+      { tools: [{ name: 'lookup', parameters: { type: 'array' } }] },
+      { toolChoice: 'auto' },
+      { tools: [], toolChoice: 'none' },
+      { tools: [TOOL], toolChoice: { type: 'tool', name: 'other' } },
+      { messages: [{ role: 'user', content: [{ type: 'thinking', text: 'hm' }] }] },
+      { messages: [{ role: 'user', content: [{ type: 'text', text: 'x' }], isError: true }] },
+      { messages: [user('x'), { role: 'assistant', content: [{ type: 'toolCall', toolCallId: 'c1', name: 'get_weather', arguments: {} }] },
+        { role: 'toolResult', toolCallId: 'c1', toolName: 'get_weather', content: [{ type: 'toolCall', toolCallId: 'c2', name: 'x', arguments: {} }] }] },
+    ];
+    cases.forEach((extra, index) => {
+      call({ type: 'llm.generate', id: `v${index}`, request: { handle, messages: [user('x')], ...extra } });
+      expect(code(), JSON.stringify(extra)).toBe('invalid-request');
+    });
+    expect(service.mock.state().generations).toBe(0);
+  });
+
+  it('enforces adjacent tool results and allows completed history without current tools (LLM-C21)', () => {
+    const { service, call, out, select, user, drain } = setup();
+    const handle = select();
+    const callPart = { type: 'toolCall', toolCallId: 'call_1', name: 'get_weather', arguments: { city: 'Berlin' } };
+    const answer = { role: 'toolResult', toolCallId: 'call_1', toolName: 'get_weather', content: [{ type: 'text', text: '18°C' }] };
+    const histories = [
+      [user('x'), { role: 'assistant', content: [callPart] }, user('interleaved'), answer],
+      [user('x'), answer],
+      [user('x'), { role: 'assistant', content: [callPart] }, { ...answer, toolName: 'other' }],
+      [user('x'), { role: 'assistant', content: [callPart] }, answer, answer],
+    ];
+    histories.forEach((messages, index) => {
+      call({ type: 'llm.generate', id: `h${index}`, request: { handle, messages, tools: [TOOL] } });
+      expect((out.sent.at(-1)?.error as { code: string }).code).toBe('invalid-request');
+    });
+    expect(service.mock.state().generations).toBe(0);
+
+    call({ type: 'llm.generate', id: 'ok', request: { handle, messages: [user('x'), { role: 'assistant', content: [callPart] }, answer] } });
+    drain();
+    expect(out.sent.at(-1)?.result).toMatchObject({ content: [{ type: 'text', text: 'Using get_weather: 18°C' }], finish: 'stop' });
+
+    call({ type: 'llm.generate', id: 'again', request: { handle, messages: [user('x'), { role: 'assistant', content: [callPart] }, answer], tools: [TOOL], toolChoice: 'required' } });
+    drain();
+    expect(out.sent.at(-1)?.result).toMatchObject({ finish: 'toolUse', content: [{ type: 'toolCall', name: 'get_weather' }] });
+  });
+
+  it('answers unlisted tool-choice modes, tool history and tool-result images on an incapable connection with unsupported (LLM-C19, LLM-C22)', () => {
+    const autoOnly: MockLlmConnection = { ...(MOCK_LLM_CONNECTIONS[0] as MockLlmConnection), id: 'auto-only', toolChoiceModes: ['auto', 'none'] };
+    const { service, call, out, select, user } = setup([autoOnly, MOCK_LLM_CONNECTIONS[1] as MockLlmConnection]);
+    const handle = select();
+    call({ type: 'llm.generate', id: 'u1', request: { handle, messages: [user('x')], tools: [TOOL], toolChoice: 'required' } });
+    expect(out.sent.at(-1)).toEqual({ type: 'llm.generate.result', id: 'u1', error: { code: 'unsupported', message: 'This connection does not support the "required" tool choice.' } });
+    const image = { type: 'image', mimeType: 'image/png', data: 'AAAA' };
+    const callPart = { type: 'toolCall', toolCallId: 'call_1', name: 'get_weather', arguments: {} };
+    call({ type: 'llm.generate', id: 'u2', request: { handle, messages: [user('x'), { role: 'assistant', content: [callPart] },
+      { role: 'toolResult', toolCallId: 'call_1', toolName: 'get_weather', content: [image] }], tools: [TOOL] } });
+    expect(out.sent.at(-1)).toEqual({ type: 'llm.generate.result', id: 'u2', error: { code: 'unsupported', message: 'This connection does not accept image input.' } });
+    const vision = select('w1', { images: true });
+    call({ type: 'llm.generate', id: 'u3', request: { handle: vision, messages: [user('x'), { role: 'assistant', content: [callPart] },
+      { role: 'toolResult', toolCallId: 'call_1', toolName: 'get_weather', content: [{ type: 'text', text: 'ok' }] }] } });
+    expect(out.sent.at(-1)).toEqual({ type: 'llm.generate.result', id: 'u3', error: { code: 'unsupported', message: 'This connection does not accept tool calls or tool results.' } });
+    expect(service.mock.state().generations).toBe(0);
   });
 
   it('enforces the per-window concurrency quota', () => {
@@ -247,11 +328,33 @@ describe('createMockLlmService', () => {
     call({ type: 'llm.generate', id: 'g1', request: { handle, messages: [user('anything')] } });
     drain();
     expect(out.sent.at(-1)?.result).toEqual({
-      text: 'Incomplete answer',
       content: [{ type: 'text', text: 'Incomplete answer' }],
       finish: 'length',
       usage: { inputTokens: 2, outputTokens: 5 },
     });
+
+    service.respondWith('', 'refusal');
+    call({ type: 'llm.generate', id: 'g2', request: { handle, messages: [user('anything')] } });
+    drain();
+    expect(out.sent.at(-1)?.result).toEqual({ content: [], finish: 'refusal', usage: { inputTokens: 2, outputTokens: 0 } });
+    expect(() => service.respondWith('x', 'toolUse' as never)).toThrow(TypeError);
+  });
+
+  it('a scripted completed turn that breaks the tool-choice mode or JSON format is provider-error (LLM-C13)', () => {
+    const { service, call, out, select, user, drain } = setup();
+    const handle = select();
+    service.respondWith('Plain text instead of a call');
+    call({ type: 'llm.generate', id: 'g1', request: { handle, messages: [user('x')], tools: [TOOL], toolChoice: { type: 'tool', name: 'get_weather' } } });
+    drain();
+    expect(out.sent.at(-1)).toEqual({ type: 'llm.generate.result', id: 'g1', error: { code: 'provider-error', message: 'The provider result does not honour the requested tool choice.' } });
+    service.respondWith('not json');
+    call({ type: 'llm.generate', id: 'g2', request: { handle, messages: [user('x')], format: 'json' } });
+    drain();
+    expect(out.sent.at(-1)).toEqual({ type: 'llm.generate.result', id: 'g2', error: { code: 'provider-error', message: 'The provider completed without a JSON object.' } });
+    service.respondWith('Cut off', 'length');
+    call({ type: 'llm.generate', id: 'g3', request: { handle, messages: [user('x')], tools: [TOOL], toolChoice: 'required' } });
+    drain();
+    expect(out.sent.at(-1)?.result).toMatchObject({ finish: 'length', content: [{ type: 'text', text: 'Cut off' }] });
   });
 
   it('invalidateHandles expires selections and cancels active work', () => {
