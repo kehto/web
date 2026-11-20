@@ -26,6 +26,7 @@ export const CVM_BACKEND: DomainBackendModule = {
   create() {
     const emitters = new Set<(server: CvmServerRef, message: McpMessage) => void>();
     const requests: McpMessage[] = [];
+    const published: McpMessage[] = [];
     const closed: string[] = [];
     const transport: CvmTransport = {
       planDiscover: () => [CVM_RELAY],
@@ -39,6 +40,11 @@ export const CVM_BACKEND: DomainBackendModule = {
         requests.push(structuredClone(message));
         if (server.pubkey !== CVM_FIXTURE_SERVER) throw new Error('server not found');
         return serve(message);
+      },
+      // Notifications and responses: published as given, nothing awaited.
+      async publish(server, message) {
+        if (server.pubkey !== CVM_FIXTURE_SERVER) throw new Error('server not found');
+        published.push(structuredClone(message));
       },
       async close(server) { closed.push(server.pubkey); },
       onEvent(handler) {
@@ -59,7 +65,7 @@ export const CVM_BACKEND: DomainBackendModule = {
           for (const emit of emitters) emit({ pubkey: CVM_FIXTURE_SERVER }, message);
         },
         /** Evidence: every MCP message the transport carried, and every server it closed. */
-        'cvm.transport': () => ({ requests: [...requests], closed: [...closed] }),
+        'cvm.transport': () => ({ requests: [...requests], published: [...published], closed: [...closed] }),
       },
       dispose() { cvm.dispose(); },
     };

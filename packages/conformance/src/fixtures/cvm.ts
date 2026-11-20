@@ -57,12 +57,29 @@ const closeOnly = tag('A successful cvm.close.result carries only type and id', 
   return extra.length ? `close result carried ${extra.join(', ')}` : null;
 });
 
+/** NAP-CVM Message handling: a notification completes "After transport publication, result without `message`". */
+const publicationAck = (id: string, message: Record<string, unknown>): OperationCase => ({
+  id, type: 'cvm.request', payload: request(message),
+  semantics: tag('A notification-form MCP message completes after publication with a result without message: only type and id, no MCP response awaited', (reply) => {
+    const extra = Object.keys(reply ?? {}).filter((key) => key !== 'type' && key !== 'id');
+    return extra.length ? `notification result carried ${extra.join(', ')}` : null;
+  }),
+});
+
 /** NAP-CVM at napplet/naps#31 (28cf1bdb): discovery, raw MCP, registry, close and session events. */
 export const CVM_FIXTURE: DomainFixture = {
   domain: 'cvm',
   cases: [
     { id: 'cvm/discover', type: 'cvm.discover', payload: { query: { search: 'echo', limit: 5 } } },
     toolsList('cvm/request', 7),
+    // Sent after cvm/request in the same session, so MCP id 7 is already used.
+    failure('cvm/request-duplicate-id', 'cvm.request', request({ jsonrpc: '2.0', id: 7, method: 'tools/list' }), 'invalid message', ['message'],
+      'An ID already used for a client request in the same MCP session returns "invalid message"'),
+    publicationAck('cvm/request-notification', { jsonrpc: '2.0', method: 'notifications/initialized' }),
+    failure('cvm/request-unmatched-response', 'cvm.request', request({ jsonrpc: '2.0', id: 'conformance-unmatched', result: {} }), 'invalid message', ['message'],
+      'A response must match an outstanding server request delivered to that napplet; an unmatched response returns "invalid message"'),
+    failure('cvm/request-malformed-server', 'cvm.request', { server: { pubkey: 'not-a-pubkey' }, message: { jsonrpc: '2.0', id: 11, method: 'tools/list' } }, 'invalid request', ['message'],
+      'A malformed server reference is "invalid request", not "server not found"'),
     {
       id: 'cvm/registry.list', type: 'cvm.registry.list', payload: { query: { family: CVM_FIXTURE_FAMILY } },
       semantics: tag('Every registry entry\'s schemaHashes equals the distinct hashes of its tools', (reply) => {
@@ -100,6 +117,8 @@ export const CVM_FIXTURE: DomainFixture = {
       'registry.describe with an unmatched family label is "family not found"'),
     failure('cvm/registry.call-wrong-tool', 'cvm.registry.call', { selector: SELECTOR, tool: 'not-in-family', args: {} }, 'schema mismatch', ['result'],
       'registry.call with a tool name outside the selected verified tool set is "schema mismatch" before publication'),
+    failure('cvm/close-malformed-server', 'cvm.close', { server: { pubkey: 'not-a-pubkey' } }, 'invalid request', [],
+      'cvm.close with a malformed server reference is "invalid request"'),
     { id: 'cvm/close', type: 'cvm.close', payload: { server: SERVER }, semantics: closeOnly },
   ],
   pushes: [
