@@ -21,13 +21,36 @@ wire fields, quiet canonical usage, warning text/frequency, trusted parent
 delivery and duplicate result handling. `cvm-registry.test.ts` covers runtime
 hash verification, pinned providers, deadlines and window teardown.
 
-Retention reason: published napplets use the string-family API exported by
-`@napplet/nap@0.40.0`. Upstream selector/entry type drift is tracked in
-[napplet/web#336](https://github.com/napplet/web/issues/336) and
-[kehto/web#441](https://github.com/kehto/web/issues/441). Remove the local canonical
-types when supported upstream peer versions export the draft contract; remove
-the string adapter only after supported consumers migrate and a removal release
-is announced. New local types follow NAP-CVM #31 at `28cf1bdb5c64`.
+Retention reason: napplets built against `@napplet/nap@0.40.0` or older call
+the string-family API. `@napplet/nap@0.41.0` / `@napplet/core@0.42.0`
+([napplet/web#337](https://github.com/napplet/web/pull/337), closing
+[napplet/web#336](https://github.com/napplet/web/issues/336)) switched the SDK to
+selectors as a breaking change and added no translation of their own: the SDK
+helpers forward their first argument to `window.napplet.cvm.registry` untouched.
+So an older bundle still reaches Kehto's injected boundary with a string, and
+this adapter is the only thing that keeps it working. A napplet that bundles
+the older upstream shim instead of using the injected namespace posts a
+top-level `family`, which Kehto rejects as `invalid request`; no family-only
+wire fallback exists.
+
+Upstream type drift is resolved
+([kehto/web#441](https://github.com/kehto/web/issues/441)): the checked
+contract is NAP-CVM #31 at `28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f`, and
+`@kehto/services` and `@kehto/mocks` now take `CvmRegistrySelector`,
+`CvmRegistryEntry` and the related types from `@napplet/core` (peer floor
+0.42.0) instead of declaring them. `cvm-registry-types.test.ts` and
+`published-napplet-contract.test.ts` pin that. `@kehto/shell` keeps its older
+peer floor because the injected binding is untyped and imports none of them.
+
+Diagnostic limit: the stricter upstream `CvmRegistrySelector` (at least one
+field) is an erased type, so a TypeScript host that built `{}` selectors gets a
+compile error rather than a runtime warning; the runtime already rejected them.
+
+Removal prerequisites for the adapter: supported consumers of the string-family
+API move to selectors (rebuilding against `@napplet/nap` 0.41.0 or newer forces
+that at compile time), a removal release is announced, then the string branch, its warning and its tests go together with a
+negative test for string selectors. Silence from the warning is not proof that
+external napplets migrated.
 
 ## PAJA-NIP07-RELAY-DISCOVERY-REMOVED — retired extension integration
 

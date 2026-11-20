@@ -54,8 +54,8 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.41.0 <0.42.0` |
-| `@napplet/nap` | `>=0.37.0 <0.41.0` |
+| `@napplet/core` | `>=0.42.0 <0.43.0` |
+| `@napplet/nap` | `>=0.37.0 <0.42.0` |
 
 ## Primary APIs
 
@@ -74,7 +74,10 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 
 ## Scope Boundaries
 
-`createCvmService` accepts optional `registry: CvmRegistryFamily[]`. Each entry
+`createCvmService` accepts optional `registry: CvmRegistryFamily[]`. The selector,
+entry, tool and option types (`CvmRegistrySelector`, `CvmRegistryEntry`,
+`CvmRegistryTool`, `CvmRegistryOptions`, `CvmRegistryCallOptions`,
+`CvmRegistryQuery`) are re-exported from `@napplet/core` 0.42.0 or newer. Each entry
 names an operator-selected provider and a family of tool name/hash pins. The
 registry verifies live schemas with `computeCvmToolSchemaHash` (CEP-15) before
 selection or invocation. A hash selector takes precedence over a family label;
