@@ -20,8 +20,10 @@ export type CheckSeverity = 'error' | 'warning';
  * - `wire-contract`: envelope shape and correlation proved against the packaged
  *   `@napplet/nap` types only.
  * - `kehto-policy`: a Kehto choice that is stricter than the protocol.
+ * - `catalog`: integrity of the suite itself against the advertised catalog
+ *   and the pinned operation inventory.
  */
-export type CheckScope = 'nip5d-core' | 'nap-spec' | 'wire-contract' | 'kehto-policy';
+export type CheckScope = 'nip5d-core' | 'nap-spec' | 'wire-contract' | 'kehto-policy' | 'catalog';
 
 /** The two profiles every target must support. */
 export type ConformanceProfile = 'minimal' | 'full';

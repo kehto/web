@@ -53,7 +53,7 @@ test.describe('kehto conformance (kehto/web#187)', () => {
       const result = cli(['--profile', profile, '--reporter', 'json', '--out', out]);
       const run = JSON.parse(readFileSync(out, 'utf8')) as Run;
       expect(result.status).toBe(run.ok ? 0 : 1);
-      expect(failingIds(run)).toEqual([...KNOWN_KEHTO_FINDINGS].sort());
+      expect(failingIds(run)).toEqual([...KNOWN_KEHTO_FINDINGS[profile]].sort());
       expect(run.variants.map((variant) => variant.id)).toEqual([`${profile}/shell-present`, `${profile}/shell-absent`]);
       const absent = run.variants.find((variant) => variant.id.endsWith('shell-absent'));
       expect(absent?.advertisedDomains).not.toContain('shell');

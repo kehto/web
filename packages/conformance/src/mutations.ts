@@ -20,6 +20,8 @@ export interface MutationSpec {
   readonly description: string;
   /** Stable check ids that must fail, and no others beyond known findings. */
   readonly expect: readonly string[];
+  /** Domain filter the self-test runs with. Default `['storage']`: NIP-5D and NAP-SHELL checks always run. */
+  readonly domains?: readonly string[];
   /** Build a fresh tamper. `applied` counts the places the mutation actually changed something. */
   create(applied: { count: number }): KehtoTamper;
 }
@@ -63,6 +65,31 @@ function gateOnShellReady(applied: { count: number }): KehtoTamper {
       if (ready.has(windowId) || !shellEnvironmentIncludesShell(windowId)) return 'dispatch';
       applied.count += 1;
       return 'defer';
+    },
+  };
+}
+
+/** Rewrite every INC endpoint identifier the runtime delivers to the d tag of that endpoint. */
+function incIdentifiersAsDTags(applied: { count: number }): KehtoTamper {
+  let bridge: ShellBridge | null = null;
+  const dTags = new Map<string, string>();
+  const learn = (windowId: string): void => {
+    const id = bridge?.runtime.getIncEndpointId(windowId);
+    const dTag = bridge?.runtime.sessionRegistry.getEntryByWindowId(windowId)?.dTag;
+    if (id && dTag !== undefined) dTags.set(id, dTag);
+  };
+  return {
+    attached(attachedBridge) { bridge = attachedBridge; },
+    outbound(windowId, message) {
+      learn(windowId);
+      const envelope = message as Record<string, unknown> | null;
+      if (!envelope || typeof envelope.type !== 'string' || !envelope.type.startsWith('inc.')) return [message];
+      const rewritten = { ...envelope };
+      for (const field of ['sender', 'peer']) {
+        const id = rewritten[field];
+        if (typeof id === 'string' && dTags.has(id)) { rewritten[field] = dTags.get(id); applied.count += 1; }
+      }
+      return [rewritten];
     },
   };
 }
@@ -121,6 +148,63 @@ export const MUTATIONS: readonly MutationSpec[] = [
     description: 'Domain requests from shell-exposed endpoints wait for shell.ready.',
     expect: ['nip5d/readiness-independent'],
     create: gateOnShellReady,
+  },
+  {
+    name: 'advertise-uncovered-domain',
+    domains: ['conformance-fake'],
+    description: 'The runtime advertises a domain the catalog has no fixture for.',
+    expect: ['catalog/advertised-domain-covered'],
+    create: (applied) => ({
+      advertised(live) {
+        applied.count += 1;
+        return { domains: [...live.domains, 'conformance-fake'], services: live.services };
+      },
+    }),
+  },
+  {
+    name: 'drop-correlation-id',
+    domains: ['theme'],
+    description: 'theme.get.result comes back with a different id than the request.',
+    // With no correlated reply, theme has no proved coverage and nothing that works.
+    expect: ['catalog/advertised-domain-covered', 'catalog/capability-truthfulness', 'theme/correlation', 'theme/semantics'],
+    create: (applied) => ({
+      outbound(_windowId, message) {
+        const envelope = message as Record<string, unknown> | null;
+        if (envelope?.type !== 'theme.get.result') return [message];
+        applied.count += 1;
+        return [{ ...envelope, id: `${String(envelope.id)}-rewritten` }];
+      },
+    }),
+  },
+  {
+    name: 'inc-dtag-identity',
+    domains: ['inc'],
+    description: 'INC sender and peer fields carry manifest d tags instead of runtime endpoint identifiers.',
+    expect: ['inc/channel-lifecycle', 'inc/endpoint-identity'],
+    create: incIdentifiersAsDTags,
+  },
+  {
+    name: 'retain-state-after-destroy',
+    domains: ['inc'],
+    description: 'Destroying an endpoint leaves its runtime session, subscriptions and channels in place.',
+    expect: ['inc/channel-lifecycle', 'inc/topic-routing'],
+    create: (applied) => {
+      applied.count += 1;
+      return { keepRuntimeStateOnDestroy: true };
+    },
+  },
+  {
+    name: 'advertise-disabled-backend',
+    domains: ['relay'],
+    description: 'The minimal profile stops disabling relay although no relay backend exists, so relay is advertised and injected without one.',
+    expect: ['catalog/capability-truthfulness', 'relay/correlation', 'relay/semantics'],
+    create: (applied) => ({
+      hooks(hooks) {
+        const disabled = (hooks.capabilities?.disabledDomains ?? []).filter((domain) => domain !== 'relay');
+        if (disabled.length !== (hooks.capabilities?.disabledDomains ?? []).length) applied.count += 1;
+        return { ...hooks, capabilities: { ...hooks.capabilities, disabledDomains: disabled } };
+      },
+    }),
   },
   {
     name: 'supports-depends-on-init',

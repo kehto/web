@@ -217,6 +217,7 @@ function probeMain(plan: ProbePlan, emit: Emit): void {
   const callbacks: Record<string, unknown[][]> = {};
   const handles: Record<string, unknown> = {};
   const marks: string[] = [];
+  const markAt: Record<string, number> = {};
   const inbound: unknown[] = [];
   const consumed = new Set<number>();
   const inboundWaiters: Array<() => void> = [];
@@ -347,14 +348,37 @@ function probeMain(plan: ProbePlan, emit: Emit): void {
       return;
     }
     if (step.op === 'send') {
-      const sent = wire ? wire.post(step.envelope) : false;
+      let envelope = step.envelope;
+      if (step.fill && envelope && typeof envelope === 'object') {
+        const filled: Record<string, unknown> = { ...(envelope as Record<string, unknown>) };
+        for (const [field, source] of Object.entries(step.fill)) {
+          const found = records.find((entry) => entry.as === source.as);
+          const picked = lookup(found?.value, source.path);
+          if (picked.found) filled[field] = picked.value;
+        }
+        envelope = filled;
+      }
+      // Plans are JSON; `{ $blob: { bytes, type } }` and `{ $arrayBuffer: bytes }` become real binary values.
+      const revive = (value: unknown): unknown => {
+        if (Array.isArray(value)) return value.map(revive);
+        if (!value || typeof value !== 'object') return value;
+        const node = value as Record<string, unknown>;
+        if (node.$blob && typeof node.$blob === 'object') {
+          const blob = node.$blob as { bytes: number[]; type?: string };
+          return new Blob([new Uint8Array(blob.bytes)], { type: blob.type ?? '' });
+        }
+        if (Array.isArray(node.$arrayBuffer)) return new Uint8Array(node.$arrayBuffer as number[]).buffer;
+        return Object.fromEntries(Object.entries(node).map(([key, item]) => [key, revive(item)]));
+      };
+      const sent = wire ? wire.post(revive(envelope)) : false;
       record(index, step.op, undefined, sent ? 'value' : 'missing');
       return;
     }
     if (step.op === 'expect') {
       let found = -1;
+      const floor = step.since !== undefined ? markAt[step.since] ?? 0 : 0;
       const ready = (): boolean => {
-        found = inbound.findIndex((message, position) => !consumed.has(position) && matches(message, step.match));
+        found = inbound.findIndex((message, position) => position >= floor && !consumed.has(position) && matches(message, step.match));
         return found >= 0;
       };
       const arrived = await waitFor(ready, inboundWaiters, step.timeoutMs ?? defaultTimeout);
@@ -363,13 +387,15 @@ function probeMain(plan: ProbePlan, emit: Emit): void {
       return;
     }
     if (step.op === 'quiet') {
-      const from = inbound.length;
+      // `since` starts the window at a mark, so a message that raced ahead of this step still counts.
+      const from = step.since !== undefined ? markAt[step.since] ?? inbound.length : inbound.length;
       await sleep(step.ms ?? defaultSettle);
       record(index, step.op, step.as, 'value', { value: inbound.slice(from).map((message) => safe(message)) });
       return;
     }
     if (step.op === 'mark') {
       marks.push(step.name);
+      markAt[step.name] = inbound.length;
       emit('mark', { name: step.name });
       record(index, step.op, undefined, 'value');
       return;

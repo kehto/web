@@ -20,6 +20,7 @@ declare module 'node:fs' {
   export function writeFileSync(path: string, data: string, encoding: 'utf8'): void;
   export function existsSync(path: URL | string): boolean;
   export function mkdtempSync(prefix: string): string;
+  export function readdirSync(path: string, options: { withFileTypes: true }): { name: string; isDirectory(): boolean }[];
   export function rmSync(path: string, options: { recursive: true; force: true }): void;
 }
 
@@ -28,6 +29,7 @@ declare module 'node:path' { export function join(...parts: string[]): string; }
 
 declare const process: {
   argv: string[];
+  cwd(): string;
   env: Record<string, string | undefined>;
   exitCode?: number;
   stdout: { write(chunk: string): void };

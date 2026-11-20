@@ -39,6 +39,11 @@ const MUTATION_NAMES = [
   'omit-granted-shell',
   'duplicate-shell-init',
   'gate-on-shell-ready',
+  'advertise-uncovered-domain',
+  'drop-correlation-id',
+  'inc-dtag-identity',
+  'retain-state-after-destroy',
+  'advertise-disabled-backend',
   'supports-depends-on-init',
   'init-invents-domain',
 ];
@@ -65,7 +70,7 @@ test.describe('conformance mutation self-tests (kehto/web#187)', () => {
     test(`${name} fails only its intended checks`, async ({ page }) => {
       const result = await runMutation(page, server.url, name);
       expect(result.applied, `${name} never applied`).toBeGreaterThan(0);
-      expect(result.failing).toEqual([...new Set([...result.expect, ...KNOWN_KEHTO_FINDINGS])].sort());
+      expect(result.failing).toEqual([...new Set([...result.expect, ...KNOWN_KEHTO_FINDINGS.minimal])].sort());
       expect(result.passing, 'unrelated checks still pass').toBeGreaterThan(10);
     });
   }

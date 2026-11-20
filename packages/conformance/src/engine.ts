@@ -115,6 +115,8 @@ async function runVariant(
     const result = await runScenario(scenario, context, options.onCheck);
     checks.push(...result.checks);
     coverage.push(...result.coverage);
+    // Endpoints left by one scenario must not receive another scenario's pushes.
+    await session.releaseEndpoints?.();
   }
   return {
     variant: {

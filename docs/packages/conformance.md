@@ -9,10 +9,9 @@ This is the inverse of `@napplet/conformance`, which runs an untrusted napplet
 against a reference shell. Here the napplet is the fixture and the runtime is
 under test.
 
-> **Alpha status:** the catalog covers NIP-5D core and optional NAP-SHELL, with
-> mutation self-tests for every check. Per-domain NAP coverage, the
-> advertised-domain coverage gate and the browser UI land in follow-up changes
-> (kehto/web#187). A passing run is
+> **Alpha status:** the catalog covers NIP-5D core, optional NAP-SHELL, every
+> supported NAP domain against its pinned revision, and mutation self-tests.
+> The browser UI lands in a follow-up change (kehto/web#187). A passing run is
 > never a claim of full NAP conformance; the final report line states the
 > tested scope.
 
@@ -32,7 +31,7 @@ npx playwright install chromium
 | Runtime entry | `./dist/index.js` |
 | Types entry | `./dist/index.d.ts` |
 | Subpaths | `./kehto-target`, `./mutations`, `./cli`, `./browser` (self-contained browser bundle) |
-| Dependencies | `@kehto/nip`, `@kehto/runtime`, `@kehto/shell` |
+| Dependencies | `@kehto/nip`, `@kehto/runtime`, `@kehto/services`, `@kehto/shell` |
 | Side effects | `false` |
 
 ## Peer Dependencies
@@ -52,9 +51,8 @@ kehto conformance --profile minimal
 kehto conformance --reporter junit --out conformance.xml
 ```
 
-`--domain <name>` (repeatable) restricts per-domain cases; NIP-5D core and
-NAP-SHELL checks always run. This slice has no per-domain cases yet, so the
-filter changes nothing today.
+`--domain <name>` (repeatable) restricts per-domain and catalog cases to those
+domains; NIP-5D core and NAP-SHELL checks always run.
 
 Exit codes: `0` every applicable check passed (spec gaps are printed and
 counted), `1` an error-severity check failed, `2` usage, target boot or harness
@@ -71,7 +69,7 @@ working.
 | Profile | Exposed domains |
 |---------|-----------------|
 | `minimal` | The always-on built-in domains that work without a backend: `identity`, `storage`, `inc`, `theme` (plus `shell` in the shell-present variant). `relay`, `keys`, `media` and `notify` are disabled, and no service is registered. |
-| `full` | Today: the shell's runtime-native set with nothing disabled (`relay`, `identity`, `storage`, `inc`, `theme`, `keys`, `media`, `notify`, plus `shell`). `relay`, `keys`, `media` and `notify` are still advertised without a wired backend, and no service-only domain is registered yet. Deterministic backends for every supported domain and the `catalog/advertised-domain-covered` gate are the next slice of kehto/web#187, so a `full` run is not yet evidence of full-profile coverage. |
+| `full` | Every supported domain, each with a deterministic in-memory backend from `packages/conformance/src/kehto/domains/` (no network, devices or prompts): `relay`, `outbox`, `identity`, `storage`, `inc`, `theme`, `keys`, `media`, `notify`, `config`, `resource`, `cvm`, `upload`, `intent`, `count`, `link`, `common`, `lists`, `serial`, `ble`, `webrtc`, `dm`, `fs`, `gamepad`, `llm`, plus `shell`. |
 
 All probe endpoints get explicit host grants. Manifest `R`/`O` declarations
 are checked, never used as grants.
@@ -101,6 +99,56 @@ are checked, never used as grants.
 | `shell/retained-environment` | `nap-spec` | `ready()`, `services` and `onReady()` retain the first environment |
 | `shell/local-supports` | `nap-spec` | `supports(domain)` is synchronous, local and follows injected presence only |
 
+### Domain and catalog checks
+
+For every advertised domain, one probe granted that domain runs the domain's
+fixture (`packages/conformance/src/fixtures/<domain>.ts`) over the raw port:
+
+| Id | Scope | Proves |
+|----|-------|--------|
+| `<domain>/correlation` | `wire-contract` | every request gets its canonical reply type with the same `id`; fire-and-forget operations get nothing |
+| `<domain>/semantics` | `nap-spec` | each assertion argued from a sentence of the pinned NAP revision holds |
+| `<domain>/push` | `wire-contract` | host-triggered or request-caused pushes arrive and stop after unsubscribe |
+| `inc/endpoint-identity`, `inc/sender-exclusion`, `inc/topic-routing`, `inc/channel-lifecycle` | `nap-spec` | NAP-INC across publishers, root manifests, simultaneous instances and replacement |
+| `catalog/advertised-domain-covered` | `catalog` | every advertised domain has a fixture, every inventoried operation a passing case or a semantic gap row |
+| `catalog/package-drift` | `catalog` | the installed `@napplet/nap` types cover every operation the pinned NAPs specify |
+| `catalog/capability-truthfulness` | `nip5d-core` | an advertised (injected) domain services every request it is sent |
+| `catalog/acl-denial` | `wire-contract` | a revoked ACL capability runs no backend and answers only with message types the NAP defines |
+| `catalog/endpoint-isolation` | `nip5d-core` | destroying one endpoint stops its pushes without affecting another |
+| `catalog/broadcast-to-loaded` | `nap-spec` | required broadcasts (theme, identity) reach loaded napplets before their first message |
+
+`nip5d/unknown-envelope` sends an unknown action to every advertised domain.
+
+### Adding a domain fixture
+
+1. Add `fixtures/<domain>.ts` exporting a `DomainFixture`: one `OperationCase`
+   per napplet -> runtime operation of the inventory, `PushCase`s for pushes,
+   and `OperationGap` rows only for a genuine semantic gap (`spec-gap`) or an
+   honest harness limit (`harness`, which keeps the operation uncovered).
+2. Add `kehto/domains/<domain>.ts` exporting a `DomainBackendModule` with an
+   in-memory backend and the host controls its pushes name.
+3. Register both in `fixtures/index.ts` and `kehto/domains/index.ts`.
+
+Only add `semantics` when the assertion is argued from a specific sentence of
+the pinned NAP; otherwise the case is wire-contract coverage, and the summary
+counts it as such.
+
+### The drift guard
+
+`src/catalog/inventory.generated.ts` pins every supported domain's operations
+from both the installed `@napplet/nap/<domain>/types.d.ts` and the wire table
+of the NAP document at the ref in `src/authority.ts`. Regenerate it with
+`node packages/conformance/scripts/generate-inventory.ts` (needs network).
+`src/catalog/inventory.test.ts` fails when:
+
+- the installed package version changes, or a domain's packaged operations
+  differ from the pinned inventory (a new or renamed discriminant);
+- the package ships a domain directory that is neither supported nor listed
+  as deliberately unrouted;
+- the supported list drifts from the shell's advertisable domains;
+- a supported domain has no fixture, or an inventoried operation has neither
+  a case nor a `spec-gap` row.
+
 ## Mutation Self-Tests
 
 `tests/e2e/conformance-mutations.spec.ts` proves the checks are not
@@ -118,8 +166,13 @@ the spec.
 | `omit-granted-shell` | `nip5d/injection-order`, `nip5d/injection-scope`, and downstream every check that needs the shell object |
 | `duplicate-shell-init` | `shell/once-per-lifecycle` |
 | `gate-on-shell-ready` | `nip5d/readiness-independent` |
+| `advertise-uncovered-domain` | `catalog/advertised-domain-covered` |
+| `drop-correlation-id` | `theme/correlation`, `theme/semantics`, and the catalog checks it leaves without a working theme case |
+| `inc-dtag-identity` | `inc/endpoint-identity`, `inc/channel-lifecycle` |
+| `retain-state-after-destroy` | `inc/topic-routing`, `inc/channel-lifecycle` |
 | `supports-depends-on-init` | `shell/local-supports` |
 | `init-invents-domain` | `shell/local-supports` |
+| `advertise-disabled-backend` | `catalog/capability-truthfulness`, `relay/correlation`, `relay/semantics` |
 
 In a page, `runKehtoMutation(name, options)` from the browser bundle runs one.
 
@@ -159,6 +212,8 @@ domains, and the installed `@napplet/nap`/`@napplet/core` versions.
   the deterministic first-party Kehto target.
 - Collection is asynchronous and side-effectful (it loads probes); checks are
   pure functions over captured facts.
+- Fixtures are target-agnostic data; the first-party target supplies the
+  backends and host controls (`acl.revoke`, `backend.calls`, `<domain>.<verb>`).
 - Keeps browser automation out of the engine: only `@kehto/conformance/cli`
   touches Playwright, through the optional `@playwright/test` peer.
 - Never reaches public relays, real hardware, user prompts or the network.

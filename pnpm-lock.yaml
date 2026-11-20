@@ -109,6 +109,9 @@ importers:
       '@kehto/runtime':
         specifier: workspace:^
         version: link:../runtime
+      '@kehto/services':
+        specifier: workspace:^
+        version: link:../services
       '@kehto/shell':
         specifier: workspace:^
         version: link:../shell

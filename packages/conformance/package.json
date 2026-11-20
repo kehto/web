@@ -36,6 +36,7 @@
   "dependencies": {
     "@kehto/nip": "workspace:^",
     "@kehto/runtime": "workspace:^",
+    "@kehto/services": "workspace:^",
     "@kehto/shell": "workspace:^"
   },
   "peerDependencies": {

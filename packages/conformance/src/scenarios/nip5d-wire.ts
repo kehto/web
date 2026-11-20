@@ -73,7 +73,7 @@ async function replacement(context: CollectContext, trigger: string, expectedRea
   return { trigger, expectedReason, liveBefore, revocation, stillBound: endpoint.evidence().boundIdentity !== null };
 }
 
-async function quietAfter(context: CollectContext, label: string, sent: readonly unknown[]): Promise<QuietFacts> {
+async function quietAfter(context: CollectContext, label: string, sent: readonly unknown[], grants: readonly string[] | 'all' = [context.anchor!.domain]): Promise<QuietFacts> {
   const anchor = context.anchor!;
   const { endpoint, report } = await runProbe(context, {
     plan: {
@@ -85,7 +85,7 @@ async function quietAfter(context: CollectContext, label: string, sent: readonly
         ...anchorSteps(anchor, 'post', 'post'),
       ],
     },
-    dTag: `probe-${label}`, grants: [anchor.domain], rawWire: true,
+    dTag: `probe-${label}`, grants, rawWire: true,
   });
   return {
     sent,
@@ -201,11 +201,12 @@ async function collect(context: CollectContext): Promise<WireFacts> {
       await replacement(context, 'window-message', 'window-message', [{ op: 'windowPost', message: anchor.request('w1') }]),
       await replacement(context, 'navigation', 'second-load', [{ op: 'call', as: 'navigate', root: 'window', path: ['location', 'replace'], args: ['about:blank'] }]),
     ],
+    // Every advertised domain gets an unknown action, so each handler is probed.
     unknown: await quietAfter(context, 'unknown-envelope', [
       { type: 'conformance-nosuch.action', id: 'u1' },
-      { type: `${anchor.domain}.conformanceNoSuchAction`, id: 'u2' },
       { type: 'unqualified', id: 'u3' },
-    ]),
+      ...context.advertised.domains.map((domain) => ({ type: `${domain}.conformanceNoSuchAction`, id: `u-${domain}` })),
+    ], 'all'),
     malformed: await quietAfter(context, 'plain-object-wire', [
       ['REQ', 'legacy-sub', { kinds: [1] }],
       ['EVENT', { kind: 1, content: 'legacy', tags: [], created_at: 0 }],
