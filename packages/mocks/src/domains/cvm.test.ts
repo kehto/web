@@ -155,8 +155,14 @@ describe('createMockCvmService', () => {
     const { service, request, sent, last } = setup();
     expect(service.emitNotification('w1', ECHO, 'notifications/tools/list_changed')).toBe(false);
     expect(service.emitServerRequest('w1', ECHO, 'ping')).toBeUndefined();
-    request('n1', ECHO, { method: 'notifications/cancelled', params: { requestId: 2 } });
+    request('n1', ECHO, { method: 'notifications/initialized' });
     expect(last()).toEqual({ type: 'cvm.request.result', id: 'n1' });
+    // "notifications/cancelled may refer only to this napplet's requests".
+    request('n2', ECHO, { method: 'notifications/cancelled', params: { requestId: 2 } });
+    expect(last()).toEqual({ type: 'cvm.request.result', id: 'n2', error: 'invalid message' });
+    request('q2', ECHO, { id: 2, method: 'ping' });
+    request('n3', ECHO, { method: 'notifications/cancelled', params: { requestId: 2 } });
+    expect(last()).toEqual({ type: 'cvm.request.result', id: 'n3' });
 
     expect(service.emitNotification('w1', ECHO, 'notifications/tools/list_changed')).toBe(true);
     expect(last()).toEqual({ type: 'cvm.event', server: { pubkey: ECHO }, message: { jsonrpc: '2.0', method: 'notifications/tools/list_changed' } });
