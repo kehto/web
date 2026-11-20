@@ -225,6 +225,18 @@ The active NIP-5D primitives are:
 - napplets do not receive `window.nostr`, signing keys, encryption keys, direct
   browser storage, IndexedDB, or direct relay WebSockets.
 
+## Encrypted publish
+
+`relay.publishEncrypted` fails closed (kehto/web#482). NAP-RELAY #2 at
+`9f30b350` says "The shell MUST encrypt content and sign event templates from
+`relay.publishEncrypted`", and a failed publish is a `.result` with `ok: false`
+and `error`. If the signer has no `encrypt` for the requested scheme, the reply
+is `ok: false`, `error: "encryption unavailable: <scheme>"`, before any approval
+prompt or relay plan. If `encrypt` yields no string, an empty string or the
+plaintext itself, the reply is `ok: false`, `error: "encryption failed"`.
+Either way nothing is signed or published. The NAP has no fixed error codes
+here, so these strings are Kehto's diagnostics.
+
 ## Unknown-`type` handling
 
 NIP-5D requires that messages with an unrecognized `type` be **silently ignored**,
