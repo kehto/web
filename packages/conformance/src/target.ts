@@ -132,8 +132,12 @@ export interface ProbeEndpoint {
   /**
    * Post a window-level message into the probe document, as any frame holding a
    * reference to it could. Used to prove forged window-level traffic is ignored.
+   *
+   * @param message - The message.
+   * @param from - `parent`: the host window posts it. `sibling`: another frame
+   *   of the host page posts it, so `MessageEvent.source` is not the parent.
    */
-  forge(message: unknown): void;
+  forge(message: unknown, from?: 'parent' | 'sibling'): void;
 }
 
 /** A revocation the runtime performed. */

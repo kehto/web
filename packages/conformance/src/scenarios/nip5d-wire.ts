@@ -12,6 +12,7 @@ import type { FrameEvidence, RevocationEvidence } from '../target.js';
 
 interface ReplacementFacts {
   readonly trigger: string;
+  /** Kehto's label for the trigger; diagnostic only, NIP-5D defines no reason vocabulary. */
   readonly expectedReason: string;
   /** The port answered a request before the trigger. */
   readonly liveBefore: boolean;
@@ -241,10 +242,11 @@ function portBinding(facts: WireFacts): CheckOutcome {
   for (const item of facts.replacements) {
     if (!item.liveBefore) return fail(`The port was not live before the ${item.trigger} trigger`, item);
     if (!item.revocation) return fail(`The binding survived ${item.trigger}`, item);
-    if (item.revocation.reason !== item.expectedReason) return fail(`${item.trigger} was revoked as "${item.revocation.reason}", expected "${item.expectedReason}"`, item);
     if (!item.revocation.frameRemoved) return fail(`The frame was not removed after ${item.trigger}`, item);
     if (item.stillBound) return fail(`An identity is still bound after ${item.trigger}`, item);
   }
+  // NIP-5D (Identity) names the evidence and the teardown, not a reason vocabulary:
+  // the target's reason label is reported in diagnostics only.
   return pass('A second hello, a window-level message and a navigation each revoke the binding and remove the frame', facts.replacements);
 }
 

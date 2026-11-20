@@ -51,12 +51,13 @@ function collectorPost(kind: string, body: unknown): void {
  * Tap the first `MessageChannel` the injected bootstrap opens, so a probe can
  * send and observe raw port traffic through the same bound port.
  */
-function wireTap(emit: Emit, hold: { outbound: string[]; inbound: string[] }): void {
+function wireTap(emit: Emit, hold: { outbound: string[]; inbound: string[]; echoInit: boolean }): void {
   const NativeChannel = window.MessageChannel;
   const listeners: Array<(data: unknown) => void> = [];
   const heldOut: unknown[] = [];
   const heldIn: unknown[] = [];
   const released = new WeakSet<Event>();
+  const backlog: unknown[] = [];
   let bound: MessagePort | null = null;
   let receivers = 0;
   let send: (message: unknown) => void = () => {};
@@ -72,7 +73,11 @@ function wireTap(emit: Emit, hold: { outbound: string[]; inbound: string[] }): v
         bound.postMessage(message);
         return true;
       },
-      listen(listener: (data: unknown) => void): void { listeners.push(listener); },
+      listen(listener: (data: unknown) => void): void {
+        listeners.push(listener);
+        // Messages that arrived before probe code ran are replayed to the first listener.
+        if (listeners.length === 1) for (const data of backlog.splice(0)) listener(data);
+      },
       /** Deliver a message to the bootstrap's listeners as if the runtime had sent it on the port. */
       inject(data: unknown): void {
         const event = new MessageEvent('message', { data });
@@ -109,6 +114,17 @@ function wireTap(emit: Emit, hold: { outbound: string[]; inbound: string[] }): v
         if (hold.outbound.includes(typeOf(message))) { heldOut.push(message); return; }
         emit('wire', { direction: 'napplet->runtime', envelope: copy(message), receivers });
         if (transfer) nativePost(message, transfer); else nativePost(message);
+        // Answer the first shell.ready synchronously, inside the bootstrap's own
+        // postMessage call: only a receiver installed before the signal left sees it.
+        if (hold.echoInit && typeOf(message) === 'shell.ready') {
+          hold.echoInit = false;
+          const ns = (window as unknown as { napplet?: Record<string, unknown> }).napplet;
+          const data = { type: 'shell.init', capabilities: { domains: ns ? Object.keys(ns) : [] }, services: ['conformance-echo'] };
+          const event = new MessageEvent('message', { data });
+          released.add(event);
+          emit('wire', { direction: 'runtime->napplet', envelope: copy(data), withheld: false });
+          port.dispatchEvent(event);
+        }
       }) as MessagePort['postMessage'];
       port.addEventListener('message', (event: MessageEvent) => {
         if (!released.has(event) && hold.inbound.includes(typeOf(event.data))) {
@@ -118,6 +134,7 @@ function wireTap(emit: Emit, hold: { outbound: string[]; inbound: string[] }): v
           return;
         }
         if (!released.has(event)) emit('wire', { direction: 'runtime->napplet', envelope: copy(event.data) });
+        if (listeners.length === 0) backlog.push(event.data);
         for (const listener of listeners) listener(event.data);
       });
       // Count the bootstrap's own receivers, so a check can prove one was
@@ -158,7 +175,7 @@ function snapshotInstall(): void {
     }
   };
   const snapshot = (): RealmSnapshot => {
-    const global = window as Window & Record<string, unknown>;
+    const global = window as unknown as Window & Record<string, unknown>;
     const namespace = global.napplet as Record<string, unknown> | undefined;
     const reachablePorts: string[] = [];
     scan(global, 'window', 2, reachablePorts);
@@ -185,7 +202,7 @@ function snapshotInstall(): void {
 function probeMain(plan: ProbePlan, emit: Emit): void {
   type Wire = { post(message: unknown): boolean; listen(listener: (data: unknown) => void): void };
   type Record_ = { index: number; op: string; as?: string; state: string; value?: unknown; error?: string; at: number };
-  const global = window as Window & Record<string, unknown>;
+  const global = window as unknown as Window & Record<string, unknown>;
   const probe = global.__kehtoProbe as { snapshot(): RealmSnapshot; classic: RealmSnapshot; module: RealmSnapshot | null };
   const wire = global.__kehtoConformanceWire as Wire | undefined;
   const started = performance.now();
@@ -360,6 +377,15 @@ function probeMain(plan: ProbePlan, emit: Emit): void {
     }
     if (step.op === 'sleep') { await sleep(step.ms); record(index, step.op, undefined, 'value'); return; }
     if (step.op === 'snapshot') { record(index, step.op, step.as, 'value', { value: probe.snapshot() }); return; }
+    if (step.op === 'assign') {
+      const target = lookup(global.napplet, step.path.slice(0, -1));
+      const key = step.path[step.path.length - 1] as string;
+      try {
+        (target.value as Record<string, unknown>)[key] = step.value;
+        record(index, step.op, step.as, 'value');
+      } catch (error) { record(index, step.op, step.as, 'threw', { error: errorText(error) }); }
+      return;
+    }
     if (step.op === 'windowPost') {
       const transfer = step.withPort ? [new MessageChannel().port2] : [];
       window.parent.postMessage(step.message, '*', transfer);
@@ -444,6 +470,12 @@ export interface WireHold {
   readonly outbound?: readonly string[];
   /** Runtime -> napplet message types to queue before the bootstrap's own listeners see them. */
   readonly inbound?: readonly string[];
+  /**
+   * Answer the bootstrap's first `shell.ready` with a synthetic `shell.init`
+   * (services `['conformance-echo']`) dispatched synchronously, before the
+   * runtime sees the signal. Proves the receiver was installed first.
+   */
+  readonly echoInit?: boolean;
 }
 
 /**
@@ -461,6 +493,6 @@ export interface WireHold {
  * ```
  */
 export function renderWireTap(hold: WireHold = {}): string {
-  const held = { outbound: [...(hold.outbound ?? [])], inbound: [...(hold.inbound ?? [])] };
+  const held = { outbound: [...(hold.outbound ?? [])], inbound: [...(hold.inbound ?? [])], echoInit: hold.echoInit === true };
   return `<script data-kehto-conformance-tap>(${wireTap.toString()})(${collectorPost.toString()}, ${scriptJson(held)});</script>`;
 }

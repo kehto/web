@@ -75,6 +75,9 @@ importers:
 
   packages/cli:
     dependencies:
+      '@kehto/conformance':
+        specifier: workspace:^
+        version: link:../conformance
       '@kehto/paja':
         specifier: workspace:^
         version: link:../paja
@@ -103,9 +106,6 @@ importers:
       '@kehto/acl':
         specifier: workspace:^
         version: link:../acl
-      '@kehto/mocks':
-        specifier: workspace:^
-        version: link:../mocks
       '@kehto/nip':
         specifier: workspace:^
         version: link:../nip
@@ -125,6 +125,9 @@ importers:
       '@napplet/nap':
         specifier: '>=0.41.0 <0.42.0'
         version: 0.41.0(typescript@5.9.3)
+      '@playwright/test':
+        specifier: ^1.54.0
+        version: 1.59.1
       nostr-tools:
         specifier: ^2.23.3
         version: 2.25.2(typescript@5.9.3)

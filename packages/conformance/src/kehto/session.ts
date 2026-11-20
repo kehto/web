@@ -104,8 +104,10 @@ function endpointFor(state: SessionState, input: {
     signal(name) {
       if (frame) state.stage.signal(frame, name);
     },
-    forge(message) {
-      frame?.contentWindow?.postMessage(message, '*');
+    forge(message, from = 'parent') {
+      if (!frame) return;
+      if (from === 'sibling') state.stage.postFromSibling(frame, message);
+      else frame.contentWindow?.postMessage(message, '*');
     },
   };
 }

@@ -1,2 +1,4 @@
-/** Engine version reported in every run. Kept in step with package.json by a unit test. */
-export const ENGINE_VERSION = '0.0.0';
+import { BUILT_ENGINE_VERSION } from './kehto/versions.js';
+
+/** Engine version reported in every run; injected from package.json at build time. */
+export const ENGINE_VERSION: string = BUILT_ENGINE_VERSION;

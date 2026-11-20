@@ -32,6 +32,8 @@ export interface ProbeStage {
   waitFor(channel: ProbeChannel, ready: () => boolean, timeoutMs: number): Promise<boolean>;
   /** Send a harness signal to a probe document. */
   signal(frame: HTMLIFrameElement, name: string): void;
+  /** Post a window-level message into a probe document from the collector frame, a non-parent sibling. */
+  postFromSibling(frame: HTMLIFrameElement, message: unknown): void;
   dispose(): void;
 }
 
@@ -90,6 +92,15 @@ export function createProbeStage(host: HTMLElement): ProbeStage {
     },
     signal(frame, name) {
       frame.contentWindow?.postMessage({ [SIGNAL_FIELD]: name }, '*');
+    },
+    postFromSibling(frame, message) {
+      const sibling = collector.contentWindow as (Window & { Function: FunctionConstructor }) | null;
+      const target = frame.contentWindow;
+      if (!sibling || !target) return;
+      // A function created in the collector's realm makes the collector the
+      // incumbent global, so the probe sees it, not the parent, as the source.
+      const post = new sibling.Function('target', 'message', 'target.postMessage(message, "*");') as (target: Window, message: unknown) => void;
+      post(target, message);
     },
     dispose() {
       collector.contentWindow?.removeEventListener('message', onReport);

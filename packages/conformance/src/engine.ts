@@ -131,6 +131,7 @@ async function runVariant(
  *
  * @param target - The runtime under test.
  * @param options - Profile, domain filter and timeouts.
+ * @param scenarios - The catalog to run. Default: every built-in scenario.
  * @returns A serializable run.
  * @throws {ConformanceHarnessError} When the target cannot boot.
  * @example
@@ -139,7 +140,9 @@ async function runVariant(
  * console.log(run.statement);
  * ```
  */
-export async function runConformance(target: ConformanceTarget, options: RunOptions = {}): Promise<ConformanceRun> {
+export async function runConformance(
+  target: ConformanceTarget, options: RunOptions = {}, scenarios: readonly Scenario[] = SCENARIOS,
+): Promise<ConformanceRun> {
   const profile = options.profile ?? 'full';
   const started = Date.now();
   const variants: VariantResult[] = [];
@@ -150,7 +153,7 @@ export async function runConformance(target: ConformanceTarget, options: RunOpti
     try { session = await target.boot({ profile, shell }); }
     catch (error) { throw new ConformanceHarnessError(`Target failed to boot ${profile}/${shell}: ${error instanceof Error ? error.message : String(error)}`, { cause: error }); }
     try {
-      const result = await runVariant(target, session, options, SCENARIOS);
+      const result = await runVariant(target, session, options, scenarios);
       variants.push(result.variant);
       checks.push(...result.checks);
       const offset = transcript.length;

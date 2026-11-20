@@ -77,11 +77,13 @@ export interface SleepStep { readonly op: 'sleep'; readonly ms: number }
 export interface SnapshotStep { readonly op: 'snapshot'; readonly as: string }
 /** Post a window-level message to the parent, optionally transferring a fresh port. */
 export interface WindowPostStep { readonly op: 'windowPost'; readonly message: unknown; readonly withPort?: boolean }
+/** Assign a JSON value to a property under `window.napplet`. Records `threw` when the assignment throws. */
+export interface AssignStep { readonly op: 'assign'; readonly as: string; readonly path: readonly string[]; readonly value: unknown }
 
 /** One instruction of a probe plan. */
 export type ProbeStep =
   | CallStep | InvokeStep | ReadStep | SendStep | ExpectStep | QuietStep
-  | MarkStep | WaitSignalStep | SleepStep | SnapshotStep | WindowPostStep;
+  | MarkStep | WaitSignalStep | SleepStep | SnapshotStep | WindowPostStep | AssignStep;
 
 /**
  * The instructions one probe executes after its document loads.
