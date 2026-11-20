@@ -30,3 +30,6 @@ Nostr, and NAP-OUTBOX has codes for that.
 - `@kehto/paja`: `publishToRelays` rejects with `publish denied` when the user
   declines, so a declined OUTBOX publish is no longer indistinguishable from a
   relay failure.
+  Paja's message log now highlights every failed shell reply (`*.error`,
+  results with `error` or `ok: false`, and `*.closed` with a `reason`), and
+  badges a refusal as `denied` and anything else as `failed, not a denial`.

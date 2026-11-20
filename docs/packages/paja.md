@@ -175,7 +175,13 @@ each frame for a second load. A revoked runtime tab keeps a fresh, empty panel i
 the error state until it is reloaded. A revoked single frame is replaced the
 same way, and a revoked intent launcher is removed. Port traffic in both
 directions appears in the message log, and revocations are logged as
-`paja.napplet.revoked`. Napplets must not post NAP envelopes at window level or
+`paja.napplet.revoked`. The log
+highlights every shell reply that failed: a `*.error`, a result with `error` or
+`ok: false`, or a `*.closed` with a `reason`. A refusal (`policy denied`,
+`policy-denied`, `publish denied`, `denied: <capability>`) is badged `denied`.
+Everything else, such as `relay list unavailable`, `relay timeout`, or
+`count-unavailable`, is badged `failed, not a denial`, so a relay outage is never
+shown as a firewall block. Napplets must not post NAP envelopes at window level or
 import `@napplet/shim` alongside Paja's injected namespace. The one window-level
 exception is the signed intent launcher's host messages; see the
 [window-level host message allowlist](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#window-level-host-message-allowlist).

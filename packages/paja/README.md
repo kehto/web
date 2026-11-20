@@ -97,7 +97,13 @@ usable; collapsing never reloads the running app or discards unsaved drafts.
 The console shows supported interfaces with per-domain injection toggles
 (green when ready, yellow `⚠` when advertised but unconfigured, red when disabled),
 runtime ACL controls, Firewall permissions, signer controls, and a filterable message log with visible
-error details. It starts expanded and collapses to the left with the chevron
+error details. The log
+highlights every shell reply that failed: a `*.error`, a result with `error` or
+`ok: false`, or a `*.closed` with a `reason`. A refusal (`policy denied`,
+`policy-denied`, `publish denied`, `denied: <capability>`) is badged `denied`.
+Everything else, such as `relay list unavailable`, `relay timeout`, or
+`count-unavailable`, is badged `failed, not a denial`, so a relay outage is never
+shown as a firewall block. It starts expanded and collapses to the left with the chevron
 button in the top bar; the same button brings the whole panel back. The toolbar
 stays onscreen after restoring a saved collapsed preference, including when no
 runtime tab is open. Paja allows every interface and operation by default and asks before each `link.open`; the Firewall panel edits those default rules for every napplet or one. Firewall approval prompts stay visible outside the sidebar, so new napplets can
