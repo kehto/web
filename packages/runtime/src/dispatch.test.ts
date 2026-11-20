@@ -1002,20 +1002,15 @@ describe('NIP-5D Envelope Dispatch', () => {
       expect((getResult as any).value).toBeNull();
     });
 
-    it('storage.clear is rejected — not in @napplet/nap/storage (Plan 12-09)', () => {
+    it('storage.clear is silently ignored — not in NAP-STORAGE #3 @ 4f4cf0ca', () => {
       runtime.handleMessage(WINDOW_ID, { type: 'storage.set', id: 's1', key: 'k1', value: 'v1' } as NappletMessage);
       runtime.handleMessage(WINDOW_ID, { type: 'storage.set', id: 's2', key: 'k2', value: 'v2' } as NappletMessage);
       ctx.sent.length = 0;
 
       runtime.handleMessage(WINDOW_ID, { type: 'storage.clear', id: 'req-clear' } as NappletMessage);
-      // Canonical @napplet/nap/storage has no *.error type — errors are delivered as
-      // storage.<action>.result with the optional `error` field populated.
-      const clearResult = findEnvelopeResponse(ctx.sent, 'storage.clear.result');
-      expect(clearResult).toBeDefined();
-      expect((clearResult as any).id).toBe('req-clear');
-      expect((clearResult as any).error).toMatch(/not (in )?@napplet\/nap\/storage|unknown storage action: clear/i);
-      // No non-canonical storage.clear.error envelope was emitted.
-      expect(findEnvelopeResponse(ctx.sent, 'storage.clear.error')).toBeUndefined();
+      // NIP-5D (nips#2303 @ f60550c3): "Messages with an unrecognized `type` MUST
+      // be silently ignored." The old storage.clear.result error broke that.
+      expect(ctx.sent).toEqual([]);
 
       // Prior sets survive (storage.clear never ran).
       ctx.sent.length = 0;

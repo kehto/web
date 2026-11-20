@@ -3,9 +3,10 @@
  *
  * NIP-5D defines no generic `<type>.error` reply, and most NAPs carry failures in
  * the request's own `.result` envelope. Each row below is an exact
- * napplet-to-shell request type whose owning NAP states that shape. A type with
- * no row keeps the runtime's older generic projection; those are listed as spec
- * gaps in docs/policies/NIP-5D-CONFORMANCE.md rather than guessed here.
+ * napplet-to-shell request type whose owning NAP states that shape. A NAP-defined
+ * request with no row keeps the runtime's older generic projection; those are
+ * listed as spec gaps in docs/policies/NIP-5D-CONFORMANCE.md rather than
+ * guessed here. A type its NAP does not define gets no reply at all.
  *
  * Refs checked (napplet/naps):
  * - NAP-CVM    #31 @ 28cf1bdb — "There are no `cvm.*.error` messages; ACL denial
@@ -103,21 +104,55 @@ export function createPolicyDenialResult(message: NappletMessage, reason: string
   return POLICY_DENIALS[message.type](typeof rawId === 'string' ? rawId : '', reason, message);
 }
 
-/** Domains whose unlisted request types get no generic `.error` reply. */
-const NAP_DEFINED_DOMAINS = new Set(['cvm']);
+/**
+ * Napplet-to-shell types per capability-gated domain, from each NAP's wire
+ * table: NAP-RELAY #2 @ 9f30b350, NAP-COUNT #69 @ 9353a0c6, NAP-KEYS #9 @
+ * 8869a4cf, NAP-MEDIA #10 @ 7806f438, NAP-NOTIFY #11 @ 67877ef6, NAP-STORAGE #3
+ * @ 4f4cf0ca, NAP-CONFIG #14 @ bed9cb5b, NAP-RESOURCE #80 @ ae5b9c64, NAP-CVM
+ * #31 @ 28cf1bdb, NAP-OUTBOX #32 @ 8865f73d, NAP-UPLOAD #33 @ f5cc981e, NAP-DM
+ * #74 @ 2c4e4423, NAP-FS #88 @ bd1b9e91, NAP-LLM #134 @ 5e93bdfc, and
+ * NAP-IDENTITY / NAP-INC / NAP-THEME / NAP-INTENT on master @ 377bf939.
+ */
+const NAPPLET_REQUEST_ACTIONS: Readonly<Record<string, readonly string[]>> = {
+  relay: ['subscribe', 'close', 'publish', 'publishEncrypted', 'query'],
+  count: ['query'],
+  identity: ['getPublicKey', 'getRelays', 'getProfile', 'getFollows', 'getList', 'getZaps', 'getMutes', 'getBlocked', 'getBadges'],
+  keys: ['forward', 'registerAction', 'unregisterAction'],
+  media: ['session.create', 'session.update', 'session.destroy', 'state', 'capabilities', 'command'],
+  notify: ['send', 'dismiss', 'badge', 'channel.register', 'permission.request'],
+  storage: ['get', 'set', 'remove', 'keys'],
+  inc: ['emit', 'subscribe', 'unsubscribe', 'channel.open', 'channel.emit', 'channel.broadcast', 'channel.list', 'channel.close'],
+  theme: ['get'],
+  config: ['registerSchema', 'get', 'subscribe', 'unsubscribe', 'openSettings'],
+  resource: ['info', 'bytes', 'bytesMany', 'cancel'],
+  cvm: CVM_REQUESTS.map((type) => type.slice('cvm.'.length)),
+  outbox: ['getEvent', 'query', 'subscribe', 'close', 'publish', 'resolveRelays'],
+  upload: ['info', 'upload', 'status'],
+  intent: ['invoke', 'available', 'handlers'],
+  dm: DM_REQUESTS.map((type) => type.slice('dm.'.length)),
+  fs: FS_REQUESTS.map((type) => type.slice('fs.'.length)),
+  llm: ['select', 'describe', 'generate', 'cancel'],
+};
+
+const NAPPLET_REQUEST_TYPES: ReadonlySet<string> = new Set(Object.entries(NAPPLET_REQUEST_ACTIONS)
+  .flatMap(([domain, actions]) => actions.map((action) => `${domain}.${action}`)));
 
 /**
- * Whether an unlisted type in this domain must stay silent instead of
- * receiving the generic projection.
+ * Whether a denied envelope must stay silent because its owning NAP does not
+ * define it as a napplet-to-shell message.
  *
- * NAP-CVM #31 @ 28cf1bdb: "Truly unknown message types retain the
- * silent-ignore behavior defined by NIP-5D."
+ * NIP-5D (nostr-protocol/nips#2303 @ dskvr/nips@f60550c3): "Messages with an
+ * unrecognized `type` MUST be silently ignored." A denial is still a reply, so
+ * an unknown type gets none whether or not ACL would allow it. NAP-CVM #31 @
+ * 28cf1bdb repeats it: "Truly unknown message types retain the silent-ignore
+ * behavior defined by NIP-5D."
  *
  * @param message - The denied envelope.
- * @returns `true` for unknown types in a domain whose NAP forbids invented replies.
+ * @returns `true` unless the type is a napplet request its NAP defines.
  * @example
- * isSilentUnknownDenial({ type: 'cvm.bogus' } as NappletMessage); // => true
+ * isSilentUnknownDenial({ type: 'notify.bogus' } as NappletMessage); // => true
+ * isSilentUnknownDenial({ type: 'notify.send' } as NappletMessage); // => false
  */
 export function isSilentUnknownDenial(message: NappletMessage): boolean {
-  return NAP_DEFINED_DOMAINS.has(message.type.slice(0, message.type.indexOf('.')));
+  return !NAPPLET_REQUEST_TYPES.has(message.type);
 }

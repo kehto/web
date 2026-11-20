@@ -7,7 +7,8 @@ import {
 
 import type { AclStateContainer } from './acl-state.js';
 import type { SessionRegistry } from './session-registry.js';
-import { handleStorageNap } from './state-handler.js';
+import { handleStorageNap, isStorageRequestType } from './state-handler.js';
+import { createUnrecognizedTypeDiagnostic } from './unrecognized-type.js';
 import type { RuntimeAdapter, ServiceRegistry } from './types.js';
 
 declare const console: { warn(message: string): void };
@@ -47,9 +48,13 @@ export type RuntimeDomainHandlers = {
 
 export function createRuntimeDomainHandlers(context: RuntimeDomainContext): RuntimeDomainHandlers {
   const warnedUnrouted = new Set<string>();
+  const ignoreUnrecognized = createUnrecognizedTypeDiagnostic();
   return {
     gamepad: (windowId, msg) => handleServiceOnlyMessage(context, 'gamepad', windowId, msg, warnedUnrouted),
-    storage: (windowId, msg) => handleStorageMessage(context, windowId, msg),
+    storage: (windowId, msg) => {
+      if (isStorageRequestType(msg.type)) handleStorageMessage(context, windowId, msg);
+      else ignoreUnrecognized('storage', msg.type);
+    },
     media: (windowId, msg) => handleMediaMessage(context, windowId, msg),
     keys: (windowId, msg) => handleKeysMessage(context, windowId, msg),
     notify: (windowId, msg) => handleNotifyMessage(context, windowId, msg),

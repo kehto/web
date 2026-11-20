@@ -90,6 +90,13 @@ export { handleStorageNap, cleanupNappState } from './state-handler.js';
 
 export { routeServiceMessage, notifyServiceWindowDestroyed } from './service-dispatch.js';
 
+export {
+  createUnrecognizedTypeDiagnostic,
+  KEHTO_UNRECOGNIZED_MESSAGE_TYPE,
+  UNRECOGNIZED_TYPE_WARNING_LIMIT,
+} from './unrecognized-type.js';
+export type { IgnoreUnrecognizedType, UnrecognizedTypeDiagnosticOptions } from './unrecognized-type.js';
+
 export type { Capability } from '@kehto/acl/capabilities';
 export { ALL_CAPABILITIES } from '@kehto/acl/capabilities';
 export type { ServiceDescriptor } from './types.js';
