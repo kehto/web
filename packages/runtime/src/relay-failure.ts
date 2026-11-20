@@ -15,6 +15,9 @@ import type { ApprovalSignal } from './approval-coordinator.js';
 /** Reason for a relay operation whose approval did not execute (or whose authorizer failed). */
 const RELAY_AUTHORIZATION_REFUSED = 'relay authorization unavailable or denied';
 
+/** A host relay plan spanning more origins than one approval can name; not a denial. */
+export const RELAY_TOO_MANY_RELAYS = 'too many relays';
+
 /** A relay transport failure raised while an approved operation ran. */
 class RelayTransportFailure {
   constructor(readonly cause: unknown) {}
@@ -44,10 +47,10 @@ export function guardRelayTransport<T>(execute: (signal: ApprovalSignal) => T | 
  *
  * @param error - The rejection from authorizing or running the operation.
  * @param transportReason - Reason to use when a relay transport failed.
- * @returns The transport reason, `invalid relay destination`, or the authorization refusal.
+ * @returns The transport reason, `invalid relay destination`, `too many relays`, or the authorization refusal.
  */
 export function relayFailureReason(error: unknown, transportReason: string): string {
   if (error instanceof RelayTransportFailure) return transportReason;
-  if (error instanceof Error && error.message === 'invalid relay destination') return error.message;
+  if (error instanceof Error && (error.message === 'invalid relay destination' || error.message === RELAY_TOO_MANY_RELAYS)) return error.message;
   return RELAY_AUTHORIZATION_REFUSED;
 }

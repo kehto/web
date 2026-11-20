@@ -20,7 +20,8 @@ declare function clearTimeout(handle: unknown): void;
 const cleanups: Array<() => void> = [];
 afterEach(() => { for (const cleanup of cleanups.splice(0)) cleanup(); vi.restoreAllMocks(); });
 
-async function fixture(network: ApprovalAnswer['effect'], execute: RelayPlanningServiceHandler['executeRelayOperation']) {
+async function fixture(network: ApprovalAnswer['effect'], execute: RelayPlanningServiceHandler['executeRelayOperation'],
+  relayUrls: readonly string[] = ['wss://relay.example']) {
   // Admission is allowed; only the relay destination answer varies.
   const prompt = vi.fn(async ({ missing }: ApprovalPrompt): Promise<ApprovalAnswer> =>
     ({ effect: missing.some((item) => item.category === 'network') ? network : 'allow', lifetime: 'session' }));
@@ -35,14 +36,14 @@ async function fixture(network: ApprovalAnswer['effect'], execute: RelayPlanning
   await runtime.permissions!.admit('window', { required: ['relay'], optional: [], available: ['relay'] });
   const service: RelayPlanningServiceHandler = {
     descriptor: { name: 'relay', version: '1' },
-    planRelayOperation: (): RelayOperationPlan => Object.freeze({ operation: 'subscribe', relayUrls: Object.freeze(['wss://relay.example']), localOnly: false }),
+    planRelayOperation: (): RelayOperationPlan => Object.freeze({ operation: 'subscribe', relayUrls: Object.freeze([...relayUrls]), localOnly: false }),
     executeRelayOperation: execute,
     handleMessage: vi.fn(),
   };
   runtime.registerService('relay', service);
   runtime.handleMessage('window', { type: 'relay.subscribe', id: 's', subId: 'feed', filters: [{ kinds: [1] }] } as NappletMessage);
   const messages = () => ctx.sent.map(({ message }) => message).filter((message): message is NappletMessage => !Array.isArray(message));
-  return Object.assign(() => messages().filter((message) => message.type === 'relay.closed'), { messages });
+  return Object.assign(() => messages().filter((message) => message.type === 'relay.closed'), { messages, prompt });
 }
 
 describe('relay.subscribe failure reasons', () => {
@@ -67,5 +68,30 @@ describe('relay.subscribe failure reasons', () => {
     await vi.waitFor(() => expect(closed()).toHaveLength(1));
     late({ type: 'relay.eose', subId: 'feed' } as NappletMessage);
     expect(closed.messages().map((message) => message.type)).toEqual(['relay.closed']);
+  });
+});
+
+/**
+ * kehto/web#455: the Firewall caps one request at MAX_PERMISSION_REQUIREMENTS.
+ * NAP-RELAY lets the shell close a subscription for a resource limit, with a
+ * free-form reason, so an oversized host plan is not reported as a denial.
+ */
+describe('relay.subscribe plans larger than one approval', () => {
+  it('closes a plan over the origin cap with too many relays, never a denial', async () => {
+    const execute = vi.fn();
+    const relays = Array.from({ length: 200 }, (_, index) => `wss://r${index}.example`);
+    const closed = await fixture('allow', execute, relays);
+    await vi.waitFor(() => expect(closed()).toEqual([{ type: 'relay.closed', subId: 'feed', reason: 'too many relays' }]));
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it('asks for each relay origin once, however many paths share it', async () => {
+    const execute = vi.fn();
+    const relays = Array.from({ length: 200 }, (_, index) => `wss://same.example/r${index}`);
+    const closed = await fixture('allow', execute, relays);
+    await vi.waitFor(() => expect(execute).toHaveBeenCalledTimes(1));
+    const network = closed.prompt.mock.calls.flatMap(([call]) => call.missing).filter((item) => item.category === 'network');
+    expect(network).toEqual([{ category: 'network', domain: 'relay', operation: 'relay.network', scope: { kind: 'origin', value: 'wss://same.example' } }]);
+    expect(closed()).toEqual([]);
   });
 });

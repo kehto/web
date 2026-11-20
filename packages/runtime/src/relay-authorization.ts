@@ -1,8 +1,9 @@
+import { MAX_PERMISSION_REQUIREMENTS } from '@kehto/firewall';
 import type { PermissionRequirement } from '@kehto/firewall';
 import type { ApprovalSignal } from './approval-coordinator.js';
 import type { RelayOperationPlan } from './service-types.js';
 import type { ServiceRuntimeContext } from './types.js';
-import { guardRelayTransport } from './relay-failure.js';
+import { RELAY_TOO_MANY_RELAYS, guardRelayTransport } from './relay-failure.js';
 
 // WHATWG URL is supplied by the Node/browser host; no DOM dependency is needed.
 declare const URL: {
@@ -12,11 +13,9 @@ declare const console: { warn(message: string): void };
 const legacyNetworkWarnings = new WeakSet<object>();
 const legacyQueryHintWarnings = new WeakSet<object>();
 
-/** Validate every planned destination before deriving its canonical origin. */
+/** Validate every planned destination and derive one network requirement per origin. */
 function relayRequirements(plan: RelayOperationPlan): PermissionRequirement[] {
-  const requirements: PermissionRequirement[] = [{
-    category: 'interface', domain: 'relay', operation: 'access', scope: { kind: 'exact', value: 'relay' },
-  }];
+  const origins = new Set<string>();
   for (const value of plan.relayUrls) {
     if (typeof value !== 'string' || /[\u0000-\u0020\\#]/u.test(value)) throw new Error('invalid relay destination');
     let url: { protocol: string; origin: string; username: string; password: string; hash: string };
@@ -24,10 +23,12 @@ function relayRequirements(plan: RelayOperationPlan): PermissionRequirement[] {
     if (!['ws:', 'wss:'].includes(url.protocol) || url.username || url.password || url.hash) {
       throw new Error('invalid relay destination');
     }
-    requirements.push({ category: 'network', domain: 'relay', operation: 'relay.network',
-      scope: { kind: 'origin', value: url.origin } });
+    origins.add(url.origin);
   }
-  return requirements;
+  return [
+    { category: 'interface', domain: 'relay', operation: 'access', scope: { kind: 'exact', value: 'relay' } },
+    ...[...origins].map((value): PermissionRequirement => ({ category: 'network', domain: 'relay', operation: 'relay.network', scope: { kind: 'origin', value } })),
+  ];
 }
 
 /** Detach dynamic host routing state before the approval coordinator can wait. */
@@ -58,6 +59,11 @@ export async function authorizeRelay<T>(
     await guarded({ aborted: false, addEventListener() {}, removeEventListener() {} });
     return;
   }
+  // The Firewall caps one request at MAX_PERMISSION_REQUIREMENTS, so a host
+  // plan over that many origins fails with its own reason instead of being
+  // refused as a denial (kehto/web#455). NAP-RELAY leaves `relay.closed.reason`
+  // free-form and lets the shell terminate a subscription for a resource limit.
+  if (requirements.length > MAX_PERMISSION_REQUIREMENTS) throw new Error(RELAY_TOO_MANY_RELAYS);
   const outcome = await run(windowId, operation, requirements, (signal) => {
     if (!signal.aborted && operation === 'relay.query' && relayHint && plan.relayUrls.length > 0
       && !legacyQueryHintWarnings.has(context)) {
