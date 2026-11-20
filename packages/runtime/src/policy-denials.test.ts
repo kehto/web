@@ -6,14 +6,17 @@
  * napplet/naps ref for each row live in `policy-denials.ts`.
  */
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NappletMessage } from '@napplet/core';
+import type { LegacyFirewallAdapter } from './legacy-firewall-adapter.js';
 import { createDenialResponse } from './legacy-firewall-gate.js';
 import { createPolicyDenialResult } from './policy-denials.js';
 import { createRuntime } from './runtime.js';
 import type { Runtime } from './runtime.js';
 import { createMockRuntimeAdapter, createNip5dSessionEntry } from './test-utils.js';
 import type { MockRuntimeContext } from './test-utils.js';
+
+declare const console: { warn(message: string): void };
 
 const WINDOW_ID = 'win-denial';
 const DTAG = 'denial-napp';
@@ -123,6 +126,86 @@ describe('legacy Firewall denial projection', () => {
     [{ type: 'config.get', id: 'f4' }, null],
   ])('%o', (request, expected) => {
     expect(createDenialResponse(request as NappletMessage, 'firewall: rate')).toEqual(expected);
+  });
+});
+
+// kehto/web#494: domains ACL does not gate are denied only by the legacy
+// Firewall gate. Each row is driven through `runtime.handleMessage` with a
+// legacy adapter that rejects every observation, so it covers the real gate.
+// Refs and spec-gap choices are in `policy-denials.ts`.
+const HEX = 'a'.repeat(64);
+const FIREWALL = 'firewall: blocked';
+const commonFail = { ok: false, error: FIREWALL };
+const FIREWALL_CASES: Readonly<Record<string, Case>> = {
+  // NAP-COMMON #67 @ 8cd0eae8: `ok` always; getProfile needs `pubkey`, follows needs `pubkeys`
+  'common.encodeNip19': [{ input: { type: 'npub', hex: HEX } }, [{ type: 'common.encodeNip19.result', id: 'r1', ...commonFail }]],
+  'common.decodeNip19': [{ value: 'npub1x' }, [{ type: 'common.decodeNip19.result', id: 'r1', ...commonFail }]],
+  'common.getProfile': [{ target: HEX }, [{ type: 'common.getProfile.result', id: 'r1', ok: false, pubkey: HEX, error: FIREWALL }]],
+  'common.follows': [{}, [{ type: 'common.follows.result', id: 'r1', ok: false, pubkeys: [], error: FIREWALL }]],
+  'common.follow': [{ pubkeys: ['npub1x'] }, [{ type: 'common.follow.result', id: 'r1', ...commonFail }]],
+  'common.unfollow': [{ pubkeys: ['npub1x'] }, [{ type: 'common.unfollow.result', id: 'r1', ...commonFail }]],
+  'common.react': [{ targetEventId: HEX, reaction: '+' }, [{ type: 'common.react.result', id: 'r1', ...commonFail }]],
+  'common.report': [{ target: { type: 'pubkey', pubkey: HEX }, reason: 'spam', text: '' },
+    [{ type: 'common.report.result', id: 'r1', ...commonFail }]],
+  // NAP-LISTS #68 @ 7cf00cdb: `error` is a machine-readable code, `reason` is human text
+  'lists.supported': [{}, [{ type: 'lists.supported.result', id: 'r1', error: 'policy-denied' }]],
+  'lists.add': [{ list: { kind: 10000 }, items: [] },
+    [{ type: 'lists.add.result', id: 'r1', ok: false, error: 'policy-denied', reason: FIREWALL }]],
+  'lists.remove': [{ list: { kind: 10000 }, items: [] },
+    [{ type: 'lists.remove.result', id: 'r1', ok: false, error: 'policy-denied', reason: FIREWALL }]],
+  // NAP-SERIAL #61 @ 0c6e88ab, NAP-BLE #62 @ b46b8691, NAP-WEBRTC #59 @ fb4dd6f0: `.result` with `error`
+  ...Object.fromEntries([
+    'serial.open', 'serial.write', 'serial.close',
+    'ble.open', 'ble.services', 'ble.read', 'ble.write', 'ble.subscribe', 'ble.unsubscribe', 'ble.close',
+    'webrtc.open', 'webrtc.send', 'webrtc.sendBytes', 'webrtc.close',
+  ].map((type) => [type, [{ sessionId: 's1' }, [{ type: `${type}.result`, id: 'r1', error: FIREWALL }]]])),
+  // NAP-LINK #53 @ 100e5c93: `status` is required; "denied" carries `error`
+  'link.open': [{ url: 'https://example.com/' }, [{ type: 'link.open.result', id: 'r1', status: 'denied', error: FIREWALL }]],
+  // NAP-GAMEPAD #130 @ 0b28f77e: a snapshot after each subscribe; "blocked" is host policy
+  'gamepad.subscribe': [{}, [{ type: 'gamepad.state', available: false, reason: 'blocked', focused: false, pads: [] }]],
+  'gamepad.unsubscribe': [{}, []],
+  // NAP-IDENTITY master @ 377bf939: already answered before the table by the
+  // runtime-owned safe default (domain-results.ts); kept here as a regression.
+  'identity.getPublicKey': [{}, [{ type: 'identity.getPublicKey.result', id: 'r1', pubkey: '' }]],
+  'identity.getRelays': [{}, [{ type: 'identity.getRelays.result', id: 'r1', relays: {} }]],
+  'identity.getFollows': [{}, [{ type: 'identity.getFollows.result', id: 'r1', pubkeys: [] }]],
+};
+
+function rejectAll(): LegacyFirewallAdapter {
+  return {
+    evaluate: () => ({ decision: 'reject', action: 'block', ruleId: 'test-block', reason: 'blocked' }),
+    resetInitBudget() {}, setPolicy() {}, persist() {}, load() {},
+  };
+}
+
+describe('legacy Firewall denial in domains ACL does not gate (kehto/web#494)', () => {
+  let ctx: MockRuntimeContext;
+  let runtime: Runtime;
+  let warn: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    ctx = createMockRuntimeAdapter({ legacyFirewall: rejectAll() });
+    runtime = createRuntime(ctx.hooks);
+    runtime.sessionRegistry.register(WINDOW_ID, createNip5dSessionEntry(WINDOW_ID, DTAG, HASH));
+  });
+  afterEach(() => { runtime.destroy(); warn.mockRestore(); });
+
+  it.each(Object.entries(FIREWALL_CASES))('drops %s on its NAP-defined wire', (type, [request, expected]) => {
+    const noId = type.startsWith('gamepad.');
+    runtime.handleMessage(WINDOW_ID, { type, ...(noId ? {} : { id: 'r1' }), ...request } as NappletMessage);
+    expect(ctx.sent.map(({ message }) => message)).toEqual(expected);
+    expect(ctx.sent.some(({ message }) => (message as NappletMessage).type.endsWith('.error'))).toBe(false);
+  });
+
+  it('keeps gamepad.unsubscribe silent through an explicit row, not a fall-through', () => {
+    expect(createPolicyDenialResult({ type: 'gamepad.unsubscribe' } as NappletMessage, FIREWALL)).toBeNull();
+  });
+
+  it('echoes a hex getProfile target and sends an empty pubkey for any other form', () => {
+    runtime.handleMessage(WINDOW_ID, { type: 'common.getProfile', id: 'n1', target: 'npub1abc' } as NappletMessage);
+    runtime.handleMessage(WINDOW_ID, { type: 'common.getProfile', id: 'n2', target: HEX.toUpperCase() } as NappletMessage);
+    expect(ctx.sent.map(({ message }) => (message as NappletMessage & { pubkey: string }).pubkey)).toEqual(['', '']);
   });
 });
 

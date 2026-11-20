@@ -4,7 +4,10 @@
  * Probes are loaded the way a Kehto host loads a napplet: a signed manifest is
  * verified, the artifact hash is computed from its bytes, and
  * `admitBrowserDocument` produces the CSP and namespace prelude and commits the
- * `srcdoc` after the frame's identity is registered.
+ * `srcdoc` after the frame's identity is registered. The one exception is the
+ * scoped legacy-Firewall session (`openLegacyFirewall`, kehto/web#494): its
+ * runtime has no `permissions`, which canonical admission requires, so it
+ * loads through `admitLegacyDocument` instead.
  */
 import {
   admitBrowserDocument,
@@ -23,7 +26,8 @@ import type { ProbePlan } from '../probe/plan.js';
 import type {
   FrameEvidence, ProbeEndpoint, ProbeRejection, ProbeSpec, RevocationEvidence, RogueEvidence, TargetSession, TargetVariant,
 } from '../target.js';
-import { createBackends, type Backends } from './backends.js';
+import { createBackends, type Backends, type SessionGate } from './backends.js';
+import { admitLegacyDocument } from './legacy-admission.js';
 import { createProbeStage, type ProbeChannel, type ProbeStage } from './frames.js';
 import { publishAndVerifyProbe } from './manifest.js';
 import type { KehtoTamper } from './tamper.js';
@@ -45,6 +49,9 @@ interface SessionState {
   readonly transcript: TranscriptEntry[];
   readonly clock: { seq: number; readonly started: number };
   counter: number;
+  /** Endpoint id prefix; a scoped session uses its own so ids never collide with its parent's. */
+  readonly prefix: string;
+  readonly gate: SessionGate;
 }
 
 function record(
@@ -118,7 +125,7 @@ function endpointFor(state: SessionState, input: {
 async function loadProbe(state: SessionState, spec: ProbeSpec): Promise<ProbeEndpoint> {
   const artifact = renderProbeArtifact(spec.plan, { requires: spec.requires, optional: spec.optional });
   const verified = await publishAndVerifyProbe(spec, artifact);
-  const id = `ep-${state.counter += 1}`;
+  const id = `${state.prefix}-${state.counter += 1}`;
   const identity: OriginIdentity = Object.freeze({
     dTag: verified.manifest.dTag,
     aggregateHash: verified.artifactHash,
@@ -133,7 +140,9 @@ async function loadProbe(state: SessionState, spec: ProbeSpec): Promise<ProbeEnd
     permissionPrincipal: identity.permissionPrincipal,
     registeredAt: Date.now(), instanceId: crypto.randomUUID(), provenance: 'nip-5d',
   };
-  const result = await admitBrowserDocument({
+  // Only a runtime without `permissions` reaches the legacy Firewall gate, and canonical admission needs it.
+  const admit = state.gate === 'legacy-firewall' ? admitLegacyDocument : admitBrowserDocument;
+  const result = await admit({
     runtime: state.bridge.runtime,
     entry,
     verifiedHtml: artifact,
@@ -261,18 +270,24 @@ function tapHooks(state: Omit<SessionState, 'bridge' | 'hooks'>, hooks: ShellAda
  * @param tamper - Interposition points used only by the mutation self-tests.
  * @returns The session.
  */
-export async function bootKehtoSession(variant: TargetVariant, host: HTMLElement, tamper: KehtoTamper = {}): Promise<TargetSession> {
-  const stage = createProbeStage(host);
-  const backends = createBackends(variant);
+export async function bootKehtoSession(
+  variant: TargetVariant, host: HTMLElement, tamper: KehtoTamper = {}, scope: SessionScope = {},
+): Promise<TargetSession> {
+  // Probes report to the stage's named collector frame, so a scoped session shares its parent's stage.
+  const stage = scope.parent?.stage ?? createProbeStage(host);
+  const gate: SessionGate = scope.gate ?? 'permissions';
+  const backends = createBackends(variant, gate);
   const partial = {
     variant, tamper, stage, backends,
     grants: new Map<string, ReadonlySet<string> | 'all'>(),
     frames: new Map<string, HTMLIFrameElement>(),
     retire: new Map<string, () => void>(),
     revocations: [] as RevocationEvidence[],
-    transcript: [] as TranscriptEntry[],
-    clock: { seq: 0, started: performance.now() },
+    transcript: scope.parent?.transcript ?? [] as TranscriptEntry[],
+    clock: scope.parent?.clock ?? { seq: 0, started: performance.now() },
     counter: 0,
+    prefix: scope.parent ? 'fw' : 'ep',
+    gate,
   };
   // The adapter needs the session for its taps, and the session needs the bridge.
   const holder: { state?: SessionState } = {};
@@ -283,7 +298,9 @@ export async function bootKehtoSession(variant: TargetVariant, host: HTMLElement
   backends.attach(bridge);
   tamper.attached?.(bridge);
 
-  const postToNapplet = originRegistry.postToNapplet.bind(originRegistry);
+  const previousPost = originRegistry.postToNapplet;
+  // A scoped session delivers through the unwrapped registry, so its parent's taps never see its traffic.
+  const postToNapplet = scope.parent?.deliver ?? previousPost.bind(originRegistry);
   originRegistry.postToNapplet = (windowId: string, message: unknown): boolean => {
     const outgoing = tamper.outbound ? tamper.outbound(windowId, message) : [message];
     let delivered = false;
@@ -312,14 +329,57 @@ export async function bootKehtoSession(variant: TargetVariant, host: HTMLElement
     transcript: () => [...state.transcript],
     controls: backends.controls,
     control: (name, payload) => backends.control(name, payload, { bridge, hooks, endpoints: () => [...state.frames.keys()] }),
+    ...(scope.parent ? {} : {
+      openLegacyFirewall: () => openLegacyFirewall({ variant, host, bridge, stage, transcript: state.transcript, clock: state.clock, deliver: postToNapplet }),
+    }),
     async dispose() {
       for (const id of Array.from(state.frames.keys())) destroyEndpoint(state, id);
       window.removeEventListener('message', bridge.handleMessage);
-      originRegistry.postToNapplet = postToNapplet;
+      originRegistry.postToNapplet = previousPost;
       bridge.destroy();
       backends.dispose();
-      originRegistry.clear();
-      stage.dispose();
+      // A scoped session's frames were unregistered above; the parent's registrations stay.
+      if (!scope.parent) {
+        originRegistry.clear();
+        stage.dispose();
+      }
+    },
+  };
+}
+
+/** What a scoped session borrows from the session that opened it. */
+interface ParentLink {
+  readonly stage: ProbeStage;
+  readonly transcript: TranscriptEntry[];
+  readonly clock: { seq: number; readonly started: number };
+  /** The registry's unwrapped delivery function. */
+  readonly deliver: (windowId: string, message: unknown) => boolean;
+}
+
+/** How {@link bootKehtoSession} is scoped. */
+interface SessionScope {
+  readonly gate?: SessionGate;
+  readonly parent?: ParentLink;
+}
+
+/**
+ * Boot a scoped session whose runtime denies through the legacy Firewall gate.
+ * Only one bridge may bind a frame's hello, so the parent stops listening until
+ * the scoped session is disposed.
+ */
+async function openLegacyFirewall(link: ParentLink & { variant: TargetVariant; host: HTMLElement; bridge: ShellBridge }): Promise<TargetSession> {
+  window.removeEventListener('message', link.bridge.handleMessage);
+  let scoped: TargetSession;
+  try {
+    scoped = await bootKehtoSession(link.variant, link.host, {}, { gate: 'legacy-firewall', parent: link });
+  } catch (error) {
+    window.addEventListener('message', link.bridge.handleMessage);
+    throw error;
+  }
+  return {
+    ...scoped,
+    async dispose() {
+      try { await scoped.dispose(); } finally { window.addEventListener('message', link.bridge.handleMessage); }
     },
   };
 }
