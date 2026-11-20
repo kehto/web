@@ -372,7 +372,7 @@ describe('createWebrtcService', () => {
       });
       service.onRegistered?.(approveAll);
       const { sent, send: reply } = collectSent();
-      const call = (message: Record<string, unknown>) => service.handleMessage(WINDOW_ID, message as NappletMessage, reply);
+      const call = (message: Record<string, unknown>) => service.handleMessage(WINDOW_ID, message as unknown as NappletMessage, reply);
       return { service, sent, call, emits, revokeWindow, close, send };
     }
 
