@@ -33,8 +33,9 @@ const MINIMAL_DISABLED = ['relay', 'keys', 'media', 'notify'];
  */
 export function composeBackends(variant: TargetVariant): DomainBackends {
   const user = createFixtureUser();
+  const focus = { windowId: null as string | null };
   const instances: { domain: string; instance: DomainBackendInstance }[] = variant.profile === 'full'
-    ? DOMAIN_BACKENDS.map((module) => ({ domain: module.domain, instance: module.create({ variant, user }) }))
+    ? DOMAIN_BACKENDS.map((module) => ({ domain: module.domain, instance: module.create({ variant, user, focus }) }))
     : [];
   const services: Record<string, ServiceHandler> = {};
   const controls: Record<string, HostControl> = {};
@@ -47,7 +48,7 @@ export function composeBackends(variant: TargetVariant): DomainBackends {
   return {
     user,
     decide: () => ({ effect: 'allow', lifetime: 'session' }),
-    focus: { windowId: null },
+    focus,
     services, adapter, controls,
     installed: instances.map((item) => item.domain),
     attach(bridge) { for (const { instance } of instances) instance.attach?.(bridge); },

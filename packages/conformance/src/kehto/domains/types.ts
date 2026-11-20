@@ -10,6 +10,8 @@ import type { FixtureUser } from '../user.js';
 export interface ControlContext {
   readonly bridge: ShellBridge;
   readonly hooks: ShellAdapter;
+  /** Live probe endpoint (window) ids, oldest first. The probe under test is usually the last. */
+  endpoints(): readonly string[];
 }
 
 /** A host control: triggers a push or reads backend evidence. */
@@ -19,6 +21,8 @@ export type HostControl = (payload: unknown, context: ControlContext) => unknown
 export interface BackendContext {
   readonly variant: TargetVariant;
   readonly user: FixtureUser;
+  /** Which endpoint the host treats as focused (`ShellAdapter.getFocusContext`). Mutable. */
+  readonly focus: { windowId: string | null };
 }
 
 /** One booted domain backend. */

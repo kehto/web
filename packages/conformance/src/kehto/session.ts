@@ -305,7 +305,7 @@ export async function bootKehtoSession(variant: TargetVariant, host: HTMLElement
     revocations: () => [...state.revocations],
     transcript: () => [...state.transcript],
     controls: backends.controls,
-    control: (name, payload) => backends.control(name, payload, { bridge, hooks }),
+    control: (name, payload) => backends.control(name, payload, { bridge, hooks, endpoints: () => [...state.frames.keys()] }),
     async dispose() {
       for (const id of Array.from(state.frames.keys())) destroyEndpoint(state, id);
       window.removeEventListener('message', bridge.handleMessage);
