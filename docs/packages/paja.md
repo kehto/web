@@ -549,7 +549,8 @@ value the napplet sees and the wire traffic captured by an in-test Nostr relay
 - `tests/e2e/paja-identity.spec.ts`: the signer connecting and failing, and
   NIP-07 reconnecting after a reload.
 - `tests/e2e/paja-cvm.spec.ts`: discovery and one gift-wrapped `tools/call`
-  against an in-test ContextVM server.
+  against an in-test ContextVM server, plus per-window admission (one call
+  running, one queued, overflow refused) under `simulation.cvm.concurrency`.
 
 Known NAP-IDENTITY gap: on a signer change Paja re-initializes the hosted napplet.
 It does not push `identity.changed` to the napplet that is already loaded. The
@@ -920,6 +921,21 @@ Paja explicitly installs operation and prompt limiters from `@kehto/rate-limit`
 in `createPajaPermissionAdapter`. These are Paja host choices; runtime and Firewall
 do not impose them on other hosts. Limiter configuration and counters are separate
 from approval grants.
+
+### CVM request admission
+
+Paja bounds NAP-CVM work per window, with or without a multiplayer profile. Each
+window may have 8 CVM operations running and 32 queued by default. Set
+`simulation.cvm.concurrency` in a Paja config file to change that:
+
+```json
+{ "simulation": { "cvm": { "concurrency": { "maxInFlight": 4, "maxQueued": 16 } } } }
+```
+
+`maxInFlight` is an integer of at least 1 and `maxQueued` an integer of at least
+0. Queued time counts against the request's `timeoutMs`; work past both limits is
+refused with `policy denied`. One window filling its budget doesn't delay another.
+See [`@kehto/services` CVM admission](/packages/services#cvm-admission).
 
 ### Configurable multiplayer providers
 

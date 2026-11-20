@@ -32,11 +32,18 @@ post-close grace period or report successful closure while dropping gaps.
 
 Outbound oversized requests are not split into CEP-22 frames. With encryption
 enabled, tool arguments must fit one NIP-44 plaintext message. The transport
-does not know the calling napplet; hosts own per-napplet concurrency admission
-before invoking it. Kehto does not yet enforce this admission cap; see the
-[concurrency follow-up](https://github.com/kehto/web/issues/355). Frame caps do not
-bound the pending request map. Sessions and relay holds remain until `close(server)`
-or `dispose()`, independently of request expiry. Correlation IDs and ping nonces
+does not know the calling napplet and does not cap its pending request map;
+`createCvmService` admits work per endpoint before invoking it. Frame caps are not
+a substitute for that admission. Transport sessions and relay holds remain until
+`close(server)` or `dispose()`, independently of request expiry.
+
+`createCvmService({ transport, concurrency: { maxInFlight, maxQueued } })` gives
+each authenticated endpoint its own budget (defaults: 8 running, 32 queued).
+Every `cvm.discover`, `cvm.request`, and `cvm.registry.*` envelope holds one slot
+from receipt until it settles. Queued time counts against the request deadline
+(`relay timeout`), overflow is refused with `policy denied`, and slots return on
+result, error, timeout, `cvm.close`, revocation, window destroy, and disposal. One
+endpoint filling its budget never delays another. Correlation IDs and ping nonces
 use random bytes plus counters, without per-ID key derivation.
 
 Authority: [NAP-CVM draft #31](https://github.com/napplet/naps/blob/28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f/naps/NAP-CVM.md)
