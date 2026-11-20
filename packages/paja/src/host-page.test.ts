@@ -39,6 +39,15 @@ describe('@kehto/paja host page', () => {
       expect(toolbar).toContain('role="group" aria-label="Connected controllers"');
     }
   });
+  it('renders a visibly labelled resource proxy field only in the static build', () => {
+    const html = renderPajaHtml(createPajaRuntimeHostConfig({}));
+    expect(html).toContain('<form class="resource-servers resource-proxy" id="paja-resource-proxy-form">');
+    expect(html).toContain('<label class="section-title" for="paja-resource-proxy-input">Resource proxy</label>');
+    expect(html).toContain('.resource-servers.resource-proxy > label { position: static;');
+    const served = renderPajaHtml(createPajaHostConfig(normalizePajaOptions({ targetUrl: 'http://127.0.0.1:5173/' })));
+    expect(served).not.toContain('paja-resource-proxy-form');
+  });
+
   it('offers a model dropdown with a listing status beside free-text entry', () => {
     const html = renderPajaHtml(createPajaRuntimeHostConfig({}));
     // A preset that lists its models swaps free-text entry for this select.

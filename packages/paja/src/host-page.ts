@@ -121,6 +121,8 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .resource-servers label { white-space: normal; }
       .resource-servers textarea { width: 100%; min-width: 0; padding: 6px; resize: vertical; }
       .resource-servers small, .resource-servers [role="status"] { color: var(--muted); overflow-wrap: anywhere; }
+      .resource-proxy { margin-top: 6px; padding-top: 10px; border-top: 1px solid var(--line); }
+      .resource-servers.resource-proxy > label { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
       #paja-cvm-form { padding-bottom: 16px; margin-bottom: 16px; border-bottom: 1px solid var(--line); }
       #paja-cvm-form > label { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
       #paja-cvm-form input[type="text"], #paja-cvm-form select { width: 100%; min-width: 0; padding: 6px; }
@@ -593,7 +595,7 @@ function renderIntentLinkDialog(): string {
  * need a standalone proxy (`kehto paja resource-proxy`).
  */
 function renderResourceProxyForm(): string {
-  return `<form class="resource-servers" id="paja-resource-proxy-form">
+  return `<form class="resource-servers resource-proxy" id="paja-resource-proxy-form">
           <label class="section-title" for="paja-resource-proxy-input">Resource proxy</label>
           <input id="paja-resource-proxy-input" type="url" aria-describedby="paja-resource-proxy-help paja-resource-proxy-status" spellcheck="false">
           <small id="paja-resource-proxy-help">Network images need a proxy that checks destinations (run <code>kehto paja resource-proxy</code>). It sees every resource URL. Leave empty to turn network images off.</small>
