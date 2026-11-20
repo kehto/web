@@ -57,14 +57,18 @@ const closeOnly = tag('A successful cvm.close.result carries only type and id', 
   return extra.length ? `close result carried ${extra.join(', ')}` : null;
 });
 
-/** NAP-CVM Message handling: a notification completes "After transport publication, result without `message`". */
-const publicationAck = (id: string, message: Record<string, unknown>): OperationCase => ({
+/** NAP-CVM Message handling: notifications and responses complete "After transport publication, result without `message`". */
+const publicationAck = (id: string, message: Record<string, unknown>, form: 'notification' | 'response'): OperationCase => ({
   id, type: 'cvm.request', payload: request(message),
-  semantics: tag('A notification-form MCP message completes after publication with a result without message: only type and id, no MCP response awaited', (reply) => {
+  semantics: tag(`A ${form}-form MCP message completes after publication with a result without message: only type and id, no MCP response awaited`, (reply) => {
     const extra = Object.keys(reply ?? {}).filter((key) => key !== 'type' && key !== 'id');
-    return extra.length ? `notification result carried ${extra.join(', ')}` : null;
+    return extra.length ? `${form} result carried ${extra.join(', ')}` : null;
   }),
 });
+
+/** Id of the server request the target's `cvm.serverRequest` control emits. */
+export const CVM_FIXTURE_SERVER_REQUEST_ID = 'conformance-srv-1';
+const SERVER_REQUEST = { jsonrpc: '2.0', id: CVM_FIXTURE_SERVER_REQUEST_ID, method: 'roots/list' };
 
 /** NAP-CVM at napplet/naps#31 (28cf1bdb): discovery, raw MCP, registry, close and session events. */
 export const CVM_FIXTURE: DomainFixture = {
@@ -75,7 +79,7 @@ export const CVM_FIXTURE: DomainFixture = {
     // Sent after cvm/request in the same session, so MCP id 7 is already used.
     failure('cvm/request-duplicate-id', 'cvm.request', request({ jsonrpc: '2.0', id: 7, method: 'tools/list' }), 'invalid message', ['message'],
       'An ID already used for a client request in the same MCP session returns "invalid message"'),
-    publicationAck('cvm/request-notification', { jsonrpc: '2.0', method: 'notifications/initialized' }),
+    publicationAck('cvm/request-notification', { jsonrpc: '2.0', method: 'notifications/initialized' }, 'notification'),
     failure('cvm/request-unmatched-response', 'cvm.request', request({ jsonrpc: '2.0', id: 'conformance-unmatched', result: {} }), 'invalid message', ['message'],
       'A response must match an outstanding server request delivered to that napplet; an unmatched response returns "invalid message"'),
     failure('cvm/request-malformed-server', 'cvm.request', { server: { pubkey: 'not-a-pubkey' }, message: { jsonrpc: '2.0', id: 11, method: 'tools/list' } }, 'invalid request', ['message'],
@@ -131,6 +135,23 @@ export const CVM_FIXTURE: DomainFixture = {
       semantics: {
         rule: 'cvm.event carries no envelope id, only server and an MCP message, and reaches the endpoint whose session is open; close releases it',
         verify: (push) => (push && !('id' in push) && (push.message as { jsonrpc?: unknown } | undefined)?.jsonrpc === '2.0' ? null : `event was ${JSON.stringify(push)}`),
+      },
+    },
+    {
+      // A response "must match an outstanding server request delivered to that napplet".
+      id: 'cvm/server-request', type: 'cvm.event',
+      subscribe: toolsList('cvm/request-server-session', 12),
+      trigger: { control: 'cvm.serverRequest' },
+      match: { server: SERVER, message: SERVER_REQUEST },
+      then: [publicationAck('cvm/respond-server-request', { jsonrpc: '2.0', id: CVM_FIXTURE_SERVER_REQUEST_ID, result: { roots: [] } }, 'response')],
+      unsubscribe: { id: 'cvm/close-server-session', type: 'cvm.close', payload: { server: SERVER }, semantics: closeOnly },
+      semantics: {
+        rule: 'A server-initiated MCP request reaches its session\'s endpoint as cvm.event, and the napplet\'s response to it completes after publication without message',
+        verify: (push, replies) => {
+          if ((push?.message as { id?: unknown } | undefined)?.id !== CVM_FIXTURE_SERVER_REQUEST_ID) return `event was ${JSON.stringify(push)}`;
+          const reply = replies['cvm/respond-server-request'];
+          return reply && reply.error === undefined && !('message' in reply) ? null : `response result was ${JSON.stringify(reply)}`;
+        },
       },
     },
   ],

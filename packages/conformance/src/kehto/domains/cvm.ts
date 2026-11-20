@@ -1,5 +1,5 @@
 import { createCvmService, type CvmServerRef, type CvmTransport, type McpMessage } from '@kehto/services';
-import { CVM_FIXTURE_FAMILY, CVM_FIXTURE_SERVER, CVM_FIXTURE_TOOL } from '../../fixtures/cvm.js';
+import { CVM_FIXTURE_FAMILY, CVM_FIXTURE_SERVER, CVM_FIXTURE_SERVER_REQUEST_ID, CVM_FIXTURE_TOOL } from '../../fixtures/cvm.js';
 import type { DomainBackendModule } from './types.js';
 
 /** CEP-15 hash of {@link CVM_FIXTURE_TOOL}; `cvm-backend.test.ts` proves it equals the computed value. */
@@ -62,6 +62,11 @@ export const CVM_BACKEND: DomainBackendModule = {
         /** The fixture server emits one MCP progress notification. */
         'cvm.notify': () => {
           const message = { jsonrpc: '2.0', method: 'notifications/progress', params: { progressToken: 'conformance', progress: 50 } } as McpMessage;
+          for (const emit of emitters) emit({ pubkey: CVM_FIXTURE_SERVER }, message);
+        },
+        /** The fixture server sends one server-initiated MCP request with a fixed id. */
+        'cvm.serverRequest': () => {
+          const message = { jsonrpc: '2.0', id: CVM_FIXTURE_SERVER_REQUEST_ID, method: 'roots/list' } as McpMessage;
           for (const emit of emitters) emit({ pubkey: CVM_FIXTURE_SERVER }, message);
         },
         /** Evidence: every MCP message the transport carried, and every server it closed. */
