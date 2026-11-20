@@ -37,7 +37,7 @@ const REGISTRATIONS: readonly HostRegistration[] = [
   { service: 'gamepad', paja: ['createGamepadService(browserGamepadOptions('], regression: 'gamepad service tests' },
   { service: 'serial', paja: ['createBrowserSerialController(', 'createSerialService(controller)'], regression: 'serial service tests' },
   { service: 'BLE', paja: ['createBrowserBleController(', 'createBleService(controller)'], regression: 'BLE service tests' },
-  { service: 'CVM', paja: ['createCvmService({', 'createNostrCvmTransport('], regression: 'CVM service tests' },
+  { service: 'CVM', paja: ['createCvmService({', 'createNostrCvmTransport(', 'concurrency: getSimulation().cvm.concurrency'], regression: 'CVM service tests' },
   { service: 'link', paja: ['createLinkService({', 'confirmPajaExternalLink'], regression: 'link service tests' },
   { service: 'notification', paja: ['createNotifyService(notifyOptions)'], regression: 'notification service tests' },
   { service: 'intent', paja: ['createPajaCatalogIntentService(adapter, intentHost)', 'createIntentService({', 'resolveSender: host.resolveSender'], regression: 'intent service tests' },

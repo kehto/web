@@ -22,9 +22,18 @@ is rejected before authorization or signing.
 Reference service handlers for Kehto runtime implementations.
 
 WebRTC opening uses a side-effect-free signaling plan before runtime approval.
-The reference host rejects configured ICE/TURN endpoints until Firewall gains a
-typed endpoint scope; this does not claim to constrain direct iframe networking,
-which remains a launch-policy concern.
+The reference handler requires separate `network` permissions with typed `ice`
+scopes for each configured STUN/TURN endpoint. This does not constrain direct
+iframe networking, which remains a launch-policy concern. Without a byte hook,
+`webrtc.sendBytes` returns a correlated `unsupported` result, as NAP-WEBRTC
+requires. A `webrtc.stats` request gets no reply: NAP-WEBRTC defines `stats`
+only as a pushed event. `ctx.emit` delivers a `webrtc.event` only for a session
+the window owns: from its `webrtc.open.result` until `webrtc.close` starts,
+revocation or window destroy, plus early `state` events while the open is still
+pending. Close removes the session from delivery before the host `close` hook
+runs, so teardown notifications and late peer `message`, `peer`, `state` or
+`stats` events for it are dropped (NAP-WEBRTC "MUST NOT deliver messages for an
+unknown sessionId"). A failed close keeps the session deliverable.
 
 OUTBOX and COUNT resolve relay destinations before approval. Their remote
 backends receive the approved immutable URL list and cancellation signal; local
@@ -37,7 +46,7 @@ service instance with `FW-OUTBOX-LEGACY-001`. See [compatibility](/compatibility
 The reference LINK service integrates shared runtime approvals after URL
 validation. A LINK grant never gives direct network access. Runtime cancellation
 and source replacement prevent stale opens/results; repeated request IDs cannot
-reopen a link. Unknown methods are silent. The temporary host-only opener path
+reopen a link. The temporary host-only opener path
 emits `FW-LINK-LEGACY-001` once per instance. See
 [the approval guide](/firewall-approvals) for its migration contract and the
 remaining launch admission and host approval UI work.
@@ -45,6 +54,13 @@ remaining launch admission and host approval UI work.
 > **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
 > protocol. Service envelopes and NAP contracts are not final.
 
+
+Every reference service drops a message whose type its NAP does not define,
+with no reply, as NIP-5D requires. That includes a `webrtc.stats` request, which
+NAP-WEBRTC defines only as a pushed event. The host gets one
+`[KEHTO_UNRECOGNIZED_MESSAGE_TYPE]` warning per domain/type through
+`createUnrecognizedTypeDiagnostic` from `@kehto/runtime`. A known type with a
+bad payload still gets the domain's specified failure result.
 ## Install
 
 ```bash
@@ -56,7 +72,7 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 | Field | Value |
 |-------|-------|
 | Source | `packages/services/package.json`, `packages/services/src/index.ts` |
-| Version | `0.32.1` |
+| Version | `0.34.0` |
 | Runtime entry | `./dist/index.js` |
 | Types entry | `./dist/index.d.ts` |
 | Dependencies | `@kehto/runtime` |
@@ -66,8 +82,8 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.41.0 <0.42.0` |
-| `@napplet/nap` | `>=0.37.0 <0.41.0` |
+| `@napplet/core` | `>=0.42.0 <0.43.0` |
+| `@napplet/nap` | `>=0.37.0 <0.42.0` |
 
 ## Primary APIs
 
@@ -86,7 +102,85 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 
 ## Scope Boundaries
 
+`createCvmService` accepts optional `registry: CvmRegistryFamily[]`. The selector,
+entry, tool and option types (`CvmRegistrySelector`, `CvmRegistryEntry`,
+`CvmRegistryTool`, `CvmRegistryOptions`, `CvmRegistryCallOptions`,
+`CvmRegistryQuery`) are re-exported from `@napplet/core` 0.42.0 or newer. Each entry
+names an operator-selected provider and a family of tool name/hash pins. The
+registry verifies live schemas with `computeCvmToolSchemaHash` (CEP-15) before
+selection or invocation. A hash selector takes precedence over a family label;
+provider pins are mandatory when supplied. Registry calls use ordinary CVM
+authorization and one deadline across schema checks and invocation. No result
+cache, provider retry or paginated tool inventory is supported. Without configured
+families, `registry.has` returns false and other registry methods return
+`unsupported method`. The injected namespace accepts canonical selectors and
+warns once per iframe on old string-family calls; see the compatibility register.
+
+### CVM admission
+
+`createCvmService({ transport, concurrency })` bounds each authenticated endpoint
+(runtime window id) separately, following the NAP-CVM
+[draft #31](https://github.com/napplet/naps/blob/28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f/naps/NAP-CVM.md)
+Security Considerations (shells SHOULD apply per-napplet concurrency limits).
+
+| Option | Default | Meaning |
+|--------|---------|---------|
+| `concurrency.maxInFlight` | `8` (`DEFAULT_CVM_MAX_IN_FLIGHT`) | Operations one endpoint may have running. Integer >= 1. |
+| `concurrency.maxQueued` | `32` (`DEFAULT_CVM_MAX_QUEUED`) | Operations one endpoint may have waiting, first in first out. Integer >= 0; `0` refuses instead of queueing. |
+
+- One `cvm.discover`, `cvm.request`, or `cvm.registry.*` envelope holds one slot
+  from receipt until it settles. A registry call keeps its single slot across its
+  schema check and invocation. `cvm.close` is never queued or refused.
+- The deadline starts at receipt. Queueing and approval spend the same budget, and
+  the transport receives only the time left. A request that expires in the queue
+  returns `relay timeout` and is never published. `cvm.request` now validates
+  `timeoutMs` (integer 1..300,000, default 30,000) before admission.
+- `cvm.request` validates its MCP `message` against the NAP-CVM form table before
+  admission: a request (`method` + `id`), a notification (`method`, no `id`) or a
+  response (`id` + exactly one of `result`/`error`, no `method`/`params`), with a
+  string or integer `id` and object `params`/`result`/`error`. Anything else (a
+  missing message, a batch, `id: null`, both `result` and `error`, …) returns
+  `invalid message` and is never authorized, admitted or published.
+- With slots and queue both full, the operation is refused at once with
+  `policy denied`. Spec gap: the draft's error table has no load-shedding entry,
+  so the service reuses the shell-policy error rather than inventing a string.
+- Slots return on result, error, deadline, `cvm.close` (pending and queued work
+  for that server completes with `session closed` before the acknowledgement),
+  approval cancellation, permission revocation, window destroy, unregistration,
+  and `dispose()`. Aborted work also aborts the signal the transport was given.
+- Endpoints never share a budget. Two windows of the same napplet are two
+  endpoints. When the runtime retires an endpoint and registers a new source under
+  the same window id, the new source starts with a full budget. Hosts that
+  replace a source without notifying services keep counting the old source's
+  running work against that window id until it settles.
+- A session is recorded when a request is handed to the transport, not when it
+  succeeds, so a failed or timed-out request no longer leaves a transport session
+  and relay hold behind after its endpoint closes or goes away. The number of
+  distinct server sessions one endpoint may hold open is not capped.
+
 - Provides reference service handlers that host apps register with `runtime.registerService()`.
+- The CVM Nostr transport rejects noninteger request durations or values outside
+  1..300,000ms with `invalid timeout` before session acquisition or publication
+  (default 30,000ms). One fixed deadline covers initialization, shared-init waits,
+  initialized-notification publication, and the final response; expiry returns
+  `relay timeout`. CEP-22 buffers live for the remaining request budget, bounded
+  by `min(request timeout, 300_000)`; progress never extends it. CEP-41 closes with
+  remaining gaps fail immediately, including boundless closes. Outbound oversized requests
+  are unsupported; encrypted arguments must fit one NIP-44 message. The transport
+  has no caller principal and no pending-request cap of its own; `createCvmService`
+  admits work per endpoint before invoking it (see CVM admission below). Transport
+  sessions and relay holds remain until close or disposal.
+  Correlation IDs and ping nonces use random bytes rather than per-ID key derivation. These policies follow [NAP-CVM #31 at
+  `28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f`](https://github.com/napplet/naps/blob/28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f/naps/NAP-CVM.md)
+  and [CEP-41](https://github.com/contextvm/contextvm-docs/blob/3b4f9dc9f9012a418abd9faec6a70db774754862/src/content/docs/reference/ceps/cep-41.md).
+- Default upload ids, browser media `media-resource-*` read ids, and CVM registry
+  JSON-RPC ids are secure UUID v4 values: native `crypto.randomUUID()`, or 16
+  `crypto.getRandomValues()` bytes where the browser omits it (non-localhost plain
+  HTTP), and an explicit error when neither exists. This is host identifier policy
+  with no wire change, and it does not make `crypto.subtle` paths (approval-scoped
+  uploads, the default HTTP uploader digest, CVM schema hashes) work on such
+  origins. The full per-identifier contract is in the
+  [shell package doc](https://github.com/kehto/web/blob/main/docs/packages/shell.md#uuid-support-on-http-origins).
 - Uploads belong to exact window IDs, including IDs containing colons. Window
   teardown and service removal invalidate callbacks before backend cancellation;
   late progress, results, and errors cannot reach destroyed or replacement
@@ -126,6 +220,17 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
   relay selection, and napplet wire messages are unchanged; pool adapters may
   ignore the optional metadata argument. This follows the routing inputs in
   [NAP-OUTBOX draft #32 at `8865f73`](https://github.com/napplet/naps/blob/8865f73d52a4864afee145f28d26520476273927/naps/NAP-OUTBOX.md).
+- OUTBOX relay failures are never reported as `policy denied`. A failing
+  relay-list loader falls back to configured relays (Shell Behavior: "SHOULD fall
+  back to configured relays when NIP-65 data is absent, stale, or unreachable");
+  planning and transport failures carry `relay list unavailable` or
+  `relay timeout`; planned reads settle on EOSE and mark partial relay failure
+  `incomplete: true`. Only an approval that did not execute, a revoked approval,
+  a relay-gate refusal, or an unplannable router is `policy denied`; a declined
+  publish is `publish denied`. A required own-outbox or `toInboxes` relay that
+  does not accept is `relay timeout`, even when hinted relays did. Spec gap: the draft has no "no relay reachable" or
+  "relay refused" code, so the closest defined codes are used. See the
+  [services README](https://github.com/kehto/web/blob/main/packages/services/README.md#approval-aware-relay-services).
 - `createOutboxService()` accepts a source-scoped `getReadRouter` for
   `outbox.getEvent`, `outbox.query`, and `outbox.subscribe`, while the optional
   `getQueryRouter` can layer query-only policy or caching on top.
@@ -177,7 +282,7 @@ This non-normative guidance defers to [NAP-GAMEPAD at `napplet/naps@19de5ce1`](h
 
 ## LLM integration
 
-This non-normative guidance defers to the living [NAP-LLM](https://github.com/napplet/naps/pull/134) (checked at `5e93bdf`). Services export `createLlmService`, `LlmServiceError`, the provider mappers and `LLM_PROVIDER_PRESETS`; shell exports `getShellDomainState` and the `LlmHooks` adapter field; acl exports `llm:generate`. The runtime routes `llm.*` to one registered service and answers every sanctioned request with exactly one `llm.<op>.result`, shaping missing-service and ACL failures as `{ code: 'unsupported' }`. Hosts implement `LlmConnectionHost`; the service enforces schema, handle ownership, a per-window live-handle bound (`maxHandlesPerWindow`), consent before submission, duplicate ids, cancellation and deadline races, ordered deltas and safe errors, and passes `select`/`authorize` a `{ signal }` that withdraws stale prompts. `createHttpLlmProvider({ stream: true })` streams provider output into `llm.delta` as block start/delta/end events. Results carry `content` parts (text, thinking and tool calls); tool calls and results are validated and relayed, and Kehto never executes one. Advertisement stays binary on the wire while hosts report a third `unconfigured` state until the user adds a connection. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
+This non-normative guidance defers to the living [NAP-LLM](https://github.com/napplet/naps/pull/134) (checked at `5e93bdf`). Services export `createLlmService`, `LlmServiceError`, the provider mappers (OpenAI Chat Completions, OpenAI Responses, Anthropic Messages and Gemini `generateContent` dialects) and `LLM_PROVIDER_PRESETS`; shell exports `getShellDomainState` and the `LlmHooks` adapter field; acl exports `llm:generate`. The runtime routes `llm.*` to one registered service and answers every sanctioned request with exactly one `llm.<op>.result`, shaping missing-service and ACL failures as `{ code: 'unsupported' }`. Hosts implement `LlmConnectionHost`; the service enforces schema, handle ownership, a per-window live-handle bound (`maxHandlesPerWindow`), consent before submission, duplicate ids, cancellation and deadline races, ordered deltas and safe errors, and passes `select`/`authorize` a `{ signal }` that withdraws stale prompts. `createHttpLlmProvider({ stream: true })` streams provider output into `llm.delta` as block start/delta/end events. Results carry `content` parts (text, thinking and tool calls); tool calls and results are validated and relayed, and Kehto never executes one. Advertisement stays binary on the wire while hosts report a third `unconfigured` state until the user adds a connection. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
 
 ## Media sessions
 

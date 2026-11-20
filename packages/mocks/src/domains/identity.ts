@@ -1,7 +1,7 @@
 /**
  * domains/identity.ts — Mock NAP-IDENTITY service.
  *
- * Spec: naps/NAP-IDENTITY.md @ napplet/naps master 43cb3a4e8555 (merged)
+ * Spec: naps/NAP-IDENTITY.md @ napplet/naps master 377bf939c6c9 (merged)
  * Routes: identity.getPublicKey, identity.getRelays, identity.getProfile,
  *         identity.getFollows, identity.getList, identity.getZaps,
  *         identity.getMutes, identity.getBlocked, identity.getBadges
@@ -36,7 +36,7 @@ export const IDENTITY_SPEC_REF: NapSpecRef = {
   nap: 'NAP-IDENTITY',
   status: 'merged',
   source: 'master',
-  sha: '43cb3a4e8555',
+  sha: '377bf939c6c9',
   path: 'naps/NAP-IDENTITY.md',
 };
 

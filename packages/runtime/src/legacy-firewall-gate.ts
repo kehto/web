@@ -4,6 +4,7 @@ import type { LegacyFirewallObservation as Observation, LegacyFirewallAdapter } 
 import type { RuntimeAdapter, FirewallEvent } from './types.js';
 import type { SessionRegistry } from './session-registry.js';
 import { createCanonicalDomainResult, createIntentPolicyDenial, createLlmErrorResult } from './domain-results.js';
+import { createPolicyDenialResult, isSilentUnknownDenial } from './policy-denials.js';
 
 declare const console: { warn(message: string): void };
 
@@ -204,14 +205,10 @@ export function createDenialResponse(envelope: NappletMessage, error: string): N
     // shaped failure is `unsupported`, never a bare string on an `.error` wire.
     return createLlmErrorResult(envelope, 'unsupported', `Request denied: ${error}`) ?? null;
   }
-  if (envelope.type === 'outbox.query') {
-    return {
-      type: 'outbox.query.result',
-      id,
-      events: [],
-      error,
-    } as NappletMessage;
-  }
+  // NAP-specific failure wires first; see policy-denials.ts for the refs.
+  const projected = createPolicyDenialResult(envelope, error);
+  if (projected !== undefined) return projected;
+  if (isSilentUnknownDenial(envelope)) return null;
   const type = denialResponseType(envelope);
   return type ? { type, id, error } as NappletMessage : null;
 }

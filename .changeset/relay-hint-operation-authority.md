@@ -17,7 +17,10 @@ relays remain supported. Paja rejects trailing-dot private hostnames too.
 Planned OUTBOX publishing carries its operation cancellation signal through
 signing and rechecks it before transport, preventing a revoked hinted fanout.
 It plans the complete own-outbox/inbox/hint union and preserves required targets
-in host-only metadata, so explicit hint success cannot mask a required inbox failure.
+in host-only metadata, so explicit hint success cannot mask a required inbox failure
+(reported as `relay timeout`, a relay outcome rather than a denial). Planned publishes
+now resolve `toInboxes` recipients into the approved destinations instead of
+publishing only to the signer's own relays.
 Custom planners must include required destinations for requested own/inbox fanout.
 
 Unhinted legacy host routing remains temporarily available with documented,

@@ -3,7 +3,7 @@ import type { NappletMessage } from '@kehto/runtime';
 
 import type { MockScheduler } from '../core/types.js';
 import { MOCK_ACCOUNTS, findMockAccount, type MockAccount } from '../fixtures/nostr.js';
-import { MOCK_WEBRTC_LOOPBACK_PUBKEY, WEBRTC_MOCK_ENTRY, WEBRTC_SPEC_REF, createMockWebrtcService } from './webrtc.js';
+import { MOCK_WEBRTC_LOOPBACK_PUBKEY, WEBRTC_MOCK_ENTRY, WEBRTC_SPEC_REF, createMockWebrtcService, mockCanonicalBase64Length } from './webrtc.js';
 
 type Msg = NappletMessage & Record<string, unknown>;
 
@@ -45,10 +45,10 @@ describe('createMockWebrtcService', () => {
     const { service } = setup();
     expect(service.descriptor.name).toBe('webrtc');
     expect(service.descriptor.version).toBe('1.0.0');
-    expect(service.mock.routes).toEqual(['webrtc.open', 'webrtc.send', 'webrtc.close']);
+    expect(service.mock.routes).toEqual(['webrtc.open', 'webrtc.send', 'webrtc.sendBytes', 'webrtc.close']);
     expect(service.messageCapabilities).toBeUndefined();
     expect(WEBRTC_MOCK_ENTRY).toMatchObject({ domain: 'webrtc', kind: 'service', spec: WEBRTC_SPEC_REF });
-    expect(WEBRTC_SPEC_REF).toEqual({ nap: 'NAP-WEBRTC', status: 'draft', source: 'pr', pr: 59, sha: '69523e8cf44c', path: 'naps/NAP-WEBRTC.md' });
+    expect(WEBRTC_SPEC_REF).toEqual({ nap: 'NAP-WEBRTC', status: 'draft', source: 'pr', pr: 59, sha: 'fb4dd6f0e629', path: 'naps/NAP-WEBRTC.md' });
   });
 
   it('webrtc.open returns a connecting session; peerAnswer completes loopback signaling', () => {
@@ -59,7 +59,7 @@ describe('createMockWebrtcService', () => {
     expect(result.id).toBe('w1');
     const session = result.session as Record<string, unknown>;
     expect(session.id).toMatch(/^sess-[0-9a-f]{8}$/);
-    expect(session).toMatchObject({ scope: { type: 'direct', pubkey: bob.pubkey }, channel: 'chat', protocol: 'chat:live', state: 'connecting' });
+    expect(session).toEqual({ id: session.id, scope: { type: 'direct', pubkey: bob.pubkey }, channel: 'chat', protocol: 'chat:live', state: 'connecting', ordered: true, maxPayloadBytes: 65_536 });
     expect(service.mock.state().identities.get('w1')).toBe(alice.pubkey);
     expect(queue).toHaveLength(0);
     const sessionId = session.id as string;
@@ -132,6 +132,22 @@ describe('createMockWebrtcService', () => {
     expect(sent.at(-1)).toEqual({ type: 'webrtc.send.result', id: 's2', error: 'session closed' });
   });
 
+  it('delivers nothing for a session after the napplet closes it (NAP-WEBRTC #59: no events for an unknown sessionId)', () => {
+    const { service, sent, call, open, queue, drain } = setup();
+    const sessionId = open('w1', { type: 'direct', pubkey: carol.pubkey });
+    drain();
+    expect(service.peerMessage(sessionId, { body: 'before' })).toBe(true);
+    call({ type: 'webrtc.send', id: 's1', sessionId, payload: { body: 'echo me' } });
+    expect(queue.length).toBeGreaterThan(0);
+    sent.length = 0;
+    call({ type: 'webrtc.close', id: 'c1', sessionId });
+    drain();
+    expect(service.peerMessage(sessionId, { body: 'late' })).toBe(false);
+    expect(service.peerBytes(sessionId, 'AAEC')).toBe(false);
+    expect(service.peerLeave(sessionId)).toBe(false);
+    expect(sent).toEqual([{ type: 'webrtc.close.result', id: 'c1' }]);
+  });
+
   it('room sessions mesh every joined window; leaving removes only that peer', () => {
     const { service, call, sent, open, events } = setup({ autoAnswer: false });
     const a = open('w1', { type: 'room', room: 'lab' });
@@ -182,6 +198,9 @@ describe('createMockWebrtcService', () => {
     service.peerAnswer(sessionId);
     call({ type: 'webrtc.send', id: 's1', sessionId, payload: 'this payload is far too long' });
     expect(last()).toEqual({ type: 'webrtc.send.result', id: 's1', error: 'payload too large' });
+    // The limit counts UTF-8 bytes of the serialization: "ééééé" is 7 JSON characters but 12 bytes.
+    call({ type: 'webrtc.send', id: 's0', sessionId, payload: 'ééééé' });
+    expect(last()).toEqual({ type: 'webrtc.send.result', id: 's0', error: 'payload too large' });
     call({ type: 'webrtc.send', id: 's2', sessionId });
     expect(last()).toEqual({ type: 'webrtc.send.result', id: 's2', error: 'invalid request' });
     expect(service.peerMessage(sessionId, { body: 'hi' })).toBe(true);
@@ -194,6 +213,62 @@ describe('createMockWebrtcService', () => {
     ]);
     expect(service.peerLeave(sessionId)).toBe(false);
     expect(service.peerMessage(sessionId, 1)).toBe(false);
+  });
+
+  it('validates canonical padded base64 for WebrtcBytes', () => {
+    expect(mockCanonicalBase64Length('')).toBe(0);
+    expect(mockCanonicalBase64Length('AAEC/w==')).toBe(4);
+    expect(mockCanonicalBase64Length('AAEC')).toBe(3);
+    for (const bad of ['AAEC/w', 'AAEC/x==', 'AA EC/w==', 'AAEC/w==\n', 'data:application/octet-stream;base64,AAEC', 'AAE-_w==', 5]) {
+      expect(mockCanonicalBase64Length(bad), String(bad)).toBeUndefined();
+    }
+  });
+
+  it('sendBytes delivers bytes events, never message events, and bounds decoded size', () => {
+    const { service, call, sent, last, open, queue } = setup({ autoAnswer: false, maxPayloadBytes: 4 });
+    const first = open('w1', { type: 'direct', pubkey: bob.pubkey });
+    const second = open('w2', { type: 'direct', pubkey: alice.pubkey });
+    sent.length = 0;
+    call({ type: 'webrtc.sendBytes', id: 'b1', sessionId: first, bytes: 'AAEC/w==' });
+    expect(sent).toEqual([
+      { type: 'webrtc.sendBytes.result', id: 'b1' },
+      { type: 'webrtc.event', event: { type: 'bytes', sessionId: second, from: alice.pubkey, bytes: 'AAEC/w==' } },
+    ]);
+    call({ type: 'webrtc.sendBytes', id: 'b2', sessionId: first, bytes: 'AAECAwQ=' });
+    expect(last()).toEqual({ type: 'webrtc.sendBytes.result', id: 'b2', error: 'payload too large' });
+    call({ type: 'webrtc.sendBytes', id: 'b3', sessionId: first, bytes: 'AAEC/x==' });
+    expect(last()).toEqual({ type: 'webrtc.sendBytes.result', id: 'b3', error: 'invalid request' });
+    call({ type: 'webrtc.sendBytes', id: 'b4', sessionId: 'sess-00000000', bytes: '' });
+    expect(last()).toEqual({ type: 'webrtc.sendBytes.result', id: 'b4', error: 'session not found' });
+
+    const lone = open('w3', { type: 'room', room: 'solo' });
+    call({ type: 'webrtc.sendBytes', id: 'b5', sessionId: lone, bytes: '' }, 'w3');
+    expect(last()).toEqual({ type: 'webrtc.sendBytes.result', id: 'b5', error: 'session not open' });
+    service.peerAnswer(lone);
+    call({ type: 'webrtc.sendBytes', id: 'b6', sessionId: lone, bytes: '' }, 'w3');
+    (queue.shift() as () => void)();
+    expect(last()).toEqual({ type: 'webrtc.event', event: { type: 'bytes', sessionId: lone, from: MOCK_WEBRTC_LOOPBACK_PUBKEY, bytes: '' } });
+    expect(service.peerBytes(lone, 'AAEC/w==')).toBe(true);
+    expect(last()).toEqual({ type: 'webrtc.event', event: { type: 'bytes', sessionId: lone, from: MOCK_WEBRTC_LOOPBACK_PUBKEY, bytes: 'AAEC/w==' } });
+    expect(service.peerBytes(lone, 'not base64')).toBe(false);
+  });
+
+  it('reports established delivery semantics and pairs only sessions that match', () => {
+    const { call, last, open, events, service } = setup({ autoAnswer: false });
+    call({ type: 'webrtc.open', id: 'l1', request: { scope: { type: 'room', room: 'game' }, channel: 'state', ordered: false, maxRetransmits: 0 } });
+    const lossy = last().session as Record<string, unknown>;
+    expect(lossy).toMatchObject({ channel: 'state', ordered: false, maxRetransmits: 0, maxPayloadBytes: 65_536 });
+    const reliable = open('w2', { type: 'room', room: 'game' });
+    expect(service.mock.state().sessions.get(reliable)?.session).not.toHaveProperty('maxRetransmits');
+    expect(events()).toEqual([]);
+    const lossyPeer = open('w3', { type: 'room', room: 'game' }, { ordered: false, maxRetransmits: 0 });
+    expect(events().filter((event) => event.type === 'peer').map((event) => event.sessionId)).toEqual([lossy.id, lossyPeer]);
+    const lateReliable = open('w4', { type: 'room', room: 'game' });
+    expect(service.mock.state().sessions.get(lateReliable)?.peers).toEqual(new Set([bob.pubkey]));
+    for (const request of [{ ordered: 'no' }, { maxRetransmits: -1 }, { maxRetransmits: 1.5 }]) {
+      call({ type: 'webrtc.open', id: 'bad', request: { scope: { type: 'room', room: 'game' }, ...request } });
+      expect(last()).toEqual({ type: 'webrtc.open.result', id: 'bad', error: 'invalid request' });
+    }
   });
 
   it('closes sessions on destroy and revoke, and resets pending timers', () => {

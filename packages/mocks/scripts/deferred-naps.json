@@ -1,0 +1,23 @@
+[
+  {
+    "nap": "NAP-WEBMCP",
+    "path": "naps/NAP-WEBMCP.md",
+    "pr": 150,
+    "sha": "93cab21beea9",
+    "reason": "New domain (napplet tools exposed to authorized agents); no Kehto runtime, service or Paja support to mock against yet."
+  },
+  {
+    "nap": "NAP-NEIGHBOR",
+    "path": "naps/NAP-NEIGHBOR.md",
+    "pr": 146,
+    "sha": "7b81774ae8d0",
+    "reason": "New domain replacing the retracted NAP-MESH draft (PR #122); no Kehto support for neighbourhoods or addresses yet."
+  },
+  {
+    "nap": "NAP-EMAIL",
+    "path": "naps/NAP-EMAIL.md",
+    "pr": 139,
+    "sha": "a63c592c78eb",
+    "reason": "New domain (email readers, writers and threads); no Kehto runtime, service or Paja support yet."
+  }
+]

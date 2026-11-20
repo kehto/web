@@ -32,7 +32,6 @@ import { LISTS_MOCK_ENTRY } from './lists.js';
 import { LLM_MOCK_ENTRY } from './llm.js';
 import { LOCATION_MOCK_ENTRY } from './location.js';
 import { MEDIA_MOCK_ENTRY } from './media.js';
-import { MESH_MOCK_ENTRY } from './mesh.js';
 import { MOTION_MOCK_ENTRY } from './motion.js';
 import { NAVIGATION_MOCK_ENTRY } from './navigation.js';
 import { NOTIFY_MOCK_ENTRY } from './notify.js';
@@ -78,7 +77,6 @@ export * from './lists.js';
 export * from './llm.js';
 export * from './location.js';
 export * from './media.js';
-export * from './mesh.js';
 export * from './motion.js';
 export * from './navigation.js';
 export * from './notify.js';
@@ -130,7 +128,6 @@ export const DOMAIN_ENTRIES: readonly MockDomainEntry[] = Object.freeze([
   LLM_MOCK_ENTRY,
   LOCATION_MOCK_ENTRY,
   MEDIA_MOCK_ENTRY,
-  MESH_MOCK_ENTRY,
   MOTION_MOCK_ENTRY,
   NAVIGATION_MOCK_ENTRY,
   NOTIFY_MOCK_ENTRY,

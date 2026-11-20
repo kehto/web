@@ -1,7 +1,7 @@
 /**
  * domains/shell.ts — NAP-SHELL registry entry (runtime-owned, no mock service).
  *
- * Spec: naps/NAP-SHELL.md @ napplet/naps master 43cb3a4e8555 (merged)
+ * Spec: naps/NAP-SHELL.md @ napplet/naps master 377bf939c6c9 (merged)
  * Routes: none mocked. `shell.ready` → `shell.init` is answered by the shell
  *         package (`packages/shell/src/shell-ready.ts`, `shell-init.ts`).
  * Spec gaps / decisions:
@@ -27,7 +27,7 @@ export const SHELL_SPEC_REF: NapSpecRef = {
   nap: 'NAP-SHELL',
   status: 'merged',
   source: 'master',
-  sha: '43cb3a4e8555',
+  sha: '377bf939c6c9',
   path: 'naps/NAP-SHELL.md',
 };
 

@@ -37,6 +37,8 @@ export type PajaIdentityProvider = (
 ) => Pick<SessionEntry, 'dTag' | 'aggregateHash'> & {
   readonly consentScope?: string;
   readonly isCurrent?: () => boolean;
+  /** Stable address derived from the verified event, excluding relay hints and artifact version. */
+  readonly signalingNamespace?: string;
 };
 
 /** Paja shell adapter with private verified-pointer resource context wiring. */
@@ -62,7 +64,6 @@ export function createOutboxRouter(
     loadRelayLists: createPajaRelayListLoader(
       backend,
       getSimulation,
-      signerProvider,
       () => relayConfig.getRelayUrls(['discovery', 'super']),
     ),
     fallbackRelays: relayConfig.outboxRelays,

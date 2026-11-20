@@ -105,6 +105,7 @@ function mergeSimulationOptions(
     },
     intent: { ...base.intent, ...override.intent },
     cvm: { ...base.cvm, ...override.cvm },
+    multiplayer: override.multiplayer ?? base.multiplayer,
   };
 }
 

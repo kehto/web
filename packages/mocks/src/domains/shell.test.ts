@@ -8,7 +8,7 @@ const row = (domain: string, kind: MockDomainEntry['kind']): MockDomainEntry => 
 
 describe('NAP-SHELL entry', () => {
   it('records the merged master spec and a runtime-owned note without a factory', () => {
-    expect(SHELL_SPEC_REF).toEqual({ nap: 'NAP-SHELL', status: 'merged', source: 'master', sha: '43cb3a4e8555', path: 'naps/NAP-SHELL.md' });
+    expect(SHELL_SPEC_REF).toEqual({ nap: 'NAP-SHELL', status: 'merged', source: 'master', sha: '377bf939c6c9', path: 'naps/NAP-SHELL.md' });
     expect(SHELL_MOCK_ENTRY).toMatchObject({ domain: 'shell', kind: 'runtime-owned', spec: SHELL_SPEC_REF });
     expect(SHELL_MOCK_ENTRY.create).toBeUndefined();
     expect(SHELL_MOCK_ENTRY.note).toContain('mockShellEnvironmentDomains');

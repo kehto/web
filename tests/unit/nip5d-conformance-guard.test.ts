@@ -1,6 +1,12 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import type { NappletMessage } from '@napplet/core';
+import { createRuntime } from '@kehto/runtime';
+import { createMockNapEnvironment } from '@kehto/mocks';
+import { createMockRuntimeAdapter, createNip5dSessionEntry } from '../../packages/runtime/src/test-utils.js';
+import { createDenialResponse } from '../../packages/runtime/src/legacy-firewall-gate.js';
+import { PROBE_WINDOW, SERVICE_PROBES, probeService, serviceFactoryExports, settle, unknownTypesFor } from './unknown-type-probes.js';
 
 const installedNapDist = 'packages/paja/node_modules/@napplet/nap/dist';
 const installedCoreDist = 'packages/paja/node_modules/@napplet/core/dist/index.d.ts';
@@ -222,7 +228,8 @@ describe('NIP-5D conformance static guards', () => {
   });
 
   it('locks nested browsing contexts: prelude closure, CSP Trusted Types, and host byte scan', () => {
-    const prelude = removeComments(readRepoFile('packages/shell/src/napplet-namespace.ts'));
+    const prelude = removeComments(readRepoFile('packages/shell/src/napplet-namespace.ts'))
+      + removeComments(readRepoFile('packages/shell/src/napplet-realm-lock.ts'));
     const csp = removeComments(readRepoFile('packages/shell/src/napplet-csp.ts'));
     const scan = readRepoFile('packages/shell/src/napplet-frame-scan.ts');
     const paja = removeComments(readRepoFile('packages/paja/src/browser-target-frame.ts'));
@@ -235,6 +242,8 @@ describe('NIP-5D conformance static guards', () => {
     expect(prelude).toContain('napplets may not create nested browsing contexts');
     expect(prelude).toContain("pin(docProto, 'createElement'");
     expect(prelude).toContain("pin(docProto, 'createElementNS'");
+    // XSLTProcessor.transformToFragment mints elements without a factory or string sink (kehto/web#381).
+    expect(prelude).toContain("pin(win, 'XSLTProcessor', undefined);");
     expect(prelude).toContain('frameLock(target);');
     // CSP carries the non-overridable Trusted Types lock on every napplet.
     expect(csp).toContain("require-trusted-types-for 'script'; trusted-types default");
@@ -244,9 +253,27 @@ describe('NIP-5D conformance static guards', () => {
     expect(paja).toContain('assertNappletHasNoFrame(resolvedTarget.indexHtml);');
     // The lock is opt-in (experimental namespace), off by default, so it is
     // never imposed on downstream hosts.
-    expect(srcdocSrc).toContain('options.experimental?.nestedContextLock === true');
+    expect(srcdocSrc).toContain('needsTrustedTypes(options.experimental)');
+    expect(prelude).toContain("experimental?.nestedContextLock === true ? nappletFrameLock.toString() : null");
     expect(paja).toContain('config.experimental?.nestedContextLock');
     expect(policy).toContain('### Nested browsing contexts');
+  });
+
+  it('locks CSP-exempt resource hints behind the opt-in flag, with a host byte scan', () => {
+    const lock = removeComments(readRepoFile('packages/shell/src/napplet-realm-lock.ts'));
+    const scan = readRepoFile('packages/shell/src/napplet-hint-scan.ts');
+    const paja = removeComments(readRepoFile('packages/paja/src/browser-target-frame.ts'));
+    const policy = readRepoFile('docs/policies/NIP-5D-CONFORMANCE.md');
+    // Opt-in gate, shared Trusted Types policy, and the hint relation set.
+    expect(lock).toContain("experimental?.resourceHintLock === true ? nappletHintLock.toString() : null");
+    expect(lock).toContain("new Set(['dns-prefetch', 'preconnect', 'prerender'])");
+    expect(lock).toContain("define(win, 'XSLTProcessor'");
+    expect(lock.match(/createPolicy\('default'/g)).toHaveLength(1);
+    // Static hints are refused before load; Paja couples the flag to its nested-context decision.
+    expect(scan).toContain('export function nappletMarkupHasResourceHint');
+    expect(paja).toContain('assertNappletHasNoResourceHint(resolvedTarget.indexHtml);');
+    expect(paja).toContain('experimental: { nestedContextLock: true, resourceHintLock: true }');
+    expect(policy).toContain('### Resource hints');
   });
 
   it('keeps napplet identity bound to the napplet.hello port across shell and hosts', () => {
@@ -286,6 +313,45 @@ describe('NIP-5D conformance static guards', () => {
     expect(policy).toContain('### Window-level host message allowlist');
     expect(policy).toContain('`paja.intent.launcher.ready`, `paja.intent.launcher.result` (launcher → host); `paja.intent.launch` (host → launcher)');
     expect(policy).toContain('51ef0cd33a5694784306f3260d90b1872545fdee');
+  });
+
+  it('keeps the conformance harness exceptions bounded', () => {
+    const policy = readRepoFile('docs/policies/NIP-5D-CONFORMANCE.md');
+    const root = 'packages/conformance/src';
+    const files: string[] = [];
+    const visit = (dir: string): void => {
+      for (const entry of readdirSync(join(process.cwd(), dir), { withFileTypes: true })) {
+        const path = `${dir}/${entry.name}`;
+        if (entry.isDirectory()) visit(path);
+        else if (path.endsWith('.ts') && !path.endsWith('.test.ts') && !path.endsWith('.d.ts')) files.push(path);
+      }
+    };
+    visit(root);
+    const windowPost = /\bcontentWindow\??\.postMessage\(|\btarget\.postMessage\(/;
+    const srcdocAssign = /\.srcdoc\s*=/;
+    const allowed: Record<string, { post: boolean; srcdoc: boolean }> = {
+      [`${root}/kehto/session.ts`]: { post: true, srcdoc: true },
+      [`${root}/kehto/frames.ts`]: { post: true, srcdoc: false },
+    };
+    for (const file of files) {
+      const source = removeComments(readRepoFile(file));
+      const allow = allowed[file] ?? { post: false, srcdoc: false };
+      if (!allow.post) expect(windowPost.test(source), `${file} posts to a frame window`).toBe(false);
+      if (!allow.srcdoc) expect(srcdocAssign.test(source), `${file} assigns srcdoc`).toBe(false);
+    }
+    const session = removeComments(readRepoFile(`${root}/kehto/session.ts`));
+    expect(session).toContain('if (!spec.rawWire) return srcdoc;');
+    expect(session).toContain('admitBrowserDocument({');
+    expect(session.match(/\.srcdoc\s*=/g)?.length).toBe(2);
+    expect(policy).toContain('### Conformance harness exceptions');
+    expect(policy).toContain('`kehto/session.ts` `loadRogue()`');
+    expect(policy).toContain('only for probes loaded with `rawWire`');
+    // kehto/web#494: only the scoped legacy-Firewall session skips canonical admission.
+    expect(session).toContain("state.gate === 'legacy-firewall' ? admitLegacyDocument : admitBrowserDocument");
+    expect(session).toContain("{ gate: 'legacy-firewall', parent: link }");
+    const importers = files.filter((file) => /from '\.\/legacy-admission\.js'/.test(readRepoFile(file)));
+    expect(importers).toEqual([`${root}/kehto/session.ts`]);
+    expect(policy).toContain('`kehto/legacy-admission.ts` `admitLegacyDocument()`');
   });
 
   it('keeps released intent ownership and the host-owned NAP-SHELL prelude as positive evidence', () => {
@@ -439,7 +505,15 @@ describe('NIP-5D conformance static guards', () => {
     const csp = readRepoFile('packages/shell/src/napplet-csp.ts');
 
     expect(paja).toContain('await admitBrowserDocument({');
-    expect(paja).toContain('verifiedHtml: injectBaseHref(fetched.html, targetUrl.href)');
+    // kehto/web#447, NAP-RESOURCE PR #80 at ae5b9c64ab8a4d8909f288829a01e99d6bd713bc:
+    // a target-URL document requiring `resource` runs as a closed snapshot with
+    // no dev origin and no base URL; shared admission still refuses any frame
+    // that keeps a direct origin.
+    expect(paja).toContain('verifiedHtml: isolated ? fetched.html : injectBaseHref(fetched.html, targetUrl.href)');
+    expect(paja).toContain('remoteSources: isolated ? hostRemoteSources(config.csp) : developmentRemoteSources(targetUrl, config.csp)');
+    expect(paja).toContain('...(isolated ? {} : { baseOrigin: targetUrl.origin })');
+    expect(admission).toContain("if (direct && request.required.includes('resource')) return failed('incompatible', ['resource']);");
+    expect(readRepoFile('docs/policies/NIP-5D-CONFORMANCE.md')).toContain('### Target-URL documents that require `resource`');
     expect(paja).toContain('frame.srcdoc = srcdoc;');
     expect(admission).toContain('permissions.isAdmissionCurrent(entry.windowId, admission)');
     expect(admission).toContain('cspMeta(csp) + renderNappletNamespacePrelude({ domains,');
@@ -679,15 +753,18 @@ describe('NIP-5D conformance static guards', () => {
       'packages/runtime/README.md',
       'packages/shell/README.md',
     ] as const;
-    const exactHeads = ['5ac0490461ca6fec2f0d2e45b4835cf9bc08de24'] as const;
+    // NAP-INC master 377bf939c6c906817084b43dd21d424de646dbc2 (kehto/web#331): endpoint identifiers replace bare dTags.
+    const exactHeads = ['377bf939c6c906817084b43dd21d424de646dbc2'] as const;
 
     for (const file of docs) {
       const source = readRepoFile(file);
       for (const head of exactHeads) expect(source, `${file} must pin ${head}`).toContain(head);
+      expect(source, `${file} must not pin the superseded dTag-era INC source`).not.toContain('blob/5ac0490461ca6fec2f0d2e45b4835cf9bc08de24/naps/NAP-INC.md');
       expect(source, `${file} must retain exact stable convention identities`)
         .toMatch(/exact\s+stable\s+convention\s+topic\s+identity/i);
       expect(source, `${file} must retain opaque-topic routing`).toMatch(/opaque[\s\S]*`\?`[\s\S]*`#`/i);
-      expect(source, `${file} must describe runtime-attested dTags`).toMatch(/runtime-attested dTag/i);
+      expect(source, `${file} must describe runtime-attested endpoint identifiers`).toMatch(/runtime-attested endpoint identifier/i);
+      expect(source, `${file} must not describe dTag INC identity`).not.toMatch(/runtime-attested dTag/i);
       expect(source, `${file} must not retain the superseded INC authority`).not.toContain(
         '6461e4b37c29dc09a20dff35d9515889c4433874',
       );
@@ -710,7 +787,11 @@ describe('NIP-5D conformance static guards', () => {
     expect(shellReadme).toContain('both deliver one `IncEvent`');
 
     expect(incHandler).toContain('const subscribers = state.subscriptions.get(topic);');
-    expect(incHandler).toContain('sessionRegistry.getEntryByWindowId(windowId)?.dTag');
+    expect(incHandler).toContain('const sender = state.endpoints.idFor(windowId);');
+    expect(incHandler).toContain('const peerWindow = state.endpoints.resolve(m.target);');
+    expect(incHandler, 'INC wire identity must not come from a manifest dTag').not.toMatch(/\.dTag\b|getWindowIdByDTag/);
+    expect(readRepoFile('packages/runtime/src/inc-endpoints.ts')).toContain('hooks.crypto.randomUUID()');
+    expect(runtimeReadme).toContain('KEHTO_INC_DTAG_TARGET_RETIRED');
     expect(incHandler).toContain("type: 'inc.channel.opened'");
     expect(incHandler).not.toMatch(/topic\??\.startsWith\s*\(/);
     expect(namespace).toContain('INC subscriptions require a queryless topic identity');
@@ -731,4 +812,69 @@ it('records the retired local intent contract and the checked NAP-INTENT refs', 
   expect(policy).toContain('fc121fc264615482143eda86125863d2e1f741a2');
   expect(policy).toContain('74f9bf85ebb83b50b7b2ad8308a835d5f3113cd9');
   expect(policy).toContain('kehto/web/issues/418');
+});
+
+// kehto/web#465. NIP-5D (nostr-protocol/nips#2303 @ dskvr/nips@f60550c3):
+// "Messages with an unrecognized `type` MUST be silently ignored." Behavioural,
+// not a source grep: every reference service, the runtime (with and without
+// ACL denial) and every NAP mock is driven with types its NAP does not define.
+describe('unrecognized message types get no reply (NIP-5D)', () => {
+  const quiet = () => vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+  const BUILT_IN = ['relay', 'count', 'identity', 'keys', 'media', 'notify', 'storage', 'inc', 'theme', 'config', 'resource',
+    'cvm', 'outbox', 'upload', 'intent', 'link', 'common', 'lists', 'serial', 'ble', 'webrtc', 'dm', 'fs', 'llm', 'gamepad', 'zzunregistered'];
+
+  it('has a probe for every reference service factory', () => {
+    expect(serviceFactoryExports().sort()).toEqual(Object.keys(SERVICE_PROBES).sort());
+  });
+
+  it.each(Object.entries(SERVICE_PROBES))('%s ignores unknown types', async (_name, { domain, build }) => {
+    const warn = quiet();
+    expect(await probeService(build(), domain)).toEqual([]);
+    warn.mockRestore();
+  });
+
+  it.each([false, true])('the runtime ignores unknown types in every domain (ACL blocked: %s)', async (blocked) => {
+    const warn = quiet();
+    const registry = Object.fromEntries(Object.values(SERVICE_PROBES).map(({ domain, build }) => [domain, build()]));
+    const ctx = createMockRuntimeAdapter({ services: registry });
+    const runtime = createRuntime(ctx.hooks);
+    runtime.sessionRegistry.register(PROBE_WINDOW, createNip5dSessionEntry(PROBE_WINDOW, 'probe', 'p'.repeat(64)));
+    if (blocked) runtime.aclState.block('', 'probe', 'p'.repeat(64));
+    for (const type of BUILT_IN.flatMap(unknownTypesFor)) {
+      runtime.handleMessage(PROBE_WINDOW, { type, id: `probe-${type}`, subId: 's1', sessionId: 's1' } as NappletMessage);
+    }
+    await settle();
+    expect(ctx.sent).toEqual([]);
+    runtime.destroy();
+    warn.mockRestore();
+  });
+
+  it('the shared ACL/firewall denial projection drops unknown types but keeps known ones', () => {
+    for (const type of BUILT_IN.flatMap(unknownTypesFor)) {
+      expect(createDenialResponse({ type, id: 'probe', subId: 's1' } as NappletMessage, 'firewall: blocked')).toBeNull();
+    }
+    // Defined requests keep a reply, and it is a type their NAP defines, never
+    // an invented `<type>.error` (the ungated domains: kehto/web#494). A denied
+    // `config.get` is silent on purpose: NAP-CONFIG gives `config.values` no
+    // failure shape (kehto/web#481), so it is not in this list.
+    for (const type of ['serial.open', 'ble.read', 'common.encodeNip19', 'lists.add', 'webrtc.open', 'link.open',
+      'gamepad.subscribe', 'keys.registerAction', 'config.registerSchema', 'notify.send', 'storage.get']) {
+      const reply = createDenialResponse({ type, id: 'probe' } as NappletMessage, 'firewall: blocked');
+      expect(reply, type).not.toBeNull();
+      expect(reply?.type, type).not.toMatch(/\.error$/);
+    }
+  });
+
+  it('every NAP mock ignores unknown types', async () => {
+    const env = createMockNapEnvironment();
+    const sent: NappletMessage[] = [];
+    for (const [domain, service] of Object.entries(env.services)) {
+      for (const type of unknownTypesFor(domain)) {
+        service.handleMessage(PROBE_WINDOW, { type, id: `probe-${type}` } as NappletMessage, (message) => sent.push(message));
+      }
+    }
+    await settle();
+    expect(env.serviceDomains.length).toBeGreaterThan(20);
+    expect(sent).toEqual([]);
+  });
 });

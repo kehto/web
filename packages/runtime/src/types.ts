@@ -663,8 +663,10 @@ export interface RuntimeAdapter {
 
   /**
    * Optional service extensions. Shell/host registers service handlers here
-   * for static initialization. Services can also be added dynamically via
-   * runtime.registerService(). Keys select exact domains (e.g., 'notify').
+   * for static initialization. The runtime copies this object once at
+   * creation; a handler added to it later is not routed. Add or remove
+   * services afterwards with runtime.registerService() and
+   * runtime.unregisterService(). Keys select exact domains (e.g., 'notify').
    * Outside built-in domains, handlers also need messageCapabilities and an
    * explicit isDomainAllowed grant. Hosts own each extension's NAP contract,
    * payload validation, and pre-execution browser namespace binding.

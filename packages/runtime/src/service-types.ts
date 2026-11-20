@@ -160,7 +160,10 @@ export interface ServiceHandler {
   ): void;
   /**
    * Called when a napplet window is destroyed. Services should clean up
-   * any state associated with the window.
+   * any state associated with the window. `Runtime` calls this at most once
+   * per session registration, whichever teardown path retires it; a later
+   * registration of the same windowId gets its own call. A handler without
+   * `onPermissionRevoked` also receives this as its revocation fallback.
    *
    * @param windowId - The destroyed napplet's window identifier
    */

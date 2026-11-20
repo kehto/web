@@ -55,6 +55,11 @@ const GROUPS = {
     'tests/e2e/paja-relay.spec.ts',
     'tests/e2e/paja-storage.spec.ts',
   ],
+  conformance: [
+    'tests/e2e/conformance-mutations.spec.ts',
+    'tests/e2e/conformance-ui.spec.ts',
+    'tests/e2e/conformance.spec.ts',
+  ],
   cvm: [
     'tests/e2e/paja-cvm.spec.ts',
   ],
@@ -101,6 +106,7 @@ const GROUPS = {
 };
 
 const SERVICE_GROUPS = [
+  'conformance',
   'cvm',
   'identity',
   'inc',
@@ -155,7 +161,16 @@ function selectionForFile(file) {
     return { specs: [], reason: `${file}: release metadata has no browser runtime effect` };
   }
 
-  if (/^packages\/(?:paja|cli)\//.test(file)) {
+  // Before the domain tokens: conformance sources mention every domain name.
+  if (file.startsWith('packages/conformance/') || file.startsWith('apps/conformance/')) {
+    return { specs: GROUPS.conformance, reason: `${file}: conformance suite surface` };
+  }
+
+  if (file.startsWith('packages/cli/')) {
+    return { specs: uniq([...GROUPS.paja, ...GROUPS.conformance]), reason: `${file}: kehto CLI surface (paja, conformance)` };
+  }
+
+  if (file.startsWith('packages/paja/')) {
     return { specs: GROUPS.paja, reason: `${file}: paja runtime surface` };
   }
 

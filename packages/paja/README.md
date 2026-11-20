@@ -67,6 +67,32 @@ Any dev server works as long as it answers `Origin: null` with
 and logs a `paja.target.cors.error` entry in the message log, plus a console
 warning, when the target would block the sandboxed frame.
 
+## Targets that require `resource`
+
+[NAP-RESOURCE](https://github.com/napplet/naps/blob/ae5b9c64ab8a4d8909f288829a01e99d6bd713bc/naps/NAP-RESOURCE.md)
+exposes `window.napplet.resource` only to a frame the browser denies all direct
+network: fetch, XHR, WebSocket, EventSource, beacon, and external subresource
+loads. A live dev-server frame loads its scripts and HMR socket from the dev
+origin, so the two cannot be combined.
+
+When the target's `index.html` lists `resource` under `napplet-requires`, Paja
+loads it as a **network-isolated snapshot**: the Paja server fetches the
+document, and the frame runs those bytes under the same closed CSP as a local
+single-file target. Nothing is requested from the dev server by the frame, there
+is no `<base>` URL, and there is no hot reload; reload Paja after a rebuild.
+Inline scripts and styles and `data:` assets work. Anything referenced by URL
+does not, so serve a self-contained single-file build.
+
+Paja says so up front. The CLI prints a `Target network: isolated snapshot`
+notice with the references that will not load, `GET /__kehto/target-network.json`
+returns the same plan, and the browser host logs `paja.target.network.isolated`
+in the message log and warns on the console. `planTargetNetwork` and
+`findExternalAssetReferences` are exported for reuse.
+
+To keep live dev-server loading, declare `resource` under `napplet-optional`. The
+frame then loads live without `window.napplet.resource`, and Paja logs
+`paja.target.resource.omitted`.
+
 Every drawer section is a flush, independent native accordion: **Pointer** (in
 runtime-pointer mode), **Interfaces**, **ACL**, **Signer**, **Resource servers**,
 **Language models**, **Messages**, then **Events** last. Headers support Enter/Space, visible keyboard focus and
@@ -79,7 +105,13 @@ usable; collapsing never reloads the running app or discards unsaved drafts.
 The console shows supported interfaces with per-domain injection toggles
 (green when ready, yellow `⚠` when advertised but unconfigured, red when disabled),
 runtime ACL controls, Firewall permissions, signer controls, and a filterable message log with visible
-error details. It starts expanded and collapses to the left with the chevron
+error details. The log
+highlights every shell reply that failed: a `*.error`, a result with `error` or
+`ok: false`, or a `*.closed` with a `reason`. A refusal (`policy denied`,
+`policy-denied`, `publish denied`, `denied: <capability>`) is badged `denied`.
+Everything else, such as `relay list unavailable`, `relay timeout`, or
+`count-unavailable`, is badged `failed, not a denial`, so a relay outage is never
+shown as a firewall block. It starts expanded and collapses to the left with the chevron
 button in the top bar; the same button brings the whole panel back. The toolbar
 stays onscreen after restoring a saved collapsed preference, including when no
 runtime tab is open. Paja allows every interface and operation by default and asks before each `link.open`; the Firewall panel edits those default rules for every napplet or one. Firewall approval prompts stay visible outside the sidebar, so new napplets can
@@ -99,10 +131,11 @@ again. Only the method is stored, never credentials, keys, URIs, or approvals.
 Invalid or unreadable storage defaults to None; failed writes still allow selection
 for the current session. An unavailable extension stays selected with an error,
 without falling back to another signer. Fixed simulation identity is independent of
-signing authority. Known NAP-IDENTITY gap: signer changes currently re-initialize
-the hosted frame rather than delivering `identity.changed` to the existing frame;
-the new frame reads the updated identity. The browser suite keeps that push gap
-explicitly skipped. Sign, publish, DM
+signing authority. A signer change keeps loaded napplets running and pushes
+NAP-IDENTITY `identity.changed` (`pubkey: ""` on disconnect). Paja reloads the
+active frame only when the change adds a signer-dependent domain (`webrtc`,
+`dm`, `upload`) that the napplet declared, or removes one it was admitted. NIP-5D
+needs a fresh injection for that. Sign, publish, DM
 send, filesystem picker, Blossom upload, and external-link requests use one serialized in-page
 confirmation dialog. Deny has initial focus and Escape denies. A napplet-scoped
 serial or BLE chooser receives runtime approval first; Paja then keeps the
@@ -149,13 +182,16 @@ and is not added to Paja's in-memory relay view. Paja's scoped-relay hook
 likewise waits for the backend result and returns `false` after denial or
 transport failure.
 
-WebRTC is advertised only when the host has the browser WebRTC API, a live
-relay boundary, and a connected signer with NIP-44 support. Paja owns the
+By default, WebRTC needs the browser WebRTC API, live relays, and a connected
+NIP-44 signer. An explicitly configured multiplayer profile instead uses an
+isolated temporary key shared with that window’s CVM transport. Paja owns the
 `RTCPeerConnection` and data channels, uses signed kind-25050 Nostr events for
 encrypted offer/answer signaling, and asks for explicit session consent with a
 network-metadata warning. Napplets receive only NAP session/events and JSON data
 channel payloads—never SDP, ICE state, relay sockets, or peer-connection objects.
-This implementation tracks pinned
+Connecting or disconnecting a signer updates the runtime's service registration
+before the replacement iframe loads, so an advertised WebRTC domain can answer requests.
+The default signaling implementation tracks pinned
 [NAP-WEBRTC `5fae95dd2c8e59bd06c654e0845656add077dcda`](https://github.com/napplet/naps/blob/5fae95dd2c8e59bd06c654e0845656add077dcda/naps/NAP-WEBRTC.md)
 and the kind/tag conventions in
 [NIP-100 PR #363 at `ead1cd6`](https://github.com/nostr-protocol/nips/pull/363).
@@ -193,7 +229,7 @@ The focused host regression runs in Chromium and Firefox after `pnpm build`:
 `pnpm exec playwright test --config playwright.paja-fs.config.ts`.
 
 **Language models** configures draft [NAP-LLM](https://github.com/napplet/naps/pull/134)
-connections: pick a provider preset (OpenAI, Anthropic, Google Gemini, OpenRouter,
+connections: pick a provider preset (OpenAI over Chat Completions or the Responses API, Anthropic, Google Gemini, OpenRouter,
 Groq, Mistral, DeepSeek, xAI, Together, Fireworks, Perplexity, Azure OpenAI, or local
 Ollama, LM Studio, llama.cpp and vLLM servers), enter the model and an optional API
 key, tick the capabilities the model supports (images, JSON output, and **Tool calling** with optional **Required tool choice** and **Named tool choice**) and choose whether to remember the key. Remembered keys are encrypted with
@@ -254,7 +290,7 @@ outside this behavior.
 [NAP-IDENTITY at `6461e4b37c29dc09a20dff35d9515889c4433874`](https://github.com/napplet/naps/blob/6461e4b37c29dc09a20dff35d9515889c4433874/naps/NAP-IDENTITY.md)
 is byte-identical to the recorded `napplet/naps` master document for this phase.
 Pinned [NAP-OUTBOX at `4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e`](https://github.com/napplet/naps/blob/4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e/naps/NAP-OUTBOX.md)
-together with the installed `@napplet/nap` NAP-OUTBOX types (0.40.0 for host packages) is the PoC contract because
+together with the installed `@napplet/nap` NAP-OUTBOX types (0.41.0 for host packages) is the PoC contract because
 current master has no NAP-OUTBOX path. Paja therefore makes no current-master
 OUTBOX conformance claim. Blossom upload behavior targets pinned
 [NAP-UPLOAD at `a7cc17463cbf5d9cb87884b31071bc4fc826034c`](https://github.com/napplet/naps/blob/a7cc17463cbf5d9cb87884b31071bc4fc826034c/naps/NAP-UPLOAD.md).
@@ -375,10 +411,13 @@ Unsigned development HTML can request interfaces with space-separated
 approval; they do not grant it. Paja binds each development grant to the exact
 target URL and fetched HTML hash, so editing the document requires a new
 approval. A live dev server uses directive-specific browser source approval
-for its script, style, image, font, worker, media, and connection sources. Its
-frame cannot receive `resource`; declare `resource` only for a self-contained
-local HTML file with no remote sources. When no development declarations exist,
-Paja offers available interfaces as optional for the current session.
+for its script, style, image, font, worker, media, and connection sources. That
+live frame cannot receive `resource`: NAP-RESOURCE allows it only in a frame with
+no direct network. A target that lists `resource` under `napplet-requires` is
+loaded as a network-isolated snapshot instead (see
+[Targets that require `resource`](#targets-that-require-resource)). When no
+development declarations exist, Paja offers available interfaces as optional for
+the current session.
 
 Hosts can pass `csp` to `createPajaRuntimeHostConfig`:
 
@@ -406,6 +445,16 @@ The Paja host page carries `Content-Security-Policy: frame-src 'none'` in its
 cannot navigate its frame away from the verified `srcdoc` at any time,
 including before its first `load`, which NIP-5D's replacement evidence cannot
 observe. Paja refuses to load a napplet into a frame whose host page lacks it.
+
+The host page also carries `<meta name="referrer" content="no-referrer">` and
+`<base href="./">`, and every napplet frame gets `referrerpolicy="no-referrer"`
+(`@kehto/shell`'s `renderNappletReferrerPolicyMeta()`, `renderNappletHostBase()`
+and `denyNappletReferrer()`), so a napplet reads neither Paja's URL from
+`document.referrer` nor its query (opened pointers, intent links) from
+`document.baseURI`. When the experimental nested-context lock resolves on, Paja
+also applies the resource-hint lock and refuses static `dns-prefetch`,
+`preconnect` and `prerender` links. See the
+[NIP-5D conformance policy](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#embedding-url).
 
 Environment simulation can be supplied through CLI flags or a JSON config file:
 
@@ -571,11 +620,15 @@ shell user's BUD-03 list through the same approval-bound relay path, then uses
 the current window's verified pointer-manifest servers, followed by upload-runtime
 fallbacks and saved extra resource servers. Every bootstrap and author relay is
 authorized as its exact `ws:`/`wss:` destination before its socket opens. The
-host refreshes signer-derived bootstrap URLs only at signer initialization or a
-signer lifecycle change; a resource request reads that bounded host cache and
-never calls an external signer's `getRelays()` hook, because that hook can
-perform opaque extension work before an origin exists to approve. If refreshing
-the cache fails, configured host bootstrap relays remain available. The user-list
+host uses only configured discovery/super relays for bootstrap discovery,
+including contact-list and followed-author warming. Paja neither reads nor calls
+the obsolete NIP-07 `getRelays()` extension property, including during signer
+initialization and account changes; there is no signer-bootstrap cache.
+The retained NAP `identity.getRelays` operation returns an empty relay map for
+unsupported external-user metadata, not host URLs presented as user NIP-65
+preferences. This follows [current NIP-07](https://github.com/nostr-protocol/nips/blob/master/07.md)
+(checked 2026-11-12) and [NAP-IDENTITY at `43cb3a4`](https://github.com/napplet/naps/blob/43cb3a4e855570ec4b90b9cc05f0c721e5ad0aab/naps/NAP-IDENTITY.md),
+which permits empty unsupported results. The user-list
 lookup works independently of upload mode; an upload runtime may reuse the same
 servers when present. ROM-specific event and publisher locations retain
 priority over the user/runtime fallbacks. URI length is capped at 8192 characters;
@@ -704,7 +757,7 @@ This non-normative guidance defers to [NAP-GAMEPAD at `napplet/naps@19de5ce1`](h
 
 ## LLM integration
 
-This non-normative guidance defers to the living [NAP-LLM](https://github.com/napplet/naps/pull/134) (checked at `5e93bdf`). Services export `createLlmService`, `LlmServiceError`, the provider mappers and `LLM_PROVIDER_PRESETS`; shell exports `getShellDomainState` and the `LlmHooks` adapter field; acl exports `llm:generate`. The runtime routes `llm.*` to one registered service and answers every sanctioned request with exactly one `llm.<op>.result`, shaping missing-service and ACL failures as `{ code: 'unsupported' }`. Hosts implement `LlmConnectionHost`; the service enforces schema, handle ownership, a per-window live-handle bound (`maxHandlesPerWindow`), consent before submission, duplicate ids, cancellation and deadline races, ordered deltas and safe errors, and passes `select`/`authorize` a `{ signal }` that withdraws stale prompts. `createHttpLlmProvider({ stream: true })` streams provider output into `llm.delta` as block start/delta/end events. Results carry `content` parts (text, thinking and tool calls); tool calls and results are validated and relayed, and Kehto never executes one. Advertisement stays binary on the wire while hosts report a third `unconfigured` state until the user adds a connection. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
+This non-normative guidance defers to the living [NAP-LLM](https://github.com/napplet/naps/pull/134) (checked at `5e93bdf`). Services export `createLlmService`, `LlmServiceError`, the provider mappers (OpenAI Chat Completions, OpenAI Responses, Anthropic Messages and Gemini `generateContent` dialects) and `LLM_PROVIDER_PRESETS`; shell exports `getShellDomainState` and the `LlmHooks` adapter field; acl exports `llm:generate`. The runtime routes `llm.*` to one registered service and answers every sanctioned request with exactly one `llm.<op>.result`, shaping missing-service and ACL failures as `{ code: 'unsupported' }`. Hosts implement `LlmConnectionHost`; the service enforces schema, handle ownership, a per-window live-handle bound (`maxHandlesPerWindow`), consent before submission, duplicate ids, cancellation and deadline races, ordered deltas and safe errors, and passes `select`/`authorize` a `{ signal }` that withdraws stale prompts. `createHttpLlmProvider({ stream: true })` streams provider output into `llm.delta` as block start/delta/end events. Results carry `content` parts (text, thinking and tool calls); tool calls and results are validated and relayed, and Kehto never executes one. Advertisement stays binary on the wire while hosts report a third `unconfigured` state until the user adds a connection. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
 
 ## NIP-5D runtime pointers
 
@@ -723,7 +776,33 @@ offline, the relays are blocked, or the browser reached its WebSocket connection
 limit (for example many open tabs each holding relay connections). Paja logs a
 `paja.relay.unreachable` entry with the per-relay detail. A deadline expiry with
 at least one live relay keeps the timeout message and now states how many relays
-connected. Pools without `ensureRelay` keep the previous messages.
+connected. Pools without `ensureRelay` keep the previous timeout and relay
+query failure messages.
+
+### Pointer not found
+
+Relays fail now and then; one down relay does not turn a clean miss into a
+failure. When at least one relay answered `EOSE` without the manifest, the
+resolver throws `PajaPointerNotFoundError` (`code: 'pointer-not-found'`, with
+`answered`, `failed`, and the queried `relays`), and the status reads
+`Napplet manifest not found (4 answered, 1 failed): …` followed by the relays
+that could not be asked. Paja logs `paja.pointer.not-found` with the counts. The
+no-connection message and its WebSocket-limit hint stay reserved for zero
+opened sockets, and a query no relay answered (every relay failed or sent
+`CLOSED`) stays a relay query failure.
+
+A `nevent` pins one event. When it names an addressable napplet (`35129`, with
+`author` and `kind`) whose event is gone, the author has most likely republished
+it and relays replaced the old event. A `nevent` carries no `d` tag, so Paja
+cannot tell which coordinate it belonged to. `findPajaPointerReplacements` asks
+the relays that answered for the author's current `35129` manifests and lists
+each `d` tag (up to 50). One candidate shows as an **Open …** button; several
+show as a picker with nothing preselected, because Paja picks none. Nothing is fetched from Blossom, verified, installed, or framed until the
+user clicks one. The click starts an ordinary `naddr` load, so the manifest
+signature, artifact hash, `(dTag, artifactHash)` identity, and version consent
+all run again for the new bytes. Paja never swaps bytes under the old
+verified identity. Replaceable root (`15129`) nevents are not offered a
+replacement yet.
 
 ## Controller diagnostics
 
@@ -743,3 +822,19 @@ Paja explicitly installs operation and prompt limiters from `@kehto/rate-limit`
 in `createPajaPermissionAdapter`. These are Paja host choices; runtime and Firewall
 do not impose them on other hosts. Limiter configuration and counters are separate
 from approval grants.
+
+### Configurable multiplayer providers
+
+The **Multiplayer providers** sidebar accepts explicit JSON settings, also available
+as `simulation.multiplayer` in a Paja config file. Select `soy-rtc/1`, signaling
+relays, and CVM families with pinned tool schemas. Optional static STUN/TURN
+settings receive separate endpoint approval. No provider is selected from an app
+URL. See [configuration and interoperability](/paja-multiplayer).
+
+The same sidebar discovers CVM tool inventories from a `nevent`, a CEP-15 tool
+schema hash, or an HTTPS website's `/.well-known/napplet.json`. Choose a provider,
+local family label, and tools; generated JSON is read-only and shows its source.
+Manual JSON remains editable. Saved families persist per host origin and coexist
+in the registry, including without a multiplayer signaling profile. Saves and
+removals reload the host. ContextVM doesn't define named-family manifests or
+`naddr` discovery; labels and membership are local choices.

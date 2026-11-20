@@ -28,6 +28,7 @@ import type {
   CommonReportMessage,
   CommonUnfollowMessage,
 } from '@napplet/nap/common/types';
+import { createUnrecognizedTypeDiagnostic } from '@kehto/runtime';
 import type { ApprovalSignal, ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
 import {
   decode,
@@ -235,6 +236,7 @@ function requestId(message: NappletMessage): string {
  */
 // aislop-ignore-next-line function-too-long -- Approval planning, source generations, and canonical COMMON terminals form one service boundary.
 export function createCommonService(options: CommonServiceOptions = {}): ServiceHandler {
+  const ignoreUnrecognized = createUnrecognizedTypeDiagnostic();
   const generations = new Map<string, symbol>();
   let runtime: ServiceRuntimeContext | undefined;
   let warnedLegacy = false;
@@ -327,7 +329,8 @@ export function createCommonService(options: CommonServiceOptions = {}): Service
         const resource = request.target.type === 'event' ? request.target.id : request.target.pubkey;
         settleAuthorized(windowId, generation, 'report', request.target, [resource], (approved) => options.report!(request.target, request.reason, request.text, approved), send, (error) => ({ type: 'common.report.result', id, ok: false, error } as NappletMessage), (result) => ({ type: 'common.report.result', id, ...result } as NappletMessage)); return;
       }
-      send({ type: `${message.type}.error`, id, error: `Unknown common method: ${message.type}` } as NappletMessage);
+      // NIP-5D (nips#2303 @ f60550c3): unrecognized types get no reply.
+      ignoreUnrecognized('common', message.type);
     },
     onWindowDestroyed(windowId): void { generations.delete(windowId); },
     onPermissionRevoked(windowId): void { generations.delete(windowId); },

@@ -1,5 +1,15 @@
 # @kehto/shell
 
+## 0.35.0
+
+### Minor Changes
+
+- e989352: Expose CVM registry selectors in the injected namespace and allow hosts to configure provider families pinned to CEP-15 tool hashes. Verify live schemas before selecting or calling a provider and bound operations by their requested deadlines. Existing string-family API calls translate to canonical selectors with one migration warning per iframe.
+
+### Patch Changes
+
+- @kehto/runtime@0.30.1
+
 ## 0.34.0
 
 ### Minor Changes

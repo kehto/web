@@ -31,6 +31,22 @@ export function developmentRemoteSources(
   const websocket = new URL(targetUrl.href);
   websocket.protocol = targetUrl.protocol === 'https:' ? 'wss:' : 'ws:';
   sources.push({ directive: 'connect-src', origin: websocket.origin });
+  sources.push(...hostRemoteSources(csp));
+  return sources;
+}
+
+/**
+ * Direct browser origins the host configured itself, without any dev origin.
+ * A network-isolated development snapshot passes only these to admission, so an
+ * explicit host grant still makes a `resource` requirement incompatible instead
+ * of being dropped silently.
+ *
+ * @param csp - Host CSP options from the Paja config.
+ * @returns Directive/origin pairs in configuration order.
+ * @example hostRemoteSources({ connectOrigins: ['https://api.example'] });
+ */
+export function hostRemoteSources(csp?: NappletCspOptions): BrowserRemoteSource[] {
+  const sources: BrowserRemoteSource[] = [];
   for (const origin of csp?.connectOrigins ?? []) sources.push({ directive: 'connect-src', origin });
   for (const [directive, origins] of Object.entries(csp?.directives ?? {})) {
     if (!DEVELOPMENT_DIRECTIVES.includes(directive as BrowserRemoteSource['directive'])) {

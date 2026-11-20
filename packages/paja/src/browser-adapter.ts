@@ -65,6 +65,8 @@ import { createPajaCommonBackend } from './browser-common.js';
 import { createPajaListsBackend } from './browser-lists.js';
 import { createPajaResourceFetch, pajaResourceInfo } from './browser-resource.js';
 import { createPajaWebrtcController } from './browser-webrtc.js';
+import { createPajaMultiplayerServices, PAJA_CVM_OPERATIONS } from './browser-multiplayer-services.js';
+import { mergeCvmFamilies, readCvmFamilies } from './cvm-family-store.js';
 import { confirmPajaExternalLink } from './browser-link.js';
 import { createPajaBrowserFsBackend } from './browser-fs.js';
 import {
@@ -83,7 +85,6 @@ import {
   PAJA_LIVE_QUERY_WAIT_MS,
   createPajaContactListLoader,
   createPajaRelayBackend,
-  getPajaBootstrapRelayUrls,
   type PajaRelayBackend,
 } from './browser-relay-runtime.js';
 import { createPajaWorkerRelay } from './browser-worker-relay.js';
@@ -114,7 +115,6 @@ function getConnectedAccountPubkey(signerProvider?: PajaSignerProvider): string 
 interface PajaServiceBundle {
   readonly services: Record<string, ServiceHandler>;
   refreshAvailability(): boolean;
-  refreshSignerBootstrapRelays(): void;
   setWindowBlossomServers(windowId: string, servers: readonly string[]): void;
 }
 
@@ -158,26 +158,6 @@ function createDevServices(
   const getReadRelays = () => relayConfig.getRelayUrls(['discovery', 'super']);
   const getWriteRelays = () => relayConfig.getRelayUrls(['outbox']);
   const getAllRelays = () => relayConfig.getRelayUrls();
-  const signerBootstrapRelays: string[] = [];
-  let signerBootstrapGeneration = 0;
-  const refreshSignerBootstrapRelays = (): void => {
-    const generation = ++signerBootstrapGeneration;
-    signerBootstrapRelays.splice(0);
-    const signer = signerProvider?.getSigner();
-    if (!signer?.getRelays) return;
-    // This runs from host initialization and signer lifecycle changes, never a
-    // resource request. A signer extension may implement getRelays using an
-    // opaque bridge, so discovery can only consume the cached URL strings.
-    void Promise.resolve().then(() => signer.getRelays!()).then((relays) => {
-      if (generation !== signerBootstrapGeneration || !relays || typeof relays !== 'object') return;
-      for (const [url, permissions] of Object.entries(relays)) {
-        if (permissions?.read && typeof url === 'string') signerBootstrapRelays.push(url);
-      }
-    }).catch(() => {
-      // Host relay configuration remains the safe bootstrap fallback.
-    });
-  };
-  refreshSignerBootstrapRelays();
   const baseOutboxRouter = createOutboxRouter(backend, getSimulation, relayConfig, confirmRequest, signerProvider);
   const queryApprovedResourceRelays = async (
     relayUrls: readonly string[],
@@ -200,14 +180,7 @@ function createDevServices(
     context: { readonly signal: AbortSignal; readonly authorizeNetwork: AuthorizeNetwork },
   ) => {
     const relayListEvents = await queryApprovedResourceRelays(
-      // Resource requests never call an external signer's getRelays hook. The
-      // host refreshes signerBootstrapRelays on lifecycle changes, so each URL
-      // below is already concrete and can be approved before opening a socket.
-      await getPajaBootstrapRelayUrls(
-        getSimulation,
-        undefined,
-        () => [...getReadRelays(), ...signerBootstrapRelays],
-      ),
+      getReadRelays(),
       [{ kinds: [10_002], authors: [pubkey], limit: 2 }],
       context,
     );
@@ -239,7 +212,7 @@ function createDevServices(
   });
   const socialCache = createPajaSocialCache({
     baseRouter: baseOutboxRouter,
-    loadContactList: createPajaContactListLoader(backend, getSimulation, signerProvider, getReadRelays),
+    loadContactList: createPajaContactListLoader(backend, getSimulation, getReadRelays),
     verifyEvent: (event) => verifyEvent(event as Parameters<typeof verifyEvent>[0]),
     // Background warming is speculative relay traffic, so it only runs for a
     // signer account. `getFollows` still answers on demand for any requested
@@ -385,7 +358,9 @@ function createDevServices(
           identitySigner = connectedSigner && signerProvider
             ? {
                 getPublicKey: () => signerProvider.getSigner()?.getPublicKey?.() ?? '',
-                getRelays: () => signerProvider.getSigner()?.getRelays?.() ?? {},
+                // NAP-IDENTITY permits empty unsupported metadata results.
+                // Host bootstrap URLs are not the user's NIP-65 preferences.
+                getRelays: () => ({}),
               }
             : createRuntimeSigner(getSimulation, confirmRequest, signerProvider);
           identitySignerKey = key;
@@ -405,9 +380,19 @@ function createDevServices(
   }
   if (getSimulation().capabilities.domains.theme) services.theme = theme.handler;
   if (getSimulation().capabilities.domains.config && config) services.config = config.handler;
+  const multiplayerConfig = getSimulation().multiplayer;
+  const registry = mergeCvmFamilies(multiplayerConfig?.registry ?? [], readCvmFamilies());
+  const multiplayer = multiplayerConfig && getSimulation().relay.mode === 'live' && backend.isAvailable()
+    ? createPajaMultiplayerServices({ config: { ...multiplayerConfig, registry }, scopeKey,
+      concurrency: getSimulation().cvm.concurrency,
+      namespace: windowId => getIdentity?.(windowId).signalingNamespace,
+      backend: (windowId, isCurrent) => scopeFor(windowId, isCurrent).backend,
+    }) : null;
   if (getSimulation().cvm.enabled && getSimulation().relay.mode === 'live' && backend.isAvailable()) {
     const cvm = (relay: PajaRelayBackend) => {
       const service = createCvmService({
+        registry,
+        concurrency: getSimulation().cvm.concurrency,
         transport: createNostrCvmTransport({
           defaultRelays: relayConfig.allRelays, pool: createPajaCvmRelayPool(relay),
           clientInfo: { name: '@kehto/paja', version: '0.11.0' },
@@ -415,7 +400,7 @@ function createDevServices(
       });
       return { ...service, onUnregistered: () => service.dispose() };
     };
-    services.cvm = scopePajaService(cvm(backend), ['cvm.request', 'cvm.close'], (windowId, isCurrent) => cvm(scopeFor(windowId, isCurrent).backend), scopeKey);
+    services.cvm = multiplayer?.cvm ?? scopePajaService(cvm(backend), PAJA_CVM_OPERATIONS, (windowId, isCurrent) => cvm(scopeFor(windowId, isCurrent).backend), scopeKey);
   }
   if (uploadRuntime) {
     services.upload = createUploadService({
@@ -454,7 +439,7 @@ function createDevServices(
     const controller = userActivation ? createBrowserBleController(userActivation) : null;
     if (controller) services.ble = createBleService(controller);
   }
-  const webrtcController = getSimulation().relay.mode === 'live' && backend.isAvailable()
+  const webrtcController = !multiplayer && getSimulation().relay.mode === 'live' && backend.isAvailable()
     ? createPajaWebrtcController({
       relay: {
         subscribe(relayUrls, filters, onEvent) {
@@ -472,7 +457,7 @@ function createDevServices(
       signalingRelayUrls: () => [...getAllRelays()],
     })
     : null;
-  const webrtcService = webrtcController ? createWebrtcService(webrtcController.serviceOptions) : null;
+  const webrtcService = multiplayer?.webrtc ?? (webrtcController ? createWebrtcService(webrtcController.serviceOptions) : null);
   let dmService: DmService | null = null;
 
   function setDmAvailability(enabled: boolean): boolean {
@@ -493,7 +478,7 @@ function createDevServices(
     const webrtcEnabled = getSimulation().capabilities.domains.webrtc
       && getSimulation().relay.mode === 'live'
       && backend.isAvailable()
-      && webrtcController?.refreshAvailability() === true;
+      && (multiplayer ? typeof RTCPeerConnection === 'function' : webrtcController?.refreshAvailability() === true);
     if (webrtcEnabled && webrtcService) services.webrtc = webrtcService;
     else delete services.webrtc;
     const dmChanged = setDmAvailability(
@@ -509,7 +494,6 @@ function createDevServices(
   return {
     services,
     refreshAvailability,
-    refreshSignerBootstrapRelays,
     setWindowBlossomServers: blossomEventResolver.setWindowServers,
   };
 }
@@ -626,7 +610,6 @@ export function createPajaAdapter(
     if (getSimulation().capabilities.domains.fs) queueMicrotask(() => onEnvironmentChanged?.());
   });
   signerProvider?.subscribe?.(() => {
-    serviceBundle.refreshSignerBootstrapRelays();
     const availabilityChanged = serviceBundle.refreshAvailability();
     if (uploadRuntime) {
       void uploadRuntime.refreshIdentity().finally(() => onEnvironmentChanged?.());

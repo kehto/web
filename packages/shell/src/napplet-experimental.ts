@@ -33,4 +33,22 @@ export interface NappletExperimentalOptions {
    * @see docs/policies/NIP-5D-CONFORMANCE.md — "Nested browsing contexts"
    */
   readonly nestedContextLock?: boolean;
+  /**
+   * Lock CSP-exempt resource hints in the napplet realm. Browsers act on
+   * `<link rel="dns-prefetch">`, `preconnect` and `prerender` outside the
+   * napplet CSP (measured: Chromium sends a prerender GET and resolves and
+   * connects for the other two; Firefox resolves dns-prefetch; WebKit connects
+   * for preconnect), so a napplet can push data into a URL or host name. The
+   * shared Trusted Types `default` policy and pinned `rel` / `relList` /
+   * attribute writers reject those relations before any napplet script runs,
+   * and the host rejects static hint markup before load
+   * (`assertNappletHasNoResourceHint`). Also removes `XSLTProcessor`.
+   *
+   * Opinionated and off by default: it adds the same Trusted Types directives as
+   * {@link NappletExperimentalOptions.nestedContextLock}, with the same
+   * framework cost, and refuses napplets whose own markup carries a hint.
+   *
+   * @see docs/policies/NIP-5D-CONFORMANCE.md — "Resource hints"
+   */
+  readonly resourceHintLock?: boolean;
 }

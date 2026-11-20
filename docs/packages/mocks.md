@@ -1,7 +1,8 @@
 # @kehto/mocks
 
 Deterministic, in-memory mock services for every napplet NAP domain — merged
-and draft alike — so a shell has data to work with while implementing a NAP,
+and draft alike, except the few new drafts listed in
+`scripts/deferred-naps.json` — so a shell has data to work with while implementing a NAP,
 without a real relay, device, downloader, wallet, or language-model provider.
 
 > **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
@@ -30,8 +31,8 @@ pnpm add -D @kehto/mocks
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.32.0 <0.42.0` |
-| `@napplet/nap` | `>=0.32.0 <0.41.0` |
+| `@napplet/core` | `>=0.42.0 <0.43.0` |
+| `@napplet/nap` | `>=0.32.0 <0.42.0` |
 
 Workspace dependencies: `@kehto/runtime` (ServiceHandler contract) and
 `@kehto/acl` (capability names).
@@ -97,16 +98,15 @@ Kinds: `service` is routed by the runtime's built-in dispatcher to
 | `gamepad` | NAP-GAMEPAD | draft | PR #130 @ `0b28f77e` | service | 2 routes |
 | `git` | NAP-GIT | draft | PR #137 @ `a73bf8de` | extension | 10 routes |
 | `hashtree` | NAP-HASHTREE | draft | PR #73 @ `67997706` | extension | 17 routes |
-| `identity` | NAP-IDENTITY | merged | master @ `43cb3a4e` | service | 9 routes |
-| `inc` | NAP-INC | merged | master @ `43cb3a4e` | runtime-owned | The runtime routes inc.* topics and channels itself (packages/runtime/src/inc-handler.ts) and attests sender/peer from authenticated endpoints. Mocks cannot and must not fabricate INC deliveries; shells get INC for free from the runtime. MOCK_INC_TOPICS supplies topic strings for tests. |
-| `intent` | NAP-INTENT | merged | master @ `43cb3a4e` | service | 3 routes |
+| `identity` | NAP-IDENTITY | merged | master @ `377bf939` | service | 9 routes |
+| `inc` | NAP-INC | merged | master @ `377bf939` | runtime-owned | The runtime routes inc.* topics and channels itself (packages/runtime/src/inc-handler.ts) and attests sender/peer from authenticated endpoints. Mocks cannot and must not fabricate INC deliveries; shells get INC for free from the runtime. MOCK_INC_TOPICS supplies topic strings for tests. |
+| `intent` | NAP-INTENT | merged | master @ `377bf939` | service | 3 routes |
 | `keys` | NAP-KEYS | draft | PR #9 @ `8869a4cf` | service | 3 routes |
-| `link` | NAP-LINK | draft | PR #53 @ `50a2cd45` | service | 1 route |
+| `link` | NAP-LINK | draft | PR #53 @ `100e5c93` | service | 1 route |
 | `lists` | NAP-LISTS | draft | PR #68 @ `7cf00cdb` | service | 3 routes |
-| `llm` | NAP-LLM | draft | PR #134 @ `3e10939c` | service | 4 routes |
+| `llm` | NAP-LLM | draft | PR #134 @ `5e93bdfc` | service | 4 routes |
 | `location` | NAP-LOCATION | draft | PR #125 @ `24d2039c` | extension | 4 routes |
 | `media` | NAP-MEDIA | draft | PR #10 @ `7806f438` | service | 6 routes |
-| `mesh` | NAP-MESH | draft | PR #122 @ `bf9a4722` | extension | 5 routes |
 | `motion` | NAP-MOTION | draft | PR #124 @ `3069a945` | extension | 3 routes |
 | `navigation` | NAP-NAVIGATION | draft | PR #126 @ `9a4b179e` | extension | 2 routes |
 | `notify` | NAP-NOTIFY | draft | PR #11 @ `67877ef6` | service | 5 routes |
@@ -116,15 +116,15 @@ Kinds: `service` is routed by the runtime's built-in dispatcher to
 | `relay` | NAP-RELAY | draft | PR #2 @ `9f30b350` | service | 5 routes |
 | `resource` | NAP-RESOURCE | draft | PR #80 @ `ae5b9c64` | service | 4 routes |
 | `serial` | NAP-SERIAL | draft | PR #61 @ `0c6e88ab` | service | 3 routes |
-| `shell` | NAP-SHELL | merged | master @ `43cb3a4e` | runtime-owned | The shell package owns shell.ready/shell.init (packages/shell/src/shell-ready.ts). A mock environment only needs capabilities.domains to list every mocked domain; use mockShellEnvironmentDomains(entries) to build that list. |
+| `shell` | NAP-SHELL | merged | master @ `377bf939` | runtime-owned | The shell package owns shell.ready/shell.init (packages/shell/src/shell-ready.ts). A mock environment only needs capabilities.domains to list every mocked domain; use mockShellEnvironmentDomains(entries) to build that list. |
 | `soulseek` | NAP-SOULSEEK | draft | PR #135 @ `892ed8d4` | extension | 14 routes |
 | `storage` | NAP-STORAGE | draft | PR #3 @ `4f4cf0ca` | adapter | Runtime-served domain. Pass createMockStatePersistence() as `statePersistence` in the shell adapter; the runtime handles storage.get/set/remove/keys, identity scoping, instance scope, and quota. |
 | `system` | NAP-SYSTEM | draft | PR #64 @ `43a112db` | extension | 8 routes |
-| `theme` | NAP-THEME | merged | master @ `43cb3a4e` | service | 1 route |
+| `theme` | NAP-THEME | merged | master @ `377bf939` | service | 1 route |
 | `torrent` | NAP-TORRENT | draft | PR #72 @ `bc99787e` | extension | 17 routes |
 | `upload` | NAP-UPLOAD | draft | PR #33 @ `f5cc981e` | service | 3 routes |
 | `value` | NAP-VALUE | draft | PR #30 @ `e468764d` | extension | 3 routes |
-| `webrtc` | NAP-WEBRTC | draft | PR #59 @ `69523e8c` | service | 3 routes |
+| `webrtc` | NAP-WEBRTC | draft | PR #59 @ `fb4dd6f0` | service | 4 routes |
 | `worker` | NAP-WORKER | draft | PR #107 @ `0a54af9a` | extension | 4 routes |
 <!-- domain-table:end -->
 

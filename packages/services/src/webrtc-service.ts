@@ -1,6 +1,7 @@
 /** Shell-mediated NAP-WEBRTC service. Raw SDP, ICE, and peer handles stay host-private. */
 import type { NappletMessage, WebrtcEvent, WebrtcOpenRequest, WebrtcOpenResult } from '@napplet/core';
 import type { WebrtcCloseMessage, WebrtcOpenMessage, WebrtcSendMessage } from '@napplet/nap/webrtc/types';
+import { createUnrecognizedTypeDiagnostic } from '@kehto/runtime';
 import type { ApprovalSignal, PermissionRequirement, ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
 
 const WEBRTC_SERVICE_VERSION = '1.0.0';
@@ -9,7 +10,7 @@ const WEBRTC_SERVICE_VERSION = '1.0.0';
 export interface WebrtcOpenPlan {
   /** Nostr signaling relays selected before approval. */
   readonly signalingRelayUrls: readonly string[];
-  /** Explicit ICE/TURN endpoints. Non-empty endpoints are rejected by current host policy. */
+  /** Explicit ICE/TURN endpoints, approved individually as typed network scopes before peer creation. */
   readonly iceEndpoints: readonly string[];
   /** Host-private peer or room resource. */
   readonly resource: string;
@@ -62,11 +63,8 @@ function validRequest(request: WebrtcOpenRequest): boolean {
 function normalizePlan(candidate: WebrtcOpenPlan): { plan: WebrtcOpenPlan; requirements: PermissionRequirement[] } {
   if (!candidate || typeof candidate.resource !== 'string' || !candidate.resource
     || !Array.isArray(candidate.signalingRelayUrls) || !Array.isArray(candidate.iceEndpoints)) throw new Error('signaling unavailable');
-  // Firewall origins intentionally cover HTTP(S)/WS(S), never stun:/turn:. Until
-  // Firewall gains a typed ICE endpoint scope, configured ICE/TURN is rejected.
-  if (candidate.iceEndpoints.some((endpoint) => typeof endpoint !== 'string' || endpoint.trim())) {
-    throw new Error('configured ICE/TURN endpoints unsupported by host policy');
-  }
+  if (candidate.iceEndpoints.some(endpoint => typeof endpoint !== 'string' || !endpoint)) throw new Error('Invalid ICE endpoint');
+  const iceEndpoints = [...new Set(candidate.iceEndpoints)];
   const relayUrls = [...new Set(candidate.signalingRelayUrls.map((url) => {
     if (typeof url !== 'string') throw new Error('signaling unavailable');
     const parsed = new URL(url);
@@ -75,12 +73,13 @@ function normalizePlan(candidate: WebrtcOpenPlan): { plan: WebrtcOpenPlan; requi
   }))];
   const origins = [...new Set(relayUrls.map((url) => new URL(url).origin))];
   const plan: WebrtcOpenPlan = Object.freeze({
-    signalingRelayUrls: Object.freeze(relayUrls), iceEndpoints: Object.freeze([]), resource: candidate.resource,
+    signalingRelayUrls: Object.freeze(relayUrls), iceEndpoints: Object.freeze(iceEndpoints), resource: candidate.resource,
   });
   return { plan, requirements: [
     { category: 'interface', domain: 'webrtc', operation: 'access', scope: { kind: 'exact', value: 'webrtc' } },
     { category: 'resource', domain: 'webrtc', operation: 'webrtc.open', scope: { kind: 'exact', value: plan.resource } },
     ...origins.map((value) => ({ category: 'network' as const, domain: 'webrtc', operation: 'webrtc.open', scope: { kind: 'origin' as const, value } })),
+    ...iceEndpoints.map(value => ({ category: 'network' as const, domain: 'webrtc', operation: 'webrtc.open', scope: { kind: 'ice' as const, value } })),
   ] };
 }
 
@@ -91,6 +90,7 @@ function normalizePlan(candidate: WebrtcOpenPlan): { plan: WebrtcOpenPlan; requi
  * pure destination plan, so opaque host peer factories cannot hide endpoints.
  */
 export function createWebrtcService(options: WebrtcServiceOptions = {}): ServiceHandler {
+  const ignoreUnrecognized = createUnrecognizedTypeDiagnostic();
   let runtime: ServiceRuntimeContext | undefined;
   const generations = new Map<string, object>();
   const sessions = new Map<string, SessionEntry>();
@@ -101,9 +101,24 @@ export function createWebrtcService(options: WebrtcServiceOptions = {}): Service
   };
   const current = (windowId: string, generation: object, signal?: ApprovalSignal): boolean =>
     generations.get(windowId) === generation && !signal?.aborted;
-  const contextFor = (windowId: string, send: Send, generation: object, signal?: ApprovalSignal): WebrtcServiceContext => ({
+  // NAP-WEBRTC #59 @ fb4dd6f0: the shell "may deliver webrtc.event state
+  // updates before open() resolves ... but it MUST NOT deliver messages for an
+  // unknown sessionId". A session is known from its open result until close
+  // starts, revocation or destroy; `opening` admits only those early states.
+  const known = (sessionId: unknown, windowId: string, generation: object): boolean => {
+    const entry = typeof sessionId === 'string' ? sessions.get(sessionId) : undefined;
+    return entry?.windowId === windowId && entry.generation === generation;
+  };
+  const deliverable = (event: WebrtcEvent, windowId: string, generation: object, opening?: { active: boolean }): boolean => {
+    const sessionId = (event as { sessionId?: unknown } | undefined)?.sessionId;
+    if (known(sessionId, windowId, generation)) return true;
+    return !!opening?.active && event.type === 'state' && typeof sessionId === 'string' && !sessions.has(sessionId);
+  };
+  const contextFor = (windowId: string, send: Send, generation: object, signal?: ApprovalSignal, opening?: { active: boolean }): WebrtcServiceContext => ({
     windowId, ...(signal ? { signal } : {}),
-    emit(event) { if (current(windowId, generation, signal)) send({ type: 'webrtc.event', event } as NappletMessage); },
+    emit(event) {
+      if (current(windowId, generation, signal) && deliverable(event, windowId, generation, opening)) send({ type: 'webrtc.event', event } as NappletMessage);
+    },
   });
   const retire = (windowId: string): void => {
     generations.set(windowId, {});
@@ -114,7 +129,8 @@ export function createWebrtcService(options: WebrtcServiceOptions = {}): Service
   function open(windowId: string, message: WebrtcOpenMessage, send: Send): void {
     const id = message.id ?? '';
     const generation = generationFor(windowId);
-    const initialContext = contextFor(windowId, send, generation);
+    const opening = { active: true };
+    const initialContext = contextFor(windowId, send, generation, undefined, opening);
     if (!options.open) { send(unsupported('webrtc.open.result', id)); return; }
     if (!validRequest(message.request) || !options.planOpen || !runtime?.authorizeOperation) {
       send({ type: 'webrtc.open.result', id, error: 'webrtc approval unavailable' } as NappletMessage);
@@ -125,18 +141,20 @@ export function createWebrtcService(options: WebrtcServiceOptions = {}): Service
     catch (error) { send({ type: 'webrtc.open.result', id, error: errorMessage(error, 'signaling unavailable') } as NappletMessage); return; }
     void runtime.authorizeOperation(windowId, 'webrtc.open', approved.requirements, async (signal) => {
       if (!current(windowId, generation, signal)) throw new Error('policy denied');
-      const result = await options.open!(message.request, contextFor(windowId, send, generation, signal), approved.plan);
+      const result = await options.open!(message.request, contextFor(windowId, send, generation, signal, opening), approved.plan);
       if (!current(windowId, generation, signal)) {
         await Promise.resolve(options.close?.(result.session.id, 'policy denied', contextFor(windowId, send, generation, signal))).catch(() => undefined);
         throw new Error('policy denied');
       }
       return result;
     }).then((outcome) => {
+      opening.active = false;
       if (!current(windowId, generation)) return;
       if (outcome.status !== 'executed' || !outcome.value) { send({ type: 'webrtc.open.result', id, error: 'policy denied' } as NappletMessage); return; }
       sessions.set(outcome.value.session.id, { windowId, generation });
       send({ type: 'webrtc.open.result', id, session: outcome.value.session } as NappletMessage);
     }).catch((error) => {
+      opening.active = false;
       if (current(windowId, generation)) send({ type: 'webrtc.open.result', id, error: errorMessage(error, 'webrtc request failed') } as NappletMessage);
     });
   }
@@ -150,15 +168,19 @@ export function createWebrtcService(options: WebrtcServiceOptions = {}): Service
     const context = contextFor(windowId, send, entry.generation);
     const hook = closing ? options.close : options.send;
     if (!hook) { send(unsupported(resultType, id)); return; }
-    const call = closing
+    const call = () => closing
       ? options.close!(message.sessionId, (message as WebrtcCloseMessage).reason, context)
       : options.send!(message.sessionId, (message as WebrtcSendMessage).payload, context);
-    void Promise.resolve(call).then(() => {
-      if (!current(windowId, entry.generation)) return;
-      if (closing) sessions.delete(message.sessionId);
-      send({ type: resultType, id } as NappletMessage);
+    // A closing session leaves delivery before transport teardown starts, so
+    // teardown notifications and late peer events for it are dropped.
+    if (closing) sessions.delete(message.sessionId);
+    void Promise.resolve().then(call).then(() => {
+      if (current(windowId, entry.generation)) send({ type: resultType, id } as NappletMessage);
     }).catch((error) => {
-      if (current(windowId, entry.generation)) send({ type: resultType, id, error: errorMessage(error, 'webrtc request failed') } as NappletMessage);
+      if (!current(windowId, entry.generation)) return;
+      // A failed close leaves the session open, so it stays deliverable.
+      if (closing && !sessions.has(message.sessionId)) sessions.set(message.sessionId, entry);
+      send({ type: resultType, id, error: errorMessage(error, 'webrtc request failed') } as NappletMessage);
     });
   }
 
@@ -170,8 +192,15 @@ export function createWebrtcService(options: WebrtcServiceOptions = {}): Service
     handleMessage(windowId, message, send) {
       if (message.type === 'webrtc.open') { open(windowId, message as WebrtcOpenMessage, send); return; }
       if (message.type === 'webrtc.send' || message.type === 'webrtc.close') { sessionAction(windowId, message as WebrtcSendMessage | WebrtcCloseMessage, send); return; }
-      const id = (message as NappletMessage & { id?: string }).id ?? '';
-      send({ type: `${message.type}.error`, id, error: `Unknown webrtc method: ${message.type}` } as NappletMessage);
+      // NAP-WEBRTC #59 @ fb4dd6f0: "A shell that does not support byte payloads
+      // returns the error `unsupported`". It defines `stats` only as a pushed
+      // event, so a `webrtc.stats` request is unrecognized like any other type
+      // and, per NIP-5D (nips#2303 @ f60550c3), gets no reply.
+      if (message.type === 'webrtc.sendBytes') {
+        send({ type: 'webrtc.sendBytes.result', id: (message as NappletMessage & { id?: string }).id ?? '', error: 'unsupported' } as NappletMessage);
+        return;
+      }
+      ignoreUnrecognized('webrtc', message.type);
     },
     onWindowDestroyed(windowId) { retire(windowId); options.destroyWindow?.(windowId); },
   };

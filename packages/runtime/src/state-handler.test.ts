@@ -225,29 +225,14 @@ describe('handleStorageNap — canonical @napplet/nap/storage envelope shapes', 
   // Test 6 — storage.clear rejected with .result envelope carrying error field.
   // storage.clear is NOT in @napplet/nap/storage; per spec only *.result envelopes
   // exist, errors are signalled via the optional `error` field.
-  it('storage.clear produces .result envelope with error field — action not supported by @napplet/nap/storage', () => {
-    dispatch(h, { type: 'storage.clear', id: 'c1' } as NappletMessage);
-
-    const result = lastOfType(h, 'storage.clear.result');
-    expect(result).toBeDefined();
-    expect((result as any).id).toBe('c1');
-    // Accept either the explicit "not in @napplet/nap/storage" message or the
-    // generic "unknown storage action: clear" fallback.
-    expect((result as any).error).toMatch(/not (in )?@napplet\/nap\/storage|unknown storage action: clear/i);
-    // No non-canonical storage.clear.error envelope was emitted.
-    expect(lastOfType(h, 'storage.clear.error')).toBeUndefined();
-  });
-
-  // Test 7 — unknown storage sub-action also produces .result envelope with error field.
-  it('unknown storage.bogus produces .result envelope with error field', () => {
-    dispatch(h, { type: 'storage.bogus', id: 'b1' } as NappletMessage);
-
-    const result = lastOfType(h, 'storage.bogus.result');
-    expect(result).toBeDefined();
-    expect((result as any).id).toBe('b1');
-    expect((result as any).error).toMatch(/unknown storage action/i);
-    // No non-canonical storage.bogus.error envelope was emitted.
-    expect(lastOfType(h, 'storage.bogus.error')).toBeUndefined();
+  // NIP-5D (nostr-protocol/nips#2303 @ dskvr/nips@f60550c3): "Messages with an
+  // unrecognized `type` MUST be silently ignored." NAP-STORAGE #3 @ 4f4cf0ca
+  // defines only get/set/remove/keys, so the retired storage.clear and any
+  // invented action get no envelope at all (the old error result broke that).
+  it.each(['storage.clear', 'storage.bogus', 'storage.get.result'])('%s is silently ignored', (type) => {
+    const before = h.sent.length;
+    dispatch(h, { type, id: 'c1', scope: 'bogus-scope' } as NappletMessage);
+    expect(h.sent.length).toBe(before);
   });
 });
 

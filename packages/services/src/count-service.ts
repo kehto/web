@@ -124,8 +124,8 @@ export function createCountService(options: CountServiceOptions): ServiceHandler
         return runtime.authorizeOperation(windowId, 'count.query', [
           { category: 'interface', domain: 'count', operation: 'access', scope: { kind: 'exact', value: 'count' } },
           ...(relays ?? []).map((url) => ({ category: 'network' as const, domain: 'count', operation: 'count.query', scope: { kind: 'origin' as const, value: new URL(url).origin } })),
-        ], (signal) => signal.aborted ? { ok: false, error: 'policy denied' } : options.count({ ...request, signal, ...(relays ? { relays } : {}) }))
-          .then((outcome) => outcome.status === 'executed' && outcome.value ? outcome.value : { ok: false, error: 'policy denied' });
+        ], (signal) => signal.aborted ? { ok: false, error: 'policy-denied' } : options.count({ ...request, signal, ...(relays ? { relays } : {}) }))
+          .then((outcome) => outcome.status === 'executed' && outcome.value ? outcome.value : { ok: false, error: 'policy-denied' });
       };
       const planned = options.planCount?.(request);
       void (planned === undefined ? Promise.resolve(run({})) : Promise.resolve(planned).then(run))

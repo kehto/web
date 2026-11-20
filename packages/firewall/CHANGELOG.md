@@ -1,5 +1,11 @@
 # @kehto/firewall
 
+## 0.10.0
+
+### Minor Changes
+
+- e989352: Add explicit multiplayer provider settings, isolated shared CVM/WebRTC transport keys, soy-rtc/1 signaling, and separately approved STUN/TURN endpoint scopes.
+
 ## 0.9.0
 
 ### Minor Changes

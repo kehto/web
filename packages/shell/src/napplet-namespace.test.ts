@@ -228,6 +228,75 @@ function runPrelude(script: string, target: PreludeTestWindow): void {
   new Function('window', source)(target);
 }
 
+describe('napplet request correlation ids', () => {
+  // kehto/web#351: these ids only pair a napplet's own request with its result
+  // inside one private MessagePort, so the realm may fall back to a non-random
+  // source where a sandboxed frame on non-localhost HTTP has no randomUUID.
+  it('still sends distinct request ids when the napplet realm has no crypto.randomUUID', async () => {
+    const target = createPreludeTestWindow();
+    (target as { crypto: unknown }).crypto = { getRandomValues: (bytes: Uint8Array) => bytes };
+    runPrelude(renderNappletNamespacePrelude({ domains: ['cvm'] }), target);
+    const registry = (target.napplet!.cvm as { registry: Record<string, (...args: unknown[]) => Promise<unknown>> }).registry;
+    target.onPortPost = message => target.dispatchParentMessage({ type: `${message.type}.result`, id: message.id, has: true });
+    await expect(registry.has({ family: 'rooms' })).resolves.toBe(true);
+    await expect(registry.has({ family: 'rooms' })).resolves.toBe(true);
+    const ids = target.postedMessages.filter(message => message.type === 'cvm.registry.has').map(message => message.id);
+    expect(ids).toHaveLength(2);
+    expect(new Set(ids).size).toBe(2);
+    for (const id of ids) expect(id).toMatch(/^napplet-\d+-/);
+  });
+
+  it('calls native randomUUID on the realm Crypto receiver', async () => {
+    const target = createPreludeTestWindow();
+    const provider = { randomUUID(this: unknown) { if (this !== provider) throw new TypeError('Illegal invocation'); return 'native-id'; } };
+    (target as { crypto: unknown }).crypto = provider;
+    runPrelude(renderNappletNamespacePrelude({ domains: ['cvm'] }), target);
+    const registry = (target.napplet!.cvm as { registry: Record<string, (...args: unknown[]) => Promise<unknown>> }).registry;
+    void registry.has({ family: 'rooms' });
+    expect(target.postedMessages.at(-1)).toMatchObject({ type: 'cvm.registry.has', id: 'native-id' });
+  });
+});
+
+describe('CVM registry injected binding', () => {
+  it('uses canonical selectors before shell.ready and ignores untrusted results', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['cvm'] }), target);
+    const registry = (target.napplet!.cvm as { registry: Record<string, (...args: unknown[]) => Promise<unknown>> }).registry;
+    const settled = vi.fn();
+    const pending = registry.has({ family: 'rooms' }).then(settled);
+    const sent = target.postedMessages.at(-1)!;
+    expect(sent).toMatchObject({ type: 'cvm.registry.has', selector: { family: 'rooms' } });
+    expect(sent).not.toHaveProperty('family');
+    target.dispatchMessage({}, { type: 'cvm.registry.has.result', id: sent.id, has: true });
+    await Promise.resolve();
+    expect(settled).not.toHaveBeenCalled();
+    target.dispatchParentMessage({ type: 'cvm.registry.has.result', id: sent.id, has: false });
+    await pending;
+    expect(settled).toHaveBeenCalledExactlyOnceWith(false);
+    target.dispatchParentMessage({ type: 'cvm.registry.has.result', id: sent.id, has: true });
+    expect(settled).toHaveBeenCalledTimes(1);
+  });
+
+  it('warns once for string-family calls while canonical selectors stay quiet', async () => {
+    const target = createPreludeTestWindow();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      runPrelude(renderNappletNamespacePrelude({ domains: ['cvm'] }), target);
+      const registry = (target.napplet!.cvm as { registry: Record<string, (...args: unknown[]) => Promise<unknown>> }).registry;
+      target.onPortPost = message => target.dispatchParentMessage({ type: `${message.type}.result`, id: message.id, has: false });
+      await registry.has({ family: 'rooms' });
+      expect(warn).not.toHaveBeenCalled();
+      await registry.has('rooms');
+      await registry.has('rooms');
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('[KEHTO_CVM_FAMILY_SELECTOR]'));
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('{ family } or { schemaHash }'));
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('once per iframe'));
+      expect(target.postedMessages.at(-1)).toMatchObject({ selector: { family: 'rooms' } });
+    } finally { warn.mockRestore(); }
+  });
+});
+
 describe('NAP-MEDIA injected lifecycle', () => {
   it('retains terminal events, guards parent source and survives shim reassignment without shell', () => {
     const target = createPreludeTestWindow();
@@ -691,6 +760,28 @@ describe('NIP-5D napplet namespace prelude', () => {
       topic: 'profile:open',
       payload: { pubkey: 'pubkey-1' },
     });
+  });
+
+  it('passes the NAP-LINK denial reason through the open() result unchanged', async () => {
+    // NAP-LINK napplet/naps PR #53 head 100e5c939ae6: open() resolves with a LinkOpenResult whose
+    // optional error, when present on the wire, is passed through unchanged and absent when opened.
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['link'] }), target);
+    const link = (target.napplet as Record<string, Record<string, (...args: unknown[]) => Promise<Record<string, unknown>>>>).link;
+
+    const denied = link.open('file:///etc/passwd');
+    const deniedRequest = target.postedMessages.at(-1);
+    expect(deniedRequest).toMatchObject({ type: 'link.open', url: 'file:///etc/passwd' });
+    target.dispatchParentMessage({ type: 'link.open.result', id: deniedRequest?.id, status: 'denied', error: 'unsupported-scheme' });
+    await expect(denied).resolves.toMatchObject({ status: 'denied', error: 'unsupported-scheme' });
+
+    const opened = link.open('https://example.com/post/123', { label: 'Read post' });
+    const openedRequest = target.postedMessages.at(-1);
+    expect(openedRequest).toMatchObject({ type: 'link.open', url: 'https://example.com/post/123', options: { label: 'Read post' } });
+    target.dispatchParentMessage({ type: 'link.open.result', id: openedRequest?.id, status: 'opened' });
+    const result = await opened;
+    expect(result.status).toBe('opened');
+    expect(Object.prototype.hasOwnProperty.call(result, 'error')).toBe(false);
   });
 
   it('projects canonical resource URL and base64 wire values', async () => {
@@ -1356,7 +1447,7 @@ describe('NIP-5D napplet namespace prelude', () => {
     };
     type Inc = {
       channel: {
-        open: (targetDTag: string) => Promise<Handle>;
+        open: (target: string) => Promise<Handle>;
         onOpened: (handler: (handle: Handle) => void) => { close(): void };
         list: () => Promise<Array<{ id: string; peer: string }>>;
         broadcast: (payload?: unknown) => void;
@@ -1364,42 +1455,42 @@ describe('NIP-5D napplet namespace prelude', () => {
     };
     const inc = target.napplet?.inc as Inc;
     const inbound: Handle[] = [];
-    const opened = inc.channel.open('media-player');
+    const opened = inc.channel.open('endpoint-media-player');
     const openRequest = withoutShellReady(target).at(-1);
-    expect(openRequest).toEqual({ type: 'inc.channel.open', id: 'id-1', target: 'media-player' });
+    expect(openRequest).toEqual({ type: 'inc.channel.open', id: 'id-1', target: 'endpoint-media-player' });
     target.dispatchMessage({}, { type: 'inc.channel.open.result', id: openRequest?.id, channelId: 'forged', peer: 'forged' });
     target.dispatchParentMessage({ type: 'inc.channel.open.result', id: 'wrong', channelId: 'forged', peer: 'forged' });
-    target.dispatchParentMessage({ type: 'inc.channel.open.result', id: openRequest?.id, channelId: 'c-open', peer: 'media-player' });
+    target.dispatchParentMessage({ type: 'inc.channel.open.result', id: openRequest?.id, channelId: 'c-open', peer: 'endpoint-media-player' });
     const opener = await opened;
-    expect(opener).toMatchObject({ id: 'c-open', peer: 'media-player' });
+    expect(opener).toMatchObject({ id: 'c-open', peer: 'endpoint-media-player' });
 
     const rejected = inc.channel.open('missing');
     const rejectedRequest = withoutShellReady(target).at(-1);
     target.dispatchParentMessage({ type: 'inc.channel.open.result', id: rejectedRequest?.id, error: 'target not found' });
     await expect(rejected).rejects.toThrow('target not found');
 
-    target.dispatchParentMessage({ type: 'inc.channel.opened', channelId: 'c-target', peer: 'music-controller' });
-    target.dispatchParentMessage({ type: 'inc.channel.event', channelId: 'c-target', sender: 'music-controller', payload: { order: 1 } });
-    target.dispatchParentMessage({ type: 'inc.channel.event', channelId: 'c-target', sender: 'music-controller', payload: { order: 2 } });
+    target.dispatchParentMessage({ type: 'inc.channel.opened', channelId: 'c-target', peer: 'endpoint-music-controller' });
+    target.dispatchParentMessage({ type: 'inc.channel.event', channelId: 'c-target', sender: 'endpoint-music-controller', payload: { order: 1 } });
+    target.dispatchParentMessage({ type: 'inc.channel.event', channelId: 'c-target', sender: 'endpoint-music-controller', payload: { order: 2 } });
     inc.channel.onOpened((handle) => inbound.push(handle));
     expect(inbound).toHaveLength(1);
-    expect(inbound[0]).toMatchObject({ id: 'c-target', peer: 'music-controller' });
+    expect(inbound[0]).toMatchObject({ id: 'c-target', peer: 'endpoint-music-controller' });
     const earlyEvents: ChannelEvent[] = [];
     const laterEvents: ChannelEvent[] = [];
     const firstListener = inbound[0].on((event) => earlyEvents.push(event));
     const secondListener = inbound[0].on((event) => laterEvents.push(event));
     expect(earlyEvents).toEqual([
-      { channelId: 'c-target', sender: 'music-controller', payload: { order: 1 } },
-      { channelId: 'c-target', sender: 'music-controller', payload: { order: 2 } },
+      { channelId: 'c-target', sender: 'endpoint-music-controller', payload: { order: 1 } },
+      { channelId: 'c-target', sender: 'endpoint-music-controller', payload: { order: 2 } },
     ]);
     expect(laterEvents).toEqual([]);
-    target.dispatchParentMessage({ type: 'inc.channel.event', channelId: 'c-target', sender: 'music-controller', payload: { order: 3 } });
+    target.dispatchParentMessage({ type: 'inc.channel.event', channelId: 'c-target', sender: 'endpoint-music-controller', payload: { order: 3 } });
     firstListener.close();
-    target.dispatchParentMessage({ type: 'inc.channel.event', channelId: 'c-target', sender: 'music-controller', payload: { order: 4 } });
+    target.dispatchParentMessage({ type: 'inc.channel.event', channelId: 'c-target', sender: 'endpoint-music-controller', payload: { order: 4 } });
     expect(earlyEvents).toHaveLength(3);
     expect(laterEvents).toEqual([
-      { channelId: 'c-target', sender: 'music-controller', payload: { order: 3 } },
-      { channelId: 'c-target', sender: 'music-controller', payload: { order: 4 } },
+      { channelId: 'c-target', sender: 'endpoint-music-controller', payload: { order: 3 } },
+      { channelId: 'c-target', sender: 'endpoint-music-controller', payload: { order: 4 } },
     ]);
     secondListener.close();
 
@@ -1409,9 +1500,9 @@ describe('NIP-5D napplet namespace prelude', () => {
     target.dispatchParentMessage({
       type: 'inc.channel.list.result',
       id: listRequest?.id,
-      channels: [{ id: 'c-open', peer: 'media-player', emit: 'forged' }, { id: 7, peer: 'invalid' }],
+      channels: [{ id: 'c-open', peer: 'endpoint-media-player', emit: 'forged' }, { id: 7, peer: 'invalid' }],
     });
-    await expect(list).resolves.toEqual([{ id: 'c-open', peer: 'media-player' }]);
+    await expect(list).resolves.toEqual([{ id: 'c-open', peer: 'endpoint-media-player' }]);
 
     inc.channel.broadcast({ all: true });
     opener.emit({ command: 'play' });
@@ -1456,8 +1547,8 @@ describe('NIP-5D napplet namespace prelude', () => {
     };
     const inc = target.napplet?.inc as Inc;
 
-    target.dispatchParentMessage({ type: 'inc.channel.opened', channelId: 'c-closed', peer: 'music-controller' });
-    target.dispatchParentMessage({ type: 'inc.channel.event', channelId: 'c-closed', sender: 'music-controller', payload: { order: 1 } });
+    target.dispatchParentMessage({ type: 'inc.channel.opened', channelId: 'c-closed', peer: 'endpoint-music-controller' });
+    target.dispatchParentMessage({ type: 'inc.channel.event', channelId: 'c-closed', sender: 'endpoint-music-controller', payload: { order: 1 } });
     target.dispatchParentMessage({ type: 'inc.channel.closed', channelId: 'c-closed', reason: 'peer destroyed' });
 
     let handle: Handle | undefined;
@@ -1468,7 +1559,7 @@ describe('NIP-5D napplet namespace prelude', () => {
     handle?.onClosed((event) => closed.push(event));
     handle?.on(() => events.push({ channelId: 'unexpected', sender: 'unexpected' }));
 
-    expect(events).toEqual([{ channelId: 'c-closed', sender: 'music-controller', payload: { order: 1 } }]);
+    expect(events).toEqual([{ channelId: 'c-closed', sender: 'endpoint-music-controller', payload: { order: 1 } }]);
     expect(closed).toEqual([{ channelId: 'c-closed', reason: 'peer destroyed' }]);
   });
 
@@ -1496,7 +1587,7 @@ describe('NIP-5D napplet namespace prelude', () => {
       target.dispatchParentMessage({
         type: 'inc.channel.opened',
         channelId,
-        peer: 'music-controller',
+        peer: 'endpoint-music-controller',
       });
     }
 

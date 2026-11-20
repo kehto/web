@@ -118,6 +118,8 @@ test('sidebar accordion preserves controls, frames, drawer preferences and flush
   await page.keyboard.press('Space');
   await expect(resources).not.toHaveAttribute('open');
   await page.keyboard.press('Tab');
+  await expect(page.locator('[data-paja-section="multiplayer"] summary')).toBeFocused();
+  await page.keyboard.press('Tab');
   await expect(security.locator('summary')).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(security).not.toHaveAttribute('open');
@@ -1266,6 +1268,14 @@ function renderTargetHtml(
         document.getElementById('shell-init-domains').textContent = environment.capabilities.domains.join(',');
         document.getElementById('target-status').textContent = 'shell-init received';
         if (!${manualTrafficJson}) sendServiceTraffic();
+        if (!${manualTrafficJson} && window.napplet.identity) {
+          // NAP-IDENTITY: a loaded napplet re-runs identity-dependent work when
+          // identity.changed arrives; the shell no longer reloads it.
+          window.napplet.identity.onChanged((pubkey) => {
+            document.getElementById('identity-pubkey').textContent = pubkey || '';
+            if (pubkey) callNapplet({ type: 'outbox.publish', id: 'outbox-identity', event: { kind: 1, content: 'hello from paja fixture', tags: [] } });
+          });
+        }
         if (incProbe) runIncProbe();
       }
       if (sendShellReady) {

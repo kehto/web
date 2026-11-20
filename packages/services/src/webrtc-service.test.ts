@@ -113,13 +113,45 @@ describe('createWebrtcService', () => {
     expect(sent).toEqual([{ type: 'webrtc.send.result', id: 'send-3', error: 'session not found' }]);
   });
 
-  it('contains unknown webrtc actions', () => {
+  it('silently ignores unknown webrtc types and warns the host once', () => {
+    // NIP-5D (nostr-protocol/nips#2303 @ dskvr/nips@f60550c3): "Messages with an
+    // unrecognized `type` MUST be silently ignored." The old `.error` reply broke that.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const service = createWebrtcService();
     const { sent, send } = collectSent();
 
     service.handleMessage(WINDOW_ID, { type: 'webrtc.unknown', id: 'u1' } as NappletMessage, send);
+    service.handleMessage(WINDOW_ID, { type: 'webrtc.unknown', id: 'u2' } as NappletMessage, send);
 
-    expect(sent).toEqual([{ type: 'webrtc.unknown.error', id: 'u1', error: 'Unknown webrtc method: webrtc.unknown' }]);
+    expect(sent).toEqual([]);
+    const lines = warn.mock.calls.map(([line]) => String(line)).filter((line) => line.includes('[KEHTO_UNRECOGNIZED_MESSAGE_TYPE]'));
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain('"webrtc.unknown"');
+    expect(lines[0]).not.toContain('u1');
+    warn.mockRestore();
+  });
+
+  it('answers sendBytes with unsupported but ignores a stats request', () => {
+    // NAP-WEBRTC #59 @ fb4dd6f0: "A shell that does not support byte payloads
+    // returns the error `unsupported`." `stats` is only a shell-pushed event there,
+    // so a `webrtc.stats` request is an unrecognized type (NIP-5D: no reply).
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const service = createWebrtcService(), { sent, send } = collectSent();
+    for (const type of ['webrtc.sendBytes', 'webrtc.stats']) service.handleMessage(WINDOW_ID, { type, id: type } as NappletMessage, send);
+    expect(sent).toEqual([{ type: 'webrtc.sendBytes.result', id: 'webrtc.sendBytes', error: 'unsupported' }]);
+    warn.mockRestore();
+  });
+
+  it('contains synchronous backend send exceptions after a successful open', async () => {
+    const service = createWebrtcService({ planOpen: () => ({ signalingRelayUrls: [], iceEndpoints: [], resource: 'room:test' }),
+      open: () => OPEN_RESULT, send: () => { throw new Error('QUEUE_FULL'); } });
+    service.onRegistered?.({ authorizeOperation: async (_w: string, _op: string, _r: unknown, run: (s: ApprovalSignal) => unknown) => ({ status: 'executed', value: await run(new AbortController().signal) }) } as unknown as ServiceRuntimeContext);
+    const { sent, send } = collectSent();
+    service.handleMessage(WINDOW_ID, { type: 'webrtc.open', id: 'open', request: REQUEST } as NappletMessage, send);
+    await flush();
+    service.handleMessage(WINDOW_ID, { type: 'webrtc.send', id: 'send', sessionId: OPEN_RESULT.session.id, payload: {} } as NappletMessage, send);
+    await flush();
+    expect(sent).toContainEqual({ type: 'webrtc.send.result', id: 'send', error: 'QUEUE_FULL' });
   });
 
   it('delegates window destroy cleanup when configured', () => {
@@ -131,11 +163,87 @@ describe('createWebrtcService', () => {
     expect(destroyWindow).toHaveBeenCalledWith(WINDOW_ID);
   });
 
+  // NAP-WEBRTC (napplet/naps#59 @ fb4dd6f0, Wire Protocol): the shell "MUST NOT
+  // deliver messages for an unknown sessionId"; a closed session is unknown.
+  describe('after webrtc.close', () => {
+    const approveAll = { authorizeOperation: async (_w: string, _o: string, _r: readonly unknown[], run: (signal: ApprovalSignal) => unknown) =>
+      ({ status: 'executed' as const, value: await run(new AbortController().signal) }) } as unknown as ServiceRuntimeContext;
+    // `stats` is in NAP-WEBRTC @ fb4dd6f0 but not yet in @napplet/core's WebrtcEvent (upstream package drift).
+    const STATS_EVENT = { type: 'stats', sessionId: 'webrtc-session-1', pubkey: PEER_PUBKEY, rttMs: 42, lossRatio: 0 } as unknown as WebrtcEvent;
+    const STATE_EVENT: WebrtcEvent = { type: 'state', sessionId: 'webrtc-session-1', state: 'closed' };
+    const LATE_EVENTS: readonly WebrtcEvent[] = [MESSAGE_EVENT, STATE_EVENT, STATS_EVENT,
+      { type: 'peer', sessionId: 'webrtc-session-1', pubkey: PEER_PUBKEY, state: 'left' },
+      { type: 'closed', sessionId: 'webrtc-session-1', reason: 'peer disconnected' }];
+
+    async function openSession(close: WebrtcServiceOptions['close']) {
+      let emit!: (event: WebrtcEvent) => void;
+      const service = createWebrtcService({
+        planOpen: () => ({ signalingRelayUrls: [], iceEndpoints: [], resource: `peer:${PEER_PUBKEY}` }),
+        open: (_request, context) => { emit = (event) => context.emit(event); return OPEN_RESULT; },
+        close,
+      });
+      service.onRegistered?.(approveAll);
+      const { sent, send } = collectSent();
+      service.handleMessage(WINDOW_ID, { type: 'webrtc.open', id: 'open', request: REQUEST } as NappletMessage, send);
+      await flush();
+      emit(MESSAGE_EVENT);
+      expect(sent).toEqual([
+        { type: 'webrtc.open.result', id: 'open', session: OPEN_RESULT.session },
+        { type: 'webrtc.event', event: MESSAGE_EVENT },
+      ]);
+      sent.length = 0;
+      return { service, sent, send, emit: (event: WebrtcEvent) => emit(event) };
+    }
+
+    it.each(LATE_EVENTS.map((event) => [event.type, event] as const))('drops a late %s event from the open context', async (_type, event) => {
+      const { service, sent, send, emit } = await openSession(vi.fn());
+      service.handleMessage(WINDOW_ID, { type: 'webrtc.close', id: 'close', sessionId: 'webrtc-session-1' } as NappletMessage, send);
+      await flush();
+      emit(event);
+      expect(sent).toEqual([{ type: 'webrtc.close.result', id: 'close' }]);
+    });
+
+    it('drops events the backend emits while close is still tearing down', async () => {
+      let finish!: () => void;
+      const { service, sent, send, emit } = await openSession(vi.fn((_id, _reason, context) => {
+        // The backend's own teardown notifications and a racing remote message.
+        context.emit(STATE_EVENT);
+        context.emit({ type: 'closed', sessionId: 'webrtc-session-1' });
+        return new Promise<void>((resolve) => { finish = resolve; });
+      }));
+      service.handleMessage(WINDOW_ID, { type: 'webrtc.close', id: 'close', sessionId: 'webrtc-session-1' } as NappletMessage, send);
+      await flush();
+      emit(MESSAGE_EVENT);
+      emit(STATS_EVENT);
+      expect(sent).toEqual([]);
+      finish();
+      await flush();
+      expect(sent).toEqual([{ type: 'webrtc.close.result', id: 'close' }]);
+    });
+
+    it('keeps delivering when the close hook fails and the session stays open', async () => {
+      const { service, sent, send, emit } = await openSession(vi.fn(async () => { throw new Error('signaling unavailable'); }));
+      service.handleMessage(WINDOW_ID, { type: 'webrtc.close', id: 'close', sessionId: 'webrtc-session-1' } as NappletMessage, send);
+      await flush();
+      emit(MESSAGE_EVENT);
+      expect(sent).toEqual([
+        { type: 'webrtc.close.result', id: 'close', error: 'signaling unavailable' },
+        { type: 'webrtc.event', event: MESSAGE_EVENT },
+      ]);
+    });
+
+    it('drops events for a sessionId the window never opened', async () => {
+      const { sent, emit } = await openSession(vi.fn());
+      emit({ ...MESSAGE_EVENT, sessionId: 'someone-else' });
+      expect(sent).toEqual([]);
+    });
+  });
+
   it('plans signaling destinations and waits for runtime approval before opening a peer', async () => {
     const open = vi.fn(() => OPEN_RESULT);
     const planOpen = vi.fn(() => ({
       signalingRelayUrls: ['wss://signal.example'],
-      iceEndpoints: [],
+      iceEndpoints: ['turn:relay.example:3478?transport=udp'],
       resource: `peer:${PEER_PUBKEY}`,
     }));
     let approve!: () => void;
@@ -156,6 +264,7 @@ describe('createWebrtcService', () => {
       { category: 'interface', domain: 'webrtc', operation: 'access', scope: { kind: 'exact', value: 'webrtc' } },
       { category: 'resource', domain: 'webrtc', operation: 'webrtc.open', scope: { kind: 'exact', value: `peer:${PEER_PUBKEY}` } },
       { category: 'network', domain: 'webrtc', operation: 'webrtc.open', scope: { kind: 'origin', value: 'wss://signal.example' } },
+      { category: 'network', domain: 'webrtc', operation: 'webrtc.open', scope: { kind: 'ice', value: 'turn:relay.example:3478?transport=udp' } },
     ]);
 
     approve();

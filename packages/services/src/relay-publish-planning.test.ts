@@ -55,7 +55,10 @@ describe('NAP-OUTBOX complete immutable publish fanout', () => {
     plan.requiredRelays[1] = hint;
     approve();
     await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
-    expect(send).toHaveBeenCalledWith(expect.objectContaining({ ok: false, error: 'publish denied' }));
+    // A required inbox that did not accept is a relay outcome, not a denial:
+    // NAP-OUTBOX draft napplet/naps#32 `8865f73d` Error Handling has no
+    // "relay refused" code, so the closest network code applies (kehto/web#467).
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ ok: false, error: 'relay timeout' }));
     expect(f.publish).toHaveBeenCalledWith(signed, [own, inbox, hint]);
   });
 
@@ -99,7 +102,8 @@ describe('NAP-OUTBOX complete immutable publish fanout', () => {
     const f = fixture();
     f.publish.mockResolvedValue({ [own]: true, [inbox]: false, [hint]: true, [fallback]: true });
     const plan = await f.router.planPublish!({ toInboxes: [recipient], relays: [hint] });
-    expect(await f.router.publishWithPlan!(template, plan)).toMatchObject({ ok: false, error: 'publish denied' });
+    // Network outcome, never a denial (NAP-OUTBOX #32 `8865f73d` Error Handling; kehto/web#467).
+    expect(await f.router.publishWithPlan!(template, plan)).toMatchObject({ ok: false, error: 'relay timeout' });
   });
 
   it.each([{ missingInbox: true }, { denyInbox: true }])('fails required inbox planning before signing for %j', async (options) => {
@@ -126,6 +130,79 @@ describe('NAP-OUTBOX complete immutable publish fanout', () => {
     controller.abort();
     expect(await f.router.publishWithPlan!(template, plan, controller.signal)).toEqual({ ok: false, error: 'policy denied' });
     expect(f.signEvent).not.toHaveBeenCalled();
+    expect(f.publish).not.toHaveBeenCalled();
+  });
+});
+
+describe('NAP-OUTBOX publish planning reasons through the approved service path', () => {
+  function serve(f: ReturnType<typeof fixture>, authorize: unknown) {
+    const authorizeOperation = authorize as NonNullable<ServiceRuntimeContext['authorizeOperation']>;
+    const service = createOutboxService({ router: f.router });
+    service.onRegistered?.({ authorizeOperation,
+      resolveDTag: () => undefined, listWindowIds: () => [], hasCapability: () => false, sendToEligibleNapplet: () => false });
+    const send = vi.fn();
+    return { service, send };
+  }
+  const run: NonNullable<ServiceRuntimeContext['authorizeOperation']> = async (_w, _o, _r, execute) =>
+    ({ status: 'executed', value: await execute(new AbortController().signal) });
+
+  // NAP-OUTBOX #32 `8865f73d` Error Handling: a recipient's relays refused by
+  // shell relay policy is `policy denied`; a missing relay list is a network
+  // outcome (`relay list unavailable`), per kehto/web#467.
+  it.each([
+    [{ denyInbox: true }, 'policy denied'],
+    [{ missingInbox: true }, 'relay list unavailable'],
+  ] as const)('reports %j toInboxes planning as %s before approval or signing', async (options, error) => {
+    const f = fixture(options);
+    const authorizeOperation = vi.fn(run);
+    const { service, send } = serve(f, authorizeOperation);
+    service.handleMessage('window', { type: 'outbox.publish', id: 'p', event: template,
+      options: { toInboxes: [recipient] } } as NappletMessage, send);
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ ok: false, error }));
+    expect(authorizeOperation).not.toHaveBeenCalled();
+    expect(f.signEvent).not.toHaveBeenCalled();
+    expect(f.publish).not.toHaveBeenCalled();
+  });
+
+  it('resolves toInboxes recipients into the approved network requirements (kehto/web#470)', async () => {
+    const f = fixture();
+    const authorizeOperation = vi.fn(run);
+    const { service, send } = serve(f, authorizeOperation);
+    service.handleMessage('window', { type: 'outbox.publish', id: 'p', event: template,
+      options: { toInboxes: [recipient] } } as NappletMessage, send);
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+    const requirements = authorizeOperation.mock.calls[0][2] as readonly { category: string; scope: { value: string } }[];
+    const origins = requirements.filter((item) => item.category === 'network').map((item) => item.scope.value);
+    expect(origins).toEqual([own, inbox]);
+    expect(f.publish).toHaveBeenCalledWith(signed, [own, inbox]);
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ ok: true }));
+  });
+
+  it('reports a plan naming an unusable relay URL as relay list unavailable, without approval', async () => {
+    const f = fixture();
+    vi.spyOn(f.router, 'planPublish').mockResolvedValue({ relays: ['https://not-a-relay.example'],
+      requiredRelays: ['https://not-a-relay.example'], source: 'policy', author: signed.pubkey });
+    const authorizeOperation = vi.fn(run);
+    const { service, send } = serve(f, authorizeOperation);
+    service.handleMessage('window', { type: 'outbox.publish', id: 'p', event: template } as NappletMessage, send);
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ ok: false, error: 'relay list unavailable' }));
+    expect(authorizeOperation).not.toHaveBeenCalled();
+    expect(f.signEvent).not.toHaveBeenCalled();
+  });
+
+  it('threads the approval signal so cancellation during signing stops transport', async () => {
+    const f = fixture();
+    const controller = new AbortController();
+    f.signEvent.mockImplementation(async () => { controller.abort(); return signed; });
+    const cancelling: NonNullable<ServiceRuntimeContext['authorizeOperation']> = async (_w, _o, _r, execute) =>
+      ({ status: 'executed', value: await execute(controller.signal) });
+    const { service, send } = serve(f, cancelling);
+    service.handleMessage('window', { type: 'outbox.publish', id: 'p', event: template } as NappletMessage, send);
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ ok: false, error: 'policy denied' }));
+    expect(f.signEvent).toHaveBeenCalledTimes(1);
     expect(f.publish).not.toHaveBeenCalled();
   });
 });

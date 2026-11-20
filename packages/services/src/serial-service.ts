@@ -17,6 +17,7 @@ import type {
   SerialOpenMessage,
   SerialWriteMessage,
 } from '@napplet/nap/serial/types';
+import { createUnrecognizedTypeDiagnostic } from '@kehto/runtime';
 import type { ApprovalSignal, ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
 
 const SERIAL_SERVICE_VERSION = '1.0.0';
@@ -290,6 +291,7 @@ export function createSerialService(options: SerialServiceOptions = {}): Service
 
 /** Internal stateful handler builder, separated from the public factory API. */
 function buildSerialService(options: SerialServiceOptions): ServiceHandler {
+  const ignoreUnrecognized = createUnrecognizedTypeDiagnostic();
   const windows = new Map<string, SerialWindow>();
   let runtime: ServiceRuntimeContext | undefined;
   let warnedLegacy = false;
@@ -387,11 +389,8 @@ function buildSerialService(options: SerialServiceOptions): ServiceHandler {
         return;
       }
 
-      currentSend({
-        type: `${message.type}.error`,
-        id,
-        error: `Unknown serial method: ${message.type}`,
-      } as NappletMessage);
+      // NIP-5D (nips#2303 @ f60550c3): unrecognized types get no reply.
+      ignoreUnrecognized('serial', message.type);
     },
     onWindowDestroyed(windowId: string): void { destroySerialWindow(options, windows, windowId); },
   };

@@ -11,3 +11,11 @@ Top-level Kehto CLI namespace.
 ```
 
 `kehto paja` runs the Paja local authoring workshop from `@kehto/paja`.
+
+`kehto conformance` runs the `@kehto/conformance` runtime conformance suite in
+headless Chromium (needs the optional `@playwright/test` peer):
+
+```bash
+kehto conformance --profile minimal
+kehto conformance --reporter junit --out conformance.xml
+```

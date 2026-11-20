@@ -35,14 +35,15 @@
  * @packageDocumentation
  */
 
-import { allowed, deriveAuthors, resolvePlan, resolveRequiredRelays } from './relay-pool-outbox-planning.js';
+import { allowed, deriveAuthors, resolvePlan, resolvePublishTargets } from './relay-pool-outbox-planning.js';
 import { defaultRelayAllowed, parseRelayUrl } from './relay-url-policy.js';
+import { normalizePublishResult, planPublishImpl, publishWithPlanImpl, queryPlanImpl, subscribePlanImpl } from './relay-pool-outbox-planned.js';
+import { OUTBOX_RELAY_TIMEOUT, outboxPublishFailureReason } from './outbox-reasons.js';
 import type { EventTemplate, NostrEvent, NostrFilter } from '@napplet/core';
-import { createRelayEventResultWithHints, type ApprovalSignal, type RelayEventResult } from '@kehto/runtime';
+import { createRelayEventResultWithHints, type RelayEventResult } from '@kehto/runtime';
 import type {
   OutboxResult,
   OutboxPublishResult,
-  OutboxRelayPlan,
   OutboxEventOptions,
   OutboxEventResult,
   OutboxQueryOptions,
@@ -60,7 +61,6 @@ import type {
   OutboxRelayOrigin,
   LiveOutboxSubscription,
   OutboxCollector,
-  PublishTargetResolution,
   RelayListEntry,
   RelayPoolOutboxRouterOptions,
   RouterCtx,
@@ -339,59 +339,6 @@ function queryImpl(ctx: RouterCtx, filters: NostrFilter[], options?: OutboxQuery
   return startQueryImpl(ctx, filters, options, { event: () => { /* aggregate only */ } }).result;
 }
 
-function queryPlanImpl(ctx: RouterCtx, filters: NostrFilter[], options: OutboxQueryOptions | undefined, plan: OutboxRelayPlan, signal?: ApprovalSignal): Promise<OutboxResult> {
-  if (signal?.aborted) return Promise.resolve({ events: [], error: 'policy denied' });
-  if (!ctx.relayPool.isAvailable()) return Promise.resolve({ events: [], incomplete: true, error: 'relay list unavailable' });
-  const seen = new Map<string, NostrEvent>();
-  const origin: OutboxRelayOrigin = plan.source === 'nip65' ? 'nip65' : plan.source === 'fallback' ? 'fallback' : 'hint';
-  // A frozen plan keeps no per-relay owners, so it reports the requested routing authors.
-  const routingAuthors = deriveAuthors(filters, options?.authors);
-  return new Promise((resolve, reject) => {
-    let settled = false;
-    const handles: { unsubscribe(): void }[] = [];
-    const cleanup = (): void => {
-      clearTimeout(timer);
-      signal?.removeEventListener('abort', abort);
-      for (const handle of handles) {
-        try { handle.unsubscribe(); } catch { /* release the remaining subscriptions */ }
-      }
-    };
-    const finish = (result: OutboxResult): void => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      resolve(result);
-    };
-    const abort = (): void => finish({ events: [], error: 'policy denied' });
-    const timer = setTimeout(() => finish({ events: [...seen.values()].map((event) => createRelayEventResultWithHints(event, plan.relays)) }), options?.timeoutMs ?? ctx.defaultTimeoutMs);
-    signal?.addEventListener('abort', abort, { once: true });
-    if (signal?.aborted) { abort(); return; }
-    try {
-      for (const relayUrl of plan.relays) {
-        if (settled) break;
-        const handle = relayPoolSubscribe(ctx, filters, relayUrl, (item) => {
-          if (settled || item === 'EOSE') return;
-          void ctx.verify(item).then((ok) => { if (ok && !settled) seen.set(item.id, item); });
-        }, origin, routingAuthors);
-        if (settled) handle.unsubscribe(); else handles.push(handle);
-      }
-    } catch (error) {
-      settled = true;
-      cleanup();
-      reject(error);
-    }
-  });
-}
-
-function subscribePlanImpl(ctx: RouterCtx, filters: NostrFilter[], plan: OutboxRelayPlan, sink: OutboxSubscriptionSink): OutboxRouterSubscription {
-  let closed = false;
-  const handles = plan.relays.map((relayUrl) => relayPoolSubscribe(ctx, filters, relayUrl, (item) => {
-    if (closed || item === 'EOSE') return;
-    void ctx.verify(item).then((ok) => { if (ok && !closed) sink.event(createRelayEventResultWithHints(item, [relayUrl])); });
-  }, plan.source === 'nip65' ? 'nip65' : plan.source === 'fallback' ? 'fallback' : 'hint', deriveAuthors(filters)));
-  return { close() { if (closed) return; closed = true; for (const handle of handles) handle.unsubscribe(); } };
-}
-
 async function getEventImpl(ctx: RouterCtx, eventId: string, options?: OutboxEventOptions): Promise<OutboxEventResult> {
   if (typeof eventId !== 'string' || eventId.length === 0) {
     return { error: 'invalid filter' };
@@ -559,45 +506,6 @@ function startSubscription(
   };
 }
 
-/** Resolve the full write/inbox/hint relay set a publish should fan out to. */
-async function resolvePublishTargets(
-  ctx: RouterCtx,
-  signed: { readonly pubkey: string },
-  options?: OutboxPublishOptions,
-  allowOwnFallback = false,
-): Promise<PublishTargetResolution> {
-  const targets = new Set<string>();
-  const requiredTargets = new Set<string>();
-
-  if (options?.toOutbox !== false) {
-    // The author's own write relays (outbox model for the user's own event).
-    const outboxPlan = await resolveRequiredRelays(ctx, [signed.pubkey], 'read');
-    if (outboxPlan.deniedAuthors.length > 0) return { relayUrls: [], requiredRelayUrls: [], error: 'policy denied' };
-    const ownRelays = outboxPlan.missingAuthors.length > 0 && allowOwnFallback ? allowed(ctx, ctx.fallbackRelays) : outboxPlan.relays;
-    if (ownRelays.length === 0) return { relayUrls: [], requiredRelayUrls: [], error: 'relay list unavailable' };
-    for (const url of ownRelays) {
-      targets.add(url);
-      requiredTargets.add(url);
-    }
-  }
-
-  if (options?.toInboxes && options.toInboxes.length > 0) {
-    const inboxPlan = await resolveRequiredRelays(ctx, options.toInboxes, 'write');
-    if (inboxPlan.missingAuthors.length > 0) return { relayUrls: [], requiredRelayUrls: [], error: 'relay list unavailable' };
-    if (inboxPlan.deniedAuthors.length > 0) return { relayUrls: [], requiredRelayUrls: [], error: 'policy denied' };
-    for (const url of inboxPlan.relays) {
-      targets.add(url);
-      requiredTargets.add(url);
-    }
-  }
-
-  for (const url of options?.relays ?? []) targets.add(url);
-  return {
-    relayUrls: allowed(ctx, targets),
-    requiredRelayUrls: allowed(ctx, requiredTargets),
-  };
-}
-
 async function publishImpl(ctx: RouterCtx, template: EventTemplate, options?: OutboxPublishOptions): Promise<OutboxPublishResult> {
   if (!ctx.signEvent) return { ok: false, error: 'publish denied' };
   if (!ctx.relayPool.isAvailable()) return { ok: false, error: 'relay list unavailable' };
@@ -620,14 +528,17 @@ async function publishImpl(ctx: RouterCtx, template: EventTemplate, options?: Ou
   try {
     relays = normalizePublishResult(await ctx.relayPool.publish(signed, relayUrls), relayUrls);
   } catch (err) {
-    return { ok: false, event: signed, eventId: signed.id, error: err instanceof Error ? err.message : 'publish failed' };
+    return { ok: false, event: signed, eventId: signed.id, error: outboxPublishFailureReason(err) };
   }
 
   const ok = publishTargets.requiredRelayUrls.length > 0
     ? publishTargets.requiredRelayUrls.every((url) => relays[url] === true)
     : Object.values(relays).some(Boolean);
   const result: OutboxPublishResult = { ok, event: signed, eventId: signed.id, relays };
-  if (!ok) result.error = 'publish denied';
+  // Relays that did not accept are a relay failure, not a denial. Spec gap:
+  // NAP-OUTBOX `8865f73d` has no "relay refused" code; `relay timeout` is the
+  // closest defined one (see outbox-reasons.ts).
+  if (!ok) result.error = OUTBOX_RELAY_TIMEOUT;
   return result;
 }
 
@@ -671,30 +582,12 @@ export function createRelayPoolOutboxRouter(options: RelayPoolOutboxRouterOption
     },
   };
 
-  async function planPublish(publishOptions?: OutboxPublishOptions): Promise<OutboxRelayPlan> {
-    if (!ctx.getSignerPubkey) return { relays: [], source: 'policy' };
-    const pubkey = await ctx.getSignerPubkey();
-    const targets = await resolvePublishTargets(ctx, { pubkey }, publishOptions, true);
-    if (targets.error) throw new Error(targets.error);
-    return { relays: targets.relayUrls, requiredRelays: targets.requiredRelayUrls, source: 'policy', author: pubkey };
-  }
-  async function publishWithPlan(template: EventTemplate, plan: OutboxRelayPlan, signal?: ApprovalSignal): Promise<OutboxPublishResult> {
-    if (signal?.aborted) return { ok: false, error: 'policy denied' };
-    if (!ctx.signEvent || plan.relays.length === 0) return { ok: false, error: 'publish denied' };
-    const event = await ctx.signEvent(template);
-    if (signal?.aborted) return { ok: false, error: 'policy denied' };
-    if (plan.author && event.pubkey !== plan.author) return { ok: false, event, eventId: event.id, error: 'signing identity changed' };
-    const relays = normalizePublishResult(await ctx.relayPool.publish(event, [...plan.relays]), [...plan.relays]);
-    const ok = plan.requiredRelays?.length ? plan.requiredRelays.every((url) => relays[url] === true) : Object.values(relays).some(Boolean);
-    return { ok, event, eventId: event.id, relays, ...(ok ? {} : { error: 'publish denied' }) };
-  }
-
   return {
     planRead: (filters, queryOptions) => resolvePlan(ctx, deriveAuthors(filters, queryOptions?.authors), 'read', queryOptions?.relays),
     queryWithPlan: (filters, queryOptions, plan, signal) => queryPlanImpl(ctx, filters, queryOptions, plan, signal),
     subscribeWithPlan: (filters, plan, sink) => subscribePlanImpl(ctx, filters, plan, sink),
-    planPublish,
-    publishWithPlan,
+    planPublish: (publishOptions) => planPublishImpl(ctx, publishOptions),
+    publishWithPlan: (template, plan, signal) => publishWithPlanImpl(ctx, template, plan, signal),
     getEvent: (eventId, eventOptions) => getEventImpl(ctx, eventId, eventOptions),
     query: (filters, queryOptions) => queryImpl(ctx, filters, queryOptions),
     queryStream: (filters, queryOptions, sink) => startQueryImpl(ctx, filters, queryOptions, sink),
@@ -705,19 +598,4 @@ export function createRelayPoolOutboxRouter(options: RelayPoolOutboxRouterOption
       return resolvePlan(ctx, pubkeys, target.direction ?? 'read');
     },
   };
-}
-
-/** Normalize a pool publish return into a per-relay success map. */
-function normalizePublishResult(
-  res: Record<string, boolean> | void,
-  relayUrls: string[],
-): Record<string, boolean> {
-  const out: Record<string, boolean> = {};
-  if (res && typeof res === 'object') {
-    for (const url of relayUrls) out[url] = res[url] ?? false;
-  } else {
-    // void return → optimistic success on every targeted relay.
-    for (const url of relayUrls) out[url] = true;
-  }
-  return out;
 }

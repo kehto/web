@@ -78,7 +78,7 @@ describe('createCvmService', () => {
       svc.handleMessage(WINDOW, { type: 'cvm.discover', id: 'invalid', query: { relays: ['https://not-a-relay.example'] } } as NappletMessage, send);
       await flush();
 
-      expect(sent).toEqual([{ type: 'cvm.discover.result', id: 'invalid', servers: [], error: 'invalid relay' }]);
+      expect(sent).toEqual([{ type: 'cvm.discover.result', id: 'invalid', error: 'invalid relay' }]);
       expect(authorizeOperation).not.toHaveBeenCalled();
       expect(transport.discover).not.toHaveBeenCalled();
     });
@@ -90,7 +90,7 @@ describe('createCvmService', () => {
       svc.handleMessage(WINDOW, { type: 'cvm.discover', id: 'd1', query: { search: 'relay' } } as NappletMessage, send);
       await flush();
       expect(sent).toEqual([{ type: 'cvm.discover.result', id: 'd1', servers }]);
-      expect(transport.discover).toHaveBeenCalledWith({ search: 'relay' });
+      expect(transport.discover).toHaveBeenCalledWith({ search: 'relay' }, { signal: expect.any(AbortSignal) });
     });
 
     it('returns empty servers + error string on transport failure', async () => {
@@ -98,7 +98,7 @@ describe('createCvmService', () => {
       const { sent, send } = collectSent();
       svc.handleMessage(WINDOW, { type: 'cvm.discover', id: 'd2' } as NappletMessage, send);
       await flush();
-      expect(sent[0]).toEqual({ type: 'cvm.discover.result', id: 'd2', servers: [], error: 'relay timeout' });
+      expect(sent[0]).toEqual({ type: 'cvm.discover.result', id: 'd2', error: 'relay timeout' });
     });
   });
 
@@ -117,7 +117,7 @@ describe('createCvmService', () => {
       expect(authorizeOperation).toHaveBeenCalledWith(WINDOW, 'cvm.request', expect.arrayContaining([
         expect.objectContaining({ category: 'interface', domain: 'cvm', operation: 'access' }),
         expect.objectContaining({ category: 'network', domain: 'cvm', operation: 'cvm.request', scope: { kind: 'origin', value: 'wss://relay.example' } }),
-      ]), expect.any(Function));
+      ]), expect.any(Function), expect.any(AbortSignal));
       expect(transport.request).toHaveBeenCalledTimes(1);
       expect(sent).toEqual([expect.objectContaining({ type: 'cvm.request.result', id: 'approved' })]);
     });
@@ -150,8 +150,13 @@ describe('createCvmService', () => {
       expect(transport.request).toHaveBeenCalledWith(
         SERVER,
         { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'x' } },
-        { initialize: true },
+        // The service owns the deadline from receipt and hands over what is left of it.
+        { initialize: true, timeoutMs: expect.any(Number) },
+        { signal: expect.any(AbortSignal) },
       );
+      const timeoutMs = vi.mocked(transport.request).mock.calls[0][2]!.timeoutMs!;
+      expect(timeoutMs).toBeGreaterThan(29_000);
+      expect(timeoutMs).toBeLessThanOrEqual(30_000);
     });
 
     it('rejects with "server not found" when server pubkey is missing', async () => {
@@ -161,17 +166,58 @@ describe('createCvmService', () => {
       expect(sent[0]).toEqual({ type: 'cvm.request.result', id: 'r2', error: 'server not found' });
     });
 
-    it('rejects with "unsupported method" when the MCP message is missing', async () => {
+    // NAP-CVM (napplet/naps#31 @ 28cf1bdb, Message handling + Conformance):
+    // "Missing messages, batches, invalid IDs, and invalid field combinations
+    // return \"invalid message\"" and "Missing message, id: null, or both result
+    // and error" get `invalid message` "with no publication".
+    it.each([
+      ['a missing message', undefined],
+      ['id: null', { jsonrpc: '2.0', id: null, method: 'tools/list' }],
+      ['both result and error', { jsonrpc: '2.0', id: 9, result: {}, error: { code: 1, message: 'x' } }],
+      ['a batch', [{ jsonrpc: '2.0', id: 1, method: 'tools/list' }]],
+      ['a non-2.0 jsonrpc', { jsonrpc: '1.0', id: 1, method: 'tools/list' }],
+      ['a boolean id', { jsonrpc: '2.0', id: true, method: 'tools/list' }],
+      ['a fractional id', { jsonrpc: '2.0', id: 1.5, method: 'tools/list' }],
+      ['an empty method', { jsonrpc: '2.0', id: 1, method: '' }],
+      ['a non-string method', { jsonrpc: '2.0', id: 1, method: 7 }],
+      ['non-object params', { jsonrpc: '2.0', id: 1, method: 'tools/call', params: [1] }],
+      ['a request with a result', { jsonrpc: '2.0', id: 1, method: 'tools/list', result: {} }],
+      ['a notification with an error', { jsonrpc: '2.0', method: 'notifications/progress', error: { code: 1, message: 'x' } }],
+      ['a response with params', { jsonrpc: '2.0', id: 1, result: {}, params: {} }],
+      ['a response with neither result nor error', { jsonrpc: '2.0', id: 1 }],
+      ['a response without an id', { jsonrpc: '2.0', result: {} }],
+      ['no method and no id', { jsonrpc: '2.0' }],
+    ])('rejects %s with "invalid message" and publishes nothing', async (_label, message) => {
+      const authorizeOperation = vi.fn();
+      svc.onRegistered?.({ authorizeOperation } as unknown as ServiceRuntimeContext);
       const { sent, send } = collectSent();
-      svc.handleMessage(WINDOW, { type: 'cvm.request', id: 'r3', server: SERVER } as NappletMessage, send);
+      svc.handleMessage(WINDOW, { type: 'cvm.request', id: 'bad', server: SERVER, ...(message === undefined ? {} : { message }) } as NappletMessage, send);
       await flush();
-      expect(sent[0]).toEqual({ type: 'cvm.request.result', id: 'r3', error: 'unsupported method' });
+      expect(sent).toEqual([{ type: 'cvm.request.result', id: 'bad', error: 'invalid message' }]);
+      expect(transport.request).not.toHaveBeenCalled();
+      expect(authorizeOperation).not.toHaveBeenCalled();
+      // No session was opened, so closing it has nothing to tear down.
+      svc.handleMessage(WINDOW, { type: 'cvm.close', id: 'close', server: SERVER } as NappletMessage, send);
+      await flush();
+      expect(transport.close).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['a request', { jsonrpc: '2.0', id: 'r-1', method: 'tools/call', params: { name: 'x' } }],
+      ['a notification', { jsonrpc: '2.0', method: 'notifications/cancelled', params: { requestId: 2 } }],
+      ['a result response', { jsonrpc: '2.0', id: 3, result: {} }],
+      ['an error response', { jsonrpc: '2.0', id: 'srv-1', error: { code: -1, message: 'no' } }],
+    ])('admits %s unchanged', async (_label, message) => {
+      const { send } = collectSent();
+      svc.handleMessage(WINDOW, { type: 'cvm.request', id: 'ok', server: SERVER, message } as NappletMessage, send);
+      await flush();
+      expect(transport.request).toHaveBeenCalledWith(SERVER, message, expect.any(Object), expect.any(Object));
     });
 
     it('surfaces a transport error as the envelope error', async () => {
       transport.request = vi.fn(async () => { throw new Error('policy denied'); });
       const { sent, send } = collectSent();
-      svc.handleMessage(WINDOW, { type: 'cvm.request', id: 'r4', server: SERVER, message: { jsonrpc: '2.0' } } as NappletMessage, send);
+      svc.handleMessage(WINDOW, { type: 'cvm.request', id: 'r4', server: SERVER, message: { jsonrpc: '2.0', id: 1, method: 'tools/list' } } as NappletMessage, send);
       await flush();
       expect(sent[0]).toEqual({ type: 'cvm.request.result', id: 'r4', error: 'policy denied' });
     });
@@ -180,7 +226,7 @@ describe('createCvmService', () => {
   describe('cvm.close', () => {
     it('closes transport session and echoes id', async () => {
       const { sent, send } = collectSent();
-      svc.handleMessage(WINDOW, { type: 'cvm.request', id: 'open', server: SERVER, message: { jsonrpc: '2.0', id: 1 } } as NappletMessage, send);
+      svc.handleMessage(WINDOW, { type: 'cvm.request', id: 'open', server: SERVER, message: { jsonrpc: '2.0', id: 1, method: 'tools/list' } } as NappletMessage, send);
       await flush();
       sent.length = 0;
       svc.handleMessage(WINDOW, { type: 'cvm.close', id: 'c1', server: SERVER } as NappletMessage, send);
@@ -192,12 +238,12 @@ describe('createCvmService', () => {
     it('does not let another window close an owned session', async () => {
       const owner = collectSent();
       const intruder = collectSent();
-      svc.handleMessage(WINDOW, { type: 'cvm.request', id: 'open', server: SERVER, message: { jsonrpc: '2.0', id: 1 } } as NappletMessage, owner.send);
+      svc.handleMessage(WINDOW, { type: 'cvm.request', id: 'open', server: SERVER, message: { jsonrpc: '2.0', id: 1, method: 'tools/list' } } as NappletMessage, owner.send);
       await flush();
       svc.handleMessage('other-window', { type: 'cvm.close', id: 'forged', server: SERVER } as NappletMessage, intruder.send);
       await flush();
 
-      expect(intruder.sent).toEqual([{ type: 'cvm.close.result', id: 'forged', error: 'session closed' }]);
+      expect(intruder.sent).toEqual([{ type: 'cvm.close.result', id: 'forged' }]);
       expect(transport.close).not.toHaveBeenCalled();
     });
 
@@ -208,7 +254,7 @@ describe('createCvmService', () => {
       }));
       svc.onRegistered?.({ authorizeOperation: approve } as unknown as ServiceRuntimeContext);
       const { sent, send } = collectSent();
-      svc.handleMessage(WINDOW, { type: 'cvm.request', id: 'open', server: SERVER, message: { jsonrpc: '2.0', id: 1 } } as NappletMessage, send);
+      svc.handleMessage(WINDOW, { type: 'cvm.request', id: 'open', server: SERVER, message: { jsonrpc: '2.0', id: 1, method: 'tools/list' } } as NappletMessage, send);
       await flush();
       svc.onRegistered?.({ authorizeOperation: async () => ({ status: 'denied' }) } as unknown as ServiceRuntimeContext);
       sent.length = 0;
@@ -234,7 +280,7 @@ describe('createCvmService', () => {
 
     it('does not deliver events for servers the window has no session with', async () => {
       const { sent, send } = collectSent();
-      svc.handleMessage(WINDOW, { type: 'cvm.request', id: 'r1', server: SERVER, message: { jsonrpc: '2.0', id: 1 } } as NappletMessage, send);
+      svc.handleMessage(WINDOW, { type: 'cvm.request', id: 'r1', server: SERVER, message: { jsonrpc: '2.0', id: 1, method: 'tools/list' } } as NappletMessage, send);
       await flush();
       transport.emitEvent({ pubkey: 'b'.repeat(64) }, { jsonrpc: '2.0', method: 'notifications/progress' });
       expect(sent.some((m) => m.type === 'cvm.event')).toBe(false);
@@ -242,7 +288,7 @@ describe('createCvmService', () => {
 
     it('stops delivering events after the window is destroyed', async () => {
       const { sent, send } = collectSent();
-      svc.handleMessage(WINDOW, { type: 'cvm.request', id: 'r1', server: SERVER, message: { jsonrpc: '2.0', id: 1 } } as NappletMessage, send);
+      svc.handleMessage(WINDOW, { type: 'cvm.request', id: 'r1', server: SERVER, message: { jsonrpc: '2.0', id: 1, method: 'tools/list' } } as NappletMessage, send);
       await flush();
       svc.onWindowDestroyed?.(WINDOW);
       await flush();
@@ -261,8 +307,8 @@ describe('createCvmService', () => {
       svc.onRegistered?.({ authorizeOperation } as unknown as ServiceRuntimeContext);
       const first = collectSent();
       const sibling = collectSent();
-      svc.handleMessage(WINDOW, { type: 'cvm.request', id: 'pending', server: SERVER, message: { jsonrpc: '2.0', id: 1 } } as NappletMessage, first.send);
-      svc.handleMessage('sibling', { type: 'cvm.request', id: 'open', server: SERVER, message: { jsonrpc: '2.0', id: 2 } } as NappletMessage, sibling.send);
+      svc.handleMessage(WINDOW, { type: 'cvm.request', id: 'pending', server: SERVER, message: { jsonrpc: '2.0', id: 1, method: 'tools/list' } } as NappletMessage, first.send);
+      svc.handleMessage('sibling', { type: 'cvm.request', id: 'open', server: SERVER, message: { jsonrpc: '2.0', id: 2, method: 'tools/list' } } as NappletMessage, sibling.send);
       await flush();
       svc.onPermissionRevoked?.(WINDOW);
       resolveRequest({ jsonrpc: '2.0', id: 1, result: {} });

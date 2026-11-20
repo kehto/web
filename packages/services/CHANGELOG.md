@@ -1,5 +1,31 @@
 # @kehto/services
 
+## 0.34.0
+
+### Minor Changes
+
+- e989352: Expose CVM registry selectors in the injected namespace and allow hosts to configure provider families pinned to CEP-15 tool hashes. Verify live schemas before selecting or calling a provider and bound operations by their requested deadlines. Existing string-family API calls translate to canonical selectors with one migration warning per iframe.
+
+### Patch Changes
+
+- @kehto/runtime@0.30.1
+
+## 0.33.0
+
+### Minor Changes
+
+- 90d4703: Bound CEP-22 reassembly by the request deadline (at most five minutes), keep
+  deadlines fixed despite progress, and fail CEP-41 closes that still have chunk
+  gaps. Generate correlation and ping nonce suffixes from random bytes instead of deriving keypairs. Document
+  outbound oversized-request limits and host-owned concurrency admission.
+
+  Requests no longer extend their timeout when progress arrives; callers must
+  select a sufficient duration before starting an operation.
+
+  Reject invalid timeout durations before acquiring sessions or publishing. Include
+  initialization, shared-init waits and initialized-notification publication in the
+  original request budget, preserving `relay timeout` on expiry.
+
 ## 0.32.1
 
 ### Patch Changes

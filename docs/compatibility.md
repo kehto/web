@@ -6,6 +6,78 @@ coverage. This register records both implemented safeguards and existing debt;
 below identifies the package responsible for the implementation and its tests.
 No removal date is implied by an old source comment.
 
+## KEHTO_CVM_FAMILY_SELECTOR — injected CVM registry calls
+
+Owner: `@kehto/shell`. The injected registry accepts the existing SDK's
+`registry.has/describe/call(familyString, ...)` form and translates it to the
+canonical `{ family }` selector. An old `options.schemaHash` becomes the
+authoritative selector hash. No family-only wire envelope is emitted.
+Canonical calls take `{ family }` or `{ schemaHash }` directly and stay quiet.
+
+Source and warning site: `packages/shell/src/napplet-namespace.ts`, `makeCvm`.
+The warning identifies this entry, names the replacement and fires once per
+injected iframe lifetime. Tests in `napplet-namespace.test.ts` cover canonical
+wire fields, quiet canonical usage, warning text/frequency, trusted parent
+delivery and duplicate result handling. `cvm-registry.test.ts` covers runtime
+hash verification, pinned providers, deadlines and window teardown.
+
+Retention reason: napplets built against `@napplet/nap@0.40.0` or older call
+the string-family API. `@napplet/nap@0.41.0` / `@napplet/core@0.42.0`
+([napplet/web#337](https://github.com/napplet/web/pull/337), closing
+[napplet/web#336](https://github.com/napplet/web/issues/336)) switched the SDK to
+selectors as a breaking change and added no translation of their own: the SDK
+helpers forward their first argument to `window.napplet.cvm.registry` untouched.
+So an older bundle still reaches Kehto's injected boundary with a string, and
+this adapter is the only thing that keeps it working. A napplet that bundles
+the older upstream shim instead of using the injected namespace posts a
+top-level `family`, which Kehto rejects as `invalid request`; no family-only
+wire fallback exists.
+
+Upstream type drift is resolved
+([kehto/web#441](https://github.com/kehto/web/issues/441)): the checked
+contract is NAP-CVM #31 at `28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f`, and
+`@kehto/services` and `@kehto/mocks` now take `CvmRegistrySelector`,
+`CvmRegistryEntry` and the related types from `@napplet/core` (peer floor
+0.42.0) instead of declaring them. `cvm-registry-types.test.ts` and
+`published-napplet-contract.test.ts` pin that. `@kehto/shell` keeps its older
+peer floor because the injected binding is untyped and imports none of them.
+
+Diagnostic limit: the stricter upstream `CvmRegistrySelector` (at least one
+field) is an erased type, so a TypeScript host that built `{}` selectors gets a
+compile error rather than a runtime warning; the runtime already rejected them.
+
+Removal prerequisites for the adapter: supported consumers of the string-family
+API move to selectors (rebuilding against `@napplet/nap` 0.41.0 or newer forces
+that at compile time), a removal release is announced, then the string branch, its warning and its tests go together with a
+negative test for string selectors. Silence from the warning is not proof that
+external napplets migrated.
+
+## PAJA-NIP07-RELAY-DISCOVERY-REMOVED — retired extension integration
+
+`@kehto/paja` no longer reads, binds, or calls the obsolete NIP-07 `getRelays`
+property. Host-configured discovery/super relays replace extension-provided
+bootstrap URLs for contacts, NIP-65 routing and Blossom discovery. The old
+signer-lifecycle bootstrap cache is deleted, not retained behind a warning.
+No legacy path, warning site, or warning lifetime remains.
+
+Sources: `packages/paja/src/browser-signers.ts`, `browser-relay-runtime.ts`,
+`browser-adapter-support.ts`, and `browser-adapter.ts`. Regression coverage:
+`browser-signers.test.ts` (throwing property accessor and supported methods),
+`browser-adapter-signer-traffic.test.ts` (signed relay fixtures, account changes
+and correlated identity results), and `browser-blossom-integration.test.ts`
+(host-only resource discovery and zero obsolete-hook calls).
+
+Authority: [NIP-07 master](https://github.com/nostr-protocol/nips/blob/master/07.md),
+checked 2026-11-12, no longer defines this extension capability.
+[NAP-IDENTITY at `43cb3a4e855570ec4b90b9cc05f0c721e5ad0aab`](https://github.com/napplet/naps/blob/43cb3a4e855570ec4b90b9cc05f0c721e5ad0aab/naps/NAP-IDENTITY.md)
+still defines `identity.getRelays`; that wire API and the general host service
+remain intact. Paja returns an empty map for unsupported external-user relay
+metadata, as the spec permits, without fabricating preferences from host URLs.
+
+Removal ships with `.changeset/paja-remove-obsolete-relay-discovery.md` (Paja
+patch); PR and release number are pending. There are no remaining retirement
+prerequisites or upstream publication dependencies.
+
 ## Outbox routing-author metadata — services / Paja
 
 Identifier: `OUTBOX_ROUTING_AUTHORS`. `OutboxRelayPool.subscribe` now receives an
@@ -101,6 +173,40 @@ exports are removed in this breaking minor release. Construct an optional limite
 from `@kehto/rate-limit` and hold it to change configuration; legacy config persistence
 is passed directly to `createFirewallState`. Types and exports provide compile-time
 migration diagnostics; removed JavaScript properties have no retained fallback.
+
+## KEHTO_SERVICE_NOT_REGISTERED — late adapter services, shell
+
+Identifier: `KEHTO_SERVICE_NOT_REGISTERED`. Owning package: `@kehto/shell`
+(with `Runtime.hasService` from `@kehto/runtime`).
+
+Old behavior: a handler added to `ShellAdapter.services` after
+`createShellBridge()` was advertised in `shell.init` and injected domains, while
+the runtime's creation-time copy never routed it, so requests went unanswered
+(kehto/web#428). That input is retired rather than kept: there was no working
+behavior to preserve. Replacement: also call
+`bridge.runtime.registerService(name, handler)`, and `unregisterService(name)`
+on removal.
+
+Warning: `console.warn` naming `[KEHTO_SERVICE_NOT_REGISTERED]`, the service and
+the replacement call, once per service per bridge, in
+`packages/shell/src/shell-init.ts`. Canonical wiring (declared at creation, or
+declared and registered) stays quiet. The related
+`[KEHTO_UNROUTED_SERVICE_DOMAIN]` line in
+`packages/runtime/src/domain-handlers.ts` is a host diagnostic, once per domain
+per runtime, for a request that reaches a service-only domain with no handler;
+the wire stays silent as NIP-5D requires.
+
+Tests: `packages/shell/src/shell-late-services.test.ts`,
+`packages/runtime/src/late-service-registration.test.ts` and
+`tests/unit/paja-service-registration.test.ts` cover the withheld advertisement
+and its warning, the quiet canonical paths, removal, and the adapter with no
+live bridge.
+
+Limit: an adapter that is not bound to a live bridge has no runtime to consult,
+so `buildShellCapabilities(adapter)` keeps reading declared services there.
+Removal prerequisite: none for the withheld advertisement, which is the fix. The
+warning can go once hosts have a declarative way to change services after
+creation.
 
 ## FW-COUNT-LEGACY-001 — unbound COUNT service
 
@@ -319,6 +425,87 @@ prerequisites: announce the route removal in a release note, then delete
 together. The last commit containing the playground source is the parent of the
 retirement PR; recover it from git history if ever needed.
 
+## KEHTO_INC_DTAG_TARGET_RETIRED — INC peers by manifest d tag — runtime
+
+Identifier: `KEHTO_INC_DTAG_TARGET_RETIRED`. Owner: `@kehto/runtime`. Retired
+without a compatibility path. Through `@kehto/runtime` 0.26, `inc.event.sender`,
+`inc.channel.event.sender`, and every channel `peer` were the manifest `d` tag,
+and `inc.channel.open` resolved `target` as a `d` tag when exactly one live
+session carried it. Two live instances of one name were indistinguishable and
+unaddressable, and an endpoint whose manifest has no `d` tag could not emit or
+join a channel ([kehto/web#331](https://github.com/kehto/web/issues/331)).
+
+Authority: [NAP-INC at `377bf939c6c906817084b43dd21d424de646dbc2`](https://github.com/napplet/naps/blob/377bf939c6c906817084b43dd21d424de646dbc2/naps/NAP-INC.md#schemas)
+(text last changed by `f4545b1f`). `target`, `sender`, and `peer` "are opaque
+text, unique to a live endpoint within the runtime, and MUST NOT be interpreted
+as a manifest `d` tag". A fallback that resolved an unambiguous `d` tag would
+interpret it as exactly that, and would let a napplet address a peer by a public
+name instead of an identifier it obtained from an attested event or a host
+selection. So no fallback is kept, bounded or otherwise.
+
+Replacement: the runtime assigns each live registered endpoint an opaque
+identifier from the injected `crypto.randomUUID`. Napplets read it from
+`inc.event.sender`, `inc.channel.opened.peer`, `inc.channel.open.result.peer`,
+`inc.channel.event.sender`, or `inc.channel.list.result`; hosts select a peer
+with `Runtime.getIncEndpointId(windowId)`. Migration for a napplet: keep the
+`sender` you received and pass it to `channel.open`; do not hardcode a peer
+name or compare `sender` with one. Firewall, ACL, and permission records are
+unchanged and stay keyed by the verified principal.
+
+Sources: `packages/runtime/src/inc-endpoints.ts` (assignment, binding to the
+registration, non-reuse), `inc-handler.ts` (wire use and the diagnostic), and
+`runtime.ts` (retirement on replacement or unregistration). Diagnostic: a `d`
+tag of a live session used as a target still fails as `target not found`, the
+same result as any unknown target, so the wire gives no liveness oracle. The
+host console gets one `console.warn` naming this identifier and the replacement,
+at most once per runtime instance, without the target value. Canonical targets
+and unknown text are quiet. The old `sender`/`peer` output has no observable
+old-use boundary (a napplet comparing it with a name just stops matching), so
+that half is covered by this entry, the changeset, and the README migration note
+rather than a runtime warning.
+
+Regression coverage: `packages/runtime/src/inc-endpoint-identity.test.ts`
+(issue fixture, opacity, stability, root manifests, rejected `d` tag / window ID
+/ instance ID / hash / empty / non-text targets, warning text and frequency,
+quiet canonical path, replacement and unregistration, repeated UUID source),
+`runtime.test.ts` and `dispatch.test.ts` (channel lifecycle, limits, ACL at
+open), `tests/unit/nap-inc-conformance.test.ts`,
+`tests/unit/nip5d-conformance-guard.test.ts` (static guard that the handler
+reads no `dTag`), and `tests/e2e/nap-inc.spec.ts` (two same-name instances in
+real sandboxed iframes).
+
+Removal ships with `.changeset/inc-endpoint-identifiers.md` (runtime minor); PR
+and release number are pending. Nothing remains to retire. Upstream note:
+`@napplet/nap@0.40.0` INC type comments still call `sender`, `target`, and the
+open-result `peer` a napplet identity; field shapes already match.
+
+## KEHTO_MOCKS_NAP_DRIFT_RETIRED — mock APIs removed for NAP drift — mocks
+
+Identifier: `KEHTO_MOCKS_NAP_DRIFT_RETIRED`. Owner: `@kehto/mocks`. Retired
+without a compatibility path in the `@kehto/mocks` 0.2.0 minor release
+(`.changeset/nap-mocks-audit-drift.md`, [kehto/web#464](https://github.com/kehto/web/pull/464)).
+Nothing in this repository consumed these APIs, but `@kehto/mocks` is
+published, so external test suites may have imported them.
+
+| Old | Replacement | Why retired |
+|-----|-------------|-------------|
+| `createMockMeshService`, `MESH_MOCK_ENTRY`, `MESH_SPEC_REF`, the `Mock*Mesh*` types and the `mesh` registry row | None. NAP-NEIGHBOR is not mocked yet; it is deferred in `packages/mocks/scripts/deferred-naps.json`. | NAP-MESH ([napplet/naps PR #122](https://github.com/napplet/naps/pull/122)) closed unmerged on 2026-11-12. Its author retracted it in favour of NAP-NEIGHBOR ([PR #146](https://github.com/napplet/naps/pull/146)), a different contract, so the mock was not repointed. |
+| `LLM_TOOLS_SPEC_REF` (PR #138 `8f741326`) | `LLM_SPEC_REF` (PR #134 `5e93bdfce0e8`) | PR #138 was merged into the PR #134 branch, so one draft now carries tool use. |
+| `result.text` on mock `llm.generate.result` | Concatenate the `text` parts of `result.content`. | [NAP-LLM PR #134 at `5e93bdfc`](https://github.com/napplet/naps/blob/5e93bdfce0e84c0de728234cb7b3feed498f8635/naps/NAP-LLM.md) defines Generation as `content`, `finish`, `usage`; `text` was a mirror of an older draft shape. |
+| `respondWith(text, 'toolUse')` | Offer `tools` and let the mock derive the call, or script `stop`/`length`/`refusal`. The type is now `MockLlmScriptedFinish`. | The same draft requires `toolUse` to contain at least one `toolCall`; a scripted text answer cannot. |
+| Delta `block: 'toolcall'` | `block: 'toolCall'`, plus `event: 'start' \| 'delta' \| 'end'`; a `toolCall` start carries `toolCallId` and `name`. | The same draft renamed the block kind and added the block lifecycle. |
+
+No warning site exists or is added. Removed exports and a removed result field
+have no old-use boundary in the mock to report from: an import fails to resolve
+and a consumer reading `text` gets `undefined`. Migration guidance lives in this
+entry, the changeset and the `@kehto/mocks` README.
+
+Regression coverage: `packages/mocks/src/retired-apis.test.ts` (exports and
+registry rows absent, only the PR #134 NAP-LLM ref, camelCase `toolCall` blocks,
+no `text` mirror, and `respondWith(..., 'toolUse')` rejected by type
+(`@ts-expect-error`) and at runtime), plus `packages/mocks/src/domains/llm.test.ts`
+(exact delta and result envelopes). Nothing remains to retire.
+
 ## Retired window-level NIP-5D transport — shell / Paja
 
 Identifier: `NIP5D_WINDOW_TRANSPORT_RETIRED`. Retired without a compatibility
@@ -353,7 +540,8 @@ Sources: `packages/shell/src/shell-bridge.ts`, `origin-registry.ts`,
 revocation itself. `onNappletRevoked` receives `{ windowId, reason, detail }`
 (`window-message`, `second-hello`, `invalid-hello`, `second-load`,
 `port-closed`, `host`), at most once per frame because the frame is then removed.
-Paja logs it as `paja.napplet.revoked`. Payloads are never included. Canonical
+Paja logs it as `paja.napplet.revoked`; a frame Paja retires itself
+(reason `host`) is logged as `paja.napplet.retired` instead. Payloads are never included. Canonical
 traffic produces no diagnostic. Regression coverage:
 `packages/shell/src/nip5d-port-binding.test.ts` (real `MessageChannel`s: binding,
 legacy window-level envelope before and after the hello, second hello, invalid
@@ -371,7 +559,8 @@ remaining window-level exception, Paja's signed intent launcher host messages
 ## Required Trusted Types in the napplet CSP — shell / Paja
 
 Identifier: `NIP5D_TRUSTED_TYPES_REQUIRED`. **Opt-in**, off by default: applies
-only when a host sets the experimental flag `experimental.nestedContextLock`
+only when a host sets the experimental flag `experimental.nestedContextLock` or
+`experimental.resourceHintLock` (kehto/web#381; Paja sets both together)
 (see [Experimental namespace](https://github.com/kehto/web/blob/main/docs/policies/EXPERIMENTAL.md)).
 When enabled, to lock nested-browsing-context creation the napplet CSP carries
 `require-trusted-types-for 'script'; trusted-types default`, and the injected
@@ -383,7 +572,11 @@ sinks pass through that policy. Hosts that do not opt in are unaffected.
 Retained behavior: canonical use is unaffected. A napplet that assigns plain
 HTML strings to a sink gets the policy's pass-through result, so existing
 napplets keep working; only a string carrying a frame tag is rejected (an
-operation a napplet has no legitimate reason to perform). The one broken case is
+operation a napplet has no legitimate reason to perform), or, under the
+resource-hint lock, a string whose `<link>` carries `dns-prefetch`, `preconnect`
+or `prerender`. Both locks also remove `XSLTProcessor` (it minted frames past
+the first cut of the lock), and the resource-hint lock refuses napplets whose
+static markup declares a hint link. The one broken case is
 a napplet that registered its own Trusted Types policy named `default`: the
 `trusted-types default` directive admits exactly one `default`, so the napplet's
 own registration throws `TypeError`. The prelude registers first, so Kehto's
@@ -395,21 +588,67 @@ lock degrades rather than fails. A napplet whose own `default` registration
 throws sees the browser's `TypeError` with the Trusted Types identifier in the
 message; Kehto adds no console spam on the canonical path.
 
-Sources: `packages/shell/src/napplet-csp.ts` (directive), `napplet-namespace.ts`
-(prelude policy + factory pins), `napplet-frame-scan.ts` (host byte scan),
+Sources: `packages/shell/src/napplet-csp.ts` (directive), `napplet-realm-lock.ts`
+(shared prelude policy, factory and `rel` pins, XSLT removal),
+`napplet-frame-scan.ts` and `napplet-hint-scan.ts` (host byte scans),
 `packages/paja/src/browser-target-frame.ts` (scan on the verified load path).
 Regression coverage: `napplet-csp.test.ts` (directive present, not overridable),
 `napplet-frame-scan.test.ts`, `napplet-namespace.test.ts`,
 `packages/paja/src/browser-target-frame.test.ts` (frame-declaring napplet
 rejected), `tests/unit/nip5d-conformance-guard.test.ts` (static guard), and
 `tests/e2e/shell-csp.spec.ts` (scripted bypass battery + byte scan in real
-Chromium).
+Chromium), `tests/e2e/shell-resource-hints.spec.ts`, `napplet-realm-lock.test.ts`
+and `napplet-hint-scan.test.ts`.
 
 Reason for retention: the pass-through default policy is the compatibility path
 itself — it keeps canonical string-sink use working while the frame-tag
 rejection and factory pins close creation. Removal condition: none planned; the
 lock is permanent. Revisit only if a shipped `webrtc` CSP directive makes the
 nested-realm egress moot (see NIP-5D conformance policy, "Direct WebRTC egress").
+
+## KEHTO_UNRECOGNIZED_MESSAGE_TYPE — unknown-type replies retired
+
+Owners: `@kehto/runtime`, `@kehto/services`, `@kehto/paja`. This is a retirement,
+not a retained path (kehto/web#465). NIP-5D (nostr-protocol/nips#2303 at
+`dskvr/nips@f60550c3`) says "Messages with an unrecognized `type` MUST be
+silently ignored" and "Unrecognized message types are silently ignored,
+preventing capability probing." These replies to undefined types are gone, with
+no fallback:
+
+| Old behavior | Replacement |
+|--------------|-------------|
+| `notify`, `keys`, `serial`, `ble`, `common`, `lists`, `webrtc` services answered an unknown type with `<type>.error` / `Unknown <domain> method` | no reply |
+| `notify` sent its first `notify.controls` push before checking the type | push only for a NAP-NOTIFY request |
+| `webrtc.stats` request answered `webrtc.stats.result` `unsupported` | no reply; NAP-WEBRTC #59 `fb4dd6f0` defines `stats` only as a pushed event |
+| runtime `storage.clear` and any other unknown `storage.*` answered `storage.<action>.result` with `error` | no reply; NAP-STORAGE #3 `4f4cf0ca` defines only get/set/remove/keys |
+| ACL/firewall denial of an unknown type in a capability-gated domain answered `<type>.error` (only `cvm.*` was silent) | no reply in every domain |
+| Paja's unscoped multiplayer `cvm` base answered `<type>.result` `unsupported` | no reply; every NAP-CVM #31 request is scoped |
+
+A known type with a malformed payload still gets its NAP's failure result,
+and `webrtc.sendBytes` keeps `unsupported` as NAP-WEBRTC requires.
+
+Diagnostic: `createUnrecognizedTypeDiagnostic` in
+`packages/runtime/src/unrecognized-type.ts` warns
+`[KEHTO_UNRECOGNIZED_MESSAGE_TYPE]` once per domain/type, for at most 16 types
+per instance, then once more and goes quiet. The type is printed only when it
+is a plain `domain.action` string of up to 64 characters; payloads and ids are
+never logged. Warning sites: the services listed above, the runtime storage
+route (`domain-handlers.ts`) and Paja's `browser-multiplayer-services.ts`. The
+denial path (`policy-denials.ts`, `isSilentUnknownDenial`) drops without a
+warning because it runs before the owning service.
+
+Regression tests: `tests/unit/nip5d-conformance-guard.test.ts` (with
+`tests/unit/unknown-type-probes.ts`) drives every `@kehto/services` factory,
+the runtime with and without ACL denial, every NAP mock and fails on any reply;
+it also fails when a new `create*Service` export has no probe.
+`unrecognized-type.test.ts` covers the warning id, text, frequency, cap and the
+unprintable-type case. `policy-denials.test.ts`, `state-handler.test.ts`,
+`dispatch.test.ts`, the per-service tests and
+`packages/paja/src/browser-multiplayer-services.test.ts` cover each removed reply.
+
+Removal: shipped in the release that carries #465. A napplet that relied on
+those error replies now sees no result for the undefined type and should treat
+a missing result as unsupported, as NAP-WEBRTC already advises for `sendBytes`.
 
 ## Existing compatibility inventory
 

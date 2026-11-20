@@ -39,7 +39,7 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
 | Field | Value |
 |-------|-------|
 | Source | `packages/runtime/package.json`, `packages/runtime/src/index.ts` |
-| Version | `0.30.0` |
+| Version | `0.30.1` |
 | Runtime entry | `./dist/index.js` |
 | Types entry | `./dist/index.d.ts` |
 | Dependencies | `@kehto/acl`, `@noble/hashes`, `@noble/curves` |
@@ -49,8 +49,8 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.32.0 <0.42.0` |
-| `@napplet/nap` | `>=0.32.0 <0.41.0` |
+| `@napplet/core` | `>=0.32.0 <0.43.0` |
+| `@napplet/nap` | `>=0.32.0 <0.42.0` |
 
 ## Primary APIs
 
@@ -62,11 +62,17 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
 | Session and manifests | `createSessionRegistry`, `createNappKeyRegistry`, `createManifestCache`, `SessionRegistry`, `NappKeyRegistry`, `ManifestCache` |
 | State and replay | `createAclState`, `handleStorageNap`, `cleanupNappState`, `createReplayDetector`, `createEventBuffer`, `matchesFilter`, `matchesAnyFilter`, `RING_BUFFER_SIZE` |
 | Service dispatch | `routeServiceMessage`, `notifyServiceWindowDestroyed`, `ServiceHandler`, `ServiceRegistry`, `ServiceInfo` |
+| Unrecognized types | `createUnrecognizedTypeDiagnostic`, `KEHTO_UNRECOGNIZED_MESSAGE_TYPE`, `UNRECOGNIZED_TYPE_WARNING_LIMIT`, `IgnoreUnrecognizedType`, `UnrecognizedTypeDiagnosticOptions` |
 | Re-exports | `Capability`, `ALL_CAPABILITIES`, `ServiceDescriptor` |
 
 ## Scope Boundaries
 
 - Owns message dispatch, ACL gates, service routing, storage handling, manifest cache, replay checks, and runtime lifecycle.
+- Owns NAP-INC routing and endpoint identity. `sender`, `peer`, and `inc.channel.open` `target` are opaque
+  runtime-assigned endpoint identifiers, one per live registration and never a manifest `d` tag, per
+  [NAP-INC at `377bf939c6c906817084b43dd21d424de646dbc2`](https://github.com/napplet/naps/blob/377bf939c6c906817084b43dd21d424de646dbc2/naps/NAP-INC.md#schemas).
+  `runtime.getIncEndpointId(windowId)` is the host's peer-selection lookup. A `d` tag target is rejected
+  (`KEHTO_INC_DTAG_TARGET_RETIRED` in the [compatibility register](https://github.com/kehto/web/blob/main/docs/compatibility.md)).
 - `aclState.setStateQuota(pubkey, dTag, aggregateHash, bytes)` updates the live
   principal-scoped storage quota without changing grants, blocking, or stored data.
   Accepts safe integer byte counts from zero through `Number.MAX_SAFE_INTEGER`;
@@ -111,6 +117,13 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
   retired subscriptions remain suppressed after regrant and `subId` reuse.
   This host policy conforms to [NAP-RELAY draft PR #2 at
   `9f30b3505335a52c574ff570576687d6467021ff`](https://github.com/napplet/naps/blob/9f30b3505335a52c574ff570576687d6467021ff/naps/NAP-RELAY.md).
+- A relay that throws while an approved `relay.subscribe`, `relay.publish`,
+  `relay.publishEncrypted`, or `relay.query` runs reports a transport reason
+  (`relay subscription failed`, `publish failed`, `relay query failed`). Only an
+  approval that did not execute keeps `relay authorization unavailable or
+  denied`. A subscription that fails after it opened is retired, so no event
+  or EOSE follows its `relay.closed`. NAP-RELAY reasons are free-form, so only
+  that split is fixed.
 - Follows draft NAP-RELAY PR #2 at
   `0be8abce18beb46ca37bd4ddd042f58d30b4eedc`: `relay.publish` accepts an
   unsigned template, signs it through the shell-owned signer, publishes only
@@ -129,6 +142,20 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
 - Routes service-only NAP domains such as `dm` and `fs` through registered handlers, so protocol backends stay outside core runtime dispatch.
 - Does not own browser `window`, iframe creation, DOM, `postMessage` listeners, or localStorage implementation details.
 - Browser concerns live in `@kehto/shell`.
+
+## ACL denial wires
+
+ACL and legacy Firewall denials answer each recognized request on its owning
+NAP's failure wire, never an invented `<type>.error`. A denied `cvm.*` request
+gets its matching `.result` with `error: "policy denied"` (NAP-CVM #31 at
+`28cf1bdb`); `relay`, `outbox`, `upload`, `count`, `notify`, `dm`, `fs`,
+`keys`, `media` and `config` follow their own NAPs, and requests with no defined
+reply stay silent (including a denied `config.get`). The legacy Firewall gate
+uses the same rows for `common`, `lists`, `serial`, `ble`, `webrtc`, `link` and
+`gamepad`, which ACL does not gate. A denied type that its NAP
+does not define as a napplet request gets no reply in any domain. The per-type
+table, refs and spec-gap decisions are in
+[RUNTIME-SPEC.md](https://github.com/kehto/web/blob/main/RUNTIME-SPEC.md).
 
 ## Registered extension routing
 
@@ -158,6 +185,44 @@ for examples, lifecycle rules, and specification bounds.
 
 ## API Reference
 
+### Service registry snapshot
+
+`createRuntime()` copies `RuntimeAdapter.services` once. Later changes go through
+`registerService()` and `unregisterService()`, which also run `onRegistered` and
+`onUnregistered` and bind the permission context; the runtime never writes to the
+host's `services` object. `hasService(name)` reports what is routed right now, and
+`@kehto/shell` uses it to keep advertisement in step with routing.
+
+A request for a service-only domain with no handler is dropped without a reply:
+[NIP-5D at `f60550c`](https://github.com/dskvr/nips/blob/f60550c3409d6d81a875088ec83e660571e10504/5D.md) requires unrecognized types to be silently ignored. The runtime logs
+`[KEHTO_UNROUTED_SERVICE_DOMAIN]` once per domain per runtime, naming the domain
+only. See [Services that arrive late](/how-tos/register-service#services-that-arrive-late).
+
+### Unrecognized message types
+
+A type that the owning NAP does not define gets no reply from any runtime handler,
+from any `@kehto/services` reference service, or through the ACL/firewall denial
+path. This holds even when a capability would be denied, because NIP-5D says
+"Unrecognized message types are silently ignored, preventing capability probing."
+A known type with a malformed payload still gets its NAP's failure result.
+
+`createUnrecognizedTypeDiagnostic()` gives a service the matching host-side
+diagnostic. Call it once per service instance, drop the message, and call the
+returned function with your domain and the incoming type:
+
+```ts
+import { createUnrecognizedTypeDiagnostic } from '@kehto/runtime';
+
+const ignoreUnrecognized = createUnrecognizedTypeDiagnostic();
+// inside handleMessage, after the known types:
+ignoreUnrecognized('serial', message.type); // no reply
+```
+
+It logs `[KEHTO_UNRECOGNIZED_MESSAGE_TYPE]` once per domain/type, for at most
+`UNRECOGNIZED_TYPE_WARNING_LIMIT` (16) types per instance, then goes quiet. It
+prints the type only when it is a plain `domain.action` string of up to 64
+characters, and never logs payloads or ids. Pass `{ warn }` to send it elsewhere.
+
 ### Registration and initialization limits
 
 `sessionRegistry.unregister(windowId)` removes registration and lookup state for
@@ -181,6 +246,26 @@ This is Kehto host policy, conformant with the source-bound, idempotent lifecycl
 [NAP-SHELL at `a040914`](https://github.com/napplet/naps/blob/a040914b4bbd3a5cd8a14b0f316a723c968ebfb2/naps/NAP-SHELL.md).
 It changes no NIP-5D wire messages or NAP-THEME result behavior.
 
+### Window destroy notifications
+
+A retirement can reach the runtime through several teardown calls:
+`destroyWindow(windowId)`, `sessionRegistry.unregister(windowId)` (which notifies
+services when the permission runtime is installed), and a shell bridge revoke
+that runs both again. Services hear `onWindowDestroyed` at most once per session
+registration, whichever call comes first. A later `register()` of the same
+window ID is a new lifetime with its own destroy, and replacing a live
+registration with the permission runtime installed retires the old one once.
+With the permission runtime, `destroyWindow()` also retires the source, so it
+dispatches nothing more. Without it, a source that keeps sending messages after
+a cleanup `destroyWindow()` is live again, and its next destroy notifies
+services, so state it gathered in between is still cleaned. A window
+ID with no tracked registration has nothing to deduplicate against, so each
+`destroyWindow()` call for it is broadcast. Permission revocation stays separate: `onPermissionRevoked` (or
+its `onWindowDestroyed` fallback for handlers without it) never consumes the
+registration's destroy. The exported `notifyServiceWindowDestroyed()` helper is
+a raw broadcaster and does not deduplicate.
+It changes no NIP-5D or NAP wire messages.
+
 - Generated module: <a href="../api/modules/_kehto_runtime.html" target="_self"><code>docs/api/modules/_kehto_runtime.html</code></a>
 
 ## GAMEPAD integration
@@ -189,7 +274,7 @@ This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.co
 
 ## LLM integration
 
-This non-normative guidance defers to the living [NAP-LLM](https://github.com/napplet/naps/pull/134) (checked at `5e93bdf`). Services export `createLlmService`, `LlmServiceError`, the provider mappers and `LLM_PROVIDER_PRESETS`; shell exports `getShellDomainState` and the `LlmHooks` adapter field; acl exports `llm:generate`. The runtime routes `llm.*` to one registered service and answers every sanctioned request with exactly one `llm.<op>.result`, shaping missing-service and ACL failures as `{ code: 'unsupported' }`. Hosts implement `LlmConnectionHost`; the service enforces schema, handle ownership, a per-window live-handle bound (`maxHandlesPerWindow`), consent before submission, duplicate ids, cancellation and deadline races, ordered deltas and safe errors, and passes `select`/`authorize` a `{ signal }` that withdraws stale prompts. `createHttpLlmProvider({ stream: true })` streams provider output into `llm.delta` as block start/delta/end events. Results carry `content` parts (text, thinking and tool calls); tool calls and results are validated and relayed, and Kehto never executes one. Advertisement stays binary on the wire while hosts report a third `unconfigured` state until the user adds a connection. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
+This non-normative guidance defers to the living [NAP-LLM](https://github.com/napplet/naps/pull/134) (checked at `5e93bdf`). Services export `createLlmService`, `LlmServiceError`, the provider mappers (OpenAI Chat Completions, OpenAI Responses, Anthropic Messages and Gemini `generateContent` dialects) and `LLM_PROVIDER_PRESETS`; shell exports `getShellDomainState` and the `LlmHooks` adapter field; acl exports `llm:generate`. The runtime routes `llm.*` to one registered service and answers every sanctioned request with exactly one `llm.<op>.result`, shaping missing-service and ACL failures as `{ code: 'unsupported' }`. Hosts implement `LlmConnectionHost`; the service enforces schema, handle ownership, a per-window live-handle bound (`maxHandlesPerWindow`), consent before submission, duplicate ids, cancellation and deadline races, ordered deltas and safe errors, and passes `select`/`authorize` a `{ signal }` that withdraws stale prompts. `createHttpLlmProvider({ stream: true })` streams provider output into `llm.delta` as block start/delta/end events. Results carry `content` parts (text, thinking and tool calls); tool calls and results are validated and relayed, and Kehto never executes one. Advertisement stays binary on the wire while hosts report a third `unconfigured` state until the user adds a connection. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
 
 ## Media sessions
 

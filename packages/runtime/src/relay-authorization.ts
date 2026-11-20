@@ -2,6 +2,7 @@ import type { PermissionRequirement } from '@kehto/firewall';
 import type { ApprovalSignal } from './approval-coordinator.js';
 import type { RelayOperationPlan } from './service-types.js';
 import type { ServiceRuntimeContext } from './types.js';
+import { guardRelayTransport } from './relay-failure.js';
 
 // WHATWG URL is supplied by the Node/browser host; no DOM dependency is needed.
 declare const URL: {
@@ -18,7 +19,8 @@ function relayRequirements(plan: RelayOperationPlan): PermissionRequirement[] {
   }];
   for (const value of plan.relayUrls) {
     if (typeof value !== 'string' || /[\u0000-\u0020\\#]/u.test(value)) throw new Error('invalid relay destination');
-    const url = new URL(value);
+    let url: { protocol: string; origin: string; username: string; password: string; hash: string };
+    try { url = new URL(value); } catch { throw new Error('invalid relay destination'); }
     if (!['ws:', 'wss:'].includes(url.protocol) || url.username || url.password || url.hash) {
       throw new Error('invalid relay destination');
     }
@@ -43,6 +45,9 @@ export async function authorizeRelay<T>(
   relayHint?: string,
 ): Promise<void> {
   const requirements = relayRequirements(plan);
+  // Failures inside the approved callback are relay transport failures, never
+  // denials (see relay-failure.ts); refusals before execution stay denials.
+  const guarded = guardRelayTransport(execute);
   const run = context.authorizeOperation;
   if (!run) {
     if (relayHint && plan.relayUrls.length > 0) throw new Error('relay hints require RuntimeAdapter.permissions');
@@ -50,7 +55,7 @@ export async function authorizeRelay<T>(
       legacyNetworkWarnings.add(context);
       console.warn('[FW-RELAY-NETWORK-LEGACY-001] Configure RuntimeAdapter.permissions for destination approval; unhinted legacy host routing is deprecated. Warning once per runtime instance.');
     }
-    await execute({ aborted: false, addEventListener() {}, removeEventListener() {} });
+    await guarded({ aborted: false, addEventListener() {}, removeEventListener() {} });
     return;
   }
   const outcome = await run(windowId, operation, requirements, (signal) => {
@@ -59,7 +64,7 @@ export async function authorizeRelay<T>(
       legacyQueryHintWarnings.add(context);
       console.warn('[KEHTO_COMPAT_RELAY_QUERY_HINT] Use relay.subscribe with options.relay and collect until EOSE; relay.query.relay is a Kehto-only compatibility extension. Warning once per runtime instance.');
     }
-    return execute(signal);
+    return guarded(signal);
   });
   if (outcome.status !== 'executed') throw new Error(`relay authorization ${outcome.status}`);
 }

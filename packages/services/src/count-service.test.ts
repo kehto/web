@@ -135,4 +135,46 @@ describe('createCountService', () => {
     await vi.waitFor(() => expect(sent).toHaveLength(1));
     expect(sent).toEqual([{ type: 'count.query.result', id: 'failed', ok: false, error: 'count-unavailable' }]);
   });
+
+  // NAP-COUNT draft #69 @ 9353a0c6, Error Handling: the denial code is `"policy-denied"`.
+  it('reports a refused approval with the NAP-COUNT policy-denied code', async () => {
+    const count = vi.fn(() => 1);
+    const service = createCountService({ count });
+    service.onRegistered?.({
+      authorizeOperation: async () => ({ status: 'denied' as const }),
+    } as unknown as ServiceRuntimeContext);
+    const sent: NappletMessage[] = [];
+    service.handleMessage('window-a', { type: 'count.query', id: 'denied', filters: [{ kinds: [1] }] } as NappletMessage, (message) => sent.push(message));
+    await vi.waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent).toEqual([{ type: 'count.query.result', id: 'denied', ok: false, error: 'policy-denied' }]);
+    expect(count).not.toHaveBeenCalled();
+  });
+
+  it('reports an approval aborted before execution as policy-denied', async () => {
+    const count = vi.fn(() => 1);
+    const service = createCountService({ count });
+    service.onRegistered?.({
+      authorizeOperation: async (_windowId: string, _operation: string, _requirements: readonly unknown[], execute: (signal: ApprovalSignal) => unknown) => {
+        const controller = new AbortController();
+        controller.abort();
+        return { status: 'executed' as const, value: await execute(controller.signal) };
+      },
+    } as unknown as ServiceRuntimeContext);
+    const sent: NappletMessage[] = [];
+    service.handleMessage('window-a', { type: 'count.query', id: 'aborted', filters: [{ kinds: [1] }] } as NappletMessage, (message) => sent.push(message));
+    await vi.waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent).toEqual([{ type: 'count.query.result', id: 'aborted', ok: false, error: 'policy-denied' }]);
+    expect(count).not.toHaveBeenCalled();
+  });
+
+  it('reports a relay planning failure as count-unavailable, never as a denial', async () => {
+    const service = createCountService({ planCount: () => Promise.reject(new Error('no relay reachable')), count: () => 1 });
+    service.onRegistered?.({
+      authorizeOperation: async () => ({ status: 'denied' as const }),
+    } as unknown as ServiceRuntimeContext);
+    const sent: NappletMessage[] = [];
+    service.handleMessage('window-a', { type: 'count.query', id: 'offline', filters: [{ kinds: [1] }] } as NappletMessage, (message) => sent.push(message));
+    await vi.waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]).toMatchObject({ type: 'count.query.result', id: 'offline', ok: false, error: 'count-unavailable' });
+  });
 });

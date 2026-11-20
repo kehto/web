@@ -58,7 +58,6 @@ export interface PajaSignerController {
 interface Nip07Signer {
   getPublicKey?: () => string | Promise<string>;
   signEvent?: (event: NostrEvent | Record<string, unknown>) => Promise<NostrEvent>;
-  getRelays?: () => Record<string, { read: boolean; write: boolean }> | Promise<Record<string, { read: boolean; write: boolean }>>;
   nip04?: Signer['nip04'];
   nip44?: Signer['nip44'];
 }
@@ -131,7 +130,6 @@ function createNip07Adapter(signer: Nip07Signer): Signer {
   return {
     getPublicKey: signer.getPublicKey?.bind(signer),
     signEvent: signer.signEvent?.bind(signer) as Signer['signEvent'],
-    getRelays: signer.getRelays?.bind(signer),
     nip04: signer.nip04,
     nip44: signer.nip44,
   };

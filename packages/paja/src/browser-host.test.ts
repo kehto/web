@@ -84,7 +84,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
     expect(source.match(/admitBrowserDocument\(\{/g)).toHaveLength(1);
     expect(source.match(/admitPajaFrame\(\{/g)).toHaveLength(2);
     expect(source).toContain('verifiedHtml: resolvedTarget.indexHtml');
-    expect(source).toContain('verifiedHtml: injectBaseHref(fetched.html, targetUrl.href)');
+    expect(source).toContain('verifiedHtml: isolated ? fetched.html : injectBaseHref(fetched.html, targetUrl.href)');
     expect(source).toContain('frame.srcdoc = srcdoc;');
     expect(source).not.toContain('resolvedTarget.relays, ...resolvedTarget.blossomServers');
   });
@@ -159,13 +159,18 @@ describe('@kehto/paja browser host runtime source guards', () => {
     expect(relaySource).toContain('export const PAJA_NIP65_RELAY_LIST_KIND = 10_002;');
     expect(relaySource).toContain('export const PAJA_CONTACT_LIST_KIND = 3;');
     expect(relaySource).toContain('export function createPajaIdentityProviders(');
-    expect(relaySource).toContain('export async function getPajaBootstrapRelayUrls(');
-    expect(relaySource).toContain('...await getSignerRelayUrls(signerProvider, \'read\'),');
-    expect(relaySource).toContain('backend.query(await getPajaBootstrapRelayUrls(getSimulation, signerProvider), [{');
+    expect(relaySource).toContain('export function getPajaBootstrapRelayUrls(');
+    expect(relaySource).not.toContain('getSignerRelayUrls');
+    expect(relaySource).toContain('backend.query(getPajaBootstrapRelayUrls(getSimulation), [{');
     expect(intentSource).toContain('...getPajaRelayUrls(context.runtime.currentSimulation),');
     expect(hostSource).toContain('void signerController.restorePreference();');
     expect(hostSource).not.toContain('if (hasNip07Signer())');
-    expect(hostSource).toContain("bridge.publishIdentityChanged(adapter.auth.getUserPubkey() ?? '');");
+    expect(hostSource).toContain("const pubkey = adapter.auth.getUserPubkey() ?? '';");
+    expect(hostSource).toContain('bridge.publishIdentityChanged(pubkey);');
+    // kehto/web#487: a signer change is an identity.changed push, not a reload.
+    const signerSource = readFileSync(new URL('./browser-host-signer.ts', import.meta.url), 'utf8');
+    expect(signerSource).not.toContain('state.reload()');
+    expect(hostSource).toContain('if (reinjection.shouldReload(active)) stateRef.reload();');
   });
 
   it('keeps the private social cache inside the established identity and outbox host boundary', () => {
@@ -207,8 +212,9 @@ describe('@kehto/paja browser host runtime source guards', () => {
     expect(adapterSource).not.toContain('services.social');
     expect(adapterSource).not.toContain('paja.social');
     expect(diagnosticsSource).toContain('export async function reportTargetCorsDiagnostic(state: PajaBrowserState): Promise<void>');
-    expect(hostSource).toContain("import { reportTargetCorsDiagnostic } from './browser-target-diagnostics.js';");
-    expect(hostSource).toContain('startFrameNavigation(state, context);\n    void reportTargetCorsDiagnostic(state);');
+    expect(diagnosticsSource).toContain("if (plan?.mode === 'isolated') return;\n  await reportTargetCorsDiagnostic(state);");
+    expect(hostSource).toContain("import { reportTargetDiagnostics } from './browser-target-diagnostics.js';");
+    expect(hostSource).toContain('startFrameNavigation(state, context);\n    void reportTargetDiagnostics(state);');
   });
 
   it('uses the selected development signer identity and binds signing to the requesting napplet', async () => {

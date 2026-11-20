@@ -4,6 +4,9 @@ import { finalizeEvent, generateSecretKey, getPublicKey } from 'nostr-tools/pure
 
 import { createNip46Client, parseBunkerUri } from './browser-nip46-client.js';
 
+/** Captured before any test stubs the global, so stubs can delegate real entropy. */
+const nativeCrypto = globalThis.crypto;
+
 /**
  * A spec-following bunker: `connect` answers "ack" (not the user pubkey), and
  * the real identity only arrives from `get_public_key`.
@@ -18,6 +21,7 @@ function installFakeBunker(
   const conversationKey = nip44.getConversationKey(clientSecret, bunkerPubkey);
 
   const methods: string[] = [];
+  const requestIds: string[] = [];
 
   class FakeBunkerSocket {
     static readonly OPEN = 1;
@@ -50,6 +54,7 @@ function installFakeBunker(
         conversationKey,
       )) as { id: string; method: string };
       methods.push(request.method);
+      requestIds.push(request.id);
       const result = request.method === 'connect' ? connectResult : userPubkey;
       const response = finalizeEvent({
         kind: 24_133,
@@ -69,8 +74,21 @@ function installFakeBunker(
     }
   }
 
-  return { FakeBunkerSocket, bunkerPubkey, methods };
+  return { FakeBunkerSocket, bunkerPubkey, methods, requestIds };
 }
+
+/** Non-localhost HTTP: getRandomValues exists, randomUUID and subtle do not. */
+function stubInsecureContextCrypto() {
+  const provider = {
+    getRandomValues: vi.fn(function (this: unknown, bytes: Uint8Array) {
+      if (this !== provider) throw new TypeError('Illegal invocation');
+      return nativeCrypto.getRandomValues(bytes);
+    }),
+  };
+  vi.stubGlobal('crypto', provider);
+  return provider;
+}
+const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 describe('parseBunkerUri', () => {
   it('parses bunker URIs with relay and secret parameters', () => {
@@ -108,6 +126,43 @@ describe('createNip46Client', () => {
       const client = createNip46Client({ relayUrl: 'wss://relay.example', bunkerPubkey, localSecretKey: clientSecret });
       await expect(client.connect()).resolves.toBe(userPubkey);
       await expect(client.getSigner().getPublicKey!()).resolves.toBe(userPubkey);
+      client.close();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('correlates every request with a distinct secure id when crypto.randomUUID is missing (kehto/web#351)', async () => {
+    const bunkerSecret = generateSecretKey();
+    const userPubkey = getPublicKey(generateSecretKey());
+    const clientSecret = generateSecretKey();
+    const { FakeBunkerSocket, bunkerPubkey, methods, requestIds } = installFakeBunker(userPubkey, bunkerSecret, clientSecret, 'ack');
+    vi.stubGlobal('WebSocket', FakeBunkerSocket);
+    stubInsecureContextCrypto();
+    try {
+      const client = createNip46Client({ relayUrl: 'wss://relay.example', bunkerPubkey, localSecretKey: clientSecret });
+      await expect(client.connect()).resolves.toBe(userPubkey);
+      await client.getSigner().nip44!.encrypt(userPubkey, 'hello');
+      expect(methods).toEqual(['connect', 'get_public_key', 'nip44_encrypt']);
+      expect(requestIds).toHaveLength(3);
+      expect(new Set(requestIds).size).toBe(3);
+      for (const id of requestIds) expect(id).toMatch(UUID_V4);
+      client.close();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('refuses to send a request without secure randomness', async () => {
+    const bunkerSecret = generateSecretKey();
+    const clientSecret = generateSecretKey();
+    const { FakeBunkerSocket, bunkerPubkey, methods } = installFakeBunker('a'.repeat(64), bunkerSecret, clientSecret, 'ack');
+    vi.stubGlobal('WebSocket', FakeBunkerSocket);
+    vi.stubGlobal('crypto', {});
+    try {
+      const client = createNip46Client({ relayUrl: 'wss://relay.example', bunkerPubkey, localSecretKey: clientSecret });
+      await expect(client.connect()).rejects.toThrow('@kehto/shell requires crypto.randomUUID or crypto.getRandomValues');
+      expect(methods).toEqual([]);
       client.close();
     } finally {
       vi.unstubAllGlobals();

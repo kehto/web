@@ -1,9 +1,12 @@
 import {
   admitBrowserDocument,
   assertNappletHasNoFrame,
+  assertNappletHasNoResourceHint,
   denyNappletControllerAccess,
+  denyNappletReferrer,
   hasNappletFramePolicy,
   originRegistry,
+  randomUUID,
   resolveShellEnvironment,
   type BrowserRemoteSource,
   type OriginIdentity,
@@ -13,9 +16,11 @@ import {
 import type { Runtime } from '@kehto/runtime';
 
 import { isPajaLocalTarget, readDevelopmentDomains, type PajaRuntimeTarget } from './local-target.js';
-import { developmentRemoteSources } from './target-cors.js';
+import { developmentRemoteSources, hostRemoteSources } from './target-cors.js';
+import { planTargetNetwork } from './target-network.js';
 import type { PajaHostConfig, PajaNestedContextLockSetting } from './options.js';
 import { readStoredNestedContextLockSetting } from './browser-security-settings.js';
+import { recordPajaFrameDeclarations } from './browser-frame-reinjection.js';
 import type { PajaShellEnvironment } from './parity.js';
 
 /**
@@ -93,6 +98,34 @@ export function ensureFreshNappletFrame(frame: HTMLIFrameElement): HTMLIFrameEle
   return fresh;
 }
 
+/**
+ * Per-launch options for {@link navigateFrame}.
+ *
+ * @example
+ * ```ts
+ * await navigateFrame(frame, config, 1, adapter, bridge.runtime, target, {
+ *   windowId: 'paja:tab-1:1',
+ *   revokeNapplet: (windowId) => bridge.revokeNapplet(windowId, 'host'),
+ * });
+ * ```
+ */
+export interface PajaFrameLaunch {
+  /** Window id to register; defaults to `<config.window.id>:<generation>`. */
+  readonly windowId?: string;
+  /** Whether this launch is still the frame's current one. */
+  readonly isCurrent?: () => boolean;
+  /** Told the registered window id at commit, and `null` when it is retired. */
+  readonly onRegistered?: (windowId: string | null) => void;
+  /** Aborts admission and retires a committed frame. */
+  readonly signal?: AbortSignal;
+  /**
+   * The bridge's full teardown for a retired window (`ShellBridge.revokeNapplet`).
+   * Without it, a retire only unregisters the origin and leaves the bridge's
+   * per-window port binding and shell environment cache behind.
+   */
+  readonly revokeNapplet?: (windowId: string) => void;
+}
+
 export async function navigateFrame(
   frame: HTMLIFrameElement,
   config: PajaHostConfig,
@@ -100,12 +133,11 @@ export async function navigateFrame(
   adapter: ShellAdapter,
   runtime: Runtime,
   resolvedTarget?: PajaRuntimeTarget | null,
-  windowId?: string,
-  isCurrent?: () => boolean,
-  onRegistered?: (windowId: string | null) => void,
-  signal?: AbortSignal,
+  launch: PajaFrameLaunch = {},
 ): Promise<string | null> {
+  const { isCurrent, signal } = launch;
   denyNappletControllerAccess(frame);
+  denyNappletReferrer(frame);
   // Fail closed: without the host page's frame-src lock, a napplet could navigate its frame before its first load,
   // which no NIP-5D replacement evidence can observe.
   if (!hasNappletFramePolicy(frame.ownerDocument)) {
@@ -144,13 +176,18 @@ export async function navigateFrame(
     // sink. This scan runs in the trusted shell realm, so a napplet cannot bypass
     // it (docs/policies/NIP-5D-CONFORMANCE.md, "Nested browsing contexts").
     if (nestedContextLock) assertNappletHasNoFrame(resolvedTarget.indexHtml);
+    // The resource-hint lock rides on the same decision: it shares the Trusted
+    // Types policy, and a static hint whose href a script rewrites is a data
+    // channel, so static hint markup is refused here too ("Resource hints").
+    if (nestedContextLock) assertNappletHasNoResourceHint(resolvedTarget.indexHtml);
+    recordPajaFrameDeclarations(frame, declarations.required, declarations.optional, !local || declared);
     return admitPajaFrame({
       frame, config, generation, runtime, identity, environment,
       verifiedHtml: resolvedTarget.indexHtml,
       required: declarations.required,
       optional: local && !declared ? environment.capabilities.domains : declarations.optional,
-      ...(nestedContextLock ? { experimental: { nestedContextLock: true } } : {}),
-      windowId, isCurrent, onRegistered, signal,
+      ...(nestedContextLock ? { experimental: { nestedContextLock: true, resourceHintLock: true } } : {}),
+      launch,
     });
   }
   const fetched = await fetchTargetHtml();
@@ -167,14 +204,20 @@ export async function navigateFrame(
   const environment = resolvePajaFrameEnvironment(adapter, identity);
   const declarations = readDevelopmentDomains(fetched.html);
   const declared = declarations.required.length > 0 || declarations.optional.length > 0;
+  // NAP-RESOURCE PR #80 at ae5b9c64 forbids `resource` in a frame with direct
+  // network, external subresource loads included. A target that requires it
+  // runs as a closed snapshot of the fetched bytes: no dev origin, no base URL.
+  // Host-configured origins still reach admission, which then refuses them.
+  const isolated = planTargetNetwork(fetched.html).mode === 'isolated';
+  recordPajaFrameDeclarations(frame, declarations.required, declarations.optional, declared);
   return admitPajaFrame({
     frame, config, generation, runtime, identity, environment,
-    verifiedHtml: injectBaseHref(fetched.html, targetUrl.href),
+    verifiedHtml: isolated ? fetched.html : injectBaseHref(fetched.html, targetUrl.href),
     required: declarations.required,
     optional: declared ? declarations.optional : environment.capabilities.domains,
-    remoteSources: developmentRemoteSources(targetUrl, config.csp),
-    baseOrigin: targetUrl.origin,
-    windowId, isCurrent, onRegistered, signal,
+    remoteSources: isolated ? hostRemoteSources(config.csp) : developmentRemoteSources(targetUrl, config.csp),
+    ...(isolated ? {} : { baseOrigin: targetUrl.origin }),
+    launch,
   });
 }
 
@@ -190,16 +233,14 @@ interface PajaFrameAdmission {
   readonly optional: readonly string[];
   readonly remoteSources?: readonly BrowserRemoteSource[];
   readonly baseOrigin?: string;
-  readonly experimental?: { readonly nestedContextLock?: boolean };
-  readonly windowId?: string;
-  readonly isCurrent?: () => boolean;
-  readonly onRegistered?: (windowId: string | null) => void;
-  readonly signal?: AbortSignal;
+  readonly experimental?: { readonly nestedContextLock?: boolean; readonly resourceHintLock?: boolean };
+  readonly launch: PajaFrameLaunch;
 }
 
 async function admitPajaFrame(options: PajaFrameAdmission): Promise<string | null> {
   const { frame, config, generation, runtime, identity, environment, verifiedHtml,
-    required, optional, remoteSources, baseOrigin, experimental, windowId, isCurrent, onRegistered, signal } = options;
+    required, optional, remoteSources, baseOrigin, experimental, launch } = options;
+  const { windowId, isCurrent, onRegistered, signal, revokeNapplet } = launch;
   if (!identity.permissionPrincipal) throw new Error('Paja source has no trusted permission principal');
   const sourceWindowId = windowId ?? `${config.window.id}:${generation}`;
   const current = () => !signal?.aborted && (!isCurrent || isCurrent()) && frame.isConnected !== false;
@@ -207,7 +248,7 @@ async function admitPajaFrame(options: PajaFrameAdmission): Promise<string | nul
     pubkey: '', windowId: sourceWindowId, origin: 'null', type: 'nip5d',
     dTag: identity.dTag, aggregateHash: identity.aggregateHash,
     permissionPrincipal: identity.permissionPrincipal,
-    registeredAt: Date.now(), instanceId: crypto.randomUUID(), provenance: 'nip-5d',
+    registeredAt: Date.now(), instanceId: randomUUID(), provenance: 'nip-5d',
   };
   const result = await admitBrowserDocument({
     runtime, entry, verifiedHtml, available: environment.capabilities.domains,
@@ -231,16 +272,27 @@ async function admitPajaFrame(options: PajaFrameAdmission): Promise<string | nul
     onRetire() {
       const win = frame.contentWindow;
       if (win && originRegistry.getWindowId(win) === sourceWindowId) {
-        originRegistry.unregister(sourceWindowId);
+        // Clear host state for this window before the bridge reports the
+        // revocation, so the revoke hook sees a retired window, not a live one.
         frame.srcdoc = '<!doctype html><html><body></body></html>';
         onRegistered?.(null);
+        // The same teardown as any other revoke: port binding, shell
+        // environment cache, nested-context lock, runtime session and services.
+        if (revokeNapplet) revokeNapplet(sourceWindowId);
+        else originRegistry.unregister(sourceWindowId);
       }
     },
   });
   if (result.status === 'committed') return result.windowId;
   if (result.status === 'cancelled') return null;
-  throw new Error(`Paja Firewall launch admission ${result.status}${result.deniedRequired.length ? `: ${result.deniedRequired.join(', ')}` : ''}`);
+  throw new Error(`Paja Firewall launch admission ${result.status}${result.deniedRequired.length ? `: ${result.deniedRequired.join(', ')}` : ''}${
+    result.status === 'incompatible' && result.deniedRequired.includes('resource') ? `. ${RESOURCE_CONFLICT_HELP}` : ''}`);
 }
+
+/** Why a required `resource` cannot be combined with host-granted direct origins. */
+const RESOURCE_CONFLICT_HELP = 'This napplet requires `resource`, but the host CSP config grants its frame direct browser '
+  + 'origins. NAP-RESOURCE allows `resource` only in a frame with no direct network: remove the `csp` origins from the '
+  + 'Paja config, or declare `resource` under `napplet-optional`.';
 
 /**
  * NAP domains whose data is private enough that an untrusted napplet exfiltrating

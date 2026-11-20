@@ -9,7 +9,8 @@ Use these pages when you need to choose or integrate one part of Kehto. Each pag
 | Package | Page | Role |
 |---------|------|------|
 | `@kehto/acl` | [ACL](./acl.md) | Pure capability state and enforcement primitives. |
-| `@kehto/cli` | [CLI](./cli.md) | Top-level `kehto` command namespace, including `kehto paja`. |
+| `@kehto/cli` | [CLI](./cli.md) | Top-level `kehto` command namespace, including `kehto paja` and `kehto conformance`. |
+| `@kehto/conformance` | [Conformance](./conformance.md) | Runtime conformance suite for NIP-5D and advertised NAPs, behind `kehto conformance`. |
 | `@kehto/paja` | [Paja](./paja.md) | Reference developer runtime and local authoring workshop. |
 | `@kehto/firewall` | [Firewall](./firewall.md) | Pure scoped approval and access policy. |
 | `@kehto/rate-limit` | [Rate limits](./rate-limit.md) | Optional host-installed temporal budgets. |
@@ -27,7 +28,7 @@ Use these pages when you need to choose or integrate one part of Kehto. Each pag
 3. Add `@kehto/services` for reference implementations of runtime services, or `@kehto/mocks` while a domain's real backend does not exist yet.
 4. Use `@kehto/acl` directly when you need capability-state persistence or policy tests, and `@kehto/firewall` for scoped approval policy. Install `@kehto/rate-limit` separately when the host wants temporal protection.
 5. Use `@kehto/nip` and `@kehto/wm` as optional utilities.
-6. Use `@kehto/cli` for package scripts such as `kehto paja`.
+6. Use `@kehto/cli` for package scripts such as `kehto paja` and `kehto conformance`.
 7. Use `@kehto/paja` directly when embedding or extending the Paja implementation API.
 
 Generated API reference lives under `docs/api/`. Package pages link to generated module pages for the public packages included in TypeDoc.

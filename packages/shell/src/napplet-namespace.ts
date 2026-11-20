@@ -9,6 +9,7 @@
 
 import { createIntentUriNormalizer } from './intent-uri.js';
 import type { NappletExperimentalOptions } from './napplet-experimental.js';
+import { renderNappletRealmLock } from './napplet-realm-lock.js';
 
 /**
  * Options for rendering the host-owned NIP-5D `window.napplet` namespace prelude.
@@ -66,120 +67,10 @@ function scriptJson(value: unknown): string {
  */
 export function renderNappletNamespacePrelude(options: NappletNamespacePreludeOptions): string {
   const domains = uniqueBareDomains(options.domains);
-  // The nested-browsing-context lock is opt-in (experimental namespace). When
-  // off, inject a no-op so the prelude installs no Trusted Types policy and
-  // pins no factories, leaving the realm exactly as it was before this policy.
-  const frameLock = options.experimental?.nestedContextLock
-    ? nappletFrameLock.toString()
-    : '(function(){})';
+  // Realm locks are opt-in (experimental namespace). With none on, a no-op is
+  // injected, so the prelude installs no Trusted Types policy and pins nothing.
+  const frameLock = renderNappletRealmLock(options.experimental);
   return `<script data-kehto-nip5d-injection>(${nappletNamespacePrelude.toString()})(${scriptJson(domains)}, (${createIntentUriNormalizer.toString()})(), ${frameLock});</script>`;
-}
-
-/** A window exposing the optional members the frame lock pins or installs. */
-type FrameLockWindow = Window & {
-  trustedTypes?: {
-    createPolicy: (
-      name: string,
-      rules: {
-        createHTML: (input: string, ...rest: unknown[]) => string;
-        createScript: (input: string) => string;
-        createScriptURL: (input: string) => string;
-      },
-    ) => unknown;
-  };
-  Document?: { prototype: Document };
-  DOMImplementation?: { prototype: DOMImplementation };
-};
-
-/**
- * Close the only two ways an iframe element can be minted in a napplet realm,
- * before any napplet script runs. Serialized into the prelude and invoked with
- * the napplet `window`.
- *
- * 1. HTML string sinks — a Trusted Types `default` policy (enforced by the
- *    napplet CSP's `require-trusted-types-for 'script'`) rejects any string
- *    carrying a frame tag and passes canonical HTML through untouched.
- * 2. Element factories — `Document.prototype.createElement` / `createElementNS`
- *    are the only element-creating methods on the platform; pin both
- *    non-configurable to reject frame tag names, with `createDocument`.
- *
- * Node movement needs a pre-existing frame node (both routes are closed), and
- * escaping the pins needs a fresh realm (child frame closed here, popup denied
- * by the sandbox, worker has no DOM). The set is closed; verified in Chromium,
- * Firefox and WebKit.
- */
-function nappletFrameLock(win: FrameLockWindow): void {
-  const FRAME_ELEMENTS = new Set([
-    'iframe', 'frame', 'frameset', 'object', 'embed', 'portal', 'fencedframe',
-  ]);
-  const isFrameTag = (value: unknown): boolean => FRAME_ELEMENTS.has(String(value).toLowerCase());
-  // A complete frame tag-name token (open or close), so a lexical check cannot
-  // be split by parse-context differences, plus a chunk that ends mid-tag (a
-  // streaming document.write frame-tag prefix).
-  const FRAME_TAG = /<\/?(?:iframe|frame|frameset|object|embed|portal|fencedframe)(?=[\s/>]|$)/i;
-  const FRAME_TAG_PREFIX = /<[a-zA-Z]*$/;
-
-  const { trustedTypes } = win;
-  if (trustedTypes) {
-    try {
-      // Runs on every string sink. Pass canonical HTML through, reject a frame
-      // tag, so existing napplets that assign plain strings are unaffected.
-      trustedTypes.createPolicy('default', {
-        createHTML: (input, ...rest): string => {
-          const sink = rest.length >= 2 ? String(rest[1]) : '';
-          const blocked = /write/i.test(sink)
-            ? FRAME_TAG.test(input) || FRAME_TAG_PREFIX.test(input)
-            : FRAME_TAG.test(input);
-          if (blocked) throw new TypeError('kehto: napplets may not create nested browsing contexts');
-          return input;
-        },
-        createScript: (input): string => input,
-        createScriptURL: (input): string => input,
-      });
-    } catch {
-      // A napplet that pre-registered its own `default` policy would collide;
-      // the factory pins below and the host-side byte scan still hold.
-    }
-  }
-
-  const pin = (object: object, name: string, value: unknown): void => {
-    try {
-      Object.defineProperty(object, name, {
-        value, writable: false, configurable: false, enumerable: false,
-      });
-    } catch {
-      // Never turn hardening into a load-blocking failure.
-    }
-  };
-  const localName = (qualified: unknown): string => String(qualified ?? '').split(':').pop()!.toLowerCase();
-  const HTML_NS = 'http://www.w3.org/1999/xhtml';
-
-  const docProto = win.Document?.prototype;
-  if (docProto) {
-    const createElement = docProto.createElement;
-    pin(docProto, 'createElement', function (this: Document, tagName: unknown, ...rest: unknown[]) {
-      if (isFrameTag(tagName)) throw new TypeError('kehto: napplets may not create nested browsing contexts');
-      return (createElement as (...args: unknown[]) => unknown).call(this, tagName, ...rest);
-    });
-    const createElementNS = docProto.createElementNS;
-    pin(docProto, 'createElementNS', function (this: Document, namespace: unknown, qualifiedName: unknown, ...rest: unknown[]) {
-      if (namespace === HTML_NS && FRAME_ELEMENTS.has(localName(qualifiedName))) {
-        throw new TypeError('kehto: napplets may not create nested browsing contexts');
-      }
-      return (createElementNS as (...args: unknown[]) => unknown).call(this, namespace, qualifiedName, ...rest);
-    });
-  }
-
-  const domImpl = win.DOMImplementation?.prototype;
-  if (domImpl) {
-    const createDocument = domImpl.createDocument;
-    pin(domImpl, 'createDocument', function (this: DOMImplementation, namespace: unknown, qualifiedName: unknown, ...rest: unknown[]) {
-      if (namespace === HTML_NS && FRAME_ELEMENTS.has(localName(qualifiedName))) {
-        throw new TypeError('kehto: napplets may not create nested browsing contexts');
-      }
-      return (createDocument as (...args: unknown[]) => unknown).call(this, namespace, qualifiedName, ...rest);
-    });
-  }
 }
 
 /**
@@ -257,16 +148,19 @@ function nappletNamespacePrelude(
     }
   }
 
-  // Nested-browsing-context lock (defense-in-depth beyond the current NIP-5D
-  // text; docs/policies/NIP-5D-CONFORMANCE.md, "Nested browsing contexts").
-  // A napplet is untrusted and has no legitimate use for a child frame, and
-  // an about:srcdoc / about:blank child is a fresh realm CSP never reaches.
-  // Close the only two iframe-creation routes before any napplet script.
+  // Opt-in realm locks (defense-in-depth beyond the current NIP-5D text;
+  // docs/policies/NIP-5D-CONFORMANCE.md, "Nested browsing contexts" and
+  // "Resource hints"): close child-frame creation and CSP-exempt resource
+  // hints before any napplet script runs (napplet-realm-lock.ts).
   frameLock(target);
 
   type RuntimeMessage = { type: string; id?: string; [key: string]: unknown };
   type Listener = (event: MessageEvent) => void;
 
+  // Correlation only: pairs this realm's own requests with their results on
+  // its private port. A sandboxed frame on non-localhost HTTP has no
+  // randomUUID, so a non-random fallback is acceptable here; host identifiers
+  // use the secure `randomUUID` helper instead (docs/packages/shell.md).
   function id(): string {
     if (target.crypto?.randomUUID) return target.crypto.randomUUID();
     return `napplet-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -786,9 +680,9 @@ function nappletNamespacePrelude(
         });
       },
       channel: {
-        open(targetDTag: string) {
+        open(target: string) {
           return request(
-            { type: 'inc.channel.open', target: targetDTag },
+            { type: 'inc.channel.open', target },
             'inc.channel.open.result',
             (msg) => {
               if (typeof msg.channelId !== 'string' || typeof msg.peer !== 'string') {
@@ -1359,15 +1253,18 @@ function nappletNamespacePrelude(
   }
 
   function makeCvm(): Record<string, unknown> {
-    const req = <T>(type: string, payload: Record<string, unknown>, map: (msg: RuntimeMessage) => T) => request(
+    const req = <T>(type: string, payload: Record<string, unknown>, map: (msg: RuntimeMessage) => T, options?: Record<string, unknown>) => request(
       { type, ...payload },
       `${type}.result`,
       map,
+      { timeoutMs: typeof options?.timeoutMs === 'number' && Number.isInteger(options.timeoutMs)
+        && options.timeoutMs > 0 && options.timeoutMs <= 300_000 ? options.timeoutMs + 1000 : undefined },
     );
     const cvmRequest = (server: unknown, message: unknown, options?: Record<string, unknown>) => req(
       'cvm.request',
       { server, message, ...(options === undefined ? {} : { options }) },
       (msg) => fieldOrThrow(msg, 'message', 'cvm.request.result missing message'),
+      options,
     );
     const mcpCall = async (
       server: unknown,
@@ -1389,7 +1286,28 @@ function nappletNamespacePrelude(
       }
       return reply.result;
     };
+    let warnedFamily = false;
+    const registryRequest = (action: string, selected: unknown, options?: Record<string, unknown>, extra: Record<string, unknown> = {}) => {
+      let selector = selected;
+      let canonicalOptions = options;
+      if (typeof selected === 'string') {
+        if (!warnedFamily) {
+          warnedFamily = true;
+          console.warn('[KEHTO_CVM_FAMILY_SELECTOR] Use cvm.registry methods with { family } or { schemaHash } selectors. String-family calls are deprecated; warning once per iframe.');
+        }
+        selector = { family: selected, ...(options?.schemaHash === undefined ? {} : { schemaHash: options.schemaHash }) };
+        if (options) { canonicalOptions = { ...options }; delete canonicalOptions.schemaHash; }
+      }
+      return req(`cvm.registry.${action}`, { selector, ...extra, ...(canonicalOptions === undefined ? {} : { options: canonicalOptions }) },
+        msg => fieldOrThrow(msg, action === 'has' ? 'has' : action === 'describe' ? 'entry' : 'result', `cvm.registry.${action}.result missing payload`), options);
+    };
     return {
+      registry: {
+        list: (query?: unknown) => req('cvm.registry.list', query === undefined ? {} : { query }, msg => fieldOrThrow(msg, 'entries', 'cvm.registry.list.result missing entries')),
+        has: (selector: unknown, options?: Record<string, unknown>) => registryRequest('has', selector, options),
+        describe: (selector: unknown, options?: Record<string, unknown>) => registryRequest('describe', selector, options),
+        call: (selector: unknown, tool: string, args?: unknown, options?: Record<string, unknown>) => registryRequest('call', selector, options, { tool, ...(args === undefined ? {} : { args }) }),
+      },
       discover: (query?: unknown) => req('cvm.discover', query === undefined ? {} : { query }, (msg) => Array.isArray(msg.servers) ? msg.servers : []),
       request: cvmRequest,
       listTools: async (server: unknown, options?: Record<string, unknown>) => {
