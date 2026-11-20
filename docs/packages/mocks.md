@@ -123,7 +123,7 @@ Kinds: `service` is routed by the runtime's built-in dispatcher to
 | `torrent` | NAP-TORRENT | draft | PR #72 @ `bc99787e` | extension | 17 routes |
 | `upload` | NAP-UPLOAD | draft | PR #33 @ `f5cc981e` | service | 3 routes |
 | `value` | NAP-VALUE | draft | PR #30 @ `e468764d` | extension | 3 routes |
-| `webrtc` | NAP-WEBRTC | draft | PR #59 @ `69523e8c` | service | 3 routes |
+| `webrtc` | NAP-WEBRTC | draft | PR #59 @ `fb4dd6f0` | service | 4 routes |
 | `worker` | NAP-WORKER | draft | PR #107 @ `0a54af9a` | extension | 4 routes |
 <!-- domain-table:end -->
 
