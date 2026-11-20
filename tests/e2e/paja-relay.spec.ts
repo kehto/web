@@ -85,6 +85,28 @@ test('relay.publish signs through the host signer and forwards the signed event 
   await expect(page.locator('#message-log [data-message-type="relay.publish"]')).not.toHaveCount(0);
 });
 
+test('a frame kept across a signer switch publishes under the new signer (kehto/web#487)', async ({ page }) => {
+  test.setTimeout(60_000);
+  const { relay, signer, frame } = await prepare(page);
+  const generation = await page.evaluate(() => window.__KEHTO_PAJA__?.getState().generation);
+  await startPublish(frame, 'before-switch', 'signed by nip-07');
+  const before = await settleApproving(page, frame, 'before-switch');
+  expect((before.result as { value: NostrEvent }).value.pubkey).toBe(signer.pubkey);
+
+  // Paja keeps the frame on a signer switch (NAP-IDENTITY pushes
+  // identity.changed); the window's signing scope follows the new account.
+  await page.locator('#signer-dev').click();
+  await expect(page.locator('#signer-status')).toContainText('dev connected');
+  await startPublish(frame, 'after-switch', 'signed by dev');
+  const after = await settleApproving(page, frame, 'after-switch');
+  expect(after.result.ok).toBe(true);
+  const event = (after.result as { value: NostrEvent }).value;
+  expect(event.pubkey).not.toBe(signer.pubkey);
+  expect(verifyEvent(event)).toBe(true);
+  await expect.poll(() => relay.published.map((published) => published.id)).toContain(event.id);
+  expect(await page.evaluate(() => window.__KEHTO_PAJA__?.getState().generation)).toBe(generation);
+});
+
 test('relay.publishEncrypted forwards NIP-44 ciphertext only the recipient can read', async ({ page }) => {
   test.setTimeout(60_000);
   const { relay, signer, frame } = await prepare(page);

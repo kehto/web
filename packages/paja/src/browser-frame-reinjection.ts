@@ -57,8 +57,10 @@ export function diffPajaDomains(before: readonly string[], after: readonly strin
 }
 
 /**
- * Decide whether a domain change requires a fresh frame. NIP-5D fixes a
- * frame's injected domains before its code runs, so only a change to the set
+ * Decide whether a domain change requires a fresh frame. NIP-5D (nips#2303
+ * head f60550c3, Transport) injects `window.napplet` before any napplet script
+ * runs, and presence of a domain object means that domain is available, so a
+ * frame's domains are fixed for its document. Only a change to the set
  * that frame would be offered needs a new document: an added domain it
  * declared (or any domain, when it declared none), or a removed domain it was
  * admitted. Anything else, including a shell-user identity change on its own,

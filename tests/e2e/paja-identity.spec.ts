@@ -79,6 +79,10 @@ test('napplets read the connected signer identity and an empty identity after th
   const frame = await openFlowTarget(page, runtime);
   await expect(page.locator('#signer-status')).toContainText('no signer connected');
   expect(await readPublicKeyOnce(frame)).toBe('');
+  await frame.locator('body').evaluate(() => {
+    const flow = window as unknown as FlowWindow;
+    flow.napplet.identity.onChanged((pubkey: string) => flow.__push('identity', pubkey));
+  });
 
   await connectKeySigner(page);
   await expect(page.locator('#signer-status')).toContainText(`pubkey ${signer.pubkey}`);
@@ -94,6 +98,8 @@ test('napplets read the connected signer identity and an empty identity after th
   await page.locator('#signer-nip07').click();
   await expect(page.locator('#signer-status')).toContainText('NIP-07 error: extension locked');
   await expectNappletIdentity(page, '');
+  // A failed signer clears the shell-user identity, which NAP-IDENTITY pushes as "".
+  await expect.poll(() => readLog(frame, 'identity')).toEqual([signer.pubkey, '']);
 });
 
 test('fresh startup leaves an available extension untouched and None clears identity', async ({ page }) => {
