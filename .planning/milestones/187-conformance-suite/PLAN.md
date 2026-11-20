@@ -82,7 +82,7 @@ the original notes:
 - Package versions are injected at build time (tsup `define`); JSR source
   consumers see `dev`.
 
-Findings (real Kehto failures, not relaxed):
+Findings (real Kehto failures, not relaxed; the one below was fixed on staging by #472):
 
 - `nip5d/unknown-envelope`: `storage.<unknown>` is answered with
   `storage.<unknown>.result` + `error: "unknown storage action: …"`

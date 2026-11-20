@@ -16,12 +16,11 @@ import { expect, test } from '@playwright/test';
 const CLI = join(process.cwd(), 'packages/cli/dist/index.js');
 
 /**
- * Real Kehto conformance failures the suite found. Each is a runtime finding,
- * not a check to relax. `nip5d/unknown-envelope`: `storage.<unknown action>`
- * gets `storage.<action>.result` with `error: "unknown storage action: …"`,
- * while NIP-5D (Wire Format) says an unrecognized `type` MUST be silently ignored.
+ * Real Kehto conformance failures the suite found that are still open. The
+ * first one (`nip5d/unknown-envelope`, storage answering unknown actions) was
+ * fixed on staging by #472, so the list is empty: any failure fails this spec.
  */
-const KNOWN_KEHTO_FINDINGS = ['nip5d/unknown-envelope'];
+const KNOWN_KEHTO_FINDINGS: readonly string[] = [];
 
 interface CliRun {
   readonly status: number;
