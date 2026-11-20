@@ -578,6 +578,10 @@ export interface ShellAdapter {
    * 'notifications'). Napplets discover available services via kind 29010
    * service discovery events.
    *
+   * The runtime copies this object when `createShellBridge()` runs. A handler
+   * added later is neither routed nor advertised until it is also registered
+   * with `bridge.runtime.registerService()`.
+   *
    * @example
    * ```ts
    * const hooks: ShellAdapter = {

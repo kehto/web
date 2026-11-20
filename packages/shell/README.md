@@ -198,6 +198,10 @@ bridge.runtime.registerService(
 );
 ```
 
+Services added to the adapter after `createShellBridge()` are advertised only
+once they are also registered with `bridge.runtime.registerService()`; until
+then the shell leaves them out and logs `[KEHTO_SERVICE_NOT_REGISTERED]` once.
+
 ## Public API
 
 ### Bridge factory
