@@ -1,6 +1,5 @@
 import type { NostrFilter } from '@napplet/core';
-import type { OutboxRelayPlan } from './outbox-service.js';
-import type { OutboxPublishOptions } from './outbox-service.js';
+import type { OutboxPublishOptions, OutboxRelayPlan } from './outbox-service.js';
 import type { PublishTargetResolution, RelayListEntry, RequiredRelayResolution, RouterCtx } from './relay-pool-outbox-types.js';
 
 /** Collect a deduplicated author set from filters + explicit option hints. */
