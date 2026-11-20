@@ -84,6 +84,6 @@ describe('Firewall grant table capacity (#513)', () => {
       grant.principal.kind === 'development' && grant.principal.target === target).length;
     expect(owned('http://greedy.localhost')).toBeLessThanOrEqual(256);
     expect((await h.query('quiet', 20)).error).toBeUndefined();
-    expect(owned('http://quiet.localhost')).toBeGreaterThan(ORIGINS_PER_PLAN);
+    expect(owned('http://quiet.localhost')).toBe(ORIGINS_PER_PLAN);
   });
 });

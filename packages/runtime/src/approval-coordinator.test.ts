@@ -476,3 +476,18 @@ describe('configured permission limits', () => {
     large.coordinator.dispose();
   });
 });
+
+describe('default rules answer their own scopes (#513)', () => {
+  it('prompts and stores only the scopes the rule leaves to the user', async () => {
+    const interfaceOnly = vi.fn((_request: unknown, missing: readonly PermissionRequirement[]) =>
+      missing.every((item) => item.category === 'interface') ? 'allow' as const : 'ask' as const);
+    const prompt = vi.fn(async (_prompt: ApprovalPrompt) => session);
+    const f = fixture({ defaultDecision: interfaceOnly, prompt });
+    expect(await f.run()).toEqual({ status: 'executed', value: 'opened' });
+    expect(prompt.mock.calls[0]![0].missing.map((item) => item.category)).toEqual(['resource']);
+    expect(f.state().grants.map((grant) => grant.permission.category)).toEqual(['resource']);
+    // The stored resource grant plus the rule's interface answer cover a repeat.
+    expect(await f.run()).toEqual({ status: 'executed', value: 'opened' });
+    f.coordinator.dispose();
+  });
+});

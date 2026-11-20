@@ -254,12 +254,13 @@ describe('configured Firewall limits (#514)', () => {
   });
 
   it('reports a full grant table as capacity, never as policy denied', async () => {
-    // 64 grants: the admission grant plus 63 relay origins fit; the next plan does not.
-    const h = await harness(distinctRelays(100), { maxGrants: 64 });
+    // 64 grants. A default allow writes none, so prompt for relay origins; the
+    // second plan alone needs 80, more than evicting every session grant frees.
+    const h = await harness(distinctRelays(200), { maxGrants: 64, decision: 'ask' });
     h.send({ type: 'outbox.query', id: 'first', filters: timeline(62) });
     await vi.waitFor(() => expect(messages(h).some((message) => message.type === 'outbox.query.result')).toBe(true));
     expect(messages(h).find((message) => message.type === 'outbox.query.result')).not.toHaveProperty('error');
-    h.send({ type: 'outbox.query', id: 'second', filters: [{ kinds: [1], authors: Array.from({ length: 30 }, (_, index) => author(70 + index)) }] });
+    h.send({ type: 'outbox.query', id: 'second', filters: [{ kinds: [1], authors: Array.from({ length: 80 }, (_, index) => author(100 + index)) }] });
     await vi.waitFor(() => expect(messages(h).filter((message) => message.type === 'outbox.query.result')).toHaveLength(2));
     expect(messages(h).filter((message) => message.type === 'outbox.query.result')[1]).toMatchObject({ id: 'second', error: 'approval capacity reached' });
   });

@@ -15,6 +15,8 @@ export interface PajaPermissionAdapterOptions {
   readonly mount: HTMLElement;
   readonly getPermissions: () => RuntimePermissions | undefined;
   readonly onGrantRevoked?: (grant: PermissionGrant, durable: boolean) => void;
+  /** A default rule changed; the runtime already closed work admitted under the old rules. */
+  readonly onRulesChanged?: () => void;
   readonly labelForPrincipal?: (principal: PermissionPrincipal) => string;
   /** Override only for embedding/tests; omitted uses the host's localStorage. */
   readonly storage?: Storage | null;
@@ -60,6 +62,7 @@ export function createPajaPermissionAdapter(options: PajaPermissionAdapterOption
     getPermissions: options.getPermissions,
     labelForPrincipal: options.labelForPrincipal ?? ((principal) => principal.kind === 'verified' ? 'Verified napplet' : 'Development target'),
     onGrantRevoked: options.onGrantRevoked,
+    onRulesChanged: options.onRulesChanged,
     rules,
     openOriginLimit: () => getPajaSetting('firewall.promptOpenOrigins'),
     onAnswer(answer, userGesture) {

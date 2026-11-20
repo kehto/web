@@ -24,6 +24,8 @@ export interface BrowserApprovalUiOptions {
   readonly getPermissions: () => RuntimePermissions | undefined;
   /** Host lifecycle observer; it cannot grant authority. */
   readonly onGrantRevoked?: (grant: PermissionGrant, durable: boolean) => void;
+  /** Called after a rule change was reported to the runtime, e.g. to relaunch a retired target. */
+  readonly onRulesChanged?: () => void;
   /** Observe whether the runtime can safely accept new grants. */
   readonly onStorageStateChanged?: (available: boolean) => void;
   /**
@@ -126,6 +128,7 @@ export function createBrowserApprovalUi(options: BrowserApprovalUiOptions): Brow
     const grants = live?.grants ?? [];
     if (!rules) return;
     live?.rulesChanged?.();
+    try { options.onRulesChanged?.(); } catch { /* Host follow-up cannot undo the rule change. */ }
     const stale = grants.filter((grant) => isRuleGrant(grant)
       && resolvePermissionRule(rules, grant.principal, grant.permission) !== 'allow');
     if (stale.length) revoke(stale);

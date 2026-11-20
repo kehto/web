@@ -71,16 +71,35 @@ export interface ApprovalCoordinatorOptions extends PermissionPolicyOptions {
  */
 export const DEFAULT_RULE_GRANT_PREFIX = 'rule:';
 
+type RuleOptions = Pick<ApprovalCoordinatorOptions, 'defaultDecision'>;
+
+/** The host rule's answer for some scopes; a throwing callback asks. */
+function ruleFor(options: RuleOptions, request: PermissionRequest, missing: readonly PermissionRequirement[]): 'allow' | 'ask' | 'deny' {
+  try { return options.defaultDecision?.(request, missing) ?? 'ask'; }
+  catch { return 'ask'; }
+}
+
 /**
- * Whether the host default rules allow every missing scope. A throwing rule
- * callback never allows. Rules grant at most a session, so an action limited
- * to once-only answers always prompts.
+ * The missing scopes the host default rules don't allow, judged as a whole
+ * and then one by one, so only those reach a prompt or a stored grant. Rules
+ * grant at most a session, so an action limited to once-only answers asks for
+ * every scope.
  */
-export function defaultRuleAllows(options: Pick<ApprovalCoordinatorOptions, 'defaultDecision'>, request: PermissionRequest,
+function ruleAsked(options: RuleOptions, request: PermissionRequest, missing: readonly PermissionRequirement[],
+  allowLifetimes: readonly PermissionGrant['lifetime'][]): readonly PermissionRequirement[] {
+  if (!options.defaultDecision || !allowLifetimes.includes('session')) return missing;
+  if (ruleFor(options, request, missing) === 'allow') return [];
+  return missing.filter((requirement) => ruleFor(options, request, [requirement]) !== 'allow');
+}
+
+/**
+ * Whether the host default rules allow every missing scope, so a check that
+ * stored grants leave open still passes. A throwing rule callback never allows.
+ */
+export function defaultRuleAllows(options: RuleOptions, request: PermissionRequest,
   missing: readonly PermissionRequirement[], allowLifetimes: readonly PermissionGrant['lifetime'][]): boolean {
   if (!missing.length || !options.defaultDecision || !allowLifetimes.includes('session')) return false;
-  try { return options.defaultDecision(request, missing) === 'allow'; }
-  catch { return false; }
+  return ruleFor(options, request, missing) !== 'deny' && ruleAsked(options, request, missing, allowLifetimes).length === 0;
 }
 
 /**
@@ -107,19 +126,18 @@ async function approve(options: ApprovalCoordinatorOptions, request: PermissionR
   const decision = evaluatePermissions(state, request, options);
   if (decision.decision === 'deny') return { status: 'denied' };
   if (decision.decision === 'allow') return undefined;
-  let preset: 'allow' | 'ask' | 'deny' = 'ask';
-  try { preset = options.defaultDecision?.(request, decision.missing) ?? 'ask'; }
-  catch { preset = 'ask'; }
-  if (preset === 'deny') return { status: 'denied' };
-  // A default allow is answered by the rule itself; no grant is written.
-  if (preset === 'allow' && allowLifetimes.includes('session')) return undefined;
+  if (ruleFor(options, request, decision.missing) === 'deny') return { status: 'denied' };
+  // Scopes a default rule allows are answered by the rule itself: they are
+  // neither prompted nor written as grants (kehto/web#513).
+  const asked = ruleAsked(options, request, decision.missing, allowLifetimes);
+  if (!asked.length) return undefined;
   if (!options.prompt) return { status: 'unavailable' };
   try {
     if (options.beforePrompt && !options.beforePrompt(request)) return { status: 'busy' };
   } catch { return { status: 'unavailable' }; }
   let answer: ApprovalAnswer;
   try {
-    answer = await options.prompt(Object.freeze({ request, missing: decision.missing, signal: entry.controller.signal, allowLifetimes }));
+    answer = await options.prompt(Object.freeze({ request, missing: Object.freeze([...asked]), signal: entry.controller.signal, allowLifetimes }));
   } catch {
     return { status: current() ? 'unavailable' : 'cancelled' };
   }
@@ -137,7 +155,7 @@ async function approve(options: ApprovalCoordinatorOptions, request: PermissionR
   if (answer.effect === 'allow' && !allowLifetimes.includes(answer.lifetime)) return { status: 'unavailable' };
   if (answer.effect === 'deny' && answer.lifetime === 'once') return { status: 'denied' };
   try {
-    const grants = decision.missing.map((permission, index): PermissionGrant => ({
+    const grants = asked.map((permission, index): PermissionGrant => ({
       id: `${request.requestId}-${index}`, principal: request.principal, permission,
       effect: answer.effect, lifetime: answer.lifetime,
       ...(answer.lifetime !== 'persistent' ? { sessionId: request.sessionId } : {}),

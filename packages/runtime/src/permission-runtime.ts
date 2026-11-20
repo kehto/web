@@ -53,8 +53,9 @@ export interface RuntimePermissions {
   subscribeInvalidation(listener: () => void): () => void;
   /**
    * Tell the runtime the host's default rules changed. A default `allow` writes
-   * no grant (kehto/web#513), so this closes live work and pending approvals
-   * that may have relied on the old rules; new requests consult the new rules.
+   * no grant (kehto/web#513), so this closes live operations and pending
+   * approvals that may have relied on the old rules, and notifies invalidation
+   * listeners so a frame whose admission no longer holds is retired.
    */
   rulesChanged?(): void;
 }
@@ -95,6 +96,9 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
         context.invalidate(windowId);
       }
     }
+    notifyInvalidation();
+  }
+  function notifyInvalidation(): void {
     for (const listener of invalidationListeners) {
       try { listener(); } catch { /* Host diagnostics cannot change policy. */ }
     }
@@ -228,7 +232,16 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
       invalidationListeners.add(listener);
       return () => { invalidationListeners.delete(listener); };
     },
-    rulesChanged() { if (!disposed) invalidate(); },
+    rulesChanged() {
+      if (disposed) return;
+      // No grant records what a rule admitted, so close every window's live
+      // operations and pending approvals; they are re-decided under the new
+      // rules. Listeners recheck admissions, which consult the rules live, so
+      // only a frame that lost a declared interface is retired.
+      coordinator.cancel();
+      for (const windowId of lifetimes.keys()) context.invalidate(windowId);
+      notifyInvalidation();
+    },
   };
   return { management, run, retire, charge,
     close(windowId: string): void {
