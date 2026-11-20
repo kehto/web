@@ -347,7 +347,17 @@ function probeMain(plan: ProbePlan, emit: Emit): void {
       return;
     }
     if (step.op === 'send') {
-      const sent = wire ? wire.post(step.envelope) : false;
+      let envelope = step.envelope;
+      if (step.fill && envelope && typeof envelope === 'object') {
+        const filled: Record<string, unknown> = { ...(envelope as Record<string, unknown>) };
+        for (const [field, source] of Object.entries(step.fill)) {
+          const found = records.find((entry) => entry.as === source.as);
+          const picked = lookup(found?.value, source.path);
+          if (picked.found) filled[field] = picked.value;
+        }
+        envelope = filled;
+      }
+      const sent = wire ? wire.post(envelope) : false;
       record(index, step.op, undefined, sent ? 'value' : 'missing');
       return;
     }
