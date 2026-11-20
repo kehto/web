@@ -58,6 +58,18 @@ export interface PushCase {
   readonly match?: Readonly<Record<string, unknown>>;
   /** Request that stops delivery. Without one the case proves delivery only. */
   readonly unsubscribe?: OperationCase;
+  /**
+   * For the endpoint-isolation probes: ids of this fixture's cases to replay
+   * before subscribing. `false` opts the push out of isolation when its
+   * prerequisites depend on target-assigned ids.
+   */
+  readonly isolation?: { readonly setup: readonly string[] } | false;
+  /**
+   * The owning NAP requires this push for every loaded endpoint the domain is
+   * exposed to, with no subscription (e.g. NAP-THEME "MUST broadcast
+   * theme.changed ... to all napplets to which it exposes theme").
+   */
+  readonly broadcast?: boolean;
   /** Requests sent right after delivery, to observe the new state (their replies are judged like cases). */
   readonly then?: readonly OperationCase[];
   /** NAP semantics of the delivered push, judged by `<domain>/semantics`. */

@@ -40,8 +40,8 @@ const all = (...verdicts: (() => SemanticVerdict)[]): SemanticVerdict => {
   return null;
 };
 
-function push(id: string, control: string, rule: string, verify: (state: Envelope) => SemanticVerdict, extra: Partial<PushCase> = {}): PushCase {
-  return { id, type: 'gamepad.state', trigger: { control }, ...extra, semantics: { rule, verify: (state) => verify(state) } };
+function push(id: string, control: string | null, rule: string, verify: (state: Envelope) => SemanticVerdict, extra: Partial<PushCase> = {}): PushCase {
+  return { id, type: 'gamepad.state', ...(control ? { trigger: { control } } : {}), ...extra, semantics: { rule, verify: (state) => verify(state) } };
 }
 
 /**
@@ -49,16 +49,15 @@ function push(id: string, control: string, rule: string, verify: (state: Envelop
  * delivery, neutral values on focus loss, connection changes while unfocused,
  * and silence after unsubscribe.
  *
- * Every push is judged on the next unconsumed `gamepad.state`, so each trigger
- * changes the napplet's view exactly once. The first push's trigger is a poll
- * with no hardware change: the shell "SHOULD NOT resend an unchanged snapshot",
- * so the snapshot it judges is the one `gamepad.subscribe` produced.
+ * Each host-triggered push is judged on the first `gamepad.state` after its
+ * trigger, so each trigger changes the napplet's view exactly once. The first
+ * push has no trigger: it judges the snapshot `gamepad.subscribe` produced.
  */
 export const GAMEPAD_FIXTURE: DomainFixture = {
   domain: 'gamepad',
   cases: [],
   pushes: [
-    push('gamepad/subscribe-snapshot', 'gamepad.poll',
+    push('gamepad/subscribe-snapshot', null,
       '"The shell MUST send a gamepad.state snapshot after each gamepad.subscribe"; without focus every connected slot is neutral',
       (state) => all(() => snapshot(state, false), () => (connected(state).length ? null : 'the snapshot listed no connected controller'), () => neutral(state)),
       { subscribe }),

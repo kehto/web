@@ -263,15 +263,16 @@ function advertisedCovered(facts: DomainFacts): CheckOutcome {
 }
 
 function capabilityTruthfulness(facts: DomainFacts): CheckOutcome {
-  const dead = facts.selected.filter((domain) => {
+  // NIP-5D: "Presence of a domain object means that domain is available."
+  // An advertised domain is truthful only if every request it was sent was serviced.
+  const broken = facts.selected.flatMap((domain) => {
     const run = facts.runs[domain];
-    if (!run?.report) return false;
-    const answered = run.fixture.cases.some((item) => replyType(item) !== null && !item.noId && judgeCase(run, item) === null);
-    const delivered = (run.fixture.pushes ?? []).some((push) => judgePush(run, push) === null);
-    return !answered && !delivered;
+    if (!run?.report) return [];
+    const failed = run.fixture.cases.filter((item) => replyType(item) !== null && !item.noId && judgeCase(run, item) !== null).map((item) => item.id);
+    return failed.length ? [{ domain, failed }] : [];
   });
-  if (dead.length) return fail(`Advertised and injected, but nothing worked: ${dead.join(', ')}`, { dead });
-  return pass('Every advertised domain with a fixture serviced at least one request or push');
+  if (broken.length) return fail(`Advertised and injected, but not serviced: ${broken.map((row) => row.domain).join(', ')}`, broken);
+  return pass('Every advertised domain with a fixture serviced every request it was sent');
 }
 
 function packageDrift(facts: DomainFacts): CheckOutcome {

@@ -101,8 +101,8 @@ export const LLM_FIXTURE: DomainFixture = {
   ],
   pushes: [
     {
-      // The delta is produced by the llm/generate case itself; the control only reads provider evidence.
-      id: 'llm/delta', type: 'llm.delta', trigger: { control: 'llm.generations' },
+      // The delta is produced by the llm/generate case itself, so the push has no host trigger.
+      id: 'llm/delta', type: 'llm.delta',
       semantics: {
         rule: 'Streamed deltas carry the generation id as requestId with a "contiguous sequence starting at zero", each block opening with start (LLM-C09)',
         verify(push) {

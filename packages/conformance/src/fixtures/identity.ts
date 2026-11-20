@@ -32,7 +32,7 @@ export const IDENTITY_FIXTURE: DomainFixture = {
   ],
   pushes: [
     {
-      id: 'identity/changed-sign-out', type: 'identity.changed', trigger: { control: 'identity.signOut' },
+      id: 'identity/changed-sign-out', type: 'identity.changed', trigger: { control: 'identity.signOut' }, broadcast: true,
       then: [{ id: 'identity/getPublicKey-signed-out', type: 'identity.getPublicKey' }],
       semantics: {
         rule: 'identity.changed is emitted on sign-out, and getPublicKey then returns "" rather than an error',

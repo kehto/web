@@ -77,6 +77,8 @@ export const BLE_FIXTURE: DomainFixture = {
       id: 'ble/event-notification', type: 'ble.event',
       subscribe: { id: 'ble/subscribe', type: 'ble.subscribe', payload: { sessionId: FIRST, target: HEART_RATE } },
       trigger: { control: 'ble.notify', payload: { data: NOTIFIED } },
+      // The session id the subscribe names is assigned by the target at open.
+      isolation: false,
       unsubscribe: { id: 'ble/unsubscribe', type: 'ble.unsubscribe', payload: { sessionId: FIRST, target: HEART_RATE } },
       semantics: {
         rule: 'The runtime "MUST deliver notifications through ble.event" as a notification for the subscribed session and target with byte data',

@@ -358,7 +358,19 @@ function probeMain(plan: ProbePlan, emit: Emit): void {
         }
         envelope = filled;
       }
-      const sent = wire ? wire.post(envelope) : false;
+      // Plans are JSON; `{ $blob: { bytes, type } }` and `{ $arrayBuffer: bytes }` become real binary values.
+      const revive = (value: unknown): unknown => {
+        if (Array.isArray(value)) return value.map(revive);
+        if (!value || typeof value !== 'object') return value;
+        const node = value as Record<string, unknown>;
+        if (node.$blob && typeof node.$blob === 'object') {
+          const blob = node.$blob as { bytes: number[]; type?: string };
+          return new Blob([new Uint8Array(blob.bytes)], { type: blob.type ?? '' });
+        }
+        if (Array.isArray(node.$arrayBuffer)) return new Uint8Array(node.$arrayBuffer as number[]).buffer;
+        return Object.fromEntries(Object.entries(node).map(([key, item]) => [key, revive(item)]));
+      };
+      const sent = wire ? wire.post(revive(envelope)) : false;
       record(index, step.op, undefined, sent ? 'value' : 'missing');
       return;
     }

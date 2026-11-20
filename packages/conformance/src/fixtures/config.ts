@@ -62,10 +62,9 @@ export const CONFIG_FIXTURE: DomainFixture = {
   ],
   pushes: [
     {
-      // The snapshot is produced by config.subscribe itself; `config.openedSettings` only reads host evidence.
+      // The snapshot is produced by config.subscribe itself, so the push has no host trigger.
       id: 'config/subscribe-snapshot', type: 'config.values',
       subscribe: { id: 'config/subscribe', type: 'config.subscribe', reply: null, noId: true },
-      trigger: { control: 'config.openedSettings' },
       semantics: {
         rule: 'config.subscribe produces an immediate initial config.values snapshot without id, validated and defaulted',
         verify: (push) => (push && 'id' in push ? `the snapshot carried id ${JSON.stringify(push.id)}` : exactly(push?.values, DEFAULTS)),
@@ -73,6 +72,7 @@ export const CONFIG_FIXTURE: DomainFixture = {
     },
     {
       id: 'config/values-commit', type: 'config.values', trigger: { control: 'config.commit', payload: { theme: 'light' } },
+      isolation: { setup: ['config/registerSchema', 'config/subscribe'] },
       match: { values: COMMITTED },
       then: [{ id: 'config/get-after-commit', type: 'config.get', reply: 'config.values' }],
       unsubscribe: { id: 'config/unsubscribe', type: 'config.unsubscribe', reply: null, noId: true },

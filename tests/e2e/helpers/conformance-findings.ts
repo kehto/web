@@ -1,21 +1,35 @@
 /**
  * Real Kehto conformance failures the kehto/web#187 suite found, per profile.
- * Each is a runtime finding, not a check to relax: specs assert that the
- * failing set is exactly these (plus a mutation's intended checks), so a new
- * failure or a fix that lands without updating this list fails them.
+ * Each is a runtime (or upstream package) finding, not a check to relax:
+ * specs assert that the failing set is exactly these (plus a mutation's
+ * intended checks), so a new failure or a fix that lands without updating this
+ * list fails them. Details and repros: the #187 PR bodies.
  *
- * - `nip5d/unknown-envelope`: `storage.<unknown action>` is answered with
- *   `storage.<action>.result` + `error: "unknown storage action: …"`, while
- *   NIP-5D (Wire Format) says an unrecognized `type` MUST be silently ignored.
- * - `nip5d/push-independent` (full profile, where pushes can be triggered):
- *   `theme.changed` / `identity.changed` reach an endpoint only after it has
- *   sent its first envelope, because the bridge registers the endpoint's
- *   environment lazily (`registerSourceSession`), so a listen-only napplet with
- *   shell exposed depends on `shell.ready` for pushes. NAP-SHELL: "The runtime
- *   MUST NOT gate other domain calls or their availability on this readiness
- *   exchange."
+ * - `nip5d/unknown-envelope`: `storage.<unknown action>` is answered with an
+ *   error result; NIP-5D: an unrecognized `type` MUST be silently ignored.
+ * - `catalog/broadcast-to-loaded`: `theme.changed` / `identity.changed` reach an
+ *   endpoint only after its first envelope (the bridge registers the
+ *   environment lazily); NAP-THEME "MUST broadcast ... to all napplets to which
+ *   it exposes theme", NAP-IDENTITY "MUST emit identity.changed to loaded napplets".
+ * - `catalog/acl-denial`: ACL denials are answered with `<type>.error`, a type
+ *   the owning NAPs do not define (NAP-CVM says so explicitly).
+ * - `catalog/package-drift`: `@napplet/nap@0.41.0` lacks `media.session.ended`
+ *   and `webrtc.sendBytes(.result)` that the pinned NAPs specify (upstream).
+ * - `relay/semantics`: `relay.publishEncrypted` with a signer that cannot
+ *   encrypt publishes an empty-content event and reports `ok: true`.
+ * - `cvm/semantics`: `cvm.request` validation (missing message, `id: null`,
+ *   result+error) and `cvm.discover` error shape differ from NAP-CVM.
+ * - `webrtc/push`: `webrtc.event` is still delivered for a closed session.
  */
 export const KNOWN_KEHTO_FINDINGS: Readonly<Record<'minimal' | 'full', readonly string[]>> = {
   minimal: ['nip5d/unknown-envelope'],
-  full: ['nip5d/push-independent', 'nip5d/unknown-envelope'],
+  full: [
+    'catalog/acl-denial',
+    'catalog/broadcast-to-loaded',
+    'catalog/package-drift',
+    'cvm/semantics',
+    'nip5d/unknown-envelope',
+    'relay/semantics',
+    'webrtc/push',
+  ],
 };
