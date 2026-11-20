@@ -540,7 +540,8 @@ Sources: `packages/shell/src/shell-bridge.ts`, `origin-registry.ts`,
 revocation itself. `onNappletRevoked` receives `{ windowId, reason, detail }`
 (`window-message`, `second-hello`, `invalid-hello`, `second-load`,
 `port-closed`, `host`), at most once per frame because the frame is then removed.
-Paja logs it as `paja.napplet.revoked`. Payloads are never included. Canonical
+Paja logs it as `paja.napplet.revoked`; a frame Paja retires itself
+(reason `host`) is logged as `paja.napplet.retired` instead. Payloads are never included. Canonical
 traffic produces no diagnostic. Regression coverage:
 `packages/shell/src/nip5d-port-binding.test.ts` (real `MessageChannel`s: binding,
 legacy window-level envelope before and after the hello, second hello, invalid

@@ -180,7 +180,13 @@ Paja forwards window-level traffic from its frames to the `ShellBridge`, which
 binds the hello and revokes the napplet on anything else. Paja also watches
 each frame for a second load. A revoked runtime tab keeps a fresh, empty panel in
 the error state until it is reloaded. A revoked single frame is replaced the
-same way, and a revoked intent launcher is removed. Port traffic in both
+same way, and a revoked intent launcher is removed. When Paja retires an admitted
+frame itself (a revoked grant, a tightened rule, a closed tab, or a launch
+superseded by a reload), it blanks the frame and then
+calls `ShellBridge.revokeNapplet(windowId, 'host')`, the same teardown as any
+other revoke: the port binding, cached shell environment, runtime session and
+per-window service state all go, and services get `onWindowDestroyed`. That
+retire is logged as `paja.napplet.retired`, not `paja.napplet.revoked`. Port traffic in both
 directions appears in the message log, and revocations are logged as
 `paja.napplet.revoked`. The log
 highlights every shell reply that failed: a `*.error`, a result with `error` or
