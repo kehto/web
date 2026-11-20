@@ -11,6 +11,19 @@ const NETWORK_NOTE = 'Direct browser traffic to these origins is outside parent 
 
 type Lifetime = PermissionGrant['lifetime'];
 
+/** Every exact origin of a grouped row, collapsed until the user opens it. */
+function originList(document: Document, targets: readonly string[]): HTMLElement {
+  const details = element(document, 'details', undefined, 'kehto-approval-origins');
+  const list = element(document, 'ul');
+  list.append(...targets.map((target) => {
+    const item = element(document, 'li');
+    item.append(element(document, 'code', target));
+    return item;
+  }));
+  details.append(element(document, 'summary', `Show all ${targets.length}`), list);
+  return details;
+}
+
 /** A prompt answer plus whether the user asked for a standing rule instead. */
 export interface PromptResult {
   readonly answer: ApprovalAnswer;
@@ -96,6 +109,7 @@ export function createBrowserApprovalPrompt(
       const row = element(document, 'li');
       row.append(element(document, 'span', text.action));
       if (text.target !== undefined) row.append(element(document, 'code', text.target));
+      if (text.targets) row.append(originList(document, text.targets));
       return row;
     }));
     view.mediation.textContent = request.missing.some((item) => item.category === 'network' && item.operation.startsWith('network.'))

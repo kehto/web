@@ -60,6 +60,8 @@ export function principalSummary(principal: PermissionPrincipal): string {
 export interface RequirementText {
   readonly action: string;
   readonly target?: string;
+  /** Every exact origin of a grouped network row, each still granted on its own. */
+  readonly targets?: readonly string[];
 }
 
 /**
@@ -88,16 +90,29 @@ const DIRECT = 'network.';
 /**
  * Describe every scope of a request. Direct browser sources to one origin are
  * merged into a single row naming each directive, so a development target
- * does not show the same origin once per directive.
+ * does not show the same origin once per directive. Mediated network origins
+ * sharing one operation, such as the relays of an outbox plan, become one
+ * "contact N origins" row listing every exact origin, so a large plan is not
+ * shown as one row per relay (kehto/web#455). Grants stay one per origin.
  */
 export function describeRequirements(missing: readonly PermissionRequirement[]): RequirementText[] {
   const rows: RequirementText[] = [];
   const direct = new Map<string, string[]>();
+  const mediated = new Map<string, string[]>();
   for (const item of missing) {
-    if (item.category !== 'network' || !item.operation.startsWith(DIRECT)) { rows.push(describeRequirement(item)); continue; }
-    const directives = direct.get(item.scope.value);
-    if (directives) directives.push(item.operation.slice(DIRECT.length));
-    else direct.set(item.scope.value, [item.operation.slice(DIRECT.length)]);
+    if (item.category !== 'network') { rows.push(describeRequirement(item)); continue; }
+    const byKey = item.operation.startsWith(DIRECT) ? direct : mediated;
+    const key = item.operation.startsWith(DIRECT) ? item.scope.value : item.operation;
+    const values = byKey.get(key);
+    const value = item.operation.startsWith(DIRECT) ? item.operation.slice(DIRECT.length) : item.scope.value;
+    if (values) values.push(value);
+    else byKey.set(key, [value]);
+  }
+  for (const [operation, origins] of mediated) {
+    const label = OPERATION_LABELS[operation] ?? operation;
+    rows.push(origins.length === 1
+      ? { action: `${label} — contact origin`, target: origins[0] }
+      : { action: `${label} — contact ${origins.length} origins`, targets: Object.freeze([...origins]) });
   }
   return [...rows, ...[...direct].map(([target, directives]) => ({ action: `Connect directly (${distinct(directives).join(', ')})`, target }))];
 }

@@ -200,6 +200,37 @@ describe('common browser approval UI', () => {
     await answer;
   });
 
+  // kehto/web#455: a large outbox plan is one row, not one row per relay.
+  it('shows the relay origins of one mediated operation as a single row listing each exact origin', async () => {
+    const f = setup();
+    const relays = Array.from({ length: 127 }, (_, index) => `wss://r${index}.example`);
+    const missing: PermissionRequirement[] = [
+      { category: 'interface', domain: 'outbox', operation: 'access', scope: { kind: 'exact', value: 'outbox' } },
+      ...relays.map((value): PermissionRequirement => ({ category: 'network', domain: 'outbox', operation: 'outbox.subscribe', scope: { kind: 'origin', value } })),
+    ];
+    const answer = f.ui.prompt({ ...f.prompt(new AbortController().signal), missing });
+    const dialog = f.mount.find('dialog')!;
+    const rows = dialog.find('ul')!.children;
+    expect(rows.map((row) => row.children[0]!.textContent)).toEqual(['Use the outbox interface', 'outbox.subscribe — contact 127 origins']);
+    const origins = dialog.all('details').find((node) => node.className === 'kehto-approval-origins')!;
+    expect(origins.find('summary')!.textContent).toBe('Show all 127');
+    expect(origins.all('code').map((code) => code.textContent)).toEqual(relays);
+    f.ui.destroy();
+    await answer;
+  });
+
+  it('keeps a single mediated origin on its own row', async () => {
+    const f = setup();
+    const answer = f.ui.prompt({ ...f.prompt(new AbortController().signal), missing: [
+      { category: 'network', domain: 'outbox', operation: 'outbox.query', scope: { kind: 'origin', value: 'wss://one.example' } },
+    ] });
+    const dialog = f.mount.find('dialog')!;
+    expect(dialog.all('li').map((row) => row.textContent)).toEqual(['outbox.query — contact originwss://one.example']);
+    expect(dialog.all('details').filter((node) => node.className === 'kehto-approval-origins')).toEqual([]);
+    f.ui.destroy();
+    await answer;
+  });
+
   it('does not apply browser scheme upgrades to mediated network approval', async () => {
     const f = setup();
     const request = f.prompt(new AbortController().signal);
