@@ -1320,7 +1320,12 @@ function nappletNamespacePrelude(
         describe: (selector: unknown, options?: Record<string, unknown>) => registryRequest('describe', selector, options),
         call: (selector: unknown, tool: string, args?: unknown, options?: Record<string, unknown>) => registryRequest('call', selector, options, { tool, ...(args === undefined ? {} : { args }) }),
       },
-      discover: (query?: unknown) => req('cvm.discover', query === undefined ? {} : { query }, (msg) => Array.isArray(msg.servers) ? msg.servers : []),
+      // NAP-CVM #31 @ 28cf1bdb: "On success, the operation's payload is required",
+      // so a reply with neither `error` nor a `servers` list rejects (kehto/web#518).
+      discover: (query?: unknown) => req('cvm.discover', query === undefined ? {} : { query }, (msg) => {
+        if (!Array.isArray(msg.servers)) throw new Error('cvm.discover.result missing servers');
+        return msg.servers;
+      }),
       request: cvmRequest,
       listTools: async (server: unknown, options?: Record<string, unknown>) => {
         const result = await mcpCall(server, 'tools/list', undefined, options) as { tools?: unknown[] } | undefined;

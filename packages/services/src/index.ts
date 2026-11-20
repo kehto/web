@@ -223,6 +223,8 @@ export type {
   CvmRequestOptions,
   CvmDiscoverMessage,
   CvmDiscoverResultMessage,
+  CvmDiscoverSuccessResultMessage,
+  CvmDiscoverErrorResultMessage,
   CvmRequestMessage,
   CvmRequestResultMessage,
   CvmCloseMessage,
