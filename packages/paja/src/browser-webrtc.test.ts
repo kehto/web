@@ -1,6 +1,6 @@
 import type { EventTemplate, NappletMessage, NostrEvent, WebrtcEvent } from '@napplet/core';
 import type { ApprovalSignal, ServiceRuntimeContext, Signer } from '@kehto/runtime';
-import { createWebrtcService } from '@kehto/services';
+import { createWebrtcService, encodeWebrtcBytes } from '@kehto/services';
 import { describe, expect, it, vi } from 'vitest';
 import { finalizeEvent, getPublicKey } from 'nostr-tools/pure';
 import * as nip44 from 'nostr-tools/nip44';
@@ -12,6 +12,7 @@ import type { PajaHostConfig } from './options.js';
 import { normalizePajaSimulation } from './simulation.js';
 import {
   createPajaWebrtcController,
+  PAJA_WEBRTC_MAX_PAYLOAD_BYTES,
   PAJA_WEBRTC_SIGNAL_KIND,
 } from './browser-webrtc.js';
 
@@ -33,6 +34,7 @@ class MemorySignalRelay {
 class FakeDataChannel {
   readonly listeners = new Map<string, Set<(event: MessageEvent) => void>>();
   readyState: RTCDataChannelState = 'connecting';
+  binaryType: BinaryType = 'blob';
   bufferedAmount = 0;
   counterpart: FakeDataChannel | null = null;
   closed = false;
@@ -45,9 +47,12 @@ class FakeDataChannel {
     this.listeners.set(type, listeners);
   }
 
-  send(data: string): void {
+  send(data: string | ArrayBufferView): void {
     if (this.readyState !== 'open' || !this.counterpart) throw new Error('channel closed');
-    this.counterpart.dispatch('message', { data } as MessageEvent);
+    if (typeof data === 'string') { this.counterpart.dispatch('message', { data } as MessageEvent); return; }
+    // Like a browser: binary arrives as an ArrayBuffer only when the receiver asked for one.
+    const copy = new Uint8Array(data.buffer, data.byteOffset, data.byteLength).slice().buffer;
+    this.counterpart.dispatch('message', { data: this.counterpart.binaryType === 'arraybuffer' ? copy : new Blob([copy]) } as MessageEvent);
   }
 
   close(): void {
@@ -259,6 +264,65 @@ describe('Paja browser WebRTC controller', () => {
 
     await controllerA.serviceOptions.close!(openedA.session.id, 'done', { windowId: 'window-a', emit: () => {} });
     expect(eventsA).toContainEqual({ type: 'closed', sessionId: openedA.session.id, reason: 'done' });
+  });
+
+  // NAP-WEBRTC (napplet/naps#59 @ fb4dd6f0), Byte payloads: "The shell MUST
+  // deliver the decoded bytes to the peer as one binary payload. It MUST NOT
+  // send the base64 text." and "A payload sent with `sendBytes` MUST be
+  // received as a `bytes` event"; Limits: `maxPayloadBytes`.
+  it('carries sendBytes as one binary message that arrives as a bytes event', async () => {
+    const relay = new MemorySignalRelay();
+    const network = new FakeRtcNetwork();
+    const make = (seed: number, dTag: string) => {
+      const signer = signalingSigner(new Uint8Array(32).fill(seed));
+      const pubkey = getPublicKey(new Uint8Array(32).fill(seed));
+      const controller = createPajaWebrtcController({
+        relay, getSigner: () => signer, getPubkey: () => pubkey,
+        getIdentity: () => ({ dTag, aggregateHash: `hash-${dTag}` }), confirm: async () => true,
+        signalingRelayUrls: () => ['wss://signal.example'],
+        peerFactory: { create: () => network.create(), iceEndpoints: [] }, crypto: globalThis.crypto,
+      })!;
+      controller.refreshAvailability();
+      return { pubkey, controller };
+    };
+    const a = make(1, 'caller-a');
+    const b = make(2, 'caller-b');
+    const service = createWebrtcService(a.controller.serviceOptions);
+    service.onRegistered?.({ authorizeOperation: async (_w: string, _o: string, _r: readonly unknown[], run: (signal: ApprovalSignal) => unknown) =>
+      ({ status: 'executed' as const, value: await run(new AbortController().signal) }) } as unknown as ServiceRuntimeContext);
+    const sent: NappletMessage[] = [];
+    const call = (message: Record<string, unknown>) => service.handleMessage('window-a', message as unknown as NappletMessage, (m) => sent.push(m));
+    call({ type: 'webrtc.open', id: 'open', request: { scope: { type: 'direct', pubkey: b.pubkey }, channel: 'chat' } });
+    await vi.waitFor(() => expect(sent.some((m) => m.type === 'webrtc.open.result')).toBe(true));
+    const opened = sent.find((m) => m.type === 'webrtc.open.result') as NappletMessage & { session: { id: string; maxPayloadBytes?: number } };
+    expect(opened.session.maxPayloadBytes).toBe(PAJA_WEBRTC_MAX_PAYLOAD_BYTES);
+    const eventsB: WebrtcEvent[] = [];
+    const requestB = { scope: { type: 'direct', pubkey: a.pubkey }, channel: 'chat' } as const;
+    const contextB = { windowId: 'window-b', emit: (event: WebrtcEvent) => eventsB.push(event) };
+    const openedB = await b.controller.serviceOptions.open!(requestB, contextB, b.controller.serviceOptions.planOpen!(requestB, contextB));
+    expect(openedB.session.maxPayloadBytes).toBe(PAJA_WEBRTC_MAX_PAYLOAD_BYTES);
+    await vi.waitFor(() => expect(eventsB).toContainEqual({ type: 'state', sessionId: openedB.session.id, state: 'open' }));
+
+    call({ type: 'webrtc.sendBytes', id: 'bytes', sessionId: opened.session.id, bytes: 'AAEC/w==' });
+    call({ type: 'webrtc.sendBytes', id: 'empty', sessionId: opened.session.id, bytes: '' });
+    call({ type: 'webrtc.send', id: 'json', sessionId: opened.session.id, payload: 'AAEC/w==' });
+    call({ type: 'webrtc.sendBytes', id: 'big', sessionId: opened.session.id, bytes: encodeWebrtcBytes(new Uint8Array(PAJA_WEBRTC_MAX_PAYLOAD_BYTES + 1)) });
+    await vi.waitFor(() => expect(sent.filter((m) => m.type.endsWith('.result'))).toHaveLength(5));
+    expect(sent).toContainEqual({ type: 'webrtc.sendBytes.result', id: 'bytes' });
+    expect(sent).toContainEqual({ type: 'webrtc.sendBytes.result', id: 'empty' });
+    expect(sent).toContainEqual({ type: 'webrtc.send.result', id: 'json' });
+    expect(sent).toContainEqual({ type: 'webrtc.sendBytes.result', id: 'big', error: 'payload too large' });
+    // Bytes stay bytes and base64-looking JSON text stays a message: no conversion either way.
+    expect(eventsB.filter((event) => event.type === 'bytes' || event.type === 'message')).toEqual([
+      { type: 'bytes', sessionId: openedB.session.id, from: a.pubkey, bytes: 'AAEC/w==' },
+      { type: 'bytes', sessionId: openedB.session.id, from: a.pubkey, bytes: '' },
+      { type: 'message', sessionId: openedB.session.id, from: a.pubkey, payload: 'AAEC/w==' },
+    ]);
+
+    b.controller.serviceOptions.sendBytes!(openedB.session.id, new Uint8Array([9, 8, 7]), contextB);
+    await settle();
+    expect(sent).toContainEqual({ type: 'webrtc.event', event: { type: 'bytes', sessionId: opened.session.id, from: b.pubkey, bytes: 'CQgH' } });
+    expect(() => b.controller.serviceOptions.sendBytes!(openedB.session.id, new Uint8Array(PAJA_WEBRTC_MAX_PAYLOAD_BYTES + 1), contextB)).toThrow('payload too large');
   });
 
   // NAP-WEBRTC (napplet/naps#59 @ fb4dd6f0): the shell "MUST NOT deliver
