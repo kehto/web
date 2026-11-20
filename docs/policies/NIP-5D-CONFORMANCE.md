@@ -422,6 +422,26 @@ is not a documented residual here:
   CSP grants `'wasm-unsafe-eval'` and makes no timer promise.
 - `evil-02-csp-egress` `webrtc-grandchild`, unless the nested-context lock is
   on (`KEHTO_EVIL_SUITE_LOCK=on`).
+- `evil-01-sandbox-escape` `referrer`: the row arms on any `document.baseURI`
+  other than `about:srcdoc` and on a non-empty `location.ancestorOrigins`, so
+  it arms on the host origin and directory that the [Embedding URL](#embedding-url)
+  residual above already accepts. No Paja state (query, fragment, file name)
+  reaches the frame. Accepted for now; a later change may harden it, for
+  example with an opaque frame base URL.
+- `evil-06-side-channels` `error-taxonomy`: a storage miss resolves `null`, an
+  oversized `storage.set` fails with a quota error and a normal write succeeds.
+  Those are three distinct answers that NAP-STORAGE expects, and NIP-5D makes
+  no side-channel promise. Since napplet/evil#4 the row compares error messages,
+  so identical rate-limiter errors no longer arm it.
+
+Rows are what the napplet reported up to its revocation, including rows that
+settle in the instant before Paja tears the frame down. The runner streams each
+row change out of the frame and reads the last report, so a revoked napplet's
+earlier rows still count. Revocation is asserted, not tolerated: `evil-03`,
+`evil-04`, `evil-06` and `evil-08` must be revoked on `window-message` (their
+window-level rows run last), `evil-09` on `second-load` or `window-message`, and
+every other napplet must not be revoked. Rows still `pending` at revocation
+were never measured; they never count as held.
 
 ### Active NAP-RELAY boundary
 

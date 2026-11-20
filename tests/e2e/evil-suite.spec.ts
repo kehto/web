@@ -14,9 +14,13 @@
  * Demo mode only. The runner never arms the suite's "VERY EVIL" mode. The one active step is `evil-09`'s
  * operator-triggered self-replacement, the suite's own regression gate for kehto/web#378.
  *
+ * Rows are what each napplet reported up to its revocation: an init script streams every row change out of the frame,
+ * so rows that settle just before Paja tears a revoked frame down still count. Revocations are asserted per napplet.
+ *
  * Set `KEHTO_EVIL_SUITE_OUT` to a file path to append each napplet's per-row results as one JSON line.
  * Set `KEHTO_EVIL_SUITE_LOCK` to `on`, `off` or `auto` (default) to choose Paja's experimental nested-context lock.
  */
+import { randomUUID } from 'node:crypto';
 import { appendFileSync, readdirSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { join } from 'node:path';
@@ -39,7 +43,28 @@ const DOCUMENTED_RESIDUALS: Readonly<Record<string, readonly string[]>> = {
   'evil-08-wasm-timing': ['wasm-compile', 'timer-resolution'],
   // Grandchild-realm WebRTC is closed only by the opt-in nested-context lock.
   ...(LOCK === 'on' ? {} : { 'evil-02-csp-egress': ['webrtc-grandchild'] }),
+  // The srcdoc frame inherits the host origin and directory (never Paja's query or fragment) through
+  // document.baseURI and location.ancestorOrigins: the accepted "Embedding URL" residual.
+  'evil-01-sandbox-escape': ['referrer'],
+  // A storage miss resolves null and an oversized write fails with a quota error, as NAP-STORAGE expects; NIP-5D makes
+  // no side-channel promise. Measured fairly since napplet/evil#4 (identical limiter errors no longer arm it).
+  'evil-06-side-channels': ['error-taxonomy'],
 };
+
+/**
+ * Revocation reasons each napplet must end with. Port-bound Paja revokes on the first window-level probe, which the
+ * suite runs last; evil-09 is the operator-triggered self-replacement. Every other napplet must not be revoked.
+ */
+const EXPECTED_REVOCATIONS: Readonly<Record<string, readonly string[]>> = {
+  'evil-03-transport-forge': ['window-message'],
+  'evil-04-manifest-confusion': ['window-message'],
+  'evil-06-side-channels': ['window-message'],
+  'evil-08-wasm-timing': ['window-message'],
+  'evil-09-self-replacement': ['second-load', 'window-message'],
+};
+
+/** Console prefix the row observer reports on; a per-run nonce keeps it apart from anything the napplet logs. */
+const ROW_REPORT = '__kehto_evil_rows__';
 
 interface RowResult { readonly status: string; readonly evidence: string }
 interface NappletRun {
@@ -63,7 +88,15 @@ test.describe('napplet/evil red-team suite (opt-in)', () => {
       const allowed = new Set(DOCUMENTED_RESIDUALS[id] ?? []);
       const unexpected = Object.entries(run.rows).filter(([row, result]) => result.status === 'armed' && !allowed.has(row));
       expect(unexpected.map(([row, result]) => `${row}: ${result.evidence}`)).toEqual([]);
-      if (id === 'evil-09-self-replacement') expect(run.revocations.length).toBeGreaterThan(0);
+      // Rows reached before a revocation count; a napplet that reported nothing was never measured.
+      expect(Object.keys(run.rows).length).toBeGreaterThan(0);
+      const expectedRevocations = EXPECTED_REVOCATIONS[id];
+      if (expectedRevocations) {
+        expect(run.revocations.length).toBeGreaterThan(0);
+        expect(run.revocations.filter((reason) => !expectedRevocations.includes(reason))).toEqual([]);
+      } else {
+        expect(run.revocations).toEqual([]);
+      }
     });
   }
 });
@@ -79,9 +112,18 @@ async function runNapplet(page: Page, id: string, html: Buffer): Promise<Napplet
   const server = await startPajaServer();
   const collectorConsole: string[] = [];
   const abortedRequests: string[] = [];
+  const reportPrefix = `${ROW_REPORT}${randomUUID()}:`;
+  let reported: Record<string, RowResult> = {};
   page.on('console', (message) => {
-    if (/evil\.example\.invalid/.test(message.text())) collectorConsole.push(message.text().slice(0, 240));
+    const text = message.text();
+    if (text.startsWith(reportPrefix)) {
+      try { reported = JSON.parse(text.slice(reportPrefix.length)) as Record<string, RowResult>; } catch { /* keep the last good report */ }
+      return;
+    }
+    if (/evil\.example\.invalid/.test(text)) collectorConsole.push(text.slice(0, 240));
   });
+  // Installed at document start in every frame, so even a napplet revoked before the runner finds its frame reports.
+  await page.addInitScript(installRowReporter, reportPrefix);
   await page.context().route('**/*', (route) => {
     if (route.request().url().startsWith(server.url)) return route.continue();
     abortedRequests.push(route.request().url().slice(0, 160));
@@ -94,7 +136,10 @@ async function runNapplet(page: Page, id: string, html: Buffer): Promise<Napplet
     await page.waitForFunction(() => window.__KEHTO_PAJA__ !== undefined, undefined, { timeout: 15_000 });
     await page.locator('#runtime-local-file').setInputFiles({ name: `${id}.html`, mimeType: 'text/html', buffer: html });
     const frame = await waitForSuiteFrame(page);
-    let rows = frame ? await settledRows(frame) : {};
+    const polled = frame ? await settledRows(frame) : {};
+    // Console events trail the frame; let the last report land before reading it.
+    await page.waitForTimeout(500);
+    let rows = latestRows(polled, reported);
     if (frame && id === 'evil-09-self-replacement') {
       // The suite's sanctioned active step: replace the verified document and expect revocation.
       await frame.locator('button[data-probe="self-replace"]').click();
@@ -143,6 +188,39 @@ async function settledRows(frame: Frame): Promise<Record<string, RowResult>> {
     await frame.page().waitForTimeout(100);
   }
   return last;
+}
+
+/**
+ * Init script for every frame; adds no globals. Once suite rows exist, it logs a full row snapshot whenever one
+ * changes, through the console method captured at document start, so rows reached before a revocation are kept.
+ */
+function installRowReporter(prefix: string): void {
+  const log = console.debug.bind(console);
+  let sent = '';
+  const report = (): void => {
+    const rows = [...document.querySelectorAll<HTMLElement>('.attack')];
+    if (!rows.length) return;
+    const snapshot = JSON.stringify(Object.fromEntries(rows.map((row) => [
+      row.dataset.attack ?? '?',
+      { status: row.dataset.status ?? 'unknown', evidence: (row.querySelector('.evidence')?.textContent ?? '').slice(0, 240) },
+    ])));
+    if (snapshot === sent) return;
+    sent = snapshot;
+    log(prefix + snapshot);
+  };
+  new MutationObserver(report).observe(document, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['data-status'] });
+}
+
+/**
+ * The freshest row results: the reporter's last snapshot, except where a poll saw a row settle that the report still
+ * shows as pending. A row the frame never settled stays `pending`; it is never read as held.
+ */
+function latestRows(polled: Record<string, RowResult>, reported: Record<string, RowResult>): Record<string, RowResult> {
+  const rows: Record<string, RowResult> = { ...polled, ...reported };
+  for (const [row, result] of Object.entries(polled)) {
+    if (rows[row]?.status === 'pending' && result.status !== 'pending') rows[row] = result;
+  }
+  return rows;
 }
 
 /** Revocation reasons Paja logged, e.g. `window-message` or `second-load`. */
