@@ -55,7 +55,8 @@ export function createMemoryRelay(seed: readonly NostrEvent[] = []): MemoryRelay
     },
     publish(event) {
       if (!events.some((stored) => stored.id === event.id)) events.push(event);
-      for (const entry of [...subscriptions]) if (matchFilters(entry.filters, event)) entry.callback(event);
+      // Snapshot: a callback may close its own subscription mid-delivery.
+      for (const entry of Array.from(subscriptions)) if (matchFilters(entry.filters, event)) entry.callback(event);
     },
     inject(template) {
       injected += 1;

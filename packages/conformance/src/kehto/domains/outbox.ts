@@ -16,7 +16,8 @@ const OUTBOX_RELAYS = ['wss://outbox-a.conformance.invalid', 'wss://outbox-b.con
 export const OUTBOX_BACKEND: DomainBackendModule = {
   domain: 'outbox',
   create({ user }) {
-    const relay = createMemoryRelay([structuredClone(OUTBOX_SEED_EVENT) as unknown as NostrEvent]);
+    const seed: NostrEvent = { ...OUTBOX_SEED_EVENT, tags: OUTBOX_SEED_EVENT.tags.map((tag) => [...tag]) };
+    const relay = createMemoryRelay([seed]);
     const relayPool: OutboxRelayPool = {
       subscribe: (filters, _relayUrls, callback) => relay.subscribe(filters, callback),
       publish(event, relayUrls) {
