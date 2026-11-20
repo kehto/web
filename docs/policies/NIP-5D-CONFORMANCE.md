@@ -199,22 +199,53 @@ shell, never by napplet cooperation:
    frame tag, so `innerHTML`, `outerHTML`, `insertAdjacentHTML`, `DOMParser`,
    `document.write`, `Range.createContextualFragment`, `setHTMLUnsafe` and the
    rest are closed.
-2. **Element factories.** The only element-creating methods on the platform are
-   `Document.prototype.createElement` and `createElementNS` (verified by
-   enumerating every `create*` method on `Document`, `Element` and `Node` in
-   Chromium, Firefox and WebKit — all others create non-element nodes). The
-   prelude pins both, non-configurable, to reject frame tag names, along with
-   `DOMImplementation.createDocument`.
+2. **Element factories.** `Document.prototype.createElement` and
+   `createElementNS` are the only element-creating *methods* on the platform
+   (verified by enumerating every `create*` method on `Document`, `Element` and
+   `Node` in Chromium, Firefox and WebKit — all others create non-element
+   nodes). The prelude pins both, non-configurable, to reject frame tag names,
+   along with `DOMImplementation.createDocument`.
+3. **XSLT.** `XSLTProcessor.transformToFragment` builds result elements from an
+   XSL stylesheet DOM, which a napplet can assemble with `createElementNS` in the
+   XSL namespace (not a frame tag) and no string sink. The first cut of this lock
+   missed it: re-measured for kehto/web#381, an `<xsl:element name="iframe">`
+   template minted a live child frame under the lock in Chromium 147, Firefox 148
+   and WebKit 26.4 (`window.length` went to 1). The lock now removes
+   `XSLTProcessor` from the realm, pinned as a non-writable, non-configurable
+   `undefined`, and the bypass battery carries an XSLT vector.
+4. **Namespaced XML.** `DOMParser` in `application/xml` mode turns
+   `<h:iframe xmlns:h="http://www.w3.org/1999/xhtml"/>` into a live XHTML
+   iframe once the node is adopted, and the frame-tag check only matched an
+   unprefixed tag name, so this also got past the first cut (measured in all
+   three engines). The `default` policy now matches an optional namespace prefix
+   on frame tags. A string check alone cannot close XML parsing, though: a DTD
+   internal entity (`<!ENTITY e "&#60;h:iframe …/&#62;">`) hides the markup
+   until the parser expands it, which also minted a frame under the lock in all
+   three engines. So the prelude pins `DOMParser.prototype.parseFromString` to
+   inspect the parsed document (template content and shadow roots included) and
+   throw when it holds an XHTML frame element. The battery carries both the
+   prefixed and the entity vector.
 
 Node movement (`cloneNode`, `importNode`, `adoptNode`) needs a pre-existing
-frame node, and both creation routes are closed, so there is no bootstrap.
+frame node, and every creation route above is closed, so there is no bootstrap.
 Escaping the pins needs a fresh realm, whose only sources are a child frame
 (closed here), a popup (the `allow-scripts`-only sandbox denies `allow-popups`)
-or a worker (not a browsing context, no DOM). The set is closed: no specified
-web-platform API leaves a napplet a way to create a nested browsing context.
-This is a closed structural enumeration, not a sampled probe; its residual is a
-browser implementation bug, the same residual class as the `sandbox` attribute
-itself (which has had escape CVEs).
+or a worker (not a browsing context, no DOM). The XSLT miss is a reminder that
+this enumeration is an argument, not a proof: its residual is a browser
+implementation bug *or a platform element source the enumeration has not
+named*, which is why the tripwire below exists.
+
+**Tripwire backstop.** Under the lock a napplet has no legitimate child frame,
+so the shell revokes the binding (`NappletRevocationReason` `nested-context`)
+when the napplet Window reports `length > 0`. The check runs on events the
+transport already handles, the frame's `load` and each envelope from the bound
+port, so there is no polling, and it never runs for unlocked napplets (no false
+positive for a canonical napplet that uses a child frame).
+`admitBrowserDocument` marks locked admissions itself; hosts that call
+`prepareNappletSrcdoc` directly pass
+`bridge.observeFrame(frame, windowId, { nestedContextLock: true })`. Detection,
+not prevention: a child created and removed between two of those events goes
+unseen, and one that is seen has already run once.
 
 A napplet's own *static* `<iframe>` is instantiated by the HTML parser, which is
 not a Trusted Types sink, so the shell scans the verified bytes and refuses any
@@ -234,11 +265,140 @@ Because the lock is opt-in, this contract change applies only to hosts that set
 `experimental.nestedContextLock`.
 
 Regression: `tests/e2e/shell-csp.spec.ts` (real opaque iframe, scripted bypass
-battery and the byte scan), the prelude unit tests in
-`packages/shell/src/napplet-namespace.test.ts`, `napplet-csp.test.ts`,
-`napplet-frame-scan.test.ts`, the Paja rejection test in
+battery including XSLT, and the byte scan), the prelude unit tests in
+`packages/shell/src/napplet-namespace.test.ts`, `napplet-realm-lock.test.ts`,
+`napplet-csp.test.ts`, `napplet-frame-scan.test.ts`, the tripwire tests in
+`nip5d-port-binding.test.ts`, the Paja rejection test in
 `packages/paja/src/browser-target-frame.test.ts`, and the conformance guard in
 `tests/unit/nip5d-conformance-guard.test.ts`.
+
+### Resource hints
+
+Spec-gap decision (defense-in-depth beyond the current NIP-5D text, which says
+nothing about resource hints; checked against nostr-protocol/nips#2303 at
+`f60550c`). **Opt-in and off by default**, via `experimental.resourceHintLock`.
+
+CSP3 (w3c/webappsec-csp editor's draft at `e3461f7`) gives `prefetch` and
+`prerender` initiators the `default-src` directive and governs `preconnect` by
+the union of a policy's source lists, so under Kehto's `default-src 'none'` none
+of these should reach the network. Measured from a sandboxed `srcdoc` napplet
+under Kehto's CSP (attempted-and-blocked separated from real egress with a raw
+TCP sink, Chromium net-log resolver jobs and Firefox `nsHostResolver` logs):
+
+| Hint | Chromium 147 | Firefox 148 | WebKit 26.4 |
+|---|---|---|---|
+| `rel=prefetch` | blocked by `default-src` (CSP violation logged) | blocked by `default-src` | no request (none top-level either) |
+| `rel=prerender` | **GET egress** (`Sec-Purpose: prefetch`), static and scripted; no host CSP, header or `x-dns-prefetch-control` stops it | no request (unsupported) | no request (unsupported) |
+| `rel=preconnect` | **DNS + TCP** with network prediction on (the browser default; off in Playwright's default context) | not measurable (no top-level control fired) | **TCP connect**, scripted or a static link whose `href` is rewritten |
+| `rel=dns-prefetch` | **DNS resolution** with prediction on | **DNS resolution** with prediction prefs on | not measured (no resolver log) |
+| speculation rules / `<a ping>` | no request / blocked by CSP | no request / not measured | no request / not measured |
+
+So the napplet/evil `evil-02` "prefetch hints" observation was the blocked
+`rel=prefetch` attempt (Chromium's `Fetching content … violates … "default-src
+'none'"` console line, which Paja shows): attempted and blocked, not egress. Its
+`dns-prefetch` link left no console trace, and in a regular browser profile it
+does resolve. The real channels are the three rows in bold; each carries
+napplet-chosen data in the URL or host name, and a static hint becomes one as
+soon as a script rewrites its `href`.
+
+No host-side control closes them without touching verified bytes: neither the
+napplet CSP, a host-page CSP, a `Referrer-Policy`, nor an injected
+`<meta http-equiv="x-dns-prefetch-control" content="off">` (still resolved in
+Chromium), and `document.featurePolicy` exposes no hint feature. Kehto layers
+the closure like the nested-context lock:
+
+1. The shared Trusted Types `default` policy parses each string-sink input in
+   an inert document (descending into nested `<template>` content) and rejects
+   it when a `<link>` would carry `dns-prefetch`, `preconnect` or `prerender`;
+   a `document.write` chunk that ends inside a tag is rejected so a hint cannot
+   be split across chunks (this also rejects a chunk of plain text with an
+   unmatched `<`), and any namespace-prefixed `link` tag is rejected because
+   `DOMParser`'s XML modes make it a live XHTML link. The shared
+   `parseFromString` pin rejects a parsed document holding an XHTML hint link,
+   which closes DTD-entity tricks the string check cannot see.
+2. The prelude pins every attribute writer that can set a link's `rel`: the
+   `rel` setter, `relList` `add`/`toggle`/`replace`/`value`, `setAttribute(NS)`,
+   `setAttributeNode(NS)`, `NamedNodeMap.setNamedItem(NS)` and the `Attr`
+   `value`/`nodeValue`/`textContent` setters. `XSLTProcessor` is removed.
+3. The host refuses verified bytes whose own markup declares a hint link
+   (`nappletMarkupHasResourceHint` / `assertNappletHasNoResourceHint`).
+
+Canonical link relations (`stylesheet`, `icon`, `next`, …) and canonical HTML
+are unaffected. Paja enables the hint lock whenever its nested-context lock
+resolves on (same CLI flag, config key and Security switch), since both need
+Trusted Types. Compatibility: the same Trusted Types contract change as the
+nested-context lock (`NIP5D_TRUSTED_TYPES_REQUIRED`), plus refusal of napplets
+that ship a static hint link; both apply only to hosts that opt in.
+
+Residual with the lock off (the default): the bold rows above stay open. The
+upstream fix is browser conformance with CSP3's resource-hint rules.
+
+Regression: `tests/e2e/shell-resource-hints.spec.ts` (Chromium prerender egress
+control, a 24-vector scripted battery of which 23 create live hint links in
+Chromium without the lock (`execCommand` does not) and none with it, and a
+zero-request sink assertion), the same battery and the frame battery run
+cross-engine for this change with a throwaway three-project Playwright config
+(Chromium 147, Firefox 148, WebKit 26.4: zero hint links and zero frames under
+the locks in all three), `packages/shell/src/napplet-hint-scan.test.ts`,
+`napplet-realm-lock.test.ts`, the Paja rejection test in
+`packages/paja/src/browser-target-frame.test.ts`, and the guard in
+`tests/unit/nip5d-conformance-guard.test.ts`.
+
+### Embedding URL
+
+Spec-gap decision (beyond-spec Kehto host policy; NIP-5D at `f60550c` is silent
+on referrers and base URLs). A verified napplet is an `about:srcdoc` document,
+which inherits the embedding page's referrer and its fallback base URL. Without
+host policy a napplet reads the shell URL from `document.referrer` and the full
+URL, path, query and fragment included, from `document.baseURI`. Paja keeps the
+opened pointer (`?naddr=`) and intent links (`?intent=`) in its query, so every
+napplet tab could read them (napplet/evil finding #2).
+
+Measured from a sandboxed `srcdoc` napplet on a host page at
+`/shell/secret-path?token=…` (so `./` and `/` differ):
+
+| Channel | No control | iframe `referrerpolicy="no-referrer"` | host `<meta name="referrer">` / `Referrer-Policy` | host `<base href="./">` |
+|---|---|---|---|---|
+| `document.referrer`, Chromium 147 | host origin | empty | empty | — |
+| `document.referrer`, Firefox 148 | empty | empty | empty | — |
+| `document.referrer`, WebKit 26.4 | host origin | **host origin** (ignored for srcdoc) | empty | — |
+| `document.baseURI`, all three | full host URL | full host URL | full host URL | host directory only (`/shell/`) |
+| `location.ancestorOrigins` | host origin | Chromium/WebKit: host origin; Firefox: `"null"` | host origin | host origin |
+| subresource `Referer` | none sent | none | none | none |
+
+A `<base>` injected into the napplet document hides the fallback only until the
+napplet removes it (measured in all three), so the base belongs on the host
+page. `@kehto/shell` exports the controls, none of which touch verified bytes:
+`denyNappletReferrer(frame)` (iframe attribute, set before `srcdoc`),
+`renderNappletReferrerPolicyMeta()` (the portable control, WebKit included) and
+`renderNappletHostBase()` (drops file name, query and fragment from the
+inherited base). `ShellBridge.observeFrame` warns once when a frame lacks the
+attribute or its host page lacks the referrer meta (`hasNappletReferrerPolicy`,
+`hasNappletReferrerPolicyMeta`). Paja's host page and frames, and the e2e harness, apply all
+three. A host-page `<base href="./">` changes how the host's own fragment-only
+and query-only references resolve; Paja has none.
+
+Residual: `location.ancestorOrigins` still exposes the host origin in Chromium
+and WebKit, and the host page's directory stays in `document.baseURI`. Neither
+carries Paja state. No host control removes them.
+
+Regression: `tests/e2e/napplet-url-privacy.spec.ts` (Paja with a secret query
+and fragment, and the harness), `packages/shell/src/napplet-url-privacy.test.ts`,
+`nip5d-referrer-warning.test.ts` and `packages/paja/src/host-page.test.ts`.
+
+### Red-team residuals
+
+`tests/e2e/evil-suite.spec.ts` runs the [napplet/evil](https://github.com/napplet/evil)
+suite through Paja when `KEHTO_EVIL_SUITE_DIR` points at a local checkout; it is
+skipped otherwise and never fetches the suite. It fails on any `armed` row that
+is not a documented residual here:
+
+- `evil-07-fingerprint`, every row: passive fingerprinting, which NIP-5D does
+  not protect against.
+- `evil-08-wasm-timing` `wasm-compile` and `timer-resolution`: NIP-5D's baseline
+  CSP grants `'wasm-unsafe-eval'` and makes no timer promise.
+- `evil-02-csp-egress` `webrtc-grandchild`, unless the nested-context lock is
+  on (`KEHTO_EVIL_SUITE_LOCK=on`).
 
 ### Active NAP-RELAY boundary
 

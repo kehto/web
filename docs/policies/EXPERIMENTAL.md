@@ -33,6 +33,7 @@ opinionated host policy is an experimental flag.
 | Flag | Package(s) | What it does | Cost |
 |------|------------|--------------|------|
 | `nestedContextLock` | `@kehto/shell`, `@kehto/paja` | Prevents a napplet from creating any nested browsing context (iframe/frame/object/embed/…): a Trusted Types `default` policy plus pinned element factories reject frame elements in the realm, and the host rejects static frame markup before load. See [NIP-5D conformance](./NIP-5D-CONFORMANCE.md#nested-browsing-contexts). | Requires Trusted Types in the napplet CSP (`NIP5D_TRUSTED_TYPES_REQUIRED` in [compatibility](../compatibility.md)); incompatible with frameworks that register their own Trusted Types policy (e.g. Angular); a string sink carrying a literal frame-tag token is rejected even in text or an attribute. |
+| `resourceHintLock` | `@kehto/shell`, `@kehto/paja` | Prevents a napplet from adding `<link rel="dns-prefetch" \| "preconnect" \| "prerender">`, which browsers act on outside the napplet CSP: the shared Trusted Types `default` policy and pinned `rel` / `relList` / attribute writers reject those relations, `XSLTProcessor` is removed, and the host rejects static hint markup before load. Paja turns it on whenever `nestedContextLock` resolves on. See [NIP-5D conformance](./NIP-5D-CONFORMANCE.md#resource-hints). | Same Trusted Types requirement as `nestedContextLock`; refuses napplets whose own markup ships a hint link; a `document.write` chunk with an unmatched `<` is rejected, even in plain text; `DOMParser` results holding a hint link throw; canonical relations (`stylesheet`, `icon`, …) are unaffected. |
 
 ## Enabling a policy
 
@@ -44,9 +45,15 @@ napplet:
 ```ts
 const srcdoc = prepareNappletSrcdoc(verifiedHtml, {
   domains,
-  experimental: { nestedContextLock: true },
+  experimental: { nestedContextLock: true, resourceHintLock: true },
 });
 ```
+
+Scan the verified bytes first: `assertNappletHasNoFrame` for the nested-context
+lock and `assertNappletHasNoResourceHint` for the resource-hint lock. Hosts that
+prepare the srcdoc themselves also pass
+`bridge.observeFrame(frame, windowId, { nestedContextLock: true })` so the
+nested-context tripwire applies; `admitBrowserDocument` does this on its own.
 
 ### In Paja (developers)
 
@@ -79,6 +86,9 @@ const config = createPajaRuntimeHostConfig({
   experimental: { nestedContextLock: 'auto' },
 });
 ```
+
+The resource-hint lock has no separate Paja setting: it follows the resolved
+nested-context decision, since both need Trusted Types.
 
 Paja resolves `auto` per napplet at load time against the domains the host
 actually grants, so a messaging napplet gets the lock while a plain viewer does

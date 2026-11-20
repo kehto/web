@@ -1,4 +1,4 @@
-import { denyNappletControllerAccess, originRegistry, randomUUID } from '@kehto/shell';
+import { denyNappletControllerAccess, denyNappletReferrer, originRegistry, randomUUID } from '@kehto/shell';
 import { resolvePajaSharedLinkHandler } from './browser-intent-link-target.js';
 import type { PajaIntentLinkProgress } from './browser-intent-links.js';
 import type { ParsedPajaIntentLink } from './intent-link.js';
@@ -22,6 +22,7 @@ export async function launchPajaSharedIntent(
   const frame = document.createElement('iframe');
   frame.hidden = true;
   denyNappletControllerAccess(frame);
+  denyNappletReferrer(frame);
   frame.sandbox.add('allow-scripts');
   frame.setAttribute('aria-hidden', 'true');
   context.stage.append(frame);
