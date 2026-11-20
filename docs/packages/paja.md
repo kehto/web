@@ -579,8 +579,9 @@ profile also requires a connected NIP-44 signer; an explicitly configured
 multiplayer profile uses a temporary transport key instead. Paja owns peer connections and data channels, obtains
 explicit session consent, signs kind-25050 Nostr signaling, encrypts
 offer/answer SDP, and keeps application payloads exclusively on the data
-channel. Signer changes tear down sessions, synchronize runtime service handlers,
-and refresh the shell environment before loading a replacement iframe;
+channel. Signer changes tear down sessions and synchronize runtime service
+handlers. When `webrtc` appears or disappears, a frame that declared it gets a
+replacement iframe with the new environment (see the signer-change notes below);
 napplets never receive SDP, ICE internals, relay sockets, or browser networking
 objects. The signaling boundary follows pinned
 [NAP-WEBRTC `5fae95dd2c8e59bd06c654e0845656add077dcda`](https://github.com/napplet/naps/blob/5fae95dd2c8e59bd06c654e0845656add077dcda/naps/NAP-WEBRTC.md)
@@ -605,10 +606,28 @@ value the napplet sees and the wire traffic captured by an in-test Nostr relay
   against an in-test ContextVM server, plus per-window admission (one call
   running, one queued, overflow refused) under `simulation.cvm.concurrency`.
 
-Known NAP-IDENTITY gap: on a signer change Paja re-initializes the hosted napplet.
-It does not push `identity.changed` to the napplet that is already loaded. The
-spec's `test.fixme` tracks that contract until Paja refreshes its environment
-without a reload.
+Signer changes follow NAP-IDENTITY
+([napplet/naps master `377bf939`](https://github.com/napplet/naps/blob/377bf939c6c906817084b43dd21d424de646dbc2/naps/NAP-IDENTITY.md)):
+connecting, switching or disconnecting a signer keeps every loaded napplet
+running and pushes `identity.changed` with the new shell-user pubkey, or
+`pubkey: ""` when the identity is cleared. A push is sent only when the pubkey
+actually changes, not for intermediate states such as `connecting`.
+
+Paja reloads the active frame on a signer change in one case only: the change
+alters the advertised domain set in a way that changes what that frame would be
+injected. NIP-5D fixes a frame's domain namespace before its code runs, so a
+new domain needs a fresh document. Some domains depend on the signer (`webrtc`
+needs a signaling signer, `dm` needs the Dev signer, `upload` needs a writable
+signer identity). Paja reloads when one of those appears and the napplet
+declared it, or declared no domains at all. It also reloads when one disappears
+that the frame was admitted. A napplet that declared neither keeps its frame.
+Background runtime tabs are not reloaded, which is the same as any other
+environment change.
+
+- `tests/e2e/paja-identity.spec.ts` also checks that a loaded napplet receives
+  `identity.changed` for connect, switch and disconnect without a reload.
+- `tests/e2e/paja-webrtc.spec.ts` covers the narrow reload. A target that
+  declares `webrtc` is reloaded once when a signer makes `webrtc` routable.
 
 ### Standard identity and private social cache
 

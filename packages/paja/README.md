@@ -123,10 +123,11 @@ again. Only the method is stored, never credentials, keys, URIs, or approvals.
 Invalid or unreadable storage defaults to None; failed writes still allow selection
 for the current session. An unavailable extension stays selected with an error,
 without falling back to another signer. Fixed simulation identity is independent of
-signing authority. Known NAP-IDENTITY gap: signer changes currently re-initialize
-the hosted frame rather than delivering `identity.changed` to the existing frame;
-the new frame reads the updated identity. The browser suite keeps that push gap
-explicitly skipped. Sign, publish, DM
+signing authority. A signer change keeps loaded napplets running and pushes
+NAP-IDENTITY `identity.changed` (`pubkey: ""` on disconnect). Paja reloads the
+active frame only when the change adds a signer-dependent domain (`webrtc`,
+`dm`, `upload`) that the napplet declared, or removes one it was admitted. NIP-5D
+needs a fresh injection for that. Sign, publish, DM
 send, filesystem picker, Blossom upload, and external-link requests use one serialized in-page
 confirmation dialog. Deny has initial focus and Escape denies. A napplet-scoped
 serial or BLE chooser receives runtime approval first; Paja then keeps the

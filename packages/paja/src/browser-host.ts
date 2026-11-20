@@ -38,6 +38,7 @@ import {
   createHostSignerController,
 } from './browser-host-signer.js';
 import { unregisterSingleFrameWindow } from './browser-host-runtime.js';
+import { createPajaReinjectionGate } from './browser-frame-reinjection.js';
 import { handlePajaNappletRevoked, handlePajaWindowMessage, observePajaNappletMessage } from './browser-nip5d-host.js';
 import { installLocalFileControls, loadLocalRuntimeFile } from './browser-local-loader.js';
 import { BrowserIntentController } from './browser-intent-controller.js';
@@ -781,13 +782,19 @@ async function installPajaHost(): Promise<void> {
     onChange: () => { if (stateRef) setSimulationStatus(stateRef); },
   });
   let syncServices: (() => void) | undefined;
+  const reinjection = createPajaReinjectionGate(() => buildShellCapabilities(adapter).domains);
   const adapter = createPajaAdapter(config, getSimulation, (theme) => {
     runtime.themeService = theme;
   }, themeBroadcast.onBroadcast, confirmationController.confirm, signerController, getWindowIdentity, () => {
     syncServices?.();
     if (stateRef) {
       stateRef.services = Object.keys(adapter.services ?? {}).sort();
-      stateRef.reload();
+      // NAP-IDENTITY: a signer change alone reaches loaded napplets as
+      // identity.changed. Reload only when the advertised domain set changes
+      // the injection this frame would get (NIP-5D fixes it before code runs).
+      const active = config.target.mode === 'runtime-pointer'
+        ? stateRef.tabs.find((tab) => tab.id === stateRef?.activeTabId)?.frame : contextRef?.frame;
+      if (reinjection.shouldReload(active)) stateRef.reload();
     }
   }, {
       catalog: runtime.catalog,
@@ -878,14 +885,22 @@ async function installPajaHost(): Promise<void> {
   syncServices = () => synchronize(adapter.services ?? {});
   permissionBridge = bridge;
   permissionController.ui.refresh();
+  // NAP-IDENTITY: push identity.changed whenever the shell-user identity
+  // changes, "" on disconnect. The signer controller also notifies for
+  // intermediate states (connecting), so push only a real change.
+  let publishedPubkey = adapter.auth.getUserPubkey() ?? '';
   const stopIdentityChanges = signerController.subscribe(() => {
     confirmationController.cancelSignerRequests();
-    bridge.publishIdentityChanged(adapter.auth.getUserPubkey() ?? '');
+    const pubkey = adapter.auth.getUserPubkey() ?? '';
+    if (pubkey === publishedPubkey) return;
+    publishedPubkey = pubkey;
+    bridge.publishIdentityChanged(pubkey);
   });
   themeBroadcast.attach(bridge);
   bridgeRef = bridge;
   installPajaOriginRegistryProxy(originRegistry, () => stateRef, windowId => confirmationController.cancelWindow(windowId));
   const capabilities = buildShellCapabilities(adapter);
+  reinjection.snapshot();
   const context: PajaBrowserStateContext = {
     config,
     frame,
