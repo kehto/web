@@ -101,7 +101,6 @@ export function isIdentityOrThemeMessage(message: NappletMessage): boolean {
 export function createIntentPolicyDenial(
   message: NappletMessage,
 ): NappletMessage | undefined {
-  const id = (message as NappletMessage & { id?: string }).id ?? '';
   if (message.type === 'intent.invoke') {
     return createIntentInvokeRejection(message, 'invoke rejected');
   }
