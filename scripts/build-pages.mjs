@@ -14,6 +14,7 @@
  *   .pages/playground/   (retired-route redirect to Paja)
  *   .pages/paja/
  *   .pages/docs/
+ *   .pages/floorplans/ (per-package architecture maps, scripts/floorplans.mjs)
  */
 import {
   copyFileSync,
@@ -84,4 +85,9 @@ ensureFile(join(docsApi, 'modules', '_kehto_shell.html'), 'TypeDoc API output');
 cpSync(docsDist, docsOutput, { recursive: true });
 cpSync(docsApi, join(docsOutput, 'api'), { recursive: true });
 
-console.log(`[build:pages] OK - wrote ${rel(outputRoot)} portal, retired playground redirect, paja, and docs roots`);
+execFileSync(process.execPath, [join(scriptDir, 'floorplans.mjs'), 'pages', '--out', join(outputRoot, 'floorplans')], {
+  cwd: repoRoot,
+  stdio: 'inherit',
+});
+
+console.log(`[build:pages] OK - wrote ${rel(outputRoot)} portal, retired playground redirect, paja, docs, and floorplans roots`);
