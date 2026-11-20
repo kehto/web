@@ -1,8 +1,9 @@
 import { createResourceService, ResourceServiceError, type ResourceFetchInit } from '@kehto/services';
+import { RESOURCE_FIXTURE_ORIGIN } from '../../fixtures/resource.js';
 import type { DomainBackendModule } from './types.js';
 
 /** Origin of every fixture resource. Resolved in memory: nothing connects to it. */
-const ORIGIN = 'https://resource.conformance.invalid';
+const ORIGIN = RESOURCE_FIXTURE_ORIGIN;
 
 /** Fixture resources by path. `/hold` is answered only by the `resource.release` control. */
 const RESOURCES: Readonly<Record<string, Uint8Array>> = Object.freeze({
@@ -49,7 +50,7 @@ export const RESOURCE_BACKEND: DomainBackendModule = {
       services: { resource },
       controls: {
         /** Answer every held `/hold` request with the `/hello.txt` bytes. */
-        'resource.release': () => { for (const release of [...held]) release(); },
+        'resource.release': () => { for (const release of held) release(); },
         /** Evidence: every URL the resolver was asked for, oldest first. */
         'resource.fetched': () => [...fetched],
       },

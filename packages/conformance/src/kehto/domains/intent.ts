@@ -62,12 +62,12 @@ export const INTENT_BACKEND: DomainBackendModule = {
 
     const flush = (): number => {
       let delivered = 0;
-      for (const item of [...pending]) {
+      for (const item of pending.splice(0)) {
         const target = ready.get(item.handler);
-        if (!target || !runtime?.sendToEligibleNapplet(target, { type: 'intent.deliver', delivery: item.delivery } as NappletMessage)) continue;
-        pending.splice(pending.indexOf(item), 1);
-        item.settle();
-        delivered += 1;
+        if (target && runtime?.sendToEligibleNapplet(target, { type: 'intent.deliver', delivery: item.delivery } as NappletMessage)) {
+          item.settle();
+          delivered += 1;
+        } else pending.push(item);
       }
       return delivered;
     };

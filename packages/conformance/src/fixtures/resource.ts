@@ -1,6 +1,8 @@
 import type { DomainFixture, OperationCase, SemanticVerdict } from './types.js';
 
-const ORIGIN = 'https://resource.conformance.invalid';
+/** Origin the target's resource resolver serves the fixture paths from (`/bytes`, `/empty`, `/hello.txt`, `/hold`). */
+export const RESOURCE_FIXTURE_ORIGIN = 'https://resource.conformance.invalid';
+const ORIGIN = RESOURCE_FIXTURE_ORIGIN;
 const BYTES = `${ORIGIN}/bytes`;
 const MISSING = `${ORIGIN}/missing`;
 const HOLD = `${ORIGIN}/hold`;
