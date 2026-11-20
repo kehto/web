@@ -16,8 +16,6 @@
  *   and `webrtc.sendBytes(.result)` that the pinned NAPs specify (upstream).
  * - `relay/semantics`: `relay.publishEncrypted` with a signer that cannot
  *   encrypt publishes an empty-content event and reports `ok: true`.
- * - `cvm/semantics`: `cvm.request` validation (missing message, `id: null`,
- *   result+error) and `cvm.discover` error shape differ from NAP-CVM.
  * - `webrtc/push`: `webrtc.event` is still delivered for a closed session.
  */
 export const KNOWN_KEHTO_FINDINGS: Readonly<Record<'minimal' | 'full', readonly string[]>> = {
@@ -26,7 +24,6 @@ export const KNOWN_KEHTO_FINDINGS: Readonly<Record<'minimal' | 'full', readonly 
     'catalog/acl-denial',
     'catalog/broadcast-to-loaded',
     'catalog/package-drift',
-    'cvm/semantics',
     'relay/semantics',
     'webrtc/push',
   ],
