@@ -2,6 +2,7 @@
  * kehto/domains/index.ts — Every full-profile backend module, in boot order.
  */
 import { IDENTITY_BACKEND } from './identity.js';
+import { KEYS_BACKEND } from './keys.js';
 import { OUTBOX_BACKEND } from './outbox.js';
 import { RELAY_BACKEND } from './relay.js';
 import { THEME_BACKEND } from './theme.js';
@@ -13,4 +14,5 @@ export const DOMAIN_BACKENDS: readonly DomainBackendModule[] = [
   THEME_BACKEND,
   RELAY_BACKEND,
   OUTBOX_BACKEND,
+  KEYS_BACKEND,
 ];
