@@ -94,7 +94,7 @@
  *   shell to "return a policy-derived plan when a napplet is not trusted to
  *   inspect relay metadata".
  * - `upload.info` / `upload.status`: the wire table lists `info` / `status`
- *   without `?`, the packaged `@napplet/nap@0.43.0` types mark both optional.
+ *   without `?`, the packaged `@napplet/nap@0.45.0` types mark both optional.
  *   The denial sends only `error`, like `upload.upload`: a status would invent
  *   a rail, timestamp and state for an upload the napplet may not inspect.
  *

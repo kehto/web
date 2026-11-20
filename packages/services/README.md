@@ -788,7 +788,9 @@ Each factory returns a `ServiceHandler` registrable via `runtime.registerService
 ### Intent NAP
 - `createIntentService` — exact `intent.invoke`, `intent.available`, and
   `intent.handlers` request/result handling plus recipient-gated
-  `intent.changed`.
+  `intent.changed`. Failures keep the required `availability` (empty,
+  `available: false`) or `handlers: []` beside `error`, as the NAP-INTENT
+  wire table lists them.
 - `manifestToIntentCatalogEntry` — verified manifest archetype contracts to
   catalog entries.
 - `createCatalogIntentResolver` — exact convention selection and retained
