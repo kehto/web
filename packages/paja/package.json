@@ -35,13 +35,13 @@
     "@kehto/rate-limit": "workspace:^"
   },
   "peerDependencies": {
-    "@napplet/core": ">=0.42.0 <0.45.0",
-    "@napplet/nap": ">=0.37.0 <0.44.0",
+    "@napplet/core": ">=0.42.0 <0.46.0",
+    "@napplet/nap": ">=0.37.0 <0.46.0",
     "nostr-tools": ">=2.23.3 <=2.x"
   },
   "devDependencies": {
-    "@napplet/core": ">=0.44.0 <0.45.0",
-    "@napplet/nap": ">=0.43.0 <0.44.0",
+    "@napplet/core": ">=0.45.0 <0.46.0",
+    "@napplet/nap": ">=0.45.0 <0.46.0",
     "nostr-tools": "^2.23.3",
     "tsup": "^8.5.0",
     "typescript": "^5.9.3",

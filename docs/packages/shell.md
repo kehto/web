@@ -79,8 +79,8 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.32.0 <0.45.0` |
-| `@napplet/nap` | `>=0.32.0 <0.44.0` |
+| `@napplet/core` | `>=0.32.0 <0.46.0` |
+| `@napplet/nap` | `>=0.32.0 <0.46.0` |
 | `nostr-tools` | `>=2.23.3 <=2.x` |
 
 ## Primary APIs

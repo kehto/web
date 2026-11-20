@@ -19,12 +19,14 @@ pnpm add -D @kehto/mocks
 
 ## Published Napplet Compatibility
 
-Peers admit `@napplet/core` `>=0.44.0 <0.45.0` and `@napplet/nap`
-`>=0.43.0 <0.44.0`. `MockCvmRegistryEntry` extends core's selector-based
+Peers admit `@napplet/core` `>=0.44.0 <0.46.0` and `@napplet/nap`
+`>=0.43.0 <0.46.0`. `MockCvmRegistryEntry` extends core's selector-based
 `CvmRegistryEntry` (core 0.42.0 or newer), and the NAP-WEBRTC and NAP-MEDIA
 mocks use the packaged `WebrtcSession` delivery fields, `bytes`/`stats` events
 and `MediaState.reason`, which first ship in core 0.44.0 / nap 0.43.0
-(kehto/web#496). Development, tests, and JSR imports use that host line.
+(kehto/web#496). Core 0.45.0 / nap 0.45.0 change no shape these mocks
+export (kehto/web#518), so the floors stay. Development, tests, and JSR
+imports use core 0.45.0 / nap 0.45.0.
 
 ## Quick start
 

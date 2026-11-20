@@ -31,8 +31,8 @@ pnpm add -D @kehto/mocks
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.44.0 <0.45.0` |
-| `@napplet/nap` | `>=0.43.0 <0.44.0` |
+| `@napplet/core` | `>=0.44.0 <0.46.0` |
+| `@napplet/nap` | `>=0.43.0 <0.46.0` |
 
 Workspace dependencies: `@kehto/runtime` (ServiceHandler contract) and
 `@kehto/acl` (capability names).
