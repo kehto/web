@@ -199,6 +199,8 @@ export type { ManifestArchetypeInput } from './manifest-intent-catalog.js';
 
 export { createCvmService } from './cvm-service.js';
 export { computeCvmToolSchemaHash } from './cvm-schema-hash.js';
+export { DEFAULT_CVM_MAX_IN_FLIGHT, DEFAULT_CVM_MAX_QUEUED } from './cvm-admission.js';
+export type { CvmConcurrencyOptions } from './cvm-admission.js';
 export type { CvmRegistrySelector, CvmRegistryFamily, CvmRegistryTool, CvmRegistryEntry, CvmRegistryCallOptions } from './cvm-registry-types.js';
 export type {
   CvmService,
