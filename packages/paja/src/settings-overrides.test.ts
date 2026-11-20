@@ -9,6 +9,8 @@ import { setActivePajaSettings } from './settings.js';
 import { createPajaContactListLoader, type PajaRelayBackend } from './browser-relay-runtime.js';
 import { normalizePajaSimulation } from './simulation.js';
 import { parsePajaBlossomUri } from './browser-blossom-uri.js';
+import { createPajaResourceFetch, pajaResourceInfo } from './browser-resource.js';
+import { createPajaBrowserFsBackend } from './browser-fs.js';
 import { base64Bytes, encodeBase64, validateRange } from './browser-fs-support.js';
 import { createPajaWebrtcProfile } from './browser-webrtc-profile.js';
 import { createPajaIntentLink } from './intent-link.js';
@@ -54,6 +56,28 @@ describe('settings overrides reach their call sites', () => {
     expect(parsePajaBlossomUri(uri)).not.toBeNull();
     setActivePajaSettings({ 'blossom.maxUriChars': 256 });
     expect(parsePajaBlossomUri(uri)).toBeNull();
+  });
+
+  it('NAP-RESOURCE: advertises and enforces the same overridden caps', async () => {
+    setActivePajaSettings({ 'resource.maxBytes': 1024, 'resource.maxUrls': 3 });
+    expect(pajaResourceInfo()).toMatchObject({ maxBytes: 1024, maxUrls: 3 });
+    const signal = new AbortController().signal;
+    const init = { signal, authorizeNetwork: async <T>(_url: string, run: (s: AbortSignal) => Promise<T>) => run(signal) };
+    const fetchResource = createPajaResourceFetch({ fetch: vi.fn() });
+    const data = (size: number) => `data:application/octet-stream;base64,${btoa('x'.repeat(size))}`;
+    await expect(fetchResource(data(1024), init)).resolves.toBeInstanceOf(Response);
+    await expect(fetchResource(data(1025), init)).rejects.toMatchObject({ code: 'too-large', message: 'resource exceeds 1024 bytes' });
+  });
+
+  it('NAP-FS: advertises the overridden limits it enforces', async () => {
+    setActivePajaSettings({ 'fs.maxReadBytes': 10, 'fs.maxWriteBytes': 4, 'fs.maxWatchCount': 2 });
+    const root = { kind: 'directory', name: '', getDirectoryHandle: vi.fn(), getFileHandle: vi.fn(), removeEntry: vi.fn(), entries: vi.fn() };
+    const fs = await createPajaBrowserFsBackend({
+      getIdentity: () => ({ dTag: 'notes', aggregateHash: 'hash-a' }),
+      storage: { getDirectory: async () => root as never },
+    });
+    expect((await fs!.info('window-a')).limits).toEqual({ maxReadBytes: 10, maxWriteBytes: 4, maxWatchCount: 2 });
+    expect(() => validateRange({ length: 11 })).toThrow(expect.objectContaining({ code: 'too-large' }));
   });
 
   it('filesystem: enforces fs.maxReadBytes and fs.maxWriteBytes', () => {

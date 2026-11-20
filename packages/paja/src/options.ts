@@ -154,7 +154,7 @@ export const DEFAULT_PAJA_WINDOW_ID = 'kehto-paja-window';
 export const DEFAULT_PAJA_DTAG = 'dev-target';
 /** Default development aggregate hash used for target identity. */
 export const DEFAULT_PAJA_AGGREGATE_HASH = 'paja';
-/** Default pointer resolution wait in runtime-pointer mode. */
+/** Built-in default pointer resolution wait in runtime-pointer mode; the effective value is the `target.runtimeWaitMs` setting. */
 export const DEFAULT_PAJA_RUNTIME_WAIT_MS = getPajaSettingDefault('target.runtimeWaitMs');
 
 /**

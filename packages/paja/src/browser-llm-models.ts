@@ -27,7 +27,7 @@ export class PajaLlmModelsError extends Error {
   }
 }
 
-/** Default listing deadline; a loopback server normally answers in milliseconds. */
+/** Built-in default listing deadline; the effective value is the `llm.modelsTimeoutMs` setting. */
 export const PAJA_LLM_MODELS_TIMEOUT_MS = getPajaSettingDefault('llm.modelsTimeoutMs');
 
 /** Options for {@link fetchPajaLlmModels}. */
@@ -42,7 +42,7 @@ export interface PajaLlmModelsOptions {
   fetch?: typeof fetch;
   /** Aborts the listing (panel edits, preset changes, page unload). */
   signal?: AbortSignal;
-  /** Deadline; defaults to {@link getPajaSetting('llm.modelsTimeoutMs')}. */
+  /** Deadline; defaults to the `llm.modelsTimeoutMs` setting (built-in {@link PAJA_LLM_MODELS_TIMEOUT_MS}). */
   timeoutMs?: number;
 }
 

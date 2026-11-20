@@ -13,7 +13,7 @@ import { getPajaSetting, getPajaSettingDefault } from './settings.js';
 
 /** Durable storage key for the encrypted credential document. */
 export const PAJA_LLM_VAULT_STORAGE_KEY = 'kehto:paja:llm-vault:v1';
-/** Minimum vault password length. */
+/** Built-in default minimum vault password length; the effective floor is the `vault.minPasswordLength` setting, which can only be raised. */
 export const PAJA_LLM_VAULT_MIN_PASSWORD_LENGTH = getPajaSettingDefault('vault.minPasswordLength');
 
 const VAULT_VERSION = 1;

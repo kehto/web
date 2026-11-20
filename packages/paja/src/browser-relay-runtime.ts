@@ -26,9 +26,11 @@ const NIP17_GIFT_WRAP_KIND = KIND_GIFT_WRAP;
 /**
  * Maximum raw kind-3 candidates returned for verification. The newest candidates
  * (with event-ID tie-breaking) retain deterministic replacement while bounding
- * serial signature verification of untrusted relay input.
+ * serial signature verification of untrusted relay input. Built-in default; the
+ * effective bound is the `relay.contactListCandidateLimit` setting.
  */
 export const PAJA_CONTACT_LIST_CANDIDATE_LIMIT = getPajaSettingDefault('relay.contactListCandidateLimit');
+/** Built-in default live relay wait; the effective value is the `relay.liveQueryWaitMs` setting. */
 export const PAJA_LIVE_QUERY_WAIT_MS = getPajaSettingDefault('relay.liveQueryWaitMs');
 
 /**

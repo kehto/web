@@ -12,11 +12,11 @@ import { parsePajaBlossomUri } from './browser-blossom-uri.js';
 import { warnLegacyBlossomPrefix } from './browser-blossom-compat.js';
 import { getPajaSetting, getPajaSettingDefault } from './settings.js';
 
-/** Maximum decoded payload exposed by Paja's local data-resource backend. */
+/** Built-in default decoded-payload cap; the effective cap is the `resource.maxBytes` setting. */
 export const PAJA_RESOURCE_MAX_BYTES = getPajaSettingDefault('resource.maxBytes');
-/** Maximum URLs accepted by one Paja resource bulk request. */
+/** Built-in default URLs per bulk request; the effective cap is the `resource.maxUrls` setting. */
 export const PAJA_RESOURCE_MAX_URLS = getPajaSettingDefault('resource.maxUrls');
-/** Maximum combined request-hint and host-default Blossom servers per resource. */
+/** Built-in default Blossom servers per resource; the effective cap is the `resource.maxServers` setting. */
 export const PAJA_RESOURCE_MAX_SERVERS = getPajaSettingDefault('resource.maxServers');
 
 const UTF8_DECODER = new TextDecoder('utf-8', { fatal: true });
