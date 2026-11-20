@@ -695,7 +695,8 @@ no fallback:
 | Paja's unscoped multiplayer `cvm` base answered `<type>.result` `unsupported` | no reply; every NAP-CVM #31 request is scoped |
 
 A known type with a malformed payload still gets its NAP's failure result,
-and `webrtc.sendBytes` keeps `unsupported` as NAP-WEBRTC requires.
+and `webrtc.sendBytes` keeps `unsupported` on a host without a byte hook, as
+NAP-WEBRTC requires (kehto/web#507 added the hook).
 
 Diagnostic: `createUnrecognizedTypeDiagnostic` in
 `packages/runtime/src/unrecognized-type.ts` warns

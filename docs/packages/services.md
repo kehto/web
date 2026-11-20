@@ -24,7 +24,12 @@ Reference service handlers for Kehto runtime implementations.
 WebRTC opening uses a side-effect-free signaling plan before runtime approval.
 The reference handler requires separate `network` permissions with typed `ice`
 scopes for each configured STUN/TURN endpoint. This does not constrain direct
-iframe networking, which remains a launch-policy concern. Without a byte hook,
+iframe networking, which remains a launch-policy concern. With a
+`sendBytes` hook, `webrtc.sendBytes` hands the host the decoded bytes after
+rejecting non-canonical base64 (`invalid request`) and payloads over the
+session's `maxPayloadBytes` (`payload too large`; the limit also covers the
+serialized `webrtc.send` payload). `encodeWebrtcBytes` / `decodeWebrtcBytes`
+implement NAP-WEBRTC's canonical padded base64. Without a byte hook,
 `webrtc.sendBytes` returns a correlated `unsupported` result, as NAP-WEBRTC
 requires. A `webrtc.stats` request gets no reply: NAP-WEBRTC defines `stats`
 only as a pushed event. `ctx.emit` delivers a `webrtc.event` only for a session
