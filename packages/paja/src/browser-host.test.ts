@@ -165,7 +165,12 @@ describe('@kehto/paja browser host runtime source guards', () => {
     expect(intentSource).toContain('...getPajaRelayUrls(context.runtime.currentSimulation),');
     expect(hostSource).toContain('void signerController.restorePreference();');
     expect(hostSource).not.toContain('if (hasNip07Signer())');
-    expect(hostSource).toContain("bridge.publishIdentityChanged(adapter.auth.getUserPubkey() ?? '');");
+    expect(hostSource).toContain("const pubkey = adapter.auth.getUserPubkey() ?? '';");
+    expect(hostSource).toContain('bridge.publishIdentityChanged(pubkey);');
+    // kehto/web#487: a signer change is an identity.changed push, not a reload.
+    const signerSource = readFileSync(new URL('./browser-host-signer.ts', import.meta.url), 'utf8');
+    expect(signerSource).not.toContain('state.reload()');
+    expect(hostSource).toContain('if (reinjection.shouldReload(active)) stateRef.reload();');
   });
 
   it('keeps the private social cache inside the established identity and outbox host boundary', () => {

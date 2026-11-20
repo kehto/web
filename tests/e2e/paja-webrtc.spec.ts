@@ -19,9 +19,14 @@ test('connecting a signer registers WebRTC before the new frame can open a room'
   const relay = await installMemoryRelay(page, RELAY);
   await openFlowTarget(page, runtime);
   expect(await page.evaluate(() => window.__KEHTO_PAJA__!.getState().services)).not.toContain('webrtc');
+  const generation = await page.evaluate(() => window.__KEHTO_PAJA__!.getState().generation);
   await page.evaluate(() => window.__KEHTO_PAJA__!.useDevSigner());
   await expect.poll(() => page.evaluate(() => window.__KEHTO_PAJA__!.getState().services)).toContain('webrtc');
+  // The target declares webrtc, so the newly advertised domain needs a fresh
+  // injection (NIP-5D): this is the one signer change Paja reloads for.
+  await expect.poll(() => page.evaluate(() => window.__KEHTO_PAJA__!.getState().generation)).toBe(generation + 1);
   const frame = page.frameLocator('#napplet-frame');
+  await expect.poll(() => frame.locator('body').evaluate(() => typeof (window as unknown as FlowWindow).napplet.webrtc)).toBe('object');
   await expect(frame.locator('#flow-status')).toHaveText('ready');
   await frame.locator('body').evaluate(() => {
     const w = window as unknown as FlowWindow;

@@ -1,16 +1,13 @@
 /**
  * Paja NAP-IDENTITY browser flows driven by the real signer controls.
  *
- * Spec check: NAP-IDENTITY napplet/naps master@43cb3a4 (getPublicKey returns ""
+ * Spec check: NAP-IDENTITY napplet/naps master@377bf939 (getPublicKey returns ""
  * with no signer; the shell MUST push identity.changed to loaded napplets when
  * the shell-user identity changes, and push "" when the signer disconnects).
  *
- * Known gap (tracked by the `test.fixme` below): Paja re-initializes the
- * napplet frame on every signer change (`browser-adapter.ts` refreshes service
- * availability and the upload identity, then reloads the target environment)
- * instead of pushing `identity.changed` to the already-loaded napplet. The
- * passing tests pin the current contract — a re-initialized napplet reads the
- * new identity — so that gap stays visible without blocking this suite.
+ * Paja keeps the frame on a signer change and pushes identity.changed. It
+ * reloads only when the change alters the advertised domain set in a way that
+ * changes this frame's injection (see paja-webrtc.spec.ts for that path).
  */
 import { expect, test, type FrameLocator, type Page } from '@playwright/test';
 import { generateSecretKey } from 'nostr-tools/pure';
@@ -140,10 +137,12 @@ test('an explicitly selected NIP-07 signer reconnects after reload', async ({ pa
   await expectNappletIdentity(page, signer.pubkey);
 });
 
-test.fixme('a loaded napplet receives identity.changed for connect and disconnect without being re-initialized', async ({ page }) => {
-  // NAP-IDENTITY: "Shells MUST use identity.changed to notify already-loaded
-  // napplets when the shell-user identity changes." Paja currently reloads the
-  // target instead, so the handler registered below is discarded with its frame.
+test('a loaded napplet receives identity.changed for connect, switch and disconnect without being re-initialized', async ({ page }) => {
+  // NAP-IDENTITY (napplet/naps master 377bf939): "Shells MUST use
+  // identity.changed to notify already-loaded napplets when the shell-user
+  // identity changes", with pubkey "" when the signer disconnects. The target
+  // declares only identity, so the domains a signer adds (webrtc, dm) do not
+  // change its injection and Paja keeps the frame.
   await installMemoryRelay(page, RELAY_URL);
   const signer = await installKeySigner(page, generateSecretKey(), { installOnLoad: false });
   const frame = await openFlowTarget(page, runtime);
@@ -155,6 +154,18 @@ test.fixme('a loaded napplet receives identity.changed for connect and disconnec
 
   await connectKeySigner(page);
   await expect.poll(() => readLog(frame, 'identity')).toEqual([signer.pubkey]);
+
+  // Switching signers pushes the new shell-user pubkey once.
+  await page.locator('#signer-dev').click();
+  await expect.poll(async () => (await readLog(frame, 'identity')).length).toBe(2);
+  const dev = (await readLog(frame, 'identity'))[1];
+  expect(dev).toMatch(/^[0-9a-f]{64}$/);
+  expect(dev).not.toBe(signer.pubkey);
+  expect(await readPublicKeyOnce(frame)).toBe(dev);
+
+  await page.locator('#signer-none').click();
+  await expect.poll(() => readLog(frame, 'identity')).toEqual([signer.pubkey, dev, '']);
+  expect(await readPublicKeyOnce(frame)).toBe('');
   expect(await page.evaluate(() => window.__KEHTO_PAJA__?.getState().generation)).toBe(generation);
 });
 

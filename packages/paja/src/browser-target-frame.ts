@@ -20,6 +20,7 @@ import { developmentRemoteSources, hostRemoteSources } from './target-cors.js';
 import { planTargetNetwork } from './target-network.js';
 import type { PajaHostConfig, PajaNestedContextLockSetting } from './options.js';
 import { readStoredNestedContextLockSetting } from './browser-security-settings.js';
+import { recordPajaFrameDeclarations } from './browser-frame-reinjection.js';
 import type { PajaShellEnvironment } from './parity.js';
 
 /**
@@ -179,6 +180,7 @@ export async function navigateFrame(
     // Types policy, and a static hint whose href a script rewrites is a data
     // channel, so static hint markup is refused here too ("Resource hints").
     if (nestedContextLock) assertNappletHasNoResourceHint(resolvedTarget.indexHtml);
+    recordPajaFrameDeclarations(frame, declarations.required, declarations.optional, !local || declared);
     return admitPajaFrame({
       frame, config, generation, runtime, identity, environment,
       verifiedHtml: resolvedTarget.indexHtml,
@@ -207,6 +209,7 @@ export async function navigateFrame(
   // runs as a closed snapshot of the fetched bytes: no dev origin, no base URL.
   // Host-configured origins still reach admission, which then refuses them.
   const isolated = planTargetNetwork(fetched.html).mode === 'isolated';
+  recordPajaFrameDeclarations(frame, declarations.required, declarations.optional, declared);
   return admitPajaFrame({
     frame, config, generation, runtime, identity, environment,
     verifiedHtml: isolated ? fetched.html : injectBaseHref(fetched.html, targetUrl.href),
