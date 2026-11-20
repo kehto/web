@@ -98,17 +98,37 @@ describe('catalog/package-field-drift (kehto/web#508)', () => {
     }
   });
 
-  it('pins the real findings against nap 0.43 and the pinned NAP refs', () => {
+  // kehto/web#518: nap 0.45 (napplet/web#360) cleared the CVM and INTENT rows.
+  // NAP-UPLOAD #33 @ f5cc981e still leaves upload.info/status as package drift.
+  it('pins the real findings against nap 0.45 and the pinned NAP refs', () => {
     const report = fieldDriftReport(SUPPORTED_DOMAINS);
     expect(report.findings).toEqual([
-      { type: 'cvm.discover.result', field: 'servers', spec: 'optional', package: 'required' },
       { type: 'upload.info.result', field: 'info', spec: 'required', package: 'optional' },
       { type: 'upload.status.result', field: 'status', spec: 'required', package: 'optional' },
-      { type: 'upload.upload.result', field: 'result', spec: 'required', package: 'optional' },
-      { type: 'intent.available.result', field: 'availability', spec: 'required', package: 'optional' },
-      { type: 'intent.handlers.result', field: 'handlers', spec: 'required', package: 'optional' },
     ]);
-    expect(report.contradictions.map((row) => row.type)).toEqual(['identity.getProfile.result']);
+    expect(report.contradictions.map((row) => row.type)).toEqual(['identity.getProfile.result', 'upload.upload.result']);
+    expect(packageFieldDrift({ selected: ['cvm', 'intent'] }).status).toBe('pass');
+    expect(packageFieldDrift({ selected: ['upload'] }).status).toBe('fail');
+  });
+
+  it('keeps failing an unlisted upload drift while the upload.upload.result gap is open', () => {
+    const exception = FIELD_DRIFT_EXCEPTIONS.find((row) => row.type === 'upload.upload.result');
+    expect(exception).toMatchObject({ field: 'result', spec: 'required', package: 'optional', kind: 'contradiction', authority: 'nap-upload' });
+    expect(exception?.quote).toContain('The shell SHOULD return a top-level `error` when no upload was created.');
+    const entry = INVENTORY.upload as DomainInventory;
+    const only = (fields: DomainInventory['packageFields']): Readonly<Record<string, DomainInventory>> => ({ ...INVENTORY, upload: { ...entry, packageFields: fields } });
+    const asSpec = Object.fromEntries(Object.entries(entry.packageFields).map(([type, pkg]) => [type, entry.specFields[type]?.unparsed === undefined && entry.specFields[type] ? { ...pkg, fields: { ...entry.specFields[type]!.fields } } : pkg]));
+    // The listed row alone is a spec gap, not a pass and not a failure.
+    const listedOnly = only({ ...asSpec, 'upload.upload.result': entry.packageFields['upload.upload.result']! });
+    expect(packageFieldDrift({ selected: ['upload'] }, fieldDriftReport(['upload'], listedOnly)).status).toBe('spec-gap');
+    // The same field drifting the other way, or another field drifting, still fails.
+    const { result: _dropped, ...withoutResult } = asSpec['upload.upload.result']!.fields;
+    const flipped = only({ ...asSpec, 'upload.upload.result': { ...asSpec['upload.upload.result']!, fields: withoutResult } });
+    const flippedReport = fieldDriftReport(['upload'], flipped);
+    expect(flippedReport.findings).toEqual([{ type: 'upload.upload.result', field: 'result', spec: 'required', package: 'absent' }]);
+    expect(packageFieldDrift({ selected: ['upload'] }, flippedReport).status).toBe('fail');
+    const renamed = only({ ...listedOnly, 'upload.upload': { ...asSpec['upload.upload']!, fields: { id: 'required', payload: 'required' } } });
+    expect(packageFieldDrift({ selected: ['upload'] }, fieldDriftReport(['upload'], renamed)).status).toBe('fail');
   });
 
   it('lists every row it cannot fully compare, so the list cannot grow quietly', () => {

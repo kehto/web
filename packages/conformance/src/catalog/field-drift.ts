@@ -93,6 +93,13 @@ export const FIELD_DRIFT_EXCEPTIONS: readonly FieldDriftException[] = Object.fre
     type: 'identity.getProfile.result', field: 'profile', spec: 'optional', package: 'required', kind: 'contradiction', authority: 'nap-identity',
     quote: 'Wire table: `id`, `profile?`, `error?`. Prose: "`getProfile` returns `profile: null` if no kind 0 is found -- this is not an error." and "When `error` is present, the primary result field contains a sensible default (empty array, null, etc.)."',
   },
+  // Open on napplet/naps#33 (kehto/web#518). `upload.info.result` and
+  // `upload.status.result` are not listed: the NAP pairs `error?` with the
+  // required field and no sentence omits it, so their drift still fails.
+  {
+    type: 'upload.upload.result', field: 'result', spec: 'required', package: 'optional', kind: 'contradiction', authority: 'nap-upload',
+    quote: 'Wire table: `id`, `result`, `error?`. `UploadResult.uploadId` is required: "Shell-generated upload identifier." Error Handling: "The shell SHOULD return a structured `result` with `ok: false` when an upload was created and then failed or was cancelled. The shell SHOULD return a top-level `error` when no upload was created."',
+  },
 ]);
 
 /** Field drift of a set of domains, split by how the pinned NAPs settle each row. */

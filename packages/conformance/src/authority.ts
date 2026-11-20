@@ -15,10 +15,10 @@ export const NIP5D_REF = 'f60550c3409d6d81a875088ec83e660571e10504';
 export const NAPS_MASTER = '377bf939c6c906817084b43dd21d424de646dbc2';
 
 /** `@napplet/nap` version whose type declarations the operation inventory was read from. */
-export const NAP_PACKAGE_VERSION = '0.43.0';
+export const NAP_PACKAGE_VERSION = '0.45.0';
 
 /** `@napplet/core` version the envelope contract was read from. */
-export const CORE_PACKAGE_VERSION = '0.44.0';
+export const CORE_PACKAGE_VERSION = '0.45.0';
 
 /**
  * Every pinned source, keyed by the id checks cite.
