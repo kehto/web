@@ -18,7 +18,6 @@
  *   encrypt publishes an empty-content event and reports `ok: true`.
  * - `cvm/semantics`: `cvm.request` validation (missing message, `id: null`,
  *   result+error) and `cvm.discover` error shape differ from NAP-CVM.
- * - `webrtc/push`: `webrtc.event` is still delivered for a closed session.
  */
 export const KNOWN_KEHTO_FINDINGS: Readonly<Record<'minimal' | 'full', readonly string[]>> = {
   minimal: [],
@@ -28,6 +27,5 @@ export const KNOWN_KEHTO_FINDINGS: Readonly<Record<'minimal' | 'full', readonly 
     'catalog/package-drift',
     'cvm/semantics',
     'relay/semantics',
-    'webrtc/push',
   ],
 };

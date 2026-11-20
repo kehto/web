@@ -1,5 +1,6 @@
-import type { EventTemplate, NostrEvent, WebrtcEvent } from '@napplet/core';
-import type { Signer } from '@kehto/runtime';
+import type { EventTemplate, NappletMessage, NostrEvent, WebrtcEvent } from '@napplet/core';
+import type { ApprovalSignal, ServiceRuntimeContext, Signer } from '@kehto/runtime';
+import { createWebrtcService } from '@kehto/services';
 import { describe, expect, it, vi } from 'vitest';
 import { finalizeEvent, getPublicKey } from 'nostr-tools/pure';
 import * as nip44 from 'nostr-tools/nip44';
@@ -258,6 +259,61 @@ describe('Paja browser WebRTC controller', () => {
 
     await controllerA.serviceOptions.close!(openedA.session.id, 'done', { windowId: 'window-a', emit: () => {} });
     expect(eventsA).toContainEqual({ type: 'closed', sessionId: openedA.session.id, reason: 'done' });
+  });
+
+  // NAP-WEBRTC (napplet/naps#59 @ fb4dd6f0): the shell "MUST NOT deliver
+  // messages for an unknown sessionId". Paja's controller keeps its data
+  // channel open while close publishes `disconnect`; the service drops what
+  // arrives meanwhile and the teardown notifications for the closed session.
+  it('delivers no webrtc.event through the service once the napplet closes', async () => {
+    const relay = new MemorySignalRelay();
+    let held: (() => void) | null = null;
+    const publish = relay.publish.bind(relay);
+    relay.publish = async (urls, event) => {
+      if (held === null && event.tags.some((tag) => tag[0] === 'type' && tag[1] === 'disconnect')) {
+        await new Promise<void>((resolve) => { held = resolve; });
+      }
+      return publish(urls, event);
+    };
+    const network = new FakeRtcNetwork();
+    const make = (seed: number, dTag: string) => {
+      const signer = signalingSigner(new Uint8Array(32).fill(seed));
+      const pubkey = getPublicKey(new Uint8Array(32).fill(seed));
+      return { pubkey, controller: createPajaWebrtcController({
+        relay, getSigner: () => signer, getPubkey: () => pubkey,
+        getIdentity: () => ({ dTag, aggregateHash: `hash-${dTag}` }), confirm: async () => true,
+        signalingRelayUrls: () => ['wss://signal.example'],
+        peerFactory: { create: () => network.create(), iceEndpoints: [] }, crypto: globalThis.crypto,
+      })! };
+    };
+    const a = make(1, 'caller-a');
+    const b = make(2, 'caller-b');
+    a.controller.refreshAvailability();
+    b.controller.refreshAvailability();
+    const service = createWebrtcService(a.controller.serviceOptions);
+    service.onRegistered?.({ authorizeOperation: async (_w: string, _o: string, _r: readonly unknown[], run: (signal: ApprovalSignal) => unknown) =>
+      ({ status: 'executed' as const, value: await run(new AbortController().signal) }) } as unknown as ServiceRuntimeContext);
+    const sent: NappletMessage[] = [];
+    service.handleMessage('window-a', { type: 'webrtc.open', id: 'open', request: { scope: { type: 'direct', pubkey: b.pubkey }, channel: 'chat' } } as NappletMessage, (m) => sent.push(m));
+    await vi.waitFor(() => expect(sent.some((m) => m.type === 'webrtc.open.result')).toBe(true));
+    const sessionId = (sent.find((m) => m.type === 'webrtc.open.result') as NappletMessage & { session: { id: string } }).session.id;
+    const requestB = { scope: { type: 'direct', pubkey: a.pubkey }, channel: 'chat' } as const;
+    const contextB = { windowId: 'window-b', emit: () => {} };
+    const openedB = await b.controller.serviceOptions.open!(requestB, contextB, b.controller.serviceOptions.planOpen!(requestB, contextB));
+    await settle();
+    b.controller.serviceOptions.send!(openedB.session.id, { body: 'before close' }, contextB);
+    await settle();
+    expect(sent).toContainEqual({ type: 'webrtc.event', event: { type: 'message', sessionId, from: b.pubkey, payload: { body: 'before close' } } });
+
+    sent.length = 0;
+    service.handleMessage('window-a', { type: 'webrtc.close', id: 'close', sessionId, reason: 'done' } as NappletMessage, (m) => sent.push(m));
+    await vi.waitFor(() => expect(held).not.toBeNull());
+    b.controller.serviceOptions.send!(openedB.session.id, { body: 'racing close' }, contextB);
+    await settle();
+    held!();
+    await vi.waitFor(() => expect(sent).toContainEqual({ type: 'webrtc.close.result', id: 'close' }));
+    await settle();
+    expect(sent).toEqual([{ type: 'webrtc.close.result', id: 'close' }]);
   });
 
   it('fails closed without a NIP-44 signer or browser peer connection', () => {
