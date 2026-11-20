@@ -1,8 +1,9 @@
 /**
  * Streaming provider path (kehto/web#370). Event shapes follow each provider's
  * documented streaming format: OpenAI Chat Completions chunks with
- * `stream_options.include_usage`, Anthropic Messages SSE events and Gemini
- * `streamGenerateContent?alt=sse` responses.
+ * `stream_options.include_usage`, OpenAI Responses events (kehto/web#414, shapes
+ * from `openai@7.62.0` `ResponseStreamEvent`), Anthropic Messages SSE events and
+ * Gemini `streamGenerateContent?alt=sse` responses.
  */
 import { describe, expect, it } from 'vitest';
 import { buildLlmProviderRequest, parseLlmProviderResponse, type LlmProviderEndpoint, type LlmProviderProtocol } from './llm-providers.js';
@@ -22,6 +23,23 @@ const OPENAI_SSE = [
   'data: [DONE]',
 ].map((line) => `${line}\n\n`).join('');
 
+const RESPONSES_FINAL = {
+  id: 'resp_1', object: 'response', status: 'completed', error: null, incomplete_details: null,
+  output: [{ id: 'msg_1', type: 'message', status: 'completed', role: 'assistant', content: [{ type: 'output_text', text: 'Héllo', annotations: [] }] }],
+  usage: { input_tokens: 9, input_tokens_details: { cached_tokens: 0, cache_write_tokens: 0 }, output_tokens: 2, output_tokens_details: { reasoning_tokens: 0 }, total_tokens: 11 },
+};
+
+const RESPONSES_SSE = [
+  { type: 'response.created', sequence_number: 0, response: { ...RESPONSES_FINAL, status: 'in_progress', output: [], usage: null } },
+  { type: 'response.output_item.added', sequence_number: 1, output_index: 0, item: { id: 'msg_1', type: 'message', status: 'in_progress', role: 'assistant', content: [] } },
+  { type: 'response.content_part.added', sequence_number: 2, item_id: 'msg_1', output_index: 0, content_index: 0, part: { type: 'output_text', text: '', annotations: [] } },
+  { type: 'response.output_text.delta', sequence_number: 3, item_id: 'msg_1', output_index: 0, content_index: 0, delta: 'Hél', logprobs: [] },
+  { type: 'response.output_text.delta', sequence_number: 4, item_id: 'msg_1', output_index: 0, content_index: 0, delta: 'lo', logprobs: [] },
+  { type: 'response.output_text.done', sequence_number: 5, item_id: 'msg_1', output_index: 0, content_index: 0, text: 'Héllo', logprobs: [] },
+  { type: 'response.output_item.done', sequence_number: 6, output_index: 0, item: RESPONSES_FINAL.output[0] },
+  { type: 'response.completed', sequence_number: 7, response: RESPONSES_FINAL },
+].map((event) => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`).join('');
+
 const ANTHROPIC_SSE = [
   ['message_start', '{"type":"message_start","message":{"id":"msg_1","type":"message","role":"assistant","content":[],"model":"claude","stop_reason":null,"usage":{"input_tokens":25,"output_tokens":1}}}'],
   ['content_block_start', '{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}'],
@@ -40,6 +58,7 @@ const GEMINI_SSE = [
 
 const BUFFERED: Record<LlmProviderProtocol, unknown> = {
   'openai-chat': { choices: [{ message: { content: 'Héllo' }, finish_reason: 'stop' }], usage: { prompt_tokens: 9, completion_tokens: 2 } },
+  'openai-responses': RESPONSES_FINAL,
   'anthropic-messages': { content: [{ type: 'text', text: 'Héllo' }], stop_reason: 'end_turn', usage: { input_tokens: 25, output_tokens: 15 } },
   gemini: { candidates: [{ content: { parts: [{ text: 'Héllo' }] }, finishReason: 'STOP' }], usageMetadata: { promptTokenCount: 4, candidatesTokenCount: 2 } },
 };
@@ -76,6 +95,8 @@ describe('buildLlmProviderRequest stream option', () => {
     expect(JSON.parse(openai.body)).toMatchObject({ stream: true, stream_options: { include_usage: true } });
     expect(JSON.parse(buildLlmProviderRequest(endpoint('openai-chat'), REQUEST).body)).toMatchObject({ stream: false });
     expect(JSON.parse(buildLlmProviderRequest(endpoint('openai-chat'), REQUEST).body).stream_options).toBeUndefined();
+    expect(JSON.parse(buildLlmProviderRequest(endpoint('openai-responses'), REQUEST, { stream: true }).body)).toMatchObject({ stream: true, store: false });
+    expect(JSON.parse(buildLlmProviderRequest(endpoint('openai-responses'), REQUEST).body)).toMatchObject({ stream: false, store: false });
     expect(JSON.parse(buildLlmProviderRequest(endpoint('anthropic-messages'), REQUEST, { stream: true }).body).stream).toBe(true);
     expect(JSON.parse(buildLlmProviderRequest(endpoint('anthropic-messages'), REQUEST).body).stream).toBe(false);
     expect(buildLlmProviderRequest(endpoint('gemini'), REQUEST, { stream: true }).url).toBe('https://api.example.test/v1/models/m-1:streamGenerateContent?alt=sse');
@@ -93,7 +114,7 @@ describe('readLlmSseData', () => {
 });
 
 describe('createHttpLlmProvider({ stream: true })', () => {
-  for (const [protocol, sse] of [['openai-chat', OPENAI_SSE], ['anthropic-messages', ANTHROPIC_SSE], ['gemini', GEMINI_SSE]] as const) {
+  for (const [protocol, sse] of [['openai-chat', OPENAI_SSE], ['openai-responses', RESPONSES_SSE], ['anthropic-messages', ANTHROPIC_SSE], ['gemini', GEMINI_SSE]] as const) {
     it(`${protocol}: forwards ordered block events and resolves the buffered path's generation`, async () => {
       for (const size of [1, 7, 4096]) {
         const deltas: LlmBlockEvent[] = [];

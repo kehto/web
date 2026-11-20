@@ -397,6 +397,7 @@ export type {
   LlmProviderEndpoint,
   LlmProviderProtocol,
   LlmProviderRequestOptions,
+  LlmResponsesOptions,
 } from './llm-providers.js';
 export { createLlmStreamAccumulator, readLlmSseData } from './llm-provider-stream.js';
 export type { LlmStreamAccumulator } from './llm-provider-stream.js';
