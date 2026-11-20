@@ -34,4 +34,9 @@ export interface KehtoTamper {
   adoptRogue?: boolean;
   /** Called once the bridge exists. */
   attached?(bridge: ShellBridge): void;
+  /**
+   * Destroying an endpoint only removes its frame: the runtime keeps the
+   * session, its subscriptions and its channels. Breaks lifecycle cleanup.
+   */
+  keepRuntimeStateOnDestroy?: boolean;
 }

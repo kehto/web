@@ -53,6 +53,6 @@ export interface MutationRun {
  */
 export async function runKehtoMutation(name: string, options: RunOptions = {}): Promise<MutationRun> {
   const { spec, tamper, applied } = createMutation(name);
-  const run = await runConformance(createKehtoTarget({ tamper }), options);
+  const run = await runConformance(createKehtoTarget({ tamper }), { domains: spec.domains ?? ['storage'], ...options });
   return { run, expect: spec.expect, applied: applied.count };
 }

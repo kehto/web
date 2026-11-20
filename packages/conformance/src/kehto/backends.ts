@@ -4,6 +4,7 @@
  * Assembles the `ShellAdapter` for one variant. Nothing here reaches a relay,
  * a device, a prompt or the network.
  */
+import { resolveCapabilitiesNap, type Capability } from '@kehto/runtime';
 import type { ShellAdapter, ShellBridge } from '@kehto/shell';
 import type { TargetVariant } from '../target.js';
 import { composeBackends, disabledDomains, type DomainBackends } from './domain-backends.js';
@@ -74,6 +75,16 @@ function baseHooks(domains: DomainBackends): ShellAdapter {
   };
 }
 
+/** Revoke the ACL capability a request needs for one endpoint; returns it, or `null` when it needs none. */
+function revokeCapability(payload: unknown, { bridge }: ControlContext): string | null {
+  const { endpoint, envelope } = payload as { endpoint: string; envelope: { type: string } };
+  const capability = resolveCapabilitiesNap(envelope as Parameters<typeof resolveCapabilitiesNap>[0]).senderCap;
+  const entry = bridge.runtime.sessionRegistry.getEntryByWindowId(endpoint);
+  if (!capability || !entry) return null;
+  bridge.runtime.aclState.revoke('', entry.dTag, entry.aggregateHash, capability as Capability);
+  return capability;
+}
+
 /**
  * Build the adapter and controls for one variant.
  *
@@ -86,8 +97,9 @@ export function createBackends(variant: TargetVariant): Backends {
   const hooks: ShellAdapter = { ...baseHooks(domains), capabilities: { disabledDomains: disabledDomains(variant, domains) } };
   return {
     hooks,
-    controls: Object.keys(domains.controls),
+    controls: [...Object.keys(domains.controls), 'acl.revoke'],
     async control(name, payload, context) {
+      if (name === 'acl.revoke') return revokeCapability(payload, context);
       return domains.controls[name]?.(payload, context);
     },
     attach(bridge) { domains.attach(bridge); },

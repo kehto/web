@@ -28,6 +28,8 @@ interface DomainRun {
 }
 
 interface DomainFacts {
+  /** Missing host controls fail the full profile; the minimal profile has no backends to trigger. */
+  readonly profile: 'minimal' | 'full';
   readonly advertised: readonly string[];
   readonly selected: readonly string[];
   readonly runs: Readonly<Record<string, DomainRun>>;
@@ -103,7 +105,7 @@ async function collect(context: CollectContext): Promise<DomainFacts> {
     const fixture = FIXTURES[domain];
     if (fixture) runs[domain] = await runDomain(context, fixture);
   }
-  return { advertised, selected, runs };
+  return { profile: context.variant.profile, advertised, selected, runs };
 }
 
 /** Judge one request case. `null` means it passed. */
@@ -154,6 +156,12 @@ function judgePushSemantics(run: DomainRun, push: PushCase): string | null {
   return push.semantics!.verify(delivered, replies);
 }
 
+/** Push cases to judge: all of them in the full profile, only those with a host control in minimal. */
+function runnablePushes(facts: DomainFacts, run: DomainRun): readonly PushCase[] {
+  const pushes = run.fixture.pushes ?? [];
+  return facts.profile === 'full' ? pushes : pushes.filter((push) => !run.missingControls.includes(push.trigger.control));
+}
+
 function domainRun(facts: DomainFacts, domain: string): DomainRun | CheckOutcome {
   if (!facts.advertised.includes(domain)) return skip(`${domain} is not advertised in this variant`);
   if (!facts.selected.includes(domain)) return skip(`${domain} is outside the --domain filter`);
@@ -181,7 +189,7 @@ function semantics(domain: string) {
     const run = domainRun(facts, domain);
     if (isOutcome(run)) return run;
     const cases = run.fixture.cases.filter((item) => item.semantics);
-    const pushCases = (run.fixture.pushes ?? []).filter((push) => push.semantics);
+    const pushCases = runnablePushes(facts, run).filter((push) => push.semantics);
     if (!cases.length && !pushCases.length) return skip(`No ${domain} case asserts NAP semantics beyond the wire contract`);
     const problems = [
       ...cases.map((item) => ({ case: item.id, rule: item.semantics!.rule, problem: judgeCase(run, item) ?? item.semantics!.verify(replyOf(run, item)) })),
@@ -197,8 +205,8 @@ function pushes(domain: string) {
   return (facts: DomainFacts): CheckOutcome => {
     const run = domainRun(facts, domain);
     if (isOutcome(run)) return run;
-    const list = run.fixture.pushes ?? [];
-    if (!list.length) return skip(`${domain} has no host-triggered push in its fixture`);
+    const list = runnablePushes(facts, run);
+    if (!list.length) return skip(`${domain} has no host-triggered push runnable in this profile`);
     const problems = list.map((push) => ({ push: push.id, problem: judgePush(run, push) })).filter((row) => row.problem);
     if (problems.length) return fail(`${problems.length} ${domain} pushes misbehaved`, problems);
     return pass(`${list.length} ${domain} pushes were delivered and stopped as specified`);

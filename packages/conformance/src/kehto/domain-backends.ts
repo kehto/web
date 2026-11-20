@@ -22,6 +22,22 @@ export interface DomainBackends {
   dispose(): void;
 }
 
+/** Count every message a service receives, so denial checks can prove the backend never ran. */
+function counted(name: string, handler: ServiceHandler, calls: Record<string, number>): ServiceHandler {
+  return new Proxy(handler, {
+    get(target, property, receiver) {
+      if (property === 'handleMessage') {
+        return (...args: Parameters<ServiceHandler['handleMessage']>) => {
+          calls[name] = (calls[name] ?? 0) + 1;
+          return target.handleMessage(...args);
+        };
+      }
+      const value: unknown = Reflect.get(target, property, receiver);
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
+}
+
 /** Runtime-native domains that have no backend in the minimal profile and are therefore disabled. */
 const MINIMAL_DISABLED = ['relay', 'keys', 'media', 'notify'];
 
@@ -39,12 +55,14 @@ export function composeBackends(variant: TargetVariant): DomainBackends {
     : [];
   const services: Record<string, ServiceHandler> = {};
   const controls: Record<string, HostControl> = {};
+  const calls: Record<string, number> = {};
   let adapter: Partial<ShellAdapter> = {};
   for (const { instance } of instances) {
-    Object.assign(services, instance.services ?? {});
+    for (const [name, handler] of Object.entries(instance.services ?? {})) services[name] = counted(name, handler, calls);
     Object.assign(controls, instance.controls ?? {});
     adapter = { ...adapter, ...instance.adapter };
   }
+  controls['backend.calls'] = (domain) => calls[String(domain)] ?? 0;
   return {
     user,
     decide: () => ({ effect: 'allow', lifetime: 'session' }),

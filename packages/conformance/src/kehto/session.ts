@@ -217,8 +217,10 @@ async function loadRogue(state: SessionState, plan: ProbePlan): Promise<RogueEvi
 }
 
 function destroyEndpoint(state: SessionState, id: string): void {
-  state.bridge.revokeNapplet(id, 'host');
-  state.retire.get(id)?.();
+  if (!state.tamper.keepRuntimeStateOnDestroy) {
+    state.bridge.revokeNapplet(id, 'host');
+    state.retire.get(id)?.();
+  }
   state.retire.delete(id);
   state.frames.get(id)?.remove();
   state.frames.delete(id);
