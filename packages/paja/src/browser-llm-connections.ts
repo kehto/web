@@ -33,7 +33,7 @@ import type { PajaLlmCredentialStorage, PajaLlmVault } from './browser-llm-vault
 /** Durable storage key for connection metadata (never credentials). */
 export const PAJA_LLM_CONNECTIONS_STORAGE_KEY = 'kehto:paja:llm-connections:v1';
 const MAX_CONNECTIONS = 32;
-const PROTOCOLS = new Set<LlmProviderProtocol>(['openai-chat', 'anthropic-messages', 'gemini']);
+const PROTOCOLS = new Set<LlmProviderProtocol>(['openai-chat', 'openai-responses', 'anthropic-messages', 'gemini']);
 const CREDENTIAL_HEADERS = new Set<LlmCredentialHeader>(['authorization-bearer', 'api-key', 'x-api-key', 'x-goog-api-key']);
 /** Canonical order of stored tool-choice modes; `auto` and `none` are always supported when tools are on. */
 const TOOL_CHOICE_ORDER: readonly LlmToolChoiceMode[] = ['auto', 'none', 'required', 'tool'];
