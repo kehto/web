@@ -1,6 +1,6 @@
 ---
 "@kehto/runtime": minor
-"@kehto/services": patch
+"@kehto/services": minor
 ---
 
 Answer ACL and legacy Firewall denials on each NAP's own failure wire instead
@@ -23,6 +23,6 @@ of an invented `<type>.error`.
 Breaking for napplets or hosts that matched on these `.error` types.
 `@kehto/shell`'s injected client already accepts the `.result` form.
 
-`@kehto/services`: a failed `cvm.discover.result` no longer carries
-`servers: []` next to `error`, and `CvmDiscoverResultMessage.servers` is now
-optional.
+`@kehto/services` (breaking): a failed `cvm.discover.result` no longer
+carries `servers: []` next to `error`, and `CvmDiscoverResultMessage.servers`
+is now optional, so code that reads `servers` unguarded must check for it.
