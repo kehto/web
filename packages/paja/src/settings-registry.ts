@@ -127,6 +127,7 @@ export const PAJA_SETTING_DEFINITIONS = Object.freeze([
     ['intent.launcherReadyTimeoutMs', 'Launcher ready timeout', 10 * SECOND_MS, SECOND_MS, 10 * MINUTE_MS, 'ms'],
     ['intent.launcherOutcomeTimeoutMs', 'Launcher outcome timeout', 10 * SECOND_MS, SECOND_MS, 10 * MINUTE_MS, 'ms'],
     ['intent.linkMaxBytes', 'Maximum app-link size', 16 * KIB, KIB, MIB, 'bytes'],
+    ['intent.discoveryLimit', 'Not-installed intent handlers offered per search', 20, 1, 200, 'count'],
     ['link.approvalClickWindowMs', 'Link approval click window', SECOND_MS, 100, 10 * SECOND_MS, 'ms'],
     ['link.labelMaxChars', 'Maximum link label length', 256, 1, 4096, 'chars'],
   ]),

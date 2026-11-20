@@ -165,6 +165,7 @@ queryless convention and separate opaque payload before service dispatch.
 
 - `manifestToIntentCatalogEntry()` converts verified `{ catalogId, title?, archetypes: [{ slug, convention, params }] }` facts into exact contracts.
 - `createCatalogIntentResolver()` applies authorized explicit selection, an explicit chooser, or default → recommendation → compatible choice. Payload contents never select a handler.
+- `offerUninstalledHandlers(request, context)`, which is optional, runs only when no installed handler is compatible and the request isn't for an explicit catalog `handler`. The host may search for a handler, install it through its own verified load, and return the new catalog ID. The resolver uses that ID only if the reloaded catalog entry supports the exact convention. `available()` and `handlers()` stay installed-only, and if the offer is declined or comes back empty, the original `no handler` / `unsupported *` rejection stands.
 - `createIntentService()` requires `resolveSender(windowId)`, derives the sender from the authenticated endpoint, validates requests, and returns one canonical result.
 
 `ok: true` means the controller retained responsibility for delivery. It contains

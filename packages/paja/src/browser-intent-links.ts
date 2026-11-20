@@ -1,6 +1,7 @@
 /** Recipient-facing shared-link launch and app choices. */
 
 import type { IntentCandidate } from '@kehto/services';
+import type { PajaDiscoveredIntentHandler } from './intent-handler-discovery.js';
 import type { ParsedPajaIntentLink } from './intent-link.js';
 
 /** Verified app labels presented when a recipient must make a choice. */
@@ -19,11 +20,37 @@ export interface PajaIntentLinkProgress {
   failed(error: unknown): void;
 }
 
+/** The request a "Not installed yet" offer is for. */
+export interface PajaIntentOfferRequest {
+  readonly archetype: string;
+  readonly action: string;
+  readonly convention: string;
+}
+
+/** Host search and verified install for handlers that are not installed. */
+export interface PajaIntentDiscoveryHost {
+  /** Search the user's relays. Runs only after the user asks for it. */
+  search(): Promise<readonly PajaDiscoveredIntentHandler[]>;
+  /** Run the ordinary verified load and install; resolve the installed catalog ID. */
+  install(offer: PajaDiscoveredIntentHandler): Promise<string>;
+}
+
 export interface PajaIntentLinkController {
   open(link: ParsedPajaIntentLink, launch: (link: ParsedPajaIntentLink, progress: PajaIntentLinkProgress) => Promise<void>): void;
   chooseHandler(archetype: string, candidates: readonly IntentCandidate[]): Promise<string | undefined>;
+  /**
+   * Tell the user no installed app handles a request, and offer a relay search.
+   * Nothing touches the network until "Search for apps" is pressed, and nothing
+   * is installed until the user picks a result.
+   * @returns The installed catalog ID the user picked, or `undefined`.
+   */
+  offerUninstalled(request: PajaIntentOfferRequest, host: PajaIntentDiscoveryHost): Promise<string | undefined>;
   showError(error: unknown): void;
   dispose(): void;
+}
+
+function setButtonsDisabled(container: HTMLElement, disabled: boolean): void {
+  for (const control of Array.from(container.querySelectorAll('button'))) control.disabled = disabled;
 }
 
 /**
@@ -52,6 +79,9 @@ export function createPajaIntentLinkController(
   const status = document.getElementById('paja-intent-link-status');
   const retry = document.getElementById('paja-intent-link-retry');
   const dismiss = document.getElementById('paja-intent-link-dismiss');
+  // Optional: hosts without these controls never offer handlers that are not installed.
+  const search = document.getElementById('paja-intent-link-search');
+  const found = document.getElementById('paja-intent-link-found');
   if (!(dialog instanceof HTMLDialogElement) || !(title instanceof HTMLElement)
     || !(copy instanceof HTMLElement) || !(apps instanceof HTMLElement)
     || !(remember instanceof HTMLInputElement) || !(cancel instanceof HTMLButtonElement)
@@ -87,6 +117,8 @@ export function createPajaIntentLinkController(
     copy.textContent = description;
     remember.checked = false;
     apps.replaceChildren();
+    if (search instanceof HTMLButtonElement) { search.hidden = true; search.disabled = false; search.onclick = null; }
+    if (found instanceof HTMLElement) { found.hidden = true; found.replaceChildren(); }
     for (const candidate of candidates) {
       const button = document.createElement('button');
       button.type = 'button';
@@ -138,8 +170,70 @@ export function createPajaIntentLinkController(
     },
     chooseHandler(role, candidates) {
       archetype = role;
-      return choose('Choose an app', 'Open this shared content with:',
+      return choose('Choose an app', `Open this ${role} with:`,
         candidates.map((candidate) => ({ id: candidate.id, title: candidate.title ?? 'Untitled app' })));
+    },
+    offerUninstalled(request, host) {
+      if (!(search instanceof HTMLButtonElement) || !(found instanceof HTMLElement)) return Promise.resolve(undefined);
+      archetype = request.archetype;
+      const result = choose('No installed app opens this',
+        `No installed app handles ${request.archetype} › ${request.action} (${request.convention}). `
+        + 'You can search your relays for apps that do. Nothing is installed until you pick one.', []);
+      const session = settleChoice;
+      const current = () => session !== undefined && settleChoice === session;
+      const say = (text: string) => {
+        const line = document.createElement('p');
+        line.textContent = text;
+        return line;
+      };
+      const offerRow = (offer: PajaDiscoveredIntentHandler) => {
+        const row = document.createElement('div');
+        row.className = 'intent-found-row';
+        const name = offer.title ?? 'Untitled app';
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = `Install and open ${name}`;
+        const detail = document.createElement('small');
+        detail.textContent = `${offer.recommended ? 'Suggested by the app · ' : ''}${offer.publisher} · ${offer.convention}`;
+        button.addEventListener('click', () => {
+          setButtonsDisabled(found, true);
+          found.prepend(say(`Verifying and installing ${name}…`));
+          void host.install(offer).then(
+            (id) => { if (current()) closeChoice(id); },
+            () => {
+              if (!current()) return;
+              found.prepend(say(`Couldn’t verify or install ${name}. Pick another app or cancel.`));
+              setButtonsDisabled(found, false);
+            },
+          );
+        });
+        row.append(button, detail);
+        return row;
+      };
+      search.hidden = false;
+      search.onclick = () => {
+        search.disabled = true;
+        found.hidden = false;
+        found.replaceChildren(say('Searching your relays…'));
+        void host.search().then(
+          (offers) => {
+            if (!current()) return;
+            if (offers.length === 0) {
+              found.replaceChildren(say(`No app on your relays advertises ${request.convention}.`));
+              return;
+            }
+            const heading = document.createElement('h3');
+            heading.textContent = 'Not installed yet';
+            found.replaceChildren(heading, ...offers.map(offerRow));
+          },
+          () => {
+            if (!current()) return;
+            found.replaceChildren(say('Couldn’t reach your relays to search for apps.'));
+            search.disabled = false;
+          },
+        );
+      };
+      return result;
     },
     showError,
     dispose() {

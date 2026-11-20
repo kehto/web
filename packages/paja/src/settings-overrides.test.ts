@@ -3,7 +3,7 @@
  * settings group. Defaults are covered by each module's own tests.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { generateSecretKey } from 'nostr-tools/pure';
+import { finalizeEvent, generateSecretKey } from 'nostr-tools/pure';
 import type { NostrEvent } from 'nostr-tools';
 import { neventEncode } from 'nostr-tools/nip19';
 import { setActivePajaSettings } from './settings.js';
@@ -23,6 +23,7 @@ import { appendPajaMessageLog } from './browser-devtools.js';
 import { waitForTargetUrl } from './readiness.js';
 import { describePointerNotFound, tallyPointerRelayReasons } from './runtime-pointer-outcome.js';
 import { findPajaPointerReplacements } from './runtime-pointer-replacements.js';
+import { findPajaIntentHandlers } from './intent-handler-discovery.js';
 import type { PajaPointerRelayPool } from './runtime-resolver.js';
 
 class MemoryStorage implements Storage {
@@ -147,6 +148,22 @@ describe('settings overrides reach their call sites', () => {
     const tally = tallyPointerRelayReasons(relays, ['connection failed: '.repeat(4), 'blocked: rate limited']);
     expect(tally.failed.map((entry) => entry.reason)).toEqual(['connection faile', 'blocked: rate li']);
     expect(describePointerNotFound('nevent', tally)).toContain('(wss://a.example: connection faile; +1 more)');
+  });
+
+  it('intent discovery: caps the relay filter and the offers by intent.discoveryLimit', async () => {
+    setActivePajaSettings({ 'intent.discoveryLimit': 3 });
+    const key = generateSecretKey();
+    const events = Array.from({ length: 5 }, (_, index) => finalizeEvent({
+      kind: 35129, created_at: 100 + index, content: 'handler',
+      tags: [['d', `h${index}`], ['x', 'a'.repeat(64)], ['z', 'note'], ['i', 'napplet:note/open']],
+    }, key) as NostrEvent);
+    const filters: unknown[] = [];
+    const offers = await findPajaIntentHandlers({ archetype: 'note', convention: 'napplet:note/open' }, {
+      relays: ['wss://relay.example'],
+      pool: { async querySync(_relays, filter) { filters.push(filter); return events; } },
+    });
+    expect(filters).toEqual([expect.objectContaining({ limit: 3 })]);
+    expect(offers).toHaveLength(3);
   });
 
   it('development target: caps nevent replacement lookups by target.pointerReplacementLimit and target.runtimeWaitMs', async () => {

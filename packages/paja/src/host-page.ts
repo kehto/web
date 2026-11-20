@@ -208,6 +208,18 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .stage.drop-active { outline: 2px dashed var(--accent); outline-offset: -6px; }
       .intent-link-notice { position: fixed; bottom: 36px; right: 16px; max-width: min(420px, calc(100vw - 32px)); z-index: 30; padding: 12px; background: var(--bar); border: 1px solid var(--line); border-radius: 8px; }
       .intent-link-notice[hidden] { display: none; }
+      .intent-handlers { display: grid; gap: 10px; }
+      .intent-handler-group { display: grid; gap: 6px; }
+      .intent-handler-group h3 { margin: 0; font-size: 12px; text-transform: uppercase; color: var(--muted); }
+      .intent-handler-row { display: grid; gap: 2px; }
+      .intent-handler-row small { color: var(--muted); overflow-wrap: anywhere; }
+      .intent-handler-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+      .intent-found { display: grid; gap: 8px; }
+      .intent-found[hidden] { display: none; }
+      .intent-found h3 { margin: 0; font-size: 13px; }
+      .intent-found p { margin: 0; }
+      .intent-found-row { display: grid; gap: 2px; justify-items: start; }
+      .intent-found-row small { color: var(--muted); overflow-wrap: anywhere; }
       .tab-panel { position: absolute; inset: 0; min-width: 0; min-height: 0; }
       .tab-panel[hidden] { display: none; }
       iframe { width: 100%; height: 100%; border: 0; background: white; display: block; }
@@ -344,6 +356,11 @@ export function renderPajaHtml(config: PajaHostConfig): string {
           <button type="submit" id="paja-resource-servers-save">Save</button>
           <div id="paja-resource-servers-status" role="status" aria-live="polite"></div>
         </form>
+        </div></details>
+        <details class="section" id="paja-section-intent-handlers" data-paja-section="intent-handlers" open>
+          <summary class="section-title">App handlers<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
+          <div class="intent-handlers" id="paja-intent-handlers"></div>
+          <p class="hint">Installed apps that open intents such as note or profile. Defaults apply per archetype and only you can change them.</p>
         </div></details>
         <details class="section" id="paja-section-multiplayer" data-paja-section="multiplayer">
           <summary class="section-title">Multiplayer providers<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
@@ -560,6 +577,8 @@ function renderIntentLinkDialog(): string {
         <div class="dialog-title" id="paja-intent-link-title">Which app would you like to use?</div>
         <div class="dialog-copy" id="paja-intent-link-copy"></div>
         <div class="dialog-actions" id="paja-intent-link-apps"></div>
+        <button type="button" id="paja-intent-link-search" hidden>Search for apps</button>
+        <div class="intent-found" id="paja-intent-link-found" role="group" aria-label="Not installed yet" aria-live="polite" hidden></div>
         <label><input id="paja-intent-link-save-default" type="checkbox"> Always use this app</label>
         <div class="dialog-actions">
           <button type="button" id="paja-intent-link-cancel">Cancel</button>

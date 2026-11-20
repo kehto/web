@@ -120,6 +120,8 @@ import {
 } from './browser-intent-links.js';
 import { createPajaIntentLinkBuilder } from './browser-intent-builder.js';
 import { launchPajaSharedIntent } from './browser-intent-launcher-host.js';
+import { createPajaIntentDiscoveryHost } from './browser-intent-discovery-host.js';
+import { installPajaIntentHandlersPanel } from './browser-intent-handlers-panel.js';
 import { reportTargetDiagnostics } from './browser-target-diagnostics.js';
 import { createPajaNotifyController } from './browser-notify.js';
 import { createPajaConfigController } from './browser-config.js';
@@ -826,6 +828,10 @@ async function installPajaHost(): Promise<void> {
         const id = `nip5d:${hint.address}`;
         return candidates.some((candidate) => candidate.id === id) ? id : undefined;
       },
+      async offerUninstalledHandlers(request) {
+        if (!intentLinks || !stateRef || !contextRef) return undefined;
+        return intentLinks.offerUninstalled(request, createPajaIntentDiscoveryHost(stateRef, contextRef, request));
+      },
     }, confirmationController.activation, notifyController?.serviceOptions, configController?.serviceOptions, resourceSettings.getServers, llm.host);
   const permissionMount = document.getElementById('paja-permission-ui');
   if (!permissionMount) throw new Error('Paja Firewall permission mount is missing');
@@ -966,11 +972,22 @@ async function installPajaHost(): Promise<void> {
   });
 
   installPajaControlListeners(state);
+  const setIntentDefault = (archetype: string, id: string | undefined) => {
+    if (id === undefined) runtime.intentDefaults.delete(archetype);
+    else runtime.intentDefaults.set(archetype, id);
+    writePajaIntentDefaults(runtime.intentDefaults);
+    adapter.notifyIntentChanged(archetype);
+  };
+  const handlersPanel = installPajaIntentHandlersPanel({
+    catalog: runtime.catalog,
+    getDefault: (archetype) => runtime.intentDefaults.get(archetype),
+    setDefault: setIntentDefault,
+  });
+  window.addEventListener('pagehide', () => handlersPanel?.dispose(), { once: true });
   const links = createPajaIntentLinkController(undefined, {
     setDefault(archetype, id) {
-      runtime.intentDefaults.set(archetype, id);
-      writePajaIntentDefaults(runtime.intentDefaults);
-      adapter.notifyIntentChanged(archetype);
+      setIntentDefault(archetype, id);
+      handlersPanel?.refresh();
     },
     onAccepted() {
       const url = new URL(window.location.href);
