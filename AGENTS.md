@@ -361,6 +361,27 @@ pnpm test:unit      # vitest unit suite
 pnpm test:e2e       # Playwright e2e (builds first; CI runs workers=1)
 ```
 
+## Floorplan maps
+
+A checkout may hold a generated architecture map per package at
+`packages/<name>/floorplan/`, with one for each `@kehto/*` package, including Paja.
+The maps come from the floorplan skill, ignore themselves in git and exist only on the
+machine that built them. If a package has one, use it in addition to any graph tooling
+(codebase-memory MCP, graphify, or any other), not instead of it. Look things up there
+before searching the code ("where is X", "how does Y work", "what uses Z"):
+
+```bash
+node packages/<name>/floorplan/query.mjs find "<words>"   # matching modules and files
+node packages/<name>/floorplan/query.mjs show <file|module-id>
+node packages/<name>/floorplan/query.mjs path <from> <to> # how two things connect
+node packages/<name>/floorplan/query.mjs overview
+node packages/<name>/floorplan/serve.mjs                  # open the interactive map
+```
+
+The maps can lag behind recent edits, so confirm in the code before changing anything.
+Refresh a map with the floorplan skill after large changes. Keep agent notes like this
+one in `AGENTS.md`, never in `CLAUDE.local.md`. `CLAUDE.md` is a symlink to this file.
+
 ## Publishing
 
 Publishing runs from GitHub Actions, not from local `pnpm publish-packages`. The flow is
