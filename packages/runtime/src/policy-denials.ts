@@ -11,6 +11,10 @@
  * - NAP-CVM    #31 @ 28cf1bdb — "There are no `cvm.*.error` messages; ACL denial
  *   returns the matching `.result` with `error: "policy denied"`. On a shell
  *   error, success payload fields MUST be omitted."
+ * - NAP-RELAY  #2 @ 9f30b350 — "`relay.publish.result` includes `ok: false` and an
+ *   `error` string on failure. `relay.closed` indicates the shell terminated a
+ *   subscription, with an optional `reason`. `relay.query.result` MAY include an
+ *   `error` field instead of `events` if the query fails."
  */
 
 import type { NappletMessage } from '@napplet/core';
@@ -23,10 +27,26 @@ function resultError(type: string, error?: string, fields: Record<string, unknow
   return (id, reason) => ({ type: `${type}.result`, id, ...fields, error: error ?? reason } as NappletMessage);
 }
 
+/** Subscription denials close the napplet's subscription id. */
+function closed(type: 'relay.closed' | 'outbox.closed', reason?: string): DenialProjection {
+  return (_id, fallback, message) => {
+    const subId = (message as NappletMessage & { subId?: unknown }).subId;
+    return typeof subId === 'string' ? { type, subId, reason: reason ?? fallback } as NappletMessage : null;
+  };
+}
+
+/** The NAP defines no reply for this request, so a denial is silent. */
+const silent: DenialProjection = () => null;
+
 const CVM_REQUESTS = ['cvm.discover', 'cvm.request', 'cvm.close', 'cvm.registry.list',
   'cvm.registry.has', 'cvm.registry.describe', 'cvm.registry.call'] as const;
 const POLICY_DENIALS: Readonly<Record<string, DenialProjection>> = Object.freeze({
   ...Object.fromEntries(CVM_REQUESTS.map((type) => [type, resultError(type, 'policy denied')])),
+  'relay.subscribe': closed('relay.closed'),
+  'relay.close': silent,
+  'relay.publish': resultError('relay.publish', undefined, { ok: false }),
+  'relay.publishEncrypted': resultError('relay.publishEncrypted', undefined, { ok: false }),
+  'relay.query': resultError('relay.query'),
 });
 
 /**

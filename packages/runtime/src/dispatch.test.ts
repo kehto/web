@@ -1340,8 +1340,10 @@ describe('NIP-5D Envelope Dispatch', () => {
   // ─── ACL Enforcement ──────────────────────────────────────────────────────────
 
   describe('ACL enforcement', () => {
-    it('denied capability returns .error type with denial reason', () => {
-      // Block the napplet
+    it('denied subscription is closed with the denial reason', () => {
+      // NAP-RELAY napplet/naps#2 @ 9f30b350: "`relay.closed` indicates the shell
+      // terminated a subscription, with an optional `reason`." It defines no
+      // `relay.subscribe.error`.
       runtime.aclState.block('', TEST_DTAG, TEST_HASH);
 
       runtime.handleMessage(WINDOW_ID, {
@@ -1351,9 +1353,9 @@ describe('NIP-5D Envelope Dispatch', () => {
         filters: [{ kinds: [1] }],
       } as NappletMessage);
 
-      const err = findEnvelopeResponse(ctx.sent, 'relay.subscribe.error');
-      expect(err).toBeDefined();
-      expect((err as any).error).toBeDefined();
+      expect(ctx.sent.map(({ message }) => message)).toEqual([
+        { type: 'relay.closed', subId: 'sub-blocked', reason: 'denied: relay:read' },
+      ]);
     });
 
     it('identity.getPublicKey bypasses ACL with signed-out sentinel', () => {
