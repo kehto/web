@@ -3,6 +3,7 @@
  */
 import { BLE_BACKEND } from './ble.js';
 import { DM_BACKEND } from './dm.js';
+import { FS_BACKEND } from './fs.js';
 import { GAMEPAD_BACKEND } from './gamepad.js';
 import { IDENTITY_BACKEND } from './identity.js';
 import { LLM_BACKEND } from './llm.js';
@@ -15,6 +16,7 @@ import type { DomainBackendModule } from './types.js';
 export const DOMAIN_BACKENDS: readonly DomainBackendModule[] = [
   BLE_BACKEND,
   DM_BACKEND,
+  FS_BACKEND,
   GAMEPAD_BACKEND,
   IDENTITY_BACKEND,
   LLM_BACKEND,

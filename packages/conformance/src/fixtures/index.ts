@@ -3,6 +3,7 @@
  */
 import { BLE_FIXTURE } from './ble.js';
 import { DM_FIXTURE } from './dm.js';
+import { FS_FIXTURE } from './fs.js';
 import { GAMEPAD_FIXTURE } from './gamepad.js';
 import { IDENTITY_FIXTURE } from './identity.js';
 import { LLM_FIXTURE } from './llm.js';
@@ -17,6 +18,7 @@ export const FIXTURES: Readonly<Record<string, DomainFixture>> = Object.freeze(O
   [
     BLE_FIXTURE,
     DM_FIXTURE,
+    FS_FIXTURE,
     GAMEPAD_FIXTURE,
     IDENTITY_FIXTURE,
     LLM_FIXTURE,
