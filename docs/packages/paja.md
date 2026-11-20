@@ -303,6 +303,10 @@ The console includes:
   napplet, file, MIME type, size, server, and durable public effect before
   bytes leave the browser. A denial or a live publish with no accepting relay
   returns a canonical failure and does not enter Paja's in-memory relay view.
+  A declined OUTBOX publish is `publish denied`; relays that fail are
+  `relay timeout`, never a denial. Paja's live transport finishes a relay that
+  failed to connect like one that sent EOSE, so a Paja OUTBOX read cannot yet
+  mark that relay `incomplete`.
   Its scoped-relay hook likewise waits for the backend result and returns
   `false` after denial or transport failure.
 - **Resource servers** — extra Blossom lookup origins with a newline textarea and
