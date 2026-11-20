@@ -191,7 +191,11 @@ Security Considerations (shells SHOULD apply per-napplet concurrency limits).
   `publish()` unchanged and the service warns once
   (`KEHTO_CVM_TRANSPORT_CANCEL`, see `docs/compatibility.md`). A cancellation
   only asks the server to stop; the napplet's own `cvm.request` still ends with
-  the server's answer or `relay timeout`.
+  the server's answer or `relay timeout`. Known limits: a cancellation that
+  arrives while its request is still queued, awaiting approval or initializing
+  reaches a transport that hasn't sent it yet, so nothing is published and the
+  request still goes out; and a cancellation takes an admission slot like any
+  `cvm.request`, so a saturated endpoint queues or refuses it.
 - A malformed `server` reference returns `invalid request` on `cvm.request` and
   `cvm.close` (it used to be `server not found` and `session closed`). An
   unknown but well-formed server is still `server not found`.

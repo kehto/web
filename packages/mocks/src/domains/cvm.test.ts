@@ -177,6 +177,11 @@ describe('createMockCvmService', () => {
     expect(sent.filter((msg) => msg.type === 'cvm.event')).toHaveLength(2);
   });
 
+  it('bounds serverRequestTimeoutMs like the service (NAP-CVM Timeouts: 1 through 300000)', () => {
+    for (const value of [0, 1.5, 300_001]) expect(() => createMockCvmService({ serverRequestTimeoutMs: value })).toThrow(RangeError);
+    expect(() => createMockCvmService({ serverRequestTimeoutMs: 300_000 })).not.toThrow();
+  });
+
   it('cvm.close releases only the caller session and is idempotent', () => {
     const { service, call, request, last } = setup();
     request('r1', ECHO, { id: 1, method: 'ping' });

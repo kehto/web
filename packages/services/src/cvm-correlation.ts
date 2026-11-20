@@ -133,7 +133,9 @@ export function createCvmCorrelations(options: CvmCorrelationOptions = {}): CvmC
     },
     cancelTarget(windowId, generation, pubkey, requestId) {
       if (typeof requestId !== 'string' && typeof requestId !== 'number') return { state: 'foreign' };
-      const ids = session(windowId, generation, pubkey);
+      // Read-only: a cancellation naming an unknown server allocates nothing.
+      const ids = windows.get(windowId)?.get(pubkey);
+      if (ids?.generation !== generation) return { state: 'foreign' };
       const key = mcpIdKey(requestId);
       const handle = ids.inFlight.get(key);
       if (handle) return { state: 'in-flight', handle };

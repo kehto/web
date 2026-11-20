@@ -373,6 +373,9 @@ function registryHasRoute({ message, state, reply, fail }: Context): void {
 export function createMockCvmService(options: MockCvmOptions = {}): MockCvmService {
   const maxTimeoutMs = options.maxTimeoutMs ?? 300_000;
   const serverRequestTimeoutMs = options.serverRequestTimeoutMs ?? 30_000;
+  if (!Number.isInteger(serverRequestTimeoutMs) || serverRequestTimeoutMs < 1 || serverRequestTimeoutMs > 300_000) {
+    throw new RangeError('createMockCvmService: serverRequestTimeoutMs must be an integer from 1 through 300000');
+  }
   const scheduler = options.scheduler ?? DEFAULT_SCHEDULER;
   const denied = new Set(options.deniedServers ?? []);
 
