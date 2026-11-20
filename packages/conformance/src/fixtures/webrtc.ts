@@ -28,7 +28,7 @@ const errorOnly = (field: string) => (reply: Envelope): SemanticVerdict => {
 
 const close = (id: string, sessionId: string): OperationCase => ({ id, type: 'webrtc.close', payload: { sessionId, reason: 'done' } });
 
-/** NAP-WEBRTC at napplet/naps#59 head: open (direct and lossy room), send, sendBytes, close, and peer messages as webrtc.event. */
+/** NAP-WEBRTC at napplet/naps#59 head: open (direct and lossy room), send, sendBytes (canonical and not), close, and peer messages as webrtc.event. */
 export const WEBRTC_FIXTURE: DomainFixture = {
   domain: 'webrtc',
   cases: [
@@ -59,6 +59,13 @@ export const WEBRTC_FIXTURE: DomainFixture = {
       semantics: {
         rule: 'sendBytes succeeds, or "A shell that does not support byte payloads returns the error \\"unsupported\\""',
         verify: (reply) => (reply?.error === undefined || reply.error === 'unsupported' ? null : `error was ${JSON.stringify(reply.error)}, expected none or "unsupported"`),
+      },
+    },
+    {
+      id: 'webrtc/sendBytes-noncanonical', type: 'webrtc.sendBytes', payload: { sessionId: ROOM, bytes: 'AAEC/x==' }, allowError: true,
+      semantics: {
+        rule: '`WebrtcBytes` is canonical padded base64 and "Receivers MUST reject non-canonical encodings" (non-zero pad bits): an error, "unsupported" included',
+        verify: (reply) => (typeof reply?.error === 'string' && reply.error ? null : `error was ${JSON.stringify(reply?.error)}, expected a rejection`),
       },
     },
     {
