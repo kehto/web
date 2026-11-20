@@ -118,6 +118,10 @@ the spec.
 | `omit-granted-shell` | `nip5d/injection-order`, `nip5d/injection-scope`, and downstream every check that needs the shell object |
 | `duplicate-shell-init` | `shell/once-per-lifecycle` |
 | `gate-on-shell-ready` | `nip5d/readiness-independent` |
+| `advertise-uncovered-domain` | `catalog/advertised-domain-covered` |
+| `drop-correlation-id` | `theme/correlation`, `theme/semantics`, and the catalog checks it leaves without a working theme case |
+| `inc-dtag-identity` | `inc/endpoint-identity`, `inc/channel-lifecycle` |
+| `retain-state-after-destroy` | `inc/topic-routing`, `inc/channel-lifecycle` |
 | `supports-depends-on-init` | `shell/local-supports` |
 | `init-invents-domain` | `shell/local-supports` |
 

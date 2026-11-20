@@ -80,8 +80,9 @@ export function parseNapWireTable(markdown: string, domain: string): ParsedOpera
     const [from, to] = (match[2] ?? '').toLowerCase().split(/->|→/).map((side) => side.trim());
     if (to === undefined) continue;
     const runtime = /^(shell|runtime|host)$/;
+    // `shell -> target napplet` is still runtime -> napplet.
     if (from === 'napplet' && runtime.test(to)) outbound.add(match[1] as string);
-    else if (runtime.test(from ?? '') && to === 'napplet') inbound.add(match[1] as string);
+    else if (runtime.test(from ?? '') && /\bnapplet$/.test(to)) inbound.add(match[1] as string);
     else {
       // Role-to-role rows (`owner -> peer`) can travel either way over the port.
       outbound.add(match[1] as string);

@@ -50,6 +50,11 @@ export interface SendStep {
   readonly op: 'send';
   /** Anything structured-cloneable: malformed-wire cases send arrays and scalars. */
   readonly envelope: unknown;
+  /**
+   * Envelope fields copied from values earlier steps recorded, e.g.
+   * `{ target: { as: 'evB', path: ['sender'] } }`. A missing source leaves the field unset.
+   */
+  readonly fill?: Readonly<Record<string, { readonly as: string; readonly path: readonly string[] }>>;
 }
 
 /** Wait for an inbound port message whose fields equal `match`. Records `null` on timeout. */

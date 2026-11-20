@@ -3,6 +3,7 @@
  */
 import { COUNT_FIXTURE } from './count.js';
 import { IDENTITY_FIXTURE } from './identity.js';
+import { INC_FIXTURE } from './inc.js';
 import { STORAGE_FIXTURE } from './storage.js';
 import { THEME_FIXTURE } from './theme.js';
 import { LINK_FIXTURE } from './link.js';
@@ -19,6 +20,7 @@ import type { DomainFixture } from './types.js';
 export const FIXTURES: Readonly<Record<string, DomainFixture>> = Object.freeze(Object.fromEntries(
   [
     IDENTITY_FIXTURE,
+    INC_FIXTURE,
     STORAGE_FIXTURE,
     THEME_FIXTURE,
     COUNT_FIXTURE,

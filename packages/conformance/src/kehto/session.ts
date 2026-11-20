@@ -102,7 +102,10 @@ function endpointFor(state: SessionState, input: {
       return state.stage.waitFor(channel, () => channel.marks.includes(name), timeoutMs);
     },
     signal(name) {
-      if (frame) state.stage.signal(frame, name);
+      if (!frame || !channel) return;
+      // A signal posted before the probe document listens would be lost; wait for its boot report.
+      if (channel.booted) state.stage.signal(frame, name);
+      else void state.stage.waitFor(channel, () => channel.booted, 6000).then(() => state.stage.signal(frame, name));
     },
     forge(message, from = 'parent') {
       if (!frame) return;
@@ -214,8 +217,10 @@ async function loadRogue(state: SessionState, plan: ProbePlan): Promise<RogueEvi
 }
 
 function destroyEndpoint(state: SessionState, id: string): void {
-  state.bridge.revokeNapplet(id, 'host');
-  state.retire.get(id)?.();
+  if (!state.tamper.keepRuntimeStateOnDestroy) {
+    state.bridge.revokeNapplet(id, 'host');
+    state.retire.get(id)?.();
+  }
   state.retire.delete(id);
   state.frames.get(id)?.remove();
   state.frames.delete(id);
