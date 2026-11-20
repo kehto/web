@@ -3,7 +3,7 @@ import { defineConfig } from 'tsup';
 
 const read = (path: string): { name: string; version: string } => JSON.parse(readFileSync(new URL(path, import.meta.url), 'utf8')) as { name: string; version: string };
 const own = read('./package.json');
-const tested = ['runtime', 'shell', 'nip'].map((name) => read(`../${name}/package.json`));
+const tested = ['runtime', 'shell', 'services', 'nip'].map((name) => read(`../${name}/package.json`));
 const napplet = ['@napplet/core', '@napplet/nap'].map((name) => read(`./node_modules/${name}/package.json`));
 const define = {
   __KEHTO_CONFORMANCE_VERSION__: JSON.stringify(own.version),

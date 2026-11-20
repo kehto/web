@@ -32,7 +32,7 @@ npx playwright install chromium
 | Runtime entry | `./dist/index.js` |
 | Types entry | `./dist/index.d.ts` |
 | Subpaths | `./kehto-target`, `./mutations`, `./cli`, `./browser` (self-contained browser bundle) |
-| Dependencies | `@kehto/nip`, `@kehto/runtime`, `@kehto/shell` |
+| Dependencies | `@kehto/nip`, `@kehto/runtime`, `@kehto/services`, `@kehto/shell` |
 | Side effects | `false` |
 
 ## Peer Dependencies

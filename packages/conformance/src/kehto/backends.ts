@@ -6,13 +6,10 @@
  */
 import type { ShellAdapter, ShellBridge } from '@kehto/shell';
 import type { TargetVariant } from '../target.js';
-import { fullBackends, minimalDisabledDomains, type DomainBackends } from './domain-backends.js';
+import { composeBackends, disabledDomains, type DomainBackends } from './domain-backends.js';
+import type { ControlContext } from './domains/types.js';
 
-/** Context handed to a host control. */
-export interface ControlContext {
-  readonly bridge: ShellBridge;
-  readonly hooks: ShellAdapter;
-}
+export type { ControlContext } from './domains/types.js';
 
 /** The backends of one booted variant. */
 export interface Backends {
@@ -25,9 +22,6 @@ export interface Backends {
   incEndpointId(bridge: ShellBridge, windowId: string): string | undefined;
   dispose(): void;
 }
-
-/** Fixed fixture user. The key has no value. */
-export const FIXTURE_USER_PUBKEY = '7e7e9c42a91bfef19fa929e5fda1b72e0ebc1a4c1141673e2794234d86addf4e';
 
 /** Keys the shell bridge persists in the host page; cleared so every boot starts empty. */
 const SHELL_STORAGE_PREFIXES = ['napplet', 'kehto'];
@@ -45,7 +39,7 @@ function clearShellStorage(): void {
 function baseHooks(domains: DomainBackends): ShellAdapter {
   return {
     relayPool: {
-      getRelayPool: () => domains.relayPool,
+      getRelayPool: () => null,
       trackSubscription() {},
       untrackSubscription() {},
       openScopedRelay() {},
@@ -60,7 +54,7 @@ function baseHooks(domains: DomainBackends): ShellAdapter {
       getNip66Suggestions: () => [],
     },
     windowManager: { createWindow: () => null },
-    auth: { getUserPubkey: () => domains.user.pubkey, getSigner: () => domains.user.signer },
+    auth: { getUserPubkey: () => domains.user.pubkey(), getSigner: () => domains.user.current() },
     config: { getNappUpdateBehavior: () => 'auto-grant' },
     hotkeys: { executeHotkeyFromForward() {} },
     workerRelay: { getWorkerRelay: () => null },
@@ -76,6 +70,7 @@ function baseHooks(domains: DomainBackends): ShellAdapter {
     },
     getFocusContext: (windowId) => ({ focused: domains.focus.windowId === windowId }),
     ...domains.adapter,
+    services: { ...domains.services },
   };
 }
 
@@ -87,13 +82,8 @@ function baseHooks(domains: DomainBackends): ShellAdapter {
  */
 export function createBackends(variant: TargetVariant): Backends {
   clearShellStorage();
-  const domains = fullBackends(variant);
-  const disabled = [
-    ...(variant.shell === 'shell-absent' ? ['shell'] : []),
-    ...(variant.profile === 'minimal' ? minimalDisabledDomains(domains) : []),
-  ];
-  const hooks: ShellAdapter = { ...baseHooks(domains), capabilities: { disabledDomains: disabled } };
-  if (variant.profile === 'minimal') hooks.services = {};
+  const domains = composeBackends(variant);
+  const hooks: ShellAdapter = { ...baseHooks(domains), capabilities: { disabledDomains: disabledDomains(variant, domains) } };
   return {
     hooks,
     controls: Object.keys(domains.controls),
@@ -102,8 +92,7 @@ export function createBackends(variant: TargetVariant): Backends {
     },
     attach(bridge) { domains.attach(bridge); },
     incEndpointId(bridge, windowId) {
-      const getter = (bridge.runtime as { getIncEndpointId?: (id: string) => string | undefined }).getIncEndpointId;
-      return typeof getter === 'function' ? getter.call(bridge.runtime, windowId) : undefined;
+      return bridge.runtime.getIncEndpointId(windowId);
     },
     dispose() {
       domains.dispose();
