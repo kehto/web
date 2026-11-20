@@ -62,3 +62,17 @@ export function inventoryDrift(domain: string): string[] {
   }
   return drift;
 }
+
+/**
+ * Operations the pinned NAP specifies that the installed package does not type.
+ *
+ * @param domain - Bare domain name.
+ * @returns `domain.action (direction)` entries; empty when the package covers the spec.
+ */
+export function missingPackageOperations(domain: string): string[] {
+  const entry = INVENTORY[domain];
+  if (!entry) return [];
+  return (['outbound', 'inbound'] as const).flatMap((direction) => entry.spec[direction]
+    .filter((type) => !entry.package[direction].includes(type))
+    .map((type) => `${type} (${direction === 'outbound' ? 'napplet -> runtime' : 'runtime -> napplet'})`));
+}

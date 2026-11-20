@@ -2,7 +2,7 @@
  * keys-service.test.ts — Unit tests for the keys NAP reference service.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createKeysService } from './keys-service.js';
 import type { ServiceRuntimeContext } from '@kehto/runtime';
 import type { NappletMessage } from '@napplet/core';
@@ -328,22 +328,21 @@ describe('createKeysService', () => {
   });
 
   describe('unknown keys.* method', () => {
-    it('produces {type}.error envelope with descriptive error', () => {
+    it('is silently ignored, with one host warning', () => {
+      // NIP-5D (nostr-protocol/nips#2303 @ dskvr/nips@f60550c3): "Messages with an
+      // unrecognized `type` MUST be silently ignored." The old `.error` reply broke that.
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
       const sent: NappletMessage[] = [];
       const service = createKeysService();
 
-      const msg: NappletMessage = {
-        type: 'keys.bogus',
-        id: 'x',
-      } as NappletMessage;
+      service.handleMessage(WINDOW_ID, { type: 'keys.bogus', id: 'x' } as NappletMessage, (m) => sent.push(m));
+      service.handleMessage(WINDOW_ID, { type: 'keys.bogus', id: 'y' } as NappletMessage, (m) => sent.push(m));
 
-      service.handleMessage(WINDOW_ID, msg, (m) => sent.push(m));
-
-      expect(sent).toHaveLength(1);
-      const reply = sent[0] as NappletMessage & { id: string; error: string };
-      expect(reply.type).toBe('keys.bogus.error');
-      expect(reply.id).toBe('x');
-      expect(reply.error).toMatch(/Unknown keys method/i);
+      expect(sent).toEqual([]);
+      const lines = warn.mock.calls.map(([line]) => String(line)).filter((line) => line.includes('[KEHTO_UNRECOGNIZED_MESSAGE_TYPE]'));
+      expect(lines).toHaveLength(1);
+      expect(lines[0]).toContain('"keys.bogus"');
+      warn.mockRestore();
     });
   });
 

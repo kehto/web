@@ -25,6 +25,8 @@ type Envelope = Readonly<Record<string, unknown>>;
 interface DenialRow {
   readonly domain: string;
   readonly request: string;
+  /** The reply type the owning NAP defines for the request. */
+  readonly canonical: string;
   /** Capability the target revoked, or `null` when the request needs none. */
   readonly capability: string | null;
   readonly backendCalls: number;
@@ -85,14 +87,18 @@ async function deny(context: CollectContext, fixture: DomainFixture, request: Op
   await context.session.destroyEndpoint(endpoint.id);
   const record = step(report, 'reply');
   return {
-    domain: fixture.domain, request: request.type, capability: capability ?? null, backendCalls: after - before,
+    domain: fixture.domain, request: request.type, canonical: request.reply ?? `${request.type}.result`, capability: capability ?? null, backendCalls: after - before,
     reply: record?.state === 'value' ? record.value as Envelope : null,
   };
 }
 
-function pushPlan(push: PushCase, label: string, context: CollectContext, first?: OperationCase): ProbeStep[] {
+function pushPlan(push: PushCase, label: string, context: CollectContext, first?: OperationCase, setup: readonly OperationCase[] = []): ProbeStep[] {
   const subscribe = push.subscribe;
   return [
+    ...setup.flatMap((item): ProbeStep[] => [
+      { op: 'send', envelope: { type: item.type, ...(item.noId ? {} : { id: item.id }), ...item.payload } },
+      ...(item.noId || item.reply === null ? [] : [{ op: 'expect', as: `setup:${item.id}`, match: { id: item.id } } as ProbeStep]),
+    ]),
     // Isolation is judged on endpoints the runtime has certainly bound: each sends one request first.
     ...(first && !subscribe ? [
       { op: 'send', envelope: { type: first.type, id: first.id, ...first.payload } } as ProbeStep,
@@ -108,10 +114,16 @@ function pushPlan(push: PushCase, label: string, context: CollectContext, first?
   ];
 }
 
+function setupOf(fixture: DomainFixture, push: PushCase): OperationCase[] {
+  const ids = push.isolation ? push.isolation.setup : [];
+  const known = [...fixture.cases, ...(fixture.pushes ?? []).flatMap((item) => [item.subscribe, item.unsubscribe])];
+  return ids.map((id) => known.find((item) => item?.id === id)).filter((item): item is OperationCase => item !== undefined);
+}
+
 async function isolate(context: CollectContext, fixture: DomainFixture, push: PushCase): Promise<IsolationRow> {
   const grants = [fixture.domain, ...(fixture.alsoGrant ?? [])].filter((domain) => context.advertised.domains.includes(domain));
   const load = (label: string) => context.session.loadProbe({
-    plan: { label: `isolate-${fixture.domain}`, steps: pushPlan(push, label, context, firstRequest(fixture)), timeoutMs: context.timeoutMs },
+    plan: { label: `isolate-${fixture.domain}`, steps: pushPlan(push, label, context, firstRequest(fixture), setupOf(fixture, push)), timeoutMs: context.timeoutMs },
     dTag: `probe-isolate-${fixture.domain}-${label}`, grants, optional: grants, rawWire: true,
   });
   const doomed = await load('doomed');
@@ -119,7 +131,7 @@ async function isolate(context: CollectContext, fixture: DomainFixture, push: Pu
   await Promise.all([doomed.waitMark('ready', context.timeoutMs * 2), survivor.waitMark('ready', context.timeoutMs * 2)]);
   await context.session.destroyEndpoint(doomed.id);
   const from = context.session.transcript().length;
-  await context.session.control(push.trigger.control, push.trigger.payload);
+  await context.session.control(push.trigger!.control, push.trigger!.payload);
   const report = await survivor.report(context.timeoutMs * 4);
   const afterDestroy = context.session.transcript().slice(from)
     .filter((entry) => entry.tap === 'host' && entry.endpoint === doomed.id && entry.direction === 'runtime->napplet');
@@ -136,7 +148,7 @@ async function listen(context: CollectContext, fixture: DomainFixture, push: Pus
     dTag: `probe-listen-${fixture.domain}`, grants: [fixture.domain], optional: [fixture.domain], rawWire: true,
   });
   await endpoint.waitMark('ready', context.timeoutMs * 2);
-  await context.session.control(push.trigger.control, push.trigger.payload);
+  await context.session.control(push.trigger!.control, push.trigger!.payload);
   const report = await endpoint.report(context.timeoutMs * 4);
   await context.session.destroyEndpoint(endpoint.id);
   return { domain: fixture.domain, push: push.id, got: step(report, 'push')?.state === 'value' };
@@ -151,10 +163,12 @@ async function collect(context: CollectContext): Promise<IsolationFacts> {
   for (const fixture of selected(context)) {
     const request = firstRequest(fixture);
     if (request) denial.push(await deny(context, fixture, request));
-    const push = (fixture.pushes ?? []).find((item) => context.session.controls.includes(item.trigger.control));
+    // Only host-triggered pushes: isolation needs to fire the push after one endpoint is gone.
+    const push = (fixture.pushes ?? []).find((item) => item.trigger !== undefined && item.isolation !== false && context.session.controls.includes(item.trigger.control));
     if (!push) continue;
     isolation.push(await isolate(context, fixture, push));
-    if (!push.subscribe) silent.push(await listen(context, fixture, push));
+    const broadcast = (fixture.pushes ?? []).find((item) => item.broadcast && item.trigger && context.session.controls.includes(item.trigger.control));
+    if (broadcast) silent.push(await listen(context, fixture, broadcast));
   }
   return { controls, denial, isolation, silent };
 }
@@ -163,7 +177,7 @@ function judgeDenial(row: DenialRow): string | null {
   if (row.capability === null) return null;
   if (row.backendCalls > 0) return `the ${row.domain} backend ran ${row.backendCalls} times after ${row.capability} was revoked`;
   if (!row.reply) return null;
-  const canonical = `${row.request}.result`;
+  const { canonical } = row;
   const nativeError = row.domain === 'resource' && row.reply.type === `${row.request}.error`;
   if (row.reply.type !== canonical && !nativeError) return `denial was answered with ${String(row.reply.type)}, a type ${row.domain}'s NAP does not define (expected silence or ${canonical})`;
   // A canonical result without `error` (a safe default) is not judged: the
@@ -190,18 +204,18 @@ function endpointIsolation(facts: IsolationFacts): CheckOutcome {
   return pass(`Destroying one endpoint stopped its pushes and left the other endpoint served in ${facts.isolation.length} domains`, facts.isolation.map((row) => row.domain));
 }
 
-function pushIndependent(facts: IsolationFacts): CheckOutcome {
+function broadcastToLoaded(facts: IsolationFacts): CheckOutcome {
   if (!facts.controls) return skip('The target has no acl.revoke / backend.calls controls');
-  if (!facts.silent.length) return skip('No advertised domain has a subscription-free push runnable in this variant');
+  if (!facts.silent.length) return skip('No advertised domain has a required broadcast runnable in this variant');
   const missed = facts.silent.filter((row) => !row.got);
   if (missed.length) {
-    return fail(`A granted endpoint that has sent nothing yet got no ${missed.map((row) => row.push).join(', ')}: push delivery waits for the napplet's first message`, facts.silent);
+    return fail(`A loaded endpoint the domain is exposed to, which has sent nothing yet, got no ${missed.map((row) => row.push).join(', ')}`, facts.silent);
   }
-  return pass('Subscription-free pushes reach a granted endpoint before it sends anything', facts.silent);
+  return pass('Required broadcasts reach every loaded endpoint the domain is exposed to, before it sends anything', facts.silent);
 }
 
 const checks: readonly Check<IsolationFacts>[] = [
-  { id: 'nip5d/push-independent', title: 'Granted pushes do not wait for the napplet\'s first message', scope: 'nip5d-core', severity: 'error', authority: ['nip5d', 'nap-shell'], evaluate: pushIndependent },
+  { id: 'catalog/broadcast-to-loaded', title: 'Required broadcasts reach loaded napplets before their first message', scope: 'nap-spec', severity: 'error', authority: ['nap-theme', 'nap-identity', 'nap-shell'], evaluate: broadcastToLoaded },
   { id: 'catalog/acl-denial', title: 'ACL denial runs no backend and answers only as the NAP allows', scope: 'wire-contract', severity: 'error', authority: ['nap-package'], evaluate: aclDenial },
   { id: 'catalog/endpoint-isolation', title: 'Destroying an endpoint releases its pushes without affecting another', scope: 'nip5d-core', severity: 'error', authority: ['nip5d'], evaluate: endpointIsolation },
 ];

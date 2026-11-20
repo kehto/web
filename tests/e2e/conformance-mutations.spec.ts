@@ -43,6 +43,7 @@ const MUTATION_NAMES = [
   'drop-correlation-id',
   'inc-dtag-identity',
   'retain-state-after-destroy',
+  'advertise-disabled-backend',
   'supports-depends-on-init',
   'init-invents-domain',
 ];

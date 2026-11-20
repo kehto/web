@@ -48,7 +48,11 @@ export interface ReadStep {
 /** Post a raw message on the napplet's NAP port. Needs a probe loaded with `rawWire`. */
 export interface SendStep {
   readonly op: 'send';
-  /** Anything structured-cloneable: malformed-wire cases send arrays and scalars. */
+  /**
+   * Anything structured-cloneable: malformed-wire cases send arrays and scalars.
+   * `{ $blob: { bytes, type } }` and `{ $arrayBuffer: bytes }` anywhere inside
+   * are sent as a real `Blob` / `ArrayBuffer`.
+   */
   readonly envelope: unknown;
   /**
    * Envelope fields copied from values earlier steps recorded, e.g.
@@ -63,6 +67,8 @@ export interface ExpectStep {
   readonly as: string;
   readonly match: Readonly<Record<string, unknown>>;
   readonly timeoutMs?: number;
+  /** Only consider messages that arrived after this mark step ran. */
+  readonly since?: string;
 }
 
 /** Record every inbound port message that arrives during a quiet window. */
@@ -70,6 +76,8 @@ export interface QuietStep {
   readonly op: 'quiet';
   readonly as: string;
   readonly ms?: number;
+  /** Start the window at this mark instead of at the step itself. */
+  readonly since?: string;
 }
 
 /** Tell the harness the probe reached a named point. */

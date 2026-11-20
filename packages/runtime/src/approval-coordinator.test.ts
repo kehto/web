@@ -200,6 +200,54 @@ describe('approval coordination', () => {
     expect(f.action).not.toHaveBeenCalled();
   });
 
+  // kehto/web#457: the deadline bounds the approval phase. The domain owns the
+  // operation deadline (NAP-CVM `timeoutMs`), so execution may outlive it.
+  it('does not cut off an action that runs past the approval deadline', async () => {
+    vi.useFakeTimers();
+    const done = deferred<string>();
+    let active: ApprovalSignal | undefined;
+    const f = fixture({ timeoutMs: 25 });
+    const result = f.coordinator.run(principal, 'session-1', [requirement], () => true, (signal) => {
+      active = signal; return done.promise;
+    });
+    await vi.advanceTimersByTimeAsync(100);
+    expect(active?.aborted).toBe(false);
+    expect(f.coordinator.pendingCount).toBe(1);
+    done.resolve('finished');
+    expect(await result).toEqual({ status: 'executed', value: 'finished' });
+    expect(f.coordinator.pendingCount).toBe(0);
+  });
+
+  it('keeps a running action cancellable after its approval phase ends', async () => {
+    vi.useFakeTimers();
+    const f = fixture({ timeoutMs: 25 });
+    let active: ApprovalSignal | undefined;
+    const result = f.coordinator.run(principal, 'session-1', [requirement], () => true, (signal) => {
+      active = signal; return new Promise<string>(() => {});
+    });
+    await vi.advanceTimersByTimeAsync(100);
+    f.coordinator.cancel('session-1');
+    expect(await result).toEqual({ status: 'cancelled' });
+    expect(active?.aborted).toBe(true);
+    expect(f.coordinator.pendingCount).toBe(0);
+  });
+
+  it('lets an equivalent request proceed while an earlier one is still executing', async () => {
+    const first = deferred<string>();
+    const started = deferred<void>();
+    const f = fixture({ prompt: vi.fn(async () => session), maxPending: 1 });
+    const running = f.coordinator.run(principal, 'session-1', [requirement], () => true, () => {
+      started.resolve(); return first.promise;
+    });
+    await started.promise;
+    await Promise.resolve();
+    // The executing request has left the approval queue, so it no longer holds
+    // the only pending slot or the hold on its equivalents.
+    expect(await f.run()).toEqual({ status: 'executed', value: 'opened' });
+    first.resolve('first');
+    expect(await running).toEqual({ status: 'executed', value: 'first' });
+  });
+
   it.each(['identity', 'policy'])('rechecks %s after asynchronous approval', async (change) => {
     const answer = deferred<ApprovalAnswer>();
     const shown = deferred<ApprovalPrompt>();

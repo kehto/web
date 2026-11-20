@@ -7,13 +7,13 @@
  * judge whether the advertised catalog is truthful and fully covered against
  * the pinned operation inventory.
  */
-import { inventoryDrift, outboundOperations } from '../catalog/inventory.js';
+import { inventoryDrift, missingPackageOperations, outboundOperations } from '../catalog/inventory.js';
 import { SUPPORTED_DOMAINS } from '../catalog/domains.js';
 import { FIXTURES } from '../fixtures/index.js';
 import type { DomainFixture, OperationCase, PushCase } from '../fixtures/types.js';
 import { fail, pass, skip, type CheckOutcome, type DomainCoverage, type OperationResult } from '../model.js';
 import type { ProbeReport, ProbeStep } from '../probe/plan.js';
-import { defineScenario, runProbe, step, type Check, type CollectContext } from '../scenario.js';
+import { defineScenario, step, type Check, type CollectContext } from '../scenario.js';
 
 type Envelope = Readonly<Record<string, unknown>>;
 
@@ -42,29 +42,31 @@ function envelopeOf(item: OperationCase): Envelope {
 }
 
 function requestSteps(item: OperationCase, settleMs: number): ProbeStep[] {
-  const send: ProbeStep = { op: 'send', envelope: envelopeOf(item) };
+  const fill = item.fill ? Object.fromEntries(Object.entries(item.fill).map(([field, source]) => [field, { as: `c:${source.case}`, path: source.path }])) : undefined;
+  const send: ProbeStep = { op: 'send', envelope: envelopeOf(item), ...(fill ? { fill } : {}) };
   if (replyType(item) === null || item.noId) return [send, { op: 'quiet', as: `q:${item.id}`, ms: settleMs }];
   return [send, { op: 'expect', as: `c:${item.id}`, match: { id: item.id } }];
 }
 
 function pushSteps(push: PushCase, settleMs: number): ProbeStep[] {
+  const gate = (name: string): ProbeStep[] => (push.trigger ? [{ op: 'mark', name }, { op: 'waitSignal', name }] : []);
   return [
     ...(push.subscribe ? requestSteps(push.subscribe, settleMs) : []),
-    { op: 'mark', name: `push:${push.id}` },
-    { op: 'waitSignal', name: `push:${push.id}` },
-    { op: 'expect', as: `p:${push.id}`, match: { type: push.type } },
+    ...gate(`push:${push.id}`),
+    // Match the push's fields while waiting, so an earlier push of the same type cannot stand in for it.
+    { op: 'expect', as: `p:${push.id}`, match: { ...push.match, type: push.type }, ...(push.trigger ? { since: `push:${push.id}` } : {}) },
     ...(push.then ?? []).flatMap((item) => requestSteps(item, settleMs)),
     ...(push.unsubscribe ? [
       ...requestSteps(push.unsubscribe, settleMs),
-      { op: 'mark', name: `off:${push.id}` } as ProbeStep,
-      { op: 'waitSignal', name: `off:${push.id}` } as ProbeStep,
-      { op: 'quiet', as: `poff:${push.id}`, ms: settleMs * 2 } as ProbeStep,
+      ...gate(`off:${push.id}`),
+      { op: 'quiet', as: `poff:${push.id}`, ms: settleMs * 2, ...(push.trigger ? { since: `off:${push.id}` } : {}) } as ProbeStep,
     ] : []),
   ];
 }
 
 async function drivePushes(context: CollectContext, endpoint: Awaited<ReturnType<CollectContext['session']['loadProbe']>>, pushes: readonly PushCase[]): Promise<void> {
   for (const push of pushes) {
+    if (!push.trigger) continue;
     if (!await endpoint.waitMark(`push:${push.id}`, context.timeoutMs * 4)) return;
     await context.session.control(push.trigger.control, push.trigger.payload);
     endpoint.signal(`push:${push.id}`);
@@ -77,8 +79,9 @@ async function drivePushes(context: CollectContext, endpoint: Awaited<ReturnType
 
 async function runDomain(context: CollectContext, fixture: DomainFixture): Promise<DomainRun> {
   const pushes = fixture.pushes ?? [];
-  const missingControls = pushes.filter((push) => !context.session.controls.includes(push.trigger.control)).map((push) => push.trigger.control);
-  const runnable = pushes.filter((push) => context.session.controls.includes(push.trigger.control));
+  const controlled = (push: PushCase): boolean => !push.trigger || context.session.controls.includes(push.trigger.control);
+  const missingControls = pushes.filter((push) => !controlled(push)).map((push) => push.trigger?.control as string);
+  const runnable = pushes.filter(controlled);
   const steps = [
     ...fixture.cases.flatMap((item) => requestSteps(item, context.settleMs)),
     ...runnable.flatMap((push) => pushSteps(push, context.settleMs)),
@@ -130,14 +133,14 @@ function replyOf(run: DomainRun, item: OperationCase): Envelope | null {
 }
 
 function judgePush(run: DomainRun, push: PushCase): string | null {
-  if (run.missingControls.includes(push.trigger.control)) return `the target has no host control ${push.trigger.control}`;
+  if (push.trigger && run.missingControls.includes(push.trigger.control)) return `the target has no host control ${push.trigger.control}`;
   for (const item of [push.subscribe, push.unsubscribe, ...(push.then ?? [])]) {
     const problem = item ? judgeCase(run, item) : null;
     if (problem) return problem;
   }
   const record = step(run.report, `p:${push.id}`);
   const delivered = (record?.state === 'value' ? record.value : null) as Envelope | null;
-  if (!delivered) return `${push.type} was not delivered after ${push.trigger.control}`;
+  if (!delivered) return `${push.type} was not delivered${push.trigger ? ` after ${push.trigger.control}` : ''}`;
   for (const [key, expected] of Object.entries(push.match ?? {})) {
     if (JSON.stringify(delivered[key]) !== JSON.stringify(expected)) return `${push.type}.${key} was ${JSON.stringify(delivered[key])}, expected ${JSON.stringify(expected)}`;
   }
@@ -159,7 +162,7 @@ function judgePushSemantics(run: DomainRun, push: PushCase): string | null {
 /** Push cases to judge: all of them in the full profile, only those with a host control in minimal. */
 function runnablePushes(facts: DomainFacts, run: DomainRun): readonly PushCase[] {
   const pushes = run.fixture.pushes ?? [];
-  return facts.profile === 'full' ? pushes : pushes.filter((push) => !run.missingControls.includes(push.trigger.control));
+  return facts.profile === 'full' ? pushes : pushes.filter((push) => !push.trigger || !run.missingControls.includes(push.trigger.control));
 }
 
 function domainRun(facts: DomainFacts, domain: string): DomainRun | CheckOutcome {
@@ -188,7 +191,8 @@ function semantics(domain: string) {
   return (facts: DomainFacts): CheckOutcome => {
     const run = domainRun(facts, domain);
     if (isOutcome(run)) return run;
-    const cases = run.fixture.cases.filter((item) => item.semantics);
+    const pushRequests = runnablePushes(facts, run).flatMap((push) => [push.subscribe, push.unsubscribe, ...(push.then ?? [])]);
+    const cases = [...run.fixture.cases, ...pushRequests].filter((item): item is OperationCase => Boolean(item?.semantics));
     const pushCases = runnablePushes(facts, run).filter((push) => push.semantics);
     if (!cases.length && !pushCases.length) return skip(`No ${domain} case asserts NAP semantics beyond the wire contract`);
     const problems = [
@@ -259,15 +263,22 @@ function advertisedCovered(facts: DomainFacts): CheckOutcome {
 }
 
 function capabilityTruthfulness(facts: DomainFacts): CheckOutcome {
-  const dead = facts.selected.filter((domain) => {
+  // NIP-5D: "Presence of a domain object means that domain is available."
+  // An advertised domain is truthful only if every request it was sent was serviced.
+  const broken = facts.selected.flatMap((domain) => {
     const run = facts.runs[domain];
-    if (!run?.report) return false;
-    const answered = run.fixture.cases.some((item) => replyType(item) !== null && !item.noId && judgeCase(run, item) === null);
-    const delivered = (run.fixture.pushes ?? []).some((push) => judgePush(run, push) === null);
-    return !answered && !delivered;
+    if (!run?.report) return [];
+    const failed = run.fixture.cases.filter((item) => replyType(item) !== null && !item.noId && judgeCase(run, item) !== null).map((item) => item.id);
+    return failed.length ? [{ domain, failed }] : [];
   });
-  if (dead.length) return fail(`Advertised and injected, but nothing worked: ${dead.join(', ')}`, { dead });
-  return pass('Every advertised domain with a fixture serviced at least one request or push');
+  if (broken.length) return fail(`Advertised and injected, but not serviced: ${broken.map((row) => row.domain).join(', ')}`, broken);
+  return pass('Every advertised domain with a fixture serviced every request it was sent');
+}
+
+function packageDrift(facts: DomainFacts): CheckOutcome {
+  const rows = facts.selected.map((domain) => ({ domain, missing: missingPackageOperations(domain) })).filter((row) => row.missing.length);
+  if (rows.length) return fail(`The installed @napplet/nap types lack operations their pinned NAP specifies in ${rows.map((row) => row.domain).join(', ')}`, rows);
+  return pass(`The installed @napplet/nap types cover every operation the pinned NAPs specify for ${facts.selected.length} advertised domains`);
 }
 
 function domainChecks(domain: string): Check<DomainFacts>[] {
@@ -281,6 +292,7 @@ function domainChecks(domain: string): Check<DomainFacts>[] {
 
 const checks: readonly Check<DomainFacts>[] = [
   { id: 'catalog/advertised-domain-covered', title: 'Every advertised domain is covered by the catalog', scope: 'catalog', severity: 'error', authority: ['nap-package'], evaluate: advertisedCovered },
+  { id: 'catalog/package-drift', title: 'Packaged types cover every specified operation of advertised domains', scope: 'catalog', severity: 'error', authority: ['nap-package'], evaluate: packageDrift },
   { id: 'catalog/capability-truthfulness', title: 'Advertised domains are actually serviced', scope: 'nip5d-core', severity: 'error', authority: ['nip5d'], evaluate: capabilityTruthfulness },
   ...SUPPORTED_DOMAINS.filter((domain) => domain !== 'shell').flatMap(domainChecks),
 ];

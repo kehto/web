@@ -1,5 +1,5 @@
 import { generateSecretKey } from 'nostr-tools/pure';
-import type { ServiceHandler } from '@kehto/runtime';
+import { createUnrecognizedTypeDiagnostic, type ServiceHandler } from '@kehto/runtime';
 import { createCvmService, createWebrtcService, type CvmConcurrencyOptions } from '@kehto/services';
 import { createNostrCvmTransport } from '@kehto/services/cvm-nostr-transport';
 import type { NostrEvent } from '@napplet/core';
@@ -48,9 +48,13 @@ export function createPajaMultiplayerServices(options: {
       if (!released) { released = true; if (--entry.refs === 0) { entry.secret.fill(0); keys.delete(key); } }
     } };
   }, options.scopeKey);
+  // PAJA_CVM_OPERATIONS is every napplet request in NAP-CVM #31 @ 28cf1bdb, so
+  // the unscoped base only ever sees types the NAP does not define. NIP-5D
+  // (nips#2303 @ f60550c3) and NAP-CVM both require those to get no reply.
+  const ignoreUnrecognized = createUnrecognizedTypeDiagnostic();
   return {
-    cvm: scoped('cvm', { descriptor: { name: 'cvm', version: '1.0.0' }, handleMessage(_windowId, message, send) {
-      send({ type: `${message.type}.result`, id: 'id' in message ? message.id : '', error: 'unsupported' } as Parameters<typeof send>[0]);
+    cvm: scoped('cvm', { descriptor: { name: 'cvm', version: '1.0.0' }, handleMessage(_windowId, message) {
+      ignoreUnrecognized('cvm', message.type);
     } }, PAJA_CVM_OPERATIONS),
     webrtc: scoped('webrtc', createWebrtcService(), ['webrtc.open', 'webrtc.send', 'webrtc.close']),
   };

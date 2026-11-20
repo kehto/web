@@ -19,7 +19,7 @@ export const THEME_FIXTURE: DomainFixture = {
   ],
   pushes: [
     {
-      id: 'theme/changed', type: 'theme.changed', trigger: { control: 'theme.publish' },
+      id: 'theme/changed', type: 'theme.changed', trigger: { control: 'theme.publish' }, broadcast: true,
       then: [{ id: 'theme/get-after-change', type: 'theme.get' }],
       semantics: {
         rule: 'theme.changed carries the new theme with the required colors, and theme.get then returns it',

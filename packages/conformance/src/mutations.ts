@@ -194,6 +194,19 @@ export const MUTATIONS: readonly MutationSpec[] = [
     },
   },
   {
+    name: 'advertise-disabled-backend',
+    domains: ['relay'],
+    description: 'The minimal profile stops disabling relay although no relay backend exists, so relay is advertised and injected without one.',
+    expect: ['catalog/capability-truthfulness', 'relay/correlation', 'relay/semantics'],
+    create: (applied) => ({
+      hooks(hooks) {
+        const disabled = (hooks.capabilities?.disabledDomains ?? []).filter((domain) => domain !== 'relay');
+        if (disabled.length !== (hooks.capabilities?.disabledDomains ?? []).length) applied.count += 1;
+        return { ...hooks, capabilities: { ...hooks.capabilities, disabledDomains: disabled } };
+      },
+    }),
+  },
+  {
     name: 'supports-depends-on-init',
     description: 'shell.supports() returns false until shell.init arrives.',
     expect: ['shell/local-supports'],

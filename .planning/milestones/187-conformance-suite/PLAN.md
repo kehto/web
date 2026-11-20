@@ -82,7 +82,7 @@ the original notes:
 - Package versions are injected at build time (tsup `define`); JSR source
   consumers see `dev`.
 
-Findings (real Kehto failures, not relaxed):
+Findings (real Kehto failures, not relaxed; the one below was fixed on staging by #472):
 
 - `nip5d/unknown-envelope`: `storage.<unknown>` is answered with
   `storage.<unknown>.result` + `error: "unknown storage action: …"`
@@ -101,3 +101,33 @@ once. Mutations are selected by name (`MUTATIONS`) so they cross
 `page.evaluate`; each counts its applications so a silently dead mutation
 fails. `shell/local-supports` gained a first-init probe because the retained
 snapshot alone cannot show an init inventing availability.
+
+## Phase 2 status (2026-11-20)
+
+Per-domain coverage shipped as the third stacked PR. Fixtures and backends for
+the 21 non-exemplar domains were written by three helpers in their own
+worktrees (`feat/187-domains-{a,b,c}`) against `domain-brief.md` in the session
+scratchpad, then merged here; storage, theme, identity and inc were the lead's
+exemplars. Framework changes driven by their reports: `fill` from earlier
+replies, request-caused pushes (no trigger), push match applied while waiting,
+`since`-mark waits (a synchronous push could beat the quiet window), isolation
+`setup`, binary payload revival, endpoint release between scenarios, and the
+`broadcast` flag for NAP-mandated pushes.
+
+Design decisions a maintainer may overrule:
+
+- `catalog/acl-denial` judges only the message type: silence or the canonical
+  result (with or without `error`) passes, `<type>.error` fails unless the NAP
+  defines it (resource). The pinned NAPs leave the projection of a policy
+  denial open, so a safe default without `error` is reported, not failed.
+- `catalog/capability-truthfulness` fails an advertised domain when any request
+  it is sent is not serviced canonically (NIP-5D: presence means available).
+- `catalog/package-drift` is error severity: the issue requires missing
+  specified package APIs to fail with drift diagnostics.
+- `catalog/broadcast-to-loaded` replaces the earlier `nip5d/push-independent`
+  idea: only pushes the owning NAP requires for every loaded napplet
+  (theme.changed, identity.changed) are judged on listen-only endpoints.
+
+Not covered yet: multi-endpoint NAP-INTENT delivery and privacy (the intent
+backend exposes the controls), cross-endpoint LLM/WebRTC scoping, and the
+success path of `relay.publishEncrypted` (the fixture signer has no nip44).

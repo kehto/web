@@ -6,13 +6,20 @@
  * Usage:
  *   node scripts/audit-naps.mjs            # human report
  *   node scripts/audit-naps.mjs --json     # machine report
- *   node scripts/audit-naps.mjs --strict   # exit 1 when anything is stale/missing
+ *   node scripts/audit-naps.mjs --strict   # exit 1 when anything is stale/retired/missing
+ *
+ * `scripts/deferred-naps.json` lists upstream drafts Kehto deliberately does
+ * not mock yet, pinned to a PR number and head sha with a one-line reason.
+ * A missing document matching an entry exactly is reported as `deferred` and
+ * does not fail `--strict`. When the head moves the document is `missing`
+ * again, so the deferral is re-reviewed; an entry whose PR closed or that a
+ * mock now covers is `retired`, so the list stays honest.
  *
  * Requires the GitHub CLI (`gh`) with read access to napplet/naps. The pure
  * helpers are exported so unit tests can run without network access.
  */
 import { execFileSync } from 'node:child_process';
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -64,6 +71,23 @@ export function collectSpecRefs(domainsDir) {
   return refs;
 }
 
+/**
+ * Read the deferred-draft list. A missing file means nothing is deferred.
+ * @param {string} file
+ * @returns {Array<{ nap: string, path: string, pr: number, sha: string, reason: string }>}
+ */
+export function loadDeferred(file) {
+  if (!existsSync(file)) return [];
+  const entries = JSON.parse(readFileSync(file, 'utf8'));
+  if (!Array.isArray(entries)) throw new TypeError(`${file} must be a JSON array`);
+  for (const entry of entries) {
+    const valid = entry && typeof entry.nap === 'string' && NAP_PATH.test(entry.path) && Number.isInteger(entry.pr)
+      && /^[0-9a-f]{12,40}$/.test(entry.sha) && typeof entry.reason === 'string' && entry.reason.length > 0;
+    if (!valid) throw new TypeError(`invalid deferred entry in ${file}: ${JSON.stringify(entry)}`);
+  }
+  return entries;
+}
+
 function gh(args, exec) {
   return exec('gh', args);
 }
@@ -97,8 +121,9 @@ function shaMatches(recorded, live) {
  * Compare recorded refs with the live inventory.
  * @param {ReturnType<typeof collectSpecRefs>} refs
  * @param {ReturnType<typeof fetchUpstream>} upstream
+ * @param {ReturnType<typeof loadDeferred>} [deferredList]
  */
-export function compareRefs(refs, upstream) {
+export function compareRefs(refs, upstream, deferredList = []) {
   const current = [];
   const stale = [];
   const retired = [];
@@ -138,7 +163,20 @@ export function compareRefs(refs, upstream) {
       }
     }
   }
-  return { current, stale, retired, missing };
+  const deferred = [];
+  const stillMissing = [];
+  for (const item of missing) {
+    const entry = item.source === 'pr' ? deferredList.find((candidate) => candidate.pr === item.pr && candidate.path === item.path) : undefined;
+    if (entry && shaMatches(entry.sha, item.sha)) deferred.push({ ...item, reason: entry.reason });
+    else stillMissing.push(entry ? { ...item, deferredAt: entry.sha } : item);
+  }
+  for (const entry of deferredList) {
+    const ref = { nap: entry.nap, status: 'draft', source: 'pr', pr: entry.pr, sha: entry.sha, path: entry.path };
+    const pull = upstream.pulls.find((item) => item.number === entry.pr);
+    if (!pull) retired.push({ ref, reason: `deferred PR #${entry.pr} is not open; drop it from deferred-naps.json` });
+    else if (covered.has(entry.path)) retired.push({ ref, reason: 'deferred document is now mocked; drop it from deferred-naps.json' });
+  }
+  return { current, stale, retired, missing: stillMissing, deferred };
 }
 
 /**
@@ -154,7 +192,9 @@ export function formatReport(report) {
   row('current', report.current, ({ ref }) => `${ref.nap} ${ref.source === 'pr' ? `PR #${ref.pr}` : 'master'} @ ${ref.sha}`);
   row('stale', report.stale, ({ ref, liveSha, title }) => `${ref.nap} ${ref.source === 'pr' ? `PR #${ref.pr}` : 'master'} recorded ${ref.sha}, live ${liveSha.slice(0, 12)}${title ? ` — ${title}` : ''}`);
   row('retired', report.retired, ({ ref, reason }) => `${ref.nap} ${ref.source === 'pr' ? `PR #${ref.pr}` : 'master'} — ${reason}`);
-  row('missing', report.missing, (item) => `${item.path} ${item.source === 'pr' ? `PR #${item.pr}${item.draft ? ' (draft)' : ''}` : 'master'} @ ${item.sha.slice(0, 12)}${item.title ? ` — ${item.title}` : ''}`);
+  const where = (item) => `${item.path} ${item.source === 'pr' ? `PR #${item.pr}${item.draft ? ' (draft)' : ''}` : 'master'} @ ${item.sha.slice(0, 12)}`;
+  row('missing', report.missing, (item) => `${where(item)}${item.title ? ` — ${item.title}` : ''}${item.deferredAt ? ` (deferred at ${item.deferredAt}; head moved, re-review)` : ''}`);
+  row('deferred', report.deferred ?? [], (item) => `${where(item)} — ${item.reason}`);
   return lines.join('\n');
 }
 
@@ -163,7 +203,7 @@ function main() {
   const here = dirname(fileURLToPath(import.meta.url));
   const refs = collectSpecRefs(join(here, '..', 'src', 'domains'));
   const upstream = fetchUpstream();
-  const report = compareRefs(refs, upstream);
+  const report = compareRefs(refs, upstream, loadDeferred(join(here, 'deferred-naps.json')));
   if (args.has('--json')) {
     console.log(JSON.stringify(report, null, 2));
   } else {

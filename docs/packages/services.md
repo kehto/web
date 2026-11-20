@@ -11,8 +11,10 @@ Reference service handlers for Kehto runtime implementations.
 WebRTC opening uses a side-effect-free signaling plan before runtime approval.
 The reference handler requires separate `network` permissions with typed `ice`
 scopes for each configured STUN/TURN endpoint. This does not constrain direct
-iframe networking, which remains a launch-policy concern. Optional bytes/stats
-requests return correlated `unsupported` results until a host implements them.
+iframe networking, which remains a launch-policy concern. Without a byte hook,
+`webrtc.sendBytes` returns a correlated `unsupported` result, as NAP-WEBRTC
+requires. A `webrtc.stats` request gets no reply: NAP-WEBRTC defines `stats`
+only as a pushed event.
 
 OUTBOX and COUNT resolve relay destinations before approval. Their remote
 backends receive the approved immutable URL list and cancellation signal; local
@@ -25,7 +27,7 @@ service instance with `FW-OUTBOX-LEGACY-001`. See [compatibility](/compatibility
 The reference LINK service integrates shared runtime approvals after URL
 validation. A LINK grant never gives direct network access. Runtime cancellation
 and source replacement prevent stale opens/results; repeated request IDs cannot
-reopen a link. Unknown methods are silent. The temporary host-only opener path
+reopen a link. The temporary host-only opener path
 emits `FW-LINK-LEGACY-001` once per instance. See
 [the approval guide](/firewall-approvals) for its migration contract and the
 remaining launch admission and host approval UI work.
@@ -33,6 +35,13 @@ remaining launch admission and host approval UI work.
 > **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
 > protocol. Service envelopes and NAP contracts are not final.
 
+
+Every reference service drops a message whose type its NAP does not define,
+with no reply, as NIP-5D requires. That includes a `webrtc.stats` request, which
+NAP-WEBRTC defines only as a pushed event. The host gets one
+`[KEHTO_UNRECOGNIZED_MESSAGE_TYPE]` warning per domain/type through
+`createUnrecognizedTypeDiagnostic` from `@kehto/runtime`. A known type with a
+bad payload still gets the domain's specified failure result.
 ## Install
 
 ```bash
@@ -186,6 +195,16 @@ Security Considerations (shells SHOULD apply per-napplet concurrency limits).
   relay selection, and napplet wire messages are unchanged; pool adapters may
   ignore the optional metadata argument. This follows the routing inputs in
   [NAP-OUTBOX draft #32 at `8865f73`](https://github.com/napplet/naps/blob/8865f73d52a4864afee145f28d26520476273927/naps/NAP-OUTBOX.md).
+- OUTBOX relay failures are never reported as `policy denied`. A failing
+  relay-list loader falls back to configured relays (Shell Behavior: "SHOULD fall
+  back to configured relays when NIP-65 data is absent, stale, or unreachable");
+  planning and transport failures carry `relay list unavailable` or
+  `relay timeout`; planned reads settle on EOSE and mark partial relay failure
+  `incomplete: true`. Only an approval that did not execute, a revoked approval,
+  a relay-gate refusal, or an unplannable router is `policy denied`; a declined
+  publish is `publish denied`. Spec gap: the draft has no "no relay reachable" or
+  "relay refused" code, so the closest defined codes are used. See the
+  [services README](https://github.com/kehto/web/blob/main/packages/services/README.md#approval-aware-relay-services).
 - `createOutboxService()` accepts a source-scoped `getReadRouter` for
   `outbox.getEvent`, `outbox.query`, and `outbox.subscribe`, while the optional
   `getQueryRouter` can layer query-only policy or caching on top.

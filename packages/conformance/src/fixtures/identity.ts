@@ -32,7 +32,7 @@ export const IDENTITY_FIXTURE: DomainFixture = {
   ],
   pushes: [
     {
-      id: 'identity/changed-sign-out', type: 'identity.changed', trigger: { control: 'identity.signOut' },
+      id: 'identity/changed-sign-out', type: 'identity.changed', trigger: { control: 'identity.signOut' }, broadcast: true,
       then: [{ id: 'identity/getPublicKey-signed-out', type: 'identity.getPublicKey' }],
       semantics: {
         rule: 'identity.changed is emitted on sign-out, and getPublicKey then returns "" rather than an error',
@@ -42,6 +42,14 @@ export const IDENTITY_FIXTURE: DomainFixture = {
           if (after?.error !== undefined) return `getPublicKey while disconnected returned error ${JSON.stringify(after.error)}`;
           return after?.pubkey === '' ? null : `getPublicKey while disconnected returned ${JSON.stringify(after?.pubkey)}`;
         },
+      },
+    },
+    {
+      // Restores the signed-in user for every later domain, and proves the change back.
+      id: 'identity/changed-sign-in', type: 'identity.changed', trigger: { control: 'identity.signIn' },
+      semantics: {
+        rule: 'identity.changed is emitted on sign-in with the connected user\'s hex pubkey',
+        verify: (push) => (typeof push?.pubkey === 'string' && HEX_PUBKEY.test(push.pubkey) ? null : `identity.changed pubkey was ${JSON.stringify(push?.pubkey)}`),
       },
     },
   ],

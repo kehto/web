@@ -307,6 +307,7 @@ export async function bootKehtoSession(variant: TargetVariant, host: HTMLElement
     loadProbe: (spec) => loadProbe(state, spec),
     loadRogue: (plan) => loadRogue(state, plan),
     async destroyEndpoint(id) { destroyEndpoint(state, id); },
+    async releaseEndpoints() { for (const id of Array.from(state.frames.keys())) destroyEndpoint(state, id); },
     revocations: () => [...state.revocations],
     transcript: () => [...state.transcript],
     controls: backends.controls,

@@ -54,8 +54,9 @@ export function parseNapTypes(source: string, domain: string): ParsedOperations 
   // declared literal that is not outbound. Doc comments are stripped first.
   const code = source.replace(/\/\*[\s\S]*?\*\//g, '');
   const literals = code.matchAll(new RegExp(`\\btype\\??: '(${domain}\\.[A-Za-z0-9_.-]+)'`, 'g'));
-  const declared = [...resolve('Inbound'), ...resolve('Result'), ...[...literals].map((match) => match[1] as string)];
-  const inbound = new Set(declared.filter((type) => !outbound.has(type)));
+  // Union members are taken as declared (a type may travel both ways); bare literals only when not outbound.
+  const loose = [...literals].map((match) => match[1] as string).filter((type) => !outbound.has(type));
+  const inbound = new Set([...resolve('Inbound'), ...resolve('Result'), ...loose]);
   return { outbound: [...outbound].sort(), inbound: [...inbound].sort() };
 }
 

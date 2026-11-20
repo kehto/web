@@ -56,6 +56,7 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
 | Session and manifests | `createSessionRegistry`, `createNappKeyRegistry`, `createManifestCache`, `SessionRegistry`, `NappKeyRegistry`, `ManifestCache` |
 | State and replay | `createAclState`, `handleStorageNap`, `cleanupNappState`, `createReplayDetector`, `createEventBuffer`, `matchesFilter`, `matchesAnyFilter`, `RING_BUFFER_SIZE` |
 | Service dispatch | `routeServiceMessage`, `notifyServiceWindowDestroyed`, `ServiceHandler`, `ServiceRegistry`, `ServiceInfo` |
+| Unrecognized types | `createUnrecognizedTypeDiagnostic`, `KEHTO_UNRECOGNIZED_MESSAGE_TYPE`, `UNRECOGNIZED_TYPE_WARNING_LIMIT`, `IgnoreUnrecognizedType`, `UnrecognizedTypeDiagnosticOptions` |
 | Re-exports | `Capability`, `ALL_CAPABILITIES`, `ServiceDescriptor` |
 
 ## Scope Boundaries
@@ -110,6 +111,13 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
   retired subscriptions remain suppressed after regrant and `subId` reuse.
   This host policy conforms to [NAP-RELAY draft PR #2 at
   `9f30b3505335a52c574ff570576687d6467021ff`](https://github.com/napplet/naps/blob/9f30b3505335a52c574ff570576687d6467021ff/naps/NAP-RELAY.md).
+- A relay that throws while an approved `relay.subscribe`, `relay.publish`,
+  `relay.publishEncrypted`, or `relay.query` runs reports a transport reason
+  (`relay subscription failed`, `publish failed`, `relay query failed`). Only an
+  approval that did not execute keeps `relay authorization unavailable or
+  denied`. A subscription that fails after it opened is retired, so no event
+  or EOSE follows its `relay.closed`. NAP-RELAY reasons are free-form, so only
+  that split is fixed.
 - Follows draft NAP-RELAY PR #2 at
   `0be8abce18beb46ca37bd4ddd042f58d30b4eedc`: `relay.publish` accepts an
   unsigned template, signs it through the shell-owned signer, publishes only
@@ -128,6 +136,18 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
 - Routes service-only NAP domains such as `dm` and `fs` through registered handlers, so protocol backends stay outside core runtime dispatch.
 - Does not own browser `window`, iframe creation, DOM, `postMessage` listeners, or localStorage implementation details.
 - Browser concerns live in `@kehto/shell`.
+
+## ACL denial wires
+
+ACL and legacy Firewall denials answer each recognized request on its owning
+NAP's failure wire, never an invented `<type>.error`. A denied `cvm.*` request
+gets its matching `.result` with `error: "policy denied"` (NAP-CVM #31 at
+`28cf1bdb`); `relay`, `outbox`, `upload.upload`, `count`, `notify`, `dm` and
+`fs` follow their own NAPs, and requests with no defined reply stay silent. A
+denied type that its NAP does not define as a napplet request gets no reply in
+any domain. The
+per-type table, refs and remaining spec gaps are in
+[RUNTIME-SPEC.md](https://github.com/kehto/web/blob/main/RUNTIME-SPEC.md).
 
 ## Registered extension routing
 
@@ -169,6 +189,31 @@ A request for a service-only domain with no handler is dropped without a reply:
 [NIP-5D at `f60550c`](https://github.com/dskvr/nips/blob/f60550c3409d6d81a875088ec83e660571e10504/5D.md) requires unrecognized types to be silently ignored. The runtime logs
 `[KEHTO_UNROUTED_SERVICE_DOMAIN]` once per domain per runtime, naming the domain
 only. See [Services that arrive late](/how-tos/register-service#services-that-arrive-late).
+
+### Unrecognized message types
+
+A type that the owning NAP does not define gets no reply from any runtime handler,
+from any `@kehto/services` reference service, or through the ACL/firewall denial
+path. This holds even when a capability would be denied, because NIP-5D says
+"Unrecognized message types are silently ignored, preventing capability probing."
+A known type with a malformed payload still gets its NAP's failure result.
+
+`createUnrecognizedTypeDiagnostic()` gives a service the matching host-side
+diagnostic. Call it once per service instance, drop the message, and call the
+returned function with your domain and the incoming type:
+
+```ts
+import { createUnrecognizedTypeDiagnostic } from '@kehto/runtime';
+
+const ignoreUnrecognized = createUnrecognizedTypeDiagnostic();
+// inside handleMessage, after the known types:
+ignoreUnrecognized('serial', message.type); // no reply
+```
+
+It logs `[KEHTO_UNRECOGNIZED_MESSAGE_TYPE]` once per domain/type, for at most
+`UNRECOGNIZED_TYPE_WARNING_LIMIT` (16) types per instance, then goes quiet. It
+prints the type only when it is a plain `domain.action` string of up to 64
+characters, and never logs payloads or ids. Pass `{ warn }` to send it elsewhere.
 
 ### Registration and initialization limits
 

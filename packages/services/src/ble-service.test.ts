@@ -166,13 +166,22 @@ describe('createBleService', () => {
     ]);
   });
 
-  it('contains unknown ble actions', () => {
+  it('silently ignores unknown ble types and warns the host once', () => {
+    // NIP-5D (nostr-protocol/nips#2303 @ dskvr/nips@f60550c3): "Messages with an
+    // unrecognized `type` MUST be silently ignored." The old `.error` reply broke that.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const service = createBleService();
     const { sent, send } = collectSent();
 
     service.handleMessage(WINDOW_ID, { type: 'ble.unknown', id: 'u1' } as NappletMessage, send);
+    service.handleMessage(WINDOW_ID, { type: 'ble.unknown', id: 'u2' } as NappletMessage, send);
 
-    expect(sent).toEqual([{ type: 'ble.unknown.error', id: 'u1', error: 'Unknown ble method: ble.unknown' }]);
+    expect(sent).toEqual([]);
+    const lines = warn.mock.calls.map(([line]) => String(line)).filter((line) => line.includes('[KEHTO_UNRECOGNIZED_MESSAGE_TYPE]'));
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain('"ble.unknown"');
+    expect(lines[0]).not.toContain('u1');
+    warn.mockRestore();
   });
 
   it('delegates window destroy cleanup when configured', () => {

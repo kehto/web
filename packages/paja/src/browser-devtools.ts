@@ -1,3 +1,4 @@
+import { classifyPajaMessageOutcome, type PajaMessageOutcome } from './message-log-outcome.js';
 import type { NappletMessage } from '@napplet/core';
 import {
   ALL_CAPABILITIES,
@@ -38,6 +39,8 @@ export interface PajaMessageLogEntry {
   preview: string;
   /** Error/detail text, when available. */
   detail: string;
+  /** Whether the row is a refusal or a failure; absent for ordinary rows. */
+  outcome?: PajaMessageOutcome;
 }
 
 /** Mutable browser devtools state for the Paja host page. */
@@ -188,6 +191,7 @@ export function appendPajaMessageLog(
     windowId,
     preview: previewMessage(raw),
     detail: describeMessageDetail(raw),
+    outcome: classifyPajaMessageOutcome(direction, raw),
   });
   if (state.messageLog.length > PAJA_LOG_LIMIT) {
     state.messageLog.splice(0, state.messageLog.length - PAJA_LOG_LIMIT);
@@ -278,7 +282,11 @@ export function renderPajaMessageLog(state: PajaDevtoolsState): void {
       const row = document.createElement('div');
       row.className = 'log-row';
       row.dataset.messageType = entry.type;
-      if (entry.type.endsWith('.error')) row.dataset.error = 'true';
+      if (entry.outcome) {
+        // A relay or transport failure is never shown as a firewall denial.
+        row.dataset.error = 'true';
+        row.dataset.outcome = entry.outcome;
+      }
       const dir = document.createElement('div');
       dir.className = 'log-dir';
       dir.textContent = entry.direction;
@@ -288,6 +296,12 @@ export function renderPajaMessageLog(state: PajaDevtoolsState): void {
       type.className = 'log-type';
       type.title = entry.preview;
       type.textContent = entry.type;
+      if (entry.outcome) {
+        const badge = document.createElement('span');
+        badge.className = 'log-outcome';
+        badge.textContent = entry.outcome === 'denied' ? 'denied' : 'failed, not a denial';
+        body.append(badge);
+      }
       body.append(type);
       if (entry.detail) {
         const detail = document.createElement('div');

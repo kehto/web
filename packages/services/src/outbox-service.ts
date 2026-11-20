@@ -35,6 +35,7 @@
 
 import type { EventTemplate, NappletMessage, NostrEvent, NostrFilter } from '@napplet/core';
 import type { ApprovalSignal, RelayEventResult, ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
+import { publishApproved, queryApproved, subscribeApproved, UNPLANNABLE_ROUTER_REASON } from './outbox-approved.js';
 
 /** Outbox service version — follows semver. */
 const OUTBOX_SERVICE_VERSION = '1.0.0';
@@ -375,34 +376,6 @@ function handleGetEvent(actions: OutboxActions, windowId: string, msg: NappletMe
     .catch((err) => send({ type: 'outbox.getEvent.result', id, error: toErrorMessage(err) } as NappletMessage));
 }
 
-function capturePlan(plan: OutboxRelayPlan): OutboxRelayPlan {
-  const captured = { ...plan, relays: [...plan.relays] };
-  Object.freeze(captured.relays);
-  return Object.freeze(captured);
-}
-
-async function queryApproved(
-  router: OutboxRouter,
-  runtime: ServiceRuntimeContext,
-  windowId: string,
-  operation: string,
-  filters: NostrFilter[],
-  options: OutboxQueryOptions | undefined,
-): Promise<OutboxResult> {
-  const planned = router as StreamingOutboxRouter;
-  if (!planned.planRead || !planned.queryWithPlan) return { events: [], error: 'policy denied' };
-  const plan = capturePlan(await planned.planRead(filters, options));
-  const outcome = await runtime.authorizeOperation!(windowId, operation, [
-    { category: 'interface', domain: 'outbox', operation: 'access', scope: { kind: 'exact', value: 'outbox' } },
-    ...plan.relays.map((url) => ({ category: 'network' as const, domain: 'outbox', operation, scope: { kind: 'origin' as const, value: new URL(url).origin } })),
-  ], async (signal) => {
-    if (signal.aborted) return { events: [], error: 'policy denied' };
-    const result = await planned.queryWithPlan!(filters, options, plan, signal);
-    return signal.aborted ? { events: [], error: 'policy denied' } : result;
-  });
-  return outcome.status === 'executed' && outcome.value ? outcome.value : { events: [], error: 'policy denied' };
-}
-
 interface OutboxActions {
   readonly router: OutboxRouter;
   readonly getReadRouter: OutboxServiceOptions['getReadRouter'];
@@ -474,20 +447,11 @@ function handleSubscribe(actions: OutboxActions, windowId: string, msg: NappletM
   const subscribeOptions = sanitizeSubscribeOptions(m.options);
   const planned = readRouter as StreamingOutboxRouter;
   if (planned.planRead && planned.subscribeWithPlan && runtimeContext?.authorizeOperation) {
-    void planned.planRead(filters, subscribeOptions).then(capturePlan).then((plan) => runtimeContext!.authorizeOperation!(windowId, 'outbox.subscribe', [
-      { category: 'interface', domain: 'outbox', operation: 'access', scope: { kind: 'exact', value: 'outbox' } },
-      ...plan.relays.map((url) => ({ category: 'network' as const, domain: 'outbox', operation: 'outbox.subscribe', scope: { kind: 'origin' as const, value: new URL(url).origin } })),
-    ], (signal) => {
-      if (signal.aborted) return;
-      const sub = planned.subscribeWithPlan!(filters, plan, sink);
-      if (signal.aborted) sub.close(); else subscriptions.set(subKey, sub);
-    })).then((outcome) => {
-      if (outcome.status !== 'executed') send({ type: 'outbox.closed', subId, reason: 'policy denied' } as NappletMessage);
-    }).catch(() => send({ type: 'outbox.closed', subId, reason: 'policy denied' } as NappletMessage));
+    subscribeApproved(subscriptions, planned, runtimeContext, { windowId, subId, subKey, filters, options: subscribeOptions, sink, send });
     return;
   }
   if (runtimeContext?.authorizeOperation) {
-    send({ type: 'outbox.closed', subId, reason: 'policy denied' } as NappletMessage);
+    send({ type: 'outbox.closed', subId, reason: UNPLANNABLE_ROUTER_REASON } as NappletMessage);
     return;
   }
   actions.warnLegacy();
@@ -517,12 +481,9 @@ function handlePublish(actions: OutboxActions, windowId: string, msg: NappletMes
   const publishOptions = sanitizePublishOptions(m.options);
   const planned = router as StreamingOutboxRouter;
   const operation = planned.planPublish && planned.publishWithPlan && runtimeContext?.authorizeOperation
-    ? planned.planPublish(publishOptions).then(capturePlan).then((plan) => runtimeContext!.authorizeOperation!(windowId, 'outbox.publish', [
-      { category: 'interface', domain: 'outbox', operation: 'access', scope: { kind: 'exact', value: 'outbox' } },
-      ...plan.relays.map((url) => ({ category: 'network' as const, domain: 'outbox', operation: 'outbox.publish', scope: { kind: 'origin' as const, value: new URL(url).origin } })),
-    ], (signal) => signal.aborted ? { ok: false, error: 'policy denied' } : planned.publishWithPlan!(m.event!, plan)).then((outcome) => outcome.status === 'executed' && outcome.value ? outcome.value : { ok: false, error: 'policy denied' }))
+    ? publishApproved(planned, runtimeContext, windowId, m.event, publishOptions)
     : runtimeContext?.authorizeOperation
-      ? Promise.resolve({ ok: false, error: 'policy denied' } as OutboxPublishResult)
+      ? Promise.resolve({ ok: false, error: UNPLANNABLE_ROUTER_REASON } as OutboxPublishResult)
       : (actions.warnLegacy(), router.publish(m.event, publishOptions));
   void operation
     .then((result) =>
