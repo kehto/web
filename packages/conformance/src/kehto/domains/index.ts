@@ -10,6 +10,8 @@ import { LISTS_BACKEND } from './lists.js';
 import { CONFIG_BACKEND } from './config.js';
 import { RESOURCE_BACKEND } from './resource.js';
 import { CVM_BACKEND } from './cvm.js';
+import { UPLOAD_BACKEND } from './upload.js';
+import { INTENT_BACKEND } from './intent.js';
 import type { DomainBackendModule } from './types.js';
 
 /** Backends the full profile installs. The minimal profile installs none. */
@@ -23,4 +25,6 @@ export const DOMAIN_BACKENDS: readonly DomainBackendModule[] = [
   CONFIG_BACKEND,
   RESOURCE_BACKEND,
   CVM_BACKEND,
+  UPLOAD_BACKEND,
+  INTENT_BACKEND,
 ];

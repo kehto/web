@@ -11,6 +11,8 @@ import { LISTS_FIXTURE } from './lists.js';
 import { CONFIG_FIXTURE } from './config.js';
 import { RESOURCE_FIXTURE } from './resource.js';
 import { CVM_FIXTURE } from './cvm.js';
+import { UPLOAD_FIXTURE } from './upload.js';
+import { INTENT_FIXTURE } from './intent.js';
 import type { DomainFixture } from './types.js';
 
 /** Fixtures the generic domain scenario runs. */
@@ -26,5 +28,7 @@ export const FIXTURES: Readonly<Record<string, DomainFixture>> = Object.freeze(O
     CONFIG_FIXTURE,
     RESOURCE_FIXTURE,
     CVM_FIXTURE,
+    UPLOAD_FIXTURE,
+    INTENT_FIXTURE,
   ].map((fixture) => [fixture.domain, fixture]),
 ));
