@@ -526,6 +526,22 @@ describe('NIP-5D conformance static guards', () => {
     expect(csp).toContain('Development base origin needs matching exact approved network authority');
   });
 
+  it('refuses colliding legacy path entries instead of picking one (kehto/web#525)', () => {
+    // NIP-5A @ bec0fc89 is silent on duplicate `path` tags; behavior is pinned in
+    // packages/nip/src/5d/index.test.ts, this guard pins the wiring and policy row.
+    const legacy = readRepoFile('packages/nip/src/5d/legacy-manifest.ts');
+    const resolver = readRepoFile('packages/nip/src/5d/index.ts');
+    const policy = readRepoFile('docs/policies/NIP-5D-CONFORMANCE.md');
+    expect(legacy).toContain("export const INDEX_PATH_ALIASES: readonly string[] = ['/index.html', 'index.html', '/'];");
+    expect(legacy).toMatch(/assertUniquePaths\(paths\);\n/);
+    expect(resolver).toContain('assertUniquePaths(manifest.paths);');
+    expect(resolver).toContain("canonicalNappletPath(e.path) === '/index.html'");
+    expect(resolver).not.toContain('INDEX_PATHS');
+    expect(policy).toContain('### Legacy path collisions');
+    expect(policy).toContain('f60550c3409d6d81a875088ec83e660571e10504');
+    expect(policy).toContain('bec0fc89e75645e77a06d145598246efca844457');
+  });
+
   it('keeps active NAP-SHELL support domain-only and host resolution out of injected APIs', () => {
     const namespace = readRepoFile('packages/shell/src/napplet-namespace.ts');
     const readme = readRepoFile('packages/shell/README.md');

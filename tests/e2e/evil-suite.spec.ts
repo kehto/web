@@ -89,6 +89,9 @@ async function runNapplet(page: Page, id: string, html: Buffer): Promise<Napplet
   });
   try {
     await page.goto(server.url);
+    // Paja publishes __KEHTO_PAJA__ in the same tick it installs the file-input
+    // listener, so an earlier upload is silently dropped (kehto/web#525).
+    await page.waitForFunction(() => window.__KEHTO_PAJA__ !== undefined, undefined, { timeout: 15_000 });
     await page.locator('#runtime-local-file').setInputFiles({ name: `${id}.html`, mimeType: 'text/html', buffer: html });
     const frame = await waitForSuiteFrame(page);
     let rows = frame ? await settledRows(frame) : {};

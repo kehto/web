@@ -345,3 +345,65 @@ describe('resolveNapplet', () => {
       .rejects.toMatchObject({ code: 'missing-index' });
   });
 });
+
+// kehto/web#525: NIP-5A (nostr-protocol/nips@bec0fc8) only says a host "SHOULD
+// look for a `path` tag where the second element matches the requested path";
+// it is silent on duplicates. Kehto refuses colliding paths rather than pick one.
+describe('legacy manifests with colliding path entries (kehto/web#525)', () => {
+  const first = blob('<!doctype html><title>advertised</title>');
+  const second = blob('<!doctype html><title>executed</title>');
+  const blobs = new Map([[first.hash, first.bytes], [second.hash, second.bytes]]);
+
+  function legacyEvent(entries: PathEntry[]): NostrEvent {
+    const tags = entries.map((entry) => ['path', entry.path, entry.sha256]);
+    tags.push(['x', computeAggregateHash(entries), 'aggregate']);
+    return finalizeEvent({ kind: NAPPLET_KIND_ROOT, created_at: 1_700_000_000, tags, content: '' }, SK);
+  }
+
+  it.each([
+    ['two /index.html entries', ['/index.html', '/index.html']],
+    ['/ and /index.html', ['/', '/index.html']],
+    ['index.html and /index.html', ['index.html', '/index.html']],
+    ['two /app.js entries', ['/app.js', '/app.js']],
+  ])('refuses %s instead of picking one', async (_label, paths) => {
+    const entries = [
+      { path: paths[0], sha256: first.hash },
+      { path: paths[1], sha256: second.hash },
+      ...(paths[0] === '/app.js' ? [{ path: '/index.html', sha256: first.hash }] : []),
+    ];
+    const event = legacyEvent(entries);
+    expect(() => parseNappletManifest(event)).toThrow(/duplicate path/);
+    await expect(resolveNapplet({ event, fetchBlob: fetcherFor(blobs) }))
+      .rejects.toMatchObject({ code: 'invalid-manifest' });
+  });
+
+  it('refuses the same path declared twice with the same hash', () => {
+    const event = legacyEvent([
+      { path: '/index.html', sha256: first.hash },
+      { path: '/index.html', sha256: first.hash },
+    ]);
+    expect(() => parseNappletManifest(event)).toThrow(/duplicate path/);
+  });
+
+  it.each(['/index.html', '/', 'index.html'])('still loads a single %s entry', async (path) => {
+    const event = legacyEvent([{ path, sha256: first.hash }, { path: '/app.js', sha256: second.hash }]);
+    const resolved = await resolveNapplet({ event, fetchBlob: fetcherFor(blobs) });
+    expect(resolved.indexHtml).toBe(new TextDecoder().decode(first.bytes));
+    expect(resolved.files.get(path)).toEqual(first.bytes);
+  });
+});
+
+describe('fetchBlob hash-mismatch diagnostics (kehto/web#525)', () => {
+  it('names the hash mismatch when a server answers with other bytes', async () => {
+    const { hash } = blob('payload');
+    await expect(fetchBlob(['https://a.example'], hash, async () => enc.encode('forged')))
+      .rejects.toThrow(/https:\/\/a\.example returned bytes that do not match sha256/);
+  });
+
+  it('keeps the plain message when no server answered at all', async () => {
+    const { hash } = blob('payload');
+    await expect(fetchBlob(['https://a.example'], hash, async () => {
+      throw new Error('404');
+    })).rejects.toThrow(new RegExp(`^no server served blob ${hash}$`));
+  });
+});

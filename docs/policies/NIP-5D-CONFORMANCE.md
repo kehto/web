@@ -56,6 +56,29 @@ isolated in `packages/nip/src/5d/legacy-manifest.ts`. Never retry malformed curr
 events through that adapter. Keep paired-schema tests until it is removed.
 See [migration and removal policy](../migrations/NIP-5D-EVENT-SCHEMA.md).
 
+### Legacy path collisions
+
+Checked NIP-5D at `nostr-protocol/nips#2303` head
+`f60550c3409d6d81a875088ec83e660571e10504`, which has no `path` schema: "A
+napplet is a single self-contained `/index.html`" with "exactly one `x` tag".
+NIP-5A at `nostr-protocol/nips@bec0fc89e75645e77a06d145598246efca844457` only
+says "The host server SHOULD look for a `path` tag where the second element
+matches the requested path" and "MUST fall back to using the `index.html`
+filename" for a request without one. Neither text covers duplicate `path`
+tags, so this is a bounded Kehto policy for the legacy adapter (kehto/web#525):
+
+- The legacy parser (`assertUniquePaths` in
+  `packages/nip/src/5d/legacy-manifest.ts`) refuses with `invalid-manifest` any
+  event whose `path` entries collide after canonicalisation. The only aliasing
+  the resolver applies is `/`, `index.html` and `/index.html` as the entry
+  document; every other path compares exactly.
+- `resolveNapplet` checks again before fetching, so its file map and its
+  index lookup use one key per entry. Kehto never picks one of two colliding
+  entries. Otherwise readers of the first entry would see bytes other than the
+  ones the host runs.
+- Current single-artifact events carry one synthesized `/index.html` entry and
+  never reach this branch.
+
 ### Shell CSP enforcement
 
 CSP authority is [NIP-5D at
