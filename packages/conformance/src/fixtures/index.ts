@@ -3,6 +3,7 @@
  */
 import { GAMEPAD_FIXTURE } from './gamepad.js';
 import { IDENTITY_FIXTURE } from './identity.js';
+import { LLM_FIXTURE } from './llm.js';
 import { SERIAL_FIXTURE } from './serial.js';
 import { STORAGE_FIXTURE } from './storage.js';
 import { THEME_FIXTURE } from './theme.js';
@@ -13,6 +14,7 @@ export const FIXTURES: Readonly<Record<string, DomainFixture>> = Object.freeze(O
   [
     GAMEPAD_FIXTURE,
     IDENTITY_FIXTURE,
+    LLM_FIXTURE,
     SERIAL_FIXTURE,
     STORAGE_FIXTURE,
     THEME_FIXTURE,
