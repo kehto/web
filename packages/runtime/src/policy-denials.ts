@@ -74,7 +74,9 @@
  *
  * Where the NAP lists only common error strings, the runtime's reason passes
  * through unchanged; a fixed code is used only where the NAP mandates one or
- * defines an enumerated code set.
+ * defines an enumerated code set, or where it separates a machine-readable
+ * `error` code from a human `reason` (NAP-LISTS), in which case `error` is
+ * `"policy-denied"` and the runtime's reason goes in `reason`.
  *
  * Spec-gap decisions (kehto/web#481; each is the narrowest reply the text
  * permits, raised upstream as a question on the owning draft):

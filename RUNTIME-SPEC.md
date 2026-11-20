@@ -286,7 +286,9 @@ with the napplet/naps ref and sentence it implements:
 | `gamepad` | #130 `0b28f77e` | `subscribe` → `gamepad.state` `available: false`, `reason: "blocked"`, `focused: false`, `pads: []`; `unsubscribe` silent |
 
 The runtime's reason (`denied: <capability>` or `firewall: <reason>`) passes
-through except where the NAP mandates a code or enumerates one.
+through except where the NAP mandates a code or enumerates one, or separates a
+machine-readable `error` code from a human `reason` (NAP-LISTS): there `error`
+is `"policy-denied"` and the runtime's reason goes in `reason`.
 
 Every request type the domains above define now has a row; none is answered with
 an invented `<type>.error`. ACL does not gate `common`, `lists`, `serial`,
