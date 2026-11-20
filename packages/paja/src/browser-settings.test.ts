@@ -64,6 +64,19 @@ describe('Paja browser settings store', () => {
     expect(getPajaSetting('fs.maxWatchCount')).toBe(32);
   });
 
+  // NAP-NOTIFY (napplet/naps#11 @ 67877ef6) §Actions: "Notifications may include up to 3 action
+  // buttons" and "The shell MAY limit the number of actions displayed" — a shell may go below 3, never above.
+  it('cannot raise notify.maxActions past the NAP-NOTIFY limit of 3', () => {
+    const { store } = storage(JSON.stringify({ 'notify.maxActions': 10 }));
+    const settings = createPajaSettingsStore({ getStorage: () => store });
+    expect(getPajaSetting('notify.maxActions')).toBe(3);
+    const result = settings.save({ 'notify.maxActions': 4 });
+    expect(result.ok).toBe(false);
+    expect(Object.keys(result.errors)).toEqual(['notify.maxActions']);
+    expect(settings.save({ 'notify.maxActions': 0 }).ok).toBe(true);
+    expect(getPajaSetting('notify.maxActions')).toBe(0);
+  });
+
   it('layers user overrides over config-file seeds and resets back to the seed', () => {
     const { store } = storage(JSON.stringify({ 'llm.modelsTimeoutMs': 20_000 }));
     const settings = createPajaSettingsStore({

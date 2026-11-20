@@ -1015,7 +1015,7 @@ policy in their drafts (NAP-FS `bd1b9e9`, NAP-WEBRTC `fb4dd6f`, NAP-RESOURCE
 | `console.messageLogLimit` | Messages kept in the log | 500 | 10–100000 |
 | `console.messageLogVisibleRows` | Messages rendered in the log | 120 | 10–10000 |
 | `notify.badgeMaxCount` | Largest badge count shown | 9999 | 9–1000000 |
-| `notify.maxActions` | Actions per notification | 3 | 0–10 |
+| `notify.maxActions` | Actions per notification | 3 | 0–3 |
 | `gamepad.axisDeadzone` | Stick deadzone | 0.12 | 0–1 |
 | `gamepad.buttonThreshold` | Button press threshold | 0.05 | 0–1 |
 | `gamepad.activityHoldMs` | Controller activity highlight | 420 ms | 0–10000 |

@@ -177,7 +177,7 @@ export const PAJA_SETTING_DEFINITIONS = Object.freeze([
     ['console.messageLogLimit', 'Messages kept in the log', 500, 10, 100_000, 'count'],
     ['console.messageLogVisibleRows', 'Messages rendered in the log', 120, 10, 10_000, 'count'],
     ['notify.badgeMaxCount', 'Largest badge count shown', 9999, 9, 1_000_000, 'count'],
-    ['notify.maxActions', 'Actions per notification', 3, 0, 10, 'count'],
+    ['notify.maxActions', 'Actions per notification', 3, 0, 3, 'count'],
     ['gamepad.axisDeadzone', 'Stick deadzone', 0.12, 0, 1, 'ratio'],
     ['gamepad.buttonThreshold', 'Button press threshold', 0.05, 0, 1, 'ratio'],
     ['gamepad.activityHoldMs', 'Controller activity highlight', 420, 0, 10 * SECOND_MS, 'ms'],
