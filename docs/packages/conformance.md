@@ -38,8 +38,8 @@ npx playwright install chromium
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.42.0 <0.43.0` |
-| `@napplet/nap` | `>=0.37.0 <0.42.0` |
+| `@napplet/core` | `>=0.42.0 <0.45.0` |
+| `@napplet/nap` | `>=0.37.0 <0.44.0` |
 | `nostr-tools` | `>=2.23.3 <=2.x` |
 | `@playwright/test` | `^1.54.0` (optional; only the headless runner needs it) |
 
