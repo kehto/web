@@ -12,7 +12,7 @@ acceptance contract. This file is the written plan kept in place of the
 | napplet/naps master | `377bf939c6c906817084b43dd21d424de646dbc2` (SHELL, IDENTITY, INC, INTENT, THEME, `projections/web.md`) | merged |
 | Open NAP drafts | per-domain PR heads recorded in `packages/conformance/src/authority.ts` | draft |
 | Packaged contract | `@napplet/nap@0.41.0`, `@napplet/core@0.42.0` (lockfile, via #451) | installed |
-| Kehto baseline | `kehto/web@8b72f3ba` | `staging/issue-sweep-2611` (main `b29e2a70` + #451, #452, #453, #454, #449) |
+| Kehto baseline | `kehto/web@ffa9726b` | `staging/issue-sweep-2611` (main `b29e2a70` + #449, #451–#454, #456, #448, #450) |
 | Reference product shape | `napplet/web@71d1bbac` `packages/conformance`, `packages/conformance-cli`, `apps/conformance` | architecture only |
 
 Differences from the issue's pinned refs: NIP-5D now carries every NAP message
@@ -63,3 +63,30 @@ re-diffs the 0.40 and 0.41 `types.d.ts` before building the inventory.
 - #451 `chore/441-upstream-cvm-registry-types`: `@napplet/core` 0.42 / `@napplet/nap` 0.41
   and the lockfile. The drift guard pins the installed version, so rebase the inventory.
 - #449 exports `randomUUID` from `@kehto/shell`; #450, #448, #453 do not touch this work.
+
+## Phase 1 status (2026-11-20)
+
+Shipped as the first PR into `staging/issue-sweep-2611`. Design changes against
+the original notes:
+
+- `nip5d/port-binding` no longer compares Kehto's revocation reason label. NIP-5D
+  (Identity) names the replacement evidence and the teardown, not a reason
+  vocabulary, so revocation plus frame removal is the core condition and the
+  label is diagnostics only.
+- The wire tap gained a synchronous `shell.init` echo (`hold.echoInit`) so
+  `shell/receiver-order` proves the receiver existed before `shell.ready`, a
+  backlog so early inbound messages reach the probe, and the probe language
+  gained an `assign` step for the read-only `services` check.
+- `forge(message, 'sibling')` posts from the collector frame's realm so
+  `shell/source-trust` covers a non-parent source as well as the parent.
+- Package versions are injected at build time (tsup `define`); JSR source
+  consumers see `dev`.
+
+Findings (real Kehto failures, not relaxed):
+
+- `nip5d/unknown-envelope`: `storage.<unknown>` is answered with
+  `storage.<unknown>.result` + `error: "unknown storage action: …"`
+  (`packages/runtime/src/state-handler.ts`). NIP-5D Wire Format: "Messages with an
+  unrecognized `type` MUST be silently ignored." NAP-STORAGE@4f4cf0ca's "MUST return
+  an `error` field … for invalid requests" covers its own result messages, not
+  unrecognized types.
