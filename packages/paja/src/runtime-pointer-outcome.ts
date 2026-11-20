@@ -1,4 +1,5 @@
 import type { PajaRelayConnectionSummary } from './runtime-resolver.js';
+import { getPajaSetting } from './settings.js';
 
 /** Close reason nostr-tools reports for a relay that answered with `EOSE`. */
 export const PAJA_RELAY_EOSE_REASON = 'closed automatically on eose';
@@ -142,7 +143,7 @@ export function tallyPointerRelayReasons(
       answered += 1;
       return;
     }
-    const text = (reason || 'connection failed').slice(0, 160);
+    const text = (reason || 'connection failed').slice(0, getPajaSetting('target.failureReasonChars'));
     failed.push(paired ? { url: relays[index], reason: text } : { reason: text });
   });
   return { answered, failed };
@@ -163,11 +164,12 @@ export function describePointerNotFound(pointerType: string, tally: PajaPointerR
   const head = `Napplet manifest not found (${tally.answered} answered, ${tally.failed.length} failed):`
     + ` ${tally.answered} ${tally.answered === 1 ? 'relay' : 'relays'} reached EOSE without a matching ${pointerType} napplet manifest event.`;
   if (tally.failed.length === 0) return head;
-  const details = tally.failed.slice(0, 3).map((entry) => entry.url ? `${entry.url}: ${entry.reason}` : entry.reason);
-  const more = tally.failed.length > 3 ? `; +${tally.failed.length - 3} more` : '';
+  const shown = getPajaSetting('target.failureReasonCount');
+  const details = tally.failed.slice(0, shown).map((entry) => entry.url ? `${entry.url}: ${entry.reason}` : entry.reason);
+  const more = tally.failed.length > shown ? `; +${tally.failed.length - shown} more` : '';
   return `${head} ${tally.failed.length === 1 ? 'One relay' : `${tally.failed.length} relays`} could not be asked (${details.join('; ')}${more}).`;
 }
 
 function distinctReasons(reasons: readonly string[]): string[] {
-  return [...new Set(reasons)].slice(0, 3);
+  return [...new Set(reasons)].slice(0, getPajaSetting('target.failureReasonCount'));
 }

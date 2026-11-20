@@ -14,6 +14,7 @@ import type {
   IntentTargetAcceptance,
   IntentTargetController,
 } from '@kehto/services';
+import { getPajaSetting } from './settings.js';
 
 /** Opaque current target generation controlled by the browser host. */
 export interface BrowserIntentGeneration {
@@ -56,7 +57,6 @@ export interface BrowserIntentControllerOptions {
   onAccepted?(params: IntentDispatchParams, acceptance: IntentTargetAcceptance): void;
 }
 
-const MAX_INTENT_DELIVERY_ATTEMPTS = 10;
 
 /**
  * Creates/focuses a target and enqueues one convention delivery.
@@ -120,7 +120,7 @@ export class BrowserIntentController implements IntentTargetController {
 function normalizeAttempts(value: number | undefined): number {
   if (value === undefined) return 2;
   if (!Number.isFinite(value)) throw new TypeError('maxAttempts must be finite');
-  return Math.min(MAX_INTENT_DELIVERY_ATTEMPTS, Math.max(1, Math.floor(value)));
+  return Math.min(getPajaSetting('intent.maxDeliveryAttempts'), Math.max(1, Math.floor(value)));
 }
 
 function freezeDispatch(params: IntentDispatchParams): IntentDispatchParams {

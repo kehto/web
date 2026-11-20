@@ -185,25 +185,34 @@ Security Considerations (shells SHOULD apply per-napplet concurrency limits).
   it.
 - `notifications/cancelled` "may refer only to this napplet's requests". Its
   `params.requestId` must name a request this napplet sent in the session:
-  - one still in flight goes to the new optional `CvmTransport.cancel()` with
-    that request's handle (passed to `request()` as `execution.handle`).
-    `createNostrCvmTransport` rewrites `requestId` to the correlation id it
-    actually sent, keeping the rest of the message, and publishes nothing if
-    the request settled meanwhile;
-  - one that already settled is acknowledged (only `type` and `id`) and not
-    published, since there is nothing left to cancel;
+  - one still queued for admission or awaiting approval is dropped before
+    publication: it never reaches the transport, its approval prompt is
+    withdrawn and no approval is asked for the cancellation;
+  - one already handed to the transport goes to the optional
+    `CvmTransport.cancel()` with that request's handle (passed to `request()`
+    as `execution.handle`). `createNostrCvmTransport` rewrites `requestId` to
+    the correlation id it actually sent, keeping the rest of the message, and
+    publishes nothing if the request settled meanwhile or was not sent yet;
+  - one that already settled, or is already being cancelled, is acknowledged
+    (only `type` and `id`) under the policy every `cvm.request` to that
+    server gets, and not published;
   - any other `requestId`, or none, is `invalid message` and never published
     (spec-gap decision: the NAP names the restriction but no error for it).
 
-  A transport without `cancel()` gets the in-flight cancellation through
+  Once a cancellation is dropped locally or published, the napplet's own
+  `cvm.request` settles with `session closed` before the cancellation is
+  acknowledged, and a late server answer is ignored (MCP: the sender "SHOULD
+  ignore any response to the request that arrives afterward"). A transport
+  still preparing the request sees its signal abort and never sends it.
+  Spec-gap decision: NAP-CVM names no error for a request its own napplet
+  cancelled, and `session closed` is its one code for pending work the calling
+  endpoint ended. If publishing the cancellation fails, the cancellation gets
+  that error and the request keeps running. A cancellation never takes an
+  admission slot; it keeps its own deadline and still ends on close or
+  teardown. A transport without `cancel()` gets the cancellation through
   `publish()` unchanged and the service warns once
-  (`KEHTO_CVM_TRANSPORT_CANCEL`, see `docs/compatibility.md`). A cancellation
-  only asks the server to stop; the napplet's own `cvm.request` still ends with
-  the server's answer or `relay timeout`. Known limits: a cancellation that
-  arrives while its request is still queued, awaiting approval or initializing
-  reaches a transport that hasn't sent it yet, so nothing is published and the
-  request still goes out; and a cancellation takes an admission slot like any
-  `cvm.request`, so a saturated endpoint queues or refuses it.
+  (`KEHTO_CVM_TRANSPORT_CANCEL`, see `docs/compatibility.md`); the request is
+  still settled locally.
 - A malformed `server` reference returns `invalid request` on `cvm.request` and
   `cvm.close` (it used to be `server not found` and `session closed`). An
   unknown but well-formed server is still `server not found`.

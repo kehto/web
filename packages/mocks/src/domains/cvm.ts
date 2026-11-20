@@ -25,6 +25,9 @@
  *   `requestId` this window never used in the session is `invalid message`
  *   (kehto decision, as `createCvmService`). Every request here has already
  *   settled, so a cancellation of one of its own is acknowledged and dropped.
+ *   The service's other cancellation outcomes (kehto/web#510: a queued,
+ *   pending-approval or in-flight request settled with `session closed`)
+ *   cannot arise here, because no request is ever unsettled.
  * - Server requests "still require a response or expire under session
  *   policy": a delivered server request stays answerable for
  *   `serverRequestTimeoutMs` (default 30000, the Timeouts default), then a

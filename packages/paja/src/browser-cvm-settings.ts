@@ -1,6 +1,7 @@
 import { discoverCvmFamilies, type CvmDiscoveryCandidate, type CvmDiscoveryDependencies } from './cvm-discovery.js';
 import { readCvmFamilies, saveCvmFamilies, type SavedCvmFamily } from './cvm-family-store.js';
 import { normalizePajaCvmFamily } from './multiplayer-config.js';
+import { getPajaSetting } from './settings.js';
 
 /** Host-owned discovery UI. Saving reloads the host so existing iframe scopes are torn down. */
 export function installPajaCvmSettings(deps: CvmDiscoveryDependencies): () => void {
@@ -57,7 +58,7 @@ export function installPajaCvmSettings(deps: CvmDiscoveryDependencies): () => vo
   on(find, 'click', () => {
     cancel();
     const controller = new AbortController(); request = controller;
-    const timeout = setTimeout(() => controller.abort(new Error('Discovery timed out. Check the website and relay connections.')), 15000);
+    const timeout = setTimeout(() => controller.abort(new Error('Discovery timed out. Check the website and relay connections.')), getPajaSetting('cvm.discoveryTimeoutMs'));
     find.disabled = true; save.disabled = true; manualMode = false; results.disabled = true; results.replaceChildren(); candidates = []; selected = undefined; editingIndex = undefined;
     json.value = ''; json.readOnly = true; label.disabled = true; tools.hidden = true;
     origin.textContent = 'Source: discovery pending'; status.textContent = 'Looking for verified tool announcements…';

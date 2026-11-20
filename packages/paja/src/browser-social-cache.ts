@@ -7,6 +7,8 @@ import type {
 } from '@kehto/services';
 
 import { matchesAnyFilter } from './browser-relay-runtime.js';
+import { getPajaSetting } from './settings.js';
+import { KIND_CONTACT_LIST } from './nostr-kinds.js';
 
 /** Dependencies Paja supplies to its private active-account social snapshot. */
 export interface PajaSocialCacheOptions {
@@ -47,10 +49,6 @@ interface SocialSnapshot {
 // 4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e. Outbox remains draft-scoped,
 // so this implementation makes no current-master OUTBOX conformance claim.
 const HEX_PUBKEY = /^[0-9a-f]{64}$/i;
-/** Bounds synchronous follow-tag processing before yielding to the event loop. */
-const FOLLOW_PARSE_YIELD_EVERY = 64;
-/** Bounds sequential profile queries before yielding to the event loop. */
-const PROFILE_WARM_YIELD_EVERY = 64;
 
 /**
  * Creates Paja's memory-only, account-scoped social cache.
@@ -131,7 +129,7 @@ export function createPajaSocialCache(options: PajaSocialCacheOptions): PajaSoci
           const profile = profileResult(warmed, author);
           if (profile) snapshot.profiles.set(author, profile);
         }
-        if ((index + 1) % PROFILE_WARM_YIELD_EVERY === 0 && index + 1 < follows.length) {
+        if ((index + 1) % getPajaSetting('social.profileWarmYieldEvery') === 0 && index + 1 < follows.length) {
           if (!isStillCurrent()) return;
           await yieldToEventLoop();
           if (!isStillCurrent()) return;
@@ -202,7 +200,7 @@ function normalizePubkey(value: unknown): string | null {
 function isContactCandidate(candidate: unknown, capturedPubkey: string): candidate is NostrEvent {
   if (typeof candidate !== 'object' || candidate === null) return false;
   const event = candidate as Partial<NostrEvent>;
-  return event.kind === 3 && normalizePubkey(event.pubkey) === capturedPubkey;
+  return event.kind === KIND_CONTACT_LIST && normalizePubkey(event.pubkey) === capturedPubkey;
 }
 
 function selectReplacement(events: NostrEvent[]): NostrEvent | undefined {
@@ -224,7 +222,7 @@ async function contactPubkeys(event: NostrEvent | undefined, isStillCurrent?: ()
       const pubkey = normalizePubkey(tag[1]);
       if (pubkey) follows.add(pubkey);
     }
-    if ((index + 1) % FOLLOW_PARSE_YIELD_EVERY === 0 && index + 1 < event.tags.length) {
+    if ((index + 1) % getPajaSetting('social.followParseYieldEvery') === 0 && index + 1 < event.tags.length) {
       await yieldToEventLoop();
       if (isStillCurrent && !isStillCurrent()) return [];
     }

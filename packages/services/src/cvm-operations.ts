@@ -13,7 +13,7 @@
  * spent waiting for a slot is spent from the same budget.
  */
 
-import { createCvmAdmission, type CvmConcurrencyOptions } from './cvm-admission.js';
+import { createCvmAdmission, type CvmAdmissionTicket, type CvmConcurrencyOptions } from './cvm-admission.js';
 
 /** What a running operation can see of its own lifecycle. */
 export interface CvmOperation {
@@ -32,16 +32,31 @@ interface Tracked {
   settled: Promise<void>;
 }
 
+/** How {@link CvmOperations.run} admits an operation. */
+export interface CvmRunOptions {
+  /**
+   * `false` runs at once without a slot or queue position. Only for work that
+   * acts on an operation already admitted, such as the `notifications/cancelled`
+   * that ends it; it keeps its deadline and still ends on close or teardown.
+   * Default `true`.
+   */
+  readonly admit?: boolean;
+}
+
 /** Tracker returned by {@link createCvmOperations}. */
 export interface CvmOperations {
   /**
    * Admit and run one operation for an authenticated endpoint. Exactly one of
    * `resolve` or `reject` is called. A full queue rejects with `policy denied`
    * without running `body`.
+   *
+   * @returns The tracked operation, also while it is still queued, or
+   * `undefined` when admission refused it.
    */
   run<T>(owner: string, durationMs: number, servers: readonly string[],
     body: (operation: CvmOperation) => Promise<T>,
-    resolve: (value: T) => void, reject: (error: unknown) => void): void;
+    resolve: (value: T) => void, reject: (error: unknown) => void,
+    options?: CvmRunOptions): CvmOperation | undefined;
   /**
    * Abort the matching operations and resolve once each has delivered its
    * terminal result and released its slot. Omit `owner` to match every endpoint.
@@ -51,6 +66,12 @@ export interface CvmOperations {
   inFlight(owner: string): number;
   /** Operations currently queued for this endpoint. */
   queued(owner: string): number;
+}
+
+/** Start at once, holding nothing. */
+function unadmitted(begin: () => void): CvmAdmissionTicket {
+  begin();
+  return { release() {} };
 }
 
 /**
@@ -69,7 +90,7 @@ export function createCvmOperations(concurrency?: CvmConcurrencyOptions): CvmOpe
   const tracked = new Map<string, Set<Tracked>>();
 
   return {
-    run(owner, durationMs, servers, body, resolve, reject) {
+    run(owner, durationMs, servers, body, resolve, reject, options = {}) {
       const controller = new AbortController();
       const deadline = Date.now() + durationMs;
       const handle: CvmOperation = {
@@ -86,13 +107,13 @@ export function createCvmOperations(concurrency?: CvmConcurrencyOptions): CvmOpe
       const work = new Promise<unknown>((done, fail) => {
         begin = () => { try { done(body(handle)); } catch (error) { fail(error); } };
       });
-      const ticket = admission.admit(owner, begin);
+      const ticket = options.admit === false ? unadmitted(begin) : admission.admit(owner, begin);
       if (!ticket) {
         // Spec gap: NAP-CVM #31 @ 28cf1bdb has no load-shedding error. Admission
         // is shell policy, so overflow reuses `policy denied`, matching how a
         // busy approval budget already surfaces for this domain.
         reject(new Error('policy denied'));
-        return;
+        return undefined;
       }
       const timer = setTimeout(() => handle.abort('relay timeout'), durationMs);
       const aborted = new Promise<never>((_done, fail) => {
@@ -112,6 +133,7 @@ export function createCvmOperations(concurrency?: CvmConcurrencyOptions): CvmOpe
           owned.delete(entry);
           if (owned.size === 0 && tracked.get(owner) === owned) tracked.delete(owner);
         });
+      return handle;
     },
     cancel(owner, reason, match) {
       const settled: Promise<void>[] = [];

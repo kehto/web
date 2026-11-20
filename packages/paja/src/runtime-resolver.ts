@@ -17,6 +17,7 @@ import {
 
 import { normalizePublicBlossomServer } from './browser-resource.js';
 import { classifyPointerMiss, PajaPointerNotFoundError } from './runtime-pointer-outcome.js';
+import { getPajaSetting } from './settings.js';
 
 export { PajaPointerNotFoundError } from './runtime-pointer-outcome.js';
 export type { PajaPointerRelayTally } from './runtime-pointer-outcome.js';
@@ -403,7 +404,7 @@ function trackRelayConnections(
 function describeRelayFailure(error: unknown): string {
   const text = error instanceof Error ? error.message : String(error ?? '');
   const trimmed = text.trim();
-  return (trimmed.length > 0 ? trimmed : 'connection failed').slice(0, 160);
+  return (trimmed.length > 0 ? trimmed : 'connection failed').slice(0, getPajaSetting('target.failureReasonChars'));
 }
 
 function describeRelayUnreachable(
@@ -492,12 +493,12 @@ function relayFailureReasons(reasons: readonly string[]): string[] {
   return [...new Set(reasons
     .map((reason) => reason.trim())
     .filter((reason) => reason.length > 0 && reason !== 'closed automatically on eose')
-    .map((reason) => reason.slice(0, 160)))]
-    .slice(0, 3);
+    .map((reason) => reason.slice(0, getPajaSetting('target.failureReasonChars'))))]
+    .slice(0, getPajaSetting('target.failureReasonCount'));
 }
 
 function normalizeMaxWaitMs(value: number | undefined): number {
-  if (value === undefined) return 5_000;
+  if (value === undefined) return getPajaSetting('target.runtimeWaitMs');
   if (!Number.isFinite(value) || value <= 0) {
     throw new Error('Pointer relay deadline must be a positive number of milliseconds.');
   }

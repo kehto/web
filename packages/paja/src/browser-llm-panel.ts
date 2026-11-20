@@ -22,6 +22,7 @@ import {
   type PajaLlmRequestIdentity,
 } from './browser-llm-connections.js';
 import { createPajaLlmVault, validatePajaLlmVaultPassword, type PajaLlmCredentialStorage, type PajaLlmVault } from './browser-llm-vault.js';
+import { getPajaSetting } from './settings.js';
 
 /** Panel controller exposed to the host page. */
 export interface PajaLlmPanel {
@@ -106,7 +107,7 @@ function createPasswordDialog(): PasswordDialog {
       dialog.dataset.mode = mode;
       title.textContent = mode === 'create' ? 'Create a credential vault password' : 'Unlock the credential vault';
       copy.textContent = mode === 'create'
-        ? `Paja encrypts remembered API keys with this password (PBKDF2-SHA-256 and AES-GCM). It is never stored or sent anywhere; use at least ${String(12)} characters.`
+        ? `Paja encrypts remembered API keys with this password (PBKDF2-SHA-256 and AES-GCM). It is never stored or sent anywhere; use at least ${String(getPajaSetting('vault.minPasswordLength'))} characters.`
         : 'Enter the vault password to use a remembered API key for this session.';
       confirm.textContent = mode === 'create' ? 'Create vault' : 'Unlock';
       return new Promise<string | null>((resolve) => {

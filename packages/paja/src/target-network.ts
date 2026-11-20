@@ -16,6 +16,7 @@
  */
 
 import { readDevelopmentDomains } from './local-target.js';
+import { getPajaSetting } from './settings.js';
 
 /** Whether the frame loads from the dev origin or runs a closed snapshot. */
 export type PajaTargetNetworkMode = 'live' | 'isolated';
@@ -37,7 +38,6 @@ export interface PajaTargetNetworkPlan {
   readonly hint: string | null;
 }
 
-const MAX_REPORTED_REFERENCES = 8;
 const LOADING_LINK_RELS = new Set(['stylesheet', 'modulepreload', 'preload', 'icon', 'manifest']);
 
 /** Remedy offered whenever `resource` and live dev-server loading collide. */
@@ -69,7 +69,7 @@ export function findExternalAssetReferences(html: string): string[] {
     const value = (reference?.[1] ?? reference?.[2] ?? reference?.[3] ?? '').trim();
     if (!value || value.startsWith('#') || /^(?:data|blob):/i.test(value)) continue;
     found.add(value);
-    if (found.size >= MAX_REPORTED_REFERENCES) break;
+    if (found.size >= getPajaSetting('target.maxReportedReferences')) break;
   }
   return [...found];
 }

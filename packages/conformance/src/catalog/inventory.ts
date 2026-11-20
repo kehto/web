@@ -2,11 +2,11 @@
  * catalog/inventory.ts — The pinned operation inventory and its drift diagnostics.
  */
 import { INVENTORY } from './inventory.generated.js';
-import type { ParsedOperations } from './nap-types-parser.js';
+import type { MessageFields, ParsedOperations } from './nap-types-parser.js';
 
 export { INVENTORY };
 
-/** One domain's operations from both sources. */
+/** One domain's operations and message fields from both sources. */
 export interface DomainInventory {
   /** Id of the owning {@link AuthorityRef}. */
   readonly authority: string;
@@ -14,6 +14,10 @@ export interface DomainInventory {
   readonly package: ParsedOperations;
   /** From the wire table of the pinned NAP document. */
   readonly spec: ParsedOperations;
+  /** Payload fields per message of the installed `<Domain>NapMessage` union. */
+  readonly packageFields: Readonly<Record<string, MessageFields>>;
+  /** Payload fields per message, from the payload column of the pinned wire table. */
+  readonly specFields: Readonly<Record<string, MessageFields>>;
 }
 
 /** A napplet -> runtime operation and where it is declared. */

@@ -7,6 +7,7 @@ import { createCvmOperations, type CvmOperation, type CvmOperations } from './cv
 import { mcpMessageForm } from './cvm-message.js';
 import { createCvmCorrelations, type CvmCorrelations, type CvmRequestHandle } from './cvm-correlation.js';
 import { randomUUID } from './random-uuid.js';
+import { handleCvmCancellation, type CvmRequestState } from './cvm-local-cancel.js';
 
 const CVM_SERVICE_VERSION = '1.0.0';
 /** NAP-CVM #31 @ 28cf1bdb, Timeouts: default and maximum accepted duration. */
@@ -89,6 +90,8 @@ interface CvmActions {
   readonly registry: NonNullable<CvmServiceOptions['registry']>;
   readonly operations: CvmOperations;
   readonly correlations: CvmCorrelations;
+  /** Lifecycle of each napplet request still unsettled, for cancellation. */
+  readonly requests: WeakMap<CvmRequestHandle, CvmRequestState>;
   /** Publish a notification or response without awaiting an MCP reply. */
   readonly publish: (server: CvmServerRef, message: McpMessage, options: CvmRequestOptions, execution: { signal: AbortSignal }) => Promise<void>;
   /** Publish a cancellation of an in-flight request; `false` when it already settled. */
@@ -141,36 +144,37 @@ function handleRequest(actions: CvmActions, windowId: string, generation: symbol
   // duplicates cannot both pass approval.
   if (form === 'request' && !correlations.claimRequest(windowId, generation, server.pubkey, message.id!)) { fail('invalid message'); return; }
   if (form === 'response' && !correlations.takeResponse(windowId, generation, server.pubkey, message.id!)) { fail('invalid message'); return; }
-  // Spec-gap decision: "notifications/cancelled may refer only to this
-  // napplet's requests". One naming no request this napplet sent in this
-  // session is `invalid message` and never published.
-  const cancellation = form === 'notification' && message.method === 'notifications/cancelled';
-  const requestId = cancellation ? (message.params as { requestId?: unknown } | undefined)?.requestId : undefined;
-  if (cancellation && correlations.cancelTarget(windowId, generation, server.pubkey, requestId).state === 'foreign') { fail('invalid message'); return; }
-  const handle = form === 'request' ? correlations.startRequest(windowId, generation, server.pubkey, message.id!) : undefined;
-  const settle = () => { if (handle) correlations.finishRequest(windowId, generation, server.pubkey, message.id!, handle); };
   const requestOptions = m.options && typeof m.options === 'object' ? m.options : {};
-  operations.run(windowId, duration, [server.pubkey],
+  if (form === 'notification' && message.method === 'notifications/cancelled') {
+    // Ends the napplet's own request wherever it is; bypasses admission.
+    handleCvmCancellation({
+      operations, correlations, requests: actions.requests, fail,
+      ack: () => currentSend(windowId, generation, { type: 'cvm.request.result', id } as NappletMessage),
+      authorize: (work, execute) => authorize(windowId, generation, 'cvm.request', relays, server, work, execute),
+      publish: async (work, handle) => {
+        remember(windowId, generation, server);
+        await cancel(server, handle, message, { ...requestOptions, timeoutMs: work.remaining() }, { signal: work.signal });
+      },
+    }, { windowId, generation, server, requestId: (message.params as { requestId?: unknown } | undefined)?.requestId, duration });
+    return;
+  }
+  const handle = form === 'request' ? correlations.startRequest(windowId, generation, server.pubkey, message.id!) : undefined;
+  const state: CvmRequestState = { dispatched: false, cancelling: false };
+  if (handle) actions.requests.set(handle, state);
+  const settle = () => { if (handle) correlations.finishRequest(windowId, generation, server.pubkey, message.id!, handle); };
+  state.operation = operations.run(windowId, duration, [server.pubkey],
     (work) => authorize(windowId, generation, 'cvm.request', relays, server, work, async () => {
       const timeoutMs = work.remaining();
       const options = { ...requestOptions, timeoutMs };
       const execution = { signal: work.signal };
-      if (cancellation) {
-        // A cancellation of a request that already settled has nothing to
-        // cancel: acknowledged without publication.
-        const target = correlations.cancelTarget(windowId, generation, server.pubkey, requestId);
-        if (target.state !== 'in-flight') return null;
-        remember(windowId, generation, server);
-        await cancel(server, target.handle, message, options, execution);
-        return null;
-      }
       // NAP-CVM: an accepted outbound message establishes participation. Record
       // it before the transport acquires its session so a failed or timed-out
       // request cannot strand a transport session and relay hold.
       remember(windowId, generation, server);
-      return form === 'request'
-        ? transport.request(server, message, options, { ...execution, handle })
-        : publish(server, message, options, execution).then(() => null);
+      if (form !== 'request') return publish(server, message, options, execution).then(() => null);
+      // From here a cancellation must go through the transport (#509).
+      state.dispatched = true;
+      return transport.request(server, message, options, { ...execution, handle });
     }),
     // Notification and response: "After transport publication, result without
     // `message`" — the success result has only `type` and `id`.
@@ -322,7 +326,7 @@ export function createCvmServiceHandler(options: CvmServiceOptions): CvmService 
   });
 
   const actions: CvmActions = {
-    transport, registry: options.registry ?? [], operations, correlations, publish, cancel, currentSend, current, remember, release, authorize,
+    transport, registry: options.registry ?? [], operations, correlations, requests: new WeakMap(), publish, cancel, currentSend, current, remember, release, authorize,
   };
 
   /** Retire an endpoint: no further replies, every slot and session returned. */
