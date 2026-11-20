@@ -274,10 +274,34 @@ normalization), they are **documented here rather than altered**. Tightening the
 to silent-ignore is a candidate for a future behavior-only change, gated on
 updating their tests.
 
-The ACL-denial and firewall-reject paths (`packages/runtime/src/runtime.ts`)
-follow the same envelope-shaping rule: `storage.*` denials reply via `.result`
-(with an `error` field); all other domains reply via `.error`. These are
-denial responses to *recognized* messages, not unknown-`type` handling.
+The ACL-denial and firewall-reject paths (`packages/runtime/src/runtime.ts`,
+`legacy-firewall-gate.ts`) answer *recognized* requests on the owning NAP's
+failure wire. `storage.*`, `inc.subscribe`/`inc.channel.open`, `intent.*`,
+`llm.*` and runtime-owned `identity.*`/`theme.*` keep their existing shapes.
+`packages/runtime/src/policy-denials.ts` holds one row per exact request type,
+with the napplet/naps ref and sentence it implements:
+
+| Domain | Ref | Denial wire |
+|--------|-----|-------------|
+| `cvm` | #31 `28cf1bdb` | matching `.result`, `error: "policy denied"`, no success fields; unknown `cvm.*` silent |
+| `relay` | #2 `9f30b350` | `publish`/`publishEncrypted` → `.result` `ok: false`; `query` → `.result` `error`; `subscribe` → `relay.closed`; `close` silent |
+| `outbox` | #32 `8865f73d` | `getEvent`/`query`/`publish` → `.result` (`events: []` for query, `ok: false` for publish); `subscribe` → `outbox.closed`; `close` silent |
+| `upload` | #33 `f5cc981e` | `upload.upload.result` with `error` |
+| `count` | #69 `9353a0c6` | `count.query.result` `ok: false`, `error: "policy-denied"`, `reason` |
+| `notify` | #11 `67877ef6` | `send` → `.result` `error`; `permission.request` → `granted: false`; `dismiss`/`badge`/`channel.register` silent |
+| `dm` | #74 `2c4e4423` | every request's `.result` with `error` only |
+| `fs` | #88 `bd1b9e91` | every request's `.result`, `error: "policy-denied"` |
+
+The runtime's reason (`denied: <capability>` or `firewall: <reason>`) passes
+through except where the NAP mandates a code or enumerates one.
+
+Spec gaps (still answered with the generic `<type>.error`, which no NAP
+defines): `upload.info`/`upload.status` and `outbox.resolveRelays` (their
+results require a success field and the NAP doesn't say what it holds on
+failure), `config.*` (NAP-CONFIG #14 has its own `ok`/`code` catalogue and
+push errors), `keys.*` (NAP-KEYS #9 results have no `error` field), `media.*`
+(two open drafts, #10 and #133), and unknown types in every domain except
+`cvm`. `resource.*` keeps `.error`, which NAP-RESOURCE #80 defines.
 
 ## Retired Drift
 

@@ -79,35 +79,37 @@ function makeSessionEntryAged(windowId: string, msAgo = 0): ReturnType<typeof cr
 }
 
 /**
- * Find the first message index (0-based) at which a `relay.publish.error`
- * appears in `sent`. Returns -1 if no error was found.
+ * Whether `message` is a Firewall rejection of a relay publish.
+ *
+ * NAP-RELAY napplet/naps#2 @ 9f30b350, Error Handling: "`relay.publish.result`
+ * includes `ok: false` and an `error` string on failure." The gate's reason is
+ * prefixed `firewall:`, which tells it apart from a dispatched handler failure.
  */
-function firstRejectIndex(sent: MockRuntimeContext['sent']): number {
-  for (let i = 0; i < sent.length; i++) {
-    const msg = sent[i].message;
-    if (
-      typeof msg === 'object' &&
-      msg !== null &&
-      !Array.isArray(msg) &&
-      (msg as NappletMessage).type === 'relay.publish.error'
-    ) {
-      return i;
-    }
-  }
-  return -1;
+function isReject(message: unknown): boolean {
+  const msg = message as (NappletMessage & { ok?: unknown; error?: unknown }) | null;
+  return typeof msg === 'object' && msg !== null && !Array.isArray(msg)
+    && msg.type === 'relay.publish.result' && msg.ok === false
+    && typeof msg.error === 'string' && msg.error.startsWith('firewall:');
+}
+
+/** First Firewall rejection envelope in `sent`, if any. */
+function findReject(sent: MockRuntimeContext['sent']): NappletMessage | undefined {
+  return sent.find((s) => isReject(s.message))?.message as NappletMessage | undefined;
 }
 
 /**
- * Count all `relay.publish.error` envelopes in `sent`.
+ * Find the first message index (0-based) at which a Firewall rejection
+ * appears in `sent`. Returns -1 if no rejection was found.
+ */
+function firstRejectIndex(sent: MockRuntimeContext['sent']): number {
+  return sent.findIndex((s) => isReject(s.message));
+}
+
+/**
+ * Count all Firewall rejection envelopes in `sent`.
  */
 function countErrors(sent: MockRuntimeContext['sent']): number {
-  return sent.filter(
-    (s) =>
-      typeof s.message === 'object' &&
-      s.message !== null &&
-      !Array.isArray(s.message) &&
-      (s.message as NappletMessage).type === 'relay.publish.error',
-  ).length;
+  return sent.filter((s) => isReject(s.message)).length;
 }
 
 // ─── Firewall Integration — Publish Flood & Burst ──────────────────────────────
@@ -134,9 +136,9 @@ describe('firewall integration — publish flood and burst guard', () => {
       runtime.handleMessage(WINDOW_ID, makePublish(i));
     }
 
-    // At least one relay.publish.error must appear (burst guard blocked)
-    const err = findEnvelopeResponse(ctx.sent, 'relay.publish.error');
-    expect(err, 'Expected relay.publish.error after burst guard fires').toBeDefined();
+    // At least one Firewall rejection must appear (burst guard blocked)
+    const err = findReject(ctx.sent);
+    expect(err, 'Expected Firewall rejection after burst guard fires').toBeDefined();
   });
 
   it('publish flood: messages before burst guard fires are dispatched (not rejected)', () => {
@@ -147,7 +149,7 @@ describe('firewall integration — publish flood and burst guard', () => {
     }
 
     expect(
-      findEnvelopeResponse(ctx.sent, 'relay.publish.error'),
+      findReject(ctx.sent),
       'Expected NO error for messages within the burst limit',
     ).toBeUndefined();
   });
@@ -161,7 +163,7 @@ describe('firewall integration — publish flood and burst guard', () => {
     }
 
     const rejectIdx = firstRejectIndex(ctx.sent);
-    expect(rejectIdx, 'Expected at least one relay.publish.error').toBeGreaterThan(-1);
+    expect(rejectIdx, 'Expected at least one Firewall rejection').toBeGreaterThan(-1);
     // Messages before the reject were dispatched (relay.publish.result or no error)
     expect(rejectIdx, 'Expected some messages to dispatch before the block').toBeGreaterThan(0);
   });
@@ -173,7 +175,7 @@ describe('firewall integration — publish flood and burst guard', () => {
     for (let i = 0; i < N; i++) {
       runtime.handleMessage(WINDOW_ID, makePublish(i));
     }
-    const err = findEnvelopeResponse(ctx.sent, 'relay.publish.error');
+    const err = findReject(ctx.sent);
     expect(err).toBeDefined();
     expect((err as any).error).toMatch(/firewall:/);
   });
@@ -182,7 +184,7 @@ describe('firewall integration — publish flood and burst guard', () => {
     for (let i = 0; i < DEFAULT_BURST_MAX_OPS; i++) {
       runtime.handleMessage(WINDOW_ID, makePublish(i));
     }
-    expect(findEnvelopeResponse(ctx.sent, 'relay.publish.error')).toBeUndefined();
+    expect(findReject(ctx.sent)).toBeUndefined();
 
     runtime.destroyWindow(WINDOW_ID);
     runtime.sessionRegistry.unregister(WINDOW_ID);
@@ -194,10 +196,10 @@ describe('firewall integration — publish flood and burst guard', () => {
     for (let i = 0; i < DEFAULT_BURST_MAX_OPS; i++) {
       runtime.handleMessage(WINDOW_ID_2, makePublish(200 + i));
     }
-    expect(findEnvelopeResponse(ctx.sent, 'relay.publish.error')).toBeUndefined();
+    expect(findReject(ctx.sent)).toBeUndefined();
 
     runtime.handleMessage(WINDOW_ID_2, makePublish(300));
-    expect(findEnvelopeResponse(ctx.sent, 'relay.publish.error')).toBeDefined();
+    expect(findReject(ctx.sent)).toBeDefined();
   });
 });
 
@@ -271,7 +273,7 @@ describe('firewall integration — RUNTIME-04 flag dispatches and audits', () =>
     // relay.publish dispatches and returns a canonical handler result. The important
     // distinction is that there is no outer firewall error envelope.
     expect(result1).toMatchObject({ ok: false, error: 'no signer configured' });
-    const err1 = findEnvelopeResponse(ctx2.sent, 'relay.publish.error');
+    const err1 = findReject(ctx2.sent);
     expect(err1, 'Message 1 should dispatch — no firewall error').toBeUndefined();
 
     // Reset for message 2
@@ -280,8 +282,8 @@ describe('firewall integration — RUNTIME-04 flag dispatches and audits', () =>
     // Message 2: budget empty → action: 'flag' → dispatches AND fires onFirewallEvent
     runtime2.handleMessage(WINDOW_ID_2, makePublish(1));
 
-    // Flag action still dispatches — no relay.publish.error
-    const err2 = findEnvelopeResponse(ctx2.sent, 'relay.publish.error');
+    // Flag action still dispatches — no Firewall rejection
+    const err2 = findReject(ctx2.sent);
     expect(err2, 'Flagged message must NOT be dropped — flag still dispatches').toBeUndefined();
 
     // Flag action fires onFirewallEvent
@@ -315,8 +317,8 @@ describe('firewall integration — kind-5 delete spam (CONTENT-03)', () => {
     // Fire a kind-5 publish
     runtime3.handleMessage(WINDOW_ID, makePublish(0, KIND5_EVENT));
 
-    const err = findEnvelopeResponse(ctx3.sent, 'relay.publish.error');
-    expect(err, 'Expected relay.publish.error for kind-5 match').toBeDefined();
+    const err = findReject(ctx3.sent);
+    expect(err, 'Expected Firewall rejection for kind-5 match').toBeDefined();
     expect((err as any).error).toMatch(/firewall:/);
   });
 
@@ -336,7 +338,7 @@ describe('firewall integration — kind-5 delete spam (CONTENT-03)', () => {
     runtime3.handleMessage(WINDOW_ID, makePublish(0, KIND1_EVENT));
 
     expect(
-      findEnvelopeResponse(ctx3.sent, 'relay.publish.error'),
+      findReject(ctx3.sent),
       'kind-1 must NOT be blocked by kind-5 matcher',
     ).toBeUndefined();
   });
@@ -372,7 +374,7 @@ describe('firewall integration — ask policy: reject + consent + remembered (PO
     // Message 1: should be rejected (ask policy → reject + fire consent)
     runtime4.handleMessage(WINDOW_ID, makePublish(0));
 
-    const err1 = findEnvelopeResponse(ctx4.sent, 'relay.publish.error');
+    const err1 = findReject(ctx4.sent);
     expect(err1, 'First message under ask policy must be rejected').toBeDefined();
     expect((err1 as any).error).toMatch(/firewall:/);
 
@@ -388,7 +390,7 @@ describe('firewall integration — ask policy: reject + consent + remembered (PO
     // Message 2: policy resolved to 'allow', must dispatch (no error, no re-prompt)
     runtime4.handleMessage(WINDOW_ID, makePublish(1));
 
-    const err2 = findEnvelopeResponse(ctx4.sent, 'relay.publish.error');
+    const err2 = findReject(ctx4.sent);
     expect(err2, 'Second message should dispatch after consent resolved to allow').toBeUndefined();
 
     // Consent handler must NOT be called a second time (no re-prompt — remembered)
@@ -406,7 +408,7 @@ describe('firewall integration — ask policy: reject + consent + remembered (PO
     runtime4b.handleMessage(WINDOW_ID, makePublish(0));
 
     // Message is still rejected (prompt → drop)
-    const err = findEnvelopeResponse(ctx4b.sent, 'relay.publish.error');
+    const err = findReject(ctx4b.sent);
     expect(err, 'ask policy with no handler: message must still be rejected').toBeDefined();
   });
 });
@@ -483,9 +485,9 @@ describe('firewall integration — unfocused multiplier tightens rate budget (FO
       expect(call[0].decision, 'Unfocused flag decision must be pass (not reject)').toBe('pass');
     }
 
-    // No relay.publish.error (flagged messages dispatched — not rejected)
+    // No Firewall rejection (flagged messages dispatched — not rejected)
     expect(
-      findEnvelopeResponse(ctx5.sent, 'relay.publish.error'),
+      findReject(ctx5.sent),
       'Unfocused flag must not drop messages (FOCUS-02 invariant)',
     ).toBeUndefined();
   });
