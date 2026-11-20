@@ -1,6 +1,11 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import type { NappletMessage } from '@napplet/core';
+import { createRuntime } from '@kehto/runtime';
+import { createMockNapEnvironment } from '@kehto/mocks';
+import { createMockRuntimeAdapter, createNip5dSessionEntry } from '../../packages/runtime/src/test-utils.js';
+import { PROBE_WINDOW, SERVICE_PROBES, probeService, serviceFactoryExports, settle, unknownTypesFor } from './unknown-type-probes.js';
 
 const installedNapDist = 'packages/paja/node_modules/@napplet/nap/dist';
 const installedCoreDist = 'packages/paja/node_modules/@napplet/core/dist/index.d.ts';
@@ -738,4 +743,53 @@ it('records the retired local intent contract and the checked NAP-INTENT refs', 
   expect(policy).toContain('fc121fc264615482143eda86125863d2e1f741a2');
   expect(policy).toContain('74f9bf85ebb83b50b7b2ad8308a835d5f3113cd9');
   expect(policy).toContain('kehto/web/issues/418');
+});
+
+// kehto/web#465. NIP-5D (nostr-protocol/nips#2303 @ dskvr/nips@f60550c3):
+// "Messages with an unrecognized `type` MUST be silently ignored." Behavioural,
+// not a source grep: every reference service, the runtime (with and without
+// ACL denial) and every NAP mock is driven with types its NAP does not define.
+describe('unrecognized message types get no reply (NIP-5D)', () => {
+  const quiet = () => vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+  const BUILT_IN = ['relay', 'count', 'identity', 'keys', 'media', 'notify', 'storage', 'inc', 'theme', 'config', 'resource',
+    'cvm', 'outbox', 'upload', 'intent', 'link', 'common', 'lists', 'serial', 'ble', 'webrtc', 'dm', 'fs', 'llm', 'gamepad', 'zzunregistered'];
+
+  it('has a probe for every reference service factory', () => {
+    expect(serviceFactoryExports().sort()).toEqual(Object.keys(SERVICE_PROBES).sort());
+  });
+
+  it.each(Object.entries(SERVICE_PROBES))('%s ignores unknown types', async (_name, { domain, build }) => {
+    const warn = quiet();
+    expect(await probeService(build(), domain)).toEqual([]);
+    warn.mockRestore();
+  });
+
+  it.each([false, true])('the runtime ignores unknown types in every domain (ACL blocked: %s)', async (blocked) => {
+    const warn = quiet();
+    const registry = Object.fromEntries(Object.values(SERVICE_PROBES).map(({ domain, build }) => [domain, build()]));
+    const ctx = createMockRuntimeAdapter({ services: registry });
+    const runtime = createRuntime(ctx.hooks);
+    runtime.sessionRegistry.register(PROBE_WINDOW, createNip5dSessionEntry(PROBE_WINDOW, 'probe', 'p'.repeat(64)));
+    if (blocked) runtime.aclState.block('', 'probe', 'p'.repeat(64));
+    for (const type of BUILT_IN.flatMap(unknownTypesFor)) {
+      runtime.handleMessage(PROBE_WINDOW, { type, id: `probe-${type}`, subId: 's1', sessionId: 's1' } as NappletMessage);
+    }
+    await settle();
+    expect(ctx.sent).toEqual([]);
+    runtime.destroy();
+    warn.mockRestore();
+  });
+
+  it('every NAP mock ignores unknown types', async () => {
+    const env = createMockNapEnvironment();
+    const sent: NappletMessage[] = [];
+    for (const [domain, service] of Object.entries(env.services)) {
+      for (const type of unknownTypesFor(domain)) {
+        service.handleMessage(PROBE_WINDOW, { type, id: `probe-${type}` } as NappletMessage, (message) => sent.push(message));
+      }
+    }
+    await settle();
+    expect(env.serviceDomains.length).toBeGreaterThan(20);
+    expect(sent).toEqual([]);
+  });
 });
