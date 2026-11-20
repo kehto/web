@@ -508,6 +508,43 @@ Selection uses exact contracts and user-owned default, chooser, recommendation,
 and explicit-authorization policy. Explicit handler IDs require sender-aware
 authorization and cannot address an arbitrary running frame.
 
+### Handlers that aren't installed yet
+
+When no installed handler is compatible with an invoke, Paja doesn't reject
+straight away. It opens **No installed app opens this**, which names the
+archetype, action, and convention. Nothing touches the network until the user
+presses **Search for apps**. Paja then asks the configured relays for manifests
+of every NIP-5D manifest kind whose `i` tag is the exact convention. If the
+request carried a `handlerHint`, the same search also looks up that coordinate,
+and a matching result is listed first as suggested by the app. Each result must
+have a valid signature and must advertise the same archetype (`z`) and exact
+convention (`i`). Results already installed are skipped. The list appears under
+**Not installed yet** and is capped by `intent.discoveryLimit`. When no relay can
+be reached, Paja says the search failed. It doesn't say that no app exists, and
+it never reports a denial.
+
+Picking a result runs the ordinary verified pointer load: event signature,
+exact coordinate, and NIP-5A artifact hash. Paja then installs the result and
+delivers to it, and **Always use this app** makes it the default. Search results
+are never added to `available()` or `handlers()` and are never shown to
+napplets. The resolver uses a pick only when the reloaded, verified catalog
+entry supports the convention. An explicit catalog `handler` never triggers a
+search. Cancelling, finding nothing, or a failed install keeps the original
+rejection (`no handler`, `unsupported action`, or `unsupported convention`).
+This uses the MAY in NAP-INTENT's "Recommended handler resolution" on
+`napplet/naps` master at `377bf939`.
+
+### App handlers panel
+
+The **App handlers** sidebar section lists every archetype that has an installed
+handler. For each one it shows the user's default, the other candidates, and
+their conventions. **Make default** and **Forget default** change the
+per-archetype default. **Uninstall** removes the handler from the catalog and
+from the saved catalog pointers, and also forgets any default that pointed at
+it. Every change emits `intent.changed`. Napplets can't reach this panel and
+can't change defaults. A tab still open on an uninstalled handler reinstalls it
+the next time that tab is restored.
+
 The controller retains work before returning acceptance. It then opens or reuses
 a verified target, waits for its registered source and real `shell.ready`, checks
 that the generation is current, and sends one target-only `intent.deliver`.
@@ -976,6 +1013,7 @@ policy in their drafts (NAP-FS `bd1b9e9`, NAP-WEBRTC `fb4dd6f`, NAP-RESOURCE
 | `intent.launcherReadyTimeoutMs` | Launcher ready timeout | 10000 ms | 1000–600000 |
 | `intent.launcherOutcomeTimeoutMs` | Launcher outcome timeout | 10000 ms | 1000–600000 |
 | `intent.linkMaxBytes` | Maximum app-link size | 16384 bytes | 1024–1048576 |
+| `intent.discoveryLimit` | Not-installed intent handlers offered per search | 20 | 1–200 |
 | `link.approvalClickWindowMs` | Link approval click window | 1000 ms | 100–10000 |
 | `link.labelMaxChars` | Maximum link label length | 256 chars | 1–4096 |
 | **Firewall** | | | |
@@ -1022,7 +1060,6 @@ policy in their drafts (NAP-FS `bd1b9e9`, NAP-WEBRTC `fb4dd6f`, NAP-RESOURCE
 | `target.failureReasonChars` | Characters per relay failure reason | 160 chars | 16–4096 |
 | `target.failureReasonCount` | Relay failure reasons shown | 3 | 1–50 |
 | `target.pointerReplacementLimit` | Replacement manifests offered for a gone nevent | 50 | 1–500 |
-| `target.intentDiscoveryLimit` | Not-installed intent handlers offered per search | 20 | 1–200 |
 | **Console and indicators** | | | |
 | `console.messageLogLimit` | Messages kept in the log | 500 | 10–100000 |
 | `console.messageLogVisibleRows` | Messages rendered in the log | 120 | 10–10000 |

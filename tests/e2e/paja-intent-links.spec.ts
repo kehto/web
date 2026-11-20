@@ -140,6 +140,11 @@ test.describe('Paja intent links', () => {
       await expect.poll(() => page.evaluate(() => window.__KEHTO_PAJA__?.getState().tabs[0]?.status)).toBe('ready');
       const sourceFrame = page.frameLocator('iframe.tab-panel').first();
       await sourceFrame.locator('#invoke').click();
+      // kehto/web#523: no installed handler offers a search; declining keeps `no handler`.
+      const offer = page.getByRole('dialog', { name: 'No installed app opens this' });
+      await expect(offer).toBeVisible();
+      await expect(offer.getByRole('button', { name: 'Search for apps' })).toBeVisible();
+      await offer.getByRole('button', { name: 'Cancel', exact: true }).click();
       await expect(sourceFrame.locator('#result')).toContainText('no handler');
       await expect(sourceFrame.locator('#changed-count')).toHaveText('0');
 
@@ -156,6 +161,97 @@ test.describe('Paja intent links', () => {
       await expect(sourceFrame.locator('#result')).toContainText('"ok":true');
       await expect(handlerFrame.locator('#delivery-count')).toHaveText('1');
       await expect(sourceFrame.locator('#changed-count')).toHaveText('1');
+    } finally {
+      await server.close();
+    }
+  });
+
+  test('searches relays for a handler that is not installed, installs the pick, and delivers', async ({ page }) => {
+    test.setTimeout(45_000);
+    const server = await startIntentServer();
+    // NAP-INTENT napplet/naps master 377bf939 "Recommended handler resolution":
+    // the shell MAY offer installation; nothing is searched or installed
+    // without the user, and available() stays installed-only (kehto/web#523).
+    const source = createSignedTarget(server.url, 'discovery-source', `<!doctype html><html><body>
+      <button id="invoke">Invoke</button><output id="result"></output><output id="before"></output>
+      <script>
+        document.getElementById('invoke').onclick = async () => {
+          const before = await window.napplet.intent.available('profile');
+          document.getElementById('before').textContent = JSON.stringify(before);
+          const result = await window.napplet.intent.invoke('napplet:profile/open', { payload: { value: 'p1' } });
+          document.getElementById('result').textContent = JSON.stringify(result);
+        };
+      </script></body></html>`, undefined, []);
+    const handler = createSignedTarget(server.url, 'found-profile-handler', delayedTargetHtml(), 'napplet:profile/open', ['value']);
+    server.blobs.set(source.hash, source.bytes);
+    server.blobs.set(handler.hash, handler.bytes);
+    const requests: unknown[] = [];
+    await configureRuntime(page, server, [source.event, handler.event], source.pointer, requests);
+
+    try {
+      await page.goto(server.url);
+      await expect.poll(() => page.evaluate(() => window.__KEHTO_PAJA__?.getState().tabs[0]?.status)).toBe('ready');
+      const sourceFrame = page.frameLocator('iframe.tab-panel').first();
+      const before = requests.length;
+      await sourceFrame.locator('#invoke').click();
+      const offer = page.getByRole('dialog', { name: 'No installed app opens this' });
+      await expect(offer).toBeVisible();
+      await expect(sourceFrame.locator('#before')).toContainText('"available":false');
+      // No relay search until the user asks.
+      expect(requests.slice(before).some((filter) => JSON.stringify(filter).includes('#i'))).toBe(false);
+      await offer.getByRole('button', { name: 'Search for apps' }).click();
+      const found = offer.getByRole('group', { name: 'Not installed yet' });
+      await expect(found.getByRole('button', { name: 'Install and open found-profile-handler' })).toBeVisible();
+      expect(requests.slice(before)).toContainEqual(expect.objectContaining({ '#i': ['napplet:profile/open'] }));
+      await expect(found.getByRole('button', { name: /discovery-source/u })).toHaveCount(0);
+      await found.getByRole('button', { name: 'Install and open found-profile-handler' }).click();
+      await expect(offer).toBeHidden();
+      await expect(sourceFrame.locator('#result')).toContainText('"ok":true');
+      await expect(sourceFrame.locator('#result')).toContainText(`nip5d:35129:${handler.event.pubkey}:found-profile-handler`);
+      const handlerFrame = page.frameLocator('iframe.tab-panel').nth(1);
+      await expect(handlerFrame.locator('#delivery-count')).toHaveText('1');
+      await expect(handlerFrame.locator('#delivery-payload')).toHaveText('{"value":"p1"}');
+      const panel = page.locator('#paja-intent-handlers');
+      await expect(panel.getByRole('region', { name: 'profile handlers' })).toContainText('found-profile-handler');
+    } finally {
+      await server.close();
+    }
+  });
+
+  test('manages installed handlers: make default, forget default, uninstall', async ({ page }) => {
+    test.setTimeout(45_000);
+    const server = await startIntentServer();
+    const first = createSignedTarget(server.url, 'first-profile', delayedTargetHtml('first'), 'napplet:profile/open', []);
+    const second = createSignedTarget(server.url, 'second-profile', delayedTargetHtml('second'), 'napplet:profile/open', []);
+    server.blobs.set(first.hash, first.bytes);
+    server.blobs.set(second.hash, second.bytes);
+    await configureRuntime(page, server, [first.event, second.event], first.pointer);
+    try {
+      await page.goto(server.url);
+      await expect.poll(() => page.evaluate(() => window.__KEHTO_PAJA__?.getState().tabs[0]?.status)).toBe('ready');
+      await page.locator('#runtime-pointer-input').fill(second.pointer);
+      await page.locator('#runtime-pointer-load').click();
+      await expect.poll(() => page.evaluate(() => window.__KEHTO_PAJA__?.getState().tabs.length)).toBe(2);
+      const group = page.locator('#paja-intent-handlers').getByRole('region', { name: 'profile handlers' });
+      await expect(group).toContainText('first-profile');
+      await expect(group).toContainText('second-profile');
+      const firstFrame = page.frameLocator('iframe.tab-panel').first();
+
+      await group.getByRole('button', { name: 'Make second-profile default for profile' }).click();
+      await expect(group).toContainText('second-profile (default)');
+      expect(await page.evaluate(() => localStorage.getItem('kehto.paja.intent-defaults.v1'))).toContain(`nip5d:35129:${second.event.pubkey}:second-profile`);
+      await expect(firstFrame.locator('#last-availability')).toContainText('"hasDefault":true');
+
+      await group.getByRole('button', { name: 'Forget second-profile as default for profile' }).click();
+      await expect(group).not.toContainText('(default)');
+      await expect(firstFrame.locator('#last-availability')).toContainText('"hasDefault":false');
+
+      await group.getByRole('button', { name: 'Make second-profile default for profile' }).click();
+      await group.getByRole('button', { name: 'Uninstall second-profile' }).click();
+      await expect(group).not.toContainText('second-profile');
+      await expect(firstFrame.locator('#last-availability')).not.toContainText('second-profile');
+      expect(await page.evaluate(() => localStorage.getItem('kehto.paja.intent-defaults.v1'))).not.toContain('second-profile');
+      expect(await page.evaluate(() => localStorage.getItem('kehto.paja.intent-catalog.v1'))).not.toContain(second.pointer);
     } finally {
       await server.close();
     }
@@ -478,6 +574,7 @@ async function configureRuntime(
   server: PointerServer,
   events: readonly ReturnType<typeof finalizeEvent>[],
   pointer?: string,
+  filters?: unknown[],
 ): Promise<void> {
   await installPajaApprovalDriver(page);
   server.setConfig({
@@ -488,6 +585,7 @@ async function configureRuntime(
     socket.onMessage((message) => {
       const request = JSON.parse(String(message)) as unknown[];
       if (request[0] !== 'REQ' || typeof request[1] !== 'string') return;
+      filters?.push(...request.slice(2));
       for (const event of events) socket.send(JSON.stringify(['EVENT', request[1], event]));
       socket.send(JSON.stringify(['EOSE', request[1]]));
     });

@@ -162,7 +162,7 @@ function collect(
  *
  * @param request - The archetype and exact convention to match.
  * @param options - Relays, pool, deadline, hint, and installed filter.
- * @returns Offers, recommended first, then newest first, capped by `target.intentDiscoveryLimit`.
+ * @returns Offers, recommended first, then newest first, capped by `intent.discoveryLimit`.
  * @throws {PajaIntentDiscoveryError} When no relay is configured or none answered.
  * @example
  * ```ts
@@ -182,7 +182,7 @@ export async function findPajaIntentHandlers(
   if (relays.length === 0 && (!hint || hintRelays.length === 0)) {
     throw new PajaIntentDiscoveryError('No relays are configured to search for apps.');
   }
-  const limit = getPajaSetting('target.intentDiscoveryLimit');
+  const limit = getPajaSetting('intent.discoveryLimit');
   const maxWaitMs = options.maxWaitMs ?? getPajaSetting('target.runtimeWaitMs');
   const installed = options.installed ?? (() => false);
   const pool = options.pool ?? new SimplePool();

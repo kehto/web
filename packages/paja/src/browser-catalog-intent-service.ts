@@ -30,6 +30,8 @@ export interface PajaIntentHost {
     hint: import('@kehto/services').IntentHandlerHint,
     candidates: readonly IntentCandidate[],
   ): string | undefined | Promise<string | undefined>;
+  /** Offer, then install, a handler that is not installed when none matches (kehto/web#523). */
+  offerUninstalledHandlers?(request: IntentRequest): string | undefined | Promise<string | undefined>;
 }
 
 /**
@@ -54,6 +56,7 @@ export function createPajaCatalogIntentService(adapter: ShellAdapter, host: Paja
     chooseHandler: host.chooseHandler,
     authorizeExplicitHandler: host.authorizeExplicitHandler,
     resolveHandlerHint: host.resolveHandlerHint,
+    ...(host.offerUninstalledHandlers ? { offerUninstalledHandlers: (request: IntentRequest) => host.offerUninstalledHandlers!(request) } : {}),
   });
   const intentService = createIntentService({
     resolver,

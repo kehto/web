@@ -97,8 +97,8 @@ describe('@kehto/paja host page', () => {
       expect(aside!.indexOf('id="paja-resource-servers-form"')).toBeLessThan(aside!.indexOf('id="message-log"'));
       const keys = [...aside!.matchAll(/data-paja-section="([^"]+)"/g)].map((match) => match[1]);
       expect(keys).toEqual(config.target.mode === 'runtime-pointer'
-        ? ['pointer', 'interfaces', 'permissions', 'acl', 'signer', 'resource-servers', 'multiplayer', 'security', 'llm', 'messages', 'events']
-        : ['interfaces', 'permissions', 'acl', 'signer', 'resource-servers', 'multiplayer', 'security', 'llm', 'messages', 'events']);
+        ? ['pointer', 'interfaces', 'permissions', 'acl', 'signer', 'resource-servers', 'intent-handlers', 'multiplayer', 'security', 'llm', 'messages', 'events']
+        : ['interfaces', 'permissions', 'acl', 'signer', 'resource-servers', 'intent-handlers', 'multiplayer', 'security', 'llm', 'messages', 'events']);
       expect(aside!.match(/<details[^>]* open>/g)).toHaveLength(keys.length - 1);
       expect(aside).toContain('id="paja-multiplayer-form"');
       expect(aside!.match(/<summary class="section-title">/g)).toHaveLength(keys.length);
