@@ -1,0 +1,12 @@
+{
+  "files": {
+    "src/service-dispatch.ts": {
+      "name": "Service message router",
+      "description": "Sends a message to the host service registered for its domain, and tells every service when a window closes."
+    },
+    "src/service-extensions.ts": {
+      "name": "Extension domain router",
+      "description": "Routes host-defined extension domains to their service after capability checks, with a way to request approval."
+    }
+  }
+}

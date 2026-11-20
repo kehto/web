@@ -1,0 +1,8 @@
+{
+  "files": {
+    "src/5d/artifact-cache.ts": {
+      "name": "Verified app storage",
+      "description": "Saves verified napplet bytes in browser Cache Storage, trims it to size limits and treats old entries as stale."
+    }
+  }
+}

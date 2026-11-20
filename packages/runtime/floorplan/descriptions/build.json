@@ -1,0 +1,8 @@
+{
+  "files": {
+    "tsup.config.ts": {
+      "name": "Package build settings",
+      "description": "Builds the published package from the public entry file as a modern JavaScript module with type definitions."
+    }
+  }
+}

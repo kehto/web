@@ -1,0 +1,16 @@
+{
+  "files": {
+    "scripts/audit-naps.mjs": {
+      "name": "Spec drift audit",
+      "description": "Compares each mock's recorded spec ref with napplet/naps master and open pull requests via the GitHub CLI, reporting which are current, stale, retired or missing a mock."
+    },
+    "scripts/render-domain-table.mjs": {
+      "name": "Docs domain table writer",
+      "description": "Regenerates the domain table in the README and docs page from the built registry, or checks it is current with --check."
+    },
+    "tsup.config.ts": {
+      "name": "Package build settings",
+      "description": "Builds the package from its front door as modern-module JavaScript with type files and source maps."
+    }
+  }
+}

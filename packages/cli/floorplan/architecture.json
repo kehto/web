@@ -1,0 +1,77 @@
+{
+  "$schema": "floorplan/architecture@1",
+  "project": {
+    "name": "@kehto/cli",
+    "summary": "The `kehto` command-line tool. Today it has one command, `kehto paja`, which hands everything to the Paja local workshop for building and trying out napplets (sandboxed iframe apps).",
+    "entrypoints": [
+      "src/index.ts"
+    ]
+  },
+  "nodes": [
+    {
+      "id": "router",
+      "label": "Command picker",
+      "kind": "script",
+      "summary": "Reads the first word typed after `kehto`, shows help, passes `paja` on to the Paja workshop, and rejects anything else.",
+      "paths": [
+        "src/index.ts"
+      ]
+    },
+    {
+      "id": "tests",
+      "label": "Tests",
+      "kind": "test",
+      "summary": "Automatic checks for help text, unknown commands and passing `paja` through.",
+      "paths": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
+      "id": "build",
+      "label": "Build settings",
+      "kind": "config",
+      "summary": "How the command is bundled for publishing.",
+      "paths": [
+        "tsup.config.ts"
+      ]
+    },
+    {
+      "id": "paja",
+      "label": "Paja workshop",
+      "kind": "external",
+      "summary": "Kehto's local workshop for running a napplet in a test shell; it does all the real work behind `kehto paja`.",
+      "packages": [
+        "npm:@kehto/paja",
+        "@kehto/paja"
+      ]
+    }
+  ],
+  "flows": [
+    {
+      "id": "run",
+      "title": "Running kehto paja",
+      "steps": [
+        {
+          "node": "router",
+          "note": "The person types `kehto paja --target-url ...`; the router sees the `paja` command."
+        },
+        {
+          "node": "paja",
+          "note": "The remaining options are handed to the Paja workshop, which starts it and returns the exit code."
+        }
+      ]
+    }
+  ],
+  "tour": [
+    {
+      "node": "router",
+      "title": "The kehto command",
+      "note": "One small file: it shows help and forwards `kehto paja` to the Paja workshop."
+    },
+    {
+      "node": "paja",
+      "title": "Where the work happens",
+      "note": "Everything beyond picking the command lives in the Paja package."
+    }
+  ]
+}

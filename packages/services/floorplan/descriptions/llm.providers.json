@@ -1,0 +1,36 @@
+{
+  "files": {
+    "src/llm-provider-anthropic.ts": {
+      "name": "Anthropic format",
+      "description": "Translates AI requests, replies and streamed answers to and from Anthropic's message format, tool calls included."
+    },
+    "src/llm-provider-blocks.ts": {
+      "name": "Answer block builder",
+      "description": "Turns streamed fragments from any provider into ordered start, delta and end events and a matching final answer."
+    },
+    "src/llm-provider-gemini.ts": {
+      "name": "Google Gemini format",
+      "description": "Translates AI requests, replies and streamed answers to and from Google Gemini's format, tool calls included."
+    },
+    "src/llm-provider-http.ts": {
+      "name": "Provider presets and web caller",
+      "description": "Lists ready-made settings for well-known AI providers and sends requests to them over the web, buffered or streamed."
+    },
+    "src/llm-provider-openai.ts": {
+      "name": "OpenAI chat format",
+      "description": "Translates AI requests, replies and streamed answers to and from OpenAI's chat completions format, tool calls included."
+    },
+    "src/llm-provider-shared.ts": {
+      "name": "Shared provider helpers",
+      "description": "Holds the types, defaults and small helpers every provider format shares, such as which header carries the provider key, the default answer length and usage counting."
+    },
+    "src/llm-provider-stream.ts": {
+      "name": "Streamed answer reader",
+      "description": "Reads a provider's streamed reply piece by piece and picks the right translator for that provider's format."
+    },
+    "src/llm-providers.ts": {
+      "name": "Provider format switch",
+      "description": "Builds the outgoing request and reads the reply for whichever provider format a connection uses."
+    }
+  }
+}

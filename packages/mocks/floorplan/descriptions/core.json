@@ -1,0 +1,20 @@
+{
+  "files": {
+    "src/core/aggregate.ts": {
+      "name": "Bundle mocks into one set",
+      "description": "Builds a domain-to-service map from registry rows, with only/except filters and per-domain option overrides, plus reset-all."
+    },
+    "src/core/handler.ts": {
+      "name": "Mock service recipe",
+      "description": "Turns a table of message types and answers into a working service, records every reply in mock.sent, and pushes replies to napplet windows."
+    },
+    "src/core/rng.ts": {
+      "name": "Repeatable random values",
+      "description": "Seeded random numbers and label-derived hex ids, pubkeys, event ids and placeholder signatures, so every run produces the same values."
+    },
+    "src/core/types.ts": {
+      "name": "Shared mock contracts",
+      "description": "Defines the clock, scheduler, options, control surface, sent-envelope record, spec ref and registry row every mock shares."
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "files": {
+    "src/acl-state.ts": {
+      "name": "Napplet grants store",
+      "description": "Holds each napplet's granted capabilities, blocks and storage allowance, saves them through the host and reports revocations."
+    },
+    "src/enforce.ts": {
+      "name": "Capability gate",
+      "description": "Checks an incoming message's required capability against the sender's grants and reports each check to the host."
+    }
+  }
+}

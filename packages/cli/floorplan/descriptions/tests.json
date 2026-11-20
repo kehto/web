@@ -1,0 +1,8 @@
+{
+  "files": {
+    "src/index.test.ts": {
+      "name": "kehto command tests",
+      "description": "Checks help text, forwarding to Paja without starting it, unknown commands and how the tool spots being run directly."
+    }
+  }
+}

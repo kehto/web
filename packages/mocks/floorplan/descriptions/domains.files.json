@@ -1,0 +1,44 @@
+{
+  "files": {
+    "src/domains/blossom.ts": {
+      "name": "Blossom file hosting mock",
+      "description": "Stores files by checksum on a seeded server list and answers check, get, upload, mirror, media, list, delete and server-list changes."
+    },
+    "src/domains/file-bytes.ts": {
+      "name": "File byte helpers",
+      "description": "Base64, hex and placeholder-byte helpers shared by the resource, upload, Blossom, Hashtree, file system and Git mocks."
+    },
+    "src/domains/fs.ts": {
+      "name": "File system mock",
+      "description": "A virtual file system with roots, pickers, read, write, folders, move, remove and change watching, within configurable limits."
+    },
+    "src/domains/git-fixtures.ts": {
+      "name": "Git sample repository",
+      "description": "An in-memory Git object model with real SHA-1 ids, plus the seeded distro-notes repository."
+    },
+    "src/domains/git.ts": {
+      "name": "Git mock",
+      "description": "Opens a seeded repository and answers refs, object reads, new commits, ref updates, fetch, push and proposals, returning receipts."
+    },
+    "src/domains/hashtree-fixtures.ts": {
+      "name": "Hashtree sample tree",
+      "description": "Builds the seeded Hashtree document tree and its identifiers, with a self-contained bech32 encoder shared with the resource mock."
+    },
+    "src/domains/hashtree.ts": {
+      "name": "Hashtree mock",
+      "description": "A seeded content tree with resolve, list, read, put, publish, pick, import, export and pin requests, tracking import and export jobs."
+    },
+    "src/domains/resource.ts": {
+      "name": "Fetched resources mock",
+      "description": "Resolves resource addresses to bytes and a sniffed type, or a typed failure, answering info, single and batch fetch and cancel."
+    },
+    "src/domains/storage.ts": {
+      "name": "Saved data store",
+      "description": "An in-memory store for napplet saved data, which the runtime itself serves; adds controls to inspect it and counts sizes in bytes."
+    },
+    "src/domains/upload.ts": {
+      "name": "Upload mock",
+      "description": "Accepts uploads over Blossom and NIP-96, tracks each one to completion, and pushes status changes with a placeholder image preview hash."
+    }
+  }
+}

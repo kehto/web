@@ -1,0 +1,12 @@
+{
+  "files": {
+    "src/permissions.test.ts": {
+      "name": "Approval decision tests",
+      "description": "Checks identity rules, coverage, denials, one-time approvals and saving and loading."
+    },
+    "src/permission-rules.test.ts": {
+      "name": "Standing rule tests",
+      "description": "Checks which rule wins and that saved rules load back safely."
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "files": {
+    "src/permission-rules.ts": {
+      "name": "Standing rules",
+      "description": "Keeps allow, ask or deny settings per interface or operation, per napplet or for everyone, picks the one that applies, and saves them as text."
+    }
+  }
+}

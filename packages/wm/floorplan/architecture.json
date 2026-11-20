@@ -1,0 +1,28 @@
+{
+  "$schema": "floorplan/architecture@1",
+  "project": {
+    "name": "@kehto/wm",
+    "summary": "A draft window-manager contract for shells that host napplets (sandboxed iframe apps): shared shapes for windows and their screen positions, a slot for a layout strategy the shell writes itself, and a small service that keeps a window list and focus. The service never runs the strategy; shells call it themselves. Not part of the napplet protocol.",
+    "entrypoints": [
+      "src/index.ts"
+    ]
+  },
+  "nodes": [
+    {
+      "id": "contract",
+      "label": "Window manager contract",
+      "kind": "library",
+      "summary": "Defines what a window and its placement look like and the layout-strategy interface a shell plugs in; its service tracks windows, focus and the active workspace and reports changes to the shell, but leaves layout to the shell.",
+      "paths": [
+        "src/index.ts"
+      ]
+    }
+  ],
+  "tour": [
+    {
+      "node": "contract",
+      "title": "What this package is",
+      "note": "One file of shared shapes plus a small window service. New windows start with no size, and the stored strategy is never called by the service itself: the shell runs its own layout."
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "files": {
+    "src/domains/cvm-fixtures.ts": {
+      "name": "ContextVM sample servers",
+      "description": "Two seeded remote tool servers with their tools, resources and schema hashes, plus checks on message form."
+    },
+    "src/domains/cvm.ts": {
+      "name": "ContextVM mock",
+      "description": "Discovers seeded remote tool servers, forwards requests, and answers registry list, check, describe and call, pushing progress events."
+    },
+    "src/domains/llm-fixtures.ts": {
+      "name": "Language model samples",
+      "description": "Seeded model connections, record shapes and failure codes for the language-model mock, plus the checks on requests and the canned answers or tool calls it gives back."
+    },
+    "src/domains/llm.ts": {
+      "name": "Language model mock",
+      "description": "Lets a napplet pick and describe a model connection, then streams canned or scripted answers, including tool calls, as deltas before a final result; supports cancel."
+    }
+  }
+}

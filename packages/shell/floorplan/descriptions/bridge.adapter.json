@@ -1,0 +1,8 @@
+{
+  "files": {
+    "src/hooks-adapter.ts": {
+      "name": "Host hooks translator",
+      "description": "Converts the host page's window-and-storage hooks into the plain interface the runtime uses, wiring in the shell's records."
+    }
+  }
+}

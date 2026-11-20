@@ -1,0 +1,20 @@
+{
+  "files": {
+    "src/cache-service.ts": {
+      "name": "Saved events",
+      "description": "Lets napplets read and write a host-supplied local copy of Nostr events."
+    },
+    "src/coordinated-relay.ts": {
+      "name": "Relays plus saved copy",
+      "description": "Answers subscriptions from both the saved copy and live relays, removing duplicates and signalling once when both have caught up."
+    },
+    "src/count-service.ts": {
+      "name": "Event counts",
+      "description": "Counts Nostr events matching a filter through a host backend, on relays chosen and approved before the count runs."
+    },
+    "src/relay-pool-service.ts": {
+      "name": "Relay pool service",
+      "description": "Passes napplet subscribe, publish and close requests to the host's relay pool, honouring an explicit relay when one is named."
+    }
+  }
+}

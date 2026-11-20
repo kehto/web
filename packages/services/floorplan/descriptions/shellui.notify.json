@@ -1,0 +1,12 @@
+{
+  "files": {
+    "src/notification-service.ts": {
+      "name": "Older notification list",
+      "description": "Keeps the older create, list and mark-read notification list per napplet (up to 100 each) for existing hosts."
+    },
+    "src/notify-service.ts": {
+      "name": "Notifications service",
+      "description": "Shows napplet notifications, channels and badges through the host after approval, and reports clicks back to the napplet."
+    }
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "files": {
+    "src/browser-confirmation-request.ts": {
+      "name": "Confirmation request shape",
+      "description": "Describes the request Paja raises before a napplet signs, publishes or uploads, so the prompt can show what is at stake."
+    },
+    "src/browser-grant-retirement.ts": {
+      "name": "Close tabs on revoke",
+      "description": "Picks which open tabs lost a grant when the developer revokes one, and names a napplet by its tab title."
+    },
+    "src/browser-host-signer.ts": {
+      "name": "Confirmations and signer controls",
+      "description": "Runs the queue of on-screen confirmations (fails closed) and the signer picker, including detecting a NIP-07 browser signer."
+    },
+    "src/browser-host-storage.ts": {
+      "name": "Saved tabs and catalog",
+      "description": "Saves and reloads open napplet tabs, installed-napplet pointers and intent handler choices in host storage, tolerating storage failures."
+    },
+    "src/browser-nip46-client.ts": {
+      "name": "Remote signer client",
+      "description": "Connects to a NIP-46 remote signer from a bunker or nostrconnect link and forwards signing requests over relays."
+    },
+    "src/browser-operation-scope.ts": {
+      "name": "Per-window authority",
+      "description": "Binds each service call to the napplet window that sent it, so signing, publishing and CVM traffic carry the right source."
+    },
+    "src/browser-permission-adapter.ts": {
+      "name": "Firewall prompt adapter",
+      "description": "Connects Kehto's firewall to Paja: applies default rules, shows prompts for 'ask', saves grants, and reports revocations."
+    },
+    "src/browser-permission-rules.ts": {
+      "name": "Default firewall rules",
+      "description": "Ships default rules that allow every offered interface except opening external links, which always asks; saved in host storage."
+    },
+    "src/browser-signer-consent.ts": {
+      "name": "Remembered signing consent",
+      "description": "Remembers which event kinds, or all kinds, a napplet may sign or publish without asking, tied to the exact signer, napplet version and target; falls back to memory when storage is unavailable."
+    },
+    "src/browser-signers.ts": {
+      "name": "Signer choice",
+      "description": "Switches between the built-in development key, a NIP-07 browser extension and a NIP-46 remote signer, and reports connection state."
+    }
+  }
+}

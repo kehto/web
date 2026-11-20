@@ -1,0 +1,16 @@
+{
+  "files": {
+    "src/index.ts": {
+      "name": "Public entry",
+      "description": "Offers the action caps and the cap object; importing it switches nothing on."
+    },
+    "src/rate-limit.ts": {
+      "name": "Budget check",
+      "description": "Takes one action from a napplet's per-minute budget and startup allowance, tighter when out of focus, and says allow, flag or block."
+    },
+    "src/limiter.ts": {
+      "name": "Cap object",
+      "description": "Holds a host's chosen settings and the running counts, allows settings changes without resetting counts, and can soften blocks to flags for watching only."
+    }
+  }
+}

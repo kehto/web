@@ -1,0 +1,36 @@
+{
+  "files": {
+    "src/domains/ble.ts": {
+      "name": "Bluetooth mock",
+      "description": "A seeded Bluetooth device with a battery service and a serial-style service; answers open, services, read, write, subscribe and close."
+    },
+    "src/domains/capture.ts": {
+      "name": "Camera and screen capture mock",
+      "description": "Answers capture info, start, status, stop, cancel and release, with controls to simulate the user stopping, a lost device or expiry."
+    },
+    "src/domains/display.ts": {
+      "name": "External display mock",
+      "description": "Lists pretend displays and accepts pixel pushes to them."
+    },
+    "src/domains/gamepad.ts": {
+      "name": "Game controller mock",
+      "description": "Two seeded controllers; napplets subscribe to state, and controls press buttons, move sticks, change focus or unplug a pad."
+    },
+    "src/domains/location.ts": {
+      "name": "Location mock",
+      "description": "Handles per-window location permission, the current position and subscriptions that push position updates."
+    },
+    "src/domains/media.ts": {
+      "name": "Media playback mock",
+      "description": "Manages playback sessions over a placeholder playlist, its state, capabilities and commands, including torrent-sourced media."
+    },
+    "src/domains/motion.ts": {
+      "name": "Motion sensor mock",
+      "description": "Handles motion permission and subscriptions, pushing acceleration, rotation and orientation samples."
+    },
+    "src/domains/serial.ts": {
+      "name": "Serial port mock",
+      "description": "Two seeded USB serial ports; open, write and close, with replies echoed back in uppercase by default."
+    }
+  }
+}

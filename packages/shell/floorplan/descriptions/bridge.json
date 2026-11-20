@@ -1,0 +1,8 @@
+{
+  "files": {
+    "src/shell-bridge.ts": {
+      "name": "Shell bridge",
+      "description": "Creates the bridge a host page installs: it registers napplet frames, binds each one's channel and passes messages to the runtime."
+    }
+  }
+}

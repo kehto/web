@@ -1,0 +1,12 @@
+{
+  "files": {
+    "src/shell-init.ts": {
+      "name": "Offered services list",
+      "description": "Builds the list of protocol areas and services a napplet is told about, counting only those whose host hooks are really wired, narrowed by any per-napplet host grant; also reports whether an area still needs setup."
+    },
+    "src/shell-ready.ts": {
+      "name": "Ready reply",
+      "description": "Answers a napplet's ready message once with its services and records its trusted identity and grants."
+    }
+  }
+}

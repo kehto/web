@@ -1,0 +1,8 @@
+{
+  "files": {
+    "src/66/index.ts": {
+      "name": "Relay monitor collector",
+      "description": "Listens for relay-monitor reports through a given relay pool and groups relays by advertised features."
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "files": {
+    "src/browser-multiplayer-identity.ts": {
+      "name": "Multiplayer room identity",
+      "description": "Derives a napplet's soy-rtc/1 multiplayer name from its verified manifest; local files get none."
+    },
+    "src/browser-multiplayer-services.ts": {
+      "name": "Multiplayer services",
+      "description": "Builds the WebRTC and CVM services for one napplet window, sharing a transport identity only within that window."
+    },
+    "src/browser-multiplayer-settings.ts": {
+      "name": "Multiplayer settings page",
+      "description": "Restores and saves the host's multiplayer settings, then reloads the page so every connection restarts together."
+    },
+    "src/browser-webrtc-profile.ts": {
+      "name": "soy-rtc/1 profile",
+      "description": "Implements the soy-rtc/1 WebRTC profile: reliable JSON channels signalled over Nostr with a window-private key."
+    },
+    "src/browser-webrtc.ts": {
+      "name": "WebRTC rooms",
+      "description": "Backs NAP-WEBRTC with real browser peer connections signalled over Nostr relays, capped at 4 sessions per window, 8 peers and 64 KB messages; available only while a signer is active."
+    },
+    "src/cvm-discovery.ts": {
+      "name": "CVM server discovery",
+      "description": "Reads what the developer typed and looks up public, signed ContextVM server and tool announcements on relays."
+    },
+    "src/cvm-family-store.ts": {
+      "name": "Saved CVM families",
+      "description": "Saves and restores the developer's chosen ContextVM server families in host storage, ignoring corrupt entries."
+    }
+  }
+}

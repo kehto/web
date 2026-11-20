@@ -1,0 +1,8 @@
+{
+  "files": {
+    "src/fs-service.ts": {
+      "name": "File requests",
+      "description": "Passes napplet file requests (read, write, list, watch, pick) to a host-supplied file store that decides paths, permissions and storage."
+    }
+  }
+}

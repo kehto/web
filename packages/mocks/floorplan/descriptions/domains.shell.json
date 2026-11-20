@@ -1,0 +1,60 @@
+{
+  "files": {
+    "src/domains/catalog.ts": {
+      "name": "Napplet catalog mock",
+      "description": "Answers catalog lookups with the installed-napplet sample list, their identities, accepted intents and roles."
+    },
+    "src/domains/class.ts": {
+      "name": "Security class mock",
+      "description": "Assigns napplets a security class (strict default or user-approved origins) and records the two class posture documents."
+    },
+    "src/domains/config.ts": {
+      "name": "Napplet settings mock",
+      "description": "Accepts a napplet's settings schema, serves sample saved values, pushes updates and opens a pretend settings screen."
+    },
+    "src/domains/connect.ts": {
+      "name": "Network grants mock",
+      "description": "Checks and normalizes allowed origins, simulates the consent gate and provides a pretend loopback network; there are no wire messages."
+    },
+    "src/domains/inc.ts": {
+      "name": "Inter-napplet messaging entry",
+      "description": "Registry row only: the runtime routes napplet-to-napplet messages itself, so this just supplies a few sample topic strings."
+    },
+    "src/domains/intent-fixtures.ts": {
+      "name": "Installed napplets sample",
+      "description": "Three sample installed napplets shared by the intent and catalog mocks so both report the same identities and roles."
+    },
+    "src/domains/intent.ts": {
+      "name": "Intents mock",
+      "description": "Finds which installed napplets can handle a request, invokes one, and pushes deliveries and availability changes."
+    },
+    "src/domains/link.ts": {
+      "name": "Open link mock",
+      "description": "Decides whether a link may open by its scheme and blocked-host rules, and records each decision."
+    },
+    "src/domains/navigation.ts": {
+      "name": "Navigation mock",
+      "description": "Keeps each window's reported page history and answers lookups, with controls to go back, forward or revisit an entry."
+    },
+    "src/domains/notify.ts": {
+      "name": "Notifications mock",
+      "description": "Keeps active notifications, badges and channels, handles permission requests, and can simulate clicks, actions and dismissals."
+    },
+    "src/domains/shell.ts": {
+      "name": "Shell registry entry",
+      "description": "Registry row only: shell readiness is answered by the shell package; lists the domains every mock shell should advertise."
+    },
+    "src/domains/system.ts": {
+      "name": "System status mock",
+      "description": "Reports pretend status of NAPs, services, relays, event cache, media and per-napplet storage, derived repeatably per window."
+    },
+    "src/domains/theme.ts": {
+      "name": "Theme mock",
+      "description": "Serves a light and a dark sample theme and pushes a change message when the theme is switched."
+    },
+    "src/domains/worker.ts": {
+      "name": "Background worker mock",
+      "description": "Creates pretend background workers within limits, passes messages to them and pushes messages, errors and close reasons."
+    }
+  }
+}

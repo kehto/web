@@ -1,0 +1,160 @@
+{
+  "files": {
+    "src/browser-adapter-host-actions.test.ts": {
+      "name": "External link opening tests",
+      "description": "Checks that only web URLs open, in an opener-isolated tab, and that a failed handoff is reported."
+    },
+    "src/browser-adapter-intent.test.ts": {
+      "name": "Adapter intent wiring tests",
+      "description": "Checks the adapter advertises intents only with a real host controller and exposes no fallback domains."
+    },
+    "src/browser-adapter-signer-traffic.test.ts": {
+      "name": "Signer-less relay traffic tests",
+      "description": "Checks no author-routed reads start without a signer, and a connected account warms profiles via NIP-65 relays."
+    },
+    "src/browser-blossom-events.test.ts": {
+      "name": "Blossom server lookup tests",
+      "description": "Checks the Blossom server resolver keeps approved plans and caps author and hint fan-out at eight."
+    },
+    "src/browser-blossom-integration.test.ts": {
+      "name": "Outbox-to-resource Blossom tests",
+      "description": "Checks resource reads try Blossom candidates in order and use only host bootstrap relays for discovery."
+    },
+    "src/browser-blossom-uri.test.ts": {
+      "name": "Blossom address tests",
+      "description": "Checks canonical blossom: addresses stay quiet and the old alias warns exactly once."
+    },
+    "src/browser-common.test.ts": {
+      "name": "NAP-COMMON tests",
+      "description": "Checks profile lookups return the latest verified kind-0 event and ignore disallowed relay hints."
+    },
+    "src/browser-config.test.ts": {
+      "name": "NAP-CONFIG tests",
+      "description": "Checks config values persist per trusted identity through a masked host dialog and fail closed without storage."
+    },
+    "src/browser-console-panel.test.ts": {
+      "name": "Console toggle tests",
+      "description": "Checks the console toggle collapses, remembers, restores and detaches cleanly."
+    },
+    "src/browser-crypto.test.ts": {
+      "name": "Signature check tests",
+      "description": "Checks real Nostr signatures verify and tampered events are rejected."
+    },
+    "src/browser-cvm.test.ts": {
+      "name": "CVM backend tests",
+      "description": "Checks the encrypted CVM transport registers only with live relays and respects the per-window limit."
+    },
+    "src/browser-device-services.test.ts": {
+      "name": "Serial and Bluetooth tests",
+      "description": "Checks serial and Bluetooth devices stay host-private until approved, and reads, writes and close work."
+    },
+    "src/browser-devtools.test.ts": {
+      "name": "Developer console tests",
+      "description": "Checks the message log records port deliveries and hides NAP-CONFIG values."
+    },
+    "src/browser-dm-fs.test.ts": {
+      "name": "DM availability tests",
+      "description": "Checks NIP-17 DMs register only with live relays and the real development signer."
+    },
+    "src/browser-fs.test.ts": {
+      "name": "File system tests",
+      "description": "Checks NAP-FS rejects oversized writes and revisions before reading or decoding bytes."
+    },
+    "src/browser-grant-retirement.test.ts": {
+      "name": "Revoke closes tabs tests",
+      "description": "Checks that revoking a grant closes only tabs bound to that exact artifact."
+    },
+    "src/browser-host-signer.test.ts": {
+      "name": "Confirmation queue tests",
+      "description": "Checks signing and publishing happen only after explicit approval and queued matches drain correctly."
+    },
+    "src/browser-host-storage.test.ts": {
+      "name": "Saved catalog tests",
+      "description": "Checks installed-app pointers persist apart from tabs and navigation still works without storage."
+    },
+    "src/browser-host.test.ts": {
+      "name": "Browser host tests",
+      "description": "Checks bootstrap wiring, such as theme changes flowing once through one bridge, partly by reading the source."
+    },
+    "src/browser-intent-builder.test.ts": {
+      "name": "Intent link builder tests",
+      "description": "Checks shared content opens directly, and app choices and preferences behave in the builder."
+    },
+    "src/browser-intent-controller.test.ts": {
+      "name": "Intent lifecycle tests",
+      "description": "Checks intent delivery waits for a ready target, sends once and drops aborted approvals."
+    },
+    "src/browser-intent-host.test.ts": {
+      "name": "Intent logging tests",
+      "description": "Checks each installed napplet's intent eligibility is recorded in the log correctly."
+    },
+    "src/browser-link.test.ts": {
+      "name": "LINK confirmation tests",
+      "description": "Checks an approved link opens only for the current artifact and within the approval click."
+    },
+    "src/browser-lists.test.ts": {
+      "name": "NAP-LISTS tests",
+      "description": "Checks only fully implemented public list kinds are advertised and relay plans are disclosed."
+    },
+    "src/browser-llm-connections.test.ts": {
+      "name": "Model connection tests",
+      "description": "Checks base URLs are validated, leaky or plaintext endpoints refused, and only metadata stored."
+    },
+    "src/browser-llm-models.test.ts": {
+      "name": "Model listing tests",
+      "description": "Checks listing URLs join cleanly and provider failures produce safe messages."
+    },
+    "src/browser-llm-vault.test.ts": {
+      "name": "Key vault tests",
+      "description": "Checks weak passwords are refused, only ciphertext is stored, and the wrong password fails."
+    },
+    "src/browser-local-loader.test.ts": {
+      "name": "Local file loader tests",
+      "description": "Checks a dropped file opens in an unsaved tab without touching the catalog, and aborts cleanly."
+    },
+    "src/browser-multiplayer-identity.test.ts": {
+      "name": "Multiplayer identity tests",
+      "description": "Checks multiplayer names separate publishers and addresses but stay stable across versions."
+    },
+    "src/browser-nip46-client.test.ts": {
+      "name": "Remote signer tests",
+      "description": "Checks bunker and nostrconnect links parse and the NIP-46 client exchanges requests."
+    },
+    "src/browser-nip5d-host.test.ts": {
+      "name": "NIP-5D routing tests",
+      "description": "Checks window messages from Paja frames reach the bridge, foreign ones are ignored, and launcher messages need a bound port."
+    },
+    "src/browser-notify.test.ts": {
+      "name": "Notification tests",
+      "description": "Checks notifications prompt, render with attribution, route clicks, and clean up per window."
+    },
+    "src/browser-operation-scope.test.ts": {
+      "name": "Per-window authority tests",
+      "description": "Checks interleaved signing keeps each window's source, and nothing publishes after its source expires."
+    },
+    "src/browser-permission-adapter.test.ts": {
+      "name": "Firewall prompt tests",
+      "description": "Checks prompts and saved grants flow through the shared approval UI and stay unavailable without storage."
+    },
+    "src/browser-relay-panel.test.ts": {
+      "name": "Relay receipts tests",
+      "description": "Checks per-relay event counts, ignored malformed events and the order relays are shown in."
+    },
+    "src/browser-relay-policy.test.ts": {
+      "name": "Storage probe test",
+      "description": "Checks storage is reported unavailable when reading it throws."
+    },
+    "src/browser-relay-runtime-resource.test.ts": {
+      "name": "Relay cancel tests",
+      "description": "Checks resource discovery opens no connection when already cancelled and ignores late events."
+    },
+    "src/browser-relay-runtime.test.ts": {
+      "name": "Live relay tests",
+      "description": "Checks relay URL rules (such as private addresses), ordering, routing, publishing and observers."
+    },
+    "src/browser-relay-transport.test.ts": {
+      "name": "Relay receipt tests",
+      "description": "Checks repeated events are counted per relay but delivered once, and old events are not credited to new reads."
+    }
+  }
+}
