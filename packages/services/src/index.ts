@@ -259,6 +259,7 @@ export type {
 } from './ble-service.js';
 
 export { createWebrtcService } from './webrtc-service.js';
+export { decodeWebrtcBytes, encodeWebrtcBytes } from './webrtc-bytes.js';
 export type {
   WebrtcServiceContext,
   WebrtcServiceOptions,
