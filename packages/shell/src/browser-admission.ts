@@ -3,6 +3,8 @@ import { buildApprovedNappletCsp, classifyBrowserRemoteSources, TRUSTED_TYPES_DI
 import type { BrowserLaunchMode, BrowserRemoteSource } from './napplet-csp.js';
 import { insertNappletHead } from './napplet-head.js';
 import { renderNappletNamespacePrelude, type NappletNamespacePreludeOptions } from './napplet-namespace.js';
+import { needsTrustedTypes } from './napplet-realm-lock.js';
+import { setNestedContextLocked } from './nested-context-tripwire.js';
 
 /** A required interface conflicts with direct browser authority. */
 export interface BrowserAdmissionOmission {
@@ -28,7 +30,8 @@ export interface BrowserAdmissionRequest {
   readonly baseOrigin?: string;
   /**
    * Opt-in experimental document policies. Scan the verified bytes with
-   * `assertNappletHasNoFrame` before requesting the nested-context lock.
+   * `assertNappletHasNoFrame` before requesting the nested-context lock, and
+   * with `assertNappletHasNoResourceHint` before the resource-hint lock.
    */
   readonly experimental?: NappletNamespacePreludeOptions['experimental'];
   /** True only while this exact frame generation remains the active source. */
@@ -142,10 +145,11 @@ export async function admitBrowserDocument(request: BrowserAdmissionRequest): Pr
     const mode: BrowserLaunchMode = direct ? 'direct-network'
       : domains.includes('resource') ? 'mediated-resource' : 'isolated';
     const approvedCsp = buildApprovedNappletCsp({ mode, remoteSources: remote.sources, baseOrigin: request.baseOrigin });
-    const lockNestedContexts = request.experimental?.nestedContextLock === true;
-    const csp = lockNestedContexts ? `${approvedCsp}; ${TRUSTED_TYPES_DIRECTIVES}` : approvedCsp;
+    const lockRealm = needsTrustedTypes(request.experimental);
+    setNestedContextLocked(entry.windowId, request.experimental?.nestedContextLock === true);
+    const csp = lockRealm ? `${approvedCsp}; ${TRUSTED_TYPES_DIRECTIVES}` : approvedCsp;
     const srcdoc = insertNappletHead(request.verifiedHtml,
-      cspMeta(csp) + renderNappletNamespacePrelude({ domains, ...(lockNestedContexts ? { experimental: request.experimental } : {}) }));
+      cspMeta(csp) + renderNappletNamespacePrelude({ domains, ...(lockRealm ? { experimental: request.experimental } : {}) }));
     unsubscribe = permissions.subscribeInvalidation(() => {
       if (!permissions.isAdmissionCurrent(entry.windowId, admission) || !request.isCurrentSource()) retire();
     });

@@ -1,6 +1,7 @@
 import {
   admitBrowserDocument,
   assertNappletHasNoFrame,
+  assertNappletHasNoResourceHint,
   denyNappletControllerAccess,
   denyNappletReferrer,
   hasNappletFramePolicy,
@@ -148,12 +149,16 @@ export async function navigateFrame(
     // sink. This scan runs in the trusted shell realm, so a napplet cannot bypass
     // it (docs/policies/NIP-5D-CONFORMANCE.md, "Nested browsing contexts").
     if (nestedContextLock) assertNappletHasNoFrame(resolvedTarget.indexHtml);
+    // The resource-hint lock rides on the same decision: it shares the Trusted
+    // Types policy, and a static hint whose href a script rewrites is a data
+    // channel, so static hint markup is refused here too ("Resource hints").
+    if (nestedContextLock) assertNappletHasNoResourceHint(resolvedTarget.indexHtml);
     return admitPajaFrame({
       frame, config, generation, runtime, identity, environment,
       verifiedHtml: resolvedTarget.indexHtml,
       required: declarations.required,
       optional: local && !declared ? environment.capabilities.domains : declarations.optional,
-      ...(nestedContextLock ? { experimental: { nestedContextLock: true } } : {}),
+      ...(nestedContextLock ? { experimental: { nestedContextLock: true, resourceHintLock: true } } : {}),
       windowId, isCurrent, onRegistered, signal,
     });
   }
@@ -199,7 +204,7 @@ interface PajaFrameAdmission {
   readonly optional: readonly string[];
   readonly remoteSources?: readonly BrowserRemoteSource[];
   readonly baseOrigin?: string;
-  readonly experimental?: { readonly nestedContextLock?: boolean };
+  readonly experimental?: { readonly nestedContextLock?: boolean; readonly resourceHintLock?: boolean };
   readonly windowId?: string;
   readonly isCurrent?: () => boolean;
   readonly onRegistered?: (windowId: string | null) => void;

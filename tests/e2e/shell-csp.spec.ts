@@ -127,6 +127,15 @@ const frameBattery = `<body><pre id="result">pending</pre><div id="h"></div><div
     t('freshRealm', () => { const d = new Document(); h.append(document.adoptNode(d.createElement('iframe'))); });
     t('object', () => { const o = document.createElement('object'); o.data = 'about:blank'; h.append(o); });
     t('embed', () => h.append(document.createElement('embed')));
+    // XSLT builds elements from an XSL DOM with no factory or string sink (kehto/web#381 follow-up).
+    t('xslt', () => {
+      const XSL = 'http://www.w3.org/1999/XSL/Transform';
+      const d = document.implementation.createDocument(XSL, 'xsl:stylesheet', null); d.documentElement.setAttribute('version', '1.0');
+      const tpl = d.createElementNS(XSL, 'xsl:template'); tpl.setAttribute('match', '/');
+      const el = d.createElementNS(XSL, 'xsl:element'); el.setAttribute('name', 'iframe'); tpl.append(el); d.documentElement.append(tpl);
+      const p = new XSLTProcessor(); p.importStylesheet(d);
+      h.append(p.transformToFragment(document.implementation.createDocument(null, 'r', null), document));
+    });
     // Canonical, frameless HTML must still work through the pass-through policy.
     let benign = 'threw';
     try { h.insertAdjacentHTML('beforeend', '<p id="benign">ok</p>'); benign = document.getElementById('benign') ? 'ok' : 'missing'; } catch {}

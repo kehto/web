@@ -20,7 +20,7 @@ describe('observeFrame referrer-policy guidance', () => {
   beforeEach(() => { warn = vi.spyOn(console, 'warn').mockImplementation(() => {}); });
   afterEach(() => warn.mockRestore());
 
-  const referrerWarnings = () => warn.mock.calls.filter(([message]) => String(message).includes('referrerpolicy'));
+  const referrerWarnings = () => warn.mock.calls.filter((call: unknown[]) => String(call[0]).includes('referrerpolicy'));
 
   it('warns once, naming the fix, when a napplet frame has no referrer policy', async () => {
     const transport = await freshTransport();
