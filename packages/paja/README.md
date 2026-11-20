@@ -437,6 +437,16 @@ cannot navigate its frame away from the verified `srcdoc` at any time,
 including before its first `load`, which NIP-5D's replacement evidence cannot
 observe. Paja refuses to load a napplet into a frame whose host page lacks it.
 
+The host page also carries `<meta name="referrer" content="no-referrer">` and
+`<base href="./">`, and every napplet frame gets `referrerpolicy="no-referrer"`
+(`@kehto/shell`'s `renderNappletReferrerPolicyMeta()`, `renderNappletHostBase()`
+and `denyNappletReferrer()`), so a napplet reads neither Paja's URL from
+`document.referrer` nor its query (opened pointers, intent links) from
+`document.baseURI`. When the experimental nested-context lock resolves on, Paja
+also applies the resource-hint lock and refuses static `dns-prefetch`,
+`preconnect` and `prerender` links. See the
+[NIP-5D conformance policy](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#embedding-url).
+
 Environment simulation can be supplied through CLI flags or a JSON config file:
 
 The old `--firewall-mode` and `simulation.firewall` settings are rejected because

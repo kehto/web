@@ -1,5 +1,5 @@
 /** Browser focus/Permissions-Policy fixture; controller samples are supplied by the test. */
-import { createShellBridge, denyNappletControllerAccess, originRegistry, prepareNappletSrcdoc } from '@kehto/shell';
+import { createShellBridge, denyNappletControllerAccess, denyNappletReferrer, originRegistry, prepareNappletSrcdoc } from '@kehto/shell';
 import { browserGamepadOptions, createGamepadService, type GamepadPadSample } from '@kehto/services';
 import { createMockHooks } from '@test/helpers';
 
@@ -19,7 +19,7 @@ try { navigator.getGamepads(); window.nativeResult = 'allowed'; } catch (error) 
 </script></body></html>`;
 for (const id of ['one', 'two']) {
   const frame = document.createElement('iframe');
-  frame.id = id; frame.sandbox.add('allow-scripts'); denyNappletControllerAccess(frame);
+  frame.id = id; frame.sandbox.add('allow-scripts'); denyNappletControllerAccess(frame); denyNappletReferrer(frame);
   document.body.appendChild(frame);
   originRegistry.register(frame.contentWindow!, id, { dTag: id, aggregateHash: id });
   bridge.observeFrame(frame, id);

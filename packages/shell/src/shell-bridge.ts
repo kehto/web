@@ -11,7 +11,7 @@ import type { NappletMessage } from '@napplet/core';
 import type { Theme } from '@napplet/nap/theme/types';
 import { createShellReadyState } from './shell-ready.js';
 import { bindShellServiceRouting } from './shell-init.js';
-import { createNip5dTransport } from './nip5d-transport.js';
+import { createNip5dTransport, type NappletFrameObservation } from './nip5d-transport.js';
 
 export { MAX_DEFERRED_MESSAGES, NAPPLET_HELLO } from './nip5d-transport.js';
 
@@ -145,8 +145,15 @@ export interface ShellBridge {
    * evidence that the verified document was replaced. Call after the frame is
    * in the DOM and before assigning its `srcdoc`/`src`.
    *
+   * Under the experimental nested-context lock it also revokes the binding
+   * (`nested-context`) when the frame's Window holds a child browsing context,
+   * checked on `load` and on each envelope from the bound port. Admission marks
+   * locked documents itself; pass `{ nestedContextLock: true }` when the host
+   * prepared the `srcdoc` with `prepareNappletSrcdoc` instead.
+   *
    * @param frame - The shell-created napplet iframe
    * @param windowId - The windowId registered for this frame
+   * @param options - Whether the frame runs under the nested-context lock
    * @returns A function that stops watching
    * @example
    * ```ts
@@ -156,7 +163,11 @@ export interface ShellBridge {
    * frame.srcdoc = verifiedSrcdoc;
    * ```
    */
-  observeFrame(frame: Pick<HTMLIFrameElement, 'addEventListener' | 'removeEventListener'>, windowId: string): () => void;
+  observeFrame(
+    frame: Pick<HTMLIFrameElement, 'addEventListener' | 'removeEventListener'>,
+    windowId: string,
+    options?: NappletFrameObservation,
+  ): () => void;
 
   /**
    * Revoke one napplet binding: close its port, unregister it, destroy its

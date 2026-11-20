@@ -1,4 +1,4 @@
-import { denyNappletControllerAccess, originRegistry, type ShellAdapter, type ShellBridge } from '@kehto/shell';
+import { denyNappletControllerAccess, denyNappletReferrer, originRegistry, type ShellAdapter, type ShellBridge } from '@kehto/shell';
 import type { Runtime } from '@kehto/runtime';
 import { NAPPLET_KIND_SNAPSHOT } from '@kehto/nip/5d';
 
@@ -603,6 +603,7 @@ function createRuntimeTabFrame(
   frame.className = 'tab-panel';
   frame.title = `Napplet runtime target: ${tab.title}`;
   denyNappletControllerAccess(frame);
+  denyNappletReferrer(frame);
   frame.sandbox.add('allow-scripts');
   frame.sandbox.remove('allow-same-origin');
   frame.dataset.tabId = tab.id;
