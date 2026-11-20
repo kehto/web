@@ -60,14 +60,35 @@ function relayRequirements(plan: RelayOperationPlan): PermissionRequirement[] {
   return requirements;
 }
 
+/** Reason for a relay operation whose approval did not execute (or whose authorizer failed). */
+const RELAY_AUTHORIZATION_REFUSED = 'relay authorization unavailable or denied';
+
+/** A relay transport failure raised while an approved operation ran. */
+class RelayTransportFailure {
+  constructor(readonly cause: unknown) {}
+}
+
+/**
+ * Relays fail as part of Nostr: a transport failure keeps a transport reason and
+ * is never an authorization refusal. NAP-RELAY (naps#2 `9f30b350`) leaves
+ * `relay.closed.reason`/`error` free-form, so only that split is fixed here.
+ */
+function relayFailureReason(error: unknown, transportReason: string): string {
+  if (error instanceof RelayTransportFailure) return transportReason;
+  if (error instanceof Error && error.message === 'invalid relay destination') return error.message;
+  return RELAY_AUTHORIZATION_REFUSED;
+}
+
 async function authorizeRelay<T>(context: RelayHandlerContext, windowId: string, operation: string,
   plan: RelayOperationPlan, execute: (signal: ApprovalSignal) => T | Promise<T>): Promise<void> {
+  // Async body runs `execute` synchronously: no boundary after final approval.
+  const guarded = async (signal: ApprovalSignal): Promise<T> => { try { return await execute(signal); } catch (error) { throw new RelayTransportFailure(error); } };
   const run = context.authorizeOperation;
   if (!run) {
-    await execute({ aborted: false, addEventListener() {}, removeEventListener() {} });
+    await guarded({ aborted: false, addEventListener() {}, removeEventListener() {} });
     return;
   }
-  const outcome = await run(windowId, operation, relayRequirements(plan), execute);
+  const outcome = await run(windowId, operation, relayRequirements(plan), guarded);
   if (outcome.status !== 'executed') throw new Error(`relay authorization ${outcome.status}`);
 }
 
@@ -172,8 +193,8 @@ function handleRelaySubscribe(
         closeRelayBackends(context, windowId, subId, subKey);
       }, { once: true });
       if (!isActive()) closeRelayBackends(context, windowId, subId, subKey);
-    }).catch(() => {
-      hooks.sendToNapplet(windowId, { type: 'relay.closed', subId, reason: 'relay authorization unavailable or denied' } as NappletMessage);
+    }).catch((error: unknown) => {
+      hooks.sendToNapplet(windowId, { type: 'relay.closed', subId, reason: relayFailureReason(error, 'relay subscription failed') } as NappletMessage);
     });
     return;
   }
@@ -215,8 +236,8 @@ function handleRelaySubscribe(
       subscriptions.delete(subKey);
       closeRelayBackends(context, windowId, subId, subKey);
     }, { once: true });
-  }).catch(() => hooks.sendToNapplet(windowId,
-    { type: 'relay.closed', subId, reason: 'relay authorization unavailable or denied' } as NappletMessage));
+  }).catch((error: unknown) => hooks.sendToNapplet(windowId,
+    { type: 'relay.closed', subId, reason: relayFailureReason(error, 'relay subscription failed') } as NappletMessage));
 }
 
 function deliverFromRuntimeBackends(
@@ -395,7 +416,7 @@ function handleRelayPublish(
         error instanceof Error && error.message ? error.message : 'event signing failed',
       );
     }
-  }).catch(() => sendRelayPublishResult(hooks, windowId, id, false, undefined, 'relay authorization unavailable or denied'));
+  }).catch((error: unknown) => sendRelayPublishResult(hooks, windowId, id, false, undefined, relayFailureReason(error, 'publish failed')));
 }
 
 function sendRelayPublishResult(
@@ -569,7 +590,7 @@ function publishEncrypted(
     } catch (err) {
       replyPe(false, { error: (err as Error)?.message ?? 'encryption failed' });
     }
-  }).catch(() => replyPe(false, { error: 'relay authorization unavailable or denied' }));
+  }).catch((error: unknown) => replyPe(false, { error: relayFailureReason(error, 'publish failed') }));
 }
 
 function handleRelayQuery(context: RelayHandlerContext, windowId: string, input: RuntimeRelayMessage): void {
@@ -628,7 +649,7 @@ function handleRelayQuery(context: RelayHandlerContext, windowId: string, input:
   const plannedService = isRelayPlanningServiceHandler(service) ? service : undefined;
   void authorizeRelay(context, windowId, 'relay.query', plan, (signal) =>
     collectRelayQuery(context, windowId, message, plan, plannedService, signal, current, respond),
-  ).catch(() => respond({ error: 'relay authorization unavailable or denied' }));
+  ).catch((error: unknown) => respond({ error: relayFailureReason(error, 'relay query failed') }));
 }
 
 /** Keep the one query authorization alive until all reads finish or abort. */
