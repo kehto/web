@@ -5,6 +5,7 @@ import { NAP_PACKAGE_VERSION } from '../authority.js';
 import { FIXTURES } from '../fixtures/index.js';
 import { SUPPORTED_DOMAINS, UNROUTED_PACKAGE_DOMAINS } from './domains.js';
 import { INVENTORY, outboundOperations } from './inventory.js';
+import { readPackageFields } from './nap-type-fields.js';
 import { parseNapTypes, parseNapWireTable } from './nap-types-parser.js';
 
 const PACKAGE = join(process.cwd(), 'packages/conformance/node_modules/@napplet/nap');
@@ -45,6 +46,17 @@ describe('operation inventory drift guard', () => {
       expect(parsed.outbound.length, `${domain} parsed no outbound operations`).toBeGreaterThan(0);
       expect(INVENTORY[domain]?.package, `${domain} packaged operations`).toEqual(parsed);
       expect(INVENTORY[domain]?.spec.outbound.length, `${domain} has no pinned wire table`).toBeGreaterThan(0);
+    }
+  });
+
+  it('matches every supported domain against its packaged message fields (regenerate with scripts/generate-inventory.ts)', () => {
+    for (const domain of SUPPORTED_DOMAINS) {
+      const fields = readPackageFields(join(DIST, domain, 'types.d.ts'), domain);
+      expect(INVENTORY[domain]?.packageFields, `${domain} packaged fields`).toEqual(fields);
+      const entry = INVENTORY[domain];
+      // Every operation either source types has field data on that side.
+      expect(Object.keys(fields).sort(), `${domain} packaged messages`).toEqual([...new Set([...(entry?.package.outbound ?? []), ...(entry?.package.inbound ?? [])])].sort());
+      expect(Object.keys(entry?.specFields ?? {}).sort(), `${domain} wire-table messages`).toEqual([...new Set([...(entry?.spec.outbound ?? []), ...(entry?.spec.inbound ?? [])])].sort());
     }
   });
 
