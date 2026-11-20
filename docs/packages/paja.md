@@ -5,6 +5,11 @@
 Paja passes each runtime-approved destination list to its live relay backend for
 publication. Host policy selects the list; approval waits cannot replace it.
 
+Unconfigured private relay names remain denied with a trailing DNS dot too.
+Explicit host-configured development relays remain available. The default pool
+does not automatically sign NIP-42 challenges. Network-origin approvals do not
+grant signing authority to a third-party relay pool.
+
 Single-window Paja local authoring workshop for napplet development.
 
 Firewall approval prompts remain visible when the development console or its
@@ -44,8 +49,8 @@ app package's development scripts.
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.42.0 <0.43.0` |
-| `@napplet/nap` | `>=0.37.0 <0.42.0` |
+| `@napplet/core` | `>=0.42.0 <0.45.0` |
+| `@napplet/nap` | `>=0.37.0 <0.44.0` |
 | `nostr-tools` | `>=2.23.3 <=2.x` |
 
 ## Primary APIs
@@ -57,7 +62,7 @@ app package's development scripts.
 | Config files | `loadPajaConfigFile`, `mergePajaRawOptions`, `resolvePajaRawOptions` |
 | Host config | `createPajaHostConfig`, `createPajaRuntimeHostConfig`, `PajaHostConfig`, `PajaPointerRuntimeConfig`, `formatPajaUrl` |
 | Host page | `renderPajaHtml`, bundled `/__kehto/browser-host.js` runtime bootstrap |
-| Runtime pointers | `decodePajaPointer`, `resolvePajaPointer`, `injectPajaRuntimeCsp`, `PAJA_NAPPLET_MANIFEST_KIND`, `PAJA_NAPPLET_MANIFEST_KINDS` |
+| Runtime pointers | `decodePajaPointer`, `resolvePajaPointer`, `findPajaPointerReplacements`, `PajaPointerNotFoundError`, `PajaRelayUnreachableError`, `injectPajaRuntimeCsp`, `PAJA_NAPPLET_MANIFEST_KIND`, `PAJA_NAPPLET_MANIFEST_KINDS` |
 | Local files | `createPajaLocalTarget`, `isPajaLocalTarget`, `isPajaLocalHtmlFile`, `readNappletIdMeta`, `findRelativeAssetReferences`, `PAJA_LOCAL_SINGLE_FILE_HINT`, `PajaLocalTarget`, `PajaLocalFileInput`, `PajaRuntimeTarget` |
 | Parity metadata | `PAJA_UPSTREAM_WEB_DOMAINS`, `PAJA_ADVERTISED_DOMAINS`, `PAJA_HANDSHAKE_DOMAINS`, `PAJA_COMPATIBILITY_ALIASES`, `PAJA_REQUIRED_SERVICES`, `getMissingAdvertisedDomains`, `getMissingServices` |
 | Readiness | `waitForTargetUrl`, `ReadinessError`, `WaitForTargetUrlOptions`, `ReadinessFetch` |
@@ -147,6 +152,13 @@ A deployed runtime (no CLI access) can set the same policy from the host-page
 host origin's `localStorage`, overrides the config, and applies on the next
 napplet load.
 
+Whenever the lock resolves on, Paja also applies the resource-hint lock
+(`resourceHintLock`): it shares the Trusted Types policy and refuses napplets
+that add or ship `<link rel="dns-prefetch" | "preconnect" | "prerender">`, which
+browsers act on outside the napplet CSP. Locked napplets that end up holding a
+child frame anyway are revoked (`nested-context`). See
+[NIP-5D conformance](/policies/NIP-5D-CONFORMANCE#resource-hints).
+
 For package-manager script examples covering `pnpm`, `npm`, and `yarn`, see
 [Use Paja for local napplet authoring](/how-tos/paja-local-authoring).
 
@@ -173,7 +185,17 @@ Paja forwards window-level traffic from its frames to the `ShellBridge`, which
 binds the hello and revokes the napplet on anything else. Paja also watches
 each frame for a second load. A revoked runtime tab keeps a fresh, empty panel in
 the error state until it is reloaded. A revoked single frame is replaced the
-same way, and a revoked intent launcher is removed. Port traffic in both
+same way, and a revoked intent launcher is removed. When Paja retires an admitted
+frame itself (a revoked grant, a tightened rule, a closed tab, or a launch
+superseded by a reload), it blanks the frame and then
+calls `ShellBridge.revokeNapplet(windowId, 'host')`, the same teardown as any
+other revoke: the port binding, cached shell environment, runtime session and
+per-window service state all go, and services get `onWindowDestroyed` once for
+that registration, even though the Firewall retire and the bridge revoke both
+tear the window down. A handler without `onPermissionRevoked` also gets
+`onWindowDestroyed` as its revocation fallback when a grant revoke starts the
+retire. That
+retire is logged as `paja.napplet.retired`, not `paja.napplet.revoked`. Port traffic in both
 directions appears in the message log, and revocations are logged as
 `paja.napplet.revoked`. The log
 highlights every shell reply that failed: a `*.error`, a result with `error` or
@@ -431,8 +453,9 @@ pointer-specific relay overrides, then the effective configured live simulation
 relays. URLs are normalized and deduplicated without changing first occurrence.
 When relay simulation is disabled, configured relay URLs are not added as
 fallbacks. Connection, fanout, and EOSE share one pointer-resolution deadline;
-the UI distinguishes deadline or connection failure from the clean case where
-all queried relays reached EOSE without a matching manifest. Wider relay search
+the UI distinguishes deadline or connection failure from the case where
+the relays that answered reached EOSE without a matching manifest (see
+[Pointer not found](#pointer-not-found)). Wider relay search
 does not weaken loading: manifest signature, artifact/legacy-aggregate verification, Blossom hash, and
 `srcdoc` verification still fail closed.
 
@@ -565,8 +588,9 @@ profile also requires a connected NIP-44 signer; an explicitly configured
 multiplayer profile uses a temporary transport key instead. Paja owns peer connections and data channels, obtains
 explicit session consent, signs kind-25050 Nostr signaling, encrypts
 offer/answer SDP, and keeps application payloads exclusively on the data
-channel. Signer changes tear down sessions, synchronize runtime service handlers,
-and refresh the shell environment before loading a replacement iframe;
+channel. Signer changes tear down sessions and synchronize runtime service
+handlers. When `webrtc` appears or disappears, a frame that declared it gets a
+replacement iframe with the new environment (see the signer-change notes below);
 napplets never receive SDP, ICE internals, relay sockets, or browser networking
 objects. The signaling boundary follows pinned
 [NAP-WEBRTC `5fae95dd2c8e59bd06c654e0845656add077dcda`](https://github.com/napplet/naps/blob/5fae95dd2c8e59bd06c654e0845656add077dcda/naps/NAP-WEBRTC.md)
@@ -591,10 +615,28 @@ value the napplet sees and the wire traffic captured by an in-test Nostr relay
   against an in-test ContextVM server, plus per-window admission (one call
   running, one queued, overflow refused) under `simulation.cvm.concurrency`.
 
-Known NAP-IDENTITY gap: on a signer change Paja re-initializes the hosted napplet.
-It does not push `identity.changed` to the napplet that is already loaded. The
-spec's `test.fixme` tracks that contract until Paja refreshes its environment
-without a reload.
+Signer changes follow NAP-IDENTITY
+([napplet/naps master `377bf939`](https://github.com/napplet/naps/blob/377bf939c6c906817084b43dd21d424de646dbc2/naps/NAP-IDENTITY.md)):
+connecting, switching or disconnecting a signer keeps every loaded napplet
+running and pushes `identity.changed` with the new shell-user pubkey, or
+`pubkey: ""` when the identity is cleared. A push is sent only when the pubkey
+actually changes, not for intermediate states such as `connecting`.
+
+Paja reloads the active frame on a signer change in one case only: the change
+alters the advertised domain set in a way that changes what that frame would be
+injected. NIP-5D fixes a frame's domain namespace before its code runs, so a
+new domain needs a fresh document. Some domains depend on the signer (`webrtc`
+needs a signaling signer, `dm` needs the Dev signer, `upload` needs a writable
+signer identity). Paja reloads when one of those appears and the napplet
+declared it, or declared no domains at all. It also reloads when one disappears
+that the frame was admitted. A napplet that declared neither keeps its frame.
+Background runtime tabs are not reloaded, which is the same as any other
+environment change.
+
+- `tests/e2e/paja-identity.spec.ts` also checks that a loaded napplet receives
+  `identity.changed` for connect, switch and disconnect without a reload.
+- `tests/e2e/paja-webrtc.spec.ts` covers the narrow reload. A target that
+  declares `webrtc` is reloaded once when a signer makes `webrtc` routable.
 
 ### Standard identity and private social cache
 
@@ -630,7 +672,7 @@ completeness remain outside this behavior.
 [NAP-IDENTITY `6461e4b37c29dc09a20dff35d9515889c4433874`](https://github.com/napplet/naps/blob/6461e4b37c29dc09a20dff35d9515889c4433874/naps/NAP-IDENTITY.md)
 is byte-identical to the phase's recorded `napplet/naps` master document. Pinned
 [NAP-OUTBOX `4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e`](https://github.com/napplet/naps/blob/4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e/naps/NAP-OUTBOX.md)
-and the installed `@napplet/nap` NAP-OUTBOX types (0.41.0 for host packages) govern this PoC because current master
+and the installed `@napplet/nap` NAP-OUTBOX types (0.43.0 for host packages) govern this PoC because current master
 has no NAP-OUTBOX path. This is not a current-master OUTBOX conformance claim.
 Blossom behavior targets pinned
 [NAP-UPLOAD `a7cc17463cbf5d9cb87884b31071bc4fc826034c`](https://github.com/napplet/naps/blob/a7cc17463cbf5d9cb87884b31071bc4fc826034c/naps/NAP-UPLOAD.md).
@@ -1119,7 +1161,33 @@ offline, the relays are blocked, or the browser reached its WebSocket connection
 limit (for example many open tabs each holding relay connections). Paja logs a
 `paja.relay.unreachable` entry with the per-relay detail. A deadline expiry with
 at least one live relay keeps the timeout message and now states how many relays
-connected. Pools without `ensureRelay` keep the previous messages.
+connected. Pools without `ensureRelay` keep the previous timeout and relay
+query failure messages.
+
+### Pointer not found
+
+Relays fail now and then; one down relay does not turn a clean miss into a
+failure. When at least one relay answered `EOSE` without the manifest, the
+resolver throws `PajaPointerNotFoundError` (`code: 'pointer-not-found'`, with
+`answered`, `failed`, and the queried `relays`), and the status reads
+`Napplet manifest not found (4 answered, 1 failed): …` followed by the relays
+that could not be asked. Paja logs `paja.pointer.not-found` with the counts. The
+no-connection message and its WebSocket-limit hint stay reserved for zero
+opened sockets, and a query no relay answered (every relay failed or sent
+`CLOSED`) stays a relay query failure.
+
+A `nevent` pins one event. When it names an addressable napplet (`35129`, with
+`author` and `kind`) whose event is gone, the author has most likely republished
+it and relays replaced the old event. A `nevent` carries no `d` tag, so Paja
+cannot tell which coordinate it belonged to. `findPajaPointerReplacements` asks
+the relays that answered for the author's current `35129` manifests and lists
+each `d` tag (up to 50). One candidate shows as an **Open …** button; several
+show as a picker with nothing preselected, because Paja picks none. Nothing is fetched from Blossom, verified, installed, or framed until the
+user clicks one. The click starts an ordinary `naddr` load, so the manifest
+signature, artifact hash, `(dTag, artifactHash)` identity, and version consent
+all run again for the new bytes. Paja never swaps bytes under the old
+verified identity. Replaceable root (`15129`) nevents are not offered a
+replacement yet.
 
 ## Controller diagnostics
 
@@ -1133,7 +1201,7 @@ MediaSource buffers, without awaiting EOF. They expose pause/stop/volume but no 
 See [Media playback](https://github.com/kehto/web/blob/main/docs/media.md) for NAP-MEDIA draft authority, shell-owned audio/video,
 shared host controls, endpoint cleanup, and command API migration.
 
-The host peer window accepts `@napplet/core` 0.40.x and `@napplet/nap` 0.39.x. The newly packaged `blossom`, `catalog`, `navigation`, `soulseek` and `torrent` domains remain absent until Paja has corresponding host backends. See the [checked contract and dependency policy](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#host-dependency-line-core-0-40-nap-0-39), including the published intent-type mismatch.
+The host peer window accepts `@napplet/core` `>=0.42.0 <0.45.0` and `@napplet/nap` `>=0.37.0 <0.44.0`, and Paja develops on core 0.44.0 / nap 0.43.0. The newly packaged `blossom`, `catalog`, `navigation`, `soulseek` and `torrent` domains remain absent until Paja has corresponding host backends. See the [checked contract and dependency policy](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#host-dependency-line-core-0-44-nap-0-43).
 
 ## Optional temporal protection
 

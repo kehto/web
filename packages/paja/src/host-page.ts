@@ -8,7 +8,9 @@ import {
   PAJA_EVENT_COUNTER_RESET_LABEL,
   PAJA_EVENT_COUNTER_RESET_TITLE,
 } from './browser-relay-panel.js';
-import { BROWSER_APPROVAL_UI_STYLES, renderNappletFramePolicyMeta } from '@kehto/shell';
+import {
+  BROWSER_APPROVAL_UI_STYLES, renderNappletFramePolicyMeta, renderNappletHostBase, renderNappletReferrerPolicyMeta,
+} from '@kehto/shell';
 import type { PajaHostConfig } from './options.js';
 import { summarizePajaSimulation } from './simulation.js';
 
@@ -28,6 +30,8 @@ export function renderPajaHtml(config: PajaHostConfig): string {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     ${renderNappletFramePolicyMeta()}
+    ${renderNappletReferrerPolicyMeta()}
+    ${renderNappletHostBase()}
     <title>@kehto/paja</title>
     <style>
       :root {
@@ -154,6 +158,9 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .signer-consent-clear { width: 100%; margin-top: 6px; }
       .pointer-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; }
       .pointer-status { min-width: 0; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+      .pointer-offer { display: grid; gap: 6px; font-size: 12px; overflow-wrap: anywhere; }
+      .pointer-offer p { margin: 0; }
+      .pointer-offer-list { display: grid; gap: 4px; }
       .log-tools { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
       .log-list { min-height: 160px; max-height: 38vh; overflow: auto; border: 1px solid var(--line); border-radius: 4px; background: #0b0d0b; }
       .log-row { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 6px; padding: 5px 7px; border-bottom: 1px solid #1b1f1a; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
@@ -568,7 +575,7 @@ function renderStage(config: PajaHostConfig, targetLabel: string): string {
       </section>`;
   }
   return `<section class="stage" id="napplet-stage">
-        <iframe id="napplet-frame" title="Napplet development target" sandbox="allow-scripts" data-target-url="${targetLabel}"></iframe>
+        <iframe id="napplet-frame" title="Napplet development target" sandbox="allow-scripts" referrerpolicy="no-referrer" data-target-url="${targetLabel}"></iframe>
       </section>`;
 }
 
@@ -597,6 +604,7 @@ function renderPointerControls(config: PajaHostConfig): string {
             <input id="runtime-local-file" type="file" accept=".html,.htm,text/html" aria-label="Local napplet index.html" hidden>
           </form>
           <div class="pointer-status" id="runtime-pointer-status" aria-live="polite">idle</div>
+          <div class="pointer-offer" id="runtime-pointer-offer" aria-live="polite" hidden></div>
         </div></details>`;
 }
 

@@ -16,6 +16,7 @@ import {
   injectPajaRuntimeCsp,
   resolvePajaPointer,
   type PajaPointerRelayPool,
+  PajaPointerNotFoundError,
   PajaRelayUnreachableError,
 } from './runtime-resolver.js';
 
@@ -267,6 +268,25 @@ describe.each(['current', 'legacy'] as const)('Paja %s runtime pointer resolver'
     await expect(resolvePajaPointer(pointer, {
       pool: closingPool([], ['connection refused']),
     })).rejects.toThrow(/Relay query failed.*connection refused/);
+  });
+
+  it('reports a gone nevent as not found when one of five relays fails (#471)', async () => {
+    const manifest = await buildManifest({ dTag: 'feed' });
+    const relays = ['wss://a.example', 'wss://b.example', 'wss://c.example', 'wss://d.example', 'wss://down.example'];
+    const pointer = neventEncode({ id: manifest.event.id, author: manifest.event.pubkey, kind: PAJA_NAPPLET_MANIFEST_KIND, relays });
+    const eose = 'closed automatically on eose';
+
+    const error = await resolvePajaPointer(pointer, {
+      pool: closingPool([], [eose, eose, eose, eose, 'connection failed']),
+    }).then(() => null, (caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(PajaPointerNotFoundError);
+    const notFound = error as PajaPointerNotFoundError;
+    expect(notFound).toMatchObject({ code: 'pointer-not-found', pointerType: 'nevent', answered: 4, relays });
+    expect(notFound.failed).toEqual([{ url: 'wss://down.example', reason: 'connection failed' }]);
+    expect(notFound.message).toContain('not found (4 answered, 1 failed)');
+    expect(notFound.message).toContain('reached EOSE without a matching nevent');
+    expect(notFound.message).not.toMatch(/Relay query failed|connection could be opened/);
   });
 
   it('decodes and resolves a nevent napplet snapshot pointer by event id', async () => {
@@ -529,12 +549,15 @@ describe('Paja pointer resolver relay connection tracking', () => {
     const connectOnlyA = (url: string) => url === RELAYS[0] ? Promise.resolve() : Promise.reject(new Error('connection failed'));
     const value = await pointer();
 
-    // One relay EOSE'd, two failed: the ordinary incomplete-EOSE failure, not "unreachable".
+    // One relay EOSE'd, two failed: a clean miss with the failures counted (#471), not "unreachable".
     const mixed = await resolvePajaPointer(value, {
       pool: trackingPool(connectOnlyA, { reasons: ['closed automatically on eose', 'connection failed', 'connection failed'] }),
     }).then(() => null, (caught: unknown) => caught as Error);
     expect(mixed).not.toBeInstanceOf(PajaRelayUnreachableError);
-    expect(mixed?.message).toMatch(/Relay query failed for naddr pointer before complete EOSE: connection failed/);
+    expect(mixed).toBeInstanceOf(PajaPointerNotFoundError);
+    expect(mixed?.message).toMatch(/^Napplet manifest not found \(1 answered, 2 failed\)/);
+    expect(mixed?.message).toContain('wss://b.example: connection failed');
+    expect(mixed?.message).not.toMatch(/Relay query failed|WebSocket connection limit/);
 
     // Deadline expiry with one live relay keeps the timeout message, now with the count.
     await expect(resolvePajaPointer(value, { pool: trackingPool(connectOnlyA, 'hang'), maxWaitMs: 25 }))

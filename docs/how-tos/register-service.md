@@ -24,6 +24,10 @@ bridge.runtime.registerService('notify', createNotifyService({
 - Tear down host-owned subscriptions when the shell bridge is destroyed.
 - Do not register a service merely to advertise a capability: a backendless
   notify service rejects delivery and permission requests by design.
+- Send nothing for a type your NAP does not define, not even an error: NIP-5D
+  requires it to be silently ignored. Call the function returned by
+  `createUnrecognizedTypeDiagnostic()` from `@kehto/runtime` instead, so the
+  host still gets one `[KEHTO_UNRECOGNIZED_MESSAGE_TYPE]` warning.
 
 Current manifests use `O` tags for optional integrations. Their absence must not
 block loading, and neither `R` nor `O` grants capabilities. The `requires` wire

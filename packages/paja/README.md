@@ -3,6 +3,14 @@
 Development runtime for local napplet authoring and static pointer-loaded
 napplet testing.
 
+Scoped relay and OUTBOX hints use the runtime's destination approvals. Paja's
+host policy rejects unconfigured local/private relay names, including trailing-dot
+spellings such as `localhost.`. Explicitly configured development relays remain
+available. Its default relay pool has no automatic NIP-42 signer. Network grants
+do not authorize relay authentication; keep signer-enabled third-party pools
+separate from napplet-directed traffic. See
+[relay destination policy](../../docs/firewall-approvals.md#relay-destination-policy).
+
 The runtime is designed to be used from a napplet package script:
 
 ```json
@@ -123,10 +131,11 @@ again. Only the method is stored, never credentials, keys, URIs, or approvals.
 Invalid or unreadable storage defaults to None; failed writes still allow selection
 for the current session. An unavailable extension stays selected with an error,
 without falling back to another signer. Fixed simulation identity is independent of
-signing authority. Known NAP-IDENTITY gap: signer changes currently re-initialize
-the hosted frame rather than delivering `identity.changed` to the existing frame;
-the new frame reads the updated identity. The browser suite keeps that push gap
-explicitly skipped. Sign, publish, DM
+signing authority. A signer change keeps loaded napplets running and pushes
+NAP-IDENTITY `identity.changed` (`pubkey: ""` on disconnect). Paja reloads the
+active frame only when the change adds a signer-dependent domain (`webrtc`,
+`dm`, `upload`) that the napplet declared, or removes one it was admitted. NIP-5D
+needs a fresh injection for that. Sign, publish, DM
 send, filesystem picker, Blossom upload, and external-link requests use one serialized in-page
 confirmation dialog. Deny has initial focus and Escape denies. A napplet-scoped
 serial or BLE chooser receives runtime approval first; Paja then keeps the
@@ -281,7 +290,7 @@ outside this behavior.
 [NAP-IDENTITY at `6461e4b37c29dc09a20dff35d9515889c4433874`](https://github.com/napplet/naps/blob/6461e4b37c29dc09a20dff35d9515889c4433874/naps/NAP-IDENTITY.md)
 is byte-identical to the recorded `napplet/naps` master document for this phase.
 Pinned [NAP-OUTBOX at `4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e`](https://github.com/napplet/naps/blob/4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e/naps/NAP-OUTBOX.md)
-together with the installed `@napplet/nap` NAP-OUTBOX types (0.41.0 for host packages) is the PoC contract because
+together with the installed `@napplet/nap` NAP-OUTBOX types (0.43.0 for host packages) is the PoC contract because
 current master has no NAP-OUTBOX path. Paja therefore makes no current-master
 OUTBOX conformance claim. Blossom upload behavior targets pinned
 [NAP-UPLOAD at `a7cc17463cbf5d9cb87884b31071bc4fc826034c`](https://github.com/napplet/naps/blob/a7cc17463cbf5d9cb87884b31071bc4fc826034c/naps/NAP-UPLOAD.md).
@@ -436,6 +445,16 @@ The Paja host page carries `Content-Security-Policy: frame-src 'none'` in its
 cannot navigate its frame away from the verified `srcdoc` at any time,
 including before its first `load`, which NIP-5D's replacement evidence cannot
 observe. Paja refuses to load a napplet into a frame whose host page lacks it.
+
+The host page also carries `<meta name="referrer" content="no-referrer">` and
+`<base href="./">`, and every napplet frame gets `referrerpolicy="no-referrer"`
+(`@kehto/shell`'s `renderNappletReferrerPolicyMeta()`, `renderNappletHostBase()`
+and `denyNappletReferrer()`), so a napplet reads neither Paja's URL from
+`document.referrer` nor its query (opened pointers, intent links) from
+`document.baseURI`. When the experimental nested-context lock resolves on, Paja
+also applies the resource-hint lock and refuses static `dns-prefetch`,
+`preconnect` and `prerender` links. See the
+[NIP-5D conformance policy](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#embedding-url).
 
 Environment simulation can be supplied through CLI flags or a JSON config file:
 
@@ -932,7 +951,33 @@ offline, the relays are blocked, or the browser reached its WebSocket connection
 limit (for example many open tabs each holding relay connections). Paja logs a
 `paja.relay.unreachable` entry with the per-relay detail. A deadline expiry with
 at least one live relay keeps the timeout message and now states how many relays
-connected. Pools without `ensureRelay` keep the previous messages.
+connected. Pools without `ensureRelay` keep the previous timeout and relay
+query failure messages.
+
+### Pointer not found
+
+Relays fail now and then; one down relay does not turn a clean miss into a
+failure. When at least one relay answered `EOSE` without the manifest, the
+resolver throws `PajaPointerNotFoundError` (`code: 'pointer-not-found'`, with
+`answered`, `failed`, and the queried `relays`), and the status reads
+`Napplet manifest not found (4 answered, 1 failed): …` followed by the relays
+that could not be asked. Paja logs `paja.pointer.not-found` with the counts. The
+no-connection message and its WebSocket-limit hint stay reserved for zero
+opened sockets, and a query no relay answered (every relay failed or sent
+`CLOSED`) stays a relay query failure.
+
+A `nevent` pins one event. When it names an addressable napplet (`35129`, with
+`author` and `kind`) whose event is gone, the author has most likely republished
+it and relays replaced the old event. A `nevent` carries no `d` tag, so Paja
+cannot tell which coordinate it belonged to. `findPajaPointerReplacements` asks
+the relays that answered for the author's current `35129` manifests and lists
+each `d` tag (up to 50). One candidate shows as an **Open …** button; several
+show as a picker with nothing preselected, because Paja picks none. Nothing is fetched from Blossom, verified, installed, or framed until the
+user clicks one. The click starts an ordinary `naddr` load, so the manifest
+signature, artifact hash, `(dTag, artifactHash)` identity, and version consent
+all run again for the new bytes. Paja never swaps bytes under the old
+verified identity. Replaceable root (`15129`) nevents are not offered a
+replacement yet.
 
 ## Controller diagnostics
 

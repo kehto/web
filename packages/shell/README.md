@@ -50,8 +50,8 @@ pnpm add @kehto/shell
 
 ## Published Napplet Compatibility
 
-Peers admit `@napplet/core` `>=0.32.0 <0.43.0` and `@napplet/nap`
-`>=0.32.0 <0.42.0`; the shell does not import the NAP-LLM types, so it keeps the older floor. Host packages develop and build on core 0.42.0 / nap 0.41.0; fixture napplets stay on the exact 0.32.0 line (shim 0.30.0, sdk 0.28.0, vite-plugin 0.16.2). The fixture-line core 0.32.0 / nap 0.32.0 contracts follow
+Peers admit `@napplet/core` `>=0.32.0 <0.45.0` and `@napplet/nap`
+`>=0.32.0 <0.44.0`; the shell does not import the NAP-LLM types, so it keeps the older floor. Host packages develop and build on core 0.44.0 / nap 0.43.0; fixture napplets stay on the exact 0.32.0 line (shim 0.30.0, sdk 0.28.0, vite-plugin 0.16.2). The fixture-line core 0.32.0 / nap 0.32.0 contracts follow
 NAP-INTENT authority `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`, napplet/web#199
 source `3037200c932488f14f7f369b8583c39c9c16510a` / merge
 `b3f0007867eac109fa4917fac9c285d3b7cc6155`, and Version Packages #198 release
@@ -80,7 +80,7 @@ Current draft behaviors this package enforces:
 - `prepareNappletSrcdoc()` inserts validated CSP and the runtime namespace outside verified artifact bytes. It exposes only the host-selected bare domains. Optional `shell` installs its parent-bound receiver before readiness; routing uses trusted iframe creation identity independently of that exchange. See the living [NAP-SHELL](https://github.com/napplet/naps/blob/master/naps/NAP-SHELL.md).
 - The injected resource projection follows NAP-RESOURCE PR #80 at `ae5b9c64ab8a4d8909f288829a01e99d6bd713bc`: `bytes(url)` and `bytesMany(urls)` carry one URL or an ordered URL array. Results use canonical padded base64 on the wire and decode to `Blob` values only in the injected projection.
 - `window.napplet.shell.supports(domain)` answers synchronously and locally from the cached first `shell.init` environment. It returns `false` before `shell.init`, for unknown values, and for domains that are not live and granted to that napplet; it never sends a support-query message.
-- Five optional per-domain proxies — `createIdentityProxy`, `createThemeProxy`, `createKeysProxy`, `createMediaProxy`, `createNotifyProxy` — can be composed between napplet and runtime to intercept request traffic per NAP. They are NOT wired by default. Identity/theme proxy `emit()` compatibility members fail closed; hosts must deliver automatic changes through `ShellBridge.publishIdentityChanged()` / `publishTheme()`, which enforce live session, granted domain, and current ACL.
+- Five optional per-domain proxies — `createIdentityProxy`, `createThemeProxy`, `createKeysProxy`, `createMediaProxy`, `createNotifyProxy` — can be composed between napplet and runtime to intercept request traffic per NAP. They are NOT wired by default. Identity/theme proxy `emit()` compatibility members fail closed; hosts must deliver automatic changes through `ShellBridge.publishIdentityChanged()` / `publishTheme()`, which enforce live session, granted domain, and current ACL. A napplet is a push target from its first valid `napplet.hello`, before it sends anything.
 - `keys.forward` is napplet-to-shell only. Active napplets suppress locally-bound keys from `keys.bindings` before forwarding; shell-initiated action triggers use `keys.action`.
 - `buildShellCapabilities()` advertises only live domains. Registered `dm` and `fs` services are injected only when their handlers exist; disabled domains are absent from the delivered `domains` and named services snapshots.
 
@@ -401,6 +401,31 @@ contract, as documented in the conformance policy.
 The shell normalizer also powers Paja intent links. See the
 [Paja guide](https://kehto.github.io/web/docs/packages/paja.html#nap-intent-links-and-lifecycle)
 for outer URL encoding, review, routing, and verified launcher behavior.
+
+## Embedding URL and realm locks
+
+A verified napplet is an `about:srcdoc` document and inherits the host page's
+referrer and base URL. Keep the shell URL out of it with
+`denyNappletReferrer(frame)` before assigning `srcdoc`, plus
+`renderNappletReferrerPolicyMeta()` and `renderNappletHostBase()` in the host
+page `<head>` (WebKit ignores the iframe attribute for `srcdoc`; only a host-page
+`<base>` reaches `document.baseURI`). `hasNappletReferrerPolicy(frame)` and
+`hasNappletReferrerPolicyMeta(document)` report the two controls, and
+`ShellBridge.observeFrame` warns once when either is missing.
+
+The experimental namespace adds `resourceHintLock` next to `nestedContextLock`.
+It rejects `<link rel="dns-prefetch" | "preconnect" | "prerender">`, which
+browsers act on outside the napplet CSP, on every string sink and attribute
+writer; scan the bytes first with `assertNappletHasNoResourceHint` (or
+`nappletMarkupHasResourceHint`). Both locks remove `XSLTProcessor`, reject
+namespace-prefixed frame and link tags, and inspect `DOMParser` results, which
+otherwise mint frames past the nested-context lock through XSLT or XML parsing
+(prefixes, DTD entities). Under the nested-context
+lock the bridge revokes a napplet whose Window holds a child frame
+(`nested-context`); hosts that prepare the `srcdoc` themselves opt in with
+`observeFrame(frame, windowId, { nestedContextLock: true })`
+(`NappletFrameObservation`). See the
+[NIP-5D conformance policy](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#resource-hints).
 
 ## GAMEPAD integration
 

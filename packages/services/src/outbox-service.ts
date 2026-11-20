@@ -95,6 +95,8 @@ export interface OutboxRelayPlan {
   missingAuthors?: string[];
   /** Signing identity captured for a pre-sign publish plan. */
   author?: string;
+  /** Host-only required publish targets. Required when a publish requests own/inbox fanout. */
+  requiredRelays?: string[];
 }
 
 /** Outcome of a single-event outbox lookup. */
@@ -189,7 +191,8 @@ export interface StreamingOutboxRouter extends OutboxRouter {
   queryWithPlan?(filters: NostrFilter[], options: OutboxQueryOptions | undefined, plan: OutboxRelayPlan, signal?: ApprovalSignal): Promise<OutboxResult>;
   /** Resolve publish fanout from the signer identity before signature creation. */
   planPublish?(options?: OutboxPublishOptions): Promise<OutboxRelayPlan>;
-  publishWithPlan?(template: EventTemplate, plan: OutboxRelayPlan): Promise<OutboxPublishResult>;
+  /** Execute an approved fanout; abort must be checked again after asynchronous signing. */
+  publishWithPlan?(template: EventTemplate, plan: OutboxRelayPlan, signal?: ApprovalSignal): Promise<OutboxPublishResult>;
   subscribeWithPlan?(filters: NostrFilter[], plan: OutboxRelayPlan, sink: OutboxSubscriptionSink): OutboxRouterSubscription;
   /**
    * Start policy/fallback reads immediately, stream verified events through
@@ -562,6 +565,19 @@ export function createOutboxService(options: OutboxServiceOptions): ServiceHandl
       }
     },
     handleMessage(windowId: string, message: NappletMessage, send: Send): void {
+      const request = message as NappletMessage & { id?: string; subId?: string; options?: unknown };
+      if (!runtimeContext?.authorizeOperation && isRecord(request.options)
+        && Array.isArray(request.options.relays) && request.options.relays.length > 0
+        && ['outbox.getEvent', 'outbox.query', 'outbox.subscribe', 'outbox.publish'].includes(message.type)) {
+        const error = 'relay hints require RuntimeAdapter.permissions and planned OUTBOX execution';
+        const response = message.type === 'outbox.subscribe'
+          ? { type: 'outbox.closed', subId: request.subId ?? '', reason: error }
+          : { type: `${message.type}.result`, id: request.id ?? '', error,
+            ...(message.type === 'outbox.query' ? { events: [] } : {}),
+            ...(message.type === 'outbox.publish' ? { ok: false } : {}) };
+        send(response as NappletMessage);
+        return;
+      }
       switch (message.type) {
         case 'outbox.getEvent':
           handleGetEvent(actions, windowId, message, send);

@@ -106,6 +106,10 @@ describe('createPajaBlossomEventResolver', () => {
     expect(await resolver.getServers(RESOURCE_URL, 'window')).toEqual([]);
     expect(decorated.planPublish).toBeTypeOf('function');
     expect(decorated.publishWithPlan).toBeTypeOf('function');
+    const template = { kind: 1, content: 'approved publish', tags: [], created_at: 1 };
+    const publishSignal = new AbortController().signal;
+    await decorated.publishWithPlan!(template, plan, publishSignal);
+    expect(baseRouter.publishWithPlan).toHaveBeenCalledWith(template, plan, publishSignal);
   });
 
   it('bounds complete author fanout and URI hints to eight before lookup', async () => {

@@ -618,7 +618,9 @@ export function createHostSignerController(
         error: signer.error,
       });
       refreshState(state);
-      if (signer.status === 'connected') state.reload();
+      // No reload here: NAP-IDENTITY says loaded napplets learn of a signer
+      // change through identity.changed. The host's environment callback
+      // reloads only when the advertised domain set changes for the frame.
     },
   });
 }

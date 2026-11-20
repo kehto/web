@@ -10,7 +10,7 @@
  * envelope — the canonical nap-inc contract that the pre-12-04 handler silently dropped.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createRuntime } from './runtime.js';
 import type { Runtime } from './runtime.js';
 import { createMockRuntimeAdapter, createNip5dSessionEntry } from './test-utils.js';
@@ -735,6 +735,50 @@ describe('relay.publishEncrypted (NAP-08 / DRIFT-RT-08 / SH-C03)', () => {
     const result = results[0] as NappletMessage & { ok: boolean; error?: string };
     expect(result.ok).toBe(false);
     expect(String(result.error)).toMatch(/unsupported encryption/);
+  });
+
+  // kehto/web#482. NAP-RELAY napplet/naps#2 @ 9f30b350, Shell Behavior: "The
+  // shell MUST encrypt content and sign event templates from
+  // `relay.publishEncrypted`". A signer that cannot encrypt must fail closed:
+  // no signature, no publish, and `ok: false` (Error Handling).
+  describe('fails closed when the signer cannot encrypt', () => {
+    function rebuild(peSigner: import('./types.js').Signer, publishToRelays: () => void): void {
+      ctx = createMockRuntimeAdapter({
+        auth: { getUserPubkey: () => 'user-pubkey', getSigner: () => peSigner },
+        relayPool: { ...createAvailableRelayPool(), publishToRelays },
+      });
+      runtime = createRuntime(ctx.hooks);
+      runtime.sessionRegistry.register(PE_WINDOW, createNip5dSessionEntry(PE_WINDOW, PE_DTAG, PE_HASH));
+    }
+
+    const CASES: ReadonlyArray<readonly [string, Partial<import('./types.js').Signer>, 'nip44' | 'nip04' | undefined, string]> = [
+      ['no nip44 method', { nip44: undefined }, 'nip44', 'encryption unavailable: nip44'],
+      ['no nip04 method', { nip04: undefined }, 'nip04', 'encryption unavailable: nip04'],
+      // Spec-gap decision: "NIP-04 as fallback" never downgrades an omitted scheme.
+      ['omitted scheme, NIP-04-only signer', { nip44: undefined }, undefined, 'encryption unavailable: nip44'],
+      ['encrypt resolves undefined', { nip44: { encrypt: async () => undefined as unknown as string, decrypt: async () => '' } }, 'nip44', 'encryption failed'],
+      ['encrypt resolves empty', { nip44: { encrypt: async () => '', decrypt: async () => '' } }, 'nip44', 'encryption failed'],
+      ['encrypt returns the plaintext', { nip44: { encrypt: async (_pk: string, plain: string) => plain, decrypt: async () => '' } }, 'nip44', 'encryption failed'],
+    ];
+
+    it.each(CASES)('%s', async (_name, overrides, encryption, error) => {
+      const signEvent = vi.fn(async (ev: import('@napplet/core').NostrEvent) => ({ ...ev, id: 'evt-id', sig: 'c'.repeat(128) }));
+      const publishToRelays = vi.fn();
+      rebuild(createStubSigner({ ...overrides, signEvent }), publishToRelays);
+
+      runtime.handleMessage(PE_WINDOW, {
+        type: 'relay.publishEncrypted', id: 'pe-closed',
+        event: { kind: 4, content: 'secret', tags: [], created_at: 123 }, recipient: PE_RECIPIENT,
+        ...(encryption ? { encryption } : {}),
+      } as NappletMessage);
+      await new Promise((r) => setTimeout(r, 0));
+
+      expect(allEnvelopesOfType(ctx.sent, 'relay.publishEncrypted.result')).toEqual([
+        { type: 'relay.publishEncrypted.result', id: 'pe-closed', ok: false, error },
+      ]);
+      expect(signEvent).not.toHaveBeenCalled();
+      expect(publishToRelays).not.toHaveBeenCalled();
+    });
   });
 
   it('never exposes plaintext to local subscribers — delivered event carries ciphertext only', async () => {

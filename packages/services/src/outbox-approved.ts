@@ -36,24 +36,47 @@ import type {
   OutboxSubscriptionSink,
   StreamingOutboxRouter,
 } from './outbox-service.js';
+import { relayOrigin } from './relay-url-policy.js';
 
 /**
  * Freeze a router plan so the approved destinations cannot change before execution.
  *
+ * Every relay must be a valid relay URL (throws `invalid relay destination`),
+ * and host-only `requiredRelays` must be a subset of the approved relays.
+ *
  * @param plan - The router's relay plan.
- * @returns A frozen copy with a frozen relay list.
+ * @returns A frozen copy with frozen relay lists.
  */
 export function capturePlan(plan: OutboxRelayPlan): OutboxRelayPlan {
-  const captured = { ...plan, relays: [...plan.relays] };
+  for (const url of plan.relays) relayOrigin(url);
+  const captured = { ...plan, relays: [...plan.relays],
+    ...(plan.requiredRelays ? { requiredRelays: [...plan.requiredRelays] } : {}) };
+  if (captured.requiredRelays?.some((url) => !captured.relays.includes(url))) throw new Error('invalid required relay destination');
+  if (captured.requiredRelays) Object.freeze(captured.requiredRelays);
   Object.freeze(captured.relays);
   return Object.freeze(captured);
+}
+
+/**
+ * Capture a publish plan; own-outbox or inbox fanout must name its required relays.
+ *
+ * @param plan - The router's publish plan.
+ * @param options - Sanitized publish options.
+ * @returns The frozen plan.
+ */
+function capturePublishPlan(plan: OutboxRelayPlan, options?: OutboxPublishOptions): OutboxRelayPlan {
+  const captured = capturePlan(plan);
+  if ((options?.toOutbox !== false || options?.toInboxes?.length) && !captured.requiredRelays?.length) {
+    throw new Error('publish plan must identify required relay destinations');
+  }
+  return captured;
 }
 
 /** Interface plus per-relay network requirements for one approved OUTBOX operation. */
 function outboxRequirements(operation: string, plan: OutboxRelayPlan): PermissionRequirement[] {
   return [
     { category: 'interface', domain: 'outbox', operation: 'access', scope: { kind: 'exact', value: 'outbox' } },
-    ...plan.relays.map((url) => ({ category: 'network' as const, domain: 'outbox', operation, scope: { kind: 'origin' as const, value: new URL(url).origin } })),
+    ...plan.relays.map((url) => ({ category: 'network' as const, domain: 'outbox', operation, scope: { kind: 'origin' as const, value: relayOrigin(url) } })),
   ];
 }
 
@@ -189,10 +212,15 @@ export function subscribeApproved(
 /**
  * Plan, approve, and execute one OUTBOX publish.
  *
- * A signer failure while planning rejects with its own message (it is not a
- * relay failure); relay discovery cannot reject here because the router
- * degrades it to fallback. A transport failure inside the approved callback is
- * a network reason, and only a non-executed approval outcome is `policy denied`.
+ * Planning rejections pass through with their own message: a signer failure,
+ * a relay-gate refusal of a required author (`policy denied`), a recipient
+ * without a relay list (`relay list unavailable`), or a router plan that
+ * breaks the required-destination contract. A plan naming an unusable relay
+ * URL is `relay list unavailable`. None of these reach approval,
+ * signing, or transport. A transport failure inside the approved callback is a
+ * network reason, and only a non-executed approval outcome is `policy denied`.
+ * The approval signal is threaded into `publishWithPlan`, which rechecks it
+ * after asynchronous signing.
  *
  * @param planned - Router implementing `planPublish` and `publishWithPlan`.
  * @param runtime - Runtime context carrying `authorizeOperation`.
@@ -208,17 +236,20 @@ export async function publishApproved(
   template: EventTemplate,
   options: OutboxPublishOptions | undefined,
 ): Promise<OutboxPublishResult> {
-  const plan = capturePlan(await planned.planPublish!(options));
-  let requirements: PermissionRequirement[];
+  const routed = await planned.planPublish!(options);
+  let plan: OutboxRelayPlan;
   try {
-    requirements = outboxRequirements('outbox.publish', plan);
-  } catch {
-    return { ok: false, error: OUTBOX_RELAY_LIST_UNAVAILABLE };
+    plan = capturePublishPlan(routed, options);
+  } catch (error) {
+    // An unusable relay URL in the plan is a planning outcome, not a denial (#467).
+    if (error instanceof Error && error.message === 'invalid relay destination') return { ok: false, error: OUTBOX_RELAY_LIST_UNAVAILABLE };
+    throw error;
   }
+  const requirements = outboxRequirements('outbox.publish', plan);
   const outcome = await runtime.authorizeOperation!(windowId, 'outbox.publish', requirements, async (signal) => {
     if (signal.aborted) return { ok: false, error: OUTBOX_POLICY_DENIED };
     try {
-      return await planned.publishWithPlan!(template, plan);
+      return await planned.publishWithPlan!(template, plan, signal);
     } catch (error) {
       return { ok: false, error: outboxPublishFailureReason(error) };
     }

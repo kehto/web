@@ -9,11 +9,14 @@ import {
   type CliIo,
   type RunPajaCliOptions,
 } from '@kehto/paja/cli';
+import { runConformanceCli, type RunConformanceCliOptions } from '@kehto/conformance/cli';
 
 /** Execution controls for the top-level Kehto CLI router. */
 export interface RunKehtoCliOptions {
   /** Options forwarded to the `kehto paja` subcommand. */
   readonly paja?: RunPajaCliOptions;
+  /** Options forwarded to the `kehto conformance` subcommand. */
+  readonly conformance?: RunConformanceCliOptions;
 }
 
 /**
@@ -45,6 +48,10 @@ export async function runKehtoCli(
     return runPajaCli(rest, io, options.paja);
   }
 
+  if (command === 'conformance') {
+    return runConformanceCli(rest, io, options.conformance);
+  }
+
   io.stderr.write(`kehto: unknown command "${command}". Run kehto --help for usage.\n`);
   return 1;
 }
@@ -53,11 +60,14 @@ const HELP_TEXT = `Usage:
   kehto <command> [options]
 
 Commands:
-  paja    Run a napplet app inside the Paja local authoring workshop.
+  paja          Run a napplet app inside the Paja local authoring workshop.
+  conformance   Run the NIP-5D and NAP runtime conformance suite against Kehto.
 
 Examples:
   kehto paja --target-url http://127.0.0.1:5173 -- pnpm vite --host 127.0.0.1
   kehto paja --config kehto.dev.json
+  kehto conformance --profile minimal
+  kehto conformance --reporter junit --out conformance.xml
 
 Options:
   --help, -h    Show this help.`;

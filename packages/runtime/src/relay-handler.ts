@@ -11,10 +11,10 @@ import {
 } from './relay-result.js';
 import type { RuntimeAdapter, ServiceHandler, ServiceRegistry, ServiceRuntimeContext, Signer } from './types.js';
 import { isRelayPlanningServiceHandler, type RelayOperationPlan } from './service-types.js';
-import type { PermissionRequirement } from '@kehto/firewall';
+import { authorizeRelay, snapshotRelayPlan } from './relay-authorization.js';
 import type { ApprovalSignal } from './approval-coordinator.js';
 import { snapshotApprovalEnvelope } from './approval-envelope.js';
-import { guardRelayTransport, relayFailureReason } from './relay-failure.js';
+import { relayFailureReason } from './relay-failure.js';
 
 declare const console: { warn(message: string): void };
 
@@ -44,35 +44,6 @@ type RelayHandlerContext = {
 const legacyRelayServiceWarnings = new WeakSet<object>();
 const legacyRelayAdapterWarnings = new WeakSet<object>();
 
-function relayRequirements(plan: RelayOperationPlan): PermissionRequirement[] {
-  const requirements: PermissionRequirement[] = [{
-    category: 'interface', domain: 'relay', operation: 'access', scope: { kind: 'exact', value: 'relay' },
-  }];
-  for (const relayUrl of plan.relayUrls) {
-    try {
-      const origin = /^(wss?:\/\/[^/?#]+)/.exec(relayUrl)?.[1];
-      if (!origin) throw new Error('scheme');
-      requirements.push({ category: 'network', domain: 'relay', operation: 'relay.network',
-        scope: { kind: 'origin', value: origin } });
-    } catch {
-      throw new Error('invalid relay destination');
-    }
-  }
-  return requirements;
-}
-
-async function authorizeRelay<T>(context: RelayHandlerContext, windowId: string, operation: string,
-  plan: RelayOperationPlan, execute: (signal: ApprovalSignal) => T | Promise<T>): Promise<void> {
-  const guarded = guardRelayTransport(execute);
-  const run = context.authorizeOperation;
-  if (!run) {
-    await guarded({ aborted: false, addEventListener() {}, removeEventListener() {} });
-    return;
-  }
-  const outcome = await run(windowId, operation, relayRequirements(plan), guarded);
-  if (outcome.status !== 'executed') throw new Error(`relay authorization ${outcome.status}`);
-}
-
 export type RelayHandler = (windowId: string, msg: NappletMessage) => void;
 
 export function createRelayHandler(context: RelayHandlerContext): RelayHandler {
@@ -82,9 +53,15 @@ export function createRelayHandler(context: RelayHandlerContext): RelayHandler {
     const action = msg.type.slice(dotIdx + 1);
 
     switch (action) {
-      case 'subscribe':
-        handleRelaySubscribe(context, windowId, msg, m);
+      case 'subscribe': {
+        const captured = snapshotApprovalEnvelope(msg) as RuntimeRelayMessage | undefined;
+        if (!captured || (captured.filters !== undefined && !Array.isArray(captured.filters))) {
+          context.hooks.sendToNapplet(windowId, { type: 'relay.closed', subId: m.subId ?? '', reason: 'invalid relay subscription' } as NappletMessage);
+          return;
+        }
+        handleRelaySubscribe(context, windowId, captured, captured);
         return;
+      }
       case 'close':
         handleRelayClose(context, windowId, msg, m);
         return;
@@ -132,6 +109,8 @@ function handleRelaySubscribe(
   const subId = m.subId ?? '';
   const filters = m.filters ?? [];
   if (!subId) return;
+  const source = context.getSource(windowId);
+  const current = (): boolean => !!source && context.getSource(windowId) === source;
 
   const relayService = relayServiceFrom(context);
   if (relayService) {
@@ -144,7 +123,7 @@ function handleRelaySubscribe(
       return;
     }
     let plan: RelayOperationPlan;
-    try { plan = relayService.planRelayOperation(windowId, msg); }
+    try { plan = snapshotRelayPlan(relayService.planRelayOperation(windowId, msg)); }
     catch {
       hooks.sendToNapplet(windowId, { type: 'relay.closed', subId, reason: 'invalid relay destination' } as NappletMessage);
       return;
@@ -152,8 +131,8 @@ function handleRelaySubscribe(
     const subKey = `${windowId}:${subId}`;
     let opened: object | undefined;
     void authorizeRelay(context, windowId, 'relay.subscribe', plan, (signal) => {
-      if (signal.aborted) return;
-      const { entry, isActive, send } = openSubscriptionEntry(context, windowId, subKey, filters, signal);
+      if (signal.aborted || !current()) return;
+      const { entry, isActive, send } = openSubscriptionEntry(context, windowId, subKey, filters, signal, current);
       opened = entry;
       const seenIds = new Set<string>();
       const deliver = (event: NostrEvent, relayHints?: string[]): void => {
@@ -167,7 +146,7 @@ function handleRelaySubscribe(
       relayService.executeRelayOperation(windowId, msg, plan, signal, send);
       retireOnAbort(context, signal, windowId, subId, entry);
       if (!isActive()) closeRelayBackends(context, windowId, subId, subKey);
-    }).catch((error: unknown) => closeFailedSubscription(context, windowId, subId, opened, error));
+    }, m.relay).catch((error: unknown) => closeFailedSubscription(context, windowId, subId, opened, error, current));
     return;
   }
 
@@ -187,8 +166,8 @@ function handleRelaySubscribe(
   }
   let opened: object | undefined;
   void authorizeRelay(context, windowId, 'relay.subscribe', plan, (signal) => {
-    if (signal.aborted) return;
-    const { entry, isActive, send } = openSubscriptionEntry(context, windowId, subKey, filters, signal);
+    if (signal.aborted || !current()) return;
+    const { entry, isActive, send } = openSubscriptionEntry(context, windowId, subKey, filters, signal, current);
     opened = entry;
     const seenIds = new Set<string>();
     const deliver = (event: NostrEvent, relayHints?: string[]): void => {
@@ -201,14 +180,16 @@ function handleRelaySubscribe(
     }
     deliverFromRuntimeBackends(context, subId, subKey, filters, isShellKind, deliver, send, isActive, plan.relayUrls);
     retireOnAbort(context, signal, windowId, subId, entry);
-  }).catch((error: unknown) => closeFailedSubscription(context, windowId, subId, opened, error));
+  }, m.relay).catch((error: unknown) => closeFailedSubscription(context, windowId, subId, opened, error, current));
 }
 
 /** Register one approved subscription and gate its delivery on that registration. */
-function openSubscriptionEntry(context: RelayHandlerContext, windowId: string, subKey: string, filters: NostrFilter[], signal: ApprovalSignal) {
+function openSubscriptionEntry(
+  context: RelayHandlerContext, windowId: string, subKey: string, filters: NostrFilter[], signal: ApprovalSignal, current: () => boolean,
+) {
   const entry: SubscriptionEntry = { windowId, filters };
   context.subscriptions.set(subKey, entry);
-  const isActive = (): boolean => !signal.aborted && context.subscriptions.get(subKey) === entry && context.canReadRelay(windowId);
+  const isActive = (): boolean => !signal.aborted && current() && context.subscriptions.get(subKey) === entry && context.canReadRelay(windowId);
   const send = (response: NappletMessage): void => {
     if (isActive()) context.hooks.sendToNapplet(windowId, normalizeRelayServiceResponse(response));
   };
@@ -225,13 +206,19 @@ function retireOnAbort(context: RelayHandlerContext, signal: ApprovalSignal, win
   }, { once: true });
 }
 
-/** Retire a subscription whose approval or transport failed after it opened, then say why. */
-function closeFailedSubscription(context: RelayHandlerContext, windowId: string, subId: string, opened: object | undefined, error: unknown): void {
+/**
+ * Retire a subscription whose approval or transport failed after it opened,
+ * then say why, unless the source was replaced (the old frame gets nothing).
+ */
+function closeFailedSubscription(
+  context: RelayHandlerContext, windowId: string, subId: string, opened: object | undefined, error: unknown, current: () => boolean,
+): void {
   const subKey = `${windowId}:${subId}`;
   if (opened && context.subscriptions.get(subKey) === opened) {
     context.subscriptions.delete(subKey);
     closeRelayBackends(context, windowId, subId, subKey);
   }
+  if (!current()) return;
   context.hooks.sendToNapplet(windowId, { type: 'relay.closed', subId, reason: relayFailureReason(error, 'relay subscription failed') } as NappletMessage);
 }
 
@@ -517,7 +504,7 @@ function handleRelayPublishEncrypted(
   const eventTemplate = (msg as RuntimeRelayMessage).event;
   const peMsg = msg as NappletMessage & { recipient?: string; encryption?: string };
   const recipient = peMsg.recipient ?? '';
-  const encryption = (peMsg.encryption ?? 'nip44') as 'nip04' | 'nip44' | string;
+  const encryption: unknown = peMsg.encryption ?? 'nip44';
 
   const replyPe = (ok: boolean, extra: Record<string, unknown> = {}) => {
     hooks.sendToNapplet(windowId, { type: 'relay.publishEncrypted.result', id, ok, ...extra } as NappletMessage);
@@ -525,7 +512,7 @@ function handleRelayPublishEncrypted(
 
   if (!recipient) { replyPe(false, { error: 'missing recipient' }); return; }
   if (encryption !== 'nip44' && encryption !== 'nip04') {
-    replyPe(false, { error: `unsupported encryption scheme: ${encryption}` });
+    replyPe(false, { error: `unsupported encryption scheme: ${String(encryption)}` });
     return;
   }
   const peSigner = hooks.auth.getSigner(windowId);
@@ -534,8 +521,19 @@ function handleRelayPublishEncrypted(
     replyPe(false, { error: 'invalid event template' });
     return;
   }
+  // NAP-RELAY #2 @ 9f30b350: "The shell MUST encrypt content and sign event
+  // templates from `relay.publishEncrypted`". A signer without the requested
+  // scheme fails closed before any consent prompt, plan or publish (#482).
+  // "NIP-44 by default, NIP-04 as fallback" (API Surface) is read as naming
+  // the alternative value, not as permission to downgrade silently: an
+  // omitted `encryption` with a NIP-04-only signer still fails (spec gap).
+  const scheme: 'nip04' | 'nip44' = encryption;
+  if (typeof peSigner[scheme]?.encrypt !== 'function') {
+    replyPe(false, { error: `encryption unavailable: ${scheme}` });
+    return;
+  }
 
-  publishEncrypted(context, windowId, id, recipient, encryption, eventTemplate, peSigner, replyPe);
+  publishEncrypted(context, windowId, id, recipient, scheme, eventTemplate, peSigner, replyPe);
 }
 
 function publishEncrypted(
@@ -543,7 +541,7 @@ function publishEncrypted(
   windowId: string,
   id: string,
   recipient: string,
-  encryption: 'nip04' | 'nip44' | string,
+  encryption: 'nip04' | 'nip44',
   eventTemplate: EventTemplate,
   peSigner: Signer,
   replyPe: (ok: boolean, extra?: Record<string, unknown>) => void,
@@ -568,10 +566,13 @@ function publishEncrypted(
     try {
       if (signal.aborted) return;
       const plaintext = String((eventTemplate as { content?: unknown }).content ?? '');
-      const ciphertext: string = encryption === 'nip44'
-        ? (await peSigner.nip44?.encrypt(recipient, plaintext)) ?? ''
-        : (await peSigner.nip04?.encrypt(recipient, plaintext)) ?? '';
+      const ciphertext: unknown = await peSigner[encryption]?.encrypt(recipient, plaintext);
       if (signal.aborted) return;
+      // Never sign or publish content the signer did not actually encrypt.
+      if (typeof ciphertext !== 'string' || ciphertext === '' || ciphertext === plaintext) {
+        replyPe(false, { error: 'encryption failed' });
+        return;
+      }
       const eventWithCiphertext = { ...eventTemplate, content: ciphertext };
       const signed = await peSigner.signEvent?.(eventWithCiphertext);
       if (signal.aborted) return;
@@ -636,14 +637,14 @@ function handleRelayQuery(context: RelayHandlerContext, windowId: string, input:
           ? [message.relay] : pool.selectRelayTier(filters);
       plan = { operation: 'query', relayUrls, localOnly: !pool?.isAvailable() };
     }
-    plan = Object.freeze({ ...plan, operation: 'query', relayUrls: Object.freeze([...new Set(plan.relayUrls)]) });
+    plan = snapshotRelayPlan({ ...plan, operation: 'query' });
   } catch (error) {
     respond({ error: error instanceof Error ? error.message : 'invalid relay destination' });
     return;
   }
   const plannedService = isRelayPlanningServiceHandler(service) ? service : undefined;
   void authorizeRelay(context, windowId, 'relay.query', plan, (signal) =>
-    collectRelayQuery(context, windowId, message, plan, plannedService, signal, current, respond),
+    collectRelayQuery(context, windowId, message, plan, plannedService, signal, current, respond), message.relay,
   ).catch((error: unknown) => respond({ error: relayFailureReason(error, 'relay query failed') }));
 }
 

@@ -14,8 +14,8 @@ pnpm add @kehto/runtime
 
 ## Published Napplet Compatibility
 
-Peers admit `@napplet/core` `>=0.32.0 <0.43.0` and `@napplet/nap`
-`>=0.32.0 <0.42.0`; the runtime does not import the NAP-LLM types, so it keeps the older floor. Host packages develop and build on core 0.42.0 / nap 0.41.0; fixture napplets stay on the exact 0.32.0 line (shim 0.30.0, sdk 0.28.0, vite-plugin 0.16.2). The exact fixture-line convention contracts are core 0.32.0 /
+Peers admit `@napplet/core` `>=0.32.0 <0.45.0` and `@napplet/nap`
+`>=0.32.0 <0.44.0`; the runtime does not import the NAP-LLM types, so it keeps the older floor. Host packages develop and build on core 0.44.0 / nap 0.43.0; fixture napplets stay on the exact 0.32.0 line (shim 0.30.0, sdk 0.28.0, vite-plugin 0.16.2). The exact fixture-line convention contracts are core 0.32.0 /
 nap 0.32.0 from NAP-INTENT authority `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`,
 napplet/web#199 source `3037200c932488f14f7f369b8583c39c9c16510a` / merge
 `b3f0007867eac109fa4917fac9c285d3b7cc6155`, and Version Packages #198 release
@@ -137,6 +137,34 @@ The released `@napplet/nap@0.32.0` SDK accepts `EventTemplate`, while its
 `RelayPublishMessage.event` declaration still says `NostrEvent`; Kehto records
 that mismatch as upstream package drift and follows the NAP wire direction.
 
+## Napplet-directed relay destinations
+
+Configure `RuntimeAdapter.permissions` and a source-bound `permissionPrincipal`
+before accepting `relay.subscribe.relay` or Kehto's existing `relay.query.relay`
+extension. A hint that selects network transport is rejected when operation
+authority is absent. Unhinted host-tier routing remains available for migration
+and emits `FW-RELAY-NETWORK-LEGACY-001` once per runtime instance on network use.
+Local-only mock and shell-event reads remain quiet.
+
+The runtime validates WebSocket URLs, rejects credentials and fragments, and
+includes each canonical origin in the `relay.network` permission request.
+Subscribe envelopes and destination plans are detached before approval waits.
+Execution uses the exact approved relay URLs; revocation and source replacement
+retire the pending/live work. A host's explicit allow rule may authorize the
+origin without showing a prompt; an interface grant alone cannot do so.
+
+Relay-pool authentication remains a separate host policy. A network-origin grant
+does not authorize NIP-42 signing. Use a pool without automatic authentication
+for napplet-directed traffic; Kehto cannot remove authentication hooks installed
+inside a third-party pool. The built-in Paja pool has no automatic signer.
+See [relay destination policy](../../docs/firewall-approvals.md#relay-destination-policy).
+
+Authority: NAP-RELAY draft `napplet/naps#2` at
+`9f30b3505335a52c574ff570576687d6467021ff`. Scoped subscribe is canonical;
+query's relay field remains an existing Kehto extension, not a new wire API.
+Executing that extension emits `KEHTO_COMPAT_RELAY_QUERY_HINT` once per runtime;
+migrate to scoped `relay.subscribe` and close after EOSE. Canonical calls stay quiet.
+
 ## Identity and theme result policy
 
 This runtime follows NAP-IDENTITY and NAP-THEME at `napplet/naps` master
@@ -186,9 +214,12 @@ the protocol-defined correlated result wire: `outbox.query.result` with
 ACL and legacy Firewall denials answer each recognized request on its owning
 NAP's failure wire, never an invented `<type>.error`. A denied `cvm.*` request
 gets its matching `.result` with `error: "policy denied"` (NAP-CVM #31 at
-`28cf1bdb`); `relay`, `outbox`, `upload.upload`, `count`, `notify`, `dm` and
-`fs` follow their own NAPs, and requests with no defined reply stay silent. The
-per-type table, refs and remaining spec gaps are in
+`28cf1bdb`); `relay`, `outbox`, `upload`, `count`, `notify`, `dm`, `fs`,
+`keys`, `media` and `config` follow their own NAPs, and requests with no defined
+reply stay silent (including a denied `config.get`). The legacy Firewall gate
+uses the same rows for `common`, `lists`, `serial`, `ble`, `webrtc`, `link` and
+`gamepad`, which ACL does not gate. The per-type table, refs and
+spec-gap decisions are in
 [RUNTIME-SPEC.md](https://github.com/kehto/web/blob/main/RUNTIME-SPEC.md).
 
 The fixture-line `@napplet/nap@0.32.0` contract trails PR #106. Host packages
@@ -347,6 +378,9 @@ token budgets. No limiter means there are no temporal counters to retire.
 ### State handler
 - `handleStorageNap` — canonical `storage.*` NIP-5D handler
 - `cleanupNappState` — remove persisted state when a napplet window closes
+
+### Unrecognized message types
+- `createUnrecognizedTypeDiagnostic` — host warning for a dropped type its NAP does not define (`[KEHTO_UNRECOGNIZED_MESSAGE_TYPE]`, once per domain/type, at most `UNRECOGNIZED_TYPE_WARNING_LIMIT` types per instance, no payloads). NIP-5D requires such messages to get no reply, including on the ACL denial path.
 
 ### Service dispatch
 - `routeServiceMessage` — policy-free domain selection primitive; never a fallback for untrusted ingress

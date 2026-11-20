@@ -6,9 +6,9 @@
  * Routes: media.session.create, media.session.update, media.session.destroy,
  *         media.state, media.capabilities, media.command
  * Spec gaps / decisions:
- * - `@napplet/nap/media/types` 0.32.0 lags PR #133 (no `source.torrent`) and
- *   PR #10 (`MediaState.reason`); local `MockMediaSourceRef` and
- *   `MockMediaPlaybackState` widen them.
+ * - `@napplet/nap/media/types` 0.43.0 carries PR #10 (`MediaState.reason`,
+ *   `media.session.ended`) but still lags PR #133 (no `source.torrent`), so
+ *   the local `MockMediaSourceRef` widens only the source.
  * - Shell-owned sources: `url` (https only; other schemes → `source blocked`),
  *   `blossomHash` (64 hex), and `torrent` (job id = a `LINUX_DISTROS` id,
  *   single-file so `fileIndex` must be 0). `nostr` refs → `unsupported source`.
@@ -100,11 +100,8 @@ export interface MockMediaSourceRef extends MediaSourceRef {
   torrent?: MockMediaTorrentSource;
 }
 
-/** `MediaState` plus the PR #10 transition `reason`. */
-export interface MockMediaPlaybackState extends MediaState {
-  /** Transition reason (`user`, `ended`, `focus-lost`, ...). */
-  reason?: string;
-}
+/** Playback state the mock tracks: the packaged `MediaState`, which carries the PR #10 transition `reason`. */
+export type MockMediaPlaybackState = MediaState;
 
 /** A command as carried by `media.command`. */
 export interface MockMediaCommand {

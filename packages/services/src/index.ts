@@ -206,9 +206,11 @@ export type {
   CvmRegistryOptions, CvmRegistryQuery,
 } from './cvm-registry-types.js';
 export type {
+  CvmRequestHandle,
   CvmService,
   CvmServiceOptions,
   CvmTransport,
+  CvmTransportExecution,
 } from './cvm-service.js';
 export type {
   McpMessage,

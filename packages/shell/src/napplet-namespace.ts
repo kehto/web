@@ -9,6 +9,7 @@
 
 import { createIntentUriNormalizer } from './intent-uri.js';
 import type { NappletExperimentalOptions } from './napplet-experimental.js';
+import { renderNappletRealmLock } from './napplet-realm-lock.js';
 
 /**
  * Options for rendering the host-owned NIP-5D `window.napplet` namespace prelude.
@@ -66,120 +67,10 @@ function scriptJson(value: unknown): string {
  */
 export function renderNappletNamespacePrelude(options: NappletNamespacePreludeOptions): string {
   const domains = uniqueBareDomains(options.domains);
-  // The nested-browsing-context lock is opt-in (experimental namespace). When
-  // off, inject a no-op so the prelude installs no Trusted Types policy and
-  // pins no factories, leaving the realm exactly as it was before this policy.
-  const frameLock = options.experimental?.nestedContextLock
-    ? nappletFrameLock.toString()
-    : '(function(){})';
+  // Realm locks are opt-in (experimental namespace). With none on, a no-op is
+  // injected, so the prelude installs no Trusted Types policy and pins nothing.
+  const frameLock = renderNappletRealmLock(options.experimental);
   return `<script data-kehto-nip5d-injection>(${nappletNamespacePrelude.toString()})(${scriptJson(domains)}, (${createIntentUriNormalizer.toString()})(), ${frameLock});</script>`;
-}
-
-/** A window exposing the optional members the frame lock pins or installs. */
-type FrameLockWindow = Window & {
-  trustedTypes?: {
-    createPolicy: (
-      name: string,
-      rules: {
-        createHTML: (input: string, ...rest: unknown[]) => string;
-        createScript: (input: string) => string;
-        createScriptURL: (input: string) => string;
-      },
-    ) => unknown;
-  };
-  Document?: { prototype: Document };
-  DOMImplementation?: { prototype: DOMImplementation };
-};
-
-/**
- * Close the only two ways an iframe element can be minted in a napplet realm,
- * before any napplet script runs. Serialized into the prelude and invoked with
- * the napplet `window`.
- *
- * 1. HTML string sinks — a Trusted Types `default` policy (enforced by the
- *    napplet CSP's `require-trusted-types-for 'script'`) rejects any string
- *    carrying a frame tag and passes canonical HTML through untouched.
- * 2. Element factories — `Document.prototype.createElement` / `createElementNS`
- *    are the only element-creating methods on the platform; pin both
- *    non-configurable to reject frame tag names, with `createDocument`.
- *
- * Node movement needs a pre-existing frame node (both routes are closed), and
- * escaping the pins needs a fresh realm (child frame closed here, popup denied
- * by the sandbox, worker has no DOM). The set is closed; verified in Chromium,
- * Firefox and WebKit.
- */
-function nappletFrameLock(win: FrameLockWindow): void {
-  const FRAME_ELEMENTS = new Set([
-    'iframe', 'frame', 'frameset', 'object', 'embed', 'portal', 'fencedframe',
-  ]);
-  const isFrameTag = (value: unknown): boolean => FRAME_ELEMENTS.has(String(value).toLowerCase());
-  // A complete frame tag-name token (open or close), so a lexical check cannot
-  // be split by parse-context differences, plus a chunk that ends mid-tag (a
-  // streaming document.write frame-tag prefix).
-  const FRAME_TAG = /<\/?(?:iframe|frame|frameset|object|embed|portal|fencedframe)(?=[\s/>]|$)/i;
-  const FRAME_TAG_PREFIX = /<[a-zA-Z]*$/;
-
-  const { trustedTypes } = win;
-  if (trustedTypes) {
-    try {
-      // Runs on every string sink. Pass canonical HTML through, reject a frame
-      // tag, so existing napplets that assign plain strings are unaffected.
-      trustedTypes.createPolicy('default', {
-        createHTML: (input, ...rest): string => {
-          const sink = rest.length >= 2 ? String(rest[1]) : '';
-          const blocked = /write/i.test(sink)
-            ? FRAME_TAG.test(input) || FRAME_TAG_PREFIX.test(input)
-            : FRAME_TAG.test(input);
-          if (blocked) throw new TypeError('kehto: napplets may not create nested browsing contexts');
-          return input;
-        },
-        createScript: (input): string => input,
-        createScriptURL: (input): string => input,
-      });
-    } catch {
-      // A napplet that pre-registered its own `default` policy would collide;
-      // the factory pins below and the host-side byte scan still hold.
-    }
-  }
-
-  const pin = (object: object, name: string, value: unknown): void => {
-    try {
-      Object.defineProperty(object, name, {
-        value, writable: false, configurable: false, enumerable: false,
-      });
-    } catch {
-      // Never turn hardening into a load-blocking failure.
-    }
-  };
-  const localName = (qualified: unknown): string => String(qualified ?? '').split(':').pop()!.toLowerCase();
-  const HTML_NS = 'http://www.w3.org/1999/xhtml';
-
-  const docProto = win.Document?.prototype;
-  if (docProto) {
-    const createElement = docProto.createElement;
-    pin(docProto, 'createElement', function (this: Document, tagName: unknown, ...rest: unknown[]) {
-      if (isFrameTag(tagName)) throw new TypeError('kehto: napplets may not create nested browsing contexts');
-      return (createElement as (...args: unknown[]) => unknown).call(this, tagName, ...rest);
-    });
-    const createElementNS = docProto.createElementNS;
-    pin(docProto, 'createElementNS', function (this: Document, namespace: unknown, qualifiedName: unknown, ...rest: unknown[]) {
-      if (namespace === HTML_NS && FRAME_ELEMENTS.has(localName(qualifiedName))) {
-        throw new TypeError('kehto: napplets may not create nested browsing contexts');
-      }
-      return (createElementNS as (...args: unknown[]) => unknown).call(this, namespace, qualifiedName, ...rest);
-    });
-  }
-
-  const domImpl = win.DOMImplementation?.prototype;
-  if (domImpl) {
-    const createDocument = domImpl.createDocument;
-    pin(domImpl, 'createDocument', function (this: DOMImplementation, namespace: unknown, qualifiedName: unknown, ...rest: unknown[]) {
-      if (namespace === HTML_NS && FRAME_ELEMENTS.has(localName(qualifiedName))) {
-        throw new TypeError('kehto: napplets may not create nested browsing contexts');
-      }
-      return (createDocument as (...args: unknown[]) => unknown).call(this, namespace, qualifiedName, ...rest);
-    });
-  }
 }
 
 /**
@@ -257,11 +148,10 @@ function nappletNamespacePrelude(
     }
   }
 
-  // Nested-browsing-context lock (defense-in-depth beyond the current NIP-5D
-  // text; docs/policies/NIP-5D-CONFORMANCE.md, "Nested browsing contexts").
-  // A napplet is untrusted and has no legitimate use for a child frame, and
-  // an about:srcdoc / about:blank child is a fresh realm CSP never reaches.
-  // Close the only two iframe-creation routes before any napplet script.
+  // Opt-in realm locks (defense-in-depth beyond the current NIP-5D text;
+  // docs/policies/NIP-5D-CONFORMANCE.md, "Nested browsing contexts" and
+  // "Resource hints"): close child-frame creation and CSP-exempt resource
+  // hints before any napplet script runs (napplet-realm-lock.ts).
   frameLock(target);
 
   type RuntimeMessage = { type: string; id?: string; [key: string]: unknown };
@@ -1205,15 +1095,15 @@ function nappletNamespacePrelude(
       reportState: (sessionId: string, state: unknown) => fire({ ...((state && typeof state === 'object') ? state as Record<string, unknown> : {}), type: 'media.state', sessionId }),
       reportCapabilities: (sessionId: string, actions: unknown) => fire({ type: 'media.capabilities', sessionId, actions }),
       command,
-      sendCommand: (sessionId: string, action: string, value?: unknown) => {
-        warn('SEND-COMMAND', 'media.command(sessionId, { action, value })');
-        command(sessionId, { action, ...(value === undefined ? {} : { value }) });
+      sendCommand: (sessionId: string, action: string, value?: unknown, reason?: unknown) => {
+        warn('SEND-COMMAND', 'media.command(sessionId, { action, value, reason })');
+        command(sessionId, { action, ...(value === undefined ? {} : { value }), ...(reason === undefined ? {} : { reason }) });
       },
       onCommand: (sessionId: string, callback: (...args: unknown[]) => void) => {
         const legacy = callback.length >= 2;
         if (legacy) warn('COMMAND-CALLBACK', 'media.onCommand(sessionId, command => ...)');
         return on('media.command', sessionId, msg => legacy
-          ? callback(msg.action, msg.value)
+          ? callback(msg.action, msg.value, msg.reason)
           : callback({ action: msg.action, ...(msg.value === undefined ? {} : { value: msg.value }), ...(msg.reason === undefined ? {} : { reason: msg.reason }) }));
       },
       onState: (sessionId: string, callback: (state: Record<string, unknown>) => void) => on('media.state', sessionId, msg => {
@@ -1298,11 +1188,18 @@ function nappletNamespacePrelude(
   function makeResource(): Record<string, unknown> {
     const objectUrls = new Set<string>();
     const decode = (value: unknown, mime: unknown): Blob => {
-      if (typeof value !== 'string' || typeof mime !== 'string'
-        || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(value)) {
+      // Checked in linear time: a backtracking pattern over a payload of a few megabytes exhausts the stack.
+      // The alphabet and length checks keep atob from throwing its own error; the round trip rejects
+      // misplaced padding, missing padding and non-zero trailing bits.
+      if (typeof value !== 'string' || typeof mime !== 'string' || value.length % 4 !== 0 || /[^A-Za-z0-9+/=]/u.test(value)) {
         throw new TypeError('resource result has non-canonical base64');
       }
-      const binary = atob(value);
+      let binary: string;
+      try {
+        binary = atob(value);
+      } catch {
+        throw new TypeError('resource result has non-canonical base64');
+      }
       if (btoa(binary) !== value) throw new TypeError('resource result has non-canonical base64');
       const bytes = new Uint8Array(binary.length);
       for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
@@ -1370,10 +1267,15 @@ function nappletNamespacePrelude(
       { timeoutMs: typeof options?.timeoutMs === 'number' && Number.isInteger(options.timeoutMs)
         && options.timeoutMs > 0 && options.timeoutMs <= 300_000 ? options.timeoutMs + 1000 : undefined },
     );
+    // NAP-CVM #31 @ 28cf1bdb: only a request (method + id) awaits an MCP
+    // response; a notification or response completes "After transport
+    // publication, result without `message`; API returns `null`".
+    const awaitsResponse = (message: unknown): boolean => typeof message === 'object' && message !== null
+      && (message as { method?: unknown }).method !== undefined && (message as { id?: unknown }).id !== undefined;
     const cvmRequest = (server: unknown, message: unknown, options?: Record<string, unknown>) => req(
       'cvm.request',
       { server, message, ...(options === undefined ? {} : { options }) },
-      (msg) => fieldOrThrow(msg, 'message', 'cvm.request.result missing message'),
+      (msg) => (awaitsResponse(message) ? fieldOrThrow(msg, 'message', 'cvm.request.result missing message') : null),
       options,
     );
     const mcpCall = async (
@@ -1711,6 +1613,13 @@ function nappletNamespacePrelude(
         { type: 'webrtc.send', sessionId, payload },
         'webrtc.send.result',
         (msg) => voidResult(msg, 'webrtc send failed'),
+      ),
+      // NAP-WEBRTC #59 @ fb4dd6f0: `bytes` is canonical padded base64, passed through
+      // as given; the shell service validates it or answers `unsupported`.
+      sendBytes: (sessionId: string, bytes: string) => request(
+        { type: 'webrtc.sendBytes', sessionId, bytes },
+        'webrtc.sendBytes.result',
+        (msg) => voidResult(msg, 'webrtc sendBytes failed'),
       ),
       close: (sessionId: string, reason?: string) => request(
         { type: 'webrtc.close', sessionId, ...(reason ? { reason } : {}) },

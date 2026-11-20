@@ -171,7 +171,7 @@ it('does not warn or execute for a stale navigation with unavailable requirement
   const resolved = await target('current', ['experimental-nap']);
   const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
   const frame = { contentWindow: {} as Window, ownerDocument: LOCKED_HOST, srcdoc: '', getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
-  expect(await navigateFrame(frame, config, 1, adapter, runtime, resolved, undefined, () => false)).toBeNull();
+  expect(await navigateFrame(frame, config, 1, adapter, runtime, resolved, { isCurrent: () => false })).toBeNull();
   expect(frame.srcdoc).toBe('');
   expect(originRegistry.getIdentity(frame.contentWindow!)).toBeUndefined();
   expect(warn).not.toHaveBeenCalled();
@@ -191,7 +191,7 @@ it('holds verified bytes until approval and aborts a replaced frame without regi
     setAttribute: vi.fn(), removeAttribute: vi.fn() } as unknown as HTMLIFrameElement;
   const controller = new AbortController();
   const pending = navigateFrame(frame, config, 1, adapter, runtime, resolved,
-    'old-generation', () => !controller.signal.aborted, undefined, controller.signal);
+    { windowId: 'old-generation', isCurrent: () => !controller.signal.aborted, signal: controller.signal });
   await visible;
   expect(frame.srcdoc).toBe('');
   expect(originRegistry.getIdentity(frame.contentWindow!)).toBeUndefined();
@@ -310,8 +310,10 @@ it('still refuses required resource when the host config grants the frame direct
   expect(originRegistry.getIdentity(frame.contentWindow!)).toBeUndefined();
 });
 
-async function frameDeclaringTarget(requires: readonly string[] = ['shell']): Promise<PajaResolvedPointer> {
-  const frameHtml = '<html><head><title>evil</title></head><body><iframe srcdoc="x"></iframe></body></html>';
+async function frameDeclaringTarget(
+  requires: readonly string[] = ['shell'],
+  frameHtml = '<html><head><title>evil</title></head><body><iframe srcdoc="x"></iframe></body></html>',
+): Promise<PajaResolvedPointer> {
   const frameBytes = new TextEncoder().encode(frameHtml);
   const frameHash = await sha256hex(frameBytes);
   const event = finalizeEvent({ kind: 35129, created_at: 1, content: 'frame napplet', tags: [['d', 'frame'], ['x', frameHash], ...requires.map((domain) => ['R', domain])] }, sk);
@@ -336,6 +338,18 @@ it('with the experimental lock on, refuses a verified napplet whose markup decla
   expect(assigned).toBe('');
 });
 
+it('with the experimental lock on, refuses a verified napplet whose markup declares a resource hint', async () => {
+  const lockedConfig = { ...config, experimental: { nestedContextLock: 'on' } } as PajaHostConfig;
+  const resolved = await frameDeclaringTarget(['shell'], '<html><head><link rel="preconnect" href="https://collector.example"></head><body></body></html>');
+  let assigned = '';
+  const frame = {
+    contentWindow: {} as Window, ownerDocument: LOCKED_HOST, getAttribute: vi.fn(() => null), setAttribute: vi.fn(), removeAttribute: vi.fn(),
+    set srcdoc(value: string) { assigned = value; },
+  } as unknown as HTMLIFrameElement;
+  await expect(navigateFrame(frame, lockedConfig, 1, adapter, runtime, resolved)).rejects.toThrow(/dns-prefetch, preconnect or prerender/);
+  expect(assigned).toBe('');
+});
+
 it('with the experimental lock on, carries Trusted Types and prelude pins through Firewall admission', async () => {
   const lockedConfig = { ...config, experimental: { nestedContextLock: 'on' } } as PajaHostConfig;
   const resolved = await target('current', ['shell']);
@@ -343,6 +357,9 @@ it('with the experimental lock on, carries Trusted Types and prelude pins throug
   await navigateFrame(frame, lockedConfig, 1, adapter, runtime, resolved);
   expect(frame.srcdoc).toContain("require-trusted-types-for 'script'");
   expect(frame.srcdoc).toContain("frame-src 'none'");
+  // The resource-hint lock rides on the same decision.
+  expect(frame.srcdoc).toContain('dns-prefetch, preconnect or prerender');
+  expect(frame.setAttribute).toHaveBeenCalledWith('referrerpolicy', 'no-referrer');
 });
 
 it('without the experimental lock, loads a frame-declaring napplet unchanged (opt-in gate)', async () => {

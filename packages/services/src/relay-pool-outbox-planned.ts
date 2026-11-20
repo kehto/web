@@ -16,7 +16,7 @@
 
 import type { EventTemplate, NostrEvent, NostrFilter } from '@napplet/core';
 import { createRelayEventResultWithHints, type ApprovalSignal } from '@kehto/runtime';
-import { deriveAuthors, resolvePlan } from './relay-pool-outbox-planning.js';
+import { deriveAuthors, resolvePublishTargets } from './relay-pool-outbox-planning.js';
 import {
   OUTBOX_POLICY_DENIED,
   OUTBOX_PUBLISH_DENIED,
@@ -198,6 +198,13 @@ export function subscribePlanImpl(
 /**
  * Resolve the publish plan from the signer identity before any signature.
  *
+ * The plan names every destination up front: own outbox (host fallback when
+ * the signer has no NIP-65 list), every `toInboxes` recipient's inbox, and
+ * caller hints. Own and inbox relays are carried as host-only
+ * `requiredRelays`. A relay-gate refusal of a required author rejects with
+ * `policy denied`; a recipient without a relay list rejects with
+ * `relay list unavailable`.
+ *
  * @param ctx - Router dependencies.
  * @param publishOptions - Publish fanout options.
  * @returns The relay plan, carrying the captured signing identity.
@@ -205,8 +212,9 @@ export function subscribePlanImpl(
 export async function planPublishImpl(ctx: RouterCtx, publishOptions?: OutboxPublishOptions): Promise<OutboxRelayPlan> {
   if (!ctx.getSignerPubkey) return { relays: [], source: 'policy' };
   const pubkey = await ctx.getSignerPubkey();
-  const plan = await resolvePlan(ctx, publishOptions?.toOutbox === false ? [] : [pubkey], 'read', publishOptions?.relays);
-  return { ...plan, author: pubkey };
+  const targets = await resolvePublishTargets(ctx, { pubkey }, publishOptions, true);
+  if (targets.error) throw new Error(targets.error);
+  return { relays: targets.relayUrls, requiredRelays: targets.requiredRelayUrls, source: 'policy', author: pubkey };
 }
 
 /** Normalize a pool publish return into a per-relay success map. */
@@ -227,17 +235,28 @@ export function normalizePublishResult(
 /**
  * Sign once and publish to an approved plan.
  *
- * An empty plan is a discovery outcome (`relay list unavailable`). A signer
- * failure or a pool error naming `publish denied` (consent refused) is
- * `publish denied`. Relays that throw otherwise or accept nothing are
- * `relay timeout`.
+ * Approval cancellation is checked before signing and again after the
+ * asynchronous signer returns; either is `policy denied`. An empty plan is a
+ * discovery outcome (`relay list unavailable`). A signer failure or a pool
+ * error naming `publish denied` (consent refused) is `publish denied`. With
+ * `requiredRelays`, every required relay must accept, so successful hint
+ * fanout cannot hide a failed inbox; a required relay that did not accept is
+ * a relay failure, `relay timeout`, never a denial (NAP-OUTBOX draft
+ * napplet/naps#32 at `8865f73d`, Error Handling; see `outbox-reasons.ts`).
  *
  * @param ctx - Router dependencies.
  * @param template - Event template to sign.
  * @param plan - The approved, frozen relay plan.
+ * @param signal - Approval cancellation signal.
  * @returns The publish result.
  */
-export async function publishWithPlanImpl(ctx: RouterCtx, template: EventTemplate, plan: OutboxRelayPlan): Promise<OutboxPublishResult> {
+export async function publishWithPlanImpl(
+  ctx: RouterCtx,
+  template: EventTemplate,
+  plan: OutboxRelayPlan,
+  signal?: ApprovalSignal,
+): Promise<OutboxPublishResult> {
+  if (signal?.aborted) return { ok: false, error: OUTBOX_POLICY_DENIED };
   if (!ctx.signEvent) return { ok: false, error: OUTBOX_PUBLISH_DENIED };
   if (plan.relays.length === 0) return { ok: false, error: OUTBOX_RELAY_LIST_UNAVAILABLE };
   let event: NostrEvent;
@@ -247,6 +266,7 @@ export async function publishWithPlanImpl(ctx: RouterCtx, template: EventTemplat
     // The signer or the user declined: a shell refusal, not a relay failure.
     return { ok: false, error: OUTBOX_PUBLISH_DENIED };
   }
+  if (signal?.aborted) return { ok: false, error: OUTBOX_POLICY_DENIED };
   if (plan.author && event.pubkey !== plan.author) return { ok: false, event, eventId: event.id, error: 'signing identity changed' };
   let relays: Record<string, boolean>;
   try {
@@ -254,6 +274,8 @@ export async function publishWithPlanImpl(ctx: RouterCtx, template: EventTemplat
   } catch (error) {
     return { ok: false, event, eventId: event.id, error: outboxPublishFailureReason(error) };
   }
-  const ok = Object.values(relays).some(Boolean);
+  const ok = plan.requiredRelays?.length
+    ? plan.requiredRelays.every((url) => relays[url] === true)
+    : Object.values(relays).some(Boolean);
   return ok ? { ok, event, eventId: event.id, relays } : { ok, event, eventId: event.id, relays, error: OUTBOX_RELAY_TIMEOUT };
 }

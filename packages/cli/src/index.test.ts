@@ -11,6 +11,18 @@ describe('@kehto/cli', () => {
 
     expect(code).toBe(0);
     expect(stdout.join('')).toContain('kehto paja');
+    expect(stdout.join('')).toContain('kehto conformance --profile minimal');
+  });
+
+  it('dispatches conformance arguments to the conformance runner', async () => {
+    const stderr: string[] = [];
+    const code = await runKehtoCli(['conformance', '--reporter', 'tap'], {
+      stdout: { write: () => undefined },
+      stderr: { write: (chunk) => stderr.push(chunk) },
+    });
+
+    expect(code).toBe(2);
+    expect(stderr.join('')).toContain('--reporter must be one of pretty, json, junit');
   });
 
   it('dispatches paja arguments through the top-level command', async () => {

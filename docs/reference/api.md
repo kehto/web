@@ -14,6 +14,7 @@ The docs site build runs API generation first through the root `docs:site:build`
 |---------|----------------------|
 | `@kehto/acl` | <a href="../api/modules/_kehto_acl.html" target="_self"><code>docs/api/modules/_kehto_acl.html</code></a> |
 | `@kehto/cli` | <a href="../api/modules/_kehto_cli.html" target="_self"><code>docs/api/modules/_kehto_cli.html</code></a> |
+| `@kehto/conformance` | <a href="../api/modules/_kehto_conformance.html" target="_self"><code>docs/api/modules/_kehto_conformance.html</code></a> |
 | `@kehto/paja` | <a href="../api/modules/_kehto_paja.html" target="_self"><code>docs/api/modules/_kehto_paja.html</code></a> |
 | `@kehto/firewall` | <a href="../api/modules/_kehto_firewall.html" target="_self"><code>docs/api/modules/_kehto_firewall.html</code></a> |
 | `@kehto/rate-limit` | <a href="../api/modules/_kehto_rate-limit.html" target="_self">Generated API</a> |

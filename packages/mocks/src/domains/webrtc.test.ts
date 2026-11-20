@@ -126,10 +126,27 @@ describe('createMockWebrtcService', () => {
       { type: 'webrtc.close.result', id: 'c1' },
     ]);
     expect(service.mock.state().sessions.get(second)?.session.state).toBe('closed');
+    // An ended session is unknown (NAP-WEBRTC #59 @ fb4dd6f0), matching createWebrtcService.
     call({ type: 'webrtc.close', id: 'c2', sessionId: first });
-    expect(sent.at(-1)).toEqual({ type: 'webrtc.close.result', id: 'c2' });
+    expect(sent.at(-1)).toEqual({ type: 'webrtc.close.result', id: 'c2', error: 'session not found' });
     call({ type: 'webrtc.send', id: 's2', sessionId: second, payload: 1 }, 'w2');
-    expect(sent.at(-1)).toEqual({ type: 'webrtc.send.result', id: 's2', error: 'session closed' });
+    expect(sent.at(-1)).toEqual({ type: 'webrtc.send.result', id: 's2', error: 'session not found' });
+  });
+
+  it('delivers nothing for a session after the napplet closes it (NAP-WEBRTC #59: no events for an unknown sessionId)', () => {
+    const { service, sent, call, open, queue, drain } = setup();
+    const sessionId = open('w1', { type: 'direct', pubkey: carol.pubkey });
+    drain();
+    expect(service.peerMessage(sessionId, { body: 'before' })).toBe(true);
+    call({ type: 'webrtc.send', id: 's1', sessionId, payload: { body: 'echo me' } });
+    expect(queue.length).toBeGreaterThan(0);
+    sent.length = 0;
+    call({ type: 'webrtc.close', id: 'c1', sessionId });
+    drain();
+    expect(service.peerMessage(sessionId, { body: 'late' })).toBe(false);
+    expect(service.peerBytes(sessionId, 'AAEC')).toBe(false);
+    expect(service.peerLeave(sessionId)).toBe(false);
+    expect(sent).toEqual([{ type: 'webrtc.close.result', id: 'c1' }]);
   });
 
   it('room sessions mesh every joined window; leaving removes only that peer', () => {
@@ -274,7 +291,7 @@ describe('createMockWebrtcService', () => {
     service.onCapabilityRevoked?.('w3', null);
     expect(sent).toEqual([{ type: 'webrtc.event', event: { type: 'closed', sessionId: third, reason: 'policy denied' } }]);
     call({ type: 'webrtc.send', id: 's1', sessionId: third, payload: 1 }, 'w3');
-    expect(sent.at(-1)).toEqual({ type: 'webrtc.send.result', id: 's1', error: 'session closed' });
+    expect(sent.at(-1)).toEqual({ type: 'webrtc.send.result', id: 's1', error: 'session not found' });
 
     const auto = createMockWebrtcService({ scheduler: { schedule: (_ms, fn) => { queue.push(fn); return () => { queue.splice(queue.indexOf(fn), 1); }; } } });
     auto.handleMessage('w9', { type: 'webrtc.open', id: 'o', request: { scope: { type: 'room', room: 'r' } } } as unknown as NappletMessage, () => {});

@@ -40,6 +40,7 @@
  */
 
 import type { NappletMessage } from '@napplet/core';
+import { createUnrecognizedTypeDiagnostic } from '@kehto/runtime';
 import type { ApprovalSignal, ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
 import type {
   KeysForwardMessage,
@@ -268,20 +269,12 @@ type UnregisterActionHandler = (
   send: SendNappletMessage,
 ) => void;
 
-function sendUnknownKeysMethod(send: SendNappletMessage, message: NappletMessage): void {
-  const id = (message as NappletMessage & { id?: string }).id ?? '';
-  send({
-    type: `${message.type}.error`,
-    id,
-    error: `Unknown keys method: ${message.type}`,
-  } as NappletMessage);
-}
-
 function createKeysMessageHandler(options: {
   onForward?: KeysServiceOptions['onForward'];
   onRegisterAction: RegisterActionHandler;
   onUnregisterAction: UnregisterActionHandler;
 }): (windowId: string, message: NappletMessage, send: SendNappletMessage) => void {
+  const ignoreUnrecognized = createUnrecognizedTypeDiagnostic();
   return (windowId, message, send): void => {
     switch (message.type) {
       case 'keys.forward':
@@ -294,7 +287,8 @@ function createKeysMessageHandler(options: {
         options.onUnregisterAction(windowId, message as KeysUnregisterActionMessage, send);
         return;
       default:
-        sendUnknownKeysMethod(send, message);
+        // NIP-5D (nips#2303 @ f60550c3): unrecognized types get no reply.
+        ignoreUnrecognized('keys', message.type);
     }
   };
 }

@@ -6,13 +6,51 @@ the supplied immutable plan. Custom registered relay services implement
 `executeRelayOperation()`. Reference publish services require `publishToRelays`;
 a generic publisher cannot enforce the approved destination list.
 
+Standalone OUTBOX calls with nonempty `options.relays` require a permission-enabled
+runtime and planned execution. The default router rejects unconfigured private
+destinations. Planned publishing honors cancellation before and after signing.
+The router also rejects
+credentials, fragments and malformed WebSocket URLs; configured
+development fallbacks remain host policy. DNS-time validation is the transport's
+responsibility. See [relay destination policy](/firewall-approvals#relay-destination-policy).
+
+Publish planning captures the complete own-outbox/inbox/hint union before
+approval, including host-only `requiredRelays` metadata. Required recipient
+fanout cannot be replaced by a successful hint; missing required-plan metadata
+is rejected before authorization or signing.
+
 Reference service handlers for Kehto runtime implementations.
 
 WebRTC opening uses a side-effect-free signaling plan before runtime approval.
 The reference handler requires separate `network` permissions with typed `ice`
 scopes for each configured STUN/TURN endpoint. This does not constrain direct
-iframe networking, which remains a launch-policy concern. Optional bytes/stats
-requests return correlated `unsupported` results until a host implements them.
+iframe networking, which remains a launch-policy concern. Without a byte hook,
+`webrtc.sendBytes` returns a correlated `unsupported` result, as NAP-WEBRTC
+requires. A `webrtc.stats` request gets no reply: NAP-WEBRTC defines `stats`
+only as a pushed event. `ctx.emit` delivers a `webrtc.event` only for a session
+the window owns: from its `webrtc.open.result` until `webrtc.close` starts,
+revocation or window destroy, plus early `state` events while the open is still
+pending. Close removes the session from delivery before the host `close` hook
+runs, so teardown notifications and late peer `message`, `peer`, `state` or
+`stats` events for it are dropped (NAP-WEBRTC "MUST NOT deliver messages for an
+unknown sessionId"). A failed close keeps the session deliverable, unless the
+backend reported it `closed` meanwhile. When the backend ends a session itself
+(peer gone, ICE failure, signaling or policy), the service forgets it as soon as
+it delivers that `closed` event: nothing later is delivered, a later
+`webrtc.send` or `webrtc.close` gets `session not found` without reaching the
+host hooks, and the session map no longer grows over a long-lived window. A
+`closed` reported while the open is still pending is delivered right after the
+`webrtc.open.result`, and that session is never kept. A napplet-initiated
+`webrtc.close` gets no `closed` event; the NAP only asks for one when a peer,
+ICE, signaling or policy ends the session (spec-gap decision). When policy
+revokes WebRTC for a window (`onPermissionRevoked`, or an ACL block through
+`onCapabilityRevoked(windowId, null)`), each live session gets one `closed` with
+reason `policy denied` and is then forgotten the same way; the host
+`revokeWindow` hook runs after that, so its own teardown events are dropped.
+Requests in flight at revocation still get their result (an open still waiting
+on approval gets `policy denied`). Window destroy stays silent. The
+`@kehto/mocks` WebRTC mock gives the same answers, held together by
+`tests/unit/webrtc-session-lifecycle-parity.test.ts`.
 
 OUTBOX and COUNT resolve relay destinations before approval. Their remote
 backends receive the approved immutable URL list and cancellation signal; local
@@ -25,7 +63,7 @@ service instance with `FW-OUTBOX-LEGACY-001`. See [compatibility](/compatibility
 The reference LINK service integrates shared runtime approvals after URL
 validation. A LINK grant never gives direct network access. Runtime cancellation
 and source replacement prevent stale opens/results; repeated request IDs cannot
-reopen a link. Unknown methods are silent. The temporary host-only opener path
+reopen a link. The temporary host-only opener path
 emits `FW-LINK-LEGACY-001` once per instance. See
 [the approval guide](/firewall-approvals) for its migration contract and the
 remaining launch admission and host approval UI work.
@@ -33,6 +71,13 @@ remaining launch admission and host approval UI work.
 > **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D
 > protocol. Service envelopes and NAP contracts are not final.
 
+
+Every reference service drops a message whose type its NAP does not define,
+with no reply, as NIP-5D requires. That includes a `webrtc.stats` request, which
+NAP-WEBRTC defines only as a pushed event. The host gets one
+`[KEHTO_UNRECOGNIZED_MESSAGE_TYPE]` warning per domain/type through
+`createUnrecognizedTypeDiagnostic` from `@kehto/runtime`. A known type with a
+bad payload still gets the domain's specified failure result.
 ## Install
 
 ```bash
@@ -54,8 +99,8 @@ pnpm add @kehto/services @kehto/runtime @napplet/core @napplet/nap
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.42.0 <0.43.0` |
-| `@napplet/nap` | `>=0.37.0 <0.42.0` |
+| `@napplet/core` | `>=0.42.0 <0.45.0` |
+| `@napplet/nap` | `>=0.37.0 <0.44.0` |
 
 ## Primary APIs
 
@@ -107,6 +152,61 @@ Security Considerations (shells SHOULD apply per-napplet concurrency limits).
   the transport receives only the time left. A request that expires in the queue
   returns `relay timeout` and is never published. `cvm.request` now validates
   `timeoutMs` (integer 1..300,000, default 30,000) before admission.
+- `cvm.request` validates its MCP `message` against the NAP-CVM form table before
+  admission: a request (`method` + `id`), a notification (`method`, no `id`) or a
+  response (`id` + exactly one of `result`/`error`, no `method`/`params`), with a
+  string or integer `id` and object `params`/`result`/`error`. Anything else (a
+  missing message, a batch, `id: null`, both `result` and `error`, …) returns
+  `invalid message` and is never authorized, admitted or published.
+- Notifications and responses complete on publication: the result has only
+  `type` and `id`, with no `message`, and no MCP response is awaited. They go
+  through the new optional `CvmTransport.publish()`, which sends the message as
+  given (no id added to a notification, a response keeps the napplet's id).
+  `createNostrCvmTransport` implements it under the same deadline. A transport
+  without `publish()` falls back to `request()` and warns once
+  (`KEHTO_CVM_TRANSPORT_PUBLISH`, see `docs/compatibility.md`). The injected
+  `window.napplet.cvm.request()` from `@kehto/shell` resolves `null` for these,
+  as the NAP's API column says; a request still resolves with its MCP response.
+- MCP ids are tracked per endpoint, server and direction, typed (`1` is not
+  `"1"`). A client request id already used in the session, and a response that
+  matches no server request delivered to that napplet (or one already answered),
+  return `invalid message` at receipt, before approval or publication. A request
+  rejected before admission (for example `invalid timeout`) does not use up its
+  id. `cvm.close`, revocation and window destroy clear the books; shell-owned
+  registry and initialization ids never enter them.
+- A server request delivered to a napplet stays answerable for
+  `serverRequestTimeoutMs` (default `30000`; an integer from 1 through 300,000,
+  the NAP's Timeouts bounds, otherwise `createCvmService` throws a
+  `RangeError`). NAP-CVM: server requests "still require a response or expire
+  under session policy". After that a response to it is unmatched and gets
+  `invalid message`. Expired entries are dropped whenever the session's books
+  are touched, so a napplet that never answers can't grow them. The deadline
+  bounds how long an entry lives, not how many a busy server can deliver within
+  it.
+- `notifications/cancelled` "may refer only to this napplet's requests". Its
+  `params.requestId` must name a request this napplet sent in the session:
+  - one still in flight goes to the new optional `CvmTransport.cancel()` with
+    that request's handle (passed to `request()` as `execution.handle`).
+    `createNostrCvmTransport` rewrites `requestId` to the correlation id it
+    actually sent, keeping the rest of the message, and publishes nothing if
+    the request settled meanwhile;
+  - one that already settled is acknowledged (only `type` and `id`) and not
+    published, since there is nothing left to cancel;
+  - any other `requestId`, or none, is `invalid message` and never published
+    (spec-gap decision: the NAP names the restriction but no error for it).
+
+  A transport without `cancel()` gets the in-flight cancellation through
+  `publish()` unchanged and the service warns once
+  (`KEHTO_CVM_TRANSPORT_CANCEL`, see `docs/compatibility.md`). A cancellation
+  only asks the server to stop; the napplet's own `cvm.request` still ends with
+  the server's answer or `relay timeout`. Known limits: a cancellation that
+  arrives while its request is still queued, awaiting approval or initializing
+  reaches a transport that hasn't sent it yet, so nothing is published and the
+  request still goes out; and a cancellation takes an admission slot like any
+  `cvm.request`, so a saturated endpoint queues or refuses it.
+- A malformed `server` reference returns `invalid request` on `cvm.request` and
+  `cvm.close` (it used to be `server not found` and `session closed`). An
+  unknown but well-formed server is still `server not found`.
 - With slots and queue both full, the operation is refused at once with
   `policy denied`. Spec gap: the draft's error table has no load-shedding entry,
   so the service reuses the shell-policy error rather than inventing a string.
@@ -193,7 +293,8 @@ Security Considerations (shells SHOULD apply per-napplet concurrency limits).
   `relay timeout`; planned reads settle on EOSE and mark partial relay failure
   `incomplete: true`. Only an approval that did not execute, a revoked approval,
   a relay-gate refusal, or an unplannable router is `policy denied`; a declined
-  publish is `publish denied`. Spec gap: the draft has no "no relay reachable" or
+  publish is `publish denied`. A required own-outbox or `toInboxes` relay that
+  does not accept is `relay timeout`, even when hinted relays did. Spec gap: the draft has no "no relay reachable" or
   "relay refused" code, so the closest defined codes are used. See the
   [services README](https://github.com/kehto/web/blob/main/packages/services/README.md#approval-aware-relay-services).
 - `createOutboxService()` accepts a source-scoped `getReadRouter` for

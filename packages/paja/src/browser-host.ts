@@ -39,6 +39,7 @@ import {
   createHostSignerController,
 } from './browser-host-signer.js';
 import { unregisterSingleFrameWindow } from './browser-host-runtime.js';
+import { createPajaReinjectionGate } from './browser-frame-reinjection.js';
 import { handlePajaNappletRevoked, handlePajaWindowMessage, observePajaNappletMessage } from './browser-nip5d-host.js';
 import { installLocalFileControls, loadLocalRuntimeFile } from './browser-local-loader.js';
 import { BrowserIntentController } from './browser-intent-controller.js';
@@ -110,7 +111,8 @@ import {
 } from './browser-target-frame.js';
 import { isPajaLocalTarget, type PajaRuntimeTarget } from './local-target.js';
 import { pajaDevelopmentConsentScope } from './browser-operation-scope.js';
-import { PajaRelayUnreachableError, resolvePajaPointer } from './runtime-resolver.js';
+import { PajaPointerNotFoundError, PajaRelayUnreachableError, resolvePajaPointer } from './runtime-resolver.js';
+import { clearPajaPointerReplacementOffer, offerPajaPointerReplacements } from './browser-pointer-offer.js';
 import { parsePajaIntentLink } from './intent-link.js';
 import {
   createPajaIntentLinkController,
@@ -303,13 +305,15 @@ function startFrameNavigation(
     adapter,
     bridge.runtime,
     state.resolvedTarget,
-    undefined,
-    isCurrentGeneration,
-    (windowId) => {
-      if (windowId) bridge.observeFrame(frame, windowId);
-      if (isCurrentGeneration()) runtime.currentWindowId = windowId;
+    {
+      isCurrent: isCurrentGeneration,
+      onRegistered: (windowId) => {
+        if (windowId) bridge.observeFrame(frame, windowId);
+        if (isCurrentGeneration()) runtime.currentWindowId = windowId;
+      },
+      signal: admissionController.signal,
+      revokeNapplet: (windowId) => bridge.revokeNapplet(windowId, 'host'),
     },
-    admissionController.signal,
   ).then((windowId) => {
     if (!isCurrentGeneration()) {
       unregisterSingleFrameWindow(bridge, runtime, windowId);
@@ -423,6 +427,7 @@ async function loadRuntimePointer(
     setPointerStatus(state, 'idle');
     return;
   }
+  clearPajaPointerReplacementOffer();
   setPointerStatus(state, 'resolving');
   setStatus(state, 'booting');
   appendPajaMessageLog(state, 'paja', { type: 'paja.pointer.resolve', pointer });
@@ -470,6 +475,15 @@ async function loadRuntimePointer(
       });
     }
     appendPajaMessageLog(state, 'paja', { type: 'paja.pointer.error', error: message });
+    if (error instanceof PajaPointerNotFoundError) {
+      appendPajaMessageLog(state, 'paja', { type: 'paja.pointer.not-found', answered: error.answered, failed: error.failed });
+      void offerPajaPointerReplacements(pointer, error, {
+        lookup: { maxWaitMs: context.config.target.pointer?.maxWaitMs },
+        isCurrent: () => state.pointerValue === pointer,
+        log: (entry) => appendPajaMessageLog(state, 'paja', entry),
+        open: (naddr) => void loadRuntimePointer(state, context, naddr),
+      });
+    }
   }
 }
 
@@ -773,13 +787,19 @@ async function installPajaHost(): Promise<void> {
     onChange: () => { if (stateRef) setSimulationStatus(stateRef); },
   });
   let syncServices: (() => void) | undefined;
+  const reinjection = createPajaReinjectionGate(() => buildShellCapabilities(adapter).domains);
   const adapter = createPajaAdapter(config, getSimulation, (theme) => {
     runtime.themeService = theme;
   }, themeBroadcast.onBroadcast, confirmationController.confirm, signerController, getWindowIdentity, () => {
     syncServices?.();
     if (stateRef) {
       stateRef.services = Object.keys(adapter.services ?? {}).sort();
-      stateRef.reload();
+      // NAP-IDENTITY: a signer change alone reaches loaded napplets as
+      // identity.changed. Reload only when the advertised domain set changes
+      // the injection this frame would get (NIP-5D fixes it before code runs).
+      const active = config.target.mode === 'runtime-pointer'
+        ? stateRef.tabs.find((tab) => tab.id === stateRef?.activeTabId)?.frame : contextRef?.frame;
+      if (reinjection.shouldReload(active)) stateRef.reload();
     }
   }, {
       catalog: runtime.catalog,
@@ -870,14 +890,22 @@ async function installPajaHost(): Promise<void> {
   syncServices = () => synchronize(adapter.services ?? {});
   permissionBridge = bridge;
   permissionController.ui.refresh();
+  // NAP-IDENTITY: push identity.changed whenever the shell-user identity
+  // changes, "" on disconnect. The signer controller also notifies for
+  // intermediate states (connecting), so push only a real change.
+  let publishedPubkey = adapter.auth.getUserPubkey() ?? '';
   const stopIdentityChanges = signerController.subscribe(() => {
     confirmationController.cancelSignerRequests();
-    bridge.publishIdentityChanged(adapter.auth.getUserPubkey() ?? '');
+    const pubkey = adapter.auth.getUserPubkey() ?? '';
+    if (pubkey === publishedPubkey) return;
+    publishedPubkey = pubkey;
+    bridge.publishIdentityChanged(pubkey);
   });
   themeBroadcast.attach(bridge);
   bridgeRef = bridge;
   installPajaOriginRegistryProxy(originRegistry, () => stateRef, windowId => confirmationController.cancelWindow(windowId));
   const capabilities = buildShellCapabilities(adapter);
+  reinjection.snapshot();
   const context: PajaBrowserStateContext = {
     config,
     frame,

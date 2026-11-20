@@ -73,8 +73,8 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.32.0 <0.43.0` |
-| `@napplet/nap` | `>=0.32.0 <0.42.0` |
+| `@napplet/core` | `>=0.32.0 <0.45.0` |
+| `@napplet/nap` | `>=0.32.0 <0.44.0` |
 | `nostr-tools` | `>=2.23.3 <=2.x` |
 
 ## Primary APIs
@@ -113,7 +113,7 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
 - Surfaces unroutable inbound messages via the optional `ShellAdapter.onUnroutedMessage` hook (`UnroutedMessageInfo`) — observe-only; the bridge still drops messages from unidentified or unregistered windows, but hosts can now log them instead of debugging a silent vanish.
 - Advertises and injects `dm` or `fs` only when the matching runtime service is registered and host domain policy permits it.
 - Treats `keys.forward` as napplet-to-shell only; shell-initiated key actions are emitted as `keys.action` through the keys proxy/runtime service path.
-- Keeps identity/theme proxy delivery fail-closed. Hosts publish automatic changes only through `ShellBridge.publishIdentityChanged()` / `publishTheme()`, which filter by live session, granted domain, and current ACL.
+- Keeps identity/theme proxy delivery fail-closed. Hosts publish automatic changes only through `ShellBridge.publishIdentityChanged()` / `publishTheme()`, which filter by live session, granted domain, and current ACL. The session and its frozen grants exist from the window's first valid `napplet.hello`, so a napplet that only listens receives these pushes (and service broadcasts such as `theme.changed` from `@kehto/services`) without sending a message or `shell.ready` first; revoking or replacing the binding removes it as a target.
 - Lets `bridge.runtime.aclState.persist()` and `clear()` report a browser
   `localStorage` write failure as `false`. The mutation remains live, while a
   fresh bridge continues to load the previous durable ACL until a retry
@@ -140,7 +140,8 @@ keeps the plain declared-services reading. See
 
 Retire a window with `bridge.runtime.destroyWindow(windowId)`,
 `bridge.runtime.sessionRegistry.unregister(windowId)`, and
-`originRegistry.unregister(windowId)`. A replacement `originRegistry.register()`
+`originRegistry.unregister(windowId)`. Services get `onWindowDestroyed` once per
+session registration, however many of these teardown calls run. A replacement `originRegistry.register()`
 gets its own environment, even if it reuses the logical window ID. It must use a
 fresh iframe: a `Window` that handed over its NIP-5D port cannot be registered again. Set its snapshot with `originRegistry.setEnvironment()` before dispatch;
 otherwise the bridge resolves current host defaults. Retired cached domains and
@@ -204,6 +205,31 @@ Legacy object-form `invoke(request)` and `open(archetype, payload?, opts?)`
 remain bounded compatibility adapters and warn once per iframe with
 `KEHTO_COMPAT_INTENT_OBJECT_INVOKE`. Their removal conditions are tracked in
 [compatibility](https://github.com/kehto/web/blob/main/docs/compatibility.md).
+
+## Embedding URL and realm locks
+
+A verified napplet is an `about:srcdoc` document and inherits the host page's
+referrer and base URL. Keep the shell URL out of it with
+`denyNappletReferrer(frame)` before assigning `srcdoc`, plus
+`renderNappletReferrerPolicyMeta()` and `renderNappletHostBase()` in the host
+page `<head>` (WebKit ignores the iframe attribute for `srcdoc`; only a host-page
+`<base>` reaches `document.baseURI`). `hasNappletReferrerPolicy(frame)` and
+`hasNappletReferrerPolicyMeta(document)` report the two controls, and
+`ShellBridge.observeFrame` warns once when either is missing.
+
+The experimental namespace adds `resourceHintLock` next to `nestedContextLock`.
+It rejects `<link rel="dns-prefetch" | "preconnect" | "prerender">`, which
+browsers act on outside the napplet CSP, on every string sink and attribute
+writer; scan the bytes first with `assertNappletHasNoResourceHint` (or
+`nappletMarkupHasResourceHint`). Both locks remove `XSLTProcessor`, reject
+namespace-prefixed frame and link tags, and inspect `DOMParser` results, which
+otherwise mint frames past the nested-context lock through XSLT or XML parsing
+(prefixes, DTD entities). Under the nested-context
+lock the bridge revokes a napplet whose Window holds a child frame
+(`nested-context`); hosts that prepare the `srcdoc` themselves opt in with
+`observeFrame(frame, windowId, { nestedContextLock: true })`
+(`NappletFrameObservation`). See the
+[NIP-5D conformance policy](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#resource-hints).
 
 ## GAMEPAD integration
 

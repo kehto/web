@@ -8,6 +8,12 @@ services use `RelayPlanningServiceHandler`; direct adapters use
 delivery, encryption, signing, and transport. See [compatibility](/compatibility)
 for the retained legacy diagnostics.
 
+Network relay hints require `RuntimeAdapter.permissions`. The runtime validates
+WebSocket URLs and presents canonical origins to `relay.network` approval before
+any transport. Hint URLs, filters and mutable host plans cannot change while a
+subscription waits for approval. Unhinted legacy network routing warns once per
+runtime with `FW-RELAY-NETWORK-LEGACY-001`; local-only reads remain quiet.
+
 Scoped approvals are available through `RuntimeAdapter.permissions`, source-bound
 `SessionEntry.permissionPrincipal`, and `ServiceRuntimeContext.authorizeOperation`.
 The reference LINK service and declared extension routes are integrated; other
@@ -43,8 +49,8 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.32.0 <0.43.0` |
-| `@napplet/nap` | `>=0.32.0 <0.42.0` |
+| `@napplet/core` | `>=0.32.0 <0.45.0` |
+| `@napplet/nap` | `>=0.32.0 <0.44.0` |
 
 ## Primary APIs
 
@@ -56,6 +62,7 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
 | Session and manifests | `createSessionRegistry`, `createNappKeyRegistry`, `createManifestCache`, `SessionRegistry`, `NappKeyRegistry`, `ManifestCache` |
 | State and replay | `createAclState`, `handleStorageNap`, `cleanupNappState`, `createReplayDetector`, `createEventBuffer`, `matchesFilter`, `matchesAnyFilter`, `RING_BUFFER_SIZE` |
 | Service dispatch | `routeServiceMessage`, `notifyServiceWindowDestroyed`, `ServiceHandler`, `ServiceRegistry`, `ServiceInfo` |
+| Unrecognized types | `createUnrecognizedTypeDiagnostic`, `KEHTO_UNRECOGNIZED_MESSAGE_TYPE`, `UNRECOGNIZED_TYPE_WARNING_LIMIT`, `IgnoreUnrecognizedType`, `UnrecognizedTypeDiagnosticOptions` |
 | Re-exports | `Capability`, `ALL_CAPABILITIES`, `ServiceDescriptor` |
 
 ## Scope Boundaries
@@ -141,9 +148,13 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
 ACL and legacy Firewall denials answer each recognized request on its owning
 NAP's failure wire, never an invented `<type>.error`. A denied `cvm.*` request
 gets its matching `.result` with `error: "policy denied"` (NAP-CVM #31 at
-`28cf1bdb`); `relay`, `outbox`, `upload.upload`, `count`, `notify`, `dm` and
-`fs` follow their own NAPs, and requests with no defined reply stay silent. The
-per-type table, refs and remaining spec gaps are in
+`28cf1bdb`); `relay`, `outbox`, `upload`, `count`, `notify`, `dm`, `fs`,
+`keys`, `media` and `config` follow their own NAPs, and requests with no defined
+reply stay silent (including a denied `config.get`). The legacy Firewall gate
+uses the same rows for `common`, `lists`, `serial`, `ble`, `webrtc`, `link` and
+`gamepad`, which ACL does not gate. A denied type that its NAP
+does not define as a napplet request gets no reply in any domain. The per-type
+table, refs and spec-gap decisions are in
 [RUNTIME-SPEC.md](https://github.com/kehto/web/blob/main/RUNTIME-SPEC.md).
 
 ## Registered extension routing
@@ -187,6 +198,31 @@ A request for a service-only domain with no handler is dropped without a reply:
 `[KEHTO_UNROUTED_SERVICE_DOMAIN]` once per domain per runtime, naming the domain
 only. See [Services that arrive late](/how-tos/register-service#services-that-arrive-late).
 
+### Unrecognized message types
+
+A type that the owning NAP does not define gets no reply from any runtime handler,
+from any `@kehto/services` reference service, or through the ACL/firewall denial
+path. This holds even when a capability would be denied, because NIP-5D says
+"Unrecognized message types are silently ignored, preventing capability probing."
+A known type with a malformed payload still gets its NAP's failure result.
+
+`createUnrecognizedTypeDiagnostic()` gives a service the matching host-side
+diagnostic. Call it once per service instance, drop the message, and call the
+returned function with your domain and the incoming type:
+
+```ts
+import { createUnrecognizedTypeDiagnostic } from '@kehto/runtime';
+
+const ignoreUnrecognized = createUnrecognizedTypeDiagnostic();
+// inside handleMessage, after the known types:
+ignoreUnrecognized('serial', message.type); // no reply
+```
+
+It logs `[KEHTO_UNRECOGNIZED_MESSAGE_TYPE]` once per domain/type, for at most
+`UNRECOGNIZED_TYPE_WARNING_LIMIT` (16) types per instance, then goes quiet. It
+prints the type only when it is a plain `domain.action` string of up to 64
+characters, and never logs payloads or ids. Pass `{ warn }` to send it elsewhere.
+
 ### Registration and initialization limits
 
 `sessionRegistry.unregister(windowId)` removes registration and lookup state for
@@ -209,6 +245,26 @@ that startup counter. Custom `FirewallStateContainer` implementations must imple
 This is Kehto host policy, conformant with the source-bound, idempotent lifecycle in
 [NAP-SHELL at `a040914`](https://github.com/napplet/naps/blob/a040914b4bbd3a5cd8a14b0f316a723c968ebfb2/naps/NAP-SHELL.md).
 It changes no NIP-5D wire messages or NAP-THEME result behavior.
+
+### Window destroy notifications
+
+A retirement can reach the runtime through several teardown calls:
+`destroyWindow(windowId)`, `sessionRegistry.unregister(windowId)` (which notifies
+services when the permission runtime is installed), and a shell bridge revoke
+that runs both again. Services hear `onWindowDestroyed` at most once per session
+registration, whichever call comes first. A later `register()` of the same
+window ID is a new lifetime with its own destroy, and replacing a live
+registration with the permission runtime installed retires the old one once.
+With the permission runtime, `destroyWindow()` also retires the source, so it
+dispatches nothing more. Without it, a source that keeps sending messages after
+a cleanup `destroyWindow()` is live again, and its next destroy notifies
+services, so state it gathered in between is still cleaned. A window
+ID with no tracked registration has nothing to deduplicate against, so each
+`destroyWindow()` call for it is broadcast. Permission revocation stays separate: `onPermissionRevoked` (or
+its `onWindowDestroyed` fallback for handlers without it) never consumes the
+registration's destroy. The exported `notifyServiceWindowDestroyed()` helper is
+a raw broadcaster and does not deduplicate.
+It changes no NIP-5D or NAP wire messages.
 
 - Generated module: <a href="../api/modules/_kehto_runtime.html" target="_self"><code>docs/api/modules/_kehto_runtime.html</code></a>
 

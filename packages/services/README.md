@@ -1,5 +1,22 @@
 # @kehto/services
 
+Relay hints are candidates, not authority. Register relay services through a
+runtime with `RuntimeAdapter.permissions`; execute only its approved plan.
+Standalone OUTBOX requests with nonempty `options.relays` now fail before router
+execution. Unhinted standalone calls retain `FW-OUTBOX-LEGACY-001` during migration.
+Planned OUTBOX publishing receives the operation cancellation signal and checks
+it again after signing, so revocation while signing waits prevents transport.
+The plan includes the complete own-outbox, required inbox and explicit relay
+union. Host-only `requiredRelays` metadata prevents optional hint success from
+masking failure of a required destination. Custom planners must supply that
+metadata for own/inbox fanout; incomplete plans fail before signing.
+The concrete OUTBOX router validates WebSocket URLs and defaults to rejecting
+unconfigured local/private literals and names. Explicit host fallback relays
+and the host's `isRelayAllowed` policy can admit development destinations;
+credentials, fragments and malformed URLs are always rejected. Adapters still
+need DNS-time address checks to prevent rebinding. See
+[relay destination policy](../../docs/firewall-approvals.md#relay-destination-policy).
+
 `createLinkService` uses `ServiceRuntimeContext.authorizeOperation` when attached
 to a runtime with approval adapters. It requires both interface and exact URL
 scopes, preserves request IDs in canonical results, rejects forbidden local/code
@@ -57,6 +74,22 @@ boundary. Without registry configuration, `registry.has` returns false and the
 other registry operations return `unsupported method`. Paginated tool inventories
 are currently rejected; no result cache or automatic provider failover is used.
 
+`cvm.request` checks its MCP `message` against the NAP-CVM request, notification
+and response forms before admission; a missing message, batch, invalid id or
+invalid field combination returns `invalid message` and is never published.
+Notifications and responses complete on publication with a result that has
+only `type` and `id`, through the optional `CvmTransport.publish()` (transports
+without it fall back to `request()` and warn once, `KEHTO_CVM_TRANSPORT_PUBLISH`).
+A reused client request id or a response matching no delivered server request
+is `invalid message`, and a malformed `server` is `invalid request`. A server
+request delivered to a napplet expires after `serverRequestTimeoutMs` (default
+30000, at most 300000); a later response is `invalid message`. A
+`notifications/cancelled` must name one of the napplet's own requests: an
+in-flight one goes to the optional `CvmTransport.cancel()`, which maps its
+`requestId` to the id the transport sent (transports without it publish it
+unchanged and warn once, `KEHTO_CVM_TRANSPORT_CANCEL`); a settled one is
+acknowledged without publication; anything else is `invalid message`.
+
 These transport limits do not claim implementation of every newer NAP-CVM
 session or payment field.
 
@@ -68,8 +101,8 @@ pnpm add @kehto/services
 
 ## Published Napplet Compatibility
 
-Peers admit `@napplet/core` `>=0.42.0 <0.43.0` and `@napplet/nap`
-`>=0.37.0 <0.42.0`: the declarations import the packaged NAP-LLM types from `@napplet/nap/llm/types`, and the exported NAP-INTENT types come from `@napplet/core`, whose releases before 0.41.0 carry the withdrawn delivery ID and nullable sender. The exported NAP-CVM registry types (`CvmRegistrySelector`, `CvmRegistryEntry`, `CvmRegistryTool`, `CvmRegistryOptions`, `CvmRegistryCallOptions`, `CvmRegistryQuery`) also come from `@napplet/core`, and releases before 0.42.0 carry the older family-only registry contract, so the core floor is 0.42.0. Host packages develop and build on core 0.42.0 / nap 0.41.0; fixture napplets stay on the exact 0.32.0 line (shim 0.30.0, sdk 0.28.0, vite-plugin 0.16.2). The exact fixture-line contracts are core 0.32.0 / nap 0.32.0
+Peers admit `@napplet/core` `>=0.42.0 <0.45.0` and `@napplet/nap`
+`>=0.37.0 <0.44.0`: the declarations import the packaged NAP-LLM types from `@napplet/nap/llm/types`, and the exported NAP-INTENT types come from `@napplet/core`, whose releases before 0.41.0 carry the withdrawn delivery ID and nullable sender. The exported NAP-CVM registry types (`CvmRegistrySelector`, `CvmRegistryEntry`, `CvmRegistryTool`, `CvmRegistryOptions`, `CvmRegistryCallOptions`, `CvmRegistryQuery`) also come from `@napplet/core`, and releases before 0.42.0 carry the older family-only registry contract, so the core floor is 0.42.0. Host packages develop and build on core 0.44.0 / nap 0.43.0; fixture napplets stay on the exact 0.32.0 line (shim 0.30.0, sdk 0.28.0, vite-plugin 0.16.2). The exact fixture-line contracts are core 0.32.0 / nap 0.32.0
 from NAP-INTENT authority `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`,
 napplet/web#199 source `3037200c932488f14f7f369b8583c39c9c16510a` / merge
 `b3f0007867eac109fa4917fac9c285d3b7cc6155`, and Version Packages #198 release
@@ -290,7 +323,8 @@ denial. Following the error codes in [NAP-OUTBOX draft #32 at
 | `planRead` rejects, or no planned relay attaches | `relay list unavailable` (or the network reason the router names) |
 | Planned relays never answer before the deadline | `relay timeout`, with `incomplete: true` |
 | Some planned relays fail, others answer | Events from the rest, with `incomplete: true` |
-| No planned relay accepts a publish | `relay timeout` |
+| No planned relay accepts a publish, or a required own/inbox relay does not accept (even when hinted relays did) | `relay timeout` |
+| A plan names an unusable relay URL | `relay list unavailable` |
 | Signer or user declines a publish | `publish denied` |
 | Approval not executed, approval revoked, relay gate refuses every inbox relay, or a router that cannot plan | `policy denied` |
 
@@ -706,7 +740,7 @@ Each factory returns a `ServiceHandler` registrable via `runtime.registerService
 - `createBleService` — `ble.open`, `ble.services`, `ble.read`, `ble.write`, `ble.subscribe`, `ble.unsubscribe`, `ble.close` + host-pushed `ble.event` envelopes. Hook contexts include `ctx.emit(event)`, so host Bluetooth notification listeners can forward `notification`, `state`, and `closed` events to the requesting napplet without replacing the reference handler. Under runtime approvals, `ctx.authorizeDevice(...)` binds a host-private selected device before connection; each GATT operation is separately authorized and source-owned.
 
 ### WebRTC NAP
-- `createWebrtcService` — `webrtc.open`, `webrtc.send`, `webrtc.close` + host-pushed `webrtc.event` envelopes. The reference handler owns only the NAP request/result bookkeeping; host bridges own signaling, SDP, ICE, peer connection lifecycle, and policy.
+- `createWebrtcService` — `webrtc.open`, `webrtc.send`, `webrtc.close` + host-pushed `webrtc.event` envelopes. The reference handler owns only the NAP request/result bookkeeping; host bridges own signaling, SDP, ICE, peer connection lifecycle, and policy. `ctx.emit` drops events for a sessionId the window does not own; `webrtc.close` takes the session out of delivery before the host `close` hook runs, so nothing for it reaches the napplet afterwards. A session the backend ends is forgotten once its `closed` event is delivered, so later events are dropped and later `webrtc.send`/`webrtc.close` get `session not found`. A napplet-initiated close gets no `closed` event. Policy revocation (`onPermissionRevoked`, or an ACL block) sends `closed` with reason `policy denied` for each live session, then forgets it; requests already in flight still get their result. Window destroy stays silent.
 
 ### DM NAP
 - `createDmService` — `dm.status`, `dm.conversations`, `dm.messages`, `dm.send`, `dm.subscribe`, `dm.unsubscribe` + `dm.message` push envelopes (`dm:read` / `dm:write`). Runtime owns correlation, subscriptions, cleanup, and normalized message shape; adapters own protocol transport.
@@ -842,5 +876,13 @@ callers should generate fresh IDs because older completed entries are evicted.
 
 WebRTC plans declare every configured ICE endpoint before approval. The reference
 handler requests typed `network`/`ice` scopes; it invokes no peer hook on denial.
-Synchronous send failures return the matching result ID. Optional `sendBytes` and
-`stats` currently return `unsupported` results.
+Synchronous send failures return the matching result ID. `sendBytes` currently
+returns `unsupported`, as NAP-WEBRTC requires of a shell without byte payloads, so
+the shell's injected `window.napplet.webrtc.sendBytes` (which `@napplet/nap`
+0.43's `webrtcSendBytes` calls) rejects with `unsupported`. A
+`stats` request gets no reply, since NAP-WEBRTC defines `stats` only as a pushed
+event.
+
+Every reference service drops a message whose type its NAP does not define,
+without a reply (NIP-5D), and warns the host once per domain/type through
+`createUnrecognizedTypeDiagnostic` from `@kehto/runtime`.

@@ -138,10 +138,13 @@ describe('@kehto/paja local index.html loader', () => {
       context.adapter,
       permissionRuntime,
       tab?.resolvedTarget,
-      expect.stringContaining(':tab-1:1'),
-      expect.any(Function),
-      expect.any(Function),
-      expect.any(AbortSignal),
+      {
+        windowId: expect.stringContaining(':tab-1:1'),
+        isCurrent: expect.any(Function),
+        onRegistered: expect.any(Function),
+        signal: expect.any(AbortSignal),
+        revokeNapplet: expect.any(Function),
+      },
     );
     expect(install).not.toHaveBeenCalled();
     expect(catalog.installed()).toEqual([]);
@@ -221,7 +224,7 @@ describe('@kehto/paja local index.html loader', () => {
         adapter,
         permissionRuntime,
         target,
-        'paja-window:tab-1:1',
+        { windowId: 'paja-window:tab-1:1' },
       );
 
       expect(windowId).toBe('paja-window:tab-1:1');
@@ -295,7 +298,7 @@ describe('@kehto/paja local index.html loader', () => {
       const onRegistered = vi.fn();
 
       await expect(navigateFrame(frame as unknown as HTMLIFrameElement, invalid, 2,
-        adapter, permissionRuntime, replacement, undefined, undefined, onRegistered)).rejects.toThrow(/invalid/);
+        adapter, permissionRuntime, replacement, { onRegistered })).rejects.toThrow(/invalid/);
       expect(onRegistered).not.toHaveBeenCalled();
       expect(frame.srcdoc).toBe(previousHtml);
       expect(originRegistry.getIdentity(frame.contentWindow)).toEqual(previousIdentity);

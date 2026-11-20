@@ -1,6 +1,7 @@
 import { renderNappletCspMeta, type NappletCspOptions } from './napplet-csp.js';
 import { insertNappletHead } from './napplet-head.js';
 import { renderNappletNamespacePrelude, type NappletNamespacePreludeOptions } from './napplet-namespace.js';
+import { needsTrustedTypes } from './napplet-realm-lock.js';
 
 /** Shell bootstrap availability and host CSP for a verified napplet document. */
 export interface NappletSrcdocOptions extends NappletNamespacePreludeOptions {
@@ -27,11 +28,11 @@ export interface NappletSrcdocOptions extends NappletNamespacePreludeOptions {
  * ```
  */
 export function prepareNappletSrcdoc(html: string, options: NappletSrcdocOptions): string {
-  // The nested-browsing-context lock (Trusted Types + factory pins + byte scan)
-  // is opt-in via the experimental namespace; off by default so downstream
-  // hosts are not forced into its opinions. When on, the CSP carries the
-  // Trusted Types directives and the prelude installs the policy and pins.
-  const lockNestedContexts = options.experimental?.nestedContextLock === true;
-  const meta = renderNappletCspMeta(options.csp, lockNestedContexts);
+  // The realm locks (nested-context and resource-hint: Trusted Types + pins +
+  // byte scans) are opt-in via the experimental namespace; off by default so
+  // downstream hosts are not forced into their opinions. When either is on, the
+  // CSP carries the Trusted Types directives and the prelude installs the
+  // shared policy and pins.
+  const meta = renderNappletCspMeta(options.csp, needsTrustedTypes(options.experimental));
   return insertNappletHead(html, meta + renderNappletNamespacePrelude(options));
 }

@@ -144,7 +144,11 @@ describe('@kehto/paja host page', () => {
     const eventsSummary = html.match(/<summary class="section-title">Events[\s\S]*?<\/summary>/)?.[0] ?? '';
     expect(eventsSummary).toMatch(/id="event-kind-total"[\s\S]*id="event-counter-reset"[\s\S]*class="section-chevron"/);
     expect(html).toContain('<iframe id="napplet-frame"');
-    expect(html).toContain('sandbox="allow-scripts"');
+    expect(html).toContain('sandbox="allow-scripts" referrerpolicy="no-referrer"');
+    // kehto/web#381: the host page keeps its URL (query, fragment) out of napplet referrer and baseURI.
+    expect(html).toContain('<meta name="referrer" content="no-referrer">');
+    expect(html.indexOf('<base href="./">')).toBeGreaterThan(-1);
+    expect(html.indexOf('<base href="./">')).toBeLessThan(html.indexOf('./__kehto/browser-host.js'));
     expect(html).toContain('data-target-url="http://127.0.0.1:5173/"');
     expect(html).toContain('id="simulation-theme"');
     expect(html).toContain('id="simulation-status"');

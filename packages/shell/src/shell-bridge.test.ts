@@ -560,7 +560,7 @@ describe('ShellBridge.publishIdentityChanged', () => {
     bridge.destroy();
   });
 
-  it('does not send identity.changed to a registered pre-shell.ready iframe', () => {
+  it('does not send identity.changed to a registered iframe before its napplet.hello', () => {
     const iframe = makeFakeIframe();
     originRegistry.register(iframe as unknown as Window, 'win-A', {
       dTag: 'd-win-A',
