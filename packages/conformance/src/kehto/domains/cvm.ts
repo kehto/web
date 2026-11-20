@@ -46,6 +46,9 @@ export const CVM_BACKEND: DomainBackendModule = {
         if (server.pubkey !== CVM_FIXTURE_SERVER) throw new Error('server not found');
         published.push(structuredClone(message));
       },
+      // Every request is answered before request() returns, so none is ever
+      // in flight to cancel: a cancellation is dropped, never published.
+      async cancel() { return false; },
       async close(server) { closed.push(server.pubkey); },
       onEvent(handler) {
         emitters.add(handler);

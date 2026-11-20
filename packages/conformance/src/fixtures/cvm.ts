@@ -80,6 +80,9 @@ export const CVM_FIXTURE: DomainFixture = {
     failure('cvm/request-duplicate-id', 'cvm.request', request({ jsonrpc: '2.0', id: 7, method: 'tools/list' }), 'invalid message', ['message'],
       'An ID already used for a client request in the same MCP session returns "invalid message"'),
     publicationAck('cvm/request-notification', { jsonrpc: '2.0', method: 'notifications/initialized' }, 'notification'),
+    // "notifications/cancelled may refer only to this napplet's requests": MCP id 7 is this
+    // napplet's own, already answered. It is still a notification, so it completes without message.
+    publicationAck('cvm/request-cancel-settled', { jsonrpc: '2.0', method: 'notifications/cancelled', params: { requestId: 7, reason: 'conformance' } }, 'notification'),
     failure('cvm/request-unmatched-response', 'cvm.request', request({ jsonrpc: '2.0', id: 'conformance-unmatched', result: {} }), 'invalid message', ['message'],
       'A response must match an outstanding server request delivered to that napplet; an unmatched response returns "invalid message"'),
     failure('cvm/request-malformed-server', 'cvm.request', { server: { pubkey: 'not-a-pubkey' }, message: { jsonrpc: '2.0', id: 11, method: 'tools/list' } }, 'invalid request', ['message'],
