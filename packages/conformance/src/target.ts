@@ -202,6 +202,15 @@ export interface TargetSession {
   control(name: string, payload?: unknown): Promise<unknown>;
   /** Controls this target implements. A missing control skips the cases that need it. */
   readonly controls: readonly string[];
+  /**
+   * Boot a scoped session of the same variant whose runtime denies requests
+   * through a legacy behavioral Firewall gate instead of its usual one. The
+   * scoped session must offer the `firewall.block` ({ endpoint }) and
+   * `firewall.rejections` ({ endpoint }) controls plus `backend.calls`. Do not
+   * use this session until the scoped one is disposed. A target without the
+   * gate omits the method and the Firewall checks skip.
+   */
+  openLegacyFirewall?(): Promise<TargetSession>;
   /** Tear the runtime down. */
   dispose(): Promise<void>;
 }

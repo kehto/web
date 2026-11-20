@@ -4,7 +4,7 @@
  * Assembles the `ShellAdapter` for one variant. Nothing here reaches a relay,
  * a device, a prompt or the network.
  */
-import { resolveCapabilitiesNap, type Capability } from '@kehto/runtime';
+import { resolveCapabilitiesNap, type Capability, type LegacyFirewallAdapter } from '@kehto/runtime';
 import type { ShellAdapter, ShellBridge } from '@kehto/shell';
 import type { TargetVariant } from '../target.js';
 import { composeBackends, disabledDomains, type DomainBackends } from './domain-backends.js';
@@ -75,6 +75,32 @@ function baseHooks(domains: DomainBackends): ShellAdapter {
   };
 }
 
+/** Which runtime gate a session denies through. */
+export type SessionGate = 'permissions' | 'legacy-firewall';
+
+/**
+ * A legacy Firewall that rejects every request from a blocked endpoint and
+ * counts the rejections, so a check can prove the gate itself fired.
+ */
+function createBlockingFirewall(): { adapter: LegacyFirewallAdapter; block(endpoint: string): void; rejections(endpoint: string): number } {
+  const blocked = new Set<string>();
+  const rejected = new Map<string, number>();
+  return {
+    adapter: {
+      evaluate(observation) {
+        // `initKey` is the host's source-bound window id, never napplet-supplied.
+        const endpoint = observation.initKey ?? '';
+        if (!blocked.has(endpoint)) return { decision: 'pass', action: 'ignore', ruleId: 'conformance-pass', reason: 'not blocked' };
+        rejected.set(endpoint, (rejected.get(endpoint) ?? 0) + 1);
+        return { decision: 'reject', action: 'block', ruleId: 'conformance-block', reason: 'blocked by conformance' };
+      },
+      resetInitBudget() {}, setPolicy() {}, persist() {}, load() {},
+    },
+    block(endpoint) { blocked.add(endpoint); },
+    rejections: (endpoint) => rejected.get(endpoint) ?? 0,
+  };
+}
+
 /** Revoke the ACL capability a request needs for one endpoint; returns it, or `null` when it needs none. */
 function revokeCapability(payload: unknown, { bridge }: ControlContext): string | null {
   const { endpoint, envelope } = payload as { endpoint: string; envelope: { type: string } };
@@ -88,18 +114,38 @@ function revokeCapability(payload: unknown, { bridge }: ControlContext): string 
 /**
  * Build the adapter and controls for one variant.
  *
+ * The default gate is the scoped `permissions` coordinator. `legacy-firewall`
+ * boots without it and installs a blocking legacy Firewall instead, adding the
+ * `firewall.block` and `firewall.rejections` controls; it leaves shell storage
+ * alone because it runs inside another session.
+ *
  * @param variant - Profile and shell mode.
+ * @param gate - The runtime gate requests are denied through.
  * @returns The backends.
  */
-export function createBackends(variant: TargetVariant): Backends {
-  clearShellStorage();
+export function createBackends(variant: TargetVariant, gate: SessionGate = 'permissions'): Backends {
+  const legacy = gate === 'legacy-firewall';
+  if (!legacy) clearShellStorage();
   const domains = composeBackends(variant);
-  const hooks: ShellAdapter = { ...baseHooks(domains), capabilities: { disabledDomains: disabledDomains(variant, domains) } };
+  const { permissions, ...rest } = baseHooks(domains);
+  const firewall = legacy ? createBlockingFirewall() : undefined;
+  const hooks: ShellAdapter = {
+    ...rest,
+    ...(firewall ? { legacyFirewall: firewall.adapter } : { permissions }),
+    capabilities: { disabledDomains: disabledDomains(variant, domains) },
+  };
+  const own: Record<string, (payload: unknown, context: ControlContext) => unknown> = {
+    'acl.revoke': revokeCapability,
+    ...(firewall ? {
+      'firewall.block': (payload: unknown) => firewall.block(String((payload as { endpoint?: unknown }).endpoint)),
+      'firewall.rejections': (payload: unknown) => firewall.rejections(String((payload as { endpoint?: unknown }).endpoint)),
+    } : {}),
+  };
   return {
     hooks,
-    controls: [...Object.keys(domains.controls), 'acl.revoke'],
+    controls: [...Object.keys(domains.controls), ...Object.keys(own)],
     async control(name, payload, context) {
-      if (name === 'acl.revoke') return revokeCapability(payload, context);
+      if (Object.hasOwn(own, name)) return own[name](payload, context);
       return domains.controls[name]?.(payload, context);
     },
     attach(bridge) { domains.attach(bridge); },
@@ -108,7 +154,7 @@ export function createBackends(variant: TargetVariant): Backends {
     },
     dispose() {
       domains.dispose();
-      clearShellStorage();
+      if (!legacy) clearShellStorage();
     },
   };
 }
