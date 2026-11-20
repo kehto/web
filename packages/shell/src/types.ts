@@ -351,6 +351,7 @@ export interface UnroutedMessageInfo {
  * - `second-load` — the iframe loaded a second document (navigation or reload).
  * - `port-closed` — the bound port closed or failed to deserialize a message.
  * - `deferred-overflow` — too many envelopes were waiting on `filterNappletMessage` deferral.
+ * - `nested-context` — a napplet running under the experimental nested-context lock held a child browsing context.
  * - `host` — the host revoked the binding itself.
  */
 export type NappletRevocationReason =
@@ -360,6 +361,7 @@ export type NappletRevocationReason =
   | 'second-load'
   | 'port-closed'
   | 'deferred-overflow'
+  | 'nested-context'
   | 'host';
 
 /**

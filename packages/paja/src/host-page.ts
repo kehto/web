@@ -8,7 +8,9 @@ import {
   PAJA_EVENT_COUNTER_RESET_LABEL,
   PAJA_EVENT_COUNTER_RESET_TITLE,
 } from './browser-relay-panel.js';
-import { BROWSER_APPROVAL_UI_STYLES, renderNappletFramePolicyMeta } from '@kehto/shell';
+import {
+  BROWSER_APPROVAL_UI_STYLES, renderNappletFramePolicyMeta, renderNappletHostBase, renderNappletReferrerPolicyMeta,
+} from '@kehto/shell';
 import type { PajaHostConfig } from './options.js';
 import { summarizePajaSimulation } from './simulation.js';
 
@@ -28,6 +30,8 @@ export function renderPajaHtml(config: PajaHostConfig): string {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     ${renderNappletFramePolicyMeta()}
+    ${renderNappletReferrerPolicyMeta()}
+    ${renderNappletHostBase()}
     <title>@kehto/paja</title>
     <style>
       :root {
@@ -533,7 +537,7 @@ function renderStage(config: PajaHostConfig, targetLabel: string): string {
       </section>`;
   }
   return `<section class="stage" id="napplet-stage">
-        <iframe id="napplet-frame" title="Napplet development target" sandbox="allow-scripts" data-target-url="${targetLabel}"></iframe>
+        <iframe id="napplet-frame" title="Napplet development target" sandbox="allow-scripts" referrerpolicy="no-referrer" data-target-url="${targetLabel}"></iframe>
       </section>`;
 }
 

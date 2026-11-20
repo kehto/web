@@ -402,6 +402,31 @@ The shell normalizer also powers Paja intent links. See the
 [Paja guide](https://kehto.github.io/web/docs/packages/paja.html#nap-intent-links-and-lifecycle)
 for outer URL encoding, review, routing, and verified launcher behavior.
 
+## Embedding URL and realm locks
+
+A verified napplet is an `about:srcdoc` document and inherits the host page's
+referrer and base URL. Keep the shell URL out of it with
+`denyNappletReferrer(frame)` before assigning `srcdoc`, plus
+`renderNappletReferrerPolicyMeta()` and `renderNappletHostBase()` in the host
+page `<head>` (WebKit ignores the iframe attribute for `srcdoc`; only a host-page
+`<base>` reaches `document.baseURI`). `hasNappletReferrerPolicy(frame)` and
+`hasNappletReferrerPolicyMeta(document)` report the two controls, and
+`ShellBridge.observeFrame` warns once when either is missing.
+
+The experimental namespace adds `resourceHintLock` next to `nestedContextLock`.
+It rejects `<link rel="dns-prefetch" | "preconnect" | "prerender">`, which
+browsers act on outside the napplet CSP, on every string sink and attribute
+writer; scan the bytes first with `assertNappletHasNoResourceHint` (or
+`nappletMarkupHasResourceHint`). Both locks remove `XSLTProcessor`, reject
+namespace-prefixed frame and link tags, and inspect `DOMParser` results, which
+otherwise mint frames past the nested-context lock through XSLT or XML parsing
+(prefixes, DTD entities). Under the nested-context
+lock the bridge revokes a napplet whose Window holds a child frame
+(`nested-context`); hosts that prepare the `srcdoc` themselves opt in with
+`observeFrame(frame, windowId, { nestedContextLock: true })`
+(`NappletFrameObservation`). See the
+[NIP-5D conformance policy](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#resource-hints).
+
 ## GAMEPAD integration
 
 This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja registers one host reader and deny native gamepad/HID/USB paths before frame execution. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, window destruction, and service removal release polling. Non-browser or denied native readers report the proposal's unavailable reasons. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
