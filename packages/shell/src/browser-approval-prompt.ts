@@ -11,13 +11,21 @@ const NETWORK_NOTE = 'Direct browser traffic to these origins is outside parent 
 
 type Lifetime = PermissionGrant['lifetime'];
 
-/** Origins a grouped row shows without a click; larger groups start collapsed. */
-const OPEN_ORIGIN_LIMIT = 5;
+/** Default largest origin group a prompt shows open; larger groups start collapsed. */
+export const DEFAULT_PROMPT_OPEN_ORIGINS = 5;
+
+/** A host's open-origin limit, falling back to the default when unusable. */
+function openOriginLimit(limit: number | (() => number) | undefined): number {
+  try {
+    const value = typeof limit === 'function' ? limit() : limit;
+    return Number.isSafeInteger(value) && value! >= 0 ? value! : DEFAULT_PROMPT_OPEN_ORIGINS;
+  } catch { return DEFAULT_PROMPT_OPEN_ORIGINS; }
+}
 
 /** Every exact origin of a grouped row; a short list is open, a long one collapsed. */
-function originList(document: Document, targets: readonly string[]): HTMLElement {
+function originList(document: Document, targets: readonly string[], openLimit: number): HTMLElement {
   const details = element(document, 'details', undefined, 'kehto-approval-origins');
-  details.open = targets.length <= OPEN_ORIGIN_LIMIT;
+  details.open = targets.length <= openLimit;
   const list = element(document, 'ul');
   list.append(...targets.map((target) => {
     const item = element(document, 'li');
@@ -84,11 +92,13 @@ function buildDialog(document: Document) {
  * @param document - Document that owns the dialog.
  * @param labelForPrincipal - Host display name for a trusted identity.
  * @param offersRule - Whether the host can store a standing rule from a prompt.
+ * @param openLimit - Largest origin group shown open, or a getter for it.
  */
 export function createBrowserApprovalPrompt(
   document: Document,
   labelForPrincipal: (principal: PermissionPrincipal) => string,
   offersRule: () => boolean = () => false,
+  openLimit?: number | (() => number),
 ): { readonly dialog: HTMLDialogElement; prompt(request: ApprovalPrompt): Promise<PromptResult>; destroy(): void } {
   const view = buildDialog(document);
   const { dialog, deny, allow } = view;
@@ -113,7 +123,7 @@ export function createBrowserApprovalPrompt(
       const row = element(document, 'li');
       row.append(element(document, 'span', text.action));
       if (text.target !== undefined) row.append(element(document, 'code', text.target));
-      if (text.targets) row.append(originList(document, text.targets));
+      if (text.targets) row.append(originList(document, text.targets, openOriginLimit(openLimit)));
       return row;
     }));
     view.mediation.textContent = request.missing.some((item) => item.category === 'network' && item.operation.startsWith('network.'))

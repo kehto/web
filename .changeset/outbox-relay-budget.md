@@ -3,6 +3,7 @@
 "@kehto/runtime": patch
 "@kehto/services": patch
 "@kehto/shell": patch
+"@kehto/paja": patch
 ---
 
 Keep large relay plans approvable within one Firewall request (kehto/web#455).
@@ -25,4 +26,7 @@ origins than a request may carry.
   cap fails with `too many relays` instead of a denial. COUNT does the same with
   `too-expensive` (NAP-COUNT napplet/naps#69 at `9353a0c6`).
 - The browser approval prompt shows the origins of one mediated operation as a
-  single "contact N origins" row with the exact origins in a collapsed list.
+  single "contact N origins" row listing the exact origins. Groups up to
+  `openOriginLimit` (a new `createBrowserApprovalUi` option, default
+  `DEFAULT_PROMPT_OPEN_ORIGINS` = 5) start open; Paja exposes it as the
+  `firewall.promptOpenOrigins` setting.

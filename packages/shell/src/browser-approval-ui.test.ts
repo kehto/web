@@ -78,7 +78,7 @@ const revokeButtons = (root: TestElement): TestElement[] =>
   root.all('button').filter((node) => node.getAttribute('aria-label')?.startsWith('Revoke network.') ?? false);
 const DEFAULTS = createPermissionRules({ default: 'allow', operations: { 'link.open': 'ask' } });
 
-function setup(separatePrompt = false, withRules = false) {
+function setup(separatePrompt = false, withRules = false, openOriginLimit?: number | (() => number)) {
   const document = new TestDocument();
   const mount = document.createElement('main');
   const promptMount = document.createElement('aside');
@@ -102,6 +102,7 @@ function setup(separatePrompt = false, withRules = false) {
     labelForPrincipal: () => 'Trusted app',
     getPermissions: () => permissions,
     onGrantRevoked, onAnswer,
+    ...(openOriginLimit !== undefined ? { openOriginLimit } : {}),
   });
   const prompt = (signal: AbortSignal, lifetimes: Array<'once' | 'session' | 'persistent'> = ['session']): ApprovalPrompt => ({
     request: { principal, sessionId: 's', requestId: 'r', requirements: [requirement] },
@@ -227,6 +228,26 @@ describe('common browser approval UI', () => {
     const origins = f.mount.find('dialog')!.all('details').find((node) => node.className === 'kehto-approval-origins')!;
     expect((origins as unknown as { open?: boolean }).open).toBe(true);
     expect(origins.all('code').map((code) => code.textContent)).toEqual(['wss://a.example', 'wss://b.example']);
+    f.ui.destroy();
+    await answer;
+  });
+
+  it('reads the host open-origin limit at each prompt and ignores an unusable one', async () => {
+    let limit = 0;
+    const two = ['wss://a.example', 'wss://b.example'].map((value): PermissionRequirement =>
+      ({ category: 'network', domain: 'outbox', operation: 'outbox.query', scope: { kind: 'origin', value } }));
+    for (const [configured, open] of [[() => limit, false], [-1, true], [() => { throw new Error('unavailable'); }, true]] as const) {
+      const f = setup(false, false, configured);
+      const answer = f.ui.prompt({ ...f.prompt(new AbortController().signal), missing: two });
+      const origins = f.mount.find('dialog')!.all('details').find((node) => node.className === 'kehto-approval-origins')!;
+      expect((origins as unknown as { open?: boolean }).open).toBe(open);
+      f.ui.destroy();
+      await answer;
+    }
+    limit = 2;
+    const f = setup(false, false, () => limit);
+    const answer = f.ui.prompt({ ...f.prompt(new AbortController().signal), missing: two });
+    expect((f.mount.find('dialog')!.all('details').find((node) => node.className === 'kehto-approval-origins') as unknown as { open?: boolean }).open).toBe(true);
     f.ui.destroy();
     await answer;
   });

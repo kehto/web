@@ -618,6 +618,8 @@ policy in their drafts (NAP-FS `bd1b9e9`, NAP-WEBRTC `fb4dd6f`, NAP-RESOURCE
 | `intent.linkMaxBytes` | Maximum app-link size | 16384 bytes | 1024–1048576 |
 | `link.approvalClickWindowMs` | Link approval click window | 1000 ms | 100–10000 |
 | `link.labelMaxChars` | Maximum link label length | 256 chars | 1–4096 |
+| **Firewall** | | | |
+| `firewall.promptOpenOrigins` | Relay origins listed open in a prompt | 5 | 0–127 |
 | **Signer** | | | |
 | `signer.nip46TimeoutMs` | Remote signer request timeout | 30000 ms | 1000–600000 |
 | `signer.previewChars` | Content shown in signing prompts | 240 chars | 16–10000 |

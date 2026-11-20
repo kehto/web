@@ -26,7 +26,7 @@ store. The prompt asks a plain-language question, names the napplet with the
 host's label, lists every exact scope, and preselects the narrowest offered
 lifetime; the full trusted identity is one disclosure away. Network origins that
 share one mediated operation, such as the relays of an outbox plan, are one
-"contact N origins" row listing the exact origins (collapsed beyond five); each origin
+"contact N origins" row listing the exact origins (collapsed beyond `openOriginLimit`, default 5); each origin
 is still granted on its own. Deny has initial
 focus. Escape, close, and abort cancel without creating a denial grant. Grants
 are grouped by napplet and interface with group revoke. Pass `rules` to add an
