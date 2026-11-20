@@ -37,7 +37,6 @@ const INVENTORY: ReadonlyArray<[domain: string, nap: string, pr: number | 'maste
   ['llm', 'NAP-LLM', 134],
   ['location', 'NAP-LOCATION', 125],
   ['media', 'NAP-MEDIA', 10],
-  ['mesh', 'NAP-MESH', 122],
   ['motion', 'NAP-MOTION', 124],
   ['navigation', 'NAP-NAVIGATION', 126],
   ['notify', 'NAP-NOTIFY', 11],

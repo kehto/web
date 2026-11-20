@@ -94,7 +94,6 @@ each `Mock<Domain>Service`.
 | `llm` | NAP-LLM | draft | PR #134 @ `3e10939c` | service | 4 routes |
 | `location` | NAP-LOCATION | draft | PR #125 @ `24d2039c` | extension | 4 routes |
 | `media` | NAP-MEDIA | draft | PR #10 @ `7806f438` | service | 6 routes |
-| `mesh` | NAP-MESH | draft | PR #122 @ `bf9a4722` | extension | 5 routes |
 | `motion` | NAP-MOTION | draft | PR #124 @ `3069a945` | extension | 3 routes |
 | `navigation` | NAP-NAVIGATION | draft | PR #126 @ `9a4b179e` | extension | 2 routes |
 | `notify` | NAP-NOTIFY | draft | PR #11 @ `67877ef6` | service | 5 routes |
