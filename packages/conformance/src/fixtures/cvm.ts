@@ -40,6 +40,18 @@ const toolsList = (id: string, rpcId: number): OperationCase => ({
   }),
 });
 
+/** A shell failure: the matching `.result` with the NAP's top-level text error and no success payload. */
+const failure = (id: string, type: string, payload: Record<string, unknown>, error: string, absent: readonly string[], rule: string): OperationCase => ({
+  id, type, payload, allowError: true,
+  semantics: tag(rule, (reply) => {
+    if (reply?.error !== error) return `error was ${JSON.stringify(reply?.error)}, expected ${JSON.stringify(error)}`;
+    const present = absent.filter((key) => reply && key in reply);
+    return present.length ? `a failed result still carried ${present.join(', ')}` : null;
+  }),
+});
+
+const request = (message: unknown, options?: Record<string, unknown>) => ({ server: SERVER, ...(message === undefined ? {} : { message }), ...(options ? { options } : {}) });
+
 const closeOnly = tag('A successful cvm.close.result carries only type and id', (reply) => {
   const extra = Object.keys(reply ?? {}).filter((key) => key !== 'type' && key !== 'id');
   return extra.length ? `close result carried ${extra.join(', ')}` : null;
@@ -74,6 +86,20 @@ export const CVM_FIXTURE: DomainFixture = {
         return Array.isArray(content) && content[0]?.text === 'conformance' ? null : `result was ${JSON.stringify(reply?.result)}`;
       }),
     },
+    failure('cvm/discover-invalid-limit', 'cvm.discover', { query: { limit: 0 } }, 'invalid request', ['servers'],
+      'A malformed query is "invalid request"; on a shell error, success payload fields MUST be omitted'),
+    failure('cvm/request-missing-message', 'cvm.request', request(undefined), 'invalid message', ['message'],
+      'A missing MCP message is "invalid message"; validation errors MUST NOT be reported as "unsupported method"'),
+    failure('cvm/request-null-id', 'cvm.request', request({ jsonrpc: '2.0', id: null, method: 'tools/list' }), 'invalid message', ['message'],
+      'An MCP message with id: null is "invalid message" (conformance case: missing message, id: null, or both result and error)'),
+    failure('cvm/request-result-and-error', 'cvm.request', request({ jsonrpc: '2.0', id: 9, result: {}, error: { code: 1, message: 'x' } }), 'invalid message', ['message'],
+      'An MCP message with both result and error is "invalid message"'),
+    failure('cvm/request-timeout-zero', 'cvm.request', request({ jsonrpc: '2.0', id: 10, method: 'tools/list' }, { timeoutMs: 0 }), 'invalid timeout', ['message'],
+      'timeoutMs MUST be an integer from 1 through 300000; zero returns "invalid timeout"'),
+    failure('cvm/registry.describe-unknown-family', 'cvm.registry.describe', { selector: { family: 'conformance-no-such-family' } }, 'family not found', ['entry'],
+      'registry.describe with an unmatched family label is "family not found"'),
+    failure('cvm/registry.call-wrong-tool', 'cvm.registry.call', { selector: SELECTOR, tool: 'not-in-family', args: {} }, 'schema mismatch', ['result'],
+      'registry.call with a tool name outside the selected verified tool set is "schema mismatch" before publication'),
     { id: 'cvm/close', type: 'cvm.close', payload: { server: SERVER }, semantics: closeOnly },
   ],
   pushes: [

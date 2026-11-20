@@ -14,5 +14,16 @@ export const LINK_FIXTURE: DomainFixture = {
         },
       },
     },
+    ...['file:///etc/passwd', 'javascript:alert(1)', 'data:text/html,hi'].map((url) => ({
+      id: `link/open-${url.slice(0, url.indexOf(':'))}`, type: 'link.open', payload: { url }, allowError: true,
+      semantics: {
+        rule: 'The shell MUST reject javascript:, data:, blob:, file: and other local or code-bearing schemes (status "denied")',
+        verify: (reply: Readonly<Record<string, unknown>> | null) => (reply?.status === 'denied' ? null : `status ${JSON.stringify(reply?.status)}, error ${JSON.stringify(reply?.error)}`),
+      },
+    })),
+    {
+      id: 'link/open-relative', type: 'link.open', payload: { url: '/relative/path' }, allowError: true,
+      semantics: { rule: 'The shell MUST reject relative URLs (status "denied")', verify: (reply) => (reply?.status === 'denied' ? null : `status ${JSON.stringify(reply?.status)}, error ${JSON.stringify(reply?.error)}`) },
+    },
   ],
 };
