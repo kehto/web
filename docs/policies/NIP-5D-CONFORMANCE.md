@@ -25,7 +25,7 @@ implementation authority. `RUNTIME-SPEC.md` is internal runtime guidance.
 
 - **NAP-INTENT:** draft PR #106 `napplet/naps@fc121fc264615482143eda86125863d2e1f741a2` (the working authority for this implementation).
 - **NAP-INC:** merged `napplet/naps` master
-  `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`.
+  `377bf939c6c906817084b43dd21d424de646dbc2`.
 - **NAP-IDENTITY / NAP-THEME / NAP-SHELL:** merged `napplet/naps` master
   `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`.
 - **NAP-RELAY:** open PR #2 at
@@ -259,9 +259,9 @@ recorded upstream drift, not authority to let a napplet bypass shell signing.
 ### Active NAP-INC boundary
 
 NAP-INC is governed by merged
-[`naps/NAP-INC.md`](https://github.com/napplet/naps/blob/5ac0490461ca6fec2f0d2e45b4835cf9bc08de24/naps/NAP-INC.md)
+[`naps/NAP-INC.md`](https://github.com/napplet/naps/blob/377bf939c6c906817084b43dd21d424de646dbc2/naps/NAP-INC.md)
 on `napplet/naps` master
-`5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`. The document remains marked
+`377bf939c6c906817084b43dd21d424de646dbc2`. The document remains marked
 draft, but the merged path supersedes the earlier stacked PR heads as protocol
 authority.
 
@@ -272,9 +272,22 @@ discovery identities, while routing arbitrary opaque strings (including `?` and
 `#`) by their complete exact text. It must not add prefix, wildcard, or
 query-aware matching, service-over-INC prefix dispatch, synthetic senderless
 events, or runtime payload-kind inference. The runtime attaches a
-**runtime-attested dTag** to
+**runtime-attested endpoint identifier** to
 delivered events, does not accept caller `sender`, keeps payloads and IDs
 opaque, and excludes the source endpoint from topic fan-out.
+
+`target`, `sender`, and `peer` are runtime-assigned endpoint identifiers: opaque text, one per live registered
+endpoint, taken from the injected `crypto.randomUUID`, and carrying no manifest `d` tag, artifact hash, window ID,
+instance ID, or ordering. An identifier is assigned on first use, lasts until that registration is replaced or
+unregistered, and is never reused; a replacement registration is a new endpoint whose old channels close as
+`peer destroyed`. Root and snapshot manifests without a `d` tag get identifiers like any other endpoint. A `d` tag is
+never resolved as a channel target (`KEHTO_INC_DTAG_TARGET_RETIRED` in
+[the compatibility register](https://github.com/kehto/web/blob/main/docs/compatibility.md)). Napplets learn a peer
+from an attested `sender`/`peer`; a host selects one with `Runtime.getIncEndpointId(windowId)`.
+Firewall, ACL, and permission records stay keyed by the verified principal (`dTag` plus artifact hash); only the INC
+wire identity changed. The packaged `@napplet/nap@0.40.0` INC types still describe `sender`, `target`, and
+`inc.channel.open.result.peer` as napplet identities (comment text only; the field shapes match). That wording lags
+the NAP and is upstream drift, not a Kehto contract.
 
 Merged NAP-INC and released `@napplet/nap@0.32.0` both define
 `on(topic, callback)` with one `IncEvent`.

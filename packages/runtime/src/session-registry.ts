@@ -29,6 +29,8 @@ export interface SessionRegistry {
    * A duplicate dTag fails closed rather than selecting an arbitrary session.
    * Window IDs and pubkeys remain internal transport identities and never
    * resolve through this lookup.
+   * This is a host-side principal lookup only. It is not NAP-INC addressing:
+   * INC targets are endpoint identifiers (`Runtime.getIncEndpointId`).
    *
    * @param dTag - Runtime-attested napplet dTag
    * @returns The sole owning window ID, or undefined when missing or ambiguous

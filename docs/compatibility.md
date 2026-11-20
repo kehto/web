@@ -368,6 +368,60 @@ prerequisites: announce the route removal in a release note, then delete
 together. The last commit containing the playground source is the parent of the
 retirement PR; recover it from git history if ever needed.
 
+## KEHTO_INC_DTAG_TARGET_RETIRED — INC peers by manifest d tag — runtime
+
+Identifier: `KEHTO_INC_DTAG_TARGET_RETIRED`. Owner: `@kehto/runtime`. Retired
+without a compatibility path. Through `@kehto/runtime` 0.26, `inc.event.sender`,
+`inc.channel.event.sender`, and every channel `peer` were the manifest `d` tag,
+and `inc.channel.open` resolved `target` as a `d` tag when exactly one live
+session carried it. Two live instances of one name were indistinguishable and
+unaddressable, and an endpoint whose manifest has no `d` tag could not emit or
+join a channel ([kehto/web#331](https://github.com/kehto/web/issues/331)).
+
+Authority: [NAP-INC at `377bf939c6c906817084b43dd21d424de646dbc2`](https://github.com/napplet/naps/blob/377bf939c6c906817084b43dd21d424de646dbc2/naps/NAP-INC.md#schemas)
+(text last changed by `f4545b1f`). `target`, `sender`, and `peer` "are opaque
+text, unique to a live endpoint within the runtime, and MUST NOT be interpreted
+as a manifest `d` tag". A fallback that resolved an unambiguous `d` tag would
+interpret it as exactly that, and would let a napplet address a peer by a public
+name instead of an identifier it obtained from an attested event or a host
+selection. So no fallback is kept, bounded or otherwise.
+
+Replacement: the runtime assigns each live registered endpoint an opaque
+identifier from the injected `crypto.randomUUID`. Napplets read it from
+`inc.event.sender`, `inc.channel.opened.peer`, `inc.channel.open.result.peer`,
+`inc.channel.event.sender`, or `inc.channel.list.result`; hosts select a peer
+with `Runtime.getIncEndpointId(windowId)`. Migration for a napplet: keep the
+`sender` you received and pass it to `channel.open`; do not hardcode a peer
+name or compare `sender` with one. Firewall, ACL, and permission records are
+unchanged and stay keyed by the verified principal.
+
+Sources: `packages/runtime/src/inc-endpoints.ts` (assignment, binding to the
+registration, non-reuse), `inc-handler.ts` (wire use and the diagnostic), and
+`runtime.ts` (retirement on replacement or unregistration). Diagnostic: a `d`
+tag of a live session used as a target still fails as `target not found`, the
+same result as any unknown target, so the wire gives no liveness oracle. The
+host console gets one `console.warn` naming this identifier and the replacement,
+at most once per runtime instance, without the target value. Canonical targets
+and unknown text are quiet. The old `sender`/`peer` output has no observable
+old-use boundary (a napplet comparing it with a name just stops matching), so
+that half is covered by this entry, the changeset, and the README migration note
+rather than a runtime warning.
+
+Regression coverage: `packages/runtime/src/inc-endpoint-identity.test.ts`
+(issue fixture, opacity, stability, root manifests, rejected `d` tag / window ID
+/ instance ID / hash / empty / non-text targets, warning text and frequency,
+quiet canonical path, replacement and unregistration, repeated UUID source),
+`runtime.test.ts` and `dispatch.test.ts` (channel lifecycle, limits, ACL at
+open), `tests/unit/nap-inc-conformance.test.ts`,
+`tests/unit/nip5d-conformance-guard.test.ts` (static guard that the handler
+reads no `dTag`), and `tests/e2e/nap-inc.spec.ts` (two same-name instances in
+real sandboxed iframes).
+
+Removal ships with `.changeset/inc-endpoint-identifiers.md` (runtime minor); PR
+and release number are pending. Nothing remains to retire. Upstream note:
+`@napplet/nap@0.40.0` INC type comments still call `sender`, `target`, and the
+open-result `peer` a napplet identity; field shapes already match.
+
 ## Retired window-level NIP-5D transport — shell / Paja
 
 Identifier: `NIP5D_WINDOW_TRANSPORT_RETIRED`. Retired without a compatibility

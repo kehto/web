@@ -61,6 +61,11 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
 ## Scope Boundaries
 
 - Owns message dispatch, ACL gates, service routing, storage handling, manifest cache, replay checks, and runtime lifecycle.
+- Owns NAP-INC routing and endpoint identity. `sender`, `peer`, and `inc.channel.open` `target` are opaque
+  runtime-assigned endpoint identifiers, one per live registration and never a manifest `d` tag, per
+  [NAP-INC at `377bf939c6c906817084b43dd21d424de646dbc2`](https://github.com/napplet/naps/blob/377bf939c6c906817084b43dd21d424de646dbc2/naps/NAP-INC.md#schemas).
+  `runtime.getIncEndpointId(windowId)` is the host's peer-selection lookup. A `d` tag target is rejected
+  (`KEHTO_INC_DTAG_TARGET_RETIRED` in the [compatibility register](https://github.com/kehto/web/blob/main/docs/compatibility.md)).
 - `aclState.setStateQuota(pubkey, dTag, aggregateHash, bytes)` updates the live
   principal-scoped storage quota without changing grants, blocking, or stored data.
   Accepts safe integer byte counts from zero through `Number.MAX_SAFE_INTEGER`;

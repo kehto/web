@@ -1,8 +1,12 @@
 import type { NappletMessage } from '@napplet/core';
 import type { IncMessage } from '@napplet/nap/inc/types';
 
+import { createIncEndpoints, type IncEndpoints } from './inc-endpoints.js';
 import type { SessionRegistry } from './session-registry.js';
 import type { RuntimeAdapter } from './types.js';
+
+// The runtime compiles without the DOM lib; hosts provide console.
+declare const console: { warn(message: string): void };
 
 interface IncChannel {
   channelId: string;
@@ -14,7 +18,7 @@ type RuntimeIncMessage = IncMessage & {
   id?: string;
   topic?: string;
   payload?: unknown;
-  target?: string;
+  target?: unknown;
   channelId?: string;
 };
 
@@ -22,6 +26,8 @@ type IncState = {
   subscriptions: Map<string, Set<string>>;
   channels: Map<string, IncChannel>;
   channelsByWindow: Map<string, Set<string>>;
+  endpoints: IncEndpoints;
+  warnedDTagTarget: boolean;
 };
 
 type ChannelOpenAuthorizer = (targetWindowId: string, message: NappletMessage) => boolean;
@@ -37,6 +43,21 @@ export interface IncRuntime {
    * @param windowId - Internal identity of the session whose open-time authority changed
    */
   revokeWindow(windowId: string): void;
+  /**
+   * Retire the endpoint registered for a window: close its channels as
+   * `peer destroyed`, drop its subscriptions, and forget its identifier.
+   * A replacement registration is a new endpoint with a new identifier.
+   *
+   * @param windowId - Window whose registration ended or was replaced
+   */
+  retireEndpoint(windowId: string): void;
+  /**
+   * Return the NAP-INC endpoint identifier of a live registered window.
+   *
+   * @param windowId - Internal window identity
+   * @returns The opaque identifier, or undefined without a live endpoint
+   */
+  endpointId(windowId: string): string | undefined;
   clear(): void;
 }
 
@@ -49,11 +70,13 @@ export function createIncRuntime(
     subscriptions: new Map(),
     channels: new Map(),
     channelsByWindow: new Map(),
+    endpoints: createIncEndpoints(hooks, sessionRegistry),
+    warnedDTagTarget: false,
   };
 
   return {
     handleMessage(windowId: string, msg: NappletMessage): void {
-      handleIncMessage(state, hooks, sessionRegistry, authorizeChannelOpen, windowId, msg);
+      handleIncMessage(state, hooks, authorizeChannelOpen, windowId, msg);
     },
     destroyWindow(windowId: string): void {
       removeWindowChannels(state, hooks, windowId);
@@ -63,10 +86,19 @@ export function createIncRuntime(
       revokeWindowChannels(state, hooks, windowId);
       removeWindowSubscriptions(state, windowId);
     },
+    retireEndpoint(windowId: string): void {
+      removeWindowChannels(state, hooks, windowId);
+      removeWindowSubscriptions(state, windowId);
+      state.endpoints.retire(windowId);
+    },
+    endpointId(windowId: string): string | undefined {
+      return state.endpoints.idFor(windowId);
+    },
     clear(): void {
       state.subscriptions.clear();
       state.channels.clear();
       state.channelsByWindow.clear();
+      state.endpoints.clear();
     },
   };
 }
@@ -103,8 +135,19 @@ function peerOf(state: IncState, channelId: string, self: string): string | null
   return null;
 }
 
-function resolveTarget(sessionRegistry: SessionRegistry, target: string): string | null {
-  return sessionRegistry.getWindowIdByDTag(target) ?? null;
+/**
+ * KEHTO_INC_DTAG_TARGET_RETIRED: a manifest `d` tag is no longer a channel
+ * target (NAP-INC: identifiers "MUST NOT be interpreted as a manifest `d`
+ * tag"). The request still fails as `target not found`; the host console gets
+ * one actionable line per runtime instance, without the target value.
+ */
+function diagnoseRetiredDTagTarget(state: IncState, target: unknown): void {
+  if (state.warnedDTagTarget || !state.endpoints.isLiveDTag(target)) return;
+  state.warnedDTagTarget = true;
+  console.warn('KEHTO_INC_DTAG_TARGET_RETIRED: inc.channel.open received a napplet d tag as its target. '
+    + 'NAP-INC targets are runtime-assigned endpoint identifiers; pass the sender of an inc.event, the peer of a channel, '
+    + 'or an endpoint identifier the host selected (Runtime.getIncEndpointId). The request failed as "target not found" '
+    + '(warns once per runtime instance). See docs/compatibility.md.');
 }
 
 function hasReachedChannelLimit(state: IncState, windowId: string): boolean {
@@ -114,7 +157,6 @@ function hasReachedChannelLimit(state: IncState, windowId: string): boolean {
 function handleIncMessage(
   state: IncState,
   hooks: RuntimeAdapter,
-  sessionRegistry: SessionRegistry,
   authorizeChannelOpen: ChannelOpenAuthorizer,
   windowId: string,
   msg: NappletMessage,
@@ -124,13 +166,13 @@ function handleIncMessage(
   const action = msg.type.slice(dotIdx + 1);
 
   switch (action) {
-    case 'emit': handleEmit(state, hooks, sessionRegistry, windowId, m); return;
+    case 'emit': handleEmit(state, hooks, windowId, m); return;
     case 'subscribe': handleSubscribe(state, hooks, windowId, m); return;
     case 'unsubscribe': handleUnsubscribe(state, windowId, m); return;
-    case 'channel.open': handleChannelOpen(state, hooks, sessionRegistry, authorizeChannelOpen, windowId, m); return;
-    case 'channel.emit': handleChannelEmit(state, hooks, sessionRegistry, windowId, m); return;
-    case 'channel.broadcast': handleChannelBroadcast(state, hooks, sessionRegistry, windowId, m); return;
-    case 'channel.list': handleChannelList(state, hooks, sessionRegistry, windowId, m); return;
+    case 'channel.open': handleChannelOpen(state, hooks, authorizeChannelOpen, windowId, m); return;
+    case 'channel.emit': handleChannelEmit(state, hooks, windowId, m); return;
+    case 'channel.broadcast': handleChannelBroadcast(state, hooks, windowId, m); return;
+    case 'channel.list': handleChannelList(state, hooks, windowId, m); return;
     case 'channel.close': handleChannelClose(state, hooks, windowId, m); return;
     default: return;
   }
@@ -139,16 +181,16 @@ function handleIncMessage(
 function handleEmit(
   state: IncState,
   hooks: RuntimeAdapter,
-  sessionRegistry: SessionRegistry,
   windowId: string,
   m: RuntimeIncMessage,
 ): void {
   const topic = m.topic ?? '';
-  const sender = sessionRegistry.getEntryByWindowId(windowId)?.dTag;
-  if (!sender) return;
   if (!topic) return;
   const subscribers = state.subscriptions.get(topic);
   if (!subscribers) return;
+  // The sender is the emitting endpoint's identifier, never caller data.
+  const sender = state.endpoints.idFor(windowId);
+  if (!sender) return;
   for (const subscriberWindowId of subscribers) {
     if (subscriberWindowId !== windowId) {
       hooks.sendToNapplet(subscriberWindowId, {
@@ -194,17 +236,21 @@ function handleUnsubscribe(state: IncState, windowId: string, m: RuntimeIncMessa
 function handleChannelOpen(
   state: IncState,
   hooks: RuntimeAdapter,
-  sessionRegistry: SessionRegistry,
   authorizeChannelOpen: ChannelOpenAuthorizer,
   windowId: string,
   m: RuntimeIncMessage,
 ): void {
   const id = m.id ?? '';
-  const peerWindow = resolveTarget(sessionRegistry, m.target ?? '');
-  const openerDTag = sessionRegistry.getEntryByWindowId(windowId)?.dTag;
-  const peerDTag = peerWindow ? sessionRegistry.getEntryByWindowId(peerWindow)?.dTag : undefined;
-  if (!peerWindow || !openerDTag || !peerDTag) {
+  const peerWindow = state.endpoints.resolve(m.target);
+  const peerId = peerWindow === undefined ? undefined : state.endpoints.assignedIdFor(peerWindow);
+  if (peerWindow === undefined || peerId === undefined) {
+    diagnoseRetiredDTagTarget(state, m.target);
     hooks.sendToNapplet(windowId, { type: 'inc.channel.open.result', id, error: 'target not found' } as NappletMessage);
+    return;
+  }
+  const openerId = state.endpoints.idFor(windowId);
+  if (!openerId) {
+    hooks.sendToNapplet(windowId, { type: 'inc.channel.open.result', id, error: 'endpoint unavailable' } as NappletMessage);
     return;
   }
   if (!authorizeChannelOpen(peerWindow, m)) {
@@ -218,14 +264,14 @@ function handleChannelOpen(
   const channelId = hooks.crypto.randomUUID().replace(/-/g, '').slice(0, 32);
   addChannel(state, channelId, windowId, peerWindow);
   try {
-    hooks.sendToNapplet(peerWindow, { type: 'inc.channel.opened', channelId, peer: openerDTag } as NappletMessage);
+    hooks.sendToNapplet(peerWindow, { type: 'inc.channel.opened', channelId, peer: openerId } as NappletMessage);
   } catch {
     removeChannel(state, channelId);
     hooks.sendToNapplet(windowId, { type: 'inc.channel.open.result', id, error: 'target unavailable' } as NappletMessage);
     return;
   }
   try {
-    hooks.sendToNapplet(windowId, { type: 'inc.channel.open.result', id, channelId, peer: peerDTag } as NappletMessage);
+    hooks.sendToNapplet(windowId, { type: 'inc.channel.open.result', id, channelId, peer: peerId } as NappletMessage);
   } catch {
     teardownChannel(state, hooks, channelId);
   }
@@ -234,12 +280,11 @@ function handleChannelOpen(
 function handleChannelEmit(
   state: IncState,
   hooks: RuntimeAdapter,
-  sessionRegistry: SessionRegistry,
   windowId: string,
   m: RuntimeIncMessage,
 ): void {
   const peer = peerOf(state, m.channelId ?? '', windowId);
-  const sender = sessionRegistry.getEntryByWindowId(windowId)?.dTag;
+  const sender = state.endpoints.assignedIdFor(windowId);
   if (peer && sender) {
     hooks.sendToNapplet(peer, {
       type: 'inc.channel.event',
@@ -253,12 +298,11 @@ function handleChannelEmit(
 function handleChannelBroadcast(
   state: IncState,
   hooks: RuntimeAdapter,
-  sessionRegistry: SessionRegistry,
   windowId: string,
   m: RuntimeIncMessage,
 ): void {
   const channels = state.channelsByWindow.get(windowId);
-  const sender = sessionRegistry.getEntryByWindowId(windowId)?.dTag;
+  const sender = state.endpoints.assignedIdFor(windowId);
   if (!channels || !sender) return;
   for (const channelId of channels) {
     const peer = peerOf(state, channelId, windowId);
@@ -276,7 +320,6 @@ function handleChannelBroadcast(
 function handleChannelList(
   state: IncState,
   hooks: RuntimeAdapter,
-  sessionRegistry: SessionRegistry,
   windowId: string,
   m: RuntimeIncMessage,
 ): void {
@@ -285,8 +328,8 @@ function handleChannelList(
   if (set) {
     for (const channelId of set) {
       const peer = peerOf(state, channelId, windowId);
-      const peerDTag = peer ? sessionRegistry.getEntryByWindowId(peer)?.dTag : undefined;
-      if (peerDTag) channels.push({ id: channelId, peer: peerDTag });
+      const peerId = peer ? state.endpoints.assignedIdFor(peer) : undefined;
+      if (peerId) channels.push({ id: channelId, peer: peerId });
     }
   }
   hooks.sendToNapplet(windowId, { type: 'inc.channel.list.result', id: m.id ?? '', channels } as NappletMessage);
