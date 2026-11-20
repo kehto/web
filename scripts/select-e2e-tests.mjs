@@ -56,6 +56,7 @@ const GROUPS = {
     'tests/e2e/paja-storage.spec.ts',
   ],
   conformance: [
+    'tests/e2e/conformance-mutations.spec.ts',
     'tests/e2e/conformance.spec.ts',
   ],
   cvm: [

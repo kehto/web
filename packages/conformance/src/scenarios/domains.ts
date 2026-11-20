@@ -13,7 +13,7 @@ import { FIXTURES } from '../fixtures/index.js';
 import type { DomainFixture, OperationCase, PushCase } from '../fixtures/types.js';
 import { fail, pass, skip, type CheckOutcome, type DomainCoverage, type OperationResult } from '../model.js';
 import type { ProbeReport, ProbeStep } from '../probe/plan.js';
-import { defineScenario, runProbe, step, type Check, type CollectContext } from '../scenario.js';
+import { defineScenario, step, type Check, type CollectContext } from '../scenario.js';
 
 type Envelope = Readonly<Record<string, unknown>>;
 
