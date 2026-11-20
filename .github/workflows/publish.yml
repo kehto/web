@@ -73,8 +73,26 @@ jobs:
       # OIDC Trusted Publisher). With no pending changesets, changesets/action is
       # a no-op here instead of attempting an unauthorized npm publish.
       - name: Create or update the Version Packages PR
+        id: changesets
         uses: changesets/action@v1
         with:
           version: pnpm version-packages
           # The action reads this input; an env-only token is ignored.
           github-token: ${{ secrets.CHANGESETS_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+
+      # changesets/action@v1 drops every changelog entry from the PR body once
+      # the full text passes its 60,000-character cap. Rebuild a condensed body
+      # (first sentence per entry, link to each full CHANGELOG.md) from the
+      # release branch diff, keeping the action's header.
+      - name: Fill the Version Packages PR changelog
+        if: ${{ steps.changesets.outputs.pullRequestNumber != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.CHANGESETS_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.changesets.outputs.pullRequestNumber }}
+          BASE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          git fetch origin changeset-release/main
+          node scripts/release-pr-body.mjs \
+            --base "$BASE_SHA" --head FETCH_HEAD \
+            --repo "$GITHUB_REPOSITORY" --branch changeset-release/main \
+            --pr "$PR_NUMBER" --out "$RUNNER_TEMP/release-pr-body.md" --apply
