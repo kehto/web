@@ -316,6 +316,12 @@ tabs.
 
 The browser page title follows the active napplet tab name, including when switching or closing tabs. With no active napplet, the title is `@kehto/paja`.
 
+NAP-RESOURCE requires DNS-time private-IP checks, and only Paja's server proxy
+(`/__kehto/resource`) can make them. The static artifact has no server, so
+its `resource.info` reports `https` and `blossom` as disabled, and those reads
+fail with `unsupported-scheme` before anything goes out on the network.
+`data:` resources still work. Run the Paja CLI to get network images.
+
 The static artifact defaults to Paja's standard live relays and memory uploads.
 To point it at specific live relays or Blossom upload servers, pass
 comma-separated host lists when generating the artifact:

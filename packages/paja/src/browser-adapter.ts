@@ -63,7 +63,7 @@ import { BLOSSOM_SERVER_LIST_KIND, createPajaBlossomEventResolver } from './brow
 import { createPajaSocialCache } from './browser-social-cache.js';
 import { createPajaCommonBackend } from './browser-common.js';
 import { createPajaListsBackend } from './browser-lists.js';
-import { createPajaResourceFetch, pajaResourceInfo } from './browser-resource.js';
+import { createPajaResourceFetch, PAJA_RESOURCE_PROXY_PATH, pajaResourceInfo } from './browser-resource.js';
 import { createPajaWebrtcController } from './browser-webrtc.js';
 import { createPajaMultiplayerServices, PAJA_CVM_OPERATIONS } from './browser-multiplayer-services.js';
 import { mergeCvmFamilies, readCvmFamilies } from './cvm-family-store.js';
@@ -134,6 +134,7 @@ function createDevServices(
   notifyOptions?: NotifyServiceOptions,
   configOptions?: ConfigServiceOptions,
   getSignerSource?: (windowId: string) => PajaSignerSource,
+  getResourceProxy: () => string | undefined = () => PAJA_RESOURCE_PROXY_PATH,
 ): PajaServiceBundle {
   const scopeFor = (windowId: string, isCurrent: () => boolean) => createPajaWindowScope({
     backend,
@@ -253,8 +254,9 @@ function createDevServices(
       getBlossomServers: ({ url, windowId, signal, authorizeNetwork }) => blossomEventResolver.getServers(
         url, windowId, { signal, authorizeNetwork },
       ),
+      getProxyEndpoint: getResourceProxy,
     }),
-    resourceInfo: () => pajaResourceInfo(),
+    resourceInfo: () => pajaResourceInfo(getResourceProxy() !== undefined),
   });
   const services: Record<string, ServiceHandler> = {
     resource: {
@@ -598,6 +600,8 @@ export function createPajaAdapter(
     notifyOptions,
     configOptions,
     signerSource,
+    // The static build has no server proxy (kehto/web: images in /web/paja/).
+    () => (config.runtime?.host === 'static' ? undefined : PAJA_RESOURCE_PROXY_PATH),
   );
   const services = serviceBundle.services;
   // NAP-LLM is advertised whenever the host wiring exists; configuration state is

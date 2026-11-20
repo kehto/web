@@ -403,6 +403,11 @@ The console includes:
   section header's `reset` button clears them without a reload.
 
 The GitHub Pages artifact also includes a static Paja Runtime at `/web/paja/`.
+NAP-RESOURCE requires DNS-time private-IP checks, and only Paja's server proxy
+(`/__kehto/resource`) can make them. So the static runtime's `resource.info`
+reports `https` and `blossom` as disabled, and those reads fail with
+`unsupported-scheme` before anything goes out on the network. `data:` still
+works. Run the Paja CLI to get network images.
 That route uses `createPajaRuntimeHostConfig`, keeps `hmr: none`, and loads
 verified napplets into ShellBridge-backed iframe tabs from pasted `naddr` or
 `nevent` pointers. `naddr` pointers resolve the latest matching NIP-5D named

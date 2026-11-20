@@ -187,6 +187,58 @@ describe('Paja resource backend', () => {
     }
   });
 
+  // NAP-RESOURCE napplet/naps#80 @ ae5b9c6: DNS-time private-IP checks are mandatory.
+  // The static build has no proxy, so network schemes are off, not fetched unchecked.
+  it('disables network schemes without a resource proxy and never contacts the network', async () => {
+    expect(pajaResourceInfo(false).schemes).toEqual([
+      { scheme: 'data', enabled: true },
+      { scheme: 'https', enabled: false },
+      { scheme: 'blossom', enabled: false },
+    ]);
+    const fetchFn = vi.fn(async () => new Response(new Uint8Array([1])));
+    const authorizeNetwork = vi.fn();
+    const read = createPajaResourceFetch({ fetch: fetchFn, getProxyEndpoint: () => undefined, getBlossomServers: () => ['https://blossom.example'] });
+    const init = { signal: new AbortController().signal, authorizeNetwork };
+    await expect(read('https://image.example/a.png', init as never)).rejects.toMatchObject({ code: 'unsupported-scheme' });
+    await expect(read(`blossom:${'a'.repeat(64)}.png`, init as never)).rejects.toMatchObject({ code: 'unsupported-scheme' });
+    expect(fetchFn).not.toHaveBeenCalled();
+    expect(authorizeNetwork).not.toHaveBeenCalled();
+  });
+
+  it('sends network reads to the configured proxy endpoint', async () => {
+    const bytes = new TextEncoder().encode('plain');
+    const fetchFn = vi.fn(async () => new Response(bytes));
+    const read = createPajaResourceFetch({ fetch: fetchFn, getProxyEndpoint: () => 'https://proxy.example/resource' });
+    await read('https://cdn.example/a.txt', approved(new AbortController().signal)).catch(() => undefined);
+    expect(fetchFn).toHaveBeenCalledWith('https://proxy.example/resource', expect.objectContaining({ body: JSON.stringify({ url: 'https://cdn.example/a.txt' }) }));
+  });
+
+  it('reports disabled network schemes from the static adapter and refuses without fetching', async () => {
+    const fetchFn = vi.fn(async () => new Response(new Uint8Array([1])));
+    vi.stubGlobal('fetch', fetchFn);
+    const adapter = createPajaAdapter(
+      { ...CONFIG, runtime: { host: 'static', port: 0, readyTimeoutMs: 1, reloadToken: 't', createdAt: 'now' } } as PajaHostConfig,
+      () => normalizePajaSimulation({ relay: { mode: 'disabled' } }),
+      () => {},
+      () => {},
+      () => true,
+    );
+    try {
+      const sent: NappletMessage[] = [];
+      const send = (message: NappletMessage) => sent.push(message);
+      adapter.services?.resource?.handleMessage('resource-window', { type: 'resource.info', id: 'info' } as NappletMessage, send);
+      adapter.services?.resource?.handleMessage('resource-window', { type: 'resource.bytes', id: 'img', url: 'https://image.example/a.png' } as NappletMessage, send);
+      await vi.waitFor(() => expect(sent).toHaveLength(2));
+      expect(sent.find((message) => message.type === 'resource.info.result')).toMatchObject({
+        info: { schemes: expect.arrayContaining([{ scheme: 'https', enabled: false }, { scheme: 'blossom', enabled: false }]) },
+      });
+      expect(sent.find((message) => (message as { id?: string }).id === 'img')).toMatchObject({ error: 'unsupported-scheme' });
+      expect(fetchFn).not.toHaveBeenCalled();
+    } finally {
+      (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
+    }
+  });
+
   it('discloses canonical data, HTTPS, and Blossom support', () => {
     expect(pajaResourceInfo()).toEqual({
       schemes: [

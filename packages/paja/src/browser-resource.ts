@@ -42,6 +42,25 @@ export interface PajaResourceFetchOptions {
   }) => readonly string[] | Promise<readonly string[]>;
   /** Fetch implementation used for configured Blossom server requests. */
   readonly fetch?: typeof fetch;
+  /**
+   * The resource proxy that performs NAP-RESOURCE's DNS-time private-IP checks.
+   * Defaults to the Paja server's same-origin `/__kehto/resource`. Returns
+   * `undefined` when there is no proxy, as in the static build: HTTP(S) and
+   * Blossom are then disabled rather than fetched without those checks.
+   */
+  readonly getProxyEndpoint?: () => string | undefined;
+}
+
+/** Paja server's same-origin resource proxy. */
+export const PAJA_RESOURCE_PROXY_PATH = '/__kehto/resource';
+
+function proxyEndpoint(options: PajaResourceFetchOptions): string {
+  const endpoint = (options.getProxyEndpoint ?? (() => PAJA_RESOURCE_PROXY_PATH))();
+  if (endpoint === undefined) {
+    // NAP-RESOURCE (napplet/naps#80 @ ae5b9c6): DNS-time private-IP checks are mandatory.
+    throw new ResourceServiceError('unsupported-scheme', 'Paja has no resource proxy to check this destination');
+  }
+  return endpoint;
 }
 
 /**
@@ -72,10 +91,11 @@ export function createPajaResourceFetch(
         value,
         init,
         options,
+        proxyEndpoint(options),
       );
     }
     if (url.protocol === 'http:' || url.protocol === 'https:') {
-      return fetchNetworkResource(value, init, options.fetch ?? globalThis.fetch);
+      return fetchNetworkResource(value, init, options.fetch ?? globalThis.fetch, proxyEndpoint(options));
     }
     if (url.protocol !== 'data:') {
       throw new ResourceServiceError('unsupported-scheme', `Paja does not enable ${url.protocol}`);
@@ -100,13 +120,15 @@ export function createPajaResourceFetch(
 /**
  * Return Paja's truthful NAP-RESOURCE policy disclosure.
  *
+ * @param proxyAvailable - Whether a resource proxy can serve network schemes.
  * @returns Current resource schemes and enforced limits.
  */
-export function pajaResourceInfo(): ResourceInfo {
+export function pajaResourceInfo(proxyAvailable = true): ResourceInfo {
+  // Without a proxy there is no DNS-time private-IP check, so network schemes are off.
   const schemes = [
     { scheme: 'data', enabled: true },
-    { scheme: 'https', enabled: true },
-    { scheme: 'blossom', enabled: true },
+    { scheme: 'https', enabled: proxyAvailable },
+    { scheme: 'blossom', enabled: proxyAvailable },
   ];
   return {
     schemes,
@@ -119,6 +141,7 @@ async function fetchNetworkResource(
   value: string,
   init: Parameters<ResourceServiceOptions['fetch']>[1],
   fetcher: typeof fetch,
+  endpoint: string,
 ): Promise<Response> {
   if (!init.authorizeNetwork) {
     throw new ResourceServiceError('blocked-by-policy', 'Paja resource network approval is unavailable');
@@ -127,7 +150,7 @@ async function fetchNetworkResource(
   let response: Response | undefined;
   for (let hops = 0, maxHops = getPajaSetting('resource.maxRedirects'); hops <= maxHops; hops += 1) {
     try {
-    response = await init.authorizeNetwork(destination, (signal) => fetcher('/__kehto/resource', {
+    response = await init.authorizeNetwork(destination, (signal) => fetcher(endpoint, {
         method: 'POST', signal, credentials: 'same-origin', redirect: 'manual',
         headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: destination }),
       }));
@@ -165,6 +188,7 @@ async function fetchBlossomResource(
   value: string,
   init: Parameters<ResourceServiceOptions['fetch']>[1],
   options: PajaResourceFetchOptions,
+  endpoint: string,
 ): Promise<Response> {
   const parsed = parsePajaBlossomUri(value);
   if (!parsed) {
@@ -203,7 +227,7 @@ async function fetchBlossomResource(
     let response: Response;
     try {
       for (let hops = 0; ; hops += 1) {
-        response = await init.authorizeNetwork(resourceUrl, (signal) => fetcher('/__kehto/resource', {
+        response = await init.authorizeNetwork(resourceUrl, (signal) => fetcher(endpoint, {
           method: 'POST', signal, credentials: 'same-origin', redirect: 'manual',
           headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: resourceUrl }),
         }));
