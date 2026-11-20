@@ -4,6 +4,7 @@ import type { CvmDiscoverQuery, CvmRequestOptions, CvmServerRef, McpMessage } fr
 import type { CvmService, CvmServiceOptions } from './cvm-service.js';
 import { handleCvmRegistry, isCvmRegistryMethod } from './cvm-registry.js';
 import { createCvmOperations, type CvmOperation, type CvmOperations } from './cvm-operations.js';
+import { mcpMessageForm } from './cvm-message.js';
 import { randomUUID } from './random-uuid.js';
 
 const CVM_SERVICE_VERSION = '1.0.0';
@@ -56,8 +57,9 @@ function validServer(server: unknown): server is CvmServerRef {
     && (value.relays === undefined || (Array.isArray(value.relays) && value.relays.length <= 32));
 }
 
+/** NAP-CVM #31 @ 28cf1bdb, Message handling: one MCP request, notification or response. */
 function validMessage(message: unknown): message is McpMessage {
-  return !!message && typeof message === 'object' && (message as McpMessage).jsonrpc === '2.0';
+  return mcpMessageForm(message) !== null;
 }
 
 /** Accepted duration for an envelope, or `undefined` for `invalid timeout`. */
@@ -108,7 +110,8 @@ function handleRequest(actions: CvmActions, windowId: string, generation: symbol
   const id = m.id ?? '';
   const fail = (error: unknown) => currentSend(windowId, generation, { type: 'cvm.request.result', id, error: toErrorMessage(error) } as NappletMessage);
   if (!validServer(m.server)) { fail('server not found'); return; }
-  if (!validMessage(m.message)) { fail('unsupported method'); return; }
+  // Rejected before admission, authorization, session state or publication.
+  if (!validMessage(m.message)) { fail('invalid message'); return; }
   const duration = acceptedDuration(m.options);
   if (duration === undefined) { fail('invalid timeout'); return; }
   let relays: readonly string[];

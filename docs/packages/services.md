@@ -122,6 +122,12 @@ Security Considerations (shells SHOULD apply per-napplet concurrency limits).
   the transport receives only the time left. A request that expires in the queue
   returns `relay timeout` and is never published. `cvm.request` now validates
   `timeoutMs` (integer 1..300,000, default 30,000) before admission.
+- `cvm.request` validates its MCP `message` against the NAP-CVM form table before
+  admission: a request (`method` + `id`), a notification (`method`, no `id`) or a
+  response (`id` + exactly one of `result`/`error`, no `method`/`params`), with a
+  string or integer `id` and object `params`/`result`/`error`. Anything else (a
+  missing message, a batch, `id: null`, both `result` and `error`, …) returns
+  `invalid message` and is never authorized, admitted or published.
 - With slots and queue both full, the operation is refused at once with
   `policy denied`. Spec gap: the draft's error table has no load-shedding entry,
   so the service reuses the shell-policy error rather than inventing a string.

@@ -57,6 +57,10 @@ boundary. Without registry configuration, `registry.has` returns false and the
 other registry operations return `unsupported method`. Paginated tool inventories
 are currently rejected; no result cache or automatic provider failover is used.
 
+`cvm.request` checks its MCP `message` against the NAP-CVM request, notification
+and response forms before admission; a missing message, batch, invalid id or
+invalid field combination returns `invalid message` and is never published.
+
 These transport limits do not claim implementation of every newer NAP-CVM
 session or payment field.
 
