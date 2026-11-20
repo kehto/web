@@ -23,15 +23,21 @@ before scripts execute.
 `createBrowserApprovalUi` presents the runtime prompt as a plain-language
 question with the host's label for the napplet, every exact scope, and the
 offered lifetimes with the narrowest preselected, so one click answers. The
-full technical identity is one disclosure away. It returns explicit allow,
+full technical identity is one disclosure away. Network origins sharing one
+mediated operation, such as an outbox plan's relays, are one "contact N
+origins" row listing the exact origins (collapsed beyond `openOriginLimit`, default 5); each is still granted
+on its own. It returns explicit allow,
 deny, or cancel decisions; Deny has initial focus, and Escape, close, and abort
 cancel. Its grant view is a tree of single-line rows (napplet, interface,
 grant) with a status dot, a count or lifetime, and an icon button per row;
-identity and the full scope appear on expand. Grants made by default rules
-collapse into one counted row. It and delegates single and group revoke, clear, and persistence
+identity and the full scope appear on expand. A default allow writes no grant
+(kehto/web#513), so rule-allowed access isn't listed; the deprecated counted
+row only shows `rule:` grants an older runtime made. It and delegates single and group revoke, clear, and persistence
 retry to the runtime. Given `rules`, it also renders an editor for the host's
 default rules, offers to turn a prompt answer into a standing rule for that
-napplet, and revokes rule-made grants a changed rule no longer allows.
+napplet, and on a tightening rule change (anything but moving rules toward
+allow) calls `RuntimePermissions.rulesChanged()` so live work admitted under
+the old rules closes; its napplet list includes `RuntimePermissions.principals`.
 `onAnswer(answer, userGesture)` reports each answer and whether a real click
 made it, for hosts that run a gesture-gated browser action from that click. The UI
 ships unstyled; add `BROWSER_APPROVAL_UI_STYLES` to a `<style>` element or
@@ -73,8 +79,8 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.32.0 <0.42.0` |
-| `@napplet/nap` | `>=0.32.0 <0.41.0` |
+| `@napplet/core` | `>=0.32.0 <0.45.0` |
+| `@napplet/nap` | `>=0.32.0 <0.44.0` |
 | `nostr-tools` | `>=2.23.3 <=2.x` |
 
 ## Primary APIs
@@ -82,7 +88,7 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
 | Area | Exports |
 |------|---------|
 | Factory | `createShellBridge`, `ShellBridge`, `NAPPLET_HELLO` |
-| Hooks | `adaptHooks`, `BrowserDeps`, `ShellAdapter`, `ShellCapabilities`, `UploadHooks`, `IntentHooks`, `LinkHooks`, `CommonHooks`, `ListsHooks`, `SerialHooks`, `BleHooks`, `WebrtcHooks`, `DmHooks`, `UnroutedMessageInfo`, `NappletRevocation`, `NappletRevocationReason`, `NappletMessageDecision`, `MAX_DEFERRED_MESSAGES`, `NappletMessageTarget` |
+| Hooks | `adaptHooks`, `randomUUID`, `BrowserDeps`, `ShellAdapter`, `ShellCapabilities`, `UploadHooks`, `IntentHooks`, `LinkHooks`, `CommonHooks`, `ListsHooks`, `SerialHooks`, `BleHooks`, `WebrtcHooks`, `DmHooks`, `UnroutedMessageInfo`, `NappletRevocation`, `NappletRevocationReason`, `NappletMessageDecision`, `MAX_DEFERRED_MESSAGES`, `NappletMessageTarget` |
 | Protocol and capability types | `NostrEvent`, `NostrFilter`, `NappletMessage`, `Capability`, `ALL_CAPABILITIES` |
 | Shell init and bootstrap | `buildShellCapabilities`, `injectNappletNamespacePrelude`, `renderNappletNamespacePrelude`, `NappletNamespacePreludeOptions` |
 | Verified documents and CSP | `prepareNappletSrcdoc`, `NappletSrcdocOptions`, `buildNappletCsp`, `renderNappletCspMeta`, `injectNappletCsp`, `NappletCspOptions`, `NappletCspDirectives`, `NappletCspDirective` |
@@ -113,7 +119,7 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
 - Surfaces unroutable inbound messages via the optional `ShellAdapter.onUnroutedMessage` hook (`UnroutedMessageInfo`) — observe-only; the bridge still drops messages from unidentified or unregistered windows, but hosts can now log them instead of debugging a silent vanish.
 - Advertises and injects `dm` or `fs` only when the matching runtime service is registered and host domain policy permits it.
 - Treats `keys.forward` as napplet-to-shell only; shell-initiated key actions are emitted as `keys.action` through the keys proxy/runtime service path.
-- Keeps identity/theme proxy delivery fail-closed. Hosts publish automatic changes only through `ShellBridge.publishIdentityChanged()` / `publishTheme()`, which filter by live session, granted domain, and current ACL.
+- Keeps identity/theme proxy delivery fail-closed. Hosts publish automatic changes only through `ShellBridge.publishIdentityChanged()` / `publishTheme()`, which filter by live session, granted domain, and current ACL. The session and its frozen grants exist from the window's first valid `napplet.hello`, so a napplet that only listens receives these pushes (and service broadcasts such as `theme.changed` from `@kehto/services`) without sending a message or `shell.ready` first; revoking or replacing the binding removes it as a target.
 - Lets `bridge.runtime.aclState.persist()` and `clear()` report a browser
   `localStorage` write failure as `false`. The mutation remains live, while a
   fresh bridge continues to load the previous durable ACL until a retry
@@ -124,11 +130,24 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
 
 ## API Reference
 
+### Advertisement follows routing
+
+While a bridge is live for an adapter, `buildShellCapabilities`,
+`resolveShellEnvironment` and `getShellDomainState` count a declared service as
+live only if `bridge.runtime.hasService(name)` is true. A handler added to
+`ShellAdapter.services` after `createShellBridge()` is left out of `shell.init`
+and domain injection, and logs `[KEHTO_SERVICE_NOT_REGISTERED]` once per service
+per bridge, until the host calls `bridge.runtime.registerService(name, handler)`.
+Unregistering stops advertisement for new frames. An adapter with no live bridge
+keeps the plain declared-services reading. See
+[Services that arrive late](/how-tos/register-service#services-that-arrive-late).
+
 ### Source environment lifetime
 
 Retire a window with `bridge.runtime.destroyWindow(windowId)`,
 `bridge.runtime.sessionRegistry.unregister(windowId)`, and
-`originRegistry.unregister(windowId)`. A replacement `originRegistry.register()`
+`originRegistry.unregister(windowId)`. Services get `onWindowDestroyed` once per
+session registration, however many of these teardown calls run. A replacement `originRegistry.register()`
 gets its own environment, even if it reuses the logical window ID. It must use a
 fresh iframe: a `Window` that handed over its NIP-5D port cannot be registered again. Set its snapshot with `originRegistry.setEnvironment()` before dispatch;
 otherwise the bridge resolves current host defaults. Retired cached domains and
@@ -193,29 +212,70 @@ remain bounded compatibility adapters and warn once per iframe with
 `KEHTO_COMPAT_INTENT_OBJECT_INVOKE`. Their removal conditions are tracked in
 [compatibility](https://github.com/kehto/web/blob/main/docs/compatibility.md).
 
+## Embedding URL and realm locks
+
+A verified napplet is an `about:srcdoc` document and inherits the host page's
+referrer and base URL. Keep the shell URL out of it with
+`denyNappletReferrer(frame)` before assigning `srcdoc`, plus
+`renderNappletReferrerPolicyMeta()` and `renderNappletHostBase()` in the host
+page `<head>` (WebKit ignores the iframe attribute for `srcdoc`; only a host-page
+`<base>` reaches `document.baseURI`). `hasNappletReferrerPolicy(frame)` and
+`hasNappletReferrerPolicyMeta(document)` report the two controls, and
+`ShellBridge.observeFrame` warns once when either is missing.
+
+The experimental namespace adds `resourceHintLock` next to `nestedContextLock`.
+It rejects `<link rel="dns-prefetch" | "preconnect" | "prerender">`, which
+browsers act on outside the napplet CSP, on every string sink and attribute
+writer; scan the bytes first with `assertNappletHasNoResourceHint` (or
+`nappletMarkupHasResourceHint`). Both locks remove `XSLTProcessor`, reject
+namespace-prefixed frame and link tags, and inspect `DOMParser` results, which
+otherwise mint frames past the nested-context lock through XSLT or XML parsing
+(prefixes, DTD entities). Under the nested-context
+lock the bridge revokes a napplet whose Window holds a child frame
+(`nested-context`); hosts that prepare the `srcdoc` themselves opt in with
+`observeFrame(frame, windowId, { nestedContextLock: true })`
+(`NappletFrameObservation`). See the
+[NIP-5D conformance policy](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#resource-hints).
+
 ## GAMEPAD integration
 
 This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja registers one host reader and deny native gamepad/HID/USB paths before frame execution. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, window destruction, and service removal release polling. Non-browser or denied native readers report the proposal's unavailable reasons. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
 
 ## LLM integration
 
-This non-normative guidance defers to the living [NAP-LLM](https://github.com/napplet/naps/pull/134) (checked at `5e93bdf`). Services export `createLlmService`, `LlmServiceError`, the provider mappers and `LLM_PROVIDER_PRESETS`; shell exports `getShellDomainState` and the `LlmHooks` adapter field; acl exports `llm:generate`. The runtime routes `llm.*` to one registered service and answers every sanctioned request with exactly one `llm.<op>.result`, shaping missing-service and ACL failures as `{ code: 'unsupported' }`. Hosts implement `LlmConnectionHost`; the service enforces schema, handle ownership, a per-window live-handle bound (`maxHandlesPerWindow`), consent before submission, duplicate ids, cancellation and deadline races, ordered deltas and safe errors, and passes `select`/`authorize` a `{ signal }` that withdraws stale prompts. `createHttpLlmProvider({ stream: true })` streams provider output into `llm.delta` as block start/delta/end events. Results carry `content` parts (text, thinking and tool calls); tool calls and results are validated and relayed, and Kehto never executes one. Advertisement stays binary on the wire while hosts report a third `unconfigured` state until the user adds a connection. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
+This non-normative guidance defers to the living [NAP-LLM](https://github.com/napplet/naps/pull/134) (checked at `5e93bdf`). Services export `createLlmService`, `LlmServiceError`, the provider mappers (OpenAI Chat Completions, OpenAI Responses, Anthropic Messages and Gemini `generateContent` dialects) and `LLM_PROVIDER_PRESETS`; shell exports `getShellDomainState` and the `LlmHooks` adapter field; acl exports `llm:generate`. The runtime routes `llm.*` to one registered service and answers every sanctioned request with exactly one `llm.<op>.result`, shaping missing-service and ACL failures as `{ code: 'unsupported' }`. Hosts implement `LlmConnectionHost`; the service enforces schema, handle ownership, a per-window live-handle bound (`maxHandlesPerWindow`), consent before submission, duplicate ids, cancellation and deadline races, ordered deltas and safe errors, and passes `select`/`authorize` a `{ signal }` that withdraws stale prompts. `createHttpLlmProvider({ stream: true })` streams provider output into `llm.delta` as block start/delta/end events. Results carry `content` parts (text, thinking and tool calls); tool calls and results are validated and relayed, and Kehto never executes one. Advertisement stays binary on the wire while hosts report a third `unconfigured` state until the user adds a connection. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
 
 ## UUID support on HTTP origins
 
-Shell event injection, cache queries, and source-session registration use native
-`crypto.randomUUID()` when available. On browsers that omit it (including
-non-localhost plain HTTP origins), the shell generates UUID v4 identifiers from
-16 `crypto.getRandomValues()` bytes. If both methods are unavailable, UUID
-creation throws an explicit capability error. This internal host UUID helper
-never falls back to weak randomness; other identifier generators are outside
-its scope. It does not provide secure-context APIs such as `crypto.subtle` on
-HTTP, so this change does not establish HTTP support for uploads or other domains.
+Host identifiers that must be unguessable come from `randomUUID`, exported by
+`@kehto/shell`. It calls native `crypto.randomUUID()` on its `Crypto` receiver
+when available. On browsers that omit it (including non-localhost plain HTTP
+origins), it builds a UUID v4 from 16 `crypto.getRandomValues()` bytes. If both
+methods are unavailable it throws an explicit capability error; it never falls
+back to weak randomness. `@kehto/services` has no dependency on the shell, so
+it keeps a private twin of the same function; `tests/unit/random-uuid-sync.test.ts`
+fails when the two bodies drift.
+
+Each identifier has one of three contracts:
+
+| Contract | Identifiers | Without `crypto.randomUUID` |
+|----------|-------------|-----------------------------|
+| Secure, fails explicitly | Shell event-injection subscription ids, cache-query ids, and the `RuntimeAdapter` `crypto.randomUUID` hook (injected event ids, relay query ids, NAP-INC channel ids, approval request ids); source-session `instanceId` in the shell and in Paja frame admission; Paja intent-launcher window ids and launch correlations; Paja NIP-46 request ids; default upload ids (`createUploadService`); the browser media backend's `media-resource-*` read ids, which share a window's resource-request id space with the napplet; registry JSON-RPC ids in `createCvmService` | UUID v4 from `crypto.getRandomValues()`, or a thrown capability error when that is missing too |
+| Correlation only, uniqueness from a counter or timestamp | Injected napplet-namespace request ids (the napplet realm pairing its own requests on its private port); default LLM connection handles and synthesized tool-call ids (window- and conversation-scoped); notification ids; Paja filesystem mount ids and LLM panel connection ids | Feature-detected; a counter or timestamp keeps ids unique. These ids are never credentials |
+| Behind `crypto.subtle` | Paja WebRTC session, nonce, and peer ids (`browser-webrtc.ts`, `browser-webrtc-profile.ts`) | Unavailable. Both paths need `crypto.subtle` before they mint an id, and every browser context that has `crypto.subtle` also has `crypto.randomUUID` |
+
+A UUID fallback does not provide secure-context APIs. `crypto.subtle` stays
+unavailable on non-localhost HTTP, so SHA-256 digest paths still fail there:
+approval-scoped uploads and the default `createHttpUploader` digest, CVM
+schema-hash verification and progress tokens, Paja development-target and
+filesystem hashing, and the Paja LLM vault. This section does not establish
+HTTP support for uploads, CVM, or any other domain.
 
 This is a supported platform capability choice, not a deprecated caller API.
-Both standard Web Crypto paths remain quiet. Source-bound identity and optional
-shell readiness are unchanged (NAP-SHELL at `napplet/naps`
-`1e1046bcadabbc552804f6d3354f565184f9fefb`).
+Both standard Web Crypto paths remain quiet. Identifier generation is host
+implementation policy: no NAP wire message, source-trust rule, or readiness
+rule changes. Source-bound identity and optional shell readiness are unchanged
+(NAP-SHELL at `napplet/naps` `377bf939c6c906817084b43dd21d424de646dbc2`).
 
 ## Media sessions
 

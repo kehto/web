@@ -8,6 +8,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import {
   createPajaHostConfig,
   formatPajaUrl,
+  normalizePajaConfigSettings,
   normalizePajaOptions,
   waitForTargetUrl,
   type PajaCommand,
@@ -23,6 +24,7 @@ import {
   type PajaSimulationRawOptions,
   type JsonValue,
 } from './simulation.js';
+import { getPajaSetting, setActivePajaSettings } from './settings.js';
 
 /**
  * Minimal output streams used by the CLI runner.
@@ -53,6 +55,8 @@ export interface RunPajaCliOptions {
   readonly startCommand?: (command: PajaCommand, io: CliIo) => ManagedChildProcess;
   readonly waitForTargetUrl?: typeof waitForTargetUrl;
   readonly targetDiscoveryGraceMs?: number;
+  /** Upper bound for the startup target inspection; defaults to 2000 ms. */
+  readonly targetInspectTimeoutMs?: number;
 }
 
 /**
@@ -109,6 +113,8 @@ export async function runPajaCli(
     }
 
     const rawOptions = resolvePajaRawOptions(parsed.options ?? {});
+    // Config-file settings must be active before normalization reads any bound.
+    setActivePajaSettings(normalizePajaConfigSettings(rawOptions.settings));
     const options = normalizePajaOptions(rawOptions);
     const hostConfig = createPajaHostConfig(options);
     const shouldServe = runOptions.serve ?? true;
@@ -134,6 +140,7 @@ export async function runPajaCli(
             io.stdout.write(`Target URL updated: ${targetUrl}\n`);
           }
         }
+        await writeTargetNetworkNotice(io, server, runOptions.targetInspectTimeoutMs);
       } catch (error) {
         child?.kill();
         await server?.close().catch(() => undefined);
@@ -151,6 +158,33 @@ export async function runPajaCli(
     const message = error instanceof Error ? error.message : String(error);
     io.stderr.write(`kehto paja: ${message}\n`);
     return 1;
+  }
+}
+
+/**
+ * Say up front when the target's own `resource` declaration changes how Paja
+ * loads it, so a blank or reduced frame is never the first signal. Best effort:
+ * an unreachable or slow target is reported by the browser host instead.
+ */
+async function writeTargetNetworkNotice(
+  io: CliIo,
+  server: Awaited<ReturnType<typeof startPajaServer>>,
+  timeoutMs = getPajaSetting('server.targetNoticeTimeoutMs'),
+): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const plan = await Promise.race([
+      server.inspectTargetNetwork(),
+      new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), timeoutMs); }),
+    ]);
+    if (!plan?.detail) return;
+    io.stdout.write(`Target network: ${plan.mode === 'isolated' ? 'isolated snapshot' : 'live, without resource'}\n`);
+    io.stdout.write(`  ${plan.detail}\n`);
+    if (plan.hint) io.stdout.write(`  ${plan.hint}\n`);
+  } catch {
+    // The target is not serving HTML yet; the browser host reports it on load.
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -458,7 +492,7 @@ async function resolveManagedTargetUrl(
     return first.url;
   }
 
-  const graceMs = options.discoveryGraceMs ?? Math.min(1000, options.timeoutMs);
+  const graceMs = options.discoveryGraceMs ?? Math.min(getPajaSetting('server.discoveryGraceMs'), options.timeoutMs);
   const detected = await resolveWithin(child.detectedTargetUrl, graceMs);
   if (!detected) {
     if (first?.url) {

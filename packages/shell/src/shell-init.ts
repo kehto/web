@@ -1,5 +1,40 @@
 import type { OriginIdentity } from './origin-registry.js';
+import type { Runtime } from '@kehto/runtime';
 import type { ShellAdapter, ShellCapabilities, ShellDomainState, ShellEnvironment } from './types.js';
+
+type ServiceRouting = { runtime: Pick<Runtime, 'hasService'>; warned: Set<string> };
+
+const serviceRouting = new WeakMap<ShellAdapter, ServiceRouting>();
+
+/**
+ * Bind an adapter's advertisement to the runtime that routes for it.
+ *
+ * The runtime copies `ShellAdapter.services` once, so the adapter object and
+ * the routing table can drift when a host adds a handler later (#428). While a
+ * binding exists, a declared service counts as live only if the runtime routes
+ * it, so `shell.init` and injected domains never promise an unrouted domain.
+ *
+ * @param hooks - The adapter passed to `createShellBridge`.
+ * @param runtime - The runtime created from that adapter.
+ * @returns A release function; it leaves a newer binding for the adapter alone.
+ */
+export function bindShellServiceRouting(hooks: ShellAdapter, runtime: Pick<Runtime, 'hasService'>): () => void {
+  const binding: ServiceRouting = { runtime, warned: new Set() };
+  serviceRouting.set(hooks, binding);
+  return () => {
+    if (serviceRouting.get(hooks) === binding) serviceRouting.delete(hooks);
+  };
+}
+
+function isServiceRouted(hooks: ShellAdapter, name: string): boolean {
+  const binding = serviceRouting.get(hooks);
+  if (!binding || binding.runtime.hasService(name)) return true;
+  if (!binding.warned.has(name)) {
+    binding.warned.add(name);
+    console.warn(`[KEHTO_SERVICE_NOT_REGISTERED] ShellAdapter.services.${name} is not registered with the runtime, so "${name}" is not advertised. Services added after createShellBridge() need bridge.runtime.registerService("${name}", handler). Warned once per service per bridge.`);
+  }
+  return false;
+}
 
 const RUNTIME_NATIVE_DOMAINS = [
   'shell', 'relay', 'identity', 'storage', 'inc', 'theme', 'keys', 'media', 'notify',
@@ -66,7 +101,7 @@ export function resolveShellEnvironment(
 }
 
 function isServiceDomainLive(hooks: ShellAdapter, domain: string): boolean {
-  if (!hooks.services?.[domain]) return false;
+  if (!hooks.services?.[domain] || !isServiceRouted(hooks, domain)) return false;
 
   switch (domain) {
     case 'outbox': return Boolean(hooks.relayPool);
@@ -114,7 +149,7 @@ function getLiveServices(
 ): string[] {
   const liveDomains = new Set(domains);
   return Object.keys(hooks.services ?? {}).filter((name) => {
-    if (disabled.has(name)) return false;
+    if (disabled.has(name) || !isServiceRouted(hooks, name)) return false;
     return !SERVICE_ONLY_DOMAINS.includes(name as typeof SERVICE_ONLY_DOMAINS[number]) || liveDomains.has(name);
   });
 }

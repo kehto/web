@@ -2,7 +2,7 @@
  * keys-service.test.ts — Unit tests for the keys NAP reference service.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createKeysService } from './keys-service.js';
 import type { ServiceRuntimeContext } from '@kehto/runtime';
 import type { NappletMessage } from '@napplet/core';
@@ -328,65 +328,27 @@ describe('createKeysService', () => {
   });
 
   describe('unknown keys.* method', () => {
-    it('produces {type}.error envelope with descriptive error', () => {
+    it('is silently ignored, with one host warning', () => {
+      // NIP-5D (nostr-protocol/nips#2303 @ dskvr/nips@f60550c3): "Messages with an
+      // unrecognized `type` MUST be silently ignored." The old `.error` reply broke that.
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
       const sent: NappletMessage[] = [];
       const service = createKeysService();
 
-      const msg: NappletMessage = {
-        type: 'keys.bogus',
-        id: 'x',
-      } as NappletMessage;
+      service.handleMessage(WINDOW_ID, { type: 'keys.bogus', id: 'x' } as NappletMessage, (m) => sent.push(m));
+      service.handleMessage(WINDOW_ID, { type: 'keys.bogus', id: 'y' } as NappletMessage, (m) => sent.push(m));
 
-      service.handleMessage(WINDOW_ID, msg, (m) => sent.push(m));
-
-      expect(sent).toHaveLength(1);
-      const reply = sent[0] as NappletMessage & { id: string; error: string };
-      expect(reply.type).toBe('keys.bogus.error');
-      expect(reply.id).toBe('x');
-      expect(reply.error).toMatch(/Unknown keys method/i);
+      expect(sent).toEqual([]);
+      const lines = warn.mock.calls.map(([line]) => String(line)).filter((line) => line.includes('[KEHTO_UNRECOGNIZED_MESSAGE_TYPE]'));
+      expect(lines).toHaveLength(1);
+      expect(lines[0]).toContain('"keys.bogus"');
+      warn.mockRestore();
     });
   });
 
-  describe('ACL-denial envelope shape', () => {
-    it('mirrors the runtime enforcer-denial envelope shape for keys.forward', () => {
-      // This test asserts the denial envelope shape the runtime emits on ACL denial,
-      // using the same composition logic runtime.ts uses after enforceNap returns
-      // { allowed: false }. The service itself is bypassed in that path.
-      const enforcer = {
-        check: (): { allowed: false; reason: string; capability: string } => ({
-          allowed: false,
-          reason: 'capability_missing: keys:forward',
-          capability: 'keys:forward',
-        }),
-      };
-
-      const sent: NappletMessage[] = [];
-      const msg: NappletMessage = {
-        type: 'keys.forward',
-        key: 'a',
-        code: 'KeyA',
-        ctrl: false,
-        alt: false,
-        shift: false,
-        meta: false,
-      } as NappletMessage;
-
-      const result = enforcer.check();
-      if (!result.allowed) {
-        const id = (msg as NappletMessage & { id?: string }).id ?? '';
-        sent.push({
-          type: `${msg.type}.error`,
-          id,
-          error: result.reason,
-        } as NappletMessage);
-      }
-
-      expect(sent).toHaveLength(1);
-      const err = sent[0] as NappletMessage & { error: string };
-      expect(err.type).toBe('keys.forward.error');
-      expect(err.error).toMatch(/capability_missing|denied|keys:forward/);
-    });
-  });
+  // ACL denial never reaches this service: the runtime drops a denied
+  // keys.forward silently (NAP-KEYS has no reply for it). The real path is
+  // covered by packages/runtime/src/policy-denials.test.ts.
 });
 
 // ─── Plan 26-01 additions: real document-listener path ──────────────────────

@@ -51,6 +51,12 @@ export interface ServiceRuntimeContext {
   authorizeOperation?<T>(windowId: string, operation: string, requirements: readonly PermissionRequirement[],
     execute: (signal: ApprovalSignal) => T | Promise<T>, signal?: ApprovalSignal): Promise<ApprovalOutcome<T>>;
   /**
+   * Most requirements one `authorizeOperation` request may carry, from the
+   * host's `PermissionAdapter.maxRequirements`. Present with `authorizeOperation`;
+   * services size their plans to it (kehto/web#514).
+   */
+  readonly maxPermissionRequirements?: number;
+  /**
    * Resolve a currently registered window to its authenticated napplet dTag.
    *
    * @param windowId - Internal live window identifier.
@@ -160,7 +166,10 @@ export interface ServiceHandler {
   ): void;
   /**
    * Called when a napplet window is destroyed. Services should clean up
-   * any state associated with the window.
+   * any state associated with the window. `Runtime` calls this at most once
+   * per session registration, whichever teardown path retires it; a later
+   * registration of the same windowId gets its own call. A handler without
+   * `onPermissionRevoked` also receives this as its revocation fallback.
    *
    * @param windowId - The destroyed napplet's window identifier
    */

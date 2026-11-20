@@ -5,6 +5,11 @@
 Paja passes each runtime-approved destination list to its live relay backend for
 publication. Host policy selects the list; approval waits cannot replace it.
 
+Unconfigured private relay names remain denied with a trailing DNS dot too.
+Explicit host-configured development relays remain available. The default pool
+does not automatically sign NIP-42 challenges. Network-origin approvals do not
+grant signing authority to a third-party relay pool.
+
 Single-window Paja local authoring workshop for napplet development.
 
 Firewall approval prompts remain visible when the development console or its
@@ -44,8 +49,8 @@ app package's development scripts.
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.41.0 <0.42.0` |
-| `@napplet/nap` | `>=0.37.0 <0.41.0` |
+| `@napplet/core` | `>=0.42.0 <0.45.0` |
+| `@napplet/nap` | `>=0.37.0 <0.44.0` |
 | `nostr-tools` | `>=2.23.3 <=2.x` |
 
 ## Primary APIs
@@ -57,7 +62,7 @@ app package's development scripts.
 | Config files | `loadPajaConfigFile`, `mergePajaRawOptions`, `resolvePajaRawOptions` |
 | Host config | `createPajaHostConfig`, `createPajaRuntimeHostConfig`, `PajaHostConfig`, `PajaPointerRuntimeConfig`, `formatPajaUrl` |
 | Host page | `renderPajaHtml`, bundled `/__kehto/browser-host.js` runtime bootstrap |
-| Runtime pointers | `decodePajaPointer`, `resolvePajaPointer`, `injectPajaRuntimeCsp`, `PAJA_NAPPLET_MANIFEST_KIND`, `PAJA_NAPPLET_MANIFEST_KINDS` |
+| Runtime pointers | `decodePajaPointer`, `resolvePajaPointer`, `findPajaPointerReplacements`, `PajaPointerNotFoundError`, `PajaRelayUnreachableError`, `injectPajaRuntimeCsp`, `PAJA_NAPPLET_MANIFEST_KIND`, `PAJA_NAPPLET_MANIFEST_KINDS` |
 | Local files | `createPajaLocalTarget`, `isPajaLocalTarget`, `isPajaLocalHtmlFile`, `readNappletIdMeta`, `findRelativeAssetReferences`, `PAJA_LOCAL_SINGLE_FILE_HINT`, `PajaLocalTarget`, `PajaLocalFileInput`, `PajaRuntimeTarget` |
 | Parity metadata | `PAJA_UPSTREAM_WEB_DOMAINS`, `PAJA_ADVERTISED_DOMAINS`, `PAJA_HANDSHAKE_DOMAINS`, `PAJA_COMPATIBILITY_ALIASES`, `PAJA_REQUIRED_SERVICES`, `getMissingAdvertisedDomains`, `getMissingServices` |
 | Readiness | `waitForTargetUrl`, `ReadinessError`, `WaitForTargetUrlOptions`, `ReadinessFetch` |
@@ -147,6 +152,13 @@ A deployed runtime (no CLI access) can set the same policy from the host-page
 host origin's `localStorage`, overrides the config, and applies on the next
 napplet load.
 
+Whenever the lock resolves on, Paja also applies the resource-hint lock
+(`resourceHintLock`): it shares the Trusted Types policy and refuses napplets
+that add or ship `<link rel="dns-prefetch" | "preconnect" | "prerender">`, which
+browsers act on outside the napplet CSP. Locked napplets that end up holding a
+child frame anyway are revoked (`nested-context`). See
+[NIP-5D conformance](/policies/NIP-5D-CONFORMANCE#resource-hints).
+
 For package-manager script examples covering `pnpm`, `npm`, and `yarn`, see
 [Use Paja for local napplet authoring](/how-tos/paja-local-authoring).
 
@@ -173,9 +185,25 @@ Paja forwards window-level traffic from its frames to the `ShellBridge`, which
 binds the hello and revokes the napplet on anything else. Paja also watches
 each frame for a second load. A revoked runtime tab keeps a fresh, empty panel in
 the error state until it is reloaded. A revoked single frame is replaced the
-same way, and a revoked intent launcher is removed. Port traffic in both
+same way, and a revoked intent launcher is removed. When Paja retires an admitted
+frame itself (a revoked grant, a tightened rule, a closed tab, or a launch
+superseded by a reload), it blanks the frame and then
+calls `ShellBridge.revokeNapplet(windowId, 'host')`, the same teardown as any
+other revoke: the port binding, cached shell environment, runtime session and
+per-window service state all go, and services get `onWindowDestroyed` once for
+that registration, even though the Firewall retire and the bridge revoke both
+tear the window down. A handler without `onPermissionRevoked` also gets
+`onWindowDestroyed` as its revocation fallback when a grant revoke starts the
+retire. That
+retire is logged as `paja.napplet.retired`, not `paja.napplet.revoked`. Port traffic in both
 directions appears in the message log, and revocations are logged as
-`paja.napplet.revoked`. Napplets must not post NAP envelopes at window level or
+`paja.napplet.revoked`. The log
+highlights every shell reply that failed: a `*.error`, a result with `error` or
+`ok: false`, or a `*.closed` with a `reason`. A refusal (`policy denied`,
+`policy-denied`, `publish denied`, `denied: <capability>`) is badged `denied`.
+Everything else, such as `relay list unavailable`, `relay timeout`, or
+`count-unavailable`, is badged `failed, not a denial`, so a relay outage is never
+shown as a firewall block. Napplets must not post NAP envelopes at window level or
 import `@napplet/shim` alongside Paja's injected namespace. The one window-level
 exception is the signed intent launcher's host messages; see the
 [window-level host message allowlist](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#window-level-host-message-allowlist).
@@ -196,6 +224,32 @@ host requests it once per target-url boot and, for anything other than
 `allowed`, appends a `paja.target.cors.error` entry to the message log and warns
 on the console with the remedy. `classifyTargetCors` and `probeTargetCors` are
 exported for reuse.
+
+### Targets that require `resource`
+
+[NAP-RESOURCE](https://github.com/napplet/naps/blob/ae5b9c64ab8a4d8909f288829a01e99d6bd713bc/naps/NAP-RESOURCE.md)
+exposes `window.napplet.resource` only to a frame the browser denies all direct
+network: fetch, XHR, WebSocket, EventSource, beacon, and external subresource
+loads. A live dev-server frame loads its scripts and HMR socket from the dev
+origin, so the two cannot be combined.
+
+When the target's `index.html` lists `resource` under `napplet-requires`, Paja
+loads it as a **network-isolated snapshot**: the Paja server fetches the
+document, and the frame runs those bytes under the same closed CSP as a local
+single-file target. Nothing is requested from the dev server by the frame, there
+is no `<base>` URL, and there is no hot reload; reload Paja after a rebuild.
+Inline scripts and styles and `data:` assets work. Anything referenced by URL
+does not, so serve a self-contained single-file build.
+
+Paja says so up front. The CLI prints a `Target network: isolated snapshot`
+notice with the references that will not load, `GET /__kehto/target-network.json`
+returns the same plan, and the browser host logs `paja.target.network.isolated`
+in the message log and warns on the console. `planTargetNetwork` and
+`findExternalAssetReferences` are exported for reuse.
+
+To keep live dev-server loading, declare `resource` under `napplet-optional`. The
+frame then loads live without `window.napplet.resource`, and Paja logs
+`paja.target.resource.omitted`.
 
 The console is a collapsible left column. It starts expanded, and one chevron
 button in the top bar collapses it to the left and restores it; the toggle stays
@@ -277,6 +331,10 @@ The console includes:
   napplet, file, MIME type, size, server, and durable public effect before
   bytes leave the browser. A denial or a live publish with no accepting relay
   returns a canonical failure and does not enter Paja's in-memory relay view.
+  A declined OUTBOX publish is `publish denied`; relays that fail are
+  `relay timeout`, never a denial. Paja's live transport finishes a relay that
+  failed to connect like one that sent EOSE, so a Paja OUTBOX read cannot yet
+  mark that relay `incomplete`.
   Its scoped-relay hook likewise waits for the backend result and returns
   `false` after denial or transport failure.
 - **Resource servers** — extra Blossom lookup origins with a newline textarea and
@@ -370,8 +428,11 @@ artifact hash as its unsigned development identity. Development HTML can request
 interfaces with space-separated `napplet-requires` and `napplet-optional` meta
 declarations. They never grant authority. A live dev server receives only its
 approved browser sources and cannot combine direct network loading with
-the protected `resource` interface. A self-contained local file can request
-`resource` under the closed local-only CSP. Loading an
+the protected `resource` interface. A target that lists `resource` under
+`napplet-requires` is loaded as a network-isolated snapshot instead (see
+[Targets that require `resource`](#targets-that-require-resource)), and a
+self-contained local file can request `resource` under the same closed CSP.
+Loading an
 already-running napplet
 opens an in-page choice to load another instance, switch to the existing tab, or
 cancel. Each verified tab's Share control opens a dialog with its selectable
@@ -392,8 +453,9 @@ pointer-specific relay overrides, then the effective configured live simulation
 relays. URLs are normalized and deduplicated without changing first occurrence.
 When relay simulation is disabled, configured relay URLs are not added as
 fallbacks. Connection, fanout, and EOSE share one pointer-resolution deadline;
-the UI distinguishes deadline or connection failure from the clean case where
-all queried relays reached EOSE without a matching manifest. Wider relay search
+the UI distinguishes deadline or connection failure from the case where
+the relays that answered reached EOSE without a matching manifest (see
+[Pointer not found](#pointer-not-found)). Wider relay search
 does not weaken loading: manifest signature, artifact/legacy-aggregate verification, Blossom hash, and
 `srcdoc` verification still fail closed.
 
@@ -526,8 +588,15 @@ profile also requires a connected NIP-44 signer; an explicitly configured
 multiplayer profile uses a temporary transport key instead. Paja owns peer connections and data channels, obtains
 explicit session consent, signs kind-25050 Nostr signaling, encrypts
 offer/answer SDP, and keeps application payloads exclusively on the data
-channel. Signer changes tear down sessions, synchronize runtime service handlers,
-and refresh the shell environment before loading a replacement iframe;
+channel. The default profile carries NAP-WEBRTC byte payloads: `sendBytes`
+goes out as one binary data-channel message, an incoming binary message
+becomes a `bytes` event, and text stays a JSON `message` event, with no
+conversion between them. Sessions report `maxPayloadBytes` from the `webrtc.maxPayloadBytes` setting (default 64 KiB); the
+`soy-rtc/1` multiplayer profile stays JSON-only and answers `sendBytes` with
+`unsupported`. `tests/e2e/paja-webrtc-bytes.spec.ts` runs two Paja hosts with
+their own signers over a real Chromium data channel. Signer changes tear down sessions and synchronize runtime service
+handlers. When `webrtc` appears or disappears, a frame that declared it gets a
+replacement iframe with the new environment (see the signer-change notes below);
 napplets never receive SDP, ICE internals, relay sockets, or browser networking
 objects. The signaling boundary follows pinned
 [NAP-WEBRTC `5fae95dd2c8e59bd06c654e0845656add077dcda`](https://github.com/napplet/naps/blob/5fae95dd2c8e59bd06c654e0845656add077dcda/naps/NAP-WEBRTC.md)
@@ -549,12 +618,31 @@ value the napplet sees and the wire traffic captured by an in-test Nostr relay
 - `tests/e2e/paja-identity.spec.ts`: the signer connecting and failing, and
   NIP-07 reconnecting after a reload.
 - `tests/e2e/paja-cvm.spec.ts`: discovery and one gift-wrapped `tools/call`
-  against an in-test ContextVM server.
+  against an in-test ContextVM server, plus per-window admission (one call
+  running, one queued, overflow refused) under `simulation.cvm.concurrency`.
 
-Known NAP-IDENTITY gap: on a signer change Paja re-initializes the hosted napplet.
-It does not push `identity.changed` to the napplet that is already loaded. The
-spec's `test.fixme` tracks that contract until Paja refreshes its environment
-without a reload.
+Signer changes follow NAP-IDENTITY
+([napplet/naps master `377bf939`](https://github.com/napplet/naps/blob/377bf939c6c906817084b43dd21d424de646dbc2/naps/NAP-IDENTITY.md)):
+connecting, switching or disconnecting a signer keeps every loaded napplet
+running and pushes `identity.changed` with the new shell-user pubkey, or
+`pubkey: ""` when the identity is cleared. A push is sent only when the pubkey
+actually changes, not for intermediate states such as `connecting`.
+
+Paja reloads the active frame on a signer change in one case only: the change
+alters the advertised domain set in a way that changes what that frame would be
+injected. NIP-5D fixes a frame's domain namespace before its code runs, so a
+new domain needs a fresh document. Some domains depend on the signer (`webrtc`
+needs a signaling signer, `dm` needs the Dev signer, `upload` needs a writable
+signer identity). Paja reloads when one of those appears and the napplet
+declared it, or declared no domains at all. It also reloads when one disappears
+that the frame was admitted. A napplet that declared neither keeps its frame.
+Background runtime tabs are not reloaded, which is the same as any other
+environment change.
+
+- `tests/e2e/paja-identity.spec.ts` also checks that a loaded napplet receives
+  `identity.changed` for connect, switch and disconnect without a reload.
+- `tests/e2e/paja-webrtc.spec.ts` covers the narrow reload. A target that
+  declares `webrtc` is reloaded once when a signer makes `webrtc` routable.
 
 ### Standard identity and private social cache
 
@@ -590,7 +678,7 @@ completeness remain outside this behavior.
 [NAP-IDENTITY `6461e4b37c29dc09a20dff35d9515889c4433874`](https://github.com/napplet/naps/blob/6461e4b37c29dc09a20dff35d9515889c4433874/naps/NAP-IDENTITY.md)
 is byte-identical to the phase's recorded `napplet/naps` master document. Pinned
 [NAP-OUTBOX `4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e`](https://github.com/napplet/naps/blob/4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e/naps/NAP-OUTBOX.md)
-and the installed `@napplet/nap` NAP-OUTBOX types (0.40.0 for host packages) govern this PoC because current master
+and the installed `@napplet/nap` NAP-OUTBOX types (0.43.0 for host packages) govern this PoC because current master
 has no NAP-OUTBOX path. This is not a current-master OUTBOX conformance claim.
 Blossom behavior targets pinned
 [NAP-UPLOAD `a7cc17463cbf5d9cb87884b31071bc4fc826034c`](https://github.com/napplet/naps/blob/a7cc17463cbf5d9cb87884b31071bc4fc826034c/naps/NAP-UPLOAD.md).
@@ -669,7 +757,7 @@ network authorization callback and refuses network access when it is absent.
 The proxy validates its host, main-frame Origin, JSON POST, and server-instance
 HttpOnly cookie before DNS. It pins a permitted public address to the connection,
 preserves TLS hostname checks, omits upstream credentials/referrer, and bounds
-responses to 10 MiB and 30 seconds. Private, loopback, and other blocked
+responses to `server.resourceMaxBytes` and `server.resourceTimeoutMs` (default 10 MiB and 30 seconds). Private, loopback, and other blocked
 special-purpose addresses are rejected, including development loopback targets.
 
 Redirects return metadata to the trusted resolver instead of redirecting the
@@ -725,14 +813,14 @@ preferences. This follows [current NIP-07](https://github.com/nostr-protocol/nip
 which permits empty unsupported results. The user-list
 lookup works independently of upload mode; an upload runtime may reuse the same
 servers when present. ROM-specific event and publisher locations retain
-priority over the user/runtime fallbacks. URI length is capped at 8192 characters;
+priority over the user/runtime fallbacks. URI length is capped at `blossom.maxUriChars` (default 8192 characters);
 retained unique `xs`, the complete author lookup list, and combined server
-candidates are each capped at eight. Both prefixes require exactly 64 hex
+candidates are each capped at eight by default (`blossom.maxUriHints`, `resource.maxServers`). Both prefixes require exactly 64 hex
 characters, with an optional single ASCII-alphanumeric extension preserved in
 `GET /<hash>.<ext>`; no query hints reach the blob server. Extensions and upstream
 headers never establish MIME. Fragments, path injection, malformed escapes/authors,
 and invalid or repeated `sz` fail with `invalid-request` before discovery.
-`sz` must be a positive decimal safe integer; sizes above 10 MiB fail `too-large`.
+`sz` must be a positive decimal safe integer; sizes above `resource.maxBytes` (default 10 MiB) fail `too-large`.
 Paja checks a numeric Content-Length before reading and always checks actual
 bytes against `sz`; a size or hash mismatch is `decode-failed` unless fallback succeeds.
 Hash-only event context stays window-scoped, without transferring extension/size
@@ -770,6 +858,188 @@ Blossom URI aliases are also bounded host behavior, not a claim of complete draf
 conformance. Publisher discovery follows
 [Blossom BUD-03 at `b5bd280`](https://github.com/hzrd149/blossom/blob/b5bd2801d1763aa635fc8fea7a76597e0eb18990/buds/03.md).
 
+## Settings
+
+Every Paja timeout, interval, cap and abuse bound is a user-changeable default.
+Open **Settings** in the top bar to edit them. The dialog has one tab per group
+below (arrow keys, Home and End move between tabs) and is generated from the
+settings registry, so it lists every key. On a failed save, every tab holding an
+invalid value is marked "needs fixing" and the first one opens with focus on the
+field. All defaults are defined in one file, `packages/paja/src/settings-registry.ts`. Saved values persist per host
+origin under `kehto:paja:settings.v1` (overrides only) and are restored on every
+visit. Corrupt, retired or out-of-range stored entries are dropped rather than
+clamped; if storage is unavailable, changes apply for the session only. Most
+changes take effect on the next operation; anything a running napplet or service
+already captured applies after **Save and reload**. Napplets cannot read or write
+these settings.
+
+A config file can seed the same keys under `settings`. Browser-scope keys become
+the host page's defaults (a saved GUI override still wins); server-scope keys apply
+to the CLI and server process and are shown read-only in the dialog. Unknown keys and
+out-of-range values in a config file are an error, not a silent clamp.
+
+```json
+{
+  "targetUrl": "http://127.0.0.1:5173",
+  "settings": {
+    "relay.liveQueryWaitMs": 8000,
+    "server.resourceTimeoutMs": 60000
+  }
+}
+```
+
+Bounds keep abuse guards from being disabled (no zero, negative or unbounded caps),
+and security floors can only be raised: `vault.minPasswordLength`,
+`vault.minDistinctChars`, `vault.pbkdf2Iterations` (new vaults only; an existing
+vault keeps the iterations it was created with) and `webrtc.roomMinChars`.
+`--port` and `--ready-timeout` stay CLI/config options.
+
+Numbers that are not settings, because changing them would break a wire contract
+or a persisted format: Nostr event kinds (named in `nostr-kinds.ts`), crypto sizes,
+HTTP status codes, reserved address ranges, MIME magic bytes, unit conversions,
+and presentation values such as CSS sizes. `settings-guard.test.ts` fails on any
+new bare number that is neither registered nor listed there with its reason.
+
+NAP-FS `limits`, NAP-WEBRTC `maxPayloadBytes` and NAP-RESOURCE caps are shell
+policy in their drafts (NAP-FS `bd1b9e9`, NAP-WEBRTC `fb4dd6f`, NAP-RESOURCE
+`ae5b9c6`), so Paja advertises and enforces the effective setting.
+
+| Key | Setting | Default | Range |
+|---|---|---|---|
+| **Relays and queries** | | | |
+| `relay.liveQueryWaitMs` | Live relay query and connect wait | 4000 ms | 250–120000 |
+| `relay.hostQueryTimeoutMs` | Host-owned relay query timeout | 5000 ms | 250–120000 |
+| `relay.contactListCandidateLimit` | Contact-list candidates per lookup | 64 | 1–1024 |
+| `relay.profileQueryLimit` | Events per profile or list query | 16 | 1–500 |
+| `relay.eventLookupLimit` | Events per id lookup | 8 | 1–500 |
+| `relay.replaceableLookupLimit` | Events per relay-list lookup | 2 | 1–100 |
+| `relay.missingProfileQueryMinimum` | Minimum batch size for missing profiles | 10 | 1–500 |
+| `social.followParseYieldEvery` | Follow tags parsed before yielding | 64 | 1–10000 |
+| `social.profileWarmYieldEvery` | Profiles warmed before yielding | 64 | 1–10000 |
+| **Resources and Blossom** | | | |
+| `resource.maxBytes` | Maximum resource size | 10485760 bytes | 1024–536870912 |
+| `resource.maxUrls` | URLs per bulk request | 100 | 1–1000 |
+| `resource.maxServers` | Blossom servers tried per blob | 8 | 1–64 |
+| `resource.maxRedirects` | Redirects followed per fetch | 5 | 0–20 |
+| `blossom.serverListTtlMs` | Server-list cache lifetime | 300000 ms | 0–86400000 |
+| `blossom.maxResourcesPerWindow` | Tracked resources per napplet | 256 | 1–10000 |
+| `blossom.maxContextsPerResource` | Contexts kept per resource | 8 | 1–256 |
+| `blossom.maxServerListChars` | Maximum server-list event size | 262144 chars | 1024–16777216 |
+| `blossom.maxUriHints` | Server hints per blossom: URI | 8 | 0–64 |
+| `blossom.maxUriChars` | Maximum blossom: URI length | 8192 chars | 256–65536 |
+| **Filesystem** | | | |
+| `fs.maxReadBytes` | Maximum bytes per read | 1048576 bytes | 1–268435456 |
+| `fs.maxWriteBytes` | Maximum bytes per write | 1048576 bytes | 1–268435456 |
+| `fs.maxRevisionBytes` | Maximum file size for revision hashing | 16777216 bytes | 1–1073741824 |
+| `fs.maxWatchCount` | Active watches per napplet | 16 | 1–256 |
+| `fs.watchIntervalMs` | Watch polling interval | 1000 ms | 100–60000 |
+| `fs.encodeChunkBytes` | Base64 encode chunk size | 32768 bytes | 1024–65536 |
+| **WebRTC** | | | |
+| `webrtc.maxPayloadBytes` | Maximum payload per send | 65536 bytes | 1024–1048576 |
+| `webrtc.maxSessionsPerWindow` | Sessions per napplet | 4 | 1–64 |
+| `webrtc.maxPeers` | Peers per session | 8 | 1–64 |
+| `webrtc.signalMaxAgeSeconds` | Maximum signal age | 300 s | 10–3600 |
+| `webrtc.signalLookbackSeconds` | Signal subscription lookback | 60 s | 0–3600 |
+| `webrtc.iceGatherTimeoutMs` | ICE gathering timeout | 8000 ms | 500–120000 |
+| `webrtc.bufferedAmountLimitBytes` | Data-channel buffer limit | 1048576 bytes | 16384–67108864 |
+| `webrtc.seenSignalCache` | Remembered signal ids | 256 | 16–65536 |
+| `webrtc.roomMinChars` | Minimum room length | 8 chars | 8–128 |
+| `webrtc.roomMaxChars` | Maximum room length | 128 chars | 8–1024 |
+| `webrtc.channelMaxChars` | Maximum channel label length | 64 chars | 1–1024 |
+| `webrtc.protocolMaxChars` | Maximum protocol length | 64 chars | 1–1024 |
+| **Multiplayer WebRTC profile** | | | |
+| `mp.maxMessageBytes` | Maximum message size | 16384 bytes | 1024–1048576 |
+| `mp.roomMaxChars` | Maximum room length | 256 chars | 1–4096 |
+| `mp.maxPeers` | Peers per room | 8 | 1–64 |
+| `mp.channelMaxChars` | Maximum channel length | 64 chars | 1–1024 |
+| `mp.protocolMaxChars` | Maximum protocol length | 128 chars | 1–1024 |
+| `mp.maxSessions` | Rooms per napplet | 4 | 1–64 |
+| `mp.iceGatherTimeoutMs` | ICE gathering timeout | 8000 ms | 500–120000 |
+| `mp.signalExpirationSeconds` | Signal expiration | 60 s | 5–3600 |
+| `mp.signalMaxAgeSeconds` | Maximum signal age | 60 s | 5–3600 |
+| `mp.signalLookbackSeconds` | Signal subscription lookback | 10 s | 0–3600 |
+| `mp.rateWindowMs` | Rate-limit window | 1000 ms | 100–60000 |
+| `mp.maxMessagesPerWindow` | Messages per window | 240 | 1–100000 |
+| `mp.maxBytesPerWindow` | Bytes per window | 524288 bytes | 1024–67108864 |
+| `mp.maxSignalsPerWindow` | Signals per window | 32 | 1–10000 |
+| `mp.maxQueuedPerPeer` | Queued messages per peer | 4 | 1–1024 |
+| `mp.maxSignalChars` | Maximum signal size | 64000 chars | 1024–1048576 |
+| `mp.sdpMaxChars` | Maximum SDP size | 32000 chars | 1024–1048576 |
+| `mp.nonceMaxChars` | Maximum nonce length | 64 chars | 8–1024 |
+| `mp.seenSignalCache` | Remembered signal ids | 2048 | 16–65536 |
+| `mp.maxRetiredPeers` | Retired peer incarnations per room | 256 | 1–65536 |
+| `mp.joinTimeoutMs` | Peer join timeout | 45000 ms | 1000–600000 |
+| `mp.tickIntervalMs` | Room maintenance interval | 2000 ms | 100–60000 |
+| `mp.bufferedAmountLimitBytes` | Data-channel buffer limit | 262144 bytes | 16384–67108864 |
+| **Intents and links** | | | |
+| `intent.maxDeliveryAttempts` | Delivery attempts ceiling | 10 | 1–100 |
+| `intent.launcherReadyTimeoutMs` | Launcher ready timeout | 10000 ms | 1000–600000 |
+| `intent.launcherOutcomeTimeoutMs` | Launcher outcome timeout | 10000 ms | 1000–600000 |
+| `intent.linkMaxBytes` | Maximum app-link size | 16384 bytes | 1024–1048576 |
+| `link.approvalClickWindowMs` | Link approval click window | 1000 ms | 100–10000 |
+| `link.labelMaxChars` | Maximum link label length | 256 chars | 1–4096 |
+| **Firewall** | | | |
+| `firewall.maxRequirements` | Requirements per approval request | 128 | 2–1024 |
+| `firewall.maxGrants` | Grants in the permission table | 2048 | 64–16384 |
+| `firewall.maxGrantsPerNapplet` | Grants one napplet may hold | 512 | 16–16384 |
+| `firewall.promptOpenOrigins` | Relay origins listed open in a prompt | 5 | 0–1023 |
+| **Signer** | | | |
+| `signer.nip46TimeoutMs` | Remote signer request timeout | 30000 ms | 1000–600000 |
+| `signer.previewChars` | Content shown in signing prompts | 240 chars | 16–10000 |
+| `signer.consentMaxSubjects` | Remembered consent subjects | 128 | 1–10000 |
+| `signer.consentMaxKindsPerSubject` | Remembered kinds per subject | 128 | 1–10000 |
+| `signer.consentMaxIdentityChars` | Maximum consent identity length | 512 chars | 64–8192 |
+| **Language models** | | | |
+| `llm.modelsTimeoutMs` | Model list timeout | 8000 ms | 500–120000 |
+| `llm.maxConnections` | Saved connections | 32 | 1–256 |
+| `llm.connectionNameMaxChars` | Maximum connection name length | 64 chars | 1–1024 |
+| `llm.presetIdMaxChars` | Maximum preset id length | 64 chars | 1–1024 |
+| `llm.modelIdMaxChars` | Maximum model id length | 200 chars | 1–4096 |
+| `vault.minPasswordLength` | Minimum vault password length | 12 chars | 12–256 |
+| `vault.minDistinctChars` | Minimum distinct password characters | 4 chars | 4–64 |
+| `vault.pbkdf2Iterations` | PBKDF2 iterations for new vaults | 600000 | 600000–10000000 |
+| **Multiplayer providers** | | | |
+| `cvm.discoveryTimeoutMs` | Provider discovery timeout | 15000 ms | 1000–300000 |
+| `cvm.serverRequestTimeoutMs` | Server request answer window | 30000 ms | 1000–300000 |
+| `cvm.discoveryMaxBytes` | Maximum discovery document size | 1000000 bytes | 1024–67108864 |
+| `cvm.discoveryEventLimit` | Events per discovery query | 64 | 1–1000 |
+| `cvm.referenceMaxChars` | Maximum discovery input length | 2048 chars | 64–65536 |
+| `cvm.toolNameMaxChars` | Maximum tool name length | 256 chars | 1–4096 |
+| `cvm.maxSavedFamilies` | Saved provider families | 16 | 1–256 |
+| `cvm.familySourceMaxChars` | Maximum saved family source length | 4096 chars | 64–65536 |
+| `multiplayer.textMaxChars` | Maximum configuration text length | 256 chars | 1–4096 |
+| `multiplayer.maxRelays` | Relays per configuration | 16 | 1–256 |
+| `multiplayer.maxTools` | Tools per family | 64 | 1–1024 |
+| `multiplayer.maxRegistryFamilies` | Registry families | 16 | 1–256 |
+| `multiplayer.maxIceServers` | ICE servers | 8 | 1–64 |
+| `multiplayer.maxIceUrls` | URLs per ICE server | 8 | 1–64 |
+| **Development target** | | | |
+| `target.maxDTagChars` | Maximum development d tag length | 128 chars | 1–1024 |
+| `target.maxNapDeclarations` | Development NAP declarations | 64 | 1–1024 |
+| `target.maxReportedAssets` | Relative assets listed in diagnostics | 8 | 1–1000 |
+| `target.maxReportedReferences` | Network references listed in diagnostics | 8 | 1–1000 |
+| `target.runtimeWaitMs` | Pointer resolution relay deadline | 5000 ms | 250–300000 |
+| `target.failureReasonChars` | Characters per relay failure reason | 160 chars | 16–4096 |
+| `target.failureReasonCount` | Relay failure reasons shown | 3 | 1–50 |
+| `target.pointerReplacementLimit` | Replacement manifests offered for a gone nevent | 50 | 1–500 |
+| **Console and indicators** | | | |
+| `console.messageLogLimit` | Messages kept in the log | 500 | 10–100000 |
+| `console.messageLogVisibleRows` | Messages rendered in the log | 120 | 10–10000 |
+| `notify.badgeMaxCount` | Largest badge count shown | 9999 | 9–1000000 |
+| `notify.maxActions` | Actions per notification | 3 | 0–3 |
+| `gamepad.axisDeadzone` | Stick deadzone | 0.12 | 0–1 |
+| `gamepad.buttonThreshold` | Button press threshold | 0.05 | 0–1 |
+| `gamepad.activityHoldMs` | Controller activity highlight | 420 ms | 0–10000 |
+| **Server (config file only)** | | | |
+| `server.readinessPollIntervalMs` | Target readiness poll interval | 250 ms | 50–60000 |
+| `server.shutdownGraceMs` | Shutdown grace before force close | 500 ms | 0–60000 |
+| `server.requestBodyTimeoutMs` | Request body timeout | 10000 ms | 1000–300000 |
+| `server.requestBodyMaxBytes` | Maximum request body | 4096 bytes | 256–1048576 |
+| `server.resourceMaxBytes` | Maximum proxied resource size | 10485760 bytes | 1024–536870912 |
+| `server.resourceTimeoutMs` | Proxied resource timeout | 30000 ms | 1000–600000 |
+| `server.targetNoticeTimeoutMs` | Target network notice timeout | 2000 ms | 100–60000 |
+| `server.discoveryGraceMs` | Managed command URL discovery grace | 1000 ms | 0–60000 |
+
 ## Environment Simulation
 
 The normalized simulation object controls:
@@ -804,6 +1074,12 @@ the next iframe reload.
   HMR still resolve against the app dev server through the injected `<base>`.
 - Does not guess framework dev-server ports, mutate app build tooling, or add
   framework-specific adapters.
+- Mints frame-admission `instanceId`, intent-launcher window ids and launch
+  correlations, and NIP-46 request ids with the `@kehto/shell` `randomUUID` helper,
+  so they stay secure on origins without `crypto.randomUUID()` (non-localhost plain
+  HTTP). Development-target hashing, filesystem hashing, WebRTC, and the LLM vault
+  still need `crypto.subtle` and stay unavailable there; see the
+  [shell package doc](https://github.com/kehto/web/blob/main/docs/packages/shell.md#uuid-support-on-http-origins).
 
 ## API Reference
 
@@ -848,7 +1124,7 @@ For example, `?intent=napplet%3Aprofile%2Fopen%3Fpubkey%3Dabc%252B123`
 contains `napplet:profile/open?pubkey=abc%2B123` and delivers text `abc+123`.
 Outer and inner layers decode once each; literal `+` stays plus. Optional outer
 `payload` contains JSON, including null, primitives, arrays, or objects, and
-cannot accompany an inner query. URLs are limited to 16 KiB UTF-8. Duplicate
+cannot accompany an inner query. URLs are limited to `intent.linkMaxBytes` (default 16 KiB) UTF-8. Duplicate
 keys, malformed encoding, and conflicting target instructions are rejected.
 Ordinary pointer-only app links retain their existing behavior.
 
@@ -898,7 +1174,33 @@ offline, the relays are blocked, or the browser reached its WebSocket connection
 limit (for example many open tabs each holding relay connections). Paja logs a
 `paja.relay.unreachable` entry with the per-relay detail. A deadline expiry with
 at least one live relay keeps the timeout message and now states how many relays
-connected. Pools without `ensureRelay` keep the previous messages.
+connected. Pools without `ensureRelay` keep the previous timeout and relay
+query failure messages.
+
+### Pointer not found
+
+Relays fail now and then; one down relay does not turn a clean miss into a
+failure. When at least one relay answered `EOSE` without the manifest, the
+resolver throws `PajaPointerNotFoundError` (`code: 'pointer-not-found'`, with
+`answered`, `failed`, and the queried `relays`), and the status reads
+`Napplet manifest not found (4 answered, 1 failed): …` followed by the relays
+that could not be asked. Paja logs `paja.pointer.not-found` with the counts. The
+no-connection message and its WebSocket-limit hint stay reserved for zero
+opened sockets, and a query no relay answered (every relay failed or sent
+`CLOSED`) stays a relay query failure.
+
+A `nevent` pins one event. When it names an addressable napplet (`35129`, with
+`author` and `kind`) whose event is gone, the author has most likely republished
+it and relays replaced the old event. A `nevent` carries no `d` tag, so Paja
+cannot tell which coordinate it belonged to. `findPajaPointerReplacements` asks
+the relays that answered for the author's current `35129` manifests and lists
+each `d` tag (up to 50). One candidate shows as an **Open …** button; several
+show as a picker with nothing preselected, because Paja picks none. Nothing is fetched from Blossom, verified, installed, or framed until the
+user clicks one. The click starts an ordinary `naddr` load, so the manifest
+signature, artifact hash, `(dTag, artifactHash)` identity, and version consent
+all run again for the new bytes. Paja never swaps bytes under the old
+verified identity. Replaceable root (`15129`) nevents are not offered a
+replacement yet.
 
 ## Controller diagnostics
 
@@ -912,7 +1214,7 @@ MediaSource buffers, without awaiting EOF. They expose pause/stop/volume but no 
 See [Media playback](https://github.com/kehto/web/blob/main/docs/media.md) for NAP-MEDIA draft authority, shell-owned audio/video,
 shared host controls, endpoint cleanup, and command API migration.
 
-The host peer window accepts `@napplet/core` 0.40.x and `@napplet/nap` 0.39.x. The newly packaged `blossom`, `catalog`, `navigation`, `soulseek` and `torrent` domains remain absent until Paja has corresponding host backends. See the [checked contract and dependency policy](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#host-dependency-line-core-0-40-nap-0-39), including the published intent-type mismatch.
+The host peer window accepts `@napplet/core` `>=0.42.0 <0.45.0` and `@napplet/nap` `>=0.37.0 <0.44.0`, and Paja develops on core 0.44.0 / nap 0.43.0. The newly packaged `blossom`, `catalog`, `navigation`, `soulseek` and `torrent` domains remain absent until Paja has corresponding host backends. See the [checked contract and dependency policy](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#host-dependency-line-core-0-44-nap-0-43).
 
 ## Optional temporal protection
 
@@ -920,6 +1222,21 @@ Paja explicitly installs operation and prompt limiters from `@kehto/rate-limit`
 in `createPajaPermissionAdapter`. These are Paja host choices; runtime and Firewall
 do not impose them on other hosts. Limiter configuration and counters are separate
 from approval grants.
+
+### CVM request admission
+
+Paja bounds NAP-CVM work per window, with or without a multiplayer profile. Each
+window may have 8 CVM operations running and 32 queued by default. Set
+`simulation.cvm.concurrency` in a Paja config file to change that:
+
+```json
+{ "simulation": { "cvm": { "concurrency": { "maxInFlight": 4, "maxQueued": 16 } } } }
+```
+
+`maxInFlight` is an integer of at least 1 and `maxQueued` an integer of at least
+0. Queued time counts against the request's `timeoutMs`; work past both limits is
+refused with `policy denied`. One window filling its budget doesn't delay another.
+See [`@kehto/services` CVM admission](/packages/services#cvm-admission).
 
 ### Configurable multiplayer providers
 

@@ -351,6 +351,7 @@ export interface UnroutedMessageInfo {
  * - `second-load` — the iframe loaded a second document (navigation or reload).
  * - `port-closed` — the bound port closed or failed to deserialize a message.
  * - `deferred-overflow` — too many envelopes were waiting on `filterNappletMessage` deferral.
+ * - `nested-context` — a napplet running under the experimental nested-context lock held a child browsing context.
  * - `host` — the host revoked the binding itself.
  */
 export type NappletRevocationReason =
@@ -360,6 +361,7 @@ export type NappletRevocationReason =
   | 'second-load'
   | 'port-closed'
   | 'deferred-overflow'
+  | 'nested-context'
   | 'host';
 
 /**
@@ -577,6 +579,10 @@ export interface ShellAdapter {
    * Optional service extensions. Each key is a service name (e.g., 'audio',
    * 'notifications'). Napplets discover available services via kind 29010
    * service discovery events.
+   *
+   * The runtime copies this object when `createShellBridge()` runs. A handler
+   * added later is neither routed nor advertised until it is also registered
+   * with `bridge.runtime.registerService()`.
    *
    * @example
    * ```ts

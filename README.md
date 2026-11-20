@@ -35,6 +35,7 @@ runtime toolkit, while Paja demonstrates one complete implementation.
 - Public web portal: <https://kehto.github.io/web/>
 - Paja Runtime: <https://kehto.github.io/web/paja/>
 - Docs: <https://kehto.github.io/web/docs/>
+- Runtime conformance UI: <https://kehto.github.io/web/conformance/>
 - Floorplans (architecture maps per package): <https://kehto.github.io/web/floorplans/>
 - Alpha status: [docs/alpha-status.md](./docs/alpha-status.md)
 - Local docs entry: [docs/index.md](./docs/index.md)
@@ -69,6 +70,7 @@ documentation site.
 | `@kehto/mocks` | Deterministic mock services for every NAP domain (merged and draft), so a shell has data while implementing a NAP without a real relay, device, downloader, or provider. | [packages/mocks](./packages/mocks/) | [docs/packages/mocks.md](./docs/packages/mocks.md) | [Mocks docs](https://kehto.github.io/web/docs/packages/mocks) |
 | `@kehto/nip` | Tree-shakable bundle of unique Nostr NIP utilities, including NIP-5A/5D napplet artifact verification and optional Cache Storage reuse, plus NIP-51/65/66/89 helpers. | [packages/nip](./packages/nip/) | [docs/packages/nip.md](./docs/packages/nip.md) | [NIP docs](https://kehto.github.io/web/docs/packages/nip) |
 | `@kehto/wm` | Structural window-management contracts for shell-owned layout strategies. | [packages/wm](./packages/wm/) | [docs/packages/wm.md](./docs/packages/wm.md) | [WM docs](https://kehto.github.io/web/docs/packages/wm) |
+| `@kehto/conformance` | Runtime conformance suite for NIP-5D and advertised NAPs: engine, first-party Kehto target, probe fixtures, reporters, behind `kehto conformance`. | [packages/conformance](./packages/conformance/) | [docs/packages/conformance.md](./docs/packages/conformance.md) | [Conformance docs](https://kehto.github.io/web/docs/packages/conformance) |
 | `@kehto/paja` | Reference developer runtime with concrete browser, relay, resource, and signer choices. | [packages/paja](./packages/paja/) | [docs/packages/paja.md](./docs/packages/paja.md) | [Paja docs](https://kehto.github.io/web/docs/packages/paja) |
 
 Package roots link to package-local READMEs and source. Markdown docs are the

@@ -47,7 +47,7 @@ export function isPajaRelayAllowed(value: string, getConfiguredRelays: () => str
   if (getConfiguredRelays().some((url) => normalizeRelayUrl(url) === normalized)) return true;
   const url = new URL(normalized);
   if (url.protocol !== 'wss:') return false;
-  const hostname = url.hostname.replace(/^\[|\]$/gu, '').toLowerCase();
+  const hostname = url.hostname.replace(/^\[|\]$/gu, '').replace(/\.$/u, '').toLowerCase();
   if (
     hostname === 'localhost'
     || hostname.endsWith('.localhost')

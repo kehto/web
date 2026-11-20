@@ -12,6 +12,7 @@ import { createPajaPermissionAdapter } from './browser-permission-adapter.js';
 import { permissionPrincipalKey } from '@kehto/firewall';
 import { pajaPrincipalLabel, revokedPajaTabIds } from './browser-grant-retirement.js';
 import { installPajaSecuritySettings } from './browser-security-settings.js';
+import { createPajaSettingsStore, installPajaSettingsPanel } from './browser-settings.js';
 import { installPajaLlm } from './browser-llm-panel.js';
 import {
   buildShellCapabilities,
@@ -38,6 +39,7 @@ import {
   createHostSignerController,
 } from './browser-host-signer.js';
 import { unregisterSingleFrameWindow } from './browser-host-runtime.js';
+import { createPajaReinjectionGate } from './browser-frame-reinjection.js';
 import { handlePajaNappletRevoked, handlePajaWindowMessage, observePajaNappletMessage } from './browser-nip5d-host.js';
 import { installLocalFileControls, loadLocalRuntimeFile } from './browser-local-loader.js';
 import { BrowserIntentController } from './browser-intent-controller.js';
@@ -109,7 +111,8 @@ import {
 } from './browser-target-frame.js';
 import { isPajaLocalTarget, type PajaRuntimeTarget } from './local-target.js';
 import { pajaDevelopmentConsentScope } from './browser-operation-scope.js';
-import { PajaRelayUnreachableError, resolvePajaPointer } from './runtime-resolver.js';
+import { PajaPointerNotFoundError, PajaRelayUnreachableError, resolvePajaPointer } from './runtime-resolver.js';
+import { clearPajaPointerReplacementOffer, offerPajaPointerReplacements } from './browser-pointer-offer.js';
 import { parsePajaIntentLink } from './intent-link.js';
 import {
   createPajaIntentLinkController,
@@ -117,7 +120,7 @@ import {
 } from './browser-intent-links.js';
 import { createPajaIntentLinkBuilder } from './browser-intent-builder.js';
 import { launchPajaSharedIntent } from './browser-intent-launcher-host.js';
-import { reportTargetCorsDiagnostic } from './browser-target-diagnostics.js';
+import { reportTargetDiagnostics } from './browser-target-diagnostics.js';
 import { createPajaNotifyController } from './browser-notify.js';
 import { createPajaConfigController } from './browser-config.js';
 import {
@@ -126,6 +129,7 @@ import {
   type PajaSimulation,
   type PajaCapabilityDomain,
 } from './simulation.js';
+import { getPajaSetting } from './settings.js';
 
 export interface PajaBrowserState {
   readonly config: PajaHostConfig;
@@ -301,13 +305,15 @@ function startFrameNavigation(
     adapter,
     bridge.runtime,
     state.resolvedTarget,
-    undefined,
-    isCurrentGeneration,
-    (windowId) => {
-      if (windowId) bridge.observeFrame(frame, windowId);
-      if (isCurrentGeneration()) runtime.currentWindowId = windowId;
+    {
+      isCurrent: isCurrentGeneration,
+      onRegistered: (windowId) => {
+        if (windowId) bridge.observeFrame(frame, windowId);
+        if (isCurrentGeneration()) runtime.currentWindowId = windowId;
+      },
+      signal: admissionController.signal,
+      revokeNapplet: (windowId) => bridge.revokeNapplet(windowId, 'host'),
     },
-    admissionController.signal,
   ).then((windowId) => {
     if (!isCurrentGeneration()) {
       unregisterSingleFrameWindow(bridge, runtime, windowId);
@@ -421,6 +427,7 @@ async function loadRuntimePointer(
     setPointerStatus(state, 'idle');
     return;
   }
+  clearPajaPointerReplacementOffer();
   setPointerStatus(state, 'resolving');
   setStatus(state, 'booting');
   appendPajaMessageLog(state, 'paja', { type: 'paja.pointer.resolve', pointer });
@@ -468,6 +475,15 @@ async function loadRuntimePointer(
       });
     }
     appendPajaMessageLog(state, 'paja', { type: 'paja.pointer.error', error: message });
+    if (error instanceof PajaPointerNotFoundError) {
+      appendPajaMessageLog(state, 'paja', { type: 'paja.pointer.not-found', answered: error.answered, failed: error.failed });
+      void offerPajaPointerReplacements(pointer, error, {
+        lookup: { maxWaitMs: context.config.target.pointer?.maxWaitMs },
+        isCurrent: () => state.pointerValue === pointer,
+        log: (entry) => appendPajaMessageLog(state, 'paja', entry),
+        open: (naddr) => void loadRuntimePointer(state, context, naddr),
+      });
+    }
   }
 }
 
@@ -660,6 +676,9 @@ async function installPajaHost(): Promise<void> {
   const securitySettings = installPajaSecuritySettings();
   window.addEventListener('pagehide', securitySettings.dispose, { once: true });
   const config = await readLatestPajaHostConfig(readPajaHostConfig());
+  // Activate persisted settings before any service reads a bound or timeout.
+  const disposeSettingsPanel = installPajaSettingsPanel(createPajaSettingsStore({ seeds: config.settings }));
+  window.addEventListener('pagehide', disposeSettingsPanel, { once: true });
   const multiplayer = readPajaMultiplayerSettings(config.simulation.multiplayer);
   const disposeMultiplayer = installPajaMultiplayerSettings(multiplayer);
   window.addEventListener('pagehide', disposeMultiplayer, { once: true });
@@ -768,13 +787,19 @@ async function installPajaHost(): Promise<void> {
     onChange: () => { if (stateRef) setSimulationStatus(stateRef); },
   });
   let syncServices: (() => void) | undefined;
+  const reinjection = createPajaReinjectionGate(() => buildShellCapabilities(adapter).domains);
   const adapter = createPajaAdapter(config, getSimulation, (theme) => {
     runtime.themeService = theme;
   }, themeBroadcast.onBroadcast, confirmationController.confirm, signerController, getWindowIdentity, () => {
     syncServices?.();
     if (stateRef) {
       stateRef.services = Object.keys(adapter.services ?? {}).sort();
-      stateRef.reload();
+      // NAP-IDENTITY: a signer change alone reaches loaded napplets as
+      // identity.changed. Reload only when the advertised domain set changes
+      // the injection this frame would get (NIP-5D fixes it before code runs).
+      const active = config.target.mode === 'runtime-pointer'
+        ? stateRef.tabs.find((tab) => tab.id === stateRef?.activeTabId)?.frame : contextRef?.frame;
+      if (reinjection.shouldReload(active)) stateRef.reload();
     }
   }, {
       catalog: runtime.catalog,
@@ -810,6 +835,11 @@ async function installPajaHost(): Promise<void> {
     mount: permissionMount,
     getPermissions: () => permissionBridge?.runtime.permissions,
     labelForPrincipal: (principal) => pajaPrincipalLabel(config, stateRef?.tabs ?? [], principal),
+    onRulesChanged() {
+      // A tightened rule retires a frame that lost an interface; start the
+      // target again through full admission so the new rule can ask.
+      if (stateRef && config.target.mode !== 'runtime-pointer' && contextRef?.runtime.currentWindowId === null) stateRef.reload();
+    },
     onGrantRevoked(grant) {
       if (!stateRef) return;
       const revoked = permissionPrincipalKey(grant.principal);
@@ -837,7 +867,7 @@ async function installPajaHost(): Promise<void> {
     fetch: window.fetch.bind(window),
     query: (relays, filters, signal) => {
       if (!relayBackend || runtime.currentSimulation.relay.mode !== 'live') throw new Error('CVM discovery requires live relays.');
-      return relayBackend.query(relays, filters, 5000, { reason: 'host' }, signal);
+      return relayBackend.query(relays, filters, getPajaSetting('relay.hostQueryTimeoutMs'), { reason: 'host' }, signal);
     },
   });
   window.addEventListener('pagehide', disposeCvmSettings, { once: true });
@@ -865,14 +895,22 @@ async function installPajaHost(): Promise<void> {
   syncServices = () => synchronize(adapter.services ?? {});
   permissionBridge = bridge;
   permissionController.ui.refresh();
+  // NAP-IDENTITY: push identity.changed whenever the shell-user identity
+  // changes, "" on disconnect. The signer controller also notifies for
+  // intermediate states (connecting), so push only a real change.
+  let publishedPubkey = adapter.auth.getUserPubkey() ?? '';
   const stopIdentityChanges = signerController.subscribe(() => {
     confirmationController.cancelSignerRequests();
-    bridge.publishIdentityChanged(adapter.auth.getUserPubkey() ?? '');
+    const pubkey = adapter.auth.getUserPubkey() ?? '';
+    if (pubkey === publishedPubkey) return;
+    publishedPubkey = pubkey;
+    bridge.publishIdentityChanged(pubkey);
   });
   themeBroadcast.attach(bridge);
   bridgeRef = bridge;
   installPajaOriginRegistryProxy(originRegistry, () => stateRef, windowId => confirmationController.cancelWindow(windowId));
   const capabilities = buildShellCapabilities(adapter);
+  reinjection.snapshot();
   const context: PajaBrowserStateContext = {
     config,
     frame,
@@ -997,7 +1035,7 @@ async function installPajaHost(): Promise<void> {
     }
   } else {
     startFrameNavigation(state, context);
-    void reportTargetCorsDiagnostic(state);
+    void reportTargetDiagnostics(state);
   }
   void signerController.restorePreference();
 }

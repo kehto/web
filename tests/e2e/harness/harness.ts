@@ -14,7 +14,7 @@
  * Window global types are declared in globals.d.ts (Plan 16-03).
  */
 
-import { createShellBridge, originRegistry } from '@kehto/shell';
+import { createShellBridge, denyNappletReferrer, originRegistry } from '@kehto/shell';
 import type { Capability } from '@kehto/shell';
 import { createKeysService, createMediaService } from '@kehto/services';
 import type { NappletMessage } from '@napplet/core';
@@ -109,6 +109,7 @@ function loadNapplet(name: string, params?: Record<string, string>): string {
   iframe.id = windowId;
   iframe.className = 'napplet-frame';
   iframe.sandbox.add('allow-scripts');
+  denyNappletReferrer(iframe);
   iframe.width = '400';
   iframe.height = '200';
 
@@ -142,7 +143,9 @@ function loadNapplet(name: string, params?: Record<string, string>): string {
 function unloadNapplet(windowId: string): void {
   const iframe = nappletFrames.get(windowId);
   if (iframe) {
-    originRegistry.unregister(windowId);
+    // Host retirement ends the runtime session too, so INC endpoints, channels,
+    // and subscriptions of the unloaded napplet do not outlive its frame.
+    relay.revokeNapplet(windowId, 'host');
     iframe.remove();
     nappletFrames.delete(windowId);
     logStatus(`Unloaded ${windowId}`);

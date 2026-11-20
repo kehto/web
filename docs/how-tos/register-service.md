@@ -24,10 +24,50 @@ bridge.runtime.registerService('notify', createNotifyService({
 - Tear down host-owned subscriptions when the shell bridge is destroyed.
 - Do not register a service merely to advertise a capability: a backendless
   notify service rejects delivery and permission requests by design.
+- Send nothing for a type your NAP does not define, not even an error: NIP-5D
+  requires it to be silently ignored. Call the function returned by
+  `createUnrecognizedTypeDiagnostic()` from `@kehto/runtime` instead, so the
+  host still gets one `[KEHTO_UNRECOGNIZED_MESSAGE_TYPE]` warning.
 
 Current manifests use `O` tags for optional integrations. Their absence must not
 block loading, and neither `R` nor `O` grants capabilities. The `requires` wire
 tag belongs only to legacy aggregate-manifest compatibility.
+
+## Services that arrive late
+
+The runtime copies `services` from the adapter once, when `createShellBridge()`
+(or `createRuntime()`) runs. A handler you add to that object afterwards is not
+routed. If a service only exists once something else is ready, such as a signer
+connecting, register and retire it through the runtime:
+
+```ts
+signer.onConnect(() => {
+  adapter.services.webrtc = webrtcService;                 // what the shell advertises
+  bridge.runtime.registerService('webrtc', webrtcService); // what the runtime routes
+  reloadNappletFrames();                                   // new frames get the domain
+});
+signer.onDisconnect(() => {
+  delete adapter.services.webrtc;
+  bridge.runtime.unregisterService('webrtc');
+  reloadNappletFrames();
+});
+```
+
+Both halves matter. The shell advertises a declared service only while the
+bridge's runtime routes it (`bridge.runtime.hasService(name)`), so `shell.init`
+and injected domains never promise a domain nothing answers. If the adapter
+lists a service the runtime does not route, the shell leaves it out and logs
+`[KEHTO_SERVICE_NOT_REGISTERED]` once per service per bridge.
+`registerService()` on its own still advertises nothing: the adapter entry is
+the host's declaration.
+
+A frame keeps the namespace it was created with, so reload or replace frames
+after a change. A request for a service-only domain with no registered handler
+gets no reply, because [NIP-5D at `f60550c`](https://github.com/dskvr/nips/blob/f60550c3409d6d81a875088ec83e660571e10504/5D.md) requires unrecognized types to be silently ignored.
+The runtime logs `[KEHTO_UNROUTED_SERVICE_DOMAIN]` once per domain so the host
+can see it; the napplet-supplied type is not logged. Once a domain is exposed
+and registered, its own contract applies, for example the result-per-request
+rule in the [NAP-WEBRTC draft at `fb4dd6f`](https://github.com/napplet/naps/blob/fb4dd6f0e6294e1837733d2af61931e3e114bd97/naps/NAP-WEBRTC.md).
 
 ## Domains outside the built-in dispatcher
 

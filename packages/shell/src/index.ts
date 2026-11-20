@@ -3,6 +3,7 @@
 export { createShellBridge, MAX_DEFERRED_MESSAGES, NAPPLET_HELLO } from './shell-bridge.js';
 export { denyNappletControllerAccess } from './gamepad-policy.js';
 export type { ShellBridge } from './shell-bridge.js';
+export type { NappletFrameObservation } from './nip5d-transport.js';
 export {
   injectNappletNamespacePrelude,
   renderNappletNamespacePrelude,
@@ -15,17 +16,22 @@ export type { NappletCspDirective, NappletCspDirectives, NappletCspOptions } fro
 export type { BrowserLaunchMode, BrowserRemoteSource } from './napplet-csp.js';
 export { admitBrowserDocument } from './browser-admission.js';
 export type { BrowserAdmissionRequest, BrowserAdmissionResult, BrowserAdmissionCommit, BrowserAdmissionOmission } from './browser-admission.js';
-export { createBrowserApprovalUi } from './browser-approval-ui.js';
+export { createBrowserApprovalUi, DEFAULT_PROMPT_OPEN_ORIGINS } from './browser-approval-ui.js';
 export type { BrowserApprovalUi, BrowserApprovalUiOptions, BrowserApprovalRules } from './browser-approval-ui.js';
 export { BROWSER_APPROVAL_UI_STYLES } from './browser-approval-styles.js';
 export { prepareNappletSrcdoc } from './napplet-srcdoc.js';
 export { assertNappletHasNoFrame, nappletMarkupHasFrame } from './napplet-frame-scan.js';
+export { assertNappletHasNoResourceHint, nappletMarkupHasResourceHint } from './napplet-hint-scan.js';
 export type { NappletExperimentalOptions } from './napplet-experimental.js';
 export { hasNappletFramePolicy, NAPPLET_FRAME_POLICY, renderNappletFramePolicyMeta } from './frame-policy.js';
+export {
+  denyNappletReferrer, hasNappletReferrerPolicy, hasNappletReferrerPolicyMeta, NAPPLET_REFERRER_POLICY, renderNappletHostBase, renderNappletReferrerPolicyMeta,
+} from './napplet-url-privacy.js';
 export type { NappletSrcdocOptions } from './napplet-srcdoc.js';
 
 // Hooks adapter — for advanced integrators who need to customize the adapter
 export { adaptHooks } from './hooks-adapter.js';
+export { randomUUID } from './random-uuid.js';
 export type { BrowserDeps } from './hooks-adapter.js';
 
 // Protocol types (re-exported from @napplet/core + @kehto/runtime).

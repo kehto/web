@@ -15,7 +15,7 @@ function shouldAnimateRoute(anchor, event) {
   const destination = new URL(anchor.href, window.location.href);
   if (destination.origin !== window.location.origin) return false;
 
-  return ['/web/paja/', '/web/docs/', '/web/floorplans/'].includes(destination.pathname);
+  return ['/web/paja/', '/web/docs/', '/web/conformance/', '/web/floorplans/'].includes(destination.pathname);
 }
 
 function setFinalState() {

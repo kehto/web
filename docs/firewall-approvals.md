@@ -10,6 +10,93 @@ configuration is not converted into scoped grants. Paja uses
 shared approval presentation and frame admission before executable bytes enter
 an iframe.
 
+## Relay destination policy
+
+NAP-RELAY scoped `relay.subscribe.relay` and Kehto's existing query relay extension
+select a destination; they don't grant permission to contact it. Network hints
+require `RuntimeAdapter.permissions` and the verified source's permission
+principal. Without those, the runtime returns a correlated query error or
+`relay.closed` before transport. Local-only services don't open a connection.
+
+Runtime validates WebSocket URLs, rejects credentials/fragments/parser rewrites,
+and derives canonical origin scopes. The `relay.network` requirement includes
+the requested host and port, alongside interface access. The transport receives
+the exact approved URLs, including their paths. Subscribe filters and routing
+plans are copied before a decision can wait, and revocation/source replacement
+retire pending and active subscriptions. Both reference relay services use this
+boundary when registered through the runtime; direct `handleMessage` calls are
+trusted host integration calls, not an alternative napplet ingress.
+
+OUTBOX `options.relays` is also subject to planned operation authority. Planned
+publishing receives the operation cancellation signal too: a revocation
+while signing waits prevents the concrete router from starting transport.
+The Paja social-cache and Blossom decorators preserve that signal.
+Publish plans also snapshot the complete own-outbox/inbox/hint union. Their
+host-only `requiredRelays` list marks mandatory fanout, and the service rejects
+incomplete plans before approval or signing. An optional hinted relay's success
+cannot mask failure of a required recipient inbox.
+Legacy standalone hint requests fail before calling any router or signer. Unhinted
+legacy router calls remain available with `FW-OUTBOX-LEGACY-001`; unhinted runtime
+relay transport warns once with `FW-RELAY-NETWORK-LEGACY-001`. Both are migration
+paths, not destination approval. See [compatibility](/compatibility).
+
+The default concrete OUTBOX router rejects obvious local/private addresses and
+names, including alternative IPv4 encodings and IPv4-mapped IPv6. Explicit host
+fallback configuration or an `isRelayAllowed` policy can admit a development
+relay. Host policy cannot admit malformed or credential-bearing URLs. A browser
+hostname check cannot establish a DNS address's safety; production transport
+adapters must check resolved addresses and enforce their own destination policy
+to address DNS rebinding. Paja also rejects trailing-dot local names.
+
+An explicit host allow rule can grant a network scope without a prompt. Paja's
+shipped developer rules allow operations by default, so a missing dialog is not
+proof that the destination escaped the coordinator. Hosts needing per-origin
+consent must choose `ask` for the relevant relay/OUTBOX network operations.
+
+One Firewall request carries at most `maxRequirements` requirements (default
+`MAX_PERMISSION_REQUIREMENTS`, 128; `PermissionAdapter.maxRequirements`, Paja
+setting `firewall.maxRequirements`). A bound stays: it limits evaluation work,
+grant growth and prompt size, and an OUTBOX plan's size is steered by the napplet's authors and by
+third-party relay lists. So approval names each relay origin once, and an OUTBOX
+operation contacts at most `maxRequirements` less one origins. The reference router chooses a larger
+read plan's relays by author coverage, deterministically and with hints last,
+so the user sees one prompt with one "contact N origins" row. Every contacted
+origin is still an exact approved scope. A read that left an author without
+relays is `incomplete: true`. A publish whose required relays cannot fit fails
+with `too many relays`, and a runtime relay or COUNT plan over the cap fails
+with `too many relays` or `too-expensive`. None of these is a denial.
+
+The grant table is bounded by `maxGrants` (default 2048; Paja setting
+`firewall.maxGrants`), and one napplet holds at most `maxGrantsPerPrincipal`
+of it (default 512; Paja setting `firewall.maxGrantsPerNapplet`), so one
+napplet's approvals can't starve another's (kehto/web#513). Only explicit
+decisions take space: a default-rule `allow` is consulted on every check and
+writes no grant, so revoking or tightening the rule applies to the next check,
+`RuntimePermissions.rulesChanged()` (called by the shell rules editor on a
+tightening edit) closes live operations and rechecks frame admissions under
+the new rules, and a stored denial still beats a default allow. A new decision that
+doesn't fit evicts the oldest `session` grants, first the napplet's own, then
+those of the napplet holding the most; eviction forgets a cached session
+answer, so work already approved keeps running and the next request asks
+again. Persistent decisions and `once` grants are never evicted. Only when
+nothing is left to evict does the coordinator return `capacity`, which no
+domain reports as a denial.
+
+NIP-42 authentication is independent from network access. This approval flow
+does not authorize signing an AUTH event. The built-in Paja pool has no automatic
+signer; hosts injecting a third-party pool must disable automatic authentication
+or use a separate anonymous pool for napplet-directed traffic. The runtime
+cannot remove signing hooks installed inside an arbitrary adapter.
+
+Checked against `napplet/naps` NAP-RELAY draft #2 at
+`9f30b3505335a52c574ff570576687d6467021ff` and NAP-OUTBOX draft #32 at
+`8865f73d52a4864afee145f28d26520476273927`. The destination restrictions are
+conformant host policy. The existing query relay field remains a Kehto extension;
+this change adds no wire fields or capabilities.
+Actual approved use of the noncanonical query hint emits
+`KEHTO_COMPAT_RELAY_QUERY_HINT` once per runtime. Use scoped subscribe and collect
+until EOSE instead; its retirement commitment is recorded in compatibility.
+
 ## Responsibilities
 
 `@kehto/firewall` evaluates immutable permission scopes and grant lifetimes.
@@ -52,8 +139,14 @@ const permissions: PermissionAdapter = {
 `showApproval` and `showPermissionStorageError` are host UI functions. Storage
 adapters must throw when a write fails. A persistent approval is published only
 after a successful write. Without storage, once/session choices work; persistent
-choices fail explicitly. Defaults bound pending operations to 64 with a 60-second
-deadline, including queue time. `maxPending` and `timeoutMs` configure these bounds.
+choices fail explicitly. Defaults bound pending approvals to 64 with a 60-second
+deadline, including time queued behind an equivalent prompt. `maxPending` and
+`timeoutMs` configure these bounds. They cover the approval phase only: once an
+approved action starts, it leaves the queue and runs until it settles, is
+cancelled, or its source is torn down or revoked. Equivalent requests wait for
+the first one's decision, not for its action to finish. The domain owns the
+operation deadline; for example NAP-CVM `timeoutMs` (napplet/naps#31) covers
+consent and execution and expires as `relay timeout`.
 `rateLimiter` accepts an explicitly constructed limiter from `@kehto/rate-limit`; without it no operation budget is installed. `onRateLimit` reports excess
 budgets without including payloads or destinations. Diagnostic failures cannot
 override enforcement. Startup interface admission does not spend an app operation

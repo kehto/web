@@ -164,6 +164,27 @@ describe('@kehto/paja server', () => {
     }
   });
 
+  it('reports the isolated snapshot plan for a target requiring resource', async () => {
+    const target = await startTargetServer(
+      '<!doctype html><html><head><meta name="napplet-requires" content="resource"></head><body><script src="./main.js"></script></body></html>',
+      () => ({}),
+    );
+    const server = await startPajaServer({ options: { targetUrl: target.url, port: 0 } });
+
+    try {
+      const plan = JSON.parse(await fetchText(`${server.url}__kehto/target-network.json`)) as {
+        mode: string; resource: string; blockedReferences: string[]; hint: string | null;
+      };
+
+      expect(plan).toMatchObject({ mode: 'isolated', resource: 'required', blockedReferences: ['./main.js'] });
+      expect(plan.hint).toContain('napplet-optional');
+      expect(await server.inspectTargetNetwork()).toMatchObject({ mode: 'isolated' });
+    } finally {
+      await server.close();
+      await target.close();
+    }
+  });
+
   it('reports an unreachable target without failing the endpoint', async () => {
     const server = await startPajaServer({
       options: { targetUrl: 'http://127.0.0.1:1/', port: 0 },

@@ -1,11 +1,13 @@
 /**
  * domains/inc.ts — NAP-INC registry entry (runtime-owned, no mock service).
  *
- * Spec: naps/NAP-INC.md @ napplet/naps master 43cb3a4e8555 (merged)
+ * Spec: naps/NAP-INC.md @ napplet/naps master 377bf939c6c9 (merged)
  * Routes: none mocked. `inc.*` topics and channels are routed by the runtime
  *         (`packages/runtime/src/inc-handler.ts`) between live napplet
- *         endpoints; the runtime attests `sender`/`peer` from authenticated
- *         sessions.
+ *         endpoints; the runtime attests `sender`/`peer` as runtime-assigned
+ *         endpoint identifiers (opaque, never a manifest `d` tag). A test that
+ *         needs a channel target reads it from a delivered `inc.event` sender
+ *         or from `runtime.getIncEndpointId(windowId)`.
  * Spec gaps / decisions:
  * - A mock must not fabricate `inc.event`, `inc.channel.opened`, or
  *   `inc.channel.event` deliveries: the NAP makes runtime sender attestation
@@ -30,7 +32,7 @@ export const INC_SPEC_REF: NapSpecRef = {
   nap: 'NAP-INC',
   status: 'merged',
   source: 'master',
-  sha: '43cb3a4e8555',
+  sha: '377bf939c6c9',
   path: 'naps/NAP-INC.md',
 };
 

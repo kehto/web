@@ -102,7 +102,7 @@ describe('runtime NAP dispatch — envelope guard', () => {
     expect(firewallEvents).not.toHaveBeenCalled();
   });
 
-  it('fails closed for sessionless INC emit, subscribe, and channel open (NAP-INC 5ac0490461ca6fec2f0d2e45b4835cf9bc08de24)', () => {
+  it('fails closed for sessionless INC emit, subscribe, and channel open (NAP-INC 377bf939c6c906817084b43dd21d424de646dbc2)', () => {
     const unregisteredCtx = createMockRuntimeAdapter();
     const unregistered = createRuntime(unregisteredCtx.hooks);
 
@@ -303,7 +303,7 @@ describe('NIP-5D Envelope Dispatch', () => {
       expect(eose).toBeDefined();
     });
 
-    it('relay.subscribe honors the canonical relay hint', () => {
+    it('relay.subscribe requires operation authority for a canonical relay hint', async () => {
       let selected = false;
       let subscribedRelays: string[] | undefined;
       const relayPool: RelayPoolAdapter = {
@@ -341,7 +341,9 @@ describe('NIP-5D Envelope Dispatch', () => {
         relay: 'wss://explicit.test',
       } as NappletMessage);
 
-      expect(subscribedRelays).toEqual(['wss://explicit.test']);
+      await vi.waitFor(() => expect(ctxWithRelay.sent).toHaveLength(1));
+      expect(subscribedRelays).toBeUndefined();
+      expect(ctxWithRelay.sent[0].message).toMatchObject({ type: 'relay.closed', subId: 'sub-relay-hint' });
       expect(selected).toBe(false);
     });
 
@@ -1002,20 +1004,15 @@ describe('NIP-5D Envelope Dispatch', () => {
       expect((getResult as any).value).toBeNull();
     });
 
-    it('storage.clear is rejected — not in @napplet/nap/storage (Plan 12-09)', () => {
+    it('storage.clear is silently ignored — not in NAP-STORAGE #3 @ 4f4cf0ca', () => {
       runtime.handleMessage(WINDOW_ID, { type: 'storage.set', id: 's1', key: 'k1', value: 'v1' } as NappletMessage);
       runtime.handleMessage(WINDOW_ID, { type: 'storage.set', id: 's2', key: 'k2', value: 'v2' } as NappletMessage);
       ctx.sent.length = 0;
 
       runtime.handleMessage(WINDOW_ID, { type: 'storage.clear', id: 'req-clear' } as NappletMessage);
-      // Canonical @napplet/nap/storage has no *.error type — errors are delivered as
-      // storage.<action>.result with the optional `error` field populated.
-      const clearResult = findEnvelopeResponse(ctx.sent, 'storage.clear.result');
-      expect(clearResult).toBeDefined();
-      expect((clearResult as any).id).toBe('req-clear');
-      expect((clearResult as any).error).toMatch(/not (in )?@napplet\/nap\/storage|unknown storage action: clear/i);
-      // No non-canonical storage.clear.error envelope was emitted.
-      expect(findEnvelopeResponse(ctx.sent, 'storage.clear.error')).toBeUndefined();
+      // NIP-5D (nips#2303 @ f60550c3): "Messages with an unrecognized `type` MUST
+      // be silently ignored." The old storage.clear.result error broke that.
+      expect(ctx.sent).toEqual([]);
 
       // Prior sets survive (storage.clear never ran).
       ctx.sent.length = 0;
@@ -1081,7 +1078,7 @@ describe('NIP-5D Envelope Dispatch', () => {
       expect(event).toBeDefined();
       expect((event!.message as any).topic).toBe('news');
       expect((event!.message as any).payload).toEqual({ text: 'hello' });
-      expect((event!.message as any).sender).toBe(TEST_DTAG);
+      expect((event!.message as any).sender).toBe(runtime.getIncEndpointId(WINDOW_ID));
     });
 
     it('inc.emit does not echo to sender', () => {
@@ -1178,7 +1175,7 @@ describe('NIP-5D Envelope Dispatch', () => {
       expect(event).toBeDefined();
       expect((event!.message as any).topic).toBe('inc-news');
       expect((event!.message as any).payload).toEqual({ text: 'inc hello' });
-      expect((event!.message as any).sender).toBe(TEST_DTAG);
+      expect((event!.message as any).sender).toBe(runtime.getIncEndpointId(WINDOW_ID));
     });
 
     it('denies a blocked channel open without creating channel state', () => {
@@ -1189,7 +1186,7 @@ describe('NIP-5D Envelope Dispatch', () => {
       runtime.aclState.block('', TEST_DTAG, TEST_HASH);
 
       runtime.handleMessage(WINDOW_ID, {
-        type: 'inc.channel.open', id: 'blocked-open', target: 'peer-napp',
+        type: 'inc.channel.open', id: 'blocked-open', target: runtime.getIncEndpointId(WINDOW_ID_2),
       } as NappletMessage);
 
       expect(findEnvelopeResponse(ctx.sent, 'inc.channel.open.result')).toMatchObject({
@@ -1234,7 +1231,7 @@ describe('NIP-5D Envelope Dispatch', () => {
         expect.arrayContaining([WINDOW_ID, WINDOW_ID_2]),
       );
       runtime.handleMessage(WINDOW_ID, {
-        type: 'inc.channel.open', id: 'open-once', target: 'peer-napp',
+        type: 'inc.channel.open', id: 'open-once', target: runtime.getIncEndpointId(WINDOW_ID_2),
       } as NappletMessage);
       const openResult = findEnvelopeResponse(ctx.sent, 'inc.channel.open.result');
       expect(openResult).toBeDefined();
@@ -1249,7 +1246,7 @@ describe('NIP-5D Envelope Dispatch', () => {
       expect(ctx.sent).toContainEqual({
         windowId: WINDOW_ID_2,
         message: expect.objectContaining({
-          type: 'inc.channel.event', channelId: opened.channelId, sender: TEST_DTAG,
+          type: 'inc.channel.event', channelId: opened.channelId, sender: runtime.getIncEndpointId(WINDOW_ID),
         }),
       });
     });
@@ -1265,7 +1262,7 @@ describe('NIP-5D Envelope Dispatch', () => {
         createNip5dSessionEntry(WINDOW_ID_2, 'peer-napp', 'c'.repeat(64)),
       );
       runtime.handleMessage(WINDOW_ID, {
-        type: 'inc.channel.open', id: 'revocable-open', target: 'peer-napp',
+        type: 'inc.channel.open', id: 'revocable-open', target: runtime.getIncEndpointId(WINDOW_ID_2),
       } as NappletMessage);
       const openResult = findEnvelopeResponse(ctx.sent, 'inc.channel.open.result');
       expect(openResult).toBeDefined();
@@ -1315,7 +1312,7 @@ describe('NIP-5D Envelope Dispatch', () => {
         createNip5dSessionEntry(WINDOW_ID_2, 'peer-napp', 'c'.repeat(64)),
       );
       runtime.handleMessage(WINDOW_ID, {
-        type: 'inc.channel.open', id: 'stable-open', target: 'peer-napp',
+        type: 'inc.channel.open', id: 'stable-open', target: runtime.getIncEndpointId(WINDOW_ID_2),
       } as NappletMessage);
       const openResult = findEnvelopeResponse(ctx.sent, 'inc.channel.open.result');
       expect(openResult).toBeDefined();
@@ -1340,8 +1337,10 @@ describe('NIP-5D Envelope Dispatch', () => {
   // ─── ACL Enforcement ──────────────────────────────────────────────────────────
 
   describe('ACL enforcement', () => {
-    it('denied capability returns .error type with denial reason', () => {
-      // Block the napplet
+    it('denied subscription is closed with the denial reason', () => {
+      // NAP-RELAY napplet/naps#2 @ 9f30b350: "`relay.closed` indicates the shell
+      // terminated a subscription, with an optional `reason`." It defines no
+      // `relay.subscribe.error`.
       runtime.aclState.block('', TEST_DTAG, TEST_HASH);
 
       runtime.handleMessage(WINDOW_ID, {
@@ -1351,9 +1350,9 @@ describe('NIP-5D Envelope Dispatch', () => {
         filters: [{ kinds: [1] }],
       } as NappletMessage);
 
-      const err = findEnvelopeResponse(ctx.sent, 'relay.subscribe.error');
-      expect(err).toBeDefined();
-      expect((err as any).error).toBeDefined();
+      expect(ctx.sent.map(({ message }) => message)).toEqual([
+        { type: 'relay.closed', subId: 'sub-blocked', reason: 'denied: relay:read' },
+      ]);
     });
 
     it('identity.getPublicKey bypasses ACL with signed-out sentinel', () => {

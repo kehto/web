@@ -57,10 +57,12 @@ export type { PermissionAdapter, PermissionRateEvent, RuntimePermissions, Permis
 export type { PermissionPersistence, PermissionStorageFailure } from './permission-state.js';
 export type { ApprovalAnswer, ApprovalPrompt, ApprovalSignal, ApprovalCancellation, ApprovalOutcome, ApprovalFailure } from './approval-coordinator.js';
 export { DEFAULT_RULE_GRANT_PREFIX } from './approval-coordinator.js';
-export type { PermissionPrincipal, PermissionRequirement, PermissionRequest, PermissionScope, PermissionGrant } from '@kehto/firewall';
+export type { PermissionPrincipal, PermissionRequirement, PermissionRequest, PermissionScope, PermissionGrant, PermissionLimits, PermissionPolicyOptions } from '@kehto/firewall';
 export {
   createPermissionRules, permissionRuleSubject, resolvePermissionRule, setPermissionRule,
-  serializePermissionRules, deserializePermissionRules,
+  serializePermissionRules, deserializePermissionRules, MAX_PERMISSION_REQUIREMENTS,
+  MAX_PERMISSION_REQUIREMENTS_CEILING, MAX_PERMISSION_GRANTS, MAX_PERMISSION_GRANTS_CEILING,
+  MAX_PERMISSION_GRANTS_PER_PRINCIPAL, permissionLimits,
 } from '@kehto/firewall';
 export type {
   PermissionRuleAction, PermissionRuleScope, PermissionRules, PermissionRuleTarget,
@@ -89,6 +91,13 @@ export type { Runtime } from './runtime.js';
 export { handleStorageNap, cleanupNappState } from './state-handler.js';
 
 export { routeServiceMessage, notifyServiceWindowDestroyed } from './service-dispatch.js';
+
+export {
+  createUnrecognizedTypeDiagnostic,
+  KEHTO_UNRECOGNIZED_MESSAGE_TYPE,
+  UNRECOGNIZED_TYPE_WARNING_LIMIT,
+} from './unrecognized-type.js';
+export type { IgnoreUnrecognizedType, UnrecognizedTypeDiagnosticOptions } from './unrecognized-type.js';
 
 export type { Capability } from '@kehto/acl/capabilities';
 export { ALL_CAPABILITIES } from '@kehto/acl/capabilities';

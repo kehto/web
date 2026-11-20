@@ -3,6 +3,7 @@
 import type { NappletMessage } from '@napplet/core';
 import type { ApprovalSignal, ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
 import type { IntentAvailability, IntentHandlerHint, IntentRequest, IntentResult } from './intent-types.js';
+import { APPROVAL_BUSY, APPROVAL_CAPACITY, APPROVAL_UNAVAILABLE, approvalFailure } from './approval-failure.js';
 
 const INTENT_DESCRIPTOR: ServiceDescriptor = {
   name: 'intent', version: '1.0.0', description: 'NAP-INTENT convention dispatch',
@@ -84,6 +85,12 @@ function validateRequest(value: unknown): IntentRequest | undefined {
   });
 }
 
+/** Keep a host approval reason; every other rejection stays `invoke rejected`. */
+function approvalReason(error: unknown): string {
+  const message = error instanceof Error ? error.message : '';
+  return message === APPROVAL_CAPACITY || message === APPROVAL_BUSY || message === APPROVAL_UNAVAILABLE ? message : 'invoke rejected';
+}
+
 function reject(send: Send, id: string, error = 'invoke rejected'): void {
   send({ type: 'intent.invoke.result', id, result: { ok: false, error } } as NappletMessage);
 }
@@ -146,13 +153,14 @@ export function createIntentService(options: IntentServiceOptions): ServiceHandl
         if (signal.aborted) throw new Error('cancelled');
         return invokeCurrent(signal);
       }).then((outcome) => {
-        if (outcome.status !== 'executed') throw new Error('denied');
+        // NAP-INTENT master @ 377bf939 has no approval code; host conditions use `approval …` (spec gap, kehto/web#513).
+        if (outcome.status !== 'executed') throw new Error(approvalFailure(outcome.status, { denied: 'invoke rejected' }));
         return outcome.value;
       })
       : Promise.resolve().then(() => invokeCurrent());
     void pending.then(
       (result) => { if (current(windowId, generation, sender!)) send({ type: 'intent.invoke.result', id, result } as NappletMessage); },
-      () => { if (current(windowId, generation, sender!)) reject(send, id); },
+      (error: unknown) => { if (current(windowId, generation, sender!)) reject(send, id, approvalReason(error)); },
     ).catch(() => {});
   }
 

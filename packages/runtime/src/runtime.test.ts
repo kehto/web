@@ -10,7 +10,7 @@
  * envelope — the canonical nap-inc contract that the pre-12-04 handler silently dropped.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createRuntime } from './runtime.js';
 import type { Runtime } from './runtime.js';
 import { createMockRuntimeAdapter, createNip5dSessionEntry } from './test-utils.js';
@@ -50,26 +50,33 @@ function createAgedSessionEntry(windowId: string, dTag: string) {
 describe('inc channel sub-protocol (NAP-04 / DRIFT-RT-09)', () => {
   let ctx: MockRuntimeContext;
   let runtime: Runtime;
+  // NAP-INC 377bf939: peers are addressed by runtime-assigned endpoint identifiers.
+  let ID_A: string;
+  let ID_B: string;
+  let ID_C: string;
 
   beforeEach(() => {
     ctx = createMockRuntimeAdapter();
     let channelIdCounter = 0;
     ctx.hooks.crypto.randomUUID = () => (++channelIdCounter).toString(16).padStart(32, '0');
     runtime = createRuntime(ctx.hooks);
-    // Register three NIP-5D sessions — public INC identities are their dTags.
+    // Register three NIP-5D sessions — public INC identities are endpoint identifiers, not dTags.
     // Window IDs remain runtime-local transport keys.
     runtime.sessionRegistry.register(WINDOW_A, createNip5dSessionEntry(WINDOW_A, DTAG_A, HASH));
     runtime.sessionRegistry.register(WINDOW_B, createNip5dSessionEntry(WINDOW_B, DTAG_B, HASH));
     runtime.sessionRegistry.register(WINDOW_C, createNip5dSessionEntry(WINDOW_C, DTAG_C, HASH));
+    ID_A = runtime.getIncEndpointId(WINDOW_A)!;
+    ID_B = runtime.getIncEndpointId(WINDOW_B)!;
+    ID_C = runtime.getIncEndpointId(WINDOW_C)!;
   });
 
   // ─── Test 1: channel.open ───────────────────────────────────────────────────
 
-  it('channel.open sends target opened before the correlated dTag-safe result', () => {
+  it('channel.open sends target opened before the correlated endpoint-identifier result', () => {
     runtime.handleMessage(WINDOW_A, {
       type: 'inc.channel.open',
       id: 'q1',
-      target: DTAG_B,
+      target: ID_B,
       peer: 'forged-peer',
     } as NappletMessage);
 
@@ -85,8 +92,8 @@ describe('inc channel sub-protocol (NAP-04 / DRIFT-RT-09)', () => {
     // Opaque 32-char id derived from hooks.crypto.randomUUID() with hyphens stripped.
     // Tolerates mock UUID shapes (alnum) as well as real UUIDv4 (lowercase hex).
     expect(r.channelId).toMatch(/^[a-z0-9]{32}$/);
-    expect(r.peer).toBe(DTAG_B);
-    expect(targetOpened).toEqual({ type: 'inc.channel.opened', channelId: r.channelId, peer: DTAG_A });
+    expect(r.peer).toBe(ID_B);
+    expect(targetOpened).toEqual({ type: 'inc.channel.opened', channelId: r.channelId, peer: ID_A });
     expect(ctx.sent.map(({ windowId }) => windowId)).toEqual([WINDOW_B, WINDOW_A]);
   });
 
@@ -99,7 +106,7 @@ describe('inc channel sub-protocol (NAP-04 / DRIFT-RT-09)', () => {
       runtime.handleMessage(WINDOW_A, {
         type: 'inc.channel.open',
         id,
-        target: DTAG_B,
+        target: ID_B,
       } as NappletMessage);
 
       const result = envelopesOfType(ctx.sent, WINDOW_A, 'inc.channel.open.result').at(-1) as
@@ -125,7 +132,7 @@ describe('inc channel sub-protocol (NAP-04 / DRIFT-RT-09)', () => {
     runtime.handleMessage(WINDOW_A, {
       type: 'inc.channel.open',
       id: 'source-over-limit',
-      target: DTAG_C,
+      target: ID_C,
     } as NappletMessage);
 
     expect(envelopesOfType(ctx.sent, WINDOW_A, 'inc.channel.open.result').at(-1)).toEqual({
@@ -143,24 +150,24 @@ describe('inc channel sub-protocol (NAP-04 / DRIFT-RT-09)', () => {
     runtime.handleMessage(WINDOW_A, {
       type: 'inc.channel.open',
       id: 'source-replacement',
-      target: DTAG_C,
+      target: ID_C,
     } as NappletMessage);
     expect(envelopesOfType(ctx.sent, WINDOW_A, 'inc.channel.open.result').at(-1)).toMatchObject({
       type: 'inc.channel.open.result',
       id: 'source-replacement',
-      peer: DTAG_C,
+      peer: ID_C,
     });
     expect(envelopesOfType(ctx.sent, WINDOW_C, 'inc.channel.opened')).toHaveLength(freeTargetOpenedBefore + 1);
 
     runtime.handleMessage(WINDOW_C, {
       type: 'inc.channel.open',
       id: 'target-replacement',
-      target: DTAG_B,
+      target: ID_B,
     } as NappletMessage);
     expect(envelopesOfType(ctx.sent, WINDOW_C, 'inc.channel.open.result').at(-1)).toMatchObject({
       type: 'inc.channel.open.result',
       id: 'target-replacement',
-      peer: DTAG_B,
+      peer: ID_B,
     });
   });
 
@@ -176,13 +183,13 @@ describe('inc channel sub-protocol (NAP-04 / DRIFT-RT-09)', () => {
       runtime.handleMessage(windowId, {
         type: 'inc.channel.open',
         id: `target-cap-${index}`,
-        target: DTAG_B,
+        target: ID_B,
       } as NappletMessage);
       expect(envelopesOfType(ctx.sent, windowId, 'inc.channel.open.result')).toEqual([
         expect.objectContaining({
           type: 'inc.channel.open.result',
           id: `target-cap-${index}`,
-          peer: DTAG_B,
+          peer: ID_B,
         }),
       ]);
     }
@@ -194,7 +201,7 @@ describe('inc channel sub-protocol (NAP-04 / DRIFT-RT-09)', () => {
     runtime.handleMessage(overLimitWindow, {
       type: 'inc.channel.open',
       id: 'target-over-limit',
-      target: DTAG_B,
+      target: ID_B,
     } as NappletMessage);
 
     expect(envelopesOfType(ctx.sent, overLimitWindow, 'inc.channel.open.result')).toEqual([
@@ -213,7 +220,7 @@ describe('inc channel sub-protocol (NAP-04 / DRIFT-RT-09)', () => {
     runtime.handleMessage(WINDOW_A, {
       type: 'inc.channel.open',
       id: 'q1',
-      target: DTAG_B,
+      target: ID_B,
     } as NappletMessage);
     const openResult = envelopesOfType(ctx.sent, WINDOW_A, 'inc.channel.open.result')[0] as
       NappletMessage & { channelId: string };
@@ -232,7 +239,7 @@ describe('inc channel sub-protocol (NAP-04 / DRIFT-RT-09)', () => {
     expect(bEvents).toHaveLength(1);
     const ev = bEvents[0] as NappletMessage & { channelId: string; sender: string; payload?: unknown };
     expect(ev.channelId).toBe(channelId);
-    expect(ev.sender).toBe(DTAG_A);
+    expect(ev.sender).toBe(ID_A);
     expect(ev.payload).toEqual({ msg: 'hi' });
 
     // A receives nothing for its own emit (sender exclusion)
@@ -246,7 +253,7 @@ describe('inc channel sub-protocol (NAP-04 / DRIFT-RT-09)', () => {
     runtime.handleMessage(WINDOW_A, {
       type: 'inc.channel.open',
       id: 'open-1',
-      target: DTAG_B,
+      target: ID_B,
     } as NappletMessage);
     const openResult = envelopesOfType(ctx.sent, WINDOW_A, 'inc.channel.open.result')[0] as
       NappletMessage & { channelId: string };
@@ -262,7 +269,7 @@ describe('inc channel sub-protocol (NAP-04 / DRIFT-RT-09)', () => {
     expect(listResults).toHaveLength(1);
     const r = listResults[0] as NappletMessage & { id: string; channels: Array<{ id: string; peer: string }> };
     expect(r.id).toBe('q2');
-    expect(r.channels).toEqual([{ id: channelId, peer: DTAG_B }]);
+    expect(r.channels).toEqual([{ id: channelId, peer: ID_B }]);
   });
 
   // ─── Test 4: channel.close ─────────────────────────────────────────────────
@@ -271,7 +278,7 @@ describe('inc channel sub-protocol (NAP-04 / DRIFT-RT-09)', () => {
     runtime.handleMessage(WINDOW_A, {
       type: 'inc.channel.open',
       id: 'open-1',
-      target: DTAG_B,
+      target: ID_B,
     } as NappletMessage);
     const openResult = envelopesOfType(ctx.sent, WINDOW_A, 'inc.channel.open.result')[0] as
       NappletMessage & { channelId: string };
@@ -306,14 +313,14 @@ describe('inc channel sub-protocol (NAP-04 / DRIFT-RT-09)', () => {
   it('channel.broadcast emits to all peers across open channels', () => {
     // Open A↔B
     runtime.handleMessage(WINDOW_A, {
-      type: 'inc.channel.open', id: 'open-ab', target: DTAG_B,
+      type: 'inc.channel.open', id: 'open-ab', target: ID_B,
     } as NappletMessage);
     const rAB = envelopesOfType(ctx.sent, WINDOW_A, 'inc.channel.open.result')[0] as
       NappletMessage & { channelId: string };
     const channelAB = rAB.channelId;
     // Open A↔C
     runtime.handleMessage(WINDOW_A, {
-      type: 'inc.channel.open', id: 'open-ac', target: DTAG_C,
+      type: 'inc.channel.open', id: 'open-ac', target: ID_C,
     } as NappletMessage);
     const rAC = (envelopesOfType(ctx.sent, WINDOW_A, 'inc.channel.open.result'))[1] as
       NappletMessage & { channelId: string };
@@ -332,10 +339,10 @@ describe('inc channel sub-protocol (NAP-04 / DRIFT-RT-09)', () => {
     expect(bEvents).toHaveLength(1);
     expect(cEvents).toHaveLength(1);
     expect((bEvents[0] as NappletMessage & { channelId: string; sender: string; payload?: unknown })).toMatchObject({
-      channelId: channelAB, sender: DTAG_A, payload: { x: 1 },
+      channelId: channelAB, sender: ID_A, payload: { x: 1 },
     });
     expect((cEvents[0] as NappletMessage & { channelId: string; sender: string; payload?: unknown })).toMatchObject({
-      channelId: channelAC, sender: DTAG_A, payload: { x: 1 },
+      channelId: channelAC, sender: ID_A, payload: { x: 1 },
     });
     // A receives nothing
     const aEvents = envelopesOfType(ctx.sent, WINDOW_A, 'inc.channel.event');
@@ -349,7 +356,7 @@ describe('inc channel sub-protocol (NAP-04 / DRIFT-RT-09)', () => {
     const topicEvent = envelopesOfType(ctx.sent, WINDOW_B, 'inc.event')[0] as unknown as Record<string, unknown>;
     expect(Object.hasOwn(topicEvent, 'payload')).toBe(false);
 
-    runtime.handleMessage(WINDOW_A, { type: 'inc.channel.open', id: 'payload-open', target: DTAG_B } as NappletMessage);
+    runtime.handleMessage(WINDOW_A, { type: 'inc.channel.open', id: 'payload-open', target: ID_B } as NappletMessage);
     const channelId = envelopesOfType(ctx.sent, WINDOW_A, 'inc.channel.open.result').at(-1) as NappletMessage & { channelId: string };
     ctx.sent.length = 0;
     runtime.handleMessage(WINDOW_A, { type: 'inc.channel.emit', channelId: channelId.channelId } as NappletMessage);
@@ -423,13 +430,11 @@ describe('inc channel sub-protocol (NAP-04 / DRIFT-RT-09)', () => {
     unavailableRuntime.sessionRegistry.register(WINDOW_B, createNip5dSessionEntry(WINDOW_B, DTAG_B, HASH));
 
     unavailableRuntime.handleMessage(WINDOW_A, {
-      type: 'inc.channel.open', id: 'unavailable', target: DTAG_B,
+      type: 'inc.channel.open', id: 'unavailable', target: unavailableRuntime.getIncEndpointId(WINDOW_B),
     } as NappletMessage);
 
     const result = envelopesOfType(unavailableCtx.sent, WINDOW_A, 'inc.channel.open.result')[0];
-    expect(result).toMatchObject({ type: 'inc.channel.open.result', id: 'unavailable' });
-    expect(result).toHaveProperty('error');
-    expect(result).not.toHaveProperty('channelId');
+    expect(result).toEqual({ type: 'inc.channel.open.result', id: 'unavailable', error: 'target unavailable' });
     unavailableCtx.sent.length = 0;
     unavailableRuntime.handleMessage(WINDOW_A, { type: 'inc.channel.list', id: 'list' } as NappletMessage);
     expect(envelopesOfType(unavailableCtx.sent, WINDOW_A, 'inc.channel.list.result')[0]).toMatchObject({ channels: [] });
@@ -449,7 +454,7 @@ describe('inc channel sub-protocol (NAP-04 / DRIFT-RT-09)', () => {
       runtime.handleMessage(WINDOW_A, {
         type: 'inc.channel.open',
         id: 'target-denied',
-        target: DTAG_B,
+        target: ID_B,
       } as NappletMessage);
 
       expect(envelopesOfType(ctx.sent, WINDOW_A, 'inc.channel.open.result')).toEqual([
@@ -481,7 +486,7 @@ describe('inc channel sub-protocol (NAP-04 / DRIFT-RT-09)', () => {
     expect(() => resultUnavailableRuntime.handleMessage(WINDOW_A, {
       type: 'inc.channel.open',
       id: 'unavailable-result',
-      target: DTAG_B,
+      target: resultUnavailableRuntime.getIncEndpointId(WINDOW_B),
     } as NappletMessage)).not.toThrow();
 
     const opened = envelopesOfType(resultUnavailableCtx.sent, WINDOW_B, 'inc.channel.opened');
@@ -498,7 +503,7 @@ describe('inc channel sub-protocol (NAP-04 / DRIFT-RT-09)', () => {
 
   it('notifies only the surviving peer with peer destroyed and makes the route inert', () => {
     runtime.handleMessage(WINDOW_A, {
-      type: 'inc.channel.open', id: 'open', target: DTAG_B,
+      type: 'inc.channel.open', id: 'open', target: ID_B,
     } as NappletMessage);
     const channelId = (envelopesOfType(ctx.sent, WINDOW_A, 'inc.channel.open.result')[0] as NappletMessage & { channelId: string }).channelId;
 
@@ -732,6 +737,50 @@ describe('relay.publishEncrypted (NAP-08 / DRIFT-RT-08 / SH-C03)', () => {
     expect(String(result.error)).toMatch(/unsupported encryption/);
   });
 
+  // kehto/web#482. NAP-RELAY napplet/naps#2 @ 9f30b350, Shell Behavior: "The
+  // shell MUST encrypt content and sign event templates from
+  // `relay.publishEncrypted`". A signer that cannot encrypt must fail closed:
+  // no signature, no publish, and `ok: false` (Error Handling).
+  describe('fails closed when the signer cannot encrypt', () => {
+    function rebuild(peSigner: import('./types.js').Signer, publishToRelays: () => void): void {
+      ctx = createMockRuntimeAdapter({
+        auth: { getUserPubkey: () => 'user-pubkey', getSigner: () => peSigner },
+        relayPool: { ...createAvailableRelayPool(), publishToRelays },
+      });
+      runtime = createRuntime(ctx.hooks);
+      runtime.sessionRegistry.register(PE_WINDOW, createNip5dSessionEntry(PE_WINDOW, PE_DTAG, PE_HASH));
+    }
+
+    const CASES: ReadonlyArray<readonly [string, Partial<import('./types.js').Signer>, 'nip44' | 'nip04' | undefined, string]> = [
+      ['no nip44 method', { nip44: undefined }, 'nip44', 'encryption unavailable: nip44'],
+      ['no nip04 method', { nip04: undefined }, 'nip04', 'encryption unavailable: nip04'],
+      // Spec-gap decision: "NIP-04 as fallback" never downgrades an omitted scheme.
+      ['omitted scheme, NIP-04-only signer', { nip44: undefined }, undefined, 'encryption unavailable: nip44'],
+      ['encrypt resolves undefined', { nip44: { encrypt: async () => undefined as unknown as string, decrypt: async () => '' } }, 'nip44', 'encryption failed'],
+      ['encrypt resolves empty', { nip44: { encrypt: async () => '', decrypt: async () => '' } }, 'nip44', 'encryption failed'],
+      ['encrypt returns the plaintext', { nip44: { encrypt: async (_pk: string, plain: string) => plain, decrypt: async () => '' } }, 'nip44', 'encryption failed'],
+    ];
+
+    it.each(CASES)('%s', async (_name, overrides, encryption, error) => {
+      const signEvent = vi.fn(async (ev: import('@napplet/core').NostrEvent) => ({ ...ev, id: 'evt-id', sig: 'c'.repeat(128) }));
+      const publishToRelays = vi.fn();
+      rebuild(createStubSigner({ ...overrides, signEvent }), publishToRelays);
+
+      runtime.handleMessage(PE_WINDOW, {
+        type: 'relay.publishEncrypted', id: 'pe-closed',
+        event: { kind: 4, content: 'secret', tags: [], created_at: 123 }, recipient: PE_RECIPIENT,
+        ...(encryption ? { encryption } : {}),
+      } as NappletMessage);
+      await new Promise((r) => setTimeout(r, 0));
+
+      expect(allEnvelopesOfType(ctx.sent, 'relay.publishEncrypted.result')).toEqual([
+        { type: 'relay.publishEncrypted.result', id: 'pe-closed', ok: false, error },
+      ]);
+      expect(signEvent).not.toHaveBeenCalled();
+      expect(publishToRelays).not.toHaveBeenCalled();
+    });
+  });
+
   it('never exposes plaintext to local subscribers — delivered event carries ciphertext only', async () => {
     // Subscribe so the published (encrypted) event is also delivered back via
     // eventBuffer.bufferAndDeliver. Assert no subscriber envelope carries plaintext.
@@ -777,28 +826,12 @@ describe('relay.publishEncrypted (NAP-08 / DRIFT-RT-08 / SH-C03)', () => {
     } as NappletMessage);
     await new Promise((r) => setTimeout(r, 0));
 
-    // The runtime emits EITHER:
-    //   { type: 'relay.publishEncrypted.error', id, error: /denied|capability_missing|relay:/ }
-    //     (outer handleMessage short-circuits on ACL denial before reaching the handler), OR
-    //   { type: 'relay.publishEncrypted.result', id: 'pe-deny', ok: false, error: /.../ }
-    //     (handler runs but emits a failure result).
-    const errEnv = allEnvelopesOfType(ctx.sent, 'relay.publishEncrypted.error')[0] as
-      (NappletMessage & { id?: string; error?: string }) | undefined;
-    const resEnv = allEnvelopesOfType(ctx.sent, 'relay.publishEncrypted.result')[0] as
-      (NappletMessage & { id?: string; ok?: boolean; error?: string }) | undefined;
-    const denialSeen = !!errEnv || !!(resEnv && resEnv.ok === false);
-    expect(denialSeen).toBe(true);
-
-    if (errEnv) {
-      expect(errEnv.id).toBe('pe-deny');
-      expect(String(errEnv.error ?? '')).toMatch(/denied|capability_missing|relay:/);
-    }
-    if (resEnv && resEnv.ok === false) {
-      expect(resEnv.id).toBe('pe-deny');
-      expect(String(resEnv.error ?? '')).toMatch(
-        /denied|capability_missing|relay:|missing|unsupported|no signer|failed/i,
-      );
-    }
+    // NAP-RELAY napplet/naps#2 @ 9f30b350, Error Handling: a failed publish is a
+    // `.result` with `ok: false` and `error`; there is no `.error` message.
+    expect(allEnvelopesOfType(ctx.sent, 'relay.publishEncrypted.error')).toEqual([]);
+    expect(allEnvelopesOfType(ctx.sent, 'relay.publishEncrypted.result')).toEqual([
+      { type: 'relay.publishEncrypted.result', id: 'pe-deny', ok: false, error: 'denied: relay:write' },
+    ]);
 
     // Plaintext payload must not appear in any outgoing envelope — the shell must
     // deny BEFORE invoking the signer's encrypt primitive.

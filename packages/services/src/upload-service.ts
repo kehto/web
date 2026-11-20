@@ -37,6 +37,8 @@
 
 import type { NappletMessage } from '@napplet/core';
 import type { ApprovalSignal, ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
+import { randomUUID } from './random-uuid.js';
+import { approvalFailure } from './approval-failure.js';
 
 /** Upload service version — follows semver. */
 const UPLOAD_SERVICE_VERSION = '1.0.0';
@@ -209,7 +211,11 @@ export interface UploadServiceOptions {
    * configured rails and coarse limits. Omit to expose no rails and no limits.
    */
   uploadInfo?: UploadInfoProvider;
-  /** Generate an upload id; defaults to `crypto.randomUUID()`. */
+  /**
+   * Generate an upload id. Defaults to a secure UUID v4: native
+   * `crypto.randomUUID()`, or 16 `crypto.getRandomValues()` bytes where the
+   * browser omits it (non-localhost HTTP). Throws when neither exists.
+   */
   generateId?: () => string;
   /** Current time in unix ms; defaults to `Date.now()`. */
   now?: () => number;
@@ -239,7 +245,6 @@ interface UploadEntry {
 }
 
 declare const crypto: {
-  randomUUID(): string;
   subtle: { digest(algorithm: string, data: ArrayBuffer): Promise<ArrayBuffer> };
 };
 
@@ -256,7 +261,7 @@ export function createUploadService(options: UploadServiceOptions): ServiceHandl
   }
   const { uploader } = options;
   const uploadInfo = options.uploadInfo ?? DEFAULT_UPLOAD_INFO;
-  const generateId = options.generateId ?? (() => crypto.randomUUID());
+  const generateId = options.generateId ?? randomUUID;
   const now = options.now ?? (() => Date.now());
   let runtime: ServiceRuntimeContext | undefined;
   let warnedLegacy = false;
@@ -464,7 +469,8 @@ async function runUpload(args: UploadRunContext): Promise<void> {
       ], (signal) => plan.execute(signal), entry.controller.signal);
       if (!current(entry)) return;
       if (approval.status !== 'executed') {
-        send({ type: 'upload.upload.result', id, error: 'policy denied' } as NappletMessage);
+        // NAP-UPLOAD napplet/naps#33 @ f5cc981e has no approval code; host conditions use `approval …` (spec gap, kehto/web#513).
+        send({ type: 'upload.upload.result', id, error: approvalFailure(approval.status, { denied: 'policy denied' }) } as NappletMessage);
         entries.delete(key);
         return;
       }

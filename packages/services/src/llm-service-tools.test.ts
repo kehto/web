@@ -185,6 +185,36 @@ describe('NAP-LLM service: tools, thinking and block deltas', () => {
       expect(h.terminal(await h.generate(handle, request)), label).toMatchObject({ error: { code: 'invalid-request' } });
     }
     expect(h.host.generations).toHaveLength(0);
+    expect(h.host.consentRequests).toHaveLength(0);
+  });
+
+  it('LLM-C20: a malformed tool schema is invalid-request before consent or submission, and the error never echoes the schema', async () => {
+    const h = harness();
+    const handle = await h.select();
+    const marker = 'SECRET_SCHEMA_MARKER';
+    const malformed: Array<[string, Record<string, unknown>]> = [
+      ['properties is a number', { type: 'object', properties: 5, title: marker }],
+      ['required is text', { type: 'object', required: 'city', title: marker }],
+      ['root is an array schema', { type: 'array', title: marker }],
+      ['nested keyword of the wrong type', { type: 'object', properties: { [marker]: { type: 'string', minLength: '3' } } }],
+      ['repeated required name', { type: 'object', required: [marker, marker] }],
+      ['draft 4 boolean exclusiveMinimum', { type: 'object', properties: { n: { type: 'number', minimum: 0, exclusiveMinimum: true, description: marker } } }],
+    ];
+    for (const [label, parameters] of malformed) {
+      const reply = h.terminal(await h.generate(handle, withTools({ tools: [{ name: 'a', parameters }] })));
+      expect(reply, label).toMatchObject({ error: { code: 'invalid-request', message: 'request must be a GenerationRequest record.' } });
+      expect(JSON.stringify(reply), label).not.toContain(marker);
+    }
+    expect(h.host.consentRequests).toHaveLength(0);
+    expect(h.host.generations).toHaveLength(0);
+    expect(h.deltas(h.sent)).toHaveLength(0);
+
+    h.host.result = { content: [{ type: 'text', text: 'ok' }], finish: 'stop' };
+    const valid = { type: 'object', $defs: { unit: { enum: ['c', 'f'] } }, properties: { city: { type: 'string' }, unit: { $ref: '#/$defs/unit' } }, required: ['city'] };
+    expect(h.terminal(await h.generate(handle, withTools({ tools: [{ name: 'a', parameters: valid }] })))).toMatchObject({ result: { finish: 'stop' } });
+    expect(h.host.consentRequests).toHaveLength(1);
+    expect(h.host.generations).toHaveLength(1);
+    expect(h.host.generations[0]?.tools?.[0]?.parameters).toEqual(valid);
   });
 
   it('LLM-C20: JSON Schema keywords pass, unknown keywords included, and an empty tools list is omission', async () => {

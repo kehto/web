@@ -49,17 +49,36 @@ export {
   createPajaHostConfig,
   createPajaRuntimeHostConfig,
   formatPajaUrl,
+  normalizePajaConfigSettings,
   normalizePajaOptions,
 } from './options.js';
+export {
+  PAJA_SETTING_DEFINITIONS,
+  findPajaSettingDefinition,
+  getActivePajaSettings,
+  getPajaSetting,
+  getPajaSettingDefault,
+  normalizePajaSettings,
+  setActivePajaSettings,
+  validatePajaSettingValue,
+} from './settings.js';
+export { PAJA_SETTINGS_STORAGE_KEY, createPajaSettingsStore } from './browser-settings.js';
 export { renderPajaHtml } from './host-page.js';
 export {
   PAJA_NAPPLET_MANIFEST_KIND,
   PAJA_NAPPLET_MANIFEST_KINDS,
+  PajaPointerNotFoundError,
   PajaRelayUnreachableError,
   decodePajaPointer,
   injectPajaRuntimeCsp,
   resolvePajaPointer,
 } from './runtime-resolver.js';
+export type { PajaPointerRelayTally } from './runtime-resolver.js';
+export { findPajaPointerReplacements } from './runtime-pointer-replacements.js';
+export type {
+  FindPajaPointerReplacementsOptions,
+  PajaPointerReplacement,
+} from './runtime-pointer-replacements.js';
 export {
   PAJA_ADVERTISED_DOMAINS,
   PAJA_COMPATIBILITY_ALIASES,
@@ -101,6 +120,11 @@ export {
   classifyTargetCors,
   probeTargetCors,
 } from './target-cors.js';
+export {
+  PAJA_TARGET_RESOURCE_HINT,
+  findExternalAssetReferences,
+  planTargetNetwork,
+} from './target-network.js';
 
 export type {
   PajaCommand,
@@ -142,6 +166,11 @@ export type {
   WaitForTargetUrlOptions,
 } from './readiness.js';
 export type {
+  PajaTargetNetworkMode,
+  PajaTargetNetworkPlan,
+  PajaTargetResourceDeclaration,
+} from './target-network.js';
+export type {
   PajaTargetCorsDiagnostic,
   PajaTargetCorsFetch,
   PajaTargetCorsStatus,
@@ -173,4 +202,13 @@ export type {
   PajaLlmVaultOptions,
 } from './browser-llm-vault.js';
 export type { PajaIntentLauncherMessage } from './intent-launcher.js';
+export type {
+  PajaSettingDefinition,
+  PajaSettingKey,
+  PajaSettingScope,
+  PajaSettingUnit,
+  PajaSettingValues,
+  PajaSettingsNormalization,
+} from './settings.js';
+export type { PajaSettingsSaveResult, PajaSettingsStore } from './browser-settings.js';
 export type { NappletCspOptions, NappletCspDirectives, NappletCspDirective } from '@kehto/shell';

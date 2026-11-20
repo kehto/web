@@ -6,6 +6,7 @@ import { validMediaCommand } from './media-playback.js';
 import type { MediaPlayback, MediaPlaybackBackend, MediaPlaybackState } from './media-playback.js';
 import type { ResourceService } from './resource-service.js';
 import { createMediaStream } from './browser-media-stream.js';
+import { randomUUID } from './random-uuid.js';
 
 /** Browser playback dependencies; the resource service owns source policy. */
 export interface BrowserMediaPlaybackOptions {
@@ -18,7 +19,7 @@ export interface BrowserMediaPlaybackOptions {
 
 function readSource(resource: ServiceHandler, windowId: string, url: string, signal: AbortSignal): Promise<Blob> {
   return new Promise((resolve, reject) => {
-    const id = `media-resource-${crypto.randomUUID()}`;
+    const id = `media-resource-${randomUUID()}`;
     const cleanup = () => { clearTimeout(timer); signal.removeEventListener('abort', abort); };
     const abort = () => {
       cleanup();

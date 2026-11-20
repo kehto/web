@@ -28,7 +28,9 @@ import type {
   CommonReportMessage,
   CommonUnfollowMessage,
 } from '@napplet/nap/common/types';
+import { createUnrecognizedTypeDiagnostic } from '@kehto/runtime';
 import type { ApprovalSignal, ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
+import { approvalFailure } from './approval-failure.js';
 import {
   decode,
   encodeBytes,
@@ -235,6 +237,7 @@ function requestId(message: NappletMessage): string {
  */
 // aislop-ignore-next-line function-too-long -- Approval planning, source generations, and canonical COMMON terminals form one service boundary.
 export function createCommonService(options: CommonServiceOptions = {}): ServiceHandler {
+  const ignoreUnrecognized = createUnrecognizedTypeDiagnostic();
   const generations = new Map<string, symbol>();
   let runtime: ServiceRuntimeContext | undefined;
   let warnedLegacy = false;
@@ -266,7 +269,8 @@ export function createCommonService(options: CommonServiceOptions = {}): Service
       if (!current(windowId, generation) || signal.aborted) throw new Error('user-denied');
       return value;
     });
-    if (outcome.status !== 'executed') throw new Error('user-denied');
+    // NAP-COMMON napplet/naps#67 @ 8cd0eae8 has no approval code; host conditions use `approval …` (spec gap, kehto/web#513).
+    if (outcome.status !== 'executed') throw new Error(approvalFailure(outcome.status, { denied: 'user-denied' }));
     return outcome.value;
   };
   const settleAuthorized = <T>(windowId: string, generation: symbol, operation: CommonRelayOperation, target: unknown, resources: readonly string[], call: (context: CommonServiceContext) => T | Promise<T>, send: Send, failure: (error: string) => NappletMessage, success: (value: T) => NappletMessage): void => {
@@ -290,7 +294,7 @@ export function createCommonService(options: CommonServiceOptions = {}): Service
         void runtime.authorizeOperation(windowId, 'common.encodeNip19', originScopes('common.encodeNip19', []), async (signal) => {
           if (signal.aborted || !current(windowId, generation)) throw new Error('user-denied');
           return input ? encodeNip19(input) : { ok: false, error: 'invalid input' };
-        }).then((outcome) => { if (current(windowId, generation)) send({ type: 'common.encodeNip19.result', id, ...(outcome.status === 'executed' ? outcome.value : { ok: false, error: 'user-denied' }) } as NappletMessage); }).catch((error) => { if (current(windowId, generation)) send({ type: 'common.encodeNip19.result', id, ok: false, error: errorMessage(error, 'common request failed') } as NappletMessage); });
+        }).then((outcome) => { if (current(windowId, generation)) send({ type: 'common.encodeNip19.result', id, ...(outcome.status === 'executed' ? outcome.value : { ok: false, error: approvalFailure(outcome.status, { denied: 'user-denied' }) }) } as NappletMessage); }).catch((error) => { if (current(windowId, generation)) send({ type: 'common.encodeNip19.result', id, ok: false, error: errorMessage(error, 'common request failed') } as NappletMessage); });
         return;
       }
       if (message.type === 'common.decodeNip19') {
@@ -299,7 +303,7 @@ export function createCommonService(options: CommonServiceOptions = {}): Service
         void runtime.authorizeOperation(windowId, 'common.decodeNip19', originScopes('common.decodeNip19', []), async (signal) => {
           if (signal.aborted || !current(windowId, generation)) throw new Error('user-denied');
           return typeof value === 'string' ? decodeNip19Value(value) : { ok: false, error: 'invalid value' };
-        }).then((outcome) => { if (current(windowId, generation)) send({ type: 'common.decodeNip19.result', id, ...(outcome.status === 'executed' ? outcome.value : { ok: false, error: 'user-denied' }) } as NappletMessage); }).catch((error) => { if (current(windowId, generation)) send({ type: 'common.decodeNip19.result', id, ok: false, error: errorMessage(error, 'common request failed') } as NappletMessage); });
+        }).then((outcome) => { if (current(windowId, generation)) send({ type: 'common.decodeNip19.result', id, ...(outcome.status === 'executed' ? outcome.value : { ok: false, error: approvalFailure(outcome.status, { denied: 'user-denied' }) }) } as NappletMessage); }).catch((error) => { if (current(windowId, generation)) send({ type: 'common.decodeNip19.result', id, ok: false, error: errorMessage(error, 'common request failed') } as NappletMessage); });
         return;
       }
       if (message.type === 'common.getProfile') {
@@ -327,7 +331,8 @@ export function createCommonService(options: CommonServiceOptions = {}): Service
         const resource = request.target.type === 'event' ? request.target.id : request.target.pubkey;
         settleAuthorized(windowId, generation, 'report', request.target, [resource], (approved) => options.report!(request.target, request.reason, request.text, approved), send, (error) => ({ type: 'common.report.result', id, ok: false, error } as NappletMessage), (result) => ({ type: 'common.report.result', id, ...result } as NappletMessage)); return;
       }
-      send({ type: `${message.type}.error`, id, error: `Unknown common method: ${message.type}` } as NappletMessage);
+      // NIP-5D (nips#2303 @ f60550c3): unrecognized types get no reply.
+      ignoreUnrecognized('common', message.type);
     },
     onWindowDestroyed(windowId): void { generations.delete(windowId); },
     onPermissionRevoked(windowId): void { generations.delete(windowId); },

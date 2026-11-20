@@ -4,7 +4,7 @@ import { renderNappletNamespacePrelude } from '../../packages/shell/src/napplet-
 import { createRuntime } from '../../packages/runtime/src/runtime.js';
 import { createMockRuntimeAdapter, createNip5dSessionEntry } from '../../packages/runtime/src/test-utils.js';
 
-const NAP_INC_MASTER = '5ac0490461ca6fec2f0d2e45b4835cf9bc08de24';
+const NAP_INC_MASTER = '377bf939c6c906817084b43dd21d424de646dbc2';
 
 type Message = { type: string; [key: string]: unknown };
 type Listener = (event: { source: unknown; data: Message }) => void;
@@ -80,11 +80,12 @@ describe('NAP-INC canonical event tracer', () => {
       message: {
         type: 'inc.event',
         topic: 'napplet:profile/open',
-        sender: 'source-dtag',
+        sender: runtime.getIncEndpointId('source-window'),
         payload: { pubkey: 'a b', plus: 'a+b' },
       },
     });
     expect(events.some((sent) => sent.windowId === 'source-window')).toBe(false);
+    expect((events[0].message as Message).sender).not.toBe('source-dtag');
 
     ctx.sent.length = 0;
     runtime.handleMessage('source-window', {

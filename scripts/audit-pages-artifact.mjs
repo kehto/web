@@ -21,6 +21,7 @@ const PORTAL_LANDING_JS = 'assets/landing.js';
 const RETIRED_PLAYGROUND_BASE = '/web/playground/';
 const PAJA_BASE = '/web/paja/';
 const DOCS_BASE = '/web/docs/';
+const CONFORMANCE_BASE = '/web/conformance/';
 const FLOORPLANS_BASE = '/web/floorplans/';
 const FLOORPLAN_STAMP = 'data-kehto-floorplan-stamp';
 
@@ -76,6 +77,7 @@ function checkPortal() {
   }
   assertContains(portalPath, portal, 'href="paja/"', 'portal route');
   assertContains(portalPath, portal, 'href="docs/"', 'portal route');
+  assertContains(portalPath, portal, 'href="conformance/"', 'portal route');
   assertContains(portalPath, portal, 'href="floorplans/"', 'portal route');
   assertContains(portalPath, portal, `href="${PORTAL_LANDING_CSS}"`, 'portal route');
   assertContains(portalPath, portal, `src="${PORTAL_GSAP_VENDOR}"`, 'portal route');
@@ -87,6 +89,17 @@ function checkPortal() {
   assertFile(join(outputRoot, 'assets', 'landing.css'), 'portal stylesheet asset');
   assertFile(join(outputRoot, 'assets', 'landing.js'), 'portal script asset');
   assertFile(join(outputRoot, 'assets', 'vendor', 'gsap.min.js'), 'portal GSAP vendor asset');
+}
+
+function checkConformance() {
+  const root = artifactPathFromPublicPath(CONFORMANCE_BASE);
+  const indexPath = join(root, 'index.html');
+  if (assertFile(indexPath, 'conformance UI route')) {
+    const page = read(indexPath);
+    assertContains(indexPath, page, "import * as api from './conformance.js'", 'conformance UI route');
+    assertContains(indexPath, page, 'mountKehtoConformanceUi', 'conformance UI route');
+  }
+  assertFile(join(root, 'conformance.js'), 'conformance browser bundle');
 }
 
 function checkPaja() {
@@ -168,4 +181,6 @@ if (violations.length > 0) {
   process.exit(1);
 }
 
-console.log('[audit:pages] OK - verified /web/, the retired /web/playground/ redirect, /web/paja/, /web/docs/, TypeDoc output, and /web/floorplans/');
+checkConformance();
+
+console.log('[audit:pages] OK - verified /web/, the retired /web/playground/ redirect, /web/paja/, /web/docs/, /web/conformance/, TypeDoc output, and /web/floorplans/');

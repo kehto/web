@@ -14,6 +14,7 @@
  *   .pages/playground/   (retired-route redirect to Paja)
  *   .pages/paja/
  *   .pages/docs/
+ *   .pages/conformance/  (static @kehto/conformance web UI)
  *   .pages/floorplans/ (per-package architecture maps, scripts/floorplans.mjs)
  */
 import {
@@ -46,6 +47,8 @@ const pajaOutput = join(outputRoot, 'paja');
 const docsDist = join(repoRoot, 'docs', '.vitepress', 'dist');
 const docsApi = join(repoRoot, 'docs', 'api');
 const docsOutput = join(outputRoot, 'docs');
+const conformanceDist = join(repoRoot, 'apps', 'conformance', 'dist');
+const conformanceOutput = join(outputRoot, 'conformance');
 
 const rel = relative.bind(null, repoRoot);
 
@@ -85,9 +88,12 @@ ensureFile(join(docsApi, 'modules', '_kehto_shell.html'), 'TypeDoc API output');
 cpSync(docsDist, docsOutput, { recursive: true });
 cpSync(docsApi, join(docsOutput, 'api'), { recursive: true });
 
+ensureFile(join(conformanceDist, 'index.html'), 'conformance UI build (pnpm --filter @kehto/conformance-app build)');
+cpSync(conformanceDist, conformanceOutput, { recursive: true });
+
 execFileSync(process.execPath, [join(scriptDir, 'floorplans.mjs'), 'pages', '--out', join(outputRoot, 'floorplans')], {
   cwd: repoRoot,
   stdio: 'inherit',
 });
 
-console.log(`[build:pages] OK - wrote ${rel(outputRoot)} portal, retired playground redirect, paja, docs, and floorplans roots`);
+console.log(`[build:pages] OK - wrote ${rel(outputRoot)} portal, retired playground redirect, paja, docs, conformance and floorplans roots`);

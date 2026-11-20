@@ -1,0 +1,83 @@
+{
+  "name": "@kehto/conformance",
+  "version": "0.0.0",
+  "description": "Runtime conformance suite for NIP-5D and advertised NAP domains \u2014 engine, driver contract, first-party Kehto target, probe fixtures, and reporters",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./kehto-target": {
+      "types": "./dist/kehto-target.d.ts",
+      "import": "./dist/kehto-target.js"
+    },
+    "./mutations": {
+      "types": "./dist/mutations.d.ts",
+      "import": "./dist/mutations.js"
+    },
+    "./cli": {
+      "types": "./dist/cli.d.ts",
+      "import": "./dist/cli.js"
+    },
+    "./browser": "./dist/browser/conformance.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@kehto/nip": "workspace:^",
+    "@kehto/runtime": "workspace:^",
+    "@kehto/services": "workspace:^",
+    "@kehto/shell": "workspace:^"
+  },
+  "peerDependencies": {
+    "@napplet/core": ">=0.42.0 <0.45.0",
+    "@napplet/nap": ">=0.37.0 <0.44.0",
+    "nostr-tools": ">=2.23.3 <=2.x",
+    "@playwright/test": "^1.54.0"
+  },
+  "devDependencies": {
+    "@napplet/core": ">=0.44.0 <0.45.0",
+    "@napplet/nap": ">=0.43.0 <0.44.0",
+    "nostr-tools": "^2.23.3",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.2",
+    "@playwright/test": "^1.54.0"
+  },
+  "scripts": {
+    "build": "tsup",
+    "type-check": "tsc --noEmit",
+    "test:unit": "cd ../.. && vitest run --config vitest.config.ts packages/conformance",
+    "test": "pnpm test:unit"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kehto/web.git",
+    "directory": "packages/conformance"
+  },
+  "keywords": [
+    "nostr",
+    "napplet",
+    "kehto",
+    "conformance",
+    "nip-5d",
+    "testing"
+  ],
+  "peerDependenciesMeta": {
+    "@playwright/test": {
+      "optional": true
+    }
+  }
+}

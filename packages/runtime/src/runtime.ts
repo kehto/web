@@ -1,6 +1,7 @@
 
 import { createDispatch, type NappletMessage, type NostrEvent, type NapHandler, type NapDomain } from '@napplet/core';
 import { ALL_CAPABILITIES, type Capability } from '@kehto/acl/capabilities';
+import { permissionLimits } from '@kehto/firewall';
 import type { PermissionRequirement } from '@kehto/firewall';
 
 import type {
@@ -8,7 +9,7 @@ import type {
   ServiceHandler, ServiceRegistry, ServiceInfo, ServiceRuntimeContext,
 } from './types.js';
 import { createServiceExtensionRouter } from './service-extensions.js';
-import { notifyServiceWindowDestroyed, notifyServicePermissionRevoked } from './service-dispatch.js';
+import { createWindowDestroyTracker, notifyServicePermissionRevoked, type WindowDestroyTracker } from './service-dispatch.js';
 import { createSessionRegistry, type SessionRegistry } from './session-registry.js';
 import { createAclState, type AclStateContainer } from './acl-state.js';
 import type { LegacyFirewallAdapter } from './legacy-firewall-adapter.js';
@@ -90,12 +91,53 @@ export interface Runtime {
   unregisterService(name: string): void;
 
   /**
+   * Report whether this runtime currently routes an exact service domain.
+   *
+   * The runtime copies `RuntimeAdapter.services` once at creation, so a handler
+   * added to that object later is not routed until `registerService()` runs.
+   * Hosts read this before exposing a domain so advertisement cannot outrun
+   * routing.
+   *
+   * @param name - Exact domain name (e.g., 'webrtc')
+   * @returns true while a handler is registered for the name
+   * @example
+   * ```ts
+   * runtime.registerService('webrtc', handler);
+   * runtime.hasService('webrtc'); // true
+   * ```
+   */
+  hasService(name: string): boolean;
+
+  /**
    * Clean up all state associated with a napplet window.
    * Removes subscriptions, pending state, and notifies service handlers.
+   * Services hear `onWindowDestroyed` at most once per session registration,
+   * even when `sessionRegistry.unregister` or a repeated call retires it too.
+   * With the permission runtime the source is retired; without it, a source
+   * that keeps dispatching is live again and its next destroy notifies.
    *
    * @param windowId - The window to clean up
    */
   destroyWindow(windowId: string): void;
+
+  /**
+   * Return the NAP-INC endpoint identifier of a live registered window.
+   *
+   * The identifier is opaque, runtime-assigned on first use, stable until that
+   * registration is replaced or unregistered, and never reused. It is the
+   * `sender`/`peer` other napplets see and the only valid `inc.channel.open`
+   * target. Handing it to another napplet is a host peer selection: do that
+   * only for a peer the host means to make addressable.
+   *
+   * @param windowId - Internal window identity of the registered napplet
+   * @returns The endpoint identifier, or undefined without a live endpoint
+   *
+   * @example
+   * ```ts
+   * const target = runtime.getIncEndpointId('window-2');
+   * ```
+   */
+  getIncEndpointId(windowId: string): string | undefined;
 
   /** Access the identity registry (for shell adapter to read napplet session state). */
   readonly sessionRegistry: SessionRegistry;
@@ -131,6 +173,7 @@ type RuntimeInstanceContext = {
   firewallState: LegacyFirewallAdapter | undefined;
   manifestCache: ManifestCache;
   consentHandlerRef: { current: ConsentHandler | null };
+  windowDestroys: WindowDestroyTracker;
   handleMessage: Runtime['handleMessage'];
   extensions: ReturnType<typeof createServiceExtensionRouter>;
   builtInDomains: ReadonlySet<string>;
@@ -200,6 +243,7 @@ function createMessageHandler(
   dispatchNapEnvelope: (windowId: string, envelope: NappletMessage) => void,
   serviceRouting: { builtInDomains: ReadonlySet<string>; extensions: ReturnType<typeof createServiceExtensionRouter> },
   firewallGate: (windowId: string, envelope: NappletMessage, senderCap: string | null) => 'dispatch' | 'drop',
+  windowDestroys: WindowDestroyTracker,
   permissions?: ReturnType<typeof createPermissionRuntime>,
 ): Runtime['handleMessage'] {
   return (windowId: string, msg: unknown): void => {
@@ -211,6 +255,8 @@ function createMessageHandler(
     // trusted creation identity independently of the optional NAP-SHELL exchange.
     if (!sessionRegistry.getEntryByWindowId(windowId)) return;
     if (permissions && !permissions.isSourceActive(windowId)) return;
+    // A source still dispatching after a cleanup destroy gets its next destroy too (#498).
+    windowDestroys.dispatching(windowId);
     const domain = envelope.type.slice(0, dotIdx);
     if (!serviceRouting.builtInDomains.has(domain)) {
       serviceRouting.extensions.handleMessage(windowId, envelope);
@@ -256,7 +302,7 @@ function createMessageHandler(
     // charge at their validated execution boundary, never twice at dispatch.
     const cleanup = envelope.type === 'inc.unsubscribe' || envelope.type === 'inc.channel.close' || envelope.type === 'config.unsubscribe';
     if (permissions && !cleanup && (domain === 'storage' || domain === 'inc' || domain === 'config')) {
-      // NAP-INC 19de5ce1 requires actual channel lists; NAP-CONFIG bed9cb5b
+      // NAP-INC 377bf939 requires actual channel lists; NAP-CONFIG bed9cb5b
       // requires snapshots/schema ACKs but defines no budget-denial wire.
       // Observe those reads/registrations until the specs define one;
       // do not invent errors or replace a mandatory snapshot with empty data.
@@ -267,7 +313,7 @@ function createMessageHandler(
       // A host diagnostic may synchronously retire or replace the source.
       if (sessionRegistry.getEntryByWindowId(windowId) !== source || !permissions.isSourceActive(windowId)) return;
       if (failure) {
-        // NAP-STORAGE 4f4cf0ca and NAP-INC 19de5ce1 permit correlated
+        // NAP-STORAGE 4f4cf0ca and NAP-INC 377bf939 permit correlated
         // error results for exactly these requests. Fire-and-forget stays silent.
         if (envelope.type === 'storage.get' || envelope.type === 'storage.set'
           || envelope.type === 'storage.remove' || envelope.type === 'storage.keys'
@@ -381,7 +427,7 @@ function createServiceRuntimeContext(context: RuntimeInstanceContext): ServiceRu
 function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
   const {
     aclState, firewallState, eventBuffer, hooks, incRuntime, manifestCache, registeredServices,
-    replayDetector, serviceRegistry, sessionRegistry, subscriptions, consentHandlerRef, extensions,
+    replayDetector, serviceRegistry, sessionRegistry, subscriptions, consentHandlerRef, extensions, windowDestroys,
   } = context;
   const undeclaredServiceConsents = new Set<string>();
   const attachedServices = new Map<string, ServiceHandler>();
@@ -393,6 +439,7 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
     const lifetime = {};
     serviceLifetimes.set(name, lifetime);
     const boundContext: ServiceRuntimeContext = context.permissions ? Object.freeze({ ...serviceContext,
+      maxPermissionRequirements: permissionLimits(hooks.permissions).maxRequirements,
       authorizeOperation<T>(windowId: string, operation: string, requirements: readonly PermissionRequirement[],
         execute: (signal: ApprovalSignal) => T | Promise<T>, signal?: ApprovalSignal) {
         return context.permissions!.run(windowId, operation, requirements, () => serviceLifetimes.get(name) === lifetime, execute, 'operation', signal);
@@ -461,6 +508,7 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
       detachService(name);
       delete serviceRegistry[name];
     },
+    hasService: (name: string): boolean => registeredServices.has(name) && Object.hasOwn(serviceRegistry, name),
     destroyWindow(windowId: string): void {
       context.permissions?.close(windowId);
       extensions.destroyWindow(windowId);
@@ -471,7 +519,10 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
         }
       }
       incRuntime.destroyWindow(windowId);
-      notifyServiceWindowDestroyed(windowId, serviceRegistry);
+      windowDestroys.destroyed(windowId);
+    },
+    getIncEndpointId(windowId: string): string | undefined {
+      return incRuntime.endpointId(windowId);
     },
     get sessionRegistry() { return sessionRegistry; },
     get aclState() { return aclState; },
@@ -536,16 +587,22 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   const firewallState = hooks.permissions ? undefined : hooks.legacyFirewall;
   let extensions: ReturnType<typeof createServiceExtensionRouter> | undefined;
   let permissions: ReturnType<typeof createPermissionRuntime> | undefined;
+  let incRuntime: IncRuntime | null = null;
+  // NAP-INC: a replacement or removed registration is a different endpoint.
+  // Its identifier, channels, and subscriptions end with it.
+  // kehto/web#498: services hear one destroy per registration, whichever teardown path runs.
+  const windowDestroys = createWindowDestroyTracker(serviceRegistry, !!hooks.permissions);
   const sessionRegistry = createSessionRegistry(hooks.onPendingUpdate, (windowId) => {
+    incRuntime?.retireEndpoint(windowId);
     firewallState?.resetInitBudget(windowId);
     extensions?.destroyWindow(windowId);
     permissions?.retire(windowId);
-    if (hooks.permissions) notifyServiceWindowDestroyed(windowId, serviceRegistry);
+    windowDestroys.registered(windowId);
   }, (windowId) => {
+    incRuntime?.retireEndpoint(windowId);
     permissions?.retire(windowId);
-    if (hooks.permissions) notifyServiceWindowDestroyed(windowId, serviceRegistry);
+    if (hooks.permissions) windowDestroys.destroyed(windowId);
   });
-  let incRuntime: IncRuntime | null = null;
   const aclState = createAclState(hooks.aclPersistence, hooks.aclDefaultPolicy ?? 'permissive', (mutation) => {
     for (const entry of sessionRegistry.getAllEntries()) {
       if (entry.dTag === mutation.dTag && entry.aggregateHash === mutation.aggregateHash) {
@@ -647,6 +704,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
         const entry = sessionRegistry.getEntryByWindowId(windowId);
         return !!entry && aclState.check('', entry.dTag, entry.aggregateHash, 'relay:read');
       },
+      ...(permissions ? { maxPermissionRequirements: permissionLimits(hooks.permissions).maxRequirements } : {}),
       authorizeOperation: permissions ? (windowId, operation, requirements, execute, signal) =>
         permissions.run(windowId, operation, requirements,
           () => !!sessionRegistry.getEntryByWindowId(windowId), execute, 'operation', signal) : undefined,
@@ -663,7 +721,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     hooks, services: serviceRegistry, registrations: registeredServices,
     sessions: sessionRegistry, acl: aclState, enforce: enforceNap, firewall: firewallGate, permissions,
   });
-  const handleMessage = createMessageHandler(hooks, sessionRegistry, enforceNap, dispatchNapEnvelope, { builtInDomains, extensions }, firewallGate, permissions);
+  const handleMessage = createMessageHandler(hooks, sessionRegistry, enforceNap, dispatchNapEnvelope, { builtInDomains, extensions }, firewallGate, windowDestroys, permissions);
 
   return createRuntimeInstance({
     hooks,
@@ -678,6 +736,7 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
     firewallState,
     manifestCache,
     consentHandlerRef,
+    windowDestroys,
     handleMessage,
     extensions,
     permissions,

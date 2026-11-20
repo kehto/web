@@ -19,8 +19,12 @@
  * transport/shell-policy failures are returned in the envelope `error` field.
  *
  * `cvm.event` is fanned out to every window that holds an active session with
- * the originating server (a window opens a session by issuing a `cvm.request`
- * and closes it via `cvm.close` or window teardown).
+ * the originating server (a window opens a session when a `cvm.request` is
+ * accepted for the transport and closes it via `cvm.close` or window teardown).
+ *
+ * Admission (NAP-CVM #31 @ 28cf1bdb, Security Considerations): every operation
+ * that can reach the transport holds one slot of its endpoint's own budget
+ * from receipt until it settles. See `CvmServiceOptions.concurrency`.
  *
  * @example
  * ```ts
@@ -35,6 +39,22 @@
 import type { ApprovalSignal, ServiceHandler } from '@kehto/runtime';
 import type { CvmDiscoverQuery, CvmRequestOptions, CvmServer, CvmServerRef, McpMessage } from './cvm-types.js';
 import type { CvmRegistryFamily } from './cvm-registry-types.js';
+import type { CvmConcurrencyOptions } from './cvm-admission.js';
+import type { CvmRequestHandle } from './cvm-correlation.js';
+
+export type { CvmRequestHandle } from './cvm-correlation.js';
+
+/** Execution context the service passes with each transport call. */
+export interface CvmTransportExecution {
+  /** Aborts when approval is withdrawn or the operation ends. */
+  signal: ApprovalSignal;
+  /**
+   * On {@link CvmTransport.request}: the napplet request's handle. A transport
+   * that maps request ids keeps it until the request settles, so
+   * {@link CvmTransport.cancel} can name the id it actually sent.
+   */
+  handle?: CvmRequestHandle;
+}
 
 /**
  * Abstract ContextVM transport. Implementors own Nostr relay access, signing,
@@ -47,8 +67,32 @@ export interface CvmTransport {
   planRequest?(server: CvmServerRef): readonly string[];
   /** Resolve public ContextVM server announcements matching the query. */
   discover(query?: CvmDiscoverQuery, execution?: { signal: ApprovalSignal }): Promise<CvmServer[]>;
-  /** Send a raw MCP message to a server and resolve with the MCP response. */
-  request(server: CvmServerRef, message: McpMessage, options?: CvmRequestOptions, execution?: { signal: ApprovalSignal }): Promise<McpMessage>;
+  /** Send an MCP request-form message to a server and resolve with the matching MCP response. */
+  request(server: CvmServerRef, message: McpMessage, options?: CvmRequestOptions, execution?: CvmTransportExecution): Promise<McpMessage>;
+  /**
+   * Publish an MCP notification or a response to a server request, and
+   * resolve once it is published (NAP-CVM #31 @ 28cf1bdb: "After transport
+   * publication, result without `message`"). No MCP response is awaited, and
+   * the message is sent as given: a notification gets no id and a response
+   * keeps the napplet's id. Rejects with `relay timeout` past `timeoutMs`.
+   *
+   * Optional for older transports. Without it the service warns once
+   * (`KEHTO_CVM_TRANSPORT_PUBLISH`, see docs/compatibility.md) and falls back
+   * to {@link CvmTransport.request}, still answering without `message`.
+   */
+  publish?(server: CvmServerRef, message: McpMessage, options?: CvmRequestOptions, execution?: { signal: ApprovalSignal }): Promise<void>;
+  /**
+   * Publish a napplet's `notifications/cancelled` for its request `handle`,
+   * with `params.requestId` mapped to the id the transport actually sent
+   * (NAP-CVM #31 @ 28cf1bdb: a transport that maps request ids "consistently
+   * maps request references such as cancellation"). Resolves `false`, without
+   * publishing, when that request has already settled.
+   *
+   * Optional for older transports. Without it the service warns once
+   * (`KEHTO_CVM_TRANSPORT_CANCEL`, see docs/compatibility.md) and publishes
+   * the cancellation unchanged.
+   */
+  cancel?(server: CvmServerRef, handle: CvmRequestHandle, message: McpMessage, options?: CvmRequestOptions, execution?: { signal: ApprovalSignal }): Promise<boolean>;
   /** Release any session state held for a server (subscriptions, init cache). */
   close(server: CvmServerRef): Promise<void>;
   /**
@@ -66,6 +110,21 @@ export interface CvmServiceOptions {
   transport: CvmTransport;
   /** Optional operator-selected providers and pinned CEP-15 family memberships. */
   registry?: readonly CvmRegistryFamily[];
+  /**
+   * Per-endpoint admission limits for `cvm.discover`, `cvm.request`, and
+   * `cvm.registry.*`. Defaults to 8 running and 32 queued operations per
+   * authenticated endpoint. Queued time counts against the request deadline;
+   * an operation arriving with both full is refused with `policy denied`.
+   */
+  concurrency?: CvmConcurrencyOptions;
+  /**
+   * How long a server request delivered to a napplet stays answerable, in
+   * milliseconds. NAP-CVM #31 @ 28cf1bdb: server requests "still require a
+   * response or expire under session policy"; this uses the Timeouts bounds,
+   * an integer from 1 through 300000, default 30000. A response after expiry
+   * is unmatched and gets `invalid message`.
+   */
+  serverRequestTimeoutMs?: number;
 }
 
 /** The created CVM service, exposing the handler plus a disposal hook. */

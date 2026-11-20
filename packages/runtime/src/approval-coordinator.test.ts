@@ -200,6 +200,54 @@ describe('approval coordination', () => {
     expect(f.action).not.toHaveBeenCalled();
   });
 
+  // kehto/web#457: the deadline bounds the approval phase. The domain owns the
+  // operation deadline (NAP-CVM `timeoutMs`), so execution may outlive it.
+  it('does not cut off an action that runs past the approval deadline', async () => {
+    vi.useFakeTimers();
+    const done = deferred<string>();
+    let active: ApprovalSignal | undefined;
+    const f = fixture({ timeoutMs: 25 });
+    const result = f.coordinator.run(principal, 'session-1', [requirement], () => true, (signal) => {
+      active = signal; return done.promise;
+    });
+    await vi.advanceTimersByTimeAsync(100);
+    expect(active?.aborted).toBe(false);
+    expect(f.coordinator.pendingCount).toBe(1);
+    done.resolve('finished');
+    expect(await result).toEqual({ status: 'executed', value: 'finished' });
+    expect(f.coordinator.pendingCount).toBe(0);
+  });
+
+  it('keeps a running action cancellable after its approval phase ends', async () => {
+    vi.useFakeTimers();
+    const f = fixture({ timeoutMs: 25 });
+    let active: ApprovalSignal | undefined;
+    const result = f.coordinator.run(principal, 'session-1', [requirement], () => true, (signal) => {
+      active = signal; return new Promise<string>(() => {});
+    });
+    await vi.advanceTimersByTimeAsync(100);
+    f.coordinator.cancel('session-1');
+    expect(await result).toEqual({ status: 'cancelled' });
+    expect(active?.aborted).toBe(true);
+    expect(f.coordinator.pendingCount).toBe(0);
+  });
+
+  it('lets an equivalent request proceed while an earlier one is still executing', async () => {
+    const first = deferred<string>();
+    const started = deferred<void>();
+    const f = fixture({ prompt: vi.fn(async () => session), maxPending: 1 });
+    const running = f.coordinator.run(principal, 'session-1', [requirement], () => true, () => {
+      started.resolve(); return first.promise;
+    });
+    await started.promise;
+    await Promise.resolve();
+    // The executing request has left the approval queue, so it no longer holds
+    // the only pending slot or the hold on its equivalents.
+    expect(await f.run()).toEqual({ status: 'executed', value: 'opened' });
+    first.resolve('first');
+    expect(await running).toEqual({ status: 'executed', value: 'first' });
+  });
+
   it.each(['identity', 'policy'])('rechecks %s after asynchronous approval', async (change) => {
     const answer = deferred<ApprovalAnswer>();
     const shown = deferred<ApprovalPrompt>();
@@ -334,21 +382,22 @@ describe('approval coordination', () => {
     expect(f.action).not.toHaveBeenCalled();
   });
 
-  it('allows by default rule without prompting or spending the prompt budget, as a marked session grant', async () => {
+  it('allows by default rule without prompting, spending the prompt budget, or writing a grant', async () => {
     const beforePrompt = vi.fn(() => false);
-    const defaultDecision = vi.fn(() => 'allow' as const);
+    let rule: 'allow' | 'ask' = 'allow';
+    const defaultDecision = vi.fn(() => rule);
     const f = fixture({ defaultDecision, beforePrompt });
     expect(await f.run()).toEqual({ status: 'executed', value: 'opened' });
     expect(f.prompt).not.toHaveBeenCalled();
     expect(beforePrompt).not.toHaveBeenCalled();
-    const grants = f.state().grants;
-    expect(grants.map((grant) => [grant.effect, grant.lifetime, grant.sessionId])).toEqual([
-      ['allow', 'session', 'session-1'], ['allow', 'session', 'session-1'],
-    ]);
-    expect(grants.every((grant) => grant.id.startsWith('rule:'))).toBe(true);
-    // The session grant now covers the scope, so the rule is not consulted again.
+    // The rule is the answer (kehto/web#513): no grant, so the table never fills.
+    expect(f.state().grants).toEqual([]);
     expect(await f.run()).toEqual({ status: 'executed', value: 'opened' });
-    expect(defaultDecision).toHaveBeenCalledTimes(1);
+    // Changing the rule takes effect on the very next request.
+    rule = 'ask';
+    beforePrompt.mockReturnValue(true);
+    expect(await f.run()).toEqual({ status: 'executed', value: 'opened' });
+    expect(f.prompt).toHaveBeenCalledTimes(1);
     f.coordinator.dispose();
   });
 
@@ -394,5 +443,66 @@ describe('approval coordination', () => {
     expect(result).toEqual({ status: 'executed', value: 'opened' });
     expect(onceOnly.prompt).toHaveBeenCalledTimes(1);
     onceOnly.coordinator.dispose();
+  });
+});
+
+// kehto/web#514/#513: bounds are host options; a full grant table is capacity, not a denial.
+describe('configured permission limits', () => {
+  it('refuses an out-of-range bound when the coordinator is built', () => {
+    expect(() => fixture({ maxRequirements: 0 })).toThrow(RangeError);
+    expect(() => fixture({ maxGrants: 1_000_000 })).toThrow(RangeError);
+  });
+
+  it('reports a full grant table as capacity and runs nothing', async () => {
+    // Room for the first request's interface and resource grants only. A
+    // persistent decision is never evicted to make room.
+    const verified: PermissionPrincipal = { kind: 'verified', manifestKey: `nip5d:15129:${'b'.repeat(64)}`, artifactHash: 'a'.repeat(64) };
+    const f = fixture({ maxGrants: 2, prompt: async () => ({ effect: 'allow', lifetime: 'persistent' }) });
+    expect(await f.coordinator.run(verified, 'session-1', [requirement], () => true, f.action)).toEqual({ status: 'executed', value: 'opened' });
+    const other: PermissionRequirement = { ...requirement, scope: { kind: 'exact', value: 'https://example.com/other' } };
+    const action = vi.fn();
+    expect(await f.coordinator.run(verified, 'session-1', [other], () => true, action)).toEqual({ status: 'capacity' });
+    expect(action).not.toHaveBeenCalled();
+    f.coordinator.dispose();
+  });
+
+  it('honours a larger maxRequirements', async () => {
+    const many = Array.from({ length: 200 }, (_, index): PermissionRequirement => ({ ...requirement, scope: { kind: 'exact', value: `https://example.com/${index}` } }));
+    const small = fixture({ prompt: async () => session });
+    expect(await small.coordinator.run(principal, 'session-1', many, () => true, small.action)).toEqual({ status: 'denied' });
+    const large = fixture({ maxRequirements: 256, prompt: async () => session });
+    expect(await large.coordinator.run(principal, 'session-1', many, () => true, large.action)).toEqual({ status: 'executed', value: 'opened' });
+    small.coordinator.dispose();
+    large.coordinator.dispose();
+  });
+});
+
+describe('default rules answer their own scopes (#513)', () => {
+  it('prompts and stores only the scopes the rule leaves to the user', async () => {
+    const interfaceOnly = vi.fn((_request: unknown, missing: readonly PermissionRequirement[]) =>
+      missing.every((item) => item.category === 'interface') ? 'allow' as const : 'ask' as const);
+    const prompt = vi.fn(async (_prompt: ApprovalPrompt) => session);
+    const f = fixture({ defaultDecision: interfaceOnly, prompt });
+    expect(await f.run()).toEqual({ status: 'executed', value: 'opened' });
+    expect(prompt.mock.calls[0]![0].missing.map((item) => item.category)).toEqual(['resource']);
+    expect(f.state().grants.map((grant) => grant.permission.category)).toEqual(['resource']);
+    // The stored resource grant plus the rule's interface answer cover a repeat.
+    expect(await f.run()).toEqual({ status: 'executed', value: 'opened' });
+    f.coordinator.dispose();
+  });
+
+  it('counts a grant this coordinator evicted for a run it already admitted', async () => {
+    // Share of 2: the first run's two grants fill it; a second decision evicts them mid-run.
+    const done = deferred<string>();
+    const started = deferred<void>();
+    const other: PermissionRequirement = { ...requirement, scope: { kind: 'exact', value: 'https://example.com/other' } };
+    const f = fixture({ prompt: async () => session, maxGrantsPerPrincipal: 2 });
+    const first = f.coordinator.run(principal, 'session-1', [requirement], () => true, () => { started.resolve(); return done.promise; });
+    await started.promise;
+    expect(await f.coordinator.run(principal, 'session-1', [other], () => true, f.action)).toEqual({ status: 'executed', value: 'opened' });
+    expect(f.state().grants.some((grant) => grant.permission.scope.value === requirement.scope.value)).toBe(false);
+    done.resolve('opened');
+    expect(await first).toEqual({ status: 'executed', value: 'opened' });
+    f.coordinator.dispose();
   });
 });

@@ -8,6 +8,7 @@
 import type { LinkOpenErrorCode, LinkOpenOptions, LinkOpenResult, NappletMessage } from '@napplet/core';
 import type { LinkOpenMessage, LinkOpenResultMessage } from '@napplet/nap/link/types';
 import type { ApprovalSignal, ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
+import { approvalFailure } from './approval-failure.js';
 
 const LINK_SERVICE_VERSION = '1.0.0';
 const DEFAULT_ALLOWED_PROTOCOLS = ['http:', 'https:'] as const;
@@ -92,11 +93,15 @@ async function handleOpen(
       return options.open!({ windowId, url: new URL(href), options: message.options, ...(signal ? { signal } : {}) });
     };
     let result: LinkOpenResult;
+    let hostError: string | undefined;
     if (runtime?.authorizeOperation) {
       const approval = await runtime.authorizeOperation(windowId, 'link.open', [{
         category: 'resource', domain: 'link', operation: 'link.open', scope: { kind: 'exact', value: href },
       }], open);
       if (approval.status === 'cancelled' && !current()) return;
+      // `status` is only `opened`/`denied` (NAP-LINK napplet/naps#53 @ 100e5c93), so
+      // host approval conditions keep `denied` and carry `approval …` in `error` (spec gap).
+      if (approval.status !== 'executed' && approval.status !== 'denied' && approval.status !== 'cancelled') hostError = approvalFailure(approval.status, { denied: 'blocked-by-policy' });
       result = approval.status === 'executed' ? approval.value : { status: 'denied' };
     } else {
       warnLegacy();
@@ -106,7 +111,7 @@ async function handleOpen(
       type: 'link.open.result',
       id: message.id,
       status: result.status,
-      ...(result.status === 'denied' ? { error: 'blocked-by-policy' as LinkOpenErrorCode } : {}),
+      ...(result.status === 'denied' ? { error: (hostError ?? 'blocked-by-policy') as LinkOpenErrorCode } : {}),
     } as NappletMessage);
   } catch {
     send(denied(message.id, 'blocked-by-policy') as NappletMessage);

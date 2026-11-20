@@ -8,7 +8,9 @@ import {
   PAJA_EVENT_COUNTER_RESET_LABEL,
   PAJA_EVENT_COUNTER_RESET_TITLE,
 } from './browser-relay-panel.js';
-import { BROWSER_APPROVAL_UI_STYLES, renderNappletFramePolicyMeta } from '@kehto/shell';
+import {
+  BROWSER_APPROVAL_UI_STYLES, renderNappletFramePolicyMeta, renderNappletHostBase, renderNappletReferrerPolicyMeta,
+} from '@kehto/shell';
 import type { PajaHostConfig } from './options.js';
 import { summarizePajaSimulation } from './simulation.js';
 
@@ -28,6 +30,8 @@ export function renderPajaHtml(config: PajaHostConfig): string {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     ${renderNappletFramePolicyMeta()}
+    ${renderNappletReferrerPolicyMeta()}
+    ${renderNappletHostBase()}
     <title>@kehto/paja</title>
     <style>
       :root {
@@ -52,6 +56,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .brand-product { color: var(--text); }
       .target { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
       .spacer { flex: 1; min-width: 0; }
+      .top-stage > label, .top-stage > button { align-self: center; }
       .console-toggle { align-self: center; flex: 0 0 auto; width: 28px; height: 24px; padding: 0; display: inline-grid; place-items: center; color: var(--text); }
       .console-toggle-glyph { font-size: 15px; line-height: 1; }
       #paja-gamepads { display: flex; align-items: center; gap: 7px; flex: 0 1 auto; min-width: 0; overflow-x: auto; }
@@ -153,10 +158,17 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .signer-consent-clear { width: 100%; margin-top: 6px; }
       .pointer-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; }
       .pointer-status { min-width: 0; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+      .pointer-offer { display: grid; gap: 6px; font-size: 12px; overflow-wrap: anywhere; }
+      .pointer-offer p { margin: 0; }
+      .pointer-offer-list { display: grid; gap: 4px; }
       .log-tools { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
       .log-list { min-height: 160px; max-height: 38vh; overflow: auto; border: 1px solid var(--line); border-radius: 4px; background: #0b0d0b; }
       .log-row { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 6px; padding: 5px 7px; border-bottom: 1px solid #1b1f1a; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
       .log-row[data-error="true"] { background: #1d1414; }
+      .log-row[data-outcome="failed"] { background: #1d1a12; }
+      .log-row[data-outcome="failed"] .log-detail { color: #e2c78a; }
+      .log-outcome { justify-self: start; padding: 0 4px; border-radius: 3px; font-size: 10px; background: #4a2020; color: #f0b8b8; }
+      .log-row[data-outcome="failed"] .log-outcome { background: #3d3418; color: #e2c78a; }
       .log-row:last-child { border-bottom: 0; }
       .log-dir { color: var(--muted); }
       .log-body { min-width: 0; display: grid; gap: 2px; }
@@ -230,6 +242,24 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .config-group { margin: 0; padding: 10px; border: 1px solid var(--line); border-radius: 4px; display: grid; gap: 10px; }
       .config-group legend { color: var(--accent); padding: 0 5px; }
       .config-error { min-height: 1.4em; color: #e6a5a5; }
+      .settings-dialog { width: min(860px, calc(100% - 48px)); }
+      .settings-dialog .dialog { box-sizing: border-box; height: min(760px, calc(100vh - 48px)); }
+      .settings-dialog .config-fields { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 14px; overflow: hidden; }
+      .settings-tablist { display: flex; flex-direction: column; gap: 2px; min-height: 0; overflow: auto; padding-right: 12px; border-right: 1px solid var(--line); }
+      .settings-tab { height: auto; min-height: 28px; padding: 5px 9px; text-align: left; white-space: normal; border-color: transparent; background: transparent; color: var(--muted); }
+      .settings-tab[aria-selected="true"] { color: var(--text); border-color: var(--accent); background: #20241f; }
+      .settings-tab-flag { color: #e6a5a5; }
+      .settings-panel { min-height: 0; overflow: auto; display: grid; align-content: start; gap: 12px; padding-right: 4px; }
+      .settings-panel[hidden] { display: none; }
+      .settings-field input:disabled { opacity: 0.55; cursor: not-allowed; }
+      @media (max-width: 640px) {
+        .settings-dialog .config-fields { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+        .settings-tablist { flex-direction: row; overflow-x: auto; padding: 0 0 8px; border-right: 0; border-bottom: 1px solid var(--line); }
+        .settings-tab { white-space: nowrap; }
+      }
+      .settings-status { color: var(--muted); }
+      .settings-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
+      .settings-field input[aria-invalid="true"] { border-color: #e6a5a5; }
       .paja-notification-center { position: fixed; right: 16px; bottom: 46px; z-index: 10; width: min(360px, calc(100vw - 32px)); display: grid; gap: 8px; pointer-events: none; }
       .paja-notification { display: grid; gap: 8px; padding: 10px; border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 6px; background: #181b19; box-shadow: 0 10px 30px rgb(0 0 0 / 0.45); pointer-events: auto; }
       .paja-notification[data-priority="high"], .paja-notification[data-priority="urgent"] { border-left-color: #e89b5b; }
@@ -278,6 +308,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
             <option value="light"${config.simulation.theme.mode === 'light' ? ' selected' : ''}>light</option>
           </select>
         </label>
+        <button type="button" id="paja-settings-open" aria-haspopup="dialog" aria-controls="paja-settings-dialog">Settings</button>
         <button type="button" id="reload-target">Reload</button>
       </div>
     </header>
@@ -407,6 +438,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
     ${renderConfirmationDialog()}
     ${renderLlmDialogs()}
     ${renderConfigDialog()}
+    ${renderSettingsDialog()}
     ${renderIntentLinkDialog()}
     ${renderDuplicateDialog()}
     <footer class="bar bottom">
@@ -485,6 +517,23 @@ function renderLlmDialogs(): string {
     </dialog>`;
 }
 
+function renderSettingsDialog(): string {
+  return `<dialog class="config-dialog settings-dialog" id="paja-settings-dialog" aria-labelledby="paja-settings-title" aria-describedby="paja-settings-description">
+      <div class="dialog">
+        <div class="dialog-title" id="paja-settings-title">Paja settings</div>
+        <div class="dialog-copy" id="paja-settings-description">Defaults for Paja's timeouts, limits and intervals. Saved per host origin and restored on every visit. Most changes apply to the next operation; anything a running napplet already captured applies after a reload.</div>
+        <div class="config-fields" id="paja-settings-fields"></div>
+        <div class="config-error settings-status" id="paja-settings-status" role="status" aria-live="polite"></div>
+        <div class="dialog-actions">
+          <button type="button" id="paja-settings-reset-all">Reset all</button>
+          <button type="button" id="paja-settings-cancel">Close</button>
+          <button type="button" id="paja-settings-save">Save</button>
+          <button type="button" id="paja-settings-save-reload">Save and reload</button>
+        </div>
+      </div>
+    </dialog>`;
+}
+
 function renderConfigDialog(): string {
   return `<dialog class="config-dialog" id="paja-config-dialog" aria-labelledby="paja-config-title" aria-describedby="paja-config-description">
       <div class="dialog">
@@ -526,7 +575,7 @@ function renderStage(config: PajaHostConfig, targetLabel: string): string {
       </section>`;
   }
   return `<section class="stage" id="napplet-stage">
-        <iframe id="napplet-frame" title="Napplet development target" sandbox="allow-scripts" data-target-url="${targetLabel}"></iframe>
+        <iframe id="napplet-frame" title="Napplet development target" sandbox="allow-scripts" referrerpolicy="no-referrer" data-target-url="${targetLabel}"></iframe>
       </section>`;
 }
 
@@ -555,6 +604,7 @@ function renderPointerControls(config: PajaHostConfig): string {
             <input id="runtime-local-file" type="file" accept=".html,.htm,text/html" aria-label="Local napplet index.html" hidden>
           </form>
           <div class="pointer-status" id="runtime-pointer-status" aria-live="polite">idle</div>
+          <div class="pointer-offer" id="runtime-pointer-offer" aria-live="polite" hidden></div>
         </div></details>`;
 }
 

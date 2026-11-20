@@ -16,6 +16,11 @@ import {
 } from '@kehto/nip/5d';
 
 import { normalizePublicBlossomServer } from './browser-resource.js';
+import { classifyPointerMiss, PajaPointerNotFoundError } from './runtime-pointer-outcome.js';
+import { getPajaSetting } from './settings.js';
+
+export { PajaPointerNotFoundError } from './runtime-pointer-outcome.js';
+export type { PajaPointerRelayTally } from './runtime-pointer-outcome.js';
 
 /** Named/addressable NIP-5D napplet manifest kind (`35129`). */
 export const PAJA_NAPPLET_MANIFEST_KIND = NAPPLET_KIND_NAMED;
@@ -282,45 +287,44 @@ async function resolvePointerEvent(
   const event = result.events
     .filter((candidate) => matchesPointer(pointer, candidate))
     .sort((a, b) => b.created_at - a.created_at || a.id.localeCompare(b.id))[0];
-  if (!event) {
-    const connections = result.connections;
-    // Zero opened sockets is a different failure from a slow relay or a
-    // missing manifest: the query never reached any relay. Report it first so
-    // a deadline expiry does not disguise it as "timed out".
-    if (connections && connections.total > 0 && connections.connected.length === 0) {
-      throw new PajaRelayUnreachableError(
-        describeRelayUnreachable(pointer.type, connections, maxWaitMs),
-        connections,
-      );
-    }
-    if (result.timedOut) {
-      const connectedNote = connections
-        ? ` (${connections.connected.length} of ${connections.total} relays connected)`
-        : '';
-      throw new Error(
-        `Relay resolution timed out after ${maxWaitMs}ms for ${pointer.type} pointer across ${relays.length} relays before complete EOSE${connectedNote}.`,
-      );
-    }
-    const failures = relayFailureReasons(result.reasons);
-    if (result.error || failures.length > 0) {
-      const detail = result.error instanceof Error
-        ? result.error.message
-        : result.error === undefined
-          ? failures.join('; ')
-          : String(result.error);
-      throw new Error(`Relay query failed for ${pointer.type} pointer before complete EOSE: ${detail}`);
-    }
-    throw new Error(
-      `All ${relays.length} relays reached EOSE without a matching ${pointer.type} napplet manifest event.`,
-    );
-  }
+  if (!event) throw pointerMissError(pointer.type, relays, result, maxWaitMs);
   if (!isNappletManifestKind(event.kind)) {
     throw new Error(`Pointer resolved kind ${event.kind}; expected ${formatNappletManifestKinds()}.`);
   }
   return event;
 }
 
-interface PointerRelayQueryResult {
+function pointerMissError(
+  pointerType: PajaDecodedPointer['type'],
+  relays: readonly string[],
+  result: PointerRelayQueryResult,
+  maxWaitMs: number,
+): Error {
+  const outcome = classifyPointerMiss({ relays, ...result });
+  switch (outcome.kind) {
+    case 'unreachable':
+      return new PajaRelayUnreachableError(
+        describeRelayUnreachable(pointerType, outcome.connections, maxWaitMs),
+        outcome.connections,
+      );
+    case 'timed-out': {
+      const connections = result.connections;
+      const connectedNote = connections
+        ? ` (${connections.connected.length} of ${connections.total} relays connected)`
+        : '';
+      return new Error(
+        `Relay resolution timed out after ${maxWaitMs}ms for ${pointerType} pointer across ${relays.length} relays before complete EOSE${connectedNote}.`,
+      );
+    }
+    case 'query-failed':
+      return new Error(`Relay query failed for ${pointerType} pointer before complete EOSE: ${outcome.detail}`);
+    case 'not-found':
+      return new PajaPointerNotFoundError(pointerType, outcome.tally, relays);
+  }
+}
+
+/** Settled state of one pointer relay query. */
+export interface PointerRelayQueryResult {
   readonly events: readonly NostrEvent[];
   readonly reasons: readonly string[];
   readonly timedOut: boolean;
@@ -329,7 +333,21 @@ interface PointerRelayQueryResult {
   readonly connections?: PajaRelayConnectionSummary;
 }
 
-async function queryPointerRelays(
+/**
+ * Query relays for a pointer filter under one shared deadline and report how
+ * each relay settled. Internal to Paja; not re-exported from the package.
+ *
+ * @param pool - Relay pool.
+ * @param relays - Relay URLs in query order.
+ * @param filter - Nostr filter.
+ * @param maxWaitMs - Shared deadline in milliseconds.
+ * @returns Matching events plus per-relay reasons and connection outcomes.
+ * @example
+ * ```ts
+ * const result = await queryPointerRelays(pool, ['wss://relay.example'], { ids: [id] }, 5_000);
+ * ```
+ */
+export async function queryPointerRelays(
   pool: PajaPointerRelayPool,
   relays: readonly string[],
   filter: Filter,
@@ -386,7 +404,7 @@ function trackRelayConnections(
 function describeRelayFailure(error: unknown): string {
   const text = error instanceof Error ? error.message : String(error ?? '');
   const trimmed = text.trim();
-  return (trimmed.length > 0 ? trimmed : 'connection failed').slice(0, 160);
+  return (trimmed.length > 0 ? trimmed : 'connection failed').slice(0, getPajaSetting('target.failureReasonChars'));
 }
 
 function describeRelayUnreachable(
@@ -475,12 +493,12 @@ function relayFailureReasons(reasons: readonly string[]): string[] {
   return [...new Set(reasons
     .map((reason) => reason.trim())
     .filter((reason) => reason.length > 0 && reason !== 'closed automatically on eose')
-    .map((reason) => reason.slice(0, 160)))]
-    .slice(0, 3);
+    .map((reason) => reason.slice(0, getPajaSetting('target.failureReasonChars'))))]
+    .slice(0, getPajaSetting('target.failureReasonCount'));
 }
 
 function normalizeMaxWaitMs(value: number | undefined): number {
-  if (value === undefined) return 5_000;
+  if (value === undefined) return getPajaSetting('target.runtimeWaitMs');
   if (!Number.isFinite(value) || value <= 0) {
     throw new Error('Pointer relay deadline must be a positive number of milliseconds.');
   }

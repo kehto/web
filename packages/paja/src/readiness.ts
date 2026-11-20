@@ -1,3 +1,4 @@
+import { getPajaSetting } from './settings.js';
 /** Options for polling a target URL until it is ready. */
 export interface WaitForTargetUrlOptions {
   /** Total wait budget in milliseconds. */
@@ -30,7 +31,7 @@ export class ReadinessError extends Error {
  * @param options - Timeout and polling controls.
  */
 export async function waitForTargetUrl(url: string, options: WaitForTargetUrlOptions): Promise<void> {
-  const intervalMs = options.intervalMs ?? 250;
+  const intervalMs = options.intervalMs ?? getPajaSetting('server.readinessPollIntervalMs');
   const fetcher = options.fetch ?? defaultFetch;
   const sleep = options.sleep ?? defaultSleep;
   const now = options.now ?? Date.now;

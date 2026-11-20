@@ -11,8 +11,10 @@
  */
 
 import { hasNappletFramePolicy, NAPPLET_FRAME_POLICY } from './frame-policy.js';
+import { hasNappletReferrerPolicy, hasNappletReferrerPolicyMeta, NAPPLET_REFERRER_POLICY } from './napplet-url-privacy.js';
 import type { Runtime } from '@kehto/runtime';
 import type { NappletMessage } from '@napplet/core';
+import { hasNestedContext, isNestedContextLocked, setNestedContextLocked } from './nested-context-tripwire.js';
 import { originRegistry } from './origin-registry.js';
 import { handleShellReady, registerSourceSession, type ShellReadyState } from './shell-ready.js';
 import type { NappletMessageDecision, NappletRevocationReason, ShellAdapter, UnroutedMessageInfo } from './types.js';
@@ -30,12 +32,26 @@ export interface Nip5dTransportOptions {
   readonly state: ShellReadyState;
 }
 
+/** Options for `ShellBridge.observeFrame`. */
+export interface NappletFrameObservation {
+  /**
+   * The frame runs under the experimental nested-context lock: revoke it when its Window holds a child browsing
+   * context. `admitBrowserDocument` sets this itself for locked admissions; hosts that call `prepareNappletSrcdoc`
+   * directly pass it here.
+   */
+  readonly nestedContextLock?: boolean;
+}
+
 /** The transport surface ShellBridge exposes. */
 export interface Nip5dTransport {
   handleMessage(event: MessageEvent): void;
   revokeNapplet(windowId: string, reason?: NappletRevocationReason): void;
   releaseDeferred(windowId: string): number;
-  observeFrame(frame: Pick<HTMLIFrameElement, 'addEventListener' | 'removeEventListener'>, windowId: string): () => void;
+  observeFrame(
+    frame: Pick<HTMLIFrameElement, 'addEventListener' | 'removeEventListener'>,
+    windowId: string,
+    options?: NappletFrameObservation,
+  ): () => void;
   destroy(): void;
 }
 
@@ -78,6 +94,7 @@ const REVOCATION_DETAIL: Readonly<Record<NappletRevocationReason, string>> = {
   'second-load': 'The frame loaded a second document (navigation or reload)',
   'port-closed': 'The bound NIP-5D port closed or failed',
   'deferred-overflow': `More than ${MAX_DEFERRED_MESSAGES} deferred messages were waiting for this frame`,
+  'nested-context': 'A napplet running under the nested-context lock held a child browsing context',
   host: 'The host revoked the napplet binding',
 };
 
@@ -111,12 +128,28 @@ function warnWithoutFramePolicy(frame: object): void {
   );
 }
 
+let referrerPolicyWarned = false;
+
+/** Warn once when a napplet frame lacks the referrer policy that keeps the shell URL out of `document.referrer`. */
+function warnWithoutReferrerPolicy(frame: object): void {
+  const candidate = frame as Partial<Pick<HTMLIFrameElement, 'getAttribute'>> & { ownerDocument?: Document | null };
+  if (referrerPolicyWarned || typeof candidate.getAttribute !== 'function') return;
+  const attribute = hasNappletReferrerPolicy(candidate as Pick<HTMLIFrameElement, 'getAttribute'>);
+  const meta = !candidate.ownerDocument || hasNappletReferrerPolicyMeta(candidate.ownerDocument);
+  if (attribute && meta) return;
+  referrerPolicyWarned = true;
+  console.warn(
+    `[kehto] A napplet frame can read the shell URL from document.referrer (${attribute ? 'host page has no referrer meta' : `frame has no referrerpolicy="${NAPPLET_REFERRER_POLICY}"`}). Call denyNappletReferrer(frame) before assigning srcdoc, and add renderNappletReferrerPolicyMeta() to the host page <head> (WebKit ignores the attribute for srcdoc).`,
+  );
+}
+
 /** Report a frame's second load, the evidence that its verified document was replaced. */
 function observeFrameLoads(
   frame: Pick<HTMLIFrameElement, 'addEventListener' | 'removeEventListener'>,
   onSecondLoad: () => void,
 ): () => void {
   warnWithoutFramePolicy(frame);
+  warnWithoutReferrerPolicy(frame);
   let loads = 0;
   const onLoad = (): void => {
     loads += 1;
@@ -124,6 +157,45 @@ function observeFrameLoads(
   };
   frame.addEventListener('load', onLoad);
   return () => frame.removeEventListener('load', onLoad);
+}
+
+/** Tripwire backstop for the nested-context lock: a locked napplet Window that holds a child frame. */
+function tripsNestedContext(windowId: string, win: Window | null): boolean {
+  return isNestedContextLocked(windowId) && hasNestedContext(win);
+}
+
+/**
+ * Why a window-level message must revoke instead of binding a port, or null for a valid first hello.
+ * NIP-5D: `napplet.hello` is the only window-level message a napplet sends, once, with exactly one port.
+ */
+function helloFailure(event: MessageEvent, alreadyBound: boolean): NappletRevocationReason | null {
+  if (alreadyBound) return isHello(event.data) ? 'second-hello' : 'window-message';
+  if (!isHello(event.data)) return 'window-message';
+  const ports = event.ports ?? [];
+  if (ports.length !== 1) {
+    for (const port of ports) port.close();
+    return 'invalid-hello';
+  }
+  return null;
+}
+
+/** Watch one frame: a second load revokes, and under the nested-context lock so does a child frame at load. */
+function observeNappletFrame(
+  frame: Pick<HTMLIFrameElement, 'addEventListener' | 'removeEventListener'>,
+  windowId: string,
+  observation: NappletFrameObservation,
+  revoke: (reason: NappletRevocationReason) => void,
+): () => void {
+  if (observation.nestedContextLock === true) setNestedContextLocked(windowId, true);
+  const stopLoads = observeFrameLoads(frame, () => revoke('second-load'));
+  const onLoad = (): void => {
+    if (tripsNestedContext(windowId, originRegistry.getIframeWindow(windowId))) revoke('nested-context');
+  };
+  frame.addEventListener('load', onLoad);
+  return () => {
+    stopLoads();
+    frame.removeEventListener('load', onLoad);
+  };
 }
 
 /** The session and readiness inputs for one bound window. */
@@ -181,6 +253,7 @@ export function createNip5dTransport(options: Nip5dTransportOptions): Nip5dTrans
     runtime.sessionRegistry.unregister(windowId);
     shellReadyState.environments.delete(windowId);
     shellReadyState.sessionRegistration.delete(windowId);
+    setNestedContextLocked(windowId, false);
     try {
       hooks.onNappletRevoked?.({ windowId, reason, detail: REVOCATION_DETAIL[reason] });
     } catch {
@@ -261,7 +334,9 @@ export function createNip5dTransport(options: Nip5dTransportOptions): Nip5dTrans
     bindings.set(windowId, binding);
     const isCurrent = (): boolean => currentBinding(windowId) === binding;
     port.onmessage = (portEvent: MessageEvent) => {
-      if (isCurrent()) dispatchEnvelope(windowId, binding, portEvent.data);
+      if (!isCurrent()) return;
+      if (tripsNestedContext(windowId, binding.sourceWindow)) revokeNapplet(windowId, 'nested-context');
+      else dispatchEnvelope(windowId, binding, portEvent.data);
     };
     // A host that already unregistered the window closed this port itself;
     // isCurrent() is then false and the stale binding was dropped.
@@ -271,6 +346,11 @@ export function createNip5dTransport(options: Nip5dTransportOptions): Nip5dTrans
     port.addEventListener('close', onPortFailure);
     port.addEventListener('messageerror', onPortFailure);
     port.start();
+    // NIP-5D binds the verified identity at the first valid hello, so the
+    // session and its frozen grants exist from here on. Shell pushes
+    // (theme.changed, identity.changed, service broadcasts) then reach a
+    // napplet that only listens, without waiting for its first envelope.
+    registerSourceSession(sessionContext(options, windowId, binding));
   }
 
   function handleMessage(event: MessageEvent): void {
@@ -285,26 +365,18 @@ export function createNip5dTransport(options: Nip5dTransportOptions): Nip5dTrans
       return;
     }
 
-    // NIP-5D: napplet.hello is the only window-level message a napplet sends.
-    if (currentBinding(windowId) || originRegistry.getPort(windowId)) {
-      revokeNapplet(windowId, isHello(event.data) ? 'second-hello' : 'window-message');
-      return;
-    }
-    if (!isHello(event.data)) {
-      revokeNapplet(windowId, 'window-message');
-      return;
-    }
-    const ports = event.ports ?? [];
-    if (ports.length !== 1) {
-      for (const port of ports) port.close();
-      revokeNapplet(windowId, 'invalid-hello');
-      return;
-    }
-    bindPort(windowId, sourceWindow, event.origin, ports[0]);
+    const bound = Boolean(currentBinding(windowId) || originRegistry.getPort(windowId));
+    const failure = helloFailure(event, bound);
+    if (failure) revokeNapplet(windowId, failure);
+    else bindPort(windowId, sourceWindow, event.origin, event.ports[0]);
   }
 
-  function observeFrame(frame: Pick<HTMLIFrameElement, 'addEventListener' | 'removeEventListener'>, windowId: string): () => void {
-    return observeFrameLoads(frame, () => revokeNapplet(windowId, 'second-load'));
+  function observeFrame(
+    frame: Pick<HTMLIFrameElement, 'addEventListener' | 'removeEventListener'>,
+    windowId: string,
+    observation: NappletFrameObservation = {},
+  ): () => void {
+    return observeNappletFrame(frame, windowId, observation, (reason) => revokeNapplet(windowId, reason));
   }
 
   function destroy(): void {

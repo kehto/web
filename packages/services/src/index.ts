@@ -199,11 +199,18 @@ export type { ManifestArchetypeInput } from './manifest-intent-catalog.js';
 
 export { createCvmService } from './cvm-service.js';
 export { computeCvmToolSchemaHash } from './cvm-schema-hash.js';
-export type { CvmRegistrySelector, CvmRegistryFamily, CvmRegistryTool, CvmRegistryEntry, CvmRegistryCallOptions } from './cvm-registry-types.js';
+export { DEFAULT_CVM_MAX_IN_FLIGHT, DEFAULT_CVM_MAX_QUEUED } from './cvm-admission.js';
+export type { CvmConcurrencyOptions } from './cvm-admission.js';
 export type {
+  CvmRegistrySelector, CvmRegistryFamily, CvmRegistryTool, CvmRegistryEntry, CvmRegistryCallOptions,
+  CvmRegistryOptions, CvmRegistryQuery,
+} from './cvm-registry-types.js';
+export type {
+  CvmRequestHandle,
   CvmService,
   CvmServiceOptions,
   CvmTransport,
+  CvmTransportExecution,
 } from './cvm-service.js';
 export type {
   McpMessage,
@@ -252,6 +259,7 @@ export type {
 } from './ble-service.js';
 
 export { createWebrtcService } from './webrtc-service.js';
+export { decodeWebrtcBytes, encodeWebrtcBytes } from './webrtc-bytes.js';
 export type {
   WebrtcServiceContext,
   WebrtcServiceOptions,
@@ -397,6 +405,7 @@ export type {
   LlmProviderEndpoint,
   LlmProviderProtocol,
   LlmProviderRequestOptions,
+  LlmResponsesOptions,
 } from './llm-providers.js';
 export { createLlmStreamAccumulator, readLlmSseData } from './llm-provider-stream.js';
 export type { LlmStreamAccumulator } from './llm-provider-stream.js';

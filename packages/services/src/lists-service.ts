@@ -18,7 +18,9 @@ import type {
   ListsAddMessage,
   ListsRemoveMessage,
 } from '@napplet/nap/lists/types';
+import { createUnrecognizedTypeDiagnostic } from '@kehto/runtime';
 import type { ApprovalSignal, ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
+import { approvalFailure } from './approval-failure.js';
 
 const LISTS_SERVICE_VERSION = '1.0.0';
 
@@ -107,6 +109,7 @@ function snapshot(list: ListRef, items: readonly ListItem[], options: ListOption
  */
 // aislop-ignore-next-line function-too-long -- List planning, atomic approval execution, and source generations form one transaction boundary.
 export function createListsService(options: ListsServiceOptions = {}): ServiceHandler {
+  const ignoreUnrecognized = createUnrecognizedTypeDiagnostic();
   const generations = new Map<string, symbol>();
   let runtime: ServiceRuntimeContext | undefined;
   let warnedLegacy = false;
@@ -128,7 +131,8 @@ export function createListsService(options: ListsServiceOptions = {}): ServiceHa
         if (!current(windowId, generation) || signal.aborted) throw new Error('user-denied');
         return value;
       });
-      if (outcome.status !== 'executed') throw new Error('user-denied');
+      // NAP-LISTS napplet/naps#68 @ 7cf00cdb: host approval conditions are `list-unavailable` with an `approval …` reason (kehto/web#513).
+      if (outcome.status !== 'executed') throw new Error(approvalFailure(outcome.status, { denied: 'user-denied' }));
       return outcome.value;
     }).then((result) => { if (current(windowId, generation)) send({ type: resultType, id: message.id, ...result } as NappletMessage); })
       .catch((error) => { if (current(windowId, generation)) send({ type: resultType, id: message.id, ok: false, error: 'list-unavailable', reason: errorMessage(error, 'lists request failed') } as NappletMessage); });
@@ -150,7 +154,8 @@ export function createListsService(options: ListsServiceOptions = {}): ServiceHa
       }
       if (message.type === 'lists.add') { settleMutation(options.add, message as ListsAddMessage, windowId, generation, send, 'lists.add.result'); return; }
       if (message.type === 'lists.remove') { settleMutation(options.remove, message as ListsRemoveMessage, windowId, generation, send, 'lists.remove.result'); return; }
-      send({ type: `${message.type}.error`, id, error: `Unknown lists method: ${message.type}` } as NappletMessage);
+      // NIP-5D (nips#2303 @ f60550c3): unrecognized types get no reply.
+      ignoreUnrecognized('lists', message.type);
     },
     onWindowDestroyed(windowId): void { generations.delete(windowId); },
     onPermissionRevoked(windowId): void { generations.delete(windowId); },

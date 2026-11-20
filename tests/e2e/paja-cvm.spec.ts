@@ -17,6 +17,7 @@ import type { PajaServer } from '../../packages/paja/dist/index.js';
 import { installMemoryRelay, type MemoryRelay } from './helpers/memory-relay.js';
 import {
   openFlowTarget,
+  readTracked,
   settleApproving,
   startFlowRuntime,
   startFlowTarget,
@@ -53,7 +54,10 @@ interface McpMessage {
 }
 
 /** Install a Relatr-shaped ContextVM server behind the memory relay. */
-function installCvmServer(relay: MemoryRelay): { pubkey: string; received: McpMessage[]; clients: Set<string> } {
+function installCvmServer(relay: MemoryRelay, options: { holdToolCalls?: boolean } = {}): {
+  pubkey: string; received: McpMessage[]; clients: Set<string>; releaseToolCall(): void;
+} {
+  const held: Array<() => void> = [];
   const serverKey = generateSecretKey();
   const pubkey = getPublicKey(serverKey);
   const received: McpMessage[] = [];
@@ -107,17 +111,19 @@ function installCvmServer(relay: MemoryRelay): { pubkey: string; received: McpMe
       return;
     }
     if (message.method === 'tools/call') {
-      respond(inner.pubkey, {
+      const answer = () => respond(inner.pubkey, {
         jsonrpc: '2.0',
         id: message.id,
         result: { content: [{ type: 'text', text: TRUST_SCORE }], structuredContent: { trustScore: Number(TRUST_SCORE) } },
       } as McpMessage);
+      if (options.holdToolCalls) held.push(answer);
+      else answer();
       return;
     }
     respond(inner.pubkey, { jsonrpc: '2.0', id: message.id, error: { code: -32601, message: 'method not found' } } as McpMessage);
   });
 
-  return { pubkey, received, clients };
+  return { pubkey, received, clients, releaseToolCall: () => { held.shift()?.(); } };
 }
 
 test('discovers a ContextVM server and returns a trust score through a gift-wrapped tools/call', async ({ page }) => {
@@ -160,4 +166,51 @@ test('discovers a ContextVM server and returns a trust score through a gift-wrap
   expect(server.clients.size).toBe(1);
   expect(relay.published.every((event) => event.kind !== KIND_CVM)).toBe(true);
   await expect(page.locator('#message-log [data-message-type="cvm.request"]')).not.toHaveCount(0);
+});
+
+/**
+ * Spec check: NAP-CVM napplet/naps#31@28cf1bd, Security Considerations (shells
+ * SHOULD apply per-napplet concurrency limits) and Timeouts (queueing spends
+ * the accepted duration). The draft has no load-shedding error, so a full
+ * queue is refused with `policy denied`; see kehto/web#355.
+ */
+test('admits one tool call at a time, queues the next, and refuses the overflow', async ({ page }) => {
+  test.setTimeout(60_000);
+  const limited = await startFlowRuntime(target, RELAY_URL, { cvm: { concurrency: { maxInFlight: 1, maxQueued: 1 } } });
+  try {
+    const relay = await installMemoryRelay(page, RELAY_URL);
+    const server = installCvmServer(relay, { holdToolCalls: true });
+    const frame = await openFlowTarget(page, limited);
+    const toolCalls = () => server.received.filter((message) => message.method === 'tools/call');
+    const approveUntil = (done: () => boolean) => expect.poll(async () => {
+      if (done()) return true;
+      if (await page.locator('#paja-confirmation-dialog').isVisible()) await page.locator('#paja-confirmation-approve').click();
+      return false;
+    }, { timeout: 20_000, intervals: [100, 200, 300] }).toBe(true);
+
+    await frame.locator('body').evaluate((_body, pubkey) => {
+      const flow = window as unknown as FlowWindow;
+      for (const key of ['first', 'second', 'overflow']) {
+        flow.__track(key, flow.napplet.cvm.callTool({ pubkey }, 'calculate_trust_score', { targetPubkey: key }));
+      }
+    }, server.pubkey);
+
+    // The overflow is refused at receipt, while the first call is still unanswered.
+    const overflow = await settleApproving(page, frame, 'overflow');
+    expect(overflow.result).toEqual({ ok: false, error: expect.stringContaining('policy denied') });
+    await approveUntil(() => toolCalls().length === 1);
+    expect(await readTracked(frame, 'first')).toBeNull();
+    expect(await readTracked(frame, 'second')).toBeNull();
+
+    // Finishing the first call hands its slot to the queued one, which only now reaches the server.
+    server.releaseToolCall();
+    expect((await settleApproving(page, frame, 'first')).result.ok).toBe(true);
+    await approveUntil(() => toolCalls().length === 2);
+    server.releaseToolCall();
+    expect((await settleApproving(page, frame, 'second')).result.ok).toBe(true);
+    expect(toolCalls().map((message) => (message.params as { arguments: { targetPubkey: string } }).arguments.targetPubkey))
+      .toEqual(['first', 'second']);
+  } finally {
+    await limited.close();
+  }
 });

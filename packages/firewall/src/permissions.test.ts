@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   consumePermissionGrants, createPermissionState, deserializePermissions, evaluatePermissions,
   permissionPrincipalKey, putPermissionGrant, revokePermissionGrant, serializePermissions,
+  MAX_PERMISSION_GRANTS, MAX_PERMISSION_GRANTS_CEILING, MAX_PERMISSION_REQUIREMENTS, MAX_PERMISSION_REQUIREMENTS_CEILING, permissionLimits,
 } from './permissions.js';
 import { normalizePermissionScope } from './permission-scopes.js';
 import type { PermissionGrant, PermissionPrincipal, PermissionRequest, PermissionRequirement } from './permission-types.js';
@@ -181,5 +182,42 @@ describe('versioned policy persistence', () => {
   it('rejects missing domain fields rather than coercing undefined into a domain name', () => {
     const malformed = { ...grant(network), permission: { category: 'resource', operation: 'undefined.read', scope: { kind: 'exact', value: 'file' } } };
     expect(deserializePermissions(JSON.stringify({ version: 1, grants: [malformed] })).ok).toBe(false);
+  });
+});
+
+// kehto/web#514: both bounds are host policy with a hard ceiling.
+describe('configurable permission limits', () => {
+  const origins = (count: number): PermissionRequirement[] => Array.from({ length: count }, (_, index) =>
+    ({ ...network, scope: { kind: 'origin', value: `https://h${index}.example` } }));
+
+  it('defaults to the documented bounds and rejects values outside 1..ceiling', () => {
+    expect(permissionLimits()).toEqual({ maxRequirements: MAX_PERMISSION_REQUIREMENTS, maxGrants: MAX_PERMISSION_GRANTS, maxGrantsPerPrincipal: 512 });
+    expect(permissionLimits({ maxRequirements: 256, maxGrants: 4096 })).toEqual({ maxRequirements: 256, maxGrants: 4096, maxGrantsPerPrincipal: 512 });
+    // The per-napplet share is clamped to the table and bounded by the ceiling.
+    expect(permissionLimits({ maxGrants: 100 }).maxGrantsPerPrincipal).toBe(100);
+    expect(() => permissionLimits({ maxGrantsPerPrincipal: 0 })).toThrow(RangeError);
+    expect(() => permissionLimits({ maxGrantsPerPrincipal: MAX_PERMISSION_GRANTS_CEILING + 1 })).toThrow(RangeError);
+    for (const bad of [0, -1, 1.5, Number.NaN, MAX_PERMISSION_REQUIREMENTS_CEILING + 1]) {
+      expect(() => permissionLimits({ maxRequirements: bad })).toThrow(RangeError);
+    }
+    expect(() => permissionLimits({ maxGrants: MAX_PERMISSION_GRANTS_CEILING + 1 })).toThrow(RangeError);
+  });
+
+  it('accepts a request up to the configured maxRequirements and no further', () => {
+    const big = { ...request, requirements: [access, ...origins(199)] };
+    expect(() => evaluatePermissions(createPermissionState(), big)).toThrow('Invalid permission request');
+    expect(evaluatePermissions(createPermissionState(), big, { maxRequirements: 200 }).missing).toHaveLength(200);
+    expect(() => evaluatePermissions(createPermissionState(), { ...request, requirements: [access, ...origins(3)] }, { maxRequirements: 3 }))
+      .toThrow('Invalid permission request');
+  });
+
+  it('caps the grant table and persisted documents at the configured maxGrants', () => {
+    let state = createPermissionState();
+    for (const [index, item] of origins(2).entries()) state = putPermissionGrant(state, grant(item, `g${index}`), { maxGrants: 2 });
+    expect(() => putPermissionGrant(state, grant(origins(3)[2]!, 'g2'), { maxGrants: 2 })).toThrow('Permission grant limit exceeded');
+    expect(putPermissionGrant(state, grant(origins(3)[2]!, 'g2'), { maxGrants: 3 }).grants).toHaveLength(3);
+    const serialized = serializePermissions(state);
+    expect(deserializePermissions(serialized, { maxGrants: 1 })).toEqual({ ok: false, reason: 'invalid-state' });
+    expect(deserializePermissions(serialized, { maxGrants: 2 }).ok).toBe(true);
   });
 });

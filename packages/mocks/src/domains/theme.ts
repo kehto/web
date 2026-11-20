@@ -1,7 +1,7 @@
 /**
  * domains/theme.ts — Mock NAP-THEME service.
  *
- * Spec: naps/NAP-THEME.md @ napplet/naps master 43cb3a4e8555 (merged)
+ * Spec: naps/NAP-THEME.md @ napplet/naps master 377bf939c6c9 (merged)
  * Routes: theme.get; push theme.changed
  * Spec gaps / decisions:
  *   - There is no wire subscribe: `setTheme()` broadcasts `theme.changed` to
@@ -24,7 +24,7 @@ export const THEME_SPEC_REF: NapSpecRef = {
   nap: 'NAP-THEME',
   status: 'merged',
   source: 'master',
-  sha: '43cb3a4e8555',
+  sha: '377bf939c6c9',
   path: 'naps/NAP-THEME.md',
 };
 

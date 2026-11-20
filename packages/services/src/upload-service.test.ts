@@ -8,7 +8,7 @@
  * handling, and window-teardown cleanup (cancel).
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { afterEach, describe, it, expect, beforeEach, vi } from 'vitest';
 import { createUploadService } from './upload-service.js';
 import type {
   Uploader,
@@ -19,6 +19,9 @@ import type {
 } from './upload-service.js';
 import type { NappletMessage } from '@napplet/core';
 import type { ApprovalSignal, ServiceRuntimeContext } from '@kehto/runtime';
+
+/** Captured before any test stubs the global, so stubs can delegate real entropy. */
+const nativeCrypto = globalThis.crypto;
 
 const WINDOW = 'win-1';
 
@@ -409,5 +412,67 @@ describe('createUploadService', () => {
       expect(c.sent).toEqual([]);
       expect(uploader.cancel).toHaveBeenCalledWith('upload-1');
     });
+  });
+});
+
+describe('upload ids without crypto.randomUUID (kehto/web#351)', () => {
+  const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+  afterEach(() => vi.unstubAllGlobals());
+
+  /** Non-localhost HTTP: getRandomValues exists, randomUUID and subtle do not. */
+  function stubInsecureContextCrypto() {
+    const provider = {
+      getRandomValues: vi.fn(function (this: unknown, bytes: Uint8Array) {
+        if (this !== provider) throw new TypeError('Illegal invocation');
+        return nativeCrypto.getRandomValues(bytes);
+      }),
+    };
+    vi.stubGlobal('crypto', provider);
+    return provider;
+  }
+
+  it('stamps a secure UUID v4 from the default generator', async () => {
+    const provider = stubInsecureContextCrypto();
+    const uploader = mockUploader();
+    const svc = createUploadService({ uploader });
+    const c = collector();
+    svc.handleMessage(WINDOW, { type: 'upload.upload', id: 'u-1', request: { data: bytes() } } as NappletMessage, c.send);
+    await vi.waitFor(() => expect(c.sent.some((m) => m.type === 'upload.upload.result')).toBe(true));
+    const result = c.sent.find((m) => m.type === 'upload.upload.result') as NappletMessage & { result?: UploadResult; error?: string };
+    expect(result.error).toBeUndefined();
+    expect(result.result?.uploadId).toMatch(UUID_V4);
+    expect(uploader.lastCtx?.uploadId).toBe(result.result?.uploadId);
+    expect(provider.getRandomValues).toHaveBeenCalledOnce();
+  });
+
+  it('fails explicitly instead of minting a weak id when secure randomness is missing', () => {
+    vi.stubGlobal('crypto', {});
+    const uploader = mockUploader();
+    const svc = createUploadService({ uploader });
+    const random = vi.spyOn(Math, 'random');
+    try {
+      expect(() => svc.handleMessage(WINDOW, { type: 'upload.upload', id: 'u-1', request: { data: bytes() } } as NappletMessage, () => {}))
+        .toThrow('@kehto/services requires crypto.randomUUID or crypto.getRandomValues');
+      expect(random).not.toHaveBeenCalled();
+      expect(uploader.upload).not.toHaveBeenCalled();
+    } finally { random.mockRestore(); }
+  });
+
+  it('does not make approval-scoped uploads work: scope hashing still needs crypto.subtle', async () => {
+    stubInsecureContextCrypto();
+    const execute = vi.fn(async () => baseResult());
+    const uploader = mockUploader({
+      planUpload: vi.fn(async () => ({ rail: 'nip96', destination: 'https://files.test/upload', signingPubkey: 'a'.repeat(64), execute })),
+    } as Partial<Uploader>);
+    const authorizeOperation = vi.fn();
+    const svc = createUploadService({ uploader });
+    svc.onRegistered?.({ authorizeOperation } as unknown as ServiceRuntimeContext);
+    const c = collector();
+    svc.handleMessage(WINDOW, { type: 'upload.upload', id: 'u-1', request: { data: new Blob(['x']) } } as NappletMessage, c.send);
+    await vi.waitFor(() => expect(c.sent.some((m) => m.type === 'upload.upload.result')).toBe(true));
+    const result = c.sent.find((m) => m.type === 'upload.upload.result') as NappletMessage & { result?: UploadResult; error?: string };
+    expect(result.result?.ok ?? false).toBe(false);
+    expect(authorizeOperation).not.toHaveBeenCalled();
+    expect(execute).not.toHaveBeenCalled();
   });
 });

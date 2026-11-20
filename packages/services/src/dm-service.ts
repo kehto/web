@@ -8,6 +8,7 @@
 
 import type { NappletMessage } from '@napplet/core';
 import type { ApprovalSignal, ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
+import { approvalFailure } from './approval-failure.js';
 import type {
   DmAdapter,
   DmConversationsMessage,
@@ -106,7 +107,8 @@ export function createDmService(options: DmServiceOptions): DmService {
       if (!current(windowId, generation) || signal.aborted) throw new Error('cancelled');
       return value;
     });
-    if (outcome.status !== 'executed') throw new Error('forbidden');
+    // NAP-DM napplet/naps#74 @ 2c4e4423: host approval conditions are `unavailable`, not `forbidden` (kehto/web#513).
+    if (outcome.status !== 'executed') throw new Error(approvalFailure(outcome.status, { denied: 'forbidden', capacity: 'unavailable', busy: 'unavailable', unavailable: 'unavailable' }));
     return outcome.value;
   }
 

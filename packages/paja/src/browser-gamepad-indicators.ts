@@ -1,3 +1,4 @@
+import { getPajaSetting } from './settings.js';
 const ICON = '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M7 6h10c3 0 5 10 3 12-2 2-5-3-6-3h-4c-1 0-4 5-6 3C2 16 4 6 7 6Z"/><path d="M7 9v6m-3-3h6"/><circle cx="16" cy="10" r="1" fill="currentColor"/><circle cx="19" cy="13" r="1" fill="currentColor"/></svg>';
 
 /**
@@ -51,10 +52,10 @@ export function installPajaGamepadIndicators(): () => void {
       if (!pad?.connected) continue;
       connected.add(pad.index);
       const icon = icons.get(pad.index) ?? makeIcon(pad);
-      const input = focused && (pad.axes.some((axis) => Math.abs(axis) > 0.12)
-        || pad.buttons.some((button) => button.pressed || button.value > 0.05));
+      const input = focused && (pad.axes.some((axis) => Math.abs(axis) > getPajaSetting('gamepad.axisDeadzone'))
+        || pad.buttons.some((button) => button.pressed || button.value > getPajaSetting('gamepad.buttonThreshold')));
       // Keep quick taps visible long enough to identify their controller.
-      if (input) activeUntil.set(pad.index, now + 420);
+      if (input) activeUntil.set(pad.index, now + getPajaSetting('gamepad.activityHoldMs'));
       if (!focused) activeUntil.delete(pad.index);
       const active = now < (activeUntil.get(pad.index) ?? 0);
       const activity = active ? 'active' : 'idle';

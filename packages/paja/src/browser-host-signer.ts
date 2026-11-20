@@ -12,6 +12,7 @@ import {
 } from './browser-signer-consent.js';
 import type { PajaBrowserState } from './browser-host.js';
 import type { PajaUserActivationHandler } from './browser-device-services.js';
+import { getPajaSetting } from './settings.js';
 
 /** Coordinates queued Paja operation confirmations. */
 export interface PajaConfirmationController {
@@ -419,7 +420,7 @@ function describeConfirmation(request: PajaConfirmationRequest): ConfirmationCop
       'A napplet requests NIP-17 direct-message delivery.',
       'Send message',
       `Recipients: ${request.recipients.join(', ')}`,
-      `Content: ${request.content.slice(0, 240)}`,
+      `Content: ${request.content.slice(0, getPajaSetting('signer.previewChars'))}`,
       request.warning,
     );
   }
@@ -463,7 +464,7 @@ function describeConfirmation(request: PajaConfirmationRequest): ConfirmationCop
   const event = request.event as { kind?: unknown; content?: unknown };
   const kind = typeof event.kind === 'number' ? event.kind : 'unknown';
   const content = typeof event.content === 'string' && event.content.length > 0
-    ? event.content.slice(0, 240)
+    ? event.content.slice(0, getPajaSetting('signer.previewChars'))
     : '(empty content)';
   const signerContext = request.signerContext;
   return {
@@ -617,7 +618,9 @@ export function createHostSignerController(
         error: signer.error,
       });
       refreshState(state);
-      if (signer.status === 'connected') state.reload();
+      // No reload here: NAP-IDENTITY says loaded napplets learn of a signer
+      // change through identity.changed. The host's environment callback
+      // reloads only when the advertised domain set changes for the frame.
     },
   });
 }
