@@ -6,7 +6,7 @@
  * `id`." and "`keys.registerAction.result` includes an `error` field (string)
  * on failure. ... When `error` is present, `binding` is undefined."
  *
- * Every request gets exactly one result while its window generation is live
+ * Every request gets exactly one result until its window is destroyed
  * (kehto/web#520): validation errors, the registration's own result, or one
  * error for an approval that did not execute. `denied` and `cancelled` use the
  * policy code the runtime ACL denial uses (#489); `capacity`, `busy` and
@@ -60,6 +60,8 @@ export interface KeysRegisterGate {
   readonly generationFor: (windowId: string) => symbol;
   /** Whether a generation is still the window's live one. */
   readonly current: (windowId: string, generation: symbol) => boolean;
+  /** Checker that stays true until the window is destroyed (not merely revoked). */
+  readonly liveSource: (windowId: string) => () => boolean;
 }
 
 /**
@@ -93,14 +95,17 @@ export function authorizeRegisterAction(
   }
   const generation = gate.generationFor(windowId);
   const guardedSend: Send = (outbound) => { if (gate.current(windowId, generation)) send(outbound); };
+  // A revoked but live source still gets its terminal error; a destroyed one does not.
+  const sourceLive = gate.liveSource(windowId);
   let replied = false;
   const fail = (error: string): void => {
-    if (replied) return;
+    if (replied || !sourceLive()) return;
     replied = true;
-    sendRegisterActionResult(guardedSend, message, undefined, error);
+    sendRegisterActionResult(send, message, undefined, error);
   };
+  const revoked = new Error(POLICY_DENIED);
   const run = async (signal?: ApprovalSignal): Promise<void> => {
-    if (!gate.current(windowId, generation) || signal?.aborted) throw new Error(POLICY_DENIED);
+    if (!gate.current(windowId, generation) || signal?.aborted) throw revoked;
     replied = true;
     register(windowId, message, guardedSend);
   };
@@ -112,5 +117,6 @@ export function authorizeRegisterAction(
     ...(chordScope ? [{ category: 'resource' as const, domain: 'keys', operation: 'keys.registerAction', scope: { kind: 'exact' as const, value: `keys:chord:${chordScope}` } }] : []),
   ], (signal) => run(signal))
     .then((outcome) => { if (outcome.status !== 'executed') fail(approvalFailure(outcome.status, { denied: POLICY_DENIED })); })
-    .catch(() => fail(POLICY_DENIED));
+    // Only the gate's own revocation is a denial; any other fault is a host condition.
+    .catch((error) => fail(error === revoked ? POLICY_DENIED : approvalFailure('unavailable', { denied: POLICY_DENIED })));
 }

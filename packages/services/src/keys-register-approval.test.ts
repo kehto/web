@@ -78,12 +78,31 @@ describe('keys.registerAction approval outcomes (#520)', () => {
     expect(results(sent)).toEqual([{ type: 'keys.registerAction.result', id: 'r2', actionId: '', error: 'invalid action' }]);
   });
 
-  it('stays silent once the window is gone', async () => {
+  it('reports a host fault in the approval as unavailable, not a denial', async () => {
+    const { sent, settle } = register(async () => { throw new Error('storage exploded'); });
+    await settle();
+    expect(results(sent)).toEqual([{ type: 'keys.registerAction.result', id: 'r1', actionId: 'editor.save', error: 'approval unavailable' }]);
+  });
+
+  function pending(): { service: ReturnType<typeof createKeysService>; sent: NappletMessage[]; finish: (outcome: unknown) => void } {
     let finish!: (outcome: unknown) => void;
     const service = createKeysService({ listenerTarget: new EventTarget() });
     service.onRegistered?.({ authorizeOperation: () => new Promise((resolve) => { finish = resolve; }) } as unknown as ServiceRuntimeContext);
     const sent: NappletMessage[] = [];
     service.handleMessage(WINDOW_ID, { type: 'keys.registerAction', id: 'r3', action: { id: 'editor.save' } } as NappletMessage, (outbound) => sent.push(outbound));
+    return { service, sent, finish };
+  }
+
+  it('still answers a live source whose permission was revoked mid-approval', async () => {
+    const { service, sent, finish } = pending();
+    service.onPermissionRevoked?.(WINDOW_ID);
+    finish({ status: 'cancelled' });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(results(sent)).toEqual([{ type: 'keys.registerAction.result', id: 'r3', actionId: 'editor.save', error: 'policy denied' }]);
+  });
+
+  it('stays silent once the window is gone', async () => {
+    const { service, sent, finish } = pending();
     service.onWindowDestroyed?.(WINDOW_ID);
     finish({ status: 'denied' });
     await new Promise((resolve) => setTimeout(resolve, 0));

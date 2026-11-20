@@ -344,8 +344,14 @@ export function createKeysService(
     return generation;
   };
   const current = (windowId: string, generation: symbol): boolean => generations.get(windowId) === generation;
+  const lifetimes = new Map<string, symbol>();
+  const liveSource = (windowId: string): (() => boolean) => {
+    const token = lifetimes.get(windowId) ?? Symbol(windowId);
+    lifetimes.set(windowId, token);
+    return () => lifetimes.get(windowId) === token;
+  };
   const authorizeRegister = (windowId: string, message: KeysRegisterActionMessage, send: SendNappletMessage, register: RegisterActionHandler): void =>
-    authorizeRegisterAction({ runtime: () => runtime, generationFor, current }, windowId, message, send, register);
+    authorizeRegisterAction({ runtime: () => runtime, generationFor, current, liveSource }, windowId, message, send, register);
   const descriptor: ServiceDescriptor = {
     name: 'keys',
     version: KEYS_SERVICE_VERSION,
@@ -505,6 +511,7 @@ export function createKeysService(
 
       onWindowDestroyed(windowId: string): void {
         generations.delete(windowId);
+        lifetimes.delete(windowId);
         const actions = bridgeWindowActions.get(windowId);
         if (!actions) return;
         for (const actionId of actions) {
@@ -692,6 +699,7 @@ export function createKeysService(
 
     onWindowDestroyed(windowId: string): void {
       generations.delete(windowId);
+      lifetimes.delete(windowId);
       const actions = windowActions.get(windowId);
       if (actions) {
         for (const actionId of actions) actionRegistry.delete(actionRegistryKey(windowId, actionId));
