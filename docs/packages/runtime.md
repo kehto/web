@@ -129,6 +129,16 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
 - Does not own browser `window`, iframe creation, DOM, `postMessage` listeners, or localStorage implementation details.
 - Browser concerns live in `@kehto/shell`.
 
+## ACL denial wires
+
+ACL and legacy Firewall denials answer each recognized request on its owning
+NAP's failure wire, never an invented `<type>.error`. A denied `cvm.*` request
+gets its matching `.result` with `error: "policy denied"` (NAP-CVM #31 at
+`28cf1bdb`); `relay`, `outbox`, `upload.upload`, `count`, `notify`, `dm` and
+`fs` follow their own NAPs, and requests with no defined reply stay silent. The
+per-type table, refs and remaining spec gaps are in
+[RUNTIME-SPEC.md](https://github.com/kehto/web/blob/main/RUNTIME-SPEC.md).
+
 ## Registered extension routing
 
 Outside the built-in NAP domains, a service needs an exact
