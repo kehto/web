@@ -36,6 +36,24 @@ const CASES: Readonly<Record<string, Case>> = {
   'outbox.close': [{ subId: 's1' }, []],
   'outbox.publish': [{ event: { kind: 1, content: '', tags: [], created_at: 0 } },
     [{ type: 'outbox.publish.result', id: 'r1', ok: false, error: 'denied: outbox:write' }]],
+  // NAP-UPLOAD #33 @ f5cc981e
+  'upload.upload': [{ request: {} }, [{ type: 'upload.upload.result', id: 'r1', error: 'denied: upload:write' }]],
+  // NAP-COUNT #69 @ 9353a0c6
+  'count.query': [{ filters: [{ kinds: [1] }] },
+    [{ type: 'count.query.result', id: 'r1', ok: false, error: 'policy-denied', reason: 'denied: relay:read' }]],
+  // NAP-NOTIFY #11 @ 67877ef6
+  'notify.send': [{ title: 't' }, [{ type: 'notify.send.result', id: 'r1', error: 'denied: notify:send' }]],
+  'notify.permission.request': [{}, [{ type: 'notify.permission.result', id: 'r1', granted: false }]],
+  'notify.dismiss': [{ notificationId: 'n1' }, []],
+  'notify.badge': [{ count: 1 }, []],
+  'notify.channel.register': [{ channelId: 'c', label: 'C' }, []],
+  // NAP-DM #74 @ 2c4e4423
+  ...Object.fromEntries(['status', 'conversations', 'messages', 'send', 'subscribe', 'unsubscribe'].map((op) => [`dm.${op}`,
+    [{}, [{ type: `dm.${op}.result`, id: 'r1', error: `denied: ${op === 'send' ? 'dm:write' : 'dm:read'}` }]]])),
+  // NAP-FS #88 @ bd1b9e91
+  ...Object.fromEntries(['info', 'pickFile', 'pickFiles', 'pickDirectory', 'pickSaveFile', 'stat', 'list', 'read',
+    'write', 'mkdir', 'remove', 'move', 'watch', 'unwatch'].map((op) => [`fs.${op}`,
+    [{}, [{ type: `fs.${op}.result`, id: 'r1', error: 'policy-denied' }]]])),
 };
 
 describe('runtime ACL denial projection', () => {

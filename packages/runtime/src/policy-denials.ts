@@ -20,6 +20,16 @@
  *   `outbox.query.result` keeps its required `events` (empty on denial).
  * - NAP-UPLOAD #33 @ f5cc981e — "The shell SHOULD return a top-level `error` when
  *   no upload was created."
+ * - NAP-COUNT  #69 @ 9353a0c6 — `CountFailure` is `ok: false`, a "Non-empty
+ *   machine-readable error code" (`"policy-denied"` is listed), and `reason?`.
+ * - NAP-NOTIFY #11 @ 67877ef6 — "`notify.send.result` includes an `error` field
+ *   (string) on failure."; "`notify.permission.result` returns `granted: false`
+ *   if the shell denies permission. This is not an error".
+ * - NAP-DM     #74 @ 2c4e4423 — "Result messages include `error` when the runtime
+ *   cannot fulfill a request." and "When `error` is present, other result
+ *   fields are undefined."
+ * - NAP-FS     #88 @ bd1b9e91 — "A failed result MUST include `error` and MUST omit
+ *   all operation-specific success fields."; `"policy-denied"` is an FsError.
  *
  * Where the NAP lists only common error strings, the runtime's reason passes
  * through unchanged; a fixed code is used only where the NAP mandates one or
@@ -49,6 +59,10 @@ const silent: DenialProjection = () => null;
 
 const CVM_REQUESTS = ['cvm.discover', 'cvm.request', 'cvm.close', 'cvm.registry.list',
   'cvm.registry.has', 'cvm.registry.describe', 'cvm.registry.call'] as const;
+const DM_REQUESTS = ['dm.status', 'dm.conversations', 'dm.messages', 'dm.send', 'dm.subscribe', 'dm.unsubscribe'] as const;
+const FS_REQUESTS = ['fs.info', 'fs.pickFile', 'fs.pickFiles', 'fs.pickDirectory', 'fs.pickSaveFile', 'fs.stat',
+  'fs.list', 'fs.read', 'fs.write', 'fs.mkdir', 'fs.remove', 'fs.move', 'fs.watch', 'fs.unwatch'] as const;
+
 const POLICY_DENIALS: Readonly<Record<string, DenialProjection>> = Object.freeze({
   ...Object.fromEntries(CVM_REQUESTS.map((type) => [type, resultError(type, 'policy denied')])),
   'relay.subscribe': closed('relay.closed'),
@@ -62,6 +76,14 @@ const POLICY_DENIALS: Readonly<Record<string, DenialProjection>> = Object.freeze
   'outbox.close': silent,
   'outbox.publish': resultError('outbox.publish', undefined, { ok: false }),
   'upload.upload': resultError('upload.upload'),
+  'count.query': (id, reason) => ({ type: 'count.query.result', id, ok: false, error: 'policy-denied', reason } as NappletMessage),
+  'notify.send': resultError('notify.send'),
+  'notify.permission.request': (id) => ({ type: 'notify.permission.result', id, granted: false } as NappletMessage),
+  'notify.dismiss': silent,
+  'notify.badge': silent,
+  'notify.channel.register': silent,
+  ...Object.fromEntries(DM_REQUESTS.map((type) => [type, resultError(type)])),
+  ...Object.fromEntries(FS_REQUESTS.map((type) => [type, resultError(type, 'policy-denied')])),
 });
 
 /**
