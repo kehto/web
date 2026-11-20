@@ -9,9 +9,10 @@
  */
 import { inventoryDrift, missingPackageOperations, outboundOperations } from '../catalog/inventory.js';
 import { SUPPORTED_DOMAINS } from '../catalog/domains.js';
+import { fieldDriftReport } from '../catalog/field-drift.js';
 import { FIXTURES } from '../fixtures/index.js';
 import type { DomainFixture, OperationCase, PushCase } from '../fixtures/types.js';
-import { fail, pass, skip, type CheckOutcome, type DomainCoverage, type OperationResult } from '../model.js';
+import { fail, pass, skip, specGap, type CheckOutcome, type DomainCoverage, type OperationResult } from '../model.js';
 import type { ProbeReport, ProbeStep } from '../probe/plan.js';
 import { defineScenario, step, type Check, type CollectContext } from '../scenario.js';
 
@@ -281,6 +282,24 @@ function packageDrift(facts: DomainFacts): CheckOutcome {
   return pass(`The installed @napplet/nap types cover every operation the pinned NAPs specify for ${facts.selected.length} advertised domains`);
 }
 
+/**
+ * Field-level twin of {@link packageDrift}: every payload field the pinned
+ * wire table names, with its optionality, against the installed declaration.
+ * Rows a pinned sentence sanctions pass; table-versus-prose contradictions
+ * are spec gaps; anything else fails. Cells the parser cannot read are listed.
+ */
+export function packageFieldDrift(facts: { readonly selected: readonly string[] }, report = fieldDriftReport(facts.selected)): CheckOutcome {
+  const evidence = { findings: report.findings, sanctioned: report.sanctioned, contradictions: report.contradictions, uncompared: report.uncompared };
+  if (report.findings.length) {
+    const types = [...new Set(report.findings.map((row) => row.type))];
+    return fail(`The installed @napplet/nap fields differ from the pinned NAP wire tables in ${types.join(', ')}`, evidence);
+  }
+  if (report.contradictions.length) {
+    return specGap(`The pinned NAP table and prose disagree on ${report.contradictions.map((row) => `${row.type} ${row.field}`).join(', ')}; the packaged shape is accepted until the NAP settles it`, evidence);
+  }
+  return pass(`The installed @napplet/nap fields match the pinned NAP wire tables for ${report.compared} messages (${report.sanctioned.length} differences settled in NAP prose, ${report.uncompared.length} rows not fully comparable)`, evidence);
+}
+
 function domainChecks(domain: string): Check<DomainFacts>[] {
   const authority = [`nap-${domain}`, 'nap-package'];
   return [
@@ -293,6 +312,7 @@ function domainChecks(domain: string): Check<DomainFacts>[] {
 const checks: readonly Check<DomainFacts>[] = [
   { id: 'catalog/advertised-domain-covered', title: 'Every advertised domain is covered by the catalog', scope: 'catalog', severity: 'error', authority: ['nap-package'], evaluate: advertisedCovered },
   { id: 'catalog/package-drift', title: 'Packaged types cover every specified operation of advertised domains', scope: 'catalog', severity: 'error', authority: ['nap-package'], evaluate: packageDrift },
+  { id: 'catalog/package-field-drift', title: 'Packaged message fields match the pinned wire tables of advertised domains', scope: 'catalog', severity: 'error', authority: ['nap-package'], evaluate: packageFieldDrift },
   { id: 'catalog/capability-truthfulness', title: 'Advertised domains are actually serviced', scope: 'nip5d-core', severity: 'error', authority: ['nip5d'], evaluate: capabilityTruthfulness },
   ...SUPPORTED_DOMAINS.filter((domain) => domain !== 'shell').flatMap(domainChecks),
 ];
