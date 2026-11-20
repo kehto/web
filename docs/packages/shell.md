@@ -73,8 +73,8 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.32.0 <0.42.0` |
-| `@napplet/nap` | `>=0.32.0 <0.41.0` |
+| `@napplet/core` | `>=0.32.0 <0.43.0` |
+| `@napplet/nap` | `>=0.32.0 <0.42.0` |
 | `nostr-tools` | `>=2.23.3 <=2.x` |
 
 ## Primary APIs
@@ -82,7 +82,7 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
 | Area | Exports |
 |------|---------|
 | Factory | `createShellBridge`, `ShellBridge`, `NAPPLET_HELLO` |
-| Hooks | `adaptHooks`, `BrowserDeps`, `ShellAdapter`, `ShellCapabilities`, `UploadHooks`, `IntentHooks`, `LinkHooks`, `CommonHooks`, `ListsHooks`, `SerialHooks`, `BleHooks`, `WebrtcHooks`, `DmHooks`, `UnroutedMessageInfo`, `NappletRevocation`, `NappletRevocationReason`, `NappletMessageDecision`, `MAX_DEFERRED_MESSAGES`, `NappletMessageTarget` |
+| Hooks | `adaptHooks`, `randomUUID`, `BrowserDeps`, `ShellAdapter`, `ShellCapabilities`, `UploadHooks`, `IntentHooks`, `LinkHooks`, `CommonHooks`, `ListsHooks`, `SerialHooks`, `BleHooks`, `WebrtcHooks`, `DmHooks`, `UnroutedMessageInfo`, `NappletRevocation`, `NappletRevocationReason`, `NappletMessageDecision`, `MAX_DEFERRED_MESSAGES`, `NappletMessageTarget` |
 | Protocol and capability types | `NostrEvent`, `NostrFilter`, `NappletMessage`, `Capability`, `ALL_CAPABILITIES` |
 | Shell init and bootstrap | `buildShellCapabilities`, `injectNappletNamespacePrelude`, `renderNappletNamespacePrelude`, `NappletNamespacePreludeOptions` |
 | Verified documents and CSP | `prepareNappletSrcdoc`, `NappletSrcdocOptions`, `buildNappletCsp`, `renderNappletCspMeta`, `injectNappletCsp`, `NappletCspOptions`, `NappletCspDirectives`, `NappletCspDirective` |
@@ -123,6 +123,18 @@ pnpm add @kehto/shell @kehto/runtime @kehto/acl @napplet/core @napplet/nap nostr
 - Does not implement service behavior itself; register reference services from `@kehto/services` on the underlying runtime.
 
 ## API Reference
+
+### Advertisement follows routing
+
+While a bridge is live for an adapter, `buildShellCapabilities`,
+`resolveShellEnvironment` and `getShellDomainState` count a declared service as
+live only if `bridge.runtime.hasService(name)` is true. A handler added to
+`ShellAdapter.services` after `createShellBridge()` is left out of `shell.init`
+and domain injection, and logs `[KEHTO_SERVICE_NOT_REGISTERED]` once per service
+per bridge, until the host calls `bridge.runtime.registerService(name, handler)`.
+Unregistering stops advertisement for new frames. An adapter with no live bridge
+keeps the plain declared-services reading. See
+[Services that arrive late](/how-tos/register-service#services-that-arrive-late).
 
 ### Source environment lifetime
 
@@ -199,23 +211,39 @@ This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.co
 
 ## LLM integration
 
-This non-normative guidance defers to the living [NAP-LLM](https://github.com/napplet/naps/pull/134) (checked at `5e93bdf`). Services export `createLlmService`, `LlmServiceError`, the provider mappers and `LLM_PROVIDER_PRESETS`; shell exports `getShellDomainState` and the `LlmHooks` adapter field; acl exports `llm:generate`. The runtime routes `llm.*` to one registered service and answers every sanctioned request with exactly one `llm.<op>.result`, shaping missing-service and ACL failures as `{ code: 'unsupported' }`. Hosts implement `LlmConnectionHost`; the service enforces schema, handle ownership, a per-window live-handle bound (`maxHandlesPerWindow`), consent before submission, duplicate ids, cancellation and deadline races, ordered deltas and safe errors, and passes `select`/`authorize` a `{ signal }` that withdraws stale prompts. `createHttpLlmProvider({ stream: true })` streams provider output into `llm.delta` as block start/delta/end events. Results carry `content` parts (text, thinking and tool calls); tool calls and results are validated and relayed, and Kehto never executes one. Advertisement stays binary on the wire while hosts report a third `unconfigured` state until the user adds a connection. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
+This non-normative guidance defers to the living [NAP-LLM](https://github.com/napplet/naps/pull/134) (checked at `5e93bdf`). Services export `createLlmService`, `LlmServiceError`, the provider mappers (OpenAI Chat Completions, OpenAI Responses, Anthropic Messages and Gemini `generateContent` dialects) and `LLM_PROVIDER_PRESETS`; shell exports `getShellDomainState` and the `LlmHooks` adapter field; acl exports `llm:generate`. The runtime routes `llm.*` to one registered service and answers every sanctioned request with exactly one `llm.<op>.result`, shaping missing-service and ACL failures as `{ code: 'unsupported' }`. Hosts implement `LlmConnectionHost`; the service enforces schema, handle ownership, a per-window live-handle bound (`maxHandlesPerWindow`), consent before submission, duplicate ids, cancellation and deadline races, ordered deltas and safe errors, and passes `select`/`authorize` a `{ signal }` that withdraws stale prompts. `createHttpLlmProvider({ stream: true })` streams provider output into `llm.delta` as block start/delta/end events. Results carry `content` parts (text, thinking and tool calls); tool calls and results are validated and relayed, and Kehto never executes one. Advertisement stays binary on the wire while hosts report a third `unconfigured` state until the user adds a connection. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
 
 ## UUID support on HTTP origins
 
-Shell event injection, cache queries, and source-session registration use native
-`crypto.randomUUID()` when available. On browsers that omit it (including
-non-localhost plain HTTP origins), the shell generates UUID v4 identifiers from
-16 `crypto.getRandomValues()` bytes. If both methods are unavailable, UUID
-creation throws an explicit capability error. This internal host UUID helper
-never falls back to weak randomness; other identifier generators are outside
-its scope. It does not provide secure-context APIs such as `crypto.subtle` on
-HTTP, so this change does not establish HTTP support for uploads or other domains.
+Host identifiers that must be unguessable come from `randomUUID`, exported by
+`@kehto/shell`. It calls native `crypto.randomUUID()` on its `Crypto` receiver
+when available. On browsers that omit it (including non-localhost plain HTTP
+origins), it builds a UUID v4 from 16 `crypto.getRandomValues()` bytes. If both
+methods are unavailable it throws an explicit capability error; it never falls
+back to weak randomness. `@kehto/services` has no dependency on the shell, so
+it keeps a private twin of the same function; `tests/unit/random-uuid-sync.test.ts`
+fails when the two bodies drift.
+
+Each identifier has one of three contracts:
+
+| Contract | Identifiers | Without `crypto.randomUUID` |
+|----------|-------------|-----------------------------|
+| Secure, fails explicitly | Shell event-injection subscription ids, cache-query ids, and the `RuntimeAdapter` `crypto.randomUUID` hook (injected event ids, relay query ids, NAP-INC channel ids, approval request ids); source-session `instanceId` in the shell and in Paja frame admission; Paja intent-launcher window ids and launch correlations; Paja NIP-46 request ids; default upload ids (`createUploadService`); the browser media backend's `media-resource-*` read ids, which share a window's resource-request id space with the napplet; registry JSON-RPC ids in `createCvmService` | UUID v4 from `crypto.getRandomValues()`, or a thrown capability error when that is missing too |
+| Correlation only, uniqueness from a counter or timestamp | Injected napplet-namespace request ids (the napplet realm pairing its own requests on its private port); default LLM connection handles and synthesized tool-call ids (window- and conversation-scoped); notification ids; Paja filesystem mount ids and LLM panel connection ids | Feature-detected; a counter or timestamp keeps ids unique. These ids are never credentials |
+| Behind `crypto.subtle` | Paja WebRTC session, nonce, and peer ids (`browser-webrtc.ts`, `browser-webrtc-profile.ts`) | Unavailable. Both paths need `crypto.subtle` before they mint an id, and every browser context that has `crypto.subtle` also has `crypto.randomUUID` |
+
+A UUID fallback does not provide secure-context APIs. `crypto.subtle` stays
+unavailable on non-localhost HTTP, so SHA-256 digest paths still fail there:
+approval-scoped uploads and the default `createHttpUploader` digest, CVM
+schema-hash verification and progress tokens, Paja development-target and
+filesystem hashing, and the Paja LLM vault. This section does not establish
+HTTP support for uploads, CVM, or any other domain.
 
 This is a supported platform capability choice, not a deprecated caller API.
-Both standard Web Crypto paths remain quiet. Source-bound identity and optional
-shell readiness are unchanged (NAP-SHELL at `napplet/naps`
-`1e1046bcadabbc552804f6d3354f565184f9fefb`).
+Both standard Web Crypto paths remain quiet. Identifier generation is host
+implementation policy: no NAP wire message, source-trust rule, or readiness
+rule changes. Source-bound identity and optional shell readiness are unchanged
+(NAP-SHELL at `napplet/naps` `377bf939c6c906817084b43dd21d424de646dbc2`).
 
 ## Media sessions
 

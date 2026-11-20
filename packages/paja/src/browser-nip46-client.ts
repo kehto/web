@@ -1,4 +1,5 @@
 import type { Signer } from '@kehto/runtime';
+import { randomUUID } from '@kehto/shell';
 import * as nip44 from 'nostr-tools/nip44';
 import {
   finalizeEvent,
@@ -204,8 +205,8 @@ function openWebSocket(state: Nip46ClientState): Promise<void> {
 
 function createNipEncryptionMethods(state: Nip46ClientState, prefix: 'nip04' | 'nip44'): NonNullable<Signer['nip04']> {
   return {
-    encrypt: async (pubkey, plaintext) => sendRequestWithId(state, crypto.randomUUID(), `${prefix}_encrypt`, [pubkey, plaintext]) as Promise<string>,
-    decrypt: async (pubkey, ciphertext) => sendRequestWithId(state, crypto.randomUUID(), `${prefix}_decrypt`, [pubkey, ciphertext]) as Promise<string>,
+    encrypt: async (pubkey, plaintext) => sendRequestWithId(state, randomUUID(), `${prefix}_encrypt`, [pubkey, plaintext]) as Promise<string>,
+    decrypt: async (pubkey, ciphertext) => sendRequestWithId(state, randomUUID(), `${prefix}_decrypt`, [pubkey, ciphertext]) as Promise<string>,
   };
 }
 
@@ -224,7 +225,7 @@ function readPubkey(value: unknown): string | null {
 }
 
 async function requestPublicKey(state: Nip46ClientState): Promise<string> {
-  const result = await sendRequestWithId(state, crypto.randomUUID(), 'get_public_key', []);
+  const result = await sendRequestWithId(state, randomUUID(), 'get_public_key', []);
   const pubkey = readPubkey(result);
   if (!pubkey) throw new Error('NIP-46 signer returned an invalid public key');
   state.authorizedPubkey = pubkey;
@@ -233,7 +234,7 @@ async function requestPublicKey(state: Nip46ClientState): Promise<string> {
 
 async function connectNip46State(state: Nip46ClientState, secret?: string): Promise<string> {
   await openWebSocket(state);
-  await sendRequestWithId(state, crypto.randomUUID(), 'connect', [state.bunkerPubkey, secret ?? '']);
+  await sendRequestWithId(state, randomUUID(), 'connect', [state.bunkerPubkey, secret ?? '']);
 
   // NIP-46 requires get_public_key after connect: even a hex-shaped connect
   // result may be a secret or transport key rather than the user's identity.
@@ -244,7 +245,7 @@ function createNip46Signer(state: Nip46ClientState): Signer {
   return {
     getPublicKey: async () => state.authorizedPubkey ?? requestPublicKey(state),
     signEvent: async (event) => {
-      const result = await sendRequestWithId(state, crypto.randomUUID(), 'sign_event', [JSON.stringify(event)]);
+      const result = await sendRequestWithId(state, randomUUID(), 'sign_event', [JSON.stringify(event)]);
       if (typeof result === 'string') {
         return JSON.parse(result) as Awaited<ReturnType<NonNullable<Signer['signEvent']>>>;
       }

@@ -13,6 +13,7 @@
 
 import { LlmServiceError, type LlmBlockEvent, type LlmGeneration, type LlmGenerationRequest } from './llm-types.js';
 import { buildLlmProviderRequest, parseLlmProviderResponse, type LlmCredentialHeader, type LlmProviderEndpoint, type LlmProviderProtocol } from './llm-providers.js';
+import { alwaysStreams } from './llm-provider-shared.js';
 import { createLlmStreamAccumulator, readLlmSseData } from './llm-provider-stream.js';
 
 /** One well-known provider configuration a host can offer in its connection editor. */
@@ -44,6 +45,7 @@ export interface LlmProviderPreset {
 
 const PRESET_ROWS: readonly LlmProviderPreset[] = [
   { id: 'openai', label: 'OpenAI', protocol: 'openai-chat', baseUrl: 'https://api.openai.com/v1', requiresCredential: true, local: false, docsUrl: 'https://platform.openai.com/docs/api-reference/chat', exampleModels: ['gpt-4.1-mini', 'gpt-4o-mini'] },
+  { id: 'openai-responses', label: 'OpenAI (Responses API)', protocol: 'openai-responses', baseUrl: 'https://api.openai.com/v1', requiresCredential: true, local: false, docsUrl: 'https://developers.openai.com/api/reference/resources/responses', exampleModels: ['gpt-4.1-mini', 'gpt-4o-mini'] },
   { id: 'anthropic', label: 'Anthropic', protocol: 'anthropic-messages', baseUrl: 'https://api.anthropic.com/v1', requiresCredential: true, local: false, docsUrl: 'https://docs.anthropic.com/en/api/messages', exampleModels: ['claude-sonnet-4-5', 'claude-haiku-4-5'] },
   { id: 'openrouter', label: 'OpenRouter', protocol: 'openai-chat', baseUrl: 'https://openrouter.ai/api/v1', requiresCredential: true, local: false, docsUrl: 'https://openrouter.ai/docs/api-reference/overview', exampleModels: ['openai/gpt-4.1-mini', 'anthropic/claude-sonnet-4.5'] },
   { id: 'routstr', label: 'Routstr', protocol: 'openai-chat', baseUrl: 'http://127.0.0.1:8008/v1', requiresCredential: false, local: true, docsUrl: 'https://routstr.com', exampleModels: [], modelsPath: '/models' },
@@ -89,7 +91,8 @@ export interface HttpLlmProviderOptions {
   /**
    * Request each dialect's server-sent-event form and forward block lifecycle
    * events to `onDelta`. The resolved generation is the same as the buffered path's.
-   * Default `false`.
+   * Default `false`. An endpoint whose route only streams is still read as a
+   * stream, without forwarding events.
    */
   stream?: boolean;
 }
@@ -170,7 +173,9 @@ export function createHttpLlmProvider(options: HttpLlmProviderOptions = {}): Htt
   const fetchImpl: LlmFetch = options.fetch ?? ((url, init) => globalThis.fetch(url, init));
   const stream = options.stream === true;
   return async (endpoint, request, signal, onDelta) => {
-    const http = buildLlmProviderRequest(endpoint, request, { stream });
+    // Some endpoints only answer with server-sent events; their deltas stay private unless streaming was asked for.
+    const wire = stream || alwaysStreams(endpoint);
+    const http = buildLlmProviderRequest(endpoint, request, { stream: wire });
     let response: LlmFetchResponse;
     try {
       response = await fetchImpl(http.url, { method: http.method, headers: { ...http.headers }, body: http.body, signal });
@@ -180,9 +185,9 @@ export function createHttpLlmProvider(options: HttpLlmProviderOptions = {}): Htt
     }
     if (!response.ok) throw new LlmServiceError('provider-error', `The provider responded with HTTP ${response.status}.`);
     // A server that ignores the stream request answers with one JSON body; accept it.
-    const buffered = !stream || response.headers?.get('content-type')?.toLowerCase().includes('application/json') === true;
+    const buffered = !wire || response.headers?.get('content-type')?.toLowerCase().includes('application/json') === true;
     if (buffered) return parseLlmProviderResponse(endpoint.protocol, await readJson(response));
     if (!response.body) throw new LlmServiceError('provider-error', 'The provider response had no readable stream.');
-    return readStream(endpoint.protocol, response.body, signal, onDelta);
+    return readStream(endpoint.protocol, response.body, signal, stream ? onDelta : undefined);
   };
 }

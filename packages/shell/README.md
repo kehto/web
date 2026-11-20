@@ -50,8 +50,8 @@ pnpm add @kehto/shell
 
 ## Published Napplet Compatibility
 
-Peers admit `@napplet/core` `>=0.32.0 <0.42.0` and `@napplet/nap`
-`>=0.32.0 <0.41.0`; the shell does not import the NAP-LLM types, so it keeps the older floor. Host packages develop and build on core 0.41.0 / nap 0.40.0; fixture napplets stay on the exact 0.32.0 line (shim 0.30.0, sdk 0.28.0, vite-plugin 0.16.2). The fixture-line core 0.32.0 / nap 0.32.0 contracts follow
+Peers admit `@napplet/core` `>=0.32.0 <0.43.0` and `@napplet/nap`
+`>=0.32.0 <0.42.0`; the shell does not import the NAP-LLM types, so it keeps the older floor. Host packages develop and build on core 0.42.0 / nap 0.41.0; fixture napplets stay on the exact 0.32.0 line (shim 0.30.0, sdk 0.28.0, vite-plugin 0.16.2). The fixture-line core 0.32.0 / nap 0.32.0 contracts follow
 NAP-INTENT authority `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`, napplet/web#199
 source `3037200c932488f14f7f369b8583c39c9c16510a` / merge
 `b3f0007867eac109fa4917fac9c285d3b7cc6155`, and Version Packages #198 release
@@ -87,9 +87,9 @@ Current draft behaviors this package enforces:
 ### NAP-INC binding and channel contract
 
 The injected INC binding follows merged
-[`naps/NAP-INC.md`](https://github.com/napplet/naps/blob/5ac0490461ca6fec2f0d2e45b4835cf9bc08de24/naps/NAP-INC.md)
+[`naps/NAP-INC.md`](https://github.com/napplet/naps/blob/377bf939c6c906817084b43dd21d424de646dbc2/naps/NAP-INC.md)
 on `napplet/naps` master
-`5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`. The specification remains marked
+`377bf939c6c906817084b43dd21d424de646dbc2`. The specification remains marked
 draft, but its merged path is the protocol authority.
 
 The released package projection and `window.napplet.inc` binding own
@@ -101,8 +101,10 @@ including `?` and `#`. The binding never creates a normalized query-bearing
 wire/discovery identity,
 does not do prefix/wildcard/query-aware matching or service-over-INC prefix
 dispatch, and does not infer payload kinds. Runtime delivery supplies the
-**runtime-attested dTag**; no caller sender is accepted, topic source exclusion
-is runtime-owned, and IDs and payloads are opaque.
+**runtime-attested endpoint identifier**; no caller sender is accepted, topic source exclusion
+is runtime-owned, and IDs and payloads are opaque. `channel.open(target)` takes that identifier (an event
+`sender`, a channel `peer`, or one the host selected with `bridge.runtime.getIncEndpointId(windowId)`); a manifest
+`d` tag is not a target and fails as `target not found`.
 
 Merged NAP-INC and released `@napplet/nap@0.32.0` both deliver one `IncEvent`
 to `on(topic, callback)`.
@@ -198,6 +200,10 @@ bridge.runtime.registerService(
 );
 ```
 
+Services added to the adapter after `createShellBridge()` are advertised only
+once they are also registered with `bridge.runtime.registerService()`; until
+then the shell leaves them out and logs `[KEHTO_SERVICE_NOT_REGISTERED]` once.
+
 ## Public API
 
 ### Bridge factory
@@ -206,6 +212,7 @@ bridge.runtime.registerService(
 - `ShellBridge` — interface type for the returned bridge
 
 ### Hooks adapter
+- `randomUUID` — secure UUID v4 for host identifiers; falls back to `crypto.getRandomValues()` where the browser omits `crypto.randomUUID()` and throws when neither exists
 - `adaptHooks` — convert a `ShellAdapter` + `BrowserDeps` into the canonical `RuntimeAdapter` hook bag consumed by `@kehto/runtime`
 - `ShellAdapter.aclDefaultPolicy?` — `'permissive' | 'restrictive'`, forwarded to the runtime. See the `@kehto/runtime` docs for how it treats persisted ACL state.
 
@@ -401,20 +408,36 @@ This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.co
 
 ## LLM integration
 
-This non-normative guidance defers to the living [NAP-LLM](https://github.com/napplet/naps/pull/134) (checked at `5e93bdf`). Services export `createLlmService`, `LlmServiceError`, the provider mappers and `LLM_PROVIDER_PRESETS`; shell exports `getShellDomainState` and the `LlmHooks` adapter field; acl exports `llm:generate`. The runtime routes `llm.*` to one registered service and answers every sanctioned request with exactly one `llm.<op>.result`, shaping missing-service and ACL failures as `{ code: 'unsupported' }`. Hosts implement `LlmConnectionHost`; the service enforces schema, handle ownership, a per-window live-handle bound (`maxHandlesPerWindow`), consent before submission, duplicate ids, cancellation and deadline races, ordered deltas and safe errors, and passes `select`/`authorize` a `{ signal }` that withdraws stale prompts. `createHttpLlmProvider({ stream: true })` streams provider output into `llm.delta` as block start/delta/end events. Results carry `content` parts (text, thinking and tool calls); tool calls and results are validated and relayed, and Kehto never executes one. Advertisement stays binary on the wire while hosts report a third `unconfigured` state until the user adds a connection. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
+This non-normative guidance defers to the living [NAP-LLM](https://github.com/napplet/naps/pull/134) (checked at `5e93bdf`). Services export `createLlmService`, `LlmServiceError`, the provider mappers (OpenAI Chat Completions, OpenAI Responses, Anthropic Messages and Gemini `generateContent` dialects) and `LLM_PROVIDER_PRESETS`; shell exports `getShellDomainState` and the `LlmHooks` adapter field; acl exports `llm:generate`. The runtime routes `llm.*` to one registered service and answers every sanctioned request with exactly one `llm.<op>.result`, shaping missing-service and ACL failures as `{ code: 'unsupported' }`. Hosts implement `LlmConnectionHost`; the service enforces schema, handle ownership, a per-window live-handle bound (`maxHandlesPerWindow`), consent before submission, duplicate ids, cancellation and deadline races, ordered deltas and safe errors, and passes `select`/`authorize` a `{ signal }` that withdraws stale prompts. `createHttpLlmProvider({ stream: true })` streams provider output into `llm.delta` as block start/delta/end events. Results carry `content` parts (text, thinking and tool calls); tool calls and results are validated and relayed, and Kehto never executes one. Advertisement stays binary on the wire while hosts report a third `unconfigured` state until the user adds a connection. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
 
 ## UUID support on HTTP origins
 
-Shell event injection, cache queries, and source-session registration use native
-`crypto.randomUUID()` when available. On browsers that omit it (including
-non-localhost plain HTTP origins), the shell generates UUID v4 identifiers from
-16 `crypto.getRandomValues()` bytes. If both methods are unavailable, UUID
-creation throws an explicit capability error. This internal host UUID helper
-never falls back to weak randomness; other identifier generators are outside
-its scope. It does not provide secure-context APIs such as `crypto.subtle` on
-HTTP, so this change does not establish HTTP support for uploads or other domains.
+Host identifiers that must be unguessable come from `randomUUID`, exported by
+`@kehto/shell`. It calls native `crypto.randomUUID()` on its `Crypto` receiver
+when available. On browsers that omit it (including non-localhost plain HTTP
+origins), it builds a UUID v4 from 16 `crypto.getRandomValues()` bytes. If both
+methods are unavailable it throws an explicit capability error; it never falls
+back to weak randomness. `@kehto/services` has no dependency on the shell, so
+it keeps a private twin of the same function; `tests/unit/random-uuid-sync.test.ts`
+fails when the two bodies drift.
+
+Each identifier has one of three contracts:
+
+| Contract | Identifiers | Without `crypto.randomUUID` |
+|----------|-------------|-----------------------------|
+| Secure, fails explicitly | Shell event-injection subscription ids, cache-query ids, and the `RuntimeAdapter` `crypto.randomUUID` hook (injected event ids, relay query ids, NAP-INC channel ids, approval request ids); source-session `instanceId` in the shell and in Paja frame admission; Paja intent-launcher window ids and launch correlations; Paja NIP-46 request ids; default upload ids (`createUploadService`); the browser media backend's `media-resource-*` read ids, which share a window's resource-request id space with the napplet; registry JSON-RPC ids in `createCvmService` | UUID v4 from `crypto.getRandomValues()`, or a thrown capability error when that is missing too |
+| Correlation only, uniqueness from a counter or timestamp | Injected napplet-namespace request ids (the napplet realm pairing its own requests on its private port); default LLM connection handles and synthesized tool-call ids (window- and conversation-scoped); notification ids; Paja filesystem mount ids and LLM panel connection ids | Feature-detected; a counter or timestamp keeps ids unique. These ids are never credentials |
+| Behind `crypto.subtle` | Paja WebRTC session, nonce, and peer ids (`browser-webrtc.ts`, `browser-webrtc-profile.ts`) | Unavailable. Both paths need `crypto.subtle` before they mint an id, and every browser context that has `crypto.subtle` also has `crypto.randomUUID` |
+
+A UUID fallback does not provide secure-context APIs. `crypto.subtle` stays
+unavailable on non-localhost HTTP, so SHA-256 digest paths still fail there:
+approval-scoped uploads and the default `createHttpUploader` digest, CVM
+schema-hash verification and progress tokens, Paja development-target and
+filesystem hashing, and the Paja LLM vault. This section does not establish
+HTTP support for uploads, CVM, or any other domain.
 
 This is a supported platform capability choice, not a deprecated caller API.
-Both standard Web Crypto paths remain quiet. Source-bound identity and optional
-shell readiness are unchanged (NAP-SHELL at `napplet/naps`
-`1e1046bcadabbc552804f6d3354f565184f9fefb`).
+Both standard Web Crypto paths remain quiet. Identifier generation is host
+implementation policy: no NAP wire message, source-trust rule, or readiness
+rule changes. Source-bound identity and optional shell readiness are unchanged
+(NAP-SHELL at `napplet/naps` `377bf939c6c906817084b43dd21d424de646dbc2`).

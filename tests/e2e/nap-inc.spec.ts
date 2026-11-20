@@ -77,3 +77,55 @@ test('nap-inc: inc.subscribe envelope dispatched and fixture sentinel reaches re
   expect(consoleMessages.filter((m) => ANTI_TERM_RE.test(m))).toHaveLength(0);
   expect(pageErrors.filter((m) => ANTI_TERM_RE.test(m))).toHaveLength(0);
 });
+
+// NAP-INC napplet/naps master 377bf939c6c906817084b43dd21d424de646dbc2 (kehto/web#331):
+// two live instances of the same manifest d tag are distinct endpoints.
+test('nap-inc: same-d-tag instances get opaque endpoint identifiers usable as channel targets', async ({ page }) => {
+  test.setTimeout(45_000);
+  await aclBeforeEach(page);
+
+  const receiver = await page.evaluate(() => window.__loadNapplet__('nap-inc'));
+  const emitter = await page.evaluate(() => window.__loadNapplet__('nap-inc'));
+  await waitForNappletReady(page, receiver);
+  await waitForNappletReady(page, emitter);
+  for (const windowId of [receiver, emitter]) {
+    await page.waitForFunction((wid) => window.__getNapMessage__(wid, 'inc.subscribe.result') !== null, windowId, { timeout: 10_000 });
+  }
+
+  await page.frameLocator(`#${emitter}`).locator('#nap-inc-emit-btn').dispatchEvent('click');
+  await page.waitForFunction((wid) => window.__getNapMessage__(wid, 'inc.event') !== null, receiver, { timeout: 8_000 });
+  await expect(page.frameLocator(`#${receiver}`).locator('#nap-inc-log .inc-event')).toHaveCount(1);
+
+  const event = await page.evaluate((wid) => window.__getNapMessage__(wid, 'inc.event'), receiver) as unknown as { sender: string };
+  expect(event.sender).toMatch(/^[0-9a-f]{32}$/);
+  expect(event.sender).not.toContain('nap-inc');
+  expect(event.sender).not.toContain(emitter);
+  // Source exclusion: the emitting instance gets no echo even though it shares the d tag.
+  expect(await page.evaluate((wid) => window.__getNapMessage__(wid, 'inc.event'), emitter)).toBeNull();
+
+  const outcome = await page.evaluate(([from, to, target]) => {
+    window.__injectEnvelope__(from, { type: 'inc.channel.open', id: 'by-dtag', target: 'nap-inc' } as never);
+    const byDTag = window.__getNapMessage__(from, 'inc.channel.open.result');
+    window.__injectEnvelope__(from, { type: 'inc.channel.open', id: 'by-endpoint', target } as never);
+    return {
+      byDTag,
+      byEndpoint: window.__getNapMessage__(from, 'inc.channel.open.result'),
+      opened: window.__getNapMessage__(to, 'inc.channel.opened'),
+    };
+  }, [receiver, emitter, event.sender]) as unknown as {
+    byDTag: Record<string, unknown>; byEndpoint: Record<string, unknown>; opened: Record<string, unknown>;
+  };
+  expect(outcome.byDTag).toEqual({ type: 'inc.channel.open.result', id: 'by-dtag', error: 'target not found' });
+  expect(outcome.byEndpoint).toMatchObject({ id: 'by-endpoint', peer: event.sender });
+  expect(outcome.byEndpoint).not.toHaveProperty('error');
+  expect(outcome.opened).toMatchObject({ channelId: outcome.byEndpoint.channelId });
+  expect(outcome.opened.peer).toMatch(/^[0-9a-f]{32}$/);
+  expect(outcome.opened.peer).not.toBe(event.sender);
+
+  // The endpoint going away closes the channel for the survivor.
+  await page.evaluate((wid) => window.__unloadNapplet__(wid), emitter);
+  await page.waitForFunction((wid) => window.__getNapMessage__(wid, 'inc.channel.closed') !== null, receiver, { timeout: 8_000 });
+  expect(await page.evaluate((wid) => window.__getNapMessage__(wid, 'inc.channel.closed'), receiver)).toEqual({
+    type: 'inc.channel.closed', channelId: outcome.byEndpoint.channelId, reason: 'peer destroyed',
+  });
+});

@@ -170,12 +170,19 @@ describe('LLM_PROVIDER_PRESETS', () => {
     expect(ids).toEqual(expect.arrayContaining(['openai', 'anthropic', 'gemini', 'openrouter', 'groq', 'mistral', 'deepseek', 'xai', 'together', 'ollama', 'lmstudio', 'azure-openai', 'custom']));
     expect(new Set(ids).size).toBe(ids.length);
     for (const preset of LLM_PROVIDER_PRESETS) {
-      expect(['openai-chat', 'anthropic-messages', 'gemini']).toContain(preset.protocol);
+      expect(['openai-chat', 'openai-responses', 'anthropic-messages', 'gemini']).toContain(preset.protocol);
       expect(preset.docsUrl).toMatch(/^https:\/\//);
       expect(Object.isFrozen(preset)).toBe(true);
       if (preset.local) expect(preset.baseUrl).toMatch(/^http:\/\/127\.0\.0\.1:/);
     }
     expect(LLM_PROVIDER_PRESETS.find((preset) => preset.id === 'azure-openai')?.credentialHeader).toBe('api-key');
+  });
+
+  it('offers the Responses dialect as its own preset and keeps the Chat Completions row first', () => {
+    expect(LLM_PROVIDER_PRESETS[0]).toMatchObject({ id: 'openai', protocol: 'openai-chat' });
+    expect(LLM_PROVIDER_PRESETS.find((preset) => preset.id === 'openai-responses')).toMatchObject({
+      label: 'OpenAI (Responses API)', protocol: 'openai-responses', baseUrl: 'https://api.openai.com/v1', requiresCredential: true, local: false,
+    });
   });
 
   it('declares a loopback Routstr preset whose models a host can list', () => {

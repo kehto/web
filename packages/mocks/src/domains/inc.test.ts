@@ -4,7 +4,7 @@ import { INC_MOCK_ENTRY, INC_SPEC_REF, MOCK_INC_TOPICS } from './inc.js';
 
 describe('NAP-INC entry', () => {
   it('records the merged master spec and a runtime-owned note without a factory', () => {
-    expect(INC_SPEC_REF).toEqual({ nap: 'NAP-INC', status: 'merged', source: 'master', sha: '43cb3a4e8555', path: 'naps/NAP-INC.md' });
+    expect(INC_SPEC_REF).toEqual({ nap: 'NAP-INC', status: 'merged', source: 'master', sha: '377bf939c6c9', path: 'naps/NAP-INC.md' });
     expect(INC_MOCK_ENTRY).toMatchObject({ domain: 'inc', kind: 'runtime-owned', spec: INC_SPEC_REF });
     expect(INC_MOCK_ENTRY.create).toBeUndefined();
     expect(INC_MOCK_ENTRY.note).toContain('inc-handler.ts');

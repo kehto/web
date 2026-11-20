@@ -133,10 +133,12 @@ paths, fragments and arbitrary query parameters are rejected.
 
 The NAP request/result, authorization and lifecycle boundaries follow those
 drafts. Signaling and provider selection are explicit host policy, not a new NAP
-wire field or a claim of standardized discovery. The packaged SDK's old family
-argument is translated to canonical selectors with a warning once per iframe;
-see [compatibility](compatibility.md) and upstream
-[napplet/web#336](https://github.com/napplet/web/issues/336).
+wire field or a claim of standardized discovery. Registry types come from
+`@napplet/core` 0.42.0, which exports the draft's selector contract
+([napplet/web#336](https://github.com/napplet/web/issues/336), fixed upstream).
+Napplets built against `@napplet/nap` 0.40.0 or older still pass a family
+string; that argument is translated to a canonical selector with a warning once
+per iframe. See [compatibility](compatibility.md).
 
 `paja-multiplayer.spec.ts` exercises real signed/encrypted CVM traffic and an
 independently implemented signaling peer in Chromium: registry invocation, shared
