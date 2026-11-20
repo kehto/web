@@ -161,21 +161,97 @@ function renderField(definition: PajaSettingDefinition, store: PajaSettingsStore
   return row;
 }
 
-function renderFields(container: HTMLElement, store: PajaSettingsStore): void {
-  const groups = new Map<string, HTMLFieldSetElement>();
+const TAB_KEYS: Readonly<Record<string, (index: number, count: number) => number>> = {
+  ArrowDown: (index, count) => (index + 1) % count,
+  ArrowRight: (index, count) => (index + 1) % count,
+  ArrowUp: (index, count) => (index - 1 + count) % count,
+  ArrowLeft: (index, count) => (index - 1 + count) % count,
+  Home: () => 0,
+  End: (_index, count) => count - 1,
+};
+
+function slug(group: string): string {
+  return group.toLowerCase().replace(/[^a-z0-9]+/gu, '-').replace(/^-|-$/gu, '');
+}
+
+function tabsOf(container: HTMLElement): HTMLButtonElement[] {
+  return Array.from(container.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+}
+
+/** Show one group's panel; roving tabindex keeps a single tab stop in the list. */
+function selectTab(container: HTMLElement, index: number, focus: boolean): void {
+  tabsOf(container).forEach((tab, tabIndex) => {
+    const selected = tabIndex === index;
+    tab.setAttribute('aria-selected', String(selected));
+    tab.tabIndex = selected ? 0 : -1;
+    const panel = document.getElementById(tab.getAttribute('aria-controls')!);
+    if (panel) panel.hidden = !selected;
+    if (selected && focus) tab.focus();
+  });
+}
+
+function selectedTab(container: HTMLElement): number {
+  return Math.max(0, tabsOf(container).findIndex((tab) => tab.getAttribute('aria-selected') === 'true'));
+}
+
+function renderTabs(container: HTMLElement, store: PajaSettingsStore, selected: number): void {
+  const tablist = document.createElement('div');
+  tablist.className = 'settings-tablist';
+  tablist.setAttribute('role', 'tablist');
+  tablist.setAttribute('aria-label', 'Settings groups');
+  tablist.setAttribute('aria-orientation', 'vertical');
+  const panels = new Map<string, HTMLElement>();
   for (const definition of PAJA_SETTING_DEFINITIONS) {
-    let group = groups.get(definition.group);
-    if (!group) {
-      group = document.createElement('fieldset');
-      group.className = 'config-group';
-      const legend = document.createElement('legend');
-      legend.textContent = definition.group;
-      group.append(legend);
-      groups.set(definition.group, group);
+    let panel = panels.get(definition.group);
+    if (!panel) {
+      const id = slug(definition.group);
+      const tab = document.createElement('button');
+      tab.type = 'button';
+      tab.className = 'settings-tab';
+      tab.id = `paja-settings-tab-${id}`;
+      tab.setAttribute('role', 'tab');
+      tab.setAttribute('aria-controls', `paja-settings-panel-${id}`);
+      tab.textContent = definition.group;
+      tablist.append(tab);
+      panel = document.createElement('div');
+      panel.className = 'settings-panel';
+      panel.id = `paja-settings-panel-${id}`;
+      panel.setAttribute('role', 'tabpanel');
+      panel.setAttribute('aria-labelledby', tab.id);
+      panel.tabIndex = 0;
+      panels.set(definition.group, panel);
     }
-    group.append(renderField(definition, store));
+    panel.append(renderField(definition, store));
   }
-  container.replaceChildren(...groups.values());
+  tablist.addEventListener('click', (event) => {
+    const index = tabsOf(container).indexOf((event.target as Element).closest('[role="tab"]') as HTMLButtonElement);
+    if (index >= 0) selectTab(container, index, true);
+  });
+  tablist.addEventListener('keydown', (event) => {
+    const move = TAB_KEYS[event.key];
+    if (!move) return;
+    event.preventDefault();
+    selectTab(container, move(selectedTab(container), panels.size), true);
+  });
+  container.replaceChildren(tablist, ...panels.values());
+  selectTab(container, Math.min(selected, panels.size - 1), false);
+}
+
+/** Flag tabs holding invalid fields, then reveal and focus the first invalid field. */
+function revealInvalid(container: HTMLElement): void {
+  let first: HTMLInputElement | null = null;
+  tabsOf(container).forEach((tab, index) => {
+    const panel = document.getElementById(tab.getAttribute('aria-controls')!);
+    const invalid = panel?.querySelector<HTMLInputElement>('[aria-invalid="true"]') ?? null;
+    tab.querySelector('.settings-tab-flag')?.remove();
+    if (!invalid) return;
+    const flag = document.createElement('span');
+    flag.className = 'settings-tab-flag';
+    flag.textContent = ' · needs fixing';
+    tab.append(flag);
+    if (!first) { first = invalid; selectTab(container, index, false); }
+  });
+  (first as HTMLInputElement | null)?.focus();
 }
 
 function readDraft(container: HTMLElement): Record<string, unknown> {
@@ -188,8 +264,9 @@ function readDraft(container: HTMLElement): Record<string, unknown> {
 }
 
 /**
- * Wire the header Settings button and dialog. Fields are generated from the
- * registry so the panel and the registry cannot drift.
+ * Wire the header Settings button and the tabbed dialog (one tab per settings
+ * group). Fields are generated from the registry so the panel and the
+ * registry cannot drift.
  *
  * @param store - Active settings store.
  * @returns A disposer; a no-op when the dialog markup is absent.
@@ -209,7 +286,7 @@ export function installPajaSettingsPanel(store: PajaSettingsStore): () => void {
   if (!open || !dialog || !fields || !status || !save || !saveReload || !resetAll || !cancel) return () => undefined;
 
   const show = (): void => {
-    renderFields(fields, store);
+    renderTabs(fields, store, selectedTab(fields));
     status.textContent = store.status();
     dialog.showModal();
   };
@@ -222,17 +299,15 @@ export function installPajaSettingsPanel(store: PajaSettingsStore): () => void {
       input.title = error ?? '';
     }
     status.textContent = result.message;
-    if (!result.ok) {
-      fields.querySelector<HTMLInputElement>('[aria-invalid="true"]')?.focus();
-      return;
-    }
+    revealInvalid(fields);
+    if (!result.ok) return;
     if (reload) window.location.reload();
   };
   const listeners: [HTMLElement, () => void][] = [
     [open, show],
     [save, () => apply(false)],
     [saveReload, () => apply(true)],
-    [resetAll, () => { status.textContent = store.resetAll().message; renderFields(fields, store); }],
+    [resetAll, () => { status.textContent = store.resetAll().message; renderTabs(fields, store, selectedTab(fields)); }],
     [cancel, () => dialog.close()],
   ];
   for (const [element, listener] of listeners) element.addEventListener('click', listener);

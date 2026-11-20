@@ -3,7 +3,7 @@
 ---
 
 Every Paja timeout, interval, cap and abuse bound is now a user-changeable default. A
-top-bar **Settings** dialog, generated from the new settings registry, edits them and
+top-bar **Settings** dialog with one tab per group, generated from the new settings registry (the single file holding every default), edits them and
 persists overrides per host origin (`kehto:paja:settings.v1`). Config files accept a
 validated `settings` block: server-scope keys apply to the CLI/server process and
 browser-scope keys seed the host page. Bounds keep abuse guards on and security floors

@@ -52,6 +52,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .brand-product { color: var(--text); }
       .target { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
       .spacer { flex: 1; min-width: 0; }
+      .top-stage > label, .top-stage > button { align-self: center; }
       .console-toggle { align-self: center; flex: 0 0 auto; width: 28px; height: 24px; padding: 0; display: inline-grid; place-items: center; color: var(--text); }
       .console-toggle-glyph { font-size: 15px; line-height: 1; }
       #paja-gamepads { display: flex; align-items: center; gap: 7px; flex: 0 1 auto; min-width: 0; overflow-x: auto; }
@@ -234,7 +235,21 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .config-group { margin: 0; padding: 10px; border: 1px solid var(--line); border-radius: 4px; display: grid; gap: 10px; }
       .config-group legend { color: var(--accent); padding: 0 5px; }
       .config-error { min-height: 1.4em; color: #e6a5a5; }
+      .settings-dialog { width: min(860px, calc(100% - 48px)); }
       .settings-dialog .dialog { box-sizing: border-box; height: min(760px, calc(100vh - 48px)); }
+      .settings-dialog .config-fields { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 14px; overflow: hidden; }
+      .settings-tablist { display: flex; flex-direction: column; gap: 2px; min-height: 0; overflow: auto; padding-right: 12px; border-right: 1px solid var(--line); }
+      .settings-tab { height: auto; min-height: 28px; padding: 5px 9px; text-align: left; white-space: normal; border-color: transparent; background: transparent; color: var(--muted); }
+      .settings-tab[aria-selected="true"] { color: var(--text); border-color: var(--accent); background: #20241f; }
+      .settings-tab-flag { color: #e6a5a5; }
+      .settings-panel { min-height: 0; overflow: auto; display: grid; align-content: start; gap: 12px; padding-right: 4px; }
+      .settings-panel[hidden] { display: none; }
+      .settings-field input:disabled { opacity: 0.55; cursor: not-allowed; }
+      @media (max-width: 640px) {
+        .settings-dialog .config-fields { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+        .settings-tablist { flex-direction: row; overflow-x: auto; padding: 0 0 8px; border-right: 0; border-bottom: 1px solid var(--line); }
+        .settings-tab { white-space: nowrap; }
+      }
       .settings-status { color: var(--muted); }
       .settings-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
       .settings-field input[aria-invalid="true"] { border-color: #e6a5a5; }

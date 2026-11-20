@@ -813,8 +813,11 @@ conformance. Publisher discovery follows
 ## Settings
 
 Every Paja timeout, interval, cap and abuse bound is a user-changeable default.
-Open **Settings** in the top bar to edit them; the dialog is generated from the
-settings registry, so it lists every key below. Saved values persist per host
+Open **Settings** in the top bar to edit them. The dialog has one tab per group
+below (arrow keys, Home and End move between tabs) and is generated from the
+settings registry, so it lists every key. On a failed save, every tab holding an
+invalid value is marked "needs fixing" and the first one opens with focus on the
+field. All defaults are defined in one file, `packages/paja/src/settings-registry.ts`. Saved values persist per host
 origin under `kehto:paja:settings.v1` (overrides only) and are restored on every
 visit. Corrupt, retired or out-of-range stored entries are dropped rather than
 clamped; if storage is unavailable, changes apply for the session only. Most
