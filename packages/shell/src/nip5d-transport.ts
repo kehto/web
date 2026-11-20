@@ -32,7 +32,7 @@ export interface Nip5dTransportOptions {
   readonly state: ShellReadyState;
 }
 
-/** Options for {@link Nip5dTransport.observeFrame}. */
+/** Options for `ShellBridge.observeFrame`. */
 export interface NappletFrameObservation {
   /**
    * The frame runs under the experimental nested-context lock: revoke it when its Window holds a child browsing

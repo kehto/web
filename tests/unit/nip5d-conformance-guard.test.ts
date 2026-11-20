@@ -220,7 +220,8 @@ describe('NIP-5D conformance static guards', () => {
   });
 
   it('locks nested browsing contexts: prelude closure, CSP Trusted Types, and host byte scan', () => {
-    const prelude = removeComments(readRepoFile('packages/shell/src/napplet-namespace.ts'));
+    const prelude = removeComments(readRepoFile('packages/shell/src/napplet-namespace.ts'))
+      + removeComments(readRepoFile('packages/shell/src/napplet-realm-lock.ts'));
     const csp = removeComments(readRepoFile('packages/shell/src/napplet-csp.ts'));
     const scan = readRepoFile('packages/shell/src/napplet-frame-scan.ts');
     const paja = removeComments(readRepoFile('packages/paja/src/browser-target-frame.ts'));
@@ -233,6 +234,8 @@ describe('NIP-5D conformance static guards', () => {
     expect(prelude).toContain('napplets may not create nested browsing contexts');
     expect(prelude).toContain("pin(docProto, 'createElement'");
     expect(prelude).toContain("pin(docProto, 'createElementNS'");
+    // XSLTProcessor.transformToFragment mints elements without a factory or string sink (kehto/web#381).
+    expect(prelude).toContain("pin(win, 'XSLTProcessor', undefined);");
     expect(prelude).toContain('frameLock(target);');
     // CSP carries the non-overridable Trusted Types lock on every napplet.
     expect(csp).toContain("require-trusted-types-for 'script'; trusted-types default");
@@ -242,9 +245,27 @@ describe('NIP-5D conformance static guards', () => {
     expect(paja).toContain('assertNappletHasNoFrame(resolvedTarget.indexHtml);');
     // The lock is opt-in (experimental namespace), off by default, so it is
     // never imposed on downstream hosts.
-    expect(srcdocSrc).toContain('options.experimental?.nestedContextLock === true');
+    expect(srcdocSrc).toContain('needsTrustedTypes(options.experimental)');
+    expect(prelude).toContain("experimental?.nestedContextLock === true ? nappletFrameLock.toString() : null");
     expect(paja).toContain('config.experimental?.nestedContextLock');
     expect(policy).toContain('### Nested browsing contexts');
+  });
+
+  it('locks CSP-exempt resource hints behind the opt-in flag, with a host byte scan', () => {
+    const lock = removeComments(readRepoFile('packages/shell/src/napplet-realm-lock.ts'));
+    const scan = readRepoFile('packages/shell/src/napplet-hint-scan.ts');
+    const paja = removeComments(readRepoFile('packages/paja/src/browser-target-frame.ts'));
+    const policy = readRepoFile('docs/policies/NIP-5D-CONFORMANCE.md');
+    // Opt-in gate, shared Trusted Types policy, and the hint relation set.
+    expect(lock).toContain("experimental?.resourceHintLock === true ? nappletHintLock.toString() : null");
+    expect(lock).toContain("new Set(['dns-prefetch', 'preconnect', 'prerender'])");
+    expect(lock).toContain("define(win, 'XSLTProcessor'");
+    expect(lock.match(/createPolicy\('default'/g)).toHaveLength(1);
+    // Static hints are refused before load; Paja couples the flag to its nested-context decision.
+    expect(scan).toContain('export function nappletMarkupHasResourceHint');
+    expect(paja).toContain('assertNappletHasNoResourceHint(resolvedTarget.indexHtml);');
+    expect(paja).toContain('experimental: { nestedContextLock: true, resourceHintLock: true }');
+    expect(policy).toContain('### Resource hints');
   });
 
   it('keeps napplet identity bound to the napplet.hello port across shell and hosts', () => {
