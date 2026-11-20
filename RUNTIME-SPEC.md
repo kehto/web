@@ -235,7 +235,10 @@ is `ok: false`, `error: "encryption unavailable: <scheme>"`, before any approval
 prompt or relay plan. If `encrypt` yields no string, an empty string or the
 plaintext itself, the reply is `ok: false`, `error: "encryption failed"`.
 Either way nothing is signed or published. The NAP has no fixed error codes
-here, so these strings are Kehto's diagnostics.
+here, so these strings are Kehto's diagnostics. Spec-gap decision: the API
+text's "NIP-44 by default, NIP-04 as fallback" is read as naming the
+alternative value. An omitted `encryption` with a signer that only has NIP-04
+still fails, and Kehto never downgrades silently.
 
 ## Unknown-`type` handling
 

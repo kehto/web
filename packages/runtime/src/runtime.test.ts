@@ -751,9 +751,11 @@ describe('relay.publishEncrypted (NAP-08 / DRIFT-RT-08 / SH-C03)', () => {
       runtime.sessionRegistry.register(PE_WINDOW, createNip5dSessionEntry(PE_WINDOW, PE_DTAG, PE_HASH));
     }
 
-    const CASES: ReadonlyArray<readonly [string, Partial<import('./types.js').Signer>, 'nip44' | 'nip04', string]> = [
+    const CASES: ReadonlyArray<readonly [string, Partial<import('./types.js').Signer>, 'nip44' | 'nip04' | undefined, string]> = [
       ['no nip44 method', { nip44: undefined }, 'nip44', 'encryption unavailable: nip44'],
       ['no nip04 method', { nip04: undefined }, 'nip04', 'encryption unavailable: nip04'],
+      // Spec-gap decision: "NIP-04 as fallback" never downgrades an omitted scheme.
+      ['omitted scheme, NIP-04-only signer', { nip44: undefined }, undefined, 'encryption unavailable: nip44'],
       ['encrypt resolves undefined', { nip44: { encrypt: async () => undefined as unknown as string, decrypt: async () => '' } }, 'nip44', 'encryption failed'],
       ['encrypt resolves empty', { nip44: { encrypt: async () => '', decrypt: async () => '' } }, 'nip44', 'encryption failed'],
       ['encrypt returns the plaintext', { nip44: { encrypt: async (_pk: string, plain: string) => plain, decrypt: async () => '' } }, 'nip44', 'encryption failed'],
@@ -766,7 +768,8 @@ describe('relay.publishEncrypted (NAP-08 / DRIFT-RT-08 / SH-C03)', () => {
 
       runtime.handleMessage(PE_WINDOW, {
         type: 'relay.publishEncrypted', id: 'pe-closed',
-        event: { kind: 4, content: 'secret', tags: [], created_at: 123 }, recipient: PE_RECIPIENT, encryption,
+        event: { kind: 4, content: 'secret', tags: [], created_at: 123 }, recipient: PE_RECIPIENT,
+        ...(encryption ? { encryption } : {}),
       } as NappletMessage);
       await new Promise((r) => setTimeout(r, 0));
 

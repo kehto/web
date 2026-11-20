@@ -537,6 +537,9 @@ function handleRelayPublishEncrypted(
   // NAP-RELAY #2 @ 9f30b350: "The shell MUST encrypt content and sign event
   // templates from `relay.publishEncrypted`". A signer without the requested
   // scheme fails closed before any consent prompt, plan or publish (#482).
+  // "NIP-44 by default, NIP-04 as fallback" (API Surface) is read as naming
+  // the alternative value, not as permission to downgrade silently: an
+  // omitted `encryption` with a NIP-04-only signer still fails (spec gap).
   const scheme: 'nip04' | 'nip44' = encryption;
   if (typeof peSigner[scheme]?.encrypt !== 'function') {
     replyPe(false, { error: `encryption unavailable: ${scheme}` });
