@@ -134,7 +134,9 @@ Security Considerations (shells SHOULD apply per-napplet concurrency limits).
   given (no id added to a notification, a response keeps the napplet's id).
   `createNostrCvmTransport` implements it under the same deadline. A transport
   without `publish()` falls back to `request()` and warns once
-  (`KEHTO_CVM_TRANSPORT_PUBLISH`, see `docs/compatibility.md`).
+  (`KEHTO_CVM_TRANSPORT_PUBLISH`, see `docs/compatibility.md`). The injected
+  `window.napplet.cvm.request()` from `@kehto/shell` resolves `null` for these,
+  as the NAP's API column says; a request still resolves with its MCP response.
 - MCP ids are tracked per endpoint, server and direction, typed (`1` is not
   `"1"`). A client request id already used in the session, and a response that
   matches no server request delivered to that napplet (or one already answered),
