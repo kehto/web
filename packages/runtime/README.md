@@ -186,9 +186,10 @@ the protocol-defined correlated result wire: `outbox.query.result` with
 ACL and legacy Firewall denials answer each recognized request on its owning
 NAP's failure wire, never an invented `<type>.error`. A denied `cvm.*` request
 gets its matching `.result` with `error: "policy denied"` (NAP-CVM #31 at
-`28cf1bdb`); `relay`, `outbox`, `upload.upload`, `count`, `notify`, `dm` and
-`fs` follow their own NAPs, and requests with no defined reply stay silent. The
-per-type table, refs and remaining spec gaps are in
+`28cf1bdb`); `relay`, `outbox`, `upload`, `count`, `notify`, `dm`, `fs`,
+`keys`, `media` and `config` follow their own NAPs, and requests with no defined
+reply stay silent (including a denied `config.get`). The per-type table, refs and
+spec-gap decisions are in
 [RUNTIME-SPEC.md](https://github.com/kehto/web/blob/main/RUNTIME-SPEC.md).
 
 The fixture-line `@napplet/nap@0.32.0` contract trails PR #106. Host packages

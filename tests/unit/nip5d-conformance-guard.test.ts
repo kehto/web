@@ -839,10 +839,12 @@ describe('unrecognized message types get no reply (NIP-5D)', () => {
     for (const type of BUILT_IN.flatMap(unknownTypesFor)) {
       expect(createDenialResponse({ type, id: 'probe', subId: 's1' } as NappletMessage, 'firewall: blocked')).toBeNull();
     }
-    // Defined requests in every runtime-dispatched domain keep a reply (here the
-    // pre-existing generic projection, a separate spec gap in RUNTIME-SPEC.md).
+    // Defined requests keep a reply (the uncapped domains still on the
+    // pre-existing generic projection are listed in RUNTIME-SPEC.md). A denied
+    // `config.get` is silent on purpose: NAP-CONFIG gives `config.values` no
+    // failure shape (kehto/web#481), so it is not in this list.
     for (const type of ['serial.open', 'ble.read', 'common.encodeNip19', 'lists.add', 'webrtc.open', 'link.open',
-      'gamepad.subscribe', 'keys.registerAction', 'config.get', 'notify.send', 'storage.get']) {
+      'gamepad.subscribe', 'keys.registerAction', 'config.registerSchema', 'notify.send', 'storage.get']) {
       expect(createDenialResponse({ type, id: 'probe' } as NappletMessage, 'firewall: blocked'), type).not.toBeNull();
     }
   });

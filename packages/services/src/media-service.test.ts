@@ -17,32 +17,6 @@ import type { ServiceRuntimeContext } from '@kehto/runtime';
 
 const WINDOW_ID = 'win-media-1';
 
-/**
- * Compose the runtime-level ACL gate in front of the media service.
- * Mirrors the shape of packages/runtime/src/runtime.ts: when the enforce
- * gate denies, the runtime emits a `<type>.error` envelope and never
- * invokes the service. We reproduce that here so the test asserts the
- * exact envelope the napplet will see.
- */
-function dispatchWithEnforcer(
-  enforcer: { check: () => { allowed: boolean; reason?: string } },
-  service: ReturnType<typeof createMediaService>,
-  windowId: string,
-  message: NappletMessage,
-  send: (msg: NappletMessage) => void,
-): void {
-  const decision = enforcer.check();
-  if (!decision.allowed) {
-    const id = (message as NappletMessage & { id?: string }).id ?? '';
-    send({
-      type: `${message.type}.error`,
-      id,
-      error: decision.reason ?? 'denied',
-    } as NappletMessage);
-    return;
-  }
-  service.handleMessage(windowId, message, send);
-}
 
 // Helper: MockMediaSession records every setActionHandler call and lets tests
 // invoke the stored handlers directly to simulate OS media-control clicks.
@@ -440,33 +414,8 @@ describe('createMediaService', () => {
     });
   });
 
-  describe('ACL denial envelope shape (runtime-composed)', () => {
-    it('media.session.create denied by ACL emits media.session.create.error', () => {
-      const service = createMediaService();
-      const sent: NappletMessage[] = [];
-      const denyingEnforcer = {
-        check: () => ({ allowed: false, reason: 'capability_missing: media:control' }),
-      };
-
-      dispatchWithEnforcer(
-        denyingEnforcer,
-        service,
-        WINDOW_ID,
-        {
-          type: 'media.session.create',
-          owner: 'napplet', capabilities: ['play', 'pause', 'next', 'prev', 'seek'],
-          id: 'm-deny',
-          sessionId: 's-deny',
-        } as NappletMessage,
-        (msg) => sent.push(msg),
-      );
-
-      expect(sent).toHaveLength(1);
-      expect((sent[0] as any).type).toBe('media.session.create.error');
-      expect((sent[0] as any).id).toBe('m-deny');
-      expect((sent[0] as any).error).toMatch(/capability_missing|denied|media:control/);
-    });
-  });
+  // ACL denial never reaches this service: the runtime answers on NAP-MEDIA's
+  // own wire. The real path is covered by packages/runtime/src/policy-denials.test.ts.
 });
 
 describe('navigator.mediaSession integration (real mirror path)', () => {
