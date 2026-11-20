@@ -2,6 +2,7 @@ import {
   admitBrowserDocument,
   assertNappletHasNoFrame,
   denyNappletControllerAccess,
+  denyNappletReferrer,
   hasNappletFramePolicy,
   originRegistry,
   randomUUID,
@@ -108,6 +109,7 @@ export async function navigateFrame(
   signal?: AbortSignal,
 ): Promise<string | null> {
   denyNappletControllerAccess(frame);
+  denyNappletReferrer(frame);
   // Fail closed: without the host page's frame-src lock, a napplet could navigate its frame before its first load,
   // which no NIP-5D replacement evidence can observe.
   if (!hasNappletFramePolicy(frame.ownerDocument)) {

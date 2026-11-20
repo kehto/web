@@ -22,6 +22,9 @@ export { prepareNappletSrcdoc } from './napplet-srcdoc.js';
 export { assertNappletHasNoFrame, nappletMarkupHasFrame } from './napplet-frame-scan.js';
 export type { NappletExperimentalOptions } from './napplet-experimental.js';
 export { hasNappletFramePolicy, NAPPLET_FRAME_POLICY, renderNappletFramePolicyMeta } from './frame-policy.js';
+export {
+  denyNappletReferrer, hasNappletReferrerPolicy, NAPPLET_REFERRER_POLICY, renderNappletHostBase, renderNappletReferrerPolicyMeta,
+} from './napplet-url-privacy.js';
 export type { NappletSrcdocOptions } from './napplet-srcdoc.js';
 
 // Hooks adapter — for advanced integrators who need to customize the adapter

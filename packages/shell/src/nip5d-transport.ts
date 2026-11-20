@@ -11,6 +11,7 @@
  */
 
 import { hasNappletFramePolicy, NAPPLET_FRAME_POLICY } from './frame-policy.js';
+import { hasNappletReferrerPolicy, NAPPLET_REFERRER_POLICY } from './napplet-url-privacy.js';
 import type { Runtime } from '@kehto/runtime';
 import type { NappletMessage } from '@napplet/core';
 import { originRegistry } from './origin-registry.js';
@@ -111,12 +112,26 @@ function warnWithoutFramePolicy(frame: object): void {
   );
 }
 
+let referrerPolicyWarned = false;
+
+/** Warn once when a napplet frame lacks the referrer policy that keeps the shell URL out of `document.referrer`. */
+function warnWithoutReferrerPolicy(frame: object): void {
+  const candidate = frame as Partial<Pick<HTMLIFrameElement, 'getAttribute'>>;
+  if (referrerPolicyWarned || typeof candidate.getAttribute !== 'function') return;
+  if (hasNappletReferrerPolicy(candidate as Pick<HTMLIFrameElement, 'getAttribute'>)) return;
+  referrerPolicyWarned = true;
+  console.warn(
+    `[kehto] A napplet frame has no referrerpolicy="${NAPPLET_REFERRER_POLICY}"; the napplet can read the shell URL from document.referrer. Call denyNappletReferrer(frame) before assigning srcdoc, and add renderNappletReferrerPolicyMeta() to the host page <head> (WebKit ignores the attribute for srcdoc).`,
+  );
+}
+
 /** Report a frame's second load, the evidence that its verified document was replaced. */
 function observeFrameLoads(
   frame: Pick<HTMLIFrameElement, 'addEventListener' | 'removeEventListener'>,
   onSecondLoad: () => void,
 ): () => void {
   warnWithoutFramePolicy(frame);
+  warnWithoutReferrerPolicy(frame);
   let loads = 0;
   const onLoad = (): void => {
     loads += 1;
