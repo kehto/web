@@ -150,10 +150,11 @@ function handleRequest(actions: CvmActions, windowId: string, generation: symbol
     handleCvmCancellation({
       operations, correlations, requests: actions.requests, fail,
       ack: () => currentSend(windowId, generation, { type: 'cvm.request.result', id } as NappletMessage),
-      publish: (work, handle) => authorize(windowId, generation, 'cvm.request', relays, server, work, async () => {
+      authorize: (work, execute) => authorize(windowId, generation, 'cvm.request', relays, server, work, execute),
+      publish: async (work, handle) => {
         remember(windowId, generation, server);
         await cancel(server, handle, message, { ...requestOptions, timeoutMs: work.remaining() }, { signal: work.signal });
-      }),
+      },
     }, { windowId, generation, server, requestId: (message.params as { requestId?: unknown } | undefined)?.requestId, duration });
     return;
   }

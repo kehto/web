@@ -222,6 +222,20 @@ describe('cancelling a request that has not left the shell (kehto/web#510)', () 
     h.svc.dispose();
   });
 
+  it('keeps a denied napplet denied when it cancels its own settled request', async () => {
+    const h = harness();
+    h.svc.onRegistered?.({ authorizeOperation: async () => ({ status: 'denied' }) } as unknown as ServiceRuntimeContext);
+    h.send('call', LIST(7));
+    await flush();
+    h.send('cancel', CANCEL(7));
+    await flush();
+    expect(h.result('call')).toEqual([{ type: 'cvm.request.result', id: 'call', error: 'policy denied' }]);
+    expect(h.result('cancel')).toEqual([{ type: 'cvm.request.result', id: 'cancel', error: 'policy denied' }]);
+    expect(h.transport.request).not.toHaveBeenCalled();
+    expect(h.cancel).not.toHaveBeenCalled();
+    h.svc.dispose();
+  });
+
   it('keeps one napplet\'s cancel away from another napplet\'s queued request', async () => {
     const h = harness({ concurrency: { maxInFlight: 1, maxQueued: 1 } });
     h.send('first', LIST(1));

@@ -18,12 +18,14 @@
  *   `CvmTransport.cancel` (#509), then the request is settled locally. A
  *   transport still preparing the request sees its signal abort and never
  *   sends it.
- * - Already settled, or already being cancelled: acknowledged, nothing published.
+ * - Already settled, or already being cancelled: acknowledged once policy
+ *   allows it, nothing published.
  *
  * The cancellation itself never takes an admission slot: it only ever ends
- * work that was already admitted. It still runs under the target's approval
- * policy before anything is published, keeps its own deadline, and ends on
- * close or teardown like any operation.
+ * work that was already admitted. Except for a local drop, which publishes
+ * nothing and withdraws the target's own prompt, it runs under the same
+ * policy and approval as any `cvm.request`, keeps its own deadline, and ends
+ * on close or teardown like any operation.
  *
  * Spec-gap decision: the draft's error table names no error for a request
  * its own napplet cancelled. The request settles with {@link CANCELLED_REQUEST_ERROR}.
@@ -56,7 +58,9 @@ export interface CvmCancelDeps {
   readonly operations: CvmOperations;
   readonly correlations: CvmCorrelations;
   readonly requests: WeakMap<CvmRequestHandle, CvmRequestState>;
-  /** Approve, then publish the mapped cancellation; see `CvmTransport.cancel`. */
+  /** Run `execute` under the same policy and approval as any `cvm.request` to this server. */
+  readonly authorize: (work: CvmOperation, execute: () => Promise<void>) => Promise<void>;
+  /** Publish the mapped cancellation; see `CvmTransport.cancel`. */
   readonly publish: (work: CvmOperation, handle: CvmRequestHandle) => Promise<void>;
   readonly ack: () => void;
   readonly fail: (error: unknown) => void;
@@ -92,17 +96,19 @@ export function handleCvmCancellation(deps: CvmCancelDeps, envelope: CvmCancelEn
   if (target.state === 'foreign') { fail('invalid message'); return; }
   const handle = target.state === 'in-flight' ? target.handle : undefined;
   const request = handle ? requests.get(handle) : undefined;
-  if (!handle || !request || request.cancelling) { ack(); return; }
-  request.cancelling = true;
-  const settleTarget = () => operations.cancel(windowId, CANCELLED_REQUEST_ERROR, (operation) => operation === request.operation);
-  if (!request.dispatched) { void settleTarget().then(ack); return; }
-  operations.run(windowId, envelope.duration, [server.pubkey], async (work) => {
+  const live = handle && request && !request.cancelling ? request : undefined;
+  const settleTarget = () => operations.cancel(windowId, CANCELLED_REQUEST_ERROR, (operation) => operation === live?.operation);
+  if (live) live.cancelling = true;
+  // Not handed to the transport yet: dropped here, so there is nothing to approve.
+  if (live && !live.dispatched) { void settleTarget().then(ack); return; }
+  // Settled or already being cancelled: nothing to publish, but still under
+  // the same policy as any cvm.request, so a denied napplet stays denied.
+  operations.run(windowId, envelope.duration, [server.pubkey], (work) => deps.authorize(work, async () => {
     // It may have settled while this cancellation awaited approval.
-    if (correlations.cancelTarget(windowId, generation, server.pubkey, requestId).state === 'in-flight') await deps.publish(work, handle);
-  }, () => { void settleTarget().then(ack); }, (error) => {
+    if (live && handle && correlations.cancelTarget(windowId, generation, server.pubkey, requestId).state === 'in-flight') await deps.publish(work, handle);
+  }), () => { void settleTarget().then(ack); }, (error) => {
     // Not published: the request keeps running and may still be cancelled.
-    request.cancelling = false;
+    if (live) live.cancelling = false;
     fail(error);
   }, { admit: false });
 }
-
