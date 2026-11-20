@@ -119,7 +119,7 @@ async function isolate(context: CollectContext, fixture: DomainFixture, push: Pu
   await Promise.all([doomed.waitMark('ready', context.timeoutMs * 2), survivor.waitMark('ready', context.timeoutMs * 2)]);
   await context.session.destroyEndpoint(doomed.id);
   const from = context.session.transcript().length;
-  await context.session.control(push.trigger.control, push.trigger.payload);
+  await context.session.control(push.trigger!.control, push.trigger!.payload);
   const report = await survivor.report(context.timeoutMs * 4);
   const afterDestroy = context.session.transcript().slice(from)
     .filter((entry) => entry.tap === 'host' && entry.endpoint === doomed.id && entry.direction === 'runtime->napplet');
@@ -136,7 +136,7 @@ async function listen(context: CollectContext, fixture: DomainFixture, push: Pus
     dTag: `probe-listen-${fixture.domain}`, grants: [fixture.domain], optional: [fixture.domain], rawWire: true,
   });
   await endpoint.waitMark('ready', context.timeoutMs * 2);
-  await context.session.control(push.trigger.control, push.trigger.payload);
+  await context.session.control(push.trigger!.control, push.trigger!.payload);
   const report = await endpoint.report(context.timeoutMs * 4);
   await context.session.destroyEndpoint(endpoint.id);
   return { domain: fixture.domain, push: push.id, got: step(report, 'push')?.state === 'value' };
@@ -151,7 +151,8 @@ async function collect(context: CollectContext): Promise<IsolationFacts> {
   for (const fixture of selected(context)) {
     const request = firstRequest(fixture);
     if (request) denial.push(await deny(context, fixture, request));
-    const push = (fixture.pushes ?? []).find((item) => context.session.controls.includes(item.trigger.control));
+    // Only host-triggered pushes: isolation needs to fire the push after one endpoint is gone.
+    const push = (fixture.pushes ?? []).find((item) => item.trigger !== undefined && context.session.controls.includes(item.trigger.control));
     if (!push) continue;
     isolation.push(await isolate(context, fixture, push));
     if (!push.subscribe) silent.push(await listen(context, fixture, push));

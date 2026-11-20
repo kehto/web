@@ -44,5 +44,13 @@ export const IDENTITY_FIXTURE: DomainFixture = {
         },
       },
     },
+    {
+      // Restores the signed-in user for every later domain, and proves the change back.
+      id: 'identity/changed-sign-in', type: 'identity.changed', trigger: { control: 'identity.signIn' },
+      semantics: {
+        rule: 'identity.changed is emitted on sign-in with the connected user\'s hex pubkey',
+        verify: (push) => (typeof push?.pubkey === 'string' && HEX_PUBKEY.test(push.pubkey) ? null : `identity.changed pubkey was ${JSON.stringify(push?.pubkey)}`),
+      },
+    },
   ],
 };

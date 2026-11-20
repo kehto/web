@@ -27,6 +27,11 @@ export interface OperationCase {
   /** A reply carrying `error` still passes (the case proves routing and correlation only). */
   readonly allowError?: boolean;
   /**
+   * Payload fields copied from an earlier case's reply, e.g.
+   * `{ notificationId: { case: 'notify/send', path: ['notificationId'] } }`.
+   */
+  readonly fill?: Readonly<Record<string, { readonly case: string; readonly path: readonly string[] }>>;
+  /**
    * NAP semantics this case asserts beyond envelope shape. Present only when
    * the assertion is argued from a sentence of the pinned NAP revision.
    */
@@ -44,8 +49,11 @@ export interface PushCase {
   readonly type: string;
   /** Request that starts delivery, when the domain needs one. */
   readonly subscribe?: OperationCase;
-  /** Host control that makes the runtime push, and its payload. */
-  readonly trigger: { readonly control: string; readonly payload?: unknown };
+  /**
+   * Host control that makes the runtime push, and its payload. Omit it for a
+   * push the subscribe request itself causes (e.g. `relay.eose`).
+   */
+  readonly trigger?: { readonly control: string; readonly payload?: unknown };
   /** Fields the delivered push must carry (deep-equal). */
   readonly match?: Readonly<Record<string, unknown>>;
   /** Request that stops delivery. Without one the case proves delivery only. */
