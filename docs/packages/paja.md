@@ -147,6 +147,13 @@ A deployed runtime (no CLI access) can set the same policy from the host-page
 host origin's `localStorage`, overrides the config, and applies on the next
 napplet load.
 
+Whenever the lock resolves on, Paja also applies the resource-hint lock
+(`resourceHintLock`): it shares the Trusted Types policy and refuses napplets
+that add or ship `<link rel="dns-prefetch" | "preconnect" | "prerender">`, which
+browsers act on outside the napplet CSP. Locked napplets that end up holding a
+child frame anyway are revoked (`nested-context`). See
+[NIP-5D conformance](/policies/NIP-5D-CONFORMANCE#resource-hints).
+
 For package-manager script examples covering `pnpm`, `npm`, and `yarn`, see
 [Use Paja for local napplet authoring](/how-tos/paja-local-authoring).
 

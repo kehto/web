@@ -2,6 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <!-- Keep the harness URL out of napplet document.referrer / document.baseURI (kehto/web#381). -->
+  <meta name="referrer" content="no-referrer" />
+  <base href="./" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Napplet Shell Test Harness</title>
   <style>

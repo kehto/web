@@ -226,3 +226,50 @@ describe('NIP-5D port observation hook', () => {
     channel.port1.close();
   });
 });
+
+// kehto/web#381: revocation backstop for the experimental nested-context lock.
+describe('nested-context tripwire', () => {
+  beforeEach(() => originRegistry.clear());
+  afterEach(() => originRegistry.clear());
+
+  function lockedSetup(nestedContextLock: boolean | undefined) {
+    const context = setup();
+    const frame = new EventTarget();
+    context.bridge.observeFrame(frame as unknown as HTMLIFrameElement, context.windowId, nestedContextLock === undefined ? undefined : { nestedContextLock });
+    context.hello();
+    return { ...context, frame, setChildren: (count: number) => { (context.win as unknown as { length: number }).length = count; } };
+  }
+
+  it('revokes a locked napplet whose Window holds a child frame on its next port envelope', async () => {
+    const { bridge, windowId, napplet, revocations, setChildren } = lockedSetup(true);
+    setChildren(0);
+    napplet.postMessage({ type: 'shell.ready' });
+    await flush();
+    expect(revocations).toEqual([]);
+    setChildren(1);
+    napplet.postMessage({ type: 'relay.subscribe', subId: 's1', filters: [] });
+    await flush();
+    expect(revocations).toEqual([expect.objectContaining({ windowId, reason: 'nested-context' })]);
+    expect(originRegistry.getPort(windowId)).toBeUndefined();
+    bridge.destroy();
+  });
+
+  it('revokes a locked napplet that holds a child frame at load', () => {
+    const { bridge, windowId, frame, revocations, setChildren } = lockedSetup(true);
+    setChildren(2);
+    frame.dispatchEvent(new Event('load'));
+    expect(revocations).toEqual([expect.objectContaining({ windowId, reason: 'nested-context' })]);
+    bridge.destroy();
+  });
+
+  it.each([['no options', undefined], ['lock off', false]] as const)('never trips without the lock (%s)', async (_label, lock) => {
+    const { bridge, napplet, frame, revocations, setChildren } = lockedSetup(lock);
+    setChildren(1);
+    frame.dispatchEvent(new Event('load'));
+    napplet.postMessage({ type: 'shell.ready' });
+    await flush();
+    expect(revocations).toEqual([]);
+    bridge.destroy();
+    napplet.close();
+  });
+});
