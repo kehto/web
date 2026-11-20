@@ -7,6 +7,7 @@ import { createCvmOperations, type CvmOperation, type CvmOperations } from './cv
 import { mcpMessageForm } from './cvm-message.js';
 import { createCvmCorrelations, type CvmCorrelations, type CvmRequestHandle } from './cvm-correlation.js';
 import { randomUUID } from './random-uuid.js';
+import { approvalFailure } from './approval-failure.js';
 import { handleCvmCancellation, type CvmRequestState } from './cvm-local-cancel.js';
 
 const CVM_SERVICE_VERSION = '1.0.0';
@@ -308,7 +309,10 @@ export function createCvmServiceHandler(options: CvmServiceOptions): CvmService 
         return value;
       } finally { signal.removeEventListener('abort', abort); }
     }, work.signal);
-    if (outcome.status !== 'executed') throw new Error('policy denied');
+    // NAP-CVM napplet/naps#31 @ 28cf1bdb reserves `policy denied` for the ACL;
+    // its error table has no approval-capacity/busy code, so those host
+    // conditions use the bounded `approval …` strings (spec gap, kehto/web#513).
+    if (outcome.status !== 'executed') throw new Error(approvalFailure(outcome.status, { denied: 'policy denied' }));
     return outcome.value;
   };
 

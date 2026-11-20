@@ -22,6 +22,7 @@ import type {
   NappletMessage,
 } from '@napplet/core';
 import type { ApprovalSignal, ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
+import { isApprovalDenial } from './approval-failure.js';
 
 type FsPermissionRequirement = Parameters<NonNullable<ServiceRuntimeContext['authorizeOperation']>>[2][number];
 
@@ -197,7 +198,10 @@ export function createFsService(options: FsServiceOptions): FsService {
           if (!current(windowId, generation) || signal.aborted) throw new FsServiceError('cancelled');
           return value;
         });
-        if (approval.status !== 'executed') throw new FsServiceError('policy-denied');
+        // FsError is closed (NAP-FS napplet/naps#88 @ bd1b9e91). Spec gap: no
+        // approval code, so capacity/busy/unavailable are `io-error` (the grant
+        // store could not record or prompt), never `policy-denied` (kehto/web#513).
+        if (approval.status !== 'executed') throw new FsServiceError(isApprovalDenial(approval.status) ? 'policy-denied' : 'io-error');
         return approval.value;
       })
       .then((value) => {

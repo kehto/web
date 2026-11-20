@@ -35,6 +35,7 @@ import type { NappletMessage } from '@napplet/core';
 // @napplet/core v0.2.0+ (napplet phase-81). Re-exported from
 // @kehto/runtime (canonical home after Phase 24 DRIFT-01).
 import type { ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
+import { approvalFailure } from './approval-failure.js';
 import type {
   Theme,
   ThemeChangedMessage,
@@ -181,11 +182,11 @@ export function createThemeService(options: ThemeServiceOptions = {}): ThemeServ
         };
         const reply = (): void => complete({ type: 'theme.get.result', id, theme: currentTheme } as ThemeGetResultMessage as NappletMessage);
         if (!runtime?.authorizeOperation) { reply(); return; }
-        const deny = (): void => complete({ type: 'theme.get.result', id, error: 'policy denied' } as NappletMessage);
+        const deny = (error = 'policy denied'): void => complete({ type: 'theme.get.result', id, error } as NappletMessage);
         void runtime.authorizeOperation(_windowId, 'theme.get', [{ category: 'interface', domain: 'theme', operation: 'access', scope: { kind: 'exact', value: 'theme' } }], async (signal) => {
           if (signal.aborted) throw new Error('user-denied');
           reply();
-        }).then((outcome) => { if (outcome.status !== 'executed') deny(); }).catch(deny);
+        }).then((outcome) => { if (outcome.status !== 'executed') deny(approvalFailure(outcome.status, { denied: 'policy denied' })); }).catch(() => deny());
         return;
       }
 

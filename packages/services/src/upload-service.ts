@@ -38,6 +38,7 @@
 import type { NappletMessage } from '@napplet/core';
 import type { ApprovalSignal, ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
 import { randomUUID } from './random-uuid.js';
+import { approvalFailure } from './approval-failure.js';
 
 /** Upload service version — follows semver. */
 const UPLOAD_SERVICE_VERSION = '1.0.0';
@@ -468,7 +469,8 @@ async function runUpload(args: UploadRunContext): Promise<void> {
       ], (signal) => plan.execute(signal), entry.controller.signal);
       if (!current(entry)) return;
       if (approval.status !== 'executed') {
-        send({ type: 'upload.upload.result', id, error: 'policy denied' } as NappletMessage);
+        // NAP-UPLOAD napplet/naps#33 @ f5cc981e has no approval code; host conditions use `approval …` (spec gap, kehto/web#513).
+        send({ type: 'upload.upload.result', id, error: approvalFailure(approval.status, { denied: 'policy denied' }) } as NappletMessage);
         entries.delete(key);
         return;
       }

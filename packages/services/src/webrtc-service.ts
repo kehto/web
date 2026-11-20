@@ -5,6 +5,7 @@ import { createUnrecognizedTypeDiagnostic } from '@kehto/runtime';
 import type { ApprovalSignal, PermissionRequirement, ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
 import { decodeWebrtcBytes } from './webrtc-bytes.js';
 import { createWebrtcSessions, type Opening, type SessionEntry } from './webrtc-sessions.js';
+import { approvalFailure } from './approval-failure.js';
 
 const WEBRTC_SERVICE_VERSION = '1.0.0';
 
@@ -176,7 +177,7 @@ export function createWebrtcService(options: WebrtcServiceOptions = {}): Service
         if (revokedGenerations.has(generation)) send({ type: 'webrtc.open.result', id, error: 'policy denied' } as NappletMessage);
         return;
       }
-      if (outcome.status !== 'executed' || !outcome.value) { send({ type: 'webrtc.open.result', id, error: 'policy denied' } as NappletMessage); return; }
+      if (outcome.status !== 'executed' || !outcome.value) { send({ type: 'webrtc.open.result', id, error: outcome.status === 'executed' ? 'policy denied' : approvalFailure(outcome.status, { denied: 'policy denied' }) } as NappletMessage); return; }
       send({ type: 'webrtc.open.result', id, session: outcome.value.session } as NappletMessage);
       // A session the backend already ended while opening is reported closed
       // right after its result, and never kept.

@@ -8,6 +8,7 @@
 import type { NappletMessage } from '@napplet/core';
 import { createUnrecognizedTypeDiagnostic } from '@kehto/runtime';
 import type { ApprovalSignal, ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
+import { approvalFailure } from './approval-failure.js';
 import type {
   NotifyActionMessage,
   NotifyBadgeMessage,
@@ -306,7 +307,8 @@ export function createNotifyService(options: NotifyServiceOptions = {}): Service
         send({ type: 'notify.send.result', id: request.id, notificationId } as NappletMessage);
       });
       if (outcome.status !== 'executed' && current(windowId, generation)) {
-        send({ type: 'notify.send.result', id: request.id, error: 'permission denied' } as NappletMessage);
+        // NAP-NOTIFY napplet/naps#11 @ 67877ef6 lists `rate limited`; capacity/unavailable use `approval …` (spec gap, kehto/web#513).
+        send({ type: 'notify.send.result', id: request.id, error: approvalFailure(outcome.status, { denied: 'permission denied', busy: 'rate limited' }) } as NappletMessage);
       }
     } catch (error) {
       if (!current(windowId, generation)) return;

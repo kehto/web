@@ -331,8 +331,9 @@ denial. Following the error codes in [NAP-OUTBOX draft #32 at
 | A read plan spans more relay origins than one approval can name | Bounded to the budget (below); a read that left an author without relays is `incomplete: true` |
 | A publish's required own/inbox relays span more origins than one approval can name | `too many relays`, before signing |
 | The Firewall grant table is full (`maxGrants`) | `approval capacity reached` (host capacity, not a denial) |
+| The approval queue or a rate limit is full, or no prompt UI can answer | `approval busy` / `approval unavailable` (not a denial) |
 | Signer or user declines a publish | `publish denied` |
-| Approval not executed, approval revoked, relay gate refuses every inbox relay, or a router that cannot plan | `policy denied` |
+| Approval denied or cancelled, approval revoked, relay gate refuses every inbox relay, or a router that cannot plan | `policy denied` |
 
 The draft has no code for "no relay reachable" or "every relay refused", so the
 closest defined codes are used. Its error list is open ("Common errors

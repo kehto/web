@@ -27,6 +27,8 @@
  * @module
  */
 
+import { APPROVAL_CAPACITY } from './approval-failure.js';
+
 /** No usable relay set: discovery failed, or no planned relay could be attached. */
 export const OUTBOX_RELAY_LIST_UNAVAILABLE = 'relay list unavailable';
 /** Planned relays did not answer or accept within the request budget. */
@@ -39,7 +41,7 @@ export const OUTBOX_PUBLISH_DENIED = 'publish denied';
  * The Firewall grant table is full (`maxGrants`). Host capacity, not policy, so
  * not a denial (kehto/web#513, spec gap: the draft has no capacity code).
  */
-export const OUTBOX_APPROVAL_CAPACITY = 'approval capacity reached';
+export const OUTBOX_APPROVAL_CAPACITY = APPROVAL_CAPACITY;
 /** A publish's required relays span more origins than one approval can name; not a denial. */
 export const OUTBOX_TOO_MANY_RELAYS = 'too many relays';
 

@@ -20,6 +20,7 @@ import type {
 } from '@napplet/nap/lists/types';
 import { createUnrecognizedTypeDiagnostic } from '@kehto/runtime';
 import type { ApprovalSignal, ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
+import { approvalFailure } from './approval-failure.js';
 
 const LISTS_SERVICE_VERSION = '1.0.0';
 
@@ -130,7 +131,8 @@ export function createListsService(options: ListsServiceOptions = {}): ServiceHa
         if (!current(windowId, generation) || signal.aborted) throw new Error('user-denied');
         return value;
       });
-      if (outcome.status !== 'executed') throw new Error('user-denied');
+      // NAP-LISTS napplet/naps#68 @ 7cf00cdb: host approval conditions are `list-unavailable` with an `approval …` reason (kehto/web#513).
+      if (outcome.status !== 'executed') throw new Error(approvalFailure(outcome.status, { denied: 'user-denied' }));
       return outcome.value;
     }).then((result) => { if (current(windowId, generation)) send({ type: resultType, id: message.id, ...result } as NappletMessage); })
       .catch((error) => { if (current(windowId, generation)) send({ type: resultType, id: message.id, ok: false, error: 'list-unavailable', reason: errorMessage(error, 'lists request failed') } as NappletMessage); });
