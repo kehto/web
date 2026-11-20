@@ -3,9 +3,11 @@
  *
  * NIP-5D defines no generic `<type>.error` reply, and most NAPs carry failures in
  * the request's own `.result` envelope. Each row below is an exact
- * napplet-to-shell request type whose owning NAP states that shape. A NAP-defined
- * request with no row keeps the runtime's older generic projection; RUNTIME-SPEC.md
- * lists the domains without rows. A type its NAP does not define gets no reply at all.
+ * napplet-to-shell request type whose owning NAP states that shape. The domains
+ * without rows are answered elsewhere on their own NAP's wire (identity, theme,
+ * intent and llm in domain-results.ts; storage, inc and resource in
+ * `createDenialResponse`); RUNTIME-SPEC.md lists them. A type its NAP does not
+ * define gets no reply at all.
  *
  * Refs checked (napplet/naps):
  * - NAP-CVM    #31 @ 28cf1bdb — "There are no `cvm.*.error` messages; ACL denial
@@ -47,6 +49,29 @@
  * - NAP-FS     #88 @ bd1b9e91 — "A failed result MUST include `error` and MUST omit
  *   all operation-specific success fields."; `"policy-denied"` is an FsError.
  *
+ * Domains ACL does not gate, reached only by a legacy Firewall drop
+ * (kehto/web#494; heads re-resolved 2026-11-20):
+ * - NAP-COMMON #67 @ 8cd0eae8 — "Result messages use `ok: false` plus `error`."
+ *   `common.getProfile.result` requires `pubkey`; `common.follows.result`
+ *   requires `pubkeys` (spec gaps below).
+ * - NAP-LISTS  #68 @ 7cf00cdb — `ListMutationResult` has required `ok`, an
+ *   `error` that is a "Machine-readable error code" and a human `reason`;
+ *   `lists.supported.result` carries `lists?`, `error?`.
+ * - NAP-SERIAL #61 @ 0c6e88ab, NAP-BLE #62 @ b46b8691 — "The runtime MUST
+ *   respond to every request with a result message carrying the same `id`";
+ *   "When `serial.open.result` includes `error`, it MUST NOT include `session`"
+ *   (and the same for `ble.open.result`).
+ * - NAP-WEBRTC #59 @ fb4dd6f0 — "Any result message MAY include an `error`
+ *   field (string). When `error` is present, other result fields are undefined."
+ * - NAP-LINK   #53 @ 100e5c93 — `link.open.result` requires `status`; "Result
+ *   messages MAY include `error` when `status` is `"denied"`."
+ * - NAP-GAMEPAD #130 @ 0b28f77e — "There are no request/result pairs." and
+ *   "The shell MUST send a `gamepad.state` snapshot after each
+ *   `gamepad.subscribe`."; `"blocked"` means "host policy denied the runtime".
+ * - NAP-IDENTITY (master @ 377bf939) has no rows: the runtime answers a denied
+ *   identity request before this table with its safe default
+ *   (`createCanonicalDomainResult` in domain-results.ts).
+ *
  * Where the NAP lists only common error strings, the runtime's reason passes
  * through unchanged; a fixed code is used only where the NAP mandates one or
  * defines an enumerated code set.
@@ -70,6 +95,19 @@
  *   without `?`, the packaged `@napplet/nap@0.41.0` types mark both optional.
  *   The denial sends only `error`, like `upload.upload`: a status would invent
  *   a rail, timestamp and state for an upload the napplet may not inspect.
+ *
+ * Spec-gap decisions (kehto/web#494):
+ * - `common.getProfile`: `pubkey` is required. The denial echoes the target
+ *   when it is already lowercase hex and sends `''` for an npub, nprofile or
+ *   anything else, so a denied napplet never gets a NIP-19 decode for free.
+ * - `common.follows`: `pubkeys` is required, so the denial sends `[]` with
+ *   `ok: false`, as NAP-IDENTITY does for its lists.
+ * - `lists.*`: no listed code names a policy denial, so `error` is
+ *   `"policy-denied"` (the NAP-COUNT / NAP-FS code) and the runtime's reason goes
+ *   in `reason`. `lists.supported.result` has no `reason`, so it gets the code only.
+ * - `gamepad.subscribe`: answered with the `"blocked"` snapshot, so the MUST
+ *   snapshot still arrives and the binding reports the denial as it would
+ *   a host block. `gamepad.unsubscribe` is silent.
  */
 
 import type { NappletMessage } from '@napplet/core';
@@ -109,6 +147,29 @@ const FS_REQUESTS = ['fs.info', 'fs.pickFile', 'fs.pickFiles', 'fs.pickDirectory
 const MEDIA_NOTICES = ['media.session.update', 'media.session.destroy', 'media.state', 'media.capabilities', 'media.command'] as const;
 const CONFIG_NOTICES = ['config.get', 'config.subscribe', 'config.unsubscribe', 'config.openSettings'] as const;
 
+const COMMON_ACTIONS = ['common.encodeNip19', 'common.decodeNip19', 'common.follow', 'common.unfollow',
+  'common.react', 'common.report'] as const;
+const SESSION_REQUESTS = ['serial.open', 'serial.write', 'serial.close',
+  'ble.open', 'ble.services', 'ble.read', 'ble.write', 'ble.subscribe', 'ble.unsubscribe', 'ble.close',
+  'webrtc.open', 'webrtc.send', 'webrtc.sendBytes', 'webrtc.close'] as const;
+
+/** NAP-COMMON: `pubkey` is required, so echo a lowercase-hex target and send `''` otherwise. */
+const commonGetProfile: DenialProjection = (id, reason, message) => {
+  const target = (message as NappletMessage & { target?: unknown }).target;
+  const pubkey = typeof target === 'string' && /^[0-9a-f]{64}$/.test(target) ? target : '';
+  return { type: 'common.getProfile.result', id, ok: false, pubkey, error: reason } as NappletMessage;
+};
+
+/** NAP-LISTS: `error` is a machine-readable code; the runtime's reason goes in `reason`. */
+function listsMutation(type: 'lists.add' | 'lists.remove'): DenialProjection {
+  return (id, reason) => ({ type: `${type}.result`, id, ok: false, error: 'policy-denied', reason } as NappletMessage);
+}
+
+/** NAP-GAMEPAD: no request/result pairs; a subscribe gets the "blocked" snapshot. */
+const gamepadBlocked: DenialProjection = () => (
+  { type: 'gamepad.state', available: false, reason: 'blocked', focused: false, pads: [] } as NappletMessage
+);
+
 const POLICY_DENIALS: Readonly<Record<string, DenialProjection>> = Object.freeze({
   ...Object.fromEntries(CVM_REQUESTS.map((type) => [type, resultError(type, 'policy denied')])),
   'relay.subscribe': closed('relay.closed'),
@@ -140,6 +201,17 @@ const POLICY_DENIALS: Readonly<Record<string, DenialProjection>> = Object.freeze
   'notify.channel.register': silent,
   ...Object.fromEntries(DM_REQUESTS.map((type) => [type, resultError(type)])),
   ...Object.fromEntries(FS_REQUESTS.map((type) => [type, resultError(type, 'policy-denied')])),
+  // Domains ACL does not gate; only the legacy Firewall reaches these (kehto/web#494).
+  ...Object.fromEntries(COMMON_ACTIONS.map((type) => [type, resultError(type, undefined, { ok: false })])),
+  'common.getProfile': commonGetProfile,
+  'common.follows': resultError('common.follows', undefined, { ok: false, pubkeys: [] }),
+  'lists.supported': resultError('lists.supported', 'policy-denied'),
+  'lists.add': listsMutation('lists.add'),
+  'lists.remove': listsMutation('lists.remove'),
+  ...Object.fromEntries(SESSION_REQUESTS.map((type) => [type, resultError(type)])),
+  'link.open': resultError('link.open', undefined, { status: 'denied' }),
+  'gamepad.subscribe': gamepadBlocked,
+  'gamepad.unsubscribe': silent,
 });
 
 /**
@@ -170,7 +242,8 @@ export function createPolicyDenialResult(message: NappletMessage, reason: string
  * #62 @ b46b8691, NAP-WEBRTC #59 @ fb4dd6f0, NAP-LINK #53 @ 100e5c93,
  * NAP-GAMEPAD #130 @ 0b28f77e, and NAP-IDENTITY / NAP-INC / NAP-THEME /
  * NAP-INTENT on master @ 377bf939. Every runtime-dispatched domain has a row,
- * so a firewall drop of a defined request keeps its reply.
+ * so a firewall drop of a defined request gets the reply its NAP defines (or
+ * none, where the NAP defines none).
  */
 const NAPPLET_REQUEST_ACTIONS: Readonly<Record<string, readonly string[]>> = {
   relay: ['subscribe', 'close', 'publish', 'publishEncrypted', 'query'],
