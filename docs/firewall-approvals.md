@@ -52,8 +52,14 @@ const permissions: PermissionAdapter = {
 `showApproval` and `showPermissionStorageError` are host UI functions. Storage
 adapters must throw when a write fails. A persistent approval is published only
 after a successful write. Without storage, once/session choices work; persistent
-choices fail explicitly. Defaults bound pending operations to 64 with a 60-second
-deadline, including queue time. `maxPending` and `timeoutMs` configure these bounds.
+choices fail explicitly. Defaults bound pending approvals to 64 with a 60-second
+deadline, including time queued behind an equivalent prompt. `maxPending` and
+`timeoutMs` configure these bounds. They cover the approval phase only: once an
+approved action starts, it leaves the queue and runs until it settles, is
+cancelled, or its source is torn down or revoked. Equivalent requests wait for
+the first one's decision, not for its action to finish. The domain owns the
+operation deadline; for example NAP-CVM `timeoutMs` (napplet/naps#31) covers
+consent and execution and expires as `relay timeout`.
 `rateLimiter` accepts an explicitly constructed limiter from `@kehto/rate-limit`; without it no operation budget is installed. `onRateLimit` reports excess
 budgets without including payloads or destinations. Diagnostic failures cannot
 override enforcement. Startup interface admission does not spend an app operation

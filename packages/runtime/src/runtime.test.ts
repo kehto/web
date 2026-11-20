@@ -782,28 +782,12 @@ describe('relay.publishEncrypted (NAP-08 / DRIFT-RT-08 / SH-C03)', () => {
     } as NappletMessage);
     await new Promise((r) => setTimeout(r, 0));
 
-    // The runtime emits EITHER:
-    //   { type: 'relay.publishEncrypted.error', id, error: /denied|capability_missing|relay:/ }
-    //     (outer handleMessage short-circuits on ACL denial before reaching the handler), OR
-    //   { type: 'relay.publishEncrypted.result', id: 'pe-deny', ok: false, error: /.../ }
-    //     (handler runs but emits a failure result).
-    const errEnv = allEnvelopesOfType(ctx.sent, 'relay.publishEncrypted.error')[0] as
-      (NappletMessage & { id?: string; error?: string }) | undefined;
-    const resEnv = allEnvelopesOfType(ctx.sent, 'relay.publishEncrypted.result')[0] as
-      (NappletMessage & { id?: string; ok?: boolean; error?: string }) | undefined;
-    const denialSeen = !!errEnv || !!(resEnv && resEnv.ok === false);
-    expect(denialSeen).toBe(true);
-
-    if (errEnv) {
-      expect(errEnv.id).toBe('pe-deny');
-      expect(String(errEnv.error ?? '')).toMatch(/denied|capability_missing|relay:/);
-    }
-    if (resEnv && resEnv.ok === false) {
-      expect(resEnv.id).toBe('pe-deny');
-      expect(String(resEnv.error ?? '')).toMatch(
-        /denied|capability_missing|relay:|missing|unsupported|no signer|failed/i,
-      );
-    }
+    // NAP-RELAY napplet/naps#2 @ 9f30b350, Error Handling: a failed publish is a
+    // `.result` with `ok: false` and `error`; there is no `.error` message.
+    expect(allEnvelopesOfType(ctx.sent, 'relay.publishEncrypted.error')).toEqual([]);
+    expect(allEnvelopesOfType(ctx.sent, 'relay.publishEncrypted.result')).toEqual([
+      { type: 'relay.publishEncrypted.result', id: 'pe-deny', ok: false, error: 'denied: relay:write' },
+    ]);
 
     // Plaintext payload must not appear in any outgoing envelope — the shell must
     // deny BEFORE invoking the signer's encrypt primitive.

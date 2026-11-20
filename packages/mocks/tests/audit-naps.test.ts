@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 // @ts-expect-error -- plain ESM script without type declarations
-import { compareRefs, fetchUpstream, formatReport, parseSpecRefs } from '../scripts/audit-naps.mjs';
+import { compareRefs, fetchUpstream, formatReport, loadDeferred, parseSpecRefs } from '../scripts/audit-naps.mjs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const SOURCE = `
 export const LINK_SPEC_REF: NapSpecRef = { nap: 'NAP-LINK', status: 'draft', source: 'pr', pr: 53, sha: '50a2cd45e76f', path: 'naps/NAP-LINK.md' };
@@ -52,6 +56,45 @@ describe('audit-naps', () => {
     const text = formatReport(report);
     expect(text).toContain('stale (1)');
     expect(text).toContain('NAP-NEW.md PR #99 (draft)');
+  });
+
+  it('defers an exactly pinned draft, re-flags it when the head moves, and retires stale entries', () => {
+    const refs = parseSpecRefs(SOURCE);
+    const entry = { nap: 'NAP-NEW', path: 'naps/NAP-NEW.md', pr: 99, sha: '111111111111', reason: 'No Kehto support yet.' };
+    const pinned = compareRefs(refs, UPSTREAM, [entry]);
+    expect(pinned.deferred.map((item: { path: string; reason: string }) => [item.path, item.reason])).toEqual([['naps/NAP-NEW.md', 'No Kehto support yet.']]);
+    expect(pinned.missing.map((item: { path: string }) => item.path)).toEqual(['naps/NAP-SHELL.md']);
+    expect(formatReport(pinned)).toContain('deferred (1)');
+
+    const moved = compareRefs(refs, UPSTREAM, [{ ...entry, sha: '222222222222' }]);
+    expect(moved.deferred).toEqual([]);
+    expect(moved.missing.map((item: { path: string; deferredAt?: string }) => [item.path, item.deferredAt])).toEqual([
+      ['naps/NAP-SHELL.md', undefined],
+      ['naps/NAP-NEW.md', '222222222222'],
+    ]);
+    expect(formatReport(moved)).toContain('head moved, re-review');
+
+    // A master document is never deferrable, and entries for closed or already mocked drafts are retired.
+    const misuse = compareRefs(refs, UPSTREAM, [
+      { ...entry, nap: 'NAP-SHELL', path: 'naps/NAP-SHELL.md' },
+      { ...entry, pr: 7 },
+      { ...entry, nap: 'NAP-LINK', path: 'naps/NAP-LINK.md', pr: 53, sha: 'ffffffffffff' },
+    ]);
+    expect(misuse.missing.map((item: { path: string }) => item.path)).toEqual(['naps/NAP-SHELL.md', 'naps/NAP-NEW.md']);
+    expect(misuse.retired.map((item: { reason: string }) => item.reason)).toEqual([
+      'deferred PR #7 is not open; drop it from deferred-naps.json',
+      'deferred document is now mocked; drop it from deferred-naps.json',
+    ]);
+  });
+
+  it('loads and validates the deferred list', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'audit-naps-'));
+    expect(loadDeferred(join(dir, 'absent.json'))).toEqual([]);
+    const bad = join(dir, 'bad.json');
+    writeFileSync(bad, JSON.stringify([{ nap: 'NAP-X', path: 'naps/NAP-X.md', pr: 1, sha: 'nothex', reason: 'x' }]));
+    expect(() => loadDeferred(bad)).toThrow(TypeError);
+    const shipped = loadDeferred(join(dirname(fileURLToPath(import.meta.url)), '..', 'scripts', 'deferred-naps.json'));
+    expect(shipped.map((item: { nap: string; pr: number }) => [item.nap, item.pr])).toEqual([['NAP-WEBMCP', 150], ['NAP-NEIGHBOR', 146], ['NAP-EMAIL', 139]]);
   });
 
   it('fetches the upstream inventory through an injected gh executor', () => {

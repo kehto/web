@@ -32,6 +32,13 @@ type StorageScope = 'shared' | 'instance';
  */
 const INSTANCE_MARKER = '@i/';
 
+const STORAGE_REQUESTS: ReadonlySet<string> = new Set(['storage.get', 'storage.set', 'storage.remove', 'storage.keys']);
+
+/** @internal Whether NAP-STORAGE #3 @ 4f4cf0ca defines `type` as a napplet request. */
+export function isStorageRequestType(type: string): boolean {
+  return STORAGE_REQUESTS.has(type);
+}
+
 /**
  * Build the per-window instance sub-namespace segment: `@i/<windowId>:`.
  *
@@ -91,8 +98,8 @@ function byteLength(str: string): number {
  *   - `storage.keys`   → `storage.keys.result`   `{ keys: string[] }`
  *
  * `storage.clear` is NOT in the canonical `@napplet/nap/storage` union (it was a
- * kehto unilateral extension); attempts produce a `storage.clear.result` envelope
- * with an `error` field set. Internal lifecycle cleanup still uses the
+ * kehto unilateral extension). Like every other type NAP-STORAGE does not define,
+ * it is silently ignored, as NIP-5D requires: no envelope is sent. Internal lifecycle cleanup still uses the
  * `cleanupNappState()` helper below — it is not napplet-reachable.
  *
  * **Per-instance scope (NAP-STORAGE / napplet/naps#3):** each request MAY carry
@@ -146,6 +153,12 @@ export function handleStorageNap(
   function sendErrorNap(error: string): void {
     sendToNapplet(windowId, { type: `${msg.type}.result`, id, error } as NappletMessage);
   }
+
+  // NIP-5D (nips#2303 @ f60550c3): "Messages with an unrecognized `type` MUST
+  // be silently ignored." NAP-STORAGE #3 @ 4f4cf0ca defines only these four
+  // requests, so anything else (including the retired `storage.clear`) is
+  // dropped before any registration or scope error can answer it.
+  if (!isStorageRequestType(msg.type)) return;
 
   // Identity lookup via windowId (NIP-5D path)
   const entry = sessionRegistry.getEntryByWindowId(windowId);
@@ -220,14 +233,6 @@ export function handleStorageNap(
       sendResult({ ok: true });
       break;
     }
-    case 'clear': {
-      // storage.clear was a kehto unilateral extension; it is NOT in the canonical
-      // @napplet/nap/storage union. Napplets hitting this branch receive a
-      // storage.clear.result envelope with the error field set. Internal lifecycle
-      // cleanup uses cleanupNappState() below (not napplet-reachable).
-      sendErrorNap('storage.clear is not in @napplet/nap/storage; action not supported');
-      break;
-    }
     case 'keys': {
       // Instance scope sees only this window's sub-namespace.
       if (isInstance) {
@@ -254,9 +259,6 @@ export function handleStorageNap(
       sendResult({ keys: Array.from(userKeySet) });
       break;
     }
-    default:
-      sendErrorNap(`unknown storage action: ${action}`);
-      break;
   }
 }
 

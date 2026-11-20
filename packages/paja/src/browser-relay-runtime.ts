@@ -117,6 +117,7 @@ export interface PajaRelayBackend extends RelayPoolLike {
     context?: PajaRelayReadContext,
     signal?: AbortSignal,
   ): Promise<NostrEvent[]>;
+  /** Per-relay outcomes; rejects with `publish denied` when the user declines the publish. */
   publishToRelays(relayUrls: string[], event: NostrEvent, context?: PajaSignerRequestContext): Promise<Record<string, boolean>>;
   countWithRelay(relayUrls: string[], filters: NostrFilter[], signal?: ApprovalSignal): Promise<{ count: number; relay: string }>;
   /** Relay URLs on which nostr-tools actually observed an event. */
@@ -453,7 +454,10 @@ export function createPajaRelayBackend(
     },
     query,
     async publishToRelays(relayUrls, event, signerContext) {
-      return (await attemptPublish(relayUrls, event, signerContext)).outcomes;
+      const attempt = await attemptPublish(relayUrls, event, signerContext);
+      // A declined publish is a shell refusal; relays that failed are not (kehto/web#460).
+      if (attempt.error === 'publish denied') throw new Error(attempt.error);
+      return attempt.outcomes;
     },
     async publishWebrtcSignal(relayUrls, event) {
       if (

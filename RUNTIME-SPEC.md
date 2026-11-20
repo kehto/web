@@ -239,45 +239,53 @@ Kehto applies this rule on two levels:
   segment matches no registered NAP is silently dropped (no reply). Envelopes
   without a `.` separator, or non-object messages, are also dropped.
 
-- **Unknown action within a known domain** — each domain handler decides. The
-  default is silent-ignore (`audio`, `config`, `cvm`, `intent`, `outbox`,
-  `resource`, `upload`, and `notification-service` return without replying on an
-  unrecognized action).
+- **Unknown action within a known domain** — silently dropped by every runtime
+  handler and every `@kehto/services` reference service (kehto/web#465). A
+  service drops the message and calls the shared
+  `createUnrecognizedTypeDiagnostic()` from `@kehto/runtime`, which warns the
+  host once per domain/type as `[KEHTO_UNRECOGNIZED_MESSAGE_TYPE]`, at most 16
+  types per instance, without payloads or ids. That includes the retired
+  `storage.clear` (not in NAP-STORAGE #3 `4f4cf0ca`) and a `webrtc.stats`
+  request (NAP-WEBRTC #59 `fb4dd6f0` defines `stats` only as a pushed event).
+  `tests/unit/nip5d-conformance-guard.test.ts` drives every reference service,
+  the runtime with and without ACL denial, every NAP mock and the Paja
+  multiplayer stubs with undefined types and fails on any reply.
 
-### Sanctioned structured-error exceptions
+A NAP may define error results only for messages it recognizes. A known type
+with a malformed payload still gets its domain's specified failure result: for
+example `storage.<action>.result` with `error`, structured `intent.*.result`
+errors, or `webrtc.sendBytes.result` with `"unsupported"` on a shell without
+byte payloads, as NAP-WEBRTC requires.
 
-Three response shapes are **deliberate, NAP-sanctioned exceptions** to the
-silent-ignore default and are NOT divergences to normalize:
+The ACL-denial and firewall-reject paths (`packages/runtime/src/runtime.ts`,
+`legacy-firewall-gate.ts`) answer *recognized* requests on the owning NAP's
+failure wire. `storage.*`, `inc.subscribe`/`inc.channel.open`, `intent.*`,
+`llm.*` and runtime-owned `identity.*`/`theme.*` keep their existing shapes.
+`packages/runtime/src/policy-denials.ts` holds one row per exact request type,
+with the napplet/naps ref and sentence it implements:
 
-- **NAP-INTENT** (`intent` domain) — explicitly sanctions structured errors:
-  `intent.*.result` envelopes MAY carry an `error` field (`"unknown archetype"`,
-  `"no handler"`, `"unsupported action"`, …). See [`specs/NAP-INTENT.md`](specs/NAP-INTENT.md).
+| Domain | Ref | Denial wire |
+|--------|-----|-------------|
+| `cvm` | #31 `28cf1bdb` | matching `.result`, `error: "policy denied"`, no success fields |
+| `relay` | #2 `9f30b350` | `publish`/`publishEncrypted` → `.result` `ok: false`; `query` → `.result` `error`; `subscribe` → `relay.closed`; `close` silent |
+| `outbox` | #32 `8865f73d` | `getEvent`/`query`/`publish` → `.result` (`events: []` for query, `ok: false` for publish); `subscribe` → `outbox.closed`; `close` silent |
+| `upload` | #33 `f5cc981e` | `upload.upload.result` with `error` |
+| `count` | #69 `9353a0c6` | `count.query.result` `ok: false`, `error: "policy-denied"`, `reason` |
+| `notify` | #11 `67877ef6` | `send` → `.result` `error`; `permission.request` → `granted: false`; `dismiss`/`badge`/`channel.register` silent |
+| `dm` | #74 `2c4e4423` | every request's `.result` with `error` only |
+| `fs` | #88 `bd1b9e91` | every request's `.result`, `error: "policy-denied"` |
 
-- **storage** (`packages/runtime/src/state-handler.ts`) — the canonical storage
-  contract replies with `storage.<action>.result` envelopes whose optional
-  `error` field signals failure; an unknown storage action returns a
-  `storage.<action>.result` with `error` rather than a bare `.error`. Napplets
-  check `!result.error` for success, so the `.result` envelope is the contract,
-  not an information leak.
+The runtime's reason (`denied: <capability>` or `firewall: <reason>`) passes
+through except where the NAP mandates a code or enumerates one.
 
-### Documented divergences (not changed)
-
-A small set of read/query-style service handlers reply to an **unrecognized
-action** with a `<type>.error` envelope rather than silently ignoring it:
-`identity` (`identity-service.ts`), `media` (`media-service.ts`), and `notify`
-(`notify-service.ts`). These predate the #2303 silent-ignore tightening, are
-relied on by existing unit tests, and emit only a generic `"Unknown <domain>
-method"` string (no internal state). Because they are query-domain handlers
-responding to a correlated request `id`, and because changing them is a behavior
-change outside this docs phase's scope (and not a clear-cut, risk-free
-normalization), they are **documented here rather than altered**. Tightening them
-to silent-ignore is a candidate for a future behavior-only change, gated on
-updating their tests.
-
-The ACL-denial and firewall-reject paths (`packages/runtime/src/runtime.ts`)
-follow the same envelope-shaping rule: `storage.*` denials reply via `.result`
-(with an `error` field); all other domains reply via `.error`. These are
-denial responses to *recognized* messages, not unknown-`type` handling.
+Spec gaps (still answered with the generic `<type>.error`, which no NAP
+defines): `upload.info`/`upload.status` and `outbox.resolveRelays` (their
+results require a success field and the NAP doesn't say what it holds on
+failure), `config.*` (NAP-CONFIG #14 has its own `ok`/`code` catalogue and
+push errors), `keys.*` (NAP-KEYS #9 results have no `error` field), `media.*`
+(two open drafts, #10 and #133). `resource.*` keeps `.error`, which NAP-RESOURCE
+#80 defines. A denied type that the owning NAP does not define as a napplet
+request gets no reply in any domain (`isSilentUnknownDenial`).
 
 ## Retired Drift
 

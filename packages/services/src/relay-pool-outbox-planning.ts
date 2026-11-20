@@ -1,6 +1,6 @@
 import type { NostrFilter } from '@napplet/core';
 import type { OutboxRelayPlan } from './outbox-service.js';
-import type { RequiredRelayResolution, RouterCtx } from './relay-pool-outbox-types.js';
+import type { RelayListEntry, RequiredRelayResolution, RouterCtx } from './relay-pool-outbox-types.js';
 
 /** Collect a deduplicated author set from filters + explicit option hints. */
 export function deriveAuthors(filters: NostrFilter[], optionAuthors?: string[]): string[] {
@@ -21,6 +21,21 @@ export function allowed(ctx: RouterCtx, urls: Iterable<string>): string[] {
   return [...out];
 }
 
+/**
+ * Load NIP-65 relay lists, treating a throwing or rejecting loader as "no
+ * lists". Relays fail as a matter of course on Nostr, so discovery failure
+ * degrades to missing authors and the caller's fallback rules (NAP-OUTBOX draft
+ * `8865f73d`, Shell Behavior: "SHOULD fall back to configured relays when NIP-65
+ * data is absent, stale, or unreachable"). It never becomes a denial.
+ */
+export async function loadRelayListsOrEmpty(ctx: RouterCtx, pubkeys: string[]): Promise<Map<string, RelayListEntry>> {
+  try {
+    return await ctx.loadRelayLists(pubkeys);
+  } catch {
+    return new Map();
+  }
+}
+
 export async function resolveRequiredRelays(
   ctx: RouterCtx,
   pubkeys: string[],
@@ -34,7 +49,11 @@ export async function resolveRequiredRelays(
 
   if (uniquePubkeys.length === 0) return { relays: [], missingAuthors, deniedAuthors };
 
-  const lists = await ctx.loadRelayLists(uniquePubkeys);
+  // A failed relay-list lookup is a discovery failure, never a policy outcome:
+  // every author is reported missing, which callers surface as
+  // `relay list unavailable` (NAP-OUTBOX: fallback never substitutes for a
+  // required `toInboxes` read relay).
+  const lists = await loadRelayListsOrEmpty(ctx, uniquePubkeys);
   for (const pubkey of uniquePubkeys) {
     const entry = lists.get(pubkey);
     const candidateRelays = entry ? (useWrite ? entry.write : entry.read) : undefined;
@@ -71,7 +90,7 @@ export async function resolvePlan(
   let sawNip65 = false;
 
   if (pubkeys.length > 0) {
-    const lists = await ctx.loadRelayLists(pubkeys);
+    const lists = await loadRelayListsOrEmpty(ctx, pubkeys);
     for (const pubkey of pubkeys) {
       const entry = lists.get(pubkey);
       const relays = entry ? (useWrite ? entry.write : entry.read) : undefined;

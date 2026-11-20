@@ -181,6 +181,16 @@ the protocol-defined correlated result wire: `outbox.query.result` with
 `events: []` and `error`. The runtime does not synthesize an
 `outbox.query.error` message.
 
+## ACL denial wires
+
+ACL and legacy Firewall denials answer each recognized request on its owning
+NAP's failure wire, never an invented `<type>.error`. A denied `cvm.*` request
+gets its matching `.result` with `error: "policy denied"` (NAP-CVM #31 at
+`28cf1bdb`); `relay`, `outbox`, `upload.upload`, `count`, `notify`, `dm` and
+`fs` follow their own NAPs, and requests with no defined reply stay silent. The
+per-type table, refs and remaining spec gaps are in
+[RUNTIME-SPEC.md](https://github.com/kehto/web/blob/main/RUNTIME-SPEC.md).
+
 The fixture-line `@napplet/nap@0.32.0` contract trails PR #106. Host packages
 take the intent types from `@napplet/core@0.41.0`, which `@kehto/services`
 re-exports; see the
@@ -337,6 +347,9 @@ token budgets. No limiter means there are no temporal counters to retire.
 ### State handler
 - `handleStorageNap` — canonical `storage.*` NIP-5D handler
 - `cleanupNappState` — remove persisted state when a napplet window closes
+
+### Unrecognized message types
+- `createUnrecognizedTypeDiagnostic` — host warning for a dropped type its NAP does not define (`[KEHTO_UNRECOGNIZED_MESSAGE_TYPE]`, once per domain/type, at most `UNRECOGNIZED_TYPE_WARNING_LIMIT` types per instance, no payloads). NIP-5D requires such messages to get no reply, including on the ACL denial path.
 
 ### Service dispatch
 - `routeServiceMessage` — policy-free domain selection primitive; never a fallback for untrusted ingress

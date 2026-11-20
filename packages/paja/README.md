@@ -97,7 +97,13 @@ usable; collapsing never reloads the running app or discards unsaved drafts.
 The console shows supported interfaces with per-domain injection toggles
 (green when ready, yellow `⚠` when advertised but unconfigured, red when disabled),
 runtime ACL controls, Firewall permissions, signer controls, and a filterable message log with visible
-error details. It starts expanded and collapses to the left with the chevron
+error details. The log
+highlights every shell reply that failed: a `*.error`, a result with `error` or
+`ok: false`, or a `*.closed` with a `reason`. A refusal (`policy denied`,
+`policy-denied`, `publish denied`, `denied: <capability>`) is badged `denied`.
+Everything else, such as `relay list unavailable`, `relay timeout`, or
+`count-unavailable`, is badged `failed, not a denial`, so a relay outage is never
+shown as a firewall block. It starts expanded and collapses to the left with the chevron
 button in the top bar; the same button brings the whole panel back. The toolbar
 stays onscreen after restoring a saved collapsed preference, including when no
 runtime tab is open. Paja allows every interface and operation by default and asks before each `link.open`; the Firewall panel edits those default rules for every napplet or one. Firewall approval prompts stay visible outside the sidebar, so new napplets can
@@ -751,7 +757,33 @@ offline, the relays are blocked, or the browser reached its WebSocket connection
 limit (for example many open tabs each holding relay connections). Paja logs a
 `paja.relay.unreachable` entry with the per-relay detail. A deadline expiry with
 at least one live relay keeps the timeout message and now states how many relays
-connected. Pools without `ensureRelay` keep the previous messages.
+connected. Pools without `ensureRelay` keep the previous timeout and relay
+query failure messages.
+
+### Pointer not found
+
+Relays fail now and then; one down relay does not turn a clean miss into a
+failure. When at least one relay answered `EOSE` without the manifest, the
+resolver throws `PajaPointerNotFoundError` (`code: 'pointer-not-found'`, with
+`answered`, `failed`, and the queried `relays`), and the status reads
+`Napplet manifest not found (4 answered, 1 failed): …` followed by the relays
+that could not be asked. Paja logs `paja.pointer.not-found` with the counts. The
+no-connection message and its WebSocket-limit hint stay reserved for zero
+opened sockets, and a query no relay answered (every relay failed or sent
+`CLOSED`) stays a relay query failure.
+
+A `nevent` pins one event. When it names an addressable napplet (`35129`, with
+`author` and `kind`) whose event is gone, the author has most likely republished
+it and relays replaced the old event. A `nevent` carries no `d` tag, so Paja
+cannot tell which coordinate it belonged to. `findPajaPointerReplacements` asks
+the relays that answered for the author's current `35129` manifests and lists
+each `d` tag (up to 50). One candidate shows as an **Open …** button; several
+show as a picker with nothing preselected, because Paja picks none. Nothing is fetched from Blossom, verified, installed, or framed until the
+user clicks one. The click starts an ordinary `naddr` load, so the manifest
+signature, artifact hash, `(dTag, artifactHash)` identity, and version consent
+all run again for the new bytes. Paja never swaps bytes under the old
+verified identity. Replaceable root (`15129`) nevents are not offered a
+replacement yet.
 
 ## Controller diagnostics
 
