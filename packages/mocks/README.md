@@ -85,9 +85,9 @@ each `Mock<Domain>Service`.
 | `gamepad` | NAP-GAMEPAD | draft | PR #130 @ `0b28f77e` | service | 2 routes |
 | `git` | NAP-GIT | draft | PR #137 @ `a73bf8de` | extension | 10 routes |
 | `hashtree` | NAP-HASHTREE | draft | PR #73 @ `67997706` | extension | 17 routes |
-| `identity` | NAP-IDENTITY | merged | master @ `43cb3a4e` | service | 9 routes |
+| `identity` | NAP-IDENTITY | merged | master @ `377bf939` | service | 9 routes |
 | `inc` | NAP-INC | merged | master @ `377bf939` | runtime-owned | The runtime routes inc.* topics and channels itself (packages/runtime/src/inc-handler.ts) and attests sender/peer from authenticated endpoints. Mocks cannot and must not fabricate INC deliveries; shells get INC for free from the runtime. MOCK_INC_TOPICS supplies topic strings for tests. |
-| `intent` | NAP-INTENT | merged | master @ `43cb3a4e` | service | 3 routes |
+| `intent` | NAP-INTENT | merged | master @ `377bf939` | service | 3 routes |
 | `keys` | NAP-KEYS | draft | PR #9 @ `8869a4cf` | service | 3 routes |
 | `link` | NAP-LINK | draft | PR #53 @ `50a2cd45` | service | 1 route |
 | `lists` | NAP-LISTS | draft | PR #68 @ `7cf00cdb` | service | 3 routes |
@@ -104,11 +104,11 @@ each `Mock<Domain>Service`.
 | `relay` | NAP-RELAY | draft | PR #2 @ `9f30b350` | service | 5 routes |
 | `resource` | NAP-RESOURCE | draft | PR #80 @ `ae5b9c64` | service | 4 routes |
 | `serial` | NAP-SERIAL | draft | PR #61 @ `0c6e88ab` | service | 3 routes |
-| `shell` | NAP-SHELL | merged | master @ `43cb3a4e` | runtime-owned | The shell package owns shell.ready/shell.init (packages/shell/src/shell-ready.ts). A mock environment only needs capabilities.domains to list every mocked domain; use mockShellEnvironmentDomains(entries) to build that list. |
+| `shell` | NAP-SHELL | merged | master @ `377bf939` | runtime-owned | The shell package owns shell.ready/shell.init (packages/shell/src/shell-ready.ts). A mock environment only needs capabilities.domains to list every mocked domain; use mockShellEnvironmentDomains(entries) to build that list. |
 | `soulseek` | NAP-SOULSEEK | draft | PR #135 @ `892ed8d4` | extension | 14 routes |
 | `storage` | NAP-STORAGE | draft | PR #3 @ `4f4cf0ca` | adapter | Runtime-served domain. Pass createMockStatePersistence() as `statePersistence` in the shell adapter; the runtime handles storage.get/set/remove/keys, identity scoping, instance scope, and quota. |
 | `system` | NAP-SYSTEM | draft | PR #64 @ `43a112db` | extension | 8 routes |
-| `theme` | NAP-THEME | merged | master @ `43cb3a4e` | service | 1 route |
+| `theme` | NAP-THEME | merged | master @ `377bf939` | service | 1 route |
 | `torrent` | NAP-TORRENT | draft | PR #72 @ `bc99787e` | extension | 17 routes |
 | `upload` | NAP-UPLOAD | draft | PR #33 @ `f5cc981e` | service | 3 routes |
 | `value` | NAP-VALUE | draft | PR #30 @ `e468764d` | extension | 3 routes |

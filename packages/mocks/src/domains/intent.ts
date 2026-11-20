@@ -1,17 +1,20 @@
 /**
  * domains/intent.ts — Mock NAP-INTENT service.
  *
- * Spec: naps/NAP-INTENT.md @ napplet/naps master 43cb3a4e8555 (merged);
- *   drafts PR #106 head fc121fc2 and PR #128 head 74f9bf85 consulted.
+ * Spec: naps/NAP-INTENT.md @ napplet/naps master 377bf939c6c9 (merged).
+ *   That master commit merged PR #106; its NAP-INTENT blob is identical to
+ *   the PR #106 head fc121fc2 this mock was first written against. PR #128
+ *   head 74f9bf85 consulted.
  * Routes: intent.invoke, intent.available, intent.handlers;
  *   pushes intent.changed, intent.deliver
  * Spec gaps / decisions:
- *   - Master is the authority. From PR #106 the mock includes
- *     `request.handlerHint` (`{ address: '35129:<pubkey>:<d>', relays? }`,
- *     used at resolution step 3 when it names an installed, supporting
- *     candidate) and treats `handler` as an opaque catalog identifier — both
- *     already shipped in kehto's reference service. Deferred from PR #128:
- *     shell-selected-instance replay (no wire change; shell-internal).
+ *   - `request.handlerHint` (`{ address: '35129:<pubkey>:<d>', relays? }`)
+ *     is a recommendation, used at resolution step 3 only when it names an
+ *     installed, supporting candidate. `handler` is an opaque catalog
+ *     identifier; a hint coordinate passed as `handler` is `invoke rejected`.
+ *     URI fragment decoding is binding-side (`@kehto/shell` intent-uri).
+ *     Deferred from PR #128: shell-selected-instance replay (no wire change;
+ *     shell-internal).
  *   - `@napplet/nap/intent/types` re-exports `@napplet/core` shapes that lag
  *     the document (dTag-keyed candidates, `handled`/`windowId` on results),
  *     so the doc-shaped payload types are defined here.
@@ -55,7 +58,7 @@ export const INTENT_SPEC_REF: NapSpecRef = {
   nap: 'NAP-INTENT',
   status: 'merged',
   source: 'master',
-  sha: '43cb3a4e8555',
+  sha: '377bf939c6c9',
   path: 'naps/NAP-INTENT.md',
 };
 
