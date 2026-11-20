@@ -1,6 +1,6 @@
 import type { NostrFilter } from '@napplet/core';
-import type { OutboxRelayPlan } from './outbox-service.js';
-import type { RelayListEntry, RequiredRelayResolution, RouterCtx } from './relay-pool-outbox-types.js';
+import type { OutboxPublishOptions, OutboxRelayPlan } from './outbox-service.js';
+import type { PublishTargetResolution, RelayListEntry, RequiredRelayResolution, RouterCtx } from './relay-pool-outbox-types.js';
 
 /** Collect a deduplicated author set from filters + explicit option hints. */
 export function deriveAuthors(filters: NostrFilter[], optionAuthors?: string[]): string[] {
@@ -122,4 +122,56 @@ export async function resolvePlan(
   const plan: OutboxRelayPlan = { relays, source };
   if (missingAuthors.length > 0) plan.missingAuthors = missingAuthors;
   return plan;
+}
+
+/**
+ * Resolve the full write/inbox/hint relay set a publish should fan out to.
+ *
+ * Own-outbox and `toInboxes` relays are required targets; caller hints are
+ * best-effort extras. A relay-gate refusal of a required author's relays is
+ * shell policy (`policy denied`); a missing relay list is
+ * `relay list unavailable`.
+ *
+ * @param ctx - Router dependencies.
+ * @param signed - The signing identity (an event or a pre-sign pubkey).
+ * @param options - Publish fanout options.
+ * @param allowOwnFallback - Use host fallback relays when the signer has no list.
+ * @returns All targets, the required subset, or an error reason.
+ */
+export async function resolvePublishTargets(
+  ctx: RouterCtx,
+  signed: { readonly pubkey: string },
+  options?: OutboxPublishOptions,
+  allowOwnFallback = false,
+): Promise<PublishTargetResolution> {
+  const targets = new Set<string>();
+  const requiredTargets = new Set<string>();
+
+  if (options?.toOutbox !== false) {
+    // The author's own write relays (outbox model for the user's own event).
+    const outboxPlan = await resolveRequiredRelays(ctx, [signed.pubkey], 'read');
+    if (outboxPlan.deniedAuthors.length > 0) return { relayUrls: [], requiredRelayUrls: [], error: 'policy denied' };
+    const ownRelays = outboxPlan.missingAuthors.length > 0 && allowOwnFallback ? allowed(ctx, ctx.fallbackRelays) : outboxPlan.relays;
+    if (ownRelays.length === 0) return { relayUrls: [], requiredRelayUrls: [], error: 'relay list unavailable' };
+    for (const url of ownRelays) {
+      targets.add(url);
+      requiredTargets.add(url);
+    }
+  }
+
+  if (options?.toInboxes && options.toInboxes.length > 0) {
+    const inboxPlan = await resolveRequiredRelays(ctx, options.toInboxes, 'write');
+    if (inboxPlan.missingAuthors.length > 0) return { relayUrls: [], requiredRelayUrls: [], error: 'relay list unavailable' };
+    if (inboxPlan.deniedAuthors.length > 0) return { relayUrls: [], requiredRelayUrls: [], error: 'policy denied' };
+    for (const url of inboxPlan.relays) {
+      targets.add(url);
+      requiredTargets.add(url);
+    }
+  }
+
+  for (const url of options?.relays ?? []) targets.add(url);
+  return {
+    relayUrls: allowed(ctx, targets),
+    requiredRelayUrls: allowed(ctx, requiredTargets),
+  };
 }

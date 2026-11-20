@@ -5,6 +5,11 @@
 Paja passes each runtime-approved destination list to its live relay backend for
 publication. Host policy selects the list; approval waits cannot replace it.
 
+Unconfigured private relay names remain denied with a trailing DNS dot too.
+Explicit host-configured development relays remain available. The default pool
+does not automatically sign NIP-42 challenges. Network-origin approvals do not
+grant signing authority to a third-party relay pool.
+
 Single-window Paja local authoring workshop for napplet development.
 
 Firewall approval prompts remain visible when the development console or its

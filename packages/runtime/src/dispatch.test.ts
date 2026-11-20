@@ -303,7 +303,7 @@ describe('NIP-5D Envelope Dispatch', () => {
       expect(eose).toBeDefined();
     });
 
-    it('relay.subscribe honors the canonical relay hint', () => {
+    it('relay.subscribe requires operation authority for a canonical relay hint', async () => {
       let selected = false;
       let subscribedRelays: string[] | undefined;
       const relayPool: RelayPoolAdapter = {
@@ -341,7 +341,9 @@ describe('NIP-5D Envelope Dispatch', () => {
         relay: 'wss://explicit.test',
       } as NappletMessage);
 
-      expect(subscribedRelays).toEqual(['wss://explicit.test']);
+      await vi.waitFor(() => expect(ctxWithRelay.sent).toHaveLength(1));
+      expect(subscribedRelays).toBeUndefined();
+      expect(ctxWithRelay.sent[0].message).toMatchObject({ type: 'relay.closed', subId: 'sub-relay-hint' });
       expect(selected).toBe(false);
     });
 

@@ -18,6 +18,8 @@ import { createRelayPoolOutboxRouter, type OutboxRelayPool } from './relay-pool-
 const PK = 'a'.repeat(64);
 const event: NostrEvent = { id: 'e'.repeat(64), pubkey: PK, kind: 1, tags: [], content: 'hi', created_at: 1, sig: 'f'.repeat(128) };
 const PLAN = { relays: ['wss://one.test'], source: 'nip65' as const };
+// Own-outbox publish plans name their required destinations (kehto/web#435 contract).
+const PUBLISH_PLAN = { ...PLAN, requiredRelays: [...PLAN.relays] };
 
 type Authorize = NonNullable<ServiceRuntimeContext['authorizeOperation']>;
 const executed: Authorize = (async (_w: string, _op: string, _req: unknown, execute: (signal: ApprovalSignal) => unknown) =>
@@ -34,7 +36,7 @@ function router(overrides: Partial<StreamingOutboxRouter> = {}): StreamingOutbox
     planRead: vi.fn(async () => PLAN),
     queryWithPlan: vi.fn(async () => ({ events: [{ event }] })),
     subscribeWithPlan: vi.fn(() => ({ close: vi.fn() })),
-    planPublish: vi.fn(async () => PLAN),
+    planPublish: vi.fn(async () => PUBLISH_PLAN),
     publishWithPlan: vi.fn(async () => ({ ok: true, eventId: event.id })),
     ...overrides,
   };

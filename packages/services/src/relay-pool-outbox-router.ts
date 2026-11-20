@@ -35,7 +35,8 @@
  * @packageDocumentation
  */
 
-import { allowed, deriveAuthors, resolvePlan, resolveRequiredRelays } from './relay-pool-outbox-planning.js';
+import { allowed, deriveAuthors, resolvePlan, resolvePublishTargets } from './relay-pool-outbox-planning.js';
+import { defaultRelayAllowed, parseRelayUrl } from './relay-url-policy.js';
 import { normalizePublishResult, planPublishImpl, publishWithPlanImpl, queryPlanImpl, subscribePlanImpl } from './relay-pool-outbox-planned.js';
 import { OUTBOX_RELAY_TIMEOUT, outboxPublishFailureReason } from './outbox-reasons.js';
 import type { EventTemplate, NostrEvent, NostrFilter } from '@napplet/core';
@@ -60,7 +61,6 @@ import type {
   OutboxRelayOrigin,
   LiveOutboxSubscription,
   OutboxCollector,
-  PublishTargetResolution,
   RelayListEntry,
   RelayPoolOutboxRouterOptions,
   RouterCtx,
@@ -79,11 +79,6 @@ declare function clearTimeout(id: unknown): void;
 
 /** Default per-query wall-clock budget when `options.timeoutMs` is unset. */
 const DEFAULT_QUERY_TIMEOUT_MS = 4000;
-
-/** Default relay gate: only ws(s):// URLs are permitted. */
-function defaultRelayAllowed(url: string): boolean {
-  return typeof url === 'string' && (url.startsWith('wss://') || url.startsWith('ws://'));
-}
 
 /** Extract policy-allowed author write relays from already-loaded NIP-65 data. */
 function discoveredReadRelays(
@@ -511,43 +506,6 @@ function startSubscription(
   };
 }
 
-/** Resolve the full write/inbox/hint relay set a publish should fan out to. */
-async function resolvePublishTargets(
-  ctx: RouterCtx,
-  signed: NostrEvent,
-  options?: OutboxPublishOptions,
-): Promise<PublishTargetResolution> {
-  const targets = new Set<string>();
-  const requiredTargets = new Set<string>();
-
-  if (options?.toOutbox !== false) {
-    // The author's own write relays (outbox model for the user's own event).
-    const outboxPlan = await resolveRequiredRelays(ctx, [signed.pubkey], 'read');
-    if (outboxPlan.missingAuthors.length > 0) return { relayUrls: [], requiredRelayUrls: [], error: 'relay list unavailable' };
-    if (outboxPlan.deniedAuthors.length > 0) return { relayUrls: [], requiredRelayUrls: [], error: 'policy denied' };
-    for (const url of outboxPlan.relays) {
-      targets.add(url);
-      requiredTargets.add(url);
-    }
-  }
-
-  if (options?.toInboxes && options.toInboxes.length > 0) {
-    const inboxPlan = await resolveRequiredRelays(ctx, options.toInboxes, 'write');
-    if (inboxPlan.missingAuthors.length > 0) return { relayUrls: [], requiredRelayUrls: [], error: 'relay list unavailable' };
-    if (inboxPlan.deniedAuthors.length > 0) return { relayUrls: [], requiredRelayUrls: [], error: 'policy denied' };
-    for (const url of inboxPlan.relays) {
-      targets.add(url);
-      requiredTargets.add(url);
-    }
-  }
-
-  for (const url of options?.relays ?? []) targets.add(url);
-  return {
-    relayUrls: allowed(ctx, targets),
-    requiredRelayUrls: allowed(ctx, requiredTargets),
-  };
-}
-
 async function publishImpl(ctx: RouterCtx, template: EventTemplate, options?: OutboxPublishOptions): Promise<OutboxPublishResult> {
   if (!ctx.signEvent) return { ok: false, error: 'publish denied' };
   if (!ctx.relayPool.isAvailable()) return { ok: false, error: 'relay list unavailable' };
@@ -611,7 +569,8 @@ export function createRelayPoolOutboxRouter(options: RelayPoolOutboxRouterOption
     fallbackRelays: options.fallbackRelays,
     signEvent: options.signEvent,
     getSignerPubkey: options.getSignerPubkey,
-    isRelayAllowed: options.isRelayAllowed ?? defaultRelayAllowed,
+    isRelayAllowed: (url) => !!parseRelayUrl(url)
+      && (options.isRelayAllowed?.(url) ?? defaultRelayAllowed(url, options.fallbackRelays)),
     defaultTimeoutMs: options.defaultTimeoutMs ?? DEFAULT_QUERY_TIMEOUT_MS,
     async verify(event: NostrEvent): Promise<boolean> {
       if (!verifyEvent) return true;
@@ -628,7 +587,7 @@ export function createRelayPoolOutboxRouter(options: RelayPoolOutboxRouterOption
     queryWithPlan: (filters, queryOptions, plan, signal) => queryPlanImpl(ctx, filters, queryOptions, plan, signal),
     subscribeWithPlan: (filters, plan, sink) => subscribePlanImpl(ctx, filters, plan, sink),
     planPublish: (publishOptions) => planPublishImpl(ctx, publishOptions),
-    publishWithPlan: (template, plan) => publishWithPlanImpl(ctx, template, plan),
+    publishWithPlan: (template, plan, signal) => publishWithPlanImpl(ctx, template, plan, signal),
     getEvent: (eventId, eventOptions) => getEventImpl(ctx, eventId, eventOptions),
     query: (filters, queryOptions) => queryImpl(ctx, filters, queryOptions),
     queryStream: (filters, queryOptions, sink) => startQueryImpl(ctx, filters, queryOptions, sink),

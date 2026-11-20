@@ -8,6 +8,12 @@ services use `RelayPlanningServiceHandler`; direct adapters use
 delivery, encryption, signing, and transport. See [compatibility](/compatibility)
 for the retained legacy diagnostics.
 
+Network relay hints require `RuntimeAdapter.permissions`. The runtime validates
+WebSocket URLs and presents canonical origins to `relay.network` approval before
+any transport. Hint URLs, filters and mutable host plans cannot change while a
+subscription waits for approval. Unhinted legacy network routing warns once per
+runtime with `FW-RELAY-NETWORK-LEGACY-001`; local-only reads remain quiet.
+
 Scoped approvals are available through `RuntimeAdapter.permissions`, source-bound
 `SessionEntry.permissionPrincipal`, and `ServiceRuntimeContext.authorizeOperation`.
 The reference LINK service and declared extension routes are integrated; other

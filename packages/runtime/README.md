@@ -137,6 +137,34 @@ The released `@napplet/nap@0.32.0` SDK accepts `EventTemplate`, while its
 `RelayPublishMessage.event` declaration still says `NostrEvent`; Kehto records
 that mismatch as upstream package drift and follows the NAP wire direction.
 
+## Napplet-directed relay destinations
+
+Configure `RuntimeAdapter.permissions` and a source-bound `permissionPrincipal`
+before accepting `relay.subscribe.relay` or Kehto's existing `relay.query.relay`
+extension. A hint that selects network transport is rejected when operation
+authority is absent. Unhinted host-tier routing remains available for migration
+and emits `FW-RELAY-NETWORK-LEGACY-001` once per runtime instance on network use.
+Local-only mock and shell-event reads remain quiet.
+
+The runtime validates WebSocket URLs, rejects credentials and fragments, and
+includes each canonical origin in the `relay.network` permission request.
+Subscribe envelopes and destination plans are detached before approval waits.
+Execution uses the exact approved relay URLs; revocation and source replacement
+retire the pending/live work. A host's explicit allow rule may authorize the
+origin without showing a prompt; an interface grant alone cannot do so.
+
+Relay-pool authentication remains a separate host policy. A network-origin grant
+does not authorize NIP-42 signing. Use a pool without automatic authentication
+for napplet-directed traffic; Kehto cannot remove authentication hooks installed
+inside a third-party pool. The built-in Paja pool has no automatic signer.
+See [relay destination policy](../../docs/firewall-approvals.md#relay-destination-policy).
+
+Authority: NAP-RELAY draft `napplet/naps#2` at
+`9f30b3505335a52c574ff570576687d6467021ff`. Scoped subscribe is canonical;
+query's relay field remains an existing Kehto extension, not a new wire API.
+Executing that extension emits `KEHTO_COMPAT_RELAY_QUERY_HINT` once per runtime;
+migrate to scoped `relay.subscribe` and close after EOSE. Canonical calls stay quiet.
+
 ## Identity and theme result policy
 
 This runtime follows NAP-IDENTITY and NAP-THEME at `napplet/naps` master

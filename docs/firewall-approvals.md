@@ -10,6 +10,64 @@ configuration is not converted into scoped grants. Paja uses
 shared approval presentation and frame admission before executable bytes enter
 an iframe.
 
+## Relay destination policy
+
+NAP-RELAY scoped `relay.subscribe.relay` and Kehto's existing query relay extension
+select a destination; they don't grant permission to contact it. Network hints
+require `RuntimeAdapter.permissions` and the verified source's permission
+principal. Without those, the runtime returns a correlated query error or
+`relay.closed` before transport. Local-only services don't open a connection.
+
+Runtime validates WebSocket URLs, rejects credentials/fragments/parser rewrites,
+and derives canonical origin scopes. The `relay.network` requirement includes
+the requested host and port, alongside interface access. The transport receives
+the exact approved URLs, including their paths. Subscribe filters and routing
+plans are copied before a decision can wait, and revocation/source replacement
+retire pending and active subscriptions. Both reference relay services use this
+boundary when registered through the runtime; direct `handleMessage` calls are
+trusted host integration calls, not an alternative napplet ingress.
+
+OUTBOX `options.relays` is also subject to planned operation authority. Planned
+publishing receives the operation cancellation signal too: a revocation
+while signing waits prevents the concrete router from starting transport.
+The Paja social-cache and Blossom decorators preserve that signal.
+Publish plans also snapshot the complete own-outbox/inbox/hint union. Their
+host-only `requiredRelays` list marks mandatory fanout, and the service rejects
+incomplete plans before approval or signing. An optional hinted relay's success
+cannot mask failure of a required recipient inbox.
+Legacy standalone hint requests fail before calling any router or signer. Unhinted
+legacy router calls remain available with `FW-OUTBOX-LEGACY-001`; unhinted runtime
+relay transport warns once with `FW-RELAY-NETWORK-LEGACY-001`. Both are migration
+paths, not destination approval. See [compatibility](/compatibility).
+
+The default concrete OUTBOX router rejects obvious local/private addresses and
+names, including alternative IPv4 encodings and IPv4-mapped IPv6. Explicit host
+fallback configuration or an `isRelayAllowed` policy can admit a development
+relay. Host policy cannot admit malformed or credential-bearing URLs. A browser
+hostname check cannot establish a DNS address's safety; production transport
+adapters must check resolved addresses and enforce their own destination policy
+to address DNS rebinding. Paja also rejects trailing-dot local names.
+
+An explicit host allow rule can grant a network scope without a prompt. Paja's
+shipped developer rules allow operations by default, so a missing dialog is not
+proof that the destination escaped the coordinator. Hosts needing per-origin
+consent must choose `ask` for the relevant relay/OUTBOX network operations.
+
+NIP-42 authentication is independent from network access. This approval flow
+does not authorize signing an AUTH event. The built-in Paja pool has no automatic
+signer; hosts injecting a third-party pool must disable automatic authentication
+or use a separate anonymous pool for napplet-directed traffic. The runtime
+cannot remove signing hooks installed inside an arbitrary adapter.
+
+Checked against `napplet/naps` NAP-RELAY draft #2 at
+`9f30b3505335a52c574ff570576687d6467021ff` and NAP-OUTBOX draft #32 at
+`8865f73d52a4864afee145f28d26520476273927`. The destination restrictions are
+conformant host policy. The existing query relay field remains a Kehto extension;
+this change adds no wire fields or capabilities.
+Actual approved use of the noncanonical query hint emits
+`KEHTO_COMPAT_RELAY_QUERY_HINT` once per runtime. Use scoped subscribe and collect
+until EOSE instead; its retirement commitment is recorded in compatibility.
+
 ## Responsibilities
 
 `@kehto/firewall` evaluates immutable permission scopes and grant lifetimes.

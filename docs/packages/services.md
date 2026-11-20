@@ -6,6 +6,19 @@ the supplied immutable plan. Custom registered relay services implement
 `executeRelayOperation()`. Reference publish services require `publishToRelays`;
 a generic publisher cannot enforce the approved destination list.
 
+Standalone OUTBOX calls with nonempty `options.relays` require a permission-enabled
+runtime and planned execution. The default router rejects unconfigured private
+destinations. Planned publishing honors cancellation before and after signing.
+The router also rejects
+credentials, fragments and malformed WebSocket URLs; configured
+development fallbacks remain host policy. DNS-time validation is the transport's
+responsibility. See [relay destination policy](/firewall-approvals#relay-destination-policy).
+
+Publish planning captures the complete own-outbox/inbox/hint union before
+approval, including host-only `requiredRelays` metadata. Required recipient
+fanout cannot be replaced by a successful hint; missing required-plan metadata
+is rejected before authorization or signing.
+
 Reference service handlers for Kehto runtime implementations.
 
 WebRTC opening uses a side-effect-free signaling plan before runtime approval.
@@ -242,7 +255,8 @@ Security Considerations (shells SHOULD apply per-napplet concurrency limits).
   `relay timeout`; planned reads settle on EOSE and mark partial relay failure
   `incomplete: true`. Only an approval that did not execute, a revoked approval,
   a relay-gate refusal, or an unplannable router is `policy denied`; a declined
-  publish is `publish denied`. Spec gap: the draft has no "no relay reachable" or
+  publish is `publish denied`. A required own-outbox or `toInboxes` relay that
+  does not accept is `relay timeout`, even when hinted relays did. Spec gap: the draft has no "no relay reachable" or
   "relay refused" code, so the closest defined codes are used. See the
   [services README](https://github.com/kehto/web/blob/main/packages/services/README.md#approval-aware-relay-services).
 - `createOutboxService()` accepts a source-scoped `getReadRouter` for

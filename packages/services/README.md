@@ -1,5 +1,22 @@
 # @kehto/services
 
+Relay hints are candidates, not authority. Register relay services through a
+runtime with `RuntimeAdapter.permissions`; execute only its approved plan.
+Standalone OUTBOX requests with nonempty `options.relays` now fail before router
+execution. Unhinted standalone calls retain `FW-OUTBOX-LEGACY-001` during migration.
+Planned OUTBOX publishing receives the operation cancellation signal and checks
+it again after signing, so revocation while signing waits prevents transport.
+The plan includes the complete own-outbox, required inbox and explicit relay
+union. Host-only `requiredRelays` metadata prevents optional hint success from
+masking failure of a required destination. Custom planners must supply that
+metadata for own/inbox fanout; incomplete plans fail before signing.
+The concrete OUTBOX router validates WebSocket URLs and defaults to rejecting
+unconfigured local/private literals and names. Explicit host fallback relays
+and the host's `isRelayAllowed` policy can admit development destinations;
+credentials, fragments and malformed URLs are always rejected. Adapters still
+need DNS-time address checks to prevent rebinding. See
+[relay destination policy](../../docs/firewall-approvals.md#relay-destination-policy).
+
 `createLinkService` uses `ServiceRuntimeContext.authorizeOperation` when attached
 to a runtime with approval adapters. It requires both interface and exact URL
 scopes, preserves request IDs in canonical results, rejects forbidden local/code
@@ -299,7 +316,8 @@ denial. Following the error codes in [NAP-OUTBOX draft #32 at
 | `planRead` rejects, or no planned relay attaches | `relay list unavailable` (or the network reason the router names) |
 | Planned relays never answer before the deadline | `relay timeout`, with `incomplete: true` |
 | Some planned relays fail, others answer | Events from the rest, with `incomplete: true` |
-| No planned relay accepts a publish | `relay timeout` |
+| No planned relay accepts a publish, or a required own/inbox relay does not accept (even when hinted relays did) | `relay timeout` |
+| A plan names an unusable relay URL | `relay list unavailable` |
 | Signer or user declines a publish | `publish denied` |
 | Approval not executed, approval revoked, relay gate refuses every inbox relay, or a router that cannot plan | `policy denied` |
 
