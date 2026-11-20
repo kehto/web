@@ -164,6 +164,7 @@ async function run(host: Host): Promise<Array<readonly [string, Outcome | string
   await step('sendBytes with non-zero pad bits', sendBytes('a3', first, 'AAEC/x=='));
   await step('sendBytes without padding', sendBytes('a4', first, 'AAEC/w'));
   await step('sendBytes over maxPayloadBytes', sendBytes('a5', first, OVERSIZED_BYTES));
+  await step('send over maxPayloadBytes', { type: 'webrtc.send', id: 'a6', sessionId: first, payload: 'x'.repeat(MAX_PAYLOAD) });
   host.peerBytes(first, 'AAEC/w==');
   host.peerBytes(first, '');
   rows.push(['peer bytes', host.bytesEvents()]);
@@ -203,6 +204,7 @@ describe('NAP-WEBRTC session lifecycle: services and mocks agree', () => {
       ['sendBytes with non-zero pad bits', 'invalid request'],
       ['sendBytes without padding', 'invalid request'],
       ['sendBytes over maxPayloadBytes', 'payload too large'],
+      ['send over maxPayloadBytes', 'payload too large'],
       ['peer bytes', ['bytes:AAEC/w==', 'bytes:']],
       ['peer leaves', ['closed:peer disconnected']],
       ['send after the peer left', 'session not found'],

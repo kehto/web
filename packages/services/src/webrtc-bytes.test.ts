@@ -105,14 +105,18 @@ describe('webrtc.sendBytes in createWebrtcService', () => {
     expect(sendBytes).not.toHaveBeenCalled();
   });
 
-  it('enforces maxPayloadBytes on decoded bytes for sendBytes', async () => {
+  it('enforces maxPayloadBytes on decoded bytes for sendBytes and serialized bytes for send', async () => {
     const sendBytes = vi.fn();
     const send = vi.fn();
     const { call } = await openSession({ sendBytes, send }, { maxPayloadBytes: 4 });
     expect(await call({ type: 'webrtc.sendBytes', id: 'fits', sessionId: SESSION, bytes: 'AAEC/w==' })).toEqual({ type: 'webrtc.sendBytes.result', id: 'fits' });
     expect(await call({ type: 'webrtc.sendBytes', id: 'over', sessionId: SESSION, bytes: encodeWebrtcBytes(new Uint8Array(5)) }))
       .toEqual({ type: 'webrtc.sendBytes.result', id: 'over', error: 'payload too large' });
+    // `"ab"` serializes to 4 bytes; `"abc"` to 5.
+    expect(await call({ type: 'webrtc.send', id: 'json-fits', sessionId: SESSION, payload: 'ab' })).toEqual({ type: 'webrtc.send.result', id: 'json-fits' });
+    expect(await call({ type: 'webrtc.send', id: 'json-over', sessionId: SESSION, payload: 'abc' })).toEqual({ type: 'webrtc.send.result', id: 'json-over', error: 'payload too large' });
     expect(sendBytes).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledTimes(1);
   });
 
   it('leaves payload size to the host when the session reports no maxPayloadBytes', async () => {

@@ -102,6 +102,14 @@ function payloadLimit(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : undefined;
 }
 
+/** UTF-8 length of the serialized `send` payload, or `undefined` when it does not serialize (the host reports that). */
+function serializedSize(payload: unknown): number | undefined {
+  try {
+    const json = JSON.stringify(payload);
+    return json === undefined ? undefined : new TextEncoder().encode(json).byteLength;
+  } catch { return undefined; }
+}
+
 /**
  * The host call for one session request, or the NAP error it fails with
  * before reaching the host. NAP-WEBRTC #59 @ fb4dd6f0, Limits: `maxPayloadBytes`
@@ -114,7 +122,7 @@ function sessionCall(options: WebrtcServiceOptions, message: SessionMessage, ent
   const tooLarge = (size: number | undefined): boolean => entry.maxPayloadBytes !== undefined && size !== undefined && size > entry.maxPayloadBytes;
   if (message.type === 'webrtc.close') return () => options.close!(message.sessionId, message.reason, context);
   if (message.type === 'webrtc.send') {
-    return () => options.send!(message.sessionId, message.payload, context);
+    return tooLarge(serializedSize(message.payload)) ? 'payload too large' : () => options.send!(message.sessionId, message.payload, context);
   }
   const bytes = decodeWebrtcBytes(message.bytes);
   if (!bytes) return 'invalid request';
