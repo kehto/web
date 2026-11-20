@@ -4,6 +4,7 @@ import {
   type PajaSimulation,
   type PajaSimulationRawOptions,
 } from './simulation.js';
+import { getPajaSetting, getPajaSettingDefault } from './settings.js';
 
 /** Command configuration for a managed Paja target process. */
 export type PajaCommand =
@@ -143,7 +144,7 @@ export const DEFAULT_PAJA_DTAG = 'dev-target';
 /** Default development aggregate hash used for target identity. */
 export const DEFAULT_PAJA_AGGREGATE_HASH = 'paja';
 /** Default pointer resolution wait in runtime-pointer mode. */
-export const DEFAULT_PAJA_RUNTIME_WAIT_MS = 5_000;
+export const DEFAULT_PAJA_RUNTIME_WAIT_MS = getPajaSettingDefault('target.runtimeWaitMs');
 
 /**
  * Normalize raw CLI/config options into a validated Paja runtime config.
@@ -254,7 +255,7 @@ export function createPajaRuntimeHostConfig(
         relays: [...(options.relays ?? [])],
         blossomServers: [...(options.blossomServers ?? [])],
         maxWaitMs: normalizePositiveInteger(
-          options.maxWaitMs ?? DEFAULT_PAJA_RUNTIME_WAIT_MS,
+          options.maxWaitMs ?? getPajaSetting('target.runtimeWaitMs'),
           'runtime-wait',
         ),
       },

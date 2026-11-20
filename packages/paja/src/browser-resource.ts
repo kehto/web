@@ -10,13 +10,14 @@ import {
 import { normalizeUploadServers } from './simulation.js';
 import { parsePajaBlossomUri } from './browser-blossom-uri.js';
 import { warnLegacyBlossomPrefix } from './browser-blossom-compat.js';
+import { getPajaSetting, getPajaSettingDefault } from './settings.js';
 
 /** Maximum decoded payload exposed by Paja's local data-resource backend. */
-export const PAJA_RESOURCE_MAX_BYTES = 10 * 1024 * 1024;
+export const PAJA_RESOURCE_MAX_BYTES = getPajaSettingDefault('resource.maxBytes');
 /** Maximum URLs accepted by one Paja resource bulk request. */
-export const PAJA_RESOURCE_MAX_URLS = 100;
+export const PAJA_RESOURCE_MAX_URLS = getPajaSettingDefault('resource.maxUrls');
 /** Maximum combined request-hint and host-default Blossom servers per resource. */
-export const PAJA_RESOURCE_MAX_SERVERS = 8;
+export const PAJA_RESOURCE_MAX_SERVERS = getPajaSettingDefault('resource.maxServers');
 
 const UTF8_DECODER = new TextDecoder('utf-8', { fatal: true });
 const GAME_BOY_NINTENDO_LOGO = [
@@ -79,14 +80,14 @@ export function createPajaResourceFetch(
     if (url.protocol !== 'data:') {
       throw new ResourceServiceError('unsupported-scheme', `Paja does not enable ${url.protocol}`);
     }
-    if (value.length > encodedDataUrlLimit(PAJA_RESOURCE_MAX_BYTES)) {
-      throw new ResourceServiceError('too-large', `resource exceeds ${PAJA_RESOURCE_MAX_BYTES} bytes`);
+    if (value.length > encodedDataUrlLimit(getPajaSetting('resource.maxBytes'))) {
+      throw new ResourceServiceError('too-large', `resource exceeds ${getPajaSetting('resource.maxBytes')} bytes`);
     }
 
     const decoded = await fetch(value, { signal: init.signal });
     const bytes = new Uint8Array(await decoded.arrayBuffer());
-    if (bytes.byteLength > PAJA_RESOURCE_MAX_BYTES) {
-      throw new ResourceServiceError('too-large', `resource exceeds ${PAJA_RESOURCE_MAX_BYTES} bytes`);
+    if (bytes.byteLength > getPajaSetting('resource.maxBytes')) {
+      throw new ResourceServiceError('too-large', `resource exceeds ${getPajaSetting('resource.maxBytes')} bytes`);
     }
     const classification = classifyResourceBytes(bytes);
     if (classification.kind !== 'recognized') {
@@ -109,8 +110,8 @@ export function pajaResourceInfo(): ResourceInfo {
   ];
   return {
     schemes,
-    maxBytes: PAJA_RESOURCE_MAX_BYTES,
-    maxUrls: PAJA_RESOURCE_MAX_URLS,
+    maxBytes: getPajaSetting('resource.maxBytes'),
+    maxUrls: getPajaSetting('resource.maxUrls'),
   };
 }
 
@@ -124,7 +125,7 @@ async function fetchNetworkResource(
   }
   let destination = value;
   let response: Response | undefined;
-  for (let hops = 0; hops <= 5; hops += 1) {
+  for (let hops = 0, maxHops = getPajaSetting('resource.maxRedirects'); hops <= maxHops; hops += 1) {
     try {
     response = await init.authorizeNetwork(destination, (signal) => fetcher('/__kehto/resource', {
         method: 'POST', signal, credentials: 'same-origin', redirect: 'manual',
@@ -138,7 +139,7 @@ async function fetchNetworkResource(
     }
     if (response.headers.get('x-kehto-resource-redirect') !== '1') break;
     const redirect = await response.json() as { status?: unknown; location?: unknown };
-    if (typeof redirect.location !== 'string' || hops === 5) {
+    if (typeof redirect.location !== 'string' || hops >= getPajaSetting('resource.maxRedirects')) {
       throw new ResourceServiceError('network-error', 'resource redirect limit exceeded');
     }
     try { destination = new URL(redirect.location, destination).href; }
@@ -170,7 +171,7 @@ async function fetchBlossomResource(
     throw new ResourceServiceError('invalid-request', 'invalid Blossom URI');
   }
   warnLegacyBlossomPrefix(value);
-  if (parsed.expectedSize !== undefined && parsed.expectedSize > PAJA_RESOURCE_MAX_BYTES) throw resourceTooLarge();
+  if (parsed.expectedSize !== undefined && parsed.expectedSize > getPajaSetting('resource.maxBytes')) throw resourceTooLarge();
   const expectedHash = parsed.hash;
   if (!init.authorizeNetwork) {
     throw new ResourceServiceError('blocked-by-policy', 'Paja resource network approval is unavailable');
@@ -208,7 +209,7 @@ async function fetchBlossomResource(
         }));
         if (response.headers.get('x-kehto-resource-redirect') !== '1') break;
         const redirect = await response.json() as { location?: unknown };
-        if (typeof redirect.location !== 'string' || hops === 5) {
+        if (typeof redirect.location !== 'string' || hops >= getPajaSetting('resource.maxRedirects')) {
           throw new ResourceServiceError('network-error', 'resource redirect limit exceeded');
         }
         try { resourceUrl = new URL(redirect.location, resourceUrl).href; }
@@ -233,7 +234,7 @@ async function fetchBlossomResource(
     }
 
     const declared = response.headers.get('content-length');
-    if (declared !== null && Number(declared) > PAJA_RESOURCE_MAX_BYTES) throw resourceTooLarge();
+    if (declared !== null && Number(declared) > getPajaSetting('resource.maxBytes')) throw resourceTooLarge();
     if (parsed.expectedSize !== undefined && declared !== null && /^[0-9]+$/u.test(declared)
       && Number(declared) !== parsed.expectedSize) {
       await response.body?.cancel();
@@ -274,11 +275,11 @@ function resolveBlossomServers(
   for (const value of requestServers) {
     const server = normalizePublicBlossomServer(value);
     if (server && !servers.includes(server)) servers.push(server);
-    if (servers.length === PAJA_RESOURCE_MAX_SERVERS) return servers;
+    if (servers.length === getPajaSetting('resource.maxServers')) return servers;
   }
   for (const server of usableBlossomServers(configuredServers)) {
     if (!servers.includes(server)) servers.push(server);
-    if (servers.length === PAJA_RESOURCE_MAX_SERVERS) break;
+    if (servers.length === getPajaSetting('resource.maxServers')) break;
   }
   return servers;
 }
@@ -359,12 +360,12 @@ function usableBlossomServers(values: readonly string[]): string[] {
 
 async function readCappedResponse(response: Response, signal: AbortSignal): Promise<Uint8Array> {
   const declaredLength = Number(response.headers.get('content-length'));
-  if (Number.isFinite(declaredLength) && declaredLength > PAJA_RESOURCE_MAX_BYTES) {
+  if (Number.isFinite(declaredLength) && declaredLength > getPajaSetting('resource.maxBytes')) {
     throw resourceTooLarge();
   }
   if (!response.body) {
     const bytes = new Uint8Array(await response.arrayBuffer());
-    if (bytes.byteLength > PAJA_RESOURCE_MAX_BYTES) throw resourceTooLarge();
+    if (bytes.byteLength > getPajaSetting('resource.maxBytes')) throw resourceTooLarge();
     return bytes;
   }
 
@@ -377,7 +378,7 @@ async function readCappedResponse(response: Response, signal: AbortSignal): Prom
       const { done, value } = await reader.read();
       if (done) break;
       total += value.byteLength;
-      if (total > PAJA_RESOURCE_MAX_BYTES) {
+      if (total > getPajaSetting('resource.maxBytes')) {
         await reader.cancel();
         throw resourceTooLarge();
       }
@@ -397,7 +398,7 @@ async function readCappedResponse(response: Response, signal: AbortSignal): Prom
 }
 
 function resourceTooLarge(): ResourceServiceError {
-  return new ResourceServiceError('too-large', `resource exceeds ${PAJA_RESOURCE_MAX_BYTES} bytes`);
+  return new ResourceServiceError('too-large', `resource exceeds ${getPajaSetting('resource.maxBytes')} bytes`);
 }
 
 function isAbortError(error: unknown): boolean {

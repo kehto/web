@@ -11,6 +11,7 @@ import type {
   PajaConfirmationHandler,
   PajaIdentityProvider,
 } from './browser-adapter.js';
+import { getPajaSetting } from './settings.js';
 
 const GENERAL_PERMISSION = '*';
 
@@ -178,7 +179,7 @@ export function createPajaNotifyController(
     close.addEventListener('click', () => removeNotification(windowId, notificationId, 'user'));
     article.append(header, bodyButton);
 
-    const requestedActions = message.actions?.slice(0, 3) ?? [];
+    const requestedActions = message.actions?.slice(0, getPajaSetting('notify.maxActions')) ?? [];
     if (requestedActions.length > 0) {
       const actionBar = document.createElement('div');
       actionBar.className = 'paja-notification-actions';
@@ -213,7 +214,7 @@ export function createPajaNotifyController(
     const badge = current ?? document.createElement('span');
     badge.className = 'paja-notification-badge';
     badge.dataset.windowId = windowId;
-    badge.textContent = `${originLabel(options.getIdentity, windowId)}: ${Math.min(count, 9999)}`;
+    badge.textContent = `${originLabel(options.getIdentity, windowId)}: ${Math.min(count, getPajaSetting('notify.badgeMaxCount'))}`;
     if (!current) badgeCenter.append(badge);
     badges.set(windowId, badge);
   };

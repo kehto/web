@@ -1,7 +1,8 @@
 import { normalizeIntentUri, type NormalizedIntentUri } from '@kehto/shell';
+import { getPajaSetting, getPajaSettingDefault } from './settings.js';
 
 /** Maximum UTF-8 encoded size of a shareable Paja intent URL. */
-export const PAJA_INTENT_LINK_MAX_BYTES = 16 * 1024;
+export const PAJA_INTENT_LINK_MAX_BYTES = getPajaSettingDefault('intent.linkMaxBytes');
 
 /** Input used to create a Paja intent deep link. */
 export interface PajaIntentLinkDescriptor {
@@ -108,8 +109,8 @@ function pointerParameter(pointer: string): 'naddr' | 'nevent' | 'pointer' {
 }
 
 function assertLinkSize(url: URL): void {
-  if (new TextEncoder().encode(url.href).length > PAJA_INTENT_LINK_MAX_BYTES) {
-    fail(`Paja intent links must not exceed ${PAJA_INTENT_LINK_MAX_BYTES} UTF-8 bytes`);
+  if (new TextEncoder().encode(url.href).length > getPajaSetting('intent.linkMaxBytes')) {
+    fail(`Paja intent links must not exceed ${getPajaSetting('intent.linkMaxBytes')} UTF-8 bytes`);
   }
 }
 

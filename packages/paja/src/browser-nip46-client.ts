@@ -6,6 +6,8 @@ import {
   generateSecretKey,
   getPublicKey,
 } from 'nostr-tools/pure';
+import { getPajaSetting } from './settings.js';
+import { KIND_NIP46 } from './nostr-kinds.js';
 
 /** Options for the browser NIP-46 bunker client. */
 export interface Nip46ClientOptions {
@@ -84,7 +86,7 @@ function createNip46ClientState(options: Nip46ClientOptions): Nip46ClientState {
   return {
     relayUrl: options.relayUrl,
     bunkerPubkey: options.bunkerPubkey,
-    timeout: options.timeout ?? 30_000,
+    timeout: options.timeout ?? getPajaSetting('signer.nip46TimeoutMs'),
     localSecretKey,
     localPubkey,
     pending: new Map(),
@@ -126,7 +128,7 @@ async function sendRequestWithId(
   const payload = JSON.stringify({ id: correlationId, method, params });
   const encryptedContent = nip44.encrypt(payload, nip44.getConversationKey(state.localSecretKey, state.bunkerPubkey));
   const signedEvent = finalizeEvent({
-    kind: 24_133,
+    kind: KIND_NIP46,
     created_at: Math.floor(Date.now() / 1000),
     tags: [['p', state.bunkerPubkey]],
     content: encryptedContent,
@@ -153,7 +155,7 @@ async function handleRelayMessage(state: Nip46ClientState, data: string): Promis
 
   if (!Array.isArray(msg) || msg[0] !== 'EVENT') return;
   const event = msg[2] as Record<string, unknown> | undefined;
-  if (!event || event.kind !== 24_133 || typeof event.content !== 'string') return;
+  if (!event || event.kind !== KIND_NIP46 || typeof event.content !== 'string') return;
 
   let response: { id: string; result?: unknown; error?: string };
   try {
@@ -190,7 +192,7 @@ function openWebSocket(state: Nip46ClientState): Promise<void> {
       state.ws!.send(JSON.stringify([
         'REQ',
         state.subId,
-        { kinds: [24_133], '#p': [state.localPubkey] },
+        { kinds: [KIND_NIP46], '#p': [state.localPubkey] },
       ]));
       resolve();
     };

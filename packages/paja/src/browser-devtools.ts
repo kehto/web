@@ -22,6 +22,7 @@ import {
   type PajaCapabilityDomain,
   type PajaSimulation,
 } from './simulation.js';
+import { getPajaSetting } from './settings.js';
 
 /** One message row in Paja's browser message log. */
 export interface PajaMessageLogEntry {
@@ -88,7 +89,6 @@ export interface PajaDevtoolsState {
   clearSignerConsent(): void;
 }
 
-const PAJA_LOG_LIMIT = 500;
 const FS_PICKER_METHODS: Readonly<Partial<Record<string, keyof ReturnType<typeof browserPickers>>>> = {
   'fs.pickFile.result': 'showOpenFilePicker',
   'fs.pickFiles.result': 'showOpenFilePicker',
@@ -193,8 +193,8 @@ export function appendPajaMessageLog(
     detail: describeMessageDetail(raw),
     outcome: classifyPajaMessageOutcome(direction, raw),
   });
-  if (state.messageLog.length > PAJA_LOG_LIMIT) {
-    state.messageLog.splice(0, state.messageLog.length - PAJA_LOG_LIMIT);
+  if (state.messageLog.length > getPajaSetting('console.messageLogLimit')) {
+    state.messageLog.splice(0, state.messageLog.length - getPajaSetting('console.messageLogLimit'));
   }
   renderPajaMessageLog(state);
 }
@@ -277,7 +277,7 @@ export function renderPajaMessageLog(state: PajaDevtoolsState): void {
   const filter = state.messageFilter.trim().toLowerCase();
   const rows = state.messageLog
     .filter((entry) => filter.length === 0 || `${entry.direction} ${entry.type} ${entry.detail} ${entry.preview}`.toLowerCase().includes(filter))
-    .slice(-120)
+    .slice(-getPajaSetting('console.messageLogVisibleRows'))
     .map((entry) => {
       const row = document.createElement('div');
       row.className = 'log-row';

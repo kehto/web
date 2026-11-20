@@ -4,6 +4,7 @@ import type { PajaIntentLinkProgress } from './browser-intent-links.js';
 import type { ParsedPajaIntentLink } from './intent-link.js';
 import { postPajaIntentLauncherMessage, resolvePajaIntentLauncher } from './intent-launcher.js';
 import type { PajaBrowserState, PajaBrowserStateContext } from './browser-host.js';
+import { getPajaSetting } from './settings.js';
 
 /** Open shared content through a short-lived verified launcher frame. */
 export async function launchPajaSharedIntent(
@@ -64,7 +65,7 @@ export async function launchPajaSharedIntent(
       (registeredWindowId) => { if (registeredWindowId) context.bridge.observeFrame(frame, registeredWindowId); },
       admissionController.signal);
     if (registered !== windowId) throw new Error('Paja intent launcher registration failed');
-    const timeout = window.setTimeout(() => readyReject(new Error('Paja intent launcher did not become ready')), 10_000);
+    const timeout = window.setTimeout(() => readyReject(new Error('Paja intent launcher did not become ready')), getPajaSetting('intent.launcherReadyTimeoutMs'));
     try { await ready; } finally { window.clearTimeout(timeout); }
     if (!progress.isActive()) return;
     const correlation = randomUUID();
@@ -73,7 +74,7 @@ export async function launchPajaSharedIntent(
       outcomes.set(correlation, resolve);
       outcomeTimer = window.setTimeout(() => {
         if (outcomes.delete(correlation)) reject(new Error('Paja intent launcher did not return an acceptance result'));
-      }, 10_000);
+      }, getPajaSetting('intent.launcherOutcomeTimeoutMs'));
     });
     const selectedHandler = explicitHandler ?? (intent.request.handler === 'choose' ? 'choose' : undefined);
     if (explicitHandler !== undefined) runtime.explicitIntentHandlers.set(windowId, explicitHandler);

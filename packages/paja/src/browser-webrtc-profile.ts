@@ -4,11 +4,12 @@ import * as nip44 from 'nostr-tools/nip44';
 import type { NostrEvent, WebrtcEvent, WebrtcOpenRequest, WebrtcOpenResult } from '@napplet/core';
 import type { WebrtcServiceContext, WebrtcServiceOptions } from '@kehto/services';
 import type { PajaWebrtcControllerOptions } from './browser-webrtc.js';
+import { getPajaSetting } from './settings.js';
+import { KIND_WEBRTC_SIGNAL } from './nostr-kinds.js';
 
 const PROFILE = 'soy-rtc/1';
 const encoder = new TextEncoder();
 const HEX = /^[0-9a-f]{64}$/u;
-const MAX_BYTES = 16_384;
 type Peer = {
   key: string; nonce: string; pc: RTCPeerConnection; channel?: RTCDataChannel;
   joined: boolean; chain: Promise<void>; queued: number; started: number;
@@ -36,11 +37,11 @@ export interface PajaWebrtcProfileOptions {
 function validate(request: WebrtcOpenRequest): void {
   if (!request?.scope || !['room', 'direct'].includes(request.scope.type)) throw new Error('Invalid WebRTC scope');
   if (request.scope.type === 'room') {
-    if (typeof request.scope.room !== 'string' || !request.scope.room || request.scope.room.length > 256) throw new Error('Invalid room');
-    if (request.scope.peers && (!Array.isArray(request.scope.peers) || request.scope.peers.length > 8 || request.scope.peers.some(key => !HEX.test(key)))) throw new Error('Invalid peers');
+    if (typeof request.scope.room !== 'string' || !request.scope.room || request.scope.room.length > getPajaSetting('mp.roomMaxChars')) throw new Error('Invalid room');
+    if (request.scope.peers && (!Array.isArray(request.scope.peers) || request.scope.peers.length > getPajaSetting('mp.maxPeers') || request.scope.peers.some(key => !HEX.test(key)))) throw new Error('Invalid peers');
   } else if (!HEX.test(request.scope.pubkey)) throw new Error('Invalid peer');
-  if (request.channel !== undefined && (typeof request.channel !== 'string' || !request.channel || request.channel.length > 64)) throw new Error('Invalid channel');
-  if (request.protocol !== undefined && (typeof request.protocol !== 'string' || request.protocol.length > 128)) throw new Error('Invalid protocol');
+  if (request.channel !== undefined && (typeof request.channel !== 'string' || !request.channel || request.channel.length > getPajaSetting('mp.channelMaxChars'))) throw new Error('Invalid channel');
+  if (request.protocol !== undefined && (typeof request.protocol !== 'string' || request.protocol.length > getPajaSetting('mp.protocolMaxChars'))) throw new Error('Invalid protocol');
 }
 
 function reliable(body: Record<string, unknown>): boolean {
@@ -54,7 +55,7 @@ function gather(pc: RTCPeerConnection): Promise<void> {
   return new Promise(resolve => {
     const finish = () => { clearTimeout(timer); pc.removeEventListener('icegatheringstatechange', changed); resolve(); };
     const changed = () => { if (pc.iceGatheringState === 'complete' || pc.connectionState === 'closed') finish(); };
-    const timer = setTimeout(finish, 8_000);
+    const timer = setTimeout(finish, getPajaSetting('mp.iceGatherTimeoutMs'));
     pc.addEventListener('icegatheringstatechange', changed);
   });
 }
@@ -88,8 +89,8 @@ export function createPajaWebrtcProfile(options: PajaWebrtcProfileOptions): Webr
     const raw = JSON.stringify({ v: PROFILE, wire: s.wire, nonce: s.nonce, ...body });
     const content = recipient ? nip44.encrypt(raw, nip44.getConversationKey(options.secretKey, recipient)) : raw;
     const now = Math.floor(Date.now() / 1000);
-    const event = finalizeEvent({ kind: 25050, created_at: now, content,
-      tags: [['d', s.wire], ['expiration', String(now + 60)], ...(recipient ? [['p', recipient]] : [])],
+    const event = finalizeEvent({ kind: KIND_WEBRTC_SIGNAL, created_at: now, content,
+      tags: [['d', s.wire], ['expiration', String(now + getPajaSetting('mp.signalExpirationSeconds'))], ...(recipient ? [['p', recipient]] : [])],
     }, options.secretKey);
     if (live(s)) await options.relay.publish(options.relays, event);
   };
@@ -107,43 +108,43 @@ export function createPajaWebrtcProfile(options: PajaWebrtcProfileOptions): Webr
     channel.addEventListener('message', event => {
       if (!activePeer(s, p) || !p.joined || typeof event.data !== 'string') return;
       const size = encoder.encode(event.data).length;
-      if (Date.now() - since > 1000) { since = Date.now(); received = 0; bytes = 0; }
-      if (size > MAX_BYTES || ++received > 240 || (bytes += size) > 524288) return;
+      if (Date.now() - since > getPajaSetting('mp.rateWindowMs')) { since = Date.now(); received = 0; bytes = 0; }
+      if (size > getPajaSetting('mp.maxMessageBytes') || ++received > getPajaSetting('mp.maxMessagesPerWindow') || (bytes += size) > getPajaSetting('mp.maxBytesPerWindow')) return;
       try { emit(s, { type: 'message', sessionId: s.id, from: p.key, payload: JSON.parse(event.data) }); } catch { /* Drop malformed peer data. */ }
     });
     channel.addEventListener('close', () => removePeer(s, p));
   };
   const queue = (s: Session, p: Peer, action: () => Promise<void>) => {
-    if (p.queued >= 4) return;
+    if (p.queued >= getPajaSetting('mp.maxQueuedPerPeer')) return;
     p.queued++;
     p.chain = p.chain.then(async () => { if (activePeer(s, p)) await action(); })
       .catch(() => removePeer(s, p)).finally(() => { p.queued--; });
   };
   const receive = async (s: Session, event: NostrEvent) => {
     if (!live(s)) return;
-    if (Date.now() - s.signalWindow > 1000) { s.signalWindow = Date.now(); s.signals = 0; }
-    if (++s.signals > 32 || event.kind !== 25050 || event.pubkey === self || event.content.length > 64000
-      || Math.abs(Date.now() / 1000 - event.created_at) > 60 || s.seen.has(event.id)
+    if (Date.now() - s.signalWindow > getPajaSetting('mp.rateWindowMs')) { s.signalWindow = Date.now(); s.signals = 0; }
+    if (++s.signals > getPajaSetting('mp.maxSignalsPerWindow') || event.kind !== KIND_WEBRTC_SIGNAL || event.pubkey === self || event.content.length > getPajaSetting('mp.maxSignalChars')
+      || Math.abs(Date.now() / 1000 - event.created_at) > getPajaSetting('mp.signalMaxAgeSeconds') || s.seen.has(event.id)
       || !event.tags.some(tag => tag[0] === 'd' && tag[1] === s.wire) || !verifyEvent(event)) return;
     const scope = s.request.scope;
     if (scope.type === 'direct' ? event.pubkey !== scope.pubkey : scope.peers && !scope.peers.includes(event.pubkey)) return;
     const recipient = event.tags.find(tag => tag[0] === 'p')?.[1];
     if (recipient && recipient !== self) return;
-    if (s.seen.size >= 2048) s.seen.delete(s.seen.values().next().value!);
+    if (s.seen.size >= getPajaSetting('mp.seenSignalCache')) s.seen.delete(s.seen.values().next().value!);
     s.seen.add(event.id);
     const raw = recipient ? nip44.decrypt(event.content, nip44.getConversationKey(options.secretKey, event.pubkey)) : event.content;
     const body = JSON.parse(raw) as Record<string, unknown>;
-    if (!body || body.v !== PROFILE || body.wire !== s.wire || typeof body.nonce !== 'string' || !body.nonce || body.nonce.length > 64
+    if (!body || body.v !== PROFILE || body.wire !== s.wire || typeof body.nonce !== 'string' || !body.nonce || body.nonce.length > getPajaSetting('mp.nonceMaxChars')
       || s.retired.has(`${event.pubkey}:${body.nonce}`) || !reliable(body)) return;
     if (recipient ? body.to !== s.nonce || !['offer', 'answer'].includes(String(body.type)) : body.type !== 'hello') return;
     let peer = s.peers.get(event.pubkey);
     if (body.type === 'hello') {
       if (peer && peer.nonce !== body.nonce) {
         // Bound incarnation tracking; close rather than forgetting retired nonces.
-        if (s.retired.size >= 256) { close(s, 'Peer incarnation limit reached'); return; }
+        if (s.retired.size >= getPajaSetting('mp.maxRetiredPeers')) { close(s, 'Peer incarnation limit reached'); return; }
         s.retired.add(`${peer.key}:${peer.nonce}`); removePeer(s, peer); peer = undefined;
       }
-      if (peer || s.peers.size >= 8) return;
+      if (peer || s.peers.size >= getPajaSetting('mp.maxPeers')) return;
       const pc = options.createPeer?.() ?? new RTCPeerConnection({ iceServers: [] });
       const p: Peer = { key: event.pubkey, nonce: body.nonce, pc, joined: false, chain: Promise.resolve(), queued: 0, started: Date.now() };
       s.peers.set(p.key, p);
@@ -159,7 +160,7 @@ export function createPajaWebrtcProfile(options: PajaWebrtcProfileOptions): Webr
       });
       return;
     }
-    if (!peer || body.nonce !== peer.nonce || typeof body.sdp !== 'string' || body.sdp.length > 32000) return;
+    if (!peer || body.nonce !== peer.nonce || typeof body.sdp !== 'string' || body.sdp.length > getPajaSetting('mp.sdpMaxChars')) return;
     const p = peer, sdp = body.sdp;
     queue(s, p, async () => {
       if (body.type === 'offer' && p.key < self) {
@@ -182,17 +183,17 @@ export function createPajaWebrtcProfile(options: PajaWebrtcProfileOptions): Webr
   const start = (s: Session) => {
     try {
           if (!live(s)) { close(s); return; }
-          const sub = options.relay.subscribe(options.relays, [{ kinds: [25050], '#d': [s.wire], since: Math.floor(Date.now() / 1000) - 10 }], event => { void receive(s, event).catch(() => {}); });
+          const sub = options.relay.subscribe(options.relays, [{ kinds: [KIND_WEBRTC_SIGNAL], '#d': [s.wire], since: Math.floor(Date.now() / 1000) - getPajaSetting('mp.signalLookbackSeconds') }], event => { void receive(s, event).catch(() => {}); });
           s.closeSubscription = () => sub.close();
           const tick = () => {
             if (!live(s)) { close(s); return; }
             void publish(s, { type: 'hello' }).catch(() => {});
             for (const p of s.peers.values()) {
-              if (!p.joined && Date.now() - p.started > 45000) { removePeer(s, p); continue; }
+              if (!p.joined && Date.now() - p.started > getPajaSetting('mp.joinTimeoutMs')) { removePeer(s, p); continue; }
               if (p.offer && !p.pc.remoteDescription) void publish(s, { type: 'offer', to: p.nonce, sdp: p.offer }, p.key).catch(() => {});
             }
           };
-          tick(); s.timer = setInterval(tick, 2000);
+          tick(); s.timer = setInterval(tick, getPajaSetting('mp.tickIntervalMs'));
     } catch { close(s, 'Signaling unavailable'); }
   };
   const retire = () => { for (const s of sessions.values()) close(s); };
@@ -204,10 +205,10 @@ export function createPajaWebrtcProfile(options: PajaWebrtcProfileOptions): Webr
     open: (request, context) => openProfileSession(options, self, sessions, openings, request, context, start, close),
     send(id, payload, context) {
       const s = requireSession(id, context), json = JSON.stringify(payload);
-      if (json === undefined || encoder.encode(json).length > MAX_BYTES) throw new Error('Payload exceeds 16 KiB JSON limit');
+      if (json === undefined || encoder.encode(json).length > getPajaSetting('mp.maxMessageBytes')) throw new Error(`Payload exceeds ${String(getPajaSetting('mp.maxMessageBytes'))}-byte JSON limit`);
       const channels = [...s.peers.values()].filter(p => p.joined && p.channel?.readyState === 'open').map(p => p.channel!);
       if (!channels.length) throw new Error('peer unavailable');
-      if (channels.some(c => c.bufferedAmount + encoder.encode(json).length > 262144)) throw new Error('QUEUE_FULL');
+      if (channels.some(c => c.bufferedAmount + encoder.encode(json).length > getPajaSetting('mp.bufferedAmountLimitBytes'))) throw new Error('QUEUE_FULL');
       for (const channel of channels) channel.send(json);
     },
     close(id, reason, context) { close(requireSession(id, context), reason); },
@@ -221,7 +222,7 @@ async function openProfileSession(options: PajaWebrtcProfileOptions, self: strin
 ): Promise<WebrtcOpenResult> {
       validate(request);
       if (!options.namespace || !options.isCurrent() || context.signal?.aborted) throw new Error('Multiplayer namespace unavailable');
-      if (sessions.size + openings.size >= 4) throw new Error('session limit reached');
+      if (sessions.size + openings.size >= getPajaSetting('mp.maxSessions')) throw new Error('session limit reached');
       if (request.scope.type === 'direct' && request.scope.pubkey === self) throw new Error('Cannot connect to self');
       const channel = request.channel ?? 'napplet';
       const scope = request.scope.type === 'room' ? ['room', request.scope.room] : ['direct', ...[self, request.scope.pubkey].sort()];
@@ -238,7 +239,7 @@ async function openProfileSession(options: PajaWebrtcProfileOptions, self: strin
         context.signal?.addEventListener('abort', () => close(s), { once: true });
         // Start after the correlated open result; subsequent events belong to this session.
         setTimeout(() => start(s), 0);
-        const session = { id: s.id, scope: request.scope, channel, ...(request.protocol ? { protocol: request.protocol } : {}), state: 'connecting' as const, ordered: true, maxPayloadBytes: MAX_BYTES };
+        const session = { id: s.id, scope: request.scope, channel, ...(request.protocol ? { protocol: request.protocol } : {}), state: 'connecting' as const, ordered: true, maxPayloadBytes: getPajaSetting('mp.maxMessageBytes') };
         return { session };
       } finally { openings.delete(identity); }
 }

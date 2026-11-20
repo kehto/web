@@ -6,6 +6,7 @@
  * link's URI and payload travel only over the parent-bound launcher channel.
  */
 
+import { NAPPLET_KIND_NAMED } from '@kehto/nip/5d';
 import { resolveNapplet } from '@kehto/nip/5d';
 import type { NostrEvent } from 'nostr-tools';
 import { verifyEvent } from 'nostr-tools/pure';
@@ -16,7 +17,7 @@ import type { PajaResolvedPointer } from './runtime-resolver.js';
 const LAUNCHER_HTML = '<!doctype html><meta charset="utf-8"><title>Paja intent launcher</title><script>let launched=false;addEventListener(\'message\',(event)=>{if(launched||event.source!==parent)return;const data=event.data;if(!data||data.type!==\'paja.intent.launch\'||typeof data.uri!==\'string\'||typeof data.correlation!==\'string\')return;launched=true;window.napplet?.intent?.invoke(data.uri,data.options).then((result)=>parent.postMessage({type:\'paja.intent.launcher.result\',correlation:data.correlation,result},\'*\')).catch(()=>parent.postMessage({type:\'paja.intent.launcher.result\',correlation:data.correlation,result:{ok:false,error:\'invoke rejected\'}},\'*\'));});parent.postMessage({type:\'paja.intent.launcher.ready\'},\'*\');</script>';
 
 const LAUNCHER_EVENT: NostrEvent = {
-  kind: 35129,
+  kind: NAPPLET_KIND_NAMED,
   created_at: 1760054400,
   content: 'Paja verified intent launcher',
   tags: [

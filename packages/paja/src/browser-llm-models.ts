@@ -1,3 +1,4 @@
+import { getPajaSetting, getPajaSettingDefault } from './settings.js';
 /**
  * Model discovery for NAP-LLM connection presets that list their models.
  *
@@ -27,7 +28,7 @@ export class PajaLlmModelsError extends Error {
 }
 
 /** Default listing deadline; a loopback server normally answers in milliseconds. */
-export const PAJA_LLM_MODELS_TIMEOUT_MS = 8000;
+export const PAJA_LLM_MODELS_TIMEOUT_MS = getPajaSettingDefault('llm.modelsTimeoutMs');
 
 /** Options for {@link fetchPajaLlmModels}. */
 export interface PajaLlmModelsOptions {
@@ -41,7 +42,7 @@ export interface PajaLlmModelsOptions {
   fetch?: typeof fetch;
   /** Aborts the listing (panel edits, preset changes, page unload). */
   signal?: AbortSignal;
-  /** Deadline; defaults to {@link PAJA_LLM_MODELS_TIMEOUT_MS}. */
+  /** Deadline; defaults to {@link getPajaSetting('llm.modelsTimeoutMs')}. */
   timeoutMs?: number;
 }
 
@@ -93,7 +94,7 @@ function readModelIds(body: unknown): string[] {
 export async function fetchPajaLlmModels(options: PajaLlmModelsOptions): Promise<string[]> {
   const fetchImpl = options.fetch ?? globalThis.fetch;
   const controller = new AbortController();
-  const timeoutMs = options.timeoutMs ?? PAJA_LLM_MODELS_TIMEOUT_MS;
+  const timeoutMs = options.timeoutMs ?? getPajaSetting('llm.modelsTimeoutMs');
   let timedOut = false;
   const timer = setTimeout(() => { timedOut = true; controller.abort(); }, timeoutMs);
   const abortFromCaller = (): void => controller.abort();

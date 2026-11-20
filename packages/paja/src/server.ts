@@ -15,6 +15,7 @@ import { renderPajaHtml } from './host-page.js';
 import { resolvePajaRawOptions } from './config-file.js';
 import { probeTargetCors } from './target-cors.js';
 import { planTargetNetwork, type PajaTargetNetworkPlan } from './target-network.js';
+import { getPajaSetting } from './settings.js';
 
 /** Options for starting the Paja local HTTP server. */
 export interface PajaServerOptions {
@@ -192,7 +193,7 @@ function close(server: HttpServer): Promise<void> {
   return new Promise((resolve, reject) => {
     const forceClose = setTimeout(() => {
       server.closeAllConnections?.();
-    }, 500);
+    }, getPajaSetting('server.shutdownGraceMs'));
     server.close((error?: Error) => {
       clearTimeout(forceClose);
       if (error) {
@@ -334,11 +335,11 @@ function readJsonBody(request: HttpRequest): Promise<{ url?: unknown } | null> {
       clearTimeout(timer);
       resolve(value);
     };
-    const timer = setTimeout(() => { finish(null); request.destroy(); }, 10_000);
+    const timer = setTimeout(() => { finish(null); request.destroy(); }, getPajaSetting('server.requestBodyTimeoutMs'));
     request.on('data', (chunk) => {
       if (settled) return;
       size += chunk.byteLength;
-      if (size > 4096) { finish(null); request.destroy(); }
+      if (size > getPajaSetting('server.requestBodyMaxBytes')) { finish(null); request.destroy(); }
       else chunks.push(chunk);
     });
     request.on('aborted', () => finish(null));

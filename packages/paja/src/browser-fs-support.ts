@@ -2,13 +2,12 @@
 
 import type { FsPermission, FsPickOptions, FsReadOptions } from '@napplet/core';
 import { FsServiceError, type FsBackendChange } from '@kehto/services';
+import { getPajaSetting, getPajaSettingDefault } from './settings.js';
 
-export const MAX_READ_BYTES = 1024 * 1024;
-export const MAX_WRITE_BYTES = 1024 * 1024;
-/** Maximum file size eligible for an in-memory revision digest. */
-export const MAX_REVISION_BYTES = 16 * 1024 * 1024;
-export const MAX_WATCH_COUNT = 16;
-export const WATCH_INTERVAL_MS = 1_000;
+/** Built-in default per-write cap; the effective cap is the `fs.maxWriteBytes` setting. */
+export const MAX_WRITE_BYTES = getPajaSettingDefault('fs.maxWriteBytes');
+/** Built-in default watch cap; the effective cap is the `fs.maxWatchCount` setting. */
+export const MAX_WATCH_COUNT = getPajaSettingDefault('fs.maxWatchCount');
 export const WORKSPACE_PERMISSIONS: FsPermission[] = ['read', 'write', 'create', 'delete', 'list', 'watch'];
 
 const INVALID_PATH_TEXT = /[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/u;
@@ -182,7 +181,7 @@ export function base64Bytes(value: unknown): Uint8Array<ArrayBuffer> {
   if (typeof value !== 'string' || !CANONICAL_BASE64.test(value)) throw new FsServiceError('invalid-data');
   const paddingBytes = value.endsWith('==') ? 2 : value.endsWith('=') ? 1 : 0;
   const decodedLength = (value.length / 4) * 3 - paddingBytes;
-  if (decodedLength > MAX_WRITE_BYTES) throw new FsServiceError('too-large');
+  if (decodedLength > getPajaSetting('fs.maxWriteBytes')) throw new FsServiceError('too-large');
   try {
     const binary = atob(value);
     const bytes = new Uint8Array(binary.length);
@@ -199,7 +198,7 @@ export function base64Bytes(value: unknown): Uint8Array<ArrayBuffer> {
 
 export function encodeBase64(bytes: Uint8Array): string {
   let binary = '';
-  const chunkSize = 32_768;
+  const chunkSize = getPajaSetting('fs.encodeChunkBytes');
   for (let offset = 0; offset < bytes.byteLength; offset += chunkSize) {
     binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
   }
@@ -208,16 +207,16 @@ export function encodeBase64(bytes: Uint8Array): string {
 
 export function validateRange(options: FsReadOptions | undefined): { offset: number; length: number } {
   const offset = options?.offset ?? 0;
-  const length = options?.length ?? MAX_READ_BYTES;
+  const length = options?.length ?? getPajaSetting('fs.maxReadBytes');
   if (!Number.isSafeInteger(offset) || offset < 0 || !Number.isSafeInteger(length) || length < 0) {
     throw new FsServiceError('invalid-data');
   }
-  if (length > MAX_READ_BYTES) throw new FsServiceError('too-large');
+  if (length > getPajaSetting('fs.maxReadBytes')) throw new FsServiceError('too-large');
   return { offset, length };
 }
 
 export async function revision(file: BrowserFile): Promise<string> {
-  if (file.size > MAX_REVISION_BYTES) throw new FsServiceError('too-large');
+  if (file.size > getPajaSetting('fs.maxRevisionBytes')) throw new FsServiceError('too-large');
   const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
   return `sha256:${Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')}`;
 }

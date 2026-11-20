@@ -145,7 +145,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
     expect(source).toContain('`<base href="${escapeAttribute(targetUrl)}">`');
   });
 
-  it('keeps Paja wired to real relay, outbox, and identity bootstrap paths', () => {
+  it('keeps Paja wired to real relay, outbox, and identity bootstrap paths', async () => {
     const adapterSource = readFileSync(new URL('./browser-adapter.ts', import.meta.url), 'utf8');
     const supportSource = readFileSync(new URL('./browser-adapter-support.ts', import.meta.url), 'utf8');
     const intentSource = readFileSync(new URL('./browser-intent-host.ts', import.meta.url), 'utf8');
@@ -156,8 +156,10 @@ describe('@kehto/paja browser host runtime source guards', () => {
     expect(supportSource).toContain('createRelayPoolOutboxRouter');
     expect(supportSource).toContain('() => relayConfig.getRelayUrls([\'discovery\', \'super\']),');
     expect(relaySource).toContain('createNip65Registry');
-    expect(relaySource).toContain('export const PAJA_NIP65_RELAY_LIST_KIND = 10_002;');
-    expect(relaySource).toContain('export const PAJA_CONTACT_LIST_KIND = 3;');
+    expect(relaySource).toContain('export const PAJA_NIP65_RELAY_LIST_KIND = KIND_RELAY_LIST;');
+    expect(relaySource).toContain('export const PAJA_CONTACT_LIST_KIND = KIND_CONTACT_LIST;');
+    const kinds = await import('./nostr-kinds.js');
+    expect([kinds.KIND_RELAY_LIST, kinds.KIND_CONTACT_LIST]).toEqual([10_002, 3]);
     expect(relaySource).toContain('export function createPajaIdentityProviders(');
     expect(relaySource).toContain('export function getPajaBootstrapRelayUrls(');
     expect(relaySource).not.toContain('getSignerRelayUrls');

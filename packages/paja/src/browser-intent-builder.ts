@@ -1,3 +1,4 @@
+import { NAPPLET_KIND_NAMED } from '@kehto/nip/5d';
 import {
   createPajaIntentLink,
   type ParsedPajaIntentLink,
@@ -151,9 +152,9 @@ export function createPajaIntentLinkBuilder(options: PajaIntentLinkBuilderOption
     payloadMode.control.replaceChildren();
     for (const contract of contracts) appendIntentLinkBuilderOption(convention.control, contract.convention, contract.convention);
     appendIntentLinkBuilderOption(routing.control, 'default', 'Recipient default');
-    appendIntentLinkBuilderOption(routing.control, 'recommend', 'Recommend this app', nextTarget.event.kind !== 35129 || !nextTarget.manifest.dTag);
+    appendIntentLinkBuilderOption(routing.control, 'recommend', 'Recommend this app', nextTarget.event.kind !== NAPPLET_KIND_NAMED || !nextTarget.manifest.dTag);
     appendIntentLinkBuilderOption(routing.control, 'exact', 'Exact target pointer');
-    routing.control.value = nextTarget.event.kind === 35129 && nextTarget.manifest.dTag ? 'recommend' : 'exact';
+    routing.control.value = nextTarget.event.kind === NAPPLET_KIND_NAMED && nextTarget.manifest.dTag ? 'recommend' : 'exact';
     appendIntentLinkBuilderOption(payloadMode.control, 'text', 'Text fields');
     appendIntentLinkBuilderOption(payloadMode.control, 'json', 'JSON payload');
     json.value = '';

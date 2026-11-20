@@ -126,6 +126,7 @@ import {
   type PajaSimulation,
   type PajaCapabilityDomain,
 } from './simulation.js';
+import { getPajaSetting } from './settings.js';
 
 export interface PajaBrowserState {
   readonly config: PajaHostConfig;
@@ -837,7 +838,7 @@ async function installPajaHost(): Promise<void> {
     fetch: window.fetch.bind(window),
     query: (relays, filters, signal) => {
       if (!relayBackend || runtime.currentSimulation.relay.mode !== 'live') throw new Error('CVM discovery requires live relays.');
-      return relayBackend.query(relays, filters, 5000, { reason: 'host' }, signal);
+      return relayBackend.query(relays, filters, getPajaSetting('relay.hostQueryTimeoutMs'), { reason: 'host' }, signal);
     },
   });
   window.addEventListener('pagehide', disposeCvmSettings, { once: true });

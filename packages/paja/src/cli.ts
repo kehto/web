@@ -23,6 +23,7 @@ import {
   type PajaSimulationRawOptions,
   type JsonValue,
 } from './simulation.js';
+import { getPajaSetting } from './settings.js';
 
 /**
  * Minimal output streams used by the CLI runner.
@@ -165,7 +166,7 @@ export async function runPajaCli(
 async function writeTargetNetworkNotice(
   io: CliIo,
   server: Awaited<ReturnType<typeof startPajaServer>>,
-  timeoutMs = 2000,
+  timeoutMs = getPajaSetting('server.targetNoticeTimeoutMs'),
 ): Promise<void> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -488,7 +489,7 @@ async function resolveManagedTargetUrl(
     return first.url;
   }
 
-  const graceMs = options.discoveryGraceMs ?? Math.min(1000, options.timeoutMs);
+  const graceMs = options.discoveryGraceMs ?? Math.min(getPajaSetting('server.discoveryGraceMs'), options.timeoutMs);
   const detected = await resolveWithin(child.detectedTargetUrl, graceMs);
   if (!detected) {
     if (first?.url) {
