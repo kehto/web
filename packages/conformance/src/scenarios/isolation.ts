@@ -25,6 +25,8 @@ type Envelope = Readonly<Record<string, unknown>>;
 interface DenialRow {
   readonly domain: string;
   readonly request: string;
+  /** The reply type the owning NAP defines for the request. */
+  readonly canonical: string;
   /** Capability the target revoked, or `null` when the request needs none. */
   readonly capability: string | null;
   readonly backendCalls: number;
@@ -85,7 +87,7 @@ async function deny(context: CollectContext, fixture: DomainFixture, request: Op
   await context.session.destroyEndpoint(endpoint.id);
   const record = step(report, 'reply');
   return {
-    domain: fixture.domain, request: request.type, capability: capability ?? null, backendCalls: after - before,
+    domain: fixture.domain, request: request.type, canonical: request.reply ?? `${request.type}.result`, capability: capability ?? null, backendCalls: after - before,
     reply: record?.state === 'value' ? record.value as Envelope : null,
   };
 }
@@ -175,7 +177,7 @@ function judgeDenial(row: DenialRow): string | null {
   if (row.capability === null) return null;
   if (row.backendCalls > 0) return `the ${row.domain} backend ran ${row.backendCalls} times after ${row.capability} was revoked`;
   if (!row.reply) return null;
-  const canonical = `${row.request}.result`;
+  const { canonical } = row;
   const nativeError = row.domain === 'resource' && row.reply.type === `${row.request}.error`;
   if (row.reply.type !== canonical && !nativeError) return `denial was answered with ${String(row.reply.type)}, a type ${row.domain}'s NAP does not define (expected silence or ${canonical})`;
   // A canonical result without `error` (a safe default) is not judged: the

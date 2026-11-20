@@ -172,7 +172,7 @@ the spec.
 | `retain-state-after-destroy` | `inc/topic-routing`, `inc/channel-lifecycle` |
 | `supports-depends-on-init` | `shell/local-supports` |
 | `init-invents-domain` | `shell/local-supports` |
-| `advertise-disabled-backend` | `catalog/capability-truthfulness`, `relay/correlation`, `relay/semantics` (and `catalog/acl-denial` through the known denial finding) |
+| `advertise-disabled-backend` | `catalog/capability-truthfulness`, `relay/correlation`, `relay/semantics` |
 
 In a page, `runKehtoMutation(name, options)` from the browser bundle runs one.
 

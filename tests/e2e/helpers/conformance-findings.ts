@@ -5,14 +5,13 @@
  * intended checks), so a new failure or a fix that lands without updating this
  * list fails them. Details and repros: the #187 PR bodies.
  *
- * - `nip5d/unknown-envelope`: `storage.<unknown action>` is answered with an
- *   error result; NIP-5D: an unrecognized `type` MUST be silently ignored.
  * - `catalog/broadcast-to-loaded`: `theme.changed` / `identity.changed` reach an
  *   endpoint only after its first envelope (the bridge registers the
  *   environment lazily); NAP-THEME "MUST broadcast ... to all napplets to which
  *   it exposes theme", NAP-IDENTITY "MUST emit identity.changed to loaded napplets".
- * - `catalog/acl-denial`: ACL denials are answered with `<type>.error`, a type
- *   the owning NAPs do not define (NAP-CVM says so explicitly).
+ * - `catalog/acl-denial`: keys, media, outbox (`resolveRelays`), config and
+ *   upload still answer ACL denials with `<type>.error`, a type their NAPs do
+ *   not define (staging's #463 fixed the other domains).
  * - `catalog/package-drift`: `@napplet/nap@0.41.0` lacks `media.session.ended`
  *   and `webrtc.sendBytes(.result)` that the pinned NAPs specify (upstream).
  * - `relay/semantics`: `relay.publishEncrypted` with a signer that cannot
@@ -22,13 +21,12 @@
  * - `webrtc/push`: `webrtc.event` is still delivered for a closed session.
  */
 export const KNOWN_KEHTO_FINDINGS: Readonly<Record<'minimal' | 'full', readonly string[]>> = {
-  minimal: ['nip5d/unknown-envelope'],
+  minimal: [],
   full: [
     'catalog/acl-denial',
     'catalog/broadcast-to-loaded',
     'catalog/package-drift',
     'cvm/semantics',
-    'nip5d/unknown-envelope',
     'relay/semantics',
     'webrtc/push',
   ],
