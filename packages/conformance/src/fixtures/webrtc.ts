@@ -54,7 +54,13 @@ export const WEBRTC_FIXTURE: DomainFixture = {
       semantics: { rule: 'An unsupported scope is answered with an error and "When error is present, other result fields are undefined"', verify: errorOnly('session') },
     },
     { id: 'webrtc/send', type: 'webrtc.send', payload: { sessionId: DIRECT, payload: { body: 'hello' } } },
-    { id: 'webrtc/sendBytes', type: 'webrtc.sendBytes', payload: { sessionId: ROOM, bytes: 'AAEC/w==' } },
+    {
+      id: 'webrtc/sendBytes', type: 'webrtc.sendBytes', payload: { sessionId: ROOM, bytes: 'AAEC/w==' }, allowError: true,
+      semantics: {
+        rule: 'sendBytes succeeds, or "A shell that does not support byte payloads returns the error \\"unsupported\\""',
+        verify: (reply) => (reply?.error === undefined || reply.error === 'unsupported' ? null : `error was ${JSON.stringify(reply.error)}, expected none or "unsupported"`),
+      },
+    },
     {
       id: 'webrtc/send-unknown-session', type: 'webrtc.send', payload: { sessionId: 'sess-conformance-unknown', payload: { body: 'x' } }, allowError: true,
       semantics: { rule: '"The shell MUST respond to every request with a result message carrying the same id"; an unknown session is an error result', verify: errorOnly('session') },
