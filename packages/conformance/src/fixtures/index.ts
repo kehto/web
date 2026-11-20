@@ -8,6 +8,7 @@ import { THEME_FIXTURE } from './theme.js';
 import { LINK_FIXTURE } from './link.js';
 import { COMMON_FIXTURE } from './common.js';
 import { LISTS_FIXTURE } from './lists.js';
+import { CONFIG_FIXTURE } from './config.js';
 import type { DomainFixture } from './types.js';
 
 /** Fixtures the generic domain scenario runs. */
@@ -20,5 +21,6 @@ export const FIXTURES: Readonly<Record<string, DomainFixture>> = Object.freeze(O
     LINK_FIXTURE,
     COMMON_FIXTURE,
     LISTS_FIXTURE,
+    CONFIG_FIXTURE,
   ].map((fixture) => [fixture.domain, fixture]),
 ));
