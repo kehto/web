@@ -31,7 +31,7 @@ describe('createMockIdentityService', () => {
       'identity.getPublicKey', 'identity.getRelays', 'identity.getProfile', 'identity.getFollows', 'identity.getList',
       'identity.getZaps', 'identity.getMutes', 'identity.getBlocked', 'identity.getBadges',
     ]);
-    expect(IDENTITY_SPEC_REF).toEqual({ nap: 'NAP-IDENTITY', status: 'merged', source: 'master', sha: '43cb3a4e8555', path: 'naps/NAP-IDENTITY.md' });
+    expect(IDENTITY_SPEC_REF).toEqual({ nap: 'NAP-IDENTITY', status: 'merged', source: 'master', sha: '377bf939c6c9', path: 'naps/NAP-IDENTITY.md' });
     expect(IDENTITY_MOCK_ENTRY).toMatchObject({ domain: 'identity', kind: 'service', spec: IDENTITY_SPEC_REF });
   });
 

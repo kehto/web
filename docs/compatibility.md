@@ -479,6 +479,33 @@ and release number are pending. Nothing remains to retire. Upstream note:
 `@napplet/nap@0.40.0` INC type comments still call `sender`, `target`, and the
 open-result `peer` a napplet identity; field shapes already match.
 
+## KEHTO_MOCKS_NAP_DRIFT_RETIRED — mock APIs removed for NAP drift — mocks
+
+Identifier: `KEHTO_MOCKS_NAP_DRIFT_RETIRED`. Owner: `@kehto/mocks`. Retired
+without a compatibility path in the `@kehto/mocks` 0.2.0 minor release
+(`.changeset/nap-mocks-audit-drift.md`, [kehto/web#464](https://github.com/kehto/web/pull/464)).
+Nothing in this repository consumed these APIs, but `@kehto/mocks` is
+published, so external test suites may have imported them.
+
+| Old | Replacement | Why retired |
+|-----|-------------|-------------|
+| `createMockMeshService`, `MESH_MOCK_ENTRY`, `MESH_SPEC_REF`, the `Mock*Mesh*` types and the `mesh` registry row | None. NAP-NEIGHBOR is not mocked yet; it is deferred in `packages/mocks/scripts/deferred-naps.json`. | NAP-MESH ([napplet/naps PR #122](https://github.com/napplet/naps/pull/122)) closed unmerged on 2026-11-12. Its author retracted it in favour of NAP-NEIGHBOR ([PR #146](https://github.com/napplet/naps/pull/146)), a different contract, so the mock was not repointed. |
+| `LLM_TOOLS_SPEC_REF` (PR #138 `8f741326`) | `LLM_SPEC_REF` (PR #134 `5e93bdfce0e8`) | PR #138 was merged into the PR #134 branch, so one draft now carries tool use. |
+| `result.text` on mock `llm.generate.result` | Concatenate the `text` parts of `result.content`. | [NAP-LLM PR #134 at `5e93bdfc`](https://github.com/napplet/naps/blob/5e93bdfce0e84c0de728234cb7b3feed498f8635/naps/NAP-LLM.md) defines Generation as `content`, `finish`, `usage`; `text` was a mirror of an older draft shape. |
+| `respondWith(text, 'toolUse')` | Offer `tools` and let the mock derive the call, or script `stop`/`length`/`refusal`. The type is now `MockLlmScriptedFinish`. | The same draft requires `toolUse` to contain at least one `toolCall`; a scripted text answer cannot. |
+| Delta `block: 'toolcall'` | `block: 'toolCall'`, plus `event: 'start' \| 'delta' \| 'end'`; a `toolCall` start carries `toolCallId` and `name`. | The same draft renamed the block kind and added the block lifecycle. |
+
+No warning site exists or is added. Removed exports and a removed result field
+have no old-use boundary in the mock to report from: an import fails to resolve
+and a consumer reading `text` gets `undefined`. Migration guidance lives in this
+entry, the changeset and the `@kehto/mocks` README.
+
+Regression coverage: `packages/mocks/src/retired-apis.test.ts` (exports and
+registry rows absent, only the PR #134 NAP-LLM ref, camelCase `toolCall` blocks,
+no `text` mirror, and `respondWith(..., 'toolUse')` rejected by type
+(`@ts-expect-error`) and at runtime), plus `packages/mocks/src/domains/llm.test.ts`
+(exact delta and result envelopes). Nothing remains to retire.
+
 ## Retired window-level NIP-5D transport — shell / Paja
 
 Identifier: `NIP5D_WINDOW_TRANSPORT_RETIRED`. Retired without a compatibility

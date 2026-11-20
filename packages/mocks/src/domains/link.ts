@@ -1,9 +1,12 @@
 /**
  * domains/link.ts — Mock NAP-LINK service.
  *
- * Spec: naps/NAP-LINK.md @ napplet/naps PR #53 head 50a2cd45e76f (draft)
+ * Spec: naps/NAP-LINK.md @ napplet/naps PR #53 head 100e5c939ae6 (draft)
  * Routes: link.open
  * Spec gaps / decisions:
+ *   - 100e5c93 adds `error` to the `open()` `LinkOpenResult` (API side only).
+ *     The mock already sends `error` on every denial and omits it on
+ *     `opened`; the binding forwards the wire field unchanged.
  *   - Only `http:` and `https:` open by default; every other scheme (including
  *     `javascript:`, `data:`, `blob:`, `file:`) is denied with
  *     `unsupported-scheme`. `allowedSchemes` can add `nostr:`/`mailto:` by policy.
@@ -24,7 +27,7 @@ export const LINK_SPEC_REF: NapSpecRef = {
   status: 'draft',
   source: 'pr',
   pr: 53,
-  sha: '50a2cd45e76f',
+  sha: '100e5c939ae6',
   path: 'naps/NAP-LINK.md',
 };
 
