@@ -12,7 +12,6 @@
  *   and `webrtc.sendBytes(.result)` that the pinned NAPs specify (upstream).
  * - `relay/semantics`: `relay.publishEncrypted` with a signer that cannot
  *   encrypt publishes an empty-content event and reports `ok: true`.
- * - `webrtc/push`: `webrtc.event` is still delivered for a closed session.
  */
 export const KNOWN_KEHTO_FINDINGS: Readonly<Record<'minimal' | 'full', readonly string[]>> = {
   minimal: [],
@@ -20,6 +19,5 @@ export const KNOWN_KEHTO_FINDINGS: Readonly<Record<'minimal' | 'full', readonly 
     'catalog/acl-denial',
     'catalog/package-drift',
     'relay/semantics',
-    'webrtc/push',
   ],
 };
