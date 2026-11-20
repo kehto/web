@@ -118,7 +118,7 @@ describe('createUploadService', () => {
       ]);
     });
 
-    it('maps upload info provider failures to upload.info.result error', async () => {
+    it('maps upload info provider failures to upload.info.result error with a redacted info (#518)', async () => {
       const svc = createUploadService({
         uploader: mockUploader(),
         uploadInfo: () => {
@@ -136,6 +136,7 @@ describe('createUploadService', () => {
         {
           type: 'upload.info.result',
           id: 'info-fail',
+          info: { rails: [] },
           error: 'policy unavailable',
         },
       ]);
@@ -247,6 +248,20 @@ describe('createUploadService', () => {
       svc.handleMessage(WINDOW, { type: 'upload.status', id: 's3', uploadId: 'nope' } as NappletMessage, c.send);
       await Promise.resolve();
       expect(c.sent[0]).toMatchObject({ type: 'upload.status.result', id: 's3', error: expect.any(String) });
+    });
+
+    // Bounded spec gap (napplet/naps#33 @ f5cc981e, #518): a failed lookup has no
+    // honest rail, state or timestamp, so the reply carries `error` and no `status`.
+    it('answers invalid and unknown lookups with error and no invented status', async () => {
+      const svc = createUploadService({ uploader: mockUploader(), generateId: ID, now: NOW });
+      const c = collector();
+      svc.handleMessage(WINDOW, { type: 'upload.status', id: 's4', uploadId: '' } as NappletMessage, c.send);
+      svc.handleMessage(WINDOW, { type: 'upload.status', id: 's5', uploadId: 'nope' } as NappletMessage, c.send);
+      await Promise.resolve();
+      expect(c.sent).toEqual([
+        { type: 'upload.status.result', id: 's4', error: 'invalid uploadId' },
+        { type: 'upload.status.result', id: 's5', error: 'unknown upload' },
+      ]);
     });
   });
 

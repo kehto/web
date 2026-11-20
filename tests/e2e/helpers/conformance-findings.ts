@@ -14,7 +14,9 @@
  *   and `intent.available/handlers.result` rows with their NAPs. It still makes
  *   `info` / `status` optional on `upload.info.result` / `upload.status.result`,
  *   which the pinned NAP-UPLOAD table requires and no NAP-UPLOAD sentence
- *   omits; that question is open on napplet/naps#33. `upload.upload.result`
+ *   omits; that question is open on napplet/naps#33. Kehto's failed
+ *   `upload.info` replies already carry `info: { rails: [] }` (#518), so this is
+ *   package drift only. `upload.upload.result`
  *   `result` is a recorded table-versus-Error-Handling contradiction, so it is
  *   a `spec-gap` like NAP-IDENTITY's `identity.getProfile.result` `profile`
  *   (napplet/naps#155), not a failure. Minimal reports only that spec gap.

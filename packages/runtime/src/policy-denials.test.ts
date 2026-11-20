@@ -44,8 +44,9 @@ const CASES: Readonly<Record<string, Case>> = {
   // NAP-OUTBOX #32 @ 8865f73d: `plan` is required; a policy-derived empty plan (#481 spec gap)
   'outbox.resolveRelays': [{ target: { pubkey: 'a'.repeat(64), direction: 'read' } },
     [{ type: 'outbox.resolveRelays.result', id: 'r1', plan: { relays: [], source: 'policy' }, error: 'denied: outbox:read' }]],
-  // NAP-UPLOAD #33 @ f5cc981e: top-level error only (info/status: #481 spec gap)
-  'upload.info': [{}, [{ type: 'upload.info.result', id: 'r1', error: 'denied: upload:write' }]],
+  // NAP-UPLOAD #33 @ f5cc981e: `info` is required, so a redacted `{ rails: [] }` rides with the
+  // error (#518); `upload.status` stays error-only, a bounded spec gap (see policy-denials.ts).
+  'upload.info': [{}, [{ type: 'upload.info.result', id: 'r1', info: { rails: [] }, error: 'denied: upload:write' }]],
   'upload.upload': [{ request: {} }, [{ type: 'upload.upload.result', id: 'r1', error: 'denied: upload:write' }]],
   'upload.status': [{ uploadId: 'up-1' }, [{ type: 'upload.status.result', id: 'r1', error: 'denied: upload:write' }]],
   // NAP-KEYS #9 @ 8869a4cf: actionId echoed, no binding
@@ -124,6 +125,7 @@ describe('legacy Firewall denial projection', () => {
       { type: 'keys.registerAction.result', id: 'f2', actionId: '', error: 'firewall: rate' }],
     [{ type: 'upload.status', id: 'f3', uploadId: 'u' }, { type: 'upload.status.result', id: 'f3', error: 'firewall: rate' }],
     [{ type: 'config.get', id: 'f4' }, null],
+    [{ type: 'upload.info', id: 'f5' }, { type: 'upload.info.result', id: 'f5', info: { rails: [] }, error: 'firewall: rate' }],
   ])('%o', (request, expected) => {
     expect(createDenialResponse(request as NappletMessage, 'firewall: rate')).toEqual(expected);
   });

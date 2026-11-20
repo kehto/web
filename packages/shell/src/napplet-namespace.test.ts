@@ -323,6 +323,25 @@ describe('CVM request injected binding', () => {
   });
 });
 
+describe('NAP-UPLOAD injected info and status', () => {
+  // NAP-UPLOAD #33 @ f5cc981e: `upload.info.result` is `id`, `info`, `error?`, so a
+  // failed info reply carries a redacted `info: { rails: [] }` (#518). The error
+  // still rejects rather than resolving to the placeholder info, and an error-only
+  // status reply (the bounded spec gap) rejects with its error.
+  it('rejects on error even when the reply carries the required redacted info', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['upload'] }), target);
+    const upload = target.napplet!.upload as { info(): Promise<unknown>; status(uploadId: string): Promise<unknown> };
+    target.onPortPost = (message) => target.dispatchParentMessage({ type: 'upload.info.result', id: message.id, info: { rails: [] }, error: 'denied: upload:write' });
+    await expect(upload.info()).rejects.toThrow('denied: upload:write');
+    target.onPortPost = (message) => target.dispatchParentMessage({ type: 'upload.status.result', id: message.id, error: 'unknown upload' });
+    await expect(upload.status('nope')).rejects.toThrow('unknown upload');
+    const info = { rails: [{ rail: 'blossom', enabled: true }] };
+    target.onPortPost = (message) => target.dispatchParentMessage({ type: 'upload.info.result', id: message.id, info });
+    await expect(upload.info()).resolves.toEqual(info);
+  });
+});
+
 describe('NAP-MEDIA injected lifecycle', () => {
   it('retains terminal events, guards parent source and survives shim reassignment without shell', () => {
     const target = createPreludeTestWindow();

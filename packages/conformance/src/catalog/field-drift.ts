@@ -96,6 +96,8 @@ export const FIELD_DRIFT_EXCEPTIONS: readonly FieldDriftException[] = Object.fre
   // Open on napplet/naps#33 (kehto/web#518). `upload.info.result` and
   // `upload.status.result` are not listed: the NAP pairs `error?` with the
   // required field and no sentence omits it, so their drift still fails.
+  // Kehto's failed info replies carry `info: { rails: [] }`; its failed status
+  // replies omit `status`, a bounded spec gap in docs/policies/NIP-5D-CONFORMANCE.md.
   {
     type: 'upload.upload.result', field: 'result', spec: 'required', package: 'optional', kind: 'contradiction', authority: 'nap-upload',
     quote: 'Wire table: `id`, `result`, `error?`. `UploadResult.uploadId` is required: "Shell-generated upload identifier." Error Handling: "The shell SHOULD return a structured `result` with `ok: false` when an upload was created and then failed or was cancelled. The shell SHOULD return a top-level `error` when no upload was created."',

@@ -21,8 +21,11 @@
  *   include `error`"); `outbox.closed` carries `subId`, `reason?`;
  *   `outbox.query.result` keeps its required `events` (empty on denial).
  * - NAP-UPLOAD #33 @ f5cc981e — "The shell SHOULD return a top-level `error` when
- *   no upload was created." `upload.info` / `upload.status` follow the same
- *   rule (spec gap below).
+ *   no upload was created." The wire table lists `upload.info.result` as `id`,
+ *   `info`, `error?` and `upload.status.result` as `id`, `status`, `error?`;
+ *   `UploadInfo.rails` is "Upload rails the runtime is willing to disclose" and
+ *   "Shells MAY redact unavailable rails or coarse-grain limits for untrusted
+ *   napplets." (kehto/web#518; spec gap below for `upload.status`).
  * - NAP-KEYS   #9 @ 8869a4cf — "The shell MUST respond to `keys.registerAction`
  *   with a `keys.registerAction.result` carrying the same `id`." and
  *   "`keys.registerAction.result` includes an `error` field (string) on
@@ -93,10 +96,15 @@
  *   `plan: { relays: [], source: "policy" }` with `error`; the NAP allows a
  *   shell to "return a policy-derived plan when a napplet is not trusted to
  *   inspect relay metadata".
- * - `upload.info` / `upload.status`: the wire table lists `info` / `status`
- *   without `?`, the packaged `@napplet/nap@0.45.0` types mark both optional.
- *   The denial sends only `error`, like `upload.upload`: a status would invent
- *   a rail, timestamp and state for an upload the napplet may not inspect.
+ * - `upload.info`: `info` is required, so the denial sends
+ *   `info: { rails: [] }` with `error`. An empty rail list is the fully
+ *   redacted disclosure the NAP allows for untrusted napplets; `maxBytes` and
+ *   `mimeTypes` are optional and left out (kehto/web#518).
+ * - `upload.status`: bounded spec gap (napplet/naps#33 @ f5cc981e,
+ *   kehto/web#518). `status` is required, but `UploadStatus` requires `ok`,
+ *   `uploadId`, `status`, `rail` and `updatedAt`, and a denied lookup has no
+ *   honest rail, state or timestamp. The denial sends only `error`, like
+ *   `upload.upload`, until the NAP says what a failed lookup carries.
  *
  * Spec-gap decisions (kehto/web#494):
  * - `common.getProfile`: `pubkey` is required. The denial echoes the target
@@ -185,7 +193,7 @@ const POLICY_DENIALS: Readonly<Record<string, DenialProjection>> = Object.freeze
   'outbox.close': silent,
   'outbox.publish': resultError('outbox.publish', undefined, { ok: false }),
   'outbox.resolveRelays': resultError('outbox.resolveRelays', undefined, { plan: { relays: [], source: 'policy' } }),
-  'upload.info': resultError('upload.info'),
+  'upload.info': resultError('upload.info', undefined, { info: { rails: [] } }),
   'upload.upload': resultError('upload.upload'),
   'upload.status': resultError('upload.status'),
   'keys.registerAction': keysRegisterAction,
