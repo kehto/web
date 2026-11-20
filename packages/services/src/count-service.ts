@@ -1,6 +1,7 @@
 import type { NappletMessage, NostrFilter } from '@napplet/core';
 import type { ApprovalSignal, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
 import { MAX_PERMISSION_REQUIREMENTS } from '@kehto/runtime';
+import { approvalFailure, isApprovalDenial } from './approval-failure.js';
 
 declare const console: { warn(message: string): void };
 
@@ -133,7 +134,7 @@ export function createCountService(options: CountServiceOptions): ServiceHandler
           { category: 'interface', domain: 'count', operation: 'access', scope: { kind: 'exact', value: 'count' } },
           ...origins.map((value) => ({ category: 'network' as const, domain: 'count', operation: 'count.query', scope: { kind: 'origin' as const, value } })),
         ], (signal) => signal.aborted ? { ok: false, error: 'policy-denied' } : options.count({ ...request, signal, ...(relays ? { relays } : {}) }))
-          .then((outcome) => outcome.status === 'executed' && outcome.value ? outcome.value : { ok: false, error: 'policy-denied' });
+          .then((outcome) => outcome.status === 'executed' && outcome.value ? outcome.value : countApprovalFailure(outcome.status));
       };
       const planned = options.planCount?.(request);
       void (planned === undefined ? Promise.resolve(run({})) : Promise.resolve(planned).then(run))
@@ -154,6 +155,16 @@ export function createCountService(options: CountServiceOptions): ServiceHandler
     onPermissionRevoked(windowId) { generations.set(windowId, {}); },
     onWindowDestroyed(windowId) { generations.set(windowId, {}); },
   };
+}
+
+/**
+ * Denied/cancelled approvals are `policy-denied`. Capacity, busy and unavailable
+ * are host conditions (kehto/web#513): NAP-COUNT napplet/naps#69 @ 9353a0c6
+ * lists `count-unavailable`, so they use it with the approval reason.
+ */
+function countApprovalFailure(status: string): CountResult {
+  return isApprovalDenial(status) ? { ok: false, error: 'policy-denied' }
+    : { ok: false, error: 'count-unavailable', reason: approvalFailure(status, { denied: 'policy-denied' }) };
 }
 
 function result(id: string, value: CountResult): NappletMessage {

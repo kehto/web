@@ -168,7 +168,10 @@ export function createGamepadService(options: GamepadServiceOptions = {}): Gamep
       scope: { kind: 'exact', value: 'gamepad:input' },
     }], (signal) => { if (!signal.aborted) attach(); }).then((outcome) => {
       if (outcome.status !== 'executed' && !closed && sourceGenerations.get(windowId) === generation) {
-        send({ type: 'gamepad.state', available: false, reason: 'blocked', focused: false, pads: [] } as NappletMessage);
+        // `blocked` means host policy denied (NAP-GAMEPAD napplet/naps#130 @ 0b28f77e);
+        // the closed reason set leaves `unavailable` for host approval conditions.
+        const reason = outcome.status === 'denied' || outcome.status === 'cancelled' ? 'blocked' : 'unavailable';
+        send({ type: 'gamepad.state', available: false, reason, focused: false, pads: [] } as NappletMessage);
       }
     }).catch(() => {
       if (!closed && sourceGenerations.get(windowId) === generation) {

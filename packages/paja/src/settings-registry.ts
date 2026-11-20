@@ -133,6 +133,7 @@ export const PAJA_SETTING_DEFINITIONS = Object.freeze([
   ...define('Firewall', 'browser', [
     ['firewall.maxRequirements', 'Requirements per approval request', 128, 2, 1024, 'count'],
     ['firewall.maxGrants', 'Grants in the permission table', 2048, 64, 16_384, 'count'],
+    ['firewall.maxGrantsPerNapplet', 'Grants one napplet may hold', 512, 16, 16_384, 'count'],
     ['firewall.promptOpenOrigins', 'Relay origins listed open in a prompt', 5, 0, 1023, 'count'],
   ]),
   ...define('Signer', 'browser', [

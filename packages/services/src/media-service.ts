@@ -5,6 +5,7 @@ import type { NappletMessage } from '@napplet/core';
 // DRIFT-CORE-06 — Phase 11-deviation: ServiceDescriptor dropped from @napplet/core
 // v0.2.0+ (napplet phase-81). Re-exported from @kehto/runtime (canonical home after Phase 24 DRIFT-01).
 import type { ApprovalSignal, ServiceRuntimeContext } from '@kehto/runtime';
+import { approvalFailure } from './approval-failure.js';
 import type {
   MediaAction,
   MediaCapabilitiesMessage,
@@ -461,18 +462,18 @@ export function createMediaService(options: MediaServiceOptions = {}): MediaServ
       }
       const generation = generations.get(windowId) ?? Symbol(windowId);
       generations.set(windowId, generation);
-      const denyCreate = (): void => {
+      const denyCreate = (error = 'user-denied'): void => {
         if (message.type !== 'media.session.create' || generations.get(windowId) !== generation) return;
         const { id } = message as NappletMessage & { id?: unknown };
-        send({ type: 'media.session.create.result', id: typeof id === 'string' ? id : '', error: 'user-denied' } as NappletMessage);
+        send({ type: 'media.session.create.result', id: typeof id === 'string' ? id : '', error } as NappletMessage);
       };
       void runtime.authorizeOperation(windowId, operation, mediaRequirements(operation, mediaSessionScope(message)), async (signal: ApprovalSignal) => {
         if (generations.get(windowId) !== generation || signal.aborted) throw new Error('user-denied');
         registry.handle(windowId, message, send);
         if (generations.get(windowId) !== generation || signal.aborted) throw new Error('user-denied');
       }).then((outcome) => {
-        if (outcome.status !== 'executed') denyCreate();
-      }).catch(denyCreate);
+        if (outcome.status !== 'executed') denyCreate(approvalFailure(outcome.status, { denied: 'user-denied' }));
+      }).catch(() => denyCreate());
     },
     onWindowDestroyed(windowId) {
       generations.delete(windowId);

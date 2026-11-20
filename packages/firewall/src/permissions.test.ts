@@ -191,8 +191,12 @@ describe('configurable permission limits', () => {
     ({ ...network, scope: { kind: 'origin', value: `https://h${index}.example` } }));
 
   it('defaults to the documented bounds and rejects values outside 1..ceiling', () => {
-    expect(permissionLimits()).toEqual({ maxRequirements: MAX_PERMISSION_REQUIREMENTS, maxGrants: MAX_PERMISSION_GRANTS });
-    expect(permissionLimits({ maxRequirements: 256, maxGrants: 4096 })).toEqual({ maxRequirements: 256, maxGrants: 4096 });
+    expect(permissionLimits()).toEqual({ maxRequirements: MAX_PERMISSION_REQUIREMENTS, maxGrants: MAX_PERMISSION_GRANTS, maxGrantsPerPrincipal: 512 });
+    expect(permissionLimits({ maxRequirements: 256, maxGrants: 4096 })).toEqual({ maxRequirements: 256, maxGrants: 4096, maxGrantsPerPrincipal: 512 });
+    // The per-napplet share is clamped to the table and bounded by the ceiling.
+    expect(permissionLimits({ maxGrants: 100 }).maxGrantsPerPrincipal).toBe(100);
+    expect(() => permissionLimits({ maxGrantsPerPrincipal: 0 })).toThrow(RangeError);
+    expect(() => permissionLimits({ maxGrantsPerPrincipal: MAX_PERMISSION_GRANTS_CEILING + 1 })).toThrow(RangeError);
     for (const bad of [0, -1, 1.5, Number.NaN, MAX_PERMISSION_REQUIREMENTS_CEILING + 1]) {
       expect(() => permissionLimits({ maxRequirements: bad })).toThrow(RangeError);
     }

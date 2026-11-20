@@ -84,9 +84,12 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
 - Optional host-owned limiters implement `TemporalPolicy`; runtime never imports
   their implementation. See Independent rate limits below for explicit setup.
 - `PermissionAdapter.defaultDecision(request, missing)` answers a request no stored
-  decision covers without prompting: `allow` commits session grants whose ids start
-  with `DEFAULT_RULE_GRANT_PREFIX`, `deny` refuses, `ask` prompts. Stored denials, the
-  ACL ceiling and operation budgets still apply. The rule model (`createPermissionRules`,
+  decision covers without prompting: `allow` admits it without writing a grant, so a
+  default allow can't fill the grant table (kehto/web#513); `deny` refuses, `ask`
+  prompts. Stored denials, the ACL ceiling and operation budgets still apply. After
+  changing rules, call `RuntimePermissions.rulesChanged()` to close live work admitted
+  under the old ones. `DEFAULT_RULE_GRANT_PREFIX` is deprecated (`DEFAULT_RULE_GRANTS`
+  in docs/compatibility.md). The rule model (`createPermissionRules`,
   `resolvePermissionRule`, `setPermissionRule`) is re-exported from `@kehto/firewall`.
 - ACL listing and lookup return `AclEntryExternal` with required `dTag` and
   `aggregateHash` fields. Feed those fields into keyed revoke/block/quota methods;
@@ -120,11 +123,12 @@ pnpm add @kehto/runtime @kehto/acl @napplet/core @napplet/nap
 - A relay that throws while an approved `relay.subscribe`, `relay.publish`,
   `relay.publishEncrypted`, or `relay.query` runs reports a transport reason
   (`relay subscription failed`, `publish failed`, `relay query failed`). Only an
-  approval that did not execute keeps `relay authorization unavailable or
-  denied`. A subscription that fails after it opened is retired, so no event
+  approval that was denied or cancelled keeps `relay authorization unavailable or
+  denied`; a full approval queue or rate limit is `approval busy` and a missing
+  prompt UI or failed grant store is `approval unavailable`. A subscription that fails after it opened is retired, so no event
   or EOSE follows its `relay.closed`. NAP-RELAY reasons are free-form, so only
   that split is fixed.
-- `PermissionAdapter.maxRequirements` and `maxGrants` set the Firewall bounds
+- `PermissionAdapter.maxRequirements`, `maxGrants` and `maxGrantsPerPrincipal` set the Firewall bounds
   (validated by `permissionLimits` when the runtime starts); services read the
   first as `ServiceRuntimeContext.maxPermissionRequirements`. A full grant table
   returns the `capacity` approval outcome, which relay reports as

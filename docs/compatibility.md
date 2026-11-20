@@ -178,6 +178,36 @@ adapters; no deprecated alternate parser or wire format was added. Requiring
 metadata consumption would need a separately announced breaking host-API change
 and migration of supported adapters, not inference from absent warnings.
 
+## DEFAULT_RULE_GRANTS — default-rule session grants — runtime / shell
+
+Since kehto/web#513 a host default rule that answers `allow` is consulted on
+every check (approval, consume, post-execution continuation, and interface
+admission via `stillGranted`) and writes no grant, so a default allow can no
+longer fill the shared grant table. What stays for compatibility:
+
+- **Old behavior:** an allowing rule committed `session` grants whose ids start
+  with `DEFAULT_RULE_GRANT_PREFIX` (`'rule:'`); Paja listed them as "N allowed
+  by default rules" and changing a rule revoked the stale ones.
+- **Replacement:** nothing is written. `RuntimePermissions.rulesChanged()`
+  closes live work and pending approvals when the host changes its rules;
+  `createBrowserApprovalUi` calls it from the rules editor.
+- **Retained:** `DEFAULT_RULE_GRANT_PREFIX` (`@kehto/runtime`), `isRuleGrant`,
+  `GrantGroup.byRule` and the by-rule row (`@kehto/shell`), all marked
+  `@deprecated`. The stale-grant reset in `browser-approval-ui.ts` still revokes
+  a `rule:` grant if a host injected one into the state.
+- **Diagnostic limit:** these are a plain constant, a pure predicate and an
+  output field. Rule grants were session-only and never persisted, so no
+  stored data carries them and no runtime boundary sees an old-path use; a
+  warning would fire on canonical calls. Guidance is the JSDoc `@deprecated`.
+- **Tests:** `packages/runtime/src/approval-coordinator.test.ts` (no grant
+  written, rule change applies to the next request, stored deny beats a
+  default allow), `tests/unit/firewall-grant-capacity.test.ts`,
+  `packages/shell/src/browser-approval-ui.test.ts` (`rulesChanged` on edit),
+  `tests/e2e/paja-firewall-rules.spec.ts` (no by-rule row; tightening a rule
+  retires the frame).
+- **Removal:** delete the constant, `isRuleGrant`, `byRule` and its row in the
+  next 0.x minor after one release ships with the deprecation.
+
 ## FW-PAJA-SIMULATION-MODE-REMOVED-001 — retired firewall mode
 
 `@kehto/paja` removed `--firewall-mode` and `simulation.firewall`. Those

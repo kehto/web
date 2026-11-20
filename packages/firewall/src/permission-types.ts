@@ -59,6 +59,12 @@ export interface PermissionPolicyOptions {
    * most `MAX_PERMISSION_GRANTS_CEILING`.
    */
   readonly maxGrants?: number;
+  /**
+   * Most grants one napplet (by `permissionRuleSubject`, across its artifact
+   * versions) may hold. Default `MAX_PERMISSION_GRANTS_PER_PRINCIPAL` (512),
+   * clamped to `maxGrants`, at most `MAX_PERMISSION_GRANTS_CEILING`.
+   */
+  readonly maxGrantsPerPrincipal?: number;
 }
 
 /** Pure authorization outcome. Missing requirements may be shown for approval. */

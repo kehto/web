@@ -7,7 +7,7 @@ import { createBrowserApprovalPrompt } from './browser-approval-prompt.js';
 import { createGrantList } from './browser-approval-grants.js';
 import { createRulesEditor } from './browser-approval-rules.js';
 import type { BrowserApprovalRules, RuleSubject } from './browser-approval-rules.js';
-import { isRuleGrant, ruleTargetFor } from './browser-approval-format.js';
+import { isRuleGrant, ruleTargetFor, rulesOnlyLoosened } from './browser-approval-format.js';
 import { element } from './browser-approval-dom.js';
 
 export type { BrowserApprovalRules } from './browser-approval-rules.js';
@@ -24,6 +24,8 @@ export interface BrowserApprovalUiOptions {
   readonly getPermissions: () => RuntimePermissions | undefined;
   /** Host lifecycle observer; it cannot grant authority. */
   readonly onGrantRevoked?: (grant: PermissionGrant, durable: boolean) => void;
+  /** Called after a rule change was reported to the runtime, e.g. to relaunch a retired target. */
+  readonly onRulesChanged?: () => void;
   /** Observe whether the runtime can safely accept new grants. */
   readonly onStorageStateChanged?: (available: boolean) => void;
   /**
@@ -108,18 +110,31 @@ export function createBrowserApprovalUi(options: BrowserApprovalUiOptions): Brow
 
   function subjects(): RuleSubject[] {
     const seen = new Map<string, string>();
-    for (const grant of options.getPermissions()?.grants ?? []) {
-      const subject = permissionRuleSubject(grant.principal);
-      if (!seen.has(subject)) seen.set(subject, options.labelForPrincipal(grant.principal));
+    const live = options.getPermissions();
+    // Rule-allowed napplets hold no grant (kehto/web#513); list live ones too.
+    for (const principal of [...(live?.principals ?? []), ...(live?.grants ?? []).map((grant) => grant.principal)]) {
+      const subject = permissionRuleSubject(principal);
+      if (!seen.has(subject)) seen.set(subject, options.labelForPrincipal(principal));
     }
     return [...seen].map(([subject, label]) => ({ subject, label }));
   }
 
-  /** A changed rule must not leave behind access it no longer allows. */
+  /**
+   * A changed rule must not leave behind access it no longer allows. A default
+   * allow writes no grant (kehto/web#513), so the runtime closes live work that
+   * may have relied on the old rules; legacy `rule:` grants are reset as before.
+   */
+  let lastRules = options.rules?.get();
   function resetStaleRuleGrants(): void {
     const rules = options.rules?.get();
-    const grants = options.getPermissions()?.grants ?? [];
+    const live = options.getPermissions();
+    const grants = live?.grants ?? [];
     if (!rules) return;
+    // A loosening edit can't take access away, so live work keeps running.
+    const tightened = !lastRules || !rulesOnlyLoosened(lastRules, rules);
+    lastRules = rules;
+    if (tightened) live?.rulesChanged?.();
+    try { options.onRulesChanged?.(); } catch { /* Host follow-up cannot undo the rule change. */ }
     const stale = grants.filter((grant) => isRuleGrant(grant)
       && resolvePermissionRule(rules, grant.principal, grant.permission) !== 'allow');
     if (stale.length) revoke(stale);

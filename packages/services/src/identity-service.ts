@@ -23,6 +23,7 @@
 
 import type { NappletMessage } from '@napplet/core';
 import type { ApprovalSignal, ServiceHandler, ServiceRuntimeContext, Signer } from '@kehto/runtime';
+import { approvalFailure } from './approval-failure.js';
 import type {
   IdentityGetBadgesMessage,
   IdentityGetBlockedMessage,
@@ -470,17 +471,17 @@ export function createIdentityService(options: IdentityServiceOptions): ServiceH
         void run();
         return;
       }
-      const deny = (): void => {
+      const deny = (reason = 'policy denied'): void => {
         if (!current(windowId, generation)) return;
         // NAP-IDENTITY forbids errors on getPublicKey; all other queries use
         // their canonical empty result with an error and the original id.
         handleIdentityServiceMessage({ getSigner: () => null }, message, (result) => complete(
-          message.type === 'identity.getPublicKey' ? result : { ...result, error: 'policy denied' } as NappletMessage,
+          message.type === 'identity.getPublicKey' ? result : { ...result, error: reason } as NappletMessage,
         ));
       };
       void runtime.authorizeOperation(windowId, message.type, requirements(message.type), (signal) => run(signal))
-        .then((outcome) => { if (outcome.status !== 'executed') deny(); })
-        .catch(deny);
+        .then((outcome) => { if (outcome.status !== 'executed') deny(approvalFailure(outcome.status, { denied: 'policy denied' })); })
+        .catch(() => deny());
     },
 
     onWindowDestroyed(windowId: string): void {

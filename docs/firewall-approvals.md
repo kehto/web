@@ -67,9 +67,20 @@ with `too many relays`, and a runtime relay or COUNT plan over the cap fails
 with `too many relays` or `too-expensive`. None of these is a denial.
 
 The grant table is bounded by `maxGrants` (default 2048; Paja setting
-`firewall.maxGrants`). A full table makes the approval coordinator return the
-`capacity` outcome, which OUTBOX and runtime `relay.*` report as
-`approval capacity reached`, not as a denial (kehto/web#513).
+`firewall.maxGrants`), and one napplet holds at most `maxGrantsPerPrincipal`
+of it (default 512; Paja setting `firewall.maxGrantsPerNapplet`), so one
+napplet's approvals can't starve another's (kehto/web#513). Only explicit
+decisions take space: a default-rule `allow` is consulted on every check and
+writes no grant, so revoking or tightening the rule applies to the next check,
+`RuntimePermissions.rulesChanged()` (called by the shell rules editor on a
+tightening edit) closes live operations and rechecks frame admissions under
+the new rules, and a stored denial still beats a default allow. A new decision that
+doesn't fit evicts the oldest `session` grants, first the napplet's own, then
+those of the napplet holding the most; eviction forgets a cached session
+answer, so work already approved keeps running and the next request asks
+again. Persistent decisions and `once` grants are never evicted. Only when
+nothing is left to evict does the coordinator return `capacity`, which no
+domain reports as a denial.
 
 NIP-42 authentication is independent from network access. This approval flow
 does not authorize signing an AUTH event. The built-in Paja pool has no automatic

@@ -37,6 +37,7 @@
  */
 
 import type { NappletMessage } from '@napplet/core';
+import { approvalFailure, isApprovalDenial } from './approval-failure.js';
 import type { ResourceInfo } from '@napplet/nap/resource/types';
 import type { ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
 import {
@@ -405,9 +406,13 @@ async function fetchResourceItem(
       };
     }
   }, state.warnLegacy);
-  return result.status === 'executed' ? result.value : {
-    ok: false, url, error: 'blocked-by-policy', message: 'resource permission unavailable or denied',
-  };
+  if (result.status === 'executed') return result.value;
+  // Spec gap: NAP-RESOURCE #80 @ ae5b9c64 has a closed ResourceErrorCode set with
+  // no host-capacity code, so a full grant table, busy or unavailable approval is
+  // `network-error` with the approval reason, never `blocked-by-policy` (#513).
+  return isApprovalDenial(result.status)
+    ? { ok: false, url, error: 'blocked-by-policy', message: 'resource permission unavailable or denied' }
+    : { ok: false, url, error: 'network-error', message: approvalFailure(result.status, { denied: 'resource permission denied' }) };
 }
 
 

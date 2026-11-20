@@ -1,6 +1,6 @@
 import { evaluatePermissions, permissionPrincipalKey } from '@kehto/firewall';
-import type { PermissionGrant, PermissionRequest, PermissionRequirement } from '@kehto/firewall';
-import { createApprovalCoordinator } from './approval-coordinator.js';
+import type { PermissionGrant, PermissionPrincipal, PermissionRequest, PermissionRequirement } from '@kehto/firewall';
+import { createApprovalCoordinator, defaultRuleAllows } from './approval-coordinator.js';
 import type { ApprovalCoordinatorOptions, ApprovalOutcome, ApprovalSignal } from './approval-coordinator.js';
 import { createPermissionStore } from './permission-state.js';
 import type { PermissionPersistence, PermissionStorageFailure } from './permission-state.js';
@@ -12,7 +12,7 @@ export type { PermissionAdmission, PermissionAdmissionRequest } from './permissi
 
 /** Host UI, time, cancellation, and storage adapters for scoped approvals. */
 export interface PermissionAdapter extends Pick<ApprovalCoordinatorOptions,
-  'prompt' | 'defaultDecision' | 'createCancellation' | 'schedule' | 'extensions' | 'maxRequirements' | 'maxGrants' | 'maxPending' | 'timeoutMs'> {
+  'prompt' | 'defaultDecision' | 'createCancellation' | 'schedule' | 'extensions' | 'maxRequirements' | 'maxGrants' | 'maxGrantsPerPrincipal' | 'maxPending' | 'timeoutMs'> {
   /** Durable storage. Without it, persistent decisions fail explicitly. */
   readonly persistence?: PermissionPersistence;
   readonly onStorageError?: (failure: PermissionStorageFailure) => void;
@@ -41,6 +41,11 @@ export interface RuntimePermissions {
   isAdmissionCurrent(windowId: string, admission: PermissionAdmission): boolean;
   /** Immutable granted/denied scopes, including ephemeral sessions. */
   readonly grants: readonly PermissionGrant[];
+  /**
+   * Principals of napplets with a live permission session. A default allow
+   * writes no grant (kehto/web#513), so a rules editor lists napplets from here.
+   */
+  readonly principals?: readonly PermissionPrincipal[];
   /** False after a load failure or a durable revocation that could not be saved. */
   readonly available: boolean;
   /** Revoke locally immediately; false means durable removal failed. */
@@ -51,6 +56,13 @@ export interface RuntimePermissions {
   retryPersistence(): boolean;
   /** Observe grant invalidation so a host can retire an executing document. */
   subscribeInvalidation(listener: () => void): () => void;
+  /**
+   * Tell the runtime the host's default rules changed. A default `allow` writes
+   * no grant (kehto/web#513), so this closes live operations and pending
+   * approvals that may have relied on the old rules, and notifies invalidation
+   * listeners so a frame whose admission no longer holds is retired.
+   */
+  rulesChanged?(): void;
 }
 
 interface PermissionRuntimeContext {
@@ -74,27 +86,31 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
   const sourceAdmissionRevisions = new WeakMap<SessionEntry, number>();
   const invalidationListeners = new Set<() => void>();
   let coordinator: ReturnType<typeof createApprovalCoordinator>;
+  function invalidate(target?: string | PermissionPrincipal): void {
+    if (target === undefined) {
+      globalAdmissionRevision++;
+      coordinator?.cancel();
+      context.invalidate();
+    } else {
+      const subject = typeof target === 'string' ? undefined : permissionPrincipalKey(target);
+      if (typeof target === 'string') coordinator?.cancel(target);
+      for (const [windowId, lifetime] of lifetimes) {
+        if (typeof target === 'string' ? lifetime.id !== target : lifetime.subject !== subject) continue;
+        sourceAdmissionRevisions.set(lifetime.entry, (sourceAdmissionRevisions.get(lifetime.entry) ?? 0) + 1);
+        if (subject !== undefined) coordinator?.cancel(lifetime.id);
+        context.invalidate(windowId);
+      }
+    }
+    notifyInvalidation();
+  }
+  function notifyInvalidation(): void {
+    for (const listener of invalidationListeners) {
+      try { listener(); } catch { /* Host diagnostics cannot change policy. */ }
+    }
+  }
   const store = createPermissionStore({
-    persistence: adapter.persistence, extensions: adapter.extensions, maxGrants: adapter.maxGrants, onError: adapter.onStorageError,
-    invalidate(target) {
-      if (target === undefined) {
-        globalAdmissionRevision++;
-        coordinator?.cancel();
-        context.invalidate();
-      } else {
-        const subject = typeof target === 'string' ? undefined : permissionPrincipalKey(target);
-        if (typeof target === 'string') coordinator?.cancel(target);
-        for (const [windowId, lifetime] of lifetimes) {
-          if (typeof target === 'string' ? lifetime.id !== target : lifetime.subject !== subject) continue;
-          sourceAdmissionRevisions.set(lifetime.entry, (sourceAdmissionRevisions.get(lifetime.entry) ?? 0) + 1);
-          if (subject !== undefined) coordinator?.cancel(lifetime.id);
-          context.invalidate(windowId);
-        }
-      }
-      for (const listener of invalidationListeners) {
-        try { listener(); } catch { /* Host diagnostics cannot change policy. */ }
-      }
-    },
+    persistence: adapter.persistence, extensions: adapter.extensions, maxGrants: adapter.maxGrants,
+    maxGrantsPerPrincipal: adapter.maxGrantsPerPrincipal, onError: adapter.onStorageError, invalidate,
   });
   store.load();
   coordinator = createApprovalCoordinator({ ...adapter, createId: context.createId,
@@ -188,10 +204,13 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
     const lifetime = lifetimes.get(windowId);
     if (!lifetime || retiredSources.has(lifetime.entry) || context.getSession(windowId) !== lifetime.entry || !lifetime.entry.permissionPrincipal) return false;
     if (requirements.length === 0) return true;
-    return evaluatePermissions({ version: 1, grants: store.getState().grants.filter((grant) => grant.lifetime !== 'once') }, {
-      principal: lifetime.entry.permissionPrincipal, sessionId: lifetime.id, requestId: 'interface-admission-check',
-      requirements,
-    }, adapter).decision === 'allow';
+    const request: PermissionRequest = {
+      principal: lifetime.entry.permissionPrincipal, sessionId: lifetime.id, requestId: 'interface-admission-check', requirements,
+    };
+    const decision = evaluatePermissions({ version: 1, grants: store.getState().grants.filter((grant) => grant.lifetime !== 'once') }, request, adapter);
+    // A default allow writes no grant, so the rule answers here too (kehto/web#513).
+    return decision.decision === 'allow'
+      || (decision.decision === 'ask' && defaultRuleAllows(adapter, request, decision.missing, ['session']));
   }
 
 
@@ -210,6 +229,9 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
   const management: RuntimePermissions = {
     ...admission,
     get grants() { return store.getState().grants; },
+    get principals() {
+      return Object.freeze([...lifetimes.values()].flatMap(({ entry }) => entry.permissionPrincipal ? [entry.permissionPrincipal] : []));
+    },
     get available() { return store.available; },
     revoke: store.revoke,
     clear: store.clear,
@@ -217,6 +239,16 @@ export function createPermissionRuntime(context: PermissionRuntimeContext) {
     subscribeInvalidation(listener) {
       invalidationListeners.add(listener);
       return () => { invalidationListeners.delete(listener); };
+    },
+    rulesChanged() {
+      if (disposed) return;
+      // No grant records what a rule admitted, so close every window's live
+      // operations and pending approvals; they are re-decided under the new
+      // rules. Listeners recheck admissions, which consult the rules live, so
+      // only a frame that lost a declared interface is retired.
+      coordinator.cancel();
+      for (const windowId of lifetimes.keys()) context.invalidate(windowId);
+      notifyInvalidation();
     },
   };
   return { management, run, retire, charge,

@@ -17,11 +17,19 @@ export const MAX_PERMISSION_REQUIREMENTS_CEILING = 1024;
 export const MAX_PERMISSION_GRANTS = 2048;
 /** Hard ceiling for `maxGrants`, which also bounds the persistent document. */
 export const MAX_PERMISSION_GRANTS_CEILING = 16_384;
+/**
+ * Default share of the grant table one napplet may hold (kehto/web#513); hosts
+ * tune it with `PermissionPolicyOptions.maxGrantsPerPrincipal`. It is clamped
+ * to `maxGrants` and shares the `MAX_PERMISSION_GRANTS_CEILING` hard ceiling.
+ */
+export const MAX_PERMISSION_GRANTS_PER_PRINCIPAL = 512;
 
 /** Resolved, validated policy bounds. */
 export interface PermissionLimits {
   readonly maxRequirements: number;
   readonly maxGrants: number;
+  /** Grants one napplet (`permissionRuleSubject`) may hold, at most `maxGrants`. */
+  readonly maxGrantsPerPrincipal: number;
 }
 
 function bound(value: number | undefined, fallback: number, ceiling: number, name: string): number {
@@ -35,12 +43,14 @@ function bound(value: number | undefined, fallback: number, ceiling: number, nam
  * a bad setting can never make evaluation or the grant table unbounded.
  * @param options - Host policy options.
  * @returns The bounds in force.
- * @example permissionLimits({ maxRequirements: 256 }); // { maxRequirements: 256, maxGrants: 2048 }
+ * @example permissionLimits({ maxRequirements: 256 }); // { maxRequirements: 256, maxGrants: 2048, maxGrantsPerPrincipal: 512 }
  */
 export function permissionLimits(options: PermissionPolicyOptions = {}): PermissionLimits {
+  const maxGrants = bound(options.maxGrants, MAX_PERMISSION_GRANTS, MAX_PERMISSION_GRANTS_CEILING, 'maxGrants');
+  const share = bound(options.maxGrantsPerPrincipal, MAX_PERMISSION_GRANTS_PER_PRINCIPAL, MAX_PERMISSION_GRANTS_CEILING, 'maxGrantsPerPrincipal');
   return Object.freeze({
     maxRequirements: bound(options.maxRequirements, MAX_PERMISSION_REQUIREMENTS, MAX_PERMISSION_REQUIREMENTS_CEILING, 'maxRequirements'),
-    maxGrants: bound(options.maxGrants, MAX_PERMISSION_GRANTS, MAX_PERMISSION_GRANTS_CEILING, 'maxGrants'),
+    maxGrants, maxGrantsPerPrincipal: Math.min(share, maxGrants),
   });
 }
 

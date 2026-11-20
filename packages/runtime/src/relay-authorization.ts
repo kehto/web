@@ -3,7 +3,7 @@ import type { PermissionRequirement } from '@kehto/firewall';
 import type { ApprovalSignal } from './approval-coordinator.js';
 import type { RelayOperationPlan } from './service-types.js';
 import type { ServiceRuntimeContext } from './types.js';
-import { RELAY_APPROVAL_CAPACITY, RELAY_TOO_MANY_RELAYS, guardRelayTransport } from './relay-failure.js';
+import { RELAY_APPROVAL_BUSY, RELAY_APPROVAL_CAPACITY, RELAY_APPROVAL_UNAVAILABLE, RELAY_TOO_MANY_RELAYS, guardRelayTransport } from './relay-failure.js';
 
 // WHATWG URL is supplied by the Node/browser host; no DOM dependency is needed.
 declare const URL: {
@@ -73,5 +73,7 @@ export async function authorizeRelay<T>(
     return guarded(signal);
   });
   if (outcome.status === 'capacity') throw new Error(RELAY_APPROVAL_CAPACITY);
+  if (outcome.status === 'busy') throw new Error(RELAY_APPROVAL_BUSY);
+  if (outcome.status === 'unavailable') throw new Error(RELAY_APPROVAL_UNAVAILABLE);
   if (outcome.status !== 'executed') throw new Error(`relay authorization ${outcome.status}`);
 }

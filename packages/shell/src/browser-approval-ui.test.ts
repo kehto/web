@@ -87,9 +87,10 @@ function setup(separatePrompt = false, withRules = false, openOriginLimit?: numb
   const revoke = vi.fn((id: string) => { grants = grants.filter((grant) => grant.id !== id); return true; });
   const clear = vi.fn(() => { grants = []; return true; });
   const retryPersistence = vi.fn(() => { available = true; return true; });
+  const rulesChanged = vi.fn();
   const permissions = {
     get grants() { return grants; }, get available() { return available; },
-    revoke, clear, retryPersistence,
+    revoke, clear, retryPersistence, rulesChanged,
   } as unknown as RuntimePermissions;
   const onGrantRevoked = vi.fn();
   const onAnswer = vi.fn();
@@ -108,7 +109,7 @@ function setup(separatePrompt = false, withRules = false, openOriginLimit?: numb
     request: { principal, sessionId: 's', requestId: 'r', requirements: [requirement] },
     missing: [requirement], signal, allowLifetimes: lifetimes,
   });
-  return { document, mount, promptMount, ui, prompt, revoke, clear, retryPersistence, onGrantRevoked, onAnswer, setRules,
+  return { document, mount, promptMount, ui, prompt, revoke, clear, retryPersistence, onGrantRevoked, onAnswer, setRules, rulesChanged,
     rules: () => rules,
     setGrants(value: PermissionGrant[]) { grants = value; },
     setAvailable(value: boolean) { available = value; } };
@@ -551,6 +552,23 @@ describe('browser approval default rules', () => {
     form.dispatchEvent(new Event('submit', { cancelable: true }));
     expect(f.revoke.mock.calls).toEqual([['rule:r1-0']]);
     expect(f.onGrantRevoked).toHaveBeenCalledWith(byRule, true);
+    f.ui.destroy();
+  });
+
+  it('tells the runtime about a tightening rule change, since a default allow writes no grant (#513)', () => {
+    const f = setup(false, true);
+    f.ui.refresh();
+    const form = f.mount.find('form')!;
+    form.find('input')!.value = 'keys';
+    form.all('select')[1].value = 'ask';
+    form.dispatchEvent(new Event('submit', { cancelable: true }));
+    expect(f.rulesChanged).toHaveBeenCalledOnce();
+    expect(f.revoke).not.toHaveBeenCalled();
+    // Loosening it back to allow takes nothing away, so live work keeps running.
+    form.find('input')!.value = 'keys';
+    form.all('select')[1].value = 'allow';
+    form.dispatchEvent(new Event('submit', { cancelable: true }));
+    expect(f.rulesChanged).toHaveBeenCalledOnce();
     f.ui.destroy();
   });
 

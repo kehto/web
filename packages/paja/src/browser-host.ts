@@ -835,6 +835,11 @@ async function installPajaHost(): Promise<void> {
     mount: permissionMount,
     getPermissions: () => permissionBridge?.runtime.permissions,
     labelForPrincipal: (principal) => pajaPrincipalLabel(config, stateRef?.tabs ?? [], principal),
+    onRulesChanged() {
+      // A tightened rule retires a frame that lost an interface; start the
+      // target again through full admission so the new rule can ask.
+      if (stateRef && config.target.mode !== 'runtime-pointer' && contextRef?.runtime.currentWindowId === null) stateRef.reload();
+    },
     onGrantRevoked(grant) {
       if (!stateRef) return;
       const revoked = permissionPrincipalKey(grant.principal);

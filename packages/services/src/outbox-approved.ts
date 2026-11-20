@@ -5,7 +5,8 @@
  *
  * 1. Planning (relay-list lookup, discovery, an unusable plan) fails with
  *    `relay list unavailable`, or the network reason the router named.
- * 2. Approval that does not execute is `policy denied`.
+ * 2. A denied or cancelled approval is `policy denied`; capacity, busy and
+ *    unavailable approvals use the `approval …` reasons, never a denial.
  * 3. A transport failure inside the approved callback is a network reason.
  *
  * Relays fail from time to time; that is part of Nostr and never reported as a
@@ -18,6 +19,7 @@
 
 import type { EventTemplate, NappletMessage, NostrFilter } from '@napplet/core';
 import type { ApprovalOutcome, PermissionRequirement, ServiceRuntimeContext } from '@kehto/runtime';
+import { approvalFailure } from './approval-failure.js';
 import {
   OUTBOX_POLICY_DENIED,
   OUTBOX_RELAY_LIST_UNAVAILABLE,
@@ -94,9 +96,14 @@ function relayOriginBudget(runtime: ServiceRuntimeContext): number {
   return (runtime.maxPermissionRequirements ?? MAX_PERMISSION_REQUIREMENTS) - 1;
 }
 
-/** A full grant table is host capacity, never a denial (kehto/web#513); other failures stay `policy denied`. */
+/**
+ * Capacity, busy and unavailable approvals are host conditions, never a denial
+ * (kehto/web#513). Spec gap: NAP-OUTBOX napplet/naps#32 @ 8865f73d lists no
+ * approval code, so they use the bounded `approval …` strings; denial and
+ * cancellation stay `policy denied`.
+ */
 function approvalFailureReason(status: string): string {
-  return status === 'capacity' ? OUTBOX_APPROVAL_CAPACITY : OUTBOX_POLICY_DENIED;
+  return approvalFailure(status, { denied: OUTBOX_POLICY_DENIED, capacity: OUTBOX_APPROVAL_CAPACITY });
 }
 
 /** A relay failure raised inside an approved callback, kept apart from approval outcomes. */

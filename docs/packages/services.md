@@ -305,9 +305,11 @@ Security Considerations (shells SHOULD apply per-napplet concurrency limits).
   back to configured relays when NIP-65 data is absent, stale, or unreachable");
   planning and transport failures carry `relay list unavailable` or
   `relay timeout`; planned reads settle on EOSE and mark partial relay failure
-  `incomplete: true`. Only an approval that did not execute, a revoked approval,
+  `incomplete: true`. Only a denied or cancelled approval, a revoked approval,
   a relay-gate refusal, or an unplannable router is `policy denied`; a declined
-  publish is `publish denied`. A required own-outbox or `toInboxes` relay that
+  publish is `publish denied`. A full grant table, a full approval queue or
+  rate limit, and a missing prompt UI are `approval capacity reached`,
+  `approval busy`, and `approval unavailable`, never a denial. A required own-outbox or `toInboxes` relay that
   does not accept is `relay timeout`, even when hinted relays did. Spec gap: the draft has no "no relay reachable" or
   "relay refused" code, so the closest defined codes are used. Plans stay inside
   one Firewall approval: at most 127 relay origins (`MAX_PERMISSION_REQUIREMENTS`
@@ -343,6 +345,29 @@ Security Considerations (shells SHOULD apply per-napplet concurrency limits).
   Firewall approval enforcement. The old wire `servers` and object-form
   `requests` fields have been retired; use URI hints or host-owned discovery.
 - Does not create a runtime or shell bridge by itself.
+
+## Approval failures that are not denials
+
+Only a `denied` approval outcome (and `cancelled`, unless the NAP has a cancel
+code) is reported with the domain's policy code. `capacity` (grant table full),
+`busy` (approval queue or rate limit full) and `unavailable` (no prompt UI, or
+the grant store failed) are host conditions (kehto/web#513):
+
+| Domain | `denied` | `capacity` / `busy` / `unavailable` |
+|--------|----------|-------------------------------------|
+| CVM, UPLOAD, WEBRTC, SERIAL, BLE, IDENTITY, THEME, OUTBOX | `policy denied` | `approval capacity reached` / `approval busy` / `approval unavailable` |
+| COUNT | `policy-denied` | `count-unavailable`, with the approval reason in `reason` |
+| DM | `forbidden` | `unavailable` |
+| LISTS | `list-unavailable`, reason `user-denied` | `list-unavailable`, reason `approval …` |
+| FS | `policy-denied` | `io-error` (closed `FsError` set) |
+| COMMON, MEDIA | `user-denied` | `approval …` |
+| NOTIFY `send` | `permission denied` | `approval capacity reached` / `rate limited` / `approval unavailable` |
+| INTENT | `invoke rejected` | `approval …` |
+| LINK | `status: "denied"`, `blocked-by-policy` | `status: "denied"`, `approval …` in `error` |
+| GAMEPAD | `reason: "blocked"` | `reason: "unavailable"` |
+
+`approval …` strings are a spec gap in each NAP draft, which has no approval
+code. RESOURCE and KEYS are unchanged for now.
 
 ## API Reference
 

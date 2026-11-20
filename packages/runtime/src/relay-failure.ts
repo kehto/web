@@ -20,6 +20,12 @@ export const RELAY_TOO_MANY_RELAYS = 'too many relays';
 
 /** The grant table is full (`maxGrants`): host capacity, not a denial (kehto/web#513). */
 export const RELAY_APPROVAL_CAPACITY = 'approval capacity reached';
+/** The approval queue or a rate limit refused the request: not a denial (kehto/web#513). */
+export const RELAY_APPROVAL_BUSY = 'approval busy';
+/** No prompt UI, or the approval could not be recorded: not a denial (kehto/web#513). */
+export const RELAY_APPROVAL_UNAVAILABLE = 'approval unavailable';
+/** Host approval conditions; NAP-RELAY napplet/naps#2 @ 9f30b350 error strings are free text. */
+const RELAY_HOST_REASONS: ReadonlySet<string> = new Set([RELAY_APPROVAL_CAPACITY, RELAY_APPROVAL_BUSY, RELAY_APPROVAL_UNAVAILABLE]);
 
 /** A relay transport failure raised while an approved operation ran. */
 class RelayTransportFailure {
@@ -50,10 +56,10 @@ export function guardRelayTransport<T>(execute: (signal: ApprovalSignal) => T | 
  *
  * @param error - The rejection from authorizing or running the operation.
  * @param transportReason - Reason to use when a relay transport failed.
- * @returns The transport reason, `invalid relay destination`, `too many relays`, or the authorization refusal.
+ * @returns The transport reason, `invalid relay destination`, `too many relays`, an `approval …` host reason, or the authorization refusal.
  */
 export function relayFailureReason(error: unknown, transportReason: string): string {
   if (error instanceof RelayTransportFailure) return transportReason;
-  if (error instanceof Error && (error.message === 'invalid relay destination' || error.message === RELAY_TOO_MANY_RELAYS || error.message === RELAY_APPROVAL_CAPACITY)) return error.message;
+  if (error instanceof Error && (error.message === 'invalid relay destination' || error.message === RELAY_TOO_MANY_RELAYS || RELAY_HOST_REASONS.has(error.message))) return error.message;
   return RELAY_AUTHORIZATION_REFUSED;
 }

@@ -1,6 +1,6 @@
 import { DEFAULT_RULE_GRANT_PREFIX, permissionRuleSubject } from '@kehto/runtime';
 import type {
-  PermissionGrant, PermissionPrincipal, PermissionRequirement, PermissionRuleAction, PermissionRuleTarget,
+  PermissionGrant, PermissionPrincipal, PermissionRequirement, PermissionRuleAction, PermissionRules, PermissionRuleTarget,
 } from '@kehto/runtime';
 
 type Lifetime = PermissionGrant['lifetime'];
@@ -139,7 +139,11 @@ export function ruleTargetFor(missing: readonly PermissionRequirement[]): Pick<P
   return { domain: domains[0] };
 }
 
-/** Whether a host default rule, not an answered prompt, created this grant. */
+/**
+ * Whether a host default rule, not an answered prompt, created this grant.
+ * @deprecated Since kehto/web#513 a default allow writes no grant, so only
+ * grants from an older runtime match; see `DEFAULT_RULE_GRANTS` in docs/compatibility.md.
+ */
 export function isRuleGrant(grant: PermissionGrant): boolean {
   return grant.id.startsWith(DEFAULT_RULE_GRANT_PREFIX);
 }
@@ -176,4 +180,35 @@ export function parseCapability(text: string): Pick<PermissionRuleTarget, 'domai
   if (/^[a-z][a-z0-9-]*$/.test(value)) return { domain: value };
   if (/^[a-z][a-z0-9-]*\.[A-Za-z0-9][A-Za-z0-9._-]*$/.test(value)) return { operation: value };
   return undefined;
+}
+
+const RULE_RANK: Readonly<Record<PermissionRuleAction, number>> = { deny: 0, ask: 1, allow: 2 };
+
+function flatRules(rules: PermissionRules): Map<string, PermissionRuleAction> {
+  const flat = new Map<string, PermissionRuleAction>([['default', rules.default]]);
+  const scope = (prefix: string, value: Pick<PermissionRules, 'domains' | 'operations'> & { default?: PermissionRuleAction }) => {
+    if (value.default !== undefined) flat.set(`${prefix}default`, value.default);
+    for (const [name, action] of Object.entries(value.domains)) flat.set(`${prefix}domain:${name}`, action);
+    for (const [name, action] of Object.entries(value.operations)) flat.set(`${prefix}operation:${name}`, action);
+  };
+  scope('global:', { domains: rules.domains, operations: rules.operations });
+  for (const [subject, value] of Object.entries(rules.napplets)) scope(`napplet:${subject}:`, value);
+  return flat;
+}
+
+/**
+ * Whether a rule edit only loosens: every kept rule moved toward allow and
+ * every added rule is `allow`. A removed rule falls back to a rule that may be
+ * stricter, so it counts as tightening. Only a tightening edit needs to close
+ * work admitted under the old rules (kehto/web#513).
+ */
+export function rulesOnlyLoosened(previous: PermissionRules, next: PermissionRules): boolean {
+  const before = flatRules(previous);
+  const after = flatRules(next);
+  for (const key of before.keys()) if (!after.has(key)) return false;
+  for (const [key, action] of after) {
+    const old = before.get(key);
+    if (old === undefined ? action !== 'allow' : RULE_RANK[action] < RULE_RANK[old]) return false;
+  }
+  return true;
 }

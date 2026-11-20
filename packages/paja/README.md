@@ -625,6 +625,7 @@ policy in their drafts (NAP-FS `bd1b9e9`, NAP-WEBRTC `fb4dd6f`, NAP-RESOURCE
 | **Firewall** | | | |
 | `firewall.maxRequirements` | Requirements per approval request | 128 | 2–1024 |
 | `firewall.maxGrants` | Grants in the permission table | 2048 | 64–16384 |
+| `firewall.maxGrantsPerNapplet` | Grants one napplet may hold | 512 | 16–16384 |
 | `firewall.promptOpenOrigins` | Relay origins listed open in a prompt | 5 | 0–1023 |
 | **Signer** | | | |
 | `signer.nip46TimeoutMs` | Remote signer request timeout | 30000 ms | 1000–600000 |

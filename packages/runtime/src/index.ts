@@ -61,7 +61,8 @@ export type { PermissionPrincipal, PermissionRequirement, PermissionRequest, Per
 export {
   createPermissionRules, permissionRuleSubject, resolvePermissionRule, setPermissionRule,
   serializePermissionRules, deserializePermissionRules, MAX_PERMISSION_REQUIREMENTS,
-  MAX_PERMISSION_REQUIREMENTS_CEILING, MAX_PERMISSION_GRANTS, MAX_PERMISSION_GRANTS_CEILING, permissionLimits,
+  MAX_PERMISSION_REQUIREMENTS_CEILING, MAX_PERMISSION_GRANTS, MAX_PERMISSION_GRANTS_CEILING,
+  MAX_PERMISSION_GRANTS_PER_PRINCIPAL, permissionLimits,
 } from '@kehto/firewall';
 export type {
   PermissionRuleAction, PermissionRuleScope, PermissionRules, PermissionRuleTarget,
