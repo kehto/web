@@ -649,3 +649,26 @@ The new package subpaths do not imply host support. Paja records `blossom`, `cat
 - NAP-TORRENT PR #72: `bc99787e3cf049229da5e6bde55362a040724096`.
 
 `packages/paja/src/parity.test.ts` verifies the installed export inventory and the resolved environment's domain/service absence. Existing shell and Paja browser regressions cover canonical intent shape, parent trust, readiness buffering and exactly-once delivery.
+
+## Unrecognized message types (#465)
+
+Checked NIP-5D PR #2303 at `dskvr/nips@f60550c3409d6d81a875088ec83e660571e10504`
+(`5D.md`): "Messages with an unrecognized `type` MUST be silently ignored." and
+"Unrecognized message types are silently ignored, preventing capability
+probing." Conformant. No runtime handler, `@kehto/services` reference service,
+ACL/firewall denial or Paja multiplayer stub replies to a type its owning NAP
+does not define. Known types with malformed payloads keep their NAP's failure
+result. A `webrtc.stats` request is treated as unknown because NAP-WEBRTC #59 at
+`fb4dd6f0e6294e1837733d2af61931e3e114bd97` defines `stats` only as a pushed
+event; `storage.clear` is unknown because NAP-STORAGE #3 at `4f4cf0ca` does not
+define it. The per-domain request tables used by the denial path cite their
+NAP refs in `packages/runtime/src/policy-denials.ts`.
+
+`tests/unit/nip5d-conformance-guard.test.ts` is behavioural: it drives every
+`create*Service` export, the runtime with and without ACL denial and every NAP
+mock with undefined types and fails on any reply or push. It has no allowlist.
+The legacy `createNotificationService` still answers `notify.create/list/read`,
+which are tracked in [the compatibility register](../compatibility.md); its
+unknown types are silent and the guard covers it. Host diagnostics and the
+retired replies are recorded under `KEHTO_UNRECOGNIZED_MESSAGE_TYPE` there.
+

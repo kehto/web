@@ -348,6 +348,9 @@ token budgets. No limiter means there are no temporal counters to retire.
 - `handleStorageNap` — canonical `storage.*` NIP-5D handler
 - `cleanupNappState` — remove persisted state when a napplet window closes
 
+### Unrecognized message types
+- `createUnrecognizedTypeDiagnostic` — host warning for a dropped type its NAP does not define (`[KEHTO_UNRECOGNIZED_MESSAGE_TYPE]`, once per domain/type, at most `UNRECOGNIZED_TYPE_WARNING_LIMIT` types per instance, no payloads). NIP-5D requires such messages to get no reply, including on the ACL denial path.
+
 ### Service dispatch
 - `routeServiceMessage` — policy-free domain selection primitive; never a fallback for untrusted ingress
 - `notifyServiceWindowDestroyed` — lifecycle fan-out to every service handler

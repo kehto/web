@@ -598,6 +598,50 @@ rejection and factory pins close creation. Removal condition: none planned; the
 lock is permanent. Revisit only if a shipped `webrtc` CSP directive makes the
 nested-realm egress moot (see NIP-5D conformance policy, "Direct WebRTC egress").
 
+## KEHTO_UNRECOGNIZED_MESSAGE_TYPE — unknown-type replies retired
+
+Owners: `@kehto/runtime`, `@kehto/services`, `@kehto/paja`. This is a retirement,
+not a retained path (kehto/web#465). NIP-5D (nostr-protocol/nips#2303 at
+`dskvr/nips@f60550c3`) says "Messages with an unrecognized `type` MUST be
+silently ignored" and "Unrecognized message types are silently ignored,
+preventing capability probing." These replies to undefined types are gone, with
+no fallback:
+
+| Old behavior | Replacement |
+|--------------|-------------|
+| `notify`, `keys`, `serial`, `ble`, `common`, `lists`, `webrtc` services answered an unknown type with `<type>.error` / `Unknown <domain> method` | no reply |
+| `notify` sent its first `notify.controls` push before checking the type | push only for a NAP-NOTIFY request |
+| `webrtc.stats` request answered `webrtc.stats.result` `unsupported` | no reply; NAP-WEBRTC #59 `fb4dd6f0` defines `stats` only as a pushed event |
+| runtime `storage.clear` and any other unknown `storage.*` answered `storage.<action>.result` with `error` | no reply; NAP-STORAGE #3 `4f4cf0ca` defines only get/set/remove/keys |
+| ACL/firewall denial of an unknown type in a capability-gated domain answered `<type>.error` (only `cvm.*` was silent) | no reply in every domain |
+| Paja's unscoped multiplayer `cvm` base answered `<type>.result` `unsupported` | no reply; every NAP-CVM #31 request is scoped |
+
+A known type with a malformed payload still gets its NAP's failure result,
+and `webrtc.sendBytes` keeps `unsupported` as NAP-WEBRTC requires.
+
+Diagnostic: `createUnrecognizedTypeDiagnostic` in
+`packages/runtime/src/unrecognized-type.ts` warns
+`[KEHTO_UNRECOGNIZED_MESSAGE_TYPE]` once per domain/type, for at most 16 types
+per instance, then once more and goes quiet. The type is printed only when it
+is a plain `domain.action` string of up to 64 characters; payloads and ids are
+never logged. Warning sites: the services listed above, the runtime storage
+route (`domain-handlers.ts`) and Paja's `browser-multiplayer-services.ts`. The
+denial path (`policy-denials.ts`, `isSilentUnknownDenial`) drops without a
+warning because it runs before the owning service.
+
+Regression tests: `tests/unit/nip5d-conformance-guard.test.ts` (with
+`tests/unit/unknown-type-probes.ts`) drives every `@kehto/services` factory,
+the runtime with and without ACL denial, every NAP mock and fails on any reply;
+it also fails when a new `create*Service` export has no probe.
+`unrecognized-type.test.ts` covers the warning id, text, frequency, cap and the
+unprintable-type case. `policy-denials.test.ts`, `state-handler.test.ts`,
+`dispatch.test.ts`, the per-service tests and
+`packages/paja/src/browser-multiplayer-services.test.ts` cover each removed reply.
+
+Removal: shipped in the release that carries #465. A napplet that relied on
+those error replies now sees no result for the undefined type and should treat
+a missing result as unsupported, as NAP-WEBRTC already advises for `sendBytes`.
+
 ## Existing compatibility inventory
 
 Baseline: PR #277 at `016e9cf3`, reviewed 2026-10-09. These paths are recorded so

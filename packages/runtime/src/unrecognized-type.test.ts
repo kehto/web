@@ -5,6 +5,8 @@ import {
   UNRECOGNIZED_TYPE_WARNING_LIMIT,
 } from './unrecognized-type.js';
 
+declare const console: { warn(message: string): void };
+
 // kehto/web#465. NIP-5D (nostr-protocol/nips#2303 @ dskvr/nips@f60550c3):
 // "Messages with an unrecognized `type` MUST be silently ignored." The napplet
 // gets nothing; only the host sees this diagnostic.
