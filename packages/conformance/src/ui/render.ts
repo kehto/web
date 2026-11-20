@@ -48,8 +48,15 @@ export function renderVerdict(run: ConformanceRun): string {
 </section>`;
 }
 
-function coverageCell(coverage: DomainCoverage | undefined, advertised: boolean): string {
+function shellCell(run: ConformanceRun, variant: string): string {
+  const checks = run.checks.filter((check) => check.variant === variant && check.domain === 'shell' && check.status !== 'skip');
+  const failing = checks.filter((check) => check.status === 'fail').length;
+  return `<td class="${failing ? 'cell-fail' : 'cell-ok'}">${badge('nap-spec', `${checks.length} NAP-SHELL checks`)}${failing ? ` ${badge('fail', `${failing} failing`)}` : ''}</td>`;
+}
+
+function coverageCell(coverage: DomainCoverage | undefined, advertised: boolean, filtered: boolean): string {
   if (!advertised) return '<td class="cell-off">not advertised</td>';
+  if (filtered) return '<td class="cell-off">outside --domain filter</td>';
   if (!coverage) return '<td class="cell-untested">advertised, not tested</td>';
   const tally = (kind: string) => coverage.operations.filter((row) => row.coverage === kind).length;
   const parts = [['nap-spec', tally('nap-spec')], ['wire-contract', tally('wire-contract')], ['spec-gap', tally('spec-gap')], ['uncovered', tally('uncovered')]]
@@ -70,7 +77,10 @@ export function renderDomainMatrix(run: ConformanceRun): string {
   const domains = [...new Set([...SUPPORTED_DOMAINS, ...run.variants.flatMap((variant) => variant.advertisedDomains)])];
   const head = run.variants.map((variant) => `<th scope="col">${escapeHtml(variant.id)}</th>`).join('');
   const rows = domains.map((domain) => {
-    const cells = run.variants.map((variant) => coverageCell(variant.coverage.find((row) => row.domain === domain), variant.advertisedDomains.includes(domain))).join('');
+    const filtered = run.domains.length > 0 && !run.domains.includes(domain);
+    const cells = run.variants.map((variant) => (domain === 'shell' && variant.advertisedDomains.includes('shell')
+      ? shellCell(run, variant.id)
+      : coverageCell(variant.coverage.find((row) => row.domain === domain), variant.advertisedDomains.includes(domain), filtered))).join('');
     const authority = run.authority[`nap-${domain}`];
     const ref = authority ? `<a href="${escapeHtml(authorityUrl(authority))}" target="_blank" rel="noreferrer">${escapeHtml(authority.status)}</a>` : '';
     return `<tr><th scope="row"><code>${escapeHtml(domain)}</code> ${ref}</th>${cells}</tr>`;

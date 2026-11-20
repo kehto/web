@@ -1,0 +1,13 @@
+{
+  "name": "@kehto/conformance-app",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Static web UI for the Kehto runtime conformance suite, published at /web/conformance/",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "@kehto/conformance": "workspace:*"
+  }
+}
