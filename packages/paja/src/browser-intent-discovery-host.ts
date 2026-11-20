@@ -14,8 +14,26 @@ import { pajaPointerResolverOptions, recordInstalledIntentSurface } from './brow
 import type { PajaIntentDiscoveryHost, PajaIntentOfferRequest } from './browser-intent-links.js';
 import type { PajaBrowserState, PajaBrowserStateContext } from './browser-host.js';
 import { findPajaIntentHandlers } from './intent-handler-discovery.js';
+import { isPajaRelayAllowed } from './browser-relay-policy.js';
 import type { IntentHandlerHint } from '@kehto/services';
 import { resolvePajaPointer } from './runtime-resolver.js';
+
+/**
+ * Hint relays come from the napplet: apply Paja's napplet relay policy (public
+ * `wss:` or explicitly configured) so a hint never bypasses network policy.
+ *
+ * @param hint - The request's untrusted `handlerHint`.
+ * @param configured - Relays the host has configured.
+ * @returns The hint with only policy-allowed relays.
+ * @example
+ * ```ts
+ * pajaAllowedIntentHint({ address, relays: ['ws://10.0.0.2'] }, []); // { address }
+ * ```
+ */
+export function pajaAllowedIntentHint(hint: IntentHandlerHint, configured: readonly string[]): IntentHandlerHint {
+  const relays = (hint.relays ?? []).filter((url) => isPajaRelayAllowed(url, () => [...configured]));
+  return { address: hint.address, ...(relays.length === 0 ? {} : { relays }) };
+}
 
 /**
  * Build the search and verified-install hooks for one rejected request.
@@ -43,7 +61,7 @@ export function createPajaIntentDiscoveryHost(
         const offers = await findPajaIntentHandlers({ archetype, convention }, {
           relays: resolver.relays,
           ...(resolver.maxWaitMs === undefined ? {} : { maxWaitMs: resolver.maxWaitMs }),
-          ...(request.handlerHint === undefined ? {} : { hint: request.handlerHint }),
+          ...(request.handlerHint === undefined ? {} : { hint: pajaAllowedIntentHint(request.handlerHint, resolver.relays) }),
           installed: (id) => context.runtime.catalog.has(id),
         });
         appendPajaMessageLog(state, 'paja', {

@@ -71,7 +71,11 @@ export interface FindPajaIntentHandlersOptions {
   readonly pool?: PajaPointerRelayPool;
   /** Search deadline in milliseconds; defaults to `target.runtimeWaitMs`. */
   readonly maxWaitMs?: number;
-  /** The request's `handlerHint`, looked up only as part of the same search. */
+  /**
+   * The request's `handlerHint`, looked up only as part of the same search.
+   * Its relays come from the calling napplet, so the host must pass only
+   * relays its network policy allows.
+   */
   readonly hint?: IntentHandlerHint;
   /** Catalog identities that are already installed and must not be offered. */
   readonly installed?: (catalogId: string) => boolean;
@@ -145,10 +149,13 @@ function collect(
   recommended: boolean,
   into: Map<string, PajaDiscoveredIntentHandler>,
   installed: (catalogId: string) => boolean,
+  exact?: string,
 ): void {
   for (const event of events) {
     const offer = offerFor(event, request, relays, recommended);
     if (!offer || installed(offer.catalogId)) continue;
+    // A relay may answer the hint filter with any event: keep only the exact coordinate.
+    if (exact !== undefined && offer.catalogId !== exact) continue;
     const seen = into.get(offer.catalogId);
     const newest = !seen || offer.createdAt > seen.createdAt ? offer : seen;
     into.set(offer.catalogId, { ...newest, recommended: newest.recommended || (seen?.recommended ?? false) || offer.recommended });
@@ -197,7 +204,7 @@ export async function findPajaIntentHandlers(
     if (results.every(unreachable)) throw new PajaIntentDiscoveryError('No relay could be reached to search for apps.');
     const offers = new Map<string, PajaDiscoveredIntentHandler>();
     collect(search?.events ?? [], request, [], false, offers, installed);
-    collect(hinted?.events ?? [], request, options.hint?.relays ?? [], true, offers, installed);
+    collect(hinted?.events ?? [], request, options.hint?.relays ?? [], true, offers, installed, `nip5d:${options.hint?.address}`);
     return [...offers.values()]
       .sort((a, b) => Number(b.recommended) - Number(a.recommended) || b.createdAt - a.createdAt)
       .slice(0, limit);

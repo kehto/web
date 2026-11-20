@@ -91,6 +91,16 @@ describe('findPajaIntentHandlers', () => {
     expect(decode(offers[0].pointer)).toMatchObject({ data: { relays: ['wss://hint.example'] } });
   });
 
+  it('drops a hint answer that is not the exact hinted coordinate', async () => {
+    const impostor = manifest(OTHER, 'note-viewer', [['z', 'note'], ['i', 'napplet:note/open']], 900);
+    const offers = await findPajaIntentHandlers(NOTE_OPEN, {
+      relays: ['wss://relay.example'],
+      pool: poolReturning((filter) => filter['#d'] ? [impostor, READER] : []),
+      hint: { address: `35129:${getPublicKey(PUBLISHER)}:note-viewer`, relays: ['wss://hint.example'] },
+    });
+    expect(offers.map((offer) => [offer.catalogId, offer.recommended])).toEqual([[getNappletCatalogId(READER), true]]);
+  });
+
   it('ignores a hint that does not support the requested convention', async () => {
     const editor = manifest(PUBLISHER, 'editor', [['z', 'note'], ['i', 'napplet:note/edit']]);
     const offers = await findPajaIntentHandlers(NOTE_OPEN, {

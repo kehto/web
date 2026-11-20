@@ -516,7 +516,9 @@ archetype, action, and convention. Nothing touches the network until the user
 presses **Search for apps**. Paja then asks the configured relays for manifests
 of every NIP-5D manifest kind whose `i` tag is the exact convention. If the
 request carried a `handlerHint`, the same search also looks up that coordinate,
-and a matching result is listed first as suggested by the app. Each result must
+and a result for exactly that coordinate is listed first as suggested by the
+app. The hint's relays come from the napplet, so they go through the same relay
+policy as other napplet-supplied relays: public `wss:` or explicitly configured. Each result must
 have a valid signature and must advertise the same archetype (`z`) and exact
 convention (`i`). Results already installed are skipped. The list appears under
 **Not installed yet** and is capped by `intent.discoveryLimit`. When no relay can
