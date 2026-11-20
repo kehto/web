@@ -35,6 +35,17 @@ export const KEYS_FIXTURE: DomainFixture = {
       semantics: { rule: 'The shell MUST respond to keys.registerAction with a keys.registerAction.result carrying the same id and the RegisterResult actionId', verify: actionIdIs('conformance.unbound') },
     },
     {
+      id: 'keys/registerAction-normalized', type: 'keys.registerAction', payload: { action: { id: 'conformance.normalized', label: 'Conformance normalized hint', defaultKey: 'shift+alt+j' } },
+      semantics: {
+        rule: 'Shells MUST normalize combos to Alt+Ctrl+Shift+Meta+Key order: a binding assigned from the hint "shift+alt+j" is "Alt+Shift+J" (the shell MAY leave the action unbound)',
+        verify(reply) {
+          const problem = actionIdIs('conformance.normalized')(reply);
+          if (problem) return problem;
+          return reply?.binding === undefined || reply.binding === 'Alt+Shift+J' ? null : `binding was ${JSON.stringify(reply?.binding)}, expected Alt+Shift+J`;
+        },
+      },
+    },
+    {
       id: 'keys/registerAction-reserved', type: 'keys.registerAction', payload: { action: { id: 'conformance.reserved', label: 'Conformance reserved hint', defaultKey: 'Escape' } },
       semantics: {
         rule: 'The shell MUST NOT bind actions to reserved keys (Tab, Shift+Tab, Escape, browser-reserved shortcuts), even when a defaultKey hint names one',

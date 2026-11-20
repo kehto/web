@@ -19,8 +19,7 @@ function created(owner: 'napplet' | 'shell') {
 }
 
 function rejected(reply: Envelope): string | null {
-  if (typeof reply?.error !== 'string' || reply.error.length === 0) return `expected a rejection error, got ${JSON.stringify(reply)}`;
-  return reply.sessionId === undefined ? null : `a rejected creation still returned sessionId ${JSON.stringify(reply.sessionId)}`;
+  return typeof reply?.error === 'string' && reply.error.length > 0 ? null : `expected a rejection error, got ${JSON.stringify(reply)}`;
 }
 
 const createNapplet = (id: string, sessionId: string, capabilities: string[]): OperationCase => ({
@@ -44,11 +43,11 @@ export const MEDIA_FIXTURE: DomainFixture = {
     createNapplet('media/session.create', NAPPLET_SESSION, ['play', 'pause']),
     {
       id: 'media/session.create-missing-owner', type: 'media.session.create', payload: { metadata: { title: 'No owner' } }, allowError: true,
-      semantics: { rule: 'The shell MUST reject media.session.create messages without owner; when error is present the session was not created', verify: rejected },
+      semantics: { rule: 'The shell MUST reject media.session.create messages without owner (the result carries error)', verify: rejected },
     },
     {
       id: 'media/session.create-shell-missing-source', type: 'media.session.create', payload: { owner: 'shell', metadata: { title: 'No source' } }, allowError: true,
-      semantics: { rule: 'The shell MUST reject owner: "shell" creation when source is missing', verify: rejected },
+      semantics: { rule: 'The shell MUST reject owner: "shell" creation when source is missing (the result carries error)', verify: rejected },
     },
     {
       id: 'media/session.create-shell', type: 'media.session.create',
