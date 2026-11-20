@@ -37,7 +37,7 @@ implementation authority. `RUNTIME-SPEC.md` is internal runtime guidance.
   `a79e7f4638f70f4557d4183faee9348847bb8cc7`, merged as release source
   `dc1d24153c759152b6ba31a6ec9bea967798f2df`. The exact fixture-napplet line is core
   `0.32.0`, nap `0.32.0`, shim `0.30.0`, SDK `0.28.0`, and Vite plugin `0.16.2`; host
-  packages develop on core `0.42.0` and nap `0.41.0`.
+  packages develop on core `0.44.0` and nap `0.43.0`.
 
 ### Current event schema and retained compatibility
 
@@ -445,9 +445,10 @@ never resolved as a channel target (`KEHTO_INC_DTAG_TARGET_RETIRED` in
 [the compatibility register](https://github.com/kehto/web/blob/main/docs/compatibility.md)). Napplets learn a peer
 from an attested `sender`/`peer`; a host selects one with `Runtime.getIncEndpointId(windowId)`.
 Firewall, ACL, and permission records stay keyed by the verified principal (`dTag` plus artifact hash); only the INC
-wire identity changed. The packaged `@napplet/nap@0.40.0` INC types still describe `sender`, `target`, and
-`inc.channel.open.result.peer` as napplet identities (comment text only; the field shapes match). That wording lags
-the NAP and is upstream drift, not a Kehto contract.
+wire identity changed. `@napplet/nap@0.40.0` INC types described `sender`, `target`, and
+`inc.channel.open.result.peer` as napplet identities (comment text only; the field shapes match).
+`@napplet/nap@0.43.0` (napplet/web#341) describes them as runtime-attested opaque endpoint identifiers, so that
+upstream drift is closed.
 
 Merged NAP-INC and released `@napplet/nap@0.32.0` both define
 `on(topic, callback)` with one `IncEvent`.
@@ -526,11 +527,12 @@ Authority: [NIP-5D at
   frozen environment, and calls `ShellAdapter.onNappletRevoked` so the host
   removes the frame. `originRegistry.register` refuses a spent `Window`. Hosts
   create a fresh iframe for every navigation; Paja and the e2e harness do.
-- Kehto's host packages develop on `@napplet/core` 0.42.0 and `@napplet/nap` 0.41.0;
-  published peers are per package (core `<0.43.0`, nap `<0.42.0`; `@kehto/services` and
+- Kehto's host packages develop on `@napplet/core` 0.44.0 and `@napplet/nap` 0.43.0;
+  published peers are per package (core `<0.45.0`, nap `<0.44.0`; `@kehto/services` and
   `@kehto/paja` and `@kehto/cli` floor core at 0.42.0 because services re-exports core's no-ID
   intent types and selector-based CVM registry types, and keep the nap floor at 0.37.0;
-  `@kehto/mocks` floors core at 0.42.0 for the same registry types). Fixture napplets, `@napplet/shim` 0.30.0,
+  `@kehto/mocks` floors core at 0.44.0 and nap at 0.43.0 because its declarations use the
+  NAP-WEBRTC and NAP-MEDIA types first packaged there). Fixture napplets, `@napplet/shim` 0.30.0,
   `@napplet/sdk` 0.28.0 and `@napplet/vite-plugin` 0.16.2 stay on their exact pins
   (kehto/web#364). Kehto implements both sides of the handoff itself and needs no
   newer shim API.
@@ -808,9 +810,15 @@ conformant, so Kehto does neither.
   wants live dev-server loading declares `resource` under `napplet-optional` and
   runs without it.
 
+### Host dependency line: core 0.44 / nap 0.43
+
+Host peer ranges admit core 0.44.x and nap 0.43.x; development builds and JSR maps use that line. `@kehto/services`, `@kehto/paja` and `@kehto/cli` floor core at 0.42.0 because services exposes core's CVM registry types and re-exports core's intent types. `@kehto/mocks` floors core at 0.44.0 and nap at 0.43.0 because its declarations also use the packaged `WebrtcSession` delivery fields, `bytes`/`stats` events and `MediaState.reason`. Other peer floors and the older fixture matrix remain supported.
+
+Checked NAP-MEDIA PR #10 at `7806f438530251fce5129f8e6239d6b642278759`, NAP-WEBRTC PR #59 at `fb4dd6f0e6294e1837733d2af61931e3e114bd97` and NAP-RESOURCE PR #80 at `ae5b9c64ab8a4d8909f288829a01e99d6bd713bc` (all still the PR heads on 2026-11-20). Core 0.44.0 / nap 0.43.0 (napplet/web#344, #345, #346) package `media.session.ended`, `onEnded` and the transition `reason`; `webrtc.sendBytes`, `bytes`/`stats` events, `ordered`/`maxRetransmits`/`maxPayloadBytes`; and a URL-string `resource.bytesMany` with `urls`, dropping `servers`, `ResourceBytesRequest` and `ResourceInfo.maxServers`. Kehto's runtime already spoke these wires. The injected `window.napplet.webrtc` gains `sendBytes`, so the 0.43 SDK's `webrtcSendBytes` reaches the shell and gets the NAP's `unsupported` instead of a missing method; the reference service still has no byte transport. The legacy positional `media.sendCommand` / `media.onCommand` forms now carry `reason` too. The conformance catalog's `catalog/package-drift` passes against nap 0.43.0 ([kehto/web#496](https://github.com/kehto/web/issues/496)). Result: conformant at the wire. Remaining upstream drift: nap 0.43.0 still types the positional `sendCommand` / `onCommand(action, value, reason)` forms, while NAP-MEDIA's API table names `command(sessionId, MediaCommand)` and an object `onCommand` handler, so `KEHTO-MEDIA-SEND-COMMAND` / `KEHTO-MEDIA-COMMAND-CALLBACK` stay.
+
 ### Host dependency line: core 0.42 / nap 0.41
 
-Host peer ranges admit core 0.42.x and nap 0.41.x; development builds and JSR maps use that line. `@kehto/services`, `@kehto/paja`, `@kehto/cli` and `@kehto/mocks` floor core at 0.42.0 because services and mocks expose core's CVM registry types (services also re-exports core's intent types); other peer floors and the older fixture matrix remain supported.
+Core 0.42.0 / nap 0.41.0 moved the host line for the CVM registry types. These checks are kept as history.
 
 Checked NAP-CVM PR #31 at `28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f` (still the PR head on 2026-11-20). Core 0.41.0 / nap 0.40.0 exported the older family-only registry contract ([napplet/web#336](https://github.com/napplet/web/issues/336)). Core 0.42.0 and nap 0.41.0 (napplet/web#337) export `CvmRegistrySelector`, `schemaHashes` entries, required per-tool hashes, the `category` query hint and `selector` envelopes, field for field with the draft, so Kehto retired its local registry types ([kehto/web#441](https://github.com/kehto/web/issues/441)). That release changes no other NAP domain. Result: conformant. No family-only wire fallback exists; the injected string-family adapter stays as `KEHTO_CVM_FAMILY_SELECTOR`.
 

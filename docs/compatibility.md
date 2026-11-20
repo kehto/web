@@ -509,8 +509,9 @@ real sandboxed iframes).
 
 Removal ships with `.changeset/inc-endpoint-identifiers.md` (runtime minor); PR
 and release number are pending. Nothing remains to retire. Upstream note:
-`@napplet/nap@0.40.0` INC type comments still call `sender`, `target`, and the
-open-result `peer` a napplet identity; field shapes already match.
+`@napplet/nap@0.40.0` INC type comments called `sender`, `target`, and the
+open-result `peer` a napplet identity; `@napplet/nap@0.43.0` (napplet/web#341)
+calls them runtime-attested opaque endpoint identifiers. Field shapes always matched.
 
 ## KEHTO_MOCKS_NAP_DRIFT_RETIRED — mock APIs removed for NAP drift — mocks
 
@@ -732,9 +733,10 @@ in [PR #284](https://github.com/kehto/web/pull/284). This implementation PR leav
 - **Identifiers:** `KEHTO-MEDIA-SEND-COMMAND`, `KEHTO-MEDIA-COMMAND-CALLBACK`.
 - **Owner:** `@kehto/shell`; source and warning site:
   `packages/shell/src/napplet-namespace.ts`, `makeMedia`.
-- **Old/replacement:** `sendCommand(id, action, value)` becomes
-  `command(id, { action, value, reason })`; `onCommand(id, (action, value) => ...)`
-  becomes `onCommand(id, command => ...)`.
+- **Old/replacement:** `sendCommand(id, action, value, reason?)` becomes
+  `command(id, { action, value, reason })`; `onCommand(id, (action, value, reason) => ...)`
+  becomes `onCommand(id, command => ...)`. Since kehto/web#496 both legacy forms
+  carry the optional `reason`, as `@napplet/nap` 0.43 passes it.
 - **Warnings:** on alias invocation or registration of a callback declaring at
   least two parameters; once per identifier per injected endpoint lifetime.
   Canonical usage is quiet. Payloads and source URLs are not logged.
@@ -746,12 +748,17 @@ in [PR #284](https://github.com/kehto/web/pull/284). This implementation PR leav
   and Kehto `MediaPlaybackCommand` until Napplet publishes updated types.
 - **Tests:** `packages/shell/src/napplet-namespace.test.ts`, NAP-MEDIA injected
   lifecycle suite covers canonical silence, legacy behavior, warning text and
-  frequency, close handles, parent trust, reassignment, and retired-session guards.
-- **Retention reason:** published `@napplet/nap` 0.32 delegates `mediaSendCommand`
-  and two-argument `mediaOnCommand` callbacks to the injected namespace.
+  frequency, close handles, parent trust, reassignment, and retired-session guards;
+  the "published @napplet/nap 0.43 SDK" suite drives the real 0.43 `mediaSendCommand`
+  / `mediaOnCommand` through the legacy path and checks `reason` both ways.
+- **Retention reason:** published `@napplet/nap` 0.32 through 0.43 delegate
+  `mediaSendCommand` and positional `mediaOnCommand` callbacks to the injected
+  namespace. nap 0.43.0 (napplet/web#344) added `onEnded` and `reason` but still
+  types only the positional forms, not NAP-MEDIA's `command(sessionId, MediaCommand)`
+  and object `onCommand` handler, so every SDK-built napplet still takes this path.
 - **Removal prerequisites:** upstream packages implement NAP-MEDIA PR #10
-  `7806f438530251fce5129f8e6239d6b642278759`, supported consumers migrate, and a
-  removal release is announced. Track removal in this register; warning silence
+  `7806f438530251fce5129f8e6239d6b642278759`'s `command` API (not yet in nap
+  0.43.0), supported consumers migrate, and a removal release is announced. Track removal in this register; warning silence
   is not proof of migration.
 
 ## Paja signing-only approval records (2026-10-28)

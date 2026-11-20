@@ -10,6 +10,7 @@ import type {
   MediaCapabilitiesMessage,
   MediaMetadata,
   MediaSessionContext,
+  MediaSessionEndedMessage,
   MediaSessionUpdateMessage,
   MediaStateMessage,
 } from '@napplet/nap/media/types';
@@ -259,7 +260,10 @@ class MediaRegistry {
     entry.playback?.destroy();
     this.bridge.destroySession?.(sessionId);
     if (this.active === sessionId) this.activate([...this.sessions.keys()].at(-1) ?? null);
-    if (notify) entry.send({ type: 'media.session.ended', sessionId, reason } as NappletMessage);
+    if (notify) {
+      const ended: MediaSessionEndedMessage = { type: 'media.session.ended', sessionId, reason };
+      entry.send(ended);
+    }
     this.options.onSessionDestroy?.(entry.windowId, sessionId);
     this.changed();
   }

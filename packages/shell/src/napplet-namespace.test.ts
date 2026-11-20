@@ -1,4 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
+import { mediaOnCommand, mediaOnEnded, mediaSendCommand } from '@napplet/nap/media/sdk';
+import { resourceBytesMany } from '@napplet/nap/resource/sdk';
+import { webrtcOnEvent, webrtcSendBytes } from '@napplet/nap/webrtc/sdk';
 import {
   injectNappletNamespacePrelude,
   renderNappletNamespacePrelude,
@@ -1022,13 +1025,13 @@ describe('NIP-5D napplet namespace prelude', () => {
     runPrelude(renderNappletNamespacePrelude({ domains: ['resource'] }), target);
     const resource = target.napplet?.resource as {
       bytesMany: (
-        requests: Array<{ url: string; servers?: string[] }>,
+        urls: string[],
         options?: { signal?: AbortSignal },
       ) => Promise<Array<{ url: string; ok: boolean; blob?: Blob }>>;
     };
-    const requests = [{ url: `blossom:sha256:${'e'.repeat(64)}` }];
+    const urls = [`blossom:sha256:${'e'.repeat(64)}`];
     const controller = new AbortController();
-    const transfer = resource.bytesMany(requests, { signal: controller.signal });
+    const transfer = resource.bytesMany(urls, { signal: controller.signal });
     const request = withoutShellReady(target).find((message) => message.type === 'resource.bytesMany');
     let transferState = 'pending';
     let transferError: unknown;
@@ -1049,7 +1052,7 @@ describe('NIP-5D napplet namespace prelude', () => {
     target.dispatchParentMessage({
       type: 'resource.bytesMany.result',
       id: request?.id,
-      items: [{ url: requests[0]!.url, ok: true, blob: new Blob(['ignored late batch']) }],
+      items: [{ url: urls[0]!, ok: true, blob: new Blob(['ignored late batch']) }],
     });
     await Promise.resolve();
     expect(transferState).toBe('rejected');
@@ -2435,5 +2438,84 @@ describe('NIP-5D direct WebRTC egress neutering', () => {
     expect(() => Object.defineProperty(realm, 'RTCPeerConnection', { value: function Restored() {} }))
       .toThrow();
     expect(realm.RTCPeerConnection).toBeUndefined();
+  });
+});
+
+// kehto/web#496: the published @napplet/nap 0.43 SDK delegates these calls to
+// the injected namespace. NAP-WEBRTC #59 @ fb4dd6f0, NAP-MEDIA #10 @ 7806f438
+// and NAP-RESOURCE #80 @ ae5b9c64.
+describe('published @napplet/nap 0.43 SDK over the injected namespace', () => {
+  it('sends webrtc.sendBytes, surfaces unsupported, and passes bytes and stats events through', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['webrtc'] }), target);
+    await withGlobalWindow(target, async () => {
+      const events: unknown[] = [];
+      const sub = webrtcOnEvent((event) => events.push(event));
+      const sent = webrtcSendBytes('sess-2', 'AAEC/w==');
+      const request = target.postedMessages.at(-1);
+      expect(request).toEqual({ type: 'webrtc.sendBytes', id: request?.id, sessionId: 'sess-2', bytes: 'AAEC/w==' });
+      target.dispatchParentMessage({ type: 'webrtc.sendBytes.result', id: request?.id });
+      await expect(sent).resolves.toBeUndefined();
+
+      const refused = webrtcSendBytes('sess-2', '');
+      const refusedRequest = target.postedMessages.at(-1);
+      expect(refusedRequest).toMatchObject({ type: 'webrtc.sendBytes', sessionId: 'sess-2', bytes: '' });
+      target.dispatchParentMessage({ type: 'webrtc.sendBytes.result', id: refusedRequest?.id, error: 'unsupported' });
+      await expect(refused).rejects.toThrow('unsupported');
+
+      const bytes = { type: 'bytes', sessionId: 'sess-2', from: 'ab'.repeat(32), bytes: 'AAEC/w==' };
+      const stats = { type: 'stats', sessionId: 'sess-2', pubkey: 'ab'.repeat(32), rttMs: 42, lossRatio: 0.01 };
+      target.dispatchParentMessage({ type: 'webrtc.event', event: bytes });
+      target.dispatchParentMessage({ type: 'webrtc.event', event: stats });
+      target.dispatchMessage({}, { type: 'webrtc.event', event: bytes });
+      expect(events).toEqual([bytes, stats]);
+      sub.close();
+    });
+  });
+
+  it('forwards the media command reason both ways on the legacy path and delivers session.ended', async () => {
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const target = createPreludeTestWindow();
+      runPrelude(renderNappletNamespacePrelude({ domains: ['media'] }), target);
+      await withGlobalWindow(target, () => {
+        target.dispatchParentMessage({ type: 'media.session.create.result', id: 'c', sessionId: 's1', owner: 'napplet' });
+        const commands: unknown[] = [];
+        mediaOnCommand('s1', (action, value, reason) => commands.push({ action, value, reason }));
+        const ended = vi.fn();
+        mediaOnEnded('s1', ended);
+        mediaSendCommand('s1', 'pause', undefined, 'user');
+        expect(target.postedMessages.at(-1)).toEqual({ type: 'media.command', sessionId: 's1', action: 'pause', reason: 'user' });
+        target.dispatchParentMessage({ type: 'media.command', sessionId: 's1', action: 'pause', reason: 'focus-lost' });
+        expect(commands).toEqual([{ action: 'pause', value: undefined, reason: 'focus-lost' }]);
+        target.dispatchParentMessage({ type: 'media.session.ended', sessionId: 's1', reason: 'destroyed' });
+        expect(ended).toHaveBeenCalledExactlyOnceWith({ sessionId: 's1', reason: 'destroyed' });
+      });
+      // The 0.43 SDK still exposes only the positional forms, so both legacy warnings fire once each.
+      expect(warning.mock.calls.map(([text]) => String(text).slice(0, 30))).toEqual([
+        '[KEHTO-MEDIA-COMMAND-CALLBACK]',
+        '[KEHTO-MEDIA-SEND-COMMAND] Dep',
+      ]);
+    } finally { warning.mockRestore(); }
+  });
+
+  it('sends resource.bytesMany as a URL string list', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['resource'] }), target);
+    await withGlobalWindow(target, async () => {
+      const urls = ['https://example.com/a.png', `blossom:${'e'.repeat(64)}.png?xs=cdn.example.com`];
+      const transfer = resourceBytesMany(urls);
+      const request = target.postedMessages.at(-1);
+      expect(request).toEqual({ type: 'resource.bytesMany', id: request?.id, urls });
+      target.dispatchParentMessage({
+        type: 'resource.bytesMany.result',
+        id: request?.id,
+        items: [{ url: urls[0], ok: false, error: 'not-found' }, { url: urls[1], ok: true, blob: btoa('hi'), mime: 'text/plain' }],
+      });
+      await expect(transfer).resolves.toEqual([
+        { url: urls[0], ok: false, error: 'not-found' },
+        { url: urls[1], ok: true, blob: new Blob(['hi'], { type: 'text/plain' }), mime: 'text/plain' },
+      ]);
+    });
   });
 });

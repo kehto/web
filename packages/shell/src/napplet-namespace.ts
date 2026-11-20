@@ -1095,15 +1095,15 @@ function nappletNamespacePrelude(
       reportState: (sessionId: string, state: unknown) => fire({ ...((state && typeof state === 'object') ? state as Record<string, unknown> : {}), type: 'media.state', sessionId }),
       reportCapabilities: (sessionId: string, actions: unknown) => fire({ type: 'media.capabilities', sessionId, actions }),
       command,
-      sendCommand: (sessionId: string, action: string, value?: unknown) => {
-        warn('SEND-COMMAND', 'media.command(sessionId, { action, value })');
-        command(sessionId, { action, ...(value === undefined ? {} : { value }) });
+      sendCommand: (sessionId: string, action: string, value?: unknown, reason?: unknown) => {
+        warn('SEND-COMMAND', 'media.command(sessionId, { action, value, reason })');
+        command(sessionId, { action, ...(value === undefined ? {} : { value }), ...(reason === undefined ? {} : { reason }) });
       },
       onCommand: (sessionId: string, callback: (...args: unknown[]) => void) => {
         const legacy = callback.length >= 2;
         if (legacy) warn('COMMAND-CALLBACK', 'media.onCommand(sessionId, command => ...)');
         return on('media.command', sessionId, msg => legacy
-          ? callback(msg.action, msg.value)
+          ? callback(msg.action, msg.value, msg.reason)
           : callback({ action: msg.action, ...(msg.value === undefined ? {} : { value: msg.value }), ...(msg.reason === undefined ? {} : { reason: msg.reason }) }));
       },
       onState: (sessionId: string, callback: (state: Record<string, unknown>) => void) => on('media.state', sessionId, msg => {
@@ -1613,6 +1613,13 @@ function nappletNamespacePrelude(
         { type: 'webrtc.send', sessionId, payload },
         'webrtc.send.result',
         (msg) => voidResult(msg, 'webrtc send failed'),
+      ),
+      // NAP-WEBRTC #59 @ fb4dd6f0: `bytes` is canonical padded base64, passed through
+      // as given; the shell service validates it or answers `unsupported`.
+      sendBytes: (sessionId: string, bytes: string) => request(
+        { type: 'webrtc.sendBytes', sessionId, bytes },
+        'webrtc.sendBytes.result',
+        (msg) => voidResult(msg, 'webrtc sendBytes failed'),
       ),
       close: (sessionId: string, reason?: string) => request(
         { type: 'webrtc.close', sessionId, ...(reason ? { reason } : {}) },

@@ -22,8 +22,7 @@ passes again.
 - **NAP-WEBRTC:** follows PR #59 `fb4dd6f0`. Adds `webrtc.sendBytes` and `bytes`
   events (canonical base64), reports `ordered`/`maxRetransmits`/`maxPayloadBytes`,
   pairs only sessions with matching delivery semantics, counts payload limits in
-  bytes, and adds `peerBytes`, `mockCanonicalBase64Length`, `MockWebrtcSession`
-  and `MockWebrtcEvent`.
+  bytes, and adds `peerBytes` and `mockCanonicalBase64Length`.
 - **NAP-MESH (breaking):** removed. PR #122 was retracted in favour of
   NAP-NEIGHBOR (PR #146), which is a different contract.
 - **Audit:** `scripts/deferred-naps.json` pins new drafts without Kehto support
