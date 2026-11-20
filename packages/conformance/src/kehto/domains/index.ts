@@ -3,6 +3,7 @@
  */
 import { IDENTITY_BACKEND } from './identity.js';
 import { KEYS_BACKEND } from './keys.js';
+import { NOTIFY_BACKEND } from './notify.js';
 import { OUTBOX_BACKEND } from './outbox.js';
 import { RELAY_BACKEND } from './relay.js';
 import { THEME_BACKEND } from './theme.js';
@@ -15,4 +16,5 @@ export const DOMAIN_BACKENDS: readonly DomainBackendModule[] = [
   RELAY_BACKEND,
   OUTBOX_BACKEND,
   KEYS_BACKEND,
+  NOTIFY_BACKEND,
 ];
