@@ -346,46 +346,9 @@ describe('createKeysService', () => {
     });
   });
 
-  describe('ACL-denial envelope shape', () => {
-    it('mirrors the runtime enforcer-denial envelope shape for keys.forward', () => {
-      // This test asserts the denial envelope shape the runtime emits on ACL denial,
-      // using the same composition logic runtime.ts uses after enforceNap returns
-      // { allowed: false }. The service itself is bypassed in that path.
-      const enforcer = {
-        check: (): { allowed: false; reason: string; capability: string } => ({
-          allowed: false,
-          reason: 'capability_missing: keys:forward',
-          capability: 'keys:forward',
-        }),
-      };
-
-      const sent: NappletMessage[] = [];
-      const msg: NappletMessage = {
-        type: 'keys.forward',
-        key: 'a',
-        code: 'KeyA',
-        ctrl: false,
-        alt: false,
-        shift: false,
-        meta: false,
-      } as NappletMessage;
-
-      const result = enforcer.check();
-      if (!result.allowed) {
-        const id = (msg as NappletMessage & { id?: string }).id ?? '';
-        sent.push({
-          type: `${msg.type}.error`,
-          id,
-          error: result.reason,
-        } as NappletMessage);
-      }
-
-      expect(sent).toHaveLength(1);
-      const err = sent[0] as NappletMessage & { error: string };
-      expect(err.type).toBe('keys.forward.error');
-      expect(err.error).toMatch(/capability_missing|denied|keys:forward/);
-    });
-  });
+  // ACL denial never reaches this service: the runtime drops a denied
+  // keys.forward silently (NAP-KEYS has no reply for it). The real path is
+  // covered by packages/runtime/src/policy-denials.test.ts.
 });
 
 // ─── Plan 26-01 additions: real document-listener path ──────────────────────
