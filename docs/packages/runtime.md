@@ -144,7 +144,9 @@ NAP's failure wire, never an invented `<type>.error`. A denied `cvm.*` request
 gets its matching `.result` with `error: "policy denied"` (NAP-CVM #31 at
 `28cf1bdb`); `relay`, `outbox`, `upload`, `count`, `notify`, `dm`, `fs`,
 `keys`, `media` and `config` follow their own NAPs, and requests with no defined
-reply stay silent (including a denied `config.get`). A denied type that its NAP
+reply stay silent (including a denied `config.get`). The legacy Firewall gate
+uses the same rows for `common`, `lists`, `serial`, `ble`, `webrtc`, `link` and
+`gamepad`, which ACL does not gate. A denied type that its NAP
 does not define as a napplet request gets no reply in any domain. The per-type
 table, refs and spec-gap decisions are in
 [RUNTIME-SPEC.md](https://github.com/kehto/web/blob/main/RUNTIME-SPEC.md).

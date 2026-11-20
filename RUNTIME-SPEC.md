@@ -277,12 +277,22 @@ with the napplet/naps ref and sentence it implements:
 | `notify` | #11 `67877ef6` | `send` → `.result` `error`; `permission.request` → `granted: false`; `dismiss`/`badge`/`channel.register` silent |
 | `dm` | #74 `2c4e4423` | every request's `.result` with `error` only |
 | `fs` | #88 `bd1b9e91` | every request's `.result`, `error: "policy-denied"` |
+| `common` | #67 `8cd0eae8` | every request's `.result` `ok: false`, `error`; `getProfile` adds `pubkey` (hex target or `''`), `follows` adds `pubkeys: []` |
+| `lists` | #68 `7cf00cdb` | `add`/`remove` → `.result` `ok: false`, `error: "policy-denied"`, `reason`; `supported` → `.result` `error: "policy-denied"` |
+| `serial` | #61 `0c6e88ab` | every request's `.result` with `error` (no `session` on `open`) |
+| `ble` | #62 `b46b8691` | every request's `.result` with `error` (no `session` on `open`) |
+| `webrtc` | #59 `fb4dd6f0` | every request's `.result` with `error` only |
+| `link` | #53 `100e5c93` | `link.open.result` `status: "denied"`, `error` |
+| `gamepad` | #130 `0b28f77e` | `subscribe` → `gamepad.state` `available: false`, `reason: "blocked"`, `focused: false`, `pads: []`; `unsubscribe` silent |
 
 The runtime's reason (`denied: <capability>` or `firewall: <reason>`) passes
 through except where the NAP mandates a code or enumerates one.
 
 Every request type the domains above define now has a row; none is answered with
-an invented `<type>.error`. `resource.*` keeps `.error`, which NAP-RESOURCE #80
+an invented `<type>.error`. ACL does not gate `common`, `lists`, `serial`,
+`ble`, `webrtc`, `link` or `gamepad`, so only the legacy Firewall gate reaches
+their rows (kehto/web#494). `identity.*` has no row: both gates answer it first
+with its runtime-owned safe default. `resource.*` keeps `.error`, which NAP-RESOURCE #80
 defines. MEDIA has two open drafts: #133 (`8ea49c33`) is stacked on the #10
 draft branch, adds torrent sources only and leaves these rows unchanged, so #10
 is cited.
@@ -303,6 +313,20 @@ permits, with an upstream question for the owning draft:
 - `upload.info`/`upload.status`: the wire table lists `info`/`status` as
   required while `@napplet/nap@0.41.0` marks both optional; the denial sends
   only `error`, like `upload.upload`, rather than invent upload state.
+
+Spec-gap decisions (kehto/web#494):
+
+- `common.getProfile`: `pubkey` is required; the denial echoes a lowercase-hex
+  target and sends `''` for an npub, nprofile or anything else, so a denied
+  napplet gets no NIP-19 decode. `common.follows` sends `pubkeys: []`.
+- `lists.*`: `error` is a machine-readable code and none of the listed codes
+  names a policy denial, so the denial uses `"policy-denied"` (as NAP-COUNT and
+  NAP-FS do) and puts the runtime's reason in `reason`.
+- `gamepad.subscribe`: NAP-GAMEPAD has no request/result pairs but requires a
+  snapshot after each subscribe, so the denial sends the `"blocked"` snapshot.
+
+`kehto conformance` covers both gates: `catalog/acl-denial` and
+`catalog/firewall-denial`.
 
 A denied type that the owning NAP does not define as a napplet
 request gets no reply in any domain (`isSilentUnknownDenial`).

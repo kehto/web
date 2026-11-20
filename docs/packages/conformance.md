@@ -138,10 +138,19 @@ fixture (`packages/conformance/src/fixtures/<domain>.ts`) over the raw port:
 | `catalog/package-drift` | `catalog` | the installed `@napplet/nap` types cover every operation the pinned NAPs specify |
 | `catalog/capability-truthfulness` | `nip5d-core` | an advertised (injected) domain services every request it is sent |
 | `catalog/acl-denial` | `wire-contract` | a revoked ACL capability runs no backend and answers only with message types the NAP defines |
+| `catalog/firewall-denial` | `wire-contract` | a legacy Firewall rejection fires, runs no backend and answers only with message types the NAP defines, in every domain including the ones ACL does not gate |
 | `catalog/endpoint-isolation` | `nip5d-core` | destroying one endpoint stops its pushes without affecting another |
 | `catalog/broadcast-to-loaded` | `nap-spec` | required broadcasts (theme, identity) reach loaded napplets before their first message |
 
 `nip5d/unknown-envelope` sends an unknown action to every advertised domain.
+
+`catalog/firewall-denial` needs `TargetSession.openLegacyFirewall()`: a scoped
+session of the same variant whose runtime has no `permissions` coordinator and
+denies through the legacy behavioral Firewall, with the `firewall.block` and
+`firewall.rejections` controls. Canonical admission (`admitBrowserDocument`)
+requires `permissions`, so a host on the legacy gate binds identity at
+`napplet.hello` instead; the first-party target does the same for this scoped
+session only. A target without the method skips the check.
 
 ### Adding a domain fixture
 
@@ -238,7 +247,8 @@ domains, and the installed `@napplet/nap`/`@napplet/core` versions.
 - Collection is asynchronous and side-effectful (it loads probes); checks are
   pure functions over captured facts.
 - Fixtures are target-agnostic data; the first-party target supplies the
-  backends and host controls (`acl.revoke`, `backend.calls`, `<domain>.<verb>`).
+  backends and host controls (`acl.revoke`, `backend.calls`, `firewall.block`,
+  `firewall.rejections`, `<domain>.<verb>`).
 - Keeps browser automation out of the engine: only `@kehto/conformance/cli`
   touches Playwright, through the optional `@playwright/test` peer.
 - Never reaches public relays, real hardware, user prompts or the network.
