@@ -79,6 +79,9 @@ test.describe('napplet/evil red-team suite (opt-in)', () => {
   test.skip(!SUITE_DIR, 'Set KEHTO_EVIL_SUITE_DIR to a local napplet/evil checkout to run the red-team suite.');
   test.beforeEach(async ({ page }) => installPajaApprovalDriver(page));
 
+  // Without a checkout there are no napplets to list; keep one (skipped) test so a scoped run of this file
+  // reports a skip instead of "No tests found".
+  if (!SUITE_DIR) test('runs each napplet in demo mode', () => {});
   for (const id of SUITE_DIR ? listNapplets(SUITE_DIR) : []) {
     test(`${id} holds in demo mode`, async ({ page }) => {
       test.setTimeout(90_000);
