@@ -8,6 +8,7 @@ import { LINK_BACKEND } from './link.js';
 import { COMMON_BACKEND } from './common.js';
 import { LISTS_BACKEND } from './lists.js';
 import { CONFIG_BACKEND } from './config.js';
+import { RESOURCE_BACKEND } from './resource.js';
 import type { DomainBackendModule } from './types.js';
 
 /** Backends the full profile installs. The minimal profile installs none. */
@@ -19,4 +20,5 @@ export const DOMAIN_BACKENDS: readonly DomainBackendModule[] = [
   COMMON_BACKEND,
   LISTS_BACKEND,
   CONFIG_BACKEND,
+  RESOURCE_BACKEND,
 ];
