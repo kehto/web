@@ -6,6 +6,7 @@
  */
 
 import type { NappletMessage } from '@napplet/core';
+import { createUnrecognizedTypeDiagnostic } from '@kehto/runtime';
 import type { ApprovalSignal, ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
 import type {
   NotifyActionMessage,
@@ -113,6 +114,7 @@ interface NotifyDispatch {
   readonly pushControls: (windowId: string, send: (message: NappletMessage) => void) => void;
   readonly sendNotification: (windowId: string, message: NotifySendMessage,
     send: (message: NappletMessage) => void) => Promise<void>;
+  readonly ignoreUnrecognized: (domain: string, type: unknown) => void;
 }
 
 async function requestNotifyPermission(deps: NotifyDispatch, windowId: string,
@@ -138,8 +140,14 @@ async function requestNotifyPermission(deps: NotifyDispatch, windowId: string,
   send(result as NappletMessage);
 }
 
+// NAP-NOTIFY #11 @ 67877ef6: the napplet-to-shell rows of the wire table.
+const NOTIFY_REQUESTS = new Set(['notify.send', 'notify.dismiss', 'notify.badge', 'notify.channel.register', 'notify.permission.request']);
+
 function handleNotifyMessage(deps: NotifyDispatch, windowId: string, message: NappletMessage,
   send: (message: NappletMessage) => void): void {
+  // NIP-5D (nips#2303 @ f60550c3): an unrecognized type is silently ignored,
+  // so it must not even trigger the first notify.controls push.
+  if (!NOTIFY_REQUESTS.has(message.type)) { deps.ignoreUnrecognized('notify', message.type); return; }
   deps.pushControls(windowId, send);
   switch (message.type) {
     case 'notify.send':
@@ -186,11 +194,6 @@ function handleNotifyMessage(deps: NotifyDispatch, windowId: string, message: Na
     case 'notify.permission.request':
       void requestNotifyPermission(deps, windowId, message as NotifyPermissionRequestMessage, send);
       return;
-    default: {
-      const id = (message as NappletMessage & { id?: string }).id ?? '';
-      send({ type: `${message.type}.error`, id,
-        error: `Unknown notify method: ${message.type}` } as NappletMessage);
-    }
   }
 }
 
@@ -221,6 +224,7 @@ export function createNotifyService(options: NotifyServiceOptions = {}): Service
   const generations = new Map<string, object>();
   let runtime: ServiceRuntimeContext | undefined;
   let warnedLegacy = false;
+  const ignoreUnrecognized = createUnrecognizedTypeDiagnostic();
 
   const generationFor = (windowId: string): object => {
     const generation = generations.get(windowId) ?? {};
@@ -326,7 +330,7 @@ export function createNotifyService(options: NotifyServiceOptions = {}): Service
 
     handleMessage(windowId, message, send) {
       handleNotifyMessage({ options, active, generationFor, current, authorize,
-        pushControls, sendNotification }, windowId, message, send);
+        pushControls, sendNotification, ignoreUnrecognized }, windowId, message, send);
     },
 
     onPermissionRevoked(windowId: string): void { cleanup(windowId); },

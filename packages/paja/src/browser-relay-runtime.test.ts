@@ -1,5 +1,6 @@
 import type { NappletMessage, NostrEvent } from '@napplet/core';
-import { createRelayPoolOutboxRouter, createRelayPoolService } from '@kehto/services';
+import { createOutboxService, createRelayPoolOutboxRouter, createRelayPoolService } from '@kehto/services';
+import type { ServiceRuntimeContext } from '@kehto/runtime';
 import { buildShellCapabilities } from '@kehto/shell';
 import type { SimplePool } from 'nostr-tools/pool';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools/pure';
@@ -87,6 +88,7 @@ import {
   createPajaContactListLoader,
   createPajaOutboxRelayPool,
   createPajaRelayBackend,
+  createPajaRelayListLoader,
   getPajaRelayUrls,
   type PajaRelayBackend,
 } from './browser-relay-runtime.js';
@@ -900,6 +902,59 @@ describe('@kehto/paja relay publish settlement', () => {
       relay: { mode: 'memory', urls: TEST_RELAYS },
     });
     expect(await backend.query(TEST_RELAYS, [{ ids: [event.id] }])).toEqual([]);
+    backend.close();
+  });
+});
+
+// NAP-OUTBOX draft napplet/naps#32 at 8865f73d, Error Handling: relay failures
+// map to `relay list unavailable` / `relay timeout`; `policy denied` is only an
+// approval that did not execute (kehto/web#460).
+describe('@kehto/paja outbox relay failures are not denials', () => {
+  const approved = {
+    authorizeOperation: async (_w: string, _op: string, _req: unknown, execute: (signal: AbortSignal) => unknown) =>
+      ({ status: 'executed', value: await execute(new AbortController().signal) }),
+  } as unknown as ServiceRuntimeContext;
+
+  function pajaOutbox(simulation: ReturnType<typeof normalizePajaSimulation>, confirm: () => boolean) {
+    const backend = createPajaRelayBackend(() => simulation, confirm);
+    const router = createRelayPoolOutboxRouter({
+      relayPool: createPajaOutboxRelayPool(backend),
+      loadRelayLists: createPajaRelayListLoader(backend, () => simulation),
+      fallbackRelays: TEST_RELAYS,
+      getSignerPubkey: () => 'a'.repeat(64),
+      signEvent: async (template) => ({ ...testEvent('f'.repeat(64)), ...template }),
+      defaultTimeoutMs: 50,
+    });
+    const service = createOutboxService({ router });
+    service.onRegistered?.(approved);
+    const sent: NappletMessage[] = [];
+    return { backend, service, sent, send: (message: NappletMessage) => { sent.push(message); } };
+  }
+
+  it('keeps reads open and answered when every live relay connection fails', async () => {
+    const simulation = normalizePajaSimulation({ relay: { mode: 'live', urls: TEST_RELAYS } });
+    for (const url of TEST_RELAYS) { livePool.countFailures.add(url); livePool.countFailures.add(`${url}/`); }
+    livePool.subscriptionEvents = [];
+    const { backend, service, sent, send } = pajaOutbox(simulation, () => true);
+    try {
+      service.handleMessage('w', { type: 'outbox.subscribe', id: 's', subId: 'feed', filters: [{ authors: ['b'.repeat(64)], kinds: [1] }] } as NappletMessage, send);
+      service.handleMessage('w', { type: 'outbox.query', id: 'q', filters: [{ authors: ['b'.repeat(64)], kinds: [1] }] } as NappletMessage, send);
+      await vi.waitFor(() => expect(sent.some((message) => message.type === 'outbox.query.result')).toBe(true));
+      expect(sent.find((message) => message.type === 'outbox.query.result')).toMatchObject({ id: 'q', events: [] });
+      expect(JSON.stringify(sent)).not.toContain('policy denied');
+      expect(sent.filter((message) => message.type === 'outbox.closed')).toEqual([]);
+    } finally {
+      livePool.countFailures.clear();
+      backend.close();
+    }
+  });
+
+  it('reports a declined planned publish as publish denied, not a relay failure', async () => {
+    const simulation = normalizePajaSimulation({ relay: { mode: 'memory', urls: TEST_RELAYS } });
+    const { backend, service, sent, send } = pajaOutbox(simulation, () => false);
+    service.handleMessage('w', { type: 'outbox.publish', id: 'p', event: { kind: 1, content: 'x', tags: [], created_at: 1 } } as NappletMessage, send);
+    await vi.waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]).toMatchObject({ type: 'outbox.publish.result', id: 'p', ok: false, error: 'publish denied' });
     backend.close();
   });
 });

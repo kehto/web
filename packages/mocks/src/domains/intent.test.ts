@@ -54,7 +54,7 @@ describe('createMockIntentService', () => {
     expect(service.descriptor).toMatchObject({ name: 'intent', version: '1.0.0' });
     expect(service.mock.routes).toEqual(['intent.invoke', 'intent.available', 'intent.handlers']);
     expect(service.messageCapabilities).toBeUndefined();
-    expect(INTENT_SPEC_REF).toEqual({ nap: 'NAP-INTENT', status: 'merged', source: 'master', sha: '43cb3a4e8555', path: 'naps/NAP-INTENT.md' });
+    expect(INTENT_SPEC_REF).toEqual({ nap: 'NAP-INTENT', status: 'merged', source: 'master', sha: '377bf939c6c9', path: 'naps/NAP-INTENT.md' });
     expect(INTENT_MOCK_ENTRY.kind).toBe('service');
     expect(INTENT_MOCK_ENTRY.create?.({}).descriptor.name).toBe('intent');
   });
@@ -119,6 +119,10 @@ describe('createMockIntentService', () => {
     invoke('i7', { ...PROFILE_OPEN, handler: 'catalog-note-viewer' });
     invoke('i8', { ...PROFILE_OPEN, handlerHint: { address: 'bogus' } });
     invoke('i9', 'napplet:profile/open');
+    // NAP-INTENT master 377bf939: the wire convention is exactly the queryless, fragment-free
+    // napplet:<archetype>/<action>, and a hint coordinate never stands in for an explicit handler.
+    invoke('i10', { archetype: 'profile', action: 'open', convention: 'napplet:profile/open#naddr1qq' });
+    invoke('i11', { ...PROFILE_OPEN, handler: mockNappletAddress(MOCK_NAPPLETS[0]!) });
     expect(sent.map((msg) => (msg as unknown as { result: unknown }).result)).toEqual([
       { ok: false, error: 'no handler' },
       { ok: false, error: 'unsupported convention' },
@@ -128,6 +132,8 @@ describe('createMockIntentService', () => {
       { ok: false, error: 'invoke rejected' },
       { ok: false, error: 'invalid convention' },
       { ok: false, error: 'invalid convention' },
+      { ok: false, error: 'invalid convention' },
+      { ok: false, error: 'invoke rejected' },
     ]);
     expect(service.mock.state().deliveries).toEqual([]);
   });

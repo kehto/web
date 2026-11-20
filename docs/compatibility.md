@@ -479,6 +479,33 @@ and release number are pending. Nothing remains to retire. Upstream note:
 `@napplet/nap@0.40.0` INC type comments still call `sender`, `target`, and the
 open-result `peer` a napplet identity; field shapes already match.
 
+## KEHTO_MOCKS_NAP_DRIFT_RETIRED — mock APIs removed for NAP drift — mocks
+
+Identifier: `KEHTO_MOCKS_NAP_DRIFT_RETIRED`. Owner: `@kehto/mocks`. Retired
+without a compatibility path in the `@kehto/mocks` 0.2.0 minor release
+(`.changeset/nap-mocks-audit-drift.md`, [kehto/web#464](https://github.com/kehto/web/pull/464)).
+Nothing in this repository consumed these APIs, but `@kehto/mocks` is
+published, so external test suites may have imported them.
+
+| Old | Replacement | Why retired |
+|-----|-------------|-------------|
+| `createMockMeshService`, `MESH_MOCK_ENTRY`, `MESH_SPEC_REF`, the `Mock*Mesh*` types and the `mesh` registry row | None. NAP-NEIGHBOR is not mocked yet; it is deferred in `packages/mocks/scripts/deferred-naps.json`. | NAP-MESH ([napplet/naps PR #122](https://github.com/napplet/naps/pull/122)) closed unmerged on 2026-11-12. Its author retracted it in favour of NAP-NEIGHBOR ([PR #146](https://github.com/napplet/naps/pull/146)), a different contract, so the mock was not repointed. |
+| `LLM_TOOLS_SPEC_REF` (PR #138 `8f741326`) | `LLM_SPEC_REF` (PR #134 `5e93bdfce0e8`) | PR #138 was merged into the PR #134 branch, so one draft now carries tool use. |
+| `result.text` on mock `llm.generate.result` | Concatenate the `text` parts of `result.content`. | [NAP-LLM PR #134 at `5e93bdfc`](https://github.com/napplet/naps/blob/5e93bdfce0e84c0de728234cb7b3feed498f8635/naps/NAP-LLM.md) defines Generation as `content`, `finish`, `usage`; `text` was a mirror of an older draft shape. |
+| `respondWith(text, 'toolUse')` | Offer `tools` and let the mock derive the call, or script `stop`/`length`/`refusal`. The type is now `MockLlmScriptedFinish`. | The same draft requires `toolUse` to contain at least one `toolCall`; a scripted text answer cannot. |
+| Delta `block: 'toolcall'` | `block: 'toolCall'`, plus `event: 'start' \| 'delta' \| 'end'`; a `toolCall` start carries `toolCallId` and `name`. | The same draft renamed the block kind and added the block lifecycle. |
+
+No warning site exists or is added. Removed exports and a removed result field
+have no old-use boundary in the mock to report from: an import fails to resolve
+and a consumer reading `text` gets `undefined`. Migration guidance lives in this
+entry, the changeset and the `@kehto/mocks` README.
+
+Regression coverage: `packages/mocks/src/retired-apis.test.ts` (exports and
+registry rows absent, only the PR #134 NAP-LLM ref, camelCase `toolCall` blocks,
+no `text` mirror, and `respondWith(..., 'toolUse')` rejected by type
+(`@ts-expect-error`) and at runtime), plus `packages/mocks/src/domains/llm.test.ts`
+(exact delta and result envelopes). Nothing remains to retire.
+
 ## Retired window-level NIP-5D transport — shell / Paja
 
 Identifier: `NIP5D_WINDOW_TRANSPORT_RETIRED`. Retired without a compatibility
@@ -570,6 +597,50 @@ itself — it keeps canonical string-sink use working while the frame-tag
 rejection and factory pins close creation. Removal condition: none planned; the
 lock is permanent. Revisit only if a shipped `webrtc` CSP directive makes the
 nested-realm egress moot (see NIP-5D conformance policy, "Direct WebRTC egress").
+
+## KEHTO_UNRECOGNIZED_MESSAGE_TYPE — unknown-type replies retired
+
+Owners: `@kehto/runtime`, `@kehto/services`, `@kehto/paja`. This is a retirement,
+not a retained path (kehto/web#465). NIP-5D (nostr-protocol/nips#2303 at
+`dskvr/nips@f60550c3`) says "Messages with an unrecognized `type` MUST be
+silently ignored" and "Unrecognized message types are silently ignored,
+preventing capability probing." These replies to undefined types are gone, with
+no fallback:
+
+| Old behavior | Replacement |
+|--------------|-------------|
+| `notify`, `keys`, `serial`, `ble`, `common`, `lists`, `webrtc` services answered an unknown type with `<type>.error` / `Unknown <domain> method` | no reply |
+| `notify` sent its first `notify.controls` push before checking the type | push only for a NAP-NOTIFY request |
+| `webrtc.stats` request answered `webrtc.stats.result` `unsupported` | no reply; NAP-WEBRTC #59 `fb4dd6f0` defines `stats` only as a pushed event |
+| runtime `storage.clear` and any other unknown `storage.*` answered `storage.<action>.result` with `error` | no reply; NAP-STORAGE #3 `4f4cf0ca` defines only get/set/remove/keys |
+| ACL/firewall denial of an unknown type in a capability-gated domain answered `<type>.error` (only `cvm.*` was silent) | no reply in every domain |
+| Paja's unscoped multiplayer `cvm` base answered `<type>.result` `unsupported` | no reply; every NAP-CVM #31 request is scoped |
+
+A known type with a malformed payload still gets its NAP's failure result,
+and `webrtc.sendBytes` keeps `unsupported` as NAP-WEBRTC requires.
+
+Diagnostic: `createUnrecognizedTypeDiagnostic` in
+`packages/runtime/src/unrecognized-type.ts` warns
+`[KEHTO_UNRECOGNIZED_MESSAGE_TYPE]` once per domain/type, for at most 16 types
+per instance, then once more and goes quiet. The type is printed only when it
+is a plain `domain.action` string of up to 64 characters; payloads and ids are
+never logged. Warning sites: the services listed above, the runtime storage
+route (`domain-handlers.ts`) and Paja's `browser-multiplayer-services.ts`. The
+denial path (`policy-denials.ts`, `isSilentUnknownDenial`) drops without a
+warning because it runs before the owning service.
+
+Regression tests: `tests/unit/nip5d-conformance-guard.test.ts` (with
+`tests/unit/unknown-type-probes.ts`) drives every `@kehto/services` factory,
+the runtime with and without ACL denial, every NAP mock and fails on any reply;
+it also fails when a new `create*Service` export has no probe.
+`unrecognized-type.test.ts` covers the warning id, text, frequency, cap and the
+unprintable-type case. `policy-denials.test.ts`, `state-handler.test.ts`,
+`dispatch.test.ts`, the per-service tests and
+`packages/paja/src/browser-multiplayer-services.test.ts` cover each removed reply.
+
+Removal: shipped in the release that carries #465. A napplet that relied on
+those error replies now sees no result for the undefined type and should treat
+a missing result as unsupported, as NAP-WEBRTC already advises for `sendBytes`.
 
 ## Existing compatibility inventory
 

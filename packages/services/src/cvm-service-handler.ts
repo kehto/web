@@ -86,7 +86,7 @@ function handleDiscover(actions: CvmActions, windowId: string, generation: symbo
   const { transport, currentSend, authorize, operations } = actions;
   const m = msg as NappletMessage & { id?: string; query?: CvmDiscoverQuery };
   const id = m.id ?? '';
-  const fail = (error: unknown) => currentSend(windowId, generation, { type: 'cvm.discover.result', id, servers: [], error: toErrorMessage(error) } as NappletMessage);
+  const fail = (error: unknown) => currentSend(windowId, generation, { type: 'cvm.discover.result', id, error: toErrorMessage(error) } as NappletMessage);
   if (!validQuery(m.query)) { fail('invalid request'); return; }
   let relays: readonly string[];
   try { relays = relayPlan(transport.planDiscover?.(m.query) ?? m.query?.relays ?? []); }

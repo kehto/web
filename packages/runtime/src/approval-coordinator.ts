@@ -42,7 +42,13 @@ export interface ApprovalCoordinatorOptions extends PermissionPolicyOptions {
   readonly getState: () => PermissionState;
   /** Commit synchronously, persisting durable changes before publishing them. */
   readonly commit: (state: PermissionState) => void;
+  /** Requests awaiting a decision (queue wait and prompt), default 64. */
   readonly maxPending?: number;
+  /**
+   * Bound on the approval phase only, default 60000 ms: queue wait behind an
+   * equivalent prompt, the prompt, and grant commit. Execution is not bounded
+   * here; the domain owns its operation deadline (for NAP-CVM, `timeoutMs`).
+   */
   readonly timeoutMs?: number;
   /** Independent prompt-spam budget, charged only when a prompt will be shown. */
   readonly beforePrompt?: (request: PermissionRequest) => boolean;
@@ -69,6 +75,63 @@ export type ApprovalOutcome<T> =
 interface PendingApproval {
   readonly sessionId: string;
   readonly controller: ApprovalCancellation;
+}
+
+/** Decide one request; `undefined` means its scopes are granted and it may run. */
+async function approve(options: ApprovalCoordinatorOptions, request: PermissionRequest, entry: PendingApproval,
+  current: () => boolean, allowLifetimes: readonly PermissionGrant['lifetime'][]): Promise<ApprovalOutcome<never> | undefined> {
+  if (!current()) return { status: 'cancelled' };
+  const state = options.getState();
+  const decision = evaluatePermissions(state, request, options);
+  if (decision.decision === 'deny') return { status: 'denied' };
+  if (decision.decision === 'allow') return undefined;
+  let preset: 'allow' | 'ask' | 'deny' = 'ask';
+  try { preset = options.defaultDecision?.(request, decision.missing) ?? 'ask'; }
+  catch { preset = 'ask'; }
+  if (preset === 'deny') return { status: 'denied' };
+  const byRule = preset === 'allow' && allowLifetimes.includes('session');
+  let answer: ApprovalAnswer;
+  if (byRule) {
+    answer = { effect: 'allow', lifetime: 'session' };
+  } else {
+    if (!options.prompt) return { status: 'unavailable' };
+    try {
+      if (options.beforePrompt && !options.beforePrompt(request)) return { status: 'busy' };
+    } catch { return { status: 'unavailable' }; }
+    try {
+      answer = await options.prompt(Object.freeze({ request, missing: decision.missing, signal: entry.controller.signal, allowLifetimes }));
+    } catch {
+      return { status: current() ? 'unavailable' : 'cancelled' };
+    }
+  }
+  if (!current()) return { status: 'cancelled' };
+  if (answer?.effect === 'cancel') return { status: 'cancelled' };
+  const latest = options.getState();
+  const rechecked = evaluatePermissions(latest, request, options);
+  if (rechecked.decision === 'deny') return { status: 'denied' };
+  const shown = new Set(decision.missing.map((requirement) => JSON.stringify(requirement)));
+  // A removed prerequisite requires a new prompt. Concurrent grants elsewhere
+  // do not invalidate the exact scopes already presented to this user.
+  if (rechecked.missing.some((requirement) => !shown.has(JSON.stringify(requirement)))) return { status: 'cancelled' };
+  if (!answer || (answer.effect !== 'allow' && answer.effect !== 'deny')
+    || !['once', 'session', 'persistent'].includes(answer.lifetime)) return { status: 'unavailable' };
+  if (answer.effect === 'allow' && !allowLifetimes.includes(answer.lifetime)) return { status: 'unavailable' };
+  if (answer.effect === 'deny' && answer.lifetime === 'once') return { status: 'denied' };
+  try {
+    let next = latest;
+    for (const [index, permission] of decision.missing.entries()) {
+      next = putPermissionGrant(next, {
+        id: `${byRule ? DEFAULT_RULE_GRANT_PREFIX : ''}${request.requestId}-${index}`, principal: request.principal, permission,
+        effect: answer.effect, lifetime: answer.lifetime,
+        ...(answer.lifetime !== 'persistent' ? { sessionId: request.sessionId } : {}),
+        ...(answer.lifetime === 'once' ? { requestId: request.requestId } : {}),
+      }, options);
+    }
+    options.commit(next);
+  } catch {
+    return { status: 'unavailable' };
+  }
+  return answer.effect === 'deny' ? { status: 'denied' } : undefined;
 }
 
 /** Internal coordinator: domain adapters retain validation and wire responses. */
@@ -99,62 +162,6 @@ export function createApprovalCoordinator(options: ApprovalCoordinatorOptions) {
     return Object.freeze({ ...request, requirements: normalized });
   }
 
-  async function approve(request: PermissionRequest, entry: PendingApproval, current: () => boolean,
-    allowLifetimes: readonly PermissionGrant['lifetime'][]): Promise<ApprovalOutcome<never> | undefined> {
-    if (!current()) return { status: 'cancelled' };
-    const state = options.getState();
-    const decision = evaluatePermissions(state, request, options);
-    if (decision.decision === 'deny') return { status: 'denied' };
-    if (decision.decision === 'allow') return undefined;
-    let preset: 'allow' | 'ask' | 'deny' = 'ask';
-    try { preset = options.defaultDecision?.(request, decision.missing) ?? 'ask'; }
-    catch { preset = 'ask'; }
-    if (preset === 'deny') return { status: 'denied' };
-    const byRule = preset === 'allow' && allowLifetimes.includes('session');
-    let answer: ApprovalAnswer;
-    if (byRule) {
-      answer = { effect: 'allow', lifetime: 'session' };
-    } else {
-      if (!options.prompt) return { status: 'unavailable' };
-      try {
-        if (options.beforePrompt && !options.beforePrompt(request)) return { status: 'busy' };
-      } catch { return { status: 'unavailable' }; }
-      try {
-        answer = await options.prompt(Object.freeze({ request, missing: decision.missing, signal: entry.controller.signal, allowLifetimes }));
-      } catch {
-        return { status: current() ? 'unavailable' : 'cancelled' };
-      }
-    }
-    if (!current()) return { status: 'cancelled' };
-    if (answer?.effect === 'cancel') return { status: 'cancelled' };
-    const latest = options.getState();
-    const rechecked = evaluatePermissions(latest, request, options);
-    if (rechecked.decision === 'deny') return { status: 'denied' };
-    const shown = new Set(decision.missing.map((requirement) => JSON.stringify(requirement)));
-    // A removed prerequisite requires a new prompt. Concurrent grants elsewhere
-    // do not invalidate the exact scopes already presented to this user.
-    if (rechecked.missing.some((requirement) => !shown.has(JSON.stringify(requirement)))) return { status: 'cancelled' };
-    if (!answer || (answer.effect !== 'allow' && answer.effect !== 'deny')
-      || !['once', 'session', 'persistent'].includes(answer.lifetime)) return { status: 'unavailable' };
-    if (answer.effect === 'allow' && !allowLifetimes.includes(answer.lifetime)) return { status: 'unavailable' };
-    if (answer.effect === 'deny' && answer.lifetime === 'once') return { status: 'denied' };
-    try {
-      let next = latest;
-      for (const [index, permission] of decision.missing.entries()) {
-        next = putPermissionGrant(next, {
-          id: `${byRule ? DEFAULT_RULE_GRANT_PREFIX : ''}${request.requestId}-${index}`, principal: request.principal, permission,
-          effect: answer.effect, lifetime: answer.lifetime,
-          ...(answer.lifetime !== 'persistent' ? { sessionId: request.sessionId } : {}),
-          ...(answer.lifetime === 'once' ? { requestId: request.requestId } : {}),
-        }, options);
-      }
-      options.commit(next);
-    } catch {
-      return { status: 'unavailable' };
-    }
-    return answer.effect === 'deny' ? { status: 'denied' } : undefined;
-  }
-
   function run<T>(
     principal: PermissionPrincipal,
     sessionId: string,
@@ -180,18 +187,30 @@ export function createApprovalCoordinator(options: ApprovalCoordinatorOptions) {
     // Equivalent requests wait for the first prompt. A session grant releases
     // them after individual revalidation; a once grant prompts the next request.
     const previous = groups.get(key) ?? Promise.resolve();
-    let clearDeadline: () => void;
+    let clearTimer: () => void;
     let onAbort: () => void;
     const cancelled = new Promise<ApprovalOutcome<T>>((resolve) => {
       onAbort = () => resolve({ status: 'cancelled' });
       controller.signal.addEventListener('abort', onAbort, { once: true });
-      clearDeadline = options.schedule(() => controller.abort(), timeoutMs);
+      clearTimer = options.schedule(() => controller.abort(), timeoutMs);
     });
+    // The approval phase ends when execution starts or the request fails. Its
+    // deadline, queue slot, and hold on equivalent requests end with it, so a
+    // long-running action is bounded by its domain, not by the prompt timer.
+    let approving = true;
+    let releaseApproval!: () => void;
+    const approved = new Promise<void>((resolve) => { releaseApproval = resolve; });
+    const endApproval = () => {
+      if (!approving) return;
+      approving = false;
+      clearTimer();
+      releaseApproval();
+    };
     const abortRequest = () => controller.abort();
     signal?.addEventListener('abort', abortRequest, { once: true });
     if (signal?.aborted) abortRequest();
     const operation = previous.then(async (): Promise<ApprovalOutcome<T>> => {
-      const failure = await approve(request, entry, current, allowLifetimes);
+      const failure = await approve(options, request, entry, current, allowLifetimes);
       if (failure) return failure;
       if (!current()) return { status: 'cancelled' };
       const state = options.getState();
@@ -205,6 +224,7 @@ export function createApprovalCoordinator(options: ApprovalCoordinatorOptions) {
       // invoking the action. Adapters receive cancellation for ongoing work.
       if (!current()) return { status: 'cancelled' };
       const spent = state.grants.filter((grant) => grant.lifetime === 'once' && consumed.decision.grantIds.includes(grant.id));
+      endApproval();
       const value = await execute(controller.signal);
       if (!current()) return { status: 'cancelled' };
       const latest = options.getState();
@@ -212,15 +232,14 @@ export function createApprovalCoordinator(options: ApprovalCoordinatorOptions) {
       return continuation.decision === 'allow' ? { status: 'executed', value } : { status: 'cancelled' };
     });
     const settled = Promise.race([operation, cancelled]).finally(() => {
-      clearDeadline();
+      endApproval();
       controller.signal.removeEventListener('abort', onAbort);
       signal?.removeEventListener('abort', abortRequest);
       pending.delete(entry);
     });
     // Cancelling a queued caller settles it immediately, but must not let later
     // equivalents skip the predecessor that still owns the active prompt.
-    const completed = settled.then(() => undefined, () => undefined);
-    const tail = previous.then(() => completed).finally(() => {
+    const tail = previous.then(() => approved).finally(() => {
       reserved--;
       if (groups.get(key) === tail) groups.delete(key);
     });
@@ -232,6 +251,7 @@ export function createApprovalCoordinator(options: ApprovalCoordinatorOptions) {
     run,
     cancel,
     dispose(): void { disposed = true; cancel(); },
+    /** Requests not yet settled, approving or executing; each stays cancellable. */
     get pendingCount(): number { return pending.size; },
   };
 }

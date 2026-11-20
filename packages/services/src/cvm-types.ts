@@ -98,7 +98,8 @@ export interface CvmDiscoverMessage {
 export interface CvmDiscoverResultMessage {
   type: 'cvm.discover.result';
   id: string;
-  servers: CvmServer[];
+  /** Present on success; omitted with `error` (NAP-CVM #31 @ 28cf1bdb, Error Handling). */
+  servers?: CvmServer[];
   error?: string;
 }
 

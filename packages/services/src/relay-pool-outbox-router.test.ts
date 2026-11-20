@@ -839,6 +839,9 @@ describe('createRelayPoolOutboxRouter', () => {
       expect(pool.published).toHaveLength(0);
     });
 
+    // Relays that do not accept are a relay failure, not a denial (kehto/web#460).
+    // NAP-OUTBOX 8865f73d Error Handling has no "relay refused" code, so the
+    // router uses the closest defined one, `relay timeout`.
     it('reports per-relay failure and ok:false when every relay rejects', async () => {
       const pool = makePool();
       pool.publishReturn = { 'wss://a-write': false };
@@ -847,7 +850,7 @@ describe('createRelayPoolOutboxRouter', () => {
       const result = await router.publish(template);
       expect(result.ok).toBe(false);
       expect(result.relays).toEqual({ 'wss://a-write': false });
-      expect(result.error).toBe('publish denied');
+      expect(result.error).toBe('relay timeout');
     });
 
     it('reports ok:false when a required relay rejects even if an explicit candidate succeeds', async () => {
@@ -858,7 +861,7 @@ describe('createRelayPoolOutboxRouter', () => {
       const result = await router.publish(template, { relays: ['wss://extra'] });
       expect(result.ok).toBe(false);
       expect(result.relays).toEqual({ 'wss://a-write': false, 'wss://extra': true });
-      expect(result.error).toBe('publish denied');
+      expect(result.error).toBe('relay timeout');
     });
 
     it('allows explicit candidate failures when every required relay succeeds', async () => {

@@ -13,7 +13,7 @@ describe('createMockThemeService', () => {
     const service = createMockThemeService();
     expect(service.descriptor).toMatchObject({ name: 'theme', version: '1.0.0' });
     expect(service.mock.routes).toEqual(['theme.get']);
-    expect(THEME_SPEC_REF).toEqual({ nap: 'NAP-THEME', status: 'merged', source: 'master', sha: '43cb3a4e8555', path: 'naps/NAP-THEME.md' });
+    expect(THEME_SPEC_REF).toEqual({ nap: 'NAP-THEME', status: 'merged', source: 'master', sha: '377bf939c6c9', path: 'naps/NAP-THEME.md' });
     expect(THEME_MOCK_ENTRY.kind).toBe('service');
     expect(THEME_MOCK_ENTRY.create?.({}).descriptor.name).toBe('theme');
   });
