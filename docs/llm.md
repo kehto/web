@@ -34,6 +34,7 @@ Keys are optional to remember. A remembered key is encrypted before it touches s
 |--------|---------|-------------------|
 | OpenAI, OpenRouter, Groq, Mistral, DeepSeek, xAI, Together AI, Fireworks AI, Perplexity | OpenAI Chat Completions | `Authorization: Bearer` |
 | Azure OpenAI | OpenAI Chat Completions | `api-key` |
+| OpenAI (Responses API) | OpenAI Responses (`POST <baseUrl>/responses`) | `Authorization: Bearer` |
 | Anthropic | Messages API | `x-api-key` (plus `anthropic-version` and the direct-browser-access header) |
 | Google Gemini | `generateContent` | `x-goog-api-key` |
 | Ollama, LM Studio, llama.cpp server, vLLM | OpenAI Chat Completions on loopback | none by default |
@@ -50,7 +51,7 @@ fails the dropdown, and Paja says so instead of showing an empty select. Failed 
 
 ## Streaming
 
-Deltas are optional in NAP-LLM. `createHttpLlmProvider({ stream: true })` requests each dialect's server-sent-event form (OpenAI and Anthropic `stream: true`, with OpenAI `stream_options.include_usage`; Gemini `streamGenerateContent?alt=sse`) and calls its fourth argument with each block lifecycle event (`{ event, block, blockIndex, text?, toolCallId?, name? }`). The service assigns the contiguous `sequence` and the `requestId`, validates the lifecycle and routes the delta, so a host supplies neither. Wire it to the service hooks:
+Deltas are optional in NAP-LLM. `createHttpLlmProvider({ stream: true })` requests each dialect's server-sent-event form (OpenAI Chat Completions, OpenAI Responses and Anthropic `stream: true`, with Chat Completions `stream_options.include_usage`; Gemini `streamGenerateContent?alt=sse`) and calls its fourth argument with each block lifecycle event (`{ event, block, blockIndex, text?, toolCallId?, name? }`). The service assigns the contiguous `sequence` and the `requestId`, validates the lifecycle and routes the delta, so a host supplies neither. Wire it to the service hooks:
 
 ```ts
 const provider = createHttpLlmProvider({ stream: true });
@@ -86,28 +87,78 @@ NAP-LLM carries tool **calls and results** so a napplet can run an agentic turn;
 
 **Dialect mapping.**
 
-| | OpenAI Chat Completions | Anthropic Messages | Gemini `generateContent` |
-|-|-|-|-|
-| Tool definitions | `tools[].function.parameters` | `tools[].input_schema` | `functionDeclarations[].parametersJsonSchema` |
-| Choice | `auto` / `none` / `required` / `{type:"function",function:{name}}` | `auto` / `none` / `any` / `{type:"tool",name}` | `functionCallingConfig` `AUTO` / `NONE` / `ANY` (+ `allowedFunctionNames`) |
-| Assistant call | `tool_calls` with `JSON.stringify(arguments)` | `tool_use` block | `functionCall` part |
-| Result | `{role:"tool",tool_call_id,content}` | `tool_result` block merged into a user turn | one user content of `functionResponse` parts in the assistant's call order, `{output}` payload, no ids |
-| `isError` | prefix text | native `is_error` | prefix text |
-| Image in a tool result | `unsupported` | allowed | `unsupported` |
-| History without current `tools` | sent | `unsupported` (the API needs definitions) | sent |
-| Reasoning | `reasoning_content` / `reasoning` | `thinking` blocks (redacted blocks are omitted and consume no index) | parts with `thought: true` |
-| Usage extras | `cached_tokens`, `reasoning_tokens` | `cache_read_input_tokens`, `cache_creation_input_tokens` | `cachedContentTokenCount`, `thoughtsTokenCount` |
-| `temperature` range | 0 to 2 | 0 to 1 | 0 to 2 |
+| | OpenAI Chat Completions | OpenAI Responses | Anthropic Messages | Gemini `generateContent` |
+|-|-|-|-|-|
+| Tool definitions | `tools[].function.parameters` | flat `tools[].parameters` with `strict: false` | `tools[].input_schema` | `functionDeclarations[].parametersJsonSchema` |
+| Choice | `auto` / `none` / `required` / `{type:"function",function:{name}}` | `auto` / `none` / `required` / `{type:"function",name}` | `auto` / `none` / `any` / `{type:"tool",name}` | `functionCallingConfig` `AUTO` / `NONE` / `ANY` (+ `allowedFunctionNames`) |
+| Assistant call | `tool_calls` with `JSON.stringify(arguments)` | `function_call` input item with `call_id` and `JSON.stringify(arguments)` | `tool_use` block | `functionCall` part |
+| Result | `{role:"tool",tool_call_id,content}` | `function_call_output` input item with `call_id` | `tool_result` block merged into a user turn | one user content of `functionResponse` parts in the assistant's call order, `{output}` payload, no ids |
+| `isError` | prefix text | prefix text | native `is_error` | prefix text |
+| Image in a tool result | `unsupported` | allowed (`output` becomes a content list) | allowed | `unsupported` |
+| History without current `tools` | sent | sent | `unsupported` (the API needs definitions) | sent |
+| Reasoning | `reasoning_content` / `reasoning` | `reasoning` items: each summary part, and each reasoning text part, is one thinking part (encrypted content is ignored) | `thinking` blocks (redacted blocks are omitted and consume no index) | parts with `thought: true` |
+| Usage extras | `cached_tokens`, `reasoning_tokens` | `cached_tokens`, `cache_write_tokens`, `reasoning_tokens` | `cache_read_input_tokens`, `cache_creation_input_tokens` | `cachedContentTokenCount`, `thoughtsTokenCount` |
+| `temperature` range | 0 to 2 | 0 to 2 | 0 to 1 | 0 to 2 |
 
-Without a native error flag, `isError: true` is the exact sentence `Tool execution failed.`, a newline, then the supplied text (text parts joined by newlines). `maxTokens` sends the smaller of the request and the endpoint ceiling, and Anthropic keeps its required default when both are absent. Gemini cannot combine `format: "json"` with tools, which is reported as `unsupported` instead of surfacing as an HTTP 400. A tool without `parameters` is sent as `{"type":"object","properties":{},"additionalProperties":false}`.
+Without a native error flag, `isError: true` is the exact sentence `Tool execution failed.`, a newline, then the supplied text (text parts joined by newlines). A Responses result that carries an image is a content list instead, and a failed one leads with that sentence as its own text part. `maxTokens` sends the smaller of the request and the endpoint ceiling, and Anthropic keeps its required default when both are absent. Gemini cannot combine `format: "json"` with tools, which is reported as `unsupported` instead of surfacing as an HTTP 400. A tool without `parameters` is sent as `{"type":"object","properties":{},"additionalProperties":false}`.
 
 **Thinking.** `thinking` is display-only. It is omitted from provider input when assistant history is replayed, and a message that leaves empty is dropped. Kehto never enables Anthropic extended thinking, so no signed reasoning blocks arise there. Some providers need opaque reasoning state to continue a function-calling turn. `LlmProviderEndpoint.requiresOpaqueReasoning` marks such an endpoint, and a conversation containing `toolCall` parts is then `unsupported` before any request is built rather than silently restarting the reasoning loop. Gemini defaults the flag on for model names matching `gemini-3` and later (with or without a `models/` prefix) because their function-call continuation needs thought signatures this contract cannot represent, so a tool turn on such a model cannot be continued; an explicit value overrides the default.
 
 **Paja.** The connection editor has a **Tool calling** checkbox with **Required tool choice** and **Named tool choice** sub-options (disabled until tools is on). Stored `toolChoiceModes` is canonical (`auto`, `none`, `required`, `tool`, de-duplicated). Rows saved before tool support load as tool support off under the same storage key. Consent lists tool definition names and counts tool results; the message log records counts only. `authorize` builds the provider request with no credential before any vault unlock or consent prompt, so a dialect restriction answers `unsupported` without a pointless dialog.
 
+## OpenAI Responses dialect
+
+`protocol: 'openai-responses'` posts to `<baseUrl>/responses`. It is a host-side adapter like the other three: nothing on the napplet-facing wire changes. Request and event shapes were taken from the official SDK types (`openai@7.62.0`, `resources/responses`), and the dialect has not been exercised against the live API.
+
+**Stateless on purpose.** Every request carries the whole conversation in `input` and sets `store: false`. The dialect never sends `previous_response_id` or `conversation`, so no turn depends on state kept by the provider and nothing is retained there for later retrieval. That matches what the other dialects already do (none of them asks a provider to keep the exchange), and it keeps a napplet's disclosure limited to the request the user consented to.
+
+**Request mapping.**
+
+| NAP-LLM | Responses request |
+|-|-|
+| `system` messages | joined with newlines into `instructions`; an image there is `unsupported` |
+| `user` message | `{type:"message",role:"user",content:[…]}` with `input_text` and `input_image` (data URL, `detail: "auto"`) parts |
+| `assistant` text | `{type:"message",role:"assistant",content:"<text>"}`; adjacent text parts join, and text either side of a call stays either side of it |
+| `assistant` `toolCall` | `{type:"function_call",call_id,name,arguments}` with `arguments` as a JSON string |
+| `toolResult` | `{type:"function_call_output",call_id,output}` |
+| `format: "json"` | `text: {format: {type: "json_object"}}` |
+| `maxTokens` | `max_output_tokens`, the smaller of the request and the endpoint ceiling |
+| `temperature` | `temperature` |
+| `tools` / `toolChoice` | flat function tools and `tool_choice` |
+
+A conversation with only system messages and an image inside assistant history are `unsupported` before any request is built. Reasoning summaries are requested only when the endpoint sets `responses.reasoningSummary` (`auto`, `concise` or `detailed`), which adds `reasoning: {summary}`; leave it unset for models that do not reason.
+
+**Result mapping.** `status: "completed"` is `stop` (`toolUse` once a call is present). `status: "incomplete"` is `length` for `max_output_tokens` and `refusal` for `content_filter`; any other reason, a missing status, and `queued`, `in_progress` or `cancelled` have no completion marker and are `provider-error`, as is `status: "failed"`. A `refusal` content part is `refusal` with empty content. Other output item kinds are ignored, since the dialect requests no hosted tools.
+
+**Streaming.** `response.output_text.delta`, `response.reasoning_summary_text.delta`, `response.reasoning_text.delta` and `response.function_call_arguments.delta` become block deltas; `response.output_item.added` starts a call block with its `call_id` and name; the matching `.done` events end blocks. An item that arrives only in `response.output_item.done` is sent whole. `response.completed` and `response.incomplete` end the stream, and the `output` array they carry is the authoritative result; when a server leaves that array empty the result is assembled from the streamed items. `response.failed` and `error` events are `provider-error` with no provider text.
+
+**Reasoning continuity.** With `store: false` a reasoning model's earlier reasoning is not replayed, because the encrypted reasoning items that would carry it are opaque provider state NAP-LLM cannot represent. The dialect does not request them. Whether a given model can still continue a function-calling turn from `function_call` and `function_call_output` items alone was not verified here, so `requiresOpaqueReasoning` stays off by default; set it on an endpoint whose model rejects such a continuation and the conversation is `unsupported` up front instead.
+
+### Sign-in access tokens (`responses.profile: 'chatgpt-sign-in'`)
+
+Some routes hand out subscription-backed OAuth access tokens that are meant for the Responses endpoint and accept a narrower request. The profile is opt-in per endpoint and follows the published [preview limitations](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations) (read 2026-11-20):
+
+- `stream: true` and `store: false` on every request. `createHttpLlmProvider()` reads the event stream even when it was created without `stream: true`, and then forwards no deltas.
+- System text stays in `instructions`, so no system-role input item is sent.
+- Function tools are grouped in one `{type:"namespace",name,description,tools}` entry, and `function_call` items in `input` carry that `namespace`. The default group is `napplet`; `responses.toolNamespace` renames it.
+- `maxTokens`, an endpoint `maxOutputTokens` ceiling and `temperature` are `unsupported`, because the route lists `max_output_tokens` and `temperature` as unsupported fields and dropping them silently would change what the napplet asked for.
+- A named `toolChoice` is `unsupported`: the documented named choice has no namespace field. So is tool-call history without current `tools`, because a historical call would name a namespace the request does not declare.
+
+Obtaining and refreshing the token is the host's job; the provider only places it in `Authorization: Bearer`. Paja has no sign-in flow and does not offer this profile.
+
+```ts
+const endpoint: LlmProviderEndpoint = {
+  protocol: 'openai-responses',
+  baseUrl: 'https://api.openai.com/v1',
+  model,
+  credential: accessToken,
+  responses: { profile: 'chatgpt-sign-in' },
+};
+```
+
 ## Provider notes
 
-Anthropic has no native JSON mode; Kehto appends a JSON-object instruction to the system prompt and still validates the completed text as a JSON object. Anthropic and Gemini reject images in system messages, and Anthropic requires the first turn to be the user's; both are reported as `unsupported` before any request is built (Paja checks this before it asks for consent).
+Anthropic has no native JSON mode; Kehto appends a JSON-object instruction to the system prompt and still validates the completed text as a JSON object. Anthropic, Gemini and the Responses dialect reject images in system messages, and Anthropic requires the first turn to be the user's; both are reported as `unsupported` before any request is built (Paja checks this before it asks for consent).
 
 ## Host checklist
 

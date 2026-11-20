@@ -188,7 +188,7 @@ The focused host regression runs in Chromium and Firefox after `pnpm build`:
 `pnpm exec playwright test --config playwright.paja-fs.config.ts`.
 
 **Language models** configures draft [NAP-LLM](https://github.com/napplet/naps/pull/134)
-connections: pick a provider preset (OpenAI, Anthropic, Google Gemini, OpenRouter,
+connections: pick a provider preset (OpenAI over Chat Completions or the Responses API, Anthropic, Google Gemini, OpenRouter,
 Groq, Mistral, DeepSeek, xAI, Together, Fireworks, Perplexity, Azure OpenAI, or local
 Ollama, LM Studio, llama.cpp and vLLM servers), enter the model and an optional API
 key, tick the capabilities the model supports (images, JSON output, and **Tool calling** with optional **Required tool choice** and **Named tool choice**) and choose whether to remember the key. Remembered keys are encrypted with

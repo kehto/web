@@ -3,8 +3,8 @@
  *
  * The adapter is stateless. Every request carries the full conversation in
  * `input` with `store: false`, and it never sends `previous_response_id`, so no
- * turn depends on state the provider keeps. Wire shapes follow the API
- * reference and the official SDK types (`openai@7.62.0`, `resources/responses`).
+ * turn depends on state the provider keeps. Wire shapes follow the official SDK
+ * types (`openai@7.62.0`, `resources/responses`).
  */
 
 import { createLlmBlockBuilder, toolCallParts } from './llm-provider-blocks.js';
