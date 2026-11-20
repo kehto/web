@@ -24,7 +24,7 @@ describe('coalescePajaRender', () => {
   it('logs every message synchronously but renders the log once per frame', () => {
     const frames: (() => void)[] = [];
     vi.stubGlobal('requestAnimationFrame', (callback: () => void) => { frames.push(callback); return frames.length; });
-    const lookups = vi.fn(() => null);
+    const lookups = vi.fn((_id: string) => null);
     vi.stubGlobal('document', { getElementById: lookups });
     const state = { messageLog: [], messageFilter: '' } as unknown as PajaDevtoolsState;
     for (let index = 0; index < 2000; index += 1) {
