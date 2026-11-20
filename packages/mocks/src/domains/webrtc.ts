@@ -17,9 +17,9 @@
  * - `from`/`pubkey` are the fixture identity of the paired window (the mock's
  *   stand-in for the key authenticated during signaling). `stats` is a MAY
  *   and is never pushed.
- * - `@napplet/core@0.42` / `@napplet/nap@0.41` `WebrtcSession` and
- *   `WebrtcEvent` predate fb4dd6f0 (no delivery fields, no `bytes` event),
- *   so the doc-shaped `MockWebrtcSession` / `MockWebrtcEvent` extend them.
+ * - Session and event shapes come straight from `@napplet/nap@0.43`
+ *   (`WebrtcSession` delivery fields, `bytes`/`stats` events), which matches
+ *   fb4dd6f0 (napplet/web#345).
  * - Each window is given a fixture identity (alice, bob, … in order of first
  *   `open`, overridable with `identities`). Two windows pair when one opens
  *   `direct` to the other's identity (both directions) or both join the same
@@ -56,35 +56,6 @@ export const WEBRTC_SPEC_REF: NapSpecRef = {
   sha: 'fb4dd6f0e629',
   path: 'naps/NAP-WEBRTC.md',
 };
-
-/**
- * A NAP-WEBRTC session as the fb4dd6f0 draft defines it: the packaged
- * `WebrtcSession` plus the established delivery semantics and payload limit.
- *
- * @example
- * ```ts
- * const session: MockWebrtcSession = { id: 's', scope: { type: 'room', room: 'r' }, channel: 'data', state: 'open', ordered: true, maxPayloadBytes: 65536 };
- * ```
- */
-export type MockWebrtcSession = WebrtcSession & {
-  /** Established ordering; the mock always reports it. */
-  ordered?: boolean;
-  /** Established retransmission bound; absent means reliable. */
-  maxRetransmits?: number;
-  /** Largest single payload in bytes. */
-  maxPayloadBytes?: number;
-};
-
-/**
- * A NAP-WEBRTC event as the fb4dd6f0 draft defines it: the packaged
- * `WebrtcEvent` variants plus `bytes`.
- *
- * @example
- * ```ts
- * const event: MockWebrtcEvent = { type: 'bytes', sessionId: 's', from: 'ab', bytes: 'AAEC/w==' };
- * ```
- */
-export type MockWebrtcEvent = WebrtcEvent | { type: 'bytes'; sessionId: string; from: string; bytes: string };
 
 /**
  * Pubkey of the loopback peer used when no second window exists.
@@ -126,7 +97,7 @@ export interface MockWebrtcSignal {
  */
 export interface MockWebrtcSessionRecord {
   /** Wire session. */
-  session: MockWebrtcSession;
+  session: WebrtcSession;
   /** Owning window. */
   windowId: string;
   /** Owner's pubkey. */
@@ -198,7 +169,7 @@ export type MockWebrtcService = MockService<MockWebrtcState> & {
 };
 
 type Context = MockRouteContext<MockWebrtcState>;
-type Emit = (record: MockWebrtcSessionRecord, event: MockWebrtcEvent) => void;
+type Emit = (record: MockWebrtcSessionRecord, event: WebrtcEvent) => void;
 
 function signal(state: MockWebrtcState, kind: MockWebrtcSignal['kind'], sessionId: string, from: string, to: string): void {
   state.signals.push({ kind, sessionId, from, to });
@@ -291,7 +262,7 @@ function serializedBytes(payload: unknown): number {
   return new TextEncoder().encode(JSON.stringify(payload) ?? '').length;
 }
 
-function sameDelivery(a: MockWebrtcSession, b: MockWebrtcSession): boolean {
+function sameDelivery(a: WebrtcSession, b: WebrtcSession): boolean {
   return a.ordered === b.ordered && a.maxRetransmits === b.maxRetransmits;
 }
 
@@ -378,7 +349,7 @@ export function createMockWebrtcService(options: MockWebrtcOptions = {}): MockWe
     if ((ordered !== undefined && typeof ordered !== 'boolean')
       || (maxRetransmits !== undefined && !(typeof maxRetransmits === 'number' && Number.isInteger(maxRetransmits) && maxRetransmits >= 0))) { fail('invalid request'); return; }
     const scope = request.scope;
-    const session: MockWebrtcSession = {
+    const session: WebrtcSession = {
       id: `sess-${rng.hex(8)}`,
       scope: scope.type === 'direct' ? { type: 'direct', pubkey: scope.pubkey } : { type: 'room', room: scope.room, ...(scope.peers ? { peers: [...scope.peers] } : {}) },
       channel: typeof request.channel === 'string' ? request.channel : 'data',
@@ -399,7 +370,7 @@ export function createMockWebrtcService(options: MockWebrtcOptions = {}): MockWe
   };
 
   /** Fan an event out to open partner sessions and echo it from the loopback peer. */
-  const deliver = (state: MockWebrtcState, record: MockWebrtcSessionRecord, build: (sessionId: string, from: string) => MockWebrtcEvent): void => {
+  const deliver = (state: MockWebrtcState, record: MockWebrtcSessionRecord, build: (sessionId: string, from: string) => WebrtcEvent): void => {
     for (const partnerId of record.partners) {
       const partner = state.sessions.get(partnerId);
       if (partner && partner.session.state === 'open') emit(partner, build(partnerId, record.identity));

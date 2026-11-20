@@ -77,8 +77,8 @@ pnpm add @kehto/services
 
 ## Published Napplet Compatibility
 
-Peers admit `@napplet/core` `>=0.42.0 <0.43.0` and `@napplet/nap`
-`>=0.37.0 <0.42.0`: the declarations import the packaged NAP-LLM types from `@napplet/nap/llm/types`, and the exported NAP-INTENT types come from `@napplet/core`, whose releases before 0.41.0 carry the withdrawn delivery ID and nullable sender. The exported NAP-CVM registry types (`CvmRegistrySelector`, `CvmRegistryEntry`, `CvmRegistryTool`, `CvmRegistryOptions`, `CvmRegistryCallOptions`, `CvmRegistryQuery`) also come from `@napplet/core`, and releases before 0.42.0 carry the older family-only registry contract, so the core floor is 0.42.0. Host packages develop and build on core 0.42.0 / nap 0.41.0; fixture napplets stay on the exact 0.32.0 line (shim 0.30.0, sdk 0.28.0, vite-plugin 0.16.2). The exact fixture-line contracts are core 0.32.0 / nap 0.32.0
+Peers admit `@napplet/core` `>=0.42.0 <0.45.0` and `@napplet/nap`
+`>=0.37.0 <0.44.0`: the declarations import the packaged NAP-LLM types from `@napplet/nap/llm/types`, and the exported NAP-INTENT types come from `@napplet/core`, whose releases before 0.41.0 carry the withdrawn delivery ID and nullable sender. The exported NAP-CVM registry types (`CvmRegistrySelector`, `CvmRegistryEntry`, `CvmRegistryTool`, `CvmRegistryOptions`, `CvmRegistryCallOptions`, `CvmRegistryQuery`) also come from `@napplet/core`, and releases before 0.42.0 carry the older family-only registry contract, so the core floor is 0.42.0. Host packages develop and build on core 0.44.0 / nap 0.43.0; fixture napplets stay on the exact 0.32.0 line (shim 0.30.0, sdk 0.28.0, vite-plugin 0.16.2). The exact fixture-line contracts are core 0.32.0 / nap 0.32.0
 from NAP-INTENT authority `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`,
 napplet/web#199 source `3037200c932488f14f7f369b8583c39c9c16510a` / merge
 `b3f0007867eac109fa4917fac9c285d3b7cc6155`, and Version Packages #198 release
@@ -852,7 +852,9 @@ callers should generate fresh IDs because older completed entries are evicted.
 WebRTC plans declare every configured ICE endpoint before approval. The reference
 handler requests typed `network`/`ice` scopes; it invokes no peer hook on denial.
 Synchronous send failures return the matching result ID. `sendBytes` currently
-returns `unsupported`, as NAP-WEBRTC requires of a shell without byte payloads. A
+returns `unsupported`, as NAP-WEBRTC requires of a shell without byte payloads, so
+the shell's injected `window.napplet.webrtc.sendBytes` (which `@napplet/nap`
+0.43's `webrtcSendBytes` calls) rejects with `unsupported`. A
 `stats` request gets no reply, since NAP-WEBRTC defines `stats` only as a pushed
 event.
 

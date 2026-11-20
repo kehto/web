@@ -30,6 +30,11 @@ const RESOURCE_PUBLISH_REF = 'b007587afbefb0ce5592825d6ec1fc5b026c7b08';
 const MEDIA_SOURCE_REF = 'ef915243a2e7724c0cbeaf8b401116afa239d201';
 const MEDIA_RELEASE_REF = 'f6839146afda77944d12ecdc371630905c9474f6';
 
+// The host development line (kehto/web#496). Guards for the current host contract
+// read these; the PACKAGE_MATRIX tarballs below are historical and stay pinned.
+const HOST_CORE = '0.44.0';
+const HOST_NAP = '0.43.0';
+
 const PACKAGE_MATRIX = {
   '@napplet/core': ['0.32.0', 'packages/core'],
   '@napplet/nap': ['0.32.0', 'packages/nap'],
@@ -108,8 +113,8 @@ describe('published Napplet convention contract', () => {
     const mock = readFileSync(join(ROOT, 'packages/mocks/src/domains/cvm.ts'), 'utf8');
     expect(mock).toContain('interface MockCvmRegistryEntry extends CvmRegistryEntry');
 
-    const core = packageText('@napplet/core', '0.42.0', 'dist/index.d.ts');
-    const cvmTypes = packageText('@napplet/nap', '0.41.0', 'dist/cvm/types.d.ts');
+    const core = packageText('@napplet/core', HOST_CORE, 'dist/index.d.ts');
+    const cvmTypes = packageText('@napplet/nap', HOST_NAP, 'dist/cvm/types.d.ts');
     expect(core).toMatch(/type CvmRegistrySelector = \{\s+schemaHash: string;\s+family\?: string;\s+\} \| \{\s+family: string;\s+schemaHash\?: string;\s+\};/);
     expect(interfaceBody(core, 'CvmRegistryEntry')).toContain('schemaHashes: string[];');
     expect(interfaceBody(core, 'CvmRegistryEntry')).toContain('family?: string;');
@@ -118,6 +123,38 @@ describe('published Napplet convention contract', () => {
     for (const name of ['CvmRegistryHasMessage', 'CvmRegistryDescribeMessage', 'CvmRegistryCallMessage']) {
       expect(interfaceBody(cvmTypes, name)).toContain('selector: CvmRegistrySelector;');
       expect(interfaceBody(cvmTypes, name)).not.toMatch(/\bfamily\b\??:/);
+    }
+  });
+
+  it('develops on the media, webrtc and resource contract of the pinned NAP drafts (kehto/web#496)', () => {
+    // NAP-MEDIA #10 @ 7806f438, NAP-WEBRTC #59 @ fb4dd6f0, NAP-RESOURCE #80 @ ae5b9c64;
+    // released by napplet/web#344, #345 and #346.
+    const core = packageText('@napplet/core', HOST_CORE, 'dist/index.d.ts');
+    const media = packageText('@napplet/nap', HOST_NAP, 'dist/media/types.d.ts');
+    const webrtc = packageText('@napplet/nap', HOST_NAP, 'dist/webrtc/types.d.ts');
+    const resource = packageText('@napplet/nap', HOST_NAP, 'dist/resource/types.d.ts');
+
+    expect(interfaceBody(media, 'MediaSessionEndedMessage')).toContain("type: 'media.session.ended';");
+    expect(interfaceBody(media, 'MediaSessionEndedMessage')).toContain('reason: string;');
+    expect(interfaceBody(webrtc, 'WebrtcSendBytesMessage')).toContain('bytes: WebrtcBytes;');
+    expect(interfaceBody(webrtc, 'WebrtcSendBytesResultMessage')).toContain("type: 'webrtc.sendBytes.result';");
+    expect(core).toMatch(/type WebrtcEvent = [^;]*WebrtcBytesEvent[^;]*WebrtcStatsEvent/);
+    expect(interfaceBody(core, 'WebrtcSession')).toContain('maxPayloadBytes?: number;');
+    expect(interfaceBody(resource, 'ResourceBytesManyMessage')).toContain('urls: string[];');
+    expect(core).not.toContain('ResourceBytesRequest');
+    expect(interfaceBody(core, 'ResourceInfo')).not.toContain('maxServers');
+
+    // The local widenings these types replaced are gone.
+    const mocks = readFileSync(join(ROOT, 'packages/mocks/src/domains/webrtc.ts'), 'utf8');
+    expect(mocks).not.toMatch(/\bMockWebrtc(?:Session|Event)\b/);
+    for (const [name, directory] of [['@napplet/core', 'packages/core'], ['@napplet/nap', 'packages/nap']] as const) {
+      const metadata = JSON.parse(packageText(name, name === '@napplet/core' ? HOST_CORE : HOST_NAP, 'package.json')) as {
+        repository?: { url?: string; directory?: string };
+        scripts?: Record<string, string>;
+      };
+      expect(metadata.repository?.url).toContain('github.com/napplet/web');
+      expect(metadata.repository?.directory).toBe(directory);
+      expect(metadata.scripts?.postinstall, `${name} may not run install-time code`).toBeUndefined();
     }
   });
 

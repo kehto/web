@@ -1,6 +1,6 @@
 /** Shell-mediated NAP-WEBRTC service. Raw SDP, ICE, and peer handles stay host-private. */
 import type { NappletMessage, WebrtcEvent, WebrtcOpenRequest, WebrtcOpenResult } from '@napplet/core';
-import type { WebrtcCloseMessage, WebrtcOpenMessage, WebrtcSendMessage } from '@napplet/nap/webrtc/types';
+import type { WebrtcCloseMessage, WebrtcOpenMessage, WebrtcSendBytesMessage, WebrtcSendMessage } from '@napplet/nap/webrtc/types';
 import { createUnrecognizedTypeDiagnostic } from '@kehto/runtime';
 import type { ApprovalSignal, PermissionRequirement, ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
 
@@ -222,7 +222,7 @@ export function createWebrtcService(options: WebrtcServiceOptions = {}): Service
       // event, so a `webrtc.stats` request is unrecognized like any other type
       // and, per NIP-5D (nips#2303 @ f60550c3), gets no reply.
       if (message.type === 'webrtc.sendBytes') {
-        send({ type: 'webrtc.sendBytes.result', id: (message as NappletMessage & { id?: string }).id ?? '', error: 'unsupported' } as NappletMessage);
+        send({ type: 'webrtc.sendBytes.result', id: (message as Partial<WebrtcSendBytesMessage>).id ?? '', error: 'unsupported' } as NappletMessage);
         return;
       }
       ignoreUnrecognized('webrtc', message.type);
