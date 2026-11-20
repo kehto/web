@@ -591,6 +591,23 @@ export function createNostrCvmTransport(
     return session.initializing;
   }
 
+  /** Validate the duration and acquire the session, without yielding. */
+  function prepareSend(server: CvmServerRef, requestOptions: CvmRequestOptions | undefined, signal?: ApprovalSignal): { session: ServerSession; deadline: number } {
+    if (signal?.aborted) throw new Error('policy denied');
+    const timeout = requestOptions?.timeoutMs === undefined ? timeoutMs : requestOptions.timeoutMs;
+    // NAP-CVM #31 @28cf1bdb: reject before acquiring a session or publishing.
+    if (!Number.isInteger(timeout) || timeout < 1 || timeout > MAX_REQUEST_TIMEOUT_MS) {
+      throw new Error('invalid timeout');
+    }
+    const deadline = performance.now() + timeout;
+    return { session: getSession(server), deadline };
+  }
+
+  /** A close that ran while the send was being prepared ends it. */
+  function assertOpen(server: CvmServerRef, session: ServerSession): void {
+    if (sessions.get(server.pubkey) !== session) throw new Error('server closed');
+  }
+
   return {
     planDiscover(query?: CvmDiscoverQuery): readonly string[] {
       const relays = query?.relays && query.relays.length > 0 ? query.relays : defaultRelays;
@@ -652,17 +669,20 @@ export function createNostrCvmTransport(
     },
 
     async request(server: CvmServerRef, message: McpMessage, requestOptions?: CvmRequestOptions, execution?: { signal: ApprovalSignal }): Promise<McpMessage> {
-      if (execution?.signal.aborted) throw new Error('policy denied');
-      const timeout = requestOptions?.timeoutMs === undefined ? timeoutMs : requestOptions.timeoutMs;
-      // NAP-CVM #31 @28cf1bdb: reject before acquiring a session or publishing.
-      if (!Number.isInteger(timeout) || timeout < 1 || timeout > MAX_REQUEST_TIMEOUT_MS) {
-        throw new Error('invalid timeout');
-      }
-      const deadline = performance.now() + timeout;
-      const session = getSession(server);
+      const { session, deadline } = prepareSend(server, requestOptions, execution?.signal);
       if (requestOptions?.initialize) await ensureInitialized(server, session, deadline, execution?.signal);
-      if (sessions.get(server.pubkey) !== session) throw new Error('server closed');
+      assertOpen(server, session);
       return sendCorrelated(server, session.relays, message, deadline, execution?.signal);
+    },
+
+    async publish(server: CvmServerRef, message: McpMessage, requestOptions?: CvmRequestOptions, execution?: { signal: ApprovalSignal }): Promise<void> {
+      // NAP-CVM #31 @28cf1bdb: notifications and responses complete on
+      // publication. Sent as given: no id is added and a response keeps the
+      // napplet's id, so nothing is correlated or awaited.
+      const { session, deadline } = prepareSend(server, requestOptions, execution?.signal);
+      if (requestOptions?.initialize) await ensureInitialized(server, session, deadline, execution?.signal);
+      assertOpen(server, session);
+      await beforeDeadline(deadline, () => publishMcp(server, session.relays, message, deadline, execution?.signal));
     },
 
     async close(server: CvmServerRef): Promise<void> {

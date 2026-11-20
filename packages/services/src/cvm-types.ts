@@ -159,4 +159,5 @@ export type CvmTransportError =
   | 'payment denied'
   | 'unsupported method'
   | 'invalid message'
+  | 'invalid request'
   | 'policy denied';

@@ -52,6 +52,39 @@ that at compile time), a removal release is announced, then the string branch, i
 negative test for string selectors. Silence from the warning is not proof that
 external napplets migrated.
 
+## KEHTO_CVM_TRANSPORT_PUBLISH — CVM transports without publish()
+
+Owner: `@kehto/services`. NAP-CVM
+([#31 @ `28cf1bdb`](https://github.com/napplet/naps/blob/28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f/naps/NAP-CVM.md),
+Message handling) completes a notification or response "After transport
+publication, result without `message`", with no MCP response awaited.
+`CvmTransport.publish()` is the replacement path that publishes without
+correlation. It is optional, so a host transport written against the older
+interface, which has only `request()`, keeps working: the service sends the
+notification or response through `request()`, waits for it to settle, and still
+answers with only `type` and `id`. Whether such a transport adds an id or waits
+for a reply is up to that transport, which is why it should move to `publish()`.
+`createNostrCvmTransport` and the conformance backend implement `publish()` and
+stay quiet.
+
+Source and warning site: `packages/services/src/cvm-service-handler.ts`,
+`publish` inside `createCvmServiceHandler`. The `console.warn` carries the
+`[KEHTO_CVM_TRANSPORT_PUBLISH]` identifier, names `CvmTransport.publish()` as
+the replacement and fires once per CVM service instance. It logs no message
+payload. Request-form messages never warn. Tests:
+`cvm-request-lifecycle.test.ts` covers the fallback answer, the warning text and
+that it fires once across two notifications, quiet request-form use on the
+fallback path, and quiet canonical use with `publish()`.
+`cvm-nostr-publish.test.ts` covers the canonical Nostr path: published as given,
+resolved on publication, and bounded by the deadline.
+
+Retention reason: `CvmTransport` is a public, host-implemented interface.
+Requiring `publish()` would break host transports at compile time.
+
+Removal prerequisites: supported host transports implement `publish()`, a
+release makes it required, and then the fallback branch, its warning and its
+tests are removed together, with a type test that `publish` is required.
+
 ## PAJA-NIP07-RELAY-DISCOVERY-REMOVED — retired extension integration
 
 `@kehto/paja` no longer reads, binds, or calls the obsolete NIP-07 `getRelays`

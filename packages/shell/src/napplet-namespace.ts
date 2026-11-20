@@ -1260,10 +1260,15 @@ function nappletNamespacePrelude(
       { timeoutMs: typeof options?.timeoutMs === 'number' && Number.isInteger(options.timeoutMs)
         && options.timeoutMs > 0 && options.timeoutMs <= 300_000 ? options.timeoutMs + 1000 : undefined },
     );
+    // NAP-CVM #31 @ 28cf1bdb: only a request (method + id) awaits an MCP
+    // response; a notification or response completes "After transport
+    // publication, result without `message`; API returns `null`".
+    const awaitsResponse = (message: unknown): boolean => typeof message === 'object' && message !== null
+      && (message as { method?: unknown }).method !== undefined && (message as { id?: unknown }).id !== undefined;
     const cvmRequest = (server: unknown, message: unknown, options?: Record<string, unknown>) => req(
       'cvm.request',
       { server, message, ...(options === undefined ? {} : { options }) },
-      (msg) => fieldOrThrow(msg, 'message', 'cvm.request.result missing message'),
+      (msg) => (awaitsResponse(message) ? fieldOrThrow(msg, 'message', 'cvm.request.result missing message') : null),
       options,
     );
     const mcpCall = async (
