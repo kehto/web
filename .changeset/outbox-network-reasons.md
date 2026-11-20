@@ -25,6 +25,8 @@ Nostr, and NAP-OUTBOX has codes for that.
 - `@kehto/runtime`: a relay that throws while an approved `relay.*` operation
   runs reports `relay subscription failed` / `publish failed` /
   `relay query failed` instead of `relay authorization unavailable or denied`.
+  A subscription that fails after it opened is now retired, so no late event
+  or EOSE follows its `relay.closed`.
 - `@kehto/paja`: `publishToRelays` rejects with `publish denied` when the user
   declines, so a declined OUTBOX publish is no longer indistinguishable from a
   relay failure.

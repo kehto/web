@@ -14,6 +14,7 @@ import { isRelayPlanningServiceHandler, type RelayOperationPlan } from './servic
 import type { PermissionRequirement } from '@kehto/firewall';
 import type { ApprovalSignal } from './approval-coordinator.js';
 import { snapshotApprovalEnvelope } from './approval-envelope.js';
+import { guardRelayTransport, relayFailureReason } from './relay-failure.js';
 
 declare const console: { warn(message: string): void };
 
@@ -60,29 +61,9 @@ function relayRequirements(plan: RelayOperationPlan): PermissionRequirement[] {
   return requirements;
 }
 
-/** Reason for a relay operation whose approval did not execute (or whose authorizer failed). */
-const RELAY_AUTHORIZATION_REFUSED = 'relay authorization unavailable or denied';
-
-/** A relay transport failure raised while an approved operation ran. */
-class RelayTransportFailure {
-  constructor(readonly cause: unknown) {}
-}
-
-/**
- * Relays fail as part of Nostr: a transport failure keeps a transport reason and
- * is never an authorization refusal. NAP-RELAY (naps#2 `9f30b350`) leaves
- * `relay.closed.reason`/`error` free-form, so only that split is fixed here.
- */
-function relayFailureReason(error: unknown, transportReason: string): string {
-  if (error instanceof RelayTransportFailure) return transportReason;
-  if (error instanceof Error && error.message === 'invalid relay destination') return error.message;
-  return RELAY_AUTHORIZATION_REFUSED;
-}
-
 async function authorizeRelay<T>(context: RelayHandlerContext, windowId: string, operation: string,
   plan: RelayOperationPlan, execute: (signal: ApprovalSignal) => T | Promise<T>): Promise<void> {
-  // Async body runs `execute` synchronously: no boundary after final approval.
-  const guarded = async (signal: ApprovalSignal): Promise<T> => { try { return await execute(signal); } catch (error) { throw new RelayTransportFailure(error); } };
+  const guarded = guardRelayTransport(execute);
   const run = context.authorizeOperation;
   if (!run) {
     await guarded({ aborted: false, addEventListener() {}, removeEventListener() {} });
@@ -168,11 +149,12 @@ function handleRelaySubscribe(
       hooks.sendToNapplet(windowId, { type: 'relay.closed', subId, reason: 'invalid relay destination' } as NappletMessage);
       return;
     }
+    const subKey = `${windowId}:${subId}`;
+    let opened: object | undefined;
     void authorizeRelay(context, windowId, 'relay.subscribe', plan, (signal) => {
       if (signal.aborted) return;
-      const subKey = `${windowId}:${subId}`;
       const entry = { windowId, filters };
-      subscriptions.set(subKey, entry);
+      subscriptions.set(subKey, opened = entry);
       const isActive = (): boolean => !signal.aborted && subscriptions.get(subKey) === entry && context.canReadRelay(windowId);
       const send = (response: NappletMessage): void => {
         if (isActive()) hooks.sendToNapplet(windowId, normalizeRelayServiceResponse(response));
@@ -193,9 +175,7 @@ function handleRelaySubscribe(
         closeRelayBackends(context, windowId, subId, subKey);
       }, { once: true });
       if (!isActive()) closeRelayBackends(context, windowId, subId, subKey);
-    }).catch((error: unknown) => {
-      hooks.sendToNapplet(windowId, { type: 'relay.closed', subId, reason: relayFailureReason(error, 'relay subscription failed') } as NappletMessage);
-    });
+    }).catch((error: unknown) => closeFailedSubscription(context, windowId, subId, opened, error));
     return;
   }
 
@@ -213,10 +193,11 @@ function handleRelaySubscribe(
     hooks.sendToNapplet(windowId, { type: 'relay.closed', subId, reason: 'relay adapter requires explicit planned execution' } as NappletMessage);
     return;
   }
+  let opened: object | undefined;
   void authorizeRelay(context, windowId, 'relay.subscribe', plan, (signal) => {
     if (signal.aborted) return;
     const entry = { windowId, filters };
-    subscriptions.set(subKey, entry);
+    subscriptions.set(subKey, opened = entry);
     const isActive = (): boolean => !signal.aborted && subscriptions.get(subKey) === entry && context.canReadRelay(windowId);
     const send = (response: NappletMessage): void => {
       if (isActive()) hooks.sendToNapplet(windowId, normalizeRelayServiceResponse(response));
@@ -236,8 +217,17 @@ function handleRelaySubscribe(
       subscriptions.delete(subKey);
       closeRelayBackends(context, windowId, subId, subKey);
     }, { once: true });
-  }).catch((error: unknown) => hooks.sendToNapplet(windowId,
-    { type: 'relay.closed', subId, reason: relayFailureReason(error, 'relay subscription failed') } as NappletMessage));
+  }).catch((error: unknown) => closeFailedSubscription(context, windowId, subId, opened, error));
+}
+
+/** Retire a subscription whose approval or transport failed after it opened, then say why. */
+function closeFailedSubscription(context: RelayHandlerContext, windowId: string, subId: string, opened: object | undefined, error: unknown): void {
+  const subKey = `${windowId}:${subId}`;
+  if (opened && context.subscriptions.get(subKey) === opened) {
+    context.subscriptions.delete(subKey);
+    closeRelayBackends(context, windowId, subId, subKey);
+  }
+  context.hooks.sendToNapplet(windowId, { type: 'relay.closed', subId, reason: relayFailureReason(error, 'relay subscription failed') } as NappletMessage);
 }
 
 function deliverFromRuntimeBackends(

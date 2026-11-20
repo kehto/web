@@ -41,7 +41,8 @@ async function fixture(network: ApprovalAnswer['effect'], execute: RelayPlanning
   };
   runtime.registerService('relay', service);
   runtime.handleMessage('window', { type: 'relay.subscribe', id: 's', subId: 'feed', filters: [{ kinds: [1] }] } as NappletMessage);
-  return () => ctx.sent.map(({ message }) => message).filter((message) => !Array.isArray(message) && message.type === 'relay.closed');
+  const messages = () => ctx.sent.map(({ message }) => message).filter((message): message is NappletMessage => !Array.isArray(message));
+  return Object.assign(() => messages().filter((message) => message.type === 'relay.closed'), { messages });
 }
 
 describe('relay.subscribe failure reasons', () => {
@@ -55,5 +56,16 @@ describe('relay.subscribe failure reasons', () => {
     const closed = await fixture('deny', execute);
     await vi.waitFor(() => expect(closed()).toEqual([{ type: 'relay.closed', subId: 'feed', reason: 'relay authorization unavailable or denied' }]));
     expect(execute).not.toHaveBeenCalled();
+  });
+
+  it('retires a subscription whose relay threw so a late delivery never follows relay.closed', async () => {
+    let late!: (message: NappletMessage) => void;
+    const closed = await fixture('allow', (_w, _m, _plan, _signal, send) => {
+      late = send;
+      throw new Error('WebSocket connection failed');
+    });
+    await vi.waitFor(() => expect(closed()).toHaveLength(1));
+    late({ type: 'relay.eose', subId: 'feed' } as NappletMessage);
+    expect(closed.messages().map((message) => message.type)).toEqual(['relay.closed']);
   });
 });
