@@ -56,6 +56,8 @@ const GROUPS = {
     'tests/e2e/paja-storage.spec.ts',
   ],
   conformance: [
+    'tests/e2e/conformance-mutations.spec.ts',
+    'tests/e2e/conformance-ui.spec.ts',
     'tests/e2e/conformance.spec.ts',
   ],
   cvm: [
@@ -160,7 +162,7 @@ function selectionForFile(file) {
   }
 
   // Before the domain tokens: conformance sources mention every domain name.
-  if (file.startsWith('packages/conformance/')) {
+  if (file.startsWith('packages/conformance/') || file.startsWith('apps/conformance/')) {
     return { specs: GROUPS.conformance, reason: `${file}: conformance suite surface` };
   }
 
