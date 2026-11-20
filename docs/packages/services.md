@@ -20,7 +20,16 @@ revocation or window destroy, plus early `state` events while the open is still
 pending. Close removes the session from delivery before the host `close` hook
 runs, so teardown notifications and late peer `message`, `peer`, `state` or
 `stats` events for it are dropped (NAP-WEBRTC "MUST NOT deliver messages for an
-unknown sessionId"). A failed close keeps the session deliverable.
+unknown sessionId"). A failed close keeps the session deliverable, unless the
+backend reported it `closed` meanwhile. When the backend ends a session itself
+(peer gone, ICE failure, signaling or policy), the service forgets it as soon as
+it delivers that `closed` event: nothing later is delivered, a later
+`webrtc.send` or `webrtc.close` gets `session not found` without reaching the
+host hooks, and the session map no longer grows over a long-lived window. A
+`closed` reported while the open is still pending is delivered right after the
+`webrtc.open.result`, and that session is never kept. A napplet-initiated
+`webrtc.close` gets no `closed` event; the NAP only asks for one when a peer,
+ICE, signaling or policy ends the session (spec-gap decision).
 
 OUTBOX and COUNT resolve relay destinations before approval. Their remote
 backends receive the approved immutable URL list and cancellation signal; local
