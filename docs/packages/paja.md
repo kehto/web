@@ -945,7 +945,8 @@ offline, the relays are blocked, or the browser reached its WebSocket connection
 limit (for example many open tabs each holding relay connections). Paja logs a
 `paja.relay.unreachable` entry with the per-relay detail. A deadline expiry with
 at least one live relay keeps the timeout message and now states how many relays
-connected. Pools without `ensureRelay` keep the previous messages.
+connected. Pools without `ensureRelay` keep the previous timeout and relay
+query failure messages.
 
 ### Pointer not found
 
@@ -964,8 +965,8 @@ A `nevent` pins one event. When it names an addressable napplet (`35129`, with
 it and relays replaced the old event. A `nevent` carries no `d` tag, so Paja
 cannot tell which coordinate it belonged to. `findPajaPointerReplacements` asks
 the relays that answered for the author's current `35129` manifests and lists
-each `d` tag, newest first. Paja shows them as **Open …** buttons and picks
-none. Nothing is fetched from Blossom, verified, installed, or framed until the
+each `d` tag (up to 50). One candidate shows as an **Open …** button; several
+show as a picker with nothing preselected, because Paja picks none. Nothing is fetched from Blossom, verified, installed, or framed until the
 user clicks one. The click starts an ordinary `naddr` load, so the manifest
 signature, artifact hash, `(dTag, artifactHash)` identity, and version consent
 all run again for the new bytes. Paja never swaps bytes under the old
