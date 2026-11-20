@@ -113,19 +113,33 @@ describe('createWebrtcService', () => {
     expect(sent).toEqual([{ type: 'webrtc.send.result', id: 'send-3', error: 'session not found' }]);
   });
 
-  it('contains unknown webrtc actions', () => {
+  it('silently ignores unknown webrtc types and warns the host once', () => {
+    // NIP-5D (nostr-protocol/nips#2303 @ dskvr/nips@f60550c3): "Messages with an
+    // unrecognized `type` MUST be silently ignored." The old `.error` reply broke that.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const service = createWebrtcService();
     const { sent, send } = collectSent();
 
     service.handleMessage(WINDOW_ID, { type: 'webrtc.unknown', id: 'u1' } as NappletMessage, send);
+    service.handleMessage(WINDOW_ID, { type: 'webrtc.unknown', id: 'u2' } as NappletMessage, send);
 
-    expect(sent).toEqual([{ type: 'webrtc.unknown.error', id: 'u1', error: 'Unknown webrtc method: webrtc.unknown' }]);
+    expect(sent).toEqual([]);
+    const lines = warn.mock.calls.map(([line]) => String(line)).filter((line) => line.includes('[KEHTO_UNRECOGNIZED_MESSAGE_TYPE]'));
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain('"webrtc.unknown"');
+    expect(lines[0]).not.toContain('u1');
+    warn.mockRestore();
   });
 
-  it('returns correlated unsupported results for optional realtime operations', () => {
+  it('answers sendBytes with unsupported but ignores a stats request', () => {
+    // NAP-WEBRTC #59 @ fb4dd6f0: "A shell that does not support byte payloads
+    // returns the error `unsupported`." `stats` is only a shell-pushed event there,
+    // so a `webrtc.stats` request is an unrecognized type (NIP-5D: no reply).
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const service = createWebrtcService(), { sent, send } = collectSent();
     for (const type of ['webrtc.sendBytes', 'webrtc.stats']) service.handleMessage(WINDOW_ID, { type, id: type } as NappletMessage, send);
-    expect(sent).toEqual(['webrtc.sendBytes', 'webrtc.stats'].map(type => ({ type: `${type}.result`, id: type, error: 'unsupported' })));
+    expect(sent).toEqual([{ type: 'webrtc.sendBytes.result', id: 'webrtc.sendBytes', error: 'unsupported' }]);
+    warn.mockRestore();
   });
 
   it('contains synchronous backend send exceptions after a successful open', async () => {

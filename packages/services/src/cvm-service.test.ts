@@ -78,7 +78,7 @@ describe('createCvmService', () => {
       svc.handleMessage(WINDOW, { type: 'cvm.discover', id: 'invalid', query: { relays: ['https://not-a-relay.example'] } } as NappletMessage, send);
       await flush();
 
-      expect(sent).toEqual([{ type: 'cvm.discover.result', id: 'invalid', servers: [], error: 'invalid relay' }]);
+      expect(sent).toEqual([{ type: 'cvm.discover.result', id: 'invalid', error: 'invalid relay' }]);
       expect(authorizeOperation).not.toHaveBeenCalled();
       expect(transport.discover).not.toHaveBeenCalled();
     });
@@ -98,7 +98,7 @@ describe('createCvmService', () => {
       const { sent, send } = collectSent();
       svc.handleMessage(WINDOW, { type: 'cvm.discover', id: 'd2' } as NappletMessage, send);
       await flush();
-      expect(sent[0]).toEqual({ type: 'cvm.discover.result', id: 'd2', servers: [], error: 'relay timeout' });
+      expect(sent[0]).toEqual({ type: 'cvm.discover.result', id: 'd2', error: 'relay timeout' });
     });
   });
 

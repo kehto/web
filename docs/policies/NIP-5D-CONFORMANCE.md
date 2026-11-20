@@ -308,7 +308,7 @@ Checked NAP-INTENT PR #106 at `napplet/naps@fc121fc264615482143eda86125863d2e1f7
 
 `@napplet/nap@0.32.0` (the fixture line) is behind the checked NAP. Host packages take the intent value types from `@napplet/core@0.41.0`, which matches the checked draft (napplet/web#329): `packages/services/src/intent-types.ts` only re-exports them under the existing `@kehto/services` names and declares no local contract. The shell's injected `window.napplet.intent` receiver stays Kehto-owned because the host must install it before `shell.ready`. Like the `@napplet/nap@0.40.0` binding, it drops deliveries without a non-empty string sender and never forwards a delivery ID. `sourceWindowId` is internal host correlation and never wire data. Legacy INC fallback remains separately tracked as `KEHTO_COMPAT_INTENT_INC`; legacy object invoke is tracked as `KEHTO_COMPAT_INTENT_OBJECT_INVOKE`.
 
-NIP-5D bytes are verified before `srcdoc` execution; injected bootstraps are deliberately outside the signed artifact hash and unknown `MessageEvent.source` values are dropped. Paja's external URL uses a signed ephemeral launcher to provide an authenticated source. Opening a shared link follows ordinary verified-pointer navigation policy and opens the app directly. A conflicting applicable saved default and verified link hint require a named-app choice; a one-time choice never changes the default. Persisted catalog pointers are discovery inputs that must be reverified independently of open tabs. A native external host source has no verified iframe endpoint and remains a deferred upstream spec gap.
+NIP-5D bytes are verified before `srcdoc` execution; injected bootstraps are deliberately outside the signed artifact hash and unknown `MessageEvent.source` values are dropped. Paja's external URL uses a signed ephemeral launcher to provide an authenticated source. Opening a shared link follows ordinary verified-pointer navigation policy and opens the app directly. A conflicting applicable saved default and verified link hint require a named-app choice; a one-time choice never changes the default. Persisted catalog pointers are discovery inputs that must be reverified independently of open tabs. A replacement offered for a `nevent` whose event is gone is discovery only: nothing is fetched or framed until the user picks it, and the pick is a fresh verified `naddr` load. A native external host source has no verified iframe endpoint and remains a deferred upstream spec gap.
 
 ### Active NAP-IDENTITY and NAP-THEME boundary
 
@@ -664,3 +664,26 @@ The new package subpaths do not imply host support. Paja records `blossom`, `cat
 - NAP-TORRENT PR #72: `bc99787e3cf049229da5e6bde55362a040724096`.
 
 `packages/paja/src/parity.test.ts` verifies the installed export inventory and the resolved environment's domain/service absence. Existing shell and Paja browser regressions cover canonical intent shape, parent trust, readiness buffering and exactly-once delivery.
+
+## Unrecognized message types (#465)
+
+Checked NIP-5D PR #2303 at `dskvr/nips@f60550c3409d6d81a875088ec83e660571e10504`
+(`5D.md`): "Messages with an unrecognized `type` MUST be silently ignored." and
+"Unrecognized message types are silently ignored, preventing capability
+probing." Conformant. No runtime handler, `@kehto/services` reference service,
+ACL/firewall denial or Paja multiplayer stub replies to a type its owning NAP
+does not define. Known types with malformed payloads keep their NAP's failure
+result. A `webrtc.stats` request is treated as unknown because NAP-WEBRTC #59 at
+`fb4dd6f0e6294e1837733d2af61931e3e114bd97` defines `stats` only as a pushed
+event; `storage.clear` is unknown because NAP-STORAGE #3 at `4f4cf0ca` does not
+define it. The per-domain request tables used by the denial path cite their
+NAP refs in `packages/runtime/src/policy-denials.ts`.
+
+`tests/unit/nip5d-conformance-guard.test.ts` is behavioural: it drives every
+`create*Service` export, the runtime with and without ACL denial and every NAP
+mock with undefined types and fails on any reply or push. It has no allowlist.
+The legacy `createNotificationService` still answers `notify.create/list/read`,
+which are tracked in [the compatibility register](../compatibility.md); its
+unknown types are silent and the guard covers it. Host diagnostics and the
+retired replies are recorded under `KEHTO_UNRECOGNIZED_MESSAGE_TYPE` there.
+

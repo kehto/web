@@ -762,6 +762,28 @@ describe('NIP-5D napplet namespace prelude', () => {
     });
   });
 
+  it('passes the NAP-LINK denial reason through the open() result unchanged', async () => {
+    // NAP-LINK napplet/naps PR #53 head 100e5c939ae6: open() resolves with a LinkOpenResult whose
+    // optional error, when present on the wire, is passed through unchanged and absent when opened.
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['link'] }), target);
+    const link = (target.napplet as Record<string, Record<string, (...args: unknown[]) => Promise<Record<string, unknown>>>>).link;
+
+    const denied = link.open('file:///etc/passwd');
+    const deniedRequest = target.postedMessages.at(-1);
+    expect(deniedRequest).toMatchObject({ type: 'link.open', url: 'file:///etc/passwd' });
+    target.dispatchParentMessage({ type: 'link.open.result', id: deniedRequest?.id, status: 'denied', error: 'unsupported-scheme' });
+    await expect(denied).resolves.toMatchObject({ status: 'denied', error: 'unsupported-scheme' });
+
+    const opened = link.open('https://example.com/post/123', { label: 'Read post' });
+    const openedRequest = target.postedMessages.at(-1);
+    expect(openedRequest).toMatchObject({ type: 'link.open', url: 'https://example.com/post/123', options: { label: 'Read post' } });
+    target.dispatchParentMessage({ type: 'link.open.result', id: openedRequest?.id, status: 'opened' });
+    const result = await opened;
+    expect(result.status).toBe('opened');
+    expect(Object.prototype.hasOwnProperty.call(result, 'error')).toBe(false);
+  });
+
   it('projects canonical resource URL and base64 wire values', async () => {
     const target = createPreludeTestWindow();
     runPrelude(renderNappletNamespacePrelude({ domains: ['resource'] }), target);
