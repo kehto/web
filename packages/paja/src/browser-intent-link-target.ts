@@ -1,5 +1,6 @@
 /** Verified routing policy for a shared link's named app and saved preference. */
 
+import { NAPPLET_KIND_NAMED } from '@kehto/nip/5d';
 import { resolveShellEnvironment } from '@kehto/shell';
 import { naddrEncode } from 'nostr-tools/nip19';
 import { pajaPointerResolverOptions } from './browser-intent-host.js';
@@ -32,9 +33,9 @@ async function recommended(context: PajaBrowserStateContext, link: ParsedPajaInt
   if (!match) return null;
   const [, pubkey, identifier] = match;
   try {
-    const pointer = naddrEncode({ identifier, pubkey, kind: 35_129, relays: [...(hint.relays ?? [])] });
+    const pointer = naddrEncode({ identifier, pubkey, kind: NAPPLET_KIND_NAMED, relays: [...(hint.relays ?? [])] });
     const target = await resolvePajaPointer(pointer, pajaPointerResolverOptions(context));
-    return target.event.kind === 35_129 && target.event.pubkey === pubkey
+    return target.event.kind === NAPPLET_KIND_NAMED && target.event.pubkey === pubkey
       && target.manifest.dTag === identifier && supports(target, link) ? target : null;
   } catch { return null; }
 }

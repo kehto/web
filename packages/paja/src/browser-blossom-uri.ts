@@ -1,6 +1,6 @@
+import { getPajaSetting } from './settings.js';
 const BLOSSOM_URI = /^blossom:(?:sha256:)?([0-9a-f]{64})(?:\.([0-9a-z]+))?(?:\?([^#]*))?$/i;
 const HEX_64 = /^[0-9a-f]{64}$/i;
-const MAX_HINTS = 8;
 
 /** Internal read grammar; extensionless and mixed-case hashes are local compatibility. */
 export interface PajaBlossomUri {
@@ -14,7 +14,7 @@ export interface PajaBlossomUri {
 
 /** Parse untrusted URI syntax before any host discovery or transport. */
 export function parsePajaBlossomUri(value: string): PajaBlossomUri | null {
-  if (value.length > 8192 || /[\s\u0000-\u001f\u007f]/u.test(value)) return null;
+  if (value.length > getPajaSetting('blossom.maxUriChars') || /[\s\u0000-\u001f\u007f]/u.test(value)) return null;
   const match = BLOSSOM_URI.exec(value);
   if (!match?.[1]) return null;
   const query = match[3] ?? '';
@@ -45,5 +45,5 @@ export function parsePajaBlossomUri(value: string): PajaBlossomUri | null {
 }
 
 function appendHint(target: string[], value: string): void {
-  if (target.length < MAX_HINTS && !target.includes(value)) target.push(value);
+  if (target.length < getPajaSetting('blossom.maxUriHints') && !target.includes(value)) target.push(value);
 }

@@ -1,5 +1,6 @@
 import type { CvmRegistryFamily } from '@kehto/services';
 import { normalizePajaCvmFamily } from './multiplayer-config.js';
+import { getPajaSetting } from './settings.js';
 
 const KEY = 'kehto:paja:cvm-families:v1';
 export interface SavedCvmFamily {
@@ -10,10 +11,11 @@ export interface SavedCvmFamily {
 }
 
 function normalize(value: unknown): SavedCvmFamily[] {
-  if (!Array.isArray(value) || value.length > 16) throw new Error('Save at most 16 CVM families.');
+  const maxFamilies = getPajaSetting('cvm.maxSavedFamilies');
+  if (!Array.isArray(value) || value.length > maxFamilies) throw new Error(`Save at most ${String(maxFamilies)} CVM families.`);
   const pairs = new Set<string>();
   return value.map(entry => {
-    if (!entry || typeof entry.source !== 'string' || entry.source.length > 4096 || typeof entry.manual !== 'boolean') throw new Error('Invalid saved CVM family.');
+    if (!entry || typeof entry.source !== 'string' || entry.source.length > getPajaSetting('cvm.familySourceMaxChars') || typeof entry.manual !== 'boolean') throw new Error('Invalid saved CVM family.');
     const config = normalizePajaCvmFamily(entry.config);
     const pair = JSON.stringify([config.family, config.server.pubkey]);
     if (pairs.has(pair)) throw new Error('This family label and provider are already saved.');

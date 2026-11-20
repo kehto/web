@@ -1,0 +1,443 @@
+browser-adapter-support.ts:79	1000	event.created_at ??= Math.floor(Date.now() / 1000);
+browser-adapter.ts:184	10002	[{ kinds: [10_002], authors: [pubkey], limit: 2 }],
+browser-adapter.ts:188	10002	.filter((event) => event.kind === 10_002
+browser-blossom-events.ts:22	10063	export const BLOSSOM_SERVER_LIST_KIND = 10_063;
+browser-blossom-events.ts:25	5	const DEFAULT_SERVER_LIST_TTL_MS = 5 * 60_000;
+browser-blossom-events.ts:25	60000	const DEFAULT_SERVER_LIST_TTL_MS = 5 * 60_000;
+browser-blossom-events.ts:26	256	const MAX_RESOURCES_PER_WINDOW = 256;
+browser-blossom-events.ts:27	8	const MAX_CONTEXTS_PER_RESOURCE = 8;
+browser-blossom-events.ts:439	256	if (!value.startsWith('{') || value.length > 256 * 1024) return null;
+browser-blossom-events.ts:439	1024	if (!value.startsWith('{') || value.length > 256 * 1024) return null;
+browser-blossom-uri.ts:3	8	const MAX_HINTS = 8;
+browser-blossom-uri.ts:17	8192	if (value.length > 8192 || /[\s\u0000-\u001f\u007f]/u.test(value)) return null;
+browser-blossom-uri.ts:20	3	const query = match[3] ?? '';
+browser-common.ts:192	3	const events = await query([{ kinds: [3], authors: [author], limit: 16 }], relays, signal);
+browser-common.ts:192	16	const events = await query([{ kinds: [3], authors: [author], limit: 16 }], relays, signal);
+browser-common.ts:193	3	return newestVerified(events, (event) => event.kind === 3 && event.pubkey.toLowerCase() === author);
+browser-common.ts:236	3	kind: 3,
+browser-common.ts:237	1000	created_at: Math.floor(Date.now() / 1_000),
+browser-common.ts:262	16	const events = await query([{ kinds: [0], authors: [resolved.pubkey], limit: 16 }], plannedRelays, signal);
+browser-common.ts:284	8	const events = await query([{ ids: [targetEventId], limit: 8 }], relays, signal);
+browser-common.ts:290	7	return publish(active.signer, active.pubkey, { kind: 7, created_at: Math.floor(Date.now() / 1_000), tags, content: reaction }, relays, signal);
+browser-common.ts:290	1000	return publish(active.signer, active.pubkey, { kind: 7, created_at: Math.floor(Date.now() / 1_000), tags, content: reaction }, relays, signal);
+browser-common.ts:300	1984	return publish(active.signer, active.pubkey, { kind: 1_984, created_at: Math.floor(Date.now() / 1_000), tags: [['p', reportedPubkey, target.relay ?? '
+browser-common.ts:300	1000	return publish(active.signer, active.pubkey, { kind: 1_984, created_at: Math.floor(Date.now() / 1_000), tags: [['p', reportedPubkey, target.relay ?? '
+browser-common.ts:307	8	const events = await query([{ ids: [target.id], limit: 8 }], relays, signal);
+browser-common.ts:312	1984	return publish(active.signer, active.pubkey, { kind: 1_984, created_at: Math.floor(Date.now() / 1_000), tags: [['e', target.id.toLowerCase(), target.r
+browser-common.ts:312	1000	return publish(active.signer, active.pubkey, { kind: 1_984, created_at: Math.floor(Date.now() / 1_000), tags: [['e', target.id.toLowerCase(), target.r
+browser-config.ts:262	3	textarea.rows = 3;
+browser-cvm-settings.ts:60	15000	const timeout = setTimeout(() => controller.abort(new Error('Discovery timed out. Check the website and relay connections.')), 15000);
+browser-cvm-settings.ts:71	12	option.textContent = `${candidate.config.tools.length} tools · ${pubkey.slice(0, 12)}…${pubkey.slice(-12)}`;
+browser-cvm-settings.ts:71	12	option.textContent = `${candidate.config.tools.length} tools · ${pubkey.slice(0, 12)}…${pubkey.slice(-12)}`;
+browser-cvm-settings.ts:117	12	const view = document.createElement('button'); view.type = 'button'; view.textContent = `${entry.config.family} · ${entry.config.server.pubkey.slice(0
+browser-dev-runtime.ts:58	1000	template.created_at ??= Math.floor(Date.now() / 1000);
+browser-devtools.ts:88	500	const PAJA_LOG_LIMIT = 500;
+browser-devtools.ts:276	120	.slice(-120)
+browser-fs-support.ts:6	1024	export const MAX_READ_BYTES = 1024 * 1024;
+browser-fs-support.ts:6	1024	export const MAX_READ_BYTES = 1024 * 1024;
+browser-fs-support.ts:7	1024	export const MAX_WRITE_BYTES = 1024 * 1024;
+browser-fs-support.ts:7	1024	export const MAX_WRITE_BYTES = 1024 * 1024;
+browser-fs-support.ts:9	16	export const MAX_REVISION_BYTES = 16 * 1024 * 1024;
+browser-fs-support.ts:9	1024	export const MAX_REVISION_BYTES = 16 * 1024 * 1024;
+browser-fs-support.ts:9	1024	export const MAX_REVISION_BYTES = 16 * 1024 * 1024;
+browser-fs-support.ts:10	16	export const MAX_WATCH_COUNT = 16;
+browser-fs-support.ts:11	1000	export const WATCH_INTERVAL_MS = 1_000;
+browser-fs-support.ts:184	4	const decodedLength = (value.length / 4) * 3 - paddingBytes;
+browser-fs-support.ts:184	3	const decodedLength = (value.length / 4) * 3 - paddingBytes;
+browser-fs-support.ts:202	32768	const chunkSize = 32_768;
+browser-fs-support.ts:222	16	return `sha256:${Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')}`;
+browser-fs.ts:120	16	return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+browser-gamepad-indicators.ts:25	137.508	icon.style.setProperty('--pad-color', `hsl(${(pad.index * 137.508 + 155) % 360} 75% 70%)`);
+browser-gamepad-indicators.ts:25	155	icon.style.setProperty('--pad-color', `hsl(${(pad.index * 137.508 + 155) % 360} 75% 70%)`);
+browser-gamepad-indicators.ts:25	360	icon.style.setProperty('--pad-color', `hsl(${(pad.index * 137.508 + 155) % 360} 75% 70%)`);
+browser-gamepad-indicators.ts:26	6	icon.style.setProperty('--pad-turn', `${(pad.index % 2 ? -1 : 1) * (6 + pad.index * 2)}deg`);
+browser-gamepad-indicators.ts:27	4	icon.style.setProperty('--pad-lift', `${-2 - pad.index % 4}px`);
+browser-gamepad-indicators.ts:28	480	icon.style.setProperty('--pad-duration', `${480 + pad.index * 85}ms`);
+browser-gamepad-indicators.ts:28	85	icon.style.setProperty('--pad-duration', `${480 + pad.index * 85}ms`);
+browser-gamepad-indicators.ts:29	4	icon.style.setProperty('--pad-animation', ['gamepad-bounce', 'gamepad-rock', 'gamepad-pulse', 'gamepad-nudge'][pad.index % 4]!);
+browser-gamepad-indicators.ts:54	0.12	const input = focused && (pad.axes.some((axis) => Math.abs(axis) > 0.12)
+browser-gamepad-indicators.ts:55	0.05	|| pad.buttons.some((button) => button.pressed || button.value > 0.05));
+browser-gamepad-indicators.ts:57	420	if (input) activeUntil.set(pad.index, now + 420);
+browser-host-signer.ts:348	65535	|| kind > 65_535
+browser-host-signer.ts:422	240	`Content: ${request.content.slice(0, 240)}`,
+browser-host-signer.ts:466	240	? event.content.slice(0, 240)
+browser-host.ts:430	12	const pointerStatus = `${resolvedTarget.dTag}:${resolvedTarget.aggregateHash.slice(0, 12)}`;
+browser-host.ts:840	5000	return relayBackend.query(relays, filters, 5000, { reason: 'host' }, signal);
+browser-intent-builder-controls.ts:53	3	control.rows = readOnly ? 3 : 5;
+browser-intent-builder-controls.ts:53	5	control.rows = readOnly ? 3 : 5;
+browser-intent-builder-payload.ts:40	35129	if (input.routing === 'recommend' && input.target.event.kind === 35129 && input.target.manifest.dTag) {
+browser-intent-builder-payload.ts:44	35129	kind: 35129,
+browser-intent-builder.ts:154	35129	appendIntentLinkBuilderOption(routing.control, 'recommend', 'Recommend this app', nextTarget.event.kind !== 35129 || !nextTarget.manifest.dTag);
+browser-intent-builder.ts:156	35129	routing.control.value = nextTarget.event.kind === 35129 && nextTarget.manifest.dTag ? 'recommend' : 'exact';
+browser-intent-controller.ts:59	10	const MAX_INTENT_DELIVERY_ATTEMPTS = 10;
+browser-intent-launcher-host.ts:67	10000	const timeout = window.setTimeout(() => readyReject(new Error('Paja intent launcher did not become ready')), 10_000);
+browser-intent-launcher-host.ts:76	10000	}, 10_000);
+browser-intent-link-target.ts:35	35129	const pointer = naddrEncode({ identifier, pubkey, kind: 35_129, relays: [...(hint.relays ?? [])] });
+browser-intent-link-target.ts:37	35129	return target.event.kind === 35_129 && target.event.pubkey === pubkey
+browser-link.ts:6	1000	const APPROVAL_CLICK_WINDOW_MS = 1_000;
+browser-link.ts:58	256	...(options?.label ? { label: options.label.slice(0, 256) } : {}), isCurrent };
+browser-lists.ts:30	10000	kind: 10_000,
+browser-lists.ts:38	10002	kind: 10_002,
+browser-lists.ts:46	10003	kind: 10_003,
+browser-lists.ts:54	30000	kind: 30_000,
+browser-lists.ts:138	10002	if (support.kind === 10_002) {
+browser-lists.ts:160	3	if (expected.length > 3 && tag[3] !== expected[3]) return false;
+browser-lists.ts:160	3	if (expected.length > 3 && tag[3] !== expected[3]) return false;
+browser-lists.ts:160	3	if (expected.length > 3 && tag[3] !== expected[3]) return false;
+browser-lists.ts:221	16	limit: 16,
+browser-lists.ts:300	10002	if (resolved.support.kind === 10_002) {
+browser-lists.ts:330	1000	created_at: Math.floor(Date.now() / 1_000),
+browser-llm-connections.ts:35	32	const MAX_CONNECTIONS = 32;
+browser-llm-connections.ts:110	64	if (!name || name.length > 64) throw new Error('Enter a connection name of up to 64 characters.');
+browser-llm-connections.ts:111	200	if (!model || model.length > 200) throw new Error('Enter the exact provider model identifier.');
+browser-llm-connections.ts:120	64	id, name, presetId: text(input.presetId).slice(0, 64), protocol,
+browser-llm-models.ts:30	8000	export const PAJA_LLM_MODELS_TIMEOUT_MS = 8000;
+browser-llm-models.ts:124	1000	? `No answer from the server within ${String(Math.round(timeoutMs / 1000))}s.`
+browser-llm-panel.ts:59	8	const random = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID().slice(0, 8) : Math.random().toString(16)
+browser-llm-panel.ts:59	16	const random = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID().slice(0, 8) : Math.random().toString(16)
+browser-llm-panel.ts:59	10	const random = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID().slice(0, 8) : Math.random().toString(16)
+browser-llm-panel.ts:109	12	? `Paja encrypts remembered API keys with this password (PBKDF2-SHA-256 and AES-GCM). It is never stored or sent anywhere; use at least ${String(12)} 
+browser-llm-vault.ts:16	12	export const PAJA_LLM_VAULT_MIN_PASSWORD_LENGTH = 12;
+browser-llm-vault.ts:20	600000	const DEFAULT_ITERATIONS = 600_000;
+browser-llm-vault.ts:21	16	const SALT_BYTES = 16;
+browser-llm-vault.ts:22	12	const IV_BYTES = 12;
+browser-llm-vault.ts:86	4	if (new Set(password).size < 4) return 'Use a password with more distinct characters.';
+browser-llm-vault.ts:154	256	{ name: 'AES-GCM', length: 256 },
+browser-local-loader.ts:55	12	const identityStatus = `local ${target.dTag}:${target.aggregateHash.slice(0, 12)}`;
+browser-multiplayer-identity.ts:8	5129	const address = event.kind === 5129 ? event.tags.find(tag => tag[0] === 'a')?.[1] : `${event.kind}:${event.pubkey}:${target.dTag}`;
+browser-nip46-client.ts:55	64	if (!pubkey || pubkey.length !== 64 || !/^[0-9a-f]+$/u.test(pubkey)) return null;
+browser-nip46-client.ts:87	30000	timeout: options.timeout ?? 30_000,
+browser-nip46-client.ts:91	8	subId: `paja-nip46-${localPubkey.substring(0, 8)}`,
+browser-nip46-client.ts:98	32	if (secretKey.length !== 32) {
+browser-nip46-client.ts:129	24133	kind: 24_133,
+browser-nip46-client.ts:130	1000	created_at: Math.floor(Date.now() / 1000),
+browser-nip46-client.ts:156	24133	if (!event || event.kind !== 24_133 || typeof event.content !== 'string') return;
+browser-nip46-client.ts:193	24133	{ kinds: [24_133], '#p': [state.localPubkey] },
+browser-notify.ts:181	3	const requestedActions = message.actions?.slice(0, 3) ?? [];
+browser-notify.ts:216	9999	badge.textContent = `${originLabel(options.getIdentity, windowId)}: ${Math.min(count, 9999)}`;
+browser-operation-scope.ts:12	16	const documentId = Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('');
+browser-operation-scope.ts:12	16	const documentId = Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('');
+browser-relay-panel.ts:423	12	return pubkey.length > 12 ? `${pubkey.slice(0, 8)}…${pubkey.slice(-4)}` : pubkey;
+browser-relay-panel.ts:423	8	return pubkey.length > 12 ? `${pubkey.slice(0, 8)}…${pubkey.slice(-4)}` : pubkey;
+browser-relay-panel.ts:423	4	return pubkey.length > 12 ? `${pubkey.slice(0, 8)}…${pubkey.slice(-4)}` : pubkey;
+browser-relay-panel.ts:494	100	fill.style.width = `${Math.round((relay.count / busiest) * 100)}%`;
+browser-relay-policy.ts:64	4	if (octets.length !== 4 || octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) return true;
+browser-relay-policy.ts:64	255	if (octets.length !== 4 || octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) return true;
+browser-relay-policy.ts:67	10	&& first !== 10
+browser-relay-policy.ts:68	127	&& first !== 127
+browser-relay-policy.ts:69	224	&& first < 224
+browser-relay-policy.ts:70	100	&& !(first === 100 && second >= 64 && second <= 127)
+browser-relay-policy.ts:70	64	&& !(first === 100 && second >= 64 && second <= 127)
+browser-relay-policy.ts:70	127	&& !(first === 100 && second >= 64 && second <= 127)
+browser-relay-policy.ts:71	169	&& !(first === 169 && second === 254)
+browser-relay-policy.ts:71	254	&& !(first === 169 && second === 254)
+browser-relay-policy.ts:72	172	&& !(first === 172 && second >= 16 && second <= 31)
+browser-relay-policy.ts:72	16	&& !(first === 172 && second >= 16 && second <= 31)
+browser-relay-policy.ts:72	31	&& !(first === 172 && second >= 16 && second <= 31)
+browser-relay-policy.ts:73	192	&& !(first === 192 && second === 168)
+browser-relay-policy.ts:73	168	&& !(first === 192 && second === 168)
+browser-relay-policy.ts:74	198	&& !(first === 198 && (second === 18 || second === 19));
+browser-relay-policy.ts:74	18	&& !(first === 198 && (second === 18 || second === 19));
+browser-relay-policy.ts:74	19	&& !(first === 198 && (second === 18 || second === 19));
+browser-relay-runtime.ts:20	10002	export const PAJA_NIP65_RELAY_LIST_KIND = 10_002;
+browser-relay-runtime.ts:21	3	export const PAJA_CONTACT_LIST_KIND = 3;
+browser-relay-runtime.ts:22	25050	const PAJA_WEBRTC_SIGNAL_KIND = 25_050;
+browser-relay-runtime.ts:23	1059	const NIP17_GIFT_WRAP_KIND = 1_059;
+browser-relay-runtime.ts:29	64	export const PAJA_CONTACT_LIST_CANDIDATE_LIMIT = 64;
+browser-relay-runtime.ts:30	4000	export const PAJA_LIVE_QUERY_WAIT_MS = 4_000;
+browser-relay-runtime.ts:616	10	limit: Math.max(missing.length * 2, 10),
+browser-resource.ts:15	10	export const PAJA_RESOURCE_MAX_BYTES = 10 * 1024 * 1024;
+browser-resource.ts:15	1024	export const PAJA_RESOURCE_MAX_BYTES = 10 * 1024 * 1024;
+browser-resource.ts:15	1024	export const PAJA_RESOURCE_MAX_BYTES = 10 * 1024 * 1024;
+browser-resource.ts:17	100	export const PAJA_RESOURCE_MAX_URLS = 100;
+browser-resource.ts:19	8	export const PAJA_RESOURCE_MAX_SERVERS = 8;
+browser-resource.ts:23	206	0xce, 0xed, 0x66, 0x66, 0xcc, 0x0d, 0x00, 0x0b,
+browser-resource.ts:23	237	0xce, 0xed, 0x66, 0x66, 0xcc, 0x0d, 0x00, 0x0b,
+browser-resource.ts:23	102	0xce, 0xed, 0x66, 0x66, 0xcc, 0x0d, 0x00, 0x0b,
+browser-resource.ts:23	102	0xce, 0xed, 0x66, 0x66, 0xcc, 0x0d, 0x00, 0x0b,
+browser-resource.ts:23	204	0xce, 0xed, 0x66, 0x66, 0xcc, 0x0d, 0x00, 0x0b,
+browser-resource.ts:23	13	0xce, 0xed, 0x66, 0x66, 0xcc, 0x0d, 0x00, 0x0b,
+browser-resource.ts:23	11	0xce, 0xed, 0x66, 0x66, 0xcc, 0x0d, 0x00, 0x0b,
+browser-resource.ts:24	3	0x03, 0x73, 0x00, 0x83, 0x00, 0x0c, 0x00, 0x0d,
+browser-resource.ts:24	115	0x03, 0x73, 0x00, 0x83, 0x00, 0x0c, 0x00, 0x0d,
+browser-resource.ts:24	131	0x03, 0x73, 0x00, 0x83, 0x00, 0x0c, 0x00, 0x0d,
+browser-resource.ts:24	12	0x03, 0x73, 0x00, 0x83, 0x00, 0x0c, 0x00, 0x0d,
+browser-resource.ts:24	13	0x03, 0x73, 0x00, 0x83, 0x00, 0x0c, 0x00, 0x0d,
+browser-resource.ts:25	8	0x00, 0x08, 0x11, 0x1f, 0x88, 0x89, 0x00, 0x0e,
+browser-resource.ts:25	17	0x00, 0x08, 0x11, 0x1f, 0x88, 0x89, 0x00, 0x0e,
+browser-resource.ts:25	31	0x00, 0x08, 0x11, 0x1f, 0x88, 0x89, 0x00, 0x0e,
+browser-resource.ts:25	136	0x00, 0x08, 0x11, 0x1f, 0x88, 0x89, 0x00, 0x0e,
+browser-resource.ts:25	137	0x00, 0x08, 0x11, 0x1f, 0x88, 0x89, 0x00, 0x0e,
+browser-resource.ts:25	14	0x00, 0x08, 0x11, 0x1f, 0x88, 0x89, 0x00, 0x0e,
+browser-resource.ts:26	220	0xdc, 0xcc, 0x6e, 0xe6, 0xdd, 0xdd, 0xd9, 0x99,
+browser-resource.ts:26	204	0xdc, 0xcc, 0x6e, 0xe6, 0xdd, 0xdd, 0xd9, 0x99,
+browser-resource.ts:26	110	0xdc, 0xcc, 0x6e, 0xe6, 0xdd, 0xdd, 0xd9, 0x99,
+browser-resource.ts:26	230	0xdc, 0xcc, 0x6e, 0xe6, 0xdd, 0xdd, 0xd9, 0x99,
+browser-resource.ts:26	221	0xdc, 0xcc, 0x6e, 0xe6, 0xdd, 0xdd, 0xd9, 0x99,
+browser-resource.ts:26	221	0xdc, 0xcc, 0x6e, 0xe6, 0xdd, 0xdd, 0xd9, 0x99,
+browser-resource.ts:26	217	0xdc, 0xcc, 0x6e, 0xe6, 0xdd, 0xdd, 0xd9, 0x99,
+browser-resource.ts:26	153	0xdc, 0xcc, 0x6e, 0xe6, 0xdd, 0xdd, 0xd9, 0x99,
+browser-resource.ts:27	187	0xbb, 0xbb, 0x67, 0x63, 0x6e, 0x0e, 0xec, 0xcc,
+browser-resource.ts:27	187	0xbb, 0xbb, 0x67, 0x63, 0x6e, 0x0e, 0xec, 0xcc,
+browser-resource.ts:27	103	0xbb, 0xbb, 0x67, 0x63, 0x6e, 0x0e, 0xec, 0xcc,
+browser-resource.ts:27	99	0xbb, 0xbb, 0x67, 0x63, 0x6e, 0x0e, 0xec, 0xcc,
+browser-resource.ts:27	110	0xbb, 0xbb, 0x67, 0x63, 0x6e, 0x0e, 0xec, 0xcc,
+browser-resource.ts:27	14	0xbb, 0xbb, 0x67, 0x63, 0x6e, 0x0e, 0xec, 0xcc,
+browser-resource.ts:27	236	0xbb, 0xbb, 0x67, 0x63, 0x6e, 0x0e, 0xec, 0xcc,
+browser-resource.ts:27	204	0xbb, 0xbb, 0x67, 0x63, 0x6e, 0x0e, 0xec, 0xcc,
+browser-resource.ts:28	221	0xdd, 0xdc, 0x99, 0x9f, 0xbb, 0xb9, 0x33, 0x3e,
+browser-resource.ts:28	220	0xdd, 0xdc, 0x99, 0x9f, 0xbb, 0xb9, 0x33, 0x3e,
+browser-resource.ts:28	153	0xdd, 0xdc, 0x99, 0x9f, 0xbb, 0xb9, 0x33, 0x3e,
+browser-resource.ts:28	159	0xdd, 0xdc, 0x99, 0x9f, 0xbb, 0xb9, 0x33, 0x3e,
+browser-resource.ts:28	187	0xdd, 0xdc, 0x99, 0x9f, 0xbb, 0xb9, 0x33, 0x3e,
+browser-resource.ts:28	185	0xdd, 0xdc, 0x99, 0x9f, 0xbb, 0xb9, 0x33, 0x3e,
+browser-resource.ts:28	51	0xdd, 0xdc, 0x99, 0x9f, 0xbb, 0xb9, 0x33, 0x3e,
+browser-resource.ts:28	62	0xdd, 0xdc, 0x99, 0x9f, 0xbb, 0xb9, 0x33, 0x3e,
+browser-resource.ts:127	5	for (let hops = 0; hops <= 5; hops += 1) {
+browser-resource.ts:141	5	if (typeof redirect.location !== 'string' || hops === 5) {
+browser-resource.ts:148	404	if (response.status === 404 || response.status === 410) {
+browser-resource.ts:148	410	if (response.status === 404 || response.status === 410) {
+browser-resource.ts:211	5	if (typeof redirect.location !== 'string' || hops === 5) {
+browser-resource.ts:225	404	if (response.status === 404 || response.status === 410) {
+browser-resource.ts:225	410	if (response.status === 404 || response.status === 410) {
+browser-resource.ts:334	4	if (octets.length !== 4 || octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) return true;
+browser-resource.ts:334	255	if (octets.length !== 4 || octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) return true;
+browser-resource.ts:337	10	&& first !== 10
+browser-resource.ts:338	127	&& first !== 127
+browser-resource.ts:339	224	&& first < 224
+browser-resource.ts:340	100	&& !(first === 100 && second >= 64 && second <= 127)
+browser-resource.ts:340	64	&& !(first === 100 && second >= 64 && second <= 127)
+browser-resource.ts:340	127	&& !(first === 100 && second >= 64 && second <= 127)
+browser-resource.ts:341	169	&& !(first === 169 && second === 254)
+browser-resource.ts:341	254	&& !(first === 169 && second === 254)
+browser-resource.ts:342	172	&& !(first === 172 && second >= 16 && second <= 31)
+browser-resource.ts:342	16	&& !(first === 172 && second >= 16 && second <= 31)
+browser-resource.ts:342	31	&& !(first === 172 && second >= 16 && second <= 31)
+browser-resource.ts:343	192	&& !(first === 192 && second === 168)
+browser-resource.ts:343	168	&& !(first === 192 && second === 168)
+browser-resource.ts:344	198	&& !(first === 198 && (second === 18 || second === 19));
+browser-resource.ts:344	18	&& !(first === 198 && (second === 18 || second === 19));
+browser-resource.ts:344	19	&& !(first === 198 && (second === 18 || second === 19));
+browser-resource.ts:412	4	return Math.ceil(maxBytes * 4 / 3) + 1024;
+browser-resource.ts:412	3	return Math.ceil(maxBytes * 4 / 3) + 1024;
+browser-resource.ts:412	1024	return Math.ceil(maxBytes * 4 / 3) + 1024;
+browser-resource.ts:435	137	if (startsWith(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return 'image/png';
+browser-resource.ts:435	80	if (startsWith(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return 'image/png';
+browser-resource.ts:435	78	if (startsWith(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return 'image/png';
+browser-resource.ts:435	71	if (startsWith(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return 'image/png';
+browser-resource.ts:435	13	if (startsWith(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return 'image/png';
+browser-resource.ts:435	10	if (startsWith(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return 'image/png';
+browser-resource.ts:435	26	if (startsWith(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return 'image/png';
+browser-resource.ts:435	10	if (startsWith(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return 'image/png';
+browser-resource.ts:436	255	if (startsWith(bytes, [0xff, 0xd8, 0xff])) return 'image/jpeg';
+browser-resource.ts:436	216	if (startsWith(bytes, [0xff, 0xd8, 0xff])) return 'image/jpeg';
+browser-resource.ts:436	255	if (startsWith(bytes, [0xff, 0xd8, 0xff])) return 'image/jpeg';
+browser-resource.ts:437	6	if (ascii(bytes, 0, 6) === 'GIF87a' || ascii(bytes, 0, 6) === 'GIF89a') return 'image/gif';
+browser-resource.ts:437	6	if (ascii(bytes, 0, 6) === 'GIF87a' || ascii(bytes, 0, 6) === 'GIF89a') return 'image/gif';
+browser-resource.ts:438	4	if (ascii(bytes, 0, 4) === 'RIFF' && ascii(bytes, 8, 12) === 'WEBP') return 'image/webp';
+browser-resource.ts:438	8	if (ascii(bytes, 0, 4) === 'RIFF' && ascii(bytes, 8, 12) === 'WEBP') return 'image/webp';
+browser-resource.ts:438	12	if (ascii(bytes, 0, 4) === 'RIFF' && ascii(bytes, 8, 12) === 'WEBP') return 'image/webp';
+browser-resource.ts:439	4	if (ascii(bytes, 0, 4) === 'RIFF' && ascii(bytes, 8, 12) === 'WAVE') return 'audio/wav';
+browser-resource.ts:439	8	if (ascii(bytes, 0, 4) === 'RIFF' && ascii(bytes, 8, 12) === 'WAVE') return 'audio/wav';
+browser-resource.ts:439	12	if (ascii(bytes, 0, 4) === 'RIFF' && ascii(bytes, 8, 12) === 'WAVE') return 'audio/wav';
+browser-resource.ts:440	4	if (ascii(bytes, 0, 4) === 'OggS') return 'audio/ogg';
+browser-resource.ts:441	3	if (ascii(bytes, 0, 3) === 'ID3' || startsWith(bytes, [0xff, 0xfb])) return 'audio/mpeg';
+browser-resource.ts:441	255	if (ascii(bytes, 0, 3) === 'ID3' || startsWith(bytes, [0xff, 0xfb])) return 'audio/mpeg';
+browser-resource.ts:441	251	if (ascii(bytes, 0, 3) === 'ID3' || startsWith(bytes, [0xff, 0xfb])) return 'audio/mpeg';
+browser-resource.ts:442	26	if (startsWith(bytes, [0x1a, 0x45, 0xdf, 0xa3])) return 'video/webm';
+browser-resource.ts:442	69	if (startsWith(bytes, [0x1a, 0x45, 0xdf, 0xa3])) return 'video/webm';
+browser-resource.ts:442	223	if (startsWith(bytes, [0x1a, 0x45, 0xdf, 0xa3])) return 'video/webm';
+browser-resource.ts:442	163	if (startsWith(bytes, [0x1a, 0x45, 0xdf, 0xa3])) return 'video/webm';
+browser-resource.ts:443	4	if (ascii(bytes, 4, 8) === 'ftyp') return 'video/mp4';
+browser-resource.ts:443	8	if (ascii(bytes, 4, 8) === 'ftyp') return 'video/mp4';
+browser-resource.ts:444	4	if (ascii(bytes, 0, 4) === 'wOFF') return 'font/woff';
+browser-resource.ts:445	4	if (ascii(bytes, 0, 4) === 'wOF2') return 'font/woff2';
+browser-resource.ts:451	336	if (bytes.byteLength < 0x150 || !startsWith(bytes, GAME_BOY_NINTENDO_LOGO, 0x104)) return false;
+browser-resource.ts:451	260	if (bytes.byteLength < 0x150 || !startsWith(bytes, GAME_BOY_NINTENDO_LOGO, 0x104)) return false;
+browser-resource.ts:453	308	for (let index = 0x134; index <= 0x14c; index += 1) {
+browser-resource.ts:453	332	for (let index = 0x134; index <= 0x14c; index += 1) {
+browser-resource.ts:454	255	checksum = (checksum - (bytes[index] ?? 0) - 1) & 0xff;
+browser-resource.ts:456	333	return checksum === bytes[0x14d];
+browser-resource.ts:497	255	startsWith(bytes, [0xff, 0xfe, 0x00, 0x00])
+browser-resource.ts:497	254	startsWith(bytes, [0xff, 0xfe, 0x00, 0x00])
+browser-resource.ts:498	254	|| startsWith(bytes, [0x00, 0x00, 0xfe, 0xff])
+browser-resource.ts:498	255	|| startsWith(bytes, [0x00, 0x00, 0xfe, 0xff])
+browser-resource.ts:499	60	|| startsWith(bytes, [0x3c, 0x00, 0x00, 0x00])
+browser-resource.ts:500	60	|| startsWith(bytes, [0x00, 0x00, 0x00, 0x3c])
+browser-resource.ts:504	255	if (startsWith(bytes, [0xff, 0xfe]) || startsWith(bytes, [0x3c, 0x00])) {
+browser-resource.ts:504	254	if (startsWith(bytes, [0xff, 0xfe]) || startsWith(bytes, [0x3c, 0x00])) {
+browser-resource.ts:504	60	if (startsWith(bytes, [0xff, 0xfe]) || startsWith(bytes, [0x3c, 0x00])) {
+browser-resource.ts:506	254	} else if (startsWith(bytes, [0xfe, 0xff]) || startsWith(bytes, [0x00, 0x3c])) {
+browser-resource.ts:506	255	} else if (startsWith(bytes, [0xfe, 0xff]) || startsWith(bytes, [0x00, 0x3c])) {
+browser-resource.ts:506	60	} else if (startsWith(bytes, [0xfe, 0xff]) || startsWith(bytes, [0x00, 0x3c])) {
+browser-runtime-tabs.ts:274	12	pointerStatus: `${resolvedTarget.dTag}:${resolvedTarget.aggregateHash.slice(0, 12)}`,
+browser-runtime-tabs.ts:580	12	return title && title.length > 0 ? title : target.dTag || target.aggregateHash.slice(0, 12);
+browser-signer-consent.ts:5	128	const MAX_CONSENT_SUBJECTS = 128;
+browser-signer-consent.ts:6	128	const MAX_KINDS_PER_SUBJECT = 128;
+browser-signer-consent.ts:7	512	const MAX_IDENTITY_FIELD_LENGTH = 512;
+browser-signer-consent.ts:295	65535	&& value <= 65_535
+browser-social-cache.ts:51	64	const FOLLOW_PARSE_YIELD_EVERY = 64;
+browser-social-cache.ts:53	64	const PROFILE_WARM_YIELD_EVERY = 64;
+browser-social-cache.ts:205	3	return event.kind === 3 && normalizePubkey(event.pubkey) === capturedPubkey;
+browser-target-frame.ts:304	16	const sha256 = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+browser-upload.ts:18	10063	const BLOSSOM_SERVER_LIST_KIND = 10_063;
+browser-webrtc-profile.ts:11	16384	const MAX_BYTES = 16_384;
+browser-webrtc-profile.ts:39	256	if (typeof request.scope.room !== 'string' || !request.scope.room || request.scope.room.length > 256) throw new Error('Invalid room');
+browser-webrtc-profile.ts:40	8	if (request.scope.peers && (!Array.isArray(request.scope.peers) || request.scope.peers.length > 8 || request.scope.peers.some(key => !HEX.test(key))))
+browser-webrtc-profile.ts:42	64	if (request.channel !== undefined && (typeof request.channel !== 'string' || !request.channel || request.channel.length > 64)) throw new Error('Invali
+browser-webrtc-profile.ts:43	128	if (request.protocol !== undefined && (typeof request.protocol !== 'string' || request.protocol.length > 128)) throw new Error('Invalid protocol');
+browser-webrtc-profile.ts:57	8000	const timer = setTimeout(finish, 8_000);
+browser-webrtc-profile.ts:90	1000	const now = Math.floor(Date.now() / 1000);
+browser-webrtc-profile.ts:91	25050	const event = finalizeEvent({ kind: 25050, created_at: now, content,
+browser-webrtc-profile.ts:92	60	tags: [['d', s.wire], ['expiration', String(now + 60)], ...(recipient ? [['p', recipient]] : [])],
+browser-webrtc-profile.ts:110	1000	if (Date.now() - since > 1000) { since = Date.now(); received = 0; bytes = 0; }
+browser-webrtc-profile.ts:111	240	if (size > MAX_BYTES || ++received > 240 || (bytes += size) > 524288) return;
+browser-webrtc-profile.ts:111	524288	if (size > MAX_BYTES || ++received > 240 || (bytes += size) > 524288) return;
+browser-webrtc-profile.ts:117	4	if (p.queued >= 4) return;
+browser-webrtc-profile.ts:124	1000	if (Date.now() - s.signalWindow > 1000) { s.signalWindow = Date.now(); s.signals = 0; }
+browser-webrtc-profile.ts:125	32	if (++s.signals > 32 || event.kind !== 25050 || event.pubkey === self || event.content.length > 64000
+browser-webrtc-profile.ts:125	25050	if (++s.signals > 32 || event.kind !== 25050 || event.pubkey === self || event.content.length > 64000
+browser-webrtc-profile.ts:125	64000	if (++s.signals > 32 || event.kind !== 25050 || event.pubkey === self || event.content.length > 64000
+browser-webrtc-profile.ts:126	1000	|| Math.abs(Date.now() / 1000 - event.created_at) > 60 || s.seen.has(event.id)
+browser-webrtc-profile.ts:126	60	|| Math.abs(Date.now() / 1000 - event.created_at) > 60 || s.seen.has(event.id)
+browser-webrtc-profile.ts:132	2048	if (s.seen.size >= 2048) s.seen.delete(s.seen.values().next().value!);
+browser-webrtc-profile.ts:136	64	if (!body || body.v !== PROFILE || body.wire !== s.wire || typeof body.nonce !== 'string' || !body.nonce || body.nonce.length > 64
+browser-webrtc-profile.ts:143	256	if (s.retired.size >= 256) { close(s, 'Peer incarnation limit reached'); return; }
+browser-webrtc-profile.ts:146	8	if (peer || s.peers.size >= 8) return;
+browser-webrtc-profile.ts:162	32000	if (!peer || body.nonce !== peer.nonce || typeof body.sdp !== 'string' || body.sdp.length > 32000) return;
+browser-webrtc-profile.ts:185	25050	const sub = options.relay.subscribe(options.relays, [{ kinds: [25050], '#d': [s.wire], since: Math.floor(Date.now() / 1000) - 10 }], event => { void r
+browser-webrtc-profile.ts:185	1000	const sub = options.relay.subscribe(options.relays, [{ kinds: [25050], '#d': [s.wire], since: Math.floor(Date.now() / 1000) - 10 }], event => { void r
+browser-webrtc-profile.ts:185	10	const sub = options.relay.subscribe(options.relays, [{ kinds: [25050], '#d': [s.wire], since: Math.floor(Date.now() / 1000) - 10 }], event => { void r
+browser-webrtc-profile.ts:191	45000	if (!p.joined && Date.now() - p.started > 45000) { removePeer(s, p); continue; }
+browser-webrtc-profile.ts:195	2000	tick(); s.timer = setInterval(tick, 2000);
+browser-webrtc-profile.ts:210	262144	if (channels.some(c => c.bufferedAmount + encoder.encode(json).length > 262144)) throw new Error('QUEUE_FULL');
+browser-webrtc-profile.ts:224	4	if (sessions.size + openings.size >= 4) throw new Error('session limit reached');
+browser-webrtc-profile.ts:233	16	const wire = Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
+browser-webrtc.ts:22	25050	export const PAJA_WEBRTC_SIGNAL_KIND = 25_050;
+browser-webrtc.ts:23	64	export const PAJA_WEBRTC_MAX_PAYLOAD_BYTES = 64 * 1024;
+browser-webrtc.ts:23	1024	export const PAJA_WEBRTC_MAX_PAYLOAD_BYTES = 64 * 1024;
+browser-webrtc.ts:24	4	export const PAJA_WEBRTC_MAX_SESSIONS_PER_WINDOW = 4;
+browser-webrtc.ts:25	8	export const PAJA_WEBRTC_MAX_PEERS = 8;
+browser-webrtc.ts:26	5	const SIGNAL_MAX_AGE_SECONDS = 5 * 60;
+browser-webrtc.ts:26	60	const SIGNAL_MAX_AGE_SECONDS = 5 * 60;
+browser-webrtc.ts:27	8000	const ICE_GATHER_TIMEOUT_MS = 8_000;
+browser-webrtc.ts:28	1024	const BUFFERED_AMOUNT_LIMIT = 1024 * 1024;
+browser-webrtc.ts:28	1024	const BUFFERED_AMOUNT_LIMIT = 1024 * 1024;
+browser-webrtc.ts:314	1000	if (Math.abs(Math.floor(Date.now() / 1000) - event.created_at) > SIGNAL_MAX_AGE_SECONDS) return false;
+browser-webrtc.ts:320	256	if (session.seenSignals.size > 256) session.seenSignals.delete(session.seenSignals.values().next().value!);
+browser-webrtc.ts:455	1000	created_at: Math.floor(Date.now() / 1000),
+browser-webrtc.ts:545	8	if (typeof request.scope.room !== 'string' || request.scope.room.length < 8 || request.scope.room.length > 128) {
+browser-webrtc.ts:545	128	if (typeof request.scope.room !== 'string' || request.scope.room.length < 8 || request.scope.room.length > 128) {
+browser-webrtc.ts:555	64	if (request.channel !== undefined && (request.channel.length < 1 || request.channel.length > 64)) {
+browser-webrtc.ts:558	64	if (request.protocol !== undefined && request.protocol.length > 64) throw new Error('unsupported protocol');
+browser-webrtc.ts:562	1000	const base = { kinds: [PAJA_WEBRTC_SIGNAL_KIND], since: Math.floor(Date.now() / 1000) - 60 };
+browser-webrtc.ts:562	60	const base = { kinds: [PAJA_WEBRTC_SIGNAL_KIND], since: Math.floor(Date.now() / 1000) - 60 };
+browser-webrtc.ts:614	16	return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+cli.ts:168	2000	timeoutMs = 2000,
+cli.ts:491	1000	const graceMs = options.discoveryGraceMs ?? Math.min(1000, options.timeoutMs);
+cvm-discovery.ts:8	1000000	const MAX_BYTES = 1_000_000;
+cvm-discovery.ts:9	64	const LIMIT = 64;
+cvm-discovery.ts:27	2048	if (!text || text.length > 2048) throw new Error('Enter a nevent, a 64-character tool schema hash, or a website URL.');
+cvm-discovery.ts:32	11316	if (decoded.type !== 'nevent' || (decoded.data.kind !== undefined && ![11316, 11317].includes(decoded.data.kind))) throw new Error('Use a CVM server o
+cvm-discovery.ts:32	11317	if (decoded.type !== 'nevent' || (decoded.data.kind !== undefined && ![11316, 11317].includes(decoded.data.kind))) throw new Error('Use a CVM server o
+cvm-discovery.ts:93	256	if (!record(raw) || typeof raw.name !== 'string' || !raw.name.trim() || raw.name.length > 256 || names.has(raw.name)
+cvm-discovery.ts:114	11317	events = await query(deps, relays, { kinds: [11317], authors: [provider.pubkey] }, signal);
+cvm-discovery.ts:117	11317	events = await query(deps, relays, reference.type === 'hash' ? { kinds: [11317], '#i': [reference.hash] }
+cvm-discovery.ts:118	11316	: { ids: [reference.id], kinds: [11316, 11317], ...(reference.author ? { authors: [reference.author] } : {}) }, signal);
+cvm-discovery.ts:118	11317	: { ids: [reference.id], kinds: [11316, 11317], ...(reference.author ? { authors: [reference.author] } : {}) }, signal);
+cvm-discovery.ts:119	11316	if (reference.type === 'event' && events[0]?.kind === 11316) events = await query(deps, relays, { kinds: [11317], authors: [events[0].pubkey] }, signa
+cvm-discovery.ts:119	11317	if (reference.type === 'event' && events[0]?.kind === 11316) events = await query(deps, relays, { kinds: [11317], authors: [events[0].pubkey] }, signa
+cvm-discovery.ts:125	10002	: await query(deps, relays, { kinds: [10002], authors: [...latest.keys()] }, signal);
+cvm-discovery.ts:136	12	candidates.push({ config: { family: `cvm.${event.pubkey.slice(0, 12)}`, server: { pubkey: event.pubkey, relays: providerRelays }, tools },
+cvm-family-store.ts:13	16	if (!Array.isArray(value) || value.length > 16) throw new Error('Save at most 16 CVM families.');
+cvm-family-store.ts:16	4096	if (!entry || typeof entry.source !== 'string' || entry.source.length > 4096 || typeof entry.manual !== 'boolean') throw new Error('Invalid saved CVM 
+intent-launcher.ts:19	35129	kind: 35129,
+intent-launcher.ts:20	1760054400	created_at: 1760054400,
+intent-link.ts:4	16	export const PAJA_INTENT_LINK_MAX_BYTES = 16 * 1024;
+intent-link.ts:4	1024	export const PAJA_INTENT_LINK_MAX_BYTES = 16 * 1024;
+local-target.ts:53	128	const MAX_DTAG_LENGTH = 128;
+local-target.ts:54	8	const MAX_REPORTED_RELATIVE_ASSETS = 8;
+local-target.ts:170	64	if (required.size + optional.size >= 64) throw new RangeError('Too many development NAP declarations');
+local-target.ts:212	3	attributes.set(name, match[2] ?? match[3] ?? match[4] ?? '');
+local-target.ts:212	4	attributes.set(name, match[2] ?? match[3] ?? match[4] ?? '');
+local-target.ts:225	16	return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+multiplayer-config.ts:28	256	if (typeof value !== 'string' || !value.trim() || value.length > 256) throw new Error('Expected nonempty text (at most 256 characters).');
+multiplayer-config.ts:32	16	if (!Array.isArray(value) || !value.length || value.length > 16) throw new Error('Configure 1–16 relay URLs.');
+multiplayer-config.ts:43	64	if (!Array.isArray(value.tools) || !value.tools.length || value.tools.length > 64) throw new Error('Each family needs 1–64 tool name/hash pins.');
+multiplayer-config.ts:57	8	if (!record(value) || !Array.isArray(value.urls) || !value.urls.length || value.urls.length > 8) throw new Error('Each ICE server needs 1–8 URLs.');
+multiplayer-config.ts:76	16	if (!Array.isArray(value.registry) || value.registry.length > 16) throw new Error('Configure at most 16 registry families.');
+multiplayer-config.ts:77	8	if (value.iceServers !== undefined && (!Array.isArray(value.iceServers) || value.iceServers.length > 8)) throw new Error('Configure at most 8 ICE serv
+options.ts:136	5197	export const DEFAULT_PAJA_PORT = 5197;
+options.ts:138	30000	export const DEFAULT_READY_TIMEOUT_MS = 30_000;
+options.ts:146	5000	export const DEFAULT_PAJA_RUNTIME_WAIT_MS = 5_000;
+options.ts:311	65535	return normalizeIntegerInRange(value ?? DEFAULT_PAJA_PORT, label, 0, 65_535);
+readiness.ts:33	250	const intervalMs = options.intervalMs ?? 250;
+readiness.ts:43	500	if (response.status < 500) {
+runtime-resolver.ts:389	160	return (trimmed.length > 0 ? trimmed : 'connection failed').slice(0, 160);
+runtime-resolver.ts:478	160	.map((reason) => reason.slice(0, 160)))]
+runtime-resolver.ts:479	3	.slice(0, 3);
+runtime-resolver.ts:483	5000	if (value === undefined) return 5_000;
+server-resource-transport.ts:6	10	const RESOURCE_MAX_BYTES = 10 * 1024 * 1024;
+server-resource-transport.ts:6	1024	const RESOURCE_MAX_BYTES = 10 * 1024 * 1024;
+server-resource-transport.ts:6	1024	const RESOURCE_MAX_BYTES = 10 * 1024 * 1024;
+server-resource-transport.ts:7	30000	const RESOURCE_TIMEOUT_MS = 30_000;
+server-resource-transport.ts:75	502	status: incoming.statusCode ?? 502,
+server-resource-transport.ts:115	4	if (family === 4) {
+server-resource-transport.ts:117	10	return a !== 0 && a !== 10 && a !== 127 && a < 224
+server-resource-transport.ts:117	127	return a !== 0 && a !== 10 && a !== 127 && a < 224
+server-resource-transport.ts:117	224	return a !== 0 && a !== 10 && a !== 127 && a < 224
+server-resource-transport.ts:118	100	&& !(a === 100 && b >= 64 && b <= 127)
+server-resource-transport.ts:118	64	&& !(a === 100 && b >= 64 && b <= 127)
+server-resource-transport.ts:118	127	&& !(a === 100 && b >= 64 && b <= 127)
+server-resource-transport.ts:119	169	&& !(a === 169 && b === 254) && !(a === 172 && b >= 16 && b <= 31)
+server-resource-transport.ts:119	254	&& !(a === 169 && b === 254) && !(a === 172 && b >= 16 && b <= 31)
+server-resource-transport.ts:119	172	&& !(a === 169 && b === 254) && !(a === 172 && b >= 16 && b <= 31)
+server-resource-transport.ts:119	16	&& !(a === 169 && b === 254) && !(a === 172 && b >= 16 && b <= 31)
+server-resource-transport.ts:119	31	&& !(a === 169 && b === 254) && !(a === 172 && b >= 16 && b <= 31)
+server-resource-transport.ts:120	192	&& !(a === 192 && (b === 168 || b === 0 && (c === 0 || c === 2) || b === 88 && c === 99))
+server-resource-transport.ts:120	168	&& !(a === 192 && (b === 168 || b === 0 && (c === 0 || c === 2) || b === 88 && c === 99))
+server-resource-transport.ts:120	88	&& !(a === 192 && (b === 168 || b === 0 && (c === 0 || c === 2) || b === 88 && c === 99))
+server-resource-transport.ts:120	99	&& !(a === 192 && (b === 168 || b === 0 && (c === 0 || c === 2) || b === 88 && c === 99))
+server-resource-transport.ts:121	198	&& !(a === 198 && (b === 18 || b === 19 || b === 51 && c === 100))
+server-resource-transport.ts:121	18	&& !(a === 198 && (b === 18 || b === 19 || b === 51 && c === 100))
+server-resource-transport.ts:121	19	&& !(a === 198 && (b === 18 || b === 19 || b === 51 && c === 100))
+server-resource-transport.ts:121	51	&& !(a === 198 && (b === 18 || b === 19 || b === 51 && c === 100))
+server-resource-transport.ts:121	100	&& !(a === 198 && (b === 18 || b === 19 || b === 51 && c === 100))
+server-resource-transport.ts:122	203	&& !(a === 203 && b === 0 && c === 113);
+server-resource-transport.ts:122	113	&& !(a === 203 && b === 0 && c === 113);
+server-resource-transport.ts:124	6	if (family !== 6) return false;
+server-resource-transport.ts:131	16	const high = Number.parseInt(first, 16);
+server-resource-transport.ts:132	16	const next = Number.parseInt(second || '0', 16);
+server-resource-transport.ts:133	8192	return high >= 0x2000 && high <= 0x3fff
+server-resource-transport.ts:133	16383	return high >= 0x2000 && high <= 0x3fff
+server-resource-transport.ts:134	8193	&& !(high === 0x2001 && (next < 0x0200 || next === 0x0db8))
+server-resource-transport.ts:134	512	&& !(high === 0x2001 && (next < 0x0200 || next === 0x0db8))
+server-resource-transport.ts:134	3512	&& !(high === 0x2001 && (next < 0x0200 || next === 0x0db8))
+server-resource-transport.ts:135	8194	&& high !== 0x2002 && !(high === 0x3fff && next < 0x1000);
+server-resource-transport.ts:135	16383	&& high !== 0x2002 && !(high === 0x3fff && next < 0x1000);
+server-resource-transport.ts:135	4096	&& high !== 0x2002 && !(high === 0x3fff && next < 0x1000);
+server.ts:59	32	const resourceCapability = randomBytes(32).toString('base64url');
+server.ts:74	307	response.writeHead(307, { location: `${expectedOrigin}${requestUrl}`, 'cache-control': 'no-store' });
+server.ts:79	200	response.writeHead(200, {
+server.ts:88	200	response.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+server.ts:95	200	response.writeHead(200, {
+server.ts:105	200	response.writeHead(200, {
+server.ts:115	200	response.writeHead(200, {
+server.ts:125	200	response.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8' });
+server.ts:135	404	response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
+server.ts:142	502	response.writeHead(502, { 'content-type': 'text/plain; charset=utf-8' });
+server.ts:195	500	}, 500);
+server.ts:276	403	response.writeHead(403, { 'content-type': 'text/plain; charset=utf-8' });
+server.ts:282	400	response.writeHead(400, { 'content-type': 'text/plain; charset=utf-8' });
+server.ts:291	400	response.writeHead(400, { 'content-type': 'text/plain; charset=utf-8' });
+server.ts:300	301	if ([301, 302, 303, 307, 308].includes(upstream.status)) {
+server.ts:300	302	if ([301, 302, 303, 307, 308].includes(upstream.status)) {
+server.ts:300	303	if ([301, 302, 303, 307, 308].includes(upstream.status)) {
+server.ts:300	307	if ([301, 302, 303, 307, 308].includes(upstream.status)) {
+server.ts:300	308	if ([301, 302, 303, 307, 308].includes(upstream.status)) {
+server.ts:301	200	response.writeHead(200, {
+server.ts:316	502	response.writeHead(502, { 'content-type': 'text/plain; charset=utf-8' });
+server.ts:337	10000	const timer = setTimeout(() => { finish(null); request.destroy(); }, 10_000);
+server.ts:341	4096	if (size > 4096) { finish(null); request.destroy(); }
+target-network.ts:40	8	const MAX_REPORTED_REFERENCES = 8;
+target-network.ts:69	3	const value = (reference?.[1] ?? reference?.[2] ?? reference?.[3] ?? '').trim();

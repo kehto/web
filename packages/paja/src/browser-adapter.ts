@@ -82,7 +82,6 @@ import {
   type PajaRelayConfigRuntime,
 } from './browser-relay-policy.js';
 import {
-  PAJA_LIVE_QUERY_WAIT_MS,
   createPajaContactListLoader,
   createPajaRelayBackend,
   type PajaRelayBackend,
@@ -90,6 +89,8 @@ import {
 import { createPajaWorkerRelay } from './browser-worker-relay.js';
 import type { PajaSignerSource } from './browser-signer-consent.js';
 import { createPajaCvmRelayPool, createRuntimeSigner, getRuntimePubkey, createPajaWindowScope, pajaDevelopmentConsentScope, scopePajaService } from './browser-operation-scope.js';
+import { getPajaSetting } from './settings.js';
+import { KIND_RELAY_LIST } from './nostr-kinds.js';
 
 const HEX_PUBKEY = /^[0-9a-f]{64}$/i;
 
@@ -167,7 +168,7 @@ function createDevServices(
     const unique = [...new Set(relayUrls.filter((relay) =>
       isPajaRelayAllowed(relay, () => relayConfig.getRelayUrls())))];
     const batches = await Promise.all(unique.map((relay) => context.authorizeNetwork(relay, (signal) =>
-      backend.query([relay], filters, PAJA_LIVE_QUERY_WAIT_MS, { reason: 'host' }, signal),
+      backend.query([relay], filters, getPajaSetting('relay.liveQueryWaitMs'), { reason: 'host' }, signal),
     )));
     const events = new Map<string, NostrEvent>();
     for (const batch of batches) {
@@ -181,11 +182,11 @@ function createDevServices(
   ) => {
     const relayListEvents = await queryApprovedResourceRelays(
       getReadRelays(),
-      [{ kinds: [10_002], authors: [pubkey], limit: 2 }],
+      [{ kinds: [KIND_RELAY_LIST], authors: [pubkey], limit: getPajaSetting('relay.replaceableLookupLimit') }],
       context,
     );
     const newestRelayList = relayListEvents
-      .filter((event) => event.kind === 10_002
+      .filter((event) => event.kind === KIND_RELAY_LIST
         && event.pubkey.toLowerCase() === pubkey.toLowerCase()
         && verifyEvent(event as Parameters<typeof verifyEvent>[0]))
       .sort((left, right) => right.created_at - left.created_at || left.id.localeCompare(right.id))[0];
@@ -393,6 +394,7 @@ function createDevServices(
       const service = createCvmService({
         registry,
         concurrency: getSimulation().cvm.concurrency,
+        serverRequestTimeoutMs: getPajaSetting('cvm.serverRequestTimeoutMs'),
         transport: createNostrCvmTransport({
           defaultRelays: relayConfig.allRelays, pool: createPajaCvmRelayPool(relay),
           clientInfo: { name: '@kehto/paja', version: '0.11.0' },

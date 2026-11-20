@@ -7,6 +7,7 @@ import type { PajaMultiplayerConfig } from './multiplayer-config.js';
 import type { PajaRelayBackend } from './browser-relay-runtime.js';
 import { createPajaCvmRelayPool, scopePajaService } from './browser-operation-scope.js';
 import { createPajaWebrtcProfile } from './browser-webrtc-profile.js';
+import { getPajaSetting } from './settings.js';
 
 export const PAJA_CVM_OPERATIONS = ['cvm.discover', 'cvm.request', 'cvm.close', 'cvm.registry.list', 'cvm.registry.has', 'cvm.registry.describe', 'cvm.registry.call'];
 
@@ -27,6 +28,7 @@ export function createPajaMultiplayerServices(options: {
     entry.refs++;
     const backend = options.backend(windowId, isCurrent);
     const service = domain === 'cvm' ? createCvmService({ registry: options.config.registry, concurrency: options.concurrency,
+      serverRequestTimeoutMs: getPajaSetting('cvm.serverRequestTimeoutMs'),
       transport: createNostrCvmTransport({ pool: createPajaCvmRelayPool(backend), defaultRelays: options.config.relays, clientSecretKey: entry.secret }),
     }) : createWebrtcService(createPajaWebrtcProfile({
       secretKey: entry.secret, namespace: options.namespace(windowId) ?? options.config.developmentNamespace ?? '',

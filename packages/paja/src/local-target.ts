@@ -1,6 +1,7 @@
 import { computeAggregateHash } from '@kehto/nip/5a';
 
 import type { PajaResolvedPointer } from './runtime-resolver.js';
+import { getPajaSetting } from './settings.js';
 
 /**
  * A napplet opened from a local `index.html` file in Paja runtime-pointer mode.
@@ -50,8 +51,6 @@ export type PajaLocalFileInput =
 export const PAJA_LOCAL_SINGLE_FILE_HINT =
   'Paja opens self-contained single-file index.html only; relative scripts, styles, and images do not load.';
 
-const MAX_DTAG_LENGTH = 128;
-const MAX_REPORTED_RELATIVE_ASSETS = 8;
 
 /**
  * Return whether a runtime target was opened from a local file.
@@ -146,7 +145,7 @@ export function readNappletIdMeta(html: string): string | undefined {
     const attributes = parseAttributes(match[1] ?? '');
     if (attributes.get('name')?.toLowerCase() !== 'napplet-id') continue;
     const value = attributes.get('content')?.trim();
-    if (value) return value.slice(0, MAX_DTAG_LENGTH);
+    if (value) return value.slice(0, getPajaSetting('target.maxDTagChars'));
   }
   return undefined;
 }
@@ -167,7 +166,7 @@ export function readDevelopmentDomains(html: string): {
     for (const domain of (attributes.get('content') ?? '').split(/\s+/)) {
       if (!domain) continue;
       if (!/^[a-z][a-z0-9-]{0,63}$/.test(domain)) throw new TypeError('Invalid development NAP domain declaration');
-      if (required.size + optional.size >= 64) throw new RangeError('Too many development NAP declarations');
+      if (required.size + optional.size >= getPajaSetting('target.maxNapDeclarations')) throw new RangeError('Too many development NAP declarations');
       target.add(domain);
     }
   }
@@ -192,7 +191,7 @@ export function findRelativeAssetReferences(html: string): string[] {
     const attributes = parseAttributes(match[1] ?? '');
     const reference = attributes.get('src') ?? attributes.get('href');
     if (reference && isRelativeReference(reference)) found.add(reference.trim());
-    if (found.size >= MAX_REPORTED_RELATIVE_ASSETS) break;
+    if (found.size >= getPajaSetting('target.maxReportedAssets')) break;
   }
   return [...found];
 }
@@ -217,7 +216,7 @@ function parseAttributes(source: string): Map<string, string> {
 function localDTag(fileName: string): string {
   const stem = fileName.replace(/\.[^.]*$/, '');
   const slug = stem.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-  return `local-${slug || 'napplet'}`.slice(0, MAX_DTAG_LENGTH);
+  return `local-${slug || 'napplet'}`.slice(0, getPajaSetting('target.maxDTagChars'));
 }
 
 async function sha256Hex(bytes: Uint8Array<ArrayBuffer>): Promise<string> {

@@ -11,9 +11,10 @@ import type {
 import type { ApprovalSignal, Signer } from '@kehto/runtime';
 import { verifyEvent } from 'nostr-tools/pure';
 import {
-  PAJA_LIVE_QUERY_WAIT_MS,
   type PajaRelayBackend,
 } from './browser-relay-runtime.js';
+import { getPajaSetting } from './settings.js';
+import { KIND_BOOKMARK_LIST, KIND_FOLLOW_SETS, KIND_MUTE_LIST, KIND_RELAY_LIST } from './nostr-kinds.js';
 
 const HEX_64 = /^[0-9a-f]{64}$/i;
 const ADDRESS = /^\d+:[0-9a-f]{64}:.+$/i;
@@ -27,7 +28,7 @@ interface SupportedList extends ListSupport {
 
 const SUPPORTED_LISTS: readonly SupportedList[] = [
   {
-    kind: 10_000,
+    kind: KIND_MUTE_LIST,
     type: 'mute-list',
     addressable: false,
     supportedItemTypes: ['pubkey', 'event', 'hashtag', 'word'],
@@ -35,7 +36,7 @@ const SUPPORTED_LISTS: readonly SupportedList[] = [
     tagByItemType: { pubkey: 'p', event: 'e', hashtag: 't', word: 'word' },
   },
   {
-    kind: 10_002,
+    kind: KIND_RELAY_LIST,
     type: 'relay-list-metadata',
     addressable: false,
     supportedItemTypes: ['relay'],
@@ -43,7 +44,7 @@ const SUPPORTED_LISTS: readonly SupportedList[] = [
     tagByItemType: { relay: 'r' },
   },
   {
-    kind: 10_003,
+    kind: KIND_BOOKMARK_LIST,
     type: 'bookmarks',
     addressable: false,
     supportedItemTypes: ['event', 'address'],
@@ -51,7 +52,7 @@ const SUPPORTED_LISTS: readonly SupportedList[] = [
     tagByItemType: { event: 'e', address: 'a' },
   },
   {
-    kind: 30_000,
+    kind: KIND_FOLLOW_SETS,
     type: 'follow-sets',
     addressable: true,
     supportedItemTypes: ['pubkey'],
@@ -135,7 +136,7 @@ function itemTag(support: SupportedList, item: PajaListItem): string[] | ListMut
   if (item.itemType === 'address' && !ADDRESS.test(value)) {
     return failure('invalid-item', 'address values must use kind:pubkey:identifier');
   }
-  if (support.kind === 10_002) {
+  if (support.kind === KIND_RELAY_LIST) {
     const url = relayUrl(value);
     if (!url) return failure('invalid-item', 'relay list items require ws or wss URLs');
     const marker = item.marker ?? 'read-write';
@@ -218,7 +219,7 @@ function listFilter(resolved: ResolvedList, author: string): NostrFilter {
   return {
     kinds: [resolved.support.kind],
     authors: [author],
-    limit: 16,
+    limit: getPajaSetting('relay.profileQueryLimit'),
     ...(resolved.identifier ? { ['#d']: [resolved.identifier] } : {}),
   };
 }
@@ -277,7 +278,7 @@ export function createPajaListsBackend(options: PajaListsBackendOptions): PajaLi
       const events = await options.relay.query(
         [...relays],
         [listFilter(resolved, active.pubkey)],
-        PAJA_LIVE_QUERY_WAIT_MS,
+        getPajaSetting('relay.liveQueryWaitMs'),
         undefined,
         signal as AbortSignal | undefined,
       );
@@ -297,7 +298,7 @@ export function createPajaListsBackend(options: PajaListsBackendOptions): PajaLi
     let tags = current ? current.tags.map((tag) => [...tag]) : metadataTags(resolved, mutationOptions);
     let changed = 0;
     for (const expected of itemTags) {
-      if (resolved.support.kind === 10_002) {
+      if (resolved.support.kind === KIND_RELAY_LIST) {
         const result = operation === 'add' ? addRelayItem(tags, expected) : removeRelayItem(tags, expected);
         tags = result.tags;
         if (result.changed) changed += 1;

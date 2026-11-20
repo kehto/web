@@ -3,10 +3,10 @@ import { verifyEvent } from 'nostr-tools/pure';
 import type { NostrEvent, NostrFilter } from '@napplet/core';
 import { computeCvmToolSchemaHash, type CvmRegistryFamily } from '@kehto/services';
 import { normalizePajaCvmRelays } from './multiplayer-config.js';
+import { getPajaSetting } from './settings.js';
+import { KIND_CVM_SERVER_ANNOUNCEMENT, KIND_CVM_TOOLS_LIST, KIND_RELAY_LIST } from './nostr-kinds.js';
 
 const HASH = /^[0-9a-f]{64}$/u;
-const MAX_BYTES = 1_000_000;
-const LIMIT = 64;
 type DiscoveryInput = { type: 'hash'; hash: string } | { type: 'website'; url: string }
   | { type: 'event'; id: string; author?: string; relays: string[] };
 export interface CvmDiscoveryCandidate {
@@ -24,12 +24,12 @@ function record(value: unknown): value is Record<string, unknown> { return !!val
 /** Detect the user's reference without treating an opaque family label as a portable identity. */
 export function parseCvmDiscoveryInput(input: string): DiscoveryInput {
   const text = input.trim().replace(/^nostr:/iu, '');
-  if (!text || text.length > 2048) throw new Error('Enter a nevent, a 64-character tool schema hash, or a website URL.');
+  if (!text || text.length > getPajaSetting('cvm.referenceMaxChars')) throw new Error('Enter a nevent, a 64-character tool schema hash, or a website URL.');
   if (/^naddr1/iu.test(text)) throw new Error('CVM announcements use nevent. Addressable naddr family manifests are not defined by ContextVM.');
   if (/^[0-9a-f]{64}$/iu.test(text)) return { type: 'hash', hash: text.toLowerCase() };
   if (/^nevent1/iu.test(text)) {
     const decoded = decode(text);
-    if (decoded.type !== 'nevent' || (decoded.data.kind !== undefined && ![11316, 11317].includes(decoded.data.kind))) throw new Error('Use a CVM server or tool-list announcement (kind 11316 or 11317).');
+    if (decoded.type !== 'nevent' || (decoded.data.kind !== undefined && ![KIND_CVM_SERVER_ANNOUNCEMENT, KIND_CVM_TOOLS_LIST].includes(decoded.data.kind))) throw new Error('Use a CVM server or tool-list announcement (kind 11316 or 11317).');
     return { type: 'event', id: decoded.data.id, author: decoded.data.author, relays: decoded.data.relays?.length ? normalizePajaCvmRelays(decoded.data.relays) : [] };
   }
   const url = new URL(text.includes('://') ? text : `https://${text}`);
@@ -42,7 +42,7 @@ async function websiteProvider(url: string, deps: CvmDiscoveryDependencies, sign
   try { response = await deps.fetch(url, { signal, credentials: 'omit', redirect: 'error', referrerPolicy: 'no-referrer' }); }
   catch (error) { if (signal.aborted) throw error; throw new Error('Cannot read the discovery document. The website must allow cross-origin requests (CORS).'); }
   if (!response.ok) throw new Error(`Discovery document returned HTTP ${response.status}.`);
-  if (Number(response.headers.get('content-length')) > MAX_BYTES) throw new Error('Discovery document is too large.');
+  if (Number(response.headers.get('content-length')) > getPajaSetting('cvm.discoveryMaxBytes')) throw new Error('Discovery document is too large.');
   const reader = response.body?.getReader();
   if (!reader) throw new Error('Discovery document is empty.');
   const decoder = new TextDecoder();
@@ -52,7 +52,7 @@ async function websiteProvider(url: string, deps: CvmDiscoveryDependencies, sign
       const chunk = await reader.read();
       if (chunk.done) break;
       bytes += chunk.value.byteLength;
-      if (bytes > MAX_BYTES) throw new Error('Discovery document is too large.');
+      if (bytes > getPajaSetting('cvm.discoveryMaxBytes')) throw new Error('Discovery document is too large.');
       body += decoder.decode(chunk.value, { stream: true });
     }
     body += decoder.decode();
@@ -72,13 +72,13 @@ function matches(event: NostrEvent, filter: NostrFilter): boolean {
 
 async function query(deps: CvmDiscoveryDependencies, relays: string[], filter: NostrFilter, signal: AbortSignal): Promise<NostrEvent[]> {
   signal.throwIfAborted();
-  const events = await deps.query(relays, [{ ...filter, limit: LIMIT }], signal);
+  const events = await deps.query(relays, [{ ...filter, limit: getPajaSetting('cvm.discoveryEventLimit') }], signal);
   signal.throwIfAborted();
-  return events.slice(0, LIMIT).filter(event => {
+  return events.slice(0, getPajaSetting('cvm.discoveryEventLimit')).filter(event => {
     try {
       // Do not inherit nostr-tools' cached verification symbol across a host boundary.
       const { id, pubkey, sig, kind, created_at, tags, content } = event;
-      return content.length <= MAX_BYTES && matches(event, filter) && verifyEvent({ id, pubkey, sig, kind, created_at, tags, content });
+      return content.length <= getPajaSetting('cvm.discoveryMaxBytes') && matches(event, filter) && verifyEvent({ id, pubkey, sig, kind, created_at, tags, content });
     }
     catch { return false; }
   }).sort((a, b) => b.created_at - a.created_at || a.id.localeCompare(b.id));
@@ -86,11 +86,11 @@ async function query(deps: CvmDiscoveryDependencies, relays: string[], filter: N
 
 async function inventory(event: NostrEvent): Promise<CvmRegistryFamily['tools']> {
   const payload: unknown = JSON.parse(event.content);
-  if (!record(payload) || !Array.isArray(payload.tools) || !payload.tools.length || payload.tools.length > LIMIT || payload.nextCursor !== undefined) throw new Error('Announcement must contain a complete inventory of 1–64 tools.');
+  if (!record(payload) || !Array.isArray(payload.tools) || !payload.tools.length || payload.tools.length > getPajaSetting('multiplayer.maxTools') || payload.nextCursor !== undefined) throw new Error(`Announcement must contain a complete inventory of 1–${String(getPajaSetting('multiplayer.maxTools'))} tools.`);
   const names = new Set<string>();
   const tools: { name: string; schemaHash: string }[] = [];
   for (const raw of payload.tools) {
-    if (!record(raw) || typeof raw.name !== 'string' || !raw.name.trim() || raw.name.length > 256 || names.has(raw.name)
+    if (!record(raw) || typeof raw.name !== 'string' || !raw.name.trim() || raw.name.length > getPajaSetting('cvm.toolNameMaxChars') || names.has(raw.name)
       || !record(raw.inputSchema) || (raw.outputSchema !== undefined && !record(raw.outputSchema))) throw new Error('Announcement contains an invalid tool schema.');
     names.add(raw.name);
     const schemaHash = await computeCvmToolSchemaHash({ name: raw.name, inputSchema: raw.inputSchema,
@@ -111,18 +111,18 @@ export async function discoverCvmFamilies(input: string, deps: CvmDiscoveryDepen
   if (reference.type === 'website') {
     const provider = await websiteProvider(reference.url, deps, signal);
     relays = provider.relays;
-    events = await query(deps, relays, { kinds: [11317], authors: [provider.pubkey] }, signal);
+    events = await query(deps, relays, { kinds: [KIND_CVM_TOOLS_LIST], authors: [provider.pubkey] }, signal);
   } else {
     relays = normalizePajaCvmRelays(reference.type === 'event' && reference.relays.length ? reference.relays : deps.relays);
-    events = await query(deps, relays, reference.type === 'hash' ? { kinds: [11317], '#i': [reference.hash] }
-      : { ids: [reference.id], kinds: [11316, 11317], ...(reference.author ? { authors: [reference.author] } : {}) }, signal);
-    if (reference.type === 'event' && events[0]?.kind === 11316) events = await query(deps, relays, { kinds: [11317], authors: [events[0].pubkey] }, signal);
+    events = await query(deps, relays, reference.type === 'hash' ? { kinds: [KIND_CVM_TOOLS_LIST], '#i': [reference.hash] }
+      : { ids: [reference.id], kinds: [KIND_CVM_SERVER_ANNOUNCEMENT, KIND_CVM_TOOLS_LIST], ...(reference.author ? { authors: [reference.author] } : {}) }, signal);
+    if (reference.type === 'event' && events[0]?.kind === KIND_CVM_SERVER_ANNOUNCEMENT) events = await query(deps, relays, { kinds: [KIND_CVM_TOOLS_LIST], authors: [events[0].pubkey] }, signal);
   }
   // Kinds 11316/11317 are replaceable: never rescue an invalid newest inventory with stale schemas.
   const latest = new Map<string, NostrEvent>();
   for (const event of events) if (!latest.has(event.pubkey)) latest.set(event.pubkey, event);
   const relayLists = reference.type === 'website' || !latest.size ? []
-    : await query(deps, relays, { kinds: [10002], authors: [...latest.keys()] }, signal);
+    : await query(deps, relays, { kinds: [KIND_RELAY_LIST], authors: [...latest.keys()] }, signal);
   const candidates: CvmDiscoveryCandidate[] = [];
   let failure: unknown;
   for (const event of latest.values()) {

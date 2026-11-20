@@ -2,9 +2,8 @@ import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 import { lookup as dnsLookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
+import { getPajaSetting } from './settings.js';
 
-const RESOURCE_MAX_BYTES = 10 * 1024 * 1024;
-const RESOURCE_TIMEOUT_MS = 30_000;
 
 /** One upstream response, without following redirects or trusting its MIME. */
 export interface PinnedResourceResponse {
@@ -32,7 +31,7 @@ export async function fetchPinnedResource(input: URL, signal?: AbortSignal): Pro
   const forwardAbort = () => controller.abort(signal?.reason);
   signal?.addEventListener('abort', forwardAbort, { once: true });
   if (signal?.aborted) forwardAbort();
-  const timer = setTimeout(() => controller.abort(new Error('Resource request timed out')), RESOURCE_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(new Error('Resource request timed out')), getPajaSetting('server.resourceTimeoutMs'));
   try {
     controller.signal.throwIfAborted();
     const family = isIP(hostname);
@@ -64,7 +63,7 @@ export async function fetchPinnedResource(input: URL, signal?: AbortSignal): Pro
         incoming.on('data', (chunk: Uint8Array) => {
           if (settled) return;
           size += chunk.byteLength;
-          if (size > RESOURCE_MAX_BYTES) {
+          if (size > getPajaSetting('server.resourceMaxBytes')) {
             const error = new Error('Resource exceeds byte limit');
             finish(error);
             upstream.destroy(error);

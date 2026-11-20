@@ -9,10 +9,11 @@ import type { PajaSimulation } from './simulation.js';
 import type { PajaSignerSource } from './browser-signer-consent.js';
 import { createRuntimeSigner } from './browser-operation-scope.js';
 import { isPajaRelayAllowed, type PajaRelayConfigRuntime } from './browser-relay-policy.js';
-import { PAJA_LIVE_QUERY_WAIT_MS, createPajaOutboxRelayPool, createPajaRelayListLoader, type PajaRelayBackend } from './browser-relay-runtime.js';
+import { createPajaOutboxRelayPool, createPajaRelayListLoader, type PajaRelayBackend } from './browser-relay-runtime.js';
 
 export type { PajaConfirmationRequest } from './browser-confirmation-request.js';
 import type { PajaConfirmationRequest } from './browser-confirmation-request.js';
+import { getPajaSetting } from './settings.js';
 
 /** Async-capable host policy callback for user-visible Paja operations. */
 export type PajaConfirmationHandler = (
@@ -84,7 +85,7 @@ export function createOutboxRouter(
     },
     verifyEvent: (event) => verifyEvent(event as Parameters<typeof verifyEvent>[0]),
     isRelayAllowed: (url) => isPajaRelayAllowed(url, () => relayConfig.getRelayUrls()),
-    defaultTimeoutMs: PAJA_LIVE_QUERY_WAIT_MS,
+    defaultTimeoutMs: getPajaSetting('relay.liveQueryWaitMs'),
   });
 }
 

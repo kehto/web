@@ -264,4 +264,22 @@ describe('@kehto/paja options', () => {
       simulation: { upload: { mode: 'blossom', ...upload } },
     })).toThrow(/upload/i);
   });
+
+  it('validates config-file settings and embeds only browser-scope values in the host page', () => {
+    const options = normalizePajaOptions({
+      targetUrl: 'http://127.0.0.1:5173',
+      settings: { 'relay.liveQueryWaitMs': 9000, 'server.resourceTimeoutMs': 60_000 },
+    });
+    expect(options.settings).toEqual({ 'relay.liveQueryWaitMs': 9000, 'server.resourceTimeoutMs': 60_000 });
+    expect(createPajaHostConfig(options).settings).toEqual({ 'relay.liveQueryWaitMs': 9000 });
+    expect(createPajaHostConfig(normalizePajaOptions({ targetUrl: 'http://127.0.0.1:5173' }))).not.toHaveProperty('settings');
+    expect(createPajaRuntimeHostConfig({ settings: { 'fs.maxWatchCount': 4 } }).settings).toEqual({ 'fs.maxWatchCount': 4 });
+  });
+
+  it('rejects unknown or out-of-range config-file settings instead of clamping', () => {
+    expect(() => normalizePajaOptions({
+      targetUrl: 'http://127.0.0.1:5173',
+      settings: { 'fs.maxWatchCount': 0, 'relay.tyop': 1 },
+    })).toThrow('Invalid settings: fs.maxWatchCount: Use a value from 1 to 256.; relay.tyop: unknown setting');
+  });
 });

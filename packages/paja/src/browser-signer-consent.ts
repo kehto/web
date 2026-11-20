@@ -1,10 +1,8 @@
+import { getPajaSetting } from './settings.js';
 /** Durable storage key for Paja's versioned signer-consent records. */
 export const PAJA_SIGNER_CONSENT_STORAGE_KEY = 'kehto:paja:signer-consent:v1';
 
 const PAJA_SIGNER_CONSENT_VERSION = 1;
-const MAX_CONSENT_SUBJECTS = 128;
-const MAX_KINDS_PER_SUBJECT = 128;
-const MAX_IDENTITY_FIELD_LENGTH = 512;
 let warnedLegacyConsent = false;
 
 /** Napplet source attached to a window-scoped signer request. */
@@ -104,7 +102,7 @@ export function createPajaSignerConsentStore(
     if (!subject) return null;
     const existing = grants.find((grant) => sameSubject(grant, subject));
     if (existing) return existing;
-    if (grants.length >= MAX_CONSENT_SUBJECTS) return null;
+    if (grants.length >= getPajaSetting('signer.consentMaxSubjects')) return null;
     const created: SignerConsentRecord = { ...subject, trusted: false, kinds: [], publishTrusted: false, publishKinds: [] };
     grants = [...grants, created];
     return created;
@@ -130,7 +128,7 @@ export function createPajaSignerConsentStore(
       if (!record) return false;
       const kinds = action === 'sign' ? record.kinds : record.publishKinds;
       if ((action === 'sign' ? record.trusted : record.publishTrusted) || kinds.includes(normalizedKind)) return true;
-      if (kinds.length >= MAX_KINDS_PER_SUBJECT) return false;
+      if (kinds.length >= getPajaSetting('signer.consentMaxKindsPerSubject')) return false;
       const next = [...kinds, normalizedKind].sort((left, right) => left - right);
       if (action === 'sign') record.kinds = next;
       else record.publishKinds = next;
@@ -208,7 +206,7 @@ function readConsentDocument(storage: Storage | null): SignerConsentDocument {
     const parsed = JSON.parse(raw) as { version?: unknown; grants?: unknown };
     if (parsed.version !== PAJA_SIGNER_CONSENT_VERSION || !Array.isArray(parsed.grants)) return empty();
     const grants: SignerConsentRecord[] = [];
-    for (const candidate of parsed.grants.slice(0, MAX_CONSENT_SUBJECTS)) {
+    for (const candidate of parsed.grants.slice(0, getPajaSetting('signer.consentMaxSubjects'))) {
       const record = normalizeRecord(candidate);
       if (!record || grants.some((existing) => sameSubject(existing, record))) continue;
       if (!warnedLegacyConsent && candidate && typeof candidate === 'object'
@@ -237,7 +235,7 @@ function normalizeRecord(value: unknown): SignerConsentRecord | null {
   const kinds = [...new Set(candidate.kinds
     .map((kind) => normalizeKind(kind))
     .filter((kind): kind is number => kind !== null))]
-    .slice(0, MAX_KINDS_PER_SUBJECT)
+    .slice(0, getPajaSetting('signer.consentMaxKindsPerSubject'))
     .sort((left, right) => left - right);
   return {
     ...subject,
@@ -246,7 +244,7 @@ function normalizeRecord(value: unknown): SignerConsentRecord | null {
     // Old records are signing-only; their omission never grants publication.
     publishTrusted: candidate.publishTrusted === true,
     publishKinds: candidate.publishTrusted === true ? [] : Array.isArray(candidate.publishKinds)
-      ? [...new Set(candidate.publishKinds.map(normalizeKind).filter((kind): kind is number => kind !== null))].slice(0, MAX_KINDS_PER_SUBJECT)
+      ? [...new Set(candidate.publishKinds.map(normalizeKind).filter((kind): kind is number => kind !== null))].slice(0, getPajaSetting('signer.consentMaxKindsPerSubject'))
       : [],
   };
 }
@@ -270,7 +268,7 @@ function normalizeSubject(
     && /\|host-session:[a-f0-9]{32}$/.test(runtimeScope);
   if (typeof signerPubkey !== 'string' || (!/^[0-9a-f]{64}$/i.test(signerPubkey) && !hostGenerated)) return null;
   if (
-    (typeof dTag !== 'string' || dTag.length > MAX_IDENTITY_FIELD_LENGTH)
+    (typeof dTag !== 'string' || dTag.length > getPajaSetting('signer.consentMaxIdentityChars'))
     || !validIdentityField(aggregateHash)
     || !validIdentityField(runtimeScope)
   ) return null;
@@ -285,7 +283,7 @@ function normalizeSubject(
 function validIdentityField(value: unknown): value is string {
   return typeof value === 'string'
     && value.length > 0
-    && value.length <= MAX_IDENTITY_FIELD_LENGTH;
+    && value.length <= getPajaSetting('signer.consentMaxIdentityChars');
 }
 
 function normalizeKind(value: unknown): number | null {
