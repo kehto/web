@@ -9,6 +9,7 @@ import {
   queryPointerRelays,
   type PajaPointerRelayPool,
 } from './runtime-resolver.js';
+import { getPajaSetting } from './settings.js';
 
 /**
  * A current addressable manifest from the same author and kind as a `nevent`
@@ -41,8 +42,6 @@ export interface FindPajaPointerReplacementsOptions {
   readonly maxWaitMs?: number;
 }
 
-const MAX_REPLACEMENTS = 50;
-
 /**
  * List the author's current addressable manifests for a `nevent` whose exact
  * event was not found. A `nevent` carries no `d` tag, so this cannot tell which
@@ -72,12 +71,13 @@ export async function findPajaPointerReplacements(
 
   const pool = options.pool ?? new SimplePool();
   const ownsPool = options.pool === undefined;
+  const maxReplacements = getPajaSetting('target.pointerReplacementLimit');
   try {
     const result = await queryPointerRelays(
       pool,
       options.relays,
-      { kinds: [kind], authors: [author], limit: 50 },
-      options.maxWaitMs ?? 5_000,
+      { kinds: [kind], authors: [author], limit: maxReplacements },
+      options.maxWaitMs ?? getPajaSetting('target.runtimeWaitMs'),
     );
     const newest = new Map<string, NostrEvent>();
     for (const event of result.events) {
@@ -89,7 +89,7 @@ export async function findPajaPointerReplacements(
     }
     return [...newest.entries()]
       .sort(([, a], [, b]) => b.created_at - a.created_at)
-      .slice(0, MAX_REPLACEMENTS)
+      .slice(0, maxReplacements)
       .map(([dTag, event]) => {
         const title = event.tags.find((tag) => tag[0] === 'title')?.[1];
         return {
@@ -109,6 +109,7 @@ export async function findPajaPointerReplacements(
   }
 }
 
+/** NIP-01 addressable kind range (wire contract, not a setting). */
 function isAddressableKind(kind: number): boolean {
   return kind >= 30_000 && kind < 40_000;
 }

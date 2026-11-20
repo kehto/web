@@ -9,10 +9,10 @@ import {
   type PajaSignerProvider,
 } from './browser-adapter.js';
 import type { PajaHostConfig } from './options.js';
+import { getActivePajaSettings, getPajaSetting, setActivePajaSettings } from './settings.js';
 import { normalizePajaSimulation } from './simulation.js';
 import {
   createPajaWebrtcController,
-  PAJA_WEBRTC_MAX_PAYLOAD_BYTES,
   PAJA_WEBRTC_SIGNAL_KIND,
 } from './browser-webrtc.js';
 
@@ -295,18 +295,18 @@ describe('Paja browser WebRTC controller', () => {
     call({ type: 'webrtc.open', id: 'open', request: { scope: { type: 'direct', pubkey: b.pubkey }, channel: 'chat' } });
     await vi.waitFor(() => expect(sent.some((m) => m.type === 'webrtc.open.result')).toBe(true));
     const opened = sent.find((m) => m.type === 'webrtc.open.result') as NappletMessage & { session: { id: string; maxPayloadBytes?: number } };
-    expect(opened.session.maxPayloadBytes).toBe(PAJA_WEBRTC_MAX_PAYLOAD_BYTES);
+    expect(opened.session.maxPayloadBytes).toBe(getPajaSetting('webrtc.maxPayloadBytes'));
     const eventsB: WebrtcEvent[] = [];
     const requestB = { scope: { type: 'direct', pubkey: a.pubkey }, channel: 'chat' } as const;
     const contextB = { windowId: 'window-b', emit: (event: WebrtcEvent) => eventsB.push(event) };
     const openedB = await b.controller.serviceOptions.open!(requestB, contextB, b.controller.serviceOptions.planOpen!(requestB, contextB));
-    expect(openedB.session.maxPayloadBytes).toBe(PAJA_WEBRTC_MAX_PAYLOAD_BYTES);
+    expect(openedB.session.maxPayloadBytes).toBe(getPajaSetting('webrtc.maxPayloadBytes'));
     await vi.waitFor(() => expect(eventsB).toContainEqual({ type: 'state', sessionId: openedB.session.id, state: 'open' }));
 
     call({ type: 'webrtc.sendBytes', id: 'bytes', sessionId: opened.session.id, bytes: 'AAEC/w==' });
     call({ type: 'webrtc.sendBytes', id: 'empty', sessionId: opened.session.id, bytes: '' });
     call({ type: 'webrtc.send', id: 'json', sessionId: opened.session.id, payload: 'AAEC/w==' });
-    call({ type: 'webrtc.sendBytes', id: 'big', sessionId: opened.session.id, bytes: encodeWebrtcBytes(new Uint8Array(PAJA_WEBRTC_MAX_PAYLOAD_BYTES + 1)) });
+    call({ type: 'webrtc.sendBytes', id: 'big', sessionId: opened.session.id, bytes: encodeWebrtcBytes(new Uint8Array(getPajaSetting('webrtc.maxPayloadBytes') + 1)) });
     await vi.waitFor(() => expect(sent.filter((m) => m.type.endsWith('.result'))).toHaveLength(5));
     expect(sent).toContainEqual({ type: 'webrtc.sendBytes.result', id: 'bytes' });
     expect(sent).toContainEqual({ type: 'webrtc.sendBytes.result', id: 'empty' });
@@ -322,7 +322,31 @@ describe('Paja browser WebRTC controller', () => {
     b.controller.serviceOptions.sendBytes!(openedB.session.id, new Uint8Array([9, 8, 7]), contextB);
     await settle();
     expect(sent).toContainEqual({ type: 'webrtc.event', event: { type: 'bytes', sessionId: opened.session.id, from: b.pubkey, bytes: 'CQgH' } });
-    expect(() => b.controller.serviceOptions.sendBytes!(openedB.session.id, new Uint8Array(PAJA_WEBRTC_MAX_PAYLOAD_BYTES + 1), contextB)).toThrow('payload too large');
+    expect(() => b.controller.serviceOptions.sendBytes!(openedB.session.id, new Uint8Array(getPajaSetting('webrtc.maxPayloadBytes') + 1), contextB)).toThrow('payload too large');
+  });
+
+  it('reports and enforces the webrtc.maxPayloadBytes setting', async () => {
+    const saved = getActivePajaSettings();
+    setActivePajaSettings({ ...saved, 'webrtc.maxPayloadBytes': 2048 });
+    try {
+      const relay = new MemorySignalRelay();
+      const network = new FakeRtcNetwork();
+      const signer = signalingSigner(new Uint8Array(32).fill(3));
+      const pubkey = getPublicKey(new Uint8Array(32).fill(3));
+      const controller = createPajaWebrtcController({
+        relay, getSigner: () => signer, getPubkey: () => pubkey,
+        getIdentity: () => ({ dTag: 'limit', aggregateHash: 'hash-limit' }), confirm: async () => true,
+        signalingRelayUrls: () => ['wss://signal.example'],
+        peerFactory: { create: () => network.create(), iceEndpoints: [] }, crypto: globalThis.crypto,
+      })!;
+      controller.refreshAvailability();
+      const request = { scope: { type: 'direct', pubkey: getPublicKey(new Uint8Array(32).fill(4)) } } as const;
+      const context = { windowId: 'window-limit', emit: () => {} };
+      const opened = await controller.serviceOptions.open!(request, context, controller.serviceOptions.planOpen!(request, context));
+      expect(opened.session.maxPayloadBytes).toBe(2048);
+      expect(() => controller.serviceOptions.sendBytes!(opened.session.id, new Uint8Array(2049), context)).toThrow('payload too large');
+      controller.dispose();
+    } finally { setActivePajaSettings(saved); }
   });
 
   // NAP-WEBRTC (napplet/naps#59 @ fb4dd6f0): the shell "MUST NOT deliver

@@ -23,10 +23,6 @@ import type { SessionEntry } from '@kehto/shell';
 
 import type { PajaUserActivationHandler } from './browser-device-services.js';
 import {
-  MAX_READ_BYTES,
-  MAX_WATCH_COUNT,
-  MAX_WRITE_BYTES,
-  WATCH_INTERVAL_MS,
   WORKSPACE_PERMISSIONS,
   base64Bytes,
   browserPickers,
@@ -51,6 +47,7 @@ import {
   type ParsedPath,
   type ResolvedEntry,
 } from './browser-fs-support.js';
+import { getPajaSetting } from './settings.js';
 
 /** Options for the real Paja browser filesystem. */
 export interface PajaBrowserFsOptions {
@@ -339,9 +336,9 @@ export async function createPajaBrowserFsBackend(options: PajaBrowserFsOptions):
           permissions: [...WORKSPACE_PERMISSIONS],
         }],
         limits: {
-          maxReadBytes: MAX_READ_BYTES,
-          maxWriteBytes: MAX_WRITE_BYTES,
-          maxWatchCount: MAX_WATCH_COUNT,
+          maxReadBytes: getPajaSetting('fs.maxReadBytes'),
+          maxWriteBytes: getPajaSetting('fs.maxWriteBytes'),
+          maxWatchCount: getPajaSetting('fs.maxWatchCount'),
         },
       };
     },
@@ -559,7 +556,7 @@ export async function createPajaBrowserFsBackend(options: PajaBrowserFsOptions):
     async watch(windowId, path, watchOptions?: FsWatchOptions, onChange?: (change: FsBackendChange) => void): Promise<FsBackendWatch> {
       const count = [...backendWatches].filter((watch) => watch.windowId === windowId && !watch.closed).length
         + [...pendingBackendWatches].filter((watch) => watch.windowId === windowId && !watch.closed).length;
-      if (count >= MAX_WATCH_COUNT) throw new FsServiceError('policy-denied');
+      if (count >= getPajaSetting('fs.maxWatchCount')) throw new FsServiceError('policy-denied');
       const pending: PendingBackendWatch = { windowId, closed: false };
       pendingBackendWatches.add(pending);
       try {
@@ -579,7 +576,7 @@ export async function createPajaBrowserFsBackend(options: PajaBrowserFsOptions):
           closed: false,
         };
         backendWatches.add(record);
-        record.timer = setInterval(() => { void pollWatch(record); }, WATCH_INTERVAL_MS);
+        record.timer = setInterval(() => { void pollWatch(record); }, getPajaSetting('fs.watchIntervalMs'));
         return {
           close() {
             if (record.closed) return;

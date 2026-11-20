@@ -12,6 +12,7 @@ import { createPajaPermissionAdapter } from './browser-permission-adapter.js';
 import { permissionPrincipalKey } from '@kehto/firewall';
 import { pajaPrincipalLabel, revokedPajaTabIds } from './browser-grant-retirement.js';
 import { installPajaSecuritySettings } from './browser-security-settings.js';
+import { createPajaSettingsStore, installPajaSettingsPanel } from './browser-settings.js';
 import { installPajaLlm } from './browser-llm-panel.js';
 import {
   buildShellCapabilities,
@@ -128,6 +129,7 @@ import {
   type PajaSimulation,
   type PajaCapabilityDomain,
 } from './simulation.js';
+import { getPajaSetting } from './settings.js';
 
 export interface PajaBrowserState {
   readonly config: PajaHostConfig;
@@ -674,6 +676,9 @@ async function installPajaHost(): Promise<void> {
   const securitySettings = installPajaSecuritySettings();
   window.addEventListener('pagehide', securitySettings.dispose, { once: true });
   const config = await readLatestPajaHostConfig(readPajaHostConfig());
+  // Activate persisted settings before any service reads a bound or timeout.
+  const disposeSettingsPanel = installPajaSettingsPanel(createPajaSettingsStore({ seeds: config.settings }));
+  window.addEventListener('pagehide', disposeSettingsPanel, { once: true });
   const multiplayer = readPajaMultiplayerSettings(config.simulation.multiplayer);
   const disposeMultiplayer = installPajaMultiplayerSettings(multiplayer);
   window.addEventListener('pagehide', disposeMultiplayer, { once: true });
@@ -857,7 +862,7 @@ async function installPajaHost(): Promise<void> {
     fetch: window.fetch.bind(window),
     query: (relays, filters, signal) => {
       if (!relayBackend || runtime.currentSimulation.relay.mode !== 'live') throw new Error('CVM discovery requires live relays.');
-      return relayBackend.query(relays, filters, 5000, { reason: 'host' }, signal);
+      return relayBackend.query(relays, filters, getPajaSetting('relay.hostQueryTimeoutMs'), { reason: 'host' }, signal);
     },
   });
   window.addEventListener('pagehide', disposeCvmSettings, { once: true });

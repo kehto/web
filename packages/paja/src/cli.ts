@@ -8,6 +8,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import {
   createPajaHostConfig,
   formatPajaUrl,
+  normalizePajaConfigSettings,
   normalizePajaOptions,
   waitForTargetUrl,
   type PajaCommand,
@@ -23,6 +24,7 @@ import {
   type PajaSimulationRawOptions,
   type JsonValue,
 } from './simulation.js';
+import { getPajaSetting, setActivePajaSettings } from './settings.js';
 
 /**
  * Minimal output streams used by the CLI runner.
@@ -111,6 +113,8 @@ export async function runPajaCli(
     }
 
     const rawOptions = resolvePajaRawOptions(parsed.options ?? {});
+    // Config-file settings must be active before normalization reads any bound.
+    setActivePajaSettings(normalizePajaConfigSettings(rawOptions.settings));
     const options = normalizePajaOptions(rawOptions);
     const hostConfig = createPajaHostConfig(options);
     const shouldServe = runOptions.serve ?? true;
@@ -165,7 +169,7 @@ export async function runPajaCli(
 async function writeTargetNetworkNotice(
   io: CliIo,
   server: Awaited<ReturnType<typeof startPajaServer>>,
-  timeoutMs = 2000,
+  timeoutMs = getPajaSetting('server.targetNoticeTimeoutMs'),
 ): Promise<void> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -488,7 +492,7 @@ async function resolveManagedTargetUrl(
     return first.url;
   }
 
-  const graceMs = options.discoveryGraceMs ?? Math.min(1000, options.timeoutMs);
+  const graceMs = options.discoveryGraceMs ?? Math.min(getPajaSetting('server.discoveryGraceMs'), options.timeoutMs);
   const detected = await resolveWithin(child.detectedTargetUrl, graceMs);
   if (!detected) {
     if (first?.url) {

@@ -1,5 +1,6 @@
 import type { CvmRegistryFamily } from '@kehto/services';
 import { normalizePermissionScope } from '@kehto/firewall';
+import { getPajaSetting } from './settings.js';
 
 /** Host-owned static ICE configuration; credentials never enter napplet messages. */
 export interface PajaIceServer {
@@ -25,11 +26,13 @@ export interface PajaMultiplayerConfig {
 const HEX = /^[0-9a-f]{64}$/u;
 function record(value: unknown): value is Record<string, unknown> { return value !== null && typeof value === 'object' && !Array.isArray(value); }
 function text(value: unknown): string {
-  if (typeof value !== 'string' || !value.trim() || value.length > 256) throw new Error('Expected nonempty text (at most 256 characters).');
+  const max = getPajaSetting('multiplayer.textMaxChars');
+  if (typeof value !== 'string' || !value.trim() || value.length > max) throw new Error(`Expected nonempty text (at most ${String(max)} characters).`);
   return value;
 }
 export function normalizePajaCvmRelays(value: unknown): string[] {
-  if (!Array.isArray(value) || !value.length || value.length > 16) throw new Error('Configure 1–16 relay URLs.');
+  const max = getPajaSetting('multiplayer.maxRelays');
+  if (!Array.isArray(value) || !value.length || value.length > max) throw new Error(`Configure 1–${String(max)} relay URLs.`);
   return [...new Set(value.map(item => {
     if (typeof item !== 'string') throw new Error('Invalid relay URL.');
     const url = new URL(item);
@@ -40,7 +43,8 @@ export function normalizePajaCvmRelays(value: unknown): string[] {
 
 export function normalizePajaCvmFamily(value: unknown): CvmRegistryFamily {
   if (!record(value) || !record(value.server) || typeof value.server.pubkey !== 'string' || !HEX.test(value.server.pubkey)) throw new Error('Each registry family needs a provider public key.');
-  if (!Array.isArray(value.tools) || !value.tools.length || value.tools.length > 64) throw new Error('Each family needs 1–64 tool name/hash pins.');
+  const maxTools = getPajaSetting('multiplayer.maxTools');
+  if (!Array.isArray(value.tools) || !value.tools.length || value.tools.length > maxTools) throw new Error(`Each family needs 1–${String(maxTools)} tool name/hash pins.`);
   const tools = value.tools.map(tool => {
     if (!record(tool) || typeof tool.schemaHash !== 'string' || !HEX.test(tool.schemaHash)) throw new Error('Each tool needs its CEP-15 schema hash.');
     return { name: text(tool.name), schemaHash: tool.schemaHash };
@@ -54,7 +58,8 @@ export function normalizePajaCvmFamily(value: unknown): CvmRegistryFamily {
 }
 
 function iceServer(value: unknown): PajaIceServer {
-  if (!record(value) || !Array.isArray(value.urls) || !value.urls.length || value.urls.length > 8) throw new Error('Each ICE server needs 1–8 URLs.');
+  const maxUrls = getPajaSetting('multiplayer.maxIceUrls');
+  if (!record(value) || !Array.isArray(value.urls) || !value.urls.length || value.urls.length > maxUrls) throw new Error(`Each ICE server needs 1–${String(maxUrls)} URLs.`);
   const urls = value.urls.map(url => normalizePermissionScope({ kind: 'ice', value: url }).value);
   if (value.username !== undefined && typeof value.username !== 'string') throw new Error('Invalid ICE username.');
   if (value.credential !== undefined && typeof value.credential !== 'string') throw new Error('Invalid ICE credential.');
@@ -73,8 +78,10 @@ function iceServer(value: unknown): PajaIceServer {
 export function normalizePajaMultiplayer(value: unknown): PajaMultiplayerConfig | undefined {
   if (value === undefined) return undefined;
   if (!record(value) || value.profile !== 'soy-rtc/1') throw new Error('Select a supported multiplayer signaling profile.');
-  if (!Array.isArray(value.registry) || value.registry.length > 16) throw new Error('Configure at most 16 registry families.');
-  if (value.iceServers !== undefined && (!Array.isArray(value.iceServers) || value.iceServers.length > 8)) throw new Error('Configure at most 8 ICE servers.');
+  const maxRegistry = getPajaSetting('multiplayer.maxRegistryFamilies');
+  const maxIce = getPajaSetting('multiplayer.maxIceServers');
+  if (!Array.isArray(value.registry) || value.registry.length > maxRegistry) throw new Error(`Configure at most ${String(maxRegistry)} registry families.`);
+  if (value.iceServers !== undefined && (!Array.isArray(value.iceServers) || value.iceServers.length > maxIce)) throw new Error(`Configure at most ${String(maxIce)} ICE servers.`);
   return { profile: value.profile, relays: normalizePajaCvmRelays(value.relays), registry: value.registry.map(normalizePajaCvmFamily),
     ...(Array.isArray(value.iceServers) ? { iceServers: value.iceServers.map(iceServer) } : {}),
     ...(value.developmentNamespace === undefined ? {} : { developmentNamespace: text(value.developmentNamespace) }) };

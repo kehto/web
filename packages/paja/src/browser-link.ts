@@ -2,8 +2,8 @@ import type { LinkOpenContext } from '@kehto/services';
 import type { PajaConfirmationHandler, PajaIdentityProvider } from './browser-adapter.js';
 import type { PajaConfirmationRequest } from './browser-confirmation-request.js';
 import type { PajaUserActivationHandler } from './browser-device-services.js';
+import { getPajaSetting } from './settings.js';
 
-const APPROVAL_CLICK_WINDOW_MS = 1_000;
 let approvalClickAt = Number.NEGATIVE_INFINITY;
 
 /**
@@ -25,7 +25,7 @@ export function notePajaApprovalClick(now: number = performance.now()): void {
 
 /** Whether the click that approved a Firewall prompt can still open a tab. */
 export function hasPajaApprovalClick(now: number = performance.now()): boolean {
-  if (now - approvalClickAt > APPROVAL_CLICK_WINDOW_MS) return false;
+  if (now - approvalClickAt > getPajaSetting('link.approvalClickWindowMs')) return false;
   return typeof navigator !== 'undefined'
     && (navigator as Navigator & { userActivation?: { isActive: boolean } }).userActivation?.isActive === true;
 }
@@ -55,7 +55,7 @@ export async function confirmPajaExternalLink(
       && current.dTag === identity.dTag && current.aggregateHash === identity.aggregateHash;
   };
   const request: PajaConfirmationRequest = { action: 'link', windowId, napplet: identity, url: url.href,
-    ...(options?.label ? { label: options.label.slice(0, 256) } : {}), isCurrent };
+    ...(options?.label ? { label: options.label.slice(0, getPajaSetting('link.labelMaxChars')) } : {}), isCurrent };
   const openCurrent = (): boolean => isCurrent() && open(url);
   // `signal` exists only when the runtime Firewall authorized this exact URL.
   if (signal && isActivated() && openCurrent()) return { status: 'opened' };

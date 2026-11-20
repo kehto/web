@@ -190,7 +190,7 @@ encrypted offer/answer signaling, and asks for explicit session consent with a
 network-metadata warning. Napplets receive only NAP session/events and data
 channel payloads: JSON `send` payloads as `message` events and `sendBytes`
 payloads, sent as one binary data-channel message, as `bytes` events. Sessions
-report `maxPayloadBytes` (64 KiB). The `soy-rtc/1` multiplayer profile stays
+report `maxPayloadBytes` from the `webrtc.maxPayloadBytes` setting (default 64 KiB). The `soy-rtc/1` multiplayer profile stays
 JSON-only and answers `sendBytes` with `unsupported`. Napplets never see SDP,
 ICE state, relay sockets, or peer-connection objects.
 Connecting or disconnecting a signer updates the runtime's service registration
@@ -238,7 +238,7 @@ Groq, Mistral, DeepSeek, xAI, Together, Fireworks, Perplexity, Azure OpenAI, or 
 Ollama, LM Studio, llama.cpp and vLLM servers), enter the model and an optional API
 key, tick the capabilities the model supports (images, JSON output, and **Tool calling** with optional **Required tool choice** and **Named tool choice**) and choose whether to remember the key. Remembered keys are encrypted with
 AES-GCM under a PBKDF2-SHA-256 key derived from a vault password you create (at
-least 12 characters); otherwise the key lasts for the page session only. Keys are
+least `vault.minPasswordLength` characters, default 12); otherwise the key lasts for the page session only. Keys are
 sent solely to the connection's base URL (HTTPS, or HTTP on loopback) and never to
 napplets or the message log. The `llm` interface is advertised whenever the panel is
 present; it shows `⚠ llm` until a connection exists. A napplet's `select()` then
@@ -502,6 +502,183 @@ the host-resolved `(dTag, aggregateHash)`, and exposes a shell-owned settings
 dialog; napplets remain read-only. If durable browser storage or that host UI
 is unavailable, Paja does not advertise `config`.
 
+## Settings
+
+Every Paja timeout, interval, cap and abuse bound is a user-changeable default.
+Open **Settings** in the top bar to edit them. The dialog has one tab per group
+below (arrow keys, Home and End move between tabs) and is generated from the
+settings registry, so it lists every key. On a failed save, every tab holding an
+invalid value is marked "needs fixing" and the first one opens with focus on the
+field. All defaults are defined in one file, `packages/paja/src/settings-registry.ts`. Saved values persist per host
+origin under `kehto:paja:settings.v1` (overrides only) and are restored on every
+visit. Corrupt, retired or out-of-range stored entries are dropped rather than
+clamped; if storage is unavailable, changes apply for the session only. Most
+changes take effect on the next operation; anything a running napplet or service
+already captured applies after **Save and reload**. Napplets cannot read or write
+these settings.
+
+A config file can seed the same keys under `settings`. Browser-scope keys become
+the host page's defaults (a saved GUI override still wins); server-scope keys apply
+to the CLI and server process and are shown read-only in the dialog. Unknown keys and
+out-of-range values in a config file are an error, not a silent clamp.
+
+```json
+{
+  "targetUrl": "http://127.0.0.1:5173",
+  "settings": {
+    "relay.liveQueryWaitMs": 8000,
+    "server.resourceTimeoutMs": 60000
+  }
+}
+```
+
+Bounds keep abuse guards from being disabled (no zero, negative or unbounded caps),
+and security floors can only be raised: `vault.minPasswordLength`,
+`vault.minDistinctChars`, `vault.pbkdf2Iterations` (new vaults only; an existing
+vault keeps the iterations it was created with) and `webrtc.roomMinChars`.
+`--port` and `--ready-timeout` stay CLI/config options.
+
+Numbers that are not settings, because changing them would break a wire contract
+or a persisted format: Nostr event kinds (named in `nostr-kinds.ts`), crypto sizes,
+HTTP status codes, reserved address ranges, MIME magic bytes, unit conversions,
+and presentation values such as CSS sizes. `settings-guard.test.ts` fails on any
+new bare number that is neither registered nor listed there with its reason.
+
+NAP-FS `limits`, NAP-WEBRTC `maxPayloadBytes` and NAP-RESOURCE caps are shell
+policy in their drafts (NAP-FS `bd1b9e9`, NAP-WEBRTC `fb4dd6f`, NAP-RESOURCE
+`ae5b9c6`), so Paja advertises and enforces the effective setting.
+
+| Key | Setting | Default | Range |
+|---|---|---|---|
+| **Relays and queries** | | | |
+| `relay.liveQueryWaitMs` | Live relay query and connect wait | 4000 ms | 250–120000 |
+| `relay.hostQueryTimeoutMs` | Host-owned relay query timeout | 5000 ms | 250–120000 |
+| `relay.contactListCandidateLimit` | Contact-list candidates per lookup | 64 | 1–1024 |
+| `relay.profileQueryLimit` | Events per profile or list query | 16 | 1–500 |
+| `relay.eventLookupLimit` | Events per id lookup | 8 | 1–500 |
+| `relay.replaceableLookupLimit` | Events per relay-list lookup | 2 | 1–100 |
+| `relay.missingProfileQueryMinimum` | Minimum batch size for missing profiles | 10 | 1–500 |
+| `social.followParseYieldEvery` | Follow tags parsed before yielding | 64 | 1–10000 |
+| `social.profileWarmYieldEvery` | Profiles warmed before yielding | 64 | 1–10000 |
+| **Resources and Blossom** | | | |
+| `resource.maxBytes` | Maximum resource size | 10485760 bytes | 1024–536870912 |
+| `resource.maxUrls` | URLs per bulk request | 100 | 1–1000 |
+| `resource.maxServers` | Blossom servers tried per blob | 8 | 1–64 |
+| `resource.maxRedirects` | Redirects followed per fetch | 5 | 0–20 |
+| `blossom.serverListTtlMs` | Server-list cache lifetime | 300000 ms | 0–86400000 |
+| `blossom.maxResourcesPerWindow` | Tracked resources per napplet | 256 | 1–10000 |
+| `blossom.maxContextsPerResource` | Contexts kept per resource | 8 | 1–256 |
+| `blossom.maxServerListChars` | Maximum server-list event size | 262144 chars | 1024–16777216 |
+| `blossom.maxUriHints` | Server hints per blossom: URI | 8 | 0–64 |
+| `blossom.maxUriChars` | Maximum blossom: URI length | 8192 chars | 256–65536 |
+| **Filesystem** | | | |
+| `fs.maxReadBytes` | Maximum bytes per read | 1048576 bytes | 1–268435456 |
+| `fs.maxWriteBytes` | Maximum bytes per write | 1048576 bytes | 1–268435456 |
+| `fs.maxRevisionBytes` | Maximum file size for revision hashing | 16777216 bytes | 1–1073741824 |
+| `fs.maxWatchCount` | Active watches per napplet | 16 | 1–256 |
+| `fs.watchIntervalMs` | Watch polling interval | 1000 ms | 100–60000 |
+| `fs.encodeChunkBytes` | Base64 encode chunk size | 32768 bytes | 1024–65536 |
+| **WebRTC** | | | |
+| `webrtc.maxPayloadBytes` | Maximum payload per send | 65536 bytes | 1024–1048576 |
+| `webrtc.maxSessionsPerWindow` | Sessions per napplet | 4 | 1–64 |
+| `webrtc.maxPeers` | Peers per session | 8 | 1–64 |
+| `webrtc.signalMaxAgeSeconds` | Maximum signal age | 300 s | 10–3600 |
+| `webrtc.signalLookbackSeconds` | Signal subscription lookback | 60 s | 0–3600 |
+| `webrtc.iceGatherTimeoutMs` | ICE gathering timeout | 8000 ms | 500–120000 |
+| `webrtc.bufferedAmountLimitBytes` | Data-channel buffer limit | 1048576 bytes | 16384–67108864 |
+| `webrtc.seenSignalCache` | Remembered signal ids | 256 | 16–65536 |
+| `webrtc.roomMinChars` | Minimum room length | 8 chars | 8–128 |
+| `webrtc.roomMaxChars` | Maximum room length | 128 chars | 8–1024 |
+| `webrtc.channelMaxChars` | Maximum channel label length | 64 chars | 1–1024 |
+| `webrtc.protocolMaxChars` | Maximum protocol length | 64 chars | 1–1024 |
+| **Multiplayer WebRTC profile** | | | |
+| `mp.maxMessageBytes` | Maximum message size | 16384 bytes | 1024–1048576 |
+| `mp.roomMaxChars` | Maximum room length | 256 chars | 1–4096 |
+| `mp.maxPeers` | Peers per room | 8 | 1–64 |
+| `mp.channelMaxChars` | Maximum channel length | 64 chars | 1–1024 |
+| `mp.protocolMaxChars` | Maximum protocol length | 128 chars | 1–1024 |
+| `mp.maxSessions` | Rooms per napplet | 4 | 1–64 |
+| `mp.iceGatherTimeoutMs` | ICE gathering timeout | 8000 ms | 500–120000 |
+| `mp.signalExpirationSeconds` | Signal expiration | 60 s | 5–3600 |
+| `mp.signalMaxAgeSeconds` | Maximum signal age | 60 s | 5–3600 |
+| `mp.signalLookbackSeconds` | Signal subscription lookback | 10 s | 0–3600 |
+| `mp.rateWindowMs` | Rate-limit window | 1000 ms | 100–60000 |
+| `mp.maxMessagesPerWindow` | Messages per window | 240 | 1–100000 |
+| `mp.maxBytesPerWindow` | Bytes per window | 524288 bytes | 1024–67108864 |
+| `mp.maxSignalsPerWindow` | Signals per window | 32 | 1–10000 |
+| `mp.maxQueuedPerPeer` | Queued messages per peer | 4 | 1–1024 |
+| `mp.maxSignalChars` | Maximum signal size | 64000 chars | 1024–1048576 |
+| `mp.sdpMaxChars` | Maximum SDP size | 32000 chars | 1024–1048576 |
+| `mp.nonceMaxChars` | Maximum nonce length | 64 chars | 8–1024 |
+| `mp.seenSignalCache` | Remembered signal ids | 2048 | 16–65536 |
+| `mp.maxRetiredPeers` | Retired peer incarnations per room | 256 | 1–65536 |
+| `mp.joinTimeoutMs` | Peer join timeout | 45000 ms | 1000–600000 |
+| `mp.tickIntervalMs` | Room maintenance interval | 2000 ms | 100–60000 |
+| `mp.bufferedAmountLimitBytes` | Data-channel buffer limit | 262144 bytes | 16384–67108864 |
+| **Intents and links** | | | |
+| `intent.maxDeliveryAttempts` | Delivery attempts ceiling | 10 | 1–100 |
+| `intent.launcherReadyTimeoutMs` | Launcher ready timeout | 10000 ms | 1000–600000 |
+| `intent.launcherOutcomeTimeoutMs` | Launcher outcome timeout | 10000 ms | 1000–600000 |
+| `intent.linkMaxBytes` | Maximum app-link size | 16384 bytes | 1024–1048576 |
+| `link.approvalClickWindowMs` | Link approval click window | 1000 ms | 100–10000 |
+| `link.labelMaxChars` | Maximum link label length | 256 chars | 1–4096 |
+| **Signer** | | | |
+| `signer.nip46TimeoutMs` | Remote signer request timeout | 30000 ms | 1000–600000 |
+| `signer.previewChars` | Content shown in signing prompts | 240 chars | 16–10000 |
+| `signer.consentMaxSubjects` | Remembered consent subjects | 128 | 1–10000 |
+| `signer.consentMaxKindsPerSubject` | Remembered kinds per subject | 128 | 1–10000 |
+| `signer.consentMaxIdentityChars` | Maximum consent identity length | 512 chars | 64–8192 |
+| **Language models** | | | |
+| `llm.modelsTimeoutMs` | Model list timeout | 8000 ms | 500–120000 |
+| `llm.maxConnections` | Saved connections | 32 | 1–256 |
+| `llm.connectionNameMaxChars` | Maximum connection name length | 64 chars | 1–1024 |
+| `llm.presetIdMaxChars` | Maximum preset id length | 64 chars | 1–1024 |
+| `llm.modelIdMaxChars` | Maximum model id length | 200 chars | 1–4096 |
+| `vault.minPasswordLength` | Minimum vault password length | 12 chars | 12–256 |
+| `vault.minDistinctChars` | Minimum distinct password characters | 4 chars | 4–64 |
+| `vault.pbkdf2Iterations` | PBKDF2 iterations for new vaults | 600000 | 600000–10000000 |
+| **Multiplayer providers** | | | |
+| `cvm.discoveryTimeoutMs` | Provider discovery timeout | 15000 ms | 1000–300000 |
+| `cvm.serverRequestTimeoutMs` | Server request answer window | 30000 ms | 1000–300000 |
+| `cvm.discoveryMaxBytes` | Maximum discovery document size | 1000000 bytes | 1024–67108864 |
+| `cvm.discoveryEventLimit` | Events per discovery query | 64 | 1–1000 |
+| `cvm.referenceMaxChars` | Maximum discovery input length | 2048 chars | 64–65536 |
+| `cvm.toolNameMaxChars` | Maximum tool name length | 256 chars | 1–4096 |
+| `cvm.maxSavedFamilies` | Saved provider families | 16 | 1–256 |
+| `cvm.familySourceMaxChars` | Maximum saved family source length | 4096 chars | 64–65536 |
+| `multiplayer.textMaxChars` | Maximum configuration text length | 256 chars | 1–4096 |
+| `multiplayer.maxRelays` | Relays per configuration | 16 | 1–256 |
+| `multiplayer.maxTools` | Tools per family | 64 | 1–1024 |
+| `multiplayer.maxRegistryFamilies` | Registry families | 16 | 1–256 |
+| `multiplayer.maxIceServers` | ICE servers | 8 | 1–64 |
+| `multiplayer.maxIceUrls` | URLs per ICE server | 8 | 1–64 |
+| **Development target** | | | |
+| `target.maxDTagChars` | Maximum development d tag length | 128 chars | 1–1024 |
+| `target.maxNapDeclarations` | Development NAP declarations | 64 | 1–1024 |
+| `target.maxReportedAssets` | Relative assets listed in diagnostics | 8 | 1–1000 |
+| `target.maxReportedReferences` | Network references listed in diagnostics | 8 | 1–1000 |
+| `target.runtimeWaitMs` | Pointer resolution relay deadline | 5000 ms | 250–300000 |
+| `target.failureReasonChars` | Characters per relay failure reason | 160 chars | 16–4096 |
+| `target.failureReasonCount` | Relay failure reasons shown | 3 | 1–50 |
+| `target.pointerReplacementLimit` | Replacement manifests offered for a gone nevent | 50 | 1–500 |
+| **Console and indicators** | | | |
+| `console.messageLogLimit` | Messages kept in the log | 500 | 10–100000 |
+| `console.messageLogVisibleRows` | Messages rendered in the log | 120 | 10–10000 |
+| `notify.badgeMaxCount` | Largest badge count shown | 9999 | 9–1000000 |
+| `notify.maxActions` | Actions per notification | 3 | 0–3 |
+| `gamepad.axisDeadzone` | Stick deadzone | 0.12 | 0–1 |
+| `gamepad.buttonThreshold` | Button press threshold | 0.05 | 0–1 |
+| `gamepad.activityHoldMs` | Controller activity highlight | 420 ms | 0–10000 |
+| **Server (config file only)** | | | |
+| `server.readinessPollIntervalMs` | Target readiness poll interval | 250 ms | 50–60000 |
+| `server.shutdownGraceMs` | Shutdown grace before force close | 500 ms | 0–60000 |
+| `server.requestBodyTimeoutMs` | Request body timeout | 10000 ms | 1000–300000 |
+| `server.requestBodyMaxBytes` | Maximum request body | 4096 bytes | 256–1048576 |
+| `server.resourceMaxBytes` | Maximum proxied resource size | 10485760 bytes | 1024–536870912 |
+| `server.resourceTimeoutMs` | Proxied resource timeout | 30000 ms | 1000–600000 |
+| `server.targetNoticeTimeoutMs` | Target network notice timeout | 2000 ms | 100–60000 |
+| `server.discoveryGraceMs` | Managed command URL discovery grace | 1000 ms | 0–60000 |
+
 ## NAP-UPLOAD modes
 
 Paja keeps `memory` as the default unadvertised upload fixture. It does not
@@ -579,7 +756,7 @@ network authorization callback and refuses network access when it is absent.
 The proxy validates its host, main-frame Origin, JSON POST, and server-instance
 HttpOnly cookie before DNS. It pins a permitted public address to the connection,
 preserves TLS hostname checks, omits upstream credentials/referrer, and bounds
-responses to 10 MiB and 30 seconds. Private, loopback, and other blocked
+responses to `server.resourceMaxBytes` and `server.resourceTimeoutMs` (default 10 MiB and 30 seconds). Private, loopback, and other blocked
 special-purpose addresses are rejected, including development loopback targets.
 
 Redirects return metadata to the trusted resolver instead of redirecting the
@@ -635,14 +812,14 @@ preferences. This follows [current NIP-07](https://github.com/nostr-protocol/nip
 which permits empty unsupported results. The user-list
 lookup works independently of upload mode; an upload runtime may reuse the same
 servers when present. ROM-specific event and publisher locations retain
-priority over the user/runtime fallbacks. URI length is capped at 8192 characters;
+priority over the user/runtime fallbacks. URI length is capped at `blossom.maxUriChars` (default 8192 characters);
 retained unique `xs`, the complete author lookup list, and combined server
-candidates are each capped at eight. Both prefixes require exactly 64 hex
+candidates are each capped at eight by default (`blossom.maxUriHints`, `resource.maxServers`). Both prefixes require exactly 64 hex
 characters, with an optional single ASCII-alphanumeric extension preserved in
 `GET /<hash>.<ext>`; no query hints reach the blob server. Extensions and upstream
 headers never establish MIME. Fragments, path injection, malformed escapes/authors,
 and invalid or repeated `sz` fail with `invalid-request` before discovery.
-`sz` must be a positive decimal safe integer; sizes above 10 MiB fail `too-large`.
+`sz` must be a positive decimal safe integer; sizes above `resource.maxBytes` (default 10 MiB) fail `too-large`.
 Paja checks a numeric Content-Length before reading and always checks actual
 bytes against `sz`; a size or hash mismatch is `decode-failed` unless fallback succeeds.
 Hash-only event context stays window-scoped, without transferring extension/size
@@ -722,7 +899,7 @@ For example, `?intent=napplet%3Aprofile%2Fopen%3Fpubkey%3Dabc%252B123`
 contains `napplet:profile/open?pubkey=abc%2B123` and delivers text `abc+123`.
 Outer and inner layers decode once each; literal `+` stays plus. Optional outer
 `payload` contains JSON, including null, primitives, arrays, or objects, and
-cannot accompany an inner query. URLs are limited to 16 KiB UTF-8. Duplicate
+cannot accompany an inner query. URLs are limited to `intent.linkMaxBytes` (default 16 KiB) UTF-8. Duplicate
 keys, malformed encoding, and conflicting target instructions are rejected.
 Ordinary pointer-only app links retain their existing behavior.
 

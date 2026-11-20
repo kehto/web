@@ -16,18 +16,22 @@ import { subscribePajaLive, queryPajaLive } from './browser-relay-transport.js';
 import type { PajaConfirmationHandler } from './browser-adapter.js';
 import type { PajaSimulation } from './simulation.js';
 import type { PajaSignerRequestContext } from './browser-signer-consent.js';
+import { getPajaSetting, getPajaSettingDefault } from './settings.js';
+import { KIND_CONTACT_LIST, KIND_GIFT_WRAP, KIND_RELAY_LIST, KIND_WEBRTC_SIGNAL } from './nostr-kinds.js';
 
-export const PAJA_NIP65_RELAY_LIST_KIND = 10_002;
-export const PAJA_CONTACT_LIST_KIND = 3;
-const PAJA_WEBRTC_SIGNAL_KIND = 25_050;
-const NIP17_GIFT_WRAP_KIND = 1_059;
+export const PAJA_NIP65_RELAY_LIST_KIND = KIND_RELAY_LIST;
+export const PAJA_CONTACT_LIST_KIND = KIND_CONTACT_LIST;
+const PAJA_WEBRTC_SIGNAL_KIND = KIND_WEBRTC_SIGNAL;
+const NIP17_GIFT_WRAP_KIND = KIND_GIFT_WRAP;
 /**
  * Maximum raw kind-3 candidates returned for verification. The newest candidates
  * (with event-ID tie-breaking) retain deterministic replacement while bounding
- * serial signature verification of untrusted relay input.
+ * serial signature verification of untrusted relay input. Built-in default; the
+ * effective bound is the `relay.contactListCandidateLimit` setting.
  */
-export const PAJA_CONTACT_LIST_CANDIDATE_LIMIT = 64;
-export const PAJA_LIVE_QUERY_WAIT_MS = 4_000;
+export const PAJA_CONTACT_LIST_CANDIDATE_LIMIT = getPajaSettingDefault('relay.contactListCandidateLimit');
+/** Built-in default live relay wait; the effective value is the `relay.liveQueryWaitMs` setting. */
+export const PAJA_LIVE_QUERY_WAIT_MS = getPajaSettingDefault('relay.liveQueryWaitMs');
 
 /**
  * Why Paja opened one relay read.
@@ -227,12 +231,12 @@ async function countLive(
       timeout = setTimeout(() => {
         controller.abort();
         reject(new Error('count timeout'));
-      }, PAJA_LIVE_QUERY_WAIT_MS);
+      }, getPajaSetting('relay.liveQueryWaitMs'));
     });
     try {
       const relay = await Promise.race([
         pool.ensureRelay(relayUrl, {
-          connectionTimeout: PAJA_LIVE_QUERY_WAIT_MS,
+          connectionTimeout: getPajaSetting('relay.liveQueryWaitMs'),
           abort: controller.signal,
         }),
         timedOut,
@@ -322,7 +326,7 @@ export function createPajaRelayBackend(
     if (getSimulation().relay.mode !== 'live' || relayUrls.length === 0) return cached;
     const readContext = attributeAuthors(context, filters);
     observeRelayRequest(readContext, relayUrls);
-    const liveEvents = await queryPajaLive(livePool, relayUrls, filters, maxWaitMs ?? PAJA_LIVE_QUERY_WAIT_MS,
+    const liveEvents = await queryPajaLive(livePool, relayUrls, filters, maxWaitMs ?? getPajaSetting('relay.liveQueryWaitMs'),
       (event, source) => observeRelayEvent(readContext, relayUrls, event, source), false, signal);
     const out = new Map<string, NostrEvent>();
     for (const event of [...cached, ...liveEvents]) out.set(event.id, event);
@@ -333,7 +337,7 @@ export function createPajaRelayBackend(
     if (signal?.aborted || getSimulation().relay.mode !== 'live' || relayUrls.length === 0) return cached;
     const readContext = attributeAuthors({ reason: 'host' }, filters);
     observeRelayRequest(readContext, relayUrls);
-    const liveEvents = await queryPajaLive(livePool, relayUrls, filters, maxWaitMs ?? PAJA_LIVE_QUERY_WAIT_MS,
+    const liveEvents = await queryPajaLive(livePool, relayUrls, filters, maxWaitMs ?? getPajaSetting('relay.liveQueryWaitMs'),
       (event, source) => observeRelayEvent(readContext, relayUrls, event, source), true, signal);
     const out = new Map<string, NostrEvent>();
     for (const event of [...cached, ...liveEvents]) out.set(event.id, event);
@@ -393,7 +397,7 @@ export function createPajaRelayBackend(
           if (getSimulation().relay.mode === 'live') observeRelayRequest(readContext, relayUrls);
           const liveSub = getSimulation().relay.mode === 'live'
             ? subscribePajaLive(livePool, relayUrls, filters, subscriber.next,
-                (event, source) => observeRelayEvent(readContext, relayUrls, event, source), PAJA_LIVE_QUERY_WAIT_MS)
+                (event, source) => observeRelayEvent(readContext, relayUrls, event, source), getPajaSetting('relay.liveQueryWaitMs'))
             : null;
           queueMicrotask(() => {
             if (subscribers.has(subscriber) && !liveSub) next('EOSE');
@@ -570,17 +574,17 @@ export function createPajaContactListLoader(
     const filters = [{
       kinds: [PAJA_CONTACT_LIST_KIND],
       authors: [pubkey],
-      limit: PAJA_CONTACT_LIST_CANDIDATE_LIMIT,
+      limit: getPajaSetting('relay.contactListCandidateLimit'),
     }];
     const contactQuery = contactListCandidateQueries.get(backend);
     const candidates = contactQuery
-      ? await contactQuery(relayUrls, filters, PAJA_LIVE_QUERY_WAIT_MS, signal)
-      : await backend.query(relayUrls, filters, PAJA_LIVE_QUERY_WAIT_MS);
+      ? await contactQuery(relayUrls, filters, getPajaSetting('relay.liveQueryWaitMs'), signal)
+      : await backend.query(relayUrls, filters, getPajaSetting('relay.liveQueryWaitMs'));
     if (signal?.aborted) return [];
     return candidates
       .filter((event) => event.kind === PAJA_CONTACT_LIST_KIND && event.pubkey.toLowerCase() === pubkey.toLowerCase())
       .sort((left, right) => right.created_at - left.created_at || left.id.localeCompare(right.id))
-      .slice(0, PAJA_CONTACT_LIST_CANDIDATE_LIMIT);
+      .slice(0, getPajaSetting('relay.contactListCandidateLimit'));
   };
 }
 
@@ -617,8 +621,8 @@ export function createPajaRelayListLoader(
       ), [{
         kinds: [PAJA_NIP65_RELAY_LIST_KIND],
         authors: missing,
-        limit: Math.max(missing.length * 2, 10),
-      }], PAJA_LIVE_QUERY_WAIT_MS);
+        limit: Math.max(missing.length * 2, getPajaSetting('relay.missingProfileQueryMinimum')),
+      }], getPajaSetting('relay.liveQueryWaitMs'));
       for (const pubkey of missing) {
         const event = latestEvent(events, PAJA_NIP65_RELAY_LIST_KIND, pubkey);
         if (event) registry.ingest(event);
@@ -670,7 +674,7 @@ export function createPajaIdentityProviders(
         kinds: [PAJA_CONTACT_LIST_KIND],
         authors: [pubkey],
         limit: 1,
-      }], PAJA_LIVE_QUERY_WAIT_MS);
+      }], getPajaSetting('relay.liveQueryWaitMs'));
       const follows = contactPubkeys(latestEvent(events, PAJA_CONTACT_LIST_KIND, pubkey));
       followsCache.set(pubkey, follows);
       return [...follows];

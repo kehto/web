@@ -62,6 +62,7 @@ export function mergePajaRawOptions(
     configPath: override.configPath ?? base.configPath,
     experimental: override.experimental ?? base.experimental,
     simulation: mergeSimulationOptions(base.simulation, override.simulation),
+    ...(base.settings || override.settings ? { settings: { ...base.settings, ...override.settings } } : {}),
   };
 }
 
