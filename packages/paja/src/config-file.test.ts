@@ -104,4 +104,14 @@ describe('@kehto/paja config files', () => {
       unlinkSync(path);
     }
   });
+
+  it('merges settings blocks with explicit overrides winning per key', () => {
+    const merged = mergePajaRawOptions(
+      { settings: { 'fs.maxWatchCount': 8, 'notify.maxActions': 1 } },
+      { settings: { 'fs.maxWatchCount': 32 } },
+    );
+    expect(merged.settings).toEqual({ 'fs.maxWatchCount': 32, 'notify.maxActions': 1 });
+    expect(mergePajaRawOptions({}, {})).not.toHaveProperty('settings');
+  });
 });
+

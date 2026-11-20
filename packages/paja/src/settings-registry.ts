@@ -8,7 +8,7 @@
  *
  * Wire-contract and format numbers (Nostr event kinds, crypto sizes, HTTP
  * statuses, address ranges, magic bytes, unit conversions) are deliberately not
- * settings; `tests/unit/paja-settings-guard.test.ts` keeps that split honest.
+ * settings; `settings-guard.test.ts` keeps that split honest.
  */
 
 /** Unit a setting is measured in; drives the panel label and integer checks. */

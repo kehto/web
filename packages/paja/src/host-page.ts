@@ -234,6 +234,9 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .config-group { margin: 0; padding: 10px; border: 1px solid var(--line); border-radius: 4px; display: grid; gap: 10px; }
       .config-group legend { color: var(--accent); padding: 0 5px; }
       .config-error { min-height: 1.4em; color: #e6a5a5; }
+      .settings-status { color: var(--muted); }
+      .settings-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
+      .settings-field input[aria-invalid="true"] { border-color: #e6a5a5; }
       .paja-notification-center { position: fixed; right: 16px; bottom: 46px; z-index: 10; width: min(360px, calc(100vw - 32px)); display: grid; gap: 8px; pointer-events: none; }
       .paja-notification { display: grid; gap: 8px; padding: 10px; border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 6px; background: #181b19; box-shadow: 0 10px 30px rgb(0 0 0 / 0.45); pointer-events: auto; }
       .paja-notification[data-priority="high"], .paja-notification[data-priority="urgent"] { border-left-color: #e89b5b; }
@@ -282,6 +285,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
             <option value="light"${config.simulation.theme.mode === 'light' ? ' selected' : ''}>light</option>
           </select>
         </label>
+        <button type="button" id="paja-settings-open" aria-haspopup="dialog" aria-controls="paja-settings-dialog">Settings</button>
         <button type="button" id="reload-target">Reload</button>
       </div>
     </header>
@@ -411,6 +415,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
     ${renderConfirmationDialog()}
     ${renderLlmDialogs()}
     ${renderConfigDialog()}
+    ${renderSettingsDialog()}
     ${renderIntentLinkDialog()}
     ${renderDuplicateDialog()}
     <footer class="bar bottom">
@@ -484,6 +489,23 @@ function renderLlmDialogs(): string {
         <div class="dialog-actions">
           <button type="button" id="paja-llm-vault-cancel">Cancel</button>
           <button type="button" id="paja-llm-vault-confirm">Unlock</button>
+        </div>
+      </div>
+    </dialog>`;
+}
+
+function renderSettingsDialog(): string {
+  return `<dialog class="config-dialog settings-dialog" id="paja-settings-dialog" aria-labelledby="paja-settings-title" aria-describedby="paja-settings-description">
+      <div class="dialog">
+        <div class="dialog-title" id="paja-settings-title">Paja settings</div>
+        <div class="dialog-copy" id="paja-settings-description">Defaults for Paja's timeouts, limits and intervals. Saved per host origin and restored on every visit. Most changes apply to the next operation; anything a running napplet already captured applies after a reload.</div>
+        <div class="config-fields" id="paja-settings-fields"></div>
+        <div class="config-error settings-status" id="paja-settings-status" role="status" aria-live="polite"></div>
+        <div class="dialog-actions">
+          <button type="button" id="paja-settings-reset-all">Reset all</button>
+          <button type="button" id="paja-settings-cancel">Close</button>
+          <button type="button" id="paja-settings-save">Save</button>
+          <button type="button" id="paja-settings-save-reload">Save and reload</button>
         </div>
       </div>
     </dialog>`;

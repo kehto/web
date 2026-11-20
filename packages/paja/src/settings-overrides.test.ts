@@ -1,0 +1,136 @@
+/**
+ * Proves call sites read registered settings at call time, one or more per
+ * settings group. Defaults are covered by each module's own tests.
+ */
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { generateSecretKey } from 'nostr-tools/pure';
+import type { NostrEvent } from 'nostr-tools';
+import { setActivePajaSettings } from './settings.js';
+import { createPajaContactListLoader, type PajaRelayBackend } from './browser-relay-runtime.js';
+import { normalizePajaSimulation } from './simulation.js';
+import { parsePajaBlossomUri } from './browser-blossom-uri.js';
+import { base64Bytes, encodeBase64, validateRange } from './browser-fs-support.js';
+import { createPajaWebrtcProfile } from './browser-webrtc-profile.js';
+import { createPajaIntentLink } from './intent-link.js';
+import { PAJA_LLM_VAULT_STORAGE_KEY, createPajaLlmVault, validatePajaLlmVaultPassword } from './browser-llm-vault.js';
+import { normalizePajaCvmRelays } from './multiplayer-config.js';
+import { parseCvmDiscoveryInput } from './cvm-discovery.js';
+import { findRelativeAssetReferences } from './local-target.js';
+import { appendPajaMessageLog } from './browser-devtools.js';
+import { waitForTargetUrl } from './readiness.js';
+
+class MemoryStorage implements Storage {
+  private readonly map = new Map<string, string>();
+  get length(): number { return this.map.size; }
+  clear(): void { this.map.clear(); }
+  getItem(key: string): string | null { return this.map.get(key) ?? null; }
+  key(index: number): string | null { return [...this.map.keys()][index] ?? null; }
+  removeItem(key: string): void { this.map.delete(key); }
+  setItem(key: string, value: string): void { this.map.set(key, value); }
+}
+
+const HASH = 'a'.repeat(64);
+
+afterEach(() => {
+  setActivePajaSettings({});
+  vi.unstubAllGlobals();
+});
+
+describe('settings overrides reach their call sites', () => {
+  it('relays: bounds contact candidates by relay.contactListCandidateLimit', async () => {
+    setActivePajaSettings({ 'relay.contactListCandidateLimit': 3 });
+    const pubkey = 'b'.repeat(64);
+    const events = Array.from({ length: 6 }, (_, index): NostrEvent => ({
+      id: index.toString(16).padStart(64, '0'), pubkey, kind: 3, created_at: index, tags: [], content: '', sig: 'e'.repeat(128),
+    }));
+    const query = vi.fn(async () => events);
+    const loader = createPajaContactListLoader({ query } as unknown as PajaRelayBackend, () => normalizePajaSimulation({ relay: { mode: 'memory' } }));
+    expect(await loader(pubkey)).toHaveLength(3);
+    expect(query).toHaveBeenCalledWith(expect.any(Array), [expect.objectContaining({ limit: 3 })], 4000);
+  });
+
+  it('resources: rejects blossom: URIs longer than blossom.maxUriChars', () => {
+    const uri = `blossom:${HASH}.bin?xs=${'s'.repeat(400)}.example`;
+    expect(parsePajaBlossomUri(uri)).not.toBeNull();
+    setActivePajaSettings({ 'blossom.maxUriChars': 256 });
+    expect(parsePajaBlossomUri(uri)).toBeNull();
+  });
+
+  it('filesystem: enforces fs.maxReadBytes and fs.maxWriteBytes', () => {
+    setActivePajaSettings({ 'fs.maxReadBytes': 10, 'fs.maxWriteBytes': 4 });
+    expect(validateRange({ length: 10 })).toEqual({ offset: 0, length: 10 });
+    expect(() => validateRange({ length: 11 })).toThrow(expect.objectContaining({ code: 'too-large' }));
+    expect(validateRange(undefined).length).toBe(10);
+    expect(() => base64Bytes(encodeBase64(new Uint8Array(5)))).toThrow(expect.objectContaining({ code: 'too-large' }));
+  });
+
+  it('multiplayer WebRTC: validates rooms against mp.roomMaxChars', () => {
+    const profile = createPajaWebrtcProfile({
+      secretKey: generateSecretKey(), namespace: 'test', relays: ['wss://relay.example'],
+      relay: { subscribe: () => ({ close() {} }), publish: async () => {} }, isCurrent: () => true,
+    });
+    const request = { scope: { type: 'room' as const, room: 'r'.repeat(40) } };
+    expect(() => profile.planOpen!(request as never)).not.toThrow();
+    setActivePajaSettings({ 'mp.roomMaxChars': 32 });
+    expect(() => profile.planOpen!(request as never)).toThrow('Invalid room');
+  });
+
+  it('intents: caps shareable links at intent.linkMaxBytes', () => {
+    const descriptor = { uri: 'napplet:note/open', payload: 'x'.repeat(2000) };
+    expect(() => createPajaIntentLink(descriptor, 'https://paja.example/')).not.toThrow();
+    setActivePajaSettings({ 'intent.linkMaxBytes': 1024 });
+    expect(() => createPajaIntentLink(descriptor, 'https://paja.example/')).toThrow('must not exceed 1024 UTF-8 bytes');
+  });
+
+  it('language models: raises the vault password floor', () => {
+    setActivePajaSettings({ 'vault.minPasswordLength': 32 });
+    expect(validatePajaLlmVaultPassword('correct horse battery staple')).toBe('Use at least 32 characters.');
+  });
+
+  it('language models: keeps the iterations an existing vault was derived with', async () => {
+    const storage = new MemoryStorage();
+    await createPajaLlmVault({ storage, iterations: 1000 }).create('correct horse battery staple');
+    const reopened = createPajaLlmVault({ storage, iterations: 2000 });
+    await expect(reopened.unlock('correct horse battery staple')).resolves.toBe(true);
+    await reopened.setCredential('conn-1', 'sk-secret', 'vault');
+    expect(JSON.parse(storage.getItem(PAJA_LLM_VAULT_STORAGE_KEY)!)).toMatchObject({ iterations: 1000 });
+    await expect(createPajaLlmVault({ storage }).unlock('correct horse battery staple')).resolves.toBe(true);
+  });
+
+  it('multiplayer providers: bounds relay lists and discovery input', () => {
+    const relays = ['wss://a.example', 'wss://b.example'];
+    expect(normalizePajaCvmRelays(relays)).toEqual(relays);
+    setActivePajaSettings({ 'multiplayer.maxRelays': 1, 'cvm.referenceMaxChars': 64 });
+    expect(() => normalizePajaCvmRelays(relays)).toThrow('Configure 1–1 relay URLs.');
+    expect(() => parseCvmDiscoveryInput(`https://${'x'.repeat(80)}.example`)).toThrow(/Enter a nevent/);
+    expect(parseCvmDiscoveryInput(HASH)).toEqual({ type: 'hash', hash: HASH });
+  });
+
+  it('development target: limits reported relative assets', () => {
+    const html = ['a', 'b', 'c'].map((name) => `<script src="./${name}.js"></script>`).join('');
+    expect(findRelativeAssetReferences(html)).toHaveLength(3);
+    setActivePajaSettings({ 'target.maxReportedAssets': 2 });
+    expect(findRelativeAssetReferences(html)).toEqual(['./a.js', './b.js']);
+  });
+
+  it('console: trims the message log to console.messageLogLimit', () => {
+    vi.stubGlobal('document', { getElementById: () => null });
+    setActivePajaSettings({ 'console.messageLogLimit': 10 });
+    const state = { messageLog: [] as unknown[] } as Parameters<typeof appendPajaMessageLog>[0];
+    for (let index = 0; index < 15; index += 1) appendPajaMessageLog(state, 'in', { type: `m${String(index)}` });
+    expect(state!.messageLog).toHaveLength(10);
+  });
+
+  it('server: polls readiness at server.readinessPollIntervalMs', async () => {
+    setActivePajaSettings({ 'server.readinessPollIntervalMs': 1234 });
+    const sleeps: number[] = [];
+    let attempt = 0;
+    await waitForTargetUrl('http://127.0.0.1:5173', {
+      timeoutMs: 10_000,
+      fetch: async () => { attempt += 1; if (attempt < 2) throw new Error('down'); return new Response('ok'); },
+      sleep: async (ms) => { sleeps.push(ms); },
+      now: () => 0,
+    });
+    expect(sleeps).toEqual([1234]);
+  });
+});

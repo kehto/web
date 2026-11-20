@@ -8,6 +8,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import {
   createPajaHostConfig,
   formatPajaUrl,
+  normalizePajaConfigSettings,
   normalizePajaOptions,
   waitForTargetUrl,
   type PajaCommand,
@@ -23,7 +24,7 @@ import {
   type PajaSimulationRawOptions,
   type JsonValue,
 } from './simulation.js';
-import { getPajaSetting } from './settings.js';
+import { getPajaSetting, setActivePajaSettings } from './settings.js';
 
 /**
  * Minimal output streams used by the CLI runner.
@@ -112,6 +113,8 @@ export async function runPajaCli(
     }
 
     const rawOptions = resolvePajaRawOptions(parsed.options ?? {});
+    // Config-file settings must be active before normalization reads any bound.
+    setActivePajaSettings(normalizePajaConfigSettings(rawOptions.settings));
     const options = normalizePajaOptions(rawOptions);
     const hostConfig = createPajaHostConfig(options);
     const shouldServe = runOptions.serve ?? true;

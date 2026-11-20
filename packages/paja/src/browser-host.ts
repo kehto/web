@@ -12,6 +12,7 @@ import { createPajaPermissionAdapter } from './browser-permission-adapter.js';
 import { permissionPrincipalKey } from '@kehto/firewall';
 import { pajaPrincipalLabel, revokedPajaTabIds } from './browser-grant-retirement.js';
 import { installPajaSecuritySettings } from './browser-security-settings.js';
+import { createPajaSettingsStore, installPajaSettingsPanel } from './browser-settings.js';
 import { installPajaLlm } from './browser-llm-panel.js';
 import {
   buildShellCapabilities,
@@ -661,6 +662,9 @@ async function installPajaHost(): Promise<void> {
   const securitySettings = installPajaSecuritySettings();
   window.addEventListener('pagehide', securitySettings.dispose, { once: true });
   const config = await readLatestPajaHostConfig(readPajaHostConfig());
+  // Activate persisted settings before any service reads a bound or timeout.
+  const disposeSettingsPanel = installPajaSettingsPanel(createPajaSettingsStore({ seeds: config.settings }));
+  window.addEventListener('pagehide', disposeSettingsPanel, { once: true });
   const multiplayer = readPajaMultiplayerSettings(config.simulation.multiplayer);
   const disposeMultiplayer = installPajaMultiplayerSettings(multiplayer);
   window.addEventListener('pagehide', disposeMultiplayer, { once: true });

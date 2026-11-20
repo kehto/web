@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import {
   createPajaHostConfig,
   formatPajaUrl,
+  normalizePajaConfigSettings,
   normalizePajaOptions,
   type PajaHostConfig,
   type PajaOptions,
@@ -15,7 +16,7 @@ import { renderPajaHtml } from './host-page.js';
 import { resolvePajaRawOptions } from './config-file.js';
 import { probeTargetCors } from './target-cors.js';
 import { planTargetNetwork, type PajaTargetNetworkPlan } from './target-network.js';
-import { getPajaSetting } from './settings.js';
+import { getPajaSetting, setActivePajaSettings } from './settings.js';
 
 /** Options for starting the Paja local HTTP server. */
 export interface PajaServerOptions {
@@ -51,6 +52,8 @@ export interface PajaServer {
  */
 export async function startPajaServer(input: PajaServerOptions): Promise<PajaServer> {
   const rawOptions = resolvePajaRawOptions(input.options);
+  // Config-file settings must be active before normalization reads any bound.
+  setActivePajaSettings(normalizePajaConfigSettings(rawOptions.settings));
   const options = normalizePajaOptions(rawOptions);
   const createdAt = input.now ?? new Date();
   let hostConfig = createPajaHostConfig(options, createdAt);

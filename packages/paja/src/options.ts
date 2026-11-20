@@ -4,7 +4,12 @@ import {
   type PajaSimulation,
   type PajaSimulationRawOptions,
 } from './simulation.js';
-import { getPajaSetting, getPajaSettingDefault } from './settings.js';
+import {
+  getPajaSetting,
+  getPajaSettingDefault,
+  normalizePajaSettings,
+  type PajaSettingValues,
+} from './settings.js';
 
 /** Command configuration for a managed Paja target process. */
 export type PajaCommand =
@@ -45,6 +50,8 @@ export interface PajaRawOptions {
   readonly experimental?: PajaExperimentalConfig;
   /** Simulation controls for injected shell domains. */
   readonly simulation?: PajaSimulationRawOptions;
+  /** Overrides for registered Paja settings, keyed by setting key. */
+  readonly settings?: Readonly<Record<string, unknown>>;
 }
 
 /** Paja target loading mode. */
@@ -82,6 +89,8 @@ export interface PajaOptions {
   readonly simulation: PajaSimulation;
   /** Normalized experimental policies. */
   readonly experimental: PajaExperimentalConfig;
+  /** Validated setting overrides from the config file. */
+  readonly settings: PajaSettingValues;
   /** Whether Paja owns a managed command or attaches to an external target. */
   readonly mode: 'external-target' | 'managed-command';
 }
@@ -92,6 +101,8 @@ export interface PajaHostConfig {
   readonly csp?: NappletCspOptions;
   /** Opt-in experimental host policies (dev-facing, resolved per napplet). */
   readonly experimental?: PajaExperimentalConfig;
+  /** Browser-scope setting defaults from the config file; GUI overrides win. */
+  readonly settings?: PajaSettingValues;
   /** Config schema version. */
   readonly version: 1;
   /** Window identity used for the development target. */
@@ -153,6 +164,27 @@ export const DEFAULT_PAJA_RUNTIME_WAIT_MS = getPajaSettingDefault('target.runtim
  * @returns Fully normalized runtime options.
  */
 
+/**
+ * Validate config-file setting overrides. Unlike browser storage, a config file
+ * is authored on purpose, so any unknown key or out-of-range value is an error.
+ *
+ * @param raw - The config file's `settings` object.
+ * @returns Validated overrides.
+ * @example
+ * normalizePajaConfigSettings({ 'server.resourceTimeoutMs': 60000 });
+ */
+export function normalizePajaConfigSettings(raw: unknown): PajaSettingValues {
+  const { values, rejected } = normalizePajaSettings(raw);
+  if (rejected.length > 0) throw new PajaOptionsError(`Invalid settings: ${rejected.join('; ')}`);
+  return values;
+}
+
+function browserSettings(settings: PajaSettingValues | undefined): PajaSettingValues | undefined {
+  if (!settings) return undefined;
+  const browser = normalizePajaSettings(settings, 'browser').values;
+  return Object.keys(browser).length > 0 ? browser : undefined;
+}
+
 /** Normalize and validate the dev-facing experimental config. Default: auto. */
 export function normalizePajaExperimental(
   raw: PajaExperimentalConfig | undefined,
@@ -176,6 +208,7 @@ export function normalizePajaOptions(raw: PajaRawOptions): PajaOptions {
   const configPath = raw.configPath?.trim();
   const simulation = normalizePajaSimulation(raw.simulation);
   const experimental = normalizePajaExperimental(raw.experimental);
+  const settings = normalizePajaConfigSettings(raw.settings);
 
   return {
     targetUrl,
@@ -186,6 +219,7 @@ export function normalizePajaOptions(raw: PajaRawOptions): PajaOptions {
     configPath: configPath && configPath.length > 0 ? configPath : undefined,
     simulation,
     experimental,
+    settings,
     mode: command ? 'managed-command' : 'external-target',
   };
 }
@@ -202,9 +236,11 @@ export function createPajaHostConfig(
   now: Date = new Date(),
 ): PajaHostConfig {
   const base = createPajaHostConfigBase(options.simulation);
+  const settings = browserSettings(options.settings);
   return {
     ...base,
     ...(options.experimental ? { experimental: options.experimental } : {}),
+    ...(settings ? { settings } : {}),
     target: {
       mode: 'iframe-url',
       url: options.targetUrl,
@@ -238,12 +274,15 @@ export function createPajaRuntimeHostConfig(
     readonly blossomServers?: readonly string[];
     readonly maxWaitMs?: number;
     readonly simulation?: PajaSimulationRawOptions;
+    readonly settings?: Readonly<Record<string, unknown>>;
   } = {},
   now: Date = new Date(),
 ): PajaHostConfig {
   const base = createPajaHostConfigBase(normalizePajaSimulation(options.simulation));
+  const settings = browserSettings(options.settings === undefined ? undefined : normalizePajaConfigSettings(options.settings));
   return {
     ...base,
+    ...(settings ? { settings } : {}),
     ...(options.csp ? { csp: options.csp } : {}),
     ...(options.experimental ? { experimental: options.experimental } : {}),
     target: {
