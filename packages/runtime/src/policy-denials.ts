@@ -4,9 +4,8 @@
  * NIP-5D defines no generic `<type>.error` reply, and most NAPs carry failures in
  * the request's own `.result` envelope. Each row below is an exact
  * napplet-to-shell request type whose owning NAP states that shape. A NAP-defined
- * request with no row keeps the runtime's older generic projection; those are
- * listed as spec gaps in docs/policies/NIP-5D-CONFORMANCE.md rather than
- * guessed here. A type its NAP does not define gets no reply at all.
+ * request with no row keeps the runtime's older generic projection; RUNTIME-SPEC.md
+ * lists the domains without rows. A type its NAP does not define gets no reply at all.
  *
  * Refs checked (napplet/naps):
  * - NAP-CVM    #31 @ 28cf1bdb — "There are no `cvm.*.error` messages; ACL denial
@@ -20,7 +19,23 @@
  *   include `error`"); `outbox.closed` carries `subId`, `reason?`;
  *   `outbox.query.result` keeps its required `events` (empty on denial).
  * - NAP-UPLOAD #33 @ f5cc981e — "The shell SHOULD return a top-level `error` when
- *   no upload was created."
+ *   no upload was created." `upload.info` / `upload.status` follow the same
+ *   rule (spec gap below).
+ * - NAP-KEYS   #9 @ 8869a4cf — "The shell MUST respond to `keys.registerAction`
+ *   with a `keys.registerAction.result` carrying the same `id`." and
+ *   "`keys.registerAction.result` includes an `error` field (string) on
+ *   failure. ... When `error` is present, `binding` is undefined."
+ *   `keys.forward` / `keys.unregisterAction` are fire-and-forget.
+ * - NAP-MEDIA  #10 @ 7806f438 — "`media.session.create.result` includes an
+ *   `error` field (string) on failure. ... When `error` is present, the session
+ *   was not created."; `sessionId` / `owner` are "Required on successful
+ *   creation." Every other napplet request is fire-and-forget. #133 @ 8ea49c33
+ *   is stacked on the #10 draft branch, adds torrent sources only and leaves
+ *   these rows unchanged, so both refs agree.
+ * - NAP-CONFIG #14 @ bed9cb5b — "`config.registerSchema` uses positive-ACK --
+ *   every call receives a `config.registerSchema.result` with `ok: true`, or
+ *   `ok: false` accompanied by `code` and `error`". `subscribe`, `unsubscribe`
+ *   and `openSettings` define no reply.
  * - NAP-COUNT  #69 @ 9353a0c6 — `CountFailure` is `ok: false`, a "Non-empty
  *   machine-readable error code" (`"policy-denied"` is listed), and `reason?`.
  * - NAP-NOTIFY #11 @ 67877ef6 — "`notify.send.result` includes an `error` field
@@ -35,6 +50,26 @@
  * Where the NAP lists only common error strings, the runtime's reason passes
  * through unchanged; a fixed code is used only where the NAP mandates one or
  * defines an enumerated code set.
+ *
+ * Spec-gap decisions (kehto/web#481; each is the narrowest reply the text
+ * permits, raised upstream as a question on the owning draft):
+ * - `keys.registerAction`: `actionId` is required on the result. It echoes the
+ *   request's `action.id`, as the NAP's error example does, or `''` when the
+ *   request carries none.
+ * - `config.registerSchema`: `ok: false` and `error` with no `code`. Every
+ *   `ConfigSchemaErrorCode` describes a bad schema, so any of them would
+ *   misreport a policy denial; the wire table marks `code` optional.
+ * - `config.get`: silent. Its reply is `config.values`, which has no `error`
+ *   field, and an empty `values` object would break "Missing properties MUST be
+ *   populated from `default`". The napplet sees a timeout, not data.
+ * - `outbox.resolveRelays`: `plan` is required, so the denial carries
+ *   `plan: { relays: [], source: "policy" }` with `error`; the NAP allows a
+ *   shell to "return a policy-derived plan when a napplet is not trusted to
+ *   inspect relay metadata".
+ * - `upload.info` / `upload.status`: the wire table lists `info` / `status`
+ *   without `?`, the packaged `@napplet/nap@0.41.0` types mark both optional.
+ *   The denial sends only `error`, like `upload.upload`: a status would invent
+ *   a rail, timestamp and state for an upload the napplet may not inspect.
  */
 
 import type { NappletMessage } from '@napplet/core';
@@ -58,11 +93,21 @@ function closed(type: 'relay.closed' | 'outbox.closed'): DenialProjection {
 /** The NAP defines no reply for this request, so a denial is silent. */
 const silent: DenialProjection = () => null;
 
+/** NAP-KEYS: `actionId` is required on the result, so echo the request's. */
+const keysRegisterAction: DenialProjection = (id, reason, message) => {
+  const action = (message as NappletMessage & { action?: { id?: unknown } }).action;
+  const actionId = typeof action?.id === 'string' ? action.id : '';
+  return { type: 'keys.registerAction.result', id, actionId, error: reason } as NappletMessage;
+};
+
 const CVM_REQUESTS = ['cvm.discover', 'cvm.request', 'cvm.close', 'cvm.registry.list',
   'cvm.registry.has', 'cvm.registry.describe', 'cvm.registry.call'] as const;
 const DM_REQUESTS = ['dm.status', 'dm.conversations', 'dm.messages', 'dm.send', 'dm.subscribe', 'dm.unsubscribe'] as const;
 const FS_REQUESTS = ['fs.info', 'fs.pickFile', 'fs.pickFiles', 'fs.pickDirectory', 'fs.pickSaveFile', 'fs.stat',
   'fs.list', 'fs.read', 'fs.write', 'fs.mkdir', 'fs.remove', 'fs.move', 'fs.watch', 'fs.unwatch'] as const;
+
+const MEDIA_NOTICES = ['media.session.update', 'media.session.destroy', 'media.state', 'media.capabilities', 'media.command'] as const;
+const CONFIG_NOTICES = ['config.get', 'config.subscribe', 'config.unsubscribe', 'config.openSettings'] as const;
 
 const POLICY_DENIALS: Readonly<Record<string, DenialProjection>> = Object.freeze({
   ...Object.fromEntries(CVM_REQUESTS.map((type) => [type, resultError(type, 'policy denied')])),
@@ -76,7 +121,17 @@ const POLICY_DENIALS: Readonly<Record<string, DenialProjection>> = Object.freeze
   'outbox.subscribe': closed('outbox.closed'),
   'outbox.close': silent,
   'outbox.publish': resultError('outbox.publish', undefined, { ok: false }),
+  'outbox.resolveRelays': resultError('outbox.resolveRelays', undefined, { plan: { relays: [], source: 'policy' } }),
+  'upload.info': resultError('upload.info'),
   'upload.upload': resultError('upload.upload'),
+  'upload.status': resultError('upload.status'),
+  'keys.registerAction': keysRegisterAction,
+  'keys.forward': silent,
+  'keys.unregisterAction': silent,
+  'media.session.create': resultError('media.session.create'),
+  ...Object.fromEntries(MEDIA_NOTICES.map((type) => [type, silent])),
+  'config.registerSchema': resultError('config.registerSchema', undefined, { ok: false }),
+  ...Object.fromEntries(CONFIG_NOTICES.map((type) => [type, silent])),
   'count.query': (id, reason) => ({ type: 'count.query.result', id, ok: false, error: 'policy-denied', reason } as NappletMessage),
   'notify.send': resultError('notify.send'),
   'notify.permission.request': (id) => ({ type: 'notify.permission.result', id, granted: false } as NappletMessage),

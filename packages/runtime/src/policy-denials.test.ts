@@ -8,6 +8,8 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { NappletMessage } from '@napplet/core';
+import { createDenialResponse } from './legacy-firewall-gate.js';
+import { createPolicyDenialResult } from './policy-denials.js';
 import { createRuntime } from './runtime.js';
 import type { Runtime } from './runtime.js';
 import { createMockRuntimeAdapter, createNip5dSessionEntry } from './test-utils.js';
@@ -36,8 +38,33 @@ const CASES: Readonly<Record<string, Case>> = {
   'outbox.close': [{ subId: 's1' }, []],
   'outbox.publish': [{ event: { kind: 1, content: '', tags: [], created_at: 0 } },
     [{ type: 'outbox.publish.result', id: 'r1', ok: false, error: 'denied: outbox:write' }]],
-  // NAP-UPLOAD #33 @ f5cc981e
+  // NAP-OUTBOX #32 @ 8865f73d: `plan` is required; a policy-derived empty plan (#481 spec gap)
+  'outbox.resolveRelays': [{ target: { pubkey: 'a'.repeat(64), direction: 'read' } },
+    [{ type: 'outbox.resolveRelays.result', id: 'r1', plan: { relays: [], source: 'policy' }, error: 'denied: outbox:read' }]],
+  // NAP-UPLOAD #33 @ f5cc981e: top-level error only (info/status: #481 spec gap)
+  'upload.info': [{}, [{ type: 'upload.info.result', id: 'r1', error: 'denied: upload:write' }]],
   'upload.upload': [{ request: {} }, [{ type: 'upload.upload.result', id: 'r1', error: 'denied: upload:write' }]],
+  'upload.status': [{ uploadId: 'up-1' }, [{ type: 'upload.status.result', id: 'r1', error: 'denied: upload:write' }]],
+  // NAP-KEYS #9 @ 8869a4cf: actionId echoed, no binding
+  'keys.registerAction': [{ action: { id: 'editor.save', label: 'Save', defaultKey: 'Ctrl+S' } },
+    [{ type: 'keys.registerAction.result', id: 'r1', actionId: 'editor.save', error: 'denied: keys:bind' }]],
+  'keys.forward': [{ key: 'j', code: 'KeyJ', ctrl: false, alt: false, shift: false, meta: false }, []],
+  'keys.unregisterAction': [{ actionId: 'editor.save' }, []],
+  // NAP-MEDIA #10 @ 7806f438 (unchanged by the stacked #133 @ 8ea49c33)
+  'media.session.create': [{ owner: 'napplet', sessionId: 's1' },
+    [{ type: 'media.session.create.result', id: 'r1', error: 'denied: media:control' }]],
+  'media.session.update': [{ sessionId: 's1', metadata: { title: 't' } }, []],
+  'media.session.destroy': [{ sessionId: 's1' }, []],
+  'media.state': [{ sessionId: 's1', status: 'playing' }, []],
+  'media.capabilities': [{ sessionId: 's1', actions: ['play'] }, []],
+  'media.command': [{ sessionId: 's1', action: 'play' }, []],
+  // NAP-CONFIG #14 @ bed9cb5b: positive-ACK with no code; get/subscribe silent (#481 spec gaps)
+  'config.registerSchema': [{ schema: { type: 'object', properties: {} } },
+    [{ type: 'config.registerSchema.result', id: 'r1', ok: false, error: 'denied: config:read' }]],
+  'config.get': [{}, []],
+  'config.subscribe': [{}, []],
+  'config.unsubscribe': [{}, []],
+  'config.openSettings': [{ section: 'display' }, []],
   // NAP-COUNT #69 @ 9353a0c6
   'count.query': [{ filters: [{ kinds: [1] }] },
     [{ type: 'count.query.result', id: 'r1', ok: false, error: 'policy-denied', reason: 'denied: relay:read' }]],
@@ -71,6 +98,31 @@ describe('runtime ACL denial projection', () => {
     runtime.handleMessage(WINDOW_ID, { type, id: 'r1', ...request } as NappletMessage);
     expect(ctx.sent.map(({ message }) => message)).toEqual(expected);
     expect(ctx.sent.some(({ message }) => (message as NappletMessage).type.endsWith('.error'))).toBe(false);
+  });
+});
+
+// A silent row and a request that never reached the denial path both send
+// nothing, so prove each silent row is an explicit table entry (null), not a
+// fall-through to the generic projection (undefined).
+describe('silent denial rows', () => {
+  const SILENT = Object.entries(CASES).filter(([, [, expected]]) => expected.length === 0).map(([type]) => type);
+
+  it.each(SILENT)('%s is an explicit silent row', (type) => {
+    expect(createPolicyDenialResult({ type, id: 'r1' } as NappletMessage, 'denied: x')).toBeNull();
+  });
+});
+
+// The legacy Firewall gate drops through the same projection (kehto/web#481).
+describe('legacy Firewall denial projection', () => {
+  it.each([
+    [{ type: 'keys.registerAction', id: 'f1', action: { id: 'a.b', label: 'A' } },
+      { type: 'keys.registerAction.result', id: 'f1', actionId: 'a.b', error: 'firewall: rate' }],
+    [{ type: 'keys.registerAction', id: 'f2', action: {} },
+      { type: 'keys.registerAction.result', id: 'f2', actionId: '', error: 'firewall: rate' }],
+    [{ type: 'upload.status', id: 'f3', uploadId: 'u' }, { type: 'upload.status.result', id: 'f3', error: 'firewall: rate' }],
+    [{ type: 'config.get', id: 'f4' }, null],
+  ])('%o', (request, expected) => {
+    expect(createDenialResponse(request as NappletMessage, 'firewall: rate')).toEqual(expected);
   });
 });
 
