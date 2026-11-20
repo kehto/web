@@ -1188,11 +1188,18 @@ function nappletNamespacePrelude(
   function makeResource(): Record<string, unknown> {
     const objectUrls = new Set<string>();
     const decode = (value: unknown, mime: unknown): Blob => {
-      if (typeof value !== 'string' || typeof mime !== 'string'
-        || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(value)) {
+      // Checked in linear time: a backtracking pattern over a payload of a few megabytes exhausts the stack.
+      // The alphabet and length checks keep atob from throwing its own error; the round trip rejects
+      // misplaced padding, missing padding and non-zero trailing bits.
+      if (typeof value !== 'string' || typeof mime !== 'string' || value.length % 4 !== 0 || /[^A-Za-z0-9+/=]/u.test(value)) {
         throw new TypeError('resource result has non-canonical base64');
       }
-      const binary = atob(value);
+      let binary: string;
+      try {
+        binary = atob(value);
+      } catch {
+        throw new TypeError('resource result has non-canonical base64');
+      }
       if (btoa(binary) !== value) throw new TypeError('resource result has non-canonical base64');
       const bytes = new Uint8Array(binary.length);
       for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);

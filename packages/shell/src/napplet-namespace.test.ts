@@ -870,6 +870,46 @@ describe('NIP-5D napplet namespace prelude', () => {
     await expect(nonCanonical).rejects.toThrow(/canonical base64/i);
   });
 
+  it.each([
+    ['missing padding', 'YQ'],
+    ['embedded whitespace', 'YQ= ='],
+    ['a character outside the alphabet', 'Y*=='],
+    ['padding in the middle', 'YQ==YQ=='],
+    ['too much padding', 'Y==='],
+    ['non-zero trailing bits', 'YR=='],
+  ])('rejects a resource result with %s as non-canonical base64', async (_case, blob) => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['resource'] }), target);
+    const resource = target.napplet?.resource as { bytes: (url: string) => Promise<Blob> };
+    const pending = resource.bytes('https://media.example/bad');
+    const request = withoutShellReady(target).at(-1);
+    target.dispatchParentMessage({ type: 'resource.bytes.result', id: request?.id, blob, mime: 'text/plain' });
+    await expect(pending).rejects.toThrow(TypeError);
+    await expect(pending).rejects.toThrow(/canonical base64/i);
+  });
+
+  it('decodes a resource result of several megabytes', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['resource'] }), target);
+    const resource = target.napplet?.resource as { bytes: (url: string) => Promise<Blob> };
+    // A game's asset pack: large enough that a backtracking pattern over its base64 exhausts the stack.
+    const payload = new Uint8Array(8 * 1024 * 1024);
+    for (let index = 0; index < payload.length; index += 1) payload[index] = (index * 31) % 256;
+    let binary = '';
+    for (let start = 0; start < payload.length; start += 0x8000) binary += String.fromCharCode(...payload.subarray(start, start + 0x8000));
+    const pending = resource.bytes(`blossom:sha256:${'e'.repeat(64)}`);
+    const request = withoutShellReady(target).at(-1);
+    target.dispatchParentMessage({
+      type: 'resource.bytes.result', id: request?.id,
+      blob: btoa(binary), mime: 'application/octet-stream',
+    });
+    const blob = await pending;
+    expect(blob.size).toBe(payload.byteLength);
+    // The first differing byte, or -1: an element-wise matcher over eight million bytes takes longer than the decode.
+    const received = new Uint8Array(await blob.arrayBuffer());
+    expect(received.findIndex((byte, index) => byte !== payload[index])).toBe(-1);
+  });
+
   it('keeps an active resource transfer pending beyond the ordinary request timeout', async () => {
     vi.useFakeTimers();
     try {
