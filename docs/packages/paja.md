@@ -185,7 +185,9 @@ frame itself (a revoked grant, a tightened rule, a closed tab, or a launch
 superseded by a reload), it blanks the frame and then
 calls `ShellBridge.revokeNapplet(windowId, 'host')`, the same teardown as any
 other revoke: the port binding, cached shell environment, runtime session and
-per-window service state all go, and services get `onWindowDestroyed`. That
+per-window service state all go, and services get `onWindowDestroyed` once for
+that registration, even though the Firewall retire and the bridge revoke both
+tear the window down. That
 retire is logged as `paja.napplet.retired`, not `paja.napplet.revoked`. Port traffic in both
 directions appears in the message log, and revocations are logged as
 `paja.napplet.revoked`. The log

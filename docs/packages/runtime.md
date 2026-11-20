@@ -238,6 +238,22 @@ This is Kehto host policy, conformant with the source-bound, idempotent lifecycl
 [NAP-SHELL at `a040914`](https://github.com/napplet/naps/blob/a040914b4bbd3a5cd8a14b0f316a723c968ebfb2/naps/NAP-SHELL.md).
 It changes no NIP-5D wire messages or NAP-THEME result behavior.
 
+### Window destroy notifications
+
+A retirement can reach the runtime through several teardown calls:
+`destroyWindow(windowId)`, `sessionRegistry.unregister(windowId)` (which notifies
+services when the permission runtime is installed), and a shell bridge revoke
+that runs both again. Services hear `onWindowDestroyed` at most once per session
+registration, whichever call comes first. A later `register()` of the same
+window ID is a new lifetime with its own destroy, and replacing a live
+registration with the permission runtime installed retires the old one once.
+`destroyWindow()` for a window ID this runtime never registered still notifies
+on every call. Permission revocation stays separate: `onPermissionRevoked` (or
+its `onWindowDestroyed` fallback for handlers without it) never consumes the
+registration's destroy. The exported `notifyServiceWindowDestroyed()` helper is
+a raw broadcaster and does not deduplicate.
+It changes no NIP-5D or NAP wire messages.
+
 - Generated module: <a href="../api/modules/_kehto_runtime.html" target="_self"><code>docs/api/modules/_kehto_runtime.html</code></a>
 
 ## GAMEPAD integration

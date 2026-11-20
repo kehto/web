@@ -33,10 +33,12 @@ async function themeTarget(): Promise<PajaResolvedPointer> {
 function setup() {
   const revocations: NappletRevocation[] = [];
   const destroyed: string[] = [];
+  const permissionRevoked: string[] = [];
   const theme: ServiceHandler = {
     descriptor: { name: 'theme', version: '1.0.0' },
     handleMessage() {},
     onWindowDestroyed: (windowId) => { destroyed.push(windowId); },
+    onPermissionRevoked: (windowId) => { permissionRevoked.push(windowId); },
   };
   const adapter: ShellAdapter = {
     services: { theme },
@@ -72,14 +74,14 @@ function setup() {
   const hello = () => bridge.handleMessage({
     source: win, origin: 'null', data: { type: NAPPLET_HELLO }, ports: [channel.port2],
   } as unknown as MessageEvent);
-  return { adapter, bridge, frame, napplet: channel.port1, hello, revocations, destroyed };
+  return { adapter, bridge, frame, napplet: channel.port1, hello, revocations, destroyed, permissionRevoked };
 }
 
 afterEach(() => { originRegistry.clear(); });
 
 describe('Paja frame retirement (kehto/web#488)', () => {
   it('tears a retired, bound frame down through the bridge revoke path', async () => {
-    const { adapter, bridge, frame, napplet, hello, revocations, destroyed } = setup();
+    const { adapter, bridge, frame, napplet, hello, revocations, destroyed, permissionRevoked } = setup();
     const registered = vi.fn();
     const windowId = await navigateFrame(frame, config, 1, adapter, bridge.runtime, await themeTarget(), {
       onRegistered: registered,
@@ -90,6 +92,7 @@ describe('Paja frame retirement (kehto/web#488)', () => {
     await flush();
     expect(originRegistry.getPort(windowId!)).toBeDefined();
     expect(bridge.runtime.sessionRegistry.getEntryByWindowId(windowId!)).toBeDefined();
+    expect(destroyed).toEqual([]);
 
     const grant = bridge.runtime.permissions!.grants.find((item) => item.permission.domain === 'theme');
     expect(grant).toBeDefined();
@@ -98,7 +101,10 @@ describe('Paja frame retirement (kehto/web#488)', () => {
     expect(frame.srcdoc).toBe('<!doctype html><html><body></body></html>');
     expect(registered).toHaveBeenLastCalledWith(null);
     expect(bridge.runtime.sessionRegistry.getEntryByWindowId(windowId!)).toBeUndefined();
-    expect(destroyed).toContain(windowId);
+    // kehto/web#498: the admission retire and the bridge revoke both tear the
+    // window down; services still hear exactly one destroy for the registration.
+    expect(destroyed).toEqual([windowId]);
+    expect(permissionRevoked).toEqual([windowId]);
     expect(originRegistry.getPort(windowId!)).toBeUndefined();
     expect(originRegistry.getWindowId(frame.contentWindow!)).toBeUndefined();
     // Reported once, as a host revoke: the bridge's own teardown ran.
