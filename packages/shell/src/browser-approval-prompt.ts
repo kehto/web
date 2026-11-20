@@ -11,9 +11,13 @@ const NETWORK_NOTE = 'Direct browser traffic to these origins is outside parent 
 
 type Lifetime = PermissionGrant['lifetime'];
 
-/** Every exact origin of a grouped row, collapsed until the user opens it. */
+/** Origins a grouped row shows without a click; larger groups start collapsed. */
+const OPEN_ORIGIN_LIMIT = 5;
+
+/** Every exact origin of a grouped row; a short list is open, a long one collapsed. */
 function originList(document: Document, targets: readonly string[]): HTMLElement {
   const details = element(document, 'details', undefined, 'kehto-approval-origins');
+  details.open = targets.length <= OPEN_ORIGIN_LIMIT;
   const list = element(document, 'ul');
   list.append(...targets.map((target) => {
     const item = element(document, 'li');

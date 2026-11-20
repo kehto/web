@@ -214,7 +214,19 @@ describe('common browser approval UI', () => {
     expect(rows.map((row) => row.children[0]!.textContent)).toEqual(['Use the outbox interface', 'outbox.subscribe — contact 127 origins']);
     const origins = dialog.all('details').find((node) => node.className === 'kehto-approval-origins')!;
     expect(origins.find('summary')!.textContent).toBe('Show all 127');
+    expect((origins as unknown as { open?: boolean }).open).toBe(false);
     expect(origins.all('code').map((code) => code.textContent)).toEqual(relays);
+    f.ui.destroy();
+    await answer;
+  });
+
+  it('shows a short group of mediated origins without a click', async () => {
+    const f = setup();
+    const answer = f.ui.prompt({ ...f.prompt(new AbortController().signal), missing: ['wss://a.example', 'wss://b.example'].map((value): PermissionRequirement =>
+      ({ category: 'network', domain: 'outbox', operation: 'outbox.query', scope: { kind: 'origin', value } })) });
+    const origins = f.mount.find('dialog')!.all('details').find((node) => node.className === 'kehto-approval-origins')!;
+    expect((origins as unknown as { open?: boolean }).open).toBe(true);
+    expect(origins.all('code').map((code) => code.textContent)).toEqual(['wss://a.example', 'wss://b.example']);
     f.ui.destroy();
     await answer;
   });
