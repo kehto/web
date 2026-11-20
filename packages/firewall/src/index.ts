@@ -3,9 +3,12 @@ export {
   createPermissionState, permissionPrincipalKey, putPermissionGrant, revokePermissionGrant,
   evaluatePermissions, consumePermissionGrants, serializePermissions, deserializePermissions,
   MAX_PERMISSION_REQUIREMENTS, MAX_PERMISSION_REQUIREMENTS_CEILING, MAX_PERMISSION_GRANTS, MAX_PERMISSION_GRANTS_CEILING,
+  MAX_PERMISSION_GRANTS_PER_PRINCIPAL,
   permissionLimits,
 } from './permissions.js';
 export type { PermissionLimits } from './permissions.js';
+export { admitPermissionGrants } from './permission-capacity.js';
+export type { PermissionAdmitResult } from './permission-capacity.js';
 export { normalizePermissionScope, normalizeRequirement } from './permission-scopes.js';
 export type {
   PermissionPrincipal, PermissionCategory, PermissionScope, PermissionRequirement,

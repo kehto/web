@@ -302,10 +302,13 @@ Hold the limiter to change its configuration. `legacyFirewall` is an explicit
 compatibility adapter for hosts without scoped permissions.
 
 `PermissionAdapter.defaultDecision(request, missing)` lets a host answer a request
-no stored decision covers without prompting. `allow` commits session grants whose ids
-start with `DEFAULT_RULE_GRANT_PREFIX`, `deny` refuses, and `ask` prompts. It runs
+no stored decision covers without prompting. `allow` admits the request without
+writing a grant, so the rule is consulted again on every check and a default allow
+can't fill the grant table (kehto/web#513); `deny` refuses, and `ask` prompts. It runs
 before the prompt budget, and stored denials, the ACL ceiling and operation budgets
-still apply. The rule model (`createPermissionRules`, `resolvePermissionRule`,
+still apply. Call `RuntimePermissions.rulesChanged()` after changing the rules so
+live work admitted under the old ones closes. `DEFAULT_RULE_GRANT_PREFIX` is
+deprecated (see `DEFAULT_RULE_GRANTS` in docs/compatibility.md). The rule model (`createPermissionRules`, `resolvePermissionRule`,
 `setPermissionRule`) is re-exported from `@kehto/firewall`.
 
 ## Quick Start

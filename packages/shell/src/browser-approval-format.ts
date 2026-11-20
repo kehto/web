@@ -139,7 +139,11 @@ export function ruleTargetFor(missing: readonly PermissionRequirement[]): Pick<P
   return { domain: domains[0] };
 }
 
-/** Whether a host default rule, not an answered prompt, created this grant. */
+/**
+ * Whether a host default rule, not an answered prompt, created this grant.
+ * @deprecated Since kehto/web#513 a default allow writes no grant, so only
+ * grants from an older runtime match; see `DEFAULT_RULE_GRANTS` in docs/compatibility.md.
+ */
 export function isRuleGrant(grant: PermissionGrant): boolean {
   return grant.id.startsWith(DEFAULT_RULE_GRANT_PREFIX);
 }

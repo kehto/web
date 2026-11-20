@@ -66,17 +66,11 @@ export function createPajaPermissionAdapter(options: PajaPermissionAdapterOption
       if (answer.effect === 'allow' && userGesture) notePajaApprovalClick();
     },
   });
-  let refreshPending = false;
-  const scheduleRefresh = (): void => {
-    if (refreshPending) return;
-    refreshPending = true;
-    // One redraw per burst: a napplet can register hundreds of scopes at launch.
-    window.setTimeout(() => { refreshPending = false; ui.refresh(); }, 0);
-  };
   const adapter: PermissionAdapter = {
     // Read once per adapter: the coordinator snapshots its bounds (applies on reload).
     maxRequirements: getPajaSetting('firewall.maxRequirements'),
     maxGrants: getPajaSetting('firewall.maxGrants'),
+    maxGrantsPerPrincipal: getPajaSetting('firewall.maxGrantsPerNapplet'),
     now: Date.now,
     rateLimiter: createRateLimiter(defaultRateLimitConfig()),
     promptRateLimiter: createRateLimiter(defaultPromptRateLimitConfig()),
@@ -86,12 +80,8 @@ export function createPajaPermissionAdapter(options: PajaPermissionAdapterOption
       return () => window.clearTimeout(timer);
     },
     prompt: ui.prompt,
-    defaultDecision(request, missing) {
-      const decision = rules.decide(request, missing);
-      // A rule grants without a prompt, so nothing else would redraw the list.
-      if (decision === 'allow') scheduleRefresh();
-      return decision;
-    },
+    // Consulted on every check; a default allow writes no grant (kehto/web#513).
+    defaultDecision: rules.decide,
     onStorageError: ui.reportStorageError,
     ...(storage ? { persistence: {
       load: () => storage.getItem(PAJA_PERMISSION_STORAGE_KEY),

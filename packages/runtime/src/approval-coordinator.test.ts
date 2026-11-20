@@ -382,21 +382,22 @@ describe('approval coordination', () => {
     expect(f.action).not.toHaveBeenCalled();
   });
 
-  it('allows by default rule without prompting or spending the prompt budget, as a marked session grant', async () => {
+  it('allows by default rule without prompting, spending the prompt budget, or writing a grant', async () => {
     const beforePrompt = vi.fn(() => false);
-    const defaultDecision = vi.fn(() => 'allow' as const);
+    let rule: 'allow' | 'ask' = 'allow';
+    const defaultDecision = vi.fn(() => rule);
     const f = fixture({ defaultDecision, beforePrompt });
     expect(await f.run()).toEqual({ status: 'executed', value: 'opened' });
     expect(f.prompt).not.toHaveBeenCalled();
     expect(beforePrompt).not.toHaveBeenCalled();
-    const grants = f.state().grants;
-    expect(grants.map((grant) => [grant.effect, grant.lifetime, grant.sessionId])).toEqual([
-      ['allow', 'session', 'session-1'], ['allow', 'session', 'session-1'],
-    ]);
-    expect(grants.every((grant) => grant.id.startsWith('rule:'))).toBe(true);
-    // The session grant now covers the scope, so the rule is not consulted again.
+    // The rule is the answer (kehto/web#513): no grant, so the table never fills.
+    expect(f.state().grants).toEqual([]);
     expect(await f.run()).toEqual({ status: 'executed', value: 'opened' });
-    expect(defaultDecision).toHaveBeenCalledTimes(1);
+    // Changing the rule takes effect on the very next request.
+    rule = 'ask';
+    beforePrompt.mockReturnValue(true);
+    expect(await f.run()).toEqual({ status: 'executed', value: 'opened' });
+    expect(f.prompt).toHaveBeenCalledTimes(1);
     f.coordinator.dispose();
   });
 
@@ -453,12 +454,14 @@ describe('configured permission limits', () => {
   });
 
   it('reports a full grant table as capacity and runs nothing', async () => {
-    // Room for the first request's interface and resource grants only.
-    const f = fixture({ maxGrants: 2, prompt: async () => session });
-    expect(await f.run()).toEqual({ status: 'executed', value: 'opened' });
+    // Room for the first request's interface and resource grants only. A
+    // persistent decision is never evicted to make room.
+    const verified: PermissionPrincipal = { kind: 'verified', manifestKey: `nip5d:15129:${'b'.repeat(64)}`, artifactHash: 'a'.repeat(64) };
+    const f = fixture({ maxGrants: 2, prompt: async () => ({ effect: 'allow', lifetime: 'persistent' }) });
+    expect(await f.coordinator.run(verified, 'session-1', [requirement], () => true, f.action)).toEqual({ status: 'executed', value: 'opened' });
     const other: PermissionRequirement = { ...requirement, scope: { kind: 'exact', value: 'https://example.com/other' } };
     const action = vi.fn();
-    expect(await f.coordinator.run(principal, 'session-1', [other], () => true, action)).toEqual({ status: 'capacity' });
+    expect(await f.coordinator.run(verified, 'session-1', [other], () => true, action)).toEqual({ status: 'capacity' });
     expect(action).not.toHaveBeenCalled();
     f.coordinator.dispose();
   });

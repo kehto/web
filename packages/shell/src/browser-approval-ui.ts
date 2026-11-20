@@ -115,11 +115,17 @@ export function createBrowserApprovalUi(options: BrowserApprovalUiOptions): Brow
     return [...seen].map(([subject, label]) => ({ subject, label }));
   }
 
-  /** A changed rule must not leave behind access it no longer allows. */
+  /**
+   * A changed rule must not leave behind access it no longer allows. A default
+   * allow writes no grant (kehto/web#513), so the runtime closes live work that
+   * may have relied on the old rules; legacy `rule:` grants are reset as before.
+   */
   function resetStaleRuleGrants(): void {
     const rules = options.rules?.get();
-    const grants = options.getPermissions()?.grants ?? [];
+    const live = options.getPermissions();
+    const grants = live?.grants ?? [];
     if (!rules) return;
+    live?.rulesChanged?.();
     const stale = grants.filter((grant) => isRuleGrant(grant)
       && resolvePermissionRule(rules, grant.principal, grant.permission) !== 'allow');
     if (stale.length) revoke(stale);
