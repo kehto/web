@@ -136,6 +136,7 @@ fixture (`packages/conformance/src/fixtures/<domain>.ts`) over the raw port:
 | `inc/endpoint-identity`, `inc/sender-exclusion`, `inc/topic-routing`, `inc/channel-lifecycle` | `nap-spec` | NAP-INC across publishers, root manifests, simultaneous instances and replacement |
 | `catalog/advertised-domain-covered` | `catalog` | every advertised domain has a fixture, every inventoried operation a passing case or a semantic gap row |
 | `catalog/package-drift` | `catalog` | the installed `@napplet/nap` types cover every operation the pinned NAPs specify |
+| `catalog/package-field-drift` | `catalog` | every payload field a pinned wire table names, with its optionality, matches the installed `@napplet/nap` message; differences a pinned NAP sentence settles pass, table-versus-prose contradictions are `spec-gap` |
 | `catalog/capability-truthfulness` | `nip5d-core` | an advertised (injected) domain services every request it is sent |
 | `catalog/acl-denial` | `wire-contract` | a revoked ACL capability runs no backend and answers only with message types the NAP defines |
 | `catalog/firewall-denial` | `wire-contract` | a legacy Firewall rejection fires, runs no backend and answers only with message types the NAP defines, in every domain including the ones ACL does not gate |
@@ -169,13 +170,33 @@ counts it as such.
 ### The drift guard
 
 `src/catalog/inventory.generated.ts` pins every supported domain's operations
-from both the installed `@napplet/nap/<domain>/types.d.ts` and the wire table
-of the NAP document at the ref in `src/authority.ts`. Regenerate it with
+and per-message payload fields from both the installed
+`@napplet/nap/<domain>/types.d.ts` and the wire table of the NAP document at
+the ref in `src/authority.ts`. Packaged fields come from the TypeScript checker
+over the domain's `<Domain>NapMessage` union (`src/catalog/nap-type-fields.ts`,
+generator and tests only), so inherited `@napplet/core` fields and
+result-or-error unions resolve; a field is required only when every branch of
+its message requires it. Wire-table fields come from the payload column:
+`` `name?` ``, `` `name`? `` and ``optional `name` `` are optional, `` `a` or `b` ``
+makes both optional, parenthesised notes are type hints. A cell that spreads a
+named type (`` `DmStatus` or `DmError` ``) is `open`: its named fields are still
+compared, but packaged extras are not. A cell that is prose (`llm.delta`) is
+not compared. The check lists both kinds, and
+`src/catalog/field-drift.test.ts` pins that list.
+
+`src/catalog/field-drift.ts` holds `FIELD_DRIFT_EXCEPTIONS`: each row quotes
+the pinned NAP sentence that settles one difference, matched exactly on type,
+field and both presences, so a row stops applying as soon as either side
+moves, and a test fails on a row that no longer matches. A row without a
+quotable sentence does not belong there; the difference stays a finding.
+
+Regenerate the inventory with
 `node packages/conformance/scripts/generate-inventory.ts` (needs network).
 `src/catalog/inventory.test.ts` fails when:
 
-- the installed package version changes, or a domain's packaged operations
-  differ from the pinned inventory (a new or renamed discriminant);
+- the installed package version changes, or a domain's packaged operations or
+  message fields differ from the pinned inventory (a new or renamed
+  discriminant or field);
 - the package ships a domain directory that is neither supported nor listed
   as deliberately unrouted;
 - the supported list drifts from the shell's advertisable domains;
