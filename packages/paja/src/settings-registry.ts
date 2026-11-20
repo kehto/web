@@ -178,6 +178,7 @@ export const PAJA_SETTING_DEFINITIONS = Object.freeze([
     ['target.failureReasonChars', 'Characters per relay failure reason', 160, 16, 4096, 'chars'],
     ['target.failureReasonCount', 'Relay failure reasons shown', 3, 1, 50, 'count'],
     ['target.pointerReplacementLimit', 'Replacement manifests offered for a gone nevent', 50, 1, 500, 'count'],
+    ['target.intentDiscoveryLimit', 'Not-installed intent handlers offered per search', 20, 1, 200, 'count'],
   ]),
   ...define('Console and indicators', 'browser', [
     ['console.messageLogLimit', 'Messages kept in the log', 500, 10, 100_000, 'count'],

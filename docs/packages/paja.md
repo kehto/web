@@ -1022,6 +1022,7 @@ policy in their drafts (NAP-FS `bd1b9e9`, NAP-WEBRTC `fb4dd6f`, NAP-RESOURCE
 | `target.failureReasonChars` | Characters per relay failure reason | 160 chars | 16–4096 |
 | `target.failureReasonCount` | Relay failure reasons shown | 3 | 1–50 |
 | `target.pointerReplacementLimit` | Replacement manifests offered for a gone nevent | 50 | 1–500 |
+| `target.intentDiscoveryLimit` | Not-installed intent handlers offered per search | 20 | 1–200 |
 | **Console and indicators** | | | |
 | `console.messageLogLimit` | Messages kept in the log | 500 | 10–100000 |
 | `console.messageLogVisibleRows` | Messages rendered in the log | 120 | 10–10000 |
