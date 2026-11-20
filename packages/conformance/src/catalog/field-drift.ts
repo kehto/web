@@ -17,7 +17,15 @@ export interface FieldDrift {
   readonly package: FieldPresence | 'absent';
 }
 
-/** A difference the pinned NAP's own prose settles, cited by sentence. */
+/**
+ * A difference the pinned NAP's own prose settles, cited by sentence.
+ *
+ * Classification rule: prose that adds to or conditions a table row (a
+ * generic "any result MAY include `error`; when present, other fields are
+ * undefined" clause) makes the packaged shape `prose`. Prose and table that
+ * make incompatible unconditional claims about the same field are a
+ * `contradiction`. A difference no sentence addresses is not an exception.
+ */
 export interface FieldDriftException extends FieldDrift {
   /**
    * `prose`: a sentence of the pinned NAP sanctions the packaged shape, so it is not drift.
@@ -67,7 +75,7 @@ export function fieldDrift(domain: string, inventory: Readonly<Record<string, Do
   return rows.sort((a, b) => a.type.localeCompare(b.type) || a.field.localeCompare(b.field));
 }
 
-const STORAGE_ERROR = 'Any result message MAY include an `error` field (string). When `error` is present, other result fields are undefined.';
+const RESULT_ERROR_CLAUSE = 'Any result message MAY include an `error` field (string). When `error` is present, other result fields are undefined.';
 
 /**
  * Field differences the pinned NAP documents settle in prose, each matched
@@ -76,10 +84,10 @@ const STORAGE_ERROR = 'Any result message MAY include an `error` field (string).
  */
 export const FIELD_DRIFT_EXCEPTIONS: readonly FieldDriftException[] = Object.freeze([
   { type: 'relay.query.result', field: 'error', spec: 'absent', package: 'optional', kind: 'prose', authority: 'nap-relay', quote: '`relay.query.result` MAY include an `error` field instead of `events` if the query fails.' },
-  ...['storage.get.result', 'storage.keys.result', 'storage.remove.result', 'storage.set.result'].map((type) => ({ type, field: 'error', spec: 'absent' as const, package: 'optional' as const, kind: 'prose' as const, authority: 'nap-storage', quote: STORAGE_ERROR })),
+  ...['storage.get.result', 'storage.keys.result', 'storage.remove.result', 'storage.set.result'].map((type) => ({ type, field: 'error', spec: 'absent' as const, package: 'optional' as const, kind: 'prose' as const, authority: 'nap-storage', quote: RESULT_ERROR_CLAUSE })),
   { type: 'inc.subscribe.result', field: 'error', spec: 'absent', package: 'optional', kind: 'prose', authority: 'nap-inc', quote: '`inc.subscribe.result` MAY include an `error` field (string) if the shell rejects the subscription.' },
-  { type: 'theme.get.result', field: 'error', spec: 'absent', package: 'optional', kind: 'prose', authority: 'nap-theme', quote: STORAGE_ERROR },
-  { type: 'theme.get.result', field: 'theme', spec: 'required', package: 'optional', kind: 'prose', authority: 'nap-theme', quote: STORAGE_ERROR },
+  { type: 'theme.get.result', field: 'error', spec: 'absent', package: 'optional', kind: 'prose', authority: 'nap-theme', quote: RESULT_ERROR_CLAUSE },
+  { type: 'theme.get.result', field: 'theme', spec: 'required', package: 'optional', kind: 'prose', authority: 'nap-theme', quote: RESULT_ERROR_CLAUSE },
   { type: 'keys.registerAction.result', field: 'error', spec: 'absent', package: 'optional', kind: 'prose', authority: 'nap-keys', quote: '`keys.registerAction.result` includes an `error` field (string) on failure.' },
   {
     type: 'identity.getProfile.result', field: 'profile', spec: 'optional', package: 'required', kind: 'contradiction', authority: 'nap-identity',

@@ -26,7 +26,8 @@
     ],
     "exclude": [
       "src/**/*.test.ts",
-      "src/**/*.spec.ts"
+      "src/**/*.spec.ts",
+      "src/catalog/nap-type-fields.ts"
     ]
   }
 }
