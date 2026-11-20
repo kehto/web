@@ -115,6 +115,25 @@ export interface Runtime {
    */
   destroyWindow(windowId: string): void;
 
+  /**
+   * Return the NAP-INC endpoint identifier of a live registered window.
+   *
+   * The identifier is opaque, runtime-assigned on first use, stable until that
+   * registration is replaced or unregistered, and never reused. It is the
+   * `sender`/`peer` other napplets see and the only valid `inc.channel.open`
+   * target. Handing it to another napplet is a host peer selection: do that
+   * only for a peer the host means to make addressable.
+   *
+   * @param windowId - Internal window identity of the registered napplet
+   * @returns The endpoint identifier, or undefined without a live endpoint
+   *
+   * @example
+   * ```ts
+   * const target = runtime.getIncEndpointId('window-2');
+   * ```
+   */
+  getIncEndpointId(windowId: string): string | undefined;
+
   /** Access the identity registry (for shell adapter to read napplet session state). */
   readonly sessionRegistry: SessionRegistry;
 
@@ -274,7 +293,7 @@ function createMessageHandler(
     // charge at their validated execution boundary, never twice at dispatch.
     const cleanup = envelope.type === 'inc.unsubscribe' || envelope.type === 'inc.channel.close' || envelope.type === 'config.unsubscribe';
     if (permissions && !cleanup && (domain === 'storage' || domain === 'inc' || domain === 'config')) {
-      // NAP-INC 19de5ce1 requires actual channel lists; NAP-CONFIG bed9cb5b
+      // NAP-INC 377bf939 requires actual channel lists; NAP-CONFIG bed9cb5b
       // requires snapshots/schema ACKs but defines no budget-denial wire.
       // Observe those reads/registrations until the specs define one;
       // do not invent errors or replace a mandatory snapshot with empty data.
@@ -285,7 +304,7 @@ function createMessageHandler(
       // A host diagnostic may synchronously retire or replace the source.
       if (sessionRegistry.getEntryByWindowId(windowId) !== source || !permissions.isSourceActive(windowId)) return;
       if (failure) {
-        // NAP-STORAGE 4f4cf0ca and NAP-INC 19de5ce1 permit correlated
+        // NAP-STORAGE 4f4cf0ca and NAP-INC 377bf939 permit correlated
         // error results for exactly these requests. Fire-and-forget stays silent.
         if (envelope.type === 'storage.get' || envelope.type === 'storage.set'
           || envelope.type === 'storage.remove' || envelope.type === 'storage.keys'
@@ -492,6 +511,9 @@ function createRuntimeInstance(context: RuntimeInstanceContext): Runtime {
       incRuntime.destroyWindow(windowId);
       notifyServiceWindowDestroyed(windowId, serviceRegistry);
     },
+    getIncEndpointId(windowId: string): string | undefined {
+      return incRuntime.endpointId(windowId);
+    },
     get sessionRegistry() { return sessionRegistry; },
     get aclState() { return aclState; },
     get legacyFirewall() { return firewallState; },
@@ -555,16 +577,20 @@ export function createRuntime(hooks: RuntimeAdapter): Runtime {
   const firewallState = hooks.permissions ? undefined : hooks.legacyFirewall;
   let extensions: ReturnType<typeof createServiceExtensionRouter> | undefined;
   let permissions: ReturnType<typeof createPermissionRuntime> | undefined;
+  let incRuntime: IncRuntime | null = null;
+  // NAP-INC: a replacement or removed registration is a different endpoint.
+  // Its identifier, channels, and subscriptions end with it.
   const sessionRegistry = createSessionRegistry(hooks.onPendingUpdate, (windowId) => {
+    incRuntime?.retireEndpoint(windowId);
     firewallState?.resetInitBudget(windowId);
     extensions?.destroyWindow(windowId);
     permissions?.retire(windowId);
     if (hooks.permissions) notifyServiceWindowDestroyed(windowId, serviceRegistry);
   }, (windowId) => {
+    incRuntime?.retireEndpoint(windowId);
     permissions?.retire(windowId);
     if (hooks.permissions) notifyServiceWindowDestroyed(windowId, serviceRegistry);
   });
-  let incRuntime: IncRuntime | null = null;
   const aclState = createAclState(hooks.aclPersistence, hooks.aclDefaultPolicy ?? 'permissive', (mutation) => {
     for (const entry of sessionRegistry.getAllEntries()) {
       if (entry.dTag === mutation.dTag && entry.aggregateHash === mutation.aggregateHash) {

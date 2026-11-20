@@ -671,15 +671,18 @@ describe('NIP-5D conformance static guards', () => {
       'packages/runtime/README.md',
       'packages/shell/README.md',
     ] as const;
-    const exactHeads = ['5ac0490461ca6fec2f0d2e45b4835cf9bc08de24'] as const;
+    // NAP-INC master 377bf939c6c906817084b43dd21d424de646dbc2 (kehto/web#331): endpoint identifiers replace bare dTags.
+    const exactHeads = ['377bf939c6c906817084b43dd21d424de646dbc2'] as const;
 
     for (const file of docs) {
       const source = readRepoFile(file);
       for (const head of exactHeads) expect(source, `${file} must pin ${head}`).toContain(head);
+      expect(source, `${file} must not pin the superseded dTag-era INC source`).not.toContain('blob/5ac0490461ca6fec2f0d2e45b4835cf9bc08de24/naps/NAP-INC.md');
       expect(source, `${file} must retain exact stable convention identities`)
         .toMatch(/exact\s+stable\s+convention\s+topic\s+identity/i);
       expect(source, `${file} must retain opaque-topic routing`).toMatch(/opaque[\s\S]*`\?`[\s\S]*`#`/i);
-      expect(source, `${file} must describe runtime-attested dTags`).toMatch(/runtime-attested dTag/i);
+      expect(source, `${file} must describe runtime-attested endpoint identifiers`).toMatch(/runtime-attested endpoint identifier/i);
+      expect(source, `${file} must not describe dTag INC identity`).not.toMatch(/runtime-attested dTag/i);
       expect(source, `${file} must not retain the superseded INC authority`).not.toContain(
         '6461e4b37c29dc09a20dff35d9515889c4433874',
       );
@@ -702,7 +705,11 @@ describe('NIP-5D conformance static guards', () => {
     expect(shellReadme).toContain('both deliver one `IncEvent`');
 
     expect(incHandler).toContain('const subscribers = state.subscriptions.get(topic);');
-    expect(incHandler).toContain('sessionRegistry.getEntryByWindowId(windowId)?.dTag');
+    expect(incHandler).toContain('const sender = state.endpoints.idFor(windowId);');
+    expect(incHandler).toContain('const peerWindow = state.endpoints.resolve(m.target);');
+    expect(incHandler, 'INC wire identity must not come from a manifest dTag').not.toMatch(/\.dTag\b|getWindowIdByDTag/);
+    expect(readRepoFile('packages/runtime/src/inc-endpoints.ts')).toContain('hooks.crypto.randomUUID()');
+    expect(runtimeReadme).toContain('KEHTO_INC_DTAG_TARGET_RETIRED');
     expect(incHandler).toContain("type: 'inc.channel.opened'");
     expect(incHandler).not.toMatch(/topic\??\.startsWith\s*\(/);
     expect(namespace).toContain('INC subscriptions require a queryless topic identity');

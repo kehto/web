@@ -98,7 +98,7 @@ Kinds: `service` is routed by the runtime's built-in dispatcher to
 | `git` | NAP-GIT | draft | PR #137 @ `a73bf8de` | extension | 10 routes |
 | `hashtree` | NAP-HASHTREE | draft | PR #73 @ `67997706` | extension | 17 routes |
 | `identity` | NAP-IDENTITY | merged | master @ `43cb3a4e` | service | 9 routes |
-| `inc` | NAP-INC | merged | master @ `43cb3a4e` | runtime-owned | The runtime routes inc.* topics and channels itself (packages/runtime/src/inc-handler.ts) and attests sender/peer from authenticated endpoints. Mocks cannot and must not fabricate INC deliveries; shells get INC for free from the runtime. MOCK_INC_TOPICS supplies topic strings for tests. |
+| `inc` | NAP-INC | merged | master @ `377bf939` | runtime-owned | The runtime routes inc.* topics and channels itself (packages/runtime/src/inc-handler.ts) and attests sender/peer from authenticated endpoints. Mocks cannot and must not fabricate INC deliveries; shells get INC for free from the runtime. MOCK_INC_TOPICS supplies topic strings for tests. |
 | `intent` | NAP-INTENT | merged | master @ `43cb3a4e` | service | 3 routes |
 | `keys` | NAP-KEYS | draft | PR #9 @ `8869a4cf` | service | 3 routes |
 | `link` | NAP-LINK | draft | PR #53 @ `50a2cd45` | service | 1 route |

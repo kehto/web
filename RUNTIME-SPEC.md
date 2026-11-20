@@ -30,9 +30,9 @@ Current-state delta inventory: `.planning/NIP-5D-2303-DELTA-AUDIT.md`
 
 NAP-INC remains marked draft, not a Kehto-local normative copy. Active INC
 guidance is pinned to merged
-[`naps/NAP-INC.md`](https://github.com/napplet/naps/blob/5ac0490461ca6fec2f0d2e45b4835cf9bc08de24/naps/NAP-INC.md)
+[`naps/NAP-INC.md`](https://github.com/napplet/naps/blob/377bf939c6c906817084b43dd21d424de646dbc2/naps/NAP-INC.md)
 on `napplet/naps` master
-`5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`. This reference records the
+`377bf939c6c906817084b43dd21d424de646dbc2`. This reference records the
 implemented boundary and must be re-audited when that source changes.
 
 **Published-projection query-to-text-payload transposition** occurs only in the
@@ -45,8 +45,16 @@ normalize, prefix/wildcard/query-match, infer a payload kind, or intercept an
 wire or discovery identity is therefore invalid.
 
 The runtime attests identity from the registered endpoint: delivered topic and
-channel events contain a **runtime-attested dTag**, never a caller-supplied
+channel events contain a **runtime-attested endpoint identifier**, never a caller-supplied
 `sender`; IDs and payloads remain opaque. Topic delivery excludes its source.
+`target`, `sender`, and `peer` are runtime-assigned endpoint identifiers: opaque text, one per live registered
+endpoint, taken from the injected `crypto.randomUUID`, and carrying no manifest `d` tag, artifact hash, window ID,
+instance ID, or ordering. An identifier is assigned on first use, lasts until that registration is replaced or
+unregistered, and is never reused; a replacement registration is a new endpoint whose old channels close as
+`peer destroyed`. Root and snapshot manifests without a `d` tag get identifiers like any other endpoint. A `d` tag is
+never resolved as a channel target (`KEHTO_INC_DTAG_TARGET_RETIRED` in
+[the compatibility register](https://github.com/kehto/web/blob/main/docs/compatibility.md)). Napplets learn a peer
+from an attested `sender`/`peer`; a host selects one with `Runtime.getIncEndpointId(windowId)`.
 Channel ACL authorization is open-only: target liveness and policy are checked
 at `inc.channel.open`, not per message. A target receives
 `inc.channel.opened` before the opener result, after which both endpoints hold

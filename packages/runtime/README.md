@@ -192,9 +192,9 @@ controllers for the live Paja host.
 ## NAP-INC Contract
 
 The active INC boundary follows merged
-[`naps/NAP-INC.md`](https://github.com/napplet/naps/blob/5ac0490461ca6fec2f0d2e45b4835cf9bc08de24/naps/NAP-INC.md)
+[`naps/NAP-INC.md`](https://github.com/napplet/naps/blob/377bf939c6c906817084b43dd21d424de646dbc2/naps/NAP-INC.md)
 on `napplet/naps` master
-`5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`. The document remains marked
+`377bf939c6c906817084b43dd21d424de646dbc2`. The document remains marked
 draft, but the merged path is the protocol authority.
 
 The released projection binding converts a convention query to a text payload
@@ -204,8 +204,25 @@ wire/discovery identity, prefix/wildcard/query-aware matching, generic or
 service-over-INC prefix dispatch, or runtime payload-kind inference. Arbitrary
 opaque topic strings, including `?` and `#`, are routed by their complete exact
 text. The runtime derives the
-**runtime-attested dTag** from the registered source; callers never supply a
+**runtime-attested endpoint identifier** from the registered source; callers never supply a
 sender, topic delivery excludes its source, and IDs/payloads are opaque.
+
+`target`, `sender`, and `peer` are runtime-assigned endpoint identifiers: opaque text, one per live registered
+endpoint, taken from the injected `crypto.randomUUID`, and carrying no manifest `d` tag, artifact hash, window ID,
+instance ID, or ordering. An identifier is assigned on first use, lasts until that registration is replaced or
+unregistered, and is never reused; a replacement registration is a new endpoint whose old channels close as
+`peer destroyed`. Root and snapshot manifests without a `d` tag get identifiers like any other endpoint. A `d` tag is
+never resolved as a channel target (`KEHTO_INC_DTAG_TARGET_RETIRED` in
+[the compatibility register](https://github.com/kehto/web/blob/main/docs/compatibility.md)). Napplets learn a peer
+from an attested `sender`/`peer`; a host selects one with `Runtime.getIncEndpointId(windowId)`.
+
+```ts
+// Host peer selection: hand napplet A the endpoint of the window the user picked.
+const target = runtime.getIncEndpointId(pickedWindowId);
+```
+
+Migration from `@kehto/runtime` 0.26 and earlier: stop passing a manifest `d` tag to `inc.channel.open` and stop
+comparing `sender`/`peer` with a `d` tag. Keep the `sender` of an `inc.event` (or a channel `peer`) and pass that back.
 
 Channels apply **open-time authorization** only: ACL and target liveness are
 checked at `inc.channel.open`, never per later message. The target receives

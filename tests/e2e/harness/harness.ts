@@ -142,7 +142,9 @@ function loadNapplet(name: string, params?: Record<string, string>): string {
 function unloadNapplet(windowId: string): void {
   const iframe = nappletFrames.get(windowId);
   if (iframe) {
-    originRegistry.unregister(windowId);
+    // Host retirement ends the runtime session too, so INC endpoints, channels,
+    // and subscriptions of the unloaded napplet do not outlive its frame.
+    relay.revokeNapplet(windowId, 'host');
     iframe.remove();
     nappletFrames.delete(windowId);
     logStatus(`Unloaded ${windowId}`);

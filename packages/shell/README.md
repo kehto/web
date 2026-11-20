@@ -87,9 +87,9 @@ Current draft behaviors this package enforces:
 ### NAP-INC binding and channel contract
 
 The injected INC binding follows merged
-[`naps/NAP-INC.md`](https://github.com/napplet/naps/blob/5ac0490461ca6fec2f0d2e45b4835cf9bc08de24/naps/NAP-INC.md)
+[`naps/NAP-INC.md`](https://github.com/napplet/naps/blob/377bf939c6c906817084b43dd21d424de646dbc2/naps/NAP-INC.md)
 on `napplet/naps` master
-`5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`. The specification remains marked
+`377bf939c6c906817084b43dd21d424de646dbc2`. The specification remains marked
 draft, but its merged path is the protocol authority.
 
 The released package projection and `window.napplet.inc` binding own
@@ -101,8 +101,10 @@ including `?` and `#`. The binding never creates a normalized query-bearing
 wire/discovery identity,
 does not do prefix/wildcard/query-aware matching or service-over-INC prefix
 dispatch, and does not infer payload kinds. Runtime delivery supplies the
-**runtime-attested dTag**; no caller sender is accepted, topic source exclusion
-is runtime-owned, and IDs and payloads are opaque.
+**runtime-attested endpoint identifier**; no caller sender is accepted, topic source exclusion
+is runtime-owned, and IDs and payloads are opaque. `channel.open(target)` takes that identifier (an event
+`sender`, a channel `peer`, or one the host selected with `bridge.runtime.getIncEndpointId(windowId)`); a manifest
+`d` tag is not a target and fails as `target not found`.
 
 Merged NAP-INC and released `@napplet/nap@0.32.0` both deliver one `IncEvent`
 to `on(topic, callback)`.

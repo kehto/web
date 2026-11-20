@@ -786,9 +786,9 @@ function nappletNamespacePrelude(
         });
       },
       channel: {
-        open(targetDTag: string) {
+        open(target: string) {
           return request(
-            { type: 'inc.channel.open', target: targetDTag },
+            { type: 'inc.channel.open', target },
             'inc.channel.open.result',
             (msg) => {
               if (typeof msg.channelId !== 'string' || typeof msg.peer !== 'string') {
