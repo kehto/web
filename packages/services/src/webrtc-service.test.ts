@@ -168,7 +168,8 @@ describe('createWebrtcService', () => {
   describe('after webrtc.close', () => {
     const approveAll = { authorizeOperation: async (_w: string, _o: string, _r: readonly unknown[], run: (signal: ApprovalSignal) => unknown) =>
       ({ status: 'executed' as const, value: await run(new AbortController().signal) }) } as unknown as ServiceRuntimeContext;
-    const STATS_EVENT: WebrtcEvent = { type: 'stats', sessionId: 'webrtc-session-1', pubkey: PEER_PUBKEY, rttMs: 42, lossRatio: 0 };
+    // `stats` is in NAP-WEBRTC @ fb4dd6f0 but not yet in @napplet/core's WebrtcEvent (upstream package drift).
+    const STATS_EVENT = { type: 'stats', sessionId: 'webrtc-session-1', pubkey: PEER_PUBKEY, rttMs: 42, lossRatio: 0 } as unknown as WebrtcEvent;
     const STATE_EVENT: WebrtcEvent = { type: 'state', sessionId: 'webrtc-session-1', state: 'closed' };
     const LATE_EVENTS: readonly WebrtcEvent[] = [MESSAGE_EVENT, STATE_EVENT, STATS_EVENT,
       { type: 'peer', sessionId: 'webrtc-session-1', pubkey: PEER_PUBKEY, state: 'left' },
