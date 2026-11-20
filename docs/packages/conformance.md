@@ -49,8 +49,11 @@ npx playwright install chromium
 kehto conformance                                  # full profile, pretty output
 kehto conformance --profile minimal
 kehto conformance --reporter junit --out conformance.xml
-kehto conformance --reporter json --domain theme
 ```
+
+`--domain <name>` (repeatable) restricts per-domain cases; NIP-5D core and
+NAP-SHELL checks always run. This slice has no per-domain cases yet, so the
+filter changes nothing today.
 
 Exit codes: `0` every applicable check passed (spec gaps are printed and
 counted), `1` an error-severity check failed, `2` usage, target boot or harness
@@ -67,7 +70,7 @@ working.
 | Profile | Exposed domains |
 |---------|-----------------|
 | `minimal` | The always-on built-in domains that work without a backend: `identity`, `storage`, `inc`, `theme` (plus `shell` in the shell-present variant). `relay`, `keys`, `media` and `notify` are disabled, and no service is registered. |
-| `full` | Every domain the first-party target can back deterministically. |
+| `full` | Today: the shell's runtime-native set with nothing disabled (`relay`, `identity`, `storage`, `inc`, `theme`, `keys`, `media`, `notify`, plus `shell`). `relay`, `keys`, `media` and `notify` are still advertised without a wired backend, and no service-only domain is registered yet. Deterministic backends for every supported domain and the `catalog/advertised-domain-covered` gate are the next slice of kehto/web#187, so a `full` run is not yet evidence of full-profile coverage. |
 
 All probe endpoints get explicit host grants. Manifest `R`/`O` declarations
 are checked, never used as grants.
