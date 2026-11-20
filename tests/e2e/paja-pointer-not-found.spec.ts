@@ -181,3 +181,33 @@ test('a replaced addressable napplet is offered, not loaded, until the user pick
   expect(after.resolvedTarget?.aggregateHash).toBe(createHash('sha256').update(currentBytes).digest('hex'));
   expect(after.logTypes).toContain('paja.pointer.replacement.chosen');
 });
+
+test('several current napplets from the author are a picker with nothing chosen for the user', async ({ page }) => {
+  const relay = ANSWERING[1]!;
+  const gone = manifest('feed', 1_700_000_000, artifact('old'));
+  const feedBytes = artifact('feed');
+  const events = [manifest('feed', 1_700_000_300, feedBytes), manifest('profile', 1_700_000_900, artifact('profile'))];
+  let blossomRequests = 0;
+  await page.route(`${BLOSSOM}/**`, (route) => {
+    blossomRequests += 1;
+    return route.fulfill({ headers: { 'access-control-allow-origin': '*' }, contentType: 'text/html', body: feedBytes });
+  });
+  await fakeRelay(page, relay, events);
+  await servePaja(page, [relay]);
+  await page.goto(`${HOST}/?nevent=${neventEncode({ id: gone.id, kind: 35129, author: getPublicKey(AUTHOR), relays: [relay] })}`);
+
+  const offer = page.locator('#runtime-pointer-offer');
+  await expect(offer).toContainText("pick one of the author's 2 current napplets", { timeout: 10_000 });
+  const choice = page.locator('#runtime-pointer-offer-choice');
+  await expect(choice).toHaveValue('');
+  await expect(page.locator('#runtime-pointer-offer-open')).toBeDisabled();
+  await expect(choice.locator('option:not([disabled])')).toHaveText([/^Fixture feed \(d=feed,/, /^Fixture profile \(d=profile,/]);
+  expect(blossomRequests).toBe(0);
+  expect((await pajaState(page)).tabs).toEqual([]);
+
+  const naddr = naddrEncode({ kind: 35129, pubkey: getPublicKey(AUTHOR), identifier: 'feed', relays: [relay] });
+  await choice.selectOption(naddr);
+  await page.locator('#runtime-pointer-offer-open').click();
+  await expect(page.frameLocator('#napplet-stage iframe').last().locator('#ready')).toHaveText('feed', { timeout: 10_000 });
+  expect((await pajaState(page)).tabs).toEqual([naddr]);
+});

@@ -41,7 +41,7 @@ export interface FindPajaPointerReplacementsOptions {
   readonly maxWaitMs?: number;
 }
 
-const MAX_REPLACEMENTS = 8;
+const MAX_REPLACEMENTS = 50;
 
 /**
  * List the author's current addressable manifests for a `nevent` whose exact
