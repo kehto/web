@@ -42,6 +42,8 @@ NAP-WEBRTC `fb4dd6f` (napplet/naps#59), NAP-FS `bd1b9e9` (#88), NAP-RESOURCE
 
 ## Verification
 
-build, type-check, test:unit (3732), docs:check, aislop changed-files 100/100
-(one pre-existing `installPajaLlmPanel` length warning also present on the
-staging baseline), Playwright `paja-settings.spec.ts` plus full `test:e2e`.
+After rebasing onto staging `8023fbe6`: `pnpm build`, `pnpm type-check`,
+`pnpm test:unit` (292 files, 3795 tests), `pnpm docs:check`, aislop changed
+files 100/100 (one `installPajaLlmPanel` length warning that already exists on
+the staging baseline), and a clean `pnpm test:e2e` run (144 passed, 1
+pre-existing skip).
