@@ -78,7 +78,7 @@ const revokeButtons = (root: TestElement): TestElement[] =>
   root.all('button').filter((node) => node.getAttribute('aria-label')?.startsWith('Revoke network.') ?? false);
 const DEFAULTS = createPermissionRules({ default: 'allow', operations: { 'link.open': 'ask' } });
 
-function setup(separatePrompt = false, withRules = false) {
+function setup(separatePrompt = false, withRules = false, openOriginLimit?: number | (() => number)) {
   const document = new TestDocument();
   const mount = document.createElement('main');
   const promptMount = document.createElement('aside');
@@ -102,6 +102,7 @@ function setup(separatePrompt = false, withRules = false) {
     labelForPrincipal: () => 'Trusted app',
     getPermissions: () => permissions,
     onGrantRevoked, onAnswer,
+    ...(openOriginLimit !== undefined ? { openOriginLimit } : {}),
   });
   const prompt = (signal: AbortSignal, lifetimes: Array<'once' | 'session' | 'persistent'> = ['session']): ApprovalPrompt => ({
     request: { principal, sessionId: 's', requestId: 'r', requirements: [requirement] },
@@ -196,6 +197,69 @@ describe('common browser approval UI', () => {
       'Connect directly (connect-src, script-src)https://api.example.test',
       'Connect directly (connect-src)wss://api.example.test',
     ]);
+    f.ui.destroy();
+    await answer;
+  });
+
+  // kehto/web#455: a large outbox plan is one row, not one row per relay.
+  it('shows the relay origins of one mediated operation as a single row listing each exact origin', async () => {
+    const f = setup();
+    const relays = Array.from({ length: 127 }, (_, index) => `wss://r${index}.example`);
+    const missing: PermissionRequirement[] = [
+      { category: 'interface', domain: 'outbox', operation: 'access', scope: { kind: 'exact', value: 'outbox' } },
+      ...relays.map((value): PermissionRequirement => ({ category: 'network', domain: 'outbox', operation: 'outbox.subscribe', scope: { kind: 'origin', value } })),
+    ];
+    const answer = f.ui.prompt({ ...f.prompt(new AbortController().signal), missing });
+    const dialog = f.mount.find('dialog')!;
+    const rows = dialog.find('ul')!.children;
+    expect(rows.map((row) => row.children[0]!.textContent)).toEqual(['Use the outbox interface', 'outbox.subscribe — contact 127 origins']);
+    const origins = dialog.all('details').find((node) => node.className === 'kehto-approval-origins')!;
+    expect(origins.find('summary')!.textContent).toBe('Show all 127');
+    expect((origins as unknown as { open?: boolean }).open).toBe(false);
+    expect(origins.all('code').map((code) => code.textContent)).toEqual(relays);
+    f.ui.destroy();
+    await answer;
+  });
+
+  it('shows a short group of mediated origins without a click', async () => {
+    const f = setup();
+    const answer = f.ui.prompt({ ...f.prompt(new AbortController().signal), missing: ['wss://a.example', 'wss://b.example'].map((value): PermissionRequirement =>
+      ({ category: 'network', domain: 'outbox', operation: 'outbox.query', scope: { kind: 'origin', value } })) });
+    const origins = f.mount.find('dialog')!.all('details').find((node) => node.className === 'kehto-approval-origins')!;
+    expect((origins as unknown as { open?: boolean }).open).toBe(true);
+    expect(origins.all('code').map((code) => code.textContent)).toEqual(['wss://a.example', 'wss://b.example']);
+    f.ui.destroy();
+    await answer;
+  });
+
+  it('reads the host open-origin limit at each prompt and ignores an unusable one', async () => {
+    let limit = 0;
+    const two = ['wss://a.example', 'wss://b.example'].map((value): PermissionRequirement =>
+      ({ category: 'network', domain: 'outbox', operation: 'outbox.query', scope: { kind: 'origin', value } }));
+    for (const [configured, open] of [[() => limit, false], [-1, true], [() => { throw new Error('unavailable'); }, true]] as const) {
+      const f = setup(false, false, configured);
+      const answer = f.ui.prompt({ ...f.prompt(new AbortController().signal), missing: two });
+      const origins = f.mount.find('dialog')!.all('details').find((node) => node.className === 'kehto-approval-origins')!;
+      expect((origins as unknown as { open?: boolean }).open).toBe(open);
+      f.ui.destroy();
+      await answer;
+    }
+    limit = 2;
+    const f = setup(false, false, () => limit);
+    const answer = f.ui.prompt({ ...f.prompt(new AbortController().signal), missing: two });
+    expect((f.mount.find('dialog')!.all('details').find((node) => node.className === 'kehto-approval-origins') as unknown as { open?: boolean }).open).toBe(true);
+    f.ui.destroy();
+    await answer;
+  });
+
+  it('keeps a single mediated origin on its own row', async () => {
+    const f = setup();
+    const answer = f.ui.prompt({ ...f.prompt(new AbortController().signal), missing: [
+      { category: 'network', domain: 'outbox', operation: 'outbox.query', scope: { kind: 'origin', value: 'wss://one.example' } },
+    ] });
+    const dialog = f.mount.find('dialog')!;
+    expect(dialog.all('li').map((row) => row.textContent)).toEqual(['outbox.query — contact originwss://one.example']);
+    expect(dialog.all('details').filter((node) => node.className === 'kehto-approval-origins')).toEqual([]);
     f.ui.destroy();
     await answer;
   });

@@ -97,6 +97,12 @@ export interface OutboxRelayPlan {
   author?: string;
   /** Host-only required publish targets. Required when a publish requests own/inbox fanout. */
   requiredRelays?: string[];
+  /**
+   * Host-only: the shell left relays out (unusable URLs, or beyond the
+   * approval budget) and some requested author lost every relay. Reads over
+   * this plan report `incomplete: true`. Never sent on the wire.
+   */
+  partial?: boolean;
 }
 
 /** Outcome of a single-event outbox lookup. */
@@ -516,7 +522,7 @@ function handleResolveRelays(actions: OutboxActions, msg: NappletMessage, send: 
   }
   void router
     .resolveRelays(target)
-    .then((plan) => send({ type: 'outbox.resolveRelays.result', id, plan } as NappletMessage))
+    .then(({ partial: _hostOnly, ...plan }) => send({ type: 'outbox.resolveRelays.result', id, plan } as NappletMessage))
     .catch((err) =>
       send({ type: 'outbox.resolveRelays.result', id, error: toErrorMessage(err) } as NappletMessage),
     );

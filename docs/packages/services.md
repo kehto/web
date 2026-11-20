@@ -304,7 +304,13 @@ Security Considerations (shells SHOULD apply per-napplet concurrency limits).
   a relay-gate refusal, or an unplannable router is `policy denied`; a declined
   publish is `publish denied`. A required own-outbox or `toInboxes` relay that
   does not accept is `relay timeout`, even when hinted relays did. Spec gap: the draft has no "no relay reachable" or
-  "relay refused" code, so the closest defined codes are used. See the
+  "relay refused" code, so the closest defined codes are used. Plans stay inside
+  one Firewall approval: at most 127 relay origins (`MAX_PERMISSION_REQUIREMENTS`
+  less the interface requirement), chosen by author coverage with hints last.
+  Unusable relay URLs are skipped, a read that left an author without relays is
+  `incomplete: true`, and a publish whose required relays cannot fit fails with
+  `too many relays`, never a denial. COUNT reports an oversized relay plan as
+  `too-expensive`. See the
   [services README](https://github.com/kehto/web/blob/main/packages/services/README.md#approval-aware-relay-services).
 - `createOutboxService()` accepts a source-scoped `getReadRouter` for
   `outbox.getEvent`, `outbox.query`, and `outbox.subscribe`, while the optional

@@ -130,6 +130,9 @@ export const PAJA_SETTING_DEFINITIONS = Object.freeze([
     ['link.approvalClickWindowMs', 'Link approval click window', SECOND_MS, 100, 10 * SECOND_MS, 'ms'],
     ['link.labelMaxChars', 'Maximum link label length', 256, 1, 4096, 'chars'],
   ]),
+  ...define('Firewall', 'browser', [
+    ['firewall.promptOpenOrigins', 'Relay origins listed open in a prompt', 5, 0, 127, 'count'],
+  ]),
   ...define('Signer', 'browser', [
     ['signer.nip46TimeoutMs', 'Remote signer request timeout', 30 * SECOND_MS, SECOND_MS, 10 * MINUTE_MS, 'ms'],
     ['signer.previewChars', 'Content shown in signing prompts', 240, 16, 10_000, 'chars'],

@@ -1,6 +1,8 @@
 import type { NostrFilter } from '@napplet/core';
 import type { OutboxPublishOptions, OutboxRelayPlan } from './outbox-service.js';
 import type { PublishTargetResolution, RelayListEntry, RequiredRelayResolution, RouterCtx } from './relay-pool-outbox-types.js';
+import { selectReadRelays } from './outbox-relay-budget.js';
+import { parseRelayUrl } from './relay-url-policy.js';
 
 /** Collect a deduplicated author set from filters + explicit option hints. */
 export function deriveAuthors(filters: NostrFilter[], optionAuthors?: string[]): string[] {
@@ -77,6 +79,11 @@ export async function resolveRequiredRelays(
 /**
  * Resolve the relay plan for a set of pubkeys. Returns the allowed relay set,
  * its provenance, and any pubkeys whose relay list was unavailable.
+ *
+ * The plan stays within one approval ({@link selectReadRelays}): a larger
+ * candidate set is chosen by author coverage, with napplet hints last. A
+ * relay-gate refusal is shell policy and is left out as before; an unusable
+ * URL is skipped, and `partial` records an author left without any relay.
  */
 export async function resolvePlan(
   ctx: RouterCtx,
@@ -85,7 +92,8 @@ export async function resolvePlan(
   relayHints?: string[],
 ): Promise<OutboxRelayPlan> {
   const useWrite = direction === 'read';
-  const discovered = new Set<string>();
+  // Relay URL -> requested authors it serves, in author order.
+  const candidates = new Map<string, Set<string>>();
   const missingAuthors: string[] = [];
   let sawNip65 = false;
 
@@ -94,33 +102,40 @@ export async function resolvePlan(
     for (const pubkey of pubkeys) {
       const entry = lists.get(pubkey);
       const relays = entry ? (useWrite ? entry.write : entry.read) : undefined;
-      if (relays && relays.length > 0) {
-        sawNip65 = true;
-        for (const url of relays) discovered.add(url);
-      } else {
+      if (!relays || relays.length === 0) {
         missingAuthors.push(pubkey);
+        continue;
+      }
+      sawNip65 = true;
+      for (const url of relays) {
+        // Unusable URLs stay as candidates so a lost author is reported; gate refusals do not.
+        if (parseRelayUrl(url) && !ctx.isRelayAllowed(url)) continue;
+        const authors = candidates.get(url);
+        if (authors) authors.add(pubkey);
+        else candidates.set(url, new Set([pubkey]));
       }
     }
   }
 
-  const hintRelays = allowed(ctx, relayHints ?? []);
-  let relays = allowed(ctx, discovered);
   let source: OutboxRelayPlan['source'];
-  if (relays.length > 0) {
+  if ([...candidates.keys()].some((url) => ctx.isRelayAllowed(url))) {
     source = sawNip65 ? 'nip65' : 'policy';
   } else {
-    relays = allowed(ctx, ctx.fallbackRelays);
-    source = relays.length > 0 ? 'fallback' : 'policy';
+    candidates.clear();
+    for (const url of allowed(ctx, ctx.fallbackRelays)) candidates.set(url, new Set());
+    source = candidates.size > 0 ? 'fallback' : 'policy';
   }
 
   // Relay hints from the napplet augment the host-owned plan, subject to the relay gate.
-  for (const url of hintRelays) {
-    if (!relays.includes(url)) relays.push(url);
+  for (const url of allowed(ctx, relayHints ?? [])) {
+    if (!candidates.has(url)) candidates.set(url, new Set());
   }
+  const { relays, partial } = selectReadRelays(candidates);
   if (relays.length === 0) source = 'fallback';
 
   const plan: OutboxRelayPlan = { relays, source };
   if (missingAuthors.length > 0) plan.missingAuthors = missingAuthors;
+  if (partial) plan.partial = true;
   return plan;
 }
 

@@ -5,6 +5,7 @@ import type { PermissionAdapter, PermissionGrant, PermissionPrincipal, RuntimePe
 import { notePajaApprovalClick } from './browser-link.js';
 import { createPajaPermissionRuleStore } from './browser-permission-rules.js';
 import type { PajaPermissionRuleStore } from './browser-permission-rules.js';
+import { getPajaSetting } from './settings.js';
 
 /** Versioned durable store used only by the runtime's validated grant format. */
 export const PAJA_PERMISSION_STORAGE_KEY = 'kehto:paja:firewall-permissions:v1';
@@ -60,6 +61,7 @@ export function createPajaPermissionAdapter(options: PajaPermissionAdapterOption
     labelForPrincipal: options.labelForPrincipal ?? ((principal) => principal.kind === 'verified' ? 'Verified napplet' : 'Development target'),
     onGrantRevoked: options.onGrantRevoked,
     rules,
+    openOriginLimit: () => getPajaSetting('firewall.promptOpenOrigins'),
     onAnswer(answer, userGesture) {
       if (answer.effect === 'allow' && userGesture) notePajaApprovalClick();
     },

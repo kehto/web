@@ -5,6 +5,14 @@ import type {
 } from './permission-types.js';
 
 const MAX_GRANTS = 2048;
+
+/**
+ * Most requirements one permission request may carry, counting the interface
+ * requirement added for each domain. It bounds evaluation work and prompt size;
+ * a larger request is invalid, so callers must plan within it.
+ * @example const networkBudget = MAX_PERMISSION_REQUIREMENTS - 1; // one interface requirement
+ */
+export const MAX_PERMISSION_REQUIREMENTS = 128;
 const HASH = /^[a-f0-9]{64}$/;
 const MANIFEST = /^nip5d:(?:35129:[a-f0-9]{64}:.+|15129:[a-f0-9]{64}|5129:[a-f0-9]{64})$/;
 
@@ -95,7 +103,7 @@ export function revokePermissionGrant(state: PermissionState, id: string): Permi
 
 function requestRequirements(request: PermissionRequest, options: PermissionPolicyOptions): PermissionRequirement[] {
   if (!permissionText(request.sessionId, 256) || !permissionText(request.requestId, 256)
-    || !Array.isArray(request.requirements) || request.requirements.length < 1 || request.requirements.length > 128) {
+    || !Array.isArray(request.requirements) || request.requirements.length < 1 || request.requirements.length > MAX_PERMISSION_REQUIREMENTS) {
     throw new TypeError('Invalid permission request');
   }
   const requirements = request.requirements.map((value) => normalizeRequirement(value, options));

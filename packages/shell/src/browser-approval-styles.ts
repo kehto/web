@@ -74,6 +74,9 @@ details[open] > summary.kehto-fw-row::before { transform: rotate(90deg); }
 .kehto-approval-scopes li { display: grid; gap: 2px; padding: 8px 10px; border: 1px solid var(--fw-line); border-radius: 4px; background: var(--fw-inset); }
 .kehto-approval-scopes li span { color: var(--fw-muted); font-size: 11px; }
 .kehto-approval-scopes { max-height: 220px; overflow: auto; }
+.kehto-approval-origins summary { cursor: pointer; font-size: 11px; }
+.kehto-approval-origins ul { display: grid; gap: 2px; margin: 4px 0 0; padding: 0; list-style: none; max-height: 160px; overflow: auto; }
+.kehto-approval-scopes .kehto-approval-origins li { padding: 0; border: 0; background: none; }
 .kehto-approval-note, .kehto-approval-identity { color: var(--fw-muted); font-size: 11px; overflow-wrap: anywhere; }
 .kehto-approval-identity summary { cursor: pointer; }
 .kehto-approval-remember { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }

@@ -42,7 +42,7 @@ test('settings are grouped into keyboard-navigable tabs', async ({ page }) => {
   await openPaja(page);
   const dialog = await openSettings(page);
   const tabs = dialog.getByRole('tablist', { name: 'Settings groups' }).getByRole('tab');
-  await expect(tabs).toHaveCount(12);
+  await expect(tabs).toHaveCount(13);
   await expect(tab(dialog, 'Relays and queries')).toHaveAttribute('aria-selected', 'true');
   await expect(field(dialog, 'Live relay query and connect wait')).toBeVisible();
   await expect(field(dialog, 'Model list timeout')).toBeHidden();
@@ -52,6 +52,8 @@ test('settings are grouped into keyboard-navigable tabs', async ({ page }) => {
   await expect(tab(dialog, 'Resources and Blossom')).toBeFocused();
   await expect(tab(dialog, 'Resources and Blossom')).toHaveAttribute('aria-selected', 'true');
   await expect(field(dialog, 'Maximum resource size')).toBeVisible();
+  await tab(dialog, 'Firewall').click();
+  await expect(field(dialog, 'Relay origins listed open in a prompt')).toHaveValue('5');
   await page.keyboard.press('End');
   await expect(tab(dialog, 'Server (config file only)')).toHaveAttribute('aria-selected', 'true');
   // Server-scope settings are shown but only editable in the config file.

@@ -15,7 +15,14 @@
  * Spec gap: the draft has no separate code for "no relay could be reached" or
  * "every relay refused the publish". The closest defined codes are used:
  * no usable relay set → `relay list unavailable`; relays that never answered
- * or accepted → `relay timeout`. No new code is invented.
+ * or accepted → `relay timeout`.
+ *
+ * Spec gap: a publish whose required own/inbox relays span more origins than
+ * one approval can name cannot be approved or trimmed (Shell Behavior: the
+ * shell "MUST include every resolved, policy-allowed `toInboxes` relay ... or
+ * report failure"). The list above starts "Common errors include", so it is
+ * open; that failure gets its own non-denial reason, `too many relays`
+ * (kehto/web#455). Reads never use it: they are trimmed and marked `incomplete`.
  *
  * @module
  */
@@ -28,6 +35,8 @@ export const OUTBOX_RELAY_TIMEOUT = 'relay timeout';
 export const OUTBOX_POLICY_DENIED = 'policy denied';
 /** The shell (signer or user consent) refused to sign or publish. */
 export const OUTBOX_PUBLISH_DENIED = 'publish denied';
+/** A publish's required relays span more origins than one approval can name; not a denial. */
+export const OUTBOX_TOO_MANY_RELAYS = 'too many relays';
 
 /** Spec-defined reasons a planning or transport failure may carry through unchanged. */
 const NETWORK_REASONS: ReadonlySet<string> = new Set([OUTBOX_RELAY_LIST_UNAVAILABLE, OUTBOX_RELAY_TIMEOUT]);

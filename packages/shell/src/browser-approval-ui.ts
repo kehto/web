@@ -11,6 +11,7 @@ import { isRuleGrant, ruleTargetFor } from './browser-approval-format.js';
 import { element } from './browser-approval-dom.js';
 
 export type { BrowserApprovalRules } from './browser-approval-rules.js';
+export { DEFAULT_PROMPT_OPEN_ORIGINS } from './browser-approval-prompt.js';
 
 /** Host-provided labels and live runtime grant management for one browser UI. */
 export interface BrowserApprovalUiOptions {
@@ -36,6 +37,12 @@ export interface BrowserApprovalUiOptions {
    * opening a tab, from the approving click. It cannot change the answer.
    */
   readonly onAnswer?: (answer: ApprovalAnswer, userGesture: boolean) => void;
+  /**
+   * Largest group of same-operation network origins (such as an outbox plan's
+   * relays) shown open in a prompt; larger groups start collapsed. A number or
+   * a getter read at each prompt, default {@link DEFAULT_PROMPT_OPEN_ORIGINS}.
+   */
+  readonly openOriginLimit?: number | (() => number);
 }
 
 /** Common presentation adapter and live runtime-backed management controls. */
@@ -71,7 +78,7 @@ export function createBrowserApprovalUi(options: BrowserApprovalUiOptions): Brow
   const document = options.mount.ownerDocument;
   const root = element(document, 'section', undefined, 'kehto-approval-ui');
   const promptRoot = options.promptMount ? element(document, 'section', undefined, 'kehto-approval-ui') : root;
-  const presenter = createBrowserApprovalPrompt(document, options.labelForPrincipal, () => !!options.rules);
+  const presenter = createBrowserApprovalPrompt(document, options.labelForPrincipal, () => !!options.rules, options.openOriginLimit);
   let destroyed = false;
 
   const management = element(document, 'section', undefined, 'kehto-fw-management');
