@@ -283,8 +283,11 @@ with the napplet/naps ref and sentence it implements:
 |--------|-----|-------------|
 | `cvm` | #31 `28cf1bdb` | matching `.result`, `error: "policy denied"`, no success fields |
 | `relay` | #2 `9f30b350` | `publish`/`publishEncrypted` → `.result` `ok: false`; `query` → `.result` `error`; `subscribe` → `relay.closed`; `close` silent |
-| `outbox` | #32 `8865f73d` | `getEvent`/`query`/`publish` → `.result` (`events: []` for query, `ok: false` for publish); `subscribe` → `outbox.closed`; `close` silent |
-| `upload` | #33 `f5cc981e` | `upload.upload.result` with `error` |
+| `outbox` | #32 `8865f73d` | `getEvent`/`query`/`publish`/`resolveRelays` → `.result` (`events: []` for query, `ok: false` for publish, `plan: { relays: [], source: "policy" }` for resolveRelays); `subscribe` → `outbox.closed`; `close` silent |
+| `upload` | #33 `f5cc981e` | `info`/`upload`/`status` → `.result` with top-level `error` only |
+| `keys` | #9 `8869a4cf` | `registerAction` → `.result` echoing `actionId`, `error`, no `binding`; `forward`/`unregisterAction` silent |
+| `media` | #10 `7806f438` | `session.create` → `.result` with `error`; `session.update`/`session.destroy`/`state`/`capabilities`/`command` silent |
+| `config` | #14 `bed9cb5b` | `registerSchema` → `.result` `ok: false`, `error`, no `code`; `get`/`subscribe`/`unsubscribe`/`openSettings` silent |
 | `count` | #69 `9353a0c6` | `count.query.result` `ok: false`, `error: "policy-denied"`, `reason` |
 | `notify` | #11 `67877ef6` | `send` → `.result` `error`; `permission.request` → `granted: false`; `dismiss`/`badge`/`channel.register` silent |
 | `dm` | #74 `2c4e4423` | every request's `.result` with `error` only |
@@ -293,13 +296,30 @@ with the napplet/naps ref and sentence it implements:
 The runtime's reason (`denied: <capability>` or `firewall: <reason>`) passes
 through except where the NAP mandates a code or enumerates one.
 
-Spec gaps (still answered with the generic `<type>.error`, which no NAP
-defines): `upload.info`/`upload.status` and `outbox.resolveRelays` (their
-results require a success field and the NAP doesn't say what it holds on
-failure), `config.*` (NAP-CONFIG #14 has its own `ok`/`code` catalogue and
-push errors), `keys.*` (NAP-KEYS #9 results have no `error` field), `media.*`
-(two open drafts, #10 and #133). `resource.*` keeps `.error`, which NAP-RESOURCE
-#80 defines. A denied type that the owning NAP does not define as a napplet
+Every request type the domains above define now has a row; none is answered with
+an invented `<type>.error`. `resource.*` keeps `.error`, which NAP-RESOURCE #80
+defines. MEDIA has two open drafts: #133 (`8ea49c33`) is stacked on the #10
+draft branch, adds torrent sources only and leaves these rows unchanged, so #10
+is cited.
+
+Spec-gap decisions (kehto/web#481), each the narrowest reply the NAP text
+permits, with an upstream question for the owning draft:
+
+- `keys.registerAction`: `actionId` is required on the result; the denial
+  echoes the request's `action.id` (`''` when absent), as the NAP's error
+  example does.
+- `config.registerSchema`: `ok: false` with `error` and no `code`, because
+  every `ConfigSchemaErrorCode` describes an invalid schema. `config.get` is
+  silent: `config.values` has no `error` field and empty values would break the
+  default-resolution MUST, so the napplet sees its request time out (Kehto's
+  injected `config.get()` rejects after the request timeout instead of at once).
+- `outbox.resolveRelays`: `plan` is required, so the denial sends the empty
+  policy-derived plan the NAP allows for untrusted napplets, plus `error`.
+- `upload.info`/`upload.status`: the wire table lists `info`/`status` as
+  required while `@napplet/nap@0.41.0` marks both optional; the denial sends
+  only `error`, like `upload.upload`, rather than invent upload state.
+
+A denied type that the owning NAP does not define as a napplet
 request gets no reply in any domain (`isSilentUnknownDenial`).
 
 ## Retired Drift

@@ -163,6 +163,82 @@ describe('createWebrtcService', () => {
     expect(destroyWindow).toHaveBeenCalledWith(WINDOW_ID);
   });
 
+  // NAP-WEBRTC (napplet/naps#59 @ fb4dd6f0, Wire Protocol): the shell "MUST NOT
+  // deliver messages for an unknown sessionId"; a closed session is unknown.
+  describe('after webrtc.close', () => {
+    const approveAll = { authorizeOperation: async (_w: string, _o: string, _r: readonly unknown[], run: (signal: ApprovalSignal) => unknown) =>
+      ({ status: 'executed' as const, value: await run(new AbortController().signal) }) } as unknown as ServiceRuntimeContext;
+    // `stats` is in NAP-WEBRTC @ fb4dd6f0 but not yet in @napplet/core's WebrtcEvent (upstream package drift).
+    const STATS_EVENT = { type: 'stats', sessionId: 'webrtc-session-1', pubkey: PEER_PUBKEY, rttMs: 42, lossRatio: 0 } as unknown as WebrtcEvent;
+    const STATE_EVENT: WebrtcEvent = { type: 'state', sessionId: 'webrtc-session-1', state: 'closed' };
+    const LATE_EVENTS: readonly WebrtcEvent[] = [MESSAGE_EVENT, STATE_EVENT, STATS_EVENT,
+      { type: 'peer', sessionId: 'webrtc-session-1', pubkey: PEER_PUBKEY, state: 'left' },
+      { type: 'closed', sessionId: 'webrtc-session-1', reason: 'peer disconnected' }];
+
+    async function openSession(close: WebrtcServiceOptions['close']) {
+      let emit!: (event: WebrtcEvent) => void;
+      const service = createWebrtcService({
+        planOpen: () => ({ signalingRelayUrls: [], iceEndpoints: [], resource: `peer:${PEER_PUBKEY}` }),
+        open: (_request, context) => { emit = (event) => context.emit(event); return OPEN_RESULT; },
+        close,
+      });
+      service.onRegistered?.(approveAll);
+      const { sent, send } = collectSent();
+      service.handleMessage(WINDOW_ID, { type: 'webrtc.open', id: 'open', request: REQUEST } as NappletMessage, send);
+      await flush();
+      emit(MESSAGE_EVENT);
+      expect(sent).toEqual([
+        { type: 'webrtc.open.result', id: 'open', session: OPEN_RESULT.session },
+        { type: 'webrtc.event', event: MESSAGE_EVENT },
+      ]);
+      sent.length = 0;
+      return { service, sent, send, emit: (event: WebrtcEvent) => emit(event) };
+    }
+
+    it.each(LATE_EVENTS.map((event) => [event.type, event] as const))('drops a late %s event from the open context', async (_type, event) => {
+      const { service, sent, send, emit } = await openSession(vi.fn());
+      service.handleMessage(WINDOW_ID, { type: 'webrtc.close', id: 'close', sessionId: 'webrtc-session-1' } as NappletMessage, send);
+      await flush();
+      emit(event);
+      expect(sent).toEqual([{ type: 'webrtc.close.result', id: 'close' }]);
+    });
+
+    it('drops events the backend emits while close is still tearing down', async () => {
+      let finish!: () => void;
+      const { service, sent, send, emit } = await openSession(vi.fn((_id, _reason, context) => {
+        // The backend's own teardown notifications and a racing remote message.
+        context.emit(STATE_EVENT);
+        context.emit({ type: 'closed', sessionId: 'webrtc-session-1' });
+        return new Promise<void>((resolve) => { finish = resolve; });
+      }));
+      service.handleMessage(WINDOW_ID, { type: 'webrtc.close', id: 'close', sessionId: 'webrtc-session-1' } as NappletMessage, send);
+      await flush();
+      emit(MESSAGE_EVENT);
+      emit(STATS_EVENT);
+      expect(sent).toEqual([]);
+      finish();
+      await flush();
+      expect(sent).toEqual([{ type: 'webrtc.close.result', id: 'close' }]);
+    });
+
+    it('keeps delivering when the close hook fails and the session stays open', async () => {
+      const { service, sent, send, emit } = await openSession(vi.fn(async () => { throw new Error('signaling unavailable'); }));
+      service.handleMessage(WINDOW_ID, { type: 'webrtc.close', id: 'close', sessionId: 'webrtc-session-1' } as NappletMessage, send);
+      await flush();
+      emit(MESSAGE_EVENT);
+      expect(sent).toEqual([
+        { type: 'webrtc.close.result', id: 'close', error: 'signaling unavailable' },
+        { type: 'webrtc.event', event: MESSAGE_EVENT },
+      ]);
+    });
+
+    it('drops events for a sessionId the window never opened', async () => {
+      const { sent, emit } = await openSession(vi.fn());
+      emit({ ...MESSAGE_EVENT, sessionId: 'someone-else' });
+      expect(sent).toEqual([]);
+    });
+  });
+
   it('plans signaling destinations and waits for runtime approval before opening a peer', async () => {
     const open = vi.fn(() => OPEN_RESULT);
     const planOpen = vi.fn(() => ({

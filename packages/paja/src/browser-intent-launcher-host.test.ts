@@ -31,7 +31,7 @@ function harness() {
     stage: { append: vi.fn() }, config: { window: { id: 'paja' } }, adapter: {},
     bridge: { observeFrame: vi.fn(), runtime: { destroyWindow: vi.fn(), sessionRegistry: { unregister: vi.fn() } } },
     navigateFrame: vi.fn(async (...args: unknown[]) => {
-      const windowId = args[6] as string;
+      const windowId = (args[6] as { windowId: string }).windowId;
       windowIds.push(windowId);
       // The launcher napplet reports ready, then answers the correlated launch.
       queueMicrotask(() => {

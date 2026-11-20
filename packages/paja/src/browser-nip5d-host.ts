@@ -137,9 +137,15 @@ export function handlePajaNappletRevoked(
   effects: PajaNip5dHostEffects,
 ): void {
   const { windowId, reason, detail } = revocation;
-  appendPajaMessageLog(state, 'paja', { type: 'paja.napplet.revoked', reason, detail }, windowId);
+  // Paja itself only revokes with `host`, when it retires a frame on purpose
+  // (Firewall retire, superseded launch). Keep `paja.napplet.revoked` for
+  // revokes the shell found evidence for, so the log never mixes the two.
+  const type = reason === 'host' ? 'paja.napplet.retired' : 'paja.napplet.revoked';
+  appendPajaMessageLog(state, 'paja', { type, reason, detail }, windowId);
   if (!state || !context) return;
   const { runtime } = context;
+  // A revoked window is never ready again, whether or not it still owns a frame.
+  runtime.readyWindowIds.delete(windowId);
   for (const [source, launcher] of runtime.launcherFrames) {
     if (launcher.windowId !== windowId) continue;
     runtime.launcherFrames.delete(source);

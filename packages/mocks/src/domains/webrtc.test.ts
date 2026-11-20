@@ -132,6 +132,22 @@ describe('createMockWebrtcService', () => {
     expect(sent.at(-1)).toEqual({ type: 'webrtc.send.result', id: 's2', error: 'session closed' });
   });
 
+  it('delivers nothing for a session after the napplet closes it (NAP-WEBRTC #59: no events for an unknown sessionId)', () => {
+    const { service, sent, call, open, queue, drain } = setup();
+    const sessionId = open('w1', { type: 'direct', pubkey: carol.pubkey });
+    drain();
+    expect(service.peerMessage(sessionId, { body: 'before' })).toBe(true);
+    call({ type: 'webrtc.send', id: 's1', sessionId, payload: { body: 'echo me' } });
+    expect(queue.length).toBeGreaterThan(0);
+    sent.length = 0;
+    call({ type: 'webrtc.close', id: 'c1', sessionId });
+    drain();
+    expect(service.peerMessage(sessionId, { body: 'late' })).toBe(false);
+    expect(service.peerBytes(sessionId, 'AAEC')).toBe(false);
+    expect(service.peerLeave(sessionId)).toBe(false);
+    expect(sent).toEqual([{ type: 'webrtc.close.result', id: 'c1' }]);
+  });
+
   it('room sessions mesh every joined window; leaving removes only that peer', () => {
     const { service, call, sent, open, events } = setup({ autoAnswer: false });
     const a = open('w1', { type: 'room', room: 'lab' });

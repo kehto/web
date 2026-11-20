@@ -5,23 +5,12 @@
  * intended checks), so a new failure or a fix that lands without updating this
  * list fails them. Details and repros: the #187 PR bodies.
  *
- * - `catalog/broadcast-to-loaded`: `theme.changed` / `identity.changed` reach an
- *   endpoint only after its first envelope (the bridge registers the
- *   environment lazily); NAP-THEME "MUST broadcast ... to all napplets to which
- *   it exposes theme", NAP-IDENTITY "MUST emit identity.changed to loaded napplets".
- * - `catalog/acl-denial`: keys, media, outbox (`resolveRelays`), config and
- *   upload still answer ACL denials with `<type>.error`, a type their NAPs do
- *   not define (staging's #463 fixed the other domains).
  * - `catalog/package-drift`: `@napplet/nap@0.41.0` lacks `media.session.ended`
  *   and `webrtc.sendBytes(.result)` that the pinned NAPs specify (upstream).
- * - `webrtc/push`: `webrtc.event` is still delivered for a closed session.
  */
 export const KNOWN_KEHTO_FINDINGS: Readonly<Record<'minimal' | 'full', readonly string[]>> = {
   minimal: [],
   full: [
-    'catalog/acl-denial',
-    'catalog/broadcast-to-loaded',
     'catalog/package-drift',
-    'webrtc/push',
   ],
 };
