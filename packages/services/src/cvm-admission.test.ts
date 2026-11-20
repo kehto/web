@@ -133,6 +133,35 @@ describe('createCvmOperations', () => {
     expect(errors).toEqual([]);
     expect([operations.inFlight('a'), operations.queued('a')]).toEqual([0, 0]);
   });
+
+  it('returns the tracked operation, also while it is queued, and undefined when refused', async () => {
+    const operations = createCvmOperations({ maxInFlight: 1, maxQueued: 1 });
+    const errors: unknown[] = [];
+    const running = operations.run('a', 1_000, [], () => new Promise<void>(() => {}), () => {}, () => {});
+    const queued = operations.run('a', 1_000, [], async () => {}, () => {}, (error) => errors.push(error));
+    const refused = operations.run('a', 1_000, [], async () => {}, () => {}, (error) => errors.push(error));
+    expect(running?.signal.aborted).toBe(false);
+    expect(queued).toBeDefined();
+    expect(refused).toBeUndefined();
+    await operations.cancel('a', 'session closed', (operation) => operation === queued);
+    expect(errors.map((error) => (error as Error).message)).toEqual(['policy denied', 'session closed']);
+    expect([operations.inFlight('a'), operations.queued('a')]).toEqual([1, 0]);
+    await operations.cancel('a', 'session closed');
+  });
+
+  it('runs an unadmitted operation without a slot, and still cancels it', async () => {
+    const operations = createCvmOperations({ maxInFlight: 1, maxQueued: 0 });
+    const errors: unknown[] = [];
+    operations.run('a', 1_000, [], () => new Promise<void>(() => {}), () => {}, () => {});
+    let started = false;
+    const extra = operations.run('a', 1_000, [], () => { started = true; return new Promise<void>(() => {}); }, () => {}, (error) => errors.push(error), { admit: false });
+    expect(started).toBe(true);
+    expect([operations.inFlight('a'), operations.queued('a')]).toEqual([1, 0]);
+    await operations.cancel('a', 'session closed', (operation) => operation === extra);
+    expect(errors.map((error) => (error as Error).message)).toEqual(['session closed']);
+    expect(operations.inFlight('a')).toBe(1);
+    await operations.cancel('a', 'session closed');
+  });
 });
 
 describe('CVM service admission', () => {

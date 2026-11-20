@@ -98,7 +98,10 @@ which maps `params.requestId` to the id the transport sent. It is optional, so
 a host transport written against the older interface keeps working: the service
 publishes the cancellation unchanged through `publish()` (or the
 `KEHTO_CVM_TRANSPORT_PUBLISH` fallback). That is correct for a transport that
-sends napplet ids as given, and ineffective for one that rewrites them.
+sends napplet ids as given, and ineffective for one that rewrites them. Either
+way the service then settles the cancelled request locally with
+`session closed` (kehto/web#510), so the fallback no longer leaves it waiting
+on a server that may never answer.
 `createNostrCvmTransport` and the conformance backend implement `cancel()` and
 stay quiet.
 
@@ -106,11 +109,13 @@ Source and warning site: `packages/services/src/cvm-service-handler.ts`,
 `cancel` inside `createCvmServiceHandler`. The `console.warn` carries the
 `[KEHTO_CVM_TRANSPORT_CANCEL]` identifier, names `CvmTransport.cancel()` as the
 replacement and fires once per CVM service instance. It logs no message
-payload. It fires only for a cancellation of a request still in flight: settled
-and foreign cancellations are answered before any transport call. Tests:
+payload. It fires only for a cancellation of a request already handed to the
+transport: settled, foreign, queued and pending-approval cancellations are
+answered before any transport call. Tests:
 `cvm-cancel-expiry.test.ts` covers the fallback (published unchanged, warning
 text, once across two cancellations), quiet settled/foreign cancellations on the
 fallback path, and quiet canonical use with `cancel()`.
+`cvm-local-cancel.test.ts` covers the fallback settling the request locally.
 `cvm-nostr-cancel.test.ts` covers the canonical Nostr mapping and the settled,
 unknown-handle and other-server cases.
 

@@ -84,10 +84,13 @@ A reused client request id or a response matching no delivered server request
 is `invalid message`, and a malformed `server` is `invalid request`. A server
 request delivered to a napplet expires after `serverRequestTimeoutMs` (default
 30000, at most 300000); a later response is `invalid message`. A
-`notifications/cancelled` must name one of the napplet's own requests: an
-in-flight one goes to the optional `CvmTransport.cancel()`, which maps its
-`requestId` to the id the transport sent (transports without it publish it
-unchanged and warn once, `KEHTO_CVM_TRANSPORT_CANCEL`); a settled one is
+`notifications/cancelled` must name one of the napplet's own requests: a
+queued or pending-approval one is dropped before publication; one already
+handed to the transport goes to the optional `CvmTransport.cancel()`, which maps
+its `requestId` to the id the transport sent (transports without it publish it
+unchanged and warn once, `KEHTO_CVM_TRANSPORT_CANCEL`). Either way the
+cancelled `cvm.request` settles with `session closed` before the cancellation's
+acknowledgement, and the cancellation takes no admission slot. A settled one is
 acknowledged without publication; anything else is `invalid message`.
 
 These transport limits do not claim implementation of every newer NAP-CVM
