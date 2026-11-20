@@ -7,6 +7,7 @@ const SECTION_IDS = {
   acl: 'paja-section-acl',
   signer: 'paja-section-signer',
   'resource-servers': 'paja-section-resource-servers',
+  multiplayer: 'paja-section-multiplayer',
   llm: 'paja-section-llm',
   messages: 'paja-section-messages',
   events: 'paja-section-events',
@@ -39,7 +40,7 @@ export function installPajaSidebarSections(): () => void {
   for (const key of keys) {
     const section = document.getElementById(SECTION_IDS[key]) as HTMLDetailsElement | null;
     if (!section) continue;
-    section.open = collapsed[key] !== true;
+    if (collapsed[key] !== undefined) section.open = !collapsed[key];
     let lastOpen = section.open;
     const toggle = (): void => {
       if (section.open === lastOpen) return;

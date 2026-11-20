@@ -1,0 +1,8 @@
+{
+  "files": {
+    "src/65/index.ts": {
+      "name": "Relay list reader",
+      "description": "Parses a person's read/write relay list and keeps the newest one per person to choose inbox and outbox relays."
+    }
+  }
+}

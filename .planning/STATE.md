@@ -48,7 +48,7 @@ See: .planning/PROJECT.md (updated 2026-07-28)
 Phase: 115 — Firewall final audit complete
 Plan: PR review follow-up
 Status: PR #336 review fixes verified; CONFIG denial/backpressure spec gap explicitly retained.
-Last activity: 2026-11-13 - Completed quick task 261113-g30: Resolve renewed PR 413 conflicts with main
+Last activity: 2026-11-17 - Completed quick task 261117-mr2: Discover and persist CVM families
 
 ## Performance Metrics
 
@@ -165,7 +165,8 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
-| 261113-g30 | Resolve renewed PR 413 conflicts with main; retain current docs, imports, and planning history | 2026-11-13 | 6e150c75 | passed | [261113-g30](./quick/261113-g30-resolve-renewed-pr-413-conflicts-with-ma/) |
+| 261117-mr2 | Discover and persist CVM families from nevent, schema hash and website | 2026-11-17 | 5d8c03ae | passed; 3494 unit and 138 browser tests | [261117-mr2](./quick/261117-mr2-discover-and-persist-cvm-schema-families/) |
+| 261113-hwh | Add MIT license and open a PR requiring every contributor's consent before merging | 2026-11-13 | 45349324 | passed | [261113-hwh](./quick/261113-hwh-add-an-mit-license-and-open-a-pr-requiri/) |
 | 261112-vyl | Resolve PR #433 merge conflicts with main, retaining both signer regression suites | 2026-11-12 | b2606f9a | passed; 134 browser tests, one existing skip | [261112-vyl](./quick/261112-vyl-resolve-pr-433-merge-conflicts-with-main/) |
 | 261112-hew | Default Paja signer to None and persist explicit selections | 2026-11-12 | 19aa2973 | implemented; browser gate blocked by popup failure | [261112-hew](./quick/261112-hew-default-paja-signer-to-none-and-persist-/) |
 | 261112-qi2 | Correct public SDK repo links for #410; track upstream npm metadata in #431 | 2026-11-12 | 0b73feb0 | passed | [261112-qi2](./quick/261112-qi2-resolve-issue-410-stale-napplet-reposito/) |
@@ -173,8 +174,6 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 261111-nzp | Resolve PR 424 conflicts with default Firewall rules and approval UI | 2026-11-11 | merge of b5734145 | passed | [261111-nzp](./quick/261111-nzp-resolve-pr-424-conflicts-against-current/) |
 | 261111-m3y | Extract independent optional @kehto/rate-limit and remove runtime defaults | 2026-11-11 | 6744ace0 | passed | [261111-m3y](./quick/261111-m3y-extract-optional-rate-limiting-into-keht/) |
 | 261111-mbh | Paja Firewall UX overhaul: default rules (allow, ask per link), rule editor, readable prompt, grouped grants | 2026-11-11 | 8f345073 | passed | [261111-mbh](./quick/261111-mbh-paja-firewall-ux-overhaul-default-rules-/) |
-| 261111-b5u | Resolve PR 413 conflicts with main; carry mock bindings through Firewall launch admission | 2026-11-11 | f8d7ccb5 | passed | [261111-b5u](./quick/261111-b5u-resolve-pr-413-conflicts-with-main/) |
-| 261109-gnn | Paja serves `@kehto/mocks` for every NAP it has no backend for: generated wire-table napplet bindings, shell table-driven bindings, `◌` mocked marker + legend | 2026-11-09 | 28acf037 | passed | [261109-gnn](./quick/261109-gnn-paja-mocked-naps/) |
 | 261111-adq | Resolve #418: adopt core 0.41 / nap 0.40 no-ID intent delivery and retire the local intent contract | 2026-11-11 | 742ba7db | passed | [261111-adq](./quick/261111-adq-intent-delivery-upstream-types-418/) |
 | 261104-l95 | Chase #404 into PR 336: port host firewall controls to the approval runtime | 2026-11-04 | 6618f01d | passed | [261104-l95](./quick/261104-l95-chase-404-into-firewall-approvals/) |
 | 261102-ggx | Resolve PR #376 review: authorized extension pushes (`pushCapabilities`) and relay delivery ownership for `@kehto/mocks` | 2026-11-02 | 331d6f9b | passed | [261102-ggx](./quick/261102-ggx-resolve-pr-376-review-authorized-extensi/) |
@@ -197,6 +196,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 | 261030-c0z | Chase NIP-5D presentation media and source pin tags | 2026-10-30 | 7b81a20d | passed | [261030-c0z](./quick/261030-c0z-chase-nip-5d-presentation-media-and-sour/) |
 | 261030-m7q | Adopt the published NIP-5D writer line (vite-plugin 0.16.2) | 2026-10-30 | 0a08e1a4 | passed | [261030-m7q](./quick/261030-m7q-adopt-published-nip-5d-writer-line/) |
 | 261028-b47 | Paja version-specific signing/publication approval and NAP-LINK modal | 2026-10-28 | 212a4e87 | passed | [261028-b47](./quick/261028-b47-paja-version-scoped-signing-and-publishi/) |
+| 261027-nay | Address PR #315 CVM timeout review | 2026-10-27 | bab52862 | passed (E2E reruns) | [261027-nay](./quick/261027-nay-address-pr-315-cvm-timeout-and-documenta/) |
 | 261026-jp5 | Address PR 316 review feedback and verify readiness | 2026-10-26 | 4fcf564d | passed | [261026-jp5](./quick/261026-jp5-address-pr-316-review-feedback-and-verif/) |
 | 261017-wx0 | Use active napplet name as browser page title | 2026-10-17 | bcc0ea60 | passed | [261017-wx0](./quick/261017-wx0-use-the-active-napplet-name-as-the-paja-/) |
 | 261017-vlq | Colored animated Paja controller indicators | 2026-10-17 | 9e8c5a74 | passed | [261017-vlq](./quick/261017-vlq-show-colored-animated-controller-indicat/) |

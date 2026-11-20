@@ -6,7 +6,7 @@
  * artifact root to https://kehto.github.io/web/. The public URLs include
  * /web/, but the artifact root must contain index.html directly.
  */
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -21,6 +21,8 @@ const PORTAL_LANDING_JS = 'assets/landing.js';
 const RETIRED_PLAYGROUND_BASE = '/web/playground/';
 const PAJA_BASE = '/web/paja/';
 const DOCS_BASE = '/web/docs/';
+const FLOORPLANS_BASE = '/web/floorplans/';
+const FLOORPLAN_STAMP = 'data-kehto-floorplan-stamp';
 
 /** @type {string[]} */
 const violations = [];
@@ -74,6 +76,7 @@ function checkPortal() {
   }
   assertContains(portalPath, portal, 'href="paja/"', 'portal route');
   assertContains(portalPath, portal, 'href="docs/"', 'portal route');
+  assertContains(portalPath, portal, 'href="floorplans/"', 'portal route');
   assertContains(portalPath, portal, `href="${PORTAL_LANDING_CSS}"`, 'portal route');
   assertContains(portalPath, portal, `src="${PORTAL_GSAP_VENDOR}"`, 'portal route');
   assertContains(portalPath, portal, `src="${PORTAL_LANDING_JS}"`, 'portal route');
@@ -130,11 +133,32 @@ function checkDocs() {
   }
 }
 
+function checkFloorplans() {
+  const floorplansRoot = artifactPathFromPublicPath(FLOORPLANS_BASE);
+  const indexPath = join(floorplansRoot, 'index.html');
+  if (!assertFile(indexPath, 'floorplans index')) return;
+  const index = read(indexPath);
+  assertContains(indexPath, index, 'href="paja/"', 'floorplans index');
+  assertContains(indexPath, index, '/commit/', 'floorplans index commit stamp');
+  const packagesDir = join(repoRoot, 'packages');
+  for (const name of readdirSync(packagesDir)) {
+    if (!existsSync(join(packagesDir, name, 'floorplan', 'architecture.json'))) continue;
+    assertContains(indexPath, index, `href="${name}/"`, 'floorplans index');
+    const mapPath = join(floorplansRoot, name, 'index.html');
+    if (!assertFile(mapPath, `${name} floorplan`)) continue;
+    const html = read(mapPath);
+    assertContains(mapPath, html, FLOORPLAN_STAMP, `${name} floorplan commit stamp`);
+    assertContains(mapPath, html, 'data-floorplan-policy="export"', `${name} floorplan export CSP`);
+    if (html.includes(repoRoot)) fail(`${name} floorplan: ${rel(mapPath)} leaks the local checkout path`);
+  }
+}
+
 assertFile(join(outputRoot, '.nojekyll'), 'Pages root');
 checkPortal();
 checkRetiredPlayground();
 checkPaja();
 checkDocs();
+checkFloorplans();
 
 if (violations.length > 0) {
   for (const violation of violations) {
@@ -144,4 +168,4 @@ if (violations.length > 0) {
   process.exit(1);
 }
 
-console.log('[audit:pages] OK - verified /web/, the retired /web/playground/ redirect, /web/paja/, /web/docs/, and TypeDoc output');
+console.log('[audit:pages] OK - verified /web/, the retired /web/playground/ redirect, /web/paja/, /web/docs/, TypeDoc output, and /web/floorplans/');

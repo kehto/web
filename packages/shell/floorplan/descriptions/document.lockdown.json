@@ -1,0 +1,28 @@
+{
+  "files": {
+    "src/frame-policy.ts": {
+      "name": "Host frame rule",
+      "description": "Gives the host page a rule that stops napplet frames navigating away from their verified page."
+    },
+    "src/gamepad-policy.ts": {
+      "name": "Controller lockout",
+      "description": "Blocks napplet frames from using game controllers, HID and USB devices directly."
+    },
+    "src/napplet-csp.ts": {
+      "name": "Napplet security policy",
+      "description": "Builds the content security policy added to a napplet page, blocking direct network use unless the host allows specific sources."
+    },
+    "src/napplet-frame-scan.ts": {
+      "name": "Nested frame check",
+      "description": "Rejects napplet HTML that would open its own frames, embeds or objects inside the sandbox."
+    },
+    "src/napplet-head.ts": {
+      "name": "Early head insert",
+      "description": "Places trusted tags at the very top of a napplet page so they take effect before any of the napplet's own content."
+    },
+    "src/napplet-srcdoc.ts": {
+      "name": "Page assembly",
+      "description": "Puts the security policy first and then the window.napplet script into verified napplet HTML, ready for the frame."
+    }
+  }
+}

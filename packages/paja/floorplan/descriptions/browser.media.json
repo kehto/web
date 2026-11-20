@@ -1,0 +1,32 @@
+{
+  "files": {
+    "src/browser-blossom-compat.ts": {
+      "name": "Old Blossom address warning",
+      "description": "Warns once per page load when a napplet uses the old blossom:sha256: address form, naming the replacement."
+    },
+    "src/browser-blossom-events.ts": {
+      "name": "Blossom server lookup",
+      "description": "Finds an event author's Blossom servers from their BUD-03 list, on demand, so later resource reads know where to fetch."
+    },
+    "src/browser-blossom-uri.ts": {
+      "name": "Blossom address parser",
+      "description": "Checks the shape of an untrusted blossom: address before any lookup or download."
+    },
+    "src/browser-fs-support.ts": {
+      "name": "File system helpers",
+      "description": "Holds the NAP-FS types, path checks, read, write, revision and watch caps, the watch poll interval, and byte conversions used by the file system."
+    },
+    "src/browser-fs.ts": {
+      "name": "Napplet file system",
+      "description": "Gives napplets a NAP-FS file system backed by the browser's file picker and private storage, with per-napplet grants."
+    },
+    "src/browser-resource.ts": {
+      "name": "Resource fetcher",
+      "description": "Fetches NAP-RESOURCE content (including Blossom blobs) for isolated napplets, with caps on size, count and servers."
+    },
+    "src/browser-upload.ts": {
+      "name": "Blossom uploads",
+      "description": "Uploads napplet files to Blossom servers chosen by the host, enforcing size and type limits."
+    }
+  }
+}

@@ -104,3 +104,11 @@ one automatically. Temporal controls and the previous behavioral API live in
 ## API Reference
 
 See [package documentation](../../docs/packages/firewall.md).
+
+### ICE endpoint scopes
+
+Network requirements accept `scope: { kind: "ice", value: "turn:relay.example:3478?transport=udp" }`.
+STUN/TURN scopes match exact scheme, host, port, and optional transport; web-origin
+grants never cover them. The normalizer rejects credentials, paths and fragments,
+normalizes host case, and supplies the standard 3478/5349 port when omitted.
+Credentials remain host-private. See RFC 7064 and RFC 7065 for the URI formats.

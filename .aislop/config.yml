@@ -46,3 +46,9 @@ ci:
   format: json
 telemetry:
   enabled: false
+# Third-party code vendored verbatim (plus two marked kehto patches) from the
+# MIT-licensed Floorplan tool; see tools/floorplan/VENDORED.md. Scoring it would
+# measure upstream style, not this repo's code, and "fixing" it would make
+# upgrades unmergeable. Kehto's own wrapper (scripts/floorplans.mjs) stays in scope.
+exclude:
+  - tools/floorplan

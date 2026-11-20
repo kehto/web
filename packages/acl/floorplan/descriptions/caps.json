@@ -1,0 +1,12 @@
+{
+  "files": {
+    "src/capabilities.ts": {
+      "name": "Capability names",
+      "description": "Lists every capability text name a napplet can be granted, such as relay, identity, storage, notify and files access."
+    },
+    "src/resolve.ts": {
+      "name": "Message-to-capability table",
+      "description": "Works out which capabilities the sender and receiver of each NAP message need, covering every supported protocol area."
+    }
+  }
+}

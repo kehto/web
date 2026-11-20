@@ -23,6 +23,9 @@
  * @packageDocumentation
  */
 
+export { normalizePajaMultiplayer } from './multiplayer-config.js';
+export type { PajaMultiplayerConfig, PajaIceServer } from './multiplayer-config.js';
+
 export {
   loadPajaConfigFile,
   mergePajaRawOptions,

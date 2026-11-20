@@ -12,7 +12,6 @@ const DIGEST_PREFIX = 'sha256:';
 const MAX_TRANSFER_CHUNKS = 10_000;
 const MAX_TRANSFER_BYTES = 100 * 1024 * 1024;
 const MAX_ACTIVE_TRANSFERS = 8;
-const MAX_TRANSFER_LIFETIME_MS = 120_000;
 const COMPLETION_MODE_RENDER = 'render';
 export const DEFAULT_STREAM_IDLE_TIMEOUT_MS = 30_000;
 export const DEFAULT_STREAM_PROBE_TIMEOUT_MS = 10_000;
@@ -48,7 +47,6 @@ interface OversizedTransfer {
   acceptProgress: number | null;
   chunks: Map<number, string>;
   codeUnitsReceived: number;
-  expiryTimer: ReturnType<typeof setTimeout>;
 }
 
 export interface OpenStreamState {
@@ -82,7 +80,7 @@ export interface CvmProgressControllerOptions<Entry extends CvmProgressEntry> {
   publishControlFrame(entry: Entry, stream: OpenStreamState, frame: { frameType: 'ping' | 'pong' | 'abort'; nonce?: string; reason?: string }): Promise<void>;
   routeMessage(serverPubkey: string, message: McpMessage): void;
   routeEvent(serverPubkey: string, message: McpMessage): void;
-  refreshPendingTimeout(entry: Entry): void;
+  admit(entry: Entry): boolean;
 }
 
 export interface CvmProgressController<Entry extends CvmProgressEntry> {
@@ -116,12 +114,11 @@ export function createCvmProgressController<Entry extends CvmProgressEntry>(
     const correlationId = options.issuedTokens.get(`${serverPubkey}:${tokenKey}`);
     if (!correlationId) return null;
     const entry = options.pending.get(correlationId);
-    return entry && entry.serverPubkey === serverPubkey ? entry : null;
+    return entry && entry.serverPubkey === serverPubkey && options.admit(entry) ? entry : null;
   }
 
   function releaseTransfer(entry: Entry): void {
     if (!entry.oversized) return;
-    clearTimeout(entry.oversized.expiryTimer);
     entry.oversized = undefined;
   }
 
@@ -214,9 +211,9 @@ export function createCvmProgressController<Entry extends CvmProgressEntry>(
       entry.oversized = {
         digest, totalBytes, totalChunks, startProgress: progress, acceptProgress: null,
         chunks: new Map(), codeUnitsReceived: 0,
-        expiryTimer: setTimeout(() => releaseTransfer(entry), MAX_TRANSFER_LIFETIME_MS),
+        // The admitted request deadline bounds buffer lifetime to at most 300 seconds.
       };
-      options.refreshPendingTimeout(entry);
+
       return;
     }
     const transfer = entry.oversized;
@@ -227,7 +224,7 @@ export function createCvmProgressController<Entry extends CvmProgressEntry>(
         return;
       }
       transfer.acceptProgress = progress;
-      options.refreshPendingTimeout(entry);
+
       return;
     }
     if (cvm.frameType === 'chunk') {
@@ -242,7 +239,7 @@ export function createCvmProgressController<Entry extends CvmProgressEntry>(
         return;
       }
       transfer.chunks.set(progress, cvm.data);
-      options.refreshPendingTimeout(entry);
+
       return;
     }
     if (cvm.frameType === 'abort') {
@@ -267,7 +264,7 @@ export function createCvmProgressController<Entry extends CvmProgressEntry>(
         outOfOrder: new Map(), outOfOrderCodeUnits: 0, pendingNonce: null,
         idleTimer: setTimeout(() => onStreamIdle(entry), options.streamIdleTimeoutMs), probeTimer: null,
       };
-      options.refreshPendingTimeout(entry);
+
       options.routeEvent(serverPubkey, message);
       return;
     }
@@ -278,7 +275,7 @@ export function createCvmProgressController<Entry extends CvmProgressEntry>(
       }
       stream.lastProgress = progress;
       resetStreamIdleTimer(entry, stream);
-      options.refreshPendingTimeout(entry);
+
       return true;
     };
     switch (cvm.frameType) {
@@ -308,7 +305,7 @@ export function createCvmProgressController<Entry extends CvmProgressEntry>(
           stream.outOfOrder.set(index, { message, progress, codeUnits: cvm.data.length });
           stream.outOfOrderCodeUnits += cvm.data.length;
           resetStreamIdleTimer(entry, stream);
-          options.refreshPendingTimeout(entry);
+
           return;
         }
         const ready: Array<{ message: McpMessage; progress: number; codeUnits: number }> = [{ message, progress, codeUnits: 0 }];
@@ -336,7 +333,7 @@ export function createCvmProgressController<Entry extends CvmProgressEntry>(
         }
         stream.lastProgress = previousProgress;
         resetStreamIdleTimer(entry, stream);
-        options.refreshPendingTimeout(entry);
+
         return;
       }
       case 'ping':
@@ -350,6 +347,11 @@ export function createCvmProgressController<Entry extends CvmProgressEntry>(
         stream.probeTimer = null;
         return;
       case 'close': {
+        // CEP-41 allows immediate failure instead of grace when gaps remain.
+        if (stream.outOfOrder.size > 0) {
+          failStream(entry, 'close with unresolved chunk gaps');
+          return;
+        }
         if (cvm.lastChunkIndex !== undefined) {
           const bound = cvm.lastChunkIndex;
           if (!isBoundedInteger(bound, 0, Number.MAX_SAFE_INTEGER) || stream.nextChunkIndex !== bound + 1 || stream.outOfOrder.size !== 0) {

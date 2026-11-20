@@ -1,0 +1,8 @@
+{
+  "files": {
+    "src/51/index.ts": {
+      "name": "Lists and sets reader",
+      "description": "Parses mute lists, bookmarks, relay sets and similar, and decrypts private items with a supplied decryptor."
+    }
+  }
+}

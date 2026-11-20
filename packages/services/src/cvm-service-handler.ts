@@ -2,6 +2,7 @@ import type { NappletMessage } from '@napplet/core';
 import type { ApprovalSignal, ServiceDescriptor, ServiceRuntimeContext } from '@kehto/runtime';
 import type { CvmDiscoverQuery, CvmRequestOptions, CvmServerRef, McpMessage } from './cvm-types.js';
 import type { CvmService, CvmServiceOptions } from './cvm-service.js';
+import { handleCvmRegistry, isCvmRegistryMethod } from './cvm-registry.js';
 
 const CVM_SERVICE_VERSION = '1.0.0';
 
@@ -10,6 +11,12 @@ type Send = (msg: NappletMessage) => void;
 interface CvmSession {
   readonly server: CvmServerRef;
   readonly generation: symbol;
+}
+
+interface RegistryOperation {
+  controller: AbortController;
+  servers: Set<string>;
+  settled: Promise<void>;
 }
 
 const CVM_DESCRIPTOR: ServiceDescriptor = {
@@ -125,10 +132,10 @@ function handleRequest(actions: CvmActions, windowId: string, generation: symbol
 }
 
 function handleClose(actions: CvmActions, windowId: string, generation: symbol, msg: NappletMessage): void {
-  const { sessions, currentSend, release } = actions;
+  const { currentSend, release } = actions;
   const m = msg as NappletMessage & { id?: string; server?: CvmServerRef };
   const id = m.id ?? '';
-  if (!validServer(m.server) || !sessions.get(windowId)?.has(m.server.pubkey)) {
+  if (!validServer(m.server)) {
     currentSend(windowId, generation, { type: 'cvm.close.result', id, error: 'session closed' } as NappletMessage);
     return;
   }
@@ -154,6 +161,7 @@ export function createCvmServiceHandler(options: CvmServiceOptions): CvmService 
   const sends = new Map<string, Send>();
   const generations = new Map<string, symbol>();
   const sessions = new Map<string, Map<string, CvmSession>>();
+  const registryOperations = new Map<string, Set<RegistryOperation>>();
   let runtime: ServiceRuntimeContext | undefined;
 
   function generationFor(windowId: string): symbol {
@@ -188,14 +196,15 @@ export function createCvmServiceHandler(options: CvmServiceOptions): CvmService 
       ...relays.map((relay) => ({ category: 'network' as const, domain: 'cvm', operation, scope: { kind: 'origin' as const, value: relay } })),
     ];
   }
-  async function authorize<T>(windowId: string, generation: symbol, operation: 'cvm.discover' | 'cvm.request', relays: readonly string[], server: CvmServerRef | undefined, execute: (signal?: ApprovalSignal) => Promise<T>): Promise<T> {
+  async function authorize<T>(windowId: string, generation: symbol, operation: 'cvm.discover' | 'cvm.request', relays: readonly string[], server: CvmServerRef | undefined, execute: (signal?: ApprovalSignal) => Promise<T>, requestSignal?: ApprovalSignal): Promise<T> {
+    if (requestSignal?.aborted) throw new Error('session closed');
     if (!runtime?.authorizeOperation) return execute();
     const outcome = await runtime.authorizeOperation(windowId, operation, requirements(operation, relays, server), async (signal) => {
       if (!current(windowId, generation) || signal.aborted) throw new Error('policy denied');
       const value = await execute(signal);
       if (!current(windowId, generation) || signal.aborted) throw new Error('policy denied');
       return value;
-    });
+    }, requestSignal);
     if (outcome.status !== 'executed') throw new Error('policy denied');
     return outcome.value;
   }
@@ -211,19 +220,72 @@ export function createCvmServiceHandler(options: CvmServiceOptions): CvmService 
 
   const actions: CvmActions = { transport, sessions, currentSend, current, remember, release, authorize };
 
+  function registry(windowId: string, generation: symbol, message: NappletMessage): void {
+    const envelope: Record<string, unknown> = { ...message };
+    const supplied = (envelope.options as { timeoutMs?: unknown } | undefined)?.timeoutMs;
+    const duration = supplied === undefined ? 30_000 : Number(supplied);
+    const validDuration = typeof (supplied ?? duration) === 'number' && Number.isInteger(duration) && duration >= 1 && duration <= 300_000;
+    const id = envelope.id;
+    const reply = (payload: Record<string, unknown>) => currentSend(windowId, generation, { type: `${message.type}.result`, id, ...payload } as NappletMessage);
+    if (!validDuration) { reply({ error: 'invalid timeout' }); return; }
+    const deadline = Date.now() + duration;
+    const controller = new AbortController();
+    let operations = registryOperations.get(windowId);
+    if (!operations) { operations = new Set(); registryOperations.set(windowId, operations); }
+    const pending: RegistryOperation = { controller, servers: new Set(), settled: Promise.resolve() };
+    operations.add(pending);
+    const timer = setTimeout(() => controller.abort(new Error('relay timeout')), duration);
+    const expired = new Promise<never>((_resolve, reject) => controller.signal.addEventListener('abort', () => reject(controller.signal.reason), { once: true }));
+    const work = handleCvmRegistry(envelope, options.registry ?? [], async (server, method, params, requestOptions) => {
+      if (controller.signal.aborted || !current(windowId, generation)) throw new Error('session closed');
+      pending.servers.add(server.pubkey);
+      const relays = relayPlan(transport.planRequest?.(server) ?? server.relays ?? []);
+      return authorize(windowId, generation, 'cvm.request', relays, server, async (signal) => {
+        if (controller.signal.aborted || !current(windowId, generation)) throw new Error('session closed');
+        const abort = () => controller.abort();
+        signal?.addEventListener('abort', abort, { once: true });
+        try {
+          if (signal?.aborted) throw new Error('policy denied');
+          const remaining = deadline - Date.now();
+          if (remaining <= 0) throw new Error('relay timeout');
+          const value = await transport.request({ ...server, relays: [...relays] }, {
+            jsonrpc: '2.0', id: globalThis.crypto.randomUUID(), method, ...(params ? { params } : {}),
+          }, { ...requestOptions, timeoutMs: remaining }, { signal: controller.signal });
+          if (current(windowId, generation) && !controller.signal.aborted) remember(windowId, generation, server);
+          return value;
+        } finally { signal?.removeEventListener('abort', abort); }
+      }, controller.signal);
+    });
+    pending.settled = Promise.race([work, expired]).then(reply, error => reply({ error: toErrorMessage(error) })).finally(() => {
+      clearTimeout(timer);
+      operations.delete(pending);
+      if (!operations.size && registryOperations.get(windowId) === operations) registryOperations.delete(windowId);
+    });
+  }
+
+  function cancelRegistry(windowId?: string): void {
+    for (const [owner, operations] of registryOperations) {
+      if (windowId !== undefined && owner !== windowId) continue;
+      for (const pending of operations) pending.controller.abort(new Error('session closed'));
+      registryOperations.delete(owner);
+    }
+  }
+
   return {
     descriptor: CVM_DESCRIPTOR,
     onRegistered(context) { runtime = context; },
-    onUnregistered() { runtime = undefined; generations.clear(); sends.clear(); sessions.clear(); },
+    onUnregistered() { runtime = undefined; generations.clear(); sends.clear(); sessions.clear(); cancelRegistry(); },
     onPermissionRevoked(windowId) {
       const owned = [...(sessions.get(windowId)?.keys() ?? [])];
       generations.delete(windowId);
       sends.delete(windowId);
+      cancelRegistry(windowId);
       void Promise.all(owned.map((pubkey) => release(windowId, pubkey))).catch(() => undefined);
     },
     handleMessage(windowId: string, message: NappletMessage, send: Send): void {
       const generation = generationFor(windowId);
       sends.set(windowId, send);
+      if (isCvmRegistryMethod(message.type)) { registry(windowId, generation, message); return; }
       switch (message.type) {
         case 'cvm.discover':
           handleDiscover(actions, windowId, generation, message);
@@ -232,7 +294,12 @@ export function createCvmServiceHandler(options: CvmServiceOptions): CvmService 
           handleRequest(actions, windowId, generation, message);
           return;
         case 'cvm.close':
-          handleClose(actions, windowId, generation, message);
+          {
+            const server = (message as NappletMessage & { server?: CvmServerRef }).server;
+            const closing = [...(registryOperations.get(windowId) ?? [])].filter(pending => validServer(server) && pending.servers.has(server.pubkey));
+            for (const pending of closing) pending.controller.abort(new Error('session closed'));
+            void Promise.all(closing.map(pending => pending.settled)).then(() => handleClose(actions, windowId, generation, message));
+          }
           return;
         default:
           // Unknown cvm.* action — silently ignored (forward-compatible).
@@ -243,9 +310,11 @@ export function createCvmServiceHandler(options: CvmServiceOptions): CvmService 
       const owned = [...(sessions.get(windowId)?.keys() ?? [])];
       generations.delete(windowId);
       sends.delete(windowId);
+      cancelRegistry(windowId);
       void Promise.all(owned.map((pubkey) => release(windowId, pubkey))).catch(() => undefined);
     },
     dispose(): void {
+      cancelRegistry();
       eventSub.close();
       transport.dispose?.();
       sends.clear();

@@ -1,0 +1,24 @@
+{
+  "files": {
+    "src/index.ts": {
+      "name": "Public package entry",
+      "description": "Lists everything hosts can use from this package: the runtime itself, its plug-in contracts, approval types and helper tools."
+    },
+    "src/key-derivation.ts": {
+      "name": "Per-napplet key maker",
+      "description": "Derives a stable key pair for each napplet version from a host secret; nothing in this package uses it today."
+    },
+    "src/manifest-cache.ts": {
+      "name": "Napplet manifest memory",
+      "description": "Remembers checked napplet manifests and saves or reloads them through the host's storage."
+    },
+    "src/runtime.ts": {
+      "name": "Runtime builder",
+      "description": "Creates the engine: wires capability checks, approvals, every NAP domain and host services, and handles each incoming napplet message."
+    },
+    "src/session-registry.ts": {
+      "name": "Live napplet windows",
+      "description": "Keeps the two-way list of which window belongs to which verified napplet identity, so replies and checks reach the right one."
+    }
+  }
+}

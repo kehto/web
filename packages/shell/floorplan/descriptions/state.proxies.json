@@ -1,0 +1,24 @@
+{
+  "files": {
+    "src/identity-proxy.ts": {
+      "name": "Identity requests",
+      "description": "Passes a napplet's identity requests to the runtime; sending to the napplet directly is refused in favour of the bridge."
+    },
+    "src/keys-proxy.ts": {
+      "name": "Key shortcut requests",
+      "description": "Passes a napplet's keys requests to the runtime and sends key messages back to it over its channel."
+    },
+    "src/media-proxy.ts": {
+      "name": "Media requests",
+      "description": "Passes a napplet's media requests to the runtime and sends media messages back to it over its channel."
+    },
+    "src/notify-proxy.ts": {
+      "name": "Notification requests",
+      "description": "Passes a napplet's notification requests to the runtime and sends notification messages back over its channel."
+    },
+    "src/theme-proxy.ts": {
+      "name": "Theme requests",
+      "description": "Passes a napplet's theme requests to the runtime; sending themes directly is refused in favour of the bridge."
+    }
+  }
+}

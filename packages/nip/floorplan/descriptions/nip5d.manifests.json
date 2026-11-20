@@ -1,0 +1,12 @@
+{
+  "files": {
+    "src/5d/current-manifest.ts": {
+      "name": "Current manifest reader",
+      "description": "Reads today's manifest tags strictly, rejecting repeated or malformed required tags, and collects roles and intents."
+    },
+    "src/5d/legacy-manifest.ts": {
+      "name": "Legacy manifest reader",
+      "description": "Reads manifests made by older napplet build tools, checks their aggregate hash and warns that the format is old."
+    }
+  }
+}

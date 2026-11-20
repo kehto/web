@@ -1,0 +1,16 @@
+{
+  "files": {
+    "src/permission-types.ts": {
+      "name": "Approval shapes",
+      "description": "Defines a napplet identity, what can be requested (interface, resource, network address), an approval and a decision."
+    },
+    "src/permission-scopes.ts": {
+      "name": "Request clean-up",
+      "description": "Checks and tidies requested paths and addresses, rejecting tricks like '..' steps, and tests whether an approval covers a request."
+    },
+    "src/permissions.ts": {
+      "name": "Approval decisions",
+      "description": "Stores approvals per verified or development napplet, decides if a request is fully covered with denials winning, uses up one-time approvals, and saves them as text."
+    }
+  }
+}

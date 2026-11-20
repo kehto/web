@@ -34,6 +34,7 @@
 
 import type { ApprovalSignal, ServiceHandler } from '@kehto/runtime';
 import type { CvmDiscoverQuery, CvmRequestOptions, CvmServer, CvmServerRef, McpMessage } from './cvm-types.js';
+import type { CvmRegistryFamily } from './cvm-registry-types.js';
 
 /**
  * Abstract ContextVM transport. Implementors own Nostr relay access, signing,
@@ -63,6 +64,8 @@ export interface CvmTransport {
 export interface CvmServiceOptions {
   /** The ContextVM transport the shell uses to reach servers. Required. */
   transport: CvmTransport;
+  /** Optional operator-selected providers and pinned CEP-15 family memberships. */
+  registry?: readonly CvmRegistryFamily[];
 }
 
 /** The created CVM service, exposing the handler plus a disposal hook. */

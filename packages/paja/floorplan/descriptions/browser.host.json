@@ -1,0 +1,32 @@
+{
+  "files": {
+    "src/browser-admission-test-runtime.ts": {
+      "name": "Test runtime with permissions",
+      "description": "Builds a real Kehto runtime with permissions switched on, used only by the loader and frame tests."
+    },
+    "src/browser-host-config.ts": {
+      "name": "Read host config",
+      "description": "Reads the host config embedded in the page, prefers a fresh copy from the server, and shows the target URL in the top bar."
+    },
+    "src/browser-host-runtime.ts": {
+      "name": "Drop a closed frame",
+      "description": "Removes a closed single-frame napplet session from every registry the host keeps."
+    },
+    "src/browser-host.ts": {
+      "name": "Browser host bootstrap",
+      "description": "Starts the Paja page: builds the adapter, ShellBridge, firewall prompts and sidebar settings sections, then opens and restores napplet tabs."
+    },
+    "src/browser-runtime-tabs.ts": {
+      "name": "Napplet tabs",
+      "description": "Keeps one tab per loaded napplet: add, switch, close, reload, duplicate checks, share links, and saving the open tabs for next visit."
+    },
+    "src/browser-service-registration.ts": {
+      "name": "Keep services in step",
+      "description": "Registers and unregisters runtime services so they match what the adapter offers before new frames are admitted."
+    },
+    "src/theme-broadcast.ts": {
+      "name": "Theme broadcast",
+      "description": "Connects the theme service to the shell bridge so theme changes reach every running napplet."
+    }
+  }
+}

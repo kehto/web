@@ -1,0 +1,36 @@
+{
+  "files": {
+    "src/cvm-nostr-transport.ts": {
+      "name": "Nostr link to tool servers",
+      "description": "Sends ContextVM tool requests to remote servers as Nostr events, optionally encrypted, and waits for replies within a deadline."
+    },
+    "src/cvm-progress-controller.ts": {
+      "name": "Progress and chunk assembly",
+      "description": "Reassembles tool replies that arrive in pieces and tracks streamed progress, giving up when a stream goes quiet too long."
+    },
+    "src/cvm-registry-types.ts": {
+      "name": "Trusted tool list shapes",
+      "description": "Describes the host-configured tool families pinned to known tool fingerprints, the way a napplet picks one by family or fingerprint, and the verified tools and providers the registry returns."
+    },
+    "src/cvm-registry.ts": {
+      "name": "Trusted tool lookup",
+      "description": "Picks a tool from the host's trusted list, checking the provider's live tool description matches its pinned fingerprint before calling it."
+    },
+    "src/cvm-schema-hash.ts": {
+      "name": "Tool fingerprint",
+      "description": "Computes a stable fingerprint of a tool's description so the host can tell whether a remote tool has changed."
+    },
+    "src/cvm-service-handler.ts": {
+      "name": "ContextVM message handler",
+      "description": "Answers napplet discover, request, registry and close messages, asking for approval and enforcing call limits before reaching the network."
+    },
+    "src/cvm-service.ts": {
+      "name": "ContextVM service setup",
+      "description": "Creates the ContextVM service from a host-supplied network link, optional limits and optional trusted tool list."
+    },
+    "src/cvm-types.ts": {
+      "name": "ContextVM message shapes",
+      "description": "Describes the tool, server and request records ContextVM messages carry between napplets and the shell."
+    }
+  }
+}

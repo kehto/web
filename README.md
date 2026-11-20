@@ -35,6 +35,7 @@ runtime toolkit, while Paja demonstrates one complete implementation.
 - Public web portal: <https://kehto.github.io/web/>
 - Paja Runtime: <https://kehto.github.io/web/paja/>
 - Docs: <https://kehto.github.io/web/docs/>
+- Floorplans (architecture maps per package): <https://kehto.github.io/web/floorplans/>
 - Alpha status: [docs/alpha-status.md](./docs/alpha-status.md)
 - Local docs entry: [docs/index.md](./docs/index.md)
 - Package reference index: [docs/packages/index.md](./docs/packages/index.md)
@@ -152,7 +153,7 @@ Release automation setup, registry permissions, and recovery commands are in the
 
 ## License
 
-MIT
+[MIT](LICENSE) © 2026 Kehto contributors.
 
 ## NIP-5D event compatibility
 

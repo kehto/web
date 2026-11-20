@@ -1369,15 +1369,18 @@ function nappletNamespacePrelude(
   }
 
   function makeCvm(): Record<string, unknown> {
-    const req = <T>(type: string, payload: Record<string, unknown>, map: (msg: RuntimeMessage) => T) => request(
+    const req = <T>(type: string, payload: Record<string, unknown>, map: (msg: RuntimeMessage) => T, options?: Record<string, unknown>) => request(
       { type, ...payload },
       `${type}.result`,
       map,
+      { timeoutMs: typeof options?.timeoutMs === 'number' && Number.isInteger(options.timeoutMs)
+        && options.timeoutMs > 0 && options.timeoutMs <= 300_000 ? options.timeoutMs + 1000 : undefined },
     );
     const cvmRequest = (server: unknown, message: unknown, options?: Record<string, unknown>) => req(
       'cvm.request',
       { server, message, ...(options === undefined ? {} : { options }) },
       (msg) => fieldOrThrow(msg, 'message', 'cvm.request.result missing message'),
+      options,
     );
     const mcpCall = async (
       server: unknown,
@@ -1399,7 +1402,28 @@ function nappletNamespacePrelude(
       }
       return reply.result;
     };
+    let warnedFamily = false;
+    const registryRequest = (action: string, selected: unknown, options?: Record<string, unknown>, extra: Record<string, unknown> = {}) => {
+      let selector = selected;
+      let canonicalOptions = options;
+      if (typeof selected === 'string') {
+        if (!warnedFamily) {
+          warnedFamily = true;
+          console.warn('[KEHTO_CVM_FAMILY_SELECTOR] Use cvm.registry methods with { family } or { schemaHash } selectors. String-family calls are deprecated; warning once per iframe.');
+        }
+        selector = { family: selected, ...(options?.schemaHash === undefined ? {} : { schemaHash: options.schemaHash }) };
+        if (options) { canonicalOptions = { ...options }; delete canonicalOptions.schemaHash; }
+      }
+      return req(`cvm.registry.${action}`, { selector, ...extra, ...(canonicalOptions === undefined ? {} : { options: canonicalOptions }) },
+        msg => fieldOrThrow(msg, action === 'has' ? 'has' : action === 'describe' ? 'entry' : 'result', `cvm.registry.${action}.result missing payload`), options);
+    };
     return {
+      registry: {
+        list: (query?: unknown) => req('cvm.registry.list', query === undefined ? {} : { query }, msg => fieldOrThrow(msg, 'entries', 'cvm.registry.list.result missing entries')),
+        has: (selector: unknown, options?: Record<string, unknown>) => registryRequest('has', selector, options),
+        describe: (selector: unknown, options?: Record<string, unknown>) => registryRequest('describe', selector, options),
+        call: (selector: unknown, tool: string, args?: unknown, options?: Record<string, unknown>) => registryRequest('call', selector, options, { tool, ...(args === undefined ? {} : { args }) }),
+      },
       discover: (query?: unknown) => req('cvm.discover', query === undefined ? {} : { query }, (msg) => Array.isArray(msg.servers) ? msg.servers : []),
       request: cvmRequest,
       listTools: async (server: unknown, options?: Record<string, unknown>) => {

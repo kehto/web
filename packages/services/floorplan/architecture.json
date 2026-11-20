@@ -1,0 +1,404 @@
+{
+  "$schema": "floorplan/architecture@1",
+  "project": {
+    "name": "@kehto/services",
+    "summary": "Ready-made back ends for the napplet protocol. Napplets are small sandboxed web apps that run inside a host shell; each NAP domain (notifications, relays, keys, media, uploads, AI chat and so on) is a set of messages they can send. This package answers those messages on the shell's side: a host registers each service with the Kehto runtime, and the runtime routes messages to it by domain name.",
+    "entrypoints": [
+      "src/index.ts"
+    ]
+  },
+  "nodes": [
+    {
+      "id": "entry",
+      "label": "Package front door",
+      "kind": "library",
+      "summary": "The single list of everything the package offers hosts, plus the shared notification record shapes and the build settings.",
+      "paths": [
+        "src/index.ts",
+        "src/types.ts",
+        "tsup.config.ts"
+      ],
+      "exclude": [
+        "**/*.test.ts"
+      ]
+    },
+    {
+      "id": "nostr",
+      "label": "Nostr data",
+      "kind": "service",
+      "summary": "Answers napplets that want to read or publish Nostr data: who the user is, their lists and follows, relay connections, event counts, saved copies, the outbox model and private messages. A relay is a Nostr server that stores and forwards events.",
+      "paths": [
+        "src/identity-service.ts"
+      ],
+      "exclude": [
+        "**/*.test.ts"
+      ]
+    },
+    {
+      "id": "nostr.relay",
+      "parent": "nostr",
+      "label": "Relay connections",
+      "kind": "feature",
+      "summary": "Opens subscriptions and publishes through a pool of relays, shares one connection between napplets, counts events and keeps a saved copy of recent events.",
+      "paths": [
+        "src/relay-pool-service.ts",
+        "src/coordinated-relay.ts",
+        "src/cache-service.ts",
+        "src/count-service.ts"
+      ]
+    },
+    {
+      "id": "nostr.outbox",
+      "parent": "nostr",
+      "label": "Outbox reads and writes",
+      "kind": "feature",
+      "summary": "Finds events by looking up which relays each author uses (the outbox model), asks for approval before going to the network, and reports relay failures as network problems rather than refusals.",
+      "paths": [
+        "src/outbox-*.ts",
+        "src/relay-pool-outbox-*.ts"
+      ]
+    },
+    {
+      "id": "nostr.social",
+      "parent": "nostr",
+      "label": "Profile, lists and common actions",
+      "kind": "feature",
+      "summary": "Looks up the user's identity, profile and lists, and carries out common social actions such as following or reacting on the napplet's behalf.",
+      "paths": [
+        "src/identity-service.ts",
+        "src/lists-service.ts",
+        "src/common-service.ts"
+      ]
+    },
+    {
+      "id": "nostr.dm",
+      "parent": "nostr",
+      "label": "Private messages",
+      "kind": "feature",
+      "summary": "Sends and lists direct messages through swappable message formats (NIP-17, NDR, Cordn) and keeps conversations in memory.",
+      "paths": [
+        "src/dm-*.ts"
+      ]
+    },
+    {
+      "id": "llm",
+      "label": "AI chat",
+      "kind": "service",
+      "summary": "Lets napplets ask an AI model for text or tool calls through providers the host configures (OpenAI-style, Anthropic, Gemini and others), streaming the answer back block by block and checking it against the expected shape.",
+      "paths": [
+        "src/llm-*.ts"
+      ],
+      "exclude": [
+        "**/*.test.ts"
+      ]
+    },
+    {
+      "id": "llm.service",
+      "parent": "llm",
+      "label": "AI request handling",
+      "kind": "feature",
+      "summary": "Takes a napplet's AI request, checks it, picks the provider and returns or streams the result.",
+      "paths": [
+        "src/llm-service.ts",
+        "src/llm-types.ts",
+        "src/llm-validate.ts",
+        "src/llm-generation-checks.ts"
+      ]
+    },
+    {
+      "id": "llm.providers",
+      "parent": "llm",
+      "label": "AI provider adapters",
+      "kind": "feature",
+      "summary": "Translates requests and streamed replies to and from each AI provider's own format, with presets for well-known providers.",
+      "paths": [
+        "src/llm-provider*.ts"
+      ]
+    },
+    {
+      "id": "cvm",
+      "label": "ContextVM tools",
+      "kind": "service",
+      "summary": "Lets napplets discover and call remote tool servers over Nostr (ContextVM), with a per-napplet cap on how many calls run at once, progress updates, deadlines and an optional host-configured registry of trusted tools.",
+      "paths": [
+        "src/cvm-*.ts"
+      ],
+      "exclude": [
+        "**/*.test.ts"
+      ]
+    },
+    {
+      "id": "files",
+      "label": "Files, media and uploads",
+      "kind": "service",
+      "summary": "Fetches bytes for a napplet from a web address, uploads files to storage, passes file requests to the host, and plays audio or video with system media controls.",
+      "paths": [
+        "src/fs-service.ts"
+      ],
+      "exclude": [
+        "**/*.test.ts"
+      ]
+    },
+    {
+      "id": "files.resource",
+      "parent": "files",
+      "label": "Fetching resources",
+      "kind": "feature",
+      "summary": "Fetches the bytes behind a web address after approval, one or many at a time, with cancellation scoped to the asking napplet.",
+      "paths": [
+        "src/resource-*.ts"
+      ]
+    },
+    {
+      "id": "files.upload",
+      "parent": "files",
+      "label": "Uploads",
+      "kind": "feature",
+      "summary": "Runs uploads for napplets, tracks progress and tidies up when a napplet closes, with a ready-made web uploader.",
+      "paths": [
+        "src/upload-service.ts",
+        "src/http-uploader.ts"
+      ]
+    },
+    {
+      "id": "files.media",
+      "parent": "files",
+      "label": "Media playback",
+      "kind": "feature",
+      "summary": "Tracks what each napplet is playing, mirrors it to the browser's media controls, and can play streamed audio itself with a small floating player.",
+      "paths": [
+        "src/media-*.ts",
+        "src/browser-media-*.ts"
+      ]
+    },
+    {
+      "id": "files.fs",
+      "parent": "files",
+      "label": "File area",
+      "kind": "feature",
+      "summary": "Passes napplet file requests to a file store the host supplies, which decides paths, permissions and storage.",
+      "paths": [
+        "src/fs-service.ts"
+      ]
+    },
+    {
+      "id": "devices",
+      "label": "Devices and input",
+      "kind": "service",
+      "summary": "Connects napplets to hardware and real-time links: keyboard shortcuts, game controllers, serial ports, Bluetooth devices and WebRTC peer connections.",
+      "paths": [
+        "src/keys-*.ts",
+        "src/gamepad-service.ts",
+        "src/browser-gamepad.ts",
+        "src/serial-service.ts",
+        "src/ble-service.ts",
+        "src/webrtc-service.ts"
+      ],
+      "exclude": [
+        "**/*.test.ts"
+      ]
+    },
+    {
+      "id": "shellui",
+      "label": "Shell features",
+      "kind": "service",
+      "summary": "Handles the host-side features napplets ask the shell for: notifications, theme colours, opening links, handing work to another napplet (intents) and per-napplet settings.",
+      "paths": [
+        "src/theme-service.ts"
+      ],
+      "exclude": [
+        "**/*.test.ts"
+      ]
+    },
+    {
+      "id": "shellui.notify",
+      "parent": "shellui",
+      "label": "Notifications",
+      "kind": "feature",
+      "summary": "Shows napplet notifications through the host, after approval, and keeps the older notification list working for existing hosts.",
+      "paths": [
+        "src/notify-service.ts",
+        "src/notification-service.ts"
+      ]
+    },
+    {
+      "id": "shellui.intents",
+      "parent": "shellui",
+      "label": "Intents",
+      "kind": "feature",
+      "summary": "Finds a napplet that can handle a request (share, open, pick) from a catalog built from napplet manifests, and hands the request over.",
+      "paths": [
+        "src/intent-*.ts",
+        "src/catalog-intent-resolver.ts",
+        "src/manifest-intent-catalog.ts"
+      ]
+    },
+    {
+      "id": "shellui.config",
+      "parent": "shellui",
+      "label": "Napplet settings",
+      "kind": "feature",
+      "summary": "Stores each napplet's settings and checks them against the settings form the napplet declares.",
+      "paths": [
+        "src/config-*.ts"
+      ]
+    },
+    {
+      "id": "shellui.misc",
+      "parent": "shellui",
+      "label": "Theme and links",
+      "kind": "feature",
+      "summary": "Shares the shell's theme with napplets and opens links they ask for after checking the address is allowed.",
+      "paths": [
+        "src/theme-service.ts",
+        "src/link-service.ts"
+      ]
+    },
+    {
+      "id": "tests",
+      "label": "Tests",
+      "kind": "test",
+      "summary": "Automatic checks that every service still behaves as the protocol drafts require.",
+      "paths": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
+      "id": "runtime",
+      "label": "Kehto runtime",
+      "kind": "external",
+      "summary": "The protocol engine that routes napplet messages to these services and provides approvals.",
+      "packages": [
+        "npm:@kehto/runtime"
+      ]
+    },
+    {
+      "id": "napplet",
+      "label": "Napplet protocol types",
+      "kind": "external",
+      "summary": "The shared message and domain definitions from @napplet/core and @napplet/nap.",
+      "packages": [
+        "npm:@napplet/core",
+        "npm:@napplet/nap"
+      ]
+    },
+    {
+      "id": "nostrtools",
+      "label": "nostr-tools",
+      "kind": "external",
+      "summary": "Nostr signing, encryption and encoding helpers.",
+      "packages": [
+        "npm:nostr-tools"
+      ]
+    },
+    {
+      "id": "aiproviders",
+      "label": "AI providers",
+      "kind": "external",
+      "summary": "Outside AI services the AI chat presets point at.",
+      "hosts": [
+        "api.openai.com",
+        "api.anthropic.com",
+        "generativelanguage.googleapis.com",
+        "openrouter.ai",
+        "api.groq.com",
+        "api.mistral.ai",
+        "api.deepseek.com",
+        "api.x.ai",
+        "routstr.com"
+      ]
+    }
+  ],
+  "flows": [
+    {
+      "id": "service-call",
+      "title": "A napplet asks a service",
+      "steps": [
+        {
+          "node": "runtime",
+          "note": "The runtime receives a napplet message such as notify.send and picks the service registered under its domain."
+        },
+        {
+          "node": "shellui.notify",
+          "note": "The notification service asks the runtime for approval, then calls the host to show it."
+        },
+        {
+          "node": "napplet",
+          "note": "Replies use the shared message shapes from the napplet protocol packages."
+        }
+      ]
+    },
+    {
+      "id": "ai-chat",
+      "title": "AI chat request",
+      "steps": [
+        {
+          "node": "src/llm-service.ts",
+          "note": "A napplet asks for an AI answer; the request is checked and a configured provider is chosen."
+        },
+        {
+          "node": "src/llm-providers.ts",
+          "note": "The request is translated into the provider's own format."
+        },
+        {
+          "node": "src/llm-provider-http.ts",
+          "note": "The request goes out over the web to the provider."
+        },
+        {
+          "node": "aiproviders",
+          "note": "The provider streams its answer back, which is turned into NAP-LLM blocks."
+        }
+      ]
+    },
+    {
+      "id": "outbox-read",
+      "title": "Reading events via the outbox model",
+      "steps": [
+        {
+          "node": "src/outbox-service.ts",
+          "note": "A napplet asks for events by an author; the service asks the router for a relay plan, then asks for approval to reach each planned relay."
+        },
+        {
+          "node": "src/relay-pool-outbox-planning.ts",
+          "note": "The plan comes from the relays each author publishes to, filtered by the shell's relay rules, with host fallback relays and allowed hints added."
+        },
+        {
+          "node": "src/relay-pool-outbox-router.ts",
+          "note": "After approval, the planned relays are queried and events are de-duplicated and checked; an unavailable relay pool comes back as an incomplete network result, not a refusal."
+        }
+      ]
+    }
+  ],
+  "tour": [
+    {
+      "node": "entry",
+      "title": "What this package is",
+      "note": "A box of ready-made services a napplet host can plug into the Kehto runtime. Everything a host can use is listed in the front door file."
+    },
+    {
+      "node": "runtime",
+      "title": "Who calls these services",
+      "note": "The runtime receives messages from napplets and hands each to the service registered for its domain."
+    },
+    {
+      "node": "nostr",
+      "title": "Nostr data",
+      "note": "The biggest area: relays, identity, lists, the outbox model and private messages."
+    },
+    {
+      "node": "llm",
+      "title": "AI chat",
+      "note": "Napplets can ask AI models for answers through providers the host configures."
+    },
+    {
+      "node": "cvm",
+      "title": "Remote tools",
+      "note": "ContextVM lets napplets call tool servers over Nostr, with limits so one napplet can't hog them."
+    },
+    {
+      "node": "src/resource-service.ts",
+      "title": "A typical service",
+      "note": "Fetching a resource shows the common pattern: check the request, ask for approval, do the work, reply."
+    }
+  ]
+}

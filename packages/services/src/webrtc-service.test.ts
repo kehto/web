@@ -122,6 +122,24 @@ describe('createWebrtcService', () => {
     expect(sent).toEqual([{ type: 'webrtc.unknown.error', id: 'u1', error: 'Unknown webrtc method: webrtc.unknown' }]);
   });
 
+  it('returns correlated unsupported results for optional realtime operations', () => {
+    const service = createWebrtcService(), { sent, send } = collectSent();
+    for (const type of ['webrtc.sendBytes', 'webrtc.stats']) service.handleMessage(WINDOW_ID, { type, id: type } as NappletMessage, send);
+    expect(sent).toEqual(['webrtc.sendBytes', 'webrtc.stats'].map(type => ({ type: `${type}.result`, id: type, error: 'unsupported' })));
+  });
+
+  it('contains synchronous backend send exceptions after a successful open', async () => {
+    const service = createWebrtcService({ planOpen: () => ({ signalingRelayUrls: [], iceEndpoints: [], resource: 'room:test' }),
+      open: () => OPEN_RESULT, send: () => { throw new Error('QUEUE_FULL'); } });
+    service.onRegistered?.({ authorizeOperation: async (_w: string, _op: string, _r: unknown, run: (s: ApprovalSignal) => unknown) => ({ status: 'executed', value: await run(new AbortController().signal) }) } as unknown as ServiceRuntimeContext);
+    const { sent, send } = collectSent();
+    service.handleMessage(WINDOW_ID, { type: 'webrtc.open', id: 'open', request: REQUEST } as NappletMessage, send);
+    await flush();
+    service.handleMessage(WINDOW_ID, { type: 'webrtc.send', id: 'send', sessionId: OPEN_RESULT.session.id, payload: {} } as NappletMessage, send);
+    await flush();
+    expect(sent).toContainEqual({ type: 'webrtc.send.result', id: 'send', error: 'QUEUE_FULL' });
+  });
+
   it('delegates window destroy cleanup when configured', () => {
     const destroyWindow = vi.fn();
     const service = createWebrtcService({ destroyWindow });
@@ -135,7 +153,7 @@ describe('createWebrtcService', () => {
     const open = vi.fn(() => OPEN_RESULT);
     const planOpen = vi.fn(() => ({
       signalingRelayUrls: ['wss://signal.example'],
-      iceEndpoints: [],
+      iceEndpoints: ['turn:relay.example:3478?transport=udp'],
       resource: `peer:${PEER_PUBKEY}`,
     }));
     let approve!: () => void;
@@ -156,6 +174,7 @@ describe('createWebrtcService', () => {
       { category: 'interface', domain: 'webrtc', operation: 'access', scope: { kind: 'exact', value: 'webrtc' } },
       { category: 'resource', domain: 'webrtc', operation: 'webrtc.open', scope: { kind: 'exact', value: `peer:${PEER_PUBKEY}` } },
       { category: 'network', domain: 'webrtc', operation: 'webrtc.open', scope: { kind: 'origin', value: 'wss://signal.example' } },
+      { category: 'network', domain: 'webrtc', operation: 'webrtc.open', scope: { kind: 'ice', value: 'turn:relay.example:3478?transport=udp' } },
     ]);
 
     approve();

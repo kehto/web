@@ -1,4 +1,5 @@
 import { PAJA_MOCKED_DOMAINS, type PajaMockedDomain } from './mocked-domains.js';
+import { normalizePajaMultiplayer, type PajaMultiplayerConfig } from './multiplayer-config.js';
 
 /** JSON primitive accepted in Paja simulation config values. */
 export type JsonPrimitive = string | number | boolean | null;
@@ -39,6 +40,8 @@ export type PajaCapabilityDomain =
 
 /** Raw simulation controls accepted from CLI args or JSON config. */
 export interface PajaSimulationRawOptions {
+  /** Optional shared CVM/WebRTC transport profile. */
+  readonly multiplayer?: PajaMultiplayerConfig;
   /** Per-domain capability overrides. */
   readonly capabilities?: {
     readonly domains?: Partial<Record<PajaCapabilityDomain, boolean>>;
@@ -94,6 +97,8 @@ export interface PajaSimulationRawOptions {
 
 /** Fully normalized Paja simulation model served to the browser host. */
 export interface PajaSimulation {
+  /** Optional shared CVM/WebRTC transport profile. */
+  readonly multiplayer?: PajaMultiplayerConfig;
   /** Capability domains and disabled-domain summary. */
   readonly capabilities: {
     readonly domains: Record<PajaCapabilityDomain, boolean>;
@@ -363,6 +368,7 @@ export function normalizePajaSimulation(
     cvm: {
       enabled: cvmEnabled,
     },
+    ...(raw?.multiplayer === undefined ? {} : { multiplayer: normalizePajaMultiplayer(raw.multiplayer) }),
   };
 }
 

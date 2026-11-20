@@ -25,6 +25,20 @@ function toggle(section: EventTarget & { open: boolean }) {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('Paja sidebar sections', () => {
+  it('preserves multiplayer default collapse and restores its saved open state', () => {
+    const { storage } = harness();
+    const multiplayer = Object.assign(new EventTarget(), { open: false });
+    vi.stubGlobal('document', { getElementById: (id: string) => id === 'paja-section-multiplayer' ? multiplayer : null });
+    const dispose = installPajaSidebarSections();
+    expect(multiplayer.open).toBe(false);
+    toggle(multiplayer);
+    expect(storage.setItem).toHaveBeenLastCalledWith(PAJA_SIDEBAR_SECTIONS_STORAGE_KEY, '{"multiplayer":false}');
+    dispose();
+    multiplayer.open = false;
+    storage.getItem.mockReturnValue('{"multiplayer":false}');
+    installPajaSidebarSections();
+    expect(multiplayer.open).toBe(true);
+  });
   it.each([null, '', '{', 'null', '[]', '42', 'true', '"interfaces"', '{"interfaces":"true"}', '{"unknown":true,"__proto__":{"interfaces":true}}'])('defaults expanded for invalid preferences %s', (value) => {
     const { interfaces, messages, events, storage } = harness(value);
     installPajaSidebarSections();

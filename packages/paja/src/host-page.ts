@@ -117,6 +117,15 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .resource-servers label { white-space: normal; }
       .resource-servers textarea { width: 100%; min-width: 0; padding: 6px; resize: vertical; }
       .resource-servers small, .resource-servers [role="status"] { color: var(--muted); overflow-wrap: anywhere; }
+      #paja-cvm-form { padding-bottom: 16px; margin-bottom: 16px; border-bottom: 1px solid var(--line); }
+      #paja-cvm-form > label { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
+      #paja-cvm-form input[type="text"], #paja-cvm-form select { width: 100%; min-width: 0; padding: 6px; }
+      #paja-cvm-tools { min-width: 0; max-height: 180px; overflow: auto; }
+      #paja-cvm-tools label { display: flex; overflow-wrap: anywhere; }
+      #paja-cvm-tools input { flex: 0 0 16px; width: 16px; min-height: 16px; }
+      #paja-cvm-json[readonly] { opacity: 0.8; }
+      #paja-cvm-saved > div { display: flex; gap: 6px; margin-bottom: 6px; }
+      #paja-cvm-saved button:first-child { flex: 1; min-width: 0; overflow-wrap: anywhere; }
       .switch-grid, .acl-grid { display: flex; flex-wrap: wrap; gap: 6px; }
       .hint { margin: 0; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
       .toggle { height: 24px; padding: 0 8px; color: var(--muted); }
@@ -307,6 +316,36 @@ export function renderPajaHtml(config: PajaHostConfig): string {
           <button type="submit" id="paja-resource-servers-save">Save</button>
           <div id="paja-resource-servers-status" role="status" aria-live="polite"></div>
         </form>
+        </div></details>
+        <details class="section" id="paja-section-multiplayer" data-paja-section="multiplayer">
+          <summary class="section-title">Multiplayer providers<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
+          <form class="resource-servers" id="paja-cvm-form">
+            <label for="paja-cvm-discovery">Discover CVM tools</label>
+            <input id="paja-cvm-discovery" type="text" placeholder="nevent, schema hash, or https://provider.example" spellcheck="false" aria-describedby="paja-cvm-help">
+            <button type="button" id="paja-cvm-find">Discover</button>
+            <small id="paja-cvm-help">Uses your host relays, event relay hints, or the website's .well-known/napplet.json. Family labels and tool membership are local choices.</small>
+            <label for="paja-cvm-results">Providers found</label>
+            <select id="paja-cvm-results" disabled></select>
+            <label for="paja-cvm-label">Local family label</label>
+            <input id="paja-cvm-label" type="text" maxlength="256" disabled>
+            <fieldset id="paja-cvm-tools" hidden></fieldset>
+            <label for="paja-cvm-json">Family configuration (JSON)</label>
+            <small id="paja-cvm-origin">Source: manual JSON</small>
+            <textarea id="paja-cvm-json" rows="8" spellcheck="false" aria-describedby="paja-cvm-origin paja-cvm-status"></textarea>
+            <button type="button" id="paja-cvm-manual">Edit JSON manually</button>
+            <button type="button" id="paja-cvm-new">New manual family</button>
+            <button type="submit" id="paja-cvm-save">Save family and reload</button>
+            <div id="paja-cvm-status" role="status" aria-live="polite"></div>
+            <span>Saved CVM families</span>
+            <div id="paja-cvm-saved"></div>
+          </form>
+          <form class="resource-servers" id="paja-multiplayer-form">
+            <label for="paja-multiplayer-input">Provider configuration (JSON)</label>
+            <textarea id="paja-multiplayer-input" rows="8" spellcheck="false" aria-describedby="paja-multiplayer-help paja-multiplayer-status"></textarea>
+            <small id="paja-multiplayer-help">Configure signaling relays and CVM families using your provider's settings. Saving reloads all apps. Clear to restore the host default.</small>
+            <button type="submit">Save and reload</button>
+            <div id="paja-multiplayer-status" role="status" aria-live="polite"></div>
+          </form>
         </div></details>
         <details class="section" id="paja-section-security" data-paja-section="security" open>
           <summary class="section-title">Security<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">

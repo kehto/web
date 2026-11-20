@@ -33,7 +33,7 @@ app package's development scripts.
 | Field | Value |
 |-------|-------|
 | Source | `packages/paja/package.json`, `packages/paja/src/index.ts` |
-| Version | `0.35.2` |
+| Version | `0.37.0` |
 | Runtime entry | `./dist/index.js` |
 | CLI runner entry | `./dist/cli.js` |
 | Types entry | `./dist/index.d.ts` |
@@ -539,12 +539,13 @@ fixture events and local publish echoes never enter live reads, relay-tier edits
 drive the corresponding transports, and event sidecars contain only relay URLs
 that the pool actually observed.
 
-WebRTC is conditional rather than simulated: the domain is advertised only
-with a browser `RTCPeerConnection` implementation, live relay access, and a
-connected NIP-44 signer. Paja owns peer connections and data channels, obtains
+WebRTC requires browser `RTCPeerConnection` and live relay access. The default
+profile also requires a connected NIP-44 signer; an explicitly configured
+multiplayer profile uses a temporary transport key instead. Paja owns peer connections and data channels, obtains
 explicit session consent, signs kind-25050 Nostr signaling, encrypts
 offer/answer SDP, and keeps application payloads exclusively on the data
-channel. Signer changes tear down sessions and refresh the shell environment;
+channel. Signer changes tear down sessions, synchronize runtime service handlers,
+and refresh the shell environment before loading a replacement iframe;
 napplets never receive SDP, ICE internals, relay sockets, or browser networking
 objects. The signaling boundary follows pinned
 [NAP-WEBRTC `5fae95dd2c8e59bd06c654e0845656add077dcda`](https://github.com/napplet/naps/blob/5fae95dd2c8e59bd06c654e0845656add077dcda/naps/NAP-WEBRTC.md)
@@ -937,3 +938,19 @@ Paja explicitly installs operation and prompt limiters from `@kehto/rate-limit`
 in `createPajaPermissionAdapter`. These are Paja host choices; runtime and Firewall
 do not impose them on other hosts. Limiter configuration and counters are separate
 from approval grants.
+
+### Configurable multiplayer providers
+
+The **Multiplayer providers** sidebar accepts explicit JSON settings, also available
+as `simulation.multiplayer` in a Paja config file. Select `soy-rtc/1`, signaling
+relays, and CVM families with pinned tool schemas. Optional static STUN/TURN
+settings receive separate endpoint approval. No provider is selected from an app
+URL. See [configuration and interoperability](/paja-multiplayer).
+
+The same sidebar discovers CVM tool inventories from a `nevent`, a CEP-15 tool
+schema hash, or an HTTPS website's `/.well-known/napplet.json`. Choose a provider,
+local family label, and tools; generated JSON is read-only and shows its source.
+Manual JSON remains editable. Saved families persist per host origin and coexist
+in the registry, including without a multiplayer signaling profile. Saves and
+removals reload the host. ContextVM doesn't define named-family manifests or
+`naddr` discovery; labels and membership are local choices.

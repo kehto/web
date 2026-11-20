@@ -1,0 +1,12 @@
+{
+  "files": {
+    "src/nip5d-transport.ts": {
+      "name": "Per-napplet channel",
+      "description": "Accepts one hello with one message port per frame, routes messages only from that port, and revokes the napplet on any sign of replacement."
+    },
+    "src/random-uuid.ts": {
+      "name": "Unguessable IDs",
+      "description": "Makes random IDs with the browser's built-in secure ID maker, building one from secure random bytes when that is missing, and fails if neither is available."
+    }
+  }
+}

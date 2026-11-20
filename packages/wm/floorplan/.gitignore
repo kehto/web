@@ -1,0 +1,10 @@
+# Floorplan (kehto patch): generated map output stays out of git; architecture.json, descriptions/ and baseline.json are committed.
+.cache/
+graph.json
+index.html
+artifact.html
+query.mjs
+serve.mjs
+page-safety.mjs
+recent-work.json
+*-map.html

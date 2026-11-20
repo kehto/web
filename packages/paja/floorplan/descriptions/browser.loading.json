@@ -1,0 +1,28 @@
+{
+  "files": {
+    "src/browser-local-loader.ts": {
+      "name": "Open local file",
+      "description": "Wires the Open file button and page-wide drag and drop so a single index.html opens in a new napplet tab."
+    },
+    "src/browser-nip5d-host.ts": {
+      "name": "NIP-5D message router",
+      "description": "Passes each frame's one-time hello to the bridge, logs NAP traffic on bound ports, and removes or replaces frames whose binding is revoked."
+    },
+    "src/browser-target-diagnostics.ts": {
+      "name": "Target CORS warning",
+      "description": "Asks the Paja server whether the target dev server blocks the sandboxed frame's null origin and, if so, writes the cause and fix to the message log and console."
+    },
+    "src/browser-target-frame.ts": {
+      "name": "Sandboxed frame loader",
+      "description": "Gives each napplet a fresh iframe, fixes its identity and shell environment before it runs, and loads its bytes via srcdoc."
+    },
+    "src/local-target.ts": {
+      "name": "Local file target",
+      "description": "Turns a dropped index.html into a napplet target, reading its napplet-id and requested domains, and warns about relative assets."
+    },
+    "src/runtime-resolver.ts": {
+      "name": "Napplet pointer resolver",
+      "description": "Decodes an naddr or nevent pointer, fetches the napplet manifest from relays, verifies the bytes and adds Kehto's strict CSP."
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "files": {
+    "src/llm-generation-checks.ts": {
+      "name": "Answer checks",
+      "description": "Checks a request against what the chosen connection can do, and checks each streamed and final answer follows the protocol."
+    },
+    "src/llm-service.ts": {
+      "name": "AI chat service",
+      "description": "Answers napplet AI requests: lets the user pick a connection, asks consent, calls the provider and streams the answer back."
+    },
+    "src/llm-types.ts": {
+      "name": "AI message shapes and errors",
+      "description": "Defines the AI domain name, its error codes, reply shapes and the error type the service raises."
+    },
+    "src/llm-validate.ts": {
+      "name": "AI request checks",
+      "description": "Checks that incoming AI requests and provider answers are well formed, including tools, images and earlier tool results."
+    }
+  }
+}

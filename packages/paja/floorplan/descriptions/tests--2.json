@@ -1,0 +1,124 @@
+{
+  "files": {
+    "src/browser-resource-settings-integration.test.ts": {
+      "name": "Resource settings live tests",
+      "description": "Checks extra resource servers apply after defaults across windows and clearing removes only extras."
+    },
+    "src/browser-resource-settings.test.ts": {
+      "name": "Resource settings tests",
+      "description": "Checks server entries are tidied (ports, slashes, duplicates) and only the dedicated key is cleared."
+    },
+    "src/browser-resource.test.ts": {
+      "name": "Resource fetcher tests",
+      "description": "Checks size-mismatched downloads fall back, MIME is not trusted, and unsafe hints never reach loopback."
+    },
+    "src/browser-runtime-tabs.test.ts": {
+      "name": "Napplet tabs tests",
+      "description": "Checks distinct signed snapshots get separate tabs and share links build correctly."
+    },
+    "src/browser-security-settings.test.ts": {
+      "name": "Nested lock switch tests",
+      "description": "Checks the saved nested-context-lock override is read, junk ignored, and absent storage handled."
+    },
+    "src/browser-sidebar-sections.test.ts": {
+      "name": "Sidebar fold tests",
+      "description": "Checks sidebar open/closed states restore correctly and only valid saved values are used."
+    },
+    "src/browser-signer-consent.test.ts": {
+      "name": "Signing consent tests",
+      "description": "Checks signing and publishing trust stay separate and expired sources are refused."
+    },
+    "src/browser-signers.test.ts": {
+      "name": "Signer choice tests",
+      "description": "Checks signer choice survives storage failures and an unavailable extension does not silently fall back."
+    },
+    "src/browser-social-cache.test.ts": {
+      "name": "Profile memory tests",
+      "description": "Checks the account's follows and profiles are kept and read only under approved plans."
+    },
+    "src/browser-target-frame.test.ts": {
+      "name": "Frame admission tests",
+      "description": "Checks intent eligibility from declarations and that frames are refused without secure randomness."
+    },
+    "src/browser-upload.test.ts": {
+      "name": "Upload tests",
+      "description": "Checks upload planning makes no request early and only a usable Blossom backend is advertised."
+    },
+    "src/browser-webrtc-profile.test.ts": {
+      "name": "soy-rtc/1 tests",
+      "description": "Checks the WebRTC profile authenticates hello, separates namespaces and stops on revocation."
+    },
+    "src/browser-webrtc.test.ts": {
+      "name": "WebRTC tests",
+      "description": "Checks encrypted Nostr signalling, real data-channel delivery, and failing closed without a signer."
+    },
+    "src/cli.test.ts": {
+      "name": "Command line tests",
+      "description": "Checks flag parsing, the command separator and the nested-context-lock flag."
+    },
+    "src/config-file.test.ts": {
+      "name": "Config file tests",
+      "description": "Checks JSON config loads and command-line values win while nested simulation values merge."
+    },
+    "src/cvm-discovery.test.ts": {
+      "name": "CVM discovery tests",
+      "description": "Checks what references are accepted and that several verified providers are returned without auto-picking."
+    },
+    "src/host-page.test.ts": {
+      "name": "Host page tests",
+      "description": "Checks the host page layout and that every mode loads napplets through one admitted frame path."
+    },
+    "src/installed-napplet-catalog.test.ts": {
+      "name": "Installed catalog tests",
+      "description": "Checks catalog change reports and that only serializable verified facts are stored."
+    },
+    "src/intent-launcher.test.ts": {
+      "name": "Signed launcher test",
+      "description": "Checks the bundled launcher artifact verifies without any private signing key."
+    },
+    "src/intent-link.test.ts": {
+      "name": "Intent link format tests",
+      "description": "Checks intent links round-trip their encodings and keep JSON payloads distinct."
+    },
+    "src/local-target.test.ts": {
+      "name": "Local file target tests",
+      "description": "Checks a local file's NIP-5A hash matches its exact bytes and changes when edited."
+    },
+    "src/multiplayer-config.test.ts": {
+      "name": "Multiplayer settings tests",
+      "description": "Checks multiplayer settings stay unconfigured by default and require explicit profiles and providers."
+    },
+    "src/nested-context-lock.test.ts": {
+      "name": "Nested lock tests",
+      "description": "Checks the experimental lock honours on and off, and auto locks only when NAP-DM is granted."
+    },
+    "src/options.test.ts": {
+      "name": "Launch options tests",
+      "description": "Checks target URL mode and arbitrary command lines normalise without framework guessing."
+    },
+    "src/parity.test.ts": {
+      "name": "Advertised domains tests",
+      "description": "Checks which NAP domains are advertised, including optional shell and gamepad and draft LLM."
+    },
+    "src/readiness.test.ts": {
+      "name": "Readiness tests",
+      "description": "Checks waiting stops on a non-5xx answer and retries failed requests."
+    },
+    "src/runtime-resolver.test.ts": {
+      "name": "Pointer resolver tests",
+      "description": "Checks pointer decoding, manifest resolution, accepted kinds and the injected CSP."
+    },
+    "src/server-resource-proxy.test.ts": {
+      "name": "Resource proxy tests",
+      "description": "Checks the server refuses private IP addresses and pins public ones after lookup."
+    },
+    "src/server.test.ts": {
+      "name": "Local server tests",
+      "description": "Checks the server serves the host page and config and redirects alias requests before issuing a cookie."
+    },
+    "src/target-cors.test.ts": {
+      "name": "CORS and origin tests",
+      "description": "Checks the exact dev-server and HMR origins allowed per request type, and rejects wildcards."
+    }
+  }
+}

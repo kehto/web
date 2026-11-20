@@ -1,0 +1,27 @@
+{
+  "$schema": "floorplan/architecture@1",
+  "project": {
+    "name": "@kehto/firewall",
+    "summary": "Pure approval policy for napplets (sandboxed iframe apps): it records what a person approved for each verified napplet (which NAP interfaces, resources and network addresses), decides whether a new request is covered, and stores allow/ask/deny rules. It counts nothing over time; rate limits live in a separate package.",
+    "entrypoints": ["src/index.ts"]
+  },
+  "nodes": [
+    { "id": "api", "label": "Public entry", "kind": "library", "summary": "The front door that gathers the approval and rule functions other Kehto packages import.", "paths": ["src/index.ts"] },
+    { "id": "approvals", "label": "Approvals", "kind": "library", "summary": "Keeps approvals per napplet identity, decides whether a request is fully covered, uses up one-time approvals, and saves and loads them as text.", "paths": ["src/permissions.ts", "src/permission-types.ts", "src/permission-scopes.ts"] },
+    { "id": "rules", "label": "Allow / ask / deny rules", "kind": "library", "summary": "Stores the standing rules a person sets for whole interfaces or single operations, per napplet or for everyone, and picks the rule that applies.", "paths": ["src/permission-rules.ts"] },
+    { "id": "tests", "label": "Tests", "kind": "test", "summary": "Automatic checks for approval decisions and rule lookups.", "paths": ["src/**/*.test.ts"] },
+    { "id": "build", "label": "Build settings", "kind": "config", "summary": "How the package is bundled for publishing.", "paths": ["tsup.config.ts"] }
+  ],
+  "flows": [
+    { "id": "evaluate", "title": "Checking a napplet's request", "steps": [
+      { "node": "api", "note": "The runtime passes the napplet's verified identity and what it is asking for." },
+      { "node": "approvals", "note": "Each requested interface, resource or network address is normalised and matched against stored approvals; an explicit denial wins, and anything uncovered is reported back as missing." },
+      { "node": "rules", "note": "For requests no approval covers, the host can look up the standing allow, ask or deny rule for that napplet or operation." }
+    ]}
+  ],
+  "tour": [
+    { "node": "api", "title": "What this package is", "note": "A pure library that decides whether a person's approvals cover what a napplet asks to do. No timers, no saving to disk by itself." },
+    { "node": "approvals", "title": "Approvals", "note": "The heart of it: approvals are tied to a verified napplet identity (signed listing plus content hash) or to a development target, and each request must be covered piece by piece." },
+    { "node": "rules", "title": "Standing rules", "note": "Allow, ask or deny settings for a whole interface or a single operation, so the host knows whether to prompt." }
+  ]
+}

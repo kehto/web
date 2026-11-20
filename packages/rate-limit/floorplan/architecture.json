@@ -1,0 +1,104 @@
+{
+  "$schema": "floorplan/architecture@1",
+  "project": {
+    "name": "@kehto/rate-limit",
+    "summary": "Optional caps on how often a napplet (sandboxed iframe app) may act: a steady per-minute budget plus a startup burst limit, tighter for background napplets. Nothing is limited unless the host builds a limiter and passes it in. An older, retained policy model sits under its own legacy entry for hosts still migrating.",
+    "entrypoints": [
+      "src/index.ts",
+      "src/legacy/index.ts"
+    ]
+  },
+  "nodes": [
+    {
+      "id": "core",
+      "label": "Action caps",
+      "kind": "library",
+      "summary": "The current cap on how often each napplet may act: checks one action against its budget, and the host builds a cap object that remembers the counts.",
+      "paths": [
+        "src/index.ts",
+        "src/rate-limit.ts",
+        "src/limiter.ts"
+      ]
+    },
+    {
+      "id": "legacy",
+      "label": "Legacy policy",
+      "kind": "library",
+      "summary": "The older per-napplet policy model kept for hosts that have not moved to scoped approvals yet: rules, content matching, default limits and a saved settings container, which now hands its counting to the current action caps.",
+      "paths": [
+        "src/legacy/**"
+      ],
+      "tags": [
+        "compatibility"
+      ],
+      "exclude": [
+        "**/*.test.ts"
+      ]
+    },
+    {
+      "id": "tests",
+      "label": "Tests",
+      "kind": "test",
+      "summary": "Automatic checks for both the current limiter and the legacy policy model.",
+      "paths": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
+      "id": "build",
+      "label": "Build settings",
+      "kind": "config",
+      "summary": "How the package and its legacy entry are bundled for publishing.",
+      "paths": [
+        "tsup.config.ts"
+      ]
+    }
+  ],
+  "flows": [
+    {
+      "id": "limit",
+      "title": "Checking one napplet action",
+      "steps": [
+        {
+          "node": "src/limiter.ts",
+          "note": "The host builds a cap object from its chosen settings and passes in who is acting, what operation, whether the napplet is in focus and the current time."
+        },
+        {
+          "node": "src/rate-limit.ts",
+          "note": "The pure check takes from that napplet's budget and startup allowance and says allow, flag or block, returning the updated counts to keep."
+        }
+      ]
+    },
+    {
+      "id": "legacy",
+      "title": "Legacy policy check",
+      "steps": [
+        {
+          "node": "legacy",
+          "note": "An older host passes an observation to the legacy evaluator, which applies its per-napplet rules first."
+        },
+        {
+          "node": "core",
+          "note": "The counting itself is handed to the current action caps, so both paths share one counting method."
+        }
+      ]
+    }
+  ],
+  "tour": [
+    {
+      "node": "core",
+      "title": "Action caps",
+      "note": "A small, pure cap on how often each napplet may act. Hosts opt in by building one; importing the package installs nothing."
+    },
+    {
+      "node": "legacy",
+      "title": "The legacy model",
+      "note": "Kept for migration only. Its rules and settings still work, but counting goes through the current limiter."
+    },
+    {
+      "node": "src/legacy/evaluate.ts",
+      "title": "Where the two meet",
+      "note": "The legacy check calls into the current action caps rather than keeping a second counter."
+    }
+  ]
+}

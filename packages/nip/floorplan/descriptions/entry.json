@@ -1,0 +1,12 @@
+{
+  "files": {
+    "src/index.ts": {
+      "name": "Everything in one import",
+      "description": "Re-exports every NIP helper from one place for apps that don't mind importing them all."
+    },
+    "tsup.config.ts": {
+      "name": "Build settings",
+      "description": "Builds each NIP folder as its own importable entry so unused NIPs are left out of apps."
+    }
+  }
+}

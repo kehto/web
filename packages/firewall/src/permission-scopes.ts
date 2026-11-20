@@ -35,6 +35,16 @@ export function normalizePermissionScope(scope: PermissionScope): PermissionScop
       throw new TypeError('Network scopes must identify a single origin');
     }
     value = url.origin;
+  } else if (scope.kind === 'ice') {
+    // RFC 7064/7065 host policy subset: no userinfo, paths, fragments or credentials.
+    const match = /^(stun|stuns|turn|turns):([a-z0-9.-]+|\[[0-9a-f:]+\])(?::([0-9]{1,5}))?(\?transport=(udp|tcp))?$/iu.exec(value);
+    if (!match || (match[3] && (Number(match[3]) < 1 || Number(match[3]) > 65535))
+      || (match[1]!.toLowerCase().startsWith('stun') && match[4])) throw new TypeError('Invalid ICE endpoint');
+    // Use URL parsing only to validate and canonicalize the host, never to repair ICE syntax.
+    const host = new URL(`http://${match[2]}`).hostname;
+    const scheme = match[1]!.toLowerCase();
+    const port = match[3] ? Number(match[3]) : scheme.endsWith('s') ? 5349 : 3478;
+    value = `${scheme}:${host}:${port}${match[5] ? `?transport=${match[5].toLowerCase()}` : ''}`;
   } else if (scope.kind === 'directory') {
     value = virtualPath(value);
   } else if (scope.kind === 'exact') {
@@ -67,9 +77,9 @@ export function normalizeRequirement(value: PermissionRequirement, options: Perm
       throw new TypeError('Permission operation must belong to its domain');
     }
     if (value.category === 'network') {
-      if (scope.kind !== 'origin') throw new TypeError('Network permission requires an origin');
+      if (scope.kind !== 'origin' && scope.kind !== 'ice') throw new TypeError('Network permission requires an origin or ICE endpoint');
     } else if (value.category === 'resource') {
-      if (scope.kind === 'origin') throw new TypeError('Resource permission requires a resource scope');
+      if (scope.kind === 'origin' || scope.kind === 'ice') throw new TypeError('Resource permission requires a resource scope');
     } else if (!value.category.startsWith('extension:') || !options.extensions?.includes(value.category) || scope.kind !== 'exact') {
       throw new TypeError('Unknown permission category');
     }
