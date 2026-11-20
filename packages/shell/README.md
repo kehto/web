@@ -409,15 +409,17 @@ referrer and base URL. Keep the shell URL out of it with
 `denyNappletReferrer(frame)` before assigning `srcdoc`, plus
 `renderNappletReferrerPolicyMeta()` and `renderNappletHostBase()` in the host
 page `<head>` (WebKit ignores the iframe attribute for `srcdoc`; only a host-page
-`<base>` reaches `document.baseURI`). `hasNappletReferrerPolicy(frame)` reports
-the attribute, and `ShellBridge.observeFrame` warns once when it is missing.
+`<base>` reaches `document.baseURI`). `hasNappletReferrerPolicy(frame)` and
+`hasNappletReferrerPolicyMeta(document)` report the two controls, and
+`ShellBridge.observeFrame` warns once when either is missing.
 
 The experimental namespace adds `resourceHintLock` next to `nestedContextLock`.
 It rejects `<link rel="dns-prefetch" | "preconnect" | "prerender">`, which
 browsers act on outside the napplet CSP, on every string sink and attribute
 writer; scan the bytes first with `assertNappletHasNoResourceHint` (or
-`nappletMarkupHasResourceHint`). Both locks remove `XSLTProcessor`, which
-otherwise mints frames past the nested-context lock. Under the nested-context
+`nappletMarkupHasResourceHint`). Both locks remove `XSLTProcessor` and reject
+namespace-prefixed frame and link tags, which otherwise mint frames past the
+nested-context lock through XSLT or `DOMParser`'s XML modes. Under the nested-context
 lock the bridge revokes a napplet whose Window holds a child frame
 (`nested-context`); hosts that prepare the `srcdoc` themselves opt in with
 `observeFrame(frame, windowId, { nestedContextLock: true })`

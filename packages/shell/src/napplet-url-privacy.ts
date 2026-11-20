@@ -84,3 +84,19 @@ export function renderNappletHostBase(): string {
 export function hasNappletReferrerPolicy(frame: Pick<HTMLIFrameElement, 'getAttribute'>): boolean {
   return (frame.getAttribute('referrerpolicy') ?? '').trim().toLowerCase() === NAPPLET_REFERRER_POLICY;
 }
+
+/**
+ * Whether a host document carries the {@link renderNappletReferrerPolicyMeta} element, the only referrer control
+ * WebKit honors for srcdoc napplets. A policy sent only as an HTTP header is not visible here.
+ *
+ * @param doc - The host page document
+ * @returns True when a `<meta name="referrer" content="no-referrer">` is present
+ * @example
+ * ```ts
+ * if (!hasNappletReferrerPolicyMeta(document)) console.warn('add renderNappletReferrerPolicyMeta()');
+ * ```
+ */
+export function hasNappletReferrerPolicyMeta(doc: Pick<Document, 'querySelectorAll'>): boolean {
+  return [...doc.querySelectorAll<HTMLMetaElement>('meta[name="referrer" i]')]
+    .some((meta) => meta.content.trim().toLowerCase() === NAPPLET_REFERRER_POLICY);
+}

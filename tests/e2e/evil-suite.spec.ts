@@ -96,6 +96,9 @@ async function runNapplet(page: Page, id: string, html: Buffer): Promise<Napplet
       // The suite's sanctioned active step: replace the verified document and expect revocation.
       await frame.locator('button[data-probe="self-replace"]').click();
       await expect.poll(() => revocations(page), { timeout: 15_000 }).not.toEqual([]);
+      // Caught means torn down, not only logged: the tab goes to error and the attacker frame is gone.
+      await expect.poll(() => page.evaluate(() => window.__KEHTO_PAJA__?.getState().tabs[0]?.status), { timeout: 15_000 }).toBe('error');
+      await expect.poll(() => frame.isDetached(), { timeout: 15_000 }).toBe(true);
       rows = { ...rows, 'self-replace': { status: 'detonated', evidence: 'operator-triggered self-replacement' } };
     }
     return { id, rows, revocations: await revocations(page), collectorConsole, abortedRequests };

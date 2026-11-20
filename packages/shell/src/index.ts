@@ -25,7 +25,7 @@ export { assertNappletHasNoResourceHint, nappletMarkupHasResourceHint } from './
 export type { NappletExperimentalOptions } from './napplet-experimental.js';
 export { hasNappletFramePolicy, NAPPLET_FRAME_POLICY, renderNappletFramePolicyMeta } from './frame-policy.js';
 export {
-  denyNappletReferrer, hasNappletReferrerPolicy, NAPPLET_REFERRER_POLICY, renderNappletHostBase, renderNappletReferrerPolicyMeta,
+  denyNappletReferrer, hasNappletReferrerPolicy, hasNappletReferrerPolicyMeta, NAPPLET_REFERRER_POLICY, renderNappletHostBase, renderNappletReferrerPolicyMeta,
 } from './napplet-url-privacy.js';
 export type { NappletSrcdocOptions } from './napplet-srcdoc.js';
 

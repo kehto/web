@@ -11,7 +11,7 @@
  */
 
 import { hasNappletFramePolicy, NAPPLET_FRAME_POLICY } from './frame-policy.js';
-import { hasNappletReferrerPolicy, NAPPLET_REFERRER_POLICY } from './napplet-url-privacy.js';
+import { hasNappletReferrerPolicy, hasNappletReferrerPolicyMeta, NAPPLET_REFERRER_POLICY } from './napplet-url-privacy.js';
 import type { Runtime } from '@kehto/runtime';
 import type { NappletMessage } from '@napplet/core';
 import { hasNestedContext, isNestedContextLocked, setNestedContextLocked } from './nested-context-tripwire.js';
@@ -132,12 +132,14 @@ let referrerPolicyWarned = false;
 
 /** Warn once when a napplet frame lacks the referrer policy that keeps the shell URL out of `document.referrer`. */
 function warnWithoutReferrerPolicy(frame: object): void {
-  const candidate = frame as Partial<Pick<HTMLIFrameElement, 'getAttribute'>>;
+  const candidate = frame as Partial<Pick<HTMLIFrameElement, 'getAttribute'>> & { ownerDocument?: Document | null };
   if (referrerPolicyWarned || typeof candidate.getAttribute !== 'function') return;
-  if (hasNappletReferrerPolicy(candidate as Pick<HTMLIFrameElement, 'getAttribute'>)) return;
+  const attribute = hasNappletReferrerPolicy(candidate as Pick<HTMLIFrameElement, 'getAttribute'>);
+  const meta = !candidate.ownerDocument || hasNappletReferrerPolicyMeta(candidate.ownerDocument);
+  if (attribute && meta) return;
   referrerPolicyWarned = true;
   console.warn(
-    `[kehto] A napplet frame has no referrerpolicy="${NAPPLET_REFERRER_POLICY}"; the napplet can read the shell URL from document.referrer. Call denyNappletReferrer(frame) before assigning srcdoc, and add renderNappletReferrerPolicyMeta() to the host page <head> (WebKit ignores the attribute for srcdoc).`,
+    `[kehto] A napplet frame can read the shell URL from document.referrer (${attribute ? 'host page has no referrer meta' : `frame has no referrerpolicy="${NAPPLET_REFERRER_POLICY}"`}). Call denyNappletReferrer(frame) before assigning srcdoc, and add renderNappletReferrerPolicyMeta() to the host page <head> (WebKit ignores the attribute for srcdoc).`,
   );
 }
 

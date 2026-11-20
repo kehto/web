@@ -213,6 +213,12 @@ shell, never by napplet cooperation:
    and WebKit 26.4 (`window.length` went to 1). The lock now removes
    `XSLTProcessor` from the realm, pinned as a non-writable, non-configurable
    `undefined`, and the bypass battery carries an XSLT vector.
+4. **Namespaced XML.** `DOMParser` in `application/xml` mode turns
+   `<h:iframe xmlns:h="http://www.w3.org/1999/xhtml"/>` into a live XHTML
+   iframe once the node is adopted, and the frame-tag check only matched an
+   unprefixed tag name, so this also got past the first cut (measured in all
+   three engines). The `default` policy now matches an optional namespace prefix
+   on frame tags; the battery carries a prefixed-XML vector.
 
 Node movement (`cloneNode`, `importNode`, `adoptNode`) needs a pre-existing
 frame node, and every creation route above is closed, so there is no bootstrap.
@@ -299,7 +305,8 @@ the closure like the nested-context lock:
    an inert document (descending into nested `<template>` content) and rejects
    it when a `<link>` would carry `dns-prefetch`, `preconnect` or `prerender`;
    a `document.write` chunk that ends inside a tag is rejected so a hint cannot
-   be split across chunks.
+   be split across chunks, and any namespace-prefixed `link` tag is rejected
+   because `DOMParser`'s XML modes make it a live XHTML link.
 2. The prelude pins every attribute writer that can set a link's `rel`: the
    `rel` setter, `relList` `add`/`toggle`/`replace`/`value`, `setAttribute(NS)`,
    `setAttributeNode(NS)`, `NamedNodeMap.setNamedItem(NS)` and the `Attr`
@@ -318,10 +325,12 @@ Residual with the lock off (the default): the bold rows above stay open. The
 upstream fix is browser conformance with CSP3's resource-hint rules.
 
 Regression: `tests/e2e/shell-resource-hints.spec.ts` (Chromium prerender egress
-control, a 22-vector scripted battery that creates live hint links without the
-lock and none with it, and a zero-request sink assertion), the same battery run
-cross-engine for this change (Chromium 147, Firefox 148, WebKit 26.4: zero hint
-links under the lock in all three), `packages/shell/src/napplet-hint-scan.test.ts`,
+control, a 23-vector scripted battery of which 22 create live hint links in
+Chromium without the lock (`execCommand` does not) and none with it, and a
+zero-request sink assertion), the same battery and the frame battery run
+cross-engine for this change with a throwaway three-project Playwright config
+(Chromium 147, Firefox 148, WebKit 26.4: zero hint links and zero frames under
+the locks in all three), `packages/shell/src/napplet-hint-scan.test.ts`,
 `napplet-realm-lock.test.ts`, the Paja rejection test in
 `packages/paja/src/browser-target-frame.test.ts`, and the guard in
 `tests/unit/nip5d-conformance-guard.test.ts`.
@@ -336,14 +345,15 @@ URL, path, query and fragment included, from `document.baseURI`. Paja keeps the
 opened pointer (`?naddr=`) and intent links (`?intent=`) in its query, so every
 napplet tab could read them (napplet/evil finding #2).
 
-Measured from a sandboxed `srcdoc` napplet on a host URL with a secret query:
+Measured from a sandboxed `srcdoc` napplet on a host page at
+`/shell/secret-path?token=…` (so `./` and `/` differ):
 
 | Channel | No control | iframe `referrerpolicy="no-referrer"` | host `<meta name="referrer">` / `Referrer-Policy` | host `<base href="./">` |
 |---|---|---|---|---|
 | `document.referrer`, Chromium 147 | host origin | empty | empty | — |
 | `document.referrer`, Firefox 148 | empty | empty | empty | — |
 | `document.referrer`, WebKit 26.4 | host origin | **host origin** (ignored for srcdoc) | empty | — |
-| `document.baseURI`, all three | full host URL | full host URL | full host URL | host directory only |
+| `document.baseURI`, all three | full host URL | full host URL | full host URL | host directory only (`/shell/`) |
 | `location.ancestorOrigins` | host origin | Chromium/WebKit: host origin; Firefox: `"null"` | host origin | host origin |
 | subresource `Referer` | none sent | none | none | none |
 
@@ -354,7 +364,8 @@ page. `@kehto/shell` exports the controls, none of which touch verified bytes:
 `renderNappletReferrerPolicyMeta()` (the portable control, WebKit included) and
 `renderNappletHostBase()` (drops file name, query and fragment from the
 inherited base). `ShellBridge.observeFrame` warns once when a frame lacks the
-referrer policy. Paja's host page and frames, and the e2e harness, apply all
+attribute or its host page lacks the referrer meta (`hasNappletReferrerPolicy`,
+`hasNappletReferrerPolicyMeta`). Paja's host page and frames, and the e2e harness, apply all
 three. A host-page `<base href="./">` changes how the host's own fragment-only
 and query-only references resolve; Paja has none.
 

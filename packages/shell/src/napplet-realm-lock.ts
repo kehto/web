@@ -112,7 +112,8 @@ function installDefaultPolicy(win: LockWindow, guards: HtmlGuard[]): void {
  *    reject frame tag names.
  * 3. XSLT: `XSLTProcessor.transformToFragment` builds elements from an XSL DOM without any factory or string sink
  *    (measured minting an iframe under this lock in Chromium 147, Firefox 148 and WebKit 26.4), so the constructor
- *    is removed from the realm.
+ *    is removed from the realm. Namespace-prefixed frame tags, which DOMParser's XML modes make live, are matched
+ *    by the string-sink guard.
  *
  * Node movement needs a pre-existing frame node (all routes closed), and escaping the pins needs a fresh realm
  * (child frame closed here, popup denied by the sandbox, worker has no DOM).
@@ -124,9 +125,11 @@ function nappletFrameLock(win: LockWindow, guards: HtmlGuard[]): void {
   const message = 'kehto: napplets may not create nested browsing contexts';
   const isFrameTag = (value: unknown): boolean => FRAME_ELEMENTS.has(String(value).toLowerCase());
   // A complete frame tag-name token (open or close), so a lexical check cannot be split by parse-context
-  // differences, plus a chunk that ends mid-tag (a streaming document.write frame-tag prefix).
-  const FRAME_TAG = /<\/?(?:iframe|frame|frameset|object|embed|portal|fencedframe)(?=[\s/>]|$)/i;
-  const FRAME_TAG_PREFIX = /<[a-zA-Z]*$/;
+  // differences, plus a chunk that ends mid-tag (a streaming document.write frame-tag prefix). An optional
+  // namespace prefix is matched too: DOMParser's XML modes turn `<h:iframe xmlns:h="…xhtml">` into a live XHTML
+  // iframe once adopted (measured in Chromium 147, Firefox 148 and WebKit 26.4).
+  const FRAME_TAG = /<\/?(?:[^\s/>:!?]+:)?(?:iframe|frame|frameset|object|embed|portal|fencedframe)(?=[\s/>]|$)/i;
+  const FRAME_TAG_PREFIX = /<[\w:.-]*$/;
   guards.push((input, sink) => {
     const blocked = /write/i.test(sink) ? FRAME_TAG.test(input) || FRAME_TAG_PREFIX.test(input) : FRAME_TAG.test(input);
     return blocked ? message : null;
@@ -193,6 +196,9 @@ function nappletHintLock(win: LockWindow, guards: HtmlGuard[]): void {
   const inert = win.document.implementation.createHTMLDocument('');
   guards.push((input, sink) => {
     if (/write/i.test(sink) && /<[^>]*$/.test(input)) return message;
+    // A prefixed link is an XHTML link once DOMParser parses the string as XML and the node is adopted; the HTML
+    // parse below would only see an unknown `h:link` element.
+    if (/<[^\s/>:!?]+:link(?=[\s/>]|$)/i.test(input)) return message;
     const template = inert.createElement('template');
     template.innerHTML = input;
     // Descend into nested <template> content: cloning it out later makes its links live without any setter.
