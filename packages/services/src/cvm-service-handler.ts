@@ -3,6 +3,7 @@ import type { ApprovalSignal, ServiceDescriptor, ServiceRuntimeContext } from '@
 import type { CvmDiscoverQuery, CvmRequestOptions, CvmServerRef, McpMessage } from './cvm-types.js';
 import type { CvmService, CvmServiceOptions } from './cvm-service.js';
 import { handleCvmRegistry, isCvmRegistryMethod } from './cvm-registry.js';
+import { randomUUID } from './random-uuid.js';
 
 const CVM_SERVICE_VERSION = '1.0.0';
 
@@ -249,7 +250,7 @@ export function createCvmServiceHandler(options: CvmServiceOptions): CvmService 
           const remaining = deadline - Date.now();
           if (remaining <= 0) throw new Error('relay timeout');
           const value = await transport.request({ ...server, relays: [...relays] }, {
-            jsonrpc: '2.0', id: globalThis.crypto.randomUUID(), method, ...(params ? { params } : {}),
+            jsonrpc: '2.0', id: randomUUID(), method, ...(params ? { params } : {}),
           }, { ...requestOptions, timeoutMs: remaining }, { signal: controller.signal });
           if (current(windowId, generation) && !controller.signal.aborted) remember(windowId, generation, server);
           return value;

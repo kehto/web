@@ -3,6 +3,9 @@ import type { ServiceHandler } from '@kehto/runtime';
 import type { NappletMessage } from '@napplet/core';
 import { createBrowserMediaPlayback } from './browser-media-playback.js';
 
+/** Captured before any test stubs the global, so stubs can delegate real entropy. */
+const nativeCrypto = globalThis.crypto;
+
 function fixture(mime = 'audio/wav') {
   const element = Object.assign(new EventTarget(), {
     tagName: mime.startsWith('video') ? 'VIDEO' : 'AUDIO',
@@ -52,6 +55,31 @@ describe('policy-mediated browser playback', () => {
     expect(f.urls.revokeObjectURL).toHaveBeenCalledExactlyOnceWith('blob:media-proof');
     expect(f.element.src).toBe('');
     expect(f.element.paused).toBe(true);
+  });
+
+  it('correlates the host resource read with a secure id when crypto.randomUUID is missing (kehto/web#351)', async () => {
+    const provider = {
+      getRandomValues: vi.fn(function (this: unknown, bytes: Uint8Array) {
+        if (this !== provider) throw new TypeError('Illegal invocation');
+        return nativeCrypto.getRandomValues(bytes);
+      }),
+    };
+    vi.stubGlobal('crypto', provider);
+    try {
+      const f = fixture();
+      const playback = await f.backend.open('source-window', { owner: 'shell', source: { blossomHash: 'a'.repeat(64) } }, new AbortController().signal, vi.fn());
+      // The id shares the window's resource-request namespace with the napplet, so it must be unguessable.
+      expect((f.requests[0]!.message as NappletMessage & { id: string }).id)
+        .toMatch(/^media-resource-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+      expect(provider.getRandomValues).toHaveBeenCalledOnce();
+      playback.destroy();
+      vi.stubGlobal('crypto', {});
+      const weak = vi.spyOn(Math, 'random');
+      await expect(fixture().backend.open('source-window', { owner: 'shell', source: { blossomHash: 'a'.repeat(64) } }, new AbortController().signal, vi.fn()))
+        .rejects.toThrow('@kehto/services requires crypto.randomUUID or crypto.getRandomValues');
+      expect(weak).not.toHaveBeenCalled();
+      weak.mockRestore();
+    } finally { vi.unstubAllGlobals(); }
   });
 
   it('uses classified video bytes and suppresses live seeking', async () => {
