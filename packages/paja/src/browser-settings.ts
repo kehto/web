@@ -205,7 +205,8 @@ export function installPajaSettingsPanel(store: PajaSettingsStore): () => void {
   const saveReload = document.getElementById('paja-settings-save-reload');
   const resetAll = document.getElementById('paja-settings-reset-all');
   const cancel = document.getElementById('paja-settings-cancel');
-  if (!open || !dialog || !fields || !status || !save || !saveReload || !resetAll || !cancel) return () => {};
+  // Without the panel markup there are no listeners to remove.
+  if (!open || !dialog || !fields || !status || !save || !saveReload || !resetAll || !cancel) return () => undefined;
 
   const show = (): void => {
     renderFields(fields, store);

@@ -258,10 +258,10 @@ describe('@kehto/paja CLI', () => {
     const io = { stdout: { write: () => undefined }, stderr: { write: (chunk: string) => { errors.push(chunk); } } };
     const errors: string[] = [];
     try {
-      writeFileSync(path, JSON.stringify({ targetUrl: 'http://127.0.0.1:5173', settings: { 'server.requestBodyMaxBytes': 8192 } }));
+      writeFileSync(path, JSON.stringify({ targetUrl: 'http://127.0.0.1:5173', settings: { 'server.requestBodyMaxBytes': 8192 } }), 'utf8');
       expect(await runPajaCli(['--config', path], io, { serve: false })).toBe(0);
       expect(getPajaSetting('server.requestBodyMaxBytes')).toBe(8192);
-      writeFileSync(path, JSON.stringify({ targetUrl: 'http://127.0.0.1:5173', settings: { 'server.requestBodyMaxBytes': 1 } }));
+      writeFileSync(path, JSON.stringify({ targetUrl: 'http://127.0.0.1:5173', settings: { 'server.requestBodyMaxBytes': 1 } }), 'utf8');
       expect(await runPajaCli(['--config', path], io, { serve: false })).toBe(1);
       expect(errors.join('')).toContain('server.requestBodyMaxBytes: Use a value from 256 to 1048576.');
     } finally {

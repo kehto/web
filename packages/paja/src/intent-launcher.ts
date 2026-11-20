@@ -6,8 +6,7 @@
  * link's URI and payload travel only over the parent-bound launcher channel.
  */
 
-import { NAPPLET_KIND_NAMED } from '@kehto/nip/5d';
-import { resolveNapplet } from '@kehto/nip/5d';
+import { NAPPLET_KIND_NAMED, resolveNapplet } from '@kehto/nip/5d';
 import type { NostrEvent } from 'nostr-tools';
 import { verifyEvent } from 'nostr-tools/pure';
 import { neventEncode } from 'nostr-tools/nip19';

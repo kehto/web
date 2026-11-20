@@ -70,9 +70,9 @@ describe('settings overrides reach their call sites', () => {
       relay: { subscribe: () => ({ close() {} }), publish: async () => {} }, isCurrent: () => true,
     });
     const request = { scope: { type: 'room' as const, room: 'r'.repeat(40) } };
-    expect(() => profile.planOpen!(request as never)).not.toThrow();
+    expect(() => profile.planOpen!(request as never, {} as never)).not.toThrow();
     setActivePajaSettings({ 'mp.roomMaxChars': 32 });
-    expect(() => profile.planOpen!(request as never)).toThrow('Invalid room');
+    expect(() => profile.planOpen!(request as never, {} as never)).toThrow('Invalid room');
   });
 
   it('intents: caps shareable links at intent.linkMaxBytes', () => {
@@ -117,7 +117,7 @@ describe('settings overrides reach their call sites', () => {
     vi.stubGlobal('document', { getElementById: () => null });
     setActivePajaSettings({ 'console.messageLogLimit': 10 });
     const state = { messageLog: [] as unknown[] } as Parameters<typeof appendPajaMessageLog>[0];
-    for (let index = 0; index < 15; index += 1) appendPajaMessageLog(state, 'in', { type: `m${String(index)}` });
+    for (let index = 0; index < 15; index += 1) appendPajaMessageLog(state, 'napplet->shell', { type: `m${String(index)}` });
     expect(state!.messageLog).toHaveLength(10);
   });
 

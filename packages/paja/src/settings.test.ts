@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   PAJA_SETTING_DEFINITIONS,
@@ -45,6 +46,15 @@ describe('Paja settings registry', () => {
         expect(definition.min, definition.key).toBeGreaterThan(0);
       }
       expect(Number.isFinite(definition.max), definition.key).toBe(true);
+    }
+  });
+});
+
+describe('Paja settings documentation', () => {
+  it.each(['../README.md', '../../../docs/packages/paja.md'])('lists every registered key with its default in %s', (path) => {
+    const text = readFileSync(new URL(path, import.meta.url), 'utf8');
+    for (const definition of PAJA_SETTING_DEFINITIONS) {
+      expect(text, definition.key).toMatch(new RegExp(`\\| \`${definition.key.replaceAll('.', '\\.')}\` \\| [^|]+ \\| ${String(definition.defaultValue)}\\b`, 'u'));
     }
   });
 });

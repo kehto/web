@@ -77,7 +77,9 @@ function literals(file: string): number[] {
   return found.filter((value) => !TRIVIAL.has(value));
 }
 
-const files = readdirSync(SRC).filter((name) => name.endsWith('.ts') && !name.endsWith('.test.ts') && !name.endsWith('.d.ts'));
+const files = readdirSync(SRC, { withFileTypes: true })
+  .map((entry) => entry.name)
+  .filter((name) => name.endsWith('.ts') && !name.endsWith('.test.ts') && !name.endsWith('.d.ts'));
 
 describe('Paja numeric-literal guard', () => {
   it('finds no unregistered tunable numbers in shipped source', () => {
