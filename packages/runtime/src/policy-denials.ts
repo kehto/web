@@ -1,0 +1,66 @@
+/**
+ * policy-denials.ts — per-NAP wire projection of a runtime ACL or Firewall denial.
+ *
+ * NIP-5D defines no generic `<type>.error` reply, and most NAPs carry failures in
+ * the request's own `.result` envelope. Each row below is an exact
+ * napplet-to-shell request type whose owning NAP states that shape. A type with
+ * no row keeps the runtime's older generic projection; those are listed as spec
+ * gaps in docs/policies/NIP-5D-CONFORMANCE.md rather than guessed here.
+ *
+ * Refs checked (napplet/naps):
+ * - NAP-CVM    #31 @ 28cf1bdb — "There are no `cvm.*.error` messages; ACL denial
+ *   returns the matching `.result` with `error: "policy denied"`. On a shell
+ *   error, success payload fields MUST be omitted."
+ */
+
+import type { NappletMessage } from '@napplet/core';
+
+/** Build a denial from the request id, the runtime's reason, and the request. */
+type DenialProjection = (id: string, reason: string, message: NappletMessage) => NappletMessage | null;
+
+/** `<type>.result` carrying only `id` and the given (or passed-through) error. */
+function resultError(type: string, error?: string, fields: Record<string, unknown> = {}): DenialProjection {
+  return (id, reason) => ({ type: `${type}.result`, id, ...fields, error: error ?? reason } as NappletMessage);
+}
+
+const CVM_REQUESTS = ['cvm.discover', 'cvm.request', 'cvm.close', 'cvm.registry.list',
+  'cvm.registry.has', 'cvm.registry.describe', 'cvm.registry.call'] as const;
+const POLICY_DENIALS: Readonly<Record<string, DenialProjection>> = Object.freeze({
+  ...Object.fromEntries(CVM_REQUESTS.map((type) => [type, resultError(type, 'policy denied')])),
+});
+
+/**
+ * Project a denied napplet request onto its owning NAP's failure wire.
+ *
+ * @param message - The denied napplet-to-shell envelope.
+ * @param reason - Runtime diagnostic, used only where the NAP has no fixed code.
+ * @returns The denial envelope, `null` when the NAP defines no reply, or
+ *   `undefined` when no NAP-specific row exists for this type.
+ * @example
+ * createPolicyDenialResult({ type: 'cvm.request', id: 'denied-1' } as NappletMessage, 'denied: cvm:call');
+ * // => { type: 'cvm.request.result', id: 'denied-1', error: 'policy denied' }
+ */
+export function createPolicyDenialResult(message: NappletMessage, reason: string): NappletMessage | null | undefined {
+  if (!Object.prototype.hasOwnProperty.call(POLICY_DENIALS, message.type)) return undefined;
+  const rawId = (message as NappletMessage & { id?: unknown }).id;
+  return POLICY_DENIALS[message.type](typeof rawId === 'string' ? rawId : '', reason, message);
+}
+
+/** Domains whose unlisted request types get no generic `.error` reply. */
+const NAP_DEFINED_DOMAINS = new Set(['cvm']);
+
+/**
+ * Whether an unlisted type in this domain must stay silent instead of
+ * receiving the generic projection.
+ *
+ * NAP-CVM #31 @ 28cf1bdb: "Truly unknown message types retain the
+ * silent-ignore behavior defined by NIP-5D."
+ *
+ * @param message - The denied envelope.
+ * @returns `true` for unknown types in a domain whose NAP forbids invented replies.
+ * @example
+ * isSilentUnknownDenial({ type: 'cvm.bogus' } as NappletMessage); // => true
+ */
+export function isSilentUnknownDenial(message: NappletMessage): boolean {
+  return NAP_DEFINED_DOMAINS.has(message.type.slice(0, message.type.indexOf('.')));
+}

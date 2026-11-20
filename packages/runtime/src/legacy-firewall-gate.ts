@@ -4,6 +4,7 @@ import type { LegacyFirewallObservation as Observation, LegacyFirewallAdapter } 
 import type { RuntimeAdapter, FirewallEvent } from './types.js';
 import type { SessionRegistry } from './session-registry.js';
 import { createCanonicalDomainResult, createIntentPolicyDenial, createLlmErrorResult } from './domain-results.js';
+import { createPolicyDenialResult, isSilentUnknownDenial } from './policy-denials.js';
 
 declare const console: { warn(message: string): void };
 
@@ -212,6 +213,10 @@ export function createDenialResponse(envelope: NappletMessage, error: string): N
       error,
     } as NappletMessage;
   }
+  // NAP-specific failure wires first; see policy-denials.ts for the refs.
+  const projected = createPolicyDenialResult(envelope, error);
+  if (projected !== undefined) return projected;
+  if (isSilentUnknownDenial(envelope)) return null;
   const type = denialResponseType(envelope);
   return type ? { type, id, error } as NappletMessage : null;
 }
