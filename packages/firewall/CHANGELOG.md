@@ -1,5 +1,79 @@
 # @kehto/firewall
 
+## 0.11.0
+
+### Minor Changes
+
+- d9e4118: Make the Firewall's requirement and grant caps host policy (kehto/web#514).
+
+  - `PermissionPolicyOptions` gains `maxRequirements` (default
+    `MAX_PERMISSION_REQUIREMENTS`, 128) and `maxGrants` (default
+    `MAX_PERMISSION_GRANTS`, 2048). `permissionLimits()` validates them against
+    `MAX_PERMISSION_REQUIREMENTS_CEILING` (1024) and
+    `MAX_PERMISSION_GRANTS_CEILING` (16384) and throws a `RangeError` otherwise.
+  - `PermissionAdapter` accepts both; the approval coordinator validates them when
+    it is built, and services see the first as
+    `ServiceRuntimeContext.maxPermissionRequirements`.
+  - `ApprovalFailure` gains `capacity`: a full grant table is reported as host
+    capacity, not a denial. OUTBOX and runtime `relay.*` answer it with
+    `approval capacity reached` (kehto/web#513).
+  - OUTBOX plans and COUNT size themselves to the configured `maxRequirements`;
+    `createRelayPoolOutboxRouter` takes `maxRelayOrigins` for its coverage selection.
+  - Paja exposes `firewall.maxRequirements` (2–1024) and `firewall.maxGrants`
+    (64–16384) in its Firewall settings group; they apply on reload.
+
+- 63d0254: Keep the Firewall grant table bounded and fair (kehto/web#513). A default-rule `allow` no longer writes a session grant: the rule is consulted on every check, `RuntimePermissions.rulesChanged()` closes live work admitted under old rules, and `DEFAULT_RULE_GRANT_PREFIX` / `isRuleGrant` are deprecated. Each napplet holds at most `maxGrantsPerPrincipal` grants (default 512, new Paja setting `firewall.maxGrantsPerNapplet`), and `admitPermissionGrants` makes room by evicting the oldest session grants before refusing; persistent and once grants are never evicted.
+- 2d646ed: Keep large relay plans approvable within one Firewall request (kehto/web#455).
+  An `outbox.subscribe` for a 709-follow timeline used to close with
+  `policy denied` even under a default allow, because its plan named more relay
+  origins than a request may carry.
+
+  - `@kehto/firewall` exports `MAX_PERMISSION_REQUIREMENTS` (128), re-exported by
+    `@kehto/runtime`. The cap itself is unchanged.
+  - OUTBOX read plans contact at most 127 relay origins. The reference router
+    picks a larger plan's relays by author coverage, deterministically and with
+    napplet hints last, and the service bounds any router's plan before approval.
+    Approval names each origin once. Unusable relay URLs are skipped instead of
+    failing the plan, and a read that left an author without relays is
+    `incomplete: true` (NAP-OUTBOX napplet/naps#32 at `8865f73d`).
+  - An OUTBOX publish keeps every required own/inbox relay. When those cannot fit
+    one approval it fails before signing with `too many relays`, never a denial;
+    only explicit `options.relays` extras are trimmed.
+  - Runtime `relay.*` approval names each origin once, and a host plan over the
+    cap fails with `too many relays` instead of a denial. COUNT does the same with
+    `too-expensive` (NAP-COUNT napplet/naps#69 at `9353a0c6`).
+  - The browser approval prompt shows the origins of one mediated operation as a
+    single "contact N origins" row listing the exact origins. Groups up to
+    `openOriginLimit` (a new `createBrowserApprovalUi` option, default
+    `DEFAULT_PROMPT_OPEN_ORIGINS` = 5) start open; Paja exposes it as the
+    `firewall.promptOpenOrigins` setting.
+
+### Patch Changes
+
+- affae5e: Take the NAP-CVM registry types from `@napplet/core` 0.42.0 and retire Kehto's local copies (kehto/web#441). Checked against NAP-CVM PR #31 at `28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f`.
+
+  - `@kehto/services` re-exports `CvmRegistrySelector`, `CvmRegistryEntry`, `CvmRegistryTool` and `CvmRegistryCallOptions` from core under the same names, and adds `CvmRegistryOptions` and `CvmRegistryQuery`. `CvmRegistrySelector` is now core's union, so an empty `{}` selector no longer type-checks (the runtime already rejected it). `CvmRegistryFamily` stays Kehto's host configuration type.
+  - `@kehto/mocks`: `MockCvmRegistryEntry` extends core's `CvmRegistryEntry`.
+  - Breaking peer change: `@kehto/services`, `@kehto/mocks`, `@kehto/paja` and `@kehto/cli` now need `@napplet/core` `>=0.42.0 <0.43.0`. Install `@napplet/core@^0.42.0` (and `@napplet/nap@^0.41.0` if you want the matching bindings) when upgrading.
+  - All host packages admit `@napplet/core` 0.42.x and `@napplet/nap` 0.41.x; `@kehto/acl`, `@kehto/firewall`, `@kehto/runtime` and `@kehto/shell` keep their existing floors.
+  - The injected string-family adapter and its `KEHTO_CVM_FAMILY_SELECTOR` warning are unchanged. `@napplet/nap` 0.41.0 does not translate string-family calls, so napplets built against older bindings still rely on it.
+
+- 5146f60: Move the host line to `@napplet/core` 0.44.0 / `@napplet/nap` 0.43.0 (kehto/web#496). Checked NAP-MEDIA PR #10 at `7806f438530251fce5129f8e6239d6b642278759`, NAP-WEBRTC PR #59 at `fb4dd6f0e6294e1837733d2af61931e3e114bd97` and NAP-RESOURCE PR #80 at `ae5b9c64ab8a4d8909f288829a01e99d6bd713bc`.
+
+  - All host packages admit `@napplet/core` up to 0.44.x and `@napplet/nap` up to 0.43.x, and develop and build on that line. Other peer floors are unchanged.
+  - Breaking peer change for `@kehto/mocks`: it now needs `@napplet/core` `>=0.44.0 <0.45.0` and `@napplet/nap` `>=0.43.0 <0.44.0`. The NAP-WEBRTC mock uses the packaged `WebrtcSession` (delivery fields, `maxPayloadBytes`) and `WebrtcEvent` (`bytes`, `stats`) directly, and `MockMediaPlaybackState` is now the packaged `MediaState`, which carries `reason`.
+  - `@kehto/shell`: the injected `window.napplet.webrtc` gains `sendBytes(sessionId, bytes)`, which sends `webrtc.sendBytes` and settles on `webrtc.sendBytes.result` (rejecting with the shell's error, such as `unsupported`). Before this, `@napplet/nap` 0.43's `webrtcSendBytes` hit a missing method. The deprecated positional `media.sendCommand(id, action, value, reason)` and `media.onCommand(id, (action, value, reason) => ...)` now carry `reason`, as nap 0.43 passes it; their `KEHTO-MEDIA-*` warnings are unchanged.
+  - `@kehto/services`: the media and WebRTC handlers type `media.session.ended` and `webrtc.sendBytes` with the packaged messages. Wire behavior is unchanged; `webrtc.sendBytes` still answers `unsupported`.
+  - `@kehto/conformance`: the operation inventory is regenerated from `@napplet/nap` 0.43.0, so `catalog/package-drift` passes for the pinned media and WebRTC drafts.
+
+- 7d3f35d: Move the host line to `@napplet/core` 0.45.0 / `@napplet/nap` 0.45.0 (kehto/web#518). Checked NAP-CVM PR #31 at `28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f`, NAP-INTENT at master `377bf939c6c906817084b43dd21d424de646dbc2`, NAP-RESOURCE PR #80 at `ae5b9c64ab8a4d8909f288829a01e99d6bd713bc` and NAP-UPLOAD PR #33 at `f5cc981e527e2cc1572793a7a6e5082e5271ac49`.
+
+  - All host packages admit `@napplet/core` and `@napplet/nap` up to 0.45.x, and develop and build on that line. No peer floor moves.
+  - Breaking type change for `@kehto/services`: `CvmDiscoverResultMessage` is now a union of `CvmDiscoverSuccessResultMessage` (`servers` required) and `CvmDiscoverErrorResultMessage` (`error` only), both exported, matching NAP-CVM's Error Handling and nap 0.45. A value with both `servers` and `error` no longer type-checks. The wire is unchanged.
+  - `@kehto/services`, `@kehto/runtime`, `@kehto/mocks`: `intent.available.result` and `intent.handlers.result` failures (invalid archetype, catalog unavailable, policy denial) now carry an empty `availability` (`available: false`, no candidates) or `handlers: []` beside `error`, as the NAP-INTENT wire table requires.
+  - `@kehto/shell`: the injected `cvm.discover` rejects a success reply without a `servers` list (`cvm.discover.result missing servers`) instead of resolving `[]`.
+  - `@kehto/conformance`: the inventory is regenerated from nap 0.45.0, which clears the CVM and INTENT rows of `catalog/package-field-drift`. `upload.upload.result` `result` is recorded as a NAP-UPLOAD table-versus-Error-Handling contradiction (napplet/naps#33) and reports `spec-gap`. `upload.info.result` / `upload.status.result` still fail as package drift.
+
 ## 0.10.0
 
 ### Minor Changes
