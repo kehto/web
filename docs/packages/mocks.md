@@ -1,7 +1,8 @@
 # @kehto/mocks
 
 Deterministic, in-memory mock services for every napplet NAP domain — merged
-and draft alike — so a shell has data to work with while implementing a NAP,
+and draft alike, except the few new drafts listed in
+`scripts/deferred-naps.json` — so a shell has data to work with while implementing a NAP,
 without a real relay, device, downloader, wallet, or language-model provider.
 
 > **Alpha status:** Kehto is an early runtime toolkit for a draft NIP-5D

@@ -1,7 +1,8 @@
 # @kehto/mocks
 
 Deterministic, in-memory mock services for every napplet NAP domain — merged
-and draft alike — so a shell built on `@kehto/*` has data to work with while
+and draft alike, except the few new drafts listed in
+`scripts/deferred-naps.json` — so a shell built on `@kehto/*` has data to work with while
 implementing a NAP, without a real relay, device, downloader, wallet, or
 language-model provider.
 
@@ -129,9 +130,14 @@ hashtree, git) model Linux distribution images only.
 ## Keeping up with `napplet/naps`
 
 ```bash
-pnpm --filter @kehto/mocks audit:naps           # current / stale / retired / missing
+pnpm --filter @kehto/mocks audit:naps           # current / stale / retired / missing / deferred
 pnpm --filter @kehto/mocks audit:naps -- --strict
 ```
+
+New drafts Kehto has no support for yet can be pinned in
+`scripts/deferred-naps.json` (PR number, head sha, one-line reason). They show
+as `deferred` and do not fail `--strict` until the head moves or the PR
+closes.
 
 See `skills/use-nap-mocks/SKILL.md` (integrating) and
 `skills/maintain-nap-mocks/SKILL.md` (updating) at the repository root.
