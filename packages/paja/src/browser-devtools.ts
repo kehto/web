@@ -1,4 +1,11 @@
 import { classifyPajaMessageOutcome, type PajaMessageOutcome } from './message-log-outcome.js';
+
+/** Badge text for each highlighted message-log outcome. */
+const PAJA_OUTCOME_LABELS: Readonly<Record<PajaMessageOutcome, string>> = {
+  denied: 'denied',
+  rejected: 'rejected (policy or handler)',
+  failed: 'failed, not a denial',
+};
 import type { NappletMessage } from '@napplet/core';
 import {
   ALL_CAPABILITIES,
@@ -299,7 +306,7 @@ export function renderPajaMessageLog(state: PajaDevtoolsState): void {
       if (entry.outcome) {
         const badge = document.createElement('span');
         badge.className = 'log-outcome';
-        badge.textContent = entry.outcome === 'denied' ? 'denied' : 'failed, not a denial';
+        badge.textContent = PAJA_OUTCOME_LABELS[entry.outcome];
         body.append(badge);
       }
       body.append(type);

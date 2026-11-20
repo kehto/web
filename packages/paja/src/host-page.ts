@@ -169,6 +169,9 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .log-row[data-outcome="failed"] .log-detail { color: #e2c78a; }
       .log-outcome { justify-self: start; padding: 0 4px; border-radius: 3px; font-size: 10px; background: #4a2020; color: #f0b8b8; }
       .log-row[data-outcome="failed"] .log-outcome { background: #3d3418; color: #e2c78a; }
+      .log-row[data-outcome="rejected"] { background: #1d1620; }
+      .log-row[data-outcome="rejected"] .log-detail { color: #d6b8e2; }
+      .log-row[data-outcome="rejected"] .log-outcome { background: #3a2442; color: #e2c8ee; }
       .log-row:last-child { border-bottom: 0; }
       .log-dir { color: var(--muted); }
       .log-body { min-width: 0; display: grid; gap: 2px; }
