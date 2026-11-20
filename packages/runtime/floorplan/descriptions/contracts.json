@@ -1,0 +1,16 @@
+{
+  "files": {
+    "src/persistence-types.ts": {
+      "name": "Saved-data contracts",
+      "description": "Describes what the host must store for the runtime: permissions, manifests, napplet data and the host secret."
+    },
+    "src/service-types.ts": {
+      "name": "Host service contracts",
+      "description": "Describes how a host service plugs in, what limited powers the runtime grants it, and how relay services plan destinations up front."
+    },
+    "src/types.ts": {
+      "name": "Host plug-in contracts",
+      "description": "Describes every piece a host supplies: message sending, relays, signer, storage, window manager, consent prompts and settings."
+    }
+  }
+}

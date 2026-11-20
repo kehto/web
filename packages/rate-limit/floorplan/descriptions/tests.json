@@ -1,0 +1,24 @@
+{
+  "files": {
+    "src/rate-limit.test.ts": {
+      "name": "Budget check tests",
+      "description": "Checks budgets refill, startup limits, focus tightening, clock going backwards and bad settings; the cap object itself isn't tested here."
+    },
+    "src/legacy/evaluate.test.ts": {
+      "name": "Legacy check tests",
+      "description": "Checks the older rules, content matchers and limits produce the expected decisions."
+    },
+    "src/legacy/config.test.ts": {
+      "name": "Legacy settings tests",
+      "description": "Checks settings changes leave old copies untouched and bad saved text falls back to defaults."
+    },
+    "src/legacy/defaults.test.ts": {
+      "name": "Legacy default tests",
+      "description": "Checks the older model's built-in limits."
+    },
+    "src/legacy/budget-setters.test.ts": {
+      "name": "Legacy limit setter tests",
+      "description": "Checks the out-of-focus and startup-limit setters, including zero limits surviving a save and reload."
+    }
+  }
+}

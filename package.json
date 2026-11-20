@@ -30,7 +30,11 @@
     "site:preview": "pnpm site:build && pnpm site:serve",
     "site:serve": "node scripts/serve-pages.mjs",
     "version-packages": "changeset version && node scripts/sync-jsr-versions.mjs",
-    "publish-packages": "turbo run build && changeset publish"
+    "publish-packages": "turbo run build && changeset publish",
+    "floorplans:check": "node scripts/floorplans.mjs check",
+    "floorplans:refresh": "node scripts/floorplans.mjs refresh",
+    "floorplans:baseline": "node scripts/floorplans.mjs baseline",
+    "floorplans:pages": "node scripts/floorplans.mjs pages"
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",

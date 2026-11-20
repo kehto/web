@@ -1,0 +1,8 @@
+{
+  "files": {
+    "src/5a/index.ts": {
+      "name": "Aggregate file hash",
+      "description": "Computes one fingerprint over a list of file paths and hashes and checks it against the published value."
+    }
+  }
+}

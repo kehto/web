@@ -1,0 +1,20 @@
+{
+  "files": {
+    "src/event-buffer.ts": {
+      "name": "Recent events and delivery",
+      "description": "Keeps a ring of recent nostr events and delivers matching ones to each napplet's open subscriptions."
+    },
+    "src/relay-handler.ts": {
+      "name": "Relay request handler",
+      "description": "Handles a napplet's relay subscribe, query and publish requests: plans relays, gets approval, signs, encrypts and sends."
+    },
+    "src/relay-result.ts": {
+      "name": "Relay read results",
+      "description": "Packages a nostr event with optional extra details, such as which relays it came from, for read replies."
+    },
+    "src/replay.ts": {
+      "name": "Duplicate event guard",
+      "description": "Rejects events already seen or stamped too far outside the allowed time window."
+    }
+  }
+}

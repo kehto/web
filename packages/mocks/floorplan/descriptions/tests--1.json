@@ -1,0 +1,164 @@
+{
+  "files": {
+    "src/core/handler.test.ts": {
+      "name": "Mock recipe tests",
+      "description": "Checks route matching, recorded replies, pushes, delays and reset in the shared mock recipe."
+    },
+    "src/domains/ble.test.ts": {
+      "name": "Bluetooth mock tests",
+      "description": "Checks the bluetooth mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/blossom.test.ts": {
+      "name": "Blossom mock tests",
+      "description": "Checks the blossom mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/capture.test.ts": {
+      "name": "Capture mock tests",
+      "description": "Checks the capture mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/catalog.test.ts": {
+      "name": "Catalog mock tests",
+      "description": "Checks the catalog mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/class.test.ts": {
+      "name": "Security class mock tests",
+      "description": "Checks the security class mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/common.test.ts": {
+      "name": "Common Nostr actions mock tests",
+      "description": "Checks the common nostr actions mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/config.test.ts": {
+      "name": "Settings mock tests",
+      "description": "Checks the settings mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/connect.test.ts": {
+      "name": "Network grants mock tests",
+      "description": "Checks the network grants mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/count.test.ts": {
+      "name": "Event count mock tests",
+      "description": "Checks the event count mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/cvm.test.ts": {
+      "name": "ContextVM mock tests",
+      "description": "Checks the contextvm mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/display.test.ts": {
+      "name": "Display mock tests",
+      "description": "Checks the display mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/dm.test.ts": {
+      "name": "Direct messages mock tests",
+      "description": "Checks the direct messages mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/fs.test.ts": {
+      "name": "File system mock tests",
+      "description": "Checks the file system mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/gamepad.test.ts": {
+      "name": "Game controller mock tests",
+      "description": "Checks the game controller mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/git.test.ts": {
+      "name": "Git mock tests",
+      "description": "Checks the git mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/hashtree.test.ts": {
+      "name": "Hashtree mock tests",
+      "description": "Checks the hashtree mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/identity.test.ts": {
+      "name": "Identity mock tests",
+      "description": "Checks the identity mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/inc.test.ts": {
+      "name": "Inter-napplet entry mock tests",
+      "description": "Checks the inter-napplet entry mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/intent.test.ts": {
+      "name": "Intents mock tests",
+      "description": "Checks the intents mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/keys.test.ts": {
+      "name": "Keyboard shortcuts mock tests",
+      "description": "Checks the keyboard shortcuts mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/link.test.ts": {
+      "name": "Open link mock tests",
+      "description": "Checks the open link mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/lists.test.ts": {
+      "name": "Lists mock tests",
+      "description": "Checks the lists mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/llm.test.ts": {
+      "name": "Language model mock tests",
+      "description": "Checks the language model mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/location.test.ts": {
+      "name": "Location mock tests",
+      "description": "Checks the location mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/media.test.ts": {
+      "name": "Media playback mock tests",
+      "description": "Checks the media playback mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/motion.test.ts": {
+      "name": "Motion mock tests",
+      "description": "Checks the motion mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/navigation.test.ts": {
+      "name": "Navigation mock tests",
+      "description": "Checks the navigation mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/notify.test.ts": {
+      "name": "Notifications mock tests",
+      "description": "Checks the notifications mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/nzb.test.ts": {
+      "name": "Usenet download mock tests",
+      "description": "Checks the usenet download mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/outbox.test.ts": {
+      "name": "Outbox mock tests",
+      "description": "Checks the outbox mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/pow.test.ts": {
+      "name": "Proof-of-work mock tests",
+      "description": "Checks the proof-of-work mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/relay.test.ts": {
+      "name": "Relay mock tests",
+      "description": "Checks the relay mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/resource.test.ts": {
+      "name": "Resource mock tests",
+      "description": "Checks the resource mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/serial.test.ts": {
+      "name": "Serial port mock tests",
+      "description": "Checks the serial port mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/shell.test.ts": {
+      "name": "Shell entry mock tests",
+      "description": "Checks the shell entry mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/soulseek.test.ts": {
+      "name": "Soulseek mock tests",
+      "description": "Checks the soulseek mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/storage.test.ts": {
+      "name": "Saved data mock tests",
+      "description": "Checks the saved data mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/system.test.ts": {
+      "name": "System status mock tests",
+      "description": "Checks the system status mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/theme.test.ts": {
+      "name": "Theme mock tests",
+      "description": "Checks the theme mock's answers, pushes, controls and reset against its spec draft."
+    }
+  }
+}

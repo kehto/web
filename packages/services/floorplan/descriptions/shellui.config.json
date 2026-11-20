@@ -1,0 +1,12 @@
+{
+  "files": {
+    "src/config-schema.ts": {
+      "name": "Settings form checks",
+      "description": "Checks a napplet's declared settings form uses only supported rules, and fills in defaults while dropping invalid values."
+    },
+    "src/config-service.ts": {
+      "name": "Napplet settings service",
+      "description": "Lets napplets declare a settings form and read their values, while the shell stores them and pushes live updates."
+    }
+  }
+}

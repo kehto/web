@@ -1,0 +1,28 @@
+{
+  "files": {
+    "src/dm-cordn-adapter.ts": {
+      "name": "Cordn messaging option",
+      "description": "Sends and receives private messages through Cordn group messaging over ContextVM, storing them in memory."
+    },
+    "src/dm-memory-store.ts": {
+      "name": "In-memory conversations",
+      "description": "Keeps private messages grouped by conversation in memory, with paging for conversation and message lists."
+    },
+    "src/dm-ndr-adapter.ts": {
+      "name": "Double Ratchet messaging option",
+      "description": "Sends and receives private messages with Nostr Double Ratchet encryption, carried over Kehto's relay hooks."
+    },
+    "src/dm-nip17-adapter.ts": {
+      "name": "NIP-17 messaging option",
+      "description": "Sends and receives private messages in the NIP-17 sealed-message format through a relay pool."
+    },
+    "src/dm-service.ts": {
+      "name": "Private messages service",
+      "description": "Answers napplet requests to list, read, send and follow private messages, after relay approval, using the chosen messaging option."
+    },
+    "src/dm-types.ts": {
+      "name": "Private message shapes",
+      "description": "Describes the relay pool and messaging-option contract the private messages service relies on."
+    }
+  }
+}

@@ -1,0 +1,273 @@
+{
+  "$schema": "floorplan/architecture@1",
+  "project": {
+    "name": "@kehto/runtime",
+    "summary": "The protocol engine a napplet host runs: every message a napplet (a small app sandboxed in an iframe) sends arrives here, is checked against what that napplet is allowed to do, is handed to the right NAP domain (relay, storage, inc, identity and so on) or to a host service, and gets its reply sent back. It touches no browser APIs; the host plugs in relays, a signer, storage and approval screens.",
+    "entrypoints": [
+      "src/index.ts",
+      "src/runtime.ts"
+    ]
+  },
+  "nodes": [
+    {
+      "id": "core",
+      "label": "Engine core",
+      "kind": "service",
+      "summary": "Builds the runtime a host creates, receives each napplet message, keeps track of which napplet windows are live, and routes the message onward.",
+      "paths": [
+        "src/index.ts",
+        "src/runtime.ts",
+        "src/session-registry.ts",
+        "src/manifest-cache.ts",
+        "src/key-derivation.ts"
+      ]
+    },
+    {
+      "id": "contracts",
+      "label": "Host plug-in contracts",
+      "kind": "library",
+      "summary": "Describes everything a host must or may supply (relays, signer, storage, window manager, services) and what the runtime saves through it.",
+      "paths": [
+        "src/types.ts",
+        "src/service-types.ts",
+        "src/persistence-types.ts"
+      ]
+    },
+    {
+      "id": "domains",
+      "label": "NAP domain handlers",
+      "kind": "feature",
+      "summary": "Answers each built-in NAP domain a napplet can call: relay reads and publishes, napplet-to-napplet messaging, storage, identity, counts and theme.",
+      "paths": [
+        "src/domain-handlers.ts",
+        "src/domain-results.ts"
+      ]
+    },
+    {
+      "id": "domains.relay",
+      "parent": "domains",
+      "label": "Relay requests",
+      "kind": "feature",
+      "summary": "Subscribes, queries and publishes nostr events through the host's relays, signing on the napplet's behalf, buffering recent events and dropping replays.",
+      "paths": [
+        "src/relay-handler.ts",
+        "src/relay-result.ts",
+        "src/event-buffer.ts",
+        "src/replay.ts"
+      ]
+    },
+    {
+      "id": "domains.inc",
+      "parent": "domains",
+      "label": "Napplet-to-napplet messaging",
+      "kind": "feature",
+      "summary": "Lets napplets open channels and send messages to each other (the inc domain), checking who each end really is.",
+      "paths": [
+        "src/inc-handler.ts"
+      ]
+    },
+    {
+      "id": "domains.simple",
+      "parent": "domains",
+      "label": "Storage, identity and counts",
+      "kind": "feature",
+      "summary": "Keeps each napplet's saved key/value data within its storage allowance, and answers identity and event-count questions through host services.",
+      "paths": [
+        "src/state-handler.ts",
+        "src/identity-handler.ts",
+        "src/count-handler.ts"
+      ]
+    },
+    {
+      "id": "services",
+      "label": "Host service routing",
+      "kind": "feature",
+      "summary": "Passes messages for host-provided services and host-defined extension domains to the right service, and tells services when a window closes or a permission is taken back.",
+      "paths": [
+        "src/service-dispatch.ts",
+        "src/service-extensions.ts"
+      ]
+    },
+    {
+      "id": "access",
+      "label": "Permissions and approvals",
+      "kind": "feature",
+      "summary": "Decides whether a napplet may do what it asks: fixed capability grants, scoped approvals the user answers in the host's prompt, and rate budgets that can refuse but never grant.",
+      "paths": [
+        "src/temporal-policy.ts"
+      ]
+    },
+    {
+      "id": "access.acl",
+      "parent": "access",
+      "label": "Capability checks",
+      "kind": "feature",
+      "summary": "Holds each napplet's granted capabilities, blocks and storage allowance, and checks every incoming message against them.",
+      "paths": [
+        "src/enforce.ts",
+        "src/acl-state.ts"
+      ]
+    },
+    {
+      "id": "access.approvals",
+      "parent": "access",
+      "label": "Scoped approvals",
+      "kind": "feature",
+      "summary": "Asks the user (through the host) to approve a specific operation, remembers the answers, and admits interface use before it runs.",
+      "paths": [
+        "src/permission-runtime.ts",
+        "src/permission-state.ts",
+        "src/permission-admission.ts",
+        "src/approval-coordinator.ts",
+        "src/approval-envelope.ts"
+      ]
+    },
+    {
+      "id": "access.legacy",
+      "parent": "access",
+      "label": "Older firewall path",
+      "kind": "feature",
+      "summary": "Keeps the earlier time-based firewall working for hosts that have not moved to scoped approvals yet, with a warning when it is used.",
+      "paths": [
+        "src/legacy-firewall-gate.ts",
+        "src/legacy-firewall-adapter.ts"
+      ]
+    },
+    {
+      "id": "tests",
+      "label": "Tests",
+      "kind": "test",
+      "summary": "Automatic checks for dispatch, every domain, approvals, firewall and relay behaviour, plus shared fake hosts used by those checks.",
+      "paths": [
+        "src/**/*.test.ts",
+        "src/test-utils.ts",
+        "src/legacy-test-utils.ts"
+      ]
+    },
+    {
+      "id": "build",
+      "label": "Build settings",
+      "kind": "config",
+      "summary": "Settings for turning the source into the published package.",
+      "paths": [
+        "tsup.config.ts"
+      ]
+    },
+    {
+      "id": "napplet",
+      "label": "Napplet protocol definitions",
+      "kind": "external",
+      "summary": "The @napplet packages that define the message shapes and the dispatch table the engine plugs its handlers into.",
+      "packages": [
+        "npm:@napplet/core",
+        "npm:@napplet/nap"
+      ]
+    },
+    {
+      "id": "kehto-acl",
+      "label": "Kehto ACL",
+      "kind": "external",
+      "summary": "Sister package with the list of capabilities and the pure allow/deny check.",
+      "packages": [
+        "npm:@kehto/acl"
+      ]
+    },
+    {
+      "id": "kehto-firewall",
+      "label": "Kehto firewall",
+      "kind": "external",
+      "summary": "Sister package that evaluates scoped permission rules.",
+      "packages": [
+        "npm:@kehto/firewall"
+      ]
+    },
+    {
+      "id": "crypto",
+      "label": "Noble crypto",
+      "kind": "external",
+      "summary": "Hashing and signature libraries used to derive a stable key per napplet.",
+      "packages": [
+        "npm:@noble/hashes",
+        "npm:@noble/curves"
+      ]
+    }
+  ],
+  "flows": [
+    {
+      "id": "message",
+      "title": "A napplet asks to publish a note",
+      "steps": [
+        {
+          "node": "src/runtime.ts",
+          "note": "The host passes the napplet's message to the runtime, which looks up which napplet window sent it."
+        },
+        {
+          "node": "access.acl",
+          "note": "The capability check confirms this napplet is allowed to publish to relays."
+        },
+        {
+          "node": "access.approvals",
+          "note": "If the host uses scoped approvals, the user is asked to approve this exact publish."
+        },
+        {
+          "node": "domains.relay",
+          "note": "The relay handler plans which relays to use, has the host sign the event and publishes it."
+        },
+        {
+          "node": "src/runtime.ts",
+          "note": "The result goes back to the napplet as a reply message."
+        }
+      ]
+    },
+    {
+      "id": "service",
+      "title": "A message for a host service",
+      "steps": [
+        {
+          "node": "src/runtime.ts",
+          "note": "A message arrives for a domain the host provides as a service, or a host-defined extension."
+        },
+        {
+          "node": "access.acl",
+          "note": "It is checked against the napplet's capabilities first."
+        },
+        {
+          "node": "services",
+          "note": "The router finds the registered service and passes the message on, with a way for the service to ask for approval."
+        }
+      ]
+    }
+  ],
+  "tour": [
+    {
+      "node": "core",
+      "title": "The engine",
+      "note": "A host (like the Kehto shell) creates one runtime. Everything a napplet says comes in here."
+    },
+    {
+      "node": "contracts",
+      "title": "What the host plugs in",
+      "note": "The runtime never touches the browser. Relays, signing, storage and prompts are supplied by the host through these contracts."
+    },
+    {
+      "node": "access",
+      "title": "Is it allowed?",
+      "note": "Every message is checked against the napplet's capabilities, and sensitive operations can be put to the user for approval."
+    },
+    {
+      "node": "domains",
+      "title": "Doing the work",
+      "note": "Each NAP domain has its handler; relay requests are the biggest."
+    },
+    {
+      "node": "services",
+      "title": "Host services",
+      "note": "Domains the host provides as services, and host-defined extensions, are passed on from here."
+    },
+    {
+      "node": "src/runtime.ts",
+      "title": "Start reading here",
+      "note": "createRuntime wires every piece above together."
+    }
+  ]
+}

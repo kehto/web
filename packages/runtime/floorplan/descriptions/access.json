@@ -1,0 +1,8 @@
+{
+  "files": {
+    "src/temporal-policy.ts": {
+      "name": "Rate limit contract",
+      "description": "Describes an optional host limiter that can slow or block requests over time but never grants access."
+    }
+  }
+}

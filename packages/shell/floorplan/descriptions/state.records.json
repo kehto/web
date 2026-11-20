@@ -1,0 +1,24 @@
+{
+  "files": {
+    "src/acl-store.ts": {
+      "name": "Permission records",
+      "description": "Keeps granted, revoked and blocked permissions and storage quotas per napplet build, saved in browser storage."
+    },
+    "src/audio-manager.ts": {
+      "name": "Playing audio list",
+      "description": "Tracks which napplet windows are playing audio and notifies the host page's screens when it changes."
+    },
+    "src/manifest-cache.ts": {
+      "name": "Verified build hashes",
+      "description": "Remembers which napplet build hashes were already verified, saved in browser storage."
+    },
+    "src/origin-registry.ts": {
+      "name": "Frame directory",
+      "description": "Maps each shell-created frame to its window ID, verified napplet identity and bound message port, and sends replies over that port."
+    },
+    "src/session-registry.ts": {
+      "name": "Napplet sessions",
+      "description": "Links each window to its verified napplet key both ways and raises a pending update when a napplet's build hash changes."
+    }
+  }
+}

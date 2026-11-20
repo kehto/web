@@ -1,0 +1,20 @@
+{
+  "files": {
+    "src/outbox-service.ts": {
+      "name": "Outbox service",
+      "description": "Answers napplet outbox lookups, queries, subscriptions and publishes by handing them to a relay router."
+    },
+    "src/relay-pool-outbox-planning.ts": {
+      "name": "Relay planning",
+      "description": "Works out which relays to ask from authors' published relay lists, filtered by the shell's relay rules, falling back to host relays and adding allowed relay hints."
+    },
+    "src/relay-pool-outbox-router.ts": {
+      "name": "Outbox relay router",
+      "description": "The ready-made router that finds authors' relays and reads or publishes through a relay pool, streaming events as they arrive."
+    },
+    "src/relay-pool-outbox-types.ts": {
+      "name": "Outbox router shapes",
+      "description": "Describes the relay lists, relay pool and options the outbox router works with."
+    }
+  }
+}

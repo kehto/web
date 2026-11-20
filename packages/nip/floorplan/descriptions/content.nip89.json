@@ -1,0 +1,8 @@
+{
+  "files": {
+    "src/89/index.ts": {
+      "name": "App handler reader",
+      "description": "Parses which apps can open which event kinds and fills in the link that opens an event in one."
+    }
+  }
+}

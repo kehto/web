@@ -1,0 +1,52 @@
+{
+  "files": {
+    "src/domains/common-nip19.ts": {
+      "name": "Nostr id encoder",
+      "description": "Self-contained encoder and decoder for public bech32 Nostr ids (npub, note, nprofile, nevent, naddr, nrelay); rejects private keys."
+    },
+    "src/domains/common.ts": {
+      "name": "Common Nostr actions mock",
+      "description": "Encodes and decodes Nostr ids, reads profiles and follows, and follows, unfollows, reacts and reports through the shared store."
+    },
+    "src/domains/count.ts": {
+      "name": "Event count mock",
+      "description": "Answers count queries over the shared event store after checking each filter, with a control to queue a failure for the next query."
+    },
+    "src/domains/dm.ts": {
+      "name": "Direct messages mock",
+      "description": "Keeps conversations and messages in memory, answers status, list, send and subscribe, and can simulate an incoming message."
+    },
+    "src/domains/identity.ts": {
+      "name": "Signed-in user mock",
+      "description": "Answers questions about the signed-in user: public key, relays, profile, follows, lists, zaps, mutes, blocks and badges, with sign-in controls."
+    },
+    "src/domains/keys.ts": {
+      "name": "Keyboard shortcuts mock",
+      "description": "Records forwarded keystrokes and napplet-registered actions, refuses reserved key combos, and pushes binding and action messages."
+    },
+    "src/domains/lists.ts": {
+      "name": "Nostr lists mock",
+      "description": "Reports supported mute, pin, bookmark, interest, follow-set and relay lists and adds or removes items for the signed-in user."
+    },
+    "src/domains/nostr-store.ts": {
+      "name": "Shared Nostr event store",
+      "description": "One in-memory event store the social mocks share, seeded with sample events, list fixtures and a muted spam account; also holds small helpers other mocks reuse."
+    },
+    "src/domains/outbox.ts": {
+      "name": "Outbox routing mock",
+      "description": "Plans which relays to use per author from relay-list events, and answers outbox get, query, subscribe, publish and relay resolution."
+    },
+    "src/domains/pow.ts": {
+      "name": "Proof-of-work mock",
+      "description": "Simulates mining jobs step by step, queueing, pausing, resuming and cancelling them, and pushes progress until an id meeting the target is found."
+    },
+    "src/domains/relay.ts": {
+      "name": "Relay mock",
+      "description": "Answers relay subscribe, close, publish, encrypted publish and query from the shared event store, pushing matching events to live subscriptions."
+    },
+    "src/domains/value.ts": {
+      "name": "Payments mock",
+      "description": "Quotes and sends pretend payments that start pending and settle later on a timer or by control, then pushes the status change."
+    }
+  }
+}

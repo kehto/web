@@ -1,0 +1,48 @@
+{
+  "files": {
+    "src/notify-service.test.ts": {
+      "name": "Notifications tests",
+      "description": "Checks notifications, channels and badges go through approval and the host."
+    },
+    "src/outbox-service.test.ts": {
+      "name": "Outbox service tests",
+      "description": "Checks outbox lookups, queries, subscriptions and publishes through a router."
+    },
+    "src/relay-pool-outbox-router.test.ts": {
+      "name": "Outbox router tests",
+      "description": "Checks relay planning from authors' relay lists, partial results and publishing."
+    },
+    "src/relay-pool-service.test.ts": {
+      "name": "Relay pool tests",
+      "description": "Checks subscribe, publish and close requests, including an explicit relay choice."
+    },
+    "src/resource-lifecycle.test.ts": {
+      "name": "Resource approval tests",
+      "description": "Checks every address and server reached is approved, and cancellation and revocation end requests once."
+    },
+    "src/resource-service.test.ts": {
+      "name": "Resource fetching tests",
+      "description": "Checks single and bulk fetches, errors and cancellation."
+    },
+    "src/serial-service.test.ts": {
+      "name": "Serial port tests",
+      "description": "Checks the serial port service's requests, approvals and replies."
+    },
+    "src/theme-service.test.ts": {
+      "name": "Theme sharing tests",
+      "description": "Checks the current theme is returned and changes are pushed to napplets."
+    },
+    "src/upload-lifecycle.test.ts": {
+      "name": "Upload teardown tests",
+      "description": "Checks uploads are cancelled and replies silenced when a napplet closes or the service is removed."
+    },
+    "src/upload-service.test.ts": {
+      "name": "Uploads service tests",
+      "description": "Checks upload requests, progress, results and upload info."
+    },
+    "src/webrtc-service.test.ts": {
+      "name": "Peer connection tests",
+      "description": "Checks WebRTC open requests are approved and set up by the host."
+    }
+  }
+}

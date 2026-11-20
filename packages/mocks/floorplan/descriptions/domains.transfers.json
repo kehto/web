@@ -1,0 +1,24 @@
+{
+  "files": {
+    "src/domains/nzb.ts": {
+      "name": "Usenet download mock",
+      "description": "Lists pretend Usenet downloaders and runs NZB jobs that can be added, controlled, listed and read from."
+    },
+    "src/domains/soulseek.ts": {
+      "name": "Soulseek mock",
+      "description": "Simulates Soulseek searches, browsing and downloads with pause, resume, cancel, read, save and release."
+    },
+    "src/domains/torrent-fixtures.ts": {
+      "name": "Download sample bytes",
+      "description": "Shared download helpers: repeatable image bytes, minimal .torrent files and the torrent capability snapshot, used by torrent, NZB and Soulseek."
+    },
+    "src/domains/torrent.ts": {
+      "name": "Torrent download mock",
+      "description": "Runs pretend torrent jobs for catalog images: add, status, pause, resume, remove, file selection, reads, metadata and saving."
+    },
+    "src/domains/webrtc.ts": {
+      "name": "Peer connection mock",
+      "description": "Pairs pretend peer-to-peer sessions between windows by direct identity or shared room, or gives a lone session an echoing stand-in peer, and pushes state, peer, message and closed events."
+    }
+  }
+}

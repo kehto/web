@@ -1,0 +1,280 @@
+{
+  "$schema": "floorplan/architecture@1",
+  "project": {
+    "name": "@kehto/mocks",
+    "summary": "Pretend versions of every napplet NAP domain (relays, files, devices, AI, downloads and more) that keep all their data in memory and behave the same way every run. A shell that hosts napplets (small sandboxed web apps) can plug them in to get realistic answers while it builds support for a NAP, without real relays, devices or providers. Each pretend service records the exact napplet/naps spec version it follows, and a script reports when the spec has moved on.",
+    "entrypoints": [
+      "src/index.ts",
+      "src/registry.ts"
+    ]
+  },
+  "nodes": [
+    {
+      "id": "entry",
+      "label": "Front door",
+      "kind": "library",
+      "summary": "What shells import: the full list of NAP domains with their spec versions, and one call that builds a ready-made environment of every pretend service with a shared Nostr store and saved-data store.",
+      "paths": [
+        "src/index.ts",
+        "src/registry.ts"
+      ],
+      "exclude": [
+        "**/*.test.ts"
+      ]
+    },
+    {
+      "id": "core",
+      "label": "Mock building kit",
+      "kind": "library",
+      "summary": "The shared machinery every pretend service is built from: matching incoming messages to answers, recording everything sent back, repeatable random ids and keys, a controllable clock and delays, and bundling many services into one set.",
+      "paths": [
+        "src/core"
+      ],
+      "exclude": [
+        "**/*.test.ts"
+      ]
+    },
+    {
+      "id": "domains",
+      "label": "NAP domain mocks",
+      "kind": "feature",
+      "summary": "One pretend service per NAP domain, each answering that domain's messages from seeded in-memory data and exposing controls to inspect, reset or drive it.",
+      "paths": [
+        "src/domains"
+      ],
+      "exclude": [
+        "**/*.test.ts"
+      ]
+    },
+    {
+      "id": "domains.social",
+      "parent": "domains",
+      "label": "Nostr social",
+      "kind": "feature",
+      "summary": "Relays, outbox routing, counts, profiles, keys, direct messages, lists, shared Nostr helpers, proof-of-work and payments, mostly reading and writing one shared store of Nostr events.",
+      "paths": [
+        "src/domains/{relay,outbox,count,identity,keys,dm,lists,common,nostr-store,pow,value}*.ts"
+      ]
+    },
+    {
+      "id": "domains.files",
+      "parent": "domains",
+      "label": "Files and storage",
+      "kind": "feature",
+      "summary": "Napplet file system, saved settings, Blossom and Hashtree file hosting, uploads, fetched resources and Git repositories, all held as bytes in memory.",
+      "paths": [
+        "src/domains/{fs,storage,blossom,hashtree,upload,resource,git,file-bytes}*.ts"
+      ]
+    },
+    {
+      "id": "domains.transfers",
+      "parent": "domains",
+      "label": "Downloads and peer links",
+      "kind": "feature",
+      "summary": "Torrent, Usenet (NZB) and Soulseek downloads that progress on a pretend timeline, plus peer-to-peer WebRTC connections.",
+      "paths": [
+        "src/domains/{torrent,nzb,soulseek,webrtc}*.ts"
+      ]
+    },
+    {
+      "id": "domains.devices",
+      "parent": "domains",
+      "label": "Devices and sensors",
+      "kind": "feature",
+      "summary": "Bluetooth, serial ports, game controllers, motion, location, camera capture, media playback and displays, with controls to simulate presses, readings and device events.",
+      "paths": [
+        "src/domains/{ble,serial,gamepad,motion,location,capture,media,display}*.ts"
+      ]
+    },
+    {
+      "id": "domains.shell",
+      "parent": "domains",
+      "label": "Shell and app frame",
+      "kind": "feature",
+      "summary": "Domains about the hosting shell itself: theme, navigation, notifications, intents and the installed-napplet catalog, links, system info, settings, background workers, security class and network grants, plus registry-only entries for the parts the runtime handles itself (shell, inter-napplet messages).",
+      "paths": [
+        "src/domains/{shell,theme,navigation,notify,intent,catalog,link,system,config,worker,inc,class,connect}*.ts"
+      ]
+    },
+    {
+      "id": "domains.ai",
+      "parent": "domains",
+      "label": "AI and remote tools",
+      "kind": "feature",
+      "summary": "A pretend language-model provider with canned answers and request checks, and pretend ContextVM servers offering remote tools and resources.",
+      "paths": [
+        "src/domains/{llm,cvm}*.ts"
+      ]
+    },
+    {
+      "id": "fixtures",
+      "label": "Sample data",
+      "kind": "data",
+      "summary": "Fixed sample accounts, Nostr events and relays, Linux distribution images and example web addresses that the pretend services seed themselves with.",
+      "paths": [
+        "src/fixtures"
+      ],
+      "exclude": [
+        "**/*.test.ts"
+      ]
+    },
+    {
+      "id": "scripts",
+      "label": "Spec audit and build tools",
+      "kind": "script",
+      "summary": "Command-line tools that compare each mock's recorded spec version with the live napplet/naps repository, keep a list of drafts deliberately not mocked yet, and regenerate the domain table in the docs, plus the package's build settings.",
+      "paths": [
+        "scripts",
+        "tsup.config.ts"
+      ]
+    },
+    {
+      "id": "tests",
+      "label": "Tests",
+      "kind": "test",
+      "summary": "Automatic checks for every domain mock, the building kit, the registry and environment, the sample data, retired names and the audit script.",
+      "paths": [
+        "src/**/*.test.ts",
+        "tests"
+      ]
+    },
+    {
+      "id": "runtime",
+      "label": "Kehto runtime",
+      "kind": "external",
+      "summary": "The kehto protocol engine whose service interface every mock implements and which delivers messages to them.",
+      "packages": [
+        "npm:@kehto/runtime",
+        "npm:@kehto/acl"
+      ]
+    },
+    {
+      "id": "napplet",
+      "label": "Napplet protocol types",
+      "kind": "external",
+      "summary": "The published napplet core and NAP packages that define each domain's message shapes.",
+      "packages": [
+        "npm:@napplet/nap",
+        "npm:@napplet/core"
+      ]
+    },
+    {
+      "id": "naps",
+      "label": "napplet/naps on GitHub",
+      "kind": "external",
+      "summary": "The spec repository (master plus open pull requests) the audit script reads through the GitHub command-line tool."
+    }
+  ],
+  "edges": [
+    {
+      "from": "scripts/audit-naps.mjs",
+      "to": "naps",
+      "kind": "http",
+      "label": "reads specs via gh",
+      "description": "Lists master and every open pull request of napplet/naps and compares document heads with the refs recorded in each domain module."
+    },
+    {
+      "from": "runtime",
+      "to": "domains",
+      "kind": "call",
+      "label": "delivers messages",
+      "description": "Once a shell registers a mock, the runtime hands it each napplet message for its domain."
+    }
+  ],
+  "flows": [
+    {
+      "id": "environment",
+      "title": "A shell gets a full set of pretend services",
+      "steps": [
+        {
+          "node": "src/registry.ts",
+          "note": "The shell calls the environment builder, optionally with a seed and a list of domains."
+        },
+        {
+          "node": "src/domains/index.ts",
+          "note": "The registry reads every domain's entry: its spec version, kind and factory."
+        },
+        {
+          "node": "src/core/aggregate.ts",
+          "note": "Each factory is called with shared options, giving a domain-to-service map."
+        },
+        {
+          "node": "src/domains/nostr-store.ts",
+          "note": "The social domains share one seeded Nostr event store so they see the same events."
+        },
+        {
+          "node": "src/fixtures/nostr.ts",
+          "note": "That store starts from fixed sample accounts and events."
+        }
+      ]
+    },
+    {
+      "id": "request",
+      "title": "A napplet asks a mock something",
+      "steps": [
+        {
+          "node": "runtime",
+          "note": "The runtime receives a message from a napplet and hands it to the registered mock for that domain."
+        },
+        {
+          "node": "src/domains/relay.ts",
+          "note": "The domain mock looks up the route for that exact message type and works out the answer from its in-memory state."
+        },
+        {
+          "node": "src/core/handler.ts",
+          "note": "The kit records the reply and pushes it back to the napplet's window, after any configured delay."
+        }
+      ]
+    },
+    {
+      "id": "audit",
+      "title": "Checking mocks against the specs",
+      "steps": [
+        {
+          "node": "scripts/audit-naps.mjs",
+          "note": "Reads the spec ref each domain module records and the deferred list."
+        },
+        {
+          "node": "naps",
+          "note": "Fetches current document heads from napplet/naps master and open pull requests."
+        },
+        {
+          "node": "scripts/render-domain-table.mjs",
+          "note": "After a rebuild, rewrites the domain table in the README and docs page."
+        }
+      ]
+    }
+  ],
+  "tour": [
+    {
+      "node": "entry",
+      "title": "What this package is",
+      "note": "Pretend NAP services a shell can plug in to have data before the real thing exists. Start with the registry and environment builder."
+    },
+    {
+      "node": "core",
+      "title": "How every mock is built",
+      "note": "All mocks share one recipe: a table of message types to answers, plus controls to inspect state, reset it and see what was sent."
+    },
+    {
+      "node": "domains",
+      "title": "One mock per NAP",
+      "note": "Grouped here by area: social, files, downloads, devices, shell, and AI."
+    },
+    {
+      "node": "fixtures",
+      "title": "Repeatable sample data",
+      "note": "Fixed accounts, events and files so every run gives the same answers."
+    },
+    {
+      "node": "scripts",
+      "title": "Keeping up with the specs",
+      "note": "The audit tool flags any mock whose recorded spec version no longer matches napplet/naps."
+    },
+    {
+      "node": "src/domains/llm.ts",
+      "title": "A rich example",
+      "note": "The language-model mock shows the full pattern: canned answers, request checks and streamed replies."
+    }
+  ]
+}

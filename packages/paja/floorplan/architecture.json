@@ -1,0 +1,436 @@
+{
+  "$schema": "floorplan/architecture@1",
+  "project": {
+    "name": "Paja",
+    "summary": "Paja is Kehto's local workshop for building napplets (small sandboxed web apps that talk to a host over the NIP-5D protocol). A command-line dev server serves a host page; in the browser that page loads a napplet into a locked-down iframe and wires it to the real Kehto runtime, shell, firewall and reference services so the napplet behaves as it would in a production host.",
+    "entrypoints": [
+      "src/cli.ts",
+      "src/server.ts",
+      "src/browser-host.ts",
+      "src/index.ts"
+    ]
+  },
+  "nodes": [
+    {
+      "id": "server",
+      "label": "Command line and dev server",
+      "kind": "service",
+      "summary": "The `kehto paja` command: reads flags and settings files, optionally starts the napplet's own dev command, waits for it, and serves the host page plus a pinned resource proxy on a local port.",
+      "paths": [
+        "src/cli.ts",
+        "src/server.ts",
+        "src/server-resource-transport.ts",
+        "src/readiness.ts",
+        "src/target-cors.ts",
+        "src/config-file.ts",
+        "src/node-compat.d.ts",
+        "src/host-page.ts",
+        "tsup.config.ts"
+      ]
+    },
+    {
+      "id": "model",
+      "label": "Options and simulation",
+      "kind": "library",
+      "summary": "Shared rules both halves agree on: launch options and settings files, the simulated identity/relay/storage setup, multiplayer settings checks, and which NAP domains Paja advertises.",
+      "paths": [
+        "src/index.ts",
+        "src/options.ts",
+        "src/simulation.ts",
+        "src/multiplayer-config.ts",
+        "src/parity.ts"
+      ]
+    },
+    {
+      "id": "browser",
+      "label": "Browser host app",
+      "kind": "ui",
+      "summary": "Everything bundled into browser-host.js: the page that frames napplets, connects them to Kehto, asks the user for approvals, and shows the developer panels.",
+      "paths": [
+        "src/browser-*.ts",
+        "src/theme-broadcast.ts",
+        "src/runtime-resolver.ts",
+        "src/local-target.ts",
+        "src/installed-napplet-catalog.ts",
+        "src/intent-link.ts",
+        "src/intent-launcher.ts",
+        "src/cvm-discovery.ts",
+        "src/cvm-family-store.ts"
+      ],
+      "exclude": [
+        "**/*.test.ts"
+      ]
+    },
+    {
+      "id": "browser.host",
+      "parent": "browser",
+      "label": "Host bootstrap and tabs",
+      "kind": "feature",
+      "summary": "Starts the page, builds the shell bridge, keeps one tab per loaded napplet, and restores tabs after a reload.",
+      "paths": [
+        "src/browser-host.ts",
+        "src/browser-host-config.ts",
+        "src/browser-host-runtime.ts",
+        "src/browser-runtime-tabs.ts",
+        "src/browser-service-registration.ts",
+        "src/browser-admission-test-runtime.ts",
+        "src/theme-broadcast.ts",
+        "src/browser-host-storage.ts"
+      ]
+    },
+    {
+      "id": "browser.loading",
+      "parent": "browser",
+      "label": "Napplet loading",
+      "kind": "feature",
+      "summary": "Turns a dev-server URL, a dropped HTML file or a Nostr napplet pointer into verified bytes, then places them in a sandboxed iframe and binds its NIP-5D identity.",
+      "paths": [
+        "src/runtime-resolver.ts",
+        "src/local-target.ts",
+        "src/browser-local-loader.ts",
+        "src/browser-target-frame.ts",
+        "src/browser-target-diagnostics.ts",
+        "src/browser-nip5d-host.ts"
+      ]
+    },
+    {
+      "id": "browser.wiring",
+      "parent": "browser",
+      "label": "Kehto wiring",
+      "kind": "feature",
+      "summary": "Builds the shell adapter that plugs every NAP domain into @kehto/services handlers, scoped to the napplet window that asked.",
+      "paths": [
+        "src/browser-adapter.ts",
+        "src/browser-adapter-support.ts",
+        "src/browser-dev-runtime.ts",
+        "src/browser-common.ts",
+        "src/browser-device-services.ts",
+        "src/browser-config.ts",
+        "src/browser-notify.ts",
+        "src/browser-lists.ts",
+        "src/browser-link.ts"
+      ]
+    },
+    {
+      "id": "browser.security",
+      "parent": "browser",
+      "label": "Firewall, signers and consent",
+      "kind": "feature",
+      "summary": "Firewall approval prompts and default rules, grant revocation, signer choice (built-in dev key or remote NIP-46 signer) and remembered signing consent.",
+      "paths": [
+        "src/browser-permission-adapter.ts",
+        "src/browser-permission-rules.ts",
+        "src/browser-grant-retirement.ts",
+        "src/browser-operation-scope.ts",
+        "src/browser-confirmation-request.ts",
+        "src/browser-signer-consent.ts",
+        "src/browser-signers.ts",
+        "src/browser-host-signer.ts",
+        "src/browser-nip46-client.ts"
+      ]
+    },
+    {
+      "id": "browser.relay",
+      "parent": "browser",
+      "label": "Relays and social lookups",
+      "kind": "feature",
+      "summary": "Connects to live Nostr relays (or an in-memory stand-in), picks relays per request, and keeps saved copies of profiles and contact lists.",
+      "paths": [
+        "src/browser-relay-runtime.ts",
+        "src/browser-relay-transport.ts",
+        "src/browser-relay-policy.ts",
+        "src/browser-worker-relay.ts",
+        "src/browser-social-cache.ts"
+      ]
+    },
+    {
+      "id": "browser.media",
+      "parent": "browser",
+      "label": "Files, uploads and resources",
+      "kind": "feature",
+      "summary": "Blossom uploads and blob addresses, the per-napplet file system, and resource fetching for network-isolated napplets.",
+      "paths": [
+        "src/browser-blossom-*.ts",
+        "src/browser-upload.ts",
+        "src/browser-fs.ts",
+        "src/browser-fs-support.ts",
+        "src/browser-resource.ts"
+      ]
+    },
+    {
+      "id": "browser.p2p",
+      "parent": "browser",
+      "label": "Realtime and CVM",
+      "kind": "feature",
+      "summary": "WebRTC rooms, multiplayer identity, and ContextVM (Nostr-carried tool server) discovery.",
+      "paths": [
+        "src/browser-webrtc.ts",
+        "src/browser-webrtc-profile.ts",
+        "src/browser-multiplayer-*.ts",
+        "src/cvm-discovery.ts",
+        "src/cvm-family-store.ts"
+      ]
+    },
+    {
+      "id": "browser.llm",
+      "parent": "browser",
+      "label": "LLM connections",
+      "kind": "feature",
+      "summary": "Lets the developer add model provider connections, keeps their keys in a password-locked vault, and serves NAP-LLM requests.",
+      "paths": [
+        "src/browser-llm-*.ts"
+      ]
+    },
+    {
+      "id": "browser.intents",
+      "parent": "browser",
+      "label": "Intents and installed napplets",
+      "kind": "feature",
+      "summary": "Builds and opens shareable intent links, keeps the catalog of installed napplets, and launches the napplet that handles an intent.",
+      "paths": [
+        "src/browser-intent-*.ts",
+        "src/browser-catalog-intent-service.ts",
+        "src/installed-napplet-catalog.ts",
+        "src/intent-link.ts",
+        "src/intent-launcher.ts"
+      ]
+    },
+    {
+      "id": "browser.panels",
+      "parent": "browser",
+      "label": "Sidebar sections and dev panels",
+      "kind": "ui",
+      "summary": "The collapsible sidebar sections for resource servers, CVM discovery and the nested-frame lock, plus the developer console, message log, relay panel and gamepad indicators.",
+      "paths": [
+        "src/browser-*-settings.ts",
+        "src/browser-console-panel.ts",
+        "src/browser-devtools.ts",
+        "src/browser-relay-panel.ts",
+        "src/browser-sidebar-sections.ts",
+        "src/browser-gamepad-indicators.ts"
+      ]
+    },
+    {
+      "id": "tests",
+      "label": "Tests",
+      "kind": "test",
+      "summary": "Automatic checks for every area, including command-line parsing, relay behaviour, firewall prompts, intent links and the sidebar settings sections.",
+      "paths": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
+      "id": "kehto-runtime",
+      "label": "@kehto/runtime",
+      "kind": "external",
+      "summary": "Kehto's protocol engine: message dispatch, permissions and subscription lifecycle.",
+      "packages": [
+        "npm:@kehto/runtime"
+      ]
+    },
+    {
+      "id": "kehto-shell",
+      "label": "@kehto/shell",
+      "kind": "external",
+      "summary": "Browser adapter: ShellBridge, iframe policy, approval UI.",
+      "packages": [
+        "npm:@kehto/shell"
+      ]
+    },
+    {
+      "id": "kehto-services",
+      "label": "@kehto/services",
+      "kind": "external",
+      "summary": "Reference handlers for each NAP domain (relay pool, storage, upload, DM, CVM, LLM...).",
+      "packages": [
+        "npm:@kehto/services",
+        "npm:@kehto/services/*"
+      ]
+    },
+    {
+      "id": "kehto-policy",
+      "label": "@kehto/firewall and limits",
+      "kind": "external",
+      "summary": "Firewall rule evaluation, permission principals, and caps on how often a napplet may ask.",
+      "packages": [
+        "npm:@kehto/firewall",
+        "npm:@kehto/rate-limit",
+        "npm:@kehto/acl"
+      ]
+    },
+    {
+      "id": "kehto-nip",
+      "label": "@kehto/nip",
+      "kind": "external",
+      "summary": "NIP-5A/5D napplet resolution and NIP-65 relay lists.",
+      "packages": [
+        "npm:@kehto/nip",
+        "npm:@kehto/nip/*"
+      ]
+    },
+    {
+      "id": "napplet-sdk",
+      "label": "@napplet core and nostr-tools",
+      "kind": "external",
+      "summary": "Protocol types, NAP contracts and Nostr event helpers.",
+      "packages": [
+        "npm:@napplet/core",
+        "npm:@napplet/nap",
+        "npm:@napplet/nap/*",
+        "npm:nostr-tools",
+        "npm:nostr-tools/*"
+      ]
+    },
+    {
+      "id": "llm-providers",
+      "label": "Model providers",
+      "kind": "external",
+      "summary": "Outside model services a developer connects, such as OpenAI.",
+      "hosts": [
+        "api.openai.com"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "src/host-page.ts",
+      "to": "src/browser-host.ts",
+      "kind": "config",
+      "label": "serves browser-host.js",
+      "description": "The host page HTML loads the separately bundled /__kehto/browser-host.js and passes it the host config as JSON."
+    }
+  ],
+  "annotations": [
+    {
+      "path": "src/browser-host.ts",
+      "note": "~1,000-line bootstrap that wires every controller; the single place the ShellBridge, firewall adapter, sidebar settings sections and intent links are created.",
+      "tags": [
+        "hotspot"
+      ]
+    }
+  ],
+  "flows": [
+    {
+      "id": "load-napplet",
+      "title": "Loading a napplet",
+      "steps": [
+        {
+          "node": "src/cli.ts",
+          "note": "`kehto paja --target-url …` parses options, may spawn the dev command, and waits until the target answers."
+        },
+        {
+          "node": "src/server.ts",
+          "note": "Starts the local server, probes the target's CORS, and plans whether it runs live or as an isolated snapshot."
+        },
+        {
+          "node": "src/host-page.ts",
+          "note": "Renders the host page with the config and frame policy, and points it at browser-host.js."
+        },
+        {
+          "node": "src/browser-host.ts",
+          "note": "In the browser: creates the adapter and ShellBridge, then opens a tab for the target or a pasted pointer."
+        },
+        {
+          "node": "src/runtime-resolver.ts",
+          "note": "For a Nostr pointer, fetches the manifest from relays, verifies the bytes and adds a strict CSP."
+        },
+        {
+          "node": "src/browser-target-frame.ts",
+          "note": "Navigates a fresh sandboxed iframe via srcdoc and registers its identity with the shell."
+        },
+        {
+          "node": "src/browser-nip5d-host.ts",
+          "note": "Forwards the napplet's one-time hello to the bridge, which binds its MessagePort; NAP traffic then flows."
+        }
+      ]
+    },
+    {
+      "id": "firewall-approval",
+      "title": "Firewall approval",
+      "steps": [
+        {
+          "node": "src/browser-adapter.ts",
+          "note": "A napplet calls a NAP operation; the adapter routes it to the matching Kehto service."
+        },
+        {
+          "node": "kehto-runtime",
+          "note": "The runtime sees the napplet lacks a grant for that scope and asks the permission adapter."
+        },
+        {
+          "node": "src/browser-permission-adapter.ts",
+          "note": "Paja's adapter checks the default rules first; only 'ask' results become a prompt."
+        },
+        {
+          "node": "src/browser-permission-rules.ts",
+          "note": "Default rules allow everything except opening external links, which always asks."
+        },
+        {
+          "node": "kehto-shell",
+          "note": "The shell's approval UI shows the prompt; the decision is stored as a grant and the call proceeds or fails."
+        }
+      ]
+    },
+    {
+      "id": "shared-intent-link",
+      "title": "Opening a shared intent link",
+      "steps": [
+        {
+          "node": "src/intent-link.ts",
+          "note": "On page load, the host reads the address for a Paja intent link and checks its size and fields without running it."
+        },
+        {
+          "node": "src/browser-intent-links.ts",
+          "note": "The link controller opens the shared content straight away, asking the recipient to pick an app only when more than one fits."
+        },
+        {
+          "node": "src/browser-intent-link-target.ts",
+          "note": "Works out which verified napplet the link names or the user prefers, from the installed-napplet catalog, under normal pointer checks."
+        },
+        {
+          "node": "src/browser-intent-launcher-host.ts",
+          "note": "Creates a hidden, sandboxed launcher frame and registers it with the shell like any other napplet."
+        },
+        {
+          "node": "src/intent-launcher.ts",
+          "note": "Verifies Paja's signed launcher napplet and posts the link only to that registered frame, which raises the intent over NAP-INTENT."
+        },
+        {
+          "node": "src/browser-intent-controller.ts",
+          "note": "Opens or focuses the napplet that handles the intent and queues one delivery to it once it is ready."
+        }
+      ]
+    }
+  ],
+  "tour": [
+    {
+      "node": "server",
+      "title": "Start with the command",
+      "note": "Developers run `kehto paja` from their napplet's package. It starts their dev server if asked and serves Paja's host page locally."
+    },
+    {
+      "node": "model",
+      "title": "Shared rules",
+      "note": "Launch options, settings files, the simulated user and relays, and which NAP domains are advertised live here so the server and the page agree."
+    },
+    {
+      "node": "browser",
+      "title": "The page in the browser",
+      "note": "The host page frames each napplet in a sandboxed iframe and connects it to Kehto."
+    },
+    {
+      "node": "browser.wiring",
+      "title": "Wiring Kehto packages",
+      "note": "The adapter is where Paja plugs @kehto/runtime, @kehto/shell and @kehto/services together for every NAP domain."
+    },
+    {
+      "node": "browser.security",
+      "title": "Approvals and signers",
+      "note": "Firewall prompts, default rules and signing consent keep a napplet from acting without the developer's say-so."
+    },
+    {
+      "node": "src/browser-host.ts",
+      "title": "Where the page starts",
+      "note": "This file starts the Paja page: it builds the Kehto connection and the approval prompts, sets up the sidebar sections, and opens a tab for each napplet."
+    }
+  ]
+}

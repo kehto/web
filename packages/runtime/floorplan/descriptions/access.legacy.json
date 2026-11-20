@@ -1,0 +1,12 @@
+{
+  "files": {
+    "src/legacy-firewall-adapter.ts": {
+      "name": "Older firewall contract",
+      "description": "Describes the optional older firewall hook a host may install; it cannot replace scoped approvals."
+    },
+    "src/legacy-firewall-gate.ts": {
+      "name": "Older firewall gate",
+      "description": "Runs the earlier time-based firewall for hosts without scoped approvals, and warns once if its settings are ignored."
+    }
+  }
+}

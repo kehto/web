@@ -1,0 +1,16 @@
+{
+  "files": {
+    "src/intent-uri.ts": {
+      "name": "Intent link reader",
+      "description": "Turns a napplet intent link into a clean request of role, action, payload and handler hints; also runs inside napplets."
+    },
+    "src/napplet-experimental.ts": {
+      "name": "Experimental switches",
+      "description": "Lists opt-in, off-by-default host hardening switches, such as locking nested frames, that may change without notice."
+    },
+    "src/napplet-namespace.ts": {
+      "name": "window.napplet script",
+      "description": "Generates the one self-contained script placed before a napplet's code that gives it window.napplet for each offered domain."
+    }
+  }
+}

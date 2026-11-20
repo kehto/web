@@ -1,0 +1,40 @@
+{
+  "files": {
+    "src/domains/torrent.test.ts": {
+      "name": "Torrent mock tests",
+      "description": "Checks the torrent mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/upload.test.ts": {
+      "name": "Upload mock tests",
+      "description": "Checks the upload mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/value.test.ts": {
+      "name": "Payments mock tests",
+      "description": "Checks the payments mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/webrtc.test.ts": {
+      "name": "Peer connection mock tests",
+      "description": "Checks the peer connection mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/domains/worker.test.ts": {
+      "name": "Worker mock tests",
+      "description": "Checks the worker mock's answers, pushes, controls and reset against its spec draft."
+    },
+    "src/environment.test.ts": {
+      "name": "Environment builder tests",
+      "description": "Checks the full environment builds every mock with a shared store and the right domain list."
+    },
+    "src/fixtures/fixtures.test.ts": {
+      "name": "Sample data tests",
+      "description": "Checks repeatable random ids, the Linux catalog lookups and the Nostr sample events."
+    },
+    "src/registry.test.ts": {
+      "name": "Registry tests",
+      "description": "Checks every domain appears once with a valid spec ref and that registry rows line up with the modules."
+    },
+    "tests/audit-naps.test.ts": {
+      "name": "Spec audit tests",
+      "description": "Checks the audit script's spec-ref parsing, comparison and report without going online."
+    }
+  }
+}

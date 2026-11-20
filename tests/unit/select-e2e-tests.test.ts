@@ -15,6 +15,19 @@ describe('selectE2eTests', () => {
     expect(result.specs).toEqual([]);
   });
 
+  test('skips floorplan maps and their vendored tooling', () => {
+    const result = selectE2eTests([
+      'packages/runtime/floorplan/architecture.json',
+      'packages/paja/floorplan/descriptions/browser.json',
+      'packages/shell/floorplan/baseline.json',
+      'tools/floorplan/scripts/build.mjs',
+      'scripts/floorplans.mjs',
+    ]);
+
+    expect(result.runE2e).toBe(false);
+    expect(result.specs).toEqual([]);
+  });
+
   test('skips generated Version Packages metadata', () => {
     const result = selectE2eTests([
       'docs/packages/shell.md',

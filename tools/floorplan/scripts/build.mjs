@@ -1,0 +1,722 @@
+#!/usr/bin/env node
+// floorplan builder: validate floorplan/architecture.json against the scan, assign every file to a
+// node, attach import/HTTP/external edges, and write floorplan/graph.json + floorplan/index.html.
+//
+// usage: node build.mjs [root] [--arch <file>] [--scan <file>] [--out <dir>] [--check] [--json] [--unattended]
+//
+// --json prints one JSON object (floorplan/build-result@1) instead of the report; the report is in it as
+// "report". Exits 1 on errors either way, and still prints the object if the build stops on something unexpected.
+
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { compileGlob, globProblem, parseArgs, fmtNum, mapDir, keepOutOfGit, toPosix, unattendedMode, printJson, readJsonFile, notMapped } from './lib/common.mjs';
+import { fallbackFileName, fallbackRouteName, routeKey, jargonIn } from './lib/names.mjs';
+import { buildHealth, withDismissed, dismissalFor, maskSecrets } from './lib/health.mjs';
+import { scriptJson, scriptCode, withPolicy, editorTemplate } from '../assets/page-safety.mjs';
+import { buildPlanHealth } from './lib/blueprint.mjs';
+import { buildScreens } from './lib/screens.mjs';
+import { writeClaudeMd } from './lib/claudemd.mjs';
+import { detectAgent } from './lib/agent.mjs';
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const SKILL_DIR = path.resolve(HERE, '..');
+const args = parseArgs(process.argv.slice(2));
+// what --json prints when the build can't get as far as its report: one error, in the usual shape
+const stopped = (msg) => ({ schema: 'floorplan/build-result@1', ok: false, errors: [msg], warnings: [], report: `✗ ${msg}` });
+// --json promises one JSON object on stdout whatever happens. If the build stops on something nobody planned for
+// (a file it can't write, a bug), the object says so instead of leaving stdout empty. It carries only the error's
+// code or kind, because an error's message can quote a line of someone's file; the whole error goes to stderr.
+if (args.json) {
+  let once = false;
+  process.on('uncaughtException', (e) => {
+    if (once) return;
+    once = true;
+    process.exitCode = 1;
+    console.error(e);
+    const kind = [e?.code, e?.name].find((v) => typeof v === 'string' && /^\w{1,40}$/.test(v)) || 'Error';
+    printJson(stopped(`build stopped unexpectedly (${kind}); see stderr`), 1);
+  });
+}
+const unattended = unattendedMode(args);
+const agent = detectAgent(args);
+const root = path.resolve(args._[0] || '.');
+const outDir = path.resolve(args.out || mapDir(root));
+const archFile = path.resolve(args.arch || path.join(outDir, 'architecture.json'));
+const scanFile = path.resolve(args.scan || path.join(outDir, '.cache', 'scan.json'));
+
+export const NODE_KINDS = ['ui', 'service', 'worker', 'library', 'feature', 'data', 'config', 'test', 'script', 'infra', 'external'];
+export const EDGE_KINDS = ['import', 'call', 'http', 'rpc', 'event', 'queue', 'data', 'config'];
+
+const errors = [];
+const warnings = [];
+const err = (msg) => errors.push(msg);
+const warn = (msg) => warnings.push(msg);
+
+const fail = async (msg) => {
+  if (args.json) await printJson(stopped(msg), 1);
+  console.error(`✗ ${msg}`); process.exit(1);
+};
+if (!fs.existsSync(scanFile)) await fail(`No scan at ${scanFile}. Run: node ${path.join(SKILL_DIR, 'scripts', 'scan.mjs')} "${root}"`);
+if (!fs.existsSync(archFile)) await fail(`No architecture file at ${archFile}. Write it first (see references/schema.md).`);
+const scan = readJsonFile(scanFile);
+let arch;
+try { arch = readJsonFile(archFile); } catch (e) { await fail(`architecture.json is not valid JSON: ${e.message}`); }
+
+// ---------- validate shape ----------
+const isStr = (v) => typeof v === 'string' && v.length > 0;
+const isStrArr = (v) => Array.isArray(v) && v.every((x) => typeof x === 'string');
+function closest(word, options) {
+  let best = null, bestD = Infinity;
+  for (const o of options) {
+    const d = lev(word, o);
+    if (d < bestD) { bestD = d; best = o; }
+  }
+  return bestD <= Math.max(2, word.length / 3) ? best : null;
+}
+function lev(a, b) {
+  const dp = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    let prev = dp[0]; dp[0] = i;
+    for (let j = 1; j <= b.length; j++) { const tmp = dp[j]; dp[j] = Math.min(dp[j] + 1, dp[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1)); prev = tmp; }
+  }
+  return dp[b.length];
+}
+const didYouMean = (w, opts) => { const c = closest(w, opts); return c ? ` — did you mean "${c}"?` : ''; };
+const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+/** What a value is, in the words an error uses: "null", "a list", "text", "a number". */
+const kindOf = (v) => v === null ? 'null' : Array.isArray(v) ? 'a list' : typeof v === 'string' ? 'text' : `a ${typeof v}`;
+
+if (!isObj(arch)) await fail('architecture.json must be an object');
+
+// ---------- secrets in written text ----------
+// The map never stores a secret's value. Health masks what it finds in code; this masks what was written:
+// labels, summaries, descriptions and notes in architecture.json, descriptions/, recent-work.json and the
+// other files below, and the comments the scan picked up. The map gets the masked text, the files on disk stay
+// as they are, and a warning names the file and field (never the value) so whoever wrote it can take it out.
+const hiddenSecrets = [];
+const scrub = (text, file, field) => {
+  if (typeof text !== 'string' || !text) return text;
+  const out = maskSecrets(text);
+  if (out !== text) hiddenSecrets.push({ file, field });
+  return out;
+};
+/** Masks the string (or list-of-strings) fields `keys` of obj in place. */
+const scrubFields = (obj, keys, file, where) => {
+  if (!obj || typeof obj !== 'object') return;
+  for (const k of keys) {
+    if (typeof obj[k] === 'string') obj[k] = scrub(obj[k], file, `${where}${where ? '.' : ''}${k}`);
+    else if (Array.isArray(obj[k])) obj[k] = obj[k].map((v, i) => scrub(v, file, `${where}${where ? '.' : ''}${k}[${i}]`));
+  }
+};
+{
+  const A = 'architecture.json';
+  scrubFields(arch.project, ['name', 'summary', 'description'], A, 'project');
+  if (Array.isArray(arch.nodes)) arch.nodes.forEach((n, i) => scrubFields(n, ['label', 'summary', 'details', 'tags'], A, `nodes[${i}]`));
+  if (Array.isArray(arch.edges)) arch.edges.forEach((e, i) => scrubFields(e, ['label', 'description'], A, `edges[${i}]`));
+  if (Array.isArray(arch.flows)) arch.flows.forEach((f, i) => { scrubFields(f, ['title', 'description'], A, `flows[${i}]`); if (Array.isArray(f?.steps)) f.steps.forEach((s, j) => scrubFields(s, ['note'], A, `flows[${i}].steps[${j}]`)); });
+  if (Array.isArray(arch.tour)) arch.tour.forEach((s, i) => scrubFields(s, ['title', 'note'], A, `tour[${i}]`));
+  if (Array.isArray(arch.annotations)) arch.annotations.forEach((a, i) => scrubFields(a, ['note', 'tags'], A, `annotations[${i}]`));
+}
+// what the scan read from the code: comments and docstrings, and a blueprint's names and descriptions from plan.json
+for (const f of scan.files || []) {
+  if (scan.blueprint) scrubFields(f, ['name', 'desc', 'doc'], 'plan.json', `files["${f.path}"]`);
+  else scrubFields(f, ['name', 'desc', 'doc'], f.path, 'comment');
+  if (Array.isArray(f.symbols)) for (const s of f.symbols) scrubFields(s, ['doc'], f.path, `${s.name}`);
+}
+for (const r of scan.routes || []) scrubFields(r, ['name', 'desc', 'doc', 'who', 'publicBecause'], r.file, `${r.method} ${r.path}`);
+if (scan.blueprint) scrubFields(scan.blueprint, ['source', 'stack', 'assumptions'], 'plan.json', '');
+
+// ---------- patterns ----------
+// Globs in paths, exclude, ignore, packages and hosts: a pattern that isn't valid (or is long or wild enough to
+// make matching slow) is a build error naming where it is, never a crash.
+const MAX_PATTERNS = 500;
+const NEVER = { glob: '', specificity: -1, test: () => false };
+const globsAt = (list, where, prep = (g) => g) => {
+  if (!Array.isArray(list)) return [];
+  if (list.length > MAX_PATTERNS) err(`${where} has ${list.length} patterns; at most ${MAX_PATTERNS} are allowed`);
+  return list.slice(0, MAX_PATTERNS).map((g, i) => {
+    if (typeof g !== 'string') return NEVER;
+    const problem = globProblem(prep(g));
+    if (!problem) return compileGlob(prep(g));
+    const shown = g.length > 60 ? `${g.slice(0, 57)}…` : g;
+    err(`${where}[${i}] ${JSON.stringify(shown)} is not a valid pattern: ${problem}`);
+    return NEVER;
+  });
+};
+if (!arch.project || !isStr(arch.project.name)) err('project.name is required');
+if (!Array.isArray(arch.nodes) || !arch.nodes.length) err('nodes must be a non-empty array');
+const nodes = Array.isArray(arch.nodes) ? arch.nodes : [];
+const archEdges = Array.isArray(arch.edges) ? arch.edges : [];
+const flows = Array.isArray(arch.flows) ? arch.flows : [];
+const annotations = Array.isArray(arch.annotations) ? arch.annotations : [];
+const include = isStrArr(arch.include) ? arch.include : ['code'];
+const ignoreGlobs = globsAt(isStrArr(arch.ignore) ? arch.ignore : [], 'ignore');
+// who the descriptions are written for: "everyone" (plain language, default) or "developers"
+const AUDIENCES = ['everyone', 'developers'];
+if (arch.audience !== undefined && !AUDIENCES.includes(arch.audience)) err(`audience "${arch.audience}" must be one of ${AUDIENCES.join(', ')}${didYouMean(String(arch.audience), AUDIENCES)}`);
+const audience = AUDIENCES.includes(arch.audience) ? arch.audience : 'everyone';
+// the editor "Open in editor" opens: a preset's name or a link template (assets/page-safety.mjs); VS Code if unset
+const editor = editorTemplate(arch.editor);
+if (editor.error) err(`editor ${editor.error}`);
+
+const byId = new Map();
+nodes.forEach((n, i) => {
+  const where = `nodes[${i}]${n?.id ? ` ("${n.id}")` : ''}`;
+  if (!n || typeof n !== 'object') return err(`${where} must be an object`);
+  if (!isStr(n.id)) return err(`${where}.id is required`);
+  if (!/^[A-Za-z0-9_.\-]+$/.test(n.id)) err(`${where}.id may only use letters, digits, "_", "-" and "."`);
+  if (n.id === 'unassigned') err(`${where}.id "unassigned" is reserved`);
+  if (byId.has(n.id)) err(`${where}.id duplicates an earlier node`);
+  byId.set(n.id, n);
+  if (!isStr(n.label)) err(`${where}.label is required`);
+  if (!NODE_KINDS.includes(n.kind)) err(`${where}.kind "${n.kind}" must be one of ${NODE_KINDS.join(', ')}${didYouMean(String(n.kind), NODE_KINDS)}`);
+  for (const k of ['paths', 'exclude', 'packages', 'hosts', 'tags']) if (n[k] !== undefined && !isStrArr(n[k])) err(`${where}.${k} must be an array of strings`);
+  if (n.kind === 'external' && n.paths?.length) warn(`${where} is external but has paths; external nodes normally own no files`);
+});
+const ids = [...byId.keys()];
+for (const n of nodes) {
+  if (n?.parent === undefined) continue;
+  if (!byId.has(n.parent)) err(`node "${n.id}".parent "${n.parent}" does not exist${didYouMean(n.parent, ids)}`);
+}
+// cycles + depth
+const depthOf = new Map();
+const depth = (id, seen = new Set()) => {
+  if (depthOf.has(id)) return depthOf.get(id);
+  if (seen.has(id)) { err(`node "${id}" is part of a parent cycle`); return 0; }
+  seen.add(id);
+  const n = byId.get(id);
+  const d = n?.parent && byId.has(n.parent) ? depth(n.parent, seen) + 1 : 0;
+  depthOf.set(id, d);
+  return d;
+};
+ids.forEach((id) => depth(id));
+
+// ---------- files ----------
+const filesAll = scan.files;
+const fileByPath = new Map(filesAll.map((f) => [f.path, f]));
+const included = filesAll.filter((f) => include.includes(f.category) && !ignoreGlobs.some((g) => g.test(f.path)));
+const includedSet = new Set(included.map((f) => f.path));
+// what the map leaves out, by kind (and by "ignore"), so a small board doesn't look like a scan that missed things
+const leftOut = notMapped(filesAll, include, filesAll.filter((f) => include.includes(f.category) && !includedSet.has(f.path)).length);
+
+// ---------- assign files to nodes ----------
+// A node's `exclude` also applies to its descendants, so "web excludes tests" holds all the way down.
+const nodeWhere = (n) => `nodes[${nodes.indexOf(n)}]${n?.id ? ` ("${n.id}")` : ''}`;
+const ownGlobs = new Map(nodes.filter((n) => n?.id).map((n) => [n, {
+  paths: globsAt(isStrArr(n.paths) ? n.paths : [], `${nodeWhere(n)}.paths`),
+  exclude: globsAt(isStrArr(n.exclude) ? n.exclude : [], `${nodeWhere(n)}.exclude`),
+}]));
+const inheritedExcludes = (n, seen = new Set()) => {
+  if (!n || seen.has(n.id)) return [];
+  seen.add(n.id);
+  return [...(ownGlobs.get(n)?.exclude || []), ...(n.parent ? inheritedExcludes(byId.get(n.parent), seen) : [])];
+};
+const matchers = nodes.filter((n) => n?.id && isStrArr(n.paths ?? [])).map((n, order) => ({
+  id: n.id, order, depth: depthOf.get(n.id) || 0,
+  paths: ownGlobs.get(n).paths, exclude: inheritedExcludes(n), hits: new Array(ownGlobs.get(n).paths.length).fill(0),
+}));
+const owner = new Map();
+let ambiguous = 0;
+const ambiguousEx = [];
+for (const f of included) {
+  let best = null, bestKey = null, tie = null;
+  for (const m of matchers) {
+    if (m.exclude.some((g) => g.test(f.path))) continue;
+    let spec = -1;
+    m.paths.forEach((g, i) => { if (g.test(f.path)) { m.hits[i]++; spec = Math.max(spec, g.specificity); } });
+    if (spec < 0) continue;
+    const key = [m.depth, spec];
+    if (!best || key[0] > bestKey[0] || (key[0] === bestKey[0] && key[1] > bestKey[1])) { best = m; bestKey = key; tie = null; }
+    else if (key[0] === bestKey[0] && key[1] === bestKey[1]) tie = m.id;
+  }
+  if (tie) { ambiguous++; if (ambiguousEx.length < 3) ambiguousEx.push(`${f.path} (${best.id} vs ${tie})`); }
+  owner.set(f.path, best ? best.id : 'unassigned');
+}
+for (const m of matchers) m.hits.forEach((h, i) => { if (!h && m.paths[i] !== NEVER) warn(`node "${m.id}" path "${m.paths[i].glob}" matches no included file`); });
+if (ambiguous) warn(`${ambiguous} file(s) matched two sibling nodes equally; the first declared won. Make globs more specific or add an exclude. e.g. ${ambiguousEx.join('; ')}`);
+
+// ---------- endpoints ----------
+const resolveEndpoint = (ref, where) => {
+  if (!isStr(ref)) { err(`${where} must be a node id or file path`); return null; }
+  if (byId.has(ref)) return `n:${ref}`;
+  const p = ref.replace(/^file:/, '');
+  if (includedSet.has(p)) return `f:${p}`;
+  if (fileByPath.has(p)) { err(`${where} "${ref}" is a file that is not included (category ${fileByPath.get(p).category}); point at its node instead`); return null; }
+  err(`${where} "${ref}" is neither a node id nor a scanned file${didYouMean(ref, ids)}`);
+  return null;
+};
+
+// ---------- links ----------
+const links = new Map(); // key -> link
+const addLink = (a, b, k, extra = {}) => {
+  if (!a || !b || a === b) return;
+  const key = `${a}|${b}|${k}`;
+  let l = links.get(key);
+  if (!l) { l = { a, b, k, w: 0 }; links.set(key, l); }
+  l.w += extra.w || 1;
+  if (extra.names?.length) l.names = [...new Set([...(l.names || []), ...extra.names])].slice(0, 40);
+  if (extra.label) { l.labels = l.labels || []; if (!l.labels.includes(extra.label) && l.labels.length < 40) l.labels.push(extra.label); }
+  if (extra.inferred) l.inferred = true;
+  if (extra.desc) l.desc = extra.desc;
+  if (extra.route !== undefined) { l.calls = l.calls || []; if (l.calls.length < 80) l.calls.push([extra.route, extra.callLine || 0]); }
+};
+
+// ---------- routes ----------
+const routeIdx = new Map();
+const routesIn = scan.routes.filter((r) => includedSet.has(r.file));
+routesIn.forEach((r, i) => routeIdx.set(`${r.file}|${r.method}|${r.path}`, i));
+
+for (const e of scan.edges) if (includedSet.has(e.from) && includedSet.has(e.to)) addLink(`f:${e.from}`, `f:${e.to}`, 'import', { w: e.count || 1, names: e.names });
+for (const h of scan.http) if (includedSet.has(h.from) && includedSet.has(h.to)) addLink(`f:${h.from}`, `f:${h.to}`, 'http', { label: `${h.method} ${h.path}`, inferred: true, route: routeIdx.get(`${h.to}|${h.method}|${h.path}`), callLine: h.line });
+
+// externals: packages / hosts claimed by nodes
+const extIds = scan.externals.map((e) => e.id);
+const pkgMatchers = nodes.filter((n) => n?.id && isStrArr(n.packages) && n.packages.length).map((n) => ({ id: n.id, globs: globsAt(n.packages, `${nodeWhere(n)}.packages`, (p) => (p.includes(':') ? p : `*:${p}`)), hits: 0 }));
+const hostMatchers = nodes.filter((n) => n?.id && isStrArr(n.hosts) && n.hosts.length).map((n) => ({ id: n.id, globs: globsAt(n.hosts, `${nodeWhere(n)}.hosts`, (h) => h.toLowerCase()), hits: 0 }));
+for (const e of scan.extEdges) {
+  if (!includedSet.has(e.from)) continue;
+  const m = pkgMatchers.find((pm) => pm.globs.some((g) => g.test(e.pkg)));
+  if (m) { m.hits++; addLink(`f:${e.from}`, `n:${m.id}`, 'import', { w: e.count, names: [e.pkg.split(':')[1]] }); }
+}
+for (const h of scan.hosts) {
+  if (!includedSet.has(h.from)) continue;
+  const m = hostMatchers.find((hm) => hm.globs.some((g) => g.test(h.host)));
+  if (m) { m.hits++; addLink(`f:${h.from}`, `n:${m.id}`, 'http', { label: h.host, inferred: true }); }
+}
+for (const pm of pkgMatchers) if (!pm.hits) warn(`node "${pm.id}" packages match nothing imported. Known: ${extIds.slice(0, 8).join(', ')}…`);
+for (const hm of hostMatchers) if (!hm.hits) warn(`node "${hm.id}" hosts match no host called from code`);
+
+// a blueprint's planned links from files to outside services and data stores (plan.json "services"/"data")
+for (const e of scan.nodeLinks || []) {
+  if (!includedSet.has(e.from)) continue;
+  if (!byId.has(e.to)) { err(`plan.json: "${e.from}" names "${e.to}" in its ${e.kind === 'data' ? 'data' : 'services'}, which is not a node id in architecture.json${didYouMean(e.to, ids)}`); continue; }
+  addLink(`f:${e.from}`, `n:${e.to}`, EDGE_KINDS.includes(e.kind) ? e.kind : 'call', { label: e.label });
+}
+
+archEdges.forEach((e, i) => {
+  const where = `edges[${i}]`;
+  if (!EDGE_KINDS.includes(e?.kind)) err(`${where}.kind "${e?.kind}" must be one of ${EDGE_KINDS.join(', ')}${didYouMean(String(e?.kind), EDGE_KINDS)}`);
+  const a = resolveEndpoint(e?.from, `${where}.from`);
+  const b = resolveEndpoint(e?.to, `${where}.to`);
+  if (a && b && EDGE_KINDS.includes(e.kind)) addLink(a, b, e.kind, { label: e.label, desc: e.description, w: 1 });
+});
+
+// ---------- flows + annotations ----------
+const outFlows = [];
+flows.forEach((fl, i) => {
+  const where = `flows[${i}]`;
+  if (!isStr(fl?.id) || !isStr(fl?.title)) err(`${where} needs id and title`);
+  if (!Array.isArray(fl?.steps) || fl.steps.length < 2) { err(`${where}.steps needs at least 2 steps`); return; }
+  const steps = fl.steps.map((s, j) => ({ ref: resolveEndpoint(s?.node, `${where}.steps[${j}].node`), note: s?.note || '' }));
+  outFlows.push({ id: fl.id, title: fl.title, description: fl.description || '', steps });
+});
+// Flows people requested from the map (saved by serve.mjs). Steps use stable refs —
+// "route:METHOD /path" and "sym:<file>#<name>" — so they survive rebuilds; stale steps are dropped.
+const customFile = path.join(outDir, 'custom-flows.json');
+if (fs.existsSync(customFile)) {
+  let custom = [];
+  try { custom = readJsonFile(customFile).flows || []; } catch (e) { warn(`custom-flows.json is not valid JSON: ${e.message}`); }
+  const routeAt = new Map(routesIn.map((r, i) => [routeKey(r), i]));
+  const resolveStep = (ref) => {
+    if (typeof ref !== 'string') return null;
+    if (ref.startsWith('route:')) { const i = routeAt.get(ref.slice(6)); return i == null ? null : `r:${i}`; }
+    if (ref.startsWith('sym:')) {
+      const [p, name] = [ref.slice(4, ref.lastIndexOf('#')), ref.slice(ref.lastIndexOf('#') + 1)];
+      const i = (fileByPath.get(p)?.symbols || []).findIndex((s) => s.name === name);
+      return includedSet.has(p) && i >= 0 ? `s:${p}#${i}` : null;
+    }
+    if (ref.startsWith('n:')) return byId.has(ref.slice(2)) ? ref : null;
+    if (ref.startsWith('f:')) return includedSet.has(ref.slice(2)) ? ref : null;
+    return null;
+  };
+  let dropped = 0;
+  custom.forEach((fl, i) => { scrubFields(fl, ['title', 'description'], 'custom-flows.json', `flows[${i}]`); if (Array.isArray(fl?.steps)) fl.steps.forEach((s, j) => scrubFields(s, ['note'], 'custom-flows.json', `flows[${i}].steps[${j}]`)); });
+  for (const fl of custom) {
+    const steps = (fl.steps || []).map((s) => ({ ref: resolveStep(s.ref), note: s.note || '' })).filter((s) => s.ref);
+    dropped += (fl.steps || []).length - steps.length;
+    if (steps.length >= 2 && isStr(fl.id) && !outFlows.some((x) => x.id === fl.id)) outFlows.push({ id: fl.id, title: fl.title || 'Flow', description: fl.description || '', steps, custom: true });
+  }
+  if (dropped) warn(`${dropped} step(s) in custom-flows.json point at code that no longer exists and were left out.`);
+}
+// "Start here" tour: 3-8 narrated stops (node id or file path), written by Claude in architecture.json
+const outTour = [];
+if (arch.tour !== undefined) {
+  if (!Array.isArray(arch.tour)) err('tour must be an array of { node, title, note }');
+  else arch.tour.forEach((s, i) => {
+    const ref = resolveEndpoint(s?.node, `tour[${i}].node`);
+    if (ref) outTour.push({ ref, title: isStr(s.title) ? s.title : '', note: isStr(s.note) ? s.note : '' });
+  });
+}
+// "Recent work": what Claude just changed, per task, framed against what the user asked for
+// (floorplan/recent-work.json, rewritten on every make/update). Stale refs are warnings, never errors.
+let outRecent = null;
+const recentFile = path.join(outDir, 'recent-work.json');
+if (fs.existsSync(recentFile)) {
+  let rw = null;
+  try { rw = readJsonFile(recentFile); } catch (e) { warn(`recent-work.json is not valid JSON: ${e.message}`); }
+  const routeIdx = new Map(routesIn.map((r, i) => [routeKey(r), i]));
+  const resolveRecent = (ref) => {
+    if (!isStr(ref)) return null;
+    const s = ref.trim().replace(/^\.\//, '').replace(/^(route:|file:)/, '');
+    if (/^n:/.test(s)) return byId.has(s.slice(2)) ? s : null;
+    if (/^f:/.test(s)) return includedSet.has(s.slice(2)) ? s : null;
+    if (byId.has(s)) return 'n:' + s;
+    if (includedSet.has(s)) return 'f:' + s;
+    const m = /^([A-Za-z]+)\s+(\/\S*)$/.exec(s);
+    if (m && routeIdx.has(`${m[1].toUpperCase()} ${m[2]}`)) return `r:${routeIdx.get(`${m[1].toUpperCase()} ${m[2]}`)}`;
+    return null;
+  };
+  if (rw && !Array.isArray(rw.tasks)) warn('recent-work.json needs a "tasks" array (an empty one clears the highlights)');
+  else if (rw) {
+    const tasks = [], items = [], missing = [];
+    rw.tasks.forEach((t, ti) => {
+      scrubFields(t, ['title', 'request', 'summary', 'status'], 'recent-work.json', `tasks[${ti}]`);
+      if (Array.isArray(t?.items)) t.items.forEach((it, ii) => scrubFields(it, ['note'], 'recent-work.json', `tasks[${ti}].items[${ii}]`));
+      if (!isStr(t?.title)) return warn(`recent-work.json tasks[${ti}] needs a title`);
+      tasks.push({ title: t.title, request: isStr(t.request) ? t.request : '', summary: isStr(t.summary) ? t.summary : '', ...(isStr(t.status) ? { status: t.status } : {}) });
+      for (const it of Array.isArray(t.items) ? t.items : []) {
+        const id = resolveRecent(it?.ref);
+        if (!id) { missing.push(it?.ref); continue; }
+        items.push({ id, task: tasks.length - 1, change: it.change === 'new' ? 'new' : 'changed', note: isStr(it.note) ? it.note : '' });
+      }
+    });
+    if (missing.length) warn(`recent-work.json: ${missing.length} ref(s) aren't on the map and were left out (use a file path, a node id or "METHOD /path"): ${missing.slice(0, 5).map(String).join(', ')}${missing.length > 5 ? '…' : ''}`);
+    outRecent = { updatedAt: isStr(rw.updatedAt) ? rw.updatedAt : fs.statSync(recentFile).mtime.toISOString(), tasks, items };
+  }
+}
+const notes = new Map();
+annotations.forEach((a, i) => {
+  if (!isStr(a?.path) || !isStr(a?.note)) return err(`annotations[${i}] needs path and note`);
+  if (!includedSet.has(a.path)) return err(`annotations[${i}].path "${a.path}" is not an included file`);
+  notes.set(a.path, { note: a.note, tags: isStrArr(a.tags) ? a.tags : undefined });
+});
+for (const ep of arch.project?.entrypoints || []) if (!includedSet.has(ep)) warn(`project.entrypoints "${ep}" is not an included file`);
+
+// ---------- names + descriptions (floorplan/descriptions/*.json) ----------
+const descDir = path.join(outDir, 'descriptions');
+const fileDesc = new Map(), routeDesc = new Map();
+const routeKeys = new Set(routesIn.map(routeKey));
+let staleFiles = 0, staleRoutes = 0;
+const staleEx = [];
+if (fs.existsSync(descDir)) {
+  for (const name of fs.readdirSync(descDir).filter((n) => n.endsWith('.json')).sort()) {
+    let d;
+    try { d = readJsonFile(path.join(descDir, name)); } catch (e) { err(`descriptions/${name} is not valid JSON: ${e.message}`); continue; }
+    // a file that holds something else (null, a list, text), or whose files or routes hold the wrong kind of thing, is named and left out;
+    // files or routes left empty (missing or null) is fine
+    if (!isObj(d)) { err(`descriptions/${name} must be an object like { "files": { … }, "routes": { … } }, not ${kindOf(d)}`); continue; }
+    const wrong = ['files', 'routes'].filter((k) => d[k] != null && !isObj(d[k]));
+    for (const k of wrong) err(`descriptions/${name}: "${k}" must be an object, not ${kindOf(d[k])}`);
+    if (wrong.length) continue;
+    for (const [p, v] of Object.entries(d.files || {})) {
+      if (!v || typeof v !== 'object') { err(`descriptions/${name}: files["${p}"] must be { name, description }`); continue; }
+      if (!includedSet.has(p)) { staleFiles++; if (staleEx.length < 3) staleEx.push(p); continue; }
+      scrubFields(v, ['name', 'description', 'review'], `descriptions/${name}`, `files[${JSON.stringify(p)}]`);
+      fileDesc.set(p, { name: isStr(v.name) ? v.name.trim() : null, d: isStr(v.description) ? v.description.trim() : null, review: isStr(v.review) ? v.review : null });
+    }
+    for (const [k, v] of Object.entries(d.routes || {})) {
+      if (!v || typeof v !== 'object') { err(`descriptions/${name}: routes["${k}"] must be { name, description }`); continue; }
+      if (!routeKeys.has(k)) { staleRoutes++; continue; }
+      scrubFields(v, ['name', 'description', 'review'], `descriptions/${name}`, `routes[${JSON.stringify(k)}]`);
+      routeDesc.set(k, { name: isStr(v.name) ? v.name.trim() : null, d: isStr(v.description) ? v.description.trim() : null, review: isStr(v.review) ? v.review : null });
+    }
+  }
+}
+if (staleFiles) warn(`${staleFiles} described file(s) no longer exist or aren't included (e.g. ${staleEx.join(', ')}). Remove them from descriptions/.`);
+if (staleRoutes) warn(`${staleRoutes} described route(s) no longer match a route in the scan; remove or re-key them.`);
+
+// ---------- stats ----------
+const unassigned = included.filter((f) => owner.get(f.path) === 'unassigned');
+const stats = new Map([...ids, 'unassigned'].map((id) => [id, { files: 0, loc: 0, langs: {}, repos: new Set() }]));
+for (const f of included) {
+  let id = owner.get(f.path);
+  while (id) {
+    const s = stats.get(id);
+    s.files++; s.loc += f.loc; s.langs[f.lang || f.category] = (s.langs[f.lang || f.category] || 0) + f.loc;
+    if (f.repo !== null) s.repos.add(f.repo);
+    id = id === 'unassigned' ? null : byId.get(id)?.parent;
+  }
+}
+
+// ---------- plain language (maps for everyone) ----------
+// Developer words in a part's label or summary, from the one list in lib/names.mjs. Only ever a warning:
+// whoever writes architecture.json can reword them, and a driver following workflow.json hands them back once.
+const plainItems = [];
+if (audience === 'everyone') {
+  for (const n of nodes) {
+    if (!n?.id) continue;
+    const found = ['label', 'summary'].flatMap((field) => jargonIn(n[field], { frameworks: n.kind !== 'external', screens: ['ui', 'feature'].includes(n.kind) }).map((j) => ({ node: n.id, field, ...j })));
+    if (!found.length) continue;
+    plainItems.push(...found);
+    warn(`plain language: node "${n.id}" uses developer words: ${found.map((f) => `"${f.term}" in its ${f.field} (${f.say})`).join('; ')}. This map is for everyone, so reword them ("Jargon → plain" in references/writing-descriptions.md).`);
+  }
+}
+const plainLanguage = { checked: audience === 'everyone', count: new Set(plainItems.map((i) => i.node)).size, items: plainItems };
+
+// ---------- parts that hold many files in folders of their own ----------
+// A part with no smaller parts and far more files than the 3-12 a card should show, when those files sit in
+// several folders that could each be a part (components/items/, components/admin/…). A gentle warning only.
+const PART_FILES = 24, FOLDER_FILES = 3;
+const hasChildren = new Set(nodes.filter((n) => n?.parent).map((n) => n.parent));
+const partsToSplit = [];
+for (const n of nodes) {
+  if (!n?.id || hasChildren.has(n.id) || ['external', 'test', 'data'].includes(n.kind)) continue;
+  const mine = included.filter((f) => owner.get(f.path) === n.id).map((f) => f.path.split('/').slice(0, -1));
+  if (mine.length <= PART_FILES) continue;
+  let common = mine[0];
+  for (const d of mine) { let i = 0; while (i < common.length && i < d.length && common[i] === d[i]) i++; common = common.slice(0, i); }
+  const folders = new Map();
+  for (const d of mine) if (d.length > common.length) { const k = d.slice(0, common.length + 1).join('/'); folders.set(k, (folders.get(k) || 0) + 1); }
+  const big = [...folders.entries()].filter(([, c]) => c >= FOLDER_FILES).sort((a, b) => b[1] - a[1]);
+  if (big.length < 2 || big.reduce((s, [, c]) => s + c, 0) < mine.length / 2) continue;
+  partsToSplit.push({ id: n.id, files: mine.length, folders: big.map(([dir, files]) => ({ dir, files })) });
+  warn(`node "${n.id}" holds ${mine.length} files and no smaller parts, and they sit in folders that could each be one: ${big.slice(0, 6).map(([d, c]) => `${d}/ (${c})`).join(', ')}${big.length > 6 ? '…' : ''}. Consider children by feature area ("Second level" in references/choosing-boundaries.md).`);
+}
+
+// secrets hidden from the map: first among the warnings, by file, naming each field but never the value
+let warnedSecrets = 0;
+function secretWarnings() {
+  const byFile = new Map();
+  for (const { file, field } of hiddenSecrets.slice(warnedSecrets)) byFile.set(file, [...(byFile.get(file) || []), field]);
+  warnedSecrets = hiddenSecrets.length;
+  return [...byFile].map(([file, fields]) => `secret-looking text in ${file} (${fields.slice(0, 5).join(', ')}${fields.length > 5 ? ` and ${fields.length - 5} more` : ''}) is shown on the map as «hidden». The value isn't repeated here; take it out of that file and name the secret instead (e.g. "the Stripe key in .env").`);
+}
+warnings.unshift(...secretWarnings());
+
+// ---------- report ----------
+const pct = included.length ? (unassigned.length / included.length) * 100 : 0;
+const report = [];
+if (errors.length) {
+  report.push(`✗ ${errors.length} error(s) in ${path.relative(root, archFile)}${scan.blueprint ? ' or plan.json' : ''}:`);
+  for (const e of errors) report.push(`  - ${e}`);
+}
+if (warnings.length) {
+  report.push(`! ${warnings.length} warning(s):`);
+  for (const w of warnings.slice(0, 40)) report.push(`  - ${w}`);
+}
+report.push('');
+report.push(`ASSIGNMENT  ${included.length} files (${include.join('+')}), ${unassigned.length} unassigned (${pct.toFixed(1)}%)`);
+for (const n of nodes.filter((n) => n?.id && !n.parent)) {
+  const s = stats.get(n.id);
+  report.push(`  ${n.id.padEnd(28)} ${String(s.files).padStart(5)} files ${scan.blueprint ? '' : `${fmtNum(s.loc).padStart(6)} loc  `}[${n.kind}]`);
+}
+const unassignedDirs = new Map();
+for (const f of unassigned) { const d = f.path.split('/').slice(0, -1).join('/') || '.'; unassignedDirs.set(d, (unassignedDirs.get(d) || 0) + 1); }
+const unassignedByDir = [...unassignedDirs.entries()].sort((a, b) => b[1] - a[1]);
+if (unassigned.length) {
+  report.push(`  unassigned, by directory:`);
+  for (const [d, c] of unassignedByDir.slice(0, 15)) report.push(`    ${String(c).padStart(4)}  ${d}/`);
+}
+const byKind = {};
+for (const l of links.values()) byKind[l.k] = (byKind[l.k] || 0) + 1;
+if (leftOut.line) report.push(leftOut.line);
+report.push(`LINKS  ${[...links.values()].length} (${Object.entries(byKind).map(([k, v]) => `${k} ${v}`).join(', ')})`);
+const describedFiles = included.filter((f) => fileDesc.get(f.path)?.d || f.desc).length;
+const describedRoutes = routesIn.filter((r) => routeDesc.get(routeKey(r))?.d || r.desc).length;
+const noSummary = nodes.filter((n) => n?.id && !isStr(n.summary)).map((n) => n.id);
+const reviewCount = [...fileDesc.values(), ...routeDesc.values()].filter((d) => d.review).length;
+report.push(`DESCRIPTIONS  files ${describedFiles}/${included.length} · routes ${describedRoutes}/${routesIn.length} · modules ${nodes.length - noSummary.length}/${nodes.length}${reviewCount ? ` · ${reviewCount} need review (code changed)` : ''}`);
+if (noSummary.length) report.push(`  modules without a summary: ${noSummary.slice(0, 12).join(', ')}${noSummary.length > 12 ? '…' : ''}`);
+if (describedFiles < included.length || describedRoutes < routesIn.length || reviewCount) report.push(`  Run describe.mjs to get worksheets for the ${included.length - describedFiles} file(s) and ${routesIn.length - describedRoutes} route(s) still missing descriptions.`);
+
+// --json: the same facts as the report, as data a program can rely on (documented in docs/unattended.md)
+const relPath = (f) => toPosix(path.relative(root, f));
+const result = (extra) => ({
+  schema: 'floorplan/build-result@1',
+  ok: !errors.length,
+  check: !!args.check,
+  errors, warnings,
+  agent, audience, blueprint: !!scan.blueprint, unattended,
+  files: { total: included.length, unassigned: unassigned.length, unassignedPercent: Number(pct.toFixed(1)), include },
+  // files of the kinds "include" leaves out, by kind, and how many of the included kinds "ignore" leaves out
+  notMapped: { byCategory: leftOut.byCategory, ignored: leftOut.ignored },
+  unassignedByDirectory: unassignedByDir.map(([dir, files]) => ({ dir, files })),
+  nodes: nodes.filter((n) => n?.id && !n.parent && stats.has(n.id)).map((n) => ({ id: n.id, kind: n.kind, files: stats.get(n.id).files, loc: stats.get(n.id).loc })),
+  links: { total: links.size, byKind },
+  descriptions: {
+    files: { described: describedFiles, total: included.length },
+    routes: { described: describedRoutes, total: routesIn.length },
+    modules: { withSummary: nodes.length - noSummary.length, total: nodes.length, missing: noSummary },
+    review: reviewCount,
+    complete: describedFiles === included.length && describedRoutes === routesIn.length && !reviewCount,
+  },
+  // developer words in node labels and summaries on a map for everyone (also in warnings[]); never an error
+  plainLanguage,
+  // fields where secret-looking text was masked before it reached the map (also in warnings[]); never the values
+  secretsHidden: hiddenSecrets,
+  // parts with many files in folders that could each be a part (also in warnings[])
+  partsToSplit,
+  ...extra,
+});
+if (errors.length) {
+  if (args.json) await printJson(result({ wrote: [], report: `${report.join('\n')}\n\nFix the errors above and run build again.` }), 1);
+  console.log(report.join('\n')); console.log('\nFix the errors above and run build again.'); process.exit(1);
+}
+if (args.check) {
+  if (args.json) await printJson(result({ wrote: [], report: report.join('\n') }), 0);
+  console.log(report.join('\n')); process.exit(0);
+}
+
+// ---------- write graph.json + index.html ----------
+const graph = {
+  schema: 'floorplan/graph@1',
+  meta: {
+    generatedAt: new Date().toISOString(), scanAt: scan.generatedAt, rootName: scan.rootName, root: scan.root,
+    audience, agent,
+    ...(editor.template ? { editor: editor.template } : {}),
+    ...(scan.blueprint ? { blueprint: { source: scan.blueprint.source, stack: scan.blueprint.stack, assumptions: scan.blueprint.assumptions } } : {}),
+    repos: scan.repos.map(({ path: p, name, branch, head, remote }) => ({ path: p, name, branch, head, remote })),
+    counts: { files: included.length, loc: included.reduce((s, f) => s + f.loc, 0), unassigned: unassigned.length },
+  },
+  project: arch.project,
+  nodes: [
+    ...nodes.map((n) => ({
+      id: n.id, parent: n.parent || null, label: n.label, kind: n.kind, summary: n.summary || '', details: n.details || '',
+      tags: n.tags || [], paths: n.paths || [], packages: n.packages || [], hosts: n.hosts || [],
+      stats: { ...stats.get(n.id), repos: [...stats.get(n.id).repos] },
+    })),
+    ...(unassigned.length ? [{ id: 'unassigned', parent: null, label: 'Unassigned', kind: 'misc', summary: 'Files no node claims. Add globs in architecture.json to place them.', details: '', tags: [], paths: [], packages: [], hosts: [], stats: { ...stats.get('unassigned'), repos: [...stats.get('unassigned').repos] } }] : []),
+  ],
+  files: included.map((f) => {
+    const d = fileDesc.get(f.path);
+    return {
+      p: f.path, n: owner.get(f.path), r: f.repo, l: f.lang || f.category, loc: f.loc,
+      name: d?.name || f.name || fallbackFileName(f.path), d: d?.d || f.desc || f.doc || '', ...(d?.d || f.desc ? {} : { auto: true }),
+      ...(f.doc ? { doc: f.doc } : {}),
+      ...(f.tooLarge ? { tooLarge: true } : {}),
+      ...(d?.review ? { review: d.review } : {}),
+      ...(f.h ? { h: f.h, sig: f.sig } : {}),
+      ...(f.symbols ? { s: f.symbols.map((s) => [s.name, s.kind, s.line, s.default ? 1 : 0, s.doc || '']) } : {}),
+      ...(notes.has(f.path) ? notes.get(f.path) : {}),
+    };
+  }),
+  routes: routesIn.map((r) => {
+    const d = routeDesc.get(routeKey(r));
+    return { f: r.file, m: r.method, p: r.path, l: r.line, h: r.handler || null, name: d?.name || r.name || fallbackRouteName(r), d: d?.d || r.desc || r.doc || '', ...(d?.d || r.desc ? {} : { auto: true }), ...(d?.review ? { review: d.review } : {}), ...(r.doc ? { doc: r.doc } : {}), ...(r.access ? { access: r.access } : {}), ...(r.who ? { who: r.who } : {}), ...(r.publicBecause ? { publicBecause: r.publicBecause } : {}) };
+  }),
+  links: [...links.values()],
+  flows: outFlows,
+  tour: outTour,
+  ...(outRecent?.items.length ? { recent: outRecent } : {}),
+};
+// extension hooks, computed from the finished graph plus the raw scan
+// a blueprint has no code to check, so its Health is a design review of the plan (computed after screens)
+if (!scan.blueprint) try { graph.health = buildHealth({ graph, scan, arch, root }); } catch (e) { warn(`health check failed: ${e.message}`); graph.health = { issues: [] }; }
+try { graph.screens = buildScreens({ graph, scan, arch, root }); } catch (e) { warn(`screen detection failed: ${e.message}`); graph.screens = []; }
+if (scan.blueprint) try { graph.health = buildPlanHealth({ graph, scan }); } catch (e) { warn(`design review failed: ${e.message}`); graph.health = { issues: [] }; }
+// issues people marked "not a problem" on the map (saved by serve.mjs) stay listed, set apart, and leave the counts
+const dismissedFile = path.join(outDir, 'health-dismissed.json');
+if (graph.health?.issues && fs.existsSync(dismissedFile)) {
+  try { const list = readJsonFile(dismissedFile).dismissed;
+    if (Array.isArray(list)) list.forEach((d, i) => scrubFields(d, ['reason'], 'health-dismissed.json', `dismissed[${i}]`));
+    graph.health = withDismissed(graph.health, list);
+    for (const w of secretWarnings()) { warn(w); report.push(`! ${w}`); } } catch (e) { warn(`health-dismissed.json is not valid JSON: ${e.message}`); }
+}
+fs.mkdirSync(outDir, { recursive: true });
+const trackedWarning = keepOutOfGit(outDir);
+fs.writeFileSync(path.join(outDir, 'graph.json'), JSON.stringify(graph, null, 0));
+
+const template = fs.readFileSync(path.join(SKILL_DIR, 'assets', 'viewer.html'), 'utf8');
+// The layout engine (elkjs 0.9.3) and fonts (Inter, JetBrains Mono) are bundled in assets/vendor/ and
+// inlined, so the map makes no outside requests and works offline.
+const vendor = path.join(SKILL_DIR, 'assets', 'vendor');
+const elkTag = `<script>${scriptCode(fs.readFileSync(path.join(vendor, 'elk.bundled.js'), 'utf8'))}</script>`;
+const FONT_RANGES = {
+  latin: 'U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD',
+  'latin-ext': 'U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF',
+};
+const fontCss = [['Inter', 'inter'], ['JetBrains Mono', 'jetbrains-mono']].flatMap(([family, file]) => Object.entries(FONT_RANGES).map(([subset, range]) =>
+  `@font-face{font-family:"${family}";font-style:normal;font-display:swap;font-weight:100 900;unicode-range:${range};src:url(data:font/woff2;base64,${fs.readFileSync(path.join(vendor, 'fonts', `${file}-${subset}-wght-normal.woff2`)).toString('base64')}) format("woff2")}`)).join('\n');
+const graphQuery = fs.readFileSync(path.join(SKILL_DIR, 'assets', 'graph-query.js'), 'utf8');
+// Code goes in through scriptCode and the map's data through scriptJson (assets/page-safety.mjs), and the data
+// goes in last, so nothing in it can be taken for one of the page's own placeholders.
+const page = (g) => template
+  .replace('/*__GRAPH_QUERY__*/', () => scriptCode(graphQuery))
+  .replace('<!--__ELK_SCRIPT__-->', () => elkTag)
+  .replace('/*__FONTS__*/', () => fontCss)
+  .replace(/__FLOORPLAN_TITLE__/g, () => escapeHtml(`${arch.project.name} map`))
+  .replace(/__FLOORPLAN_LOGO__/g, () => dataUri('logo.png'))
+  .replace(/__FLOORPLAN_FAVICON__/g, () => dataUri('favicon.png'))
+  .replace('<!--__UI_EXTENSIONS__-->', () => uiScripts)
+  .replace('/*__FLOORPLAN_DATA__*/null', () => scriptJson(g));
+const uiDir = path.join(SKILL_DIR, 'assets', 'ui');
+const uiScripts = fs.existsSync(uiDir) ? fs.readdirSync(uiDir).filter((n) => n.endsWith('.js')).sort().map((n) => `<script>/* ui/${n} */\n${scriptCode(fs.readFileSync(path.join(uiDir, n), 'utf8'))}</script>`).join('\n') : '';
+// the map on disk (and as serve.mjs serves it): only its own scripts run, and it talks to nothing but its own
+// local server. The copy for the Claude app (--artifact) gets none: the app runs its own code in that page.
+const html = withPolicy(page(graph), 'local');
+fs.writeFileSync(path.join(outDir, 'index.html'), html);
+// --artifact: a copy to publish to the Claude app, without this machine's absolute path (editor links)
+// (and without the reasons on dismissed health issues, which are notes to self)
+const sharedHealth = graph.health?.dismissed ? { ...graph.health, dismissed: graph.health.dismissed.map(({ reason, ...d }) => d) } : graph.health;
+if (args.artifact) fs.writeFileSync(path.join(outDir, 'artifact.html'), page({ ...graph, ...(sharedHealth ? { health: sharedHealth } : {}), meta: { ...graph.meta, root: null, agent: 'claude' } }));
+// Self-contained helpers next to the map: ask questions through the Claude Code CLI or Codex (serve.mjs)
+// and the graph lookups it hands to them (query.mjs). They need only Node, not this skill.
+fs.writeFileSync(path.join(outDir, 'query.mjs'), `${graphQuery}
+// ---- cli ----
+${fs.readFileSync(path.join(SKILL_DIR, 'assets', 'query-cli.mjs'), 'utf8')}`);
+// Written fresh, not copied: a copy keeps the original's permissions, so a skill installed read-only left
+// read-only files here and the next build couldn't replace them. Removing first replaces one left that way.
+for (const name of ['serve.mjs', 'page-safety.mjs']) {
+  const bytes = fs.readFileSync(path.join(SKILL_DIR, 'assets', name));
+  fs.rmSync(path.join(outDir, name), { force: true });
+  fs.writeFileSync(path.join(outDir, name), bytes);
+}
+// a blueprint can be changed from the map: serve.mjs redraws it with this skill's plan.mjs and build.mjs
+if (scan.blueprint) { fs.mkdirSync(path.join(outDir, '.cache'), { recursive: true }); fs.writeFileSync(path.join(outDir, '.cache', 'skill.json'), JSON.stringify({ dir: SKILL_DIR })); }
+// the logo and tab icon are inlined so the map stays one self-contained file
+function dataUri(name) { return 'data:image/png;base64,' + fs.readFileSync(path.join(SKILL_DIR, 'assets', name)).toString('base64'); }
+function escapeHtml(s) { return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]); }
+
+const hs = graph.health?.summary;
+if (hs && (hs.high || hs.medium || hs.low)) {
+  report.push(`${scan.blueprint ? 'DESIGN REVIEW' : 'HEALTH'}  ${hs.high} important · ${hs.medium} worth fixing · ${hs.low} minor`);
+  for (const i of graph.health.issues.filter((x) => x.severity !== 'low' && !dismissalFor(x, graph.health.dismissed)).slice(0, 8)) report.push(`  [${i.severity}] ${i.title}`);
+} else if (hs && !scan.blueprint) report.push('HEALTH  nothing found');
+// what each check had to look at: a clean result where a check found nothing to read isn't a clean bill of health
+const healthChecked = Array.isArray(graph.health?.checked) ? graph.health.checked : [];
+if (healthChecked.length) {
+  report.push('  what was checked:');
+  for (const c of healthChecked) report.push(`  ${c.loud ? '!' : c.checked ? '✓' : '·'} ${c.label}: ${c.text}`);
+}
+// what "no open endpoints" rests on, when an app-wide check is all that protects some of them
+for (const g of graph.health?.appWide || []) report.push(`APP-WIDE CHECK  ${g.name} (${g.file}:${g.line}) is the only login check Health saw on ${g.endpoints} endpoint${g.endpoints === 1 ? '' : 's'}`);
+if (graph.screens?.length) report.push(`SCREENS  ${graph.screens.length} detected`);
+report.push(graph.recent
+  ? `RECENT WORK  ${graph.recent.items.length} card(s) highlighted across ${graph.recent.tasks.length} task(s)`
+  : `RECENT WORK  none highlighted${fs.existsSync(recentFile) ? '' : ' (no recent-work.json)'}`);
+// point future Claude Code sessions in this project at the map. Codex has no personal, uncommitted
+// equivalent (AGENTS.md is shared with the team), so a map built by Codex leaves the project's notes alone,
+// and so does a map made without an agent session. Unattended mode never writes outside the map folder.
+if (agent === 'codex') report.push('AGENT  Codex: questions on the map run through Codex');
+if (agent === 'none') report.push("AGENT  none: made without an agent session, so the map's prompts don't name one");
+let claudeNote = null;
+if (scan.blueprint) report.push('BLUEPRINT  planned, not built yet: drawn from floorplan/plan.json');
+else if (unattended) report.push(`CLAUDE.LOCAL.MD  ${claudeNote = 'left alone (unattended mode writes only inside the map folder)'}`);
+else if (agent === 'claude' && !args['no-claude-md']) report.push(`CLAUDE.LOCAL.MD  ${claudeNote = writeClaudeMd(root, outDir, { add: !!args['claude-md'] })}`);
+report.push(trackedWarning ? `GIT  ! ${trackedWarning}` : 'GIT  floorplan/ is kept out of git (it ignores itself)');
+report.push('');
+report.push(`✓ wrote ${path.relative(root, path.join(outDir, 'index.html'))} (${fmtNum(Math.round(html.length / 1024))} KB) and graph.json`);
+if (pct > 10) report.push(`  Unassigned is ${pct.toFixed(0)}%: add nodes or globs for the directories above (or "ignore" them) and rebuild.`);
+if (!args.json) console.log(report.join('\n'));
+else {
+  await printJson(result({
+    health: hs ? {
+      kind: scan.blueprint ? 'design-review' : 'health',
+      high: hs.high, medium: hs.medium, low: hs.low,
+      important: graph.health.issues.filter((x) => x.severity !== 'low' && !dismissalFor(x, graph.health.dismissed)).map((i) => ({ severity: i.severity, kind: i.kind, title: i.title })),
+      checked: healthChecked,
+    } : null,
+    screens: graph.screens?.length || 0,
+    recentWork: { cards: graph.recent?.items.length || 0, tasks: graph.recent?.tasks.length || 0, file: fs.existsSync(recentFile) },
+    notes: { claudeLocalMd: claudeNote, git: trackedWarning || null },
+    // files written in the map folder; anything outside it is described in notes.claudeLocalMd (never in unattended mode)
+    wrote: [
+      path.join(outDir, '.gitignore'), path.join(outDir, 'graph.json'), path.join(outDir, 'index.html'),
+      ...(args.artifact ? [path.join(outDir, 'artifact.html')] : []),
+      path.join(outDir, 'query.mjs'), path.join(outDir, 'serve.mjs'), path.join(outDir, 'page-safety.mjs'),
+      ...(scan.blueprint ? [path.join(outDir, '.cache', 'skill.json')] : []),
+    ].map(relPath),
+    report: report.join('\n'),
+  }));
+}

@@ -1,0 +1,20 @@
+{
+  "files": {
+    "src/types.ts": {
+      "name": "Permission record shapes",
+      "description": "Defines what a napplet identity and its permission record hold, the older numbered capability flags, and the default storage limit."
+    },
+    "src/check.ts": {
+      "name": "Yes or no check",
+      "description": "Answers whether a napplet may use a capability: blocked napplets never may, unknown ones follow the default stance."
+    },
+    "src/mutations.ts": {
+      "name": "Permission changes",
+      "description": "Grants, revokes, blocks, unblocks and sets storage limits, always returning a new copy, and turns records into text and back."
+    },
+    "src/migrate.ts": {
+      "name": "Old record upgrade",
+      "description": "Rewrites saved permission records keyed by publisher, name and hash into the current name-and-hash form."
+    }
+  }
+}

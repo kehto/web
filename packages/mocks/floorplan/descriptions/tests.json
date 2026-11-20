@@ -1,0 +1,8 @@
+{
+  "files": {
+    "src/domains/mesh.test.ts": {
+      "name": "Mesh tests",
+      "description": "Checks the mesh mock reports reachable members, clamps hop budgets, delivers backlog and live events once, and rejects bad publishes."
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "files": {
+    "src/index.ts": {
+      "name": "Window manager contract",
+      "description": "Defines windows, placements and the layout-strategy slot; its service tracks windows and focus but never calls the strategy or sets a size itself."
+    }
+  }
+}

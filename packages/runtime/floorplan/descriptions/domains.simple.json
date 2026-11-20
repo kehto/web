@@ -1,0 +1,16 @@
+{
+  "files": {
+    "src/count-handler.ts": {
+      "name": "Event count requests",
+      "description": "Answers how many relay events match a search by asking the host's count service."
+    },
+    "src/identity-handler.ts": {
+      "name": "Identity requests",
+      "description": "Passes identity questions (profile, follows, public key) to the host's identity service, or replies with a standard failure."
+    },
+    "src/state-handler.ts": {
+      "name": "Napplet storage handler",
+      "description": "Saves, reads, lists and removes a napplet's key/value data through the host, enforcing its storage allowance."
+    }
+  }
+}
