@@ -122,9 +122,11 @@ function isUpstreamMissing(response: Response, endpoint: string | undefined): bo
  * `data:` bytes are decoded locally. `blossom:<hex>` URLs and the
  * `blossom:sha256:<hex>` compatibility alias are
  * resolved through accepted request hints followed by host-configured Blossom
- * servers, with redirects resolved one hop at a time through the local Paja
- * proxy and SHA-256 verified before delivery. Direct HTTP(S) URLs use that
- * same proxy. The browser never contacts a remote resource origin directly.
+ * servers and SHA-256 verified before delivery. HTTP(S) and Blossom reads go
+ * through a resource proxy when there is one: the Paja server's, or an
+ * optional standalone proxy for static builds. Each redirect hop comes back
+ * for approval. Without a proxy the browser reads them directly and drops
+ * private destinations it can see in the URL.
  * All bytes are capped and classified locally; upstream media types are ignored.
  *
  * @param options - Host-owned Blossom server and transport hooks.

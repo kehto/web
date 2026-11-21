@@ -239,6 +239,43 @@ describe('Paja resource backend', () => {
     expect(fetchFn).toHaveBeenCalledWith('https://proxy.example/resource', expect.objectContaining({ body: JSON.stringify({ url: 'https://cdn.example/a.txt' }) }));
   });
 
+  it('sends no cookies to a remote proxy and trusts only its marked upstream 404s', async () => {
+    const remote = 'https://proxy.example/';
+    const missing = vi.fn(async () => new Response('nope', { status: 404, headers: { 'x-kehto-resource-upstream': '1' } }));
+    await expect(createPajaResourceFetch({ fetch: missing, getProxyEndpoint: () => remote })('https://cdn.example/a.png', approved(new AbortController().signal)))
+      .rejects.toMatchObject({ code: 'not-found' });
+    expect(missing).toHaveBeenCalledWith(remote, expect.objectContaining({ credentials: 'omit' }));
+    const refused = vi.fn(async () => new Response('Not found', { status: 404 }));
+    await expect(createPajaResourceFetch({ fetch: refused, getProxyEndpoint: () => remote })('https://cdn.example/a.png', approved(new AbortController().signal)))
+      .rejects.toMatchObject({ code: 'network-error' });
+    const local = vi.fn(async () => new Response('x', { status: 404 }));
+    await createPajaResourceFetch({ fetch: local })('https://cdn.example/a.png', approved(new AbortController().signal)).catch(() => undefined);
+    expect(local).toHaveBeenCalledWith('/__kehto/resource', expect.objectContaining({ credentials: 'same-origin' }));
+  });
+
+  it('reads through the configured proxy in the static adapter', async () => {
+    const fetchFn = vi.fn(async () => new Response(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), { headers: { 'x-kehto-resource-upstream': '1' } }));
+    vi.stubGlobal('fetch', fetchFn);
+    const adapter = createPajaAdapter(
+      { ...CONFIG, resource: { proxyUrl: 'https://proxy.example/' }, runtime: { host: 'static', port: 0, readyTimeoutMs: 1, reloadToken: 't', createdAt: 'now' } } as PajaHostConfig,
+      () => normalizePajaSimulation({ relay: { mode: 'disabled' } }),
+      () => {},
+      () => {},
+      () => true,
+    );
+    try {
+      const sent: NappletMessage[] = [];
+      adapter.services?.resource?.handleMessage('resource-window', { type: 'resource.info', id: 'info' } as NappletMessage, (message) => sent.push(message));
+      await vi.waitFor(() => expect(sent).toHaveLength(1));
+      expect(sent[0]).toMatchObject({ info: { schemes: expect.arrayContaining([{ scheme: 'https', enabled: true }, { scheme: 'blossom', enabled: true }]) } });
+      adapter.services?.resource?.handleMessage('resource-window', { type: 'resource.bytes', id: 'img', url: 'https://image.example/a.png' } as NappletMessage, (message) => sent.push(message));
+      await vi.waitFor(() => expect(sent).toHaveLength(2));
+      expect(fetchFn).toHaveBeenCalledWith('https://proxy.example/', expect.objectContaining({ method: 'POST', credentials: 'omit' }));
+    } finally {
+      (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
+    }
+  });
+
   it('keeps network schemes enabled in the static adapter and reads directly', async () => {
     const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
     const fetchFn = vi.fn(async () => new Response(png));

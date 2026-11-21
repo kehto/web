@@ -132,6 +132,7 @@ import {
   type PajaCapabilityDomain,
 } from './simulation.js';
 import { getPajaSetting } from './settings.js';
+import { installPajaResourceProxySetting } from './browser-resource-proxy-setting.js';
 
 export interface PajaBrowserState {
   readonly config: PajaHostConfig;
@@ -958,6 +959,7 @@ async function installPajaHost(): Promise<void> {
   window.addEventListener('pagehide', disposeConsolePanel, { once: true });
   window.addEventListener('pagehide', disposeEventCounterReset, { once: true });
   window.addEventListener('pagehide', resourceSettings.dispose, { once: true });
+  window.addEventListener('pagehide', installPajaResourceProxySetting(config.resource?.proxyUrl), { once: true });
   window.addEventListener('pagehide', permissionController.destroy, { once: true });
   window.addEventListener('pagehide', llm.dispose, { once: true });
 
