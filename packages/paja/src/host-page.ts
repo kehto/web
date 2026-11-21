@@ -121,6 +121,8 @@ export function renderPajaHtml(config: PajaHostConfig): string {
       .resource-servers label { white-space: normal; }
       .resource-servers textarea { width: 100%; min-width: 0; padding: 6px; resize: vertical; }
       .resource-servers small, .resource-servers [role="status"] { color: var(--muted); overflow-wrap: anywhere; }
+      .resource-proxy { margin-top: 6px; padding-top: 10px; border-top: 1px solid var(--line); }
+      .resource-servers.resource-proxy > label { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
       #paja-cvm-form { padding-bottom: 16px; margin-bottom: 16px; border-bottom: 1px solid var(--line); }
       #paja-cvm-form > label { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
       #paja-cvm-form input[type="text"], #paja-cvm-form select { width: 100%; min-width: 0; padding: 6px; }
@@ -359,6 +361,7 @@ export function renderPajaHtml(config: PajaHostConfig): string {
           <button type="submit" id="paja-resource-servers-save">Save</button>
           <div id="paja-resource-servers-status" role="status" aria-live="polite"></div>
         </form>
+        ${config.runtime.host === 'static' ? renderResourceProxyForm() : ''}
         </div></details>
         <details class="section" id="paja-section-intent-handlers" data-paja-section="intent-handlers" open>
           <summary class="section-title">App handlers<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
@@ -588,6 +591,20 @@ function renderIntentLinkDialog(): string {
         </div>
       </div>
     </dialog>`;
+}
+
+/**
+ * Static builds read resources directly and can't make NAP-RESOURCE's DNS-time
+ * checks. An optional standalone proxy (`kehto paja resource-proxy`) adds them.
+ */
+function renderResourceProxyForm(): string {
+  return `<form class="resource-servers resource-proxy" id="paja-resource-proxy-form">
+          <label class="section-title" for="paja-resource-proxy-input">Resource proxy (optional)</label>
+          <input id="paja-resource-proxy-input" type="url" aria-describedby="paja-resource-proxy-help paja-resource-proxy-status" spellcheck="false">
+          <small id="paja-resource-proxy-help">Without a proxy, Paja reads resources directly and drops private destinations it can see in the URL. A proxy (<code>kehto paja resource-proxy</code>) also checks what names resolve to and reads hosts without CORS. It sees every resource URL.</small>
+          <button type="submit" id="paja-resource-proxy-save">Save</button>
+          <div id="paja-resource-proxy-status" role="status" aria-live="polite"></div>
+        </form>`;
 }
 
 function renderStage(config: PajaHostConfig, targetLabel: string): string {

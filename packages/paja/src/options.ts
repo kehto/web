@@ -1,3 +1,4 @@
+import { normalizePajaResourceProxyUrl } from './browser-resource-proxy-setting.js';
 import type { NappletCspOptions } from '@kehto/shell';
 import {
   normalizePajaSimulation,
@@ -103,6 +104,11 @@ export interface PajaHostConfig {
   readonly experimental?: PajaExperimentalConfig;
   /** Browser-scope setting defaults from the config file; GUI overrides win. */
   readonly settings?: PajaSettingValues;
+  /**
+   * Static builds only: the standalone NAP-RESOURCE proxy that makes the
+   * mandatory DNS-time private-IP checks. Without one, network schemes are off.
+   */
+  readonly resource?: { readonly proxyUrl?: string };
   /** Config schema version. */
   readonly version: 1;
   /** Window identity used for the development target. */
@@ -275,16 +281,23 @@ export function createPajaRuntimeHostConfig(
     readonly maxWaitMs?: number;
     readonly simulation?: PajaSimulationRawOptions;
     readonly settings?: Readonly<Record<string, unknown>>;
+    /** Standalone resource proxy URL (HTTPS, or HTTP on loopback). */
+    readonly resourceProxyUrl?: string;
   } = {},
   now: Date = new Date(),
 ): PajaHostConfig {
   const base = createPajaHostConfigBase(normalizePajaSimulation(options.simulation));
+  const proxyUrl = options.resourceProxyUrl === undefined ? undefined : normalizePajaResourceProxyUrl(options.resourceProxyUrl);
+  if (options.resourceProxyUrl !== undefined && proxyUrl === null) {
+    throw new Error('resourceProxyUrl must be an HTTPS URL (HTTP only for localhost) without credentials, query or fragment.');
+  }
   const settings = browserSettings(options.settings === undefined ? undefined : normalizePajaConfigSettings(options.settings));
   return {
     ...base,
     ...(settings ? { settings } : {}),
     ...(options.csp ? { csp: options.csp } : {}),
     ...(options.experimental ? { experimental: options.experimental } : {}),
+    ...(proxyUrl ? { resource: { proxyUrl } } : {}),
     target: {
       mode: 'runtime-pointer',
       url: 'about:blank',

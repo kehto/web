@@ -1,11 +1,6 @@
 import { classifyPajaMessageOutcome, type PajaMessageOutcome } from './message-log-outcome.js';
 
-/** Badge text for each highlighted message-log outcome. */
-const PAJA_OUTCOME_LABELS: Readonly<Record<PajaMessageOutcome, string>> = {
-  denied: 'denied',
-  rejected: 'rejected (policy or handler)',
-  failed: 'failed, not a denial',
-};
+import { coalescePajaRender } from './render-scheduler.js';
 import type { NappletMessage } from '@napplet/core';
 import {
   ALL_CAPABILITIES,
@@ -95,6 +90,13 @@ export interface PajaDevtoolsState {
   /** Revoke every remembered signer decision. */
   clearSignerConsent(): void;
 }
+
+/** Badge text for each highlighted message-log outcome. */
+const PAJA_OUTCOME_LABELS: Readonly<Record<PajaMessageOutcome, string>> = {
+  denied: 'denied',
+  rejected: 'rejected (policy or handler)',
+  failed: 'failed, not a denial',
+};
 
 const FS_PICKER_METHODS: Readonly<Partial<Record<string, keyof ReturnType<typeof browserPickers>>>> = {
   'fs.pickFile.result': 'showOpenFilePicker',
@@ -203,7 +205,23 @@ export function appendPajaMessageLog(
   if (state.messageLog.length > getPajaSetting('console.messageLogLimit')) {
     state.messageLog.splice(0, state.messageLog.length - getPajaSetting('console.messageLogLimit'));
   }
-  renderPajaMessageLog(state);
+  requestPajaMessageLogRender(state);
+}
+
+const messageLogRenders = new WeakMap<PajaDevtoolsState, () => void>();
+
+/**
+ * Render the message log once per frame however many messages arrive in it.
+ * A relay-heavy napplet logs thousands of messages in seconds, and rendering
+ * each one forced a full rebuild and layout.
+ */
+function requestPajaMessageLogRender(state: PajaDevtoolsState): void {
+  let request = messageLogRenders.get(state);
+  if (!request) {
+    request = coalescePajaRender(() => renderPajaMessageLog(state));
+    messageLogRenders.set(state, request);
+  }
+  request();
 }
 
 /**
@@ -279,6 +297,8 @@ export function renderPajaDevtools(
  * @param state - Current devtools state.
  */
 export function renderPajaMessageLog(state: PajaDevtoolsState): void {
+  // A coalesced render can land after the page (or a test DOM) went away.
+  if (typeof document === 'undefined') return;
   const container = document.getElementById('message-log');
   if (!container) return;
   const filter = state.messageFilter.trim().toLowerCase();

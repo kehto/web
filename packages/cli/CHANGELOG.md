@@ -1,5 +1,13 @@
 # @kehto/cli
 
+## 0.8.1
+
+### Patch Changes
+
+- Updated dependencies [8095c0b]
+  - @kehto/paja@0.39.0
+  - @kehto/conformance@0.1.1
+
 ## 0.8.0
 
 ### Minor Changes

@@ -4,6 +4,7 @@
  *
  * @module
  */
+import { startPajaResourceProxy } from './server-resource-proxy.js';
 import { spawn, type ChildProcess } from 'node:child_process';
 import {
   createPajaHostConfig,
@@ -53,6 +54,7 @@ export interface RunPajaCliOptions {
   readonly serve?: boolean;
   readonly startServer?: typeof startPajaServer;
   readonly startCommand?: (command: PajaCommand, io: CliIo) => ManagedChildProcess;
+  readonly startResourceProxy?: typeof startPajaResourceProxy;
   readonly waitForTargetUrl?: typeof waitForTargetUrl;
   readonly targetDiscoveryGraceMs?: number;
   /** Upper bound for the startup target inspection; defaults to 2000 ms. */
@@ -105,6 +107,7 @@ export async function runPajaCli(
   io: CliIo = defaultIo,
   runOptions: RunPajaCliOptions = {},
 ): Promise<number> {
+  if (args[0] === 'resource-proxy') return runResourceProxyCli(args.slice(1), io, runOptions);
   try {
     const parsed = parsePajaArgs(args);
     if (parsed.help) {
@@ -206,9 +209,58 @@ function writeRuntimeSummary(
     }
 }
 
+const RESOURCE_PROXY_HELP = `Usage:
+  kehto paja resource-proxy --allow-origin <origin> --port <port> [--host <host>]
+
+Runs the NAP-RESOURCE proxy a static Paja build needs for network images.
+It pins public addresses after DNS (the mandatory private-IP check), caps size
+and time with the server.resource* settings, and answers only the allowed
+browser origins. Origin checks are not authentication: this is an open fetch
+proxy for public addresses, so rate-limit it if you expose it.
+
+Options:
+  --allow-origin <origin>   Browser origin allowed to use it (repeatable, required).
+  --port <port>             Listen port (required).
+  --host <host>             Listen host. Default: 127.0.0.1.`;
+
+async function runResourceProxyCli(
+  args: readonly string[],
+  io: CliIo,
+  runOptions: RunPajaCliOptions,
+): Promise<number> {
+  const origins: string[] = [];
+  let host = '127.0.0.1';
+  let port: number | undefined;
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === '--help' || arg === '-h') { io.stdout.write(`${RESOURCE_PROXY_HELP}\n`); return 0; }
+    const value = args[index + 1];
+    if (value === undefined) { io.stderr.write(`Missing value for ${arg}\n`); return 1; }
+    index += 1;
+    if (arg === '--allow-origin') origins.push(value);
+    else if (arg === '--host') host = value;
+    else if (arg === '--port' && /^\d+$/u.test(value)) port = Number(value);
+    else { io.stderr.write(`Unknown or invalid resource-proxy option: ${arg} ${value}\n`); return 1; }
+  }
+  if (port === undefined || origins.length === 0) {
+    io.stderr.write(`${RESOURCE_PROXY_HELP}\n`);
+    return 1;
+  }
+  try {
+    const start = runOptions.startResourceProxy ?? startPajaResourceProxy;
+    const proxy = await start({ allowedOrigins: origins, host, port });
+    io.stdout.write(`Paja resource proxy: ${proxy.url} (origins: ${origins.join(', ')})\n`);
+    return 0;
+  } catch (error) {
+    io.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    return 1;
+  }
+}
+
 const HELP_TEXT = `Usage:
   kehto paja --target-url <url> [options]
   kehto paja --target-url <url> [options] -- <command...>
+  kehto paja resource-proxy --allow-origin <origin> --port <port>
 
 Options:
   --target-url, -u <url>      App dev-server URL to load in the runtime iframe.

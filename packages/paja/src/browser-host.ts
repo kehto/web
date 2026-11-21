@@ -132,6 +132,8 @@ import {
   type PajaCapabilityDomain,
 } from './simulation.js';
 import { getPajaSetting } from './settings.js';
+import { installPajaResourceProxySetting } from './browser-resource-proxy-setting.js';
+import { coalescePajaRender } from './render-scheduler.js';
 
 export interface PajaBrowserState {
   readonly config: PajaHostConfig;
@@ -770,9 +772,10 @@ async function installPajaHost(): Promise<void> {
   });
   // Live-relay counters are created before the adapter so background fetches
   // that start during adapter construction are counted, not dropped.
-  const relayEventCounts = createPajaRelayEventCounter(() => {
+  // One render per frame: an outbox feed records thousands of receipts in seconds.
+  const relayEventCounts = createPajaRelayEventCounter(coalescePajaRender(() => {
     if (stateRef) renderPajaEventKindCounts(stateRef.relayEventCounts, stateRef.relayInventory());
-  });
+  }));
   // The Events reset button clears those counters, so it is wired to the same
   // instance the observation hooks feed.
   const disposeEventCounterReset = installPajaEventCounterReset(relayEventCounts);
@@ -958,6 +961,7 @@ async function installPajaHost(): Promise<void> {
   window.addEventListener('pagehide', disposeConsolePanel, { once: true });
   window.addEventListener('pagehide', disposeEventCounterReset, { once: true });
   window.addEventListener('pagehide', resourceSettings.dispose, { once: true });
+  window.addEventListener('pagehide', installPajaResourceProxySetting(config.resource?.proxyUrl), { once: true });
   window.addEventListener('pagehide', permissionController.destroy, { once: true });
   window.addEventListener('pagehide', llm.dispose, { once: true });
 

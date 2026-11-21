@@ -38,7 +38,7 @@ app package's development scripts.
 | Field | Value |
 |-------|-------|
 | Source | `packages/paja/package.json`, `packages/paja/src/index.ts` |
-| Version | `0.38.0` |
+| Version | `0.39.1` |
 | Runtime entry | `./dist/index.js` |
 | CLI runner entry | `./dist/cli.js` |
 | Types entry | `./dist/index.d.ts` |
@@ -406,6 +406,17 @@ The console includes:
   section header's `reset` button clears them without a reload.
 
 The GitHub Pages artifact also includes a static Paja Runtime at `/web/paja/`.
+The static artifact has no server proxy, so it reads `https` and `blossom`
+resources directly from the browser, with no cookies and no referrer. It drops
+destinations it can tell are private from the URL: `localhost`, `.local`,
+`.internal`, `.home.arpa` and similar names, names without a dot, and
+private, loopback or reserved IP literals. Blossom bytes are still hash-checked.
+NAP-RESOURCE asks for DNS-time private-IP checks, which a browser can't make
+for its own fetches: a public-looking name that resolves to a private address
+gets through. That is a recorded spec gap. Hosts without CORS headers can't be
+read this way at all.
+Configure an optional [resource proxy](#resource-proxy-for-static-builds) to add those
+DNS-time checks.
 That route uses `createPajaRuntimeHostConfig`, keeps `hmr: none`, and loads
 verified napplets into ShellBridge-backed iframe tabs from pasted `naddr` or
 `nevent` pointers. `naddr` pointers resolve the latest matching NIP-5D named
@@ -802,6 +813,39 @@ preserves TLS hostname checks, omits upstream credentials/referrer, and bounds
 responses to `server.resourceMaxBytes` and `server.resourceTimeoutMs` (default 10 MiB and 30 seconds). Private, loopback, and other blocked
 special-purpose addresses are rejected, including development loopback targets.
 
+### Resource proxy for static builds
+
+A resource proxy is optional. Without one, the static `/web/paja/` build reads
+`https` and `blossom` resources directly and drops private destinations it can
+see in the URL. A proxy adds what the browser can't do: DNS-time checks that
+catch public-looking names resolving to private addresses, hop-by-hop approval
+of every redirect, and reads from hosts that don't send CORS headers. To use
+one, run the standalone proxy and point the static build at it:
+
+```bash
+kehto paja resource-proxy --allow-origin https://kehto.github.io --port 8787
+```
+
+There are two ways to point the build at it. Set `PAJA_RESOURCE_PROXY_URL`
+when running `node scripts/build-paja-pages.mjs` (or pass `resourceProxyUrl`
+to `createPajaRuntimeHostConfig`), or enter the URL in the **Resource proxy**
+field under Resource servers, which is saved for that host origin. The URL must
+be HTTPS, or HTTP on `localhost`/`127.0.0.1`, and a napplet can't set it.
+
+The standalone proxy uses the same DNS-pinned transport, caps and redirect
+hand-back as the local endpoint, so NAP-RESOURCE's DNS-time private-IP checks
+(napplet/naps#80 @ `ae5b9c6`) still apply. It answers only `--allow-origin`
+origins over CORS, including the preflight, and refuses to start without one.
+It doesn't authenticate callers, because a non-browser client can send any
+`Origin`. Think of it as an open fetch proxy limited to public addresses,
+`server.resourceMaxBytes` and `server.resourceTimeoutMs`, so rate-limit it if
+you expose it. The proxy sees every resource URL it fetches and could alter
+plain HTTPS bytes. Blossom bytes are still hash-checked in the browser. The
+browser sends no cookies to a remote proxy, and it treats a 404 as `not-found`
+only when the proxy marks it as the upstream reply.
+`server.resourceProxyPreflightMaxAgeSeconds` (default 600) sets the preflight
+cache.
+
 Redirects return metadata to the trusted resolver instead of redirecting the
 browser. The resolver permits at most five hops, authorizes each destination,
 and repeats the proxy's DNS/address checks. Cancelling the host request aborts
@@ -1080,6 +1124,7 @@ policy in their drafts (NAP-FS `bd1b9e9`, NAP-WEBRTC `fb4dd6f`, NAP-RESOURCE
 | `server.requestBodyMaxBytes` | Maximum request body | 4096 bytes | 256–1048576 |
 | `server.resourceMaxBytes` | Maximum proxied resource size | 10485760 bytes | 1024–536870912 |
 | `server.resourceTimeoutMs` | Proxied resource timeout | 30000 ms | 1000–600000 |
+| `server.resourceProxyPreflightMaxAgeSeconds` | Standalone resource proxy preflight cache | 600 s | 0–86400 |
 | `server.targetNoticeTimeoutMs` | Target network notice timeout | 2000 ms | 100–60000 |
 | `server.discoveryGraceMs` | Managed command URL discovery grace | 1000 ms | 0–60000 |
 

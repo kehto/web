@@ -27,7 +27,7 @@ npx playwright install chromium
 | Field | Value |
 |-------|-------|
 | Source | `packages/conformance/package.json`, `packages/conformance/src/index.ts` |
-| Version | `0.1.0` |
+| Version | `0.1.1` |
 | Runtime entry | `./dist/index.js` |
 | Types entry | `./dist/index.d.ts` |
 | Subpaths | `./kehto-target`, `./mutations`, `./cli`, `./browser` (self-contained browser bundle) |

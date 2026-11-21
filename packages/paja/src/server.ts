@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { concatBytes, fetchPinnedResource } from './server-resource-transport.js';
+import { servePajaResourceProxy } from './server-resource-proxy.js';
 export { fetchPinnedResource } from './server-resource-transport.js';
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -281,75 +281,10 @@ async function handleResourceProxy(
     response.end('Forbidden');
     return;
   }
-  const payload = await readJsonBody(request);
-  if (!payload || typeof payload.url !== 'string') {
-    response.writeHead(400, { 'content-type': 'text/plain; charset=utf-8' });
-    response.end('Invalid resource request');
-    return;
-  }
-  let url: URL;
-  try {
-    url = new URL(payload.url);
-    if ((url.protocol !== 'http:' && url.protocol !== 'https:') || url.username || url.password) throw new Error();
-  } catch {
-    response.writeHead(400, { 'content-type': 'text/plain; charset=utf-8' });
-    response.end('Invalid resource URL');
-    return;
-  }
-  const controller = new AbortController();
-  response.on('close', () => { if (!response.writableEnded) controller.abort(); });
-  try {
-    const upstream = await fetchPinnedResource(url, controller.signal);
-    if (controller.signal.aborted) return;
-    if ([301, 302, 303, 307, 308].includes(upstream.status)) {
-      response.writeHead(200, {
-        'cache-control': 'no-store', 'content-type': 'application/json', 'x-kehto-resource-redirect': '1',
-      });
-      response.end(JSON.stringify({ status: upstream.status, location: upstream.location ?? '' }));
-      return;
-    }
-    response.writeHead(upstream.status, {
-      'cache-control': 'no-store',
-      'content-type': upstream.contentType,
-      'content-length': String(upstream.body.byteLength),
-    });
-    response.end(upstream.body);
-  } catch (error) {
-    if (controller.signal.aborted) return;
-    const message = error instanceof Error ? error.message : 'Resource proxy failed';
-    response.writeHead(502, { 'content-type': 'text/plain; charset=utf-8' });
-    response.end(message);
-  }
+  await servePajaResourceProxy(request, response);
 }
 
 function hasCapability(header: string | string[] | undefined, capability: string, port: string): boolean {
   if (typeof header !== 'string') return false;
   return header.split(';').some((part) => part.trim() === `kehto-resource-${port}=${capability}`);
-}
-
-function readJsonBody(request: HttpRequest): Promise<{ url?: unknown } | null> {
-  return new Promise((resolve) => {
-    const chunks: Uint8Array[] = [];
-    let size = 0;
-    let settled = false;
-    const finish = (value: { url?: unknown } | null) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      resolve(value);
-    };
-    const timer = setTimeout(() => { finish(null); request.destroy(); }, getPajaSetting('server.requestBodyTimeoutMs'));
-    request.on('data', (chunk) => {
-      if (settled) return;
-      size += chunk.byteLength;
-      if (size > getPajaSetting('server.requestBodyMaxBytes')) { finish(null); request.destroy(); }
-      else chunks.push(chunk);
-    });
-    request.on('aborted', () => finish(null));
-    request.on('error', () => finish(null));
-    request.on('end', () => {
-      try { finish(JSON.parse(new TextDecoder().decode(concatBytes(chunks))) as { url?: unknown }); }
-      catch { finish(null); }
-    });
-  });
 }

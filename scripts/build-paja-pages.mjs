@@ -55,8 +55,9 @@ const simulation = relayUrls.length > 0 || uploadServers.length > 0
     }
   : undefined;
 
+const resourceProxyUrl = process.env.PAJA_RESOURCE_PROXY_URL?.trim() || undefined;
 const hostConfig = createPajaRuntimeHostConfig(
-  simulation ? { simulation } : {},
+  { ...(simulation ? { simulation } : {}), ...(resourceProxyUrl ? { resourceProxyUrl } : {}) },
   new Date('2026-06-30T00:00:00.000Z'),
 );
 writeFileSync(join(outputDir, 'index.html'), renderPajaHtml(hostConfig));
