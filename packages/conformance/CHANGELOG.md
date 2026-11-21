@@ -1,5 +1,13 @@
 # @kehto/conformance
 
+## 0.1.1
+
+### Patch Changes
+
+- Updated dependencies [8095c0b]
+  - @kehto/services@0.36.0
+  - @kehto/shell@0.36.0
+
 ## 0.1.0
 
 ### Minor Changes
