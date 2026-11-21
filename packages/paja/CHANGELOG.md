@@ -1,5 +1,23 @@
 # @kehto/paja
 
+## 0.39.1
+
+### Patch Changes
+
+- 1624a3b: Paja no longer freezes when a napplet reads from hundreds of relays. The message log and the Events panel used to re-render for every message and every relay receipt. Each message-log render rebuilt up to 120 rows and forced a layout, and each Events render rebuilt every relay row and author chip. A feed following many authors produces thousands of those within seconds, and that froze the host for close to a minute. Logged data still updates immediately, but each panel now re-renders at most once per animation frame. On a synthetic load of 700 authors across 128 relays, half the notes now reach the napplet in 2.8 s instead of 26 s.
+
+## 0.39.0
+
+### Minor Changes
+
+- 8095c0b: Paja can now find NAP-INTENT handlers that you haven't opened yet. When no installed app handles an invoke (for example Feed's `napplet:note/open`), Paja shows **No installed app opens this** instead of rejecting straight away. **Search for apps** asks your configured relays for manifests whose `i` tag is the exact convention, and it also looks up the request's `handlerHint` coordinate. The results are listed under **Not installed yet**. Picking one runs the ordinary verified pointer load, installs it, and delivers the intent. Nothing is searched until you click, and nothing is installed until you pick. Search results are never shown to napplets. A new **App handlers** sidebar section lists the installed handlers for each archetype, with **Make default**, **Forget default**, and **Uninstall**. The new `intent.discoveryLimit` setting (20 by default, 1–200) caps how many results are offered per search (kehto/web#523).
+
+### Patch Changes
+
+- Updated dependencies [8095c0b]
+  - @kehto/services@0.36.0
+  - @kehto/shell@0.36.0
+
 ## 0.38.0
 
 ### Minor Changes

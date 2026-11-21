@@ -1,6 +1,6 @@
 {
   "name": "@kehto/conformance",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Runtime conformance suite for NIP-5D and advertised NAP domains — engine, driver contract, first-party Kehto target, probe fixtures, and reporters",
   "type": "module",
   "main": "./dist/index.js",
