@@ -187,6 +187,125 @@ describe('Paja resource backend', () => {
     }
   });
 
+  // NAP-RESOURCE napplet/naps#80 @ ae5b9c6 wants DNS-time private-IP checks. Without a
+  // proxy the browser fetches directly and drops private destinations it can see in
+  // the URL (recorded spec gap: a public name resolving privately is not caught).
+  it('fetches public destinations directly without a proxy, with no cookies or referrer', async () => {
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    const fetchFn = vi.fn(async () => new Response(png));
+    const read = createPajaResourceFetch({ fetch: fetchFn, getProxyEndpoint: () => undefined });
+    const response = await read('https://image.nostr.build/a.png', approved(new AbortController().signal));
+    expect(response.headers.get('content-type')).toBe('image/png');
+    expect(fetchFn).toHaveBeenCalledWith('https://image.nostr.build/a.png', expect.objectContaining({
+      method: 'GET', credentials: 'omit', referrerPolicy: 'no-referrer', redirect: 'follow', mode: 'cors',
+    }));
+  });
+
+  it.each([
+    'http://localhost:3000/a.png', 'https://192.168.1.1/a.png', 'https://10.0.0.2/a.png', 'https://[::1]/a.png',
+    'https://printer.local/a.png', 'https://router/a.png', 'https://nas.home.arpa/a.png', 'https://127.1/a.png',
+  ])('drops private destination %s without a proxy, before approval or contact', async (url) => {
+    const fetchFn = vi.fn(async () => new Response(new Uint8Array([1])));
+    const authorizeNetwork = vi.fn();
+    const read = createPajaResourceFetch({ fetch: fetchFn, getProxyEndpoint: () => undefined });
+    await expect(read(url, { signal: new AbortController().signal, authorizeNetwork } as never)).rejects.toMatchObject({ code: 'blocked-by-policy' });
+    expect(fetchFn).not.toHaveBeenCalled();
+    expect(authorizeNetwork).not.toHaveBeenCalled();
+  });
+
+  it('refuses bytes when a direct read is redirected to a private host', async () => {
+    const redirected = new Response(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+    Object.defineProperty(redirected, 'url', { value: 'http://192.168.1.1/admin.png' });
+    const read = createPajaResourceFetch({ fetch: vi.fn(async () => redirected), getProxyEndpoint: () => undefined });
+    await expect(read('https://image.example/a.png', approved(new AbortController().signal))).rejects.toMatchObject({ code: 'blocked-by-policy' });
+  });
+
+  it('skips private Blossom servers without a proxy and still hash-checks public ones', async () => {
+    const bytes = new TextEncoder().encode('blossom bytes');
+    const hash = await sha256Hex(bytes);
+    const fetchFn = vi.fn(async () => new Response(bytes));
+    const read = createPajaResourceFetch({ fetch: fetchFn, getProxyEndpoint: () => undefined, getBlossomServers: () => ['https://blossom.example'] });
+    await read(`blossom:${hash}.txt`, approved(new AbortController().signal));
+    expect(fetchFn).toHaveBeenCalledWith(`https://blossom.example/${hash}.txt`, expect.objectContaining({ credentials: 'omit' }));
+    const wrong = createPajaResourceFetch({ fetch: vi.fn(async () => new Response(new TextEncoder().encode('tampered'))), getProxyEndpoint: () => undefined, getBlossomServers: () => ['https://blossom.example'] });
+    await expect(wrong(`blossom:${hash}.txt`, approved(new AbortController().signal))).rejects.toMatchObject({ code: 'decode-failed' });
+  });
+
+  it('sends network reads to a configured proxy endpoint instead', async () => {
+    const bytes = new TextEncoder().encode('plain');
+    const fetchFn = vi.fn(async () => new Response(bytes));
+    const read = createPajaResourceFetch({ fetch: fetchFn, getProxyEndpoint: () => 'https://proxy.example/resource' });
+    await read('https://cdn.example/a.txt', approved(new AbortController().signal)).catch(() => undefined);
+    expect(fetchFn).toHaveBeenCalledWith('https://proxy.example/resource', expect.objectContaining({ body: JSON.stringify({ url: 'https://cdn.example/a.txt' }) }));
+  });
+
+  it('sends no cookies to a remote proxy and trusts only its marked upstream 404s', async () => {
+    const remote = 'https://proxy.example/';
+    const missing = vi.fn(async () => new Response('nope', { status: 404, headers: { 'x-kehto-resource-upstream': '1' } }));
+    await expect(createPajaResourceFetch({ fetch: missing, getProxyEndpoint: () => remote })('https://cdn.example/a.png', approved(new AbortController().signal)))
+      .rejects.toMatchObject({ code: 'not-found' });
+    expect(missing).toHaveBeenCalledWith(remote, expect.objectContaining({ credentials: 'omit' }));
+    const refused = vi.fn(async () => new Response('Not found', { status: 404 }));
+    await expect(createPajaResourceFetch({ fetch: refused, getProxyEndpoint: () => remote })('https://cdn.example/a.png', approved(new AbortController().signal)))
+      .rejects.toMatchObject({ code: 'network-error' });
+    const local = vi.fn(async () => new Response('x', { status: 404 }));
+    await createPajaResourceFetch({ fetch: local })('https://cdn.example/a.png', approved(new AbortController().signal)).catch(() => undefined);
+    expect(local).toHaveBeenCalledWith('/__kehto/resource', expect.objectContaining({ credentials: 'same-origin' }));
+  });
+
+  it('reads through the configured proxy in the static adapter', async () => {
+    const fetchFn = vi.fn(async () => new Response(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), { headers: { 'x-kehto-resource-upstream': '1' } }));
+    vi.stubGlobal('fetch', fetchFn);
+    const adapter = createPajaAdapter(
+      { ...CONFIG, resource: { proxyUrl: 'https://proxy.example/' }, runtime: { host: 'static', port: 0, readyTimeoutMs: 1, reloadToken: 't', createdAt: 'now' } } as PajaHostConfig,
+      () => normalizePajaSimulation({ relay: { mode: 'disabled' } }),
+      () => {},
+      () => {},
+      () => true,
+    );
+    try {
+      const sent: NappletMessage[] = [];
+      adapter.services?.resource?.handleMessage('resource-window', { type: 'resource.info', id: 'info' } as NappletMessage, (message) => sent.push(message));
+      await vi.waitFor(() => expect(sent).toHaveLength(1));
+      expect(sent[0]).toMatchObject({ info: { schemes: expect.arrayContaining([{ scheme: 'https', enabled: true }, { scheme: 'blossom', enabled: true }]) } });
+      adapter.services?.resource?.handleMessage('resource-window', { type: 'resource.bytes', id: 'img', url: 'https://image.example/a.png' } as NappletMessage, (message) => sent.push(message));
+      await vi.waitFor(() => expect(sent).toHaveLength(2));
+      expect(fetchFn).toHaveBeenCalledWith('https://proxy.example/', expect.objectContaining({ method: 'POST', credentials: 'omit' }));
+    } finally {
+      (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
+    }
+  });
+
+  it('keeps network schemes enabled in the static adapter and reads directly', async () => {
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    const fetchFn = vi.fn(async () => new Response(png));
+    vi.stubGlobal('fetch', fetchFn);
+    const adapter = createPajaAdapter(
+      { ...CONFIG, runtime: { host: 'static', port: 0, readyTimeoutMs: 1, reloadToken: 't', createdAt: 'now' } } as PajaHostConfig,
+      () => normalizePajaSimulation({ relay: { mode: 'disabled' } }),
+      () => {},
+      () => {},
+      () => true,
+    );
+    try {
+      const sent: NappletMessage[] = [];
+      const send = (message: NappletMessage) => sent.push(message);
+      adapter.services?.resource?.handleMessage('resource-window', { type: 'resource.info', id: 'info' } as NappletMessage, send);
+      adapter.services?.resource?.handleMessage('resource-window', { type: 'resource.bytes', id: 'img', url: 'https://image.example/a.png' } as NappletMessage, send);
+      adapter.services?.resource?.handleMessage('resource-window', { type: 'resource.bytes', id: 'lan', url: 'https://192.168.1.1/a.png' } as NappletMessage, send);
+      await vi.waitFor(() => expect(sent).toHaveLength(3));
+      expect(sent.find((message) => message.type === 'resource.info.result')).toMatchObject({
+        info: { schemes: expect.arrayContaining([{ scheme: 'https', enabled: true }, { scheme: 'blossom', enabled: true }]) },
+      });
+      expect(sent.find((message) => (message as { id?: string }).id === 'img')).toMatchObject({ type: 'resource.bytes.result', mime: 'image/png' });
+      expect(sent.find((message) => (message as { id?: string }).id === 'lan')).toMatchObject({ error: 'blocked-by-policy' });
+      expect(fetchFn).toHaveBeenCalledTimes(1);
+      expect(fetchFn).toHaveBeenCalledWith('https://image.example/a.png', expect.objectContaining({ credentials: 'omit' }));
+    } finally {
+      (adapter.relayPool.getRelayPool() as unknown as { close(): void }).close();
+    }
+  });
+
   it('discloses canonical data, HTTPS, and Blossom support', () => {
     expect(pajaResourceInfo()).toEqual({
       schemes: [

@@ -24,7 +24,9 @@ it('uses live extra servers after existing defaults across windows and clears on
     ? new Response(bytes) : new Response(null, { status: 404 }));
   vi.stubGlobal('fetch', fetchFn);
   const simulation = normalizePajaSimulation({ relay: { mode: 'disabled' }, upload: { servers: ['https://default.example'] } });
-  const config = createPajaRuntimeHostConfig({ blossomServers: ['https://pointer.example'] });
+  const base = createPajaRuntimeHostConfig({ blossomServers: ['https://pointer.example'] });
+  // A CLI-served runtime: the static build has no resource proxy and disables Blossom.
+  const config = { ...base, runtime: { ...base.runtime, host: '127.0.0.1' } };
   const adapter = createPajaAdapter(config, () => simulation, () => {}, () => {}, () => true,
     undefined, undefined, undefined, undefined, undefined, undefined, undefined, settings.getServers);
   adapter.setWindowBlossomServers('one', ['https://window-one.example']);
