@@ -72,6 +72,17 @@ export const NAPPLET_PRELUDE_BUILT_IN_DOMAINS: readonly string[] = Object.freeze
   'serial', 'dm', 'fs', 'llm',
 ]);
 
+/** Stable identifier on the warning for a host binding that names a built-in prelude domain. */
+export const BINDING_BUILT_IN_DOMAIN = 'KEHTO_BINDING_BUILT_IN_DOMAIN';
+
+const warnedBuiltIn = new Set<string>();
+
+function ignoreBuiltIn(domain: string): void {
+  if (warnedBuiltIn.has(domain)) return;
+  warnedBuiltIn.add(domain);
+  console.warn(`[${BINDING_BUILT_IN_DOMAIN}] Ignored the host binding for "${domain}": the prelude already implements window.napplet.${domain}, and that binding stays in place. Drop "${domain}" from \`bindings\` to silence this. Warned once per domain per page.`);
+}
+
 const NAME = /^[a-zA-Z][a-zA-Z0-9]*$/;
 const RESERVED = new Set(['on', 'constructor', 'prototype', 'toString', 'valueOf', 'hasOwnProperty']);
 
@@ -89,7 +100,9 @@ function wireType(domain: string, value: unknown, what: string): string {
 /**
  * Validate host bindings for the exposed domains and drop bindings for domains
  * that are not exposed or are built into the prelude
- * ({@link NAPPLET_PRELUDE_BUILT_IN_DOMAINS}).
+ * ({@link NAPPLET_PRELUDE_BUILT_IN_DOMAINS}). A built-in collision never throws:
+ * the built-in binding is kept and a {@link BINDING_BUILT_IN_DOMAIN} warning is
+ * logged once per domain per page.
  *
  * @param bindings - Host bindings by bare domain.
  * @param domains - Domains exposed to this napplet.
@@ -106,7 +119,11 @@ export function serializeDomainBindings(
 ): Record<string, SerializedDomainBinding> {
   const out: Record<string, SerializedDomainBinding> = {};
   for (const domain of domains) {
-    if (!bindings || !Object.hasOwn(bindings, domain) || NAPPLET_PRELUDE_BUILT_IN_DOMAINS.includes(domain)) continue;
+    if (!bindings || !Object.hasOwn(bindings, domain)) continue;
+    if (NAPPLET_PRELUDE_BUILT_IN_DOMAINS.includes(domain)) {
+      ignoreBuiltIn(domain);
+      continue;
+    }
     const binding = bindings[domain]!;
     const methods: SerializedDomainBinding['methods'] = {};
     for (const [name, method] of Object.entries(binding.methods ?? {})) {

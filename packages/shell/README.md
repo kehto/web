@@ -321,8 +321,13 @@ becomes `window.napplet.<domain>.<name>(...args)`, which works like this:
 
 Tables are validated on the host (`serializeDomainBindings`, which throws
 `TypeError`), only reach exposed domains, and are frozen and protected from
-napplet reassignment. Paja uses them for `@kehto/mocks`' generated
-`MOCK_NAPPLET_BINDINGS`.
+napplet reassignment. A binding for a domain the prelude already implements
+never throws: the built-in binding stays and `serializeDomainBindings` logs one
+`[KEHTO_BINDING_BUILT_IN_DOMAIN]` warning per domain per page
+(`BINDING_BUILT_IN_DOMAIN`). If a napplet defines `window.napplet.<domain>`
+before the prelude runs, a host table for that domain wins, and a domain with
+no table keeps the napplet's object. Paja uses them for `@kehto/mocks`'
+generated `MOCK_NAPPLET_BINDINGS`.
 
 Spec-gap decision: NIP-5D leaves each domain's JavaScript shape to its NAP, and
 draft NAPs only fix the wire envelopes. Kehto treats the wire table as the

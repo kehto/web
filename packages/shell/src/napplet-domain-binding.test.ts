@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { NAPPLET_PRELUDE_BUILT_IN_DOMAINS, serializeDomainBindings, type NappletDomainBinding } from './napplet-domain-binding.js';
 import { renderNappletNamespacePrelude } from './napplet-namespace.js';
 
@@ -114,15 +114,54 @@ describe('table-driven napplet domain bindings', () => {
     realm.napplet = { torrent: { add: () => 'spoofed' } };
     expect(realm.napplet!.torrent).toBe(api);
   });
+
+  it('resolves a namespace defined before the prelude without throwing: the host table wins, unbound objects stay', () => {
+    const fixture = createRealm();
+    const own = { add: () => 'napplet-defined' };
+    const extra = { ping: () => 'napplet-defined' };
+    fixture.realm.napplet = { torrent: own, value: extra };
+    const source = renderNappletNamespacePrelude({ domains: ['torrent', 'value'], bindings: { torrent: TORRENT } })
+      .match(/<script[^>]*>([\s\S]*)<\/script>/)![1]!;
+    expect(() => new Function('window', source)(fixture.realm)).not.toThrow();
+    expect(fixture.realm.napplet!.torrent).not.toBe(own);
+    expect(Object.isFrozen(fixture.realm.napplet!.torrent)).toBe(true);
+    expect(fixture.realm.napplet!.value).toBe(extra);
+  });
 });
 
 describe('serializeDomainBindings', () => {
+  afterEach(() => vi.restoreAllMocks());
+
   it('keeps only exposed, non-built-in domains', () => {
     const relay: NappletDomainBinding = { methods: { query: { type: 'relay.query', params: ['filters'], reply: true } } };
     const out = serializeDomainBindings({ torrent: TORRENT, relay, value: TORRENT }, ['relay', 'torrent']);
     expect(Object.keys(out)).toEqual(['torrent']);
     expect(out.torrent!.methods.add).toEqual({ type: 'torrent.add', params: ['request'], reply: true, id: true, result: 'ack' });
     expect(NAPPLET_PRELUDE_BUILT_IN_DOMAINS).toContain('llm');
+  });
+
+  it('ignores a binding that collides with a built-in domain, warning once per domain instead of throwing', async () => {
+    vi.resetModules();
+    const fresh = await import('./napplet-domain-binding.js');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const relay: NappletDomainBinding = { methods: { query: { type: 'relay.query', params: ['filters'], reply: true } } };
+
+    expect(Object.keys(fresh.serializeDomainBindings({ relay, torrent: TORRENT }, ['relay', 'torrent']))).toEqual(['torrent']);
+    fresh.serializeDomainBindings({ relay }, ['relay']);
+    fresh.serializeDomainBindings({ llm: relay }, ['llm']);
+
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(String(warn.mock.calls[0]![0])).toContain(`[${fresh.BINDING_BUILT_IN_DOMAIN}] Ignored the host binding for "relay"`);
+    expect(String(warn.mock.calls[1]![0])).toContain('"llm"');
+  });
+
+  it('stays quiet when no binding names a built-in domain', async () => {
+    vi.resetModules();
+    const fresh = await import('./napplet-domain-binding.js');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    fresh.serializeDomainBindings({ torrent: TORRENT }, ['relay', 'torrent']);
+    fresh.serializeDomainBindings(undefined, ['relay']);
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it.each([
