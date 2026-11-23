@@ -1,5 +1,17 @@
 # @kehto/paja
 
+## 0.41.0
+
+### Minor Changes
+
+- 4df71f7: Split the sidebar's "Multiplayer providers" panel into **ContextVM providers** (CVM discovery and saved families) and **Multiplayer signaling** (`soy-rtc/1` profile, relays, STUN/TURN). Add `simulation.cvm.registry` so config files can pin CVM families without a signaling profile. `simulation.multiplayer.registry` still works but is deprecated and warns `[PAJA_MULTIPLAYER_REGISTRY]` once per page load; an empty `registry: []` is ignored quietly.
+
+  Type change: `PajaMultiplayerConfig.registry` is now optional (and `@deprecated`), and `normalizePajaMultiplayer` omits it when empty. Hosts that read `config.registry` directly need a `?? []` fallback.
+
+### Patch Changes
+
+- a478f5d: The message log now gives NAP-INTENT's `invoke rejected` its own badge: `rejected (policy or handler)`. NAP-INTENT (napplet/naps master @ 377bf939) uses that one code for a firewall denial and for other rejections, such as an unauthorized explicit handler or a target that refuses delivery. Paja used to badge it `failed, not a denial`, which was wrong whenever the firewall had in fact denied the invoke. The text alone can't tell the two cases apart, so the badge names both instead of claiming either (kehto/web#523).
+
 ## 0.40.0
 
 ### Minor Changes
