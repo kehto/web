@@ -273,6 +273,31 @@ Live relay URLs are validated before advertisement, fixture events and local
 publish echoes never enter live reads, and relay event sidecars disclose only
 sources that the relay pool actually observed.
 
+## Mocked interfaces
+
+On-track NAPs that Paja has no real backend for, and that `@kehto/mocks` covers, are served by deterministic
+[`@kehto/mocks`](https://kehto.github.io/web/docs/packages/mocks.html) handlers: `blossom`, `capture`,
+`catalog`, `display`, `git`, `hashtree`, `location`, `motion`, `navigation`,
+`nzb`, `pow`, `soulseek`, `system`, `torrent`, `value` and `worker`
+(`PAJA_MOCKED_DOMAINS`). They are enabled by default and toggle like any other
+interface. The Interfaces panel prefixes each one with `◌` (`PAJA_MOCKED_MARK`)
+and a single legend line explains the mark. A napplet calls them as
+`window.napplet.<domain>.<operation>(...)`. The methods are generated from each
+NAP's wire table at the ref the mock records, and arguments are the request's
+wire fields in table order. Pushes arrive through `on(event, handler)` and the
+NAP's named handlers, such as `location.onState`. Results are fixture data, so
+don't treat them as evidence that a real backend works.
+
+Paja only mocks NAPs that are on the `napplet/naps` track. `@kehto/mocks` still
+ships a `class` mock, but NAP-CLASS (napplet/naps#16) is labeled DEFERRED, so
+Paja leaves it out (`PAJA_UNMOCKED_DOMAINS` records why). The retracted
+NAP-MESH draft has no mock at all. NAP-NEIGHBOR, NAP-EMAIL and NAP-WEBMCP are
+on the track but have no mock yet, so Paja doesn't offer them.
+
+A mock never replaces a real service. If the host service map already defines a
+mocked domain, Paja keeps the real handler, skips the mock, and logs one
+`KEHTO_MOCK_DOMAIN_ALREADY_DEFINED` warning for that domain.
+
 ## Standard identity and social-cache boundary
 
 A signed-in napplet reads Paja identity and social data only through existing

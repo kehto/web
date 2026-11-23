@@ -72,6 +72,12 @@ torrent.mock.sent;            // every envelope delivered so far
 torrent.mock.reset();         // back to the seeded catalog
 ```
 
+`registerService` replaces whatever was registered under that name. To add
+mocks next to real services without replacing them, use
+`installMockServices(services, mocks.services)`. It skips any domain that is
+already defined and logs one `[KEHTO_MOCK_DOMAIN_ALREADY_DEFINED]` warning for
+each one it skips (pass `onCollision` to route the warnings yourself).
+
 Shared options (`MockServiceOptions`):
 
 | Option | Effect |
@@ -93,6 +99,18 @@ import { MOCK_NAP_REGISTRY, mockShellEnvironmentDomains } from '@kehto/mocks';
 
 const domains = mockShellEnvironmentDomains(MOCK_NAP_REGISTRY);
 // → use when building the ShellEnvironment / injected namespace domain list
+```
+
+Extension domains have no built-in `window.napplet` binding. Pass the generated
+tables so napplets can call them (`MOCK_NAPPLET_BINDINGS` holds one per
+`extension` mock, derived from the NAP wire table at the mock's ref):
+
+```ts
+import { MOCK_NAPPLET_BINDINGS } from '@kehto/mocks';
+import { prepareNappletSrcdoc } from '@kehto/shell';
+
+iframe.srcdoc = prepareNappletSrcdoc(html, { domains, bindings: MOCK_NAPPLET_BINDINGS });
+// napplet: await window.napplet.torrent.add(request); window.napplet.torrent.on('progress', fn)
 ```
 
 Built-in domains still obey ACL: a napplet without `relay:read` never reaches

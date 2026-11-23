@@ -165,6 +165,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
+| 261123-m4k | Refresh PR 413: merge main, drop off-track mocked NAPs (mesh, class), graceful mock collisions | 2026-11-23 | feat/paja-mocked-naps | passed; 4656 unit tests; full e2e 185 passed, 1 skipped | [261123-m4k](./quick/261123-m4k-refresh-pr-413-mocked-naps/) |
 | 261123-fwr | Split Paja's Multiplayer providers panel into ContextVM providers and Multiplayer signaling; add simulation.cvm.registry | 2026-11-23 | feat/paja-cvm-panel-split | passed; 4608 unit tests; full e2e 181 passed, 1 skipped, 1 failed (settings tab count, fixed; spec rerun 4/4) | [261123-fwr](./quick/261123-fwr-paja-cvm-panel-split/) |
 | 261120-str | Offer not-installed NAP-INTENT handlers and an App handlers panel (#523) | 2026-11-20 | feat/523-intent-handler-discovery | passed; 4531 unit tests, intent e2e 21/21 | [261120-str](./quick/261120-str-offer-not-installed-intent-handlers-and-/) |
 | 261120-sjo | Badge NAP-INTENT `invoke rejected` as rejected (policy or handler) (#523) | 2026-11-20 | fix/523-intent-denial-badge | passed; 4520 unit tests | [261120-sjo](./quick/261120-sjo-badge-intent-invoke-rejected-as-rejected/) |

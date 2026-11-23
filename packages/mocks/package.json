@@ -40,7 +40,9 @@
     "type-check": "tsc --noEmit",
     "test:unit": "vitest run --config ../../vitest.config.ts packages/mocks",
     "audit:naps": "node scripts/audit-naps.mjs",
-    "docs:table": "node scripts/render-domain-table.mjs"
+    "docs:table": "node scripts/render-domain-table.mjs",
+    "bindings:generate": "node scripts/generate-napplet-bindings.mjs",
+    "bindings:check": "node scripts/generate-napplet-bindings.mjs --check"
   },
   "license": "MIT",
   "repository": {

@@ -70,6 +70,12 @@ advertises the changed support surface.
 
 `llm` adds user-selected language model inference. Call `select()` on a user action, keep a non-model fallback, and expect `unsupported` until the user adds a connection in Paja's **Language models** panel (the Interfaces toggle shows `⚠ llm` meanwhile). Tick **Tool calling** on a connection to let a napplet send tools; `select({ tools: true })` then offers only those connections. Every `generate()` asks the user for consent first, and the dialog names the tool definitions and counts the tool results it will send. Paja never runs a tool call; your napplet does. See [Language models](/llm).
 
+Interfaces marked `◌` are mocked. Paja has no real backend for those NAPs, so
+`@kehto/mocks` answers with deterministic fixture data, for example
+`await window.napplet.torrent.capabilities()` or `await window.napplet.git.open()`.
+Use them to build UI against a draft NAP, then test against a real host before
+shipping. See [Mocked interfaces](/packages/paja#mocked-interfaces).
+
 ## 5. Tune ACL
 
 Use **ACL** to grant or revoke runtime capabilities such as `state:write`,

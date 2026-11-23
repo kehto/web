@@ -134,6 +134,7 @@ import {
 import { getPajaSetting } from './settings.js';
 import { installPajaResourceProxySetting } from './browser-resource-proxy-setting.js';
 import { coalescePajaRender } from './render-scheduler.js';
+import { isPajaMockedDomain } from './mocked-domains.js';
 
 export interface PajaBrowserState {
   readonly config: PajaHostConfig;
@@ -575,7 +576,7 @@ function createPajaBrowserState(
     config,
     capabilities,
     services: Object.keys(adapter.services ?? {}).sort(),
-    domainState: (domain) => getShellDomainState(adapter, domain),
+    domainState: (domain) => isPajaMockedDomain(domain) && Object.hasOwn(adapter.services ?? {}, domain) ? 'supported' : getShellDomainState(adapter, domain),
     simulation: runtime.currentSimulation,
     signer: signerController.getState(),
     signerConsentCount: confirmationController.getSignerConsentCount(),

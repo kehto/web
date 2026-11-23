@@ -52,8 +52,11 @@ export {
 } from './core/rng.js';
 export type { SeededRng } from './core/rng.js';
 
-export { createMockNapServices } from './core/aggregate.js';
+export { MOCK_REGISTRY_DUPLICATE_DOMAIN, createMockNapServices } from './core/aggregate.js';
 export type { MockNapServices, MockNapServicesOptions } from './core/aggregate.js';
+
+export { MOCK_DOMAIN_ALREADY_DEFINED, installMockServices } from './core/install.js';
+export type { InstallMockServicesOptions, InstalledMockServices } from './core/install.js';
 
 export {
   LINUX_DISTROS,
@@ -82,4 +85,7 @@ export {
   findMockDomain,
 } from './registry.js';
 export type { MockNapEnvironment, MockNapEnvironmentOptions } from './registry.js';
+
+export { MOCK_NAPPLET_BINDINGS } from './napplet-bindings.js';
+export type { MockNappletBinding, MockNappletBindingMethod } from './core/binding-types.js';
 export * from './domains/index.js';

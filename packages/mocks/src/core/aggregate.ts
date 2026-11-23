@@ -3,6 +3,9 @@
  */
 import type { MockDomainEntry, MockService, MockServiceOptions } from './types.js';
 
+/** Stable identifier on the warning for a registry that lists one domain twice. */
+export const MOCK_REGISTRY_DUPLICATE_DOMAIN = 'KEHTO_MOCK_REGISTRY_DUPLICATE_DOMAIN';
+
 /**
  * Options for `createMockNapServices`.
  *
@@ -69,6 +72,11 @@ export function createMockNapServices(
     if (!entry.create) continue;
     if (only && !only.includes(entry.domain)) continue;
     if (except?.includes(entry.domain)) continue;
+    if (Object.hasOwn(services, entry.domain)) {
+      // A custom registry listing a domain twice keeps the first entry rather than throwing.
+      console.warn(`[${MOCK_REGISTRY_DUPLICATE_DOMAIN}] Ignored a second registry entry for "${entry.domain}"; the first one stays. Warned once per duplicate entry per createMockNapServices call.`);
+      continue;
+    }
     services[entry.domain] = entry.create({ ...shared, ...overrides?.[entry.domain] });
     domains.push(entry.domain);
   }

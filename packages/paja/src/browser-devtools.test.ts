@@ -211,6 +211,11 @@ describe('Paja interface toggles', () => {
     expect(toggle('llm').title).toMatch(/Language models/);
     expect(toggle('relay').dataset).toMatchObject({ enabled: 'true', state: 'supported' });
     expect(toggle('relay').textContent).toBe('relay');
+    expect(toggle('relay').dataset.mocked).toBeUndefined();
+    // Mocked interfaces carry one compact mark; the panel legend explains it.
+    expect(toggle('torrent').textContent).toBe('◌ torrent');
+    expect(toggle('torrent').dataset).toMatchObject({ enabled: 'true', state: 'supported', mocked: 'true' });
+    expect(toggle('torrent').title).toBe('torrent injection enabled (mocked: @kehto/mocks fixture data)');
     toggle('llm').click();
     expect(state.setDomainEnabled).toHaveBeenCalledWith('llm', false);
 

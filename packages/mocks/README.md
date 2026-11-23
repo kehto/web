@@ -130,6 +130,57 @@ the runtime's delivery verdict;
 Transfer-oriented mocks (torrent, nzb, soulseek, resource, upload, fs, blossom,
 hashtree, git) model Linux distribution images only.
 
+## Napplet bindings
+
+`MOCK_NAPPLET_BINDINGS` maps every `extension` mock to a napplet-facing table
+that `@kehto/shell`'s prelude turns into `window.napplet.<domain>` methods
+(`prepareNappletSrcdoc(html, { domains, bindings: MOCK_NAPPLET_BINDINGS })`).
+`scripts/generate-napplet-bindings.mjs` derives the tables from each NAP's API
+Surface and Wire Protocol tables at the ref the mock records:
+
+- Each napplet → host wire row becomes a method, named after the API operation
+  that maps to it, or after the wire action.
+- Arguments are that request's wire fields in table order.
+- A method waits for `<type>.result` unless the table has none, and resolves
+  with the single listed result field, or the payload when there are several.
+- Host → napplet rows become `on(event)` pushes. "handler for" rows become
+  named handlers such as `onState`.
+- API rows with no wire message (local caches, local helpers) are listed in
+  `gaps` and aren't bound.
+
+```bash
+pnpm --filter @kehto/mocks build
+pnpm --filter @kehto/mocks bindings:generate   # needs `gh`; --docs DIR reads local copies
+pnpm --filter @kehto/mocks bindings:check      # exit 1 when the committed file is stale
+```
+
+`tests/napplet-bindings.test.ts` checks that every table binds exactly the
+routes its mock answers, lists only pushes the mock may send, and carries the
+mock's spec sha.
+
+## Mixing mocks with real services
+
+Mocks fill gaps; they never replace a real backend. Add them with
+`installMockServices(target, mocks.services)` instead of `Object.assign` or
+`runtime.registerService` (which replaces by design):
+
+```ts
+const services = { relay: realRelayService };
+const mocks = createMockNapServices(MOCK_NAP_REGISTRY, { seed: 1, only: ['relay', 'torrent'] });
+const { installed, skipped } = installMockServices(services, mocks.services);
+// installed: ['torrent']  skipped: ['relay'], and realRelayService is untouched
+```
+
+Each skipped domain logs one `[KEHTO_MOCK_DOMAIN_ALREADY_DEFINED]` warning per
+call. Pass `onCollision(domain, message)` to route it elsewhere, or leave the
+domain out with `only`/`except` to stay quiet. A custom registry that lists a
+domain twice keeps the first entry and logs `[KEHTO_MOCK_REGISTRY_DUPLICATE_DOMAIN]`
+instead of throwing. On the napplet side, `@kehto/shell` ignores a binding for a
+domain its prelude already implements and logs `[KEHTO_BINDING_BUILT_IN_DOMAIN]`
+once per domain, so `bindings: MOCK_NAPPLET_BINDINGS` is safe to pass whole. A
+napplet that ships its own implementation of a mocked domain (for example a
+bundled SDK shim) keeps it; the frame logs `[KEHTO_BINDING_DOMAIN_DEFINED_BY_NAPPLET]`.
+
 ## Keeping up with `napplet/naps`
 
 ```bash
