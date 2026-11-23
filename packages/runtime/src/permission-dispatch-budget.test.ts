@@ -90,14 +90,15 @@ describe('dispatch budgets without service coordination', () => {
     f.runtime.sessionRegistry.register('other', { ...entry, windowId: 'other', dTag: 'peer',
       permissionPrincipal: { kind: 'development', target: 'http://localhost:5174', artifactHash: 'a'.repeat(64) } });
     await f.runtime.permissions!.admit('other', { required: ['inc'], optional: [], available: ['inc'] });
-    f.runtime.handleMessage('window', { type: 'inc.channel.open', id: 'open', target: 'peer' });
+    const peer = f.runtime.getIncEndpointId('other')!;
+    f.runtime.handleMessage('window', { type: 'inc.channel.open', id: 'open', target: peer });
     const opened = f.ctx.sent.find(({ message }) => !Array.isArray(message) && message.type === 'inc.channel.open.result')?.message as NappletMessage & { channelId: string };
     expect(opened.channelId).toBeTypeOf('string');
     f.runtime.handleMessage('window', { type: 'inc.broadcast', topic: 'test', payload: {} });
     f.ctx.sent.length = 0;
     f.runtime.handleMessage('window', { type: 'inc.channel.list', id: 'list' });
     expect(f.ctx.sent).toEqual([{ windowId: 'window', message: {
-      type: 'inc.channel.list.result', id: 'list', channels: [{ id: opened.channelId, peer: 'peer' }],
+      type: 'inc.channel.list.result', id: 'list', channels: [{ id: opened.channelId, peer }],
     } }]);
     f.runtime.handleMessage('window', { type: 'inc.channel.close', channelId: opened.channelId });
     expect(f.ctx.sent.filter(({ message }) => !Array.isArray(message) && message.type === 'inc.channel.closed')).toHaveLength(2);

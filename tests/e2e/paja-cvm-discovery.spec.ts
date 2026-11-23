@@ -11,8 +11,16 @@ const RELAY = 'wss://cvm-discovery.example';
 const HASH = 'c042f92e9ab085590656cea78e2628d44ffed49ea8da90aa32e208155fedd84e';
 const tool = { name: 'get_weather', inputSchema: { properties: { location: { type: 'string' } }, required: ['location'] }, outputSchema: { properties: { temperature: { type: 'number' } }, required: ['temperature'] }, _meta: { 'io.contextvm/common-schema': { schemaHash: HASH } } };
 
-for (const multiplayer of [false, true]) {
-  test(`discovers, selects, persists and invokes multiple families (${multiplayer ? 'multiplayer' : 'plain CVM'})`, async ({ page }) => {
+// `cvm.registry` is the canonical file-based pin and needs no signaling profile;
+// `legacy` keeps the deprecated `multiplayer.registry` path (PAJA_MULTIPLAYER_REGISTRY).
+const MODES = [
+  { name: 'plain CVM', multiplayer: false, legacy: false },
+  { name: 'multiplayer', multiplayer: true, legacy: false },
+  { name: 'legacy multiplayer registry', multiplayer: true, legacy: true },
+] as const;
+
+for (const { name, multiplayer, legacy } of MODES) {
+  test(`discovers, selects, persists and invokes multiple families (${name})`, async ({ page }, testInfo) => {
     test.setTimeout(90000);
     const keys = [generateSecretKey(), generateSecretKey()];
     const announcements = keys.map(key => finalizeEvent({ kind: 11317, created_at: 100, tags: [['i', HASH, tool.name], ['k', 'io.contextvm/common-schema']], content: JSON.stringify({ tools: [tool] }) }, key));
@@ -20,8 +28,11 @@ for (const multiplayer of [false, true]) {
     const configured = { family: 'configured.weather', server: { pubkey: announcements[0].pubkey, relays: [RELAY] }, tools: [{ name: tool.name, schemaHash: HASH }] };
     const runtime = await startPajaServer({ options: { targetUrl: target.url, port: 0, simulation: {
       relay: { mode: 'live', urls: [RELAY] },
-      ...(multiplayer ? { multiplayer: { profile: 'soy-rtc/1', relays: [RELAY], registry: [configured] } } : {}),
+      ...(legacy ? {} : { cvm: { registry: [configured] } }),
+      ...(multiplayer ? { multiplayer: { profile: 'soy-rtc/1', relays: [RELAY], ...(legacy ? { registry: [configured] } : {}) } } : {}),
     } } });
+    const warnings: string[] = [];
+    page.on('console', message => { if (message.type() === 'warning') warnings.push(message.text()); });
     try {
       await installPajaApprovalDriver(page);
       const relay = await installMemoryRelay(page, RELAY);
@@ -40,8 +51,24 @@ for (const multiplayer of [false, true]) {
         relay.store(finalizeEvent({ kind: 21059, created_at: response.created_at, tags: [['p', inner.pubkey]], content: nip44.encrypt(JSON.stringify(response), nip44.getConversationKey(wrapper, inner.pubkey)) }, wrapper));
       });
       await page.route('https://provider.example/.well-known/napplet.json', route => route.fulfill({ json: { version: 1, backend: { pubkey: announcements[0].pubkey, relays: [RELAY] } }, headers: { 'access-control-allow-origin': '*' } }));
+      // Tall enough that the section screenshots below are not clipped by the sidebar scroll.
+      await page.setViewportSize({ width: 1280, height: 2000 });
       await openFlowTarget(page, runtime);
-      const section = page.locator('#paja-section-multiplayer');
+      if (!multiplayer) {
+        const boxes = await Promise.all(['#paja-section-intent-handlers', '#paja-section-security'].map(id => page.locator(id).boundingBox()));
+        const [top, bottom] = boxes as [NonNullable<(typeof boxes)[0]>, NonNullable<(typeof boxes)[0]>];
+        await page.screenshot({ path: testInfo.outputPath('sidebar-sections.png'), clip: { x: top.x, y: top.y, width: top.width, height: bottom.y + bottom.height - top.y } });
+      }
+      await expect(page.locator('#paja-section-cvm > summary')).toHaveText(/ContextVM providers/);
+      await expect(page.locator('#paja-section-multiplayer > summary')).toHaveText(/Multiplayer signaling/);
+      const signaling = page.locator('#paja-section-multiplayer');
+      await signaling.locator('summary').click();
+      await expect(signaling.locator('#paja-cvm-form')).toHaveCount(0);
+      const signalingJson = JSON.parse(await page.locator('#paja-multiplayer-input').inputValue() || 'null');
+      expect(signalingJson === null ? null : Object.keys(signalingJson)).toEqual(multiplayer ? (legacy ? ['profile', 'relays', 'registry'] : ['profile', 'relays']) : null);
+      if (!legacy) await signaling.screenshot({ path: testInfo.outputPath(`multiplayer-signaling-${multiplayer ? 'configured' : 'empty'}.png`) });
+      await signaling.locator('summary').click();
+      const section = page.locator('#paja-section-cvm');
       await section.locator('summary').click();
       const input = page.locator('#paja-cvm-discovery'), json = page.locator('#paja-cvm-json');
       await input.fill(HASH);
@@ -77,6 +104,7 @@ for (const multiplayer of [false, true]) {
       await page.locator('#paja-cvm-saved').getByRole('button', { name: /^weather.website ·/ }).click();
       await expect(json).toHaveJSProperty('readOnly', true);
       await test.info().attach('CVM family settings', { body: await section.screenshot(), contentType: 'image/png' });
+      if (!legacy) await section.screenshot({ path: testInfo.outputPath(`contextvm-providers-${multiplayer ? 'multiplayer' : 'plain'}.png`) });
 
       await page.locator('#paja-cvm-new').click();
       await json.fill(JSON.stringify({ ...configured, family: 'weather.manual' }));
@@ -87,7 +115,7 @@ for (const multiplayer of [false, true]) {
       await expect(page.locator('#paja-cvm-origin')).toHaveText('Source: manual JSON');
 
       const frame = await openFlowTarget(page, runtime);
-      for (const family of ['weather.first', 'weather.second', 'weather.website', 'weather.manual', ...(multiplayer ? ['configured.weather'] : [])]) {
+      for (const family of ['weather.first', 'weather.second', 'weather.website', 'weather.manual', 'configured.weather']) {
         await frame.locator('body').evaluate((_body, family) => {
           const w = window as unknown as FlowWindow;
           w.__track(family, w.napplet.cvm.registry.call({ family }, 'get_weather', { location: 'Budapest' }));
@@ -105,6 +133,9 @@ for (const multiplayer of [false, true]) {
       await expect(page.locator('#paja-cvm-saved')).not.toContainText('weather.second');
       await expect(page.locator('#paja-cvm-saved')).toContainText('weather.first');
       await expect(page.locator('#paja-cvm-saved')).toContainText('weather.website');
+      const legacyWarnings = warnings.filter(text => text.includes('[PAJA_MULTIPLAYER_REGISTRY]'));
+      if (legacy) expect(legacyWarnings[0]).toContain('simulation.cvm.registry');
+      else expect(legacyWarnings).toEqual([]);
     } finally { if (!page.isClosed()) await page.goto('about:blank'); await runtime.close(); await target.close(); }
   });
 }

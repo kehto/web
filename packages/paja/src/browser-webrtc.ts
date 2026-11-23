@@ -12,20 +12,17 @@ import type {
   WebrtcServiceOptions,
 } from '@kehto/services';
 import type { Signer } from '@kehto/runtime';
+import { encodeWebrtcBytes } from '@kehto/services';
 import { verifyEvent } from 'nostr-tools/pure';
 import type {
   PajaConfirmationHandler,
   PajaIdentityProvider,
 } from './browser-adapter.js';
+import { getPajaSetting } from './settings.js';
+import { KIND_WEBRTC_SIGNAL } from './nostr-kinds.js';
 
 /** Ephemeral signaling kind proposed by the NIP-100 draft. */
-export const PAJA_WEBRTC_SIGNAL_KIND = 25_050;
-export const PAJA_WEBRTC_MAX_PAYLOAD_BYTES = 64 * 1024;
-export const PAJA_WEBRTC_MAX_SESSIONS_PER_WINDOW = 4;
-export const PAJA_WEBRTC_MAX_PEERS = 8;
-const SIGNAL_MAX_AGE_SECONDS = 5 * 60;
-const ICE_GATHER_TIMEOUT_MS = 8_000;
-const BUFFERED_AMOUNT_LIMIT = 1024 * 1024;
+export const PAJA_WEBRTC_SIGNAL_KIND = KIND_WEBRTC_SIGNAL;
 
 interface PajaWebrtcRelay {
   subscribe(relayUrls: readonly string[], filters: NostrFilter[], onEvent: (event: NostrEvent) => void): { close(): void };
@@ -134,6 +131,7 @@ class BrowserWebrtcController implements PajaWebrtcController {
     planOpen: (request, context) => this.planOpen(request, context),
     open: (request, context, plan) => this.open(request, context, plan),
     send: (sessionId, payload, context) => this.send(sessionId, payload, context),
+    sendBytes: (sessionId, bytes, context) => this.sendBytes(sessionId, bytes, context),
     close: (sessionId, reason, context) => this.close(sessionId, reason, context),
     destroyWindow: (windowId) => this.destroyWindow(windowId),
     revokeWindow: (windowId) => this.revokeWindow(windowId),
@@ -183,7 +181,7 @@ class BrowserWebrtcController implements PajaWebrtcController {
     if (context.signal?.aborted) throw new Error('policy denied');
     if (!this.refreshAvailability()) throw new Error('signaling unavailable');
     validateOpenRequest(request);
-    if (this.windowSessionCount(context.windowId) >= PAJA_WEBRTC_MAX_SESSIONS_PER_WINDOW) {
+    if (this.windowSessionCount(context.windowId) >= getPajaSetting('webrtc.maxSessionsPerWindow')) {
       throw new Error('session limit reached');
     }
     const signer = this.requireSigner(context.windowId);
@@ -249,22 +247,29 @@ class BrowserWebrtcController implements PajaWebrtcController {
         channel,
         ...(request.protocol ? { protocol: request.protocol } : {}),
         state: 'connecting',
+        maxPayloadBytes: getPajaSetting('webrtc.maxPayloadBytes'),
       },
     };
   }
 
   private send(sessionId: string, payload: unknown, context: WebrtcServiceContext): void {
-    const session = this.requireSession(sessionId, context.windowId);
-    if (session.state === 'closed') throw new Error('session closed');
+    const session = this.requireLiveSession(sessionId, context.windowId);
     const serialized = serializePayload(payload, this.encoder);
-    const channels = [...session.peers.values()]
-      .map((peer) => peer.channel)
-      .filter((channel): channel is RTCDataChannel => channel?.readyState === 'open');
-    if (channels.length === 0) throw new Error('peer unavailable');
-    for (const channel of channels) {
-      if (channel.bufferedAmount > BUFFERED_AMOUNT_LIMIT) throw new Error('peer unavailable');
-      channel.send(serialized);
-    }
+    for (const channel of openChannels(session)) channel.send(serialized);
+  }
+
+  /** NAP-WEBRTC `sendBytes`: the decoded bytes go out as one binary data-channel message, never as base64 text. */
+  private sendBytes(sessionId: string, bytes: Uint8Array, context: WebrtcServiceContext): void {
+    const session = this.requireLiveSession(sessionId, context.windowId);
+    if (bytes.byteLength > getPajaSetting('webrtc.maxPayloadBytes')) throw new Error('payload too large');
+    const payload = new Uint8Array(bytes);
+    for (const channel of openChannels(session)) channel.send(payload);
+  }
+
+  private requireLiveSession(sessionId: string, windowId: string): SessionState {
+    const session = this.requireSession(sessionId, windowId);
+    if (session.state === 'closed') throw new Error('session closed');
+    return session;
   }
 
   private async close(
@@ -311,18 +316,18 @@ class BrowserWebrtcController implements PajaWebrtcController {
   private acceptSignal(session: SessionState, event: NostrEvent): boolean {
     if (session.state === 'closed' || event.kind !== PAJA_WEBRTC_SIGNAL_KIND || !verifyEvent(event)) return false;
     if (event.pubkey === session.localPubkey || session.seenSignals.has(event.id)) return false;
-    if (Math.abs(Math.floor(Date.now() / 1000) - event.created_at) > SIGNAL_MAX_AGE_SECONDS) return false;
+    if (Math.abs(Math.floor(Date.now() / 1000) - event.created_at) > getPajaSetting('webrtc.signalMaxAgeSeconds')) return false;
     if (!scopeAllowsPeer(session, event.pubkey)) return false;
     if (session.roomHash && tagValue(event.tags, 'r') !== session.roomHash) return false;
     const recipients = tagValues(event.tags, 'p');
     if (recipients.length > 0 && !recipients.includes(session.localPubkey)) return false;
     session.seenSignals.add(event.id);
-    if (session.seenSignals.size > 256) session.seenSignals.delete(session.seenSignals.values().next().value!);
+    if (session.seenSignals.size > getPajaSetting('webrtc.seenSignalCache')) session.seenSignals.delete(session.seenSignals.values().next().value!);
     return true;
   }
 
   private async handleConnect(session: SessionState, peerPubkey: string): Promise<void> {
-    if (session.peers.has(peerPubkey) || session.peers.size >= PAJA_WEBRTC_MAX_PEERS) return;
+    if (session.peers.has(peerPubkey) || session.peers.size >= getPajaSetting('webrtc.maxPeers')) return;
     if (session.localPubkey < peerPubkey) {
       await this.createOffer(session, peerPubkey);
       return;
@@ -351,7 +356,7 @@ class BrowserWebrtcController implements PajaWebrtcController {
     peerPubkey: string,
     payload: SignalPayload,
   ): Promise<void> {
-    if (session.peers.has(peerPubkey) || session.peers.size >= PAJA_WEBRTC_MAX_PEERS) return;
+    if (session.peers.has(peerPubkey) || session.peers.size >= getPajaSetting('webrtc.maxPeers')) return;
     const peer = this.createPeer(session, peerPubkey, payload.signalId);
     await peer.connection.setRemoteDescription(payload.description);
     const answer = await peer.connection.createAnswer();
@@ -392,6 +397,8 @@ class BrowserWebrtcController implements PajaWebrtcController {
 
   private attachChannel(session: SessionState, peer: PeerState, channel: RTCDataChannel): void {
     peer.channel = channel;
+    // Binary messages arrive as ArrayBuffer, so they can be told apart from JSON text.
+    channel.binaryType = 'arraybuffer';
     channel.addEventListener('open', () => {
       if (session.state === 'closed' || peer.joined) return;
       peer.joined = true;
@@ -402,7 +409,15 @@ class BrowserWebrtcController implements PajaWebrtcController {
       }
     });
     channel.addEventListener('message', (event) => {
-      if (typeof event.data !== 'string' || this.encoder.encode(event.data).byteLength > PAJA_WEBRTC_MAX_PAYLOAD_BYTES) return;
+      // NAP-WEBRTC #59 @ fb4dd6f0: "A payload sent with `send` MUST be received
+      // as a `message` event. A payload sent with `sendBytes` MUST be received
+      // as a `bytes` event. The shell MUST NOT convert between them."
+      if (event.data instanceof ArrayBuffer) {
+        if (event.data.byteLength > getPajaSetting('webrtc.maxPayloadBytes')) return;
+        this.emit(session, { type: 'bytes', sessionId: session.id, from: peer.pubkey, bytes: encodeWebrtcBytes(new Uint8Array(event.data)) });
+        return;
+      }
+      if (typeof event.data !== 'string' || this.encoder.encode(event.data).byteLength > getPajaSetting('webrtc.maxPayloadBytes')) return;
       try {
         const payload = JSON.parse(event.data) as unknown;
         this.emit(session, { type: 'message', sessionId: session.id, from: peer.pubkey, payload });
@@ -535,6 +550,15 @@ class BrowserWebrtcController implements PajaWebrtcController {
   }
 }
 
+/** Open data channels of every peer, or `peer unavailable` when none is open or any is backed up. */
+function openChannels(session: SessionState): RTCDataChannel[] {
+  const channels = [...session.peers.values()]
+    .map((peer) => peer.channel)
+    .filter((channel): channel is RTCDataChannel => channel?.readyState === 'open');
+  if (channels.length === 0 || channels.some((channel) => channel.bufferedAmount > getPajaSetting('webrtc.bufferedAmountLimitBytes'))) throw new Error('peer unavailable');
+  return channels;
+}
+
 function validateOpenRequest(request: WebrtcOpenRequest): void {
   if (!request || typeof request !== 'object' || !request.scope || typeof request.scope !== 'object') {
     throw new Error('unsupported scope');
@@ -542,24 +566,24 @@ function validateOpenRequest(request: WebrtcOpenRequest): void {
   if (request.scope.type === 'direct') {
     if (!normalizePubkey(request.scope.pubkey)) throw new Error('unsupported scope');
   } else if (request.scope.type === 'room') {
-    if (typeof request.scope.room !== 'string' || request.scope.room.length < 8 || request.scope.room.length > 128) {
+    if (typeof request.scope.room !== 'string' || request.scope.room.length < getPajaSetting('webrtc.roomMinChars') || request.scope.room.length > getPajaSetting('webrtc.roomMaxChars')) {
       throw new Error('unsupported scope');
     }
     if (request.scope.peers && (
-      request.scope.peers.length > PAJA_WEBRTC_MAX_PEERS
+      request.scope.peers.length > getPajaSetting('webrtc.maxPeers')
       || request.scope.peers.some((peer) => !normalizePubkey(peer))
     )) throw new Error('unsupported scope');
   } else {
     throw new Error('unsupported scope');
   }
-  if (request.channel !== undefined && (request.channel.length < 1 || request.channel.length > 64)) {
+  if (request.channel !== undefined && (request.channel.length < 1 || request.channel.length > getPajaSetting('webrtc.channelMaxChars'))) {
     throw new Error('unsupported channel');
   }
-  if (request.protocol !== undefined && request.protocol.length > 64) throw new Error('unsupported protocol');
+  if (request.protocol !== undefined && request.protocol.length > getPajaSetting('webrtc.protocolMaxChars')) throw new Error('unsupported protocol');
 }
 
 function signalFilters(session: SessionState): NostrFilter[] {
-  const base = { kinds: [PAJA_WEBRTC_SIGNAL_KIND], since: Math.floor(Date.now() / 1000) - 60 };
+  const base = { kinds: [PAJA_WEBRTC_SIGNAL_KIND], since: Math.floor(Date.now() / 1000) - getPajaSetting('webrtc.signalLookbackSeconds') };
   return session.roomHash
     ? [{ ...base, '#r': [session.roomHash] } as NostrFilter]
     : [{ ...base, '#p': [session.localPubkey] } as NostrFilter];
@@ -605,7 +629,7 @@ function serializePayload(payload: unknown, encoder: TextEncoder): string {
     throw new Error('payload is not JSON-serializable');
   }
   if (serialized === undefined) throw new Error('payload is not JSON-serializable');
-  if (encoder.encode(serialized).byteLength > PAJA_WEBRTC_MAX_PAYLOAD_BYTES) throw new Error('payload too large');
+  if (encoder.encode(serialized).byteLength > getPajaSetting('webrtc.maxPayloadBytes')) throw new Error('payload too large');
   return serialized;
 }
 
@@ -635,7 +659,7 @@ function defaultPeerConnectionFactory(): (() => RTCPeerConnection) | null {
 function waitForIceGathering(connection: RTCPeerConnection): Promise<void> {
   if (connection.iceGatheringState === 'complete') return Promise.resolve();
   return new Promise((resolve) => {
-    const timeout = setTimeout(finish, ICE_GATHER_TIMEOUT_MS);
+    const timeout = setTimeout(finish, getPajaSetting('webrtc.iceGatherTimeoutMs'));
     function finish(): void {
       clearTimeout(timeout);
       connection.removeEventListener('icegatheringstatechange', check);

@@ -1,5 +1,6 @@
+import type { CvmConcurrencyOptions, CvmRegistryFamily } from '@kehto/services';
 import { PAJA_MOCKED_DOMAINS, type PajaMockedDomain } from './mocked-domains.js';
-import { normalizePajaMultiplayer, type PajaMultiplayerConfig } from './multiplayer-config.js';
+import { normalizePajaCvmRegistry, normalizePajaMultiplayer, type PajaMultiplayerConfig } from './multiplayer-config.js';
 
 /** JSON primitive accepted in Paja simulation config values. */
 export type JsonPrimitive = string | number | boolean | null;
@@ -40,7 +41,7 @@ export type PajaCapabilityDomain =
 
 /** Raw simulation controls accepted from CLI args or JSON config. */
 export interface PajaSimulationRawOptions {
-  /** Optional shared CVM/WebRTC transport profile. */
+  /** Optional multiplayer signaling profile shared by WebRTC and the CVM transport. */
   readonly multiplayer?: PajaMultiplayerConfig;
   /** Per-domain capability overrides. */
   readonly capabilities?: {
@@ -92,12 +93,22 @@ export interface PajaSimulationRawOptions {
   };
   readonly cvm?: {
     readonly enabled?: boolean;
+    /**
+     * Per-window NAP-CVM admission limits (`maxInFlight` >= 1, `maxQueued` >= 0).
+     * Omitted limits use the `@kehto/services` defaults of 8 running and 32 queued.
+     */
+    readonly concurrency?: CvmConcurrencyOptions;
+    /**
+     * Operator-pinned CVM families (local label, provider, tool schema hashes).
+     * Works with or without a multiplayer signaling profile.
+     */
+    readonly registry?: readonly CvmRegistryFamily[];
   };
 }
 
 /** Fully normalized Paja simulation model served to the browser host. */
 export interface PajaSimulation {
-  /** Optional shared CVM/WebRTC transport profile. */
+  /** Optional multiplayer signaling profile shared by WebRTC and the CVM transport. */
   readonly multiplayer?: PajaMultiplayerConfig;
   /** Capability domains and disabled-domain summary. */
   readonly capabilities: {
@@ -149,6 +160,10 @@ export interface PajaSimulation {
   };
   readonly cvm: {
     readonly enabled: boolean;
+    /** Host-selected per-window admission limits; absent means service defaults. */
+    readonly concurrency?: CvmConcurrencyOptions;
+    /** Validated operator-pinned CVM families; absent when none are configured. */
+    readonly registry?: readonly CvmRegistryFamily[];
   };
 }
 
@@ -265,6 +280,8 @@ export function normalizePajaSimulation(
     throw new PajaSimulationError('Invalid simulation: cvm.enabled must be false when capabilities.domains.cvm is false.');
   }
   if (!cvmEnabled) domains.cvm = false;
+  const cvmConcurrency = normalizeCvmConcurrency(raw?.cvm?.concurrency);
+  const cvmRegistry = normalizeCvmRegistry(raw?.cvm?.registry);
 
   const notificationsEnabled = raw?.notifications?.enabled ?? domains.notify;
   if (!domains.notify && notificationsEnabled) {
@@ -367,6 +384,8 @@ export function normalizePajaSimulation(
     },
     cvm: {
       enabled: cvmEnabled,
+      ...(cvmConcurrency ? { concurrency: cvmConcurrency } : {}),
+      ...(cvmRegistry?.length ? { registry: cvmRegistry } : {}),
     },
     ...(raw?.multiplayer === undefined ? {} : { multiplayer: normalizePajaMultiplayer(raw.multiplayer) }),
   };
@@ -420,6 +439,26 @@ export function normalizeUploadServers(servers: readonly string[]): string[] {
     if (!normalized.includes(result)) normalized.push(result);
   }
   return normalized;
+}
+
+function normalizeCvmRegistry(value: unknown): CvmRegistryFamily[] | undefined {
+  if (value === undefined) return undefined;
+  try { return normalizePajaCvmRegistry(value, 'cvm.registry'); }
+  catch (error) { throw new PajaSimulationError(`Invalid simulation: ${error instanceof Error ? error.message : 'cvm.registry is invalid.'}`); }
+}
+
+function normalizeCvmConcurrency(value: unknown): CvmConcurrencyOptions | undefined {
+  if (value === undefined) return undefined;
+  const limits = value as CvmConcurrencyOptions | null;
+  const valid = (limit: unknown, minimum: number) => limit === undefined || (Number.isSafeInteger(limit) && (limit as number) >= minimum);
+  if (limits === null || typeof limits !== 'object' || Array.isArray(limits)
+    || !valid(limits.maxInFlight, 1) || !valid(limits.maxQueued, 0)) {
+    throw new PajaSimulationError('Invalid simulation: cvm.concurrency needs integer maxInFlight >= 1 and maxQueued >= 0.');
+  }
+  return {
+    ...(limits.maxInFlight === undefined ? {} : { maxInFlight: limits.maxInFlight }),
+    ...(limits.maxQueued === undefined ? {} : { maxQueued: limits.maxQueued }),
+  };
 }
 
 function isLoopbackHost(hostname: string): boolean {

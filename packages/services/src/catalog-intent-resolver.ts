@@ -71,6 +71,28 @@ export interface CatalogIntentResolverOptions {
     hint: IntentHandlerHint,
     candidates: readonly IntentCandidate[],
   ): string | undefined | Promise<string | undefined>;
+  /**
+   * Offer handlers that are not installed when no installed handler is
+   * compatible (NAP-INTENT "Recommended handler resolution", step 4 and the
+   * step-3 MAY: "offer installation under its policy"). The host searches and
+   * installs through its ordinary verified load, then returns the installed
+   * catalog ID, or `undefined` when the user declined or nothing was found.
+   *
+   * The returned ID is only a lookup key. The resolver reloads the catalog and
+   * uses the handler only if its verified catalog entry is compatible.
+   * Discovery never changes `available()` or `handlers()`. An explicit catalog
+   * `handler` never reaches this hook, because an explicit selection must not
+   * fall back. A declined or empty offer keeps the original rejection
+   * (`no handler`, `unsupported action`, or `unsupported convention`).
+   *
+   * @param request - The validated request that had no compatible installed handler.
+   * @param context - Authenticated source context.
+   * @returns The newly installed catalog ID, or `undefined`.
+   */
+  offerUninstalledHandlers?(
+    request: IntentRequest,
+    context: IntentResolverContext,
+  ): string | undefined | Promise<string | undefined>;
 }
 
 export interface CatalogIntentResolver extends IntentResolver {
@@ -120,7 +142,7 @@ async function choose(options: CatalogIntentResolverOptions, request: IntentRequ
 
 async function select(options: CatalogIntentResolverOptions, request: IntentRequest, candidates: readonly IntentCandidate[], context: IntentResolverContext): Promise<IntentCandidate | IntentResult> {
   const { sender } = context;
-  if (request.handler && request.handler !== 'default' && request.handler !== 'choose') {
+  if (request.handler && isExplicitHandler(request)) {
     const candidate = candidates.find((item) => item.id === request.handler);
     if (!candidate || !options.authorizeExplicitHandler) return rejected('invoke rejected');
     try {
@@ -142,6 +164,34 @@ async function select(options: CatalogIntentResolverOptions, request: IntentRequ
   return choose(options, request, candidates, sender);
 }
 
+function unmatched(request: IntentRequest, candidates: readonly IntentCandidate[]): IntentResult {
+  if (candidates.length === 0) return rejected('no handler');
+  return rejected(candidates.some((candidate) => candidate.actions.includes(request.action)) ? 'unsupported convention' : 'unsupported action');
+}
+
+/** True when the request names one catalog identity rather than default/choose policy. */
+function isExplicitHandler(request: IntentRequest): boolean {
+  return request.handler !== undefined && request.handler !== 'default' && request.handler !== 'choose';
+}
+
+async function offerUninstalled(
+  options: CatalogIntentResolverOptions,
+  request: IntentRequest,
+  context: IntentResolverContext,
+  failure: IntentResult,
+): Promise<IntentCandidate | IntentResult> {
+  if (!options.offerUninstalledHandlers || isExplicitHandler(request) || context.signal?.aborted) return failure;
+  let id: string | undefined;
+  try {
+    id = await options.offerUninstalledHandlers(request, context);
+  } catch { return failure; }
+  if (id === undefined) return failure;
+  // Support comes from the verified catalog entry, never from the offer itself.
+  const catalog = await options.loadCatalog();
+  const installed = compatibleFor(request, candidatesFor(catalog, request.archetype, options.getDefaultHandler?.(request.archetype)));
+  return installed.find((candidate) => candidate.id === id) ?? failure;
+}
+
 async function availabilityFor(options: CatalogIntentResolverOptions, archetype: string): Promise<IntentAvailability> {
   const catalog = await options.loadCatalog();
   const defaultId = options.getDefaultHandler?.(archetype);
@@ -160,10 +210,10 @@ async function invoke(options: CatalogIntentResolverOptions, request: IntentRequ
   if (!context.sender) return rejected('invoke rejected');
   const catalog = await options.loadCatalog();
   const candidates = candidatesFor(catalog, request.archetype, options.getDefaultHandler?.(request.archetype));
-  if (candidates.length === 0) return rejected('no handler');
   const compatible = compatibleFor(request, candidates);
-  if (compatible.length === 0) return rejected(candidates.some((candidate) => candidate.actions.includes(request.action)) ? 'unsupported convention' : 'unsupported action');
-  const selected = await select(options, request, compatible, context);
+  const selected = compatible.length > 0
+    ? await select(options, request, compatible, context)
+    : await offerUninstalled(options, request, context, unmatched(request, candidates));
   if ('ok' in selected) return selected;
   const behavior = request.behavior === undefined ? undefined : Object.freeze({
     ...(request.behavior.focus === undefined ? {} : { focus: request.behavior.focus }),

@@ -22,6 +22,24 @@ expire. A failed run with no jobs and the annotation "required approval but was
 not approved before it expired" is an approval failure, not a build failure.
 Don't merge the version PR until its checks pass.
 
+## Version PR body
+
+The Changesets action drops every changelog entry from the PR body once the full
+text passes its 60,000-character cap, leaving only package headings. When that
+happens, the next workflow step runs `scripts/release-pr-body.mjs`. It keeps the
+action's header and lists each released package with its version, the first
+sentence of each changelog entry, and a link to the full CHANGELOG.md on the
+release branch. When the result is still too long, it shortens bullets first and
+then caps entries per package ("…and K more"). It only edits the PR body; the
+release branch contents and the release-metadata guard are unchanged. To refill
+the body by hand:
+
+```bash
+git fetch origin main changeset-release/main
+node scripts/release-pr-body.mjs --base origin/main --head origin/changeset-release/main \
+  --repo kehto/web --pr <number> --out release-pr-body.md --apply
+```
+
 See [GitHub's workflow trigger rules](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow)
 and the [Changesets action inputs](https://github.com/changesets/action).
 

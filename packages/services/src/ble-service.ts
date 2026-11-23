@@ -24,7 +24,9 @@ import type {
   BleUnsubscribeMessage,
   BleWriteMessage,
 } from '@napplet/nap/ble/types';
+import { createUnrecognizedTypeDiagnostic } from '@kehto/runtime';
 import type { ApprovalSignal, ServiceDescriptor, ServiceHandler, ServiceRuntimeContext } from '@kehto/runtime';
+import { approvalFailure } from './approval-failure.js';
 
 const BLE_SERVICE_VERSION = '1.0.0';
 
@@ -313,6 +315,7 @@ export function createBleService(options: BleServiceOptions = {}): ServiceHandle
 
 /** Internal stateful handler builder, separated from the public factory API. */
 function buildBleService(options: BleServiceOptions): ServiceHandler {
+  const ignoreUnrecognized = createUnrecognizedTypeDiagnostic();
   const windows = new Map<string, Map<string, { deviceScope?: string }>>();
   let runtime: ServiceRuntimeContext | undefined;
   let warnedLegacy = false;
@@ -357,7 +360,8 @@ function buildBleService(options: BleServiceOptions): ServiceHandler {
           { category: 'interface', domain: 'ble', operation: 'access', scope: { kind: 'exact', value: 'ble' } },
           { category: 'resource', domain: 'ble', operation, scope: { kind: 'exact', value: scope } },
         ], (signal) => run(signal)).then((approval) => {
-          if (approval.status !== 'executed') throw new Error('policy denied');
+          // NAP-BLE napplet/naps#62 @ b46b8691 has no approval code; host conditions use `approval …` (spec gap, kehto/web#513).
+          if (approval.status !== 'executed') throw new Error(approvalFailure(approval.status, { denied: 'policy denied' }));
           return approval.value;
         });
       };
@@ -454,11 +458,8 @@ function buildBleService(options: BleServiceOptions): ServiceHandler {
         return;
       }
 
-      currentSend({
-        type: `${message.type}.error`,
-        id,
-        error: `Unknown ble method: ${message.type}`,
-      } as NappletMessage);
+      // NIP-5D (nips#2303 @ f60550c3): unrecognized types get no reply.
+      ignoreUnrecognized('ble', message.type);
     },
     onWindowDestroyed(windowId: string): void {
       windows.delete(windowId);

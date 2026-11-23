@@ -63,10 +63,12 @@ import { BLOSSOM_SERVER_LIST_KIND, createPajaBlossomEventResolver } from './brow
 import { createPajaSocialCache } from './browser-social-cache.js';
 import { createPajaCommonBackend } from './browser-common.js';
 import { createPajaListsBackend } from './browser-lists.js';
-import { createPajaResourceFetch, pajaResourceInfo } from './browser-resource.js';
+import { createPajaResourceFetch, PAJA_RESOURCE_PROXY_PATH, pajaResourceInfo } from './browser-resource.js';
+import { readPajaResourceProxyUrl } from './browser-resource-proxy-setting.js';
 import { createPajaWebrtcController } from './browser-webrtc.js';
 import { createPajaMultiplayerServices, PAJA_CVM_OPERATIONS } from './browser-multiplayer-services.js';
-import { mergeCvmFamilies, readCvmFamilies } from './cvm-family-store.js';
+import { readCvmFamilies } from './cvm-family-store.js';
+import { resolvePajaCvmRegistry } from './cvm-registry-config.js';
 import { confirmPajaExternalLink } from './browser-link.js';
 import { createPajaBrowserFsBackend } from './browser-fs.js';
 import {
@@ -82,7 +84,6 @@ import {
   type PajaRelayConfigRuntime,
 } from './browser-relay-policy.js';
 import {
-  PAJA_LIVE_QUERY_WAIT_MS,
   createPajaContactListLoader,
   createPajaRelayBackend,
   type PajaRelayBackend,
@@ -91,6 +92,8 @@ import { createPajaWorkerRelay } from './browser-worker-relay.js';
 import { createPajaMockedServices } from './browser-mocked-services.js';
 import type { PajaSignerSource } from './browser-signer-consent.js';
 import { createPajaCvmRelayPool, createRuntimeSigner, getRuntimePubkey, createPajaWindowScope, pajaDevelopmentConsentScope, scopePajaService } from './browser-operation-scope.js';
+import { getPajaSetting } from './settings.js';
+import { KIND_RELAY_LIST } from './nostr-kinds.js';
 
 const HEX_PUBKEY = /^[0-9a-f]{64}$/i;
 
@@ -134,6 +137,7 @@ function createDevServices(
   notifyOptions?: NotifyServiceOptions,
   configOptions?: ConfigServiceOptions,
   getSignerSource?: (windowId: string) => PajaSignerSource,
+  getResourceProxy: () => string | undefined = () => PAJA_RESOURCE_PROXY_PATH,
 ): PajaServiceBundle {
   const scopeFor = (windowId: string, isCurrent: () => boolean) => createPajaWindowScope({
     backend,
@@ -168,7 +172,7 @@ function createDevServices(
     const unique = [...new Set(relayUrls.filter((relay) =>
       isPajaRelayAllowed(relay, () => relayConfig.getRelayUrls())))];
     const batches = await Promise.all(unique.map((relay) => context.authorizeNetwork(relay, (signal) =>
-      backend.query([relay], filters, PAJA_LIVE_QUERY_WAIT_MS, { reason: 'host' }, signal),
+      backend.query([relay], filters, getPajaSetting('relay.liveQueryWaitMs'), { reason: 'host' }, signal),
     )));
     const events = new Map<string, NostrEvent>();
     for (const batch of batches) {
@@ -182,11 +186,11 @@ function createDevServices(
   ) => {
     const relayListEvents = await queryApprovedResourceRelays(
       getReadRelays(),
-      [{ kinds: [10_002], authors: [pubkey], limit: 2 }],
+      [{ kinds: [KIND_RELAY_LIST], authors: [pubkey], limit: getPajaSetting('relay.replaceableLookupLimit') }],
       context,
     );
     const newestRelayList = relayListEvents
-      .filter((event) => event.kind === 10_002
+      .filter((event) => event.kind === KIND_RELAY_LIST
         && event.pubkey.toLowerCase() === pubkey.toLowerCase()
         && verifyEvent(event as Parameters<typeof verifyEvent>[0]))
       .sort((left, right) => right.created_at - left.created_at || left.id.localeCompare(right.id))[0];
@@ -253,6 +257,7 @@ function createDevServices(
       getBlossomServers: ({ url, windowId, signal, authorizeNetwork }) => blossomEventResolver.getServers(
         url, windowId, { signal, authorizeNetwork },
       ),
+      getProxyEndpoint: getResourceProxy,
     }),
     resourceInfo: () => pajaResourceInfo(),
   });
@@ -382,9 +387,10 @@ function createDevServices(
   if (getSimulation().capabilities.domains.theme) services.theme = theme.handler;
   if (getSimulation().capabilities.domains.config && config) services.config = config.handler;
   const multiplayerConfig = getSimulation().multiplayer;
-  const registry = mergeCvmFamilies(multiplayerConfig?.registry ?? [], readCvmFamilies());
+  const registry = resolvePajaCvmRegistry(getSimulation(), readCvmFamilies());
   const multiplayer = multiplayerConfig && getSimulation().relay.mode === 'live' && backend.isAvailable()
-    ? createPajaMultiplayerServices({ config: { ...multiplayerConfig, registry }, scopeKey,
+    ? createPajaMultiplayerServices({ config: multiplayerConfig, registry, scopeKey,
+      concurrency: getSimulation().cvm.concurrency,
       namespace: windowId => getIdentity?.(windowId).signalingNamespace,
       backend: (windowId, isCurrent) => scopeFor(windowId, isCurrent).backend,
     }) : null;
@@ -392,6 +398,8 @@ function createDevServices(
     const cvm = (relay: PajaRelayBackend) => {
       const service = createCvmService({
         registry,
+        concurrency: getSimulation().cvm.concurrency,
+        serverRequestTimeoutMs: getPajaSetting('cvm.serverRequestTimeoutMs'),
         transport: createNostrCvmTransport({
           defaultRelays: relayConfig.allRelays, pool: createPajaCvmRelayPool(relay),
           clientInfo: { name: '@kehto/paja', version: '0.11.0' },
@@ -595,6 +603,8 @@ export function createPajaAdapter(
     notifyOptions,
     configOptions,
     signerSource,
+    // The static build has no server proxy: use the user's saved or the host-configured standalone proxy.
+    () => (config.runtime?.host === 'static' ? readPajaResourceProxyUrl() ?? config.resource?.proxyUrl : PAJA_RESOURCE_PROXY_PATH),
   );
   const services = serviceBundle.services;
   const mocked = createPajaMockedServices(services);

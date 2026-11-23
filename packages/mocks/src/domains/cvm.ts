@@ -7,10 +7,10 @@
  * Pushes: cvm.event (progress notifications; scripted server notifications
  *         and server requests via controls)
  * Spec gaps / decisions:
- * - `@napplet/nap@0.32.0` registry envelopes carry `family: string`; the
- *   draft uses a `selector` record (`schemaHash` | `family`) and required
- *   `schemaHashes`. The mock follows the draft and declares those shapes
- *   locally (drift noted, not copied).
+ * - Registry shapes (`CvmRegistrySelector`, `CvmRegistryEntry`) come from
+ *   `@napplet/core` >= 0.42.0, which matches the draft (napplet/web#337,
+ *   kehto/web#441). The mock only narrows the entry: its seeded families
+ *   always carry a label, a selected provider and a provider list.
  * - Payment is never required by the seeded servers, so `payment required`/
  *   `payment denied` are never produced; `payment` is validated only.
  * - `cvm.close` on a server with no open session succeeds (the draft says
@@ -19,10 +19,24 @@
  * - Every accepted request completes synchronously; `relay timeout` is never
  *   produced. `timeoutMs` is validated against `maxTimeoutMs` policy.
  * - `policy denied` is produced only for pubkeys listed in `deniedServers`.
+ * - Per-endpoint concurrency admission (draft Security Considerations) is
+ *   not modelled: nothing stays in flight, so no request is queued or refused.
+ * - `notifications/cancelled` "may refer only to this napplet's requests": a
+ *   `requestId` this window never used in the session is `invalid message`
+ *   (kehto decision, as `createCvmService`). Every request here has already
+ *   settled, so a cancellation of one of its own is acknowledged and dropped.
+ *   The service's other cancellation outcomes (kehto/web#510: a queued,
+ *   pending-approval or in-flight request settled with `session closed`)
+ *   cannot arise here, because no request is ever unsettled.
+ * - Server requests "still require a response or expire under session
+ *   policy": a delivered server request stays answerable for
+ *   `serverRequestTimeoutMs` (default 30000, the Timeouts default), then a
+ *   response to it is `invalid message`.
  */
 import type { NappletMessage } from '@kehto/runtime';
+import type { CvmRegistryEntry } from '@napplet/core';
 import type { CvmServerRef, McpMessage } from '@napplet/nap/cvm/types';
-import { defineMockService, pushToWindow, type MockRouteContext } from '../core/handler.js';
+import { DEFAULT_SCHEDULER, defineMockService, pushToWindow, type MockRouteContext } from '../core/handler.js';
 import type { MockDomainEntry, MockService, MockServiceOptions, NapSpecRef } from '../core/types.js';
 import {
   MOCK_CVM_ANNOUNCEMENT_KINDS,
@@ -81,27 +95,24 @@ export interface MockCvmSession {
   pubkey: string;
   /** Client request ids already used in this session (`type:value`). */
   usedRequestIds: Set<string>;
-  /** Server-initiated request ids awaiting a napplet response. */
+  /** Server-initiated request ids awaiting a napplet response (`type:value`). */
   outstandingServerRequests: Set<string>;
   /** Whether `initialize` ran. */
   initialized: boolean;
 }
 
 /**
- * Registry entry wire shape (draft `CvmRegistryEntry`).
+ * Registry entry the mock returns: upstream `CvmRegistryEntry` with the
+ * optional label and provider fields always present.
  *
  * @example
  * ```ts
  * const entry: MockCvmRegistryEntry = { family: 'echo', schemaHashes: [], tools: [], selected: { pubkey: 'ab'.repeat(32) }, providers: [] };
  * ```
  */
-export interface MockCvmRegistryEntry {
+export interface MockCvmRegistryEntry extends CvmRegistryEntry {
   /** Shell-local family label. */
   family: string;
-  /** Family description. */
-  description?: string;
-  /** Distinct CEP-15 hashes of `tools`. */
-  schemaHashes: string[];
   /** Selected provider. */
   selected: CvmServerRef;
   /** Candidate providers. */
@@ -140,6 +151,8 @@ export interface MockCvmOptions extends MockServiceOptions {
   maxTimeoutMs?: number;
   /** Server pubkeys whose requests fail with `policy denied`. */
   deniedServers?: readonly string[];
+  /** How long a delivered server request stays answerable, in ms. Default 30000. */
+  serverRequestTimeoutMs?: number;
 }
 
 /**
@@ -165,6 +178,11 @@ const HEX64 = /^[0-9a-f]{64}$/;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** JSON-RPC ids are typed: `1` and `"1"` are different ids. */
+function mcpIdKey(id: string | number): string {
+  return `${typeof id}:${String(id)}`;
 }
 
 function sessionKey(windowId: string, pubkey: string): string {
@@ -357,6 +375,11 @@ function registryHasRoute({ message, state, reply, fail }: Context): void {
  */
 export function createMockCvmService(options: MockCvmOptions = {}): MockCvmService {
   const maxTimeoutMs = options.maxTimeoutMs ?? 300_000;
+  const serverRequestTimeoutMs = options.serverRequestTimeoutMs ?? 30_000;
+  if (!Number.isInteger(serverRequestTimeoutMs) || serverRequestTimeoutMs < 1 || serverRequestTimeoutMs > 300_000) {
+    throw new RangeError('createMockCvmService: serverRequestTimeoutMs must be an integer from 1 through 300000');
+  }
+  const scheduler = options.scheduler ?? DEFAULT_SCHEDULER;
   const denied = new Set(options.deniedServers ?? []);
 
   const requestRoute = ({ message, windowId, state, reply, fail, push }: Context): void => {
@@ -371,13 +394,18 @@ export function createMockCvmService(options: MockCvmOptions = {}): MockCvmServi
     if (!fixture) { fail('server not found'); return; }
     const session = openSession(state, windowId, server.pubkey);
     const mcp = message.message as McpMessage;
+    if (form === 'notification' && mcp.method === 'notifications/cancelled') {
+      const requestId = isRecord(mcp.params) ? mcp.params.requestId : undefined;
+      const own = (typeof requestId === 'string' || typeof requestId === 'number') && session.usedRequestIds.has(mcpIdKey(requestId));
+      if (!own) { fail('invalid message'); return; }
+    }
     if (form === 'notification') { reply(); return; }
     if (form === 'response') {
-      if (!session.outstandingServerRequests.delete(String(mcp.id))) { fail('invalid message'); return; }
+      if (!session.outstandingServerRequests.delete(mcpIdKey(mcp.id as string | number))) { fail('invalid message'); return; }
       reply();
       return;
     }
-    const key = `${typeof mcp.id}:${String(mcp.id)}`;
+    const key = mcpIdKey(mcp.id as string | number);
     if (session.usedRequestIds.has(key)) { fail('invalid message'); return; }
     session.usedRequestIds.add(key);
     const meta = isRecord(mcp.params) && isRecord(mcp.params._meta) ? mcp.params._meta : undefined;
@@ -442,7 +470,8 @@ export function createMockCvmService(options: MockCvmOptions = {}): MockCvmServi
       if (!session) return undefined;
       state.serverRequests += 1;
       const id = `srv-${state.serverRequests}`;
-      session.outstandingServerRequests.add(id);
+      session.outstandingServerRequests.add(mcpIdKey(id));
+      scheduler.schedule(serverRequestTimeoutMs, () => { session.outstandingServerRequests.delete(mcpIdKey(id)); });
       pushToWindow(service, windowId, event(pubkey, { jsonrpc: '2.0', id, method, ...(params ? { params } : {}) }));
       return id;
     },

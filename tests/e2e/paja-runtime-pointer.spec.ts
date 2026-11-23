@@ -527,8 +527,8 @@ for (const blockedStorage of [false, true]) {
       await page.goto(server.url);
       await expect(page.frameLocator('iframe').locator('#ready')).toHaveText('ready');
       const original = await snapshot();
-      await expect(page.locator('#paja-console > details')).toHaveCount(11);
-      expect(await page.locator('#paja-console > details').evaluateAll((sections) => sections.map((section) => section.getAttribute('data-paja-section')))).toEqual(['pointer', 'interfaces', 'permissions', 'acl', 'signer', 'resource-servers', 'multiplayer', 'security', 'llm', 'messages', 'events']);
+      await expect(page.locator('#paja-console > details')).toHaveCount(13);
+      expect(await page.locator('#paja-console > details').evaluateAll((sections) => sections.map((section) => section.getAttribute('data-paja-section')))).toEqual(['pointer', 'interfaces', 'permissions', 'acl', 'signer', 'resource-servers', 'intent-handlers', 'cvm', 'multiplayer', 'security', 'llm', 'messages', 'events']);
       const frameNode = await page.locator('iframe').elementHandle();
       const frameWindow = await page.locator('iframe').evaluateHandle((frame) => (frame as HTMLIFrameElement).contentWindow);
       const pointer = page.locator('#runtime-pointer-section');
@@ -691,7 +691,9 @@ async function startPointerServer(): Promise<PointerServer> {
     blobs,
     resourceRequests,
     setConfig(nextConfig) {
-      config = nextConfig;
+      // This server also answers /__kehto/resource, so it is a proxy-backed host,
+      // not the static build (which disables network resources).
+      config = { ...nextConfig, runtime: { ...nextConfig.runtime, host: '127.0.0.1' } };
     },
     close: () => new Promise<void>((resolve, reject) => {
       server.close((error) => error ? reject(error) : resolve());

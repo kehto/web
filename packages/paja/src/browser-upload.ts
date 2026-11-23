@@ -14,8 +14,9 @@ import {
   normalizeUploadServers,
   type PajaSimulation,
 } from './simulation.js';
+import { KIND_BLOSSOM_SERVER_LIST } from './nostr-kinds.js';
 
-const BLOSSOM_SERVER_LIST_KIND = 10_063;
+const BLOSSOM_SERVER_LIST_KIND = KIND_BLOSSOM_SERVER_LIST;
 const PUBLIC_UPLOAD_WARNING = 'This upload is public and durable.';
 
 interface NappletIdentity {

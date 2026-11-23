@@ -1,0 +1,79 @@
+import { MAX_PERMISSION_REQUIREMENTS } from '@kehto/firewall';
+import type { PermissionRequirement } from '@kehto/firewall';
+import type { ApprovalSignal } from './approval-coordinator.js';
+import type { RelayOperationPlan } from './service-types.js';
+import type { ServiceRuntimeContext } from './types.js';
+import { RELAY_APPROVAL_BUSY, RELAY_APPROVAL_CAPACITY, RELAY_APPROVAL_UNAVAILABLE, RELAY_TOO_MANY_RELAYS, guardRelayTransport } from './relay-failure.js';
+
+// WHATWG URL is supplied by the Node/browser host; no DOM dependency is needed.
+declare const URL: {
+  new(value: string): { protocol: string; origin: string; username: string; password: string; hash: string };
+};
+declare const console: { warn(message: string): void };
+const legacyNetworkWarnings = new WeakSet<object>();
+const legacyQueryHintWarnings = new WeakSet<object>();
+
+/** Validate every planned destination and derive one network requirement per origin. */
+function relayRequirements(plan: RelayOperationPlan): PermissionRequirement[] {
+  const origins = new Set<string>();
+  for (const value of plan.relayUrls) {
+    if (typeof value !== 'string' || /[\u0000-\u0020\\#]/u.test(value)) throw new Error('invalid relay destination');
+    let url: { protocol: string; origin: string; username: string; password: string; hash: string };
+    try { url = new URL(value); } catch { throw new Error('invalid relay destination'); }
+    if (!['ws:', 'wss:'].includes(url.protocol) || url.username || url.password || url.hash) {
+      throw new Error('invalid relay destination');
+    }
+    origins.add(url.origin);
+  }
+  return [
+    { category: 'interface', domain: 'relay', operation: 'access', scope: { kind: 'exact', value: 'relay' } },
+    ...[...origins].map((value): PermissionRequirement => ({ category: 'network', domain: 'relay', operation: 'relay.network', scope: { kind: 'origin', value } })),
+  ];
+}
+
+/** Detach dynamic host routing state before the approval coordinator can wait. */
+export function snapshotRelayPlan(plan: RelayOperationPlan): RelayOperationPlan {
+  return Object.freeze({ ...plan, relayUrls: Object.freeze([...new Set(plan.relayUrls)]) });
+}
+
+/** Require operation authority for caller hints; unhinted legacy host routing remains supported. */
+export async function authorizeRelay<T>(
+  context: Pick<ServiceRuntimeContext, 'authorizeOperation' | 'maxPermissionRequirements'>,
+  windowId: string,
+  operation: string,
+  plan: RelayOperationPlan,
+  execute: (signal: ApprovalSignal) => T | Promise<T>,
+  relayHint?: string,
+): Promise<void> {
+  const requirements = relayRequirements(plan);
+  // Failures inside the approved callback are relay transport failures, never
+  // denials (see relay-failure.ts); refusals before execution stay denials.
+  const guarded = guardRelayTransport(execute);
+  const run = context.authorizeOperation;
+  if (!run) {
+    if (relayHint && plan.relayUrls.length > 0) throw new Error('relay hints require RuntimeAdapter.permissions');
+    if (plan.relayUrls.length > 0 && !legacyNetworkWarnings.has(context)) {
+      legacyNetworkWarnings.add(context);
+      console.warn('[FW-RELAY-NETWORK-LEGACY-001] Configure RuntimeAdapter.permissions for destination approval; unhinted legacy host routing is deprecated. Warning once per runtime instance.');
+    }
+    await guarded({ aborted: false, addEventListener() {}, removeEventListener() {} });
+    return;
+  }
+  // The Firewall caps one request at MAX_PERMISSION_REQUIREMENTS, so a host
+  // plan over that many origins fails with its own reason instead of being
+  // refused as a denial (kehto/web#455). NAP-RELAY leaves `relay.closed.reason`
+  // free-form and lets the shell terminate a subscription for a resource limit.
+  if (requirements.length > (context.maxPermissionRequirements ?? MAX_PERMISSION_REQUIREMENTS)) throw new Error(RELAY_TOO_MANY_RELAYS);
+  const outcome = await run(windowId, operation, requirements, (signal) => {
+    if (!signal.aborted && operation === 'relay.query' && relayHint && plan.relayUrls.length > 0
+      && !legacyQueryHintWarnings.has(context)) {
+      legacyQueryHintWarnings.add(context);
+      console.warn('[KEHTO_COMPAT_RELAY_QUERY_HINT] Use relay.subscribe with options.relay and collect until EOSE; relay.query.relay is a Kehto-only compatibility extension. Warning once per runtime instance.');
+    }
+    return guarded(signal);
+  });
+  if (outcome.status === 'capacity') throw new Error(RELAY_APPROVAL_CAPACITY);
+  if (outcome.status === 'busy') throw new Error(RELAY_APPROVAL_BUSY);
+  if (outcome.status === 'unavailable') throw new Error(RELAY_APPROVAL_UNAVAILABLE);
+  if (outcome.status !== 'executed') throw new Error(`relay authorization ${outcome.status}`);
+}

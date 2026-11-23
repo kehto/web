@@ -29,7 +29,10 @@ when the runtime changes. The view always reads `RuntimePermissions.grants` and
 uses its `revoke`, `clear`, and `retryPersistence` methods; it keeps no grant
 store. The prompt asks a plain-language question, names the napplet with the
 host's label, lists every exact scope, and preselects the narrowest offered
-lifetime; the full trusted identity is one disclosure away. Deny has initial
+lifetime; the full trusted identity is one disclosure away. Network origins that
+share one mediated operation, such as the relays of an outbox plan, are one
+"contact N origins" row listing the exact origins (collapsed beyond `openOriginLimit`, default 5); each origin
+is still granted on its own. Deny has initial
 focus. Escape, close, and abort cancel without creating a denial grant. Grants
 are grouped by napplet and interface with group revoke. Pass `rules` to add an
 editor for host default rules and a "do this for every future request" choice
@@ -55,8 +58,8 @@ pnpm add @kehto/shell
 
 ## Published Napplet Compatibility
 
-Peers admit `@napplet/core` `>=0.32.0 <0.42.0` and `@napplet/nap`
-`>=0.32.0 <0.41.0`; the shell does not import the NAP-LLM types, so it keeps the older floor. Host packages develop and build on core 0.41.0 / nap 0.40.0; fixture napplets stay on the exact 0.32.0 line (shim 0.30.0, sdk 0.28.0, vite-plugin 0.16.2). The fixture-line core 0.32.0 / nap 0.32.0 contracts follow
+Peers admit `@napplet/core` `>=0.32.0 <0.46.0` and `@napplet/nap`
+`>=0.32.0 <0.46.0`; the shell does not import the NAP-LLM types, so it keeps the older floor. Host packages develop and build on core 0.45.0 / nap 0.45.0; fixture napplets stay on the exact 0.32.0 line (shim 0.30.0, sdk 0.28.0, vite-plugin 0.16.2). The fixture-line core 0.32.0 / nap 0.32.0 contracts follow
 NAP-INTENT authority `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`, napplet/web#199
 source `3037200c932488f14f7f369b8583c39c9c16510a` / merge
 `b3f0007867eac109fa4917fac9c285d3b7cc6155`, and Version Packages #198 release
@@ -85,16 +88,16 @@ Current draft behaviors this package enforces:
 - `prepareNappletSrcdoc()` inserts validated CSP and the runtime namespace outside verified artifact bytes. It exposes only the host-selected bare domains. Optional `shell` installs its parent-bound receiver before readiness; routing uses trusted iframe creation identity independently of that exchange. See the living [NAP-SHELL](https://github.com/napplet/naps/blob/master/naps/NAP-SHELL.md).
 - The injected resource projection follows NAP-RESOURCE PR #80 at `ae5b9c64ab8a4d8909f288829a01e99d6bd713bc`: `bytes(url)` and `bytesMany(urls)` carry one URL or an ordered URL array. Results use canonical padded base64 on the wire and decode to `Blob` values only in the injected projection.
 - `window.napplet.shell.supports(domain)` answers synchronously and locally from the cached first `shell.init` environment. It returns `false` before `shell.init`, for unknown values, and for domains that are not live and granted to that napplet; it never sends a support-query message.
-- Five optional per-domain proxies — `createIdentityProxy`, `createThemeProxy`, `createKeysProxy`, `createMediaProxy`, `createNotifyProxy` — can be composed between napplet and runtime to intercept request traffic per NAP. They are NOT wired by default. Identity/theme proxy `emit()` compatibility members fail closed; hosts must deliver automatic changes through `ShellBridge.publishIdentityChanged()` / `publishTheme()`, which enforce live session, granted domain, and current ACL.
+- Five optional per-domain proxies — `createIdentityProxy`, `createThemeProxy`, `createKeysProxy`, `createMediaProxy`, `createNotifyProxy` — can be composed between napplet and runtime to intercept request traffic per NAP. They are NOT wired by default. Identity/theme proxy `emit()` compatibility members fail closed; hosts must deliver automatic changes through `ShellBridge.publishIdentityChanged()` / `publishTheme()`, which enforce live session, granted domain, and current ACL. A napplet is a push target from its first valid `napplet.hello`, before it sends anything.
 - `keys.forward` is napplet-to-shell only. Active napplets suppress locally-bound keys from `keys.bindings` before forwarding; shell-initiated action triggers use `keys.action`.
 - `buildShellCapabilities()` advertises only live domains. Registered `dm` and `fs` services are injected only when their handlers exist; disabled domains are absent from the delivered `domains` and named services snapshots.
 
 ### NAP-INC binding and channel contract
 
 The injected INC binding follows merged
-[`naps/NAP-INC.md`](https://github.com/napplet/naps/blob/5ac0490461ca6fec2f0d2e45b4835cf9bc08de24/naps/NAP-INC.md)
+[`naps/NAP-INC.md`](https://github.com/napplet/naps/blob/377bf939c6c906817084b43dd21d424de646dbc2/naps/NAP-INC.md)
 on `napplet/naps` master
-`5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`. The specification remains marked
+`377bf939c6c906817084b43dd21d424de646dbc2`. The specification remains marked
 draft, but its merged path is the protocol authority.
 
 The released package projection and `window.napplet.inc` binding own
@@ -106,8 +109,10 @@ including `?` and `#`. The binding never creates a normalized query-bearing
 wire/discovery identity,
 does not do prefix/wildcard/query-aware matching or service-over-INC prefix
 dispatch, and does not infer payload kinds. Runtime delivery supplies the
-**runtime-attested dTag**; no caller sender is accepted, topic source exclusion
-is runtime-owned, and IDs and payloads are opaque.
+**runtime-attested endpoint identifier**; no caller sender is accepted, topic source exclusion
+is runtime-owned, and IDs and payloads are opaque. `channel.open(target)` takes that identifier (an event
+`sender`, a channel `peer`, or one the host selected with `bridge.runtime.getIncEndpointId(windowId)`); a manifest
+`d` tag is not a target and fails as `target not found`.
 
 Merged NAP-INC and released `@napplet/nap@0.32.0` both deliver one `IncEvent`
 to `on(topic, callback)`.
@@ -203,6 +208,10 @@ bridge.runtime.registerService(
 );
 ```
 
+Services added to the adapter after `createShellBridge()` are advertised only
+once they are also registered with `bridge.runtime.registerService()`; until
+then the shell leaves them out and logs `[KEHTO_SERVICE_NOT_REGISTERED]` once.
+
 ## Public API
 
 ### Bridge factory
@@ -211,6 +220,7 @@ bridge.runtime.registerService(
 - `ShellBridge` — interface type for the returned bridge
 
 ### Hooks adapter
+- `randomUUID` — secure UUID v4 for host identifiers; falls back to `crypto.getRandomValues()` where the browser omits `crypto.randomUUID()` and throws when neither exists
 - `adaptHooks` — convert a `ShellAdapter` + `BrowserDeps` into the canonical `RuntimeAdapter` hook bag consumed by `@kehto/runtime`
 - `ShellAdapter.aclDefaultPolicy?` — `'permissive' | 'restrictive'`, forwarded to the runtime. See the `@kehto/runtime` docs for how it treats persisted ACL state.
 
@@ -427,26 +437,67 @@ The shell normalizer also powers Paja intent links. See the
 [Paja guide](https://kehto.github.io/web/docs/packages/paja.html#nap-intent-links-and-lifecycle)
 for outer URL encoding, review, routing, and verified launcher behavior.
 
+## Embedding URL and realm locks
+
+A verified napplet is an `about:srcdoc` document and inherits the host page's
+referrer and base URL. Keep the shell URL out of it with
+`denyNappletReferrer(frame)` before assigning `srcdoc`, plus
+`renderNappletReferrerPolicyMeta()` and `renderNappletHostBase()` in the host
+page `<head>` (WebKit ignores the iframe attribute for `srcdoc`; only a host-page
+`<base>` reaches `document.baseURI`). `hasNappletReferrerPolicy(frame)` and
+`hasNappletReferrerPolicyMeta(document)` report the two controls, and
+`ShellBridge.observeFrame` warns once when either is missing.
+
+The experimental namespace adds `resourceHintLock` next to `nestedContextLock`.
+It rejects `<link rel="dns-prefetch" | "preconnect" | "prerender">`, which
+browsers act on outside the napplet CSP, on every string sink and attribute
+writer; scan the bytes first with `assertNappletHasNoResourceHint` (or
+`nappletMarkupHasResourceHint`). Both locks remove `XSLTProcessor`, reject
+namespace-prefixed frame and link tags, and inspect `DOMParser` results, which
+otherwise mint frames past the nested-context lock through XSLT or XML parsing
+(prefixes, DTD entities). Under the nested-context
+lock the bridge revokes a napplet whose Window holds a child frame
+(`nested-context`); hosts that prepare the `srcdoc` themselves opt in with
+`observeFrame(frame, windowId, { nestedContextLock: true })`
+(`NappletFrameObservation`). See the
+[NIP-5D conformance policy](https://github.com/kehto/web/blob/main/docs/policies/NIP-5D-CONFORMANCE.md#resource-hints).
+
 ## GAMEPAD integration
 
 This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.com/napplet/naps/pull/108). Services export `createGamepadService` and `browserGamepadOptions`; shell exports `denyNappletControllerAccess`. Paja registers one host reader and deny native gamepad/HID/USB paths before frame execution. Source-bound subscriptions receive immediate full snapshots; only the visible host's input owner gets live controls. Focus loss supplies neutral controls and timestamp zero; unsubscribe, window destruction, and service removal release polling. Non-browser or denied native readers report the proposal's unavailable reasons. See [Controller input](https://github.com/kehto/web/blob/main/docs/gamepad.md).
 
 ## LLM integration
 
-This non-normative guidance defers to the living [NAP-LLM](https://github.com/napplet/naps/pull/134) (checked at `5e93bdf`). Services export `createLlmService`, `LlmServiceError`, the provider mappers and `LLM_PROVIDER_PRESETS`; shell exports `getShellDomainState` and the `LlmHooks` adapter field; acl exports `llm:generate`. The runtime routes `llm.*` to one registered service and answers every sanctioned request with exactly one `llm.<op>.result`, shaping missing-service and ACL failures as `{ code: 'unsupported' }`. Hosts implement `LlmConnectionHost`; the service enforces schema, handle ownership, a per-window live-handle bound (`maxHandlesPerWindow`), consent before submission, duplicate ids, cancellation and deadline races, ordered deltas and safe errors, and passes `select`/`authorize` a `{ signal }` that withdraws stale prompts. `createHttpLlmProvider({ stream: true })` streams provider output into `llm.delta` as block start/delta/end events. Results carry `content` parts (text, thinking and tool calls); tool calls and results are validated and relayed, and Kehto never executes one. Advertisement stays binary on the wire while hosts report a third `unconfigured` state until the user adds a connection. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
+This non-normative guidance defers to the living [NAP-LLM](https://github.com/napplet/naps/pull/134) (checked at `5e93bdf`). Services export `createLlmService`, `LlmServiceError`, the provider mappers (OpenAI Chat Completions, OpenAI Responses, Anthropic Messages and Gemini `generateContent` dialects) and `LLM_PROVIDER_PRESETS`; shell exports `getShellDomainState` and the `LlmHooks` adapter field; acl exports `llm:generate`. The runtime routes `llm.*` to one registered service and answers every sanctioned request with exactly one `llm.<op>.result`, shaping missing-service and ACL failures as `{ code: 'unsupported' }`. Hosts implement `LlmConnectionHost`; the service enforces schema, handle ownership, a per-window live-handle bound (`maxHandlesPerWindow`), consent before submission, duplicate ids, cancellation and deadline races, ordered deltas and safe errors, and passes `select`/`authorize` a `{ signal }` that withdraws stale prompts. `createHttpLlmProvider({ stream: true })` streams provider output into `llm.delta` as block start/delta/end events. Results carry `content` parts (text, thinking and tool calls); tool calls and results are validated and relayed, and Kehto never executes one. Advertisement stays binary on the wire while hosts report a third `unconfigured` state until the user adds a connection. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
 
 ## UUID support on HTTP origins
 
-Shell event injection, cache queries, and source-session registration use native
-`crypto.randomUUID()` when available. On browsers that omit it (including
-non-localhost plain HTTP origins), the shell generates UUID v4 identifiers from
-16 `crypto.getRandomValues()` bytes. If both methods are unavailable, UUID
-creation throws an explicit capability error. This internal host UUID helper
-never falls back to weak randomness; other identifier generators are outside
-its scope. It does not provide secure-context APIs such as `crypto.subtle` on
-HTTP, so this change does not establish HTTP support for uploads or other domains.
+Host identifiers that must be unguessable come from `randomUUID`, exported by
+`@kehto/shell`. It calls native `crypto.randomUUID()` on its `Crypto` receiver
+when available. On browsers that omit it (including non-localhost plain HTTP
+origins), it builds a UUID v4 from 16 `crypto.getRandomValues()` bytes. If both
+methods are unavailable it throws an explicit capability error; it never falls
+back to weak randomness. `@kehto/services` has no dependency on the shell, so
+it keeps a private twin of the same function; `tests/unit/random-uuid-sync.test.ts`
+fails when the two bodies drift.
+
+Each identifier has one of three contracts:
+
+| Contract | Identifiers | Without `crypto.randomUUID` |
+|----------|-------------|-----------------------------|
+| Secure, fails explicitly | Shell event-injection subscription ids, cache-query ids, and the `RuntimeAdapter` `crypto.randomUUID` hook (injected event ids, relay query ids, NAP-INC channel ids, approval request ids); source-session `instanceId` in the shell and in Paja frame admission; Paja intent-launcher window ids and launch correlations; Paja NIP-46 request ids; default upload ids (`createUploadService`); the browser media backend's `media-resource-*` read ids, which share a window's resource-request id space with the napplet; registry JSON-RPC ids in `createCvmService` | UUID v4 from `crypto.getRandomValues()`, or a thrown capability error when that is missing too |
+| Correlation only, uniqueness from a counter or timestamp | Injected napplet-namespace request ids (the napplet realm pairing its own requests on its private port); default LLM connection handles and synthesized tool-call ids (window- and conversation-scoped); notification ids; Paja filesystem mount ids and LLM panel connection ids | Feature-detected; a counter or timestamp keeps ids unique. These ids are never credentials |
+| Behind `crypto.subtle` | Paja WebRTC session, nonce, and peer ids (`browser-webrtc.ts`, `browser-webrtc-profile.ts`) | Unavailable. Both paths need `crypto.subtle` before they mint an id, and every browser context that has `crypto.subtle` also has `crypto.randomUUID` |
+
+A UUID fallback does not provide secure-context APIs. `crypto.subtle` stays
+unavailable on non-localhost HTTP, so SHA-256 digest paths still fail there:
+approval-scoped uploads and the default `createHttpUploader` digest, CVM
+schema-hash verification and progress tokens, Paja development-target and
+filesystem hashing, and the Paja LLM vault. This section does not establish
+HTTP support for uploads, CVM, or any other domain.
 
 This is a supported platform capability choice, not a deprecated caller API.
-Both standard Web Crypto paths remain quiet. Source-bound identity and optional
-shell readiness are unchanged (NAP-SHELL at `napplet/naps`
-`1e1046bcadabbc552804f6d3354f565184f9fefb`).
+Both standard Web Crypto paths remain quiet. Identifier generation is host
+implementation policy: no NAP wire message, source-trust rule, or readiness
+rule changes. Source-bound identity and optional shell readiness are unchanged
+(NAP-SHELL at `napplet/naps` `377bf939c6c906817084b43dd21d424de646dbc2`).

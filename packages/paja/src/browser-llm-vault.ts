@@ -1,3 +1,4 @@
+import { getPajaSetting, getPajaSettingDefault } from './settings.js';
 /**
  * Paja's encrypted store for NAP-LLM provider credentials.
  *
@@ -12,12 +13,11 @@
 
 /** Durable storage key for the encrypted credential document. */
 export const PAJA_LLM_VAULT_STORAGE_KEY = 'kehto:paja:llm-vault:v1';
-/** Minimum vault password length. */
-export const PAJA_LLM_VAULT_MIN_PASSWORD_LENGTH = 12;
+/** Built-in default minimum vault password length; the effective floor is the `vault.minPasswordLength` setting, which can only be raised. */
+export const PAJA_LLM_VAULT_MIN_PASSWORD_LENGTH = getPajaSettingDefault('vault.minPasswordLength');
 
 const VAULT_VERSION = 1;
 const KDF = 'PBKDF2-SHA-256';
-const DEFAULT_ITERATIONS = 600_000;
 const SALT_BYTES = 16;
 const IV_BYTES = 12;
 
@@ -82,8 +82,9 @@ export interface PajaLlmVaultOptions {
  * validatePajaLlmVaultPassword('short'); // 'Use at least 12 characters.'
  */
 export function validatePajaLlmVaultPassword(password: string): string | null {
-  if (password.length < PAJA_LLM_VAULT_MIN_PASSWORD_LENGTH) return `Use at least ${PAJA_LLM_VAULT_MIN_PASSWORD_LENGTH} characters.`;
-  if (new Set(password).size < 4) return 'Use a password with more distinct characters.';
+  const minLength = getPajaSetting('vault.minPasswordLength');
+  if (password.length < minLength) return `Use at least ${String(minLength)} characters.`;
+  if (new Set(password).size < getPajaSetting('vault.minDistinctChars')) return 'Use a password with more distinct characters.';
   return null;
 }
 
@@ -137,12 +138,14 @@ function defaultStorage(): Storage | null {
 export function createPajaLlmVault(options: PajaLlmVaultOptions = {}): PajaLlmVault {
   const storage = options.storage === undefined ? defaultStorage() : options.storage;
   const crypto = options.crypto ?? (globalThis.crypto as PajaLlmVaultCrypto);
-  const iterations = options.iterations ?? DEFAULT_ITERATIONS;
+  const configuredIterations = options.iterations;
   const session = new Map<string, string>();
   const listeners = new Set<() => void>();
   let key: CryptoKey | null = null;
   let salt: Uint8Array | null = null;
   let secrets: Map<string, string> | null = null;
+  // Rounds the unlocked key was derived with; persisted so a changed setting never mislabels a vault.
+  let keyIterations = 0;
 
   const notify = (): void => { for (const listener of listeners) listener(); };
 
@@ -162,7 +165,7 @@ export function createPajaLlmVault(options: PajaLlmVaultOptions = {}): PajaLlmVa
     const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
     const plaintext = new TextEncoder().encode(JSON.stringify(Object.fromEntries(secrets)));
     const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv as BufferSource }, key, plaintext as BufferSource);
-    const document: VaultDocument = { version: VAULT_VERSION, kdf: KDF, iterations, salt: toBase64(salt), iv: toBase64(iv), ciphertext: toBase64(new Uint8Array(ciphertext)) };
+    const document: VaultDocument = { version: VAULT_VERSION, kdf: KDF, iterations: keyIterations, salt: toBase64(salt), iv: toBase64(iv), ciphertext: toBase64(new Uint8Array(ciphertext)) };
     try {
       storage?.setItem(PAJA_LLM_VAULT_STORAGE_KEY, JSON.stringify(document));
     } catch {
@@ -187,7 +190,7 @@ export function createPajaLlmVault(options: PajaLlmVaultOptions = {}): PajaLlmVa
         const plaintext = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromBase64(document.iv) as BufferSource }, candidate, fromBase64(document.ciphertext) as BufferSource);
         const parsed: unknown = JSON.parse(new TextDecoder().decode(plaintext));
         if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return false;
-        key = candidate; salt = saltBytes;
+        key = candidate; salt = saltBytes; keyIterations = document.iterations;
         secrets = new Map(Object.entries(parsed as Record<string, unknown>).filter((entry): entry is [string, string] => typeof entry[1] === 'string'));
         notify();
         return true;
@@ -199,7 +202,9 @@ export function createPajaLlmVault(options: PajaLlmVaultOptions = {}): PajaLlmVa
       const problem = validatePajaLlmVaultPassword(password);
       if (problem) throw new Error(problem);
       const saltBytes = crypto.getRandomValues(new Uint8Array(SALT_BYTES));
+      const iterations = configuredIterations ?? getPajaSetting('vault.pbkdf2Iterations');
       key = await deriveKey(password, saltBytes, iterations);
+      keyIterations = iterations;
       salt = saltBytes;
       secrets = new Map();
       await persist();

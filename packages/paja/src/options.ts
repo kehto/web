@@ -1,9 +1,16 @@
+import { normalizePajaResourceProxyUrl } from './browser-resource-proxy-setting.js';
 import type { NappletCspOptions } from '@kehto/shell';
 import {
   normalizePajaSimulation,
   type PajaSimulation,
   type PajaSimulationRawOptions,
 } from './simulation.js';
+import {
+  getPajaSetting,
+  getPajaSettingDefault,
+  normalizePajaSettings,
+  type PajaSettingValues,
+} from './settings.js';
 
 /** Command configuration for a managed Paja target process. */
 export type PajaCommand =
@@ -44,6 +51,8 @@ export interface PajaRawOptions {
   readonly experimental?: PajaExperimentalConfig;
   /** Simulation controls for injected shell domains. */
   readonly simulation?: PajaSimulationRawOptions;
+  /** Overrides for registered Paja settings, keyed by setting key. */
+  readonly settings?: Readonly<Record<string, unknown>>;
 }
 
 /** Paja target loading mode. */
@@ -81,6 +90,8 @@ export interface PajaOptions {
   readonly simulation: PajaSimulation;
   /** Normalized experimental policies. */
   readonly experimental: PajaExperimentalConfig;
+  /** Validated setting overrides from the config file. */
+  readonly settings: PajaSettingValues;
   /** Whether Paja owns a managed command or attaches to an external target. */
   readonly mode: 'external-target' | 'managed-command';
 }
@@ -91,6 +102,13 @@ export interface PajaHostConfig {
   readonly csp?: NappletCspOptions;
   /** Opt-in experimental host policies (dev-facing, resolved per napplet). */
   readonly experimental?: PajaExperimentalConfig;
+  /** Browser-scope setting defaults from the config file; GUI overrides win. */
+  readonly settings?: PajaSettingValues;
+  /**
+   * Static builds only: the standalone NAP-RESOURCE proxy that makes the
+   * mandatory DNS-time private-IP checks. Without one, network schemes are off.
+   */
+  readonly resource?: { readonly proxyUrl?: string };
   /** Config schema version. */
   readonly version: 1;
   /** Window identity used for the development target. */
@@ -142,8 +160,8 @@ export const DEFAULT_PAJA_WINDOW_ID = 'kehto-paja-window';
 export const DEFAULT_PAJA_DTAG = 'dev-target';
 /** Default development aggregate hash used for target identity. */
 export const DEFAULT_PAJA_AGGREGATE_HASH = 'paja';
-/** Default pointer resolution wait in runtime-pointer mode. */
-export const DEFAULT_PAJA_RUNTIME_WAIT_MS = 5_000;
+/** Built-in default pointer resolution wait in runtime-pointer mode; the effective value is the `target.runtimeWaitMs` setting. */
+export const DEFAULT_PAJA_RUNTIME_WAIT_MS = getPajaSettingDefault('target.runtimeWaitMs');
 
 /**
  * Normalize raw CLI/config options into a validated Paja runtime config.
@@ -151,6 +169,27 @@ export const DEFAULT_PAJA_RUNTIME_WAIT_MS = 5_000;
  * @param raw - Raw options from CLI parsing or a config file.
  * @returns Fully normalized runtime options.
  */
+
+/**
+ * Validate config-file setting overrides. Unlike browser storage, a config file
+ * is authored on purpose, so any unknown key or out-of-range value is an error.
+ *
+ * @param raw - The config file's `settings` object.
+ * @returns Validated overrides.
+ * @example
+ * normalizePajaConfigSettings({ 'server.resourceTimeoutMs': 60000 });
+ */
+export function normalizePajaConfigSettings(raw: unknown): PajaSettingValues {
+  const { values, rejected } = normalizePajaSettings(raw);
+  if (rejected.length > 0) throw new PajaOptionsError(`Invalid settings: ${rejected.join('; ')}`);
+  return values;
+}
+
+function browserSettings(settings: PajaSettingValues | undefined): PajaSettingValues | undefined {
+  if (!settings) return undefined;
+  const browser = normalizePajaSettings(settings, 'browser').values;
+  return Object.keys(browser).length > 0 ? browser : undefined;
+}
 
 /** Normalize and validate the dev-facing experimental config. Default: auto. */
 export function normalizePajaExperimental(
@@ -175,6 +214,7 @@ export function normalizePajaOptions(raw: PajaRawOptions): PajaOptions {
   const configPath = raw.configPath?.trim();
   const simulation = normalizePajaSimulation(raw.simulation);
   const experimental = normalizePajaExperimental(raw.experimental);
+  const settings = normalizePajaConfigSettings(raw.settings);
 
   return {
     targetUrl,
@@ -185,6 +225,7 @@ export function normalizePajaOptions(raw: PajaRawOptions): PajaOptions {
     configPath: configPath && configPath.length > 0 ? configPath : undefined,
     simulation,
     experimental,
+    settings,
     mode: command ? 'managed-command' : 'external-target',
   };
 }
@@ -201,9 +242,11 @@ export function createPajaHostConfig(
   now: Date = new Date(),
 ): PajaHostConfig {
   const base = createPajaHostConfigBase(options.simulation);
+  const settings = browserSettings(options.settings);
   return {
     ...base,
     ...(options.experimental ? { experimental: options.experimental } : {}),
+    ...(settings ? { settings } : {}),
     target: {
       mode: 'iframe-url',
       url: options.targetUrl,
@@ -237,14 +280,24 @@ export function createPajaRuntimeHostConfig(
     readonly blossomServers?: readonly string[];
     readonly maxWaitMs?: number;
     readonly simulation?: PajaSimulationRawOptions;
+    readonly settings?: Readonly<Record<string, unknown>>;
+    /** Standalone resource proxy URL (HTTPS, or HTTP on loopback). */
+    readonly resourceProxyUrl?: string;
   } = {},
   now: Date = new Date(),
 ): PajaHostConfig {
   const base = createPajaHostConfigBase(normalizePajaSimulation(options.simulation));
+  const proxyUrl = options.resourceProxyUrl === undefined ? undefined : normalizePajaResourceProxyUrl(options.resourceProxyUrl);
+  if (options.resourceProxyUrl !== undefined && proxyUrl === null) {
+    throw new Error('resourceProxyUrl must be an HTTPS URL (HTTP only for localhost) without credentials, query or fragment.');
+  }
+  const settings = browserSettings(options.settings === undefined ? undefined : normalizePajaConfigSettings(options.settings));
   return {
     ...base,
+    ...(settings ? { settings } : {}),
     ...(options.csp ? { csp: options.csp } : {}),
     ...(options.experimental ? { experimental: options.experimental } : {}),
+    ...(proxyUrl ? { resource: { proxyUrl } } : {}),
     target: {
       mode: 'runtime-pointer',
       url: 'about:blank',
@@ -254,7 +307,7 @@ export function createPajaRuntimeHostConfig(
         relays: [...(options.relays ?? [])],
         blossomServers: [...(options.blossomServers ?? [])],
         maxWaitMs: normalizePositiveInteger(
-          options.maxWaitMs ?? DEFAULT_PAJA_RUNTIME_WAIT_MS,
+          options.maxWaitMs ?? getPajaSetting('target.runtimeWaitMs'),
           'runtime-wait',
         ),
       },

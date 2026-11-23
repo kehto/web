@@ -84,7 +84,7 @@ Shared options (`MockServiceOptions`):
 ## Step 4 — Expose the domains to napplets
 
 The runtime only routes an extension domain (anything outside the built-in
-dispatcher: torrent, git, mesh, …) when the shell's environment lists it in
+dispatcher: torrent, git, navigation, …) when the shell's environment lists it in
 `capabilities.domains`. `mockShellEnvironmentDomains(MOCK_NAP_REGISTRY)`
 returns the full list, including `shell`, `storage`, and `inc` (`env.domains` is the same list):
 

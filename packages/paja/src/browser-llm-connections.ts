@@ -29,11 +29,11 @@ import {
 } from '@kehto/services';
 import type { PajaConfirmationHandler } from './browser-adapter.js';
 import type { PajaLlmCredentialStorage, PajaLlmVault } from './browser-llm-vault.js';
+import { getPajaSetting } from './settings.js';
 
 /** Durable storage key for connection metadata (never credentials). */
 export const PAJA_LLM_CONNECTIONS_STORAGE_KEY = 'kehto:paja:llm-connections:v1';
-const MAX_CONNECTIONS = 32;
-const PROTOCOLS = new Set<LlmProviderProtocol>(['openai-chat', 'anthropic-messages', 'gemini']);
+const PROTOCOLS = new Set<LlmProviderProtocol>(['openai-chat', 'openai-responses', 'anthropic-messages', 'gemini']);
 const CREDENTIAL_HEADERS = new Set<LlmCredentialHeader>(['authorization-bearer', 'api-key', 'x-api-key', 'x-goog-api-key']);
 /** Canonical order of stored tool-choice modes; `auto` and `none` are always supported when tools are on. */
 const TOOL_CHOICE_ORDER: readonly LlmToolChoiceMode[] = ['auto', 'none', 'required', 'tool'];
@@ -107,8 +107,9 @@ function normalizeRecord(input: Record<string, unknown>): PajaLlmConnectionRecor
   const model = text(input.model).trim();
   const id = text(input.id);
   if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) throw new Error('Invalid connection id.');
-  if (!name || name.length > 64) throw new Error('Enter a connection name of up to 64 characters.');
-  if (!model || model.length > 200) throw new Error('Enter the exact provider model identifier.');
+  const maxName = getPajaSetting('llm.connectionNameMaxChars');
+  if (!name || name.length > maxName) throw new Error(`Enter a connection name of up to ${String(maxName)} characters.`);
+  if (!model || model.length > getPajaSetting('llm.modelIdMaxChars')) throw new Error('Enter the exact provider model identifier.');
   const protocol = input.protocol as LlmProviderProtocol;
   const credentialHeader = input.credentialHeader as LlmCredentialHeader | undefined;
   const credentialStorage = input.credentialStorage as PajaLlmCredentialStorage;
@@ -117,7 +118,7 @@ function normalizeRecord(input: Record<string, unknown>): PajaLlmConnectionRecor
   if (!['vault', 'session', 'none'].includes(credentialStorage)) throw new Error('Unknown credential storage.');
   const tools = input.tools === true;
   const record: PajaLlmConnectionRecord = {
-    id, name, presetId: text(input.presetId).slice(0, 64), protocol,
+    id, name, presetId: text(input.presetId).slice(0, getPajaSetting('llm.presetIdMaxChars')), protocol,
     baseUrl: normalizePajaLlmBaseUrl(text(input.baseUrl)), model, images: input.images === true, json: input.json === true,
     tools, toolChoiceModes: Object.freeze(canonicalToolChoiceModes(tools, input.toolChoiceModes)),
     credentialStorage,
@@ -133,7 +134,7 @@ function readRecords(storage: Storage | null): PajaLlmConnectionRecord[] {
     if (!Array.isArray(parsed)) return [];
     const records: PajaLlmConnectionRecord[] = [];
     for (const entry of parsed) {
-      if (!isRecord(entry) || records.length >= MAX_CONNECTIONS) continue;
+      if (!isRecord(entry) || records.length >= getPajaSetting('llm.maxConnections')) continue;
       try { records.push(normalizeRecord(entry)); } catch { /* skip corrupt row */ }
     }
     return records;
@@ -166,7 +167,7 @@ export function createPajaLlmConnectionStore(storage: Storage | null = storageOr
     save(record) {
       const normalized = normalizeRecord({ ...record });
       const index = records.findIndex((entry) => entry.id === normalized.id);
-      if (index === -1 && records.length >= MAX_CONNECTIONS) throw new Error(`Paja keeps at most ${MAX_CONNECTIONS} connections.`);
+      if (index === -1 && records.length >= getPajaSetting('llm.maxConnections')) throw new Error(`Paja keeps at most ${getPajaSetting('llm.maxConnections')} connections.`);
       records = index === -1 ? [...records, normalized] : records.map((entry, position) => position === index ? normalized : entry);
       persist();
       return normalized;

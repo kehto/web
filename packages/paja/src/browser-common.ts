@@ -14,10 +14,11 @@ import type { ApprovalSignal, Signer } from '@kehto/runtime';
 import { decode } from 'nostr-tools/nip19';
 import { verifyEvent } from 'nostr-tools/pure';
 import {
-  PAJA_LIVE_QUERY_WAIT_MS,
   type PajaRelayBackend,
 } from './browser-relay-runtime.js';
 import { isPajaRelayAllowed } from './browser-relay-policy.js';
+import { getPajaSetting } from './settings.js';
+import { KIND_CONTACT_LIST, KIND_REACTION, KIND_REPORT } from './nostr-kinds.js';
 
 const HEX_64 = /^[0-9a-f]{64}$/i;
 const SHORTCODE = /^:[a-zA-Z0-9_+-]+:$/;
@@ -171,7 +172,7 @@ function reactionTags(
  */
 export function createPajaCommonBackend(options: PajaCommonBackendOptions): PajaCommonBackend {
   const query = (filters: Parameters<PajaRelayBackend['query']>[1], relays: readonly string[] = options.getRelays(), signal?: ApprovalSignal) =>
-    options.relay.query([...relays], filters, PAJA_LIVE_QUERY_WAIT_MS, undefined, signal as AbortSignal | undefined);
+    options.relay.query([...relays], filters, getPajaSetting('relay.liveQueryWaitMs'), undefined, signal as AbortSignal | undefined);
 
   const identity = async (signal?: ApprovalSignal): Promise<{ signer: Signer; pubkey: string }> => {
     if (signal?.aborted) throw new Error('user-denied');
@@ -189,8 +190,8 @@ export function createPajaCommonBackend(options: PajaCommonBackendOptions): Paja
   };
 
   const currentContacts = async (author: string, relays: readonly string[], signal?: ApprovalSignal): Promise<NostrEvent | null> => {
-    const events = await query([{ kinds: [3], authors: [author], limit: 16 }], relays, signal);
-    return newestVerified(events, (event) => event.kind === 3 && event.pubkey.toLowerCase() === author);
+    const events = await query([{ kinds: [KIND_CONTACT_LIST], authors: [author], limit: getPajaSetting('relay.profileQueryLimit') }], relays, signal);
+    return newestVerified(events, (event) => event.kind === KIND_CONTACT_LIST && event.pubkey.toLowerCase() === author);
   };
 
   const publish = async (active: Signer, author: string, template: EventTemplate, relays: readonly string[], signal?: ApprovalSignal): Promise<CommonActionResult> => {
@@ -233,7 +234,7 @@ export function createPajaCommonBackend(options: PajaCommonBackendOptions): Paja
         }
       }
       return publish(active.signer, active.pubkey, {
-        kind: 3,
+        kind: KIND_CONTACT_LIST,
         created_at: Math.floor(Date.now() / 1_000),
         tags,
         content: current?.content ?? '',
@@ -259,7 +260,7 @@ export function createPajaCommonBackend(options: PajaCommonBackendOptions): Paja
       if (!resolved) return { ok: false, pubkey: '', error: 'invalid-profile-target' };
       const plannedRelays = relays ?? resolved.relays;
       try {
-        const events = await query([{ kinds: [0], authors: [resolved.pubkey], limit: 16 }], plannedRelays, signal);
+        const events = await query([{ kinds: [0], authors: [resolved.pubkey], limit: getPajaSetting('relay.profileQueryLimit') }], plannedRelays, signal);
         if (signal?.aborted) return { ok: false, pubkey: resolved.pubkey, error: 'user-denied' };
         const event = newestVerified(events, (candidate) => candidate.kind === 0 && candidate.pubkey.toLowerCase() === resolved.pubkey);
         if (!event) return { ok: true, pubkey: resolved.pubkey, profile: null };
@@ -281,13 +282,13 @@ export function createPajaCommonBackend(options: PajaCommonBackendOptions): Paja
       if (!HEX_64.test(targetEventId)) return { ok: false, error: 'invalid-target' };
       try {
         const active = await signer(signal);
-        const events = await query([{ ids: [targetEventId], limit: 8 }], relays, signal);
+        const events = await query([{ ids: [targetEventId], limit: getPajaSetting('relay.eventLookupLimit') }], relays, signal);
         if (signal?.aborted) return { ok: false, error: 'user-denied' };
         const target = newestVerified(events, (event) => event.id === targetEventId.toLowerCase());
         if (!target) return { ok: false, error: 'invalid-target' };
         const tags = reactionTags(target, reaction, customEmojiHref);
         if (!tags) return { ok: false, error: 'invalid-reaction' };
-        return publish(active.signer, active.pubkey, { kind: 7, created_at: Math.floor(Date.now() / 1_000), tags, content: reaction }, relays, signal);
+        return publish(active.signer, active.pubkey, { kind: KIND_REACTION, created_at: Math.floor(Date.now() / 1_000), tags, content: reaction }, relays, signal);
       } catch (error) { return actionError(error); }
     },
 
@@ -297,19 +298,19 @@ export function createPajaCommonBackend(options: PajaCommonBackendOptions): Paja
         if (target.type === 'pubkey') {
           const reportedPubkey = pubkey(target.pubkey);
           if (!reportedPubkey) return { ok: false, error: 'invalid-target' };
-          return publish(active.signer, active.pubkey, { kind: 1_984, created_at: Math.floor(Date.now() / 1_000), tags: [['p', reportedPubkey, target.relay ?? '', reason]], content: text }, relays, signal);
+          return publish(active.signer, active.pubkey, { kind: KIND_REPORT, created_at: Math.floor(Date.now() / 1_000), tags: [['p', reportedPubkey, target.relay ?? '', reason]], content: text }, relays, signal);
         }
         if (!HEX_64.test(target.id)) return { ok: false, error: 'invalid-target' };
         const explicitAuthor = target.pubkey ? pubkey(target.pubkey) : undefined;
         if (target.pubkey && !explicitAuthor) return { ok: false, error: 'invalid-target' };
         let author = explicitAuthor ?? null;
         if (!author) {
-          const events = await query([{ ids: [target.id], limit: 8 }], relays, signal);
+          const events = await query([{ ids: [target.id], limit: getPajaSetting('relay.eventLookupLimit') }], relays, signal);
           author = newestVerified(events, (event) => event.id === target.id.toLowerCase())?.pubkey ?? null;
         }
         if (signal?.aborted) return { ok: false, error: 'user-denied' };
         if (!author) return { ok: false, error: 'author-unresolved' };
-        return publish(active.signer, active.pubkey, { kind: 1_984, created_at: Math.floor(Date.now() / 1_000), tags: [['e', target.id.toLowerCase(), target.relay ?? '', reason], ['p', author.toLowerCase(), '', reason]], content: text }, relays, signal);
+        return publish(active.signer, active.pubkey, { kind: KIND_REPORT, created_at: Math.floor(Date.now() / 1_000), tags: [['e', target.id.toLowerCase(), target.relay ?? '', reason], ['p', author.toLowerCase(), '', reason]], content: text }, relays, signal);
       } catch (error) { return actionError(error); }
     },
   };

@@ -1,6 +1,6 @@
 # Language models
 
-This non-normative integration guide defers to the living [NAP-LLM proposal](https://github.com/napplet/naps/pull/134) (checked at `5e93bdfce0e84c0de728234cb7b3feed498f8635`) and [NIP-5D](https://github.com/nostr-protocol/nips/pull/2303). Kehto's host packages develop and build on `@napplet/core@0.40.0` and `@napplet/nap@0.39.0`, so `@kehto/services` re-exports the record and envelope types from `@napplet/nap/llm/types` instead of mirroring the draft. Peer windows are per package: `@kehto/services` and `@kehto/paja` require core `>=0.38.0 <0.41.0` and nap `>=0.37.0 <0.40.0` because their declarations import those types, and `@kehto/cli` matches them through its Paja dependency; `@kehto/acl`, `@kehto/runtime` and `@kehto/shell` admit core `>=0.32.0 <0.41.0` and nap `>=0.32.0 <0.40.0`, and `@kehto/firewall` admits core `>=0.32.0 <0.41.0`. Fixture napplets stay on the exact 0.32.0 line with shim 0.30.0, sdk 0.28.0 and vite-plugin 0.16.2.
+This non-normative integration guide defers to the living [NAP-LLM proposal](https://github.com/napplet/naps/pull/134) (checked at `5e93bdfce0e84c0de728234cb7b3feed498f8635`) and [NIP-5D](https://github.com/nostr-protocol/nips/pull/2303). Kehto's host packages develop and build on `@napplet/core@0.45.0` and `@napplet/nap@0.45.0`, so `@kehto/services` re-exports the record and envelope types from `@napplet/nap/llm/types` instead of mirroring the draft. Peer windows are per package: `@kehto/services` and `@kehto/paja` require nap `>=0.37.0 <0.46.0` because their declarations import those types (and core `>=0.42.0 <0.46.0` for the intent and CVM registry types), and `@kehto/cli` matches them through its Paja dependency; `@kehto/acl`, `@kehto/runtime` and `@kehto/shell` admit core `>=0.32.0 <0.46.0` and nap `>=0.32.0 <0.46.0`, and `@kehto/firewall` admits core `>=0.32.0 <0.46.0`. Fixture napplets stay on the exact 0.32.0 line with shim 0.30.0, sdk 0.28.0 and vite-plugin 0.16.2.
 
 This revision is a clean break from the earlier draft: results carry `content` parts rather than `text`, streamed output is a block lifecycle rather than text fragments, and `LlmConnection`, `LlmGenerateHooks.onDelta` and the `createHttpLlmProvider` callback changed accordingly. No compatibility path is kept for the removed shapes.
 
@@ -34,6 +34,7 @@ Keys are optional to remember. A remembered key is encrypted before it touches s
 |--------|---------|-------------------|
 | OpenAI, OpenRouter, Groq, Mistral, DeepSeek, xAI, Together AI, Fireworks AI, Perplexity | OpenAI Chat Completions | `Authorization: Bearer` |
 | Azure OpenAI | OpenAI Chat Completions | `api-key` |
+| OpenAI (Responses API) | OpenAI Responses (`POST <baseUrl>/responses`) | `Authorization: Bearer` |
 | Anthropic | Messages API | `x-api-key` (plus `anthropic-version` and the direct-browser-access header) |
 | Google Gemini | `generateContent` | `x-goog-api-key` |
 | Ollama, LM Studio, llama.cpp server, vLLM | OpenAI Chat Completions on loopback | none by default |
@@ -50,7 +51,7 @@ fails the dropdown, and Paja says so instead of showing an empty select. Failed 
 
 ## Streaming
 
-Deltas are optional in NAP-LLM. `createHttpLlmProvider({ stream: true })` requests each dialect's server-sent-event form (OpenAI and Anthropic `stream: true`, with OpenAI `stream_options.include_usage`; Gemini `streamGenerateContent?alt=sse`) and calls its fourth argument with each block lifecycle event (`{ event, block, blockIndex, text?, toolCallId?, name? }`). The service assigns the contiguous `sequence` and the `requestId`, validates the lifecycle and routes the delta, so a host supplies neither. Wire it to the service hooks:
+Deltas are optional in NAP-LLM. `createHttpLlmProvider({ stream: true })` requests each dialect's server-sent-event form (OpenAI Chat Completions, OpenAI Responses and Anthropic `stream: true`, with Chat Completions `stream_options.include_usage`; Gemini `streamGenerateContent?alt=sse`) and calls its fourth argument with each block lifecycle event (`{ event, block, blockIndex, text?, toolCallId?, name? }`). The service assigns the contiguous `sequence` and the `requestId`, validates the lifecycle and routes the delta, so a host supplies neither. Wire it to the service hooks:
 
 ```ts
 const provider = createHttpLlmProvider({ stream: true });
@@ -74,7 +75,27 @@ NAP-LLM carries tool **calls and results** so a napplet can run an agentic turn;
 
 **Capabilities.** `LlmConnection` gains `tools: boolean` and `toolChoiceModes` (a subset of `auto`, `none`, `required`, `tool`, always including `auto` and `none` when `tools` is true). The service reports `toolChoiceModes: []` whenever `tools` is false and treats a change to either field as a changed connection. `Requirements.tools: true` only matches a tool-capable connection.
 
-**Request rules.** The service answers `invalid-request` for malformed records before anything else: non-positive or non-integer `maxTokens`, non-finite `temperature`, tool names outside `^[A-Za-z0-9_-]{1,64}$`, duplicate names, a `toolChoice` without non-empty `tools`, a forced name that is not listed, `parameters` without root `type: "object"` or that is structurally malformed JSON Schema (a dependency-free check of the 2020-12 keywords; unknown keywords pass), misplaced `thinking`, `toolCall`, `toolCallId`, `toolName` or `isError`, and any history where a call lacks exactly one name-matching `toolResult` immediately after its assistant turn (call ids must be unique across the conversation, and a conversation may not end on unanswered calls). `parameters` and `arguments` are the first napplet-supplied free-form values, so they pass a depth bound and a visit budget first: cycles, heavily shared graphs and non-plain objects are `invalid-request` rather than a hang.
+**Request rules.** The service answers `invalid-request` for malformed records before anything else: non-positive or non-integer `maxTokens`, non-finite `temperature`, tool names outside `^[A-Za-z0-9_-]{1,64}$`, duplicate names, a `toolChoice` without non-empty `tools`, a forced name that is not listed, `parameters` without root `type: "object"` or that is malformed JSON Schema (see [Tool parameter schemas](#tool-parameter-schemas)), misplaced `thinking`, `toolCall`, `toolCallId`, `toolName` or `isError`, and any history where a call lacks exactly one name-matching `toolResult` immediately after its assistant turn (call ids must be unique across the conversation, and a conversation may not end on unanswered calls). `parameters` and `arguments` are the first napplet-supplied free-form values, so they pass a depth bound and a visit budget first: cycles, heavily shared graphs and non-plain objects are `invalid-request` rather than a hang.
+
+### Tool parameter schemas
+
+NAP-LLM says `parameters` "uses JSON Schema draft 2020-12" and that "malformed schemas MUST produce `invalid-request`" (checked at `5e93bdf`). The service reads "malformed" as "does not validate against the [draft 2020-12 meta-schema](https://json-schema.org/draft/2020-12/schema)". It checks every keyword that meta-schema describes, at every nesting level, before consent and before any provider call:
+
+- Subschema keywords hold schemas (an object or a boolean). `properties`, `patternProperties`, `$defs`, `dependentSchemas` and the deprecated `definitions` are maps of schemas. `allOf`, `anyOf`, `oneOf` and `prefixItems` are non-empty schema lists. `items`, `contains`, `additionalProperties`, `propertyNames`, `unevaluatedItems`, `unevaluatedProperties`, `contentSchema`, `not`, `if`, `then` and `else` are single schemas, so the 2019-09 list form of `items` is rejected.
+- `type` is one of the seven type names or a non-empty list of distinct ones. `required` and each `dependentRequired` entry are lists of distinct strings. `enum` and `examples` are lists.
+- Length and count keywords (`minLength`, `maxItems`, `minContains`, `maxProperties` and the rest) are non-negative integers. `minimum`, `maximum`, `exclusiveMinimum` and `exclusiveMaximum` are numbers, so the draft 4 boolean form is rejected. `multipleOf` is greater than zero.
+- `title`, `description`, `$comment`, `format`, `pattern`, `contentEncoding`, `contentMediaType`, `$schema`, `$ref` and `$dynamicRef` are strings. `deprecated`, `readOnly`, `writeOnly` and `uniqueItems` are booleans. `$anchor` and `$dynamicAnchor` are anchor names, and `$id` has no non-empty fragment.
+
+The error message is the same generic `request must be a GenerationRequest record.` as for any other malformed request. It never names the failing keyword or echoes the schema.
+
+Some things are deliberately outside this check:
+
+- **Unknown keywords pass.** JSON Schema keywords are not unknown record fields, and the meta-schema allows keywords it does not name, so vendor keywords such as `x-order` are accepted at any level.
+- **Nothing is compiled, resolved or fetched.** `format` is an annotation in the 2020-12 meta-schema, so a `pattern` is checked as text only and no napplet-supplied regular expression is compiled or run. `$ref` targets are not resolved, so a dangling reference is well-formed here.
+- **Provider support is a separate question.** Whether a connection can map a well-formed schema is an `unsupported` decision made per connection, after this check. The reference mappers forward a well-formed schema unchanged and do not predict which keywords an endpoint accepts, so an endpoint that refuses one answers with a safe `provider-error` after submission. A host that knows its endpoint's limits can throw `LlmServiceError('unsupported', …)` from `generate` before sending.
+- **Bounds come first.** The depth bound and visit budget above run before the schema walk, and a schema nested more than 32 levels deep is rejected as malformed.
+
+The check is hand-written so `@kehto/services` keeps its dependency list and works under a strict Content Security Policy: general-purpose validators compile schemas with `new Function`, which a policy without `unsafe-eval` refuses. The unit suite compares the check with Ajv's 2020-12 meta-schema validation for every documented keyword, so the two cannot drift apart silently.
 
 **Unsupported before consent.** In order: `tools` on a connection without tool support; a tool-choice mode the connection does not list (no substitution); historical `toolCall` or `toolResult` on a connection without tool support; an image anywhere, tool results included, on a connection without image support; `format: "json"` without JSON support. Completed history may be sent without current `tools` on a tools connection; any call in that response is `provider-error`.
 
@@ -86,28 +107,78 @@ NAP-LLM carries tool **calls and results** so a napplet can run an agentic turn;
 
 **Dialect mapping.**
 
-| | OpenAI Chat Completions | Anthropic Messages | Gemini `generateContent` |
-|-|-|-|-|
-| Tool definitions | `tools[].function.parameters` | `tools[].input_schema` | `functionDeclarations[].parametersJsonSchema` |
-| Choice | `auto` / `none` / `required` / `{type:"function",function:{name}}` | `auto` / `none` / `any` / `{type:"tool",name}` | `functionCallingConfig` `AUTO` / `NONE` / `ANY` (+ `allowedFunctionNames`) |
-| Assistant call | `tool_calls` with `JSON.stringify(arguments)` | `tool_use` block | `functionCall` part |
-| Result | `{role:"tool",tool_call_id,content}` | `tool_result` block merged into a user turn | one user content of `functionResponse` parts in the assistant's call order, `{output}` payload, no ids |
-| `isError` | prefix text | native `is_error` | prefix text |
-| Image in a tool result | `unsupported` | allowed | `unsupported` |
-| History without current `tools` | sent | `unsupported` (the API needs definitions) | sent |
-| Reasoning | `reasoning_content` / `reasoning` | `thinking` blocks (redacted blocks are omitted and consume no index) | parts with `thought: true` |
-| Usage extras | `cached_tokens`, `reasoning_tokens` | `cache_read_input_tokens`, `cache_creation_input_tokens` | `cachedContentTokenCount`, `thoughtsTokenCount` |
-| `temperature` range | 0 to 2 | 0 to 1 | 0 to 2 |
+| | OpenAI Chat Completions | OpenAI Responses | Anthropic Messages | Gemini `generateContent` |
+|-|-|-|-|-|
+| Tool definitions | `tools[].function.parameters` | flat `tools[].parameters` with `strict: false` | `tools[].input_schema` | `functionDeclarations[].parametersJsonSchema` |
+| Choice | `auto` / `none` / `required` / `{type:"function",function:{name}}` | `auto` / `none` / `required` / `{type:"function",name}` | `auto` / `none` / `any` / `{type:"tool",name}` | `functionCallingConfig` `AUTO` / `NONE` / `ANY` (+ `allowedFunctionNames`) |
+| Assistant call | `tool_calls` with `JSON.stringify(arguments)` | `function_call` input item with `call_id` and `JSON.stringify(arguments)` | `tool_use` block | `functionCall` part |
+| Result | `{role:"tool",tool_call_id,content}` | `function_call_output` input item with `call_id` | `tool_result` block merged into a user turn | one user content of `functionResponse` parts in the assistant's call order, `{output}` payload, no ids |
+| `isError` | prefix text | prefix text | native `is_error` | prefix text |
+| Image in a tool result | `unsupported` | allowed (`output` becomes a content list) | allowed | `unsupported` |
+| History without current `tools` | sent | sent | `unsupported` (the API needs definitions) | sent |
+| Reasoning | `reasoning_content` / `reasoning` | `reasoning` items: each summary part, and each reasoning text part, is one thinking part (encrypted content is ignored) | `thinking` blocks (redacted blocks are omitted and consume no index) | parts with `thought: true` |
+| Usage extras | `cached_tokens`, `reasoning_tokens` | `cached_tokens`, `cache_write_tokens`, `reasoning_tokens` | `cache_read_input_tokens`, `cache_creation_input_tokens` | `cachedContentTokenCount`, `thoughtsTokenCount` |
+| `temperature` range | 0 to 2 | 0 to 2 | 0 to 1 | 0 to 2 |
 
-Without a native error flag, `isError: true` is the exact sentence `Tool execution failed.`, a newline, then the supplied text (text parts joined by newlines). `maxTokens` sends the smaller of the request and the endpoint ceiling, and Anthropic keeps its required default when both are absent. Gemini cannot combine `format: "json"` with tools, which is reported as `unsupported` instead of surfacing as an HTTP 400. A tool without `parameters` is sent as `{"type":"object","properties":{},"additionalProperties":false}`.
+Without a native error flag, `isError: true` is the exact sentence `Tool execution failed.`, a newline, then the supplied text (text parts joined by newlines). A Responses result that carries an image is a content list instead, and a failed one leads with that sentence as its own text part. `maxTokens` sends the smaller of the request and the endpoint ceiling, and Anthropic keeps its required default when both are absent. Gemini cannot combine `format: "json"` with tools, which is reported as `unsupported` instead of surfacing as an HTTP 400. A tool without `parameters` is sent as `{"type":"object","properties":{},"additionalProperties":false}`.
 
 **Thinking.** `thinking` is display-only. It is omitted from provider input when assistant history is replayed, and a message that leaves empty is dropped. Kehto never enables Anthropic extended thinking, so no signed reasoning blocks arise there. Some providers need opaque reasoning state to continue a function-calling turn. `LlmProviderEndpoint.requiresOpaqueReasoning` marks such an endpoint, and a conversation containing `toolCall` parts is then `unsupported` before any request is built rather than silently restarting the reasoning loop. Gemini defaults the flag on for model names matching `gemini-3` and later (with or without a `models/` prefix) because their function-call continuation needs thought signatures this contract cannot represent, so a tool turn on such a model cannot be continued; an explicit value overrides the default.
 
 **Paja.** The connection editor has a **Tool calling** checkbox with **Required tool choice** and **Named tool choice** sub-options (disabled until tools is on). Stored `toolChoiceModes` is canonical (`auto`, `none`, `required`, `tool`, de-duplicated). Rows saved before tool support load as tool support off under the same storage key. Consent lists tool definition names and counts tool results; the message log records counts only. `authorize` builds the provider request with no credential before any vault unlock or consent prompt, so a dialect restriction answers `unsupported` without a pointless dialog.
 
+## OpenAI Responses dialect
+
+`protocol: 'openai-responses'` posts to `<baseUrl>/responses`. It is a host-side adapter like the other three: nothing on the napplet-facing wire changes. Request and event shapes were taken from the official SDK types (`openai@7.62.0`, `resources/responses`), and the dialect has not been exercised against the live API.
+
+**Stateless on purpose.** Every request carries the whole conversation in `input` and sets `store: false`. The dialect never sends `previous_response_id` or `conversation`, so no turn depends on state kept by the provider and nothing is retained there for later retrieval. That matches what the other dialects already do (none of them asks a provider to keep the exchange), and it keeps a napplet's disclosure limited to the request the user consented to.
+
+**Request mapping.**
+
+| NAP-LLM | Responses request |
+|-|-|
+| `system` messages | joined with newlines into `instructions`; an image there is `unsupported` |
+| `user` message | `{type:"message",role:"user",content:[…]}` with `input_text` and `input_image` (data URL, `detail: "auto"`) parts |
+| `assistant` text | `{type:"message",role:"assistant",content:"<text>"}`; adjacent text parts join, and text either side of a call stays either side of it |
+| `assistant` `toolCall` | `{type:"function_call",call_id,name,arguments}` with `arguments` as a JSON string |
+| `toolResult` | `{type:"function_call_output",call_id,output}` |
+| `format: "json"` | `text: {format: {type: "json_object"}}` |
+| `maxTokens` | `max_output_tokens`, the smaller of the request and the endpoint ceiling |
+| `temperature` | `temperature` |
+| `tools` / `toolChoice` | flat function tools and `tool_choice` |
+
+A conversation with only system messages and an image inside assistant history are `unsupported` before any request is built. Reasoning summaries are requested only when the endpoint sets `responses.reasoningSummary` (`auto`, `concise` or `detailed`), which adds `reasoning: {summary}`; leave it unset for models that do not reason.
+
+**Result mapping.** `status: "completed"` is `stop` (`toolUse` once a call is present). `status: "incomplete"` is `length` for `max_output_tokens` and `refusal` for `content_filter`; any other reason, a missing status, and `queued`, `in_progress` or `cancelled` have no completion marker and are `provider-error`, as is `status: "failed"`. A `refusal` content part is `refusal` with empty content. Other output item kinds are ignored, since the dialect requests no hosted tools.
+
+**Streaming.** `response.output_text.delta`, `response.reasoning_summary_text.delta`, `response.reasoning_text.delta` and `response.function_call_arguments.delta` become block deltas; `response.output_item.added` starts a call block with its `call_id` and name; the matching `.done` events end blocks. An item that arrives only in `response.output_item.done` is sent whole. `response.completed` and `response.incomplete` end the stream, and the `output` array they carry is the authoritative result; when a server leaves that array empty the result is assembled from the streamed items. `response.failed` and `error` events are `provider-error` with no provider text.
+
+**Reasoning continuity.** With `store: false` a reasoning model's earlier reasoning is not replayed, because the encrypted reasoning items that would carry it are opaque provider state NAP-LLM cannot represent. The dialect does not request them. Whether a given model can still continue a function-calling turn from `function_call` and `function_call_output` items alone was not verified here, so `requiresOpaqueReasoning` stays off by default; set it on an endpoint whose model rejects such a continuation and the conversation is `unsupported` up front instead.
+
+### Sign-in access tokens (`responses.profile: 'chatgpt-sign-in'`)
+
+Some routes hand out subscription-backed OAuth access tokens that are meant for the Responses endpoint and accept a narrower request. The profile is opt-in per endpoint and follows the published [preview limitations](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations) (read 2026-11-20):
+
+- `stream: true` and `store: false` on every request. `createHttpLlmProvider()` reads the event stream even when it was created without `stream: true`, and then forwards no deltas.
+- System text stays in `instructions`, so no system-role input item is sent.
+- Function tools are grouped in one `{type:"namespace",name,description,tools}` entry, and `function_call` items in `input` carry that `namespace`. The default group is `napplet`; `responses.toolNamespace` renames it.
+- `maxTokens`, an endpoint `maxOutputTokens` ceiling and `temperature` are `unsupported`, because the route lists `max_output_tokens` and `temperature` as unsupported fields and dropping them silently would change what the napplet asked for.
+- A named `toolChoice` is `unsupported`: the documented named choice has no namespace field. So is tool-call history without current `tools`, because a historical call would name a namespace the request does not declare.
+
+Obtaining and refreshing the token is the host's job; the provider only places it in `Authorization: Bearer`. Paja has no sign-in flow and does not offer this profile.
+
+```ts
+const endpoint: LlmProviderEndpoint = {
+  protocol: 'openai-responses',
+  baseUrl: 'https://api.openai.com/v1',
+  model,
+  credential: accessToken,
+  responses: { profile: 'chatgpt-sign-in' },
+};
+```
+
 ## Provider notes
 
-Anthropic has no native JSON mode; Kehto appends a JSON-object instruction to the system prompt and still validates the completed text as a JSON object. Anthropic and Gemini reject images in system messages, and Anthropic requires the first turn to be the user's; both are reported as `unsupported` before any request is built (Paja checks this before it asks for consent).
+Anthropic has no native JSON mode; Kehto appends a JSON-object instruction to the system prompt and still validates the completed text as a JSON object. Anthropic, Gemini and the Responses dialect reject images in system messages, and Anthropic requires the first turn to be the user's; both are reported as `unsupported` before any request is built (Paja checks this before it asks for consent).
 
 ## Host checklist
 

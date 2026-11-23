@@ -113,6 +113,24 @@ Other dev servers need the equivalent: answer `Origin: null` with
 Paja logs a `paja.target.cors.error` entry in the **Messages** panel and warns on
 the browser console with the remedy, so a blank frame is never the only signal.
 
+## Napplets That Require `resource`
+
+`window.napplet.resource` is only offered to a frame with no direct network, so
+it cannot be combined with live dev-server loading. If your `index.html` has
+`<meta name="napplet-requires" content="resource">`, Paja loads it as a
+network-isolated snapshot: inline scripts, inline styles, and `data:` assets run,
+but nothing is fetched from the dev server by the frame and there is no hot
+reload. The CLI prints a `Target network: isolated snapshot` notice listing any
+references that will not load.
+
+Pick whichever fits the moment:
+
+- Serve a self-contained single-file build and reload Paja after each rebuild.
+- Declare `resource` under `napplet-optional` while iterating on UI. The frame
+  stays live and `window.napplet.resource` is absent, so guard its use.
+
+See [Targets that require `resource`](/packages/paja#targets-that-require-resource).
+
 ## Use an Existing Target Server
 
 If another process already serves the app, omit the command:
@@ -305,7 +323,7 @@ completeness are outside this behavior.
 [NAP-IDENTITY `6461e4b37c29dc09a20dff35d9515889c4433874`](https://github.com/napplet/naps/blob/6461e4b37c29dc09a20dff35d9515889c4433874/naps/NAP-IDENTITY.md)
 is byte-identical to the recorded `napplet/naps` master document. Pinned
 [NAP-OUTBOX `4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e`](https://github.com/napplet/naps/blob/4589a8f9a16d8aa29b3740e2b3b0cdca11e0976e/naps/NAP-OUTBOX.md)
-with the installed `@napplet/nap` NAP-OUTBOX types (0.40.0 for host packages) is the PoC contract because current
+with the installed `@napplet/nap` NAP-OUTBOX types (0.45.0 for host packages) is the PoC contract because current
 master has no NAP-OUTBOX path; this is not a current-master OUTBOX conformance
 claim. Blossom behavior targets pinned
 [NAP-UPLOAD `a7cc17463cbf5d9cb87884b31071bc4fc826034c`](https://github.com/napplet/naps/blob/a7cc17463cbf5d9cb87884b31071bc4fc826034c/naps/NAP-UPLOAD.md).

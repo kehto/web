@@ -1,4 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
+import { mediaOnCommand, mediaOnEnded, mediaSendCommand } from '@napplet/nap/media/sdk';
+import { cvmDiscover } from '@napplet/nap/cvm/sdk';
+import { intentAvailable, intentHandlers } from '@napplet/nap/intent/sdk';
+import { resourceBytes, resourceBytesMany } from '@napplet/nap/resource/sdk';
+import { webrtcOnEvent, webrtcSendBytes } from '@napplet/nap/webrtc/sdk';
 import {
   injectNappletNamespacePrelude,
   renderNappletNamespacePrelude,
@@ -228,6 +233,35 @@ function runPrelude(script: string, target: PreludeTestWindow): void {
   new Function('window', source)(target);
 }
 
+describe('napplet request correlation ids', () => {
+  // kehto/web#351: these ids only pair a napplet's own request with its result
+  // inside one private MessagePort, so the realm may fall back to a non-random
+  // source where a sandboxed frame on non-localhost HTTP has no randomUUID.
+  it('still sends distinct request ids when the napplet realm has no crypto.randomUUID', async () => {
+    const target = createPreludeTestWindow();
+    (target as { crypto: unknown }).crypto = { getRandomValues: (bytes: Uint8Array) => bytes };
+    runPrelude(renderNappletNamespacePrelude({ domains: ['cvm'] }), target);
+    const registry = (target.napplet!.cvm as { registry: Record<string, (...args: unknown[]) => Promise<unknown>> }).registry;
+    target.onPortPost = message => target.dispatchParentMessage({ type: `${message.type}.result`, id: message.id, has: true });
+    await expect(registry.has({ family: 'rooms' })).resolves.toBe(true);
+    await expect(registry.has({ family: 'rooms' })).resolves.toBe(true);
+    const ids = target.postedMessages.filter(message => message.type === 'cvm.registry.has').map(message => message.id);
+    expect(ids).toHaveLength(2);
+    expect(new Set(ids).size).toBe(2);
+    for (const id of ids) expect(id).toMatch(/^napplet-\d+-/);
+  });
+
+  it('calls native randomUUID on the realm Crypto receiver', async () => {
+    const target = createPreludeTestWindow();
+    const provider = { randomUUID(this: unknown) { if (this !== provider) throw new TypeError('Illegal invocation'); return 'native-id'; } };
+    (target as { crypto: unknown }).crypto = provider;
+    runPrelude(renderNappletNamespacePrelude({ domains: ['cvm'] }), target);
+    const registry = (target.napplet!.cvm as { registry: Record<string, (...args: unknown[]) => Promise<unknown>> }).registry;
+    void registry.has({ family: 'rooms' });
+    expect(target.postedMessages.at(-1)).toMatchObject({ type: 'cvm.registry.has', id: 'native-id' });
+  });
+});
+
 describe('CVM registry injected binding', () => {
   it('uses canonical selectors before shell.ready and ignores untrusted results', async () => {
     const target = createPreludeTestWindow();
@@ -265,6 +299,46 @@ describe('CVM registry injected binding', () => {
       expect(warn).toHaveBeenCalledWith(expect.stringContaining('once per iframe'));
       expect(target.postedMessages.at(-1)).toMatchObject({ selector: { family: 'rooms' } });
     } finally { warn.mockRestore(); }
+  });
+});
+
+describe('CVM request injected binding', () => {
+  // NAP-CVM #31 @ 28cf1bdb, Message handling: a notification or response
+  // completes "After transport publication, result without `message`; API
+  // returns `null`", while a request resolves with its MCP response.
+  it('resolves null for notification and response acks, and the MCP response for a request', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['cvm'] }), target);
+    const cvm = target.napplet!.cvm as { request(server: unknown, message: unknown): Promise<unknown> };
+    target.onPortPost = (message) => target.dispatchParentMessage({ type: 'cvm.request.result', id: message.id });
+    await expect(cvm.request({ pubkey: 'a'.repeat(64) }, { jsonrpc: '2.0', method: 'notifications/initialized' })).resolves.toBeNull();
+    await expect(cvm.request({ pubkey: 'a'.repeat(64) }, { jsonrpc: '2.0', id: 'srv-1', result: {} })).resolves.toBeNull();
+    // A request-form ack without its response is still a failure.
+    await expect(cvm.request({ pubkey: 'a'.repeat(64) }, { jsonrpc: '2.0', id: 1, method: 'tools/list' })).rejects.toThrow('cvm.request.result missing message');
+    const response = { jsonrpc: '2.0', id: 2, result: { tools: [] } };
+    target.onPortPost = (message) => target.dispatchParentMessage({ type: 'cvm.request.result', id: message.id, message: response });
+    await expect(cvm.request({ pubkey: 'a'.repeat(64) }, { jsonrpc: '2.0', id: 2, method: 'tools/list' })).resolves.toEqual(response);
+    target.onPortPost = (message) => target.dispatchParentMessage({ type: 'cvm.request.result', id: message.id, error: 'invalid message' });
+    await expect(cvm.request({ pubkey: 'a'.repeat(64) }, { jsonrpc: '2.0', id: 'srv-9', result: {} })).rejects.toThrow('invalid message');
+  });
+});
+
+describe('NAP-UPLOAD injected info and status', () => {
+  // NAP-UPLOAD #33 @ f5cc981e: `upload.info.result` is `id`, `info`, `error?`, so a
+  // failed info reply carries a redacted `info: { rails: [] }` (#518). The error
+  // still rejects rather than resolving to the placeholder info, and an error-only
+  // status reply (the bounded spec gap) rejects with its error.
+  it('rejects on error even when the reply carries the required redacted info', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['upload'] }), target);
+    const upload = target.napplet!.upload as { info(): Promise<unknown>; status(uploadId: string): Promise<unknown> };
+    target.onPortPost = (message) => target.dispatchParentMessage({ type: 'upload.info.result', id: message.id, info: { rails: [] }, error: 'denied: upload:write' });
+    await expect(upload.info()).rejects.toThrow('denied: upload:write');
+    target.onPortPost = (message) => target.dispatchParentMessage({ type: 'upload.status.result', id: message.id, error: 'unknown upload' });
+    await expect(upload.status('nope')).rejects.toThrow('unknown upload');
+    const info = { rails: [{ rail: 'blossom', enabled: true }] };
+    target.onPortPost = (message) => target.dispatchParentMessage({ type: 'upload.info.result', id: message.id, info });
+    await expect(upload.info()).resolves.toEqual(info);
   });
 });
 
@@ -733,6 +807,28 @@ describe('NIP-5D napplet namespace prelude', () => {
     });
   });
 
+  it('passes the NAP-LINK denial reason through the open() result unchanged', async () => {
+    // NAP-LINK napplet/naps PR #53 head 100e5c939ae6: open() resolves with a LinkOpenResult whose
+    // optional error, when present on the wire, is passed through unchanged and absent when opened.
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['link'] }), target);
+    const link = (target.napplet as Record<string, Record<string, (...args: unknown[]) => Promise<Record<string, unknown>>>>).link;
+
+    const denied = link.open('file:///etc/passwd');
+    const deniedRequest = target.postedMessages.at(-1);
+    expect(deniedRequest).toMatchObject({ type: 'link.open', url: 'file:///etc/passwd' });
+    target.dispatchParentMessage({ type: 'link.open.result', id: deniedRequest?.id, status: 'denied', error: 'unsupported-scheme' });
+    await expect(denied).resolves.toMatchObject({ status: 'denied', error: 'unsupported-scheme' });
+
+    const opened = link.open('https://example.com/post/123', { label: 'Read post' });
+    const openedRequest = target.postedMessages.at(-1);
+    expect(openedRequest).toMatchObject({ type: 'link.open', url: 'https://example.com/post/123', options: { label: 'Read post' } });
+    target.dispatchParentMessage({ type: 'link.open.result', id: openedRequest?.id, status: 'opened' });
+    const result = await opened;
+    expect(result.status).toBe('opened');
+    expect(Object.prototype.hasOwnProperty.call(result, 'error')).toBe(false);
+  });
+
   it('projects canonical resource URL and base64 wire values', async () => {
     const target = createPreludeTestWindow();
     runPrelude(renderNappletNamespacePrelude({ domains: ['resource'] }), target);
@@ -796,6 +892,46 @@ describe('NIP-5D napplet namespace prelude', () => {
       blob: 'YR==', mime: 'text/plain',
     });
     await expect(nonCanonical).rejects.toThrow(/canonical base64/i);
+  });
+
+  it.each([
+    ['missing padding', 'YQ'],
+    ['embedded whitespace', 'YQ= ='],
+    ['a character outside the alphabet', 'Y*=='],
+    ['padding in the middle', 'YQ==YQ=='],
+    ['too much padding', 'Y==='],
+    ['non-zero trailing bits', 'YR=='],
+  ])('rejects a resource result with %s as non-canonical base64', async (_case, blob) => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['resource'] }), target);
+    const resource = target.napplet?.resource as { bytes: (url: string) => Promise<Blob> };
+    const pending = resource.bytes('https://media.example/bad');
+    const request = withoutShellReady(target).at(-1);
+    target.dispatchParentMessage({ type: 'resource.bytes.result', id: request?.id, blob, mime: 'text/plain' });
+    await expect(pending).rejects.toThrow(TypeError);
+    await expect(pending).rejects.toThrow(/canonical base64/i);
+  });
+
+  it('decodes a resource result of several megabytes', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['resource'] }), target);
+    const resource = target.napplet?.resource as { bytes: (url: string) => Promise<Blob> };
+    // A game's asset pack: large enough that a backtracking pattern over its base64 exhausts the stack.
+    const payload = new Uint8Array(8 * 1024 * 1024);
+    for (let index = 0; index < payload.length; index += 1) payload[index] = (index * 31) % 256;
+    let binary = '';
+    for (let start = 0; start < payload.length; start += 0x8000) binary += String.fromCharCode(...payload.subarray(start, start + 0x8000));
+    const pending = resource.bytes(`blossom:sha256:${'e'.repeat(64)}`);
+    const request = withoutShellReady(target).at(-1);
+    target.dispatchParentMessage({
+      type: 'resource.bytes.result', id: request?.id,
+      blob: btoa(binary), mime: 'application/octet-stream',
+    });
+    const blob = await pending;
+    expect(blob.size).toBe(payload.byteLength);
+    // The first differing byte, or -1: an element-wise matcher over eight million bytes takes longer than the decode.
+    const received = new Uint8Array(await blob.arrayBuffer());
+    expect(received.findIndex((byte, index) => byte !== payload[index])).toBe(-1);
   });
 
   it('keeps an active resource transfer pending beyond the ordinary request timeout', async () => {
@@ -910,13 +1046,13 @@ describe('NIP-5D napplet namespace prelude', () => {
     runPrelude(renderNappletNamespacePrelude({ domains: ['resource'] }), target);
     const resource = target.napplet?.resource as {
       bytesMany: (
-        requests: Array<{ url: string; servers?: string[] }>,
+        urls: string[],
         options?: { signal?: AbortSignal },
       ) => Promise<Array<{ url: string; ok: boolean; blob?: Blob }>>;
     };
-    const requests = [{ url: `blossom:sha256:${'e'.repeat(64)}` }];
+    const urls = [`blossom:sha256:${'e'.repeat(64)}`];
     const controller = new AbortController();
-    const transfer = resource.bytesMany(requests, { signal: controller.signal });
+    const transfer = resource.bytesMany(urls, { signal: controller.signal });
     const request = withoutShellReady(target).find((message) => message.type === 'resource.bytesMany');
     let transferState = 'pending';
     let transferError: unknown;
@@ -937,7 +1073,7 @@ describe('NIP-5D napplet namespace prelude', () => {
     target.dispatchParentMessage({
       type: 'resource.bytesMany.result',
       id: request?.id,
-      items: [{ url: requests[0]!.url, ok: true, blob: new Blob(['ignored late batch']) }],
+      items: [{ url: urls[0]!, ok: true, blob: new Blob(['ignored late batch']) }],
     });
     await Promise.resolve();
     expect(transferState).toBe('rejected');
@@ -1396,7 +1532,7 @@ describe('NIP-5D napplet namespace prelude', () => {
     };
     type Inc = {
       channel: {
-        open: (targetDTag: string) => Promise<Handle>;
+        open: (target: string) => Promise<Handle>;
         onOpened: (handler: (handle: Handle) => void) => { close(): void };
         list: () => Promise<Array<{ id: string; peer: string }>>;
         broadcast: (payload?: unknown) => void;
@@ -1404,42 +1540,42 @@ describe('NIP-5D napplet namespace prelude', () => {
     };
     const inc = target.napplet?.inc as Inc;
     const inbound: Handle[] = [];
-    const opened = inc.channel.open('media-player');
+    const opened = inc.channel.open('endpoint-media-player');
     const openRequest = withoutShellReady(target).at(-1);
-    expect(openRequest).toEqual({ type: 'inc.channel.open', id: 'id-1', target: 'media-player' });
+    expect(openRequest).toEqual({ type: 'inc.channel.open', id: 'id-1', target: 'endpoint-media-player' });
     target.dispatchMessage({}, { type: 'inc.channel.open.result', id: openRequest?.id, channelId: 'forged', peer: 'forged' });
     target.dispatchParentMessage({ type: 'inc.channel.open.result', id: 'wrong', channelId: 'forged', peer: 'forged' });
-    target.dispatchParentMessage({ type: 'inc.channel.open.result', id: openRequest?.id, channelId: 'c-open', peer: 'media-player' });
+    target.dispatchParentMessage({ type: 'inc.channel.open.result', id: openRequest?.id, channelId: 'c-open', peer: 'endpoint-media-player' });
     const opener = await opened;
-    expect(opener).toMatchObject({ id: 'c-open', peer: 'media-player' });
+    expect(opener).toMatchObject({ id: 'c-open', peer: 'endpoint-media-player' });
 
     const rejected = inc.channel.open('missing');
     const rejectedRequest = withoutShellReady(target).at(-1);
     target.dispatchParentMessage({ type: 'inc.channel.open.result', id: rejectedRequest?.id, error: 'target not found' });
     await expect(rejected).rejects.toThrow('target not found');
 
-    target.dispatchParentMessage({ type: 'inc.channel.opened', channelId: 'c-target', peer: 'music-controller' });
-    target.dispatchParentMessage({ type: 'inc.channel.event', channelId: 'c-target', sender: 'music-controller', payload: { order: 1 } });
-    target.dispatchParentMessage({ type: 'inc.channel.event', channelId: 'c-target', sender: 'music-controller', payload: { order: 2 } });
+    target.dispatchParentMessage({ type: 'inc.channel.opened', channelId: 'c-target', peer: 'endpoint-music-controller' });
+    target.dispatchParentMessage({ type: 'inc.channel.event', channelId: 'c-target', sender: 'endpoint-music-controller', payload: { order: 1 } });
+    target.dispatchParentMessage({ type: 'inc.channel.event', channelId: 'c-target', sender: 'endpoint-music-controller', payload: { order: 2 } });
     inc.channel.onOpened((handle) => inbound.push(handle));
     expect(inbound).toHaveLength(1);
-    expect(inbound[0]).toMatchObject({ id: 'c-target', peer: 'music-controller' });
+    expect(inbound[0]).toMatchObject({ id: 'c-target', peer: 'endpoint-music-controller' });
     const earlyEvents: ChannelEvent[] = [];
     const laterEvents: ChannelEvent[] = [];
     const firstListener = inbound[0].on((event) => earlyEvents.push(event));
     const secondListener = inbound[0].on((event) => laterEvents.push(event));
     expect(earlyEvents).toEqual([
-      { channelId: 'c-target', sender: 'music-controller', payload: { order: 1 } },
-      { channelId: 'c-target', sender: 'music-controller', payload: { order: 2 } },
+      { channelId: 'c-target', sender: 'endpoint-music-controller', payload: { order: 1 } },
+      { channelId: 'c-target', sender: 'endpoint-music-controller', payload: { order: 2 } },
     ]);
     expect(laterEvents).toEqual([]);
-    target.dispatchParentMessage({ type: 'inc.channel.event', channelId: 'c-target', sender: 'music-controller', payload: { order: 3 } });
+    target.dispatchParentMessage({ type: 'inc.channel.event', channelId: 'c-target', sender: 'endpoint-music-controller', payload: { order: 3 } });
     firstListener.close();
-    target.dispatchParentMessage({ type: 'inc.channel.event', channelId: 'c-target', sender: 'music-controller', payload: { order: 4 } });
+    target.dispatchParentMessage({ type: 'inc.channel.event', channelId: 'c-target', sender: 'endpoint-music-controller', payload: { order: 4 } });
     expect(earlyEvents).toHaveLength(3);
     expect(laterEvents).toEqual([
-      { channelId: 'c-target', sender: 'music-controller', payload: { order: 3 } },
-      { channelId: 'c-target', sender: 'music-controller', payload: { order: 4 } },
+      { channelId: 'c-target', sender: 'endpoint-music-controller', payload: { order: 3 } },
+      { channelId: 'c-target', sender: 'endpoint-music-controller', payload: { order: 4 } },
     ]);
     secondListener.close();
 
@@ -1449,9 +1585,9 @@ describe('NIP-5D napplet namespace prelude', () => {
     target.dispatchParentMessage({
       type: 'inc.channel.list.result',
       id: listRequest?.id,
-      channels: [{ id: 'c-open', peer: 'media-player', emit: 'forged' }, { id: 7, peer: 'invalid' }],
+      channels: [{ id: 'c-open', peer: 'endpoint-media-player', emit: 'forged' }, { id: 7, peer: 'invalid' }],
     });
-    await expect(list).resolves.toEqual([{ id: 'c-open', peer: 'media-player' }]);
+    await expect(list).resolves.toEqual([{ id: 'c-open', peer: 'endpoint-media-player' }]);
 
     inc.channel.broadcast({ all: true });
     opener.emit({ command: 'play' });
@@ -1496,8 +1632,8 @@ describe('NIP-5D napplet namespace prelude', () => {
     };
     const inc = target.napplet?.inc as Inc;
 
-    target.dispatchParentMessage({ type: 'inc.channel.opened', channelId: 'c-closed', peer: 'music-controller' });
-    target.dispatchParentMessage({ type: 'inc.channel.event', channelId: 'c-closed', sender: 'music-controller', payload: { order: 1 } });
+    target.dispatchParentMessage({ type: 'inc.channel.opened', channelId: 'c-closed', peer: 'endpoint-music-controller' });
+    target.dispatchParentMessage({ type: 'inc.channel.event', channelId: 'c-closed', sender: 'endpoint-music-controller', payload: { order: 1 } });
     target.dispatchParentMessage({ type: 'inc.channel.closed', channelId: 'c-closed', reason: 'peer destroyed' });
 
     let handle: Handle | undefined;
@@ -1508,7 +1644,7 @@ describe('NIP-5D napplet namespace prelude', () => {
     handle?.onClosed((event) => closed.push(event));
     handle?.on(() => events.push({ channelId: 'unexpected', sender: 'unexpected' }));
 
-    expect(events).toEqual([{ channelId: 'c-closed', sender: 'music-controller', payload: { order: 1 } }]);
+    expect(events).toEqual([{ channelId: 'c-closed', sender: 'endpoint-music-controller', payload: { order: 1 } }]);
     expect(closed).toEqual([{ channelId: 'c-closed', reason: 'peer destroyed' }]);
   });
 
@@ -1536,7 +1672,7 @@ describe('NIP-5D napplet namespace prelude', () => {
       target.dispatchParentMessage({
         type: 'inc.channel.opened',
         channelId,
-        peer: 'music-controller',
+        peer: 'endpoint-music-controller',
       });
     }
 
@@ -2323,5 +2459,158 @@ describe('NIP-5D direct WebRTC egress neutering', () => {
     expect(() => Object.defineProperty(realm, 'RTCPeerConnection', { value: function Restored() {} }))
       .toThrow();
     expect(realm.RTCPeerConnection).toBeUndefined();
+  });
+});
+
+// kehto/web#496: the published @napplet/nap 0.43 SDK delegates these calls to
+// the injected namespace. NAP-WEBRTC #59 @ fb4dd6f0, NAP-MEDIA #10 @ 7806f438
+// and NAP-RESOURCE #80 @ ae5b9c64.
+describe('published @napplet/nap 0.43 SDK over the injected namespace', () => {
+  it('sends webrtc.sendBytes, surfaces unsupported, and passes bytes and stats events through', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['webrtc'] }), target);
+    await withGlobalWindow(target, async () => {
+      const events: unknown[] = [];
+      const sub = webrtcOnEvent((event) => events.push(event));
+      const sent = webrtcSendBytes('sess-2', 'AAEC/w==');
+      const request = target.postedMessages.at(-1);
+      expect(request).toEqual({ type: 'webrtc.sendBytes', id: request?.id, sessionId: 'sess-2', bytes: 'AAEC/w==' });
+      target.dispatchParentMessage({ type: 'webrtc.sendBytes.result', id: request?.id });
+      await expect(sent).resolves.toBeUndefined();
+
+      const refused = webrtcSendBytes('sess-2', '');
+      const refusedRequest = target.postedMessages.at(-1);
+      expect(refusedRequest).toMatchObject({ type: 'webrtc.sendBytes', sessionId: 'sess-2', bytes: '' });
+      target.dispatchParentMessage({ type: 'webrtc.sendBytes.result', id: refusedRequest?.id, error: 'unsupported' });
+      await expect(refused).rejects.toThrow('unsupported');
+
+      const bytes = { type: 'bytes', sessionId: 'sess-2', from: 'ab'.repeat(32), bytes: 'AAEC/w==' };
+      const stats = { type: 'stats', sessionId: 'sess-2', pubkey: 'ab'.repeat(32), rttMs: 42, lossRatio: 0.01 };
+      target.dispatchParentMessage({ type: 'webrtc.event', event: bytes });
+      target.dispatchParentMessage({ type: 'webrtc.event', event: stats });
+      target.dispatchMessage({}, { type: 'webrtc.event', event: bytes });
+      expect(events).toEqual([bytes, stats]);
+      sub.close();
+    });
+  });
+
+  it('forwards the media command reason both ways on the legacy path and delivers session.ended', async () => {
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const target = createPreludeTestWindow();
+      runPrelude(renderNappletNamespacePrelude({ domains: ['media'] }), target);
+      await withGlobalWindow(target, () => {
+        target.dispatchParentMessage({ type: 'media.session.create.result', id: 'c', sessionId: 's1', owner: 'napplet' });
+        const commands: unknown[] = [];
+        mediaOnCommand('s1', (action, value, reason) => commands.push({ action, value, reason }));
+        const ended = vi.fn();
+        mediaOnEnded('s1', ended);
+        mediaSendCommand('s1', 'pause', undefined, 'user');
+        expect(target.postedMessages.at(-1)).toEqual({ type: 'media.command', sessionId: 's1', action: 'pause', reason: 'user' });
+        target.dispatchParentMessage({ type: 'media.command', sessionId: 's1', action: 'pause', reason: 'focus-lost' });
+        expect(commands).toEqual([{ action: 'pause', value: undefined, reason: 'focus-lost' }]);
+        target.dispatchParentMessage({ type: 'media.session.ended', sessionId: 's1', reason: 'destroyed' });
+        expect(ended).toHaveBeenCalledExactlyOnceWith({ sessionId: 's1', reason: 'destroyed' });
+      });
+      // The 0.43 SDK still exposes only the positional forms, so both legacy warnings fire once each.
+      expect(warning.mock.calls.map(([text]) => String(text).slice(0, 30))).toEqual([
+        '[KEHTO-MEDIA-COMMAND-CALLBACK]',
+        '[KEHTO-MEDIA-SEND-COMMAND] Dep',
+      ]);
+    } finally { warning.mockRestore(); }
+  });
+
+  it('sends resource.bytesMany as a URL string list', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['resource'] }), target);
+    await withGlobalWindow(target, async () => {
+      const urls = ['https://example.com/a.png', `blossom:${'e'.repeat(64)}.png?xs=cdn.example.com`];
+      const transfer = resourceBytesMany(urls);
+      const request = target.postedMessages.at(-1);
+      expect(request).toEqual({ type: 'resource.bytesMany', id: request?.id, urls });
+      target.dispatchParentMessage({
+        type: 'resource.bytesMany.result',
+        id: request?.id,
+        items: [{ url: urls[0], ok: false, error: 'not-found' }, { url: urls[1], ok: true, blob: btoa('hi'), mime: 'text/plain' }],
+      });
+      await expect(transfer).resolves.toEqual([
+        { url: urls[0], ok: false, error: 'not-found' },
+        { url: urls[1], ok: true, blob: new Blob(['hi'], { type: 'text/plain' }), mime: 'text/plain' },
+      ]);
+    });
+  });
+});
+
+// kehto/web#518: the published @napplet/nap 0.45 SDK (napplet/web#360) types
+// `cvm.discover.result` as a success/error union and requires `availability` /
+// `handlers` on the intent results. NAP-CVM #31 @ 28cf1bdb, NAP-INTENT master
+// @ 377bf939, NAP-RESOURCE #80 @ ae5b9c64.
+describe('published @napplet/nap 0.45 SDK over the injected namespace', () => {
+  const lastRequest = (target: PreludeTestWindow, type: string) => target.postedMessages.filter((message) => message.type === type).at(-1);
+
+  it('narrows the cvm.discover.result union: servers on success, error otherwise', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['cvm'] }), target);
+    await withGlobalWindow(target, async () => {
+      const server = { pubkey: 'ab'.repeat(32), name: 'relatr' };
+      const found = cvmDiscover({ search: 'relay', limit: 5 });
+      const request = lastRequest(target, 'cvm.discover');
+      expect(request).toEqual({ type: 'cvm.discover', id: request?.id, query: { search: 'relay', limit: 5 } });
+      target.dispatchParentMessage({ type: 'cvm.discover.result', id: request?.id, servers: [server] });
+      await expect(found).resolves.toEqual([server]);
+
+      const none = cvmDiscover();
+      target.dispatchParentMessage({ type: 'cvm.discover.result', id: lastRequest(target, 'cvm.discover')?.id, servers: [] });
+      await expect(none).resolves.toEqual([]);
+
+      const refused = cvmDiscover();
+      target.dispatchParentMessage({ type: 'cvm.discover.result', id: lastRequest(target, 'cvm.discover')?.id, error: 'unsupported kind' });
+      await expect(refused).rejects.toThrow('unsupported kind');
+
+      // A success reply without `servers` breaks "On success, the operation's payload is required".
+      const bare = cvmDiscover();
+      target.dispatchParentMessage({ type: 'cvm.discover.result', id: lastRequest(target, 'cvm.discover')?.id });
+      await expect(bare).rejects.toThrow('cvm.discover.result missing servers');
+    });
+  });
+
+  it('resolves intent availability and handlers, and rejects on error even beside the required field', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['intent'] }), target);
+    await withGlobalWindow(target, async () => {
+      const availability = { archetype: 'profile', available: true, candidates: [], hasDefault: false };
+      const found = intentAvailable('profile');
+      const request = lastRequest(target, 'intent.available');
+      expect(request).toEqual({ type: 'intent.available', id: request?.id, archetype: 'profile' });
+      target.dispatchParentMessage({ type: 'intent.available.result', id: request?.id, availability });
+      await expect(found).resolves.toEqual(availability);
+
+      const listed = intentHandlers();
+      target.dispatchParentMessage({ type: 'intent.handlers.result', id: lastRequest(target, 'intent.handlers')?.id, handlers: [availability] });
+      await expect(listed).resolves.toEqual([availability]);
+
+      const empty = { archetype: 'profile', available: false, candidates: [], hasDefault: false };
+      const denied = intentAvailable('profile');
+      target.dispatchParentMessage({ type: 'intent.available.result', id: lastRequest(target, 'intent.available')?.id, availability: empty, error: 'intent request denied' });
+      await expect(denied).rejects.toThrow('intent request denied');
+      const unlisted = intentHandlers();
+      target.dispatchParentMessage({ type: 'intent.handlers.result', id: lastRequest(target, 'intent.handlers')?.id, handlers: [], error: 'catalog unavailable' });
+      await expect(unlisted).rejects.toThrow('catalog unavailable');
+    });
+  });
+
+  it('decodes canonical base64 resource bytes into a Blob typed with the classified MIME', async () => {
+    const target = createPreludeTestWindow();
+    runPrelude(renderNappletNamespacePrelude({ domains: ['resource'] }), target);
+    await withGlobalWindow(target, async () => {
+      const url = 'data:application/octet-stream;base64,AAEC/w==';
+      const fetched = resourceBytes(url);
+      const request = lastRequest(target, 'resource.bytes');
+      expect(request).toMatchObject({ type: 'resource.bytes', url });
+      target.dispatchParentMessage({ type: 'resource.bytes.result', id: request?.id, blob: 'AAEC/w==', mime: 'application/octet-stream' });
+      const blob = await fetched;
+      expect(blob.type).toBe('application/octet-stream');
+      expect([...new Uint8Array(await blob.arrayBuffer())]).toEqual([0, 1, 2, 255]);
+    });
   });
 });

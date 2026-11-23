@@ -81,6 +81,7 @@ describe('createMockUploadService', () => {
       { type: 'upload.upload.result', id: 'e2', error: 'unsupported rail' },
       { type: 'upload.upload.result', id: 'e3', error: 'file too large' },
       { type: 'upload.upload.result', id: 'e4', error: 'unsupported media type' },
+      // No invented `status` on a failed lookup: bounded spec gap, napplet/naps#33 @ f5cc981e (#518).
       { type: 'upload.status.result', id: 'e5', error: 'unknown upload' },
       { type: 'upload.status.result', id: 'e6', error: 'invalid uploadId' },
     ]);

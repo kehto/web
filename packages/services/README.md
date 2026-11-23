@@ -1,5 +1,22 @@
 # @kehto/services
 
+Relay hints are candidates, not authority. Register relay services through a
+runtime with `RuntimeAdapter.permissions`; execute only its approved plan.
+Standalone OUTBOX requests with nonempty `options.relays` now fail before router
+execution. Unhinted standalone calls retain `FW-OUTBOX-LEGACY-001` during migration.
+Planned OUTBOX publishing receives the operation cancellation signal and checks
+it again after signing, so revocation while signing waits prevents transport.
+The plan includes the complete own-outbox, required inbox and explicit relay
+union. Host-only `requiredRelays` metadata prevents optional hint success from
+masking failure of a required destination. Custom planners must supply that
+metadata for own/inbox fanout; incomplete plans fail before signing.
+The concrete OUTBOX router validates WebSocket URLs and defaults to rejecting
+unconfigured local/private literals and names. Explicit host fallback relays
+and the host's `isRelayAllowed` policy can admit development destinations;
+credentials, fragments and malformed URLs are always rejected. Adapters still
+need DNS-time address checks to prevent rebinding. See
+[relay destination policy](../../docs/firewall-approvals.md#relay-destination-policy).
+
 `createLinkService` uses `ServiceRuntimeContext.authorizeOperation` when attached
 to a runtime with approval adapters. It requires both interface and exact URL
 scopes, preserves request IDs in canonical results, rejects forbidden local/code
@@ -32,22 +49,49 @@ post-close grace period or report successful closure while dropping gaps.
 
 Outbound oversized requests are not split into CEP-22 frames. With encryption
 enabled, tool arguments must fit one NIP-44 plaintext message. The transport
-does not know the calling napplet; hosts own per-napplet concurrency admission
-before invoking it. Kehto does not yet enforce this admission cap; see the
-[concurrency follow-up](https://github.com/kehto/web/issues/355). Frame caps do not
-bound the pending request map. Sessions and relay holds remain until `close(server)`
-or `dispose()`, independently of request expiry. Correlation IDs and ping nonces
+does not know the calling napplet and does not cap its pending request map;
+`createCvmService` admits work per endpoint before invoking it. Frame caps are not
+a substitute for that admission. Transport sessions and relay holds remain until
+`close(server)` or `dispose()`, independently of request expiry.
+
+`createCvmService({ transport, concurrency: { maxInFlight, maxQueued } })` gives
+each authenticated endpoint its own budget (defaults: 8 running, 32 queued).
+Every `cvm.discover`, `cvm.request`, and `cvm.registry.*` envelope holds one slot
+from receipt until it settles. Queued time counts against the request deadline
+(`relay timeout`), overflow is refused with `policy denied`, and slots return on
+result, error, timeout, `cvm.close`, revocation, window destroy, and disposal. One
+endpoint filling its budget never delays another. Correlation IDs and ping nonces
 use random bytes plus counters, without per-ID key derivation.
 
 Authority: [NAP-CVM draft #31](https://github.com/napplet/naps/blob/28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f/naps/NAP-CVM.md)
 and [CEP-41](https://github.com/contextvm/contextvm-docs/blob/3b4f9dc9f9012a418abd9faec6a70db774754862/src/content/docs/reference/ceps/cep-41.md).
 `createCvmService({ transport, registry })` optionally accepts host-configured
-`CvmRegistryFamily` entries with a provider and tool name/hash pins. Registry
+`CvmRegistryFamily` entries with a provider and tool name/hash pins. Selector,
+entry and option types are re-exported from `@napplet/core` (>= 0.42.0). Registry
 selection checks live `tools/list` schemas using `computeCvmToolSchemaHash`
 (CEP-15), honors provider pins, and authorizes calls through the ordinary CVM
 boundary. Without registry configuration, `registry.has` returns false and the
 other registry operations return `unsupported method`. Paginated tool inventories
 are currently rejected; no result cache or automatic provider failover is used.
+
+`cvm.request` checks its MCP `message` against the NAP-CVM request, notification
+and response forms before admission; a missing message, batch, invalid id or
+invalid field combination returns `invalid message` and is never published.
+Notifications and responses complete on publication with a result that has
+only `type` and `id`, through the optional `CvmTransport.publish()` (transports
+without it fall back to `request()` and warn once, `KEHTO_CVM_TRANSPORT_PUBLISH`).
+A reused client request id or a response matching no delivered server request
+is `invalid message`, and a malformed `server` is `invalid request`. A server
+request delivered to a napplet expires after `serverRequestTimeoutMs` (default
+30000, at most 300000); a later response is `invalid message`. A
+`notifications/cancelled` must name one of the napplet's own requests: a
+queued or pending-approval one is dropped before publication; one already
+handed to the transport goes to the optional `CvmTransport.cancel()`, which maps
+its `requestId` to the id the transport sent (transports without it publish it
+unchanged and warn once, `KEHTO_CVM_TRANSPORT_CANCEL`). Either way the
+cancelled `cvm.request` settles with `session closed` before the cancellation's
+acknowledgement, and the cancellation takes no admission slot. A settled one is
+acknowledged without publication; anything else is `invalid message`.
 
 These transport limits do not claim implementation of every newer NAP-CVM
 session or payment field.
@@ -60,8 +104,8 @@ pnpm add @kehto/services
 
 ## Published Napplet Compatibility
 
-Peers admit `@napplet/core` `>=0.41.0 <0.42.0` and `@napplet/nap`
-`>=0.37.0 <0.41.0`: the declarations import the packaged NAP-LLM types from `@napplet/nap/llm/types`, and the exported NAP-INTENT types come from `@napplet/core`, whose releases before 0.41.0 carry the withdrawn delivery ID and nullable sender. Host packages develop and build on core 0.41.0 / nap 0.40.0; fixture napplets stay on the exact 0.32.0 line (shim 0.30.0, sdk 0.28.0, vite-plugin 0.16.2). The exact fixture-line contracts are core 0.32.0 / nap 0.32.0
+Peers admit `@napplet/core` `>=0.42.0 <0.46.0` and `@napplet/nap`
+`>=0.37.0 <0.46.0`: the declarations import the packaged NAP-LLM types from `@napplet/nap/llm/types`, and the exported NAP-INTENT types come from `@napplet/core`, whose releases before 0.41.0 carry the withdrawn delivery ID and nullable sender. The exported NAP-CVM registry types (`CvmRegistrySelector`, `CvmRegistryEntry`, `CvmRegistryTool`, `CvmRegistryOptions`, `CvmRegistryCallOptions`, `CvmRegistryQuery`) also come from `@napplet/core`, and releases before 0.42.0 carry the older family-only registry contract, so the core floor is 0.42.0. Host packages develop and build on core 0.45.0 / nap 0.45.0; fixture napplets stay on the exact 0.32.0 line (shim 0.30.0, sdk 0.28.0, vite-plugin 0.16.2). The exact fixture-line contracts are core 0.32.0 / nap 0.32.0
 from NAP-INTENT authority `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`,
 napplet/web#199 source `3037200c932488f14f7f369b8583c39c9c16510a` / merge
 `b3f0007867eac109fa4917fac9c285d3b7cc6155`, and Version Packages #198 release
@@ -94,6 +138,14 @@ Current draft posture:
 - `createResourceService` implements NAP-RESOURCE at draft PR #80 head `ae5b9c64ab8a4d8909f288829a01e99d6bd713bc` without choosing a runtime's resolver policy. Single requests carry `url`; bulk requests carry an ordered `urls` array, and results use canonical padded RFC 4648 base64 in `blob`. `resource.info.schemes` remains advisory. Runtime permission integration authorizes the exact resource URL and each resolver-reported HTTP(S) or WebSocket origin through `init.authorizeNetwork(destination, execute)`; the resolver remains responsible for scheme handling, redirects, and upstream byte classification. The service scopes cancellation to the requesting window, drops cancelled terminal envelopes, and preserves explicit `ResourceServiceError` codes.
 - Host playback can use `ResourceService.openStream(windowId, url, signal)` with an optional `stream` resolver. It requires the same resource and network approvals as atomic requests before opening a response; on a host without a permission adapter it takes the `FW-RESOURCE-LEGACY-001` path. `createBrowserMediaStreamFetch` classifies live MP3/AAC bytes without waiting for EOF; `createBrowserMediaPlayback({ resource, stream: resource.openStream })` supplies bounded MediaSource playback. Streaming is host-only and adds no resource wire operation. See [Media playback](https://github.com/kehto/web/blob/main/docs/media.md).
 - `createUploadService` supports `upload.info` from draft NAP-UPLOAD. Hosts may expose configured rails, return URL forms, maximum bytes, and MIME type policy without requiring napplets to start an upload.
+- Default upload ids, browser media `media-resource-*` read ids, and CVM registry
+  JSON-RPC ids are secure UUID v4 values: native `crypto.randomUUID()`, or 16
+  `crypto.getRandomValues()` bytes where the browser omits it (non-localhost plain
+  HTTP), and an explicit error when neither exists. This is host identifier policy
+  with no wire change, and it does not make `crypto.subtle` paths (approval-scoped
+  uploads, the default HTTP uploader digest, CVM schema hashes) work on such
+  origins. The full per-identifier contract is in the
+  [shell package doc](https://github.com/kehto/web/blob/main/docs/packages/shell.md#uuid-support-on-http-origins).
 - Upload teardown uses exact window ownership, including IDs containing colons.
   Destroying a window invalidates replies before backend cancellation and suppresses
   late progress, results, and errors even if cancellation throws or settles later.
@@ -113,6 +165,7 @@ queryless convention and separate opaque payload before service dispatch.
 
 - `manifestToIntentCatalogEntry()` converts verified `{ catalogId, title?, archetypes: [{ slug, convention, params }] }` facts into exact contracts.
 - `createCatalogIntentResolver()` applies authorized explicit selection, an explicit chooser, or default → recommendation → compatible choice. Payload contents never select a handler.
+- `offerUninstalledHandlers(request, context)`, which is optional, runs only when no installed handler is compatible and the request isn't for an explicit catalog `handler`. The host may search for a handler, install it through its own verified load, and return the new catalog ID. The resolver uses that ID only if the reloaded catalog entry supports the exact convention. `available()` and `handlers()` stay installed-only, and if the offer is declined or comes back empty, the original `no handler` / `unsupported *` rejection stands.
 - `createIntentService()` requires `resolveSender(windowId)`, derives the sender from the authenticated endpoint, validates requests, and returns one canonical result.
 
 `ok: true` means the controller retained responsibility for delivery. It contains
@@ -263,6 +316,47 @@ approval as other reads. Planned queries receive an optional `ApprovalSignal`,
 which the reference router uses to close subscriptions and suppress late results.
 Standalone OUTBOX routers without runtime authorization retain the legacy API with
 one `FW-OUTBOX-LEGACY-001` warning per service instance.
+
+Relays fail from time to time, so OUTBOX never reports a relay failure as a
+denial. Following the error codes in [NAP-OUTBOX draft #32 at
+`8865f73`](https://github.com/napplet/naps/blob/8865f73d52a4864afee145f28d26520476273927/naps/NAP-OUTBOX.md):
+
+| Failure | Reason |
+|---|---|
+| Relay-list lookup throws or rejects | Falls back to `fallbackRelays`; a required `toInboxes` author becomes `relay list unavailable` |
+| `planRead` rejects, or no planned relay attaches | `relay list unavailable` (or the network reason the router names) |
+| Planned relays never answer before the deadline | `relay timeout`, with `incomplete: true` |
+| Some planned relays fail, others answer | Events from the rest, with `incomplete: true` |
+| No planned relay accepts a publish, or a required own/inbox relay does not accept (even when hinted relays did) | `relay timeout` |
+| A plan names an unusable relay URL | Skipped; only a plan with no usable relay, or an unusable required publish relay, is `relay list unavailable` |
+| A read plan spans more relay origins than one approval can name | Bounded to the budget (below); a read that left an author without relays is `incomplete: true` |
+| A publish's required own/inbox relays span more origins than one approval can name | `too many relays`, before signing |
+| The Firewall grant table is full (`maxGrants`) | `approval capacity reached` (host capacity, not a denial) |
+| The approval queue or a rate limit is full, or no prompt UI can answer | `approval busy` / `approval unavailable` (not a denial) |
+| Signer or user declines a publish | `publish denied` |
+| Approval denied or cancelled, approval revoked, relay gate refuses every inbox relay, or a router that cannot plan | `policy denied` |
+
+The draft has no code for "no relay reachable" or "every relay refused", so the
+closest defined codes are used. Its error list is open ("Common errors
+include"), and a publish whose required relays cannot fit one approval gets its
+own non-denial reason, `too many relays`. A live stream has no `incomplete`
+field, so a bounded `outbox.subscribe` cannot report a lost author (spec gap).
+
+The Firewall caps one request at the host's `maxRequirements` (default
+`MAX_PERMISSION_REQUIREMENTS`, 128; read from
+`ServiceRuntimeContext.maxPermissionRequirements`) requirements, which bounds evaluation work, grant growth and prompt size. An
+OUTBOX plan is not purely host-generated (the napplet picks the authors, third
+parties publish the relay lists, and read hints are appended), so the plan is
+bounded to that cap. Each operation contacts at most `maxRequirements` less one
+relay origins (127 by default; pass the same budget to the router as
+`maxRelayOrigins`), one approval requirement per origin (paths on one origin share
+it). `createRelayPoolOutboxRouter()` picks a larger plan's relays by author
+coverage, deterministically, with napplet hints last. The service also bounds a
+custom router's plan in the router's order. Publish never drops a required
+relay; only explicit `options.relays` extras are trimmed. This follows
+NAP-OUTBOX Shell Behavior ("The shell MAY use NIP-66 or other relay
+intelligence to choose among candidate relays") and Security Considerations
+("Shells SHOULD enforce limits, timeouts, and maximum subscription counts").
 
 Relay pool and coordinated relay services require `publishToRelays` to execute a
 publish plan; a generic `publish` callback cannot guarantee approved destinations.
@@ -454,6 +548,8 @@ const keys = createKeysService({
 
 runtime.registerService('keys', keys);
 ```
+
+**One result per request.** Every `keys.registerAction` gets exactly one `keys.registerAction.result` while its window is live, as NAP-KEYS (napplet/naps#9 at `8869a4cf`) requires. When the approval doesn't execute, the result carries `error` and echoes `actionId` (or `''`): `denied` and `cancelled` send `policy denied`, while `capacity`, `busy` and `unavailable` send `approval capacity reached`, `approval busy` and `approval unavailable`. Those are host conditions, not denials. NAP-KEYS names no code for them, so the strings are a recorded spec gap. A source whose permission is revoked mid-approval still gets its `policy denied` result; only a destroyed window gets no reply.
 
 **Precedence contract: reserved > binding.** When a napplet registers an action whose `defaultKey` matches `reservedChords`, the service acknowledges the action with `keys.registerAction.result` but leaves `binding` undefined and does not add the chord to `keys.bindings`. That prevents the active napplet from suppressing a shell-owned chord locally.
 
@@ -673,7 +769,7 @@ Each factory returns a `ServiceHandler` registrable via `runtime.registerService
 - `createBleService` — `ble.open`, `ble.services`, `ble.read`, `ble.write`, `ble.subscribe`, `ble.unsubscribe`, `ble.close` + host-pushed `ble.event` envelopes. Hook contexts include `ctx.emit(event)`, so host Bluetooth notification listeners can forward `notification`, `state`, and `closed` events to the requesting napplet without replacing the reference handler. Under runtime approvals, `ctx.authorizeDevice(...)` binds a host-private selected device before connection; each GATT operation is separately authorized and source-owned.
 
 ### WebRTC NAP
-- `createWebrtcService` — `webrtc.open`, `webrtc.send`, `webrtc.close` + host-pushed `webrtc.event` envelopes. The reference handler owns only the NAP request/result bookkeeping; host bridges own signaling, SDP, ICE, peer connection lifecycle, and policy.
+- `createWebrtcService` — `webrtc.open`, `webrtc.send`, `webrtc.close` + host-pushed `webrtc.event` envelopes. The reference handler owns only the NAP request/result bookkeeping; host bridges own signaling, SDP, ICE, peer connection lifecycle, and policy. `ctx.emit` drops events for a sessionId the window does not own; `webrtc.close` takes the session out of delivery before the host `close` hook runs, so nothing for it reaches the napplet afterwards. A session the backend ends is forgotten once its `closed` event is delivered, so later events are dropped and later `webrtc.send`/`webrtc.close` get `session not found`. A napplet-initiated close gets no `closed` event. Policy revocation (`onPermissionRevoked`, or an ACL block) sends `closed` with reason `policy denied` for each live session, then forgets it; requests already in flight still get their result. Window destroy stays silent.
 
 ### DM NAP
 - `createDmService` — `dm.status`, `dm.conversations`, `dm.messages`, `dm.send`, `dm.subscribe`, `dm.unsubscribe` + `dm.message` push envelopes (`dm:read` / `dm:write`). Runtime owns correlation, subscriptions, cleanup, and normalized message shape; adapters own protocol transport.
@@ -693,7 +789,9 @@ Each factory returns a `ServiceHandler` registrable via `runtime.registerService
 ### Intent NAP
 - `createIntentService` — exact `intent.invoke`, `intent.available`, and
   `intent.handlers` request/result handling plus recipient-gated
-  `intent.changed`.
+  `intent.changed`. Failures keep the required `availability` (empty,
+  `available: false`) or `handlers: []` beside `error`, as the NAP-INTENT
+  wire table lists them.
 - `manifestToIntentCatalogEntry` — verified manifest archetype contracts to
   catalog entries.
 - `createCatalogIntentResolver` — exact convention selection and retained
@@ -749,7 +847,7 @@ This non-normative guidance defers to [NAP-GAMEPAD at `napplet/naps@19de5ce1`](h
 
 ## LLM integration
 
-This non-normative guidance defers to the living [NAP-LLM](https://github.com/napplet/naps/pull/134) (checked at `5e93bdf`). Services export `createLlmService`, `LlmServiceError`, the provider mappers and `LLM_PROVIDER_PRESETS`; shell exports `getShellDomainState` and the `LlmHooks` adapter field; acl exports `llm:generate`. The runtime routes `llm.*` to one registered service and answers every sanctioned request with exactly one `llm.<op>.result`, shaping missing-service and ACL failures as `{ code: 'unsupported' }`. Hosts implement `LlmConnectionHost`; the service enforces schema, handle ownership, a per-window live-handle bound (`maxHandlesPerWindow`), consent before submission, duplicate ids, cancellation and deadline races, ordered deltas and safe errors, and passes `select`/`authorize` a `{ signal }` that withdraws stale prompts. `createHttpLlmProvider({ stream: true })` streams provider output into `llm.delta` as block start/delta/end events. Results carry `content` parts (text, thinking and tool calls); tool calls and results are validated and relayed, and Kehto never executes one. Advertisement stays binary on the wire while hosts report a third `unconfigured` state until the user adds a connection. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
+This non-normative guidance defers to the living [NAP-LLM](https://github.com/napplet/naps/pull/134) (checked at `5e93bdf`). Services export `createLlmService`, `LlmServiceError`, the provider mappers (OpenAI Chat Completions, OpenAI Responses, Anthropic Messages and Gemini `generateContent` dialects) and `LLM_PROVIDER_PRESETS`; shell exports `getShellDomainState` and the `LlmHooks` adapter field; acl exports `llm:generate`. The runtime routes `llm.*` to one registered service and answers every sanctioned request with exactly one `llm.<op>.result`, shaping missing-service and ACL failures as `{ code: 'unsupported' }`. Hosts implement `LlmConnectionHost`; the service enforces schema, handle ownership, a per-window live-handle bound (`maxHandlesPerWindow`), consent before submission, duplicate ids, cancellation and deadline races, ordered deltas and safe errors, and passes `select`/`authorize` a `{ signal }` that withdraws stale prompts. `createHttpLlmProvider({ stream: true })` streams provider output into `llm.delta` as block start/delta/end events. Results carry `content` parts (text, thinking and tool calls); tool calls and results are validated and relayed, and Kehto never executes one. Advertisement stays binary on the wire while hosts report a third `unconfigured` state until the user adds a connection. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
 
 
 ### Resource request lifecycle
@@ -809,5 +907,21 @@ callers should generate fresh IDs because older completed entries are evicted.
 
 WebRTC plans declare every configured ICE endpoint before approval. The reference
 handler requests typed `network`/`ice` scopes; it invokes no peer hook on denial.
-Synchronous send failures return the matching result ID. Optional `sendBytes` and
-`stats` currently return `unsupported` results.
+Synchronous send failures return the matching result ID. Byte payloads
+(NAP-WEBRTC #59 `fb4dd6f0`) need a `sendBytes(sessionId, bytes, context)` hook,
+which receives the decoded `Uint8Array` and must send it as one binary payload,
+never as base64 text. Before the hook runs, the service rejects non-canonical
+padded base64 with `invalid request` and anything over the session's reported
+`maxPayloadBytes` with `payload too large`. The limit counts decoded bytes for
+`sendBytes` and serialized JSON bytes for `send`, and it applies only when the
+open result reports `maxPayloadBytes`. A host emits peer bytes as
+`{ type: 'bytes', sessionId, from, bytes }` with `encodeWebrtcBytes`; the service
+drops a `bytes` event whose text is not canonical. Without the hook,
+`webrtc.sendBytes` answers `unsupported`, as NAP-WEBRTC requires of a shell
+without byte payloads. `encodeWebrtcBytes` / `decodeWebrtcBytes` are exported
+for hosts. A `stats` request gets no reply, since NAP-WEBRTC defines `stats`
+only as a pushed event.
+
+Every reference service drops a message whose type its NAP does not define,
+without a reply (NIP-5D), and warns the host once per domain/type through
+`createUnrecognizedTypeDiagnostic` from `@kehto/runtime`.

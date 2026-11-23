@@ -95,12 +95,30 @@ export interface CvmDiscoverMessage {
   query?: CvmDiscoverQuery;
 }
 
-export interface CvmDiscoverResultMessage {
+/** Successful `cvm.discover.result`: "On success, the operation's payload is required." */
+export interface CvmDiscoverSuccessResultMessage {
   type: 'cvm.discover.result';
   id: string;
+  /** Discovered servers, possibly empty. */
   servers: CvmServer[];
-  error?: string;
+  error?: never;
 }
+
+/** Failed `cvm.discover.result`: "On a shell error, success payload fields MUST be omitted." */
+export interface CvmDiscoverErrorResultMessage {
+  type: 'cvm.discover.result';
+  id: string;
+  servers?: never;
+  /** Shell or transport error, e.g. `"unsupported kind"` or `"policy denied"`. */
+  error: string;
+}
+
+/**
+ * `cvm.discover.result`. The NAP-CVM #31 @ 28cf1bdb wire table lists `servers?`
+ * and `error?`; its Error Handling makes them exclusive, so this is a union, as
+ * `@napplet/nap` 0.45 types it (kehto/web#518).
+ */
+export type CvmDiscoverResultMessage = CvmDiscoverSuccessResultMessage | CvmDiscoverErrorResultMessage;
 
 export interface CvmRequestMessage {
   type: 'cvm.request';
@@ -157,4 +175,6 @@ export type CvmTransportError =
   | 'payment required'
   | 'payment denied'
   | 'unsupported method'
+  | 'invalid message'
+  | 'invalid request'
   | 'policy denied';

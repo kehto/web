@@ -1,6 +1,6 @@
 // Removal boundary for pre-0.15 @napplet/vite-plugin event compatibility.
 import type { NostrEvent } from 'nostr-tools';
-import { computeAggregateHash, pathEntriesFromTags, aggregateTagValue } from '../5a/index.js';
+import { computeAggregateHash, pathEntriesFromTags, aggregateTagValue, type PathEntry } from '../5a/index.js';
 import type { NappletManifest } from './index.js';
 import { NappletResolutionError } from './errors.js';
 import { getNappletCatalogId } from './catalog-id.js';
@@ -64,11 +64,38 @@ function archetypesFromTags(
   return out;
 }
 
+/** Path spellings the resolver serves as the napplet entry document. */
+export const INDEX_PATH_ALIASES: readonly string[] = ['/index.html', 'index.html', '/'];
+
+/** The key a path is looked up under: index aliases collapse, all else is exact. */
+export function canonicalNappletPath(path: string): string {
+  return INDEX_PATH_ALIASES.includes(path) ? '/index.html' : path;
+}
+
+/**
+ * Refuse, rather than pick, path entries that collide after canonicalisation.
+ * NIP-5A is silent on duplicates (kehto/web#525), and a pick would let readers
+ * of one entry see bytes other than the ones the host executes.
+ */
+export function assertUniquePaths(paths: readonly PathEntry[]): void {
+  const seen = new Map<string, string>();
+  for (const { path } of paths) {
+    const key = canonicalNappletPath(path);
+    const earlier = seen.get(key);
+    if (earlier !== undefined) {
+      throw new NappletResolutionError('invalid-manifest',
+        `duplicate path ${JSON.stringify(path)} collides with ${JSON.stringify(earlier)}`);
+    }
+    seen.set(key, path);
+  }
+}
+
 export function parseLegacyManifest(event: NostrEvent): NappletManifest {
   const paths = pathEntriesFromTags(event.tags);
   if (paths.length === 0) {
     throw new NappletResolutionError('invalid-manifest', 'manifest has no path tags');
   }
+  assertUniquePaths(paths);
   const aggregateHash = aggregateTagValue(event.tags);
   if (!aggregateHash) {
     throw new NappletResolutionError('invalid-manifest', 'manifest has no aggregate x tag');

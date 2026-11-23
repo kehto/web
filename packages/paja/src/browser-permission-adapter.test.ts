@@ -61,7 +61,7 @@ describe('Paja runtime permission adapter', () => {
     expect(createBrowserApprovalUi).toHaveBeenCalledWith(expect.objectContaining({ rules: controller.rules }));
   });
 
-  it('redraws the grant list once after a burst of rule-allowed requests', () => {
+  it('answers rule checks without side effects, since a rule allow writes no grant (#513)', () => {
     vi.clearAllMocks();
     vi.useFakeTimers();
     vi.stubGlobal('window', { setTimeout, clearTimeout });
@@ -78,7 +78,8 @@ describe('Paja runtime permission adapter', () => {
       expect(controller.adapter.defaultDecision?.(request, [link])).toBe('ask');
       expect(ui.refresh).not.toHaveBeenCalled();
       vi.runAllTimers();
-      expect(ui.refresh).toHaveBeenCalledOnce();
+      expect(ui.refresh).not.toHaveBeenCalled();
+      expect(controller.adapter.maxGrantsPerPrincipal).toBe(512);
     } finally {
       vi.unstubAllGlobals();
       vi.useRealTimers();

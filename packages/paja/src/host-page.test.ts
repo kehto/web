@@ -39,6 +39,15 @@ describe('@kehto/paja host page', () => {
       expect(toolbar).toContain('role="group" aria-label="Connected controllers"');
     }
   });
+  it('renders a visibly labelled resource proxy field only in the static build', () => {
+    const html = renderPajaHtml(createPajaRuntimeHostConfig({}));
+    expect(html).toContain('<form class="resource-servers resource-proxy" id="paja-resource-proxy-form">');
+    expect(html).toContain('<label class="section-title" for="paja-resource-proxy-input">Resource proxy (optional)</label>');
+    expect(html).toContain('.resource-servers.resource-proxy > label { position: static;');
+    const served = renderPajaHtml(createPajaHostConfig(normalizePajaOptions({ targetUrl: 'http://127.0.0.1:5173/' })));
+    expect(served).not.toContain('paja-resource-proxy-form');
+  });
+
   it('offers a model dropdown with a listing status beside free-text entry', () => {
     const html = renderPajaHtml(createPajaRuntimeHostConfig({}));
     // A preset that lists its models swaps free-text entry for this select.
@@ -97,10 +106,14 @@ describe('@kehto/paja host page', () => {
       expect(aside!.indexOf('id="paja-resource-servers-form"')).toBeLessThan(aside!.indexOf('id="message-log"'));
       const keys = [...aside!.matchAll(/data-paja-section="([^"]+)"/g)].map((match) => match[1]);
       expect(keys).toEqual(config.target.mode === 'runtime-pointer'
-        ? ['pointer', 'interfaces', 'permissions', 'acl', 'signer', 'resource-servers', 'multiplayer', 'security', 'llm', 'messages', 'events']
-        : ['interfaces', 'permissions', 'acl', 'signer', 'resource-servers', 'multiplayer', 'security', 'llm', 'messages', 'events']);
-      expect(aside!.match(/<details[^>]* open>/g)).toHaveLength(keys.length - 1);
-      expect(aside).toContain('id="paja-multiplayer-form"');
+        ? ['pointer', 'interfaces', 'permissions', 'acl', 'signer', 'resource-servers', 'intent-handlers', 'cvm', 'multiplayer', 'security', 'llm', 'messages', 'events']
+        : ['interfaces', 'permissions', 'acl', 'signer', 'resource-servers', 'intent-handlers', 'cvm', 'multiplayer', 'security', 'llm', 'messages', 'events']);
+      // ContextVM providers and Multiplayer signaling start collapsed.
+      expect(aside!.match(/<details[^>]* open>/g)).toHaveLength(keys.length - 2);
+      expect(aside).toMatch(/data-paja-section="cvm">\s*<summary class="section-title">ContextVM providers<[\s\S]*?id="paja-cvm-form"[\s\S]*?<\/details>\s*<details[^>]*data-paja-section="multiplayer">\s*<summary class="section-title">Multiplayer signaling</);
+      const multiplayerSection = aside!.slice(aside!.indexOf('data-paja-section="multiplayer"'), aside!.indexOf('data-paja-section="security"'));
+      expect(multiplayerSection).toContain('id="paja-multiplayer-form"');
+      expect(multiplayerSection).not.toContain('paja-cvm-');
       expect(aside!.match(/<summary class="section-title">/g)).toHaveLength(keys.length);
       expect(aside).not.toMatch(/<details[^>]* name=/);
       expect(aside).toMatch(/id="message-log"[^>]*><\/div>\s*<\/div><\/details>\s*<details[^>]*data-paja-section="events"/);
@@ -144,7 +157,11 @@ describe('@kehto/paja host page', () => {
     const eventsSummary = html.match(/<summary class="section-title">Events[\s\S]*?<\/summary>/)?.[0] ?? '';
     expect(eventsSummary).toMatch(/id="event-kind-total"[\s\S]*id="event-counter-reset"[\s\S]*class="section-chevron"/);
     expect(html).toContain('<iframe id="napplet-frame"');
-    expect(html).toContain('sandbox="allow-scripts"');
+    expect(html).toContain('sandbox="allow-scripts" referrerpolicy="no-referrer"');
+    // kehto/web#381: the host page keeps its URL (query, fragment) out of napplet referrer and baseURI.
+    expect(html).toContain('<meta name="referrer" content="no-referrer">');
+    expect(html.indexOf('<base href="./">')).toBeGreaterThan(-1);
+    expect(html.indexOf('<base href="./">')).toBeLessThan(html.indexOf('./__kehto/browser-host.js'));
     expect(html).toContain('data-target-url="http://127.0.0.1:5173/"');
     expect(html).toContain('id="simulation-theme"');
     expect(html).toContain('id="simulation-status"');

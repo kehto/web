@@ -1,3 +1,6 @@
+import { classifyPajaMessageOutcome, type PajaMessageOutcome } from './message-log-outcome.js';
+
+import { coalescePajaRender } from './render-scheduler.js';
 import type { NappletMessage } from '@napplet/core';
 import {
   ALL_CAPABILITIES,
@@ -22,6 +25,7 @@ import {
   type PajaCapabilityDomain,
   type PajaSimulation,
 } from './simulation.js';
+import { getPajaSetting } from './settings.js';
 
 /** One message row in Paja's browser message log. */
 export interface PajaMessageLogEntry {
@@ -39,6 +43,8 @@ export interface PajaMessageLogEntry {
   preview: string;
   /** Error/detail text, when available. */
   detail: string;
+  /** Whether the row is a refusal or a failure; absent for ordinary rows. */
+  outcome?: PajaMessageOutcome;
 }
 
 /** Mutable browser devtools state for the Paja host page. */
@@ -86,7 +92,13 @@ export interface PajaDevtoolsState {
   clearSignerConsent(): void;
 }
 
-const PAJA_LOG_LIMIT = 500;
+/** Badge text for each highlighted message-log outcome. */
+const PAJA_OUTCOME_LABELS: Readonly<Record<PajaMessageOutcome, string>> = {
+  denied: 'denied',
+  rejected: 'rejected (policy or handler)',
+  failed: 'failed, not a denial',
+};
+
 const FS_PICKER_METHODS: Readonly<Partial<Record<string, keyof ReturnType<typeof browserPickers>>>> = {
   'fs.pickFile.result': 'showOpenFilePicker',
   'fs.pickFiles.result': 'showOpenFilePicker',
@@ -189,11 +201,28 @@ export function appendPajaMessageLog(
     windowId,
     preview: previewMessage(raw),
     detail: describeMessageDetail(raw),
+    outcome: classifyPajaMessageOutcome(direction, raw),
   });
-  if (state.messageLog.length > PAJA_LOG_LIMIT) {
-    state.messageLog.splice(0, state.messageLog.length - PAJA_LOG_LIMIT);
+  if (state.messageLog.length > getPajaSetting('console.messageLogLimit')) {
+    state.messageLog.splice(0, state.messageLog.length - getPajaSetting('console.messageLogLimit'));
   }
-  renderPajaMessageLog(state);
+  requestPajaMessageLogRender(state);
+}
+
+const messageLogRenders = new WeakMap<PajaDevtoolsState, () => void>();
+
+/**
+ * Render the message log once per frame however many messages arrive in it.
+ * A relay-heavy napplet logs thousands of messages in seconds, and rendering
+ * each one forced a full rebuild and layout.
+ */
+function requestPajaMessageLogRender(state: PajaDevtoolsState): void {
+  let request = messageLogRenders.get(state);
+  if (!request) {
+    request = coalescePajaRender(() => renderPajaMessageLog(state));
+    messageLogRenders.set(state, request);
+  }
+  request();
 }
 
 /**
@@ -269,17 +298,23 @@ export function renderPajaDevtools(
  * @param state - Current devtools state.
  */
 export function renderPajaMessageLog(state: PajaDevtoolsState): void {
+  // A coalesced render can land after the page (or a test DOM) went away.
+  if (typeof document === 'undefined') return;
   const container = document.getElementById('message-log');
   if (!container) return;
   const filter = state.messageFilter.trim().toLowerCase();
   const rows = state.messageLog
     .filter((entry) => filter.length === 0 || `${entry.direction} ${entry.type} ${entry.detail} ${entry.preview}`.toLowerCase().includes(filter))
-    .slice(-120)
+    .slice(-getPajaSetting('console.messageLogVisibleRows'))
     .map((entry) => {
       const row = document.createElement('div');
       row.className = 'log-row';
       row.dataset.messageType = entry.type;
-      if (entry.type.endsWith('.error')) row.dataset.error = 'true';
+      if (entry.outcome) {
+        // A relay or transport failure is never shown as a firewall denial.
+        row.dataset.error = 'true';
+        row.dataset.outcome = entry.outcome;
+      }
       const dir = document.createElement('div');
       dir.className = 'log-dir';
       dir.textContent = entry.direction;
@@ -289,6 +324,12 @@ export function renderPajaMessageLog(state: PajaDevtoolsState): void {
       type.className = 'log-type';
       type.title = entry.preview;
       type.textContent = entry.type;
+      if (entry.outcome) {
+        const badge = document.createElement('span');
+        badge.className = 'log-outcome';
+        badge.textContent = PAJA_OUTCOME_LABELS[entry.outcome];
+        body.append(badge);
+      }
       body.append(type);
       if (entry.detail) {
         const detail = document.createElement('div');

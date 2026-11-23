@@ -1,3 +1,4 @@
+import { NAPPLET_KIND_NAMED } from '@kehto/nip/5d';
 import { naddrEncode } from 'nostr-tools/nip19';
 
 import { createPajaIntentLink, parsePajaIntentLink, type ParsedPajaIntentLink } from './intent-link.js';
@@ -37,11 +38,11 @@ export function buildIntentLinkBuilderPayload(input: IntentLinkBuilderPayloadInp
     }
     hasPayload = true;
   }
-  if (input.routing === 'recommend' && input.target.event.kind === 35129 && input.target.manifest.dTag) {
+  if (input.routing === 'recommend' && input.target.event.kind === NAPPLET_KIND_NAMED && input.target.manifest.dTag) {
     uri = `${uri}#${naddrEncode({
       identifier: input.target.manifest.dTag,
       pubkey: input.target.event.pubkey,
-      kind: 35129,
+      kind: NAPPLET_KIND_NAMED,
       relays: [...input.target.pointer.relays],
     })}`;
   }

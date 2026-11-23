@@ -114,7 +114,7 @@ describe('Paja NIP-5D host integration', () => {
     expect(launcherFrame.remove).toHaveBeenCalledOnce();
     expect(runtime.launcherFrames.size).toBe(0);
     expect(runtime.intentSenderIds.has('launcher')).toBe(false);
-    expect(state.messageLog.at(-1)).toMatchObject({ direction: 'paja', windowId: 'launcher' });
+    expect(state.messageLog.at(-1)).toMatchObject({ direction: 'paja', type: 'paja.napplet.revoked', windowId: 'launcher' });
   });
 
   it('replaces the revoked single frame with a fresh iframe and reports the error state', () => {
@@ -134,5 +134,21 @@ describe('Paja NIP-5D host integration', () => {
     expect(runtime.currentWindowId).toBeNull();
     expect(runtime.readyWindowIds.has('single')).toBe(false);
     expect(setStatus).toHaveBeenCalledWith(state, 'error');
+  });
+
+  it('forgets readiness of a window the host already retired, without replacing any frame', () => {
+    const { state, context, runtime, setStatus } = setup();
+    // Paja's retire clears currentWindowId before the bridge reports the host revoke.
+    runtime.currentWindowId = null;
+    runtime.readyWindowIds.add('retired');
+    const used = { contentWindow: {}, cloneNode: vi.fn(), replaceWith: vi.fn() };
+    context.frame = used as unknown as HTMLIFrameElement;
+
+    handlePajaNappletRevoked(state, context, { windowId: 'retired', reason: 'host', detail: 'x' }, { setStatus, renderDevtools });
+
+    expect(runtime.readyWindowIds.has('retired')).toBe(false);
+    expect(used.replaceWith).not.toHaveBeenCalled();
+    expect(setStatus).not.toHaveBeenCalled();
+    expect(state.messageLog.at(-1)).toMatchObject({ direction: 'paja', type: 'paja.napplet.retired', windowId: 'retired' });
   });
 });

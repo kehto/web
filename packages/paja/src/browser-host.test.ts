@@ -84,7 +84,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
     expect(source.match(/admitBrowserDocument\(\{/g)).toHaveLength(1);
     expect(source.match(/admitPajaFrame\(\{/g)).toHaveLength(2);
     expect(source).toContain('verifiedHtml: resolvedTarget.indexHtml');
-    expect(source).toContain('verifiedHtml: injectBaseHref(fetched.html, targetUrl.href)');
+    expect(source).toContain('verifiedHtml: isolated ? fetched.html : injectBaseHref(fetched.html, targetUrl.href)');
     expect(source).toContain('frame.srcdoc = srcdoc;');
     expect(source).not.toContain('resolvedTarget.relays, ...resolvedTarget.blossomServers');
   });
@@ -145,7 +145,7 @@ describe('@kehto/paja browser host runtime source guards', () => {
     expect(source).toContain('`<base href="${escapeAttribute(targetUrl)}">`');
   });
 
-  it('keeps Paja wired to real relay, outbox, and identity bootstrap paths', () => {
+  it('keeps Paja wired to real relay, outbox, and identity bootstrap paths', async () => {
     const adapterSource = readFileSync(new URL('./browser-adapter.ts', import.meta.url), 'utf8');
     const supportSource = readFileSync(new URL('./browser-adapter-support.ts', import.meta.url), 'utf8');
     const intentSource = readFileSync(new URL('./browser-intent-host.ts', import.meta.url), 'utf8');
@@ -156,8 +156,10 @@ describe('@kehto/paja browser host runtime source guards', () => {
     expect(supportSource).toContain('createRelayPoolOutboxRouter');
     expect(supportSource).toContain('() => relayConfig.getRelayUrls([\'discovery\', \'super\']),');
     expect(relaySource).toContain('createNip65Registry');
-    expect(relaySource).toContain('export const PAJA_NIP65_RELAY_LIST_KIND = 10_002;');
-    expect(relaySource).toContain('export const PAJA_CONTACT_LIST_KIND = 3;');
+    expect(relaySource).toContain('export const PAJA_NIP65_RELAY_LIST_KIND = KIND_RELAY_LIST;');
+    expect(relaySource).toContain('export const PAJA_CONTACT_LIST_KIND = KIND_CONTACT_LIST;');
+    const kinds = await import('./nostr-kinds.js');
+    expect([kinds.KIND_RELAY_LIST, kinds.KIND_CONTACT_LIST]).toEqual([10_002, 3]);
     expect(relaySource).toContain('export function createPajaIdentityProviders(');
     expect(relaySource).toContain('export function getPajaBootstrapRelayUrls(');
     expect(relaySource).not.toContain('getSignerRelayUrls');
@@ -165,7 +167,12 @@ describe('@kehto/paja browser host runtime source guards', () => {
     expect(intentSource).toContain('...getPajaRelayUrls(context.runtime.currentSimulation),');
     expect(hostSource).toContain('void signerController.restorePreference();');
     expect(hostSource).not.toContain('if (hasNip07Signer())');
-    expect(hostSource).toContain("bridge.publishIdentityChanged(adapter.auth.getUserPubkey() ?? '');");
+    expect(hostSource).toContain("const pubkey = adapter.auth.getUserPubkey() ?? '';");
+    expect(hostSource).toContain('bridge.publishIdentityChanged(pubkey);');
+    // kehto/web#487: a signer change is an identity.changed push, not a reload.
+    const signerSource = readFileSync(new URL('./browser-host-signer.ts', import.meta.url), 'utf8');
+    expect(signerSource).not.toContain('state.reload()');
+    expect(hostSource).toContain('if (reinjection.shouldReload(active)) stateRef.reload();');
   });
 
   it('keeps the private social cache inside the established identity and outbox host boundary', () => {
@@ -207,8 +214,9 @@ describe('@kehto/paja browser host runtime source guards', () => {
     expect(adapterSource).not.toContain('services.social');
     expect(adapterSource).not.toContain('paja.social');
     expect(diagnosticsSource).toContain('export async function reportTargetCorsDiagnostic(state: PajaBrowserState): Promise<void>');
-    expect(hostSource).toContain("import { reportTargetCorsDiagnostic } from './browser-target-diagnostics.js';");
-    expect(hostSource).toContain('startFrameNavigation(state, context);\n    void reportTargetCorsDiagnostic(state);');
+    expect(diagnosticsSource).toContain("if (plan?.mode === 'isolated') return;\n  await reportTargetCorsDiagnostic(state);");
+    expect(hostSource).toContain("import { reportTargetDiagnostics } from './browser-target-diagnostics.js';");
+    expect(hostSource).toContain('startFrameNavigation(state, context);\n    void reportTargetDiagnostics(state);');
   });
 
   it('uses the selected development signer identity and binds signing to the requesting napplet', async () => {

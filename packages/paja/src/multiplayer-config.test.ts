@@ -9,7 +9,13 @@ describe('explicit multiplayer configuration', () => {
     expect(normalizePajaMultiplayer(undefined)).toBeUndefined();
     const actual = normalizePajaMultiplayer(base)!;
     expect(actual).toEqual(base);
-    expect(actual.registry[0]!.server).not.toBe(base.registry[0]!.server);
+    expect(actual.registry![0]!.server).not.toBe(base.registry[0]!.server);
+  });
+  it('treats the deprecated registry as optional and drops an empty one', () => {
+    const signaling = { profile: 'soy-rtc/1', relays: ['wss://relay.example'] };
+    expect(normalizePajaMultiplayer(signaling)).toEqual(signaling);
+    expect(normalizePajaMultiplayer({ ...signaling, registry: [] })).toEqual(signaling);
+    expect(() => normalizePajaMultiplayer({ ...signaling, registry: 'rooms' })).toThrow('multiplayer.registry');
   });
   it('requires explicit profiles, providers, and schema pins', () => {
     expect(() => normalizePajaMultiplayer({ ...base, profile: 'https://provider.example' })).toThrow('profile');

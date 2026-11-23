@@ -18,6 +18,13 @@
  * - Top-level `error` is used only when no upload was created (`invalid request`,
  *   `unsupported rail`, `file too large`, `unsupported media type`), matching
  *   the draft's SHOULD. Failures after creation use `result.ok: false`.
+ * - `upload.info` always succeeds with the configured `info`, so it has no
+ *   failure reply. A host that fails it sends `info: { rails: [] }` with
+ *   `error`, because the wire table requires `info` (kehto/web#518).
+ * - `upload.status` for an invalid or unknown `uploadId` answers with `error`
+ *   and no `status`: a bounded spec gap (napplet/naps#33 @ f5cc981e,
+ *   kehto/web#518). `UploadStatus` requires `rail`, `status` and `updatedAt`,
+ *   and a failed lookup has no honest value for any of them.
  */
 import type { NappletMessage } from '@kehto/runtime';
 import type {

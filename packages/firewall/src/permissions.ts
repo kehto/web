@@ -4,7 +4,56 @@ import type {
   PermissionPrincipal, PermissionRequest, PermissionRequirement, PermissionState,
 } from './permission-types.js';
 
-const MAX_GRANTS = 2048;
+/**
+ * Default most requirements one permission request may carry, counting the
+ * interface requirement added for each domain. It bounds evaluation work and
+ * prompt size; hosts tune it with `PermissionPolicyOptions.maxRequirements`.
+ * @example const networkBudget = permissionLimits({}).maxRequirements - 1; // one interface requirement
+ */
+export const MAX_PERMISSION_REQUIREMENTS = 128;
+/** Hard ceiling for `maxRequirements`: evaluation costs requirements × grants. */
+export const MAX_PERMISSION_REQUIREMENTS_CEILING = 1024;
+/** Default size of the grant table; hosts tune it with `PermissionPolicyOptions.maxGrants`. */
+export const MAX_PERMISSION_GRANTS = 2048;
+/** Hard ceiling for `maxGrants`, which also bounds the persistent document. */
+export const MAX_PERMISSION_GRANTS_CEILING = 16_384;
+/**
+ * Default share of the grant table one napplet may hold (kehto/web#513); hosts
+ * tune it with `PermissionPolicyOptions.maxGrantsPerPrincipal`. It is clamped
+ * to `maxGrants` and shares the `MAX_PERMISSION_GRANTS_CEILING` hard ceiling.
+ */
+export const MAX_PERMISSION_GRANTS_PER_PRINCIPAL = 512;
+
+/** Resolved, validated policy bounds. */
+export interface PermissionLimits {
+  readonly maxRequirements: number;
+  readonly maxGrants: number;
+  /** Grants one napplet (`permissionRuleSubject`) may hold, at most `maxGrants`. */
+  readonly maxGrantsPerPrincipal: number;
+}
+
+function bound(value: number | undefined, fallback: number, ceiling: number, name: string): number {
+  if (value === undefined) return fallback;
+  if (!Number.isSafeInteger(value) || value < 1 || value > ceiling) throw new RangeError(`${name} must be an integer from 1 to ${ceiling}`);
+  return value;
+}
+
+/**
+ * Resolve and validate a policy's bounds; a value outside 1..ceiling throws, so
+ * a bad setting can never make evaluation or the grant table unbounded.
+ * @param options - Host policy options.
+ * @returns The bounds in force.
+ * @example permissionLimits({ maxRequirements: 256 }); // { maxRequirements: 256, maxGrants: 2048, maxGrantsPerPrincipal: 512 }
+ */
+export function permissionLimits(options: PermissionPolicyOptions = {}): PermissionLimits {
+  const maxGrants = bound(options.maxGrants, MAX_PERMISSION_GRANTS, MAX_PERMISSION_GRANTS_CEILING, 'maxGrants');
+  const share = bound(options.maxGrantsPerPrincipal, MAX_PERMISSION_GRANTS_PER_PRINCIPAL, MAX_PERMISSION_GRANTS_CEILING, 'maxGrantsPerPrincipal');
+  return Object.freeze({
+    maxRequirements: bound(options.maxRequirements, MAX_PERMISSION_REQUIREMENTS, MAX_PERMISSION_REQUIREMENTS_CEILING, 'maxRequirements'),
+    maxGrants, maxGrantsPerPrincipal: Math.min(share, maxGrants),
+  });
+}
+
 const HASH = /^[a-f0-9]{64}$/;
 const MANIFEST = /^nip5d:(?:35129:[a-f0-9]{64}:.+|15129:[a-f0-9]{64}|5129:[a-f0-9]{64})$/;
 
@@ -78,7 +127,7 @@ function grantSnapshot(grant: PermissionGrant, options: PermissionPolicyOptions)
 export function putPermissionGrant(state: PermissionState, grant: PermissionGrant, options: PermissionPolicyOptions = {}): PermissionState {
   const entry = grantSnapshot(grant, options);
   const retained = state.grants.filter((item) => item.id !== entry.id);
-  if (retained.length >= MAX_GRANTS) throw new RangeError('Permission grant limit exceeded');
+  if (retained.length >= permissionLimits(options).maxGrants) throw new RangeError('Permission grant limit exceeded');
   return snapshot([...retained, entry]);
 }
 
@@ -95,7 +144,7 @@ export function revokePermissionGrant(state: PermissionState, id: string): Permi
 
 function requestRequirements(request: PermissionRequest, options: PermissionPolicyOptions): PermissionRequirement[] {
   if (!permissionText(request.sessionId, 256) || !permissionText(request.requestId, 256)
-    || !Array.isArray(request.requirements) || request.requirements.length < 1 || request.requirements.length > 128) {
+    || !Array.isArray(request.requirements) || request.requirements.length < 1 || request.requirements.length > permissionLimits(options).maxRequirements) {
     throw new TypeError('Invalid permission request');
   }
   const requirements = request.requirements.map((value) => normalizeRequirement(value, options));
@@ -187,7 +236,7 @@ export function deserializePermissions(raw: string, options: PermissionPolicyOpt
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return { ok: false, reason: 'invalid-state' };
     if (parsed.version !== 1) return { ok: false, reason: 'unsupported-version' };
-    if (!Array.isArray(parsed.grants) || parsed.grants.length > MAX_GRANTS) return { ok: false, reason: 'invalid-state' };
+    if (!Array.isArray(parsed.grants) || parsed.grants.length > permissionLimits(options).maxGrants) return { ok: false, reason: 'invalid-state' };
     const ids = new Set<string>();
     const grants = parsed.grants.map((value: PermissionGrant) => {
       const grant = grantSnapshot(value, options);

@@ -114,6 +114,11 @@ test('revoking an approved interface retires the executing frame', async ({ page
   await expect(revoke).toBeVisible();
   await revoke.click();
   await expect(frame.locator('#executed')).toHaveCount(0);
+  // The retire went through the bridge's revoke teardown (kehto/web#488), and it
+  // is not reported as a NIP-5D evidence revoke.
+  const log = () => page.evaluate(() => window.__KEHTO_PAJA__?.getState().messageLog.map((entry) => entry.type) ?? []);
+  await expect.poll(async () => (await log()).filter((type) => type === 'paja.napplet.retired').length).toBeGreaterThanOrEqual(1);
+  expect((await log()).filter((type) => type === 'paja.napplet.revoked')).toEqual([]);
 });
 
 test('direct network approval reaches its exact origin and blocks a sibling origin', async ({ page }) => {

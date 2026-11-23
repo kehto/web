@@ -13,6 +13,7 @@
  * visit budget) before anything inspects or serializes them.
  */
 
+import { isJsonSchema, isPlainObject } from './llm-json-schema.js';
 import type { LlmGeneration, LlmGenerationRequest, LlmMessage, LlmOutputPart, LlmRequirements, LlmToolCallPart, LlmToolChoiceMode, LlmUsage } from './llm-types.js';
 
 type Check = (value: unknown) => boolean;
@@ -35,12 +36,6 @@ const finiteNumber: Check = (value) => typeof value === 'number' && Number.isFin
 const MAX_JSON_DEPTH = 64;
 /** Total values visited per free-form value; a shared subgraph walked as a tree exhausts it. */
 const MAX_JSON_NODES = 50_000;
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
-  const prototype: unknown = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
-}
 
 /**
  * True for plain JSON data: objects, arrays, strings, booleans, null and finite
@@ -97,45 +92,13 @@ const message: Check = (value) => plainMessage(value) || assistantMessage(value)
 
 const requirements = exactRecord({}, { model: nonemptyText, images: boolean, json: boolean, tools: boolean });
 
-const SCHEMA_TYPES = new Set(['string', 'number', 'integer', 'boolean', 'object', 'array', 'null']);
-/** Schema nesting bound; deeper schemas are treated as malformed. */
-const MAX_SCHEMA_DEPTH = 32;
-const SCHEMA_MAPS = ['properties', 'patternProperties', '$defs'] as const;
-const SCHEMA_SINGLES = ['items', 'additionalProperties', 'not', 'contains', 'propertyNames', 'if', 'then', 'else'] as const;
-const SCHEMA_LISTS = ['allOf', 'anyOf', 'oneOf', 'prefixItems'] as const;
-
-function validSchemaType(type: unknown): boolean {
-  if (typeof type === 'string') return SCHEMA_TYPES.has(type);
-  return Array.isArray(type) && type.length > 0 && type.every((entry) => typeof entry === 'string' && SCHEMA_TYPES.has(entry));
-}
-
 /**
- * Dependency-free structural check of the JSON Schema 2020-12 keywords NAP-LLM
- * can rely on: `type` values, `properties`/`$defs` maps of schemas, a single
- * `items` schema, `required` as a string list, `enum` as a list, and
- * `allOf`/`anyOf`/`oneOf` as schema lists. Booleans are schemas. Unknown
- * keywords pass, since JSON Schema keywords are not unknown record fields.
+ * Tool `parameters`: a bounded JSON object with root `type: "object"` that is
+ * well-formed under the JSON Schema 2020-12 meta-schema. The bound runs first,
+ * so the schema walk only ever sees plain, acyclic data of limited size. The
+ * record check stops here: schema keywords are not unknown record fields.
  */
-function isSchema(value: unknown, depth: number): boolean {
-  if (typeof value === 'boolean') return true;
-  if (depth > MAX_SCHEMA_DEPTH || !isPlainObject(value)) return false;
-  const sub = (entry: unknown): boolean => isSchema(entry, depth + 1);
-  if (value.type !== undefined && !validSchemaType(value.type)) return false;
-  for (const key of SCHEMA_MAPS) {
-    const entry = value[key];
-    if (entry !== undefined && !(isPlainObject(entry) && Object.values(entry).every(sub))) return false;
-  }
-  for (const key of SCHEMA_SINGLES) if (value[key] !== undefined && !sub(value[key])) return false;
-  for (const key of SCHEMA_LISTS) {
-    const entry = value[key];
-    if (entry !== undefined && !(Array.isArray(entry) && entry.length > 0 && entry.every(sub))) return false;
-  }
-  if (value.required !== undefined && !(Array.isArray(value.required) && value.required.every((name) => typeof name === 'string'))) return false;
-  return value.enum === undefined || Array.isArray(value.enum);
-}
-
-/** Tool `parameters`: a JSON object, structurally a schema, with root `type: "object"`. */
-const toolParameters: Check = (value) => isPlainObject(value) && isJsonValue(value) && value.type === 'object' && isSchema(value, 0);
+const toolParameters: Check = (value) => isPlainObject(value) && isJsonValue(value) && value.type === 'object' && isJsonSchema(value);
 const toolName: Check = (value) => typeof value === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(value);
 const tool = exactRecord({ name: toolName }, { description: text, parameters: toolParameters });
 const namedToolChoice = exactRecord({ type: oneOf('tool'), name: nonemptyText });

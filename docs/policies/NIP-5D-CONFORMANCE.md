@@ -25,7 +25,7 @@ implementation authority. `RUNTIME-SPEC.md` is internal runtime guidance.
 
 - **NAP-INTENT:** draft PR #106 `napplet/naps@fc121fc264615482143eda86125863d2e1f741a2` (the working authority for this implementation).
 - **NAP-INC:** merged `napplet/naps` master
-  `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`.
+  `377bf939c6c906817084b43dd21d424de646dbc2`.
 - **NAP-IDENTITY / NAP-THEME / NAP-SHELL:** merged `napplet/naps` master
   `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`.
 - **NAP-RELAY:** open PR #2 at
@@ -37,7 +37,7 @@ implementation authority. `RUNTIME-SPEC.md` is internal runtime guidance.
   `a79e7f4638f70f4557d4183faee9348847bb8cc7`, merged as release source
   `dc1d24153c759152b6ba31a6ec9bea967798f2df`. The exact fixture-napplet line is core
   `0.32.0`, nap `0.32.0`, shim `0.30.0`, SDK `0.28.0`, and Vite plugin `0.16.2`; host
-  packages develop on core `0.41.0` and nap `0.40.0`.
+  packages develop on core `0.45.0` and nap `0.45.0`.
 
 ### Current event schema and retained compatibility
 
@@ -55,6 +55,29 @@ Legacy `path`/aggregate events remain a temporary compatibility extension,
 isolated in `packages/nip/src/5d/legacy-manifest.ts`. Never retry malformed current
 events through that adapter. Keep paired-schema tests until it is removed.
 See [migration and removal policy](../migrations/NIP-5D-EVENT-SCHEMA.md).
+
+### Legacy path collisions
+
+Checked NIP-5D at `nostr-protocol/nips#2303` head
+`f60550c3409d6d81a875088ec83e660571e10504`, which has no `path` schema: "A
+napplet is a single self-contained `/index.html`" with "exactly one `x` tag".
+NIP-5A at `nostr-protocol/nips@bec0fc89e75645e77a06d145598246efca844457` only
+says "The host server SHOULD look for a `path` tag where the second element
+matches the requested path" and "MUST fall back to using the `index.html`
+filename" for a request without one. Neither text covers duplicate `path`
+tags, so this is a bounded Kehto policy for the legacy adapter (kehto/web#525):
+
+- The legacy parser (`assertUniquePaths` in
+  `packages/nip/src/5d/legacy-manifest.ts`) refuses with `invalid-manifest` any
+  event whose `path` entries collide after canonicalisation. The only aliasing
+  the resolver applies is `/`, `index.html` and `/index.html` as the entry
+  document; every other path compares exactly.
+- `resolveNapplet` checks again before fetching, so its file map and its
+  index lookup use one key per entry. Kehto never picks one of two colliding
+  entries. Otherwise readers of the first entry would see bytes other than the
+  ones the host runs.
+- Current single-artifact events carry one synthesized `/index.html` entry and
+  never reach this branch.
 
 ### Shell CSP enforcement
 
@@ -199,22 +222,53 @@ shell, never by napplet cooperation:
    frame tag, so `innerHTML`, `outerHTML`, `insertAdjacentHTML`, `DOMParser`,
    `document.write`, `Range.createContextualFragment`, `setHTMLUnsafe` and the
    rest are closed.
-2. **Element factories.** The only element-creating methods on the platform are
-   `Document.prototype.createElement` and `createElementNS` (verified by
-   enumerating every `create*` method on `Document`, `Element` and `Node` in
-   Chromium, Firefox and WebKit — all others create non-element nodes). The
-   prelude pins both, non-configurable, to reject frame tag names, along with
-   `DOMImplementation.createDocument`.
+2. **Element factories.** `Document.prototype.createElement` and
+   `createElementNS` are the only element-creating *methods* on the platform
+   (verified by enumerating every `create*` method on `Document`, `Element` and
+   `Node` in Chromium, Firefox and WebKit — all others create non-element
+   nodes). The prelude pins both, non-configurable, to reject frame tag names,
+   along with `DOMImplementation.createDocument`.
+3. **XSLT.** `XSLTProcessor.transformToFragment` builds result elements from an
+   XSL stylesheet DOM, which a napplet can assemble with `createElementNS` in the
+   XSL namespace (not a frame tag) and no string sink. The first cut of this lock
+   missed it: re-measured for kehto/web#381, an `<xsl:element name="iframe">`
+   template minted a live child frame under the lock in Chromium 147, Firefox 148
+   and WebKit 26.4 (`window.length` went to 1). The lock now removes
+   `XSLTProcessor` from the realm, pinned as a non-writable, non-configurable
+   `undefined`, and the bypass battery carries an XSLT vector.
+4. **Namespaced XML.** `DOMParser` in `application/xml` mode turns
+   `<h:iframe xmlns:h="http://www.w3.org/1999/xhtml"/>` into a live XHTML
+   iframe once the node is adopted, and the frame-tag check only matched an
+   unprefixed tag name, so this also got past the first cut (measured in all
+   three engines). The `default` policy now matches an optional namespace prefix
+   on frame tags. A string check alone cannot close XML parsing, though: a DTD
+   internal entity (`<!ENTITY e "&#60;h:iframe …/&#62;">`) hides the markup
+   until the parser expands it, which also minted a frame under the lock in all
+   three engines. So the prelude pins `DOMParser.prototype.parseFromString` to
+   inspect the parsed document (template content and shadow roots included) and
+   throw when it holds an XHTML frame element. The battery carries both the
+   prefixed and the entity vector.
 
 Node movement (`cloneNode`, `importNode`, `adoptNode`) needs a pre-existing
-frame node, and both creation routes are closed, so there is no bootstrap.
+frame node, and every creation route above is closed, so there is no bootstrap.
 Escaping the pins needs a fresh realm, whose only sources are a child frame
 (closed here), a popup (the `allow-scripts`-only sandbox denies `allow-popups`)
-or a worker (not a browsing context, no DOM). The set is closed: no specified
-web-platform API leaves a napplet a way to create a nested browsing context.
-This is a closed structural enumeration, not a sampled probe; its residual is a
-browser implementation bug, the same residual class as the `sandbox` attribute
-itself (which has had escape CVEs).
+or a worker (not a browsing context, no DOM). The XSLT miss is a reminder that
+this enumeration is an argument, not a proof: its residual is a browser
+implementation bug *or a platform element source the enumeration has not
+named*, which is why the tripwire below exists.
+
+**Tripwire backstop.** Under the lock a napplet has no legitimate child frame,
+so the shell revokes the binding (`NappletRevocationReason` `nested-context`)
+when the napplet Window reports `length > 0`. The check runs on events the
+transport already handles, the frame's `load` and each envelope from the bound
+port, so there is no polling, and it never runs for unlocked napplets (no false
+positive for a canonical napplet that uses a child frame).
+`admitBrowserDocument` marks locked admissions itself; hosts that call
+`prepareNappletSrcdoc` directly pass
+`bridge.observeFrame(frame, windowId, { nestedContextLock: true })`. Detection,
+not prevention: a child created and removed between two of those events goes
+unseen, and one that is seen has already run once.
 
 A napplet's own *static* `<iframe>` is instantiated by the HTML parser, which is
 not a Trusted Types sink, so the shell scans the verified bytes and refuses any
@@ -234,11 +288,160 @@ Because the lock is opt-in, this contract change applies only to hosts that set
 `experimental.nestedContextLock`.
 
 Regression: `tests/e2e/shell-csp.spec.ts` (real opaque iframe, scripted bypass
-battery and the byte scan), the prelude unit tests in
-`packages/shell/src/napplet-namespace.test.ts`, `napplet-csp.test.ts`,
-`napplet-frame-scan.test.ts`, the Paja rejection test in
+battery including XSLT, and the byte scan), the prelude unit tests in
+`packages/shell/src/napplet-namespace.test.ts`, `napplet-realm-lock.test.ts`,
+`napplet-csp.test.ts`, `napplet-frame-scan.test.ts`, the tripwire tests in
+`nip5d-port-binding.test.ts`, the Paja rejection test in
 `packages/paja/src/browser-target-frame.test.ts`, and the conformance guard in
 `tests/unit/nip5d-conformance-guard.test.ts`.
+
+### Resource hints
+
+Spec-gap decision (defense-in-depth beyond the current NIP-5D text, which says
+nothing about resource hints; checked against nostr-protocol/nips#2303 at
+`f60550c`). **Opt-in and off by default**, via `experimental.resourceHintLock`.
+
+CSP3 (w3c/webappsec-csp editor's draft at `e3461f7`) gives `prefetch` and
+`prerender` initiators the `default-src` directive and governs `preconnect` by
+the union of a policy's source lists, so under Kehto's `default-src 'none'` none
+of these should reach the network. Measured from a sandboxed `srcdoc` napplet
+under Kehto's CSP (attempted-and-blocked separated from real egress with a raw
+TCP sink, Chromium net-log resolver jobs and Firefox `nsHostResolver` logs):
+
+| Hint | Chromium 147 | Firefox 148 | WebKit 26.4 |
+|---|---|---|---|
+| `rel=prefetch` | blocked by `default-src` (CSP violation logged) | blocked by `default-src` | no request (none top-level either) |
+| `rel=prerender` | **GET egress** (`Sec-Purpose: prefetch`), static and scripted; no host CSP, header or `x-dns-prefetch-control` stops it | no request (unsupported) | no request (unsupported) |
+| `rel=preconnect` | **DNS + TCP** with network prediction on (the browser default; off in Playwright's default context) | not measurable (no top-level control fired) | **TCP connect**, scripted or a static link whose `href` is rewritten |
+| `rel=dns-prefetch` | **DNS resolution** with prediction on | **DNS resolution** with prediction prefs on | not measured (no resolver log) |
+| speculation rules / `<a ping>` | no request / blocked by CSP | no request / not measured | no request / not measured |
+
+So the napplet/evil `evil-02` "prefetch hints" observation was the blocked
+`rel=prefetch` attempt (Chromium's `Fetching content … violates … "default-src
+'none'"` console line, which Paja shows): attempted and blocked, not egress. Its
+`dns-prefetch` link left no console trace, and in a regular browser profile it
+does resolve. The real channels are the three rows in bold; each carries
+napplet-chosen data in the URL or host name, and a static hint becomes one as
+soon as a script rewrites its `href`.
+
+No host-side control closes them without touching verified bytes: neither the
+napplet CSP, a host-page CSP, a `Referrer-Policy`, nor an injected
+`<meta http-equiv="x-dns-prefetch-control" content="off">` (still resolved in
+Chromium), and `document.featurePolicy` exposes no hint feature. Kehto layers
+the closure like the nested-context lock:
+
+1. The shared Trusted Types `default` policy parses each string-sink input in
+   an inert document (descending into nested `<template>` content) and rejects
+   it when a `<link>` would carry `dns-prefetch`, `preconnect` or `prerender`;
+   a `document.write` chunk that ends inside a tag is rejected so a hint cannot
+   be split across chunks (this also rejects a chunk of plain text with an
+   unmatched `<`), and any namespace-prefixed `link` tag is rejected because
+   `DOMParser`'s XML modes make it a live XHTML link. The shared
+   `parseFromString` pin rejects a parsed document holding an XHTML hint link,
+   which closes DTD-entity tricks the string check cannot see.
+2. The prelude pins every attribute writer that can set a link's `rel`: the
+   `rel` setter, `relList` `add`/`toggle`/`replace`/`value`, `setAttribute(NS)`,
+   `setAttributeNode(NS)`, `NamedNodeMap.setNamedItem(NS)` and the `Attr`
+   `value`/`nodeValue`/`textContent` setters. `XSLTProcessor` is removed.
+3. The host refuses verified bytes whose own markup declares a hint link
+   (`nappletMarkupHasResourceHint` / `assertNappletHasNoResourceHint`).
+
+Canonical link relations (`stylesheet`, `icon`, `next`, …) and canonical HTML
+are unaffected. Paja enables the hint lock whenever its nested-context lock
+resolves on (same CLI flag, config key and Security switch), since both need
+Trusted Types. Compatibility: the same Trusted Types contract change as the
+nested-context lock (`NIP5D_TRUSTED_TYPES_REQUIRED`), plus refusal of napplets
+that ship a static hint link; both apply only to hosts that opt in.
+
+Residual with the lock off (the default): the bold rows above stay open. The
+upstream fix is browser conformance with CSP3's resource-hint rules.
+
+Regression: `tests/e2e/shell-resource-hints.spec.ts` (Chromium prerender egress
+control, a 24-vector scripted battery of which 23 create live hint links in
+Chromium without the lock (`execCommand` does not) and none with it, and a
+zero-request sink assertion), the same battery and the frame battery run
+cross-engine for this change with a throwaway three-project Playwright config
+(Chromium 147, Firefox 148, WebKit 26.4: zero hint links and zero frames under
+the locks in all three), `packages/shell/src/napplet-hint-scan.test.ts`,
+`napplet-realm-lock.test.ts`, the Paja rejection test in
+`packages/paja/src/browser-target-frame.test.ts`, and the guard in
+`tests/unit/nip5d-conformance-guard.test.ts`.
+
+### Embedding URL
+
+Spec-gap decision (beyond-spec Kehto host policy; NIP-5D at `f60550c` is silent
+on referrers and base URLs). A verified napplet is an `about:srcdoc` document,
+which inherits the embedding page's referrer and its fallback base URL. Without
+host policy a napplet reads the shell URL from `document.referrer` and the full
+URL, path, query and fragment included, from `document.baseURI`. Paja keeps the
+opened pointer (`?naddr=`) and intent links (`?intent=`) in its query, so every
+napplet tab could read them (napplet/evil finding #2).
+
+Measured from a sandboxed `srcdoc` napplet on a host page at
+`/shell/secret-path?token=…` (so `./` and `/` differ):
+
+| Channel | No control | iframe `referrerpolicy="no-referrer"` | host `<meta name="referrer">` / `Referrer-Policy` | host `<base href="./">` |
+|---|---|---|---|---|
+| `document.referrer`, Chromium 147 | host origin | empty | empty | — |
+| `document.referrer`, Firefox 148 | empty | empty | empty | — |
+| `document.referrer`, WebKit 26.4 | host origin | **host origin** (ignored for srcdoc) | empty | — |
+| `document.baseURI`, all three | full host URL | full host URL | full host URL | host directory only (`/shell/`) |
+| `location.ancestorOrigins` | host origin | Chromium/WebKit: host origin; Firefox: `"null"` | host origin | host origin |
+| subresource `Referer` | none sent | none | none | none |
+
+A `<base>` injected into the napplet document hides the fallback only until the
+napplet removes it (measured in all three), so the base belongs on the host
+page. `@kehto/shell` exports the controls, none of which touch verified bytes:
+`denyNappletReferrer(frame)` (iframe attribute, set before `srcdoc`),
+`renderNappletReferrerPolicyMeta()` (the portable control, WebKit included) and
+`renderNappletHostBase()` (drops file name, query and fragment from the
+inherited base). `ShellBridge.observeFrame` warns once when a frame lacks the
+attribute or its host page lacks the referrer meta (`hasNappletReferrerPolicy`,
+`hasNappletReferrerPolicyMeta`). Paja's host page and frames, and the e2e harness, apply all
+three. A host-page `<base href="./">` changes how the host's own fragment-only
+and query-only references resolve; Paja has none.
+
+Residual: `location.ancestorOrigins` still exposes the host origin in Chromium
+and WebKit, and the host page's directory stays in `document.baseURI`. Neither
+carries Paja state. No host control removes them.
+
+Regression: `tests/e2e/napplet-url-privacy.spec.ts` (Paja with a secret query
+and fragment, and the harness), `packages/shell/src/napplet-url-privacy.test.ts`,
+`nip5d-referrer-warning.test.ts` and `packages/paja/src/host-page.test.ts`.
+
+### Red-team residuals
+
+`tests/e2e/evil-suite.spec.ts` runs the [napplet/evil](https://github.com/napplet/evil)
+suite through Paja when `KEHTO_EVIL_SUITE_DIR` points at a local checkout; it is
+skipped otherwise and never fetches the suite. It fails on any `armed` row that
+is not a documented residual here:
+
+- `evil-07-fingerprint`, every row: passive fingerprinting, which NIP-5D does
+  not protect against.
+- `evil-08-wasm-timing` `wasm-compile` and `timer-resolution`: NIP-5D's baseline
+  CSP grants `'wasm-unsafe-eval'` and makes no timer promise.
+- `evil-02-csp-egress` `webrtc-grandchild`, unless the nested-context lock is
+  on (`KEHTO_EVIL_SUITE_LOCK=on`).
+- `evil-01-sandbox-escape` `referrer`: the row arms on any `document.baseURI`
+  other than `about:srcdoc` and on a non-empty `location.ancestorOrigins`, so
+  it arms on the host origin and directory that the [Embedding URL](#embedding-url)
+  residual above already accepts. No Paja state (query, fragment, file name)
+  reaches the frame. Accepted for now; a later change may harden it, for
+  example with an opaque frame base URL.
+- `evil-06-side-channels` `error-taxonomy`: a storage miss resolves `null`, an
+  oversized `storage.set` fails with a quota error and a normal write succeeds.
+  Those are three distinct answers that NAP-STORAGE expects, and NIP-5D makes
+  no side-channel promise. Since napplet/evil#4 the row compares error messages,
+  so identical rate-limiter errors no longer arm it.
+
+Rows are what the napplet reported up to its revocation, including rows that
+settle in the instant before Paja tears the frame down. The runner streams each
+row change out of the frame and reads the last report, so a revoked napplet's
+earlier rows still count. Revocation is asserted, not tolerated: `evil-03`,
+`evil-04`, `evil-06` and `evil-08` must be revoked on `window-message` (their
+window-level rows run last), `evil-09` on `second-load` or `window-message`, and
+every other napplet must not be revoked. Rows still `pending` at revocation
+were never measured; they never count as held.
 
 ### Active NAP-RELAY boundary
 
@@ -259,9 +462,9 @@ recorded upstream drift, not authority to let a napplet bypass shell signing.
 ### Active NAP-INC boundary
 
 NAP-INC is governed by merged
-[`naps/NAP-INC.md`](https://github.com/napplet/naps/blob/5ac0490461ca6fec2f0d2e45b4835cf9bc08de24/naps/NAP-INC.md)
+[`naps/NAP-INC.md`](https://github.com/napplet/naps/blob/377bf939c6c906817084b43dd21d424de646dbc2/naps/NAP-INC.md)
 on `napplet/naps` master
-`5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`. The document remains marked
+`377bf939c6c906817084b43dd21d424de646dbc2`. The document remains marked
 draft, but the merged path supersedes the earlier stacked PR heads as protocol
 authority.
 
@@ -272,9 +475,23 @@ discovery identities, while routing arbitrary opaque strings (including `?` and
 `#`) by their complete exact text. It must not add prefix, wildcard, or
 query-aware matching, service-over-INC prefix dispatch, synthetic senderless
 events, or runtime payload-kind inference. The runtime attaches a
-**runtime-attested dTag** to
+**runtime-attested endpoint identifier** to
 delivered events, does not accept caller `sender`, keeps payloads and IDs
 opaque, and excludes the source endpoint from topic fan-out.
+
+`target`, `sender`, and `peer` are runtime-assigned endpoint identifiers: opaque text, one per live registered
+endpoint, taken from the injected `crypto.randomUUID`, and carrying no manifest `d` tag, artifact hash, window ID,
+instance ID, or ordering. An identifier is assigned on first use, lasts until that registration is replaced or
+unregistered, and is never reused; a replacement registration is a new endpoint whose old channels close as
+`peer destroyed`. Root and snapshot manifests without a `d` tag get identifiers like any other endpoint. A `d` tag is
+never resolved as a channel target (`KEHTO_INC_DTAG_TARGET_RETIRED` in
+[the compatibility register](https://github.com/kehto/web/blob/main/docs/compatibility.md)). Napplets learn a peer
+from an attested `sender`/`peer`; a host selects one with `Runtime.getIncEndpointId(windowId)`.
+Firewall, ACL, and permission records stay keyed by the verified principal (`dTag` plus artifact hash); only the INC
+wire identity changed. `@napplet/nap@0.40.0` INC types described `sender`, `target`, and
+`inc.channel.open.result.peer` as napplet identities (comment text only; the field shapes match).
+`@napplet/nap@0.43.0` (napplet/web#341) describes them as runtime-attested opaque endpoint identifiers, so that
+upstream drift is closed.
 
 Merged NAP-INC and released `@napplet/nap@0.32.0` both define
 `on(topic, callback)` with one `IncEvent`.
@@ -295,7 +512,7 @@ Checked NAP-INTENT PR #106 at `napplet/naps@fc121fc264615482143eda86125863d2e1f7
 
 `@napplet/nap@0.32.0` (the fixture line) is behind the checked NAP. Host packages take the intent value types from `@napplet/core@0.41.0`, which matches the checked draft (napplet/web#329): `packages/services/src/intent-types.ts` only re-exports them under the existing `@kehto/services` names and declares no local contract. The shell's injected `window.napplet.intent` receiver stays Kehto-owned because the host must install it before `shell.ready`. Like the `@napplet/nap@0.40.0` binding, it drops deliveries without a non-empty string sender and never forwards a delivery ID. `sourceWindowId` is internal host correlation and never wire data. Legacy INC fallback remains separately tracked as `KEHTO_COMPAT_INTENT_INC`; legacy object invoke is tracked as `KEHTO_COMPAT_INTENT_OBJECT_INVOKE`.
 
-NIP-5D bytes are verified before `srcdoc` execution; injected bootstraps are deliberately outside the signed artifact hash and unknown `MessageEvent.source` values are dropped. Paja's external URL uses a signed ephemeral launcher to provide an authenticated source. Opening a shared link follows ordinary verified-pointer navigation policy and opens the app directly. A conflicting applicable saved default and verified link hint require a named-app choice; a one-time choice never changes the default. Persisted catalog pointers are discovery inputs that must be reverified independently of open tabs. A native external host source has no verified iframe endpoint and remains a deferred upstream spec gap.
+NIP-5D bytes are verified before `srcdoc` execution; injected bootstraps are deliberately outside the signed artifact hash and unknown `MessageEvent.source` values are dropped. Paja's external URL uses a signed ephemeral launcher to provide an authenticated source. Opening a shared link follows ordinary verified-pointer navigation policy and opens the app directly. A conflicting applicable saved default and verified link hint require a named-app choice; a one-time choice never changes the default. Persisted catalog pointers are discovery inputs that must be reverified independently of open tabs. A replacement offered for a `nevent` whose event is gone is discovery only: nothing is fetched or framed until the user picks it, and the pick is a fresh verified `naddr` load. A native external host source has no verified iframe endpoint and remains a deferred upstream spec gap.
 
 ### Active NAP-IDENTITY and NAP-THEME boundary
 
@@ -353,10 +570,12 @@ Authority: [NIP-5D at
   frozen environment, and calls `ShellAdapter.onNappletRevoked` so the host
   removes the frame. `originRegistry.register` refuses a spent `Window`. Hosts
   create a fresh iframe for every navigation; Paja and the e2e harness do.
-- Kehto's host packages develop on `@napplet/core` 0.41.0 and `@napplet/nap` 0.40.0;
-  published peers are per package (core `<0.42.0`, nap `<0.41.0`; `@kehto/services` and
-  `@kehto/paja` and `@kehto/cli` floor core at 0.41.0 because services re-exports core's no-ID
-  intent types, and keep the nap floor at 0.37.0). Fixture napplets, `@napplet/shim` 0.30.0,
+- Kehto's host packages develop on `@napplet/core` 0.45.0 and `@napplet/nap` 0.45.0;
+  published peers are per package (core `<0.46.0`, nap `<0.46.0`; `@kehto/services` and
+  `@kehto/paja` and `@kehto/cli` floor core at 0.42.0 because services re-exports core's no-ID
+  intent types and selector-based CVM registry types, and keep the nap floor at 0.37.0;
+  `@kehto/mocks` floors core at 0.44.0 and nap at 0.43.0 because its declarations use the
+  NAP-WEBRTC and NAP-MEDIA types first packaged there). Fixture napplets, `@napplet/shim` 0.30.0,
   `@napplet/sdk` 0.28.0 and `@napplet/vite-plugin` 0.16.2 stay on their exact pins
   (kehto/web#364). Kehto implements both sides of the handoff itself and needs no
   newer shim API.
@@ -375,6 +594,22 @@ here with a matching guard in `tests/unit/nip5d-conformance-guard.test.ts`.
 | Host | Frame | Messages | Why it is bounded |
 |------|-------|----------|-------------------|
 | Paja | Verified intent launcher (`packages/paja/src/intent-launcher.ts`, signed manifest `paja-intent-launcher`) | `paja.intent.launcher.ready`, `paja.intent.launcher.result` (launcher → host); `paja.intent.launch` (host → launcher) | Shell-authored, content-addressed bytes whose signing key is not in this repository, so its host protocol cannot move into the signed artifact without re-signing. `browser-nip5d-host.ts` handles these two types itself, never forwards them to the bridge, and accepts them only while the launcher's window is registered with a bound port. A second load revokes the frame, and any other window-level message still reaches the bridge and revokes it. `paja.intent.launch` is not a NAP message. |
+
+### Conformance harness exceptions
+
+`@kehto/conformance` (kehto/web#187) drives a real Kehto runtime with a probe
+napplet, so its first-party target deliberately does a few things a host
+must not do in production. Each site is pinned by the
+`keeps the conformance harness exceptions bounded` guard in
+`tests/unit/nip5d-conformance-guard.test.ts`; nothing else in
+`packages/conformance/src` may post to a frame window or assign `srcdoc`.
+
+| Site | What it does | Why it is bounded |
+|------|--------------|-------------------|
+| `kehto/session.ts` `instrument()` | Inserts the host-owned wire tap (`renderWireTap`, which defines `window.__kehtoConformanceWire`) ahead of the injected bootstrap, only for probes loaded with `rawWire`. | The tap sits outside the verified artifact bytes like the prelude, and `nip5d/artifact-provenance` and `nip5d/injection-*` run on uninstrumented loads only, so the extra global never counts as NIP-5D evidence. |
+| `kehto/session.ts` `loadRogue()` | Assigns unverified bytes to a sandboxed frame the runtime never registered, which then sends its own `napplet.hello`. | Its only purpose is to prove that an unregistered source is silently dropped (`nip5d/source-binding`, `shell/source-trust`). It never goes through `admitBrowserDocument` and is removed after the probe reports. |
+| `kehto/legacy-admission.ts` `admitLegacyDocument()` | Loads a probe without `admitBrowserDocument`, binding identity at `napplet.hello` through `originRegistry`, for the scoped legacy-Firewall session of `catalog/firewall-denial` (kehto/web#494). | `admitBrowserDocument` requires the `permissions` coordinator, and the legacy Firewall gate only runs on a runtime without it, so a legacy-gate host cannot use canonical admission. The bytes are still verified first, the CSP and namespace prelude come from exported `@kehto/shell` APIs and sit outside them, and `session.ts` still assigns `srcdoc` inside the same commit callback. Every other probe load, and the uninstrumented NIP-5D evidence, goes through `admitBrowserDocument`. |
+| `kehto/session.ts` `forge()`, `kehto/frames.ts` `signal()` / `postFromSibling()` | Posts window-level messages into a probe frame: harness signals (`kehtoConformanceSignal`) and forged `shell.init` from the parent or a sibling realm. | Harness signals are not NAP messages and are read only by the probe's own plan runner. Forged `shell.init` exists to prove the bootstrap ignores window-level NAP traffic. |
 
 ## Runtime Availability Policy
 
@@ -581,9 +816,72 @@ remain closed. This directive-specific CSP and base behavior are bounded Kehto
 host policy, not a new NAP-CONNECT wire contract. A new host consumer must use the same shared admission
 transaction and add a conformance guard before executing bytes.
 
-### Host dependency line: core 0.41 / nap 0.40
+### Target-URL documents that require `resource`
 
-Host peer ranges admit core 0.41.x and nap 0.40.x; development builds and JSR maps use that line. `@kehto/services`, `@kehto/paja` and `@kehto/cli` floor core at 0.41.0 because services re-exports core's intent types; other peer floors and the older fixture matrix remain supported.
+Checked for kehto/web#447 against NAP-RESOURCE PR #80 head
+`ae5b9c64ab8a4d8909f288829a01e99d6bd713bc` (`naps/NAP-RESOURCE.md` and the
+resource binding in `projections/web.md`); `napplet/naps` master
+`377bf939c6c906817084b43dd21d424de646dbc2` has no NAP-RESOURCE yet. The binding
+requires a browser policy that blocks direct `fetch`, XHR, WebSocket,
+EventSource, beacon, and external subresource loads before `resource` is
+exposed, and says the direct-network exception must not be applied to such a
+napplet.
+
+A live target-URL frame loads scripts, styles, images, fonts, media, workers, and
+an HMR socket from its dev origin. Narrowing that to "assets only" would still
+leave external subresource loads, and images or scripts are an egress channel to
+a loopback origin that the resource policy itself must block. An opt-in flag
+would expose `resource` to a frame the host knowingly cannot isolate. Neither is
+conformant, so Kehto does neither.
+
+- **Conformant:** when the fetched development document lists `resource` under
+  `napplet-requires`, Paja admits it as a network-isolated snapshot. The Paja
+  server fetches `index.html`; the frame gets those bytes through `srcdoc` with no
+  remote sources and no host-injected base URL, under the same closed CSP as a
+  local single-file target (`default-src 'none'`, `connect-src 'none'`,
+  `img-src data: blob:`). `tests/e2e/paja-target-url-resource.spec.ts` proves in
+  Chromium that fetch, XHR, WebSocket, EventSource, beacon, image, script, style,
+  media, and worker requests reach neither the dev origin nor a third origin.
+- **Unchanged:** `admitBrowserDocument` still returns `incompatible` for a
+  required `resource` whenever any direct browser origin remains, and still omits
+  an optional `resource` from a direct-network frame. Verified pointer and local
+  file admission did not change.
+- **Bounded host policy, not a NAP contract:** the snapshot does not hot-reload
+  and loads no asset by URL. `planTargetNetwork` names the references that will
+  not load; the CLI prints the decision at startup and the browser host logs
+  `paja.target.network.isolated` or `paja.target.resource.omitted`. A target that
+  wants live dev-server loading declares `resource` under `napplet-optional` and
+  runs without it.
+
+### Host dependency line: core 0.45 / nap 0.45
+
+Host peer ranges admit core 0.45.x and nap 0.45.x; development builds and JSR maps use that line ([kehto/web#518](https://github.com/kehto/web/issues/518)). nap 0.45.0 depends on core `^0.45.0`. No peer floor moves: after the build, no emitted declaration uses a shape that 0.44 or 0.45 changed. `@kehto/mocks` and `@kehto/services` use `IntentAvailability` and `CvmServer`, which are unchanged; services' `CvmDiscoverResultMessage` is its own mirror; `@kehto/runtime` only passes `ResourceSidecarEntry` through. The floors from the core 0.44 / nap 0.43 section below stand.
+
+Checked NAP-CVM PR #31 at `28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f`, NAP-INTENT at master `377bf939c6c906817084b43dd21d424de646dbc2`, NAP-RESOURCE PR #80 at `ae5b9c64ab8a4d8909f288829a01e99d6bd713bc` and NAP-UPLOAD PR #33 at `f5cc981e527e2cc1572793a7a6e5082e5271ac49`; all were still the PR heads (and master) on 2026-11-20. What the releases change:
+
+- nap 0.45.0 (napplet/web#360): `cvm.discover.result` is a union of a success shape (`servers` required) and an error shape (`servers` omitted), from NAP-CVM's "On a shell error, success payload fields MUST be omitted. On success, the operation's payload is required." `intent.available.result` `availability` and `intent.handlers.result` `handlers` are required, as the NAP-INTENT wire table lists them beside `error`?.
+- nap 0.44.0 / core 0.45.0: NAP-RESOURCE wire bytes are `ResourceBytes`, canonical padded base64, on `resource.bytes.result`, `resource.bytesMany.result` items (`ResourceBytesWireItem`) and `ResourceSidecarEntry`. The shim routes `data:` through the runtime and decodes strictly; `hashtree` joins `htree` as a scheme name. Kehto already spoke that wire, since it implemented PR #80 at the same head. Kehto ships no Hashtree resolver, so scheme disclosure is unchanged.
+- nap 0.44.0: comment-only changes in config and relay types.
+
+Kehto wiring: the intent service, the runtime's intent policy denial and the intent mock sent a bare `error` on failure, which the NAP-INTENT table does not allow. They now send an empty availability (`available: false`, no candidates) or `handlers: []` with the `error`. The injected namespace was already error-first, so a reply that carries both rejects with the error. `@kehto/services` exports `CvmDiscoverResultMessage` as the same success/error union. The injected `cvm.discover` rejects a success reply without a `servers` list instead of resolving `[]`. Result: conformant at the wire for CVM, INTENT and RESOURCE. `catalog/package-field-drift` clears its CVM and INTENT rows.
+
+NAP-UPLOAD stays open on napplet/naps#33. `upload.upload.result` `result` is a contradiction in the NAP text: the wire table requires `result`, `UploadResult.uploadId` is a required "Shell-generated upload identifier", and Error Handling says "The shell SHOULD return a top-level `error` when no upload was created." It is recorded in `FIELD_DRIFT_EXCEPTIONS` as a `contradiction`, so the check reports `spec-gap` for it, as for NAP-IDENTITY's `identity.getProfile.result` `profile` (napplet/naps#155). `upload.info.result` `info` and `upload.status.result` `status` are not contradictions: the table pairs `error?` with the required field and no sentence omits it. nap 0.45.0 still types both optional, so the full profile keeps failing `catalog/package-field-drift` on those two rows, and the check stays on the known-findings list. Kehto's wire follows the table for `upload.info.result` ([kehto/web#518](https://github.com/kehto/web/issues/518)): the runtime's policy denial (ACL and legacy Firewall) and `createUploadService`'s info-provider failure send `info: { rails: [] }` with `error`. An empty rail list is the fully redacted disclosure the NAP allows ("Shells MAY redact unavailable rails or coarse-grain limits for untrusted napplets."); the optional `maxBytes` and `mimeTypes` are left out. The `@kehto/mocks` upload mock never fails `upload.info`. The injected `upload.info()` is error-first, so a reply that carries both still rejects with the error.
+
+`upload.status.result` is a bounded spec gap (napplet/naps#33 at `f5cc981e527e2cc1572793a7a6e5082e5271ac49`, kehto/web#518). The table requires `status`, but `UploadStatus` requires `ok`, `uploadId`, `status` (an `UploadState`), `rail` and `updatedAt`, and a denied, invalid or unknown lookup has no honest value for the rail, state or timestamp. The runtime denial, `createUploadService` (`invalid uploadId`, `unknown upload`) and the upload mock keep sending `error` with no `status` instead of inventing one. The gap closes when the NAP says what a failed lookup carries (for example by marking `status` optional beside `error`, or by defining an error status shape). Neither reply shape is checked at runtime by the conformance suite today: `catalog/package-field-drift` compares the installed `@napplet/nap` declarations with the pinned table, the `upload/*` fixture cases only exercise success replies, and `catalog/acl-denial` / `catalog/firewall-denial` check the reply type, not its fields. `@napplet/conformance` is not a Kehto dependency, so a stricter envelope validator there (one that requires a `status` object on every `upload.status.result`) does not run against these replies; anything that validates Kehto's replies with it would flag the error-only status reply until the NAP settles the gap.
+
+### Host dependency line: core 0.44 / nap 0.43
+
+Core 0.44.0 / nap 0.43.0 moved the host line for the media, WebRTC and resource drafts. These checks are kept as history; the floors below still apply. `@kehto/services`, `@kehto/paja` and `@kehto/cli` floor core at 0.42.0 because services exposes core's CVM registry types and re-exports core's intent types. `@kehto/mocks` floors core at 0.44.0 and nap at 0.43.0 because its declarations also use the packaged `WebrtcSession` delivery fields, `bytes`/`stats` events and `MediaState.reason`. Other peer floors and the older fixture matrix remain supported.
+
+Checked NAP-MEDIA PR #10 at `7806f438530251fce5129f8e6239d6b642278759`, NAP-WEBRTC PR #59 at `fb4dd6f0e6294e1837733d2af61931e3e114bd97` and NAP-RESOURCE PR #80 at `ae5b9c64ab8a4d8909f288829a01e99d6bd713bc` (all still the PR heads on 2026-11-20). Core 0.44.0 / nap 0.43.0 (napplet/web#344, #345, #346) package `media.session.ended`, `onEnded` and the transition `reason`; `webrtc.sendBytes`, `bytes`/`stats` events, `ordered`/`maxRetransmits`/`maxPayloadBytes`; and a URL-string `resource.bytesMany` with `urls`, dropping `servers`, `ResourceBytesRequest` and `ResourceInfo.maxServers`. Kehto's runtime already spoke these wires. The injected `window.napplet.webrtc` gains `sendBytes`, so the 0.43 SDK's `webrtcSendBytes` reaches the shell and gets the NAP's `unsupported` instead of a missing method; the reference service had no byte transport then ([kehto/web#507](https://github.com/kehto/web/issues/507) adds it: canonical base64 `bytes` decoded onto the data channel, binary received as `bytes` events, `maxPayloadBytes` enforced; conformant with NAP-WEBRTC PR #59 at `fb4dd6f0e6294e1837733d2af61931e3e114bd97`). The legacy positional `media.sendCommand` / `media.onCommand` forms now carry `reason` too. The conformance catalog's `catalog/package-drift` passes against nap 0.43.0 ([kehto/web#496](https://github.com/kehto/web/issues/496)). Result: conformant at the wire. Remaining upstream drift: nap 0.43.0 still types the positional `sendCommand` / `onCommand(action, value, reason)` forms, while NAP-MEDIA's API table names `command(sessionId, MediaCommand)` and an object `onCommand` handler, so `KEHTO-MEDIA-SEND-COMMAND` / `KEHTO-MEDIA-COMMAND-CALLBACK` stay.
+
+Field-level drift ([kehto/web#508](https://github.com/kehto/web/issues/508); the core 0.45 / nap 0.45 section above has the current rows): `catalog/package-field-drift` compares every payload field and its optionality between the nap 0.43.0 declarations and the wire tables at the refs pinned in `packages/conformance/src/authority.ts`. The full profile fails it on upstream package drift: nap 0.43.0 requires `servers` on `cvm.discover.result` (NAP-CVM PR #31 at `28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f` marks it optional) and makes optional the primary field of `upload.info.result`, `upload.status.result`, `upload.upload.result` (NAP-UPLOAD PR #33 at `f5cc981e527e2cc1572793a7a6e5082e5271ac49`), `intent.available.result` and `intent.handlers.result` (NAP-INTENT at master `377bf939c6c906817084b43dd21d424de646dbc2`), which those tables require. The minimal profile reports a spec gap: NAP-IDENTITY's table marks `identity.getProfile.result` `profile` optional while its prose always sends it. Differences a NAP sentence settles are quoted in `FIELD_DRIFT_EXCEPTIONS`. Kehto's runtime is not at fault in any of these rows; the check stays failing until upstream settles them.
+
+### Host dependency line: core 0.42 / nap 0.41
+
+Core 0.42.0 / nap 0.41.0 moved the host line for the CVM registry types. These checks are kept as history.
+
+Checked NAP-CVM PR #31 at `28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f` (still the PR head on 2026-11-20). Core 0.41.0 / nap 0.40.0 exported the older family-only registry contract ([napplet/web#336](https://github.com/napplet/web/issues/336)). Core 0.42.0 and nap 0.41.0 (napplet/web#337) export `CvmRegistrySelector`, `schemaHashes` entries, required per-tool hashes, the `category` query hint and `selector` envelopes, field for field with the draft, so Kehto retired its local registry types ([kehto/web#441](https://github.com/kehto/web/issues/441)). That release changes no other NAP domain. Result: conformant. No family-only wire fallback exists; the injected string-family adapter stays as `KEHTO_CVM_FAMILY_SELECTOR`.
 
 Checked NAP-INTENT PR #128 at `74f9bf85ebb83b50b7b2ad8308a835d5f3113cd9` alongside PR #106 at `fc121fc264615482143eda86125863d2e1f741a2`. The current proposal withdraws delivery IDs and nullable senders. Core 0.40.0 exported that withdrawn shape ([napplet/web#328](https://github.com/napplet/web/issues/328)). Core 0.41.0 and nap 0.40.0 (napplet/web#329) export the no-ID, string-sender delivery, so Kehto retired its local copy ([kehto/web#418](https://github.com/kehto/web/issues/418)). Result: conformant. No delivery-ID or null-sender fallback exists.
 
@@ -596,3 +894,26 @@ The new package subpaths do not imply host support. Paja records `blossom`, `cat
 - NAP-TORRENT PR #72: `bc99787e3cf049229da5e6bde55362a040724096`.
 
 `packages/paja/src/parity.test.ts` verifies the installed export inventory and the resolved environment's domain/service absence. Existing shell and Paja browser regressions cover canonical intent shape, parent trust, readiness buffering and exactly-once delivery.
+
+## Unrecognized message types (#465)
+
+Checked NIP-5D PR #2303 at `dskvr/nips@f60550c3409d6d81a875088ec83e660571e10504`
+(`5D.md`): "Messages with an unrecognized `type` MUST be silently ignored." and
+"Unrecognized message types are silently ignored, preventing capability
+probing." Conformant. No runtime handler, `@kehto/services` reference service,
+ACL/firewall denial or Paja multiplayer stub replies to a type its owning NAP
+does not define. Known types with malformed payloads keep their NAP's failure
+result. A `webrtc.stats` request is treated as unknown because NAP-WEBRTC #59 at
+`fb4dd6f0e6294e1837733d2af61931e3e114bd97` defines `stats` only as a pushed
+event; `storage.clear` is unknown because NAP-STORAGE #3 at `4f4cf0ca` does not
+define it. The per-domain request tables used by the denial path cite their
+NAP refs in `packages/runtime/src/policy-denials.ts`.
+
+`tests/unit/nip5d-conformance-guard.test.ts` is behavioural: it drives every
+`create*Service` export, the runtime with and without ACL denial and every NAP
+mock with undefined types and fails on any reply or push. It has no allowlist.
+The legacy `createNotificationService` still answers `notify.create/list/read`,
+which are tracked in [the compatibility register](../compatibility.md); its
+unknown types are silent and the guard covers it. Host diagnostics and the
+retired replies are recorded under `KEHTO_UNRECOGNIZED_MESSAGE_TYPE` there.
+

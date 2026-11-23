@@ -9,7 +9,22 @@
 import { LlmServiceError, type LlmBlockEvent, type LlmFinish, type LlmGeneration, type LlmGenerationRequest, type LlmImagePart, type LlmMessage, type LlmOutputPart, type LlmPart, type LlmTextPart, type LlmTool, type LlmToolCallPart, type LlmUsage } from './llm-types.js';
 
 /** Supported provider request/response dialects. */
-export type LlmProviderProtocol = 'openai-chat' | 'anthropic-messages' | 'gemini';
+export type LlmProviderProtocol = 'openai-chat' | 'openai-responses' | 'anthropic-messages' | 'gemini';
+
+/** Options read by the `openai-responses` dialect only; other dialects ignore them. */
+export interface LlmResponsesOptions {
+  /**
+   * `chatgpt-sign-in` applies the documented limits of subscription-backed
+   * access tokens: the request always streams, function tools are grouped in one
+   * namespace, and an output token limit, a temperature or a forced tool name is
+   * `unsupported` before any request is built. Omit it for API-key access.
+   */
+  readonly profile?: 'chatgpt-sign-in';
+  /** Ask for reasoning summaries, which arrive as display-only `thinking` parts. Omitted by default. */
+  readonly reasoningSummary?: 'auto' | 'concise' | 'detailed';
+  /** Name and description of the namespace that groups tools under `chatgpt-sign-in`. */
+  readonly toolNamespace?: { readonly name: string; readonly description: string };
+}
 
 /** Header carrying the credential; each protocol has a conventional default. */
 export type LlmCredentialHeader = 'authorization-bearer' | 'api-key' | 'x-api-key' | 'x-goog-api-key';
@@ -36,14 +51,26 @@ export interface LlmProviderEndpoint {
    * Gemini defaults it from the model name (3 and later); an explicit value wins.
    */
   readonly requiresOpaqueReasoning?: boolean;
+  /** Options for the `openai-responses` dialect. */
+  readonly responses?: LlmResponsesOptions;
+}
+
+/**
+ * True when the endpoint's requests always use the streaming wire form, whatever
+ * the caller asked for. The transport then reads server-sent events even on its
+ * buffered path.
+ */
+export function alwaysStreams(endpoint: LlmProviderEndpoint): boolean {
+  return endpoint.protocol === 'openai-responses' && endpoint.responses?.profile === 'chatgpt-sign-in';
 }
 
 /** Options for {@link buildLlmProviderRequest}. */
 export interface LlmProviderRequestOptions {
   /**
    * Request the dialect's streaming form: `stream: true` server-sent events for
-   * OpenAI Chat Completions (with usage reporting) and Anthropic Messages, and
-   * `streamGenerateContent?alt=sse` for Gemini. Default `false` (one JSON body).
+   * OpenAI Chat Completions (with usage reporting), OpenAI Responses and
+   * Anthropic Messages, and `streamGenerateContent?alt=sse` for Gemini. Default
+   * `false` (one JSON body).
    */
   readonly stream?: boolean;
 }
@@ -199,7 +226,7 @@ export function toolResultText(message: LlmMessage): string {
 }
 
 const OPAQUE_REASONING_MODEL = /^(models\/)?gemini-([3-9]|\d{2,})/;
-const TEMPERATURE_CEILING: Record<LlmProviderProtocol, number> = { 'openai-chat': 2, 'anthropic-messages': 1, gemini: 2 };
+const TEMPERATURE_CEILING: Record<LlmProviderProtocol, number> = { 'openai-chat': 2, 'openai-responses': 2, 'anthropic-messages': 1, gemini: 2 };
 
 function needsOpaqueReasoning(endpoint: LlmProviderEndpoint): boolean {
   return endpoint.requiresOpaqueReasoning ?? (endpoint.protocol === 'gemini' && OPAQUE_REASONING_MODEL.test(endpoint.model));

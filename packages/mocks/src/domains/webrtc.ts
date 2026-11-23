@@ -1,10 +1,25 @@
 /**
  * domains/webrtc.ts — Mock NAP-WEBRTC service.
  *
- * Spec: naps/NAP-WEBRTC.md @ napplet/naps PR #59 head 69523e8cf44c (draft)
- * Routes: webrtc.open, webrtc.send, webrtc.close
- * Pushes: webrtc.event (state, peer, message, closed)
+ * Spec: naps/NAP-WEBRTC.md @ napplet/naps PR #59 head fb4dd6f0e629 (draft)
+ * Routes: webrtc.open, webrtc.send, webrtc.sendBytes, webrtc.close
+ * Pushes: webrtc.event (state, peer, message, bytes, closed)
  * Spec gaps / decisions:
+ * - Delivery semantics: the in-memory channel can honour any request, so a
+ *   session reports the requested `ordered` (default `true`) and
+ *   `maxRetransmits` (absent = reliable) as established, plus
+ *   `maxPayloadBytes`. Sessions pair only when both sides established the
+ *   same semantics, for every peer including late joiners.
+ * - `sendBytes` takes canonical padded base64 (`""` for empty) and arrives
+ *   as a `bytes` event; `send` arrives as `message`. Neither converts. The
+ *   limit counts decoded bytes for `sendBytes` and UTF-8 bytes of the JSON
+ *   serialization for `send`.
+ * - `from`/`pubkey` are the fixture identity of the paired window (the mock's
+ *   stand-in for the key authenticated during signaling). `stats` is a MAY
+ *   and is never pushed.
+ * - Session and event shapes come straight from `@napplet/nap@0.43`
+ *   (`WebrtcSession` delivery fields, `bytes`/`stats` events), which matches
+ *   fb4dd6f0 (napplet/web#345).
  * - Each window is given a fixture identity (alice, bob, … in order of first
  *   `open`, overridable with `identities`). Two windows pair when one opens
  *   `direct` to the other's identity (both directions) or both join the same
@@ -15,8 +30,17 @@
  *   called. The loopback peer echoes every `send` back as a `message` event.
  * - Error strings beyond the draft's list: `invalid request` (malformed
  *   open) and `session not open` (send while connecting).
- * - `webrtc.close` on an owned, already closed session succeeds; the closer
- *   receives no `closed` event (its own call ended the session).
+ * - An ended session is unknown, as in `createWebrtcService`: once it closes
+ *   (napplet close, peer leaves, revocation), `webrtc.send`, `webrtc.sendBytes`
+ *   and `webrtc.close` answer `session not found`. The draft lists both
+ *   `session not found` and `session closed` without saying when each applies;
+ *   its only rule here is "MUST NOT deliver messages for an unknown
+ *   `sessionId`". A napplet's own close sends it no `closed` event. The record
+ *   stays in `state().sessions` for inspection.
+ * - Revocation (`onPermissionRevoked`, or `onCapabilityRevoked` with `null` or a
+ *   `webrtc` capability) sends `closed` with reason `policy denied` for each
+ *   live session: the draft's `closed` triggers include "policy revokes the
+ *   capability".
  */
 import type { NappletMessage } from '@kehto/runtime';
 import type { WebrtcEvent, WebrtcScope, WebrtcSession } from '@napplet/nap/webrtc/types';
@@ -38,7 +62,7 @@ export const WEBRTC_SPEC_REF: NapSpecRef = {
   status: 'draft',
   source: 'pr',
   pr: 59,
-  sha: '69523e8cf44c',
+  sha: 'fb4dd6f0e629',
   path: 'naps/NAP-WEBRTC.md',
 };
 
@@ -127,7 +151,7 @@ export interface MockWebrtcOptions extends MockServiceOptions {
   autoAnswer?: boolean;
   /** Delay for loopback answers and echoes. Default 5. */
   tickMs?: number;
-  /** Payload size ceiling in JSON characters. Default 65536. */
+  /** Largest single payload in bytes, reported as `maxPayloadBytes`. Default 65536. */
   maxPayloadBytes?: number;
   /** Fixed window → pubkey identities. */
   identities?: Record<string, string>;
@@ -147,6 +171,8 @@ export type MockWebrtcService = MockService<MockWebrtcState> & {
   peerAnswer(sessionId: string): boolean;
   /** Deliver a peer payload to an open session. */
   peerMessage(sessionId: string, payload: unknown, from?: string): boolean;
+  /** Deliver peer bytes (canonical base64) to an open session; `false` for non-canonical input. */
+  peerBytes(sessionId: string, bytes: string, from?: string): boolean;
   /** The remote side leaves: peer `left` then `closed`. */
   peerLeave(sessionId: string, reason?: string): boolean;
 };
@@ -217,6 +243,38 @@ function isScope(value: unknown): value is WebrtcScope {
   return scope.peers === undefined || (Array.isArray(scope.peers) && scope.peers.every((item) => typeof item === 'string'));
 }
 
+/**
+ * Decoded length of canonical padded base64 (RFC 4648 section 4): standard
+ * alphabet, required padding, zero pad bits, no whitespace; `""` is empty.
+ *
+ * @param value - Candidate `WebrtcBytes` text.
+ * @returns The decoded byte count, or `undefined` when not canonical.
+ * @example
+ * ```ts
+ * mockCanonicalBase64Length('AAEC/w==') === 4;
+ * mockCanonicalBase64Length('AAEC/x==') === undefined; // non-zero pad bits
+ * ```
+ */
+export function mockCanonicalBase64Length(value: unknown): number | undefined {
+  if (typeof value !== 'string') return undefined;
+  if (value === '') return 0;
+  if (value.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(value)) return undefined;
+  try {
+    const decoded = atob(value);
+    return btoa(decoded) === value ? decoded.length : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function serializedBytes(payload: unknown): number {
+  return new TextEncoder().encode(JSON.stringify(payload) ?? '').length;
+}
+
+function sameDelivery(a: WebrtcSession, b: WebrtcSession): boolean {
+  return a.ordered === b.ordered && a.maxRetransmits === b.maxRetransmits;
+}
+
 function identityFor(state: MockWebrtcState, windowId: string, fixed: Record<string, string> | undefined): string {
   const known = state.identities.get(windowId);
   if (known) return known;
@@ -231,6 +289,7 @@ function counterparts(state: MockWebrtcState, record: MockWebrtcSessionRecord): 
   const out: MockWebrtcSessionRecord[] = [];
   for (const other of state.sessions.values()) {
     if (other.windowId === record.windowId || other.session.state === 'closed' || other.loopback) continue;
+    if (!sameDelivery(record.session, other.session)) continue;
     const theirs = other.session.scope;
     if (scope.type === 'direct') {
       if (theirs.type === 'direct' && scope.pubkey === other.identity && theirs.pubkey === record.identity) out.push(other);
@@ -242,6 +301,19 @@ function counterparts(state: MockWebrtcState, record: MockWebrtcSessionRecord): 
     out.push(other);
   }
   return out;
+}
+
+function owned(state: MockWebrtcState, windowId: string, sessionId: unknown): MockWebrtcSessionRecord | undefined {
+  const record = typeof sessionId === 'string' ? state.sessions.get(sessionId) : undefined;
+  return record && record.windowId === windowId ? record : undefined;
+}
+
+/** The caller's open session for a send, or `undefined` after replying with the NAP error. */
+function openRecord({ message, windowId, state, fail }: Context): MockWebrtcSessionRecord | undefined {
+  const record = owned(state, windowId, message.sessionId);
+  if (!record || record.session.state === 'closed') { fail('session not found'); return undefined; }
+  if (record.session.state === 'connecting') { fail('session not open'); return undefined; }
+  return record;
 }
 
 /**
@@ -275,17 +347,15 @@ export function createMockWebrtcService(options: MockWebrtcOptions = {}): MockWe
     answerLoopback(emit, state, record);
     return true;
   };
-  const owned =(state: MockWebrtcState, windowId: string, sessionId: unknown): MockWebrtcSessionRecord | undefined => {
-    const record = typeof sessionId === 'string' ? state.sessions.get(sessionId) : undefined;
-    return record && record.windowId === windowId ? record : undefined;
-  };
-
   const openRoute = ({ message, windowId, state, reply, fail, rng }: Context): void => {
     const request = message.request as Record<string, unknown> | undefined;
     if (typeof request !== 'object' || request === null) { fail('invalid request'); return; }
     if (typeof request.scope !== 'object' || request.scope === null) { fail('invalid request'); return; }
     if (!isScope(request.scope)) { fail('unsupported scope'); return; }
     if ((request.channel !== undefined && typeof request.channel !== 'string') || (request.protocol !== undefined && typeof request.protocol !== 'string')) { fail('invalid request'); return; }
+    const { ordered, maxRetransmits } = request;
+    if ((ordered !== undefined && typeof ordered !== 'boolean')
+      || (maxRetransmits !== undefined && !(typeof maxRetransmits === 'number' && Number.isInteger(maxRetransmits) && maxRetransmits >= 0))) { fail('invalid request'); return; }
     const scope = request.scope;
     const session: WebrtcSession = {
       id: `sess-${rng.hex(8)}`,
@@ -293,6 +363,9 @@ export function createMockWebrtcService(options: MockWebrtcOptions = {}): MockWe
       channel: typeof request.channel === 'string' ? request.channel : 'data',
       ...(typeof request.protocol === 'string' ? { protocol: request.protocol } : {}),
       state: 'connecting',
+      ordered: ordered !== false,
+      ...(typeof maxRetransmits === 'number' ? { maxRetransmits } : {}),
+      maxPayloadBytes: maxPayload,
     };
     const record: MockWebrtcSessionRecord = {
       session, windowId, identity: identityFor(state, windowId, options.identities), peers: new Set(), partners: new Set(), loopback: false, timers: new Set(),
@@ -304,28 +377,44 @@ export function createMockWebrtcService(options: MockWebrtcOptions = {}): MockWe
     if (others.length === 0 && autoAnswer) later(record, () => { peerAnswer(session.id); });
   };
 
-  const sendRoute = ({ message, windowId, state, reply, fail }: Context): void => {
-    const record = owned(state, windowId, message.sessionId);
-    if (!record) { fail('session not found'); return; }
-    if (record.session.state === 'closed') { fail('session closed'); return; }
-    if (record.session.state === 'connecting') { fail('session not open'); return; }
-    if (!Object.hasOwn(message, 'payload')) { fail('invalid request'); return; }
-    const payload = message.payload;
-    if ((JSON.stringify(payload) ?? '').length > maxPayload) { fail('payload too large'); return; }
-    reply();
+  /** Fan an event out to open partner sessions and echo it from the loopback peer. */
+  const deliver = (state: MockWebrtcState, record: MockWebrtcSessionRecord, build: (sessionId: string, from: string) => WebrtcEvent): void => {
     for (const partnerId of record.partners) {
       const partner = state.sessions.get(partnerId);
-      if (partner && partner.session.state === 'open') emit(partner, { type: 'message', sessionId: partnerId, from: record.identity, payload });
+      if (partner && partner.session.state === 'open') emit(partner, build(partnerId, record.identity));
     }
     if (record.loopback) {
       const [peer] = record.peers;
-      later(record, () => emit(record, { type: 'message', sessionId: record.session.id, from: peer ?? MOCK_WEBRTC_LOOPBACK_PUBKEY, payload }));
+      later(record, () => emit(record, build(record.session.id, peer ?? MOCK_WEBRTC_LOOPBACK_PUBKEY)));
     }
+  };
+
+  const sendRoute = (context: Context): void => {
+    const record = openRecord(context);
+    if (!record) return;
+    const { message, state, reply, fail } = context;
+    if (!Object.hasOwn(message, 'payload')) { fail('invalid request'); return; }
+    const payload = message.payload;
+    if (serializedBytes(payload) > maxPayload) { fail('payload too large'); return; }
+    reply();
+    deliver(state, record, (sessionId, from) => ({ type: 'message', sessionId, from, payload }));
+  };
+
+  const sendBytesRoute = (context: Context): void => {
+    const record = openRecord(context);
+    if (!record) return;
+    const { message, state, reply, fail } = context;
+    const size = mockCanonicalBase64Length(message.bytes);
+    if (size === undefined) { fail('invalid request'); return; }
+    if (size > maxPayload) { fail('payload too large'); return; }
+    const bytes = message.bytes as string;
+    reply();
+    deliver(state, record, (sessionId, from) => ({ type: 'bytes', sessionId, from, bytes }));
   };
 
   const closeRoute = ({ message, windowId, state, reply, fail }: Context): void => {
     const record = owned(state, windowId, message.sessionId);
-    if (!record) { fail('session not found'); return; }
+    if (!record || record.session.state === 'closed') { fail('session not found'); return; }
     if (message.reason !== undefined && typeof message.reason !== 'string') { fail('invalid request'); return; }
     closeRecord(emit, state, record, typeof message.reason === 'string' ? message.reason : 'closed by napplet', false);
     reply();
@@ -341,7 +430,7 @@ export function createMockWebrtcService(options: MockWebrtcOptions = {}): MockWe
     description: 'Mock NAP-WEBRTC: shell-internal signaling between mock windows or a loopback peer',
     kind: 'service',
     initialState: () => ({ identities: new Map(), sessions: new Map(), signals: [] }),
-    routes: { 'webrtc.open': openRoute, 'webrtc.send': sendRoute, 'webrtc.close': closeRoute },
+    routes: { 'webrtc.open': openRoute, 'webrtc.send': sendRoute, 'webrtc.sendBytes': sendBytesRoute, 'webrtc.close': closeRoute },
     onWindowDestroyed: (windowId, state) => {
       closeWindow(state, windowId, 'endpoint destroyed', false);
       for (const [id, record] of state.sessions) if (record.windowId === windowId) state.sessions.delete(id);
@@ -359,12 +448,20 @@ export function createMockWebrtcService(options: MockWebrtcOptions = {}): MockWe
   };
 
   const service: MockWebrtcService = Object.assign(base, {
+    onPermissionRevoked(windowId: string): void { closeWindow(base.mock.state(), windowId, 'policy denied', true); },
     peerAnswer,
     peerMessage(sessionId: string, payload: unknown, from?: string): boolean {
       const record = base.mock.state().sessions.get(sessionId);
       if (!record || record.session.state !== 'open') return false;
       const [peer] = record.peers;
       emit(record, { type: 'message', sessionId, from: from ?? peer ?? MOCK_WEBRTC_LOOPBACK_PUBKEY, payload });
+      return true;
+    },
+    peerBytes(sessionId: string, bytes: string, from?: string): boolean {
+      const record = base.mock.state().sessions.get(sessionId);
+      if (!record || record.session.state !== 'open' || mockCanonicalBase64Length(bytes) === undefined) return false;
+      const [peer] = record.peers;
+      emit(record, { type: 'bytes', sessionId, from: from ?? peer ?? MOCK_WEBRTC_LOOPBACK_PUBKEY, bytes });
       return true;
     },
     peerLeave(sessionId: string, reason = 'peer disconnected'): boolean {

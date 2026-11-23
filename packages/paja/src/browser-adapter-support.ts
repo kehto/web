@@ -10,10 +10,11 @@ import type { PajaSimulation } from './simulation.js';
 import type { PajaSignerSource } from './browser-signer-consent.js';
 import { createRuntimeSigner } from './browser-operation-scope.js';
 import { isPajaRelayAllowed, type PajaRelayConfigRuntime } from './browser-relay-policy.js';
-import { PAJA_LIVE_QUERY_WAIT_MS, createPajaOutboxRelayPool, createPajaRelayListLoader, type PajaRelayBackend } from './browser-relay-runtime.js';
+import { createPajaOutboxRelayPool, createPajaRelayListLoader, type PajaRelayBackend } from './browser-relay-runtime.js';
 
 export type { PajaConfirmationRequest } from './browser-confirmation-request.js';
 import type { PajaConfirmationRequest } from './browser-confirmation-request.js';
+import { getPajaSetting } from './settings.js';
 
 /** Async-capable host policy callback for user-visible Paja operations. */
 export type PajaConfirmationHandler = (
@@ -70,6 +71,8 @@ export function createOutboxRouter(
       () => relayConfig.getRelayUrls(['discovery', 'super']),
     ),
     fallbackRelays: relayConfig.outboxRelays,
+    // One approval names the interface plus these origins (kehto/web#514).
+    maxRelayOrigins: () => getPajaSetting('firewall.maxRequirements') - 1,
     getSignerPubkey: async () => {
       const signer = createRuntimeSigner(getSimulation, confirmRequest, signerProvider, source);
       if (!signer?.getPublicKey) throw new Error('no signer configured');
@@ -87,7 +90,7 @@ export function createOutboxRouter(
     },
     verifyEvent: (event) => verifyEvent(event as Parameters<typeof verifyEvent>[0]),
     isRelayAllowed: (url) => isPajaRelayAllowed(url, () => relayConfig.getRelayUrls()),
-    defaultTimeoutMs: PAJA_LIVE_QUERY_WAIT_MS,
+    defaultTimeoutMs: getPajaSetting('relay.liveQueryWaitMs'),
   });
 }
 

@@ -12,7 +12,7 @@ pnpm add @kehto/firewall
 
 | Package | Range |
 |---------|-------|
-| `@napplet/core` | `>=0.32.0 <0.42.0` |
+| `@napplet/core` | `>=0.32.0 <0.46.0` |
 
 ## Approval policy
 
@@ -21,6 +21,22 @@ origins, and explicitly registered extension categories. `evaluatePermissions`
 automatically requires interface access for every requested domain. A resource or
 network grant cannot supply interface access, and interface access cannot supply
 resource or network authority. Matching explicit denials take precedence.
+
+One request carries at most `maxRequirements` requirements, counting the
+interface requirement (default `MAX_PERMISSION_REQUIREMENTS`, 128); a larger
+request is invalid. The grant table holds at most `maxGrants` grants (default
+`MAX_PERMISSION_GRANTS`, 2048), and one napplet holds at most
+`maxGrantsPerPrincipal` of them (default `MAX_PERMISSION_GRANTS_PER_PRINCIPAL`,
+512, clamped to `maxGrants`). `admitPermissionGrants` adds a decision's grants
+and makes room by evicting only `session` grants, oldest first: the napplet's
+own, then those of the napplet holding the most. Persistent and once grants
+are never evicted; with nothing left to evict it throws the limit `RangeError`.
+All three are `PermissionPolicyOptions` and host
+policy, not protocol: `permissionLimits(options)` resolves them and throws a
+`RangeError` outside 1 to `MAX_PERMISSION_REQUIREMENTS_CEILING` (1024) or
+`MAX_PERMISSION_GRANTS_CEILING` (16384), because evaluation costs requirements ×
+grants. Callers plan within the bound, for example by naming each network
+origin once and bounding relay plans.
 
 A verified principal uses the catalog ID from a signature-verified manifest plus
 its verified artifact hash. Named/root IDs include the publisher; snapshot IDs use

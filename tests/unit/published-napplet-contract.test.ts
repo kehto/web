@@ -30,6 +30,12 @@ const RESOURCE_PUBLISH_REF = 'b007587afbefb0ce5592825d6ec1fc5b026c7b08';
 const MEDIA_SOURCE_REF = 'ef915243a2e7724c0cbeaf8b401116afa239d201';
 const MEDIA_RELEASE_REF = 'f6839146afda77944d12ecdc371630905c9474f6';
 
+// The host development line (kehto/web#496, moved by kehto/web#518). Guards for the
+// current host contract read these; the PACKAGE_MATRIX tarballs below are historical
+// and stay pinned.
+const HOST_CORE = '0.45.0';
+const HOST_NAP = '0.45.0';
+
 const PACKAGE_MATRIX = {
   '@napplet/core': ['0.32.0', 'packages/core'],
   '@napplet/nap': ['0.32.0', 'packages/nap'],
@@ -98,6 +104,93 @@ describe('published Napplet convention contract', () => {
     expect(localTypes).not.toMatch(/\binterface\s+Intent/);
     expect(localTypes).not.toContain('pending napplet/web#328');
     expect(activeSources.join('\n')).toMatch(/from ['\"]\.\/intent-types\.js['\"]/);
+  });
+
+  it('takes host CVM registry types from the published core export (kehto/web#441)', () => {
+    // NAP-CVM PR #31 @ 28cf1bdb5c6412bfbfcecb79a5a5121e18376f2f; released by napplet/web#337.
+    const localTypes = readFileSync(join(ROOT, 'packages/services/src/cvm-registry-types.ts'), 'utf8');
+    expect(localTypes).toContain("from '@napplet/core'");
+    expect(localTypes).not.toMatch(/\b(?:interface|type)\s+CvmRegistry(?:Selector|Entry|Tool|Options|CallOptions|Query)\b/);
+    const mock = readFileSync(join(ROOT, 'packages/mocks/src/domains/cvm.ts'), 'utf8');
+    expect(mock).toContain('interface MockCvmRegistryEntry extends CvmRegistryEntry');
+
+    const core = packageText('@napplet/core', HOST_CORE, 'dist/index.d.ts');
+    const cvmTypes = packageText('@napplet/nap', HOST_NAP, 'dist/cvm/types.d.ts');
+    expect(core).toMatch(/type CvmRegistrySelector = \{\s+schemaHash: string;\s+family\?: string;\s+\} \| \{\s+family: string;\s+schemaHash\?: string;\s+\};/);
+    expect(interfaceBody(core, 'CvmRegistryEntry')).toContain('schemaHashes: string[];');
+    expect(interfaceBody(core, 'CvmRegistryEntry')).toContain('family?: string;');
+    expect(interfaceBody(core, 'CvmRegistryTool')).toContain('schemaHash: string;');
+    expect(interfaceBody(core, 'CvmRegistryOptions')).not.toContain('schemaHash');
+    for (const name of ['CvmRegistryHasMessage', 'CvmRegistryDescribeMessage', 'CvmRegistryCallMessage']) {
+      expect(interfaceBody(cvmTypes, name)).toContain('selector: CvmRegistrySelector;');
+      expect(interfaceBody(cvmTypes, name)).not.toMatch(/\bfamily\b\??:/);
+    }
+  });
+
+  it('develops on the media, webrtc and resource contract of the pinned NAP drafts (kehto/web#496)', () => {
+    // NAP-MEDIA #10 @ 7806f438, NAP-WEBRTC #59 @ fb4dd6f0, NAP-RESOURCE #80 @ ae5b9c64;
+    // released by napplet/web#344, #345 and #346.
+    const core = packageText('@napplet/core', HOST_CORE, 'dist/index.d.ts');
+    const media = packageText('@napplet/nap', HOST_NAP, 'dist/media/types.d.ts');
+    const webrtc = packageText('@napplet/nap', HOST_NAP, 'dist/webrtc/types.d.ts');
+    const resource = packageText('@napplet/nap', HOST_NAP, 'dist/resource/types.d.ts');
+
+    expect(interfaceBody(media, 'MediaSessionEndedMessage')).toContain("type: 'media.session.ended';");
+    expect(interfaceBody(media, 'MediaSessionEndedMessage')).toContain('reason: string;');
+    expect(interfaceBody(webrtc, 'WebrtcSendBytesMessage')).toContain('bytes: WebrtcBytes;');
+    expect(interfaceBody(webrtc, 'WebrtcSendBytesResultMessage')).toContain("type: 'webrtc.sendBytes.result';");
+    expect(core).toMatch(/type WebrtcEvent = [^;]*WebrtcBytesEvent[^;]*WebrtcStatsEvent/);
+    expect(interfaceBody(core, 'WebrtcSession')).toContain('maxPayloadBytes?: number;');
+    expect(interfaceBody(resource, 'ResourceBytesManyMessage')).toContain('urls: string[];');
+    expect(core).not.toContain('ResourceBytesRequest');
+    expect(interfaceBody(core, 'ResourceInfo')).not.toContain('maxServers');
+
+    // The local widenings these types replaced are gone.
+    const mocks = readFileSync(join(ROOT, 'packages/mocks/src/domains/webrtc.ts'), 'utf8');
+    expect(mocks).not.toMatch(/\bMockWebrtc(?:Session|Event)\b/);
+    for (const [name, directory] of [['@napplet/core', 'packages/core'], ['@napplet/nap', 'packages/nap']] as const) {
+      const metadata = JSON.parse(packageText(name, name === '@napplet/core' ? HOST_CORE : HOST_NAP, 'package.json')) as {
+        repository?: { url?: string; directory?: string };
+        scripts?: Record<string, string>;
+      };
+      expect(metadata.repository?.url).toContain('github.com/napplet/web');
+      expect(metadata.repository?.directory).toBe(directory);
+      expect(metadata.scripts?.postinstall, `${name} may not run install-time code`).toBeUndefined();
+    }
+  });
+
+  it('develops on the cvm, intent and resource result shapes the pinned NAPs require (kehto/web#518)', () => {
+    // NAP-CVM #31 @ 28cf1bdb, NAP-INTENT master @ 377bf939, NAP-RESOURCE #80 @ ae5b9c64;
+    // released by napplet/web#360 (cvm, intent) and the 0.44 base64 resource wire.
+    const core = packageText('@napplet/core', HOST_CORE, 'dist/index.d.ts');
+    const cvm = packageText('@napplet/nap', HOST_NAP, 'dist/cvm/types.d.ts');
+    const intent = packageText('@napplet/nap', HOST_NAP, 'dist/intent/types.d.ts');
+    const resource = packageText('@napplet/nap', HOST_NAP, 'dist/resource/types.d.ts');
+
+    expect(cvm).toMatch(/type CvmDiscoverResultMessage = CvmDiscoverSuccessResultMessage \| CvmDiscoverErrorResultMessage;/);
+    expect(interfaceBody(cvm, 'CvmDiscoverSuccessResultMessage')).toMatch(/\bservers: CvmServer\[\];/);
+    expect(interfaceBody(cvm, 'CvmDiscoverSuccessResultMessage')).toContain('error?: never;');
+    expect(interfaceBody(cvm, 'CvmDiscoverErrorResultMessage')).toContain('servers?: never;');
+    expect(interfaceBody(cvm, 'CvmDiscoverErrorResultMessage')).toMatch(/\berror: string;/);
+    expect(interfaceBody(intent, 'IntentAvailableResultMessage')).toMatch(/\bavailability: IntentAvailability;/);
+    expect(interfaceBody(intent, 'IntentHandlersResultMessage')).toMatch(/\bhandlers: IntentAvailability\[\];/);
+    expect(core).toContain('type ResourceBytes = string;');
+    expect(interfaceBody(core, 'ResourceBytesWireOkItem')).toContain('blob: ResourceBytes;');
+    expect(interfaceBody(core, 'ResourceSidecarEntry')).toContain('blob: ResourceBytes;');
+    expect(interfaceBody(resource, 'ResourceBytesManyResultMessage')).toContain('items: ResourceBytesWireItem[];');
+
+    // Kehto's own CVM mirror keeps the same union (packages/services/src/cvm-types.ts).
+    const local = readFileSync(join(ROOT, 'packages/services/src/cvm-types.ts'), 'utf8');
+    expect(local).toContain('export type CvmDiscoverResultMessage = CvmDiscoverSuccessResultMessage | CvmDiscoverErrorResultMessage;');
+
+    // Still open upstream (napplet/naps#33): upload result fields stay optional.
+    const upload = packageText('@napplet/nap', HOST_NAP, 'dist/upload/types.d.ts');
+    expect(interfaceBody(upload, 'UploadInfoResultMessage')).toMatch(/\binfo\?: /);
+    expect(interfaceBody(upload, 'UploadStatusResultMessage')).toMatch(/\bstatus\?: /);
+
+    const nap = JSON.parse(packageText('@napplet/nap', HOST_NAP, 'package.json')) as { dependencies?: Record<string, string>; scripts?: Record<string, string> };
+    expect(nap.dependencies?.['@napplet/core']).toBe('^0.45.0');
+    expect(nap.scripts?.postinstall, '@napplet/nap may not run install-time code').toBeUndefined();
   });
 
   it('compiles and imports the released intent, resource, SDK, and convention-archetype Vite surfaces', async () => {

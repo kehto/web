@@ -36,17 +36,38 @@ pnpm --filter @kehto/mocks audit:naps          # needs `gh` auth
 pnpm --filter @kehto/mocks audit:naps -- --json
 ```
 
-The report has four buckets:
+The report has five buckets:
 
 | Bucket | Meaning | Action |
 |--------|---------|--------|
 | `current` | Recorded sha matches the live head. | None. |
 | `stale` | The PR head (or master) moved since the mock was written. | Step 3. |
-| `retired` | The PR closed, or the document left master. | Step 4. |
-| `missing` | A NAP document exists upstream with no mock. | Step 2. |
+| `retired` | The PR closed, the document left master, or a `deferred-naps.json` entry is closed or already mocked. | Step 4. |
+| `missing` | A NAP document exists upstream with no mock (or a deferred head moved). | Step 2, or defer it. |
+| `deferred` | A new draft pinned in `scripts/deferred-naps.json` at its live head. | None until the head moves. |
 
-`--strict` exits non-zero when any bucket but `current` is non-empty; wire it
-into a scheduled job if you want drift surfaced automatically.
+`--strict` exits non-zero when `stale`, `retired` or `missing` is non-empty;
+`deferred` never fails it. Wire it into a scheduled job if you want drift
+surfaced automatically.
+
+Master staleness is commit-granular: any master commit marks every master
+mock stale, even when its document did not change. Compare the blob shas
+(`gh api repos/napplet/naps/contents/<path>?ref=<sha> --jq .sha`) first; an
+identical blob is a pure ref bump.
+
+### Deferring a new draft
+
+Mock every NAP by default. Defer only a brand-new draft domain that Kehto has
+no runtime, service or Paja support for yet, and say why in one line:
+
+```json
+{ "nap": "NAP-X", "path": "naps/NAP-X.md", "pr": 150, "sha": "<12-hex live head>", "reason": "New domain; no Kehto support yet." }
+```
+
+A deferral pins one head. When the PR moves, the document is `missing` again
+and the deferral needs a fresh look; when the PR closes or a mock lands, the
+entry turns up under `retired` until it is removed. Never defer a `stale` or
+`retired` mock, and never defer a master document.
 
 ## Step 2 — Add a mock for a new NAP
 
@@ -134,9 +155,13 @@ export const <UPPER>_MOCK_ENTRY: MockDomainEntry = { domain: '<domain>', kind: '
   `{ status: 'merged', source: 'master', sha: <master sha>, path }`, drop `pr`,
   re-read the merged text (merge may differ from the last head), and update
   `INVENTORY` (`'master'` instead of the PR number).
-- **PR closed without merge**: keep the mock only if the user wants it. If it
-  goes, delete the module, its index/registry/test/doc rows, and record the
-  removal in the changeset.
+- **PR closed without merge**: read the closing comment first. A retracted or
+  abandoned draft loses its mock (delete the module, its index/registry/test/
+  doc rows, and record the removal in the changeset). Do not repoint it at a
+  replacement draft with a different contract; that draft is a new NAP.
+- **Merged into another draft's branch** (an extension PR whose base was the
+  draft branch): fold its ref into the surviving PR's ref at the live head and
+  delete the extra `*_SPEC_REF`.
 - **Superseded draft** (a newer PR replaces an older one for the same domain):
   point the ref at the newer PR and note the older one in the header.
 

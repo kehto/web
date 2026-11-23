@@ -3,6 +3,7 @@ import type { ApprovalAnswer, ApprovalPrompt } from '@kehto/runtime';
 import type { ShellAdapter } from './index.js';
 import { createShellBridge } from './index.js';
 import { admitBrowserDocument } from './browser-admission.js';
+import { isNestedContextLocked } from './nested-context-tripwire.js';
 import type { NappletDomainBinding } from './napplet-domain-binding.js';
 
 function executePrelude(srcdoc: string) {
@@ -123,11 +124,16 @@ describe('shared browser admission transaction', () => {
     if (result.status !== 'committed') throw new Error('admission failed');
     expect(result.csp).toContain("require-trusted-types-for 'script'");
     expect(locked.commit.mock.calls[0][0] as string).toContain('require-trusted-types-for');
+    // The tripwire keys on the admitted window id, the same id hosts register the frame under.
+    expect(result.windowId).toBe('frame');
+    expect(isNestedContextLocked('frame')).toBe(true);
     result.retire();
     const open = fixture();
     const baseline = await admitBrowserDocument(open.options);
     if (baseline.status !== 'committed') throw new Error('admission failed');
     expect(baseline.csp).not.toContain('trusted-types');
+    // A later unlocked admission under the same id clears the mark.
+    expect(isNestedContextLocked('frame')).toBe(false);
     baseline.retire();
   });
 

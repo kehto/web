@@ -89,4 +89,86 @@ describe('createCatalogIntentResolver', () => {
     await expect(subject.invoke({ ...REQUEST, handler: 'choose' }, { sender: 'source' })).resolves.toEqual({ ok: false, error: 'user cancelled' });
     expect(accept).not.toHaveBeenCalled();
   });
+
+  // NAP-INTENT napplet/naps master 377bf939, "Recommended handler resolution":
+  // the shell MAY offer installation; support comes from verified catalog
+  // metadata; an explicit selection never falls back (kehto/web#523).
+  describe('offerUninstalledHandlers', () => {
+    const READER: IntentCatalogEntry = { id: 'nip5d:35129:dd:reader', archetypes: { note: { contracts: [{ convention: OPEN, params: [] }] } } };
+
+    function installing(entry: IntentCatalogEntry | undefined, returnedId = entry?.id) {
+      const catalog: IntentCatalogEntry[] = [];
+      const accept = vi.fn(() => ({ completion: Promise.resolve() }));
+      const offer = vi.fn(async () => { if (entry) catalog.push(entry); return returnedId; });
+      const subject = createCatalogIntentResolver({ loadCatalog: () => catalog, targets: { accept }, offerUninstalledHandlers: offer });
+      return { subject, offer, accept, catalog };
+    }
+
+    it('delivers to a handler the host installed after no installed handler matched', async () => {
+      const { subject, offer, accept } = installing(READER);
+      await expect(subject.invoke(REQUEST, { sender: 'source', sourceWindowId: 'w' })).resolves.toEqual({
+        ok: true, archetype: 'note', action: 'open', convention: OPEN, handler: READER.id,
+      });
+      expect(offer).toHaveBeenCalledWith(REQUEST, { sender: 'source', sourceWindowId: 'w' });
+      expect(accept).toHaveBeenCalledWith(expect.objectContaining({ handler: READER.id }));
+    });
+
+    it('keeps no handler when the user declines or nothing is found', async () => {
+      const { subject, accept } = installing(undefined);
+      await expect(subject.invoke(REQUEST, { sender: 'source' })).resolves.toEqual({ ok: false, error: 'no handler' });
+      expect(accept).not.toHaveBeenCalled();
+    });
+
+    it('trusts only the verified catalog entry, not the returned ID', async () => {
+      const incompatible: IntentCatalogEntry = { id: 'nip5d:35129:ee:edit', archetypes: { note: { contracts: [{ convention: 'napplet:note/edit', params: [] }] } } };
+      const wrong = installing(incompatible);
+      await expect(wrong.subject.invoke(REQUEST, { sender: 'source' })).resolves.toEqual({ ok: false, error: 'no handler' });
+      const missing = installing(undefined, 'nip5d:35129:ff:never-installed');
+      await expect(missing.subject.invoke(REQUEST, { sender: 'source' })).resolves.toEqual({ ok: false, error: 'no handler' });
+      expect(wrong.accept).not.toHaveBeenCalled();
+      expect(missing.accept).not.toHaveBeenCalled();
+    });
+
+    it('keeps the unsupported codes when installed handlers lack the convention', async () => {
+      const edit: IntentCatalogEntry = { id: 'nip5d:35129:ee:edit', archetypes: { note: { contracts: [{ convention: 'napplet:note/edit', params: [] }] } } };
+      const offer = vi.fn(async () => undefined);
+      const subject = createCatalogIntentResolver({ loadCatalog: () => [edit], targets: { accept: vi.fn() }, offerUninstalledHandlers: offer });
+      await expect(subject.invoke(REQUEST, { sender: 'source' })).resolves.toEqual({ ok: false, error: 'unsupported action' });
+      expect(offer).toHaveBeenCalledTimes(1);
+    });
+
+    it('never offers discovery for an explicit catalog handler', async () => {
+      const { subject, offer } = installing(READER);
+      await expect(subject.invoke({ ...REQUEST, handler: READER.id }, { sender: 'source' })).resolves.toEqual({ ok: false, error: 'no handler' });
+      expect(offer).not.toHaveBeenCalled();
+    });
+
+    it('offers discovery for default and choose selections', async () => {
+      for (const handler of ['default', 'choose'] as const) {
+        const { subject, offer } = installing(READER);
+        await expect(subject.invoke({ ...REQUEST, handler }, { sender: 'source' })).resolves.toMatchObject({ ok: true, handler: READER.id });
+        expect(offer).toHaveBeenCalledTimes(1);
+      }
+    });
+
+    it('treats a throwing offer or an aborted approval as the original rejection', async () => {
+      const subject = createCatalogIntentResolver({
+        loadCatalog: () => [], targets: { accept: vi.fn() },
+        offerUninstalledHandlers: () => { throw new Error('relay down'); },
+      });
+      await expect(subject.invoke(REQUEST, { sender: 'source' })).resolves.toEqual({ ok: false, error: 'no handler' });
+      const controller = new AbortController();
+      controller.abort();
+      const { subject: aborted, offer } = installing(READER);
+      await expect(aborted.invoke(REQUEST, { sender: 'source', signal: controller.signal as never })).resolves.toEqual({ ok: false, error: 'no handler' });
+      expect(offer).not.toHaveBeenCalled();
+    });
+
+    it('keeps available() and handlers() installed-only', async () => {
+      const { subject, offer } = installing(READER);
+      await expect(subject.available('note')).resolves.toMatchObject({ available: false, candidates: [] });
+      await expect(subject.handlers()).resolves.toEqual([]);
+      expect(offer).not.toHaveBeenCalled();
+    });
+  });
 });

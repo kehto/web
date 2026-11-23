@@ -11,20 +11,18 @@ import type {
 import type { RelayEventResult } from '@kehto/runtime';
 
 import {
-  PAJA_RESOURCE_MAX_SERVERS,
   normalizePublicBlossomServer,
   normalizeBlossomUriServer,
 } from './browser-resource.js';
 import { parsePajaBlossomUri } from './browser-blossom-uri.js';
 import { warnLegacyBlossomPrefix } from './browser-blossom-compat.js';
+import { getPajaSetting } from './settings.js';
+import { KIND_BLOSSOM_SERVER_LIST } from './nostr-kinds.js';
 
 /** Blossom BUD-03 replaceable server-list event kind. */
-export const BLOSSOM_SERVER_LIST_KIND = 10_063;
+export const BLOSSOM_SERVER_LIST_KIND = KIND_BLOSSOM_SERVER_LIST;
 
 const HEX_64 = /^[0-9a-f]{64}$/i;
-const DEFAULT_SERVER_LIST_TTL_MS = 5 * 60_000;
-const MAX_RESOURCES_PER_WINDOW = 256;
-const MAX_CONTEXTS_PER_RESOURCE = 8;
 
 interface EventResourceLocation {
   readonly url: string;
@@ -100,7 +98,7 @@ export function createPajaBlossomEventResolver(
   options: PajaBlossomEventResolverOptions,
 ): PajaBlossomEventResolver {
   const now = options.now ?? Date.now;
-  const ttl = Math.max(0, options.serverListTtlMs ?? DEFAULT_SERVER_LIST_TTL_MS);
+  const ttl = Math.max(0, options.serverListTtlMs ?? getPajaSetting('blossom.serverListTtlMs'));
   const windows = new Map<string, Map<string, ResourceContext[]>>();
   const windowServers = new Map<string, string[]>();
   const serverLists = new Map<string, ServerListCacheEntry>();
@@ -134,7 +132,7 @@ export function createPajaBlossomEventResolver(
       const publisher = normalizePubkey(result.event.pubkey);
       if (!publisher) continue;
       for (const location of extractEventResourceLocations(result.event)) {
-        if (!resources.has(location.url) && resources.size >= MAX_RESOURCES_PER_WINDOW) {
+        if (!resources.has(location.url) && resources.size >= getPajaSetting('blossom.maxResourcesPerWindow')) {
           const oldest = resources.keys().next().value as string | undefined;
           if (oldest) resources.delete(oldest);
         }
@@ -147,7 +145,7 @@ export function createPajaBlossomEventResolver(
         };
         const merged = [next, ...contexts.filter((context) => context.eventId !== next.eventId)]
           .sort(compareResourceContext)
-          .slice(0, MAX_CONTEXTS_PER_RESOURCE);
+          .slice(0, getPajaSetting('blossom.maxContextsPerResource'));
         resources.set(location.url, merged);
       }
     }
@@ -226,7 +224,7 @@ export function createPajaBlossomEventResolver(
     const servers: string[] = [...parsed.servers];
     for (const context of contexts) appendUnique(servers, context.servers);
 
-    if (servers.length < PAJA_RESOURCE_MAX_SERVERS) {
+    if (servers.length < getPajaSetting('resource.maxServers')) {
       const authors = [...parsed.authors];
       for (const context of contexts) appendUnique(authors, context.authors);
       for (const context of contexts) appendUnique(authors, [context.publisher]);
@@ -244,7 +242,7 @@ export function createPajaBlossomEventResolver(
     ensureDiscoveryActive(context, windowId, windowGeneration(windowId));
     if (windowId) appendUnique(servers, windowServers.get(windowId) ?? []);
     appendUnique(servers, options.getConfiguredServers());
-    return servers.slice(0, PAJA_RESOURCE_MAX_SERVERS);
+    return servers.slice(0, getPajaSetting('resource.maxServers'));
   }
 
   function setWindowServers(windowId: string, servers: readonly string[]): void {
@@ -436,7 +434,7 @@ function parseBlossomReference(value: string): EventResourceLocation | null {
 }
 
 function parseEventContent(value: string): Record<string, unknown> | null {
-  if (!value.startsWith('{') || value.length > 256 * 1024) return null;
+  if (!value.startsWith('{') || value.length > getPajaSetting('blossom.maxServerListChars')) return null;
   try {
     const parsed: unknown = JSON.parse(value);
     return isRecord(parsed) ? parsed : null;
@@ -461,7 +459,7 @@ function normalizePubkey(value: unknown): string | null {
 
 function appendUnique(target: string[], values: readonly string[]): void {
   for (const value of values) {
-    if (target.length >= PAJA_RESOURCE_MAX_SERVERS) return;
+    if (target.length >= getPajaSetting('resource.maxServers')) return;
     if (!target.includes(value)) target.push(value);
   }
 }

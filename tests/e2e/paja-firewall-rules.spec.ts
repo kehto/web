@@ -72,7 +72,8 @@ test('launches without prompting and summarizes what the rules allowed', async (
   await expect(rules.nth(0).locator('select')).toHaveValue('allow');
   await expect(rules.nth(1)).toContainText('link.open');
   await expect(rules.nth(1).locator('select')).toHaveValue('ask');
-  await expect(page.locator('.kehto-fw-by-rule')).toContainText('allowed by default rules');
+  // A default allow is answered by the rule itself and writes no grant (#513).
+  await expect(page.locator('.kehto-fw-by-rule')).toHaveCount(0);
   await expect(page.locator('.kehto-fw-domain')).toHaveCount(0);
 });
 

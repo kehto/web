@@ -1,4 +1,4 @@
-import { denyNappletControllerAccess, originRegistry, type ShellAdapter, type ShellBridge } from '@kehto/shell';
+import { denyNappletControllerAccess, denyNappletReferrer, originRegistry, type ShellAdapter, type ShellBridge } from '@kehto/shell';
 import type { Runtime } from '@kehto/runtime';
 import { NAPPLET_KIND_SNAPSHOT } from '@kehto/nip/5d';
 
@@ -12,6 +12,7 @@ import {
   type PajaDevtoolsState,
 } from './browser-devtools.js';
 import { isPajaLocalTarget, type PajaRuntimeTarget } from './local-target.js';
+import type { PajaFrameLaunch } from './browser-target-frame.js';
 import type { PajaHostConfig } from './options.js';
 import type { PajaResolvedPointer } from './runtime-resolver.js';
 import type { PajaSimulation } from './simulation.js';
@@ -77,10 +78,7 @@ export interface PajaRuntimeTabContext {
     adapter: ShellAdapter,
     permissionRuntime: Runtime,
     resolvedTarget: PajaRuntimeTarget,
-    windowId: string,
-    isCurrent?: () => boolean,
-    onRegistered?: (windowId: string | null) => void,
-    signal?: AbortSignal,
+    launch: PajaFrameLaunch & { readonly windowId: string },
   ): Promise<string | null>;
   renderTargetErrorHtml(error: unknown): string;
   setPointerStatus(state: PajaRuntimeTabState, message: string): void;
@@ -603,6 +601,7 @@ function createRuntimeTabFrame(
   frame.className = 'tab-panel';
   frame.title = `Napplet runtime target: ${tab.title}`;
   denyNappletControllerAccess(frame);
+  denyNappletReferrer(frame);
   frame.sandbox.add('allow-scripts');
   frame.sandbox.remove('allow-same-origin');
   frame.dataset.tabId = tab.id;
@@ -634,16 +633,19 @@ function startRuntimeTabNavigation(
     context.adapter,
     context.bridge.runtime,
     tab.resolvedTarget,
-    windowId,
-    () => tab.generation === generation,
-    (windowId) => {
-      if (tab.generation !== generation) return;
-      // NIP-5D: a second load of this frame revokes its binding.
-      if (windowId) context.bridge.observeFrame(tab.frame, windowId);
-      tab.windowId = windowId;
-      if (state.activeTabId === tab.id) context.runtime.currentWindowId = windowId;
+    {
+      windowId,
+      isCurrent: () => tab.generation === generation,
+      onRegistered: (windowId) => {
+        if (tab.generation !== generation) return;
+        // NIP-5D: a second load of this frame revokes its binding.
+        if (windowId) context.bridge.observeFrame(tab.frame, windowId);
+        tab.windowId = windowId;
+        if (state.activeTabId === tab.id) context.runtime.currentWindowId = windowId;
+      },
+      signal: tab.admissionController.signal,
+      revokeNapplet: (retired) => context.bridge.revokeNapplet(retired, 'host'),
     },
-    tab.admissionController.signal,
   ).then((windowId) => {
     if (tab.generation !== generation) return;
     tab.windowId = windowId;

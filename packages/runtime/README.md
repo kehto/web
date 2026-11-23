@@ -14,8 +14,8 @@ pnpm add @kehto/runtime
 
 ## Published Napplet Compatibility
 
-Peers admit `@napplet/core` `>=0.32.0 <0.42.0` and `@napplet/nap`
-`>=0.32.0 <0.41.0`; the runtime does not import the NAP-LLM types, so it keeps the older floor. Host packages develop and build on core 0.41.0 / nap 0.40.0; fixture napplets stay on the exact 0.32.0 line (shim 0.30.0, sdk 0.28.0, vite-plugin 0.16.2). The exact fixture-line convention contracts are core 0.32.0 /
+Peers admit `@napplet/core` `>=0.32.0 <0.46.0` and `@napplet/nap`
+`>=0.32.0 <0.46.0`; the runtime does not import the NAP-LLM types, so it keeps the older floor. Host packages develop and build on core 0.45.0 / nap 0.45.0; fixture napplets stay on the exact 0.32.0 line (shim 0.30.0, sdk 0.28.0, vite-plugin 0.16.2). The exact fixture-line convention contracts are core 0.32.0 /
 nap 0.32.0 from NAP-INTENT authority `5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`,
 napplet/web#199 source `3037200c932488f14f7f369b8583c39c9c16510a` / merge
 `b3f0007867eac109fa4917fac9c285d3b7cc6155`, and Version Packages #198 release
@@ -137,6 +137,34 @@ The released `@napplet/nap@0.32.0` SDK accepts `EventTemplate`, while its
 `RelayPublishMessage.event` declaration still says `NostrEvent`; Kehto records
 that mismatch as upstream package drift and follows the NAP wire direction.
 
+## Napplet-directed relay destinations
+
+Configure `RuntimeAdapter.permissions` and a source-bound `permissionPrincipal`
+before accepting `relay.subscribe.relay` or Kehto's existing `relay.query.relay`
+extension. A hint that selects network transport is rejected when operation
+authority is absent. Unhinted host-tier routing remains available for migration
+and emits `FW-RELAY-NETWORK-LEGACY-001` once per runtime instance on network use.
+Local-only mock and shell-event reads remain quiet.
+
+The runtime validates WebSocket URLs, rejects credentials and fragments, and
+includes each canonical origin in the `relay.network` permission request.
+Subscribe envelopes and destination plans are detached before approval waits.
+Execution uses the exact approved relay URLs; revocation and source replacement
+retire the pending/live work. A host's explicit allow rule may authorize the
+origin without showing a prompt; an interface grant alone cannot do so.
+
+Relay-pool authentication remains a separate host policy. A network-origin grant
+does not authorize NIP-42 signing. Use a pool without automatic authentication
+for napplet-directed traffic; Kehto cannot remove authentication hooks installed
+inside a third-party pool. The built-in Paja pool has no automatic signer.
+See [relay destination policy](../../docs/firewall-approvals.md#relay-destination-policy).
+
+Authority: NAP-RELAY draft `napplet/naps#2` at
+`9f30b3505335a52c574ff570576687d6467021ff`. Scoped subscribe is canonical;
+query's relay field remains an existing Kehto extension, not a new wire API.
+Executing that extension emits `KEHTO_COMPAT_RELAY_QUERY_HINT` once per runtime;
+migrate to scoped `relay.subscribe` and close after EOSE. Canonical calls stay quiet.
+
 ## Identity and theme result policy
 
 This runtime follows NAP-IDENTITY and NAP-THEME at `napplet/naps` master
@@ -181,6 +209,19 @@ the protocol-defined correlated result wire: `outbox.query.result` with
 `events: []` and `error`. The runtime does not synthesize an
 `outbox.query.error` message.
 
+## ACL denial wires
+
+ACL and legacy Firewall denials answer each recognized request on its owning
+NAP's failure wire, never an invented `<type>.error`. A denied `cvm.*` request
+gets its matching `.result` with `error: "policy denied"` (NAP-CVM #31 at
+`28cf1bdb`); `relay`, `outbox`, `upload`, `count`, `notify`, `dm`, `fs`,
+`keys`, `media` and `config` follow their own NAPs, and requests with no defined
+reply stay silent (including a denied `config.get`). The legacy Firewall gate
+uses the same rows for `common`, `lists`, `serial`, `ble`, `webrtc`, `link` and
+`gamepad`, which ACL does not gate. The per-type table, refs and
+spec-gap decisions are in
+[RUNTIME-SPEC.md](https://github.com/kehto/web/blob/main/RUNTIME-SPEC.md).
+
 The fixture-line `@napplet/nap@0.32.0` contract trails PR #106. Host packages
 take the intent types from `@napplet/core@0.41.0`, which `@kehto/services`
 re-exports; see the
@@ -192,9 +233,9 @@ controllers for the live Paja host.
 ## NAP-INC Contract
 
 The active INC boundary follows merged
-[`naps/NAP-INC.md`](https://github.com/napplet/naps/blob/5ac0490461ca6fec2f0d2e45b4835cf9bc08de24/naps/NAP-INC.md)
+[`naps/NAP-INC.md`](https://github.com/napplet/naps/blob/377bf939c6c906817084b43dd21d424de646dbc2/naps/NAP-INC.md)
 on `napplet/naps` master
-`5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`. The document remains marked
+`377bf939c6c906817084b43dd21d424de646dbc2`. The document remains marked
 draft, but the merged path is the protocol authority.
 
 The released projection binding converts a convention query to a text payload
@@ -204,8 +245,25 @@ wire/discovery identity, prefix/wildcard/query-aware matching, generic or
 service-over-INC prefix dispatch, or runtime payload-kind inference. Arbitrary
 opaque topic strings, including `?` and `#`, are routed by their complete exact
 text. The runtime derives the
-**runtime-attested dTag** from the registered source; callers never supply a
+**runtime-attested endpoint identifier** from the registered source; callers never supply a
 sender, topic delivery excludes its source, and IDs/payloads are opaque.
+
+`target`, `sender`, and `peer` are runtime-assigned endpoint identifiers: opaque text, one per live registered
+endpoint, taken from the injected `crypto.randomUUID`, and carrying no manifest `d` tag, artifact hash, window ID,
+instance ID, or ordering. An identifier is assigned on first use, lasts until that registration is replaced or
+unregistered, and is never reused; a replacement registration is a new endpoint whose old channels close as
+`peer destroyed`. Root and snapshot manifests without a `d` tag get identifiers like any other endpoint. A `d` tag is
+never resolved as a channel target (`KEHTO_INC_DTAG_TARGET_RETIRED` in
+[the compatibility register](https://github.com/kehto/web/blob/main/docs/compatibility.md)). Napplets learn a peer
+from an attested `sender`/`peer`; a host selects one with `Runtime.getIncEndpointId(windowId)`.
+
+```ts
+// Host peer selection: hand napplet A the endpoint of the window the user picked.
+const target = runtime.getIncEndpointId(pickedWindowId);
+```
+
+Migration from `@kehto/runtime` 0.26 and earlier: stop passing a manifest `d` tag to `inc.channel.open` and stop
+comparing `sender`/`peer` with a `d` tag. Keep the `sender` of an `inc.event` (or a channel `peer`) and pass that back.
 
 Channels apply **open-time authorization** only: ACL and target liveness are
 checked at `inc.channel.open`, never per later message. The target receives
@@ -244,10 +302,13 @@ Hold the limiter to change its configuration. `legacyFirewall` is an explicit
 compatibility adapter for hosts without scoped permissions.
 
 `PermissionAdapter.defaultDecision(request, missing)` lets a host answer a request
-no stored decision covers without prompting. `allow` commits session grants whose ids
-start with `DEFAULT_RULE_GRANT_PREFIX`, `deny` refuses, and `ask` prompts. It runs
+no stored decision covers without prompting. `allow` admits the request without
+writing a grant, so the rule is consulted again on every check and a default allow
+can't fill the grant table (kehto/web#513); `deny` refuses, and `ask` prompts. It runs
 before the prompt budget, and stored denials, the ACL ceiling and operation budgets
-still apply. The rule model (`createPermissionRules`, `resolvePermissionRule`,
+still apply. Call `RuntimePermissions.rulesChanged()` after changing the rules so
+live work admitted under the old ones closes. `DEFAULT_RULE_GRANT_PREFIX` is
+deprecated (see `DEFAULT_RULE_GRANTS` in docs/compatibility.md). The rule model (`createPermissionRules`, `resolvePermissionRule`,
 `setPermissionRule`) is re-exported from `@kehto/firewall`.
 
 ## Quick Start
@@ -321,10 +382,14 @@ token budgets. No limiter means there are no temporal counters to retire.
 - `handleStorageNap` — canonical `storage.*` NIP-5D handler
 - `cleanupNappState` — remove persisted state when a napplet window closes
 
+### Unrecognized message types
+- `createUnrecognizedTypeDiagnostic` — host warning for a dropped type its NAP does not define (`[KEHTO_UNRECOGNIZED_MESSAGE_TYPE]`, once per domain/type, at most `UNRECOGNIZED_TYPE_WARNING_LIMIT` types per instance, no payloads). NIP-5D requires such messages to get no reply, including on the ACL denial path.
+
 ### Service dispatch
 - `routeServiceMessage` — policy-free domain selection primitive; never a fallback for untrusted ingress
 - `notifyServiceWindowDestroyed` — lifecycle fan-out to every service handler
 - Service-only NAP domains, including `dm` and `fs`, route through handlers registered with `runtime.registerService('<domain>', handler)`.
+- `RuntimeAdapter.services` is copied once at creation. Add later services with `registerService`, and check routing with `runtime.hasService('<domain>')`. A request for a domain with no handler is ignored on the wire (NIP-5D) and logged once as `[KEHTO_UNROUTED_SERVICE_DOMAIN]`.
 
 For domains outside the built-in dispatcher, handlers opt in with an exact
 `messageCapabilities` map (existing ACL capability or explicit `null` per inbound
@@ -368,7 +433,7 @@ This non-normative guidance defers to the living [NAP-GAMEPAD](https://github.co
 
 ## LLM integration
 
-This non-normative guidance defers to the living [NAP-LLM](https://github.com/napplet/naps/pull/134) (checked at `5e93bdf`). Services export `createLlmService`, `LlmServiceError`, the provider mappers and `LLM_PROVIDER_PRESETS`; shell exports `getShellDomainState` and the `LlmHooks` adapter field; acl exports `llm:generate`. The runtime routes `llm.*` to one registered service and answers every sanctioned request with exactly one `llm.<op>.result`, shaping missing-service and ACL failures as `{ code: 'unsupported' }`. Hosts implement `LlmConnectionHost`; the service enforces schema, handle ownership, a per-window live-handle bound (`maxHandlesPerWindow`), consent before submission, duplicate ids, cancellation and deadline races, ordered deltas and safe errors, and passes `select`/`authorize` a `{ signal }` that withdraws stale prompts. `createHttpLlmProvider({ stream: true })` streams provider output into `llm.delta` as block start/delta/end events. Results carry `content` parts (text, thinking and tool calls); tool calls and results are validated and relayed, and Kehto never executes one. Advertisement stays binary on the wire while hosts report a third `unconfigured` state until the user adds a connection. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
+This non-normative guidance defers to the living [NAP-LLM](https://github.com/napplet/naps/pull/134) (checked at `5e93bdf`). Services export `createLlmService`, `LlmServiceError`, the provider mappers (OpenAI Chat Completions, OpenAI Responses, Anthropic Messages and Gemini `generateContent` dialects) and `LLM_PROVIDER_PRESETS`; shell exports `getShellDomainState` and the `LlmHooks` adapter field; acl exports `llm:generate`. The runtime routes `llm.*` to one registered service and answers every sanctioned request with exactly one `llm.<op>.result`, shaping missing-service and ACL failures as `{ code: 'unsupported' }`. Hosts implement `LlmConnectionHost`; the service enforces schema, handle ownership, a per-window live-handle bound (`maxHandlesPerWindow`), consent before submission, duplicate ids, cancellation and deadline races, ordered deltas and safe errors, and passes `select`/`authorize` a `{ signal }` that withdraws stale prompts. `createHttpLlmProvider({ stream: true })` streams provider output into `llm.delta` as block start/delta/end events. Results carry `content` parts (text, thinking and tool calls); tool calls and results are validated and relayed, and Kehto never executes one. Advertisement stays binary on the wire while hosts report a third `unconfigured` state until the user adds a connection. See [Language models](https://github.com/kehto/web/blob/main/docs/llm.md).
 
 ## Independent rate limits
 

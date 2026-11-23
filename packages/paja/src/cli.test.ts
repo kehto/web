@@ -1,6 +1,9 @@
+import { writeFileSync, unlinkSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { getPajaSetting, setActivePajaSettings } from './settings.js';
 import { isDirectPajaCli, parsePajaArgs, runPajaCli } from './cli.js';
 import { createPajaHostConfig, normalizePajaOptions, type PajaHostConfig } from './options.js';
+import { planTargetNetwork } from './target-network.js';
 
 describe('@kehto/paja CLI', () => {
   it('parses target URL and argv command separator', () => {
@@ -221,6 +224,7 @@ describe('@kehto/paja CLI', () => {
           };
           return hostConfig;
         },
+        inspectTargetNetwork: async () => planTargetNetwork('<meta name="napplet-requires" content="resource"><script src="/src/main.ts"></script>'),
         close: async () => undefined,
       }),
       startCommand: () => ({
@@ -237,10 +241,32 @@ describe('@kehto/paja CLI', () => {
     expect(hostConfig.target.url).toBe('http://localhost:5174/');
     expect(waitedFor).toEqual(['http://127.0.0.1:5173/', 'http://localhost:5174/']);
     expect(stdout.join('')).toContain('Target URL updated: http://localhost:5174/');
+    // kehto/web#447: the CLI names the blocking declaration and the way out up front.
+    expect(stdout.join('')).toContain('Target network: isolated snapshot');
+    expect(stdout.join('')).toContain('Target requires `resource`');
+    expect(stdout.join('')).toContain('These references will not load: /src/main.ts.');
+    expect(stdout.join('')).toContain('napplet-optional');
   });
 
   it('detects package binary symlinks as direct Paja CLI execution', () => {
     expect(isDirectPajaCli('/home/sandwich/.local/bin/paja')).toBe(true);
     expect(isDirectPajaCli('/home/sandwich/.local/lib/node_modules/@kehto/paja/dist/cli.js')).toBe(true);
+  });
+
+  it('activates config-file settings for the server process and rejects invalid ones', async () => {
+    const path = `/tmp/kehto-paja-settings-${String(Date.now())}.json`;
+    const io = { stdout: { write: () => undefined }, stderr: { write: (chunk: string) => { errors.push(chunk); } } };
+    const errors: string[] = [];
+    try {
+      writeFileSync(path, JSON.stringify({ targetUrl: 'http://127.0.0.1:5173', settings: { 'server.requestBodyMaxBytes': 8192 } }), 'utf8');
+      expect(await runPajaCli(['--config', path], io, { serve: false })).toBe(0);
+      expect(getPajaSetting('server.requestBodyMaxBytes')).toBe(8192);
+      writeFileSync(path, JSON.stringify({ targetUrl: 'http://127.0.0.1:5173', settings: { 'server.requestBodyMaxBytes': 1 } }), 'utf8');
+      expect(await runPajaCli(['--config', path], io, { serve: false })).toBe(1);
+      expect(errors.join('')).toContain('server.requestBodyMaxBytes: Use a value from 256 to 1048576.');
+    } finally {
+      unlinkSync(path);
+      setActivePajaSettings({});
+    }
   });
 });

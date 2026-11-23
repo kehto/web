@@ -30,9 +30,9 @@ Current-state delta inventory: `.planning/NIP-5D-2303-DELTA-AUDIT.md`
 
 NAP-INC remains marked draft, not a Kehto-local normative copy. Active INC
 guidance is pinned to merged
-[`naps/NAP-INC.md`](https://github.com/napplet/naps/blob/5ac0490461ca6fec2f0d2e45b4835cf9bc08de24/naps/NAP-INC.md)
+[`naps/NAP-INC.md`](https://github.com/napplet/naps/blob/377bf939c6c906817084b43dd21d424de646dbc2/naps/NAP-INC.md)
 on `napplet/naps` master
-`5ac0490461ca6fec2f0d2e45b4835cf9bc08de24`. This reference records the
+`377bf939c6c906817084b43dd21d424de646dbc2`. This reference records the
 implemented boundary and must be re-audited when that source changes.
 
 **Published-projection query-to-text-payload transposition** occurs only in the
@@ -45,8 +45,16 @@ normalize, prefix/wildcard/query-match, infer a payload kind, or intercept an
 wire or discovery identity is therefore invalid.
 
 The runtime attests identity from the registered endpoint: delivered topic and
-channel events contain a **runtime-attested dTag**, never a caller-supplied
+channel events contain a **runtime-attested endpoint identifier**, never a caller-supplied
 `sender`; IDs and payloads remain opaque. Topic delivery excludes its source.
+`target`, `sender`, and `peer` are runtime-assigned endpoint identifiers: opaque text, one per live registered
+endpoint, taken from the injected `crypto.randomUUID`, and carrying no manifest `d` tag, artifact hash, window ID,
+instance ID, or ordering. An identifier is assigned on first use, lasts until that registration is replaced or
+unregistered, and is never reused; a replacement registration is a new endpoint whose old channels close as
+`peer destroyed`. Root and snapshot manifests without a `d` tag get identifiers like any other endpoint. A `d` tag is
+never resolved as a channel target (`KEHTO_INC_DTAG_TARGET_RETIRED` in
+[the compatibility register](https://github.com/kehto/web/blob/main/docs/compatibility.md)). Napplets learn a peer
+from an attested `sender`/`peer`; a host selects one with `Runtime.getIncEndpointId(windowId)`.
 Channel ACL authorization is open-only: target liveness and policy are checked
 at `inc.channel.open`, not per message. A target receives
 `inc.channel.opened` before the opener result, after which both endpoints hold
@@ -217,6 +225,21 @@ The active NIP-5D primitives are:
 - napplets do not receive `window.nostr`, signing keys, encryption keys, direct
   browser storage, IndexedDB, or direct relay WebSockets.
 
+## Encrypted publish
+
+`relay.publishEncrypted` fails closed (kehto/web#482). NAP-RELAY #2 at
+`9f30b350` says "The shell MUST encrypt content and sign event templates from
+`relay.publishEncrypted`", and a failed publish is a `.result` with `ok: false`
+and `error`. If the signer has no `encrypt` for the requested scheme, the reply
+is `ok: false`, `error: "encryption unavailable: <scheme>"`, before any approval
+prompt or relay plan. If `encrypt` yields no string, an empty string or the
+plaintext itself, the reply is `ok: false`, `error: "encryption failed"`.
+Either way nothing is signed or published. The NAP has no fixed error codes
+here, so these strings are Kehto's diagnostics. Spec-gap decision: the API
+text's "NIP-44 by default, NIP-04 as fallback" is read as naming the
+alternative value. An omitted `encryption` with a signer that only has NIP-04
+still fails, and Kehto never downgrades silently.
+
 ## Unknown-`type` handling
 
 NIP-5D requires that messages with an unrecognized `type` be **silently ignored**,
@@ -231,45 +254,103 @@ Kehto applies this rule on two levels:
   segment matches no registered NAP is silently dropped (no reply). Envelopes
   without a `.` separator, or non-object messages, are also dropped.
 
-- **Unknown action within a known domain** — each domain handler decides. The
-  default is silent-ignore (`audio`, `config`, `cvm`, `intent`, `outbox`,
-  `resource`, `upload`, and `notification-service` return without replying on an
-  unrecognized action).
+- **Unknown action within a known domain** — silently dropped by every runtime
+  handler and every `@kehto/services` reference service (kehto/web#465). A
+  service drops the message and calls the shared
+  `createUnrecognizedTypeDiagnostic()` from `@kehto/runtime`, which warns the
+  host once per domain/type as `[KEHTO_UNRECOGNIZED_MESSAGE_TYPE]`, at most 16
+  types per instance, without payloads or ids. That includes the retired
+  `storage.clear` (not in NAP-STORAGE #3 `4f4cf0ca`) and a `webrtc.stats`
+  request (NAP-WEBRTC #59 `fb4dd6f0` defines `stats` only as a pushed event).
+  `tests/unit/nip5d-conformance-guard.test.ts` drives every reference service,
+  the runtime with and without ACL denial, every NAP mock and the Paja
+  multiplayer stubs with undefined types and fails on any reply.
 
-### Sanctioned structured-error exceptions
+A NAP may define error results only for messages it recognizes. A known type
+with a malformed payload still gets its domain's specified failure result: for
+example `storage.<action>.result` with `error`, structured `intent.*.result`
+errors, or `webrtc.sendBytes.result` with `"unsupported"` on a shell without
+byte payloads, as NAP-WEBRTC requires.
 
-Three response shapes are **deliberate, NAP-sanctioned exceptions** to the
-silent-ignore default and are NOT divergences to normalize:
+The ACL-denial and firewall-reject paths (`packages/runtime/src/runtime.ts`,
+`legacy-firewall-gate.ts`) answer *recognized* requests on the owning NAP's
+failure wire. `storage.*`, `inc.subscribe`/`inc.channel.open`, `intent.*`,
+`llm.*` and runtime-owned `identity.*`/`theme.*` keep their existing shapes.
+`packages/runtime/src/policy-denials.ts` holds one row per exact request type,
+with the napplet/naps ref and sentence it implements:
 
-- **NAP-INTENT** (`intent` domain) — explicitly sanctions structured errors:
-  `intent.*.result` envelopes MAY carry an `error` field (`"unknown archetype"`,
-  `"no handler"`, `"unsupported action"`, …). See [`specs/NAP-INTENT.md`](specs/NAP-INTENT.md).
+| Domain | Ref | Denial wire |
+|--------|-----|-------------|
+| `cvm` | #31 `28cf1bdb` | matching `.result`, `error: "policy denied"`, no success fields |
+| `relay` | #2 `9f30b350` | `publish`/`publishEncrypted` → `.result` `ok: false`; `query` → `.result` `error`; `subscribe` → `relay.closed`; `close` silent |
+| `outbox` | #32 `8865f73d` | `getEvent`/`query`/`publish`/`resolveRelays` → `.result` (`events: []` for query, `ok: false` for publish, `plan: { relays: [], source: "policy" }` for resolveRelays); `subscribe` → `outbox.closed`; `close` silent |
+| `upload` | #33 `f5cc981e` | `info`/`upload`/`status` → `.result` with top-level `error` only |
+| `keys` | #9 `8869a4cf` | `registerAction` → `.result` echoing `actionId`, `error`, no `binding`; `forward`/`unregisterAction` silent |
+| `media` | #10 `7806f438` | `session.create` → `.result` with `error`; `session.update`/`session.destroy`/`state`/`capabilities`/`command` silent |
+| `config` | #14 `bed9cb5b` | `registerSchema` → `.result` `ok: false`, `error`, no `code`; `get`/`subscribe`/`unsubscribe`/`openSettings` silent |
+| `count` | #69 `9353a0c6` | `count.query.result` `ok: false`, `error: "policy-denied"`, `reason` |
+| `notify` | #11 `67877ef6` | `send` → `.result` `error`; `permission.request` → `granted: false`; `dismiss`/`badge`/`channel.register` silent |
+| `dm` | #74 `2c4e4423` | every request's `.result` with `error` only |
+| `fs` | #88 `bd1b9e91` | every request's `.result`, `error: "policy-denied"` |
+| `common` | #67 `8cd0eae8` | every request's `.result` `ok: false`, `error`; `getProfile` adds `pubkey` (hex target or `''`), `follows` adds `pubkeys: []` |
+| `lists` | #68 `7cf00cdb` | `add`/`remove` → `.result` `ok: false`, `error: "policy-denied"`, `reason`; `supported` → `.result` `error: "policy-denied"` |
+| `serial` | #61 `0c6e88ab` | every request's `.result` with `error` (no `session` on `open`) |
+| `ble` | #62 `b46b8691` | every request's `.result` with `error` (no `session` on `open`) |
+| `webrtc` | #59 `fb4dd6f0` | every request's `.result` with `error` only |
+| `link` | #53 `100e5c93` | `link.open.result` `status: "denied"`, `error` |
+| `gamepad` | #130 `0b28f77e` | `subscribe` → `gamepad.state` `available: false`, `reason: "blocked"`, `focused: false`, `pads: []`; `unsubscribe` silent |
 
-- **storage** (`packages/runtime/src/state-handler.ts`) — the canonical storage
-  contract replies with `storage.<action>.result` envelopes whose optional
-  `error` field signals failure; an unknown storage action returns a
-  `storage.<action>.result` with `error` rather than a bare `.error`. Napplets
-  check `!result.error` for success, so the `.result` envelope is the contract,
-  not an information leak.
+The runtime's reason (`denied: <capability>` or `firewall: <reason>`) passes
+through except where the NAP mandates a code or enumerates one, or separates a
+machine-readable `error` code from a human `reason` (NAP-LISTS): there `error`
+is `"policy-denied"` and the runtime's reason goes in `reason`.
 
-### Documented divergences (not changed)
+Every request type the domains above define now has a row; none is answered with
+an invented `<type>.error`. ACL does not gate `common`, `lists`, `serial`,
+`ble`, `webrtc`, `link` or `gamepad`, so only the legacy Firewall gate reaches
+their rows (kehto/web#494). `identity.*` has no row: both gates answer it first
+with its runtime-owned safe default. `resource.*` keeps `.error`, which NAP-RESOURCE #80
+defines. MEDIA has two open drafts: #133 (`8ea49c33`) is stacked on the #10
+draft branch, adds torrent sources only and leaves these rows unchanged, so #10
+is cited.
 
-A small set of read/query-style service handlers reply to an **unrecognized
-action** with a `<type>.error` envelope rather than silently ignoring it:
-`identity` (`identity-service.ts`), `media` (`media-service.ts`), and `notify`
-(`notify-service.ts`). These predate the #2303 silent-ignore tightening, are
-relied on by existing unit tests, and emit only a generic `"Unknown <domain>
-method"` string (no internal state). Because they are query-domain handlers
-responding to a correlated request `id`, and because changing them is a behavior
-change outside this docs phase's scope (and not a clear-cut, risk-free
-normalization), they are **documented here rather than altered**. Tightening them
-to silent-ignore is a candidate for a future behavior-only change, gated on
-updating their tests.
+Spec-gap decisions (kehto/web#481), each the narrowest reply the NAP text
+permits, with an upstream question for the owning draft:
 
-The ACL-denial and firewall-reject paths (`packages/runtime/src/runtime.ts`)
-follow the same envelope-shaping rule: `storage.*` denials reply via `.result`
-(with an `error` field); all other domains reply via `.error`. These are
-denial responses to *recognized* messages, not unknown-`type` handling.
+- `keys.registerAction`: `actionId` is required on the result; the denial
+  echoes the request's `action.id` (`''` when absent), as the NAP's error
+  example does.
+- `config.registerSchema`: `ok: false` with `error` and no `code`, because
+  every `ConfigSchemaErrorCode` describes an invalid schema. `config.get` is
+  silent: `config.values` has no `error` field and empty values would break the
+  default-resolution MUST, so the napplet sees its request time out (Kehto's
+  injected `config.get()` rejects after the request timeout instead of at once).
+- `outbox.resolveRelays`: `plan` is required, so the denial sends the empty
+  policy-derived plan the NAP allows for untrusted napplets, plus `error`.
+- `upload.info`: `info` is required, so the denial sends `info: { rails: [] }`
+  with `error`, the fully redacted disclosure NAP-UPLOAD allows for untrusted
+  napplets (kehto/web#518).
+- `upload.status`: bounded spec gap (napplet/naps#33 @ f5cc981e,
+  kehto/web#518). `status` is required, but a denied lookup has no honest
+  rail, state or timestamp for `UploadStatus`, so the denial sends only
+  `error`, like `upload.upload`, rather than invent upload state.
+
+Spec-gap decisions (kehto/web#494):
+
+- `common.getProfile`: `pubkey` is required; the denial echoes a lowercase-hex
+  target and sends `''` for an npub, nprofile or anything else, so a denied
+  napplet gets no NIP-19 decode. `common.follows` sends `pubkeys: []`.
+- `lists.*`: `error` is a machine-readable code and none of the listed codes
+  names a policy denial, so the denial uses `"policy-denied"` (as NAP-COUNT and
+  NAP-FS do) and puts the runtime's reason in `reason`.
+- `gamepad.subscribe`: NAP-GAMEPAD has no request/result pairs but requires a
+  snapshot after each subscribe, so the denial sends the `"blocked"` snapshot.
+
+`kehto conformance` covers both gates: `catalog/acl-denial` and
+`catalog/firewall-denial`.
+
+A denied type that the owning NAP does not define as a napplet
+request gets no reply in any domain (`isSilentUnknownDenial`).
 
 ## Retired Drift
 

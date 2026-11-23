@@ -13,7 +13,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createRuntime } from './runtime.js';
 import type { Runtime } from './runtime.js';
-import { createMockRuntimeAdapter, createNip5dSessionEntry, findEnvelopeResponse } from './test-utils.js';
+import { createMockRuntimeAdapter, createNip5dSessionEntry } from './test-utils.js';
 import type { MockRuntimeContext } from './test-utils.js';
 import type { NappletMessage } from '@napplet/core';
 
@@ -75,7 +75,9 @@ describe('runtime upload domain dispatch', () => {
     expect(ctx.sent).toHaveLength(0);
   });
 
-  it('denies upload.upload for a blocked napplet (ACL gate → upload.upload.error)', () => {
+  it('denies upload.upload for a blocked napplet on upload.upload.result', () => {
+    // NAP-UPLOAD napplet/naps#33 @ f5cc981e, Error Handling: "The shell SHOULD
+    // return a top-level `error` when no upload was created." No `.error` type.
     const received: NappletMessage[] = [];
     runtime.registerService('upload', {
       descriptor: { name: 'upload', version: '1.0.0' },
@@ -90,9 +92,9 @@ describe('runtime upload domain dispatch', () => {
     } as NappletMessage);
 
     expect(received).toHaveLength(0); // service never reached
-    const err = findEnvelopeResponse(ctx.sent, 'upload.upload.error');
-    expect(err).toBeDefined();
-    expect((err as { id?: string }).id).toBe('u3');
+    expect(ctx.sent.map(({ message }) => message)).toEqual([
+      { type: 'upload.upload.result', id: 'u3', error: 'denied: upload:write' },
+    ]);
   });
 
   it('allows upload.upload for a napplet with ACL grants (upload capability is not restricted)', () => {

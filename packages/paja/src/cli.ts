@@ -4,10 +4,12 @@
  *
  * @module
  */
+import { startPajaResourceProxy } from './server-resource-proxy.js';
 import { spawn, type ChildProcess } from 'node:child_process';
 import {
   createPajaHostConfig,
   formatPajaUrl,
+  normalizePajaConfigSettings,
   normalizePajaOptions,
   waitForTargetUrl,
   type PajaCommand,
@@ -23,6 +25,7 @@ import {
   type PajaSimulationRawOptions,
   type JsonValue,
 } from './simulation.js';
+import { getPajaSetting, setActivePajaSettings } from './settings.js';
 
 /**
  * Minimal output streams used by the CLI runner.
@@ -51,8 +54,11 @@ export interface RunPajaCliOptions {
   readonly serve?: boolean;
   readonly startServer?: typeof startPajaServer;
   readonly startCommand?: (command: PajaCommand, io: CliIo) => ManagedChildProcess;
+  readonly startResourceProxy?: typeof startPajaResourceProxy;
   readonly waitForTargetUrl?: typeof waitForTargetUrl;
   readonly targetDiscoveryGraceMs?: number;
+  /** Upper bound for the startup target inspection; defaults to 2000 ms. */
+  readonly targetInspectTimeoutMs?: number;
 }
 
 /**
@@ -101,6 +107,7 @@ export async function runPajaCli(
   io: CliIo = defaultIo,
   runOptions: RunPajaCliOptions = {},
 ): Promise<number> {
+  if (args[0] === 'resource-proxy') return runResourceProxyCli(args.slice(1), io, runOptions);
   try {
     const parsed = parsePajaArgs(args);
     if (parsed.help) {
@@ -109,6 +116,8 @@ export async function runPajaCli(
     }
 
     const rawOptions = resolvePajaRawOptions(parsed.options ?? {});
+    // Config-file settings must be active before normalization reads any bound.
+    setActivePajaSettings(normalizePajaConfigSettings(rawOptions.settings));
     const options = normalizePajaOptions(rawOptions);
     const hostConfig = createPajaHostConfig(options);
     const shouldServe = runOptions.serve ?? true;
@@ -134,6 +143,7 @@ export async function runPajaCli(
             io.stdout.write(`Target URL updated: ${targetUrl}\n`);
           }
         }
+        await writeTargetNetworkNotice(io, server, runOptions.targetInspectTimeoutMs);
       } catch (error) {
         child?.kill();
         await server?.close().catch(() => undefined);
@@ -151,6 +161,33 @@ export async function runPajaCli(
     const message = error instanceof Error ? error.message : String(error);
     io.stderr.write(`kehto paja: ${message}\n`);
     return 1;
+  }
+}
+
+/**
+ * Say up front when the target's own `resource` declaration changes how Paja
+ * loads it, so a blank or reduced frame is never the first signal. Best effort:
+ * an unreachable or slow target is reported by the browser host instead.
+ */
+async function writeTargetNetworkNotice(
+  io: CliIo,
+  server: Awaited<ReturnType<typeof startPajaServer>>,
+  timeoutMs = getPajaSetting('server.targetNoticeTimeoutMs'),
+): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const plan = await Promise.race([
+      server.inspectTargetNetwork(),
+      new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), timeoutMs); }),
+    ]);
+    if (!plan?.detail) return;
+    io.stdout.write(`Target network: ${plan.mode === 'isolated' ? 'isolated snapshot' : 'live, without resource'}\n`);
+    io.stdout.write(`  ${plan.detail}\n`);
+    if (plan.hint) io.stdout.write(`  ${plan.hint}\n`);
+  } catch {
+    // The target is not serving HTML yet; the browser host reports it on load.
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -172,9 +209,58 @@ function writeRuntimeSummary(
     }
 }
 
+const RESOURCE_PROXY_HELP = `Usage:
+  kehto paja resource-proxy --allow-origin <origin> --port <port> [--host <host>]
+
+Runs the NAP-RESOURCE proxy a static Paja build needs for network images.
+It pins public addresses after DNS (the mandatory private-IP check), caps size
+and time with the server.resource* settings, and answers only the allowed
+browser origins. Origin checks are not authentication: this is an open fetch
+proxy for public addresses, so rate-limit it if you expose it.
+
+Options:
+  --allow-origin <origin>   Browser origin allowed to use it (repeatable, required).
+  --port <port>             Listen port (required).
+  --host <host>             Listen host. Default: 127.0.0.1.`;
+
+async function runResourceProxyCli(
+  args: readonly string[],
+  io: CliIo,
+  runOptions: RunPajaCliOptions,
+): Promise<number> {
+  const origins: string[] = [];
+  let host = '127.0.0.1';
+  let port: number | undefined;
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === '--help' || arg === '-h') { io.stdout.write(`${RESOURCE_PROXY_HELP}\n`); return 0; }
+    const value = args[index + 1];
+    if (value === undefined) { io.stderr.write(`Missing value for ${arg}\n`); return 1; }
+    index += 1;
+    if (arg === '--allow-origin') origins.push(value);
+    else if (arg === '--host') host = value;
+    else if (arg === '--port' && /^\d+$/u.test(value)) port = Number(value);
+    else { io.stderr.write(`Unknown or invalid resource-proxy option: ${arg} ${value}\n`); return 1; }
+  }
+  if (port === undefined || origins.length === 0) {
+    io.stderr.write(`${RESOURCE_PROXY_HELP}\n`);
+    return 1;
+  }
+  try {
+    const start = runOptions.startResourceProxy ?? startPajaResourceProxy;
+    const proxy = await start({ allowedOrigins: origins, host, port });
+    io.stdout.write(`Paja resource proxy: ${proxy.url} (origins: ${origins.join(', ')})\n`);
+    return 0;
+  } catch (error) {
+    io.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    return 1;
+  }
+}
+
 const HELP_TEXT = `Usage:
   kehto paja --target-url <url> [options]
   kehto paja --target-url <url> [options] -- <command...>
+  kehto paja resource-proxy --allow-origin <origin> --port <port>
 
 Options:
   --target-url, -u <url>      App dev-server URL to load in the runtime iframe.
@@ -458,7 +544,7 @@ async function resolveManagedTargetUrl(
     return first.url;
   }
 
-  const graceMs = options.discoveryGraceMs ?? Math.min(1000, options.timeoutMs);
+  const graceMs = options.discoveryGraceMs ?? Math.min(getPajaSetting('server.discoveryGraceMs'), options.timeoutMs);
   const detected = await resolveWithin(child.detectedTargetUrl, graceMs);
   if (!detected) {
     if (first?.url) {
