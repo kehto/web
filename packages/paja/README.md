@@ -694,7 +694,7 @@ policy in their drafts (NAP-FS `bd1b9e9`, NAP-WEBRTC `fb4dd6f`, NAP-RESOURCE
 | `vault.minPasswordLength` | Minimum vault password length | 12 chars | 12–256 |
 | `vault.minDistinctChars` | Minimum distinct password characters | 4 chars | 4–64 |
 | `vault.pbkdf2Iterations` | PBKDF2 iterations for new vaults | 600000 | 600000–10000000 |
-| **Multiplayer providers** | | | |
+| **ContextVM providers** | | | |
 | `cvm.discoveryTimeoutMs` | Provider discovery timeout | 15000 ms | 1000–300000 |
 | `cvm.serverRequestTimeoutMs` | Server request answer window | 30000 ms | 1000–300000 |
 | `cvm.discoveryMaxBytes` | Maximum discovery document size | 1000000 bytes | 1024–67108864 |
@@ -707,6 +707,7 @@ policy in their drafts (NAP-FS `bd1b9e9`, NAP-WEBRTC `fb4dd6f`, NAP-RESOURCE
 | `multiplayer.maxRelays` | Relays per configuration | 16 | 1–256 |
 | `multiplayer.maxTools` | Tools per family | 64 | 1–1024 |
 | `multiplayer.maxRegistryFamilies` | Registry families | 16 | 1–256 |
+| **Multiplayer signaling** | | | |
 | `multiplayer.maxIceServers` | ICE servers | 8 | 1–64 |
 | `multiplayer.maxIceUrls` | URLs per ICE server | 8 | 1–64 |
 | **Development target** | | | |
@@ -1095,18 +1096,25 @@ in `createPajaPermissionAdapter`. These are Paja host choices; runtime and Firew
 do not impose them on other hosts. Limiter configuration and counters are separate
 from approval grants.
 
-### Configurable multiplayer providers
+### ContextVM providers
 
-The **Multiplayer providers** sidebar accepts explicit JSON settings, also available
-as `simulation.multiplayer` in a Paja config file. Select `soy-rtc/1`, signaling
-relays, and CVM families with pinned tool schemas. Optional static STUN/TURN
-settings receive separate endpoint approval. No provider is selected from an app
-URL. See [configuration and interoperability](/paja-multiplayer).
+The **ContextVM providers** sidebar discovers CVM tool inventories from a `nevent`,
+a CEP-15 tool schema hash, or an HTTPS website's `/.well-known/napplet.json`.
+Choose a provider, local family label, and tools; generated JSON is read-only
+and shows its source. Manual JSON remains editable. Saved families persist per
+host origin and coexist in the registry. Saves and removals reload the host.
+A Paja config file pins families at `simulation.cvm.registry`. Neither path
+needs a multiplayer signaling profile. ContextVM doesn't define named-family
+manifests or `naddr` discovery; labels and membership are local choices. See
+[ContextVM providers](/paja-cvm-providers).
 
-The same sidebar discovers CVM tool inventories from a `nevent`, a CEP-15 tool
-schema hash, or an HTTPS website's `/.well-known/napplet.json`. Choose a provider,
-local family label, and tools; generated JSON is read-only and shows its source.
-Manual JSON remains editable. Saved families persist per host origin and coexist
-in the registry, including without a multiplayer signaling profile. Saves and
-removals reload the host. ContextVM doesn't define named-family manifests or
-`naddr` discovery; labels and membership are local choices.
+### Multiplayer signaling
+
+The **Multiplayer signaling** sidebar accepts explicit JSON settings, also
+available as `simulation.multiplayer` in a Paja config file. Select `soy-rtc/1`
+and signaling relays. Optional static STUN/TURN settings receive separate
+endpoint approval. No provider is selected from an app URL. A
+`multiplayer.registry` list still works but is deprecated in favor of
+`simulation.cvm.registry` (`PAJA_MULTIPLAYER_REGISTRY` in the
+[compatibility register](/compatibility)). See
+[configuration and interoperability](/paja-multiplayer).

@@ -9,14 +9,18 @@ export interface PajaIceServer {
   credential?: string;
 }
 
-/** Explicit host interoperability settings; no provider or application is inferred from a URL. */
+/** Explicit multiplayer signaling settings; no provider or application is inferred from a URL. */
 export interface PajaMultiplayerConfig {
   /** Documented Nostr signaling format, selected by the operator. */
   profile: 'soy-rtc/1';
-  /** Relays used for signaling, independently of social relay routing. */
+  /** Relays used for signaling and the shared CVM transport, independently of social relay routing. */
   relays: string[];
-  /** Local family labels and verified tool hash pins for CVM providers. */
-  registry: CvmRegistryFamily[];
+  /**
+   * Local family labels and verified tool hash pins for CVM providers.
+   * @deprecated Configure CVM families at `simulation.cvm.registry`, which needs no
+   * signaling profile. Tracked as `PAJA_MULTIPLAYER_REGISTRY` in docs/compatibility.md.
+   */
+  registry?: CvmRegistryFamily[];
   /** Optional operator-managed STUN/TURN endpoints and credentials. */
   iceServers?: PajaIceServer[];
   /** Shared namespace for unsigned local development targets only. Verified targets derive theirs from the signed event. */
@@ -67,22 +71,38 @@ function iceServer(value: unknown): PajaIceServer {
 }
 
 /**
- * Validate a provider-neutral multiplayer configuration from a file or host settings.
+ * Validate a CVM family list from a file or host settings.
+ * @param value - Parsed JSON array of families.
+ * @param field - Config path named in errors.
+ * @returns Detached, validated families.
+ * @example
+ * ```ts
+ * normalizePajaCvmRegistry([], 'cvm.registry');
+ * ```
+ */
+export function normalizePajaCvmRegistry(value: unknown, field: string): CvmRegistryFamily[] {
+  const maxRegistry = getPajaSetting('multiplayer.maxRegistryFamilies');
+  if (!Array.isArray(value) || value.length > maxRegistry) throw new Error(`${field} must list at most ${String(maxRegistry)} registry families.`);
+  return value.map(normalizePajaCvmFamily);
+}
+
+/**
+ * Validate a provider-neutral multiplayer signaling configuration from a file or host settings.
+ * A legacy `registry` is kept only when non-empty; an empty one is a no-op and is dropped.
  * @param value - Parsed JSON; undefined means the host's default transport.
  * @returns A detached, validated configuration, or undefined.
  * @example
  * ```ts
- * normalizePajaMultiplayer({ profile: 'soy-rtc/1', relays: ['wss://relay.example'], registry: [] });
+ * normalizePajaMultiplayer({ profile: 'soy-rtc/1', relays: ['wss://relay.example'] });
  * ```
  */
 export function normalizePajaMultiplayer(value: unknown): PajaMultiplayerConfig | undefined {
   if (value === undefined) return undefined;
   if (!record(value) || value.profile !== 'soy-rtc/1') throw new Error('Select a supported multiplayer signaling profile.');
-  const maxRegistry = getPajaSetting('multiplayer.maxRegistryFamilies');
   const maxIce = getPajaSetting('multiplayer.maxIceServers');
-  if (!Array.isArray(value.registry) || value.registry.length > maxRegistry) throw new Error(`Configure at most ${String(maxRegistry)} registry families.`);
+  const registry = value.registry === undefined ? [] : normalizePajaCvmRegistry(value.registry, 'multiplayer.registry');
   if (value.iceServers !== undefined && (!Array.isArray(value.iceServers) || value.iceServers.length > maxIce)) throw new Error(`Configure at most ${String(maxIce)} ICE servers.`);
-  return { profile: value.profile, relays: normalizePajaCvmRelays(value.relays), registry: value.registry.map(normalizePajaCvmFamily),
+  return { profile: value.profile, relays: normalizePajaCvmRelays(value.relays), ...(registry.length ? { registry } : {}),
     ...(Array.isArray(value.iceServers) ? { iceServers: value.iceServers.map(iceServer) } : {}),
     ...(value.developmentNamespace === undefined ? {} : { developmentNamespace: text(value.developmentNamespace) }) };
 }

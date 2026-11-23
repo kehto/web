@@ -67,7 +67,8 @@ import { createPajaResourceFetch, PAJA_RESOURCE_PROXY_PATH, pajaResourceInfo } f
 import { readPajaResourceProxyUrl } from './browser-resource-proxy-setting.js';
 import { createPajaWebrtcController } from './browser-webrtc.js';
 import { createPajaMultiplayerServices, PAJA_CVM_OPERATIONS } from './browser-multiplayer-services.js';
-import { mergeCvmFamilies, readCvmFamilies } from './cvm-family-store.js';
+import { readCvmFamilies } from './cvm-family-store.js';
+import { resolvePajaCvmRegistry } from './cvm-registry-config.js';
 import { confirmPajaExternalLink } from './browser-link.js';
 import { createPajaBrowserFsBackend } from './browser-fs.js';
 import {
@@ -385,9 +386,9 @@ function createDevServices(
   if (getSimulation().capabilities.domains.theme) services.theme = theme.handler;
   if (getSimulation().capabilities.domains.config && config) services.config = config.handler;
   const multiplayerConfig = getSimulation().multiplayer;
-  const registry = mergeCvmFamilies(multiplayerConfig?.registry ?? [], readCvmFamilies());
+  const registry = resolvePajaCvmRegistry(getSimulation(), readCvmFamilies());
   const multiplayer = multiplayerConfig && getSimulation().relay.mode === 'live' && backend.isAvailable()
-    ? createPajaMultiplayerServices({ config: { ...multiplayerConfig, registry }, scopeKey,
+    ? createPajaMultiplayerServices({ config: multiplayerConfig, registry, scopeKey,
       concurrency: getSimulation().cvm.concurrency,
       namespace: windowId => getIdentity?.(windowId).signalingNamespace,
       backend: (windowId, isCurrent) => scopeFor(windowId, isCurrent).backend,

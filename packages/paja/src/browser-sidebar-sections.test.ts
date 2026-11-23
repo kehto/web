@@ -39,6 +39,16 @@ describe('Paja sidebar sections', () => {
     installPajaSidebarSections();
     expect(multiplayer.open).toBe(true);
   });
+  it('keeps ContextVM providers and Multiplayer signaling collapse state separate', () => {
+    const { storage } = harness();
+    const cvm = Object.assign(new EventTarget(), { open: false });
+    const multiplayer = Object.assign(new EventTarget(), { open: false });
+    vi.stubGlobal('document', { getElementById: (id: string) => id === 'paja-section-cvm' ? cvm : id === 'paja-section-multiplayer' ? multiplayer : null });
+    installPajaSidebarSections();
+    toggle(cvm);
+    expect(storage.setItem).toHaveBeenLastCalledWith(PAJA_SIDEBAR_SECTIONS_STORAGE_KEY, '{"cvm":false}');
+    expect(multiplayer.open).toBe(false);
+  });
   it.each([null, '', '{', 'null', '[]', '42', 'true', '"interfaces"', '{"interfaces":"true"}', '{"unknown":true,"__proto__":{"interfaces":true}}'])('defaults expanded for invalid preferences %s', (value) => {
     const { interfaces, messages, events, storage } = harness(value);
     installPajaSidebarSections();

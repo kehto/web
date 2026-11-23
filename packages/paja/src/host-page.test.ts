@@ -106,10 +106,14 @@ describe('@kehto/paja host page', () => {
       expect(aside!.indexOf('id="paja-resource-servers-form"')).toBeLessThan(aside!.indexOf('id="message-log"'));
       const keys = [...aside!.matchAll(/data-paja-section="([^"]+)"/g)].map((match) => match[1]);
       expect(keys).toEqual(config.target.mode === 'runtime-pointer'
-        ? ['pointer', 'interfaces', 'permissions', 'acl', 'signer', 'resource-servers', 'intent-handlers', 'multiplayer', 'security', 'llm', 'messages', 'events']
-        : ['interfaces', 'permissions', 'acl', 'signer', 'resource-servers', 'intent-handlers', 'multiplayer', 'security', 'llm', 'messages', 'events']);
-      expect(aside!.match(/<details[^>]* open>/g)).toHaveLength(keys.length - 1);
-      expect(aside).toContain('id="paja-multiplayer-form"');
+        ? ['pointer', 'interfaces', 'permissions', 'acl', 'signer', 'resource-servers', 'intent-handlers', 'cvm', 'multiplayer', 'security', 'llm', 'messages', 'events']
+        : ['interfaces', 'permissions', 'acl', 'signer', 'resource-servers', 'intent-handlers', 'cvm', 'multiplayer', 'security', 'llm', 'messages', 'events']);
+      // ContextVM providers and Multiplayer signaling start collapsed.
+      expect(aside!.match(/<details[^>]* open>/g)).toHaveLength(keys.length - 2);
+      expect(aside).toMatch(/data-paja-section="cvm">\s*<summary class="section-title">ContextVM providers<[\s\S]*?id="paja-cvm-form"[\s\S]*?<\/details>\s*<details[^>]*data-paja-section="multiplayer">\s*<summary class="section-title">Multiplayer signaling</);
+      const multiplayerSection = aside!.slice(aside!.indexOf('data-paja-section="multiplayer"'), aside!.indexOf('data-paja-section="security"'));
+      expect(multiplayerSection).toContain('id="paja-multiplayer-form"');
+      expect(multiplayerSection).not.toContain('paja-cvm-');
       expect(aside!.match(/<summary class="section-title">/g)).toHaveLength(keys.length);
       expect(aside).not.toMatch(/<details[^>]* name=/);
       expect(aside).toMatch(/id="message-log"[^>]*><\/div>\s*<\/div><\/details>\s*<details[^>]*data-paja-section="events"/);

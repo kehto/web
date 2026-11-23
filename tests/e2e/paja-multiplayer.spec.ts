@@ -26,6 +26,7 @@ test('configured registry and independent peer share authenticated transport ide
   const runtime = await startPajaServer({ options: { targetUrl: target.url, port: 0,
     simulation: { relay: { mode: 'live', urls: [RELAY] }, multiplayer: {
       profile: 'soy-rtc/1', relays: [RELAY], developmentNamespace: 'test:35129:fixture',
+    }, cvm: {
       registry: [{ family: 'weather.v1', server: { pubkey: server, relays: [RELAY] }, tools: [{ name: tool.name, schemaHash: HASH }] }],
     } },
   } });

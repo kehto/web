@@ -8,6 +8,7 @@ const SECTION_IDS = {
   signer: 'paja-section-signer',
   'resource-servers': 'paja-section-resource-servers',
   'intent-handlers': 'paja-section-intent-handlers',
+  cvm: 'paja-section-cvm',
   multiplayer: 'paja-section-multiplayer',
   llm: 'paja-section-llm',
   messages: 'paja-section-messages',

@@ -9,7 +9,7 @@ const CONFIG = {
   window: { id: 'paja-window', dTag: 'paja', aggregateHash: 'aggregate' },
 } as PajaHostConfig;
 
-const MULTIPLAYER = { profile: 'soy-rtc/1' as const, relays: ['wss://signal.example'], registry: [] };
+const MULTIPLAYER = { profile: 'soy-rtc/1' as const, relays: ['wss://signal.example'] };
 const SERVER = { pubkey: 'a'.repeat(64), relays: ['wss://relay.example'] };
 
 function createAdapter(relayMode: 'live' | 'memory', options: { concurrency?: { maxInFlight?: number; maxQueued?: number }; multiplayer?: boolean } = {}) {

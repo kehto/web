@@ -52,6 +52,47 @@ that at compile time), a removal release is announced, then the string branch, i
 negative test for string selectors. Silence from the warning is not proof that
 external napplets migrated.
 
+## PAJA_MULTIPLAYER_REGISTRY — CVM families in the signaling config — Paja
+
+Owner: `@kehto/paja`. Paja used to accept CVM families only inside the
+multiplayer signaling object (`simulation.multiplayer.registry`, and the same
+JSON in the sidebar), which also required a `soy-rtc/1` profile and signaling
+relays. The replacement is `simulation.cvm.registry` for file-based config and
+the **ContextVM providers** sidebar panel for saved families; neither needs a
+signaling profile. The old field is still validated and merged into the CVM
+registry. For the same label and provider, `simulation.cvm.registry` and saved
+families win over it.
+
+Source: `packages/paja/src/multiplayer-config.ts` (`normalizePajaMultiplayer`
+keeps a non-empty `registry`, drops an empty one) and
+`packages/paja/src/cvm-registry-config.ts` (`resolvePajaCvmRegistry`). Warning
+site: `resolvePajaCvmRegistry`, called once per adapter by
+`browser-adapter.ts`. It warns `[PAJA_MULTIPLAYER_REGISTRY]` naming
+`simulation.cvm.registry` and the ContextVM providers panel, at most once per
+page load. Canonical configs and an
+empty legacy `registry: []` stay quiet: every signaling setting saved in a
+browser before this change carries `registry: []`, which was always a no-op.
+No payload is logged.
+
+Regression tests: `cvm-registry-config.test.ts` (`cvm.registry` validation,
+legacy merge, precedence, warning id/text/frequency, quiet canonical and
+empty-legacy configs), `multiplayer-config.test.ts` (legacy field kept, empty
+dropped, optional) and
+`tests/e2e/paja-cvm-discovery.spec.ts` (families from `simulation.cvm.registry`
+with and without a signaling profile, and the warning for a legacy file
+config). Not covered directly: a legacy registry pasted into the sidebar
+signaling JSON; it goes through the same normalizer and resolver.
+
+Diagnostic limit: the deprecated `PajaMultiplayerConfig.registry` type field is
+erased at runtime; TypeScript callers get a `@deprecated` hint, and the runtime
+warning fires where Paja consumes the config.
+
+Removal prerequisites: announce the removal in a Paja release, then reject
+`multiplayer.registry` with an error that names `simulation.cvm.registry`
+(negative test), delete the merge branch and its warning, and keep this entry
+with the removal PR. Signaling settings saved in browsers with `registry: []`
+must keep loading after removal.
+
 ## KEHTO_CVM_TRANSPORT_PUBLISH — CVM transports without publish()
 
 Owner: `@kehto/services`. NAP-CVM
