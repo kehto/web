@@ -68,17 +68,20 @@ keeps a non-empty `registry`, drops an empty one) and
 `packages/paja/src/cvm-registry-config.ts` (`resolvePajaCvmRegistry`). Warning
 site: `resolvePajaCvmRegistry`, called once per adapter by
 `browser-adapter.ts`. It warns `[PAJA_MULTIPLAYER_REGISTRY]` naming
-`simulation.cvm.registry`, at most once per page load. Canonical configs and an
+`simulation.cvm.registry` and the ContextVM providers panel, at most once per
+page load. Canonical configs and an
 empty legacy `registry: []` stay quiet: every signaling setting saved in a
 browser before this change carries `registry: []`, which was always a no-op.
 No payload is logged.
 
-Regression tests: `cvm-registry-config.test.ts` (legacy merge, precedence,
-warning id/text/frequency, quiet canonical and empty-legacy configs),
-`multiplayer-config.test.ts` (legacy field kept, empty dropped, optional),
-`simulation.test.ts` (`cvm.registry` validation) and
+Regression tests: `cvm-registry-config.test.ts` (`cvm.registry` validation,
+legacy merge, precedence, warning id/text/frequency, quiet canonical and
+empty-legacy configs), `multiplayer-config.test.ts` (legacy field kept, empty
+dropped, optional) and
 `tests/e2e/paja-cvm-discovery.spec.ts` (families from `simulation.cvm.registry`
-with and without a signaling profile).
+with and without a signaling profile, and the warning for a legacy file
+config). Not covered directly: a legacy registry pasted into the sidebar
+signaling JSON; it goes through the same normalizer and resolver.
 
 Diagnostic limit: the deprecated `PajaMultiplayerConfig.registry` type field is
 erased at runtime; TypeScript callers get a `@deprecated` hint, and the runtime

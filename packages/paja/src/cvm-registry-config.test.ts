@@ -38,6 +38,7 @@ describe(`${PAJA_MULTIPLAYER_REGISTRY} legacy multiplayer.registry`, () => {
     const [message] = warn.mock.calls[0]!;
     expect(message).toMatch(/^\[PAJA_MULTIPLAYER_REGISTRY\] /u);
     expect(message).toContain('simulation.cvm.registry');
+    expect(message).toContain('ContextVM providers panel');
     expect(message).toContain('once per page load');
     expect(message).not.toContain(A);
   });

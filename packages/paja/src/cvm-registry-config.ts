@@ -28,7 +28,7 @@ export function resolvePajaCvmRegistry(
   const legacy = simulation.multiplayer?.registry ?? [];
   if (legacy.length && !warned) {
     warned = true;
-    warn(`[${PAJA_MULTIPLAYER_REGISTRY}] simulation.multiplayer.registry is deprecated; move these CVM families to simulation.cvm.registry, which needs no signaling profile. Shown once per page load.`);
+    warn(`[${PAJA_MULTIPLAYER_REGISTRY}] simulation.multiplayer.registry is deprecated; move these CVM families to simulation.cvm.registry in the config file, or save them in the ContextVM providers panel if they came from the Multiplayer signaling JSON. Neither needs a signaling profile. Shown once per page load.`);
   }
   return mergeCvmFamilies([...legacy, ...(simulation.cvm.registry ?? [])], saved);
 }
