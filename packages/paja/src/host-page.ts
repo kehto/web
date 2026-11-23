@@ -365,8 +365,8 @@ export function renderPajaHtml(config: PajaHostConfig): string {
           <div class="intent-handlers" id="paja-intent-handlers"></div>
           <p class="hint">Installed apps that open intents such as note or profile. Defaults apply per archetype and only you can change them.</p>
         </div></details>
-        <details class="section" id="paja-section-multiplayer" data-paja-section="multiplayer">
-          <summary class="section-title">Multiplayer providers<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
+        <details class="section" id="paja-section-cvm" data-paja-section="cvm">
+          <summary class="section-title">ContextVM providers<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
           <form class="resource-servers" id="paja-cvm-form">
             <label for="paja-cvm-discovery">Discover CVM tools</label>
             <input id="paja-cvm-discovery" type="text" placeholder="nevent, schema hash, or https://provider.example" spellcheck="false" aria-describedby="paja-cvm-help">
@@ -387,10 +387,14 @@ export function renderPajaHtml(config: PajaHostConfig): string {
             <span>Saved CVM families</span>
             <div id="paja-cvm-saved"></div>
           </form>
+          <p class="hint">Saved families work for every app, with or without multiplayer signaling.</p>
+        </div></details>
+        <details class="section" id="paja-section-multiplayer" data-paja-section="multiplayer">
+          <summary class="section-title">Multiplayer signaling<span class="section-chevron" aria-hidden="true">›</span></summary><div class="section-body">
           <form class="resource-servers" id="paja-multiplayer-form">
-            <label for="paja-multiplayer-input">Provider configuration (JSON)</label>
+            <label for="paja-multiplayer-input">Signaling configuration (JSON)</label>
             <textarea id="paja-multiplayer-input" rows="8" spellcheck="false" aria-describedby="paja-multiplayer-help paja-multiplayer-status"></textarea>
-            <small id="paja-multiplayer-help">Configure signaling relays and CVM families using your provider's settings. Saving reloads all apps. Clear to restore the host default.</small>
+            <small id="paja-multiplayer-help">Signaling profile, relays and optional STUN/TURN servers from your provider. CVM families belong in ContextVM providers. Saving reloads all apps. Clear to restore the host default.</small>
             <button type="submit">Save and reload</button>
             <div id="paja-multiplayer-status" role="status" aria-live="polite"></div>
           </form>

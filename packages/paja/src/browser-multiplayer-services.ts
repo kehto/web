@@ -1,6 +1,6 @@
 import { generateSecretKey } from 'nostr-tools/pure';
 import { createUnrecognizedTypeDiagnostic, type ServiceHandler } from '@kehto/runtime';
-import { createCvmService, createWebrtcService, type CvmConcurrencyOptions } from '@kehto/services';
+import { createCvmService, createWebrtcService, type CvmConcurrencyOptions, type CvmRegistryFamily } from '@kehto/services';
 import { createNostrCvmTransport } from '@kehto/services/cvm-nostr-transport';
 import type { NostrEvent } from '@napplet/core';
 import type { PajaMultiplayerConfig } from './multiplayer-config.js';
@@ -14,6 +14,8 @@ export const PAJA_CVM_OPERATIONS = ['cvm.discover', 'cvm.request', 'cvm.close', 
 /** Share transport identity within one authenticated window/source, never across tabs or reloads. */
 export function createPajaMultiplayerServices(options: {
   config: PajaMultiplayerConfig;
+  /** Resolved CVM families; the signaling config's deprecated registry is not read here. */
+  registry: readonly CvmRegistryFamily[];
   /** Per-window NAP-CVM admission limits; absent means the service defaults. */
   concurrency?: CvmConcurrencyOptions;
   scopeKey(windowId: string): string;
@@ -27,7 +29,7 @@ export function createPajaMultiplayerServices(options: {
     if (!entry) { entry = { secret: generateSecretKey(), refs: 0 }; keys.set(key, entry); }
     entry.refs++;
     const backend = options.backend(windowId, isCurrent);
-    const service = domain === 'cvm' ? createCvmService({ registry: options.config.registry, concurrency: options.concurrency,
+    const service = domain === 'cvm' ? createCvmService({ registry: [...options.registry], concurrency: options.concurrency,
       serverRequestTimeoutMs: getPajaSetting('cvm.serverRequestTimeoutMs'),
       transport: createNostrCvmTransport({ pool: createPajaCvmRelayPool(backend), defaultRelays: options.config.relays, clientSecretKey: entry.secret }),
     }) : createWebrtcService(createPajaWebrtcProfile({

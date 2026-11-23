@@ -10,6 +10,7 @@ import type { PajaMultiplayerConfig } from './multiplayer-config.js';
 describe('createPajaMultiplayerServices unknown types', () => {
   const build = () => createPajaMultiplayerServices({
     config: { relays: [] } as unknown as PajaMultiplayerConfig,
+    registry: [],
     scopeKey: () => 'scope',
     namespace: () => undefined,
     backend: () => { throw new Error('a known operation would need a backend'); },
@@ -40,6 +41,7 @@ describe('createPajaMultiplayerServices byte payloads', () => {
   it('answers webrtc.sendBytes with unsupported and never reaches a backend', () => {
     const { webrtc } = createPajaMultiplayerServices({
       config: { relays: [] } as unknown as PajaMultiplayerConfig,
+      registry: [],
       scopeKey: () => 'scope',
       namespace: () => undefined,
       backend: () => { throw new Error('sendBytes must not need a backend'); },

@@ -154,7 +154,7 @@ export const PAJA_SETTING_DEFINITIONS = Object.freeze([
     ['vault.minDistinctChars', 'Minimum distinct password characters', 4, 4, 64, 'chars'],
     ['vault.pbkdf2Iterations', 'PBKDF2 iterations for new vaults', 600_000, 600_000, 10_000_000, 'iterations'],
   ]),
-  ...define('Multiplayer providers', 'browser', [
+  ...define('ContextVM providers', 'browser', [
     ['cvm.discoveryTimeoutMs', 'Provider discovery timeout', 15 * SECOND_MS, SECOND_MS, 5 * MINUTE_MS, 'ms'],
     ['cvm.serverRequestTimeoutMs', 'Server request answer window', 30 * SECOND_MS, SECOND_MS, 5 * MINUTE_MS, 'ms'],
     ['cvm.discoveryMaxBytes', 'Maximum discovery document size', 1_000_000, KIB, 64 * MIB, 'bytes'],
@@ -167,6 +167,9 @@ export const PAJA_SETTING_DEFINITIONS = Object.freeze([
     ['multiplayer.maxRelays', 'Relays per configuration', 16, 1, 256, 'count'],
     ['multiplayer.maxTools', 'Tools per family', 64, 1, 1024, 'count'],
     ['multiplayer.maxRegistryFamilies', 'Registry families', 16, 1, 256, 'count'],
+  ]),
+  // Keys keep their `multiplayer.` prefix: they are persisted setting overrides.
+  ...define('Multiplayer signaling', 'browser', [
     ['multiplayer.maxIceServers', 'ICE servers', 8, 1, 64, 'count'],
     ['multiplayer.maxIceUrls', 'URLs per ICE server', 8, 1, 64, 'count'],
   ]),
