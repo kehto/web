@@ -1,21 +1,29 @@
 /**
+ * `@kehto/mocks` extension domains Paja deliberately does not expose, with the
+ * reason. A domain lands here when its NAP is off the `napplet/naps` track
+ * (deferred, retracted), so a napplet must not be led to build against it.
+ */
+export const PAJA_UNMOCKED_DOMAINS: Readonly<Record<string, string>> = Object.freeze({
+  class: 'NAP-CLASS (napplet/naps#16) is labeled DEFERRED and is off the track.',
+});
+
+/**
  * NAP domains Paja has no real backend for and serves from `@kehto/mocks`.
  *
  * Every entry is an `extension` mock in `MOCK_NAP_REGISTRY` that Paja does not
- * otherwise advertise; `mocked-domains.test.ts` keeps the list in sync. These
- * interfaces answer with deterministic fixture data, and the Interfaces panel
- * marks them with {@link PAJA_MOCKED_MARK}.
+ * otherwise advertise and has not excluded in {@link PAJA_UNMOCKED_DOMAINS};
+ * `mocked-domains.test.ts` keeps the list in sync. These interfaces answer with
+ * deterministic fixture data, and the Interfaces panel marks them with
+ * {@link PAJA_MOCKED_MARK}.
  */
 export const PAJA_MOCKED_DOMAINS = [
   'blossom',
   'capture',
   'catalog',
-  'class',
   'display',
   'git',
   'hashtree',
   'location',
-  'mesh',
   'motion',
   'navigation',
   'nzb',

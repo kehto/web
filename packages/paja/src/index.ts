@@ -88,7 +88,7 @@ export {
   getMissingAdvertisedDomains,
   getMissingServices,
 } from './parity.js';
-export { PAJA_MOCKED_DOMAINS, PAJA_MOCKED_MARK, isPajaMockedDomain } from './mocked-domains.js';
+export { PAJA_MOCKED_DOMAINS, PAJA_MOCKED_MARK, PAJA_UNMOCKED_DOMAINS, isPajaMockedDomain } from './mocked-domains.js';
 export type { PajaMockedDomain } from './mocked-domains.js';
 export { ReadinessError, waitForTargetUrl } from './readiness.js';
 export {

@@ -8,20 +8,21 @@ import { startPajaServer, type PajaServer } from '../../packages/paja/dist/index
 // napplet reaches them through window.napplet.<domain> bindings generated from
 // each NAP's wire table at the ref the mock records (napplet/naps draft PRs:
 // NAP-TORRENT #72 bc99787e3cf0, NAP-GIT #137 a73bf8de, NAP-SYSTEM #64
-// 43a112db9d1c, NAP-CATALOG #95 1020ae53, NAP-LOCATION #125 24d2039cf2d1,
-// NAP-CLASS #16 4828279800dc). The Interfaces panel marks each with ◌ + legend.
+// 43a112db9d1c, NAP-CATALOG #95 1020ae53, NAP-LOCATION #125 24d2039cf2d1).
+// The Interfaces panel marks each with ◌ + legend. Off-track NAPs are not
+// exposed even though @kehto/mocks has them: NAP-CLASS (#16) is DEFERRED and
+// NAP-MESH (#122) was retracted upstream (checked at napplet/naps 377bf939).
 
-const MOCKED = ['blossom', 'capture', 'catalog', 'class', 'display', 'git', 'hashtree', 'location', 'mesh',
+const MOCKED = ['blossom', 'capture', 'catalog', 'display', 'git', 'hashtree', 'location',
   'motion', 'navigation', 'nzb', 'pow', 'soulseek', 'system', 'torrent', 'value', 'worker'];
+const OFF_TRACK = ['class', 'mesh'];
 
 const PROBE = `<!doctype html><html><head><title>Mocked NAP probe</title>
-<meta name="napplet-requires" content="shell class git system catalog location">
+<meta name="napplet-requires" content="shell git system catalog location">
 <meta name="napplet-optional" content="torrent">
 <style>body{font:12px/1.4 ui-monospace,monospace;background:#101211;color:#f4f0df;margin:12px}h1{font-size:14px;color:#d8c36a}
 li{margin:2px 0}.err{color:#e6a5a5}</style></head><body><h1>Mocked NAP probe</h1><ul id="out"></ul>
 <script>
-  window.__class = null;
-  window.napplet.class.on('assigned', (payload) => { window.__class = payload; });
   window.runProbe = async (magnet) => {
     const out = document.getElementById('out');
     const row = (label, value, error) => {
@@ -55,8 +56,8 @@ li{margin:2px 0}.err{color:#e6a5a5}</style></head><body><h1>Mocked NAP probe</h1
       report.locationError = error.message;
       row('location.current()', 'rejected: ' + error.message, true);
     }
-    report.classAssigned = window.__class;
-    row('class.on("assigned")', JSON.stringify(window.__class));
+    report.offTrack = ${JSON.stringify(OFF_TRACK)}.filter((domain) => domain in window.napplet);
+    row('off-track domains exposed', report.offTrack.length ? report.offTrack.join(', ') : 'none');
     return report;
   };
 </script></body></html>`;
@@ -97,6 +98,7 @@ test('marks every mocked interface with one symbol and a legend', async ({ page 
   const relay = toggles.locator('[data-interface-domain="relay"]');
   await expect(relay).toHaveText('relay');
   await expect(relay).not.toHaveAttribute('data-mocked', 'true');
+  for (const domain of OFF_TRACK) await expect(toggles.locator(`[data-interface-domain="${domain}"]`)).toHaveCount(0);
   await expect(page.locator('#paja-interface-legend')).toHaveText('◌ mocked: deterministic fixture data from @kehto/mocks, not a real backend.');
 
   const section = page.locator('#paja-section-interfaces');
@@ -109,7 +111,6 @@ test('a napplet calls mocked NAPs through window.napplet and receives fixture da
   await page.goto(host.url);
   const frame = page.frameLocator('#napplet-frame');
   await expect(frame.locator('h1')).toHaveText('Mocked NAP probe');
-  await expect.poll(() => frame.locator('body').evaluate(() => (window as unknown as { __class: unknown }).__class)).not.toBeNull();
 
   const distro = LINUX_DISTROS[0]!;
   const report = await frame.locator('body').evaluate(
@@ -122,7 +123,7 @@ test('a napplet calls mocked NAPs through window.napplet and receives fixture da
     jobs: 1,
     repository: 'repo-1',
     locationError: 'denied',
-    classAssigned: { class: 1 },
+    offTrack: [],
   });
   expect(report.naps).toBeGreaterThan(0);
   expect(report.catalog).toBeGreaterThan(0);

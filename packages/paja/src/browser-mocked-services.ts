@@ -2,7 +2,8 @@ import {
   MOCK_NAPPLET_BINDINGS,
   MOCK_NAP_REGISTRY,
   createMockNapServices,
-  type MockClassService,
+  installMockServices,
+  type InstallMockServicesOptions,
 } from '@kehto/mocks';
 import type { NappletDomainBinding, ServiceHandler } from '@kehto/shell';
 
@@ -10,41 +11,36 @@ import { PAJA_MOCKED_DOMAINS, isPajaMockedDomain } from './mocked-domains.js';
 
 /** `@kehto/mocks` services Paja registers for NAPs it has no backend for. */
 export interface PajaMockedServices {
-  /** Domain → mock handler, merged into the shell adapter's services. */
+  /** Domain → mock handler actually installed in the shell adapter's services. */
   readonly services: Readonly<Record<string, ServiceHandler>>;
-  /**
-   * Send the mocked NAP-CLASS assignment once a window is ready. The real
-   * envelope precedes every other shell message; the mock can only follow
-   * `shell.ready`, which is close enough for a development workshop.
-   *
-   * @param windowId - Window that just completed NAP-SHELL readiness.
-   */
-  onWindowReady(windowId: string): void;
+  /** Mocked domains skipped because the host already defined a real service. */
+  readonly skipped: readonly string[];
 }
 
 /**
  * Create every mocked domain with one fixed seed so reloads show the same data,
- * and register the handlers in the host's service map.
+ * and add the handlers to the host's service map. A domain the host already
+ * serves keeps its real handler: the mock is skipped with a one-time
+ * `KEHTO_MOCK_DOMAIN_ALREADY_DEFINED` warning instead of replacing it.
  *
  * @param target - Shell adapter service map to register the mocks in.
- * @returns The mock handlers and lifecycle hook.
+ * @param options - Collision reporting, forwarded to `installMockServices`.
+ * @returns The installed mock handlers and the skipped domains.
  * @example
  * ```ts
  * const mocked = createPajaMockedServices(services);
  * services.torrent === mocked.services.torrent; // true
  * ```
  */
-export function createPajaMockedServices(target: Record<string, ServiceHandler>): PajaMockedServices {
+export function createPajaMockedServices(
+  target: Record<string, ServiceHandler>,
+  options: InstallMockServicesOptions = {},
+): PajaMockedServices {
   const mocks = createMockNapServices(MOCK_NAP_REGISTRY, { seed: 1, only: PAJA_MOCKED_DOMAINS });
-  Object.assign(target, mocks.services);
-  return {
-    services: mocks.services,
-    onWindowReady(windowId) {
-      const classService = mocks.services.class as MockClassService | undefined;
-      // A refused push (domain disabled for this window) returns false and is harmless.
-      classService?.assign(windowId);
-    },
-  };
+  const { installed, skipped } = installMockServices(target, mocks.services, options);
+  const services: Record<string, ServiceHandler> = {};
+  for (const domain of installed) services[domain] = mocks.services[domain]!;
+  return { services: Object.freeze(services), skipped };
 }
 
 /**
