@@ -72,6 +72,12 @@ torrent.mock.sent;            // every envelope delivered so far
 torrent.mock.reset();         // back to the seeded catalog
 ```
 
+`registerService` replaces whatever was registered under that name. To add
+mocks next to real services without replacing them, use
+`installMockServices(services, mocks.services)`. It skips any domain that is
+already defined and logs one `[KEHTO_MOCK_DOMAIN_ALREADY_DEFINED]` warning for
+each one it skips (pass `onCollision` to route the warnings yourself).
+
 Shared options (`MockServiceOptions`):
 
 | Option | Effect |

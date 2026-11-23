@@ -47,6 +47,7 @@ Workspace dependencies: `@kehto/runtime` (ServiceHandler contract) and
 | Fixtures | `MOCK_ACCOUNTS`, `MOCK_EVENTS`, `MOCK_RELAYS`, `MOCK_RELAY_URLS`, `buildMockEvent`, `queryNostrEvents`, `matchesNostrFilter`, `LINUX_DISTROS`, `findLinuxDistro`, `searchLinuxDistros` |
 | Domain factories | `createMock<Domain>Service` per wire domain (table below), `createMockStatePersistence` for storage |
 | Napplet bindings | `MOCK_NAPPLET_BINDINGS`, `MockNappletBinding`, `MockNappletBindingMethod` |
+| Installing | `installMockServices`, `InstallMockServicesOptions`, `InstalledMockServices`, `MOCK_DOMAIN_ALREADY_DEFINED`, `MOCK_REGISTRY_DUPLICATE_DOMAIN` |
 | Types | `MockService`, `MockServiceOptions`, `MockControls`, `MockDomainEntry`, `MockDomainKind`, `NapSpecRef`, `MockClock`, `MockScheduler`, `MockRouteContext`, `MockServiceDefinition`, per-domain `Mock<Domain>State` / `Mock<Domain>Options` / `Mock<Domain>Service` |
 
 ## Usage
@@ -159,6 +160,27 @@ pnpm --filter @kehto/mocks bindings:check      # exit 1 when the committed file 
 `tests/napplet-bindings.test.ts` checks that every table binds exactly the
 routes its mock answers, lists only pushes the mock may send, and carries the
 mock's spec sha.
+
+## Mixing mocks with real services
+
+Mocks fill gaps; they never replace a real backend. Add them with
+`installMockServices(target, mocks.services)` instead of `Object.assign` or
+`runtime.registerService` (which replaces by design):
+
+```ts
+const services = { relay: realRelayService };
+const mocks = createMockNapServices(MOCK_NAP_REGISTRY, { seed: 1, only: ['relay', 'torrent'] });
+const { installed, skipped } = installMockServices(services, mocks.services);
+// installed: ['torrent']  skipped: ['relay'], and realRelayService is untouched
+```
+
+Each skipped domain logs one `[KEHTO_MOCK_DOMAIN_ALREADY_DEFINED]` warning per
+call. Pass `onCollision(domain, message)` to route it elsewhere, or leave the
+domain out with `only`/`except` to stay quiet. A custom registry that lists a
+domain twice keeps the first entry and logs `[KEHTO_MOCK_REGISTRY_DUPLICATE_DOMAIN]`
+instead of throwing. On the napplet side, `@kehto/shell` ignores a binding for a
+domain its prelude already implements and logs `[KEHTO_BINDING_BUILT_IN_DOMAIN]`
+once per domain, so `bindings: MOCK_NAPPLET_BINDINGS` is safe to pass whole.
 
 ## Scope Boundaries
 

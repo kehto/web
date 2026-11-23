@@ -132,19 +132,6 @@ export const MOCK_NAPPLET_BINDINGS: Readonly<Record<string, MockNappletBinding>>
     handlers: {"onState":["location.state"],"onPosition":["location.position"]},
     gaps: ["state: served from the latest location.state push","latest: served from the latest location.position push"],
   },
-  "mesh": {
-    spec: { nap: "NAP-MESH", sha: "bf9a4722244e" },
-    methods: {
-      "info": { type: "mesh.info", params: [], reply: true },
-      "publish": { type: "mesh.publish", params: ["event","ttl"], reply: true },
-      "subscribe": { type: "mesh.subscribe", params: ["subId","filters","ttl"], reply: false },
-      "close": { type: "mesh.close", params: ["subId"], reply: false, id: false },
-      "blobs": { type: "mesh.blobs", params: ["hashes"], reply: true },
-    },
-    events: ["mesh.event","mesh.eose","mesh.closed"],
-    handlers: {},
-    gaps: [],
-  },
   "motion": {
     spec: { nap: "NAP-MOTION", sha: "3069a945271f" },
     methods: {

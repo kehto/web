@@ -52,8 +52,11 @@ export {
 } from './core/rng.js';
 export type { SeededRng } from './core/rng.js';
 
-export { createMockNapServices } from './core/aggregate.js';
+export { MOCK_REGISTRY_DUPLICATE_DOMAIN, createMockNapServices } from './core/aggregate.js';
 export type { MockNapServices, MockNapServicesOptions } from './core/aggregate.js';
+
+export { MOCK_DOMAIN_ALREADY_DEFINED, installMockServices } from './core/install.js';
+export type { InstallMockServicesOptions, InstalledMockServices } from './core/install.js';
 
 export {
   LINUX_DISTROS,
