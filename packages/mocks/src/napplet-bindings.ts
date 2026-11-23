@@ -244,7 +244,7 @@ export const MOCK_NAPPLET_BINDINGS: Readonly<Record<string, MockNappletBinding>>
       "update": { type: "torrent.update", params: ["request"], reply: true, result: "result" },
     },
     events: ["torrent.state","torrent.progress","torrent.error"],
-    handlers: {},
+    handlers: {"onState":["torrent.state"],"onProgress":["torrent.progress"],"onError":["torrent.error"]},
     gaps: [],
   },
   "value": {

@@ -38,6 +38,16 @@ const OUT = join(HERE, '..', 'src', 'napplet-bindings.ts');
 const PROSE_ENVELOPE = Object.freeze({ soulseek: { resultField: 'value' } });
 
 /**
+ * Named push handlers the packaged contract (`@napplet/core` 0.45 `<Domain>Api`)
+ * declares but the pinned NAP's API Surface table has no "handler for" row for.
+ * NAP-TORRENT (PR #72 bc99787e) only says `add` is followed by push messages;
+ * `TorrentApi` names `onState`, `onProgress` and `onError` over them.
+ */
+const PACKAGED_HANDLERS = Object.freeze({
+  torrent: { onState: ['torrent.state'], onProgress: ['torrent.progress'], onError: ['torrent.error'] },
+});
+
+/**
  * Return the rows of the first markdown table under a `## <heading>` section.
  * @param {string} doc
  * @param {string} heading
@@ -143,6 +153,9 @@ export function parseBinding(domain, doc) {
   }
   for (const [type, op] of opFor) {
     if (!Object.values(methods).some((method) => method.type === type)) gaps.push(`${op}: ${type} has no wire request row`);
+  }
+  for (const [name, types] of Object.entries(PACKAGED_HANDLERS[domain] ?? {})) {
+    if (!handlers[name] && types.every((type) => events.includes(type))) handlers[name] = [...types];
   }
   return { methods, events, handlers, gaps };
 }
