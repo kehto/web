@@ -1956,6 +1956,7 @@ function nappletNamespacePrelude(
 
   let media: Record<string, unknown> | undefined;
   const bound = new Map<string, Record<string, unknown>>();
+  const yieldedBindings = new Set<string>();
 
   // Host-supplied wire tables for domains without a built-in binding. Each
   // method sends its positional arguments as the listed wire fields; results
@@ -2028,7 +2029,17 @@ function nappletNamespacePrelude(
     if (domain === 'identity') return makeProtectedIdentity();
     if (domain === 'theme') return makeProtectedTheme();
     if (domain === 'intent') return makeProtectedIntent();
-    if (Object.prototype.hasOwnProperty.call(bindings, domain)) {
+    const hasBinding = Object.prototype.hasOwnProperty.call(bindings, domain);
+    if (existing && typeof existing === 'object' && Object.keys(existing).length > 0) {
+      // A napplet-defined implementation (for example a bundled SDK shim) wins
+      // over a host table, exactly as it does over the unbound defaults below.
+      if (hasBinding && existing !== bound.get(domain) && !yieldedBindings.has(domain)) {
+        yieldedBindings.add(domain);
+        console.warn(`[KEHTO_BINDING_DOMAIN_DEFINED_BY_NAPPLET] Kept the napplet's own window.napplet.${domain}; the host binding for "${domain}" is not installed. Warned once per domain per iframe.`);
+      }
+      return existing;
+    }
+    if (hasBinding) {
       let api = bound.get(domain);
       if (!api) {
         api = makeBound(domain, bindings[domain]!);
@@ -2036,7 +2047,6 @@ function nappletNamespacePrelude(
       }
       return api;
     }
-    if (existing && typeof existing === 'object' && Object.keys(existing).length > 0) return existing;
     switch (domain) {
       case 'relay': return makeRelay();
       case 'storage': return makeStorage();

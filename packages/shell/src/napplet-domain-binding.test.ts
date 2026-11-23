@@ -105,17 +105,30 @@ describe('table-driven napplet domain bindings', () => {
     expect(() => realm.napplet!.location.on('unknown', () => {})).toThrow(TypeError);
   });
 
-  it('keeps the bound namespace frozen and protected from napplet reassignment', () => {
+  it('keeps the bound namespace frozen, and a napplet-defined implementation wins with one warning', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const { realm } = run(['torrent'], { torrent: TORRENT });
     const api = realm.napplet!.torrent;
     expect(Object.isFrozen(api)).toBe(true);
-    realm.napplet!.torrent = { add: () => 'spoofed' };
+    expect(warn).not.toHaveBeenCalled();
+
+    const own = { add: () => 'napplet-defined' };
+    realm.napplet!.torrent = own;
+    expect(realm.napplet!.torrent).toBe(own);
+    realm.napplet = { torrent: { add: () => 'replaced again' } };
+    expect(realm.napplet!.torrent.add()).toBe('replaced again');
+    // An empty object is presence only, so the host table fills it.
+    realm.napplet!.torrent = {};
     expect(realm.napplet!.torrent).toBe(api);
-    realm.napplet = { torrent: { add: () => 'spoofed' } };
-    expect(realm.napplet!.torrent).toBe(api);
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0]![0])).toContain('[KEHTO_BINDING_DOMAIN_DEFINED_BY_NAPPLET]');
+    expect(String(warn.mock.calls[0]![0])).toContain('window.napplet.torrent');
+    warn.mockRestore();
   });
 
-  it('resolves a namespace defined before the prelude without throwing: the host table wins, unbound objects stay', () => {
+  it('resolves a namespace defined before the prelude without throwing: the napplet object wins over the table', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const fixture = createRealm();
     const own = { add: () => 'napplet-defined' };
     const extra = { ping: () => 'napplet-defined' };
@@ -123,9 +136,10 @@ describe('table-driven napplet domain bindings', () => {
     const source = renderNappletNamespacePrelude({ domains: ['torrent', 'value'], bindings: { torrent: TORRENT } })
       .match(/<script[^>]*>([\s\S]*)<\/script>/)![1]!;
     expect(() => new Function('window', source)(fixture.realm)).not.toThrow();
-    expect(fixture.realm.napplet!.torrent).not.toBe(own);
-    expect(Object.isFrozen(fixture.realm.napplet!.torrent)).toBe(true);
+    expect(fixture.realm.napplet!.torrent).toBe(own);
     expect(fixture.realm.napplet!.value).toBe(extra);
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
   });
 });
 

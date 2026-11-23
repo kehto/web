@@ -320,13 +320,18 @@ becomes `window.napplet.<domain>.<name>(...args)`, which works like this:
   listed pushes as `handler(payload, type)` and return `{ close() }`.
 
 Tables are validated on the host (`serializeDomainBindings`, which throws
-`TypeError`), only reach exposed domains, and are frozen and protected from
-napplet reassignment. A binding for a domain the prelude already implements
-never throws: the built-in binding stays and `serializeDomainBindings` logs one
-`[KEHTO_BINDING_BUILT_IN_DOMAIN]` warning per domain per page
-(`BINDING_BUILT_IN_DOMAIN`). If a napplet defines `window.napplet.<domain>`
-before the prelude runs, a host table for that domain wins, and a domain with
-no table keeps the napplet's object. Paja uses them for `@kehto/mocks`'
+`TypeError`), only reach exposed domains, and the generated objects are frozen.
+Collisions never throw, and whatever was already defined wins:
+
+- A binding for a domain the prelude already implements is ignored, and
+  `serializeDomainBindings` logs one `[KEHTO_BINDING_BUILT_IN_DOMAIN]` warning
+  per domain per page (`BINDING_BUILT_IN_DOMAIN`).
+- If the napplet supplies its own non-empty `window.napplet.<domain>` (for
+  example a bundled SDK shim), before or after the prelude runs, the napplet's
+  object stays and the table isn't installed for that domain. The frame logs one
+  `[KEHTO_BINDING_DOMAIN_DEFINED_BY_NAPPLET]` warning per domain. This is the
+  same rule unbound domains already follow. An empty object counts only as
+  presence, so the table fills it. Paja uses them for `@kehto/mocks`'
 generated `MOCK_NAPPLET_BINDINGS`.
 
 Spec-gap decision: NIP-5D leaves each domain's JavaScript shape to its NAP, and

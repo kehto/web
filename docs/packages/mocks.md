@@ -180,7 +180,9 @@ domain out with `only`/`except` to stay quiet. A custom registry that lists a
 domain twice keeps the first entry and logs `[KEHTO_MOCK_REGISTRY_DUPLICATE_DOMAIN]`
 instead of throwing. On the napplet side, `@kehto/shell` ignores a binding for a
 domain its prelude already implements and logs `[KEHTO_BINDING_BUILT_IN_DOMAIN]`
-once per domain, so `bindings: MOCK_NAPPLET_BINDINGS` is safe to pass whole.
+once per domain, so `bindings: MOCK_NAPPLET_BINDINGS` is safe to pass whole. A
+napplet that ships its own implementation of a mocked domain (for example a
+bundled SDK shim) keeps it; the frame logs `[KEHTO_BINDING_DOMAIN_DEFINED_BY_NAPPLET]`.
 
 ## Scope Boundaries
 
