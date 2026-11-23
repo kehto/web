@@ -16,6 +16,7 @@ date: 2026-11-23
   setting keys unchanged because they are persisted overrides.
 - Docs: new `docs/paja-cvm-providers.md`, signaling-only `docs/paja-multiplayer.md`,
   README / package doc sections, compatibility register entry, changeset (`@kehto/paja` minor).
-- Verification: build, type-check, 4608 unit tests, docs:check, aislop 100/100, Playwright
-  `paja-cvm-discovery` (3 modes), `paja-multiplayer`, `paja-single-window`, `paja-runtime-pointer`.
+- Verification: build, type-check, 4608 unit tests, docs:check, aislop 100/100. Full
+  `pnpm test:e2e`: 181 passed, 1 skipped, 1 failed (`paja-settings` expected 13 settings tabs;
+  the group split makes 14). Fixed and reran `paja-settings.spec.ts`: 4/4.
 - Deviation: executed inline rather than via spawned planner/executor agents.

@@ -42,7 +42,10 @@ test('settings are grouped into keyboard-navigable tabs', async ({ page }) => {
   await openPaja(page);
   const dialog = await openSettings(page);
   const tabs = dialog.getByRole('tablist', { name: 'Settings groups' }).getByRole('tab');
-  await expect(tabs).toHaveCount(13);
+  await expect(tabs).toHaveCount(14);
+  // ContextVM providers and Multiplayer signaling are separate groups, like their sidebar panels.
+  await expect(tab(dialog, 'ContextVM providers')).toBeVisible();
+  await expect(tab(dialog, 'Multiplayer signaling')).toBeVisible();
   await expect(tab(dialog, 'Relays and queries')).toHaveAttribute('aria-selected', 'true');
   await expect(field(dialog, 'Live relay query and connect wait')).toBeVisible();
   await expect(field(dialog, 'Model list timeout')).toBeHidden();
