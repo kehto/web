@@ -14,17 +14,27 @@
  * Anything else that signals failure, such as `relay list unavailable`,
  * `relay timeout`, or `count-unavailable`, is a failure, not a denial.
  *
+ * NAP-INTENT (napplet/naps master `377bf939`) has one code, `invoke rejected`,
+ * for a policy denial and for other pre-acceptance rejections, such as an
+ * unauthorized explicit `handler` or a target that would not accept delivery.
+ * The text alone cannot tell them apart, so an `intent.invoke.result` with
+ * `invoke rejected` is its own `rejected` outcome, shown as "rejected (policy or
+ * handler)". It is never claimed as a firewall denial nor hidden as a failure.
+ *
  * @module
  */
 
 /** Outcome highlighted on a message-log row. */
-export type PajaMessageOutcome = 'denied' | 'failed';
+export type PajaMessageOutcome = 'denied' | 'rejected' | 'failed';
 
 /**
  * Reasons that mean the shell, firewall, or user refused the request.
  * Matched case-insensitively against the start of the failure text.
  */
 const DENIAL_PATTERN = /^(?:policy[ -]denied|publish[ -]denied|permission[ -]denied|user[ -]denied|blocked-by-policy|denied(?:$|[:\s])|relay authorization unavailable or denied)/iu;
+
+/** NAP-INTENT's shared code for a policy denial or a rejected handler/target. */
+const INTENT_REJECTED = 'invoke rejected';
 
 function failureText(value: unknown): string | undefined {
   if (typeof value === 'string') return value.length > 0 ? value : undefined;
@@ -56,11 +66,12 @@ function payloadFailure(type: string, payload: Record<string, unknown>): string 
  *
  * @param direction - The row's message direction.
  * @param raw - The logged message payload.
- * @returns `denied`, `failed`, or `undefined` when the row is not a failure.
+ * @returns `denied`, `rejected`, `failed`, or `undefined` when the row is not a failure.
  * @example
  * ```ts
  * classifyPajaMessageOutcome('shell->napplet', { type: 'outbox.closed', subId: 's', reason: 'relay timeout' }); // 'failed'
  * classifyPajaMessageOutcome('shell->napplet', { type: 'outbox.query.result', id: 'q', events: [], error: 'denied: outbox:read' }); // 'denied'
+ * classifyPajaMessageOutcome('shell->napplet', { type: 'intent.invoke.result', id: 'i', result: { ok: false, error: 'invoke rejected' } }); // 'rejected'
  * ```
  */
 export function classifyPajaMessageOutcome(direction: string, raw: unknown): PajaMessageOutcome | undefined {
@@ -79,5 +90,7 @@ export function classifyPajaMessageOutcome(direction: string, raw: unknown): Paj
     failure = failureText(payload.error) ?? failureText(payload.reason) ?? failureText(payload.message) ?? '';
   }
   if (failure === undefined) return undefined;
-  return DENIAL_PATTERN.test(failure.trim()) ? 'denied' : 'failed';
+  const text = failure.trim();
+  if (type === 'intent.invoke.result' && text.toLowerCase() === INTENT_REJECTED) return 'rejected';
+  return DENIAL_PATTERN.test(text) ? 'denied' : 'failed';
 }

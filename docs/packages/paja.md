@@ -201,6 +201,9 @@ directions appears in the message log, and revocations are logged as
 highlights every shell reply that failed: a `*.error`, a result with `error` or
 `ok: false`, or a `*.closed` with a `reason`. A refusal (`policy denied`,
 `policy-denied`, `publish denied`, `denied: <capability>`) is badged `denied`.
+NAP-INTENT uses one code, `invoke rejected`, for a policy denial and for other
+rejections such as an unauthorized explicit handler, so an `intent.invoke.result`
+with it is badged `rejected (policy or handler)`.
 Everything else, such as `relay list unavailable`, `relay timeout`, or
 `count-unavailable`, is badged `failed, not a denial`, so a relay outage is never
 shown as a firewall block. Napplets must not post NAP envelopes at window level or

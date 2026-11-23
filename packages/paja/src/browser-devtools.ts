@@ -1,4 +1,5 @@
 import { classifyPajaMessageOutcome, type PajaMessageOutcome } from './message-log-outcome.js';
+
 import { coalescePajaRender } from './render-scheduler.js';
 import type { NappletMessage } from '@napplet/core';
 import {
@@ -89,6 +90,13 @@ export interface PajaDevtoolsState {
   /** Revoke every remembered signer decision. */
   clearSignerConsent(): void;
 }
+
+/** Badge text for each highlighted message-log outcome. */
+const PAJA_OUTCOME_LABELS: Readonly<Record<PajaMessageOutcome, string>> = {
+  denied: 'denied',
+  rejected: 'rejected (policy or handler)',
+  failed: 'failed, not a denial',
+};
 
 const FS_PICKER_METHODS: Readonly<Partial<Record<string, keyof ReturnType<typeof browserPickers>>>> = {
   'fs.pickFile.result': 'showOpenFilePicker',
@@ -318,7 +326,7 @@ export function renderPajaMessageLog(state: PajaDevtoolsState): void {
       if (entry.outcome) {
         const badge = document.createElement('span');
         badge.className = 'log-outcome';
-        badge.textContent = entry.outcome === 'denied' ? 'denied' : 'failed, not a denial';
+        badge.textContent = PAJA_OUTCOME_LABELS[entry.outcome];
         body.append(badge);
       }
       body.append(type);
