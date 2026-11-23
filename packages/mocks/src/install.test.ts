@@ -34,11 +34,11 @@ describe('installMockServices', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const mocks = createMockNapServices(MOCK_NAP_REGISTRY, { only: ['torrent', 'git'] });
 
-    installMockServices({}, mocks.services);
+    installMockServices<unknown>({}, mocks.services);
     expect(warn).not.toHaveBeenCalled();
 
     const collisions: string[] = [];
-    installMockServices({ git: {} }, mocks.services, { onCollision: (domain) => collisions.push(domain) });
+    installMockServices<unknown>({ git: {} }, mocks.services, { onCollision: (domain) => collisions.push(domain) });
     expect(collisions).toEqual(['git']);
     expect(warn).not.toHaveBeenCalled();
   });

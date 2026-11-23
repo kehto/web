@@ -2,8 +2,6 @@
  * core/install.ts — Add mocks to a host service map without replacing what the
  * host already defines.
  */
-import type { MockService } from './types.js';
-
 /** Stable identifier on the warning for a mock skipped because its domain was already defined. */
 export const MOCK_DOMAIN_ALREADY_DEFINED = 'KEHTO_MOCK_DOMAIN_ALREADY_DEFINED';
 
@@ -56,7 +54,7 @@ export interface InstalledMockServices {
  */
 export function installMockServices<THandler>(
   target: Record<string, THandler>,
-  mocks: Readonly<Record<string, MockService>>,
+  mocks: Readonly<Record<string, THandler>>,
   options: InstallMockServicesOptions = {},
 ): InstalledMockServices {
   const report = options.onCollision ?? ((_domain: string, message: string) => console.warn(message));
@@ -68,7 +66,7 @@ export function installMockServices<THandler>(
       report(domain, `[${MOCK_DOMAIN_ALREADY_DEFINED}] Skipped the "${domain}" mock: the host already defines a "${domain}" service, which stays in place. Drop "${domain}" from the mocks (\`except\` or \`only\`) to silence this. Warned once per skipped domain per installMockServices call.`);
       continue;
     }
-    target[domain] = mock as unknown as THandler;
+    target[domain] = mock;
     installed.push(domain);
   }
   return { installed: Object.freeze(installed), skipped: Object.freeze(skipped) };
