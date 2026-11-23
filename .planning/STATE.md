@@ -165,6 +165,7 @@ Authoritative: `nostr-protocol/nips` PR #2303 (`5D.md`) + `napplet/naps` registr
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
+| 261123-fwr | Split Paja's Multiplayer providers panel into ContextVM providers and Multiplayer signaling; add simulation.cvm.registry | 2026-11-23 | feat/paja-cvm-panel-split | passed; 4608 unit tests, CVM/multiplayer/sidebar e2e 45/45 | [261123-fwr](./quick/261123-fwr-paja-cvm-panel-split/) |
 | 261120-str | Offer not-installed NAP-INTENT handlers and an App handlers panel (#523) | 2026-11-20 | feat/523-intent-handler-discovery | passed; 4531 unit tests, intent e2e 21/21 | [261120-str](./quick/261120-str-offer-not-installed-intent-handlers-and-/) |
 | 261120-ew5 | Paja settings panel: every tunable number is a persisted user default | 2026-11-20 | feat/paja-settings-panel | passed; 3840 unit and 146 browser tests (1 pre-existing skip) | [261120-ew5](./quick/261120-ew5-paja-settings-panel/) |
 | 261117-mr2 | Discover and persist CVM families from nevent, schema hash and website | 2026-11-17 | 5d8c03ae | passed; 3494 unit and 138 browser tests | [261117-mr2](./quick/261117-mr2-discover-and-persist-cvm-schema-families/) |
