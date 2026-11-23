@@ -275,7 +275,7 @@ sources that the relay pool actually observed.
 
 ## Mocked interfaces
 
-NAPs Paja has no real backend for are served by deterministic
+On-track NAPs that Paja has no real backend for, and that `@kehto/mocks` covers, are served by deterministic
 [`@kehto/mocks`](https://kehto.github.io/web/docs/packages/mocks.html) handlers: `blossom`, `capture`,
 `catalog`, `display`, `git`, `hashtree`, `location`, `motion`, `navigation`,
 `nzb`, `pow`, `soulseek`, `system`, `torrent`, `value` and `worker`
@@ -291,7 +291,8 @@ don't treat them as evidence that a real backend works.
 Paja only mocks NAPs that are on the `napplet/naps` track. `@kehto/mocks` still
 ships a `class` mock, but NAP-CLASS (napplet/naps#16) is labeled DEFERRED, so
 Paja leaves it out (`PAJA_UNMOCKED_DOMAINS` records why). The retracted
-NAP-MESH draft has no mock at all.
+NAP-MESH draft has no mock at all. NAP-NEIGHBOR, NAP-EMAIL and NAP-WEBMCP are
+on the track but have no mock yet, so Paja doesn't offer them.
 
 A mock never replaces a real service. If the host service map already defines a
 mocked domain, Paja keeps the real handler, skips the mock, and logs one

@@ -46,9 +46,10 @@ export const PAJA_UPSTREAM_WEB_DOMAINS = [
 
 /** Retained compatibility export; no domain requires a Paja handshake. */
 export const PAJA_HANDSHAKE_DOMAINS = [] as const;
-/** Upstream domains intentionally deferred because no runtime implementation exists. */
-// Package exports alone do not establish a live host backend. Checked draft refs
-// and the absence policy are recorded in docs/policies/NIP-5D-CONFORMANCE.md.
+/** Upstream domains intentionally deferred because no real runtime backend exists. */
+// Package exports alone do not establish a live host backend. Paja serves these
+// from @kehto/mocks only (PAJA_MOCKED_DOMAINS). Checked draft refs and the policy
+// are recorded in docs/policies/NIP-5D-CONFORMANCE.md.
 export const PAJA_DEFERRED_DOMAINS = ['blossom', 'catalog', 'navigation', 'soulseek', 'torrent'] as const;
 
 /** Compatibility aliases for renamed upstream capability domains. */

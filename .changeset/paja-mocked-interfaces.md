@@ -2,7 +2,7 @@
 "@kehto/paja": minor
 ---
 
-Serve `@kehto/mocks` for every on-track NAP Paja has no backend for (blossom,
+Serve `@kehto/mocks` for the on-track NAPs it covers that Paja has no backend for (blossom,
 capture, catalog, display, git, hashtree, location, motion, navigation, nzb,
 pow, soulseek, system, torrent, value, worker). NAP-CLASS is DEFERRED upstream,
 so its mock isn't exposed (`PAJA_UNMOCKED_DOMAINS`). A mock never replaces a

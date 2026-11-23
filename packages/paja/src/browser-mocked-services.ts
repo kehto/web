@@ -54,6 +54,9 @@ export function createPajaMockedServices(
  * ```
  */
 export function pajaMockedBindings(domains: readonly string[]): Record<string, NappletDomainBinding> {
+  // Keyed by the static PAJA_MOCKED_DOMAINS list, as is the Interfaces `◌` mark.
+  // A skipped mock (real service already present) can't happen today because
+  // that list excludes every advertised domain (mocked-domains.test.ts pins it).
   const out: Record<string, NappletDomainBinding> = {};
   for (const domain of domains) {
     const binding = MOCK_NAPPLET_BINDINGS[domain];

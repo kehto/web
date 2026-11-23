@@ -1,6 +1,7 @@
 import { readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { resolvePajaFrameEnvironment } from './browser-target-frame.js';
+import { isPajaMockedDomain } from './mocked-domains.js';
 import type { ShellAdapter } from '@kehto/shell';
 
 import {
@@ -73,6 +74,8 @@ describe('@kehto/paja parity metadata', () => {
       expect(PAJA_ADVERTISED_DOMAINS).not.toContain(domain);
       expect(environment.capabilities.domains).not.toContain(domain);
       expect(environment.services).not.toContain(domain);
+      // Paja's workshop fills the gap with fixture data only, never a real backend.
+      expect(isPajaMockedDomain(domain)).toBe(true);
     }
   });
 
