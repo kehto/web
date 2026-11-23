@@ -121,6 +121,8 @@ test('sidebar accordion preserves controls, frames, drawer preferences and flush
   // App handlers (kehto/web#523) has no focusable content until a handler is installed.
   await expect(page.locator('[data-paja-section="intent-handlers"] summary')).toBeFocused();
   await page.keyboard.press('Tab');
+  await expect(page.locator('[data-paja-section="cvm"] summary')).toBeFocused();
+  await page.keyboard.press('Tab');
   await expect(page.locator('[data-paja-section="multiplayer"] summary')).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(security.locator('summary')).toBeFocused();

@@ -33,6 +33,7 @@ afterEach(() => {
 function openCvmScope(): void {
   const { cvm } = createPajaMultiplayerServices({
     config: { relays: [] } as unknown as PajaMultiplayerConfig,
+    registry: [],
     scopeKey: () => 'scope',
     namespace: () => undefined,
     backend: () => ({}) as unknown as PajaRelayBackend,

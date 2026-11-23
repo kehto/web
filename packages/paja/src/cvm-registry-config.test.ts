@@ -22,7 +22,7 @@ describe('simulation.cvm.registry', () => {
 
   it('omits an empty registry and rejects malformed families as simulation errors', () => {
     expect(normalizePajaSimulation({ cvm: { registry: [] } }).cvm.registry).toBeUndefined();
-    expect(() => normalizePajaSimulation({ cvm: { registry: [{ ...pin('rooms', A, B), tools: [{ name: 'join' }] }] } }))
+    expect(() => normalizePajaSimulation({ cvm: { registry: [{ ...pin('rooms', A, B), tools: [{ name: 'join' }] }] as never } }))
       .toThrow(PajaSimulationError);
     expect(() => normalizePajaSimulation({ cvm: { registry: 'rooms' as never } })).toThrow('cvm.registry');
   });
