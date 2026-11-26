@@ -333,6 +333,8 @@ export type {
 export { browserGamepadOptions } from './browser-gamepad.js';
 
 export { createBrowserMediaPlayback } from './browser-media-playback.js';
+export { MediaPlaybackError, mediaCreateError, mediaResourceError } from './media-error.js';
+export type { MediaCreateCategory } from './media-error.js';
 export { createBrowserMediaStreamFetch } from './browser-media-stream-fetch.js';
 export type { BrowserMediaPlaybackOptions } from './browser-media-playback.js';
 export { mountMediaPlayer } from './media-player.js';

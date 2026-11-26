@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { NappletMessage } from '@napplet/core';
 import { createMediaService } from './media-service.js';
+import { MediaPlaybackError } from './media-error.js';
 import type { MediaPlayback, MediaPlaybackBackend, MediaPlaybackState } from './media-playback.js';
 
 const wire = (type: string, fields = {}): NappletMessage => ({ type, ...fields }) as NappletMessage;
@@ -152,10 +153,24 @@ describe('NAP-MEDIA draft ownership and retirement', () => {
     await vi.waitFor(() => expect(open).toHaveBeenCalledTimes(1));
     reject(new Error('backend secret must not escape'));
     await vi.waitFor(() => expect(output).toHaveLength(2));
-    expect(output[1]).toMatchObject({ type: 'media.session.create.result', id: 'first', error: 'source unavailable or autoplay denied' });
+    expect(output[1]).toMatchObject({ type: 'media.session.create.result', id: 'first', error: 'source unavailable' });
     expect(service.getSessions()).toEqual([]);
     service.destroy();
     expect(output).toHaveLength(2);
+  });
+
+  it('reports why a shell-owned creation failed when the backend names the cause', async () => {
+    const output: NappletMessage[] = [];
+    const causes = [new MediaPlaybackError('source blocked', 'blocked-by-policy: denied:redirect-unverifiable'), new DOMException('blocked', 'NotAllowedError')];
+    const open = vi.fn<MediaPlaybackBackend['open']>(async () => { throw causes.shift(); });
+    const service = createMediaService({ playback: { open }, documentTarget: null });
+    for (const id of ['redirect', 'autoplay']) service.handleMessage('w', wire('media.session.create', { id, owner: 'shell', autoplay: true, source: { url: 'https://example.com/a.mp3' } }), message => output.push(message));
+    await vi.waitFor(() => expect(output).toHaveLength(2));
+    expect(output).toEqual([
+      { type: 'media.session.create.result', id: 'redirect', owner: 'shell', error: 'source blocked (blocked-by-policy: denied:redirect-unverifiable)' },
+      { type: 'media.session.create.result', id: 'autoplay', owner: 'shell', error: 'autoplay denied' },
+    ]);
+    service.destroy();
   });
 
   it('orders reentrant retirement after the result and emits no later controls', () => {

@@ -606,7 +606,7 @@ and migration from legacy command callbacks. Paja uses this player.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `playback` | `MediaPlaybackBackend` | Source-policy and actual output backend; use `createBrowserMediaPlayback({ resource })`. |
+| `playback` | `MediaPlaybackBackend` | Source-policy and actual output backend; use `createBrowserMediaPlayback({ resource })`. A backend names why creation failed by throwing `MediaPlaybackError`; see `mediaCreateError`. |
 | `maxSessionsPerWindow` | `number` | Active plus pending session limit (default 16). |
 | `onSessionCreate` | `(windowId, sessionId, metadata?) => void` | Called when a napplet creates a session. |
 | `onState` | `(windowId, sessionId, state) => void` | Called on `media.state` updates — high-frequency; keep handler work minimal. |

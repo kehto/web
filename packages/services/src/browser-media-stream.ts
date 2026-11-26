@@ -1,3 +1,4 @@
+import { MediaPlaybackError } from './media-error.js';
 function waitEvent(target: EventTarget, event: string, signal: AbortSignal, operation?: () => void): Promise<void> {
   return new Promise((resolve, reject) => {
     const cleanup = () => {
@@ -51,7 +52,7 @@ export function createMediaStream(response: Response, element: HTMLMediaElement,
   const mime = response.headers.get('content-type') ?? '';
   if (!response.body || typeof MediaSource === 'undefined' || !MediaSource.isTypeSupported(mime)) {
     void response.body?.cancel().catch(() => {});
-    throw new Error('unsupported live media type');
+    throw new MediaPlaybackError('unsupported source', mime || 'no media type');
   }
   const source = new MediaSource();
   const reader = response.body.getReader();
