@@ -117,10 +117,15 @@ the parent frame and does not require NAP-SHELL to be exposed.
 - A failed creation names its cause in `media.session.create.result.error`: the
   NAP-MEDIA category (`unsupported source`, `source blocked`, `source unavailable`
   or `autoplay denied`), then any typed cause in parentheses, such as
-  `source blocked (blocked-by-policy: denied:redirect-unverifiable)` or
-  `source unavailable (timeout)`. NAP-RESOURCE `blocked-by-policy`,
+  `source unavailable (too-large)` or `source unavailable (timeout)` for a file
+  read or metadata load that took too long. NAP-RESOURCE `blocked-by-policy`,
   `unsupported-scheme` and `quota-exceeded` are blocked; other resource codes
-  are unavailable. A custom backend reports a cause by throwing
+  are unavailable. A file read carries the NAP-RESOURCE code only, never the
+  resource service's message, because a napplet may hold `media` without
+  `resource`. The live path carries a typed `ResourceServiceError`'s message,
+  as in `source blocked (blocked-by-policy: resource permission unavailable or
+  denied)`; a live read that stops at its 20-second limit reads only
+  `source unavailable`. A custom backend reports a cause by throwing
   `MediaPlaybackError`; any other error it throws reads only `source unavailable`,
   so its message never reaches the napplet. The parenthesised cause is a kehto
   choice, because NAP-MEDIA's result carries only the `error` string.

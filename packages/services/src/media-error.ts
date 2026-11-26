@@ -4,7 +4,8 @@
  * NAP-MEDIA PR #10 @ 7806f438 (Error Handling) names `"unsupported source"`, `"source blocked"`
  * and `"autoplay denied"` for shell-owned sessions; `"source unavailable"` covers the rest.
  * Spec-gap decision: the result has only the `error` string, so a known cause follows the
- * category in parentheses, e.g. `source blocked (blocked-by-policy: denied:redirect-unverifiable)`.
+ * category in parentheses, e.g. `source unavailable (too-large)` or, from a typed
+ * `ResourceServiceError`, `source blocked (blocked-by-policy: denied:redirect-unverifiable)`.
  * Only typed causes are carried; any other backend error stays `"source unavailable"`, so a
  * backend's own message never reaches the napplet.
  */

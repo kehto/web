@@ -33,7 +33,7 @@ function readSource(resource: ServiceHandler, windowId: string, url: string, sig
     if (signal.aborted) return abort();
     try {
       resource.handleMessage(windowId, { type: 'resource.bytes', id, url } as NappletMessage, message => {
-        const result = message as NappletMessage & { blob?: unknown; mime?: unknown; id?: string; error?: unknown; message?: unknown };
+        const result = message as NappletMessage & { blob?: unknown; mime?: unknown; id?: string; error?: unknown };
         if (result.id !== id || signal.aborted) return;
         cleanup();
         if (result.type !== 'resource.bytes.result') return reject(resourceFailure(result));
@@ -45,10 +45,14 @@ function readSource(resource: ServiceHandler, windowId: string, url: string, sig
   });
 }
 
-/** A `resource.bytes.error` names its NAP-RESOURCE code; anything else is only unavailable. */
-function resourceFailure(result: { error?: unknown; message?: unknown }): MediaPlaybackError {
+/**
+ * A `resource.bytes.error` names its NAP-RESOURCE code; anything else is only unavailable.
+ * Its `message` is not carried: on the wire a typed diagnostic cannot be told from a raw
+ * resolver error, and a napplet may hold `media` without `resource`.
+ */
+function resourceFailure(result: { error?: unknown }): MediaPlaybackError {
   if (typeof result.error !== 'string') return new MediaPlaybackError('source unavailable');
-  return mediaResourceError(result.error, typeof result.message === 'string' ? result.message : undefined);
+  return mediaResourceError(result.error);
 }
 
 /** NAP-RESOURCE PR #80 carries canonical padded base64 in `blob`; playback needs bytes. */

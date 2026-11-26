@@ -121,8 +121,9 @@ describe('policy-mediated browser playback', () => {
     const f = fixture();
     const reply = (fields: Record<string, unknown>) => { f.resource.handleMessage = (_w, message, send) => send({ id: (message as NappletMessage & { id: string }).id, ...fields } as unknown as NappletMessage); };
     const open = () => f.backend.open('w', { owner: 'shell', source: { url: 'https://example.com/a.mp3' } }, new AbortController().signal, () => {});
-    reply({ type: 'resource.bytes.error', error: 'blocked-by-policy', message: 'denied:redirect-unverifiable' });
-    await expect(open()).rejects.toThrow('source blocked (blocked-by-policy: denied:redirect-unverifiable)');
+    reply({ type: 'resource.bytes.error', error: 'blocked-by-policy', message: 'resolver secret at https://internal.example/' });
+    const blocked = await f.backend.open('w', { owner: 'shell', source: { url: 'https://example.com/a.mp3' } }, new AbortController().signal, () => {}).catch((error: Error) => error);
+    expect((blocked as Error).message).toBe('source blocked (blocked-by-policy)');
     reply({ type: 'resource.bytes.error', error: 'too-large' });
     await expect(open()).rejects.toThrow('source unavailable (too-large)');
     reply({ type: 'resource.bytes.error' });
