@@ -101,7 +101,7 @@ describe('policy-mediated browser playback', () => {
 
   it('rejects non-media bytes and unsupported source references without allocating output', async () => {
     const f = fixture('text/html');
-    await expect(f.backend.open('w', { owner: 'shell', source: { url: 'https://example.com/page' } }, new AbortController().signal, () => {})).rejects.toThrow('unsupported media type');
+    await expect(f.backend.open('w', { owner: 'shell', source: { url: 'https://example.com/page' } }, new AbortController().signal, () => {})).rejects.toThrow('unsupported source (text/html)');
     await expect(f.backend.open('w', { owner: 'shell', source: { nostr: { eventId: 'b'.repeat(64) } } }, new AbortController().signal, () => {})).rejects.toThrow('unsupported source');
     expect(f.urls.createObjectURL).not.toHaveBeenCalled();
     expect(f.requests).toHaveLength(1);
@@ -110,11 +110,50 @@ describe('policy-mediated browser playback', () => {
   it('cleans up on decoding failure and autoplay denial', async () => {
     const f = fixture();
     f.element.load.mockImplementationOnce(() => f.element.dispatchEvent(new Event('error')));
-    await expect(f.backend.open('w', { owner: 'shell', source: { url: 'https://example.com/broken' } }, new AbortController().signal, () => {})).rejects.toThrow('decoding failed');
+    await expect(f.backend.open('w', { owner: 'shell', source: { url: 'https://example.com/broken' } }, new AbortController().signal, () => {})).rejects.toThrow('source unavailable (decode-failed)');
     expect(f.urls.revokeObjectURL).toHaveBeenCalledTimes(1);
     f.element.play.mockRejectedValueOnce(new DOMException('denied', 'NotAllowedError'));
     await expect(f.backend.open('w', { owner: 'shell', autoplay: true, source: { url: 'https://example.com/good' } }, new AbortController().signal, () => {})).rejects.toThrow('denied');
     expect(f.urls.revokeObjectURL).toHaveBeenCalledTimes(2);
+  });
+
+  it('carries the resource failure, missing bytes and slow metadata as typed causes', async () => {
+    const f = fixture();
+    const reply = (fields: Record<string, unknown>) => { f.resource.handleMessage = (_w, message, send) => send({ id: (message as NappletMessage & { id: string }).id, ...fields } as unknown as NappletMessage); };
+    const open = () => f.backend.open('w', { owner: 'shell', source: { url: 'https://example.com/a.mp3' } }, new AbortController().signal, () => {});
+    reply({ type: 'resource.bytes.error', error: 'blocked-by-policy', message: 'denied:redirect-unverifiable' });
+    await expect(open()).rejects.toThrow('source blocked (blocked-by-policy: denied:redirect-unverifiable)');
+    reply({ type: 'resource.bytes.error', error: 'too-large' });
+    await expect(open()).rejects.toThrow('source unavailable (too-large)');
+    reply({ type: 'resource.bytes.error' });
+    await expect(open()).rejects.toThrow(/^source unavailable$/);
+    reply({ type: 'resource.bytes.result', blob: 42 });
+    await expect(open()).rejects.toThrow('source unavailable (decode-failed)');
+    reply({ type: 'resource.bytes.result', blob: btoa('test'), mime: '' });
+    await expect(open()).rejects.toThrow('unsupported source (no media type)');
+    reply({ type: 'resource.bytes.result', blob: btoa('test'), mime: 'audio/x-odd' });
+    f.element.canPlayType.mockReturnValueOnce('');
+    await expect(open()).rejects.toThrow('unsupported source (audio/x-odd)');
+  });
+
+  it('times out a silent resource read and slow metadata with their cause', async () => {
+    vi.useFakeTimers();
+    try {
+      const f = fixture();
+      const silent = f.resource.handleMessage;
+      f.resource.handleMessage = (w, message, send) => { if (message.type !== 'resource.bytes') silent.call(f.resource, w, message, send); };
+      const read = f.backend.open('w', { owner: 'shell', source: { url: 'https://example.com/slow.mp3' } }, new AbortController().signal, () => {});
+      const readFailed = expect(read).rejects.toThrow('source unavailable (timeout)');
+      await vi.advanceTimersByTimeAsync(20_000);
+      await readFailed;
+      expect(f.requests.at(-1)?.message.type).toBe('resource.cancel');
+      f.resource.handleMessage = silent;
+      f.element.load.mockImplementationOnce(() => true);
+      const load = f.backend.open('w', { owner: 'shell', source: { url: 'https://example.com/stuck.mp3' } }, new AbortController().signal, () => {});
+      const loadFailed = expect(load).rejects.toThrow('source unavailable (timeout)');
+      await vi.advanceTimersByTimeAsync(5_000);
+      await loadFailed;
+    } finally { vi.useRealTimers(); }
   });
 
   it('cancels the matching resource request when the endpoint disappears', async () => {

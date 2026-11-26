@@ -6,6 +6,7 @@ import { validMediaCommand } from './media-playback.js';
 import type { MediaPlayback, MediaPlaybackBackend, MediaPlaybackState } from './media-playback.js';
 import type { ResourceService } from './resource-service.js';
 import { createMediaStream } from './browser-media-stream.js';
+import { MediaPlaybackError, mediaResourceError } from './media-error.js';
 import { randomUUID } from './random-uuid.js';
 
 /** Browser playback dependencies; the resource service owns source policy. */
@@ -21,25 +22,33 @@ function readSource(resource: ServiceHandler, windowId: string, url: string, sig
   return new Promise((resolve, reject) => {
     const id = `media-resource-${randomUUID()}`;
     const cleanup = () => { clearTimeout(timer); signal.removeEventListener('abort', abort); };
-    const abort = () => {
+    const stop = (error: Error) => {
       cleanup();
       resource.handleMessage(windowId, { type: 'resource.cancel', id } as NappletMessage, () => {});
-      reject(new Error('media source cancelled'));
+      reject(error);
     };
-    const timer = setTimeout(abort, 20_000);
+    const abort = () => stop(new Error('media source cancelled'));
+    const timer = setTimeout(() => stop(new MediaPlaybackError('source unavailable', 'timeout')), 20_000);
     signal.addEventListener('abort', abort, { once: true });
     if (signal.aborted) return abort();
     try {
       resource.handleMessage(windowId, { type: 'resource.bytes', id, url } as NappletMessage, message => {
-        const result = message as NappletMessage & { blob?: unknown; mime?: unknown; id?: string };
+        const result = message as NappletMessage & { blob?: unknown; mime?: unknown; id?: string; error?: unknown; message?: unknown };
         if (result.id !== id || signal.aborted) return;
         cleanup();
-        const blob = result.type === 'resource.bytes.result' ? decodeResourceBlob(result.blob, result.mime) : null;
+        if (result.type !== 'resource.bytes.result') return reject(resourceFailure(result));
+        const blob = decodeResourceBlob(result.blob, result.mime);
         if (blob) resolve(blob);
-        else reject(new Error('media source blocked or unavailable'));
+        else reject(new MediaPlaybackError('source unavailable', 'decode-failed'));
       });
     } catch (error) { cleanup(); reject(error); }
   });
+}
+
+/** A `resource.bytes.error` names its NAP-RESOURCE code; anything else is only unavailable. */
+function resourceFailure(result: { error?: unknown; message?: unknown }): MediaPlaybackError {
+  if (typeof result.error !== 'string') return new MediaPlaybackError('source unavailable');
+  return mediaResourceError(result.error, typeof result.message === 'string' ? result.message : undefined);
 }
 
 /** NAP-RESOURCE PR #80 carries canonical padded base64 in `blob`; playback needs bytes. */
@@ -55,7 +64,7 @@ function sourceUrl(options: MediaSessionCreateOptions): string {
   const source = options.source;
   if (typeof source?.url === 'string' && source.url) return source.url;
   if (typeof source?.blossomHash === 'string' && /^[a-f0-9]{64}$/i.test(source.blossomHash)) return `blossom:${source.blossomHash}`;
-  throw new Error('unsupported source');
+  throw new MediaPlaybackError('unsupported source');
 }
 
 function loadMedia(element: HTMLMediaElement, url: string, signal: AbortSignal): Promise<void> {
@@ -64,15 +73,17 @@ function loadMedia(element: HTMLMediaElement, url: string, signal: AbortSignal):
       clearTimeout(timer);
       element.removeEventListener('loadedmetadata', loaded);
       element.removeEventListener('error', failed);
-      signal.removeEventListener('abort', failed);
+      signal.removeEventListener('abort', cancelled);
     };
     const loaded = () => { cleanup(); resolve(); };
-    const failed = () => { cleanup(); reject(new Error('media decoding failed or cancelled')); };
-    const timer = setTimeout(failed, 5_000);
+    const fail = (error: Error) => { cleanup(); reject(error); };
+    const failed = () => fail(new MediaPlaybackError('source unavailable', 'decode-failed'));
+    const cancelled = () => fail(new Error('media source cancelled'));
+    const timer = setTimeout(() => fail(new MediaPlaybackError('source unavailable', 'timeout')), 5_000);
     element.addEventListener('loadedmetadata', loaded, { once: true });
     element.addEventListener('error', failed, { once: true });
-    signal.addEventListener('abort', failed, { once: true });
-    if (signal.aborted) return failed();
+    signal.addEventListener('abort', cancelled, { once: true });
+    if (signal.aborted) return cancelled();
     try { element.src = url; element.load(); }
     catch { failed(); }
   });
@@ -172,9 +183,9 @@ export function createBrowserMediaPlayback(options: BrowserMediaPlaybackOptions)
       if (request.live && options.stream) return openLive(windowId, request, signal, changed, options, doc, urls);
       const blob = await readSource(options.resource, windowId, sourceUrl(request), signal);
       if (signal.aborted) throw new Error('media source cancelled');
-      if (!/^(audio|video)\//.test(blob.type)) throw new Error('unsupported media type');
+      if (!/^(audio|video)\//.test(blob.type)) throw new MediaPlaybackError('unsupported source', blob.type || 'no media type');
       const element = doc.createElement(blob.type.startsWith('video/') ? 'video' : 'audio');
-      if (!element.canPlayType(blob.type)) throw new Error('unsupported media type');
+      if (!element.canPlayType(blob.type)) throw new MediaPlaybackError('unsupported source', blob.type);
       element.preload = 'metadata';
       if (element.tagName === 'VIDEO') (element as HTMLVideoElement).playsInline = true;
       const url = urls.createObjectURL(blob);

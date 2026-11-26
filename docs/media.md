@@ -114,6 +114,16 @@ the parent frame and does not require NAP-SHELL to be exposed.
 - Browser autoplay restrictions apply. Denied autoplay fails creation and frees
   its output; use `autoplay: false` and the host Play button when activation is
   required. A later failed play leaves the session available with an error state.
+- A failed creation names its cause in `media.session.create.result.error`: the
+  NAP-MEDIA category (`unsupported source`, `source blocked`, `source unavailable`
+  or `autoplay denied`), then any typed cause in parentheses, such as
+  `source blocked (blocked-by-policy: denied:redirect-unverifiable)` or
+  `source unavailable (timeout)`. NAP-RESOURCE `blocked-by-policy`,
+  `unsupported-scheme` and `quota-exceeded` are blocked; other resource codes
+  are unavailable. A custom backend reports a cause by throwing
+  `MediaPlaybackError`; any other error it throws reads only `source unavailable`,
+  so its message never reaches the napplet. The parenthesised cause is a kehto
+  choice, because NAP-MEDIA's result carries only the `error` string.
 - Seek is enabled only for finite duration, non-live media. Next/Previous appear
   only when a napplet or custom backend advertises them. Empty capabilities
   disable commands; napplet-owned sessions start with no actions unless declared.

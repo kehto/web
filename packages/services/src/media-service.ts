@@ -6,6 +6,7 @@ import type { NappletMessage } from '@napplet/core';
 // v0.2.0+ (napplet phase-81). Re-exported from @kehto/runtime (canonical home after Phase 24 DRIFT-01).
 import type { ApprovalSignal, ServiceRuntimeContext } from '@kehto/runtime';
 import { approvalFailure } from './approval-failure.js';
+import { mediaCreateError } from './media-error.js';
 import type {
   MediaAction,
   MediaCapabilitiesMessage,
@@ -328,9 +329,9 @@ class MediaRegistry {
       entry.state = playback.state;
       entry.actions = [...playback.actions];
       this.accept(entry, msg.id);
-    }).catch(() => {
+    }).catch((error: unknown) => {
       this.pending.delete(abort);
-      if (!abort.signal.aborted && !this.destroyed) fail('source unavailable or autoplay denied');
+      if (!abort.signal.aborted && !this.destroyed) fail(mediaCreateError(error));
     }).finally(() => this.pending.delete(abort));
   }
 
